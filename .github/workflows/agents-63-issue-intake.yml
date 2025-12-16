@@ -98,7 +98,7 @@ on:
         required: false
 
 concurrency:
-  group: issue-${{ github.event.issue.number }}-intake
+  group: issue-intake-${{ github.event.issue.number || github.run_id }}
   cancel-in-progress: true
 
 jobs:
