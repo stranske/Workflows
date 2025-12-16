@@ -1,0 +1,242 @@
+name: Maint 46 Post CI
+
+'on':
+  workflow_run:
+    workflows:
+      - Gate
+    types:
+      - completed
+
+permissions:
+  actions: read
+  contents: read
+  issues: write
+  pull-requests: write
+  statuses: write
+
+concurrency:
+  group: maint-46-post-ci-${{ github.event.workflow_run.id || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  summary:
+    name: post ci summary
+    if: ${{ github.event.workflow_run.event == 'pull_request' }}
+    runs-on: ubuntu-latest
+    env:
+      ARTIFACT_ROOT: summary_artifacts
+    steps:
+      - name: Check Gate summary completion
+        id: gate_guard
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const run = context.payload.workflow_run;
+            if (!run) {
+              core.warning('No workflow_run payload; assuming recovery mode.');
+              core.setOutput('recover', 'true');
+              return;
+            }
+
+            const { owner, repo } = context.repo;
+            const runId = run.id;
+            if (!runId) {
+              core.warning('Gate run id missing; running Maint 46 in recovery mode.');
+              core.setOutput('recover', 'true');
+              return;
+            }
+
+            let summaryJob = null;
+            try {
+              const jobs = await github.paginate(
+                github.rest.actions.listJobsForWorkflowRun,
+                {
+                  owner,
+                  repo,
+                  run_id: runId,
+                  per_page: 100,
+                },
+              );
+              summaryJob = jobs.find(job => {
+                if (!job || typeof job.name !== 'string') {
+                  return false;
+                }
+                return job.name.toLowerCase() === 'summary';
+              }) || null;
+            } catch (error) {
+              core.warning(`Failed to inspect Gate jobs: ${error.message}`);
+            }
+
+            if (summaryJob && summaryJob.conclusion === 'success') {
+              core.notice('Gate summary job succeeded; skipping Maint 46 recovery run.');
+              core.setOutput('recover', 'false');
+              return;
+            }
+
+            if (summaryJob) {
+              const conclusion = summaryJob.conclusion || summaryJob.status || 'unknown';
+              core.notice(`Gate summary job conclusion: ${conclusion}. Running recovery.`);
+            } else {
+              core.notice('Gate summary job not found; running recovery.');
+            }
+
+            core.setOutput('recover', 'true');
+
+      - name: Checkout helpers
+        if: ${{ steps.gate_guard.outputs.recover == 'true' }}
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            .github/scripts
+            tools/post_ci_summary.py
+          sparse-checkout-cone-mode: false
+
+      - name: Discover Gate workflow runs
+        if: ${{ steps.gate_guard.outputs.recover == 'true' }}
+        id: discover
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { discoverWorkflowRuns } = require('./.github/scripts/maint-post-ci.js');
+            await discoverWorkflowRuns({ github, context, core });
+
+      - name: Download Gate artifacts
+        if: ${{ steps.gate_guard.outputs.recover == 'true' && steps.discover.outputs.gate_run_id != '' }}
+        uses: actions/download-artifact@v4
+        with:
+          pattern: gate-*
+          merge-multiple: true
+          path: ${{ env.ARTIFACT_ROOT }}/downloads
+          run-id: ${{ steps.discover.outputs.gate_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Collect coverage payloads
+        if: ${{ steps.gate_guard.outputs.recover == 'true' && steps.discover.outputs.gate_run_id != '' }}
+        id: coverage_payloads
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          artifact_root = Path(os.environ.get('ARTIFACT_ROOT', 'summary_artifacts')) / 'downloads'
+          stats_text = ''
+          delta_text = ''
+          coverage_section = ''
+
+          def find_file(name: str) -> Path | None:
+              candidates = sorted(artifact_root.rglob(name))
+              for candidate in candidates:
+                  if candidate.is_file():
+                      return candidate
+              return None
+
+          stats_path = find_file('gate-coverage.json')
+          if stats_path:
+              stats_text = stats_path.read_text(encoding='utf-8')
+
+          delta_path = find_file('gate-coverage-delta.json')
+          if delta_path:
+              delta_text = delta_path.read_text(encoding='utf-8')
+
+          summary_path = find_file('gate-coverage-summary.md')
+          if summary_path:
+              coverage_section = summary_path.read_text(encoding='utf-8')
+
+          output_path = Path(os.environ['GITHUB_OUTPUT'])
+          with output_path.open('a', encoding='utf-8') as handle:
+              if stats_text:
+                  handle.write('stats_json<<EOF\n')
+                  handle.write(stats_text)
+                  if not stats_text.endswith('\n'):
+                      handle.write('\n')
+                  handle.write('EOF\n')
+              if delta_text:
+                  handle.write('delta_json<<EOF\n')
+                  handle.write(delta_text)
+                  if not delta_text.endswith('\n'):
+                      handle.write('\n')
+                  handle.write('EOF\n')
+              if coverage_section:
+                  handle.write('coverage_section<<EOF\n')
+                  handle.write(coverage_section)
+                  if not coverage_section.endswith('\n'):
+                      handle.write('\n')
+                  handle.write('EOF\n')
+          PY
+
+      - name: Build summary body
+        if: ${{ steps.gate_guard.outputs.recover == 'true' }}
+        id: render
+        run: |
+          python tools/post_ci_summary.py
+        env:
+          RUNS_JSON: ${{ steps.discover.outputs.runs }}
+          HEAD_SHA: ${{ steps.discover.outputs.head_sha }}
+          COVERAGE_STATS: ${{ steps.coverage_payloads.outputs.stats_json }}
+          COVERAGE_DELTA: ${{ steps.coverage_payloads.outputs.delta_json }}
+          COVERAGE_SECTION: ${{ steps.coverage_payloads.outputs.coverage_section }}
+
+      - name: Publish summary
+        if: ${{ steps.gate_guard.outputs.recover == 'true' && steps.render.outputs.body != '' }}
+        run: |
+          python - <<'PY'
+          import os
+
+          body = os.environ.get('SUMMARY_BODY')
+          if not body:
+              raise SystemExit(0)
+
+          summary_path = os.environ.get('GITHUB_STEP_SUMMARY')
+          if not summary_path:
+              raise SystemExit(0)
+
+          with open(summary_path, 'a', encoding='utf-8') as handle:
+              handle.write(body)
+              if not body.endswith('\n'):
+                  handle.write('\n')
+          PY
+        env:
+          SUMMARY_BODY: ${{ steps.render.outputs.body }}
+
+      - name: Persist summary preview
+        if: ${{ steps.gate_guard.outputs.recover == 'true' && steps.render.outputs.body != '' }}
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+
+          body = os.environ.get('SUMMARY_BODY', '')
+          if not body:
+              raise SystemExit(0)
+
+          preview_path = Path(os.environ.get('PREVIEW_PATH', 'summary_artifacts/post-ci-summary.md'))
+          preview_path.parent.mkdir(parents=True, exist_ok=True)
+          preview_path.write_text(body, encoding='utf-8')
+          PY
+        env:
+          SUMMARY_BODY: ${{ steps.render.outputs.body }}
+          PREVIEW_PATH: ${{ env.ARTIFACT_ROOT }}/post-ci-summary.md
+
+      - name: Upload summary preview artifact
+        if: ${{ steps.gate_guard.outputs.recover == 'true' && steps.render.outputs.body != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: maint-46-post-ci-summary.md
+          path: ${{ env.ARTIFACT_ROOT }}/post-ci-summary.md
+          if-no-files-found: warn
+          retention-days: 7
+          overwrite: true
+
+      - name: Propagate Gate commit status
+        if: ${{ steps.gate_guard.outputs.recover == 'true' && steps.discover.outputs.head_sha != '' }}
+        uses: actions/github-script@v7
+        env:
+          HEAD_SHA: ${{ steps.discover.outputs.head_sha }}
+          RUN_CONCLUSION: ${{ github.event.workflow_run.conclusion || '' }}
+          RUN_STATUS: ${{ github.event.workflow_run.status || '' }}
+          GATE_RUN_URL: ${{ github.event.workflow_run.html_url || '' }}
+        with:
+          script: |
+            const { propagateGateCommitStatus } = require('./.github/scripts/maint-post-ci.js');
+            await propagateGateCommitStatus({ github, context, core });

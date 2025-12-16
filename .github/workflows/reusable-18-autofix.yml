@@ -1,0 +1,1240 @@
+---
+name: Reusable 18 Autofix
+
+on:
+  workflow_call:
+    inputs:
+      opt_in_label:
+        description: 'Label to opt-in when PR is draft'
+        required: false
+        default: 'autofix:clean'
+        type: string
+      commit_prefix:
+        description: 'Commit message prefix'
+        required: false
+        default: 'chore(autofix):'
+        type: string
+      clean_label:
+        description: 'Label enabling clean cosmetic mode'
+        required: false
+        default: 'autofix:clean'
+        type: string
+      pr_number:
+        description: 'Pull request number'
+        required: true
+        type: number
+      pr_head_ref:
+        description: 'Pull request head ref'
+        required: true
+        type: string
+      pr_title:
+        description: 'Pull request title'
+        required: true
+        type: string
+      pr_is_draft:
+        description: 'Whether the pull request is a draft'
+        required: true
+        type: boolean
+      pr_labels_json:
+        description: 'JSON array of pull request label names'
+        required: true
+        type: string
+      same_repo:
+        description: 'True when PR branch lives in the same repository'
+        required: true
+        type: boolean
+      caller_actor:
+        description: 'Workflow caller actor'
+        required: true
+        type: string
+      applied_label:
+        description: 'Label applied when autofix commits land'
+        required: false
+        default: 'autofix:applied'
+        type: string
+      patch_label:
+        description: 'Label applied when patch artifacts are uploaded'
+        required: false
+        default: 'autofix:patch'
+        type: string
+      trigger_conclusion:
+        description: 'Upstream workflow conclusion for auditing'
+        required: false
+        default: ''
+        type: string
+      trigger_class:
+        description: 'Trigger classification (e.g. trivial-failure)'
+        required: false
+        default: ''
+        type: string
+      trigger_reason:
+        description: 'Human readable trigger reason'
+        required: false
+        default: ''
+        type: string
+      trigger_head:
+        description: 'Head SHA associated with the trigger'
+        required: false
+        default: ''
+        type: string
+      dry_run:
+        description: 'Skip committing and pushing changes'
+        required: false
+        default: false
+        type: boolean
+      allowed_file_globs:
+        description: 'Newline-separated file globs permitted for autofix edits'
+        required: false
+        default: ''
+        type: string
+    secrets:
+      service_bot_pat:
+        description: 'PAT for SERVICE_BOT to trigger workflows on autofix commits'
+        required: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: reusable-18-autofix-${{ inputs.pr_number || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  autofix:
+    permissions:
+      contents: write
+      pull-requests: write
+    runs-on: ubuntu-latest
+    if: ${{ true }}
+    outputs:
+      ran: ${{ steps.finalize.outputs.ran }}
+      changed: ${{ steps.finalize.outputs.changed }}
+      remaining: ${{ steps.finalize.outputs.remaining }}
+      new: ${{ steps.finalize.outputs.new }}
+      mode: ${{ steps.finalize.outputs.mode }}
+      patch_available: ${{ steps.finalize.outputs.patch_available }}
+      delivery_mode: ${{ steps.finalize.outputs.delivery_mode }}
+      delivery_reason: ${{ steps.finalize.outputs.delivery_reason }}
+      skip_reason: ${{ steps.finalize.outputs.skip_reason }}
+      trigger_conclusion: ${{ steps.finalize.outputs.trigger_conclusion }}
+      trigger_class: ${{ steps.finalize.outputs.trigger_class }}
+      trigger_reason: ${{ steps.finalize.outputs.trigger_reason }}
+      trigger_head: ${{ steps.finalize.outputs.trigger_head }}
+      file_list: ${{ steps.finalize.outputs.file_list }}
+    env:
+      PR_NUMBER: ${{ inputs.pr_number }}
+      PR_HEAD_REF: ${{ inputs.pr_head_ref }}
+      PR_TITLE: ${{ inputs.pr_title }}
+      PR_IS_DRAFT: ${{ inputs.pr_is_draft }}
+      PR_LABELS_JSON: ${{ inputs.pr_labels_json }}
+      SAME_REPO: ${{ inputs.same_repo }}
+      CALLER_ACTOR: ${{ inputs.caller_actor }}
+      OPT_IN_LABEL: ${{ inputs.opt_in_label }}
+      APPLIED_LABEL: ${{ inputs.applied_label }}
+      PATCH_LABEL: ${{ inputs.patch_label }}
+      TRIGGER_CONCLUSION: ${{ inputs.trigger_conclusion }}
+      TRIGGER_CLASS: ${{ inputs.trigger_class }}
+      TRIGGER_REASON: ${{ inputs.trigger_reason }}
+      TRIGGER_HEAD: ${{ inputs.trigger_head }}
+      ALLOWED_FILE_GLOBS: ${{ inputs.allowed_file_globs }}
+      DRY_RUN: ${{ inputs.dry_run }}
+    steps:
+      - name: Set commit prefix env
+        id: prefix
+        run: echo "AUTOFIX_COMMIT_PREFIX=${{ inputs.commit_prefix }}" >> "$GITHUB_ENV"
+      - name: Set sanitized PR head ref
+        run: |
+          set -euo pipefail
+          echo "PR_HEAD_REF=${PR_HEAD_REF}" >> "$GITHUB_ENV"
+      - name: Determine auth path
+        id: auth_path
+        env:
+          SERVICE_BOT_PAT: ${{ secrets.service_bot_pat }}
+        run: |
+          set -euo pipefail
+          pat="${SERVICE_BOT_PAT:-}"
+          same_repo="${SAME_REPO:-false}"
+          dry_run="${DRY_RUN:-false}"
+          mode="fallback"
+          reason="missing-pat"
+          token="${GITHUB_TOKEN:-${{ github.token }}}"
+
+          if [ -n "$pat" ]; then
+            token="$pat"
+            reason="fork-context"
+            if [ "$same_repo" = "true" ]; then
+              mode="pat"
+              reason="pat-available"
+            fi
+          elif [ "$same_repo" = "true" ]; then
+            reason="pat-unavailable-same-repo"
+          fi
+
+          if [ "$dry_run" = "true" ]; then
+            mode="fallback"
+            reason="dry-run"
+          fi
+
+          echo "[autofix] Delivery path: ${mode} (${reason})"
+
+          {
+            echo "AUTOFIX_TOKEN=$token"
+            echo "AUTOFIX_AUTH_MODE=$mode"
+            echo "AUTOFIX_AUTH_REASON=$reason"
+          } >> "$GITHUB_ENV"
+          {
+            echo "mode=${mode}"
+            echo "reason=${reason}"
+          } >> "$GITHUB_OUTPUT"
+      - name: Checkout PR HEAD
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.PR_HEAD_REF || github.ref }}
+          fetch-depth: 0
+          token: ${{ env.AUTOFIX_TOKEN || github.token }}
+          persist-credentials: ${{ env.AUTOFIX_AUTH_MODE == 'pat' }}
+      - name: Guard against loops (Issue #1347)
+        id: guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          skip=false
+          caller="${CALLER_ACTOR}"
+          if [ "$caller" = "github-actions" ] || [ "$caller" = "github-actions[bot]" ]; then
+            head_msg="$(git log -1 --pretty=%s 2>/dev/null || echo '')"
+            head_msg_lc=$(printf '%s' "$head_msg" | tr '[:upper:]' '[:lower:]')
+            prefix_lc=$(printf '%s' "${{ inputs.commit_prefix }}" | tr '[:upper:]' '[:lower:]')
+            if [ -n "$prefix_lc" ]; then
+              msg_prefix=$(printf '%.*s' "${#prefix_lc}" "$head_msg_lc")
+              if [ "$msg_prefix" = "$prefix_lc" ]; then
+                echo "[autofix] Skipping: detected prior autofix commit (${head_msg})"
+                skip=true
+              fi
+            fi
+          fi
+          echo "skip=$skip" >> "$GITHUB_OUTPUT"
+          if [ "$skip" = "true" ]; then
+            exit 0
+          fi
+
+      - name: Record same-repo flag
+        if: steps.guard.outputs.skip != 'true'
+        id: same_repo
+        run: echo "same=${SAME_REPO}" >> "$GITHUB_OUTPUT"
+
+      - name: Guard remove legacy autofix history file
+        if: steps.guard.outputs.skip != 'true'
+        shell: bash
+        run: |
+          if [ -f ci/autofix/history.json ]; then
+            echo "[autofix-guard] Removing legacy tracked ci/autofix/history.json to prevent churn";
+            git rm -f ci/autofix/history.json || rm -f ci/autofix/history.json || true;
+          else
+            echo "[autofix-guard] No legacy history.json present";
+          fi
+
+      - name: Ensure autofix label present
+        if: steps.guard.outputs.skip != 'true' && steps.same_repo.outputs.same == 'true'
+        uses: actions/github-script@v7
+        env:
+          PR_NUMBER: ${{ inputs.pr_number }}
+          OPT_IN_LABEL: ${{ inputs.opt_in_label }}
+        with:
+          script: |
+            const prNumber = Number(process.env.PR_NUMBER || '0');
+            if (!prNumber) {
+              core.info('No pull request number available; skipping label application.');
+              return;
+            }
+            const label = process.env.OPT_IN_LABEL;
+            try {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                labels: [label],
+              });
+            } catch (error) {
+              core.warning(`Failed to ensure autofix label: ${error.message}`);
+            }
+
+      - name: Detect clean mode
+        if: steps.guard.outputs.skip != 'true'
+        id: clean_mode
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            if (!pr) {
+              core.setOutput('enabled', 'false');
+              return;
+            }
+            const label = "${{ inputs.clean_label }}";
+            const hasLabel = Array.isArray(pr.labels) && pr.labels.some((labelInfo) => labelInfo.name === label);
+            core.info(`Clean mode enabled: ${hasLabel}`);
+            core.setOutput('enabled', hasLabel ? 'true' : 'false');
+
+      - name: Install Ruff for safe sweep
+        if: steps.guard.outputs.skip != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          pin_file=".github/workflows/autofix-versions.env"
+          if [[ -f "${pin_file}" ]]; then
+            # shellcheck disable=SC1090
+            source "${pin_file}"
+            if [[ -n "${RUFF_VERSION:-}" ]]; then
+              echo "RUFF_VERSION=${RUFF_VERSION}" >> "${GITHUB_ENV}"
+              python3 -m pip install --upgrade --user "ruff==${RUFF_VERSION}"
+            else
+              echo "${pin_file} did not define RUFF_VERSION; installing default Ruff release" >&2
+              python3 -m pip install --upgrade --user ruff
+            fi
+            if [[ -n "${BLACK_VERSION:-}" ]]; then
+              echo "BLACK_VERSION=${BLACK_VERSION}" >> "${GITHUB_ENV}"
+              python3 -m pip install --upgrade --user "black==${BLACK_VERSION}"
+            else
+              echo "${pin_file} did not define BLACK_VERSION; installing default Black release" >&2
+              python3 -m pip install --upgrade --user black
+            fi
+          else
+            echo "Missing ${pin_file}; installing default Ruff and Black releases" >&2
+            python3 -m pip install --upgrade --user ruff black
+          fi
+          echo "${HOME}/.local/bin" >> "${GITHUB_PATH}"
+
+      - name: Ruff safe autofix sweep
+        if: steps.guard.outputs.skip != 'true' && steps.clean_mode.outputs.enabled != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          targets=()
+          for path in src tests tools streamlit_app .github/scripts; do
+            if [ -d "$path" ]; then
+              targets+=("$path")
+            fi
+          done
+          if [ ${#targets[@]} -eq 0 ]; then
+            echo "[autofix] No src/ or tests/ directories detected; skipping safe sweep."
+            exit 0
+          fi
+          printf '[autofix] Target directories: %s\n' "${targets[*]}"
+          ruff --version
+          black --version
+          echo "[autofix] Normalising imports with Ruff"
+          ruff check --select I --fix --exit-zero "${targets[@]}"
+          echo "[autofix] Applying Ruff lint fixes"
+          ruff check --fix --exit-zero "${targets[@]}"
+          echo "[autofix] Normalising whitespace with Black"
+          black "${targets[@]}"
+
+      - name: Clean cosmetic sweep
+        if: steps.guard.outputs.skip != 'true' && steps.clean_mode.outputs.enabled == 'true'
+        id: clean_autofix
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "[autofix-clean] Running clean cosmetic sweep"
+          targets=()
+          if [ -d src ]; then
+            targets+=("src")
+          fi
+          if [ -d tests ]; then
+            targets+=("tests")
+          fi
+          if [ -d streamlit_app ]; then
+            targets+=("streamlit_app")
+          fi
+          if [ ${#targets[@]} -eq 0 ]; then
+            echo "[autofix-clean] No src/ or tests/ directory detected; skipping"
+            {
+              echo "changed=false"
+              echo "remaining_issues=0"
+              echo "new_issues=0"
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          printf '[autofix-clean] Target directories: %s\n' "${targets[*]}"
+          ruff check "${targets[@]}" --select I --fix --exit-zero
+          ruff check "${targets[@]}" --fix --exit-zero
+          black "${targets[@]}" || true
+          if git diff --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+          echo "remaining_issues=0" >> "$GITHUB_OUTPUT"
+          echo "new_issues=0" >> "$GITHUB_OUTPUT"
+          mapfile -t changed_paths < <(git diff --name-only --diff-filter=ACMRTUXB)
+          allowed_changes=()
+          other_changes=()
+          for path in "${changed_paths[@]}"; do
+            if [[ -z "$path" ]]; then
+              continue
+            fi
+            if [[ "$path" == tests/* ]] || [[ "$path" == src/* ]] || [[ "$path" == streamlit_app/* ]]; then
+              allowed_changes+=("$path")
+            else
+              other_changes+=("$path")
+            fi
+          done
+          if [ ${#other_changes[@]} -gt 0 ]; then
+            {
+              echo "[autofix-clean] ERROR: clean mode produced changes outside src/, tests/, and streamlit_app/:" >&2
+              printf '  - %s\n' "${other_changes[@]}" >&2
+            }
+            exit 1
+          fi
+          if [ ${#allowed_changes[@]} -gt 0 ]; then
+            sorted_changes=$(printf '%s\n' "${allowed_changes[@]}" | sort -u)
+            {
+              echo "file_list<<AUTOFIX_DELIMITER_$$"
+              printf '%s\n' "$sorted_changes"
+              echo "AUTOFIX_DELIMITER_$$"
+            } >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Summarise safe sweep results
+        if: steps.guard.outputs.skip != 'true' && steps.clean_mode.outputs.enabled != 'true'
+        id: autofix
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${ALLOWED_FILE_GLOBS:=}"
+          mapfile -t changed_paths < <(git diff --name-only --diff-filter=ACMRTUXB || true)
+          changed_flag=false
+          file_list_payload=""
+          if [ ${#changed_paths[@]} -gt 0 ]; then
+            changed_flag=true
+            allowed_patterns=()
+            while IFS= read -r raw; do
+              trimmed=$(printf '%s' "$raw" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+              if [ -n "$trimmed" ]; then
+                allowed_patterns+=("$trimmed")
+              fi
+            done <<<"${ALLOWED_FILE_GLOBS}"
+            if [ ${#allowed_patterns[@]} -eq 0 ]; then
+              allowed_patterns=("src/**" "tests/**" "tools/**" ".github/scripts/**")
+            fi
+            shopt -s nullglob globstar extglob
+            disallowed=()
+            for path in "${changed_paths[@]}"; do
+              if [[ -z "$path" ]]; then
+                continue
+              fi
+              allowed=false
+              for pattern in "${allowed_patterns[@]}"; do
+                # shellcheck disable=SC2254  # Intentionally unquoted for glob matching
+                case "$path" in
+                  $pattern)
+                    allowed=true
+                    break
+                    ;;
+                esac
+              done
+              if [ "$allowed" = false ]; then
+                disallowed+=("$path")
+              fi
+            done
+            if [ ${#disallowed[@]} -gt 0 ]; then
+              {
+                echo "[autofix] ERROR: safe sweep produced changes outside allowed globs:" >&2
+                printf '  - %s\n' "${disallowed[@]}" >&2
+              }
+              exit 1
+            fi
+            file_list_payload=$(printf '%s\n' "${changed_paths[@]}" | sort -u)
+          fi
+
+          AUTOFIX_TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          export AUTOFIX_TIMESTAMP
+          if [ "$changed_flag" = true ]; then
+            export AUTOFIX_CHANGED=true
+            if [ -n "$file_list_payload" ]; then
+              export AUTOFIX_FILE_LIST="$file_list_payload"
+            else
+              unset AUTOFIX_FILE_LIST || true
+            fi
+          else
+            export AUTOFIX_CHANGED=false
+            unset AUTOFIX_FILE_LIST || true
+          fi
+
+          python - <<'PY' > autofix_report_enriched.json
+          import json
+          import os
+          import sys
+
+          changed = os.environ.get("AUTOFIX_CHANGED", "false").lower() == "true"
+          timestamp = os.environ.get("AUTOFIX_TIMESTAMP")
+          files = [
+              line.strip()
+              for line in os.environ.get("AUTOFIX_FILE_LIST", "").splitlines()
+              if line.strip()
+          ]
+          payload = {
+              "changed": changed,
+              "classification": {"total": 0, "new": 0, "allowed": 0},
+          }
+          if timestamp:
+              payload["timestamp"] = timestamp
+          if files:
+              payload["files"] = files
+          json.dump(payload, sys.stdout)
+          PY
+
+          if [ "$changed_flag" = false ]; then
+            {
+              echo 'changed=false'
+              echo 'remaining_issues=0'
+              echo 'new_issues=0'
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          {
+            echo 'changed=true'
+            echo 'remaining_issues=0'
+            echo 'new_issues=0'
+          } >> "$GITHUB_OUTPUT"
+          if [ -n "$file_list_payload" ]; then
+            {
+              echo "file_list<<AUTOFIX_DELIMITER_$$"
+              printf '%s\n' "$file_list_payload"
+              echo "AUTOFIX_DELIMITER_$$"
+            } >> "$GITHUB_OUTPUT"
+          fi
+
+
+      - name: Consolidate fix mode outputs
+        if: steps.guard.outputs.skip != 'true'
+        id: fix_results
+        env:
+          MODE_ENABLED: ${{ steps.clean_mode.outputs.enabled }}
+          CLEAN_CHANGED: ${{ steps.clean_autofix.outputs.changed }}
+          CLEAN_REMAINING: ${{ steps.clean_autofix.outputs.remaining_issues }}
+          CLEAN_NEW: ${{ steps.clean_autofix.outputs.new_issues }}
+          CLEAN_FILE_LIST: ${{ steps.clean_autofix.outputs.file_list }}
+          AUTO_CHANGED: ${{ steps.autofix.outputs.changed }}
+          AUTO_REMAINING: ${{ steps.autofix.outputs.remaining_issues }}
+          AUTO_NEW: ${{ steps.autofix.outputs.new_issues }}
+          AUTO_FILE_LIST: ${{ steps.autofix.outputs.file_list }}
+        run: |
+          set -euo pipefail
+          mode="standard"
+          changed="${AUTO_CHANGED:-false}"
+          remaining="${AUTO_REMAINING:-0}"
+          new="${AUTO_NEW:-0}"
+          file_list=""
+          if [ "${MODE_ENABLED}" = "true" ]; then
+            mode="clean"
+            changed="${CLEAN_CHANGED:-false}"
+            remaining="${CLEAN_REMAINING:-0}"
+            new="${CLEAN_NEW:-0}"
+            file_list="${CLEAN_FILE_LIST:-}"
+          else
+            file_list="${AUTO_FILE_LIST:-}"
+          fi
+          {
+            echo "mode=${mode}"
+            echo "changed=${changed}"
+            echo "remaining_issues=${remaining}"
+            echo "new_issues=${new}"
+          } >> "$GITHUB_OUTPUT"
+          if [ -n "$file_list" ]; then
+            {
+              echo "file_list<<AUTOFIX_DELIMITER_$$"
+              printf '%s\n' "$file_list"
+              echo "AUTOFIX_DELIMITER_$$"
+            } >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Commit changes (PAT path)
+        if: steps.guard.outputs.skip != 'true' && steps.fix_results.outputs.changed == 'true' && env.AUTOFIX_AUTH_MODE == 'pat' && inputs.dry_run != true
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "${AUTOFIX_COMMIT_PREFIX} formatting/lint"
+          echo "AUTOFIX_COMMIT_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - name: Push changes (same-repo with rebase+retry)
+        if: steps.guard.outputs.skip != 'true' && steps.fix_results.outputs.changed == 'true' && env.AUTOFIX_AUTH_MODE == 'pat' && inputs.dry_run != true
+        shell: bash
+        run: |
+          set -euo pipefail
+          branch="${PR_HEAD_REF}"
+          for attempt in 1 2 3; do
+            echo "[autofix] Push attempt $attempt"
+            if git push origin HEAD:"$branch"; then
+              echo "[autofix] Push succeeded"
+              exit 0
+            fi
+            echo "[autofix] Push failed - attempting rebase (attempt $attempt)"
+            git fetch origin "$branch" --prune
+            if git rebase --autostash --strategy-option theirs origin/"$branch"; then
+              echo "[autofix] Rebase completed"
+            else
+              echo "[autofix] Rebase conflict; aborting rebase"; git rebase --abort || true
+            fi
+          done
+          echo "[autofix] Failed to push after 3 attempts" >&2
+          exit 1
+
+      - name: Prepare commit summary (same-repo)
+        if: steps.guard.outputs.skip != 'true' && steps.fix_results.outputs.changed == 'true' && steps.same_repo.outputs.same == 'true' && inputs.dry_run != true
+        env:
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          COMMIT_SHA: ${{ env.AUTOFIX_COMMIT_SHA }}
+          REMAINING: ${{ steps.fix_results.outputs.remaining_issues }}
+          MODE: ${{ steps.fix_results.outputs.mode }}
+          CLEAN_LABEL: ${{ inputs.clean_label }}
+          APPLIED_LABEL: ${{ env.APPLIED_LABEL }}
+        shell: bash
+        run: |
+          if [ -n "$COMMIT_SHA" ]; then
+            url="$SERVER_URL/$REPOSITORY/commit/$COMMIT_SHA"
+            short_sha=$(printf '%.12s' "$COMMIT_SHA")
+            applied_label="${APPLIED_LABEL:-autofix:applied}"
+            labels="\`${applied_label}\`"
+            if [ "$MODE" = "clean" ]; then
+              labels="$labels, \`autofix:clean-only\`"
+              if [ -n "${CLEAN_LABEL}" ]; then
+                labels="$labels, \`${CLEAN_LABEL}\`"
+              fi
+            fi
+            if [ "${REMAINING:-0}" -gt 0 ]; then
+              labels="$labels, \`autofix:debt\`"
+            fi
+            {
+              echo "AUTOFIX_RESULT_BLOCK<<AUTOFIX_BLOCK_DELIMITER_$$"
+              if [ "$MODE" = "clean" ]; then
+                echo "Clean-mode cosmetic autofix commit: [${short_sha}]($url)"
+              else
+                echo "Autofix commit: [${short_sha}]($url)"
+              fi
+              echo "Labels: $labels"
+              echo "AUTOFIX_BLOCK_DELIMITER_$$"
+            } >> "$GITHUB_ENV"
+          fi
+
+      - name: Create patch artifact (fallback)
+        if: steps.guard.outputs.skip != 'true' && steps.fix_results.outputs.changed == 'true' && env.AUTOFIX_AUTH_MODE != 'pat'
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "${AUTOFIX_COMMIT_PREFIX} formatting/lint (patch)" || true
+          git format-patch -1 --stdout > autofix.patch
+
+      - name: Upload patch artifact
+        if: steps.guard.outputs.skip != 'true' && steps.fix_results.outputs.changed == 'true' && env.AUTOFIX_AUTH_MODE != 'pat'
+        uses: actions/upload-artifact@v4
+        with:
+          name: autofix-patch-pr-${{ inputs.pr_number }}
+          path: autofix.patch
+
+      - name: Label PR (autofix patch available)
+        if: steps.guard.outputs.skip != 'true' && steps.fix_results.outputs.changed == 'true' && env.AUTOFIX_AUTH_MODE != 'pat'
+        uses: actions/github-script@v7
+        env:
+          PR_NUMBER: ${{ inputs.pr_number }}
+          OPT_IN_LABEL: ${{ inputs.opt_in_label }}
+          PATCH_LABEL: ${{ inputs.patch_label }}
+        with:
+          script: |
+            const prNumber = Number(process.env.PR_NUMBER || '0');
+            if (!prNumber) {
+              core.info('No pull request number available; skipping patch label.');
+              return;
+            }
+            const baseLabel = process.env.OPT_IN_LABEL;
+            const patchLabel = process.env.PATCH_LABEL || 'autofix:patch';
+            const labels = [baseLabel, patchLabel];
+            try {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                labels,
+              });
+            } catch (error) {
+              core.warning(`Failed to add autofix patch label: ${error.message}`);
+            }
+
+
+      - name: Prepare patch summary (fallback)
+        if: steps.guard.outputs.skip != 'true' && steps.fix_results.outputs.changed == 'true' && env.AUTOFIX_AUTH_MODE != 'pat'
+        env:
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+          HEAD_REF: ${{ inputs.pr_head_ref }}
+          REMAINING: ${{ steps.fix_results.outputs.remaining_issues }}
+          MODE: ${{ steps.fix_results.outputs.mode }}
+          CLEAN_LABEL: ${{ inputs.clean_label }}
+          PATCH_LABEL: ${{ inputs.patch_label }}
+        shell: bash
+        run: |
+          url="$SERVER_URL/$REPOSITORY/actions/runs/$RUN_ID#artifacts"
+          name="autofix-patch-pr-$PR_NUMBER"
+          patch_label="${PATCH_LABEL:-autofix:patch}"
+          labels="\`${patch_label}\`"
+          if [ "$MODE" = "clean" ]; then
+            labels="$labels, \`autofix:clean-only\`"
+            if [ -n "${CLEAN_LABEL}" ]; then
+              labels="$labels, \`${CLEAN_LABEL}\`"
+            fi
+          fi
+          if [ "${REMAINING:-0}" -gt 0 ]; then
+            labels="$labels, \`autofix:debt\`"
+          fi
+          {
+            echo "AUTOFIX_RESULT_BLOCK<<AUTOFIX_BLOCK_DELIMITER_$$"
+            if [ "$MODE" = "clean" ]; then
+              echo "Clean-mode cosmetic patch: [${name}](${url})"
+            else
+              echo "Patch ready: [${name}](${url})"
+            fi
+            echo "Labels: $labels"
+            echo ""
+            echo "Apply locally:"
+            echo "1. Download the artifact from the Actions run."
+            echo "2. In your repository root, run:"
+            echo "   git am < autofix.patch"
+            echo "3. Push to your PR branch:"
+            echo "   git push origin HEAD:${HEAD_REF}"
+            echo "AUTOFIX_BLOCK_DELIMITER_$$"
+          } >> "$GITHUB_ENV"
+
+      - name: Prepare no-change summary
+        if: steps.guard.outputs.skip != 'true' && steps.fix_results.outputs.changed != 'true'
+        env:
+          REMAINING: ${{ steps.fix_results.outputs.remaining_issues }}
+          MODE: ${{ steps.fix_results.outputs.mode }}
+          CLEAN_LABEL: ${{ inputs.clean_label }}
+        run: |
+          if [ "$MODE" = "clean" ]; then
+            labels="\`autofix:clean-only\`"
+            if [ -n "${CLEAN_LABEL}" ]; then
+              labels="$labels, \`${CLEAN_LABEL}\`"
+            fi
+          else
+            labels="\`autofix:clean\`"
+          fi
+          if [ "${REMAINING:-0}" -gt 0 ]; then
+            labels="$labels, \`autofix:debt\`"
+          fi
+          {
+            echo "AUTOFIX_RESULT_BLOCK<<AUTOFIX_BLOCK_DELIMITER_$$"
+            if [ "$MODE" = "clean" ]; then
+              echo "Clean-mode cosmetic sweep found no changes."
+            else
+              echo "No changes required."
+            fi
+            echo "Labels: $labels"
+            echo "AUTOFIX_BLOCK_DELIMITER_$$"
+          } >> "$GITHUB_ENV"
+
+      - name: Manage autofix outcome labels
+        if: steps.guard.outputs.skip != 'true'
+        uses: actions/github-script@v7
+        env:
+          AUTO_CHANGED: ${{ steps.fix_results.outputs.changed }}
+          SAME_REPO: ${{ steps.same_repo.outputs.same }}
+          AUTH_MODE: ${{ env.AUTOFIX_AUTH_MODE }}
+          REMAINING_ISSUES: ${{ steps.fix_results.outputs.remaining_issues }}
+          MODE: ${{ steps.fix_results.outputs.mode }}
+          CLEAN_INPUT_LABEL: ${{ inputs.clean_label }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+          APPLIED_LABEL: ${{ inputs.applied_label }}
+          PATCH_LABEL: ${{ inputs.patch_label }}
+        with:
+          script: |
+            const prNumber = Number(process.env.PR_NUMBER || '0');
+            if (!prNumber) {
+              core.info('No pull request number available; skipping outcome labels.');
+              return;
+            }
+            const changed = (process.env.AUTO_CHANGED || '').toLowerCase() === 'true';
+            const sameRepo = (process.env.SAME_REPO || '').toLowerCase() === 'true';
+            const authMode = (process.env.AUTH_MODE || '').toLowerCase();
+            const remaining = Number.parseInt(process.env.REMAINING_ISSUES || '0', 10) || 0;
+            const appliedLabel = (process.env.APPLIED_LABEL || 'autofix:applied').trim() || 'autofix:applied';
+            const debtLabel = 'autofix:debt';
+            const patchLabel = (process.env.PATCH_LABEL || 'autofix:patch').trim() || 'autofix:patch';
+            const cleanOnlyLabel = 'autofix:clean-only';
+            const cleanLabel = 'autofix:clean';
+            const cleanInputLabel = (process.env.CLEAN_INPUT_LABEL || '').trim();
+
+            async function addLabel(label) {
+              try {
+                await github.rest.issues.addLabels({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: prNumber,
+                  labels: [label],
+                });
+              } catch (error) {
+                if (error.status === 404 && label === cleanOnlyLabel) {
+                  core.info(`Label ${label} missing; attempting to create it.`);
+                  try {
+                    await github.rest.issues.createLabel({
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      name: label,
+                      color: 'D4C5F9',
+                      description: 'Autofix clean cosmetic sweep',
+                    });
+                    await github.rest.issues.addLabels({
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      issue_number: prNumber,
+                      labels: [label],
+                    });
+                    return;
+                  } catch (creationError) {
+                    core.warning(`Failed to create ${label}: ${creationError.message}`);
+                  }
+                }
+                core.warning(`Failed to add ${label}: ${error.message}`);
+              }
+            }
+
+            async function removeLabel(label) {
+              try {
+                await github.rest.issues.removeLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: prNumber,
+                  name: label,
+                });
+              } catch (error) {
+                if (error.status !== 404) {
+                  core.warning(`Failed to remove ${label}: ${error.message}`);
+                }
+              }
+            }
+
+            const desired = new Set();
+            if (remaining > 0) {
+              desired.add(debtLabel);
+            }
+            if (changed && sameRepo && authMode === 'pat') {
+              desired.add(appliedLabel);
+            }
+            if (changed && (!sameRepo || authMode !== 'pat')) {
+              desired.add(patchLabel);
+            }
+            if (!changed) {
+              desired.add(cleanLabel);
+            }
+            if ((process.env.MODE || '').toLowerCase() === 'clean') {
+              desired.add(cleanOnlyLabel);
+              if (cleanInputLabel) {
+                desired.add(cleanInputLabel);
+              }
+            }
+
+            for (const label of desired) {
+              await addLabel(label);
+            }
+
+            const managed = [appliedLabel, debtLabel, patchLabel, cleanOnlyLabel, cleanLabel];
+            for (const label of managed) {
+              if (!desired.has(label)) {
+                await removeLabel(label);
+              }
+            }
+
+            if (cleanInputLabel && !desired.has(cleanInputLabel)) {
+              core.info(`Leaving clean trigger label ${cleanInputLabel} untouched.`);
+            }
+
+      - name: Restore prior autofix history artifact (same-repo)
+        if: steps.guard.outputs.skip != 'true' && steps.same_repo.outputs.same == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+          TARGET_REPO: ${{ github.repository }}
+          TARGET_RUN_ID: ${{ github.run_id }}
+          TARGET_PR: ${{ inputs.pr_number }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ci/autofix
+          rm -f ci/autofix/history.json
+          artifact_name="autofix-history-pr-${TARGET_PR}"
+          echo "[history] Attempting to restore ${artifact_name} from previous runs"
+          set +e
+          response=$(gh api "repos/${TARGET_REPO}/actions/artifacts" --paginate)
+          status=$?
+          set -e
+          if [ $status -ne 0 ] || [ -z "$response" ]; then
+            echo "[history] No prior artifact found"
+            exit 0
+          fi
+          artifact_lines=$(printf '%s' "$response" | jq -r --arg name "$artifact_name" --arg run "${TARGET_RUN_ID}" '.artifacts[]? | select(.name==$name and .expired==false and (.workflow_run.id|tostring)!=$run) | [.id, .created_at] | @tsv')
+          if [ -z "$artifact_lines" ]; then
+            echo "[history] No prior artifact found"
+            exit 0
+          fi
+          latest=$(printf '%s\n' "$artifact_lines" | sort -k2 | tail -n1)
+          artifact_id=${latest%%$'\t'*}
+          tmpdir=$(mktemp -d)
+          echo "[history] Downloading artifact id ${artifact_id}"
+          if ! gh api "repos/${TARGET_REPO}/actions/artifacts/${artifact_id}/zip" >"$tmpdir/artifact.zip"; then
+            echo "[history] Failed to download artifact ${artifact_id}"
+            exit 0
+          fi
+          target_tmp="$tmpdir/history.json"
+          if unzip -p "$tmpdir/artifact.zip" ci/autofix/history.json > "$target_tmp" 2>/dev/null; then
+            mv "$target_tmp" ci/autofix/history.json
+            echo "[history] Restored previous history.json"
+          else
+            echo "[history] Artifact ${artifact_id} did not contain ci/autofix/history.json"
+            rm -f ci/autofix/history.json
+          fi
+          rm -rf "$tmpdir"
+
+      - name: Update residual history (same-repo)
+        if: steps.guard.outputs.skip != 'true' && steps.same_repo.outputs.same == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -f autofix_report_enriched.json ]; then echo "[history] missing enriched report"; exit 0; fi
+          python scripts/update_residual_history.py || echo "[history] update failed"
+          # No longer committing history.json (noise in PRs). It will be uploaded as an artifact instead.
+          if [ -f ci/autofix/history.json ] && [ -s ci/autofix/history.json ] && jq empty ci/autofix/history.json >/dev/null 2>&1; then
+            echo "[history] Prepared updated history.json (artifact-only mode)"
+          else
+            echo "[history] history.json not produced or invalid"
+          fi
+
+      - name: Upload autofix history artifact (same-repo)
+        if: steps.guard.outputs.skip != 'true' && steps.same_repo.outputs.same == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: autofix-history-pr-${{ inputs.pr_number }}
+          path: ci/autofix/history.json
+          if-no-files-found: ignore
+
+      - name: Generate trend sparkline (same-repo)
+        if: steps.guard.outputs.skip != 'true' && steps.same_repo.outputs.same == 'true'
+        shell: bash
+        run: |
+          if [ -f scripts/generate_residual_trend.py ]; then python scripts/generate_residual_trend.py || true; fi
+          if [ -f ci/autofix/trend.json ]; then echo "Trend:"; cat ci/autofix/trend.json; fi
+
+      - name: Record delivery metadata
+        if: steps.guard.outputs.skip != 'true'
+        env:
+          AUTH_MODE: ${{ env.AUTOFIX_AUTH_MODE }}
+          AUTH_REASON: ${{ env.AUTOFIX_AUTH_REASON }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+          RUN_ID: ${{ github.run_id }}
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          CHANGED: ${{ steps.fix_results.outputs.changed }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mode="${AUTH_MODE:-fallback}"
+          reason="${AUTH_REASON:-}"
+          patch="false"
+          if [ "${CHANGED:-false}" = "true" ] && [ "$mode" != "pat" ]; then
+            patch="true"
+          fi
+
+          {
+            echo "AUTOFIX_DELIVERY_MODE=$mode"
+            echo "AUTOFIX_DELIVERY_REASON=$reason"
+            echo "AUTOFIX_PATCH_AVAILABLE=$patch"
+          } >> "$GITHUB_ENV"
+
+          if [ "$patch" = "true" ]; then
+            artifact="autofix-patch-pr-${PR_NUMBER:-}"
+            url="${SERVER_URL}/${REPOSITORY}/actions/runs/${RUN_ID}#artifacts"
+            {
+              echo "AUTOFIX_PATCH_ARTIFACT=$artifact"
+              echo "AUTOFIX_PATCH_URL=$url"
+            } >> "$GITHUB_ENV"
+          fi
+
+      - name: Build consolidated PR comment
+        if: steps.guard.outputs.skip != 'true'
+        env:
+          AUTOFIX_MODE: ${{ steps.fix_results.outputs.mode }}
+          AUTOFIX_CLEAN_LABEL: ${{ inputs.clean_label }}
+        uses: ./.github/actions/build-pr-comment
+        with:
+          output: autofix_pr_comment.md
+          pr-number: ${{ inputs.pr_number }}
+
+      - name: Upsert consolidated PR comment
+        if: steps.guard.outputs.skip != 'true'
+        uses: actions/github-script@v7
+        env:
+          PR_NUMBER: ${{ inputs.pr_number }}
+        with:
+          script: |
+            const fs = require('fs');
+            const marker = '<!-- autofix-status: DO NOT EDIT -->';
+            const body = fs.readFileSync('autofix_pr_comment.md', 'utf8');
+            const prNumber = Number(process.env.PR_NUMBER || '0');
+            if (!prNumber) {
+              core.info('No pull request number available; skipping PR comment update.');
+              return;
+            }
+            // Fetch existing comments once (first 100 is ample for typical PRs)
+            const comments = await github.paginate(github.rest.issues.listComments, { owner: context.repo.owner, repo: context.repo.repo, issue_number: prNumber, per_page: 100 });
+            const existing = comments.find(c => c.body && c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ owner: context.repo.owner, repo: context.repo.repo, comment_id: existing.id, body });
+              console.log('Updated existing autofix status comment.');
+            } else {
+              await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: prNumber, body });
+              console.log('Created new autofix status comment.');
+            }
+
+      - name: Upsert clean-mode file summary comment
+        if: steps.guard.outputs.skip != 'true' && steps.clean_mode.outputs.enabled == 'true' && steps.fix_results.outputs.changed == 'true'
+        uses: actions/github-script@v7
+        env:
+          PR_NUMBER: ${{ inputs.pr_number }}
+          FILE_LIST: ${{ steps.fix_results.outputs.file_list }}
+          CLEAN_LABEL: ${{ inputs.clean_label }}
+        with:
+          script: |
+            const prNumber = Number(process.env.PR_NUMBER || context.payload.pull_request?.number || 0);
+            if (!prNumber) {
+              core.info('No pull request number available; skipping clean-mode summary comment.');
+              return;
+            }
+            const marker = '<!-- autofix-clean-summary -->';
+            const filesRaw = (process.env.FILE_LIST || '').split('\n').map((line) => line.trim()).filter(Boolean);
+            if (!filesRaw.length) {
+              core.info('No files recorded for clean summary; skipping comment.');
+              return;
+            }
+            const cleanLabel = (process.env.CLEAN_LABEL || '').trim();
+            const labelSuffix = cleanLabel ? ` (\`${cleanLabel}\`)` : '';
+            const header = `Clean-mode cosmetic autofix${labelSuffix} updated these files:`;
+            const bodyLines = [marker, header, '', ...filesRaw.map((file) => `- \`${file}\``)];
+            const body = bodyLines.join('\n');
+            const comments = await github.paginate(github.rest.issues.listComments, { owner: context.repo.owner, repo: context.repo.repo, issue_number: prNumber, per_page: 100 });
+            const existing = comments.find((comment) => comment.body && comment.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ owner: context.repo.owner, repo: context.repo.repo, comment_id: existing.id, body });
+              core.info('Updated existing clean-mode summary comment.');
+            } else {
+              await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: prNumber, body });
+              core.info('Created new clean-mode summary comment.');
+            }
+
+      - name: Upsert safe sweep file summary comment
+        if: steps.guard.outputs.skip != 'true' && steps.clean_mode.outputs.enabled != 'true' && steps.fix_results.outputs.changed == 'true'
+        uses: actions/github-script@v7
+        env:
+          PR_NUMBER: ${{ inputs.pr_number }}
+          FILE_LIST: ${{ steps.fix_results.outputs.file_list }}
+        with:
+          script: |
+            const prNumber = Number(process.env.PR_NUMBER || context.payload.pull_request?.number || 0);
+            if (!prNumber) {
+              core.info('No pull request number available; skipping safe sweep summary comment.');
+              return;
+            }
+            const marker = '<!-- autofix-file-summary -->';
+            const filesRaw = (process.env.FILE_LIST || '').split('\n').map((line) => line.trim()).filter(Boolean);
+            if (!filesRaw.length) {
+              core.info('No files recorded for safe sweep summary; skipping comment.');
+              return;
+            }
+            const header = 'Autofix updated these files:';
+            const bodyLines = [marker, header, '', ...filesRaw.map((file) => `- \`${file}\``)];
+            const body = bodyLines.join('\n');
+            const comments = await github.paginate(github.rest.issues.listComments, { owner: context.repo.owner, repo: context.repo.repo, issue_number: prNumber, per_page: 100 });
+            const existing = comments.find((comment) => comment.body && comment.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ owner: context.repo.owner, repo: context.repo.repo, comment_id: existing.id, body });
+              core.info('Updated existing safe sweep summary comment.');
+            } else {
+              await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: prNumber, body });
+              core.info('Created new safe sweep summary comment.');
+            }
+
+      - name: Regression detector (same-repo)
+        if: steps.guard.outputs.skip != 'true' && steps.same_repo.outputs.same == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let hist=[]; try { hist = JSON.parse(fs.readFileSync('ci/autofix/history.json','utf8')); } catch(e) {}
+            if (!Array.isArray(hist) || hist.length < 5) { return; }
+            const last = hist.slice(-1)[0];
+            const prev = hist.slice(-6,-1); // previous 5 points
+            const avgPrev = prev.reduce((a,b)=>a+(b.remaining||0),0)/prev.length;
+            const spike = avgPrev > 0 ? (last.remaining - avgPrev)/avgPrev : 0;
+            const THRESH = 0.35; // 35% jump threshold
+            if (spike <= THRESH) return;
+            const issueTitle = 'lint regression: residual spike';
+            // Check for existing open issue
+            const issues = await github.rest.issues.listForRepo({ owner: context.repo.owner, repo: context.repo.repo, state:'open', labels:'autofix:regression' });
+            if (issues.data.some(i => i.title === issueTitle)) return;
+            const body = [
+              'Detected residual lint spike exceeding threshold.',
+              `Latest remaining: ${last.remaining}`,
+              `Previous avg (5 runs): ${avgPrev.toFixed(2)}`,
+              `Relative increase: ${(spike*100).toFixed(1)}%`,
+              '',
+              'Action items:',
+              '- Investigate new codes in last run classification',
+              '- Consider targeted fixes or allowlist pruning',
+              '',
+              'This issue was auto-generated.'
+            ].join('\n');
+            await github.rest.issues.create({ owner: context.repo.owner, repo: context.repo.repo, title: issueTitle, body, labels:['autofix:regression'] });
+
+      - name: Emit JSON report (same-repo)
+        if: steps.guard.outputs.skip != 'true' && steps.same_repo.outputs.same == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python .github/scripts/autofix_emit_report.py || { echo '{"error":"merge_failed"}' > autofix_report.json; }
+          echo "Enriched report ready."
+        env:
+          PR_NUMBER: ${{ inputs.pr_number }}
+          REPORT_MODE: ${{ steps.fix_results.outputs.mode }}
+          REPORT_CHANGED: ${{ steps.fix_results.outputs.changed }}
+          REPORT_REMAINING: ${{ steps.fix_results.outputs.remaining_issues }}
+          REPORT_NEW: ${{ steps.fix_results.outputs.new_issues }}
+          REPORT_FILE_LIST: ${{ steps.fix_results.outputs.file_list }}
+
+      - name: Upload JSON report
+        if: steps.guard.outputs.skip != 'true' && steps.same_repo.outputs.same == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: autofix-report-pr-${{ inputs.pr_number }}
+          path: autofix_report.json
+
+      - name: Summary
+        if: always()
+        env:
+          MODE: ${{ steps.fix_results.outputs.mode }}
+          FILE_LIST: ${{ steps.fix_results.outputs.file_list }}
+          CHANGED: ${{ steps.fix_results.outputs.changed }}
+          SAME_REPO: ${{ steps.same_repo.outputs.same }}
+          REMAINING: ${{ steps.fix_results.outputs.remaining_issues }}
+          NEW_ISSUES: ${{ steps.fix_results.outputs.new_issues }}
+          PATCH_PR_NUMBER: ${{ inputs.pr_number }}
+          GUARD_SKIP: ${{ steps.guard.outputs.skip }}
+          DELIVERY_MODE: ${{ env.AUTOFIX_DELIVERY_MODE }}
+          DELIVERY_REASON: ${{ env.AUTOFIX_DELIVERY_REASON }}
+          PATCH_AVAILABLE: ${{ env.AUTOFIX_PATCH_AVAILABLE }}
+        run: |
+          set -euo pipefail
+
+          mode_value="${MODE:-standard}"
+          guard_value="${GUARD_SKIP:-false}"
+          remaining_value="${REMAINING:-0}"
+          new_value="${NEW_ISSUES:-0}"
+          delivery_mode="${DELIVERY_MODE:-unknown}"
+          delivery_reason="${DELIVERY_REASON:-}"
+          patch_flag="${PATCH_AVAILABLE:-false}"
+
+          {
+            echo "### Reusable Autofix Summary"
+            echo "Loop guard skip: ${guard_value}"
+            echo "Mode: ${mode_value}"
+            echo "Applied changes: ${CHANGED:-false}"
+            echo "Same repo: ${SAME_REPO:-false}"
+            echo "Delivery path: ${delivery_mode}"
+            if [ -n "${delivery_reason}" ]; then
+              echo "Delivery note: ${delivery_reason}"
+            fi
+            echo "Remaining ruff issues: ${remaining_value}"
+            echo "New (non-allowlisted) ruff issues: ${new_value}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "${patch_flag}" = "true" ]; then
+            echo "Patch artifact: autofix-patch-pr-${PATCH_PR_NUMBER}" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          if [ "$mode_value" = "clean" ] && [ -n "${FILE_LIST:-}" ]; then
+            {
+              echo ""
+              echo "Tests-only files updated:"
+            } >> "$GITHUB_STEP_SUMMARY"
+            printf '%s\n' "${FILE_LIST:-}" | while IFS= read -r file; do
+              [ -z "$file" ] && continue
+              echo "- \`$file\`" >> "$GITHUB_STEP_SUMMARY"
+            done
+          fi
+
+      - name: Finalize outputs
+        id: finalize
+        if: always()
+        env:
+          GUARD_SKIP: ${{ steps.guard.outputs.skip }}
+          MODE: ${{ steps.fix_results.outputs.mode }}
+          CHANGED: ${{ steps.fix_results.outputs.changed }}
+          REMAINING: ${{ steps.fix_results.outputs.remaining_issues }}
+          NEW_ISSUES: ${{ steps.fix_results.outputs.new_issues }}
+          FILE_LIST: ${{ steps.fix_results.outputs.file_list }}
+          AUTOFIX_DELIVERY_MODE: ${{ env.AUTOFIX_DELIVERY_MODE }}
+          AUTOFIX_DELIVERY_REASON: ${{ env.AUTOFIX_DELIVERY_REASON }}
+          AUTOFIX_PATCH_AVAILABLE: ${{ env.AUTOFIX_PATCH_AVAILABLE }}
+          TRIGGER_CONCLUSION: ${{ inputs.trigger_conclusion }}
+          TRIGGER_CLASS: ${{ inputs.trigger_class }}
+          TRIGGER_REASON: ${{ inputs.trigger_reason }}
+          TRIGGER_HEAD: ${{ inputs.trigger_head }}
+        run: |
+          set -euo pipefail
+          skip_flag="${GUARD_SKIP:-false}"
+          ran="true"
+          if [ "$skip_flag" = "true" ]; then
+            ran="false"
+          fi
+          changed="${CHANGED:-false}"
+          remaining="${REMAINING:-0}"
+          new_issues="${NEW_ISSUES:-0}"
+          mode_value="${MODE:-standard}"
+          file_list="${FILE_LIST:-}"
+          delivery_mode="${AUTOFIX_DELIVERY_MODE:-fallback}"
+          delivery_reason="${AUTOFIX_DELIVERY_REASON:-}"
+          patch="${AUTOFIX_PATCH_AVAILABLE:-false}"
+          if [ "$patch" != "true" ] && [ "$changed" = "true" ] && [ "$delivery_mode" != "pat" ]; then
+            patch="true"
+          fi
+          skip_reason=""
+          if [ "$skip_flag" = "true" ]; then
+            skip_reason="loop-guard"
+          fi
+          {
+            echo "ran=${ran}"
+            echo "changed=${changed}"
+            echo "remaining=${remaining}"
+            echo "new=${new_issues}"
+            echo "mode=${mode_value}"
+            echo "patch_available=${patch}"
+            echo "delivery_mode=${delivery_mode}"
+            echo "delivery_reason=${delivery_reason}"
+            echo "skip_reason=${skip_reason}"
+            echo "trigger_conclusion=${TRIGGER_CONCLUSION}"
+            echo "trigger_class=${TRIGGER_CLASS}"
+            echo "trigger_reason=${TRIGGER_REASON}"
+            echo "trigger_head=${TRIGGER_HEAD}"
+          } >> "$GITHUB_OUTPUT"
+          if [ -n "$file_list" ]; then
+            {
+              echo "file_list<<AUTOFIX_DELIMITER_$$"
+              printf '%s\n' "$file_list"
+              echo "AUTOFIX_DELIMITER_$$"
+            } >> "$GITHUB_OUTPUT"
+          fi

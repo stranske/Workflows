@@ -1,0 +1,291 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+# @updated 2025-11-30T12:00:00Z
+# Refactored to use external scripts - keeps file under GitHub's parser limits
+name: Agents PR meta manager
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+  workflow_run:
+    workflows: [Gate]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to update (leave empty to use trigger context)'
+        required: false
+        type: string
+      debug:
+        description: 'Enable debug logging'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+  actions: write
+  checks: read
+
+concurrency:
+  group: >-
+    ${{
+      github.event_name == 'issue_comment'
+      && github.event.comment
+      && github.event.comment.id
+      && format('agents-pr-meta-comment-{0}', github.event.comment.id)
+      || format('agents-pr-meta-run-{0}', github.run_id)
+    }}
+  cancel-in-progress: false
+
+jobs:
+  comment_event_context:
+    if: github.event_name == 'issue_comment' && github.event.action == 'created' && github.event.issue.pull_request
+    runs-on: ubuntu-latest
+    outputs:
+      pr: ${{ steps.resolve.outputs.pr }}
+    steps:
+      - name: Resolve pull request number
+        id: resolve
+        run: |
+          pr="${PR_NUMBER:-unknown}"
+          printf 'pr=%s\n' "${pr}" >>"${GITHUB_OUTPUT}"
+        env:
+          PR_NUMBER: ${{ github.event.issue.number }}
+
+  keepalive_dispatch:
+    needs: comment_event_context
+    if: github.event_name == 'issue_comment' && github.event.action == 'created' && github.event.issue.pull_request
+    name: Detect keepalive round comments
+    runs-on: ubuntu-latest
+    outputs:
+      dispatch: ${{ steps.detect.outputs.dispatch }}
+      reason: ${{ steps.detect.outputs.reason || steps.pre_gate.outputs.reason }}
+      issue: ${{ steps.detect.outputs.issue }}
+      round: ${{ steps.detect.outputs.round }}
+      branch: ${{ steps.detect.outputs.branch }}
+      base: ${{ steps.detect.outputs.base }}
+      trace: ${{ steps.detect.outputs.trace }}
+      pr: ${{ steps.detect.outputs.pr }}
+      author: ${{ steps.detect.outputs.author }}
+      comment_id: ${{ steps.detect.outputs.comment_id }}
+      comment_url: ${{ steps.detect.outputs.comment_url }}
+      instruction_body: ${{ steps.detect.outputs.instruction_body }}
+      gate_ok: ${{ steps.pre_gate.outputs.ok }}
+      agent_alias: ${{ steps.pre_gate.outputs.agent_alias }}
+      head_sha: ${{ steps.pre_gate.outputs.head_sha }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Evaluate keepalive pre-gate
+        id: pre_gate
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { evaluateKeepaliveGate } = require('./.github/scripts/keepalive_gate.js');
+            const result = await evaluateKeepaliveGate({
+              core, github, context,
+              options: {
+                prNumber: Number(context.payload?.issue?.number || 0),
+                comments: context.payload?.comment ? [context.payload.comment] : [],
+                requireHumanActivation: true,
+                requireGateSuccess: true,
+              },
+            });
+            const bool = (v) => (v ? 'true' : 'false');
+            core.setOutput('ok', bool(result.ok));
+            core.setOutput('reason', result.reason || '');
+            core.setOutput('agent_alias', result.primaryAgent || '');
+            core.setOutput('head_sha', result.headSha || '');
+
+      - name: Evaluate keepalive comment
+        id: detect
+        uses: actions/github-script@v7
+        env:
+          ALLOWED_LOGINS: stranske
+          KEEPALIVE_MARKER: '<!-- codex-keepalive-marker -->'
+          GATE_OK: ${{ steps.pre_gate.outputs.ok || 'false' }}
+          GATE_REASON: ${{ steps.pre_gate.outputs.reason || '' }}
+        with:
+          script: |
+            const { detectKeepalive } = require('./.github/scripts/agents_pr_meta_keepalive.js');
+            await detectKeepalive({ core, github, context, env: process.env });
+
+  keepalive_orchestrator:
+    needs: keepalive_dispatch
+    if: needs.keepalive_dispatch.outputs.dispatch == 'true'
+    name: Dispatch keepalive orchestrator
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run orchestrator
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.AGENTS_AUTOMATION_PAT || secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT || github.token }}
+          script: |
+            const { runKeepaliveOrchestrator } = require('./.github/scripts/agents_pr_meta_orchestrator.js');
+            const result = await runKeepaliveOrchestrator({
+              github, context, core,
+              inputs: {
+                commentId: '${{ needs.keepalive_dispatch.outputs.comment_id }}',
+                prNumber: '${{ needs.keepalive_dispatch.outputs.pr }}',
+                issue: '${{ needs.keepalive_dispatch.outputs.issue }}',
+                branch: '${{ needs.keepalive_dispatch.outputs.branch }}',
+                base: '${{ needs.keepalive_dispatch.outputs.base }}',
+                round: '${{ needs.keepalive_dispatch.outputs.round }}',
+                trace: '${{ needs.keepalive_dispatch.outputs.trace }}',
+                agentAlias: '${{ needs.keepalive_dispatch.outputs.agent_alias }}',
+                instructionBody: process.env.INSTRUCTION_BODY,
+                commentUrl: '${{ needs.keepalive_dispatch.outputs.comment_url }}',
+              },
+              secrets: {
+                AGENTS_AUTOMATION_PAT: '${{ secrets.AGENTS_AUTOMATION_PAT }}' ? true : false,
+                ACTIONS_BOT_PAT: '${{ secrets.ACTIONS_BOT_PAT }}' ? true : false,
+                SERVICE_BOT_PAT: '${{ secrets.SERVICE_BOT_PAT }}' ? true : false,
+              },
+            });
+            if (!result.ok) core.setFailed(result.reason);
+        env:
+          INSTRUCTION_BODY: ${{ needs.keepalive_dispatch.outputs.instruction_body }}
+
+  gate_event_context:
+    if: github.event_name == 'workflow_run' && github.event.workflow_run.name == 'Gate' && github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    outputs:
+      pr: ${{ steps.resolve.outputs.pr }}
+      has_pr: ${{ steps.resolve.outputs.has_pr }}
+    steps:
+      - name: Resolve Gate pull request context
+        id: resolve
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prs = context.payload?.workflow_run?.pull_requests || [];
+            const first = prs[0];
+            const prNumber = Number(first?.number || 0);
+            const hasPr = prNumber > 0;
+            core.setOutput('has_pr', hasPr ? 'true' : 'false');
+            core.setOutput('pr', hasPr ? String(prNumber) : 'unknown');
+
+  keepalive_from_gate:
+    needs: gate_event_context
+    if: github.event_name == 'workflow_run' && github.event.workflow_run.name == 'Gate' && github.event.workflow_run.conclusion == 'success'
+    name: Resume keepalive after Gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Evaluate keepalive gate
+        id: gate
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { evaluateKeepaliveGate } = require('./.github/scripts/keepalive_gate.js');
+            const run = context.payload?.workflow_run || {};
+            const prs = run.pull_requests || [];
+            const pr = prs[0];
+            const result = await evaluateKeepaliveGate({
+              core, github, context,
+              options: {
+                prNumber: Number(pr?.number || 0),
+                headSha: run.head_sha || '',
+                requireHumanActivation: true,
+                requireGateSuccess: true,
+                currentRunId: run.id,
+              },
+            });
+            const bool = (v) => (v ? 'true' : 'false');
+            core.setOutput('ok', bool(result.ok));
+            core.setOutput('reason', result.reason || '');
+            core.setOutput('agent_alias', result.primaryAgent || '');
+            // Fallback: extract PR number from activation comment URL if result.prNumber is missing
+            let prNum = result.prNumber || '';
+            if (!prNum && result.activationComment?.html_url) {
+              const match = result.activationComment.html_url.match(/\/pull\/(\d+)/);
+              if (match) prNum = match[1];
+            }
+            core.setOutput('pr_number', prNum);
+            core.setOutput('activation_comment', result.activationComment ? JSON.stringify(result.activationComment) : '');
+
+      - name: Detect keepalive from activation
+        id: detect
+        if: steps.gate.outputs.ok == 'true' && steps.gate.outputs.activation_comment != ''
+        uses: actions/github-script@v7
+        env:
+          ALLOWED_LOGINS: stranske
+          ACTIVATION_COMMENT: ${{ steps.gate.outputs.activation_comment }}
+          PR_NUMBER: ${{ steps.gate.outputs.pr_number }}
+          GATE_OK: ${{ steps.gate.outputs.ok }}
+          ALLOW_REPLAY: 'true'
+        with:
+          script: |
+            const { detectKeepalive } = require('./.github/scripts/agents_pr_meta_keepalive.js');
+            const comment = JSON.parse(process.env.ACTIVATION_COMMENT || '{}');
+            const detectionContext = {
+              ...context,
+              payload: { comment, issue: { number: Number(process.env.PR_NUMBER) } },
+            };
+            await detectKeepalive({ core, github, context: detectionContext, env: process.env });
+
+      - name: Run orchestrator from gate
+        if: steps.gate.outputs.ok == 'true' && steps.detect.outputs.dispatch == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.AGENTS_AUTOMATION_PAT || secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT || github.token }}
+          script: |
+            const { runKeepaliveOrchestrator } = require('./.github/scripts/agents_pr_meta_orchestrator.js');
+            const result = await runKeepaliveOrchestrator({
+              github, context, core,
+              inputs: {
+                commentId: '${{ steps.detect.outputs.comment_id }}',
+                prNumber: '${{ steps.detect.outputs.pr || steps.gate.outputs.pr_number }}',
+                issue: '${{ steps.detect.outputs.issue }}',
+                branch: '${{ steps.detect.outputs.branch }}',
+                base: '${{ steps.detect.outputs.base }}',
+                round: '${{ steps.detect.outputs.round }}',
+                trace: '${{ steps.detect.outputs.trace }}',
+                agentAlias: '${{ steps.gate.outputs.agent_alias }}',
+                instructionBody: process.env.INSTRUCTION_BODY,
+                commentUrl: '${{ steps.detect.outputs.comment_url }}',
+              },
+              secrets: {
+                AGENTS_AUTOMATION_PAT: '${{ secrets.AGENTS_AUTOMATION_PAT }}' ? true : false,
+                ACTIONS_BOT_PAT: '${{ secrets.ACTIONS_BOT_PAT }}' ? true : false,
+                SERVICE_BOT_PAT: '${{ secrets.SERVICE_BOT_PAT }}' ? true : false,
+              },
+            });
+            if (!result.ok) core.setFailed(result.reason);
+        env:
+          INSTRUCTION_BODY: ${{ steps.detect.outputs.instruction_body }}
+
+  gate_no_pr_summary:
+    needs: gate_event_context
+    if: github.event_name == 'workflow_run' && github.event.workflow_run.name == 'Gate' && github.event.workflow_run.conclusion == 'success' && needs.gate_event_context.outputs.has_pr != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Write dispatch summary
+        run: |
+          pr="${PR_NUMBER:-unknown}"
+          [[ "$pr" != "unknown" && "$pr" != "0" ]] && pr="#$pr" || pr="#?"
+          echo "DISPATCH: ok=false path=gate reason=no-linked-pr pr=$pr"
+          echo "GATE: ok=false reason=no-linked-pr pr=$pr head=unknown"
+        env:
+          PR_NUMBER: ${{ needs.gate_event_context.outputs.pr }}
+
+  update_body:
+    if: github.event_name == 'pull_request' || (github.event_name == 'workflow_run' && github.event.workflow_run.name == 'Gate') || github.event_name == 'workflow_dispatch'
+    name: Upsert PR body sections
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Update PR body
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.AGENTS_AUTOMATION_PAT || secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT || github.token }}
+          script: |
+            const { run } = require('./.github/scripts/agents_pr_meta_update_body.js');
+            await run({
+              github, context, core,
+              inputs: { pr_number: '${{ inputs.pr_number || '' }}' }
+            });

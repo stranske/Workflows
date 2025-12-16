@@ -1,0 +1,207 @@
+name: Health 44 Gate Branch Protection
+
+on:
+  workflow_call:
+  workflow_dispatch:
+  pull_request:
+    branches: [ main ]
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  ENFORCE_TOKEN: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+  SNAPSHOT_DIR: gate-branch-protection
+
+jobs:
+  enforce:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Determine default branch
+        id: default-branch
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+            async function withApiRetry(fn, { label = 'operation', maxAttempts = 5, baseDelay = 1000 } = {}) {
+              for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+                try {
+                  return await fn();
+                } catch (error) {
+                  const status = error?.status || error?.response?.status;
+                  const headers = error?.response?.headers || {};
+                  const remainingRaw = headers['x-ratelimit-remaining'] ?? headers['X-RateLimit-Remaining'];
+                  const resetRaw = headers['x-ratelimit-reset'] ?? headers['X-RateLimit-Reset'];
+                  const remaining = typeof remainingRaw === 'string' ? Number(remainingRaw) : Number(remainingRaw);
+                  const reset = typeof resetRaw === 'string' ? Number(resetRaw) : Number(resetRaw);
+                  const isRateLimit = status === 403 && Number.isFinite(remaining) && remaining <= 0;
+                  const retryable = isRateLimit || status === 429 || !status || (status >= 500 && status < 600);
+                  if (!retryable || attempt === maxAttempts) {
+                    core.error(`Failed ${label}: ${error.message}`);
+                    throw error;
+                  }
+                  let delay = baseDelay * attempt;
+                  const retryAfterRaw = headers['retry-after'] ?? headers['Retry-After'];
+                  const retryAfterSeconds = Number(retryAfterRaw);
+                  if (Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0) {
+                    delay = Math.max(delay, retryAfterSeconds * 1000);
+                  } else if (isRateLimit && Number.isFinite(reset)) {
+                    const nowSeconds = Math.floor(Date.now() / 1000);
+                    if (reset > nowSeconds) {
+                      const untilReset = (reset - nowSeconds) * 1000 + 500;
+                      delay = Math.max(delay, untilReset);
+                    }
+                  }
+                  delay = Math.max(delay, 1000);
+                  const humanDelay = delay >= 60000
+                    ? `${(delay / 60000).toFixed(2)}m`
+                    : `${Math.round(delay)}ms`;
+                  core.warning(`Retrying ${label} after ${humanDelay} (attempt ${attempt + 1}/${maxAttempts}).`);
+                  await sleep(delay);
+                }
+              }
+              throw new Error(`Failed ${label} after ${maxAttempts} attempts.`);
+            }
+
+            const payload = context.payload || {};
+            const eventDefault = payload.repository?.default_branch
+              || payload.pull_request?.base?.repo?.default_branch
+              || payload.workflow_run?.repository?.default_branch
+              || null;
+
+            if (eventDefault && typeof eventDefault === 'string') {
+              core.info(`Using default branch from event payload: ${eventDefault}`);
+              core.setOutput('name', eventDefault);
+              return;
+            }
+
+            const resolvedFallback = directDefault || payload.repository?.default_branch || 'main';
+
+            try {
+              const response = await withApiRetry(
+                () => github.rest.repos.get({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                }),
+                { label: 'determine default branch' },
+              );
+              core.setOutput('name', response.data.default_branch || resolvedFallback);
+            } catch (error) {
+              const detail = error?.message || '';
+              const status = error?.status || error?.response?.status;
+              const rateLimited = status === 429 || (status === 403 && /rate limit/i.test(detail));
+              if (rateLimited) {
+                core.warning(`Rate limit while resolving default branch; using fallback "${resolvedFallback}".`);
+                core.setOutput('name', resolvedFallback);
+              } else {
+                throw error;
+              }
+            }
+            core.setOutput('name', resolvedDefault);
+
+      - name: Export default branch variable
+        run: |
+          echo "DEFAULT_BRANCH_NAME=${DEFAULT_BRANCH}" >> "$GITHUB_ENV"
+        env:
+          DEFAULT_BRANCH: ${{ steps.default-branch.outputs.name || github.event.repository.default_branch || 'main' }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests
+
+      - name: Log enforcement configuration
+        run: |
+          if [ -z "${ENFORCE_TOKEN}" ]; then
+            echo "BRANCH_PROTECTION_TOKEN is not configured; enforcement step will be skipped."
+            echo "The verification step will still fail if Gate or Health 45 Agents Guard is not required on the default branch."
+          elif [ "${GITHUB_EVENT_NAME}" = "pull_request" ]; then
+            echo "BRANCH_PROTECTION_TOKEN detected but pull_request events run in dry-run mode."
+            echo "Schedule and workflow_dispatch events will apply the desired configuration."
+          else
+            echo "BRANCH_PROTECTION_TOKEN detected; enforcement step will run before verification."
+          fi
+
+      - name: Enforce gate branch protection
+        if: env.ENFORCE_TOKEN != '' && github.event_name != 'pull_request'
+        env:
+          GITHUB_TOKEN: ${{ env.ENFORCE_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          DEFAULT_BRANCH: ${{ env.DEFAULT_BRANCH_NAME }}
+        run: |
+          python tools/enforce_gate_branch_protection.py \
+            --apply \
+            --config .github/config/required-contexts.json \
+            --no-clean \
+            --snapshot "${SNAPSHOT_DIR}/enforcement.json"
+
+      - name: Verify gate branch protection is required (admin scope)
+        id: verify-admin
+        continue-on-error: ${{ github.event_name == 'pull_request' }}
+        if: env.ENFORCE_TOKEN != ''
+        env:
+          GITHUB_TOKEN: ${{ env.ENFORCE_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          DEFAULT_BRANCH: ${{ env.DEFAULT_BRANCH_NAME }}
+        run: |
+          timeout 5m python tools/enforce_gate_branch_protection.py \
+            --check \
+            --require-strict \
+            --config .github/config/required-contexts.json \
+            --no-clean \
+            --snapshot "${SNAPSHOT_DIR}/verification.json"
+
+      - name: Verify gate branch protection is required (read-only)
+        if: env.ENFORCE_TOKEN == '' || (github.event_name == 'pull_request' && steps.verify-admin.outcome != 'success')
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          DEFAULT_BRANCH: ${{ env.DEFAULT_BRANCH_NAME }}
+        run: |
+          python tools/enforce_gate_branch_protection.py \
+            --check \
+            --config .github/config/required-contexts.json \
+            --no-clean \
+            --snapshot "${SNAPSHOT_DIR}/verification.json"
+
+      - name: Restore previous branch protection snapshots
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+          TARGET_REPO: ${{ github.repository }}
+          TARGET_RUN_ID: ${{ github.run_id }}
+        run: python .github/scripts/restore_branch_snapshots.py
+
+      - name: Record unified guard summary
+        if: always()
+        env:
+          HAS_ENFORCE_TOKEN: ${{ env.ENFORCE_TOKEN != '' }}
+        run: |
+          python .github/scripts/health_summarize.py \
+            --signature-jobs .github/signature-fixtures/basic_jobs.json \
+            --signature-expected .github/signature-fixtures/basic_hash.txt \
+            --snapshot-dir "${SNAPSHOT_DIR}" \
+            --has-enforce-token "${HAS_ENFORCE_TOKEN}" \
+            --write-json "${SNAPSHOT_DIR}/health-summary.json" \
+            --write-summary "${GITHUB_STEP_SUMMARY}"
+      - name: Upload branch protection snapshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gate-branch-protection-${{ github.run_id }}
+          path: ${{ env.SNAPSHOT_DIR }}
+          if-no-files-found: ignore

@@ -1,0 +1,57 @@
+name: Reusable Docker Smoke
+
+on:
+  workflow_call:
+    inputs:
+      debug-build:
+        description: Enable verbose smoke test output
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  docker-smoke:
+    name: docker smoke
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      REGISTRY: ${{ vars.REGISTRY || 'ghcr.io' }}
+      IMAGE_NAME: ${{ vars.IMAGE_NAME || format('{0}/{1}', github.repository_owner, 'trend-model') }}
+      HEALTH_PORT: ${{ vars.HEALTH_PORT || '8501' }}
+      HEALTH_PATH: ${{ vars.HEALTH_PATH || '/_stcore/health' }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image
+        run: |
+          docker buildx build --load -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:pr .
+
+      - name: Smoke test container
+        env:
+          DEBUG_BUILD: ${{ inputs['debug-build'] }}
+        run: |
+          set -euo pipefail
+          container_name="trend-model-smoke"
+          docker rm -f "$container_name" >/dev/null 2>&1 || true
+          docker run -d --rm --name "$container_name" -p "${HEALTH_PORT}:${HEALTH_PORT}" "${REGISTRY}/${IMAGE_NAME}:pr" >/dev/null
+          trap 'docker rm -f "$container_name" >/dev/null 2>&1 || true' EXIT
+          for attempt in $(seq 1 10); do
+            if curl --fail --silent --max-time 2 "http://127.0.0.1:${HEALTH_PORT}${HEALTH_PATH}" >/dev/null; then
+              echo "Health check passed"
+              exit 0
+            fi
+            echo "Waiting for container (attempt ${attempt})"
+            sleep 3
+          done
+          echo "Container failed health check" >&2
+          if [ "${DEBUG_BUILD}" = "true" ]; then
+            docker logs "$container_name" || true
+          fi
+          exit 1

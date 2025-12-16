@@ -1,0 +1,688 @@
+# Gate orchestrates CI enforcement for pull requests. The final `summary`
+# job aggregates artifacts, computes coverage deltas, publishes the commit
+# status, and maintains the consolidated PR comment.
+name: Gate
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, labeled]
+  workflow_dispatch:
+
+concurrency:
+  group: pr-${{ github.event.pull_request.number || github.ref_name }}-gate
+  cancel-in-progress: true
+
+jobs:
+  detect:
+    name: detect changed files
+    runs-on: ubuntu-latest
+    outputs:
+      doc_only: ${{ steps.diff.outputs.doc_only || 'false' }}
+      run_core: ${{ steps.diff.outputs.run_core || 'true' }}
+      reason: ${{ steps.diff.outputs.reason || 'code_changes' }}
+      docker_changed: ${{ steps.diff.outputs.docker_changed || 'false' }}
+      lint: ${{ steps.python_ci_toggles.outputs.lint || 'true' }}
+      format_check: ${{ steps.python_ci_toggles.outputs.format_check || 'true' }}
+      typecheck: ${{ steps.python_ci_toggles.outputs.typecheck || 'true' }}
+      coverage: ${{ steps.python_ci_toggles.outputs.coverage || 'true' }}
+      cache: ${{ steps.python_ci_toggles.outputs.cache || 'true' }}
+      pytest_markers: ${{ steps.python_ci_toggles.outputs.pytest_markers || 'not quarantine and not slow' }}
+    steps:
+      - name: Checkout workflow helpers
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          sparse-checkout: |
+            .github/scripts
+          sparse-checkout-cone-mode: false
+      - name: Detect changes via API
+        id: diff
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { detectChanges } = require('./.github/scripts/detect-changes.js');
+            await detectChanges({ github, context, core });
+
+      - name: Compute Python CI toggles
+        id: python_ci_toggles
+        run: |
+          python - <<'PY'
+          import os
+
+          RUN_CORE = (os.environ.get('RUN_CORE') or 'false').strip().lower() == 'true'
+
+          if RUN_CORE:
+              lint = format_check = typecheck = coverage = cache = True
+              pytest_markers = 'not quarantine and not slow'
+          else:
+              lint = format_check = typecheck = coverage = cache = False
+              pytest_markers = 'not quarantine and not slow'
+
+          def to_str(flag: bool) -> str:
+              return 'true' if flag else 'false'
+
+          outputs = {
+              'lint': to_str(lint),
+              'format_check': to_str(format_check),
+              'typecheck': to_str(typecheck),
+              'coverage': to_str(coverage),
+              'cache': to_str(cache),
+              'pytest_markers': pytest_markers,
+          }
+
+          output_path = os.environ.get('GITHUB_OUTPUT')
+          if output_path:
+              with open(output_path, 'a', encoding='utf-8') as handle:
+                  for key, value in outputs.items():
+                      handle.write(f"{key}={value}\n")
+          PY
+        env:
+          RUN_CORE: ${{ steps.diff.outputs.run_core || 'false' }}
+
+  python-ci:
+    name: python ci
+    needs: detect
+    if: ${{ needs.detect.outputs.doc_only != 'true' && needs.detect.outputs.run_core == 'true' && fromJSON(needs.detect.outputs.run_core || 'true') }}
+    uses: ./.github/workflows/reusable-10-ci-python.yml
+    with:
+      primary-python-version: '3.11'
+      python-versions: '["3.11", "3.12"]'
+      marker: "not quarantine and not slow"
+      pytest_markers: ${{ needs.detect.outputs.pytest_markers }}
+      lint: ${{ needs.detect.outputs.lint == 'true' }}
+      format_check: ${{ needs.detect.outputs.format_check == 'true' }}
+      typecheck: ${{ needs.detect.outputs.typecheck == 'true' }}
+      run-mypy: ${{ needs.detect.outputs.typecheck == 'true' }}
+      coverage: ${{ needs.detect.outputs.coverage == 'true' }}
+      cache: ${{ needs.detect.outputs.cache == 'true' }}
+      enable-soft-gate: ${{ needs.detect.outputs.coverage == 'true' }}
+      # Use the shared gate- prefix so downstream Maint workflows can locate the
+      # coverage artifacts without special-casing runtime names.
+      artifact-prefix: 'gate-'
+
+  github-scripts-tests:
+    name: github scripts tests
+    needs: detect
+    if: ${{ needs.detect.outputs.doc_only != 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: node --test .github/scripts/__tests__/*.test.js
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install --upgrade pip pytest requests
+      - run: pytest tests/workflows/github_scripts
+
+  docker-smoke:
+    name: docker smoke
+    needs: detect
+    if: ${{ needs.detect.outputs.doc_only != 'true' && needs.detect.outputs.run_core == 'true' && fromJSON(needs.detect.outputs.run_core || 'true') && fromJSON(needs.detect.outputs.docker_changed || 'false') }}
+    uses: ./.github/workflows/reusable-12-ci-docker.yml
+
+  ledger-validation:
+    name: ledger validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install PyYAML
+        run: pip install PyYAML
+
+      - name: Validate ledger files
+        run: |
+          if [ -d .agents ] && find .agents -name 'issue-*-ledger.yml' -print -quit | grep -q .; then
+            python scripts/ledger_validate.py
+          else
+            echo "No ledger files found; validation skipped."
+          fi
+
+  summary:
+    name: summary
+    needs:
+      - detect
+      - python-ci
+      - docker-smoke
+      - github-scripts-tests
+      - ledger-validation
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      statuses: write
+    env:
+      REQUIRED_JOB_GROUPS_JSON: ${{ vars.REQUIRED_JOB_GROUPS_JSON || '' }}
+    outputs:
+      state: ${{ steps.summarize.outputs.state || steps.docs_only.outputs.state || 'success' }}
+      description: ${{ steps.summarize.outputs.description || steps.docs_only.outputs.description || '' }}
+      cosmetic_failure: ${{ steps.summarize.outputs.cosmetic_failure || 'false' }}
+      failure_checks: ${{ steps.summarize.outputs.failure_checks || '' }}
+      format_failure: ${{ steps.summarize.outputs.format_failure || 'false' }}
+      autofix_label_applied: ${{ steps.autofix_label.outputs.applied || 'false' }}
+      autofix_label_skipped: ${{ steps.autofix_label.outputs.skipped_reason || '' }}
+    steps:
+      - name: Checkout workflow helpers
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          sparse-checkout: |
+            .github/scripts
+            .github/config
+            tools
+          sparse-checkout-cone-mode: false
+      - name: Handle docs-only change
+        if: needs.detect.outputs.doc_only == 'true'
+        id: docs_only
+        uses: actions/github-script@v7
+        env:
+          REASON: ${{ needs.detect.outputs.reason || 'docs_only' }}
+        with:
+          script: |
+            const { handleDocsOnlyFastPass } = require('./.github/scripts/gate-docs-only.js');
+            await handleDocsOnlyFastPass({ core, reason: process.env.REASON });
+
+      - name: Ensure docs-only fast-pass comment
+        if: needs.detect.outputs.doc_only == 'true'
+        uses: actions/github-script@v7
+        env:
+          COMMENT_BODY: ${{ steps.docs_only.outputs.comment_body }}
+          MARKER: ${{ steps.docs_only.outputs.marker }}
+          BASE_MESSAGE: ${{ steps.docs_only.outputs.base_message }}
+        with:
+          script: |
+            const { ensureMarkerComment } = require('./.github/scripts/comment-dedupe.js');
+            const { DEFAULT_MARKER, BASE_MESSAGE } = require('./.github/scripts/gate-docs-only.js');
+            await ensureMarkerComment({
+              github,
+              context,
+              core,
+              commentBody: process.env.COMMENT_BODY,
+              marker: process.env.MARKER || DEFAULT_MARKER,
+              baseMessage: process.env.BASE_MESSAGE || BASE_MESSAGE,
+            });
+
+      - name: Remove docs-only fast-pass comment when not needed
+        if: needs.detect.outputs.doc_only != 'true'
+        uses: actions/github-script@v7
+        env:
+          MARKER: ${{ steps.docs_only.outputs.marker }}
+          BASE_MESSAGE: ${{ steps.docs_only.outputs.base_message }}
+        with:
+          script: |
+            const { removeMarkerComments } = require('./.github/scripts/comment-dedupe.js');
+            const { DEFAULT_MARKER, BASE_MESSAGE } = require('./.github/scripts/gate-docs-only.js');
+            await removeMarkerComments({
+              github,
+              context,
+              core,
+              marker: process.env.MARKER || DEFAULT_MARKER,
+              baseMessages: [process.env.BASE_MESSAGE || BASE_MESSAGE],
+            });
+      - name: Discover Gate workflow runs
+        id: gather
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { discoverWorkflowRuns } = require('./.github/scripts/maint-post-ci.js');
+            await discoverWorkflowRuns({ github, context, core });
+
+      - name: Download Gate artifacts
+        if: ${{ needs.detect.outputs.doc_only != 'true' && needs.python-ci.result != 'skipped' }}
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          pattern: gate-*
+          merge-multiple: true
+          path: gate_artifacts/downloads
+
+      - name: Load coverage summary snippet
+        if: needs.detect.outputs.doc_only != 'true' && needs.detect.outputs.coverage == 'true'
+        id: coverage_summary
+        run: |
+          set -euo pipefail
+          mkdir -p gate_artifacts/downloads
+          python <<'PY'
+          import os
+          from pathlib import Path
+
+          output_path = os.environ.get('GITHUB_OUTPUT')
+          root = Path('gate_artifacts/downloads')
+
+          summary_path: Path | None = None
+          candidates = list(root.rglob('coverage-summary.md'))
+          if candidates:
+              summary_path = candidates[0]
+
+          if summary_path is None:
+              print('No coverage summary markdown found; continuing without it.')
+          else:
+              text = summary_path.read_text(encoding='utf-8')
+              dest = Path('gate-coverage-summary.md')
+              dest.write_text(text, encoding='utf-8')
+              if output_path:
+                  with Path(output_path).open('a', encoding='utf-8') as handle:
+                      handle.write('body<<EOF\n')
+                      handle.write(text)
+                      if not text.endswith('\n'):
+                          handle.write('\n')
+                      handle.write('EOF\n')
+              print(f'Embedded coverage summary from {summary_path}')
+          PY
+
+      - name: Compute coverage stats
+        if: needs.detect.outputs.doc_only != 'true' && needs.detect.outputs.coverage == 'true'
+        id: coverage_stats
+        uses: actions/github-script@v7
+        env:
+          COVERAGE_ROOT: gate_artifacts/downloads
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            const { computeCoverageStats } = require('./.github/scripts/coverage-normalize.js');
+
+            const rootDir = process.env.COVERAGE_ROOT || 'gate_artifacts/downloads';
+            const coverageRoot = path.join(rootDir, 'coverage', 'runtimes');
+
+            const { stats, deltaPayload } = await computeCoverageStats({
+              core,
+              rootDir,
+              coverageRoot,
+              writeFiles: false,
+            });
+
+            const statsPath = path.resolve('gate-coverage.json');
+            const deltaPath = path.resolve('gate-coverage-delta.json');
+
+            if (stats && Object.keys(stats).length) {
+              fs.writeFileSync(statsPath, JSON.stringify(stats, null, 2), 'utf8');
+              core.setOutput('stats_json', JSON.stringify(stats));
+            } else {
+              core.info('Coverage stats unavailable.');
+            }
+
+            if (deltaPayload && Object.keys(deltaPayload).length) {
+              fs.writeFileSync(deltaPath, JSON.stringify(deltaPayload, null, 2), 'utf8');
+              core.setOutput('delta_json', JSON.stringify(deltaPayload));
+            } else {
+              core.info('Coverage delta unavailable.');
+            }
+
+      - name: Summarize results
+        if: ${{ always() }}
+        id: summarize
+        env:
+          DOC_ONLY: ${{ needs.detect.outputs.doc_only || 'false' }}
+          RUN_CORE: ${{ needs.detect.outputs.run_core || 'true' }}
+          REASON: ${{ needs.detect.outputs.reason }}
+          PYTHON_RESULT: ${{ needs.python-ci.result || 'skipped' }}
+          DOCKER_RESULT: ${{ needs.docker-smoke.result || 'skipped' }}
+          DOCKER_CHANGED: ${{ needs.detect.outputs.docker_changed || 'false' }}
+          COVERAGE_ENABLED: ${{ needs.detect.outputs.coverage || 'true' }}
+        run: python .github/scripts/gate_summary.py
+
+      - name: Auto-apply autofix label for cosmetic failures
+        id: autofix_label
+        if: |
+          github.event_name == 'pull_request' &&
+          needs.detect.outputs.doc_only != 'true' &&
+          steps.summarize.outputs.state == 'failure' &&
+          steps.summarize.outputs.cosmetic_failure == 'true' &&
+          !contains(github.event.pull_request.labels.*.name, 'autofix:clean')
+        uses: actions/github-script@v7
+        env:
+          ALLOWED_EXTENSIONS: 'py,pyi'
+          FORMAT_FAILURE: ${{ steps.summarize.outputs.format_failure || 'false' }}
+          FAILURE_CHECKS: ${{ steps.summarize.outputs.failure_checks || '' }}
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const pr = context.payload.pull_request;
+            core.setOutput('applied', 'false');
+            core.setOutput('skipped_reason', '');
+
+            const formatFailure = (process.env.FORMAT_FAILURE || '').toLowerCase() === 'true';
+            if (!formatFailure) {
+              const checks = process.env.FAILURE_CHECKS || '';
+              core.info(`Skipping auto-label; format failure not detected (checks: ${checks || 'none'}).`);
+              core.setOutput('skipped_reason', 'missing-format-failure');
+              return;
+            }
+
+            if (!pr) {
+              core.info('No pull request context available; skipping auto-label.');
+              core.setOutput('skipped_reason', 'missing-pr');
+              return;
+            }
+
+            if (!pr.number) {
+              core.info('Pull request number missing; skipping auto-label.');
+              core.setOutput('skipped_reason', 'invalid-pr');
+              return;
+            }
+
+            const sameRepo =
+              pr.head?.repo?.full_name === `${owner}/${repo}` &&
+              pr.base?.repo?.full_name === `${owner}/${repo}`;
+            if (!sameRepo) {
+              core.info('Skipping auto-label for forked PR.');
+              core.setOutput('skipped_reason', 'fork-pr');
+              return;
+            }
+
+            const iterator = github.paginate.iterator(github.rest.pulls.listFiles, {
+              owner,
+              repo,
+              pull_number: pr.number,
+              per_page: 100,
+            });
+
+            const allowedExtensions = String(process.env.ALLOWED_EXTENSIONS || '')
+              .split(',')
+              .map(ext => ext.trim().toLowerCase())
+              .filter(Boolean)
+              .map(ext => (ext.startsWith('.') ? ext : `.${ext}`));
+
+            const disallowed = [];
+            for await (const page of iterator) {
+              if (!Array.isArray(page.data)) {
+                continue;
+              }
+              for (const file of page.data) {
+                const filename = file?.filename;
+                if (typeof filename !== 'string' || filename.length === 0) {
+                  continue;
+                }
+                const lower = filename.toLowerCase();
+                const allowed = allowedExtensions.some(ext => lower.endsWith(ext));
+                if (!allowed) {
+                  disallowed.push(filename);
+                }
+              }
+            }
+
+            if (disallowed.length > 0) {
+              core.info(`Skipping auto-label; non-Python changes detected: ${disallowed.join(', ')}`);
+              core.setOutput('skipped_reason', 'non-python');
+              return;
+            }
+
+            await github.rest.issues.addLabels({
+              owner,
+              repo,
+              issue_number: pr.number,
+              labels: ['autofix:clean'],
+            });
+            core.info('Applied autofix:clean label for cosmetic failure.');
+            core.setOutput('applied', 'true');
+
+      - name: Prepare summary body
+        id: summary_body
+        run: |
+          python tools/post_ci_summary.py
+        env:
+          RUNS_JSON: ${{ steps.gather.outputs.runs || '[]' }}
+          HEAD_SHA: ${{ steps.gather.outputs.head_sha || github.event.pull_request.head.sha || github.sha }}
+          COVERAGE_SECTION: ${{ steps.coverage_summary.outputs.body || '' }}
+          COVERAGE_STATS: ${{ steps.coverage_stats.outputs.stats_json || '' }}
+          COVERAGE_DELTA: ${{ steps.coverage_stats.outputs.delta_json || '' }}
+          REQUIRED_JOB_GROUPS_JSON: ${{ env.REQUIRED_JOB_GROUPS_JSON }}
+          REQUIRED_CONTEXTS_FILE: .github/config/required-contexts.json
+
+      - name: Compose PR summary comment
+        id: compose_comment
+        run: |
+          python <<'PY'
+          import os
+          from pathlib import Path
+
+          body = (os.environ.get('SUMMARY_BODY') or '').strip()
+          pr_number = os.environ.get('PR_NUMBER', '').strip()
+          head_sha = os.environ.get('HEAD_SHA', '').strip()
+
+          if not body:
+              raise SystemExit('Summary body missing; aborting comment composition.')
+
+          head_token = head_sha[:12] if head_sha else ''
+          parts = []
+          if pr_number:
+              parts.append(f'pr={pr_number}')
+          if head_token:
+              parts.append(f'head={head_token}')
+          if not parts:
+              parts.append('anchor')
+
+          marker = f"<!-- gate-summary: {' '.join(parts)} -->"
+          payload = "\n".join([marker, body, ''])
+
+          Path('gate-summary.md').write_text(payload, encoding='utf-8')
+          print(marker)
+          PY
+        env:
+          SUMMARY_BODY: ${{ steps.summary_body.outputs.body }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ steps.gather.outputs.head_sha || github.event.pull_request.head.sha || github.sha }}
+
+      - name: Append keepalive checklists
+        uses: actions/github-script@v7
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          LABEL_APPLIED: ${{ steps.autofix_label.outputs.applied || 'false' }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const prNumber = Number(process.env.PR_NUMBER || '0');
+            const payloadBody = context.payload.pull_request?.body || '';
+
+            if (!prNumber && !payloadBody) {
+              console.log('No PR number or body available, skipping keepalive checklist');
+              return;
+            }
+
+            let prBody = payloadBody;
+            if (!prBody && prNumber) {
+              const { owner, repo } = context.repo;
+              try {
+                const pr = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+                prBody = pr.data.body || '';
+              } catch (error) {
+                const hitRateLimit = error?.status === 403 && /rate limit/i.test(error?.message || '');
+                if (hitRateLimit) {
+                  core.warning(`Rate limit while fetching PR #${prNumber}; appending fallback keepalive checklist.`);
+                } else {
+                  throw error;
+                }
+              }
+            }
+
+            // Extract content from <!-- auto-status-summary:start --> to <!-- auto-status-summary:end -->
+            const summaryMatch = (prBody || '').match(/<!-- auto-status-summary:start -->([\s\S]*?)<!-- auto-status-summary:end -->/);
+
+            let keepaliveContent = '\n\n---\n### Keepalive checklist\n\n';
+
+            if (summaryMatch && summaryMatch[1]) {
+              const summarySection = summaryMatch[1].trim();
+
+              // Extract Scope section
+              const scopeMatch = summarySection.match(/#### Scope\s+([\s\S]*?)(?=####|$)/);
+              if (scopeMatch) {
+                const scope = scopeMatch[1].trim();
+                keepaliveContent += '#### Scope\n' + scope + '\n\n';
+              }
+
+              // Extract Tasks section
+              const tasksMatch = summarySection.match(/#### Tasks\s+([\s\S]*?)(?=####|$)/);
+              if (tasksMatch) {
+                keepaliveContent += '#### Tasks\n' + tasksMatch[1].trim() + '\n\n';
+              }
+
+              // Extract Acceptance criteria section
+              const acceptanceMatch = summarySection.match(/#### Acceptance criteria\s+([\s\S]*?)(?=####|\*\*Head SHA|$)/);
+              if (acceptanceMatch) {
+                keepaliveContent += '#### Acceptance criteria\n' + acceptanceMatch[1].trim() + '\n';
+              }
+            } else {
+              // Fallback if auto-status-summary not found
+              console.log('Warning: Could not extract auto-status-summary from PR body, using fallback');
+              keepaliveContent += '#### Scope\n_No scope information available_\n\n';
+              keepaliveContent += '#### Tasks\n- [ ] _No tasks defined_\n\n';
+              keepaliveContent += '#### Acceptance criteria\n- [ ] _No acceptance criteria defined_\n';
+            }
+
+            // Append to gate-summary.md
+            fs.appendFileSync('gate-summary.md', keepaliveContent);
+
+      - name: Add autofix label status notes
+        if: steps.autofix_label.outputs.applied != 'true' && steps.autofix_label.outputs.skipped_reason != ''
+        env:
+          SKIPPED_REASON: ${{ steps.autofix_label.outputs.skipped_reason || '' }}
+        run: |
+          friendly_reason="${SKIPPED_REASON}"
+          case "${SKIPPED_REASON}" in
+              missing-format-failure)
+                friendly_reason='format check did not fail; no autofix label applied automatically.'
+                ;;
+              missing-pr)
+                friendly_reason='pull request context missing; manual follow-up required.'
+                ;;
+              invalid-pr)
+                friendly_reason='invalid pull request number prevented auto-label.'
+                ;;
+              fork-pr)
+                friendly_reason='forked pull request skipped for auto-label safety.'
+                ;;
+              non-python)
+                friendly_reason='non-Python changes detected; auto-label withheld.'
+                ;;
+            esac
+
+            {
+              echo ''
+              echo '#### Status notes'
+              echo "- Autofix label skipped: ${friendly_reason}"
+            } >> gate-summary.md
+
+      - name: Upload Gate summary artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gate-summary.md
+          path: gate-summary.md
+          if-no-files-found: warn
+          retention-days: 7
+          overwrite: true
+
+      - name: Upload coverage stats artifact
+        if: ${{ always() && steps.coverage_stats.outputs.stats_json != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: gate-coverage.json
+          path: gate-coverage.json
+          if-no-files-found: warn
+          retention-days: 7
+          overwrite: true
+
+      - name: Upload coverage delta artifact
+        if: ${{ always() && steps.coverage_stats.outputs.delta_json != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: gate-coverage-delta.json
+          path: gate-coverage-delta.json
+          if-no-files-found: warn
+          retention-days: 7
+          overwrite: true
+
+      - name: Upload coverage summary artifact copy
+        if: ${{ always() && steps.coverage_summary.outputs.body != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: gate-coverage-summary.md
+          path: gate-coverage-summary.md
+          if-no-files-found: warn
+          retention-days: 7
+          overwrite: true
+
+      - name: Ensure consolidated summary comment
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.SERVICE_BOT_PAT || github.token }}
+          script: |
+            const path = require('path');
+            const fs = require('fs');
+            const { upsertAnchoredComment } = require('./.github/scripts/comment-dedupe.js');
+
+            const commentPath = path.resolve('gate-summary.md');
+            const body = fs.readFileSync(commentPath, 'utf8');
+            await upsertAnchoredComment({
+              github,
+              context,
+              core,
+              prNumber: context.payload.pull_request?.number,
+              body,
+              anchorPattern: /<!--\s*gate-summary:([^>]*)-->/i,
+              fallbackMarker: '<!-- gate-summary:',
+            });
+
+      - name: Report Gate commit status
+        if: ${{ always() }}
+        uses: actions/github-script@v7
+        env:
+          STATE: ${{ steps.summarize.outputs.state || steps.docs_only.outputs.state || 'pending' }}
+          DESCRIPTION: ${{ steps.summarize.outputs.description || steps.docs_only.outputs.description || 'Gate status pending' }}
+          TARGET_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const sha = context.payload.pull_request?.head?.sha ?? context.sha;
+            const rawState = process.env.STATE || 'pending';
+            const allowed = new Set(['error', 'failure', 'pending', 'success']);
+            const state = allowed.has(rawState) ? rawState : 'pending';
+            const rawDescription = process.env.DESCRIPTION || 'Gate status update';
+            const description = rawDescription.length > 140 ? `${rawDescription.slice(0, 137)}...` : rawDescription;
+            const targetUrl = process.env.TARGET_URL;
+
+            try {
+              await github.rest.repos.createCommitStatus({
+                owner,
+                repo,
+                sha,
+                state,
+                context: 'Gate / gate',
+                description,
+                target_url: targetUrl,
+              });
+            } catch (error) {
+              const hitRateLimit = error?.status === 403 && /rate limit/i.test(error?.message || '');
+              if (hitRateLimit) {
+                core.warning('Rate limit prevented Gate from updating the commit status; leaving existing status untouched.');
+              } else {
+                throw error;
+              }
+            }
+
+      - name: Enforce Gate success
+        if: ${{ (steps.summarize.outputs.state || steps.docs_only.outputs.state) == 'failure' }}
+        run: |
+          echo "Gate reported failure: ${{ steps.summarize.outputs.description || steps.docs_only.outputs.description }}" >&2
+          exit 1

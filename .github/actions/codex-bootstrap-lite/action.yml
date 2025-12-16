@@ -1,0 +1,259 @@
+name: "Codex Bootstrap (Lite)"
+description: "Minimal issue → branch → PR bootstrap with PAT-first auth and optional auto-ready"
+
+inputs:
+  issue:
+    description: "Issue number to bootstrap"
+    required: true
+  service_bot_pat:
+    description: "Personal access token to author PR/comments (optional)"
+    required: false
+    default: ""
+  allow_fallback:
+    description: "Allow fallback to GITHUB_TOKEN if PAT missing (true|false)"
+    required: false
+    default: "true"
+  codex_command:
+    description: "Codex activation command"
+    required: false
+    default: "@codex start"
+  base_branch:
+    description: "Override base branch (empty = repo default)"
+    required: false
+    default: ""
+  draft:
+    description: "Whether to create the PR as a draft (true|false)"
+    required: false
+    default: "false"
+  auto_ready:
+    description: "If draft=true and auto_ready=true, immediately mark ready-for-review"
+    required: false
+    default: "false"
+  post_codex_comment:
+    description: "Whether to auto-post '@codex start' as the actor (true|false)"
+    required: false
+    default: "false"
+  pr_mode:
+    description: "create | invite (invite = prepare branch and ask human to open PR)"
+    required: false
+    default: "create"
+  keepalive_mode:
+    description: "Keepalive mode string (ON/OFF) to surface in the PR body"
+    required: false
+    default: "OFF"
+
+outputs:
+  pr:
+    description: "Created or reused PR number"
+    value: ${{ steps.bootstrap.outputs.pr }}
+  branch:
+    description: "Created branch name"
+    value: ${{ steps.bootstrap.outputs.branch }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Determine token
+      id: token
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+      run: |
+        if [ -n "${{ inputs.service_bot_pat }}" ]; then
+          echo "token_source=SERVICE_BOT_PAT" >> "$GITHUB_OUTPUT"
+        elif [ "${{ inputs.allow_fallback }}" = "true" ]; then
+          echo "token_source=GITHUB_TOKEN" >> "$GITHUB_OUTPUT"
+        else
+          echo "::error::SERVICE_BOT_PAT is required and fallback not allowed"
+          exit 1
+        fi
+
+    - name: Bootstrap via API
+      id: bootstrap
+      uses: actions/github-script@v7
+      env:
+        SERVICE_BOT_PAT: ${{ inputs.service_bot_pat }}
+        GITHUB_TOKEN: ${{ github.token }}
+        CODEX_CMD: ${{ inputs.codex_command }}
+        FORCE_BASE: ${{ inputs.base_branch }}
+        DRAFT_FLAG: ${{ inputs.draft }}
+        AUTO_READY: ${{ inputs.auto_ready }}
+        POST_CODEX: ${{ inputs.post_codex_comment }}
+        PR_MODE: ${{ inputs.pr_mode }}
+        KEEPALIVE_MODE: ${{ inputs.keepalive_mode }}
+      with:
+        github-token: ${{ inputs.service_bot_pat != '' && inputs.service_bot_pat || github.token }}
+        script: |
+          const { owner, repo } = context.repo;
+          const issue_number = Number('${{ inputs.issue }}');
+          if (!issue_number) { core.setFailed('Missing issue number'); return; }
+
+          // Resolve base branch
+          let baseBranch = (process.env.FORCE_BASE || '').trim();
+          if (!baseBranch) {
+            const { data: repoInfo } = await github.rest.repos.get({ owner, repo });
+            baseBranch = repoInfo.default_branch || 'main';
+          }
+          const { data: ref } = await github.rest.git.getRef({ owner, repo, ref: `heads/${baseBranch}` });
+          const baseSha = ref.object.sha;
+
+          // Create deterministic branch with run id suffix to avoid collisions
+          const runId = process.env.GITHUB_RUN_ID || String(Date.now());
+          const branch = `agents/codex-issue-${issue_number}-${runId}`;
+          try {
+            await github.rest.git.createRef({ owner, repo, ref: `refs/heads/${branch}`, sha: baseSha });
+          } catch (e) {
+            core.setFailed(`Failed to create branch ${branch}: ${e.status || '?'} ${e.message}`);
+            return;
+          }
+
+          // Seed or update a bootstrap file so the branch has content
+          const path = `agents/codex-${issue_number}.md`;
+          const content = Buffer.from(`<!-- bootstrap for codex on issue #${issue_number} -->\n`).toString('base64');
+          let existingSha = undefined;
+          try {
+            const { data: existing } = await github.rest.repos.getContent({ owner, repo, path, ref: branch });
+            if (!Array.isArray(existing) && existing.type === 'file' && existing.sha) {
+              existingSha = existing.sha;
+            }
+          } catch (e) {
+            if (e && e.status !== 404) {
+              core.warning(`Pre-check getContent failed for ${path} on ${branch}: ${e.status || '?'} ${e.message}`);
+            }
+          }
+          await github.rest.repos.createOrUpdateFileContents({
+            owner, repo, path, message: `chore(codex): bootstrap PR for issue #${issue_number}`,
+            content, branch, ...(existingSha ? { sha: existingSha } : {})
+          });
+
+          // Build PR body by replicating the full issue content with source link
+          let issueTitle = '';
+          let issueBody = '';
+          try {
+            const { data: is } = await github.rest.issues.get({ owner, repo, issue_number });
+            issueTitle = is.title || '';
+            issueBody = is.body || '';
+          } catch (e) {
+            core.warning(`Failed to read issue #${issue_number}: ${e.message}`);
+          }
+          const issueUrl = `https://github.com/${owner}/${repo}/issues/${issue_number}`;
+          const keepaliveMode = (process.env.KEEPALIVE_MODE || 'OFF').trim().toUpperCase() === 'ON' ? 'ON' : 'OFF';
+          const keepaliveEnabled = keepaliveMode === 'ON';
+          const keepaliveHeader = `### Keepalive: ${keepaliveMode}`;
+          const header = `### Source Issue #${issue_number}: ${issueTitle}`;
+          const quoted = (issueBody || '').split('\n').map(l => `> ${l}`).join('\n');
+          const body = [
+            keepaliveHeader,
+            '',
+            header,
+            '',
+            `Source: ${issueUrl}`,
+            '',
+            quoted,
+            '',
+            '—',
+            'PR created automatically to engage Codex.'
+          ].join('\n');
+          const asDraft = /^true$/i.test(process.env.DRAFT_FLAG || 'false');
+          const prMode = (process.env.PR_MODE || 'create').toLowerCase();
+
+          if (prMode === 'invite') {
+            // Do not create PR; ask the human to open it so they are the author
+            const suggestion = [
+              keepaliveHeader,
+              '',
+              header,
+              '',
+              `Source: ${issueUrl}`,
+              '',
+              quoted,
+              '',
+              '—',
+              'After opening the PR, comment with `@codex start` to request the plan.',
+              'Once Codex replies, comment `@codex plan-and-execute` as a separate message.',
+              'In that comment, remind Codex to reuse the scope, acceptance criteria, and task list from the issue, post them as markdown checklists, and keep updating them until everything is complete.'
+            ].join('\n');
+            const compareUrl = `https://github.com/${owner}/${repo}/compare/${baseBranch}...${branch}?expand=1`;
+            try {
+              await github.rest.issues.createComment({
+                owner, repo, issue_number,
+                body: `Branch \`${branch}\` created from \`${baseBranch}\`.\n\nPlease open the PR as the author so Codex can work on it:\n\n- Compare link: ${compareUrl}\n- Suggested title: \`Codex bootstrap for #${issue_number}\`\n- Suggested body (copy/paste):\n\n\n${'```markdown'}\n${suggestion}\n${'```'}\n`
+              });
+            } catch (e) { core.warning(`Invite comment failed: ${e.message}`); }
+            core.setOutput('pr', '');
+            core.setOutput('branch', branch);
+            core.info(`codex-bootstrap-lite (invite): branch=${branch} base=${baseBranch}`);
+            return;
+          }
+
+          // Create draft or ready PR
+          let prNum = null;
+          try {
+            const { data: pr } = await github.rest.pulls.create({ owner, repo, head: branch, base: baseBranch, draft: asDraft, title: `Codex bootstrap for #${issue_number}`, body });
+            prNum = pr.number;
+          } catch (e) {
+            core.setFailed(`Failed to open PR: ${e.status || '?'} ${e.message}`);
+            return;
+          }
+
+          // Assign PR and source issue to connector + human bot if available
+          const assignees = ['chatgpt-codex-connector', 'stranske-automation-bot'];
+          try { await github.rest.issues.addAssignees({ owner, repo, issue_number: prNum, assignees }); } catch (e) { core.warning(`PR assign failed: ${e.message}`); }
+          try { await github.rest.issues.addAssignees({ owner, repo, issue_number, assignees }); } catch (e) { core.warning(`Issue assign failed: ${e.message}`); }
+
+          // Label and optionally post command (PAT preferred)
+          try { await github.rest.issues.addLabels({ owner, repo, issue_number: prNum, labels: ['agent:codex'] }); } catch (e) { core.warning(`Label failed: ${e.message}`); }
+          const cmd = (process.env.CODEX_CMD || '@codex start').replace(/[\r\n`]/g,'').trim() || '@codex start';
+          const postCodex = /^true$/i.test(process.env.POST_CODEX || 'true');
+          if (postCodex) {
+            try {
+              const instruction = [
+                cmd,
+                '',
+                'Please create commits on this branch, run tests, and keep the PR updated.'
+              ].join('\n');
+              await github.rest.issues.createComment({ owner, repo, issue_number: prNum, body: instruction });
+            } catch (e) { core.warning(`Comment failed: ${e.message}`); }
+          } else {
+            try {
+              const manualPrompt = [
+                'PR created. Comment `@codex start` to request the plan.',
+                'Tell Codex to reuse the scope, acceptance criteria, and task list from the source issue and publish them here with `- [ ]` checklists so keepalive keeps watching.',
+                'After Codex replies, follow the instructions on the linked issue comment to begin execution.'
+              ].join(' ');
+              await github.rest.issues.createComment({ owner, repo, issue_number: prNum, body: manualPrompt });
+            } catch (e) { core.warning(`Instruction comment failed: ${e.message}`); }
+          }
+
+          // Optional: immediately mark ready for review
+          const auto = /^true$/i.test(process.env.AUTO_READY || 'false');
+          if (asDraft && auto) {
+            try { await github.rest.pulls.update({ owner, repo, pull_number: prNum, draft: false }); } catch (e) {
+              // Some endpoints prefer the separate ready-for-review endpoint
+              try { await github.request('POST /repos/{owner}/{repo}/pulls/{pull_number}/ready-for-review', { owner, repo, pull_number: prNum }); } catch (e2) { core.warning(`Auto-ready failed: ${e2.status || '?'} ${e2.message}`); }
+            }
+          }
+
+          // Link back to the issue
+          try {
+            const executionSnippet = [
+              'Next steps for the PR author:',
+              '- Comment `@codex start` (auto-posted when possible) so Codex drafts the plan.',
+              '- After Codex replies with the checklist, post the execution command below to begin delivery and enable keepalive.',
+              '',
+              'Execution command (copy into a standalone PR comment):',
+              '```markdown',
+              '@codex plan-and-execute',
+              '',
+              'Codex, reuse the scope, acceptance criteria, and task list from the source issue.',
+              'Post those sections on this PR using markdown checklists (- [ ]) so the keepalive workflow continues nudging until everything is complete.',
+              'Work through the tasks, checking them off only after each acceptance criterion is satisfied.',
+              '```'
+            ].join('\n');
+            const keepaliveStatus = `Keepalive mode: **${keepaliveEnabled ? 'ON' : 'OFF'}**`;
+            await github.rest.issues.createComment({ owner, repo, issue_number, body: `Opened ${asDraft && !auto ? 'draft ' : ''}PR #${prNum} to engage Codex. Track work there.\n\n${keepaliveStatus}\n\n${executionSnippet}` });
+          } catch {}
+
+          core.setOutput('pr', String(prNum));
+          core.setOutput('branch', branch);
+          core.info(`codex-bootstrap-lite: pr=${prNum} branch=${branch} keepalive=${keepaliveEnabled ? 'ON' : 'OFF'}`);

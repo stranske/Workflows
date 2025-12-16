@@ -1,0 +1,42 @@
+name: Agents Debug Issue Event
+on:
+  issues:
+    types: [labeled, unlabeled, opened, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  debug_dump:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dump GitHub Context
+        env:
+          GITHUB_CONTEXT: ${{ toJson(github) }}
+        run: echo "$GITHUB_CONTEXT"
+      - name: Check Label Logic
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_ACTION: ${{ github.event.action }}
+          LABEL_NAME: ${{ github.event.label.name }}
+          ISSUE_LABELS_JSON: ${{ toJson(github.event.issue.labels.*.name) }}
+        run: |
+          echo "Event Name: $EVENT_NAME"
+          echo "Action: $EVENT_ACTION"
+          echo "Label Name: '$LABEL_NAME'"
+          echo "Issue Labels: '$ISSUE_LABELS_JSON'"
+
+          # Simulate the checks
+          if [[ "$EVENT_ACTION" == "labeled" ]]; then
+            if [[ "$LABEL_NAME" == agent:* ]] || [[ "$LABEL_NAME" == agents:* ]]; then
+              echo "MATCH: Explicit label check passed"
+            else
+              echo "FAIL: Explicit label check failed"
+            fi
+          fi
+
+          if [[ "$ISSUE_LABELS_JSON" == *"agent:"* ]] || [[ "$ISSUE_LABELS_JSON" == *"agents:"* ]]; then
+             echo "MATCH: Contains check passed"
+          else
+             echo "FAIL: Contains check failed"
+          fi

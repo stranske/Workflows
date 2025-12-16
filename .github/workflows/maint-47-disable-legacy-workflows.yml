@@ -1,0 +1,39 @@
+name: Maint 47 Disable Legacy Workflows
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Set to true to preview without disabling"
+        type: choice
+        options: ["false", "true"]
+        default: "false"
+      extra_allowlist:
+        description: "Comma-separated additional workflow names or filenames to keep"
+        required: false
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  disable:
+    name: Disable legacy workflows
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Disable retired workflows
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          EXTRA_ALLOWLIST: ${{ inputs.extra_allowlist }}
+        run: |
+          python tools/disable_legacy_workflows.py

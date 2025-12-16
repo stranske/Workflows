@@ -1,0 +1,22 @@
+[
+  {
+    "name": "core tests (3.11)",
+    "step": "Reusable CI (3.11)",
+    "stack": "StackToken:ci-311"
+  },
+  {
+    "name": "core tests (3.12)",
+    "step": "Reusable CI (3.12)",
+    "stack": "StackToken:ci-312"
+  },
+  {
+    "name": "docker smoke",
+    "step": "Reusable Docker smoke",
+    "stack": "StackToken:docker-smoke"
+  },
+  {
+    "name": "gate",
+    "step": "Summarize results",
+    "stack": "StackToken:gate-aggregator"
+  }
+]

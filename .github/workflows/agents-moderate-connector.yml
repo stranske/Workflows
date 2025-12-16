@@ -1,0 +1,189 @@
+name: Agents Moderate Connector Comments
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  issues: write
+  pull-requests: read
+  contents: read
+
+env:
+  MODERATION_DENY_LIST: ${{ vars.AGENTS_CONNECTOR_DENY_LIST || 'chatgpt-codex-connector[bot]' }}
+  MODERATION_ALLOW_LIST: ${{ vars.AGENTS_CONNECTOR_ALLOW_LIST || 'stranske,stranske-automation-bot,maintainers' }}
+  MODERATION_DEBUG_LABEL: agents:debug
+
+jobs:
+  moderate:
+    if: >-
+      ${{ github.event.issue.pull_request && github.event.comment && github.event.comment.user }}
+    name: Moderate connector-authored comments
+    runs-on: ubuntu-latest
+    outputs:
+      moderated: ${{ steps.evaluate.outputs.delete || 'false' }}
+    steps:
+      - name: Evaluate comment for moderation
+        id: evaluate
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const normaliseList = (value) =>
+              String(value || '')
+                .split(',')
+                .map((entry) => entry.trim().toLowerCase())
+                .filter(Boolean);
+
+            const deny = new Set(normaliseList(process.env.MODERATION_DENY_LIST));
+            const allow = new Set(normaliseList(process.env.MODERATION_ALLOW_LIST));
+
+            const comment = context.payload?.comment;
+            const issue = context.payload?.issue;
+            const { owner, repo } = context.repo;
+
+            if (!comment || !issue?.number) {
+              core.info('Moderation skipped: missing comment or issue context.');
+              core.setOutput('delete', 'false');
+              return;
+            }
+
+            const login = String(comment?.user?.login || '').toLowerCase();
+            if (!login) {
+              core.info('Moderation skipped: comment author login unavailable.');
+              core.setOutput('delete', 'false');
+              return;
+            }
+
+            if (allow.has(login)) {
+              core.info(`Moderation skipped: @${login} is allow-listed.`);
+              core.setOutput('delete', 'false');
+              return;
+            }
+
+            if (!deny.has(login)) {
+              core.info(`Moderation skipped: @${login} not present in deny list.`);
+              core.setOutput('delete', 'false');
+              return;
+            }
+
+            let hasDebugLabel = false;
+            try {
+              const response = await github.rest.issues.get({ owner, repo, issue_number: issue.number });
+              const labels = Array.isArray(response?.data?.labels) ? response.data.labels : [];
+              hasDebugLabel = labels.some((label) => {
+                if (!label) {
+                  return false;
+                }
+                if (typeof label === 'string') {
+                  return label.trim().toLowerCase() === process.env.MODERATION_DEBUG_LABEL;
+                }
+                return String(label?.name || '').trim().toLowerCase() === process.env.MODERATION_DEBUG_LABEL;
+              });
+            } catch (error) {
+              const message = error instanceof Error ? error.message : String(error);
+              core.warning(`Moderation label scan failed: ${message}`);
+            }
+
+            if (hasDebugLabel) {
+              core.info('Moderation skipped: debug label present on PR.');
+              core.setOutput('delete', 'false');
+              return;
+            }
+
+            // Check if this comment contains legitimate work content that should be preserved.
+            // Work summaries typically include: checklist updates, code references, commit info,
+            // task completion markers, or substantive status updates.
+            const body = String(comment?.body || '').toLowerCase();
+            const preservePatterns = [
+              /- \[x\]/,                          // Checked checkbox (task completed)
+              /#### (scope|tasks|acceptance)/,   // Checklist section headers
+              /## (summary|status|progress)/,    // Status update headers
+              /commit[s]?\s+[a-f0-9]{7,40}/,        // Commit references
+              /\bimplemented\b.{0,100}?\b(test|fix|add|update)/,  // Implementation language
+              /\bpushed\b.*\bcommit/,             // Pushed commits
+              /\bcompleted\b.*\btask/,            // Task completion
+              /```\w+/,                           // Code blocks
+              /\bfile[s]?\s+changed/,            // File change summaries
+              /\btest[s]?\s+(pass|fail|added)/,  // Test status
+            ];
+
+            const hasWorkContent = preservePatterns.some((pattern) => pattern.test(body));
+            if (hasWorkContent) {
+              core.info(`Moderation skipped: comment ${comment.id} contains work content (checklist/commits/code).`);
+              core.setOutput('delete', 'false');
+              return;
+            }
+
+            // Also preserve comments that are substantively long (likely status updates, not noise)
+            const wordCount = body.split(/\s+/).filter(Boolean).length;
+            if (wordCount > 100) {
+              core.info(`Moderation skipped: comment ${comment.id} has ${wordCount} words (likely substantive).`);
+              core.setOutput('delete', 'false');
+              return;
+            }
+
+            // Check for known noise patterns that should be deleted
+            const noisePatterns = [
+              /to use codex here/i,
+              /create a codex account/i,
+              /sign up for codex/i,
+              /codex is not available/i,
+              /unable to process/i,
+              /i cannot initiate/i,
+              /cannot start new/i,
+            ];
+
+            const isNoise = noisePatterns.some((pattern) => pattern.test(body));
+            if (!isNoise) {
+              core.info(`Moderation skipped: comment ${comment.id} does not match known noise patterns.`);
+              core.setOutput('delete', 'false');
+              return;
+            }
+
+            core.info(`Connector moderation triggered for comment ${comment.id} by @${login} (matched noise pattern).`);
+            core.setOutput('delete', 'true');
+            core.setOutput('comment_id', String(comment.id || ''));
+            core.setOutput('author', login);
+
+      - name: Ensure moderation token available
+        if: steps.evaluate.outputs.delete == 'true'
+        run: |
+          if [ -z "${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}" ]; then
+            echo "::error::Moderation requires ACTIONS_BOT_PAT (or SERVICE_BOT_PAT as fallback)." >&2
+            exit 1
+          fi
+        shell: bash
+        env:
+          ACTIONS_TOKEN: ${{ secrets.ACTIONS_BOT_PAT }}
+          SERVICE_TOKEN: ${{ secrets.SERVICE_BOT_PAT }}
+
+      - name: Delete connector comment
+        if: steps.evaluate.outputs.delete == 'true'
+        uses: actions/github-script@v7
+        env:
+          COMMENT_ID: ${{ steps.evaluate.outputs.comment_id }}
+        with:
+          github-token: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
+          script: |
+            const commentId = Number(process.env.COMMENT_ID || 0);
+            if (!Number.isFinite(commentId) || commentId <= 0) {
+              core.setFailed('Unable to delete connector comment: invalid comment id.');
+              return;
+            }
+
+            const { owner, repo } = context.repo;
+
+            await github.rest.issues.deleteComment({
+              owner,
+              repo,
+              comment_id: commentId,
+            });
+            core.info(`Deleted connector comment ${commentId}.`);
+
+      - name: Summarise moderation
+        if: steps.evaluate.outputs.delete == 'true'
+        run: |
+          comment_id="${{ steps.evaluate.outputs.comment_id }}"
+          author="${{ steps.evaluate.outputs.author }}"
+          printf 'Deleted connector comment %s authored by @%s.\n' "${comment_id}" "${author}" >>"$GITHUB_STEP_SUMMARY"

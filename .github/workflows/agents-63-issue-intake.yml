@@ -1,0 +1,1179 @@
+# See docs/ci/AGENTS_POLICY.md for guardrails and override process.
+name: Agents 63 Issue Intake
+
+on:
+  issues:
+    types:
+      - opened
+      - reopened
+      - labeled
+      - unlabeled
+  workflow_dispatch:
+    inputs:
+      intake_mode:
+        description: "Select intake target: chatgpt_sync or agent_bridge"
+        required: true
+        type: choice
+        options:
+          - chatgpt_sync
+          - agent_bridge
+      source:
+        description: "Primary: path (in repo) to topics file (preferred for large lists)"
+        required: false
+        type: string
+      raw_input:
+        description: "Secondary: small pasted topic list (may truncate around 1KB)"
+        required: false
+        type: string
+      source_url:
+        description: "Fallback: raw text URL (raw.githubusercontent.com / Gist raw)"
+        required: false
+        type: string
+      debug:
+        description: "Enable verbose debug diagnostics"
+        required: false
+        type: boolean
+        default: false
+      issue_number:
+        description: "Optional explicit issue number when running Codex bridge manually"
+        required: false
+        type: string
+      post_codex_comment:
+        description: "Auto-post '@codex start' as the actor (true/false)"
+        required: false
+        type: boolean
+        default: true
+      bridge_agent:
+        description: "Agent key passed to the reusable bridge workflow (default codex)"
+        required: false
+        type: string
+        default: "codex"
+      bridge_draft_pr:
+        description: "Open Codex bootstrap PRs as draft (true/false)"
+        required: false
+        type: boolean
+        default: false
+  workflow_call:
+    inputs:
+      intake_mode:
+        description: "Select intake target: chatgpt_sync or agent_bridge"
+        required: true
+        type: string
+      source:
+        description: "Primary: path (in repo) to topics file (preferred for large lists)"
+        required: false
+        type: string
+      raw_input:
+        description: "Secondary: small pasted topic list (may truncate around 1KB)"
+        required: false
+        type: string
+      source_url:
+        description: "Fallback: raw text URL (raw.githubusercontent.com / Gist raw)"
+        required: false
+        type: string
+      debug:
+        description: "Enable verbose debug diagnostics"
+        required: false
+        type: string
+      issue_number:
+        description: "Optional explicit issue number when running Codex bridge manually"
+        required: false
+        type: string
+      post_codex_comment:
+        description: "Auto-post '@codex start' as the actor (true/false)"
+        required: false
+        type: string
+      bridge_agent:
+        description: "Agent key passed to the reusable bridge workflow (default codex)"
+        required: false
+        type: string
+      bridge_draft_pr:
+        description: "Open Codex bootstrap PRs as draft (true/false)"
+        required: false
+        type: string
+    secrets:
+      service_bot_pat:
+        required: false
+      owner_pr_pat:
+        required: false
+
+concurrency:
+  group: issue-${{ github.event.issue.number }}-intake
+  cancel-in-progress: true
+
+jobs:
+  normalize_inputs:
+    if: >
+      github.event_name != 'issues' ||
+      contains(toJson(github.event.issue.labels.*.name), 'agent:') ||
+      contains(toJson(github.event.issue.labels.*.name), 'agents:') ||
+      (github.event.action == 'unlabeled' && (startsWith(github.event.label.name, 'agent:') || startsWith(github.event.label.name, 'agents:')))
+    name: Normalize workflow inputs
+    runs-on: ubuntu-latest
+    outputs:
+      intake_mode: ${{ steps.normalize.outputs.intake_mode }}
+      source: ${{ steps.normalize.outputs.source }}
+      raw_input: ${{ steps.normalize.outputs.raw_input }}
+      source_url: ${{ steps.normalize.outputs.source_url }}
+      debug: ${{ steps.normalize.outputs.debug }}
+      issue_number: ${{ steps.normalize.outputs.issue_number }}
+      post_codex_comment: ${{ steps.normalize.outputs.post_codex_comment }}
+      bridge_agent: ${{ steps.normalize.outputs.bridge_agent }}
+      bridge_draft_pr: ${{ steps.normalize.outputs.bridge_draft_pr }}
+    steps:
+      - name: Normalize inputs
+        id: normalize
+        env:
+          INPUT_INTAKE_MODE: ${{ inputs.intake_mode }}
+          INPUT_SOURCE: ${{ inputs.source }}
+          INPUT_REPO_FILE: ${{ inputs.repo_file }}
+          INPUT_RAW_INPUT: ${{ inputs.raw_input }}
+          INPUT_SOURCE_URL: ${{ inputs.source_url }}
+          INPUT_DEBUG: ${{ inputs.debug }}
+          INPUT_ISSUE_NUMBER: ${{ inputs.issue_number }}
+          INPUT_POST_CODEX_COMMENT: ${{ inputs.post_codex_comment }}
+          INPUT_BRIDGE_AGENT: ${{ inputs.bridge_agent }}
+          INPUT_BRIDGE_DRAFT_PR: ${{ inputs.bridge_draft_pr }}
+        run: |
+          # Handle boolean inputs from workflow_dispatch vs workflow_call
+          normalize_bool() {
+            local value="$1"
+            if [ "$value" = "true" ] || [ "$value" = "True" ] || [ "$value" = "TRUE" ]; then
+              echo "true"
+            else
+              echo "false"
+            fi
+          }
+
+          event_name="${GITHUB_EVENT_NAME}"
+
+          intake_mode="${INPUT_INTAKE_MODE:-}"
+          source_input="${INPUT_SOURCE:-}"
+          legacy_repo_file="${INPUT_REPO_FILE:-}"
+          raw_input="${INPUT_RAW_INPUT:-}"
+          source_url="${INPUT_SOURCE_URL:-}"
+          debug=$(normalize_bool "${INPUT_DEBUG:-}")
+          issue_number="${INPUT_ISSUE_NUMBER:-}"
+          post_codex_input="${INPUT_POST_CODEX_COMMENT:-}"
+          bridge_agent="${INPUT_BRIDGE_AGENT:-}"
+          draft_pr=$(normalize_bool "${INPUT_BRIDGE_DRAFT_PR:-}")
+
+          payload_issue=""
+          if command -v jq >/dev/null 2>&1; then
+            payload_issue=$(jq -r '.issue.number // empty' "$GITHUB_EVENT_PATH")
+          fi
+          if [ -z "$issue_number" ]; then
+            issue_number="$payload_issue"
+          fi
+
+          if [ -z "$bridge_agent" ]; then
+            bridge_agent="codex"
+          fi
+
+          if command -v jq >/dev/null 2>&1 && [ -f "$GITHUB_EVENT_PATH" ]; then
+            event_agent=$(jq -r '
+              [
+                .issue.labels[]?.name
+                | select(test("^agents?:[A-Za-z0-9-]+$"))
+                | sub("^agents?:(?<key>[A-Za-z0-9-]+)$"; "\(.key)")
+                | select(. != "keepalive")
+              ][0] // empty
+            ' "$GITHUB_EVENT_PATH" 2>/dev/null || echo '')
+            if [ -n "$event_agent" ]; then
+              bridge_agent="$event_agent"
+            fi
+          fi
+          bridge_agent="${bridge_agent,,}"
+
+          if [ -z "$source_input" ] && [ -n "$legacy_repo_file" ]; then
+            source_input="$legacy_repo_file"
+          fi
+
+          if [ -z "$intake_mode" ]; then
+            if [ "$event_name" = "issues" ]; then
+              intake_mode="agent_bridge"
+            else
+              intake_mode="chatgpt_sync"
+            fi
+          fi
+
+          if [ -z "$post_codex_input" ]; then
+            if [ "$intake_mode" = "agent_bridge" ]; then
+              post_codex_input="true"
+            else
+              post_codex_input="false"
+            fi
+          fi
+          post_codex=$(normalize_bool "$post_codex_input")
+
+          {
+            echo "intake_mode=$intake_mode"
+            echo "source=$source_input"
+            echo "raw_input=$raw_input"
+            echo "source_url=$source_url"
+            echo "debug=$debug"
+            echo "issue_number=$issue_number"
+            echo "post_codex_comment=$post_codex"
+            echo "bridge_agent=$bridge_agent"
+            echo "bridge_draft_pr=$draft_pr"
+          } >> "$GITHUB_OUTPUT"
+
+  chatgpt_sync:
+    needs: normalize_inputs
+    if: needs.normalize_inputs.outputs.intake_mode == 'chatgpt_sync'
+    name: Normalize ChatGPT topics into GitHub issues
+    runs-on: ubuntu-latest
+    concurrency:
+      # Queue overlapping runs on the same ref so a prior sync can finish cleanly.
+      group: agent-sync-${{ github.ref }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      issues: write # Only elevated when a sync actually mutates issues; early exits remain read-only.
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Echo received inputs
+        run: |
+          echo "Inputs JSON:" '${{ toJson(needs.normalize_inputs.outputs) }}'
+          echo "Selected ref: ${GITHUB_REF}"
+
+      - name: Prepare topic source
+        env:
+          RAW_INPUT_JSON: ${{ toJson(needs.normalize_inputs.outputs.raw_input) }}
+          SOURCE_URL: ${{ needs.normalize_inputs.outputs.source_url }}
+          SOURCE_PATH: ${{ needs.normalize_inputs.outputs.source }}
+          DEBUG_FLAG: ${{ needs.normalize_inputs.outputs.debug }}
+        run: |
+          set -euo pipefail
+          echo "Ref: ${GITHUB_REF} Commit: ${GITHUB_SHA}" >&2
+          echo "Debug input (raw): '${DEBUG_FLAG}'" >&2
+          # Precedence: source > raw_input > source_url
+          if [ -n "${SOURCE_PATH}" ]; then
+            if [ -f "${SOURCE_PATH}" ]; then
+              python .github/scripts/decode_raw_input.py --passthrough --in "${SOURCE_PATH}" --source repo_file
+            else
+              echo "::error::source '${SOURCE_PATH}' not found in repository." >&2; exit 1
+            fi
+          elif [ -n "${RAW_INPUT_JSON}" ] && [ "${RAW_INPUT_JSON}" != "null" ]; then
+            printf '%s' "${RAW_INPUT_JSON}" > raw_input.json
+            python .github/scripts/decode_raw_input.py --source raw_input || python .github/scripts/decode_raw_input.py
+          elif [ -n "${SOURCE_URL}" ]; then
+            tmp_dl=$(mktemp)
+            if ! curl -fsSL "${SOURCE_URL}" -o "$tmp_dl"; then
+              echo "::error::Failed to download content from ${SOURCE_URL}" >&2; exit 1
+            fi
+            python .github/scripts/decode_raw_input.py --passthrough --in "$tmp_dl" --source source_url
+          else
+            echo "::error::Provide one of source, raw_input, or source_url when dispatching this workflow." >&2; exit 1
+          fi
+          if ! [ -s input.txt ]; then
+            echo "::error::The provided input was empty." >&2
+            exit 1
+          fi
+          if [ -f raw_input.json ]; then
+            size=$(wc -c < raw_input.json || echo 0)
+            if [ "$size" -ge 1024 ]; then
+              echo "::warning::raw_input size is $size bytes (possible truncation). Prefer source or source_url." >&2
+            fi
+          fi
+
+      - name: Debug artifacts (raw/decoded)
+        if: ${{ needs.normalize_inputs.outputs.debug == 'true' }}
+        run: |
+          echo '--- DEBUG: file inventory ---'
+          # shellcheck disable=SC2012
+          ls -al . | sed 's/^/  /'
+          if [ -f raw_input.json ]; then
+            echo "--- DEBUG: raw_input.json (size) ---"; wc -c raw_input.json
+            echo '--- DEBUG: raw_input.json (first 240 chars) ---'
+            head -c 240 raw_input.json | sed 's/[[:cntrl:]]/./g'; echo
+            echo '--- DEBUG: raw_input.json (hexdump first 256 bytes) ---'
+            head -c 256 raw_input.json | hexdump -C || true
+          else
+            echo 'raw_input.json missing'
+          fi
+          if [ -f input.txt ]; then
+            echo "--- DEBUG: input.txt (size + line count) ---"; wc -cl input.txt
+            echo '--- DEBUG: input.txt (first 240 chars) ---'
+            head -c 240 input.txt | sed 's/[[:cntrl:]]/./g'; echo
+          else
+            echo 'input.txt missing'
+          fi
+
+      - name: Upload debug artifacts
+        if: ${{ always() && needs.normalize_inputs.outputs.debug == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: chatgpt-sync-debug
+          path: |
+            raw_input.json
+            input.txt
+            topics.json
+            decode_debug.json
+          if-no-files-found: ignore
+
+      - name: Parse topics
+        env:
+          ALLOW_SINGLE_TOPIC: '1'
+        run: |
+          set -euo pipefail
+          echo '--- INPUT PREVIEW (first 200 chars) ---'
+          head -c 200 input.txt 2>/dev/null | sed 's/[[:cntrl:]]/./g' || true
+          printf '\n--------------------------------------\n'
+          if python .github/scripts/parse_chatgpt_topics.py; then
+            echo 'Parser succeeded.'
+          else
+            ec=$?
+            case "$ec" in
+              2) echo '::error::Exit 2 (empty after trimming). Ensure raw_input or source_url contains non-whitespace content.' ;;
+              3) echo '::error::Exit 3 (no enumerated topics). Provide numbered lines.' ;;
+              4) echo '::error::Exit 4 (parsed zero topics unexpectedly).' ;;
+              *) echo "::error::Parser failed with exit code $ec." ;;
+            esac
+            # Fallback: if enumerators detected by decoder (decode_debug.json) and code==3, attempt naive split
+            if [ "$ec" -eq 3 ] && [ -f decode_debug.json ]; then
+              enum_count=$(jq '.rebuilt_enum_count // 0' decode_debug.json 2>/dev/null || echo 0)
+              if [ "$enum_count" -gt 0 ]; then
+                echo '::warning::Structured parser failed; invoking fallback enumerator splitter.'
+                python .github/scripts/fallback_split.py || true
+                if [ -f topics.json ]; then
+                  tmp=$(mktemp)
+                  if jq '. + {fallback_used: true}' decode_debug.json > "$tmp"; then
+                    mv "$tmp" decode_debug.json
+                  else
+                    rm -f "$tmp"
+                  fi
+                  echo 'Fallback succeeded.'
+                  ec=0
+                fi
+              fi
+            fi
+            if [ "$ec" -ne 0 ]; then
+              exit $ec
+            fi
+          fi
+          echo 'Topics length:'
+          if [ -f topics.json ]; then jq 'length' topics.json || true; fi
+          if [ -f decode_debug.json ] && [ -f topics.json ]; then
+            topics_count=$(jq 'length' topics.json 2>/dev/null || echo 0)
+            first_title=$(jq -r '.[0].title // ""' topics.json 2>/dev/null || echo "")
+            tmp=$(mktemp)
+            if jq --arg tc "$topics_count" --arg ft "$first_title" '. + {parsed_topics: ($tc|tonumber), first_title: $ft}' decode_debug.json > "$tmp"; then
+              mv "$tmp" decode_debug.json
+            else
+              rm -f "$tmp"
+            fi
+          fi
+
+      - name: Sync issues
+        uses: actions/github-script@v7
+        env:
+          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        with:
+          script: |
+            const fs = require('fs');
+            const crypto = require('crypto');
+            const defaultOutputs = {
+              created_issues: 0,
+              updated_issues: 0,
+              reopened_issues: 0,
+              skipped_issues: 0,
+              duplicate_topics: 0,
+              invalid_topics: 0,
+              mutations_performed: 0,
+              topics_total: 0,
+              topics_with_agent_labels: 0,
+              topics_after_dedup: 0,
+              topics_processed: 0,
+              topics_skipped_for_other_agents: 0,
+              topics_skipped_without_agent_labels: 0,
+              agent_labels_removed: 0,
+              assigned_elsewhere: 0,
+            };
+            const metrics = {
+              topics_total: 0,
+              topics_with_agent_labels: 0,
+              topics_after_dedup: 0,
+              topics_processed: 0,
+              topics_skipped_for_other_agents: 0,
+              topics_skipped_without_agent_labels: 0,
+              agent_labels_removed: 0,
+              duplicate_topics: 0,
+              invalid_topics: 0,
+              assigned_elsewhere: 0,
+              mutations_performed: 0,
+            };
+            const setOutputs = (overrides = {}) => {
+              const values = { ...defaultOutputs, ...metrics, ...overrides };
+              for (const [key, value] of Object.entries(values)) {
+                core.setOutput(key, String(value));
+              }
+            };
+            const setZeroOutputs = () => {
+              setOutputs();
+            };
+            const publishSummary = async ({
+              createdCount = 0,
+              updatedCount = 0,
+              reopenedCount = 0,
+              skippedCount = 0,
+              duplicateCount = 0,
+              invalidTopicCount = 0,
+              assignedElsewhereCount = 0,
+              mutationCount,
+              notice,
+            } = {}) => {
+              const mutationsPerformed =
+                typeof mutationCount === 'number' ? mutationCount : createdCount + updatedCount;
+              const summaryLines = [
+                `Topics provided: ${metrics.topics_total}`,
+                `Agent-labeled topics: ${metrics.topics_with_agent_labels}`,
+                `Agent labels stripped: ${metrics.agent_labels_removed}`,
+                `Deduplicated topics: ${metrics.topics_after_dedup}`,
+                `Topics processed: ${metrics.topics_processed}`,
+                `Topics skipped (conflicting agent labels): ${metrics.topics_skipped_for_other_agents}`,
+                `Topics skipped (missing agent labels): ${metrics.topics_skipped_without_agent_labels}`,
+                `Created issues: ${createdCount}`,
+                `Updated issues: ${updatedCount}`,
+                `Reopened issues: ${reopenedCount}`,
+                `Skipped (no changes): ${skippedCount}`,
+                `Skipped (assigned to other agents): ${assignedElsewhereCount}`,
+                `Duplicate topics skipped: ${duplicateCount}`,
+                `Invalid topics skipped: ${invalidTopicCount}`,
+                `Mutations performed: ${mutationsPerformed}`,
+              ];
+              const summaryText = summaryLines.join('\n');
+              if (notice) core.notice(notice);
+              core.notice(summaryText);
+              core.summary.clear();
+              core.summary.addHeading('Agents issue sync results');
+              for (const line of summaryLines) {
+                core.summary.addRaw(`- ${line}\n`);
+              }
+              await core.summary.write();
+            };
+            if (!fs.existsSync('topics.json')) {
+              setZeroOutputs();
+              await publishSummary({
+                notice: 'topics.json not found – assuming parser short-circuited. Exiting without mutations.',
+              });
+              return;
+            }
+            const rawTopics = JSON.parse(fs.readFileSync('topics.json', 'utf8'));
+            metrics.topics_total = Array.isArray(rawTopics) ? rawTopics.length : 0;
+            if (!Array.isArray(rawTopics) || rawTopics.length === 0) {
+              setZeroOutputs();
+              await publishSummary({ notice: 'No topics provided. Exiting without mutations.' });
+              return;
+            }
+            const normalizeLabel = (label) => label.trim().toLowerCase();
+            const agentPrefixes = ['agent:', 'agents:'];
+            const inviteSuffix = '-invite';
+            const analyzeAgentLabels = (rawLabels) => {
+              const entries = new Map();
+              for (const raw of rawLabels || []) {
+                if (typeof raw !== 'string') continue;
+                const trimmed = raw.trim();
+                if (!trimmed) continue;
+                const lower = trimmed.toLowerCase();
+                const prefix = agentPrefixes.find((candidate) => lower.startsWith(candidate));
+                if (!prefix) continue;
+                let suffix = lower.slice(prefix.length).trim();
+                if (!suffix || suffix === 'keepalive') continue;
+                let base = suffix;
+                let invite = false;
+                if (base.endsWith(inviteSuffix)) {
+                  base = base.slice(0, -inviteSuffix.length).trim();
+                  if (!base) continue;
+                  invite = true;
+                }
+                const canonical = `agent:${base}`;
+                if (!entries.has(canonical)) {
+                  entries.set(canonical, {
+                    base,
+                    canonical,
+                    baseLabels: new Set(),
+                    inviteLabels: new Set(),
+                    rawLabels: new Set(),
+                  });
+                }
+                const entry = entries.get(canonical);
+                entry.rawLabels.add(trimmed);
+                if (invite) {
+                  entry.inviteLabels.add(trimmed);
+                } else {
+                  entry.baseLabels.add(trimmed);
+                }
+              }
+              return {
+                entries: Array.from(entries.values()).map((entry) => ({
+                  base: entry.base,
+                  canonical: entry.canonical,
+                  baseLabels: Array.from(entry.baseLabels),
+                  inviteLabels: Array.from(entry.inviteLabels),
+                  rawLabels: Array.from(entry.rawLabels),
+                })),
+              };
+            };
+            const missingAgentTopics = [];
+            const conflictingAgentTopics = [];
+            const eligibleTopics = [];
+            let topicsWithAgentLabels = 0;
+            let agentLabelsStripped = 0;
+            for (const topic of rawTopics) {
+              const labels = Array.isArray(topic.labels) ? topic.labels : [];
+              const analysis = analyzeAgentLabels(labels);
+              const entriesWithBase = analysis.entries.filter((entry) => entry.baseLabels.length > 0);
+              if (entriesWithBase.length > 0) {
+                topicsWithAgentLabels += 1;
+              }
+              // Strip all agent:* labels in chatgpt_sync mode - they will be applied manually from Issues tab
+              if (!Array.isArray(topic.labels)) {
+                topic.labels = [];
+              }
+              const originalLength = topic.labels.length;
+              topic.labels = topic.labels.filter((label) => {
+                const lower = normalizeLabel(label);
+                return !agentPrefixes.some((prefix) => lower.startsWith(prefix));
+              });
+              agentLabelsStripped += (originalLength - topic.labels.length);
+              // All topics are eligible - no validation required
+              eligibleTopics.push(topic);
+            }
+            metrics.topics_with_agent_labels = topicsWithAgentLabels;
+            metrics.agent_labels_removed = agentLabelsStripped;
+            metrics.topics_skipped_without_agent_labels = 0;
+            metrics.topics_skipped_for_other_agents = 0;
+            if (agentLabelsStripped > 0) {
+              core.notice(`Stripped ${agentLabelsStripped} agent:* label${agentLabelsStripped === 1 ? '' : 's'} from topics. Apply agent labels manually from the Issues tab to trigger agent workflows.`);
+            }
+            const topics = eligibleTopics;
+            if (!topics.length) {
+              setZeroOutputs();
+              await publishSummary({
+                notice: 'No topics were eligible after filtering. Exiting without changes.',
+              });
+              return;
+            }
+            const seenTopics = new Set();
+            const deduped = [];
+            let duplicateCount = 0;
+            for (const topic of topics) {
+              const guidKey = topic.guid ? `guid:${topic.guid.trim().toLowerCase()}` : null;
+              const titleKey = topic.title ? `title:${topic.title.trim().toLowerCase()}` : null;
+              const key = guidKey || titleKey;
+              if (key && seenTopics.has(key)) {
+                const preview = topic?.title ? ` (${topic.title.slice(0, 80)})` : '';
+                core.info(`Skipping duplicate topic${preview}.`);
+                duplicateCount += 1;
+                metrics.duplicate_topics = duplicateCount;
+                continue;
+              }
+              if (key) {
+                seenTopics.add(key);
+              }
+              deduped.push(topic);
+            }
+            metrics.topics_after_dedup = deduped.length;
+            metrics.duplicate_topics = duplicateCount;
+            if (!deduped.length) {
+              setOutputs();
+              await publishSummary({
+                notice: `All topics were filtered as duplicates (${duplicateCount}). Exiting without changes.`,
+                duplicateCount,
+              });
+              return;
+            }
+            const { owner, repo } = context.repo;
+            const normalize = (name) => name.toLowerCase().replace(/[^a-z0-9]+/g, '');
+            const escapeSearch = (value) => value.replace(/["\\]/g, (char) => `\\${char}`);
+            const canonicalizeNewLabel = (name) => {
+              let cleaned = name.trim().toLowerCase();
+              cleaned = cleaned.replace(/[_\u2013\u2014]/g, ' ');
+              cleaned = cleaned.replace(/[^a-z0-9: ]+/g, ' ').replace(/\s+/g, ' ').trim();
+              if (!cleaned) return name.trim();
+              if (cleaned.includes(':')) {
+                return cleaned
+                  .split(':')
+                  .map((s) => s.trim().replace(/\s+/g, '-'))
+                  .join(':');
+              }
+              const parts = cleaned.split(' ');
+              if (parts.length > 1) return `${parts[0]}:${parts.slice(1).join('-')}`;
+              return cleaned.replace(/\s+/g, '-');
+            };
+            const levenshtein = (a, b) => {
+              const dp = Array.from({ length: a.length + 1 }, () => new Array(b.length + 1).fill(0));
+              for (let i = 0; i <= a.length; i++) dp[i][0] = i;
+              for (let j = 0; j <= b.length; j++) dp[0][j] = j;
+              for (let i = 1; i <= a.length; i++)
+                for (let j = 1; j <= b.length; j++) {
+                  const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+                  dp[i][j] = Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + cost);
+                }
+              return dp[a.length][b.length];
+            };
+            const labelsCache = await github.paginate(
+              github.rest.issues.listLabelsForRepo,
+              { owner, repo, per_page: 100 },
+            );
+            const usedColors = new Set(labelsCache.map((l) => l.color.toLowerCase()));
+            const findMatchingLabel = (input) => {
+              const candidates = [input];
+              if (!input.includes(':')) candidates.push(canonicalizeNewLabel(input));
+              for (const cand of candidates) {
+                const norm = normalize(cand);
+                if (!norm) continue;
+                for (const label of labelsCache) {
+                  if (normalize(label.name) === norm) return label.name;
+                }
+                const partial = labelsCache
+                  .map((label) => ({ label, norm: normalize(label.name) }))
+                  .filter((o) => o.norm && (o.norm.includes(norm) || norm.includes(o.norm)));
+                if (partial.length === 1) return partial[0].label.name;
+                if (partial.length > 1) {
+                  let best = null;
+                  let bestScore = Infinity;
+                  for (const m of partial) {
+                    const d = levenshtein(m.norm, norm);
+                    const r = d / Math.max(m.norm.length, norm.length);
+                    if (r < bestScore) {
+                      best = m.label.name;
+                      bestScore = r;
+                    }
+                  }
+                  if (best !== null && bestScore <= 0.35) return best;
+                }
+              }
+              return null;
+            };
+            const generateColor = (name) => {
+              const base = crypto.createHash('md5').update(name.toLowerCase()).digest('hex').slice(0, 6);
+              if (!usedColors.has(base)) {
+                usedColors.add(base);
+                return base;
+              }
+              let c = 1;
+              while (c < 4096) {
+                const val = (parseInt(base, 16) + c * 0x111111) % 0xffffff;
+                const cand = val.toString(16).padStart(6, '0');
+                if (!usedColors.has(cand)) {
+                  usedColors.add(cand);
+                  return cand;
+                }
+                c++;
+              }
+              usedColors.add('777777');
+              return '777777';
+            };
+            const labelResolutionCache = new Map();
+            const memoizeLabelResolution = (keys, value) => {
+              for (const key of keys) {
+                if (!key) continue;
+                labelResolutionCache.set(key.toLowerCase(), value);
+              }
+            };
+            const classifyTopicLabels = (rawLabels) => {
+              const details = [];
+              const pendingCreates = new Map();
+              const skipped = [];
+              const ignoredAgentLabels = [];
+              for (const raw of rawLabels || []) {
+                if (typeof raw !== 'string') continue;
+                const trimmed = raw.trim();
+                if (!trimmed) continue;
+                const normalized = trimmed.toLowerCase();
+                if (normalized.startsWith('agent:') || normalized.startsWith('agents:')) {
+                  ignoredAgentLabels.push(trimmed);
+                  memoizeLabelResolution([trimmed], null);
+                  continue;
+                }
+                const cacheKey = trimmed.toLowerCase();
+                if (labelResolutionCache.has(cacheKey)) {
+                  const cached = labelResolutionCache.get(cacheKey);
+                  if (cached) {
+                    details.push({ name: cached, requiresCreation: false });
+                  } else {
+                    skipped.push(trimmed);
+                  }
+                  continue;
+                }
+                const existing = findMatchingLabel(trimmed);
+                if (existing) {
+                  memoizeLabelResolution([trimmed, existing], existing);
+                  details.push({ name: existing, requiresCreation: false });
+                  continue;
+                }
+                const newName = canonicalizeNewLabel(trimmed);
+                const canonicalKey = newName.toLowerCase();
+                if (labelResolutionCache.has(canonicalKey)) {
+                  const cached = labelResolutionCache.get(canonicalKey);
+                  if (cached) {
+                    memoizeLabelResolution([trimmed, newName, cached], cached);
+                    details.push({ name: cached, requiresCreation: false });
+                  } else {
+                    skipped.push(trimmed);
+                  }
+                  continue;
+                }
+                const already = findMatchingLabel(newName);
+                if (already) {
+                  memoizeLabelResolution([trimmed, newName, already], already);
+                  details.push({ name: already, requiresCreation: false });
+                  continue;
+                }
+                if (!pendingCreates.has(canonicalKey)) {
+                  pendingCreates.set(canonicalKey, {
+                    name: newName,
+                    source: trimmed,
+                    keys: [trimmed, newName],
+                  });
+                } else {
+                  pendingCreates.get(canonicalKey).keys.push(trimmed);
+                }
+                details.push({ name: newName, requiresCreation: true, pendingKey: canonicalKey });
+              }
+              return { details, pendingCreates, skipped, ignoredAgentLabels };
+            };
+            const ensurePendingLabelCreates = async (pendingCreates) => {
+              const successful = new Set();
+              for (const pending of pendingCreates.values()) {
+                const existing = findMatchingLabel(pending.name);
+                if (existing) {
+                  memoizeLabelResolution([...pending.keys, existing], existing);
+                  successful.add(existing.toLowerCase());
+                  continue;
+                }
+                const color = generateColor(pending.name);
+                try {
+                  const created = await github.rest.issues.createLabel({
+                    owner,
+                    repo,
+                    name: pending.name,
+                    color,
+                    description: `Synthesized from ChatGPT import for ${pending.source}`,
+                  });
+                  labelsCache.push(created.data);
+                  const resolvedName = created.data.name || pending.name;
+                  memoizeLabelResolution([...pending.keys, resolvedName], resolvedName);
+                  successful.add(resolvedName.toLowerCase());
+                } catch (e) {
+                  core.warning(`Failed to create label for "${pending.source}": ${e.message}`);
+                  memoizeLabelResolution(pending.keys, null);
+                }
+              }
+              return successful;
+            };
+            const formatTasks = (text) => {
+              if (!text || !text.trim()) return '_Not provided._';
+              const lines = text.split('\n');
+              const out = [];
+              let inFence = false;
+              for (const raw of lines) {
+                const tr = raw.trim();
+                if (tr.startsWith('```')) {
+                  inFence = !inFence;
+                  out.push(raw);
+                  continue;
+                }
+                if (!inFence && /^[-*]\s+/.test(tr)) {
+                  out.push(raw.replace(/^\s*[-*]\s+/, '- [ ] '));
+                } else {
+                  out.push(raw);
+                }
+              }
+              return out.join('\n').trim() || '_Not provided._';
+            };
+            const ensureContent = (t) => (t && t.trim() ? t.trim() : '_Not provided._');
+            const buildBody = (topic) => {
+              const lines = [];
+              const guidText = topic.guid && String(topic.guid).trim() ? String(topic.guid).trim() : '_Not provided._';
+              lines.push(`Topic GUID: ${guidText}`, '', '## Why');
+              const why =
+                (topic.sections?.why && topic.sections.why.trim()) ||
+                topic.extras?.trim() ||
+                '_Not provided._';
+              lines.push(why, '', '## Tasks', formatTasks(topic.sections?.tasks || ''));
+              lines.push('', '## Acceptance criteria', ensureContent(topic.sections?.acceptance_criteria || ''));
+              lines.push('', '## Implementation notes', ensureContent(topic.sections?.implementation_notes || ''));
+              lines.push('', '---', `Synced by [workflow run](${process.env.RUN_URL}).`);
+              return lines.join('\n');
+            };
+            const normalizeSyncFooter = (text) => {
+              if (!text) return '';
+              return text
+                .trim()
+                .replace(
+                  /Synced by \[workflow run\]\([^)]+\)\./gi,
+                  'Synced by [workflow run](RUN_URL_PLACEHOLDER).',
+                );
+            };
+            const labelsEqual = (a, b) => {
+              const clean = (list) =>
+                Array.from(new Set((list || []).map((l) => l.trim()).filter(Boolean))).sort((x, y) =>
+                  x.localeCompare(y, undefined, { sensitivity: 'accent' }),
+                );
+              const left = clean(a);
+              const right = clean(b);
+              if (left.length !== right.length) return false;
+              for (let i = 0; i < left.length; i += 1) {
+                if (left[i].toLowerCase() !== right[i].toLowerCase()) {
+                  return false;
+                }
+              }
+              return true;
+            };
+            let createdCount = 0;
+            let updatedCount = 0;
+            let reopenedCount = 0;
+            let skippedCount = 0;
+            let invalidTopicCount = 0;
+            let assignedElsewhereCount = 0;
+            for (const topic of deduped) {
+              try {
+                const rawTitle = typeof topic.title === 'string' ? topic.title : '';
+                const title = rawTitle.trim();
+                if (!title) {
+                  invalidTopicCount += 1;
+                  metrics.invalid_topics = invalidTopicCount;
+                  core.warning('Skipping topic without a valid title.');
+                  continue;
+                }
+                metrics.topics_processed += 1;
+                const {
+                  details: labelDetails,
+                  pendingCreates,
+                  skipped,
+                  ignoredAgentLabels,
+                } = classifyTopicLabels(topic.labels || []);
+                for (const skippedLabel of skipped) {
+                  core.warning(`Skipped label "${skippedLabel}" for ${title}.`);
+                }
+                if (ignoredAgentLabels.length) {
+                  metrics.agent_labels_removed += ignoredAgentLabels.length;
+                  const list = ignoredAgentLabels.join(', ');
+                  core.info(
+                    `Removed agent labels [${list}] from ${title}; manual agent selection is required post-sync.`,
+                  );
+                }
+                const uniqueDesired = Array.from(
+                  new Set(labelDetails.map((detail) => detail.name).filter((name) => typeof name === 'string' && name)),
+                );
+                const body = buildBody(topic);
+                const guid = topic.guid && String(topic.guid).trim() ? String(topic.guid).trim() : '';
+                let issueNumber = null;
+                if (guid) {
+                  const escapedGuid = escapeSearch(guid);
+                  const searchOpen = await github.rest.search.issuesAndPullRequests({
+                    q: `repo:${owner}/${repo} "${escapedGuid}" in:body is:issue is:open`,
+                    per_page: 1,
+                  });
+                  if (searchOpen.data.items.length) {
+                    issueNumber = searchOpen.data.items[0].number;
+                  } else {
+                    const searchAny = await github.rest.search.issuesAndPullRequests({
+                      q: `repo:${owner}/${repo} "${escapedGuid}" in:body is:issue`,
+                      per_page: 1,
+                    });
+                    if (searchAny.data.items.length) {
+                      issueNumber = searchAny.data.items[0].number;
+                    }
+                  }
+                }
+                if (!issueNumber && title && title.trim()) {
+                  const quotedTitle = escapeSearch(title.trim());
+                  const searchTitleOpen = await github.rest.search.issuesAndPullRequests({
+                    q: `repo:${owner}/${repo} "${quotedTitle}" in:title is:issue is:open`,
+                    per_page: 1,
+                  });
+                  if (searchTitleOpen.data.items.length) {
+                    issueNumber = searchTitleOpen.data.items[0].number;
+                  } else {
+                    const searchTitleAny = await github.rest.search.issuesAndPullRequests({
+                      q: `repo:${owner}/${repo} "${quotedTitle}" in:title is:issue`,
+                      per_page: 1,
+                    });
+                    if (searchTitleAny.data.items.length) {
+                      issueNumber = searchTitleAny.data.items[0].number;
+                    }
+                  }
+                }
+                if (issueNumber) {
+                  const issueData = await github.rest.issues.get({ owner, repo, issue_number: issueNumber });
+                  const current = (issueData.data.labels || [])
+                    .map((l) => l.name)
+                    .filter(Boolean);
+                  let final = Array.from(new Set([...current, ...uniqueDesired]));
+                  const needsStateChange = issueData.data.state === 'closed';
+                  const existingTitle = (issueData.data.title || '').trim();
+                  const needsTitle = existingTitle !== title;
+                  const existingBody = (issueData.data.body || '').trim();
+                  const normalizedExistingBody = normalizeSyncFooter(existingBody);
+                  const normalizedDesiredBody = normalizeSyncFooter(body);
+                  const needsBody = normalizedExistingBody !== normalizedDesiredBody;
+                  if (!needsBody && existingBody !== body.trim()) {
+                    core.info(
+                      `Preserving existing sync footer for issue #${issueNumber} to avoid unnecessary run URL churn.`,
+                    );
+                  }
+                  const normalizeAgentLabel = (labelName) => {
+                    if (!labelName) return null;
+                    const trimmed = labelName.trim();
+                    if (!trimmed.toLowerCase().startsWith('agent:')) return null;
+                    return trimmed.toLowerCase();
+                  };
+                  const currentAgentLabels = current
+                    .map((label) => normalizeAgentLabel(label))
+                    .filter((label) => label !== null);
+                  const hasNonCodexAssignment = currentAgentLabels.some(
+                    (label) => label !== 'agent:codex',
+                  );
+                  if (hasNonCodexAssignment) {
+                    core.info(
+                      `Skipping issue #${issueNumber} because it already has an agent assignment (${currentAgentLabels.join(
+                        ', ',
+                      )}).`,
+                    );
+                    skippedCount += 1;
+                    assignedElsewhereCount += 1;
+                    metrics.assigned_elsewhere = assignedElsewhereCount;
+                    continue;
+                  }
+                  const needsLabels = !labelsEqual(current, final);
+                  if (!(needsStateChange || needsTitle || needsBody || needsLabels)) {
+                    core.info(`No changes detected for issue #${issueNumber}; skipping update.`);
+                    skippedCount += 1;
+                    continue;
+                  }
+                  let ensuredLabels = uniqueDesired;
+                  if (pendingCreates.size && (needsLabels || !labelsEqual(current, uniqueDesired))) {
+                    const createdLabels = await ensurePendingLabelCreates(pendingCreates);
+                    ensuredLabels = Array.from(
+                      new Set(
+                        labelDetails
+                          .filter((detail) => {
+                            if (!detail.name) return false;
+                            if (!detail.requiresCreation) return true;
+                            return createdLabels.has(detail.name.toLowerCase());
+                          })
+                          .map((detail) => detail.name),
+                      ),
+                    );
+                    final = Array.from(new Set([...current, ...ensuredLabels]));
+                  }
+                  const finalNeedsLabels = !labelsEqual(current, final);
+                  if (!(needsStateChange || needsTitle || needsBody || finalNeedsLabels)) {
+                    core.info(
+                      `No changes detected for issue #${issueNumber} after label reconciliation; skipping update.`,
+                    );
+                    skippedCount += 1;
+                    continue;
+                  }
+                  const bodyForUpdate = needsBody ? body : issueData.data.body;
+                  const payload = {
+                    owner,
+                    repo,
+                    issue_number: issueNumber,
+                    title,
+                    labels: final,
+                  };
+                  if (bodyForUpdate !== undefined && bodyForUpdate !== null) {
+                    payload.body = bodyForUpdate;
+                  }
+                  if (needsStateChange) payload.state = 'open';
+                  await github.rest.issues.update(payload);
+                  updatedCount += 1;
+                  if (needsStateChange) {
+                    reopenedCount += 1;
+                  }
+                  if (needsTitle || needsBody || needsLabels || needsStateChange) {
+                    try {
+                      await github.rest.issues.createComment({
+                        owner,
+                        repo,
+                        issue_number: issueNumber,
+                        body: `Updated by [workflow run](${process.env.RUN_URL}).`,
+                      });
+                    } catch (e) {
+                      core.warning(`Failed to comment on issue #${issueNumber}: ${e.message}`);
+                    }
+                  }
+                } else {
+                  let labelsForCreation = uniqueDesired;
+                  if (pendingCreates.size) {
+                    const createdLabels = await ensurePendingLabelCreates(pendingCreates);
+                    labelsForCreation = Array.from(
+                      new Set(
+                        labelDetails
+                          .filter((detail) => {
+                            if (!detail.name) return false;
+                            if (!detail.requiresCreation) {
+                              return true;
+                            }
+                            return createdLabels.has(detail.name.toLowerCase());
+                          })
+                          .map((detail) => detail.name),
+                      ),
+                    );
+                  }
+                  const created = await github.rest.issues.create({
+                    owner,
+                    repo,
+                    title,
+                    body,
+                    labels: labelsForCreation,
+                  });
+                  core.info(`Created issue #${created.data.number} for ${title}.`);
+                  createdCount += 1;
+                }
+              } catch (e) {
+                core.warning(`Failed to process topic "${topic.title}": ${e.message}`);
+              }
+            }
+            let summaryNotice;
+            if (!metrics.topics_processed && invalidTopicCount) {
+              const invalidSummary =
+                metrics.topics_after_dedup > 0
+                  ? `All ${metrics.topics_after_dedup} topics were skipped because they lacked valid titles.`
+                  : 'All topics were skipped because they lacked valid titles.';
+              summaryNotice = invalidSummary;
+            }
+            if (
+              !summaryNotice &&
+              assignedElsewhereCount &&
+              metrics.topics_processed > 0 &&
+              assignedElsewhereCount === metrics.topics_processed &&
+              !createdCount &&
+              !updatedCount
+            ) {
+              const plural = assignedElsewhereCount === 1 ? 'topic was' : 'topics were';
+              summaryNotice = `All ${assignedElsewhereCount} processed ${plural} already assigned to other agents. No mutations performed.`;
+            }
+            const mutationCount = createdCount + updatedCount;
+            metrics.duplicate_topics = duplicateCount;
+            metrics.invalid_topics = invalidTopicCount;
+            metrics.assigned_elsewhere = assignedElsewhereCount;
+            metrics.mutations_performed = mutationCount;
+            setOutputs({
+              created_issues: createdCount,
+              updated_issues: updatedCount,
+              reopened_issues: reopenedCount,
+              skipped_issues: skippedCount,
+            });
+            await publishSummary({
+              createdCount,
+              updatedCount,
+              reopenedCount,
+              skippedCount,
+              duplicateCount,
+              invalidTopicCount,
+              assignedElsewhereCount,
+              mutationCount,
+              notice: summaryNotice,
+            });
+            if (!createdCount && !updatedCount && !reopenedCount) {
+              if (!summaryNotice) {
+                core.notice('No issues required modifications; run completed without mutations.');
+              }
+            }
+
+  bridge_preflight:
+    needs: normalize_inputs
+    if: needs.normalize_inputs.outputs.intake_mode == 'agent_bridge'
+    name: Validate Codex issue labels
+    runs-on: ubuntu-latest
+    permissions:
+      issues: read
+      contents: read
+    outputs:
+      issue_number: ${{ steps.inspect.outputs.issue_number }}
+      agent_key: ${{ steps.inspect.outputs.agent_key }}
+    steps:
+      - name: Inspect label contract
+        id: inspect
+        env:
+          INPUT_ISSUE: ${{ needs.normalize_inputs.outputs.issue_number }}
+          DEFAULT_AGENT: ${{ needs.normalize_inputs.outputs.bridge_agent }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const manual = (process.env.INPUT_ISSUE || '').trim();
+            const defaultAgent = (process.env.DEFAULT_AGENT || 'codex').trim() || 'codex';
+            const eventIssue = (context.payload.issue && context.payload.issue.number) ? String(context.payload.issue.number) : '';
+            const issueNumber = manual || eventIssue;
+            if (!issueNumber) {
+              core.info('No issue number resolved; skipping label enforcement.');
+              core.setOutput('issue_number', '');
+              core.setOutput('agent_key', defaultAgent);
+              return;
+            }
+            const { owner, repo } = context.repo;
+            const num = Number(issueNumber);
+
+            // Use event payload labels if available (avoids API call, prevents rate limiting)
+            let labels;
+            const payloadLabels = context.payload.issue?.labels;
+            // Only use labels from event payload if the issue number matches.
+            // This workflow can be triggered manually (workflow_dispatch) or by issue events.
+            // When triggered manually, INPUT_ISSUE may refer to a different issue than the event payload.
+            // In that case, we must fetch labels via API to avoid using labels from the wrong issue.
+            if (payloadLabels && Array.isArray(payloadLabels) && String(context.payload.issue?.number) === String(num)) {
+              core.info('Using labels from event payload (no API call needed).');
+              labels = payloadLabels
+                .map(label => typeof label === 'string' ? label : (label.name || ''))
+                .filter(Boolean)
+                .map(name => name.toLowerCase());
+            } else {
+              // Fallback to API call for manual dispatch or mismatched issue numbers
+              core.info('Fetching labels via API (event payload not available or issue mismatch).');
+              const { data: issue } = await github.rest.issues.get({ owner, repo, issue_number: num });
+              labels = (issue.labels || [])
+                .map(label => typeof label === 'string' ? label : (label.name || ''))
+                .filter(Boolean)
+                .map(name => name.toLowerCase());
+            }
+            // Control labels that should not be counted as agent assignments
+            const controlLabelSuffixes = ['keepalive'];
+            const codexGuardLabels = ['agent:codex', 'agents:codex'];
+            const agentLabels = labels
+              .filter(name => /^agents?:[a-z0-9-]+$/.test(name))
+              .filter(name => {
+                const suffix = name.replace(/^agents?:/, '');
+                return !controlLabelSuffixes.includes(suffix);
+              });
+            if (agentLabels.length !== 1) {
+              core.setFailed(`Expected exactly one agent:* or agents:* label but found ${agentLabels.length}: ${agentLabels.join(', ')}`);
+              return;
+            }
+            const agentLabel = agentLabels[0];
+            const agentKey = agentLabel.replace(/^agents?:/, '');
+            const normalizedDefault = defaultAgent.toLowerCase();
+            if (normalizedDefault && normalizedDefault !== agentKey) {
+              core.info(`Overriding bridge agent '${normalizedDefault}' with '${agentKey}' based on issue labels.`);
+            }
+            core.setOutput('issue_number', String(num));
+            core.setOutput('agent_key', agentKey);
+
+  agent_bridge:
+    needs: [normalize_inputs, bridge_preflight]
+    if: needs.normalize_inputs.outputs.intake_mode == 'agent_bridge'
+    concurrency:
+      group: >
+        codex-issue-${{
+          needs.normalize_inputs.outputs.issue_number ||
+          github.event.issue.number ||
+          github.run_id
+        }}
+      cancel-in-progress: true
+    uses: ./.github/workflows/reusable-agents-issue-bridge.yml
+    with:
+      agent: ${{ needs.normalize_inputs.outputs.bridge_agent || needs.bridge_preflight.outputs.agent_key }}
+      issue_number: ${{ needs.normalize_inputs.outputs.issue_number || needs.bridge_preflight.outputs.issue_number || '' }}
+      mode: 'invite'
+      post_agent_comment: ${{ needs.normalize_inputs.outputs.post_codex_comment }}
+      agent_pr_draft: ${{ needs.normalize_inputs.outputs.bridge_draft_pr }}
+    secrets:
+      service_bot_pat: ${{ secrets.service_bot_pat }}
+      owner_pr_pat: ${{ secrets.owner_pr_pat }}

@@ -1,0 +1,974 @@
+name: Reusable CI
+
+on:
+  workflow_call:
+    inputs:
+      python-version:
+        description: Primary Python version to use when `python-versions` is not provided.
+        required: false
+        default: '3.11'
+        type: string
+      python-versions:
+        description: JSON array of Python versions to execute. Takes precedence when non-empty.
+        required: false
+        default: '[]'
+        type: string
+      primary-python-version:
+        description: Preferred Python runtime that should publish soft-gate artifacts when enabled.
+        required: false
+        default: '3.11'
+        type: string
+      marker:
+        description: Optional pytest marker expression.
+        required: false
+        default: ''
+        type: string
+      pytest_markers:
+        description: Optional pytest marker expression overriding `marker` when provided.
+        required: false
+        default: ''
+        type: string
+      coverage-min:
+        description: Minimum coverage percentage required to pass.
+        required: false
+        default: '70'
+        type: string
+      lint:
+        description: Toggle Ruff lint execution.
+        required: false
+        default: true
+        type: boolean
+      format_check:
+        description: Toggle Black format check execution.
+        required: false
+        default: true
+        type: boolean
+      typecheck:
+        description: Toggle mypy execution.
+        required: false
+        default: true
+        type: boolean
+      run-mypy:
+        description: Deprecated alias for `typecheck`.
+        required: false
+        default: true
+        type: boolean
+      coverage:
+        description: Toggle coverage instrumentation, packaging, and enforcement.
+        required: false
+        default: true
+        type: boolean
+      cache:
+        description: Toggle pip and pytest cache integration.
+        required: false
+        default: true
+        type: boolean
+      enable-metrics:
+        description: Enable metrics artifact generation.
+        required: false
+        default: false
+        type: boolean
+      slow-test-top:
+        description: Maximum number of slow tests to record when metrics are enabled.
+        required: false
+        default: '15'
+        type: string
+      slow-test-min-seconds:
+        description: Minimum duration (in seconds) for slow test tracking.
+        required: false
+        default: '1'
+        type: string
+      enable-history:
+        description: Append metrics history NDJSON artifact.
+        required: false
+        default: false
+        type: boolean
+      enable-classification:
+        description: Emit failure classification payload alongside metrics history.
+        required: false
+        default: false
+        type: boolean
+      history-artifact-name:
+        description: Artifact filename for metrics history output.
+        required: false
+        default: 'metrics-history.ndjson'
+        type: string
+      enable-coverage-delta:
+        description: Compute coverage delta vs baseline configuration.
+        required: false
+        default: false
+        type: boolean
+      baseline-coverage:
+        description: Coverage baseline percentage for delta calculations.
+        required: false
+        default: '0'
+        type: string
+      coverage-alert-drop:
+        description: Coverage drop threshold (percentage points) that triggers an alert.
+        required: false
+        default: '1'
+        type: string
+      fail-on-coverage-drop:
+        description: Fail the job when the coverage drop meets or exceeds the threshold.
+        required: false
+        default: false
+        type: boolean
+      coverage-drop-label:
+        description: Reserved label hook for downstream automation reacting to coverage drops.
+        required: false
+        default: 'coverage-drop'
+        type: string
+      enable-soft-gate:
+        description: Publish coverage trend and summary artifacts.
+        required: false
+        default: false
+        type: boolean
+      artifact-prefix:
+        description: Optional prefix applied to all uploaded artifact names.
+        required: false
+        default: 'gate-'
+        type: string
+    secrets:
+      pypi-token:
+        description: Optional token for private dependencies.
+        required: false
+  workflow_dispatch:
+    inputs:
+      python-versions:
+        description: JSON array of Python versions to execute.
+        required: false
+        default: '["3.11"]'
+      pytest_markers:
+        description: Optional pytest marker expression.
+        required: false
+        default: ''
+      lint:
+        description: Toggle Ruff lint execution.
+        required: false
+        default: true
+        type: boolean
+      format_check:
+        description: Toggle Black format check execution.
+        required: false
+        default: true
+        type: boolean
+      typecheck:
+        description: Toggle mypy execution.
+        required: false
+        default: true
+        type: boolean
+      coverage:
+        description: Toggle coverage instrumentation, packaging, and enforcement.
+        required: false
+        default: true
+        type: boolean
+      cache:
+        description: Toggle pip and pytest cache integration.
+        required: false
+        default: true
+        type: boolean
+      enable-metrics:
+        description: Enable metrics artifact generation.
+        required: false
+        default: false
+        type: boolean
+      enable-history:
+        description: Append metrics history NDJSON artifact.
+        required: false
+        default: false
+        type: boolean
+      enable-soft-gate:
+        description: Publish coverage trend and summary artifacts.
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  tests:
+    name: python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        # Callers using bracket notation must provide a valid JSON array; the
+        # matrix load will fail at runtime if the value cannot be parsed.
+        # Callers supplying a single version string must omit brackets;
+        # malformed values will be wrapped and passed through as-is.
+        python-version: >-
+          ${{ fromJson(
+            (
+              (
+                inputs['python-versions'] != '' &&
+                inputs['python-versions'] != '[]' &&
+                contains(inputs['python-versions'], '[')
+              )
+              && inputs['python-versions']
+            )
+            || (
+              (
+                inputs['python-versions'] != '' &&
+                inputs['python-versions'] != '[]' &&
+                !contains(inputs['python-versions'], '[')
+              )
+              && format('[{0}]', toJson(inputs['python-versions']))
+            )
+            || (
+              (
+                inputs['python-version'] != ''
+              )
+              && format('[{0}]', toJson(inputs['python-version']))
+            )
+            || '["3.11"]'
+          ) }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1  # Shallow clone for faster checkout
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          # Note: pip cache disabled because we use uv for dependency installation
+          # which has its own separate cache step. Enabling pip cache here causes
+          # post-job cleanup failures when the pip cache directory doesn't exist.
+          cache: ''
+          cache-dependency-path: |
+            requirements.lock
+            pyproject.toml
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Cache uv artifacts
+        if: ${{ inputs.cache }}
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/uv
+          key: uv-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('requirements.lock') }}-${{ hashFiles('pyproject.toml') }}
+          restore-keys: |
+            uv-${{ runner.os }}-${{ matrix.python-version }}-
+            uv-${{ runner.os }}-
+
+      - name: Install dependencies
+        env:
+          PRIVATE_PYPI_TOKEN: ${{ secrets.pypi-token }}
+        run: |
+          set -euo pipefail
+          start_ts=$(date +%s)
+
+          if [ -n "${PRIVATE_PYPI_TOKEN:-}" ]; then
+            export PIP_INDEX_URL="https://__token__:${PRIVATE_PYPI_TOKEN}@pypi.org/simple"
+          fi
+          specs=()
+
+          if [ -f requirements.lock ]; then
+            specs+=('-r' 'requirements.lock')
+          fi
+
+          if [ -f pyproject.toml ]; then
+            specs+=('-e' '.[app,dev]')
+          elif [ -f setup.cfg ] || [ -f setup.py ]; then
+            specs+=('-e' '.' )
+          fi
+
+          if [ -f .github/workflows/autofix-versions.env ]; then
+            # Source version pins from shared config to stay consistent with autofix
+            source .github/workflows/autofix-versions.env
+            specs+=("black==${BLACK_VERSION}" "ruff==${RUFF_VERSION}" "isort==${ISORT_VERSION}" "docformatter==${DOCFORMATTER_VERSION}" "mypy==${MYPY_VERSION}" "pytest==${PYTEST_VERSION}" "pytest-cov==${PYTEST_COV_VERSION}" "pytest-xdist==${PYTEST_XDIST_VERSION:-3.6.1}")
+          else
+            echo "Warning: .github/workflows/autofix-versions.env not found, installing latest versions" >&2
+            specs+=(black ruff isort docformatter mypy pytest pytest-cov pytest-xdist)
+          fi
+
+          if [ ${#specs[@]} -eq 0 ]; then
+            echo "No install targets found; skipping dependency installation."
+          else
+            uv pip install --system "${specs[@]}"
+          fi
+
+          end_ts=$(date +%s)
+          duration=$((end_ts - start_ts))
+          if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+            {
+              printf '## Dependency installation timing\n'
+              printf -- '- Duration: %ss\n' "$duration"
+              printf -- '- Cache key: uv-%s-%s-%s-%s\n' "${{ runner.os }}" "${{ matrix.python-version }}" "$(sha256sum requirements.lock 2>/dev/null | cut -d" " -f1 || echo none)" "$(sha256sum pyproject.toml 2>/dev/null | cut -d" " -f1 || echo none)"
+            } >>"${GITHUB_STEP_SUMMARY}"
+          fi
+
+      - name: Validate test dependencies
+        id: test-deps
+        run: |
+          set -euo pipefail
+          summary_file="${GITHUB_STEP_SUMMARY:-}"
+
+          append_summary() {
+            if [ -n "$summary_file" ]; then
+              printf '%s\n' "$1" >>"$summary_file"
+            else
+              printf '%s\n' "$1"
+            fi
+          }
+
+          run_to_summary() {
+            if [ -n "$summary_file" ]; then
+              "$@" >>"$summary_file" 2>&1
+            else
+              "$@" 2>&1
+            fi
+          }
+
+          append_summary "## Test Dependency Validation"
+          append_summary ""
+
+          # Run the dependency check script if it exists
+          if [ -f scripts/check_test_dependencies.sh ]; then
+            append_summary "Running dependency check script..."
+            run_to_summary ./scripts/check_test_dependencies.sh || true
+          else
+            append_summary "⚠️ Dependency check script not found, running basic validation"
+            append_summary ""
+
+            # Basic Python version check
+            python_version=$(python --version 2>&1 | awk '{print $2}')
+            append_summary "✓ Python ${python_version}"
+
+            # Check key test packages
+            for pkg in pytest coverage hypothesis pandas numpy pydantic yaml requests jsonschema; do
+              if python -c "import ${pkg}" 2>/dev/null; then
+                append_summary "✓ ${pkg}"
+              else
+                append_summary "✗ ${pkg} (missing)"
+              fi
+            done
+
+            # Check optional tools
+            append_summary ""
+            append_summary "### Optional Tools"
+            for tool in node npm uv; do
+              if command -v "$tool" &>/dev/null; then
+                version=$("$tool" --version 2>&1 | head -n1 || echo "unknown")
+                append_summary "✓ ${tool} (${version})"
+              else
+                append_summary "○ ${tool} (not installed - some tests may skip)"
+              fi
+            done
+          fi
+
+      - name: Check for undeclared test dependencies
+        id: check-deps
+        continue-on-error: true
+        run: |
+          python scripts/sync_test_dependencies.py --verify
+
+      - name: Auto-fix missing dependencies
+        if: steps.check-deps.outcome == 'failure'
+        run: |
+          summary_file="${GITHUB_STEP_SUMMARY:-}"
+          append_summary() {
+            if [ -n "$summary_file" ]; then
+              printf '%s\n' "$1" >>"$summary_file"
+            else
+              printf '%s\n' "$1"
+            fi
+          }
+
+          append_summary "⚠️ Found undeclared test dependencies. Auto-fixing..."
+          if [ -n "$summary_file" ]; then
+            python scripts/sync_test_dependencies.py --fix >>"$summary_file"
+          else
+            python scripts/sync_test_dependencies.py --fix
+          fi
+          append_summary ""
+          append_summary "📝 Updated pyproject.toml with missing dependencies."
+          append_summary "⚠️ Build will fail - commit the updated pyproject.toml and regenerate requirements.lock"
+          exit 1
+
+      - name: Resolve mypy python pin
+        if: ${{ inputs.typecheck && inputs['run-mypy'] }}
+        id: mypy-pin
+        env:
+          MATRIX_PYTHON_VERSION: ${{ matrix.python-version }}
+        run: |
+          set -euo pipefail
+          python tools/resolve_mypy_pin.py
+
+      - name: Black (format check)
+        id: black
+        if: ${{ inputs.format_check }}
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          black --check .
+
+      - name: Ruff (lint)
+        id: ruff
+        if: ${{ inputs.lint }}
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          ruff check --output-format github .
+
+      - name: Cache mypy state
+        if: ${{ inputs.cache && inputs.typecheck && inputs['run-mypy'] }}
+        uses: actions/cache@v4
+        with:
+          path: .mypy_cache
+          key: mypy-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('pyproject.toml') }}-${{ hashFiles('src/**/*.py') }}
+          restore-keys: |
+            mypy-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('pyproject.toml') }}-
+            mypy-${{ runner.os }}-${{ matrix.python-version }}-
+
+      - name: Mypy (type check)
+        id: mypy
+        if: ${{ inputs.typecheck && inputs['run-mypy'] && steps.mypy-pin.outputs.python-version != '' && matrix.python-version == steps.mypy-pin.outputs.python-version }}
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          args=()
+          if [ -f pyproject.toml ]; then
+            args+=("--config-file" "pyproject.toml")
+          fi
+          target="src"
+          if [ ! -d "$target" ]; then
+            target="."
+          fi
+          mypy "${args[@]}" "$target"
+
+      - name: Cache pytest state
+        if: ${{ inputs.cache }}
+        uses: actions/cache@v4
+        with:
+          path: .pytest_cache
+          key: pytest-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('pyproject.toml') }}-${{ hashFiles('requirements.lock') }}
+          restore-keys: |
+            pytest-${{ runner.os }}-${{ matrix.python-version }}-
+            pytest-${{ runner.os }}-
+
+      - name: Pytest (unit tests with coverage)
+        id: pytest
+        continue-on-error: true
+        env:
+          PYTEST_MARKERS: ${{ inputs.pytest_markers != '' && inputs.pytest_markers || inputs.marker }}
+          COVERAGE_ENABLED: ${{ inputs.coverage }}
+        run: |
+          set -euo pipefail
+          coverage_target="src"
+          if [ ! -d "$coverage_target" ]; then
+            coverage_target="."
+          fi
+          args=("--junitxml=pytest-junit.xml")
+          if [ "${COVERAGE_ENABLED}" = "true" ]; then
+            args+=("--cov=${coverage_target}" "--cov-report=xml:coverage.xml" "--cov-report=term-missing" "--cov-report=json:coverage.json")
+          fi
+          if [ -n "${PYTEST_MARKERS}" ]; then
+            args=("-m" "${PYTEST_MARKERS}" "${args[@]}")
+          fi
+          if python -c "import xdist" 2>/dev/null; then
+            args+=("-n" "auto" "--dist=loadgroup")
+            echo "Running tests in parallel with pytest-xdist (loadgroup scheduler)..."
+          fi
+          pytest "${args[@]}"
+
+      - name: Enforce coverage minimum
+        id: coverage_min
+        if: ${{ inputs.coverage && inputs['coverage-min'] != '' }}
+        continue-on-error: true
+        run: |
+          python - <<'PY'
+          import sys
+          import xml.etree.ElementTree as ET
+          from pathlib import Path
+
+          target = float("${{ inputs['coverage-min'] }}")
+          path = Path("coverage.xml")
+          if not path.is_file():
+            print("coverage.xml not found", file=sys.stderr)
+            sys.exit(1)
+          rate_attr = ET.parse(path).getroot().get("line-rate")
+          if rate_attr is None:
+            print("coverage.xml missing line-rate attribute", file=sys.stderr)
+            sys.exit(1)
+          rate = float(rate_attr) * 100.0
+          if rate + 1e-6 < target:
+            print(f"Coverage {rate:.2f}% below minimum {target:.2f}%", file=sys.stderr)
+            sys.exit(1)
+          print(f"Coverage {rate:.2f}% meets minimum {target:.2f}%")
+          PY
+
+      - name: Stage coverage artifact layout
+        if: always()
+        env:
+          COVERAGE_ENABLED: ${{ inputs.coverage }}
+        run: |
+          set -euo pipefail
+          runtime="${{ matrix.python-version }}"
+          base_dir="artifacts/coverage/runtimes/${runtime}"
+
+          rm -rf "${base_dir}"
+          mkdir -p "${base_dir}"
+
+          mkdir -p "artifacts/coverage"
+
+          copied=0
+          if [ "${COVERAGE_ENABLED}" = "true" ] && [ -f coverage.xml ]; then
+            cp coverage.xml "${base_dir}/coverage.xml"
+            copied=1
+          fi
+
+          if [ "${COVERAGE_ENABLED}" = "true" ] && [ -f coverage.json ]; then
+            cp coverage.json "${base_dir}/coverage.json"
+            copied=1
+          fi
+
+          if [ -f pytest-junit.xml ]; then
+            cp pytest-junit.xml "${base_dir}/pytest-junit.xml"
+            copied=1
+          fi
+
+          if [ "${copied}" -eq 0 ]; then
+            rm -rf "${base_dir}"
+            echo "No coverage payloads found; skipping staging."
+          fi
+
+      - name: Record CI summary
+        if: always()
+        id: ci-summary
+        env:
+          PYTHON_VERSION: ${{ matrix.python-version }}
+          FORMAT_OUTCOME: ${{ steps.black.outcome || 'skipped' }}
+          RUFF_OUTCOME: ${{ steps.ruff.outcome || 'skipped' }}
+          MYPY_OUTCOME: ${{ steps.mypy.outcome || 'skipped' }}
+          PYTEST_OUTCOME: ${{ steps.pytest.outcome || 'skipped' }}
+          COVERAGE_MIN_OUTCOME: ${{ steps.coverage_min.outcome || 'skipped' }}
+          COVERAGE_ENABLED: ${{ inputs.coverage }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import xml.etree.ElementTree as ET
+          from pathlib import Path
+
+          runtime = os.environ.get("PYTHON_VERSION", "unknown")
+          base_dir = Path("artifacts/coverage/runtimes") / runtime
+          base_dir.mkdir(parents=True, exist_ok=True)
+
+          xml_path = base_dir / "coverage.xml"
+          json_path = base_dir / "coverage.json"
+          coverage_value: float | None = None
+
+          def normalize(value: str | None) -> str:
+              return (value or "skipped").lower()
+
+          summary: dict[str, object] = {
+              "python_version": runtime,
+              "checks": {
+                  "format": {"tool": "black", "outcome": normalize(os.environ.get("FORMAT_OUTCOME"))},
+                  "lint": {"tool": "ruff", "outcome": normalize(os.environ.get("RUFF_OUTCOME"))},
+                  "type_check": {"tool": "mypy", "outcome": normalize(os.environ.get("MYPY_OUTCOME"))},
+                  "tests": {"tool": "pytest", "outcome": normalize(os.environ.get("PYTEST_OUTCOME"))},
+                  "coverage_minimum": {
+                      "tool": "threshold",
+                      "outcome": normalize(os.environ.get("COVERAGE_MIN_OUTCOME")),
+                  },
+              },
+              "artifacts": {
+                  "coverage_xml": xml_path.exists(),
+                  "coverage_json": json_path.exists(),
+                  "pytest_junit": (base_dir / "pytest-junit.xml").exists(),
+              },
+          }
+
+          if xml_path.exists():
+              try:
+                  rate = ET.parse(xml_path).getroot().get("line-rate")
+                  if rate is not None:
+                      coverage_value = float(rate) * 100.0
+              except ET.ParseError:
+                  coverage_value = None
+          if coverage_value is None and json_path.exists():
+              try:
+                  data = json.loads(json_path.read_text(encoding="utf-8"))
+              except json.JSONDecodeError:
+                  data = None
+              if isinstance(data, dict):
+                  totals = data.get("totals")
+                  if isinstance(totals, dict):
+                      percent = totals.get("percent_covered")
+                      if isinstance(percent, (int, float)):
+                          coverage_value = float(percent)
+
+          if coverage_value is not None:
+              summary["coverage"] = {
+                  "percent": round(float(coverage_value), 2),
+                  "source": "coverage.json" if json_path.exists() else "coverage.xml",
+              }
+
+          summary_path = base_dir / "summary.json"
+          summary_path.write_text(json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8")
+
+          index_path = Path("artifacts/coverage/index.ndjson")
+          index_path.parent.mkdir(parents=True, exist_ok=True)
+          with index_path.open("a", encoding="utf-8") as handle:
+              handle.write(json.dumps(summary) + "\n")
+
+          output_path = Path(os.environ.get("GITHUB_OUTPUT", ""))
+          if output_path:
+              with output_path.open("a", encoding="utf-8") as handle:
+                  handle.write(f"summary_path={summary_path}\n")
+          PY
+
+      - name: Record staged artifact paths
+        if: always()
+        id: coverage_paths
+        env:
+          PYTHON_VERSION: ${{ matrix.python-version }}
+          COVERAGE_ENABLED: ${{ inputs.coverage }}
+          SUMMARY_PATH: ${{ steps.ci-summary.outputs.summary_path }}
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+
+          runtime = os.environ.get("PYTHON_VERSION", "unknown")
+          coverage_enabled = os.environ.get("COVERAGE_ENABLED", "false").lower() == "true"
+          base_dir = Path("artifacts/coverage/runtimes") / runtime
+          coverage_json = base_dir / "coverage.json"
+          coverage_xml = base_dir / "coverage.xml"
+          junit_path = base_dir / "pytest-junit.xml"
+          fallback_json = Path("coverage.json")
+          fallback_junit = Path("pytest-junit.xml")
+          summary_env = os.environ.get("SUMMARY_PATH") or ""
+          summary_path = Path(summary_env) if summary_env else None
+
+          outputs: dict[str, str] = {
+              "coverage_json": "",
+              "junit_path": "",
+              "summary_path": "",
+          }
+
+          if coverage_json.exists():
+              outputs["coverage_json"] = str(coverage_json)
+          elif coverage_enabled and fallback_json.exists():
+              outputs["coverage_json"] = str(fallback_json)
+
+          if junit_path.exists():
+              outputs["junit_path"] = str(junit_path)
+          elif fallback_junit.exists():
+              outputs["junit_path"] = str(fallback_junit)
+
+          if summary_path and summary_path.exists():
+              outputs["summary_path"] = str(summary_path)
+
+          has_payload = False
+          if base_dir.exists():
+              has_payload = any(child.is_file() for child in base_dir.glob("*"))
+          if not has_payload and fallback_junit.exists():
+              has_payload = True
+          if not has_payload and summary_path and summary_path.exists():
+              has_payload = True
+
+          output_path = Path(os.environ.get("GITHUB_OUTPUT", ""))
+          if output_path:
+              with output_path.open("a", encoding="utf-8") as handle:
+                  for key, value in outputs.items():
+                      handle.write(f"{key}={value}\n")
+                  handle.write(f"has_payload={'true' if has_payload else 'false'}\n")
+          PY
+
+      - name: Upload coverage artifact
+        if: ${{ always() && steps.coverage_paths.outputs.has_payload == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs['artifact-prefix'] }}coverage-${{ matrix.python-version }}
+          path: artifacts/coverage
+          if-no-files-found: warn
+          retention-days: 7
+          overwrite: true
+
+      - name: Finalize check results
+        if: always()
+        env:
+          FORMAT_OUTCOME: ${{ steps.black.outcome || 'skipped' }}
+          RUFF_OUTCOME: ${{ steps.ruff.outcome || 'skipped' }}
+          MYPY_OUTCOME: ${{ steps.mypy.outcome || 'skipped' }}
+          PYTEST_OUTCOME: ${{ steps.pytest.outcome || 'skipped' }}
+          COVERAGE_MIN_OUTCOME: ${{ steps.coverage_min.outcome || 'skipped' }}
+          COVERAGE_ENABLED: ${{ inputs.coverage }}
+        run: |
+          set -euo pipefail
+          failures=()
+
+          # Debug: print all outcomes
+          echo "FORMAT_OUTCOME=${FORMAT_OUTCOME}"
+          echo "RUFF_OUTCOME=${RUFF_OUTCOME}"
+          echo "MYPY_OUTCOME=${MYPY_OUTCOME}"
+          echo "PYTEST_OUTCOME=${PYTEST_OUTCOME}"
+          echo "COVERAGE_MIN_OUTCOME=${COVERAGE_MIN_OUTCOME}"
+          echo "COVERAGE_ENABLED=${COVERAGE_ENABLED}"
+
+          record_outcome() {
+            local label="$1"
+            local outcome="$2"
+            echo "Checking ${label}: ${outcome}"
+            if [ -z "${outcome}" ] || [ "${outcome}" = 'success' ] || [ "${outcome}" = 'skipped' ]; then
+              return 0
+            fi
+            if [ "${outcome}" = 'cancelled' ]; then
+              failures+=("${label} cancelled")
+              return 0
+            fi
+            failures+=("${label} ${outcome}")
+          }
+
+          record_outcome "format check" "${FORMAT_OUTCOME}"
+          record_outcome "ruff" "${RUFF_OUTCOME}"
+          record_outcome "mypy" "${MYPY_OUTCOME}"
+          record_outcome "pytest" "${PYTEST_OUTCOME}"
+          if [ "${{ inputs.coverage && inputs['coverage-min'] != '' }}" = 'true' ]; then
+            record_outcome "coverage minimum" "${COVERAGE_MIN_OUTCOME}"
+          fi
+
+          echo "Total failures: ${#failures[@]}"
+          if [ "${#failures[@]}" -gt 0 ]; then
+            printf 'CI checks failed: %s\n' "${failures[*]}" >&2
+            exit 1
+          fi
+          echo "All checks passed!"
+
+      - name: Build CI metrics payload
+        if: ${{ inputs['enable-metrics'] || inputs['enable-history'] || inputs['enable-classification'] }}
+        run: |
+          python scripts/ci_metrics.py
+        env:
+          JUNIT_PATH: pytest-junit.xml
+          OUTPUT_PATH: ci-metrics.json
+          TOP_N: ${{ inputs['slow-test-top'] }}
+          MIN_SECONDS: ${{ inputs['slow-test-min-seconds'] }}
+
+      - name: Upload metrics artifact
+        if: ${{ inputs['enable-metrics'] }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs['artifact-prefix'] }}ci-metrics
+          path: ci-metrics.json
+          if-no-files-found: warn
+          retention-days: 7
+          overwrite: true
+
+      - name: Append metrics history
+        if: ${{ inputs['enable-history'] || inputs['enable-classification'] }}
+        run: |
+          python scripts/ci_history.py
+        env:
+          JUNIT_PATH: pytest-junit.xml
+          METRICS_PATH: ci-metrics.json
+          HISTORY_PATH: ${{ inputs['history-artifact-name'] }}
+          ENABLE_CLASSIFICATION: ${{ inputs['enable-classification'] }}
+          CLASSIFICATION_OUT: classification.json
+
+      - name: Upload metrics history artifact
+        if: ${{ inputs['enable-history'] }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs['artifact-prefix'] }}metrics-history
+          path: ${{ inputs['history-artifact-name'] }}
+          if-no-files-found: warn
+          retention-days: 7
+          overwrite: true
+
+      - name: Upload classification artifact
+        if: ${{ inputs['enable-classification'] }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs['artifact-prefix'] }}classification
+          path: classification.json
+          if-no-files-found: warn
+          retention-days: 7
+          overwrite: true
+
+      - name: Compute coverage delta
+        if: ${{ inputs.coverage && inputs['enable-coverage-delta'] }}
+        run: |
+          python scripts/ci_coverage_delta.py
+        env:
+          COVERAGE_XML_PATH: coverage.xml
+          OUTPUT_PATH: coverage-delta.json
+          BASELINE_COVERAGE: ${{ inputs['baseline-coverage'] }}
+          ALERT_DROP: ${{ inputs['coverage-alert-drop'] }}
+          FAIL_ON_DROP: ${{ inputs['fail-on-coverage-drop'] }}
+
+      - name: Upload coverage delta artifact
+        if: ${{ inputs.coverage && inputs['enable-coverage-delta'] }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs['artifact-prefix'] }}coverage-delta
+          path: coverage-delta.json
+          if-no-files-found: warn
+          retention-days: 7
+          overwrite: true
+
+      - name: Generate coverage trend summary
+        if: ${{ inputs.coverage && inputs['enable-soft-gate'] && matrix.python-version == inputs['primary-python-version'] }}
+        run: |
+          python tools/coverage_trend.py \
+            --coverage-xml coverage.xml \
+            --coverage-json coverage.json \
+            --baseline config/coverage-baseline.json \
+            --summary-path coverage-summary.md \
+            --job-summary "$GITHUB_STEP_SUMMARY" \
+            --artifact-path coverage-trend.json \
+            --github-output coverage-trend.env \
+            --minimum ${{ inputs['coverage-min'] }}
+
+      - name: Annotate coverage trend record
+        if: ${{ inputs.coverage && inputs['enable-soft-gate'] && matrix.python-version == inputs['primary-python-version'] }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          record_path = Path("coverage-trend.json")
+          if not record_path.exists():
+            raise SystemExit(0)
+          data = json.loads(record_path.read_text(encoding="utf-8"))
+          data.setdefault("run_id", os.environ.get("GITHUB_RUN_ID"))
+          data.setdefault("run_number", os.environ.get("GITHUB_RUN_NUMBER"))
+          record_path.write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
+          PY
+
+      - name: Append coverage trend history
+        if: ${{ inputs.coverage && inputs['enable-soft-gate'] && matrix.python-version == inputs['primary-python-version'] }}
+        run: |
+          python scripts/coverage_history_append.py
+        env:
+          HISTORY_PATH: coverage-trend-history.ndjson
+          RECORD_PATH: coverage-trend.json
+
+      - name: Upload coverage summary artifact
+        if: ${{ inputs.coverage && inputs['enable-soft-gate'] && matrix.python-version == inputs['primary-python-version'] }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs['artifact-prefix'] }}coverage-summary
+          path: coverage-summary.md
+          if-no-files-found: warn
+          retention-days: 7
+          overwrite: true
+
+      - name: Upload coverage trend artifact
+        if: ${{ inputs.coverage && inputs['enable-soft-gate'] && matrix.python-version == inputs['primary-python-version'] }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs['artifact-prefix'] }}coverage-trend
+          path: coverage-trend.json
+          if-no-files-found: warn
+          retention-days: 7
+          overwrite: true
+
+      - name: Upload coverage trend history artifact
+        if: ${{ inputs.coverage && inputs['enable-soft-gate'] && matrix.python-version == inputs['primary-python-version'] }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs['artifact-prefix'] }}coverage-trend-history
+          path: coverage-trend-history.ndjson
+          if-no-files-found: warn
+          retention-days: 7
+          overwrite: true
+
+  logs_summary:
+    name: logs summary
+    needs:
+      - tests
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Summarize workflow jobs
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const run_id = context.runId;
+            let jobs;
+            try {
+              jobs = await github.paginate(
+                github.rest.actions.listJobsForWorkflowRun,
+                { owner, repo, run_id, per_page: 100 },
+              );
+            } catch (error) {
+              const status = error?.status || error?.response?.status;
+              const isRateLimit = status === 403 && /rate limit/i.test(error?.message ?? '');
+              const message = isRateLimit
+                ? 'Skipped job summary because the GitHub API rate limit was hit while listing workflow jobs.'
+                : `Skipped job summary because job listing failed: ${error?.message ?? 'unknown error'}`;
+              core.warning(message);
+              await core.summary
+                .addHeading('Workflow job summary', 3)
+                .addRaw(`${message}\n\n`)
+                .write();
+              return;
+            }
+            const statusEmoji = (conclusion) => {
+              switch (conclusion) {
+                case 'success':
+                  return '✅';
+                case 'failure':
+                  return '❌';
+                case 'cancelled':
+                  return '⏹️';
+                case 'skipped':
+                  return '⏭️';
+                case 'timed_out':
+                  return '⏱️';
+                default:
+                  return '❔';
+              }
+            };
+            const duration = (job) => {
+              if (!job.started_at || !job.completed_at) {
+                return '—';
+              }
+              const start = new Date(job.started_at);
+              const end = new Date(job.completed_at);
+              const seconds = Math.max(0, Math.round((end - start) / 1000));
+              const minutes = Math.floor(seconds / 60);
+              const remaining = seconds % 60;
+              if (minutes === 0) {
+                return `${seconds}s`;
+              }
+              return `${minutes}m ${remaining.toString().padStart(2, '0')}s`;
+            };
+            const table = [['Job', 'Status', 'Duration', 'Logs']];
+            for (const job of jobs) {
+              const conclusion = job.conclusion || job.status || 'unknown';
+              const emoji = statusEmoji(job.conclusion);
+              const logLink = job.html_url ? `[logs](${job.html_url})` : '—';
+              table.push([
+                job.name,
+                `${emoji} ${conclusion}`,
+                duration(job),
+                logLink,
+              ]);
+            }
+            await core.summary
+              .addHeading('Workflow job summary', 3)
+              .addTable(table)
+              .write()

@@ -1,0 +1,375 @@
+name: Health 41 Repo Health
+
+on:
+  schedule:
+    # 07:15 UTC each Monday keeps results inside a quiet window.
+    - cron: '15 7 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: read
+
+jobs:
+  # Rate limit gate: skip non-critical health checks when API quota is low
+  # This ensures keepalive and core workflows get priority (threshold: 2000)
+  rate-limit-check:
+    name: Rate limit gate
+    runs-on: ubuntu-latest
+    outputs:
+      proceed: ${{ steps.check.outputs.proceed || 'true' }}
+    steps:
+      - name: Check API quota
+        id: check
+        uses: actions/github-script@v7
+        env:
+          # Higher threshold than orchestrator (1000) so keepalive runs first
+          RATE_LIMIT_THRESHOLD: '2000'
+        with:
+          script: |
+            const threshold = parseInt(process.env.RATE_LIMIT_THRESHOLD || '2000', 10);
+            try {
+              const { data } = await github.rest.rateLimit.get();
+              const remaining = data?.resources?.core?.remaining || 0;
+              const limit = data?.resources?.core?.limit || 5000;
+              const proceed = remaining >= threshold;
+
+              core.setOutput('proceed', proceed ? 'true' : 'false');
+              core.setOutput('remaining', String(remaining));
+
+              if (!proceed) {
+                const reset = data?.resources?.core?.reset || 0;
+                const resetTime = new Date(reset * 1000).toISOString();
+                core.notice(`Deferring repo health: API quota low (${remaining}/${limit}). Resets at ${resetTime}`);
+                await core.summary
+                  .addHeading('Repo Health Deferred', 3)
+                  .addRaw(`API quota too low for non-critical health checks (${remaining}/${limit} remaining).`)
+                  .addEOL()
+                  .addRaw(`Threshold: ${threshold}. Resets at: ${resetTime}`)
+                  .write();
+              }
+            } catch (error) {
+              core.warning(`Rate limit check failed: ${error.message}. Proceeding anyway.`);
+              core.setOutput('proceed', 'true');
+            }
+  weekly-sweep:
+    name: Weekly repository health sweep
+    needs: rate-limit-check
+    if: needs.rate-limit-check.outputs.proceed == 'true'
+    runs-on: ubuntu-latest
+    env:
+      STALE_BRANCH_DAYS: ${{ vars.REPO_HEALTH_STALE_BRANCH_DAYS || '30' }}
+      STALE_PR_DAYS: ${{ vars.REPO_HEALTH_STALE_PR_DAYS || '30' }}
+      MAX_TABLE_ROWS: '20'
+    steps:
+      - name: Summarise repository health signals
+        id: summarise
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Note: 'core' is already provided by github-script, no require needed
+
+            const staleBranchDays = parseInt(process.env.STALE_BRANCH_DAYS || '30', 10);
+            const stalePrDays = parseInt(process.env.STALE_PR_DAYS || '30', 10);
+            const maxRows = parseInt(process.env.MAX_TABLE_ROWS || '20', 10);
+            const now = new Date();
+            const staleCutoff = new Date(now.getTime() - staleBranchDays * 24 * 60 * 60 * 1000);
+            const stalePrCutoff = new Date(now.getTime() - stalePrDays * 24 * 60 * 60 * 1000);
+
+            const repoInfo = await github.rest.repos.get(context.repo);
+            const defaultBranch = repoInfo.data.default_branch;
+
+            core.setOutput('default-branch', defaultBranch);
+
+            // --- Stale Branches ---
+            const branches = await github.paginate(github.rest.repos.listBranches, {
+              ...context.repo,
+              per_page: 100,
+            });
+
+            const staleBranches = [];
+            for (const branch of branches) {
+              if (!branch || branch.name === defaultBranch) {
+                continue;
+              }
+
+              try {
+                const commitSha = branch.commit?.sha;
+                if (!commitSha) {
+                  continue;
+                }
+
+                const commit = await github.rest.repos.getCommit({
+                  ...context.repo,
+                  ref: commitSha,
+                });
+
+                const commitDateRaw = commit.data.commit?.committer?.date || commit.data.commit?.author?.date;
+                if (!commitDateRaw) {
+                  continue;
+                }
+
+                const commitDate = new Date(commitDateRaw);
+                if (Number.isNaN(commitDate.getTime())) {
+                  continue;
+                }
+
+                if (commitDate <= staleCutoff) {
+                  const ageDays = Math.floor((now.getTime() - commitDate.getTime()) / (24 * 60 * 60 * 1000));
+                  staleBranches.push({
+                    name: branch.name,
+                    lastCommit: commitDate.toISOString().slice(0, 10),
+                    ageDays,
+                  });
+                }
+              } catch (error) {
+                core.warning(`Failed to inspect branch ${branch.name}: ${error.message}`);
+              }
+            }
+
+            staleBranches.sort((a, b) => b.ageDays - a.ageDays);
+
+            // --- Stale PRs ---
+            const openPrs = await github.paginate(github.rest.pulls.list, {
+              ...context.repo,
+              state: 'open',
+              per_page: 100,
+            });
+
+            const stalePrs = [];
+            for (const pr of openPrs) {
+                const updatedDate = new Date(pr.updated_at);
+                if (updatedDate <= stalePrCutoff) {
+                    const ageDays = Math.floor((now.getTime() - updatedDate.getTime()) / (24 * 60 * 60 * 1000));
+                    stalePrs.push({
+                        number: pr.number,
+                        title: pr.title,
+                        url: pr.html_url,
+                        updatedAt: updatedDate.toISOString().slice(0, 10),
+                        ageDays,
+                        user: pr.user.login
+                    });
+                }
+            }
+            stalePrs.sort((a, b) => b.ageDays - a.ageDays);
+
+            // --- Unassigned Issues ---
+            const openItems = await github.paginate(github.rest.issues.listForRepo, {
+              ...context.repo,
+              per_page: 100,
+              state: 'open',
+              filter: 'all',
+            });
+
+            const unassignedIssues = openItems
+              .filter(item => !item.pull_request)
+              .filter(issue => !issue.assignees || issue.assignees.length === 0)
+              .map(issue => ({
+                number: issue.number,
+                title: issue.title || '(no title)',
+                url: issue.html_url,
+                updatedAt: issue.updated_at,
+              }))
+              .sort((a, b) => new Date(a.updatedAt) - new Date(b.updatedAt));
+
+            // --- Summary Output ---
+            const summary = core.summary;
+            summary.addHeading('Repository health weekly sweep', 1);
+            summary.addRaw(`Generated on ${now.toUTCString()}`, true);
+            summary.addBreak();
+            summary.addTable([
+              [
+                { data: 'Signal', header: true },
+                { data: 'Count', header: true },
+              ],
+              [
+                `Stale branches (>${staleBranchDays}d)`,
+                `${staleBranches.length}`,
+              ],
+              [
+                `Stale PRs (>${stalePrDays}d)`,
+                `${stalePrs.length}`,
+              ],
+              [
+                'Open issues without assignees',
+                `${unassignedIssues.length}`,
+              ],
+            ]);
+
+            // Report Stale Branches
+            if (staleBranches.length > 0) {
+              summary.addHeading('Stale branches', 2);
+              const branchRows = staleBranches.slice(0, maxRows).map(branch => [
+                branch.name,
+                branch.lastCommit,
+                branch.ageDays.toString(),
+              ]);
+              summary.addTable([
+                [
+                  { data: 'Branch', header: true },
+                  { data: 'Last commit (UTC)', header: true },
+                  { data: 'Age (days)', header: true },
+                ],
+                ...branchRows,
+              ]);
+
+              if (staleBranches.length > maxRows) {
+                summary.addRaw(`…and ${staleBranches.length - maxRows} more branches.`, true);
+              }
+            } else {
+              summary.addHeading('Stale branches', 2);
+              summary.addRaw('No stale branches detected 🎉', true);
+            }
+
+            // Report Stale PRs
+            if (stalePrs.length > 0) {
+              summary.addHeading('Stale PRs', 2);
+              const prRows = stalePrs.slice(0, maxRows).map(pr => [
+                `[#${pr.number}](${pr.url})`,
+                pr.title,
+                pr.user,
+                pr.ageDays.toString(),
+              ]);
+              summary.addTable([
+                [
+                  { data: 'PR', header: true },
+                  { data: 'Title', header: true },
+                  { data: 'Author', header: true },
+                  { data: 'Inactive (days)', header: true },
+                ],
+                ...prRows,
+              ]);
+               if (stalePrs.length > maxRows) {
+                summary.addRaw(`…and ${stalePrs.length - maxRows} more PRs.`, true);
+              }
+            } else {
+              summary.addHeading('Stale PRs', 2);
+              summary.addRaw('No stale PRs detected 🎉', true);
+            }
+
+            // Report Unassigned Issues
+            if (unassignedIssues.length > 0) {
+              summary.addHeading('Open issues without assignees', 2);
+              const issueRows = unassignedIssues.slice(0, maxRows).map(issue => [
+                `[#${issue.number}](${issue.url})`,
+                issue.title,
+              ]);
+              summary.addTable([
+                [
+                  { data: 'Issue', header: true },
+                  { data: 'Title', header: true },
+                ],
+                ...issueRows,
+              ]);
+
+              if (unassignedIssues.length > maxRows) {
+                summary.addRaw(`…and ${unassignedIssues.length - maxRows} more issues.`, true);
+              }
+            } else {
+              summary.addHeading('Open issues without assignees', 2);
+              summary.addRaw('All open issues have at least one assignee ✅', true);
+            }
+
+            await summary.write();
+            core.info('Repository health summary written to workflow run.');
+
+      - name: Verify default branch protection
+        uses: actions/github-script@v7
+        env:
+          DEFAULT_BRANCH: ${{ steps.summarise.outputs.default-branch }}
+        with:
+          script: |
+            // Note: 'core' is already provided by github-script, no require needed
+
+            const defaultBranch = process.env.DEFAULT_BRANCH || null;
+            if (!defaultBranch) {
+              core.setFailed('Default branch name was not provided by the summary step. Ensure the summarise step completed successfully and outputs.default-branch is set.');
+              return;
+            }
+
+            const expectedContexts = ['Gate / gate'];
+            const branchProtectionResult = {
+              contexts: [],
+              strict: null,
+              source: 'branches',
+            };
+
+            try {
+              const protection = await github.rest.repos.getBranchProtection({
+                ...context.repo,
+                branch: defaultBranch,
+              });
+
+              const contexts = protection.data?.required_status_checks?.contexts;
+              if (Array.isArray(contexts)) {
+                branchProtectionResult.contexts = contexts.map(value => `${value}`);
+              }
+              if (typeof protection.data?.required_status_checks?.strict === 'boolean') {
+                branchProtectionResult.strict = protection.data.required_status_checks.strict;
+              }
+              branchProtectionResult.source = 'branchProtection';
+            } catch (error) {
+              core.warning(`Falling back to branch metadata for protection details: ${error.message}`);
+              const branch = await github.rest.repos.getBranch({
+                ...context.repo,
+                branch: defaultBranch,
+              });
+              const contexts = branch.data?.protection?.required_status_checks?.contexts;
+              if (Array.isArray(contexts)) {
+                branchProtectionResult.contexts = contexts.map(value => `${value}`);
+              }
+            }
+
+            const uniqueContexts = Array.from(new Set(branchProtectionResult.contexts.filter(Boolean))).sort((a, b) => a.localeCompare(b));
+            const expectedSorted = [...expectedContexts].sort((a, b) => a.localeCompare(b));
+            const missing = expectedSorted.filter(contextName => !uniqueContexts.includes(contextName));
+            const unexpected = uniqueContexts.filter(contextName => !expectedSorted.includes(contextName));
+
+            const summary = core.summary;
+            const expectedListForPointer = expectedSorted.length > 0 ? expectedSorted.join(', ') : 'no required checks';
+            const actualListForPointer = uniqueContexts.length > 0 ? uniqueContexts.join(', ') : 'no required checks';
+
+            core.info(`Expected required contexts: ${expectedListForPointer}`);
+            core.info(`Observed required contexts: ${actualListForPointer}`);
+            summary.addHeading('Default branch protection', 2);
+            summary.addTable([
+              [
+                { data: 'Property', header: true },
+                { data: 'Value', header: true },
+              ],
+              ['Branch', defaultBranch],
+              ['Source', branchProtectionResult.source],
+              ['Expected contexts', expectedContexts.length > 0 ? expectedContexts.join(', ') : '–'],
+              ['Required contexts', uniqueContexts.length > 0 ? uniqueContexts.join(', ') : '–'],
+              ['Required “up to date”', branchProtectionResult.strict === null ? 'unknown' : String(branchProtectionResult.strict)],
+            ]);
+
+            if (missing.length > 0 || unexpected.length > 0) {
+              const problems = [];
+              if (missing.length > 0) {
+                problems.push(`missing contexts: ${missing.join(', ')}`);
+              }
+              if (unexpected.length > 0) {
+                problems.push(`unexpected contexts: ${unexpected.join(', ')}`);
+              }
+              const failurePrefix = `Branch protection drift detected for ${defaultBranch}`;
+              summary.addRaw(`❌ ${failurePrefix} — ${problems.join('; ')}`, true);
+              summary.addRaw(
+                `➡️ Update branch protection (Settings → Branches → ${defaultBranch}) so required status checks are exactly: ${expectedListForPointer}.`,
+                true,
+              );
+
+              await summary.write();
+
+              if (missing.includes('Gate / gate')) {
+                core.setFailed(`Default branch ("${defaultBranch}") no longer requires the "Gate / gate" status check. Expected: ${expectedListForPointer}. Actual: ${actualListForPointer}. Update branch protection to restore Gate. You can update branch protection here: https://github.com/${context.repo.owner}/${context.repo.repo}/settings/branch_protection_rules`);
+              } else {
+                core.setFailed(`${failurePrefix}. Expected: ${expectedListForPointer}. Actual: ${actualListForPointer}. (${problems.join('; ')}). Update branch protection (Settings → Branches → ${defaultBranch}) so required status checks are exactly: ${expectedListForPointer}.`);
+              }
+              return;
+            }
+
+            summary.addRaw('✅ Branch protection contexts match the expected configuration.', true);
+            await summary.write();
+
+            core.info('Branch protection configuration matches expectations.');

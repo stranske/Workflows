@@ -1,0 +1,246 @@
+name: Maint 50 Tool Version Check
+
+# Check for new versions of CI/autofix tools and create an issue if updates are available
+# Runs weekly on Mondays at 8:00 AM UTC
+
+on:
+  schedule:
+    - cron: '0 8 * * 1'  # Weekly on Mondays
+  workflow_dispatch:
+    inputs:
+      force_issue:
+        description: 'Force issue creation even if versions are current'
+        required: false
+        default: 'false'
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check-versions:
+    name: Check for tool updates
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Check current versions
+        id: current
+        run: |
+          source .github/workflows/autofix-versions.env
+          {
+            echo "black_current=${BLACK_VERSION}"
+            echo "ruff_current=${RUFF_VERSION}"
+            echo "isort_current=${ISORT_VERSION}"
+            echo "docformatter_current=${DOCFORMATTER_VERSION}"
+            echo "mypy_current=${MYPY_VERSION}"
+            echo "pytest_current=${PYTEST_VERSION}"
+            echo "pytest_cov_current=${PYTEST_COV_VERSION}"
+            echo "coverage_current=${COVERAGE_VERSION}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Check latest PyPI versions
+        id: latest
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import urllib.request
+
+          def get_latest_version(package):
+              try:
+                  url = f"https://pypi.org/pypi/{package}/json"
+                  with urllib.request.urlopen(url, timeout=10) as response:
+                      data = json.loads(response.read())
+                      return data['info']['version']
+              except Exception as e:
+                  print(f"Warning: Could not fetch {package}: {e}")
+                  return None
+
+          packages = {
+              'black': 'black_latest',
+              'ruff': 'ruff_latest',
+              'docformatter': 'docformatter_latest',
+              'isort': 'isort_latest',
+              'mypy': 'mypy_latest',
+              'pytest': 'pytest_latest',
+              'pytest-cov': 'pytest_cov_latest',
+              'coverage': 'coverage_latest',
+          }
+
+          output = os.environ['GITHUB_OUTPUT']
+          with open(output, 'a', encoding='utf-8') as f:
+              for pkg, output_name in packages.items():
+                  version = get_latest_version(pkg)
+                  if version:
+                      f.write(f"{output_name}={version}\n")
+                      print(f"✓ {pkg}: {version}")
+                  else:
+                      f.write(f"{output_name}=unknown\n")
+                      print(f"✗ {pkg}: failed to fetch")
+          PY
+
+      - name: Compare versions and generate report
+        id: compare
+        run: |
+          python - <<'PY'
+          import os
+
+          current = {
+              'black': '${{ steps.current.outputs.black_current }}',
+              'ruff': '${{ steps.current.outputs.ruff_current }}',
+              'docformatter': '${{ steps.current.outputs.docformatter_current }}',
+              'isort': '${{ steps.current.outputs.isort_current }}',
+              'mypy': '${{ steps.current.outputs.mypy_current }}',
+              'pytest': '${{ steps.current.outputs.pytest_current }}',
+              'pytest-cov': '${{ steps.current.outputs.pytest_cov_current }}',
+              'coverage': '${{ steps.current.outputs.coverage_current }}',
+          }
+
+          latest = {
+              'black': '${{ steps.latest.outputs.black_latest }}',
+              'ruff': '${{ steps.latest.outputs.ruff_latest }}',
+              'docformatter': '${{ steps.latest.outputs.docformatter_latest }}',
+              'isort': '${{ steps.latest.outputs.isort_latest }}',
+              'mypy': '${{ steps.latest.outputs.mypy_latest }}',
+              'pytest': '${{ steps.latest.outputs.pytest_latest }}',
+              'pytest-cov': '${{ steps.latest.outputs.pytest_cov_latest }}',
+              'coverage': '${{ steps.latest.outputs.coverage_latest }}',
+          }
+
+          updates_available = []
+          report_lines = ['## Tool Version Status\n']
+          report_lines.append('| Tool | Current | Latest | Status |')
+          report_lines.append('|------|---------|--------|--------|')
+
+          for tool in sorted(current.keys()):
+              curr_ver = current[tool]
+              latest_ver = latest[tool]
+
+              if latest_ver == 'unknown':
+                  status = '⚠️ Check failed'
+              elif curr_ver != latest_ver:
+                  status = '🆕 Update available'
+                  updates_available.append(f"- **{tool}**: {curr_ver} → {latest_ver}")
+              else:
+                  status = '✅ Current'
+
+              report_lines.append(f'| {tool} | {curr_ver} | {latest_ver} | {status} |')
+
+          report = '\n'.join(report_lines)
+
+          # Write multiline output
+          output = os.environ['GITHUB_OUTPUT']
+          with open(output, 'a', encoding='utf-8') as f:
+              f.write('report<<REPORT_EOF\n')
+              f.write(report)
+              f.write('\nREPORT_EOF\n')
+
+              if updates_available:
+                  f.write('updates<<UPDATES_EOF\n')
+                  f.write('\n'.join(updates_available))
+                  f.write('\nUPDATES_EOF\n')
+                  f.write('has_updates=true\n')
+              else:
+                  f.write('updates=\n')
+                  f.write('has_updates=false\n')
+
+          print(report)
+          PY
+
+      - name: Create or update issue
+        if: steps.compare.outputs.has_updates == 'true' || github.event.inputs.force_issue == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const report = fs.readFileSync(process.env.GITHUB_OUTPUT, 'utf8')
+              .match(/report<<REPORT_EOF\n([\s\S]*?)\nREPORT_EOF/)?.[1] || '';
+            const updates = fs.readFileSync(process.env.GITHUB_OUTPUT, 'utf8')
+              .match(/updates<<UPDATES_EOF\n([\s\S]*?)\nUPDATES_EOF/)?.[1] || '';
+
+            const repoUrl = context.payload.repository.html_url;
+            const workflowUrl = repoUrl + '/actions/workflows/maint-50-tool-version-check.yml';
+            const timestamp = new Date().toISOString();
+
+            const title = '🔧 CI/Autofix Tool Updates Available';
+
+            const instructions = [
+              'source .github/workflows/autofix-versions.env',
+              'pip install "black==$BLACK_VERSION" "ruff==$RUFF_VERSION" ' +
+                '"isort==$ISORT_VERSION" "docformatter==$DOCFORMATTER_VERSION" ' +
+                '"mypy==$MYPY_VERSION" "pytest==$PYTEST_VERSION" ' +
+                '"pytest-cov==$PYTEST_COV_VERSION" "coverage==$COVERAGE_VERSION"',
+              'black --check .',
+              'ruff check .',
+              'mypy src tests'
+            ].join('\n');
+            const instructionsBlock = '```bash\n' + instructions + '\n```';
+
+            const body = report + '\n\n' +
+              '### Updates Available\n\n' +
+              updates + '\n\n' +
+              '### Update Instructions\n\n' +
+              '1. Update `.github/workflows/autofix-versions.env` with the new versions\n' +
+              '2. Test locally:\n' +
+              instructionsBlock + '\n' +
+              '3. Create a PR with the version updates\n' +
+              '4. Ensure all CI checks pass before merging\n\n' +
+              '### Documentation\n\n' +
+              'See `.github/workflows/autofix-versions.env` for the version file.\n\n' +
+              '---\n' +
+              '*This issue was automatically generated by the [Tool Version Check workflow](' + workflowUrl + ').*\n' +
+              '*Last checked: ' + timestamp + '*';
+
+            // Search for existing open issues with this title
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'maintenance,dependencies',
+              per_page: 100
+            });
+
+            const existingIssue = issues.data.find(issue => issue.title === title);
+
+            if (existingIssue) {
+              // Update existing issue
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existingIssue.number,
+                body: body
+              });
+
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existingIssue.number,
+                body: `🔄 Updated with latest version check results.`
+              });
+
+              core.notice(`Updated existing issue #${existingIssue.number}`);
+            } else {
+              // Create new issue
+              const issue = await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: title,
+                body: body,
+                labels: ['maintenance', 'dependencies']
+              });
+
+              core.notice(`Created issue #${issue.data.number}`);
+            }
+
+      - name: Summary
+        run: |
+          cat <<'EOF' >> "$GITHUB_STEP_SUMMARY"
+          ${{ steps.compare.outputs.report }}
+          EOF

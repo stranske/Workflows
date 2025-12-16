@@ -1,0 +1,211 @@
+name: Agents 64 Verify Agent Assignment
+
+on:
+  workflow_call:
+    inputs:
+      issue_number:
+        description: 'Numeric issue identifier to inspect'
+        required: true
+        type: string
+      valid_assignees:
+        description: 'Comma-separated list of acceptable agent logins'
+        required: false
+        type: string
+    outputs:
+      status:
+        description: 'Validation outcome (pass, fail, skipped, error)'
+        value: ${{ jobs.verify.outputs.status }}
+      message:
+        description: 'Human-readable result message'
+        value: ${{ jobs.verify.outputs.message }}
+      summary_table:
+        description: 'Markdown table summarising the verification'
+        value: ${{ jobs.verify.outputs.summary_table }}
+      matched_assignee:
+        description: 'Resolved agent login when validation passed'
+        value: ${{ jobs.verify.outputs.matched_assignee }}
+      has_label:
+        description: 'Whether the issue currently has the agent:codex label'
+        value: ${{ jobs.verify.outputs.has_label }}
+      issue_url:
+        description: 'Direct link to the inspected issue'
+        value: ${{ jobs.verify.outputs.issue_url }}
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: 'Numeric issue identifier to inspect'
+        required: true
+        type: string
+      valid_assignees:
+        description: 'Comma-separated list of acceptable agent logins'
+        required: false
+        type: string
+
+permissions:
+  issues: read
+
+jobs:
+  verify:
+    name: Verify Agent Issue Assignment
+    runs-on: ubuntu-latest
+    permissions:
+      issues: read
+    outputs:
+      status: ${{ steps.check.outputs.status }}
+      message: ${{ steps.check.outputs.message }}
+      summary_table: ${{ steps.check.outputs.summary_table }}
+      matched_assignee: ${{ steps.check.outputs.matched_assignee }}
+      has_label: ${{ steps.check.outputs.has_label }}
+      issue_url: ${{ steps.check.outputs.issue_url }}
+    steps:
+      - name: Inspect issue
+        id: check
+        uses: actions/github-script@v7
+        env:
+          ISSUE_NUMBER: ${{ inputs.issue_number }}
+          VALID_ASSIGNEES: ${{ inputs.valid_assignees }}
+          DEFAULT_VALID_ASSIGNEES: ${{ vars.AGENT_VERIFY_DEFAULT_ASSIGNEES || 'copilot,chatgpt-codex-connector,stranske-automation-bot' }}
+        with:
+          script: |
+            const rawInput = (process.env.ISSUE_NUMBER || '').trim();
+            const issueNumber = Number(rawInput);
+            const { owner, repo } = context.repo;
+            const issueUrl = `https://github.com/${owner}/${repo}/issues/${issueNumber}`;
+
+            const setOutputs = (payload) => {
+              for (const [key, value] of Object.entries(payload)) {
+                core.setOutput(key, value);
+              }
+            };
+
+            const escapeCell = (value) => {
+              return String(value ?? '')
+                .replace(/\|/g, '\\|')
+                .replace(/\n/g, ' ')
+                .trim() || '—';
+            };
+
+            if (!Number.isInteger(issueNumber) || issueNumber <= 0) {
+              const message = `Input issue_number must be a positive integer. Received: ${rawInput}`;
+              const table = [
+                '| Issue | Title | Has agent:codex? | Valid Agent Assignee | Status |',
+                '|-------|-------|-----------------|----------------------|--------|',
+                `| #${escapeCell(rawInput)} | — | unknown | — | error |`
+              ].join('\n');
+
+              await core.summary
+                .addHeading('Agent Assignment Verification', 2)
+                .addRaw(table, true)
+                .addEOL()
+                .addRaw(message)
+                .addEOL()
+                .addLink('Inspect issue', issueUrl)
+                .addEOL()
+                .write();
+
+              setOutputs({
+                status: 'error',
+                message,
+                summary_table: table,
+                matched_assignee: '',
+                has_label: 'unknown',
+                issue_url: issueUrl
+              });
+
+              core.setFailed(message);
+              return;
+            }
+
+            const parseAssignees = (value) =>
+              (value || '')
+                .split(',')
+                .map((entry) => entry.trim())
+                .filter(Boolean);
+
+            const providedLogins = parseAssignees(process.env.VALID_ASSIGNEES);
+            const fallbackLogins = parseAssignees(process.env.DEFAULT_VALID_ASSIGNEES);
+            const REQUIRED_LOGINS = (providedLogins.length ? providedLogins : fallbackLogins)
+              .map((login) => login.toLowerCase());
+            let issueTitle = '—';
+            let hasLabel = false;
+            let matched = '';
+            let status = 'error';
+            let message = '';
+            let fetched = false;
+
+            try {
+              const { data: issue } = await github.rest.issues.get({
+                owner,
+                repo,
+                issue_number: issueNumber
+              });
+
+              issueTitle = issue.title ?? '—';
+              fetched = true;
+              const labels = (issue.labels ?? []).map((label) => {
+                if (typeof label === 'string') {
+                  return label.toLowerCase();
+                }
+                return (label.name ?? '').toLowerCase();
+              });
+              hasLabel = labels.includes('agent:codex');
+
+              const assignees = (issue.assignees ?? []).map((assignee) => (assignee.login ?? '').toLowerCase());
+              matched = REQUIRED_LOGINS.find((login) => assignees.includes(login)) ?? '';
+
+              if (!hasLabel) {
+                status = 'skipped';
+                message = `Issue #${issueNumber} does not carry the agent:codex label. Verification skipped.`;
+                core.notice(message);
+              } else if (!matched) {
+                status = 'fail';
+                const expectedList = REQUIRED_LOGINS.join(', ');
+                message = `Issue #${issueNumber} is labelled agent:codex but missing a valid agent assignee (expected one of: ${expectedList}).`;
+                core.error(message);
+              } else {
+                status = 'pass';
+                message = `Issue #${issueNumber} has a valid agent assignee (${matched}).`;
+                core.info(message);
+              }
+            } catch (error) {
+              status = 'error';
+              message = `Failed to fetch issue #${issueNumber}: ${error.message}`;
+              core.error(message);
+            }
+
+            const statusLabel =
+              status === 'pass' ? 'pass' :
+              status === 'fail' ? 'fail' :
+              status === 'skipped' ? 'skipped' : 'error';
+
+            const labelText = status === 'error' && !fetched ? 'unknown' : (hasLabel ? 'yes' : 'no');
+            const table = [
+              '| Issue | Title | Has agent:codex? | Valid Agent Assignee | Status |',
+              '|-------|-------|-----------------|----------------------|--------|',
+              `| [#${issueNumber}](${issueUrl}) | ${escapeCell(issueTitle)} | ${labelText} | ${matched ? `\`${matched}\`` : '_none_'} | ${statusLabel} |`
+            ].join('\n');
+
+            await core.summary
+              .addHeading('Agent Assignment Verification', 2)
+              .addRaw(table, true)
+              .addEOL()
+              .addRaw(message || 'No additional notes.')
+              .addEOL()
+              .addLink('Inspect issue', issueUrl)
+              .addEOL()
+              .write();
+
+            const hasLabelOutput = status === 'error' && !fetched ? 'unknown' : (hasLabel ? 'true' : 'false');
+
+            setOutputs({
+              status: statusLabel,
+              message,
+              summary_table: table,
+              matched_assignee: matched,
+              has_label: hasLabelOutput,
+              issue_url: issueUrl
+            });
+
+            if (status === 'fail' || status === 'error') {
+              core.setFailed(message || 'Agent assignment verification failed.');
+            }

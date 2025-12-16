@@ -1,0 +1,139 @@
+name: CI Autofix Loop
+
+on:
+  pull_request_target:
+    types:
+      - labeled
+  pull_request:
+    types:
+      - synchronize
+      - opened
+      - reopened
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  checks: read
+  actions: read
+
+concurrency:
+  group: ci-autofix-loop-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  resolve:
+    name: Resolve Context
+    runs-on: ubuntu-latest
+    outputs:
+      should_run: ${{ steps.context.outputs.should_run }}
+      pr_number: ${{ steps.context.outputs.pr_number }}
+      pr_head_ref: ${{ steps.context.outputs.head_ref }}
+      pr_title: ${{ steps.context.outputs.pr_title }}
+      pr_is_draft: ${{ steps.context.outputs.pr_is_draft }}
+      pr_labels_json: ${{ steps.context.outputs.pr_labels_json }}
+      same_repo: ${{ steps.context.outputs.same_repo }}
+      caller_actor: ${{ steps.context.outputs.caller_actor }}
+    steps:
+      - name: Checkout for API helpers
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/scripts
+          sparse-checkout-cone-mode: false
+
+      - name: Resolve PR context
+        id: context
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const path = require('path');
+            const { paginateWithBackoff } = require(
+              path.join(process.env.GITHUB_WORKSPACE, '.github/scripts/api-helpers.js')
+            );
+
+            const pr = context.payload.pull_request;
+            if (!pr) {
+              core.setOutput('should_run', 'false');
+              return;
+            }
+
+            // Event validation
+            const isLabeled = context.eventName === 'pull_request_target' && context.payload.action === 'labeled';
+            const isPush = context.eventName === 'pull_request' && ['synchronize', 'opened', 'reopened'].includes(context.payload.action);
+
+            if (!isLabeled && !isPush) {
+              core.info(`Unsupported event: ${context.eventName}/${context.payload.action}`);
+              core.setOutput('should_run', 'false');
+              return;
+            }
+
+            // Label validation
+            if (isLabeled) {
+              const label = context.payload.label?.name?.toLowerCase();
+              if (label !== 'autofix' && label !== 'autofix:clean') {
+                core.info(`Label '${label}' is not an autofix trigger.`);
+                core.setOutput('should_run', 'false');
+                return;
+              }
+            }
+
+            // PR State validation
+            if (pr.state !== 'open') {
+              core.info('PR is not open.');
+              core.setOutput('should_run', 'false');
+              return;
+            }
+
+            if (pr.draft) {
+              core.info('PR is draft.');
+              core.setOutput('should_run', 'false');
+              return;
+            }
+
+            // Same repo check
+            const sameRepo = pr.head.repo.full_name === pr.base.repo.full_name;
+            if (!sameRepo) {
+              core.info('Fork PRs not supported by this workflow.');
+              core.setOutput('should_run', 'false');
+              return;
+            }
+
+            // File check with rate limit retry
+            const { owner, repo } = context.repo;
+            const files = await paginateWithBackoff(
+              github,
+              github.rest.pulls.listFiles,
+              { owner, repo, pull_number: pr.number, per_page: 100 },
+              { maxRetries: 3, core }
+            );
+
+            const hasPython = files.some(f => f.filename.endsWith('.py') || f.filename.endsWith('.pyi'));
+            if (!hasPython) {
+              core.info('No Python files changed.');
+              core.setOutput('should_run', 'false');
+              return;
+            }
+
+            core.setOutput('should_run', 'true');
+            core.setOutput('pr_number', pr.number);
+            core.setOutput('head_ref', pr.head.ref);
+            core.setOutput('pr_title', pr.title);
+            core.setOutput('pr_is_draft', pr.draft);
+            core.setOutput('pr_labels_json', JSON.stringify(pr.labels.map(l => l.name)));
+            core.setOutput('same_repo', sameRepo);
+            core.setOutput('caller_actor', context.actor);
+
+  autofix:
+    needs: resolve
+    if: needs.resolve.outputs.should_run == 'true'
+    uses: ./.github/workflows/reusable-18-autofix.yml
+    with:
+      pr_number: ${{ fromJson(needs.resolve.outputs.pr_number) }}
+      pr_head_ref: ${{ needs.resolve.outputs.pr_head_ref }}
+      pr_title: ${{ needs.resolve.outputs.pr_title }}
+      pr_is_draft: ${{ fromJson(needs.resolve.outputs.pr_is_draft) }}
+      pr_labels_json: ${{ needs.resolve.outputs.pr_labels_json }}
+      same_repo: ${{ fromJson(needs.resolve.outputs.same_repo) }}
+      caller_actor: ${{ needs.resolve.outputs.caller_actor }}
+    secrets:
+      service_bot_pat: ${{ secrets.ACTIONS_BOT_PAT }}

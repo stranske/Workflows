@@ -1,0 +1,1141 @@
+# Reusable agents issue bridge workflow
+#
+# This workflow provides shared steps for creating agent bootstrap PRs from GitHub issues.
+# It supports multiple agents (codex, claude, etc.) through parameterization.
+#
+# Expected labels:
+# - agent:<agent_name> or agents:<agent_name> - triggers bridge for specified agent
+# - agent:<agent_name>-invite - overrides PR mode to 'invite' (human opens PR)
+# - agents:keepalive - enables keepalive monitoring for the agent workflow
+#
+# Inputs:
+# - agent: The agent identifier (e.g., 'codex', 'claude')
+# - issue_number: Issue number to process (required for workflow_dispatch)
+# - mode: PR creation mode ('create' or 'invite')
+# - post_agent_comment: Whether to auto-post '@<agent> start' command
+# - agent_pr_draft: Whether created PRs should be drafts
+# - service_bot_pat: PAT for service bot operations
+# - owner_pr_pat: PAT for PR creation operations
+
+name: Reusable Agents Issue Bridge
+
+on:
+  workflow_call:
+    inputs:
+      agent:
+        description: "Agent identifier (e.g., codex, claude)"
+        required: true
+        type: string
+      issue_number:
+        description: "Issue number to process (for workflow_dispatch)"
+        required: false
+        type: string
+        default: ""
+      mode:
+        description: "PR creation mode (create|invite)"
+        required: false
+        type: string
+        default: "invite"
+      post_agent_comment:
+        description: "Auto-post '@<agent> start' command (true/false)"
+        required: false
+        type: string
+        default: "true"
+      agent_pr_draft:
+        description: "Force created PR to be draft (true/false)"
+        required: false
+        type: string
+        default: "false"
+    secrets:
+      service_bot_pat:
+        description: "PAT for service bot operations"
+        required: false
+      owner_pr_pat:
+        description: "PAT for PR creation operations"
+        required: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  bridge:
+    runs-on: ubuntu-latest
+    outputs:
+      issue: ${{ steps.ctx.outputs.issue }}
+      has_issue: ${{ steps.ctx.outputs.has_issue }}
+      base: ${{ steps.refs.outputs.base }}
+      head: ${{ steps.mk.outputs.branch || steps.refs.outputs.head || '' }}
+      mode: ${{ steps.mode.outputs.mode }}
+      pr_created: ${{ steps.pr.outputs.created }}
+    env:
+      SERVICE_BOT_PAT: ${{ secrets.service_bot_pat }}
+      AGENT: ${{ inputs.agent }}
+
+    steps:
+      - name: Resolve issue number
+        id: ctx
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueFromEvent = context.payload.issue && context.payload.issue.number;
+            const issueFromInput = '${{ inputs.issue_number }}';
+            const num = Number(issueFromEvent || issueFromInput || 0);
+            core.setOutput('issue', num > 0 ? String(num) : '');
+            core.setOutput('has_issue', num > 0 ? 'true' : 'false');
+
+      - name: Resolve agent label
+        if: ${{ steps.ctx.outputs.has_issue == 'true' }}
+        id: agent_label
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueNumber = Number('${{ steps.ctx.outputs.issue }}');
+            const { owner, repo } = context.repo;
+
+            const loadLabels = async () => {
+              if (!issueNumber) {
+                return [];
+              }
+              const issueFromEvent = context.payload.issue;
+              if (issueFromEvent && Number(issueFromEvent.number) === issueNumber) {
+                return issueFromEvent.labels || [];
+              }
+              const { data } = await github.rest.issues.get({ owner, repo, issue_number: issueNumber });
+              return data.labels || [];
+            };
+
+            const rawLabels = await loadLabels();
+            const prefixes = ['agent:', 'agents:'];
+            const inviteSuffix = '-invite';
+            const candidates = new Map();
+
+            for (const label of rawLabels) {
+              const name = (typeof label === 'string' ? label : label?.name || '').trim();
+              if (!name) continue;
+              const lower = name.toLowerCase();
+              const prefix = prefixes.find((pref) => lower.startsWith(pref));
+              if (!prefix) continue;
+              let suffix = lower.slice(prefix.length).trim();
+              if (!suffix || suffix === 'keepalive') {
+                continue;
+              }
+              let base = suffix;
+              let invite = false;
+              if (base.endsWith(inviteSuffix)) {
+                base = base.slice(0, -inviteSuffix.length).trim();
+                if (!base) continue;
+                invite = true;
+              }
+              const canonical = `agent:${base}`;
+              if (!candidates.has(canonical)) {
+                candidates.set(canonical, {
+                  base,
+                  labels: new Set(),
+                  inviteLabels: new Set(),
+                });
+              }
+              const entry = candidates.get(canonical);
+              if (invite) {
+                entry.inviteLabels.add(name);
+              } else {
+                entry.labels.add(name);
+              }
+            }
+
+            const withBase = Array.from(candidates.values()).filter((entry) => entry.labels.size > 0);
+            if (withBase.length === 0) {
+              const inviteOnly = Array.from(candidates.values())
+                .flatMap((entry) => Array.from(entry.inviteLabels))
+                .join(', ');
+              if (inviteOnly) {
+                core.setFailed(
+                  `agent:* invite labels (${inviteOnly}) require the matching base agent:* label. Add agent:<name> before running the bridge.`,
+                );
+              } else {
+                core.setFailed('Exactly one agent:* label is required to run the bridge.');
+              }
+              return;
+            }
+            if (withBase.length > 1) {
+              const names = withBase
+                .map((entry) => Array.from(entry.labels)[0] || `agent:${entry.base}`)
+                .join(', ');
+              core.setFailed(`Expected exactly one agent:* label but found multiple: ${names}`);
+              return;
+            }
+
+            const entry = withBase[0];
+            const original = Array.from(entry.labels)[0] || `agent:${entry.base}`;
+            const suffix = entry.base;
+            const slugify = (value) =>
+              value
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, '-')
+                .replace(/^-+|-+$/g, '');
+            const agent = slugify(suffix);
+            if (!agent) {
+              core.setFailed(`Agent label \"${original}\" could not be normalized to a slug.`);
+              return;
+            }
+            const mention = `@${agent}`;
+            const title = agent
+              .split('-')
+              .filter(Boolean)
+              .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+              .join(' ') || original;
+
+            core.exportVariable('BRIDGE_AGENT_LABEL', original);
+            core.exportVariable('BRIDGE_AGENT_NAME', agent);
+            core.exportVariable('BRIDGE_AGENT_MENTION', mention);
+            core.exportVariable('BRIDGE_AGENT_TITLE', title);
+            core.exportVariable('AGENT', agent);
+
+            core.setOutput('label', original);
+            core.setOutput('agent', agent);
+            core.setOutput('mention', mention);
+            core.setOutput('title', title);
+
+      - name: Resolve base and head refs
+        id: refs
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const { data } = await github.rest.repos.get({ owner, repo });
+            const base = data.default_branch || 'main';
+            const issue = Number('${{ steps.ctx.outputs.issue }}');
+            const head = issue ? `codex/issue-${issue}` : '';
+            core.setOutput('base', base);
+            if (head) {
+              core.setOutput('head', head);
+            }
+
+      - name: Fail fast on missing issue (manual run)
+        if: ${{ github.event_name == 'workflow_dispatch' && steps.ctx.outputs.has_issue != 'true' }}
+        run: |
+          echo "::error::Missing issue number for workflow_dispatch. Provide an issue number when manually running this workflow." && exit 1
+
+      - name: Checkout default
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.refs.outputs.base }}
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Select PR mode
+        id: mode
+        uses: actions/github-script@v7
+        env:
+          AGENT: ${{ steps.agent_label.outputs.agent || inputs.agent }}
+        with:
+          script: |
+            const agent = (process.env.AGENT || '').trim();
+            if (!agent || agent === 'unknown') {
+              core.setFailed('Agent resolution failed; ensure exactly one agent:* label is present or provide the agent input.');
+              return;
+            }
+            const ev = context.eventName;
+            let mode = '${{ inputs.mode }}' || 'invite';
+            let reason = 'input-default';
+
+            if (ev === 'issues') {
+              const labels = (context.payload.issue && Array.isArray(context.payload.issue.labels)) ? context.payload.issue.labels : [];
+              const hasInvite = labels.some((lbl) => String(lbl.name || '').toLowerCase() === `agent:${agent}-invite`);
+              const hasBase = labels.some((lbl) => String(lbl.name || '').toLowerCase() === `agent:${agent}`);
+
+              if (hasInvite) {
+                mode = 'invite';
+                reason = 'issue-label-override';
+              } else if (hasBase) {
+                // Issue-triggered runs should stay in invite mode so the human post lands on the issue
+                mode = 'invite';
+                reason = 'issue-default-invite';
+              }
+            }
+
+            core.setOutput('mode', mode);
+            core.setOutput('reason', reason);
+
+      - name: Resolve draft flag
+        id: draft
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const val = '${{ inputs.agent_pr_draft }}' === 'true';
+            core.setOutput('draft', val ? 'true' : 'false');
+
+      - name: Resolve post-agent comment flag
+        id: agent_comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const val = '${{ inputs.post_agent_comment }}' === 'true';
+            core.setOutput('post', val ? 'true' : 'false');
+
+      - name: Resolve keepalive opt-in
+        if: ${{ steps.ctx.outputs.has_issue == 'true' }}
+        id: keepalive
+        uses: actions/github-script@v7
+        env:
+          DEFAULT_BASE: ${{ steps.refs.outputs.base || '' }}
+        with:
+          script: |
+            const { findIssuePrCandidate } = require('./.github/scripts/issue_pr_locator.js');
+            let prData = null;
+            let prNumber = 0;
+            const issueNumber = Number('${{ steps.ctx.outputs.issue }}');
+            const { owner, repo } = context.repo;
+            const sentinel = /\[keepalive\]/i;
+            const keepaliveLabel = 'agents:keepalive';
+
+            let enabled = false;
+            let source = 'default';
+            let evidence = '';
+
+            if (!issueNumber) {
+              core.setOutput('enabled', 'false');
+              core.setOutput('mode', 'OFF');
+              core.setOutput('source', 'missing');
+              core.setOutput('options_json', JSON.stringify({ keepalive: { enabled: false } }));
+              return;
+            }
+
+            let issue = context.payload.issue;
+            if (!issue || Number(issue.number) !== issueNumber) {
+              try {
+                const { data } = await github.rest.issues.get({ owner, repo, issue_number: issueNumber });
+                issue = data;
+              } catch (error) {
+                core.warning(`Failed to fetch issue #${issueNumber}: ${error.message}`);
+              }
+            }
+
+            try {
+                const headRef = '${{ steps.refs.outputs.head }}';
+                const candidate = await findIssuePrCandidate({
+                  github,
+                  core,
+                  owner,
+                  repo,
+                  issueNumber,
+                  branchCandidates: headRef ? [headRef] : [],
+                  defaultBranch: process.env.DEFAULT_BASE || '',
+                });
+                if (candidate && candidate.number) {
+                  prNumber = candidate.number;
+                  prData = candidate.pr || null;
+                }
+            } catch (error) {
+                core.warning(`Failed to resolve PR for issue #${issueNumber}: ${error.message}`);
+            }
+
+            const labels = Array.isArray(issue?.labels) ? issue.labels : [];
+            const labelMatch = labels.some((label) => {
+              const name = typeof label === 'string' ? label : label?.name || '';
+              return name.trim().toLowerCase() === keepaliveLabel;
+            });
+
+            if (labelMatch) {
+              enabled = true;
+              source = 'label';
+              evidence = 'agents:keepalive label present';
+            }
+
+            if (prNumber && !prData) {
+              try {
+                const { data } = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+                prData = data;
+              } catch (error) {
+                core.warning(`Unable to fetch PR #${prNumber}: ${error.message}`);
+              }
+            }
+
+            if (!enabled) {
+              try {
+                const iterator = github.paginate.iterator(
+                  github.rest.issues.listComments,
+                  { owner, repo, issue_number: issueNumber, per_page: 100 }
+                );
+                for await (const page of iterator) {
+                  for (const comment of page.data) {
+                    if (sentinel.test(comment.body || '')) {
+                      enabled = true;
+                      source = 'comment';
+                      evidence = comment.html_url || `comment ${comment.id}`;
+                      break;
+                    }
+                  }
+                  if (enabled) {
+                    break;
+                  }
+                }
+              } catch (error) {
+                core.warning(`Failed to scan comments for keepalive sentinel: ${error.message}`);
+              }
+            }
+
+            const mode = enabled ? 'ON' : 'OFF';
+            const options = { keepalive: { enabled } };
+            core.setOutput('enabled', enabled ? 'true' : 'false');
+            core.setOutput('mode', mode);
+            core.setOutput('source', source);
+            core.setOutput('options_json', JSON.stringify(options));
+            if (evidence) {
+              core.setOutput('evidence', evidence);
+            }
+
+            const summary = core.summary;
+            summary
+              .addHeading('Keepalive opt-in resolution')
+              .addTable([
+                [{ data: 'Issue', header: true }, { data: 'Mode', header: true }, { data: 'Source', header: true }, { data: 'Evidence', header: true }],
+                [`#${issueNumber}`, mode, source, evidence || '(none)']
+              ]);
+            await summary.write();
+
+      - name: Log chosen mode & draft
+        env:
+          AGENT: ${{ steps.agent_label.outputs.agent || inputs.agent }}
+        run: |
+          echo "Agent: $AGENT"
+          echo "Chosen PR mode: ${{ steps.mode.outputs.mode }} (reason: ${{ steps.mode.outputs.reason }})"
+          echo "Base branch: ${{ steps.refs.outputs.base }}"
+          echo "Head branch: ${{ steps.refs.outputs.head || 'unresolved' }}"
+          echo "Resolved draft flag: ${{ steps.draft.outputs.draft }}"
+          echo "Post agent comment: ${{ steps.agent_comment.outputs.post }}"
+          echo "Keepalive mode: ${{ steps.keepalive.outputs.mode || 'OFF' }} (source: ${{ steps.keepalive.outputs.source || 'default' }})"
+
+      - name: Publish bridge summary
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const agent = (process.env.AGENT || '').trim();
+            if (!agent || agent === 'unknown') {
+              core.setFailed('Agent resolution failed; ensure exactly one agent:* label is present or provide the agent input.');
+              return;
+            }
+            const issueNo = context.payload.issue && context.payload.issue.number;
+            const manualIssue = '${{ inputs.issue_number }}';
+            const base = '${{ steps.refs.outputs.base }}';
+            const head = '${{ steps.refs.outputs.head || '' }}';
+            const mode = '${{ steps.mode.outputs.mode }}';
+            await core.summary
+              .addHeading(`${agent.charAt(0).toUpperCase() + agent.slice(1)} Bridge Event Summary`)
+              .addTable([
+                [
+                  { data: 'Agent', header: true },
+                  { data: 'Issue (event)', header: true },
+                  { data: 'Issue (input)', header: true },
+                  { data: 'Mode', header: true },
+                  { data: 'Base', header: true },
+                  { data: 'Head', header: true }
+                ],
+                [agent, String(issueNo || ''), String(manualIssue || ''), mode, base, head || '(pending)']
+              ])
+              .write();
+
+      - name: Create branch and bootstrap file (fallback)
+        if: ${{ steps.ctx.outputs.has_issue == 'true' }}
+        id: mk
+        env:
+          ISSUE: ${{ steps.ctx.outputs.issue }}
+          AGENT: ${{ steps.agent_label.outputs.agent || inputs.agent }}
+          BASE: ${{ steps.refs.outputs.base }}
+          HEAD: ${{ steps.refs.outputs.head || '' }}
+        run: |
+          set -euo pipefail
+
+          ISSUE_NUM="${ISSUE}"
+          BASE_BRANCH="${BASE}"
+          HEAD_BRANCH="${HEAD}"
+
+          if [ -z "$ISSUE_NUM" ] || [ -z "$HEAD_BRANCH" ]; then
+            echo "Resolved issue/head missing; skipping branch creation."
+            exit 0
+          fi
+
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git fetch origin "$BASE_BRANCH" || true
+
+          if git ls-remote --exit-code --heads origin "$HEAD_BRANCH" > /dev/null 2>&1; then
+            echo "Reusing existing branch ${HEAD_BRANCH} for issue #${ISSUE_NUM}."
+            git fetch origin "$HEAD_BRANCH"
+            git checkout -B "$HEAD_BRANCH" "origin/${HEAD_BRANCH}"
+            git pull --ff-only origin "$HEAD_BRANCH"
+            echo "branch=${HEAD_BRANCH}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          git checkout -B "$HEAD_BRANCH" "origin/${BASE_BRANCH}"
+          mkdir -p agents
+          printf "<!-- bootstrap for %s on issue #%s -->\n" "$AGENT" "$ISSUE_NUM" > "agents/${AGENT}-${ISSUE_NUM}.md"
+          git add -A || true
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(${AGENT}): bootstrap PR for issue #${ISSUE_NUM}"
+          else
+            echo "No changes to commit; proceeding to push branch with existing tree."
+          fi
+          git push origin "HEAD:${HEAD_BRANCH}"
+          echo "branch=${HEAD_BRANCH}" >> "$GITHUB_OUTPUT"
+
+      - name: Invite human to open PR (invite mode)
+        if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.mode.outputs.mode == 'invite' }}
+        id: invite
+        uses: actions/github-script@v7
+        env:
+          BRANCH: ${{ steps.mk.outputs.branch }}
+          KEEPALIVE_MODE: ${{ steps.keepalive.outputs.mode || 'OFF' }}
+          AGENT: ${{ steps.agent_label.outputs.agent || inputs.agent }}
+        with:
+          script: |
+            const {owner, repo} = context.repo;
+            const { buildIssueContext } = require('./.github/scripts/issue_context_utils.js');
+            const issue_number = Number('${{ steps.ctx.outputs.issue }}');
+            const base = "${{ steps.refs.outputs.base }}";
+            const branch = process.env.BRANCH;
+            const agent = (process.env.AGENT || '').trim();
+            if (!agent || agent === 'unknown') {
+              core.setFailed('Agent resolution failed; ensure exactly one agent:* label is present or provide the agent input.');
+              return;
+            }
+            const agentTitle = process.env.BRIDGE_AGENT_TITLE || agent.charAt(0).toUpperCase() + agent.slice(1);
+            const mention = process.env.BRIDGE_AGENT_MENTION || `@${agent}`;
+            // Load instruction from template file
+            const { getKeepaliveInstructionWithMention } = require('.github/scripts/keepalive_instruction_template.js');
+            const instruction = getKeepaliveInstructionWithMention(agent);
+            const rawMode = (process.env.KEEPALIVE_MODE || 'OFF').trim().toUpperCase();
+            const keepaliveMode = rawMode === 'ON' ? 'ON' : 'OFF';
+
+            if (!branch) {
+              core.setFailed('Resolved branch name missing; cannot post invite instructions.');
+              return;
+            }
+            let issueTitle = '';
+            let issueBody = '';
+            try {
+              const { data: is } = await github.rest.issues.get({ owner, repo, issue_number });
+              issueTitle = is.title || '';
+              issueBody = is.body || '';
+            } catch (err) {
+              core.error('Failed to fetch issue: ' + err);
+            }
+
+            // Check if a PR already exists for this branch
+            let existingPr = null;
+            try {
+              const { data: pulls } = await github.rest.pulls.list({
+                owner,
+                repo,
+                state: 'open',
+                head: `${owner}:${branch}`,
+              });
+              if (pulls.length > 0) {
+                existingPr = pulls[0];
+              }
+            } catch (err) {
+              core.warning(`Failed to check for existing PR: ${err.message}`);
+            }
+
+            const issueUrl = `https://github.com/${owner}/${repo}/issues/${issue_number}`;
+            const keepaliveHeader = `### Keepalive: ${keepaliveMode}`;
+            const metaMarker = `<!-- meta:issue:${issue_number} -->`;
+            const header = `### Source Issue #${issue_number}: ${issueTitle}`;
+            const quoted = (issueBody || '').split('\n').map(l => `> ${l}`).join('\n');
+
+            // Build issue context for status summary
+            const contextData = buildIssueContext(issueBody || '');
+            const statusSummaryBlock = contextData.statusSummaryBlock || '';
+
+            const bodySections = [
+              keepaliveHeader,
+              metaMarker,
+              '',
+              header,
+              '',
+              `Base: ${base}`,
+              `Head: ${branch}`,
+              '',
+              `Source: ${issueUrl}`,
+              '',
+              quoted,
+              '',
+              `${mention} start`,
+              '',
+              `${agentTitle}, please derive and propose:`,
+              '- Scope / key constraints',
+              '- Acceptance criteria / definition of done',
+              '- Initial task checklist to iterate through',
+              '',
+              'Use the issue details above to draft the plan, then proceed with implementation.',
+              '',
+              '---',
+              '',
+              'Once the plan is posted, comment the snippet below to start execution and enable keepalive:',
+              '',
+              'The following block should be pasted as a separate PR comment:',
+              '',
+              '```markdown',
+              instruction,
+              '```'
+            ];
+
+            const suggestion = bodySections.join('\n');
+            const compareUrl = `https://github.com/${owner}/${repo}/compare/${base}...${branch}?expand=1`;
+
+            if (!issue_number) {
+              core.setFailed('Resolved issue number missing; cannot post invite.');
+              return;
+            }
+
+            // If PR already exists with empty body, update it with issue content
+            if (existingPr) {
+              const prBody = (existingPr.body || '').trim();
+              const hasMetaMarker = prBody.includes(`<!-- meta:issue:${issue_number} -->`);
+              const hasStatusSummary = /<!--\s*auto-status-summary:start\s*-->/.test(prBody);
+              const bodyIsEmpty = !prBody || prBody.length < 50;
+
+              if (bodyIsEmpty || (!hasMetaMarker && !hasStatusSummary)) {
+                // Build a proper PR body with issue content
+                const prBodySections = [
+                  keepaliveHeader,
+                  metaMarker,
+                  '',
+                  statusSummaryBlock,
+                  '',
+                  header,
+                  '',
+                  `Base: ${base}`,
+                  `Head: ${branch}`,
+                  '',
+                  `Source: ${issueUrl}`,
+                  '',
+                  '### Issue Details',
+                  '',
+                  issueBody || '_(No issue body)_',
+                ];
+
+                const newPrBody = prBodySections.join('\n').trim();
+                try {
+                  await github.rest.pulls.update({
+                    owner,
+                    repo,
+                    pull_number: existingPr.number,
+                    body: newPrBody,
+                  });
+                  core.info(`Updated PR #${existingPr.number} body with issue content and status summary.`);
+                  core.setOutput('pr_updated', 'true');
+                  core.setOutput('pr_number', String(existingPr.number));
+                } catch (err) {
+                  core.warning(`Failed to update PR #${existingPr.number} body: ${err.message}`);
+                }
+              } else {
+                core.info(`PR #${existingPr.number} already has content; skipping body update.`);
+              }
+
+              // Post issue context comment on existing PR if not already present
+              try {
+                // Fetch all comments using pagination to avoid missing any
+                const comments = await github.paginate(
+                  github.rest.issues.listComments,
+                  {
+                    owner,
+                    repo,
+                    issue_number: existingPr.number,
+                    per_page: 100,
+                  }
+                );
+                const headerRegex = new RegExp(`^###\\s*Issue\\s*#${issue_number}\\b`, 'i');
+                const alreadyPosted = comments.some((c) => headerRegex.test(c.body || ''));
+
+                if (!alreadyPosted && issueBody) {
+                  const contextComment = [
+                    `### Issue #${issue_number}: ${issueTitle}`,
+                    '',
+                    statusSummaryBlock,
+                    '',
+                    '#### Full Issue Text',
+                    '',
+                    issueBody.trim(),
+                  ].join('\n');
+
+                  await github.rest.issues.createComment({
+                    owner,
+                    repo,
+                    issue_number: existingPr.number,
+                    body: contextComment,
+                  });
+                  core.info(`Posted issue context comment on PR #${existingPr.number}.`);
+                }
+              } catch (err) {
+                core.warning(`Failed to post issue context on PR: ${err.message}`);
+              }
+
+              // Still post on the issue for visibility
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number,
+                body: `PR #${existingPr.number} already exists for branch \`${branch}\`. Updated PR body with issue content.\n\nPR link: ${existingPr.html_url}`
+              });
+              return;
+            }
+
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number,
+              body: `Branch \`${branch}\` created from \`${base}\`.\n\nOption 1 (Invite) is enforced on issue events. PR creation is disabled by design so you are the PR author. ${agentTitle} only engages on human-authored PRs.\n\nPlease open the PR as the author so ${agentTitle} can work on it:\n\n- Compare link: ${compareUrl}\n- Suggested title: \`${agentTitle} bootstrap for #${issue_number}\`\n- Suggested body (copy/paste):\n\n\n${'```markdown'}\n${suggestion}\n${'```'}`
+            });
+
+      - name: Skip PR creation when inviting
+        if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.mode.outputs.mode == 'invite' }}
+        env:
+          AGENT: ${{ steps.agent_label.outputs.agent || inputs.agent }}
+        run: |
+          echo "Invite mode: skipping PR creation; waiting for human author to create PR for $AGENT."
+
+      - name: Open or reuse PR (create mode)
+        if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.mode.outputs.mode != 'invite' }}
+        id: pr
+        uses: actions/github-script@v7
+        env:
+          BRANCH: ${{ steps.mk.outputs.branch }}
+          KEEPALIVE_MODE: ${{ steps.keepalive.outputs.mode || 'OFF' }}
+          AGENT: ${{ steps.agent_label.outputs.agent || inputs.agent }}
+        with:
+          github-token: ${{ secrets.owner_pr_pat || secrets.service_bot_pat || github.token }}
+          script: |
+            const {owner, repo} = context.repo;
+            const issue_number = Number('${{ steps.ctx.outputs.issue }}');
+            const base = "${{ steps.refs.outputs.base }}";
+            const head = process.env.BRANCH;
+            const draftFlag = "${{ steps.draft.outputs.draft }}" === 'true';
+            const keepaliveMode = process.env.KEEPALIVE_MODE || 'OFF';
+            const { buildIssueContext } = require('./.github/scripts/issue_context_utils.js');
+            const agent = (process.env.AGENT || '').trim();
+            if (!agent || agent === 'unknown') {
+              core.setFailed('Agent resolution failed; ensure exactly one agent:* label is present or provide the agent input.');
+              return;
+            }
+            const agentTitle = process.env.BRIDGE_AGENT_TITLE || agent.charAt(0).toUpperCase() + agent.slice(1);
+            const mention = process.env.BRIDGE_AGENT_MENTION || `@${agent}`;
+            // Load instruction from template file
+            const { getKeepaliveInstructionWithMention } = require('.github/scripts/keepalive_instruction_template.js');
+            const instruction = getKeepaliveInstructionWithMention(agent);
+
+            if (!issue_number) {
+              core.setFailed('Resolved issue number missing; cannot open PR.');
+              return;
+            }
+            if (!head) {
+              core.setFailed('Resolved branch name missing; cannot open or reuse PR.');
+              return;
+            }
+
+            const existing = await github.rest.pulls.list({ owner, repo, state: 'open', head: `${owner}:${head}` });
+            let pr = existing.data[0];
+
+            let issueTitle = '';
+            let issueBody = '';
+            try {
+              const { data: is } = await github.rest.issues.get({ owner, repo, issue_number });
+              issueTitle = is.title || '';
+              issueBody = is.body || '';
+            } catch (e) {
+              core.warning(`Failed to fetch issue #${issue_number}: ${e.message}`);
+            }
+
+            const {
+              scopeBlock,
+              statusSummaryBlock,
+              missingSections,
+            } = buildIssueContext(issueBody || '');
+
+            if (!pr) {
+
+              const issueUrl = `https://github.com/${owner}/${repo}/issues/${issue_number}`;
+              const keepaliveStatus = (process.env.KEEPALIVE_MODE || 'OFF').trim().toUpperCase() === 'ON' ? 'ON' : 'OFF';
+              const keepaliveHeader = `### Keepalive: ${keepaliveStatus}`;
+              const metaMarker = `<!-- meta:issue:${issue_number} -->`;
+              const header = `### Source Issue #${issue_number}: ${issueTitle}`;
+              const quoted = (issueBody || '').split('\n').map(l => `> ${l}`).join('\n');
+              const baseLine = base ? `Base: ${base}` : '';
+              const headLine = head ? `Head: ${head}` : '';
+              const issueDetailsBlock = (() => {
+                const sections = [];
+                if (statusSummaryBlock) {
+                  sections.push(statusSummaryBlock);
+                }
+                if (issueBody && issueBody.trim()) {
+                  sections.push('### Issue Details');
+                  sections.push(issueBody.trim());
+                }
+                return sections.join('\n\n');
+              })();
+
+              const prBody = [
+                keepaliveHeader,
+                metaMarker,
+                '',
+                header,
+                '',
+                baseLine,
+                headLine,
+                '',
+                `Source: ${issueUrl}`,
+                '',
+                issueDetailsBlock || quoted,
+                '',
+                '—',
+                `PR created automatically to engage ${agentTitle}.`
+              ].join('\n');
+
+              ({ data: pr } = await github.rest.pulls.create({
+                owner,
+                repo,
+                head,
+                base,
+                draft: draftFlag,
+                title: `${agentTitle} bootstrap for #${issue_number}`,
+                body: prBody
+              }));
+
+              core.setOutput('created', 'true');
+            } else {
+              // Explicitly set default outputs when PR already exists
+              core.setOutput('created', 'false');
+            }
+
+            if (pr && statusSummaryBlock) {
+              const bodyHasSummary = /<!--\s*auto-status-summary:start\s*-->/.test(pr.body || '');
+              if (!bodyHasSummary) {
+                const existingBody = (pr.body || '').trim();
+                const segments = [statusSummaryBlock];
+                if (existingBody) {
+                  segments.push('', existingBody);
+                }
+                const mergedBody = segments.join('\n').trim();
+                try {
+                  await github.rest.pulls.update({ owner, repo, pull_number: pr.number, body: mergedBody });
+                  pr.body = mergedBody;
+                  core.info(`Inserted auto-status summary into PR #${pr.number} body.`);
+                } catch (error) {
+                  core.warning(`Failed to insert auto-status summary into PR #${pr.number}: ${error.message}`);
+                }
+              }
+            }
+
+            core.setOutput('scope_block', scopeBlock || '');
+            core.setOutput('status_summary_block', statusSummaryBlock || '');
+            core.setOutput('issue_body', issueBody || '');
+            core.setOutput('issue_title', issueTitle || '');
+            core.setOutput('missing_sections', missingSections.join(',') || '');
+
+            core.setOutput('number', String(pr.number));
+
+            const assignees = ['chatgpt-codex-connector', 'stranske-automation-bot'];
+            try {
+              await github.rest.issues.addAssignees({ owner, repo, issue_number: pr.number, assignees });
+            } catch (e) {
+              core.warning(`PR assign failed: ${e.message}`);
+            }
+            try {
+              await github.rest.issues.addAssignees({ owner, repo, issue_number, assignees });
+            } catch (e) {
+              core.warning(`Issue assign failed: ${e.message}`);
+            }
+
+      - name: Label PR with agent
+        if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.mode.outputs.mode != 'invite' }}
+        uses: actions/github-script@v7
+        env:
+          PR: ${{ steps.pr.outputs.number }}
+          AGENT: ${{ steps.agent_label.outputs.agent || inputs.agent }}
+        with:
+          script: |
+            const {owner, repo} = context.repo;
+            const prNumber = Number(process.env.PR);
+            const agent = (process.env.AGENT || '').trim();
+            if (!agent || agent === 'unknown') {
+              core.setFailed('Agent resolution failed; ensure exactly one agent:* label is present or provide the agent input.');
+              return;
+            }
+            await github.rest.issues.addLabels({ owner, repo, issue_number: prNumber, labels: [`agent:${agent}`] });
+
+      - name: Post issue context on PR
+        if: ${{ steps.ctx.outputs.has_issue == 'true' }}
+        uses: actions/github-script@v7
+        env:
+          ISSUE_BODY: ${{ steps.pr.outputs.issue_body }}
+          ISSUE_TITLE: ${{ steps.pr.outputs.issue_title }}
+          ISSUE_NUMBER: ${{ steps.ctx.outputs.issue }}
+          SCOPE_BLOCK: ${{ steps.pr.outputs.scope_block }}
+          STATUS_SUMMARY_BLOCK: ${{ steps.pr.outputs.status_summary_block }}
+          MISSING_SECTIONS: ${{ steps.pr.outputs.missing_sections }}
+          HEAD_BRANCH: ${{ steps.mk.outputs.branch || steps.refs.outputs.head || '' }}
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const { buildIssueContext } = require('./.github/scripts/issue_context_utils.js');
+            const branch = (process.env.HEAD_BRANCH || '').trim();
+            const issueNumber = Number(process.env.ISSUE_NUMBER || 0);
+            let issueTitle = (process.env.ISSUE_TITLE || '').trim();
+            let issueBody = process.env.ISSUE_BODY || '';
+            const providedScopeBlock = (process.env.SCOPE_BLOCK || '').trim();
+            const providedSummaryBlock = (process.env.STATUS_SUMMARY_BLOCK || '').trim();
+            let prNumber = Number('${{ steps.pr.outputs.number }}');
+
+            if ((!issueTitle || !issueBody) && issueNumber) {
+              try {
+                const { data: issue } = await github.rest.issues.get({ owner, repo, issue_number: issueNumber });
+                issueTitle = issueTitle || issue.title || '';
+                issueBody = issueBody || issue.body || '';
+              } catch (error) {
+                core.warning(`Unable to fetch issue #${issueNumber}: ${error.message}`);
+              }
+            }
+
+            const contextData = buildIssueContext(issueBody || '');
+            const scopeBlock = providedScopeBlock || contextData.scopeBlock || '';
+            const statusSummaryBlock = providedSummaryBlock || contextData.statusSummaryBlock || '';
+            const summaryNeedsWarning = contextData.summaryNeedsWarning;
+            const warningLines = contextData.warningLines;
+            const warningDetails = contextData.warningDetails;
+            const missingSections = Array.isArray(contextData.missingSections) ? contextData.missingSections : [];
+
+            if (!prNumber && branch) {
+              try {
+                const { data: pulls } = await github.rest.pulls.list({ owner, repo, state: 'open', head: `${owner}:${branch}` });
+                if (pulls.length > 0) {
+                  prNumber = pulls[0].number;
+                }
+              } catch (error) {
+                core.warning(`Failed to locate PR for branch ${branch}: ${error.message}`);
+              }
+            }
+            if (summaryNeedsWarning && missingSections.length) {
+              core.warning(`Issue template missing sections: ${missingSections.join(', ')}`);
+            } else if (summaryNeedsWarning && warningDetails.length) {
+              core.warning('Issue template is missing required sections for the automated summary.');
+            }
+
+            if (!prNumber) {
+              if (summaryNeedsWarning && issueNumber) {
+                const warningHeader = `### Template Warning for Issue #${issueNumber}`;
+                const warningBody = [warningHeader, '', ...warningDetails].join('\n').trim();
+                const comments = await github.paginate(github.rest.issues.listComments, {
+                  owner,
+                  repo,
+                  issue_number: issueNumber,
+                  per_page: 100,
+                });
+                const alreadyWarned = comments.some((comment) => comment.body?.startsWith(warningHeader));
+                if (!alreadyWarned) {
+                  await github.rest.issues.createComment({ owner, repo, issue_number: issueNumber, body: warningBody });
+                }
+              }
+              core.warning('PR number is unavailable; skipping issue context comment until a PR is opened.');
+              return;
+            }
+
+            if (prData && statusSummaryBlock) {
+              const bodyHasSummary = /<!--\s*auto-status-summary:start\s*-->/.test(prData.body || '');
+              if (!bodyHasSummary) {
+                const existingBody = (prData.body || '').trim();
+                const mergedBody = [statusSummaryBlock, existingBody].filter(Boolean).join('\n\n').trim();
+                try {
+                  await github.rest.pulls.update({ owner, repo, pull_number: prNumber, body: mergedBody });
+                  prData.body = mergedBody;
+                  core.info(`Inserted auto-status summary into PR #${prNumber} body.`);
+                } catch (error) {
+                  core.warning(`Failed to insert auto-status summary into PR #${prNumber}: ${error.message}`);
+                }
+              }
+            }
+
+            const titlePart = issueTitle ? `: ${issueTitle}` : '';
+            const header = `### Issue #${issueNumber || '?'}${titlePart}`;
+            const parts = [header];
+            if (statusSummaryBlock) {
+              parts.push('', statusSummaryBlock);
+            } else if (scopeBlock) {
+              parts.push('', scopeBlock);
+            }
+            if (summaryNeedsWarning && warningLines.length) {
+              parts.push('', ...warningLines);
+            }
+            if (issueBody) {
+              parts.push('', '#### Full Issue Text', '', issueBody.trim());
+            }
+
+            const body = parts.join('\n').trim();
+            if (!body) {
+              core.info('No issue details available for comment; skipping.');
+              return;
+            }
+
+            const existing = await github.paginate(github.rest.issues.listComments, {
+              owner,
+              repo,
+              issue_number: prNumber,
+              per_page: 100,
+            });
+            const headerRegex = new RegExp(`^###\\s*Issue\\s*#${issueNumber}\\b`, 'i');
+            const alreadyPosted = existing.some((comment) => headerRegex.test(comment?.body || ''));
+            if (alreadyPosted) {
+              core.info('Issue context comment already present; skipping.');
+              return;
+            }
+
+            await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body });
+
+      - name: Post agent command as service user
+        if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.mode.outputs.mode != 'invite' && env.SERVICE_BOT_PAT != '' && steps.agent_comment.outputs.post == 'true' }}
+        uses: actions/github-script@v7
+        env:
+          AGENT: ${{ steps.agent_label.outputs.agent || inputs.agent }}
+        with:
+          github-token: ${{ env.SERVICE_BOT_PAT }}
+          script: |
+            const {owner, repo} = context.repo;
+            const prNumber = Number("${{ steps.pr.outputs.number }}");
+            const agent = (process.env.AGENT || '').trim();
+            if (!agent || agent === 'unknown') {
+              core.setFailed('Agent resolution failed; ensure exactly one agent:* label is present or provide the agent input.');
+              return;
+            }
+            const cmd = `@${agent} start`;
+            await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body: `${cmd}\n\nPlease create commits on this branch, run tests, and keep the PR updated.` });
+
+      - name: Post agent command (fallback as github-actions)
+        if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.mode.outputs.mode != 'invite' && env.SERVICE_BOT_PAT == '' && steps.agent_comment.outputs.post == 'true' }}
+        uses: actions/github-script@v7
+        env:
+          AGENT: ${{ steps.agent_label.outputs.agent || inputs.agent }}
+        with:
+          script: |
+            const {owner, repo} = context.repo;
+            const prNumber = Number("${{ steps.pr.outputs.number }}");
+            const agent = (process.env.AGENT || '').trim();
+            if (!agent || agent === 'unknown') {
+              core.setFailed('Agent resolution failed; ensure exactly one agent:* label is present or provide the agent input.');
+              return;
+            }
+            const cmd = `@${agent} start`;
+            await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body: `${cmd}\n\nPlease create commits on this branch, run tests, and keep the PR updated.` });
+
+      - name: Prompt human to post agent command
+        if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.mode.outputs.mode != 'invite' && steps.agent_comment.outputs.post != 'true' }}
+        uses: actions/github-script@v7
+        env:
+          AGENT: ${{ steps.agent_label.outputs.agent || inputs.agent }}
+        with:
+          script: |
+            const {owner, repo} = context.repo;
+            const prNumber = Number("${{ steps.pr.outputs.number }}");
+            const agent = (process.env.AGENT || '').trim();
+            if (!agent || agent === 'unknown') {
+              core.setFailed('Agent resolution failed; ensure exactly one agent:* label is present or provide the agent input.');
+              return;
+            }
+            const agentTitle = process.env.BRIDGE_AGENT_TITLE || agent.charAt(0).toUpperCase() + agent.slice(1);
+            const mention = process.env.BRIDGE_AGENT_MENTION || `@${agent}`;
+            // Load instruction from template file
+            const { getKeepaliveInstructionWithMention } = require('.github/scripts/keepalive_instruction_template.js');
+            const instruction = getKeepaliveInstructionWithMention(agent);
+            const codexPromptMsg = [
+              "PR created.",
+              `Comment \`@${agent} start\` to request the plan.`,
+              `Tell ${agentTitle} to reuse the scope, acceptance criteria, and task list from the source issue and publish them here with \`- [ ]\` checklists so keepalive keeps watching.`,
+              `After ${agentTitle} replies, follow the instructions posted on the source issue to begin execution.`
+            ].join(' ');
+            await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body: codexPromptMsg });
+
+      - name: Link PR on original issue (fallback)
+        if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.mode.outputs.mode != 'invite' }}
+        uses: actions/github-script@v7
+        env:
+          KEEPALIVE_MODE: ${{ steps.keepalive.outputs.mode || 'OFF' }}
+          AGENT: ${{ steps.agent_label.outputs.agent || inputs.agent }}
+          BRANCH: ${{ steps.mk.outputs.branch }}
+          BASE: ${{ steps.refs.outputs.base }}
+        with:
+          script: |
+            const {owner, repo} = context.repo;
+            const issue_number = Number('${{ steps.ctx.outputs.issue }}');
+            if (!issue_number) {
+              core.warning('No issue context available to link PR back.');
+              return;
+            }
+
+            let issueTitle = '';
+            let issueBody = '';
+            try {
+              const { data: is } = await github.rest.issues.get({ owner, repo, issue_number });
+              issueTitle = is.title || '';
+              issueBody = is.body || '';
+            } catch (e) {
+              core.warning(`Failed to fetch issue #${issue_number}: ${e.message}`);
+            }
+
+            const agent = (process.env.AGENT || '').trim();
+            if (!agent || agent === 'unknown') {
+              core.setFailed('Agent resolution failed; ensure exactly one agent:* label is present or provide the agent input.');
+              return;
+            }
+            const agentTitle = process.env.BRIDGE_AGENT_TITLE || agent.charAt(0).toUpperCase() + agent.slice(1);
+            const mention = process.env.BRIDGE_AGENT_MENTION || `@${agent}`;
+            // Load instruction from template file
+            const { getKeepaliveInstructionWithMention } = require('.github/scripts/keepalive_instruction_template.js');
+            const instruction = getKeepaliveInstructionWithMention(agent);
+            const prNumber = Number('${{ steps.pr.outputs.number }}');
+            const issueUrl = `https://github.com/${owner}/${repo}/issues/${issue_number}`;
+            const header = `### Source Issue #${issue_number}: ${issueTitle}`.trim();
+            const keepaliveMode = process.env.KEEPALIVE_MODE || 'OFF';
+            const keepaliveLine = `Keepalive: ${keepaliveMode}`;
+            const base = (process.env.BASE || '').trim();
+            const head = (process.env.BRANCH || '').trim();
+            const quoted = (issueBody || '')
+              .split('\n')
+              .map((line) => `> ${line}`)
+              .join('\n');
+            const snippetLines = [header, keepaliveLine];
+            if (base) {
+              snippetLines.push(`Base: ${base}`);
+            }
+            if (head) {
+              snippetLines.push(`Head: ${head}`);
+            }
+            snippetLines.push('', `Source: ${issueUrl}`, '', quoted);
+            const snippet = snippetLines.join('\n');
+
+            const message = [
+              `Opened PR #${prNumber} to engage ${agentTitle}.`,
+              '',
+              `Keepalive mode: **${keepaliveMode}**`,
+              '',
+              'Next steps for the PR author:',
+              `- Comment \`${mention} start\` (auto-posted when possible) so ${agentTitle} drafts the plan.`,
+              `- After ${agentTitle} replies with the checklist, post the execution command below to begin delivery and enable keepalive.`,
+              '',
+              'Execution command (copy into a standalone PR comment):',
+              '```markdown',
+              instruction,
+              '```',
+              '',
+              'Issue context (optional: copy into the PR description):',
+              '',
+              '```markdown',
+              snippet,
+              '```'
+            ].join('\n');
+
+            await github.rest.issues.createComment({ owner, repo, issue_number, body: message });
+
+      # Disabled: keepalive now runs exclusively via the orchestrator sweep to avoid
+      # duplicate nudges from workflow dispatches.
+      # - name: Dispatch Agents Orchestrator (keepalive sync)

@@ -1,0 +1,28 @@
+name: signature-verify
+description: Verify failure signature hashing remains stable against a fixture.
+author: Trend Analysis Project
+inputs:
+  jobs-json:
+    description: JSON array of job dicts (name, step, stack)
+    required: true
+  expected-hash:
+    description: Expected 12-character hash
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    - name: Run signature verification
+      shell: bash
+      run: |
+        python tools/test_failure_signature.py \
+          --jobs '${{ inputs['jobs-json'] }}' \
+          --expected '${{ inputs['expected-hash'] }}'
+    - name: Add summary
+      shell: bash
+      run: |
+        echo "### Signature Verification" >> $GITHUB_STEP_SUMMARY
+        echo "Hash matched expected '${{ inputs['expected-hash'] }}'" >> $GITHUB_STEP_SUMMARY

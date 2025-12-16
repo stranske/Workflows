@@ -1,0 +1,77 @@
+name: Maint 52 Validate Workflows
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Parse and lint workflows
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install workflow linters
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.local/bin"
+
+          curl -sSL "https://github.com/rhysd/actionlint/releases/download/v1.7.3/actionlint_1.7.3_linux_amd64.tar.gz" \
+            | tar -xz -C "$HOME/.local/bin" actionlint
+          chmod +x "$HOME/.local/bin/actionlint"
+
+          curl -sSL "https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_amd64.tar.gz" \
+            | tar -xz -C "$HOME/.local/bin"
+          mv "$HOME/.local/bin/yq_linux_amd64" "$HOME/.local/bin/yq"
+          chmod +x "$HOME/.local/bin/yq"
+
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Dry-parse workflow files with yq
+        run: |
+          set -euo pipefail
+
+          mapfile -t workflow_files < <(find .github/workflows -type f \( -name '*.yml' -o -name '*.yaml' \) | sort)
+          if [ "${#workflow_files[@]}" -eq 0 ]; then
+            echo "No workflow files found." >&2
+            exit 1
+          fi
+
+          for file in "${workflow_files[@]}"; do
+            echo "Validating YAML syntax for ${file}"
+            yq eval '.' "$file" >/dev/null
+          done
+
+      - name: Build actionlint allowlist arguments
+        id: allowlist
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          allowlist = Path('.github/actionlint-allowlist.txt')
+          args_path = Path('actionlint-allowlist.args')
+
+          entries: list[str] = []
+          if allowlist.is_file():
+              for raw in allowlist.read_text(encoding='utf-8').splitlines():
+                  line = raw.strip()
+                  if not line or line.startswith('#'):
+                      continue
+                  entries.append(line)
+
+          args_path.write_text('\n'.join(f'-ignore={entry}' for entry in entries), encoding='utf-8')
+          PY
+
+      - name: Run actionlint
+        run: |
+          set -euo pipefail
+          mapfile -t extra_args < <(sed -e 's/[[:space:]]*$//' -e '/^$/d' actionlint-allowlist.args)
+          actionlint "${extra_args[@]}" -oneline

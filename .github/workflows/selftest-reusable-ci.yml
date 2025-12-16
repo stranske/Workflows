@@ -1,0 +1,555 @@
+name: "Selftest: Reusables"
+
+on:
+  schedule:
+    - cron: '30 6 * * *'
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Why are you running this self-test?'
+        required: false
+        default: 'manual test'
+      mode:
+        description: 'How should the self-test results be surfaced?'
+        required: true
+        type: choice
+        options:
+          - summary
+          - comment
+          - dual-runtime
+        default: summary
+      post_to:
+        description: 'Where should comment output be posted?'
+        required: true
+        type: choice
+        options:
+          - pr-number
+          - none
+        default: none
+      enable_history:
+        description: 'Download the self-test report artifact for local reference.'
+        required: true
+        type: choice
+        options:
+          - true
+          - false
+        default: false
+      pull_request_number:
+        description: 'Pull request number when posting a comment.'
+        required: false
+      summary_title:
+        description: 'Heading used in the workflow summary block.'
+        required: false
+        default: 'Selftest: Reusables Summary'
+      comment_title:
+        description: 'Heading rendered at the top of the posted comment.'
+        required: false
+        default: 'Selftest: Reusables Comment'
+      python_versions:
+        description: >-
+          JSON array of Python versions forwarded to the reusable CI executor.
+          Leave empty to exercise the default 3.11 matrix or select dual-runtime
+          from the mode input.
+        required: false
+        default: ''
+
+jobs:
+  # Rate limit gate: skip non-critical self-tests when API quota is low
+  # This ensures keepalive and core workflows get priority (threshold: 2000)
+  rate-limit-check:
+    name: Rate limit gate
+    runs-on: ubuntu-latest
+    outputs:
+      proceed: ${{ steps.check.outputs.proceed || 'true' }}
+    steps:
+      - name: Check API quota
+        id: check
+        uses: actions/github-script@v7
+        env:
+          # Higher threshold than orchestrator (1000) so keepalive runs first
+          RATE_LIMIT_THRESHOLD: '2000'
+        with:
+          script: |
+            const threshold = parseInt(process.env.RATE_LIMIT_THRESHOLD || '2000', 10);
+            try {
+              const { data } = await github.rest.rateLimit.get();
+              const remaining = data?.resources?.core?.remaining || 0;
+              const limit = data?.resources?.core?.limit || 5000;
+              const proceed = remaining >= threshold;
+
+              core.setOutput('proceed', proceed ? 'true' : 'false');
+              core.setOutput('remaining', String(remaining));
+
+              if (!proceed) {
+                const reset = data?.resources?.core?.reset || 0;
+                const resetTime = new Date(reset * 1000).toISOString();
+                core.notice(`Deferring selftest: API quota low (${remaining}/${limit}). Resets at ${resetTime}`);
+                await core.summary
+                  .addHeading('Selftest Deferred', 3)
+                  .addRaw(`API quota too low for non-critical self-tests (${remaining}/${limit} remaining).`)
+                  .addEOL()
+                  .addRaw(`Threshold: ${threshold}. Resets at: ${resetTime}`)
+                  .write();
+              }
+            } catch (error) {
+              core.warning(`Rate limit check failed: ${error.message}. Proceeding anyway.`);
+              core.setOutput('proceed', 'true');
+            }
+  scenarios:
+    name: Scenario - ${{ matrix.name }}
+    needs: rate-limit-check
+    if: needs.rate-limit-check.outputs.proceed == 'true'
+    uses: ./.github/workflows/reusable-10-ci-python.yml
+    with:
+      python-versions: ${{ (github.event_name == 'workflow_dispatch' && inputs.python_versions != '' && inputs.python_versions)
+        || (github.event_name == 'workflow_dispatch' && inputs.mode == 'dual-runtime' && '["3.11","3.12"]')
+        || '["3.11"]' }}
+      artifact-prefix: 'sf-${{ matrix.name }}-'
+      enable-metrics: ${{ matrix.enable-metrics }}
+      enable-history: ${{ matrix.enable-history }}
+      enable-classification: ${{ matrix.enable-classification }}
+      enable-coverage-delta: ${{ matrix.enable-coverage-delta }}
+      enable-soft-gate: ${{ matrix.enable-soft-gate }}
+      baseline-coverage: ${{ matrix.baseline-coverage || '0' }}
+      coverage-alert-drop: ${{ matrix.coverage-alert-drop || '1' }}
+    secrets: inherit
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: minimal
+            enable-metrics: false
+            enable-history: false
+            enable-classification: false
+            enable-coverage-delta: false
+            enable-soft-gate: false
+          - name: metrics_only
+            enable-metrics: true
+            enable-history: false
+            enable-classification: false
+            enable-coverage-delta: false
+            enable-soft-gate: false
+          - name: metrics_history
+            enable-metrics: true
+            enable-history: true
+            enable-classification: false
+            enable-coverage-delta: false
+            enable-soft-gate: false
+          - name: classification_only
+            enable-metrics: false
+            enable-history: false
+            enable-classification: true
+            enable-coverage-delta: false
+            enable-soft-gate: false
+          - name: coverage_delta
+            enable-metrics: false
+            enable-history: false
+            enable-classification: false
+            enable-coverage-delta: true
+            enable-soft-gate: false
+            baseline-coverage: '65'
+            coverage-alert-drop: '2'
+          - name: full_soft_gate
+            enable-metrics: true
+            enable-history: true
+            enable-classification: true
+            enable-coverage-delta: true
+            enable-soft-gate: true
+            baseline-coverage: '65'
+            coverage-alert-drop: '2'
+
+  summarize:
+    name: Aggregate & Verify
+    needs: scenarios
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      summary_table: ${{ steps.verify.outputs.table }}
+      failure_count: ${{ steps.verify.outputs.failures }}
+      run_id: ${{ steps.metadata.outputs.run_id }}
+    env:
+      SCENARIO_LIST: minimal,metrics_only,metrics_history,classification_only,coverage_delta,full_soft_gate
+      REQUESTED_PYTHONS: ${{ (github.event_name == 'workflow_dispatch' && inputs.python_versions != '' && inputs.python_versions)
+        || (github.event_name == 'workflow_dispatch' && inputs.mode == 'dual-runtime' && '["3.11","3.12"]')
+        || '["3.11"]' }}
+      RUN_REASON: ${{ (github.event_name == 'workflow_dispatch' && inputs.reason != '' && inputs.reason)
+        || (github.event_name == 'workflow_dispatch' && inputs.reason == '' && 'manual test')
+        || 'nightly verification' }}
+      TRIGGER_EVENT: ${{ github.event_name }}
+    steps:
+      - name: Append run metadata to summary
+        run: |
+          {
+            echo "## Self-Test Execution Overview"
+            echo "Workflow result: ${{ needs.scenarios.result }}"
+            echo "Triggered via: ${TRIGGER_EVENT}"
+            if [ -n "${RUN_REASON}" ]; then
+              echo "Run reason: ${RUN_REASON}"
+            fi
+            echo "Requested python-versions: ${REQUESTED_PYTHONS}"
+            echo "Scenarios: ${SCENARIO_LIST}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Capture workflow run id
+        id: metadata
+        run: |
+          echo "run_id=${GITHUB_RUN_ID}" >> "$GITHUB_OUTPUT"
+
+      - name: Verify matrix artifacts
+        id: verify
+        uses: actions/github-script@v7
+        env:
+          PYTHON_VERSIONS: ${{ env.REQUESTED_PYTHONS }}
+          SCENARIO_LIST: ${{ env.SCENARIO_LIST }}
+        with:
+          script: |
+            const fs = require('fs');
+            const { owner, repo } = context.repo;
+            const runId = context.runId;
+
+            function parsePythonVersions(raw) {
+              const fallback = ['3.11'];
+              if (!raw || !raw.trim()) {
+                return fallback;
+              }
+              try {
+                const parsed = JSON.parse(raw.trim());
+                if (Array.isArray(parsed) && parsed.length) {
+                  return parsed.map(String);
+                }
+              } catch (error) {
+                core.warning(`Unable to parse python_versions input (${raw}); falling back to ${fallback.join(', ')}`);
+              }
+              return fallback;
+            }
+
+            const pythonVersions = parsePythonVersions(process.env.PYTHON_VERSIONS);
+            const scenarioNames = (process.env.SCENARIO_LIST || '')
+              .split(',')
+              .map((value) => value.trim())
+              .filter(Boolean);
+
+            function expectedArtifactsFor(scenario) {
+              const prefix = (suffix) => `sf-${scenario}-${suffix}`;
+              const base = pythonVersions.map((version) => prefix(`coverage-${version}`));
+              switch (scenario) {
+                case 'minimal':
+                  return base;
+                case 'metrics_only':
+                  return [...base, prefix('ci-metrics')];
+                case 'metrics_history':
+                  return [...base, prefix('ci-metrics'), prefix('metrics-history')];
+                case 'classification_only':
+                  return [...base, prefix('classification')];
+                case 'coverage_delta':
+                  return [...base, prefix('coverage-delta')];
+                case 'full_soft_gate':
+                  return [
+                    ...base,
+                    prefix('ci-metrics'),
+                    prefix('metrics-history'),
+                    prefix('classification'),
+                    prefix('coverage-delta'),
+                    prefix('coverage-summary'),
+                    prefix('coverage-trend'),
+                    prefix('coverage-trend-history'),
+                  ];
+                default:
+                  core.warning(`Unknown scenario '${scenario}' encountered; treating as minimal.`);
+                  return base;
+              }
+            }
+
+            const artifactNames = await github.paginate(
+              github.rest.actions.listWorkflowRunArtifacts,
+              { owner, repo, run_id: runId, per_page: 100 },
+              (response) => response.data.map((artifact) => artifact.name)
+            );
+            const nameSet = new Set(artifactNames);
+
+            const jobs = await github.paginate(
+              github.rest.actions.listJobsForWorkflowRun,
+              { owner, repo, run_id: runId, per_page: 100 },
+              (response) => response.data
+            );
+
+            const matrixJobs = jobs.filter((job) => job.name && job.name.startsWith('Scenario - '));
+            const jobStatusByScenario = Object.fromEntries(
+              matrixJobs.map((job) => {
+                const scenarioName = job.name.replace('Scenario - ', '').trim();
+                const status = job.conclusion === 'success'
+                  ? '✅'
+                  : job.conclusion === 'failure'
+                    ? '❌'
+                    : 'ℹ️';
+                return [scenarioName, status];
+              })
+            );
+
+            const rows = ['| Scenario | Status | Missing | Unexpected |', '|---|---|---|---|'];
+            const summary = [];
+            let failures = 0;
+
+            const expectedUniverse = new Set();
+            scenarioNames.forEach((scenario) => {
+              expectedArtifactsFor(scenario).forEach((name) => expectedUniverse.add(name));
+            });
+
+            for (const scenario of scenarioNames) {
+              const expected = expectedArtifactsFor(scenario);
+              const missing = expected.filter((name) => !nameSet.has(name));
+              const prefix = `sf-${scenario}-`;
+              const actual = artifactNames.filter((name) => name.startsWith(prefix));
+              const unexpected = actual.filter((name) => !expected.includes(name));
+              const ok = missing.length === 0 && unexpected.length === 0 && jobStatusByScenario[scenario] === '✅';
+              if (!ok) {
+                failures += 1;
+              }
+              rows.push(
+                `| ${scenario} | ${jobStatusByScenario[scenario] || 'ℹ️'} | ${missing.join('<br>') || '—'} | ${unexpected.join('<br>') || '—'} |`
+              );
+              summary.push({ scenario, status: jobStatusByScenario[scenario] || 'unknown', missing, unexpected, ok });
+            }
+
+            const stray = artifactNames.filter((name) => name.startsWith('sf-') && !expectedUniverse.has(name));
+            if (stray.length) {
+              rows.push(`| (stray) | ❌ | (n/a) | ${stray.join('<br>')} |`);
+              summary.push({ scenario: '_stray_', status: 'unexpected', missing: [], unexpected: stray, ok: false });
+              failures += 1;
+            }
+
+            const table = rows.join('\n');
+            core.setOutput('table', table);
+            core.setOutput('failures', String(failures));
+
+            const report = {
+              run_id: runId,
+              python_versions: pythonVersions,
+              scenarios: summary,
+              artifact_count: artifactNames.length,
+              failures,
+            };
+            fs.writeFileSync('selftest-report.json', JSON.stringify(report, null, 2));
+
+      - name: Append verification table
+        run: |
+          {
+            echo '### Scenario Artifact Check'
+            echo '${{ steps.verify.outputs.table }}'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload self-test report
+        uses: actions/upload-artifact@v4
+        with:
+          name: selftest-report
+          path: selftest-report.json
+
+      - name: Fail on verification errors
+        if: ${{ steps.verify.outputs.failures != '0' }}
+        run: |
+          echo 'Artifact expectation mismatches detected.' >&2
+          exit 1
+
+  publish:
+    name: Publish Results
+    needs:
+      - scenarios
+      - summarize
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: write
+    env:
+      MODE: ${{ (github.event_name == 'workflow_dispatch' && inputs.mode) || 'summary' }}
+      POST_TO: ${{ (github.event_name == 'workflow_dispatch' && inputs.post_to) || 'none' }}
+      ENABLE_HISTORY: ${{ (github.event_name == 'workflow_dispatch' && inputs.enable_history) || 'false' }}
+      PR_NUMBER: ${{ (github.event_name == 'workflow_dispatch' && inputs.pull_request_number) || '' }}
+      SUMMARY_TITLE: "${{ github.event_name == 'workflow_dispatch' && github.event.inputs && github.event.inputs.summary_title != '' && github.event.inputs.summary_title || 'Selftest: Reusables Summary' }}"
+      COMMENT_TITLE: "${{ github.event_name == 'workflow_dispatch' && github.event.inputs && github.event.inputs.comment_title != '' && github.event.inputs.comment_title || 'Selftest: Reusables Comment' }}"
+      REASON: ${{ (github.event_name == 'workflow_dispatch' && inputs.reason != '' && inputs.reason)
+        || (github.event_name == 'workflow_dispatch' && inputs.reason == '' && 'manual test')
+        || 'nightly verification' }}
+      WORKFLOW_RESULT: ${{ needs.scenarios.result }}
+      SUMMARY_TABLE: ${{ needs.summarize.outputs.summary_table }}
+      FAILURE_COUNT: ${{ needs.summarize.outputs.failure_count }}
+      RUN_ID: ${{ needs.summarize.outputs.run_id }}
+      REQUESTED_VERSIONS: ${{ (github.event_name == 'workflow_dispatch' && inputs.python_versions != '' && inputs.python_versions)
+        || (github.event_name == 'workflow_dispatch' && inputs.mode == 'dual-runtime' && '["3.11","3.12"]')
+        || '["3.11"]' }}
+    steps:
+      - name: Validate pull request target
+        if: ${{ env.MODE == 'comment' && env.POST_TO == 'pr-number' }}
+        run: |
+          if [ -z "${PR_NUMBER}" ]; then
+            echo '::error::pull_request_number is required when posting to a pull request.'
+            exit 1
+          fi
+          case "${PR_NUMBER}" in
+            (*[!0-9]*)
+              echo '::error::pull_request_number must be an integer.'
+              exit 1
+              ;;
+          esac
+
+      - name: Download self-test report
+        if: ${{ env.ENABLE_HISTORY == 'true' && env.RUN_ID != '' }}
+        uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ env.RUN_ID }}
+          name: selftest-report
+          path: selftest-report
+        continue-on-error: true
+
+      - name: Append workflow summary
+        env:
+          TABLE: ${{ env.SUMMARY_TABLE }}
+          FAILURES: ${{ env.FAILURE_COUNT }}
+        run: |
+          TABLE="${TABLE:-}"
+          if [ -z "${TABLE}" ]; then
+            TABLE='*Verification table not available.*'
+          fi
+
+          FAILURES="${FAILURES:-}"
+          if [ -z "${FAILURES}" ]; then
+            FAILURES='unknown'
+          fi
+
+          {
+            echo "## ${SUMMARY_TITLE}"
+            echo "Workflow status: ${WORKFLOW_RESULT}"
+            echo "Mode: ${MODE}"
+            if [ -n "${REASON}" ]; then
+              echo "Dispatch reason: ${REASON}"
+            fi
+            echo "Requested python-versions: ${REQUESTED_VERSIONS}"
+            echo ""
+            printf '%s\n' "${TABLE}"
+            echo ""
+            echo "Failures reported: ${FAILURES}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Surface failures in logs
+        if: ${{ env.MODE != 'comment' }}
+        run: |
+          if [ -z "${SUMMARY_TABLE}" ]; then
+            echo '::error::Verification table output missing from summarize job.' >&2
+            exit 1
+          fi
+
+          if [ -z "${FAILURE_COUNT}" ]; then
+            echo '::error::Failure count output missing from summarize job.' >&2
+            exit 1
+          fi
+
+          if [ "${FAILURE_COUNT}" != "0" ]; then
+            echo "Self-test reported ${FAILURE_COUNT} mismatch(es)." >&2
+            exit 1
+          fi
+
+          if [ "${WORKFLOW_RESULT}" != "success" ]; then
+            echo "Self-test matrix completed with status: ${WORKFLOW_RESULT}." >&2
+            exit 1
+          fi
+
+      - name: Publish PR comment
+        if: ${{ env.MODE == 'comment' && env.POST_TO == 'pr-number' }}
+        uses: actions/github-script@v7
+        env:
+          MARKER: '<!-- selftest-reusable-comment -->'
+          TABLE: ${{ env.SUMMARY_TABLE }}
+          FAILURES: ${{ env.FAILURE_COUNT }}
+          RESULT: ${{ env.WORKFLOW_RESULT }}
+          COMMENT_TITLE: ${{ env.COMMENT_TITLE }}
+          REASON: ${{ env.REASON }}
+          REQUESTED_VERSIONS: ${{ env.REQUESTED_VERSIONS }}
+          MODE: ${{ env.MODE }}
+          PR_NUMBER: ${{ env.PR_NUMBER }}
+        with:
+          script: |
+            const marker = process.env.MARKER || '<!-- selftest-reusable-comment -->';
+            const prRaw = (process.env.PR_NUMBER || '').trim();
+            const prNumber = Number.parseInt(prRaw, 10);
+            if (!Number.isInteger(prNumber)) {
+              core.setFailed(`Invalid pull_request_number input: ${prRaw}`);
+              return;
+            }
+
+            const mode = (process.env.MODE || 'comment').trim();
+            const title = (process.env.COMMENT_TITLE || 'Selftest: Reusables Comment').trim() || 'Selftest: Reusables Comment';
+            const reason = (process.env.REASON || '').trim();
+            const table = process.env.TABLE && process.env.TABLE.trim() ? process.env.TABLE : '*No verification table available.*';
+            const failureRaw = process.env.FAILURES;
+            const failures = typeof failureRaw === 'string' && failureRaw.trim().length > 0
+              ? failureRaw.trim()
+              : 'unknown';
+            const runResult = process.env.RESULT || 'unknown';
+            const requestedVersions = (process.env.REQUESTED_VERSIONS || '').trim();
+
+            const statusLine = failures === '0'
+              ? '✅ **Self-test scenarios succeeded.**'
+              : failures === 'unknown'
+                ? '⚠️ **Self-test outcome unknown (verification outputs missing).**'
+                : `❌ **Self-test reported ${failures} mismatch(es).**`;
+
+            const runBadge = runResult === 'success'
+              ? '✅'
+              : runResult === 'failure'
+                ? '❌'
+                : 'ℹ️';
+
+            const lines = [
+              marker,
+              `### ${title}`,
+              `${runBadge} Workflow status: **${runResult}**`,
+              statusLine,
+              `Mode: \`${mode}\``,
+              requestedVersions ? `Requested python-versions: ${requestedVersions}` : undefined,
+              reason ? `Dispatch reason: ${reason}` : undefined,
+              '',
+              table,
+              '',
+              `_Workflow run: ${context.runId}_`,
+            ].filter(Boolean);
+
+            const body = lines.join('\n');
+
+            const { owner, repo } = context.repo;
+            const comments = await github.rest.issues.listComments({ owner, repo, issue_number: prNumber, per_page: 100 });
+            const existing = comments.data.find((comment) => comment.body && comment.body.includes(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+              core.info(`Updated existing self-test comment (${existing.id}).`);
+            } else {
+              const created = await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body });
+              core.info(`Created new self-test comment (${created.data.id}).`);
+            }
+
+      - name: Finalize status for comment mode
+        if: ${{ env.MODE == 'comment' }}
+        run: |
+          if [ -z "${SUMMARY_TABLE}" ]; then
+            echo '::error::Verification table output missing from summarize job.' >&2
+            exit 1
+          fi
+
+          if [ -z "${FAILURE_COUNT}" ]; then
+            echo '::error::Failure count output missing from summarize job.' >&2
+            exit 1
+          fi
+
+          if [ "${FAILURE_COUNT}" != "0" ]; then
+            echo "Self-test reported ${FAILURE_COUNT} mismatch(es)." >&2
+            exit 1
+          fi
+
+          if [ "${WORKFLOW_RESULT}" != "success" ]; then
+            echo "Self-test matrix completed with status: ${WORKFLOW_RESULT}." >&2
+            exit 1
+          fi

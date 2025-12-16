@@ -1,0 +1,1016 @@
+name: Health 40 Repo Selfcheck
+
+on:
+  schedule:
+    - cron: '20 6 * * 1'
+  workflow_dispatch:
+    inputs:
+      pull_request_number:
+        description: 'Optional PR to receive the repo health checklist comment'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+  checks: read
+
+jobs:
+  repo-health:
+    name: Repository health summary
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare branch protection token
+        id: branch-token
+        env:
+          BRANCH_PROTECTION_TOKEN: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+        run: |
+          python - <<'PY'
+          import os
+
+          token = (os.environ.get('BRANCH_PROTECTION_TOKEN') or '').strip()
+
+          if token:
+              print(f"::add-mask::{token}")
+
+          output_path = os.environ['GITHUB_OUTPUT']
+          with open(output_path, 'a', encoding='utf-8') as handle:
+              handle.write(f"token={token}\n")
+              handle.write(f"has_token={'true' if token else 'false'}\n")
+          PY
+
+      - name: Export admin token availability
+        run: echo "HAS_ADMIN_TOKEN=${TOKEN_STATE}" >> "$GITHUB_ENV"
+        env:
+          TOKEN_STATE: ${{ steps.branch-token.outputs.has_token }}
+
+      - name: Determine default branch
+        id: default-branch
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const { data } = await github.rest.repos.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+            });
+            core.setOutput('name', data.default_branch || 'main');
+
+      - name: Export default branch
+        run: echo "DEFAULT_BRANCH=${DEFAULT_BRANCH}" >> "$GITHUB_ENV"
+        env:
+          DEFAULT_BRANCH: ${{ steps.default-branch.outputs.name || github.event.repository.default_branch || 'main' }}
+
+      - uses: actions/setup-python@v5
+        if: ${{ env.HAS_ADMIN_TOKEN == 'true' }}
+        with:
+          python-version: '3.11'
+
+      - name: Install enforcement dependencies
+        if: ${{ env.HAS_ADMIN_TOKEN == 'true' }}
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests
+
+      - name: Enforce branch protection policy
+        if: ${{ env.HAS_ADMIN_TOKEN == 'true' }}
+        env:
+          GITHUB_TOKEN: ${{ steps.branch-token.outputs.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          DEFAULT_BRANCH: ${{ env.DEFAULT_BRANCH }}
+        run: |
+          python tools/enforce_gate_branch_protection.py \
+            --apply \
+            --branch "${DEFAULT_BRANCH}" \
+            --context "Gate / gate" \
+            --context "Health 45 Agents Guard / Enforce agents workflow protections" \
+            --no-clean
+
+      - name: Snapshot branch protection state
+        if: ${{ env.HAS_ADMIN_TOKEN == 'true' }}
+        env:
+          GITHUB_TOKEN: ${{ steps.branch-token.outputs.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          DEFAULT_BRANCH: ${{ env.DEFAULT_BRANCH }}
+        run: |
+          python tools/enforce_gate_branch_protection.py \
+            --check \
+            --require-strict \
+            --branch "${DEFAULT_BRANCH}" \
+            --context "Gate / gate" \
+            --context "Health 45 Agents Guard / Enforce agents workflow protections" \
+            --no-clean \
+            --snapshot repo-health-branch-protection.json
+
+      - name: Collect repository signals
+        id: collect
+        uses: actions/github-script@v7
+        env:
+          REQUIRED_LABELS: agent:codex,agent:copilot,automerge,risk:low,codex-ready
+          BRANCH_PROTECTION_TOKEN: ${{ steps.branch-token.outputs.token }}
+        with:
+          github-token: ${{ steps.branch-token.outputs.token || github.token }}
+          script: |
+            // `core` is provided by actions/github-script's execution environment.
+            // Avoid re-declaring it (causes "Identifier 'core' has already been declared").
+            const { owner, repo } = context.repo;
+            const requiredLabels = (process.env.REQUIRED_LABELS || '')
+              .split(',')
+              .map((label) => label.trim())
+              .filter(Boolean);
+
+            const timestamp = new Date().toISOString();
+            let defaultBranch = context.payload?.repository?.default_branch || '';
+            try {
+              const repoInfo = await github.rest.repos.get({ owner, repo });
+              defaultBranch = repoInfo.data.default_branch || defaultBranch;
+            } catch (error) {
+              const message = `Failed to resolve default branch via GitHub API: ${error?.message || error}`;
+              core.warning(message);
+              if (!defaultBranch) {
+                defaultBranch = 'main';
+              }
+            }
+
+            const missingLabels = [];
+            const labelErrors = [];
+            for (const label of requiredLabels) {
+              try {
+                await github.rest.issues.getLabel({ owner, repo, name: label });
+              } catch (error) {
+                if (error.status === 404) {
+                  missingLabels.push(label);
+                } else {
+                  const detail = error?.message || String(error);
+                  const message = `Label lookup failed for ${label}: ${detail}`;
+                  core.warning(message);
+                  labelErrors.push({ label, detail: message });
+                }
+              }
+            }
+
+            let branchStatus = 'unknown';
+            let branchNote = 'Branch protection probe did not run.';
+            const branchProtectionToken = (process.env.BRANCH_PROTECTION_TOKEN || '').trim();
+            const privilegedChecksUsed = Boolean(branchProtectionToken);
+            const privilegedChecksSkipped = !privilegedChecksUsed;
+            let branchFetchError = null;
+            let branchHttpStatus = '';
+
+            const tokenDescriptor = privilegedChecksUsed
+              ? 'BRANCH_PROTECTION_TOKEN'
+              : 'default GITHUB_TOKEN';
+
+            try {
+              const response = await github.rest.repos.getBranch({
+                owner,
+                repo,
+                branch: defaultBranch,
+              });
+
+              branchHttpStatus = '200';
+
+              const isProtected = Boolean(response?.data?.protected);
+              if (isProtected) {
+                branchStatus = 'enabled';
+                branchNote = `Branch protection is configured for ${defaultBranch}.`;
+              } else {
+                branchStatus = 'missing';
+                branchNote = `Branch protection is not configured for ${defaultBranch}.`;
+                core.warning(branchNote);
+              }
+            } catch (error) {
+              const status = error?.status || error?.response?.status || '';
+              const detail = error?.response?.data?.message || error?.message || String(error);
+
+              branchHttpStatus = status ? String(status) : 'unknown';
+
+              const loweredDetail = (detail || '').toLowerCase();
+              const isRateLimited =
+                status === 429 || (status === 403 && /rate limit/.test(loweredDetail));
+
+              if (status === 401 || (status === 403 && !isRateLimited)) {
+                branchStatus = 'forbidden';
+                branchNote = `Branch protection probe was not authorized using the ${tokenDescriptor}.`;
+                core.warning(`${branchNote} (${detail})`);
+              } else if (isRateLimited) {
+                branchStatus = 'rate_limited';
+                branchNote = `Branch protection probe hit a rate limit while using the ${tokenDescriptor}.`;
+                core.warning(`${branchNote} (${detail})`);
+              } else if (status === 404) {
+                branchStatus = 'error';
+                branchNote = `Branch protection probe could not find the ${defaultBranch} branch.`;
+                core.warning(`${branchNote} (${detail})`);
+              } else {
+                branchStatus = 'error';
+                branchNote = `Branch protection probe failed${status ? ` (status ${status})` : ''}: ${detail}`;
+                core.warning(branchNote);
+              }
+
+              branchFetchError = detail ? String(detail) : '';
+            }
+
+            const branchDetail = branchFetchError
+              ? `${branchNote} (${branchFetchError})`
+              : branchNote;
+
+            if (!branchHttpStatus) {
+              branchHttpStatus = 'unknown';
+            }
+
+            const branchDetailWithStatus = branchHttpStatus
+              ? `${branchDetail} (HTTP status: ${branchHttpStatus})`
+              : branchDetail;
+
+            const privilegedMode = privilegedChecksUsed
+              ? 'enforce+verify'
+              : privilegedChecksSkipped
+              ? 'verify-only'
+              : 'unknown';
+
+            const privilegedDetail = privilegedChecksUsed
+              ? 'Admin token configured; enforcement and verification both executed.'
+              : privilegedChecksSkipped
+              ? 'Admin token not configured; running in verify-only mode with the default GITHUB_TOKEN.'
+              : 'Admin token availability could not be determined; review workflow logs.';
+
+            const checks = [
+              {
+                key: 'labels',
+                title: 'Label inventory',
+                status: missingLabels.length === 0 && labelErrors.length === 0 ? 'pass' : 'warn',
+                detail:
+                  missingLabels.length === 0 && labelErrors.length === 0
+                    ? 'All required labels are present.'
+                    : [
+                        missingLabels.length ? `Missing labels: ${missingLabels.join(', ')}` : null,
+                        labelErrors.length
+                          ? `Additional lookup warnings: ${labelErrors.map((entry) => `${entry.label}`).join(', ')}`
+                          : null,
+                      ]
+                        .filter(Boolean)
+                        .join(' | '),
+                missingLabels,
+                labelErrors,
+              },
+              {
+                key: 'branch',
+                title: 'Default branch protection',
+                status:
+                  branchStatus === 'enabled'
+                    ? 'pass'
+                    : branchStatus === 'missing'
+                    ? 'error'
+                    : branchStatus === 'forbidden'
+                    ? 'warn'
+                    : branchStatus === 'rate_limited'
+                    ? 'warn'
+                    : branchStatus === 'error'
+                    ? 'error'
+                    : branchStatus === 'skipped'
+                    ? 'warn'
+                    : 'info',
+                detail: branchDetailWithStatus,
+                branchStatus,
+                branchFetchError,
+                httpStatus: branchHttpStatus,
+                token: tokenDescriptor,
+              },
+              {
+                key: 'privileged',
+                title: 'Privileged enforcement',
+                status: privilegedChecksUsed
+                  ? 'pass'
+                  : privilegedChecksSkipped
+                  ? 'info'
+                  : 'warn',
+                detail: privilegedDetail,
+                mode: privilegedMode,
+                privilegedChecksUsed,
+                privilegedChecksSkipped,
+              },
+              {
+                key: 'default-branch',
+                title: 'Default branch',
+                status: 'info',
+                detail: defaultBranch,
+              },
+            ];
+
+            const summaryLines = [
+              `Repo health summary @ ${timestamp}`,
+              `• Required labels present: ${missingLabels.length === 0 ? 'yes' : 'no'}`,
+              `• Branch protection status: ${branchStatus}`,
+            ];
+
+            if (branchHttpStatus) {
+              summaryLines.push(`• Branch protection HTTP status: ${branchHttpStatus}`);
+            }
+
+            summaryLines.push(
+              privilegedChecksUsed
+                ? '• Branch protection probe token: BRANCH_PROTECTION_TOKEN'
+                : '• Branch protection probe token: default GITHUB_TOKEN'
+            );
+
+            core.info(summaryLines.join('\n'));
+
+            core.setOutput('checks', JSON.stringify(checks));
+            core.setOutput('timestamp', timestamp);
+            core.setOutput('default_branch', defaultBranch);
+            core.setOutput('privileged_checks_skipped', privilegedChecksSkipped ? 'true' : 'false');
+            core.setOutput('privileged_checks_used', privilegedChecksUsed ? 'true' : 'false');
+            core.setOutput('privileged_checks_mode', privilegedMode);
+            core.setOutput('branch_protection_status', branchStatus);
+            core.setOutput('branch_protection_note', branchNote);
+            core.setOutput('branch_protection_token', tokenDescriptor);
+            core.setOutput('branch_protection_http_status', branchHttpStatus);
+            core.setOutput('missing_labels', JSON.stringify(missingLabels));
+            core.setOutput('label_errors', JSON.stringify(labelErrors));
+            core.setOutput('branch_fetch_error', branchFetchError || '');
+
+      - name: Aggregate & Summarize
+        id: aggregate
+        env:
+          CHECKS_JSON: ${{ steps.collect.outputs.checks }}
+          TIMESTAMP: ${{ steps.collect.outputs.timestamp }}
+          DEFAULT_BRANCH: ${{ steps.collect.outputs.default_branch }}
+          PRIVILEGED_SKIPPED: ${{ steps.collect.outputs.privileged_checks_skipped }}
+          PRIVILEGED_USED: ${{ steps.collect.outputs.privileged_checks_used }}
+          PRIVILEGED_MODE: ${{ steps.collect.outputs.privileged_checks_mode }}
+          BRANCH_STATUS: ${{ steps.collect.outputs.branch_protection_status }}
+          BRANCH_NOTE: ${{ steps.collect.outputs.branch_protection_note }}
+          MISSING_LABELS: ${{ steps.collect.outputs.missing_labels }}
+          LABEL_ERRORS: ${{ steps.collect.outputs.label_errors }}
+          BRANCH_FETCH_ERROR: ${{ steps.collect.outputs.branch_fetch_error }}
+          BRANCH_TOKEN: ${{ steps.collect.outputs.branch_protection_token }}
+          BRANCH_HTTP_STATUS: ${{ steps.collect.outputs.branch_protection_http_status }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+
+          checks = json.loads(os.environ.get('CHECKS_JSON') or '[]')
+          timestamp = os.environ.get('TIMESTAMP') or ''
+          default_branch = os.environ.get('DEFAULT_BRANCH') or ''
+          privileged_skipped = (os.environ.get('PRIVILEGED_SKIPPED') or '').lower() == 'true'
+          privileged_used = (os.environ.get('PRIVILEGED_USED') or '').lower() == 'true'
+          privileged_mode = (os.environ.get('PRIVILEGED_MODE') or '').strip()
+          branch_status = (os.environ.get('BRANCH_STATUS') or '').strip()
+          branch_note = os.environ.get('BRANCH_NOTE') or ''
+          missing_labels = json.loads(os.environ.get('MISSING_LABELS') or '[]')
+          label_errors = json.loads(os.environ.get('LABEL_ERRORS') or '[]')
+          branch_fetch_error = (os.environ.get('BRANCH_FETCH_ERROR') or '').strip()
+          branch_token = os.environ.get('BRANCH_TOKEN') or ''
+          branch_http_status = os.environ.get('BRANCH_HTTP_STATUS') or ''
+
+          status_labels = {
+              'pass': '✅ Pass',
+              'warn': '⚠️ Warning',
+              'info': 'ℹ️ Info',
+              'skipped': '⏭️ Skipped',
+              'error': '❌ Error',
+          }
+
+          def format_response_detail(note: str, http_status: str, fetch_error: str) -> str:
+              parts = []
+              for value in (note, fetch_error):
+                  text = (value or '').replace('\n', ' ').strip()
+                  if text and text not in parts:
+                      parts.append(text)
+
+              status = (http_status or '').strip()
+              if status:
+                  status_text = f'HTTP status: {status}'
+                  if status_text not in parts:
+                      parts.append(status_text)
+
+              return ' | '.join(parts)
+
+          lines = ['# Repo health summary']
+          if timestamp:
+              lines.append('')
+              lines.append(f'*Run timestamp:* `{timestamp}`')
+          if default_branch:
+              lines.append('')
+              lines.append(f'*Default branch:* `{default_branch}`')
+
+          if not privileged_mode:
+              if privileged_used:
+                  privileged_mode = 'enforce+verify'
+              elif privileged_skipped:
+                  privileged_mode = 'verify-only'
+              else:
+                  privileged_mode = 'unknown'
+
+          if branch_token:
+              lines.append('')
+              lines.append(f'*Branch protection probe token:* `{branch_token}`')
+
+          if privileged_mode:
+              lines.append('')
+              lines.append(f'*Privileged enforcement mode:* `{privileged_mode}`')
+
+          if branch_http_status:
+              lines.append('')
+              lines.append(f'*Branch protection probe HTTP status:* `{branch_http_status}`')
+
+          if checks:
+              lines.append('')
+              lines.append('| Check | Status | Details |')
+              lines.append('| --- | --- | --- |')
+              for check in checks:
+                  title = check.get('title', 'Unknown')
+                  status = status_labels.get(check.get('status', 'info'), check.get('status', 'info'))
+                  detail = (check.get('detail') or '').replace('\n', '<br>').replace('|', '\\|')
+                  lines.append(f'| {title} | {status} | {detail} |')
+
+          if privileged_skipped:
+              lines.append('')
+              lines.append('> ⚠️ Running in verify-only mode because `BRANCH_PROTECTION_TOKEN` is not configured. Branch protection probe used the default `GITHUB_TOKEN`.')
+          elif privileged_used and branch_status in {'enabled', 'missing'}:
+              lines.append('')
+              lines.append('> ✅ Privileged checks executed with the configured credentials.')
+          elif privileged_used:
+              lines.append('')
+              detail = branch_note.replace('\n', ' ').strip()
+              if detail:
+                  lines.append('> ⚠️ Privileged checks ran but reported access issues: ' + detail)
+              else:
+                  lines.append('> ⚠️ Privileged checks ran but reported access issues. Review the branch protection result above for details.')
+          else:
+              lines.append('')
+              lines.append('> ℹ️ Branch protection probe ran with the default `GITHUB_TOKEN`.')
+
+          output = '\n'.join(lines) + '\n'
+          print(output)
+
+          summary_path = os.environ['GITHUB_STEP_SUMMARY']
+          with open(summary_path, 'a', encoding='utf-8') as handle:
+              handle.write(output)
+
+          report = {
+              'timestamp': timestamp,
+              'default_branch': default_branch,
+              'checks': checks,
+              'privileged_checks': {
+                  'skipped': privileged_skipped,
+                  'used': privileged_used,
+                  'mode': privileged_mode,
+                  'status': branch_status,
+                  'note': branch_note,
+                  'fetch_error': branch_fetch_error,
+                  'token': branch_token,
+                  'http_status': branch_http_status,
+              },
+          }
+
+          with open('repo-health-summary.json', 'w', encoding='utf-8') as handle:
+              json.dump(report, handle, indent=2)
+
+          warning_statuses = {'warn'}
+          error_statuses = {'error'}
+          findings = [check for check in checks if check.get('status') in warning_statuses | error_statuses]
+          error_findings = [check for check in checks if check.get('status') in error_statuses]
+
+          fix_items = []
+          if any(check.get('key') == 'labels' for check in findings):
+              if missing_labels:
+                  fix_items.append(f"- [ ] Create the missing labels: {', '.join(sorted(missing_labels))}.")
+              if label_errors:
+                  fix_items.append('- [ ] Re-run after resolving label API warnings (check token permissions).')
+          if any(check.get('key') == 'branch' for check in findings):
+              target_branch = default_branch or 'default branch'
+              response_detail = format_response_detail(branch_note, branch_http_status, branch_fetch_error)
+
+              if branch_status == 'missing':
+                  message = f"- [ ] Enable branch protection on `{target_branch}`."
+                  if response_detail:
+                      message = f"{message} Latest response: {response_detail}"
+                  fix_items.append(message)
+              elif branch_status == 'forbidden':
+                  token_hint = branch_token or 'configured credentials'
+
+                  if token_hint == 'default GITHUB_TOKEN':
+                      message = (
+                          f"- [ ] Restore branch protection visibility for `{target_branch}` by provisioning "
+                          "`secrets.BRANCH_PROTECTION_TOKEN` with admin:read access or adjusting repository permissions "
+                          "so the workflow token can inspect protection settings."
+                      )
+                  else:
+                      message = (
+                          f"- [ ] Restore branch protection visibility for `{target_branch}` "
+                          f"(ensure the {token_hint} has the required access)."
+                      )
+
+                  if response_detail:
+                      message = f"{message} Latest response: {response_detail}"
+
+                  fix_items.append(message)
+              elif branch_status == 'rate_limited':
+                  message = '- [ ] Retry the branch protection probe after GitHub rate limits reset.'
+                  if response_detail:
+                      message = f"{message} Latest response: {response_detail}"
+                  fix_items.append(message)
+              elif branch_status in {'error', 'skipped'}:
+                  message = '- [ ] Restore branch protection visibility (ensure required permissions or retry later).'
+                  if response_detail:
+                      message = f"{message} Latest response: {response_detail}"
+                  fix_items.append(message)
+
+          if any(check.get('key') == 'privileged' and check.get('status') == 'warn' for check in findings):
+              fix_items.append('- [ ] Investigate privileged enforcement token availability; mode reported as unknown.')
+
+          if not fix_items:
+              fix_items.append('- [x] No action required — repo health checks are green.')
+
+          comment_sections = [
+              '## Repo health self-check',
+              f'*Run timestamp:* `{timestamp}`' if timestamp else None,
+              f'*Default branch:* `{default_branch}`' if default_branch else None,
+              f'*Branch protection probe token:* `{branch_token}`' if branch_token else None,
+              f'*Privileged enforcement mode:* `{privileged_mode}`' if privileged_mode else None,
+              f'*Branch protection probe HTTP status:* `{branch_http_status}`' if branch_http_status else None,
+              '',
+              '### Checks',
+              '| Check | Status | Details |',
+              '| --- | --- | --- |',
+          ]
+
+          for check in checks:
+              title = check.get('title', 'Unknown')
+              status = status_labels.get(check.get('status', 'info'), check.get('status', 'info'))
+              detail = (
+                  check.get('detail', '')
+                  .replace('|', '\\|')
+                  .replace('\n', '<br>')
+              )
+              comment_sections.append(f'| {title} | {status} | {detail or ""} |')
+
+          comment_sections.extend([
+              '',
+              '### How to fix',
+              *fix_items,
+          ])
+
+          comment_body = '\n'.join(filter(lambda block: block is not None, comment_sections))
+
+          issue_sections = [
+              '# Repository self-check findings',
+              '',
+              f'*Run timestamp:* `{timestamp}`' if timestamp else None,
+              f'*Default branch:* `{default_branch}`' if default_branch else None,
+              f'*Branch protection probe token:* `{branch_token}`' if branch_token else None,
+              f'*Privileged enforcement mode:* `{privileged_mode}`' if privileged_mode else None,
+              f'*Branch protection probe HTTP status:* `{branch_http_status}`' if branch_http_status else None,
+              '',
+              '## Checks',
+              '| Check | Status | Details |',
+              '| --- | --- | --- |',
+          ]
+
+          for check in checks:
+              title = check.get('title', 'Unknown')
+              status = status_labels.get(check.get('status', 'info'), check.get('status', 'info'))
+              detail = (
+                  check.get('detail', '')
+                  .replace('|', '\\|')
+                  .replace('\n', '<br>')
+              )
+              issue_sections.append(f'| {title} | {status} | {detail or ""} |')
+
+          issue_sections.extend([
+              '',
+              '## Remediation checklist',
+              *fix_items,
+          ])
+
+          issue_body = '\n'.join(filter(lambda block: block is not None, issue_sections))
+
+          output_path = os.environ['GITHUB_OUTPUT']
+          with open(output_path, 'a', encoding='utf-8') as handle:
+              handle.write('comment_body<<COMMENT\n')
+              handle.write(comment_body)
+              handle.write('\nCOMMENT\n')
+              handle.write(f"has_errors={'true' if error_findings else 'false'}\n")
+              handle.write(f"has_warnings={'true' if findings and not error_findings else 'false'}\n")
+              handle.write(f"privileged_mode={privileged_mode}\n")
+              handle.write('issue_body<<ISSUE\n')
+              handle.write(issue_body)
+              handle.write('\nISSUE\n')
+
+          PY
+
+      - name: Generate repo health status body
+        if: always()
+        run: |
+          python - <<'PY'
+          from __future__ import annotations
+
+          import json
+          from pathlib import Path
+
+          summary_path = Path('repo-health-summary.json')
+          snapshot_path = Path('repo-health-branch-protection.json')
+          issue_path = Path('repo-health-issue.md')
+
+          status_labels = {
+              'pass': '✅ Pass',
+              'warn': '⚠️ Warning',
+              'info': 'ℹ️ Info',
+              'skipped': '⏭️ Skipped',
+              'error': '❌ Error',
+          }
+
+          summary = None
+          if summary_path.exists():
+              try:
+                  summary = json.loads(summary_path.read_text(encoding='utf-8'))
+              except json.JSONDecodeError:
+                  summary = None
+
+          snapshot = None
+          if snapshot_path.exists():
+              try:
+                  snapshot = json.loads(snapshot_path.read_text(encoding='utf-8'))
+              except json.JSONDecodeError:
+                  snapshot = None
+
+          lines: list[str] = ['# Repository self-check snapshot']
+
+          if summary:
+              timestamp = summary.get('timestamp')
+              default_branch = summary.get('default_branch')
+              if timestamp:
+                  lines.append('')
+                  lines.append(f'*Run timestamp:* `{timestamp}`')
+              if default_branch:
+                  lines.append('')
+                  lines.append(f'*Default branch:* `{default_branch}`')
+
+              privileged = summary.get('privileged_checks') or {}
+              token_name = privileged.get('token')
+              http_status = privileged.get('http_status')
+              mode = privileged.get('mode')
+              if not mode:
+                  if privileged.get('used'):
+                      mode = 'enforce+verify'
+                  elif privileged.get('skipped'):
+                      mode = 'verify-only'
+              if token_name:
+                  lines.append('')
+                  lines.append(f'*Branch protection probe token:* `{token_name}`')
+              if http_status:
+                  lines.append('')
+                  lines.append(f'*Branch protection probe HTTP status:* `{http_status}`')
+              if mode:
+                  lines.append('')
+                  lines.append(f'*Privileged enforcement mode:* `{mode}`')
+
+              checks = summary.get('checks') or []
+              if checks:
+                  lines.append('')
+                  lines.append('## Checks')
+                  lines.append('')
+                  lines.append('| Check | Status | Details |')
+                  lines.append('| --- | --- | --- |')
+                  for check in checks:
+                      title = str(check.get('title', 'Unknown'))
+                      status = str(check.get('status', 'info'))
+                      status_text = status_labels.get(status, status)
+                      detail = str(check.get('detail') or '').replace('|', '\\|').replace('\n', '<br>')
+                      lines.append(f'| {title} | {status_text} | {detail} |')
+
+          if snapshot:
+              lines.append('')
+              lines.append('## Branch protection snapshot')
+              lines.append('')
+              mode = snapshot.get('mode')
+              generated = snapshot.get('generated_at')
+              branch = snapshot.get('branch')
+              if branch:
+                  lines.append(f'*Branch:* `{branch}`')
+              if mode:
+                  lines.append(f'*Snapshot mode:* `{mode}`')
+              if generated:
+                  lines.append(f'*Generated at:* `{generated}`')
+
+              after = snapshot.get('after') or snapshot.get('current') or {}
+              contexts = after.get('contexts') if isinstance(after, dict) else None
+              strict = after.get('strict') if isinstance(after, dict) else None
+              if contexts:
+                  lines.append('')
+                  lines.append('**Required status checks:**')
+                  for context in contexts:
+                      lines.append(f'- `{context}`')
+              if strict is not None:
+                  lines.append('')
+                  lines.append(f"*Require branches up to date:* `{strict}`")
+
+              if snapshot.get('to_add') or snapshot.get('to_remove'):
+                  lines.append('')
+                  lines.append('**Proposed changes**')
+                  additions = snapshot.get('to_add') or []
+                  removals = snapshot.get('to_remove') or []
+                  if additions:
+                      lines.append(f"- Add: {', '.join(f'`{entry}`' for entry in additions)}")
+                  if removals:
+                      lines.append(f"- Remove: {', '.join(f'`{entry}`' for entry in removals)}")
+
+          issue_path.write_text('\n'.join(lines).strip() + '\n', encoding='utf-8')
+          PY
+
+      - name: Update failure tracker issue
+        if: ${{ steps.aggregate.outputs.has_errors == 'true' || steps.aggregate.outputs.has_warnings == 'true' }}
+        uses: actions/github-script@v7
+        env:
+          ISSUE_BODY: ${{ steps.aggregate.outputs.issue_body }}
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const issueTitle = '[health] repository self-check failed';
+            const labelName = 'health:repo';
+            const body = (process.env.ISSUE_BODY || '').trim();
+
+            if (!body) {
+              core.info('No issue body provided; skipping tracker update.');
+              return;
+            }
+
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            async function ensureLabel() {
+              try {
+                await github.rest.issues.getLabel({ owner, repo, name: labelName });
+              } catch (error) {
+                if (error.status !== 404) {
+                  core.warning(`Label lookup failed for ${labelName}: ${error.message || error}`);
+                  return;
+                }
+
+                try {
+                  await github.rest.issues.createLabel({
+                    owner,
+                    repo,
+                    name: labelName,
+                    color: 'ededed',
+                  });
+                  core.info(`Created label ${labelName}.`);
+                } catch (createError) {
+                  core.warning(`Failed to create label ${labelName}: ${createError.message || createError}`);
+                }
+              }
+            }
+
+            await ensureLabel();
+
+            const issues = await github.paginate(github.rest.issues.listForRepo, {
+              owner,
+              repo,
+              state: 'all',
+              per_page: 100,
+            });
+
+            const matches = issues.filter((issue) => issue.title === issueTitle);
+            const openMatch = matches.find((issue) => issue.state === 'open');
+            const target = openMatch || matches[0];
+
+            if (!target) {
+              const created = await github.rest.issues.create({
+                owner,
+                repo,
+                title: issueTitle,
+                body,
+                labels: [labelName],
+              });
+              core.info(`Opened tracker issue #${created.data.number}.`);
+              return;
+            }
+
+            const labelSet = new Set(
+              (target.labels || []).map((label) => (typeof label === 'string' ? label : label.name))
+            );
+            labelSet.add(labelName);
+
+            await github.rest.issues.update({
+              owner,
+              repo,
+              issue_number: target.number,
+              body,
+              labels: Array.from(labelSet),
+              state: 'open',
+            });
+            core.info(`Updated tracker issue #${target.number}.`);
+
+      - name: Close failure tracker issue
+        if: ${{ steps.aggregate.outputs.has_errors != 'true' && steps.aggregate.outputs.has_warnings != 'true' }}
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const issueTitle = '[health] repository self-check failed';
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            const { data: openIssues } = await github.rest.issues.listForRepo({
+              owner,
+              repo,
+              state: 'open',
+              per_page: 100,
+            });
+
+            const existing = openIssues.find((issue) => issue.title === issueTitle);
+
+            if (!existing) {
+              core.info('No open tracker issue to close.');
+              return;
+            }
+
+            await github.rest.issues.update({
+              owner,
+              repo,
+              issue_number: existing.number,
+              state: 'closed',
+              state_reason: 'completed',
+            });
+            core.info(`Closed tracker issue #${existing.number}.`);
+
+      - name: Update repo health snapshot issue
+        if: ${{ env.HAS_ADMIN_TOKEN == 'true' }}
+        uses: actions/github-script@v7
+        env:
+          ISSUE_BODY_PATH: repo-health-issue.md
+        with:
+          github-token: ${{ steps.branch-token.outputs.token }}
+          script: |
+            const fs = require('fs');
+            const path = process.env.ISSUE_BODY_PATH || '';
+            const issueTitle = '[health] repository self-check';
+            const labelName = 'health:repo';
+
+            if (!path || !fs.existsSync(path)) {
+              core.info('No snapshot body found; skipping pinned issue update.');
+              return;
+            }
+
+            const body = fs.readFileSync(path, 'utf8').trim();
+            if (!body) {
+              core.info('Snapshot body is empty; skipping pinned issue update.');
+              return;
+            }
+
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            async function ensureLabel() {
+              try {
+                await github.rest.issues.getLabel({ owner, repo, name: labelName });
+              } catch (error) {
+                if (error.status !== 404) {
+                  core.warning(`Label lookup failed for ${labelName}: ${error.message || error}`);
+                  return;
+                }
+
+                try {
+                  await github.rest.issues.createLabel({
+                    owner,
+                    repo,
+                    name: labelName,
+                    color: 'ededed',
+                  });
+                  core.info(`Created label ${labelName}.`);
+                } catch (createError) {
+                  core.warning(`Failed to create label ${labelName}: ${createError.message || createError}`);
+                }
+              }
+            }
+
+            await ensureLabel();
+
+            const issues = await github.paginate(github.rest.issues.listForRepo, {
+              owner,
+              repo,
+              state: 'all',
+              per_page: 100,
+            });
+
+            const matches = issues.filter((issue) => issue.title.startsWith(issueTitle));
+            let target = matches.find((issue) => issue.state === 'open');
+            if (!target) {
+              target = matches[0];
+            }
+
+            if (!target) {
+              const created = await github.rest.issues.create({
+                owner,
+                repo,
+                title: issueTitle,
+                body,
+                labels: [labelName],
+              });
+              target = created.data;
+              core.info(`Opened snapshot issue #${target.number}.`);
+            } else {
+              const existingLabels = new Set(
+                (target.labels || []).map((label) => (typeof label === 'string' ? label : label.name))
+              );
+              existingLabels.add(labelName);
+
+              await github.rest.issues.update({
+                owner,
+                repo,
+                issue_number: target.number,
+                body,
+                labels: Array.from(existingLabels),
+                state: 'open',
+              });
+              core.info(`Updated snapshot issue #${target.number}.`);
+            }
+
+            try {
+              await github.rest.issues.pin({
+                owner,
+                repo,
+                issue_number: target.number,
+              });
+              core.info(`Pinned snapshot issue #${target.number}.`);
+            } catch (error) {
+              core.warning(`Failed to pin issue #${target.number}: ${error.message || error}`);
+            }
+
+      - name: Bundle repo health artifacts
+        if: always()
+        run: |
+          set -euo pipefail
+          mkdir -p repo-health-artifacts
+          if [ -f repo-health-summary.json ]; then
+            cp repo-health-summary.json repo-health-artifacts/
+          fi
+          if [ -f repo-health-branch-protection.json ]; then
+            cp repo-health-branch-protection.json repo-health-artifacts/
+          fi
+          if [ -f repo-health-issue.md ]; then
+            cp repo-health-issue.md repo-health-artifacts/
+          fi
+
+      - name: Upload repo health artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: repo-health-selfcheck-${{ github.run_id }}
+          path: repo-health-artifacts
+          if-no-files-found: warn
+
+      - name: Publish PR checklist comment
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pull_request_number != '' && steps.aggregate.outputs.comment_body != '' }}
+        uses: actions/github-script@v7
+        env:
+          PR_NUMBER: ${{ github.event.inputs.pull_request_number }}
+          COMMENT_BODY: ${{ steps.aggregate.outputs.comment_body }}
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const marker = '<!-- repo-health-selfcheck -->';
+            const prNumber = parseInt(process.env.PR_NUMBER || '', 10);
+            if (!prNumber) {
+              core.info('No PR number supplied; skipping comment.');
+              return;
+            }
+            const body = `${marker}\n${process.env.COMMENT_BODY.trim()}\n`;
+
+            const { data: existingComments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              per_page: 100,
+            });
+
+            const match = existingComments.find((comment) => comment.body && comment.body.includes(marker));
+
+            if (match) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: match.id,
+                body,
+              });
+              core.info(`Updated existing repo health comment (${match.id}).`);
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body,
+              });
+              core.info(`Posted new repo health comment on PR #${prNumber}.`);
+            }
+
+      - name: Fail on blocking issues
+        if: ${{ steps.aggregate.outputs.has_errors == 'true' }}
+        run: |
+          echo "Blocking repo health findings detected; marking the run as failed."
+          exit 1

@@ -1,0 +1,89 @@
+name: Keepalive Dispatch Handler
+
+on:
+  repository_dispatch:
+    types:
+      - codex-pr-comment-command
+
+jobs:
+  dispatch-handler:
+    name: Handle keepalive command dispatch
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: write
+      issues: write
+      pull-requests: write
+    env:
+      PREFERRED_TOKEN: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT || github.token }}
+    steps:
+      - name: Checkout keepalive scripts
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            .github/scripts
+          sparse-checkout-cone-mode: false
+          fetch-depth: 1
+
+      - name: Process keepalive remediation
+        id: process
+        uses: actions/github-script@v7
+        env:
+          DISPATCH_EVENT_TYPE: codex-pr-comment-command
+          SYNC_LABEL: agents:sync-required
+          DEBUG_LABEL: agents:debug
+        with:
+          github-token: ${{ env.PREFERRED_TOKEN }}
+          script: |
+            const payload = context.payload?.client_payload || {};
+            const prNumber = Number(payload.issue);
+            if (!Number.isFinite(prNumber) || prNumber <= 0) {
+              core.setFailed('client_payload.issue is required to process keepalive remediation.');
+              return;
+            }
+
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber,
+            });
+
+            // Support both legacy flat payload and new nested `meta` structure.
+            // New dispatches nest comment info under `meta` to stay within GitHub's
+            // 10-property limit for repository_dispatch client_payload.
+            const meta = payload.meta || {};
+            const trace = meta.trace || payload.trace || payload.comment_trace || '';
+            const round = meta.round || payload.round || payload.comment_round || '';
+            const commentId = meta.comment_id || payload.comment_id || '';
+            const commentUrl = meta.comment_url || payload.comment_url || '';
+            const idempotencyKey = meta.idempotency_key || payload.idempotency_key || '';
+
+            const headSha = pr?.head?.sha || '';
+            const env = {
+              ...process.env,
+              TRACE: trace,
+              ROUND: String(round),
+              PR_NUMBER: String(prNumber),
+              ISSUE_NUMBER: String(prNumber),
+              BASE_BRANCH: pr?.base?.ref || '',
+              PR_BASE_BRANCH: pr?.base?.ref || '',
+              HEAD_BRANCH: pr?.head?.ref || '',
+              PR_HEAD_BRANCH: pr?.head?.ref || '',
+              PREVIOUS_HEAD: headSha,
+              PR_HEAD_SHA_PREV: headSha,
+              HEAD_SHA_PREV: headSha,
+              COMMENT_ID: String(commentId),
+              COMMENT_URL: commentUrl,
+              COMMENT_TRACE: trace,
+              COMMENT_ROUND: String(round),
+              IDEMPOTENCY_KEY: idempotencyKey,
+              AGENT_ALIAS: payload.agent || 'codex',
+              DISPATCH_EVENT_TYPE: process.env.DISPATCH_EVENT_TYPE,
+              SYNC_LABEL: process.env.SYNC_LABEL,
+              DEBUG_LABEL: process.env.DEBUG_LABEL,
+              DRY_RUN: payload.dry_run || '',
+              AUTOMATION_LOGINS: payload.automation_logins || '',
+            };
+
+            const { runKeepalivePostWork } = require('./.github/scripts/keepalive_post_work.js');
+            await runKeepalivePostWork({ core, github, context, env });

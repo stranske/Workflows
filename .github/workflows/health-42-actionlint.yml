@@ -1,0 +1,182 @@
+name: Health 42 Actionlint
+
+on:
+  workflow_call:
+    inputs:
+      reporter:
+        required: false
+        type: string
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+
+jobs:
+  lint:
+    name: workflow lint (maint-36)
+    runs-on: ubuntu-latest
+    env:
+      ACTIONLINT_VERSION: '1.7.3'
+      REVIEWDOG_VERSION: '0.21.0'
+    steps:
+      - name: Compute REPORTER value
+        id: set-reporter
+        run: |
+          if [ -n "${{ inputs.reporter }}" ]; then
+            echo "reporter=${{ inputs.reporter }}" >> "$GITHUB_OUTPUT"
+          elif [ -n "${{ vars.HEALTH42_REPORTER }}" ]; then
+            echo "reporter=${{ vars.HEALTH42_REPORTER }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event.inputs.REPORTER || '' }}" != '' ]; then
+            echo "reporter=${{ github.event.inputs.REPORTER }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "reporter=github-pr-review" >> "$GITHUB_OUTPUT"
+          else
+            echo "reporter=github-check" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v4
+
+      - name: Compute actionlint allowlist
+        id: allowlist
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - '.github/actionlint-allowlist.txt' "$GITHUB_OUTPUT" <<'PY'
+          import sys
+          from pathlib import Path
+
+
+          def load_entries(path: Path) -> list[str]:
+              if not path.is_file():
+                  return []
+              entries: list[str] = []
+              for raw in path.read_text(encoding='utf-8').splitlines():
+                  line = raw.strip()
+                  if not line or line.startswith('#'):
+                      continue
+                  entries.append(line)
+              return entries
+
+
+          entries = load_entries(Path(sys.argv[1]))
+          args_path = Path('actionlint-allowlist.args')
+          if entries:
+              args_path.write_text(
+                  '\n'.join(f'-ignore={entry}' for entry in entries) + '\n',
+                  encoding='utf-8',
+              )
+          else:
+              args_path.write_text('', encoding='utf-8')
+
+          with Path(sys.argv[2]).open('a', encoding='utf-8') as handle:
+              handle.write(f'args_file={args_path}\n')
+          PY
+
+      - name: Restore cached actionlint
+        id: actionlint-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/actionlint
+          key: actionlint-${{ runner.os }}-${{ env.ACTIONLINT_VERSION }}
+
+      - name: Install actionlint
+        if: steps.actionlint-cache.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.cache/actionlint"
+          curl -sSL "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz" \
+            | tar -xz -C "$HOME/.cache/actionlint" actionlint
+          chmod +x "$HOME/.cache/actionlint/actionlint"
+
+      - name: Restore cached reviewdog
+        id: reviewdog-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/reviewdog
+          key: reviewdog-${{ runner.os }}-${{ env.REVIEWDOG_VERSION }}
+
+      - name: Install reviewdog
+        if: steps.reviewdog-cache.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.cache/reviewdog"
+          curl -sSL "https://raw.githubusercontent.com/reviewdog/reviewdog/v${REVIEWDOG_VERSION}/install.sh" \
+            | sh -s -- -b "$HOME/.cache/reviewdog" "v${REVIEWDOG_VERSION}"
+
+      - name: Add linters to PATH
+        shell: bash
+        run: |
+          echo "$HOME/.cache/actionlint" >> "$GITHUB_PATH"
+          echo "$HOME/.cache/reviewdog" >> "$GITHUB_PATH"
+
+      - name: Show tool versions
+        shell: bash
+        run: |
+          actionlint -version
+          reviewdog -version
+
+      - name: Run actionlint
+        id: actionlint
+        shell: bash
+        env:
+          ALLOWLIST_FILE: ${{ steps.allowlist.outputs.args_file }}
+          REPORTER: ${{ steps.set-reporter.outputs.reporter }}
+          REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          extra_args=()
+          if [ -n "${ALLOWLIST_FILE:-}" ] && [ -f "$ALLOWLIST_FILE" ]; then
+            mapfile -t extra_args < <(sed -e 's/[[:space:]]*$//' -e '/^$/d' "$ALLOWLIST_FILE")
+          fi
+
+          extra_args+=("-no-color")
+
+          tmpdir="$(mktemp -d)"
+          oneline_output="${tmpdir}/actionlint.oneline"
+
+          lint_status=0
+          if ! actionlint "${extra_args[@]}" -oneline >"${oneline_output}"; then
+            lint_status=$?
+            echo '::group::actionlint (text output)'
+            cat "${oneline_output}"
+            echo '::endgroup::'
+          fi
+
+          rd_status=0
+          # The error format pattern below maps output fields as follows:
+          # %t: type, %f: file, %l: line, %c: column, %m: message
+          if ! reviewdog -efm="%t:%f:%l:%c: %m" \
+              -name="maint-36 actionlint" \
+              -reporter="$REPORTER" \
+              -filter-mode="nofilter" \
+              -level="warning" \
+              -fail-level="error" <"${oneline_output}"; then
+            rd_status=$?
+          fi
+
+          rm -rf "${tmpdir}"
+
+          if [ "$lint_status" -ne 0 ]; then
+            exit "$lint_status"
+          fi
+
+          exit "$rd_status"
+
+      - name: Publish lint summary
+        if: always()
+        env:
+          REPORTER: ${{ steps.set-reporter.outputs.reporter }}
+        run: |
+          if [ -n "${{ steps.actionlint.outcome }}" ]; then
+            {
+              echo '## maint-36 actionlint'
+              echo "- Outcome: ${{ steps.actionlint.outcome }}"
+              if [ -n "${REPORTER}" ]; then
+                echo "- Reporter: ${REPORTER}"
+              fi
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi

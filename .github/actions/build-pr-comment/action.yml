@@ -1,0 +1,33 @@
+name: "Build autofix PR comment"
+description: "Assemble the autofix status comment from residual reports and trend artifacts"
+inputs:
+  output:
+    description: "Path to write the markdown comment"
+    required: true
+  report:
+    description: "Path to the enriched autofix report JSON"
+    required: false
+    default: autofix_report_enriched.json
+  history:
+    description: "Path to the residual history JSON"
+    required: false
+    default: ci/autofix/history.json
+  trend:
+    description: "Path to the residual trend JSON"
+    required: false
+    default: ci/autofix/trend.json
+  pr-number:
+    description: "Pull request number (used for artifact names)"
+    required: false
+runs:
+  using: "composite"
+  steps:
+    - name: Build comment body
+      shell: bash
+      run: |
+        python scripts/build_autofix_pr_comment.py \
+          --out "${{ inputs.output }}" \
+          --report "${{ inputs.report }}" \
+          --history "${{ inputs.history }}" \
+          --trend "${{ inputs.trend }}" \
+            --pr-number "${{ inputs['pr-number'] }}"

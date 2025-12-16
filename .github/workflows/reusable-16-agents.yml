@@ -1,0 +1,815 @@
+name: Reusable 16 Agents
+
+on:
+  workflow_call:
+    inputs:
+      enable_readiness:
+        description: 'Run agent readiness (assignability) probe (true/false)'
+        required: false
+        default: 'false'
+        type: string
+      readiness_agents:
+        description: 'Comma-separated agent keys (copilot,codex)'
+        required: false
+        default: 'copilot,codex'
+        type: string
+      readiness_custom_logins:
+        description: 'Comma-separated additional raw bot logins (exact usernames)'
+        required: false
+        default: ''
+        type: string
+      require_all:
+        description: 'Fail readiness job if any requested agent/custom login not assignable (true/false)'
+        required: false
+        default: 'false'
+        type: string
+      enable_preflight:
+        description: 'Run codex preflight probe (true/false)'
+        required: false
+        default: 'false'
+        type: string
+      codex_user:
+        description: 'Codex connector login override'
+        required: false
+        default: ''
+        type: string
+      codex_command_phrase:
+        description: 'Command phrase to post for Codex'
+        required: false
+        default: ''
+        type: string
+      enable_diagnostic:
+        description: 'Run bootstrap diagnostic job (true/false)'
+        required: false
+        default: 'false'
+        type: string
+      diagnostic_attempt_branch:
+        description: 'Attempt branch create in diagnostic (true/false)'
+        required: false
+        default: 'false'
+        type: string
+      diagnostic_dry_run:
+        description: 'Diagnostic dry run (true/false)'
+        required: false
+        default: 'true'
+        type: string
+      enable_verify_issue:
+        description: 'Verify a specific issue has an agent assignee (true/false)'
+        required: false
+        default: 'false'
+        type: string
+      verify_issue_number:
+        description: 'Issue number to verify when enable_verify_issue=true'
+        required: false
+        default: ''
+        type: string
+      verify_issue_valid_assignees:
+        description: 'Comma-separated list of acceptable agent logins for verification'
+        required: false
+        default: 'copilot,chatgpt-codex-connector,stranske-automation-bot'
+        type: string
+      enable_watchdog:
+        description: 'Run watchdog checks (true/false)'
+        required: false
+        default: 'true'
+        type: string
+      enable_keepalive:
+        description: 'Run Codex keepalive sweeps (true/false)'
+        required: false
+        default: 'true'
+        type: string
+      enable_bootstrap:
+        description: 'Run Codex bootstrap job (true/false)'
+        required: false
+        default: 'false'
+        type: string
+      bootstrap_issues_label:
+        description: 'Label to trigger Codex bootstrap'
+        required: false
+        default: 'agent:codex'
+        type: string
+      draft_pr:
+        description: 'Open bootstrap PRs as draft (true/false)'
+        required: false
+        default: 'false'
+        type: string
+      dry_run:
+        description: 'Preview mode; skip write actions when true'
+        required: false
+        default: 'false'
+        type: string
+      options_json:
+        description: 'JSON configuration for optional automation (keepalive sweep, etc)'
+        required: false
+        default: '{}'
+        type: string
+    secrets:
+      service_bot_pat:
+        required: false
+      ACTIONS_BOT_PAT:
+        required: false
+    outputs:
+      readiness_report:
+        description: 'JSON report emitted by the readiness probe when enabled'
+        value: ${{ jobs.readiness.outputs.report_json }}
+      readiness_table:
+        description: 'Markdown table emitted by the readiness probe when enabled'
+        value: ${{ jobs.readiness.outputs.table_md }}
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  readiness:
+    if: inputs.enable_readiness == 'true'
+    name: Agent Readiness Probe
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      report_json: ${{ steps.try.outputs.report || '{}' }}
+      table_md: ${{ steps.try.outputs.table || '' }}
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Probe assignable actors
+        id: gql
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const q = `query($owner:String!, $repo:String!) { repository(owner:$owner, name:$repo) { suggestedActors(capabilities:[CAN_BE_ASSIGNED], first:100) { nodes { login } } } }`;
+            const res = await github.graphql(q, { owner, repo });
+            const actors = (res.repository?.suggestedActors?.nodes || []).map(n => (n.login || '').toLowerCase());
+            core.setOutput('actors', JSON.stringify(actors));
+      - name: Create temp issue
+        id: tmp
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const { data: issue } = await github.rest.issues.create({ owner, repo, title: '[readiness] probe', body: 'temp' });
+            core.setOutput('num', String(issue.number));
+      - name: Try agent assignment
+        id: try
+        env:
+          ACTORS_JSON: ${{ steps.gql.outputs.actors }}
+          AGENTS_REQ: ${{ inputs.readiness_agents }}
+          CUSTOM_LOGINS: ${{ inputs.readiness_custom_logins }}
+          REQUIRE_ALL: ${{ inputs.require_all }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const num = Number(core.getInput('issue_number') || process.env.ISSUE_NUM || '${{ steps.tmp.outputs.num }}');
+            const actors = JSON.parse(process.env.ACTORS_JSON || '[]');
+            const requested = (process.env.AGENTS_REQ || 'copilot,codex').split(',').map(s=>s.trim()).filter(Boolean);
+            const custom = (process.env.CUSTOM_LOGINS || '').split(',').map(s=>s.trim()).filter(Boolean);
+            const CANDIDATES = {
+              copilot: ['copilot','copilot-swe-agent'],
+              codex: ['chatgpt-codex-connector']
+            };
+            const rows = [];
+            const report = {};
+            // Handle keyed agents
+            for (const key of requested) {
+              const cands = CANDIDATES[key]||[];
+              let ok=false, used='';
+              for (const c of cands) { if (actors.includes(c)) { ok=true; used=c; break; } }
+              report[key]={ok, used};
+              rows.push({ label:key, type:'builtin', requested:true, ok, used });
+            }
+            // Handle custom explicit logins (exact matches)
+            for (const login of custom) {
+              const ok = actors.includes(login.toLowerCase());
+              report[`custom:${login}`] = { ok, used: ok ? login.toLowerCase(): '' };
+              rows.push({ label:login.toLowerCase(), type:'custom', requested:true, ok, used: ok? login.toLowerCase(): '' });
+            }
+            // Build markdown table
+            const header = '| Agent | Kind | Requested | Assignable | Resolved Login |';
+            const sep = '|-------|------|-----------|-----------|---------------|';
+            const mdRows = rows.map(r => `| ${r.label} | ${r.type} | yes | ${r.ok? '':''} | ${r.used} |`);
+            const table = [header, sep, ...mdRows].join('\n');
+            core.setOutput('report', JSON.stringify(report));
+            core.setOutput('table', table);
+            const requireAll = (process.env.REQUIRE_ALL||'false').toLowerCase()==='true';
+            if (requireAll) {
+              const missing = rows.filter(r=>!r.ok).map(r=>r.label);
+              if (missing.length) {
+                core.setFailed('Missing assignable agents: '+missing.join(', '));
+              }
+            }
+      - name: Close temp
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo; await github.rest.issues.update({ owner, repo, issue_number: Number('${{ steps.tmp.outputs.num }}'), state: 'closed' });
+      - name: Summary
+        if: always()
+        run: |
+          {
+            printf '### Agent Readiness Report %s\n' "${{ steps.try.outcome == 'failure' && '' || '' }}"
+            printf '\n```json\n'
+            printf '%s\n' "${{ steps.try.outputs.report }}"
+            printf '```\n\n'
+            printf '%s\n\n' "${{ steps.try.outputs.table }}"
+            printf 'Require all: %s\n' "${{ inputs.require_all }}"
+            printf 'Custom logins: %s\n' "${{ inputs.readiness_custom_logins }}"
+            printf 'Overall: %s\n' "${{ steps.try.outcome == 'failure' && 'failure (missing required agents)' || 'success' }}"
+          } >>"$GITHUB_STEP_SUMMARY"
+
+  preflight:
+    if: inputs.enable_preflight == 'true'
+    name: Codex Preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Preflight probe
+        uses: actions/github-script@v7
+        env:
+          CODEX_USER: ${{ inputs.codex_user }}
+          CODEX_COMMAND: ${{ inputs.codex_command_phrase }}
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const user = process.env.CODEX_USER;
+            if (!user) { core.warning('No CODEX_USER provided'); return; }
+            const { data: issue } = await github.rest.issues.create({ owner, repo, title: '[probe] codex-assignability', body: 'temp' });
+            try { await github.rest.issues.addAssignees({ owner, repo, issue_number: issue.number, assignees: [user] }); core.info('Assignable'); }
+            catch (e) { core.warning('Not assignable: '+e.message); }
+            if (process.env.CODEX_COMMAND) { await github.rest.issues.createComment({ owner, repo, issue_number: issue.number, body: process.env.CODEX_COMMAND }); }
+            await github.rest.issues.update({ owner, repo, issue_number: issue.number, state: 'closed' });
+
+  diagnostic:
+    if: inputs.enable_diagnostic == 'true'
+    name: Bootstrap Diagnostic
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Token / Env Probe
+        shell: bash
+        env:
+          DRY_RUN: ${{ inputs.diagnostic_dry_run }}
+          ATTEMPT: ${{ inputs.diagnostic_attempt_branch }}
+        run: |
+          set -euo pipefail
+          echo "Diagnostic dry_run=$DRY_RUN attempt_branch=$ATTEMPT"
+          echo "Tokens present: GITHUB_TOKEN=${GITHUB_TOKEN:+yes} SERVICE_BOT_PAT=${SERVICE_BOT_PAT:+yes}"
+      - name: Attempt branch create
+        if: inputs.diagnostic_attempt_branch == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          base=$(git rev-parse HEAD)
+            ts=$(date -u +%Y%m%d%H%M%S)
+            target="diagnostic/codex-${ts}"
+            echo "Creating $target from $base"
+            curl -s -o /tmp/create.json -w '%{http_code}' -X POST \
+              -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+              -H 'Accept: application/vnd.github+json' \
+              https://api.github.com/repos/${{ github.repository }}/git/refs \
+              -d '{"ref":"refs/heads/'"$target"'","sha":"'"$base"'"}' || true
+
+  verify_issue:
+    if: inputs.enable_verify_issue == 'true' && inputs.verify_issue_number != ''
+    uses: ./.github/workflows/agents-64-verify-agent-assignment.yml
+    secrets: inherit
+    with:
+      issue_number: ${{ inputs.verify_issue_number }}
+      valid_assignees: ${{ inputs.verify_issue_valid_assignees }}
+
+  verify_issue_summary:
+    name: Publish Verify Issue Summary
+    needs:
+      - verify_issue
+    if: ${{ always() && needs.verify_issue.result != 'skipped' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Append verify assignment results
+        uses: actions/github-script@v7
+        env:
+          STATUS: ${{ needs.verify_issue.outputs.status || '' }}
+          MESSAGE: ${{ needs.verify_issue.outputs.message || '' }}
+          SUMMARY_TABLE: ${{ needs.verify_issue.outputs.summary_table || '' }}
+          MATCHED: ${{ needs.verify_issue.outputs.matched_assignee || '' }}
+          HAS_LABEL: ${{ needs.verify_issue.outputs.has_label || '' }}
+          ISSUE_URL: ${{ needs.verify_issue.outputs.issue_url || '' }}
+        with:
+          script: |
+            const rawStatus = (process.env.STATUS || 'unknown').trim();
+            const status = rawStatus.toLowerCase();
+            const message = process.env.MESSAGE || '';
+            const table = process.env.SUMMARY_TABLE || '';
+            const matched = process.env.MATCHED || '';
+            const hasLabel = (process.env.HAS_LABEL || '').trim() || 'unknown';
+            const issueUrl = process.env.ISSUE_URL || '';
+
+            const issueNumber = (() => {
+              const match = issueUrl.match(/\/issues\/(\d+)(?:$|\D)/);
+              return match ? `#${match[1]}` : (issueUrl || '—');
+            })();
+
+            const matchedCell = matched ? `\`${matched}\`` : '_none_';
+
+            core.info(`Verify issue status: ${status || 'unknown'}`);
+            core.info(`Issue reference: ${issueNumber}`);
+            core.info(`Has agent:codex label: ${hasLabel}`);
+            if (matched) {
+              core.info(`Matched assignee: ${matched}`);
+            }
+
+            const summary = core.summary;
+            summary.addHeading('Agent Assignment Verification', 2);
+
+            if (table.trim()) {
+              summary.addRaw(table, true).addEOL();
+            } else {
+              const linkCell = issueUrl ? `[${issueNumber}](${issueUrl})` : '—';
+              summary.addTable([
+                [{ data: 'Issue', header: true }, { data: 'Has agent:codex', header: true }, { data: 'Matched assignee', header: true }, { data: 'Status', header: true }],
+                [linkCell, hasLabel, matchedCell, rawStatus || 'unknown']
+              ]);
+            }
+
+            if (issueUrl) {
+              summary.addLink('Inspect issue', issueUrl).addEOL();
+            }
+
+            if (message) {
+              summary.addRaw(message).addEOL();
+            }
+
+            summary.addList([
+              `Status: **${rawStatus || 'unknown'}**`,
+              `Has agent:codex label: ${hasLabel}`,
+              `Matched assignee: ${matchedCell}`
+            ]);
+
+            await summary.write();
+
+            if (status === 'pass') {
+              core.notice(message || 'Agent assignment verification passed.');
+            } else if (status === 'skipped') {
+              core.notice(message || 'Agent assignment verification skipped.');
+            } else if (status === 'fail') {
+              core.warning(message || 'Agent assignment verification reported a failure.');
+            } else {
+              core.info(message || 'Agent assignment verification completed with status unavailable.');
+            }
+
+  bootstrap-codex:
+    if: inputs.enable_bootstrap == 'true'
+    name: Bootstrap Codex PRs
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Find Ready Issues
+        id: ready
+        uses: actions/github-script@v7
+        env:
+          LABEL: ${{ inputs.bootstrap_issues_label }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        with:
+          script: |
+            const summary = core.summary;
+            summary.addHeading('Codex Bootstrap', 2);
+            const dryRun = (process.env.DRY_RUN || '').trim().toLowerCase() === 'true';
+            summary.addRaw(`Dry run: **${dryRun ? 'enabled' : 'disabled'}**`).addEOL();
+            if (dryRun) {
+              core.notice('Dry run enabled – bootstrap will not open or update pull requests.');
+            }
+
+            const clearOutputs = () => {
+              core.setOutput('issue_numbers', '');
+              core.setOutput('issue_numbers_json', '[]');
+              core.setOutput('first_issue', '');
+            };
+
+            const fallbackLabel = 'agent:codex';
+            const fallbackMessage = 'bootstrap_issues_label not provided; defaulting to agent:codex.';
+            const raw = process.env.LABEL || '';
+            const trimmed = raw
+              .split(/[,\n]/)
+              .map((value) => value.trim())
+              .filter(Boolean);
+
+            const dedupeLabels = (values) => {
+              const seen = new Set();
+              const unique = [];
+              for (const value of values) {
+                const lower = value.toLowerCase();
+                if (seen.has(lower)) {
+                  continue;
+                }
+                seen.add(lower);
+                unique.push({ raw: value, lower });
+              }
+              return unique;
+            };
+
+            const unique = dedupeLabels(trimmed);
+            const dedupeReduced = unique.length === 1 && trimmed.length > 1;
+
+            if (unique.length > 1) {
+              const provided = unique.map((entry) => `\`${entry.raw}\``).join(', ');
+              const message =
+                `bootstrap_issues_label must define exactly one label. Received multiple entries: ${provided}`;
+              core.setFailed(message);
+              summary.addRaw(message).addEOL();
+              clearOutputs();
+              await summary.write();
+              return;
+            }
+
+            let labels = unique;
+            let fallbackUsed = false;
+            if (!labels.length) {
+              labels = [{ raw: fallbackLabel, lower: fallbackLabel.toLowerCase() }];
+              fallbackUsed = true;
+            }
+
+            const label = labels[0].raw;
+            const labelLower = labels[0].lower;
+
+            if (fallbackUsed) {
+              summary.addRaw(fallbackMessage).addEOL();
+              core.notice(fallbackMessage);
+            }
+
+            if (!fallbackUsed && dedupeReduced) {
+              const dedupeNotice = `Duplicate bootstrap labels removed; proceeding with: ${label}`;
+              summary.addRaw(dedupeNotice).addEOL();
+              core.notice(dedupeNotice);
+            }
+
+            summary.addRaw(`Bootstrap label: **${label}**`).addEOL();
+
+            const summariseList = (items, limit = 20) => {
+              if (items.length <= limit) {
+                return items;
+              }
+              const hidden = items.length - limit;
+              return [
+                ...items.slice(0, limit),
+                `${hidden} more entries not shown to avoid excessive summary noise.`
+              ];
+            };
+
+            const skipped = [];
+            const accepted = [];
+            const logSkip = (issue, reason) => {
+              const message = `#${issue.number}: skipped – ${reason}`;
+              core.info(message);
+              skipped.push(message);
+            };
+
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            const scanLimit = 100;
+            let scanned = 0;
+            let truncated = false;
+
+            const iterator = github.paginate.iterator(
+              github.rest.issues.listForRepo,
+              {
+                owner,
+                repo,
+                state: 'open',
+                labels: label,
+                per_page: 50
+              }
+            );
+
+            outer: for await (const page of iterator) {
+              for (const issue of page.data) {
+                if (scanned >= scanLimit) {
+                  truncated = true;
+                  core.warning(`Bootstrap issue scan truncated after ${scanLimit} records.`);
+                  break outer;
+                }
+
+                scanned += 1;
+
+                if (issue.pull_request) {
+                  logSkip(issue, 'pull request detected');
+                  continue;
+                }
+
+                const labelNames = (issue.labels || [])
+                  .map((entry) => (typeof entry === 'string' ? entry : entry?.name || '').toLowerCase())
+                  .filter(Boolean);
+                if (!labelNames.includes(labelLower)) {
+                  logSkip(issue, `missing required label ${label}`);
+                  continue;
+                }
+
+                if ((issue.title || '').toLowerCase().includes('wip')) {
+                  logSkip(issue, 'title flagged as work-in-progress');
+                  continue;
+                }
+
+                accepted.push(issue);
+              }
+            }
+
+            if (accepted.length) {
+              const formatIssue = (issue) => {
+                const title = (issue.title || 'untitled').trim();
+                const number = issue.number;
+                return (
+                  '[#' +
+                  number +
+                  '](https://github.com/' +
+                  owner +
+                  '/' +
+                  repo +
+                  '/issues/' +
+                  number +
+                  ') – ' +
+                  title
+                );
+              };
+
+              summary.addList(summariseList(accepted.map((issue) => formatIssue(issue))));
+            } else {
+              summary.addRaw('No eligible issues found.').addEOL();
+            }
+
+            summary.addDetails(
+              'Skipped issues',
+              skipped.length ? summariseList(skipped) : ['None']
+            );
+            const summaryItems = [
+              `Accepted issues: ${accepted.length}`,
+              `Skipped issues: ${skipped.length}`,
+              `Evaluated issues: ${scanned}`
+            ];
+            if (truncated) {
+              summaryItems.push(`Scan truncated after ${scanLimit} issues.`);
+            }
+            if (dryRun && accepted.length) {
+              summaryItems.push('Dry run enabled – bootstrap actions skipped.');
+            }
+            summary.addList(summaryItems);
+            await summary.write();
+
+            const numbers = accepted.map((issue) => issue.number);
+            core.setOutput('issue_numbers', numbers.join(','));
+            core.setOutput('issue_numbers_json', JSON.stringify(numbers));
+            core.setOutput('first_issue', numbers.length ? String(numbers[0]) : '');
+      - name: Bootstrap First Issue (if any)
+        if: steps.ready.outputs.first_issue != '' && inputs.dry_run != 'true'
+        uses: ./.github/actions/codex-bootstrap-lite
+        with:
+          issue: ${{ fromJson(steps.ready.outputs.issue_numbers_json)[0] }}
+          service_bot_pat: ${{ secrets.service_bot_pat || '' }}
+          draft: ${{ inputs.draft_pr }}
+
+  watchdog:
+    if: inputs.enable_watchdog == 'true'
+    name: Agent Watchdog
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Basic Repo Sanity
+        run: |
+          test -f pyproject.toml || { echo 'pyproject.toml missing'; exit 1; }
+          echo 'Repository baseline OK.'
+
+  keepalive:
+    name: Codex Keepalive Sweep
+    runs-on: ubuntu-latest
+    if: ${{ always() && inputs.enable_keepalive == 'true' }}
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    timeout-minutes: 25
+    env:
+      SERVICE_BOT_PAT: ${{ secrets.service_bot_pat || '' }}
+      ACTIONS_BOT_PAT: ${{ secrets.ACTIONS_BOT_PAT || '' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Ensure keepalive PAT present
+        if: ${{ env.SERVICE_BOT_PAT == '' }}
+        run: |
+          echo "::error::SERVICE_BOT_PAT is required so keepalive comments originate from stranske-automation-bot." >&2
+          exit 1
+      - name: Verify keepalive identity
+        if: ${{ env.SERVICE_BOT_PAT != '' }}
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.service_bot_pat }}
+          script: |
+            const { data: me } = await github.rest.users.getAuthenticated();
+            const login = (me.login || '').toLowerCase();
+            if (login !== 'stranske-automation-bot') {
+              core.setFailed(`SERVICE_BOT_PAT must belong to stranske-automation-bot; received ${login || 'unknown'}.`);
+              return;
+            }
+            core.info('Verified keepalive identity: stranske-automation-bot.');
+      - name: Ensure dispatch PAT present
+        if: ${{ env.ACTIONS_BOT_PAT == '' }}
+        run: |
+          echo "::error::ACTIONS_BOT_PAT is required so keepalive dispatches can trigger the connector." >&2
+          exit 1
+      - name: Generate keepalive trace token
+        run: |
+          trace="$(python -c 'import secrets, time; print(f"{int(time.time())}-{secrets.token_hex(4)}")')"
+          printf 'KEEPALIVE_TRACE=%s\n' "$trace" >> "$GITHUB_ENV"
+      - name: Resume Codex on unattended checklists
+        uses: actions/github-script@v7
+        env:
+          OPTIONS_JSON: ${{ inputs.options_json }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          ACTIONS_BOT_PAT: ${{ env.ACTIONS_BOT_PAT }}
+        with:
+          github-token: ${{ secrets.service_bot_pat }}
+          script: |
+            const { runKeepalive } = require('./scripts/keepalive-runner.js');
+            await runKeepalive({ core, github, context, env: process.env });
+
+  run-summary:
+    name: Agents Toolkit Run Summary
+    needs:
+      - readiness
+      - preflight
+      - diagnostic
+      - bootstrap-codex
+      - watchdog
+      - keepalive
+      - verify_issue
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Collate job outcomes
+        uses: actions/github-script@v7
+        env:
+          ENABLE_READINESS: ${{ inputs.enable_readiness }}
+          ENABLE_PREFLIGHT: ${{ inputs.enable_preflight }}
+          ENABLE_DIAGNOSTIC: ${{ inputs.enable_diagnostic }}
+          ENABLE_BOOTSTRAP: ${{ inputs.enable_bootstrap }}
+          ENABLE_WATCHDOG: ${{ inputs.enable_watchdog }}
+          ENABLE_KEEPALIVE: ${{ inputs.enable_keepalive }}
+          ENABLE_VERIFY: ${{ inputs.enable_verify_issue }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          BOOTSTRAP_LABEL: ${{ inputs.bootstrap_issues_label }}
+          READINESS_RESULT: ${{ needs.readiness.result || '' }}
+          PREFLIGHT_RESULT: ${{ needs.preflight.result || '' }}
+          DIAGNOSTIC_RESULT: ${{ needs.diagnostic.result || '' }}
+          BOOTSTRAP_RESULT: ${{ needs['bootstrap-codex'].result || '' }}
+          WATCHDOG_RESULT: ${{ needs.watchdog.result || '' }}
+          KEEPALIVE_RESULT: ${{ needs.keepalive.result || '' }}
+          VERIFY_RESULT: ${{ needs.verify_issue.result || '' }}
+        with:
+          script: |
+            const toBool = (value) => {
+              const normalised = String(value || '').trim().toLowerCase();
+              return ['true', '1', 'yes', 'on'].includes(normalised);
+            };
+
+            const normaliseStatus = (enabled, result) => {
+              if (!enabled) {
+                return { status: 'Disabled', note: 'Not requested' };
+              }
+
+              const resolved = String(result || '').trim();
+              if (!resolved) {
+                return { status: 'Unknown', note: 'Job did not report a result' };
+              }
+
+              const status = resolved.charAt(0).toUpperCase() + resolved.slice(1);
+              let note = 'Completed';
+              if (resolved.toLowerCase() === 'skipped') {
+                note = 'Condition evaluated to false';
+              } else if (resolved.toLowerCase() === 'cancelled') {
+                note = 'Job cancelled';
+              } else if (resolved.toLowerCase() === 'failure') {
+                note = 'Job reported failure';
+              }
+
+              return { status, note };
+            };
+
+            const dryRun = toBool(process.env.DRY_RUN);
+            const bootstrapLabel = (process.env.BOOTSTRAP_LABEL || '').trim();
+
+            const enabled = {
+              readiness: toBool(process.env.ENABLE_READINESS),
+              preflight: toBool(process.env.ENABLE_PREFLIGHT),
+              diagnostic: toBool(process.env.ENABLE_DIAGNOSTIC),
+              bootstrap: toBool(process.env.ENABLE_BOOTSTRAP),
+              watchdog: toBool(process.env.ENABLE_WATCHDOG),
+              keepalive: toBool(process.env.ENABLE_KEEPALIVE),
+              verify: toBool(process.env.ENABLE_VERIFY)
+            };
+
+            const rawStages = [
+              {
+                key: 'readiness',
+                label: 'Readiness',
+                enabled: enabled.readiness,
+                result: process.env.READINESS_RESULT,
+                extras: []
+              },
+              {
+                key: 'preflight',
+                label: 'Preflight',
+                enabled: enabled.preflight,
+                result: process.env.PREFLIGHT_RESULT,
+                extras: []
+              },
+              {
+                key: 'diagnostic',
+                label: 'Diagnostic',
+                enabled: enabled.diagnostic,
+                result: process.env.DIAGNOSTIC_RESULT,
+                extras: []
+              },
+              {
+                key: 'bootstrap',
+                label: 'Bootstrap',
+                enabled: enabled.bootstrap,
+                result: process.env.BOOTSTRAP_RESULT,
+                extras: [
+                  bootstrapLabel ? `Label: \`${bootstrapLabel}\`` : null,
+                  dryRun && enabled.bootstrap ? 'Dry run: preview only' : null
+                ].filter(Boolean)
+              },
+              {
+                key: 'watchdog',
+                label: 'Watchdog',
+                enabled: enabled.watchdog,
+                result: process.env.WATCHDOG_RESULT,
+                extras: []
+              },
+              {
+                key: 'keepalive',
+                label: 'Keepalive',
+                enabled: enabled.keepalive,
+                result: process.env.KEEPALIVE_RESULT,
+                extras: [dryRun && enabled.keepalive ? 'Dry run: preview only' : null].filter(Boolean)
+              },
+              {
+                key: 'verify',
+                label: 'Verify Issue',
+                enabled: enabled.verify,
+                result: process.env.VERIFY_RESULT,
+                extras: []
+              }
+            ];
+
+            const stages = [];
+            const seen = new Map();
+            for (const stage of rawStages) {
+              if (!seen.has(stage.key)) {
+                seen.set(stage.key, stages.length);
+                stages.push({ ...stage, extras: [...stage.extras] });
+                continue;
+              }
+
+              const existingIndex = seen.get(stage.key);
+              const existing = stages[existingIndex];
+              existing.enabled = existing.enabled || stage.enabled;
+              existing.result = existing.result || stage.result;
+              const mergedExtras = new Set([...(existing.extras || []), ...(stage.extras || [])]);
+              existing.extras = Array.from(mergedExtras).filter(Boolean);
+            }
+
+            const summary = core.summary;
+            summary.addHeading('Agents Toolkit Run Summary');
+            summary.addRaw(`Dry run: **${dryRun ? 'enabled' : 'disabled'}**`).addEOL();
+            if (bootstrapLabel) {
+              summary.addRaw(`Bootstrap label: **${bootstrapLabel}**`).addEOL();
+            }
+
+            const tableRows = stages.map((stage) => {
+              const outcome = normaliseStatus(stage.enabled, stage.result);
+              const notes = [outcome.note, ...stage.extras.filter(Boolean)];
+              return [
+                stage.label,
+                outcome.status,
+                notes.length ? notes.join('<br/>') : '—'
+              ];
+            });
+
+            summary.addTable([
+              [
+                { data: 'Stage', header: true },
+                { data: 'Status', header: true },
+                { data: 'Notes', header: true }
+              ],
+              ...tableRows
+            ]);
+
+            await summary.write();

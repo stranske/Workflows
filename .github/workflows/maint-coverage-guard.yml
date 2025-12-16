@@ -1,0 +1,137 @@
+name: Maint Coverage Guard
+
+'on':
+  schedule:
+    - cron: '45 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+  issues: write
+
+jobs:
+  # Rate limit gate: skip non-critical coverage checks when API quota is low
+  # This ensures keepalive and core workflows get priority (threshold: 2000)
+  rate-limit-check:
+    name: Rate limit gate
+    runs-on: ubuntu-latest
+    outputs:
+      proceed: ${{ steps.check.outputs.proceed || 'true' }}
+    steps:
+      - name: Check API quota
+        id: check
+        uses: actions/github-script@v7
+        env:
+          # Higher threshold than orchestrator (1000) so keepalive runs first
+          RATE_LIMIT_THRESHOLD: '2000'
+        with:
+          script: |
+            const threshold = parseInt(process.env.RATE_LIMIT_THRESHOLD || '2000', 10);
+            try {
+              const { data } = await github.rest.rateLimit.get();
+              const remaining = data?.resources?.core?.remaining || 0;
+              const limit = data?.resources?.core?.limit || 5000;
+              const proceed = remaining >= threshold;
+
+              core.setOutput('proceed', proceed ? 'true' : 'false');
+              core.setOutput('remaining', String(remaining));
+
+              if (!proceed) {
+                const reset = data?.resources?.core?.reset || 0;
+                const resetTime = new Date(reset * 1000).toISOString();
+                core.notice(`Deferring coverage guard: API quota low (${remaining}/${limit}). Resets at ${resetTime}`);
+                await core.summary
+                  .addHeading('Coverage Guard Deferred', 3)
+                  .addRaw(`API quota too low for non-critical health checks (${remaining}/${limit} remaining).`)
+                  .addEOL()
+                  .addRaw(`Threshold: ${threshold}. Resets at: ${resetTime}`)
+                  .write();
+              }
+            } catch (error) {
+              core.warning(`Rate limit check failed: ${error.message}. Proceeding anyway.`);
+              core.setOutput('proceed', 'true');
+            }
+
+  guard:
+    name: coverage baseline monitor
+    needs: rate-limit-check
+    if: needs.rate-limit-check.outputs.proceed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Locate latest Gate workflow run
+        id: discover
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { owner, repo } = context.repo;
+            const workflowId = '.github/workflows/pr-00-gate.yml';
+
+            const runs = await github.paginate(
+              github.rest.actions.listWorkflowRuns,
+              {
+                owner,
+                repo,
+                workflow_id: workflowId,
+                status: 'completed',
+                per_page: 50,
+              },
+            );
+
+            if (!runs.length) {
+              core.warning('No Gate workflow runs found.');
+              core.setOutput('run_id', '');
+              return;
+            }
+
+            runs.sort((a, b) => new Date(b.run_started_at || b.created_at || 0) - new Date(a.run_started_at || a.created_at || 0));
+            const candidate = runs.find(run => ['success', 'neutral'].includes(run.conclusion || '')) || runs[0];
+
+            if (!candidate) {
+              core.warning('Unable to locate a completed Gate workflow run.');
+              core.setOutput('run_id', '');
+              return;
+            }
+
+            core.setOutput('run_id', String(candidate.id || ''));
+            core.setOutput('run_number', String(candidate.run_number || ''));
+            core.setOutput('run_url', candidate.html_url || '');
+            core.notice(`Using Gate workflow run ${candidate.id} (${candidate.html_url || 'no url'})`);
+
+      - name: Download coverage trend artifact
+        if: ${{ steps.discover.outputs.run_id }}
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: gate-coverage-trend
+          run-id: ${{ steps.discover.outputs.run_id }}
+          path: coverage_artifacts/trend
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download coverage payload artifact
+        if: ${{ steps.discover.outputs.run_id }}
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: gate-coverage
+          run-id: ${{ steps.discover.outputs.run_id }}
+          path: coverage_artifacts/payload
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run coverage guard
+        if: ${{ steps.discover.outputs.run_id }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COVERAGE_RUN_URL: ${{ steps.discover.outputs.run_url }}
+          COVERAGE_RUN_NUMBER: ${{ steps.discover.outputs.run_number }}
+        run: |
+          python tools/coverage_guard.py \
+            --repo "${{ github.repository }}" \
+            --trend-path coverage_artifacts/trend/coverage-trend.json \
+            --coverage-path coverage_artifacts/payload/artifacts/coverage/runtimes/3.11/coverage.json \
+            --baseline-path config/coverage-baseline.json \
+            --run-url "${{ steps.discover.outputs.run_url }}"

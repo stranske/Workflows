@@ -1,0 +1,46 @@
+name: Health 43 CI Signature Guard
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - .github/workflows/pr-00-gate.yml
+      - .github/signature-fixtures/**
+      - .github/actions/signature-verify/**
+  pull_request:
+    branches: [ main ]
+    paths:
+      - .github/workflows/pr-00-gate.yml
+      - .github/signature-fixtures/**
+      - .github/actions/signature-verify/**
+
+jobs:
+  verify-signature:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Read signature files
+        id: read_signature
+        run: |
+          {
+            echo "jobs_json<<EOF"
+            cat .github/signature-fixtures/basic_jobs.json
+            echo "EOF"
+            echo "expected_hash=$(cat .github/signature-fixtures/basic_hash.txt)"
+          } >> "$GITHUB_OUTPUT"
+      - name: Verify signature (composite action)
+        uses: ./.github/actions/signature-verify
+        with:
+          jobs-json: ${{ steps.read_signature.outputs.jobs_json }}
+          expected-hash: ${{ steps.read_signature.outputs.expected_hash }}
+      - name: Record unified guard summary
+        if: always()
+        run: |
+          python .github/scripts/health_summarize.py \
+            --signature-jobs .github/signature-fixtures/basic_jobs.json \
+            --signature-expected .github/signature-fixtures/basic_hash.txt \
+            --write-json health-43-summary.json \
+            --write-summary "${GITHUB_STEP_SUMMARY}"

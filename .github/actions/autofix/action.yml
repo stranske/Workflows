@@ -1,0 +1,201 @@
+name: "Autofix Python Formatting"
+description: "Run ruff (two-pass), black, isort, docformatter; classify residual diagnostics; emit enriched summary"
+inputs:
+  python-version:
+    description: "Python version"
+    required: false
+    default: "3.12"
+outputs:
+  changed:
+    description: "Whether any files were modified by the fixers"
+    value: ${{ steps.finalize.outputs.changed }}
+  remaining_issues:
+    description: "Count of unresolved ruff diagnostics after autofix phase"
+    value: ${{ steps.classify.outputs.remaining_issues }}
+  new_issues:
+    description: "Count of new (non-allowlisted) ruff diagnostics"
+    value: ${{ steps.classify.outputs.new_issues }}
+runs:
+  using: "composite"
+  steps:
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs['python-version'] }}
+    - name: Load tool versions
+      shell: bash
+      run: |
+        set -euo pipefail
+        pin_file=".github/workflows/autofix-versions.env"
+        if [[ ! -f "${pin_file}" ]]; then
+          echo "Missing ${pin_file}; aborting." >&2
+          exit 1
+        fi
+        # shellcheck disable=SC1090
+        source "${pin_file}"
+        for var in RUFF_VERSION BLACK_VERSION ISORT_VERSION DOCFORMATTER_VERSION MYPY_VERSION; do
+          if [[ -z "${!var:-}" ]]; then
+            echo "${pin_file} is missing a value for ${var}" >&2
+            exit 1
+          fi
+        done
+        grep -Ev '^\s*(#.*)?$' "${pin_file}" >> "${GITHUB_ENV}"
+    - name: Install fixers
+      shell: bash
+      run: |
+        python -m venv .autofix-venv
+        echo "${PWD}/.autofix-venv/bin" >> "$GITHUB_PATH"
+        echo "VIRTUAL_ENV=${PWD}/.autofix-venv" >> "$GITHUB_ENV"
+        source .autofix-venv/bin/activate
+        pip install -U pip
+        pip install -e ".[dev]" \
+          ruff==${RUFF_VERSION} \
+          black==${BLACK_VERSION} \
+          isort==${ISORT_VERSION} \
+          docformatter==${DOCFORMATTER_VERSION} \
+          mypy==${MYPY_VERSION}
+    - name: Run fixers
+      id: runfix
+      shell: bash
+      run: |
+        echo "[autofix] Phase 1: applying safe fixes (ruff + isort + docformatter + black final)"
+        # Ruff first (fast) – non-fatal
+        ruff check --fix --exit-zero .
+        # isort next so import reordering is final before black
+        isort .
+        # docformatter before black so black enforces final layout
+        docformatter -r -i src tests || true
+        # black last for canonical formatting
+        black .
+        echo "[autofix] Phase 1b: second ruff pass to capture post-format unlocks"
+        ruff check --fix --exit-zero .
+
+        echo "[autofix] Phase 1c: applying targeted unsafe fixes for lint-only issues"
+        # Allow Ruff to drop unused imports/variables (F401/F841) when safe fixes were insufficient.
+        ruff check --select F401,F841 --fix --unsafe-fixes --exit-zero .
+        # Normalise style after unsafe edits.
+        isort .
+        black .
+        ruff check --fix --exit-zero .
+
+        echo "[autofix] Phase 2: collect remaining ruff diagnostics (non-fatal)"
+        # Capture diagnostics (text + JSON); never fail this job here
+        if ! ruff check . > ruff_remaining.log 2>&1; then
+          echo "[autofix] Ruff reported remaining issues (expected for non-auto-fixable codes)."
+        fi
+        if ! ruff check --output-format json . > ruff_diagnostics.json 2>/dev/null; then
+          echo "[]" > ruff_diagnostics.json
+        fi
+
+        # --- Type hygiene (lightweight) ---
+        echo "[autofix] Running auto_type_hygiene..."
+        if [ -f scripts/auto_type_hygiene.py ]; then
+          python scripts/auto_type_hygiene.py || true
+        else
+          echo "(skip) scripts/auto_type_hygiene.py not found"
+        fi
+        echo "[autofix] Running mypy_autofix (typing imports)..."
+        if [ -f scripts/mypy_autofix.py ]; then
+          python scripts/mypy_autofix.py || true
+          echo "[autofix] Normalising formatting after mypy_autofix"
+          isort .
+          black .
+          ruff check --fix --exit-zero .
+        else
+          echo "(skip) scripts/mypy_autofix.py not found"
+        fi
+        echo "[autofix] Installing missing type stubs (non-fatal)..."
+        mypy --install-types --non-interactive || true
+        # Optional warm cache (do not fail build)
+        mypy src/ --ignore-missing-imports --follow-imports=silent > /dev/null 2>&1 || true
+
+    - name: Targeted mypy return autofix
+      id: mypyfix
+      shell: bash
+      run: |
+        echo "[autofix] Phase 2a: targeted return-type fixes"
+        if [ -f scripts/mypy_return_autofix.py ]; then
+          python scripts/mypy_return_autofix.py || true
+          if ! git diff --quiet; then
+            echo "[autofix] Post-mypy formatting sweep"
+            isort .
+            black .
+            ruff check --fix --exit-zero .
+          fi
+        else
+          echo "(skip) scripts/mypy_return_autofix.py not found"
+        fi
+
+    - name: Refresh autofixable test expectations
+      id: testfix
+      shell: bash
+      run: |
+        echo "[autofix] Phase 2b: refreshing autofix-enabled pytest expectations"
+        if [ -f scripts/update_autofix_expectations.py ]; then
+          python scripts/update_autofix_expectations.py || true
+          if ! git diff --quiet; then
+            echo "[autofix] Snapshot after expectation refresh"
+            git status --short
+          fi
+        else
+          echo "(skip) scripts/update_autofix_expectations.py not found"
+        fi
+
+    - name: Rewrite unsafe NumPy equality asserts
+      id: numpyfix
+      shell: bash
+      run: |
+        echo "[autofix] Phase 2c: rewriting NumPy equality asserts"
+        if [ -f scripts/fix_numpy_asserts.py ]; then
+          python scripts/fix_numpy_asserts.py || true
+          if ! git diff --quiet; then
+            echo "[autofix] Snapshot after NumPy assert rewrite"
+            git status --short
+            echo "[autofix] Normalising formatting after NumPy rewrite"
+            isort tests || true
+            black tests || true
+            ruff check tests --fix --exit-zero || true
+          fi
+        else
+          echo "(skip) scripts/fix_numpy_asserts.py not found"
+        fi
+
+    - name: Classify residual diagnostics
+      id: classify
+      shell: bash
+      run: |
+        echo "[autofix] Phase 3: classification (allowlist vs new)"
+        ALLOWLIST_FILE=.ruff-residual-allowlist.json
+        if [ ! -f "$ALLOWLIST_FILE" ]; then echo '{"allow":[]}' > "$ALLOWLIST_FILE"; fi
+        if [ -f scripts/classify_ruff.py ]; then
+          python scripts/classify_ruff.py ruff_diagnostics.json $ALLOWLIST_FILE ruff_classification.json || echo '{"error":"classification_failed"}' > ruff_classification.json
+        else
+          echo "[autofix] No classify_ruff.py script; generating minimal classification"
+          ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          echo '{"total":0,"allowed":0,"new":0,"by_code":{},"new_by_code":{},"timestamp":"'$ts'"}' > ruff_classification.json
+        fi
+        echo "[autofix] Classification output:"; cat ruff_classification.json || true
+        remaining=$(jq -r '.total' ruff_classification.json 2>/dev/null || echo 0)
+        new=$(jq -r '.new' ruff_classification.json 2>/dev/null || echo 0)
+        echo "remaining_issues=$remaining" >> $GITHUB_OUTPUT
+        echo "new_issues=$new" >> $GITHUB_OUTPUT
+        if git diff --quiet; then changed=false; else changed=true; fi
+        jq -n --arg changed "$changed" --slurpfile cls ruff_classification.json '{changed:($changed=="true"), classification:$cls[0]}' > autofix_report_enriched.json || echo '{"changed":false}' > autofix_report_enriched.json
+        echo "[autofix] Wrote enriched report autofix_report_enriched.json"
+    - name: Finalise diff summary
+      id: finalize
+      shell: bash
+      run: |
+        if git diff --quiet; then
+          echo "changed=false" >> $GITHUB_OUTPUT
+        else
+          echo "changed=true" >> $GITHUB_OUTPUT
+        fi
+    - name: Summary
+      shell: bash
+      run: |
+        echo "### Composite Autofix Summary" >> $GITHUB_STEP_SUMMARY
+        echo "Changed: ${{ steps.finalize.outputs.changed }}" >> $GITHUB_STEP_SUMMARY
+        echo "Remaining ruff issues: ${{ steps.classify.outputs.remaining_issues }}" >> $GITHUB_STEP_SUMMARY
+        echo "New (non-allowlisted) ruff issues: ${{ steps.classify.outputs.new_issues }}" >> $GITHUB_STEP_SUMMARY
+        echo "(See autofix_report_enriched.json for full breakdown)" >> $GITHUB_STEP_SUMMARY

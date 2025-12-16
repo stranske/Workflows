@@ -1,0 +1,329 @@
+name: Keepalive Branch Sync
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Target pull request number
+        required: true
+      trace:
+        description: Keepalive trace identifier
+        required: true
+      base_ref:
+        description: Base branch for the PR
+        required: true
+      head_ref:
+        description: PR head branch
+        required: true
+      head_sha:
+        description: PR head SHA at time of dispatch
+        required: true
+      head_repository:
+        description: Full name of the head repository
+        required: false
+      head_is_fork:
+        description: Whether the PR originates from a fork
+        required: false
+      agent:
+        description: Agent alias requesting the sync
+        required: false
+      round:
+        description: Keepalive round number
+        required: false
+      idempotency_key:
+        description: Sync attempt idempotency key
+        required: false
+
+jobs:
+  sync:
+    name: Prepare sync PR
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      result: ${{ steps.sync.outputs.result || 'unknown' }}
+      reason: ${{ steps.sync.outputs.reason || '' }}
+      new_head_sha: ${{ steps.sync.outputs.new_head_sha || '' }}
+    env:
+      PREFERRED_TOKEN: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT || github.token }}
+      GH_TOKEN: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT || github.token }}
+    steps:
+      - name: Validate fork inputs
+        id: validate
+        run: |
+          if [ "${{ inputs.head_is_fork || 'false' }}" = "true" ] && [ -z "${{ inputs.head_repository }}" ]; then
+            {
+              echo "## Keepalive branch sync";
+              echo "";
+              echo "Forked PR detected but head repository missing; skipping checkout to avoid fetching the base repo.";
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "::error::Forked PR requires head_repository input; aborting sync."
+            exit 1
+          fi
+
+      - name: Warn when head repository is missing
+        run: |
+          if [ -z "${{ inputs.head_repository }}" ]; then
+            echo "::warning::Head repository missing; defaulting to base repository for checkout."
+          fi
+
+      - name: Checkout PR head
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.head_repository || github.repository }}
+          ref: ${{ inputs.head_ref }}
+          fetch-depth: 0
+          token: ${{ env.PREFERRED_TOKEN }}
+
+      - name: Configure git author
+        run: |
+          git config user.name "stranske automation"
+          git config user.email "stranske-automation-bot@users.noreply.github.com"
+
+      - name: Verify HEAD SHA (R-7)
+        id: verify_sha
+        env:
+          EXPECTED_SHA: ${{ inputs.head_sha }}
+          HEAD_REF: ${{ inputs.head_ref }}
+        run: |
+          set -euo pipefail
+
+          # Fetch latest state of head branch
+          git fetch origin "$HEAD_REF" --quiet
+
+          current_sha=$(git rev-parse origin/"$HEAD_REF")
+          echo "Expected SHA: $EXPECTED_SHA"
+          echo "Current SHA:  $current_sha"
+
+          if [ -n "$EXPECTED_SHA" ] && [ "$current_sha" != "$EXPECTED_SHA" ]; then
+            echo "::warning::PR head has moved from $EXPECTED_SHA to $current_sha since dispatch."
+            echo "sha_moved=true" >> "$GITHUB_OUTPUT"
+            echo "current_sha=$current_sha" >> "$GITHUB_OUTPUT"
+          else
+            echo "sha_moved=false" >> "$GITHUB_OUTPUT"
+            echo "current_sha=$current_sha" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Reset to latest HEAD if moved
+        if: steps.verify_sha.outputs.sha_moved == 'true'
+        env:
+          HEAD_REF: ${{ inputs.head_ref }}
+        run: |
+          echo "Resetting to latest origin/$HEAD_REF to incorporate new commits..."
+          git reset --hard origin/"$HEAD_REF"
+
+      - name: Sync branch with retry (R-6)
+        id: sync
+        env:
+          BASE_REF: ${{ inputs.base_ref }}
+          HEAD_REF: ${{ inputs.head_ref }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+          TRACE: ${{ inputs.trace }}
+        run: |
+          set -euo pipefail
+
+          MAX_ATTEMPTS=3
+          DELAY=2
+
+          sync_result="unknown"
+          sync_reason=""
+          new_head_sha=""
+
+          echo "Syncing $HEAD_REF with origin/$BASE_REF (trace: $TRACE)..."
+
+          # Fetch latest base
+          git fetch origin "$BASE_REF"
+
+          # Check if merge is needed
+          base_sha=$(git rev-parse origin/"$BASE_REF")
+          merge_base=$(git merge-base HEAD origin/"$BASE_REF" 2>/dev/null || echo "")
+
+          if [ "$merge_base" = "$base_sha" ]; then
+            echo "Branch is already up to date with $BASE_REF"
+            new_head_sha=$(git rev-parse HEAD)
+            sync_result="success"
+            sync_reason="already-up-to-date"
+            {
+              echo "result=$sync_result"
+              echo "reason=$sync_reason"
+              echo "new_head_sha=$new_head_sha"
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Attempt merge
+          echo "Merging origin/$BASE_REF into $HEAD_REF..."
+          if ! git merge origin/"$BASE_REF" --no-edit; then
+            echo "::error::Merge conflict detected. Manual intervention required."
+
+            # Check what files have conflicts
+            conflict_files=$(git diff --name-only --diff-filter=U 2>/dev/null || echo "")
+            if [ -n "$conflict_files" ]; then
+              echo "Conflicting files:"
+              echo "$conflict_files"
+
+              # Check if conflicts are only in auto-resolvable files (lock files)
+              non_lock_conflicts=$(echo "$conflict_files" | grep -vE '(\.lock$|lock\.json$|package-lock\.json$|yarn\.lock$|poetry\.lock$|Gemfile\.lock$|requirements.*\.lock$)' || true)
+              if [ -z "$non_lock_conflicts" ]; then
+                echo "All conflicts are in lock files. Attempting auto-resolution..."
+                for file in $conflict_files; do
+                  echo "  Accepting theirs for: $file"
+                  git checkout --theirs "$file" 2>/dev/null || true
+                  git add "$file" 2>/dev/null || true
+                done
+                if git commit --no-edit 2>/dev/null; then
+                  echo "Auto-resolved lock file conflicts."
+                else
+                  git merge --abort || true
+                  sync_result="failure"
+                  sync_reason="lock-file-conflict-resolution-failed"
+                  {
+                    echo "result=$sync_result"
+                    echo "reason=$sync_reason"
+                    echo "new_head_sha="
+                  } >> "$GITHUB_OUTPUT"
+                  exit 1
+                fi
+              else
+                git merge --abort || true
+                sync_result="failure"
+                sync_reason="merge-conflict"
+                {
+                  echo "result=$sync_result"
+                  echo "reason=$sync_reason"
+                  echo "new_head_sha="
+                } >> "$GITHUB_OUTPUT"
+                exit 1
+              fi
+            else
+              git merge --abort || true
+              sync_result="failure"
+              sync_reason="merge-conflict-unknown"
+              {
+                echo "result=$sync_result"
+                echo "reason=$sync_reason"
+                echo "new_head_sha="
+              } >> "$GITHUB_OUTPUT"
+              exit 1
+            fi
+          fi
+
+          # Push with retry (R-6)
+          attempt=1
+          while [ $attempt -le $MAX_ATTEMPTS ]; do
+            echo "Push attempt $attempt/$MAX_ATTEMPTS..."
+
+            if git push origin HEAD:refs/heads/"$HEAD_REF"; then
+              new_head_sha=$(git rev-parse HEAD)
+              sync_result="success"
+              sync_reason="synced"
+              echo "Successfully synced $HEAD_REF with $BASE_REF"
+              {
+                echo "result=$sync_result"
+                echo "reason=$sync_reason"
+                echo "new_head_sha=$new_head_sha"
+              } >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+
+            echo "::warning::Push failed (attempt $attempt/$MAX_ATTEMPTS)"
+
+            if [ $attempt -lt $MAX_ATTEMPTS ]; then
+              echo "Waiting ${DELAY}s before retry..."
+              sleep $DELAY
+
+              # Re-fetch and re-merge in case branch moved
+              echo "Re-fetching latest state..."
+              git fetch origin "$BASE_REF" "$HEAD_REF"
+              git reset --hard origin/"$HEAD_REF"
+
+              if ! git merge origin/"$BASE_REF" --no-edit; then
+                echo "::error::Merge conflict on retry. Aborting."
+                git merge --abort || true
+                sync_result="failure"
+                sync_reason="merge-conflict-on-retry"
+                {
+                  echo "result=$sync_result"
+                  echo "reason=$sync_reason"
+                  echo "new_head_sha="
+                } >> "$GITHUB_OUTPUT"
+                exit 1
+              fi
+
+              DELAY=$((DELAY * 2))
+            fi
+
+            attempt=$((attempt + 1))
+          done
+
+          sync_result="failure"
+          sync_reason="push-failed-after-retries"
+          echo "::error::Failed to push synced branch after $MAX_ATTEMPTS attempts."
+          {
+            echo "result=$sync_result"
+            echo "reason=$sync_reason"
+            echo "new_head_sha="
+          } >> "$GITHUB_OUTPUT"
+          exit 1
+
+      - name: Apply failure label (R-8)
+        if: failure() && steps.sync.outputs.result == 'failure'
+        env:
+          PR_NUMBER: ${{ inputs.pr_number }}
+          REASON: ${{ steps.sync.outputs.reason }}
+        run: |
+          set -euo pipefail
+          echo "Applying sync-failed label to PR #$PR_NUMBER..."
+          gh pr edit "$PR_NUMBER" --add-label "agents:sync-failed" 2>/dev/null || \
+            echo "::warning::Could not apply agents:sync-failed label"
+
+      - name: Post failure comment
+        if: failure() && steps.sync.outputs.result == 'failure'
+        env:
+          PR_NUMBER: ${{ inputs.pr_number }}
+          REASON: ${{ steps.sync.outputs.reason }}
+          TRACE: ${{ inputs.trace }}
+        run: |
+          set -euo pipefail
+          body="⚠️ **Branch sync failed** (trace: \`$TRACE\`)
+
+          **Reason:** \`$REASON\`
+
+          Manual intervention may be required to resolve conflicts or update the branch.
+
+          <details>
+          <summary>Troubleshooting</summary>
+
+          1. Pull the latest changes: \`git pull origin ${{ inputs.base_ref }}\`
+          2. Resolve any conflicts manually
+          3. Push your changes
+          4. Remove the \`agents:sync-failed\` label if present
+
+          </details>"
+
+          gh pr comment "$PR_NUMBER" --body "$body" 2>/dev/null || \
+            echo "::warning::Could not post failure comment"
+
+      - name: Generate summary
+        if: always()
+        env:
+          RESULT: ${{ steps.sync.outputs.result }}
+          REASON: ${{ steps.sync.outputs.reason }}
+          NEW_SHA: ${{ steps.sync.outputs.new_head_sha }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+          TRACE: ${{ inputs.trace }}
+        run: |
+          {
+            echo "## Keepalive Branch Sync"
+            echo ""
+            echo "| Field | Value |"
+            echo "|-------|-------|"
+            echo "| PR | #$PR_NUMBER |"
+            echo "| Trace | \`$TRACE\` |"
+            echo "| Result | **$RESULT** |"
+            echo "| Reason | \`$REASON\` |"
+            if [ -n "$NEW_SHA" ]; then
+              echo "| New HEAD | \`${NEW_SHA:0:7}\` |"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
