@@ -73,6 +73,23 @@ skip_glob = ["archive/*", ".extraction/*"]
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+# Exclude tests that require project-specific modules not present in this repo
+exclude = [
+    "tests/workflows/test_autofix_full_pipeline.py",
+    "tests/workflows/test_autofix_pipeline.py",
+    "tests/workflows/test_autofix_pipeline_diverse.py",
+    "tests/workflows/test_autofix_pipeline_live_docs.py",
+    "tests/workflows/test_autofix_pipeline_tools.py",
+    "tests/workflows/test_autofix_pr_comment.py",
+    "tests/workflows/test_autofix_probe_module.py",
+    "tests/workflows/test_autofix_repo_regressions.py",
+    "tests/workflows/test_autofix_samples.py",
+    "tests/workflows/test_chatgpt_topics_parser.py",
+    "tests/workflows/test_ci_probe_faults.py",
+    "tests/workflows/test_disable_legacy_workflows.py",
+    "tests/workflows/test_workflow_multi_failure.py",
+    "tests/workflows/github_scripts/",
+]
 
 [tool.ruff.lint]
 select = [
