@@ -1,0 +1,32 @@
+{
+  "prNumber": 410,
+  "issueNumber": 410,
+  "headSequence": ["sha0", "sha0", "sha0", "sha0", "sha1"],
+  "labelsSequence": [["agents:keepalive", "agent:codex"]],
+  "env": {
+    "TRACE": "trace-fork-sync",
+    "ROUND": "2",
+    "HEAD_BRANCH": "contrib/feature-410",
+    "BASE_BRANCH": "main",
+    "PREVIOUS_HEAD": "sha0",
+    "HEAD_REPO": "fork-owner/Trend_Model_Project",
+    "AGENT_STATE": "done",
+    "TTL_SHORT_MS": "0",
+    "POLL_SHORT_MS": "0",
+    "TTL_LONG_MS": "100",
+    "POLL_LONG_MS": "0"
+  },
+  "headRepo": "fork-owner/Trend_Model_Project",
+  "headRepoFork": true,
+  "baseRepo": "stranske/Trend_Model_Project",
+  "updateBranch": {
+    "error": "Update branch blocked"
+  },
+  "workflowRuns": [
+    {
+      "id": 24680,
+      "html_url": "https://example.test/run/24680",
+      "created_at": "2030-01-01T00:00:00Z"
+    }
+  ]
+}

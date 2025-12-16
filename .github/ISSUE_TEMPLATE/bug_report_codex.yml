@@ -1,0 +1,33 @@
+name: Bug report
+description: Something broke. Keep it factual.
+labels: ["type:bug","risk:low","agent:codex","automerge","codex-ready"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Agent routing:** This form defaults to the `agent:codex` label. Switch the label to `agent:copilot` in the sidebar if Copilot should own the request instead, and remove the previous agent label so only one remains before submitting.
+  - type: checkboxes
+    id: agent_label
+    attributes:
+      label: Agent label confirmation
+      description: Confirm the sidebar shows the right agent label so automation can assign the issue immediately and that the other agent label has been cleared.
+      options:
+        - label: I verified the issue uses either `agent:codex` or `agent:copilot`, whichever matches the help I need.
+          required: true
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      description: Python version, OS, commit hash
+      placeholder: "Python 3.11, macOS 14.5, commit abc123"
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Exact steps, expected vs actual behavior.
+      value: |
+        1.
+        2.
+        3.

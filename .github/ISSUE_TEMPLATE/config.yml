@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 📚 Issue Format Guide
+    url: https://github.com/stranske/Trend_Model_Project/blob/main/docs/ci/ISSUE_FORMAT_GUIDE.md
+    about: Learn the required format for agent issues and ChatGPT topic files
+  - name: 📖 Agent Workflow Documentation
+    url: https://github.com/stranske/Trend_Model_Project/blob/main/docs/ci/WORKFLOW_SYSTEM.md
+    about: Understanding the agent workflow system and automation pipeline

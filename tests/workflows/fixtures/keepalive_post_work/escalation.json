@@ -1,0 +1,22 @@
+{
+  "prNumber": 404,
+  "issueNumber": 404,
+  "headSequence": ["sha0", "sha0", "sha0", "sha0", "sha0", "sha0"],
+  "labelsSequence": [["agents:keepalive", "agent:codex", "agents:debug"]],
+  "env": {
+    "TRACE": "trace-escalate",
+    "ROUND": "4",
+    "HEAD_BRANCH": "codex/issue-404",
+    "BASE_BRANCH": "main",
+    "PREVIOUS_HEAD": "sha0",
+    "AGENT_STATE": "done",
+    "TTL_SHORT_MS": "0",
+    "POLL_SHORT_MS": "0",
+    "TTL_LONG_MS": "0",
+    "POLL_LONG_MS": "0"
+  },
+  "updateBranch": {
+    "error": "Update branch blocked"
+  },
+  "workflowRuns": []
+}

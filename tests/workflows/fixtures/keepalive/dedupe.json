@@ -1,0 +1,26 @@
+{
+  "repo": {"owner": "stranske", "repo": "Trend_Model_Project"},
+  "now": "2024-05-18T12:00:00Z",
+  "env": {
+    "OPTIONS_JSON": "{\"keepalive_labels\": \"agent:codex, Agent:Codex ,agent:triage,AGENT:TRIAGE\", \"keepalive_agent_logins\": \"chatgpt-codex-connector,ChatGPT-Codex-Connector,Helper-Bot,helper-bot\"}",
+    "DRY_RUN": "false"
+  },
+  "pulls": [
+    {
+      "number": 505,
+      "labels": ["agent:codex", "agent:triage"],
+      "comments": [
+        {
+          "user": {"login": "triage-bot"},
+          "body": "@codex plan-and-execute",
+          "created_at": "2024-05-18T07:30:00Z"
+        },
+        {
+          "user": {"login": "chatgpt-codex-connector"},
+          "body": "Checklist\n- [ ] Update notebook",
+          "created_at": "2024-05-18T08:00:00Z"
+        }
+      ]
+    }
+  ]
+}

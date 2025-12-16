@@ -1,0 +1,20 @@
+{
+  "repo": {"owner": "stranske", "repo": "Trend_Model_Project"},
+  "now": "2024-05-18T12:00:00Z",
+  "env": {
+    "OPTIONS_JSON": "{\"enable_keepalive\": false}"
+  },
+  "pulls": [
+    {
+      "number": 101,
+      "labels": ["agent:codex"],
+      "comments": [
+        {
+          "user": {"login": "chatgpt-codex-connector"},
+          "body": "- [ ] Follow up",
+          "created_at": "2024-05-18T10:00:00Z"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "comment": {
+    "id": 6002001,
+    "body": "@codex use the scope, acceptance criteria, and task list so the keepalive workflow continues nudging until everything is complete. Work through the tasks, checking them off only after each acceptance criterion is satisfied, but check during each comment implementation and check off tasks and acceptance criteria that have been satisfied and repost the current version of the initial scope, task list and acceptance criteria each time that any have been newly completed.",
+    "user": {
+      "login": "chatgpt-codex-connector"
+    }
+  },
+  "issue": {
+    "number": 3273
+  },
+  "pull": {
+    "number": 3273,
+    "head": {
+      "ref": "fix/keepalive-autofix"
+    },
+    "base": {
+      "ref": "phase-2-dev"
+    },
+  "title": "Keepalive auto fix scenario (#3260)",
+  "body": "Testing auto insertion of keepalive markers referencing (#3260)."
+  },
+  "comments": [
+    {
+      "id": 6002001,
+      "body": "@codex use the scope, acceptance criteria, and task list so the keepalive workflow continues nudging until everything is complete. Work through the tasks, checking them off only after each acceptance criterion is satisfied, but check during each comment implementation and check off tasks and acceptance criteria that have been satisfied and repost the current version of the initial scope, task list and acceptance criteria each time that any have been newly completed."
+    }
+  ]
+}

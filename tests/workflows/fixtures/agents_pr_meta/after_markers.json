@@ -1,0 +1,20 @@
+{
+  "comment": {
+    "id": 9988776655,
+    "html_url": "https://github.com/stranske/Trend_Model_Project/pull/4000#issuecomment-9988776655",
+    "body": "<- After: keepalive-round: 5 -->\n<- After: codex-keepalive-marker -->\n<- After: keepalive-trace: manual-test-2025-11-05-01-35 -->\n\n@codex please continue",
+    "user": { "login": "stranske" }
+  },
+  "issue": { "number": 4000 },
+  "pull": {
+    "number": 4000,
+    "title": "feat: ensure keepalive detection",
+    "body": "Related to #3260",
+    "head": { "ref": "codex/issue-3260-keepalive" },
+    "base": { "ref": "phase-2-dev" }
+  },
+  "reactions": [],
+  "env": {
+    "ALLOWED_LOGINS": "stranske"
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "repo": {"owner": "stranske", "repo": "Trend_Model_Project"},
+  "now": "2024-05-18T12:00:00Z",
+  "env": {
+    "OPTIONS_JSON": "{}",
+    "DRY_RUN": "true"
+  },
+  "pulls": [
+    {
+      "number": 404,
+  "labels": ["agents:keepalive", "agent:codex"],
+      "comments": [
+        {
+          "user": {"login": "triage-bot"},
+          "body": "@codex plan-and-execute",
+          "created_at": "2024-05-18T09:15:00Z"
+        },
+        {
+          "user": {"login": "chatgpt-codex-connector"},
+          "body": "Status\n- [ ] Finish report",
+          "created_at": "2024-05-18T09:45:00Z"
+        }
+      ]
+    }
+  ]
+}

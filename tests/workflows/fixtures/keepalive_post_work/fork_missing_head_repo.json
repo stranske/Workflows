@@ -1,0 +1,18 @@
+{
+  "prNumber": 411,
+  "issueNumber": 411,
+  "headSequence": ["sha0", "sha0"],
+  "env": {
+    "TRACE": "trace-fork-missing",
+    "ROUND": "3",
+    "HEAD_BRANCH": "contrib/feature-411",
+    "BASE_BRANCH": "main",
+    "PREVIOUS_HEAD": "sha0",
+    "AGENT_STATE": "done",
+    "TTL_SHORT_MS": "0",
+    "POLL_SHORT_MS": "0"
+  },
+  "headRepo": null,
+  "headRepoFork": true,
+  "baseRepo": "stranske/Trend_Model_Project"
+}

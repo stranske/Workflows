@@ -1,0 +1,50 @@
+name: Agent task
+description: Plan a Codex automation task and trigger the issue bridge.
+title: "[Agent task] <summary>"
+labels:
+  - agents
+  - agent:codex
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template when Codex should pick up a task. The issue bridge
+        watches for the `agent:codex` label and will prepare a branch/PR once
+        the issue is ready. This template automatically applies the `agents`
+        and `agent:codex` labels so the Codex issue bridge can hand the work
+        directly to `agents-70-orchestrator.yml`; no legacy consumer shims
+        remain in the repo.
+  - type: textarea
+    id: context
+    attributes:
+      label: Background
+      description: What problem are we solving? Link any prior discussions or runs.
+      placeholder: Provide the context and link supporting material.
+    validations:
+      required: true
+  - type: textarea
+    id: goals
+    attributes:
+      label: Goals
+      description: List the concrete outcomes this task should deliver.
+      placeholder: Bullet the acceptance criteria or deliverables.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Out of scope / guardrails
+      description: Clarify any boundaries Codex must respect (files to avoid, limits, etc.).
+      placeholder: Optional but recommended so the automation stays on track.
+  - type: input
+    id: target_branch
+    attributes:
+      label: Target base branch
+      description: Branch Codex should use when creating the PR (defaults to the repo default branch).
+      placeholder: main
+  - type: textarea
+    id: notes
+    attributes:
+      label: Additional notes
+      description: Anything else maintainers should know before Codex runs.
+      placeholder: Optional diagnostics, credentials hand-off, or follow-up tasks.

@@ -1,0 +1,14 @@
+{
+  "env": {
+    "PARAMS_JSON": "{\"enable_keepalive\": true}",
+    "WORKFLOW_OPTIONS_JSON": "{\"keepalive_trace\":\"trace-from-options\",\"round\":\"7\",\"pr\":4001}",
+    "WORKFLOW_KEEPALIVE_ENABLED": "true"
+  },
+  "context": {
+    "eventName": "workflow_dispatch",
+    "repo": {
+      "owner": "stranske",
+      "repo": "Trend_Model_Project"
+    }
+  }
+}

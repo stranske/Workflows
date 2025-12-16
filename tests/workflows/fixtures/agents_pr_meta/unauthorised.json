@@ -1,0 +1,13 @@
+{
+  "comment": {
+    "body": "<!-- keepalive-round:2 -->\n<!-- codex-keepalive-marker -->\n\n@codex status?",
+    "user": { "login": "helper-bot" }
+  },
+  "issue": { "number": 512 },
+  "pull": {
+    "number": 512,
+    "title": "chore: helper (#512)",
+    "head": { "ref": "codex/issue-512" },
+    "base": { "ref": "main" }
+  }
+}

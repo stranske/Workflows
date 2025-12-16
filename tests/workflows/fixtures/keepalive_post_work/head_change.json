@@ -1,0 +1,18 @@
+{
+  "prNumber": 401,
+  "issueNumber": 401,
+  "headSequence": ["sha0", "sha1"],
+  "labelsSequence": [["agents:keepalive", "agent:codex"]],
+  "env": {
+    "TRACE": "trace-head-change",
+    "ROUND": "2",
+    "HEAD_BRANCH": "codex/issue-401",
+    "BASE_BRANCH": "main",
+    "PREVIOUS_HEAD": "sha0",
+    "AGENT_STATE": "done",
+    "TTL_SHORT_MS": "0",
+    "POLL_SHORT_MS": "0",
+    "TTL_LONG_MS": "0",
+    "POLL_LONG_MS": "0"
+  }
+}
