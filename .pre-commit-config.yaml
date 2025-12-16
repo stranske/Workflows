@@ -1,0 +1,95 @@
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+#
+# Workflows Repository - Git Hooks Configuration
+# Adapted from Trend_Model_Project with workflow-specific modifications
+#
+exclude: |
+  (?x)(
+    ^archive/|
+    ^\.extraction/|
+    ^\.venv/|
+    ^build/|
+    ^dist/
+  )
+
+repos:
+  # Standard pre-commit hooks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+        files: '\.(py|pyi|sh|toml|ya?ml)$'
+      - id: end-of-file-fixer
+        files: '\.(py|pyi|sh|toml|ya?ml)$'
+      - id: check-yaml
+        exclude: '^\.github/workflows/'  # GitHub Actions YAML has special syntax
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+      - id: check-executables-have-shebangs
+      - id: check-shebang-scripts-are-executable
+
+  # Python code formatting
+  - repo: https://github.com/psf/black
+    rev: 25.11.0  # Synced with autofix-versions.env
+    hooks:
+      - id: black
+        language_version: python3
+        files: '\.(py|pyi)$'
+
+  # Python linting and formatting
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.14.7  # Synced with autofix-versions.env
+    hooks:
+      - id: ruff
+        args: ["--fix"]
+        files: '\.(py|pyi)$'
+
+  # TODO Phase 4: Add workflow-specific validation
+  # - repo: https://github.com/rhysd/actionlint
+  #   rev: v1.6.26
+  #   hooks:
+  #     - id: actionlint
+  #       name: Lint GitHub Actions workflows
+  #       files: '^\.github/workflows/.*\.ya?ml$'
+
+  # Local validation hooks
+  - repo: local
+    hooks:
+      # Ultra-fast validation (2-5s) - runs on every commit
+      - id: dev-check
+        name: Ultra-fast development check
+        entry: ./scripts/dev_check.sh
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+        verbose: true
+
+      # Adaptive validation (5-30s) - runs on push
+      - id: validate-fast
+        name: Adaptive validation
+        entry: ./scripts/validate_fast.sh
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
+        verbose: true
+
+# Installation:
+#   pip install pre-commit
+#   pre-commit install --hook-type pre-commit --hook-type pre-push
+#
+# Usage:
+#   # Run all hooks manually
+#   pre-commit run --all-files
+#
+#   # Run specific hook
+#   pre-commit run dev-check
+#
+#   # Skip hooks for emergency commits
+#   git commit --no-verify
+#   git push --no-verify
+#
+#   # Update hook versions
+#   pre-commit autoupdate
