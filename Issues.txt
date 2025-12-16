@@ -1,0 +1,45 @@
+1) Clean up validate_fast.sh Phase 4 TODOs and remove project-specific references
+Labels: agent:codex, enhancement, cleanup
+Why
+`scripts/validate_fast.sh` contains 12 TODO Phase 4 markers referencing Trend_Model_Project-specific features (SRC_FILES detection, autofix tests, coverage requirements) that are not applicable to this workflow repository. These dead code paths and stale references cause confusion and add maintenance burden.
+Scope
+- `scripts/validate_fast.sh` cleanup of TODO markers and project-specific detection logic.
+Tasks
+- Remove all TODO Phase 4 markers and their associated dead/commented code blocks.
+- Remove SRC_FILES and AUTOFIX_FILES detection logic that references `src/` directory patterns not present in this repo.
+- Update linting targets to use `scripts/` and `.github/` instead of `src/ tests/`.
+- Replace Python package-specific validation (coverage requirements, import tests) with workflow-specific checks (actionlint, YAML validation).
+- Ensure the script still runs successfully after cleanup.
+Acceptance criteria
+- `grep -c "TODO Phase" scripts/validate_fast.sh` returns 0.
+- Script executes without errors: `bash scripts/validate_fast.sh --help` works.
+- No references to `src/` directory or Trend_Model_Project-specific patterns remain.
+- Validation targets are appropriate for a workflow repository (scripts/, .github/).
+Implementation notes
+- Keep the core validation framework intact; only remove dead code and update targets.
+- Test with `bash scripts/validate_fast.sh --verbose` to verify functionality after changes.
+- Preserve the intelligent change detection but update the file patterns it looks for.
+
+2) Enable excluded Python tests by stubbing missing project-specific modules
+Labels: agent:codex, enhancement, testing
+Why
+10 Python test files in `tests/workflows/` are excluded from CI and local runs because they import modules from Trend_Model_Project that don't exist in this repository (e.g., `scripts.mypy_return_autofix`, `scripts.fix_cosmetic_aggregate`, `scripts.update_autofix_expectations`). This represents ~50% of the Python test suite being skipped.
+Scope
+- Create stub modules in `scripts/` for missing imports.
+- Update `pyproject.toml` to remove exclusions once stubs are in place.
+- Update `.github/workflows/selftest-ci.yml` to run all tests.
+Tasks
+- Identify the exact imports needed by examining the excluded test files.
+- Create minimal stub modules that provide the expected interfaces (functions that return sensible defaults or raise NotImplementedError).
+- Remove the corresponding entries from `[tool.ruff] exclude` in pyproject.toml.
+- Remove the `--ignore` flags from selftest-ci.yml Python test step.
+- Run the full test suite and fix any remaining import or interface issues.
+Acceptance criteria
+- All 10 previously excluded test files are now included in CI runs.
+- `python -m pytest tests/workflows/ -v` runs without collection errors.
+- Test count increases from ~196 to include the previously skipped tests.
+- CI workflow passes with expanded test coverage.
+Implementation notes
+- Stubs should be clearly marked as stubs (docstring explaining they are placeholders).
+- Prefer minimal implementations that make tests pass over full functionality.
+- If a test truly requires project-specific logic, mark it with `@pytest.mark.skip("Requires Trend_Model_Project")` rather than excluding the entire file.
