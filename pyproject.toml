@@ -108,6 +108,12 @@ addopts = [
     "--strict-markers",
     "--strict-config",
 ]
+markers = [
+    "integration: marks tests as integration tests (may require external resources)",
+    "cosmetic: marks tests for cosmetic/formatting changes",
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "serial: marks tests that must run serially",
+]
 filterwarnings = [
     "error",
 ]

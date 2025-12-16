@@ -597,8 +597,8 @@ Keep this table handy when you are triaging automation: it confirms which workfl
   point. It runs nightly via cron (06:30 UTC) to rehearse the reusable matrix
   and accepts manual dispatches for summary/comment publication. Inputs:
   - `mode`: `summary`, `comment`, or `dual-runtime` (controls reporting surface
-    and Python matrix).
-  - `post_to`: `pr-number` or `none` (comment target when `mode == comment`).
+    and Python matrix).- **Selftest CI** – `selftest-ci.yml` runs the repository's own test suite
+  (JS + Python tests, linting, YAML validation) on push and PR.  - `post_to`: `pr-number` or `none` (comment target when `mode == comment`).
   - `enable_history`: `true` or `false` (download the verification artifact for
     local inspection).
   - Optional niceties include `pull_request_number`,

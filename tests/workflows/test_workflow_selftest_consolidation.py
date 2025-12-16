@@ -53,10 +53,10 @@ def _resolve_triggers(data: dict) -> dict:
 
 
 def test_selftest_workflow_inventory() -> None:
-    """Selftest: Reusables should be the only active workflow."""
+    """Selftest workflows should include reusables and ci tests."""
 
     selftest_workflows = sorted(path.name for path in WORKFLOW_DIR.glob("*selftest*.yml"))
-    expected = [SELFTEST_WORKFLOW_NAME]
+    expected = ["selftest-ci.yml", "selftest-reusable-ci.yml"]
     assert (
         selftest_workflows == expected
     ), f"Active self-test inventory drifted; expected {expected} but saw {selftest_workflows}."
@@ -489,9 +489,11 @@ def test_selftest_runner_publish_job_contract() -> None:
 
 def test_selftest_triggers_are_manual_only() -> None:
     """Self-test workflows must expose manual triggers (with optional
-    workflow_call reuse)."""
+    workflow_call reuse). selftest-ci.yml is exempt as it's the CI workflow."""
 
     selftest_files = sorted(WORKFLOW_DIR.glob("*selftest*.yml"))
+    # Exclude selftest-ci.yml as it's the CI workflow that should run on PR/push
+    selftest_files = [f for f in selftest_files if f.name != "selftest-ci.yml"]
     assert selftest_files, "Expected at least one self-test workflow definition."
 
     disallowed_triggers = {

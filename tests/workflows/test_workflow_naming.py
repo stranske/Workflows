@@ -193,4 +193,5 @@ EXPECTED_NAMES = {
     "reusable-18-autofix.yml": "Reusable 18 Autofix",
     "reusable-agents-issue-bridge.yml": "Reusable Agents Issue Bridge",
     "selftest-reusable-ci.yml": "Selftest: Reusables",
+    "selftest-ci.yml": "Selftest CI",
 }
