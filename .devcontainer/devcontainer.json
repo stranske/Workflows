@@ -1,0 +1,16 @@
+{
+  "name": "workflows-env",
+  "image": "mcr.microsoft.com/devcontainers/python:3.11",
+  "onCreateCommand": "sudo apt-get update && sudo apt-get install -y python3-venv",
+  "postCreateCommand": "pip install pre-commit && pre-commit install --install-hooks",
+  "postStartCommand": "pre-commit install --install-hooks",
+  "features": {
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "20"
+    },
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {
+      "moby": "false"
+    }
+  }
+}
