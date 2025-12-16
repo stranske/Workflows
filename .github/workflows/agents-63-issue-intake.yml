@@ -1153,6 +1153,10 @@ jobs:
   agent_bridge:
     needs: [normalize_inputs, bridge_preflight]
     if: needs.normalize_inputs.outputs.intake_mode == 'agent_bridge'
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
     concurrency:
       group: >
         codex-issue-${{
