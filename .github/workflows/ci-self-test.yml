@@ -1,0 +1,107 @@
+name: CI Self-Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-javascript:
+    name: JavaScript Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run JavaScript tests
+        run: node --test .github/scripts/__tests__/*.test.js
+
+  test-python:
+    name: Python Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install pytest pytest-cov
+
+      - name: Run Python tests
+        run: |
+          python -m pytest tests/workflows/ \
+            --ignore-glob='**/test_autofix*.py' \
+            --ignore-glob='**/test_workflow_multi*.py' \
+            --ignore-glob='**/test_disable*.py' \
+            --ignore-glob='**/test_chatgpt*.py' \
+            --ignore-glob='**/test_ci_probe*.py' \
+            --ignore-glob='**/github_scripts/*' \
+            -v
+
+  lint:
+    name: Lint & Format Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install tools
+        run: pip install black ruff
+
+      - name: Check Black formatting
+        run: black --check .
+
+      - name: Run Ruff linting
+        run: ruff check .
+
+  validate-yaml:
+    name: Validate YAML
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install PyYAML
+        run: pip install pyyaml
+
+      - name: Validate workflow YAML files
+        run: |
+          python -c "
+          import yaml
+          import sys
+          from pathlib import Path
+
+          errors = []
+          for f in Path('.github/workflows').glob('*.yml'):
+              try:
+                  yaml.safe_load(f.read_text())
+              except yaml.YAMLError as e:
+                  errors.append(f'{f}: {e}')
+
+          if errors:
+              for e in errors:
+                  print(e, file=sys.stderr)
+              sys.exit(1)
+          print(f'Validated {len(list(Path(\".github/workflows\").glob(\"*.yml\")))} workflow files')
+          "
