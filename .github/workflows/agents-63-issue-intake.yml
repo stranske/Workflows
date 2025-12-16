@@ -126,7 +126,6 @@ jobs:
         env:
           INPUT_INTAKE_MODE: ${{ inputs.intake_mode }}
           INPUT_SOURCE: ${{ inputs.source }}
-          INPUT_REPO_FILE: ${{ inputs.repo_file }}
           INPUT_RAW_INPUT: ${{ inputs.raw_input }}
           INPUT_SOURCE_URL: ${{ inputs.source_url }}
           INPUT_DEBUG: ${{ inputs.debug }}
