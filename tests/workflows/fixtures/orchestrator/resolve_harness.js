@@ -73,7 +73,7 @@ async function main() {
   };
 
   const env = Object.assign({}, scenario.env || {});
-  const context = Object.assign({ eventName: 'workflow_dispatch', repo: { owner: 'stranske', repo: 'Trend_Model_Project' } }, scenario.context || {});
+  const context = Object.assign({ eventName: 'workflow_dispatch', repo: { owner: 'stranske', repo: 'Workflows' } }, scenario.context || {});
 
   await resolveOrchestratorParams({ github, context, core, env });
 

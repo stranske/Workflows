@@ -89,7 +89,7 @@ function makeGithubStub({ prNumber, headSha, comments }) {
 }
 
 const baseContext = {
-  repo: { owner: 'stranske', repo: 'Trend_Model_Project' },
+  repo: { owner: 'stranske', repo: 'Workflows' },
 };
 
 const baseEnv = {

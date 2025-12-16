@@ -2,7 +2,7 @@
 # See https://pre-commit.com/hooks.html for more hooks
 #
 # Workflows Repository - Git Hooks Configuration
-# Adapted from Trend_Model_Project with workflow-specific modifications
+# Adapted from Workflows with workflow-specific modifications
 #
 exclude: |
   (?x)(

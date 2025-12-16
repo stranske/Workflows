@@ -9,16 +9,16 @@
     "HEAD_BRANCH": "contrib/feature-410",
     "BASE_BRANCH": "main",
     "PREVIOUS_HEAD": "sha0",
-    "HEAD_REPO": "fork-owner/Trend_Model_Project",
+    "HEAD_REPO": "fork-owner/Workflows",
     "AGENT_STATE": "done",
     "TTL_SHORT_MS": "0",
     "POLL_SHORT_MS": "0",
     "TTL_LONG_MS": "100",
     "POLL_LONG_MS": "0"
   },
-  "headRepo": "fork-owner/Trend_Model_Project",
+  "headRepo": "fork-owner/Workflows",
   "headRepoFork": true,
-  "baseRepo": "stranske/Trend_Model_Project",
+  "baseRepo": "stranske/Workflows",
   "updateBranch": {
     "error": "Update branch blocked"
   },

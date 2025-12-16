@@ -1,5 +1,5 @@
 {
-  "repo": {"owner": "stranske", "repo": "Trend_Model_Project"},
+  "repo": {"owner": "stranske", "repo": "Workflows"},
   "now": "2024-05-18T12:00:00Z",
   "env": {
     "OPTIONS_JSON": "{\"keepalive_labels\": \"agent:codex, Agent:Codex ,agent:triage,AGENT:TRIAGE\", \"keepalive_agent_logins\": \"chatgpt-codex-connector,ChatGPT-Codex-Connector,Helper-Bot,helper-bot\"}",

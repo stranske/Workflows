@@ -28,7 +28,7 @@ async function main() {
     },
   };
 
-  const repo = scenario.repo || { owner: 'stranske', repo: 'Trend_Model_Project' };
+  const repo = scenario.repo || { owner: 'stranske', repo: 'Workflows' };
 
   const comment = scenario.comment || {};
   const issueNumber = scenario.issue?.number ?? scenario.pull?.number ?? 0;

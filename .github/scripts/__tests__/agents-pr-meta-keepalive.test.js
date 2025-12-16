@@ -91,11 +91,11 @@ test('automation summary comment is upgraded to next keepalive round', async () 
   };
 
   const context = {
-    repo: { owner: 'stranske', repo: 'Trend_Model_Project' },
+    repo: { owner: 'stranske', repo: 'Workflows' },
     payload: {
       comment: {
         id: 3508466875,
-        html_url: 'https://github.com/stranske/Trend_Model_Project/pull/3419#issuecomment-3508466875',
+        html_url: 'https://github.com/stranske/Workflows/pull/3419#issuecomment-3508466875',
         body: '**Scope**\n- [ ] alpha\n\n**Acceptance criteria**\n- [ ] beta',
         user: { login: 'chatgpt-codex-connector[bot]' },
       },
@@ -166,11 +166,11 @@ test('automation summary with round but no marker is ignored', async () => {
   };
 
   const context = {
-    repo: { owner: 'stranske', repo: 'Trend_Model_Project' },
+    repo: { owner: 'stranske', repo: 'Workflows' },
     payload: {
       comment: {
         id: 789,
-        html_url: 'https://github.com/stranske/Trend_Model_Project/pull/3419#issuecomment-789',
+        html_url: 'https://github.com/stranske/Workflows/pull/3419#issuecomment-789',
         body: '<!-- codex-keepalive-round: 4 -->\nAutofix attempt 1/1 complete.',
         user: { login: 'chatgpt-codex-connector[bot]' },
       },
@@ -263,11 +263,11 @@ test('manual restated instructions are autopatched to the next round', async () 
   };
 
   const context = {
-    repo: { owner: 'stranske', repo: 'Trend_Model_Project' },
+    repo: { owner: 'stranske', repo: 'Workflows' },
     payload: {
       comment: {
         id: 456,
-        html_url: 'https://github.com/stranske/Trend_Model_Project/pull/3420#issuecomment-456',
+        html_url: 'https://github.com/stranske/Workflows/pull/3420#issuecomment-456',
         body: '@codex use the scope, acceptance criteria, and task list so the keepalive workflow continues nudging until everything is complete. Work through the tasks, checking them off only after each acceptance criterion is satisfied, but check during each comment implementation and check off tasks and acceptance criteria that have been satisfied and repost the current version of the initial scope, task list and acceptance criteria each time that any have been newly completed.',
         user: { login: 'stranske' },
       },
@@ -351,7 +351,7 @@ test('keepalive detection captures instruction body without status bundle', asyn
   };
 
   const context = {
-    repo: { owner: 'stranske', repo: 'Trend_Model_Project' },
+    repo: { owner: 'stranske', repo: 'Workflows' },
     payload: {
       comment: {
         id: 99,

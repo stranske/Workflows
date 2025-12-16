@@ -8,7 +8,7 @@
     "eventName": "workflow_dispatch",
     "repo": {
       "owner": "stranske",
-      "repo": "Trend_Model_Project"
+      "repo": "Workflows"
     }
   }
 }

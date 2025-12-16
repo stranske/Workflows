@@ -54,7 +54,7 @@ def test_disable_handles_non_disableable_workflow(
         raise WorkflowAPIError(
             status_code=422,
             reason="Unprocessable Entity",
-            url="https://api.github.com/repos/stranske/Trend_Model_Project/actions/workflows/172852138/disable",
+            url="https://api.github.com/repos/stranske/Workflows/actions/workflows/172852138/disable",
             body='{"message":"Unable to disable this workflow."}',
         )
 
@@ -70,7 +70,7 @@ def test_disable_handles_non_disableable_workflow(
     )
 
     summary = disable_legacy_workflows(
-        repository="stranske/Trend_Model_Project",
+        repository="stranske/Workflows",
         token="dummy-token",
         dry_run=False,
         extra_allow=(),

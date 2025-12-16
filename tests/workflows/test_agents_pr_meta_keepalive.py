@@ -47,7 +47,7 @@ def test_keepalive_detection_dispatches_orchestrator() -> None:
     assert outputs["comment_id"] == "987654321"
     assert (
         outputs["comment_url"]
-        == "https://github.com/stranske/Trend_Model_Project/pull/3230#issuecomment-987654321"
+        == "https://github.com/stranske/Workflows/pull/3230#issuecomment-987654321"
     )
 
     calls = data.get("calls", {})

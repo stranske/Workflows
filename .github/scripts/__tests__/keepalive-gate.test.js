@@ -57,7 +57,7 @@ test('countActive counts queued and in-progress orchestrator runs without duplic
   const result = await countActive({
     github,
     owner: 'stranske',
-    repo: 'Trend_Model_Project',
+    repo: 'Workflows',
     prNumber: 42,
     headSha: 'abc',
     headRef: 'feature/run-cap',
@@ -82,7 +82,7 @@ test('countActive optionally includes worker runs when requested', async () => {
   const defaultOrchestratorOnly = await countActive({
     github,
     owner: 'stranske',
-    repo: 'Trend_Model_Project',
+    repo: 'Workflows',
     prNumber: 7,
   });
 
@@ -93,7 +93,7 @@ test('countActive optionally includes worker runs when requested', async () => {
   const withWorker = await countActive({
     github,
     owner: 'stranske',
-    repo: 'Trend_Model_Project',
+    repo: 'Workflows',
     prNumber: 7,
     includeWorker: true,
   });
@@ -113,7 +113,7 @@ test('countActive ignores the current run id to avoid self-counting', async () =
   const result = await countActive({
     github,
     owner: 'stranske',
-    repo: 'Trend_Model_Project',
+    repo: 'Workflows',
     prNumber: 5,
     headSha: 'sha',
     headRef: 'refs/heads/branch',
@@ -141,7 +141,7 @@ test('countActive matches by branch metadata when pull requests array is empty',
   const result = await countActive({
     github,
     owner: 'stranske',
-    repo: 'Trend_Model_Project',
+    repo: 'Workflows',
     prNumber: 8,
     headRef: 'feature/match-me',
     headSha: 'abc123',
@@ -166,7 +166,7 @@ test('countActive matches runs tagged via concurrency group', async () => {
   const result = await countActive({
     github,
     owner: 'stranske',
-    repo: 'Trend_Model_Project',
+    repo: 'Workflows',
     prNumber: 42,
     headRef: 'codex/issue-42',
     headSha: 'non-matching-sha',
@@ -193,7 +193,7 @@ test('countActive treats recently completed runs as active within lookback windo
     const result = await countActive({
       github,
       owner: 'stranske',
-      repo: 'Trend_Model_Project',
+      repo: 'Workflows',
       prNumber: 77,
       completedLookbackSeconds: 300,
     });
@@ -222,7 +222,7 @@ test('countActive ignores completed runs outside the lookback window', async () 
     const result = await countActive({
       github,
       owner: 'stranske',
-      repo: 'Trend_Model_Project',
+      repo: 'Workflows',
       prNumber: 78,
       completedLookbackSeconds: 300,
     });
@@ -254,7 +254,7 @@ test('evaluateRunCapForPr returns ok when active runs are below cap', async () =
     core: { warning: () => {} },
     github,
     owner: 'stranske',
-    repo: 'Trend_Model_Project',
+    repo: 'Workflows',
     prNumber: 11,
   });
 
@@ -282,7 +282,7 @@ test('evaluateRunCapForPr enforces cap using default when label absent', async (
     core: { warning: () => {} },
     github,
     owner: 'stranske',
-    repo: 'Trend_Model_Project',
+    repo: 'Workflows',
     prNumber: 12,
   });
 
@@ -306,7 +306,7 @@ test('evaluateRunCapForPr respects labelled cap across successive attempts', asy
     core: { warning: () => {} },
     github,
     owner: 'stranske',
-    repo: 'Trend_Model_Project',
+    repo: 'Workflows',
     prNumber: 50,
   };
 

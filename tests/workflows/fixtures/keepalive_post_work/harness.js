@@ -64,7 +64,7 @@ async function main() {
     summary,
   };
 
-  const repo = scenario.repo || { owner: 'stranske', repo: 'Trend_Model_Project' };
+  const repo = scenario.repo || { owner: 'stranske', repo: 'Workflows' };
   const prNumber = Number.isFinite(scenario.prNumber)
     ? scenario.prNumber
     : Number(scenario.env?.PR_NUMBER);

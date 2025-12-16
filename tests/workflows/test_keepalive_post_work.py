@@ -180,7 +180,7 @@ def test_keepalive_sync_dispatches_head_repo_for_fork() -> None:
 
     assert len(dispatches) == 1
     inputs = dispatches[0]["inputs"]
-    assert inputs["head_repository"] == "fork-owner/Trend_Model_Project"
+    assert inputs["head_repository"] == "fork-owner/Workflows"
     assert inputs["head_is_fork"] == "true"
 
     assert outputs["action"] == "create-pr"

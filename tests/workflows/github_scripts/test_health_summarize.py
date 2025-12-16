@@ -45,7 +45,7 @@ def test_doc_url_without_repository(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("GITHUB_EVENT_NAME", raising=False)
 
     url = summarize._doc_url()
-    assert url.startswith("https://github.com/stranske/Trend_Model_Project")
+    assert url.startswith("https://github.com/stranske/Workflows")
 
 
 def test_doc_url_for_pull_request(monkeypatch: pytest.MonkeyPatch) -> None:

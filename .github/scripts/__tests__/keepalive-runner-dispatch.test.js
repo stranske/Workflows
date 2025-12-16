@@ -43,14 +43,14 @@ test('dispatchKeepaliveCommand uses github.getOctokit when available', async () 
     core: createCore(),
     github,
     owner: 'stranske',
-    repo: 'Trend_Model_Project',
+    repo: 'Workflows',
     token: 'token-123',
     payload: { issue: 99, comment_id: 1, trace: 'tr123', round: 2 },
   });
 
   assert.equal(events.length, 1);
   assert.equal(events[0].owner, 'stranske');
-  assert.equal(events[0].repo, 'Trend_Model_Project');
+  assert.equal(events[0].repo, 'Workflows');
   // Verify nested structure to stay under 10 top-level property limit
   assert.deepEqual(events[0].client_payload, {
     issue: 99,
