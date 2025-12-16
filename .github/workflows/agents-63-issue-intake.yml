@@ -148,7 +148,6 @@ jobs:
 
           intake_mode="${INPUT_INTAKE_MODE:-}"
           source_input="${INPUT_SOURCE:-}"
-          legacy_repo_file="${INPUT_REPO_FILE:-}"
           raw_input="${INPUT_RAW_INPUT:-}"
           source_url="${INPUT_SOURCE_URL:-}"
           debug=$(normalize_bool "${INPUT_DEBUG:-}")
@@ -183,10 +182,6 @@ jobs:
             fi
           fi
           bridge_agent="${bridge_agent,,}"
-
-          if [ -z "$source_input" ] && [ -n "$legacy_repo_file" ]; then
-            source_input="$legacy_repo_file"
-          fi
 
           if [ -z "$intake_mode" ]; then
             if [ "$event_name" = "issues" ]; then
