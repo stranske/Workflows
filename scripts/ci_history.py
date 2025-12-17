@@ -54,7 +54,9 @@ def _build_history_record(
     metrics_path: Path,
     metrics_from_file: bool,
 ) -> dict[str, Any]:
-    timestamp = _dt.datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
+    timestamp = (
+        _dt.datetime.now(_dt.UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    )
     summary = metrics.get("summary", {})
     failures = metrics.get("failures", [])
 
@@ -80,7 +82,9 @@ def _build_history_record(
 
 
 def _build_classification_payload(metrics: dict[str, Any]) -> dict[str, Any]:
-    timestamp = _dt.datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
+    timestamp = (
+        _dt.datetime.now(_dt.UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    )
     failures = metrics.get("failures", []) or []
     counts = Counter(entry.get("status", "unknown") for entry in failures)
     payload: dict[str, Any] = {

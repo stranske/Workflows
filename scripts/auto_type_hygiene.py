@@ -38,6 +38,7 @@ EXCLUDE_PATTERNS = [
     re.compile(r"(^|/)notebooks/old(/|$)"),
 ]
 DEFAULT_ALLOWLIST = ["yaml"]
+TYPED_FALLBACK = {"yaml"}
 
 
 def _load_allowlist() -> list[str]:
@@ -86,6 +87,9 @@ def _has_stub_package(module: str) -> bool:
 
 def module_has_types(module: str) -> bool:
     """Return ``True`` if ``module`` has typing support available."""
+
+    if module.split(".")[0] in TYPED_FALLBACK:
+        return True
 
     parts = module.split(".")
     for base in SRC_DIRS:

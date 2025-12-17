@@ -55,6 +55,7 @@ def test_violation_case2_runs_as_script(capsys: "pytest.CaptureFixture[str]") ->
 
 
 def test_violation_case2_runs_as_a_script(capsys) -> None:
+    sys.modules.pop("trend_analysis._autofix_violation_case2", None)
     runpy.run_module("trend_analysis._autofix_violation_case2", run_name="__main__")
 
     captured = capsys.readouterr()
