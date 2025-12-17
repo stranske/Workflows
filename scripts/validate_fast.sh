@@ -15,6 +15,30 @@ CYAN='\033[0;36m'
 MAGENTA='\033[0;35m'
 NC='\033[0m'
 
+show_help() {
+    cat <<'EOF'
+Usage: ./scripts/validate_fast.sh [--full] [--fix] [--verbose] [--profile] [--commit-range=RANGE] [--help]
+
+Options:
+  --full              Run comprehensive validation regardless of change size.
+  --fix               Apply automatic fixes where supported (formatting).
+  --verbose           Increase verbosity for certain tools (e.g., pytest).
+  --profile           Print elapsed time markers between validation stages.
+  --commit-range=RANGE
+                      Compare changes against the specified git commit range (default: HEAD).
+  --help              Show this help message and exit.
+
+Examples:
+  ./scripts/validate_fast.sh --full
+  ./scripts/validate_fast.sh --commit-range=origin/main...HEAD
+EOF
+}
+
+if [[ "$1" == "--help" || "$1" == "-h" ]]; then
+    show_help
+    exit 0
+fi
+
 # Load shared formatter/tool version pins so local checks mirror CI
 PIN_FILE=".github/workflows/autofix-versions.env"
 if [[ ! -f "${PIN_FILE}" ]]; then
@@ -136,33 +160,22 @@ echo -e "${BLUE}Analyzing changes...${NC}"
 CHANGED_FILES=$(git diff --name-only $COMMIT_RANGE 2>/dev/null | grep -v -E '^(archive/|\.extraction/)' 2>/dev/null || echo "")
 PYTHON_FILES=$(echo "$CHANGED_FILES" | grep -E '\.(py)$' 2>/dev/null || echo "")
 CONFIG_FILES=$(echo "$CHANGED_FILES" | grep -E '\.(yml|yaml|toml|cfg|ini)$' 2>/dev/null || echo "")
+WORKFLOW_FILES=$(echo "$CHANGED_FILES" | grep -E '^\.github/workflows/.*\.(yml|yaml)$' 2>/dev/null || echo "")
 TEST_FILES=$(echo "$PYTHON_FILES" | grep -E '^tests/' 2>/dev/null || echo "")
 SCRIPT_FILES=$(echo "$PYTHON_FILES" | grep -E '^scripts/' 2>/dev/null || echo "")
-# TODO Phase 4: Remove SRC_FILES detection (Python package specific)
-SRC_FILES=$(echo "$PYTHON_FILES" | grep -E '^src/' 2>/dev/null || echo "")
-# TODO Phase 4: Remove AUTOFIX_FILES detection (project-specific autofix system)
-AUTOFIX_FILES=$(echo "$CHANGED_FILES" | grep -E '^(scripts/(auto_type_hygiene|fix_cosmetic_aggregate|fix_numpy_asserts|mypy_return_autofix|update_autofix_expectations)\\.py|tests/test_autofix_pipeline_tools\\.py|\\.github/(actions|workflows)/.*autofix)' 2>/dev/null || echo "")
+YAML_FILES=$(echo "$CHANGED_FILES" | grep -E '\.(yml|yaml)$' 2>/dev/null || echo "")
 
 # Count changes
 TOTAL_PYTHON=$(echo "$PYTHON_FILES" | grep -v '^$' | wc -l || echo 0)
 TOTAL_CONFIG=$(echo "$CONFIG_FILES" | grep -v '^$' | wc -l || echo 0)
 TOTAL_TEST=$(echo "$TEST_FILES" | grep -v '^$' | wc -l || echo 0)
-TOTAL_SRC=$(echo "$SRC_FILES" | grep -v '^$' | wc -l || echo 0)
+TOTAL_WORKFLOW=$(echo "$WORKFLOW_FILES" | grep -v '^$' | wc -l || echo 0)
 
 echo -e "${BLUE}Change analysis:${NC}"
 echo "  Python files: $TOTAL_PYTHON"
 echo "  Config files: $TOTAL_CONFIG"
 echo "  Test files: $TOTAL_TEST"
-# TODO Phase 4: Remove SRC_FILES reporting
-echo "  Source files: $TOTAL_SRC"
-if [[ -n "$AUTOFIX_FILES" ]]; then
-    echo -e "  Autofix-related changes detected:"
-    echo "$AUTOFIX_FILES" | sed 's/^/    • /'
-fi
-RUN_AUTOFIX_TESTS=false
-if [[ -n "$AUTOFIX_FILES" ]]; then
-    RUN_AUTOFIX_TESTS=true
-fi
+echo "  Workflow files: $TOTAL_WORKFLOW"
 
 if [[ $TOTAL_PYTHON -eq 0 && $TOTAL_CONFIG -eq 0 ]]; then
     echo -e "${GREEN}✓ No Python or config changes detected - validation not needed${NC}"
@@ -175,7 +188,7 @@ profile_step "Change analysis complete"
 VALIDATION_STRATEGY="incremental"
 if [[ "$FULL_CHECK" == true || $TOTAL_PYTHON -gt 10 ]]; then
     VALIDATION_STRATEGY="full"
-elif [[ $TOTAL_SRC -gt 0 || $TOTAL_CONFIG -gt 0 ]]; then
+elif [[ $TOTAL_CONFIG -gt 0 || $TOTAL_WORKFLOW -gt 0 ]]; then
     VALIDATION_STRATEGY="comprehensive"
 fi
 
@@ -253,6 +266,82 @@ run_fast_check() {
     fi
 }
 
+ensure_pyyaml() {
+    if python - <<'PY' 2>/dev/null
+import yaml  # type: ignore[import]
+PY
+    then
+        return 0
+    fi
+
+    echo -e "${YELLOW}Installing PyYAML for YAML validation${NC}"
+    if python -m pip install --disable-pip-version-check --quiet pyyaml; then
+        return 0
+    fi
+    echo -e "${RED}✗ Failed to install PyYAML${NC}"
+    return 1
+}
+
+validate_yaml_syntax() {
+    local files="$1"
+    if [[ -z "$files" ]]; then
+        return 0
+    fi
+
+    if ! ensure_pyyaml; then
+        return 1
+    fi
+
+    python - <<PY
+import sys
+from pathlib import Path
+import yaml  # type: ignore[import]
+
+failed = False
+for path in "${files}".split():
+    file_path = Path(path)
+    if not file_path.is_file():
+        continue
+    try:
+        yaml.safe_load(file_path.read_text())
+    except Exception as exc:  # pylint: disable=broad-except
+        print(f"{file_path}: {exc}", file=sys.stderr)
+        failed = True
+
+sys.exit(1 if failed else 0)
+PY
+}
+
+ACTIONLINT_BIN=""
+ensure_actionlint() {
+    if command -v actionlint >/dev/null 2>&1; then
+        ACTIONLINT_BIN=$(command -v actionlint)
+        return 0
+    fi
+
+    local cache_dir=".cache/tools"
+    mkdir -p "$cache_dir"
+    if [[ -x "$cache_dir/actionlint" ]]; then
+        ACTIONLINT_BIN="$cache_dir/actionlint"
+        return 0
+    fi
+
+    echo -e "${YELLOW}Downloading actionlint for workflow validation...${NC}"
+    local downloader="$cache_dir/download-actionlint.bash"
+    if ! curl -sSfL "https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash" -o "$downloader"; then
+        echo -e "${YELLOW}⚠ Unable to fetch actionlint downloader; skipping workflow linting${NC}"
+        return 1
+    fi
+
+    if bash "$downloader" latest "$cache_dir" >/tmp/actionlint-download.log 2>&1 && [[ -x "$cache_dir/actionlint" ]]; then
+        ACTIONLINT_BIN="$cache_dir/actionlint"
+        return 0
+    fi
+
+    echo -e "${YELLOW}⚠ Failed to download actionlint; skipping workflow linting${NC}"
+    return 1
+}
+
 # Track validation results
 FAILED_CHECKS=()
 VALIDATION_SUCCESS=true
@@ -260,14 +349,16 @@ VALIDATION_SUCCESS=true
 # Always check these basics (very fast)
 echo -e "${CYAN}=== Basic Checks ===${NC}"
 
-# TODO Phase 4: Replace with workflow validation
-# if ! run_fast_check "Import validation" "python -c 'import src.trend_analysis'" ""; then
-#     VALIDATION_SUCCESS=false
-#     FAILED_CHECKS+=("Import validation")
-# fi
-echo -e "${YELLOW}⚠ Import validation deferred to Phase 4 (workflow validation)${NC}"
-
-profile_step "Import check complete"
+if [[ -n "$YAML_FILES" ]]; then
+    echo -e "${BLUE}Validating YAML syntax...${NC}"
+    if ! validate_yaml_syntax "$(echo "$YAML_FILES" | tr '\n' ' ' | tr -s ' ')" ; then
+        VALIDATION_SUCCESS=false
+        FAILED_CHECKS+=("YAML syntax")
+    else
+        echo -e "${GREEN}✓ YAML syntax${NC}"
+    fi
+    profile_step "YAML validation complete"
+fi
 
 # Formatting (always run, very fast to check)
 FORMAT_SCOPE="$PYTHON_FILES"
@@ -313,45 +404,40 @@ case "$VALIDATION_STRATEGY" in
             FAILED_CHECKS+=("Critical linting")
         fi
 
-        # TODO Phase 4: Replace with workflow validation
-        # Basic type checking (only on a few files)
-        # if [[ $TOTAL_SRC -gt 0 ]]; then
-        #     LIMITED_SRC=$(echo "$SRC_FILES" | head -3)
-        #     if ! run_fast_check "Basic type check" "echo '$LIMITED_SRC' | xargs mypy --follow-imports=silent --ignore-missing-imports" "mypy --install-types --non-interactive"; then
-        #         VALIDATION_SUCCESS=false
-        #         FAILED_CHECKS+=("Basic type check")
-        #     fi
-        # fi
-        echo -e "${YELLOW}⚠ Type checking deferred to Phase 4 (workflow validation)${NC}"
-
-        # TODO Phase 4: Remove autofix tests (project-specific)
-        if [[ "$RUN_AUTOFIX_TESTS" == true ]]; then
-            # if ! run_fast_check "Autofix diagnostics" "pytest tests/test_autofix_pipeline_tools.py -q" ""; then
-            #     VALIDATION_SUCCESS=false
-            #     FAILED_CHECKS+=("Autofix diagnostics")
-            # fi
-            echo -e "${YELLOW}⚠ Autofix tests not applicable to workflow repo${NC}"
-            RUN_AUTOFIX_TESTS=false
+        if [[ $TOTAL_WORKFLOW -gt 0 ]]; then
+            if ensure_actionlint; then
+                if ! run_fast_check "Workflow linting" "$ACTIONLINT_BIN -color {files}" "" "$WORKFLOW_FILES"; then
+                    VALIDATION_SUCCESS=false
+                    FAILED_CHECKS+=("Workflow linting")
+                fi
+            else
+                VALIDATION_SUCCESS=false
+                FAILED_CHECKS+=("Workflow linting (actionlint unavailable)")
+            fi
         fi
         ;;
 
     "comprehensive")
         echo -e "${CYAN}=== Comprehensive Validation ===${NC}"
 
-        # TODO Phase 4: Update linting targets for workflow repo
-        # Full linting
-        if ! run_fast_check "Full linting" "flake8 scripts/ --statistics" ""; then
+        if ! run_fast_check "Full linting" "flake8 scripts/ .github/ --statistics" ""; then
             VALIDATION_SUCCESS=false
             FAILED_CHECKS+=("Full linting")
         fi
 
-        # TODO Phase 4: Replace with workflow validation
-        # Type checking
-        # if ! run_fast_check "Type checking" "mypy src/" "mypy --install-types --non-interactive"; then
-        #     VALIDATION_SUCCESS=false
-        #     FAILED_CHECKS+=("Type checking")
-        # fi
-        echo -e "${YELLOW}⚠ Type checking deferred to Phase 4 (workflow validation)${NC}"
+        if ensure_actionlint; then
+            workflow_scope="$WORKFLOW_FILES"
+            if [[ -z "$workflow_scope" ]]; then
+                workflow_scope=".github/workflows/*.yml .github/workflows/*.yaml"
+            fi
+            if ! run_fast_check "Workflow linting" "$ACTIONLINT_BIN -color {files}" "" "$workflow_scope"; then
+                VALIDATION_SUCCESS=false
+                FAILED_CHECKS+=("Workflow linting")
+            fi
+        else
+            VALIDATION_SUCCESS=false
+            FAILED_CHECKS+=("Workflow linting (actionlint unavailable)")
+        fi
 
         # Quick test (only if test files changed)
         if [[ $TOTAL_TEST -gt 0 ]]; then
@@ -368,31 +454,27 @@ case "$VALIDATION_STRATEGY" in
                 FAILED_CHECKS+=("Quick tests")
             fi
         fi
-
-        # TODO Phase 4: Remove autofix tests
-        if [[ "$RUN_AUTOFIX_TESTS" == true ]]; then
-            echo -e "${YELLOW}⚠ Autofix tests not applicable to workflow repo${NC}"
-            RUN_AUTOFIX_TESTS=false
-        fi
         ;;
 
     "full")
         echo -e "${CYAN}=== Full Validation ===${NC}"
         echo -e "${YELLOW}Running comprehensive validation (may take longer)...${NC}"
 
-        # TODO Phase 4: Update linting targets
-        # All checks
-        if ! run_fast_check "Full linting" "flake8 scripts/ --statistics" ""; then
+        if ! run_fast_check "Full linting" "flake8 scripts/ .github/ --statistics" ""; then
             VALIDATION_SUCCESS=false
             FAILED_CHECKS+=("Full linting")
         fi
 
-        # TODO Phase 4: Replace with workflow validation
-        # if ! run_fast_check "Type checking" "mypy src/" "mypy --install-types --non-interactive"; then
-        #     VALIDATION_SUCCESS=false
-        #     FAILED_CHECKS+=("Type checking")
-        # fi
-        echo -e "${YELLOW}⚠ Type checking deferred to Phase 4 (workflow validation)${NC}"
+        workflow_scope=".github/workflows/*.yml .github/workflows/*.yaml"
+        if ensure_actionlint; then
+            if ! run_fast_check "Workflow linting" "$ACTIONLINT_BIN -color {files}" "" "$workflow_scope"; then
+                VALIDATION_SUCCESS=false
+                FAILED_CHECKS+=("Workflow linting")
+            fi
+        else
+            VALIDATION_SUCCESS=false
+            FAILED_CHECKS+=("Workflow linting (actionlint unavailable)")
+        fi
 
         # Use conditional verbosity for pytest
         if [[ "$VERBOSE_MODE" == true ]]; then
@@ -412,13 +494,6 @@ case "$VALIDATION_STRATEGY" in
             FAILED_CHECKS+=("All tests")
         fi
 
-        # TODO Phase 4: Remove coverage requirements (Python package specific)
-        # if ! run_fast_check "Test coverage" "rm -f .coverage .coverage.* && pytest --cov=src --cov-report=term-missing --cov-fail-under=80 --cov-branch $XDIST_FLAG" ""; then
-        #     VALIDATION_SUCCESS=false
-        #     FAILED_CHECKS+=("Test coverage")
-        # fi
-        echo -e "${YELLOW}⚠ Coverage requirements not applicable to workflow repo${NC}"
-        RUN_AUTOFIX_TESTS=false
         ;;
 esac
 
