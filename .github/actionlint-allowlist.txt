@@ -1,0 +1,2 @@
+# Suppress false positives for properties not defined in reusable workflow outputs
+property ".+" is not defined in object type {}
