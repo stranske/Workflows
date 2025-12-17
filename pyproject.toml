@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Reusable GitHub Actions workflows and automation infrastructure"
 readme = "README.md"
 requires-python = ">=3.11"
-license = {text = "MIT"}
+license = "MIT"
 authors = [
     {name = "Workflow Contributors"}
 ]
@@ -40,7 +40,24 @@ dev = [
     "pytest-cov==7.0.0",
     "coverage==7.12.0",
     "pytest-xdist==3.8.0",
+
+    # Required by repo dependency checks / CI fallback checks
+    "hypothesis>=6.0.0",
+    "pandas",
+    "numpy",
+    "pydantic>=2.0.0",
+    "requests>=2.31.0",
+    "jsonschema>=4.0.0",
+    "PyYAML>=6.0.0",
+
+    # Used by scripts/sync_test_dependencies.py to edit pyproject.toml
+    "tomlkit>=0.13.0",
 ]
+
+[tool.setuptools]
+# This repo is primarily automation + scripts; avoid setuptools trying to auto-discover
+# random top-level dirs as importable packages (which breaks editable installs).
+packages = []
 
 [tool.black]
 line-length = 100
