@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 
 def badly_formatted_function(x: int, y: int) -> int:
     return x + y
@@ -20,4 +18,3 @@ class Demo:
 
 def long_line() -> str:
     return "An overly verbose line that exists solely to exercise autofix behaviour."
-

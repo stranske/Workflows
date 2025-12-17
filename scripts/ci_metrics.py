@@ -204,10 +204,7 @@ def build_metrics(
 
     payload: dict[str, Any] = {
         "generated_at": (
-            _dt.datetime.now(_dt.UTC)
-            .replace(microsecond=0)
-            .isoformat()
-            .replace("+00:00", "Z")
+            _dt.datetime.now(_dt.UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
         ),
         "junit_path": str(junit_path),
         "summary": summary,

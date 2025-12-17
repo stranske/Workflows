@@ -38,7 +38,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install pytest pytest-cov pyyaml
+          pip install pytest pytest-cov pyyaml requests numpy
 
       - name: Run Python tests
         run: |

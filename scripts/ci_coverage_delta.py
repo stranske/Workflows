@@ -54,9 +54,7 @@ def _build_payload(
     *,
     fail_on_drop: bool,
 ) -> tuple[dict[str, Any], bool]:
-    timestamp = (
-        _dt.datetime.now(_dt.UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
-    )
+    timestamp = _dt.datetime.now(_dt.UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
     drop = max(0.0, baseline - current) if baseline > 0 else 0.0
     delta = current - baseline
     status: str
