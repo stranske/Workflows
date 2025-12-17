@@ -85,6 +85,7 @@ jobs:
     needs: detect
     if: ${{ needs.detect.outputs.doc_only != 'true' && needs.detect.outputs.run_core == 'true' && fromJSON(needs.detect.outputs.run_core || 'true') }}
     uses: ./.github/workflows/reusable-10-ci-python.yml
+    secrets: inherit
     with:
       primary-python-version: '3.11'
       python-versions: '["3.11", "3.12"]'
