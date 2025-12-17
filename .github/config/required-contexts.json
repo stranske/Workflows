@@ -1,0 +1,6 @@
+{
+  "required_contexts": [
+    "Gate / gate",
+    "Health 45 Agents Guard / Enforce agents workflow protections"
+  ]
+}

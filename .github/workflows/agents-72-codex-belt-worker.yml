@@ -46,6 +46,34 @@ on:
     secrets:
       ACTIONS_BOT_PAT:
         required: true
+    outputs:
+      allowed:
+        description: 'Whether the worker was allowed to proceed'
+        value: ${{ jobs.bootstrap.outputs.allowed }}
+      pr_number:
+        description: 'PR number created or updated'
+        value: ${{ jobs.bootstrap.outputs.pr_number }}
+      branch:
+        description: 'Branch name used'
+        value: ${{ jobs.bootstrap.outputs.branch }}
+      dry_run:
+        description: 'Whether this was a dry run'
+        value: ${{ jobs.bootstrap.outputs.dry_run }}
+      keepalive_action:
+        description: 'Keepalive action taken'
+        value: ${{ jobs.bootstrap.outputs.keepalive_action }}
+      keepalive_reason:
+        description: 'Keepalive reason'
+        value: ${{ jobs.bootstrap.outputs.keepalive_reason }}
+      keepalive_head_sha:
+        description: 'Keepalive head SHA'
+        value: ${{ jobs.bootstrap.outputs.keepalive_head_sha }}
+      keepalive_last_instruction_id:
+        description: 'Last processed keepalive instruction ID'
+        value: ${{ jobs.bootstrap.outputs.keepalive_last_instruction_id }}
+      keepalive_last_instruction_head_sha:
+        description: 'Last processed keepalive instruction head SHA'
+        value: ${{ jobs.bootstrap.outputs.keepalive_last_instruction_head_sha }}
 
 permissions:
   contents: write
