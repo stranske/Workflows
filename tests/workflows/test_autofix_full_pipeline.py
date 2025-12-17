@@ -6,6 +6,7 @@ from pathlib import Path
 from textwrap import dedent
 
 import pytest
+
 import scripts.auto_type_hygiene as auto_type_hygiene
 import scripts.mypy_autofix as mypy_autofix
 

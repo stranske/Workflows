@@ -7,6 +7,7 @@ from pathlib import Path
 from textwrap import dedent
 
 import pytest
+
 import scripts.auto_type_hygiene as auto_type_hygiene
 import scripts.fix_cosmetic_aggregate as fix_cosmetic_aggregate
 import scripts.fix_numpy_asserts as fix_numpy_asserts

@@ -1,4 +1,5 @@
 import pytest
+
 from trend_analysis import _ci_probe_faults as probe
 
 

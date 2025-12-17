@@ -3,6 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+
+from tests.workflows.test_workflow_naming import EXPECTED_NAMES
 from tools.disable_legacy_workflows import (
     CANONICAL_WORKFLOW_FILES,
     CANONICAL_WORKFLOW_NAMES,
@@ -11,8 +13,6 @@ from tools.disable_legacy_workflows import (
     _normalize_allowlist,
     disable_legacy_workflows,
 )
-
-from tests.workflows.test_workflow_naming import EXPECTED_NAMES
 
 
 def test_canonical_workflow_files_match_inventory() -> None:

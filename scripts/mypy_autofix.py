@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
 import re
+from pathlib import Path
 
 ROOT = Path(".")
 DEFAULT_TARGETS: list[Path] = []
