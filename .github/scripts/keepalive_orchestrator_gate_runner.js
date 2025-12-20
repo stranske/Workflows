@@ -3,7 +3,6 @@
 // previous inline github-script logic.
 
 const {
-  SKIP_MARKER,
   analyseSkipComments,
   isGateReason,
 } = require('./keepalive_guard_utils.js');
