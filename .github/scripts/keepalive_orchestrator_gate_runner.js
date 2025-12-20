@@ -14,7 +14,6 @@ const { evaluateKeepaliveGate } = require('./keepalive_gate.js');
  */
 async function runKeepaliveGate({ core, github, context, env }) {
   const normalise = (value) => String(value || '').trim();
-  const normaliseNewlines = (value) => normalise(value).replace(/\r\n/g, '\n');
   const toBool = (value) => ['true', '1', 'yes', 'on'].includes(normalise(value).toLowerCase());
 
   const toCandidate = (input) => ({
