@@ -28,7 +28,6 @@ on:
   workflow_run:
     workflows:
       - Gate
-      - Dummy (fast-pass) gate
     types: [completed]
   repository_dispatch:
     types:
