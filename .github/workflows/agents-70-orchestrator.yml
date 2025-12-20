@@ -133,3 +133,4 @@ jobs:
     secrets:
       ACTIONS_BOT_PAT: ${{ secrets.ACTIONS_BOT_PAT }}
       SERVICE_BOT_PAT: ${{ secrets.SERVICE_BOT_PAT }}
+      OWNER_PR_PAT: ${{ secrets.OWNER_PR_PAT }}

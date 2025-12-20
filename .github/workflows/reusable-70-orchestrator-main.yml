@@ -99,11 +99,12 @@ on:
         required: false
       SERVICE_BOT_PAT:
         required: false
+      OWNER_PR_PAT:
+        required: false
 
 jobs:
   keepalive-guard:
     name: Evaluate keepalive gate
-    needs: []
     if: inputs.init_success == 'success'
     runs-on: ubuntu-latest
     outputs:
