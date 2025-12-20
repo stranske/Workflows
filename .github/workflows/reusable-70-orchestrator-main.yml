@@ -1,532 +1,110 @@
-name: Agents 70 Orchestrator
+name: Agents 70 Main (Reusable)
 
 on:
-  schedule:
-    # Reduced from */20 to */30 to conserve API rate limit (R-3)
-    - cron: '*/30 * * * *'
-  workflow_dispatch:
+  workflow_call:
     inputs:
-      params_json:
-        description: 'JSON payload of orchestrator parameters to merge with defaults.'
+      init_success:
+        description: 'Whether init phase succeeded'
+        required: true
+        type: string
+      enable_readiness:
+        type: string
         required: false
-        default: '{}'
-      options_json:
-        description: 'Advanced orchestrator options encoded as JSON.'
+      readiness_agents:
+        type: string
         required: false
-        default: '{}'
+      readiness_custom_logins:
+        type: string
+        required: false
+      require_all:
+        type: string
+        required: false
+      enable_preflight:
+        type: string
+        required: false
+      codex_user:
+        type: string
+        required: false
+      codex_command_phrase:
+        type: string
+        required: false
+      enable_diagnostic:
+        type: string
+        required: false
+      diagnostic_attempt_branch:
+        type: string
+        required: false
+      diagnostic_dry_run:
+        type: string
+        required: false
+      enable_verify_issue:
+        type: string
+        required: false
+      verify_issue_number:
+        type: string
+        required: false
+      enable_watchdog:
+        type: string
+        required: false
+      enable_keepalive:
+        type: string
+        required: false
+      keepalive_pause_label:
+        type: string
+        required: false
+      keepalive_max_retries:
+        type: string
+        required: false
+      enable_bootstrap:
+        type: string
+        required: false
+      bootstrap_issues_label:
+        type: string
+        required: false
+      draft_pr:
+        type: string
+        required: false
+      verify_issue_valid_assignees:
+        type: string
+        required: false
       dry_run:
-        description: 'Execute orchestrator in dry-run mode (no write operations).'
+        type: string
         required: false
-        default: 'false'
-      keepalive_enabled:
-        description: 'Enable Codex keepalive sweep for this run (set false to pause).'
+      options_json:
+        type: string
         required: false
-        default: 'true'
-      pr_number:
-        description: 'Optional pull request number when targeting a specific branch.'
+      dispatcher_force_issue:
+        type: string
         required: false
-  workflow_run:
-    workflows:
-      - Gate
-    types: [completed]
-  repository_dispatch:
-    types:
-      - agents-orchestrator-ping
-    # Expected payload:
-    #   event_type: agents-orchestrator-ping
-    #   client_payload:
-    #     keepalive_enabled: true|false (optional)
-    #     dry_run: true|false (optional)
-    #     params: { ... }        # forwarded to params_json
-    #     options: { ... }       # forwarded to options_json overrides
-
-# Prevent multiple orchestrator runs from overlapping and consuming excessive API quota
-concurrency:
-  group: agents-70-orchestrator-singleton
-  cancel-in-progress: false
+      worker_max_parallel:
+        type: string
+        required: false
+      conveyor_max_merges:
+        type: string
+        required: false
+      keepalive_trace:
+        type: string
+        required: false
+      keepalive_round:
+        type: string
+        required: false
+      keepalive_pr:
+        type: string
+        required: false
+      token_source:
+        type: string
+        required: false
+    secrets:
+      ACTIONS_BOT_PAT:
+        required: false
+      SERVICE_BOT_PAT:
+        required: false
 
 jobs:
-  rate-limit-check:
-    name: Rate limit pre-check
-    runs-on: ubuntu-latest
-    outputs:
-      safe: ${{ steps.check.outputs.safe || 'true' }}
-      remaining: ${{ steps.check.outputs.remaining || '-1' }}
-      reset_time: ${{ steps.check.outputs.reset_time || '' }}
-    steps:
-      - name: Checkout API helpers
-        uses: actions/checkout@v4
-        with:
-          sparse-checkout: |
-            .github/scripts
-          sparse-checkout-cone-mode: false
-          fetch-depth: 1
-
-      - name: Check GitHub API rate limit
-        id: check
-        uses: actions/github-script@v7
-        env:
-          # Threshold below which we defer the run
-          # Set to 1000 (20% of 5000/hr PAT limit) to leave buffer for other workflows
-          RATE_LIMIT_THRESHOLD: '1000'
-        with:
-          script: |
-            const path = require('path');
-            const { checkRateLimitStatus } = require(
-              path.join(process.env.GITHUB_WORKSPACE, '.github/scripts/api-helpers.js')
-            );
-            const threshold = parseInt(process.env.RATE_LIMIT_THRESHOLD || '500', 10);
-
-            // Check PAT rate limit (used for authenticated operations)
-            const status = await checkRateLimitStatus(github, { threshold, core });
-
-            core.setOutput('safe', status.safe ? 'true' : 'false');
-            core.setOutput('remaining', String(status.remaining));
-            core.setOutput('reset_time', status.resetTime || '');
-            core.setOutput('percent_used', String(status.percentUsed));
-
-            const summary = core.summary;
-            summary.addHeading('Rate Limit Status', 3);
-
-            // Display PAT rate limit
-            summary.addHeading('Personal Access Token (PAT)', 4);
-            if (status.error) {
-              summary.addRaw(`⚠️ Could not check rate limit: ${status.error}`).addEOL();
-              summary.addRaw('Proceeding with orchestrator run.').addEOL();
-            } else {
-              const icon = status.safe ? '✅' : '⛔';
-              summary.addRaw(`${icon} **${status.remaining}** / ${status.limit} requests remaining (${status.percentUsed}% used)`).addEOL();
-              summary.addRaw(`Threshold: ${threshold} | Resets at: ${status.resetTime}`).addEOL();
-
-              if (!status.safe) {
-                const waitMinutes = Math.ceil(status.waitTimeMs / 60000);
-                summary.addRaw(`**Deferring orchestrator run** — rate limit too low. Try again in ~${waitMinutes} minutes.`).addEOL();
-              }
-            }
-
-            // Note: Installation token (GITHUB_TOKEN) has separate rate limits
-            // shown in workflow logs but not directly queryable via this token
-            summary.addHeading('Note', 4);
-            summary.addRaw('Installation token (GITHUB_TOKEN) has separate rate limits. ').addEOL();
-            summary.addRaw('Check workflow run headers for `x-ratelimit-*` if other jobs fail with rate limit errors.').addEOL();
-
-            await summary.write();
-
-            if (!status.safe) {
-              core.notice(`Rate limit low (${status.remaining}/${status.limit}). Deferring this orchestrator run until ${status.resetTime}.`);
-            }
-
-  idle-precheck:
-    name: Idle precheck
-    needs: rate-limit-check
-    if: needs.rate-limit-check.outputs.safe == 'true'
-    runs-on: ubuntu-latest
-    outputs:
-      has_work: ${{ steps.precheck.outputs.has_work || 'false' }}
-    steps:
-      - name: Detect manual dispatch origin
-        if: github.event_name == 'repository_dispatch'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const sender = context.payload?.sender?.login || 'unknown';
-            const type = context.payload?.action || context.payload?.event_type || 'agents-orchestrator-ping';
-            core.info(`Repository dispatch received from @${sender} (type: ${type}).`);
-
-      - name: Count agent issues
-        id: precheck
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const summary = core.summary;
-            const { owner, repo } = context.repo;
-            const started = Date.now();
-
-            const normalise = (value) => String(value ?? '').trim();
-            const toBool = (value) => {
-              if (typeof value === 'boolean') {
-                return value;
-              }
-              if (typeof value === 'number') {
-                return value !== 0;
-              }
-              const lowered = normalise(value).toLowerCase();
-              if (!lowered) {
-                return false;
-              }
-              return ['true', '1', 'yes', 'on'].includes(lowered);
-            };
-
-            const parseMaybeJson = (input) => {
-              if (!input) {
-                return null;
-              }
-              if (typeof input === 'object') {
-                return input;
-              }
-              if (typeof input === 'string') {
-                const trimmed = input.trim();
-                if (!trimmed) {
-                  return null;
-                }
-                try {
-                  return JSON.parse(trimmed);
-                } catch (error) {
-                  core.debug?.(`idle-precheck: failed to parse JSON: ${error.message || error}`);
-                }
-              }
-              return null;
-            };
-
-            let keepaliveRequested = false;
-            let keepaliveTrace = '';
-            const keepaliveSources = new Set();
-
-            const markKeepalive = (source, trace) => {
-              keepaliveRequested = true;
-              if (source) {
-                keepaliveSources.add(source);
-              }
-              if (!keepaliveTrace && typeof trace === 'string' && trace.trim()) {
-                keepaliveTrace = trace.trim();
-              }
-            };
-
-            const eventName = context.eventName;
-            if (eventName === 'workflow_dispatch') {
-              const inputs = context.payload?.inputs || {};
-              if (toBool(inputs.keepalive_enabled ?? '')) {
-                markKeepalive('workflow_dispatch.keepalive_enabled');
-              }
-              const prInput = String(inputs.pr_number ?? '').trim();
-              if (prInput) {
-                markKeepalive('workflow_dispatch.pr_number', prInput);
-              }
-              const params = parseMaybeJson(inputs.params_json);
-              if (params && toBool(params.enable_keepalive)) {
-                markKeepalive('workflow_dispatch.params_json');
-              }
-              const options = parseMaybeJson(inputs.options_json);
-              if (options) {
-                const trace = options.keepalive_trace || options.trace;
-                if (trace) {
-                  markKeepalive('workflow_dispatch.options_json', trace);
-                }
-              }
-            } else if (eventName === 'repository_dispatch') {
-              const payload = context.payload?.client_payload || {};
-              if (toBool(payload.keepalive_enabled)) {
-                markKeepalive('repository_dispatch.keepalive_enabled');
-              }
-              const params = parseMaybeJson(payload.params_json || payload.params);
-              if (params && toBool(params.enable_keepalive)) {
-                markKeepalive('repository_dispatch.params');
-              }
-              const options = parseMaybeJson(payload.options_json || payload.options);
-              if (options) {
-                const trace = options.keepalive_trace || options.trace;
-                if (trace) {
-                  markKeepalive('repository_dispatch.options', trace);
-                }
-              }
-            }
-
-            let count = 0;
-
-            await github.paginate(
-              github.rest.issues.listForRepo,
-              {
-                owner,
-                repo,
-                state: 'open',
-                per_page: 100,
-              },
-              (response, done) => {
-                for (const issue of response.data || []) {
-                  if (issue.pull_request) {
-                    continue;
-                  }
-                  const labels = Array.isArray(issue.labels) ? issue.labels : [];
-                  if (
-                    labels.some((label) => {
-                      const name = typeof label === 'string' ? label : label?.name;
-                      return typeof name === 'string' && name.startsWith('agent:');
-                    })
-                  ) {
-                    count += 1;
-                    if (count > 0 && !keepaliveRequested) {
-                      done();
-                      break;
-                    }
-                  }
-                }
-                return [];
-              }
-            );
-
-            const hasWork = keepaliveRequested || count > 0;
-            const elapsed = Math.round((Date.now() - started) / 100) / 10;
-            core.setOutput('has_work', hasWork ? 'true' : 'false');
-
-            summary.addHeading('Agents orchestrator idle precheck');
-            summary.addRaw(`agent:* issues detected: ${count}`);
-            summary.addEOL();
-            summary.addRaw(`Duration: ${elapsed.toFixed(1)}s`);
-            summary.addEOL();
-            if (keepaliveRequested) {
-              const sources = Array.from(keepaliveSources);
-              summary
-                .addRaw(`Keepalive override: requested via ${sources.length ? sources.join(', ') : 'inputs'}.`)
-                .addEOL();
-              if (keepaliveTrace) {
-                summary.addRaw(`Keepalive trace: \`${keepaliveTrace}\``).addEOL();
-              }
-            }
-            if (!hasWork) {
-              summary.addRaw('Result: idle, skipping orchestrator dispatch.').addEOL();
-            }
-            await summary.write();
-
-            if (!hasWork) {
-              core.info('Idle, skipping orchestrator dispatch.');
-            } else if (keepaliveRequested) {
-              const traceInfo = keepaliveTrace ? ` (trace ${keepaliveTrace})` : '';
-              core.info(`Keepalive request detected${traceInfo}; proceeding regardless of open agent issues.`);
-            } else {
-              core.info(`Detected ${count} agent-triage issues; proceeding.`);
-            }
-
-  token-preflight:
-    name: Prepare keepalive write token
-    needs:
-      - idle-precheck
-    if: needs.idle-precheck.outputs.has_work == 'true'
-    runs-on: ubuntu-latest
-    outputs:
-      token_source: ${{ steps.select.outputs.token || '' }}
-    steps:
-      - name: Select write token
-        id: select
-        env:
-          ACTIONS_TOKEN: ${{ secrets.ACTIONS_BOT_PAT }}
-          SERVICE_TOKEN: ${{ secrets.SERVICE_BOT_PAT }}
-        run: |
-          set -euo pipefail
-          if [ -n "${ACTIONS_TOKEN}" ]; then
-            printf 'token=%s\n' 'ACTIONS_BOT_PAT' >>"${GITHUB_OUTPUT}"
-            exit 0
-          fi
-          if [ -n "${SERVICE_TOKEN}" ]; then
-            printf 'token=%s\n' 'SERVICE_BOT_PAT' >>"${GITHUB_OUTPUT}"
-            exit 0
-          fi
-          echo '::error::Keepalive orchestrator requires ACTIONS_BOT_PAT or SERVICE_BOT_PAT.' >&2
-          exit 1
-      - name: Probe keepalive token identity
-        if: steps.select.outcome == 'success'
-        id: probe_token_identity
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ steps.select.outputs.token == 'ACTIONS_BOT_PAT' && secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
-          script: |
-            const { data } = await github.rest.users.getAuthenticated();
-            const login = (data?.login || '').trim();
-            if (!login) {
-              core.setFailed('Unable to determine identity for keepalive write token.');
-              return;
-            }
-            core.setOutput('login', login);
-
-      - name: Enforce keepalive token identity
-        if: steps.select.outcome == 'success'
-        env:
-          TOKEN_SOURCE: ${{ steps.select.outputs.token || 'none' }}
-          TOKEN_LOGIN: ${{ steps.probe_token_identity.outputs.login || '' }}
-        run: |
-          set -euo pipefail
-          token="${TOKEN_SOURCE:-none}"
-          login="${TOKEN_LOGIN:-}"
-          if [ -z "${login}" ]; then
-            echo "::error::Keepalive write token identity is unknown." >&2
-            exit 1
-          fi
-
-          case "${token}" in
-            'ACTIONS_BOT_PAT')
-              if [ "${login}" != 'stranske' ]; then
-                echo "::error::ACTIONS_BOT_PAT must authenticate as stranske; detected ${login}." >&2
-                exit 1
-              fi
-              ;;
-            'SERVICE_BOT_PAT')
-              if [ "${login}" != 'stranske-automation-bot' ]; then
-                echo "::error::SERVICE_BOT_PAT must authenticate as stranske-automation-bot; detected ${login}." >&2
-                exit 1
-              fi
-              ;;
-            *)
-              echo "::error::Unknown keepalive token source: ${token}." >&2
-              exit 1
-              ;;
-          esac
-
-          printf 'PREPOST: token=%s login=%s\n' "${token}" "${login}" >>"$GITHUB_STEP_SUMMARY"
-
-  resolve-params:
-    name: Resolve Parameters
-    needs:
-      - idle-precheck
-      - token-preflight
-    if: needs.idle-precheck.outputs.has_work == 'true'
-    runs-on: ubuntu-latest
-    outputs:
-      enable_readiness: ${{ steps.resolve.outputs.enable_readiness }}
-      readiness_agents: ${{ steps.resolve.outputs.readiness_agents }}
-      readiness_custom_logins: ${{ steps.resolve.outputs.readiness_custom_logins }}
-      require_all: ${{ steps.resolve.outputs.require_all }}
-      enable_preflight: ${{ steps.resolve.outputs.enable_preflight }}
-      codex_user: ${{ steps.resolve.outputs.codex_user }}
-      codex_command_phrase: ${{ steps.resolve.outputs.codex_command_phrase }}
-      enable_diagnostic: ${{ steps.resolve.outputs.enable_diagnostic }}
-      diagnostic_attempt_branch: ${{ steps.resolve.outputs.diagnostic_attempt_branch }}
-      diagnostic_dry_run: ${{ steps.resolve.outputs.diagnostic_dry_run }}
-      enable_verify_issue: ${{ steps.resolve.outputs.enable_verify_issue }}
-      verify_issue_number: ${{ steps.resolve.outputs.verify_issue_number }}
-      enable_watchdog: ${{ steps.resolve.outputs.enable_watchdog }}
-      enable_keepalive: ${{ steps.resolve.outputs.enable_keepalive }}
-      keepalive_pause_label: ${{ steps.resolve.outputs.keepalive_pause_label }}
-      keepalive_max_retries: ${{ steps.resolve.outputs.keepalive_max_retries }}
-      enable_bootstrap: ${{ steps.resolve.outputs.enable_bootstrap }}
-      bootstrap_issues_label: ${{ steps.resolve.outputs.bootstrap_issues_label }}
-      draft_pr: ${{ steps.resolve.outputs.draft_pr }}
-      verify_issue_valid_assignees: ${{ steps.resolve.outputs.verify_issue_valid_assignees }}
-      dry_run: ${{ steps.resolve.outputs.dry_run }}
-      options_json: ${{ steps.resolve.outputs.options_json }}
-      dispatcher_force_issue: ${{ steps.resolve.outputs.dispatcher_force_issue }}
-      worker_max_parallel: ${{ steps.resolve.outputs.worker_max_parallel }}
-      conveyor_max_merges: ${{ steps.resolve.outputs.conveyor_max_merges }}
-      keepalive_trace: ${{ steps.resolve.outputs.keepalive_trace }}
-      keepalive_round: ${{ steps.resolve.outputs.keepalive_round }}
-      keepalive_pr: ${{ steps.resolve.outputs.keepalive_pr }}
-    steps:
-      - name: Confirm default-branch execution context
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const ref = context.ref || '';
-            const defaultBranch = context.payload?.repository?.default_branch || 'main';
-            const expectedRef = `refs/heads/${defaultBranch}`;
-            core.info(`Workflow ref: ${ref}`);
-            core.info(`Repository default branch: ${defaultBranch}`);
-            if (context.eventName === 'schedule' && ref && ref !== expectedRef) {
-              core.setFailed(`Scheduled orchestrator runs must execute from ${expectedRef}, but received ${ref}.`);
-            }
-      - name: Bootstrap checkout resolver
-        uses: actions/checkout@v4
-        with:
-          path: helpers
-          sparse-checkout: |
-            .github/scripts
-          sparse-checkout-cone-mode: false
-          fetch-depth: 1
-      - name: Resolve workflow_run checkout source
-        id: checkout_source
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const { resolveCheckoutSource } = require('./helpers/.github/scripts/checkout_source.js');
-            const fallbackRepo = process.env.GITHUB_REPOSITORY || '';
-            const fallbackRef = context.sha || process.env.GITHUB_SHA || '';
-            const { repository, ref, warnings } = resolveCheckoutSource({
-              core,
-              context,
-              fallbackRepo,
-              fallbackRef,
-            });
-
-            core.setOutput('repository', repository);
-            core.setOutput('ref', ref);
-            warnings.forEach((warning) => core.warning(warning));
-      # Do not remove checkout; local helper is required.
-      - name: Checkout orchestrator scripts
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ steps.checkout_source.outputs.repository || github.repository }}
-          ref: ${{ steps.checkout_source.outputs.ref || github.sha }}
-          sparse-checkout: |
-            .github/scripts
-          sparse-checkout-cone-mode: false
-          fetch-depth: 2
-      - name: Resolve dispatch parameters
-        id: resolve
-        uses: actions/github-script@v7
-        env:
-          PARAMS_JSON: >-
-            ${{
-              github.event_name == 'workflow_dispatch' && github.event.inputs.params_json ||
-              github.event_name == 'repository_dispatch' && (
-                github.event.client_payload && github.event.client_payload.params && toJson(github.event.client_payload.params) ||
-                github.event.client_payload && github.event.client_payload.params_json ||
-                ''
-              ) ||
-              '{}'
-            }}
-          WORKFLOW_DRY_RUN: >-
-            ${{
-              github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run ||
-              github.event_name == 'repository_dispatch' && (
-                github.event.client_payload && github.event.client_payload.dry_run || ''
-              ) ||
-              ''
-            }}
-          WORKFLOW_OPTIONS_JSON: >-
-            ${{
-              github.event_name == 'workflow_dispatch' && github.event.inputs.options_json ||
-              github.event_name == 'repository_dispatch' && (
-                github.event.client_payload && github.event.client_payload.options && toJson(github.event.client_payload.options) ||
-                github.event.client_payload && github.event.client_payload.options_json ||
-                ''
-              ) ||
-              ''
-            }}
-          WORKFLOW_KEEPALIVE_ENABLED: >-
-            ${{
-              github.event_name == 'workflow_dispatch' && github.event.inputs.keepalive_enabled ||
-              github.event_name == 'repository_dispatch' && (
-                github.event.client_payload && github.event.client_payload.keepalive_enabled || ''
-              ) ||
-              ''
-            }}
-          WORKFLOW_KEEPALIVE_PR: >-
-            ${{
-              github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number ||
-              github.event_name == 'repository_dispatch' && (
-                github.event.client_payload && (
-                  github.event.client_payload.pr ||
-                  github.event.client_payload.pr_number ||
-                  github.event.client_payload.issue ||
-                  ''
-                )
-              ) ||
-              ''
-            }}
-        with:
-          script: |
-            // Do not remove checkout; local helper is required.
-            const { resolveOrchestratorParams } = require('./.github/scripts/agents_orchestrator_resolve.js');
-            await resolveOrchestratorParams({ github, context, core, env: process.env });
-
-      - name: Debug keepalive toggles
-        if: always()
-        run: |
-          echo "::notice::enable_keepalive=${{ steps.resolve.outputs.enable_keepalive }}"
-          echo "::notice::keepalive_requested=${{ steps.resolve.outputs.keepalive_requested }}"
-          echo "::notice::keepalive_paused_label=${{ steps.resolve.outputs.keepalive_paused_label }}"
-
   keepalive-guard:
     name: Evaluate keepalive gate
-    needs: resolve-params
-    if: needs.resolve-params.result == 'success'
+    needs: []
+    if: inputs.init_success == 'success'
     runs-on: ubuntu-latest
     outputs:
       proceed: ${{ steps.guard.outputs.proceed || 'true' }}
@@ -550,11 +128,11 @@ jobs:
         id: guard
         uses: actions/github-script@v7
         env:
-          KEEPALIVE_ENABLED: ${{ needs.resolve-params.outputs.enable_keepalive }}
-          KEEPALIVE_TRACE: ${{ needs.resolve-params.outputs.keepalive_trace }}
-          KEEPALIVE_ROUND: ${{ needs.resolve-params.outputs.keepalive_round }}
-          KEEPALIVE_PR: ${{ needs.resolve-params.outputs.keepalive_pr }}
-          KEEPALIVE_MAX_RETRIES: ${{ needs.resolve-params.outputs.keepalive_max_retries || '5' }}
+          KEEPALIVE_ENABLED: ${{ inputs.enable_keepalive }}
+          KEEPALIVE_TRACE: ${{ inputs.keepalive_trace }}
+          KEEPALIVE_ROUND: ${{ inputs.keepalive_round }}
+          KEEPALIVE_PR: ${{ inputs.keepalive_pr }}
+          KEEPALIVE_MAX_RETRIES: ${{ inputs.keepalive_max_retries || '5' }}
         with:
           github-token: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT || github.token }}
           script: |
@@ -1010,7 +588,7 @@ jobs:
         run: |
           echo "::notice::keepalive_gate_proceed=${{ steps.guard.outputs.proceed }}"
           echo "::notice::keepalive_gate_reason=${{ steps.guard.outputs.reason }}"
-          echo "::notice::resolve_enable_keepalive=${{ needs.resolve-params.outputs.enable_keepalive }}"
+          echo "::notice::resolve_enable_keepalive=${{ inputs.enable_keepalive }}"
           echo "::notice::keepalive_run_cap=${{ steps.guard.outputs.run_cap }}"
           echo "::notice::keepalive_active_runs=${{ steps.guard.outputs.active_runs }}"
           echo "::notice::keepalive_active_runs_inflight=${{ steps.guard.outputs.active_runs_inflight }}"
@@ -1048,7 +626,7 @@ jobs:
         env:
           OK: ${{ steps.guard.outputs.proceed || 'false' }}
           REASON: ${{ steps.guard.outputs.reason || 'unspecified' }}
-          PR_NUMBER: ${{ needs.resolve-params.outputs.keepalive_pr || '' }}
+          PR_NUMBER: ${{ inputs.keepalive_pr || '' }}
           AGENT_ALIAS: ${{ steps.guard.outputs.agent_alias || '' }}
           CAP: ${{ steps.guard.outputs.cap || steps.guard.outputs.run_cap || '2' }}
           ACTIVE: ${{ steps.guard.outputs.active || steps.guard.outputs.active_runs || '0' }}
@@ -1058,7 +636,6 @@ jobs:
   keepalive-cap:
     name: Enforce keepalive run cap
     needs:
-      - resolve-params
       - keepalive-guard
     if: needs.keepalive-guard.outputs.proceed != 'false'
     runs-on: ubuntu-latest
@@ -1080,9 +657,9 @@ jobs:
         id: cap
         uses: actions/github-script@v7
         env:
-          PR_NUMBER: ${{ needs.resolve-params.outputs.keepalive_pr || '' }}
-          ENABLE_KEEPALIVE: ${{ needs.resolve-params.outputs.enable_keepalive || 'false' }}
-          FALLBACK_WORKER_MAX: ${{ needs.resolve-params.outputs.worker_max_parallel || '1' }}
+          PR_NUMBER: ${{ inputs.keepalive_pr || '' }}
+          ENABLE_KEEPALIVE: ${{ inputs.enable_keepalive || 'false' }}
+          FALLBACK_WORKER_MAX: ${{ inputs.worker_max_parallel || '1' }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -1153,7 +730,7 @@ jobs:
             "${reason}" "${pr}" "${cap}" "${active}" >>"$GITHUB_STEP_SUMMARY"
         env:
           REASON: ${{ steps.cap.outputs.reason || 'run-cap-reached' }}
-          PR_NUMBER: ${{ needs.resolve-params.outputs.keepalive_pr || '' }}
+          PR_NUMBER: ${{ inputs.keepalive_pr || '' }}
           CAP: ${{ steps.cap.outputs.cap || '' }}
           ACTIVE: ${{ steps.cap.outputs.active || '' }}
 
@@ -1161,7 +738,6 @@ jobs:
   resolve-orchestrator-context:
     name: Resolve orchestrator context
     needs:
-      - resolve-params
       - keepalive-guard
     if: needs.keepalive-guard.outputs.proceed != 'false'
     runs-on: ubuntu-latest
@@ -1283,12 +859,11 @@ jobs:
   keepalive-prep:
     name: Prepare keepalive round
     needs:
-      - resolve-params
       - keepalive-guard
       - keepalive-cap
     if: |
       needs.keepalive-guard.outputs.proceed != 'false' &&
-      needs.resolve-params.outputs.enable_keepalive == 'true' &&
+      inputs.enable_keepalive == 'true' &&
       needs.keepalive-cap.outputs.ok == 'true'
     runs-on: ubuntu-latest
     outputs:
@@ -1328,9 +903,9 @@ jobs:
         id: prepare
         uses: actions/github-script@v7
         env:
-          PR_NUMBER: ${{ needs.resolve-params.outputs.keepalive_pr }}
-          ROUND_HINT: ${{ needs.resolve-params.outputs.keepalive_round }}
-          OPTIONS_JSON: ${{ needs.resolve-params.outputs.options_json }}
+          PR_NUMBER: ${{ inputs.keepalive_pr }}
+          ROUND_HINT: ${{ inputs.keepalive_round }}
+          OPTIONS_JSON: ${{ inputs.options_json }}
           ACTIONS_AVAILABLE: ${{ secrets.ACTIONS_BOT_PAT != '' }}
           SERVICE_AVAILABLE: ${{ secrets.SERVICE_BOT_PAT != '' }}
           AGENT_ALIAS: ${{ needs.keepalive-guard.outputs.agent_alias }}
@@ -1834,7 +1409,6 @@ jobs:
   orchestrate:
     name: Dispatch Agents Toolkit
     needs:
-      - resolve-params
       - keepalive-guard
       - resolve-orchestrator-context
     if: needs.keepalive-guard.outputs.proceed != 'false'
@@ -1844,26 +1418,26 @@ jobs:
     uses: ./.github/workflows/reusable-16-agents.yml
     # Job timeouts live inside reusable-16-agents.yml to satisfy workflow_call constraints.
     with:
-      enable_readiness: ${{ needs.resolve-params.outputs.enable_readiness }}
-      readiness_agents: ${{ needs.resolve-params.outputs.readiness_agents }}
-      readiness_custom_logins: ${{ needs.resolve-params.outputs.readiness_custom_logins }}
-      require_all: ${{ needs.resolve-params.outputs.require_all }}
-      enable_preflight: ${{ needs.resolve-params.outputs.enable_preflight }}
-      codex_user: ${{ needs.resolve-params.outputs.codex_user }}
-      codex_command_phrase: ${{ needs.resolve-params.outputs.codex_command_phrase }}
-      enable_diagnostic: ${{ needs.resolve-params.outputs.enable_diagnostic }}
-      diagnostic_attempt_branch: ${{ needs.resolve-params.outputs.diagnostic_attempt_branch }}
-      diagnostic_dry_run: ${{ needs.resolve-params.outputs.diagnostic_dry_run }}
-      enable_verify_issue: ${{ needs.resolve-params.outputs.enable_verify_issue }}
-      verify_issue_number: ${{ needs.resolve-params.outputs.verify_issue_number }}
-      enable_watchdog: ${{ needs.resolve-params.outputs.enable_watchdog }}
-      enable_keepalive: ${{ needs.resolve-params.outputs.enable_keepalive }}
-      enable_bootstrap: ${{ needs.resolve-params.outputs.enable_bootstrap }}
-      bootstrap_issues_label: ${{ needs.resolve-params.outputs.bootstrap_issues_label }}
-      draft_pr: ${{ needs.resolve-params.outputs.draft_pr }}
-      verify_issue_valid_assignees: ${{ needs.resolve-params.outputs.verify_issue_valid_assignees }}
-      dry_run: ${{ needs.resolve-params.outputs.dry_run }}
-      options_json: ${{ needs.resolve-params.outputs.options_json }}
+      enable_readiness: ${{ inputs.enable_readiness }}
+      readiness_agents: ${{ inputs.readiness_agents }}
+      readiness_custom_logins: ${{ inputs.readiness_custom_logins }}
+      require_all: ${{ inputs.require_all }}
+      enable_preflight: ${{ inputs.enable_preflight }}
+      codex_user: ${{ inputs.codex_user }}
+      codex_command_phrase: ${{ inputs.codex_command_phrase }}
+      enable_diagnostic: ${{ inputs.enable_diagnostic }}
+      diagnostic_attempt_branch: ${{ inputs.diagnostic_attempt_branch }}
+      diagnostic_dry_run: ${{ inputs.diagnostic_dry_run }}
+      enable_verify_issue: ${{ inputs.enable_verify_issue }}
+      verify_issue_number: ${{ inputs.verify_issue_number }}
+      enable_watchdog: ${{ inputs.enable_watchdog }}
+      enable_keepalive: ${{ inputs.enable_keepalive }}
+      enable_bootstrap: ${{ inputs.enable_bootstrap }}
+      bootstrap_issues_label: ${{ inputs.bootstrap_issues_label }}
+      draft_pr: ${{ inputs.draft_pr }}
+      verify_issue_valid_assignees: ${{ inputs.verify_issue_valid_assignees }}
+      dry_run: ${{ inputs.dry_run }}
+      options_json: ${{ inputs.options_json }}
     secrets:
       service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
       ACTIONS_BOT_PAT: ${{ secrets.ACTIONS_BOT_PAT }}
@@ -1871,33 +1445,31 @@ jobs:
   verify-assignment:
     name: Verify Assignment
     needs:
-      - resolve-params
       - keepalive-guard
     if: |
       needs.keepalive-guard.outputs.proceed != 'false' &&
-      needs.resolve-params.outputs.enable_verify_issue == 'true' &&
-      needs.resolve-params.outputs.verify_issue_number != ''
+      inputs.enable_verify_issue == 'true' &&
+      inputs.verify_issue_number != ''
     uses: ./.github/workflows/agents-64-verify-agent-assignment.yml
     with:
-      issue_number: ${{ needs.resolve-params.outputs.verify_issue_number }}
-      valid_assignees: ${{ needs.resolve-params.outputs.verify_issue_valid_assignees }}
+      issue_number: ${{ inputs.verify_issue_number }}
+      valid_assignees: ${{ inputs.verify_issue_valid_assignees }}
 
   verify-assignment-summary:
     name: Record Verification Outcome
     needs:
-      - resolve-params
       - keepalive-guard
       - verify-assignment
     if: |
       needs.keepalive-guard.outputs.proceed != 'false' &&
-      needs.resolve-params.outputs.enable_verify_issue == 'true' &&
-      needs.resolve-params.outputs.verify_issue_number != '' &&
+      inputs.enable_verify_issue == 'true' &&
+      inputs.verify_issue_number != '' &&
       needs.verify-assignment.result == 'success'
     runs-on: ubuntu-latest
     steps:
       - name: Append verification summary
         env:
-          ISSUE_NUMBER: ${{ needs.resolve-params.outputs.verify_issue_number }}
+          ISSUE_NUMBER: ${{ inputs.verify_issue_number }}
           STATUS: ${{ needs.verify-assignment.outputs.status }}
           MESSAGE: ${{ needs.verify-assignment.outputs.message }}
           MATCHED: ${{ needs.verify-assignment.outputs.matched_assignee }}
@@ -1917,12 +1489,11 @@ jobs:
   belt-dispatch:
     name: Codex Belt Dispatcher
     needs:
-      - resolve-params
       - keepalive-guard
     uses: ./.github/workflows/agents-71-codex-belt-dispatcher.yml
     with:
-      force_issue: ${{ needs.resolve-params.outputs.dispatcher_force_issue }}
-      dry_run: ${{ needs.resolve-params.outputs.dry_run == 'true' }}
+      force_issue: ${{ inputs.dispatcher_force_issue }}
+      dry_run: ${{ inputs.dry_run == 'true' }}
     secrets:
       ACTIONS_BOT_PAT: ${{ secrets.ACTIONS_BOT_PAT }}
 
@@ -1931,7 +1502,6 @@ jobs:
     needs:
       - belt-dispatch
       - keepalive-guard
-      - resolve-params
     if: |
       needs.keepalive-guard.outputs.proceed != 'false' &&
       needs.belt-dispatch.outputs.issue != '' &&
@@ -1946,7 +1516,7 @@ jobs:
         id: lookup
         uses: actions/github-script@v7
         env:
-          KEEPALIVE_ENABLED: ${{ needs.resolve-params.outputs.enable_keepalive }}
+          KEEPALIVE_ENABLED: ${{ inputs.enable_keepalive }}
         with:
           script: |
             const { owner, repo } = context.repo;
@@ -1999,7 +1569,6 @@ jobs:
   belt-worker:
     name: Codex Belt Worker
     needs:
-      - resolve-params
       - belt-dispatch
       - keepalive-guard
       - keepalive-cap
@@ -2011,7 +1580,7 @@ jobs:
       needs.belt-dispatch.outputs.issue != ''
       && (
         needs.belt-check-existing-pr.outputs.pr_exists != 'true' ||
-        needs.resolve-params.outputs.enable_keepalive == 'true'
+        inputs.enable_keepalive == 'true'
       )
     uses: ./.github/workflows/agents-72-codex-belt-worker.yml
     with:
@@ -2019,24 +1588,23 @@ jobs:
       branch: ${{ needs.belt-dispatch.outputs.branch }}
       base: ${{ needs.belt-dispatch.outputs.base }}
       source: ${{ needs.belt-dispatch.outputs.reason }}
-      dry_run: ${{ needs.resolve-params.outputs.dry_run == 'true' || needs.belt-dispatch.outputs.dry_run == 'true' }}
+      dry_run: ${{ inputs.dry_run == 'true' || needs.belt-dispatch.outputs.dry_run == 'true' }}
       max_parallel: ${{ fromJson(needs.keepalive-cap.outputs.cap || '1') }}
-      keepalive: ${{ needs.resolve-params.outputs.enable_keepalive == 'true' }}
+      keepalive: ${{ inputs.enable_keepalive == 'true' }}
     secrets:
       ACTIONS_BOT_PAT: ${{ secrets.ACTIONS_BOT_PAT }}
 
   dry-run-branch-sync:
     name: Validate branch sync (dry-run)
     needs:
-      - resolve-params
       - keepalive-guard
       - keepalive-prep
       - belt-dispatch
       - belt-worker
     if: |
       needs.keepalive-guard.outputs.proceed != 'false' &&
-      needs.resolve-params.outputs.enable_keepalive == 'true' &&
-      (needs.resolve-params.outputs.dry_run == 'true' || needs.belt-dispatch.outputs.dry_run == 'true') &&
+      inputs.enable_keepalive == 'true' &&
+      (inputs.dry_run == 'true' || needs.belt-dispatch.outputs.dry_run == 'true') &&
       needs.keepalive-prep.outputs.trace != '' &&
       needs.keepalive-prep.outputs.pr_number != '' &&
       needs.keepalive-prep.outputs.base_ref != '' &&
@@ -2303,20 +1871,19 @@ jobs:
   keepalive-post-work:
     name: Keepalive post-work sync
     needs:
-      - resolve-params
       - keepalive-guard
       - keepalive-prep
       - belt-dispatch
       - belt-worker
     if: |
       needs.keepalive-guard.outputs.proceed != 'false' &&
-      needs.resolve-params.outputs.enable_keepalive == 'true' &&
+      inputs.enable_keepalive == 'true' &&
       needs.keepalive-prep.outputs.trace != '' &&
       needs.keepalive-prep.outputs.pr_number != '' &&
       needs.belt-dispatch.outputs.issue != '' &&
       needs.belt-dispatch.outputs.branch != '' &&
       needs.belt-worker.result == 'success' &&
-      needs.resolve-params.outputs.dry_run != 'true'
+      inputs.dry_run != 'true'
     runs-on: ubuntu-latest
     permissions:
       actions: write
@@ -2390,16 +1957,14 @@ jobs:
   keepalive-instruction:
     name: Post keepalive instruction
     needs:
-      - resolve-params
       - keepalive-guard
       - keepalive-cap
       - keepalive-prep
       - keepalive-post-work
-      - token-preflight
     if: |
       always() &&
       needs.keepalive-guard.outputs.proceed != 'false' &&
-      needs.resolve-params.outputs.enable_keepalive == 'true' &&
+      inputs.enable_keepalive == 'true' &&
       needs.keepalive-cap.outputs.ok == 'true'
     runs-on: ubuntu-latest
     outputs:
@@ -2491,7 +2056,7 @@ jobs:
           POST_WORK_RESULT: ${{ needs.keepalive-post-work.result || '' }}
           POST_WORK_SUCCESS: ${{ needs.keepalive-post-work.outputs.success || '' }}
           POST_WORK_CHANGED: ${{ needs.keepalive-post-work.outputs.changed || '' }}
-          DRY_RUN: ${{ needs.resolve-params.outputs.dry_run || '' }}
+          DRY_RUN: ${{ inputs.dry_run || '' }}
           EXISTING_ROUND: ${{ needs.keepalive-prep.outputs.existing_instruction_round || '' }}
           EXISTING_TRACE: ${{ needs.keepalive-prep.outputs.existing_instruction_trace || '' }}
           EXISTING_REACTION: ${{ needs.keepalive-prep.outputs.existing_instruction_reaction || 'false' }}
@@ -2514,7 +2079,7 @@ jobs:
         if: steps.gate.outputs.should_post == 'true'
         shell: bash
         env:
-          PREFLIGHT_TOKEN: ${{ needs.token-preflight.outputs.token_source || '' }}
+          PREFLIGHT_TOKEN: ${{ inputs.token_source || '' }}
         run: |
           set -euo pipefail
           token="${PREFLIGHT_TOKEN}"
@@ -2783,7 +2348,7 @@ jobs:
           COMMENT_URL: ${{ steps.capture_comment.outputs.comment_url }}
           ROUND: ${{ needs.keepalive-prep.outputs.round }}
           TRACE: ${{ needs.keepalive-prep.outputs.trace }}
-          ISSUE_NUMBER: ${{ needs.resolve-params.outputs.dispatcher_force_issue }}
+          ISSUE_NUMBER: ${{ inputs.dispatcher_force_issue }}
           DISPATCH_MODE: ${{ needs.keepalive-prep.outputs.dispatch_mode }}
           AGENT_ALIAS: ${{ needs.keepalive-prep.outputs.agent }}
           INSTRUCTION_BODY: ${{ needs.keepalive-prep.outputs.instruction_body }}
@@ -2974,7 +2539,6 @@ jobs:
       - keepalive-instruction
       - keepalive-post-work
       - dry-run-branch-sync
-      - resolve-params
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -2986,8 +2550,8 @@ jobs:
           CAP_OK: ${{ needs.keepalive-cap.outputs.ok || 'false' }}
           SHOULD_POST: ${{ needs.keepalive-instruction.outputs.should_post || 'false' }}
           COMMENT_ID: ${{ needs.keepalive-instruction.outputs.comment_id || '' }}
-          TRACE: ${{ needs.keepalive-instruction.outputs.trace || needs.keepalive-prep.outputs.trace || needs.resolve-params.outputs.keepalive_trace || '' }}
-          PR_NUMBER: ${{ needs.keepalive-instruction.outputs.pr_number || needs.keepalive-prep.outputs.pr_number || needs.resolve-params.outputs.keepalive_pr || '' }}
+          TRACE: ${{ needs.keepalive-instruction.outputs.trace || needs.keepalive-prep.outputs.trace || inputs.keepalive_trace || '' }}
+          PR_NUMBER: ${{ needs.keepalive-instruction.outputs.pr_number || needs.keepalive-prep.outputs.pr_number || inputs.keepalive_pr || '' }}
           BASELINE_HEAD: ${{ needs.keepalive-prep.outputs.baseline_head || '' }}
           WORKER_RESULT: ${{ needs.belt-worker.result || '' }}
           INSTRUCTION_RESULT: ${{ needs.keepalive-instruction.result || '' }}
@@ -3043,7 +2607,7 @@ jobs:
         if: always()
         shell: bash
         env:
-          TRACE: ${{ needs.keepalive-instruction.outputs.trace || needs.keepalive-prep.outputs.trace || needs.resolve-params.outputs.keepalive_trace || '' }}
+          TRACE: ${{ needs.keepalive-instruction.outputs.trace || needs.keepalive-prep.outputs.trace || inputs.keepalive_trace || '' }}
           ACTION: ${{ needs.keepalive-post-work.outputs.action || '' }}
           CHANGED: ${{ needs.keepalive-post-work.outputs.changed || 'false' }}
           LINK: ${{ needs.keepalive-post-work.outputs.link || '-' }}
@@ -3068,7 +2632,7 @@ jobs:
             printf 'SYNC: action=%s head_changed=%s link=%s trace=%s\n' "${action}" "${head_changed}" "${link}" "${trace}" >>"$GITHUB_STEP_SUMMARY"
 
       - name: Record existing PR guard outcome
-        if: needs.belt-check-existing-pr.outputs.pr_exists == 'true' && needs.resolve-params.outputs.enable_keepalive != 'true'
+        if: needs.belt-check-existing-pr.outputs.pr_exists == 'true' && inputs.enable_keepalive != 'true'
         run: |
           cat <<'EOF' >>"$GITHUB_STEP_SUMMARY"
           ## Codex belt worker guard
@@ -3099,9 +2663,9 @@ jobs:
           DISPATCH_RESULT: ${{ needs.belt-dispatch.result || '' }}
           DISPATCH_ISSUE: ${{ needs.belt-dispatch.outputs.issue || '' }}
           DISPATCH_REASON: ${{ needs.belt-dispatch.outputs.reason || '' }}
-          WORKER_RESULT: "${{ (needs.belt-check-existing-pr.outputs.pr_exists == 'true' && needs.resolve-params.outputs.enable_keepalive != 'true') && 'skipped: PR exists.' || needs.belt-worker.result || '' }}"
+          WORKER_RESULT: "${{ (needs.belt-check-existing-pr.outputs.pr_exists == 'true' && inputs.enable_keepalive != 'true') && 'skipped: PR exists.' || needs.belt-worker.result || '' }}"
           WORKER_ALLOWED: ${{ needs.belt-worker.outputs.allowed || '' }}
-          WORKER_PR_NUMBER: "${{ (needs.belt-check-existing-pr.outputs.pr_exists == 'true' && needs.resolve-params.outputs.enable_keepalive != 'true') && needs.belt-check-existing-pr.outputs.pr_number || needs.belt-worker.outputs.pr_number || needs.keepalive-instruction.outputs.pr_number || needs.resolve-params.outputs.keepalive_pr || '' }}"
+          WORKER_PR_NUMBER: "${{ (needs.belt-check-existing-pr.outputs.pr_exists == 'true' && inputs.enable_keepalive != 'true') && needs.belt-check-existing-pr.outputs.pr_number || needs.belt-worker.outputs.pr_number || needs.keepalive-instruction.outputs.pr_number || inputs.keepalive_pr || '' }}"
           WORKER_BRANCH: ${{ needs.belt-worker.outputs.branch || needs.belt-dispatch.outputs.branch || '' }}
           WORKER_DRY_RUN: ${{ needs.belt-worker.outputs.dry_run || '' }}
           KEEPALIVE_ACTION: ${{ needs.belt-worker.outputs.keepalive_action || '' }}
@@ -3119,8 +2683,8 @@ jobs:
         uses: actions/github-script@v7
         env:
           KEEPALIVE_TRACE: ${{ needs.keepalive-instruction.outputs.trace }}
-          KEEPALIVE_ROUND: ${{ needs.keepalive-instruction.outputs.round || needs.resolve-params.outputs.keepalive_round }}
-          KEEPALIVE_PR: ${{ needs.keepalive-instruction.outputs.pr_number || needs.belt-worker.outputs.pr_number || needs.resolve-params.outputs.keepalive_pr || '' }}
+          KEEPALIVE_ROUND: ${{ needs.keepalive-instruction.outputs.round || inputs.keepalive_round }}
+          KEEPALIVE_PR: ${{ needs.keepalive-instruction.outputs.pr_number || needs.belt-worker.outputs.pr_number || inputs.keepalive_pr || '' }}
           WORKER_RESULT: ${{ needs.belt-worker.result || '' }}
           WORKER_BRANCH: ${{ needs.belt-worker.outputs.branch || needs.belt-dispatch.outputs.branch || '' }}
           WORKER_DRY_RUN: ${{ needs.belt-worker.outputs.dry_run || '' }}
@@ -3270,13 +2834,12 @@ jobs:
   belt-scan-ready-prs:
     name: Scan Codex promotion queue
     needs:
-      - resolve-params
       - keepalive-guard
     runs-on: ubuntu-latest
     outputs:
       items: ${{ steps.scan.outputs.items || '[]' }}
     env:
-      MAX_PROMOTIONS: ${{ needs.resolve-params.outputs.conveyor_max_merges }}
+      MAX_PROMOTIONS: ${{ inputs.conveyor_max_merges }}
     steps:
       # Do not remove checkout; local helper is required.
       - name: Checkout orchestrator scripts
@@ -3298,12 +2861,11 @@ jobs:
   belt-conveyor:
     name: Promote Codex PRs
     needs:
-      - resolve-params
       - belt-scan-ready-prs
       - keepalive-guard
     if: |
       needs.keepalive-guard.outputs.proceed != 'false' &&
-      needs.resolve-params.outputs.conveyor_max_merges != '0' &&
+      inputs.conveyor_max_merges != '0' &&
       needs.belt-scan-ready-prs.outputs.items != '' &&
       needs.belt-scan-ready-prs.outputs.items != '[]'
     strategy:
@@ -3315,17 +2877,16 @@ jobs:
       branch: ${{ matrix.pr.branch }}
       pr_number: ${{ matrix.pr.pr }}
       head_sha: ${{ matrix.pr.head_sha }}
-      dry_run: ${{ needs.resolve-params.outputs.dry_run == 'true' }}
+      dry_run: ${{ inputs.dry_run == 'true' }}
     secrets:
       ACTIONS_BOT_PAT: ${{ secrets.ACTIONS_BOT_PAT }}
 
   automerge-agent-prs:
     name: Auto-merge labelled agent PRs
     needs:
-      - resolve-params
       - belt-conveyor
       - keepalive-guard
-    if: needs.keepalive-guard.outputs.proceed != 'false' && needs.resolve-params.outputs.dry_run != 'true'
+    if: needs.keepalive-guard.outputs.proceed != 'false' && inputs.dry_run != 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Merge Codex PRs tagged for automerge
@@ -3334,7 +2895,7 @@ jobs:
         env:
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch || '' }}
           AUTOMERGE_LABEL: automerge
-          AUTOMATION_USERS: ${{ needs.resolve-params.outputs.codex_user }}
+          AUTOMATION_USERS: ${{ inputs.codex_user }}
         with:
           github-token: ${{ secrets.OWNER_PR_PAT || secrets.SERVICE_BOT_PAT || github.token }}
           script: |

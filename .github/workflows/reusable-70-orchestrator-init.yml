@@ -1,0 +1,447 @@
+name: Agents 70 Init (Reusable)
+
+on:
+  workflow_call:
+    inputs:
+      params_json:
+        description: 'JSON payload of orchestrator parameters to merge with defaults.'
+        required: false
+        type: string
+        default: '{}'
+      options_json:
+        description: 'Advanced orchestrator options encoded as JSON.'
+        required: false
+        type: string
+        default: '{}'
+      dry_run:
+        description: 'Execute orchestrator in dry-run mode (no write operations).'
+        required: false
+        type: string
+        default: 'false'
+      keepalive_enabled:
+        description: 'Enable Codex keepalive sweep for this run (set false to pause).'
+        required: false
+        type: string
+        default: 'true'
+      pr_number:
+        description: 'Optional pull request number when targeting a specific branch.'
+        required: false
+        type: string
+        default: ''
+    secrets:
+      ACTIONS_BOT_PAT:
+        required: false
+      SERVICE_BOT_PAT:
+        required: false
+    outputs:
+      rate_limit_safe:
+        description: 'Whether rate limit is safe to proceed'
+        value: ${{ jobs.rate-limit-check.outputs.safe }}
+      has_work:
+        description: 'Whether there is work to do'
+        value: ${{ jobs.idle-precheck.outputs.has_work }}
+      token_source:
+        description: 'Which token to use for keepalive'
+        value: ${{ jobs.token-preflight.outputs.token_source }}
+      enable_readiness:
+        value: ${{ jobs.resolve-params.outputs.enable_readiness }}
+      readiness_agents:
+        value: ${{ jobs.resolve-params.outputs.readiness_agents }}
+      readiness_custom_logins:
+        value: ${{ jobs.resolve-params.outputs.readiness_custom_logins }}
+      require_all:
+        value: ${{ jobs.resolve-params.outputs.require_all }}
+      enable_preflight:
+        value: ${{ jobs.resolve-params.outputs.enable_preflight }}
+      codex_user:
+        value: ${{ jobs.resolve-params.outputs.codex_user }}
+      codex_command_phrase:
+        value: ${{ jobs.resolve-params.outputs.codex_command_phrase }}
+      enable_diagnostic:
+        value: ${{ jobs.resolve-params.outputs.enable_diagnostic }}
+      diagnostic_attempt_branch:
+        value: ${{ jobs.resolve-params.outputs.diagnostic_attempt_branch }}
+      diagnostic_dry_run:
+        value: ${{ jobs.resolve-params.outputs.diagnostic_dry_run }}
+      enable_verify_issue:
+        value: ${{ jobs.resolve-params.outputs.enable_verify_issue }}
+      verify_issue_number:
+        value: ${{ jobs.resolve-params.outputs.verify_issue_number }}
+      enable_watchdog:
+        value: ${{ jobs.resolve-params.outputs.enable_watchdog }}
+      enable_keepalive:
+        value: ${{ jobs.resolve-params.outputs.enable_keepalive }}
+      keepalive_pause_label:
+        value: ${{ jobs.resolve-params.outputs.keepalive_pause_label }}
+      keepalive_max_retries:
+        value: ${{ jobs.resolve-params.outputs.keepalive_max_retries }}
+      enable_bootstrap:
+        value: ${{ jobs.resolve-params.outputs.enable_bootstrap }}
+      bootstrap_issues_label:
+        value: ${{ jobs.resolve-params.outputs.bootstrap_issues_label }}
+      draft_pr:
+        value: ${{ jobs.resolve-params.outputs.draft_pr }}
+      verify_issue_valid_assignees:
+        value: ${{ jobs.resolve-params.outputs.verify_issue_valid_assignees }}
+      dry_run:
+        value: ${{ jobs.resolve-params.outputs.dry_run }}
+      options_json:
+        value: ${{ jobs.resolve-params.outputs.options_json }}
+      dispatcher_force_issue:
+        value: ${{ jobs.resolve-params.outputs.dispatcher_force_issue }}
+      worker_max_parallel:
+        value: ${{ jobs.resolve-params.outputs.worker_max_parallel }}
+      conveyor_max_merges:
+        value: ${{ jobs.resolve-params.outputs.conveyor_max_merges }}
+      keepalive_trace:
+        value: ${{ jobs.resolve-params.outputs.keepalive_trace }}
+      keepalive_round:
+        value: ${{ jobs.resolve-params.outputs.keepalive_round }}
+      keepalive_pr:
+        value: ${{ jobs.resolve-params.outputs.keepalive_pr }}
+
+jobs:
+  rate-limit-check:
+    name: Rate limit pre-check
+    runs-on: ubuntu-latest
+    outputs:
+      safe: ${{ steps.check.outputs.safe || 'true' }}
+      remaining: ${{ steps.check.outputs.remaining || '-1' }}
+      reset_time: ${{ steps.check.outputs.reset_time || '' }}
+    steps:
+      - name: Checkout API helpers
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            .github/scripts
+          sparse-checkout-cone-mode: false
+          fetch-depth: 1
+
+      - name: Check GitHub API rate limit
+        id: check
+        uses: actions/github-script@v7
+        env:
+          RATE_LIMIT_THRESHOLD: '1000'
+        with:
+          script: |
+            const path = require('path');
+            const { checkRateLimitStatus } = require(
+              path.join(process.env.GITHUB_WORKSPACE, '.github/scripts/api-helpers.js')
+            );
+            const threshold = parseInt(process.env.RATE_LIMIT_THRESHOLD || '500', 10);
+            const status = await checkRateLimitStatus(github, { threshold, core });
+
+            core.setOutput('safe', status.safe ? 'true' : 'false');
+            core.setOutput('remaining', String(status.remaining));
+            core.setOutput('reset_time', status.resetTime || '');
+            core.setOutput('percent_used', String(status.percentUsed));
+
+            const summary = core.summary;
+            summary.addHeading('Rate Limit Status', 3);
+            summary.addHeading('Personal Access Token (PAT)', 4);
+            if (status.error) {
+              summary.addRaw(`⚠️ Could not check rate limit: ${status.error}`).addEOL();
+              summary.addRaw('Proceeding with orchestrator run.').addEOL();
+            } else {
+              const icon = status.safe ? '✅' : '⛔';
+              summary.addRaw(`${icon} **${status.remaining}** / ${status.limit} requests remaining (${status.percentUsed}% used)`).addEOL();
+              summary.addRaw(`Threshold: ${threshold} | Resets at: ${status.resetTime}`).addEOL();
+              if (!status.safe) {
+                const waitMinutes = Math.ceil(status.waitTimeMs / 60000);
+                summary.addRaw(`**Deferring orchestrator run** — rate limit too low. Try again in ~${waitMinutes} minutes.`).addEOL();
+              }
+            }
+            summary.addHeading('Note', 4);
+            summary.addRaw('Installation token (GITHUB_TOKEN) has separate rate limits. ').addEOL();
+            summary.addRaw('Check workflow run headers for `x-ratelimit-*` if other jobs fail with rate limit errors.').addEOL();
+            await summary.write();
+            if (!status.safe) {
+              core.notice(`Rate limit low (${status.remaining}/${status.limit}). Deferring this orchestrator run until ${status.resetTime}.`);
+            }
+
+  idle-precheck:
+    name: Idle precheck
+    needs: rate-limit-check
+    if: needs.rate-limit-check.outputs.safe == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      has_work: ${{ steps.precheck.outputs.has_work || 'false' }}
+    steps:
+      - name: Count agent issues
+        id: precheck
+        uses: actions/github-script@v7
+        env:
+          INPUT_KEEPALIVE_ENABLED: ${{ inputs.keepalive_enabled }}
+          INPUT_PR_NUMBER: ${{ inputs.pr_number }}
+          INPUT_PARAMS_JSON: ${{ inputs.params_json }}
+          INPUT_OPTIONS_JSON: ${{ inputs.options_json }}
+        with:
+          script: |
+            const summary = core.summary;
+            const { owner, repo } = context.repo;
+            const started = Date.now();
+
+            const normalise = (value) => String(value ?? '').trim();
+            const toBool = (value) => {
+              if (typeof value === 'boolean') return value;
+              if (typeof value === 'number') return value !== 0;
+              const lowered = normalise(value).toLowerCase();
+              if (!lowered) return false;
+              return ['true', '1', 'yes', 'on'].includes(lowered);
+            };
+
+            const parseMaybeJson = (input) => {
+              if (!input) return null;
+              if (typeof input === 'object') return input;
+              if (typeof input === 'string') {
+                const trimmed = input.trim();
+                if (!trimmed) return null;
+                try { return JSON.parse(trimmed); }
+                catch (error) { core.debug?.(`idle-precheck: failed to parse JSON: ${error.message || error}`); }
+              }
+              return null;
+            };
+
+            let keepaliveRequested = false;
+            let keepaliveTrace = '';
+            const keepaliveSources = new Set();
+
+            const markKeepalive = (source, trace) => {
+              keepaliveRequested = true;
+              if (source) keepaliveSources.add(source);
+              if (!keepaliveTrace && typeof trace === 'string' && trace.trim()) keepaliveTrace = trace.trim();
+            };
+
+            // Check inputs from workflow_call
+            if (toBool(process.env.INPUT_KEEPALIVE_ENABLED)) {
+              markKeepalive('input.keepalive_enabled');
+            }
+            if (process.env.INPUT_PR_NUMBER?.trim()) {
+              markKeepalive('input.pr_number', process.env.INPUT_PR_NUMBER.trim());
+            }
+            const params = parseMaybeJson(process.env.INPUT_PARAMS_JSON);
+            if (params && toBool(params.enable_keepalive)) {
+              markKeepalive('input.params_json');
+            }
+            const options = parseMaybeJson(process.env.INPUT_OPTIONS_JSON);
+            if (options) {
+              const trace = options.keepalive_trace || options.trace;
+              if (trace) markKeepalive('input.options_json', trace);
+            }
+
+            let count = 0;
+            await github.paginate(
+              github.rest.issues.listForRepo,
+              { owner, repo, state: 'open', per_page: 100 },
+              (response, done) => {
+                for (const issue of response.data || []) {
+                  if (issue.pull_request) continue;
+                  const labels = Array.isArray(issue.labels) ? issue.labels : [];
+                  if (labels.some((label) => {
+                    const name = typeof label === 'string' ? label : label?.name;
+                    return typeof name === 'string' && name.startsWith('agent:');
+                  })) {
+                    count += 1;
+                    if (count > 0 && !keepaliveRequested) { done(); break; }
+                  }
+                }
+                return [];
+              }
+            );
+
+            const hasWork = keepaliveRequested || count > 0;
+            const elapsed = Math.round((Date.now() - started) / 100) / 10;
+            core.setOutput('has_work', hasWork ? 'true' : 'false');
+
+            summary.addHeading('Agents orchestrator idle precheck');
+            summary.addRaw(`agent:* issues detected: ${count}`).addEOL();
+            summary.addRaw(`Duration: ${elapsed.toFixed(1)}s`).addEOL();
+            if (keepaliveRequested) {
+              const sources = Array.from(keepaliveSources);
+              summary.addRaw(`Keepalive override: requested via ${sources.length ? sources.join(', ') : 'inputs'}.`).addEOL();
+              if (keepaliveTrace) summary.addRaw(`Keepalive trace: \`${keepaliveTrace}\``).addEOL();
+            }
+            if (!hasWork) summary.addRaw('Result: idle, skipping orchestrator dispatch.').addEOL();
+            await summary.write();
+
+            if (!hasWork) core.info('Idle, skipping orchestrator dispatch.');
+            else if (keepaliveRequested) {
+              const traceInfo = keepaliveTrace ? ` (trace ${keepaliveTrace})` : '';
+              core.info(`Keepalive request detected${traceInfo}; proceeding regardless of open agent issues.`);
+            } else core.info(`Detected ${count} agent-triage issues; proceeding.`);
+
+  token-preflight:
+    name: Prepare keepalive write token
+    needs: idle-precheck
+    if: needs.idle-precheck.outputs.has_work == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      token_source: ${{ steps.select.outputs.token || '' }}
+    steps:
+      - name: Select write token
+        id: select
+        env:
+          ACTIONS_TOKEN: ${{ secrets.ACTIONS_BOT_PAT }}
+          SERVICE_TOKEN: ${{ secrets.SERVICE_BOT_PAT }}
+        run: |
+          set -euo pipefail
+          if [ -n "${ACTIONS_TOKEN}" ]; then
+            printf 'token=%s\n' 'ACTIONS_BOT_PAT' >>"${GITHUB_OUTPUT}"
+            exit 0
+          fi
+          if [ -n "${SERVICE_TOKEN}" ]; then
+            printf 'token=%s\n' 'SERVICE_BOT_PAT' >>"${GITHUB_OUTPUT}"
+            exit 0
+          fi
+          echo '::error::Keepalive orchestrator requires ACTIONS_BOT_PAT or SERVICE_BOT_PAT.' >&2
+          exit 1
+
+      - name: Probe keepalive token identity
+        if: steps.select.outcome == 'success'
+        id: probe_token_identity
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ steps.select.outputs.token == 'ACTIONS_BOT_PAT' && secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
+          script: |
+            const { data } = await github.rest.users.getAuthenticated();
+            const login = (data?.login || '').trim();
+            if (!login) {
+              core.setFailed('Unable to determine identity for keepalive write token.');
+              return;
+            }
+            core.setOutput('login', login);
+
+      - name: Enforce keepalive token identity
+        if: steps.select.outcome == 'success'
+        env:
+          TOKEN_SOURCE: ${{ steps.select.outputs.token || 'none' }}
+          TOKEN_LOGIN: ${{ steps.probe_token_identity.outputs.login || '' }}
+        run: |
+          set -euo pipefail
+          token="${TOKEN_SOURCE:-none}"
+          login="${TOKEN_LOGIN:-}"
+          if [ -z "${login}" ]; then
+            echo "::error::Keepalive write token identity is unknown." >&2
+            exit 1
+          fi
+          case "${token}" in
+            'ACTIONS_BOT_PAT')
+              if [ "${login}" != 'stranske' ]; then
+                echo "::error::ACTIONS_BOT_PAT must authenticate as stranske; detected ${login}." >&2
+                exit 1
+              fi ;;
+            'SERVICE_BOT_PAT')
+              if [ "${login}" != 'stranske-automation-bot' ]; then
+                echo "::error::SERVICE_BOT_PAT must authenticate as stranske-automation-bot; detected ${login}." >&2
+                exit 1
+              fi ;;
+            *)
+              echo "::error::Unknown keepalive token source: ${token}." >&2
+              exit 1 ;;
+          esac
+          printf 'PREPOST: token=%s login=%s\n' "${token}" "${login}" >>"$GITHUB_STEP_SUMMARY"
+
+  resolve-params:
+    name: Resolve Parameters
+    needs:
+      - idle-precheck
+      - token-preflight
+    if: needs.idle-precheck.outputs.has_work == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      enable_readiness: ${{ steps.resolve.outputs.enable_readiness }}
+      readiness_agents: ${{ steps.resolve.outputs.readiness_agents }}
+      readiness_custom_logins: ${{ steps.resolve.outputs.readiness_custom_logins }}
+      require_all: ${{ steps.resolve.outputs.require_all }}
+      enable_preflight: ${{ steps.resolve.outputs.enable_preflight }}
+      codex_user: ${{ steps.resolve.outputs.codex_user }}
+      codex_command_phrase: ${{ steps.resolve.outputs.codex_command_phrase }}
+      enable_diagnostic: ${{ steps.resolve.outputs.enable_diagnostic }}
+      diagnostic_attempt_branch: ${{ steps.resolve.outputs.diagnostic_attempt_branch }}
+      diagnostic_dry_run: ${{ steps.resolve.outputs.diagnostic_dry_run }}
+      enable_verify_issue: ${{ steps.resolve.outputs.enable_verify_issue }}
+      verify_issue_number: ${{ steps.resolve.outputs.verify_issue_number }}
+      enable_watchdog: ${{ steps.resolve.outputs.enable_watchdog }}
+      enable_keepalive: ${{ steps.resolve.outputs.enable_keepalive }}
+      keepalive_pause_label: ${{ steps.resolve.outputs.keepalive_pause_label }}
+      keepalive_max_retries: ${{ steps.resolve.outputs.keepalive_max_retries }}
+      enable_bootstrap: ${{ steps.resolve.outputs.enable_bootstrap }}
+      bootstrap_issues_label: ${{ steps.resolve.outputs.bootstrap_issues_label }}
+      draft_pr: ${{ steps.resolve.outputs.draft_pr }}
+      verify_issue_valid_assignees: ${{ steps.resolve.outputs.verify_issue_valid_assignees }}
+      dry_run: ${{ steps.resolve.outputs.dry_run }}
+      options_json: ${{ steps.resolve.outputs.options_json }}
+      dispatcher_force_issue: ${{ steps.resolve.outputs.dispatcher_force_issue }}
+      worker_max_parallel: ${{ steps.resolve.outputs.worker_max_parallel }}
+      conveyor_max_merges: ${{ steps.resolve.outputs.conveyor_max_merges }}
+      keepalive_trace: ${{ steps.resolve.outputs.keepalive_trace }}
+      keepalive_round: ${{ steps.resolve.outputs.keepalive_round }}
+      keepalive_pr: ${{ steps.resolve.outputs.keepalive_pr }}
+    steps:
+      - name: Confirm default-branch execution context
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const ref = context.ref || '';
+            const defaultBranch = context.payload?.repository?.default_branch || 'main';
+            const expectedRef = `refs/heads/${defaultBranch}`;
+            core.info(`Workflow ref: ${ref}`);
+            core.info(`Repository default branch: ${defaultBranch}`);
+            if (context.eventName === 'schedule' && ref && ref !== expectedRef) {
+              core.setFailed(`Scheduled orchestrator runs must execute from ${expectedRef}, but received ${ref}.`);
+            }
+
+      - name: Bootstrap checkout resolver
+        uses: actions/checkout@v4
+        with:
+          path: helpers
+          sparse-checkout: |
+            .github/scripts
+          sparse-checkout-cone-mode: false
+          fetch-depth: 1
+
+      - name: Resolve workflow_run checkout source
+        id: checkout_source
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { resolveCheckoutSource } = require('./helpers/.github/scripts/checkout_source.js');
+            const fallbackRepo = process.env.GITHUB_REPOSITORY || '';
+            const fallbackRef = context.sha || process.env.GITHUB_SHA || '';
+            const { repository, ref, warnings } = resolveCheckoutSource({
+              core, context, fallbackRepo, fallbackRef,
+            });
+            core.setOutput('repository', repository);
+            core.setOutput('ref', ref);
+            warnings.forEach((warning) => core.warning(warning));
+
+      - name: Checkout orchestrator scripts
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ steps.checkout_source.outputs.repository || github.repository }}
+          ref: ${{ steps.checkout_source.outputs.ref || github.sha }}
+          sparse-checkout: |
+            .github/scripts
+          sparse-checkout-cone-mode: false
+          fetch-depth: 2
+
+      - name: Resolve dispatch parameters
+        id: resolve
+        uses: actions/github-script@v7
+        env:
+          PARAMS_JSON: ${{ inputs.params_json }}
+          WORKFLOW_DRY_RUN: ${{ inputs.dry_run }}
+          WORKFLOW_OPTIONS_JSON: ${{ inputs.options_json }}
+          WORKFLOW_KEEPALIVE_ENABLED: ${{ inputs.keepalive_enabled }}
+          WORKFLOW_KEEPALIVE_PR: ${{ inputs.pr_number }}
+        with:
+          script: |
+            const { resolveOrchestratorParams } = require('./.github/scripts/agents_orchestrator_resolve.js');
+            await resolveOrchestratorParams({ github, context, core, env: process.env });
+
+      - name: Debug keepalive toggles
+        if: always()
+        run: |
+          echo "::notice::enable_keepalive=${{ steps.resolve.outputs.enable_keepalive }}"
+          echo "::notice::keepalive_requested=${{ steps.resolve.outputs.keepalive_requested }}"
+          echo "::notice::keepalive_paused_label=${{ steps.resolve.outputs.keepalive_paused_label }}"

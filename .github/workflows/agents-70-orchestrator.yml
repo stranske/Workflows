@@ -1,38 +1,135 @@
 name: Agents 70 Orchestrator
 
-# DISABLED: This workflow experiences startup_failure due to file size (155KB).
-# The full orchestrator functionality remains operational in the source repository:
-# https://github.com/stranske/Trend_Model_Project
-#
-# Resolution options tracked in Issue #2:
-# - Split into reusable workflows to reduce file size
-# - Extract inline scripts to .github/scripts/ files
-# - Use workflow_call delegation pattern
-#
-# Keepalive functionality for this repository is currently paused.
-# PRs require manual iteration until this is resolved.
-
 on:
+  schedule:
+    - cron: '*/30 * * * *'
   workflow_dispatch:
     inputs:
-      status:
-        description: 'Check orchestrator status'
+      params_json:
+        description: 'JSON payload of orchestrator parameters to merge with defaults.'
         required: false
-        default: 'disabled'
+        default: '{}'
+      options_json:
+        description: 'Advanced orchestrator options encoded as JSON.'
+        required: false
+        default: '{}'
+      dry_run:
+        description: 'Execute orchestrator in dry-run mode (no write operations).'
+        required: false
+        default: 'false'
+      keepalive_enabled:
+        description: 'Enable Codex keepalive sweep for this run (set false to pause).'
+        required: false
+        default: 'true'
+      pr_number:
+        description: 'Optional pull request number when targeting a specific branch.'
+        required: false
+  workflow_run:
+    workflows:
+      - Gate
+    types: [completed]
+  repository_dispatch:
+    types:
+      - agents-orchestrator-ping
+
+concurrency:
+  group: agents-70-orchestrator-singleton
+  cancel-in-progress: false
 
 jobs:
-  status:
-    name: Orchestrator Status
-    runs-on: ubuntu-latest
-    steps:
-      - name: Report disabled status
-        run: |
-          echo "::warning::Agents 70 Orchestrator is currently disabled in this repository."
-          echo "::warning::The workflow file (155KB) exceeds GitHub Actions complexity limits."
-          echo "::warning::See docs/keepalive/ for resolution plan."
-          echo ""
-          echo "Status: DISABLED"
-          echo "Reason: startup_failure due to workflow file size"
-          echo "Resolution: Workflow refactoring required"
-          echo ""
-          echo "Keepalive remains operational in: stranske/Trend_Model_Project"
+  init:
+    name: Initialize
+    uses: ./.github/workflows/reusable-70-orchestrator-init.yml
+    with:
+      params_json: >-
+        ${{
+          github.event_name == 'workflow_dispatch' && github.event.inputs.params_json ||
+          github.event_name == 'repository_dispatch' && (
+            github.event.client_payload && github.event.client_payload.params && toJson(github.event.client_payload.params) ||
+            github.event.client_payload && github.event.client_payload.params_json ||
+            ''
+          ) ||
+          '{}'
+        }}
+      options_json: >-
+        ${{
+          github.event_name == 'workflow_dispatch' && github.event.inputs.options_json ||
+          github.event_name == 'repository_dispatch' && (
+            github.event.client_payload && github.event.client_payload.options && toJson(github.event.client_payload.options) ||
+            github.event.client_payload && github.event.client_payload.options_json ||
+            ''
+          ) ||
+          ''
+        }}
+      dry_run: >-
+        ${{
+          github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run ||
+          github.event_name == 'repository_dispatch' && (
+            github.event.client_payload && github.event.client_payload.dry_run || ''
+          ) ||
+          ''
+        }}
+      keepalive_enabled: >-
+        ${{
+          github.event_name == 'workflow_dispatch' && github.event.inputs.keepalive_enabled ||
+          github.event_name == 'repository_dispatch' && (
+            github.event.client_payload && github.event.client_payload.keepalive_enabled || ''
+          ) ||
+          ''
+        }}
+      pr_number: >-
+        ${{
+          github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number ||
+          github.event_name == 'repository_dispatch' && (
+            github.event.client_payload && (
+              github.event.client_payload.pr ||
+              github.event.client_payload.pr_number ||
+              github.event.client_payload.issue ||
+              ''
+            )
+          ) ||
+          ''
+        }}
+    secrets:
+      ACTIONS_BOT_PAT: ${{ secrets.ACTIONS_BOT_PAT }}
+      SERVICE_BOT_PAT: ${{ secrets.SERVICE_BOT_PAT }}
+
+  main:
+    name: Execute
+    needs: init
+    if: needs.init.outputs.has_work == 'true'
+    uses: ./.github/workflows/reusable-70-orchestrator-main.yml
+    with:
+      init_success: 'success'
+      enable_readiness: ${{ needs.init.outputs.enable_readiness }}
+      readiness_agents: ${{ needs.init.outputs.readiness_agents }}
+      readiness_custom_logins: ${{ needs.init.outputs.readiness_custom_logins }}
+      require_all: ${{ needs.init.outputs.require_all }}
+      enable_preflight: ${{ needs.init.outputs.enable_preflight }}
+      codex_user: ${{ needs.init.outputs.codex_user }}
+      codex_command_phrase: ${{ needs.init.outputs.codex_command_phrase }}
+      enable_diagnostic: ${{ needs.init.outputs.enable_diagnostic }}
+      diagnostic_attempt_branch: ${{ needs.init.outputs.diagnostic_attempt_branch }}
+      diagnostic_dry_run: ${{ needs.init.outputs.diagnostic_dry_run }}
+      enable_verify_issue: ${{ needs.init.outputs.enable_verify_issue }}
+      verify_issue_number: ${{ needs.init.outputs.verify_issue_number }}
+      enable_watchdog: ${{ needs.init.outputs.enable_watchdog }}
+      enable_keepalive: ${{ needs.init.outputs.enable_keepalive }}
+      keepalive_pause_label: ${{ needs.init.outputs.keepalive_pause_label }}
+      keepalive_max_retries: ${{ needs.init.outputs.keepalive_max_retries }}
+      enable_bootstrap: ${{ needs.init.outputs.enable_bootstrap }}
+      bootstrap_issues_label: ${{ needs.init.outputs.bootstrap_issues_label }}
+      draft_pr: ${{ needs.init.outputs.draft_pr }}
+      verify_issue_valid_assignees: ${{ needs.init.outputs.verify_issue_valid_assignees }}
+      dry_run: ${{ needs.init.outputs.dry_run }}
+      options_json: ${{ needs.init.outputs.options_json }}
+      dispatcher_force_issue: ${{ needs.init.outputs.dispatcher_force_issue }}
+      worker_max_parallel: ${{ needs.init.outputs.worker_max_parallel }}
+      conveyor_max_merges: ${{ needs.init.outputs.conveyor_max_merges }}
+      keepalive_trace: ${{ needs.init.outputs.keepalive_trace }}
+      keepalive_round: ${{ needs.init.outputs.keepalive_round }}
+      keepalive_pr: ${{ needs.init.outputs.keepalive_pr }}
+      token_source: ${{ needs.init.outputs.token_source }}
+    secrets:
+      ACTIONS_BOT_PAT: ${{ secrets.ACTIONS_BOT_PAT }}
+      SERVICE_BOT_PAT: ${{ secrets.SERVICE_BOT_PAT }}
