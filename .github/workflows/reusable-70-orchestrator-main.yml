@@ -137,6 +137,7 @@ jobs:
         with:
           github-token: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT || github.token }}
           script: |
+            // Do not remove checkout; local helper is required.
             const { runKeepaliveGate } = require('./.github/scripts/keepalive_orchestrator_gate_runner.js');
             await runKeepaliveGate({ core, github, context, env: process.env });
 

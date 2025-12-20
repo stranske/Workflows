@@ -392,7 +392,7 @@ def test_orchestrator_jobs_checkout_scripts_before_local_requires():
 
     targets = {
         "resolve-params": "./.github/scripts/agents_orchestrator_resolve.js",
-        "keepalive-guard": "./.github/scripts/keepalive_guard_utils.js",
+        "keepalive-guard": "./.github/scripts/keepalive_orchestrator_gate_runner.js",
         "belt-dispatch-summary": "./.github/scripts/agents_dispatch_summary.js",
         "belt-scan-ready-prs": "./.github/scripts/agents_belt_scan.js",
     }
