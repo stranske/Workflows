@@ -1,45 +1,211 @@
-1) Clean up validate_fast.sh Phase 4 TODOs and remove project-specific references
-Labels: agent:codex, enhancement, cleanup
+1) Create floating v1 tag for stable consumer pinning
+Labels: agent:codex, enhancement, versioning
 Why
-`scripts/validate_fast.sh` contains 12 TODO Phase 4 markers referencing Trend_Model_Project-specific features (SRC_FILES detection, autofix tests, coverage requirements) that are not applicable to this workflow repository. These dead code paths and stale references cause confusion and add maintenance burden.
+Consumers currently must pin to exact versions (e.g., `@v1.0.0`) or use unstable `@main`. A floating `@v1` tag allows consumers to receive bug fixes automatically while maintaining major version stability, following GitHub Actions best practices.
 Scope
-- `scripts/validate_fast.sh` cleanup of TODO markers and project-specific detection logic.
+- Release management and tag creation.
 Tasks
-- Remove all TODO Phase 4 markers and their associated dead/commented code blocks.
-- Remove SRC_FILES and AUTOFIX_FILES detection logic that references `src/` directory patterns not present in this repo.
-- Update linting targets to use `scripts/` and `.github/` instead of `src/ tests/`.
-- Replace Python package-specific validation (coverage requirements, import tests) with workflow-specific checks (actionlint, YAML validation).
-- Ensure the script still runs successfully after cleanup.
+- Create a `v1` tag pointing to the latest v1.x release.
+- Document the versioning strategy in CHANGELOG.md and docs/INTEGRATION_GUIDE.md.
+- Add a GitHub Action or release workflow step that updates the floating tag on each v1.x release.
+- Update README.md examples to show both pinned and floating tag usage.
 Acceptance criteria
-- `grep -c "TODO Phase" scripts/validate_fast.sh` returns 0.
-- Script executes without errors: `bash scripts/validate_fast.sh --help` works.
-- No references to `src/` directory or Trend_Model_Project-specific patterns remain.
-- Validation targets are appropriate for a workflow repository (scripts/, .github/).
+- `@v1` tag exists and points to latest v1.x release.
+- Consumers can use `uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@v1`.
+- Documentation explains versioning strategy and when to use each approach.
 Implementation notes
-- Keep the core validation framework intact; only remove dead code and update targets.
-- Test with `bash scripts/validate_fast.sh --verbose` to verify functionality after changes.
-- Preserve the intelligent change detection but update the file patterns it looks for.
+- Use `git tag -f v1 v1.0.0 && git push origin v1 --force` pattern in release workflow.
+- Consider also creating `@v1.0` minor version floating tags for more granular control.
 
-2) Enable excluded Python tests by stubbing missing project-specific modules
+2) Add working-directory input for monorepo support
+Labels: agent:codex, enhancement, feature
+Why
+Monorepo consumers cannot use the reusable Python CI workflow because it assumes code is at repository root. Adding a `working-directory` input enables running CI in subdirectories.
+Scope
+- `reusable-10-ci-python.yml` input additions and step modifications.
+Tasks
+- Add `working-directory` input with default of `.` to reusable-10-ci-python.yml.
+- Update all `run:` steps to use `working-directory: ${{ inputs.working-directory }}`.
+- Update checkout step to handle sparse-checkout for subdirectory if specified.
+- Add documentation and example for monorepo usage.
+- Test with a nested directory structure.
+Acceptance criteria
+- `working-directory: packages/my-package` input works correctly.
+- All tools (pytest, mypy, ruff, black) run in the specified directory.
+- Coverage artifacts are correctly prefixed/located.
+- Documentation shows monorepo usage example.
+Implementation notes
+- Ensure `pyproject.toml` and `requirements.lock` paths are relative to working-directory.
+- Coverage paths need adjustment to find coverage.xml in subdirectory.
+
+3) Document workflow outputs in Integration Guide
+Labels: agent:codex, documentation
+Why
+Consumers don't know what outputs are available from reusable workflows, making it difficult to chain workflows or use output data. This gap prevents advanced usage patterns.
+Scope
+- Documentation updates to docs/INTEGRATION_GUIDE.md and docs/ci/WORKFLOWS.md.
+Tasks
+- Audit all `workflow_call` outputs in reusable-10-ci-python.yml and other reusable workflows.
+- Document each output with name, type, description, and example usage.
+- Add examples showing how to use outputs in dependent jobs.
+- Create a reference table of all workflow outputs.
+Acceptance criteria
+- docs/INTEGRATION_GUIDE.md has a "Workflow Outputs" section.
+- All outputs from reusable workflows are documented.
+- At least one example shows chaining workflow outputs to a dependent job.
+Implementation notes
+- Check `outputs:` sections in logs-summary and other jobs.
+- Include coverage percentage, test counts, and status outputs.
+
+4) Add input validation step to reusable workflows
+Labels: agent:codex, enhancement, reliability
+Why
+Invalid inputs (e.g., malformed JSON for `python-versions`, invalid coverage thresholds) cause cryptic failures deep in workflow execution. Early validation with clear error messages improves consumer experience.
+Scope
+- Input validation logic in reusable-10-ci-python.yml.
+Tasks
+- Add a `validate-inputs` job that runs before other jobs.
+- Validate JSON array format for `python-versions` input.
+- Validate numeric ranges for `coverage-min`, `slow-test-top`, etc.
+- Validate boolean string inputs parse correctly.
+- Output clear error messages indicating which input is invalid and expected format.
+Acceptance criteria
+- Invalid `python-versions: "[3.11"` fails immediately with clear message.
+- Invalid `coverage-min: "abc"` fails with "must be a number between 0-100" message.
+- Valid inputs pass validation and workflow proceeds normally.
+- Validation job completes in <5 seconds.
+Implementation notes
+- Use `actions/github-script@v7` for validation logic.
+- Set `needs: validate-inputs` on all downstream jobs.
+- Consider making validation a reusable composite action.
+
+5) Create Node.js/TypeScript reusable CI workflow
+Labels: agent:codex, enhancement, feature
+Why
+The workflow library only supports Python projects. Adding Node.js/TypeScript support expands the service to cover more consumer repositories.
+Scope
+- New workflow `reusable-11-ci-node.yml` with full Node.js CI capabilities.
+Tasks
+- Create `reusable-11-ci-node.yml` with ESLint, Prettier, TypeScript compilation, and Jest/Vitest support.
+- Support npm, pnpm, and yarn package managers via input.
+- Add matrix support for Node.js versions.
+- Include coverage reporting with same artifact structure as Python workflow.
+- Add caching for node_modules and build outputs.
+- Create template `ci-node-basic.yml` in templates/.
+Acceptance criteria
+- `uses: stranske/Workflows/.github/workflows/reusable-11-ci-node.yml@main` works for Node.js projects.
+- Supports `node-versions: '["18", "20", "22"]'` matrix.
+- ESLint, Prettier, TypeScript, and test runner all configurable via inputs.
+- Coverage artifacts compatible with existing coverage infrastructure.
+Implementation notes
+- Mirror input patterns from reusable-10-ci-python.yml for consistency.
+- Use pnpm by default for speed, with fallback to npm/yarn.
+- Consider Biome as alternative to ESLint+Prettier.
+
+6) Parallelize lint steps in Python CI workflow
+Labels: agent:codex, enhancement, performance
+Why
+Black, Ruff, and Mypy currently run sequentially within each matrix job, adding ~30s of unnecessary wait time. Running them in parallel could reduce CI time by 20-30 seconds.
+Scope
+- Refactor `reusable-10-ci-python.yml` to run linting in parallel.
+Tasks
+- Create separate jobs for `lint-format`, `lint-ruff`, and `typecheck-mypy`.
+- Move tool installation to a reusable composite action or shared setup.
+- Update the `tests` job to only run pytest, not linting.
+- Ensure artifacts and outputs still work correctly.
+- Add a final aggregation job if needed for status reporting.
+Acceptance criteria
+- Lint tools run in parallel, not sequentially.
+- Total CI time reduced by 15+ seconds compared to current implementation.
+- All existing functionality preserved (continue-on-error, outcome reporting).
+- Job summary still shows all check results.
+Implementation notes
+- Consider trade-off: more parallel jobs vs. job startup overhead (~10s each).
+- May need to cache dependencies differently for parallel jobs.
+- Could use matrix strategy for lint jobs instead of separate job definitions.
+
+7) Add conditional tool installation based on input flags
+Labels: agent:codex, enhancement, performance
+Why
+Currently all tools (black, ruff, mypy, pytest-cov) are installed even when disabled via inputs like `typecheck: false`. This wastes 3-8 seconds per disabled tool.
+Scope
+- Conditional installation logic in reusable-10-ci-python.yml dependency step.
+Tasks
+- Modify the specs array construction to check input flags before adding tools.
+- Skip mypy installation when `typecheck: false`.
+- Skip black installation when `format_check: false`.
+- Skip coverage tools when `coverage: false`.
+- Add timing output to show installation savings.
+Acceptance criteria
+- `typecheck: false` results in mypy not being installed.
+- `format_check: false` results in black not being installed.
+- Installation step 3-8 seconds faster when tools disabled.
+- No regressions when all tools enabled.
+Implementation notes
+- Use bash conditionals to build specs array based on input values.
+- Keep shared tools (pytest, uv) always installed.
+- Log which tools were skipped for debugging.
+
+8) Create GitHub starter workflow template
+Labels: agent:codex, enhancement, usability
+Why
+GitHub's "Actions → New workflow" UI shows starter workflows from `.github/workflow-templates/`. Adding templates here makes the workflow library discoverable directly in GitHub's UI for repos that have access.
+Scope
+- Create `.github/workflow-templates/` directory with template files.
+Tasks
+- Create `workflow-templates/python-ci.yml` based on templates/ci-basic.yml.
+- Create `workflow-templates/python-ci.properties.json` with metadata.
+- Add icon and description for GitHub UI display.
+- Test that templates appear in "Actions → New workflow" for authorized repos.
+Acceptance criteria
+- Template appears in GitHub Actions UI when creating new workflow.
+- One-click creates a working CI workflow using reusable workflows.
+- Properties file includes appropriate categories and description.
+Implementation notes
+- GitHub requires specific file naming: `{name}.yml` + `{name}.properties.json`.
+- Templates must be in default branch to appear in UI.
+- Consider multiple templates: basic, full, with-docker.
+
+9) Add backward compatibility policy documentation
+Labels: agent:codex, documentation
+Why
+Consumers don't know when breaking changes might occur or how to prepare for them. A clear compatibility policy builds trust and helps consumers plan upgrades.
+Scope
+- Documentation in CHANGELOG.md and new COMPATIBILITY.md file.
+Tasks
+- Define what constitutes a breaking change (removed inputs, changed defaults, new required inputs).
+- Document deprecation timeline (e.g., deprecated in v1.x, removed in v2.0).
+- Create COMPATIBILITY.md with version compatibility matrix.
+- Add deprecation warnings to workflows when using deprecated inputs.
+- Document how consumers will be notified of breaking changes.
+Acceptance criteria
+- COMPATIBILITY.md exists with clear policy statements.
+- CHANGELOG.md follows semantic versioning with breaking changes marked.
+- Deprecated inputs emit warnings in workflow logs.
+- Policy covers at least 2 major version support window.
+Implementation notes
+- Reference GitHub Actions versioning conventions.
+- Consider GitHub Discussions or release notes for announcements.
+- Add `deprecated` suffix to input descriptions for deprecated inputs.
+
+10) Create integration test consumer repository
 Labels: agent:codex, enhancement, testing
 Why
-10 Python test files in `tests/workflows/` are excluded from CI and local runs because they import modules from Trend_Model_Project that don't exist in this repository (e.g., `scripts.mypy_return_autofix`, `scripts.fix_cosmetic_aggregate`, `scripts.update_autofix_expectations`). This represents ~50% of the Python test suite being skipped.
+Currently there's no real-world validation that the reusable workflows work correctly for external consumers. An integration test repo would catch issues before they affect real users.
 Scope
-- Create stub modules in `scripts/` for missing imports.
-- Update `pyproject.toml` to remove exclusions once stubs are in place.
-- Update `.github/workflows/selftest-ci.yml` to run all tests.
+- New repository `stranske/Workflows-integration-test` that consumes this workflow library.
 Tasks
-- Identify the exact imports needed by examining the excluded test files.
-- Create minimal stub modules that provide the expected interfaces (functions that return sensible defaults or raise NotImplementedError).
-- Remove the corresponding entries from `[tool.ruff] exclude` in pyproject.toml.
-- Remove the `--ignore` flags from selftest-ci.yml Python test step.
-- Run the full test suite and fix any remaining import or interface issues.
+- Create minimal Python project repository.
+- Configure CI using reusable workflows from stranske/Workflows.
+- Add workflow that runs on schedule and on workflow library releases.
+- Test multiple configurations: basic, full coverage, monorepo simulation.
+- Report integration test status back to main repo via badge or notification.
 Acceptance criteria
-- All 10 previously excluded test files are now included in CI runs.
-- `python -m pytest tests/workflows/ -v` runs without collection errors.
-- Test count increases from ~196 to include the previously skipped tests.
-- CI workflow passes with expanded test coverage.
+- Integration test repo exists and runs CI successfully.
+- Tests exercise reusable-10-ci-python.yml with various input combinations.
+- Failures in integration tests create issues in stranske/Workflows.
+- Badge in README.md shows integration test status.
 Implementation notes
-- Stubs should be clearly marked as stubs (docstring explaining they are placeholders).
-- Prefer minimal implementations that make tests pass over full functionality.
-- If a test truly requires project-specific logic, mark it with `@pytest.mark.skip("Requires Trend_Model_Project")` rather than excluding the entire file.
+- Use `workflow_dispatch` with `repository_dispatch` to trigger on releases.
+- Include edge cases: no pyproject.toml, minimal project, coverage disabled.
+- Consider testing `@main`, `@v1`, and specific version tags.
