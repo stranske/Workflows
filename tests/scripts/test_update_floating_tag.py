@@ -53,3 +53,28 @@ def test_update_floating_tag_tracks_highest_v1_release(monkeypatch):
         ).strip()
 
         assert floating_target == commit_v1_2_0
+
+
+def test_update_floating_tag_requires_tagged_commit(monkeypatch):
+    with tempfile.TemporaryDirectory() as temp_dir:
+        repo_path = pathlib.Path(temp_dir)
+        _init_repo(repo_path)
+
+        commit_v1_0_0 = _commit_file(repo_path, "file.txt", "v1.0.0\n", "v1.0.0")
+        _tag(repo_path, "v1.0.0", commit_v1_0_0)
+
+        commit_unreleased = _commit_file(repo_path, "file.txt", "draft\n", "draft change")
+
+        env = os.environ.copy()
+        env["DRY_RUN"] = "1"
+
+        completed = subprocess.run(
+            ["bash", str(SCRIPT_PATH), "v1", "v1.", commit_unreleased],
+            cwd=repo_path,
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+
+        assert completed.returncode != 0
+        assert "not tagged with v1.* release" in completed.stderr.decode()
