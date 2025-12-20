@@ -4,6 +4,9 @@ on:
   push:
     tags:
       - 'v*'
+  release:
+    types:
+      - published
 
 permissions:
   contents: write
@@ -12,18 +15,23 @@ jobs:
   release:
     name: Create Release
     runs-on: ubuntu-latest
+    env:
+      FLOATING_SOURCE_TAG: ${{ github.event_name == 'release' && github.event.release.tag_name || github.ref_name }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ env.FLOATING_SOURCE_TAG || github.sha }}
 
       - name: Update floating v1 tag
-        if: startsWith(github.ref_name, 'v1.')
+        if: startsWith(env.FLOATING_SOURCE_TAG, 'v1.')
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          scripts/update-floating-tag.sh v1 v1. "$GITHUB_SHA"
+          target_tag=${FLOATING_SOURCE_TAG:?Expected release tag context}
+          target_commit=$(git rev-list -n 1 "${target_tag}")
+          scripts/update-floating-tag.sh v1 v1. "${target_commit}"
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
