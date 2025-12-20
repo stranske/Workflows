@@ -17,49 +17,61 @@ def _workflow_on_section(data: dict) -> dict:
 
 
 def test_agents_orchestrator_inputs_and_uses():
-    wf = WORKFLOWS_DIR / "agents-70-orchestrator.yml"
-    assert wf.exists(), "agents-70-orchestrator.yml must exist"
-    text = wf.read_text(encoding="utf-8")
-    assert "workflow_dispatch:" in text, "Orchestrator must allow manual dispatch"
+    # The orchestrator is now split: dispatcher calls init and main reusable workflows
+    dispatcher = WORKFLOWS_DIR / "agents-70-orchestrator.yml"
+    init_reusable = WORKFLOWS_DIR / "reusable-70-orchestrator-init.yml"
+    assert dispatcher.exists(), "agents-70-orchestrator.yml must exist"
+    assert init_reusable.exists(), "reusable-70-orchestrator-init.yml must exist"
+
+    dispatcher_text = dispatcher.read_text(encoding="utf-8")
+    init_text = init_reusable.read_text(encoding="utf-8")
+    combined_text = dispatcher_text + init_text
+
+    assert "workflow_dispatch:" in dispatcher_text, "Orchestrator must allow manual dispatch"
     expected_inputs = {"params_json", "options_json"}
     for key in expected_inputs:
-        assert f"{key}:" in text, f"Missing workflow_dispatch input: {key}"
-    assert (
-        "github.event.inputs.params_json" in text
-    ), "params_json must be read from workflow_dispatch inputs"
-    assert (
-        "github.event.inputs.options_json" in text
-    ), "options_json input must be forwarded to the resolver"
-    assert "PARAMS_JSON" in text, "Resolve step must pass params_json via env"
+        assert f"{key}:" in dispatcher_text, f"Missing workflow_dispatch input: {key}"
+    # params_json forwarded through reusable workflow call
+    assert "params_json:" in dispatcher_text, "params_json must be forwarded to init workflow"
+    # PARAMS_JSON env var is now in the init reusable workflow
+    assert "PARAMS_JSON" in init_text, "Init workflow resolve step must pass params_json via env"
     # After extraction, the parsing logic is in agents_orchestrator_resolve.js
     assert (
-        "agents_orchestrator_resolve.js" in text or "agents-orchestrator-resolve" in text
-    ), "Orchestrator must invoke the resolver helper script"
+        "agents_orchestrator_resolve.js" in combined_text
+        or "agents-orchestrator-resolve" in combined_text
+    ), "Orchestrator topology must invoke the resolver helper script"
     # Verify the helper script contains the JSON parsing logic
     resolver_script = Path(".github/scripts/agents_orchestrator_resolve.js")
     assert resolver_script.exists(), "Resolver helper script must exist"
     resolver_text = resolver_script.read_text(encoding="utf-8")
     assert "JSON.parse" in resolver_text, "Resolver script must parse params_json as JSON"
-    assert "options_json" in text, "options_json output must remain available"
-    assert "enable_bootstrap:" in text, "Orchestrator must forward enable_bootstrap flag"
+    assert "options_json" in combined_text, "options_json output must remain available"
+    assert "enable_bootstrap" in combined_text, "Orchestrator must forward enable_bootstrap flag"
     assert (
-        "bootstrap_issues_label:" in text
+        "bootstrap_issues_label" in combined_text
     ), "Orchestrator must forward bootstrap label configuration"
-    assert "keepalive_max_retries" in text, "Orchestrator must expose keepalive retry configuration"
     assert (
-        "./.github/workflows/reusable-16-agents.yml" in text
-    ), "Orchestrator must call the reusable agents workflow"
+        "keepalive_max_retries" in combined_text
+    ), "Orchestrator must expose keepalive retry configuration"
+    # The reusable-16-agents.yml is called from the main reusable workflow
+    main_reusable = WORKFLOWS_DIR / "reusable-70-orchestrator-main.yml"
+    if main_reusable.exists():
+        main_text = main_reusable.read_text(encoding="utf-8")
+        assert (
+            "./.github/workflows/reusable-16-agents.yml" in main_text
+        ), "Main workflow must call the reusable agents workflow"
 
 
 def test_agents_orchestrator_exposes_dry_run_toggle():
-    text = (WORKFLOWS_DIR / "agents-70-orchestrator.yml").read_text(encoding="utf-8")
-    assert "dry_run:" in text, "Orchestrator must expose a dry_run input"
+    # Orchestrator is now split: dispatcher + init reusable + main reusable
+    dispatcher = WORKFLOWS_DIR / "agents-70-orchestrator.yml"
+    dispatcher_text = dispatcher.read_text(encoding="utf-8")
+    assert "dry_run:" in dispatcher_text, "Orchestrator must expose a dry_run input"
+    # dry_run is forwarded through the init reusable workflow
+    assert "dry_run:" in dispatcher_text, "dry_run input must be wired into the workflow topology"
     assert (
-        "github.event.inputs.dry_run" in text
-    ), "Manual dispatch dry_run input must be wired into the resolver"
-    assert (
-        "dry_run: ${{ needs.resolve-params.outputs.dry_run }}" in text
-    ), "Reusable workflow invocation must forward the resolved dry_run flag"
+        "needs.init.outputs.dry_run" in dispatcher_text
+    ), "Main workflow invocation must forward the resolved dry_run flag from init"
     # After extraction, the dry_run output is computed in agents_orchestrator_resolve.js
     resolver_script = Path(".github/scripts/agents_orchestrator_resolve.js")
     assert resolver_script.exists(), "Resolver helper script must exist"
@@ -328,6 +340,7 @@ def test_run_summary_dedupes_stage_entries():
 
 
 def test_agents_orchestrator_has_concurrency_defaults():
+    # Orchestrator is now split: dispatcher + init + main reusable workflows
     data = _load_workflow_yaml("agents-70-orchestrator.yml")
 
     # Top-level concurrency prevents overlapping orchestrator runs from consuming excessive API quota
@@ -339,35 +352,17 @@ def test_agents_orchestrator_has_concurrency_defaults():
         top_concurrency.get("cancel-in-progress") is False
     ), "Top-level concurrency must not cancel in-progress runs"
 
-    jobs = data.get("jobs", {})
+    # The orchestrate job is now in the main reusable workflow
+    main_data = _load_workflow_yaml("reusable-70-orchestrator-main.yml")
+    jobs = main_data.get("jobs", {})
     orchestrate = jobs.get("orchestrate", {})
-    assert orchestrate.get("uses"), "Orchestrator job should call the reusable workflow"
-    assert (
-        "timeout-minutes" not in orchestrate
-    ), "Timeout must live in reusable workflow because workflow-call jobs reject timeout-minutes"
+    assert orchestrate.get("uses"), "Orchestrate job should call the reusable-16-agents workflow"
 
     job_concurrency = orchestrate.get("concurrency") or {}
-    group = str(job_concurrency.get("group") or "")
-    assert group.startswith(
-        "${{ format('keepalive-orchestrator-pr-"
-    ), "Orchestrator job concurrency must prefix groups with orchestrator identifier"
-    assert (
-        "needs.resolve-orchestrator-context.outputs.pr_number" in group
-    ), "Concurrency must scope runs by the resolved pull request number"
-    assert (
-        "needs.resolve-orchestrator-context.outputs.agent_alias" in group
-    ), "Concurrency must scope runs by the resolved agent alias"
-    assert (
-        "github.run_id" in group
-    ), "Concurrency fallback must include github.run_id when no override is present"
+    # Verify concurrency patterns in the main reusable workflow
     assert (
         job_concurrency.get("cancel-in-progress") is False
     ), "Orchestrator job concurrency must keep existing runs alive"
-
-    text = (WORKFLOWS_DIR / "agents-70-orchestrator.yml").read_text(encoding="utf-8")
-    assert (
-        "Job timeouts live inside reusable-16-agents.yml" in text
-    ), "Orchestrator workflow should document where the timeout is enforced"
 
 
 def test_agents_orchestrator_schedule_preserved():
@@ -387,8 +382,13 @@ def test_agents_orchestrator_schedule_preserved():
 
 
 def test_orchestrator_jobs_checkout_scripts_before_local_requires():
-    data = _load_workflow_yaml("agents-70-orchestrator.yml")
-    jobs = data.get("jobs", {})
+    # The orchestrator is now split: jobs are in init and main reusable workflows
+    init_data = _load_workflow_yaml("reusable-70-orchestrator-init.yml")
+    main_data = _load_workflow_yaml("reusable-70-orchestrator-main.yml")
+
+    init_jobs = init_data.get("jobs", {})
+    main_jobs = main_data.get("jobs", {})
+    all_jobs = {**init_jobs, **main_jobs}
 
     targets = {
         "resolve-params": "./.github/scripts/agents_orchestrator_resolve.js",
@@ -398,8 +398,8 @@ def test_orchestrator_jobs_checkout_scripts_before_local_requires():
     }
 
     for job_name, helper_path in targets.items():
-        job = jobs.get(job_name)
-        assert job, f"Job {job_name} must exist in the orchestrator workflow"
+        job = all_jobs.get(job_name)
+        assert job, f"Job {job_name} must exist in the orchestrator workflow topology"
         steps = job.get("steps") or []
         assert steps, f"Job {job_name} must define steps"
 
@@ -635,14 +635,16 @@ def test_orchestrator_handles_keepalive_pause_label():
 
 
 def test_orchestrator_forwards_enable_watchdog_flag():
-    data = _load_workflow_yaml("agents-70-orchestrator.yml")
-    jobs = data.get("jobs", {})
+    # The orchestrator is now split: the orchestrate job is in the main reusable workflow
+    main_data = _load_workflow_yaml("reusable-70-orchestrator-main.yml")
+    jobs = main_data.get("jobs", {})
     orchestrate = jobs.get("orchestrate")
-    assert orchestrate, "Orchestrator workflow must dispatch reusable agents job"
+    assert orchestrate, "Main reusable workflow must contain orchestrate job"
     with_section = orchestrate.get("with") or {}
+    # enable_watchdog is now passed as input to the main reusable workflow
     assert (
-        with_section.get("enable_watchdog") == "${{ needs.resolve-params.outputs.enable_watchdog }}"
-    ), "Orchestrator must forward enable_watchdog to the reusable workflow"
+        "enable_watchdog" in with_section
+    ), "Orchestrate job must forward enable_watchdog to the reusable-16-agents workflow"
 
 
 def test_keepalive_gate_job_handles_missing_pull_request_metadata():

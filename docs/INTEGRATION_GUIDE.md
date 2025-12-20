@@ -31,12 +31,37 @@ on:
 
 jobs:
   ci:
-    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
+    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@v1
     with:
       python-version: '3.11'
 ```
 
 2. **Commit and push** - CI will run on your next PR!
+
+---
+
+## Versioning Strategy
+
+Choose the reference that matches your stability needs:
+
+- **Floating major tag (`@v1`)**: Recommended for most consumers. Receives backwards-compatible fixes automatically while staying on the same major version.
+- **Pinned release (`@v1.0.0`)**: Use when you need reproducible builds and want to opt into updates manually.
+- **Branch reference (`@main`)**: Only for testing upcoming changes; can introduce breaking behavior.
+
+Example with both floating and pinned tags:
+
+```yaml
+jobs:
+  ci-floating:
+    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@v1
+    with:
+      python-version: '3.11'
+
+  ci-pinned:
+    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@v1.0.0
+    with:
+      python-version: '3.11'
+```
 
 ---
 
@@ -49,7 +74,7 @@ Call workflows directly from this library. Changes propagate automatically.
 ```yaml
 jobs:
   python-ci:
-    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
+    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@v1
     with:
       python-version: '3.11'
     secrets: inherit
@@ -91,7 +116,7 @@ Use reusable workflows for standard CI, templates for custom needs.
 jobs:
   # Standard CI via reusable workflow
   ci:
-    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
+    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@v1
 
   # Custom job specific to your project
   integration-tests:
@@ -127,7 +152,7 @@ on: [push, pull_request]
 
 jobs:
   ci:
-    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
+    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@v1
     with:
       python-version: '3.11'
       run-tests: true
