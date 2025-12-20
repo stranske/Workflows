@@ -3,13 +3,14 @@ import pathlib
 import subprocess
 import tempfile
 
-
 PROJECT_ROOT = pathlib.Path(__file__).resolve().parents[2]
 SCRIPT_PATH = PROJECT_ROOT / "scripts" / "update-floating-tag.sh"
 
 
 def _run(cmd, cwd, env=None):
-    subprocess.run(cmd, cwd=cwd, env=env, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    subprocess.run(
+        cmd, cwd=cwd, env=env, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    )
 
 
 def _init_repo(path: pathlib.Path):
