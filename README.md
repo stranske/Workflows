@@ -74,8 +74,15 @@ name: CI
 on: [push, pull_request]
 
 jobs:
-  python:
-    uses: stranske/Workflows/.github/workflows/ci-python.yaml@main
+  python-floating:
+    # Floating tag for backward-compatible updates
+    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@v1
+    with:
+      python-version: "3.11"
+
+  python-pinned:
+    # Pin to an exact release for reproducible builds
+    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@v1.0.0
     with:
       python-version: "3.11"
 ```

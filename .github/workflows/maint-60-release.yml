@@ -15,6 +15,19 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Update floating v1 tag
+        if: startsWith(github.ref_name, 'v1.')
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch --tags origin
+          git tag -f v1 "$GITHUB_SHA"
+          git push origin refs/tags/v1 --force
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
