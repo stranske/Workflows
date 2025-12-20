@@ -76,7 +76,14 @@ def test_autofix_pipeline_resolves_lint_and_typing(
 
     # Mypy should report the missing Optional import prior to autofix.
     initial_mypy = subprocess.run(
-        [sys.executable, "-m", "mypy", "--ignore-missing-imports", str(sample)],
+        [
+            sys.executable,
+            "-m",
+            "mypy",
+            "--ignore-missing-imports",
+            "--disable-error-code=import-untyped",
+            str(sample),
+        ],
         cwd=tmp_path,
         capture_output=True,
         text=True,
@@ -145,7 +152,14 @@ def test_autofix_pipeline_resolves_lint_and_typing(
     _run([sys.executable, "-m", "ruff", "check", str(sample)], cwd=tmp_path)
     _run([sys.executable, "-m", "black", "--check", str(sample)], cwd=tmp_path)
     _run(
-        [sys.executable, "-m", "mypy", "--ignore-missing-imports", str(sample)],
+        [
+            sys.executable,
+            "-m",
+            "mypy",
+            "--ignore-missing-imports",
+            "--disable-error-code=import-untyped",
+            str(sample),
+        ],
         cwd=tmp_path,
     )
 

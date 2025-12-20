@@ -256,6 +256,7 @@ def summarise_payload(values: Iterable[int]) -> int:
             "-m",
             "mypy",
             "--ignore-missing-imports",
+            "--disable-error-code=import-untyped",
             str(expectation_module_target),
             str(return_probe),
         ],

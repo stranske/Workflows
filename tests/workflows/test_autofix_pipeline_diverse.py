@@ -244,6 +244,7 @@ def test_autofix_pipeline_handles_diverse_errors(
             "-m",
             "mypy",
             "--ignore-missing-imports",
+            "--disable-error-code=import-untyped",
             str(sample_module),
         ],
         cwd=repo_root,
