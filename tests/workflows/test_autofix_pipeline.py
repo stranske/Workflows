@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 
 import pytest
+
 import scripts.auto_type_hygiene as auto_type_hygiene
 from scripts.auto_type_hygiene import process_file
 

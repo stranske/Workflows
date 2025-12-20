@@ -38,26 +38,11 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install pytest pytest-cov pyyaml
+          pip install pytest pytest-cov pyyaml requests numpy pandas
 
       - name: Run Python tests
         run: |
-          python -m pytest tests/workflows/ \
-            --ignore=tests/workflows/test_autofix_full_pipeline.py \
-            --ignore=tests/workflows/test_autofix_pipeline.py \
-            --ignore=tests/workflows/test_autofix_pipeline_diverse.py \
-            --ignore=tests/workflows/test_autofix_pipeline_live_docs.py \
-            --ignore=tests/workflows/test_autofix_pipeline_tools.py \
-            --ignore=tests/workflows/test_autofix_pr_comment.py \
-            --ignore=tests/workflows/test_autofix_probe_module.py \
-            --ignore=tests/workflows/test_autofix_repo_regressions.py \
-            --ignore=tests/workflows/test_autofix_samples.py \
-            --ignore=tests/workflows/test_chatgpt_topics_parser.py \
-            --ignore=tests/workflows/test_ci_probe_faults.py \
-            --ignore=tests/workflows/test_disable_legacy_workflows.py \
-            --ignore=tests/workflows/test_workflow_multi_failure.py \
-            --ignore=tests/workflows/github_scripts/ \
-            -v
+          python -m pytest tests/workflows/ -v
 
   lint:
     name: Lint & Format Check

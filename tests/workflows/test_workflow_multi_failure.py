@@ -1,6 +1,7 @@
 import json
 
 import pytest
+
 from trend_analysis.automation_multifailure import aggregate_numbers
 
 payload = json.dumps({"demo": 1})

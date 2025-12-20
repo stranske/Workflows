@@ -7,6 +7,7 @@ from pathlib import Path
 from textwrap import dedent
 
 import pytest
+
 import scripts.auto_type_hygiene as auto_type_hygiene
 import scripts.fix_cosmetic_aggregate as fix_cosmetic_aggregate
 import scripts.fix_numpy_asserts as fix_numpy_asserts
@@ -243,6 +244,7 @@ def test_autofix_pipeline_handles_diverse_errors(
             "-m",
             "mypy",
             "--ignore-missing-imports",
+            "--disable-error-code=import-untyped",
             str(sample_module),
         ],
         cwd=repo_root,
