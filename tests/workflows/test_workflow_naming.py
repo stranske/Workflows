@@ -185,6 +185,7 @@ EXPECTED_NAMES = {
     "maint-51-dependency-refresh.yml": "Maint 51 Dependency Refresh",
     "maint-52-validate-workflows.yml": "Maint 52 Validate Workflows",
     "maint-60-release.yml": "Maint 60 Release",
+    "maint-61-create-floating-v1-tag.yml": "Maint 61 Create Floating v1 Tag",
     "pr-00-gate.yml": "Gate",
     "pr-11-ci-smoke.yml": "PR 11 - Minimal invariant CI",
     "reusable-10-ci-python.yml": "Reusable CI",
