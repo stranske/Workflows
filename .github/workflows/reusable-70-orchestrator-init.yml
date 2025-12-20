@@ -436,6 +436,7 @@ jobs:
           WORKFLOW_KEEPALIVE_PR: ${{ inputs.pr_number }}
         with:
           script: |
+            // Do not remove checkout; local helper is required.
             const { resolveOrchestratorParams } = require('./.github/scripts/agents_orchestrator_resolve.js');
             await resolveOrchestratorParams({ github, context, core, env: process.env });
 
