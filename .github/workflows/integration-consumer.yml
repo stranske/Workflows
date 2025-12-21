@@ -142,5 +142,5 @@ jobs:
             }
 
             await github.rest.issues.createComment({ owner, repo, issue_number: existing.number, body: `Latest integration consumer run succeeded.\n\nRun: ${runUrl}` });
-            await github.rest.issues.update({ owner, repo, issue_number: existing.number, state: 'closed' });
+            await github.rest.issues.update({ owner, repo, issue_number: existing.number, state: 'closed', state_reason: 'completed' });
             core.info(`Closed issue #${existing.number}`);
