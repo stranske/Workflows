@@ -1,0 +1,422 @@
+name: Reusable Node CI
+
+on:
+  workflow_call:
+    inputs:
+      working-directory:
+        description: Working directory for all run steps (useful for monorepos).
+        required: false
+        default: '.'
+        type: string
+      node-version:
+        description: Primary Node.js version to use when `node-versions` is not provided.
+        required: false
+        default: '20'
+        type: string
+      node-versions:
+        description: JSON array of Node.js versions to execute. Takes precedence when non-empty.
+        required: false
+        default: '[]'
+        type: string
+      package-manager:
+        description: Package manager to use (npm, pnpm, or yarn).
+        required: false
+        default: 'npm'
+        type: string
+      lint:
+        description: Toggle ESLint execution.
+        required: false
+        default: true
+        type: boolean
+      format_check:
+        description: Toggle Prettier format check execution.
+        required: false
+        default: true
+        type: boolean
+      typecheck:
+        description: Toggle TypeScript type-check execution.
+        required: false
+        default: true
+        type: boolean
+      tests:
+        description: Toggle test execution.
+        required: false
+        default: true
+        type: boolean
+      test-runner:
+        description: Test runner to invoke when tests are enabled (jest or vitest).
+        required: false
+        default: 'jest'
+        type: string
+      coverage:
+        description: Toggle coverage instrumentation and artifact packaging.
+        required: false
+        default: true
+        type: boolean
+      cache:
+        description: Toggle node_modules caching.
+        required: false
+        default: true
+        type: boolean
+      artifact-prefix:
+        description: Optional prefix applied to all uploaded artifact names.
+        required: false
+        default: 'gate-'
+        type: string
+    secrets:
+      npm-token:
+        description: Optional token for private npm registries.
+        required: false
+  workflow_dispatch:
+    inputs:
+      working-directory:
+        description: Working directory for all run steps (useful for monorepos).
+        required: false
+        default: '.'
+      node-versions:
+        description: JSON array of Node.js versions to execute.
+        required: false
+        default: '["20"]'
+      package-manager:
+        description: Package manager to use (npm, pnpm, or yarn).
+        required: false
+        default: 'npm'
+      lint:
+        description: Toggle ESLint execution.
+        required: false
+        default: true
+        type: boolean
+      format_check:
+        description: Toggle Prettier format check execution.
+        required: false
+        default: true
+        type: boolean
+      typecheck:
+        description: Toggle TypeScript type-check execution.
+        required: false
+        default: true
+        type: boolean
+      tests:
+        description: Toggle test execution.
+        required: false
+        default: true
+        type: boolean
+      test-runner:
+        description: Test runner to invoke when tests are enabled (jest or vitest).
+        required: false
+        default: 'jest'
+      coverage:
+        description: Toggle coverage instrumentation and artifact packaging.
+        required: false
+        default: true
+        type: boolean
+      cache:
+        description: Toggle node_modules caching.
+        required: false
+        default: true
+        type: boolean
+
+jobs:
+  validate-inputs:
+    name: Validate inputs
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 1
+    steps:
+      - name: Validate workflow inputs
+        env:
+          NODE_VERSIONS: ${{ inputs['node-versions'] || '' }}
+          PACKAGE_MANAGER: ${{ inputs['package-manager'] || 'npm' }}
+        run: |
+          set -euo pipefail
+          if [ -n "${NODE_VERSIONS}" ] && ! echo "${NODE_VERSIONS}" | python - <<'PY'
+          import json, os, sys
+          raw = os.environ.get("NODE_VERSIONS", "")
+          try:
+              data = json.loads(raw)
+          except json.JSONDecodeError as exc:
+              print(f"Invalid node-versions JSON: {exc}", file=sys.stderr)
+              sys.exit(1)
+          if not isinstance(data, list):
+              print("node-versions must be a JSON array when provided.", file=sys.stderr)
+              sys.exit(1)
+          PY
+          then
+            echo "Invalid node-versions input" >&2
+            exit 1
+          fi
+
+          case "${PACKAGE_MANAGER}" in
+            npm|pnpm|yarn) ;;
+            *)
+              echo "Unsupported package-manager: ${PACKAGE_MANAGER}. Use npm, pnpm, or yarn." >&2
+              exit 1
+              ;;
+          esac
+
+  tests:
+    name: node ${{ matrix.node-version }}
+    needs: validate-inputs
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: >-
+          ${{ fromJson(
+            (
+              (
+                inputs['node-versions'] != '' &&
+                inputs['node-versions'] != '[]' &&
+                contains(inputs['node-versions'], '[')
+              )
+              && inputs['node-versions']
+            )
+            || (
+              (
+                inputs['node-versions'] != '' &&
+                inputs['node-versions'] != '[]' &&
+                !contains(inputs['node-versions'], '[')
+              )
+              && format('[{0}]', toJson(inputs['node-versions']))
+            )
+            || (
+              (
+                inputs['node-version'] != ''
+              )
+              && format('[{0}]', toJson(inputs['node-version']))
+            )
+            || '["20"]'
+          ) }}
+    defaults:
+      run:
+        shell: bash
+        working-directory: ${{ inputs['working-directory'] || '.' }}
+    env:
+      WORKDIR: ${{ inputs['working-directory'] || '.' }}
+      WORKSPACE_ROOT: ${{ github.workspace }}
+      PROJECT_ROOT: ${{ inputs['working-directory'] != '' && inputs['working-directory'] != '.' && format('{0}/{1}', github.workspace, inputs['working-directory']) || github.workspace }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: ${{ inputs.cache && (inputs['package-manager'] == 'pnpm' && 'pnpm' || inputs['package-manager'] == 'yarn' && 'yarn' || 'npm') || '' }}
+          cache-dependency-path: |
+            ${{ inputs['working-directory'] || '.' }}/package-lock.json
+            ${{ inputs['working-directory'] || '.' }}/pnpm-lock.yaml
+            ${{ inputs['working-directory'] || '.' }}/yarn.lock
+          registry-url: https://registry.npmjs.org
+
+      - name: Install dependencies
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.npm-token || '' }}
+        run: |
+          set -euo pipefail
+          pm="${{ inputs['package-manager'] }}"
+          case "${pm}" in
+            npm)
+              npm ci --ignore-scripts
+              npm rebuild --if-present
+              ;;
+            pnpm)
+              corepack enable pnpm >/dev/null 2>&1 || true
+              pnpm install --frozen-lockfile --ignore-scripts
+              ;;
+            yarn)
+              corepack enable yarn >/dev/null 2>&1 || true
+              yarn install --frozen-lockfile --ignore-scripts
+              ;;
+          esac
+
+      - name: Run ESLint
+        if: ${{ inputs.lint }}
+        run: |
+          set -euo pipefail
+          pm="${{ inputs['package-manager'] }}"
+          case "${pm}" in
+            npm) npm run lint --if-present || npx eslint . ;;
+            pnpm) pnpm run lint --if-present || pnpm exec eslint . ;;
+            yarn) yarn run lint --if-present || yarn exec eslint . ;;
+          esac
+
+      - name: Check formatting (Prettier)
+        if: ${{ inputs.format_check }}
+        run: |
+          set -euo pipefail
+          pm="${{ inputs['package-manager'] }}"
+          case "${pm}" in
+            npm) npm run format:check --if-present || npx prettier --check . ;;
+            pnpm) pnpm run format:check --if-present || pnpm exec prettier --check . ;;
+            yarn) yarn run format:check --if-present || yarn exec prettier --check . ;;
+          esac
+
+      - name: TypeScript type check
+        if: ${{ inputs.typecheck }}
+        run: |
+          set -euo pipefail
+          pm="${{ inputs['package-manager'] }}"
+          case "${pm}" in
+            npm) npm run typecheck --if-present || npx tsc --noEmit ;;
+            pnpm) pnpm run typecheck --if-present || pnpm exec tsc --noEmit ;;
+            yarn) yarn run typecheck --if-present || yarn exec tsc --noEmit ;;
+          esac
+
+      - name: Run tests
+        id: run-tests
+        if: ${{ inputs.tests }}
+        env:
+          COVERAGE_ENABLED: ${{ inputs.coverage }}
+        run: |
+          set -euo pipefail
+          pm="${{ inputs['package-manager'] }}"
+          runner="${{ inputs['test-runner'] }}"
+
+          case "${pm}" in
+            npm)
+              if [ "${runner}" = "vitest" ]; then
+                npm run test --if-present -- --runInBand || npx vitest run --coverage
+              else
+                coverage_flags=()
+                if [ "${COVERAGE_ENABLED}" = "true" ]; then
+                  coverage_flags+=(--coverage --coverageReporters=text --coverageReporters=json-summary --coverageReporters=cobertura --coverageReporters=lcov)
+                fi
+                npm run test --if-present -- --runInBand "${coverage_flags[@]}" || npx jest --runInBand "${coverage_flags[@]}"
+              fi
+              ;;
+            pnpm)
+              if [ "${runner}" = "vitest" ]; then
+                pnpm run test --if-present -- --runInBand || pnpm exec vitest run --coverage
+              else
+                coverage_flags=()
+                if [ "${COVERAGE_ENABLED}" = "true" ]; then
+                  coverage_flags+=(--coverage --coverageReporters=text --coverageReporters=json-summary --coverageReporters=cobertura --coverageReporters=lcov)
+                fi
+                pnpm run test --if-present -- --runInBand "${coverage_flags[@]}" || pnpm exec jest --runInBand "${coverage_flags[@]}"
+              fi
+              ;;
+            yarn)
+              if [ "${runner}" = "vitest" ]; then
+                yarn run test --if-present --runInBand || yarn exec vitest run --coverage
+              else
+                coverage_flags=()
+                if [ "${COVERAGE_ENABLED}" = "true" ]; then
+                  coverage_flags+=(--coverage --coverageReporters=text --coverageReporters=json-summary --coverageReporters=cobertura --coverageReporters=lcov)
+                fi
+                yarn run test --if-present --runInBand "${coverage_flags[@]}" || yarn exec jest --runInBand "${coverage_flags[@]}"
+              fi
+              ;;
+          esac
+
+      - name: Stage coverage artifact layout
+        if: always()
+        env:
+          COVERAGE_ENABLED: ${{ inputs.coverage }}
+        run: |
+          set -euo pipefail
+          runtime="${{ matrix.node-version }}"
+          base_dir="artifacts/coverage/runtimes/${runtime}"
+
+          rm -rf "${base_dir}"
+          mkdir -p "${base_dir}"
+          mkdir -p "artifacts/coverage"
+
+          copied=0
+          if [ "${COVERAGE_ENABLED}" = "true" ] && [ -f coverage/coverage-final.json ]; then
+            cp coverage/coverage-final.json "${base_dir}/coverage.json"
+            copied=1
+          elif [ "${COVERAGE_ENABLED}" = "true" ] && [ -f coverage/coverage-summary.json ]; then
+            cp coverage/coverage-summary.json "${base_dir}/coverage.json"
+            copied=1
+          fi
+
+          if [ "${COVERAGE_ENABLED}" = "true" ] && [ -f coverage/cobertura-coverage.xml ]; then
+            cp coverage/cobertura-coverage.xml "${base_dir}/coverage.xml"
+            copied=1
+          fi
+
+          if [ -f junit.xml ]; then
+            cp junit.xml "${base_dir}/junit.xml"
+            copied=1
+          elif [ -f coverage/junit.xml ]; then
+            cp coverage/junit.xml "${base_dir}/junit.xml"
+            copied=1
+          fi
+
+          if [ "${copied}" -eq 0 ]; then
+            rm -rf "${base_dir}"
+            echo "No coverage payloads found; skipping staging."
+          fi
+
+      - name: Collect coverage paths
+        if: always()
+        id: coverage_paths
+        env:
+          COVERAGE_ENABLED: ${{ inputs.coverage }}
+          SUMMARY_PATH: ${{ env.GITHUB_STEP_SUMMARY }}
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+
+          runtime = "${{ matrix.node-version }}"
+          base_dir = Path("artifacts/coverage/runtimes") / runtime
+          coverage_json = base_dir / "coverage.json"
+          coverage_xml = base_dir / "coverage.xml"
+          junit_path = base_dir / "junit.xml"
+          summary_env = os.environ.get("SUMMARY_PATH") or ""
+          summary_path = Path(summary_env) if summary_env else None
+
+          outputs = {
+              "coverage_json": "",
+              "coverage_xml": "",
+              "junit_path": "",
+              "summary_path": "",
+          }
+
+          if coverage_json.exists():
+              outputs["coverage_json"] = str(coverage_json)
+          if coverage_xml.exists():
+              outputs["coverage_xml"] = str(coverage_xml)
+          if junit_path.exists():
+              outputs["junit_path"] = str(junit_path)
+          if summary_path and summary_path.exists():
+              outputs["summary_path"] = str(summary_path)
+
+          has_payload = any(Path(p).exists() and Path(p).is_file() for p in outputs.values() if p)
+
+          output_path = Path(os.environ.get("GITHUB_OUTPUT", ""))
+          if output_path:
+              with output_path.open("a", encoding="utf-8") as handle:
+                  for key, value in outputs.items():
+                      handle.write(f"{key}={value}\n")
+                  handle.write(f"has_payload={'true' if has_payload else 'false'}\n")
+          PY
+
+      - name: Upload coverage artifact
+        if: ${{ always() && steps.coverage_paths.outputs.has_payload == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs['artifact-prefix'] }}coverage-${{ matrix.node-version }}
+          path: ${{ env.PROJECT_ROOT }}/artifacts/coverage
+          if-no-files-found: warn
+          retention-days: 7
+          overwrite: true
+
+      - name: Finalize check results
+        if: always()
+        env:
+          TESTS_OUTCOME: ${{ steps.run-tests.outcome || 'skipped' }}
+        run: |
+          set -euo pipefail
+          if [ "${TESTS_OUTCOME}" != "success" ] && [ "${TESTS_OUTCOME}" != "skipped" ]; then
+            echo "Tests failed with outcome: ${TESTS_OUTCOME}" >&2
+            exit 1
+          fi

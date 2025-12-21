@@ -1,0 +1,31 @@
+# Basic Node.js CI Template
+#
+# Copy this file to your repo's .github/workflows/ directory and customize.
+# This provides: Node setup, linting (ESLint), formatting (Prettier),
+# TypeScript checks, and tests (Jest or Vitest) with coverage artifacts.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: Node CI
+    uses: stranske/Workflows/.github/workflows/reusable-11-ci-node.yml@main
+    with:
+      working-directory: .
+      node-versions: '["18", "20", "22"]'
+      package-manager: npm
+      lint: true
+      format_check: true
+      typecheck: true
+      tests: true
+      test-runner: jest
