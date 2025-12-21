@@ -91,12 +91,9 @@ async function dispatchOrchestrator({github, context, core, inputs}) {
 
   const isScopeError = (error) => {
     if (!error) return false;
-    const status = Number(error?.status || 0);
     const message = String(error?.message || error || '').toLowerCase();
-    if (status === 403 && message.includes('resource not accessible')) return true;
     return message.includes('resource not accessible');
   };
-
   const params = { enable_keepalive: true };
   if (Number.isFinite(issue) && issue > 0) {
     params.dispatcher_force_issue = String(issue);
