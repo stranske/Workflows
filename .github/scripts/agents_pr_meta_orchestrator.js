@@ -194,13 +194,25 @@ async function confirmDispatch({github, context, core, baselineIds, baselineTime
 
   const baseline = parseIds(baselineIds);
   const { owner, repo } = context.repo;
-  const baselineDate = baselineTimestamp ? new Date(baselineTimestamp) : null;
+  let baselineDate = null;
+  if (baselineTimestamp) {
+    const tmpDate = new Date(baselineTimestamp);
+    if (Number.isNaN(tmpDate.getTime())) {
+      core.warning(`Invalid baselineTimestamp "${baselineTimestamp}" provided; ignoring baseline filter.`);
+    } else {
+      baselineDate = tmpDate;
+    }
+  }
 
   const createdAfterBaseline = (run) => {
     if (!baselineDate) return true;
     const createdRaw = run?.created_at || run?.createdAt;
     if (!createdRaw) return true;
     const created = new Date(createdRaw);
+    if (Number.isNaN(created.getTime())) {
+      core.warning(`Invalid run created_at timestamp "${createdRaw}" for run id ${run?.id ?? 'unknown'}; treating as not after baseline.`);
+      return false;
+    }
     return created >= baselineDate;
   };
 
