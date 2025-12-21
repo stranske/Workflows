@@ -2,7 +2,7 @@
 # Based on templates/ci-basic.yml and powered by the Workflows reusable CI pipeline.
 name: Python CI (Workflows)
 
-on:
+'on':
   push:
     branches: [main]
   pull_request:
