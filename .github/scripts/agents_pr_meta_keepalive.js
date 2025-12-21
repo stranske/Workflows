@@ -375,7 +375,9 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
     return false;
   };
 
-  if (!hasKeepaliveMarker && isAutomationStatusComment()) {
+  const automationStatusComment = isAutomationStatusComment();
+
+  if (automationStatusComment && !hasKeepaliveMarker) {
     outputs.reason = 'automation-comment';
     core.info('Keepalive dispatch skipped: automation status comment without keepalive markers.');
     return finalise(false);
@@ -407,9 +409,9 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
   // Do NOT treat comments that contain the keepalive instruction signature as initial
   // activation - those are manual re-posts of existing instructions and should be rejected.
   const normalisedBody = normaliseBody(body).toLowerCase();
-  const startsWithCodexMention = normalisedBody.startsWith('@codex') && 
+  const startsWithCodexMention = normalisedBody.startsWith('@codex') &&
     (normalisedBody.length === 6 || /^@codex[\s,;:!?]/.test(normalisedBody));
-  const isInitialActivation = !roundMatch && isAuthorAllowed && body && 
+  const isInitialActivation = !roundMatch && isAuthorAllowed && body &&
     startsWithCodexMention && !isLikelyInstruction(body);
 
   if (!roundMatch && !isInitialActivation) {
