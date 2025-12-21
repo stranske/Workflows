@@ -201,7 +201,7 @@ async function confirmDispatch({github, context, core, baselineIds, baselineTime
     const createdRaw = run?.created_at || run?.createdAt;
     if (!createdRaw) return true;
     const created = new Date(createdRaw);
-    return created > baselineDate;
+    return created >= baselineDate;
   };
 
   const matches = (run) => {
