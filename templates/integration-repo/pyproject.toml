@@ -1,0 +1,45 @@
+[project]
+name = "workflows-integration"
+version = "0.1.0"
+description = "Minimal consumer project for validating stranske/Workflows reusable CI."
+authors = [{ name = "Workflows Integration" }]
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+app = []
+dev = [
+    "black",
+    "docformatter",
+    "isort",
+    "mypy",
+    "pytest",
+    "pytest-cov",
+    "pytest-xdist",
+    "ruff",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.ruff]
+line-length = 100
+
+[tool.black]
+line-length = 100
+
+[tool.isort]
+profile = "black"
+line_length = 100
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+testpaths = ["tests"]
+
+[tool.coverage.run]
+branch = true
+source = ["example"]
+
+[tool.coverage.report]
+show_missing = true

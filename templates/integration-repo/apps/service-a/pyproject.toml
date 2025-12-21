@@ -1,0 +1,45 @@
+[project]
+name = "service-a"
+version = "0.1.0"
+description = "Service A module for monorepo simulation in integration tests."
+authors = [{ name = "Workflows Integration" }]
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+app = []
+dev = [
+    "black",
+    "docformatter",
+    "isort",
+    "mypy",
+    "pytest",
+    "pytest-cov",
+    "pytest-xdist",
+    "ruff",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.ruff]
+line-length = 100
+
+[tool.black]
+line-length = 100
+
+[tool.isort]
+profile = "black"
+line_length = 100
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+testpaths = ["tests"]
+
+[tool.coverage.run]
+branch = true
+source = ["service_a"]
+
+[tool.coverage.report]
+show_missing = true
