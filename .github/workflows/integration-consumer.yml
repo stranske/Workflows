@@ -16,54 +16,54 @@ jobs:
       matrix:
         include:
           - name: basic
-            python_versions: '["3.11"]'
+            python-versions: '["3.11"]'
             coverage: false
-            format_check: false
+            format-check: false
             lint: false
             typecheck: false
-            enable_soft_gate: false
-            enable_coverage_delta: false
-            enable_metrics: false
-            enable_history: false
-            baseline_coverage: '0'
-            coverage_alert_drop: '0'
+            enable-soft-gate: false
+            enable-coverage-delta: false
+            enable-metrics: false
+            enable-history: false
+            baseline-coverage: '0'
+            coverage-alert-drop: '0'
           - name: full
-            python_versions: '["3.11","3.12"]'
+            python-versions: '["3.11","3.12"]'
             coverage: true
-            format_check: true
+            format-check: true
             lint: true
             typecheck: true
-            enable_soft_gate: true
-            enable_coverage_delta: true
-            enable_metrics: true
-            enable_history: true
-            baseline_coverage: '80'
-            coverage_alert_drop: '2'
+            enable-soft-gate: true
+            enable-coverage-delta: true
+            enable-metrics: true
+            enable-history: true
+            baseline-coverage: '80'
+            coverage-alert-drop: '2'
           - name: monorepo
-            python_versions: '["3.11"]'
+            python-versions: '["3.11"]'
             coverage: true
-            format_check: true
+            format-check: true
             lint: true
             typecheck: true
-            enable_soft_gate: false
-            enable_coverage_delta: false
-            enable_metrics: false
-            enable_history: false
-            baseline_coverage: '70'
-            coverage_alert_drop: '1'
+            enable-soft-gate: false
+            enable-coverage-delta: false
+            enable-metrics: false
+            enable-history: false
+            baseline-coverage: '70'
+            coverage-alert-drop: '1'
     with:
       working-directory: templates/integration-repo
-      python-versions: ${{ matrix.python_versions }}
+      python-versions: ${{ matrix.python-versions }}
       coverage: ${{ matrix.coverage }}
-      format_check: ${{ matrix.format_check }}
+      format_check: ${{ matrix.format-check }}
       lint: ${{ matrix.lint }}
       typecheck: ${{ matrix.typecheck }}
-      enable-soft-gate: ${{ matrix.enable_soft_gate }}
-      enable-coverage-delta: ${{ matrix.enable_coverage_delta }}
-      enable-metrics: ${{ matrix.enable_metrics }}
-      enable-history: ${{ matrix.enable_history }}
-      baseline-coverage: ${{ matrix.baseline_coverage }}
-      coverage-alert-drop: ${{ matrix.coverage_alert_drop }}
+      enable-soft-gate: ${{ matrix.enable-soft-gate }}
+      enable-coverage-delta: ${{ matrix.enable-coverage-delta }}
+      enable-metrics: ${{ matrix.enable-metrics }}
+      enable-history: ${{ matrix.enable-history }}
+      baseline-coverage: ${{ matrix.baseline-coverage }}
+      coverage-alert-drop: ${{ matrix.coverage-alert-drop }}
       artifact-prefix: integration-${{ matrix.name }}-
     secrets: inherit
 
