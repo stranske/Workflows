@@ -124,6 +124,23 @@ jobs:
       baseline-coverage: '75.5'
       coverage-alert-drop: '1.0'
       fail-on-coverage-drop: 'true'
+
+### Monorepo Usage
+
+Set `working-directory` when your project lives in a subfolder. The reusable workflow will run all
+`run:` steps from that directory, stage coverage artifacts from the same location, and rely on
+sparse checkout to fetch the shared helper scripts it needs:
+
+```yaml
+name: Package CI
+on: [push, pull_request]
+jobs:
+  ci:
+    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
+    with:
+      working-directory: packages/my-package
+      python-versions: '["3.11"]'
+      coverage-min: '80'
 ```
 
 ### Summary Step
