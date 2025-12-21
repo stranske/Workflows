@@ -158,14 +158,14 @@ runs:
           coverage_spec="coverage==${COVERAGE_VERSION:-7.2.7}"
           pytest_xdist_spec="pytest-xdist==${PYTEST_XDIST_VERSION:-3.6.1}"
           base_test_specs=(
-            "hypothesis==6.0.0"
-            "pandas==2.3.0"
-            "numpy==2.1.0"
-            "pydantic==2.0.0"
-            "requests==2.31.0"
-            "jsonschema==4.0.0"
-            "PyYAML==6.0.0"
-            "tomlkit==0.13.0"
+            "hypothesis==${HYPOTHESIS_VERSION:-6.0.0}"
+            "pandas==${PANDAS_VERSION:-2.3.0}"
+            "numpy==${NUMPY_VERSION:-2.1.0}"
+            "pydantic==${PYDANTIC_VERSION:-2.0.0}"
+            "requests==${REQUESTS_VERSION:-2.31.0}"
+            "jsonschema==${JSONSCHEMA_VERSION:-4.0.0}"
+            "PyYAML==${PYYAML_VERSION:-6.0.2}"
+            "tomlkit==${TOMLKIT_VERSION:-0.13.0}"
           )
         else
           echo "Warning: .github/workflows/autofix-versions.env not found, installing latest versions" >&2
