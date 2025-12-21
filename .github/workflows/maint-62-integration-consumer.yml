@@ -1,4 +1,4 @@
-name: Integration Consumer CI
+name: Maint 62 Integration Consumer
 
 on:
   schedule:

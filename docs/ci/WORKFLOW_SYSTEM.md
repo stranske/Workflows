@@ -462,7 +462,7 @@ status updates:
 | Bucket | Where it runs | YAML entry points | Why it exists |
 | --- | --- | --- | --- |
 | PR checks | Every pull request event (including `pull_request_target` for fork visibility) | `pr-00-gate.yml` | Keep the default branch green by running the gating matrix before reviewers waste time. |
-| Maintenance & repo health | Daily/weekly schedules plus manual dispatch | Gate summary job in `pr-00-gate.yml`, `maint-46-post-ci.yml`, `maint-45-cosmetic-repair.yml`, `maint-51-dependency-refresh.yml`, `health-4x-*.yml` | Scrub lingering CI debt, enforce branch protection, and surface drift before it breaks contributor workflows. |
+| Maintenance & repo health | Daily/weekly schedules plus manual dispatch | Gate summary job in `pr-00-gate.yml`, `maint-46-post-ci.yml`, `maint-45-cosmetic-repair.yml`, `maint-51-dependency-refresh.yml`, `maint-62-integration-consumer.yml`, `health-4x-*.yml` | Scrub lingering CI debt, enforce branch protection, and surface drift before it breaks contributor workflows. |
 | Issue / agents automation | Orchestrator dispatch (`workflow_dispatch`, `workflow_call`, `issues`), belt conveyor (`repository_dispatch`, `workflow_run`) | `agents-70-orchestrator.yml`, `agents-71-codex-belt-dispatcher.yml`, `agents-72-codex-belt-worker.yml`, `agents-73-codex-belt-conveyor.yml`, `agents-moderate-connector.yml`, `agents-keepalive-branch-sync.yml`, `agents-keepalive-dispatch-handler.yml`, `agents-74-pr-body-writer.yml`, `agents-63-*.yml`, `agents-64-pr-comment-commands.yml`, `agents-64-verify-agent-assignment.yml`, `agents-guard.yml` | Translate labelled issues into automated work while keeping the protected agents surface locked behind guardrails. |
 | Error checking, linting, and testing topology | Reusable fan-out invoked by Gate, Gate summary job, and manual triggers | `reusable-10-ci-python.yml`, `reusable-12-ci-docker.yml`, `reusable-16-agents.yml`, `reusable-18-autofix.yml`, `reusable-70-orchestrator-init.yml`, `reusable-70-orchestrator-main.yml`, `selftest-reusable-ci.yml` | Provide a single source of truth for lint/type/test/container jobs so every caller runs the same matrix with consistent tooling. |
 
@@ -515,6 +515,11 @@ Keep this table handy when you are triaging automation: it confirms which workfl
   dry-parses every workflow YAML using `yq`, hydrates the shared actionlint
   allowlist, and runs `actionlint` so malformed syntax or unapproved action
   usage breaks fast before landing on the default branch (PRs and main pushes).
+- **Maint 62 Integration Consumer** – `.github/workflows/maint-62-integration-consumer.yml`
+  exercises the reusable Python CI template against the `templates/integration-repo`
+  scenarios on a daily schedule (05:05 UTC), on release publication, or via
+  manual dispatch, then reports the outcome in the job summary and manages the
+  integration failure tracker issue when needed.
 - **Maint 45 Cosmetic Repair** – `.github/workflows/maint-45-cosmetic-repair.yml`
   is a manual workflow. It runs pytest and the guardrail fixers, then opens a
   labelled PR if changes are needed.
