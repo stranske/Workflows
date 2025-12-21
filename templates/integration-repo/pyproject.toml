@@ -1,0 +1,19 @@
+[project]
+name = "workflows-integration"
+version = "0.1.0"
+description = "Integration test consumer for stranske/Workflows reusable CI"
+requires-python = ">=3.11"
+readme = "README.md"
+authors = [{name = "Workflows Integration"}]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=7.4",
+]
+
+[tool.coverage.run]
+omit = ["tests/*"]
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+testpaths = ["tests"]
