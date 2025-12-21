@@ -1,0 +1,15 @@
+{
+  "name": "Python CI (Workflows)",
+  "description": "Run linting, formatting, type checking, and tests via the Workflows reusable Python CI workflow.",
+  "iconName": "python",
+  "categories": [
+    "Continuous integration",
+    "Python",
+    "Testing"
+  ],
+  "filePatterns": [
+    "pyproject\\.toml$",
+    "requirements(\\.txt|\\.lock)$",
+    "setup\\.(cfg|py)$"
+  ]
+}
