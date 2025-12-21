@@ -7,6 +7,7 @@ const AGENT_LABEL_PREFIX = 'agent:';
 const MAX_RUNS_PREFIX = 'agents:max-runs:';
 const SYNC_REQUIRED_LABEL = 'agents:sync-required';
 const ACTIVATED_LABEL = 'agents:activated';
+const PAUSE_LABEL = 'agents:pause';
 const DEFAULT_RUN_CAP = 1;
 const MIN_RUN_CAP = 1;
 const MAX_RUN_CAP = 5;
@@ -901,6 +902,7 @@ async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
       headRef: '',
       hasSyncRequiredLabel: false,
       hasActivatedLabel: false,
+      hasPauseLabel: false,
       requireHumanActivation: false,
       activationComment: null,
       gateStatus: { found: false, success: false, status: '', conclusion: '' },
@@ -934,6 +936,7 @@ async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
         headRef: '',
         hasSyncRequiredLabel: false,
         hasActivatedLabel: false,
+        hasPauseLabel: false,
         requireHumanActivation: false,
         activationComment: null,
         gateStatus: { found: false, success: false, status: '', conclusion: '' },
@@ -948,6 +951,7 @@ async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
   const labels = Array.isArray(pr?.labels) ? pr.labels : [];
   const labelNames = extractLabelNames(labels);
   const hasKeepaliveLabel = labelNames.includes(KEEPALIVE_LABEL);
+  const hasPauseLabel = labelNames.includes(PAUSE_LABEL);
   const hasActivatedLabel = labelNames.includes(ACTIVATED_LABEL);
   const hasSyncRequiredLabel = labelNames.includes(SYNC_REQUIRED_LABEL);
   const agentAliases = extractAgentAliases(labels);
@@ -1018,7 +1022,10 @@ async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
   let reason = 'ok';
   let pendingGate = false;
 
-  if (hasSyncRequiredLabel) {
+  if (hasPauseLabel) {
+    ok = false;
+    reason = 'keepalive-paused';
+  } else if (hasSyncRequiredLabel) {
     ok = false;
     reason = 'sync-required';
   } else if (!hasKeepaliveLabel) {
@@ -1085,6 +1092,7 @@ async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
     primaryAgent,
     headSha,
     headRef,
+    hasPauseLabel,
     lastGreenSha: gateSucceeded ? headSha : '',
     hasSyncRequiredLabel,
     hasActivatedLabel,
