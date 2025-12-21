@@ -301,9 +301,6 @@ jobs:
       WORKSPACE_ROOT: ${{ github.workspace }}
       PROJECT_ROOT: ${{ inputs['working-directory'] != '' && inputs['working-directory'] != '.' && format('{0}/{1}', github.workspace, inputs['working-directory']) || github.workspace }}
     outputs:
-      pytest_outcome: ${{ steps.finalize-tests.outputs.pytest_outcome || steps.pytest.outcome || 'skipped' }}
-      coverage_min_outcome: ${{ steps.finalize-tests.outputs.coverage_min_outcome || steps.coverage_min.outcome || 'skipped' }}
-    outputs:
       format_outcome: ${{ steps.finalize.outputs.outcome || steps.black.outcome || 'skipped' }}
     steps:
       - name: Checkout repository
@@ -685,6 +682,25 @@ jobs:
           append_summary "📝 Updated pyproject.toml with missing dependencies."
           append_summary "⚠️ Build will fail - commit the updated pyproject.toml and regenerate requirements.lock"
           exit 1
+
+      - name: Resolve mypy python pin
+        if: ${{ inputs.typecheck && inputs['run-mypy'] }}
+        id: mypy-pin
+        env:
+          MATRIX_PYTHON_VERSION: ${{ matrix.python-version }}
+        run: |
+          set -euo pipefail
+          python "${GITHUB_WORKSPACE}/tools/resolve_mypy_pin.py"
+
+      - name: Cache mypy state
+        if: ${{ inputs.cache && inputs.typecheck && inputs['run-mypy'] }}
+        uses: actions/cache@v4
+        with:
+          path: ${{ inputs['working-directory'] || '.' }}/.mypy_cache
+          key: mypy-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles(format('{0}/pyproject.toml', inputs['working-directory'])) }}-${{ hashFiles(format('{0}/src/**/*.py', inputs['working-directory'])) }}
+          restore-keys: |
+            mypy-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles(format('{0}/pyproject.toml', inputs['working-directory'])) }}-
+            mypy-${{ runner.os }}-${{ matrix.python-version }}-
 
       - name: Cache pytest state
         if: ${{ inputs.cache }}
