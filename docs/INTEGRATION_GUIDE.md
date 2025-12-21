@@ -139,6 +139,74 @@ jobs:
 | `reusable-10-ci-python.yml` | Full Python CI pipeline | `python-version`, `coverage-threshold` |
 | `reusable-99-selftest.yml` | Run self-tests on workflow files | - |
 
+## Workflow Outputs
+
+Caller-facing outputs are available only from a subset of reusable workflows. If a workflow is not listed below it exports no `workflow_call` outputs (it still produces artifacts and step summaries).
+
+| Workflow | Outputs (name → description) |
+|----------|-----------------------------|
+| `reusable-16-agents.yml` | `readiness_report` → JSON payload from the readiness probe; `readiness_table` → Markdown table summarizing assignable agents. |
+| `reusable-70-orchestrator-init.yml` | `rate_limit_safe`, `has_work`, `token_source`; keepalive/run toggles (`enable_keepalive`, `keepalive_pause_label`, `keepalive_round`, `keepalive_pr`, `keepalive_max_retries`, `keepalive_trace`); readiness/diagnostic toggles (`enable_readiness`, `readiness_agents`, `readiness_custom_logins`, `require_all`, `enable_preflight`, `enable_diagnostic`, `diagnostic_attempt_branch`, `diagnostic_dry_run`, `enable_verify_issue`, `verify_issue_number`, `verify_issue_valid_assignees`); bootstrap/worker settings (`enable_bootstrap`, `bootstrap_issues_label`, `draft_pr`, `dispatcher_force_issue`, `worker_max_parallel`, `conveyor_max_merges`); misc orchestrator options (`codex_user`, `codex_command_phrase`, `enable_watchdog`, `dry_run`, `options_json`). |
+| `reusable-10-ci-python.yml` | None (artifacts only: coverage, metrics, summaries). |
+| `reusable-11-ci-node.yml` | None (artifacts only: coverage + junit when enabled). |
+| `reusable-12-ci-docker.yml` | None (logs only). |
+| `reusable-18-autofix.yml` | None (patch artifacts + summaries). |
+| `reusable-70-orchestrator-main.yml` | None (consumes init outputs; exports status via summaries). |
+| `reusable-agents-issue-bridge.yml` | None (bridge PR creation artifacts/logs). |
+
+### Using outputs in dependent jobs
+
+Orchestrator chaining example:
+
+```yaml
+jobs:
+  orchestrator-init:
+    uses: stranske/Workflows/.github/workflows/reusable-70-orchestrator-init.yml@v1
+    id: init
+
+  orchestrator-main:
+    needs: orchestrator-init
+    if: needs.init.outputs.has_work == 'true' && needs.init.outputs.rate_limit_safe == 'true'
+    uses: stranske/Workflows/.github/workflows/reusable-70-orchestrator-main.yml@v1
+    with:
+      init_success: ${{ needs.init.result }}
+      enable_keepalive: ${{ needs.init.outputs.enable_keepalive }}
+      keepalive_pause_label: ${{ needs.init.outputs.keepalive_pause_label }}
+      keepalive_round: ${{ needs.init.outputs.keepalive_round }}
+      keepalive_pr: ${{ needs.init.outputs.keepalive_pr }}
+      options_json: ${{ needs.init.outputs.options_json }}
+      token_source: ${{ needs.init.outputs.token_source }}
+```
+
+Agent readiness example (posting the Markdown table):
+
+```yaml
+jobs:
+  agents-readiness:
+    uses: stranske/Workflows/.github/workflows/reusable-16-agents.yml@v1
+    id: readiness
+    with:
+      enable_readiness: 'true'
+
+  comment-readiness:
+    needs: readiness
+    if: needs.readiness.outputs.readiness_table != ''
+    runs-on: ubuntu-latest
+    steps:
+      - name: Post readiness table
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const table = `## Agent Readiness\n\n${{ toJSON(needs.readiness.outputs.readiness_table) }}`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: table,
+            });
+```
+
+
 ### Agent Workflows
 
 | Workflow | Purpose | Required Secrets |
