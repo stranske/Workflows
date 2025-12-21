@@ -377,9 +377,9 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
 
   const automationStatusComment = isAutomationStatusComment();
 
-  if (automationStatusComment) {
+  if (automationStatusComment && !hasKeepaliveMarker) {
     outputs.reason = 'automation-comment';
-    core.info('Keepalive dispatch skipped: automation status comment detected.');
+    core.info('Keepalive dispatch skipped: automation status comment without keepalive markers.');
     return finalise(false);
   }
 
