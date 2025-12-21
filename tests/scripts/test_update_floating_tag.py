@@ -106,3 +106,57 @@ def test_update_floating_tag_requires_tagged_commit(monkeypatch):
 
         assert completed.returncode != 0
         assert "not tagged with v1.* release" in completed.stderr.decode()
+
+
+def test_update_floating_tag_skips_when_missing_release_and_allowed(monkeypatch):
+    with tempfile.TemporaryDirectory() as temp_dir:
+        repo_path = pathlib.Path(temp_dir)
+        _init_repo(repo_path)
+
+        _commit_file(repo_path, "file.txt", "initial\n", "initial")
+
+        env = os.environ.copy()
+        env["DRY_RUN"] = "1"
+        env["ALLOW_MISSING_RELEASES"] = "1"
+
+        completed = subprocess.run(
+            ["bash", str(SCRIPT_PATH), "v1", "v1."],
+            cwd=repo_path,
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+
+        assert completed.returncode == 0
+        floating_missing = subprocess.run(
+            ["git", "rev-parse", "v1"],
+            cwd=repo_path,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+
+        assert floating_missing.returncode != 0
+
+
+def test_update_floating_tag_updates_existing_tag_to_latest_release(monkeypatch):
+    with tempfile.TemporaryDirectory() as temp_dir:
+        repo_path = pathlib.Path(temp_dir)
+        _init_repo(repo_path)
+
+        commit_v1_0_0 = _commit_file(repo_path, "file.txt", "v1.0.0\n", "v1.0.0")
+        _tag(repo_path, "v1.0.0", commit_v1_0_0)
+        _tag(repo_path, "v1", commit_v1_0_0)
+
+        commit_v1_3_0 = _commit_file(repo_path, "file.txt", "v1.3.0\n", "v1.3.0")
+        _tag(repo_path, "v1.3.0", commit_v1_3_0)
+
+        env = os.environ.copy()
+        env["DRY_RUN"] = "1"
+
+        _run(["bash", str(SCRIPT_PATH), "v1", "v1."], cwd=repo_path, env=env)
+
+        floating_target = subprocess.check_output(
+            ["git", "rev-parse", "v1"], cwd=repo_path, text=True
+        ).strip()
+
+        assert floating_target == commit_v1_3_0

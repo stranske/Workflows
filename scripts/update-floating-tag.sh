@@ -4,6 +4,7 @@ set -euo pipefail
 FLOATING_TAG=${1:?"Floating tag name (e.g., v1) is required"}
 MAJOR_PREFIX=${2:?"Major prefix (e.g., v1.) is required"}
 TARGET_COMMIT=${3:-}
+ALLOW_MISSING_RELEASES=${ALLOW_MISSING_RELEASES:-0}
 RELEASE_TAG=""
 
 if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
@@ -23,6 +24,10 @@ fi
 if [[ -z "${TARGET_COMMIT}" ]]; then
   RELEASE_TAG=$(git tag -l "${MAJOR_PREFIX}*" --sort=-v:refname | head -n 1)
   if [[ -z "${RELEASE_TAG}" ]]; then
+    if [[ "${ALLOW_MISSING_RELEASES}" != "0" ]]; then
+      echo "No tags found matching ${MAJOR_PREFIX}*; ALLOW_MISSING_RELEASES enabled, skipping update"
+      exit 0
+    fi
     echo "No tags found matching ${MAJOR_PREFIX}*" >&2
     exit 1
   fi
@@ -37,6 +42,10 @@ else
   RELEASE_TAG=$(git tag --list --points-at "${TARGET_COMMIT}" "${MAJOR_PREFIX}*")
   RELEASE_TAG=$(echo "${RELEASE_TAG}" | sort -rV | head -n 1)
   if [[ -z "${RELEASE_TAG}" ]]; then
+    if [[ "${ALLOW_MISSING_RELEASES}" != "0" ]]; then
+      echo "Commit ${TARGET_COMMIT} is not tagged with ${MAJOR_PREFIX}* release; ALLOW_MISSING_RELEASES enabled, skipping update"
+      exit 0
+    fi
     echo "Commit ${TARGET_COMMIT} is not tagged with ${MAJOR_PREFIX}* release" >&2
     exit 1
   fi
