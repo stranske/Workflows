@@ -44,6 +44,10 @@ concurrency:
 jobs:
   init:
     name: Initialize
+    permissions:
+      actions: write
+      contents: write
+      pull-requests: write
     uses: ./.github/workflows/reusable-70-orchestrator-init.yml
     with:
       params_json: >-
@@ -100,6 +104,10 @@ jobs:
       SERVICE_BOT_PAT: ${{ secrets.SERVICE_BOT_PAT }}
 
   main:
+    permissions:
+      actions: write
+      contents: write
+      pull-requests: write
     name: Execute
     needs: init
     if: needs.init.outputs.has_work == 'true'
