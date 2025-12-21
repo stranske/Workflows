@@ -36,6 +36,7 @@ permissions:
   actions: write
   contents: write
   pull-requests: write
+  issues: write
 
 concurrency:
   group: agents-70-orchestrator-singleton
@@ -48,6 +49,7 @@ jobs:
       actions: write
       contents: write
       pull-requests: write
+      issues: write
     uses: ./.github/workflows/reusable-70-orchestrator-init.yml
     with:
       params_json: >-
@@ -108,6 +110,7 @@ jobs:
       actions: write
       contents: write
       pull-requests: write
+      issues: write
     name: Execute
     needs: init
     if: needs.init.outputs.has_work == 'true'
