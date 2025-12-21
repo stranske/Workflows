@@ -415,11 +415,8 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
     startsWithCodexMention && !isLikelyInstruction(body);
 
   if (!roundMatch && !isInitialActivation) {
-    outputs.reason = isAuthorAllowed ? 'missing-round' : 'unauthorised-author';
-    const message = isAuthorAllowed
-      ? 'Keepalive dispatch skipped: comment missing keepalive round marker and not initial activation.'
-      : `Keepalive dispatch skipped: author ${author || '(unknown)'} not in allow list and no keepalive round marker.`;
-    core.info(message);
+    outputs.reason = 'missing-round';
+    core.info('Keepalive dispatch skipped: comment missing keepalive round marker and not initial activation.');
     return finalise(false);
   }
 
