@@ -64,6 +64,19 @@ pull_request ──▶ Gate ──▶ Summary comment & status
                     └─▶ Reusable test suites (Python matrix & Docker smoke)
 ```
 
+### Reusable workflow outputs (caller-facing)
+
+| Workflow | Outputs | Notes |
+| --- | --- | --- |
+| [`reusable-70-orchestrator-init.yml`](../../.github/workflows/reusable-70-orchestrator-init.yml) | `rate_limit_safe`, `has_work`, `token_source`; keepalive controls (`enable_keepalive`, `keepalive_pause_label`, `keepalive_round`, `keepalive_pr`, `keepalive_trace`, `keepalive_max_retries`); readiness/diagnostic toggles (`enable_readiness`, `readiness_agents`, `readiness_custom_logins`, `require_all`, `enable_preflight`, `enable_diagnostic`, `diagnostic_attempt_branch`, `diagnostic_dry_run`, `enable_verify_issue`, `verify_issue_number`, `verify_issue_valid_assignees`); bootstrap/worker controls (`enable_bootstrap`, `bootstrap_issues_label`, `draft_pr`, `dispatcher_force_issue`, `worker_max_parallel`, `conveyor_max_merges`); misc (`codex_user`, `codex_command_phrase`, `enable_watchdog`, `dry_run`, `options_json`). | Drive `reusable-70-orchestrator-main.yml` inputs and gate the run with `has_work`/`rate_limit_safe`. |
+| [`reusable-16-agents.yml`](../../.github/workflows/reusable-16-agents.yml) | `readiness_report` (JSON), `readiness_table` (Markdown). | Use in downstream comments or dashboards after readiness probes. |
+| [`reusable-10-ci-python.yml`](../../.github/workflows/reusable-10-ci-python.yml) | None (artifacts only). | Consume coverage/metrics artifacts uploaded by the workflow. |
+| [`reusable-11-ci-node.yml`](../../.github/workflows/reusable-11-ci-node.yml) | None (artifacts only). | Coverage + junit artifacts when enabled. |
+| [`reusable-12-ci-docker.yml`](../../.github/workflows/reusable-12-ci-docker.yml) | None. | Logs only. |
+| [`reusable-18-autofix.yml`](../../.github/workflows/reusable-18-autofix.yml) | None. | Patch artifacts + summaries only. |
+| [`reusable-70-orchestrator-main.yml`](../../.github/workflows/reusable-70-orchestrator-main.yml) | None. | Consumes init outputs; reports via summaries/artifacts. |
+| [`reusable-agents-issue-bridge.yml`](../../.github/workflows/reusable-agents-issue-bridge.yml) | None. | Bridge emits PRs/comments only. |
+
 ## Pull Request Gate
 
 * [`Gate`](../../.github/workflows/pr-00-gate.yml) orchestrates the fast-path vs full CI decision, evaluates coverage artifacts, and reports commit status back to the PR.
