@@ -1,0 +1,27 @@
+# Starter workflow: Workflows Python CI
+# Based on templates/ci-basic.yml and powered by the Workflows reusable CI pipeline.
+name: Python CI (Workflows)
+
+'on':
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  python-ci:
+    name: Python CI
+    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
+    with:
+      python-versions: '["3.11", "3.12"]'
+      primary-python-version: '3.11'
+      coverage-min: '70'
+      enable-soft-gate: true
+      # Optional: set this if your project lives in a subdirectory
+      # working-directory: backend
+    secrets: inherit
