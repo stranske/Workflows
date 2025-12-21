@@ -1,0 +1,20 @@
+name: CI (integration)
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: '15 4 * * *'
+
+jobs:
+  python:
+    uses: __WORKFLOW_REF__
+    with:
+      python-versions: '["3.11", "3.12"]'
+      enable-metrics: true
+      enable-history: true
+      enable-coverage-delta: true
+      enable-soft-gate: true
+      baseline-coverage: '80'
+      coverage-alert-drop: '2'
+    secrets: inherit
