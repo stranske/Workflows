@@ -160,7 +160,7 @@ runs:
           base_test_specs=(
             "hypothesis==${HYPOTHESIS_VERSION:-6.0.0}"
             "pandas==${PANDAS_VERSION:-2.3.0}"
-            "numpy==${NUMPY_VERSION:-2.1.0}"
+            "numpy==${NUMPY_VERSION:-1.26.4}"
             "pydantic==${PYDANTIC_VERSION:-2.0.0}"
             "requests==${REQUESTS_VERSION:-2.31.0}"
             "jsonschema==${JSONSCHEMA_VERSION:-4.0.0}"
