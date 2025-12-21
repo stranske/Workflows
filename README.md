@@ -87,6 +87,12 @@ jobs:
       python-version: "3.11"
 ```
 
+#### Versioning strategy
+
+- **Floating major (`@v1`)** – recommended default. Receives backward-compatible fixes automatically while staying on the same major version. The floating tag is refreshed by the release pipeline and a dedicated maintenance workflow.
+- **Pinned release (`@v1.0.0`)** – choose this when you need strict reproducibility and plan upgrades yourself.
+- **Branch (`@main`)** – only for testing upcoming changes; may include breaking behavior.
+
 ### Local Development
 
 1. Clone the repository

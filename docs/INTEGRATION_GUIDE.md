@@ -44,9 +44,11 @@ jobs:
 
 Choose the reference that matches your stability needs:
 
-- **Floating major tag (`@v1`)**: Recommended for most consumers. Receives backwards-compatible fixes automatically while staying on the same major version.
-- **Pinned release (`@v1.0.0`)**: Use when you need reproducible builds and want to opt into updates manually.
-- **Branch reference (`@main`)**: Only for testing upcoming changes; can introduce breaking behavior.
+| Reference | When to use it | Behavior |
+|-----------|----------------|----------|
+| **Floating major tag (`@v1`)** | Default for most teams that want security/bug fixes without breaking changes. | Automatically moves forward to the latest `v1.x` release; maintained by the release workflow and the floating-tag maintenance job. |
+| **Pinned release (`@v1.0.0`)** | When you need fully reproducible builds or plan to upgrade on your own schedule. | Locked to a specific release until you update the tag. |
+| **Branch reference (`@main`)** | Only when testing unreleased changes. | Can include breaking changes; not guaranteed stable. |
 
 Example with both floating and pinned tags:
 

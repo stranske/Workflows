@@ -2,6 +2,9 @@ name: Maint 61 Create Floating v1 Tag
 
 on:
   workflow_dispatch:
+  release:
+    types:
+      - published
 
 permissions:
   contents: write
@@ -10,6 +13,7 @@ jobs:
   create-floating-v1-tag:
     name: Create or refresh floating v1 tag
     runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.event.release.tag_name, 'v1.')
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
