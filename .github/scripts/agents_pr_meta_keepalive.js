@@ -375,9 +375,11 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
     return false;
   };
 
-  if (!hasKeepaliveMarker && isAutomationStatusComment()) {
+  const automationStatusComment = isAutomationStatusComment();
+
+  if (automationStatusComment) {
     outputs.reason = 'automation-comment';
-    core.info('Keepalive dispatch skipped: automation status comment without keepalive markers.');
+    core.info('Keepalive dispatch skipped: automation status comment detected.');
     return finalise(false);
   }
 
@@ -407,14 +409,17 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
   // Do NOT treat comments that contain the keepalive instruction signature as initial
   // activation - those are manual re-posts of existing instructions and should be rejected.
   const normalisedBody = normaliseBody(body).toLowerCase();
-  const startsWithCodexMention = normalisedBody.startsWith('@codex') && 
+  const startsWithCodexMention = normalisedBody.startsWith('@codex') &&
     (normalisedBody.length === 6 || /^@codex[\s,;:!?]/.test(normalisedBody));
-  const isInitialActivation = !roundMatch && isAuthorAllowed && body && 
+  const isInitialActivation = !roundMatch && isAuthorAllowed && body &&
     startsWithCodexMention && !isLikelyInstruction(body);
 
   if (!roundMatch && !isInitialActivation) {
-    outputs.reason = 'missing-round';
-    core.info('Keepalive dispatch skipped: comment missing keepalive round marker and not initial activation.');
+    outputs.reason = isAuthorAllowed ? 'missing-round' : 'unauthorised-author';
+    const message = isAuthorAllowed
+      ? 'Keepalive dispatch skipped: comment missing keepalive round marker and not initial activation.'
+      : `Keepalive dispatch skipped: author ${author || '(unknown)'} not in allow list and no keepalive round marker.`;
+    core.info(message);
     return finalise(false);
   }
 
