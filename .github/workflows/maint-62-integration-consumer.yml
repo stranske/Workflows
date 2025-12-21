@@ -1,0 +1,146 @@
+name: Maint 62 Integration Consumer
+
+on:
+  schedule:
+    - cron: '5 5 * * *'
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  scenarios:
+    name: Integration - ${{ matrix.name }}
+    uses: ./.github/workflows/reusable-10-ci-python.yml
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: basic
+            python-versions: '["3.11"]'
+            coverage: false
+            format-check: false
+            lint: false
+            typecheck: false
+            enable-soft-gate: false
+            enable-coverage-delta: false
+            enable-metrics: false
+            enable-history: false
+            baseline-coverage: '0'
+            coverage-alert-drop: '0'
+          - name: full
+            python-versions: '["3.11","3.12"]'
+            coverage: true
+            format-check: true
+            lint: true
+            typecheck: true
+            enable-soft-gate: true
+            enable-coverage-delta: true
+            enable-metrics: true
+            enable-history: true
+            baseline-coverage: '80'
+            coverage-alert-drop: '2'
+          - name: monorepo
+            python-versions: '["3.11"]'
+            coverage: true
+            format-check: true
+            lint: true
+            typecheck: true
+            enable-soft-gate: false
+            enable-coverage-delta: false
+            enable-metrics: false
+            enable-history: false
+            baseline-coverage: '70'
+            coverage-alert-drop: '1'
+    with:
+      working-directory: templates/integration-repo
+      python-versions: ${{ matrix.python-versions }}
+      coverage: ${{ matrix.coverage }}
+      format_check: ${{ matrix.format-check }}
+      lint: ${{ matrix.lint }}
+      typecheck: ${{ matrix.typecheck }}
+      enable-soft-gate: ${{ matrix.enable-soft-gate }}
+      enable-coverage-delta: ${{ matrix.enable-coverage-delta }}
+      enable-metrics: ${{ matrix.enable-metrics }}
+      enable-history: ${{ matrix.enable-history }}
+      baseline-coverage: ${{ matrix.baseline-coverage }}
+      coverage-alert-drop: ${{ matrix.coverage-alert-drop }}
+      artifact-prefix: integration-${{ matrix.name }}-
+    secrets: inherit
+
+  report:
+    name: Report integration status
+    needs: scenarios
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      contents: read
+      actions: read
+    env:
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      RESULT: ${{ needs.scenarios.result }}
+    steps:
+      - name: Summarize outcome
+        run: |
+          {
+            echo "## Integration consumer status"
+            echo "Result: ${RESULT}"
+            echo "Run: ${RUN_URL}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Open or update failure issue
+        if: ${{ needs.scenarios.result != 'success' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const title = 'Integration consumer failures';
+            const label = 'integration-test';
+            const runUrl = process.env.RUN_URL;
+
+            async function ensureLabel() {
+              try {
+                await github.rest.issues.getLabel({ owner, repo, name: label });
+              } catch (error) {
+                if (error.status === 404) {
+                  await github.rest.issues.createLabel({ owner, repo, name: label, color: 'd73a4a', description: 'Integration consumer workflow failures' });
+                } else {
+                  throw error;
+                }
+              }
+            }
+
+            await ensureLabel();
+
+            const { data: issues } = await github.rest.issues.listForRepo({ owner, repo, state: 'open', labels: label, per_page: 30 });
+            const existing = issues.find((issue) => issue.title === title);
+            const body = `Integration consumer workflow failed.\n\nRun: ${runUrl}`;
+
+            if (existing) {
+              await github.rest.issues.createComment({ owner, repo, issue_number: existing.number, body });
+              core.info(`Updated existing issue #${existing.number}`);
+            } else {
+              const created = await github.rest.issues.create({ owner, repo, title, body, labels: [label] });
+              core.info(`Created issue #${created.data.number}`);
+            }
+
+      - name: Resolve open issue on success
+        if: ${{ needs.scenarios.result == 'success' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const title = 'Integration consumer failures';
+            const label = 'integration-test';
+            const runUrl = process.env.RUN_URL;
+
+            const { data: issues } = await github.rest.issues.listForRepo({ owner, repo, state: 'open', labels: label, per_page: 30 });
+            const existing = issues.find((issue) => issue.title === title);
+            if (!existing) {
+              core.info('No open integration failure issue to resolve.');
+              return;
+            }
+
+            await github.rest.issues.createComment({ owner, repo, issue_number: existing.number, body: `Latest integration consumer run succeeded.\n\nRun: ${runUrl}` });
+            await github.rest.issues.update({ owner, repo, issue_number: existing.number, state: 'closed', state_reason: 'completed' });
+            core.info(`Closed issue #${existing.number}`);
