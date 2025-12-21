@@ -328,6 +328,11 @@ jobs:
           working-directory: ${{ inputs['working-directory'] || '.' }}
           cache: ${{ inputs.cache }}
           pypi-token: ${{ secrets.pypi-token }}
+          lint: ${{ inputs.lint }}
+          format_check: ${{ inputs.format_check }}
+          typecheck: false
+          run-mypy: false
+          coverage: false
 
       - name: Black (format check)
         id: black
@@ -398,6 +403,11 @@ jobs:
           working-directory: ${{ inputs['working-directory'] || '.' }}
           cache: ${{ inputs.cache }}
           pypi-token: ${{ secrets.pypi-token }}
+          lint: ${{ inputs.lint }}
+          format_check: false
+          typecheck: false
+          run-mypy: false
+          coverage: false
 
       - name: Ruff (lint)
         id: ruff
@@ -476,6 +486,11 @@ jobs:
           working-directory: ${{ inputs['working-directory'] || '.' }}
           cache: ${{ inputs.cache }}
           pypi-token: ${{ secrets.pypi-token }}
+          lint: false
+          format_check: false
+          typecheck: ${{ inputs.typecheck }}
+          run-mypy: ${{ inputs['run-mypy'] }}
+          coverage: false
 
       - name: Cache mypy state
         if: ${{ inputs.cache }}
@@ -594,6 +609,11 @@ jobs:
           working-directory: ${{ inputs['working-directory'] || '.' }}
           cache: ${{ inputs.cache }}
           pypi-token: ${{ secrets.pypi-token }}
+          lint: false
+          format_check: false
+          typecheck: false
+          run-mypy: false
+          coverage: ${{ inputs.coverage }}
 
       - name: Validate test dependencies
         id: test-deps

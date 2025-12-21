@@ -16,6 +16,26 @@ inputs:
     description: Optional token for private Python dependencies.
     required: false
     default: ""
+  lint:
+    description: Toggle Ruff lint installation.
+    required: false
+    default: "true"
+  format_check:
+    description: Toggle Black installation.
+    required: false
+    default: "true"
+  typecheck:
+    description: Toggle mypy installation.
+    required: false
+    default: "true"
+  run-mypy:
+    description: Deprecated alias for `typecheck`.
+    required: false
+    default: "true"
+  coverage:
+    description: Toggle coverage tool installation.
+    required: false
+    default: "true"
 runs:
   using: composite
   steps:
@@ -60,10 +80,38 @@ runs:
         set -euo pipefail
         start_ts=$(date +%s)
 
+        to_bool() {
+          case "$(printf '%s' "${1:-}" | tr '[:upper:]' '[:lower:]')" in
+            1|true|yes|y|on) echo "true" ;;
+            *) echo "false" ;;
+          esac
+        }
+
+        lint_enabled=$(to_bool "${{ inputs.lint }}")
+        format_enabled=$(to_bool "${{ inputs.format_check }}")
+        typecheck_enabled=$(to_bool "${{ inputs.typecheck }}")
+        run_mypy_enabled=$(to_bool "${{ inputs['run-mypy'] }}")
+        coverage_enabled=$(to_bool "${{ inputs.coverage }}")
+        mypy_enabled="false"
+        if [ "$typecheck_enabled" = "true" ] && [ "$run_mypy_enabled" = "true" ]; then
+          mypy_enabled="true"
+        fi
+
+        add_tool() {
+          specs+=("$1")
+          tools_installed+=("$2")
+        }
+
+        skip_tool() {
+          tools_skipped+=("$1")
+        }
+
         if [ -n "${PRIVATE_PYPI_TOKEN:-}" ]; then
           export PIP_INDEX_URL="https://__token__:${PRIVATE_PYPI_TOKEN}@pypi.org/simple"
         fi
         specs=()
+        tools_installed=()
+        tools_skipped=()
 
         if [ -f requirements.lock ]; then
           specs+=('-r' 'requirements.lock')
@@ -75,15 +123,61 @@ runs:
           specs+=('-e' '.' )
         fi
 
+        black_spec="black"
+        docformatter_spec="docformatter"
+        isort_spec="isort"
+        ruff_spec="ruff"
+        mypy_spec="mypy"
+        pytest_spec="pytest"
+        pytest_cov_spec="pytest-cov"
+        pytest_xdist_spec="pytest-xdist"
+
         autofix_env="${GITHUB_WORKSPACE}/.github/workflows/autofix-versions.env"
         if [ -f "$autofix_env" ]; then
           # Source version pins from shared config to stay consistent with autofix
           # shellcheck source=.github/workflows/autofix-versions.env
           source "$autofix_env"
-          specs+=("black==${BLACK_VERSION}" "ruff==${RUFF_VERSION}" "isort==${ISORT_VERSION}" "docformatter==${DOCFORMATTER_VERSION}" "mypy==${MYPY_VERSION}" "pytest==${PYTEST_VERSION}" "pytest-cov==${PYTEST_COV_VERSION}" "pytest-xdist==${PYTEST_XDIST_VERSION:-3.6.1}")
+          black_spec="black==${BLACK_VERSION}"
+          docformatter_spec="docformatter==${DOCFORMATTER_VERSION}"
+          isort_spec="isort==${ISORT_VERSION}"
+          ruff_spec="ruff==${RUFF_VERSION}"
+          mypy_spec="mypy==${MYPY_VERSION}"
+          pytest_spec="pytest==${PYTEST_VERSION}"
+          pytest_cov_spec="pytest-cov==${PYTEST_COV_VERSION}"
+          pytest_xdist_spec="pytest-xdist==${PYTEST_XDIST_VERSION:-3.6.1}"
         else
           echo "Warning: .github/workflows/autofix-versions.env not found, installing latest versions" >&2
-          specs+=(black ruff isort docformatter mypy pytest pytest-cov pytest-xdist)
+        fi
+
+        if [ "$format_enabled" = "true" ]; then
+          add_tool "$black_spec" "black"
+          add_tool "$docformatter_spec" "docformatter"
+          add_tool "$isort_spec" "isort"
+        else
+          skip_tool "black (format_check disabled)"
+          skip_tool "docformatter (format_check disabled)"
+          skip_tool "isort (format_check disabled)"
+        fi
+
+        if [ "$lint_enabled" = "true" ]; then
+          add_tool "$ruff_spec" "ruff"
+        else
+          skip_tool "ruff (lint disabled)"
+        fi
+
+        if [ "$mypy_enabled" = "true" ]; then
+          add_tool "$mypy_spec" "mypy"
+        else
+          skip_tool "mypy (typecheck disabled)"
+        fi
+
+        add_tool "$pytest_spec" "pytest"
+        add_tool "$pytest_xdist_spec" "pytest-xdist"
+
+        if [ "$coverage_enabled" = "true" ]; then
+          add_tool "$pytest_cov_spec" "pytest-cov"
+        else
+          skip_tool "pytest-cov (coverage disabled)"
         fi
 
         if [ ${#specs[@]} -eq 0 ]; then
@@ -95,9 +189,24 @@ runs:
         end_ts=$(date +%s)
         duration=$((end_ts - start_ts))
         if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+          installed_label="none"
+          skipped_label="none"
+          if [ ${#tools_installed[@]} -gt 0 ]; then
+            installed_label=$(printf '%s, ' "${tools_installed[@]}")
+            installed_label=${installed_label%, }
+          fi
+          if [ ${#tools_skipped[@]} -gt 0 ]; then
+            skipped_label=$(printf '%s, ' "${tools_skipped[@]}")
+            skipped_label=${skipped_label%, }
+          fi
           {
             printf '## Dependency installation timing\n'
             printf -- '- Duration: %ss\n' "$duration"
+            printf -- '- Tools installed: %s\n' "$installed_label"
+            printf -- '- Tools skipped (disabled): %s\n' "$skipped_label"
+            if [ ${#tools_skipped[@]} -gt 0 ]; then
+              printf -- '- Note: skipping %d tool(s) avoids extra setup time when disabled.\n' "${#tools_skipped[@]}"
+            fi
             printf -- '- Cache key: uv-%s-%s-%s-%s\n' "${{ runner.os }}" "${{ inputs.python-version }}" "$(sha256sum requirements.lock 2>/dev/null | cut -d' ' -f1 || echo none)" "$(sha256sum pyproject.toml 2>/dev/null | cut -d' ' -f1 || echo none)"
           } >>"${GITHUB_STEP_SUMMARY}"
         fi
