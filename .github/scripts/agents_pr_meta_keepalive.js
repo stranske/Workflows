@@ -254,7 +254,7 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
   let owner = context?.repo?.owner || repoEnv[0] || '';
   let repo = context?.repo?.repo || repoEnv[1] || '';
   if ((!owner || !repo) && comment?.html_url) {
-    const match = comment.html_url.match(/github\.com\/(.+?)\/(.+?)\//);
+    const match = comment.html_url.match(/github\.com\/([^/]+)\/([^/]+)\//);
     if (match) {
       owner = owner || match[1];
       repo = repo || match[2];
