@@ -130,7 +130,7 @@ jobs:
           PACKAGE_MANAGER: ${{ inputs['package-manager'] || 'npm' }}
         run: |
           set -euo pipefail
-          if [ -n "${NODE_VERSIONS}" ] && ! echo "${NODE_VERSIONS}" | python - <<'PY'
+          if [ -n "${NODE_VERSIONS}" ] && ! python - <<'PY'
           import json, os, sys
           raw = os.environ.get("NODE_VERSIONS", "")
           try:
