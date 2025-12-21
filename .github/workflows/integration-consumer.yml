@@ -83,10 +83,10 @@ jobs:
       - name: Summarize outcome
         run: |
           {
-            echo "## Integration consumer status" >> "$GITHUB_STEP_SUMMARY"
-            echo "Result: ${RESULT}" >> "$GITHUB_STEP_SUMMARY"
-            echo "Run: ${RUN_URL}" >> "$GITHUB_STEP_SUMMARY"
-          }
+            echo "## Integration consumer status"
+            echo "Result: ${RESULT}"
+            echo "Run: ${RUN_URL}"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Open or update failure issue
         if: ${{ needs.scenarios.result != 'success' }}
