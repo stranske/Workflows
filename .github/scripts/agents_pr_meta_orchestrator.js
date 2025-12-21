@@ -178,7 +178,7 @@ async function dispatchOrchestrator({github, context, core, inputs}) {
 /**
  * Confirm orchestrator dispatch by polling for new run
  */
-async function confirmDispatch({github, context, core, baselineIds, prNumber, trace}) {
+async function confirmDispatch({github, context, core, baselineIds, baselineTimestamp, prNumber, trace}) {
   const parseIds = (value) => {
     if (!value) return new Set();
     try {
@@ -194,11 +194,21 @@ async function confirmDispatch({github, context, core, baselineIds, prNumber, tr
 
   const baseline = parseIds(baselineIds);
   const { owner, repo } = context.repo;
+  const baselineDate = baselineTimestamp ? new Date(baselineTimestamp) : null;
+
+  const createdAfterBaseline = (run) => {
+    if (!baselineDate) return true;
+    const createdRaw = run?.created_at || run?.createdAt;
+    if (!createdRaw) return true;
+    const created = new Date(createdRaw);
+    return created > baselineDate;
+  };
 
   const matches = (run) => {
     if (!run) return false;
     const runId = Number(run.id);
     if (baseline.has(runId)) return false;
+    if (!createdAfterBaseline(run)) return false;
     
     if (prNumber > 0) {
       const concurrency = String(run.concurrency || '');
@@ -210,7 +220,8 @@ async function confirmDispatch({github, context, core, baselineIds, prNumber, tr
       const candidates = [run.name, run.display_title, run.head_branch, run.head_sha];
       if (candidates.some((value) => typeof value === 'string' && value.includes(trace))) return true;
     }
-    return false;
+    // Fallback: accept any new workflow_dispatch run created after the snapshot
+    return true;
   };
 
   const poll = async () => {
@@ -386,6 +397,7 @@ async function runKeepaliveOrchestrator({github, context, core, inputs, secrets}
   const confirmResult = await confirmDispatch({
     github, context, core,
     baselineIds: snapshot.ids,
+    baselineTimestamp: snapshot.timestamp,
     prNumber: Number(prNumber),
     trace,
   });
