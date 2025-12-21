@@ -305,6 +305,7 @@ explain why a particular status appears in the Checks tab.
   [Error checking, linting, and testing topology](#error-checking-linting-and-testing-topology)
   section to find the reusable entry points and confirm which callers already
   exercise the matrix.
+- **Working on JS/TS packages?** Reuse `.github/workflows/reusable-11-ci-node.yml` for lint/format/typecheck/test coverage, including multi-version Node matrices.
 
 ### Lifecycle example: from pull request to follow-up automation
 
