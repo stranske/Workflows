@@ -67,7 +67,10 @@ def test_update_floating_tag_creates_floating_tag_when_missing(monkeypatch):
         env["DRY_RUN"] = "1"
 
         completed = subprocess.run(
-            ["git", "rev-parse", "v1"], cwd=repo_path, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            ["git", "rev-parse", "v1"],
+            cwd=repo_path,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
         )
         assert completed.returncode != 0
 
