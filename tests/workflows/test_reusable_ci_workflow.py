@@ -131,7 +131,7 @@ def test_working_directory_propagates_to_steps() -> None:
     sparse_with = checkout_sparse.get("with", {})
     assert ".github/workflows" in sparse_with.get("sparse-checkout", "")
     assert "${{ inputs['working-directory'] }}" in sparse_with.get("sparse-checkout", "")
-    assert sparse_with.get("sparse-checkout-cone") is True
+    assert sparse_with.get("sparse-checkout-cone-mode") is True
 
     cache_steps = {step["name"]: step for step in steps if "Cache" in step.get("name", "")}
     assert cache_steps["Cache mypy state"]["with"]["path"] == (
