@@ -1,0 +1,103 @@
+name: Python CI setup
+description: Set up Python, Node.js, uv, and project dependencies for CI jobs.
+inputs:
+  python-version:
+    description: Python version to install.
+    required: true
+  working-directory:
+    description: Working directory for dependency resolution.
+    required: false
+    default: .
+  cache:
+    description: Enable uv cache restore/save.
+    required: false
+    default: "true"
+  pypi-token:
+    description: Optional token for private Python dependencies.
+    required: false
+    default: ""
+runs:
+  using: composite
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+        # Note: pip cache disabled because we use uv for dependency installation
+        # which has its own separate cache step. Leaving `cache` unset avoids
+        # passing unsupported values to setup-python and prevents cleanup issues.
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: "20"
+
+    - name: Install uv
+      shell: bash
+      run: |
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+    - name: Cache uv artifacts
+      if: ${{ inputs.cache == 'true' || inputs.cache == true }}
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/uv
+        key: uv-${{ runner.os }}-${{ inputs.python-version }}-${{ hashFiles(format('{0}/requirements.lock', inputs.working-directory)) }}-${{ hashFiles(format('{0}/pyproject.toml', inputs.working-directory)) }}
+        restore-keys: |
+          uv-${{ runner.os }}-${{ inputs.python-version }}-
+          uv-${{ runner.os }}-
+
+    - name: Install dependencies
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        PRIVATE_PYPI_TOKEN: ${{ inputs.pypi-token }}
+        WORKDIR: ${{ inputs.working-directory }}
+        GITHUB_WORKSPACE: ${{ github.workspace }}
+      run: |
+        set -euo pipefail
+        start_ts=$(date +%s)
+
+        if [ -n "${PRIVATE_PYPI_TOKEN:-}" ]; then
+          export PIP_INDEX_URL="https://__token__:${PRIVATE_PYPI_TOKEN}@pypi.org/simple"
+        fi
+        specs=()
+
+        if [ -f requirements.lock ]; then
+          specs+=('-r' 'requirements.lock')
+        fi
+
+        if [ -f pyproject.toml ]; then
+          specs+=('-e' '.[app,dev]')
+        elif [ -f setup.cfg ] || [ -f setup.py ]; then
+          specs+=('-e' '.' )
+        fi
+
+        autofix_env="${GITHUB_WORKSPACE}/.github/workflows/autofix-versions.env"
+        if [ -f "$autofix_env" ]; then
+          # Source version pins from shared config to stay consistent with autofix
+          # shellcheck source=.github/workflows/autofix-versions.env
+          source "$autofix_env"
+          specs+=("black==${BLACK_VERSION}" "ruff==${RUFF_VERSION}" "isort==${ISORT_VERSION}" "docformatter==${DOCFORMATTER_VERSION}" "mypy==${MYPY_VERSION}" "pytest==${PYTEST_VERSION}" "pytest-cov==${PYTEST_COV_VERSION}" "pytest-xdist==${PYTEST_XDIST_VERSION:-3.6.1}")
+        else
+          echo "Warning: .github/workflows/autofix-versions.env not found, installing latest versions" >&2
+          specs+=(black ruff isort docformatter mypy pytest pytest-cov pytest-xdist)
+        fi
+
+        if [ ${#specs[@]} -eq 0 ]; then
+          echo "No install targets found; skipping dependency installation."
+        else
+          uv pip install --system "${specs[@]}"
+        fi
+
+        end_ts=$(date +%s)
+        duration=$((end_ts - start_ts))
+        if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+          {
+            printf '## Dependency installation timing\n'
+            printf -- '- Duration: %ss\n' "$duration"
+            printf -- '- Cache key: uv-%s-%s-%s-%s\n' "${{ runner.os }}" "${{ inputs.python-version }}" "$(sha256sum requirements.lock 2>/dev/null | cut -d' ' -f1 || echo none)" "$(sha256sum pyproject.toml 2>/dev/null | cut -d' ' -f1 || echo none)"
+          } >>"${GITHUB_STEP_SUMMARY}"
+        fi

@@ -285,6 +285,242 @@ jobs:
             validate_boolean(boolean_env)
           PY
 
+  lint-format:
+    name: lint-format
+    needs: validate-inputs
+    if: ${{ inputs.format_check }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+        working-directory: ${{ inputs['working-directory'] || '.' }}
+    env:
+      WORKDIR: ${{ inputs['working-directory'] || '.' }}
+      WORKSPACE_ROOT: ${{ github.workspace }}
+      PROJECT_ROOT: ${{ inputs['working-directory'] != '' && inputs['working-directory'] != '.' && format('{0}/{1}', github.workspace, inputs['working-directory']) || github.workspace }}
+    outputs:
+      format_outcome: ${{ steps.finalize.outputs.outcome || steps.black.outcome || 'skipped' }}
+    steps:
+      - name: Checkout repository
+        if: ${{ inputs['working-directory'] == '' || inputs['working-directory'] == '.' }}
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Checkout repository (sparse)
+        if: ${{ inputs['working-directory'] != '' && inputs['working-directory'] != '.' }}
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          sparse-checkout: |
+            .github/workflows
+            scripts
+            tools
+            config
+            ${{ inputs['working-directory'] }}
+          sparse-checkout-cone-mode: true
+
+      - name: Prepare Python environment
+        uses: ./.github/actions/python-ci-setup
+        with:
+          python-version: ${{ inputs['primary-python-version'] || inputs['python-version'] || '3.11' }}
+          working-directory: ${{ inputs['working-directory'] || '.' }}
+          cache: ${{ inputs.cache }}
+          pypi-token: ${{ secrets.pypi-token }}
+
+      - name: Black (format check)
+        id: black
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          black --check .
+
+      - name: Finalize format check
+        id: finalize
+        if: always()
+        env:
+          FORMAT_OUTCOME: ${{ steps.black.outcome || 'skipped' }}
+        run: |
+          set -euo pipefail
+          echo "outcome=${FORMAT_OUTCOME}" >> "${GITHUB_OUTPUT}"
+          if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+            {
+              printf '## Format check\n'
+              printf -- '- Outcome: %s\n' "${FORMAT_OUTCOME}"
+            } >>"${GITHUB_STEP_SUMMARY}"
+          fi
+          if [ "${FORMAT_OUTCOME}" != "success" ] && [ "${FORMAT_OUTCOME}" != "skipped" ]; then
+            printf 'Format check failed with outcome: %s\n' "${FORMAT_OUTCOME}" >&2
+            exit 1
+          fi
+
+  lint-ruff:
+    name: lint-ruff
+    needs: validate-inputs
+    if: ${{ inputs.lint }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+        working-directory: ${{ inputs['working-directory'] || '.' }}
+    env:
+      WORKDIR: ${{ inputs['working-directory'] || '.' }}
+      WORKSPACE_ROOT: ${{ github.workspace }}
+      PROJECT_ROOT: ${{ inputs['working-directory'] != '' && inputs['working-directory'] != '.' && format('{0}/{1}', github.workspace, inputs['working-directory']) || github.workspace }}
+    outputs:
+      lint_outcome: ${{ steps.finalize.outputs.outcome || steps.ruff.outcome || 'skipped' }}
+    steps:
+      - name: Checkout repository
+        if: ${{ inputs['working-directory'] == '' || inputs['working-directory'] == '.' }}
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Checkout repository (sparse)
+        if: ${{ inputs['working-directory'] != '' && inputs['working-directory'] != '.' }}
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          sparse-checkout: |
+            .github/workflows
+            scripts
+            tools
+            config
+            ${{ inputs['working-directory'] }}
+          sparse-checkout-cone-mode: true
+
+      - name: Prepare Python environment
+        uses: ./.github/actions/python-ci-setup
+        with:
+          python-version: ${{ inputs['primary-python-version'] || inputs['python-version'] || '3.11' }}
+          working-directory: ${{ inputs['working-directory'] || '.' }}
+          cache: ${{ inputs.cache }}
+          pypi-token: ${{ secrets.pypi-token }}
+
+      - name: Ruff (lint)
+        id: ruff
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          ruff check --output-format github .
+
+      - name: Finalize lint
+        id: finalize
+        if: always()
+        env:
+          RUFF_OUTCOME: ${{ steps.ruff.outcome || 'skipped' }}
+        run: |
+          set -euo pipefail
+          echo "outcome=${RUFF_OUTCOME}" >> "${GITHUB_OUTPUT}"
+          if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+            {
+              printf '## Ruff lint\n'
+              printf -- '- Outcome: %s\n' "${RUFF_OUTCOME}"
+            } >>"${GITHUB_STEP_SUMMARY}"
+          fi
+          if [ "${RUFF_OUTCOME}" != "success" ] && [ "${RUFF_OUTCOME}" != "skipped" ]; then
+            printf 'Ruff lint failed with outcome: %s\n' "${RUFF_OUTCOME}" >&2
+            exit 1
+          fi
+
+  typecheck-mypy:
+    name: typecheck-mypy
+    needs: validate-inputs
+    if: ${{ inputs.typecheck && inputs['run-mypy'] }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+        working-directory: ${{ inputs['working-directory'] || '.' }}
+    env:
+      WORKDIR: ${{ inputs['working-directory'] || '.' }}
+      WORKSPACE_ROOT: ${{ github.workspace }}
+      PROJECT_ROOT: ${{ inputs['working-directory'] != '' && inputs['working-directory'] != '.' && format('{0}/{1}', github.workspace, inputs['working-directory']) || github.workspace }}
+    outputs:
+      mypy_outcome: ${{ steps.finalize.outputs.outcome || steps.mypy.outcome || 'skipped' }}
+    steps:
+      - name: Checkout repository
+        if: ${{ inputs['working-directory'] == '' || inputs['working-directory'] == '.' }}
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Checkout repository (sparse)
+        if: ${{ inputs['working-directory'] != '' && inputs['working-directory'] != '.' }}
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          sparse-checkout: |
+            .github/workflows
+            scripts
+            tools
+            config
+            ${{ inputs['working-directory'] }}
+          sparse-checkout-cone-mode: true
+
+      - name: Resolve mypy python pin
+        id: mypy-pin
+        env:
+          MATRIX_PYTHON_VERSION: ${{ inputs['primary-python-version'] || inputs['python-version'] || '3.11' }}
+        run: |
+          set -euo pipefail
+          python "${GITHUB_WORKSPACE}/tools/resolve_mypy_pin.py"
+
+      - name: Prepare Python environment
+        uses: ./.github/actions/python-ci-setup
+        with:
+          python-version: ${{ steps.mypy-pin.outputs.python-version || inputs['primary-python-version'] || inputs['python-version'] || '3.11' }}
+          working-directory: ${{ inputs['working-directory'] || '.' }}
+          cache: ${{ inputs.cache }}
+          pypi-token: ${{ secrets.pypi-token }}
+
+      - name: Cache mypy state
+        if: ${{ inputs.cache }}
+        uses: actions/cache@v4
+        with:
+          path: ${{ inputs['working-directory'] || '.' }}/.mypy_cache
+          key: mypy-${{ runner.os }}-${{ steps.mypy-pin.outputs.python-version || inputs['primary-python-version'] || inputs['python-version'] }}-${{ hashFiles(format('{0}/pyproject.toml', inputs['working-directory'])) }}-${{ hashFiles(format('{0}/src/**/*.py', inputs['working-directory'])) }}
+          restore-keys: |
+            mypy-${{ runner.os }}-${{ steps.mypy-pin.outputs.python-version || inputs['primary-python-version'] || inputs['python-version'] }}-${{ hashFiles(format('{0}/pyproject.toml', inputs['working-directory'])) }}-
+            mypy-${{ runner.os }}-${{ steps.mypy-pin.outputs.python-version || inputs['primary-python-version'] || inputs['python-version'] }}-
+
+      - name: Mypy (type check)
+        id: mypy
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          args=()
+          if [ -f pyproject.toml ]; then
+            args+=("--config-file" "pyproject.toml")
+          fi
+          target="src"
+          if [ ! -d "$target" ]; then
+            target="."
+          fi
+          mypy "${args[@]}" "$target"
+
+      - name: Finalize mypy
+        id: finalize
+        if: always()
+        env:
+          MYPY_OUTCOME: ${{ steps.mypy.outcome || 'skipped' }}
+        run: |
+          set -euo pipefail
+          echo "outcome=${MYPY_OUTCOME}" >> "${GITHUB_OUTPUT}"
+          if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+            {
+              printf '## Mypy\n'
+              printf -- '- Outcome: %s\n' "${MYPY_OUTCOME}"
+            } >>"${GITHUB_STEP_SUMMARY}"
+          fi
+          if [ "${MYPY_OUTCOME}" != "success" ] && [ "${MYPY_OUTCOME}" != "skipped" ]; then
+            printf 'Mypy failed with outcome: %s\n' "${MYPY_OUTCOME}" >&2
+            exit 1
+          fi
+
   tests:
     name: python ${{ matrix.python-version }}
     needs: validate-inputs
@@ -351,87 +587,13 @@ jobs:
             ${{ inputs['working-directory'] }}
           sparse-checkout-cone-mode: true
 
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+      - name: Prepare Python environment
+        uses: ./.github/actions/python-ci-setup
         with:
           python-version: ${{ matrix.python-version }}
-          # Note: pip cache disabled because we use uv for dependency installation
-          # which has its own separate cache step. Enabling pip cache here causes
-          # post-job cleanup failures when the pip cache directory doesn't exist.
-          cache: ''
-          cache-dependency-path: |
-            requirements.lock
-            pyproject.toml
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Install uv
-        run: |
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-
-      - name: Cache uv artifacts
-        if: ${{ inputs.cache }}
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/uv
-          key: uv-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles(format('{0}/requirements.lock', inputs['working-directory'])) }}-${{ hashFiles(format('{0}/pyproject.toml', inputs['working-directory'])) }}
-          restore-keys: |
-            uv-${{ runner.os }}-${{ matrix.python-version }}-
-            uv-${{ runner.os }}-
-
-      - name: Install dependencies
-        env:
-          PRIVATE_PYPI_TOKEN: ${{ secrets.pypi-token }}
-        run: |
-          set -euo pipefail
-          start_ts=$(date +%s)
-
-          if [ -n "${PRIVATE_PYPI_TOKEN:-}" ]; then
-            export PIP_INDEX_URL="https://__token__:${PRIVATE_PYPI_TOKEN}@pypi.org/simple"
-          fi
-          specs=()
-
-          if [ -f requirements.lock ]; then
-            specs+=('-r' 'requirements.lock')
-          fi
-
-          if [ -f pyproject.toml ]; then
-            specs+=('-e' '.[app,dev]')
-          elif [ -f setup.cfg ] || [ -f setup.py ]; then
-            specs+=('-e' '.' )
-          fi
-
-          autofix_env="${GITHUB_WORKSPACE}/.github/workflows/autofix-versions.env"
-          if [ -f "$autofix_env" ]; then
-            # Source version pins from shared config to stay consistent with autofix
-            # shellcheck source=.github/workflows/autofix-versions.env
-            source "$autofix_env"
-            specs+=("black==${BLACK_VERSION}" "ruff==${RUFF_VERSION}" "isort==${ISORT_VERSION}" "docformatter==${DOCFORMATTER_VERSION}" "mypy==${MYPY_VERSION}" "pytest==${PYTEST_VERSION}" "pytest-cov==${PYTEST_COV_VERSION}" "pytest-xdist==${PYTEST_XDIST_VERSION:-3.6.1}")
-          else
-            echo "Warning: .github/workflows/autofix-versions.env not found, installing latest versions" >&2
-            specs+=(black ruff isort docformatter mypy pytest pytest-cov pytest-xdist)
-          fi
-
-          if [ ${#specs[@]} -eq 0 ]; then
-            echo "No install targets found; skipping dependency installation."
-          else
-            uv pip install --system "${specs[@]}"
-          fi
-
-          end_ts=$(date +%s)
-          duration=$((end_ts - start_ts))
-          if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
-            {
-              printf '## Dependency installation timing\n'
-              printf -- '- Duration: %ss\n' "$duration"
-              printf -- '- Cache key: uv-%s-%s-%s-%s\n' "${{ runner.os }}" "${{ matrix.python-version }}" "$(sha256sum requirements.lock 2>/dev/null | cut -d" " -f1 || echo none)" "$(sha256sum pyproject.toml 2>/dev/null | cut -d" " -f1 || echo none)"
-            } >>"${GITHUB_STEP_SUMMARY}"
-          fi
+          working-directory: ${{ inputs['working-directory'] || '.' }}
+          cache: ${{ inputs.cache }}
+          pypi-token: ${{ secrets.pypi-token }}
 
       - name: Validate test dependencies
         id: test-deps
@@ -530,22 +692,6 @@ jobs:
           set -euo pipefail
           python "${GITHUB_WORKSPACE}/tools/resolve_mypy_pin.py"
 
-      - name: Black (format check)
-        id: black
-        if: ${{ inputs.format_check }}
-        continue-on-error: true
-        run: |
-          set -euo pipefail
-          black --check .
-
-      - name: Ruff (lint)
-        id: ruff
-        if: ${{ inputs.lint }}
-        continue-on-error: true
-        run: |
-          set -euo pipefail
-          ruff check --output-format github .
-
       - name: Cache mypy state
         if: ${{ inputs.cache && inputs.typecheck && inputs['run-mypy'] }}
         uses: actions/cache@v4
@@ -555,22 +701,6 @@ jobs:
           restore-keys: |
             mypy-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles(format('{0}/pyproject.toml', inputs['working-directory'])) }}-
             mypy-${{ runner.os }}-${{ matrix.python-version }}-
-
-      - name: Mypy (type check)
-        id: mypy
-        if: ${{ inputs.typecheck && inputs['run-mypy'] && steps.mypy-pin.outputs.python-version != '' && matrix.python-version == steps.mypy-pin.outputs.python-version }}
-        continue-on-error: true
-        run: |
-          set -euo pipefail
-          args=()
-          if [ -f pyproject.toml ]; then
-            args+=("--config-file" "pyproject.toml")
-          fi
-          target="src"
-          if [ ! -d "$target" ]; then
-            target="."
-          fi
-          mypy "${args[@]}" "$target"
 
       - name: Cache pytest state
         if: ${{ inputs.cache }}
@@ -673,9 +803,6 @@ jobs:
         id: ci-summary
         env:
           PYTHON_VERSION: ${{ matrix.python-version }}
-          FORMAT_OUTCOME: ${{ steps.black.outcome || 'skipped' }}
-          RUFF_OUTCOME: ${{ steps.ruff.outcome || 'skipped' }}
-          MYPY_OUTCOME: ${{ steps.mypy.outcome || 'skipped' }}
           PYTEST_OUTCOME: ${{ steps.pytest.outcome || 'skipped' }}
           COVERAGE_MIN_OUTCOME: ${{ steps.coverage_min.outcome || 'skipped' }}
           COVERAGE_ENABLED: ${{ inputs.coverage }}
@@ -700,9 +827,6 @@ jobs:
           summary: dict[str, object] = {
               "python_version": runtime,
               "checks": {
-                  "format": {"tool": "black", "outcome": normalize(os.environ.get("FORMAT_OUTCOME"))},
-                  "lint": {"tool": "ruff", "outcome": normalize(os.environ.get("RUFF_OUTCOME"))},
-                  "type_check": {"tool": "mypy", "outcome": normalize(os.environ.get("MYPY_OUTCOME"))},
                   "tests": {"tool": "pytest", "outcome": normalize(os.environ.get("PYTEST_OUTCOME"))},
                   "coverage_minimum": {
                       "tool": "threshold",
@@ -824,11 +948,9 @@ jobs:
           overwrite: true
 
       - name: Finalize check results
+        id: finalize-tests
         if: always()
         env:
-          FORMAT_OUTCOME: ${{ steps.black.outcome || 'skipped' }}
-          RUFF_OUTCOME: ${{ steps.ruff.outcome || 'skipped' }}
-          MYPY_OUTCOME: ${{ steps.mypy.outcome || 'skipped' }}
           PYTEST_OUTCOME: ${{ steps.pytest.outcome || 'skipped' }}
           COVERAGE_MIN_OUTCOME: ${{ steps.coverage_min.outcome || 'skipped' }}
           COVERAGE_ENABLED: ${{ inputs.coverage }}
@@ -837,12 +959,11 @@ jobs:
           failures=()
 
           # Debug: print all outcomes
-          echo "FORMAT_OUTCOME=${FORMAT_OUTCOME}"
-          echo "RUFF_OUTCOME=${RUFF_OUTCOME}"
-          echo "MYPY_OUTCOME=${MYPY_OUTCOME}"
           echo "PYTEST_OUTCOME=${PYTEST_OUTCOME}"
           echo "COVERAGE_MIN_OUTCOME=${COVERAGE_MIN_OUTCOME}"
           echo "COVERAGE_ENABLED=${COVERAGE_ENABLED}"
+          echo "pytest_outcome=${PYTEST_OUTCOME}" >> "${GITHUB_OUTPUT}"
+          echo "coverage_min_outcome=${COVERAGE_MIN_OUTCOME}" >> "${GITHUB_OUTPUT}"
 
           record_outcome() {
             local label="$1"
@@ -858,9 +979,6 @@ jobs:
             failures+=("${label} ${outcome}")
           }
 
-          record_outcome "format check" "${FORMAT_OUTCOME}"
-          record_outcome "ruff" "${RUFF_OUTCOME}"
-          record_outcome "mypy" "${MYPY_OUTCOME}"
           record_outcome "pytest" "${PYTEST_OUTCOME}"
           if [ "${{ inputs.coverage && inputs['coverage-min'] != '' }}" = 'true' ]; then
             record_outcome "coverage minimum" "${COVERAGE_MIN_OUTCOME}"
@@ -1016,6 +1134,9 @@ jobs:
   logs_summary:
     name: logs summary
     needs:
+      - lint-format
+      - lint-ruff
+      - typecheck-mypy
       - tests
     if: ${{ always() }}
     runs-on: ubuntu-latest
@@ -1023,6 +1144,41 @@ jobs:
       contents: read
       actions: read
     steps:
+      - name: Summarize check outcomes
+        run: |
+          python - <<'PY'
+          from __future__ import annotations
+
+          import os
+
+          summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+          checks = [
+              ("Black", "${{ needs['lint-format'].result || 'skipped' }}", "${{ needs['lint-format'].outputs.format_outcome || 'skipped' }}"),
+              ("Ruff", "${{ needs['lint-ruff'].result || 'skipped' }}", "${{ needs['lint-ruff'].outputs.lint_outcome || 'skipped' }}"),
+              ("Mypy", "${{ needs['typecheck-mypy'].result || 'skipped' }}", "${{ needs['typecheck-mypy'].outputs.mypy_outcome || 'skipped' }}"),
+              ("Pytest", "${{ needs.tests.result || 'skipped' }}", "${{ needs.tests.outputs.pytest_outcome || 'skipped' }}"),
+              ("Coverage minimum", "${{ needs.tests.result || 'skipped' }}", "${{ needs.tests.outputs.coverage_min_outcome || 'skipped' }}"),
+          ]
+
+          def normalize(value: str | None) -> str:
+              return (value or "skipped").lower()
+
+          if not summary_path:
+              raise SystemExit(0)
+
+          lines = [
+              "## CI checks",
+              "",
+              "| Check | Job result | Tool outcome |",
+              "| --- | --- | --- |",
+          ]
+          for name, job_result, tool_outcome in checks:
+              lines.append(f"| {name} | {normalize(job_result)} | {normalize(tool_outcome)} |")
+
+          with open(summary_path, "a", encoding="utf-8") as handle:
+              handle.write("\n".join(lines) + "\n\n")
+          PY
+
       - name: Summarize workflow jobs
         uses: actions/github-script@v7
         with:
