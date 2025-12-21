@@ -3,6 +3,11 @@ name: Reusable CI
 on:
   workflow_call:
     inputs:
+      working-directory:
+        description: Working directory for all run steps (useful for monorepos).
+        required: false
+        default: '.'
+        type: string
       python-version:
         description: Primary Python version to use when `python-versions` is not provided.
         required: false
@@ -134,6 +139,10 @@ on:
         required: false
   workflow_dispatch:
     inputs:
+      working-directory:
+        description: Working directory for all run steps (useful for monorepos).
+        required: false
+        default: '.'
       python-versions:
         description: JSON array of Python versions to execute.
         required: false
@@ -174,11 +183,6 @@ on:
         type: boolean
       enable-history:
         description: Append metrics history NDJSON artifact.
-        required: false
-        default: false
-        type: boolean
-      enable-soft-gate:
-        description: Publish coverage trend and summary artifacts.
         required: false
         default: false
         type: boolean
@@ -225,11 +229,29 @@ jobs:
     defaults:
       run:
         shell: bash
+        working-directory: ${{ inputs['working-directory'] || '.' }}
+    env:
+      WORKDIR: ${{ inputs['working-directory'] || '.' }}
+      WORKSPACE_ROOT: ${{ github.workspace }}
+      PROJECT_ROOT: ${{ inputs['working-directory'] != '' && inputs['working-directory'] != '.' && format('{0}/{1}', github.workspace, inputs['working-directory']) || github.workspace }}
     steps:
       - name: Checkout repository
+        if: ${{ inputs['working-directory'] == '' || inputs['working-directory'] == '.' }}
         uses: actions/checkout@v4
         with:
           fetch-depth: 1  # Shallow clone for faster checkout
+      - name: Checkout repository (sparse)
+        if: ${{ inputs['working-directory'] != '' && inputs['working-directory'] != '.' }}
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1  # Shallow clone for faster checkout
+          sparse-checkout: |
+            .github/workflows
+            scripts
+            tools
+            config
+            ${{ inputs['working-directory'] }}
+          sparse-checkout-cone-mode: true
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
@@ -259,7 +281,7 @@ jobs:
         with:
           path: |
             ~/.cache/uv
-          key: uv-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('requirements.lock') }}-${{ hashFiles('pyproject.toml') }}
+          key: uv-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles(format('{0}/requirements.lock', inputs['working-directory'])) }}-${{ hashFiles(format('{0}/pyproject.toml', inputs['working-directory'])) }}
           restore-keys: |
             uv-${{ runner.os }}-${{ matrix.python-version }}-
             uv-${{ runner.os }}-
@@ -286,9 +308,11 @@ jobs:
             specs+=('-e' '.' )
           fi
 
-          if [ -f .github/workflows/autofix-versions.env ]; then
+          autofix_env="${GITHUB_WORKSPACE}/.github/workflows/autofix-versions.env"
+          if [ -f "$autofix_env" ]; then
             # Source version pins from shared config to stay consistent with autofix
-            source .github/workflows/autofix-versions.env
+            # shellcheck source=.github/workflows/autofix-versions.env
+            source "$autofix_env"
             specs+=("black==${BLACK_VERSION}" "ruff==${RUFF_VERSION}" "isort==${ISORT_VERSION}" "docformatter==${DOCFORMATTER_VERSION}" "mypy==${MYPY_VERSION}" "pytest==${PYTEST_VERSION}" "pytest-cov==${PYTEST_COV_VERSION}" "pytest-xdist==${PYTEST_XDIST_VERSION:-3.6.1}")
           else
             echo "Warning: .github/workflows/autofix-versions.env not found, installing latest versions" >&2
@@ -337,9 +361,9 @@ jobs:
           append_summary ""
 
           # Run the dependency check script if it exists
-          if [ -f scripts/check_test_dependencies.sh ]; then
+          if [ -f "${GITHUB_WORKSPACE}/scripts/check_test_dependencies.sh" ]; then
             append_summary "Running dependency check script..."
-            run_to_summary ./scripts/check_test_dependencies.sh || true
+            run_to_summary "${GITHUB_WORKSPACE}/scripts/check_test_dependencies.sh" || true
           else
             append_summary "⚠️ Dependency check script not found, running basic validation"
             append_summary ""
@@ -374,7 +398,7 @@ jobs:
         id: check-deps
         continue-on-error: true
         run: |
-          python scripts/sync_test_dependencies.py --verify
+          python "${GITHUB_WORKSPACE}/scripts/sync_test_dependencies.py" --verify
 
       - name: Auto-fix missing dependencies
         if: steps.check-deps.outcome == 'failure'
@@ -390,9 +414,9 @@ jobs:
 
           append_summary "⚠️ Found undeclared test dependencies. Auto-fixing..."
           if [ -n "$summary_file" ]; then
-            python scripts/sync_test_dependencies.py --fix >>"$summary_file"
+            python "${GITHUB_WORKSPACE}/scripts/sync_test_dependencies.py" --fix >>"$summary_file"
           else
-            python scripts/sync_test_dependencies.py --fix
+            python "${GITHUB_WORKSPACE}/scripts/sync_test_dependencies.py" --fix
           fi
           append_summary ""
           append_summary "📝 Updated pyproject.toml with missing dependencies."
@@ -406,7 +430,7 @@ jobs:
           MATRIX_PYTHON_VERSION: ${{ matrix.python-version }}
         run: |
           set -euo pipefail
-          python tools/resolve_mypy_pin.py
+          python "${GITHUB_WORKSPACE}/tools/resolve_mypy_pin.py"
 
       - name: Black (format check)
         id: black
@@ -428,10 +452,10 @@ jobs:
         if: ${{ inputs.cache && inputs.typecheck && inputs['run-mypy'] }}
         uses: actions/cache@v4
         with:
-          path: .mypy_cache
-          key: mypy-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('pyproject.toml') }}-${{ hashFiles('src/**/*.py') }}
+          path: ${{ inputs['working-directory'] || '.' }}/.mypy_cache
+          key: mypy-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles(format('{0}/pyproject.toml', inputs['working-directory'])) }}-${{ hashFiles(format('{0}/src/**/*.py', inputs['working-directory'])) }}
           restore-keys: |
-            mypy-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('pyproject.toml') }}-
+            mypy-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles(format('{0}/pyproject.toml', inputs['working-directory'])) }}-
             mypy-${{ runner.os }}-${{ matrix.python-version }}-
 
       - name: Mypy (type check)
@@ -454,8 +478,8 @@ jobs:
         if: ${{ inputs.cache }}
         uses: actions/cache@v4
         with:
-          path: .pytest_cache
-          key: pytest-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('pyproject.toml') }}-${{ hashFiles('requirements.lock') }}
+          path: ${{ inputs['working-directory'] || '.' }}/.pytest_cache
+          key: pytest-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles(format('{0}/pyproject.toml', inputs['working-directory'])) }}-${{ hashFiles(format('{0}/requirements.lock', inputs['working-directory'])) }}
           restore-keys: |
             pytest-${{ runner.os }}-${{ matrix.python-version }}-
             pytest-${{ runner.os }}-
@@ -696,7 +720,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs['artifact-prefix'] }}coverage-${{ matrix.python-version }}
-          path: artifacts/coverage
+          path: ${{ env.PROJECT_ROOT }}/artifacts/coverage
           if-no-files-found: warn
           retention-days: 7
           overwrite: true
@@ -754,7 +778,7 @@ jobs:
       - name: Build CI metrics payload
         if: ${{ inputs['enable-metrics'] || inputs['enable-history'] || inputs['enable-classification'] }}
         run: |
-          python scripts/ci_metrics.py
+          python "${GITHUB_WORKSPACE}/scripts/ci_metrics.py"
         env:
           JUNIT_PATH: pytest-junit.xml
           OUTPUT_PATH: ci-metrics.json
@@ -766,7 +790,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs['artifact-prefix'] }}ci-metrics
-          path: ci-metrics.json
+          path: ${{ env.PROJECT_ROOT }}/ci-metrics.json
           if-no-files-found: warn
           retention-days: 7
           overwrite: true
@@ -774,7 +798,7 @@ jobs:
       - name: Append metrics history
         if: ${{ inputs['enable-history'] || inputs['enable-classification'] }}
         run: |
-          python scripts/ci_history.py
+          python "${GITHUB_WORKSPACE}/scripts/ci_history.py"
         env:
           JUNIT_PATH: pytest-junit.xml
           METRICS_PATH: ci-metrics.json
@@ -787,7 +811,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs['artifact-prefix'] }}metrics-history
-          path: ${{ inputs['history-artifact-name'] }}
+          path: ${{ env.PROJECT_ROOT }}/${{ inputs['history-artifact-name'] }}
           if-no-files-found: warn
           retention-days: 7
           overwrite: true
@@ -797,7 +821,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs['artifact-prefix'] }}classification
-          path: classification.json
+          path: ${{ env.PROJECT_ROOT }}/classification.json
           if-no-files-found: warn
           retention-days: 7
           overwrite: true
@@ -805,7 +829,7 @@ jobs:
       - name: Compute coverage delta
         if: ${{ inputs.coverage && inputs['enable-coverage-delta'] }}
         run: |
-          python scripts/ci_coverage_delta.py
+          python "${GITHUB_WORKSPACE}/scripts/ci_coverage_delta.py"
         env:
           COVERAGE_XML_PATH: coverage.xml
           OUTPUT_PATH: coverage-delta.json
@@ -818,7 +842,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs['artifact-prefix'] }}coverage-delta
-          path: coverage-delta.json
+          path: ${{ env.PROJECT_ROOT }}/coverage-delta.json
           if-no-files-found: warn
           retention-days: 7
           overwrite: true
@@ -826,10 +850,10 @@ jobs:
       - name: Generate coverage trend summary
         if: ${{ inputs.coverage && inputs['enable-soft-gate'] && matrix.python-version == inputs['primary-python-version'] }}
         run: |
-          python tools/coverage_trend.py \
+          python "${GITHUB_WORKSPACE}/tools/coverage_trend.py" \
             --coverage-xml coverage.xml \
             --coverage-json coverage.json \
-            --baseline config/coverage-baseline.json \
+            --baseline "${GITHUB_WORKSPACE}/config/coverage-baseline.json" \
             --summary-path coverage-summary.md \
             --job-summary "$GITHUB_STEP_SUMMARY" \
             --artifact-path coverage-trend.json \
@@ -856,7 +880,7 @@ jobs:
       - name: Append coverage trend history
         if: ${{ inputs.coverage && inputs['enable-soft-gate'] && matrix.python-version == inputs['primary-python-version'] }}
         run: |
-          python scripts/coverage_history_append.py
+          python "${GITHUB_WORKSPACE}/scripts/coverage_history_append.py"
         env:
           HISTORY_PATH: coverage-trend-history.ndjson
           RECORD_PATH: coverage-trend.json
@@ -866,7 +890,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs['artifact-prefix'] }}coverage-summary
-          path: coverage-summary.md
+          path: ${{ env.PROJECT_ROOT }}/coverage-summary.md
           if-no-files-found: warn
           retention-days: 7
           overwrite: true
@@ -876,7 +900,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs['artifact-prefix'] }}coverage-trend
-          path: coverage-trend.json
+          path: ${{ env.PROJECT_ROOT }}/coverage-trend.json
           if-no-files-found: warn
           retention-days: 7
           overwrite: true
@@ -886,7 +910,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs['artifact-prefix'] }}coverage-trend-history
-          path: coverage-trend-history.ndjson
+          path: ${{ env.PROJECT_ROOT }}/coverage-trend-history.ndjson
           if-no-files-found: warn
           retention-days: 7
           overwrite: true

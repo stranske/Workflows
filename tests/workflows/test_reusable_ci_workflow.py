@@ -46,11 +46,13 @@ def test_workflow_inputs_include_python_version_defaults() -> None:
     dispatch_inputs = dispatch.get("inputs", {})
 
     # workflow_call inputs remain complete
+    assert call_inputs.get("working-directory", {}).get("default") == "."
     assert call_inputs.get("python-version", {}).get("default") == "3.11"
     assert call_inputs.get("python-versions", {}).get("default") == "[]"
     assert call_inputs.get("primary-python-version", {}).get("default") == "3.11"
 
     # workflow_dispatch has reduced inputs (10-input limit) but python-versions remains
+    assert dispatch_inputs.get("working-directory", {}).get("default") == "."
     assert dispatch_inputs.get("python-versions", {}).get("default") == '["3.11"]'
     # python-version was removed from workflow_dispatch to meet GitHub's 10-input limit
     assert "python-version" not in dispatch_inputs
@@ -101,4 +103,43 @@ def test_workflow_uses_shared_mypy_pin_helper() -> None:
     resolve_step = next(step for step in steps if step.get("name") == "Resolve mypy python pin")
 
     run_block = resolve_step.get("run", "")
-    assert "python tools/resolve_mypy_pin.py" in run_block
+    assert 'python "${GITHUB_WORKSPACE}/tools/resolve_mypy_pin.py"' in run_block
+
+
+def test_working_directory_propagates_to_steps() -> None:
+    workflow = _load_workflow()
+    job = workflow["jobs"]["tests"]
+
+    defaults = job.get("defaults", {}).get("run", {})
+    assert defaults.get("working-directory") == "${{ inputs['working-directory'] || '.' }}"
+
+    env = job.get("env", {})
+    assert env.get("WORKDIR") == "${{ inputs['working-directory'] || '.' }}"
+    assert env.get("PROJECT_ROOT") == (
+        "${{ inputs['working-directory'] != '' && inputs['working-directory'] != '.' "
+        "&& format('{0}/{1}', github.workspace, inputs['working-directory']) || github.workspace }}"
+    )
+
+    steps = job["steps"]
+    checkout_sparse = next(
+        step for step in steps if step.get("name") == "Checkout repository (sparse)"
+    )
+    assert (
+        checkout_sparse["if"]
+        == "${{ inputs['working-directory'] != '' && inputs['working-directory'] != '.' }}"
+    )
+    sparse_with = checkout_sparse.get("with", {})
+    assert ".github/workflows" in sparse_with.get("sparse-checkout", "")
+    assert "${{ inputs['working-directory'] }}" in sparse_with.get("sparse-checkout", "")
+    assert sparse_with.get("sparse-checkout-cone-mode") is True
+
+    cache_steps = {step["name"]: step for step in steps if "Cache" in step.get("name", "")}
+    assert cache_steps["Cache mypy state"]["with"]["path"] == (
+        "${{ inputs['working-directory'] || '.' }}/.mypy_cache"
+    )
+    assert cache_steps["Cache pytest state"]["with"]["path"] == (
+        "${{ inputs['working-directory'] || '.' }}/.pytest_cache"
+    )
+
+    coverage_upload = next(step for step in steps if step.get("name") == "Upload coverage artifact")
+    assert coverage_upload["with"]["path"] == "${{ env.PROJECT_ROOT }}/artifacts/coverage"
