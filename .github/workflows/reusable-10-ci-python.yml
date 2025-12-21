@@ -186,11 +186,6 @@ on:
         required: false
         default: false
         type: boolean
-      enable-soft-gate:
-        description: Publish coverage trend and summary artifacts.
-        required: false
-        default: false
-        type: boolean
 
 jobs:
   tests:
@@ -256,7 +251,7 @@ jobs:
             tools
             config
             ${{ inputs['working-directory'] }}
-          sparse-checkout-cone: true
+          sparse-checkout-cone-mode: true
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
@@ -316,6 +311,7 @@ jobs:
           autofix_env="${GITHUB_WORKSPACE}/.github/workflows/autofix-versions.env"
           if [ -f "$autofix_env" ]; then
             # Source version pins from shared config to stay consistent with autofix
+            # shellcheck source=.github/workflows/autofix-versions.env
             source "$autofix_env"
             specs+=("black==${BLACK_VERSION}" "ruff==${RUFF_VERSION}" "isort==${ISORT_VERSION}" "docformatter==${DOCFORMATTER_VERSION}" "mypy==${MYPY_VERSION}" "pytest==${PYTEST_VERSION}" "pytest-cov==${PYTEST_COV_VERSION}" "pytest-xdist==${PYTEST_XDIST_VERSION:-3.6.1}")
           else
