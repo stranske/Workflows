@@ -24,9 +24,8 @@ runs:
       with:
         python-version: ${{ inputs.python-version }}
         # Note: pip cache disabled because we use uv for dependency installation
-        # which has its own separate cache step. Enabling pip cache here causes
-        # post-job cleanup failures when the pip cache directory doesn't exist.
-        cache: "false"
+        # which has its own separate cache step. Leaving `cache` unset avoids
+        # passing unsupported values to setup-python and prevents cleanup issues.
 
     - name: Set up Node.js
       uses: actions/setup-node@v4
