@@ -3,7 +3,6 @@ from pathlib import Path
 
 import yaml
 
-
 TEMPLATE_DIR = Path(".github/workflow-templates")
 
 TEMPLATES = {
@@ -40,17 +39,17 @@ def test_starter_template_metadata_matches_yaml():
         yaml_data = _read_yaml(workflow)
         props = _read_json(metadata)
 
-        assert yaml_data.get("name") == info["display_name"], (
-            f"Starter workflow name should match expected display name for {slug}"
-        )
-        assert props.get("name") == info["display_name"], (
-            f"Properties name should match template display name for {slug}"
-        )
+        assert (
+            yaml_data.get("name") == info["display_name"]
+        ), f"Starter workflow name should match expected display name for {slug}"
+        assert (
+            props.get("name") == info["display_name"]
+        ), f"Properties name should match template display name for {slug}"
         jobs = yaml_data.get("jobs") or {}
         python_ci = jobs.get("python-ci") or {}
-        assert python_ci.get("uses") == info["reusable_workflow"], (
-            f"Starter workflow should call the reusable workflow for {slug}"
-        )
+        assert (
+            python_ci.get("uses") == info["reusable_workflow"]
+        ), f"Starter workflow should call the reusable workflow for {slug}"
 
 
 def test_properties_files_include_required_keys_and_icon():
@@ -63,12 +62,12 @@ def test_properties_files_include_required_keys_and_icon():
         for key in ("name", "description", "iconName", "categories", "filePatterns"):
             assert props.get(key), f"Expected {key} in properties for {slug}"
 
-        assert isinstance(props["categories"], list) and props["categories"], (
-            f"Categories should be a non-empty list for {slug}"
-        )
-        assert isinstance(props["filePatterns"], list) and props["filePatterns"], (
-            f"filePatterns should be a non-empty list for {slug}"
-        )
+        assert (
+            isinstance(props["categories"], list) and props["categories"]
+        ), f"Categories should be a non-empty list for {slug}"
+        assert (
+            isinstance(props["filePatterns"], list) and props["filePatterns"]
+        ), f"filePatterns should be a non-empty list for {slug}"
 
         icon_path = icons_dir / f"{props['iconName']}.svg"
         assert icon_path.exists(), f"Icon referenced by {slug} is missing: {icon_path}"
