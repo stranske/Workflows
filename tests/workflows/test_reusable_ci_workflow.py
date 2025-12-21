@@ -124,7 +124,10 @@ def test_working_directory_propagates_to_steps() -> None:
     checkout_sparse = next(
         step for step in steps if step.get("name") == "Checkout repository (sparse)"
     )
-    assert checkout_sparse["if"] == "${{ inputs['working-directory'] != '' && inputs['working-directory'] != '.' }}"
+    assert (
+        checkout_sparse["if"]
+        == "${{ inputs['working-directory'] != '' && inputs['working-directory'] != '.' }}"
+    )
     sparse_with = checkout_sparse.get("with", {})
     assert ".github/workflows" in sparse_with.get("sparse-checkout", "")
     assert "${{ inputs['working-directory'] }}" in sparse_with.get("sparse-checkout", "")
