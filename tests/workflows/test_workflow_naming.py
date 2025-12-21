@@ -189,6 +189,7 @@ EXPECTED_NAMES = {
     "pr-00-gate.yml": "Gate",
     "pr-11-ci-smoke.yml": "PR 11 - Minimal invariant CI",
     "reusable-10-ci-python.yml": "Reusable CI",
+    "reusable-11-ci-node.yml": "Reusable Node CI",
     "reusable-12-ci-docker.yml": "Reusable Docker Smoke",
     "reusable-16-agents.yml": "Reusable 16 Agents",
     "reusable-18-autofix.yml": "Reusable 18 Autofix",
