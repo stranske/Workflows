@@ -11,6 +11,7 @@ name: Python CI (Workflows)
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   python-ci:

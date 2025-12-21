@@ -80,3 +80,13 @@ def test_trigger_configuration_is_present_for_python_ci():
 
     for trigger in ("push", "pull_request", "workflow_dispatch"):
         assert trigger in triggers, f"{trigger} trigger missing from python CI starter workflow"
+
+
+def test_permissions_include_actions_read_for_python_ci():
+    workflow = TEMPLATE_DIR / "python-ci.yml"
+    yaml_data = _read_yaml(workflow)
+    permissions = yaml_data.get("permissions") or {}
+
+    assert (
+        permissions.get("actions") == "read"
+    ), "Starter workflow should request actions: read for reusable summary steps"
