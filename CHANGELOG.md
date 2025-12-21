@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
 ## [Unreleased]
 
@@ -11,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Release workflow now refreshes the floating `v1` tag on every `v1.x` release, and the floating-tag maintenance job also runs when a `v1.x` release is published.
 - Tests cover creating the floating `v1` tag when it does not yet exist, ensuring it points to the latest `v1.x` release.
 - Documentation now outlines the recommended versioning strategy, including when to use pinned (`@v1.0.0`) versus floating (`@v1`) tags in both the README and Integration Guide.
+- Compatibility policy captured in `COMPATIBILITY.md`, including deprecation timelines and the two-major support window.
+
+### Breaking changes
+- None. Breaking changes will be prefixed with **BREAKING** and scheduled in line with the compatibility policy.
 
 ## [1.0.0] - 2024-12-16
 

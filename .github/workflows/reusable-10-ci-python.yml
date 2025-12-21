@@ -24,7 +24,7 @@ on:
         default: '3.11'
         type: string
       marker:
-        description: Optional pytest marker expression.
+        description: Deprecated alias for `pytest_markers`. Use `pytest_markers` instead.
         required: false
         default: ''
         type: string
@@ -54,7 +54,7 @@ on:
         default: true
         type: boolean
       run-mypy:
-        description: Deprecated alias for `typecheck`.
+        description: Deprecated alias for `typecheck`. Will be removed in `v2.0.0`.
         required: false
         default: true
         type: boolean
@@ -284,6 +284,21 @@ jobs:
           ):
             validate_boolean(boolean_env)
           PY
+
+      - name: Emit deprecated input warnings
+        if: ${{ inputs.marker != '' || inputs['run-mypy'] != true }}
+        env:
+          MARKER: ${{ inputs.marker }}
+          RUN_MYPY: ${{ inputs['run-mypy'] }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -n "${MARKER}" ]; then
+            echo "::warning ::Input 'marker' is deprecated and will be removed in v2.0.0. Use 'pytest_markers' instead."
+          fi
+          if [ "${RUN_MYPY}" != "true" ]; then
+            echo "::warning ::Input 'run-mypy' is deprecated and will be removed in v2.0.0. Use 'typecheck' to control mypy execution."
+          fi
 
   lint-format:
     name: lint-format
