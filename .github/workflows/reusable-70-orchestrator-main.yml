@@ -973,6 +973,11 @@ jobs:
     concurrency:
       group: ${{ format('keepalive-orchestrator-pr-{0}-agent-{1}-run-{2}', needs.resolve-orchestrator-context.outputs.pr_number || github.run_id, needs.resolve-orchestrator-context.outputs.agent_alias || 'codex', github.run_id) }}
       cancel-in-progress: false
+    permissions:
+      actions: write
+      contents: write
+      pull-requests: write
+      issues: write
     uses: ./.github/workflows/reusable-16-agents.yml
     # Job timeouts live inside reusable-16-agents.yml to satisfy workflow_call constraints.
     with:
