@@ -16,38 +16,6 @@ async function runKeepaliveGate({ core, github, context, env }) {
   const normalise = (value) => String(value || '').trim();
   const toBool = (value) => ['true', '1', 'yes', 'on'].includes(normalise(value).toLowerCase());
 
-  const toCandidate = (input) => ({
-    login: typeof input === 'string' ? input : input?.login || '',
-    type: typeof input === 'string' ? '' : input?.type || '',
-  });
-
-  const isAssignable = (candidate) => {
-    const { login, type } = toCandidate(candidate);
-    const raw = normalise(login);
-    if (!raw) {
-      return false;
-    }
-    if (/\[bot\]$/i.test(login) || /\[bot\]$/i.test(raw)) {
-      return false;
-    }
-    const loweredType = String(type || '').toLowerCase();
-    if (loweredType === 'bot' || loweredType === 'app') {
-      return false;
-    }
-    const lowered = raw.toLowerCase();
-    if (lowered.endsWith('-bot')) {
-      return false;
-    }
-    const blocked = new Set([
-      'chatgpt-codex-connector',
-      'stranske-automation-bot',
-      'github-actions',
-      'dependabot',
-      'copilot',
-    ]);
-    return !blocked.has(lowered);
-  };
-
   const keepaliveEnabled = toBool(env.KEEPALIVE_ENABLED);
   const trace = normalise(env.KEEPALIVE_TRACE);
   const round = normalise(env.KEEPALIVE_ROUND);
@@ -302,15 +270,6 @@ async function runKeepaliveGate({ core, github, context, env }) {
 
     }
 
-    const humanAssignees = (pr.assignees || [])
-      .filter((assignee) => isAssignable(assignee))
-      .map((assignee) => assignee.login)
-      .filter(Boolean);
-
-    if (!humanAssignees.length) {
-      addReason('no-human-assignee');
-      summary.addRaw(`No human assignees available for PR #${prNumber}; skipping keepalive.`).addEOL();
-    }
   }
 
   if (reasons.length) {
