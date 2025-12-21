@@ -118,9 +118,9 @@ runs:
         fi
 
         if [ -f pyproject.toml ]; then
-          specs+=('-e' '.')
+          specs+=('-e' '.[app,dev]')
         elif [ -f setup.cfg ] || [ -f setup.py ]; then
-          specs+=('-e' '.' )
+          specs+=('-e' '.[app,dev]')
         fi
 
         black_spec="black"
