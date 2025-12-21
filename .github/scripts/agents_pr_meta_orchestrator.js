@@ -89,6 +89,14 @@ async function dispatchOrchestrator({github, context, core, inputs}) {
   const workflowId = 'agents-70-orchestrator.yml';
   const ref = context.payload?.repository?.default_branch || 'main';
 
+  const isScopeError = (error) => {
+    if (!error) return false;
+    const status = Number(error?.status || 0);
+    const message = String(error?.message || error || '').toLowerCase();
+    if (status === 403 && message.includes('resource not accessible')) return true;
+    return message.includes('resource not accessible');
+  };
+
   const params = { enable_keepalive: true };
   if (Number.isFinite(issue) && issue > 0) {
     params.dispatcher_force_issue = String(issue);
@@ -126,32 +134,48 @@ async function dispatchOrchestrator({github, context, core, inputs}) {
     },
   };
 
-  // Retry with exponential backoff for transient errors
-  const maxRetries = 3;
-  let lastError;
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      await github.rest.actions.createWorkflowDispatch(dispatchPayload);
-      core.info(`Dispatched ${workflowId} for keepalive (pr=${prValue || 'n/a'}, trace=${trace || '-'}).`);
-      return { ok: true, reason: 'ok' };
-    } catch (error) {
-      lastError = error;
-      const message = error instanceof Error ? error.message : String(error);
-      if (isTransientError(error) && attempt < maxRetries) {
-        const delayMs = 1000 * Math.pow(2, attempt - 1); // Exponential backoff: 1s, 2s, 4s
-        core.warning(`Dispatch attempt ${attempt}/${maxRetries} failed (${message}), retrying in ${delayMs}ms...`);
-        await sleep(delayMs);
-        continue;
+  const dispatchWithClient = async (client, label) => {
+    const maxRetries = 3;
+    let lastError;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        await client.rest.actions.createWorkflowDispatch(dispatchPayload);
+        core.info(`Dispatched ${workflowId} (${label}) for keepalive (pr=${prValue || 'n/a'}, trace=${trace || '-'}).`);
+        return { ok: true, reason: 'ok' };
+      } catch (error) {
+        lastError = error;
+        const message = error instanceof Error ? error.message : String(error);
+        if (isTransientError(error) && attempt < maxRetries) {
+          const delayMs = 1000 * Math.pow(2, attempt - 1); // Exponential backoff: 1s, 2s, 4s
+          core.warning(`Dispatch attempt ${attempt}/${maxRetries} (${label}) failed (${message}), retrying in ${delayMs}ms...`);
+          await sleep(delayMs);
+          continue;
+        }
+        core.error(`Failed to dispatch ${workflowId} after ${attempt} attempts (${label}): ${message}`);
+        return { ok: false, reason: 'dispatch-error', error };
       }
-      core.error(`Failed to dispatch ${workflowId} after ${attempt} attempts: ${message}`);
-      return { ok: false, reason: 'dispatch-error', error: message };
+    }
+    const message = lastError instanceof Error ? lastError.message : String(lastError || 'unknown error');
+    core.error(`Failed to dispatch ${workflowId} after ${maxRetries} attempts (${label}): ${message}`);
+    return { ok: false, reason: 'dispatch-error', error: lastError || message };
+  };
+
+  const primaryResult = await dispatchWithClient(github, 'primary-token');
+  if (!primaryResult.ok && isScopeError(primaryResult.error) && process.env.GITHUB_TOKEN) {
+    try {
+      const FallbackOctokit = github.constructor;
+      if (FallbackOctokit) {
+        const fallbackClient = new FallbackOctokit({ auth: process.env.GITHUB_TOKEN });
+        core.info('Retrying orchestrator dispatch with default GITHUB_TOKEN due to PAT scope limitations.');
+        return await dispatchWithClient(fallbackClient, 'github-token-fallback');
+      }
+    } catch (fallbackError) {
+      const message = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
+      core.warning(`Fallback dispatch setup failed: ${message}`);
     }
   }
-  
-  // Should not reach here, but just in case
-  const message = lastError instanceof Error ? lastError.message : String(lastError || 'unknown error');
-  core.error(`Failed to dispatch ${workflowId} after ${maxRetries} attempts: ${message}`);
-  return { ok: false, reason: 'dispatch-error', error: message };
+
+  return primaryResult;
 }
 
 /**
