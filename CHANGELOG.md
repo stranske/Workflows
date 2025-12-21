@@ -8,8 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Release workflow now refreshes the floating `v1` tag on every `v1.x` release.
-- Documentation now outlines the recommended versioning strategy and when to use pinned (`@v1.0.0`) versus floating (`@v1`) tags.
+- Release workflow now refreshes the floating `v1` tag on every `v1.x` release, and the floating-tag maintenance job also runs when a `v1.x` release is published.
+- Tests cover creating the floating `v1` tag when it does not yet exist, ensuring it points to the latest `v1.x` release.
+- Documentation now outlines the recommended versioning strategy, including when to use pinned (`@v1.0.0`) versus floating (`@v1`) tags in both the README and Integration Guide.
 
 ## [1.0.0] - 2024-12-16
 
