@@ -32,6 +32,11 @@ on:
     types:
       - agents-orchestrator-ping
 
+permissions:
+  actions: write
+  contents: write
+  pull-requests: write
+
 concurrency:
   group: agents-70-orchestrator-singleton
   cancel-in-progress: false
