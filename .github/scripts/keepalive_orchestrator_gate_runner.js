@@ -163,6 +163,17 @@ async function runKeepaliveGate({ core, github, context, env }) {
     }
   };
 
+  if (!preGate.ok) {
+    addReason(preGate.reason || 'pre-gate-failed');
+    summary
+      .addRaw(
+        `Pre-gate check failed: reason=${preGate.reason || 'unknown'} ok=${preGate.ok ? 'true' : 'false'}`
+      )
+      .addEOL();
+  } else if (preGate.pendingGate) {
+    summary.addRaw('Gate pending; keepalive will retry once gate concludes.').addEOL();
+  }
+
   let headSha = '';
   if (!pr) {
     addReason('missing-pr');
@@ -183,29 +194,16 @@ async function runKeepaliveGate({ core, github, context, env }) {
         .filter(Boolean)
     );
 
+    if (currentLabels.has('agents:pause')) {
+      addReason('keepalive-paused');
+      summary.addRaw('Keepalive paused by agents:pause label.').addEOL();
+    }
+
     const requiredLabels = ['agents:keepalive'];
     if (agentAlias) {
       requiredLabels.push(`agent:${agentAlias}`);
     }
     const missingLabels = requiredLabels.filter((label) => !currentLabels.has(label));
-
-    if (missingLabels.length) {
-      try {
-        await github.rest.issues.addLabels({
-          owner,
-          repo,
-          issue_number: prNumber,
-          labels: missingLabels,
-        });
-        summary.addRaw(`Applied keepalive labels to PR #${prNumber}: ${missingLabels.join(', ')}`).addEOL();
-        for (const label of missingLabels) {
-          currentLabels.add(label);
-        }
-      } catch (labelError) {
-        const message = labelError instanceof Error ? labelError.message : String(labelError);
-        summary.addRaw(`Failed to apply keepalive labels to PR #${prNumber}: ${message}`).addEOL();
-      }
-    }
 
     const unresolvedLabels = requiredLabels.filter((label) => !currentLabels.has(label));
     if (unresolvedLabels.length) {
@@ -304,50 +302,14 @@ async function runKeepaliveGate({ core, github, context, env }) {
 
     }
 
-    const currentAssignees = (pr.assignees || []).map((assignee) => assignee?.login).filter(Boolean);
     const humanAssignees = (pr.assignees || [])
       .filter((assignee) => isAssignable(assignee))
       .map((assignee) => assignee.login)
       .filter(Boolean);
 
     if (!humanAssignees.length) {
-      const candidateLogins = [];
-      const author = pr.user;
-      if (isAssignable(author)) {
-        candidateLogins.push(author.login);
-      }
-      for (const reviewer of pr.requested_reviewers || []) {
-        if (isAssignable(reviewer)) {
-          candidateLogins.push(reviewer.login);
-        }
-      }
-
-      const uniqueCandidates = [];
-      const seen = new Set();
-      for (const login of candidateLogins) {
-        const normalised = login.toLowerCase();
-        if (!seen.has(normalised)) {
-          seen.add(normalised);
-          uniqueCandidates.push(login);
-        }
-      }
-
-      if (uniqueCandidates.length) {
-        try {
-          await github.rest.issues.addAssignees({
-            owner,
-            repo,
-            issue_number: prNumber,
-            assignees: uniqueCandidates,
-          });
-          summary.addRaw(`Assigned human owners to PR #${prNumber}: ${uniqueCandidates.join(', ')}`).addEOL();
-        } catch (assignmentError) {
-          const message = assignmentError instanceof Error ? assignmentError.message : String(assignmentError);
-          summary.addRaw(`Failed to assign humans to PR #${prNumber}: ${message}`).addEOL();
-        }
-      } else {
-        summary.addRaw(`No human assignees available for PR #${prNumber}; continuing without assignment.`).addEOL();
-      }
+      addReason('no-human-assignee');
+      summary.addRaw(`No human assignees available for PR #${prNumber}; skipping keepalive.`).addEOL();
     }
   }
 
