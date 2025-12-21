@@ -249,7 +249,22 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
   };
 
   const { comment, issue } = context.payload || {};
-  const { owner, repo } = context.repo || {};
+  // Resolve repository coordinates with robust fallbacks to avoid 404s in workflow_run
+  const repoEnv = String(env.GITHUB_REPOSITORY || '').split('/');
+  let owner = context?.repo?.owner || repoEnv[0] || '';
+  let repo = context?.repo?.repo || repoEnv[1] || '';
+  if ((!owner || !repo) && comment?.html_url) {
+    const match = comment.html_url.match(/github\.com\/(.+?)\/(.+?)\//);
+    if (match) {
+      owner = owner || match[1];
+      repo = repo || match[2];
+    }
+  }
+  if (!owner || !repo) {
+    outputs.reason = 'missing-repo';
+    core.info('Keepalive dispatch skipped: unable to resolve repository owner/name for PR lookup.');
+    return finalise(false);
+  }
   const body = comment?.body || '';
   const authorRaw = comment?.user?.login || '';
   const author = normaliseLogin(authorRaw);
