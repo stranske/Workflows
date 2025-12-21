@@ -2,6 +2,11 @@ name: Maint 61 Create Floating v1 Tag
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: "30 3 * * *"
+  release:
+    types:
+      - published
 
 permissions:
   contents: write
@@ -10,6 +15,7 @@ jobs:
   create-floating-v1-tag:
     name: Create or refresh floating v1 tag
     runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || startsWith(github.event.release.tag_name, 'v1.')
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -19,5 +25,6 @@ jobs:
       - name: Ensure floating v1 tag points to latest v1.x
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ALLOW_MISSING_RELEASES: 1
         run: |
           scripts/update-floating-tag.sh v1 v1.
