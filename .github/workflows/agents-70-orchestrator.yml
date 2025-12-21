@@ -104,10 +104,10 @@ jobs:
       SERVICE_BOT_PAT: ${{ secrets.SERVICE_BOT_PAT }}
 
   main:
-        permissions:
-          actions: write
-          contents: write
-          pull-requests: write
+    permissions:
+      actions: write
+      contents: write
+      pull-requests: write
     name: Execute
     needs: init
     if: needs.init.outputs.has_work == 'true'
