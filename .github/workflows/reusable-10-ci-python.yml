@@ -188,8 +188,106 @@ on:
         type: boolean
 
 jobs:
+  validate-inputs:
+    name: Validate inputs
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 1
+    steps:
+      - name: Validate workflow inputs
+        env:
+          PYTHON_VERSIONS: ${{ inputs['python-versions'] || '' }}
+          COVERAGE_MIN: ${{ inputs['coverage-min'] || '' }}
+          SLOW_TEST_TOP: ${{ inputs['slow-test-top'] || '' }}
+          SLOW_TEST_MIN_SECONDS: ${{ inputs['slow-test-min-seconds'] || '' }}
+          BASELINE_COVERAGE: ${{ inputs['baseline-coverage'] || '' }}
+          COVERAGE_ALERT_DROP: ${{ inputs['coverage-alert-drop'] || '' }}
+          LINT: ${{ inputs['lint'] }}
+          FORMAT_CHECK: ${{ inputs['format_check'] }}
+          TYPECHECK: ${{ inputs['typecheck'] }}
+          RUN_MYPY: ${{ inputs['run-mypy'] }}
+          COVERAGE: ${{ inputs['coverage'] }}
+          CACHE: ${{ inputs['cache'] }}
+          ENABLE_METRICS: ${{ inputs['enable-metrics'] }}
+          ENABLE_HISTORY: ${{ inputs['enable-history'] }}
+          ENABLE_CLASSIFICATION: ${{ inputs['enable-classification'] }}
+          ENABLE_COVERAGE_DELTA: ${{ inputs['enable-coverage-delta'] }}
+          FAIL_ON_COVERAGE_DROP: ${{ inputs['fail-on-coverage-drop'] }}
+          ENABLE_SOFT_GATE: ${{ inputs['enable-soft-gate'] }}
+        shell: bash
+        run: |
+          python <<'PY'
+          import json
+          import os
+          import sys
+          from typing import NoReturn
+
+          def fail(message: str) -> NoReturn:
+            print(f"::error ::{message}")
+            sys.exit(1)
+
+          def validate_boolean(name: str) -> None:
+            raw = os.getenv(name, "")
+            if raw == "":
+              return
+            value = raw.lower()
+            if value not in {"true", "false"}:
+              fail(f"{name.replace('_', '-')} must be a boolean string of 'true' or 'false' (received {raw!r}).")
+
+          def validate_number(name: str, raw: str, *, min_value: float | None = None, max_value: float | None = None, integer: bool = False) -> None:
+            if raw == "":
+              return
+            try:
+              value = int(raw) if integer else float(raw)
+            except ValueError:
+              constraint = f" between {min_value}-{max_value}" if min_value is not None and max_value is not None else ""
+              fail(f"{name} must be a number{constraint} (received {raw!r}).")
+            if min_value is not None and value < min_value:
+              fail(f"{name} must be a number between {min_value}-{max_value} (received {raw!r}).")
+            if max_value is not None and value > max_value:
+              fail(f"{name} must be a number between {min_value}-{max_value} (received {raw!r}).")
+
+          python_versions_raw = os.getenv("PYTHON_VERSIONS", "")
+          if python_versions_raw and python_versions_raw != "[]":
+            try:
+              python_versions = json.loads(python_versions_raw)
+            except json.JSONDecodeError:
+              fail('python-versions must be a valid JSON array of strings (example: ["3.11", "3.12"]).')
+            if not isinstance(python_versions, list):
+              fail('python-versions must be a JSON array (example: ["3.11", "3.12"]).')
+            if not python_versions:
+              fail('python-versions must include at least one version (example: ["3.11", "3.12"]).')
+            for version in python_versions:
+              if not isinstance(version, str) or not version.strip():
+                fail('python-versions entries must be non-empty strings (example: ["3.11", "3.12"]).')
+
+          validate_number("coverage-min", os.getenv("COVERAGE_MIN", ""), min_value=0, max_value=100)
+          validate_number("slow-test-top", os.getenv("SLOW_TEST_TOP", ""), min_value=0, max_value=None, integer=True)
+          validate_number("slow-test-min-seconds", os.getenv("SLOW_TEST_MIN_SECONDS", ""), min_value=0, max_value=None, integer=True)
+          validate_number("baseline-coverage", os.getenv("BASELINE_COVERAGE", ""), min_value=0, max_value=100)
+          validate_number("coverage-alert-drop", os.getenv("COVERAGE_ALERT_DROP", ""), min_value=0, max_value=100)
+
+          for boolean_env in (
+            "LINT",
+            "FORMAT_CHECK",
+            "TYPECHECK",
+            "RUN_MYPY",
+            "COVERAGE",
+            "CACHE",
+            "ENABLE_METRICS",
+            "ENABLE_HISTORY",
+            "ENABLE_CLASSIFICATION",
+            "ENABLE_COVERAGE_DELTA",
+            "FAIL_ON_COVERAGE_DROP",
+            "ENABLE_SOFT_GATE",
+          ):
+            validate_boolean(boolean_env)
+          PY
+
   tests:
     name: python ${{ matrix.python-version }}
+    needs: validate-inputs
     runs-on: ubuntu-latest
     permissions:
       contents: read
