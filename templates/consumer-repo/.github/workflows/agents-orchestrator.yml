@@ -1,0 +1,73 @@
+# Thin caller for agent orchestration - delegates to Workflows repo reusable workflow
+# Runs scheduled keepalive sweeps to resume stalled agent PRs
+#
+# This orchestrator provides:
+# - Keepalive sweeps for stalled PRs (Codex continues work)
+# - Watchdog monitoring
+# - Bootstrap checks for new agent issues
+#
+# Copy this file to: .github/workflows/agents-orchestrator.yml
+#
+# Required secrets:
+# - SERVICE_BOT_PAT: PAT for stranske-automation-bot
+# - ACTIONS_BOT_PAT: PAT for workflow dispatch (triggers connector)
+name: Agents Orchestrator
+
+on:
+  schedule:
+    # Run every 30 minutes for keepalive sweeps
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+    inputs:
+      enable_readiness:
+        description: "Run agent readiness probe"
+        required: false
+        type: boolean
+        default: false
+      enable_keepalive:
+        description: "Run keepalive sweep for stalled PRs"
+        required: false
+        type: boolean
+        default: true
+      enable_bootstrap:
+        description: "Run Codex bootstrap for ready issues"
+        required: false
+        type: boolean
+        default: false
+      enable_watchdog:
+        description: "Run watchdog checks"
+        required: false
+        type: boolean
+        default: true
+      dry_run:
+        description: "Preview mode - no write operations"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  actions: write
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: agents-orchestrator
+  cancel-in-progress: false
+
+jobs:
+  orchestrate:
+    name: Agent Orchestration
+    uses: stranske/Workflows/.github/workflows/reusable-16-agents.yml@main
+    with:
+      enable_readiness: ${{ inputs.enable_readiness && 'true' || 'false' }}
+      readiness_agents: "copilot,codex"
+      enable_preflight: "false"
+      enable_verify_issue: "false"
+      enable_watchdog: ${{ inputs.enable_watchdog && 'true' || 'true' }}
+      enable_keepalive: ${{ inputs.enable_keepalive && 'true' || 'true' }}
+      enable_bootstrap: ${{ inputs.enable_bootstrap && 'true' || 'false' }}
+      bootstrap_issues_label: "agent:codex"
+      draft_pr: "false"
+      dry_run: ${{ inputs.dry_run && 'true' || 'false' }}
+    secrets: inherit

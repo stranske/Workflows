@@ -194,6 +194,7 @@ EXPECTED_NAMES = {
     "reusable-12-ci-docker.yml": "Reusable Docker Smoke",
     "reusable-16-agents.yml": "Reusable 16 Agents",
     "reusable-18-autofix.yml": "Reusable 18 Autofix",
+    "reusable-20-pr-meta.yml": "Reusable 20 PR Meta",
     "reusable-70-orchestrator-init.yml": "Agents 70 Init (Reusable)",
     "reusable-70-orchestrator-main.yml": "Agents 70 Main (Reusable)",
     "reusable-agents-issue-bridge.yml": "Reusable Agents Issue Bridge",

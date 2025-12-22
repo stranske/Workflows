@@ -1,0 +1,35 @@
+# Thin caller for Python CI - delegates to Workflows repo reusable workflow
+# No local scripts required - all logic is centralized in stranske/Workflows
+#
+# This workflow runs:
+# - Lint (Ruff)
+# - Format check (Black)
+# - Type checking (mypy)
+# - Tests (pytest) on Python 3.11 and 3.12
+#
+# Copy this file to: .github/workflows/ci.yml
+# Also copy: autofix-versions.env to .github/workflows/autofix-versions.env
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
+jobs:
+  python:
+    name: Python CI
+    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
+    with:
+      python-versions: '["3.11", "3.12"]'
+      enable-mypy: true
+      enable-coverage: true
+      coverage-threshold: 80
+    secrets: inherit

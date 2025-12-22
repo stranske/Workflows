@@ -19,15 +19,19 @@ inputs:
   pr-number:
     description: "Pull request number (used for artifact names)"
     required: false
+  scripts-path:
+    description: "Path to the scripts directory (defaults to scripts/)"
+    required: false
+    default: scripts
 runs:
   using: "composite"
   steps:
     - name: Build comment body
       shell: bash
       run: |
-        python scripts/build_autofix_pr_comment.py \
+        python "${{ inputs.scripts-path }}/build_autofix_pr_comment.py" \
           --out "${{ inputs.output }}" \
           --report "${{ inputs.report }}" \
           --history "${{ inputs.history }}" \
           --trend "${{ inputs.trend }}" \
-            --pr-number "${{ inputs['pr-number'] }}"
+          --pr-number "${{ inputs['pr-number'] }}"

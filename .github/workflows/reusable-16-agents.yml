@@ -596,9 +596,27 @@ jobs:
       SERVICE_BOT_PAT: ${{ secrets.service_bot_pat || '' }}
       ACTIONS_BOT_PAT: ${{ secrets.ACTIONS_BOT_PAT || '' }}
     steps:
-      - uses: actions/checkout@v4
+      # Dual checkout pattern: consumer repo for context, Workflows repo for scripts
+      - name: Checkout consumer repository
+        uses: actions/checkout@v4
         with:
           fetch-depth: 1
+          path: consumer
+      - name: Checkout Workflows scripts
+        uses: actions/checkout@v4
+        with:
+          repository: stranske/Workflows
+          ref: main
+          sparse-checkout: |
+            scripts
+            .github/scripts
+          sparse-checkout-cone-mode: false
+          path: workflows-lib
+          fetch-depth: 1
+      - name: Set scripts path
+        run: |
+          echo "WORKFLOWS_SCRIPTS_PATH=${GITHUB_WORKSPACE}/workflows-lib" >> "$GITHUB_ENV"
+          echo "CONSUMER_PATH=${GITHUB_WORKSPACE}/consumer" >> "$GITHUB_ENV"
       - name: Ensure keepalive PAT present
         if: ${{ env.SERVICE_BOT_PAT == '' }}
         run: |
@@ -632,10 +650,13 @@ jobs:
           OPTIONS_JSON: ${{ inputs.options_json }}
           DRY_RUN: ${{ inputs.dry_run }}
           ACTIONS_BOT_PAT: ${{ env.ACTIONS_BOT_PAT }}
+          CONSUMER_PATH: ${{ env.CONSUMER_PATH }}
         with:
           github-token: ${{ secrets.service_bot_pat }}
           script: |
-            const { runKeepalive } = require('./scripts/keepalive-runner.js');
+            // Use centralized scripts from Workflows repo
+            const scriptsPath = process.env.WORKFLOWS_SCRIPTS_PATH || '.';
+            const { runKeepalive } = require(`${scriptsPath}/scripts/keepalive-runner.js`);
             await runKeepalive({ core, github, context, env: process.env });
 
   run-summary:

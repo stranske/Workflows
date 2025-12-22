@@ -385,8 +385,86 @@ concurrency:
 
 ---
 
+## Consumer Repo Setup (Full Automation)
+
+For repositories that want full CI + agent automation (Codex keepalive, autofix, etc.):
+
+### Quick Setup
+
+Copy all workflow templates from `/templates/consumer-repo/.github/workflows/` to your repository:
+
+```bash
+# Clone templates
+mkdir -p .github/workflows
+curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/consumer-repo/.github/workflows/ci.yml -o .github/workflows/ci.yml
+curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/consumer-repo/.github/workflows/autofix-versions.env -o .github/workflows/autofix-versions.env
+curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/consumer-repo/.github/workflows/agents-issue-intake.yml -o .github/workflows/agents-issue-intake.yml
+curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/consumer-repo/.github/workflows/agents-orchestrator.yml -o .github/workflows/agents-orchestrator.yml
+curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/consumer-repo/.github/workflows/agents-pr-meta.yml -o .github/workflows/agents-pr-meta.yml
+curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/consumer-repo/.github/workflows/autofix.yml -o .github/workflows/autofix.yml
+```
+
+### Workflow Summary
+
+| Workflow | Purpose | Triggers |
+|----------|---------|----------|
+| `ci.yml` | Python CI (lint, format, tests, typecheck) | push, PR |
+| `agents-issue-intake.yml` | Assigns Codex/Copilot to issues | issue labeled `agent:codex` |
+| `agents-orchestrator.yml` | Scheduled keepalive sweeps | every 30 min |
+| `agents-pr-meta.yml` | Detects keepalive comments, dispatches continuation | PR comments |
+| `autofix.yml` | Auto-fixes lint/format issues | PR sync, `autofix` label |
+| `autofix-versions.env` | Pins tool versions | N/A |
+
+### Required Secrets
+
+| Secret | Purpose | Required For |
+|--------|---------|--------------|
+| `SERVICE_BOT_PAT` | Bot account for comments/labels (stranske-automation-bot) | agents, autofix |
+| `ACTIONS_BOT_PAT` | Workflow dispatch triggers | orchestrator, pr-meta |
+| `OWNER_PR_PAT` | Create PRs on behalf of user | issue-intake |
+
+### Dual Checkout Architecture
+
+Consumer repo workflows use the **dual checkout pattern**:
+
+1. **Consumer repo** is checked out for your code
+2. **Workflows repo** is checked out (sparse) for scripts
+
+This means:
+- ✅ **No scripts needed** in your `.github/scripts/` directory
+- ✅ Scripts are **always up-to-date** from Workflows
+- ✅ **No sync required** when Workflows scripts change
+- ✅ Only **thin caller workflows** (~50-100 lines each) in your repo
+
+### What Each Workflow Does
+
+#### `agents-pr-meta.yml` (Critical for Keepalive)
+
+This is the **key workflow** for Codex keepalive. When Codex completes a round of work, it posts a comment with a keepalive marker. This workflow:
+
+1. Detects the keepalive marker in PR comments
+2. Validates the comment is from an authorized user
+3. Dispatches the orchestrator to continue work
+4. Updates PR body with status sections
+
+Without this workflow, Codex PRs will stall after the first round.
+
+#### `autofix.yml`
+
+When a PR has lint/format issues:
+
+1. Autofix runs Black and Ruff with `--fix`
+2. Commits fixes directly to the PR branch
+3. Labels PR with `autofix:applied`
+4. Posts a summary comment
+
+This eliminates manual formatting work and ensures consistent style.
+
+---
+
 ## Getting Help
 
 - **Documentation:** See `docs/ci/WORKFLOWS.md` for detailed workflow descriptions
 - **Issues:** Open an issue in stranske/Workflows for bugs or feature requests
 - **Templates:** Check `/templates/` for copy-paste solutions
+- **Consumer templates:** See `/templates/consumer-repo/` for full automation setup
