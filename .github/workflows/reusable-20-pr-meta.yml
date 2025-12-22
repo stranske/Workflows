@@ -248,6 +248,8 @@ jobs:
             const { run } = require(`${scriptsPath}/.github/scripts/agents_pr_meta_update_body.js`);
             await run({
               github, context, core,
-              prNumber: Number(process.env.PR_NUMBER),
-              dryRun: process.env.DRY_RUN === 'true',
+              inputs: {
+                pr_number: process.env.PR_NUMBER,
+                dry_run: process.env.DRY_RUN === 'true',
+              },
             });
