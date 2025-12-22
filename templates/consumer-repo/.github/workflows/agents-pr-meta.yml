@@ -32,21 +32,14 @@ on:
         default: false
 
 permissions:
+  actions: write
+  checks: read
   contents: read
   issues: write
   pull-requests: write
-  actions: write
-  checks: read
 
 concurrency:
-  group: >-
-    ${{
-      github.event_name == 'issue_comment'
-      && github.event.comment
-      && github.event.comment.id
-      && format('agents-pr-meta-comment-{0}', github.event.comment.id)
-      || format('agents-pr-meta-run-{0}', github.run_id)
-    }}
+  group: ${{ github.event_name == 'issue_comment' && format('agents-pr-meta-comment-{0}', github.event.comment.id) || format('agents-pr-meta-run-{0}', github.run_id) }}
   cancel-in-progress: false
 
 jobs:
@@ -68,7 +61,9 @@ jobs:
             const comment = context.payload.comment;
             core.setOutput('pr_number', pr.number);
             core.setOutput('comment_id', comment.id);
-            // Encode comment body to handle multiline
+            // Encode comment body as Base64 to safely handle multiline and special characters.
+            // The reusable workflow at stranske/Workflows/.github/workflows/reusable-20-pr-meta.yml
+            // expects this value to be Base64-encoded and is responsible for decoding it.
             core.setOutput('comment_body', Buffer.from(comment.body || '').toString('base64'));
 
   # Call reusable PR meta workflow for comment events
@@ -82,7 +77,7 @@ jobs:
       comment_body: ${{ needs.resolve_pr.outputs.comment_body }}
       event_name: 'issue_comment'
       event_action: ${{ github.event.action }}
-      allowed_keepalive_logins: 'stranske'
+      allowed_keepalive_logins: ${{ vars.ALLOWED_KEEPALIVE_LOGINS || 'stranske' }}
     secrets: inherit
 
   # Call reusable PR meta workflow for PR events
