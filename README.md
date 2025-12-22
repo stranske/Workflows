@@ -1,6 +1,7 @@
 # Workflows
 
 [![Maint 62 Integration Consumer](https://github.com/stranske/Workflows/actions/workflows/maint-62-integration-consumer.yml/badge.svg)](https://github.com/stranske/Workflows/actions/workflows/maint-62-integration-consumer.yml)
+[![Integration Tests](https://github.com/stranske/Workflows-Integration-Tests/actions/workflows/ci.yml/badge.svg)](https://github.com/stranske/Workflows-Integration-Tests/actions/workflows/ci.yml)
 
 A reusable GitHub Actions workflow system extracted from [Trend_Model_Project](https://github.com/stranske/Trend_Model_Project) for use across multiple repositories.
 
