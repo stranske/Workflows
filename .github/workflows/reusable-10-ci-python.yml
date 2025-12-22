@@ -1124,6 +1124,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    outputs:
+      pytest_outcome: ${{ steps.finalize-tests.outputs.pytest_outcome || 'skipped' }}
+      coverage_min_outcome: ${{ steps.finalize-tests.outputs.coverage_min_outcome || 'skipped' }}
     strategy:
       fail-fast: false
       matrix:
