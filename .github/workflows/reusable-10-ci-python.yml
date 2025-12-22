@@ -468,7 +468,7 @@ jobs:
               "tomlkit==${TOMLKIT_VERSION:-0.13.0}"
             )
           else
-            echo "Note: autofix-versions.env not found, installing latest tool versions" >&2
+            echo "Warning: autofix-versions.env not found, installing latest tool versions" >&2
           fi
 
           if [ "$format_enabled" = "true" ]; then
