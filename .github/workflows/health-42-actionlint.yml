@@ -23,14 +23,19 @@ jobs:
     steps:
       - name: Compute REPORTER value
         id: set-reporter
+        env:
+          REPORTER_FROM_CALL: ${{ fromJson(github.event.inputs || '{}').reporter || '' }}
+          REPORTER_FROM_DISPATCH: ${{ fromJson(github.event.inputs || '{}').REPORTER || '' }}
+          REPORTER_FROM_VAR: ${{ vars.HEALTH42_REPORTER || '' }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
-          if [ -n "${{ inputs.reporter }}" ]; then
-            echo "reporter=${{ inputs.reporter }}" >> "$GITHUB_OUTPUT"
-          elif [ -n "${{ vars.HEALTH42_REPORTER }}" ]; then
-            echo "reporter=${{ vars.HEALTH42_REPORTER }}" >> "$GITHUB_OUTPUT"
-          elif [ "${{ github.event.inputs.REPORTER || '' }}" != '' ]; then
-            echo "reporter=${{ github.event.inputs.REPORTER }}" >> "$GITHUB_OUTPUT"
-          elif [ "${{ github.event_name }}" = "pull_request" ]; then
+          if [ -n "${REPORTER_FROM_CALL}" ]; then
+            echo "reporter=${REPORTER_FROM_CALL}" >> "$GITHUB_OUTPUT"
+          elif [ -n "${REPORTER_FROM_VAR}" ]; then
+            echo "reporter=${REPORTER_FROM_VAR}" >> "$GITHUB_OUTPUT"
+          elif [ -n "${REPORTER_FROM_DISPATCH}" ]; then
+            echo "reporter=${REPORTER_FROM_DISPATCH}" >> "$GITHUB_OUTPUT"
+          elif [ "${EVENT_NAME}" = "pull_request" ]; then
             echo "reporter=github-pr-review" >> "$GITHUB_OUTPUT"
           else
             echo "reporter=github-check" >> "$GITHUB_OUTPUT"

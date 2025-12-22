@@ -336,18 +336,208 @@ jobs:
             ${{ inputs['working-directory'] }}
           sparse-checkout-cone-mode: true
 
-      - name: Prepare Python environment
-        uses: ./.github/actions/python-ci-setup
+      # Inlined from .github/actions/python-ci-setup for external repo compatibility
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ inputs['primary-python-version'] || inputs['python-version'] || '3.11' }}
-          working-directory: ${{ inputs['working-directory'] || '.' }}
-          cache: ${{ inputs.cache }}
-          pypi-token: ${{ secrets.pypi-token }}
-          lint: ${{ inputs.lint }}
-          format_check: ${{ inputs.format_check }}
-          typecheck: false
-          run-mypy: false
-          coverage: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install uv
+        shell: bash
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Cache uv artifacts
+        if: ${{ inputs.cache }}
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/uv
+          key: uv-${{ runner.os }}-${{ inputs['primary-python-version'] || inputs['python-version'] || '3.11' }}-${{ hashFiles(format('{0}/requirements.lock', inputs['working-directory'] || '.')) }}-${{ hashFiles(format('{0}/pyproject.toml', inputs['working-directory'] || '.')) }}
+          restore-keys: |
+            uv-${{ runner.os }}-${{ inputs['primary-python-version'] || inputs['python-version'] || '3.11' }}-
+            uv-${{ runner.os }}-
+
+      - name: Install dependencies
+        shell: bash
+        working-directory: ${{ inputs['working-directory'] || '.' }}
+        env:
+          PRIVATE_PYPI_TOKEN: ${{ secrets.pypi-token }}
+          WORKDIR: ${{ inputs['working-directory'] || '.' }}
+          INPUT_LINT: ${{ inputs.lint }}
+          INPUT_FORMAT_CHECK: ${{ inputs.format_check }}
+          INPUT_TYPECHECK: 'false'
+          INPUT_RUN_MYPY: 'false'
+          INPUT_COVERAGE: 'false'
+          INPUT_PYTHON_VERSION: ${{ inputs['primary-python-version'] || inputs['python-version'] || '3.11' }}
+        run: |
+          set -euo pipefail
+          start_ts=$(date +%s)
+
+          to_bool() {
+            case "$(printf '%s' "${1:-}" | tr '[:upper:]' '[:lower:]')" in
+              1|true|yes|y|on) echo "true" ;;
+              *) echo "false" ;;
+            esac
+          }
+
+          lint_enabled=$(to_bool "$INPUT_LINT")
+          format_enabled=$(to_bool "$INPUT_FORMAT_CHECK")
+          typecheck_enabled=$(to_bool "$INPUT_TYPECHECK")
+          run_mypy_enabled=$(to_bool "$INPUT_RUN_MYPY")
+          coverage_enabled=$(to_bool "$INPUT_COVERAGE")
+          mypy_enabled="false"
+          if [ "$typecheck_enabled" = "true" ] && [ "$run_mypy_enabled" = "true" ]; then
+            mypy_enabled="true"
+          fi
+
+          add_tool() {
+            specs+=("$1")
+            tools_installed+=("$2")
+          }
+
+          skip_tool() {
+            tools_skipped+=("$1")
+          }
+
+          if [ -n "${PRIVATE_PYPI_TOKEN:-}" ]; then
+            export PIP_INDEX_URL="https://__token__:${PRIVATE_PYPI_TOKEN}@pypi.org/simple"
+          fi
+          specs=()
+          tools_installed=()
+          tools_skipped=()
+
+          if [ -f requirements.lock ]; then
+            specs+=('-r' 'requirements.lock')
+          fi
+
+          if [ -f pyproject.toml ]; then
+            specs+=('-e' '.[app,dev]')
+          elif [ -f setup.cfg ] || [ -f setup.py ]; then
+            specs+=('-e' '.[app,dev]')
+          fi
+
+          black_spec="black"
+          docformatter_spec="docformatter"
+          isort_spec="isort"
+          ruff_spec="ruff"
+          mypy_spec="mypy"
+          pytest_spec="pytest"
+          pytest_cov_spec="pytest-cov"
+          coverage_spec="coverage"
+          pytest_xdist_spec="pytest-xdist"
+          base_test_specs=(
+            "hypothesis"
+            "pandas"
+            "numpy"
+            "pydantic"
+            "pydantic-core"
+            "requests"
+            "jsonschema"
+            "PyYAML"
+            "tomlkit"
+          )
+
+          autofix_env="${GITHUB_WORKSPACE}/.github/workflows/autofix-versions.env"
+          if [ -f "$autofix_env" ]; then
+            # shellcheck source=.github/workflows/autofix-versions.env
+            source "$autofix_env"
+            black_spec="black==${BLACK_VERSION}"
+            docformatter_spec="docformatter==${DOCFORMATTER_VERSION}"
+            isort_spec="isort==${ISORT_VERSION}"
+            ruff_spec="ruff==${RUFF_VERSION}"
+            mypy_spec="mypy==${MYPY_VERSION}"
+            pytest_spec="pytest==${PYTEST_VERSION}"
+            pytest_cov_spec="pytest-cov==${PYTEST_COV_VERSION}"
+            coverage_spec="coverage==${COVERAGE_VERSION:-7.2.7}"
+            pytest_xdist_spec="pytest-xdist==${PYTEST_XDIST_VERSION:-3.6.1}"
+            base_test_specs=(
+              "hypothesis==${HYPOTHESIS_VERSION:-6.0.0}"
+              "pandas==${PANDAS_VERSION:-2.3.0}"
+              "numpy==${NUMPY_VERSION:-2.1.0}"
+              "pydantic==${PYDANTIC_VERSION:-2.10.3}"
+              "pydantic-core==${PYDANTIC_CORE_VERSION:-2.23.4}"
+              "requests==${REQUESTS_VERSION:-2.31.0}"
+              "jsonschema==${JSONSCHEMA_VERSION:-4.0.0}"
+              "PyYAML==${PYYAML_VERSION:-6.0.2}"
+              "tomlkit==${TOMLKIT_VERSION:-0.13.0}"
+            )
+          else
+            echo "Warning: autofix-versions.env not found, installing latest tool versions" >&2
+          fi
+
+          if [ "$format_enabled" = "true" ]; then
+            add_tool "$black_spec" "black"
+            add_tool "$docformatter_spec" "docformatter"
+            add_tool "$isort_spec" "isort"
+          else
+            skip_tool "black (format_check disabled)"
+            skip_tool "docformatter (format_check disabled)"
+            skip_tool "isort (format_check disabled)"
+          fi
+
+          if [ "$lint_enabled" = "true" ]; then
+            add_tool "$ruff_spec" "ruff"
+          else
+            skip_tool "ruff (lint disabled)"
+          fi
+
+          if [ "$mypy_enabled" = "true" ]; then
+            add_tool "$mypy_spec" "mypy"
+          else
+            skip_tool "mypy (typecheck disabled)"
+          fi
+
+          add_tool "$pytest_spec" "pytest"
+          add_tool "$pytest_xdist_spec" "pytest-xdist"
+          for spec in "${base_test_specs[@]}"; do
+            add_tool "$spec" "$spec"
+          done
+
+          if [ "$coverage_enabled" = "true" ]; then
+            add_tool "$pytest_cov_spec" "pytest-cov"
+            add_tool "$coverage_spec" "coverage"
+          else
+            skip_tool "pytest-cov (coverage disabled)"
+            skip_tool "coverage (coverage disabled)"
+          fi
+
+          if [ ${#specs[@]} -eq 0 ]; then
+            echo "No install targets found; skipping dependency installation."
+          else
+            uv pip install --system "${specs[@]}"
+          fi
+
+          end_ts=$(date +%s)
+          duration=$((end_ts - start_ts))
+          if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+            installed_label="none"
+            skipped_label="none"
+            if [ ${#tools_installed[@]} -gt 0 ]; then
+              installed_label=$(printf '%s, ' "${tools_installed[@]}")
+              installed_label=${installed_label%, }
+            fi
+            if [ ${#tools_skipped[@]} -gt 0 ]; then
+              skipped_label=$(printf '%s, ' "${tools_skipped[@]}")
+              skipped_label=${skipped_label%, }
+            fi
+            {
+              printf '## Dependency installation timing\n'
+              printf -- '- Duration: %ss\n' "$duration"
+              printf -- '- Tools installed: %s\n' "$installed_label"
+              printf -- '- Tools skipped (disabled): %s\n' "$skipped_label"
+              if [ ${#tools_skipped[@]} -gt 0 ]; then
+                printf -- '- Note: skipping %d tool(s) avoids extra setup time when disabled.\n' "${#tools_skipped[@]}"
+              fi
+              printf -- '- Cache key: uv-%s-%s-%s-%s\n' "${{ runner.os }}" "$INPUT_PYTHON_VERSION" "$(sha256sum requirements.lock 2>/dev/null | cut -d' ' -f1 || echo none)" "$(sha256sum pyproject.toml 2>/dev/null | cut -d' ' -f1 || echo none)"
+            } >>"${GITHUB_STEP_SUMMARY}"
+          fi
 
       - name: Black (format check)
         id: black
@@ -411,18 +601,208 @@ jobs:
             ${{ inputs['working-directory'] }}
           sparse-checkout-cone-mode: true
 
-      - name: Prepare Python environment
-        uses: ./.github/actions/python-ci-setup
+      # Inlined from .github/actions/python-ci-setup for external repo compatibility
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ inputs['primary-python-version'] || inputs['python-version'] || '3.11' }}
-          working-directory: ${{ inputs['working-directory'] || '.' }}
-          cache: ${{ inputs.cache }}
-          pypi-token: ${{ secrets.pypi-token }}
-          lint: ${{ inputs.lint }}
-          format_check: false
-          typecheck: false
-          run-mypy: false
-          coverage: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install uv
+        shell: bash
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Cache uv artifacts
+        if: ${{ inputs.cache }}
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/uv
+          key: uv-${{ runner.os }}-${{ inputs['primary-python-version'] || inputs['python-version'] || '3.11' }}-${{ hashFiles(format('{0}/requirements.lock', inputs['working-directory'] || '.')) }}-${{ hashFiles(format('{0}/pyproject.toml', inputs['working-directory'] || '.')) }}
+          restore-keys: |
+            uv-${{ runner.os }}-${{ inputs['primary-python-version'] || inputs['python-version'] || '3.11' }}-
+            uv-${{ runner.os }}-
+
+      - name: Install dependencies
+        shell: bash
+        working-directory: ${{ inputs['working-directory'] || '.' }}
+        env:
+          PRIVATE_PYPI_TOKEN: ${{ secrets.pypi-token }}
+          WORKDIR: ${{ inputs['working-directory'] || '.' }}
+          INPUT_LINT: ${{ inputs.lint }}
+          INPUT_FORMAT_CHECK: 'false'
+          INPUT_TYPECHECK: 'false'
+          INPUT_RUN_MYPY: 'false'
+          INPUT_COVERAGE: 'false'
+          INPUT_PYTHON_VERSION: ${{ inputs['primary-python-version'] || inputs['python-version'] || '3.11' }}
+        run: |
+          set -euo pipefail
+          start_ts=$(date +%s)
+
+          to_bool() {
+            case "$(printf '%s' "${1:-}" | tr '[:upper:]' '[:lower:]')" in
+              1|true|yes|y|on) echo "true" ;;
+              *) echo "false" ;;
+            esac
+          }
+
+          lint_enabled=$(to_bool "$INPUT_LINT")
+          format_enabled=$(to_bool "$INPUT_FORMAT_CHECK")
+          typecheck_enabled=$(to_bool "$INPUT_TYPECHECK")
+          run_mypy_enabled=$(to_bool "$INPUT_RUN_MYPY")
+          coverage_enabled=$(to_bool "$INPUT_COVERAGE")
+          mypy_enabled="false"
+          if [ "$typecheck_enabled" = "true" ] && [ "$run_mypy_enabled" = "true" ]; then
+            mypy_enabled="true"
+          fi
+
+          add_tool() {
+            specs+=("$1")
+            tools_installed+=("$2")
+          }
+
+          skip_tool() {
+            tools_skipped+=("$1")
+          }
+
+          if [ -n "${PRIVATE_PYPI_TOKEN:-}" ]; then
+            export PIP_INDEX_URL="https://__token__:${PRIVATE_PYPI_TOKEN}@pypi.org/simple"
+          fi
+          specs=()
+          tools_installed=()
+          tools_skipped=()
+
+          if [ -f requirements.lock ]; then
+            specs+=('-r' 'requirements.lock')
+          fi
+
+          if [ -f pyproject.toml ]; then
+            specs+=('-e' '.[app,dev]')
+          elif [ -f setup.cfg ] || [ -f setup.py ]; then
+            specs+=('-e' '.[app,dev]')
+          fi
+
+          black_spec="black"
+          docformatter_spec="docformatter"
+          isort_spec="isort"
+          ruff_spec="ruff"
+          mypy_spec="mypy"
+          pytest_spec="pytest"
+          pytest_cov_spec="pytest-cov"
+          coverage_spec="coverage"
+          pytest_xdist_spec="pytest-xdist"
+          base_test_specs=(
+            "hypothesis"
+            "pandas"
+            "numpy"
+            "pydantic"
+            "pydantic-core"
+            "requests"
+            "jsonschema"
+            "PyYAML"
+            "tomlkit"
+          )
+
+          autofix_env="${GITHUB_WORKSPACE}/.github/workflows/autofix-versions.env"
+          if [ -f "$autofix_env" ]; then
+            # shellcheck source=.github/workflows/autofix-versions.env
+            source "$autofix_env"
+            black_spec="black==${BLACK_VERSION}"
+            docformatter_spec="docformatter==${DOCFORMATTER_VERSION}"
+            isort_spec="isort==${ISORT_VERSION}"
+            ruff_spec="ruff==${RUFF_VERSION}"
+            mypy_spec="mypy==${MYPY_VERSION}"
+            pytest_spec="pytest==${PYTEST_VERSION}"
+            pytest_cov_spec="pytest-cov==${PYTEST_COV_VERSION}"
+            coverage_spec="coverage==${COVERAGE_VERSION:-7.2.7}"
+            pytest_xdist_spec="pytest-xdist==${PYTEST_XDIST_VERSION:-3.6.1}"
+            base_test_specs=(
+              "hypothesis==${HYPOTHESIS_VERSION:-6.0.0}"
+              "pandas==${PANDAS_VERSION:-2.3.0}"
+              "numpy==${NUMPY_VERSION:-2.1.0}"
+              "pydantic==${PYDANTIC_VERSION:-2.10.3}"
+              "pydantic-core==${PYDANTIC_CORE_VERSION:-2.23.4}"
+              "requests==${REQUESTS_VERSION:-2.31.0}"
+              "jsonschema==${JSONSCHEMA_VERSION:-4.0.0}"
+              "PyYAML==${PYYAML_VERSION:-6.0.2}"
+              "tomlkit==${TOMLKIT_VERSION:-0.13.0}"
+            )
+          else
+            echo "Warning: autofix-versions.env not found, installing latest tool versions" >&2
+          fi
+
+          if [ "$format_enabled" = "true" ]; then
+            add_tool "$black_spec" "black"
+            add_tool "$docformatter_spec" "docformatter"
+            add_tool "$isort_spec" "isort"
+          else
+            skip_tool "black (format_check disabled)"
+            skip_tool "docformatter (format_check disabled)"
+            skip_tool "isort (format_check disabled)"
+          fi
+
+          if [ "$lint_enabled" = "true" ]; then
+            add_tool "$ruff_spec" "ruff"
+          else
+            skip_tool "ruff (lint disabled)"
+          fi
+
+          if [ "$mypy_enabled" = "true" ]; then
+            add_tool "$mypy_spec" "mypy"
+          else
+            skip_tool "mypy (typecheck disabled)"
+          fi
+
+          add_tool "$pytest_spec" "pytest"
+          add_tool "$pytest_xdist_spec" "pytest-xdist"
+          for spec in "${base_test_specs[@]}"; do
+            add_tool "$spec" "$spec"
+          done
+
+          if [ "$coverage_enabled" = "true" ]; then
+            add_tool "$pytest_cov_spec" "pytest-cov"
+            add_tool "$coverage_spec" "coverage"
+          else
+            skip_tool "pytest-cov (coverage disabled)"
+            skip_tool "coverage (coverage disabled)"
+          fi
+
+          if [ ${#specs[@]} -eq 0 ]; then
+            echo "No install targets found; skipping dependency installation."
+          else
+            uv pip install --system "${specs[@]}"
+          fi
+
+          end_ts=$(date +%s)
+          duration=$((end_ts - start_ts))
+          if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+            installed_label="none"
+            skipped_label="none"
+            if [ ${#tools_installed[@]} -gt 0 ]; then
+              installed_label=$(printf '%s, ' "${tools_installed[@]}")
+              installed_label=${installed_label%, }
+            fi
+            if [ ${#tools_skipped[@]} -gt 0 ]; then
+              skipped_label=$(printf '%s, ' "${tools_skipped[@]}")
+              skipped_label=${skipped_label%, }
+            fi
+            {
+              printf '## Dependency installation timing\n'
+              printf -- '- Duration: %ss\n' "$duration"
+              printf -- '- Tools installed: %s\n' "$installed_label"
+              printf -- '- Tools skipped (disabled): %s\n' "$skipped_label"
+              if [ ${#tools_skipped[@]} -gt 0 ]; then
+                printf -- '- Note: skipping %d tool(s) avoids extra setup time when disabled.\n' "${#tools_skipped[@]}"
+              fi
+              printf -- '- Cache key: uv-%s-%s-%s-%s\n' "${{ runner.os }}" "$INPUT_PYTHON_VERSION" "$(sha256sum requirements.lock 2>/dev/null | cut -d' ' -f1 || echo none)" "$(sha256sum pyproject.toml 2>/dev/null | cut -d' ' -f1 || echo none)"
+            } >>"${GITHUB_STEP_SUMMARY}"
+          fi
 
       - name: Ruff (lint)
         id: ruff
@@ -494,18 +874,208 @@ jobs:
           set -euo pipefail
           python "${GITHUB_WORKSPACE}/tools/resolve_mypy_pin.py"
 
-      - name: Prepare Python environment
-        uses: ./.github/actions/python-ci-setup
+      # Inlined from .github/actions/python-ci-setup for external repo compatibility
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ steps.mypy-pin.outputs.python-version || inputs['primary-python-version'] || inputs['python-version'] || '3.11' }}
-          working-directory: ${{ inputs['working-directory'] || '.' }}
-          cache: ${{ inputs.cache }}
-          pypi-token: ${{ secrets.pypi-token }}
-          lint: false
-          format_check: false
-          typecheck: ${{ inputs.typecheck }}
-          run-mypy: ${{ inputs['run-mypy'] }}
-          coverage: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install uv
+        shell: bash
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Cache uv artifacts
+        if: ${{ inputs.cache }}
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/uv
+          key: uv-${{ runner.os }}-${{ steps.mypy-pin.outputs.python-version || inputs['primary-python-version'] || inputs['python-version'] || '3.11' }}-${{ hashFiles(format('{0}/requirements.lock', inputs['working-directory'] || '.')) }}-${{ hashFiles(format('{0}/pyproject.toml', inputs['working-directory'] || '.')) }}
+          restore-keys: |
+            uv-${{ runner.os }}-${{ steps.mypy-pin.outputs.python-version || inputs['primary-python-version'] || inputs['python-version'] || '3.11' }}-
+            uv-${{ runner.os }}-
+
+      - name: Install dependencies
+        shell: bash
+        working-directory: ${{ inputs['working-directory'] || '.' }}
+        env:
+          PRIVATE_PYPI_TOKEN: ${{ secrets.pypi-token }}
+          WORKDIR: ${{ inputs['working-directory'] || '.' }}
+          INPUT_LINT: 'false'
+          INPUT_FORMAT_CHECK: 'false'
+          INPUT_TYPECHECK: ${{ inputs.typecheck }}
+          INPUT_RUN_MYPY: ${{ inputs['run-mypy'] }}
+          INPUT_COVERAGE: 'false'
+          INPUT_PYTHON_VERSION: ${{ steps.mypy-pin.outputs.python-version || inputs['primary-python-version'] || inputs['python-version'] || '3.11' }}
+        run: |
+          set -euo pipefail
+          start_ts=$(date +%s)
+
+          to_bool() {
+            case "$(printf '%s' "${1:-}" | tr '[:upper:]' '[:lower:]')" in
+              1|true|yes|y|on) echo "true" ;;
+              *) echo "false" ;;
+            esac
+          }
+
+          lint_enabled=$(to_bool "$INPUT_LINT")
+          format_enabled=$(to_bool "$INPUT_FORMAT_CHECK")
+          typecheck_enabled=$(to_bool "$INPUT_TYPECHECK")
+          run_mypy_enabled=$(to_bool "$INPUT_RUN_MYPY")
+          coverage_enabled=$(to_bool "$INPUT_COVERAGE")
+          mypy_enabled="false"
+          if [ "$typecheck_enabled" = "true" ] && [ "$run_mypy_enabled" = "true" ]; then
+            mypy_enabled="true"
+          fi
+
+          add_tool() {
+            specs+=("$1")
+            tools_installed+=("$2")
+          }
+
+          skip_tool() {
+            tools_skipped+=("$1")
+          }
+
+          if [ -n "${PRIVATE_PYPI_TOKEN:-}" ]; then
+            export PIP_INDEX_URL="https://__token__:${PRIVATE_PYPI_TOKEN}@pypi.org/simple"
+          fi
+          specs=()
+          tools_installed=()
+          tools_skipped=()
+
+          if [ -f requirements.lock ]; then
+            specs+=('-r' 'requirements.lock')
+          fi
+
+          if [ -f pyproject.toml ]; then
+            specs+=('-e' '.[app,dev]')
+          elif [ -f setup.cfg ] || [ -f setup.py ]; then
+            specs+=('-e' '.[app,dev]')
+          fi
+
+          black_spec="black"
+          docformatter_spec="docformatter"
+          isort_spec="isort"
+          ruff_spec="ruff"
+          mypy_spec="mypy"
+          pytest_spec="pytest"
+          pytest_cov_spec="pytest-cov"
+          coverage_spec="coverage"
+          pytest_xdist_spec="pytest-xdist"
+          base_test_specs=(
+            "hypothesis"
+            "pandas"
+            "numpy"
+            "pydantic"
+            "pydantic-core"
+            "requests"
+            "jsonschema"
+            "PyYAML"
+            "tomlkit"
+          )
+
+          autofix_env="${GITHUB_WORKSPACE}/.github/workflows/autofix-versions.env"
+          if [ -f "$autofix_env" ]; then
+            # shellcheck source=.github/workflows/autofix-versions.env
+            source "$autofix_env"
+            black_spec="black==${BLACK_VERSION}"
+            docformatter_spec="docformatter==${DOCFORMATTER_VERSION}"
+            isort_spec="isort==${ISORT_VERSION}"
+            ruff_spec="ruff==${RUFF_VERSION}"
+            mypy_spec="mypy==${MYPY_VERSION}"
+            pytest_spec="pytest==${PYTEST_VERSION}"
+            pytest_cov_spec="pytest-cov==${PYTEST_COV_VERSION}"
+            coverage_spec="coverage==${COVERAGE_VERSION:-7.2.7}"
+            pytest_xdist_spec="pytest-xdist==${PYTEST_XDIST_VERSION:-3.6.1}"
+            base_test_specs=(
+              "hypothesis==${HYPOTHESIS_VERSION:-6.0.0}"
+              "pandas==${PANDAS_VERSION:-2.3.0}"
+              "numpy==${NUMPY_VERSION:-2.1.0}"
+              "pydantic==${PYDANTIC_VERSION:-2.10.3}"
+              "pydantic-core==${PYDANTIC_CORE_VERSION:-2.23.4}"
+              "requests==${REQUESTS_VERSION:-2.31.0}"
+              "jsonschema==${JSONSCHEMA_VERSION:-4.0.0}"
+              "PyYAML==${PYYAML_VERSION:-6.0.2}"
+              "tomlkit==${TOMLKIT_VERSION:-0.13.0}"
+            )
+          else
+            echo "Warning: autofix-versions.env not found, installing latest tool versions" >&2
+          fi
+
+          if [ "$format_enabled" = "true" ]; then
+            add_tool "$black_spec" "black"
+            add_tool "$docformatter_spec" "docformatter"
+            add_tool "$isort_spec" "isort"
+          else
+            skip_tool "black (format_check disabled)"
+            skip_tool "docformatter (format_check disabled)"
+            skip_tool "isort (format_check disabled)"
+          fi
+
+          if [ "$lint_enabled" = "true" ]; then
+            add_tool "$ruff_spec" "ruff"
+          else
+            skip_tool "ruff (lint disabled)"
+          fi
+
+          if [ "$mypy_enabled" = "true" ]; then
+            add_tool "$mypy_spec" "mypy"
+          else
+            skip_tool "mypy (typecheck disabled)"
+          fi
+
+          add_tool "$pytest_spec" "pytest"
+          add_tool "$pytest_xdist_spec" "pytest-xdist"
+          for spec in "${base_test_specs[@]}"; do
+            add_tool "$spec" "$spec"
+          done
+
+          if [ "$coverage_enabled" = "true" ]; then
+            add_tool "$pytest_cov_spec" "pytest-cov"
+            add_tool "$coverage_spec" "coverage"
+          else
+            skip_tool "pytest-cov (coverage disabled)"
+            skip_tool "coverage (coverage disabled)"
+          fi
+
+          if [ ${#specs[@]} -eq 0 ]; then
+            echo "No install targets found; skipping dependency installation."
+          else
+            uv pip install --system "${specs[@]}"
+          fi
+
+          end_ts=$(date +%s)
+          duration=$((end_ts - start_ts))
+          if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+            installed_label="none"
+            skipped_label="none"
+            if [ ${#tools_installed[@]} -gt 0 ]; then
+              installed_label=$(printf '%s, ' "${tools_installed[@]}")
+              installed_label=${installed_label%, }
+            fi
+            if [ ${#tools_skipped[@]} -gt 0 ]; then
+              skipped_label=$(printf '%s, ' "${tools_skipped[@]}")
+              skipped_label=${skipped_label%, }
+            fi
+            {
+              printf '## Dependency installation timing\n'
+              printf -- '- Duration: %ss\n' "$duration"
+              printf -- '- Tools installed: %s\n' "$installed_label"
+              printf -- '- Tools skipped (disabled): %s\n' "$skipped_label"
+              if [ ${#tools_skipped[@]} -gt 0 ]; then
+                printf -- '- Note: skipping %d tool(s) avoids extra setup time when disabled.\n' "${#tools_skipped[@]}"
+              fi
+              printf -- '- Cache key: uv-%s-%s-%s-%s\n' "${{ runner.os }}" "$INPUT_PYTHON_VERSION" "$(sha256sum requirements.lock 2>/dev/null | cut -d' ' -f1 || echo none)" "$(sha256sum pyproject.toml 2>/dev/null | cut -d' ' -f1 || echo none)"
+            } >>"${GITHUB_STEP_SUMMARY}"
+          fi
 
       - name: Cache mypy state
         if: ${{ inputs.cache }}
@@ -557,6 +1127,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    outputs:
+      pytest_outcome: ${{ steps.finalize-tests.outputs.pytest_outcome || 'skipped' }}
+      coverage_min_outcome: ${{ steps.finalize-tests.outputs.coverage_min_outcome || 'skipped' }}
     strategy:
       fail-fast: false
       matrix:
@@ -617,18 +1190,208 @@ jobs:
             ${{ inputs['working-directory'] }}
           sparse-checkout-cone-mode: true
 
-      - name: Prepare Python environment
-        uses: ./.github/actions/python-ci-setup
+      # Inlined from .github/actions/python-ci-setup for external repo compatibility
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-          working-directory: ${{ inputs['working-directory'] || '.' }}
-          cache: ${{ inputs.cache }}
-          pypi-token: ${{ secrets.pypi-token }}
-          lint: false
-          format_check: false
-          typecheck: false
-          run-mypy: false
-          coverage: ${{ inputs.coverage }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install uv
+        shell: bash
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Cache uv artifacts
+        if: ${{ inputs.cache }}
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/uv
+          key: uv-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles(format('{0}/requirements.lock', inputs['working-directory'] || '.')) }}-${{ hashFiles(format('{0}/pyproject.toml', inputs['working-directory'] || '.')) }}
+          restore-keys: |
+            uv-${{ runner.os }}-${{ matrix.python-version }}-
+            uv-${{ runner.os }}-
+
+      - name: Install dependencies
+        shell: bash
+        working-directory: ${{ inputs['working-directory'] || '.' }}
+        env:
+          PRIVATE_PYPI_TOKEN: ${{ secrets.pypi-token }}
+          WORKDIR: ${{ inputs['working-directory'] || '.' }}
+          INPUT_LINT: 'false'
+          INPUT_FORMAT_CHECK: 'false'
+          INPUT_TYPECHECK: 'false'
+          INPUT_RUN_MYPY: 'false'
+          INPUT_COVERAGE: ${{ inputs.coverage }}
+          INPUT_PYTHON_VERSION: ${{ matrix.python-version }}
+        run: |
+          set -euo pipefail
+          start_ts=$(date +%s)
+
+          to_bool() {
+            case "$(printf '%s' "${1:-}" | tr '[:upper:]' '[:lower:]')" in
+              1|true|yes|y|on) echo "true" ;;
+              *) echo "false" ;;
+            esac
+          }
+
+          lint_enabled=$(to_bool "$INPUT_LINT")
+          format_enabled=$(to_bool "$INPUT_FORMAT_CHECK")
+          typecheck_enabled=$(to_bool "$INPUT_TYPECHECK")
+          run_mypy_enabled=$(to_bool "$INPUT_RUN_MYPY")
+          coverage_enabled=$(to_bool "$INPUT_COVERAGE")
+          mypy_enabled="false"
+          if [ "$typecheck_enabled" = "true" ] && [ "$run_mypy_enabled" = "true" ]; then
+            mypy_enabled="true"
+          fi
+
+          add_tool() {
+            specs+=("$1")
+            tools_installed+=("$2")
+          }
+
+          skip_tool() {
+            tools_skipped+=("$1")
+          }
+
+          if [ -n "${PRIVATE_PYPI_TOKEN:-}" ]; then
+            export PIP_INDEX_URL="https://__token__:${PRIVATE_PYPI_TOKEN}@pypi.org/simple"
+          fi
+          specs=()
+          tools_installed=()
+          tools_skipped=()
+
+          if [ -f requirements.lock ]; then
+            specs+=('-r' 'requirements.lock')
+          fi
+
+          if [ -f pyproject.toml ]; then
+            specs+=('-e' '.[app,dev]')
+          elif [ -f setup.cfg ] || [ -f setup.py ]; then
+            specs+=('-e' '.[app,dev]')
+          fi
+
+          black_spec="black"
+          docformatter_spec="docformatter"
+          isort_spec="isort"
+          ruff_spec="ruff"
+          mypy_spec="mypy"
+          pytest_spec="pytest"
+          pytest_cov_spec="pytest-cov"
+          coverage_spec="coverage"
+          pytest_xdist_spec="pytest-xdist"
+          base_test_specs=(
+            "hypothesis"
+            "pandas"
+            "numpy"
+            "pydantic"
+            "pydantic-core"
+            "requests"
+            "jsonschema"
+            "PyYAML"
+            "tomlkit"
+          )
+
+          autofix_env="${GITHUB_WORKSPACE}/.github/workflows/autofix-versions.env"
+          if [ -f "$autofix_env" ]; then
+            # shellcheck source=.github/workflows/autofix-versions.env
+            source "$autofix_env"
+            black_spec="black==${BLACK_VERSION}"
+            docformatter_spec="docformatter==${DOCFORMATTER_VERSION}"
+            isort_spec="isort==${ISORT_VERSION}"
+            ruff_spec="ruff==${RUFF_VERSION}"
+            mypy_spec="mypy==${MYPY_VERSION}"
+            pytest_spec="pytest==${PYTEST_VERSION}"
+            pytest_cov_spec="pytest-cov==${PYTEST_COV_VERSION}"
+            coverage_spec="coverage==${COVERAGE_VERSION:-7.2.7}"
+            pytest_xdist_spec="pytest-xdist==${PYTEST_XDIST_VERSION:-3.6.1}"
+            base_test_specs=(
+              "hypothesis==${HYPOTHESIS_VERSION:-6.0.0}"
+              "pandas==${PANDAS_VERSION:-2.3.0}"
+              "numpy==${NUMPY_VERSION:-2.1.0}"
+              "pydantic==${PYDANTIC_VERSION:-2.10.3}"
+              "pydantic-core==${PYDANTIC_CORE_VERSION:-2.23.4}"
+              "requests==${REQUESTS_VERSION:-2.31.0}"
+              "jsonschema==${JSONSCHEMA_VERSION:-4.0.0}"
+              "PyYAML==${PYYAML_VERSION:-6.0.2}"
+              "tomlkit==${TOMLKIT_VERSION:-0.13.0}"
+            )
+          else
+            echo "Warning: autofix-versions.env not found, installing latest tool versions" >&2
+          fi
+
+          if [ "$format_enabled" = "true" ]; then
+            add_tool "$black_spec" "black"
+            add_tool "$docformatter_spec" "docformatter"
+            add_tool "$isort_spec" "isort"
+          else
+            skip_tool "black (format_check disabled)"
+            skip_tool "docformatter (format_check disabled)"
+            skip_tool "isort (format_check disabled)"
+          fi
+
+          if [ "$lint_enabled" = "true" ]; then
+            add_tool "$ruff_spec" "ruff"
+          else
+            skip_tool "ruff (lint disabled)"
+          fi
+
+          if [ "$mypy_enabled" = "true" ]; then
+            add_tool "$mypy_spec" "mypy"
+          else
+            skip_tool "mypy (typecheck disabled)"
+          fi
+
+          add_tool "$pytest_spec" "pytest"
+          add_tool "$pytest_xdist_spec" "pytest-xdist"
+          for spec in "${base_test_specs[@]}"; do
+            add_tool "$spec" "$spec"
+          done
+
+          if [ "$coverage_enabled" = "true" ]; then
+            add_tool "$pytest_cov_spec" "pytest-cov"
+            add_tool "$coverage_spec" "coverage"
+          else
+            skip_tool "pytest-cov (coverage disabled)"
+            skip_tool "coverage (coverage disabled)"
+          fi
+
+          if [ ${#specs[@]} -eq 0 ]; then
+            echo "No install targets found; skipping dependency installation."
+          else
+            uv pip install --system "${specs[@]}"
+          fi
+
+          end_ts=$(date +%s)
+          duration=$((end_ts - start_ts))
+          if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+            installed_label="none"
+            skipped_label="none"
+            if [ ${#tools_installed[@]} -gt 0 ]; then
+              installed_label=$(printf '%s, ' "${tools_installed[@]}")
+              installed_label=${installed_label%, }
+            fi
+            if [ ${#tools_skipped[@]} -gt 0 ]; then
+              skipped_label=$(printf '%s, ' "${tools_skipped[@]}")
+              skipped_label=${skipped_label%, }
+            fi
+            {
+              printf '## Dependency installation timing\n'
+              printf -- '- Duration: %ss\n' "$duration"
+              printf -- '- Tools installed: %s\n' "$installed_label"
+              printf -- '- Tools skipped (disabled): %s\n' "$skipped_label"
+              if [ ${#tools_skipped[@]} -gt 0 ]; then
+                printf -- '- Note: skipping %d tool(s) avoids extra setup time when disabled.\n' "${#tools_skipped[@]}"
+              fi
+              printf -- '- Cache key: uv-%s-%s-%s-%s\n' "${{ runner.os }}" "$INPUT_PYTHON_VERSION" "$(sha256sum requirements.lock 2>/dev/null | cut -d' ' -f1 || echo none)" "$(sha256sum pyproject.toml 2>/dev/null | cut -d' ' -f1 || echo none)"
+            } >>"${GITHUB_STEP_SUMMARY}"
+          fi
 
       - name: Validate test dependencies
         id: test-deps
