@@ -5,12 +5,43 @@ on:
   pull_request:
   schedule:
     - cron: '15 4 * * *'
+  repository_dispatch:
+    types: [workflow-release]
+  workflow_dispatch:
+    inputs:
+      workflow_ref:
+        description: 'Workflow ref to test (e.g., @main, @v1, @v1.2.3)'
+        required: false
+        default: '@main'
 
 jobs:
-  python:
+  # Configuration 1: Basic - minimal settings, single Python version
+  basic:
+    name: Basic (3.12 only)
+    uses: __WORKFLOW_REF__
+    with:
+      python-versions: '["3.12"]'
+      coverage: false
+      lint: true
+      format_check: true
+      typecheck: false
+      enable-metrics: false
+      enable-history: false
+      enable-coverage-delta: false
+      enable-soft-gate: false
+    secrets: inherit
+
+  # Configuration 2: Full coverage - all features enabled
+  full-coverage:
+    name: Full coverage (3.11, 3.12)
     uses: __WORKFLOW_REF__
     with:
       python-versions: '["3.11", "3.12"]'
+      coverage: true
+      lint: true
+      format_check: true
+      typecheck: true
+      run-mypy: true
       enable-metrics: false
       enable-history: false
       enable-coverage-delta: false
@@ -19,9 +50,42 @@ jobs:
       coverage-alert-drop: '2'
     secrets: inherit
 
+  # Configuration 3: Typecheck only - focused mypy validation
+  typecheck-only:
+    name: Typecheck only (3.11)
+    uses: __WORKFLOW_REF__
+    with:
+      python-versions: '["3.11"]'
+      coverage: false
+      lint: false
+      format_check: false
+      typecheck: true
+      run-mypy: true
+      enable-metrics: false
+      enable-history: false
+      enable-coverage-delta: false
+      enable-soft-gate: false
+    secrets: inherit
+
+  # Configuration 4: Lint only - no tests, just code quality
+  lint-only:
+    name: Lint only (3.12)
+    uses: __WORKFLOW_REF__
+    with:
+      python-versions: '["3.12"]'
+      coverage: false
+      lint: true
+      format_check: true
+      typecheck: false
+      enable-metrics: false
+      enable-history: false
+      enable-coverage-delta: false
+      enable-soft-gate: false
+    secrets: inherit
+
   notify-failure:
     name: Report failure to Workflows
-    needs: [python]
+    needs: [basic, full-coverage, typecheck-only, lint-only]
     if: ${{ failure() && github.event_name != 'pull_request' }}
     runs-on: ubuntu-latest
     permissions:

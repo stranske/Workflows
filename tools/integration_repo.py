@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-DEFAULT_WORKFLOW_REF = "stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@v1"
+DEFAULT_WORKFLOW_REF = "stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main"
 WORKFLOW_PLACEHOLDER = "__WORKFLOW_REF__"
 TEMPLATE_ROOT = Path(__file__).resolve().parent.parent / "templates" / "integration-repo"
 
