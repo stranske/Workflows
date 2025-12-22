@@ -245,8 +245,8 @@ jobs:
         with:
           script: |
             const scriptsPath = process.env.WORKFLOWS_SCRIPTS_PATH;
-            const { upsertPRBodySections } = require(`${scriptsPath}/.github/scripts/agents_pr_meta_update_body.js`);
-            await upsertPRBodySections({
+            const { run } = require(`${scriptsPath}/.github/scripts/agents_pr_meta_update_body.js`);
+            await run({
               github, context, core,
               prNumber: Number(process.env.PR_NUMBER),
               dryRun: process.env.DRY_RUN === 'true',
