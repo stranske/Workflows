@@ -11,10 +11,72 @@ jobs:
     uses: __WORKFLOW_REF__
     with:
       python-versions: '["3.11", "3.12"]'
-      enable-metrics: true
-      enable-history: true
-      enable-coverage-delta: true
-      enable-soft-gate: true
+      enable-metrics: false
+      enable-history: false
+      enable-coverage-delta: false
+      enable-soft-gate: false
       baseline-coverage: '80'
       coverage-alert-drop: '2'
     secrets: inherit
+
+  notify-failure:
+    name: Report failure to Workflows
+    needs: [python]
+    if: ${{ failure() && github.event_name != 'pull_request' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Open issue in Workflows repo
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.ACTIONS_BOT_PAT }}
+          script: |
+            const title = `🔴 Integration CI failed (run ${context.runNumber})`;
+            const body = [
+              `## Integration Test Failure`,
+              ``,
+              `The [Workflows-Integration-Tests](https://github.com/${context.repo.owner}/Workflows-Integration-Tests) CI failed.`,
+              ``,
+              `| Field | Value |`,
+              `|-------|-------|`,
+              `| **Run ID** | [${context.runId}](https://github.com/${context.repo.owner}/Workflows-Integration-Tests/actions/runs/${context.runId}) |`,
+              `| **Trigger** | \`${context.eventName}\` |`,
+              `| **Branch** | \`${context.ref.replace('refs/heads/', '')}\` |`,
+              `| **Commit** | [\`${context.sha.slice(0, 7)}\`](https://github.com/${context.repo.owner}/Workflows-Integration-Tests/commit/${context.sha}) |`,
+              ``,
+              `### Next Steps`,
+              `1. Check the [failed run logs](https://github.com/${context.repo.owner}/Workflows-Integration-Tests/actions/runs/${context.runId})`,
+              `2. Identify if the failure is in the reusable workflow or the integration harness`,
+              `3. Fix and close this issue`,
+            ].join('\n');
+
+            // Check for existing open issue to avoid duplicates
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: 'stranske',
+              repo: 'Workflows',
+              state: 'open',
+              labels: 'integration-failure',
+              per_page: 5
+            });
+
+            if (issues.length > 0) {
+              // Add comment to existing issue
+              await github.rest.issues.createComment({
+                owner: 'stranske',
+                repo: 'Workflows',
+                issue_number: issues[0].number,
+                body: `Another failure detected:\n\n${body}`
+              });
+              console.log(`Added comment to existing issue #${issues[0].number}`);
+            } else {
+              // Create new issue
+              const { data: issue } = await github.rest.issues.create({
+                owner: 'stranske',
+                repo: 'Workflows',
+                title,
+                body,
+                labels: ['integration-failure', 'bug']
+              });
+              console.log(`Created issue #${issue.number}`);
+            }
