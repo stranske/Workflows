@@ -1,0 +1,96 @@
+# Thin caller for PR meta management - delegates to Workflows repo reusable workflow
+# Detects keepalive comments on PRs and dispatches agent continuation
+#
+# This is the CRITICAL workflow for keepalive to function:
+# - Listens for comments on PRs
+# - Detects when Codex posts "round complete" markers
+# - Dispatches orchestrator to continue agent work
+#
+# Copy this file to: .github/workflows/agents-pr-meta.yml
+#
+# Required secrets:
+# - SERVICE_BOT_PAT: PAT for stranske-automation-bot
+# - ACTIONS_BOT_PAT: PAT for workflow dispatch
+# - AGENTS_AUTOMATION_PAT: Alternative PAT for agent automation (optional)
+name: Agents PR Meta
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to process'
+        required: false
+        type: string
+      debug:
+        description: 'Enable debug logging'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+  actions: write
+  checks: read
+
+concurrency:
+  group: >-
+    ${{
+      github.event_name == 'issue_comment'
+      && github.event.comment
+      && github.event.comment.id
+      && format('agents-pr-meta-comment-{0}', github.event.comment.id)
+      || format('agents-pr-meta-run-{0}', github.run_id)
+    }}
+  cancel-in-progress: false
+
+jobs:
+  # Resolve PR context for issue_comment events
+  resolve_pr:
+    if: github.event_name == 'issue_comment' && github.event.issue.pull_request
+    runs-on: ubuntu-latest
+    outputs:
+      pr_number: ${{ steps.resolve.outputs.pr_number }}
+      comment_id: ${{ steps.resolve.outputs.comment_id }}
+      comment_body: ${{ steps.resolve.outputs.comment_body }}
+    steps:
+      - name: Resolve PR context
+        id: resolve
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.issue;
+            const comment = context.payload.comment;
+            core.setOutput('pr_number', pr.number);
+            core.setOutput('comment_id', comment.id);
+            // Encode comment body to handle multiline
+            core.setOutput('comment_body', Buffer.from(comment.body || '').toString('base64'));
+
+  # Call reusable PR meta workflow for comment events
+  pr_meta_comment:
+    needs: resolve_pr
+    if: github.event_name == 'issue_comment' && github.event.issue.pull_request
+    uses: stranske/Workflows/.github/workflows/reusable-20-pr-meta.yml@main
+    with:
+      pr_number: ${{ needs.resolve_pr.outputs.pr_number }}
+      comment_id: ${{ needs.resolve_pr.outputs.comment_id }}
+      comment_body: ${{ needs.resolve_pr.outputs.comment_body }}
+      event_name: 'issue_comment'
+      event_action: ${{ github.event.action }}
+      allowed_keepalive_logins: 'stranske'
+    secrets: inherit
+
+  # Call reusable PR meta workflow for PR events
+  pr_meta_pr:
+    if: github.event_name == 'pull_request'
+    uses: stranske/Workflows/.github/workflows/reusable-20-pr-meta.yml@main
+    with:
+      pr_number: ${{ github.event.pull_request.number }}
+      event_name: 'pull_request'
+      event_action: ${{ github.event.action }}
+    secrets: inherit

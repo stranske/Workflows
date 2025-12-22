@@ -1,0 +1,253 @@
+# Reusable PR Meta workflow for consumer repos
+# Provides keepalive detection and dispatch functionality using dual checkout pattern
+# Scripts are fetched from stranske/Workflows - no local scripts needed in consumer repo
+name: Reusable 20 PR Meta
+
+on:
+  workflow_call:
+    inputs:
+      pr_number:
+        description: 'Pull request number'
+        required: true
+        type: number
+      comment_id:
+        description: 'Comment ID that triggered the workflow (for issue_comment events)'
+        required: false
+        type: string
+        default: ''
+      comment_body:
+        description: 'Comment body (for issue_comment events)'
+        required: false
+        type: string
+        default: ''
+      event_name:
+        description: 'GitHub event name (issue_comment, pull_request, workflow_run)'
+        required: true
+        type: string
+      event_action:
+        description: 'GitHub event action'
+        required: false
+        type: string
+        default: ''
+      allowed_keepalive_logins:
+        description: 'Comma-separated list of logins allowed to trigger keepalive'
+        required: false
+        type: string
+        default: 'stranske'
+      keepalive_marker:
+        description: 'HTML comment marker that identifies keepalive comments'
+        required: false
+        type: string
+        default: '<!-- codex-keepalive-marker -->'
+      dry_run:
+        description: 'Preview mode - no write operations'
+        required: false
+        type: boolean
+        default: false
+    secrets:
+      service_bot_pat:
+        description: 'PAT for service bot operations (stranske-automation-bot)'
+        required: false
+      ACTIONS_BOT_PAT:
+        description: 'PAT for dispatching workflows'
+        required: false
+      AGENTS_AUTOMATION_PAT:
+        description: 'PAT for agent automation'
+        required: false
+    outputs:
+      keepalive_detected:
+        description: 'Whether a keepalive comment was detected'
+        value: ${{ jobs.keepalive_dispatch.outputs.dispatch }}
+      keepalive_reason:
+        description: 'Reason for keepalive dispatch decision'
+        value: ${{ jobs.keepalive_dispatch.outputs.reason }}
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+  actions: write
+  checks: read
+
+jobs:
+  keepalive_dispatch:
+    name: Detect keepalive comments
+    runs-on: ubuntu-latest
+    if: inputs.event_name == 'issue_comment' && inputs.event_action == 'created'
+    outputs:
+      dispatch: ${{ steps.detect.outputs.dispatch }}
+      reason: ${{ steps.detect.outputs.reason || steps.pre_gate.outputs.reason }}
+      issue: ${{ steps.detect.outputs.issue }}
+      round: ${{ steps.detect.outputs.round }}
+      branch: ${{ steps.detect.outputs.branch }}
+      base: ${{ steps.detect.outputs.base }}
+      trace: ${{ steps.detect.outputs.trace }}
+      pr: ${{ steps.detect.outputs.pr }}
+      author: ${{ steps.detect.outputs.author }}
+      comment_id: ${{ steps.detect.outputs.comment_id }}
+      comment_url: ${{ steps.detect.outputs.comment_url }}
+      instruction_body: ${{ steps.detect.outputs.instruction_body }}
+      gate_ok: ${{ steps.pre_gate.outputs.ok }}
+      agent_alias: ${{ steps.pre_gate.outputs.agent_alias }}
+      head_sha: ${{ steps.pre_gate.outputs.head_sha }}
+    steps:
+      # Dual checkout pattern: consumer repo for context, Workflows repo for scripts
+      - name: Checkout consumer repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          path: consumer
+
+      - name: Checkout Workflows scripts
+        uses: actions/checkout@v4
+        with:
+          repository: stranske/Workflows
+          ref: main
+          sparse-checkout: |
+            scripts
+            .github/scripts
+          sparse-checkout-cone-mode: false
+          path: workflows-lib
+          fetch-depth: 1
+
+      - name: Set scripts path
+        run: |
+          echo "WORKFLOWS_SCRIPTS_PATH=${GITHUB_WORKSPACE}/workflows-lib" >> "$GITHUB_ENV"
+          echo "CONSUMER_PATH=${GITHUB_WORKSPACE}/consumer" >> "$GITHUB_ENV"
+
+      - name: Evaluate keepalive pre-gate
+        id: pre_gate
+        uses: actions/github-script@v7
+        env:
+          PR_NUMBER: ${{ inputs.pr_number }}
+          COMMENT_ID: ${{ inputs.comment_id }}
+          COMMENT_BODY: ${{ inputs.comment_body }}
+        with:
+          script: |
+            const scriptsPath = process.env.WORKFLOWS_SCRIPTS_PATH;
+            const { evaluateKeepaliveGate } = require(`${scriptsPath}/.github/scripts/keepalive_gate.js`);
+            const result = await evaluateKeepaliveGate({
+              core, github, context,
+              options: {
+                prNumber: Number(process.env.PR_NUMBER || 0),
+                comments: process.env.COMMENT_BODY ? [{
+                  id: Number(process.env.COMMENT_ID || 0),
+                  body: process.env.COMMENT_BODY
+                }] : [],
+                requireHumanActivation: true,
+                requireGateSuccess: true,
+              },
+            });
+            const bool = (v) => (v ? 'true' : 'false');
+            core.setOutput('ok', bool(result.ok));
+            core.setOutput('reason', result.reason || '');
+            core.setOutput('agent_alias', result.primaryAgent || '');
+            core.setOutput('head_sha', result.headSha || '');
+
+      - name: Evaluate keepalive comment
+        id: detect
+        uses: actions/github-script@v7
+        env:
+          ALLOWED_LOGINS: ${{ inputs.allowed_keepalive_logins }}
+          KEEPALIVE_MARKER: ${{ inputs.keepalive_marker }}
+          GATE_OK: ${{ steps.pre_gate.outputs.ok || 'false' }}
+          GATE_REASON: ${{ steps.pre_gate.outputs.reason || '' }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+          COMMENT_ID: ${{ inputs.comment_id }}
+          COMMENT_BODY: ${{ inputs.comment_body }}
+        with:
+          script: |
+            const scriptsPath = process.env.WORKFLOWS_SCRIPTS_PATH;
+            const { detectKeepalive } = require(`${scriptsPath}/.github/scripts/agents_pr_meta_keepalive.js`);
+            await detectKeepalive({ core, github, context, env: process.env });
+
+  keepalive_orchestrator:
+    needs: keepalive_dispatch
+    if: needs.keepalive_dispatch.outputs.dispatch == 'true'
+    name: Dispatch keepalive orchestrator
+    runs-on: ubuntu-latest
+    env:
+      SERVICE_BOT_PAT: ${{ secrets.service_bot_pat || '' }}
+      ACTIONS_BOT_PAT: ${{ secrets.ACTIONS_BOT_PAT || '' }}
+      AGENTS_AUTOMATION_PAT: ${{ secrets.AGENTS_AUTOMATION_PAT || '' }}
+    steps:
+      - name: Checkout Workflows scripts
+        uses: actions/checkout@v4
+        with:
+          repository: stranske/Workflows
+          ref: main
+          sparse-checkout: |
+            .github/scripts
+          sparse-checkout-cone-mode: false
+          path: workflows-lib
+          fetch-depth: 1
+
+      - name: Set scripts path
+        run: |
+          echo "WORKFLOWS_SCRIPTS_PATH=${GITHUB_WORKSPACE}/workflows-lib" >> "$GITHUB_ENV"
+
+      - name: Run orchestrator
+        uses: actions/github-script@v7
+        env:
+          INSTRUCTION_BODY: ${{ needs.keepalive_dispatch.outputs.instruction_body }}
+        with:
+          github-token: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT || secrets.AGENTS_AUTOMATION_PAT || github.token }}
+          script: |
+            const scriptsPath = process.env.WORKFLOWS_SCRIPTS_PATH;
+            const { runKeepaliveOrchestrator } = require(`${scriptsPath}/.github/scripts/agents_pr_meta_orchestrator.js`);
+            const result = await runKeepaliveOrchestrator({
+              github, context, core,
+              inputs: {
+                commentId: '${{ needs.keepalive_dispatch.outputs.comment_id }}',
+                prNumber: '${{ needs.keepalive_dispatch.outputs.pr }}',
+                issue: '${{ needs.keepalive_dispatch.outputs.issue }}',
+                branch: '${{ needs.keepalive_dispatch.outputs.branch }}',
+                base: '${{ needs.keepalive_dispatch.outputs.base }}',
+                round: '${{ needs.keepalive_dispatch.outputs.round }}',
+                trace: '${{ needs.keepalive_dispatch.outputs.trace }}',
+                agentAlias: '${{ needs.keepalive_dispatch.outputs.agent_alias }}',
+                instructionBody: process.env.INSTRUCTION_BODY,
+                commentUrl: '${{ needs.keepalive_dispatch.outputs.comment_url }}',
+              },
+              secrets: {
+                AGENTS_AUTOMATION_PAT: process.env.AGENTS_AUTOMATION_PAT ? true : false,
+                ACTIONS_BOT_PAT: process.env.ACTIONS_BOT_PAT ? true : false,
+                SERVICE_BOT_PAT: process.env.SERVICE_BOT_PAT ? true : false,
+              },
+            });
+            if (!result.ok) core.setFailed(result.reason);
+
+  pr_body_update:
+    name: Update PR body sections
+    runs-on: ubuntu-latest
+    if: inputs.event_name == 'pull_request'
+    steps:
+      - name: Checkout Workflows scripts
+        uses: actions/checkout@v4
+        with:
+          repository: stranske/Workflows
+          ref: main
+          sparse-checkout: |
+            .github/scripts
+          sparse-checkout-cone-mode: false
+          path: workflows-lib
+          fetch-depth: 1
+
+      - name: Set scripts path
+        run: |
+          echo "WORKFLOWS_SCRIPTS_PATH=${GITHUB_WORKSPACE}/workflows-lib" >> "$GITHUB_ENV"
+
+      - name: Upsert PR body sections
+        uses: actions/github-script@v7
+        env:
+          PR_NUMBER: ${{ inputs.pr_number }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        with:
+          script: |
+            const scriptsPath = process.env.WORKFLOWS_SCRIPTS_PATH;
+            const { upsertPRBodySections } = require(`${scriptsPath}/.github/scripts/agents_pr_meta_update_body.js`);
+            await upsertPRBodySections({
+              github, context, core,
+              prNumber: Number(process.env.PR_NUMBER),
+              dryRun: process.env.DRY_RUN === 'true',
+            });

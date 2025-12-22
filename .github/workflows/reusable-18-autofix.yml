@@ -187,6 +187,23 @@ jobs:
             echo "mode=${mode}"
             echo "reason=${reason}"
           } >> "$GITHUB_OUTPUT"
+
+      # Dual checkout pattern: Workflows scripts as supplement to consumer repo
+      - name: Checkout Workflows scripts (for autofix utilities)
+        uses: actions/checkout@v4
+        with:
+          repository: stranske/Workflows
+          ref: main
+          sparse-checkout: |
+            scripts
+            .github/scripts
+          sparse-checkout-cone-mode: false
+          path: workflows-lib
+          fetch-depth: 1
+      - name: Set Workflows scripts path
+        run: |
+          echo "WORKFLOWS_SCRIPTS_PATH=${GITHUB_WORKSPACE}/workflows-lib" >> "$GITHUB_ENV"
+
       - name: Checkout PR HEAD
         uses: actions/checkout@v4
         with:
@@ -1106,7 +1123,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python .github/scripts/autofix_emit_report.py || { echo '{"error":"merge_failed"}' > autofix_report.json; }
+          # Use local script if available, otherwise fall back to Workflows scripts
+          if [ -f .github/scripts/autofix_emit_report.py ]; then
+            python .github/scripts/autofix_emit_report.py || { echo '{"error":"merge_failed"}' > autofix_report.json; }
+          elif [ -f "${WORKFLOWS_SCRIPTS_PATH}/.github/scripts/autofix_emit_report.py" ]; then
+            python "${WORKFLOWS_SCRIPTS_PATH}/.github/scripts/autofix_emit_report.py" || { echo '{"error":"merge_failed"}' > autofix_report.json; }
+          else
+            echo '{"error":"script_not_found"}' > autofix_report.json
+          fi
           echo "Enriched report ready."
         env:
           PR_NUMBER: ${{ inputs.pr_number }}
