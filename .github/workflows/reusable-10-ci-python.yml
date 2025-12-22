@@ -446,6 +446,7 @@ jobs:
 
           autofix_env="${GITHUB_WORKSPACE}/.github/workflows/autofix-versions.env"
           if [ -f "$autofix_env" ]; then
+            # shellcheck source=.github/workflows/autofix-versions.env
             source "$autofix_env"
             black_spec="black==${BLACK_VERSION}"
             docformatter_spec="docformatter==${DOCFORMATTER_VERSION}"
@@ -710,6 +711,7 @@ jobs:
 
           autofix_env="${GITHUB_WORKSPACE}/.github/workflows/autofix-versions.env"
           if [ -f "$autofix_env" ]; then
+            # shellcheck source=.github/workflows/autofix-versions.env
             source "$autofix_env"
             black_spec="black==${BLACK_VERSION}"
             docformatter_spec="docformatter==${DOCFORMATTER_VERSION}"
@@ -982,6 +984,7 @@ jobs:
 
           autofix_env="${GITHUB_WORKSPACE}/.github/workflows/autofix-versions.env"
           if [ -f "$autofix_env" ]; then
+            # shellcheck source=.github/workflows/autofix-versions.env
             source "$autofix_env"
             black_spec="black==${BLACK_VERSION}"
             docformatter_spec="docformatter==${DOCFORMATTER_VERSION}"
@@ -1297,6 +1300,7 @@ jobs:
 
           autofix_env="${GITHUB_WORKSPACE}/.github/workflows/autofix-versions.env"
           if [ -f "$autofix_env" ]; then
+            # shellcheck source=.github/workflows/autofix-versions.env
             source "$autofix_env"
             black_spec="black==${BLACK_VERSION}"
             docformatter_spec="docformatter==${DOCFORMATTER_VERSION}"
