@@ -504,15 +504,17 @@ async function discoverPr({github, context, core, inputs}) {
 
 async function run({github, context, core, inputs}) {
   const {owner, repo} = context.repo;
-  const workspace = process.env.GITHUB_WORKSPACE || process.cwd();
+  // Support dual-checkout pattern: WORKFLOWS_SCRIPTS_PATH points to where the
+  // Workflows repo scripts are, or fall back to the workspace root
+  const scriptsBase = process.env.WORKFLOWS_SCRIPTS_PATH || process.env.GITHUB_WORKSPACE || process.cwd();
   
   // Load external helper scripts
   let extractIssueNumberFromPull;
   let parseScopeTasksAcceptanceSections;
 
   try {
-    const keepalivePath = path.resolve(workspace, '.github/scripts/agents_pr_meta_keepalive.js');
-    const parserPath = path.resolve(workspace, '.github/scripts/issue_scope_parser.js');
+    const keepalivePath = path.resolve(scriptsBase, '.github/scripts/agents_pr_meta_keepalive.js');
+    const parserPath = path.resolve(scriptsBase, '.github/scripts/issue_scope_parser.js');
 
     if (!fs.existsSync(keepalivePath)) {
       throw new Error(`Keepalive script not found at ${keepalivePath}`);
