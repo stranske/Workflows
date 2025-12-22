@@ -27,6 +27,16 @@
 # - All logic is delegated to reusable workflows in stranske/Workflows
 # - Scripts are fetched from stranske/Workflows via dual checkout (no local scripts needed)
 #
+# ## Security Note: Workflow Pinning
+#
+# These templates use `@main` for workflow references (e.g., `stranske/Workflows/...@main`).
+# This is intentional for first-party consumer repos owned by the same account, allowing
+# automatic updates without PR churn.
+#
+# **For third-party or security-sensitive deployments:**
+# - Pin to a specific commit SHA: `@abc123def456...`
+# - Or use version tags: `@v1` (points to latest v1.x release)
+#
 # ## Secret Requirements
 #
 # | Secret | Purpose | Who provides |
@@ -34,6 +44,12 @@
 # | `SERVICE_BOT_PAT` | Bot account for comments/labels | stranske-automation-bot |
 # | `ACTIONS_BOT_PAT` | Workflow dispatch triggers | Account with actions:write |
 # | `OWNER_PR_PAT` | Create PRs on behalf of user | Repository owner |
+#
+# ## Repository Variables
+#
+# | Variable | Purpose | Default |
+# |----------|---------|---------|
+# | `ALLOWED_KEEPALIVE_LOGINS` | Comma-separated list of users allowed to trigger keepalive | `stranske` |
 #
 # ## Customization
 #

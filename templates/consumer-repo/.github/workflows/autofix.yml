@@ -22,11 +22,11 @@ on:
       - labeled
 
 permissions:
-  contents: write
-  pull-requests: write
-  issues: write
-  checks: read
   actions: read
+  checks: read
+  contents: write
+  issues: write
+  pull-requests: write
 
 concurrency:
   group: autofix-${{ github.event.pull_request.number || github.run_id }}
@@ -78,7 +78,8 @@ jobs:
               }
             }
 
-            const sameRepo = pr.head.repo?.full_name === pr.base.repo?.full_name;
+            // Explicitly check for null repo (deleted fork case)
+            const sameRepo = pr.head.repo !== null && pr.head.repo.full_name === pr.base.repo?.full_name;
             const labels = (pr.labels || []).map(l => l.name);
 
             core.setOutput('should_run', 'true');
