@@ -259,7 +259,7 @@ fi
 
 echo -e "${BLUE}2. Workflow validation...${NC}"
 if command -v actionlint >/dev/null 2>&1; then
-    quick_check "Workflow YAML validation" "actionlint .github/workflows/" ""
+    quick_check "Workflow YAML validation" "actionlint $(find .github/workflows -maxdepth 1 -type f \( -name '*.yml' -o -name '*.yaml' \) -print | tr '\n' ' ')" ""
 else
     echo -e "${YELLOW}⚠ actionlint not installed; skipping workflow validation${NC}"
 fi
