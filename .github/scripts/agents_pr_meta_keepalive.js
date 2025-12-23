@@ -129,7 +129,8 @@ function extractIssueNumberFromPull(pull) {
   }
 
   const branch = pull?.head?.ref || '';
-  const branchMatch = branch.match(/issue-+([0-9]+)/i);
+  // Match issue-XX, issue-#XX, or -issue-#XX patterns (handles Codex verbose branch names)
+  const branchMatch = branch.match(/issue-#?([0-9]+)/i) || branch.match(/-#([0-9]+)(?:$|[^0-9])/i);
   if (branchMatch) {
     candidates.push(branchMatch[1]);
   }

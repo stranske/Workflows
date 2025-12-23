@@ -1012,7 +1012,7 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            const marker = '<!-- autofix-status: DO NOT EDIT -->';
+            const marker = '<!-- AUTOFIX REPORT -->';
             const body = fs.readFileSync('autofix_pr_comment.md', 'utf8');
             const prNumber = Number(process.env.PR_NUMBER || '0');
             if (!prNumber) {
