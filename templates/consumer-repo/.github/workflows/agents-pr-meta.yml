@@ -39,7 +39,7 @@ permissions:
   pull-requests: write
 
 concurrency:
-  group: ${{ github.event_name == 'issue_comment' && format('agents-pr-meta-comment-{0}', github.event.comment.id) || format('agents-pr-meta-run-{0}', github.run_id) }}
+  group: agents-pr-meta-${{ github.event.comment.id || github.run_id }}
   cancel-in-progress: false
 
 jobs:

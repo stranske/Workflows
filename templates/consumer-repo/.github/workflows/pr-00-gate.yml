@@ -1,0 +1,137 @@
+# -----------------------------------------------------------------------------
+# Gate Workflow — Consumer Repository Template
+# -----------------------------------------------------------------------------
+# Orchestrates CI enforcement for pull requests. The `summary` job aggregates
+# results and publishes the commit status that keepalive automation relies on.
+#
+# Copy this file to: .github/workflows/pr-00-gate.yml
+#
+# Required secrets: None (uses GITHUB_TOKEN)
+# Optional secrets: Passed via `secrets: inherit` to reusable workflow
+# -----------------------------------------------------------------------------
+
+name: Gate
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, labeled]
+  workflow_dispatch:
+
+concurrency:
+  group: pr-${{ github.event.pull_request.number || github.ref_name }}-gate
+  cancel-in-progress: true
+
+jobs:
+  python-ci:
+    name: Python CI
+    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
+    with:
+      python-versions: '["3.11", "3.12"]'
+      coverage-min: "80"
+      format_check: false  # Using ruff for formatting
+      working-directory: "."
+      artifact-prefix: "gate-"
+    secrets: inherit
+
+  summary:
+    name: gate-summary
+    needs: [python-ci]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      statuses: write
+    outputs:
+      state: ${{ steps.summarize.outputs.state }}
+      description: ${{ steps.summarize.outputs.description }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            .github/scripts
+          sparse-checkout-cone-mode: false
+
+      - name: Summarize results
+        id: summarize
+        env:
+          PYTHON_RESULT: ${{ needs.python-ci.result || 'skipped' }}
+        run: |
+          set -euo pipefail
+
+          python_result="${PYTHON_RESULT:-skipped}"
+          state="success"
+          description="All checks passed"
+
+          case "$python_result" in
+            success)
+              state="success"
+              description="Python CI passed"
+              ;;
+            failure)
+              state="failure"
+              description="Python CI failed"
+              ;;
+            cancelled)
+              state="error"
+              description="Python CI was cancelled"
+              ;;
+            skipped)
+              state="success"
+              description="Python CI skipped (no relevant changes)"
+              ;;
+            *)
+              state="pending"
+              description="Python CI status unknown"
+              ;;
+          esac
+
+          echo "state=${state}" >> "$GITHUB_OUTPUT"
+          echo "description=${description}" >> "$GITHUB_OUTPUT"
+          echo "[Gate] State: ${state}, Description: ${description}"
+
+      - name: Report Gate commit status
+        if: ${{ always() }}
+        uses: actions/github-script@v7
+        env:
+          STATE: ${{ steps.summarize.outputs.state || 'pending' }}
+          DESCRIPTION: ${{ steps.summarize.outputs.description || 'Gate status pending' }}
+          TARGET_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const sha = context.payload.pull_request?.head?.sha ?? context.sha;
+            const rawState = process.env.STATE || 'pending';
+            const allowed = new Set(['error', 'failure', 'pending', 'success']);
+            const state = allowed.has(rawState) ? rawState : 'pending';
+            const rawDescription = process.env.DESCRIPTION || 'Gate status update';
+            const description = rawDescription.length > 140 ? `${rawDescription.slice(0, 137)}...` : rawDescription;
+            const targetUrl = process.env.TARGET_URL;
+
+            try {
+              await github.rest.repos.createCommitStatus({
+                owner,
+                repo,
+                sha,
+                state,
+                context: 'Gate / gate',
+                description,
+                target_url: targetUrl,
+              });
+              console.log(`Created commit status: ${state} - ${description}`);
+            } catch (error) {
+              const hitRateLimit = error?.status === 403 && /rate limit/i.test(error?.message || '');
+              if (hitRateLimit) {
+                core.warning('Rate limit prevented Gate from updating the commit status.');
+              } else {
+                throw error;
+              }
+            }
+
+      - name: Enforce Gate success
+        if: ${{ steps.summarize.outputs.state == 'failure' }}
+        run: |
+          echo "Gate reported failure: ${{ steps.summarize.outputs.description }}" >&2
+          exit 1

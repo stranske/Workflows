@@ -14,6 +14,7 @@
 # | File | Purpose | Required Secrets |
 # |------|---------|-----------------|
 # | `ci.yml` | Python CI (lint, format, tests, typecheck) | None |
+# | `pr-00-gate.yml` | Gate workflow for merge enforcement | None |
 # | `agents-issue-intake.yml` | Assigns agents to issues | `SERVICE_BOT_PAT`, `OWNER_PR_PAT` |
 # | `agents-orchestrator.yml` | Scheduled keepalive sweeps | `SERVICE_BOT_PAT`, `ACTIONS_BOT_PAT` |
 # | `agents-pr-meta.yml` | PR keepalive detection | `SERVICE_BOT_PAT`, `ACTIONS_BOT_PAT` |

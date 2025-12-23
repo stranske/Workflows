@@ -772,7 +772,10 @@ jobs:
                   out.push(raw);
                   continue;
                 }
-                if (!inFence && /^[-*]\s+/.test(tr)) {
+                // Skip if already has checkbox (avoid - [ ] [ ] duplication)
+                if (!inFence && /^[-*]\s+\[[ xX]\]/.test(tr)) {
+                  out.push(raw);
+                } else if (!inFence && /^[-*]\s+/.test(tr)) {
                   out.push(raw.replace(/^\s*[-*]\s+/, '- [ ] '));
                 } else {
                   out.push(raw);
