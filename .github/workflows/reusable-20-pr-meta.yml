@@ -44,6 +44,11 @@ on:
         required: false
         type: boolean
         default: false
+      allow_replay:
+        description: 'Enable replay mode for workflow_run triggers (re-evaluates keepalive after Gate completes)'
+        required: false
+        type: boolean
+        default: false
     secrets:
       service_bot_pat:
         description: 'PAT for service bot operations (stranske-automation-bot)'
@@ -155,6 +160,7 @@ jobs:
           PR_NUMBER: ${{ inputs.pr_number }}
           COMMENT_ID: ${{ inputs.comment_id }}
           COMMENT_BODY: ${{ inputs.comment_body }}
+          ALLOW_REPLAY: ${{ inputs.allow_replay }}
         with:
           script: |
             const scriptsPath = process.env.WORKFLOWS_SCRIPTS_PATH;
