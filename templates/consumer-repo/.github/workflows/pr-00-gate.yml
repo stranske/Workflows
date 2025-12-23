@@ -34,7 +34,7 @@ jobs:
     secrets: inherit
 
   summary:
-    name: summary
+    name: gate-summary
     needs: [python-ci]
     if: ${{ always() }}
     runs-on: ubuntu-latest
