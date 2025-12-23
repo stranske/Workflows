@@ -71,7 +71,7 @@ def test_artifact_names_normalized() -> None:
     coverage_step = _step("Upload coverage artifact")
     assert (
         coverage_step["with"]["name"]
-        == "${{ inputs['artifact-prefix'] }}coverage-${{ matrix.python-version }}"
+        == "${{ inputs['artifact-prefix'] }}coverage-${{ matrix.python-version }}-${{ github.run_attempt }}"
     )
     assert coverage_step["with"]["retention-days"] == 7
 
