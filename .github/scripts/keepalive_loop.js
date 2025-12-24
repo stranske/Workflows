@@ -652,10 +652,92 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
   }
 }
 
+/**
+ * Mark that an agent is currently running by updating the summary comment.
+ * This provides real-time visibility into the keepalive loop's activity.
+ */
+async function markAgentRunning({ github, context, core, inputs }) {
+  const prNumber = Number(inputs.prNumber || inputs.pr_number || 0);
+  if (!Number.isFinite(prNumber) || prNumber <= 0) {
+    if (core) core.info('No PR number available for running status update.');
+    return;
+  }
+
+  const agentType = normalise(inputs.agent_type ?? inputs.agentType) || 'codex';
+  const iteration = toNumber(inputs.iteration, 0);
+  const maxIterations = toNumber(inputs.maxIterations ?? inputs.max_iterations, 0);
+  const tasksTotal = toNumber(inputs.tasksTotal ?? inputs.tasks_total, 0);
+  const tasksUnchecked = toNumber(inputs.tasksUnchecked ?? inputs.tasks_unchecked, 0);
+  const stateTrace = normalise(inputs.trace || inputs.keepalive_trace || '');
+  const runUrl = normalise(inputs.run_url ?? inputs.runUrl);
+
+  const { state: previousState, commentId } = await loadKeepaliveState({
+    github,
+    context,
+    prNumber,
+    trace: stateTrace,
+  });
+
+  // Capitalize agent name for display
+  const agentDisplayName = agentType.charAt(0).toUpperCase() + agentType.slice(1);
+  
+  // Show iteration we're starting (current + 1)
+  const displayIteration = iteration + 1;
+
+  const runLinkText = runUrl ? ` ([view logs](${runUrl}))` : '';
+  
+  const summaryLines = [
+    '<!-- keepalive-loop-summary -->',
+    `## 🤖 Keepalive Loop Status`,
+    '',
+    `**PR #${prNumber}** | Agent: **${agentDisplayName}** | Iteration **${displayIteration}/${maxIterations || '∞'}**`,
+    '',
+    '### 🔄 Agent Running',
+    '',
+    `**${agentDisplayName} is actively working on this PR**${runLinkText}`,
+    '',
+    `| Status | Value |`,
+    `|--------|-------|`,
+    `| Agent | ${agentDisplayName} |`,
+    `| Iteration | ${displayIteration} of ${maxIterations || '∞'} |`,
+    `| Tasks remaining | ${tasksUnchecked}/${tasksTotal} |`,
+    `| Started | ${new Date().toISOString().replace('T', ' ').slice(0, 19)} UTC |`,
+    '',
+    '_This comment will be updated when the agent completes._',
+  ];
+
+  // Preserve state from previous summary (don't modify state while running)
+  const preservedState = previousState || {};
+  preservedState.running = true;
+  preservedState.running_since = new Date().toISOString();
+  
+  summaryLines.push('', formatStateComment(preservedState));
+  const body = summaryLines.join('\n');
+
+  if (commentId) {
+    await github.rest.issues.updateComment({
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+      comment_id: commentId,
+      body,
+    });
+    if (core) core.info(`Updated summary comment ${commentId} with running status`);
+  } else {
+    const { data } = await github.rest.issues.createComment({
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+      issue_number: prNumber,
+      body,
+    });
+    if (core) core.info(`Created summary comment ${data.id} with running status`);
+  }
+}
+
 module.exports = {
   countCheckboxes,
   parseConfig,
   buildTaskAppendix,
   evaluateKeepaliveLoop,
+  markAgentRunning,
   updateKeepaliveLoopSummary,
 };
