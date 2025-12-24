@@ -276,7 +276,7 @@ jobs:
           echo "Sandbox: $SANDBOX"
 
           # Run codex exec with prompt from file
-          # shellcheck disable=SC2086 -- EXTRA_ARGS may contain multiple args
+          # EXTRA_ARGS may contain multiple args, so word splitting is intentional
           codex exec \
             --skip-git-repo-check \
             --sandbox "$SANDBOX" \
