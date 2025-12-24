@@ -91,6 +91,12 @@ on:
       service_bot_pat:
         description: 'PAT for SERVICE_BOT to trigger workflows on autofix commits'
         required: false
+      WORKFLOWS_APP_ID:
+        description: 'GitHub App ID for minting installation tokens'
+        required: false
+      WORKFLOWS_APP_PRIVATE_KEY:
+        description: 'GitHub App private key for minting installation tokens'
+        required: false
 
 permissions:
   contents: write
@@ -147,12 +153,23 @@ jobs:
         run: |
           set -euo pipefail
           echo "PR_HEAD_REF=${PR_HEAD_REF}" >> "$GITHUB_ENV"
+
+      - name: Mint GitHub App token (preferred)
+        id: app_token
+        continue-on-error: true
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.WORKFLOWS_APP_ID }}
+          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+
       - name: Determine auth path
         id: auth_path
         env:
+          APP_TOKEN: ${{ steps.app_token.outputs.token || '' }}
           SERVICE_BOT_PAT: ${{ secrets.service_bot_pat }}
         run: |
           set -euo pipefail
+          app_token="${APP_TOKEN:-}"
           pat="${SERVICE_BOT_PAT:-}"
           same_repo="${SAME_REPO:-false}"
           dry_run="${DRY_RUN:-false}"
@@ -160,7 +177,12 @@ jobs:
           reason="missing-pat"
           token="${GITHUB_TOKEN:-${{ github.token }}}"
 
-          if [ -n "$pat" ]; then
+          # Prefer App token > PAT > GITHUB_TOKEN
+          if [ -n "$app_token" ]; then
+            token="$app_token"
+            mode="app"
+            reason="app-token-available"
+          elif [ -n "$pat" ]; then
             token="$pat"
             reason="fork-context"
             if [ "$same_repo" = "true" ]; then

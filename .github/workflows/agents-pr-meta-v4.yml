@@ -120,10 +120,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Mint GitHub App token (preferred)
+        id: app_token
+        continue-on-error: true
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.WORKFLOWS_APP_ID }}
+          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+
       - name: Run orchestrator
         uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT || secrets.AGENTS_AUTOMATION_PAT || github.token }}
+          github-token: ${{ steps.app_token.outputs.token || secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT || secrets.AGENTS_AUTOMATION_PAT || github.token }}
           script: |
             const { runKeepaliveOrchestrator } = require('./.github/scripts/agents_pr_meta_orchestrator.js');
             const result = await runKeepaliveOrchestrator({
@@ -228,11 +237,20 @@ jobs:
             };
             await detectKeepalive({ core, github, context: detectionContext, env: process.env });
 
+      - name: Mint GitHub App token for gate orchestrator
+        id: app_token_gate
+        if: steps.gate.outputs.ok == 'true' && steps.detect.outputs.dispatch == 'true'
+        continue-on-error: true
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.WORKFLOWS_APP_ID }}
+          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+
       - name: Run orchestrator from gate
         if: steps.gate.outputs.ok == 'true' && steps.detect.outputs.dispatch == 'true'
         uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT || secrets.AGENTS_AUTOMATION_PAT || github.token }}
+          github-token: ${{ steps.app_token_gate.outputs.token || secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT || secrets.AGENTS_AUTOMATION_PAT || github.token }}
           script: |
             const { runKeepaliveOrchestrator } = require('./.github/scripts/agents_pr_meta_orchestrator.js');
             const result = await runKeepaliveOrchestrator({
@@ -279,10 +297,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Mint GitHub App token (preferred)
+        id: app_token
+        continue-on-error: true
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.WORKFLOWS_APP_ID }}
+          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+
       - name: Update PR body
         uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.AGENTS_AUTOMATION_PAT || secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT || github.token }}
+          github-token: ${{ steps.app_token.outputs.token || secrets.AGENTS_AUTOMATION_PAT || secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT || github.token }}
           script: |
             const { run } = require('./.github/scripts/agents_pr_meta_update_body.js');
             await run({

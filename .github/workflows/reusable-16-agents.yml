@@ -108,6 +108,10 @@ on:
         required: false
       ACTIONS_BOT_PAT:
         required: false
+      WORKFLOWS_APP_ID:
+        required: false
+      WORKFLOWS_APP_PRIVATE_KEY:
+        required: false
     outputs:
       readiness_report:
         description: 'JSON report emitted by the readiness probe when enabled'
@@ -617,10 +621,19 @@ jobs:
         run: |
           echo "WORKFLOWS_SCRIPTS_PATH=${GITHUB_WORKSPACE}/workflows-lib" >> "$GITHUB_ENV"
           echo "CONSUMER_PATH=${GITHUB_WORKSPACE}/consumer" >> "$GITHUB_ENV"
-      - name: Ensure keepalive PAT present
-        if: ${{ env.SERVICE_BOT_PAT == '' }}
+
+      - name: Mint GitHub App token (preferred for dispatch)
+        id: app_token
+        continue-on-error: true
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.WORKFLOWS_APP_ID }}
+          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+
+      - name: Ensure keepalive token present
+        if: ${{ env.SERVICE_BOT_PAT == '' && steps.app_token.outputs.token == '' }}
         run: |
-          echo "::error::SERVICE_BOT_PAT is required so keepalive comments originate from stranske-automation-bot." >&2
+          echo "::error::SERVICE_BOT_PAT or WORKFLOWS_APP token is required for keepalive comments." >&2
           exit 1
       - name: Verify keepalive identity
         if: ${{ env.SERVICE_BOT_PAT != '' }}
@@ -635,10 +648,10 @@ jobs:
               return;
             }
             core.info('Verified keepalive identity: stranske-automation-bot.');
-      - name: Ensure dispatch PAT present
-        if: ${{ env.ACTIONS_BOT_PAT == '' }}
+      - name: Ensure dispatch token present
+        if: ${{ env.ACTIONS_BOT_PAT == '' && steps.app_token.outputs.token == '' }}
         run: |
-          echo "::error::ACTIONS_BOT_PAT is required so keepalive dispatches can trigger the connector." >&2
+          echo "::error::ACTIONS_BOT_PAT or WORKFLOWS_APP token is required so keepalive dispatches can trigger the connector." >&2
           exit 1
       - name: Generate keepalive trace token
         run: |

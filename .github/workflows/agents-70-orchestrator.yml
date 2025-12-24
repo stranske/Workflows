@@ -104,6 +104,8 @@ jobs:
     secrets:
       ACTIONS_BOT_PAT: ${{ secrets.ACTIONS_BOT_PAT }}
       SERVICE_BOT_PAT: ${{ secrets.SERVICE_BOT_PAT }}
+      WORKFLOWS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID }}
+      WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
 
   main:
     permissions:
@@ -150,3 +152,5 @@ jobs:
       ACTIONS_BOT_PAT: ${{ secrets.ACTIONS_BOT_PAT }}
       SERVICE_BOT_PAT: ${{ secrets.SERVICE_BOT_PAT }}
       OWNER_PR_PAT: ${{ secrets.OWNER_PR_PAT }}
+      WORKFLOWS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID }}
+      WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}

@@ -53,6 +53,12 @@ on:
       owner_pr_pat:
         description: "PAT for PR creation operations"
         required: false
+      WORKFLOWS_APP_ID:
+        description: "GitHub App ID for minting installation tokens"
+        required: false
+      WORKFLOWS_APP_PRIVATE_KEY:
+        description: "GitHub App private key for minting installation tokens"
+        required: false
 
 permissions:
   contents: write
@@ -74,6 +80,14 @@ jobs:
       AGENT: ${{ inputs.agent }}
 
     steps:
+      - name: Mint GitHub App token (preferred)
+        id: app_token
+        continue-on-error: true
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.WORKFLOWS_APP_ID }}
+          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+
       - name: Resolve issue number
         id: ctx
         uses: actions/github-script@v7
