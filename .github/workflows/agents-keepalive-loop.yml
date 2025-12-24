@@ -168,9 +168,6 @@ jobs:
       prompt_file: .github/codex/prompts/keepalive_next_task.md
       mode: keepalive
       pr_number: ${{ needs.evaluate.outputs.pr_number }}
-    concurrency:
-      group: keepalive-${{ needs.evaluate.outputs.pr_number }}
-      cancel-in-progress: false
 
   summary:
     name: Update keepalive summary
