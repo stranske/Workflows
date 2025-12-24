@@ -106,6 +106,21 @@ max_iterations: 9
   assert.equal(config.max_iterations, 9);
 });
 
+test('parseConfig ignores inline comments in key/value config blocks', () => {
+  const body = `
+## Keepalive config
+\`\`\`
+keepalive_enabled = true # enable keepalive
+autofix_enabled: true // enable autofix
+failure_threshold: 4 # stop after 4
+\`\`\`
+`;
+  const config = parseConfig(body);
+  assert.equal(config.keepalive_enabled, true);
+  assert.equal(config.autofix_enabled, true);
+  assert.equal(config.failure_threshold, 4);
+});
+
 test('evaluateKeepaliveLoop waits when agent label is missing', async () => {
   const pr = {
     number: 101,

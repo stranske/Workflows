@@ -146,16 +146,17 @@ function parseConfigFromSnippet(snippet) {
     }
     const key = match[1].trim();
     const rawValue = match[2].trim();
+    const cleanedValue = rawValue.replace(/\s+#.*$/, '').replace(/\s+\/\/.*$/, '').trim();
     if (!key) {
       continue;
     }
-    const lowered = rawValue.toLowerCase();
+    const lowered = cleanedValue.toLowerCase();
     if (['true', 'false', 'yes', 'no', 'on', 'off'].includes(lowered)) {
       result[key] = ['true', 'yes', 'on'].includes(lowered);
-    } else if (!Number.isNaN(Number(rawValue))) {
-      result[key] = Number(rawValue);
+    } else if (!Number.isNaN(Number(cleanedValue))) {
+      result[key] = Number(cleanedValue);
     } else {
-      result[key] = rawValue;
+      result[key] = cleanedValue;
     }
   }
 
