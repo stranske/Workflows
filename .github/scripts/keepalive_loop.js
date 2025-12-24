@@ -327,6 +327,13 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
   const runResult = normalise(inputs.runResult || inputs.run_result);
   const stateTrace = normalise(inputs.trace || inputs.keepalive_trace || '');
 
+  // Codex output details
+  const codexExitCode = normalise(inputs.codex_exit_code ?? inputs.codexExitCode);
+  const codexChangesMade = normalise(inputs.codex_changes_made ?? inputs.codexChangesMade);
+  const codexCommitSha = normalise(inputs.codex_commit_sha ?? inputs.codexCommitSha);
+  const codexFilesChanged = toNumber(inputs.codex_files_changed ?? inputs.codexFilesChanged, 0);
+  const codexSummary = normalise(inputs.codex_summary ?? inputs.codexSummary);
+
   const { state: previousState, commentId } = await loadKeepaliveState({
     github,
     context,
@@ -367,18 +374,55 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
 
   const summaryLines = [
     '<!-- keepalive-loop-summary -->',
-    `Keepalive loop status for **PR #${prNumber}**`,
+    `## 🤖 Keepalive Loop Status`,
     '',
-    `- Action: **${action || 'unknown'}** (${summaryReason || 'n/a'})`,
-    `- Gate conclusion: **${gateConclusion || 'unknown'}**`,
-    `- Tasks: **${Math.max(0, tasksTotal - tasksUnchecked)}/${tasksTotal} complete**`,
-    `- Iteration: **${nextIteration}/${maxIterations || '∞'}**`,
-    `- Keepalive enabled: **${keepaliveEnabled ? 'yes' : 'no'}**`,
-    `- Autofix enabled: **${autofixEnabled ? 'yes' : 'no'}**`,
+    `**PR #${prNumber}** | Iteration **${nextIteration}/${maxIterations || '∞'}**`,
+    '',
+    '### Current State',
+    `| Metric | Value |`,
+    `|--------|-------|`,
+    `| Action | ${action || 'unknown'} (${summaryReason || 'n/a'}) |`,
+    `| Gate | ${gateConclusion || 'unknown'} |`,
+    `| Tasks | ${Math.max(0, tasksTotal - tasksUnchecked)}/${tasksTotal} complete |`,
+    `| Keepalive | ${keepaliveEnabled ? '✅ enabled' : '❌ disabled'} |`,
+    `| Autofix | ${autofixEnabled ? '✅ enabled' : '❌ disabled'} |`,
   ];
 
+  // Add Codex run details if we ran Codex
+  if (action === 'run' && runResult) {
+    summaryLines.push('', '### Last Codex Run');
+    
+    if (runResult === 'success') {
+      const changesIcon = codexChangesMade === 'true' ? '✅' : '⚪';
+      summaryLines.push(
+        `| Result | Value |`,
+        `|--------|-------|`,
+        `| Status | ✅ Success |`,
+        `| Changes | ${changesIcon} ${codexChangesMade === 'true' ? `${codexFilesChanged} file(s)` : 'No changes'} |`,
+      );
+      if (codexCommitSha) {
+        summaryLines.push(`| Commit | [\`${codexCommitSha.slice(0, 7)}\`](../commit/${codexCommitSha}) |`);
+      }
+    } else {
+      summaryLines.push(
+        `| Result | Value |`,
+        `|--------|-------|`,
+        `| Status | ❌ Failed (exit code: ${codexExitCode || 'unknown'}) |`,
+        `| Failures | ${failure.count || 1}/${failureThreshold} before pause |`,
+      );
+    }
+    
+    // Add Codex output summary if available
+    if (codexSummary && codexSummary.length > 10) {
+      const truncatedSummary = codexSummary.length > 300 
+        ? codexSummary.slice(0, 300) + '...' 
+        : codexSummary;
+      summaryLines.push('', '**Codex output:**', `> ${truncatedSummary}`);
+    }
+  }
+
   if (stop) {
-    summaryLines.push('- Status: **Paused – human attention required**');
+    summaryLines.push('', '⚠️ **Status: Paused – human attention required**');
   }
 
   const newState = {
