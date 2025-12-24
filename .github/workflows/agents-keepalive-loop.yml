@@ -120,10 +120,39 @@ jobs:
               core.setOutput(key, value);
             }
 
-  run-codex:
-    name: Keepalive next task
+  preflight:
+    name: Verify secrets available
     needs: evaluate
     if: needs.evaluate.outputs.action == 'run'
+    runs-on: ubuntu-latest
+    environment: agent-standard
+    outputs:
+      secrets_ok: ${{ steps.check.outputs.secrets_ok }}
+    steps:
+      - name: Check secrets
+        id: check
+        env:
+          HAS_CODEX_AUTH: ${{ secrets.CODEX_AUTH_JSON != '' }}
+          HAS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID != '' }}
+          HAS_APP_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY != '' }}
+        run: |
+          echo "CODEX_AUTH_JSON present: $HAS_CODEX_AUTH"
+          echo "WORKFLOWS_APP_ID present: $HAS_APP_ID"
+          echo "WORKFLOWS_APP_PRIVATE_KEY present: $HAS_APP_KEY"
+          if [ "$HAS_CODEX_AUTH" = "true" ] || [ "$HAS_APP_ID" = "true" ]; then
+            echo "secrets_ok=true" >> $GITHUB_OUTPUT
+          else
+            echo "::error::Neither CODEX_AUTH_JSON nor WORKFLOWS_APP_ID is set. Cannot run Codex."
+            echo "secrets_ok=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+  run-codex:
+    name: Keepalive next task
+    needs:
+      - evaluate
+      - preflight
+    if: needs.evaluate.outputs.action == 'run' && needs.preflight.outputs.secrets_ok == 'true'
     uses: ./.github/workflows/reusable-codex-run.yml
     secrets:
       CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
@@ -141,6 +170,7 @@ jobs:
     name: Update keepalive summary
     needs:
       - evaluate
+      - preflight
       - run-codex
     if: always() && needs.evaluate.outputs.pr_number != '' && needs.evaluate.outputs.pr_number != '0'
     runs-on: ubuntu-latest
