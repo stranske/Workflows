@@ -98,3 +98,44 @@ test('loadKeepaliveState returns stored payload when present', async () => {
   assert.equal(result.commentUrl, 'https://example.com/99');
   assert.equal(result.state.head_sha, 'def');
 });
+
+test('parseStateComment returns empty data for malformed payload', () => {
+  const body = '<!-- keepalive-state:v1 {"trace":"x", } -->';
+  const parsed = parseStateComment(body);
+  assert.deepEqual(parsed, { version: 'v1', data: {} });
+});
+
+test('parseStateComment returns null when marker missing', () => {
+  const parsed = parseStateComment('no marker here');
+  assert.equal(parsed, null);
+});
+
+test('loadKeepaliveState returns empty state when comment missing', async () => {
+  const github = buildGithubStub({ comments: [] });
+  const result = await loadKeepaliveState({
+    github,
+    context: { repo: { owner: 'o', repo: 'r' } },
+    prNumber: 88,
+    trace: 'trace-y',
+  });
+  assert.deepEqual(result, { state: {}, commentId: 0, commentUrl: '' });
+});
+
+test('createKeepaliveStateManager returns inert manager with invalid input', async () => {
+  const github = buildGithubStub();
+  const manager = await createKeepaliveStateManager({
+    github,
+    context: { repo: { owner: '', repo: '' } },
+    prNumber: 0,
+    trace: 'trace-1',
+    round: '1',
+  });
+  assert.deepEqual(manager.state, {});
+  const result = await manager.save({ head_sha: 'abc' });
+  assert.deepEqual(result, { state: {}, commentId: 0, commentUrl: '' });
+});
+
+test('deepMerge ignores undefined values', () => {
+  const merged = deepMerge({ a: 1, nested: { x: 1 } }, { a: undefined, nested: { x: undefined, y: 2 } });
+  assert.deepEqual(merged, { a: 1, nested: { x: 1, y: 2 } });
+});
