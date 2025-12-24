@@ -14,6 +14,8 @@ jobs:
       contents: write
       issues: write
       pull-requests: write
+    env:
+      WORKFLOWS_APP_COMPAT_MODE: ${{ vars.WORKFLOWS_APP_COMPAT_MODE || '' }}
     steps:
       - name: Generate GitHub App token (optional)
         id: app-token
@@ -31,11 +33,25 @@ jobs:
           ACTIONS_BOT_PAT: ${{ secrets.ACTIONS_BOT_PAT || '' }}
           SERVICE_BOT_PAT: ${{ secrets.SERVICE_BOT_PAT || '' }}
           GITHUB_TOKEN: ${{ github.token }}
+          COMPAT_MODE: ${{ env.WORKFLOWS_APP_COMPAT_MODE || '' }}
         run: |
-          token_value="${APP_TOKEN:-}"
-          token_source="WORKFLOWS_APP"
+          set -euo pipefail
+          token_value=""
+          token_source=""
 
-          if [ -z "${token_value}" ] && [ -n "${ACTIONS_BOT_PAT:-}" ]; then
+          compat_mode="$(printf '%s' "${COMPAT_MODE:-}" | tr '[:upper:]' '[:lower:]')"
+          prefer_pat="false"
+          if [ "${compat_mode}" = "pat" ] || [ "${compat_mode}" = "pat-first" ] || [ "${compat_mode}" = "pat_only" ] || [ "${compat_mode}" = "pat-only" ]; then
+            prefer_pat="true"
+          fi
+
+          if [ "${prefer_pat}" = "true" ] && [ -n "${ACTIONS_BOT_PAT:-}" ]; then
+            token_value="${ACTIONS_BOT_PAT}"
+            token_source="ACTIONS_BOT_PAT"
+          elif [ -z "${token_value}" ] && [ -z "${token_source}" ] && [ -n "${APP_TOKEN:-}" ]; then
+            token_value="${APP_TOKEN}"
+            token_source="WORKFLOWS_APP"
+          elif [ -z "${token_value}" ] && [ -n "${ACTIONS_BOT_PAT:-}" ]; then
             token_value="${ACTIONS_BOT_PAT}"
             token_source="ACTIONS_BOT_PAT"
           elif [ -z "${token_value}" ] && [ -n "${SERVICE_BOT_PAT:-}" ]; then
@@ -49,6 +65,7 @@ jobs:
           fi
 
           echo "GH_TOKEN=${token_value}" >>"${GITHUB_ENV}"
+          echo "compat_mode=${compat_mode:-}" >>"${GITHUB_OUTPUT}"
           echo "token_source=${token_source}" >>"${GITHUB_OUTPUT}"
 
           case "${token_source}" in
@@ -140,5 +157,15 @@ jobs:
 
       - name: Summarize token source
         if: ${{ always() }}
+        env:
+          TOKEN_SOURCE: ${{ steps.select-token.outputs.token_source || 'unknown' }}
+          COMPAT_MODE: ${{ steps.select-token.outputs.compat_mode || '' }}
         run: |
-          echo "Token source: ${{ steps.select-token.outputs.token_source }}" >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "Token source: ${TOKEN_SOURCE}"
+            if [ -n "${COMPAT_MODE:-}" ]; then
+              echo "Compat mode: ${COMPAT_MODE}"
+            else
+              echo "Compat mode: (default)"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
