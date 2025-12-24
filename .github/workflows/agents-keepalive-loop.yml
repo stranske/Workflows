@@ -36,6 +36,8 @@ jobs:
       keepalive_enabled: ${{ steps.evaluate.outputs.keepalive_enabled }}
       autofix_enabled: ${{ steps.evaluate.outputs.autofix_enabled }}
       has_agent_label: ${{ steps.evaluate.outputs.has_agent_label }}
+      agent_type: ${{ steps.evaluate.outputs.agent_type }}
+      task_appendix: ${{ steps.evaluate.outputs.task_appendix }}
       trace: ${{ steps.evaluate.outputs.trace }}
       security_blocked: ${{ steps.security_gate.outputs.blocked }}
       security_reason: ${{ steps.security_gate.outputs.reason }}
@@ -116,11 +118,14 @@ jobs:
               keepalive_enabled: String(result.keepaliveEnabled ?? ''),
               autofix_enabled: String(result.config?.autofix_enabled ?? ''),
               has_agent_label: String(result.hasAgentLabel ?? ''),
+              agent_type: String(result.agentType || ''),
               trace: String(result.config?.trace || result.state?.trace || ''),
             };
             for (const [key, value] of Object.entries(output)) {
               core.setOutput(key, value);
             }
+            // Task appendix needs special handling due to multiline content
+            core.setOutput('task_appendix', result.taskAppendix || '');
 
   preflight:
     name: Verify secrets available
@@ -154,13 +159,18 @@ jobs:
     needs: evaluate
     runs-on: ubuntu-latest
     steps:
-      - run: echo "Test job ran! Action was ${{ needs.evaluate.outputs.action }}"
+      - run: echo "Test job ran! Action was ${{ needs.evaluate.outputs.action }}, agent=${{ needs.evaluate.outputs.agent_type }}"
 
+  # Route to appropriate agent based on agent:* label
+  # Currently supports: agent:codex -> CLI Codex
+  # Future: agent:claude, agent:gemini, etc. will have their own jobs
   run-codex:
-    name: Keepalive next task
+    name: Keepalive next task (Codex)
     needs:
       - evaluate
       - preflight
+    # Only run for agent:codex label
+    if: needs.evaluate.outputs.agent_type == 'codex'
     uses: stranske/Workflows/.github/workflows/reusable-codex-run.yml@main
     secrets:
       CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
@@ -172,6 +182,17 @@ jobs:
       mode: keepalive
       pr_number: ${{ needs.evaluate.outputs.pr_number }}
       pr_ref: ${{ needs.evaluate.outputs.pr_ref }}
+      appendix: ${{ needs.evaluate.outputs.task_appendix }}
+
+  # Placeholder for future Claude agent support
+  # run-claude:
+  #   name: Keepalive next task (Claude)
+  #   needs:
+  #     - evaluate
+  #     - preflight
+  #   if: needs.evaluate.outputs.agent_type == 'claude'
+  #   uses: stranske/Workflows/.github/workflows/reusable-claude-run.yml@main
+  #   ...
 
   summary:
     name: Update keepalive summary
@@ -179,6 +200,7 @@ jobs:
       - evaluate
       - preflight
       - run-codex
+    # Run always if PR exists, handle skipped agent jobs gracefully
     if: always() && needs.evaluate.outputs.pr_number != '' && needs.evaluate.outputs.pr_number != '0'
     runs-on: ubuntu-latest
     environment: agent-standard
@@ -189,7 +211,7 @@ jobs:
       - name: Update summary comment
         uses: actions/github-script@v7
         env:
-          CODEX_SUMMARY: ${{ needs.run-codex.outputs.final-message-summary }}
+          CODEX_SUMMARY: ${{ needs.run-codex.outputs.final-message-summary || '' }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -206,16 +228,13 @@ jobs:
               tasks_unchecked: Number('${{ needs.evaluate.outputs.tasks_unchecked }}') || 0,
               keepalive_enabled: '${{ needs.evaluate.outputs.keepalive_enabled }}',
               autofix_enabled: '${{ needs.evaluate.outputs.autofix_enabled }}',
+              agent_type: '${{ needs.evaluate.outputs.agent_type }}',
               trace: '${{ needs.evaluate.outputs.trace }}',
+              // Agent run result - check which agent ran
               run_result: '${{ needs.run-codex.result }}',
-              // Codex output details for visibility
-              codex_exit_code: '${{ needs.run-codex.outputs.exit-code }}',
-              codex_changes_made: '${{ needs.run-codex.outputs.changes-made }}',
-              codex_commit_sha: '${{ needs.run-codex.outputs.commit-sha }}',
-              codex_files_changed: '${{ needs.run-codex.outputs.files-changed }}',
-              codex_summary: process.env.CODEX_SUMMARY || '',
-              // Workflow run info for linking
-              run_id: '${{ github.run_id }}',
-              run_url: 'https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}',
-            };
-            await updateKeepaliveLoopSummary({ github, context, core, inputs });
+              // Agent output details for visibility (Codex for now)
+              agent_exit_code: '${{ needs.run-codex.outputs.exit-code }}',
+              agent_changes_made: '${{ needs.run-codex.outputs.changes-made }}',
+              agent_commit_sha: '${{ needs.run-codex.outputs.commit-sha }}',
+              agent_files_changed: '${{ needs.run-codex.outputs.files-changed }}',
+              agent_summary: process.env.CODEX_SUMMARY || '',

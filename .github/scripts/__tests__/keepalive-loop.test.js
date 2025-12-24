@@ -307,3 +307,68 @@ test('updateKeepaliveLoopSummary pauses after repeated failures and adds label',
   assert.equal(github.actions[1].type, 'label');
   assert.deepEqual(github.actions[1].labels, ['needs-human']);
 });
+
+test('evaluateKeepaliveLoop extracts agent type from agent:* labels', async () => {
+  const pr = {
+    number: 107,
+    head: { ref: 'feature/agent-type', sha: 'sha-7' },
+    labels: [{ name: 'agent:claude' }],
+    body: '## Tasks\n- [ ] one\n## Acceptance Criteria\n- [ ] a',
+  };
+  const comments = [];
+  const github = buildGithubStub({
+    pr,
+    comments,
+    workflowRuns: [{ head_sha: 'sha-7', conclusion: 'success' }],
+  });
+  const result = await evaluateKeepaliveLoop({
+    github,
+    context: buildContext(pr.number),
+    core: buildCore(),
+  });
+  assert.equal(result.agentType, 'claude');
+  assert.equal(result.hasAgentLabel, true);
+});
+
+test('buildTaskAppendix formats scope, tasks, and acceptance criteria', () => {
+  const { buildTaskAppendix } = require('../keepalive_loop.js');
+  const sections = {
+    scope: 'Fix the bug in the login flow.',
+    tasks: '- [ ] Update validation\n- [x] Add tests',
+    acceptance: '- [ ] Users can log in\n- [ ] No errors in console',
+  };
+  const checkboxCounts = { total: 4, checked: 1, unchecked: 3 };
+  
+  const appendix = buildTaskAppendix(sections, checkboxCounts);
+  
+  assert.ok(appendix.includes('## PR Tasks and Acceptance Criteria'));
+  assert.ok(appendix.includes('**Progress:** 1/4 tasks complete, 3 remaining'));
+  assert.ok(appendix.includes('### Scope'));
+  assert.ok(appendix.includes('Fix the bug in the login flow.'));
+  assert.ok(appendix.includes('### Tasks'));
+  assert.ok(appendix.includes('- [ ] Update validation'));
+  assert.ok(appendix.includes('### Acceptance Criteria'));
+  assert.ok(appendix.includes('- [ ] Users can log in'));
+});
+
+test('evaluateKeepaliveLoop includes taskAppendix in result', async () => {
+  const pr = {
+    number: 108,
+    head: { ref: 'feature/appendix', sha: 'sha-8' },
+    labels: [{ name: 'agent:codex' }],
+    body: '## Tasks\n- [ ] first task\n## Acceptance Criteria\n- [ ] must pass',
+  };
+  const github = buildGithubStub({
+    pr,
+    comments: [],
+    workflowRuns: [{ head_sha: 'sha-8', conclusion: 'success' }],
+  });
+  const result = await evaluateKeepaliveLoop({
+    github,
+    context: buildContext(pr.number),
+    core: buildCore(),
+  });
+  assert.ok(result.taskAppendix);
+  assert.ok(result.taskAppendix.includes('first task'));
+  assert.ok(result.taskAppendix.includes('must pass'));
+});

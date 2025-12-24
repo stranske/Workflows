@@ -50,6 +50,46 @@ function countCheckboxes(markdown) {
   return result;
 }
 
+/**
+ * Build the task appendix that gets passed to the agent prompt.
+ * This provides explicit, structured tasks and acceptance criteria.
+ */
+function buildTaskAppendix(sections, checkboxCounts) {
+  const lines = [];
+  
+  lines.push('---');
+  lines.push('## PR Tasks and Acceptance Criteria');
+  lines.push('');
+  lines.push(`**Progress:** ${checkboxCounts.checked}/${checkboxCounts.total} tasks complete, ${checkboxCounts.unchecked} remaining`);
+  lines.push('');
+  
+  if (sections?.scope) {
+    lines.push('### Scope');
+    lines.push(sections.scope);
+    lines.push('');
+  }
+  
+  if (sections?.tasks) {
+    lines.push('### Tasks');
+    lines.push('Complete these in order. Mark checkbox done ONLY after implementation is verified:');
+    lines.push('');
+    lines.push(sections.tasks);
+    lines.push('');
+  }
+  
+  if (sections?.acceptance) {
+    lines.push('### Acceptance Criteria');
+    lines.push('The PR is complete when ALL of these are satisfied:');
+    lines.push('');
+    lines.push(sections.acceptance);
+    lines.push('');
+  }
+  
+  lines.push('---');
+  
+  return lines.join('\n');
+}
+
 function extractConfigSnippet(body) {
   const source = String(body || '');
   if (!source.trim()) {
@@ -254,7 +294,11 @@ async function evaluateKeepaliveLoop({ github, context, core }) {
 
   const config = parseConfig(pr.body || '');
   const labels = Array.isArray(pr.labels) ? pr.labels.map((label) => normalise(label.name).toLowerCase()) : [];
-  const hasAgentLabel = labels.includes('agent:codex');
+  
+  // Extract agent type from agent:* labels (supports agent:codex, agent:claude, etc.)
+  const agentLabel = labels.find((label) => label.startsWith('agent:'));
+  const agentType = agentLabel ? agentLabel.replace('agent:', '') : '';
+  const hasAgentLabel = Boolean(agentType);
   const keepaliveEnabled = config.keepalive_enabled && hasAgentLabel;
 
   const sections = parseScopeTasksAcceptanceSections(pr.body || '');
@@ -263,6 +307,9 @@ async function evaluateKeepaliveLoop({ github, context, core }) {
   const tasksPresent = checkboxCounts.total > 0;
   const tasksRemaining = checkboxCounts.unchecked > 0;
   const allComplete = tasksPresent && !tasksRemaining;
+
+  // Build task appendix for the agent prompt
+  const taskAppendix = buildTaskAppendix(sections, checkboxCounts);
 
   const stateResult = await loadKeepaliveState({
     github,
@@ -313,6 +360,8 @@ async function evaluateKeepaliveLoop({ github, context, core }) {
     failureThreshold,
     checkboxCounts,
     hasAgentLabel,
+    agentType,
+    taskAppendix,
     keepaliveEnabled,
     stateCommentId: stateResult.commentId || 0,
     state,
@@ -333,18 +382,19 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
   const tasksUnchecked = toNumber(inputs.tasksUnchecked ?? inputs.tasks_unchecked, 0);
   const keepaliveEnabled = toBool(inputs.keepaliveEnabled ?? inputs.keepalive_enabled, false);
   const autofixEnabled = toBool(inputs.autofixEnabled ?? inputs.autofix_enabled, false);
+  const agentType = normalise(inputs.agent_type ?? inputs.agentType) || 'codex';
   const iteration = toNumber(inputs.iteration, 0);
   const maxIterations = toNumber(inputs.maxIterations ?? inputs.max_iterations, 0);
   const failureThreshold = Math.max(1, toNumber(inputs.failureThreshold ?? inputs.failure_threshold, 3));
   const runResult = normalise(inputs.runResult || inputs.run_result);
   const stateTrace = normalise(inputs.trace || inputs.keepalive_trace || '');
 
-  // Codex output details
-  const codexExitCode = normalise(inputs.codex_exit_code ?? inputs.codexExitCode);
-  const codexChangesMade = normalise(inputs.codex_changes_made ?? inputs.codexChangesMade);
-  const codexCommitSha = normalise(inputs.codex_commit_sha ?? inputs.codexCommitSha);
-  const codexFilesChanged = toNumber(inputs.codex_files_changed ?? inputs.codexFilesChanged, 0);
-  const codexSummary = normalise(inputs.codex_summary ?? inputs.codexSummary);
+  // Agent output details (agent-agnostic, with fallback to old codex_ names)
+  const agentExitCode = normalise(inputs.agent_exit_code ?? inputs.agentExitCode ?? inputs.codex_exit_code ?? inputs.codexExitCode);
+  const agentChangesMade = normalise(inputs.agent_changes_made ?? inputs.agentChangesMade ?? inputs.codex_changes_made ?? inputs.codexChangesMade);
+  const agentCommitSha = normalise(inputs.agent_commit_sha ?? inputs.agentCommitSha ?? inputs.codex_commit_sha ?? inputs.codexCommitSha);
+  const agentFilesChanged = toNumber(inputs.agent_files_changed ?? inputs.agentFilesChanged ?? inputs.codex_files_changed ?? inputs.codexFilesChanged, 0);
+  const agentSummary = normalise(inputs.agent_summary ?? inputs.agentSummary ?? inputs.codex_summary ?? inputs.codexSummary);
   const runUrl = normalise(inputs.run_url ?? inputs.runUrl);
 
   const { state: previousState, commentId } = await loadKeepaliveState({
@@ -365,14 +415,14 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
       nextIteration = iteration + 1;
       failure = {};
     } else if (runResult) {
-      const same = failure.reason === 'codex-run-failed';
+      const same = failure.reason === 'agent-run-failed';
       const count = same ? toNumber(failure.count, 0) + 1 : 1;
-      failure = { reason: 'codex-run-failed', count };
+      failure = { reason: 'agent-run-failed', count };
       if (count >= failureThreshold) {
         stop = true;
-        summaryReason = 'codex-run-failed-repeat';
+        summaryReason = 'agent-run-failed-repeat';
       } else {
-        summaryReason = 'codex-run-failed';
+        summaryReason = 'agent-run-failed';
       }
     }
   } else {
@@ -385,11 +435,14 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
     }
   }
 
+  // Capitalize agent name for display
+  const agentDisplayName = agentType.charAt(0).toUpperCase() + agentType.slice(1);
+
   const summaryLines = [
     '<!-- keepalive-loop-summary -->',
     `## 🤖 Keepalive Loop Status`,
     '',
-    `**PR #${prNumber}** | Iteration **${nextIteration}/${maxIterations || '∞'}**`,
+    `**PR #${prNumber}** | Agent: **${agentDisplayName}** | Iteration **${nextIteration}/${maxIterations || '∞'}**`,
     '',
     '### Current State',
     `| Metric | Value |`,
@@ -406,37 +459,37 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
     `| Autofix | ${autofixEnabled ? '✅ enabled' : '❌ disabled'} |`,
   ];
 
-  // Add Codex run details if we ran Codex
+  // Add agent run details if we ran an agent
   if (action === 'run' && runResult) {
     const runLinkText = runUrl ? ` ([view logs](${runUrl}))` : '';
-    summaryLines.push('', `### Last Codex Run${runLinkText}`);
+    summaryLines.push('', `### Last ${agentDisplayName} Run${runLinkText}`);
     
     if (runResult === 'success') {
-      const changesIcon = codexChangesMade === 'true' ? '✅' : '⚪';
+      const changesIcon = agentChangesMade === 'true' ? '✅' : '⚪';
       summaryLines.push(
         `| Result | Value |`,
         `|--------|-------|`,
         `| Status | ✅ Success |`,
-        `| Changes | ${changesIcon} ${codexChangesMade === 'true' ? `${codexFilesChanged} file(s)` : 'No changes'} |`,
+        `| Changes | ${changesIcon} ${agentChangesMade === 'true' ? `${agentFilesChanged} file(s)` : 'No changes'} |`,
       );
-      if (codexCommitSha) {
-        summaryLines.push(`| Commit | [\`${codexCommitSha.slice(0, 7)}\`](../commit/${codexCommitSha}) |`);
+      if (agentCommitSha) {
+        summaryLines.push(`| Commit | [\`${agentCommitSha.slice(0, 7)}\`](../commit/${agentCommitSha}) |`);
       }
     } else {
       summaryLines.push(
         `| Result | Value |`,
         `|--------|-------|`,
-        `| Status | ❌ Failed (exit code: ${codexExitCode || 'unknown'}) |`,
+        `| Status | ❌ Failed (exit code: ${agentExitCode || 'unknown'}) |`,
         `| Failures | ${failure.count || 1}/${failureThreshold} before pause |`,
       );
     }
     
-    // Add Codex output summary if available
-    if (codexSummary && codexSummary.length > 10) {
-      const truncatedSummary = codexSummary.length > 300 
-        ? codexSummary.slice(0, 300) + '...' 
-        : codexSummary;
-      summaryLines.push('', '**Codex output:**', `> ${truncatedSummary}`);
+    // Add agent output summary if available
+    if (agentSummary && agentSummary.length > 10) {
+      const truncatedSummary = agentSummary.length > 300 
+        ? agentSummary.slice(0, 300) + '...' 
+        : agentSummary;
+      summaryLines.push('', `**${agentDisplayName} output:**`, `> ${truncatedSummary}`);
     }
   }
 
@@ -516,6 +569,7 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
 module.exports = {
   countCheckboxes,
   parseConfig,
+  buildTaskAppendix,
   evaluateKeepaliveLoop,
   updateKeepaliveLoopSummary,
 };
