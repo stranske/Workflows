@@ -109,8 +109,9 @@ TEST_FRAMEWORK_MODULES = {
     "pluggy",
 }
 
-# Project modules (installed via ``pip install -e .``)
-PROJECT_MODULES = {
+# Base project modules (installed via ``pip install -e .``)
+# Additional modules are detected dynamically from src/ directory
+_BASE_PROJECT_MODULES = {
     "analysis",
     "cli",
     "trend_analysis",
@@ -135,6 +136,53 @@ PROJECT_MODULES = {
     "parse_chatgpt_topics",
     "health_summarize",
 }
+
+
+def _detect_local_project_modules() -> Set[str]:
+    """Dynamically detect first-party modules from src/ and other common dirs.
+
+    Scans for packages (directories with __init__.py) and standalone modules
+    in standard source locations to prevent false positives on first-party imports.
+    """
+    detected: Set[str] = set()
+    source_dirs = [Path("src"), Path(".")]
+
+    for source_dir in source_dirs:
+        if not source_dir.is_dir():
+            continue
+
+        for item in source_dir.iterdir():
+            # Skip hidden dirs, test dirs, common non-module dirs
+            if item.name.startswith(".") or item.name in (
+                "__pycache__",
+                "tests",
+                "test",
+                ".git",
+                "venv",
+                ".venv",
+                "node_modules",
+            ):
+                continue
+
+            # Check for packages (directories with __init__.py)
+            if item.is_dir():
+                init_file = item / "__init__.py"
+                if init_file.exists():
+                    detected.add(item.name)
+            # Check for standalone .py modules (but not in root .)
+            elif source_dir != Path(".") and item.suffix == ".py":
+                detected.add(item.stem)
+
+    return detected
+
+
+def get_project_modules() -> Set[str]:
+    """Return the full set of project modules (static + dynamically detected)."""
+    return _BASE_PROJECT_MODULES | _detect_local_project_modules()
+
+
+# For backward compatibility - will be populated on first use
+PROJECT_MODULES: Set[str] = set()
 
 # Module name to package name mappings for known exceptions
 MODULE_TO_PACKAGE = {
@@ -248,7 +296,9 @@ def find_missing_dependencies() -> Set[str]:
     declared, _ = get_declared_dependencies()
     all_imports = get_all_test_imports()
 
-    potential = all_imports - STDLIB_MODULES - TEST_FRAMEWORK_MODULES - PROJECT_MODULES
+    # Use dynamic project module detection
+    project_modules = get_project_modules()
+    potential = all_imports - STDLIB_MODULES - TEST_FRAMEWORK_MODULES - project_modules
 
     missing: Set[str] = set()
     for import_name in potential:
