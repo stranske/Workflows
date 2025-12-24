@@ -29,7 +29,11 @@ on:
         type: boolean
     secrets:
       ACTIONS_BOT_PAT:
-        required: true
+        required: false
+      WORKFLOWS_APP_ID:
+        required: false
+      WORKFLOWS_APP_PRIVATE_KEY:
+        required: false
 
 permissions:
   contents: write
@@ -51,15 +55,82 @@ jobs:
       mode: ${{ steps.mode.outputs.mode_label || 'live' }}
       concurrency_group: ${{ steps.summary.outputs.concurrency_group || '' }}
     env:
-      ACTIONS_BOT_PAT: ${{ secrets.ACTIONS_BOT_PAT }}
+      ACTIONS_BOT_PAT: ${{ secrets.ACTIONS_BOT_PAT || '' }}
+      WORKFLOWS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID || '' }}
+      WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || '' }}
 
     steps:
-      - name: Ensure ACTIONS_BOT_PAT is configured
+      - name: Mint GitHub App token (preferred)
+        id: app_token
+        if: ${{ env.WORKFLOWS_APP_ID != '' && env.WORKFLOWS_APP_PRIVATE_KEY != '' }}
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ env.WORKFLOWS_APP_ID }}
+          private-key: ${{ env.WORKFLOWS_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Select authentication token (app > PAT > GITHUB_TOKEN)
+        id: select_token
+        env:
+          APP_TOKEN: ${{ steps.app_token.outputs.token || '' }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
-          if [ -z "$ACTIONS_BOT_PAT" ]; then
-            echo '::error::ACTIONS_BOT_PAT secret is required for conveyor actions.'
+          set -euo pipefail
+          token_value=""
+          token_source=""
+
+          if [ -n "${APP_TOKEN:-}" ]; then
+            token_value="${APP_TOKEN}"
+            token_source="WORKFLOWS_APP"
+          elif [ -n "${ACTIONS_BOT_PAT:-}" ]; then
+            token_value="${ACTIONS_BOT_PAT}"
+            token_source="ACTIONS_BOT_PAT"
+          elif [ -n "${GITHUB_TOKEN:-}" ]; then
+            token_value="${GITHUB_TOKEN}"
+            token_source="GITHUB_TOKEN"
+          fi
+
+          if [ -z "${token_value}" ]; then
+            echo '::error::No authentication token available (App token, ACTIONS_BOT_PAT, or GITHUB_TOKEN).' >&2
             exit 1
           fi
+
+          {
+            echo "GH_CONVEYOR_TOKEN=${token_value}"
+            echo "GH_TOKEN=${token_value}"
+            echo "TOKEN_SOURCE=${token_source}"
+          } >>"$GITHUB_ENV"
+          printf 'token=%s\n' "${token_source}" >>"$GITHUB_OUTPUT"
+
+      - name: Record token source
+        env:
+          TOKEN_SOURCE: ${{ steps.select_token.outputs.token || 'unknown' }}
+          TOKEN_LOGIN: ${{ steps.app_token.outputs.app-slug || 'app-token' }}
+        run: |
+          cat <<'EOF' >>"$GITHUB_STEP_SUMMARY"
+          Authentication
+          ---------------
+          EOF
+          case "${TOKEN_SOURCE:-unknown}" in
+            'WORKFLOWS_APP')
+              cat <<'EOF' >>"$GITHUB_STEP_SUMMARY"
+          Using GitHub App token (WORKFLOWS_APP); write operations will use the app installation token instead of a PAT.
+          EOF
+              ;;
+            'ACTIONS_BOT_PAT')
+              cat <<'EOF' >>"$GITHUB_STEP_SUMMARY"
+          Using ACTIONS_BOT_PAT fallback. Configure WORKFLOWS_APP_ID and WORKFLOWS_APP_PRIVATE_KEY to enable the GitHub App path.
+          EOF
+              ;;
+            'GITHUB_TOKEN')
+              cat <<'EOF' >>"$GITHUB_STEP_SUMMARY"
+          Falling back to the default GITHUB_TOKEN. Writes may not trigger downstream workflows.
+          EOF
+              ;;
+            *)
+              echo "Unknown token source ${TOKEN_SOURCE:-unknown}" >>"$GITHUB_STEP_SUMMARY"
+              ;;
+          esac
 
       - name: Determine conveyor mode
         id: mode
@@ -143,7 +214,7 @@ jobs:
         id: pr
         uses: actions/github-script@v7
         with:
-          github-token: ${{ env.ACTIONS_BOT_PAT }}
+          github-token: ${{ env.GH_CONVEYOR_TOKEN }}
           script: |
             const prNumber = Number('${{ inputs.pr_number }}');
             const branch = '${{ inputs.branch }}'.trim();
@@ -182,7 +253,7 @@ jobs:
         id: gate
         uses: actions/github-script@v7
         with:
-          github-token: ${{ env.ACTIONS_BOT_PAT }}
+          github-token: ${{ env.GH_CONVEYOR_TOKEN }}
           script: |
             const headSha = '${{ inputs.head_sha }}'.trim() || '${{ steps.pr.outputs.head_sha }}';
             if (!headSha) {
@@ -201,7 +272,7 @@ jobs:
         id: bootstrap
         uses: actions/github-script@v7
         with:
-          github-token: ${{ env.ACTIONS_BOT_PAT }}
+          github-token: ${{ env.GH_CONVEYOR_TOKEN }}
           script: |
             const prNumber = Number('${{ inputs.pr_number }}');
             const inferredIssue = Number('${{ steps.pr.outputs.issue || inputs.issue }}') || null;
@@ -266,7 +337,7 @@ jobs:
         id: merge
         uses: actions/github-script@v7
         with:
-          github-token: ${{ env.ACTIONS_BOT_PAT }}
+          github-token: ${{ env.GH_CONVEYOR_TOKEN }}
           script: |
             const prNumber = Number('${{ inputs.pr_number }}');
             const { owner, repo } = context.repo;
@@ -281,7 +352,7 @@ jobs:
         if: ${{ steps.mode.outputs.dry_run != 'true' && steps.bootstrap.outputs.bootstrap != 'true' && steps.merge.outputs.merged == 'true' }}
         uses: actions/github-script@v7
         with:
-          github-token: ${{ env.ACTIONS_BOT_PAT }}
+          github-token: ${{ env.GH_CONVEYOR_TOKEN }}
           script: |
             const branch = '${{ inputs.branch }}';
             const { owner, repo } = context.repo;
@@ -295,7 +366,7 @@ jobs:
         if: ${{ steps.mode.outputs.dry_run != 'true' && steps.bootstrap.outputs.bootstrap != 'true' && steps.merge.outputs.merged == 'true' }}
         uses: actions/github-script@v7
         with:
-          github-token: ${{ env.ACTIONS_BOT_PAT }}
+          github-token: ${{ env.GH_CONVEYOR_TOKEN }}
           script: |
             const issue = Number('${{ inputs.issue }}') || Number('${{ steps.pr.outputs.issue }}');
             const { owner, repo } = context.repo;
@@ -325,7 +396,7 @@ jobs:
         if: ${{ steps.mode.outputs.dry_run != 'true' && steps.bootstrap.outputs.bootstrap != 'true' && steps.merge.outputs.merged == 'true' }}
         uses: actions/github-script@v7
         with:
-          github-token: ${{ env.ACTIONS_BOT_PAT }}
+          github-token: ${{ env.GH_CONVEYOR_TOKEN }}
           script: |
             const prNumber = Number('${{ inputs.pr_number }}');
             const issue = Number('${{ inputs.issue }}') || Number('${{ steps.pr.outputs.issue }}');
@@ -347,7 +418,7 @@ jobs:
         if: ${{ steps.mode.outputs.dry_run != 'true' && steps.bootstrap.outputs.bootstrap != 'true' && steps.merge.outputs.merged == 'true' }}
         uses: actions/github-script@v7
         with:
-          github-token: ${{ env.ACTIONS_BOT_PAT }}
+          github-token: ${{ env.GH_CONVEYOR_TOKEN }}
           script: |
             const { owner, repo } = context.repo;
             try {
