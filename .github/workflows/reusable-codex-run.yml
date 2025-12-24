@@ -163,7 +163,20 @@ jobs:
             exit 1
           fi
 
-          cat "$base" > "$output"
+          # Start with agent instructions if available
+          if [ -f ".github/codex/AGENT_INSTRUCTIONS.md" ]; then
+            {
+              cat ".github/codex/AGENT_INSTRUCTIONS.md"
+              echo
+              echo "---"
+              echo
+              echo "# Task Prompt"
+              echo
+            } > "$output"
+            cat "$base" >> "$output"
+          else
+            cat "$base" > "$output"
+          fi
 
           if [ -n "$APPENDIX" ]; then
             {
