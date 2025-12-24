@@ -1,0 +1,125 @@
+name: Agents Verifier
+
+on:
+  pull_request:
+    types:
+      - closed
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  pull-requests: read
+  issues: write
+
+jobs:
+  verifier:
+    name: Run post-merge verifier
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Build verifier context
+        id: context
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { buildVerifierContext } = require('./.github/scripts/agents_verifier_context.js');
+            await buildVerifierContext({ github, context, core });
+
+      - name: Stop when verifier is skipped
+        if: steps.context.outputs.should_run != 'true'
+        run: |
+          echo "Verifier skipped: ${{ steps.context.outputs.skip_reason || 'no reason provided' }}"
+
+      - name: Prepare verifier prompt
+        if: steps.context.outputs.should_run == 'true'
+        id: prepare
+        run: |
+          set -euo pipefail
+          base_prompt=".github/codex/prompts/verifier_acceptance_check.md"
+          context_file="${{ steps.context.outputs.context_path }}"
+          combined="verifier-prompt.md"
+          if [ ! -f "$base_prompt" ]; then
+            echo "::error::Base prompt file missing: $base_prompt"
+            exit 1
+          fi
+          if [ ! -f "$context_file" ]; then
+            echo "::error::Context file missing: $context_file"
+            exit 1
+          fi
+          {
+            cat "$base_prompt"
+            printf '\n\n---\n\n'
+            cat "$context_file"
+          } > "$combined"
+          echo "prompt_file=$combined" >> "$GITHUB_OUTPUT"
+
+      - name: Run verifier
+        id: codex
+        if: steps.context.outputs.should_run == 'true'
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          prompt-file: ${{ steps.prepare.outputs.prompt_file }}
+          output-file: codex-output.md
+          sandbox: read-only
+          safety-strategy: drop-sudo
+          codex-args: --mode verifier
+
+      - name: Parse verifier verdict
+        id: verdict
+        if: steps.context.outputs.should_run == 'true'
+        run: |
+          set -euo pipefail
+          verdict="unknown"
+          output_file="codex-output.md"
+          if [ -f "$output_file" ]; then
+            if grep -qiE 'verdict:\\s*fail' "$output_file"; then
+              verdict="fail"
+            elif grep -qiE 'verdict:\\s*pass' "$output_file"; then
+              verdict="pass"
+            fi
+          fi
+          echo "verdict=$verdict" >> "$GITHUB_OUTPUT"
+
+      - name: Open follow-up issue on verifier failure
+        if: steps.context.outputs.should_run == 'true' && steps.verdict.outputs.verdict == 'fail'
+        uses: actions/github-script@v7
+        env:
+          PR_URL: ${{ steps.context.outputs.pr_html_url }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const prNumber = Number('${{ steps.context.outputs.pr_number }}') || null;
+            const issueNumbers = JSON.parse('${{ steps.context.outputs.issue_numbers || '[]' }}');
+            const title = prNumber
+              ? `Verifier failure for PR #${prNumber}`
+              : 'Verifier failure on merged commit';
+            const lines = [];
+            if (process.env.PR_URL) {
+              lines.push(`Source pull request: ${process.env.PR_URL}`);
+            }
+            if (Array.isArray(issueNumbers) && issueNumbers.length) {
+              lines.push(`Linked issues: ${issueNumbers.map((n) => `#${n}`).join(', ')}`);
+            }
+            lines.push('');
+            lines.push('## Verifier output');
+            lines.push('');
+            lines.push('```');
+            lines.push(require('fs').readFileSync('codex-output.md', 'utf8'));
+            lines.push('```');
+            lines.push('');
+            lines.push('- [ ] Re-run verifier after addressing the failures.');
+            const body = lines.join('\n');
+            await github.rest.issues.create({
+              ...context.repo,
+              title,
+              body,
+              labels: ['agent:codex'],
+            });
