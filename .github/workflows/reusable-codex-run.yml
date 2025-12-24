@@ -250,9 +250,11 @@ jobs:
 
           # Set output for downstream steps
           if [ -f "$OUTPUT_FILE" ]; then
-            echo "final-message<<EOF" >> "$GITHUB_OUTPUT"
-            cat "$OUTPUT_FILE" >> "$GITHUB_OUTPUT"
-            echo "EOF" >> "$GITHUB_OUTPUT"
+            {
+              echo "final-message<<EOF"
+              cat "$OUTPUT_FILE"
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
           fi
 
       - name: Commit and push changes
