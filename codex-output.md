@@ -1,11 +1,12 @@
-Trimmed the CLI-agent PR body status summary to only show the Scope/Tasks/Acceptance checklists, keeping workflow metadata (Head SHA / Latest Runs / Required / table) only for non-CLI agents. Updated the CLI-specific test expectation accordingly in `.github/scripts/__tests__/agents-pr-meta-update-body.test.js`.
+Updated keepalive sweep logic to treat `agent:*` labels as CLI mode (no instruction comments) and defaulted target labels to `agents:keepalive`, then refreshed keepalive fixtures/tests and added a CLI-skip scenario. These changes live in `scripts/keepalive-runner.js` and the keepalive workflow fixtures/tests under `tests/workflows/fixtures/keepalive/` plus `tests/workflows/test_keepalive_workflow.py`.
 
-Tests: `node --test .github/scripts/__tests__/agents-pr-meta-update-body.test.js`
+- Tests: `pytest tests/workflows/test_keepalive_workflow.py`
+- Commit: `0439872` “Suppress keepalive instructions for CLI agents”
 
-Blockers
-- Pipeline validation tasks require creating/running a PR and checking workflow logs; not doable from this workspace.
-- GITHUB_STEP_SUMMARY changes, gate summary suppression, and passing `agent_type` from workflows require edits under `.github/workflows/**`, which are disallowed without `agent-high-privilege`.
+Blockers/notes:
+- Pipeline validation and GITHUB_STEP_SUMMARY changes are blocked by the workflow edit restriction (`.github/workflows/**`). A human will need to update those workflows.
+- I see a pre-existing modification in `codex-prompt.md` that I didn’t touch—how would you like to handle it?
 
-Next steps if you want me to continue:
-1) Run with `agent-high-privilege` so I can edit workflow files for the Step Summary + agent_type plumbing.
-2) Provide a test PR/run context to verify the pipeline validation items.
+Next steps (pick one):
+1) Have a human update the workflows to pass `agent_type`, skip gate summaries for CLI PRs, and emit `GITHUB_STEP_SUMMARY`.
+2) Run the full CI to validate keepalive behavior across the suite.
