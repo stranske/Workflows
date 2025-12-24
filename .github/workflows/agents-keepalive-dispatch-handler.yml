@@ -16,22 +16,26 @@ jobs:
       pull-requests: write
     env:
       WORKFLOWS_APP_COMPAT_MODE: ${{ vars.WORKFLOWS_APP_COMPAT_MODE || '' }}
+      WORKFLOWS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID || '' }}
+      WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || '' }}
+      ACTIONS_BOT_PAT: ${{ secrets.ACTIONS_BOT_PAT || '' }}
+      SERVICE_BOT_PAT: ${{ secrets.SERVICE_BOT_PAT || '' }}
     steps:
-      - name: Generate GitHub App token (optional)
+      - name: Mint GitHub App token (preferred)
         id: app-token
-        continue-on-error: true
+        if: ${{ env.WORKFLOWS_APP_ID != '' && env.WORKFLOWS_APP_PRIVATE_KEY != '' }}
         uses: actions/create-github-app-token@v1
         with:
-          app-id: ${{ secrets.WORKFLOWS_APP_ID }}
-          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+          app-id: ${{ env.WORKFLOWS_APP_ID }}
+          private-key: ${{ env.WORKFLOWS_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
 
       - name: Select authentication token (app > PAT > GITHUB_TOKEN)
         id: select-token
         env:
           APP_TOKEN: ${{ steps.app-token.outputs.token || '' }}
-          ACTIONS_BOT_PAT: ${{ secrets.ACTIONS_BOT_PAT || '' }}
-          SERVICE_BOT_PAT: ${{ secrets.SERVICE_BOT_PAT || '' }}
+          ACTIONS_BOT_PAT: ${{ env.ACTIONS_BOT_PAT || '' }}
+          SERVICE_BOT_PAT: ${{ env.SERVICE_BOT_PAT || '' }}
           GITHUB_TOKEN: ${{ github.token }}
           COMPAT_MODE: ${{ env.WORKFLOWS_APP_COMPAT_MODE || '' }}
         run: |
@@ -64,7 +68,10 @@ jobs:
             token_source="GITHUB_TOKEN"
           fi
 
-          echo "GH_TOKEN=${token_value}" >>"${GITHUB_ENV}"
+          {
+            echo "GH_TOKEN=${token_value}"
+            echo "ACTIONS_BOT_PAT=${token_value}"
+          } >>"${GITHUB_ENV}"
           echo "compat_mode=${compat_mode:-}" >>"${GITHUB_OUTPUT}"
           echo "token_source=${token_source}" >>"${GITHUB_OUTPUT}"
 

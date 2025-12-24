@@ -358,7 +358,7 @@ async function dispatchKeepaliveCommand({
 }) {
   const trimmedToken = String(token ?? '').trim();
   if (!trimmedToken) {
-    throw new Error('ACTIONS_BOT_PAT is required for keepalive dispatch.');
+    throw new Error('A GitHub token is required for keepalive dispatch (app token or PAT).');
   }
 
   const octokit = buildOctokitInstance({ core, github, token: trimmedToken });
@@ -474,6 +474,13 @@ function buildTraceToken({ seed, prNumber, round }) {
   return parts.join('-');
 }
 
+function resolveAutomationToken(env = {}) {
+  return (
+    String(env.ACTIONS_BOT_PAT || env.actions_bot_pat || env.GH_TOKEN || env.gh_token || '')
+      .trim() || ''
+  );
+}
+
 async function runKeepalive({ core, github, context, env = process.env }) {
   const rawOptions = env.OPTIONS_JSON || '{}';
   const dryRun = (env.DRY_RUN || '').trim().toLowerCase() === 'true';
@@ -501,9 +508,9 @@ async function runKeepalive({ core, github, context, env = process.env }) {
     return;
   }
 
-  const instructionAuthorToken = String(env.ACTIONS_BOT_PAT || env.actions_bot_pat || '').trim();
+  const instructionAuthorToken = resolveAutomationToken(env);
   if (!instructionAuthorToken) {
-    throw new Error('ACTIONS_BOT_PAT is required to author keepalive instructions as stranske.');
+    throw new Error('A GitHub token is required to author keepalive instructions (app token or PAT).');
   }
 
   const instructionAuthorOctokit = buildOctokitInstance({
@@ -970,7 +977,7 @@ async function runKeepalive({ core, github, context, env = process.env }) {
                 github,
                 owner,
                 repo,
-                token: env.ACTIONS_BOT_PAT || env.actions_bot_pat || '',
+                token: instructionAuthorToken,
                 payload: {
                   issue: prNumber,
                   agent: agentAlias,
