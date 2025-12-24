@@ -147,6 +147,13 @@ jobs:
             exit 1
           fi
 
+  test-job:
+    name: Test job creation
+    needs: evaluate
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Test job ran! Action was ${{ needs.evaluate.outputs.action }}"
+
   run-codex:
     name: Keepalive next task
     needs:
