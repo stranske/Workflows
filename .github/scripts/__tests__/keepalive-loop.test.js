@@ -461,3 +461,35 @@ test('evaluateKeepaliveLoop normalizes numbered lists with parentheses', async (
   assert.ok(result.taskAppendix.includes('1) [ ] add metrics'));
   assert.ok(result.taskAppendix.includes('1) [ ] reports render'));
 });
+
+test('buildTaskAppendix includes reconciliation warning when state.needs_task_reconciliation is true', () => {
+  const { buildTaskAppendix } = require('../keepalive_loop.js');
+  const sections = {
+    scope: 'Fix the bug.',
+    tasks: '- [ ] Update code\n- [ ] Add tests',
+    acceptance: '- [ ] Tests pass',
+  };
+  const checkboxCounts = { total: 3, checked: 0, unchecked: 3 };
+  const state = { needs_task_reconciliation: true, last_files_changed: 4 };
+  
+  const appendix = buildTaskAppendix(sections, checkboxCounts, state);
+  
+  assert.ok(appendix.includes('⚠️ IMPORTANT: Task Reconciliation Required'));
+  assert.ok(appendix.includes('changed **4 file(s)**'));
+  assert.ok(appendix.includes('Review the recent commits'));
+  assert.ok(appendix.includes('Update the PR body to check off'));
+});
+
+test('buildTaskAppendix omits reconciliation warning when state.needs_task_reconciliation is false', () => {
+  const { buildTaskAppendix } = require('../keepalive_loop.js');
+  const sections = {
+    tasks: '- [ ] Update code',
+    acceptance: '- [ ] Tests pass',
+  };
+  const checkboxCounts = { total: 2, checked: 0, unchecked: 2 };
+  const state = { needs_task_reconciliation: false };
+  
+  const appendix = buildTaskAppendix(sections, checkboxCounts, state);
+  
+  assert.ok(!appendix.includes('Task Reconciliation Required'));
+});
