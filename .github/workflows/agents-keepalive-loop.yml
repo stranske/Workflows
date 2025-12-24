@@ -151,13 +151,13 @@ jobs:
     name: Keepalive next task
     needs:
       - evaluate
-    if: ${{ always() && needs.evaluate.result == 'success' && needs.evaluate.outputs.action == 'run' }}
     uses: ./.github/workflows/reusable-codex-run.yml
     secrets:
       CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
       WORKFLOWS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID }}
       WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
     with:
+      skip: ${{ needs.evaluate.outputs.action != 'run' }}
       prompt_file: .github/codex/prompts/keepalive_next_task.md
       mode: keepalive
       pr_number: ${{ needs.evaluate.outputs.pr_number }}
