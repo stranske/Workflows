@@ -1,0 +1,255 @@
+name: Agents Autofix Loop
+
+on:
+  workflow_run:
+    workflows:
+      - Gate
+    types:
+      - completed
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: read
+
+concurrency:
+  group: agents-autofix-loop-${{ github.event.workflow_run.pull_requests[0].number || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Prepare autofix context
+    runs-on: ubuntu-latest
+    outputs:
+      should_run: ${{ steps.evaluate.outputs.should_run }}
+      pr_number: ${{ steps.evaluate.outputs.pr_number }}
+      head_ref: ${{ steps.evaluate.outputs.head_ref }}
+      head_sha: ${{ steps.evaluate.outputs.head_sha }}
+      appendix: ${{ steps.evaluate.outputs.appendix }}
+      stop_reason: ${{ steps.evaluate.outputs.stop_reason }}
+      attempts: ${{ steps.evaluate.outputs.attempts }}
+      max_attempts: ${{ steps.evaluate.outputs.max_attempts }}
+    steps:
+      - name: Evaluate workflow_run
+        id: evaluate
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const run = context.payload.workflow_run;
+            const outputs = {
+              should_run: 'false',
+              pr_number: '',
+              head_ref: '',
+              head_sha: '',
+              appendix: '',
+              stop_reason: '',
+              attempts: '0',
+              max_attempts: '3',
+            };
+
+            const stop = (reason, stopReason = '') => {
+              core.info(`Autofix loop skipped: ${reason}.`);
+              outputs.stop_reason = stopReason || reason;
+              for (const [key, value] of Object.entries(outputs)) {
+                core.setOutput(key, value);
+              }
+            };
+
+            if (!run) {
+              return stop('missing workflow_run payload');
+            }
+
+            if ((run.conclusion || '').toLowerCase() === 'success') {
+              return stop('upstream Gate succeeded');
+            }
+
+            if ((run.event || '').toLowerCase() !== 'pull_request') {
+              return stop(`unsupported event type: ${run.event || 'unknown'}`);
+            }
+
+            const prInfo = Array.isArray(run.pull_requests) ? run.pull_requests[0] : undefined;
+            if (!prInfo?.number) {
+              return stop('no pull request context on workflow_run');
+            }
+
+            outputs.pr_number = String(prInfo.number);
+
+            const { owner, repo } = context.repo;
+            const prNumber = Number(prInfo.number);
+            const pr = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+            const prData = pr.data;
+
+            if (!prData || prData.state !== 'open') {
+              return stop('pull request is not open');
+            }
+
+            if (prData.draft) {
+              return stop('draft pull request');
+            }
+
+            const headSha = prData.head?.sha;
+            if (!headSha || headSha !== run.head_sha) {
+              return stop('head SHA drifted since Gate started');
+            }
+
+            const sameRepo = prData.head?.repo?.full_name === `${owner}/${repo}`;
+            if (!sameRepo) {
+              return stop('head repository mismatch (likely fork)');
+            }
+
+            const labels = Array.isArray(prData.labels)
+              ? prData.labels
+                  .map((label) => (label?.name || '').toLowerCase())
+                  .filter(Boolean)
+              : [];
+            const hasAgentLabel = labels.includes('agent:codex');
+
+            const body = prData.body || '';
+            const configMatch = body.match(/autofix\s*:\s*(true|false)/i);
+            const autofixEnabled = configMatch
+              ? configMatch[1].toLowerCase() === 'true'
+              : hasAgentLabel;
+
+            if (!autofixEnabled) {
+              return stop('autofix disabled for this pull request');
+            }
+
+            const jobs = await github.paginate(github.rest.actions.listJobsForWorkflowRun, {
+              owner,
+              repo,
+              run_id: run.id,
+              per_page: 100,
+            });
+
+            const workflowFile = 'agents-autofix-loop.yml';
+            const maxAttempts = Number(outputs.max_attempts);
+            const previousRuns = await github.paginate(github.rest.actions.listWorkflowRuns, {
+              owner,
+              repo,
+              workflow_id: workflowFile,
+              head_sha: run.head_sha,
+              per_page: 100,
+              status: 'completed',
+            });
+
+            const attemptCount = previousRuns.length + 1;
+            outputs.attempts = String(attemptCount);
+            outputs.max_attempts = String(maxAttempts);
+
+            const failingJobs = [];
+            for (const job of jobs) {
+              const conclusion = (job.conclusion || job.status || '').toLowerCase();
+              if (!conclusion || ['success', 'skipped'].includes(conclusion)) {
+                continue;
+              }
+
+              const failingSteps =
+                Array.isArray(job.steps)
+                  ? job.steps
+                      .filter((step) => {
+                        const stepConclusion = (step.conclusion || step.status || '').toLowerCase();
+                        return stepConclusion && !['success', 'skipped'].includes(stepConclusion);
+                      })
+                      .map((step) => `${step.name} (${step.conclusion || step.status || 'unknown'})`)
+                  : [];
+
+              const detailLines = [`- ${job.name} (${job.conclusion || job.status || 'unknown'})`];
+              if (failingSteps.length > 0) {
+                detailLines.push(`  - steps: ${failingSteps.join('; ')}`);
+              }
+              failingJobs.push(detailLines.join('\n'));
+            }
+
+            const appendixLines = [
+              `Gate run: ${run.html_url || run.id}`,
+              `Conclusion: ${run.conclusion || run.status || 'unknown'}`,
+              `PR: #${prNumber}`,
+              `Head SHA: ${headSha}`,
+              `Autofix attempts for this head: ${attemptCount} / ${maxAttempts}`,
+              'Fix scope: src/, tests/, tools/, scripts/, agents/, templates/, .github/',
+            ];
+
+            if (failingJobs.length > 0) {
+              appendixLines.push('Failing jobs:', ...failingJobs);
+            } else {
+              appendixLines.push('Failing jobs: none reported.');
+            }
+
+            outputs.appendix = appendixLines.join('\n');
+
+            if (attemptCount > maxAttempts) {
+              return stop(`autofix attempt limit reached (${attemptCount} > ${maxAttempts})`, 'max_attempts');
+            }
+
+            outputs.should_run = 'true';
+            outputs.head_ref = prData.head.ref || '';
+            outputs.head_sha = headSha;
+
+            for (const [key, value] of Object.entries(outputs)) {
+              core.setOutput(key, value);
+            }
+
+  autofix:
+    needs: prepare
+    if: needs.prepare.outputs.should_run == 'true'
+    name: Run Codex autofix
+    uses: ./.github/workflows/reusable-codex-run.yml
+    with:
+      prompt_file: .github/codex/prompts/autofix_from_ci_failure.md
+      mode: autofix
+      pr_number: ${{ needs.prepare.outputs.pr_number }}
+      appendix: ${{ needs.prepare.outputs.appendix }}
+    secrets:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      WORKFLOWS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID }}
+      WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+
+  needs-human:
+    needs: prepare
+    if: needs.prepare.outputs.stop_reason == 'max_attempts'
+    name: Flag for human follow-up
+    runs-on: ubuntu-latest
+    steps:
+      - name: Add needs-human label and comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = Number('${{ needs.prepare.outputs.pr_number }}');
+            if (!prNumber) {
+              core.info('No PR number available; skipping comment/label.');
+              return;
+            }
+
+            const appendix = `${{ toJSON(needs.prepare.outputs.appendix) }}`.replace(/^"|"$/g, '');
+            const attempts = ${{ needs.prepare.outputs.attempts || 0 }};
+            const maxAttempts = ${{ needs.prepare.outputs.max_attempts || 0 }};
+
+            const { owner, repo } = context.repo;
+
+            await github.rest.issues.addLabels({
+              owner,
+              repo,
+              issue_number: prNumber,
+              labels: ['needs-human'],
+            }).catch((error) => {
+              core.warning(`Failed to add label: ${error.message}`);
+            });
+
+            const body = [
+              'Autofix attempts exhausted for this head.',
+              `Attempts: ${attempts} / ${maxAttempts}`,
+              '',
+              'Latest Gate summary:',
+              '```',
+              appendix || 'No run context available.',
+              '```',
+              '',
+              'Please investigate manually.',
+            ].join('\n');
+
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: prNumber,
+              body,
+            });

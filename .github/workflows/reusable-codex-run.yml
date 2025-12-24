@@ -37,6 +37,11 @@ on:
         required: false
         default: ''
         type: string
+      appendix:
+        description: 'Optional context appended to the prompt passed to Codex.'
+        required: false
+        default: ''
+        type: string
     secrets:
       OPENAI_API_KEY:
         required: true
@@ -116,16 +121,66 @@ jobs:
         run: |
           set -euo pipefail
           python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
-          if [ -f pyproject.toml ]; then pip install -e .; fi
+          if [ -f requirements.txt ]; then
+            python -m pip install -r requirements.txt
+          else
+            echo "requirements.txt not found; skipping base requirements install."
+          fi
+
+          if [ -f requirements-dev.txt ]; then
+            python -m pip install -r requirements-dev.txt
+          else
+            echo "requirements-dev.txt not found; skipping dev requirements file."
+          fi
+
+          if [ -f tools/requirements.txt ]; then
+            python -m pip install -r tools/requirements.txt
+          else
+            echo "tools/requirements.txt not found; skipping tools requirements."
+          fi
+
+          if [ -f scripts/requirements.txt ]; then
+            python -m pip install -r scripts/requirements.txt
+          else
+            echo "scripts/requirements.txt not found; skipping scripts requirements."
+          fi
+
+          if [ -f pyproject.toml ]; then
+            python -m pip install -e ".[dev]" || python -m pip install -e .
+          fi
+      - name: Assemble prompt
+        id: prompt
+        env:
+          BASE_PROMPT: ${{ inputs.prompt_file }}
+          APPENDIX: ${{ inputs.appendix }}
+        run: |
+          set -euo pipefail
+          base="${BASE_PROMPT}"
+          output="codex-prompt.md"
+
+          if [ -z "$base" ] || [ ! -f "$base" ]; then
+            echo "Base prompt file not found: ${base}" >&2
+            exit 1
+          fi
+
+          cat "$base" > "$output"
+
+          if [ -n "$APPENDIX" ]; then
+            {
+              echo
+              echo "## Run context"
+              printf '%s\n' "$APPENDIX"
+            } >> "$output"
+          fi
+
+          echo "file=${output}" >> "$GITHUB_OUTPUT"
 
       - name: Run Codex
         id: run_codex
         uses: openai/codex-action@v1
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
-          prompt-file: ${{ inputs.prompt_file }}
+          prompt-file: ${{ steps.prompt.outputs.file }}
           output-file: codex-output.md
           sandbox: ${{ inputs.sandbox }}
           safety-strategy: ${{ inputs.safety_strategy }}
@@ -159,7 +214,7 @@ jobs:
 
           git add -A
           git commit -m "$commit_message"
-          git push https://x-access-token:${PUSH_TOKEN}@github.com/${{ github.repository }} HEAD:${{ github.ref_name }}
+          git push "https://x-access-token:${PUSH_TOKEN}@github.com/${{ github.repository }}" "HEAD:${{ github.ref_name }}"
 
       - name: Upload Codex output
         if: always() && hashFiles('codex-output.md') != ''
