@@ -36,7 +36,7 @@ function toNumber(value, fallback = 0) {
 
 function countCheckboxes(markdown) {
   const result = { total: 0, checked: 0, unchecked: 0 };
-  const regex = /-\s*\[( |x|X)\]/g;
+  const regex = /(?:^|\n)\s*(?:[-*+]|\d+[.)])\s*\[( |x|X)\]/g;
   const content = String(markdown || '');
   let match;
   while ((match = regex.exec(content)) !== null) {
@@ -48,6 +48,80 @@ function countCheckboxes(markdown) {
     }
   }
   return result;
+}
+
+function normaliseChecklistSection(content) {
+  const raw = String(content || '');
+  if (!raw.trim()) {
+    return raw;
+  }
+  const lines = raw.split('\n');
+  let mutated = false;
+  const updated = lines.map((line) => {
+    const match = line.match(/^(\s*)([-*+]|\d+[.)])\s+(.*)$/);
+    if (!match) {
+      return line;
+    }
+    const [, indent, bullet, remainderRaw] = match;
+    const remainder = remainderRaw.trim();
+    if (!remainder) {
+      return line;
+    }
+    if (/^\[[ xX]\]/.test(remainder)) {
+      return `${indent}${bullet} ${remainder}`;
+    }
+    mutated = true;
+    return `${indent}${bullet} [ ] ${remainder}`;
+  });
+  return mutated ? updated.join('\n') : raw;
+}
+
+function normaliseChecklistSections(sections = {}) {
+  return {
+    ...sections,
+    tasks: normaliseChecklistSection(sections.tasks),
+    acceptance: normaliseChecklistSection(sections.acceptance),
+  };
+}
+
+/**
+ * Build the task appendix that gets passed to the agent prompt.
+ * This provides explicit, structured tasks and acceptance criteria.
+ */
+function buildTaskAppendix(sections, checkboxCounts) {
+  const lines = [];
+  
+  lines.push('---');
+  lines.push('## PR Tasks and Acceptance Criteria');
+  lines.push('');
+  lines.push(`**Progress:** ${checkboxCounts.checked}/${checkboxCounts.total} tasks complete, ${checkboxCounts.unchecked} remaining`);
+  lines.push('');
+  
+  if (sections?.scope) {
+    lines.push('### Scope');
+    lines.push(sections.scope);
+    lines.push('');
+  }
+  
+  if (sections?.tasks) {
+    lines.push('### Tasks');
+    lines.push('Complete these in order. Mark checkbox done ONLY after implementation is verified:');
+    lines.push('');
+    lines.push(sections.tasks);
+    lines.push('');
+  }
+  
+  if (sections?.acceptance) {
+    lines.push('### Acceptance Criteria');
+    lines.push('The PR is complete when ALL of these are satisfied:');
+    lines.push('');
+    lines.push(sections.acceptance);
+    lines.push('');
+  }
+  
+  lines.push('---');
+  
+  return lines.join('\n');
 }
 
 function extractConfigSnippet(body) {
@@ -106,16 +180,17 @@ function parseConfigFromSnippet(snippet) {
     }
     const key = match[1].trim();
     const rawValue = match[2].trim();
+    const cleanedValue = rawValue.replace(/\s+#.*$/, '').replace(/\s+\/\/.*$/, '').trim();
     if (!key) {
       continue;
     }
-    const lowered = rawValue.toLowerCase();
+    const lowered = cleanedValue.toLowerCase();
     if (['true', 'false', 'yes', 'no', 'on', 'off'].includes(lowered)) {
       result[key] = ['true', 'yes', 'on'].includes(lowered);
-    } else if (!Number.isNaN(Number(rawValue))) {
-      result[key] = Number(rawValue);
+    } else if (!Number.isNaN(Number(cleanedValue))) {
+      result[key] = Number(cleanedValue);
     } else {
-      result[key] = rawValue;
+      result[key] = cleanedValue;
     }
   }
 
@@ -142,6 +217,17 @@ function parseConfig(body) {
   const snippet = extractConfigSnippet(body);
   const parsed = parseConfigFromSnippet(snippet);
   return normaliseConfig(parsed);
+}
+
+function formatProgressBar(current, total, width = 10) {
+  if (!Number.isFinite(total) || total <= 0) {
+    return 'n/a';
+  }
+  const safeWidth = Number.isFinite(width) && width > 0 ? Math.floor(width) : 10;
+  const bounded = Math.max(0, Math.min(current, total));
+  const filled = Math.round((bounded / total) * safeWidth);
+  const empty = Math.max(0, safeWidth - filled);
+  return `[${'#'.repeat(filled)}${'-'.repeat(empty)}] ${bounded}/${total}`;
 }
 
 async function resolvePrNumber({ github, context, core }) {
@@ -243,15 +329,25 @@ async function evaluateKeepaliveLoop({ github, context, core }) {
 
   const config = parseConfig(pr.body || '');
   const labels = Array.isArray(pr.labels) ? pr.labels.map((label) => normalise(label.name).toLowerCase()) : [];
-  const hasAgentLabel = labels.includes('agent:codex');
+  
+  // Extract agent type from agent:* labels (supports agent:codex, agent:claude, etc.)
+  const agentLabel = labels.find((label) => label.startsWith('agent:'));
+  const agentType = agentLabel ? agentLabel.replace('agent:', '') : '';
+  const hasAgentLabel = Boolean(agentType);
   const keepaliveEnabled = config.keepalive_enabled && hasAgentLabel;
 
   const sections = parseScopeTasksAcceptanceSections(pr.body || '');
-  const combinedChecklist = [sections?.tasks, sections?.acceptance].filter(Boolean).join('\n');
+  const normalisedSections = normaliseChecklistSections(sections);
+  const combinedChecklist = [normalisedSections?.tasks, normalisedSections?.acceptance]
+    .filter(Boolean)
+    .join('\n');
   const checkboxCounts = countCheckboxes(combinedChecklist);
   const tasksPresent = checkboxCounts.total > 0;
   const tasksRemaining = checkboxCounts.unchecked > 0;
   const allComplete = tasksPresent && !tasksRemaining;
+
+  // Build task appendix for the agent prompt
+  const taskAppendix = buildTaskAppendix(normalisedSections, checkboxCounts);
 
   const stateResult = await loadKeepaliveState({
     github,
@@ -292,6 +388,7 @@ async function evaluateKeepaliveLoop({ github, context, core }) {
 
   return {
     prNumber,
+    prRef: pr.head.ref || '',
     action,
     reason,
     gateConclusion,
@@ -301,6 +398,8 @@ async function evaluateKeepaliveLoop({ github, context, core }) {
     failureThreshold,
     checkboxCounts,
     hasAgentLabel,
+    agentType,
+    taskAppendix,
     keepaliveEnabled,
     stateCommentId: stateResult.commentId || 0,
     state,
@@ -321,11 +420,20 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
   const tasksUnchecked = toNumber(inputs.tasksUnchecked ?? inputs.tasks_unchecked, 0);
   const keepaliveEnabled = toBool(inputs.keepaliveEnabled ?? inputs.keepalive_enabled, false);
   const autofixEnabled = toBool(inputs.autofixEnabled ?? inputs.autofix_enabled, false);
+  const agentType = normalise(inputs.agent_type ?? inputs.agentType) || 'codex';
   const iteration = toNumber(inputs.iteration, 0);
   const maxIterations = toNumber(inputs.maxIterations ?? inputs.max_iterations, 0);
   const failureThreshold = Math.max(1, toNumber(inputs.failureThreshold ?? inputs.failure_threshold, 3));
   const runResult = normalise(inputs.runResult || inputs.run_result);
   const stateTrace = normalise(inputs.trace || inputs.keepalive_trace || '');
+
+  // Agent output details (agent-agnostic, with fallback to old codex_ names)
+  const agentExitCode = normalise(inputs.agent_exit_code ?? inputs.agentExitCode ?? inputs.codex_exit_code ?? inputs.codexExitCode);
+  const agentChangesMade = normalise(inputs.agent_changes_made ?? inputs.agentChangesMade ?? inputs.codex_changes_made ?? inputs.codexChangesMade);
+  const agentCommitSha = normalise(inputs.agent_commit_sha ?? inputs.agentCommitSha ?? inputs.codex_commit_sha ?? inputs.codexCommitSha);
+  const agentFilesChanged = toNumber(inputs.agent_files_changed ?? inputs.agentFilesChanged ?? inputs.codex_files_changed ?? inputs.codexFilesChanged, 0);
+  const agentSummary = normalise(inputs.agent_summary ?? inputs.agentSummary ?? inputs.codex_summary ?? inputs.codexSummary);
+  const runUrl = normalise(inputs.run_url ?? inputs.runUrl);
 
   const { state: previousState, commentId } = await loadKeepaliveState({
     github,
@@ -345,14 +453,14 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
       nextIteration = iteration + 1;
       failure = {};
     } else if (runResult) {
-      const same = failure.reason === 'codex-run-failed';
+      const same = failure.reason === 'agent-run-failed';
       const count = same ? toNumber(failure.count, 0) + 1 : 1;
-      failure = { reason: 'codex-run-failed', count };
+      failure = { reason: 'agent-run-failed', count };
       if (count >= failureThreshold) {
         stop = true;
-        summaryReason = 'codex-run-failed-repeat';
+        summaryReason = 'agent-run-failed-repeat';
       } else {
-        summaryReason = 'codex-run-failed';
+        summaryReason = 'agent-run-failed';
       }
     }
   } else {
@@ -365,20 +473,89 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
     }
   }
 
+  // Capitalize agent name for display
+  const agentDisplayName = agentType.charAt(0).toUpperCase() + agentType.slice(1);
+
   const summaryLines = [
     '<!-- keepalive-loop-summary -->',
-    `Keepalive loop status for **PR #${prNumber}**`,
+    `## 🤖 Keepalive Loop Status`,
     '',
-    `- Action: **${action || 'unknown'}** (${summaryReason || 'n/a'})`,
-    `- Gate conclusion: **${gateConclusion || 'unknown'}**`,
-    `- Tasks: **${Math.max(0, tasksTotal - tasksUnchecked)}/${tasksTotal} complete**`,
-    `- Iteration: **${nextIteration}/${maxIterations || '∞'}**`,
-    `- Keepalive enabled: **${keepaliveEnabled ? 'yes' : 'no'}**`,
-    `- Autofix enabled: **${autofixEnabled ? 'yes' : 'no'}**`,
+    `**PR #${prNumber}** | Agent: **${agentDisplayName}** | Iteration **${nextIteration}/${maxIterations || '∞'}**`,
+    '',
+    '### Current State',
+    `| Metric | Value |`,
+    `|--------|-------|`,
+    `| Iteration progress | ${
+      maxIterations > 0
+        ? formatProgressBar(nextIteration, maxIterations)
+        : 'n/a (unbounded)'
+    } |`,
+    `| Action | ${action || 'unknown'} (${summaryReason || 'n/a'}) |`,
+    `| Gate | ${gateConclusion || 'unknown'} |`,
+    `| Tasks | ${Math.max(0, tasksTotal - tasksUnchecked)}/${tasksTotal} complete |`,
+    `| Keepalive | ${keepaliveEnabled ? '✅ enabled' : '❌ disabled'} |`,
+    `| Autofix | ${autofixEnabled ? '✅ enabled' : '❌ disabled'} |`,
   ];
 
+  // Add agent run details if we ran an agent
+  if (action === 'run' && runResult) {
+    const runLinkText = runUrl ? ` ([view logs](${runUrl}))` : '';
+    summaryLines.push('', `### Last ${agentDisplayName} Run${runLinkText}`);
+    
+    if (runResult === 'success') {
+      const changesIcon = agentChangesMade === 'true' ? '✅' : '⚪';
+      summaryLines.push(
+        `| Result | Value |`,
+        `|--------|-------|`,
+        `| Status | ✅ Success |`,
+        `| Changes | ${changesIcon} ${agentChangesMade === 'true' ? `${agentFilesChanged} file(s)` : 'No changes'} |`,
+      );
+      if (agentCommitSha) {
+        summaryLines.push(`| Commit | [\`${agentCommitSha.slice(0, 7)}\`](../commit/${agentCommitSha}) |`);
+      }
+    } else {
+      summaryLines.push(
+        `| Result | Value |`,
+        `|--------|-------|`,
+        `| Status | ❌ Failed (exit code: ${agentExitCode || 'unknown'}) |`,
+        `| Failures | ${failure.count || 1}/${failureThreshold} before pause |`,
+      );
+    }
+    
+    // Add agent output summary if available
+    if (agentSummary && agentSummary.length > 10) {
+      const truncatedSummary = agentSummary.length > 300 
+        ? agentSummary.slice(0, 300) + '...' 
+        : agentSummary;
+      summaryLines.push('', `**${agentDisplayName} output:**`, `> ${truncatedSummary}`);
+    }
+  }
+
+  // Show failure tracking prominently if there are failures
+  if (failure.count > 0) {
+    summaryLines.push(
+      '',
+      '### ⚠️ Failure Tracking',
+      `| Consecutive failures | ${failure.count}/${failureThreshold} |`,
+      `| Reason | ${failure.reason || 'unknown'} |`,
+    );
+  }
+
   if (stop) {
-    summaryLines.push('- Status: **Paused – human attention required**');
+    summaryLines.push(
+      '',
+      '### 🛑 Paused – Human Attention Required',
+      '',
+      'The keepalive loop has paused due to repeated failures.',
+      '',
+      '**To resume:**',
+      '1. Investigate the failure reason above',
+      '2. Fix any issues in the code or prompt',
+      '3. Remove the `needs-human` label from this PR',
+      '4. The next Gate pass will restart the loop',
+      '',
+      '_Or manually edit this comment to reset `failure: {}` in the state below._',
+    );
   }
 
   const newState = {
@@ -430,6 +607,7 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
 module.exports = {
   countCheckboxes,
   parseConfig,
+  buildTaskAppendix,
   evaluateKeepaliveLoop,
   updateKeepaliveLoopSummary,
 };
