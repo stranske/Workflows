@@ -1,0 +1,3 @@
+# Automation guardrails: changes to workflow and script assets require maintainer review.
+.github/workflows/** @stranske
+.github/scripts/** @stranske
