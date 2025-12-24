@@ -14,12 +14,62 @@ jobs:
       contents: write
       issues: write
       pull-requests: write
-    env:
-      PREFERRED_TOKEN: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT || github.token }}
     steps:
+      - name: Generate GitHub App token (optional)
+        id: app-token
+        if: ${{ secrets.WORKFLOWS_APP_ID != '' && secrets.WORKFLOWS_APP_PRIVATE_KEY != '' }}
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.WORKFLOWS_APP_ID }}
+          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Select authentication token (app > PAT > GITHUB_TOKEN)
+        id: select-token
+        env:
+          APP_TOKEN: ${{ steps.app-token.outputs.token || '' }}
+          ACTIONS_BOT_PAT: ${{ secrets.ACTIONS_BOT_PAT || '' }}
+          SERVICE_BOT_PAT: ${{ secrets.SERVICE_BOT_PAT || '' }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          token_value="${APP_TOKEN:-}"
+          token_source="WORKFLOWS_APP"
+
+          if [ -z "${token_value}" ] && [ -n "${ACTIONS_BOT_PAT:-}" ]; then
+            token_value="${ACTIONS_BOT_PAT}"
+            token_source="ACTIONS_BOT_PAT"
+          elif [ -z "${token_value}" ] && [ -n "${SERVICE_BOT_PAT:-}" ]; then
+            token_value="${SERVICE_BOT_PAT}"
+            token_source="SERVICE_BOT_PAT"
+          fi
+
+          if [ -z "${token_value}" ]; then
+            token_value="${GITHUB_TOKEN}"
+            token_source="GITHUB_TOKEN"
+          fi
+
+          echo "GH_TOKEN=${token_value}" >>"${GITHUB_ENV}"
+          echo "token_source=${token_source}" >>"${GITHUB_OUTPUT}"
+
+          case "${token_source}" in
+            WORKFLOWS_APP)
+              echo 'Using GitHub App token (WORKFLOWS_APP); write operations will use the installation token.'
+              ;;
+            ACTIONS_BOT_PAT)
+              echo 'Using ACTIONS_BOT_PAT fallback. Configure WORKFLOWS_APP_ID and WORKFLOWS_APP_PRIVATE_KEY to enable the GitHub App path.'
+              ;;
+            SERVICE_BOT_PAT)
+              echo 'Using SERVICE_BOT_PAT fallback. Configure WORKFLOWS_APP_ID and WORKFLOWS_APP_PRIVATE_KEY to enable the GitHub App path.'
+              ;;
+            *)
+              echo 'Using default GITHUB_TOKEN fallback.'
+              ;;
+          esac
+
       - name: Checkout keepalive scripts
         uses: actions/checkout@v4
         with:
+          token: ${{ env.GH_TOKEN }}
           sparse-checkout: |
             .github/scripts
           sparse-checkout-cone-mode: false
@@ -33,7 +83,7 @@ jobs:
           SYNC_LABEL: agents:sync-required
           DEBUG_LABEL: agents:debug
         with:
-          github-token: ${{ env.PREFERRED_TOKEN }}
+          github-token: ${{ env.GH_TOKEN }}
           script: |
             const payload = context.payload?.client_payload || {};
             const prNumber = Number(payload.issue);
@@ -87,3 +137,8 @@ jobs:
 
             const { runKeepalivePostWork } = require('./.github/scripts/keepalive_post_work.js');
             await runKeepalivePostWork({ core, github, context, env });
+
+      - name: Summarize token source
+        if: ${{ always() }}
+        run: |
+          echo "Token source: ${{ steps.select-token.outputs.token_source }}" >> "$GITHUB_STEP_SUMMARY"
