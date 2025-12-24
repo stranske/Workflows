@@ -26,6 +26,9 @@ jobs:
       head_ref: ${{ steps.evaluate.outputs.head_ref }}
       head_sha: ${{ steps.evaluate.outputs.head_sha }}
       appendix: ${{ steps.evaluate.outputs.appendix }}
+      stop_reason: ${{ steps.evaluate.outputs.stop_reason }}
+      attempts: ${{ steps.evaluate.outputs.attempts }}
+      max_attempts: ${{ steps.evaluate.outputs.max_attempts }}
     steps:
       - name: Evaluate workflow_run
         id: evaluate
@@ -39,10 +42,14 @@ jobs:
               head_ref: '',
               head_sha: '',
               appendix: '',
+              stop_reason: '',
+              attempts: '0',
+              max_attempts: '3',
             };
 
-            const stop = (reason) => {
+            const stop = (reason, stopReason = '') => {
               core.info(`Autofix loop skipped: ${reason}.`);
+              outputs.stop_reason = stopReason || reason;
               for (const [key, value] of Object.entries(outputs)) {
                 core.setOutput(key, value);
               }
@@ -64,6 +71,8 @@ jobs:
             if (!prInfo?.number) {
               return stop('no pull request context on workflow_run');
             }
+
+            outputs.pr_number = String(prInfo.number);
 
             const { owner, repo } = context.repo;
             const prNumber = Number(prInfo.number);
@@ -112,6 +121,21 @@ jobs:
               per_page: 100,
             });
 
+            const workflowFile = 'agents-autofix-loop.yml';
+            const maxAttempts = Number(outputs.max_attempts);
+            const previousRuns = await github.paginate(github.rest.actions.listWorkflowRuns, {
+              owner,
+              repo,
+              workflow_id: workflowFile,
+              head_sha: run.head_sha,
+              per_page: 100,
+              status: 'completed',
+            });
+
+            const attemptCount = previousRuns.length + 1;
+            outputs.attempts = String(attemptCount);
+            outputs.max_attempts = String(maxAttempts);
+
             const failingJobs = [];
             for (const job of jobs) {
               const conclusion = (job.conclusion || job.status || '').toLowerCase();
@@ -141,6 +165,8 @@ jobs:
               `Conclusion: ${run.conclusion || run.status || 'unknown'}`,
               `PR: #${prNumber}`,
               `Head SHA: ${headSha}`,
+              `Autofix attempts for this head: ${attemptCount} / ${maxAttempts}`,
+              'Fix scope: src/, tests/, tools/, scripts/, agents/, templates/, .github/',
             ];
 
             if (failingJobs.length > 0) {
@@ -149,11 +175,15 @@ jobs:
               appendixLines.push('Failing jobs: none reported.');
             }
 
+            outputs.appendix = appendixLines.join('\n');
+
+            if (attemptCount > maxAttempts) {
+              return stop(`autofix attempt limit reached (${attemptCount} > ${maxAttempts})`, 'max_attempts');
+            }
+
             outputs.should_run = 'true';
-            outputs.pr_number = String(prNumber);
             outputs.head_ref = prData.head.ref || '';
             outputs.head_sha = headSha;
-            outputs.appendix = appendixLines.join('\n');
 
             for (const [key, value] of Object.entries(outputs)) {
               core.setOutput(key, value);
@@ -173,3 +203,53 @@ jobs:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       WORKFLOWS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID }}
       WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+
+  needs-human:
+    needs: prepare
+    if: needs.prepare.outputs.stop_reason == 'max_attempts'
+    name: Flag for human follow-up
+    runs-on: ubuntu-latest
+    steps:
+      - name: Add needs-human label and comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = Number('${{ needs.prepare.outputs.pr_number }}');
+            if (!prNumber) {
+              core.info('No PR number available; skipping comment/label.');
+              return;
+            }
+
+            const appendix = `${{ toJSON(needs.prepare.outputs.appendix) }}`.replace(/^"|"$/g, '');
+            const attempts = ${{ needs.prepare.outputs.attempts || 0 }};
+            const maxAttempts = ${{ needs.prepare.outputs.max_attempts || 0 }};
+
+            const { owner, repo } = context.repo;
+
+            await github.rest.issues.addLabels({
+              owner,
+              repo,
+              issue_number: prNumber,
+              labels: ['needs-human'],
+            }).catch((error) => {
+              core.warning(`Failed to add label: ${error.message}`);
+            });
+
+            const body = [
+              'Autofix attempts exhausted for this head.',
+              `Attempts: ${attempts} / ${maxAttempts}`,
+              '',
+              'Latest Gate summary:',
+              '```',
+              appendix || 'No run context available.',
+              '```',
+              '',
+              'Please investigate manually.',
+            ].join('\n');
+
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: prNumber,
+              body,
+            });

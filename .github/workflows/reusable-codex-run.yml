@@ -121,9 +121,33 @@ jobs:
         run: |
           set -euo pipefail
           python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
-          if [ -f pyproject.toml ]; then pip install -e .; fi
+          if [ -f requirements.txt ]; then
+            python -m pip install -r requirements.txt
+          else
+            echo "requirements.txt not found; skipping base requirements install."
+          fi
+
+          if [ -f requirements-dev.txt ]; then
+            python -m pip install -r requirements-dev.txt
+          else
+            echo "requirements-dev.txt not found; skipping dev requirements file."
+          fi
+
+          if [ -f tools/requirements.txt ]; then
+            python -m pip install -r tools/requirements.txt
+          else
+            echo "tools/requirements.txt not found; skipping tools requirements."
+          fi
+
+          if [ -f scripts/requirements.txt ]; then
+            python -m pip install -r scripts/requirements.txt
+          else
+            echo "scripts/requirements.txt not found; skipping scripts requirements."
+          fi
+
+          if [ -f pyproject.toml ]; then
+            python -m pip install -e ".[dev]" || python -m pip install -e .
+          fi
       - name: Assemble prompt
         id: prompt
         env:
