@@ -1,0 +1,115 @@
+name: Agents Keepalive Loop
+
+on:
+  workflow_run:
+    workflows: ["Gate"]
+    types: [completed]
+  pull_request:
+    types:
+      - labeled
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+
+concurrency:
+  group: keepalive-${{ github.event.workflow_run.pull_requests[0].number || github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  evaluate:
+    name: Evaluate keepalive loop
+    runs-on: ubuntu-latest
+    outputs:
+      pr_number: ${{ steps.evaluate.outputs.pr_number }}
+      action: ${{ steps.evaluate.outputs.action }}
+      reason: ${{ steps.evaluate.outputs.reason }}
+      gate_conclusion: ${{ steps.evaluate.outputs.gate_conclusion }}
+      iteration: ${{ steps.evaluate.outputs.iteration }}
+      max_iterations: ${{ steps.evaluate.outputs.max_iterations }}
+      failure_threshold: ${{ steps.evaluate.outputs.failure_threshold }}
+      tasks_total: ${{ steps.evaluate.outputs.tasks_total }}
+      tasks_unchecked: ${{ steps.evaluate.outputs.tasks_unchecked }}
+      keepalive_enabled: ${{ steps.evaluate.outputs.keepalive_enabled }}
+      autofix_enabled: ${{ steps.evaluate.outputs.autofix_enabled }}
+      has_agent_label: ${{ steps.evaluate.outputs.has_agent_label }}
+      trace: ${{ steps.evaluate.outputs.trace }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Evaluate keepalive state
+        id: evaluate
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { evaluateKeepaliveLoop } = require('./.github/scripts/keepalive_loop.js');
+            const result = await evaluateKeepaliveLoop({ github, context, core });
+            const output = {
+              pr_number: String(result.prNumber || ''),
+              action: result.action || '',
+              reason: result.reason || '',
+              gate_conclusion: result.gateConclusion || '',
+              iteration: String(result.iteration ?? ''),
+              max_iterations: String(result.maxIterations ?? ''),
+              failure_threshold: String(result.failureThreshold ?? ''),
+              tasks_total: String(result.checkboxCounts?.total ?? ''),
+              tasks_unchecked: String(result.checkboxCounts?.unchecked ?? ''),
+              keepalive_enabled: String(result.keepaliveEnabled ?? ''),
+              autofix_enabled: String(result.config?.autofix_enabled ?? ''),
+              has_agent_label: String(result.hasAgentLabel ?? ''),
+              trace: String(result.config?.trace || result.state?.trace || ''),
+            };
+            for (const [key, value] of Object.entries(output)) {
+              core.setOutput(key, value);
+            }
+
+  run-codex:
+    name: Keepalive next task
+    needs: evaluate
+    if: needs.evaluate.outputs.action == 'run'
+    uses: ./.github/workflows/reusable-codex-run.yml
+    secrets: inherit
+    with:
+      prompt_file: .github/codex/prompts/keepalive_next_task.md
+      mode: keepalive
+      pr_number: ${{ needs.evaluate.outputs.pr_number }}
+    concurrency:
+      group: keepalive-${{ needs.evaluate.outputs.pr_number }}
+      cancel-in-progress: false
+
+  summary:
+    name: Update keepalive summary
+    needs:
+      - evaluate
+      - run-codex
+    if: always() && needs.evaluate.outputs.pr_number != '' && needs.evaluate.outputs.pr_number != '0'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Update summary comment
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { updateKeepaliveLoopSummary } = require('./.github/scripts/keepalive_loop.js');
+            const inputs = {
+              pr_number: Number('${{ needs.evaluate.outputs.pr_number }}') || 0,
+              action: '${{ needs.evaluate.outputs.action }}',
+              reason: '${{ needs.evaluate.outputs.reason }}',
+              gate_conclusion: '${{ needs.evaluate.outputs.gate_conclusion }}',
+              iteration: Number('${{ needs.evaluate.outputs.iteration }}') || 0,
+              max_iterations: Number('${{ needs.evaluate.outputs.max_iterations }}') || 0,
+              failure_threshold: Number('${{ needs.evaluate.outputs.failure_threshold }}') || 3,
+              tasks_total: Number('${{ needs.evaluate.outputs.tasks_total }}') || 0,
+              tasks_unchecked: Number('${{ needs.evaluate.outputs.tasks_unchecked }}') || 0,
+              keepalive_enabled: '${{ needs.evaluate.outputs.keepalive_enabled }}',
+              autofix_enabled: '${{ needs.evaluate.outputs.autofix_enabled }}',
+              trace: '${{ needs.evaluate.outputs.trace }}',
+              run_result: '${{ needs.run-codex.result }}',
+            };
+            await updateKeepaliveLoopSummary({ github, context, core, inputs });
