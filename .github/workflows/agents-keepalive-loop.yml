@@ -124,27 +124,61 @@ jobs:
               core.setOutput(key, value);
             }
 
-  run-codex:
-    name: Keepalive next task
+  preflight:
+    name: Verify secrets available
     needs: evaluate
     if: needs.evaluate.outputs.action == 'run'
-    uses: ./.github/workflows/reusable-codex-run.yml
+    runs-on: ubuntu-latest
+    environment: agent-standard
+    outputs:
+      secrets_ok: ${{ steps.check.outputs.secrets_ok }}
+    steps:
+      - name: Check secrets
+        id: check
+        env:
+          HAS_CODEX_AUTH: ${{ secrets.CODEX_AUTH_JSON != '' }}
+          HAS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID != '' }}
+          HAS_APP_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY != '' }}
+        run: |
+          echo "CODEX_AUTH_JSON present: $HAS_CODEX_AUTH"
+          echo "WORKFLOWS_APP_ID present: $HAS_APP_ID"
+          echo "WORKFLOWS_APP_PRIVATE_KEY present: $HAS_APP_KEY"
+          if [ "$HAS_CODEX_AUTH" = "true" ] || [ "$HAS_APP_ID" = "true" ]; then
+            echo "secrets_ok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::Neither CODEX_AUTH_JSON nor WORKFLOWS_APP_ID is set. Cannot run Codex."
+            echo "secrets_ok=false" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+
+  test-job:
+    name: Test job creation
+    needs: evaluate
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Test job ran! Action was ${{ needs.evaluate.outputs.action }}"
+
+  run-codex:
+    name: Keepalive next task
+    needs:
+      - evaluate
+    uses: stranske/Workflows/.github/workflows/reusable-codex-run.yml@main
     secrets:
       CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
       WORKFLOWS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID }}
       WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
     with:
+      # TEMP: Run even when gate fails, for testing auth
+      skip: ${{ needs.evaluate.outputs.has_agent_label != 'true' }}
       prompt_file: .github/codex/prompts/keepalive_next_task.md
       mode: keepalive
       pr_number: ${{ needs.evaluate.outputs.pr_number }}
-    concurrency:
-      group: keepalive-${{ needs.evaluate.outputs.pr_number }}
-      cancel-in-progress: false
 
   summary:
     name: Update keepalive summary
     needs:
       - evaluate
+      - preflight
       - run-codex
     if: always() && needs.evaluate.outputs.pr_number != '' && needs.evaluate.outputs.pr_number != '0'
     runs-on: ubuntu-latest

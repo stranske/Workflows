@@ -3,6 +3,11 @@ name: Reusable Codex Run
 on:
   workflow_call:
     inputs:
+      skip:
+        description: 'If true, skip execution entirely. Used for conditional calls.'
+        required: false
+        default: false
+        type: boolean
       prompt_file:
         description: 'Path to the prompt file that Codex should read.'
         required: true
@@ -62,6 +67,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: agent-standard
     timeout-minutes: ${{ inputs.max_runtime_minutes }}
+    if: ${{ !inputs.skip }}
     outputs:
       final-message: ${{ steps.run_codex.outputs.final-message }}
     steps:
@@ -190,6 +196,13 @@ jobs:
 
           echo "file=${output}" >> "$GITHUB_OUTPUT"
 
+      - name: Install Codex CLI
+        run: |
+          set -euo pipefail
+          echo "Installing Codex CLI..."
+          npm install -g @openai/codex
+          codex --version
+
       - name: Setup Codex auth
         env:
           CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
@@ -207,16 +220,50 @@ jobs:
 
       - name: Run Codex
         id: run_codex
-        uses: openai/codex-action@v1
-        with:
-          # Auth is pre-configured via ~/.codex/auth.json from CODEX_AUTH_JSON secret
-          # The action requires this input but CLI will use auth.json tokens instead
-          openai-api-key: 'auth-via-codex-auth-json'
-          prompt-file: ${{ steps.prompt.outputs.file }}
-          output-file: codex-output.md
-          sandbox: ${{ inputs.sandbox }}
-          safety-strategy: ${{ inputs.safety_strategy }}
-          codex-args: ${{ inputs.codex_args }}
+        env:
+          CODEX_HOME: ${{ runner.temp }}/.codex
+        run: |
+          set -euo pipefail
+
+          # Copy auth to CODEX_HOME
+          mkdir -p "$CODEX_HOME"
+          cp ~/.codex/auth.json "$CODEX_HOME/auth.json"
+          chmod 600 "$CODEX_HOME/auth.json"
+
+          # Build codex exec command
+          PROMPT_FILE="${{ steps.prompt.outputs.file }}"
+          OUTPUT_FILE="codex-output.md"
+          SANDBOX="${{ inputs.sandbox }}"
+          EXTRA_ARGS="${{ inputs.codex_args }}"
+
+          # Default sandbox if not specified
+          if [ -z "$SANDBOX" ]; then
+            SANDBOX="workspace-write"
+          fi
+
+          echo "Running Codex CLI directly with ChatGPT auth..."
+          echo "Prompt file: $PROMPT_FILE"
+          echo "Sandbox: $SANDBOX"
+
+          # Run codex exec with prompt from file
+          codex exec \
+            --skip-git-repo-check \
+            --sandbox "$SANDBOX" \
+            --output-last-message "$OUTPUT_FILE" \
+            $EXTRA_ARGS \
+            "$(cat "$PROMPT_FILE")"
+
+          echo "Codex completed. Output written to $OUTPUT_FILE"
+
+          # Set output for downstream steps using a unique delimiter
+          if [ -f "$OUTPUT_FILE" ]; then
+            delimiter="CODEX_OUTPUT_$(date +%s)"
+            {
+              echo "final-message<<${delimiter}"
+              cat "$OUTPUT_FILE"
+              echo "${delimiter}"
+            } >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Commit and push changes
         env:
