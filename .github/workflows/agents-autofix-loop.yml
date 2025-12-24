@@ -10,7 +10,7 @@ on:
 permissions:
   contents: write
   pull-requests: write
-  actions: read
+  actions: write
 
 concurrency:
   group: agents-autofix-loop-${{ github.event.workflow_run.pull_requests[0].number || github.run_id }}

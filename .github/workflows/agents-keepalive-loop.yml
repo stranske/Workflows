@@ -151,8 +151,7 @@ jobs:
     name: Keepalive next task
     needs:
       - evaluate
-      - preflight
-    if: needs.evaluate.outputs.action == 'run' && needs.preflight.outputs.secrets_ok == 'true'
+    if: needs.evaluate.outputs.action == 'run'
     uses: ./.github/workflows/reusable-codex-run.yml
     secrets:
       CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
