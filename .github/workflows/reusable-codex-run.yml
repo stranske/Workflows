@@ -196,6 +196,13 @@ jobs:
 
           echo "file=${output}" >> "$GITHUB_OUTPUT"
 
+      - name: Install Codex CLI
+        run: |
+          set -euo pipefail
+          echo "Installing Codex CLI..."
+          npm install -g @openai/codex
+          codex --version
+
       - name: Setup Codex auth
         env:
           CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
