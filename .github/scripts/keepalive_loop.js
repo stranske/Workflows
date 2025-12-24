@@ -87,8 +87,11 @@ function normaliseChecklistSections(sections = {}) {
 /**
  * Build the task appendix that gets passed to the agent prompt.
  * This provides explicit, structured tasks and acceptance criteria.
+ * @param {object} sections - Parsed scope/tasks/acceptance sections
+ * @param {object} checkboxCounts - { total, checked, unchecked }
+ * @param {object} [state] - Optional keepalive state for reconciliation info
  */
-function buildTaskAppendix(sections, checkboxCounts) {
+function buildTaskAppendix(sections, checkboxCounts, state = {}) {
   const lines = [];
   
   lines.push('---');
@@ -96,6 +99,22 @@ function buildTaskAppendix(sections, checkboxCounts) {
   lines.push('');
   lines.push(`**Progress:** ${checkboxCounts.checked}/${checkboxCounts.total} tasks complete, ${checkboxCounts.unchecked} remaining`);
   lines.push('');
+
+  // Add reconciliation reminder if the previous iteration made changes but didn't check off tasks
+  if (state.needs_task_reconciliation) {
+    lines.push('### ⚠️ IMPORTANT: Task Reconciliation Required');
+    lines.push('');
+    lines.push(`The previous iteration changed **${state.last_files_changed || 'some'} file(s)** but did not update task checkboxes.`);
+    lines.push('');
+    lines.push('**Before continuing, you MUST:**');
+    lines.push('1. Review the recent commits to understand what was changed');
+    lines.push('2. Determine which task checkboxes should be marked complete');
+    lines.push('3. Update the PR body to check off completed tasks');
+    lines.push('4. Then continue with remaining tasks');
+    lines.push('');
+    lines.push('_Failure to update checkboxes means progress is not being tracked properly._');
+    lines.push('');
+  }
   
   if (sections?.scope) {
     lines.push('### Scope');
@@ -346,9 +365,6 @@ async function evaluateKeepaliveLoop({ github, context, core }) {
   const tasksRemaining = checkboxCounts.unchecked > 0;
   const allComplete = tasksPresent && !tasksRemaining;
 
-  // Build task appendix for the agent prompt
-  const taskAppendix = buildTaskAppendix(normalisedSections, checkboxCounts);
-
   const stateResult = await loadKeepaliveState({
     github,
     context,
@@ -359,6 +375,9 @@ async function evaluateKeepaliveLoop({ github, context, core }) {
   const iteration = toNumber(config.iteration ?? state.iteration, 0);
   const maxIterations = toNumber(config.max_iterations ?? state.max_iterations, 5);
   const failureThreshold = toNumber(config.failure_threshold ?? state.failure_threshold, 3);
+
+  // Build task appendix for the agent prompt (after state load for reconciliation info)
+  const taskAppendix = buildTaskAppendix(normalisedSections, checkboxCounts, state);
 
   let action = 'wait';
   let reason = 'pending';
@@ -448,6 +467,17 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
   let stop = action === 'stop';
   let summaryReason = reason || action || 'unknown';
 
+  // Task reconciliation: detect when agent made changes but didn't update checkboxes
+  const previousTasks = previousState?.tasks || {};
+  const previousUnchecked = toNumber(previousTasks.unchecked, tasksUnchecked);
+  const tasksCompletedThisRound = previousUnchecked - tasksUnchecked;
+  const madeChangesButNoTasksChecked = 
+    action === 'run' && 
+    runResult === 'success' && 
+    agentChangesMade === 'true' && 
+    agentFilesChanged > 0 && 
+    tasksCompletedThisRound <= 0;
+
   if (action === 'run') {
     if (runResult === 'success') {
       nextIteration = iteration + 1;
@@ -529,6 +559,21 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
         : agentSummary;
       summaryLines.push('', `**${agentDisplayName} output:**`, `> ${truncatedSummary}`);
     }
+
+    // Task reconciliation warning: agent made changes but didn't check off tasks
+    if (madeChangesButNoTasksChecked) {
+      summaryLines.push(
+        '',
+        '### 📋 Task Reconciliation Needed',
+        '',
+        `⚠️ ${agentDisplayName} changed **${agentFilesChanged} file(s)** but didn't check off any tasks.`,
+        '',
+        '**Next iteration should:**',
+        '1. Review the changes made and determine which tasks were addressed',
+        '2. Update the PR body to check off completed task checkboxes',
+        '3. If work was unrelated to tasks, continue with remaining tasks',
+      );
+    }
   }
 
   // Show failure tracking prominently if there are failures
@@ -569,6 +614,9 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
     tasks: { total: tasksTotal, unchecked: tasksUnchecked },
     gate_conclusion: gateConclusion,
     failure_threshold: failureThreshold,
+    // Track task reconciliation for next iteration
+    needs_task_reconciliation: madeChangesButNoTasksChecked,
+    last_files_changed: agentFilesChanged,
   };
 
   summaryLines.push('', formatStateComment(newState));
