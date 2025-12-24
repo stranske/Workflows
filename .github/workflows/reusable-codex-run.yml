@@ -59,6 +59,7 @@ jobs:
   codex:
     name: Codex (${{ inputs.mode }})
     runs-on: ubuntu-latest
+    environment: agent-standard
     timeout-minutes: ${{ inputs.max_runtime_minutes }}
     outputs:
       final-message: ${{ steps.run_codex.outputs.final-message }}
