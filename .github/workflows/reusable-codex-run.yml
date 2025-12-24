@@ -255,9 +255,10 @@ jobs:
 
           echo "Codex completed. Output written to $OUTPUT_FILE"
 
-          # Set output for downstream steps using a unique delimiter
+          # Set output for downstream steps using a unique random delimiter (UUID)
+          # Using UUID instead of timestamp to avoid collisions with Codex output content
           if [ -f "$OUTPUT_FILE" ]; then
-            delimiter="CODEX_OUTPUT_$(date +%s)"
+            delimiter="CODEX_$(uuidgen | tr -d '-')"
             {
               echo "final-message<<${delimiter}"
               cat "$OUTPUT_FILE"
