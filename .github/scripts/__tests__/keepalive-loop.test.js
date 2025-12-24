@@ -77,6 +77,12 @@ test('countCheckboxes handles alternate list markers', () => {
   assert.deepEqual(counts, { total: 4, checked: 2, unchecked: 2 });
 });
 
+test('countCheckboxes handles numbered lists with parentheses', () => {
+  const markdown = '1) [ ] alpha\n2) [x] beta\n3) [ ] gamma';
+  const counts = countCheckboxes(markdown);
+  assert.deepEqual(counts, { total: 3, checked: 1, unchecked: 2 });
+});
+
 test('parseConfig reads JSON config snippets and normalizes values', () => {
   const body = `
 <!-- keepalive-config:start -->
@@ -423,4 +429,35 @@ test('evaluateKeepaliveLoop normalizes bullet tasks into checkboxes', async () =
   assert.deepEqual(result.checkboxCounts, { total: 3, checked: 0, unchecked: 3 });
   assert.ok(result.taskAppendix.includes('- [ ] implement parser'));
   assert.ok(result.taskAppendix.includes('- [ ] tests pass'));
+});
+
+test('evaluateKeepaliveLoop normalizes numbered lists with parentheses', async () => {
+  const pr = {
+    number: 110,
+    head: { ref: 'feature/numbered', sha: 'sha-10' },
+    labels: [{ name: 'agent:codex' }],
+    body: [
+      '## Tasks',
+      '1) add metrics',
+      '2) verify outputs',
+      '',
+      '## Acceptance Criteria',
+      '1) reports render',
+    ].join('\n'),
+  };
+  const github = buildGithubStub({
+    pr,
+    comments: [],
+    workflowRuns: [{ head_sha: 'sha-10', conclusion: 'success' }],
+  });
+  const result = await evaluateKeepaliveLoop({
+    github,
+    context: buildContext(pr.number),
+    core: buildCore(),
+  });
+  assert.equal(result.action, 'run');
+  assert.equal(result.reason, 'ready');
+  assert.deepEqual(result.checkboxCounts, { total: 3, checked: 0, unchecked: 3 });
+  assert.ok(result.taskAppendix.includes('1) [ ] add metrics'));
+  assert.ok(result.taskAppendix.includes('1) [ ] reports render'));
 });

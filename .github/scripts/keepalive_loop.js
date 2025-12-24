@@ -36,7 +36,7 @@ function toNumber(value, fallback = 0) {
 
 function countCheckboxes(markdown) {
   const result = { total: 0, checked: 0, unchecked: 0 };
-  const regex = /(?:^|\n)\s*(?:[-*+]|\d+\.)\s*\[( |x|X)\]/g;
+  const regex = /(?:^|\n)\s*(?:[-*+]|\d+[.)])\s*\[( |x|X)\]/g;
   const content = String(markdown || '');
   let match;
   while ((match = regex.exec(content)) !== null) {
@@ -58,7 +58,7 @@ function normaliseChecklistSection(content) {
   const lines = raw.split('\n');
   let mutated = false;
   const updated = lines.map((line) => {
-    const match = line.match(/^(\s*)([-*+]|\d+\.)\s+(.*)$/);
+    const match = line.match(/^(\s*)([-*+]|\d+[.)])\s+(.*)$/);
     if (!match) {
       return line;
     }
