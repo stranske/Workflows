@@ -359,19 +359,17 @@ function buildStatusBlock({scope, tasks, acceptance, headSha, workflowRuns, requ
 
   if (!isCliAgent) {
     statusLines.push(`**Head SHA:** ${headSha}`);
-  }
 
-  const latestRuns = Array.from(workflowRuns.values()).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-  let latestLine = '—';
-  if (latestRuns.length > 0) {
-    const gate = latestRuns.find((run) => (run.name || '').toLowerCase() === 'gate');
-    const chosen = gate || latestRuns[0];
-    const status = combineStatus(chosen);
-    latestLine = `${status.icon} ${status.label} — ${chosen.name}`;
-  }
-  statusLines.push(`**Latest Runs:** ${latestLine}`);
+    const latestRuns = Array.from(workflowRuns.values()).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    let latestLine = '—';
+    if (latestRuns.length > 0) {
+      const gate = latestRuns.find((run) => (run.name || '').toLowerCase() === 'gate');
+      const chosen = gate || latestRuns[0];
+      const status = combineStatus(chosen);
+      latestLine = `${status.icon} ${status.label} — ${chosen.name}`;
+    }
+    statusLines.push(`**Latest Runs:** ${latestLine}`);
 
-  if (!isCliAgent) {
     const requiredParts = [];
     for (const name of requiredChecks) {
       const run = Array.from(workflowRuns.values()).find((item) => (item.name || '').toLowerCase() === name.toLowerCase());

@@ -348,8 +348,8 @@ test('buildStatusBlock hides workflow details for CLI agents', () => {
   assert.ok(output.includes('#### Scope'));
   assert.ok(output.includes('#### Tasks'));
   assert.ok(output.includes('#### Acceptance criteria'));
-  assert.ok(output.includes('**Latest Runs:**'));
   assert.ok(!output.includes('**Head SHA:**'));
+  assert.ok(!output.includes('**Latest Runs:**'));
   assert.ok(!output.includes('**Required:**'));
   assert.ok(!output.includes('| Workflow / Job |'));
 });
