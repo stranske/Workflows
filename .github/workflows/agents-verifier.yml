@@ -60,12 +60,24 @@ jobs:
           } > "$combined"
           echo "prompt_file=$combined" >> "$GITHUB_OUTPUT"
 
+      - name: Setup Codex auth
+        if: steps.context.outputs.should_run == 'true'
+        env:
+          CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.codex
+          echo "$CODEX_AUTH_JSON" > ~/.codex/auth.json
+          chmod 600 ~/.codex/auth.json
+          echo "Codex auth configured from CODEX_AUTH_JSON secret"
+
       - name: Run verifier
         id: codex
         if: steps.context.outputs.should_run == 'true'
         uses: openai/codex-action@v1
         with:
-          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          # Auth is pre-configured via ~/.codex/auth.json from CODEX_AUTH_JSON secret
+          openai-api-key: 'auth-via-codex-auth-json'
           prompt-file: ${{ steps.prepare.outputs.prompt_file }}
           output-file: codex-output.md
           sandbox: read-only
