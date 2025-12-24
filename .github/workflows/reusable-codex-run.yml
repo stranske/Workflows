@@ -55,12 +55,6 @@ on:
         required: false
       WORKFLOWS_APP_PRIVATE_KEY:
         required: false
-
-permissions:
-  contents: write
-  pull-requests: write
-  actions: write
-
     outputs:
       final-message:
         description: 'Full Codex output message'
@@ -80,6 +74,11 @@ permissions:
       files-changed:
         description: 'Number of files changed by Codex'
         value: ${{ jobs.codex.outputs.files-changed }}
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
 
 jobs:
   codex:
