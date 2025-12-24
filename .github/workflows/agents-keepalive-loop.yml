@@ -151,7 +151,7 @@ jobs:
     name: Keepalive next task
     needs:
       - evaluate
-    if: needs.evaluate.outputs.action == 'run'
+    if: ${{ always() && needs.evaluate.result == 'success' && needs.evaluate.outputs.action == 'run' }}
     uses: ./.github/workflows/reusable-codex-run.yml
     secrets:
       CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
