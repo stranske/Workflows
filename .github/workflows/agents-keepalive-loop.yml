@@ -72,7 +72,6 @@ jobs:
     needs: evaluate
     if: needs.evaluate.outputs.action == 'run'
     uses: ./.github/workflows/reusable-codex-run.yml
-    environment: agent-standard
     secrets: inherit
     with:
       prompt_file: .github/codex/prompts/keepalive_next_task.md

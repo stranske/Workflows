@@ -195,7 +195,6 @@ jobs:
     if: needs.prepare.outputs.should_run == 'true'
     name: Run Codex autofix
     uses: ./.github/workflows/reusable-codex-run.yml
-    environment: agent-standard
     with:
       prompt_file: .github/codex/prompts/autofix_from_ci_failure.md
       mode: autofix
