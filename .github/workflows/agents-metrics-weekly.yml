@@ -1,0 +1,135 @@
+name: Agents metrics weekly
+
+on:
+  schedule:
+    - cron: "0 9 * * MON"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+  issues: write
+
+jobs:
+  aggregate:
+    name: Aggregate agent metrics
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Prepare artifact directory
+        run: mkdir -p metrics-artifacts
+
+      - name: Download metrics artifacts
+        id: download
+        uses: actions/github-script@v7
+        env:
+          OUTPUT_DIR: metrics-artifacts
+          CUTOFF_DAYS: 35
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            const { owner, repo } = context.repo;
+            const outputDir = process.env.OUTPUT_DIR || 'metrics-artifacts';
+            const cutoffDays = Number(process.env.CUTOFF_DAYS || 35);
+            const cutoff = new Date(Date.now() - cutoffDays * 24 * 60 * 60 * 1000);
+            const patterns = [/keepalive-metrics/i, /agents-autofix-metrics/i, /autofix-metrics/i, /verifier-metrics/i];
+
+            fs.mkdirSync(outputDir, { recursive: true });
+            let page = 1;
+            const perPage = 100;
+            const matches = [];
+
+            while (true) {
+              const { data } = await github.rest.actions.listArtifactsForRepo({
+                owner,
+                repo,
+                per_page: perPage,
+                page,
+              });
+
+              const artifacts = data.artifacts || [];
+              for (const artifact of artifacts) {
+                const created = new Date(artifact.created_at);
+                if (artifact.expired) continue;
+                if (created < cutoff) continue;
+                if (!patterns.some((re) => re.test(artifact.name))) continue;
+                matches.push(artifact);
+              }
+
+              if (artifacts.length < perPage) break;
+              page += 1;
+              if (page > 10) break;
+            }
+
+            for (const artifact of matches) {
+              const response = await github.rest.actions.downloadArtifact({
+                owner,
+                repo,
+                artifact_id: artifact.id,
+                archive_format: 'zip',
+              });
+              const dest = path.join(outputDir, `${artifact.name}-${artifact.id}.zip`);
+              fs.writeFileSync(dest, Buffer.from(response.data));
+              core.info(`Downloaded ${artifact.name} to ${dest}`);
+            }
+
+            core.setOutput('artifact_count', matches.length);
+
+      - name: Extract artifacts
+        if: steps.download.outputs.artifact_count != '0'
+        run: |
+          mkdir -p metrics-artifacts/extracted
+          shopt -s nullglob
+          for archive in metrics-artifacts/*.zip; do
+            unzip -o "$archive" -d metrics-artifacts/extracted
+          done
+
+      - name: Aggregate metrics
+        id: aggregate
+        run: |
+          set -euo pipefail
+          python scripts/aggregate_agent_metrics.py --input metrics-artifacts --output metrics-summary.md --recent-days 35
+
+      - name: Publish summary to issue
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const summaryPath = 'metrics-summary.md';
+            const body = fs.existsSync(summaryPath)
+              ? fs.readFileSync(summaryPath, 'utf-8')
+              : 'No metrics available for this period.';
+            const issueNumber = 93;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body,
+            });
+
+      - name: Upload weekly summary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: agents-metrics-summary
+          path: metrics-summary.md
+          if-no-files-found: warn
+          retention-days: 45
+
+      - name: Append to job summary
+        if: always()
+        run: |
+          if [ -f metrics-summary.md ]; then
+            cat metrics-summary.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No metrics summary generated." >> "$GITHUB_STEP_SUMMARY"
+          fi
