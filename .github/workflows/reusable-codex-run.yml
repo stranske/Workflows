@@ -61,6 +61,26 @@ permissions:
   pull-requests: write
   actions: write
 
+    outputs:
+      final-message:
+        description: 'Full Codex output message'
+        value: ${{ jobs.codex.outputs.final-message }}
+      final-message-summary:
+        description: 'First 500 chars of Codex output (safe for PR comments)'
+        value: ${{ jobs.codex.outputs.final-message-summary }}
+      exit-code:
+        description: 'Codex CLI exit code (0=success)'
+        value: ${{ jobs.codex.outputs.exit-code }}
+      changes-made:
+        description: 'Whether Codex made file changes (true/false)'
+        value: ${{ jobs.codex.outputs.changes-made }}
+      commit-sha:
+        description: 'SHA of the commit if changes were pushed'
+        value: ${{ jobs.codex.outputs.commit-sha }}
+      files-changed:
+        description: 'Number of files changed by Codex'
+        value: ${{ jobs.codex.outputs.files-changed }}
+
 jobs:
   codex:
     name: Codex (${{ inputs.mode }})
@@ -70,6 +90,11 @@ jobs:
     if: ${{ !inputs.skip }}
     outputs:
       final-message: ${{ steps.run_codex.outputs.final-message }}
+      final-message-summary: ${{ steps.run_codex.outputs.final-message-summary }}
+      exit-code: ${{ steps.run_codex.outputs.exit-code }}
+      changes-made: ${{ steps.commit.outputs.changes-made }}
+      commit-sha: ${{ steps.commit.outputs.commit-sha }}
+      files-changed: ${{ steps.commit.outputs.files-changed }}
     steps:
       - name: Mint GitHub App token (preferred)
         id: app_token
@@ -251,21 +276,40 @@ jobs:
             --sandbox "$SANDBOX" \
             --output-last-message "$OUTPUT_FILE" \
             $EXTRA_ARGS \
-            "$(cat "$PROMPT_FILE")"
+            "$(cat "$PROMPT_FILE")" || CODEX_EXIT=$?
 
-          echo "Codex completed. Output written to $OUTPUT_FILE"
+          CODEX_EXIT=${CODEX_EXIT:-0}
+          echo "exit-code=${CODEX_EXIT}" >> "$GITHUB_OUTPUT"
 
-          # Set output for downstream steps using a unique delimiter
+          if [ $CODEX_EXIT -ne 0 ]; then
+            echo "::error::Codex CLI exited with code ${CODEX_EXIT}"
+          fi
+
+          echo "Codex completed with exit code ${CODEX_EXIT}. Output written to $OUTPUT_FILE"
+
+          # Set outputs for downstream steps
           if [ -f "$OUTPUT_FILE" ]; then
-            delimiter="CODEX_OUTPUT_$(date +%s)"
+            # Full message with safe delimiter (UUID)
+            delimiter="CODEX_$(uuidgen | tr -d '-')"
             {
               echo "final-message<<${delimiter}"
               cat "$OUTPUT_FILE"
               echo "${delimiter}"
             } >> "$GITHUB_OUTPUT"
+
+            # Summary (first 500 chars, safe for PR comments)
+            summary=$(head -c 500 "$OUTPUT_FILE" | tr '\n' ' ' | sed 's/"/\\"/g')
+            echo "final-message-summary=${summary}" >> "$GITHUB_OUTPUT"
+          else
+            echo "final-message=" >> "$GITHUB_OUTPUT"
+            echo "final-message-summary=No output captured" >> "$GITHUB_OUTPUT"
           fi
 
+          # Exit with original code to mark job as failed if Codex failed
+          exit $CODEX_EXIT
+
       - name: Commit and push changes
+        id: commit
         env:
           MODE: ${{ inputs.mode }}
           PR_NUMBER: ${{ inputs.pr_number }}
@@ -276,10 +320,19 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          if [ -z "$(git status --porcelain)" ]; then
+          # Count changed files
+          CHANGED_FILES=$(git status --porcelain | wc -l)
+          echo "files-changed=${CHANGED_FILES}" >> "$GITHUB_OUTPUT"
+
+          if [ "$CHANGED_FILES" -eq 0 ]; then
             echo "No changes to commit."
+            echo "changes-made=false" >> "$GITHUB_OUTPUT"
+            echo "commit-sha=" >> "$GITHUB_OUTPUT"
             exit 0
           fi
+
+          echo "changes-made=true" >> "$GITHUB_OUTPUT"
+          echo "::notice::Codex made changes to ${CHANGED_FILES} file(s)"
 
           commit_message="chore(codex-${MODE}): apply updates"
           if [ -n "$PR_NUMBER" ]; then
@@ -287,13 +340,21 @@ jobs:
           fi
 
           if [ "$PUSH_ALLOWED" != "true" ]; then
-            echo "GitHub App token missing; refusing to push without app identity to preserve workflow triggers."
+            echo "::error::GitHub App token missing; refusing to push without app identity to preserve workflow triggers."
+            echo "commit-sha=" >> "$GITHUB_OUTPUT"
             exit 1
           fi
 
           git add -A
           git commit -m "$commit_message"
+
+          # Capture commit SHA before push
+          COMMIT_SHA=$(git rev-parse HEAD)
+          echo "commit-sha=${COMMIT_SHA}" >> "$GITHUB_OUTPUT"
+
           git push "https://x-access-token:${PUSH_TOKEN}@github.com/${{ github.repository }}" "HEAD:${{ github.ref_name }}"
+
+          echo "::notice::Pushed commit ${COMMIT_SHA} with ${CHANGED_FILES} file(s) changed"
 
       - name: Upload Codex output
         if: always() && hashFiles('codex-output.md') != ''
