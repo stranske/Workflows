@@ -1,0 +1,54 @@
+name: Agents Test Codex Direct
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+
+jobs:
+  preflight:
+    name: Check secrets
+    runs-on: ubuntu-latest
+    environment: agent-standard
+    outputs:
+      secrets_ok: ${{ steps.check.outputs.secrets_ok }}
+    steps:
+      - name: Check secrets
+        id: check
+        env:
+          HAS_CODEX_AUTH: ${{ secrets.CODEX_AUTH_JSON != '' }}
+          HAS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID != '' }}
+        run: |
+          echo "CODEX_AUTH_JSON present: $HAS_CODEX_AUTH"
+          echo "WORKFLOWS_APP_ID present: $HAS_APP_ID"
+          echo "secrets_ok=true" >> "$GITHUB_OUTPUT"
+
+  test-codex:
+    name: Call Codex
+    needs: preflight
+    if: needs.preflight.outputs.secrets_ok == 'true'
+    uses: ./.github/workflows/reusable-codex-run.yml
+    secrets:
+      CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
+      WORKFLOWS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID }}
+      WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+    with:
+      prompt_file: .github/codex/prompts/keepalive_next_task.md
+      mode: test
+      pr_number: '103'
+
+  summary:
+    name: Summary
+    needs:
+      - preflight
+      - test-codex
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report result
+        run: |
+          echo "preflight: ${{ needs.preflight.result }}"
+          echo "test-codex: ${{ needs.test-codex.result }}"
