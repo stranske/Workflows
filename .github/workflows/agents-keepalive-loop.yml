@@ -140,10 +140,10 @@ jobs:
           echo "WORKFLOWS_APP_ID present: $HAS_APP_ID"
           echo "WORKFLOWS_APP_PRIVATE_KEY present: $HAS_APP_KEY"
           if [ "$HAS_CODEX_AUTH" = "true" ] || [ "$HAS_APP_ID" = "true" ]; then
-            echo "secrets_ok=true" >> $GITHUB_OUTPUT
+            echo "secrets_ok=true" >> "$GITHUB_OUTPUT"
           else
             echo "::error::Neither CODEX_AUTH_JSON nor WORKFLOWS_APP_ID is set. Cannot run Codex."
-            echo "secrets_ok=false" >> $GITHUB_OUTPUT
+            echo "secrets_ok=false" >> "$GITHUB_OUTPUT"
             exit 1
           fi
 
