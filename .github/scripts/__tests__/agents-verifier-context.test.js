@@ -27,7 +27,13 @@ const buildCore = () => {
   };
 };
 
-const buildGithubStub = ({ prDetails, prsForSha = [], closingIssues = [] } = {}) => ({
+const buildGithubStub = ({
+  prDetails,
+  prsForSha = [],
+  closingIssues = [],
+  listError = null,
+  graphqlError = null,
+} = {}) => ({
   rest: {
     pulls: {
       async get() {
@@ -36,11 +42,17 @@ const buildGithubStub = ({ prDetails, prsForSha = [], closingIssues = [] } = {})
     },
     repos: {
       async listPullRequestsAssociatedWithCommit() {
+        if (listError) {
+          throw listError;
+        }
         return { data: prsForSha };
       },
     },
   },
   async graphql() {
+    if (graphqlError) {
+      throw graphqlError;
+    }
     return {
       repository: {
         pullRequest: {
@@ -161,4 +173,59 @@ test('buildVerifierContext writes verifier context with linked issues', async ()
   assert.ok(markdown.includes('Issue #789'));
 
   fs.rmSync(contextPath, { force: true });
+});
+
+test('buildVerifierContext skips push events without a commit SHA', async () => {
+  const core = buildCore();
+  const context = {
+    eventName: 'push',
+    repo: { owner: 'octo', repo: 'workflows' },
+    payload: {},
+    sha: '',
+  };
+  const result = await buildVerifierContext({
+    github: buildGithubStub(),
+    context,
+    core,
+  });
+  assert.equal(result.shouldRun, false);
+  assert.equal(core.outputs.should_run, 'false');
+  assert.ok(core.outputs.skip_reason.includes('Missing commit SHA'));
+});
+
+test('buildVerifierContext skips push events with no associated PR', async () => {
+  const core = buildCore();
+  const context = {
+    eventName: 'push',
+    repo: { owner: 'octo', repo: 'workflows' },
+    payload: { after: 'sha-9' },
+    sha: 'sha-9',
+  };
+  const result = await buildVerifierContext({
+    github: buildGithubStub({ prsForSha: [] }),
+    context,
+    core,
+  });
+  assert.equal(result.shouldRun, false);
+  assert.equal(core.outputs.should_run, 'false');
+  assert.ok(core.outputs.skip_reason.includes('No pull request associated'));
+});
+
+test('buildVerifierContext skips push events when PR lookup fails', async () => {
+  const core = buildCore();
+  const context = {
+    eventName: 'push',
+    repo: { owner: 'octo', repo: 'workflows' },
+    payload: { after: 'sha-10' },
+    sha: 'sha-10',
+  };
+  const result = await buildVerifierContext({
+    github: buildGithubStub({ listError: new Error('boom') }),
+    context,
+    core,
+  });
+  assert.equal(result.shouldRun, false);
+  assert.equal(core.outputs.should_run, 'false');
+  assert.ok(core.outputs.skip_reason.includes('Unable to resolve pull request'));
+  assert.equal(core.warnings.length, 1);
 });

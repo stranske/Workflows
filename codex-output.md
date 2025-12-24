@@ -1,10 +1,10 @@
-Added coverage for keepalive loop summary behavior in `.github/scripts/__tests__/keepalive-loop.test.js` to exercise iteration advancement, failure reset, and pause/label handling for repeated failures.
+Added push-event skip coverage for verifier context so missing SHA and PR lookup failures are exercised.
 
-**Changes**
-- Added tests for `updateKeepaliveLoopSummary` success path (iteration bump, cleared failure, Codex run details).
-- Added tests for repeated failure stop behavior, including pause messaging and `needs-human` label call.
+Details
+- Extended ` .github/scripts/__tests__/agents-verifier-context.test.js ` to simulate push events without SHA, with no associated PR, and with PR lookup errors; these assert the skip outputs and warnings.
 
-**Tests**
-- `node --test .github/scripts/__tests__/keepalive-loop.test.js`
+Tests
+- `node --test .github/scripts/__tests__/agents-verifier-context.test.js`
 
-Noticed an untracked `codex-prompt.md` in the repo. Should I leave it as-is or clean it up?
+Next steps
+1) Run the full agent script test suite if you want broader coverage: `node --test .github/scripts/__tests__/*.test.js`
