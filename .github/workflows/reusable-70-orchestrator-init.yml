@@ -33,6 +33,10 @@ on:
         required: false
       SERVICE_BOT_PAT:
         required: false
+      WORKFLOWS_APP_ID:
+        required: false
+      WORKFLOWS_APP_PRIVATE_KEY:
+        required: false
     outputs:
       rate_limit_safe:
         description: 'Whether rate limit is safe to proceed'
@@ -277,14 +281,29 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       token_source: ${{ steps.select.outputs.token || '' }}
+      app_token: ${{ steps.app_token.outputs.token || '' }}
     steps:
+      - name: Mint GitHub App token (preferred)
+        id: app_token
+        if: always()
+        continue-on-error: true
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.WORKFLOWS_APP_ID }}
+          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+
       - name: Select write token
         id: select
         env:
+          APP_TOKEN: ${{ steps.app_token.outputs.token }}
           ACTIONS_TOKEN: ${{ secrets.ACTIONS_BOT_PAT }}
           SERVICE_TOKEN: ${{ secrets.SERVICE_BOT_PAT }}
         run: |
           set -euo pipefail
+          if [ -n "${APP_TOKEN}" ]; then
+            printf 'token=%s\n' 'APP_TOKEN' >>"${GITHUB_OUTPUT}"
+            exit 0
+          fi
           if [ -n "${ACTIONS_TOKEN}" ]; then
             printf 'token=%s\n' 'ACTIONS_BOT_PAT' >>"${GITHUB_OUTPUT}"
             exit 0
@@ -293,11 +312,11 @@ jobs:
             printf 'token=%s\n' 'SERVICE_BOT_PAT' >>"${GITHUB_OUTPUT}"
             exit 0
           fi
-          echo '::error::Keepalive orchestrator requires ACTIONS_BOT_PAT or SERVICE_BOT_PAT.' >&2
+          echo '::error::Keepalive orchestrator requires App token, ACTIONS_BOT_PAT, or SERVICE_BOT_PAT.' >&2
           exit 1
 
       - name: Probe keepalive token identity
-        if: steps.select.outcome == 'success'
+        if: steps.select.outcome == 'success' && steps.select.outputs.token != 'APP_TOKEN'
         id: probe_token_identity
         uses: actions/github-script@v7
         with:
@@ -312,7 +331,7 @@ jobs:
             core.setOutput('login', login);
 
       - name: Enforce keepalive token identity
-        if: steps.select.outcome == 'success'
+        if: steps.select.outcome == 'success' && steps.select.outputs.token != 'APP_TOKEN'
         env:
           TOKEN_SOURCE: ${{ steps.select.outputs.token || 'none' }}
           TOKEN_LOGIN: ${{ steps.probe_token_identity.outputs.login || '' }}
@@ -340,6 +359,11 @@ jobs:
               exit 1 ;;
           esac
           printf 'PREPOST: token=%s login=%s\n' "${token}" "${login}" >>"$GITHUB_STEP_SUMMARY"
+
+      - name: Log App token selection
+        if: steps.select.outputs.token == 'APP_TOKEN'
+        run: |
+          printf 'PREPOST: token=APP_TOKEN login=agents-workflows-bot[bot]\n' >>"$GITHUB_STEP_SUMMARY"
 
   resolve-params:
     name: Resolve Parameters

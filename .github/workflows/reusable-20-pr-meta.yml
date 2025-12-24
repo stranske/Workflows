@@ -59,6 +59,12 @@ on:
       AGENTS_AUTOMATION_PAT:
         description: 'PAT for agent automation'
         required: false
+      WORKFLOWS_APP_ID:
+        description: 'GitHub App ID for minting installation tokens'
+        required: false
+      WORKFLOWS_APP_PRIVATE_KEY:
+        description: 'GitHub App private key for minting installation tokens'
+        required: false
     outputs:
       keepalive_detected:
         description: 'Whether a keepalive comment was detected'
@@ -192,12 +198,20 @@ jobs:
         run: |
           echo "WORKFLOWS_SCRIPTS_PATH=${GITHUB_WORKSPACE}/workflows-lib" >> "$GITHUB_ENV"
 
+      - name: Mint GitHub App token (preferred)
+        id: app_token
+        continue-on-error: true
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.WORKFLOWS_APP_ID }}
+          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+
       - name: Run orchestrator
         uses: actions/github-script@v7
         env:
           INSTRUCTION_BODY: ${{ needs.keepalive_dispatch.outputs.instruction_body }}
         with:
-          github-token: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT || secrets.AGENTS_AUTOMATION_PAT || github.token }}
+          github-token: ${{ steps.app_token.outputs.token || secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT || secrets.AGENTS_AUTOMATION_PAT || github.token }}
           script: |
             const scriptsPath = process.env.WORKFLOWS_SCRIPTS_PATH;
             const { runKeepaliveOrchestrator } = require(`${scriptsPath}/.github/scripts/agents_pr_meta_orchestrator.js`);

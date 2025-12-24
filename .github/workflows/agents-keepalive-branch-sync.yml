@@ -45,9 +45,6 @@ jobs:
       result: ${{ steps.sync.outputs.result || 'unknown' }}
       reason: ${{ steps.sync.outputs.reason || '' }}
       new_head_sha: ${{ steps.sync.outputs.new_head_sha || '' }}
-    env:
-      PREFERRED_TOKEN: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT || github.token }}
-      GH_TOKEN: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT || github.token }}
     steps:
       - name: Validate fork inputs
         id: validate
@@ -68,13 +65,52 @@ jobs:
             echo "::warning::Head repository missing; defaulting to base repository for checkout."
           fi
 
+      - name: Mint GitHub App token (preferred)
+        id: app_token
+        continue-on-error: true
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.WORKFLOWS_APP_ID }}
+          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+
+      - name: Select authentication token (app > PAT > GITHUB_TOKEN)
+        id: auth_token
+        env:
+          APP_TOKEN: ${{ steps.app_token.outputs.token }}
+          ACTIONS_BOT_PAT: ${{ secrets.ACTIONS_BOT_PAT }}
+          SERVICE_BOT_PAT: ${{ secrets.SERVICE_BOT_PAT }}
+          GITHUB_TOKEN_FALLBACK: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          token_source="github-token"
+          token_value="$GITHUB_TOKEN_FALLBACK"
+
+          if [ -n "${APP_TOKEN:-}" ]; then
+            token_source="app-token"
+            token_value="$APP_TOKEN"
+          elif [ -n "${ACTIONS_BOT_PAT:-}" ]; then
+            token_source="actions-bot-pat"
+            token_value="$ACTIONS_BOT_PAT"
+          elif [ -n "${SERVICE_BOT_PAT:-}" ]; then
+            token_source="service-bot-pat"
+            token_value="$SERVICE_BOT_PAT"
+          fi
+
+          {
+            echo "token_source=$token_source"
+            echo "token=$token_value"
+          } >> "$GITHUB_OUTPUT"
+
+          printf 'Selected token source: %s\n' "$token_source"
+
       - name: Checkout PR head
         uses: actions/checkout@v4
         with:
           repository: ${{ inputs.head_repository || github.repository }}
           ref: ${{ inputs.head_ref }}
           fetch-depth: 0
-          token: ${{ env.PREFERRED_TOKEN }}
+          token: ${{ steps.auth_token.outputs.token }}
 
       - name: Configure git author
         run: |
@@ -272,6 +308,7 @@ jobs:
         env:
           PR_NUMBER: ${{ inputs.pr_number }}
           REASON: ${{ steps.sync.outputs.reason }}
+          GH_TOKEN: ${{ steps.auth_token.outputs.token }}
         run: |
           set -euo pipefail
           echo "Applying sync-failed label to PR #$PR_NUMBER..."
@@ -284,6 +321,7 @@ jobs:
           PR_NUMBER: ${{ inputs.pr_number }}
           REASON: ${{ steps.sync.outputs.reason }}
           TRACE: ${{ inputs.trace }}
+          GH_TOKEN: ${{ steps.auth_token.outputs.token }}
         run: |
           set -euo pipefail
           body="⚠️ **Branch sync failed** (trace: \`$TRACE\`)
@@ -313,6 +351,7 @@ jobs:
           NEW_SHA: ${{ steps.sync.outputs.new_head_sha }}
           PR_NUMBER: ${{ inputs.pr_number }}
           TRACE: ${{ inputs.trace }}
+          TOKEN_SOURCE: ${{ steps.auth_token.outputs.token_source }}
         run: |
           {
             echo "## Keepalive Branch Sync"
@@ -326,4 +365,5 @@ jobs:
             if [ -n "$NEW_SHA" ]; then
               echo "| New HEAD | \`${NEW_SHA:0:7}\` |"
             fi
+            echo "| Token source | \`$TOKEN_SOURCE\` |"
           } >> "$GITHUB_STEP_SUMMARY"

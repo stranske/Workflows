@@ -146,17 +146,37 @@ jobs:
             core.setOutput('comment_id', String(comment.id || ''));
             core.setOutput('author', login);
 
-      - name: Ensure moderation token available
+      - name: Mint GitHub App token (preferred)
+        id: app_token
         if: steps.evaluate.outputs.delete == 'true'
-        run: |
-          if [ -z "${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}" ]; then
-            echo "::error::Moderation requires ACTIONS_BOT_PAT (or SERVICE_BOT_PAT as fallback)." >&2
-            exit 1
-          fi
-        shell: bash
+        continue-on-error: true
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.WORKFLOWS_APP_ID }}
+          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+
+      - name: Select authentication token (app > PAT > GITHUB_TOKEN)
+        id: select_token
+        if: steps.evaluate.outputs.delete == 'true'
         env:
+          APP_TOKEN: ${{ steps.app_token.outputs.token || '' }}
           ACTIONS_TOKEN: ${{ secrets.ACTIONS_BOT_PAT }}
           SERVICE_TOKEN: ${{ secrets.SERVICE_BOT_PAT }}
+        run: |
+          set -euo pipefail
+          if [ -n "${APP_TOKEN:-}" ]; then
+            echo "token=${APP_TOKEN}" >> "$GITHUB_OUTPUT"
+            echo "source=WORKFLOWS_APP" >> "$GITHUB_OUTPUT"
+          elif [ -n "${ACTIONS_TOKEN:-}" ]; then
+            echo "token=${ACTIONS_TOKEN}" >> "$GITHUB_OUTPUT"
+            echo "source=ACTIONS_BOT_PAT" >> "$GITHUB_OUTPUT"
+          elif [ -n "${SERVICE_TOKEN:-}" ]; then
+            echo "token=${SERVICE_TOKEN}" >> "$GITHUB_OUTPUT"
+            echo "source=SERVICE_BOT_PAT" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::Moderation requires WORKFLOWS_APP or ACTIONS_BOT_PAT (or SERVICE_BOT_PAT as fallback)." >&2
+            exit 1
+          fi
 
       - name: Delete connector comment
         if: steps.evaluate.outputs.delete == 'true'
@@ -164,7 +184,7 @@ jobs:
         env:
           COMMENT_ID: ${{ steps.evaluate.outputs.comment_id }}
         with:
-          github-token: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
+          github-token: ${{ steps.select_token.outputs.token }}
           script: |
             const commentId = Number(process.env.COMMENT_ID || 0);
             if (!Number.isFinite(commentId) || commentId <= 0) {

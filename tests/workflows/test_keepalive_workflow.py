@@ -480,4 +480,5 @@ def test_keepalive_requires_dispatch_token() -> None:
     result = subprocess.run(command, capture_output=True, text=True)
     assert result.returncode != 0, "Expected harness to fail without dispatch token"
     combined_output = (result.stderr or "") + (result.stdout or "")
-    assert "ACTIONS_BOT_PAT is required" in combined_output
+    # New multi-tier auth uses generic token error message
+    assert "GitHub token is required" in combined_output

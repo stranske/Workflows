@@ -15,11 +15,85 @@ jobs:
       issues: write
       pull-requests: write
     env:
-      PREFERRED_TOKEN: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT || github.token }}
+      WORKFLOWS_APP_COMPAT_MODE: ${{ vars.WORKFLOWS_APP_COMPAT_MODE || '' }}
+      WORKFLOWS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID || '' }}
+      WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || '' }}
+      ACTIONS_BOT_PAT: ${{ secrets.ACTIONS_BOT_PAT || '' }}
+      SERVICE_BOT_PAT: ${{ secrets.SERVICE_BOT_PAT || '' }}
     steps:
+      - name: Mint GitHub App token (preferred)
+        id: app-token
+        if: ${{ env.WORKFLOWS_APP_ID != '' && env.WORKFLOWS_APP_PRIVATE_KEY != '' }}
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ env.WORKFLOWS_APP_ID }}
+          private-key: ${{ env.WORKFLOWS_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Select authentication token (app > PAT > GITHUB_TOKEN)
+        id: select-token
+        env:
+          APP_TOKEN: ${{ steps.app-token.outputs.token || '' }}
+          ACTIONS_BOT_PAT: ${{ env.ACTIONS_BOT_PAT || '' }}
+          SERVICE_BOT_PAT: ${{ env.SERVICE_BOT_PAT || '' }}
+          GITHUB_TOKEN: ${{ github.token }}
+          COMPAT_MODE: ${{ env.WORKFLOWS_APP_COMPAT_MODE || '' }}
+        run: |
+          set -euo pipefail
+          token_value=""
+          token_source=""
+
+          compat_mode="$(printf '%s' "${COMPAT_MODE:-}" | tr '[:upper:]' '[:lower:]')"
+          prefer_pat="false"
+          if [ "${compat_mode}" = "pat" ] || [ "${compat_mode}" = "pat-first" ] || [ "${compat_mode}" = "pat_only" ] || [ "${compat_mode}" = "pat-only" ]; then
+            prefer_pat="true"
+          fi
+
+          if [ "${prefer_pat}" = "true" ] && [ -n "${ACTIONS_BOT_PAT:-}" ]; then
+            token_value="${ACTIONS_BOT_PAT}"
+            token_source="ACTIONS_BOT_PAT"
+          elif [ -z "${token_value}" ] && [ -z "${token_source}" ] && [ -n "${APP_TOKEN:-}" ]; then
+            token_value="${APP_TOKEN}"
+            token_source="WORKFLOWS_APP"
+          elif [ -z "${token_value}" ] && [ -n "${ACTIONS_BOT_PAT:-}" ]; then
+            token_value="${ACTIONS_BOT_PAT}"
+            token_source="ACTIONS_BOT_PAT"
+          elif [ -z "${token_value}" ] && [ -n "${SERVICE_BOT_PAT:-}" ]; then
+            token_value="${SERVICE_BOT_PAT}"
+            token_source="SERVICE_BOT_PAT"
+          fi
+
+          if [ -z "${token_value}" ]; then
+            token_value="${GITHUB_TOKEN}"
+            token_source="GITHUB_TOKEN"
+          fi
+
+          {
+            echo "GH_TOKEN=${token_value}"
+            echo "ACTIONS_BOT_PAT=${token_value}"
+          } >>"${GITHUB_ENV}"
+          echo "compat_mode=${compat_mode:-}" >>"${GITHUB_OUTPUT}"
+          echo "token_source=${token_source}" >>"${GITHUB_OUTPUT}"
+
+          case "${token_source}" in
+            WORKFLOWS_APP)
+              echo 'Using GitHub App token (WORKFLOWS_APP); write operations will use the installation token.'
+              ;;
+            ACTIONS_BOT_PAT)
+              echo 'Using ACTIONS_BOT_PAT fallback. Configure WORKFLOWS_APP_ID and WORKFLOWS_APP_PRIVATE_KEY to enable the GitHub App path.'
+              ;;
+            SERVICE_BOT_PAT)
+              echo 'Using SERVICE_BOT_PAT fallback. Configure WORKFLOWS_APP_ID and WORKFLOWS_APP_PRIVATE_KEY to enable the GitHub App path.'
+              ;;
+            *)
+              echo 'Using default GITHUB_TOKEN fallback.'
+              ;;
+          esac
+
       - name: Checkout keepalive scripts
         uses: actions/checkout@v4
         with:
+          token: ${{ env.GH_TOKEN }}
           sparse-checkout: |
             .github/scripts
           sparse-checkout-cone-mode: false
@@ -33,7 +107,7 @@ jobs:
           SYNC_LABEL: agents:sync-required
           DEBUG_LABEL: agents:debug
         with:
-          github-token: ${{ env.PREFERRED_TOKEN }}
+          github-token: ${{ env.GH_TOKEN }}
           script: |
             const payload = context.payload?.client_payload || {};
             const prNumber = Number(payload.issue);
@@ -87,3 +161,18 @@ jobs:
 
             const { runKeepalivePostWork } = require('./.github/scripts/keepalive_post_work.js');
             await runKeepalivePostWork({ core, github, context, env });
+
+      - name: Summarize token source
+        if: ${{ always() }}
+        env:
+          TOKEN_SOURCE: ${{ steps.select-token.outputs.token_source || 'unknown' }}
+          COMPAT_MODE: ${{ steps.select-token.outputs.compat_mode || '' }}
+        run: |
+          {
+            echo "Token source: ${TOKEN_SOURCE}"
+            if [ -n "${COMPAT_MODE:-}" ]; then
+              echo "Compat mode: ${COMPAT_MODE}"
+            else
+              echo "Compat mode: (default)"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -101,6 +101,10 @@ on:
         required: false
       OWNER_PR_PAT:
         required: false
+      WORKFLOWS_APP_ID:
+        required: false
+      WORKFLOWS_APP_PRIVATE_KEY:
+        required: false
 
 jobs:
   keepalive-guard:
@@ -118,6 +122,14 @@ jobs:
       active_runs_recent_window: ${{ steps.guard.outputs.active_runs_recent_window || '' }}
       has_sync_label: ${{ steps.guard.outputs.has_sync_label || 'false' }}
     steps:
+      - name: Mint GitHub App token (preferred)
+        id: app_token
+        continue-on-error: true
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.WORKFLOWS_APP_ID }}
+          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+
       - name: Checkout guard helpers
         uses: actions/checkout@v4
         with:
@@ -135,7 +147,7 @@ jobs:
           KEEPALIVE_PR: ${{ inputs.keepalive_pr }}
           KEEPALIVE_MAX_RETRIES: ${{ inputs.keepalive_max_retries || '5' }}
         with:
-          github-token: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT || github.token }}
+          github-token: ${{ steps.app_token.outputs.token || secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT || github.token }}
           script: |
             // Do not remove checkout; local helper is required.
             const { runKeepaliveGate } = require('./.github/scripts/keepalive_orchestrator_gate_runner.js');
@@ -842,7 +854,7 @@ jobs:
           ROUND: ${{ steps.prepare.outputs.round }}
           HEAD_SHA: ${{ steps.snapshot.outputs.head }}
         with:
-          github-token: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT || github.token }}
+          github-token: ${{ steps.app_token.outputs.token || secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT || github.token }}
           script: |
             const normalise = (value) => String(value || '').trim();
             const prNumber = Number.parseInt(normalise(process.env.PR_NUMBER), 10);
@@ -1186,12 +1198,24 @@ jobs:
       new_head: ${{ steps.head_check.outputs.new_head || '' }}
       pr_url: ${{ steps.head_check.outputs.pr_url || '' }}
     steps:
+      - name: Mint GitHub App token (preferred)
+        id: app_token
+        continue-on-error: true
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.WORKFLOWS_APP_ID }}
+          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+
       - name: Ensure branch-sync token available
         env:
+          APP_TOKEN: ${{ steps.app_token.outputs.token }}
           ACTIONS_TOKEN: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
         run: |
+          if [ -n "${APP_TOKEN}" ]; then
+            exit 0
+          fi
           if [ -z "${ACTIONS_TOKEN}" ]; then
-            echo "::error::Branch-sync validation requires ACTIONS_BOT_PAT or SERVICE_BOT_PAT." >&2
+            echo "::error::Branch-sync validation requires App token, ACTIONS_BOT_PAT, or SERVICE_BOT_PAT." >&2
             exit 1
           fi
 
@@ -1210,7 +1234,7 @@ jobs:
           ROUND: ${{ needs.keepalive-prep.outputs.round }}
           AGENT: ${{ needs.keepalive-prep.outputs.agent }}
         with:
-          github-token: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
+          github-token: ${{ steps.app_token.outputs.token || secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
           script: |
             const { owner, repo } = context.repo;
             const workflowId = process.env.WORKFLOW_ID || 'agents-keepalive-branch-sync.yml';
@@ -1291,7 +1315,7 @@ jobs:
           TIMEOUT_SECONDS: 600
           POLL_SECONDS: 15
         with:
-          github-token: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
+          github-token: ${{ steps.app_token.outputs.token || secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
           script: |
             const { owner, repo } = context.repo;
             const workflowId = process.env.WORKFLOW_ID || 'agents-keepalive-branch-sync.yml';
@@ -1379,7 +1403,7 @@ jobs:
           PR_NUMBER: ${{ needs.keepalive-prep.outputs.pr_number }}
           BASELINE_HEAD: ${{ needs.keepalive-prep.outputs.baseline_head }}
         with:
-          github-token: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
+          github-token: ${{ steps.app_token.outputs.token || secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
           script: |
             const normalise = (value) => String(value || '').trim();
             const prNumber = Number.parseInt(normalise(process.env.PR_NUMBER), 10);
@@ -1464,12 +1488,24 @@ jobs:
       status_mode: ${{ steps.reconcile.outputs.status_mode || '' }}
       link: ${{ steps.reconcile.outputs.link || '-' }}
     steps:
+      - name: Mint GitHub App token (preferred)
+        id: app_token
+        continue-on-error: true
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.WORKFLOWS_APP_ID }}
+          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+
       - name: Ensure keepalive sync token available
         env:
+          APP_TOKEN: ${{ steps.app_token.outputs.token }}
           ACTIONS_TOKEN: ${{ secrets.ACTIONS_BOT_PAT }}
         run: |
+          if [ -n "${APP_TOKEN}" ]; then
+            exit 0
+          fi
           if [ -z "${ACTIONS_TOKEN}" ]; then
-            echo "::error::Keepalive sync requires ACTIONS_BOT_PAT." >&2
+            echo "::error::Keepalive sync requires App token or ACTIONS_BOT_PAT." >&2
             exit 1
           fi
 
@@ -1512,7 +1548,7 @@ jobs:
           MERGE_METHOD: squash
           DELETE_TEMP_BRANCH: 'true'
         with:
-          github-token: ${{ secrets.ACTIONS_BOT_PAT }}
+          github-token: ${{ steps.app_token.outputs.token || secrets.ACTIONS_BOT_PAT }}
           script: |
             const { runKeepalivePostWork } = require('./.github/scripts/keepalive_post_work.js');
             await runKeepalivePostWork({ core, github, context, env: process.env });
@@ -1637,15 +1673,30 @@ jobs:
           sparse-checkout-cone-mode: false
           fetch-depth: 1
 
+      - name: Mint GitHub App token (preferred)
+        id: app_token
+        if: steps.gate.outputs.should_post == 'true'
+        continue-on-error: true
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.WORKFLOWS_APP_ID }}
+          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+
       - name: Select keepalive author token
         id: author_token
         if: steps.gate.outputs.should_post == 'true'
         shell: bash
         env:
           PREFLIGHT_TOKEN: ${{ inputs.token_source || '' }}
+          APP_TOKEN_AVAILABLE: ${{ steps.app_token.outputs.token && 'true' || 'false' }}
         run: |
           set -euo pipefail
           token="${PREFLIGHT_TOKEN}"
+          if [ "${token}" = 'APP_TOKEN' ] && [ "${APP_TOKEN_AVAILABLE}" = 'true' ]; then
+            echo "token=APP_TOKEN" >>"$GITHUB_OUTPUT"
+            echo "author=agents-workflows-bot[bot]" >>"$GITHUB_OUTPUT"
+            exit 0
+          fi
           if [ "${token}" = 'ACTIONS_BOT_PAT' ]; then
             echo "token=ACTIONS_BOT_PAT" >>"$GITHUB_OUTPUT"
             echo "author=stranske" >>"$GITHUB_OUTPUT"
@@ -1669,10 +1720,44 @@ jobs:
           SELECTED_TOKEN: ${{ steps.author_token.outputs.token || '' }}
         run: |
           set -euo pipefail
-          if [ "${SELECTED_TOKEN}" != 'ACTIONS_BOT_PAT' ]; then
-            echo "::error::Keepalive instruction must post as stranske (ACTIONS_BOT_PAT). Selected token: ${SELECTED_TOKEN:-none}." >&2
-            exit 1
-          fi
+          case "${SELECTED_TOKEN}" in
+            'APP_TOKEN'|'ACTIONS_BOT_PAT'|'SERVICE_BOT_PAT')
+              exit 0 ;;
+            *)
+              echo "::error::Keepalive instruction must post with App token or PAT. Selected token: ${SELECTED_TOKEN:-none}." >&2
+              exit 1 ;;
+          esac
+
+      - name: Post keepalive instruction (App token preferred)
+        id: post_instruction_app
+        if: steps.gate.outputs.should_post == 'true' && steps.author_token.outputs.token == 'APP_TOKEN'
+        uses: actions/github-script@v7
+        env:
+          PR_NUMBER: ${{ needs.keepalive-prep.outputs.pr_number }}
+          COMMENT_BODY: ${{ needs.keepalive-prep.outputs.body }}
+        with:
+          github-token: ${{ steps.app_token.outputs.token }}
+          script: |
+            const { owner, repo } = context.repo;
+            const issueNumber = Number(process.env.PR_NUMBER || 0);
+            if (!Number.isFinite(issueNumber) || issueNumber <= 0) {
+              core.setFailed('Keepalive instruction missing pull request number.');
+              return;
+            }
+            const body = process.env.COMMENT_BODY || '';
+            if (!body.trim()) {
+              core.setFailed('Keepalive instruction body is empty.');
+              return;
+            }
+            const { data: comment } = await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: issueNumber,
+              body,
+            });
+            core.setOutput('comment-id', comment?.id ? String(comment.id) : '');
+            core.setOutput('comment-url', comment?.html_url || '');
+            core.setOutput('comment-author', comment?.user?.login || '');
 
       - name: Post keepalive instruction (as stranske if possible)
         id: post_instruction_primary
@@ -1742,15 +1827,24 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if [ "${{ steps.author_token.outputs.token }}" = 'ACTIONS_BOT_PAT' ]; then
-            comment_id="${{ steps.post_instruction_primary.outputs.comment-id || '' }}"
-            comment_url="${{ steps.post_instruction_primary.outputs.comment-url || '' }}"
-            comment_author="${{ steps.post_instruction_primary.outputs.comment-author || '' }}"
-          else
-            comment_id="${{ steps.post_instruction_fallback.outputs.comment-id || '' }}"
-            comment_url="${{ steps.post_instruction_fallback.outputs.comment-url || '' }}"
-            comment_author="${{ steps.post_instruction_fallback.outputs.comment-author || '' }}"
-          fi
+          selected_token="${{ steps.author_token.outputs.token }}"
+          case "${selected_token}" in
+            'APP_TOKEN')
+              comment_id="${{ steps.post_instruction_app.outputs.comment-id || '' }}"
+              comment_url="${{ steps.post_instruction_app.outputs.comment-url || '' }}"
+              comment_author="${{ steps.post_instruction_app.outputs.comment-author || '' }}"
+              ;;
+            'ACTIONS_BOT_PAT')
+              comment_id="${{ steps.post_instruction_primary.outputs.comment-id || '' }}"
+              comment_url="${{ steps.post_instruction_primary.outputs.comment-url || '' }}"
+              comment_author="${{ steps.post_instruction_primary.outputs.comment-author || '' }}"
+              ;;
+            *)
+              comment_id="${{ steps.post_instruction_fallback.outputs.comment-id || '' }}"
+              comment_url="${{ steps.post_instruction_fallback.outputs.comment-url || '' }}"
+              comment_author="${{ steps.post_instruction_fallback.outputs.comment-author || '' }}"
+              ;;
+          esac
 
           if [ -z "${comment_id}" ]; then
             echo "::error::Keepalive instruction comment was not created." >&2
@@ -1781,7 +1875,7 @@ jobs:
           COMMENT_ID: ${{ steps.capture_comment.outputs.comment_id }}
           EXPECTED_AUTHOR: ${{ steps.author_token.outputs.author || '' }}
         with:
-          github-token: ${{ steps.author_token.outputs.token == 'ACTIONS_BOT_PAT' && secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
+          github-token: ${{ steps.author_token.outputs.token == 'APP_TOKEN' && steps.app_token.outputs.token || (steps.author_token.outputs.token == 'ACTIONS_BOT_PAT' && secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT) }}
           script: |
             const normalise = (value) => String(value || '').trim();
             const commentId = Number(process.env.COMMENT_ID || 0);
@@ -2002,7 +2096,7 @@ jobs:
           ROUND: ${{ needs.keepalive-prep.outputs.round }}
           TRACE: ${{ needs.keepalive-prep.outputs.trace }}
         with:
-          github-token: ${{ steps.author_token.outputs.token == 'ACTIONS_BOT_PAT' && secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
+          github-token: ${{ steps.author_token.outputs.token == 'APP_TOKEN' && steps.app_token.outputs.token || (steps.author_token.outputs.token == 'ACTIONS_BOT_PAT' && secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT) }}
           script: |
             const prNumber = Number(process.env.PR_NUMBER || 0);
             if (!Number.isFinite(prNumber) || prNumber <= 0) {
@@ -2105,6 +2199,14 @@ jobs:
     if: always()
     runs-on: ubuntu-latest
     steps:
+      - name: Mint GitHub App token (preferred)
+        id: app_token
+        continue-on-error: true
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.WORKFLOWS_APP_ID }}
+          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+
       - name: Emit worker observability line
         if: always()
         shell: bash
@@ -2257,7 +2359,7 @@ jobs:
           KEEPALIVE_LAST_INSTRUCTION_ID: ${{ needs.belt-worker.outputs.keepalive_last_instruction_id || '' }}
           KEEPALIVE_LAST_INSTRUCTION_HEAD: ${{ needs.belt-worker.outputs.keepalive_last_instruction_head_sha || '' }}
         with:
-          github-token: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT || github.token }}
+          github-token: ${{ steps.app_token.outputs.token || secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT || github.token }}
           script: |
             const normalise = (value) => String(value || '').trim();
             const trace = normalise(process.env.KEEPALIVE_TRACE);
