@@ -292,6 +292,7 @@ async function evaluateKeepaliveLoop({ github, context, core }) {
 
   return {
     prNumber,
+    prRef: pr.head.ref || '',
     action,
     reason,
     gateConclusion,

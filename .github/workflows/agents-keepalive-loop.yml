@@ -24,6 +24,7 @@ jobs:
     environment: agent-standard
     outputs:
       pr_number: ${{ steps.evaluate.outputs.pr_number }}
+      pr_ref: ${{ steps.evaluate.outputs.pr_ref }}
       action: ${{ steps.evaluate.outputs.action }}
       reason: ${{ steps.evaluate.outputs.reason }}
       gate_conclusion: ${{ steps.evaluate.outputs.gate_conclusion }}
@@ -103,6 +104,7 @@ jobs:
             const result = await evaluateKeepaliveLoop({ github, context, core });
             const output = {
               pr_number: String(result.prNumber || ''),
+              pr_ref: String(result.prRef || ''),
               action: result.action || '',
               reason: result.reason || '',
               gate_conclusion: result.gateConclusion || '',
@@ -169,6 +171,7 @@ jobs:
       prompt_file: .github/codex/prompts/keepalive_next_task.md
       mode: keepalive
       pr_number: ${{ needs.evaluate.outputs.pr_number }}
+      pr_ref: ${{ needs.evaluate.outputs.pr_ref }}
 
   summary:
     name: Update keepalive summary
