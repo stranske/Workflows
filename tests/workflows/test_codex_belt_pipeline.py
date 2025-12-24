@@ -140,9 +140,22 @@ def test_conveyor_requires_gate_success_and_retriggers_dispatcher():
     steps = promote.get("steps") or []
     assert steps, "Conveyor promote job must define steps"
 
-    guard = steps[0]
-    assert guard.get("name") == "Ensure ACTIONS_BOT_PAT is configured"
-    assert _step_runs_command(guard, "ACTIONS_BOT_PAT secret is required for conveyor actions.")
+    # Check for multi-tier authentication flow (App token > PAT > GITHUB_TOKEN)
+    step_names = [s.get("name", "") for s in steps]
+    assert (
+        "Mint GitHub App token (preferred)" in step_names
+    ), "Conveyor must attempt to mint GitHub App token first"
+    assert (
+        "Select authentication token (app > PAT > GITHUB_TOKEN)" in step_names
+    ), "Conveyor must have token selection step"
+    select_step = next(
+        s
+        for s in steps
+        if s.get("name") == "Select authentication token (app > PAT > GITHUB_TOKEN)"
+    )
+    assert _step_runs_command(
+        select_step, "No authentication token available"
+    ), "Conveyor must fail when no token is available"
 
     gate_steps = [step for step in steps if step.get("name") == "Ensure Gate succeeded"]
     assert gate_steps, "Conveyor must verify Gate success before merging"
