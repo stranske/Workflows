@@ -1,7 +1,10 @@
-Added an ASCII iteration progress bar to the keepalive PR summary table so readers can see loop progress at a glance, and updated the keepalive loop tests to assert the new row formatting. This is implemented in ` .github/scripts/keepalive_loop.js` and exercised in ` .github/scripts/__tests__/keepalive-loop.test.js`.
+Added fork detection to verifier context so forked PRs are skipped with the same output hygiene as other skip cases, and added a unit test to cover the fork edge case. Changes are in `.github/scripts/agents_verifier_context.js` and `.github/scripts/__tests__/agents-verifier-context.test.js`.
 
 Tests run:
-- `node --test .github/scripts/__tests__/keepalive-loop.test.js`
+- `node --test .github/scripts/__tests__/agents-verifier-context.test.js`
 
-Next steps you may want:
-1) Decide whether to surface autofix attempt/outcome data in PR comments once the workflows expose those values; I can wire that into `scripts/build_autofix_pr_comment.py`.
+Note: `codex-prompt.md` is still modified in the working tree and I did not touch it. How would you like to handle that?
+
+If you want, I can:
+1) Run the full Node test suite: `node --test .github/scripts/__tests__/*.test.js`
+2) Proceed to the next Keepalive task
