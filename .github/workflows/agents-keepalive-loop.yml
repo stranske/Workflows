@@ -165,6 +165,37 @@ jobs:
     steps:
       - run: echo "Test job ran! Action was ${{ needs.evaluate.outputs.action }}, agent=${{ needs.evaluate.outputs.agent_type }}"
 
+  # Mark agent as running before starting the actual work
+  # This provides real-time visibility that the agent is actively engaged
+  mark-running:
+    name: Mark agent running
+    needs:
+      - evaluate
+      - preflight
+    if: needs.evaluate.outputs.action == 'run'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Update summary with running status
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { markAgentRunning } = require('./.github/scripts/keepalive_loop.js');
+            const inputs = {
+              pr_number: '${{ needs.evaluate.outputs.pr_number }}',
+              agent_type: '${{ needs.evaluate.outputs.agent_type }}',
+              iteration: '${{ needs.evaluate.outputs.iteration }}',
+              max_iterations: '${{ needs.evaluate.outputs.max_iterations }}',
+              tasks_total: '${{ needs.evaluate.outputs.tasks_total }}',
+              tasks_unchecked: '${{ needs.evaluate.outputs.tasks_unchecked }}',
+              trace: '${{ needs.evaluate.outputs.trace }}',
+              run_url: '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}',
+            };
+            await markAgentRunning({ github, context, core, inputs });
+
   # Route to appropriate agent based on agent:* label
   # Currently supports: agent:codex -> CLI Codex
   # Future: agent:claude, agent:gemini, etc. will have their own jobs
@@ -173,6 +204,7 @@ jobs:
     needs:
       - evaluate
       - preflight
+      - mark-running
     # Only run for agent:codex label
     if: needs.evaluate.outputs.agent_type == 'codex'
     uses: stranske/Workflows/.github/workflows/reusable-codex-run.yml@main
