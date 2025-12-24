@@ -162,14 +162,14 @@ jobs:
     name: Keepalive next task
     needs:
       - evaluate
+      - preflight
     uses: stranske/Workflows/.github/workflows/reusable-codex-run.yml@main
     secrets:
       CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
       WORKFLOWS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID }}
       WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
     with:
-      # TEMP: Run even when gate fails, for testing auth
-      skip: ${{ needs.evaluate.outputs.has_agent_label != 'true' }}
+      skip: ${{ needs.evaluate.outputs.action != 'run' }}
       prompt_file: .github/codex/prompts/keepalive_next_task.md
       mode: keepalive
       pr_number: ${{ needs.evaluate.outputs.pr_number }}
