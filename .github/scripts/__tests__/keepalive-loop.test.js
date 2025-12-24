@@ -71,6 +71,12 @@ test('countCheckboxes tallies checked and unchecked tasks', () => {
   assert.deepEqual(counts, { total: 4, checked: 2, unchecked: 2 });
 });
 
+test('countCheckboxes handles alternate list markers', () => {
+  const markdown = '* [ ] alpha\n+ [x] beta\n1. [ ] gamma\n2. [X] delta';
+  const counts = countCheckboxes(markdown);
+  assert.deepEqual(counts, { total: 4, checked: 2, unchecked: 2 });
+});
+
 test('parseConfig reads JSON config snippets and normalizes values', () => {
   const body = `
 <!-- keepalive-config:start -->

@@ -36,7 +36,7 @@ function toNumber(value, fallback = 0) {
 
 function countCheckboxes(markdown) {
   const result = { total: 0, checked: 0, unchecked: 0 };
-  const regex = /-\s*\[( |x|X)\]/g;
+  const regex = /(?:^|\n)\s*(?:[-*+]|\d+\.)\s*\[( |x|X)\]/g;
   const content = String(markdown || '');
   let match;
   while ((match = regex.exec(content)) !== null) {
