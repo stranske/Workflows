@@ -214,7 +214,7 @@ jobs:
 
           git add -A
           git commit -m "$commit_message"
-          git push https://x-access-token:${PUSH_TOKEN}@github.com/${{ github.repository }} HEAD:${{ github.ref_name }}
+          git push "https://x-access-token:${PUSH_TOKEN}@github.com/${{ github.repository }}" "HEAD:${{ github.ref_name }}"
 
       - name: Upload Codex output
         if: always() && hashFiles('codex-output.md') != ''
