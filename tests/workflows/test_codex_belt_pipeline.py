@@ -64,11 +64,22 @@ def test_dispatcher_is_reusable_only_and_exposes_worker_context():
     steps = dispatch_job.get("steps") or []
     assert steps, "Dispatcher job must define steps"
 
-    guard = steps[0]
-    assert guard.get("name") == "Ensure ACTIONS_BOT_PAT is configured"
+    # Check for multi-tier authentication flow (App token > PAT > GITHUB_TOKEN)
+    step_names = [s.get("name", "") for s in steps]
+    assert (
+        "Mint GitHub App token (preferred)" in step_names
+    ), "Dispatcher must attempt to mint GitHub App token first"
+    assert (
+        "Select authentication token (app > PAT > GITHUB_TOKEN)" in step_names
+    ), "Dispatcher must have token selection step"
+    select_step = next(
+        s
+        for s in steps
+        if s.get("name") == "Select authentication token (app > PAT > GITHUB_TOKEN)"
+    )
     assert _step_runs_command(
-        guard, "ACTIONS_BOT_PAT secret is required for dispatcher writes."
-    ), "Dispatcher must fail early when ACTIONS_BOT_PAT is missing"
+        select_step, "No authentication token available"
+    ), "Dispatcher must fail when no token is available"
 
     assert not any(
         _step_runs_command(step, "createDispatchEvent") for step in steps
