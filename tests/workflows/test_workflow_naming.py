@@ -161,6 +161,7 @@ EXPECTED_NAMES = {
     "agents-63-issue-intake.yml": "Agents 63 Issue Intake",
     "agents-64-verify-agent-assignment.yml": "Agents 64 Verify Agent Assignment",
     "agents-verifier.yml": "Agents Verifier",
+    "agents-weekly-metrics.yml": "agents-weekly-metrics",
     "agents-70-orchestrator.yml": "Agents 70 Orchestrator",
     "agents-moderate-connector.yml": "Agents Moderate Connector Comments",
     "agents-71-codex-belt-dispatcher.yml": "Agents 71 Codex Belt Dispatcher",

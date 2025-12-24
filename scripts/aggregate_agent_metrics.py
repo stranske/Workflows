@@ -98,7 +98,8 @@ def summarize_autofix(records: Sequence[Mapping]) -> MutableMapping:
     gate_pass_after = sum(
         1
         for r in records
-        if str(r.get("gate_result_after", "") or "").lower() in {"success", "succeeded", "completed", "pass", "passed"}
+        if str(r.get("gate_result_after", "") or "").lower()
+        in {"success", "succeeded", "completed", "pass", "passed"}
     )
     trigger_counts: MutableMapping[str, int] = collections.Counter(
         (str(r.get("trigger_reason", "") or "unknown").lower() for r in records)
@@ -125,7 +126,9 @@ def summarize_verifier(records: Sequence[Mapping]) -> MutableMapping:
         "total_runs": total,
         "verdict_counts": dict(verdict_counts.most_common(5)),
         "issues_created_total": issues_opened,
-        "average_acceptance_criteria": round(statistics.mean(acceptance_counts), 2) if acceptance_counts else 0.0,
+        "average_acceptance_criteria": (
+            round(statistics.mean(acceptance_counts), 2) if acceptance_counts else 0.0
+        ),
     }
 
 
@@ -153,7 +156,13 @@ def render_markdown(
     ]
 
     if keepalive_summary.get("common_stop_reasons"):
-        lines.extend(["- Common stop reasons:"] + [f"  - {reason}: {count}" for reason, count in keepalive_summary["common_stop_reasons"].items()])
+        lines.extend(
+            ["- Common stop reasons:"]
+            + [
+                f"  - {reason}: {count}"
+                for reason, count in keepalive_summary["common_stop_reasons"].items()
+            ]
+        )
 
     lines.extend(
         [
@@ -167,7 +176,11 @@ def render_markdown(
 
     if autofix_summary.get("trigger_reasons"):
         lines.extend(
-            ["- Trigger reasons:"] + [f"  - {reason}: {count}" for reason, count in autofix_summary["trigger_reasons"].items()]
+            ["- Trigger reasons:"]
+            + [
+                f"  - {reason}: {count}"
+                for reason, count in autofix_summary["trigger_reasons"].items()
+            ]
         )
 
     lines.extend(
@@ -186,7 +199,12 @@ def render_markdown(
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Aggregate agent workflow metrics.")
-    parser.add_argument("--artifacts-dir", type=Path, default=Path("artifacts"), help="Root directory containing metrics artifacts.")
+    parser.add_argument(
+        "--artifacts-dir",
+        type=Path,
+        default=Path("artifacts"),
+        help="Root directory containing metrics artifacts.",
+    )
     parser.add_argument("--output", type=Path, help="Optional path to write markdown output.")
     args = parser.parse_args(argv)
 
