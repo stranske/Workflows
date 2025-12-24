@@ -3,32 +3,53 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { countCheckboxes, parseConfig, evaluateKeepaliveLoop } = require('../keepalive_loop.js');
+const {
+  countCheckboxes,
+  parseConfig,
+  evaluateKeepaliveLoop,
+  updateKeepaliveLoopSummary,
+} = require('../keepalive_loop.js');
 const { formatStateComment } = require('../keepalive_state.js');
 
-const buildGithubStub = ({ pr, comments = [], workflowRuns = [] } = {}) => ({
-  rest: {
-    pulls: {
-      async get() {
-        return { data: pr };
+const buildGithubStub = ({ pr, comments = [], workflowRuns = [] } = {}) => {
+  const actions = [];
+  return {
+    actions,
+    rest: {
+      pulls: {
+        async get() {
+          return { data: pr };
+        },
+      },
+      actions: {
+        async listWorkflowRuns() {
+          return { data: { workflow_runs: workflowRuns } };
+        },
+      },
+      issues: {
+        async listComments() {
+          return { data: comments };
+        },
+        async updateComment({ body, comment_id: commentId }) {
+          actions.push({ type: 'update', body, commentId });
+          return { data: { id: commentId } };
+        },
+        async createComment({ body }) {
+          actions.push({ type: 'create', body });
+          return { data: { id: 101, html_url: 'https://example.com/101' } };
+        },
+        async addLabels({ labels }) {
+          actions.push({ type: 'label', labels });
+          return { data: {} };
+        },
       },
     },
-    actions: {
-      async listWorkflowRuns() {
-        return { data: { workflow_runs: workflowRuns } };
-      },
+    async paginate(fn, params) {
+      const response = await fn(params);
+      return Array.isArray(response?.data) ? response.data : [];
     },
-    issues: {
-      async listComments() {
-        return { data: comments };
-      },
-    },
-  },
-  async paginate(fn, params) {
-    const response = await fn(params);
-    return Array.isArray(response?.data) ? response.data : [];
-  },
-});
+  };
+};
 
 const buildContext = (prNumber = 101) => ({
   eventName: 'pull_request',
@@ -196,4 +217,86 @@ test('evaluateKeepaliveLoop runs when ready', async () => {
   });
   assert.equal(result.action, 'run');
   assert.equal(result.reason, 'ready');
+});
+
+test('updateKeepaliveLoopSummary increments iteration and clears failures on success', async () => {
+  const existingState = formatStateComment({
+    trace: 'trace-1',
+    iteration: 2,
+    max_iterations: 5,
+    failure_threshold: 3,
+    failure: { reason: 'codex-run-failed', count: 2 },
+  });
+  const github = buildGithubStub({
+    comments: [{ id: 33, body: existingState, html_url: 'https://example.com/33' }],
+  });
+  await updateKeepaliveLoopSummary({
+    github,
+    context: buildContext(123),
+    core: buildCore(),
+    inputs: {
+      prNumber: 123,
+      action: 'run',
+      runResult: 'success',
+      gateConclusion: 'success',
+      tasksTotal: 4,
+      tasksUnchecked: 2,
+      keepaliveEnabled: true,
+      autofixEnabled: false,
+      iteration: 2,
+      maxIterations: 5,
+      failureThreshold: 3,
+      trace: 'trace-1',
+      codex_changes_made: 'true',
+      codex_files_changed: 2,
+      codex_commit_sha: 'abcd1234',
+      codex_summary: 'Updated tests to cover keepalive loop summary.',
+    },
+  });
+
+  assert.equal(github.actions.length, 1);
+  assert.equal(github.actions[0].type, 'update');
+  assert.match(github.actions[0].body, /Iteration \*\*3\/5\*\*/);
+  assert.match(github.actions[0].body, /### Last Codex Run/);
+  assert.match(github.actions[0].body, /✅ Success/);
+  assert.match(github.actions[0].body, /"iteration":3/);
+  assert.match(github.actions[0].body, /"failure":\{\}/);
+});
+
+test('updateKeepaliveLoopSummary pauses after repeated failures and adds label', async () => {
+  const existingState = formatStateComment({
+    trace: 'trace-2',
+    iteration: 1,
+    failure_threshold: 3,
+    failure: { reason: 'gate-not-success', count: 2 },
+  });
+  const github = buildGithubStub({
+    comments: [{ id: 44, body: existingState, html_url: 'https://example.com/44' }],
+  });
+  await updateKeepaliveLoopSummary({
+    github,
+    context: buildContext(456),
+    core: buildCore(),
+    inputs: {
+      prNumber: 456,
+      action: 'wait',
+      reason: 'gate-not-success',
+      gateConclusion: 'failure',
+      tasksTotal: 2,
+      tasksUnchecked: 2,
+      keepaliveEnabled: true,
+      autofixEnabled: false,
+      iteration: 1,
+      maxIterations: 5,
+      failureThreshold: 3,
+      trace: 'trace-2',
+    },
+  });
+
+  assert.equal(github.actions.length, 2);
+  assert.equal(github.actions[0].type, 'update');
+  assert.match(github.actions[0].body, /Paused/);
+  assert.match(github.actions[0].body, /gate-not-success-repeat/);
+  assert.equal(github.actions[1].type, 'label');
+  assert.deepEqual(github.actions[1].labels, ['needs-human']);
 });
