@@ -7,6 +7,11 @@ const path = require('path');
 
 const { buildVerifierContext } = require('../agents_verifier_context.js');
 
+const fixturesDir = path.join(__dirname, 'fixtures');
+const prBodyFixture = fs.readFileSync(path.join(fixturesDir, 'pr-body.md'), 'utf8');
+const issueBodyOpen = fs.readFileSync(path.join(fixturesDir, 'issue-body-open.md'), 'utf8');
+const issueBodyClosed = fs.readFileSync(path.join(fixturesDir, 'issue-body-closed.md'), 'utf8');
+
 const buildCore = () => {
   const outputs = {};
   const notices = [];
@@ -114,7 +119,7 @@ test('buildVerifierContext writes verifier context with linked issues', async ()
   const prDetails = {
     number: 321,
     title: 'Add tests',
-    body: '## Scope\nTesting\n## Tasks\n- [ ] one\n## Acceptance Criteria\n- [ ] ok',
+    body: prBodyFixture,
     html_url: 'https://example.com/pr/321',
     merge_commit_sha: 'merge-sha',
     base: { ref: 'main' },
@@ -140,7 +145,7 @@ test('buildVerifierContext writes verifier context with linked issues', async ()
       {
         number: 456,
         title: 'Issue 456',
-        body: '## Tasks\n- [ ] item\n## Acceptance Criteria\n- [x] done',
+        body: issueBodyOpen,
         state: 'OPEN',
         url: 'https://example.com/issues/456',
       },
@@ -154,7 +159,7 @@ test('buildVerifierContext writes verifier context with linked issues', async ()
       {
         number: 789,
         title: 'Issue 789',
-        body: '## Acceptance Criteria\n- [ ] review',
+        body: issueBodyClosed,
         state: 'CLOSED',
         url: 'https://example.com/issues/789',
       },

@@ -2,6 +2,8 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('fs');
+const path = require('path');
 
 const {
   countCheckboxes,
@@ -10,6 +12,9 @@ const {
   updateKeepaliveLoopSummary,
 } = require('../keepalive_loop.js');
 const { formatStateComment } = require('../keepalive_state.js');
+
+const fixturesDir = path.join(__dirname, 'fixtures');
+const prBodyFixture = fs.readFileSync(path.join(fixturesDir, 'pr-body.md'), 'utf8');
 
 const buildGithubStub = ({ pr, comments = [], workflowRuns = [] } = {}) => {
   const actions = [];
@@ -100,7 +105,7 @@ test('evaluateKeepaliveLoop waits when agent label is missing', async () => {
     number: 101,
     head: { ref: 'feature/one', sha: 'sha-1' },
     labels: [],
-    body: '## Tasks\n- [ ] one\n## Acceptance Criteria\n- [ ] a',
+    body: prBodyFixture,
   };
   const github = buildGithubStub({
     pr,
@@ -140,7 +145,7 @@ test('evaluateKeepaliveLoop stops when tasks are complete', async () => {
     number: 303,
     head: { ref: 'feature/three', sha: 'sha-3' },
     labels: [{ name: 'agent:codex' }],
-    body: '## Tasks\n- [x] one\n## Acceptance Criteria\n- [X] a',
+    body: prBodyFixture.replace(/- \[ \]/g, '- [x]'),
   };
   const github = buildGithubStub({
     pr,
@@ -200,7 +205,7 @@ test('evaluateKeepaliveLoop runs when ready', async () => {
     number: 606,
     head: { ref: 'feature/six', sha: 'sha-6' },
     labels: [{ name: 'agent:codex' }],
-    body: '## Tasks\n- [ ] one\n## Acceptance Criteria\n- [ ] a',
+    body: prBodyFixture,
   };
   const comments = [
     { id: 11, body: formatStateComment({ trace: '', iteration: 1 }), html_url: 'https://example.com' },
