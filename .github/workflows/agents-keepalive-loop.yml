@@ -125,7 +125,10 @@ jobs:
     needs: evaluate
     if: needs.evaluate.outputs.action == 'run'
     uses: ./.github/workflows/reusable-codex-run.yml
-    secrets: inherit
+    secrets:
+      CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
+      WORKFLOWS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID }}
+      WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
     with:
       prompt_file: .github/codex/prompts/keepalive_next_task.md
       mode: keepalive
