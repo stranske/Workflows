@@ -21,44 +21,23 @@ const DEFAULT_ALLOWED_BOTS = [
   'renovate[bot]',
 ];
 
+// MINIMAL red-flag patterns - only catch OBVIOUS injection attempts
+// Collaborators bypass content scanning entirely, so this only matters for forks/strangers
 const DEFAULT_RED_FLAG_PATTERNS = [
-  // Instruction override attempts
-  /ignore\s+(all\s+)?(previous|prior|above)\s+(instructions?|prompts?|rules?)/i,
-  /disregard\s+(all\s+)?(previous|prior|above)/i,
-  /forget\s+(everything|all)\s+(you\s+)?(know|learned)/i,
-  /new\s+instructions?:\s*$/im,
+  // Explicit injection attempts (very specific phrases)
+  /ignore\s+all\s+previous\s+instructions/i,
+  /disregard\s+all\s+previous/i,
   /system\s*:\s*you\s+are\s+now/i,
-  /\bpretend\s+you\s+are\b/i,
-  /\bact\s+as\s+(if\s+you\s+are\s+)?a?\s*(different|new)/i,
 
-  // Hidden content / obfuscation
-  /<!--[\s\S]*?(ignore|instruction|prompt|secret|token|password)[\s\S]*?-->/i,
-  /\[comment\]:\s*#/i, // GitHub markdown comments
-
-  // Base64 encoded content (potential hidden instructions)
-  /[A-Za-z0-9+/]{50,}={0,2}/,
-
-  // Unicode tricks and homoglyphs
-  /[\u200B-\u200D\uFEFF]/, // Zero-width characters
-  /[\u2060-\u2064]/, // Invisible formatting
-  /[\u00AD]/, // Soft hyphen (invisible)
-
-  // Dangerous shell/code patterns that might be injected
-  /\$\(\s*curl\b/i,
-  /\beval\s*\(/i,
-  /`[^`]*\$\{/,
-
-  // Secrets/credentials patterns
-  /\b(api[_-]?key|secret|token|password|credential)s?\s*[:=]\s*['"]?[A-Za-z0-9_-]{20,}/i,
+  // Actual leaked secrets (not the word "secret", but actual tokens)
   /\bghp_[A-Za-z0-9]{36}\b/, // GitHub personal access token
-  /\bgho_[A-Za-z0-9]{36}\b/, // GitHub OAuth token
+  /\bgho_[A-Za-z0-9]{36}\b/, // GitHub OAuth token  
   /\bghs_[A-Za-z0-9]{36}\b/, // GitHub app token
   /\bsk-[A-Za-z0-9]{48}\b/, // OpenAI API key pattern
-
-  // Workflow/action manipulation
-  /\bgithub\.event\.pull_request\.head\.sha\b/,
-  /\bsecrets\.[A-Z_]+\b/,
 ];
+
+// Label that bypasses security gate content scanning
+const BYPASS_LABEL = 'security:bypass-guard';
 
 // ---------------------------------------------------------------------------
 // Fork detection
@@ -332,8 +311,22 @@ async function evaluatePromptInjectionGuard({
     }
   }
 
-  // 4. Content red-flag scanning
-  if (scanContent && promptContent) {
+  // 4. Check for bypass label
+  const prLabels = (pr?.labels || []).map(l => (typeof l === 'string' ? l : l.name || '').toLowerCase());
+  const hasBypassLabel = prLabels.includes(BYPASS_LABEL.toLowerCase());
+  if (hasBypassLabel) {
+    if (core) core.info(`Security gate bypassed via ${BYPASS_LABEL} label`);
+    return {
+      allowed: true,
+      blocked: false,
+      reason: 'bypass-label',
+      details,
+    };
+  }
+
+  // 5. Content red-flag scanning - SKIP for collaborators (they're trusted)
+  const isCollaborator = details.actor.allowed || details.collaborator.isCollaborator;
+  if (scanContent && promptContent && !isCollaborator) {
     details.content = scanForRedFlags(promptContent);
 
     if (details.content.flagged) {
@@ -378,4 +371,5 @@ module.exports = {
   // Constants for testing/customization
   DEFAULT_ALLOWED_BOTS,
   DEFAULT_RED_FLAG_PATTERNS,
+  BYPASS_LABEL,
 };
