@@ -10,6 +10,7 @@ const {
   parseConfig,
   evaluateKeepaliveLoop,
   updateKeepaliveLoopSummary,
+  markAgentRunning,
 } = require('../keepalive_loop.js');
 const { formatStateComment } = require('../keepalive_state.js');
 
@@ -492,4 +493,79 @@ test('buildTaskAppendix omits reconciliation warning when state.needs_task_recon
   const appendix = buildTaskAppendix(sections, checkboxCounts, state);
   
   assert.ok(!appendix.includes('Task Reconciliation Required'));
+});
+
+test('markAgentRunning updates summary comment with running status', async () => {
+  // Use formatStateComment to create proper state marker
+  const existingStateBody = formatStateComment({
+    trace: 'test-trace',
+    iteration: 2,
+    tasks: { total: 10, unchecked: 7 },
+  });
+  const comments = [
+    {
+      id: 200,
+      body: `<!-- keepalive-loop-summary -->\n## Summary\n${existingStateBody}`,
+      html_url: 'https://example.com/200',
+    },
+  ];
+  const github = buildGithubStub({ comments });
+  const inputs = {
+    pr_number: 42,
+    agent_type: 'codex',
+    iteration: 2,
+    max_iterations: 5,
+    tasks_total: 10,
+    tasks_unchecked: 7,
+    trace: 'test-trace',
+    run_url: 'https://github.com/test/repo/actions/runs/12345',
+  };
+
+  await markAgentRunning({
+    github,
+    context: { repo: { owner: 'test', repo: 'repo' } },
+    core: buildCore(),
+    inputs,
+  });
+
+  // Should have updated the comment
+  assert.equal(github.actions.length, 1);
+  assert.equal(github.actions[0].type, 'update');
+  assert.equal(github.actions[0].commentId, 200);
+  
+  // Check the body content
+  const body = github.actions[0].body;
+  assert.ok(body.includes('keepalive-loop-summary'), 'Should have summary marker');
+  assert.ok(body.includes('🔄 Agent Running'), 'Should show running status');
+  assert.ok(body.includes('Codex is actively working'), 'Should show agent name');
+  assert.ok(body.includes('Iteration | 3 of 5'), 'Should show next iteration');
+  assert.ok(body.includes('view logs'), 'Should include run URL');
+  assert.ok(body.includes('will be updated when the agent completes'), 'Should include completion message');
+});
+
+test('markAgentRunning creates comment when none exists', async () => {
+  const github = buildGithubStub({ comments: [] });
+  const inputs = {
+    pr_number: 99,
+    agent_type: 'claude',
+    iteration: 0,
+    max_iterations: 3,
+    tasks_total: 5,
+    tasks_unchecked: 5,
+  };
+
+  await markAgentRunning({
+    github,
+    context: { repo: { owner: 'test', repo: 'repo' } },
+    core: buildCore(),
+    inputs,
+  });
+
+  // Should have created a new comment
+  assert.equal(github.actions.length, 1);
+  assert.equal(github.actions[0].type, 'create');
+  
+  const body = github.actions[0].body;
+  assert.ok(body.includes('Claude is actively working'), 'Should capitalize agent name');
+  assert.ok(body.includes('Iteration | 1 of 3'), 'Should show iteration 1 (0+1)');
 });
