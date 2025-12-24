@@ -45,7 +45,7 @@ on:
     secrets:
       CODEX_AUTH_JSON:
         description: 'JSON contents of ~/.codex/auth.json for ChatGPT subscription auth'
-        required: true
+        required: false
       WORKFLOWS_APP_ID:
         required: false
       WORKFLOWS_APP_PRIVATE_KEY:
@@ -195,10 +195,15 @@ jobs:
           CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
         run: |
           set -euo pipefail
+          if [ -z "$CODEX_AUTH_JSON" ]; then
+            echo "::error::CODEX_AUTH_JSON secret is not set or empty. Please add it to repository secrets."
+            echo "Go to: https://github.com/${{ github.repository }}/settings/secrets/actions"
+            exit 1
+          fi
           mkdir -p ~/.codex
           echo "$CODEX_AUTH_JSON" > ~/.codex/auth.json
           chmod 600 ~/.codex/auth.json
-          echo "Codex auth configured from CODEX_AUTH_JSON secret"
+          echo "✅ Codex auth configured from CODEX_AUTH_JSON secret"
 
       - name: Run Codex
         id: run_codex
