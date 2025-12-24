@@ -21,6 +21,7 @@ jobs:
   evaluate:
     name: Evaluate keepalive loop
     runs-on: ubuntu-latest
+    environment: agent-standard
     outputs:
       pr_number: ${{ steps.evaluate.outputs.pr_number }}
       action: ${{ steps.evaluate.outputs.action }}
@@ -71,6 +72,7 @@ jobs:
     needs: evaluate
     if: needs.evaluate.outputs.action == 'run'
     uses: ./.github/workflows/reusable-codex-run.yml
+    environment: agent-standard
     secrets: inherit
     with:
       prompt_file: .github/codex/prompts/keepalive_next_task.md
@@ -87,6 +89,7 @@ jobs:
       - run-codex
     if: always() && needs.evaluate.outputs.pr_number != '' && needs.evaluate.outputs.pr_number != '0'
     runs-on: ubuntu-latest
+    environment: agent-standard
     steps:
       - name: Checkout
         uses: actions/checkout@v4

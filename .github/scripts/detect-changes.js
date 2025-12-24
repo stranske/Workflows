@@ -68,6 +68,7 @@ const DOC_SEGMENTS = [
 const DOCKER_PREFIXES = ['docker/', 'docker\\', '.docker/', '.docker\\'];
 const DOCKER_SEGMENTS = ['/docker/', '\\docker\\', '/.docker/', '\\.docker\\'];
 const DOCKERFILE_SUFFIXES = ['/dockerfile', '\\dockerfile'];
+const WORKFLOW_PREFIX = '.github/workflows/';
 
 function normalizeCase(value) {
   return (value || '').toLowerCase();
@@ -148,6 +149,11 @@ function isDockerRelated(filename) {
   return false;
 }
 
+function isWorkflowFile(filename) {
+  const normalized = normalizeSlashes(filename);
+  return normalized.startsWith(WORKFLOW_PREFIX);
+}
+
 function isRateLimitError(error) {
   if (!error) {
     return false;
@@ -198,6 +204,7 @@ function classifyChanges(filenames) {
   const nonDocFiles = changedFiles.filter(filename => !isDocumentationFile(filename));
   const docOnly = hasChanges ? nonDocFiles.length === 0 : true;
   const dockerChanged = changedFiles.some(filename => isDockerRelated(filename));
+  const workflowChanged = changedFiles.some(filename => isWorkflowFile(filename));
   let reason = 'code_changes';
   if (!hasChanges) {
     reason = 'no_changes';
@@ -211,6 +218,7 @@ function classifyChanges(filenames) {
     nonDocFiles,
     docOnly,
     dockerChanged,
+    workflowChanged,
     reason,
   };
 }
@@ -223,6 +231,7 @@ async function detectChanges({ github, context, core, files, fetchFiles } = {}) 
       run_core: 'true',
       reason: 'non_pr_event',
       docker_changed: 'true',
+      workflow_changed: 'true',
     };
     if (core) {
       for (const [key, value] of Object.entries(outputs)) {
@@ -247,6 +256,7 @@ async function detectChanges({ github, context, core, files, fetchFiles } = {}) 
       run_core: 'true',
       reason: 'rate_limited',
       docker_changed: 'true',
+      workflow_changed: 'true',
     };
     const warn = core?.warning ? core.warning.bind(core) : console.warn.bind(console);
     warn('Rate limit reached while determining changed files; assuming code changes.');
@@ -258,12 +268,13 @@ async function detectChanges({ github, context, core, files, fetchFiles } = {}) 
     return { outputs, details: null };
   }
 
-  const { docOnly, dockerChanged, reason } = classifyChanges(changedFiles);
+  const { docOnly, dockerChanged, workflowChanged, reason } = classifyChanges(changedFiles);
   const outputs = {
     doc_only: docOnly ? 'true' : 'false',
     run_core: docOnly ? 'false' : 'true',
     reason,
     docker_changed: dockerChanged ? 'true' : 'false',
+    workflow_changed: workflowChanged ? 'true' : 'false',
   };
 
   if (core) {
@@ -278,6 +289,7 @@ async function detectChanges({ github, context, core, files, fetchFiles } = {}) 
       changedFiles,
       docOnly,
       dockerChanged,
+      workflowChanged,
       reason,
     },
   };
@@ -288,4 +300,5 @@ module.exports = {
   classifyChanges,
   isDocumentationFile,
   isDockerRelated,
+  isWorkflowFile,
 };

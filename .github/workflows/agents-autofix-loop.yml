@@ -20,6 +20,7 @@ jobs:
   prepare:
     name: Prepare autofix context
     runs-on: ubuntu-latest
+    environment: agent-standard
     outputs:
       should_run: ${{ steps.evaluate.outputs.should_run }}
       pr_number: ${{ steps.evaluate.outputs.pr_number }}
@@ -194,6 +195,7 @@ jobs:
     if: needs.prepare.outputs.should_run == 'true'
     name: Run Codex autofix
     uses: ./.github/workflows/reusable-codex-run.yml
+    environment: agent-standard
     with:
       prompt_file: .github/codex/prompts/autofix_from_ci_failure.md
       mode: autofix
@@ -209,6 +211,7 @@ jobs:
     if: needs.prepare.outputs.stop_reason == 'max_attempts'
     name: Flag for human follow-up
     runs-on: ubuntu-latest
+    environment: agent-standard
     steps:
       - name: Add needs-human label and comment
         uses: actions/github-script@v7
