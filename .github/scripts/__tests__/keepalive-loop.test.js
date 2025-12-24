@@ -393,3 +393,34 @@ test('evaluateKeepaliveLoop includes taskAppendix in result', async () => {
   assert.ok(result.taskAppendix.includes('first task'));
   assert.ok(result.taskAppendix.includes('must pass'));
 });
+
+test('evaluateKeepaliveLoop normalizes bullet tasks into checkboxes', async () => {
+  const pr = {
+    number: 109,
+    head: { ref: 'feature/bullets', sha: 'sha-9' },
+    labels: [{ name: 'agent:codex' }],
+    body: [
+      '## Tasks',
+      '- implement parser',
+      '- document flow',
+      '',
+      '## Acceptance Criteria',
+      '- tests pass',
+    ].join('\n'),
+  };
+  const github = buildGithubStub({
+    pr,
+    comments: [],
+    workflowRuns: [{ head_sha: 'sha-9', conclusion: 'success' }],
+  });
+  const result = await evaluateKeepaliveLoop({
+    github,
+    context: buildContext(pr.number),
+    core: buildCore(),
+  });
+  assert.equal(result.action, 'run');
+  assert.equal(result.reason, 'ready');
+  assert.deepEqual(result.checkboxCounts, { total: 3, checked: 0, unchecked: 3 });
+  assert.ok(result.taskAppendix.includes('- [ ] implement parser'));
+  assert.ok(result.taskAppendix.includes('- [ ] tests pass'));
+});

@@ -50,6 +50,40 @@ function countCheckboxes(markdown) {
   return result;
 }
 
+function normaliseChecklistSection(content) {
+  const raw = String(content || '');
+  if (!raw.trim()) {
+    return raw;
+  }
+  const lines = raw.split('\n');
+  let mutated = false;
+  const updated = lines.map((line) => {
+    const match = line.match(/^(\s*)([-*+]|\d+\.)\s+(.*)$/);
+    if (!match) {
+      return line;
+    }
+    const [, indent, bullet, remainderRaw] = match;
+    const remainder = remainderRaw.trim();
+    if (!remainder) {
+      return line;
+    }
+    if (/^\[[ xX]\]/.test(remainder)) {
+      return `${indent}${bullet} ${remainder}`;
+    }
+    mutated = true;
+    return `${indent}${bullet} [ ] ${remainder}`;
+  });
+  return mutated ? updated.join('\n') : raw;
+}
+
+function normaliseChecklistSections(sections = {}) {
+  return {
+    ...sections,
+    tasks: normaliseChecklistSection(sections.tasks),
+    acceptance: normaliseChecklistSection(sections.acceptance),
+  };
+}
+
 /**
  * Build the task appendix that gets passed to the agent prompt.
  * This provides explicit, structured tasks and acceptance criteria.
@@ -303,14 +337,17 @@ async function evaluateKeepaliveLoop({ github, context, core }) {
   const keepaliveEnabled = config.keepalive_enabled && hasAgentLabel;
 
   const sections = parseScopeTasksAcceptanceSections(pr.body || '');
-  const combinedChecklist = [sections?.tasks, sections?.acceptance].filter(Boolean).join('\n');
+  const normalisedSections = normaliseChecklistSections(sections);
+  const combinedChecklist = [normalisedSections?.tasks, normalisedSections?.acceptance]
+    .filter(Boolean)
+    .join('\n');
   const checkboxCounts = countCheckboxes(combinedChecklist);
   const tasksPresent = checkboxCounts.total > 0;
   const tasksRemaining = checkboxCounts.unchecked > 0;
   const allComplete = tasksPresent && !tasksRemaining;
 
   // Build task appendix for the agent prompt
-  const taskAppendix = buildTaskAppendix(sections, checkboxCounts);
+  const taskAppendix = buildTaskAppendix(normalisedSections, checkboxCounts);
 
   const stateResult = await loadKeepaliveState({
     github,
