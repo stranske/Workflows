@@ -101,6 +101,7 @@ jobs:
           echo "verdict=$verdict" >> "$GITHUB_OUTPUT"
 
       - name: Open follow-up issue on verifier failure
+        id: failure_issue
         if: steps.context.outputs.should_run == 'true' && steps.verdict.outputs.verdict == 'fail'
         uses: actions/github-script@v7
         env:
@@ -129,9 +130,122 @@ jobs:
             lines.push('');
             lines.push('- [ ] Re-run verifier after addressing the failures.');
             const body = lines.join('\n');
-            await github.rest.issues.create({
+            const { data: issue } = await github.rest.issues.create({
               ...context.repo,
               title,
               body,
               labels: ['agent:codex'],
             });
+            core.setOutput('issue_number', issue?.number ? String(issue.number) : '');
+
+      - name: Collect verifier metrics
+        if: always()
+        id: collect_metrics
+        env:
+          SHOULD_RUN: ${{ steps.context.outputs.should_run }}
+          PR_NUMBER: ${{ steps.context.outputs.pr_number }}
+          VERDICT: ${{ steps.verdict.outputs.verdict }}
+          CONTEXT_PATH: ${{ steps.context.outputs.context_path }}
+          CODEX_OUTPUT: codex-output.md
+          ISSUE_NUMBER: ${{ steps.failure_issue.outputs.issue_number }}
+          SKIP_REASON: ${{ steps.context.outputs.skip_reason }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          import re
+          from pathlib import Path
+          from datetime import datetime, timezone
+
+          def count_checkboxes(text: str) -> int:
+              return sum(1 for line in text.splitlines() if re.match(r"^- \\[[ xX]\\]", line.strip()))
+
+          should_run = (os.environ.get("SHOULD_RUN") or "").lower() == "true"
+          pr_number = int(os.environ.get("PR_NUMBER") or 0)
+          verdict = os.environ.get("VERDICT") or "unknown"
+          context_path = Path(os.environ.get("CONTEXT_PATH") or "")
+          skip_reason = os.environ.get("SKIP_REASON") or ""
+          issue_number = os.environ.get("ISSUE_NUMBER") or ""
+
+          if not should_run:
+              verdict = "skipped"
+
+          issues_created = 1 if issue_number else 0
+          issue_numbers = [issue_number] if issue_number else []
+
+          acceptance_criteria_count = 0
+          if context_path.is_file():
+              acceptance_criteria_count = count_checkboxes(context_path.read_text(encoding="utf-8"))
+
+          checks_run = 0
+          codex_output_path = Path(os.environ.get("CODEX_OUTPUT") or "")
+          if codex_output_path.is_file():
+              content = codex_output_path.read_text(encoding="utf-8")
+              checks_run = sum(1 for line in content.splitlines()[1:] if line.lstrip().startswith("- "))
+
+          metrics = {
+              "pr_number": pr_number,
+              "verdict": verdict,
+              "issues_created": issues_created,
+              "issue_numbers": issue_numbers,
+              "acceptance_criteria_count": acceptance_criteria_count,
+              "checks_run": checks_run,
+              "skip_reason": skip_reason,
+              "recorded_at": datetime.now(timezone.utc).isoformat(),
+          }
+
+          print(json.dumps(metrics, indent=2))
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fp:
+              fp.write(f"metrics_json={json.dumps(metrics)}\n")
+          PY
+
+      - name: Write verifier summary
+        if: always()
+        env:
+          METRICS_JSON: ${{ steps.collect_metrics.outputs.metrics_json }}
+        run: |
+          set -euo pipefail
+          if [ -z "${METRICS_JSON:-}" ]; then
+            echo "No verifier metrics captured; skipping summary."
+            exit 0
+          fi
+          python - <<'PY'
+          import json
+          import os
+
+          metrics = json.loads(os.environ["METRICS_JSON"])
+          order = [
+              "pr_number",
+              "verdict",
+              "issues_created",
+              "issue_numbers",
+              "acceptance_criteria_count",
+              "checks_run",
+              "skip_reason",
+              "recorded_at",
+          ]
+
+          lines = ["## Verifier metrics", ""] + ["| Field | Value |", "| --- | --- |"]
+          for key in order:
+              value = metrics.get(key, "")
+              lines.append(f"| {key} | `{value}` |")
+
+          summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+          if summary_path:
+              with open(summary_path, "a", encoding="utf-8") as fp:
+                  fp.write("\n".join(lines) + "\n")
+
+          out_path = "verifier-metrics.ndjson"
+          with open(out_path, "a", encoding="utf-8") as fp:
+              fp.write(json.dumps(metrics) + "\n")
+          print(f"Wrote metrics to {out_path}")
+          PY
+
+      - name: Upload verifier metrics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: agents-verifier-metrics
+          path: verifier-metrics.ndjson
+          retention-days: 30

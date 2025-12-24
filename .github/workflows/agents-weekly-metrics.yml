@@ -1,0 +1,90 @@
+name: agents-weekly-metrics
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  actions: read
+  issues: write
+
+jobs:
+  aggregate:
+    name: Aggregate agent metrics
+    runs-on: ubuntu-latest
+    environment: agent-standard
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Download metrics artifacts
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+
+          gh api --paginate "/repos/${{ github.repository }}/actions/artifacts" \
+            -q '.artifacts[] | select(.expired==false and (.name=="keepalive-metrics" or .name=="agents-autofix-metrics" or .name=="agents-verifier-metrics")) | [.id,.name,.archive_download_url] | @tsv' |
+          while IFS=$'\t' read -r id name url; do
+            echo "Downloading artifact $id ($name)"
+            mkdir -p "artifacts/$name"
+            gh api --method GET -H "Accept: application/octet-stream" "$url" > "artifacts/$name/$id.zip"
+            unzip -o "artifacts/$name/$id.zip" -d "artifacts/$name" >/dev/null
+          done
+
+      - name: Aggregate metrics
+        run: |
+          python scripts/aggregate_agent_metrics.py --artifacts-dir artifacts --output agent-weekly-metrics.md
+
+      - name: Upload weekly summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-weekly-metrics
+          path: agent-weekly-metrics.md
+          retention-days: 30
+
+      - name: Post summary to tracking issue
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const { owner, repo } = context.repo;
+            const summaryPath = 'agent-weekly-metrics.md';
+            const body = fs.existsSync(summaryPath) ? fs.readFileSync(summaryPath, 'utf8') : 'No metrics available.';
+            const title = 'Agent metrics weekly summary';
+
+            const issues = await github.paginate(github.rest.issues.listForRepo, {
+              owner,
+              repo,
+              state: 'open',
+              per_page: 100,
+            });
+            let target = issues.find((issue) => issue.title === title);
+
+            if (!target) {
+              const created = await github.rest.issues.create({
+                owner,
+                repo,
+                title,
+                body: 'Tracking issue for weekly agent workflow metrics.\n\n' + body,
+              });
+              target = created.data;
+            } else {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: target.number,
+                body,
+              });
+            }
+
+            core.setOutput('issue_number', target.number);

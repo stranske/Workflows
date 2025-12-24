@@ -39,12 +39,16 @@ jobs:
       agent_type: ${{ steps.evaluate.outputs.agent_type }}
       task_appendix: ${{ steps.evaluate.outputs.task_appendix }}
       trace: ${{ steps.evaluate.outputs.trace }}
+      start_ts: ${{ steps.timestamps.outputs.start_ts }}
       security_blocked: ${{ steps.security_gate.outputs.blocked }}
       security_reason: ${{ steps.security_gate.outputs.reason }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Capture timestamps
+        id: timestamps
+        run: echo "start_ts=$(date -u +%s)" >> "$GITHUB_OUTPUT"
       - name: Security gate - prompt injection guard
         id: security_gate
         uses: actions/github-script@v7
@@ -207,6 +211,81 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Emit keepalive metrics
+        id: keepalive-metrics
+        env:
+          PR_NUMBER: ${{ needs.evaluate.outputs.pr_number }}
+          ACTION: ${{ needs.evaluate.outputs.action }}
+          REASON: ${{ needs.evaluate.outputs.reason }}
+          GATE_CONCLUSION: ${{ needs.evaluate.outputs.gate_conclusion }}
+          ITERATION: ${{ needs.evaluate.outputs.iteration }}
+          MAX_ITERATIONS: ${{ needs.evaluate.outputs.max_iterations }}
+          TASKS_TOTAL: ${{ needs.evaluate.outputs.tasks_total }}
+          TASKS_UNCHECKED: ${{ needs.evaluate.outputs.tasks_unchecked }}
+          START_TS: ${{ needs.evaluate.outputs.start_ts }}
+        run: |
+          set -euo pipefail
+
+          now=$(date -u +%s)
+          if [[ "${START_TS:-}" =~ ^[0-9]+$ ]]; then
+            duration=$(( now - START_TS ))
+            if [ "$duration" -lt 0 ]; then duration=0; fi
+          else
+            duration=0
+          fi
+
+          tasks_total=${TASKS_TOTAL:-0}
+          tasks_unchecked=${TASKS_UNCHECKED:-0}
+          if ! [[ "$tasks_total" =~ ^-?[0-9]+$ ]]; then tasks_total=0; fi
+          if ! [[ "$tasks_unchecked" =~ ^-?[0-9]+$ ]]; then tasks_unchecked=0; fi
+          tasks_completed=$(( tasks_total - tasks_unchecked ))
+          if [ "$tasks_completed" -lt 0 ]; then tasks_completed=0; fi
+
+          metrics_json=$(jq -n \
+            --arg pr "${PR_NUMBER:-0}" \
+            --arg iteration "${ITERATION:-0}" \
+            --arg action "${ACTION:-}" \
+            --arg stop_reason "${REASON:-}" \
+            --arg gate_conclusion "${GATE_CONCLUSION:-}" \
+            --arg tasks_total "$tasks_total" \
+            --arg tasks_completed "$tasks_completed" \
+            --arg duration "$duration" \
+            '{
+              pr_number: ($pr | tonumber? // 0),
+              iteration_count: ($iteration | tonumber? // 0),
+              action: $action,
+              stop_reason: $stop_reason,
+              gate_conclusion: $gate_conclusion,
+              tasks_total: ($tasks_total | tonumber? // 0),
+              tasks_completed: ($tasks_completed | tonumber? // 0),
+              duration_seconds: ($duration | tonumber? // 0)
+            }')
+
+          {
+            echo '### Keepalive metrics'
+            echo ''
+            echo '| Field | Value |'
+            echo '| --- | --- |'
+            echo "| pr_number | $(echo "$metrics_json" | jq -r '.pr_number') |"
+            echo "| iteration_count | $(echo "$metrics_json" | jq -r '.iteration_count') |"
+            echo "| action | $(echo "$metrics_json" | jq -r '.action') |"
+            echo "| stop_reason | $(echo "$metrics_json" | jq -r '.stop_reason') |"
+            echo "| gate_conclusion | $(echo "$metrics_json" | jq -r '.gate_conclusion') |"
+            echo "| tasks_total | $(echo "$metrics_json" | jq -r '.tasks_total') |"
+            echo "| tasks_completed | $(echo "$metrics_json" | jq -r '.tasks_completed') |"
+            echo "| duration_seconds | $(echo "$metrics_json" | jq -r '.duration_seconds') |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          echo "$metrics_json" >> keepalive-metrics.ndjson
+
+      - name: Upload keepalive metrics artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: keepalive-metrics
+          path: keepalive-metrics.ndjson
+          retention-days: 30
+          if-no-files-found: error
 
       - name: Update summary comment
         uses: actions/github-script@v7
