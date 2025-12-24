@@ -27,6 +27,7 @@ jobs:
       coverage: ${{ steps.python_ci_toggles.outputs.coverage || 'true' }}
       cache: ${{ steps.python_ci_toggles.outputs.cache || 'true' }}
       pytest_markers: ${{ steps.python_ci_toggles.outputs.pytest_markers || 'not quarantine and not slow' }}
+      workflow_changed: ${{ steps.diff.outputs.workflow_changed || 'false' }}
     steps:
       - name: Checkout workflow helpers
         uses: actions/checkout@v4
@@ -80,9 +81,26 @@ jobs:
         env:
           RUN_CORE: ${{ steps.diff.outputs.run_core || 'false' }}
 
+  environment-gate:
+    name: privilege environment gate
+    needs: detect
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ needs.detect.outputs.workflow_changed == 'true' && 'agent-high-privilege' || 'agent-standard' }}
+    env:
+      WORKFLOW_CHANGED: ${{ needs.detect.outputs.workflow_changed }}
+      ENVIRONMENT_NAME: ${{ needs.detect.outputs.workflow_changed == 'true' && 'agent-high-privilege' || 'agent-standard' }}
+    steps:
+      - name: Log environment selection
+        run: |
+          echo "workflow_changed=${WORKFLOW_CHANGED}"
+          echo "environment=${ENVIRONMENT_NAME}"
+
   python-ci:
     name: python ci
-    needs: detect
+    needs:
+      - detect
+      - environment-gate
     if: ${{ needs.detect.outputs.doc_only != 'true' && needs.detect.outputs.run_core == 'true' && fromJSON(needs.detect.outputs.run_core || 'true') }}
     uses: ./.github/workflows/reusable-10-ci-python.yml
     secrets: inherit
@@ -107,7 +125,9 @@ jobs:
 
   github-scripts-tests:
     name: github scripts tests
-    needs: detect
+    needs:
+      - detect
+      - environment-gate
     if: ${{ needs.detect.outputs.doc_only != 'true' }}
     runs-on: ubuntu-latest
     steps:
@@ -127,12 +147,17 @@ jobs:
 
   docker-smoke:
     name: docker smoke
-    needs: detect
+    needs:
+      - detect
+      - environment-gate
     if: ${{ needs.detect.outputs.doc_only != 'true' && needs.detect.outputs.run_core == 'true' && fromJSON(needs.detect.outputs.run_core || 'true') && fromJSON(needs.detect.outputs.docker_changed || 'false') }}
     uses: ./.github/workflows/reusable-12-ci-docker.yml
 
   ledger-validation:
     name: ledger validation
+    needs:
+      - detect
+      - environment-gate
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -161,6 +186,7 @@ jobs:
     name: summary
     needs:
       - detect
+      - environment-gate
       - python-ci
       - docker-smoke
       - github-scripts-tests

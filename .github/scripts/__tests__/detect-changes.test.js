@@ -8,6 +8,7 @@ const {
   classifyChanges,
   isDocumentationFile,
   isDockerRelated,
+  isWorkflowFile,
 } = require('../detect-changes');
 
 test('classifies documentation files', () => {
@@ -24,16 +25,27 @@ test('detects docker related files', () => {
   assert.equal(isDockerRelated('src/app.py'), false);
 });
 
+test('detects workflow files', () => {
+  assert.equal(isWorkflowFile('.github/workflows/example.yml'), true);
+  assert.equal(isWorkflowFile('src/.github/workflows/example.yml'), false);
+});
+
 test('classify changes summary', () => {
   const result = classifyChanges(['docs/README.md', 'docs/guide.txt']);
   assert.equal(result.docOnly, true);
   assert.equal(result.dockerChanged, false);
+  assert.equal(result.workflowChanged, false);
   assert.equal(result.reason, 'docs_only');
 
   const result2 = classifyChanges(['Dockerfile', 'src/app.py']);
   assert.equal(result2.docOnly, false);
   assert.equal(result2.dockerChanged, true);
+  assert.equal(result2.workflowChanged, false);
   assert.equal(result2.reason, 'code_changes');
+
+  const result3 = classifyChanges(['.github/workflows/changes.yml', 'docs/README.md']);
+  assert.equal(result3.docOnly, false);
+  assert.equal(result3.workflowChanged, true);
 });
 
 test('detectChanges handles non pull request events', async () => {
@@ -45,6 +57,7 @@ test('detectChanges handles non pull request events', async () => {
     run_core: 'true',
     reason: 'non_pr_event',
     docker_changed: 'true',
+    workflow_changed: 'true',
   });
 });
 
@@ -56,6 +69,7 @@ test('detectChanges consumes provided files', async () => {
   assert.equal(result.outputs.doc_only, 'true');
   assert.equal(result.outputs.run_core, 'false');
   assert.equal(result.outputs.reason, 'docs_only');
+  assert.equal(result.outputs.workflow_changed, 'false');
 });
 
 test('detectChanges fetches files via callback', async () => {
@@ -66,4 +80,5 @@ test('detectChanges fetches files via callback', async () => {
   assert.equal(result.outputs.doc_only, 'false');
   assert.equal(result.outputs.docker_changed, 'true');
   assert.equal(result.outputs.run_core, 'true');
+  assert.equal(result.outputs.workflow_changed, 'false');
 });
