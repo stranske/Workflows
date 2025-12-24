@@ -276,18 +276,17 @@ jobs:
           echo "Sandbox: $SANDBOX"
 
           # Run codex exec with prompt from file
-          # EXTRA_ARGS may contain multiple args, so word splitting is intentional
-          codex exec \
-            --skip-git-repo-check \
-            --sandbox "$SANDBOX" \
-            --output-last-message "$OUTPUT_FILE" \
-            ${EXTRA_ARGS:-} \
-            "$(cat "$PROMPT_FILE")" || CODEX_EXIT=$?
+          # Build command array to handle EXTRA_ARGS properly
+          CODEX_EXIT=0
+          if [ -n "${EXTRA_ARGS:-}" ]; then
+            eval "codex exec --skip-git-repo-check --sandbox \"$SANDBOX\" --output-last-message \"$OUTPUT_FILE\" $EXTRA_ARGS \"\$(cat \"\$PROMPT_FILE\")\"" || CODEX_EXIT=$?
+          else
+            codex exec --skip-git-repo-check --sandbox "$SANDBOX" --output-last-message "$OUTPUT_FILE" "$(cat "$PROMPT_FILE")" || CODEX_EXIT=$?
+          fi
 
-          CODEX_EXIT=${CODEX_EXIT:-0}
           echo "exit-code=${CODEX_EXIT}" >> "$GITHUB_OUTPUT"
 
-          if [ $CODEX_EXIT -ne 0 ]; then
+          if [ "$CODEX_EXIT" -ne 0 ]; then
             echo "::error::Codex CLI exited with code ${CODEX_EXIT}"
           fi
 
@@ -308,7 +307,7 @@ jobs:
           fi
 
           # Exit with original code to mark job as failed if Codex failed
-          exit $CODEX_EXIT
+          exit "$CODEX_EXIT"
 
       - name: Commit and push changes
         id: commit
