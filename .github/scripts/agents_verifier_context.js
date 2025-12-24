@@ -17,6 +17,25 @@ function uniqueNumbers(values) {
   );
 }
 
+function isForkPullRequest(pr) {
+  const headRepo = pr?.head?.repo;
+  const baseRepo = pr?.base?.repo;
+  if (headRepo?.fork === true) {
+    return true;
+  }
+  const headFullName = headRepo?.full_name;
+  const baseFullName = baseRepo?.full_name;
+  if (headFullName && baseFullName && headFullName !== baseFullName) {
+    return true;
+  }
+  const headOwner = headRepo?.owner?.login;
+  const baseOwner = baseRepo?.owner?.login;
+  if (headOwner && baseOwner && headOwner !== baseOwner) {
+    return true;
+  }
+  return false;
+}
+
 function formatSections({ heading, url, body }) {
   const lines = [];
   lines.push(`### ${heading}`);
@@ -133,6 +152,19 @@ async function buildVerifierContext({ github, context, core }) {
 
   const prDetails = await github.rest.pulls.get({ owner, repo, pull_number: pr.number });
   const pull = prDetails?.data || pr;
+
+  if (isForkPullRequest(pull)) {
+    const skipReason = 'Pull request is from a fork; skipping verifier.';
+    core?.notice?.(skipReason);
+    core?.setOutput?.('should_run', 'false');
+    core?.setOutput?.('skip_reason', skipReason);
+    core?.setOutput?.('pr_number', String(pull.number || ''));
+    core?.setOutput?.('issue_numbers', '[]');
+    core?.setOutput?.('pr_html_url', pull.html_url || '');
+    core?.setOutput?.('target_sha', pull.merge_commit_sha || pull.head?.sha || context.sha || '');
+    core?.setOutput?.('context_path', '');
+    return { shouldRun: false, reason: skipReason };
+  }
 
   const closingIssues = await fetchClosingIssues({
     github,
