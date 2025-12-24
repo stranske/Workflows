@@ -57,7 +57,7 @@ on:
         required: false
     outputs:
       final-message:
-        description: 'Full Codex output message'
+        description: 'Full Codex output message (base64 encoded)'
         value: ${{ jobs.codex.outputs.final-message }}
       final-message-summary:
         description: 'First 500 chars of Codex output (safe for PR comments)'
@@ -288,13 +288,9 @@ jobs:
 
           # Set outputs for downstream steps
           if [ -f "$OUTPUT_FILE" ]; then
-            # Full message with safe delimiter (UUID)
-            delimiter="CODEX_$(uuidgen | tr -d '-')"
-            {
-              echo "final-message<<${delimiter}"
-              cat "$OUTPUT_FILE"
-              echo "${delimiter}"
-            } >> "$GITHUB_OUTPUT"
+            # Base64 encode full message to avoid heredoc delimiter issues
+            encoded=$(base64 -w 0 "$OUTPUT_FILE")
+            echo "final-message=${encoded}" >> "$GITHUB_OUTPUT"
 
             # Summary (first 500 chars, safe for PR comments)
             summary=$(head -c 500 "$OUTPUT_FILE" | tr '\n' ' ' | sed 's/"/\\"/g')
