@@ -44,8 +44,12 @@ on:
         default: false
         type: boolean
     secrets:
+      WORKFLOWS_APP_ID:
+        required: false
+      WORKFLOWS_APP_PRIVATE_KEY:
+        required: false
       ACTIONS_BOT_PAT:
-        required: true
+        required: false
     outputs:
       allowed:
         description: 'Whether the worker was allowed to proceed'
@@ -106,14 +110,80 @@ jobs:
       freshness: ${{ steps.freshness.outputs.status || '' }}
       fallback_branch: ${{ steps.fallback.outputs.branch || '' }}
     env:
-      ACTIONS_BOT_PAT: ${{ secrets.ACTIONS_BOT_PAT }}
+      ACTIONS_BOT_PAT: ${{ secrets.ACTIONS_BOT_PAT || '' }}
+      WORKFLOWS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID || '' }}
+      WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || '' }}
     steps:
-      - name: Ensure ACTIONS_BOT_PAT is configured
+      - name: Mint GitHub App token (preferred)
+        id: app_token
+        if: ${{ env.WORKFLOWS_APP_ID != '' && env.WORKFLOWS_APP_PRIVATE_KEY != '' }}
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ env.WORKFLOWS_APP_ID }}
+          private-key: ${{ env.WORKFLOWS_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Select authentication token (app > PAT > GITHUB_TOKEN)
+        id: select_token
+        env:
+          APP_TOKEN: ${{ steps.app_token.outputs.token || '' }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
-          if [ -z "$ACTIONS_BOT_PAT" ]; then
-            echo '::error::ACTIONS_BOT_PAT secret is required for worker actions.'
+          set -euo pipefail
+          token_value=""
+          token_source=""
+
+          if [ -n "${APP_TOKEN:-}" ]; then
+            token_value="${APP_TOKEN}"
+            token_source="WORKFLOWS_APP"
+          elif [ -n "${ACTIONS_BOT_PAT:-}" ]; then
+            token_value="${ACTIONS_BOT_PAT}"
+            token_source="ACTIONS_BOT_PAT"
+          elif [ -n "${GITHUB_TOKEN:-}" ]; then
+            token_value="${GITHUB_TOKEN}"
+            token_source="GITHUB_TOKEN"
+          fi
+
+          if [ -z "${token_value}" ]; then
+            echo '::error::No authentication token available (App token, ACTIONS_BOT_PAT, or GITHUB_TOKEN).' >&2
             exit 1
           fi
+
+          {
+            echo "GH_BELT_TOKEN=${token_value}"
+            echo "GH_TOKEN=${token_value}"
+            echo "TOKEN_SOURCE=${token_source}"
+          } >>"$GITHUB_ENV"
+          printf 'token=%s\n' "${token_source}" >>"$GITHUB_OUTPUT"
+
+      - name: Record token source
+        env:
+          TOKEN_SOURCE: ${{ steps.select_token.outputs.token || 'unknown' }}
+        run: |
+          cat <<'EOF' >>"$GITHUB_STEP_SUMMARY"
+          Authentication
+          ---------------
+          EOF
+          case "${TOKEN_SOURCE:-unknown}" in
+            'WORKFLOWS_APP')
+              cat <<'EOF' >>"$GITHUB_STEP_SUMMARY"
+          Using GitHub App token (WORKFLOWS_APP); write operations will use the app installation token instead of a PAT.
+          EOF
+              ;;
+            'ACTIONS_BOT_PAT')
+              cat <<'EOF' >>"$GITHUB_STEP_SUMMARY"
+          Using ACTIONS_BOT_PAT fallback. Configure WORKFLOWS_APP_ID and WORKFLOWS_APP_PRIVATE_KEY to enable the GitHub App path.
+          EOF
+              ;;
+            'GITHUB_TOKEN')
+              cat <<'EOF' >>"$GITHUB_STEP_SUMMARY"
+          Falling back to the default GITHUB_TOKEN. Writes may not trigger downstream workflows.
+          EOF
+              ;;
+            *)
+              echo "Unknown token source ${TOKEN_SOURCE:-unknown}" >>"$GITHUB_STEP_SUMMARY"
+              ;;
+          esac
 
       - name: Determine worker mode
         id: mode
@@ -152,7 +222,7 @@ jobs:
         id: ctx
         uses: actions/github-script@v7
         with:
-          github-token: ${{ env.ACTIONS_BOT_PAT }}
+          github-token: ${{ env.GH_BELT_TOKEN }}
           script: |
             const issueInput = '${{ inputs.issue }}'.trim();
             const branchInput = '${{ inputs.branch }}'.trim();
@@ -218,7 +288,7 @@ jobs:
         id: base
         uses: actions/github-script@v7
         with:
-          github-token: ${{ env.ACTIONS_BOT_PAT }}
+          github-token: ${{ env.GH_BELT_TOKEN }}
           script: |
             const supplied = '${{ steps.ctx.outputs.base }}'.trim();
             if (supplied) {
@@ -233,7 +303,7 @@ jobs:
         id: parallel
         uses: actions/github-script@v7
         with:
-          github-token: ${{ env.ACTIONS_BOT_PAT }}
+          github-token: ${{ env.GH_BELT_TOKEN }}
           script: |
             const rawMaxInput = '${{ inputs.max_parallel }}';
             const rawMax = rawMaxInput !== '' ? Number(rawMaxInput) : Number.NaN;
@@ -274,7 +344,7 @@ jobs:
           HEAD_BRANCH: ${{ steps.ctx.outputs.branch }}
           BASE_BRANCH: ${{ steps.base.outputs.branch }}
         with:
-          github-token: ${{ env.ACTIONS_BOT_PAT }}
+          github-token: ${{ env.GH_BELT_TOKEN }}
           script: |
             const { evaluateKeepaliveWorkerGate } = require('./.github/scripts/keepalive_worker_gate.js');
             const result = await evaluateKeepaliveWorkerGate({ core, github, context, env: process.env });
@@ -325,7 +395,7 @@ jobs:
         id: prune
         uses: actions/github-script@v7
         with:
-          github-token: ${{ env.ACTIONS_BOT_PAT }}
+          github-token: ${{ env.GH_BELT_TOKEN }}
           script: |
             const issue = Number('${{ steps.ctx.outputs.issue }}');
             if (!issue) {
@@ -398,7 +468,7 @@ jobs:
         id: verify
         uses: actions/github-script@v7
         with:
-          github-token: ${{ env.ACTIONS_BOT_PAT }}
+          github-token: ${{ env.GH_BELT_TOKEN }}
           script: |
             const issue = Number('${{ steps.ctx.outputs.issue }}');
             const { owner, repo } = context.repo;
@@ -420,7 +490,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ steps.ctx.outputs.branch }}
-          token: ${{ env.ACTIONS_BOT_PAT }}
+          token: ${{ env.GH_BELT_TOKEN }}
           fetch-depth: 0
 
       - name: Validate ledger base branch
@@ -552,7 +622,7 @@ jobs:
           ISSUE: ${{ steps.ctx.outputs.issue }}
           BRANCH: ${{ steps.ctx.outputs.branch }}
           BASE_BRANCH: ${{ steps.base.outputs.branch }}
-          GITHUB_TOKEN: ${{ env.ACTIONS_BOT_PAT }}
+          GITHUB_TOKEN: ${{ env.GH_BELT_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
@@ -783,7 +853,7 @@ jobs:
         if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.keepalive_gate.outputs.action != 'skip') && steps.mode.outputs.dry_run != 'true' && steps.verify.outputs.has_in_progress != 'true' }}
         uses: actions/github-script@v7
         with:
-          github-token: ${{ env.ACTIONS_BOT_PAT }}
+          github-token: ${{ env.GH_BELT_TOKEN }}
           script: |
             const issue = Number('${{ steps.ctx.outputs.issue }}');
             const { owner, repo } = context.repo;
@@ -797,7 +867,7 @@ jobs:
         if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.keepalive_gate.outputs.action != 'skip') && steps.mode.outputs.dry_run != 'true' && steps.verify.outputs.has_ready == 'true' }}
         uses: actions/github-script@v7
         with:
-          github-token: ${{ env.ACTIONS_BOT_PAT }}
+          github-token: ${{ env.GH_BELT_TOKEN }}
           script: |
             const issue = Number('${{ steps.ctx.outputs.issue }}');
             const { owner, repo } = context.repo;
@@ -814,7 +884,7 @@ jobs:
         id: pr
         uses: actions/github-script@v7
         with:
-          github-token: ${{ env.ACTIONS_BOT_PAT }}
+          github-token: ${{ env.GH_BELT_TOKEN }}
           script: |
             const issue = Number('${{ steps.ctx.outputs.issue }}');
             const fallbackBranch = '${{ steps.fallback.outputs.branch || '' }}';
@@ -867,7 +937,7 @@ jobs:
         if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.keepalive_gate.outputs.action != 'skip') && steps.mode.outputs.dry_run != 'true' && steps.pr.outputs.number }}
         uses: actions/github-script@v7
         with:
-          github-token: ${{ env.ACTIONS_BOT_PAT }}
+          github-token: ${{ env.GH_BELT_TOKEN }}
           script: |
             const prNumber = Number('${{ steps.pr.outputs.number }}');
             const { owner, repo } = context.repo;
@@ -899,7 +969,7 @@ jobs:
         if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.keepalive_gate.outputs.action != 'skip') && steps.mode.outputs.dry_run != 'true' && steps.pr.outputs.number }}
         uses: actions/github-script@v7
         with:
-          github-token: ${{ env.ACTIONS_BOT_PAT }}
+          github-token: ${{ env.GH_BELT_TOKEN }}
           script: |
             const prNumber = Number('${{ steps.pr.outputs.number }}');
             const { owner, repo } = context.repo;
@@ -914,7 +984,7 @@ jobs:
         if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.keepalive_gate.outputs.action != 'skip') && steps.mode.outputs.dry_run != 'true' && steps.pr.outputs.number }}
         uses: actions/github-script@v7
         with:
-          github-token: ${{ env.ACTIONS_BOT_PAT }}
+          github-token: ${{ env.GH_BELT_TOKEN }}
           script: |
             const prNumber = Number('${{ steps.pr.outputs.number }}');
             const issue = Number('${{ steps.ctx.outputs.issue }}');
@@ -932,7 +1002,7 @@ jobs:
         if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.keepalive_gate.outputs.action != 'skip') && steps.mode.outputs.dry_run != 'true' && steps.pr.outputs.number && inputs.keepalive != true }}
         uses: actions/github-script@v7
         with:
-          github-token: ${{ env.ACTIONS_BOT_PAT }}
+          github-token: ${{ env.GH_BELT_TOKEN }}
           script: |
             const prNumber = Number('${{ steps.pr.outputs.number }}');
             const branch = ('${{ steps.ctx.outputs.branch }}' || '').trim() || '(unknown branch)';
@@ -974,7 +1044,7 @@ jobs:
         if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.keepalive_gate.outputs.action != 'skip') && steps.mode.outputs.dry_run != 'true' && steps.pr.outputs.number }}
         uses: actions/github-script@v7
         with:
-          github-token: ${{ env.ACTIONS_BOT_PAT }}
+          github-token: ${{ env.GH_BELT_TOKEN }}
           script: |
             const issue = Number('${{ steps.ctx.outputs.issue }}');
             const prNumber = Number('${{ steps.pr.outputs.number }}');
