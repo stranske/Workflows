@@ -257,3 +257,89 @@
    Acceptance criteria:
    - Malicious-looking issue text does not get passed verbatim into Codex execution.
    - Agent workflows only run for trusted actors and trusted events.
+8. Add comprehensive test coverage for new keepalive and agent loop scripts
+
+   Context / problem:
+   - The recently added agent scripts have no unit test coverage:
+     - keepalive_loop.js (435 lines) - core loop evaluation logic
+     - keepalive_state.js (209 lines) - state persistence and comment formatting
+     - agents_verifier_context.js (207 lines) - post-merge verification context builder
+   - These scripts contain critical logic for checkbox parsing, iteration counting, stop condition evaluation, and PR state management.
+   - Without tests, regressions can silently break the keepalive and autofix functionality.
+   - The existing test patterns in __tests__/ provide a template but these new scripts are not covered.
+
+   Goal:
+   - Add comprehensive Jest test suites for all new agent scripts.
+   - Achieve >80% code coverage for the critical path functions.
+   - Include edge case testing for malformed inputs, API failures, and boundary conditions.
+
+   Tasks:
+   - Create .github/scripts/__tests__/keepalive-loop.test.js:
+         - Test countCheckboxes() with various markdown formats
+         - Test evaluateKeepaliveLoop() with mocked GitHub API responses
+         - Test stop condition logic (tasks-complete, max-iterations, repeated-failure)
+         - Test PR body parsing and config extraction
+         - Test concurrency group name generation
+   - Create .github/scripts/__tests__/keepalive-state.test.js:
+         - Test loadKeepaliveState() with various comment formats
+         - Test formatStateComment() output structure
+         - Test state persistence round-trip (save → load → verify)
+         - Test edge cases: missing comments, malformed JSON, empty PRs
+   - Create .github/scripts/__tests__/agents-verifier-context.test.js:
+         - Test buildVerifierContext() with mocked PR and issue data
+         - Test extractScopeTasksAcceptanceSections() integration
+         - Test linked issue resolution via GraphQL mock
+         - Test skip conditions (non-merged PR, missing SHA, fork detection)
+   - Update package.json test configuration if needed for coverage thresholds
+   - Add test fixtures for realistic PR bodies and issue content
+
+   Acceptance criteria:
+   - All three test files exist and pass in CI.
+   - Combined coverage for keepalive_loop.js, keepalive_state.js, and agents_verifier_context.js exceeds 80%.
+   - Tests catch at least one real bug or edge case during development.
+   - Test output is integrated into the existing Jest test run (npm test).
+
+9. Add workflow execution metrics and observability dashboard
+
+   Context / problem:
+   - The agent workflows (keepalive-loop, autofix-loop, verifier) run frequently but there's no visibility into:
+     - How many iterations each PR takes to complete
+     - Success vs failure rates for autofix attempts
+     - Which stop conditions are triggered most often
+     - Average time from PR open to tasks-complete
+     - Which types of failures autofix can vs cannot fix
+   - Debugging loop behavior requires manually inspecting workflow run logs.
+   - There's no historical trend data to identify regressions or improvements.
+
+   Goal:
+   - Add lightweight metrics collection to agent workflows.
+   - Create a metrics summary that can be viewed in GitHub Actions job summaries.
+   - Store historical data in a JSON artifact or repository file for trend analysis.
+
+   Tasks:
+   - Add metrics emission to keepalive-loop workflow:
+         - Emit: pr_number, iteration_count, stop_reason, gate_conclusion, tasks_total, tasks_completed, duration_seconds
+         - Write to GITHUB_STEP_SUMMARY in structured format
+         - Append to metrics artifact (ndjson format)
+   - Add metrics emission to autofix-loop workflow:
+         - Emit: pr_number, attempt_number, trigger_reason (mypy/pytest/lint), fix_applied (bool), gate_result_after
+         - Track which job/step triggered the autofix
+   - Add metrics emission to verifier workflow:
+         - Emit: pr_number, verdict (pass/fail), issues_created, acceptance_criteria_count, checks_run
+   - Create a metrics aggregation script (scripts/aggregate_agent_metrics.py):
+         - Read ndjson metrics files
+         - Compute summary statistics (success rate, avg iterations, common stop reasons)
+         - Output markdown summary suitable for weekly reports
+   - Add a scheduled workflow (weekly) to:
+         - Download recent metrics artifacts
+         - Run aggregation script
+         - Post summary to a tracking issue or wiki page
+   - Add metrics visualization to PR comments:
+         - Show iteration progress bar in keepalive summary comment
+         - Show autofix attempt count and outcomes
+
+   Acceptance criteria:
+   - Each agent workflow run produces structured metrics in GITHUB_STEP_SUMMARY.
+   - Metrics are persisted as artifacts for at least 30 days.
+   - Weekly summary report is automatically generated and posted.
+   - Metrics can answer: "What percentage of PRs complete via keepalive without human intervention?"
