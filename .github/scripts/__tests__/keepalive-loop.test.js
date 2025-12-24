@@ -262,6 +262,7 @@ test('updateKeepaliveLoopSummary increments iteration and clears failures on suc
   assert.equal(github.actions.length, 1);
   assert.equal(github.actions[0].type, 'update');
   assert.match(github.actions[0].body, /Iteration \*\*3\/5\*\*/);
+  assert.match(github.actions[0].body, /Iteration progress \| \[######----\] 3\/5 \|/);
   assert.match(github.actions[0].body, /### Last Codex Run/);
   assert.match(github.actions[0].body, /✅ Success/);
   assert.match(github.actions[0].body, /"iteration":3/);
@@ -301,6 +302,7 @@ test('updateKeepaliveLoopSummary pauses after repeated failures and adds label',
   assert.equal(github.actions.length, 2);
   assert.equal(github.actions[0].type, 'update');
   assert.match(github.actions[0].body, /Paused/);
+  assert.match(github.actions[0].body, /Iteration progress \| \[##--------\] 1\/5 \|/);
   assert.match(github.actions[0].body, /gate-not-success-repeat/);
   assert.equal(github.actions[1].type, 'label');
   assert.deepEqual(github.actions[1].labels, ['needs-human']);

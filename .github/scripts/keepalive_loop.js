@@ -144,6 +144,17 @@ function parseConfig(body) {
   return normaliseConfig(parsed);
 }
 
+function formatProgressBar(current, total, width = 10) {
+  if (!Number.isFinite(total) || total <= 0) {
+    return 'n/a';
+  }
+  const safeWidth = Number.isFinite(width) && width > 0 ? Math.floor(width) : 10;
+  const bounded = Math.max(0, Math.min(current, total));
+  const filled = Math.round((bounded / total) * safeWidth);
+  const empty = Math.max(0, safeWidth - filled);
+  return `[${'#'.repeat(filled)}${'-'.repeat(empty)}] ${bounded}/${total}`;
+}
+
 async function resolvePrNumber({ github, context, core }) {
   const payload = context.payload || {};
   const eventName = context.eventName;
@@ -383,6 +394,11 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
     '### Current State',
     `| Metric | Value |`,
     `|--------|-------|`,
+    `| Iteration progress | ${
+      maxIterations > 0
+        ? formatProgressBar(nextIteration, maxIterations)
+        : 'n/a (unbounded)'
+    } |`,
     `| Action | ${action || 'unknown'} (${summaryReason || 'n/a'}) |`,
     `| Gate | ${gateConclusion || 'unknown'} |`,
     `| Tasks | ${Math.max(0, tasksTotal - tasksUnchecked)}/${tasksTotal} complete |`,
