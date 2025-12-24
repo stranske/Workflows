@@ -203,5 +203,11 @@ jobs:
               autofix_enabled: '${{ needs.evaluate.outputs.autofix_enabled }}',
               trace: '${{ needs.evaluate.outputs.trace }}',
               run_result: '${{ needs.run-codex.result }}',
+              // Codex output details for visibility
+              codex_exit_code: '${{ needs.run-codex.outputs.exit-code }}',
+              codex_changes_made: '${{ needs.run-codex.outputs.changes-made }}',
+              codex_commit_sha: '${{ needs.run-codex.outputs.commit-sha }}',
+              codex_files_changed: '${{ needs.run-codex.outputs.files-changed }}',
+              codex_summary: `${{ needs.run-codex.outputs.final-message-summary }}`,
             };
             await updateKeepaliveLoopSummary({ github, context, core, inputs });
