@@ -255,12 +255,13 @@ jobs:
 
           echo "Codex completed. Output written to $OUTPUT_FILE"
 
-          # Set output for downstream steps
+          # Set output for downstream steps using a unique delimiter
           if [ -f "$OUTPUT_FILE" ]; then
+            delimiter="CODEX_OUTPUT_$(date +%s)"
             {
-              echo "final-message<<EOF"
+              echo "final-message<<${delimiter}"
               cat "$OUTPUT_FILE"
-              echo "EOF"
+              echo "${delimiter}"
             } >> "$GITHUB_OUTPUT"
           fi
 
