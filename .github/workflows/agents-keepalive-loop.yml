@@ -158,7 +158,7 @@ jobs:
     name: Keepalive next task
     needs:
       - evaluate
-    uses: ./.github/workflows/reusable-codex-run.yml
+    uses: stranske/Workflows/.github/workflows/reusable-codex-run.yml@main
     secrets:
       CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
       WORKFLOWS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID }}
