@@ -102,6 +102,7 @@ jobs:
 
       - name: Open follow-up issue on verifier failure
         if: steps.context.outputs.should_run == 'true' && steps.verdict.outputs.verdict == 'fail'
+        id: failure_issue
         uses: actions/github-script@v7
         env:
           PR_URL: ${{ steps.context.outputs.pr_html_url }}
@@ -135,3 +136,68 @@ jobs:
               body,
               labels: ['agent:codex'],
             });
+            core?.setOutput('created', '1');
+
+      - name: Emit verifier metrics
+        if: steps.context.outputs.should_run == 'true'
+        env:
+          PR_NUMBER: ${{ steps.context.outputs.pr_number }}
+          VERDICT: ${{ steps.verdict.outputs.verdict }}
+          ACCEPTANCE_COUNT: ${{ steps.context.outputs.acceptance_count }}
+          ISSUE_CREATED: ${{ steps.failure_issue.outputs.created }}
+        run: |
+          set -euo pipefail
+          pr_number="${PR_NUMBER:-0}"
+          verdict="${VERDICT:-unknown}"
+          acceptance_count="${ACCEPTANCE_COUNT:-0}"
+          issue_created="${ISSUE_CREATED:-0}"
+
+          if ! [[ "$acceptance_count" =~ ^[0-9]+$ ]]; then
+            acceptance_count=0
+          fi
+
+          if ! [[ "$issue_created" =~ ^[0-9]+$ ]]; then
+            issue_created=0
+          fi
+
+          checks_run=$acceptance_count
+          if [ "$checks_run" -lt 1 ]; then
+            checks_run=1
+          fi
+
+          metrics_json=$(jq -n \
+            --arg pr "$pr_number" \
+            --arg verdict "$verdict" \
+            --arg issues_created "$issue_created" \
+            --arg acceptance "$acceptance_count" \
+            --arg checks "$checks_run" \
+            '{
+              pr_number: ($pr | tonumber? // 0),
+              verdict: $verdict,
+              issues_created: ($issues_created | tonumber? // 0),
+              acceptance_criteria_count: ($acceptance | tonumber? // 0),
+              checks_run: ($checks | tonumber? // 0)
+            }')
+
+          {
+            echo '### Verifier metrics'
+            echo ''
+            echo '| Field | Value |'
+            echo '| --- | --- |'
+            echo "| pr_number | $(echo "$metrics_json" | jq -r '.pr_number') |"
+            echo "| verdict | $(echo "$metrics_json" | jq -r '.verdict') |"
+            echo "| issues_created | $(echo "$metrics_json" | jq -r '.issues_created') |"
+            echo "| acceptance_criteria_count | $(echo "$metrics_json" | jq -r '.acceptance_criteria_count') |"
+            echo "| checks_run | $(echo "$metrics_json" | jq -r '.checks_run') |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          echo "$metrics_json" >> verifier-metrics.ndjson
+
+      - name: Upload verifier metrics artifact
+        if: steps.context.outputs.should_run == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: verifier-metrics
+          path: verifier-metrics.ndjson
+          retention-days: 30
+          if-no-files-found: error
