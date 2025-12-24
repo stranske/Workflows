@@ -114,6 +114,48 @@ test('buildVerifierContext skips when base branch mismatches default', async () 
   assert.ok(core.outputs.skip_reason.includes('base ref'));
 });
 
+test('buildVerifierContext skips forked pull requests', async () => {
+  const core = buildCore();
+  const prDetails = {
+    number: 77,
+    title: 'Forked change',
+    body: prBodyFixture,
+    html_url: 'https://example.com/pr/77',
+    merge_commit_sha: 'merge-sha-77',
+    base: {
+      ref: 'main',
+      repo: { full_name: 'octo/workflows', owner: { login: 'octo' } },
+    },
+    head: {
+      sha: 'head-sha-77',
+      repo: { full_name: 'forker/workflows', owner: { login: 'forker' }, fork: true },
+    },
+  };
+  const context = {
+    eventName: 'pull_request',
+    repo: { owner: 'octo', repo: 'workflows' },
+    payload: {
+      repository: { default_branch: 'main' },
+      pull_request: {
+        merged: true,
+        number: 77,
+        base: { ref: 'main' },
+        html_url: 'https://example.com/pr/77',
+      },
+    },
+    sha: 'sha-77',
+  };
+  const result = await buildVerifierContext({
+    github: buildGithubStub({ prDetails }),
+    context,
+    core,
+  });
+  assert.equal(result.shouldRun, false);
+  assert.equal(core.outputs.should_run, 'false');
+  assert.equal(core.outputs.pr_number, '77');
+  assert.ok(core.outputs.skip_reason.includes('fork'));
+});
+
 test('buildVerifierContext writes verifier context with linked issues', async () => {
   const core = buildCore();
   const prDetails = {
