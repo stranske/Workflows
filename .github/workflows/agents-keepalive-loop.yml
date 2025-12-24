@@ -188,6 +188,8 @@ jobs:
 
       - name: Update summary comment
         uses: actions/github-script@v7
+        env:
+          CODEX_SUMMARY: ${{ needs.run-codex.outputs.final-message-summary }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -211,6 +213,6 @@ jobs:
               codex_changes_made: '${{ needs.run-codex.outputs.changes-made }}',
               codex_commit_sha: '${{ needs.run-codex.outputs.commit-sha }}',
               codex_files_changed: '${{ needs.run-codex.outputs.files-changed }}',
-              codex_summary: `${{ needs.run-codex.outputs.final-message-summary }}`,
+              codex_summary: process.env.CODEX_SUMMARY || '',
             };
             await updateKeepaliveLoopSummary({ github, context, core, inputs });
