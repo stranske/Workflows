@@ -9,7 +9,7 @@
     {
       "number": 909,
       "head": {"ref": "codex/issue-909-upgrade"},
-      "labels": ["agents:keepalive", "agent:codex"],
+      "labels": ["agents:keepalive"],
       "comments": [
         {
           "user": {"login": "triage-bot"},

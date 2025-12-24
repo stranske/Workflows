@@ -218,7 +218,7 @@ def test_keepalive_dedupes_configuration() -> None:
     raw = _raw_entries(summary)
     labels_line = next(line for line in raw if line.startswith("Target labels:"))
     logins_line = next(line for line in raw if line.startswith("Agent logins:"))
-    assert _extract_marked_values(labels_line) == ["agent:codex", "agent:triage"]
+    assert _extract_marked_values(labels_line) == ["agents:keepalive", "agents:triage"]
     assert _extract_marked_values(logins_line) == [
         "chatgpt-codex-connector",
         "helper-bot",
@@ -401,7 +401,7 @@ def test_keepalive_upgrades_legacy_comment() -> None:
 
 
 def test_keepalive_skips_non_codex_branches() -> None:
-    """Keepalive now works on any branch with the agent:codex label.
+    """Keepalive now works on any branch with the agents:keepalive label.
 
     This test previously expected keepalive to skip non-codex/issue-* branches,
     but that restriction was removed to make keepalive more flexible.
@@ -410,7 +410,7 @@ def test_keepalive_skips_non_codex_branches() -> None:
     data = _run_scenario("non_codex_branch")
     created = data["created_comments"]
     # Keepalive should now trigger because:
-    # - PR has agent:codex label
+    # - PR has agents:keepalive label
     # - Has @codex command
     # - Has Codex comment with unchecked checklist item
     # - Enough idle time has passed
@@ -426,6 +426,24 @@ def test_keepalive_skips_non_codex_branches() -> None:
     payload = _assert_single_dispatch(data, 111, round_expected=1)
     assert payload.get("meta", {}).get("comment_id") == created[0]["id"]
     assert payload["head"] == "feature/non-codex-update"
+
+
+def test_keepalive_skips_cli_agent_labels() -> None:
+    data = _run_scenario("cli_agent_skip")
+    summary = data["summary"]
+
+    assert data["created_comments"] == []
+    assert data["updated_comments"] == []
+    _assert_no_dispatch(data)
+
+    raw = _raw_entries(summary)
+    assert "Skipped keepalive count: 1" in raw
+
+    skipped_details = _details(summary, "Skipped pull requests")
+    assert skipped_details is not None
+    assert any(
+        "CLI agent label present" in item for item in skipped_details.get("items", [])
+    )
 
 
 def test_keepalive_gate_trigger_bypasses_idle_check() -> None:
