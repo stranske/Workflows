@@ -276,11 +276,12 @@ jobs:
           echo "Sandbox: $SANDBOX"
 
           # Run codex exec with prompt from file
+          # shellcheck disable=SC2086 -- EXTRA_ARGS may contain multiple args
           codex exec \
             --skip-git-repo-check \
             --sandbox "$SANDBOX" \
             --output-last-message "$OUTPUT_FILE" \
-            $EXTRA_ARGS \
+            ${EXTRA_ARGS:-} \
             "$(cat "$PROMPT_FILE")" || CODEX_EXIT=$?
 
           CODEX_EXIT=${CODEX_EXIT:-0}

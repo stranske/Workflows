@@ -214,5 +214,8 @@ jobs:
               codex_commit_sha: '${{ needs.run-codex.outputs.commit-sha }}',
               codex_files_changed: '${{ needs.run-codex.outputs.files-changed }}',
               codex_summary: process.env.CODEX_SUMMARY || '',
+              // Workflow run info for linking
+              run_id: '${{ github.run_id }}',
+              run_url: 'https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}',
             };
             await updateKeepaliveLoopSummary({ github, context, core, inputs });

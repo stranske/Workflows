@@ -334,6 +334,7 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
   const codexCommitSha = normalise(inputs.codex_commit_sha ?? inputs.codexCommitSha);
   const codexFilesChanged = toNumber(inputs.codex_files_changed ?? inputs.codexFilesChanged, 0);
   const codexSummary = normalise(inputs.codex_summary ?? inputs.codexSummary);
+  const runUrl = normalise(inputs.run_url ?? inputs.runUrl);
 
   const { state: previousState, commentId } = await loadKeepaliveState({
     github,
@@ -391,7 +392,8 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
 
   // Add Codex run details if we ran Codex
   if (action === 'run' && runResult) {
-    summaryLines.push('', '### Last Codex Run');
+    const runLinkText = runUrl ? ` ([view logs](${runUrl}))` : '';
+    summaryLines.push('', `### Last Codex Run${runLinkText}`);
     
     if (runResult === 'success') {
       const changesIcon = codexChangesMade === 'true' ? '✅' : '⚪';
@@ -422,8 +424,31 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
     }
   }
 
+  // Show failure tracking prominently if there are failures
+  if (failure.count > 0) {
+    summaryLines.push(
+      '',
+      '### ⚠️ Failure Tracking',
+      `| Consecutive failures | ${failure.count}/${failureThreshold} |`,
+      `| Reason | ${failure.reason || 'unknown'} |`,
+    );
+  }
+
   if (stop) {
-    summaryLines.push('', '⚠️ **Status: Paused – human attention required**');
+    summaryLines.push(
+      '',
+      '### 🛑 Paused – Human Attention Required',
+      '',
+      'The keepalive loop has paused due to repeated failures.',
+      '',
+      '**To resume:**',
+      '1. Investigate the failure reason above',
+      '2. Fix any issues in the code or prompt',
+      '3. Remove the `needs-human` label from this PR',
+      '4. The next Gate pass will restart the loop',
+      '',
+      '_Or manually edit this comment to reset `failure: {}` in the state below._',
+    );
   }
 
   const newState = {
