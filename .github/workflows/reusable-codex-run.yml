@@ -43,7 +43,8 @@ on:
         default: ''
         type: string
     secrets:
-      OPENAI_API_KEY:
+      CODEX_AUTH_JSON:
+        description: 'JSON contents of ~/.codex/auth.json for ChatGPT subscription auth'
         required: true
       WORKFLOWS_APP_ID:
         required: false
@@ -189,11 +190,23 @@ jobs:
 
           echo "file=${output}" >> "$GITHUB_OUTPUT"
 
+      - name: Setup Codex auth
+        env:
+          CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.codex
+          echo "$CODEX_AUTH_JSON" > ~/.codex/auth.json
+          chmod 600 ~/.codex/auth.json
+          echo "Codex auth configured from CODEX_AUTH_JSON secret"
+
       - name: Run Codex
         id: run_codex
         uses: openai/codex-action@v1
         with:
-          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          # Auth is pre-configured via ~/.codex/auth.json from CODEX_AUTH_JSON secret
+          # The action requires this input but CLI will use auth.json tokens instead
+          openai-api-key: 'auth-via-codex-auth-json'
           prompt-file: ${{ steps.prompt.outputs.file }}
           output-file: codex-output.md
           sandbox: ${{ inputs.sandbox }}
