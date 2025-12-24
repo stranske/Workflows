@@ -1,11 +1,15 @@
-Handled numbered checklist items like `1)` in keepalive parsing and added coverage to keep the task appendix and counts accurate.
+Updated the status summary builder to accept an `agentType` flag and suppress workflow clutter for CLI agents, plus added targeted tests and verified them. Pipeline validation and workflow wiring remain blocked here because they require external runs or edits under `.github/workflows/**` (restricted without `agent-high-privilege`).
 
-- Updated checkbox parsing and checklist normalization to accept numbered bullets with parentheses in `.github/scripts/keepalive_loop.js`
-- Added tests for parenthesized numbered lists in `.github/scripts/__tests__/keepalive-loop.test.js`
-- Commit: `Handle numbered checklist items in keepalive loop`
+Details
+- CLI-agent suppression logic lives in `/.github/scripts/agents_pr_meta_update_body.js`, including agent type input resolution and conditional omission of head SHA/required checks/table.
+- Tests added in `/.github/scripts/__tests__/agents-pr-meta-update-body.test.js` to cover both CLI and non-CLI output.
+- Tests run: `node --test .github/scripts/__tests__/agents-pr-meta-update-body.test.js`
 
-Tests not run (not requested).
+Blocked items
+- Pipeline validation tasks require creating a real PR, label, and checking workflow logs.
+- `GITHUB_STEP_SUMMARY` and agent-type plumbing in workflows need edits under `.github/workflows/**`, which I can’t modify in this run.
 
-Next steps:
-1) Run `node --test .github/scripts/__tests__/keepalive-loop.test.js` to validate the new cases.
-2) Run the full test suite if needed for coverage.
+Next steps (pick one)
+1. Approve workflow edits so I can wire `agent_type` into the update job and add the step summary output.
+2. Have a human apply the workflow changes; I can then adjust scripts/tests if needed.
+3. Create the test PR with `agent:codex` label and share logs so I can verify the pipeline validation tasks.
