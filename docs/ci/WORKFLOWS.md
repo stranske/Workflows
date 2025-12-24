@@ -74,6 +74,7 @@ pull_request ──▶ Gate ──▶ Summary comment & status
 | [`reusable-11-ci-node.yml`](../../.github/workflows/reusable-11-ci-node.yml) | None (artifacts only). | Coverage + junit artifacts when enabled. |
 | [`reusable-12-ci-docker.yml`](../../.github/workflows/reusable-12-ci-docker.yml) | None. | Logs only. |
 | [`reusable-18-autofix.yml`](../../.github/workflows/reusable-18-autofix.yml) | None. | Patch artifacts + summaries only. |
+| [`reusable-codex-run.yml`](../../.github/workflows/reusable-codex-run.yml) | `final-message`. | Standardizes Codex prompt-file runs with sandbox defaults plus commit/push + artifact upload. |
 | [`reusable-70-orchestrator-main.yml`](../../.github/workflows/reusable-70-orchestrator-main.yml) | None. | Consumes init outputs; reports via summaries/artifacts. |
 | [`reusable-agents-issue-bridge.yml`](../../.github/workflows/reusable-agents-issue-bridge.yml) | None. | Bridge emits PRs/comments only. |
 
@@ -97,6 +98,7 @@ The gate uses the shared `.github/scripts/detect-changes.js` helper to decide wh
 
 ## Autofix & Maintenance
 
+* [`reusable-codex-run.yml`](../../.github/workflows/reusable-codex-run.yml) exposes a reusable Codex runner with prompt-file input, sandbox/safety defaults, artifact upload, and commit/push handling so keepalive, autofix, and verifier wrappers can share the same execution surface.
 * [`reusable-18-autofix.yml`](../../.github/workflows/reusable-18-autofix.yml) provides the shared jobs used by autofix callers to stage, classify, and report automatic fixes.
 * [`reusable-20-pr-meta.yml`](../../.github/workflows/reusable-20-pr-meta.yml) detects keepalive round-marker comments in PRs, dispatches the orchestrator when detected, and manages PR body section updates for consumer repositories using the dual-checkout pattern.
 * [`maint-45-cosmetic-repair.yml`](../../.github/workflows/maint-45-cosmetic-repair.yml) invokes the reusable autofix pipeline on a schedule to keep cosmetic issues in check.

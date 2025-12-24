@@ -1,0 +1,169 @@
+name: Reusable Codex Run
+
+on:
+  workflow_call:
+    inputs:
+      prompt_file:
+        description: 'Path to the prompt file that Codex should read.'
+        required: true
+        type: string
+      mode:
+        description: 'Codex mode for logging purposes (keepalive | autofix | verifier).'
+        required: false
+        default: keepalive
+        type: string
+      pr_number:
+        description: 'Optional pull request number (used for logging or comments by callers).'
+        required: false
+        default: ''
+        type: string
+      max_runtime_minutes:
+        description: 'Upper bound for the job runtime in minutes.'
+        required: false
+        default: 45
+        type: number
+      sandbox:
+        description: 'Sandbox mode to pass through to Codex.'
+        required: false
+        default: workspace-write
+        type: string
+      safety_strategy:
+        description: 'Safety strategy to pass through to Codex.'
+        required: false
+        default: drop-sudo
+        type: string
+      codex_args:
+        description: 'Optional Codex CLI arguments (string or JSON array).'
+        required: false
+        default: ''
+        type: string
+    secrets:
+      OPENAI_API_KEY:
+        required: true
+      WORKFLOWS_APP_ID:
+        required: false
+      WORKFLOWS_APP_PRIVATE_KEY:
+        required: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+
+jobs:
+  codex:
+    name: Codex (${{ inputs.mode }})
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ inputs.max_runtime_minutes }}
+    outputs:
+      final-message: ${{ steps.run_codex.outputs.final-message }}
+    steps:
+      - name: Mint GitHub App token (preferred)
+        id: app_token
+        continue-on-error: true
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.WORKFLOWS_APP_ID }}
+          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+
+      - name: Select auth token
+        id: auth_token
+        env:
+          APP_TOKEN: ${{ steps.app_token.outputs.token || '' }}
+        run: |
+          set -euo pipefail
+          checkout_token="${APP_TOKEN:-${GITHUB_TOKEN}}"
+          push_token="${APP_TOKEN:-}"
+          source="app-token"
+          push_allowed="true"
+
+          if [ -z "$push_token" ]; then
+            source="github-token"
+            push_allowed="false"
+          fi
+
+          {
+            echo "checkout_token=${checkout_token}"
+            echo "push_token=${push_token}"
+            echo "source=${source}"
+            echo "push_allowed=${push_allowed}"
+          } >> "$GITHUB_OUTPUT"
+
+          {
+            echo "WORKFLOWS_TOKEN=${checkout_token}"
+            echo "CODEX_MODE=${{ inputs.mode }}"
+            echo "CODEX_PR_NUMBER=${{ inputs.pr_number }}"
+          } >> "$GITHUB_ENV"
+
+          printf 'Checkout auth: %s; push permitted with app token: %s.\n' "$source" "$push_allowed"
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ steps.auth_token.outputs.checkout_token }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: |
+            pyproject.toml
+            requirements*.txt
+
+      - name: Install Python dependencies
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
+          if [ -f pyproject.toml ]; then pip install -e .; fi
+
+      - name: Run Codex
+        id: run_codex
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          prompt-file: ${{ inputs.prompt_file }}
+          output-file: codex-output.md
+          sandbox: ${{ inputs.sandbox }}
+          safety-strategy: ${{ inputs.safety_strategy }}
+          codex-args: ${{ inputs.codex_args }}
+
+      - name: Commit and push changes
+        env:
+          MODE: ${{ inputs.mode }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+          PUSH_ALLOWED: ${{ steps.auth_token.outputs.push_allowed }}
+          PUSH_TOKEN: ${{ steps.auth_token.outputs.push_token }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "No changes to commit."
+            exit 0
+          fi
+
+          commit_message="chore(codex-${MODE}): apply updates"
+          if [ -n "$PR_NUMBER" ]; then
+            commit_message="${commit_message} (PR #${PR_NUMBER})"
+          fi
+
+          if [ "$PUSH_ALLOWED" != "true" ]; then
+            echo "GitHub App token missing; refusing to push without app identity to preserve workflow triggers."
+            exit 1
+          fi
+
+          git add -A
+          git commit -m "$commit_message"
+          git push https://x-access-token:${PUSH_TOKEN}@github.com/${{ github.repository }} HEAD:${{ github.ref_name }}
+
+      - name: Upload Codex output
+        if: always() && hashFiles('codex-output.md') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: codex-output
+          path: codex-output.md

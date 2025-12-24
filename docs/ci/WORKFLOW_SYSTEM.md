@@ -386,12 +386,15 @@ fires where” without diving into the full tables:
     [workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-guard.yml).
 - **Error checking, linting, and testing topology**
   - **Primary workflows.** `reusable-10-ci-python.yml`, `reusable-12-ci-docker.yml`,
-    `reusable-16-agents.yml`, `reusable-18-autofix.yml`, `reusable-20-pr-meta.yml`, `reusable-agents-issue-bridge.yml`, and `selftest-reusable-ci.yml`.
+    `reusable-16-agents.yml`, `reusable-18-autofix.yml`, `reusable-20-pr-meta.yml`, `reusable-agents-issue-bridge.yml`, `reusable-codex-run.yml`, and `selftest-reusable-ci.yml`.
   - **Triggers.** Invoked via `workflow_call` by Gate, Gate summary job, and manual
     reruns. `selftest-reusable-ci.yml` handles the nightly rehearsal (cron at 06:30 UTC)
     and manual publication modes via `workflow_dispatch`.
   - **Purpose.** Provide a consistent lint/type/test/container matrix so every
     caller sees identical results.
+  - **Codex entry point.** `reusable-codex-run.yml` centralizes prompt-file execution,
+    default sandbox settings, and post-run commit/push handling so keepalive, autofix,
+    and verifier callers share the same behavior.
   - **Where to inspect logs.** Reusable Python CI:
     [workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/reusable-10-ci-python.yml).
     Docker CI:
