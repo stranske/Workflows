@@ -1,10 +1,10 @@
-Added fixture-backed PR/issue bodies to make the keepalive loop and verifier context tests more realistic, and wired the tests to consume those fixtures for better coverage of real-world markdown. Changes are in `.github/scripts/__tests__/keepalive-loop.test.js`, `.github/scripts/__tests__/agents-verifier-context.test.js`, `.github/scripts/__tests__/fixtures/pr-body.md`, `.github/scripts/__tests__/fixtures/issue-body-open.md`, and `.github/scripts/__tests__/fixtures/issue-body-closed.md`.
+Added a metrics aggregation script to summarize agent NDJSON metrics into a markdown report and covered it with pytest so the weekly workflow can call a tested, repo‑native helper. Changes are in `scripts/aggregate_agent_metrics.py` (parser/summary formatter) and `tests/scripts/test_aggregate_agent_metrics.py` (summary + main path coverage).
 
-AGENTS.md note: I didn’t find `AGENTS.md` under `/home/runner/work/Workflows/Workflows`. The closest docs are the `agents/*.md` files.
+AGENTS.md note: no `AGENTS.md` found under `/home/runner/work/Workflows/Workflows`.
 
 Tests run:
-- `node --test .github/scripts/__tests__/keepalive-loop.test.js .github/scripts/__tests__/agents-verifier-context.test.js`
+- `python -m pytest tests/scripts/test_aggregate_agent_metrics.py`
 
-If you want broader validation, you could:
-1) Run the full Node test set: `node --test .github/scripts/__tests__/*.test.js`
-2) Run the overall test suite via your usual CI entrypoint (`npm test` or repo standard)
+Next steps you may want:
+1) Wire `scripts/aggregate_agent_metrics.py` into the weekly workflow and metrics upload steps (requires workflow edits I can’t make here).
+2) Define/standardize the NDJSON schema keys in the emitting workflows so the classifier doesn’t need heuristics.
