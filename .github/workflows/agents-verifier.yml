@@ -155,23 +155,36 @@ jobs:
               print(f"::warning::Could not check token expiration: {e}")
           PYEOF
 
+      - name: Install Codex CLI
+        if: steps.context.outputs.should_run == 'true'
+        run: npm install -g @openai/codex
+
       - name: Run verifier
         id: codex
         if: steps.context.outputs.should_run == 'true'
-        uses: openai/codex-action@v1
         env:
           CODEX_HOME: ${{ runner.temp }}/.codex-verifier
-        with:
-          # Auth is pre-configured via ~/.codex/auth.json from CODEX_AUTH_JSON secret
-          # When openai-api-key is empty, codex-action skips the proxy and uses auth.json directly
-          codex-home: ${{ runner.temp }}/.codex-verifier
-          prompt-file: ${{ steps.prepare.outputs.prompt_file }}
-          output-file: codex-output.md
-          sandbox: read-only
-          # Use 'unsafe' since we're not using the API proxy (no key to protect)
-          # The sandbox: read-only already limits Codex's capabilities
-          safety-strategy: unsafe
+        run: |
+          set -euo pipefail
+          # Run codex exec directly with the pre-configured auth.json
+          # Use read-only sandbox for safety
+          # Capture the exit code so we can still process outputs before exiting.
+          set +e
+          codex exec \
+            --sandbox read-only \
+            --skip-git-repo-check \
+            --output-last-message codex-output.md \
+            < "${{ steps.prepare.outputs.prompt_file }}"
+          codex_exit_code=$?
+          set -euo pipefail
 
+          echo "Codex verifier completed (exit code: ${codex_exit_code})"
+          if [ -f codex-output.md ]; then
+            echo "=== Verifier Output ==="
+            cat codex-output.md
+          fi
+
+          exit "${codex_exit_code}"
       - name: Parse verifier verdict
         id: verdict
         if: steps.context.outputs.should_run == 'true'
