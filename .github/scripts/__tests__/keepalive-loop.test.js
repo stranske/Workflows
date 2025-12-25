@@ -690,6 +690,51 @@ test('updateKeepaliveLoopSummary posts attention comment for logic failures', as
   assert.match(attentionComment.body, /Review request inputs/);
 });
 
+test('updateKeepaliveLoopSummary formats codex attention comment details', async () => {
+  const existingState = formatStateComment({
+    trace: 'trace-attention-codex',
+    iteration: 1,
+    failure_threshold: 3,
+    failure: {},
+  });
+  const github = buildGithubStub({
+    comments: [{ id: 111, body: existingState, html_url: 'https://example.com/111' }],
+  });
+  const longSummary = `Validation failed: ${'x'.repeat(400)}`;
+
+  await updateKeepaliveLoopSummary({
+    github,
+    context: buildContext(657),
+    core: buildCore(),
+    inputs: {
+      prNumber: 657,
+      action: 'run',
+      runResult: 'failure',
+      gateConclusion: 'success',
+      tasksTotal: 3,
+      tasksUnchecked: 3,
+      keepaliveEnabled: true,
+      autofixEnabled: false,
+      iteration: 1,
+      maxIterations: 5,
+      failureThreshold: 3,
+      trace: 'trace-attention-codex',
+      agent_exit_code: '2',
+      agent_summary: longSummary,
+      run_url: 'https://example.com/run/657',
+    },
+  });
+
+  const attentionComment = github.actions.find((action) =>
+    action.type === 'create' && action.body.includes('non-transient failure')
+  );
+  assert.ok(attentionComment);
+  assert.match(attentionComment.body, /Error category: logic/);
+  assert.match(attentionComment.body, /Error type: codex/);
+  assert.match(attentionComment.body, /Run logs: https:\/\/example.com\/run\/657/);
+  assert.match(attentionComment.body, /Agent output: .*\.{3}/);
+});
+
 test('updateKeepaliveLoopSummary does NOT add needs-human on tasks-complete', async () => {
   // tasks-complete is a SUCCESS state, not an error
   const existingState = formatStateComment({
