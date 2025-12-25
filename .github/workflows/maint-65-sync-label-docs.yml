@@ -1,4 +1,4 @@
-name: Sync Label Documentation
+name: Maint 65 Sync Label Docs
 
 on:
   push:

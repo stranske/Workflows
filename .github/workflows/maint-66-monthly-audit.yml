@@ -1,4 +1,4 @@
-name: Maint 66 Monthly Workflow Audit
+name: Maint 66 Monthly Audit
 
 on:
   schedule:
