@@ -1,9 +1,8 @@
-Added skip-history coverage for non‑gate failures and wired the test GitHub stub to expose `issues.listComments`, so the gate runner’s prior‑failure logic is exercised in `.github/scripts/__tests__/keepalive-orchestrator-gate-runner.test.js`. Updated the task progress tally in `codex-prompt.md` to reflect current completion.
+Added a keepalive gate test for missing required labels and updated the PR task checklist to reflect completed test work in `codex-prompt.md`. New coverage verifies the skip reason includes the missing label identifiers.
 
-Tests:
+Tests run:
 - `node --test .github/scripts/__tests__/keepalive-orchestrator-gate-runner.test.js`
-- `node --test .github/scripts/__tests__/*.test.js`
 
 Next steps:
-1) Run Selftest CI to satisfy the regression criterion.
-2) Confirm whether test documentation updates are needed; if not, check the remaining box in `codex-prompt.md`.
+1) Run the full test suite per the remaining task requirement.
+2) Decide whether any test documentation updates are needed.
