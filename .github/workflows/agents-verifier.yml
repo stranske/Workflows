@@ -218,7 +218,8 @@ jobs:
             const fs = require('fs');
             const { formatFollowUpIssue, formatSimpleFollowUpIssue } = require('./.github/scripts/verifier_issue_formatter.js');
 
-            const prNumber = Number('${{ steps.context.outputs.pr_number }}') || null;
+            const rawPrNumber = Number('${{ steps.context.outputs.pr_number }}');
+            const prNumber = !Number.isNaN(rawPrNumber) && rawPrNumber > 0 ? rawPrNumber : null;
             const issueNumbers = JSON.parse('${{ steps.context.outputs.issue_numbers || '[]' }}');
             const verifierOutput = fs.readFileSync('codex-output.md', 'utf8');
             const prUrl = process.env.PR_URL || '';
