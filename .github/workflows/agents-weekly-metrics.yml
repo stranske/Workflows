@@ -41,8 +41,11 @@ jobs:
           done
 
       - name: Aggregate metrics
+        env:
+          METRICS_DIR: artifacts
+          OUTPUT_PATH: agent-weekly-metrics.md
         run: |
-          python scripts/aggregate_agent_metrics.py --artifacts-dir artifacts --output agent-weekly-metrics.md
+          python scripts/aggregate_agent_metrics.py
 
       - name: Upload weekly summary
         uses: actions/upload-artifact@v4
