@@ -123,7 +123,7 @@ Your objective is to satisfy the **Acceptance Criteria** by completing each **Ta
 ---
 ## PR Tasks and Acceptance Criteria
 
-**Progress:** 16/32 tasks complete, 16 remaining
+**Progress:** 13/32 tasks complete, 19 remaining
 
 ### ⚠️ IMPORTANT: Task Reconciliation Required
 
@@ -170,9 +170,9 @@ Complete these in order. Mark checkbox done ONLY after implementation is verifie
 - [ ] Implement conditional retry for transient failures
 - [ ] Add detailed error output to GITHUB_STEP_SUMMARY
 - [ ] Create artifact with error diagnostics
-- [x] Update keepalive loop failure handling:
-- [x] Distinguish between Codex failures vs infrastructure failures
-- [x] Reset failure counter on transient errors
+- [ ] Update keepalive loop failure handling:
+- [ ] Distinguish between Codex failures vs infrastructure failures
+- [ ] Reset failure counter on transient errors
 - [x] Add `error_type` to keepalive state
 - [x] Emit failure classification in outputs
 - [ ] Add PR comment on unrecoverable failures:

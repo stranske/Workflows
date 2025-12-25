@@ -90,3 +90,39 @@ test('withGithubApiRetry does not retry non-transient errors', async () => {
   );
   assert.equal(attempts, 1);
 });
+
+test('withGithubApiRetry logs retry context', async () => {
+  let attempts = 0;
+  const warnings = [];
+
+  const result = await withGithubApiRetry(
+    async () => {
+      attempts += 1;
+      if (attempts === 1) {
+        const error = new Error('Service unavailable');
+        error.status = 503;
+        throw error;
+      }
+      return 'ok';
+    },
+    {
+      operation: 'read',
+      label: 'fetch data',
+      maxRetriesByOperation: { read: 1, unknown: 0 },
+      sleep: async () => {},
+      backoffFn: () => 1234,
+      core: {
+        warning: (message) => warnings.push(message),
+      },
+    }
+  );
+
+  assert.equal(result, 'ok');
+  assert.equal(attempts, 2);
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0], /Retrying fetch data/);
+  assert.match(warnings[0], /operation=read/);
+  assert.match(warnings[0], /category=transient/);
+  assert.match(warnings[0], /attempt=1\/2/);
+  assert.match(warnings[0], /delayMs=1234/);
+});
