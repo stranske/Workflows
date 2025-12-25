@@ -191,6 +191,8 @@ EXPECTED_NAMES = {
     "maint-52-validate-workflows.yml": "Maint 52 Validate Workflows",
     "maint-62-integration-consumer.yml": "Maint 62 Integration Consumer",
     "maint-63-ensure-environments.yml": "Maint 63 Ensure Agent Environments",
+    "maint-65-sync-label-docs.yml": "Maint 65 Sync Label Docs",
+    "maint-66-monthly-audit.yml": "Maint 66 Monthly Audit",
     "maint-60-release.yml": "Maint 60 Release",
     "maint-61-create-floating-v1-tag.yml": "Maint 61 Create Floating v1 Tag",
     "pr-00-gate.yml": "Gate",

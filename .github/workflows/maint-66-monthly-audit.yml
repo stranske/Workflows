@@ -63,9 +63,11 @@ jobs:
           total_success=$(echo "${runs}" | jq -s '[.[] | select(.conclusion == "success")] | length')
           total_failure=$(echo "${runs}" | jq -s '[.[] | select(.conclusion == "failure")] | length')
 
-          echo "total_runs=${total_runs}" >> "$GITHUB_OUTPUT"
-          echo "total_success=${total_success}" >> "$GITHUB_OUTPUT"
-          echo "total_failure=${total_failure}" >> "$GITHUB_OUTPUT"
+          {
+            echo "total_runs=${total_runs}"
+            echo "total_success=${total_success}"
+            echo "total_failure=${total_failure}"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Identify workflows needing attention
         id: attention
@@ -91,7 +93,7 @@ jobs:
           ' /tmp/workflow_stats.json)
 
           # Check for workflows that haven't run
-          workflow_files=$(ls .github/workflows/*.yml | xargs -I{} basename {} .yml)
+          workflow_files=$(find .github/workflows -maxdepth 1 -name '*.yml' -exec basename {} .yml \;)
           ran_workflows=$(jq -r '.[].name' /tmp/workflow_stats.json)
 
           not_run=""
@@ -114,15 +116,9 @@ jobs:
             echo "failing<<EOF"
             echo "${failing:-None}"
             echo "EOF"
-          } >> "$GITHUB_OUTPUT"
-
-          {
             echo "warning<<EOF"
             echo "${warning:-None}"
             echo "EOF"
-          } >> "$GITHUB_OUTPUT"
-
-          {
             echo "not_run<<EOF"
             echo -e "${not_run:-None}"
             echo "EOF"
@@ -249,12 +245,14 @@ jobs:
             echo "| Metric | Value |"
             echo "|--------|-------|"
             echo "| Total Runs | ${{ steps.stats.outputs.total_runs }} |"
-            if [ ${{ steps.stats.outputs.total_runs }} -gt 0 ]; then
-              success_rate=$(( ${{ steps.stats.outputs.total_success }} * 100 / ${{ steps.stats.outputs.total_runs }} ))
+            total_runs="${{ steps.stats.outputs.total_runs }}"
+            total_success="${{ steps.stats.outputs.total_success }}"
+            if [ "$total_runs" -gt 0 ]; then
+              rate=$(( total_success * 100 / total_runs ))
             else
-              success_rate=0
+              rate=0
             fi
-            echo "| Success Rate | ${success_rate}% |"
+            echo "| Success Rate | ${rate}% |"
             echo ""
             if [ "${{ inputs.create_issue }}" != "false" ]; then
               echo "📋 Audit issue created/updated with full checklist"
