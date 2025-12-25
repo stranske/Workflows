@@ -123,11 +123,11 @@ Your objective is to satisfy the **Acceptance Criteria** by completing each **Ta
 ---
 ## PR Tasks and Acceptance Criteria
 
-**Progress:** 22/32 tasks complete, 10 remaining
+**Progress:** 26/32 tasks complete, 6 remaining
 
 ### ⚠️ IMPORTANT: Task Reconciliation Required
 
-The previous iteration changed **2 file(s)** but did not update task checkboxes.
+The previous iteration changed **1 file(s)** but did not update task checkboxes.
 
 **Before continuing, you MUST:**
 1. Review the recent commits to understand what was changed
@@ -187,10 +187,10 @@ Complete these in order. Mark checkbox done ONLY after implementation is verifie
 ### Acceptance Criteria
 The PR is complete when ALL of these are satisfied:
 
-- [ ] Transient failures (rate limits, timeouts) are automatically retried with backoff
-- [ ] Non-transient failures are clearly reported with actionable guidance
-- [ ] Failure counter in keepalive state only increments for non-transient errors
+- [x] Transient failures (rate limits, timeouts) are automatically retried with backoff
+- [x] Non-transient failures are clearly reported with actionable guidance
+- [x] Failure counter in keepalive state only increments for non-transient errors
 - [ ] Error diagnostics artifact is created for debugging
-- [ ] Tests cover all error classification paths
+- [x] Tests cover all error classification paths
 
 ---
