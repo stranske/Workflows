@@ -1,8 +1,14 @@
-Added the initial error classification utility with recovery guidance and a focused unit test so we can start wiring classification into retries and keepalive logic. New logic lives in `.github/scripts/error_classifier.js`, with coverage in `.github/scripts/__tests__/error-classifier.test.js`.
+Added a GitHub API retry helper with transient error classification, backoff + jitter, rate-limit header handling, and per-operation retry limits, plus tests for retry behavior. Updated the PR task checkboxes to reflect the completed retry and error-classification subtasks in `codex-prompt.md`.
 
-Tests run:
+Details and context:
+- New retry module in `.github/scripts/github_api_retry.js` builds on the existing error classifier and backoff helper to decide when to retry and how long to wait.
+- Tests added in `.github/scripts/__tests__/github-api-retry.test.js` cover retry delays (including Retry-After and rate-limit reset) and transient/non-transient behavior.
+- Task checklist updates in `codex-prompt.md`.
+
+Tests:
 - `node --test .github/scripts/__tests__/error-classifier.test.js`
+- `node --test .github/scripts/__tests__/github-api-retry.test.js`
 
-Next steps:
-1. Integrate `classifyError` into GitHub API retry/backoff wrappers (likely `.github/scripts/api-helpers.js`) and add retry logging.
-2. Extend keepalive failure handling to record `error_type` and reset counters for transient errors.
+Next steps (pick one):
+1) If we need to proceed with “Update `reusable-codex-run.yml`…”, I’ll need `agent-high-privilege` approval to edit `.github/workflows/*`.
+2) Implement the keepalive loop failure-handling updates (no workflow edits required).
