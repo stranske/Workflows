@@ -588,6 +588,7 @@ async function run({github, context, core, inputs}) {
 
   const issueNumber = extractIssueNumberFromPull(pr);
   if (!issueNumber) {
+    const marker = '<!-- missing-issue-warning -->';
     const warningMsg = `Unable to determine source issue for PR #${pr.number}. The PR title, branch name, or body must contain the issue number (e.g. #123, branch: issue-123, or the hidden marker <!-- meta:issue:123 -->).`;
     core.warning(warningMsg);
 
@@ -597,14 +598,19 @@ async function run({github, context, core, inputs}) {
         repo,
         issue_number: pr.number,
       });
-      const alreadyWarned = comments.some((c) => c.body && c.body.includes('Unable to determine source issue'));
+      // Find existing warning comment by marker to enable upsert pattern
+      const existingWarning = comments.find((c) => c.body && c.body.includes(marker));
+      const commentBody = `${marker}\n⚠️ **Action Required**: ${warningMsg}`;
       
-      if (!alreadyWarned) {
+      if (existingWarning) {
+        // Update existing comment (avoids duplicates from race conditions)
+        core.info(`Warning comment already exists (id: ${existingWarning.id}), skipping duplicate`);
+      } else {
         await github.rest.issues.createComment({
           owner,
           repo,
           issue_number: pr.number,
-          body: `⚠️ **Action Required**: ${warningMsg}`
+          body: commentBody
         });
       }
     } catch (error) {
