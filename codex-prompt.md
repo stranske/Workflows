@@ -112,19 +112,15 @@ Guidance:
 - Re-run or suggest the smallest relevant checks to verify the fix.
 
 ## Run context
-Gate run: https://github.com/stranske/Workflows/actions/runs/20506828624
+Gate run: https://github.com/stranske/Workflows/actions/runs/20506885722
 Conclusion: failure
 PR: #140
-Head SHA: 420c9da5a7db158e386be54c1d8e05cbaab3c7e3
+Head SHA: 8b3199082179ee6a32a3737439560976fd071eb1
 Autofix attempts for this head: 1 / 3
 Fix scope: src/, tests/, tools/, scripts/, agents/, templates/, .github/
 Failing jobs:
 - python ci / python 3.12 (failure)
   - steps: Finalize check results (failure)
-- python ci / lint-format (failure)
-  - steps: Finalize format check (failure)
-- python ci / lint-ruff (failure)
-  - steps: Finalize lint (failure)
 - python ci / python 3.11 (failure)
   - steps: Finalize check results (failure)
 - summary (failure)

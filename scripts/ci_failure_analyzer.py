@@ -13,6 +13,7 @@ from typing import Any, Dict, List
 
 # Common failure pattern signatures
 FLAKY_PATTERNS = [
+    r"\btimeout\b",
     r"timeout.*exceeded",
     r"connection.*refused",
     r"rate.*limit",

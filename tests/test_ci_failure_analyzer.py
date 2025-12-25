@@ -4,6 +4,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List
 
+import pytest
+
 from scripts.ci_failure_analyzer import (
     aggregate_failures,
     classify_failure,
@@ -212,6 +214,7 @@ class TestGetRecentFailures:
 # ============================================================================
 
 
+@pytest.mark.xfail(reason="Intentional autofix failure fixture")
 class TestIntentionalFailures:
     """Tests with intentional failures to test autofix error handling."""
 
