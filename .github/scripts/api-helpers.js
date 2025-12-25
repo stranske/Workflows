@@ -315,7 +315,6 @@ module.exports = {
   isRateLimitError,
   isSecondaryRateLimitError,
   sleep,
-  calculateBackoffDelay,
   extractRateLimitReset,
   calculateWaitUntilReset,
 

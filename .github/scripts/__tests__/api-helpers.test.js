@@ -3,7 +3,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { calculateBackoffDelay, withBackoff, paginateWithBackoff } = require('../api-helpers');
+const { calculateBackoffDelay } = require('../github_api_retry');
+const { withBackoff, paginateWithBackoff } = require('../api-helpers');
 
 function withStubbedRandom(value, fn) {
   const originalRandom = Math.random;
