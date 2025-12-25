@@ -106,6 +106,7 @@ jobs:
                   sys.exit(1)
               elif days_left < 2:
                   print(f"::warning::CODEX_AUTH_JSON expires in {hours_left:.0f} hours! Consider refreshing soon.")
+                  print("Run 'codex login --device-auth' and update the CODEX_AUTH_JSON secret.")
               elif days_left < 5:
                   print(f"::notice::CODEX_AUTH_JSON expires in {days_left} days. Plan to refresh before expiration.")
 
