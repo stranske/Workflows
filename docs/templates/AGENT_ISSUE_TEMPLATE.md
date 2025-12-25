@@ -117,7 +117,7 @@ If all original tasks were completed but criteria weren't met, add new tasks:
 ```markdown
 ## Tasks
 
-<!-- New tasks needed to satisfy the unmet acceptance criteria -->
+<!-- New tasks to address unmet acceptance criteria -->
 - [ ] Add validation for edge case X
 - [ ] Update error response format
 - [ ] Add test coverage for scenario Y
