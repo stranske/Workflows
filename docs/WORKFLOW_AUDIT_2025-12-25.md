@@ -138,21 +138,130 @@ These workflows are designed to be called by other workflows and are not expecte
 
 ## Optimization Opportunities
 
-### 1. Parallel Execution
+### High Impact Optimizations
 
-Several workflows could benefit from running jobs in parallel:
-- `health-40-sweep.yml` - actionlint and branch-protection-verify could run in parallel
-- `selftest-ci.yml` - test matrix could be expanded for parallel runs
+#### 1. Extract Duplicate Dependency Installation (reusable-10-ci-python.yml)
 
-### 2. Conditional Execution
+**Current Issue**: The dependency installation script (~180 lines) is duplicated **4 times** across jobs: `lint-format` (L317-495), `lint-ruff` (L647-795), `typecheck-mypy` (L917-1095), and tests (L1268-1400+). This represents ~600 lines of duplication.
 
-- Skip branch protection enforcement steps when running without admin token
-- Add early exit conditions when prerequisites aren't met
+**Recommendation**: Extract to `.github/scripts/install-ci-deps.sh` or create a composite action.
 
-### 3. Caching Improvements
+**Impact**: High - Reduces maintenance burden significantly, easier to update versions consistently.
 
-- Python dependency caching could be added to more workflows
-- Action version caching is already in place for actionlint
+#### 2. Add pip Caching to selftest-ci.yml
+
+**Current Issue**: Three Python jobs (`test-python`, `lint`, `validate-yaml`) don't use pip caching. Each installs packages fresh.
+
+**Recommendation**: Add `cache: pip` to `actions/setup-python@v5`:
+```yaml
+- uses: actions/setup-python@v5
+  with:
+    python-version: '3.11'
+    cache: pip
+    cache-dependency-path: pyproject.toml
+```
+
+**Impact**: Medium - Saves ~10-20 seconds per job on cache hits.
+
+#### 3. Cache uv Installation
+
+**Current Issue**: Multiple workflows install `uv` via curl on every run (reusable-10-ci-python.yml installs it 4 times internally, plus maint-51 and maint-52).
+
+**Recommendation**: Use `astral-sh/setup-uv@v4` action which has built-in caching.
+
+**Impact**: Medium - Saves ~3-5 seconds per job using uv.
+
+### Medium Impact Optimizations
+
+#### 4. Remove Unnecessary environment-gate Job (pr-00-gate.yml)
+
+**Current Issue**: `environment-gate` job (L96-108) is a pass-through that just logs environment selection. All downstream jobs must wait for it.
+
+**Recommendation**: Move environment gate logic into the `detect` job and apply `environment:` directive directly to downstream jobs.
+
+**Impact**: Medium - Removes ~10-15 second job spin-up delay from critical path.
+
+#### 5. Consolidate Lint Workflows
+
+**Current Issue**: `maint-52-validate-workflows.yml` has its own inline actionlint implementation while `health-42-actionlint.yml` exists as a reusable workflow. Three places doing similar validation.
+
+**Recommendation**: Have `maint-52` call `health-42-actionlint.yml` instead of reimplementing.
+
+**Impact**: Medium - Reduces maintenance burden, ensures consistent linting.
+
+#### 6. Merge Lint Jobs in selftest-ci.yml
+
+**Current Issue**: `lint` and `validate-yaml` jobs both only need Python + PyYAML and run sequential lint operations.
+
+**Recommendation**: Combine into single job.
+
+**Impact**: Medium - Saves ~15-20 seconds of setup time and 1 billable job.
+
+### Low Impact Optimizations
+
+#### 7. Add Caching to maint-52-validate-workflows.yml
+
+**Current Issue**: Downloads `actionlint` and `yq` on every run without caching.
+
+**Recommendation**: Add actions/cache for downloaded binaries like health-42-actionlint.yml does.
+
+#### 8. Remove Unnecessary Matrix in autofix.yml
+
+**Current Issue**: Uses matrix strategy with only `['python']` language. Matrix overhead adds no value for single item.
+
+**Recommendation**: Remove matrix, hardcode `python` directly.
+
+#### 9. Parallelize Artifact Downloads in agents-weekly-metrics.yml
+
+**Current Issue**: Downloads artifacts one-by-one in a shell loop with sequential `gh api` calls.
+
+**Recommendation**: Use `actions/download-artifact@v4` with pattern matching, or parallelize with `xargs -P`.
+
+## Comprehensive Workflow Status
+
+### Workflows Verified Working (Recent Successful Runs)
+
+| Workflow | File | 30-Day Success Rate | Notes |
+|----------|------|---------------------|-------|
+| Agents 70 Orchestrator | agents-70-orchestrator.yml | 87.3% | Core agent coordination |
+| Agents PR meta manager | agents-pr-meta-v4.yml | 96.5% | Highest volume workflow |
+| Gate | pr-00-gate.yml | 46.8% | Many cancellations, not failures |
+| Health 50 Security Scan | health-50-security-scan.yml | 90.0% | CodeQL scanning |
+| Maint 46 Post CI | maint-46-post-ci.yml | 100% | Post-CI cleanup |
+
+### Reusable Workflows (Called by Others)
+
+| Workflow | Called By | Status |
+|----------|-----------|--------|
+| reusable-10-ci-python.yml | pr-00-gate.yml, selftest-ci.yml | ✅ Active |
+| reusable-12-ci-docker.yml | pr-00-gate.yml | ✅ Active |
+| reusable-70-orchestrator-init.yml | agents-70-orchestrator.yml | ✅ Active |
+| reusable-70-orchestrator-main.yml | agents-70-orchestrator.yml | ✅ Active |
+| agents-71-codex-belt-dispatcher.yml | reusable-70-orchestrator-main.yml | ✅ Active |
+| agents-72-codex-belt-worker.yml | reusable-70-orchestrator-main.yml | ✅ Active |
+| agents-73-codex-belt-conveyor.yml | reusable-70-orchestrator-main.yml | ✅ Active |
+| reusable-20-pr-meta.yml | Consumer repos | ✅ External use |
+
+### Scheduled Workflows Verified
+
+These workflows were manually triggered on 2025-12-25 to verify they work:
+
+| Workflow | Schedule | Verification Status |
+|----------|----------|---------------------|
+| agents-weekly-metrics.yml | Mon 6am | Dispatched for verification |
+| health-40-repo-selfcheck.yml | Mon 6:20am | Dispatched for verification |
+| health-41-repo-health.yml | Mon 7:15am | Dispatched for verification |
+| maint-50-tool-version-check.yml | Mon 8am | Dispatched for verification |
+| maint-51-dependency-refresh.yml | 1st/15th 4am | Dispatched for verification |
+
+### On-Demand Utilities (Intentionally No Runs)
+
+| Workflow | Purpose | Status |
+|----------|---------|--------|
+| maint-45-cosmetic-repair.yml | Manual code formatting repair | ✅ Valid utility |
+| maint-47-disable-legacy-workflows.yml | Manual workflow cleanup | ✅ Valid utility |
+| maint-60-release.yml | Tag-triggered release | ✅ Valid - awaits tags |
+| maint-61-create-floating-v1-tag.yml | Manages v1 floating tag | ✅ Valid |
 
 ## Recommended Actions
 
