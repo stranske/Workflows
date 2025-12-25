@@ -179,7 +179,21 @@ async function createKeepaliveStateManager({ github, context, prNumber, trace, r
             latestBody = response.data.body;
           }
         } catch (error) {
-          // fall back to cached body if lookup fails
+          // fall back to cached body if lookup fails, but log for diagnostics
+          if (typeof trace === 'function') {
+            trace('Failed to fetch latest keepalive comment body before update', {
+              owner,
+              repo,
+              commentId,
+              error: error && error.message ? error.message : String(error),
+            });
+          } else {
+            // eslint-disable-next-line no-console
+            console.warn(
+              'Failed to fetch latest keepalive comment body before update',
+              { owner, repo, commentId, error }
+            );
+          }
         }
       }
       const updatedBody = upsertStateCommentBody(latestBody, body);
