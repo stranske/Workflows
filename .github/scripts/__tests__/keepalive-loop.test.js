@@ -11,6 +11,8 @@ const {
   evaluateKeepaliveLoop,
   updateKeepaliveLoopSummary,
   markAgentRunning,
+  analyzeTaskCompletion,
+  autoReconcileTasks,
 } = require('../keepalive_loop.js');
 const { formatStateComment } = require('../keepalive_state.js');
 
@@ -188,13 +190,14 @@ test('evaluateKeepaliveLoop stops when tasks are complete', async () => {
   assert.equal(result.reason, 'tasks-complete');
 });
 
-test('evaluateKeepaliveLoop stops when max iterations are reached', async () => {
+test('evaluateKeepaliveLoop stops when max iterations reached AND unproductive', async () => {
   const pr = {
     number: 404,
     head: { ref: 'feature/four', sha: 'sha-4' },
     labels: [{ name: 'agent:codex' }],
     body: '## Tasks\n- [ ] one\n## Acceptance Criteria\n- [ ] a\n<!-- keepalive-config: {"iteration": 5, "max_iterations": 5} -->',
   };
+  // No previous state with file changes = unproductive
   const github = buildGithubStub({
     pr,
     workflowRuns: [{ head_sha: 'sha-4', conclusion: 'success' }],
@@ -205,7 +208,39 @@ test('evaluateKeepaliveLoop stops when max iterations are reached', async () => 
     core: buildCore(),
   });
   assert.equal(result.action, 'stop');
-  assert.equal(result.reason, 'max-iterations');
+  assert.equal(result.reason, 'max-iterations-unproductive');
+});
+
+test('evaluateKeepaliveLoop continues past max iterations when productive', async () => {
+  const pr = {
+    number: 405,
+    head: { ref: 'feature/extended', sha: 'sha-ext' },
+    labels: [{ name: 'agent:codex' }],
+    body: '## Tasks\n- [ ] one\n## Acceptance Criteria\n- [ ] a',
+  };
+  // State shows productive work (files changed, no failures)
+  const stateComment = formatStateComment({
+    trace: '',
+    iteration: 6,
+    max_iterations: 5,
+    last_files_changed: 3,
+    failure: {},
+  });
+  const comments = [
+    { id: 22, body: stateComment, html_url: 'https://example.com/22' },
+  ];
+  const github = buildGithubStub({
+    pr,
+    comments,
+    workflowRuns: [{ head_sha: 'sha-ext', conclusion: 'success' }],
+  });
+  const result = await evaluateKeepaliveLoop({
+    github,
+    context: buildContext(pr.number),
+    core: buildCore(),
+  });
+  assert.equal(result.action, 'run', 'Should continue running when productive');
+  assert.equal(result.reason, 'ready-extended', 'Should show extended mode');
 });
 
 test('evaluateKeepaliveLoop waits when gate has not succeeded', async () => {
@@ -289,7 +324,7 @@ test('updateKeepaliveLoopSummary increments iteration and clears failures on suc
 
   assert.equal(github.actions.length, 1);
   assert.equal(github.actions[0].type, 'update');
-  assert.match(github.actions[0].body, /Iteration \*\*3\/5\*\*/);
+  assert.match(github.actions[0].body, /Iteration 3\/5/);
   assert.match(github.actions[0].body, /Iteration progress \| \[######----\] 3\/5 \|/);
   assert.match(github.actions[0].body, /### Last Codex Run/);
   assert.match(github.actions[0].body, /✅ Success/);
@@ -386,7 +421,7 @@ test('updateKeepaliveLoopSummary uses state iteration when inputs have stale val
   assert.equal(github.actions[0].type, 'update');
   // Should preserve iteration=2 from state, NOT use stale iteration=0 from inputs
   assert.match(github.actions[0].body, /"iteration":2/);
-  assert.match(github.actions[0].body, /Iteration \*\*2\/5\*\*/);
+  assert.match(github.actions[0].body, /Iteration 2\/5/);
 });
 
 test('updateKeepaliveLoopSummary pauses after repeated failures and adds label', async () => {
@@ -660,4 +695,208 @@ test('markAgentRunning creates comment when none exists', async () => {
   const body = github.actions[0].body;
   assert.ok(body.includes('Claude is actively working'), 'Should capitalize agent name');
   assert.ok(body.includes('Iteration | 1 of 3'), 'Should show iteration 1 (0+1)');
+});
+
+// =====================================================
+// Task Reconciliation Tests
+// =====================================================
+
+test('analyzeTaskCompletion identifies high-confidence matches', async () => {
+  const commits = [
+    { sha: 'abc123', commit: { message: 'feat: add step summary output to keepalive loop' } },
+    { sha: 'def456', commit: { message: 'test: add tests for step summary emission' } },
+  ];
+  const files = [
+    { filename: '.github/workflows/agents-keepalive-loop.yml' },
+    { filename: '.github/scripts/keepalive_loop.js' },
+  ];
+  
+  const github = {
+    rest: {
+      repos: {
+        async compareCommits() {
+          return { data: { commits } };
+        },
+      },
+      pulls: {
+        async listFiles() {
+          return { data: files };
+        },
+      },
+    },
+  };
+
+  const taskText = `
+- [ ] Add step summary output to agents-keepalive-loop.yml after agent run
+- [ ] Include: iteration number, tasks completed, files changed, outcome
+- [ ] Ensure summary is visible in workflow run UI
+- [ ] Unrelated task about something else entirely
+`;
+
+  const result = await analyzeTaskCompletion({
+    github,
+    context: { repo: { owner: 'test', repo: 'repo' } },
+    prNumber: 1,
+    baseSha: 'base123',
+    headSha: 'head456',
+    taskText,
+    core: buildCore(),
+  });
+
+  assert.ok(result.matches.length > 0, 'Should find at least one match');
+  
+  // Should match the step summary task with high confidence
+  const stepSummaryMatch = result.matches.find(m => 
+    m.task.toLowerCase().includes('step summary')
+  );
+  assert.ok(stepSummaryMatch, 'Should match step summary task');
+  assert.equal(stepSummaryMatch.confidence, 'high', 'Should be high confidence');
+});
+
+test('analyzeTaskCompletion returns empty for unrelated commits', async () => {
+  const commits = [
+    { sha: 'abc123', commit: { message: 'fix: typo in readme' } },
+  ];
+  const files = [
+    { filename: 'README.md' },
+  ];
+  
+  const github = {
+    rest: {
+      repos: {
+        async compareCommits() {
+          return { data: { commits } };
+        },
+      },
+      pulls: {
+        async listFiles() {
+          return { data: files };
+        },
+      },
+    },
+  };
+
+  const taskText = `
+- [ ] Implement complex feature in keepalive workflow
+- [ ] Add database migrations
+`;
+
+  const result = await analyzeTaskCompletion({
+    github,
+    context: { repo: { owner: 'test', repo: 'repo' } },
+    prNumber: 1,
+    baseSha: 'base123',
+    headSha: 'head456',
+    taskText,
+    core: buildCore(),
+  });
+
+  // Should find no high-confidence matches
+  const highConfidence = result.matches.filter(m => m.confidence === 'high');
+  assert.equal(highConfidence.length, 0, 'Should not find high-confidence matches for unrelated commits');
+});
+
+test('autoReconcileTasks updates PR body for high-confidence matches', async () => {
+  const prBody = `## Tasks
+- [ ] Add step summary output to keepalive loop
+- [ ] Add tests for step summary
+- [x] Already completed task
+`;
+
+  const commits = [
+    { sha: 'abc123', commit: { message: 'feat: add step summary output to keepalive loop' } },
+  ];
+  const files = [
+    { filename: '.github/scripts/keepalive_loop.js' },
+  ];
+
+  let updatedBody = null;
+  const github = {
+    rest: {
+      pulls: {
+        async get() {
+          return { data: { body: prBody } };
+        },
+        async update({ body }) {
+          updatedBody = body;
+          return { data: {} };
+        },
+        async listFiles() {
+          return { data: files };
+        },
+      },
+      repos: {
+        async compareCommits() {
+          return { data: { commits } };
+        },
+      },
+    },
+  };
+
+  const result = await autoReconcileTasks({
+    github,
+    context: { repo: { owner: 'test', repo: 'repo' } },
+    prNumber: 1,
+    baseSha: 'base123',
+    headSha: 'head456',
+    core: buildCore(),
+  });
+
+  assert.ok(result.updated, 'Should update PR body');
+  assert.ok(result.tasksChecked > 0, 'Should check at least one task');
+  
+  if (updatedBody) {
+    assert.ok(updatedBody.includes('[x] Add step summary'), 'Should check off matched task');
+    assert.ok(updatedBody.includes('[x] Already completed'), 'Should preserve already-checked tasks');
+  }
+});
+
+test('autoReconcileTasks skips when no high-confidence matches', async () => {
+  const prBody = `## Tasks
+- [ ] Implement feature X
+- [ ] Add tests for feature Y
+`;
+
+  const commits = [
+    { sha: 'abc123', commit: { message: 'docs: update readme' } },
+  ];
+  const files = [
+    { filename: 'README.md' },
+  ];
+
+  let updateCalled = false;
+  const github = {
+    rest: {
+      pulls: {
+        async get() {
+          return { data: { body: prBody } };
+        },
+        async update() {
+          updateCalled = true;
+          return { data: {} };
+        },
+        async listFiles() {
+          return { data: files };
+        },
+      },
+      repos: {
+        async compareCommits() {
+          return { data: { commits } };
+        },
+      },
+    },
+  };
+
+  const result = await autoReconcileTasks({
+    github,
+    context: { repo: { owner: 'test', repo: 'repo' } },
+    prNumber: 1,
+    baseSha: 'base123',
+    headSha: 'head456',
+    core: buildCore(),
+  });
+
+  assert.equal(result.updated, false, 'Should not update PR body');
+  assert.equal(result.tasksChecked, 0, 'Should not check any tasks');
+  assert.equal(updateCalled, false, 'Should not call update API');
 });

@@ -1,13 +1,11 @@
-Implemented gate-summary suppression for agent-labeled PRs by short‑circuiting comment upserts when an `agent:*` label is present, and added coverage for that behavior. Updated the task appendix to reflect the verified Conditional Status Summary and keepalive summary work.
+Updated keepalive state updates to preserve any existing summary content by replacing or appending the `keepalive-state` marker instead of overwriting the whole comment, so the summary stays the single source of truth. This is implemented in `.github/scripts/keepalive_state.js` and verified with new/updated coverage in `.github/scripts/__tests__/keepalive-state.test.js` to ensure summary text survives state updates.
 
-Details
-- Gate summary skip logic lives in `.github/scripts/comment-dedupe.js`; it now checks PR labels before upserting gate summaries.
-- Added a unit test in `.github/scripts/__tests__/comment-dedupe.test.js` to ensure no comment is created/updated when an `agent:*` label is present.
-- Checked off verified tasks and updated progress in `codex-prompt.md`.
+Tests run:
+- `node --test .github/scripts/__tests__/keepalive-state.test.js .github/scripts/__tests__/keepalive-loop.test.js .github/scripts/__tests__/agents-pr-meta-update-body.test.js .github/scripts/__tests__/comment-dedupe.test.js`
 
-Tests
-- `node --test .github/scripts/__tests__/comment-dedupe.test.js .github/scripts/__tests__/agents-pr-meta-update-body.test.js .github/scripts/__tests__/keepalive-loop.test.js`
+Notes:
+- Workflow-file changes (e.g., passing `agent_type` in `agents-pr-meta-v4.yml` or any other `.github/workflows/**` edits) still require a human with `agent-high-privilege`.
 
-Next steps
-1. Run the pipeline validation steps on a real PR with `agent:codex` to verify keepalive updates and prompt appendix visibility.
-2. Apply the remaining workflow‑file changes (e.g., `agents-pr-meta` and gate summary gating) via a human‑approved edit, since `.github/workflows` is protected.
+If you want next steps, I can:
+1) Add a unit test for CLI label suppression of keepalive instruction comments.
+2) Outline the exact workflow diffs needed for the remaining workflow-only tasks.

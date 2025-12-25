@@ -65,12 +65,22 @@ jobs:
         if: steps.context.outputs.should_run == 'true'
         env:
           CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
+          CODEX_HOME: ${{ runner.temp }}/.codex-verifier
         run: |
           set -euo pipefail
+
+          # Setup auth in default location
           mkdir -p ~/.codex
           echo "$CODEX_AUTH_JSON" > ~/.codex/auth.json
           chmod 600 ~/.codex/auth.json
+
+          # Also setup in CODEX_HOME for the action
+          mkdir -p "$CODEX_HOME"
+          cp ~/.codex/auth.json "$CODEX_HOME/auth.json"
+          chmod 600 "$CODEX_HOME/auth.json"
+
           echo "Codex auth configured from CODEX_AUTH_JSON secret"
+          echo "Auth files created at ~/.codex/auth.json and $CODEX_HOME/auth.json"
 
           # Check token expiration
           python3 << 'PYEOF'
@@ -149,13 +159,18 @@ jobs:
         id: codex
         if: steps.context.outputs.should_run == 'true'
         uses: openai/codex-action@v1
+        env:
+          CODEX_HOME: ${{ runner.temp }}/.codex-verifier
         with:
           # Auth is pre-configured via ~/.codex/auth.json from CODEX_AUTH_JSON secret
-          openai-api-key: 'auth-via-codex-auth-json'
+          # When openai-api-key is empty, codex-action skips the proxy and uses auth.json directly
+          codex-home: ${{ runner.temp }}/.codex-verifier
           prompt-file: ${{ steps.prepare.outputs.prompt_file }}
           output-file: codex-output.md
           sandbox: read-only
-          safety-strategy: drop-sudo
+          # Use 'unsafe' since we're not using the API proxy (no key to protect)
+          # The sandbox: read-only already limits Codex's capabilities
+          safety-strategy: unsafe
 
       - name: Parse verifier verdict
         id: verdict
