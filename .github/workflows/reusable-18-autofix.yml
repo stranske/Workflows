@@ -175,19 +175,25 @@ jobs:
           dry_run="${DRY_RUN:-false}"
           mode="fallback"
           reason="missing-pat"
+          can_push="false"
           token="${GITHUB_TOKEN:-${{ github.token }}}"
 
           # Prefer App token > PAT > GITHUB_TOKEN
+          # Both app and pat modes can push for same-repo scenarios
           if [ -n "$app_token" ]; then
             token="$app_token"
             mode="app"
             reason="app-token-available"
+            if [ "$same_repo" = "true" ]; then
+              can_push="true"
+            fi
           elif [ -n "$pat" ]; then
             token="$pat"
             reason="fork-context"
             if [ "$same_repo" = "true" ]; then
               mode="pat"
               reason="pat-available"
+              can_push="true"
             fi
           elif [ "$same_repo" = "true" ]; then
             reason="pat-unavailable-same-repo"
@@ -196,18 +202,21 @@ jobs:
           if [ "$dry_run" = "true" ]; then
             mode="fallback"
             reason="dry-run"
+            can_push="false"
           fi
 
-          echo "[autofix] Delivery path: ${mode} (${reason})"
+          echo "[autofix] Delivery path: ${mode} (${reason}), can_push=${can_push}"
 
           {
             echo "AUTOFIX_TOKEN=$token"
             echo "AUTOFIX_AUTH_MODE=$mode"
             echo "AUTOFIX_AUTH_REASON=$reason"
+            echo "AUTOFIX_CAN_PUSH=$can_push"
           } >> "$GITHUB_ENV"
           {
             echo "mode=${mode}"
             echo "reason=${reason}"
+            echo "can_push=${can_push}"
           } >> "$GITHUB_OUTPUT"
 
       # Dual checkout pattern: Workflows scripts as supplement to consumer repo
@@ -589,8 +598,8 @@ jobs:
             } >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Commit changes (PAT path)
-        if: steps.guard.outputs.skip != 'true' && steps.fix_results.outputs.changed == 'true' && env.AUTOFIX_AUTH_MODE == 'pat' && inputs.dry_run != true
+      - name: Commit changes (push path)
+        if: steps.guard.outputs.skip != 'true' && steps.fix_results.outputs.changed == 'true' && env.AUTOFIX_CAN_PUSH == 'true' && inputs.dry_run != true
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
@@ -600,7 +609,7 @@ jobs:
           echo "AUTOFIX_COMMIT_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
 
       - name: Push changes (same-repo with rebase+retry)
-        if: steps.guard.outputs.skip != 'true' && steps.fix_results.outputs.changed == 'true' && env.AUTOFIX_AUTH_MODE == 'pat' && inputs.dry_run != true
+        if: steps.guard.outputs.skip != 'true' && steps.fix_results.outputs.changed == 'true' && env.AUTOFIX_CAN_PUSH == 'true' && inputs.dry_run != true
         shell: bash
         run: |
           set -euo pipefail
@@ -661,7 +670,7 @@ jobs:
           fi
 
       - name: Create patch artifact (fallback)
-        if: steps.guard.outputs.skip != 'true' && steps.fix_results.outputs.changed == 'true' && env.AUTOFIX_AUTH_MODE != 'pat'
+        if: steps.guard.outputs.skip != 'true' && steps.fix_results.outputs.changed == 'true' && env.AUTOFIX_CAN_PUSH != 'true'
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
@@ -671,14 +680,14 @@ jobs:
           git format-patch -1 --stdout > autofix.patch
 
       - name: Upload patch artifact
-        if: steps.guard.outputs.skip != 'true' && steps.fix_results.outputs.changed == 'true' && env.AUTOFIX_AUTH_MODE != 'pat'
+        if: steps.guard.outputs.skip != 'true' && steps.fix_results.outputs.changed == 'true' && env.AUTOFIX_CAN_PUSH != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: autofix-patch-pr-${{ inputs.pr_number }}
           path: autofix.patch
 
       - name: Label PR (autofix patch available)
-        if: steps.guard.outputs.skip != 'true' && steps.fix_results.outputs.changed == 'true' && env.AUTOFIX_AUTH_MODE != 'pat'
+        if: steps.guard.outputs.skip != 'true' && steps.fix_results.outputs.changed == 'true' && env.AUTOFIX_CAN_PUSH != 'true'
         uses: actions/github-script@v7
         env:
           PR_NUMBER: ${{ inputs.pr_number }}
@@ -707,7 +716,7 @@ jobs:
 
 
       - name: Prepare patch summary (fallback)
-        if: steps.guard.outputs.skip != 'true' && steps.fix_results.outputs.changed == 'true' && env.AUTOFIX_AUTH_MODE != 'pat'
+        if: steps.guard.outputs.skip != 'true' && steps.fix_results.outputs.changed == 'true' && env.AUTOFIX_CAN_PUSH != 'true'
         env:
           SERVER_URL: ${{ github.server_url }}
           REPOSITORY: ${{ github.repository }}
