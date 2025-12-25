@@ -3,7 +3,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { evaluateGuard } = require('../agents-guard');
+const { evaluateGuard, validatePullRequestTargetSafety } = require('../agents-guard');
 
 const protectedFile = {
   filename: '.github/workflows/agents-foo.yml',
@@ -52,6 +52,19 @@ test('blocks deletion of protected workflows that are not allowlisted', () => {
   assert.ok(result.fatalViolations.some((reason) => reason.includes('was deleted')));
 });
 
+test('blocks renames of protected workflows that are not allowlisted', () => {
+  const result = evaluateGuard({
+    files: [{
+      filename: '.github/workflows/agents-foo-new.yml',
+      previous_filename: '.github/workflows/agents-foo.yml',
+      status: 'renamed',
+    }],
+  });
+
+  assert.equal(result.blocked, true);
+  assert.ok(result.fatalViolations.some((reason) => reason.includes('was renamed')));
+});
+
 test('allows removal of allowlisted workflow paths', () => {
   const result = evaluateGuard({
     files: [{
@@ -76,4 +89,29 @@ test('does not allow label-only bypass without codeowner approval', () => {
   assert.equal(result.hasAllowLabel, true);
   assert.equal(result.needsApproval, true);
   assert.ok(result.failureReasons.some((reason) => reason.includes('Request approval from a CODEOWNER')));
+});
+
+test('validatePullRequestTargetSafety blocks unsafe checkout and secrets usage', () => {
+  const workflowSource = [
+    'on: pull_request_target',
+    'jobs:',
+    '  test:',
+    '    runs-on: ubuntu-latest',
+    '    steps:',
+    '      - uses: actions/checkout@v4',
+    '        with:',
+    '          ref: ${{ github.event.pull_request.head.sha }}',
+    '      - run: |',
+    '          echo ${{ secrets.MY_SECRET }}',
+  ].join('\n');
+
+  assert.throws(
+    () => validatePullRequestTargetSafety({
+      eventName: 'pull_request_target',
+      workflowPath: '.github/workflows/agents-guard.yml',
+      workspaceRoot: process.cwd(),
+      fsModule: { readFileSync: () => workflowSource },
+    }),
+    /Unsafe pull_request_target usage detected/,
+  );
 });
