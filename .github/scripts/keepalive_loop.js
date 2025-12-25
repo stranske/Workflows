@@ -159,6 +159,57 @@ function classifyFailureDetails({ action, runResult, summaryReason, agentExitCod
   };
 }
 
+function truncateText(value, maxLength = 300) {
+  const text = normalise(value);
+  if (!text) {
+    return '';
+  }
+  if (text.length <= maxLength) {
+    return text;
+  }
+  return `${text.slice(0, maxLength)}...`;
+}
+
+function buildAttentionComment({
+  agentDisplayName,
+  summaryReason,
+  runResult,
+  agentExitCode,
+  agentSummary,
+  errorCategory,
+  errorType,
+  errorRecovery,
+  runUrl,
+}) {
+  const lines = [
+    `Keepalive detected a non-transient failure in the last ${agentDisplayName} run.`,
+    '',
+    `- Error category: ${errorCategory || 'unknown'}`,
+    `- Error type: ${errorType || 'unknown'}`,
+    `- Result: ${runResult || summaryReason || 'unknown'}`,
+    `- Exit code: ${agentExitCode || 'unknown'}`,
+  ];
+
+  const summarySnippet = truncateText(agentSummary, 300);
+  if (summarySnippet) {
+    lines.push(`- Agent output: ${summarySnippet}`);
+  }
+  if (runUrl) {
+    lines.push(`- Run logs: ${runUrl}`);
+  }
+
+  lines.push('', 'Suggested manual steps:');
+  if (errorRecovery) {
+    lines.push(`1. ${errorRecovery}`);
+  } else {
+    lines.push('1. Review the error details and validate inputs/permissions.');
+  }
+  lines.push('2. Inspect the workflow logs for the failing step.');
+  lines.push('3. Re-run the keepalive workflow after applying the fix.');
+
+  return lines.join('\n');
+}
+
 /**
  * Build the task appendix that gets passed to the agent prompt.
  * This provides explicit, structured tasks and acceptance criteria.
@@ -816,13 +867,61 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
     });
   }
 
-  summaryLines.push('', formatStateComment(newState));
-  const body = summaryLines.join('\n');
+  const previousAttention = previousState?.attention && typeof previousState.attention === 'object'
+    ? previousState.attention
+    : {};
+  if (Object.keys(previousAttention).length > 0) {
+    newState.attention = { ...previousAttention };
+  }
 
   if (core && typeof core.setOutput === 'function') {
     core.setOutput('error_type', errorType || '');
     core.setOutput('error_category', errorCategory || '');
   }
+
+  const shouldEscalate =
+    (action === 'run' && runResult && runResult !== 'success' && errorCategory !== ERROR_CATEGORIES.transient) ||
+    (action === 'stop' && !isSuccessStop && !isNeutralStop && errorCategory !== ERROR_CATEGORIES.transient);
+
+  const attentionKey = [summaryReason, runResult, errorCategory, errorType, agentExitCode].filter(Boolean).join('|');
+  const priorAttentionKey = normalise(previousAttention.key);
+
+  if (shouldEscalate && (attentionKey !== priorAttentionKey || !previousAttention.comment_id)) {
+    const attentionBody = buildAttentionComment({
+      agentDisplayName,
+      summaryReason,
+      runResult,
+      agentExitCode,
+      agentSummary,
+      errorCategory,
+      errorType,
+      errorRecovery,
+      runUrl,
+    });
+    try {
+      const { data } = await github.rest.issues.createComment({
+        owner: context.repo.owner,
+        repo: context.repo.repo,
+        issue_number: prNumber,
+        body: attentionBody,
+      });
+      newState.attention = {
+        key: attentionKey,
+        comment_id: data?.id || '',
+        comment_url: data?.html_url || '',
+        error_category: errorCategory || '',
+        error_type: errorType || '',
+        reason: summaryReason || '',
+        recovery: errorRecovery || '',
+        recorded_at: new Date().toISOString(),
+      };
+    } catch (error) {
+      if (core) core.warning(`Failed to post attention comment: ${error.message}`);
+    }
+  }
+
+  summaryLines.push('', formatStateComment(newState));
+  const body = summaryLines.join('\n');
 
   if (commentId) {
     await github.rest.issues.updateComment({
@@ -838,6 +937,19 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
       issue_number: prNumber,
       body,
     });
+  }
+
+  if (shouldEscalate) {
+    try {
+      await github.rest.issues.addLabels({
+        owner: context.repo.owner,
+        repo: context.repo.repo,
+        issue_number: prNumber,
+        labels: ['agent:needs-attention'],
+      });
+    } catch (error) {
+      if (core) core.warning(`Failed to add agent:needs-attention label: ${error.message}`);
+    }
   }
 
   if (stop) {
