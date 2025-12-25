@@ -410,9 +410,21 @@ async function evaluateKeepaliveLoop({ github, context, core }) {
     trace: config.trace,
   });
   const state = stateResult.state || {};
-  const iteration = toNumber(config.iteration ?? state.iteration, 0);
+  // Prefer state iteration unless config explicitly sets it (0 from config is default, not explicit)
+  const configHasExplicitIteration = config.iteration > 0;
+  const iteration = configHasExplicitIteration ? config.iteration : toNumber(state.iteration, 0);
   const maxIterations = toNumber(config.max_iterations ?? state.max_iterations, 5);
   const failureThreshold = toNumber(config.failure_threshold ?? state.failure_threshold, 3);
+
+  // Productivity tracking: determine if recent iterations have been productive
+  // An iteration is productive if it made file changes or completed tasks
+  const lastFilesChanged = toNumber(state.last_files_changed, 0);
+  const hasRecentFailures = Boolean(state.failure?.count > 0);
+  const isProductive = lastFilesChanged > 0 && !hasRecentFailures;
+  
+  // max_iterations is a "stuck detection" threshold, not a hard cap
+  // Continue past max if productive work is happening
+  const shouldStopForMaxIterations = iteration >= maxIterations && !isProductive;
 
   // Build task appendix for the agent prompt (after state load for reconciliation info)
   const taskAppendix = buildTaskAppendix(normalisedSections, checkboxCounts, state);
@@ -432,15 +444,15 @@ async function evaluateKeepaliveLoop({ github, context, core }) {
   } else if (allComplete) {
     action = 'stop';
     reason = 'tasks-complete';
-  } else if (iteration >= maxIterations) {
+  } else if (shouldStopForMaxIterations) {
     action = 'stop';
-    reason = 'max-iterations';
+    reason = isProductive ? 'max-iterations' : 'max-iterations-unproductive';
   } else if (gateNormalized !== 'success') {
     action = 'wait';
     reason = gateNormalized ? 'gate-not-success' : 'gate-pending';
   } else if (tasksRemaining) {
     action = 'run';
-    reason = 'ready';
+    reason = iteration >= maxIterations ? 'ready-extended' : 'ready';
   }
 
   return {
@@ -547,19 +559,27 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
 
   // Capitalize agent name for display
   const agentDisplayName = agentType.charAt(0).toUpperCase() + agentType.slice(1);
+  
+  // Determine if we're in extended mode (past max_iterations but still productive)
+  const inExtendedMode = nextIteration > maxIterations && maxIterations > 0;
+  const iterationDisplay = inExtendedMode 
+    ? `**${nextIteration}/${maxIterations}** 🚀 extended`
+    : `${nextIteration}/${maxIterations || '∞'}`;
 
   const summaryLines = [
     '<!-- keepalive-loop-summary -->',
     `## 🤖 Keepalive Loop Status`,
     '',
-    `**PR #${prNumber}** | Agent: **${agentDisplayName}** | Iteration **${nextIteration}/${maxIterations || '∞'}**`,
+    `**PR #${prNumber}** | Agent: **${agentDisplayName}** | Iteration ${iterationDisplay}`,
     '',
     '### Current State',
     `| Metric | Value |`,
     `|--------|-------|`,
     `| Iteration progress | ${
       maxIterations > 0
-        ? formatProgressBar(nextIteration, maxIterations)
+        ? inExtendedMode 
+          ? `${formatProgressBar(maxIterations, maxIterations)} +${nextIteration - maxIterations} extended`
+          : formatProgressBar(nextIteration, maxIterations)
         : 'n/a (unbounded)'
     } |`,
     `| Action | ${action || 'unknown'} (${summaryReason || 'n/a'}) |`,

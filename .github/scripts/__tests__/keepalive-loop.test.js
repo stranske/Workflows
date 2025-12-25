@@ -190,13 +190,14 @@ test('evaluateKeepaliveLoop stops when tasks are complete', async () => {
   assert.equal(result.reason, 'tasks-complete');
 });
 
-test('evaluateKeepaliveLoop stops when max iterations are reached', async () => {
+test('evaluateKeepaliveLoop stops when max iterations reached AND unproductive', async () => {
   const pr = {
     number: 404,
     head: { ref: 'feature/four', sha: 'sha-4' },
     labels: [{ name: 'agent:codex' }],
     body: '## Tasks\n- [ ] one\n## Acceptance Criteria\n- [ ] a\n<!-- keepalive-config: {"iteration": 5, "max_iterations": 5} -->',
   };
+  // No previous state with file changes = unproductive
   const github = buildGithubStub({
     pr,
     workflowRuns: [{ head_sha: 'sha-4', conclusion: 'success' }],
@@ -207,7 +208,39 @@ test('evaluateKeepaliveLoop stops when max iterations are reached', async () => 
     core: buildCore(),
   });
   assert.equal(result.action, 'stop');
-  assert.equal(result.reason, 'max-iterations');
+  assert.equal(result.reason, 'max-iterations-unproductive');
+});
+
+test('evaluateKeepaliveLoop continues past max iterations when productive', async () => {
+  const pr = {
+    number: 405,
+    head: { ref: 'feature/extended', sha: 'sha-ext' },
+    labels: [{ name: 'agent:codex' }],
+    body: '## Tasks\n- [ ] one\n## Acceptance Criteria\n- [ ] a',
+  };
+  // State shows productive work (files changed, no failures)
+  const stateComment = formatStateComment({
+    trace: '',
+    iteration: 6,
+    max_iterations: 5,
+    last_files_changed: 3,
+    failure: {},
+  });
+  const comments = [
+    { id: 22, body: stateComment, html_url: 'https://example.com/22' },
+  ];
+  const github = buildGithubStub({
+    pr,
+    comments,
+    workflowRuns: [{ head_sha: 'sha-ext', conclusion: 'success' }],
+  });
+  const result = await evaluateKeepaliveLoop({
+    github,
+    context: buildContext(pr.number),
+    core: buildCore(),
+  });
+  assert.equal(result.action, 'run', 'Should continue running when productive');
+  assert.equal(result.reason, 'ready-extended', 'Should show extended mode');
 });
 
 test('evaluateKeepaliveLoop waits when gate has not succeeded', async () => {
@@ -291,7 +324,7 @@ test('updateKeepaliveLoopSummary increments iteration and clears failures on suc
 
   assert.equal(github.actions.length, 1);
   assert.equal(github.actions[0].type, 'update');
-  assert.match(github.actions[0].body, /Iteration \*\*3\/5\*\*/);
+  assert.match(github.actions[0].body, /Iteration 3\/5/);
   assert.match(github.actions[0].body, /Iteration progress \| \[######----\] 3\/5 \|/);
   assert.match(github.actions[0].body, /### Last Codex Run/);
   assert.match(github.actions[0].body, /✅ Success/);
@@ -388,7 +421,7 @@ test('updateKeepaliveLoopSummary uses state iteration when inputs have stale val
   assert.equal(github.actions[0].type, 'update');
   // Should preserve iteration=2 from state, NOT use stale iteration=0 from inputs
   assert.match(github.actions[0].body, /"iteration":2/);
-  assert.match(github.actions[0].body, /Iteration \*\*2\/5\*\*/);
+  assert.match(github.actions[0].body, /Iteration 2\/5/);
 });
 
 test('updateKeepaliveLoopSummary pauses after repeated failures and adds label', async () => {
