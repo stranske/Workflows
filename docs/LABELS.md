@@ -26,7 +26,7 @@ This document describes all labels that trigger automated workflows or affect CI
 **Effect:** Initiates the CI Autofix Loop which:
 1. Runs linting and formatting checks
 2. Automatically commits fixes for:
-   - Code formatting (black, isort, prettier)
+   - Code formatting using the repository's configured formatters
    - Import organization
    - Trailing whitespace
    - Type annotation fixes (mypy suggestions)
