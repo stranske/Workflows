@@ -101,27 +101,84 @@ You should assume you're running in `agent-standard` unless explicitly told othe
 
 # Task Prompt
 
-# Autofix from CI failure
+# Keepalive Next Task
 
-You are Codex running in autofix mode after a CI failure. Use the available logs and repository context to repair the failing checks.
+Your objective is to satisfy the **Acceptance Criteria** by completing each **Task** within the defined **Scope**.
 
-Guidance:
-- Inspect the latest CI output provided by the caller (logs or summaries) to pinpoint the root cause.
-- Focus on minimal, targeted fixes that unblock the failing job.
-- Leave diagnostic breadcrumbs when a failure cannot be reproduced or fully addressed.
-- Re-run or suggest the smallest relevant checks to verify the fix.
+**This round you MUST:**
+1. Implement actual code or test changes that advance at least one incomplete task toward acceptance.
+2. Commit meaningful source code (.py, .yml, .js, etc.)—not just status/docs updates.
+3. Mark a task checkbox complete ONLY after verifying the implementation works.
+4. Focus on the FIRST unchecked task unless blocked, then move to the next.
+
+**Guidelines:**
+- Keep edits scoped to the current task rather than reshaping the entire PR.
+- Use repository instructions, conventions, and tests to validate work.
+- Prefer small, reviewable commits; leave clear notes when follow-up is required.
+- Do NOT work on unrelated improvements until all PR tasks are complete.
+
+**The Tasks and Acceptance Criteria are provided in the appendix below.** Work through them in order.
 
 ## Run context
-Gate run: https://github.com/stranske/Workflows/actions/runs/20506885722
-Conclusion: failure
-PR: #140
-Head SHA: 8b3199082179ee6a32a3737439560976fd071eb1
-Autofix attempts for this head: 1 / 3
-Fix scope: src/, tests/, tools/, scripts/, agents/, templates/, .github/
-Failing jobs:
-- python ci / python 3.12 (failure)
-  - steps: Finalize check results (failure)
-- python ci / python 3.11 (failure)
-  - steps: Finalize check results (failure)
-- summary (failure)
-  - steps: Enforce Gate success (failure)
+---
+## PR Tasks and Acceptance Criteria
+
+**Progress:** 8/32 tasks complete, 24 remaining
+
+### Scope
+- [ ] Context / problem:
+- [ ] - Agent workflows (keepalive-loop, autofix-loop, verifier) can fail due to transient issues:
+- [ ] - GitHub API rate limits
+- [ ] - Network timeouts during Codex execution
+- [ ] - Temporary unavailability of secrets/environment
+- [ ] - Git push conflicts from concurrent updates
+- [ ] - Currently, failures require manual re-triggering or wait for next scheduled run
+- [ ] - There's no distinction between recoverable vs unrecoverable failures
+- [ ] - Failed runs don't provide actionable guidance on what went wrong
+- [ ] Goal:
+- [ ] - Add intelligent retry logic for transient failures
+- [ ] - Classify failures into categories with appropriate responses
+- [ ] - Provide clear error messages and recovery guidance
+- [ ] - Reduce manual intervention needed for temporary issues
+
+### Tasks
+Complete these in order. Mark checkbox done ONLY after implementation is verified:
+
+- [ ] Create error classification utility (`error_classifier.js`):
+- [ ] Define error categories: `transient`, `auth`, `resource`, `logic`, `unknown`
+- [ ] Map common error patterns to categories
+- [ ] Provide suggested recovery actions per category
+- [ ] Add retry wrapper for GitHub API calls:
+- [ ] Implement exponential backoff with jitter
+- [ ] Handle rate limit headers (X-RateLimit-Remaining, Retry-After)
+- [ ] Configure max retries per operation type
+- [ ] Log retry attempts with context
+- [ ] Update `reusable-codex-run.yml` with failure handling:
+- [ ] Add step to classify failure type on error
+- [ ] Implement conditional retry for transient failures
+- [ ] Add detailed error output to GITHUB_STEP_SUMMARY
+- [ ] Create artifact with error diagnostics
+- [x] Update keepalive loop failure handling:
+- [ ] Distinguish between Codex failures vs infrastructure failures
+- [ ] Reset failure counter on transient errors
+- [ ] Add `error_type` to keepalive state
+- [ ] Emit failure classification in outputs
+- [x] Add PR comment on unrecoverable failures:
+- [ ] Post comment explaining what failed and why
+- [ ] Include suggested manual steps
+- [ ] Add label `agent:needs-attention` for non-transient errors
+- [x] Create tests for error handling:
+- [x] Test error classification logic
+- [ ] Test retry behavior with mocked failures
+- [ ] Test PR comment formatting for various error types
+
+### Acceptance Criteria
+The PR is complete when ALL of these are satisfied:
+
+- [x] Transient failures (rate limits, timeouts) are automatically retried with backoff
+- [x] Non-transient failures are clearly reported with actionable guidance
+- [x] Failure counter in keepalive state only increments for non-transient errors
+- [ ] Error diagnostics artifact is created for debugging
+- [x] Tests cover all error classification paths
+
+---

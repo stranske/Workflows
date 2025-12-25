@@ -67,6 +67,7 @@ const buildContext = (prNumber = 101) => ({
 
 const buildCore = () => ({
   info() {},
+  setOutput() {},
 });
 
 test('countCheckboxes tallies checked and unchecked tasks', () => {
@@ -388,6 +389,49 @@ test('updateKeepaliveLoopSummary writes step summary for agent runs', async () =
   assert.match(summary.buffer, /Outcome \| success/);
 });
 
+test('updateKeepaliveLoopSummary resets failure count on transient errors', async () => {
+  const existingState = formatStateComment({
+    trace: 'trace-transient',
+    iteration: 1,
+    failure_threshold: 3,
+    failure: { reason: 'agent-run-failed', count: 2 },
+  });
+  const github = buildGithubStub({
+    comments: [{ id: 77, body: existingState, html_url: 'https://example.com/77' }],
+  });
+
+  await updateKeepaliveLoopSummary({
+    github,
+    context: buildContext(321),
+    core: buildCore(),
+    inputs: {
+      prNumber: 321,
+      action: 'run',
+      runResult: 'failure',
+      gateConclusion: 'success',
+      tasksTotal: 4,
+      tasksUnchecked: 4,
+      keepaliveEnabled: true,
+      autofixEnabled: false,
+      iteration: 1,
+      maxIterations: 5,
+      failureThreshold: 3,
+      trace: 'trace-transient',
+      agent_exit_code: '1',
+      agent_summary: 'Request timed out after 30s while running Codex.',
+    },
+  });
+
+  assert.equal(github.actions.length, 1);
+  assert.equal(github.actions[0].type, 'update');
+  const body = github.actions[0].body;
+  assert.match(body, /agent-run-transient/);
+  assert.match(body, /Transient Issue Detected/);
+  assert.match(body, /"failure":\{\}/);
+  assert.match(body, /"error_type":"infrastructure"/);
+  assert.match(body, /"error_category":"transient"/);
+});
+
 test('updateKeepaliveLoopSummary uses state iteration when inputs have stale value', async () => {
   // Simulates race condition: evaluate ran with stale iteration=0, but state was updated to iteration=2
   const existingState = formatStateComment({
@@ -497,11 +541,198 @@ test('updateKeepaliveLoopSummary adds needs-human after repeated actual failures
     },
   });
 
-  assert.equal(github.actions.length, 2);
-  assert.equal(github.actions[0].type, 'update');
-  assert.match(github.actions[0].body, /agent-run-failed-repeat/);
-  assert.equal(github.actions[1].type, 'label');
-  assert.deepEqual(github.actions[1].labels, ['needs-human']);
+  assert.equal(github.actions.length, 4);
+  const updateAction = github.actions.find((action) => action.type === 'update');
+  assert.ok(updateAction);
+  assert.match(updateAction.body, /agent-run-failed-repeat/);
+
+  const attentionComment = github.actions.find((action) =>
+    action.type === 'create' && action.body.includes('non-transient failure')
+  );
+  assert.ok(attentionComment);
+
+  const needsAttentionLabel = github.actions.find((action) =>
+    action.type === 'label' && action.labels.includes('agent:needs-attention')
+  );
+  assert.ok(needsAttentionLabel);
+
+  const needsHumanLabel = github.actions.find((action) =>
+    action.type === 'label' && action.labels.includes('needs-human')
+  );
+  assert.ok(needsHumanLabel);
+});
+
+test('updateKeepaliveLoopSummary posts attention comment for auth failures', async () => {
+  const existingState = formatStateComment({
+    trace: 'trace-attention-auth',
+    iteration: 1,
+    failure_threshold: 3,
+    failure: {},
+  });
+  const github = buildGithubStub({
+    comments: [{ id: 88, body: existingState, html_url: 'https://example.com/88' }],
+  });
+
+  await updateKeepaliveLoopSummary({
+    github,
+    context: buildContext(654),
+    core: buildCore(),
+    inputs: {
+      prNumber: 654,
+      action: 'run',
+      runResult: 'failure',
+      gateConclusion: 'success',
+      tasksTotal: 3,
+      tasksUnchecked: 3,
+      keepaliveEnabled: true,
+      autofixEnabled: false,
+      iteration: 1,
+      maxIterations: 5,
+      failureThreshold: 3,
+      trace: 'trace-attention-auth',
+      agent_exit_code: '1',
+      agent_summary: 'Bad credentials while calling GitHub API.',
+    },
+  });
+
+  const attentionComment = github.actions.find((action) =>
+    action.type === 'create' && action.body.includes('non-transient failure')
+  );
+  assert.ok(attentionComment);
+  assert.match(attentionComment.body, /Error category: auth/);
+  assert.match(attentionComment.body, /Verify credentials/);
+
+  const labelAction = github.actions.find((action) =>
+    action.type === 'label' && action.labels.includes('agent:needs-attention')
+  );
+  assert.ok(labelAction);
+});
+
+test('updateKeepaliveLoopSummary posts attention comment for resource failures', async () => {
+  const existingState = formatStateComment({
+    trace: 'trace-attention-resource',
+    iteration: 1,
+    failure_threshold: 3,
+    failure: {},
+  });
+  const github = buildGithubStub({
+    comments: [{ id: 99, body: existingState, html_url: 'https://example.com/99' }],
+  });
+
+  await updateKeepaliveLoopSummary({
+    github,
+    context: buildContext(655),
+    core: buildCore(),
+    inputs: {
+      prNumber: 655,
+      action: 'run',
+      runResult: 'failure',
+      gateConclusion: 'success',
+      tasksTotal: 3,
+      tasksUnchecked: 3,
+      keepaliveEnabled: true,
+      autofixEnabled: false,
+      iteration: 1,
+      maxIterations: 5,
+      failureThreshold: 3,
+      trace: 'trace-attention-resource',
+      agent_exit_code: '1',
+      agent_summary: 'Repository not found for this request.',
+    },
+  });
+
+  const attentionComment = github.actions.find((action) =>
+    action.type === 'create' && action.body.includes('non-transient failure')
+  );
+  assert.ok(attentionComment);
+  assert.match(attentionComment.body, /Error category: resource/);
+  assert.match(attentionComment.body, /Confirm the referenced resource exists/);
+});
+
+test('updateKeepaliveLoopSummary posts attention comment for logic failures', async () => {
+  const existingState = formatStateComment({
+    trace: 'trace-attention-logic',
+    iteration: 1,
+    failure_threshold: 3,
+    failure: {},
+  });
+  const github = buildGithubStub({
+    comments: [{ id: 102, body: existingState, html_url: 'https://example.com/102' }],
+  });
+
+  await updateKeepaliveLoopSummary({
+    github,
+    context: buildContext(656),
+    core: buildCore(),
+    inputs: {
+      prNumber: 656,
+      action: 'run',
+      runResult: 'failure',
+      gateConclusion: 'success',
+      tasksTotal: 3,
+      tasksUnchecked: 3,
+      keepaliveEnabled: true,
+      autofixEnabled: false,
+      iteration: 1,
+      maxIterations: 5,
+      failureThreshold: 3,
+      trace: 'trace-attention-logic',
+      agent_exit_code: '1',
+      agent_summary: 'Validation failed: invalid request payload.',
+    },
+  });
+
+  const attentionComment = github.actions.find((action) =>
+    action.type === 'create' && action.body.includes('non-transient failure')
+  );
+  assert.ok(attentionComment);
+  assert.match(attentionComment.body, /Error category: logic/);
+  assert.match(attentionComment.body, /Review request inputs/);
+});
+
+test('updateKeepaliveLoopSummary formats codex attention comment details', async () => {
+  const existingState = formatStateComment({
+    trace: 'trace-attention-codex',
+    iteration: 1,
+    failure_threshold: 3,
+    failure: {},
+  });
+  const github = buildGithubStub({
+    comments: [{ id: 111, body: existingState, html_url: 'https://example.com/111' }],
+  });
+  const longSummary = `Validation failed: ${'x'.repeat(400)}`;
+
+  await updateKeepaliveLoopSummary({
+    github,
+    context: buildContext(657),
+    core: buildCore(),
+    inputs: {
+      prNumber: 657,
+      action: 'run',
+      runResult: 'failure',
+      gateConclusion: 'success',
+      tasksTotal: 3,
+      tasksUnchecked: 3,
+      keepaliveEnabled: true,
+      autofixEnabled: false,
+      iteration: 1,
+      maxIterations: 5,
+      failureThreshold: 3,
+      trace: 'trace-attention-codex',
+      agent_exit_code: '2',
+      agent_summary: longSummary,
+      run_url: 'https://example.com/run/657',
+    },
+  });
+
+  const attentionComment = github.actions.find((action) =>
+    action.type === 'create' && action.body.includes('non-transient failure')
+  );
+  assert.ok(attentionComment);
+  assert.match(attentionComment.body, /Error category: logic/);
+  assert.match(attentionComment.body, /Error type: codex/);
+  assert.match(attentionComment.body, /Run logs: https:\/\/example.com\/run\/657/);
+  assert.match(attentionComment.body, /Agent output: .*\.{3}/);
 });
 
 test('updateKeepaliveLoopSummary does NOT add needs-human on tasks-complete', async () => {

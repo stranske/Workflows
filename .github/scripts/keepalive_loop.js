@@ -2,6 +2,7 @@
 
 const { parseScopeTasksAcceptanceSections } = require('./issue_scope_parser');
 const { loadKeepaliveState, formatStateComment } = require('./keepalive_state');
+const { classifyError, ERROR_CATEGORIES } = require('./error_classifier');
 
 function normalise(value) {
   return String(value ?? '').trim();
@@ -120,6 +121,93 @@ function normaliseChecklistSections(sections = {}) {
     tasks: normaliseChecklistSection(sections.tasks),
     acceptance: normaliseChecklistSection(sections.acceptance),
   };
+}
+
+function classifyFailureDetails({ action, runResult, summaryReason, agentExitCode, agentSummary }) {
+  const runFailed = action === 'run' && runResult && runResult !== 'success';
+  const shouldClassify = runFailed || (action && action !== 'run' && summaryReason);
+  if (!shouldClassify) {
+    return { category: '', type: '', recovery: '', message: '' };
+  }
+
+  const message = [agentSummary, summaryReason, runResult].filter(Boolean).join(' ');
+  const errorInfo = classifyError({ message, code: agentExitCode });
+  let category = errorInfo.category;
+
+  if (runFailed && (runResult === 'cancelled' || runResult === 'skipped')) {
+    category = ERROR_CATEGORIES.transient;
+  }
+
+  let type = '';
+  if (runFailed) {
+    if (category === ERROR_CATEGORIES.transient) {
+      type = 'infrastructure';
+    } else if (agentExitCode && agentExitCode !== '0') {
+      type = 'codex';
+    } else {
+      type = 'infrastructure';
+    }
+  } else {
+    type = 'infrastructure';
+  }
+
+  return {
+    category,
+    type,
+    recovery: errorInfo.recovery,
+    message: errorInfo.message,
+  };
+}
+
+function truncateText(value, maxLength = 300) {
+  const text = normalise(value);
+  if (!text) {
+    return '';
+  }
+  if (text.length <= maxLength) {
+    return text;
+  }
+  return `${text.slice(0, maxLength)}...`;
+}
+
+function buildAttentionComment({
+  agentDisplayName,
+  summaryReason,
+  runResult,
+  agentExitCode,
+  agentSummary,
+  errorCategory,
+  errorType,
+  errorRecovery,
+  runUrl,
+}) {
+  const lines = [
+    `Keepalive detected a non-transient failure in the last ${agentDisplayName} run.`,
+    '',
+    `- Error category: ${errorCategory || 'unknown'}`,
+    `- Error type: ${errorType || 'unknown'}`,
+    `- Result: ${runResult || summaryReason || 'unknown'}`,
+    `- Exit code: ${agentExitCode || 'unknown'}`,
+  ];
+
+  const summarySnippet = truncateText(agentSummary, 300);
+  if (summarySnippet) {
+    lines.push(`- Agent output: ${summarySnippet}`);
+  }
+  if (runUrl) {
+    lines.push(`- Run logs: ${runUrl}`);
+  }
+
+  lines.push('', 'Suggested manual steps:');
+  if (errorRecovery) {
+    lines.push(`1. ${errorRecovery}`);
+  } else {
+    lines.push('1. Review the error details and validate inputs/permissions.');
+  }
+  lines.push('2. Inspect the workflow logs for the failing step.');
+  lines.push('3. Re-run the keepalive workflow after applying the fix.');
+
+  return lines.join('\n');
 }
 
 /**
@@ -527,6 +615,18 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
   const isNeutralStop = reason === 'no-checklists' || reason === 'keepalive-disabled';
   let stop = action === 'stop' && !isSuccessStop && !isNeutralStop;
   let summaryReason = reason || action || 'unknown';
+  const transientDetails = classifyFailureDetails({
+    action,
+    runResult,
+    summaryReason,
+    agentExitCode,
+    agentSummary,
+  });
+  const isTransientFailure =
+    action === 'run' &&
+    runResult &&
+    runResult !== 'success' &&
+    transientDetails.category === ERROR_CATEGORIES.transient;
 
   // Task reconciliation: detect when agent made changes but didn't update checkboxes
   const previousTasks = previousState?.tasks || {};
@@ -544,14 +644,19 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
       nextIteration = currentIteration + 1;
       failure = {};
     } else if (runResult) {
-      const same = failure.reason === 'agent-run-failed';
-      const count = same ? toNumber(failure.count, 0) + 1 : 1;
-      failure = { reason: 'agent-run-failed', count };
-      if (count >= failureThreshold) {
-        stop = true;
-        summaryReason = 'agent-run-failed-repeat';
+      if (isTransientFailure) {
+        failure = {};
+        summaryReason = 'agent-run-transient';
       } else {
-        summaryReason = 'agent-run-failed';
+        const same = failure.reason === 'agent-run-failed';
+        const count = same ? toNumber(failure.count, 0) + 1 : 1;
+        failure = { reason: 'agent-run-failed', count };
+        if (count >= failureThreshold) {
+          stop = true;
+          summaryReason = 'agent-run-failed-repeat';
+        } else {
+          summaryReason = 'agent-run-failed';
+        }
       }
     }
   } else if (action === 'stop') {
@@ -578,8 +683,11 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
     // Wait states are NOT failures - they're transient conditions
     // Don't increment failure counter for: gate-pending, gate-not-success, missing-agent-label
     // These are expected states that will resolve on their own
-    // Only preserve existing failure state if it was from an actual failure
-    if (failure.reason && !failure.reason.startsWith('gate-') && failure.reason !== 'missing-agent-label') {
+    // Check if this is a transient error (from error classification)
+    if (transientDetails.category === ERROR_CATEGORIES.transient) {
+      failure = {};
+      summaryReason = `${summaryReason}-transient`;
+    } else if (failure.reason && !failure.reason.startsWith('gate-') && failure.reason !== 'missing-agent-label') {
       // Keep the failure from a previous real failure (like agent-run-failed)
       // but don't increment for wait states
     } else {
@@ -587,6 +695,17 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
       failure = {};
     }
   }
+
+  const failureDetails = classifyFailureDetails({
+    action,
+    runResult,
+    summaryReason,
+    agentExitCode,
+    agentSummary,
+  });
+  const errorCategory = failureDetails.category;
+  const errorType = failureDetails.type;
+  const errorRecovery = failureDetails.recovery;
 
   // Capitalize agent name for display
   const agentDisplayName = agentType.charAt(0).toUpperCase() + agentType.slice(1);
@@ -669,6 +788,26 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
     }
   }
 
+  if (errorType || errorCategory) {
+    summaryLines.push(
+      '',
+      '### 🔍 Failure Classification',
+      `| Error type | ${errorType || 'unknown'} |`,
+      `| Error category | ${errorCategory || 'unknown'} |`,
+    );
+    if (errorRecovery) {
+      summaryLines.push(`| Suggested recovery | ${errorRecovery} |`);
+    }
+  }
+
+  if (isTransientFailure) {
+    summaryLines.push(
+      '',
+      '### ♻️ Transient Issue Detected',
+      'This run failed due to a transient issue. The failure counter has been reset to avoid pausing the loop.',
+    );
+  }
+
   // Show failure tracking prominently if there are failures
   if (failure.count > 0) {
     summaryLines.push(
@@ -704,6 +843,8 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
     last_action: action,
     last_reason: summaryReason,
     failure,
+    error_type: errorType,
+    error_category: errorCategory,
     tasks: { total: tasksTotal, unchecked: tasksUnchecked },
     gate_conclusion: gateConclusion,
     failure_threshold: failureThreshold,
@@ -726,6 +867,59 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
     });
   }
 
+  const previousAttention = previousState?.attention && typeof previousState.attention === 'object'
+    ? previousState.attention
+    : {};
+  if (Object.keys(previousAttention).length > 0) {
+    newState.attention = { ...previousAttention };
+  }
+
+  if (core && typeof core.setOutput === 'function') {
+    core.setOutput('error_type', errorType || '');
+    core.setOutput('error_category', errorCategory || '');
+  }
+
+  const shouldEscalate =
+    (action === 'run' && runResult && runResult !== 'success' && errorCategory !== ERROR_CATEGORIES.transient) ||
+    (action === 'stop' && !isSuccessStop && !isNeutralStop && errorCategory !== ERROR_CATEGORIES.transient);
+
+  const attentionKey = [summaryReason, runResult, errorCategory, errorType, agentExitCode].filter(Boolean).join('|');
+  const priorAttentionKey = normalise(previousAttention.key);
+
+  if (shouldEscalate && (attentionKey !== priorAttentionKey || !previousAttention.comment_id)) {
+    const attentionBody = buildAttentionComment({
+      agentDisplayName,
+      summaryReason,
+      runResult,
+      agentExitCode,
+      agentSummary,
+      errorCategory,
+      errorType,
+      errorRecovery,
+      runUrl,
+    });
+    try {
+      const { data } = await github.rest.issues.createComment({
+        owner: context.repo.owner,
+        repo: context.repo.repo,
+        issue_number: prNumber,
+        body: attentionBody,
+      });
+      newState.attention = {
+        key: attentionKey,
+        comment_id: data?.id || '',
+        comment_url: data?.html_url || '',
+        error_category: errorCategory || '',
+        error_type: errorType || '',
+        reason: summaryReason || '',
+        recovery: errorRecovery || '',
+        recorded_at: new Date().toISOString(),
+      };
+    } catch (error) {
+      if (core) core.warning(`Failed to post attention comment: ${error.message}`);
+    }
+  }
+
   summaryLines.push('', formatStateComment(newState));
   const body = summaryLines.join('\n');
 
@@ -743,6 +937,19 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
       issue_number: prNumber,
       body,
     });
+  }
+
+  if (shouldEscalate) {
+    try {
+      await github.rest.issues.addLabels({
+        owner: context.repo.owner,
+        repo: context.repo.repo,
+        issue_number: prNumber,
+        labels: ['agent:needs-attention'],
+      });
+    } catch (error) {
+      if (core) core.warning(`Failed to add agent:needs-attention label: ${error.message}`);
+    }
   }
 
   if (stop) {

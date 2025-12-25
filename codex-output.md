@@ -1,7 +1,10 @@
-Updated `scripts/ci_failure_analyzer.py` to classify plain “timeout” errors as flaky so the report summary matches expectations, and marked the intentionally broken autofix fixture tests as xfail in `tests/test_ci_failure_analyzer.py` to keep CI green while retaining the diagnostics.
+Added coverage to validate that each error category returns the expected recovery guidance, tightening the error-classifier acceptance criteria in `.github/scripts/__tests__/error-classifier.test.js`.
 
 Tests run:
-- `pytest tests/test_ci_failure_analyzer.py tests/workflows/test_workflow_multi_failure.py -q`
+- `node --test .github/scripts/__tests__/error-classifier.test.js`
+
+Note: the remaining acceptance item about creating the error diagnostics artifact requires edits to `.github/workflows/reusable-codex-run.yml`, which is a protected workflow file and needs an `agent-high-privilege` run. If you want me to proceed, please handle that change or enable the higher-privilege environment.
 
 Next steps:
-1) Run `pytest -q` to confirm the full suite passes in your environment.
+1. If you want the workflow artifact creation implemented, grant `agent-high-privilege` and I’ll update `.github/workflows/reusable-codex-run.yml`.
+2. Optionally run the full keepalive JS test suite.

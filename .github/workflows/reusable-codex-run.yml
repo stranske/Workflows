@@ -79,6 +79,15 @@ on:
       files-changed:
         description: 'Number of files changed by Codex'
         value: ${{ jobs.codex.outputs.files-changed }}
+      error-category:
+        description: 'Error category if failure occurred (transient/auth/resource/logic/unknown)'
+        value: ${{ jobs.codex.outputs.error-category }}
+      error-type:
+        description: 'Error type if failure occurred (codex/infrastructure/auth/unknown)'
+        value: ${{ jobs.codex.outputs.error-type }}
+      error-recovery:
+        description: 'Suggested recovery action if failure occurred'
+        value: ${{ jobs.codex.outputs.error-recovery }}
 
 permissions:
   contents: write
@@ -99,6 +108,9 @@ jobs:
       changes-made: ${{ steps.commit.outputs.changes-made }}
       commit-sha: ${{ steps.commit.outputs.commit-sha }}
       files-changed: ${{ steps.commit.outputs.files-changed }}
+      error-category: ${{ steps.classify_failure.outputs.error_category }}
+      error-type: ${{ steps.classify_failure.outputs.error_type }}
+      error-recovery: ${{ steps.classify_failure.outputs.error_recovery }}
     steps:
       - name: Mint GitHub App token (preferred)
         id: app_token
@@ -421,3 +433,274 @@ jobs:
         with:
           name: codex-output
           path: codex-output.md
+
+      - name: Classify failure type
+        id: classify_failure
+        if: always() && steps.run_codex.outputs.exit-code != '0'
+        uses: actions/github-script@v7
+        env:
+          EXIT_CODE: ${{ steps.run_codex.outputs.exit-code }}
+          OUTPUT_SUMMARY: ${{ steps.run_codex.outputs.final-message-summary }}
+          MODE: ${{ inputs.mode }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+        with:
+          script: |
+            const { classifyError, ERROR_CATEGORIES, suggestRecoveryAction } = require('./.github/scripts/error_classifier.js');
+
+            const exitCode = process.env.EXIT_CODE || '';
+            const summary = process.env.OUTPUT_SUMMARY || '';
+            const mode = process.env.MODE || 'unknown';
+            const prNumber = process.env.PR_NUMBER || '';
+
+            // Classify the error based on output and exit code
+            const errorInfo = classifyError({
+              code: exitCode,
+              message: summary,
+            });
+
+            // Determine error type (codex vs infrastructure)
+            let errorType = 'unknown';
+            if (exitCode && exitCode !== '0') {
+              if (errorInfo.category === ERROR_CATEGORIES.transient) {
+                errorType = 'infrastructure';
+              } else if (errorInfo.category === ERROR_CATEGORIES.auth) {
+                errorType = 'auth';
+              } else {
+                errorType = 'codex';
+              }
+            }
+
+            core.setOutput('error_category', errorInfo.category);
+            core.setOutput('error_type', errorType);
+            core.setOutput('error_recovery', errorInfo.recovery);
+            core.setOutput('is_transient', errorInfo.category === ERROR_CATEGORIES.transient ? 'true' : 'false');
+
+            console.log(`Error Classification:`);
+            console.log(`  Category: ${errorInfo.category}`);
+            console.log(`  Type: ${errorType}`);
+            console.log(`  Recovery: ${errorInfo.recovery}`);
+
+      - name: Write error summary to GITHUB_STEP_SUMMARY
+        if: always() && steps.run_codex.outputs.exit-code != '0'
+        env:
+          EXIT_CODE: ${{ steps.run_codex.outputs.exit-code }}
+          OUTPUT_SUMMARY: ${{ steps.run_codex.outputs.final-message-summary }}
+          ERROR_CATEGORY: ${{ steps.classify_failure.outputs.error_category }}
+          ERROR_TYPE: ${{ steps.classify_failure.outputs.error_type }}
+          ERROR_RECOVERY: ${{ steps.classify_failure.outputs.error_recovery }}
+          MODE: ${{ inputs.mode }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+        run: |
+          set -euo pipefail
+          {
+            echo "## ❌ Codex Run Failed"
+            echo ""
+            echo "| Field | Value |"
+            echo "|-------|-------|"
+            echo "| Mode | ${MODE:-unknown} |"
+            echo "| Exit Code | ${EXIT_CODE:-unknown} |"
+            echo "| Error Category | ${ERROR_CATEGORY:-unknown} |"
+            echo "| Error Type | ${ERROR_TYPE:-unknown} |"
+            if [ -n "${PR_NUMBER:-}" ]; then
+              echo "| PR | #${PR_NUMBER} |"
+            fi
+            echo ""
+            echo "### 🔍 Recovery Guidance"
+            echo ""
+            echo "${ERROR_RECOVERY:-Check logs for more details.}"
+            echo ""
+            if [ -n "${OUTPUT_SUMMARY:-}" ]; then
+              echo "### 📝 Output Summary"
+              echo ""
+              echo '```'
+              echo "${OUTPUT_SUMMARY}"
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Create error diagnostics artifact
+        if: always() && steps.run_codex.outputs.exit-code != '0'
+        env:
+          EXIT_CODE: ${{ steps.run_codex.outputs.exit-code }}
+          OUTPUT_SUMMARY: ${{ steps.run_codex.outputs.final-message-summary }}
+          ERROR_CATEGORY: ${{ steps.classify_failure.outputs.error_category }}
+          ERROR_TYPE: ${{ steps.classify_failure.outputs.error_type }}
+          ERROR_RECOVERY: ${{ steps.classify_failure.outputs.error_recovery }}
+          IS_TRANSIENT: ${{ steps.classify_failure.outputs.is_transient }}
+          MODE: ${{ inputs.mode }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          mkdir -p error-diagnostics
+
+          # Create JSON diagnostics file
+          cat > error-diagnostics/diagnostics.json << JSONEOF
+          {
+            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "run_id": "${{ github.run_id }}",
+            "run_url": "${RUN_URL}",
+            "mode": "${MODE:-unknown}",
+            "pr_number": "${PR_NUMBER:-}",
+            "exit_code": "${EXIT_CODE:-unknown}",
+            "error_category": "${ERROR_CATEGORY:-unknown}",
+            "error_type": "${ERROR_TYPE:-unknown}",
+            "is_transient": ${IS_TRANSIENT:-false},
+            "recovery_guidance": "${ERROR_RECOVERY:-unknown}"
+          }
+          JSONEOF
+
+          # Create human-readable diagnostics
+          cat > error-diagnostics/README.md << MDEOF
+          # Codex Run Error Diagnostics
+
+          **Generated:** $(date -u +%Y-%m-%dT%H:%M:%SZ)
+          **Run URL:** ${RUN_URL}
+
+          ## Error Summary
+
+          | Field | Value |
+          |-------|-------|
+          | Mode | ${MODE:-unknown} |
+          | Exit Code | ${EXIT_CODE:-unknown} |
+          | Error Category | ${ERROR_CATEGORY:-unknown} |
+          | Error Type | ${ERROR_TYPE:-unknown} |
+          | Is Transient | ${IS_TRANSIENT:-false} |
+
+          ## Recovery Guidance
+
+          ${ERROR_RECOVERY:-Check logs for more details.}
+
+          ## Output Summary
+
+          \`\`\`
+          ${OUTPUT_SUMMARY:-No output captured}
+          \`\`\`
+          MDEOF
+
+          # Copy codex output if available
+          if [ -f "codex-output.md" ]; then
+            cp codex-output.md error-diagnostics/
+          fi
+
+          echo "Created error diagnostics in error-diagnostics/"
+
+      - name: Upload error diagnostics
+        if: always() && steps.run_codex.outputs.exit-code != '0'
+        uses: actions/upload-artifact@v4
+        with:
+          name: error-diagnostics-${{ inputs.mode }}-${{ github.run_id }}
+          path: error-diagnostics/
+          retention-days: 30
+
+      - name: Post PR comment on non-transient failure
+        if: always() && steps.run_codex.outputs.exit-code != '0' && steps.classify_failure.outputs.is_transient != 'true' && inputs.pr_number != ''
+        uses: actions/github-script@v7
+        env:
+          PR_NUMBER: ${{ inputs.pr_number }}
+          EXIT_CODE: ${{ steps.run_codex.outputs.exit-code }}
+          ERROR_CATEGORY: ${{ steps.classify_failure.outputs.error_category }}
+          ERROR_TYPE: ${{ steps.classify_failure.outputs.error_type }}
+          ERROR_RECOVERY: ${{ steps.classify_failure.outputs.error_recovery }}
+          OUTPUT_SUMMARY: ${{ steps.run_codex.outputs.final-message-summary }}
+          MODE: ${{ inputs.mode }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        with:
+          script: |
+            const prNumber = parseInt(process.env.PR_NUMBER, 10);
+            if (!prNumber || prNumber <= 0) {
+              console.log('No valid PR number, skipping comment');
+              return;
+            }
+
+            const exitCode = process.env.EXIT_CODE || 'unknown';
+            const category = process.env.ERROR_CATEGORY || 'unknown';
+            const errorType = process.env.ERROR_TYPE || 'unknown';
+            const recovery = process.env.ERROR_RECOVERY || 'Check logs for details.';
+            const summary = process.env.OUTPUT_SUMMARY || 'No output captured';
+            const mode = process.env.MODE || 'unknown';
+            const runUrl = process.env.RUN_URL || '';
+
+            const marker = '<!-- codex-failure-notification -->';
+
+            const body = `${marker}
+            ## ⚠️ Codex ${mode} run failed
+
+            | Field | Value |
+            |-------|-------|
+            | Exit Code | \`${exitCode}\` |
+            | Error Category | \`${category}\` |
+            | Error Type | \`${errorType}\` |
+            | Run | [View logs](${runUrl}) |
+
+            ### 🔧 Suggested Recovery
+
+            ${recovery}
+
+            ### 📝 What to do
+
+            1. Check the [workflow logs](${runUrl}) for detailed error output
+            2. If this is a configuration issue, update the relevant settings
+            3. If the error persists, consider adding the \`needs-human\` label for manual review
+            4. Re-run the workflow once the issue is resolved
+
+            <details>
+            <summary>Output summary</summary>
+
+            \`\`\`
+            ${summary.slice(0, 500)}
+            \`\`\`
+
+            </details>
+            `.trim().split('\n').map(l => l.trim()).join('\n');
+
+            // Check if we already have a failure comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              per_page: 100,
+            });
+
+            const existingComment = comments.find(c => c.body && c.body.includes(marker));
+
+            if (existingComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existingComment.id,
+                body,
+              });
+              console.log(`Updated existing failure comment: ${existingComment.html_url}`);
+            } else {
+              const { data: newComment } = await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body,
+              });
+              console.log(`Created failure comment: ${newComment.html_url}`);
+            }
+
+      - name: Add needs-attention label on non-transient failure
+        if: always() && steps.run_codex.outputs.exit-code != '0' && steps.classify_failure.outputs.is_transient != 'true' && inputs.pr_number != ''
+        continue-on-error: true
+        uses: actions/github-script@v7
+        env:
+          PR_NUMBER: ${{ inputs.pr_number }}
+        with:
+          script: |
+            const prNumber = parseInt(process.env.PR_NUMBER, 10);
+            if (!prNumber || prNumber <= 0) return;
+
+            try {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                labels: ['agent:needs-attention'],
+              });
+              console.log('Added agent:needs-attention label');
+            } catch (error) {
+              console.log(`Could not add label: ${error.message}`);
+            }
