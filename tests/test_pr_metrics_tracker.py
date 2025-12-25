@@ -1,19 +1,17 @@
 """Tests for pr_metrics_tracker module."""
 
-import pytest
-from datetime import datetime, timezone, timedelta
-from pathlib import Path
-from typing import Dict,List,Any
 import json
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 from scripts.pr_metrics_tracker import (
     PRMetrics,
-    parse_pr_data,
-    load_pr_history,
-    calculate_average_merge_time,
     calculate_autofix_rate,
-    group_by_label,
+    calculate_average_merge_time,
     generate_metrics_summary,
+    group_by_label,
+    load_pr_history,
+    parse_pr_data,
 )
 
 
@@ -24,7 +22,7 @@ class TestPRMetrics:
         """Test time calculation for merged PR."""
         created = datetime(2025, 1, 1, 10, 0, 0, tzinfo=timezone.utc)
         merged = datetime(2025, 1, 1, 12, 30, 0, tzinfo=timezone.utc)
-        
+
         pr = PRMetrics(
             pr_number=1,
             created_at=created,
@@ -34,7 +32,7 @@ class TestPRMetrics:
             autofix_applied=True,
             labels=["enhancement"],
         )
-        
+
         # 2.5 hours difference
         assert pr.time_to_merge_hours() == 2.5
 
@@ -49,7 +47,7 @@ class TestPRMetrics:
             autofix_applied=False,
             labels=[],
         )
-        
+
         assert pr.time_to_merge_hours() is None
 
 
@@ -69,7 +67,7 @@ class TestParsePRData:
                 {"name": "enhancement"},
             ],
         }
-        
+
         pr = parse_pr_data(data)
         assert pr.pr_number == 123
         assert pr.merged_at is not None
@@ -84,7 +82,7 @@ class TestParsePRData:
             "merged_at": None,
             "labels": [],
         }
-        
+
         pr = parse_pr_data(data)
         assert pr.pr_number == 456
         assert pr.merged_at is None
@@ -98,7 +96,7 @@ class TestLoadPRHistory:
         """Test loading empty history file."""
         history_file = tmp_path / "history.ndjson"
         history_file.write_text("")
-        
+
         metrics = load_pr_history(str(history_file))
         assert metrics == []
 
@@ -115,7 +113,7 @@ class TestLoadPRHistory:
             {"number": 2, "created_at": "2025-01-02T10:00:00Z", "labels": []},
         ]
         history_file.write_text("\n".join(json.dumps(r) for r in records))
-        
+
         metrics = load_pr_history(str(history_file))
         assert len(metrics) == 2
 
@@ -130,7 +128,7 @@ class TestCalculateAverageMergeTime:
             PRMetrics(1, base, base + timedelta(hours=2), 0, 1, False, []),
             PRMetrics(2, base, base + timedelta(hours=4), 0, 1, False, []),
         ]
-        
+
         avg = calculate_average_merge_time(metrics)
         assert avg == 3.0  # (2 + 4) / 2
 
@@ -141,7 +139,7 @@ class TestCalculateAverageMergeTime:
             PRMetrics(1, base, None, 0, 1, False, []),
             PRMetrics(2, base, None, 0, 1, False, []),
         ]
-        
+
         avg = calculate_average_merge_time(metrics)
         assert avg == 0.0
 
@@ -163,7 +161,7 @@ class TestCalculateAutofixRate:
             PRMetrics(3, base, None, 0, 1, True, []),
             PRMetrics(4, base, None, 0, 1, False, []),
         ]
-        
+
         rate = calculate_autofix_rate(metrics)
         assert rate == 50.0  # 2/4 = 50%
 
@@ -184,7 +182,7 @@ class TestGroupByLabel:
             PRMetrics(2, base, None, 0, 1, False, ["enhancement"]),
             PRMetrics(3, base, None, 0, 1, False, ["bug"]),
         ]
-        
+
         grouped = group_by_label(metrics)
         assert len(grouped["bug"]) == 2
         assert len(grouped["enhancement"]) == 1
@@ -206,7 +204,7 @@ class TestGenerateMetricsSummary:
             PRMetrics(1, base, base + timedelta(hours=2), 2, 3, True, []),
             PRMetrics(2, base, None, 1, 2, False, []),
         ]
-        
+
         summary = generate_metrics_summary(metrics)
         assert summary["total_prs"] == 2
         assert summary["merged_prs"] == 1

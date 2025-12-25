@@ -1,18 +1,15 @@
 """Tests for workflow_validator module."""
 
-import pytest
 from pathlib import Path
-from typing import Dict,List,Any
-import yaml
 
 from scripts.workflow_validator import (
-    load_workflow,
     check_deprecated_actions,
-    check_missing_timeout,
     check_hardcoded_secrets,
+    check_missing_timeout,
     check_permissions,
-    validate_workflow,
+    load_workflow,
     validate_all_workflows,
+    validate_workflow,
 )
 
 
@@ -22,7 +19,8 @@ class TestLoadWorkflow:
     def test_load_valid_workflow(self, tmp_path: Path) -> None:
         """Test loading a valid workflow file."""
         workflow_file = tmp_path / "test.yml"
-        workflow_file.write_text("""
+        workflow_file.write_text(
+            """
 name: Test
 on: push
 jobs:
@@ -30,8 +28,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-""")
-        
+"""
+        )
+
         result = load_workflow(str(workflow_file))
         assert result is not None
         assert result["name"] == "Test"
@@ -40,7 +39,7 @@ jobs:
         """Test loading invalid YAML returns None."""
         workflow_file = tmp_path / "invalid.yml"
         workflow_file.write_text("{{invalid yaml")
-        
+
         result = load_workflow(str(workflow_file))
         assert result is None
 
@@ -56,30 +55,18 @@ class TestCheckDeprecatedActions:
     def test_no_deprecated_actions(self) -> None:
         """Test workflow with no deprecated actions."""
         workflow = {
-            "jobs": {
-                "build": {
-                    "steps": [
-                        {"name": "Checkout", "uses": "actions/checkout@v4"}
-                    ]
-                }
-            }
+            "jobs": {"build": {"steps": [{"name": "Checkout", "uses": "actions/checkout@v4"}]}}
         }
-        
+
         issues = check_deprecated_actions(workflow)
         assert issues == []
 
     def test_detect_deprecated_checkout(self) -> None:
         """Test detection of deprecated checkout version."""
         workflow = {
-            "jobs": {
-                "build": {
-                    "steps": [
-                        {"name": "Checkout", "uses": "actions/checkout@v2"}
-                    ]
-                }
-            }
+            "jobs": {"build": {"steps": [{"name": "Checkout", "uses": "actions/checkout@v2"}]}}
         }
-        
+
         issues = check_deprecated_actions(workflow)
         assert len(issues) == 1
         assert "checkout@v2" in issues[0][2]
@@ -96,7 +83,7 @@ class TestCheckDeprecatedActions:
                 }
             }
         }
-        
+
         issues = check_deprecated_actions(workflow)
         assert len(issues) == 2
 
@@ -112,7 +99,7 @@ class TestCheckMissingTimeout:
                 "test": {"timeout-minutes": 60},
             }
         }
-        
+
         missing = check_missing_timeout(workflow)
         assert missing == []
 
@@ -124,7 +111,7 @@ class TestCheckMissingTimeout:
                 "test": {},  # No timeout
             }
         }
-        
+
         missing = check_missing_timeout(workflow)
         assert "test" in missing
         assert "build" not in missing
@@ -135,31 +122,17 @@ class TestCheckHardcodedSecrets:
 
     def test_no_secrets(self) -> None:
         """Test workflow with no hardcoded secrets."""
-        workflow = {
-            "jobs": {
-                "build": {
-                    "steps": [
-                        {"run": "echo hello"}
-                    ]
-                }
-            }
-        }
-        
+        workflow = {"jobs": {"build": {"steps": [{"run": "echo hello"}]}}}
+
         issues = check_hardcoded_secrets(workflow)
         assert issues == []
 
     def test_detect_github_pat(self) -> None:
         """Test detection of hardcoded GitHub PAT."""
         workflow = {
-            "jobs": {
-                "build": {
-                    "env": {
-                        "TOKEN": "ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-                    }
-                }
-            }
+            "jobs": {"build": {"env": {"TOKEN": "ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"}}}
         }
-        
+
         issues = check_hardcoded_secrets(workflow)
         assert len(issues) >= 1
 
@@ -169,23 +142,15 @@ class TestCheckPermissions:
 
     def test_no_permission_issues(self) -> None:
         """Test workflow with appropriate permissions."""
-        workflow = {
-            "permissions": {
-                "contents": "read"
-            },
-            "jobs": {}
-        }
-        
+        workflow = {"permissions": {"contents": "read"}, "jobs": {}}
+
         issues = check_permissions(workflow)
         assert issues == []
 
     def test_detect_write_all(self) -> None:
         """Test detection of write-all permissions."""
-        workflow = {
-            "permissions": "write-all",
-            "jobs": {}
-        }
-        
+        workflow = {"permissions": "write-all", "jobs": {}}
+
         issues = check_permissions(workflow)
         assert len(issues) >= 1
 
@@ -196,7 +161,8 @@ class TestValidateWorkflow:
     def test_validate_good_workflow(self, tmp_path: Path) -> None:
         """Test validation of a well-formed workflow."""
         workflow_file = tmp_path / "good.yml"
-        workflow_file.write_text("""
+        workflow_file.write_text(
+            """
 name: Good Workflow
 on: push
 permissions:
@@ -207,8 +173,9 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-""")
-        
+"""
+        )
+
         results = validate_workflow(str(workflow_file))
         assert results["deprecated_actions"] == []
         assert results["missing_timeout"] == []
@@ -217,7 +184,8 @@ jobs:
     def test_validate_bad_workflow(self, tmp_path: Path) -> None:
         """Test validation catches multiple issues."""
         workflow_file = tmp_path / "bad.yml"
-        workflow_file.write_text("""
+        workflow_file.write_text(
+            """
 name: Bad Workflow
 on: push
 permissions: write-all
@@ -226,8 +194,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-""")
-        
+"""
+        )
+
         results = validate_workflow(str(workflow_file))
         assert len(results["deprecated_actions"]) >= 1
         assert len(results["missing_timeout"]) >= 1
@@ -240,7 +209,8 @@ class TestValidateAllWorkflows:
     def test_validate_directory(self, tmp_path: Path) -> None:
         """Test validating all workflows in a directory."""
         # Create test workflows
-        (tmp_path / "workflow1.yml").write_text("""
+        (tmp_path / "workflow1.yml").write_text(
+            """
 name: W1
 on: push
 jobs:
@@ -249,8 +219,10 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-""")
-        (tmp_path / "workflow2.yaml").write_text("""
+"""
+        )
+        (tmp_path / "workflow2.yaml").write_text(
+            """
 name: W2
 on: push
 jobs:
@@ -258,8 +230,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-""")
-        
+"""
+        )
+
         results = validate_all_workflows(str(tmp_path))
         assert "workflow1.yml" in results
         assert "workflow2.yaml" in results

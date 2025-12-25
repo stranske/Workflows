@@ -1,18 +1,16 @@
 """Tests for ci_failure_analyzer module."""
 
-import json
-import pytest
-from pathlib import Path
-from typing import Any, Dict,List
 from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Dict, List
 
 from scripts.ci_failure_analyzer import (
-    load_failure_logs,
-    classify_failure,
     aggregate_failures,
-    identify_flaky_tests,
+    classify_failure,
     generate_failure_report,
     get_recent_failures,
+    identify_flaky_tests,
+    load_failure_logs,
 )
 
 
@@ -35,10 +33,7 @@ class TestLoadFailureLogs:
     def test_load_valid_ndjson(self, tmp_path: Path) -> None:
         """Test loading valid NDJSON data."""
         log_file = tmp_path / "failures.ndjson"
-        log_file.write_text(
-            '{"error": "timeout"}\n'
-            '{"error": "assertion failed"}\n'
-        )
+        log_file.write_text('{"error": "timeout"}\n' '{"error": "assertion failed"}\n')
 
         logs = load_failure_logs(str(log_file))
         assert len(logs) == 2
@@ -47,11 +42,7 @@ class TestLoadFailureLogs:
     def test_load_with_invalid_lines(self, tmp_path: Path) -> None:
         """Test loading file with some invalid JSON lines."""
         log_file = tmp_path / "failures.ndjson"
-        log_file.write_text(
-            '{"error": "valid"}\n'
-            'not valid json\n'
-            '{"error": "also valid"}\n'
-        )
+        log_file.write_text('{"error": "valid"}\n' "not valid json\n" '{"error": "also valid"}\n')
 
         logs = load_failure_logs(str(log_file))
         # Should skip invalid line and load valid ones
@@ -108,7 +99,7 @@ class TestAggregateFailures:
             {"error": "assertion failed"},
             {"error": "disk space"},
         ]
-        
+
         result = aggregate_failures(failures)
         assert result["flaky"] == 2
         assert result["test"] == 1
@@ -126,7 +117,7 @@ class TestIdentifyFlakyTests:
             {"test_name": "test_b", "verdict": "fail"},
             {"test_name": "test_b", "verdict": "fail"},
         ]
-        
+
         flaky = identify_flaky_tests(failures)
         assert flaky == []
 
@@ -138,7 +129,7 @@ class TestIdentifyFlakyTests:
             {"test_name": "test_flaky", "verdict": "pass"},
             {"test_name": "test_flaky", "verdict": "fail"},
         ]
-        
+
         flaky = identify_flaky_tests(failures, threshold=0.3)
         assert "test_flaky" in flaky
 
@@ -150,7 +141,7 @@ class TestIdentifyFlakyTests:
             {"test_name": "test_a", "verdict": "pass"},
             {"test_name": "test_a", "verdict": "fail"},
         ]
-        
+
         # Should be flaky at 0.3 threshold
         assert "test_a" in identify_flaky_tests(failures, threshold=0.3)
         # Should NOT be flaky at 0.5 threshold
@@ -170,7 +161,7 @@ class TestGenerateFailureReport:
         failures: List[Dict[str, Any]] = [
             {"error": "timeout", "test_name": "test_a", "verdict": "fail"},
         ]
-        
+
         report = generate_failure_report(failures, output_format="text")
         assert "CI Failure Report" in report
         assert "flaky" in report
@@ -180,7 +171,7 @@ class TestGenerateFailureReport:
         failures: List[Dict[str, Any]] = [
             {"error": "timeout", "test_name": "test_a", "verdict": "fail"},
         ]
-        
+
         report = generate_failure_report(failures, output_format="markdown")
         assert "# CI Failure Report" in report
         assert "**flaky**" in report
@@ -194,12 +185,12 @@ class TestGetRecentFailures:
         now = datetime.now(timezone.utc)
         recent_ts = now.isoformat()
         old_ts = "2020-01-01T00:00:00+00:00"
-        
+
         failures: List[Dict[str, Any]] = [
             {"error": "recent", "timestamp": recent_ts},
             {"error": "old", "timestamp": old_ts},
         ]
-        
+
         recent = get_recent_failures(failures, days=7)
         assert len(recent) == 1
         assert recent[0]["error"] == "recent"
@@ -210,7 +201,7 @@ class TestGetRecentFailures:
             {"error": "no timestamp"},
             {"error": "with ts", "timestamp": datetime.now(timezone.utc).isoformat()},
         ]
-        
+
         recent = get_recent_failures(failures, days=7)
         # Only the one with valid timestamp should be included
         assert len(recent) == 1
@@ -219,6 +210,7 @@ class TestGetRecentFailures:
 # ============================================================================
 # INTENTIONAL TEST FAILURES for autofix validation
 # ============================================================================
+
 
 class TestIntentionalFailures:
     """Tests with intentional failures to test autofix error handling."""
