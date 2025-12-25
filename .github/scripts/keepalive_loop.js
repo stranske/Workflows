@@ -462,7 +462,10 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
   });
   const previousFailure = previousState?.failure || {};
 
-  let nextIteration = iteration;
+  // Use the iteration from the CURRENT persisted state, not the stale value from evaluate.
+  // This prevents race conditions where another run updated state between evaluate and summary.
+  const currentIteration = toNumber(previousState?.iteration ?? iteration, 0);
+  let nextIteration = currentIteration;
   let failure = { ...previousFailure };
   let stop = action === 'stop';
   let summaryReason = reason || action || 'unknown';
@@ -480,7 +483,7 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
 
   if (action === 'run') {
     if (runResult === 'success') {
-      nextIteration = iteration + 1;
+      nextIteration = currentIteration + 1;
       failure = {};
     } else if (runResult) {
       const same = failure.reason === 'agent-run-failed';
