@@ -330,19 +330,19 @@ jobs:
             const { autoReconcileTasks } = require('./.github/scripts/keepalive_loop.js');
 
             const prNumber = Number('${{ needs.evaluate.outputs.pr_number }}') || 0;
-            const baseSha = '${{ needs.evaluate.outputs.head_sha }}';  // SHA before agent ran
+            const beforeSha = '${{ needs.evaluate.outputs.head_sha }}';  // SHA before agent ran
             const headSha = '${{ needs.run-codex.outputs.commit-sha }}';  // SHA after agent ran
 
-            if (!prNumber || !baseSha || !headSha) {
+            if (!prNumber || !beforeSha || !headSha) {
               core.info('Missing required inputs for task reconciliation');
               return;
             }
 
             core.info(`Auto-reconciling tasks for PR #${prNumber}`);
-            core.info(`Comparing ${baseSha.slice(0, 7)} → ${headSha.slice(0, 7)}`);
+            core.info(`Comparing ${beforeSha.slice(0, 7)} → ${headSha.slice(0, 7)}`);
 
             const result = await autoReconcileTasks({
-              github, context, prNumber, baseSha, headSha, core
+              github, context, prNumber, baseSha: beforeSha, headSha, core
             });
 
             if (result.updated) {
