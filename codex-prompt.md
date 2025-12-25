@@ -123,7 +123,7 @@ Your objective is to satisfy the **Acceptance Criteria** by completing each **Ta
 ---
 ## PR Tasks and Acceptance Criteria
 
-**Progress:** 16/18 tasks complete, 2 remaining
+**Progress:** 2/18 tasks complete, 16 remaining
 
 ### ⚠️ IMPORTANT: Task Reconciliation Required
 
@@ -139,13 +139,13 @@ _Failure to update checkboxes means progress is not being tracked properly._
 
 ### Scope
 - [ ] Seven core GitHub Action scripts in `.github/scripts/` lack dedicated test coverage:
-- [x] 1. `agents-guard.js` - Critical security guardrail for agents surface
-- [x] 2. `agents_pr_meta_orchestrator.js` - PR metadata coordination
-- [x] 3. `keepalive_guard_utils.js` - Keepalive safety utilities
-- [x] 4. `keepalive_instruction_template.js` - Prompt generation for keepalive
-- [x] 5. `keepalive_orchestrator_gate_runner.js` - Gate integration for orchestrator
-- [x] 6. `keepalive_post_work.js` - Post-keepalive cleanup operations
-- [x] 7. `merge_manager.js` - PR merge automation
+- [ ] 1. `agents-guard.js` - Critical security guardrail for agents surface
+- [ ] 2. `agents_pr_meta_orchestrator.js` - PR metadata coordination
+- [ ] 3. `keepalive_guard_utils.js` - Keepalive safety utilities
+- [ ] 4. `keepalive_instruction_template.js` - Prompt generation for keepalive
+- [ ] 5. `keepalive_orchestrator_gate_runner.js` - Gate integration for orchestrator
+- [ ] 6. `keepalive_post_work.js` - Post-keepalive cleanup operations
+- [ ] 7. `merge_manager.js` - PR merge automation
 - [ ] These scripts handle critical workflow orchestration and security checks. Without tests, regressions can slip through undetected. The recent API retry integration (PR #151) highlighted how untested code paths can harbor subtle bugs.
 
 ### Tasks
@@ -162,7 +162,7 @@ Complete these in order. Mark checkbox done ONLY after implementation is verifie
 - [x] Create `keepalive-post-work.test.js` testing cleanup operations and state transitions
 - [x] ### Round 4: Merge automation
 - [x] Create `merge-manager.test.js` covering merge eligibility, conflict detection, and squash behavior
-- [x] Run full test suite and verify all new tests pass
+- [ ] Run full test suite and verify all new tests pass
 - [ ] Update test documentation if needed
 
 ### Acceptance Criteria

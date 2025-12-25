@@ -253,6 +253,35 @@ test('runKeepaliveGate skips when keepalive is paused by label', async () => {
   restore();
 });
 
+test('runKeepaliveGate reports missing keepalive labels', async () => {
+  const { core, outputs } = createCore();
+  const gateStub = async () => createGateResult();
+  const { runKeepaliveGate, restore } = loadRunnerWithGate(gateStub);
+
+  const pr = makePullRequest({
+    labels: [],
+  });
+
+  await runKeepaliveGate({
+    core,
+    github: createGithub({
+      pull: pr,
+      runsByWorkflow: {
+        'pr-00-gate.yml': [
+          { head_sha: 'abc123', status: 'completed', conclusion: 'success' },
+        ],
+      },
+    }),
+    context: { repo: { owner: 'octo', repo: 'demo' }, runId: 50 },
+    env: makeEnv(),
+  });
+
+  assert.equal(outputs.proceed, 'false');
+  assert.ok(outputs.reason.includes('missing-label:agents:keepalive'));
+  assert.ok(outputs.reason.includes('missing-label:agent:codex'));
+  restore();
+});
+
 test('runKeepaliveGate records prior non-gate failures for draft PRs', async () => {
   const { core, outputs } = createCore();
   const gateStub = async () => createGateResult();
