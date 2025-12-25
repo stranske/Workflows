@@ -168,18 +168,23 @@ jobs:
           set -euo pipefail
           # Run codex exec directly with the pre-configured auth.json
           # Use read-only sandbox for safety
+          # Capture the exit code so we can still process outputs before exiting.
+          set +e
           codex exec \
             --sandbox read-only \
             --skip-git-repo-check \
             --output-last-message codex-output.md \
             < "${{ steps.prepare.outputs.prompt_file }}"
+          codex_exit_code=$?
+          set -euo pipefail
 
-          echo "Codex verifier completed"
+          echo "Codex verifier completed (exit code: ${codex_exit_code})"
           if [ -f codex-output.md ]; then
             echo "=== Verifier Output ==="
             cat codex-output.md
           fi
 
+          exit "${codex_exit_code}"
       - name: Parse verifier verdict
         id: verdict
         if: steps.context.outputs.should_run == 'true'
