@@ -967,7 +967,12 @@ async function autoReconcileTasks({ github, context, prNumber, baseSha, headSha,
 
   // Analyze what tasks may have been completed
   const analysis = await analyzeTaskCompletion({
-    github, context, prNumber, baseSha, headSha, taskText, core
+    // Escape special regex characters in task text.
+    // Note: Backslashes in `match.task` (e.g. a literal "\n" in markdown) are
+    // treated as literal characters in the resulting regex. The escape pattern
+    // below also escapes backslashes, so they cannot form unintended regex
+    // escape sequences; this is intentional as we want to match the task text
+    // exactly as it appears in the PR body.
   });
 
   // Only auto-check high-confidence matches
