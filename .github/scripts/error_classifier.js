@@ -25,8 +25,10 @@ const TRANSIENT_PATTERNS = [
   'timed out',
   'etimedout',
   'econnreset',
+  'econnrefused',
   'socket hang up',
   'network',
+  'enotfound',
   'temporarily unavailable',
   'service unavailable',
   'bad gateway',
@@ -36,6 +38,7 @@ const TRANSIENT_PATTERNS = [
 
 const AUTH_PATTERNS = [
   'bad credentials',
+  'unauthorized',
   'requires authentication',
   'not authorized',
   'forbidden',

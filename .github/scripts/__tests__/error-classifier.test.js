@@ -30,9 +30,19 @@ test('classifyError uses error code for transient failures', () => {
   assert.equal(result.category, ERROR_CATEGORIES.transient);
 });
 
+test('classifyError uses error code for network lookup failures', () => {
+  const result = classifyError({ code: 'ENOTFOUND' });
+  assert.equal(result.category, ERROR_CATEGORIES.transient);
+});
+
 test('classifyError returns resource for not found errors', () => {
   const result = classifyError({ status: 404, message: 'Not Found' });
   assert.equal(result.category, ERROR_CATEGORIES.resource);
+});
+
+test('classifyError returns auth for unauthorized messages', () => {
+  const result = classifyError({ message: 'Unauthorized' });
+  assert.equal(result.category, ERROR_CATEGORIES.auth);
 });
 
 test('classifyError returns logic for validation errors', () => {
