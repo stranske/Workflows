@@ -1,9 +1,11 @@
-Updated retry/backoff coverage with deterministic jitter tests and added retry log context assertions, then reconciled the PR task list to reflect verified items. Changes are in `.github/scripts/__tests__/api-helpers.test.js`, `.github/scripts/__tests__/github-api-retry.test.js`, and `codex-prompt.md`.
+Expanded error classification coverage and pulled nested API error details into the classifier to improve category detection and recovery guidance. Added a test to lock in the nested error parsing behavior in `.github/scripts/__tests__/error-classifier.test.js`.
+
+- Updated patterns and status handling in `.github/scripts/error_classifier.js` for transient/auth/resource/logic detection.
+- Added nested API error inspection test in `.github/scripts/__tests__/error-classifier.test.js`.
 
 Tests run:
-- `node --test .github/scripts/__tests__/api-helpers.test.js`
-- `node --test .github/scripts/__tests__/github-api-retry.test.js`
+- `node --test .github/scripts/__tests__/error-classifier.test.js`
 
-Next steps (pick one):
-1. Proceed to the next unchecked task and implement failure handling updates in non-workflow code.
-2. Decide how you want to handle workflow updates in `.github/workflows/**` since they require `agent-high-privilege`.
+Next steps you may want:
+1. Implement retry jitter/backoff logging in `.github/scripts/github_api_retry.js`.
+2. Add retry behavior tests with mocked failures.
