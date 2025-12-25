@@ -297,6 +297,42 @@ test('updateKeepaliveLoopSummary increments iteration and clears failures on suc
   assert.match(github.actions[0].body, /"failure":\{\}/);
 });
 
+test('updateKeepaliveLoopSummary uses state iteration when inputs have stale value', async () => {
+  // Simulates race condition: evaluate ran with stale iteration=0, but state was updated to iteration=2
+  const existingState = formatStateComment({
+    trace: 'trace-race',
+    iteration: 2,  // Current state has iteration=2
+    max_iterations: 5,
+    failure: {},
+  });
+  const github = buildGithubStub({
+    comments: [{ id: 44, body: existingState, html_url: 'https://example.com/44' }],
+  });
+  await updateKeepaliveLoopSummary({
+    github,
+    context: buildContext(124),
+    core: buildCore(),
+    inputs: {
+      prNumber: 124,
+      action: 'wait',  // Gate failed, agent didn't run
+      reason: 'gate-not-success',
+      gateConclusion: 'failure',
+      tasksTotal: 10,
+      tasksUnchecked: 8,
+      keepaliveEnabled: true,
+      iteration: 0,  // STALE value from evaluate (ran before state was updated)
+      maxIterations: 5,
+      trace: 'trace-race',
+    },
+  });
+
+  assert.equal(github.actions.length, 1);
+  assert.equal(github.actions[0].type, 'update');
+  // Should preserve iteration=2 from state, NOT use stale iteration=0 from inputs
+  assert.match(github.actions[0].body, /"iteration":2/);
+  assert.match(github.actions[0].body, /Iteration \*\*2\/5\*\*/);
+});
+
 test('updateKeepaliveLoopSummary pauses after repeated failures and adds label', async () => {
   const existingState = formatStateComment({
     trace: 'trace-2',
