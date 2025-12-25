@@ -33,11 +33,21 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Cache uv binary
+        id: cache-uv
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/bin/uv
+          key: uv-binary-${{ runner.os }}-latest
+
       - name: Install uv
+        if: steps.cache-uv.outputs.cache-hit != 'true'
         run: |
           set -euo pipefail
           curl -LsSf https://astral.sh/uv/install.sh | sh
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Add uv to PATH
+        run: echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - name: Refresh requirements.lock
         run: |
