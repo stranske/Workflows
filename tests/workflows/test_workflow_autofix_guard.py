@@ -63,16 +63,19 @@ def test_reusable_autofix_allows_patless_fallback() -> None:
     assert "AUTOFIX_TOKEN" in checkout.get("with", {}).get("token", ""), checkout
 
 
-def test_reusable_autofix_splits_pat_and_patch_paths() -> None:
+def test_reusable_autofix_splits_push_and_patch_paths() -> None:
+    """Test that autofix correctly splits between push and patch delivery paths."""
     data = _load_yaml("reusable-18-autofix.yml")
     steps: List[Dict[str, Any]] = data["jobs"]["autofix"]["steps"]
-    commit_step = next(step for step in steps if step.get("name") == "Commit changes (PAT path)")
+    commit_step = next(step for step in steps if step.get("name") == "Commit changes (push path)")
     patch_step = next(
         step for step in steps if step.get("name") == "Create patch artifact (fallback)"
     )
 
-    assert "env.AUTOFIX_AUTH_MODE == 'pat'" in (commit_step.get("if") or "")
-    assert "env.AUTOFIX_AUTH_MODE != 'pat'" in (patch_step.get("if") or "")
+    # Push path uses AUTOFIX_CAN_PUSH flag (works for both PAT and App tokens in same-repo)
+    assert "env.AUTOFIX_CAN_PUSH == 'true'" in (commit_step.get("if") or "")
+    # Patch fallback is for when push isn't possible (forks, dry-run, missing creds)
+    assert "env.AUTOFIX_CAN_PUSH != 'true'" in (patch_step.get("if") or "")
 
 
 def _load_helper(name: str) -> str:
