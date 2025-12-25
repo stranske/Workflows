@@ -123,11 +123,11 @@ Your objective is to satisfy the **Acceptance Criteria** by completing each **Ta
 ---
 ## PR Tasks and Acceptance Criteria
 
-**Progress:** 6/18 tasks complete, 12 remaining
+**Progress:** 7/18 tasks complete, 11 remaining
 
 ### ⚠️ IMPORTANT: Task Reconciliation Required
 
-The previous iteration changed **2 file(s)** but did not update task checkboxes.
+The previous iteration changed **1 file(s)** but did not update task checkboxes.
 
 **Before continuing, you MUST:**
 1. Review the recent commits to understand what was changed
@@ -158,7 +158,7 @@ Complete these in order. Mark checkbox done ONLY after implementation is verifie
 - [x] Create `agents-pr-meta-orchestrator.test.js` testing body section updates and conflict resolution
 - [x] Create `keepalive-orchestrator-gate-runner.test.js` for gate status evaluation and dispatch logic
 - [ ] ### Round 3: Keepalive utilities
-- [ ] Create `keepalive-instruction-template.test.js` validating prompt generation and variable substitution
+- [x] Create `keepalive-instruction-template.test.js` validating prompt generation and variable substitution
 - [ ] Create `keepalive-post-work.test.js` testing cleanup operations and state transitions
 - [ ] ### Round 4: Merge automation
 - [ ] Create `merge-manager.test.js` covering merge eligibility, conflict detection, and squash behavior
