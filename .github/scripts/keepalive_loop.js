@@ -34,6 +34,44 @@ function toNumber(value, fallback = 0) {
   return Number.isFinite(fallback) ? Number(fallback) : 0;
 }
 
+async function writeStepSummary({
+  core,
+  iteration,
+  maxIterations,
+  tasksTotal,
+  tasksUnchecked,
+  tasksCompletedDelta,
+  agentFilesChanged,
+  outcome,
+}) {
+  if (!core?.summary || typeof core.summary.addRaw !== 'function') {
+    return;
+  }
+  const total = Number.isFinite(tasksTotal) ? tasksTotal : 0;
+  const unchecked = Number.isFinite(tasksUnchecked) ? tasksUnchecked : 0;
+  const completed = Math.max(0, total - unchecked);
+  const iterationLabel = maxIterations > 0 ? `${iteration}/${maxIterations}` : `${iteration}/∞`;
+  const filesChanged = Number.isFinite(agentFilesChanged) ? agentFilesChanged : 0;
+  const delta = Number.isFinite(tasksCompletedDelta) ? tasksCompletedDelta : null;
+  const rows = [
+    `| Iteration | ${iterationLabel} |`,
+    `| Tasks completed | ${completed}/${total} |`,
+  ];
+  if (delta !== null) {
+    rows.push(`| Tasks completed this run | ${delta} |`);
+  }
+  rows.push(`| Files changed | ${filesChanged} |`);
+  rows.push(`| Outcome | ${outcome || 'unknown'} |`);
+  const summaryLines = [
+    '### Keepalive iteration summary',
+    '',
+    '| Field | Value |',
+    '| --- | --- |',
+    ...rows,
+  ];
+  await core.summary.addRaw(summaryLines.join('\n')).addEOL().write();
+}
+
 function countCheckboxes(markdown) {
   const result = { total: 0, checked: 0, unchecked: 0 };
   const regex = /(?:^|\n)\s*(?:[-*+]|\d+[.)])\s*\[( |x|X)\]/g;
@@ -621,6 +659,20 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
     needs_task_reconciliation: madeChangesButNoTasksChecked,
     last_files_changed: agentFilesChanged,
   };
+
+  const summaryOutcome = runResult || summaryReason || action || 'unknown';
+  if (action === 'run' || runResult) {
+    await writeStepSummary({
+      core,
+      iteration: nextIteration,
+      maxIterations,
+      tasksTotal,
+      tasksUnchecked,
+      tasksCompletedDelta: tasksCompletedThisRound,
+      agentFilesChanged,
+      outcome: summaryOutcome,
+    });
+  }
 
   summaryLines.push('', formatStateComment(newState));
   const body = summaryLines.join('\n');

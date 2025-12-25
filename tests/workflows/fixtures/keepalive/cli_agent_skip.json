@@ -3,21 +3,21 @@
   "now": "2024-05-18T12:00:00Z",
   "env": {
     "OPTIONS_JSON": "{}",
-    "DRY_RUN": "true"
+    "DRY_RUN": "false"
   },
   "pulls": [
     {
-      "number": 404,
-  "labels": ["agents:keepalive"],
+      "number": 919,
+      "labels": ["agents:keepalive", "agent:codex"],
       "comments": [
         {
           "user": {"login": "triage-bot"},
           "body": "@codex plan-and-execute",
-          "created_at": "2024-05-18T09:15:00Z"
+          "created_at": "2024-05-18T09:30:00Z"
         },
         {
           "user": {"login": "chatgpt-codex-connector"},
-          "body": "Status\n- [ ] Finish report",
+          "body": "Checklist\n- [ ] Verify metrics",
           "created_at": "2024-05-18T09:45:00Z"
         }
       ]

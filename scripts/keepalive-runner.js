@@ -72,6 +72,13 @@ function normaliseLogin(login) {
   return base.replace(/\[bot\]$/i, '');
 }
 
+function hasCliAgentLabel(labels) {
+  if (!Array.isArray(labels)) {
+    return false;
+  }
+  return labels.some((label) => label.startsWith('agent:'));
+}
+
 const NON_ASSIGNABLE_LOGINS = new Set([
   'copilot',
   'chatgpt-codex-connector',
@@ -535,7 +542,7 @@ async function runKeepalive({ core, github, context, env = process.env }) {
   // When checking for recent commands, always use the full idle period even if triggered by Gate
   // This prevents keepalive from interrupting fresh human commands
 
-  const labelSource = options.keepalive_labels ?? options.keepalive_label ?? 'agents:keepalive,agent:codex';
+  const labelSource = options.keepalive_labels ?? options.keepalive_label ?? 'agents:keepalive';
   let targetLabels = String(labelSource)
     .split(',')
     .map((value) => value.trim().toLowerCase())
@@ -715,6 +722,11 @@ async function runKeepalive({ core, github, context, env = process.env }) {
         guardrailViolations.push(
           `#${prNumber} – keepalive sentinel active while required labels (${missingRequiredLabels.join(', ')}) are missing.`
         );
+        continue;
+      }
+
+      if (hasCliAgentLabel(labelNames)) {
+        recordSkip('CLI agent label present; keepalive instruction comments suppressed');
         continue;
       }
 

@@ -12,8 +12,7 @@
     {
       "number": 808,
       "labels": [
-        "agents:keepalive",
-        "agent:codex"
+        "agents:keepalive"
       ],
       "comments": [
         {

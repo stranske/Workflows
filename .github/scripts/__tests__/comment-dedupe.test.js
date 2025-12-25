@@ -176,3 +176,38 @@ test('upsertAnchoredComment reads body from file and infers PR from anchor', asy
 
   fs.unlinkSync(commentPath);
 });
+
+test('upsertAnchoredComment skips gate summary when agent label is present', async () => {
+  const actions = [];
+  const github = {
+    paginate: async (fn) => {
+      if (fn === github.rest.issues.listLabelsOnIssue) {
+        return [{ name: 'agent:codex' }];
+      }
+      throw new Error('listComments should not be called');
+    },
+    rest: {
+      issues: {
+        listLabelsOnIssue: async () => ({ data: [] }),
+        listComments: async () => ({ data: [] }),
+        updateComment: async () => actions.push('update'),
+        createComment: async () => {
+          actions.push('create');
+          return { data: { id: 1 } };
+        },
+      },
+    },
+  };
+
+  await upsertAnchoredComment({
+    github,
+    context: { repo: { owner: 'octo', repo: 'demo' } },
+    core: null,
+    prNumber: 12,
+    body: 'Gate summary\n<!-- gate-summary: pr=12 head=abc -->',
+    anchorPattern: /<!--\s*gate-summary:([^>]*)-->/i,
+    fallbackMarker: '<!-- gate-summary:',
+  });
+
+  assert.deepEqual(actions, []);
+});

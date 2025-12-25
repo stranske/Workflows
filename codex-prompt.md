@@ -118,3 +118,71 @@ Your objective is to satisfy the **Acceptance Criteria** by completing each **Ta
 - Do NOT work on unrelated improvements until all PR tasks are complete.
 
 **The Tasks and Acceptance Criteria are provided in the appendix below.** Work through them in order.
+
+## Run context
+---
+## PR Tasks and Acceptance Criteria
+
+**Progress:** 8/33 tasks complete, 25 remaining
+
+### ⚠️ IMPORTANT: Task Reconciliation Required
+
+The previous iteration changed **1 file(s)** but did not update task checkboxes.
+
+**Before continuing, you MUST:**
+1. Review the recent commits to understand what was changed
+2. Determine which task checkboxes should be marked complete
+3. Update the PR body to check off completed tasks
+4. Then continue with remaining tasks
+
+_Failure to update checkboxes means progress is not being tracked properly._
+
+### Scope
+- [ ] After merging PR #103 (multi-agent routing infrastructure), we need to:
+- [ ] 1. Validate the CLI agent pipeline works end-to-end with the new task-focused prompts
+- [ ] 2. Add `GITHUB_STEP_SUMMARY` output so iteration results are visible in the Actions UI
+- [ ] 3. Streamline the Automated Status Summary to reduce clutter when using CLI agents
+- [ ] 4. **Clean up comment patterns** to avoid a mix of old UI-agent and new CLI-agent comments
+
+### Tasks
+Complete these in order. Mark checkbox done ONLY after implementation is verified:
+
+- [ ] ### Pipeline Validation
+- [ ] After PR #103 merges, create a test PR with `agent:codex` label
+- [ ] Verify task appendix appears in Codex prompt (check workflow logs)
+- [ ] Verify Codex works on actual tasks (not random infrastructure work)
+- [ ] Verify keepalive comment updates with iteration progress
+- [ ] ### GITHUB_STEP_SUMMARY
+- [x] Add step summary output to `agents-keepalive-loop.yml` after agent run
+- [x] Include: iteration number, tasks completed, files changed, outcome
+- [ ] Ensure summary is visible in workflow run UI
+- [ ] ### Conditional Status Summary
+- [x] Modify `buildStatusBlock()` in `agents_pr_meta_update_body.js` to accept `agentType` parameter
+- [x] When `agentType` is set (CLI agent): hide workflow table, hide head SHA/required checks
+- [x] Keep Scope/Tasks/Acceptance checkboxes for all cases
+- [ ] Pass agent type from workflow to the update_body job
+- [ ] ### Comment Pattern Cleanup
+- [ ] **For CLI agents (`agent:*` label):**
+- [x] Suppress `<!-- gate-summary: -->` comment posting (use step summary instead)
+- [ ] Suppress `<!-- keepalive-round: N -->` instruction comments (task appendix replaces this)
+- [x] Update `<!-- keepalive-loop-summary -->` to be the **single source of truth**
+- [x] Ensure state marker is embedded in the summary comment (not separate)
+- [ ] **For UI Codex (no `agent:*` label):**
+- [ ] Keep existing comment patterns (instruction comments, connector bot reports)
+- [ ] Keep `<!-- gate-summary: -->` comment
+- [ ] Add `agent_type` output to detect job so downstream workflows know the mode
+- [ ] Update `agents-pr-meta.yml` to conditionally skip gate summary for CLI agent PRs
+
+### Acceptance Criteria
+The PR is complete when ALL of these are satisfied:
+
+- [ ] CLI agent receives explicit tasks in prompt and works on them
+- [ ] Iteration results visible in Actions workflow run summary
+- [ ] PR body shows checkboxes but not workflow clutter when using CLI agents
+- [ ] UI Codex path (no agent label) continues to show full status summary
+- [ ] CLI agent PRs have ≤3 bot comments total (summary, one per iteration update) instead of 10+
+- [ ] State tracking is consolidated in the summary comment, not scattered
+- [ ] ## Dependencies
+- [ ] - Requires PR #103 to be merged first
+
+---

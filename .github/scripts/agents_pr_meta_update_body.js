@@ -27,6 +27,10 @@ function normalizeWhitespace(text) {
     .trim();
 }
 
+function normalise(value) {
+  return String(value ?? '').trim();
+}
+
 function extractSection(body, heading) {
   if (!body || !heading) {
     return '';
@@ -75,6 +79,26 @@ function parseCheckboxStates(block) {
     }
   }
   return states;
+}
+
+function resolveAgentType({ inputs = {}, env = {}, pr = {} } = {}) {
+  const explicit = normalise(inputs.agent_type || inputs.agentType || env.AGENT_TYPE);
+  if (explicit) {
+    return explicit;
+  }
+  const labels = Array.isArray(pr.labels) ? pr.labels : [];
+  for (const label of labels) {
+    const name = typeof label === 'string' ? label : label?.name;
+    const trimmed = normalise(name);
+    if (!trimmed) {
+      continue;
+    }
+    const match = trimmed.match(/^agent\s*:\s*(.+)$/i);
+    if (match && match[1]) {
+      return match[1].trim().toLowerCase();
+    }
+  }
+  return '';
 }
 
 /**
@@ -316,8 +340,9 @@ function buildPreamble(sections) {
   return lines.join('\n');
 }
 
-function buildStatusBlock({scope, tasks, acceptance, headSha, workflowRuns, requiredChecks, existingBody, connectorStates, core}) {
+function buildStatusBlock({scope, tasks, acceptance, headSha, workflowRuns, requiredChecks, existingBody, connectorStates, core, agentType}) {
   const statusLines = ['<!-- auto-status-summary:start -->', '## Automated Status Summary'];
+  const isCliAgent = Boolean(agentType && String(agentType).trim());
 
   const existingBlock = extractBlock(existingBody || '', 'auto-status-summary');
   const existingStates = parseCheckboxStates(existingBlock);
@@ -356,45 +381,47 @@ function buildStatusBlock({scope, tasks, acceptance, headSha, workflowRuns, requ
   statusLines.push(acceptanceFormatted);
   statusLines.push('');
 
-  statusLines.push(`**Head SHA:** ${headSha}`);
+  if (!isCliAgent) {
+    statusLines.push(`**Head SHA:** ${headSha}`);
 
-  const latestRuns = Array.from(workflowRuns.values()).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-  let latestLine = '—';
-  if (latestRuns.length > 0) {
-    const gate = latestRuns.find((run) => (run.name || '').toLowerCase() === 'gate');
-    const chosen = gate || latestRuns[0];
-    const status = combineStatus(chosen);
-    latestLine = `${status.icon} ${status.label} — ${chosen.name}`;
-  }
-  statusLines.push(`**Latest Runs:** ${latestLine}`);
+    const latestRuns = Array.from(workflowRuns.values()).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    let latestLine = '—';
+    if (latestRuns.length > 0) {
+      const gate = latestRuns.find((run) => (run.name || '').toLowerCase() === 'gate');
+      const chosen = gate || latestRuns[0];
+      const status = combineStatus(chosen);
+      latestLine = `${status.icon} ${status.label} — ${chosen.name}`;
+    }
+    statusLines.push(`**Latest Runs:** ${latestLine}`);
 
-  const requiredParts = [];
-  for (const name of requiredChecks) {
-    const run = Array.from(workflowRuns.values()).find((item) => (item.name || '').toLowerCase() === name.toLowerCase());
-    if (!run) {
-      requiredParts.push(`${name}: ⏸️ not started`);
+    const requiredParts = [];
+    for (const name of requiredChecks) {
+      const run = Array.from(workflowRuns.values()).find((item) => (item.name || '').toLowerCase() === name.toLowerCase());
+      if (!run) {
+        requiredParts.push(`${name}: ⏸️ not started`);
+      } else {
+        const status = combineStatus(run);
+        requiredParts.push(`${name}: ${status.icon} ${status.label}`);
+      }
+    }
+    statusLines.push(`**Required:** ${requiredParts.length > 0 ? requiredParts.join(', ') : '—'}`);
+    statusLines.push('');
+
+    const table = ['| Workflow / Job | Result | Logs |', '|----------------|--------|------|'];
+    const runs = Array.from(workflowRuns.values()).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+    if (runs.length === 0) {
+      table.push('| _(no workflow runs yet for this commit)_ | — | — |');
     } else {
-      const status = combineStatus(run);
-      requiredParts.push(`${name}: ${status.icon} ${status.label}`);
+      for (const run of runs) {
+        const status = combineStatus(run);
+        const link = run.html_url ? `[View run](${run.html_url})` : '—';
+        table.push(`| ${run.name || 'Unnamed workflow'} | ${status.icon} ${status.label} | ${link} |`);
+      }
     }
+
+    statusLines.push(...table);
   }
-  statusLines.push(`**Required:** ${requiredParts.length > 0 ? requiredParts.join(', ') : '—'}`);
-  statusLines.push('');
-
-  const table = ['| Workflow / Job | Result | Logs |', '|----------------|--------|------|'];
-  const runs = Array.from(workflowRuns.values()).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-
-  if (runs.length === 0) {
-    table.push('| _(no workflow runs yet for this commit)_ | — | — |');
-  } else {
-    for (const run of runs) {
-      const status = combineStatus(run);
-      const link = run.html_url ? `[View run](${run.html_url})` : '—';
-      table.push(`| ${run.name || 'Unnamed workflow'} | ${status.icon} ${status.label} | ${link} |`);
-    }
-  }
-
-  statusLines.push(...table);
   statusLines.push('<!-- auto-status-summary:end -->');
 
   return statusLines.join('\n');
@@ -658,6 +685,8 @@ async function run({github, context, core, inputs}) {
   // Fetch checkbox states from connector bot comments to merge into status summary
   const connectorStates = await fetchConnectorCheckboxStates(github, owner, repo, pr.number, core);
 
+  const agentType = resolveAgentType({ inputs, env: process.env, pr });
+
   const statusBlock = buildStatusBlock({
     scope,
     tasks,
@@ -668,6 +697,7 @@ async function run({github, context, core, inputs}) {
     existingBody: pr.body,
     connectorStates,
     core,
+    agentType,
   });
 
   const bodyWithPreamble = upsertBlock(pr.body || '', 'pr-preamble', preamble);
@@ -704,5 +734,6 @@ module.exports = {
   buildPreamble,
   buildStatusBlock,
   withRetries,
+  resolveAgentType,
   discoverPr,
 };

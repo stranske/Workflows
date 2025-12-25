@@ -9,6 +9,8 @@ const {
   ensureChecklist,
   extractBlock,
   fetchConnectorCheckboxStates,
+  buildStatusBlock,
+  resolveAgentType,
 } = require('../agents_pr_meta_update_body.js');
 
 test('parseCheckboxStates extracts checked items from a checkbox list', () => {
@@ -317,4 +319,97 @@ test('fetchConnectorCheckboxStates handles comments with null user', async () =>
 
   assert.strictEqual(states.size, 1);
   assert.strictEqual(states.get('valid task'), true);
+});
+
+test('resolveAgentType prefers explicit inputs over labels', () => {
+  const agentType = resolveAgentType({
+    inputs: { agent_type: 'codex' },
+    env: { AGENT_TYPE: 'claude' },
+    pr: { labels: [{ name: 'agent:gemini' }] },
+  });
+
+  assert.strictEqual(agentType, 'codex');
+});
+
+test('resolveAgentType falls back to agent label when inputs are missing', () => {
+  const agentType = resolveAgentType({
+    inputs: {},
+    env: {},
+    pr: { labels: [{ name: 'priority:high' }, { name: 'agent:codex' }] },
+  });
+
+  assert.strictEqual(agentType, 'codex');
+});
+
+test('resolveAgentType returns empty string when no agent source is available', () => {
+  const agentType = resolveAgentType({
+    inputs: {},
+    env: {},
+    pr: { labels: [{ name: 'needs-human' }] },
+  });
+
+  assert.strictEqual(agentType, '');
+});
+
+test('buildStatusBlock hides workflow details for CLI agents', () => {
+  const workflowRuns = new Map([
+    ['gate', {
+      name: 'Gate',
+      created_at: '2024-01-02T00:00:00Z',
+      status: 'completed',
+      conclusion: 'success',
+      html_url: 'https://example.com/run',
+    }],
+  ]);
+
+  const output = buildStatusBlock({
+    scope: '- [ ] Scope item',
+    tasks: '- [ ] Task item',
+    acceptance: '- [ ] Acceptance item',
+    headSha: 'abc123',
+    workflowRuns,
+    requiredChecks: ['gate'],
+    existingBody: '',
+    connectorStates: new Map(),
+    core: null,
+    agentType: 'codex',
+  });
+
+  assert.ok(output.includes('## Automated Status Summary'));
+  assert.ok(output.includes('#### Scope'));
+  assert.ok(output.includes('#### Tasks'));
+  assert.ok(output.includes('#### Acceptance criteria'));
+  assert.ok(!output.includes('**Head SHA:**'));
+  assert.ok(!output.includes('**Latest Runs:**'));
+  assert.ok(!output.includes('**Required:**'));
+  assert.ok(!output.includes('| Workflow / Job |'));
+});
+
+test('buildStatusBlock includes workflow details for non-CLI agents', () => {
+  const workflowRuns = new Map([
+    ['gate', {
+      name: 'Gate',
+      created_at: '2024-01-02T00:00:00Z',
+      status: 'completed',
+      conclusion: 'success',
+      html_url: 'https://example.com/run',
+    }],
+  ]);
+
+  const output = buildStatusBlock({
+    scope: '- [ ] Scope item',
+    tasks: '- [ ] Task item',
+    acceptance: '- [ ] Acceptance item',
+    headSha: 'abc123',
+    workflowRuns,
+    requiredChecks: ['gate'],
+    existingBody: '',
+    connectorStates: new Map(),
+    core: null,
+    agentType: '',
+  });
+
+  assert.ok(output.includes('**Head SHA:** abc123'));
+  assert.ok(output.includes('**Required:** gate: ✅ success'));
+  assert.ok(output.includes('| Workflow / Job |'));
 });
