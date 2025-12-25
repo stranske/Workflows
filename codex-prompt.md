@@ -101,88 +101,27 @@ You should assume you're running in `agent-standard` unless explicitly told othe
 
 # Task Prompt
 
-# Keepalive Next Task
+# Autofix from CI failure
 
-Your objective is to satisfy the **Acceptance Criteria** by completing each **Task** within the defined **Scope**.
+You are Codex running in autofix mode after a CI failure. Use the available logs and repository context to repair the failing checks.
 
-**This round you MUST:**
-1. Implement actual code or test changes that advance at least one incomplete task toward acceptance.
-2. Commit meaningful source code (.py, .yml, .js, etc.)—not just status/docs updates.
-3. Mark a task checkbox complete ONLY after verifying the implementation works.
-4. Focus on the FIRST unchecked task unless blocked, then move to the next.
-
-**Guidelines:**
-- Keep edits scoped to the current task rather than reshaping the entire PR.
-- Use repository instructions, conventions, and tests to validate work.
-- Prefer small, reviewable commits; leave clear notes when follow-up is required.
-- Do NOT work on unrelated improvements until all PR tasks are complete.
-
-**The Tasks and Acceptance Criteria are provided in the appendix below.** Work through them in order.
+Guidance:
+- Inspect the latest CI output provided by the caller (logs or summaries) to pinpoint the root cause.
+- Focus on minimal, targeted fixes that unblock the failing job.
+- Leave diagnostic breadcrumbs when a failure cannot be reproduced or fully addressed.
+- Re-run or suggest the smallest relevant checks to verify the fix.
 
 ## Run context
----
-## PR Tasks and Acceptance Criteria
-
-**Progress:** 8/33 tasks complete, 25 remaining
-
-### ⚠️ IMPORTANT: Task Reconciliation Required
-
-The previous iteration changed **1 file(s)** but did not update task checkboxes.
-
-**Before continuing, you MUST:**
-1. Review the recent commits to understand what was changed
-2. Determine which task checkboxes should be marked complete
-3. Update the PR body to check off completed tasks
-4. Then continue with remaining tasks
-
-_Failure to update checkboxes means progress is not being tracked properly._
-
-### Scope
-- [ ] After merging PR #103 (multi-agent routing infrastructure), we need to:
-- [ ] 1. Validate the CLI agent pipeline works end-to-end with the new task-focused prompts
-- [ ] 2. Add `GITHUB_STEP_SUMMARY` output so iteration results are visible in the Actions UI
-- [ ] 3. Streamline the Automated Status Summary to reduce clutter when using CLI agents
-- [ ] 4. **Clean up comment patterns** to avoid a mix of old UI-agent and new CLI-agent comments
-
-### Tasks
-Complete these in order. Mark checkbox done ONLY after implementation is verified:
-
-- [ ] ### Pipeline Validation
-- [ ] After PR #103 merges, create a test PR with `agent:codex` label
-- [ ] Verify task appendix appears in Codex prompt (check workflow logs)
-- [ ] Verify Codex works on actual tasks (not random infrastructure work)
-- [ ] Verify keepalive comment updates with iteration progress
-- [ ] ### GITHUB_STEP_SUMMARY
-- [x] Add step summary output to `agents-keepalive-loop.yml` after agent run
-- [x] Include: iteration number, tasks completed, files changed, outcome
-- [ ] Ensure summary is visible in workflow run UI
-- [ ] ### Conditional Status Summary
-- [x] Modify `buildStatusBlock()` in `agents_pr_meta_update_body.js` to accept `agentType` parameter
-- [x] When `agentType` is set (CLI agent): hide workflow table, hide head SHA/required checks
-- [x] Keep Scope/Tasks/Acceptance checkboxes for all cases
-- [ ] Pass agent type from workflow to the update_body job
-- [ ] ### Comment Pattern Cleanup
-- [ ] **For CLI agents (`agent:*` label):**
-- [x] Suppress `<!-- gate-summary: -->` comment posting (use step summary instead)
-- [ ] Suppress `<!-- keepalive-round: N -->` instruction comments (task appendix replaces this)
-- [x] Update `<!-- keepalive-loop-summary -->` to be the **single source of truth**
-- [x] Ensure state marker is embedded in the summary comment (not separate)
-- [ ] **For UI Codex (no `agent:*` label):**
-- [ ] Keep existing comment patterns (instruction comments, connector bot reports)
-- [ ] Keep `<!-- gate-summary: -->` comment
-- [ ] Add `agent_type` output to detect job so downstream workflows know the mode
-- [ ] Update `agents-pr-meta.yml` to conditionally skip gate summary for CLI agent PRs
-
-### Acceptance Criteria
-The PR is complete when ALL of these are satisfied:
-
-- [ ] CLI agent receives explicit tasks in prompt and works on them
-- [ ] Iteration results visible in Actions workflow run summary
-- [ ] PR body shows checkboxes but not workflow clutter when using CLI agents
-- [ ] UI Codex path (no agent label) continues to show full status summary
-- [ ] CLI agent PRs have ≤3 bot comments total (summary, one per iteration update) instead of 10+
-- [ ] State tracking is consolidated in the summary comment, not scattered
-- [ ] ## Dependencies
-- [ ] - Requires PR #103 to be merged first
-
----
+Gate run: https://github.com/stranske/Workflows/actions/runs/20506885722
+Conclusion: failure
+PR: #140
+Head SHA: 8b3199082179ee6a32a3737439560976fd071eb1
+Autofix attempts for this head: 1 / 3
+Fix scope: src/, tests/, tools/, scripts/, agents/, templates/, .github/
+Failing jobs:
+- python ci / python 3.12 (failure)
+  - steps: Finalize check results (failure)
+- python ci / python 3.11 (failure)
+  - steps: Finalize check results (failure)
+- summary (failure)
+  - steps: Enforce Gate success (failure)
