@@ -123,7 +123,19 @@ Your objective is to satisfy the **Acceptance Criteria** by completing each **Ta
 ---
 ## PR Tasks and Acceptance Criteria
 
-**Progress:** 3/32 tasks complete, 29 remaining
+**Progress:** 16/32 tasks complete, 16 remaining
+
+### ⚠️ IMPORTANT: Task Reconciliation Required
+
+The previous iteration changed **1 file(s)** but did not update task checkboxes.
+
+**Before continuing, you MUST:**
+1. Review the recent commits to understand what was changed
+2. Determine which task checkboxes should be marked complete
+3. Update the PR body to check off completed tasks
+4. Then continue with remaining tasks
+
+_Failure to update checkboxes means progress is not being tracked properly._
 
 ### Scope
 - [ ] Context / problem:
@@ -145,31 +157,31 @@ Your objective is to satisfy the **Acceptance Criteria** by completing each **Ta
 Complete these in order. Mark checkbox done ONLY after implementation is verified:
 
 - [x] Create error classification utility (`error_classifier.js`):
-- [ ] Define error categories: `transient`, `auth`, `resource`, `logic`, `unknown`
-- [ ] Map common error patterns to categories
-- [ ] Provide suggested recovery actions per category
+- [x] Define error categories: `transient`, `auth`, `resource`, `logic`, `unknown`
+- [x] Map common error patterns to categories
+- [x] Provide suggested recovery actions per category
 - [x] Add retry wrapper for GitHub API calls:
-- [ ] Implement exponential backoff with jitter
-- [ ] Handle rate limit headers (X-RateLimit-Remaining, Retry-After)
-- [ ] Configure max retries per operation type
-- [ ] Log retry attempts with context
+- [x] Implement exponential backoff with jitter
+- [x] Handle rate limit headers (X-RateLimit-Remaining, Retry-After)
+- [x] Configure max retries per operation type
+- [x] Log retry attempts with context
 - [ ] Update `reusable-codex-run.yml` with failure handling:
 - [ ] Add step to classify failure type on error
 - [ ] Implement conditional retry for transient failures
 - [ ] Add detailed error output to GITHUB_STEP_SUMMARY
 - [ ] Create artifact with error diagnostics
-- [ ] Update keepalive loop failure handling:
-- [ ] Distinguish between Codex failures vs infrastructure failures
-- [ ] Reset failure counter on transient errors
-- [ ] Add `error_type` to keepalive state
-- [ ] Emit failure classification in outputs
+- [x] Update keepalive loop failure handling:
+- [x] Distinguish between Codex failures vs infrastructure failures
+- [x] Reset failure counter on transient errors
+- [x] Add `error_type` to keepalive state
+- [x] Emit failure classification in outputs
 - [ ] Add PR comment on unrecoverable failures:
 - [ ] Post comment explaining what failed and why
 - [ ] Include suggested manual steps
 - [ ] Add label `agent:needs-attention` for non-transient errors
 - [ ] Create tests for error handling:
 - [x] Test error classification logic
-- [ ] Test retry behavior with mocked failures
+- [x] Test retry behavior with mocked failures
 - [ ] Test PR comment formatting for various error types
 
 ### Acceptance Criteria

@@ -67,6 +67,7 @@ const buildContext = (prNumber = 101) => ({
 
 const buildCore = () => ({
   info() {},
+  setOutput() {},
 });
 
 test('countCheckboxes tallies checked and unchecked tasks', () => {
@@ -386,6 +387,49 @@ test('updateKeepaliveLoopSummary writes step summary for agent runs', async () =
   assert.match(summary.buffer, /Tasks completed this run \| 0/);
   assert.match(summary.buffer, /Files changed \| 2/);
   assert.match(summary.buffer, /Outcome \| success/);
+});
+
+test('updateKeepaliveLoopSummary resets failure count on transient errors', async () => {
+  const existingState = formatStateComment({
+    trace: 'trace-transient',
+    iteration: 1,
+    failure_threshold: 3,
+    failure: { reason: 'agent-run-failed', count: 2 },
+  });
+  const github = buildGithubStub({
+    comments: [{ id: 77, body: existingState, html_url: 'https://example.com/77' }],
+  });
+
+  await updateKeepaliveLoopSummary({
+    github,
+    context: buildContext(321),
+    core: buildCore(),
+    inputs: {
+      prNumber: 321,
+      action: 'run',
+      runResult: 'failure',
+      gateConclusion: 'success',
+      tasksTotal: 4,
+      tasksUnchecked: 4,
+      keepaliveEnabled: true,
+      autofixEnabled: false,
+      iteration: 1,
+      maxIterations: 5,
+      failureThreshold: 3,
+      trace: 'trace-transient',
+      agent_exit_code: '1',
+      agent_summary: 'Request timed out after 30s while running Codex.',
+    },
+  });
+
+  assert.equal(github.actions.length, 1);
+  assert.equal(github.actions[0].type, 'update');
+  const body = github.actions[0].body;
+  assert.match(body, /agent-run-transient/);
+  assert.match(body, /Transient Issue Detected/);
+  assert.match(body, /"failure":\{\}/);
+  assert.match(body, /"error_type":"infrastructure"/);
+  assert.match(body, /"error_category":"transient"/);
 });
 
 test('updateKeepaliveLoopSummary uses state iteration when inputs have stale value', async () => {
