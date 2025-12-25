@@ -63,7 +63,7 @@ def iter_ndjson(paths: Iterable[Path]) -> Iterable[Tuple[Dict, Path]]:
 def _parse_datetime(value: str):
     try:
         return datetime.fromisoformat(value.replace("Z", "+00:00"))
-    except Exception:
+    except ValueError:
         return None
 
 
