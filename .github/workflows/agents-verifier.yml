@@ -166,15 +166,18 @@ jobs:
           CODEX_HOME: ${{ runner.temp }}/.codex-verifier
         run: |
           set -euo pipefail
+          PROMPT_FILE="${{ steps.prepare.outputs.prompt_file }}"
+
           # Run codex exec directly with the pre-configured auth.json
           # Use read-only sandbox for safety
+          # Pass prompt as positional argument (codex exec expects this, not stdin)
           # Capture the exit code so we can still process outputs before exiting.
           set +e
           codex exec \
             --sandbox read-only \
             --skip-git-repo-check \
             --output-last-message codex-output.md \
-            < "${{ steps.prepare.outputs.prompt_file }}"
+            "$(cat "$PROMPT_FILE")"
           codex_exit_code=$?
           set -euo pipefail
 
