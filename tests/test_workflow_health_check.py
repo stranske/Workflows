@@ -1,11 +1,8 @@
 """Tests for workflow_health_check module."""
 
-import json
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List
-from datetime import datetime, timezone
-
-import pytest
 
 from scripts.workflow_health_check import (
     analyze_failure_patterns,
@@ -121,12 +118,15 @@ class TestGetRecentRuns:
     def test_filters_old_runs(self) -> None:
         """Test that old runs are filtered out."""
         now = datetime.now(timezone.utc)
-        old_time = (now.timestamp() - 30 * 86400)  # 30 days ago
+        old_time = now.timestamp() - 30 * 86400  # 30 days ago
         recent_time = now.isoformat()
 
         runs: List[Dict[str, Any]] = [
             {"verdict": "pass", "recorded_at": recent_time},
-            {"verdict": "fail", "recorded_at": datetime.fromtimestamp(old_time, tz=timezone.utc).isoformat()},
+            {
+                "verdict": "fail",
+                "recorded_at": datetime.fromtimestamp(old_time, tz=timezone.utc).isoformat(),
+            },
         ]
         recent = get_recent_runs(runs, days=7)
         assert len(recent) == 1
