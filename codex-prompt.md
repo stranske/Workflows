@@ -173,21 +173,21 @@ The PR is complete when ALL of these are satisfied:
 - [ ] ## Dependencies
 - [ ] - Requires PR #103 to be merged first
 
-**Head SHA:** 81ccce3231054e392c90dc4ad734972518152543
+**Head SHA:** b10e920726e5819a78606d8c93dd67d35d3e366f
 **Latest Runs:** ✅ success — Gate
 **Required:** gate: ✅ success
 
 | Workflow / Job | Result | Logs |
 |----------------|--------|------|
-| Agents PR meta manager | ❔ in progress | [View run](https://github.com/stranske/Workflows/actions/runs/20493911704) |
-| CI Autofix Loop | ✅ success | [View run](https://github.com/stranske/Workflows/actions/runs/20493802376) |
-| Gate | ✅ success | [View run](https://github.com/stranske/Workflows/actions/runs/20493802379) |
-| Health 40 Sweep | ✅ success | [View run](https://github.com/stranske/Workflows/actions/runs/20493802374) |
-| Health 44 Gate Branch Protection | ✅ success | [View run](https://github.com/stranske/Workflows/actions/runs/20493802366) |
-| Health 45 Agents Guard | ✅ success | [View run](https://github.com/stranske/Workflows/actions/runs/20493802353) |
-| Health 50 Security Scan | ✅ success | [View run](https://github.com/stranske/Workflows/actions/runs/20493802357) |
-| Maint 52 Validate Workflows | ✅ success | [View run](https://github.com/stranske/Workflows/actions/runs/20493802352) |
-| PR 11 - Minimal invariant CI | ✅ success | [View run](https://github.com/stranske/Workflows/actions/runs/20493802350) |
-| Selftest CI | ✅ success | [View run](https://github.com/stranske/Workflows/actions/runs/20493802361) |
+| Agents PR meta manager | ❔ in progress | [View run](https://github.com/stranske/Workflows/actions/runs/20499149861) |
+| CI Autofix Loop | ✅ success | [View run](https://github.com/stranske/Workflows/actions/runs/20499135384) |
+| Gate | ✅ success | [View run](https://github.com/stranske/Workflows/actions/runs/20499135396) |
+| Health 40 Sweep | ✅ success | [View run](https://github.com/stranske/Workflows/actions/runs/20499135398) |
+| Health 44 Gate Branch Protection | ✅ success | [View run](https://github.com/stranske/Workflows/actions/runs/20499135375) |
+| Health 45 Agents Guard | ✅ success | [View run](https://github.com/stranske/Workflows/actions/runs/20499135373) |
+| Health 50 Security Scan | ✅ success | [View run](https://github.com/stranske/Workflows/actions/runs/20499135366) |
+| Maint 52 Validate Workflows | ✅ success | [View run](https://github.com/stranske/Workflows/actions/runs/20499135368) |
+| PR 11 - Minimal invariant CI | ✅ success | [View run](https://github.com/stranske/Workflows/actions/runs/20499135377) |
+| Selftest CI | ✅ success | [View run](https://github.com/stranske/Workflows/actions/runs/20499135369) |
 
 ---

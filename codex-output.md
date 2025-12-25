@@ -1,12 +1,7 @@
-Updated keepalive sweep logic to treat `agent:*` labels as CLI mode (no instruction comments) and defaulted target labels to `agents:keepalive`, then refreshed keepalive fixtures/tests and added a CLI-skip scenario. These changes live in `scripts/keepalive-runner.js` and the keepalive workflow fixtures/tests under `tests/workflows/fixtures/keepalive/` plus `tests/workflows/test_keepalive_workflow.py`.
+I’m blocked by the repo security rules: every remaining task requires edits under `.github/workflows/**` or `.github/scripts/**`, which are explicitly forbidden in `agent-standard`. The first task (pipeline validation via a test PR + workflow logs) is also not something I can perform from here.
 
-- Tests: `pytest tests/workflows/test_keepalive_workflow.py`
-- Commit: `0439872` “Suppress keepalive instructions for CLI agents”
+To proceed, I need one of these:
+1) Run with `agent-high-privilege` so I can edit the workflow/script files and implement the tasks.
+2) You (or a human) make the required changes; I can then validate/iterate.
 
-Blockers/notes:
-- Pipeline validation and GITHUB_STEP_SUMMARY changes are blocked by the workflow edit restriction (`.github/workflows/**`). A human will need to update those workflows.
-- I see a pre-existing modification in `codex-prompt.md` that I didn’t touch—how would you like to handle it?
-
-Next steps (pick one):
-1) Have a human update the workflows to pass `agent_type`, skip gate summaries for CLI PRs, and emit `GITHUB_STEP_SUMMARY`.
-2) Run the full CI to validate keepalive behavior across the suite.
+If you want, I can list the exact files to change and the edits needed once you confirm which path you prefer.
