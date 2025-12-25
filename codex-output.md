@@ -1,11 +1,14 @@
-Updated keepalive state updates to preserve any existing summary content by replacing or appending the `keepalive-state` marker instead of overwriting the whole comment, so the summary stays the single source of truth. This is implemented in `.github/scripts/keepalive_state.js` and verified with new/updated coverage in `.github/scripts/__tests__/keepalive-state.test.js` to ensure summary text survives state updates.
+Cleaned up the new helper scripts so lint/format passes: fixed the missing method colon and ambiguous variable in `scripts/pr_metrics_tracker.py`, normalized import ordering/spacing, and removed trailing whitespace in `scripts/ci_failure_analyzer.py` and `scripts/workflow_validator.py`. Ruff formatting is now aligned with repo standards.
 
 Tests run:
-- `node --test .github/scripts/__tests__/keepalive-state.test.js .github/scripts/__tests__/keepalive-loop.test.js .github/scripts/__tests__/agents-pr-meta-update-body.test.js .github/scripts/__tests__/comment-dedupe.test.js`
+- `python -m ruff check scripts/ci_failure_analyzer.py scripts/pr_metrics_tracker.py scripts/workflow_validator.py`
+- `python -m ruff format --check scripts/ci_failure_analyzer.py scripts/pr_metrics_tracker.py scripts/workflow_validator.py`
 
-Notes:
-- Workflow-file changes (e.g., passing `agent_type` in `agents-pr-meta-v4.yml` or any other `.github/workflows/**` edits) still require a human with `agent-high-privilege`.
+Changed files:
+- `scripts/ci_failure_analyzer.py`
+- `scripts/pr_metrics_tracker.py`
+- `scripts/workflow_validator.py`
 
-If you want next steps, I can:
-1) Add a unit test for CLI label suppression of keepalive instruction comments.
-2) Outline the exact workflow diffs needed for the remaining workflow-only tasks.
+Next steps (optional):
+1) Run the full python CI checks locally if you want full parity with CI (e.g. `python -m ruff check .` and `python -m ruff format --check .`).
+2) Run targeted tests if these scripts are covered by unit tests in this repo (e.g. `python -m pytest tests/`).
