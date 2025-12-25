@@ -249,7 +249,12 @@ jobs:
             echo "| Metric | Value |"
             echo "|--------|-------|"
             echo "| Total Runs | ${{ steps.stats.outputs.total_runs }} |"
-            echo "| Success Rate | $(( ${{ steps.stats.outputs.total_runs }} > 0 ? (${{ steps.stats.outputs.total_success }} * 100 / ${{ steps.stats.outputs.total_runs }}) : 0 ))% |"
+            if [ ${{ steps.stats.outputs.total_runs }} -gt 0 ]; then
+              success_rate=$(( ${{ steps.stats.outputs.total_success }} * 100 / ${{ steps.stats.outputs.total_runs }} ))
+            else
+              success_rate=0
+            fi
+            echo "| Success Rate | ${success_rate}% |"
             echo ""
             if [ "${{ inputs.create_issue }}" != "false" ]; then
               echo "📋 Audit issue created/updated with full checklist"
