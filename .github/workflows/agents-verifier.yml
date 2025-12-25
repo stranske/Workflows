@@ -4,9 +4,10 @@ on:
   pull_request:
     types:
       - closed
-  push:
-    branches:
-      - main
+  # NOTE: We intentionally do NOT trigger on push to main.
+  # The pull_request:closed event already covers merged PRs and provides
+  # better context (PR number, linked issues). Push events would duplicate
+  # runs and often fail to resolve the associated PR.
 
 permissions:
   contents: read
@@ -196,9 +197,9 @@ jobs:
           verdict="unknown"
           output_file="codex-output.md"
           if [ -f "$output_file" ]; then
-            if grep -qiE 'verdict:\\s*fail' "$output_file"; then
+            if grep -qiE 'verdict:[[:space:]]*fail' "$output_file"; then
               verdict="fail"
-            elif grep -qiE 'verdict:\\s*pass' "$output_file"; then
+            elif grep -qiE 'verdict:[[:space:]]*pass' "$output_file"; then
               verdict="pass"
             fi
           fi
