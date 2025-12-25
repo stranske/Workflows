@@ -303,6 +303,7 @@ jobs:
       prompt_file: .github/codex/prompts/autofix_from_ci_failure.md
       mode: autofix
       pr_number: ${{ needs.prepare.outputs.pr_number }}
+      pr_ref: ${{ needs.prepare.outputs.head_ref }}
       appendix: ${{ needs.prepare.outputs.appendix }}
     secrets:
       CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
