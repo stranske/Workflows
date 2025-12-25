@@ -95,6 +95,7 @@ jobs:
 
       - name: Aggregate metrics
         id: aggregate
+        if: steps.download.outputs.artifact_count != '0'
         run: |
           set -euo pipefail
           python scripts/aggregate_agent_metrics.py --input metrics-artifacts --output metrics-summary.md --recent-days 35
