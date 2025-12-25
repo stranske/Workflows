@@ -441,9 +441,7 @@ def test_keepalive_skips_cli_agent_labels() -> None:
 
     skipped_details = _details(summary, "Skipped pull requests")
     assert skipped_details is not None
-    assert any(
-        "CLI agent label present" in item for item in skipped_details.get("items", [])
-    )
+    assert any("CLI agent label present" in item for item in skipped_details.get("items", []))
 
 
 def test_keepalive_gate_trigger_bypasses_idle_check() -> None:
