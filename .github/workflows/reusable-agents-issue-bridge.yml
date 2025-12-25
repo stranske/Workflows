@@ -564,37 +564,11 @@ jobs:
             const contextData = buildIssueContext(issueBody || '');
             const statusSummaryBlock = contextData.statusSummaryBlock || '';
 
+            // Simplified PR body suggestion - agents-pr-meta will populate issue content
             const bodySections = [
-              keepaliveHeader,
               metaMarker,
               '',
-              header,
-              '',
-              `Base: ${base}`,
-              `Head: ${branch}`,
-              '',
-              `Source: ${issueUrl}`,
-              '',
-              quoted,
-              '',
-              `${mention} start`,
-              '',
-              `${agentTitle}, please derive and propose:`,
-              '- Scope / key constraints',
-              '- Acceptance criteria / definition of done',
-              '- Initial task checklist to iterate through',
-              '',
-              'Use the issue details above to draft the plan, then proceed with implementation.',
-              '',
-              '---',
-              '',
-              'Once the plan is posted, comment the snippet below to start execution and enable keepalive:',
-              '',
-              'The following block should be pasted as a separate PR comment:',
-              '',
-              '```markdown',
-              instruction,
-              '```'
+              instruction
             ];
 
             const suggestion = bodySections.join('\n');
