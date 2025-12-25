@@ -336,7 +336,7 @@ function formatFollowUpIssue({
       // Keep criterion if it wasn't verified (fuzzy match to handle minor text differences)
       return !verifiedLower.some(verified => 
         verified.includes(criterionLower) || criterionLower.includes(verified) ||
-        similarityScore(verified, criterionLower) > 0.8
+        similarityScore(verified, criterionLower) > 0.9
       );
     });
   } else {
