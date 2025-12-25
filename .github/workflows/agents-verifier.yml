@@ -82,7 +82,6 @@ jobs:
           output-file: codex-output.md
           sandbox: read-only
           safety-strategy: drop-sudo
-          codex-args: --mode verifier
 
       - name: Parse verifier verdict
         id: verdict
