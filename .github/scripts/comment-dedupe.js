@@ -22,6 +22,43 @@ function isPullRequestEvent(context) {
   return context?.eventName === 'pull_request';
 }
 
+async function listIssueLabels({ github, owner, repo, issue_number, core }) {
+  if (!github?.rest?.issues?.listLabelsOnIssue) {
+    return [];
+  }
+  try {
+    if (typeof github.paginate === 'function') {
+      return await github.paginate(github.rest.issues.listLabelsOnIssue, {
+        owner,
+        repo,
+        issue_number,
+        per_page: 100,
+      });
+    }
+    const response = await github.rest.issues.listLabelsOnIssue({
+      owner,
+      repo,
+      issue_number,
+      per_page: 100,
+    });
+    return Array.isArray(response?.data) ? response.data : [];
+  } catch (error) {
+    if (isRateLimitError(error)) {
+      warn(core, 'Rate limit while fetching labels; skipping agent label check.');
+      return [];
+    }
+    throw error;
+  }
+}
+
+async function hasAgentLabel({ github, owner, repo, issue_number, core }) {
+  const labels = await listIssueLabels({ github, owner, repo, issue_number, core });
+  return labels.some((label) => {
+    const name = typeof label === 'string' ? label : label?.name;
+    return String(name || '').trim().toLowerCase().startsWith('agent:');
+  });
+}
+
 function selectMarkerComment(comments, { marker, baseMessage }) {
   const normalizedMarker = marker || '';
   const normalizedBase = trim(baseMessage || '');
@@ -315,6 +352,17 @@ async function upsertAnchoredComment({
 
   const owner = context.repo.owner;
   const repo = context.repo.repo;
+  const anchorSource = anchorPattern instanceof RegExp ? anchorPattern.source : String(anchorPattern || '');
+  const gateProbe = `${anchorSource} ${fallbackMarker || ''} ${commentBody}`.toLowerCase();
+  const isGateSummary = gateProbe.includes('gate-summary');
+
+  if (isGateSummary) {
+    const agentLabel = await hasAgentLabel({ github, owner, repo, issue_number: pr, core });
+    if (agentLabel) {
+      info(core, 'Skipping gate summary comment for agent-labeled PR.');
+      return;
+    }
+  }
 
   let comments;
   try {

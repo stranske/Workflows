@@ -123,11 +123,11 @@ Your objective is to satisfy the **Acceptance Criteria** by completing each **Ta
 ---
 ## PR Tasks and Acceptance Criteria
 
-**Progress:** 6/33 tasks complete, 27 remaining
+**Progress:** 8/33 tasks complete, 25 remaining
 
 ### ⚠️ IMPORTANT: Task Reconciliation Required
 
-The previous iteration changed **2 file(s)** but did not update task checkboxes.
+The previous iteration changed **1 file(s)** but did not update task checkboxes.
 
 **Before continuing, you MUST:**
 1. Review the recent commits to understand what was changed
@@ -155,7 +155,7 @@ Complete these in order. Mark checkbox done ONLY after implementation is verifie
 - [ ] ### GITHUB_STEP_SUMMARY
 - [x] Add step summary output to `agents-keepalive-loop.yml` after agent run
 - [x] Include: iteration number, tasks completed, files changed, outcome
-- [x] Ensure summary is visible in workflow run UI
+- [ ] Ensure summary is visible in workflow run UI
 - [ ] ### Conditional Status Summary
 - [x] Modify `buildStatusBlock()` in `agents_pr_meta_update_body.js` to accept `agentType` parameter
 - [x] When `agentType` is set (CLI agent): hide workflow table, hide head SHA/required checks
@@ -163,10 +163,10 @@ Complete these in order. Mark checkbox done ONLY after implementation is verifie
 - [ ] Pass agent type from workflow to the update_body job
 - [ ] ### Comment Pattern Cleanup
 - [ ] **For CLI agents (`agent:*` label):**
-- [ ] Suppress `<!-- gate-summary: -->` comment posting (use step summary instead)
+- [x] Suppress `<!-- gate-summary: -->` comment posting (use step summary instead)
 - [ ] Suppress `<!-- keepalive-round: N -->` instruction comments (task appendix replaces this)
-- [ ] Update `<!-- keepalive-loop-summary -->` to be the **single source of truth**
-- [ ] Ensure state marker is embedded in the summary comment (not separate)
+- [x] Update `<!-- keepalive-loop-summary -->` to be the **single source of truth**
+- [x] Ensure state marker is embedded in the summary comment (not separate)
 - [ ] **For UI Codex (no `agent:*` label):**
 - [ ] Keep existing comment patterns (instruction comments, connector bot reports)
 - [ ] Keep `<!-- gate-summary: -->` comment
@@ -184,22 +184,5 @@ The PR is complete when ALL of these are satisfied:
 - [ ] State tracking is consolidated in the summary comment, not scattered
 - [ ] ## Dependencies
 - [ ] - Requires PR #103 to be merged first
-
-**Head SHA:** 4ca6598e1972a68630f407046c520566d8f45e2a
-**Latest Runs:** ✅ success — Gate
-**Required:** gate: ✅ success
-
-| Workflow / Job | Result | Logs |
-|----------------|--------|------|
-| Agents PR meta manager | ❔ in progress | [View run](https://github.com/stranske/Workflows/actions/runs/20499347902) |
-| CI Autofix Loop | ✅ success | [View run](https://github.com/stranske/Workflows/actions/runs/20499329380) |
-| Gate | ✅ success | [View run](https://github.com/stranske/Workflows/actions/runs/20499329381) |
-| Health 40 Sweep | ✅ success | [View run](https://github.com/stranske/Workflows/actions/runs/20499329373) |
-| Health 44 Gate Branch Protection | ✅ success | [View run](https://github.com/stranske/Workflows/actions/runs/20499329346) |
-| Health 45 Agents Guard | ✅ success | [View run](https://github.com/stranske/Workflows/actions/runs/20499329335) |
-| Health 50 Security Scan | ✅ success | [View run](https://github.com/stranske/Workflows/actions/runs/20499329356) |
-| Maint 52 Validate Workflows | ✅ success | [View run](https://github.com/stranske/Workflows/actions/runs/20499329341) |
-| PR 11 - Minimal invariant CI | ✅ success | [View run](https://github.com/stranske/Workflows/actions/runs/20499329349) |
-| Selftest CI | ✅ success | [View run](https://github.com/stranske/Workflows/actions/runs/20499329351) |
 
 ---
