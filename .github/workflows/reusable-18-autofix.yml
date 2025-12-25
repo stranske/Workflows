@@ -241,7 +241,7 @@ jobs:
           ref: ${{ env.PR_HEAD_REF || github.ref }}
           fetch-depth: 0
           token: ${{ env.AUTOFIX_TOKEN || github.token }}
-          persist-credentials: ${{ env.AUTOFIX_AUTH_MODE == 'pat' }}
+          persist-credentials: ${{ env.AUTOFIX_CAN_PUSH == 'true' }}
       - name: Guard against loops (Issue #1347)
         id: guard
         shell: bash
