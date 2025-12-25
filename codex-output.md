@@ -1,9 +1,9 @@
-Moved the keepalive post-work instruction persistence setup ahead of the early-sync return to avoid a runtime ReferenceError, added new test coverage for post-work cleanup/state transitions and merge-manager eligibility/label handling, and updated the task checklist to reflect verified work in `codex-prompt.md`. The keepalive fix lives in ` .github/scripts/keepalive_post_work.js`, while the new suites are in `.github/scripts/__tests__/keepalive-post-work.test.js` and `.github/scripts/__tests__/merge-manager.test.js` with checklist updates in `codex-prompt.md`.
+Added skip-history coverage for non‑gate failures and wired the test GitHub stub to expose `issues.listComments`, so the gate runner’s prior‑failure logic is exercised in `.github/scripts/__tests__/keepalive-orchestrator-gate-runner.test.js`. Updated the task progress tally in `codex-prompt.md` to reflect current completion.
 
-Tests run:
-- `node --test .github/scripts/__tests__/keepalive-post-work.test.js`
-- `node --test .github/scripts/__tests__/merge-manager.test.js`
+Tests:
+- `node --test .github/scripts/__tests__/keepalive-orchestrator-gate-runner.test.js`
 - `node --test .github/scripts/__tests__/*.test.js`
 
 Next steps:
-1. Run the `Selftest CI` workflow to confirm no regressions.
+1) Run Selftest CI to satisfy the regression criterion.
+2) Confirm whether test documentation updates are needed; if not, check the remaining box in `codex-prompt.md`.
