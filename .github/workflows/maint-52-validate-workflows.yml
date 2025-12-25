@@ -18,7 +18,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Cache workflow linters
+        id: cache-linters
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/bin
+          key: workflow-linters-actionlint-1.7.3-yq-4.44.3
+
       - name: Install workflow linters
+        if: steps.cache-linters.outputs.cache-hit != 'true'
         run: |
           set -euo pipefail
           mkdir -p "$HOME/.local/bin"
@@ -32,7 +40,8 @@ jobs:
           mv "$HOME/.local/bin/yq_linux_amd64" "$HOME/.local/bin/yq"
           chmod +x "$HOME/.local/bin/yq"
 
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - name: Add linters to PATH
+        run: echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - name: Dry-parse workflow files with yq
         run: |

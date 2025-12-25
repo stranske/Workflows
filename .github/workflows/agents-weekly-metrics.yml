@@ -31,14 +31,19 @@ jobs:
           set -euo pipefail
           mkdir -p artifacts
 
+          # Get artifact IDs and names
           gh api --paginate "/repos/${{ github.repository }}/actions/artifacts" \
-            -q '.artifacts[] | select(.expired==false and (.name=="keepalive-metrics" or .name=="agents-autofix-metrics" or .name=="agents-verifier-metrics")) | [.id,.name,.archive_download_url] | @tsv' |
-          while IFS=$'\t' read -r id name url; do
+            -q '.artifacts[] | select(.expired==false and (.name=="keepalive-metrics" or .name=="agents-autofix-metrics" or .name=="agents-verifier-metrics")) | "\(.id)\t\(.name)"' |
+          while IFS=$'\t' read -r id name; do
             echo "Downloading artifact $id ($name)"
             mkdir -p "artifacts/$name"
-            gh api --method GET -H "Accept: application/octet-stream" "$url" > "artifacts/$name/$id.zip"
-            unzip -o "artifacts/$name/$id.zip" -d "artifacts/$name" >/dev/null
-          done
+            gh run download --dir "artifacts/$name" --name "$name" 2>/dev/null || {
+              # Fallback: try direct artifact download
+              gh api "/repos/${{ github.repository }}/actions/artifacts/$id/zip" > "artifacts/$name/$id.zip" 2>/dev/null && \
+              unzip -o "artifacts/$name/$id.zip" -d "artifacts/$name" >/dev/null || \
+              echo "Warning: Could not download artifact $id ($name)"
+            }
+          done || true  # Don't fail if no artifacts found
 
       - name: Aggregate metrics
         env:
