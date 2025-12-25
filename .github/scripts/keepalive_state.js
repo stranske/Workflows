@@ -71,7 +71,7 @@ function upsertStateCommentBody(body, stateComment) {
     return marker;
   }
   if (STATE_REGEX.test(existing)) {
-    return existing.replace(STATE_REGEX, () => marker);
+    return existing.replace(STATE_REGEX, (_match, _version, _payload) => marker);
   }
   const trimmed = existing.trimEnd();
   const separator = trimmed ? '\n\n' : '';
