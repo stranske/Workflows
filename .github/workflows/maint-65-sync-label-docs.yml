@@ -59,7 +59,7 @@ jobs:
             echo "Using SERVICE_BOT_PAT token"
           else
             echo "token_available=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::No sync token available - sync will be skipped"
+            echo "WARNING: No sync token available - sync will be skipped"
           fi
 
       - name: Sync to consumer repos
@@ -86,7 +86,7 @@ jobs:
             repo=$(echo "$repo" | xargs)  # Trim whitespace
             [ -z "$repo" ] && continue
 
-            echo "::group::Syncing to ${repo}"
+            echo "## Syncing to ${repo}"
 
             # Create a temporary directory for the clone
             tmpdir=$(mktemp -d)
@@ -94,7 +94,7 @@ jobs:
 
             # Clone the target repo
             if ! git clone --depth 1 "https://x-access-token:${SYNC_TOKEN}@github.com/${repo}.git" "$tmpdir" 2>/dev/null; then
-              echo "::warning::Failed to clone ${repo} - skipping"
+              echo "WARNING: Failed to clone ${repo} - skipping"
               continue
             fi
 
@@ -120,15 +120,12 @@ jobs:
               git config user.name "github-actions[bot]"
               git config user.email "github-actions[bot]@users.noreply.github.com"
               git add docs/LABELS.md
-              git commit -m "docs: sync LABELS.md from Workflows repository
-
-Automated sync from stranske/Workflows
-Source: https://github.com/stranske/Workflows/blob/main/docs/LABELS.md"
+              git commit -m "docs: sync LABELS.md from Workflows repository"
 
               if git push; then
-                echo "✅ Successfully synced to ${repo}"
+                echo "Successfully synced to ${repo}"
               else
-                echo "::warning::Failed to push to ${repo}"
+                echo "WARNING: Failed to push to ${repo}"
               fi
             fi
 
@@ -136,7 +133,7 @@ Source: https://github.com/stranske/Workflows/blob/main/docs/LABELS.md"
             rm -rf "$tmpdir"
             trap - EXIT
 
-            echo "::endgroup::"
+            echo "Processing complete for ${repo}"
           done
 
       - name: Summary
