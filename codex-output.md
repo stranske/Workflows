@@ -1,9 +1,8 @@
-Added keepalive gate runner coverage with a focused harness that stubs gate evaluation and GitHub responses, and updated the task checklist/progress to reflect completed Round 2 work and reset unverified acceptance checks in `codex-prompt.md`. The new tests cover gating bypass, missing PR, PR fetch failure, queued gate runs, and pause label behavior in `.github/scripts/__tests__/keepalive-orchestrator-gate-runner.test.js`.
+Added coverage for keepalive instruction template generation/caching and updated the checklist to reflect verified Round 1/2 work plus the new template test. The new tests live in `.github/scripts/__tests__/keepalive-instruction-template.test.js` and validate template reads, cache resets, mention formatting, and fallback behavior; checklist progress is updated in `codex-prompt.md`.
 
-Tests run:
-- `node --test .github/scripts/__tests__/keepalive-orchestrator-gate-runner.test.js`
+- Tests: `node --test .github/scripts/__tests__/*.test.js`
+- Commit: `test: cover keepalive instruction template`
 
 Next steps:
-1. Create tests for `keepalive_instruction_template.js`.
-2. Create tests for `keepalive_post_work.js`.
-3. Run `node --test .github/scripts/__tests__/*.test.js` to re-check the acceptance criterion.
+1. Add `keepalive-post-work.test.js` coverage for cleanup/state transitions.
+2. Add `merge-manager.test.js` coverage for merge eligibility/conflict/squash behavior.
