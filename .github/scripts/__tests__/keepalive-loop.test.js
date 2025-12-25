@@ -424,7 +424,9 @@ test('updateKeepaliveLoopSummary uses state iteration when inputs have stale val
   assert.match(github.actions[0].body, /Iteration 2\/5/);
 });
 
-test('updateKeepaliveLoopSummary pauses after repeated failures and adds label', async () => {
+test('updateKeepaliveLoopSummary does NOT count wait states as failures', async () => {
+  // Wait states (gate-not-success, gate-pending, missing-agent-label) are transient
+  // and should NOT increment the failure counter or trigger needs-human
   const existingState = formatStateComment({
     trace: 'trace-2',
     iteration: 1,
@@ -454,13 +456,92 @@ test('updateKeepaliveLoopSummary pauses after repeated failures and adds label',
     },
   });
 
+  // Should only update comment, NOT add needs-human label
+  assert.equal(github.actions.length, 1);
+  assert.equal(github.actions[0].type, 'update');
+  // Failure state should be cleared for transient wait conditions
+  assert.match(github.actions[0].body, /"failure":\{\}/);
+  // Should NOT have -repeat suffix since we're not counting wait states
+  assert.doesNotMatch(github.actions[0].body, /gate-not-success-repeat/);
+});
+
+test('updateKeepaliveLoopSummary adds needs-human after repeated actual failures', async () => {
+  // Only actual failures (agent-run-failed) should count toward threshold
+  const existingState = formatStateComment({
+    trace: 'trace-fail',
+    iteration: 2,
+    failure_threshold: 3,
+    failure: { reason: 'agent-run-failed', count: 2 },
+  });
+  const github = buildGithubStub({
+    comments: [{ id: 45, body: existingState, html_url: 'https://example.com/45' }],
+  });
+  await updateKeepaliveLoopSummary({
+    github,
+    context: buildContext(457),
+    core: buildCore(),
+    inputs: {
+      prNumber: 457,
+      action: 'run',
+      reason: 'ready',
+      runResult: 'failure',  // Agent run failed
+      gateConclusion: 'success',
+      tasksTotal: 3,
+      tasksUnchecked: 2,
+      keepaliveEnabled: true,
+      autofixEnabled: false,
+      iteration: 2,
+      maxIterations: 5,
+      failureThreshold: 3,
+      trace: 'trace-fail',
+    },
+  });
+
   assert.equal(github.actions.length, 2);
   assert.equal(github.actions[0].type, 'update');
-  assert.match(github.actions[0].body, /Paused/);
-  assert.match(github.actions[0].body, /Iteration progress \| \[##--------\] 1\/5 \|/);
-  assert.match(github.actions[0].body, /gate-not-success-repeat/);
+  assert.match(github.actions[0].body, /agent-run-failed-repeat/);
   assert.equal(github.actions[1].type, 'label');
   assert.deepEqual(github.actions[1].labels, ['needs-human']);
+});
+
+test('updateKeepaliveLoopSummary does NOT add needs-human on tasks-complete', async () => {
+  // tasks-complete is a SUCCESS state, not an error
+  const existingState = formatStateComment({
+    trace: 'trace-success',
+    iteration: 3,
+    failure_threshold: 3,
+    failure: {},
+  });
+  const github = buildGithubStub({
+    comments: [{ id: 46, body: existingState, html_url: 'https://example.com/46' }],
+  });
+  await updateKeepaliveLoopSummary({
+    github,
+    context: buildContext(458),
+    core: buildCore(),
+    inputs: {
+      prNumber: 458,
+      action: 'stop',
+      reason: 'tasks-complete',  // All tasks done - this is success!
+      gateConclusion: 'success',
+      tasksTotal: 3,
+      tasksUnchecked: 0,  // All tasks checked
+      keepaliveEnabled: true,
+      autofixEnabled: false,
+      iteration: 3,
+      maxIterations: 5,
+      failureThreshold: 3,
+      trace: 'trace-success',
+    },
+  });
+
+  // Should only update comment, NOT add needs-human label
+  assert.equal(github.actions.length, 1);
+  assert.equal(github.actions[0].type, 'update');
+  // Should show completed status
+  assert.match(github.actions[0].body, /tasks-complete/);
+  // Failure state should be clear
+  assert.match(github.actions[0].body, /"failure":\{\}/);
 });
 
 test('evaluateKeepaliveLoop extracts agent type from agent:* labels', async () => {

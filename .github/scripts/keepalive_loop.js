@@ -518,7 +518,14 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
   const currentIteration = toNumber(previousState?.iteration ?? iteration, 0);
   let nextIteration = currentIteration;
   let failure = { ...previousFailure };
-  let stop = action === 'stop';
+  // Stop conditions:
+  // - tasks-complete: SUCCESS, don't need needs-human label
+  // - no-checklists: neutral, agent has nothing to do
+  // - max-iterations: possible issue, MAY need attention
+  // - agent-run-failed-repeat: definite issue, needs attention
+  const isSuccessStop = reason === 'tasks-complete';
+  const isNeutralStop = reason === 'no-checklists' || reason === 'keepalive-disabled';
+  let stop = action === 'stop' && !isSuccessStop && !isNeutralStop;
   let summaryReason = reason || action || 'unknown';
 
   // Task reconciliation: detect when agent made changes but didn't update checkboxes
@@ -547,13 +554,37 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
         summaryReason = 'agent-run-failed';
       }
     }
-  } else {
-    const sameReason = failure.reason && failure.reason === summaryReason;
-    const count = sameReason ? toNumber(failure.count, 0) + 1 : 1;
-    failure = { reason: summaryReason, count };
-    if (!stop && count >= failureThreshold) {
-      stop = true;
-      summaryReason = `${summaryReason}-repeat`;
+  } else if (action === 'stop') {
+    // Differentiate between terminal states:
+    // - tasks-complete: Success! Clear failure state
+    // - no-checklists / keepalive-disabled: Neutral, nothing to do
+    // - max-iterations: Could be a problem, count as failure
+    if (isSuccessStop) {
+      // Tasks complete is success, clear any failure state
+      failure = {};
+    } else if (isNeutralStop) {
+      // Neutral states don't need failure tracking
+      failure = {};
+    } else {
+      // max-iterations type stops should count as potential issues
+      const sameReason = failure.reason && failure.reason === summaryReason;
+      const count = sameReason ? toNumber(failure.count, 0) + 1 : 1;
+      failure = { reason: summaryReason, count };
+      if (count >= failureThreshold) {
+        summaryReason = `${summaryReason}-repeat`;
+      }
+    }
+  } else if (action === 'wait') {
+    // Wait states are NOT failures - they're transient conditions
+    // Don't increment failure counter for: gate-pending, gate-not-success, missing-agent-label
+    // These are expected states that will resolve on their own
+    // Only preserve existing failure state if it was from an actual failure
+    if (failure.reason && !failure.reason.startsWith('gate-') && failure.reason !== 'missing-agent-label') {
+      // Keep the failure from a previous real failure (like agent-run-failed)
+      // but don't increment for wait states
+    } else {
+      // Clear failure state for transient wait conditions
+      failure = {};
     }
   }
 
