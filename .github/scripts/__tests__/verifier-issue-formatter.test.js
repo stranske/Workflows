@@ -107,6 +107,36 @@ Several edge cases are not handled.
       const findings = parseVerifierFindings(output);
       assert.ok(findings.summary.includes('implementation is incomplete'));
     });
+
+    it('parses structured Criteria Status section', () => {
+      const output = `Verdict: FAIL
+
+## Criteria Status
+- [x] Tests pass - VERIFIED (all 30 tests pass)
+- [ ] Error handling works - NOT MET (missing retry logic)
+- [x] Documentation updated - VERIFIED (README updated)
+- [ ] Coverage above 80% - NOT MET (currently at 65%)
+
+Blocking gaps:
+- Retry logic not implemented
+`;
+      const findings = parseVerifierFindings(output);
+      assert.equal(findings.verdict, 'fail');
+      assert.deepEqual(findings.unmetCriteria, ['Error handling works', 'Coverage above 80%']);
+      assert.deepEqual(findings.verifiedCriteria, ['Tests pass', 'Documentation updated']);
+    });
+
+    it('handles Criteria Status with bold header', () => {
+      const output = `Verdict: FAIL
+
+**Criteria Status**
+- [x] First criterion - VERIFIED
+- [ ] Second criterion - NOT MET (reason here)
+`;
+      const findings = parseVerifierFindings(output);
+      assert.deepEqual(findings.unmetCriteria, ['Second criterion']);
+      assert.deepEqual(findings.verifiedCriteria, ['First criterion']);
+    });
   });
 
   describe('extractUncheckedItems', () => {
@@ -329,6 +359,72 @@ Error classification and recovery.
       });
       assert.equal(result.findings.verdict, 'fail');
       assert.ok(result.findings.gaps.length > 0);
+    });
+
+    it('uses verifier unmet criteria to filter acceptance criteria', () => {
+      // Verifier explicitly says which criteria are not met
+      const structuredVerifierOutput = `Verdict: FAIL
+
+## Criteria Status
+- [x] Retry logic handles rate limits - VERIFIED (code exists)
+- [ ] Tests cover all error paths - NOT MET (missing coverage)
+- [x] Error messages are helpful - VERIFIED (messages include guidance)
+`;
+
+      const prBodyWithCriteria = `## Tasks
+- [x] All tasks done
+
+## Acceptance Criteria
+- [ ] Retry logic handles rate limits
+- [ ] Tests cover all error paths
+- [ ] Error messages are helpful`;
+
+      const result = formatFollowUpIssue({
+        verifierOutput: structuredVerifierOutput,
+        prBody: prBodyWithCriteria,
+        issues: [],
+        prNumber: 200,
+      });
+
+      // Should only include the criterion that was NOT MET in the refined list
+      assert.deepEqual(result.unmetCriteria, ['Tests cover all error paths']);
+      
+      // The Acceptance Criteria section should only have the unmet criterion
+      const acceptanceSection = result.body.split('## Acceptance Criteria')[1].split('## ')[0];
+      assert.ok(acceptanceSection.includes('Tests cover all error paths'));
+      assert.ok(!acceptanceSection.includes('- [ ] Retry logic handles rate limits'));
+      assert.ok(!acceptanceSection.includes('- [ ] Error messages are helpful'));
+      
+      // Verified criteria should appear in Implementation Notes, not Acceptance Criteria
+      const notesSection = result.body.split('## Implementation Notes')[1] || '';
+      assert.ok(notesSection.includes('Retry logic handles rate limits'));
+    });
+
+    it('includes verified criteria in implementation notes', () => {
+      const structuredVerifierOutput = `Verdict: FAIL
+
+## Criteria Status
+- [x] First criterion - VERIFIED (evidence)
+- [ ] Second criterion - NOT MET (missing)
+`;
+
+      const prBodyWithCriteria = `## Tasks
+- [x] Done
+
+## Acceptance Criteria
+- [ ] First criterion
+- [ ] Second criterion`;
+
+      const result = formatFollowUpIssue({
+        verifierOutput: structuredVerifierOutput,
+        prBody: prBodyWithCriteria,
+        issues: [],
+        prNumber: 201,
+      });
+
+      // Implementation notes should mention what was verified
+      assert.ok(result.body.includes('Verifier confirmed these criteria were met'));
+      assert.ok(result.body.includes('✓ First criterion'));
     });
   });
 

@@ -11,6 +11,28 @@ const {
 const SECTION_ORDER = ['source', 'why', 'scope', 'nonGoals', 'tasks', 'acceptance', 'notes'];
 
 /**
+ * Simple similarity score between two strings (0-1).
+ * Uses Jaccard similarity on word sets for fuzzy matching.
+ *
+ * @param {string} a - First string
+ * @param {string} b - Second string
+ * @returns {number} Similarity score between 0 and 1
+ */
+function similarityScore(a, b) {
+  const normalize = (s) => String(s || '').toLowerCase().replace(/[^\w\s]/g, '').trim();
+  const wordsA = new Set(normalize(a).split(/\s+/).filter(Boolean));
+  const wordsB = new Set(normalize(b).split(/\s+/).filter(Boolean));
+  
+  if (wordsA.size === 0 && wordsB.size === 0) return 1;
+  if (wordsA.size === 0 || wordsB.size === 0) return 0;
+  
+  const intersection = new Set([...wordsA].filter(w => wordsB.has(w)));
+  const union = new Set([...wordsA, ...wordsB]);
+  
+  return intersection.size / union.size;
+}
+
+/**
  * Formats a "Source" section with references to the original PR and issue.
  *
  * @param {Object} options
@@ -47,6 +69,10 @@ function formatSourceSection({ prNumber, prUrl, issueNumbers, verdict, runUrl })
 
 /**
  * Parse verifier output to extract unmet acceptance criteria and task gaps.
+ * 
+ * Supports two formats:
+ * 1. Structured "Criteria Status" section with checkboxes
+ * 2. Legacy format with "blocking gaps" bullet points
  *
  * @param {string} verifierOutput - Raw output from the verifier (codex-output.md)
  * @returns {Object} Parsed findings
@@ -56,6 +82,7 @@ function parseVerifierFindings(verifierOutput) {
   const findings = {
     verdict: 'unknown',
     unmetCriteria: [],
+    verifiedCriteria: [],
     gaps: [],
     summary: '',
   };
@@ -66,30 +93,64 @@ function parseVerifierFindings(verifierOutput) {
     findings.verdict = verdictMatch[1].toLowerCase();
   }
 
-  // Look for bullet points that describe failures or gaps
+  // Parse structured "Criteria Status" section if present
+  // Look for checkboxes with status indicators like "- [ ] criterion - NOT MET" or "- [x] criterion - VERIFIED"
   const lines = output.split('\n');
-  let inGapsSection = false;
+  let inCriteriaSection = false;
 
   for (const line of lines) {
     const trimmed = line.trim();
 
-    // Detect sections that indicate gaps
-    if (/^(blocking|gap|missing|fail|unmet)/i.test(trimmed)) {
-      inGapsSection = true;
+    // Detect "Criteria Status" section header
+    if (/^#+\s*criteria\s*status/i.test(trimmed) || /^\*\*criteria\s*status\*\*/i.test(trimmed)) {
+      inCriteriaSection = true;
       continue;
     }
 
-    // Capture bullet points describing issues
-    if (inGapsSection && /^[-*•]/.test(trimmed)) {
-      const content = trimmed.replace(/^[-*•]\s*/, '').trim();
-      if (content) {
-        findings.gaps.push(content);
-      }
+    // End section on next heading
+    if (inCriteriaSection && /^#+\s/.test(trimmed) && !/criteria\s*status/i.test(trimmed)) {
+      inCriteriaSection = false;
     }
 
-    // Reset section tracking on blank lines or new headings
-    if (!trimmed || /^#/.test(trimmed)) {
-      inGapsSection = false;
+    // Parse criterion lines in the criteria section
+    if (inCriteriaSection) {
+      // Match "- [ ] criterion text - NOT MET (reason)" or "- [x] criterion text - VERIFIED (evidence)"
+      const unmetMatch = trimmed.match(/^[-*]\s+\[\s\]\s+(.+?)\s*-\s*NOT\s*MET/i);
+      const verifiedMatch = trimmed.match(/^[-*]\s+\[[xX]\]\s+(.+?)\s*-\s*VERIFIED/i);
+      
+      if (unmetMatch) {
+        findings.unmetCriteria.push(unmetMatch[1].trim());
+      } else if (verifiedMatch) {
+        findings.verifiedCriteria.push(verifiedMatch[1].trim());
+      }
+    }
+  }
+
+  // Fall back to legacy gap detection if no structured criteria found
+  if (findings.unmetCriteria.length === 0) {
+    let inGapsSection = false;
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+
+      // Detect sections that indicate gaps
+      if (/^(blocking|gap|missing|fail|unmet)/i.test(trimmed)) {
+        inGapsSection = true;
+        continue;
+      }
+
+      // Capture bullet points describing issues
+      if (inGapsSection && /^[-*•]/.test(trimmed)) {
+        const content = trimmed.replace(/^[-*•]\s*/, '').trim();
+        if (content) {
+          findings.gaps.push(content);
+        }
+      }
+
+      // Reset section tracking on blank lines or new headings
+      if (!trimmed || /^#/.test(trimmed)) {
+        inGapsSection = false;
+      }
     }
   }
 
@@ -252,9 +313,32 @@ function formatFollowUpIssue({
   }
 
   // Determine unmet acceptance criteria
+  // Priority: 1) Verifier's explicit unmet criteria, 2) Cross-reference with verified, 3) Fall back to unchecked items
   const uncheckedAcceptance = extractUncheckedItems(merged.acceptance);
   const completedTasks = extractCheckedItems(merged.tasks);
   const incompleteTasks = extractUncheckedItems(merged.tasks);
+
+  // Use verifier's findings to refine the unmet criteria list
+  let refinedUnmetCriteria = [];
+  
+  if (findings.unmetCriteria.length > 0) {
+    // Best case: Verifier explicitly identified which criteria weren't met
+    refinedUnmetCriteria = findings.unmetCriteria;
+  } else if (findings.verifiedCriteria.length > 0) {
+    // Verifier confirmed some criteria - filter out verified ones from unchecked list
+    const verifiedLower = findings.verifiedCriteria.map(c => c.toLowerCase().trim());
+    refinedUnmetCriteria = uncheckedAcceptance.filter(criterion => {
+      const criterionLower = criterion.toLowerCase().trim();
+      // Keep criterion if it wasn't verified (fuzzy match to handle minor text differences)
+      return !verifiedLower.some(verified => 
+        verified.includes(criterionLower) || criterionLower.includes(verified) ||
+        similarityScore(verified, criterionLower) > 0.8
+      );
+    });
+  } else {
+    // Fall back to all unchecked items from the original issue
+    refinedUnmetCriteria = uncheckedAcceptance;
+  }
 
   // Build new task list based on scenario:
   // 1. If there are incomplete tasks, copy them
@@ -264,14 +348,17 @@ function formatFollowUpIssue({
   if (incompleteTasks.length > 0) {
     // Scenario 1: Copy incomplete tasks
     newTasks = incompleteTasks;
-  } else if (completedTasks.length > 0 && uncheckedAcceptance.length > 0) {
+  } else if (completedTasks.length > 0 && refinedUnmetCriteria.length > 0) {
     // Scenario 2: All tasks done but criteria not met - need new tasks
     // Generate tasks from verifier findings or acceptance criteria
     if (findings.gaps.length > 0) {
       newTasks = findings.gaps.map((gap) => `Address: ${gap}`);
+    } else if (findings.unmetCriteria.length > 0) {
+      // Use verifier's specific unmet criteria
+      newTasks = findings.unmetCriteria.map((criterion) => `Satisfy: ${criterion}`);
     } else {
       // Fall back to creating tasks from unmet acceptance criteria
-      newTasks = uncheckedAcceptance.map((criterion) => `Satisfy: ${criterion}`);
+      newTasks = refinedUnmetCriteria.map((criterion) => `Satisfy: ${criterion}`);
     }
   }
 
@@ -279,6 +366,13 @@ function formatFollowUpIssue({
   const notesLines = [];
   if (findings.summary) {
     notesLines.push(findings.summary);
+  }
+  if (findings.verifiedCriteria.length > 0) {
+    notesLines.push('');
+    notesLines.push('Verifier confirmed these criteria were met:');
+    for (const criterion of findings.verifiedCriteria) {
+      notesLines.push(`- ✓ ${criterion}`);
+    }
   }
   if (findings.gaps.length > 0 && incompleteTasks.length === 0) {
     notesLines.push('');
@@ -331,9 +425,12 @@ function formatFollowUpIssue({
     sections.push(['## Tasks', '', '<!-- Determine tasks needed to satisfy unmet criteria -->', '- [ ] _Task to be determined_'].join('\n'));
   }
 
-  // Acceptance Criteria section
-  if (uncheckedAcceptance.length > 0) {
-    sections.push(['## Acceptance Criteria', '', '<!-- Unmet criteria from original issue -->', buildChecklist(uncheckedAcceptance)].join('\n'));
+  // Acceptance Criteria section - use refined list from verifier findings
+  if (refinedUnmetCriteria.length > 0) {
+    const criteriaComment = findings.unmetCriteria.length > 0 || findings.verifiedCriteria.length > 0
+      ? '<!-- Criteria verified as unmet by verifier -->'
+      : '<!-- Unmet criteria from original issue -->';
+    sections.push(['## Acceptance Criteria', '', criteriaComment, buildChecklist(refinedUnmetCriteria)].join('\n'));
   } else {
     sections.push(['## Acceptance Criteria', '', '<!-- Verify the original acceptance criteria are now met -->', '- [ ] All original acceptance criteria satisfied'].join('\n'));
   }
@@ -352,7 +449,7 @@ function formatFollowUpIssue({
     title,
     body: sections.join('\n\n'),
     findings,
-    unmetCriteria: uncheckedAcceptance,
+    unmetCriteria: refinedUnmetCriteria,
     newTasks,
   };
 }
