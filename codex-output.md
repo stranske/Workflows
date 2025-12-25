@@ -1,14 +1,13 @@
-Added agent-type inference from PR labels so the PR meta updater can hide CLI-only status clutter even when the workflow doesn’t pass an explicit agent type, and captured this in new unit tests. Updated the task appendix checkboxes and progress line now that the step-summary work and conditional status summary behavior have been verified by tests in this repo.
+Implemented gate-summary suppression for agent-labeled PRs by short‑circuiting comment upserts when an `agent:*` label is present, and added coverage for that behavior. Updated the task appendix to reflect the verified Conditional Status Summary and keepalive summary work.
 
-Details:
-- ` .github/scripts/agents_pr_meta_update_body.js` now resolves `agentType` from inputs/env or `agent:*` labels on the PR.
-- ` .github/scripts/__tests__/agents-pr-meta-update-body.test.js` adds coverage for the new agent-type resolution logic.
-- ` codex-prompt.md` marks the GITHUB_STEP_SUMMARY and conditional status summary items complete and updates progress.
+Details
+- Gate summary skip logic lives in `.github/scripts/comment-dedupe.js`; it now checks PR labels before upserting gate summaries.
+- Added a unit test in `.github/scripts/__tests__/comment-dedupe.test.js` to ensure no comment is created/updated when an `agent:*` label is present.
+- Checked off verified tasks and updated progress in `codex-prompt.md`.
 
-Tests:
-- `node --test .github/scripts/__tests__/agents-pr-meta-update-body.test.js`
-- `node --test .github/scripts/__tests__/keepalive-loop.test.js`
+Tests
+- `node --test .github/scripts/__tests__/comment-dedupe.test.js .github/scripts/__tests__/agents-pr-meta-update-body.test.js .github/scripts/__tests__/keepalive-loop.test.js`
 
-Next steps:
-1) Run the pipeline validation checklist by creating a test PR with `agent:codex` and verifying prompt/task appendix + iteration updates.
-2) If you want the remaining workflow-dependent tasks done, run with `agent-high-privilege` to update `.github/workflows/agents-keepalive-loop.yml` and `.github/workflows/agents-pr-meta-v4.yml` (agent_type output + gate-summary suppression).
+Next steps
+1. Run the pipeline validation steps on a real PR with `agent:codex` to verify keepalive updates and prompt appendix visibility.
+2. Apply the remaining workflow‑file changes (e.g., `agents-pr-meta` and gate summary gating) via a human‑approved edit, since `.github/workflows` is protected.
