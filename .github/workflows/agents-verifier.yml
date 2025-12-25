@@ -61,6 +61,7 @@ jobs:
           echo "prompt_file=$combined" >> "$GITHUB_OUTPUT"
 
       - name: Setup Codex auth
+        id: codex_auth
         if: steps.context.outputs.should_run == 'true'
         env:
           CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
@@ -70,6 +71,46 @@ jobs:
           echo "$CODEX_AUTH_JSON" > ~/.codex/auth.json
           chmod 600 ~/.codex/auth.json
           echo "Codex auth configured from CODEX_AUTH_JSON secret"
+
+          # Check token expiration
+          python3 << 'PYEOF'
+          import json, base64, datetime, sys, os
+
+          auth_path = os.path.expanduser("~/.codex/auth.json")
+          try:
+              with open(auth_path) as f:
+                  auth = json.load(f)
+              token = auth.get("tokens", {}).get("access_token", "")
+              if not token:
+                  print("::warning::No access token found in auth.json")
+                  sys.exit(0)
+
+              parts = token.split(".")
+              if len(parts) != 3:
+                  print("::warning::Invalid JWT format in access token")
+                  sys.exit(0)
+
+              payload = parts[1] + "=" * (4 - len(parts[1]) % 4)
+              data = json.loads(base64.urlsafe_b64decode(payload))
+              exp_time = datetime.datetime.fromtimestamp(data["exp"], tz=datetime.timezone.utc)
+              now = datetime.datetime.now(tz=datetime.timezone.utc)
+              diff = exp_time - now
+              days_left = diff.days
+              hours_left = diff.total_seconds() / 3600
+
+              print(f"Token expires: {exp_time.isoformat()}")
+              print(f"Days until expiration: {days_left}")
+
+              if days_left < 0:
+                  print("::error::CODEX_AUTH_JSON has expired! Run 'codex login --device-auth' and update the secret.")
+                  sys.exit(1)
+              elif days_left < 2:
+                  print(f"::warning::CODEX_AUTH_JSON expires in {hours_left:.0f} hours! Consider refreshing soon.")
+              elif days_left < 5:
+                  print(f"::notice::CODEX_AUTH_JSON expires in {days_left} days. Plan to refresh before expiration.")
+          except Exception as e:
+              print(f"::warning::Could not check token expiration: {e}")
+          PYEOF
 
       - name: Run verifier
         id: codex
