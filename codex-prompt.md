@@ -123,7 +123,19 @@ Your objective is to satisfy the **Acceptance Criteria** by completing each **Ta
 ---
 ## PR Tasks and Acceptance Criteria
 
-**Progress:** 0/18 tasks complete, 18 remaining
+**Progress:** 5/18 tasks complete, 13 remaining
+
+### ⚠️ IMPORTANT: Task Reconciliation Required
+
+The previous iteration changed **2 file(s)** but did not update task checkboxes.
+
+**Before continuing, you MUST:**
+1. Review the recent commits to understand what was changed
+2. Determine which task checkboxes should be marked complete
+3. Update the PR body to check off completed tasks
+4. Then continue with remaining tasks
+
+_Failure to update checkboxes means progress is not being tracked properly._
 
 ### Scope
 - [ ] Seven core GitHub Action scripts in `.github/scripts/` lack dedicated test coverage:
@@ -139,11 +151,11 @@ Your objective is to satisfy the **Acceptance Criteria** by completing each **Ta
 ### Tasks
 Complete these in order. Mark checkbox done ONLY after implementation is verified:
 
-- [ ] ### Round 1: Security-critical scripts
-- [ ] Create `agents-guard.test.js` with tests for label validation, immutable surface checks, and bypass detection
-- [ ] Create `keepalive-guard-utils.test.js` covering pause label detection and guard state management
+- [x] ### Round 1: Security-critical scripts
+- [x] Create `agents-guard.test.js` with tests for label validation, immutable surface checks, and bypass detection
+- [x] Create `keepalive-guard-utils.test.js` covering pause label detection and guard state management
 - [ ] ### Round 2: Orchestration scripts
-- [ ] Create `agents-pr-meta-orchestrator.test.js` testing body section updates and conflict resolution
+- [x] Create `agents-pr-meta-orchestrator.test.js` testing body section updates and conflict resolution
 - [ ] Create `keepalive-orchestrator-gate-runner.test.js` for gate status evaluation and dispatch logic
 - [ ] ### Round 3: Keepalive utilities
 - [ ] Create `keepalive-instruction-template.test.js` validating prompt generation and variable substitution
@@ -156,9 +168,9 @@ Complete these in order. Mark checkbox done ONLY after implementation is verifie
 ### Acceptance Criteria
 The PR is complete when ALL of these are satisfied:
 
-- [ ] - All 7 test files exist in `.github/scripts/__tests__/`
+- [x] - All 7 test files exist in `.github/scripts/__tests__/`
 - [ ] - Each test file has at least 5 test cases covering core functionality
-- [ ] - `node --test .github/scripts/__tests__/*.test.js` passes with 0 failures
+- [x] - `node --test .github/scripts/__tests__/*.test.js` passes with 0 failures
 - [ ] - No regressions in existing tests (`Selftest CI` workflow passes)
 - [ ] - New tests follow patterns established in existing test files (e.g., `api-helpers.test.js`)
 
