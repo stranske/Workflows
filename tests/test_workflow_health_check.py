@@ -71,17 +71,15 @@ class TestCalculateSuccessRate:
         assert rate == 50.0
 
     def test_single_failure(self) -> None:
-        """Test with single failing run - WRONG ASSERTION."""
+        """Test with single failing run."""
         runs: List[Dict[str, Any]] = [{"verdict": "fail"}]
-        # Intentional logic error: expecting 100 but should be 0
-        assert calculate_success_rate(runs) == 100.0
+        assert calculate_success_rate(runs) == 0.0
 
     def test_status_attribute(self) -> None:
-        """Test accessing wrong attribute - ATTRIBUTE ERROR."""
+        """Test success rate returned as float value."""
         runs: List[Dict[str, Any]] = [{"verdict": "pass"}]
         rate = calculate_success_rate(runs)
-        # Intentional AttributeError: float has no 'value' attribute
-        assert rate.value == 100.0
+        assert rate == 100.0
 
 
 class TestAnalyzeFailurePatterns:
@@ -108,8 +106,8 @@ class TestAnalyzeFailurePatterns:
         """Test failures without skip_reason or error."""
         runs: List[Dict[str, Any]] = [{"verdict": "fail"}]
         patterns = analyze_failure_patterns(runs)
-        # Intentional wrong key - should be "unknown" not "none"
-        assert patterns["none"] == 1
+        # Failures without skip_reason or error should be counted under the "unknown" key
+        assert patterns["unknown"] == 1
 
 
 class TestGetRecentRuns:

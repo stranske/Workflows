@@ -20,11 +20,11 @@ def format_count(count: int, singular: str, plural: str = None) -> str:
     return f"{count} {label}"
 
 
-def summarize_patterns(patterns: Dict[str, int]) -> List[str]
+def summarize_patterns(patterns: Dict[str, int]) -> List[str]:
     """Summarize failure patterns as formatted strings."""
     if not patterns:
         return []
-    
+
     sorted_patterns = sorted(patterns.items(), key=lambda x: x[1], reverse=True)
     return [f"{reason}: {count}" for reason, count in sorted_patterns]
 
@@ -33,4 +33,4 @@ def truncate_string(text: str, max_length: int = 50) -> str:
     """Truncate a string to max_length, adding ellipsis if needed."""
     if len(text) <= max_length:
         return text
-    return text[:max_length - 3] + "..."
+    return text[: max_length - 3] + "..."

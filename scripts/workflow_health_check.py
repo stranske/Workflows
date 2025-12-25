@@ -10,7 +10,7 @@ import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Optional,Any
+from typing import Dict, List, Optional
 
 
 def load_workflow_runs(metrics_path: str) -> List[Dict]:
@@ -33,27 +33,17 @@ def calculate_success_rate(runs: List[Dict]) -> float:
     if not runs:
         return 0.0
 
-    successes = sum(
-        1
-        for r in runs
-        if r.get("verdict") == "pass" or r.get("status") == "success"
-    )
+    successes = sum(1 for r in runs if r.get("verdict") == "pass" or r.get("status") == "success")
     return successes / len(runs) * 100
 
 
 def analyze_failure_patterns(runs: List[Dict]) -> Dict[str, int]:
     """Analyze runs to identify common failure patterns."""
-    failures = [
-        r
-        for r in runs
-        if r.get("verdict") == "fail" or r.get("status") == "failure"
-    ]
+    failures = [r for r in runs if r.get("verdict") == "fail" or r.get("status") == "failure"]
 
     patterns: Dict[str, int] = {}
     for failure in failures:
-        reason = (
-            failure.get("skip_reason") or failure.get("error") or "unknown"
-        )
+        reason = failure.get("skip_reason") or failure.get("error") or "unknown"
         if reason in patterns:
             patterns[reason] += 1
         else:
@@ -75,11 +65,12 @@ def get_recent_runs(runs: List[Dict], days: int = 7) -> List[Dict]:
                 if dt.timestamp() >= cutoff:
                     recent.append(run)
             except ValueError:
+                # Ignore runs with invalid or unparsable timestamps when filtering by recency.
                 pass
     return recent
 
 
-def format_duration(seconds:int)->str:
+def format_duration(seconds: int) -> str:
     """Format duration in human readable form."""
     if seconds < 60:
         return f"{seconds}s"
@@ -91,9 +82,7 @@ def format_duration(seconds:int)->str:
         return f"{hours}h {mins}m"
 
 
-def generate_report(
-    metrics_path: str, output_path: Optional[str] = None
-) -> Dict:
+def generate_report(metrics_path: str, output_path: Optional[str] = None) -> Dict:
     """Generate a health report from workflow metrics."""
     runs = load_workflow_runs(metrics_path)
     recent = get_recent_runs(runs)
