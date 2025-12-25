@@ -61,6 +61,23 @@ function formatStateComment(data) {
   return `<!-- ${STATE_MARKER}:${version} ${JSON.stringify(payload)} -->`;
 }
 
+function upsertStateCommentBody(body, stateComment) {
+  const existing = String(body ?? '');
+  const marker = String(stateComment ?? '').trim();
+  if (!marker) {
+    return existing;
+  }
+  if (!existing.trim()) {
+    return marker;
+  }
+  if (STATE_REGEX.test(existing)) {
+    return existing.replace(STATE_REGEX, () => marker);
+  }
+  const trimmed = existing.trimEnd();
+  const separator = trimmed ? '\n\n' : '';
+  return `${trimmed}${separator}${marker}`;
+}
+
 async function listAllComments({ github, owner, repo, prNumber }) {
   if (!github?.paginate || !github?.rest?.issues?.listComments) {
     return [];
@@ -127,6 +144,7 @@ async function createKeepaliveStateManager({ github, context, prNumber, trace, r
   let state = existing?.state && typeof existing.state === 'object' ? { ...existing.state } : {};
   let commentId = existing?.comment?.id ? Number(existing.comment.id) : 0;
   let commentUrl = existing?.comment?.html_url || '';
+  let commentBody = existing?.comment?.body || '';
 
   const ensureDefaults = () => {
     if (trace && normalise(state.trace) !== trace) {
@@ -149,12 +167,29 @@ async function createKeepaliveStateManager({ github, context, prNumber, trace, r
     const body = formatStateComment(state);
 
     if (commentId) {
+      let latestBody = commentBody;
+      if (github?.rest?.issues?.getComment) {
+        try {
+          const response = await github.rest.issues.getComment({
+            owner,
+            repo,
+            comment_id: commentId,
+          });
+          if (response?.data?.body) {
+            latestBody = response.data.body;
+          }
+        } catch (error) {
+          // fall back to cached body if lookup fails
+        }
+      }
+      const updatedBody = upsertStateCommentBody(latestBody, body);
       await github.rest.issues.updateComment({
         owner,
         repo,
         comment_id: commentId,
-        body,
+        body: updatedBody,
       });
+      commentBody = updatedBody;
     } else {
       const { data } = await github.rest.issues.createComment({
         owner,
@@ -164,6 +199,7 @@ async function createKeepaliveStateManager({ github, context, prNumber, trace, r
       });
       commentId = data?.id ? Number(data.id) : 0;
       commentUrl = data?.html_url || '';
+      commentBody = body;
     }
 
     return { state: { ...state }, commentId, commentUrl };
@@ -205,5 +241,6 @@ module.exports = {
   loadKeepaliveState,
   parseStateComment,
   formatStateComment,
+  upsertStateCommentBody,
   deepMerge,
 };

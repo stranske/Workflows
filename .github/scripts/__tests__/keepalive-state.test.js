@@ -13,16 +13,31 @@ const {
 
 const buildGithubStub = ({ comments = [] } = {}) => {
   const actions = [];
+  const commentStore = comments.map((comment) => ({ ...comment }));
+  let nextId = 101 + commentStore.length;
   const github = {
     actions,
     rest: {
       issues: {
-        listComments: async () => ({ data: comments }),
+        listComments: async () => ({ data: commentStore }),
+        getComment: async ({ comment_id: commentId }) => {
+          const match = commentStore.find((comment) => comment.id === commentId);
+          return { data: match || { id: commentId, body: '' } };
+        },
         createComment: async ({ body }) => {
+          const id = nextId++;
+          const record = { id, body, html_url: `https://example.com/${id}` };
+          commentStore.push(record);
           actions.push({ type: 'create', body });
-          return { data: { id: 101, html_url: 'https://example.com/101' } };
+          return { data: { id, html_url: record.html_url } };
         },
         updateComment: async ({ body, comment_id: commentId }) => {
+          const match = commentStore.find((comment) => comment.id === commentId);
+          if (match) {
+            match.body = body;
+          } else {
+            commentStore.push({ id: commentId, body, html_url: `https://example.com/${commentId}` });
+          }
           actions.push({ type: 'update', body, commentId });
           return { data: { id: commentId } };
         },
@@ -82,6 +97,31 @@ test('createKeepaliveStateManager updates existing comment', async () => {
   assert.equal(github.actions.length, 1);
   assert.equal(github.actions[0].type, 'update');
   assert.equal(github.actions[0].commentId, 55);
+  assert.match(github.actions[0].body, /"status":"success"/);
+});
+
+test('createKeepaliveStateManager preserves summary body when updating state', async () => {
+  const initialBody = [
+    '## Keepalive Summary',
+    '',
+    formatStateComment({ trace: 'trace-1', round: '7', pr_number: 42 }),
+  ].join('\n');
+  const github = buildGithubStub({
+    comments: [
+      { id: 77, body: initialBody, html_url: 'https://example.com/77' },
+    ],
+  });
+  const manager = await createKeepaliveStateManager({
+    github,
+    context: { repo: { owner: 'o', repo: 'r' } },
+    prNumber: 42,
+    trace: 'trace-1',
+    round: '7',
+  });
+  await manager.save({ result: { status: 'success' } });
+  assert.equal(github.actions.length, 1);
+  assert.equal(github.actions[0].type, 'update');
+  assert.match(github.actions[0].body, /## Keepalive Summary/);
   assert.match(github.actions[0].body, /"status":"success"/);
 });
 
