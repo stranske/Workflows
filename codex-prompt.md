@@ -123,19 +123,7 @@ Your objective is to satisfy the **Acceptance Criteria** by completing each **Ta
 ---
 ## PR Tasks and Acceptance Criteria
 
-**Progress:** 5/18 tasks complete, 13 remaining
-
-### ⚠️ IMPORTANT: Task Reconciliation Required
-
-The previous iteration changed **2 file(s)** but did not update task checkboxes.
-
-**Before continuing, you MUST:**
-1. Review the recent commits to understand what was changed
-2. Determine which task checkboxes should be marked complete
-3. Update the PR body to check off completed tasks
-4. Then continue with remaining tasks
-
-_Failure to update checkboxes means progress is not being tracked properly._
+**Progress:** 2/18 tasks complete, 16 remaining
 
 ### Scope
 - [ ] Seven core GitHub Action scripts in `.github/scripts/` lack dedicated test coverage:
@@ -151,11 +139,11 @@ _Failure to update checkboxes means progress is not being tracked properly._
 ### Tasks
 Complete these in order. Mark checkbox done ONLY after implementation is verified:
 
-- [x] ### Round 1: Security-critical scripts
-- [x] Create `agents-guard.test.js` with tests for label validation, immutable surface checks, and bypass detection
-- [x] Create `keepalive-guard-utils.test.js` covering pause label detection and guard state management
+- [ ] ### Round 1: Security-critical scripts
+- [ ] Create `agents-guard.test.js` with tests for label validation, immutable surface checks, and bypass detection
+- [ ] Create `keepalive-guard-utils.test.js` covering pause label detection and guard state management
 - [ ] ### Round 2: Orchestration scripts
-- [x] Create `agents-pr-meta-orchestrator.test.js` testing body section updates and conflict resolution
+- [ ] Create `agents-pr-meta-orchestrator.test.js` testing body section updates and conflict resolution
 - [ ] Create `keepalive-orchestrator-gate-runner.test.js` for gate status evaluation and dispatch logic
 - [ ] ### Round 3: Keepalive utilities
 - [ ] Create `keepalive-instruction-template.test.js` validating prompt generation and variable substitution
