@@ -1,0 +1,257 @@
+name: Maint 66 Monthly Workflow Audit
+
+on:
+  schedule:
+    # Run on the 1st of each month at 6:00 AM UTC
+    - cron: '0 6 1 * *'
+  workflow_dispatch:
+    inputs:
+      lookback_days:
+        description: 'Number of days to analyze'
+        type: number
+        default: 30
+      create_issue:
+        description: 'Create audit issue'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  issues: write
+  actions: read
+
+jobs:
+  audit:
+    name: Generate workflow audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Collect workflow statistics
+        id: stats
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LOOKBACK_DAYS: ${{ inputs.lookback_days || 30 }}
+        run: |
+          set -euo pipefail
+
+          # Calculate date range
+          start_date=$(date -d "-${LOOKBACK_DAYS} days" +%Y-%m-%d)
+          echo "Analyzing runs since: ${start_date}"
+
+          # Get all workflow runs
+          runs=$(gh api --paginate "/repos/${{ github.repository }}/actions/runs?created=>=${start_date}" \
+            --jq '.workflow_runs[] | {name: .name, conclusion: .conclusion, created_at: .created_at}')
+
+          # Generate statistics
+          echo "${runs}" | jq -s '
+            group_by(.name) |
+            map({
+              name: .[0].name,
+              total: length,
+              success: map(select(.conclusion == "success")) | length,
+              failure: map(select(.conclusion == "failure")) | length,
+              cancelled: map(select(.conclusion == "cancelled")) | length,
+              other: map(select(.conclusion != "success" and .conclusion != "failure" and .conclusion != "cancelled")) | length
+            }) |
+            sort_by(-.total)
+          ' > /tmp/workflow_stats.json
+
+          # Calculate summary
+          total_runs=$(echo "${runs}" | jq -s 'length')
+          total_success=$(echo "${runs}" | jq -s '[.[] | select(.conclusion == "success")] | length')
+          total_failure=$(echo "${runs}" | jq -s '[.[] | select(.conclusion == "failure")] | length')
+
+          echo "total_runs=${total_runs}" >> "$GITHUB_OUTPUT"
+          echo "total_success=${total_success}" >> "$GITHUB_OUTPUT"
+          echo "total_failure=${total_failure}" >> "$GITHUB_OUTPUT"
+
+      - name: Identify workflows needing attention
+        id: attention
+        run: |
+          set -euo pipefail
+
+          # Find workflows with high failure rates
+          failing=$(jq -r '
+            .[] |
+            select(.total > 0) |
+            . + {rate: ((.success / .total) * 100 | floor)} |
+            select(.rate < 50) |
+            "- **\(.name)**: \(.rate)% success (\(.failure) failures out of \(.total) runs)"
+          ' /tmp/workflow_stats.json)
+
+          # Find workflows with moderate failure rates
+          warning=$(jq -r '
+            .[] |
+            select(.total > 0) |
+            . + {rate: ((.success / .total) * 100 | floor)} |
+            select(.rate >= 50 and .rate < 80) |
+            "- **\(.name)**: \(.rate)% success (\(.failure) failures out of \(.total) runs)"
+          ' /tmp/workflow_stats.json)
+
+          # Check for workflows that haven't run
+          workflow_files=$(ls .github/workflows/*.yml | xargs -I{} basename {} .yml)
+          ran_workflows=$(jq -r '.[].name' /tmp/workflow_stats.json)
+
+          not_run=""
+          for wf in ${workflow_files}; do
+            # Skip reusable workflows
+            if grep -q "workflow_call:" ".github/workflows/${wf}.yml" 2>/dev/null; then
+              if ! grep -q "workflow_dispatch:\|schedule:\|push:\|pull_request" ".github/workflows/${wf}.yml" 2>/dev/null; then
+                continue
+              fi
+            fi
+            # Check if workflow ran
+            wf_name=$(grep -m1 "^name:" ".github/workflows/${wf}.yml" 2>/dev/null | sed 's/name: *//' || echo "$wf")
+            if ! echo "$ran_workflows" | grep -qF "$wf_name"; then
+              not_run="${not_run}\n- ${wf}.yml (${wf_name})"
+            fi
+          done
+
+          # Save outputs (handle multiline)
+          {
+            echo "failing<<EOF"
+            echo "${failing:-None}"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+          {
+            echo "warning<<EOF"
+            echo "${warning:-None}"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+          {
+            echo "not_run<<EOF"
+            echo -e "${not_run:-None}"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Generate audit checklist
+        id: checklist
+        env:
+          FAILING: ${{ steps.attention.outputs.failing }}
+          WARNING: ${{ steps.attention.outputs.warning }}
+          NOT_RUN: ${{ steps.attention.outputs.not_run }}
+          TOTAL_RUNS: ${{ steps.stats.outputs.total_runs }}
+          TOTAL_SUCCESS: ${{ steps.stats.outputs.total_success }}
+          TOTAL_FAILURE: ${{ steps.stats.outputs.total_failure }}
+          LOOKBACK: ${{ inputs.lookback_days || 30 }}
+        run: |
+          cat > /tmp/audit_body.md << 'AUDIT_EOF'
+          ## Monthly Workflow Audit - $(date +%B\ %Y)
+
+          **Audit Period:** Last ${LOOKBACK} days
+          **Generated:** $(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+          ### Summary Statistics
+
+          | Metric | Count |
+          |--------|-------|
+          | Total Runs | ${TOTAL_RUNS} |
+          | Successful | ${TOTAL_SUCCESS} |
+          | Failed | ${TOTAL_FAILURE} |
+          | Success Rate | $(( TOTAL_RUNS > 0 ? (TOTAL_SUCCESS * 100 / TOTAL_RUNS) : 0 ))% |
+
+          ### Workflows Requiring Immediate Attention (<50% success)
+
+          ${FAILING}
+
+          ### Workflows Requiring Review (50-80% success)
+
+          ${WARNING}
+
+          ### Workflows Not Run This Period
+
+          ${NOT_RUN}
+
+          ---
+
+          ## Audit Checklist
+
+          ### Critical Items
+          - [ ] Review and fix all workflows with <50% success rate
+          - [ ] Archive workflows that consistently fail and cannot be fixed
+          - [ ] Verify archived workflows are documented
+
+          ### Standard Review
+          - [ ] Review workflows with 50-80% success rate
+          - [ ] Check if workflows that haven't run are still needed
+          - [ ] Review any new workflow additions this month
+
+          ### Optimization
+          - [ ] Check for opportunities to parallelize jobs
+          - [ ] Review workflow run times for optimization
+          - [ ] Verify caching is effective
+
+          ### Documentation
+          - [ ] Update LABELS.md if label triggers changed
+          - [ ] Update WORKFLOW_GUIDE.md if needed
+          - [ ] Sync documentation to consumer repos
+
+          ---
+
+          **Previous audit:** Check for issues with label `workflow-audit`
+          **Documentation:** See [WORKFLOW_AUDIT_2025-12-25.md](../blob/main/docs/WORKFLOW_AUDIT_2025-12-25.md)
+          AUDIT_EOF
+
+          # Substitute environment variables
+          envsubst < /tmp/audit_body.md > /tmp/audit_final.md
+
+          {
+            echo "body<<EOF"
+            cat /tmp/audit_final.md
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create or update audit issue
+        if: inputs.create_issue != false
+        env:
+          GH_TOKEN: ${{ github.token }}
+          AUDIT_BODY: ${{ steps.checklist.outputs.body }}
+        run: |
+          set -euo pipefail
+
+          title="[Monthly Audit] Workflow Health Check - $(date +%B\ %Y)"
+
+          # Check for existing open audit issue
+          existing=$(gh issue list --repo "${{ github.repository }}" \
+            --label "workflow-audit" \
+            --state open \
+            --json number \
+            --jq '.[0].number // empty')
+
+          if [ -n "${existing}" ]; then
+            echo "Updating existing issue #${existing}"
+            gh issue edit "${existing}" \
+              --repo "${{ github.repository }}" \
+              --title "${title}" \
+              --body "${AUDIT_BODY}"
+            echo "Updated issue: https://github.com/${{ github.repository }}/issues/${existing}"
+          else
+            echo "Creating new audit issue"
+            gh issue create \
+              --repo "${{ github.repository }}" \
+              --title "${title}" \
+              --body "${AUDIT_BODY}" \
+              --label "workflow-audit,maintenance"
+            echo "Created new audit issue"
+          fi
+
+      - name: Post summary
+        run: |
+          {
+            echo "## Workflow Audit Complete"
+            echo ""
+            echo "**Period:** Last ${{ inputs.lookback_days || 30 }} days"
+            echo ""
+            echo "| Metric | Value |"
+            echo "|--------|-------|"
+            echo "| Total Runs | ${{ steps.stats.outputs.total_runs }} |"
+            echo "| Success Rate | $(( ${{ steps.stats.outputs.total_runs }} > 0 ? (${{ steps.stats.outputs.total_success }} * 100 / ${{ steps.stats.outputs.total_runs }}) : 0 ))% |"
+            echo ""
+            if [ "${{ inputs.create_issue }}" != "false" ]; then
+              echo "📋 Audit issue created/updated with full checklist"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

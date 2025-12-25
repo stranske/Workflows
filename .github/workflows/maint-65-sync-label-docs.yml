@@ -1,0 +1,154 @@
+name: Sync Label Documentation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/LABELS.md'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Preview changes without pushing'
+        type: boolean
+        default: false
+      repos:
+        description: 'Comma-separated list of repos to sync (empty for all configured)'
+        type: string
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    name: Sync labels documentation
+    runs-on: ubuntu-latest
+    env:
+      # Consumer repos to sync - add new repos here
+      DEFAULT_CONSUMER_REPOS: |
+        stranske/Workflows-Integration-Tests
+        stranske/Travel-Plan-Permission
+        stranske/Template
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: docs/LABELS.md
+          sparse-checkout-cone-mode: false
+
+      - name: Verify source file exists
+        run: |
+          if [ ! -f "docs/LABELS.md" ]; then
+            echo "::error::Source file docs/LABELS.md not found"
+            exit 1
+          fi
+          echo "Source file found: docs/LABELS.md"
+          wc -l docs/LABELS.md
+
+      - name: Prepare sync token
+        id: token
+        env:
+          CODESPACES_PAT: ${{ secrets.CODESPACES_WORKFLOWS }}
+          SERVICE_PAT: ${{ secrets.SERVICE_BOT_PAT }}
+        run: |
+          if [ -n "${CODESPACES_PAT}" ]; then
+            echo "token_available=true" >> "$GITHUB_OUTPUT"
+            echo "Using CODESPACES_WORKFLOWS token"
+          elif [ -n "${SERVICE_PAT}" ]; then
+            echo "token_available=true" >> "$GITHUB_OUTPUT"
+            echo "Using SERVICE_BOT_PAT token"
+          else
+            echo "token_available=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::No sync token available - sync will be skipped"
+          fi
+
+      - name: Sync to consumer repos
+        if: steps.token.outputs.token_available == 'true'
+        env:
+          SYNC_TOKEN: ${{ secrets.CODESPACES_WORKFLOWS || secrets.SERVICE_BOT_PAT }}
+          DRY_RUN: ${{ inputs.dry_run || 'false' }}
+          CUSTOM_REPOS: ${{ inputs.repos }}
+        run: |
+          set -euo pipefail
+
+          # Determine repos to sync
+          if [ -n "${CUSTOM_REPOS:-}" ]; then
+            repos="${CUSTOM_REPOS}"
+          else
+            repos=$(echo "${DEFAULT_CONSUMER_REPOS}" | tr '\n' ',' | sed 's/,$//')
+          fi
+
+          echo "Syncing to repos: ${repos}"
+
+          # Process each repo
+          IFS=',' read -ra REPO_ARRAY <<< "$repos"
+          for repo in "${REPO_ARRAY[@]}"; do
+            repo=$(echo "$repo" | xargs)  # Trim whitespace
+            [ -z "$repo" ] && continue
+
+            echo "::group::Syncing to ${repo}"
+
+            # Create a temporary directory for the clone
+            tmpdir=$(mktemp -d)
+            trap "rm -rf $tmpdir" EXIT
+
+            # Clone the target repo
+            if ! git clone --depth 1 "https://x-access-token:${SYNC_TOKEN}@github.com/${repo}.git" "$tmpdir" 2>/dev/null; then
+              echo "::warning::Failed to clone ${repo} - skipping"
+              continue
+            fi
+
+            # Ensure docs directory exists
+            mkdir -p "$tmpdir/docs"
+
+            # Copy the labels file
+            cp docs/LABELS.md "$tmpdir/docs/LABELS.md"
+
+            # Check for changes
+            cd "$tmpdir"
+            if git diff --quiet docs/LABELS.md 2>/dev/null; then
+              echo "No changes needed for ${repo}"
+              cd - > /dev/null
+              continue
+            fi
+
+            # Commit and push if not dry run
+            if [ "${DRY_RUN}" = "true" ]; then
+              echo "DRY RUN: Would update docs/LABELS.md in ${repo}"
+              git diff docs/LABELS.md || true
+            else
+              git config user.name "github-actions[bot]"
+              git config user.email "github-actions[bot]@users.noreply.github.com"
+              git add docs/LABELS.md
+              git commit -m "docs: sync LABELS.md from Workflows repository
+
+Automated sync from stranske/Workflows
+Source: https://github.com/stranske/Workflows/blob/main/docs/LABELS.md"
+
+              if git push; then
+                echo "✅ Successfully synced to ${repo}"
+              else
+                echo "::warning::Failed to push to ${repo}"
+              fi
+            fi
+
+            cd - > /dev/null
+            rm -rf "$tmpdir"
+            trap - EXIT
+
+            echo "::endgroup::"
+          done
+
+      - name: Summary
+        run: |
+          {
+            echo "## Label Documentation Sync"
+            echo ""
+            echo "Synced \`docs/LABELS.md\` to consumer repositories."
+            echo ""
+            if [ "${{ inputs.dry_run }}" = "true" ]; then
+              echo "**Mode:** Dry run (no changes made)"
+            else
+              echo "**Mode:** Live sync"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
