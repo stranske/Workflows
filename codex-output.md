@@ -1,7 +1,10 @@
-Added a keepalive loop test that validates attention comment formatting for codex-type failures, including run link and truncated agent output, covering the “various error types” PR comment formatting task. Updated test is in `.github/scripts/__tests__/keepalive-loop.test.js`.
+Added coverage to validate that each error category returns the expected recovery guidance, tightening the error-classifier acceptance criteria in `.github/scripts/__tests__/error-classifier.test.js`.
 
-Tests run: `node --test .github/scripts/__tests__/keepalive-loop.test.js`
+Tests run:
+- `node --test .github/scripts/__tests__/error-classifier.test.js`
 
-Commit: `test: cover keepalive attention comment formatting`
+Note: the remaining acceptance item about creating the error diagnostics artifact requires edits to `.github/workflows/reusable-codex-run.yml`, which is a protected workflow file and needs an `agent-high-privilege` run. If you want me to proceed, please handle that change or enable the higher-privilege environment.
 
-Note: `codex-prompt.md` was already modified and remains untouched.
+Next steps:
+1. If you want the workflow artifact creation implemented, grant `agent-high-privilege` and I’ll update `.github/workflows/reusable-codex-run.yml`.
+2. Optionally run the full keepalive JS test suite.

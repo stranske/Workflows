@@ -67,3 +67,39 @@ test('suggestRecoveryAction falls back to unknown guidance', () => {
   const result = suggestRecoveryAction('missing');
   assert.equal(result, suggestRecoveryAction(ERROR_CATEGORIES.unknown));
 });
+
+test('classifyError provides category-specific recovery guidance', () => {
+  const cases = [
+    {
+      error: { status: 429, message: 'Rate limit exceeded' },
+      category: ERROR_CATEGORIES.transient,
+      recoveryPattern: /retry/i,
+    },
+    {
+      error: { status: 401, message: 'Bad credentials' },
+      category: ERROR_CATEGORIES.auth,
+      recoveryPattern: /credentials|token|permission/i,
+    },
+    {
+      error: { status: 404, message: 'Not found' },
+      category: ERROR_CATEGORIES.resource,
+      recoveryPattern: /resource|repository|branch|workflow/i,
+    },
+    {
+      error: { status: 422, message: 'Validation failed' },
+      category: ERROR_CATEGORIES.logic,
+      recoveryPattern: /request|inputs|logic/i,
+    },
+    {
+      error: { message: '' },
+      category: ERROR_CATEGORIES.unknown,
+      recoveryPattern: /logs|retry|escalate/i,
+    },
+  ];
+
+  for (const entry of cases) {
+    const result = classifyError(entry.error);
+    assert.equal(result.category, entry.category);
+    assert.match(result.recovery, entry.recoveryPattern);
+  }
+});
