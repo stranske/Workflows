@@ -446,6 +446,7 @@ async function evaluateKeepaliveLoop({ github, context, core }) {
   return {
     prNumber,
     prRef: pr.head.ref || '',
+    headSha: pr.head.sha || '',
     action,
     reason,
     gateConclusion,
@@ -788,6 +789,228 @@ async function markAgentRunning({ github, context, core, inputs }) {
   }
 }
 
+/**
+ * Analyze commits and files changed to infer which tasks may have been completed.
+ * Uses keyword matching and file path analysis to suggest task completions.
+ * @param {object} params - Parameters
+ * @param {object} params.github - GitHub API client
+ * @param {object} params.context - GitHub Actions context
+ * @param {number} params.prNumber - PR number
+ * @param {string} params.baseSha - Base SHA to compare from
+ * @param {string} params.headSha - Head SHA to compare to
+ * @param {string} params.taskText - The raw task/acceptance text from PR body
+ * @param {object} [params.core] - Optional core for logging
+ * @returns {Promise<{matches: Array<{task: string, reason: string, confidence: string}>, summary: string}>}
+ */
+async function analyzeTaskCompletion({ github, context, prNumber, baseSha, headSha, taskText, core }) {
+  const matches = [];
+  const log = (msg) => core?.info?.(msg) || console.log(msg);
+
+  if (!taskText || !baseSha || !headSha) {
+    return { matches, summary: 'Insufficient data for task analysis' };
+  }
+
+  // Get commits between base and head
+  let commits = [];
+  try {
+    const { data } = await github.rest.repos.compareCommits({
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+      base: baseSha,
+      head: headSha,
+    });
+    commits = data.commits || [];
+  } catch (error) {
+    log(`Failed to get commits: ${error.message}`);
+    return { matches, summary: `Failed to analyze: ${error.message}` };
+  }
+
+  // Get files changed
+  let filesChanged = [];
+  try {
+    const { data } = await github.rest.pulls.listFiles({
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+      pull_number: prNumber,
+      per_page: 100,
+    });
+    filesChanged = data.map(f => f.filename);
+  } catch (error) {
+    log(`Failed to get files: ${error.message}`);
+  }
+
+  // Parse tasks into individual items
+  const taskLines = taskText.split('\n')
+    .filter(line => /^\s*[-*+]\s*\[\s*\]/.test(line))
+    .map(line => {
+      const match = line.match(/^\s*[-*+]\s*\[\s*\]\s*(.+)$/);
+      return match ? match[1].trim() : null;
+    })
+    .filter(Boolean);
+
+  log(`Analyzing ${commits.length} commits against ${taskLines.length} unchecked tasks`);
+
+  // Build keyword map from commits
+  const commitKeywords = new Set();
+  const commitMessages = commits
+    .map(c => c.commit.message.toLowerCase())
+    .join(' ');
+  
+  // Extract meaningful words from commit messages
+  const words = commitMessages.match(/\b[a-z_-]{3,}\b/g) || [];
+  words.forEach(w => commitKeywords.add(w));
+
+  // Also extract from file paths
+  filesChanged.forEach(f => {
+    const parts = f.toLowerCase().replace(/[^a-z0-9_/-]/g, ' ').split(/[\s/]+/);
+    parts.forEach(p => p.length > 2 && commitKeywords.add(p));
+  });
+
+  // Match tasks to commits/files
+  for (const task of taskLines) {
+    const taskLower = task.toLowerCase();
+    const taskWords = taskLower.match(/\b[a-z_-]{3,}\b/g) || [];
+    
+    // Calculate overlap score
+    const matchingWords = taskWords.filter(w => commitKeywords.has(w));
+    const score = taskWords.length > 0 ? matchingWords.length / taskWords.length : 0;
+
+    // Check for specific file mentions
+    const fileMatch = filesChanged.some(f => {
+      const fLower = f.toLowerCase();
+      return taskWords.some(w => fLower.includes(w));
+    });
+
+    // Check for specific commit message matches
+    const commitMatch = commits.some(c => {
+      const msg = c.commit.message.toLowerCase();
+      return taskWords.some(w => w.length > 4 && msg.includes(w));
+    });
+
+    let confidence = 'low';
+    let reason = '';
+
+    if (score >= 0.5 && (fileMatch || commitMatch)) {
+      confidence = 'high';
+      reason = `${Math.round(score * 100)}% keyword match, ${fileMatch ? 'file match' : 'commit match'}`;
+      matches.push({ task, reason, confidence });
+    } else if (score >= 0.3 || fileMatch) {
+      confidence = 'medium';
+      reason = `${Math.round(score * 100)}% keyword match${fileMatch ? ', file touched' : ''}`;
+      matches.push({ task, reason, confidence });
+    }
+  }
+
+  const summary = matches.length > 0
+    ? `Found ${matches.length} potential task completion(s): ${matches.filter(m => m.confidence === 'high').length} high, ${matches.filter(m => m.confidence === 'medium').length} medium confidence`
+    : 'No clear task matches found in commits';
+
+  log(summary);
+  return { matches, summary };
+}
+
+/**
+ * Auto-reconcile task checkboxes in PR body based on commit analysis.
+ * Updates the PR body to check off tasks that appear to be completed.
+ * @param {object} params - Parameters
+ * @param {object} params.github - GitHub API client
+ * @param {object} params.context - GitHub Actions context
+ * @param {number} params.prNumber - PR number
+ * @param {string} params.baseSha - Base SHA (before agent work)
+ * @param {string} params.headSha - Head SHA (after agent work)
+ * @param {object} [params.core] - Optional core for logging
+ * @returns {Promise<{updated: boolean, tasksChecked: number, details: string}>}
+ */
+async function autoReconcileTasks({ github, context, prNumber, baseSha, headSha, core }) {
+  const log = (msg) => core?.info?.(msg) || console.log(msg);
+  
+  // Get current PR body
+  let pr;
+  try {
+    const { data } = await github.rest.pulls.get({
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+      pull_number: prNumber,
+    });
+    pr = data;
+  } catch (error) {
+    log(`Failed to get PR: ${error.message}`);
+    return { updated: false, tasksChecked: 0, details: `Failed to get PR: ${error.message}` };
+  }
+
+  const sections = parseScopeTasksAcceptanceSections(pr.body || '');
+  const taskText = [sections.tasks, sections.acceptance].filter(Boolean).join('\n');
+
+  if (!taskText) {
+    return { updated: false, tasksChecked: 0, details: 'No tasks found in PR body' };
+  }
+
+  // Analyze what tasks may have been completed
+  const analysis = await analyzeTaskCompletion({
+    github, context, prNumber, baseSha, headSha, taskText, core
+  });
+
+  // Only auto-check high-confidence matches
+  const highConfidence = analysis.matches.filter(m => m.confidence === 'high');
+  
+  if (highConfidence.length === 0) {
+    log('No high-confidence task matches to auto-check');
+    return { 
+      updated: false, 
+      tasksChecked: 0, 
+      details: analysis.summary + ' (no high-confidence matches for auto-check)'
+    };
+  }
+
+  // Update PR body to check off matched tasks
+  let updatedBody = pr.body;
+  let checkedCount = 0;
+
+  for (const match of highConfidence) {
+    // Escape special regex characters in task text
+    const escaped = match.task.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const pattern = new RegExp(`([-*+]\\s*)\\[\\s*\\](\\s*${escaped})`, 'i');
+    
+    if (pattern.test(updatedBody)) {
+      updatedBody = updatedBody.replace(pattern, '$1[x]$2');
+      checkedCount++;
+      log(`Auto-checked task: ${match.task.slice(0, 50)}... (${match.reason})`);
+    }
+  }
+
+  if (checkedCount === 0) {
+    return { 
+      updated: false, 
+      tasksChecked: 0, 
+      details: 'Tasks matched but patterns not found in body' 
+    };
+  }
+
+  // Update the PR body
+  try {
+    await github.rest.pulls.update({
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+      pull_number: prNumber,
+      body: updatedBody,
+    });
+    log(`Updated PR body, checked ${checkedCount} task(s)`);
+  } catch (error) {
+    log(`Failed to update PR body: ${error.message}`);
+    return { 
+      updated: false, 
+      tasksChecked: 0, 
+      details: `Failed to update PR: ${error.message}` 
+    };
+  }
+
+  return {
+    updated: true,
+    tasksChecked: checkedCount,
+    details: `Auto-checked ${checkedCount} task(s): ${highConfidence.map(m => m.task.slice(0, 30) + '...').join(', ')}`
+  };
+}
+
 module.exports = {
   countCheckboxes,
   parseConfig,
@@ -795,4 +1018,6 @@ module.exports = {
   evaluateKeepaliveLoop,
   markAgentRunning,
   updateKeepaliveLoopSummary,
+  analyzeTaskCompletion,
+  autoReconcileTasks,
 };

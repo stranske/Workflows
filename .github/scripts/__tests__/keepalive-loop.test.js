@@ -11,6 +11,8 @@ const {
   evaluateKeepaliveLoop,
   updateKeepaliveLoopSummary,
   markAgentRunning,
+  analyzeTaskCompletion,
+  autoReconcileTasks,
 } = require('../keepalive_loop.js');
 const { formatStateComment } = require('../keepalive_state.js');
 
@@ -660,4 +662,208 @@ test('markAgentRunning creates comment when none exists', async () => {
   const body = github.actions[0].body;
   assert.ok(body.includes('Claude is actively working'), 'Should capitalize agent name');
   assert.ok(body.includes('Iteration | 1 of 3'), 'Should show iteration 1 (0+1)');
+});
+
+// =====================================================
+// Task Reconciliation Tests
+// =====================================================
+
+test('analyzeTaskCompletion identifies high-confidence matches', async () => {
+  const commits = [
+    { sha: 'abc123', commit: { message: 'feat: add step summary output to keepalive loop' } },
+    { sha: 'def456', commit: { message: 'test: add tests for step summary emission' } },
+  ];
+  const files = [
+    { filename: '.github/workflows/agents-keepalive-loop.yml' },
+    { filename: '.github/scripts/keepalive_loop.js' },
+  ];
+  
+  const github = {
+    rest: {
+      repos: {
+        async compareCommits() {
+          return { data: { commits } };
+        },
+      },
+      pulls: {
+        async listFiles() {
+          return { data: files };
+        },
+      },
+    },
+  };
+
+  const taskText = `
+- [ ] Add step summary output to agents-keepalive-loop.yml after agent run
+- [ ] Include: iteration number, tasks completed, files changed, outcome
+- [ ] Ensure summary is visible in workflow run UI
+- [ ] Unrelated task about something else entirely
+`;
+
+  const result = await analyzeTaskCompletion({
+    github,
+    context: { repo: { owner: 'test', repo: 'repo' } },
+    prNumber: 1,
+    baseSha: 'base123',
+    headSha: 'head456',
+    taskText,
+    core: buildCore(),
+  });
+
+  assert.ok(result.matches.length > 0, 'Should find at least one match');
+  
+  // Should match the step summary task with high confidence
+  const stepSummaryMatch = result.matches.find(m => 
+    m.task.toLowerCase().includes('step summary')
+  );
+  assert.ok(stepSummaryMatch, 'Should match step summary task');
+  assert.equal(stepSummaryMatch.confidence, 'high', 'Should be high confidence');
+});
+
+test('analyzeTaskCompletion returns empty for unrelated commits', async () => {
+  const commits = [
+    { sha: 'abc123', commit: { message: 'fix: typo in readme' } },
+  ];
+  const files = [
+    { filename: 'README.md' },
+  ];
+  
+  const github = {
+    rest: {
+      repos: {
+        async compareCommits() {
+          return { data: { commits } };
+        },
+      },
+      pulls: {
+        async listFiles() {
+          return { data: files };
+        },
+      },
+    },
+  };
+
+  const taskText = `
+- [ ] Implement complex feature in keepalive workflow
+- [ ] Add database migrations
+`;
+
+  const result = await analyzeTaskCompletion({
+    github,
+    context: { repo: { owner: 'test', repo: 'repo' } },
+    prNumber: 1,
+    baseSha: 'base123',
+    headSha: 'head456',
+    taskText,
+    core: buildCore(),
+  });
+
+  // Should find no high-confidence matches
+  const highConfidence = result.matches.filter(m => m.confidence === 'high');
+  assert.equal(highConfidence.length, 0, 'Should not find high-confidence matches for unrelated commits');
+});
+
+test('autoReconcileTasks updates PR body for high-confidence matches', async () => {
+  const prBody = `## Tasks
+- [ ] Add step summary output to keepalive loop
+- [ ] Add tests for step summary
+- [x] Already completed task
+`;
+
+  const commits = [
+    { sha: 'abc123', commit: { message: 'feat: add step summary output to keepalive loop' } },
+  ];
+  const files = [
+    { filename: '.github/scripts/keepalive_loop.js' },
+  ];
+
+  let updatedBody = null;
+  const github = {
+    rest: {
+      pulls: {
+        async get() {
+          return { data: { body: prBody } };
+        },
+        async update({ body }) {
+          updatedBody = body;
+          return { data: {} };
+        },
+        async listFiles() {
+          return { data: files };
+        },
+      },
+      repos: {
+        async compareCommits() {
+          return { data: { commits } };
+        },
+      },
+    },
+  };
+
+  const result = await autoReconcileTasks({
+    github,
+    context: { repo: { owner: 'test', repo: 'repo' } },
+    prNumber: 1,
+    baseSha: 'base123',
+    headSha: 'head456',
+    core: buildCore(),
+  });
+
+  assert.ok(result.updated, 'Should update PR body');
+  assert.ok(result.tasksChecked > 0, 'Should check at least one task');
+  
+  if (updatedBody) {
+    assert.ok(updatedBody.includes('[x] Add step summary'), 'Should check off matched task');
+    assert.ok(updatedBody.includes('[x] Already completed'), 'Should preserve already-checked tasks');
+  }
+});
+
+test('autoReconcileTasks skips when no high-confidence matches', async () => {
+  const prBody = `## Tasks
+- [ ] Implement feature X
+- [ ] Add tests for feature Y
+`;
+
+  const commits = [
+    { sha: 'abc123', commit: { message: 'docs: update readme' } },
+  ];
+  const files = [
+    { filename: 'README.md' },
+  ];
+
+  let updateCalled = false;
+  const github = {
+    rest: {
+      pulls: {
+        async get() {
+          return { data: { body: prBody } };
+        },
+        async update() {
+          updateCalled = true;
+          return { data: {} };
+        },
+        async listFiles() {
+          return { data: files };
+        },
+      },
+      repos: {
+        async compareCommits() {
+          return { data: { commits } };
+        },
+      },
+    },
+  };
+
+  const result = await autoReconcileTasks({
+    github,
+    context: { repo: { owner: 'test', repo: 'repo' } },
+    prNumber: 1,
+    baseSha: 'base123',
+    headSha: 'head456',
+    core: buildCore(),
+  });
+
+  assert.equal(result.updated, false, 'Should not update PR body');
+  assert.equal(result.tasksChecked, 0, 'Should not check any tasks');
+  assert.equal(updateCalled, false, 'Should not call update API');
 });

@@ -25,6 +25,7 @@ jobs:
     outputs:
       pr_number: ${{ steps.evaluate.outputs.pr_number }}
       pr_ref: ${{ steps.evaluate.outputs.pr_ref }}
+      head_sha: ${{ steps.evaluate.outputs.head_sha }}
       action: ${{ steps.evaluate.outputs.action }}
       reason: ${{ steps.evaluate.outputs.reason }}
       gate_conclusion: ${{ steps.evaluate.outputs.gate_conclusion }}
@@ -111,6 +112,7 @@ jobs:
             const output = {
               pr_number: String(result.prNumber || ''),
               pr_ref: String(result.prRef || ''),
+              head_sha: String(result.headSha || ''),
               action: result.action || '',
               reason: result.reason || '',
               gate_conclusion: result.gateConclusion || '',
@@ -318,6 +320,41 @@ jobs:
           path: keepalive-metrics.ndjson
           retention-days: 30
           if-no-files-found: error
+
+      - name: Auto-reconcile task checkboxes
+        if: needs.run-codex.outputs.changes-made == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { autoReconcileTasks } = require('./.github/scripts/keepalive_loop.js');
+
+            const prNumber = Number('${{ needs.evaluate.outputs.pr_number }}') || 0;
+            const baseSha = '${{ needs.evaluate.outputs.head_sha }}';  // SHA before agent ran
+            const headSha = '${{ needs.run-codex.outputs.commit-sha }}';  // SHA after agent ran
+
+            if (!prNumber || !baseSha || !headSha) {
+              core.info('Missing required inputs for task reconciliation');
+              return;
+            }
+
+            core.info(`Auto-reconciling tasks for PR #${prNumber}`);
+            core.info(`Comparing ${baseSha.slice(0, 7)} → ${headSha.slice(0, 7)}`);
+
+            const result = await autoReconcileTasks({
+              github, context, prNumber, baseSha, headSha, core
+            });
+
+            if (result.updated) {
+              core.info(`✅ ${result.details}`);
+              core.notice(`Auto-checked ${result.tasksChecked} task(s) based on commit analysis`);
+            } else {
+              core.info(`ℹ️ ${result.details}`);
+            }
+
+            // Output for step summary
+            core.setOutput('tasks_checked', result.tasksChecked);
+            core.setOutput('reconciliation_details', result.details);
 
       - name: Update summary comment
         uses: actions/github-script@v7
