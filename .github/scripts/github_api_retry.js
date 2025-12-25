@@ -1,7 +1,6 @@
 'use strict';
 
 const { classifyError, ERROR_CATEGORIES } = require('./error_classifier');
-const { calculateBackoffDelay } = require('./api-helpers');
 
 const DEFAULT_RETRY_LIMITS = Object.freeze({
   read: 3,
@@ -13,6 +12,23 @@ const DEFAULT_RETRY_LIMITS = Object.freeze({
 
 const DEFAULT_BASE_DELAY_MS = 1000;
 const DEFAULT_MAX_DELAY_MS = 30000;
+
+/**
+ * Calculate delay with exponential backoff and jitter
+ * @param {number} attempt - Current attempt number (0-indexed)
+ * @param {number} baseDelay - Base delay in milliseconds
+ * @param {number} maxDelay - Maximum delay in milliseconds
+ * @returns {number} Calculated delay with jitter
+ */
+function calculateBackoffDelay(attempt, baseDelay = DEFAULT_BASE_DELAY_MS, maxDelay = DEFAULT_MAX_DELAY_MS) {
+  // Exponential backoff: baseDelay * 2^attempt
+  const exponentialDelay = baseDelay * Math.pow(2, attempt);
+  // Cap at max delay
+  const cappedDelay = Math.min(exponentialDelay, maxDelay);
+  // Add jitter (±25%)
+  const jitter = cappedDelay * 0.25 * (Math.random() * 2 - 1);
+  return Math.round(cappedDelay + jitter);
+}
 
 function normaliseHeaders(headers) {
   if (!headers || typeof headers !== 'object') {
@@ -135,4 +151,5 @@ module.exports = {
   resolveMaxRetries,
   computeRetryDelayMs,
   withGithubApiRetry,
+  calculateBackoffDelay,
 };

@@ -208,13 +208,12 @@ function upsertBlock(body, marker, replacement) {
 /**
  * Simple retry wrapper with linear backoff for general API errors.
  * 
- * Note: This differs from api-helpers.js `withBackoff` which specifically handles
- * rate limit errors (403/429) with exponential backoff and reset time extraction.
- * This function retries any error type with simple linear delay, suitable for
- * transient network/server errors during PR body updates.
+ * Note: api-helpers.js now has `withBackoff` which handles all transient errors
+ * (not just rate limits) with exponential backoff. This function uses linear delay
+ * which may be preferred for specific use cases in PR body updates.
  * 
  * @param {Function} fn - Async function to retry
- * @param {Object} options - Configuration options
+ * @param {Object} [options] - Retry configuration options
  * @param {number} [options.attempts=3] - Number of attempts
  * @param {number} [options.delayMs=1000] - Base delay between attempts in ms
  * @param {string} [options.description] - Label for logging

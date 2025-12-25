@@ -7,6 +7,8 @@
  * This module addresses Issue R-1 from WorkflowSystemBugReport.md
  */
 
+const { withGithubApiRetry, calculateBackoffDelay } = require('./github_api_retry');
+
 const DEFAULT_MAX_RETRIES = 3;
 const DEFAULT_BASE_DELAY_MS = 1000;
 const DEFAULT_MAX_DELAY_MS = 30000;
@@ -56,23 +58,6 @@ function isSecondaryRateLimitError(error) {
  */
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-/**
- * Calculate delay with exponential backoff and jitter
- * @param {number} attempt - Current attempt number (0-indexed)
- * @param {number} baseDelay - Base delay in milliseconds
- * @param {number} maxDelay - Maximum delay in milliseconds
- * @returns {number} Calculated delay with jitter
- */
-function calculateBackoffDelay(attempt, baseDelay = DEFAULT_BASE_DELAY_MS, maxDelay = DEFAULT_MAX_DELAY_MS) {
-  // Exponential backoff: baseDelay * 2^attempt
-  const exponentialDelay = baseDelay * Math.pow(2, attempt);
-  // Cap at max delay
-  const cappedDelay = Math.min(exponentialDelay, maxDelay);
-  // Add jitter (±25%)
-  const jitter = cappedDelay * 0.25 * (Math.random() * 2 - 1);
-  return Math.round(cappedDelay + jitter);
 }
 
 /**
@@ -160,49 +145,25 @@ async function paginateWithBackoff(github, method, params, options = {}) {
     core = null,
   } = options;
 
-  let lastError = null;
-
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      return await github.paginate(method, params);
-    } catch (error) {
-      lastError = error;
-
-      // Check if this is a rate limit error we should retry
-      const isRateLimit = isRateLimitError(error);
-      const isSecondaryLimit = isSecondaryRateLimitError(error);
-
-      if (!isRateLimit && !isSecondaryLimit) {
-        // Not a rate limit error, throw immediately
-        throw error;
-      }
-
-      // Check if we have retries left
-      if (attempt >= maxRetries) {
-        log(core, 'error', `Rate limit exhausted after ${maxRetries + 1} attempts. Giving up.`);
-        throw error;
-      }
-
-      // Calculate wait time
-      let delay;
-      if (isSecondaryLimit) {
-        // Secondary rate limits require longer waits
-        const resetTime = extractRateLimitReset(error);
-        delay = resetTime ? calculateWaitUntilReset(resetTime) : calculateBackoffDelay(attempt + 2, baseDelay, maxDelay);
-      } else {
-        const resetTime = extractRateLimitReset(error);
-        delay = resetTime ? calculateWaitUntilReset(resetTime) : calculateBackoffDelay(attempt, baseDelay, maxDelay);
-      }
-
-      const limitType = isSecondaryLimit ? 'secondary rate limit' : 'rate limit';
-      log(core, 'warning', `Hit ${limitType}. Retrying in ${Math.round(delay / 1000)}s (attempt ${attempt + 1}/${maxRetries + 1})`);
-
-      await sleep(delay);
+  // Use withGithubApiRetry for comprehensive transient error handling
+  return withGithubApiRetry(
+    () => github.paginate(method, params),
+    {
+      operation: 'read', // Pagination is typically a read operation
+      label: 'GitHub API pagination',
+      maxRetriesByOperation: {
+        read: maxRetries,
+        write: maxRetries,
+        dispatch: maxRetries,
+        admin: maxRetries,
+        unknown: maxRetries,
+      },
+      baseDelay,
+      maxDelay,
+      core,
+      backoffFn: calculateBackoffDelay,
     }
-  }
-
-  // Should not reach here, but just in case
-  throw lastError || new Error('Pagination failed with unknown error');
+  );
 }
 
 /**
@@ -225,43 +186,22 @@ async function withBackoff(apiCall, options = {}) {
     core = null,
   } = options;
 
-  let lastError = null;
-
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      return await apiCall();
-    } catch (error) {
-      lastError = error;
-
-      const isRateLimit = isRateLimitError(error);
-      const isSecondaryLimit = isSecondaryRateLimitError(error);
-
-      if (!isRateLimit && !isSecondaryLimit) {
-        throw error;
-      }
-
-      if (attempt >= maxRetries) {
-        log(core, 'error', `Rate limit exhausted after ${maxRetries + 1} attempts. Giving up.`);
-        throw error;
-      }
-
-      let delay;
-      if (isSecondaryLimit) {
-        const resetTime = extractRateLimitReset(error);
-        delay = resetTime ? calculateWaitUntilReset(resetTime) : calculateBackoffDelay(attempt + 2, baseDelay, maxDelay);
-      } else {
-        const resetTime = extractRateLimitReset(error);
-        delay = resetTime ? calculateWaitUntilReset(resetTime) : calculateBackoffDelay(attempt, baseDelay, maxDelay);
-      }
-
-      const limitType = isSecondaryLimit ? 'secondary rate limit' : 'rate limit';
-      log(core, 'warning', `Hit ${limitType}. Retrying in ${Math.round(delay / 1000)}s (attempt ${attempt + 1}/${maxRetries + 1})`);
-
-      await sleep(delay);
-    }
-  }
-
-  throw lastError || new Error('API call failed with unknown error');
+  // Use withGithubApiRetry for comprehensive transient error handling
+  return withGithubApiRetry(apiCall, {
+    operation: 'read', // Default to read operation
+    label: 'GitHub API call',
+    maxRetriesByOperation: {
+      read: maxRetries,
+      write: maxRetries,
+      dispatch: maxRetries,
+      admin: maxRetries,
+      unknown: maxRetries,
+    },
+    baseDelay,
+    maxDelay,
+    core,
+    backoffFn: calculateBackoffDelay,
+  });
 }
 
 /**
@@ -375,7 +315,6 @@ module.exports = {
   isRateLimitError,
   isSecondaryRateLimitError,
   sleep,
-  calculateBackoffDelay,
   extractRateLimitReset,
   calculateWaitUntilReset,
 

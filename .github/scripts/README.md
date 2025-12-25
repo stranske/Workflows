@@ -16,6 +16,30 @@ between jobs and covered by lightweight unit tests.
   steps can invoke them with a simple `python .github/scripts/<name>.py`
   command.
 
+## Retry Logic for GitHub API Calls
+
+To handle transient failures (rate limits, timeouts, network issues), use the retry helpers from `api-helpers.js`:
+
+```javascript
+const { withBackoff, paginateWithBackoff } = require('./api-helpers');
+
+// For single API calls
+const result = await withBackoff(
+  () => github.rest.pulls.get({ owner, repo, pull_number: 123 }),
+  { core, maxRetries: 3 }
+);
+
+// For paginated calls
+const items = await paginateWithBackoff(
+  github,
+  github.rest.issues.listComments,
+  { owner, repo, issue_number: 123 },
+  { core, maxRetries: 3 }
+);
+```
+
+These helpers automatically retry transient errors (503, 504, rate limits, timeouts) with exponential backoff and jitter.
+
 ## Tests
 
 Minimal Node and Python unit tests live alongside the scripts under

@@ -1,6 +1,6 @@
 'use strict';
 
-const { paginateWithBackoff } = require('./api-helpers.js');
+const { paginateWithBackoff, withBackoff } = require('./api-helpers.js');
 
 const KEEPALIVE_LABEL = 'agents:keepalive';
 const AGENT_LABEL_PREFIX = 'agent:';
@@ -16,7 +16,7 @@ const ORCHESTRATOR_WORKFLOW_FILE = 'agents-70-orchestrator.yml';
 const WORKER_WORKFLOW_FILE = 'agents-72-codex-belt-worker.yml';
 const RECENT_COMPLETED_LOOKBACK_SECONDS = 300; // 5 minutes
 
-// Rate limit retry configuration
+// Rate limit retry configuration - now handled by api-helpers
 const RATE_LIMIT_MAX_RETRIES = 3;
 const RATE_LIMIT_BASE_DELAY_MS = 2000;
 
@@ -44,40 +44,6 @@ function isRateLimitError(error) {
     /rate\s*limit/i.test(message) ||
     /secondary\s*rate\s*limit/i.test(message)
   );
-}
-
-/**
- * Execute a GitHub API call with exponential backoff retry on rate limit errors.
- * @template T
- * @param {() => Promise<T>} fn - The API call to execute
- * @param {Object} [options]
- * @param {number} [options.maxRetries=3] - Maximum retry attempts
- * @param {number} [options.baseDelayMs=2000] - Base delay in milliseconds
- * @param {Object} [options.core] - GitHub Actions core for logging
- * @returns {Promise<T>}
- */
-async function withRateLimitRetry(fn, options = {}) {
-  const maxRetries = options.maxRetries ?? RATE_LIMIT_MAX_RETRIES;
-  const baseDelayMs = options.baseDelayMs ?? RATE_LIMIT_BASE_DELAY_MS;
-  const core = options.core;
-
-  let lastError;
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      return await fn();
-    } catch (error) {
-      lastError = error;
-      if (!isRateLimitError(error) || attempt >= maxRetries) {
-        throw error;
-      }
-      const delay = baseDelayMs * Math.pow(2, attempt);
-      if (core?.info) {
-        core.info(`Rate limited, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);
-      }
-      await sleep(delay);
-    }
-  }
-  throw lastError;
 }
 
 function toInteger(value) {
@@ -814,9 +780,9 @@ async function evaluateRunCapForPr({
 
   let pull;
   try {
-    const response = await withRateLimitRetry(
+    const response = await withBackoff(
       () => github.rest.pulls.get({ owner, repo, pull_number: number }),
-      { core }
+      { core, maxRetries: RATE_LIMIT_MAX_RETRIES, baseDelay: RATE_LIMIT_BASE_DELAY_MS }
     );
     pull = response.data;
   } catch (error) {
@@ -927,9 +893,9 @@ async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
   let pr = pullRequest || null;
   if (!pr) {
     try {
-      const response = await withRateLimitRetry(
+      const response = await withBackoff(
         () => github.rest.pulls.get({ owner, repo, pull_number: prNumber }),
-        { core }
+        { core, maxRetries: RATE_LIMIT_MAX_RETRIES, baseDelay: RATE_LIMIT_BASE_DELAY_MS }
       );
       pr = response.data;
     } catch (error) {
