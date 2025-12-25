@@ -130,7 +130,7 @@ Copy relevant sections from the original issue to maintain context:
 ```markdown
 ## Why
 
-<!-- Preserved from parent issue #100 -->
+<!-- Preserved from parent issue -->
 The API needs to return actionable error messages so clients can 
 recover gracefully from failures.
 
