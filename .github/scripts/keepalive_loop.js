@@ -887,8 +887,8 @@ async function analyzeTaskCompletion({ github, context, prNumber, baseSha, headS
   });
 
   // Match tasks to commits/files
-  for (const task of taskLines) {
-    const taskLower = task.toLowerCase();
+    let confidence;
+    let reason;
     const taskWords = taskLower.match(/\b[a-z_-]{3,}\b/g) || [];
     
     // Calculate overlap score
