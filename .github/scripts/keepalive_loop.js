@@ -828,13 +828,13 @@ async function analyzeTaskCompletion({ github, context, prNumber, baseSha, headS
 
   if (!taskText || !baseSha || !headSha) {
     return { matches, summary: 'Insufficient data for task analysis' };
-  }
-
-  // Get commits between base and head
-  let commits = [];
-  try {
-    const { data } = await github.rest.repos.compareCommits({
+    const allFiles = await github.paginate(github.rest.pulls.listFiles, {
       owner: context.repo.owner,
+      repo: context.repo.repo,
+      pull_number: prNumber,
+      per_page: 100,
+    });
+    filesChanged = allFiles.map(f => f.filename);
       repo: context.repo.repo,
       base: baseSha,
       head: headSha,
