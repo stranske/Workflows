@@ -50,6 +50,14 @@ test('classifyError returns logic for validation errors', () => {
   assert.equal(result.category, ERROR_CATEGORIES.logic);
 });
 
+test('classifyError inspects nested API error details', () => {
+  const result = classifyError({
+    status: 400,
+    response: { data: { errors: [{ message: 'Missing required field: title' }] } },
+  });
+  assert.equal(result.category, ERROR_CATEGORIES.logic);
+});
+
 test('classifyError returns unknown when no signals are present', () => {
   const result = classifyError({ message: '' });
   assert.equal(result.category, ERROR_CATEGORIES.unknown);

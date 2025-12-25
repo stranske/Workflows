@@ -18,18 +18,25 @@ const RECOVERY_ACTIONS = Object.freeze({
 
 const TRANSIENT_PATTERNS = [
   'rate limit',
+  'rate-limited',
   'ratelimit',
   'secondary rate',
+  'too many requests',
   'abuse detection',
   'timeout',
+  'request timeout',
+  'timeout exceeded',
   'timed out',
   'etimedout',
   'econnreset',
   'econnrefused',
+  'connection reset',
+  'connection aborted',
   'socket hang up',
   'network',
   'enotfound',
   'temporarily unavailable',
+  'temporary failure',
   'service unavailable',
   'bad gateway',
   'gateway timeout',
@@ -42,7 +49,13 @@ const AUTH_PATTERNS = [
   'requires authentication',
   'not authorized',
   'forbidden',
+  'permission denied',
+  'access denied',
   'insufficient scopes',
+  'insufficient permission',
+  'token expired',
+  'expired token',
+  'missing token',
   'authentication',
   'invalid token',
 ];
@@ -51,6 +64,13 @@ const RESOURCE_PATTERNS = [
   'not found',
   'does not exist',
   'unknown repository',
+  'no such repository',
+  'repository not found',
+  'workflow not found',
+  'branch not found',
+  'ref not found',
+  'no such issue',
+  'unknown issue',
   'no such',
   'gone',
   'missing',
@@ -60,11 +80,17 @@ const RESOURCE_PATTERNS = [
 const LOGIC_PATTERNS = [
   'validation failed',
   'unprocessable',
+  'unprocessable entity',
   'invalid',
   'bad request',
+  'invalid request',
   'conflict',
   'already exists',
+  'duplicate',
+  'missing required',
+  'required field',
   'cannot be blank',
+  'failed to validate',
   'failed to parse',
   'unexpected token',
 ];
@@ -77,6 +103,19 @@ function normaliseMessage(error) {
     error?.response?.data?.error,
     error?.response?.statusText,
   ];
+  const nestedErrors = error?.response?.data?.errors;
+  if (Array.isArray(nestedErrors)) {
+    for (const entry of nestedErrors) {
+      if (!entry) {
+        continue;
+      }
+      if (typeof entry === 'string') {
+        rawParts.push(entry);
+      } else if (typeof entry === 'object') {
+        rawParts.push(entry.message, entry.code);
+      }
+    }
+  }
   const message = rawParts.filter(Boolean).join(' ');
   return String(message).trim().toLowerCase();
 }
@@ -113,6 +152,9 @@ function classifyByStatus(status, message) {
     return ERROR_CATEGORIES.transient;
   }
   if (status === 400 || status === 409 || status === 422) {
+    return ERROR_CATEGORIES.logic;
+  }
+  if (status === 412) {
     return ERROR_CATEGORIES.logic;
   }
   return null;
