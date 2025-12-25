@@ -34,6 +34,36 @@ function toNumber(value, fallback = 0) {
   return Number.isFinite(fallback) ? Number(fallback) : 0;
 }
 
+async function writeStepSummary({
+  core,
+  iteration,
+  maxIterations,
+  tasksTotal,
+  tasksUnchecked,
+  agentFilesChanged,
+  outcome,
+}) {
+  if (!core?.summary || typeof core.summary.addRaw !== 'function') {
+    return;
+  }
+  const total = Number.isFinite(tasksTotal) ? tasksTotal : 0;
+  const unchecked = Number.isFinite(tasksUnchecked) ? tasksUnchecked : 0;
+  const completed = Math.max(0, total - unchecked);
+  const iterationLabel = maxIterations > 0 ? `${iteration}/${maxIterations}` : `${iteration}/∞`;
+  const filesChanged = Number.isFinite(agentFilesChanged) ? agentFilesChanged : 0;
+  const summaryLines = [
+    '### Keepalive iteration summary',
+    '',
+    '| Field | Value |',
+    '| --- | --- |',
+    `| Iteration | ${iterationLabel} |`,
+    `| Tasks completed | ${completed}/${total} |`,
+    `| Files changed | ${filesChanged} |`,
+    `| Outcome | ${outcome || 'unknown'} |`,
+  ];
+  await core.summary.addRaw(summaryLines.join('\n')).addEOL().write();
+}
+
 function countCheckboxes(markdown) {
   const result = { total: 0, checked: 0, unchecked: 0 };
   const regex = /(?:^|\n)\s*(?:[-*+]|\d+[.)])\s*\[( |x|X)\]/g;
@@ -621,6 +651,19 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
     needs_task_reconciliation: madeChangesButNoTasksChecked,
     last_files_changed: agentFilesChanged,
   };
+
+  const summaryOutcome = runResult || summaryReason || action || 'unknown';
+  if (action === 'run' || runResult) {
+    await writeStepSummary({
+      core,
+      iteration: nextIteration,
+      maxIterations,
+      tasksTotal,
+      tasksUnchecked,
+      agentFilesChanged,
+      outcome: summaryOutcome,
+    });
+  }
 
   summaryLines.push('', formatStateComment(newState));
   const body = summaryLines.join('\n');

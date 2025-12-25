@@ -297,6 +297,61 @@ test('updateKeepaliveLoopSummary increments iteration and clears failures on suc
   assert.match(github.actions[0].body, /"failure":\{\}/);
 });
 
+test('updateKeepaliveLoopSummary writes step summary for agent runs', async () => {
+  const summary = {
+    buffer: '',
+    written: false,
+    addRaw(text) {
+      this.buffer += text;
+      return this;
+    },
+    addEOL() {
+      this.buffer += '\n';
+      return this;
+    },
+    async write() {
+      this.written = true;
+    },
+  };
+  const core = { info() {}, summary };
+  const existingState = formatStateComment({
+    trace: 'trace-summary',
+    iteration: 0,
+    max_iterations: 5,
+  });
+  const github = buildGithubStub({
+    comments: [{ id: 55, body: existingState, html_url: 'https://example.com/55' }],
+  });
+
+  await updateKeepaliveLoopSummary({
+    github,
+    context: buildContext(789),
+    core,
+    inputs: {
+      prNumber: 789,
+      action: 'run',
+      runResult: 'success',
+      gateConclusion: 'success',
+      tasksTotal: 5,
+      tasksUnchecked: 3,
+      keepaliveEnabled: true,
+      autofixEnabled: false,
+      iteration: 0,
+      maxIterations: 5,
+      failureThreshold: 3,
+      trace: 'trace-summary',
+      agent_files_changed: 2,
+    },
+  });
+
+  assert.equal(summary.written, true);
+  assert.match(summary.buffer, /Keepalive iteration summary/);
+  assert.match(summary.buffer, /Iteration \| 1\/5/);
+  assert.match(summary.buffer, /Tasks completed \| 2\/5/);
+  assert.match(summary.buffer, /Files changed \| 2/);
+  assert.match(summary.buffer, /Outcome \| success/);
+});
+
 test('updateKeepaliveLoopSummary uses state iteration when inputs have stale value', async () => {
   // Simulates race condition: evaluate ran with stale iteration=0, but state was updated to iteration=2
   const existingState = formatStateComment({
