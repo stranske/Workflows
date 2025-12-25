@@ -20,15 +20,19 @@ const SECTION_ORDER = ['source', 'why', 'scope', 'nonGoals', 'tasks', 'acceptanc
  */
 function similarityScore(a, b) {
   const normalize = (s) => String(s || '').toLowerCase().replace(/[^\w\s]/g, '').trim();
-  const wordsA = new Set(normalize(a).split(/\s+/).filter(Boolean));
-  const wordsB = new Set(normalize(b).split(/\s+/).filter(Boolean));
-  
-  if (wordsA.size === 0 && wordsB.size === 0) return 1;
-  if (wordsA.size === 0 || wordsB.size === 0) return 0;
-  
-  const intersection = new Set([...wordsA].filter(w => wordsB.has(w)));
+  const normalizedA = normalize(a);
+  const normalizedB = normalize(b);
+
+  // If either side is empty or whitespace-only, treat as no similarity for filtering purposes.
+  if (!normalizedA || !normalizedB) {
+    return 0;
+  }
+
+  const wordsA = new Set(normalizedA.split(/\s+/).filter(Boolean));
+  const wordsB = new Set(normalizedB.split(/\s+/).filter(Boolean));
+
+  const intersection = new Set([...wordsA].filter((w) => wordsB.has(w)));
   const union = new Set([...wordsA, ...wordsB]);
-  
   return intersection.size / union.size;
 }
 
