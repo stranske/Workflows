@@ -123,7 +123,7 @@ Your objective is to satisfy the **Acceptance Criteria** by completing each **Ta
 ---
 ## PR Tasks and Acceptance Criteria
 
-**Progress:** 0/33 tasks complete, 33 remaining
+**Progress:** 6/33 tasks complete, 27 remaining
 
 ### ⚠️ IMPORTANT: Task Reconciliation Required
 
@@ -153,13 +153,13 @@ Complete these in order. Mark checkbox done ONLY after implementation is verifie
 - [ ] Verify Codex works on actual tasks (not random infrastructure work)
 - [ ] Verify keepalive comment updates with iteration progress
 - [ ] ### GITHUB_STEP_SUMMARY
-- [ ] Add step summary output to `agents-keepalive-loop.yml` after agent run
-- [ ] Include: iteration number, tasks completed, files changed, outcome
-- [ ] Ensure summary is visible in workflow run UI
+- [x] Add step summary output to `agents-keepalive-loop.yml` after agent run
+- [x] Include: iteration number, tasks completed, files changed, outcome
+- [x] Ensure summary is visible in workflow run UI
 - [ ] ### Conditional Status Summary
-- [ ] Modify `buildStatusBlock()` in `agents_pr_meta_update_body.js` to accept `agentType` parameter
-- [ ] When `agentType` is set (CLI agent): hide workflow table, hide head SHA/required checks
-- [ ] Keep Scope/Tasks/Acceptance checkboxes for all cases
+- [x] Modify `buildStatusBlock()` in `agents_pr_meta_update_body.js` to accept `agentType` parameter
+- [x] When `agentType` is set (CLI agent): hide workflow table, hide head SHA/required checks
+- [x] Keep Scope/Tasks/Acceptance checkboxes for all cases
 - [ ] Pass agent type from workflow to the update_body job
 - [ ] ### Comment Pattern Cleanup
 - [ ] **For CLI agents (`agent:*` label):**
@@ -185,21 +185,21 @@ The PR is complete when ALL of these are satisfied:
 - [ ] ## Dependencies
 - [ ] - Requires PR #103 to be merged first
 
-**Head SHA:** 41f61e83637280feed40d9527a23c9e16d70c887
+**Head SHA:** 4ca6598e1972a68630f407046c520566d8f45e2a
 **Latest Runs:** ✅ success — Gate
 **Required:** gate: ✅ success
 
 | Workflow / Job | Result | Logs |
 |----------------|--------|------|
-| Agents PR meta manager | ❔ in progress | [View run](https://github.com/stranske/Workflows/actions/runs/20499256944) |
-| CI Autofix Loop | ✅ success | [View run](https://github.com/stranske/Workflows/actions/runs/20499242610) |
-| Gate | ✅ success | [View run](https://github.com/stranske/Workflows/actions/runs/20499242606) |
-| Health 40 Sweep | ✅ success | [View run](https://github.com/stranske/Workflows/actions/runs/20499242605) |
-| Health 44 Gate Branch Protection | ✅ success | [View run](https://github.com/stranske/Workflows/actions/runs/20499242584) |
-| Health 45 Agents Guard | ✅ success | [View run](https://github.com/stranske/Workflows/actions/runs/20499242586) |
-| Health 50 Security Scan | ✅ success | [View run](https://github.com/stranske/Workflows/actions/runs/20499242583) |
-| Maint 52 Validate Workflows | ✅ success | [View run](https://github.com/stranske/Workflows/actions/runs/20499242578) |
-| PR 11 - Minimal invariant CI | ✅ success | [View run](https://github.com/stranske/Workflows/actions/runs/20499242580) |
-| Selftest CI | ✅ success | [View run](https://github.com/stranske/Workflows/actions/runs/20499242571) |
+| Agents PR meta manager | ❔ in progress | [View run](https://github.com/stranske/Workflows/actions/runs/20499347902) |
+| CI Autofix Loop | ✅ success | [View run](https://github.com/stranske/Workflows/actions/runs/20499329380) |
+| Gate | ✅ success | [View run](https://github.com/stranske/Workflows/actions/runs/20499329381) |
+| Health 40 Sweep | ✅ success | [View run](https://github.com/stranske/Workflows/actions/runs/20499329373) |
+| Health 44 Gate Branch Protection | ✅ success | [View run](https://github.com/stranske/Workflows/actions/runs/20499329346) |
+| Health 45 Agents Guard | ✅ success | [View run](https://github.com/stranske/Workflows/actions/runs/20499329335) |
+| Health 50 Security Scan | ✅ success | [View run](https://github.com/stranske/Workflows/actions/runs/20499329356) |
+| Maint 52 Validate Workflows | ✅ success | [View run](https://github.com/stranske/Workflows/actions/runs/20499329341) |
+| PR 11 - Minimal invariant CI | ✅ success | [View run](https://github.com/stranske/Workflows/actions/runs/20499329349) |
+| Selftest CI | ✅ success | [View run](https://github.com/stranske/Workflows/actions/runs/20499329351) |
 
 ---

@@ -10,6 +10,7 @@ const {
   extractBlock,
   fetchConnectorCheckboxStates,
   buildStatusBlock,
+  resolveAgentType,
 } = require('../agents_pr_meta_update_body.js');
 
 test('parseCheckboxStates extracts checked items from a checkbox list', () => {
@@ -318,6 +319,36 @@ test('fetchConnectorCheckboxStates handles comments with null user', async () =>
 
   assert.strictEqual(states.size, 1);
   assert.strictEqual(states.get('valid task'), true);
+});
+
+test('resolveAgentType prefers explicit inputs over labels', () => {
+  const agentType = resolveAgentType({
+    inputs: { agent_type: 'codex' },
+    env: { AGENT_TYPE: 'claude' },
+    pr: { labels: [{ name: 'agent:gemini' }] },
+  });
+
+  assert.strictEqual(agentType, 'codex');
+});
+
+test('resolveAgentType falls back to agent label when inputs are missing', () => {
+  const agentType = resolveAgentType({
+    inputs: {},
+    env: {},
+    pr: { labels: [{ name: 'priority:high' }, { name: 'agent:codex' }] },
+  });
+
+  assert.strictEqual(agentType, 'codex');
+});
+
+test('resolveAgentType returns empty string when no agent source is available', () => {
+  const agentType = resolveAgentType({
+    inputs: {},
+    env: {},
+    pr: { labels: [{ name: 'needs-human' }] },
+  });
+
+  assert.strictEqual(agentType, '');
 });
 
 test('buildStatusBlock hides workflow details for CLI agents', () => {

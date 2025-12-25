@@ -27,6 +27,10 @@ function normalizeWhitespace(text) {
     .trim();
 }
 
+function normalise(value) {
+  return String(value ?? '').trim();
+}
+
 function extractSection(body, heading) {
   if (!body || !heading) {
     return '';
@@ -75,6 +79,26 @@ function parseCheckboxStates(block) {
     }
   }
   return states;
+}
+
+function resolveAgentType({ inputs = {}, env = {}, pr = {} } = {}) {
+  const explicit = normalise(inputs.agent_type || inputs.agentType || env.AGENT_TYPE);
+  if (explicit) {
+    return explicit;
+  }
+  const labels = Array.isArray(pr.labels) ? pr.labels : [];
+  for (const label of labels) {
+    const name = typeof label === 'string' ? label : label?.name;
+    const trimmed = normalise(name);
+    if (!trimmed) {
+      continue;
+    }
+    const match = trimmed.match(/^agent\s*:\s*(.+)$/i);
+    if (match && match[1]) {
+      return match[1].trim().toLowerCase();
+    }
+  }
+  return '';
 }
 
 /**
@@ -661,7 +685,7 @@ async function run({github, context, core, inputs}) {
   // Fetch checkbox states from connector bot comments to merge into status summary
   const connectorStates = await fetchConnectorCheckboxStates(github, owner, repo, pr.number, core);
 
-  const agentType = inputs?.agent_type || inputs?.agentType || process.env.AGENT_TYPE || '';
+  const agentType = resolveAgentType({ inputs, env: process.env, pr });
 
   const statusBlock = buildStatusBlock({
     scope,
@@ -710,5 +734,6 @@ module.exports = {
   buildPreamble,
   buildStatusBlock,
   withRetries,
+  resolveAgentType,
   discoverPr,
 };
