@@ -190,31 +190,37 @@ jobs:
             console.log(`Created issue: ${title}`);
 
       - name: Summary
+        env:
+          STATUS: ${{ steps.check.outputs.status }}
+          EXISTING: ${{ steps.existing.outputs.result }}
+          FORCE_CHECK: ${{ inputs.force_check }}
+          EXPIRES_AT: ${{ steps.check.outputs.expires_at }}
+          DAYS_LEFT: ${{ steps.check.outputs.days_left }}
+          HOURS_LEFT: ${{ steps.check.outputs.hours_left }}
         run: |
-          echo "## Codex Auth Check Results" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## Codex Auth Check Results"
+            echo ""
 
-          STATUS="${{ steps.check.outputs.status }}"
-          EXISTING="${{ steps.existing.outputs.result }}"
-
-          if [ "$EXISTING" = "true" ] && [ "${{ inputs.force_check }}" != "true" ]; then
-            echo "⏭️ **Skipped** - Open issue already exists for auth expiration" >> $GITHUB_STEP_SUMMARY
-          elif [ -z "$STATUS" ]; then
-            echo "⏭️ **Skipped** - Check was not run" >> $GITHUB_STEP_SUMMARY
-          elif [ "$STATUS" = "ok" ]; then
-            echo "✅ **Token OK** - Expires ${{ steps.check.outputs.expires_at }} (${{ steps.check.outputs.days_left }} days)" >> $GITHUB_STEP_SUMMARY
-          elif [ "$STATUS" = "expiring" ]; then
-            echo "ℹ️ **Token expiring** - Expires ${{ steps.check.outputs.expires_at }} (${{ steps.check.outputs.days_left }} days)" >> $GITHUB_STEP_SUMMARY
-          elif [ "$STATUS" = "expiring-soon" ]; then
-            echo "⚠️ **Token expiring soon** - Expires ${{ steps.check.outputs.expires_at }} (${{ steps.check.outputs.hours_left }} hours)" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "🎫 Issue created to prompt token refresh" >> $GITHUB_STEP_SUMMARY
-          elif [ "$STATUS" = "expired" ]; then
-            echo "🚨 **Token EXPIRED** - Was due ${{ steps.check.outputs.expires_at }}" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "🎫 Issue created - CI agents are broken" >> $GITHUB_STEP_SUMMARY
-          elif [ "$STATUS" = "missing" ]; then
-            echo "❌ **Secret missing** - CODEX_AUTH_JSON is not set" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "⚠️ **Unknown status**: $STATUS" >> $GITHUB_STEP_SUMMARY
-          fi
+            if [ "$EXISTING" = "true" ] && [ "$FORCE_CHECK" != "true" ]; then
+              echo "⏭️ **Skipped** - Open issue already exists for auth expiration"
+            elif [ -z "$STATUS" ]; then
+              echo "⏭️ **Skipped** - Check was not run"
+            elif [ "$STATUS" = "ok" ]; then
+              echo "✅ **Token OK** - Expires $EXPIRES_AT ($DAYS_LEFT days)"
+            elif [ "$STATUS" = "expiring" ]; then
+              echo "ℹ️ **Token expiring** - Expires $EXPIRES_AT ($DAYS_LEFT days)"
+            elif [ "$STATUS" = "expiring-soon" ]; then
+              echo "⚠️ **Token expiring soon** - Expires $EXPIRES_AT ($HOURS_LEFT hours)"
+              echo ""
+              echo "🎫 Issue created to prompt token refresh"
+            elif [ "$STATUS" = "expired" ]; then
+              echo "🚨 **Token EXPIRED** - Was due $EXPIRES_AT"
+              echo ""
+              echo "🎫 Issue created - CI agents are broken"
+            elif [ "$STATUS" = "missing" ]; then
+              echo "❌ **Secret missing** - CODEX_AUTH_JSON is not set"
+            else
+              echo "⚠️ **Unknown status**: $STATUS"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
