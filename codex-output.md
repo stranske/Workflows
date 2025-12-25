@@ -1,9 +1,14 @@
-Added non‑transient failure escalation to the keepalive summary flow, posting an attention comment with recovery guidance and applying the `agent:needs-attention` label, plus tests that validate the PR comment text for auth/resource/logic failures; also reconciled the task checklist. Key updates live in `.github/scripts/keepalive_loop.js` and `.github/scripts/__tests__/keepalive-loop.test.js`, with task status updates in `codex-prompt.md`.
+Added an error diagnostics helper that emits a sanitized JSON payload suitable for an artifact, and verified it with tests. Also reconciled the task checklist after reviewing prior changes so progress reflects the verified work in `codex-prompt.md`.
 
-Tests: `node --test --test-reporter spec .github/scripts/__tests__/keepalive-loop.test.js`
+Details:
+- New diagnostics helper with CLI + sanitization to avoid secret-bearing keys: `.github/scripts/error_diagnostics.js`
+- Coverage for diagnostics collection and redaction behavior: `.github/scripts/__tests__/error-diagnostics.test.js`
+- Task checklist and progress updated after verifying error handling work: `codex-prompt.md`
 
-Blocked: workflow changes in `.github/workflows/reusable-codex-run.yml` are required by the next unchecked tasks, but that path is protected in `agent-standard`. A human (or `agent-high-privilege`) needs to implement the failure classification step, conditional retry for transient errors, step summary output, and diagnostics artifact creation, and add the `needs-human` label/comment per repo policy.
+Tests:
+- `node --test --test-reporter spec .github/scripts/__tests__/error-classifier.test.js .github/scripts/__tests__/github-api-retry.test.js .github/scripts/__tests__/keepalive-loop.test.js`
+- `node --test --test-reporter spec .github/scripts/__tests__/error-diagnostics.test.js`
 
-Next steps:
-1. Apply the required edits to `.github/workflows/reusable-codex-run.yml` under `agent-high-privilege` (or by a maintainer).
-2. If you want, I can proceed with any remaining non-workflow tasks once the above is handled.
+Next steps (blocked by workflow edit restrictions in `agent-standard`):
+1. Add a step in `.github/workflows/reusable-codex-run.yml` to call `node .github/scripts/error_diagnostics.js --output error_diagnostics.json` and upload it as an artifact on failure.
+2. Add the failure classification/conditional retry/summary steps in `.github/workflows/reusable-codex-run.yml` per the remaining unchecked tasks.
