@@ -1,0 +1,220 @@
+# Scheduled check for Codex auth token expiration
+# Creates an issue when token is close to expiring to prompt manual refresh
+name: Health 46 Codex Auth Check
+
+on:
+  schedule:
+    # Run twice daily at 8am and 8pm UTC
+    - cron: '0 8,20 * * *'
+  workflow_dispatch:
+    inputs:
+      force_check:
+        description: 'Force check even if issue exists'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check-expiration:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check for existing open issue
+        id: existing
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'auth-expiring',
+              per_page: 1
+            });
+            const exists = issues.data.length > 0;
+            console.log(`Existing auth-expiring issue: ${exists}`);
+            if (exists) {
+              console.log(`Issue #${issues.data[0].number}: ${issues.data[0].title}`);
+            }
+            return exists;
+          result-encoding: string
+
+      - name: Check token expiration
+        id: check
+        if: steps.existing.outputs.result != 'true' || inputs.force_check
+        env:
+          CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "$CODEX_AUTH_JSON" ]; then
+            echo "status=missing" >> "$GITHUB_OUTPUT"
+            echo "::error::CODEX_AUTH_JSON secret is not set"
+            exit 0
+          fi
+
+          # Write auth.json temporarily
+          mkdir -p ~/.codex
+          echo "$CODEX_AUTH_JSON" > ~/.codex/auth.json
+
+          # Check expiration with Python
+          python3 << 'PYEOF'
+          import json, base64, datetime, sys, os
+
+          auth_path = os.path.expanduser("~/.codex/auth.json")
+          gh_output = os.environ.get("GITHUB_OUTPUT", "/dev/null")
+
+          try:
+              with open(auth_path) as f:
+                  auth = json.load(f)
+              token = auth.get("tokens", {}).get("access_token", "")
+              if not token:
+                  with open(gh_output, "a") as out:
+                      out.write("status=invalid\n")
+                  print("No access token found")
+                  sys.exit(0)
+
+              parts = token.split(".")
+              if len(parts) != 3:
+                  with open(gh_output, "a") as out:
+                      out.write("status=invalid\n")
+                  print("Invalid JWT format")
+                  sys.exit(0)
+
+              payload = parts[1] + "=" * (4 - len(parts[1]) % 4)
+              data = json.loads(base64.urlsafe_b64decode(payload))
+              exp_time = datetime.datetime.fromtimestamp(data["exp"], tz=datetime.timezone.utc)
+              now = datetime.datetime.now(tz=datetime.timezone.utc)
+              diff = exp_time - now
+              days_left = diff.days
+              hours_left = diff.total_seconds() / 3600
+
+              print(f"Token expires: {exp_time.isoformat()}")
+              print(f"Days until expiration: {days_left}")
+              print(f"Hours until expiration: {hours_left:.1f}")
+
+              with open(gh_output, "a") as out:
+                  out.write(f"expires_at={exp_time.strftime('%Y-%m-%d %H:%M UTC')}\n")
+                  out.write(f"days_left={days_left}\n")
+                  out.write(f"hours_left={hours_left:.0f}\n")
+
+                  if days_left < 0:
+                      out.write("status=expired\n")
+                  elif days_left < 2:
+                      out.write("status=expiring-soon\n")
+                  elif days_left < 5:
+                      out.write("status=expiring\n")
+                  else:
+                      out.write("status=ok\n")
+
+          except Exception as e:
+              print(f"Error checking token: {e}")
+              with open(gh_output, "a") as out:
+                  out.write("status=error\n")
+          PYEOF
+
+          # Cleanup
+          rm -f ~/.codex/auth.json
+
+      - name: Create expiration warning issue
+        if: steps.check.outputs.status == 'expiring-soon' || steps.check.outputs.status == 'expired'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const status = '${{ steps.check.outputs.status }}';
+            const expiresAt = '${{ steps.check.outputs.expires_at }}';
+            const hoursLeft = '${{ steps.check.outputs.hours_left }}';
+            const daysLeft = '${{ steps.check.outputs.days_left }}';
+
+            const isExpired = status === 'expired';
+            const title = isExpired
+              ? '🚨 CODEX_AUTH_JSON has expired - CI agents broken'
+              : `⚠️ CODEX_AUTH_JSON expires in ${hoursLeft} hours`;
+
+            const body = `## Codex Authentication Token ${isExpired ? 'Expired' : 'Expiring Soon'}
+
+            ${isExpired
+              ? '**The token has already expired.** CI workflows using Codex are currently broken.'
+              : `**Token expires:** ${expiresAt} (${hoursLeft} hours / ${daysLeft} days remaining)`
+            }
+
+            ### Action Required
+
+            Run the device authentication flow to refresh the token:
+
+            \`\`\`bash
+            # 1. Authenticate with device code flow
+            codex login --device-auth
+
+            # 2. Follow the prompts:
+            #    - Go to https://auth.openai.com/codex/device
+            #    - Enter the code displayed in terminal
+            #    - Complete authentication
+
+            # 3. Copy the new auth.json content
+            cat ~/.codex/auth.json
+            \`\`\`
+
+            ### Update GitHub Secret
+
+            1. Go to [Repository Secrets](https://github.com/${context.repo.owner}/${context.repo.repo}/settings/secrets/actions)
+            2. Click on \`CODEX_AUTH_JSON\` → **Update**
+            3. Paste the JSON content from step 3 above
+            4. Click **Update secret**
+
+            ### Affected Workflows
+
+            - \`agents-keepalive-loop.yml\` - Codex agent task processing
+            - \`agents-autofix-loop.yml\` - Automated CI failure fixes
+            - \`agents-verifier.yml\` - PR verification
+            - \`reusable-codex-run.yml\` - Reusable Codex runner
+
+            ### Documentation
+
+            See [docs/ci/CHATGPT_SUBSCRIPTION_CI.md](https://github.com/${context.repo.owner}/${context.repo.repo}/blob/main/docs/ci/CHATGPT_SUBSCRIPTION_CI.md) for full details on ChatGPT subscription authentication in CI.
+
+            ---
+            *This issue was automatically created by the \`health-codex-auth-check\` workflow.*
+            `;
+
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: title,
+              body: body,
+              labels: ['auth-expiring', 'ci', 'priority:high']
+            });
+
+            console.log(`Created issue: ${title}`);
+
+      - name: Summary
+        run: |
+          echo "## Codex Auth Check Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          STATUS="${{ steps.check.outputs.status }}"
+          EXISTING="${{ steps.existing.outputs.result }}"
+
+          if [ "$EXISTING" = "true" ] && [ "${{ inputs.force_check }}" != "true" ]; then
+            echo "⏭️ **Skipped** - Open issue already exists for auth expiration" >> $GITHUB_STEP_SUMMARY
+          elif [ -z "$STATUS" ]; then
+            echo "⏭️ **Skipped** - Check was not run" >> $GITHUB_STEP_SUMMARY
+          elif [ "$STATUS" = "ok" ]; then
+            echo "✅ **Token OK** - Expires ${{ steps.check.outputs.expires_at }} (${{ steps.check.outputs.days_left }} days)" >> $GITHUB_STEP_SUMMARY
+          elif [ "$STATUS" = "expiring" ]; then
+            echo "ℹ️ **Token expiring** - Expires ${{ steps.check.outputs.expires_at }} (${{ steps.check.outputs.days_left }} days)" >> $GITHUB_STEP_SUMMARY
+          elif [ "$STATUS" = "expiring-soon" ]; then
+            echo "⚠️ **Token expiring soon** - Expires ${{ steps.check.outputs.expires_at }} (${{ steps.check.outputs.hours_left }} hours)" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "🎫 Issue created to prompt token refresh" >> $GITHUB_STEP_SUMMARY
+          elif [ "$STATUS" = "expired" ]; then
+            echo "🚨 **Token EXPIRED** - Was due ${{ steps.check.outputs.expires_at }}" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "🎫 Issue created - CI agents are broken" >> $GITHUB_STEP_SUMMARY
+          elif [ "$STATUS" = "missing" ]; then
+            echo "❌ **Secret missing** - CODEX_AUTH_JSON is not set" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ **Unknown status**: $STATUS" >> $GITHUB_STEP_SUMMARY
+          fi
