@@ -40,6 +40,7 @@ async function writeStepSummary({
   maxIterations,
   tasksTotal,
   tasksUnchecked,
+  tasksCompletedDelta,
   agentFilesChanged,
   outcome,
 }) {
@@ -51,15 +52,22 @@ async function writeStepSummary({
   const completed = Math.max(0, total - unchecked);
   const iterationLabel = maxIterations > 0 ? `${iteration}/${maxIterations}` : `${iteration}/∞`;
   const filesChanged = Number.isFinite(agentFilesChanged) ? agentFilesChanged : 0;
+  const delta = Number.isFinite(tasksCompletedDelta) ? tasksCompletedDelta : null;
+  const rows = [
+    `| Iteration | ${iterationLabel} |`,
+    `| Tasks completed | ${completed}/${total} |`,
+  ];
+  if (delta !== null) {
+    rows.push(`| Tasks completed this run | ${delta} |`);
+  }
+  rows.push(`| Files changed | ${filesChanged} |`);
+  rows.push(`| Outcome | ${outcome || 'unknown'} |`);
   const summaryLines = [
     '### Keepalive iteration summary',
     '',
     '| Field | Value |',
     '| --- | --- |',
-    `| Iteration | ${iterationLabel} |`,
-    `| Tasks completed | ${completed}/${total} |`,
-    `| Files changed | ${filesChanged} |`,
-    `| Outcome | ${outcome || 'unknown'} |`,
+    ...rows,
   ];
   await core.summary.addRaw(summaryLines.join('\n')).addEOL().write();
 }
@@ -660,6 +668,7 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
       maxIterations,
       tasksTotal,
       tasksUnchecked,
+      tasksCompletedDelta: tasksCompletedThisRound,
       agentFilesChanged,
       outcome: summaryOutcome,
     });

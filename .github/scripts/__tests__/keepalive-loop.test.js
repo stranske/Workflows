@@ -348,6 +348,7 @@ test('updateKeepaliveLoopSummary writes step summary for agent runs', async () =
   assert.match(summary.buffer, /Keepalive iteration summary/);
   assert.match(summary.buffer, /Iteration \| 1\/5/);
   assert.match(summary.buffer, /Tasks completed \| 2\/5/);
+  assert.match(summary.buffer, /Tasks completed this run \| 0/);
   assert.match(summary.buffer, /Files changed \| 2/);
   assert.match(summary.buffer, /Outcome \| success/);
 });
