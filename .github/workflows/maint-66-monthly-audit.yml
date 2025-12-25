@@ -193,7 +193,7 @@ jobs:
           ---
 
           **Previous audit:** Check for issues with label `workflow-audit`
-          **Documentation:** See [WORKFLOW_AUDIT_2025-12-25.md](../blob/main/docs/WORKFLOW_AUDIT_2025-12-25.md)
+          **Documentation:** See [WORKFLOW_AUDIT_2025-12-25.md](https://github.com/${{ github.repository }}/blob/main/docs/WORKFLOW_AUDIT_2025-12-25.md)
           AUDIT_EOF
 
           # Substitute environment variables
