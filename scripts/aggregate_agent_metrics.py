@@ -155,17 +155,19 @@ def summarise_autofix(records: List[Dict]) -> Dict[str, object]:
                 pr_int = int(pr_raw)
                 if pr_int > 0:
                     pr = pr_int
-            except (TypeError, ValueError):
-                pr = None
+    successful_prs = set()
+    for rec in records:
+        pr = int(rec.get("pr_number") or 0)
         attempt = int(rec.get("attempt_number") or 0)
-        if pr is not None:
-            pr_attempts[pr].append(attempt)
+        pr_attempts[pr].append(attempt)
         if rec.get("fix_applied"):
-            success += 1
+            successful_prs.add(pr)
     avg_attempts = (
         statistics.mean(max(v) for v in pr_attempts.values()) if pr_attempts else 0.0
     )
-    success_pct = (success / len(records) * 100.0) if records else 0.0
+    success_pct = (
+        (len(successful_prs) / len(pr_attempts) * 100.0) if pr_attempts else 0.0
+    )
     return {
         "count": len(records),
         "pr_count": len(pr_attempts),
