@@ -213,6 +213,7 @@ function upsertBlock(body, marker, replacement) {
  * which may be preferred for specific use cases in PR body updates.
  * 
  * @param {Function} fn - Async function to retry
+ * @param {Object} [options] - Retry configuration options
  * @param {number} [options.attempts=3] - Number of attempts
  * @param {number} [options.delayMs=1000] - Base delay between attempts in ms
  * @param {string} [options.description] - Label for logging
