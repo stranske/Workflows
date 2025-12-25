@@ -269,6 +269,9 @@ jobs:
 
               payload = parts[1] + "=" * (4 - len(parts[1]) % 4)
               data = json.loads(base64.urlsafe_b64decode(payload))
+              if "exp" not in data:
+                  print("::warning::No 'exp' claim found in access token JWT payload")
+                  sys.exit(0)
               exp_time = datetime.datetime.fromtimestamp(data["exp"], tz=datetime.timezone.utc)
               now = datetime.datetime.now(tz=datetime.timezone.utc)
               diff = exp_time - now
