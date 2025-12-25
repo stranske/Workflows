@@ -3,7 +3,10 @@
 const fs = require('fs');
 const path = require('path');
 
-const { extractScopeTasksAcceptanceSections } = require('./issue_scope_parser.js');
+const {
+  extractScopeTasksAcceptanceSections,
+  parseScopeTasksAcceptanceSections,
+} = require('./issue_scope_parser.js');
 
 const DEFAULT_BRANCH = process.env.DEFAULT_BRANCH || 'main';
 
@@ -15,6 +18,21 @@ function uniqueNumbers(values) {
         .filter((value) => Number.isFinite(value) && value > 0)
     )
   );
+}
+
+/**
+ * Count markdown checkboxes within acceptance-criteria content.
+ *
+ * This helper is intended to be used on the "Acceptance criteria"
+ * section(s) extracted from issues or pull requests, not on arbitrary
+ * markdown content.
+ *
+ * @param {string} acceptanceContent - The acceptance-criteria text to scan.
+ * @returns {number} The number of checkbox items found.
+ */
+function countCheckboxes(acceptanceContent) {
+  const matches = String(acceptanceContent || '').match(/(^|\n)\s*[-*]\s+\[[ xX]\]/gi);
+  return matches ? matches.length : 0;
 }
 
 function isForkPullRequest(pr) {
@@ -132,6 +150,7 @@ async function buildVerifierContext({ github, context, core }) {
     core?.setOutput?.('pr_html_url', '');
     core?.setOutput?.('target_sha', context.sha || '');
     core?.setOutput?.('context_path', '');
+    core?.setOutput?.('acceptance_count', '0');
     return { shouldRun: false, reason: resolveReason || 'No pull request detected.' };
   }
 
@@ -147,6 +166,7 @@ async function buildVerifierContext({ github, context, core }) {
     core?.setOutput?.('pr_html_url', pr.html_url || '');
     core?.setOutput?.('target_sha', pr.merge_commit_sha || pr.head?.sha || context.sha || '');
     core?.setOutput?.('context_path', '');
+    core?.setOutput?.('acceptance_count', '0');
     return { shouldRun: false, reason: skipReason };
   }
 
@@ -163,6 +183,7 @@ async function buildVerifierContext({ github, context, core }) {
     core?.setOutput?.('pr_html_url', pull.html_url || '');
     core?.setOutput?.('target_sha', pull.merge_commit_sha || pull.head?.sha || context.sha || '');
     core?.setOutput?.('context_path', '');
+    core?.setOutput?.('acceptance_count', '0');
     return { shouldRun: false, reason: skipReason };
   }
 
@@ -176,6 +197,10 @@ async function buildVerifierContext({ github, context, core }) {
   const issueNumbers = uniqueNumbers(closingIssues.map((issue) => issue.number));
 
   const sections = [];
+  let acceptanceCount = 0;
+
+  const pullSections = parseScopeTasksAcceptanceSections(pull.body || '');
+  acceptanceCount += countCheckboxes(pullSections.acceptance);
   const prSections = extractScopeTasksAcceptanceSections(pull.body || '', {
     includePlaceholders: true,
   });
@@ -188,6 +213,8 @@ async function buildVerifierContext({ github, context, core }) {
   );
 
   for (const issue of closingIssues) {
+    const issueSectionsParsed = parseScopeTasksAcceptanceSections(issue.body || '');
+    acceptanceCount += countCheckboxes(issueSectionsParsed.acceptance);
     const issueSections = extractScopeTasksAcceptanceSections(issue.body || '', {
       includePlaceholders: true,
     });
@@ -230,8 +257,9 @@ async function buildVerifierContext({ github, context, core }) {
   core?.setOutput?.('pr_html_url', pull.html_url || '');
   core?.setOutput?.('target_sha', targetSha);
   core?.setOutput?.('context_path', contextPath);
+  core?.setOutput?.('acceptance_count', String(acceptanceCount));
 
-  return { shouldRun: true, markdown, contextPath, issueNumbers, targetSha };
+  return { shouldRun: true, markdown, contextPath, issueNumbers, targetSha, acceptanceCount };
 }
 
 module.exports = {
