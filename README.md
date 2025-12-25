@@ -174,3 +174,8 @@ MIT License - See [LICENSE](LICENSE) for details.
 - 🔧 [Workflow Guide](docs/WORKFLOW_GUIDE.md)
 - 🤖 [Agent Policy](docs/AGENTS_POLICY.md)
 - ⚡ [Fast Validation](docs/fast-validation-ecosystem.md)
+- 🏷️ [Label Reference](docs/LABELS.md)
+- 📊 [Latest Audit](docs/WORKFLOW_AUDIT_2025-12-25.md)
+- 📋 [Usage Guide](docs/USAGE.md)
+- 🔄 [Compatibility](docs/COMPATIBILITY.md)
+- 🤝 [Contributing](docs/CONTRIBUTING.md)

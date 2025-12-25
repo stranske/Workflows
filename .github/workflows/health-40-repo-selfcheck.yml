@@ -77,6 +77,7 @@ jobs:
 
       - name: Enforce branch protection policy
         if: ${{ env.HAS_ADMIN_TOKEN == 'true' }}
+        continue-on-error: true  # Don't fail workflow if token lacks admin permissions
         env:
           GITHUB_TOKEN: ${{ steps.branch-token.outputs.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}

@@ -2,6 +2,18 @@
 
 Permanent documentation for the Workflows repository.
 
+## Quick Links
+
+| Document | Description |
+|----------|-------------|
+| [LABELS.md](LABELS.md) | Label reference for PR/issue triggers |
+| [WORKFLOW_GUIDE.md](WORKFLOW_GUIDE.md) | Complete workflow usage guide |
+| [AGENTS_POLICY.md](AGENTS_POLICY.md) | Agent automation policies |
+| [USAGE.md](USAGE.md) | Getting started guide |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Contribution guidelines |
+| [COMPATIBILITY.md](COMPATIBILITY.md) | Version compatibility |
+| [WORKFLOW_AUDIT_2025-12-25.md](WORKFLOW_AUDIT_2025-12-25.md) | Latest workflow audit |
+
 ## Structure
 
 ### For Users
@@ -14,7 +26,11 @@ Permanent documentation for the Workflows repository.
 ### For Contributors
 
 - **[templates/](templates/)** - Templates for creating new documentation
-- **[CONTRIBUTING.md](../CONTRIBUTING.md)** (to be created) - Contribution guidelines
+- **[CONTRIBUTING.md](CONTRIBUTING.md)** - Contribution guidelines
+
+### Archive
+
+- **[archive/](archive/)** - Working files and historical documents
 
 ## Documentation Guidelines
 
