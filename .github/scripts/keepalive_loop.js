@@ -828,13 +828,13 @@ async function analyzeTaskCompletion({ github, context, prNumber, baseSha, headS
 
   if (!taskText || !baseSha || !headSha) {
     return { matches, summary: 'Insufficient data for task analysis' };
-    const allFiles = await github.paginate(github.rest.pulls.listFiles, {
+  }
+
+  // Get commits between base and head
+  let commits = [];
+  try {
+    const { data } = await github.rest.repos.compareCommits({
       owner: context.repo.owner,
-      repo: context.repo.repo,
-      pull_number: prNumber,
-      per_page: 100,
-    });
-    filesChanged = allFiles.map(f => f.filename);
       repo: context.repo.repo,
       base: baseSha,
       head: headSha,
@@ -887,8 +887,8 @@ async function analyzeTaskCompletion({ github, context, prNumber, baseSha, headS
   });
 
   // Match tasks to commits/files
-    let confidence;
-    let reason;
+  for (const task of taskLines) {
+    const taskLower = task.toLowerCase();
     const taskWords = taskLower.match(/\b[a-z_-]{3,}\b/g) || [];
     
     // Calculate overlap score

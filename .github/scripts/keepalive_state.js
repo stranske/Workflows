@@ -71,7 +71,7 @@ function upsertStateCommentBody(body, stateComment) {
     return marker;
   }
   if (STATE_REGEX.test(existing)) {
-    return existing.replace(STATE_REGEX, (_match, _version, _payload) => marker);
+    return existing.replace(STATE_REGEX, () => marker);
   }
   const trimmed = existing.trimEnd();
   const separator = trimmed ? '\n\n' : '';
@@ -179,21 +179,7 @@ async function createKeepaliveStateManager({ github, context, prNumber, trace, r
             latestBody = response.data.body;
           }
         } catch (error) {
-          // fall back to cached body if lookup fails, but log for diagnostics
-          if (typeof trace === 'function') {
-            trace('Failed to fetch latest keepalive comment body before update', {
-              owner,
-              repo,
-              commentId,
-              error: error && error.message ? error.message : String(error),
-            });
-          } else {
-            // eslint-disable-next-line no-console
-            console.warn(
-              'Failed to fetch latest keepalive comment body before update',
-              { owner, repo, commentId, error }
-            );
-          }
+          // fall back to cached body if lookup fails
         }
       }
       const updatedBody = upsertStateCommentBody(latestBody, body);
