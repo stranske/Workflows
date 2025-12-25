@@ -99,7 +99,7 @@ These workflows are designed to be called by other workflows and are not expecte
 
 **Recommendation**: Either create the missing script or archive the workflow until needed.
 
-### 3. Selftest Reusable CI (100% Failure)
+### 3. Self-test Reusable CI (100% Failure)
 
 **Error**: Artifact naming mismatch between expected and actual coverage artifacts
 
