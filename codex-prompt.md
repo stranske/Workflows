@@ -112,16 +112,10 @@ Guidance:
 - Re-run or suggest the smallest relevant checks to verify the fix.
 
 ## Run context
-Gate run: https://github.com/stranske/Workflows/actions/runs/20506885722
-Conclusion: failure
-PR: #140
-Head SHA: 8b3199082179ee6a32a3737439560976fd071eb1
+Gate run: https://github.com/stranske/Workflows/actions/runs/20507820216
+Conclusion: cancelled
+PR: #145
+Head SHA: 2b8323e2d19e3ab5fbe50e2de9f7f9393b3292c7
 Autofix attempts for this head: 1 / 3
 Fix scope: src/, tests/, tools/, scripts/, agents/, templates/, .github/
-Failing jobs:
-- python ci / python 3.12 (failure)
-  - steps: Finalize check results (failure)
-- python ci / python 3.11 (failure)
-  - steps: Finalize check results (failure)
-- summary (failure)
-  - steps: Enforce Gate success (failure)
+Failing jobs: none reported.
