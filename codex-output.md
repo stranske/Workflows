@@ -1,14 +1,14 @@
-Added a per-run task delta to the keepalive step summary so the Actions UI shows both total progress and what changed this iteration, and updated the keepalive loop test to match. This keeps the step summary aligned with the GITHUB_STEP_SUMMARY acceptance detail while remaining in-script. Changes are in `.github/scripts/keepalive_loop.js` and `.github/scripts/__tests__/keepalive-loop.test.js`.
+Added agent-type inference from PR labels so the PR meta updater can hide CLI-only status clutter even when the workflow doesn’t pass an explicit agent type, and captured this in new unit tests. Updated the task appendix checkboxes and progress line now that the step-summary work and conditional status summary behavior have been verified by tests in this repo.
 
-Tests: `node --test .github/scripts/__tests__/keepalive-loop.test.js`
+Details:
+- ` .github/scripts/agents_pr_meta_update_body.js` now resolves `agentType` from inputs/env or `agent:*` labels on the PR.
+- ` .github/scripts/__tests__/agents-pr-meta-update-body.test.js` adds coverage for the new agent-type resolution logic.
+- ` codex-prompt.md` marks the GITHUB_STEP_SUMMARY and conditional status summary items complete and updates progress.
 
-Blocked by repo policy:
-- Workflow edits required by several tasks (e.g., `agents-keepalive-loop.yml`, `agents-pr-meta.yml`, gate-summary suppression, agent_type output) are in `.github/workflows/**`, which I cannot modify without `agent-high-privilege`.
-- Pipeline validation tasks (creating a test PR, checking workflow logs) can’t be done from this environment.
-
-Notes:
-- `codex-prompt.md` is still modified from a previous iteration and was left untouched.
+Tests:
+- `node --test .github/scripts/__tests__/agents-pr-meta-update-body.test.js`
+- `node --test .github/scripts/__tests__/keepalive-loop.test.js`
 
 Next steps:
-1) Run with `agent-high-privilege` to apply workflow changes (agent_type output, gate-summary suppression, PR meta updates).
-2) Update the PR body checkboxes based on recent commits to satisfy the task reconciliation requirement.
+1) Run the pipeline validation checklist by creating a test PR with `agent:codex` and verifying prompt/task appendix + iteration updates.
+2) If you want the remaining workflow-dependent tasks done, run with `agent-high-privilege` to update `.github/workflows/agents-keepalive-loop.yml` and `.github/workflows/agents-pr-meta-v4.yml` (agent_type output + gate-summary suppression).
