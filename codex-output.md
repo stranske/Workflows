@@ -1,14 +1,12 @@
-Added a GitHub API retry helper with transient error classification, backoff + jitter, rate-limit header handling, and per-operation retry limits, plus tests for retry behavior. Updated the PR task checkboxes to reflect the completed retry and error-classification subtasks in `codex-prompt.md`.
+Updated error classification to recognize error codes and request-timeout statuses, so transient failures are detected even when errors only expose a code field. Added a focused test to validate this behavior in the classifier suite.
 
-Details and context:
-- New retry module in `.github/scripts/github_api_retry.js` builds on the existing error classifier and backoff helper to decide when to retry and how long to wait.
-- Tests added in `.github/scripts/__tests__/github-api-retry.test.js` cover retry delays (including Retry-After and rate-limit reset) and transient/non-transient behavior.
-- Task checklist updates in `codex-prompt.md`.
+Details:
+- Extended message normalization in `.github/scripts/error_classifier.js` to include `error.code` and related response fields; added `408` to transient status classification.
+- Added a test case in `.github/scripts/__tests__/error-classifier.test.js` to ensure `ETIMEDOUT` is classified as transient.
 
 Tests:
 - `node --test .github/scripts/__tests__/error-classifier.test.js`
-- `node --test .github/scripts/__tests__/github-api-retry.test.js`
 
-Next steps (pick one):
-1) If we need to proceed with “Update `reusable-codex-run.yml`…”, I’ll need `agent-high-privilege` approval to edit `.github/workflows/*`.
-2) Implement the keepalive loop failure-handling updates (no workflow edits required).
+If you want broader coverage, you could run the full Node test set:
+1) `node --test .github/scripts/__tests__/error-classifier.test.js` (already ran)
+2) `node --test .github/scripts/__tests__/*.test.js`

@@ -67,10 +67,15 @@ const LOGIC_PATTERNS = [
 ];
 
 function normaliseMessage(error) {
-  const message = String(
-    error?.message || error?.response?.data?.message || error?.response?.statusText || ''
-  );
-  return message.trim().toLowerCase();
+  const rawParts = [
+    error?.message,
+    error?.code,
+    error?.response?.data?.message,
+    error?.response?.data?.error,
+    error?.response?.statusText,
+  ];
+  const message = rawParts.filter(Boolean).join(' ');
+  return String(message).trim().toLowerCase();
 }
 
 function getStatusCode(error) {
@@ -97,6 +102,9 @@ function classifyByStatus(status, message) {
   }
   if (status === 404 || status === 410) {
     return ERROR_CATEGORIES.resource;
+  }
+  if (status === 408) {
+    return ERROR_CATEGORIES.transient;
   }
   if (status === 429 || (status >= 500 && status <= 599)) {
     return ERROR_CATEGORIES.transient;

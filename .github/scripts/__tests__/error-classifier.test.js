@@ -25,6 +25,11 @@ test('classifyError returns auth for credential failures', () => {
   assert.equal(result.category, ERROR_CATEGORIES.auth);
 });
 
+test('classifyError uses error code for transient failures', () => {
+  const result = classifyError({ code: 'ETIMEDOUT' });
+  assert.equal(result.category, ERROR_CATEGORIES.transient);
+});
+
 test('classifyError returns resource for not found errors', () => {
   const result = classifyError({ status: 404, message: 'Not Found' });
   assert.equal(result.category, ERROR_CATEGORIES.resource);

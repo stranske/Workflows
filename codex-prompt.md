@@ -123,19 +123,7 @@ Your objective is to satisfy the **Acceptance Criteria** by completing each **Ta
 ---
 ## PR Tasks and Acceptance Criteria
 
-**Progress:** 2/32 tasks complete, 30 remaining
-
-### ⚠️ IMPORTANT: Task Reconciliation Required
-
-The previous iteration changed **2 file(s)** but did not update task checkboxes.
-
-**Before continuing, you MUST:**
-1. Review the recent commits to understand what was changed
-2. Determine which task checkboxes should be marked complete
-3. Update the PR body to check off completed tasks
-4. Then continue with remaining tasks
-
-_Failure to update checkboxes means progress is not being tracked properly._
+**Progress:** 3/32 tasks complete, 29 remaining
 
 ### Scope
 - [ ] Context / problem:
@@ -157,14 +145,14 @@ _Failure to update checkboxes means progress is not being tracked properly._
 Complete these in order. Mark checkbox done ONLY after implementation is verified:
 
 - [x] Create error classification utility (`error_classifier.js`):
-- [x] Define error categories: `transient`, `auth`, `resource`, `logic`, `unknown`
-- [x] Map common error patterns to categories
-- [x] Provide suggested recovery actions per category
+- [ ] Define error categories: `transient`, `auth`, `resource`, `logic`, `unknown`
+- [ ] Map common error patterns to categories
+- [ ] Provide suggested recovery actions per category
 - [x] Add retry wrapper for GitHub API calls:
-- [x] Implement exponential backoff with jitter
-- [x] Handle rate limit headers (X-RateLimit-Remaining, Retry-After)
-- [x] Configure max retries per operation type
-- [x] Log retry attempts with context
+- [ ] Implement exponential backoff with jitter
+- [ ] Handle rate limit headers (X-RateLimit-Remaining, Retry-After)
+- [ ] Configure max retries per operation type
+- [ ] Log retry attempts with context
 - [ ] Update `reusable-codex-run.yml` with failure handling:
 - [ ] Add step to classify failure type on error
 - [ ] Implement conditional retry for transient failures
@@ -181,7 +169,7 @@ Complete these in order. Mark checkbox done ONLY after implementation is verifie
 - [ ] Add label `agent:needs-attention` for non-transient errors
 - [ ] Create tests for error handling:
 - [x] Test error classification logic
-- [x] Test retry behavior with mocked failures
+- [ ] Test retry behavior with mocked failures
 - [ ] Test PR comment formatting for various error types
 
 ### Acceptance Criteria
