@@ -108,6 +108,38 @@ jobs:
                   print(f"::warning::CODEX_AUTH_JSON expires in {hours_left:.0f} hours! Consider refreshing soon.")
               elif days_left < 5:
                   print(f"::notice::CODEX_AUTH_JSON expires in {days_left} days. Plan to refresh before expiration.")
+
+              # Expose token expiration details for downstream GitHub Actions steps
+              try:
+                  # Prefer the existing days_left calculation, but recompute from exp/now if needed
+                  days_until_expiry = days_left
+              except NameError:
+                  try:
+                      days_until_expiry = (exp - now).days
+                  except Exception:
+                      days_until_expiry = None
+
+              token_expires_value = None
+              try:
+                  # If exp is a datetime, serialize as ISO 8601; otherwise fall back to str()
+                  if isinstance(exp, datetime.datetime):
+                      token_expires_value = exp.isoformat()
+                  else:
+                      token_expires_value = str(exp)
+              except Exception:
+                  token_expires_value = None
+
+              github_output = os.environ.get("GITHUB_OUTPUT")
+              if github_output and (token_expires_value is not None or days_until_expiry is not None):
+                  try:
+                      with open(github_output, "a", encoding="utf-8") as fh:
+                          if token_expires_value is not None:
+                              fh.write(f"token_expires={token_expires_value}\n")
+                          if days_until_expiry is not None:
+                              fh.write(f"days_until_expiry={days_until_expiry}\n")
+                  except Exception as e:
+                      # Do not fail the job if we cannot write outputs; just emit a warning
+                      print(f"::warning::Failed to write token expiration outputs: {e}")
           except Exception as e:
               print(f"::warning::Could not check token expiration: {e}")
           PYEOF
