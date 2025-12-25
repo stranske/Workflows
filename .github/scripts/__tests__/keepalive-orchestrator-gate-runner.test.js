@@ -4,6 +4,8 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
 
+const { SKIP_MARKER } = require('../keepalive_guard_utils');
+
 function createSummary() {
   return {
     entries: [],
@@ -86,6 +88,11 @@ function createGithub(options = {}) {
       actions: {
         async listWorkflowRuns({ workflow_id: workflowId }) {
           return { data: { workflow_runs: runsByWorkflow[workflowId] || [] } };
+        },
+      },
+      issues: {
+        async listComments() {
+          return { data: comments };
         },
       },
     },
@@ -243,5 +250,32 @@ test('runKeepaliveGate skips when keepalive is paused by label', async () => {
 
   assert.equal(outputs.proceed, 'false');
   assert.equal(outputs.reason, 'keepalive-paused');
+  restore();
+});
+
+test('runKeepaliveGate records prior non-gate failures for draft PRs', async () => {
+  const { core, outputs } = createCore();
+  const gateStub = async () => createGateResult();
+  const { runKeepaliveGate, restore } = loadRunnerWithGate(gateStub);
+
+  const pr = makePullRequest({
+    draft: true,
+    labels: ['agents:keepalive', 'agent:codex'],
+  });
+
+  await runKeepaliveGate({
+    core,
+    github: createGithub({
+      pull: pr,
+      comments: [{
+        body: `${SKIP_MARKER}\nKeepalive 1 trace skipped: pr-draft`,
+      }],
+    }),
+    context: { repo: { owner: 'octo', repo: 'demo' }, runId: 44 },
+    env: makeEnv({ KEEPALIVE_MAX_RETRIES: '5' }),
+  });
+
+  assert.equal(outputs.proceed, 'false');
+  assert.equal(outputs.reason, 'previous-failure:pr-draft');
   restore();
 });
