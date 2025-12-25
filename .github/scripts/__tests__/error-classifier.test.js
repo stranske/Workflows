@@ -1,0 +1,46 @@
+'use strict';
+
+const test = require('node:test');
+const assert = require('node:assert/strict');
+
+const {
+  ERROR_CATEGORIES,
+  classifyError,
+  suggestRecoveryAction,
+} = require('../error_classifier.js');
+
+test('classifyError returns transient for rate limit errors', () => {
+  const result = classifyError({ status: 429, message: 'Rate limit exceeded' });
+  assert.equal(result.category, ERROR_CATEGORIES.transient);
+  assert.match(result.recovery, /retry/i);
+});
+
+test('classifyError returns transient for timeout messages', () => {
+  const result = classifyError({ message: 'Request timed out after 30s' });
+  assert.equal(result.category, ERROR_CATEGORIES.transient);
+});
+
+test('classifyError returns auth for credential failures', () => {
+  const result = classifyError({ status: 401, message: 'Bad credentials' });
+  assert.equal(result.category, ERROR_CATEGORIES.auth);
+});
+
+test('classifyError returns resource for not found errors', () => {
+  const result = classifyError({ status: 404, message: 'Not Found' });
+  assert.equal(result.category, ERROR_CATEGORIES.resource);
+});
+
+test('classifyError returns logic for validation errors', () => {
+  const result = classifyError({ status: 422, message: 'Validation failed' });
+  assert.equal(result.category, ERROR_CATEGORIES.logic);
+});
+
+test('classifyError returns unknown when no signals are present', () => {
+  const result = classifyError({ message: '' });
+  assert.equal(result.category, ERROR_CATEGORIES.unknown);
+});
+
+test('suggestRecoveryAction falls back to unknown guidance', () => {
+  const result = suggestRecoveryAction('missing');
+  assert.equal(result, suggestRecoveryAction(ERROR_CATEGORIES.unknown));
+});
