@@ -20,8 +20,18 @@ function uniqueNumbers(values) {
   );
 }
 
-function countCheckboxes(content) {
-  const matches = String(content || '').match(/(^|\n)\s*[-*]\s+\[[ xX]\]/gi);
+/**
+ * Count markdown checkboxes within acceptance-criteria content.
+ *
+ * This helper is intended to be used on the "Acceptance criteria"
+ * section(s) extracted from issues or pull requests, not on arbitrary
+ * markdown content.
+ *
+ * @param {string} acceptanceContent - The acceptance-criteria text to scan.
+ * @returns {number} The number of checkbox items found.
+ */
+function countCheckboxes(acceptanceContent) {
+  const matches = String(acceptanceContent || '').match(/(^|\n)\s*[-*]\s+\[[ xX]\]/gi);
   return matches ? matches.length : 0;
 }
 
