@@ -5,12 +5,6 @@ const {
 } = require('./issue_scope_parser.js');
 
 /**
- * Default section order and structure for follow-up issues.
- * This mirrors the template in docs/templates/AGENT_ISSUE_TEMPLATE.md
- */
-const SECTION_ORDER = ['source', 'why', 'scope', 'nonGoals', 'tasks', 'acceptance', 'notes'];
-
-/**
  * Simple similarity score between two strings (0-1).
  * Uses Jaccard similarity on word sets for fuzzy matching.
  *
