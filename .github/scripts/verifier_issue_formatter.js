@@ -426,7 +426,7 @@ function formatFollowUpIssue({
       : '<!-- New tasks to address unmet acceptance criteria -->';
     sections.push(['## Tasks', '', taskHeader, buildChecklist(newTasks)].join('\n'));
   } else {
-    sections.push(['## Tasks', '', '<!-- Determine tasks needed to satisfy unmet criteria -->', '- [ ] _Task to be determined_'].join('\n'));
+    sections.push(['## Tasks', '', '<!-- Determine tasks needed to satisfy unmet criteria -->', '- [ ] Review verifier output and determine necessary tasks'].join('\n'));
   }
 
   // Acceptance Criteria section - use refined list from verifier findings
