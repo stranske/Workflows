@@ -27,6 +27,21 @@ test('blocks protected workflow edits without label or approval', () => {
   assert.ok(result.failureReasons.some((reason) => reason.includes('@owner')));
 });
 
+test('blocks protected edits with a comment body that lists next steps', () => {
+  const result = evaluateGuard({
+    files: [protectedFile],
+    codeownersContent,
+    authorLogin: 'someone',
+  });
+
+  assert.ok(result.commentBody);
+  assert.ok(result.commentBody.startsWith(result.marker));
+  assert.ok(result.commentBody.includes('**Next steps**'));
+  assert.ok(result.commentBody.includes('Apply the `agents:allow-change` label'));
+  assert.ok(result.commentBody.includes('Ask a CODEOWNER'));
+  assert.ok(result.commentBody.includes('.github/workflows/agents-foo.yml (modified)'));
+});
+
 test('allows protected workflow edits when the author is a codeowner', () => {
   const result = evaluateGuard({
     files: [protectedFile],

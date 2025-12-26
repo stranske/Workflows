@@ -22,6 +22,11 @@ test('isGateReason returns false for non-gate reasons and empty input', () => {
   assert.equal(isGateReason(''), false);
 });
 
+test('isGateReason normalizes whitespace and casing', () => {
+  assert.equal(isGateReason(' Gate-Not-Green '), true);
+  assert.equal(isGateReason('GATE-DELAYED'), true);
+});
+
 test('analyseSkipComments returns zeroed state when no comments exist', () => {
   const result = analyseSkipComments([]);
   assert.deepEqual(result, {

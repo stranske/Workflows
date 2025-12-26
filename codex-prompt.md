@@ -123,7 +123,7 @@ Your objective is to satisfy the **Acceptance Criteria** by completing each **Ta
 ---
 ## PR Tasks and Acceptance Criteria
 
-**Progress:** 2/18 tasks complete, 16 remaining
+**Progress:** 16/18 tasks complete, 2 remaining
 
 ### ⚠️ IMPORTANT: Task Reconciliation Required
 
@@ -154,24 +154,24 @@ Complete these in order. Mark checkbox done ONLY after implementation is verifie
 - [x] ### Round 1: Security-critical scripts
 - [x] Create `agents-guard.test.js` with tests for label validation, immutable surface checks, and bypass detection
 - [x] Create `keepalive-guard-utils.test.js` covering pause label detection and guard state management
-- [ ] ### Round 2: Orchestration scripts
+- [x] ### Round 2: Orchestration scripts
 - [x] Create `agents-pr-meta-orchestrator.test.js` testing body section updates and conflict resolution
-- [ ] Create `keepalive-orchestrator-gate-runner.test.js` for gate status evaluation and dispatch logic
-- [ ] ### Round 3: Keepalive utilities
-- [ ] Create `keepalive-instruction-template.test.js` validating prompt generation and variable substitution
-- [ ] Create `keepalive-post-work.test.js` testing cleanup operations and state transitions
-- [ ] ### Round 4: Merge automation
-- [ ] Create `merge-manager.test.js` covering merge eligibility, conflict detection, and squash behavior
-- [ ] Run full test suite and verify all new tests pass
+- [x] Create `keepalive-orchestrator-gate-runner.test.js` for gate status evaluation and dispatch logic
+- [x] ### Round 3: Keepalive utilities
+- [x] Create `keepalive-instruction-template.test.js` validating prompt generation and variable substitution
+- [x] Create `keepalive-post-work.test.js` testing cleanup operations and state transitions
+- [x] ### Round 4: Merge automation
+- [x] Create `merge-manager.test.js` covering merge eligibility, conflict detection, and squash behavior
+- [x] Run full test suite and verify all new tests pass
 - [ ] Update test documentation if needed
 
 ### Acceptance Criteria
 The PR is complete when ALL of these are satisfied:
 
 - [x] - All 7 test files exist in `.github/scripts/__tests__/`
-- [ ] - Each test file has at least 5 test cases covering core functionality
+- [x] - Each test file has at least 5 test cases covering core functionality
 - [x] - `node --test .github/scripts/__tests__/*.test.js` passes with 0 failures
 - [ ] - No regressions in existing tests (`Selftest CI` workflow passes)
-- [ ] - New tests follow patterns established in existing test files (e.g., `api-helpers.test.js`)
+- [x] - New tests follow patterns established in existing test files (e.g., `api-helpers.test.js`)
 
 ---
