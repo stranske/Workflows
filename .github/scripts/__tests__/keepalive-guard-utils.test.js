@@ -34,6 +34,18 @@ test('analyseSkipComments returns zeroed state when no comments exist', () => {
   });
 });
 
+test('analyseSkipComments counts marker-only entries and defaults highest count', () => {
+  const result = analyseSkipComments([
+    { body: `${SKIP_MARKER}\nKeepalive skipped.` },
+  ]);
+
+  assert.equal(result.total, 1);
+  assert.equal(result.highestCount, 1);
+  assert.equal(result.gateCount, 0);
+  assert.equal(result.nonGateCount, 0);
+  assert.deepEqual(result.reasons, []);
+});
+
 test('analyseSkipComments tracks gate skips with explicit count', () => {
   const result = analyseSkipComments([
     {

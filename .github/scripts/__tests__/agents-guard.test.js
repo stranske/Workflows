@@ -40,6 +40,24 @@ test('allows protected workflow edits when the author is a codeowner', () => {
   assert.equal(result.needsApproval, false);
 });
 
+test('allows protected workflow edits with codeowner review approval', () => {
+  const result = evaluateGuard({
+    files: [protectedFile],
+    codeownersContent,
+    authorLogin: 'someone',
+    reviews: [{
+      user: { login: 'owner' },
+      state: 'APPROVED',
+    }],
+  });
+
+  assert.equal(result.blocked, false);
+  assert.equal(result.hasCodeownerApproval, true);
+  assert.equal(result.needsLabel, false);
+  assert.equal(result.needsApproval, false);
+  assert.equal(result.hasAllowLabel, false);
+});
+
 test('blocks deletion of protected workflows that are not allowlisted', () => {
   const result = evaluateGuard({
     files: [{
