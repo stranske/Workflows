@@ -191,6 +191,8 @@ EXPECTED_NAMES = {
     "maint-62-integration-consumer.yml": "Maint 62 Integration Consumer",
     "maint-65-sync-label-docs.yml": "Maint 65 Sync Label Docs",
     "maint-66-monthly-audit.yml": "Maint 66 Monthly Audit",
+    "health-67-integration-sync-check.yml": "Health 67 Integration Sync Check",
+    "maint-68-sync-consumer-repos.yml": "Maint 68 Sync Consumer Repos",
     "maint-60-release.yml": "Maint 60 Release",
     "maint-61-create-floating-v1-tag.yml": "Maint 61 Create Floating v1 Tag",
     "pr-00-gate.yml": "Gate",

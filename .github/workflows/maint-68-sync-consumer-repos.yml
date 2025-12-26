@@ -1,0 +1,312 @@
+name: Maint 68 Sync Consumer Repos
+
+# Push workflow template updates to registered consumer repositories
+# Triggered after releases, template changes, or manually
+
+on:
+  release:
+    types: [published]
+  push:
+    branches: [main]
+    paths:
+      - 'templates/consumer-repo/**'
+      - '.github/workflows/autofix-versions.env'
+  workflow_dispatch:
+    inputs:
+      repos:
+        description: 'Comma-separated repos to sync (empty for all registered)'
+        type: string
+        required: false
+      dry_run:
+        description: 'Preview changes without creating PRs'
+        type: boolean
+        default: false
+      force:
+        description: 'Force sync even if no changes detected'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+env:
+  # Consumer repos registered for automatic sync
+  # Add new repos here as they're onboarded
+  REGISTERED_CONSUMER_REPOS: |
+    stranske/Travel-Plan-Permission
+    stranske/Template
+
+jobs:
+  prepare:
+    name: Prepare sync manifest
+    runs-on: ubuntu-latest
+    outputs:
+      repos: ${{ steps.repos.outputs.matrix }}
+      template_hash: ${{ steps.hash.outputs.hash }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            templates/consumer-repo
+            .github/workflows/autofix-versions.env
+          sparse-checkout-cone-mode: false
+
+      - name: Compute template hash
+        id: hash
+        run: |
+          hash=$(find templates/consumer-repo -type f -exec sha256sum {} \; | sort | sha256sum | cut -d' ' -f1)
+          echo "hash=${hash:0:12}" >> "$GITHUB_OUTPUT"
+          echo "Template hash: ${hash:0:12}"
+
+      - name: Build repo matrix
+        id: repos
+        run: |
+          if [ -n "${{ inputs.repos }}" ]; then
+            repos='${{ inputs.repos }}'
+          else
+            repos=$(echo "$REGISTERED_CONSUMER_REPOS" | tr '\n' ',' | sed 's/,$//')
+          fi
+
+          # Convert to JSON array
+          json_array=$(echo "$repos" | tr ',' '\n' | grep -v '^$' | jq -R -s -c 'split("\n") | map(select(. != "")) | map(gsub("^\\s+|\\s+$"; ""))')
+          echo "matrix={\"repo\":$json_array}" >> "$GITHUB_OUTPUT"
+          echo "Repos to sync: $json_array"
+
+  sync:
+    name: Sync ${{ matrix.repo }}
+    needs: prepare
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.prepare.outputs.repos) }}
+    env:
+      SYNC_TOKEN: ${{ secrets.CODESPACES_WORKFLOWS || secrets.SERVICE_BOT_PAT }}
+    steps:
+      - name: Checkout Workflows templates
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            templates/consumer-repo
+            .github/workflows/autofix-versions.env
+          sparse-checkout-cone-mode: false
+          path: workflows
+
+      - name: Clone consumer repo
+        env:
+          GH_TOKEN: ${{ env.SYNC_TOKEN }}
+        run: |
+          gh repo clone ${{ matrix.repo }} consumer -- --depth=1
+
+      - name: Detect sync-able files
+        id: detect
+        run: |
+          set -euo pipefail
+
+          # Files that should be synced (thin callers)
+          SYNC_FILES=(
+            "agents-issue-intake.yml:agents-issue-intake.yml"
+            "agents-issue-intake.yml:agents-63-issue-intake.yml"
+            "agents-orchestrator.yml:agents-orchestrator.yml"
+            "agents-orchestrator.yml:agents-70-orchestrator.yml"
+            "agents-pr-meta.yml:agents-pr-meta.yml"
+            "autofix.yml:autofix.yml"
+            "pr-00-gate.yml:pr-00-gate.yml"
+            "autofix-versions.env:autofix-versions.env"
+          )
+
+          changes=""
+          sync_report=""
+
+          for mapping in "${SYNC_FILES[@]}"; do
+            template_name="${mapping%%:*}"
+            consumer_name="${mapping##*:}"
+
+            template_file="workflows/templates/consumer-repo/.github/workflows/$template_name"
+            consumer_file="consumer/.github/workflows/$consumer_name"
+
+            if [ ! -f "$template_file" ]; then
+              continue
+            fi
+
+            if [ ! -f "$consumer_file" ]; then
+              # Check alternative name
+              continue
+            fi
+
+            # Compare (ignoring repo-specific comments at top)
+            if ! diff -q <(tail -n +10 "$template_file") <(tail -n +10 "$consumer_file") > /dev/null 2>&1; then
+              changes="$changes $consumer_name"
+              sync_report="$sync_report\n- $consumer_name (differs from template)"
+            fi
+          done
+
+          # Special handling: autofix-versions.env - only sync if consumer doesn't override
+          if [ -f "consumer/.github/workflows/autofix-versions.env" ]; then
+            # Check key versions
+            for key in BLACK_VERSION RUFF_VERSION MYPY_VERSION; do
+              template_val=$(grep "^${key}=" "workflows/.github/workflows/autofix-versions.env" | cut -d= -f2)
+              consumer_val=$(grep "^${key}=" "consumer/.github/workflows/autofix-versions.env" | cut -d= -f2 || echo "")
+
+              if [ -n "$consumer_val" ] && [ "$consumer_val" != "$template_val" ]; then
+                sync_report="$sync_report\n- autofix-versions.env: $key differs ($consumer_val vs $template_val)"
+              fi
+            done
+          fi
+
+          if [ -n "$changes" ]; then
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+            echo "changed_files=$changes" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          echo -e "Sync report:$sync_report" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Apply template updates
+        if: steps.detect.outputs.has_changes == 'true' || inputs.force == true
+        run: |
+          set -euo pipefail
+
+          cd consumer
+
+          # Sync workflow files (preserving repo-specific headers)
+          SYNC_MAPPINGS=(
+            "agents-issue-intake.yml"
+            "agents-orchestrator.yml"
+            "agents-pr-meta.yml"
+            "autofix.yml"
+            "pr-00-gate.yml"
+          )
+
+          for file in "${SYNC_MAPPINGS[@]}"; do
+            template="../workflows/templates/consumer-repo/.github/workflows/$file"
+
+            # Find target file (may have numbered prefix)
+            if [ -f ".github/workflows/$file" ]; then
+              target=".github/workflows/$file"
+            elif [ -f ".github/workflows/agents-63-issue-intake.yml" ] && [ "$file" = "agents-issue-intake.yml" ]; then
+              target=".github/workflows/agents-63-issue-intake.yml"
+            elif [ -f ".github/workflows/agents-70-orchestrator.yml" ] && [ "$file" = "agents-orchestrator.yml" ]; then
+              target=".github/workflows/agents-70-orchestrator.yml"
+            else
+              continue
+            fi
+
+            if [ -f "$template" ]; then
+              # Preserve first 10 lines (repo-specific comments) if they exist
+              if [ -f "$target" ]; then
+                head -10 "$target" > /tmp/header.yml || true
+                cp "$template" "$target"
+              else
+                cp "$template" "$target"
+              fi
+            fi
+          done
+
+          # Sync autofix-versions.env (update outdated versions only)
+          if [ -f ".github/workflows/autofix-versions.env" ]; then
+            for key in BLACK_VERSION RUFF_VERSION MYPY_VERSION PYTEST_VERSION PYTEST_COV_VERSION; do
+              template_val=$(grep "^${key}=" "../workflows/.github/workflows/autofix-versions.env" | cut -d= -f2)
+              if [ -n "$template_val" ]; then
+                if grep -q "^${key}=" ".github/workflows/autofix-versions.env"; then
+                  sed -i "s/^${key}=.*/${key}=${template_val}/" ".github/workflows/autofix-versions.env"
+                fi
+              fi
+            done
+          fi
+
+      - name: Create sync PR
+        if: (steps.detect.outputs.has_changes == 'true' || inputs.force == true) && inputs.dry_run != true
+        env:
+          GH_TOKEN: ${{ env.SYNC_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          cd consumer
+
+          # Check if there are actual changes
+          if git diff --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+
+          # Configure git
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # Create branch
+          branch="sync/workflows-${{ needs.prepare.outputs.template_hash }}"
+          git checkout -b "$branch"
+
+          # Commit
+          git add -A
+          git commit -m "sync: Update workflow templates from stranske/Workflows
+
+          Template hash: ${{ needs.prepare.outputs.template_hash }}
+
+          This sync includes updates to thin caller workflows that delegate to
+          reusable workflows in stranske/Workflows. No action required unless
+          you have local customizations to preserve.
+
+          Changed files: ${{ steps.detect.outputs.changed_files }}"
+
+          # Push
+          git push origin "$branch" --force
+
+          # Create or update PR
+          existing_pr=$(gh pr list --base main --head "$branch" --json number --jq '.[0].number // empty')
+
+          if [ -n "$existing_pr" ]; then
+            echo "Updated existing PR #$existing_pr"
+          else
+            gh pr create \
+              --title "sync: Update workflow templates from stranske/Workflows" \
+              --body "## Workflow Sync
+
+              This PR updates thin caller workflows to match the latest templates from [stranske/Workflows](https://github.com/stranske/Workflows).
+
+              **Template hash:** \`${{ needs.prepare.outputs.template_hash }}\`
+
+              ### Changed files
+              ${{ steps.detect.outputs.changed_files }}
+
+              ### What changed
+              - Thin caller workflows (triggers/permissions) updated
+              - Tool version pins may be updated
+              - No changes to your repo-specific code
+
+              ### Review checklist
+              - [ ] No repo-specific customizations were overwritten
+              - [ ] CI passes with new workflow versions
+
+              ---
+              *Automated by [Maint 68 Sync Consumer Repos](https://github.com/stranske/Workflows/actions/workflows/maint-68-sync-consumer-repos.yml)*" \
+              --label "sync,automation"
+          fi
+
+      - name: Dry run summary
+        if: inputs.dry_run == true
+        run: |
+          echo "## Dry Run Results for ${{ matrix.repo }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ steps.detect.outputs.has_changes }}" = "true" ]; then
+            echo "✅ Changes detected:" >> "$GITHUB_STEP_SUMMARY"
+            echo "${{ steps.detect.outputs.changed_files }}" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "ℹ️ No changes needed" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  summary:
+    name: Sync summary
+    needs: [prepare, sync]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate summary
+        run: |
+          echo "## Consumer Repo Sync Summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Template hash: \`${{ needs.prepare.outputs.template_hash }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "See individual job results above for per-repo details." >> "$GITHUB_STEP_SUMMARY"

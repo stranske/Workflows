@@ -1,0 +1,142 @@
+name: Notify Workflows on Change
+
+# Trigger repository_dispatch in Workflows repo when Integration-Tests config changes
+# This ensures bidirectional sync - changes here trigger template validation there
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/ci.yml'
+      - '.github/workflows/autofix-versions.env'
+      - 'pyproject.toml'
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/ci.yml'
+      - '.github/workflows/autofix-versions.env'
+      - 'pyproject.toml'
+
+permissions:
+  contents: read
+
+jobs:
+  notify:
+    name: Notify Workflows repo
+    runs-on: ubuntu-latest
+    # Only notify on push to main (not PRs) to avoid noise
+    if: github.event_name == 'push'
+    steps:
+      - name: Trigger sync check in Workflows
+        env:
+          GH_TOKEN: ${{ secrets.ACTIONS_BOT_PAT }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::warning::ACTIONS_BOT_PAT not available, skipping notification"
+            exit 0
+          fi
+
+          gh api \
+            --method POST \
+            -H "Accept: application/vnd.github+json" \
+            repos/stranske/Workflows/dispatches \
+            -f event_type='integration-config-changed' \
+            -f 'client_payload[source]=Workflows-Integration-Tests' \
+            -f "client_payload[commit]=${{ github.sha }}" \
+            -f "client_payload[ref]=${{ github.ref }}"
+
+          echo "✅ Notified Workflows repo of config change"
+
+  validate-against-template:
+    name: Validate against template
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout this repo
+        uses: actions/checkout@v4
+        with:
+          path: integration-tests
+
+      - name: Clone Workflows repo templates
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh repo clone stranske/Workflows workflows -- --depth=1 --sparse
+          cd workflows
+          git sparse-checkout set templates/integration-repo
+
+      - name: Validate CI workflow inputs
+        run: |
+          set -euo pipefail
+
+          ACTUAL="integration-tests/.github/workflows/ci.yml"
+
+          echo "## CI Workflow Validation" >> "$GITHUB_STEP_SUMMARY"
+
+          # Validate no invalid input names are used
+          invalid=""
+
+          # These are common mistakes - using wrong input names
+          if grep -qE "^\s+enable-mypy:" "$ACTUAL"; then
+            invalid="$invalid enable-mypy"
+          fi
+          if grep -qE "^\s+enable-coverage:" "$ACTUAL"; then
+            invalid="$invalid enable-coverage"
+          fi
+          if grep -qE "^\s+coverage-threshold:" "$ACTUAL"; then
+            invalid="$invalid coverage-threshold"
+          fi
+
+          if [ -n "$invalid" ]; then
+            echo "::error::Invalid workflow inputs found:$invalid"
+            echo "❌ Invalid inputs:$invalid" >> "$GITHUB_STEP_SUMMARY"
+            echo ""
+            echo "Use these instead:" >> "$GITHUB_STEP_SUMMARY"
+            echo "- enable-mypy → typecheck" >> "$GITHUB_STEP_SUMMARY"
+            echo "- enable-coverage → coverage" >> "$GITHUB_STEP_SUMMARY"
+            echo "- coverage-threshold → coverage-min" >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+          echo "✅ All workflow inputs are valid" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Validate artifact-prefix on all jobs
+        run: |
+          set -euo pipefail
+
+          ACTUAL="integration-tests/.github/workflows/ci.yml"
+
+          echo "## Artifact Prefix Validation" >> "$GITHUB_STEP_SUMMARY"
+
+          # Count jobs using reusable workflow
+          job_count=$(grep -c "uses:.*reusable-10-ci-python" "$ACTUAL" || echo "0")
+          prefix_count=$(grep -c "artifact-prefix:" "$ACTUAL" || echo "0")
+
+          if [ "$job_count" -gt 1 ] && [ "$prefix_count" -lt "$job_count" ]; then
+            echo "::error::Multi-job CI requires artifact-prefix on each job to avoid conflicts"
+            echo "❌ Missing artifact-prefix on some jobs ($prefix_count/$job_count)" >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+          echo "✅ Artifact prefixes configured correctly" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Compare version pins
+        run: |
+          set -euo pipefail
+
+          CANONICAL="workflows/templates/integration-repo/.github/workflows/autofix-versions.env"
+          ACTUAL="integration-tests/.github/workflows/autofix-versions.env"
+
+          echo "## Version Pins Status" >> "$GITHUB_STEP_SUMMARY"
+
+          # Just warn on version differences, don't fail (repos may intentionally differ)
+          for key in BLACK_VERSION RUFF_VERSION MYPY_VERSION PYTEST_VERSION; do
+            canonical=$(grep "^${key}=" "$CANONICAL" 2>/dev/null | cut -d= -f2 || echo "")
+            actual=$(grep "^${key}=" "$ACTUAL" 2>/dev/null | cut -d= -f2 || echo "")
+
+            if [ -n "$canonical" ] && [ -n "$actual" ] && [ "$canonical" != "$actual" ]; then
+              echo "::notice::$key differs: template=$canonical, actual=$actual"
+              echo "⚠️ $key: $actual (template: $canonical)" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done
+
+          echo "Version comparison complete" >> "$GITHUB_STEP_SUMMARY"

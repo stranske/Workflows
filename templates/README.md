@@ -74,3 +74,72 @@ Use agent workflows for automated issue-to-PR pipelines:
 1. Set up `SERVICE_BOT_PAT` secret
 2. Use `agents-63-issue-intake.yml` reusable workflow
 3. Configure agent labels on issues
+
+## Template Synchronization
+
+The templates in this directory are the **source of truth** for configuration patterns. They are automatically synchronized with consumer repos through:
+
+### Sync Architecture
+
+```
+Workflows (source of truth)
+  ├── health-67 ────────────► validates Integration-Tests
+  ├── maint-68 ─────────────► creates PRs in consumer repos
+  └── templates/ ───────────► canonical workflow definitions
+
+Integration-Tests
+  └── notify-workflows.yml ─► triggers health-67 via repository_dispatch
+
+Consumer Repos (Travel-Plan-Permission, Template)
+  └── (receive PRs from maint-68)
+```
+
+### Sync Workflows
+
+1. **[health-67-integration-sync-check.yml](../.github/workflows/health-67-integration-sync-check.yml)** - Validates Integration-Tests matches templates
+   - Runs on template changes, daily schedule, and `repository_dispatch`
+   - Creates issues when drift is detected
+
+2. **[maint-68-sync-consumer-repos.yml](../.github/workflows/maint-68-sync-consumer-repos.yml)** - Pushes updates to consumer repos
+   - Runs on releases, template changes, or manual dispatch
+   - Creates PRs in registered consumer repos with updated templates
+   - Registered repos: Travel-Plan-Permission, Template
+
+3. **[notify-workflows.yml](integration-repo/.github/workflows/notify-workflows.yml)** - Template for Integration-Tests to notify this repo
+   - Triggers `repository_dispatch` when config changes
+   - Validates against templates in PRs
+
+### Key Sync Rules
+
+- **Templates → Consumer Repos**: When templates change here, maint-68 creates PRs in consumer repos
+- **Templates → Integration-Tests**: health-67 validates Integration-Tests matches templates
+- **Integration-Tests → Templates**: When Integration-Tests changes, it notifies this repo
+- **Daily validation**: Scheduled runs catch any untracked drift
+
+### Consumer Repo File Categories
+
+| Category | Files | Sync Behavior |
+|----------|-------|---------------|
+| **Thin callers** | `agents-*.yml`, `autofix.yml`, `pr-00-gate.yml` | Full sync from templates |
+| **CI config** | `ci.yml` | Repo-specific (not synced) |
+| **Version pins** | `autofix-versions.env` | Version updates synced, overrides preserved |
+| **Repo-specific** | `maint-*.yml`, custom workflows | Not synced |
+
+### Required: artifact-prefix for Multi-Job Workflows
+
+When a CI workflow has multiple jobs calling `reusable-10-ci-python.yml`, **each job must have a unique `artifact-prefix`** to prevent artifact name conflicts:
+
+```yaml
+jobs:
+  basic:
+    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
+    with:
+      artifact-prefix: basic-  # Unique prefix!
+      # ...
+
+  full:
+    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
+    with:
+      artifact-prefix: full-  # Different prefix!
+      # ...
+```

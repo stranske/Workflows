@@ -1,0 +1,199 @@
+name: Health 67 Integration Sync Check
+
+# Validates that Workflows-Integration-Tests repo stays in sync with templates
+# Triggers on template changes and daily to catch external drift
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'templates/integration-repo/**'
+      - '.github/workflows/autofix-versions.env'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'templates/integration-repo/**'
+      - '.github/workflows/autofix-versions.env'
+  repository_dispatch:
+    types: [integration-config-changed]
+  schedule:
+    - cron: '30 5 * * *'  # Daily at 5:30 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+env:
+  INTEGRATION_REPO: stranske/Workflows-Integration-Tests
+
+jobs:
+  check-sync:
+    name: Validate Integration-Tests sync
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Workflows repo
+        uses: actions/checkout@v4
+        with:
+          path: workflows
+
+      - name: Clone Integration-Tests repo
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh repo clone ${{ env.INTEGRATION_REPO }} integration-tests -- --depth=1
+
+      - name: Compare CI workflow structure
+        id: compare-ci
+        run: |
+          set -euo pipefail
+
+          TEMPLATE="workflows/templates/integration-repo/.github/workflows/ci.yml"
+          ACTUAL="integration-tests/.github/workflows/ci.yml"
+
+          echo "## CI Workflow Comparison" >> "$GITHUB_STEP_SUMMARY"
+
+          # Extract job names from template (ignoring __WORKFLOW_REF__ placeholder)
+          template_jobs=$(grep -E "^  [a-z].*:$" "$TEMPLATE" | sed 's/:$//' | sort)
+          actual_jobs=$(grep -E "^  [a-z].*:$" "$ACTUAL" | sed 's/:$//' | sort)
+
+          if [ "$template_jobs" != "$actual_jobs" ]; then
+            echo "::warning::Job structure differs between template and Integration-Tests"
+            echo "❌ Job structure differs" >> "$GITHUB_STEP_SUMMARY"
+            echo "Template jobs: $template_jobs" >> "$GITHUB_STEP_SUMMARY"
+            echo "Actual jobs: $actual_jobs" >> "$GITHUB_STEP_SUMMARY"
+            echo "drift=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "✅ Job structure matches" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          # Check for artifact-prefix in all jobs (required fix from PR #2)
+          if ! grep -q "artifact-prefix:" "$TEMPLATE"; then
+            echo "::error::Template missing artifact-prefix (required for multi-job configs)"
+            echo "❌ Template missing artifact-prefix" >> "$GITHUB_STEP_SUMMARY"
+            echo "drift=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Compare autofix-versions.env
+        id: compare-versions
+        run: |
+          set -euo pipefail
+
+          TEMPLATE="workflows/templates/integration-repo/.github/workflows/autofix-versions.env"
+          ACTUAL="integration-tests/.github/workflows/autofix-versions.env"
+          CANONICAL="workflows/.github/workflows/autofix-versions.env"
+
+          echo "## Version Pins Comparison" >> "$GITHUB_STEP_SUMMARY"
+
+          # Compare key versions
+          drift_found=false
+
+          for key in BLACK_VERSION RUFF_VERSION MYPY_VERSION PYTEST_VERSION; do
+            canonical_val=$(grep "^${key}=" "$CANONICAL" | cut -d= -f2)
+            template_val=$(grep "^${key}=" "$TEMPLATE" | cut -d= -f2 || echo "MISSING")
+            actual_val=$(grep "^${key}=" "$ACTUAL" | cut -d= -f2 || echo "MISSING")
+
+            if [ "$template_val" != "$canonical_val" ]; then
+              echo "::warning::Template $key ($template_val) differs from canonical ($canonical_val)"
+              drift_found=true
+            fi
+
+            if [ "$actual_val" != "$canonical_val" ]; then
+              echo "::warning::Integration-Tests $key ($actual_val) differs from canonical ($canonical_val)"
+              drift_found=true
+            fi
+          done
+
+          if [ "$drift_found" = "true" ]; then
+            echo "❌ Version drift detected" >> "$GITHUB_STEP_SUMMARY"
+            echo "drift=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "✅ Versions in sync" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Compare input parameters used
+        id: compare-inputs
+        run: |
+          set -euo pipefail
+
+          ACTUAL="integration-tests/.github/workflows/ci.yml"
+
+          echo "## Input Parameter Validation" >> "$GITHUB_STEP_SUMMARY"
+
+          # Check that actual repo uses correct input names
+          invalid_inputs=""
+
+          if grep -q "enable-mypy:" "$ACTUAL"; then
+            invalid_inputs="$invalid_inputs enable-mypy(should be typecheck)"
+          fi
+
+          if grep -q "enable-coverage:" "$ACTUAL"; then
+            invalid_inputs="$invalid_inputs enable-coverage(should be coverage)"
+          fi
+
+          if grep -q "coverage-threshold:" "$ACTUAL"; then
+            invalid_inputs="$invalid_inputs coverage-threshold(should be coverage-min)"
+          fi
+
+          if [ -n "$invalid_inputs" ]; then
+            echo "::error::Invalid input names found:$invalid_inputs"
+            echo "❌ Invalid inputs:$invalid_inputs" >> "$GITHUB_STEP_SUMMARY"
+            echo "drift=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "✅ All input names valid" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Create drift issue
+        if: ${{ failure() || steps.compare-ci.outputs.drift == 'true' || steps.compare-versions.outputs.drift == 'true' || steps.compare-inputs.outputs.drift == 'true' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = '🔄 Integration-Tests sync drift detected';
+            const label = 'integration-sync';
+            const runUrl = `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`;
+
+            const body = `## Integration Sync Drift Detected
+
+            The [Workflows-Integration-Tests](https://github.com/${{ env.INTEGRATION_REPO }}) repo has drifted from the templates in this repo.
+
+            **Check Details:** [Run #${process.env.GITHUB_RUN_NUMBER}](${runUrl})
+
+            ### Required Actions
+            1. Review the drift in the workflow run summary
+            2. Update templates in \`templates/integration-repo/\` to match Integration-Tests changes
+            3. OR update Integration-Tests to match templates (if templates are correct)
+            4. Close this issue when resolved
+
+            ### Sync Policy
+            - Templates in this repo are the **source of truth**
+            - Changes to Integration-Tests should be made here first, then synced
+            - Use \`maint-65-sync-label-docs.yml\` pattern for automated sync
+            `;
+
+            // Check for existing open issue
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: label,
+              per_page: 5
+            });
+
+            if (issues.length > 0) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issues[0].number,
+                body: `Drift still detected. See [run #${process.env.GITHUB_RUN_NUMBER}](${runUrl})`
+              });
+              console.log(`Added comment to existing issue #${issues[0].number}`);
+            } else {
+              const { data: issue } = await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+                labels: [label, 'automation']
+              });
+              console.log(`Created issue #${issue.number}`);
+            }
