@@ -5,6 +5,7 @@ const assert = require('node:assert/strict');
 
 const {
   acquireActivationLock,
+  snapshotOrchestratorRuns,
   dispatchOrchestrator,
   confirmDispatch,
   dispatchKeepaliveCommand,
@@ -129,6 +130,70 @@ test('dispatchOrchestrator posts workflow dispatch with keepalive inputs', async
   assert.equal(options.keepalive_instruction, 'Instruction text');
 });
 
+test('dispatchOrchestrator retries transient errors before succeeding', async () => {
+  const originalSetTimeout = global.setTimeout;
+  global.setTimeout = (fn, _delay, ...args) => originalSetTimeout(fn, 0, ...args);
+
+  const calls = [];
+  const warnings = [];
+  const github = {
+    rest: {
+      actions: {
+        async createWorkflowDispatch() {
+          calls.push('dispatch');
+          if (calls.length === 1) {
+            const error = new Error('server error');
+            error.status = 500;
+            throw error;
+          }
+        },
+      },
+    },
+  };
+
+  try {
+    const result = await dispatchOrchestrator({
+      github,
+      context: baseContext,
+      core: { ...makeCore(), warning: (message) => warnings.push(message) },
+      inputs: { issue: 1, prNumber: 2, trace: 'trace', round: 1 },
+    });
+
+    assert.equal(result.ok, true);
+    assert.equal(calls.length, 2);
+    assert.equal(warnings.length, 1);
+  } finally {
+    global.setTimeout = originalSetTimeout;
+  }
+});
+
+test('dispatchOrchestrator stops after a non-retryable error', async () => {
+  const calls = [];
+  const github = {
+    rest: {
+      actions: {
+        async createWorkflowDispatch() {
+          calls.push('dispatch');
+          const error = new Error('bad request');
+          error.status = 400;
+          throw error;
+        },
+      },
+    },
+  };
+
+  const result = await dispatchOrchestrator({
+    github,
+    context: baseContext,
+    core: makeCore(),
+    inputs: { issue: 1, prNumber: 2, trace: 'trace', round: 1 },
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.reason, 'dispatch-error');
+  assert.equal(calls.length, 1);
+});
+
 test('dispatchOrchestrator falls back to GITHUB_TOKEN when scope error occurs', async () => {
   const previousToken = process.env.GITHUB_TOKEN;
   process.env.GITHUB_TOKEN = 'fallback-token';
@@ -171,6 +236,35 @@ test('dispatchOrchestrator falls back to GITHUB_TOKEN when scope error occurs', 
   } finally {
     process.env.GITHUB_TOKEN = previousToken;
   }
+});
+
+test('snapshotOrchestratorRuns captures workflow run ids and metadata', async () => {
+  const github = {
+    rest: {
+      actions: {
+        async listWorkflowRuns() {
+          return {
+            data: {
+              workflow_runs: [{ id: 101 }, { id: '202' }, { id: 'not-a-number' }],
+            },
+          };
+        },
+      },
+    },
+  };
+
+  const result = await snapshotOrchestratorRuns({
+    github,
+    context: baseContext,
+    core: makeCore(),
+    prNumber: 77,
+    trace: 'trace-77',
+  });
+
+  assert.deepEqual(JSON.parse(result.ids), [101, 202]);
+  assert.equal(result.pr, '77');
+  assert.equal(result.trace, 'trace-77');
+  assert.equal(Number.isNaN(new Date(result.timestamp).getTime()), false);
 });
 
 test('confirmDispatch confirms when a new run matches the PR number', async () => {

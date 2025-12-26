@@ -155,7 +155,7 @@ Complete these in order. Mark checkbox done ONLY after implementation is verifie
 - [x] Create `agents-guard.test.js` with tests for label validation, immutable surface checks, and bypass detection
 - [x] Create `keepalive-guard-utils.test.js` covering pause label detection and guard state management
 - [ ] ### Round 2: Orchestration scripts
-- [ ] Create `agents-pr-meta-orchestrator.test.js` testing body section updates and conflict resolution
+- [x] Create `agents-pr-meta-orchestrator.test.js` testing body section updates and conflict resolution
 - [ ] Create `keepalive-orchestrator-gate-runner.test.js` for gate status evaluation and dispatch logic
 - [ ] ### Round 3: Keepalive utilities
 - [ ] Create `keepalive-instruction-template.test.js` validating prompt generation and variable substitution
