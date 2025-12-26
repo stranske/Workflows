@@ -60,6 +60,23 @@ test('analyseSkipComments tracks gate skips with explicit count', () => {
   assert.deepEqual(result.reasons, ['gate-not-green']);
 });
 
+test('analyseSkipComments uses the highest explicit skip count across comments', () => {
+  const result = analyseSkipComments([
+    {
+      body: `${SKIP_MARKER}\n<!-- keepalive-skip-count: 2 -->\nKeepalive 10 job skipped: gate-not-green`,
+    },
+    {
+      body: `${SKIP_MARKER}\n<!-- keepalive-skip-count: 5 -->\nKeepalive 11 job skipped: dependency-missing`,
+    },
+  ]);
+
+  assert.equal(result.total, 2);
+  assert.equal(result.highestCount, 5);
+  assert.equal(result.gateCount, 1);
+  assert.equal(result.nonGateCount, 1);
+  assert.deepEqual(result.reasons, ['gate-not-green', 'dependency-missing']);
+});
+
 test('analyseSkipComments defaults highestCount to total and tracks non-gate reasons', () => {
   const result = analyseSkipComments([
     {
