@@ -206,9 +206,14 @@ async function buildVerifierContext({ github, context, core }) {
 
   const sections = [];
   let acceptanceCount = 0;
+  let hasAcceptanceContent = false;
 
   const pullSections = parseScopeTasksAcceptanceSections(pull.body || '');
   acceptanceCount += countCheckboxes(pullSections.acceptance);
+  // Check for any acceptance content, not just checkboxes
+  if (pullSections.acceptance && String(pullSections.acceptance).trim()) {
+    hasAcceptanceContent = true;
+  }
   const prSections = extractScopeTasksAcceptanceSections(pull.body || '', {
     includePlaceholders: true,
   });
@@ -223,6 +228,10 @@ async function buildVerifierContext({ github, context, core }) {
   for (const issue of closingIssues) {
     const issueSectionsParsed = parseScopeTasksAcceptanceSections(issue.body || '');
     acceptanceCount += countCheckboxes(issueSectionsParsed.acceptance);
+    // Check for any acceptance content, not just checkboxes
+    if (issueSectionsParsed.acceptance && String(issueSectionsParsed.acceptance).trim()) {
+      hasAcceptanceContent = true;
+    }
     const issueSections = extractScopeTasksAcceptanceSections(issue.body || '', {
       includePlaceholders: true,
     });
@@ -274,6 +283,23 @@ async function buildVerifierContext({ github, context, core }) {
     content.push(sections.join('\n\n---\n\n'));
   } else {
     content.push('_No scope, tasks, or acceptance criteria were found in the pull request or linked issues._');
+  }
+
+  // Skip verifier early if there are no acceptance criteria to verify
+  // Check for any acceptance content (not just checkboxes) to handle plain-text criteria
+  if (!hasAcceptanceContent) {
+    const skipReason = 'No acceptance criteria found in PR or linked issues; skipping verifier.';
+    core?.notice?.(skipReason);
+    core?.setOutput?.('should_run', 'false');
+    core?.setOutput?.('skip_reason', skipReason);
+    core?.setOutput?.('pr_number', String(pull.number || ''));
+    core?.setOutput?.('issue_numbers', '[]');
+    core?.setOutput?.('pr_html_url', pull.html_url || '');
+    core?.setOutput?.('target_sha', targetSha);
+    core?.setOutput?.('context_path', '');
+    core?.setOutput?.('acceptance_count', '0');
+    core?.setOutput?.('ci_results', JSON.stringify(ciResults));
+    return { shouldRun: false, reason: skipReason, ciResults };
   }
 
   const markdown = content.join('\n').trimEnd() + '\n';
