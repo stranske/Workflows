@@ -107,3 +107,15 @@ test('analyseSkipComments ignores unrelated comments and tolerates malformed cou
   assert.equal(result.nonGateCount, 0);
   assert.deepEqual(result.reasons, ['gate-not-green']);
 });
+
+test('analyseSkipComments handles string entries with marker and reason', () => {
+  const result = analyseSkipComments([
+    `${SKIP_MARKER}\nKeepalive 14 job skipped: flaky-check`,
+  ]);
+
+  assert.equal(result.total, 1);
+  assert.equal(result.highestCount, 1);
+  assert.equal(result.gateCount, 0);
+  assert.equal(result.nonGateCount, 1);
+  assert.deepEqual(result.reasons, ['flaky-check']);
+});
