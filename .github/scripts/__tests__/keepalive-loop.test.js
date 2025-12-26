@@ -978,6 +978,7 @@ test('markAgentRunning updates summary comment with running status', async () =>
   assert.ok(body.includes('🔄 Agent Running'), 'Should show running status');
   assert.ok(body.includes('Codex is actively working'), 'Should show agent name');
   assert.ok(body.includes('Iteration | 3 of 5'), 'Should show next iteration');
+  assert.ok(body.includes('Task progress'), 'Should show task progress');
   assert.ok(body.includes('view logs'), 'Should include run URL');
   assert.ok(body.includes('will be updated when the agent completes'), 'Should include completion message');
 });
@@ -1007,6 +1008,7 @@ test('markAgentRunning creates comment when none exists', async () => {
   const body = github.actions[0].body;
   assert.ok(body.includes('Claude is actively working'), 'Should capitalize agent name');
   assert.ok(body.includes('Iteration | 1 of 3'), 'Should show iteration 1 (0+1)');
+  assert.ok(body.includes('Task progress | 0/5'), 'Should show task progress');
 });
 
 // =====================================================
@@ -1063,6 +1065,63 @@ test('analyzeTaskCompletion identifies high-confidence matches', async () => {
   );
   assert.ok(stepSummaryMatch, 'Should match step summary task');
   assert.equal(stepSummaryMatch.confidence, 'high', 'Should be high confidence');
+});
+
+test('analyzeTaskCompletion matches explicit file creation tasks', async () => {
+  const commits = [
+    { sha: 'abc123', commit: { message: 'test: add agents-guard tests' } },
+  ];
+  const files = [
+    { filename: '.github/scripts/__tests__/agents-guard.test.js' },
+  ];
+  
+  const github = {
+    rest: {
+      repos: {
+        async compareCommits() {
+          return { data: { commits } };
+        },
+      },
+      pulls: {
+        async listFiles() {
+          return { data: files };
+        },
+      },
+    },
+  };
+
+  const taskText = `
+- [ ] Create \`agents-guard.test.js\` with tests for label validation
+- [ ] Create \`keepalive-guard-utils.test.js\` covering pause label detection
+- [ ] Unrelated task about documentation
+`;
+
+  const result = await analyzeTaskCompletion({
+    github,
+    context: { repo: { owner: 'test', repo: 'repo' } },
+    prNumber: 1,
+    baseSha: 'base123',
+    headSha: 'head456',
+    taskText,
+    core: buildCore(),
+  });
+
+  assert.ok(result.matches.length > 0, 'Should find at least one match');
+  
+  // Should match the agents-guard.test.js task with high confidence due to exact file match
+  const guardMatch = result.matches.find(m => 
+    m.task.toLowerCase().includes('agents-guard.test.js')
+  );
+  assert.ok(guardMatch, 'Should match agents-guard task');
+  assert.equal(guardMatch.confidence, 'high', 'Should be high confidence for exact file');
+  assert.ok(guardMatch.reason.includes('Exact file'), 'Reason should mention exact file match');
+  
+  // Should NOT match keepalive-guard-utils since that file wasn't created
+  const keepaliveMatch = result.matches.find(m =>
+    m.task.toLowerCase().includes('keepalive-guard-utils.test.js')
+  );
+  assert.ok(!keepaliveMatch || keepaliveMatch.confidence !== 'high', 
+    'Should not match keepalive-guard-utils with high confidence');
 });
 
 test('analyzeTaskCompletion returns empty for unrelated commits', async () => {

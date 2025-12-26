@@ -712,8 +712,9 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
   
   // Determine if we're in extended mode (past max_iterations but still productive)
   const inExtendedMode = nextIteration > maxIterations && maxIterations > 0;
+  const extendedCount = inExtendedMode ? nextIteration - maxIterations : 0;
   const iterationDisplay = inExtendedMode 
-    ? `**${nextIteration}/${maxIterations}** 🚀 extended`
+    ? `**${maxIterations}+${extendedCount}** 🚀 extended`
     : `${nextIteration}/${maxIterations || '∞'}`;
 
   const summaryLines = [
@@ -728,7 +729,7 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
     `| Iteration progress | ${
       maxIterations > 0
         ? inExtendedMode 
-          ? `${formatProgressBar(maxIterations, maxIterations)} +${nextIteration - maxIterations} extended`
+          ? `${formatProgressBar(maxIterations, maxIterations)} ${maxIterations} base + ${extendedCount} extended = **${nextIteration}** total`
           : formatProgressBar(nextIteration, maxIterations)
         : 'n/a (unbounded)'
     } |`,
@@ -1000,11 +1001,20 @@ async function markAgentRunning({ github, context, core, inputs }) {
 
   const runLinkText = runUrl ? ` ([view logs](${runUrl}))` : '';
   
+  // Determine if in extended mode for display
+  const inExtendedMode = displayIteration > maxIterations && maxIterations > 0;
+  const iterationText = inExtendedMode
+    ? `${maxIterations}+${displayIteration - maxIterations} (extended)`
+    : `${displayIteration} of ${maxIterations || '∞'}`;
+  
+  const tasksCompleted = Math.max(0, tasksTotal - tasksUnchecked);
+  const progressPct = tasksTotal > 0 ? Math.round((tasksCompleted / tasksTotal) * 100) : 0;
+  
   const summaryLines = [
     '<!-- keepalive-loop-summary -->',
     `## 🤖 Keepalive Loop Status`,
     '',
-    `**PR #${prNumber}** | Agent: **${agentDisplayName}** | Iteration **${displayIteration}/${maxIterations || '∞'}**`,
+    `**PR #${prNumber}** | Agent: **${agentDisplayName}** | Iteration **${iterationText}**`,
     '',
     '### 🔄 Agent Running',
     '',
@@ -1013,8 +1023,8 @@ async function markAgentRunning({ github, context, core, inputs }) {
     `| Status | Value |`,
     `|--------|-------|`,
     `| Agent | ${agentDisplayName} |`,
-    `| Iteration | ${displayIteration} of ${maxIterations || '∞'} |`,
-    `| Tasks remaining | ${tasksUnchecked}/${tasksTotal} |`,
+    `| Iteration | ${iterationText} |`,
+    `| Task progress | ${tasksCompleted}/${tasksTotal} (${progressPct}%) |`,
     `| Started | ${new Date().toISOString().replace('T', ' ').slice(0, 19)} UTC |`,
     '',
     '_This comment will be updated when the agent completes._',
@@ -1133,7 +1143,20 @@ async function analyzeTaskCompletion({ github, context, prNumber, baseSha, headS
     const matchingWords = taskWords.filter(w => commitKeywords.has(w));
     const score = taskWords.length > 0 ? matchingWords.length / taskWords.length : 0;
 
-    // Check for specific file mentions
+    // Extract explicit file references from task (e.g., `filename.js` or filename.test.js)
+    const fileRefs = taskLower.match(/`([^`]+\.[a-z]+)`|([a-z0-9_-]+(?:\.test)?\.(?:js|ts|py|yml|yaml|md))/g) || [];
+    const cleanFileRefs = fileRefs.map(f => f.replace(/`/g, '').toLowerCase());
+    
+    // Check for explicit file creation (high confidence if exact file was created)
+    const exactFileMatch = cleanFileRefs.some(ref => {
+      const refBase = ref.split('/').pop(); // Get just filename
+      return filesChanged.some(f => {
+        const fBase = f.split('/').pop().toLowerCase();
+        return fBase === refBase || f.toLowerCase().endsWith(ref);
+      });
+    });
+
+    // Check for specific file mentions (partial match)
     const fileMatch = filesChanged.some(f => {
       const fLower = f.toLowerCase();
       return taskWords.some(w => fLower.includes(w));
@@ -1148,7 +1171,13 @@ async function analyzeTaskCompletion({ github, context, prNumber, baseSha, headS
     let confidence = 'low';
     let reason = '';
 
-    if (score >= 0.5 && (fileMatch || commitMatch)) {
+    // Exact file match is very high confidence
+    if (exactFileMatch) {
+      confidence = 'high';
+      const matchedFile = cleanFileRefs.find(ref => filesChanged.some(f => f.toLowerCase().includes(ref)));
+      reason = `Exact file created: ${matchedFile}`;
+      matches.push({ task, reason, confidence });
+    } else if (score >= 0.5 && (fileMatch || commitMatch)) {
       confidence = 'high';
       reason = `${Math.round(score * 100)}% keyword match, ${fileMatch ? 'file match' : 'commit match'}`;
       matches.push({ task, reason, confidence });
