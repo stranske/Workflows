@@ -46,9 +46,9 @@ if (return 0 2>/dev/null); then
 				uv pip sync requirements.lock
                 pip install --no-deps -e ".[dev]"
 
-                # Install pre-commit hooks
-		if ! pre-commit install --install-hooks; then
-			echo "::warning::pre-commit install --install-hooks failed, but continuing. Git hooks may not be available."
+                # Install pre-commit hooks (including pre-push for sync check)
+		if ! pre-commit install --install-hooks --hook-type pre-commit --hook-type pre-push; then
+			echo "::warning::pre-commit install failed, but continuing. Git hooks may not be available."
 		fi
 
 		# Ensure CLI wrapper script is executable
@@ -85,9 +85,9 @@ pip install uv
 uv pip sync requirements.lock
 pip install --no-deps -e ".[dev]"
 
-# Install pre-commit hooks so formatting runs locally before commits
-if ! pre-commit install --install-hooks; then
-	echo "::warning::pre-commit install --install-hooks failed, but continuing. Git hooks may not be available."
+# Install pre-commit hooks (including pre-push for sync check)
+if ! pre-commit install --install-hooks --hook-type pre-commit --hook-type pre-push; then
+	echo "::warning::pre-commit install failed, but continuing. Git hooks may not be available."
 fi
 
 # Ensure CLI wrapper script is executable
