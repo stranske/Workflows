@@ -121,11 +121,14 @@ jobs:
       - name: Build verifier context
         id: context
         uses: actions/github-script@v7
+        env:
+          CI_WORKFLOWS: ${{ inputs.ci_workflows }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const { buildVerifierContext } = require('./.workflows-lib/.github/scripts/agents_verifier_context.js');
-            await buildVerifierContext({ github, context, core });
+            const ciWorkflows = process.env.CI_WORKFLOWS || '[]';
+            await buildVerifierContext({ github, context, core, ciWorkflows });
 
       - name: Stop when verifier is skipped
         if: steps.context.outputs.should_run != 'true'

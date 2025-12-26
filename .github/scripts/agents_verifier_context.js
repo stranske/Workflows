@@ -139,7 +139,7 @@ async function fetchClosingIssues({ github, core, owner, repo, prNumber }) {
   }
 }
 
-async function buildVerifierContext({ github, context, core }) {
+async function buildVerifierContext({ github, context, core, ciWorkflows }) {
   const { owner, repo } = context.repo;
   const { pr, reason: resolveReason } = await resolvePullRequest({ github, context, core });
   if (!pr) {
@@ -256,11 +256,33 @@ async function buildVerifierContext({ github, context, core }) {
   }
   content.push(`- Pull request: [#${pull.number}](${pull.html_url || ''})`);
   content.push('');
+
+  // Parse ciWorkflows if provided (can be array or JSON string)
+  let workflows = null;
+  if (ciWorkflows) {
+    if (Array.isArray(ciWorkflows)) {
+      workflows = ciWorkflows.map((w) =>
+        typeof w === 'string' ? { workflow_id: w, workflow_name: w } : w
+      );
+    } else if (typeof ciWorkflows === 'string') {
+      try {
+        const parsed = JSON.parse(ciWorkflows);
+        workflows = Array.isArray(parsed)
+          ? parsed.map((w) => (typeof w === 'string' ? { workflow_id: w, workflow_name: w } : w))
+          : null;
+      } catch {
+        // Not valid JSON, treat as single workflow name
+        workflows = [{ workflow_id: ciWorkflows, workflow_name: ciWorkflows }];
+      }
+    }
+  }
+
   const ciResults = await queryVerifierCiResults({
     github,
     context,
     core,
     targetShas: ciTargetShas,
+    workflows,
   });
   content.push('## CI Verification');
   content.push('');
