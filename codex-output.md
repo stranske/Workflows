@@ -1,3 +1,5 @@
-I couldn’t find any CI failure details in the provided context. The run is marked “cancelled” and “Failing jobs: none reported,” and there are no logs in the repo to pinpoint a root cause. Without a failing job or log output, I can’t make a targeted fix.
+Adjusted CI conclusion normalization so completed runs without a conclusion are treated as `unknown`, preventing ambiguous “completed” statuses from being misread as pass/fail, and added coverage for that case in the CI query tests in `.github/scripts/verifier_ci_query.js` and `.github/scripts/__tests__/verifier-ci-query.test.js`.
 
-If you can share the failing job name and the relevant log excerpt (or rerun the CI and provide the failure output), I can take the next step.
+Tests: `node --test .github/scripts/__tests__/verifier-ci-query.test.js`
+
+Notes: `codex-prompt.md` is still modified from before; I left it untouched.
