@@ -125,18 +125,6 @@ Your objective is to satisfy the **Acceptance Criteria** by completing each **Ta
 
 **Progress:** 11/14 tasks complete, 3 remaining
 
-### ⚠️ IMPORTANT: Task Reconciliation Required
-
-The previous iteration changed **5 file(s)** but did not update task checkboxes.
-
-**Before continuing, you MUST:**
-1. Review the recent commits to understand what was changed
-2. Determine which task checkboxes should be marked complete
-3. Update the PR body to check off completed tasks
-4. Then continue with remaining tasks
-
-_Failure to update checkboxes means progress is not being tracked properly._
-
 ### Scope
 - [ ] The keepalive loop currently tracks iteration counts in PR state comments, but there is no aggregated view of keepalive performance across PRs. Operators cannot easily answer questions like:
 - [ ] - How many iterations does a typical PR require before completion?
