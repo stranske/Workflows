@@ -113,6 +113,7 @@ jobs:
             "agents-orchestrator.yml:agents-70-orchestrator.yml"
             "agents-pr-meta.yml:agents-pr-meta.yml"
             "agents-keepalive-loop.yml:agents-keepalive-loop.yml"
+            "agents-verifier.yml:agents-verifier.yml"
             "autofix.yml:autofix.yml"
             "pr-00-gate.yml:pr-00-gate.yml"
           )

@@ -24,5 +24,4 @@ jobs:
     with:
       # CI workflows to wait for before running verifier
       ci_workflows: '["ci.yml", "pr-00-gate.yml"]'
-    secrets:
-      CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
+    secrets: inherit
