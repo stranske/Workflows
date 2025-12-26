@@ -62,18 +62,21 @@ test('queryVerifierCiResults selects runs and reports conclusions', async () => 
     conclusion: 'success',
     run_url: 'gate-url',
     error_category: '',
+    error_message: '',
   });
   assert.deepEqual(results[1], {
     workflow_name: 'Selftest CI',
     conclusion: 'in_progress',
     run_url: 'selftest-url',
     error_category: '',
+    error_message: '',
   });
   assert.deepEqual(results[2], {
     workflow_name: 'PR 11',
     conclusion: 'not_found',
     run_url: '',
     error_category: '',
+    error_message: '',
   });
 });
 
@@ -103,6 +106,7 @@ test('queryVerifierCiResults supports workflowId/workflowName aliases', async ()
       conclusion: 'success',
       run_url: 'selftest-alias-url',
       error_category: '',
+      error_message: '',
     },
   ]);
 });
@@ -125,6 +129,7 @@ test('queryVerifierCiResults treats query errors as api_error', async () => {
       conclusion: 'api_error',
       run_url: '',
       error_category: 'resource',
+      error_message: 'listWorkflowRuns:pr-00-gate.yml failed after 1 attempt(s): boom',
     },
   ]);
 });
@@ -153,6 +158,7 @@ test('queryVerifierCiResults uses latest run when no target SHA is provided', as
       conclusion: 'success',
       run_url: 'gate-latest-url',
       error_category: '',
+      error_message: '',
     },
   ]);
 });
@@ -193,6 +199,7 @@ test('queryVerifierCiResults falls back to secondary SHA when primary has no run
       conclusion: 'success',
       run_url: 'head-url',
       error_category: '',
+      error_message: '',
     },
   ]);
   assert.deepEqual(headShas, ['merge-sha', 'head-sha']);
@@ -226,18 +233,21 @@ test('queryVerifierCiResults falls back to default workflows', async () => {
       conclusion: 'success',
       run_url: 'gate-default-url',
       error_category: '',
+      error_message: '',
     },
     {
       workflow_name: 'Selftest CI',
       conclusion: 'failure',
       run_url: 'selftest-default-url',
       error_category: '',
+      error_message: '',
     },
     {
       workflow_name: 'PR 11 - Minimal invariant CI',
       conclusion: 'success',
       run_url: 'pr11-default-url',
       error_category: '',
+      error_message: '',
     },
   ]);
 });
@@ -264,6 +274,7 @@ test('queryVerifierCiResults uses API url when html_url is missing', async () =>
       conclusion: 'success',
       run_url: 'api-url',
       error_category: '',
+      error_message: '',
     },
   ]);
 });
@@ -290,6 +301,7 @@ test('queryVerifierCiResults treats completed runs without conclusion as unknown
       conclusion: 'unknown',
       run_url: 'gate-url',
       error_category: '',
+      error_message: '',
     },
   ]);
 });
@@ -334,6 +346,7 @@ test('queryVerifierCiResults retries transient errors and returns success', asyn
       conclusion: 'success',
       run_url: 'retry-url',
       error_category: '',
+      error_message: '',
     },
   ]);
 });
@@ -369,6 +382,7 @@ test('queryVerifierCiResults returns api_error after max retries', async () => {
       conclusion: 'api_error',
       run_url: '',
       error_category: 'transient',
+      error_message: 'listWorkflowRuns:pr-00-gate.yml failed after 4 attempt(s): timeout',
     },
   ]);
 });

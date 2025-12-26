@@ -179,6 +179,7 @@ async function queryVerifierCiResults({
       conclusion,
       run_url: run?.html_url || run?.url || '',
       error_category: error?.category || '',
+      error_message: error?.message || '',
     });
   }
 

@@ -123,7 +123,19 @@ Your objective is to satisfy the **Acceptance Criteria** by completing each **Ta
 ---
 ## PR Tasks and Acceptance Criteria
 
-**Progress:** 0/9 tasks complete, 9 remaining
+**Progress:** 8/19 tasks complete, 11 remaining
+
+### ⚠️ IMPORTANT: Task Reconciliation Required
+
+The previous iteration changed **2 file(s)** but did not update task checkboxes.
+
+**Before continuing, you MUST:**
+1. Review the recent commits to understand what was changed
+2. Determine which task checkboxes should be marked complete
+3. Update the PR body to check off completed tasks
+4. Then continue with remaining tasks
+
+_Failure to update checkboxes means progress is not being tracked properly._
 
 ### Scope
 - [ ] The verifier CI query (`verifier_ci_query.js`) currently makes a single API call to fetch workflow run results. If the GitHub API returns a transient error (rate limit, timeout, network hiccup), the query fails silently and the verifier sees missing CI results.
@@ -140,18 +152,18 @@ Your objective is to satisfy the **Acceptance Criteria** by completing each **Ta
 ### Tasks
 Complete these in order. Mark checkbox done ONLY after implementation is verified:
 
-- [ ] Add retry wrapper function with exponential backoff (3 retries, 1s/2s/4s delays)
-- [ ] Apply retry logic to `fetchWorkflowRun` in `verifier_ci_query.js`
-- [ ] Add tests for retry behavior (success after retry, max retries exceeded)
-- [ ] Update error classification to distinguish transient vs permanent failures
+- [x] Add retry wrapper function with exponential backoff (3 retries, 1s/2s/4s delays)
+- [x] Apply retry logic to `fetchWorkflowRun` in `verifier_ci_query.js`
+- [x] Add tests for retry behavior (success after retry, max retries exceeded)
+- [x] Update error classification to distinguish transient vs permanent failures
 
 ### Acceptance Criteria
 The PR is complete when ALL of these are satisfied:
 
-- [ ] Transient API failures (429, 500, 502, 503, 504) are retried up to 3 times
-- [ ] Successful retry results in correct CI data being returned
-- [ ] Max retry exceeded results in clear error message, not silent "not found"
-- [ ] Tests cover retry success and retry exhaustion scenarios
+- [x] Transient API failures (429, 500, 502, 503, 504) are retried up to 3 times
+- [x] Successful retry results in correct CI data being returned
+- [x] Max retry exceeded results in clear error message, not silent "not found"
+- [x] Tests cover retry success and retry exhaustion scenarios
 - [ ] Selftest CI passes
 
 ---
