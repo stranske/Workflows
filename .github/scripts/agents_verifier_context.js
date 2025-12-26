@@ -7,6 +7,7 @@ const {
   extractScopeTasksAcceptanceSections,
   parseScopeTasksAcceptanceSections,
 } = require('./issue_scope_parser.js');
+const { queryVerifierCiResults } = require('./verifier_ci_query.js');
 
 const DEFAULT_BRANCH = process.env.DEFAULT_BRANCH || 'main';
 
@@ -151,7 +152,12 @@ async function buildVerifierContext({ github, context, core }) {
     core?.setOutput?.('target_sha', context.sha || '');
     core?.setOutput?.('context_path', '');
     core?.setOutput?.('acceptance_count', '0');
-    return { shouldRun: false, reason: resolveReason || 'No pull request detected.' };
+    core?.setOutput?.('ci_results', '[]');
+    return {
+      shouldRun: false,
+      reason: resolveReason || 'No pull request detected.',
+      ciResults: [],
+    };
   }
 
   const baseRef = pr.base?.ref || '';
@@ -167,7 +173,8 @@ async function buildVerifierContext({ github, context, core }) {
     core?.setOutput?.('target_sha', pr.merge_commit_sha || pr.head?.sha || context.sha || '');
     core?.setOutput?.('context_path', '');
     core?.setOutput?.('acceptance_count', '0');
-    return { shouldRun: false, reason: skipReason };
+    core?.setOutput?.('ci_results', '[]');
+    return { shouldRun: false, reason: skipReason, ciResults: [] };
   }
 
   const prDetails = await github.rest.pulls.get({ owner, repo, pull_number: pr.number });
@@ -184,7 +191,8 @@ async function buildVerifierContext({ github, context, core }) {
     core?.setOutput?.('target_sha', pull.merge_commit_sha || pull.head?.sha || context.sha || '');
     core?.setOutput?.('context_path', '');
     core?.setOutput?.('acceptance_count', '0');
-    return { shouldRun: false, reason: skipReason };
+    core?.setOutput?.('ci_results', '[]');
+    return { shouldRun: false, reason: skipReason, ciResults: [] };
   }
 
   const closingIssues = await fetchClosingIssues({
@@ -232,11 +240,33 @@ async function buildVerifierContext({ github, context, core }) {
   content.push('');
   content.push(`- Repository: ${owner}/${repo}`);
   content.push(`- Base branch: ${baseRef || defaultBranch}`);
-  const targetSha = pull.merge_commit_sha || pull.head?.sha || context.sha || '';
+  const ciTargetShas = [pull.merge_commit_sha, pull.head?.sha, context.sha].filter(Boolean);
+  const targetSha = ciTargetShas[0] || '';
   if (targetSha) {
     content.push(`- Target commit: \`${targetSha}\``);
   }
   content.push(`- Pull request: [#${pull.number}](${pull.html_url || ''})`);
+  content.push('');
+  const ciResults = await queryVerifierCiResults({
+    github,
+    context,
+    core,
+    targetShas: ciTargetShas,
+  });
+  content.push('## CI Verification');
+  content.push('');
+  content.push('Use these CI results to verify test-related criteria; do not rerun test suites locally.');
+  content.push('');
+  if (ciResults.length) {
+    content.push('| Workflow | Conclusion | Run |');
+    content.push('| --- | --- | --- |');
+    for (const result of ciResults) {
+      const runLink = result.run_url ? `[run](${result.run_url})` : 'n/a';
+      content.push(`| ${result.workflow_name} | ${result.conclusion} | ${runLink} |`);
+    }
+  } else {
+    content.push('_No CI workflow runs were found for the target commit._');
+  }
   content.push('');
   content.push('## Plan sources (scope, tasks, acceptance)');
   content.push('');
@@ -258,8 +288,17 @@ async function buildVerifierContext({ github, context, core }) {
   core?.setOutput?.('target_sha', targetSha);
   core?.setOutput?.('context_path', contextPath);
   core?.setOutput?.('acceptance_count', String(acceptanceCount));
+  core?.setOutput?.('ci_results', JSON.stringify(ciResults));
 
-  return { shouldRun: true, markdown, contextPath, issueNumbers, targetSha, acceptanceCount };
+  return {
+    shouldRun: true,
+    markdown,
+    contextPath,
+    issueNumbers,
+    targetSha,
+    acceptanceCount,
+    ciResults,
+  };
 }
 
 module.exports = {

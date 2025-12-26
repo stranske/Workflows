@@ -1,7 +1,8 @@
-Added a case-insensitive allow-change label test to strengthen agents guard label validation while keeping the rest of the suite passing. The new coverage lives in `.github/scripts/__tests__/agents-guard.test.js`.
+Added a CI query test that covers workflowId/workflowName aliases and updated the task checklist to reflect verified CI integration and prompt guidance. The new coverage lives in `.github/scripts/__tests__/verifier-ci-query.test.js`, and progress updates are in `codex-prompt.md`.
 
-Tests: `node --test .github/scripts/__tests__/*.test.js`
+- Tests run: `node --test .github/scripts/__tests__/verifier-ci-query.test.js`, `node --test .github/scripts/__tests__/agents-verifier-context.test.js`, `node --test .github/scripts/__tests__/verifier-acceptance-prompt.test.js`
+- Commit: `Add CI query alias test`
 
 Next steps:
-1. Run/confirm the `Selftest CI` workflow for regression coverage.
-2. Update test documentation if you want explicit notes about the new guard coverage.
+1) Run the verifier against a real merged PR to validate CI result fetching end-to-end and confirm “Selftest CI passes” can be marked PASS.
+2) Validate that post-merge verification no longer creates false negatives in a recent merged PR.
