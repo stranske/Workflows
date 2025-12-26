@@ -27,6 +27,17 @@ const TASKS_ONLY = `
 - [ ] missing acceptance criteria
 `;
 
+const PLACEHOLDER_SECTIONS = `
+## Scope
+_No scope information provided_
+
+## Tasks
+- [ ] _No tasks defined_
+
+## Acceptance Criteria
+- [ ] _No acceptance criteria defined_
+`;
+
 const WHY_INSTEAD_OF_SCOPE = `
 ## Why
 Explains the motivation.
@@ -64,6 +75,15 @@ test('buildIssueContext flags warnings when Acceptance is missing', () => {
   assert.equal(result.hasActionableContent, true);
   // Missing required non-optional section
   assert.ok(result.missingSections.includes('Acceptance Criteria'));
+});
+
+test('buildIssueContext treats placeholder-only sections as missing', () => {
+  const result = buildIssueContext(PLACEHOLDER_SECTIONS);
+  assert.equal(result.summaryNeedsWarning, true);
+  assert.equal(result.hasActionableContent, false);
+  assert.ok(result.missingSections.includes('Tasks'));
+  assert.ok(result.missingSections.includes('Acceptance Criteria'));
+  assert.ok(result.warningLines.some((line) => line.includes('Template Warning')));
 });
 
 test('buildIssueContext accepts "Why" as Scope alias', () => {

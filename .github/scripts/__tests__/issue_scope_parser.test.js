@@ -195,6 +195,29 @@ test('analyzeSectionPresence recognises canonical template', () => {
   assert.deepEqual(status.missing, []);
 });
 
+test('analyzeSectionPresence treats placeholder-only sections as missing', () => {
+  const issue = [
+    '## Scope',
+    '_No scope information provided_',
+    '',
+    '## Tasks',
+    '- [ ] _No tasks defined_',
+    '',
+    '## Acceptance Criteria',
+    '- [ ] _No acceptance criteria defined_',
+  ].join('\n');
+
+  const status = analyzeSectionPresence(issue);
+  assert.deepEqual(status.entries, [
+    { key: 'scope', label: 'Scope', present: false, optional: true },
+    { key: 'tasks', label: 'Tasks', present: false, optional: false },
+    { key: 'acceptance', label: 'Acceptance Criteria', present: false, optional: false },
+  ]);
+  assert.deepEqual(status.missing, ['Tasks', 'Acceptance Criteria']);
+  assert.equal(status.hasAllRequired, false);
+  assert.equal(status.hasActionableContent, false);
+});
+
 test('extracts "Why" section as Scope alias', () => {
   const issue = [
     '## Why',

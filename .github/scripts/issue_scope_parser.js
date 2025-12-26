@@ -257,10 +257,11 @@ const analyzeSectionPresence = (source) => {
   const { sections } = collectSections(source);
   const entries = SECTION_DEFS.map((section) => {
     const content = (sections[section.key] || '').trim();
+    const isPlaceholder = isPlaceholderContent(section.key, content);
     return {
       key: section.key,
       label: section.label,
-      present: Boolean(content),
+      present: Boolean(content) && !isPlaceholder,
       optional: Boolean(section.optional),
     };
   });
