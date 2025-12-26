@@ -1197,6 +1197,45 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
   }
   record('Baseline head', baselineHead || '(unavailable)');
 
+  const instructionComment = Number.isFinite(commentIdEnv)
+    ? { id: Number(commentIdEnv), url: commentUrlEnv || '' }
+    : null;
+
+  if (instructionComment?.id) {
+    record('Instruction comment', appendRound(`id=${instructionComment.id}`));
+  } else {
+    record('Instruction comment', appendRound('unavailable; proceeding without comment context.'));
+  }
+
+  const commentInfo = instructionComment;
+  updateSyncLink(commentInfo?.url);
+
+  const persistLastInstruction = async (finalHeadValue) => {
+    const payload = {
+      comment_id: commentInfo?.id ? String(commentInfo.id) : '',
+      comment_url: commentInfo?.url || '',
+      trace: commentTraceEnv || '',
+      round: commentRoundEnv || '',
+      head_sha: normalise(finalHeadValue) || '',
+      recorded_at: new Date().toISOString(),
+    };
+
+    const filtered = Object.fromEntries(
+      Object.entries(payload).filter(([key, value]) => {
+        if (key === 'recorded_at') {
+          return true;
+        }
+        return normalise(value) !== '';
+      }),
+    );
+
+    if (Object.keys(filtered).length === 0) {
+      return;
+    }
+
+    await applyStateUpdate({ last_instruction: filtered });
+  };
+
   if (baselineHead && initialHead && baselineHead !== initialHead) {
     record('Head check', `Head already advanced to ${initialHead}; skipping sync gate.`);
     if (hasSyncLabel) {
@@ -1238,44 +1277,6 @@ async function runKeepalivePostWork({ core, github, context, env = process.env }
     await complete();
     return;
   }
-  const instructionComment = Number.isFinite(commentIdEnv)
-    ? { id: Number(commentIdEnv), url: commentUrlEnv || '' }
-    : null;
-
-  if (instructionComment?.id) {
-    record('Instruction comment', appendRound(`id=${instructionComment.id}`));
-  } else {
-    record('Instruction comment', appendRound('unavailable; proceeding without comment context.'));
-  }
-
-  const commentInfo = instructionComment;
-  updateSyncLink(commentInfo?.url);
-
-  const persistLastInstruction = async (finalHeadValue) => {
-    const payload = {
-      comment_id: commentInfo?.id ? String(commentInfo.id) : '',
-      comment_url: commentInfo?.url || '',
-      trace: commentTraceEnv || '',
-      round: commentRoundEnv || '',
-      head_sha: normalise(finalHeadValue) || '',
-      recorded_at: new Date().toISOString(),
-    };
-
-    const filtered = Object.fromEntries(
-      Object.entries(payload).filter(([key, value]) => {
-        if (key === 'recorded_at') {
-          return true;
-        }
-        return normalise(value) !== '';
-      }),
-    );
-
-    if (Object.keys(filtered).length === 0) {
-      return;
-    }
-
-    await applyStateUpdate({ last_instruction: filtered });
-  };
 
   const attemptCommand = async (action, label) => {
     const commandName = normalise(action);
