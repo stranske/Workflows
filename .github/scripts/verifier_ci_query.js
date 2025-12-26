@@ -8,8 +8,8 @@ const DEFAULT_WORKFLOWS = [
   { workflow_name: 'PR 11 - Minimal invariant CI', workflow_id: 'pr-11-ci-smoke.yml' },
 ];
 
-const DEFAULT_RETRY_DELAYS_MS = [1000, 2000, 4000];
-const DEFAULT_MAX_RETRIES = DEFAULT_RETRY_DELAYS_MS.length;
+const DEFAULT_BASE_DELAY_MS = 1000;
+const DEFAULT_MAX_RETRIES = 3;
 
 function normalizeConclusion(run) {
   if (!run) {
@@ -35,6 +35,16 @@ async function sleep(ms) {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function buildRetryDelays(maxRetries, baseDelayMs) {
+  const delays = [];
+  const safeRetries = Math.max(0, Number(maxRetries) || 0);
+  const safeBaseDelayMs = Math.max(0, Number(baseDelayMs) || 0);
+  for (let attempt = 0; attempt < safeRetries; attempt += 1) {
+    delays.push(safeBaseDelayMs * Math.pow(2, attempt));
+  }
+  return delays;
+}
+
 function buildRetryError(error, category, label, attempts) {
   const message = error?.message || 'Unknown error';
   const retryError = new Error(`${label} failed after ${attempts} attempt(s): ${message}`);
@@ -46,35 +56,45 @@ function buildRetryError(error, category, label, attempts) {
 async function withRetry(apiCall, options = {}) {
   const {
     label = 'GitHub API call',
-    delays = DEFAULT_RETRY_DELAYS_MS,
+    delays = null,
+    maxRetries = DEFAULT_MAX_RETRIES,
+    baseDelayMs = DEFAULT_BASE_DELAY_MS,
     core = null,
     sleepFn = sleep,
   } = options;
 
+  const retryDelays = Array.isArray(delays) && delays.length
+    ? delays
+    : buildRetryDelays(maxRetries, baseDelayMs);
   let lastError = null;
-  for (let attempt = 0; attempt <= delays.length; attempt += 1) {
+  for (let attempt = 0; attempt <= retryDelays.length; attempt += 1) {
     try {
       return await apiCall();
     } catch (error) {
       lastError = error;
       const category = getErrorCategory(error);
-      const canRetry = category === ERROR_CATEGORIES.transient && attempt < delays.length;
+      const canRetry = category === ERROR_CATEGORIES.transient && attempt < retryDelays.length;
 
       if (!canRetry) {
         throw buildRetryError(error, category, label, attempt + 1);
       }
 
-      const delayMs = delays[attempt];
+      const delayMs = retryDelays[attempt];
       if (core?.warning) {
         core.warning(
-          `Retrying ${label}; category=${category} attempt=${attempt + 1}/${delays.length + 1} delayMs=${delayMs}`
+          `Retrying ${label}; category=${category} attempt=${attempt + 1}/${retryDelays.length + 1} delayMs=${delayMs}`
         );
       }
       await sleepFn(delayMs);
     }
   }
 
-  throw buildRetryError(lastError || new Error('Unknown error'), ERROR_CATEGORIES.unknown, label, delays.length + 1);
+  throw buildRetryError(
+    lastError || new Error('Unknown error'),
+    ERROR_CATEGORIES.unknown,
+    label,
+    retryDelays.length + 1
+  );
 }
 
 async function fetchWorkflowRun({

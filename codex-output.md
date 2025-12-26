@@ -1,6 +1,8 @@
-Updated the verifier context expectations to include the new `error_category`/`error_message` fields emitted by `queryVerifierCiResults`, so the deep-equal assertions match the current output shape in `.github/scripts/__tests__/agents-verifier-context.test.js`.
+Made retry delays derive from a configurable max-retries/base-delay fallback so the verifier retry loop is explicit and still defaults to 3 exponential attempts, and updated the PR checklist to reflect the verified retry behavior and tests. This keeps the retry/backoff logic in `.github/scripts/verifier_ci_query.js` clear and consistent with the acceptance criteria, while `.github/scripts/__tests__/verifier-ci-query.test.js` continues to validate success and exhaustion cases.
 
 Tests run:
-- `node .github/scripts/__tests__/agents-verifier-context.test.js`
+- `node --test .github/scripts/__tests__/verifier-ci-query.test.js`
 
-If you want, I can re-run the full suite with `node --test .github/scripts/__tests__/*.test.js`.
+Next steps:
+1. Run the full selftest CI workflow to satisfy the remaining “Selftest CI passes” checkbox.
+2. If you want broader local coverage, run `node --test .github/scripts/__tests__/*.test.js`.
