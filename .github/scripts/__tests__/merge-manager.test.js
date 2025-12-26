@@ -262,6 +262,49 @@ test('upsertDecisionComment deletes existing decision comments when body is empt
   assert.equal(github.calls.deleteComment[0].comment_id, 101);
 });
 
+test('upsertDecisionComment creates a new decision comment when none exists', async () => {
+  const marker = '<!-- decision -->';
+  const body = `Status update\n${marker}`;
+  const github = createGithubStub({
+    pr: makePullRequest(),
+    comments: [{ id: 55, body: 'Regular comment.' }],
+  });
+
+  const result = await upsertDecisionComment({
+    github,
+    owner: 'octo',
+    repo: 'demo',
+    prNumber: 7,
+    marker,
+    body,
+  });
+
+  assert.equal(result, 'created');
+  assert.equal(github.calls.createComment.length, 1);
+  assert.equal(github.calls.createComment[0].body, body);
+});
+
+test('upsertDecisionComment returns unchanged when the comment body matches', async () => {
+  const marker = '<!-- decision -->';
+  const body = `Status update\n${marker}`;
+  const github = createGithubStub({
+    pr: makePullRequest(),
+    comments: [{ id: 101, body }],
+  });
+
+  const result = await upsertDecisionComment({
+    github,
+    owner: 'octo',
+    repo: 'demo',
+    prNumber: 7,
+    marker,
+    body,
+  });
+
+  assert.equal(result, 'unchanged');
+  assert.equal(github.calls.updateComment.length, 0);
+});
+
 test('syncCiStatusLabel removes the CI label when no longer desired', async () => {
   const github = createGithubStub({ pr: makePullRequest() });
 

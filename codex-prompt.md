@@ -123,7 +123,7 @@ Your objective is to satisfy the **Acceptance Criteria** by completing each **Ta
 ---
 ## PR Tasks and Acceptance Criteria
 
-**Progress:** 16/18 tasks complete, 2 remaining
+**Progress:** 15/18 tasks complete, 3 remaining
 
 ### ⚠️ IMPORTANT: Task Reconciliation Required
 
@@ -162,7 +162,7 @@ Complete these in order. Mark checkbox done ONLY after implementation is verifie
 - [x] Create `keepalive-post-work.test.js` testing cleanup operations and state transitions
 - [x] ### Round 4: Merge automation
 - [x] Create `merge-manager.test.js` covering merge eligibility, conflict detection, and squash behavior
-- [x] Run full test suite and verify all new tests pass
+- [ ] Run full test suite and verify all new tests pass
 - [ ] Update test documentation if needed
 
 ### Acceptance Criteria
