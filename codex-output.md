@@ -1,8 +1,8 @@
-Added a merged-PR CI query test to exercise merge/head SHA fallback per workflow and updated the PR task checklist/progress to reflect completed work. The new coverage lives in `.github/scripts/__tests__/agents-verifier-context.test.js`, and the updated task tracking is in `codex-prompt.md`.
+Added a CI query test that covers workflowId/workflowName aliases and updated the task checklist to reflect verified CI integration and prompt guidance. The new coverage lives in `.github/scripts/__tests__/verifier-ci-query.test.js`, and progress updates are in `codex-prompt.md`.
 
-**Tests**
-- `node --test .github/scripts/__tests__/agents-verifier-context.test.js`
+- Tests run: `node --test .github/scripts/__tests__/verifier-ci-query.test.js`, `node --test .github/scripts/__tests__/agents-verifier-context.test.js`, `node --test .github/scripts/__tests__/verifier-acceptance-prompt.test.js`
+- Commit: `Add CI query alias test`
 
 Next steps:
-1) Run the verifier against a real merged PR to confirm CI results are fetched as expected.
-2) Validate the verifier no longer produces false negatives on post-merge runs.
+1) Run the verifier against a real merged PR to validate CI result fetching end-to-end and confirm “Selftest CI passes” can be marked PASS.
+2) Validate that post-merge verification no longer creates false negatives in a recent merged PR.
