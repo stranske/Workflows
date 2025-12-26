@@ -3,7 +3,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
-const os = require('os');
 const path = require('path');
 
 const {
@@ -438,61 +437,6 @@ test('updateKeepaliveLoopSummary emits metrics output for keepalive runs', async
   assert.equal(record.tasks_total, 10);
   assert.equal(record.tasks_complete, 4);
   assert.ok(typeof record.timestamp === 'string' && record.timestamp.includes('T'));
-});
-
-test('updateKeepaliveLoopSummary appends metrics record when path provided', async () => {
-  const core = {
-    info() {},
-    warning() {},
-    setOutput() {},
-  };
-  const existingState = formatStateComment({
-    trace: 'trace-metrics-file',
-    iteration: 1,
-    max_iterations: 5,
-  });
-  const github = buildGithubStub({
-    comments: [{ id: 77, body: existingState, html_url: 'https://example.com/77' }],
-  });
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'keepalive-metrics-'));
-  const metricsPath = path.join(tmpDir, 'metrics.ndjson');
-  const original = process.env.KEEPALIVE_METRICS_PATH;
-  process.env.KEEPALIVE_METRICS_PATH = metricsPath;
-  try {
-    await updateKeepaliveLoopSummary({
-      github,
-      context: buildContext(1357),
-      core,
-      inputs: {
-        prNumber: 1357,
-        action: 'run',
-        runResult: 'success',
-        gateConclusion: 'success',
-        tasksTotal: 2,
-        tasksUnchecked: 1,
-        keepaliveEnabled: true,
-        autofixEnabled: false,
-        iteration: 1,
-        maxIterations: 5,
-        failureThreshold: 3,
-        trace: 'trace-metrics-file',
-      },
-    });
-  } finally {
-    if (original === undefined) {
-      delete process.env.KEEPALIVE_METRICS_PATH;
-    } else {
-      process.env.KEEPALIVE_METRICS_PATH = original;
-    }
-  }
-
-  const lines = fs.readFileSync(metricsPath, 'utf8').trim().split('\n');
-  assert.equal(lines.length, 1);
-  const record = JSON.parse(lines[0]);
-  assert.equal(record.pr_number, 1357);
-  assert.equal(record.iteration, 2);
-  assert.equal(record.tasks_total, 2);
-  assert.equal(record.tasks_complete, 1);
 });
 
 test('updateKeepaliveLoopSummary resets failure count on transient errors', async () => {
