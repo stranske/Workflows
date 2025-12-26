@@ -124,17 +124,17 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           
           git add .github/workflows/
-          git commit -m "sync: Update workflow templates from stranske/Workflows
-
-This sync updates integration-repo templates to match the source of truth
-in the Workflows repository.
-
-Updated files:
-- ci.yml (with workflow reference: ${WORKFLOW_REF})
-- autofix-versions.env (version pins)
-- notify-workflows.yml (bidirectional sync trigger)
-
-Auto-synced by: https://github.com/stranske/Workflows/actions/workflows/maint-69-sync-integration-repo.yml"
+          git commit -m "sync: Update workflow templates from stranske/Workflows" \
+            -m "" \
+            -m "This sync updates integration-repo templates to match the source of truth" \
+            -m "in the Workflows repository." \
+            -m "" \
+            -m "Updated files:" \
+            -m "- ci.yml (with workflow reference)" \
+            -m "- autofix-versions.env (version pins)" \
+            -m "- notify-workflows.yml (bidirectional sync trigger)" \
+            -m "" \
+            -m "Auto-synced by: https://github.com/stranske/Workflows/actions/workflows/maint-69-sync-integration-repo.yml"
 
           if git push; then
             echo "✅ Successfully pushed changes to ${INTEGRATION_REPO}"
