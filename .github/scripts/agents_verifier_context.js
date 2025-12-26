@@ -280,6 +280,31 @@ async function buildVerifierContext({ github, context, core }) {
   const contextPath = path.join(process.cwd(), 'verifier-context.md');
   fs.writeFileSync(contextPath, markdown, 'utf8');
 
+  // Skip verifier if there are no acceptance criteria to verify
+  if (acceptanceCount === 0) {
+    const skipReason = 'No acceptance criteria found in PR or linked issues; skipping verifier.';
+    core?.notice?.(skipReason);
+    core?.setOutput?.('should_run', 'false');
+    core?.setOutput?.('skip_reason', skipReason);
+    core?.setOutput?.('pr_number', String(pull.number || ''));
+    core?.setOutput?.('issue_numbers', JSON.stringify(issueNumbers));
+    core?.setOutput?.('pr_html_url', pull.html_url || '');
+    core?.setOutput?.('target_sha', targetSha);
+    core?.setOutput?.('context_path', contextPath);
+    core?.setOutput?.('acceptance_count', '0');
+    core?.setOutput?.('ci_results', JSON.stringify(ciResults));
+    return {
+      shouldRun: false,
+      reason: skipReason,
+      markdown,
+      contextPath,
+      issueNumbers,
+      targetSha,
+      acceptanceCount,
+      ciResults,
+    };
+  }
+
   core?.setOutput?.('should_run', 'true');
   core?.setOutput?.('skip_reason', '');
   core?.setOutput?.('pr_number', String(pull.number || ''));
