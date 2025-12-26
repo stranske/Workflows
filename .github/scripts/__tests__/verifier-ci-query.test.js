@@ -351,38 +351,44 @@ test('queryVerifierCiResults retries transient errors and returns success', asyn
   ]);
 });
 
-test('queryVerifierCiResults returns api_error after max retries', async () => {
-  let attempts = 0;
-  const warnings = [];
-  const github = buildGithubStub({
-    listWorkflowRunsHook: async () => {
-      attempts += 1;
-      const error = new Error('timeout');
-      error.status = 504;
-      throw error;
-    },
-  });
-  const context = { repo: { owner: 'octo', repo: 'workflows' } };
-  const workflows = [{ workflow_name: 'Gate', workflow_id: 'pr-00-gate.yml' }];
+test('queryVerifierCiResults returns api_error after max retries', async (t) => {
+  const statuses = [429, 500, 502, 503, 504];
 
-  const results = await queryVerifierCiResults({
-    github,
-    context,
-    targetSha: 'retry-sha',
-    workflows,
-    core: { warning: (message) => warnings.push(String(message)) },
-    retryOptions: { sleepFn: async () => {} },
-  });
+  for (const status of statuses) {
+    await t.test(`retries and fails for status ${status}`, async () => {
+      let attempts = 0;
+      const warnings = [];
+      const github = buildGithubStub({
+        listWorkflowRunsHook: async () => {
+          attempts += 1;
+          const error = new Error(`status-${status}`);
+          error.status = status;
+          throw error;
+        },
+      });
+      const context = { repo: { owner: 'octo', repo: 'workflows' } };
+      const workflows = [{ workflow_name: 'Gate', workflow_id: 'pr-00-gate.yml' }];
 
-  assert.equal(attempts, 4);
-  assert.equal(warnings.length, 4);
-  assert.deepEqual(results, [
-    {
-      workflow_name: 'Gate',
-      conclusion: 'api_error',
-      run_url: '',
-      error_category: 'transient',
-      error_message: 'listWorkflowRuns:pr-00-gate.yml failed after 4 attempt(s): timeout',
-    },
-  ]);
+      const results = await queryVerifierCiResults({
+        github,
+        context,
+        targetSha: 'retry-sha',
+        workflows,
+        core: { warning: (message) => warnings.push(String(message)) },
+        retryOptions: { sleepFn: async () => {} },
+      });
+
+      assert.equal(attempts, 4);
+      assert.equal(warnings.length, 4);
+      assert.deepEqual(results, [
+        {
+          workflow_name: 'Gate',
+          conclusion: 'api_error',
+          run_url: '',
+          error_category: 'transient',
+          error_message: `listWorkflowRuns:pr-00-gate.yml failed after 4 attempt(s): status-${status}`,
+        },
+      ]);
+    });
+  }
 });
