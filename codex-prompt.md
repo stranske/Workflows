@@ -123,53 +123,46 @@ Your objective is to satisfy the **Acceptance Criteria** by completing each **Ta
 ---
 ## PR Tasks and Acceptance Criteria
 
-**Progress:** 10/12 tasks complete, 2 remaining
-
-### ⚠️ IMPORTANT: Task Reconciliation Required
-
-The previous iteration changed **2 file(s)** but did not update task checkboxes.
-
-**Before continuing, you MUST:**
-1. Review the recent commits to understand what was changed
-2. Determine which task checkboxes should be marked complete
-3. Update the PR body to check off completed tasks
-4. Then continue with remaining tasks
-
-_Failure to update checkboxes means progress is not being tracked properly._
+**Progress:** 11/14 tasks complete, 3 remaining
 
 ### Scope
-- [ ] <!-- Updated scope for this follow-up -->
-- [ ] Address unmet acceptance criteria from PR #166.
-- [ ] Original scope:
-- [ ] The verifier CI query (`verifier_ci_query.js`) currently makes a single API call to fetch workflow run results. If the GitHub API returns a transient error (rate limit, timeout, network hiccup), the query fails silently and the verifier sees missing CI results.
-- [ ] This can cause false negatives where the verifier marks test-related criteria as NOT MET due to API failures rather than actual CI failures.
+- [ ] The keepalive loop currently tracks iteration counts in PR state comments, but there is no aggregated view of keepalive performance across PRs. Operators cannot easily answer questions like:
+- [ ] - How many iterations does a typical PR require before completion?
+- [ ] - What percentage of PRs complete within the 5-iteration limit vs timing out?
+- [ ] - Which error categories are most common during keepalive runs?
+- [ ] - What is the average time from PR open to keepalive completion?
+- [ ] This issue adds structured metrics collection and a summary dashboard to provide observability into the keepalive pipeline health.
 - [ ] ### Current Behavior
-- [ ] - Single API call per workflow
-- [ ] - Failures logged as warnings but not retried
-- [ ] - Missing results treated as "not found"
+- [ ] - Iteration count stored in PR state comment (hidden marker)
+- [ ] - No aggregation across PRs
+- [ ] - Error classification exists but is not persisted
+- [ ] - No historical trend data
 - [ ] ### Desired Behavior
-- [ ] - Retry transient failures with exponential backoff
-- [ ] - Distinguish between "CI not run" and "API error"
-- [ ] - Log retry attempts for debugging
+- [ ] - Each keepalive iteration appends a metrics record to an NDJSON log
+- [ ] - Metrics include: PR number, iteration, action taken, error category, duration, tasks completed
+- [ ] - A summary script aggregates metrics into a dashboard report
+- [ ] - Dashboard shows success rates, iteration distributions, and error breakdowns
 
 ### Tasks
 Complete these in order. Mark checkbox done ONLY after implementation is verified:
 
-- [x] <!-- New tasks to address unmet acceptance criteria -->
-- [x] Satisfy: Transient API failures (429, 500, 502, 503, 504) are retried up to 3 times
-- [x] Satisfy: Successful retry results in correct CI data being returned
-- [x] Satisfy: Max retry exceeded results in clear error message, not silent "not found"
-- [x] Satisfy: Tests cover retry success and retry exhaustion scenarios
-- [ ] Satisfy: Selftest CI passes
+- [x] Define metrics schema in `docs/keepalive/METRICS_SCHEMA.md` with fields for PR number, iteration, timestamp, action, error_category, duration_ms, tasks_total, tasks_complete
+- [x] Create `scripts/keepalive_metrics_collector.py` to append structured metrics to `keepalive-metrics.ndjson`
+- [x] Integrate metrics collection into `.github/scripts/keepalive_loop.js` to emit metrics after each iteration
+- [x] Create `scripts/keepalive_metrics_dashboard.py` that reads the NDJSON log and outputs a markdown summary table
+- [x] Add tests for metrics collector (schema validation, append behavior)
+- [x] Add tests for dashboard generator (aggregation logic, edge cases)
+- [ ] Update `.github/workflows/agents-orchestrator.yml` to call metrics collector after keepalive completes
 
 ### Acceptance Criteria
 The PR is complete when ALL of these are satisfied:
 
-- [x] <!-- Criteria verified as unmet by verifier -->
-- [x] Transient API failures (429, 500, 502, 503, 504) are retried up to 3 times
-- [x] Successful retry results in correct CI data being returned
-- [x] Max retry exceeded results in clear error message, not silent "not found"
-- [x] Tests cover retry success and retry exhaustion scenarios
+- [x] Metrics schema is documented with field descriptions and example records
+- [ ] Each keepalive iteration logs a structured record with all required fields
+- [x] Dashboard script produces a valid markdown table with success rate, avg iterations, and error breakdown
+- [x] Tests cover metrics schema validation and reject malformed records
+- [x] Tests cover dashboard aggregation with empty, single, and multi-record inputs
+- [x] Integration smoke test confirms metrics are written during actual keepalive runs
 - [ ] Selftest CI passes
 
 ---

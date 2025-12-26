@@ -1,8 +1,8 @@
-Made retry delays derive from a configurable max-retries/base-delay fallback so the verifier retry loop is explicit and still defaults to 3 exponential attempts, and updated the PR checklist to reflect the verified retry behavior and tests. This keeps the retry/backoff logic in `.github/scripts/verifier_ci_query.js` clear and consistent with the acceptance criteria, while `.github/scripts/__tests__/verifier-ci-query.test.js` continues to validate success and exhaustion cases.
+Added an optional NDJSON append path to keepalive loop metrics so iterations can write structured records directly when `KEEPALIVE_METRICS_PATH` (or `metrics_path` input) is set, plus a test that verifies the file output. This keeps the metrics logging requirement moving forward while the workflow change is blocked by repository policy. Changes are in `.github/scripts/keepalive_loop.js` and `.github/scripts/__tests__/keepalive-loop.test.js`.
 
-Tests run:
-- `node --test .github/scripts/__tests__/verifier-ci-query.test.js`
+Tests: `node --test .github/scripts/__tests__/keepalive-loop.test.js`
+
+Blocked item: Updating `.github/workflows/agents-orchestrator.yml` requires `agent-high-privilege`; I can’t edit workflows in this run. Please add a `needs-human` label and a PR comment noting the required workflow change: call `scripts/keepalive_metrics_collector.py` after keepalive completes or set `KEEPALIVE_METRICS_PATH` so `updateKeepaliveLoopSummary` appends to the NDJSON log.
 
 Next steps:
-1. Run the full selftest CI workflow to satisfy the remaining “Selftest CI passes” checkbox.
-2. If you want broader local coverage, run `node --test .github/scripts/__tests__/*.test.js`.
+1) Have a human update `.github/workflows/agents-orchestrator.yml` to invoke the collector or export `KEEPALIVE_METRICS_PATH`.
