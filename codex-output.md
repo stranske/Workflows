@@ -1,7 +1,12 @@
-Removed the extra blank line between the import block and constants so ruff/isort treats the imports as properly formatted in `scripts/keepalive_metrics_collector.py`.
+Emitted a structured keepalive metrics record from the summary step so each iteration can publish a JSON payload (including duration and task counts) for the collector to consume later. This centralizes the record assembly in the keepalive loop and exposes it via `metrics_record_json` for workflow wiring.
 
-Details: ruff’s I001 wanted the import block to end with a single blank line, so I tightened that spacing in `scripts/keepalive_metrics_collector.py`.
+Details:
+- Built helpers for optional numeric parsing, duration resolution, and metrics record construction in `.github/scripts/keepalive_loop.js`.
+- Emitted a metrics record after each summary update, with a 1-based iteration and sensible defaults for action/error category in `.github/scripts/keepalive_loop.js`.
+
+Tests not run (not requested).
 
 Next steps:
-1. Run `python -m ruff check .` to confirm the lint job passes locally.
-2. If you want, run the full CI lint task to match the pipeline.
+1. Wire `metrics_record_json` into the collector invocation in the keepalive workflow (once workflow edits are allowed).
+2. Add tests for the new metrics helpers and duration handling.
+3. Run the relevant keepalive workflow tests to validate outputs end-to-end.
