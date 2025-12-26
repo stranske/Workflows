@@ -1,8 +1,5 @@
 'use strict';
 
-const fs = require('fs');
-const path = require('path');
-
 const { parseScopeTasksAcceptanceSections } = require('./issue_scope_parser');
 const { loadKeepaliveState, formatStateComment } = require('./keepalive_state');
 const { classifyError, ERROR_CATEGORIES } = require('./error_classifier');
@@ -89,31 +86,6 @@ function buildMetricsRecord({
 function emitMetricsRecord({ core, record }) {
   if (core && typeof core.setOutput === 'function') {
     core.setOutput('metrics_record_json', JSON.stringify(record));
-  }
-}
-
-function resolveMetricsPath(inputs) {
-  return normalise(
-    inputs.metrics_path ??
-      inputs.metricsPath ??
-      process.env.KEEPALIVE_METRICS_PATH ??
-      process.env.keepalive_metrics_path
-  );
-}
-
-async function appendMetricsRecord({ core, record, metricsPath }) {
-  const targetPath = normalise(metricsPath);
-  if (!targetPath) {
-    return;
-  }
-  try {
-    const absolutePath = path.resolve(targetPath);
-    await fs.promises.mkdir(path.dirname(absolutePath), { recursive: true });
-    await fs.promises.appendFile(absolutePath, `${JSON.stringify(record)}\n`, 'utf8');
-  } catch (error) {
-    if (core && typeof core.warning === 'function') {
-      core.warning(`keepalive metrics write failed: ${error.message}`);
-    }
   }
 }
 
@@ -804,11 +776,6 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
     tasksComplete,
   });
   emitMetricsRecord({ core, record: metricsRecord });
-  await appendMetricsRecord({
-    core,
-    record: metricsRecord,
-    metricsPath: resolveMetricsPath(inputs),
-  });
 
   // Capitalize agent name for display
   const agentDisplayName = agentType.charAt(0).toUpperCase() + agentType.slice(1);
