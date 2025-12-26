@@ -125,18 +125,6 @@ Your objective is to satisfy the **Acceptance Criteria** by completing each **Ta
 
 **Progress:** 1/21 tasks complete, 20 remaining
 
-### ⚠️ IMPORTANT: Task Reconciliation Required
-
-The previous iteration changed **7 file(s)** but did not update task checkboxes.
-
-**Before continuing, you MUST:**
-1. Review the recent commits to understand what was changed
-2. Determine which task checkboxes should be marked complete
-3. Update the PR body to check off completed tasks
-4. Then continue with remaining tasks
-
-_Failure to update checkboxes means progress is not being tracked properly._
-
 ### Scope
 - [ ] The post-merge verifier (agents-verifier.yml) currently runs tests locally in a read-only sandbox to verify acceptance criteria. This approach has critical flaws exposed by PR #154:
 - [ ] 1. **Stale State**: Verifier may run against incomplete merge state, causing false test failures
