@@ -72,6 +72,35 @@ test('queryVerifierCiResults selects runs and reports conclusions', async () => 
   });
 });
 
+test('queryVerifierCiResults supports workflowId/workflowName aliases', async () => {
+  const github = buildGithubStub({
+    runsByWorkflow: {
+      'selftest-ci.yml': [
+        { head_sha: 'alias-sha', conclusion: 'success', html_url: 'selftest-alias-url' },
+      ],
+    },
+  });
+  const context = { repo: { owner: 'octo', repo: 'workflows' } };
+  const workflows = [
+    { workflowId: 'selftest-ci.yml', workflowName: 'Selftest CI' },
+  ];
+
+  const results = await queryVerifierCiResults({
+    github,
+    context,
+    targetSha: 'alias-sha',
+    workflows,
+  });
+
+  assert.deepEqual(results, [
+    {
+      workflow_name: 'Selftest CI',
+      conclusion: 'success',
+      run_url: 'selftest-alias-url',
+    },
+  ]);
+});
+
 test('queryVerifierCiResults treats query errors as not_found', async () => {
   const github = buildGithubStub({ errorWorkflow: 'pr-00-gate.yml' });
   const context = { repo: { owner: 'octo', repo: 'workflows' } };
