@@ -1,6 +1,6 @@
-Updated the verifier context expectations to include the new `error_category`/`error_message` fields emitted by `queryVerifierCiResults`, so the deep-equal assertions match the current output shape in `.github/scripts/__tests__/agents-verifier-context.test.js`.
+I couldn’t find any CI failure details to act on. The run is marked “cancelled” and the prompt says “Failing jobs: none reported,” so there’s no actionable failure to fix from here.
 
-Tests run:
-- `node .github/scripts/__tests__/agents-verifier-context.test.js`
-
-If you want, I can re-run the full suite with `node --test .github/scripts/__tests__/*.test.js`.
+If you can share the relevant job log(s) or a failure summary for the cancelled run, I can target the minimal fix.  
+Suggested next steps:
+1) Paste the failing job log excerpt or upload the CI summary here.  
+2) If the job was manually cancelled, re-run the workflow and share the first failing step output.

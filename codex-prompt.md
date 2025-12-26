@@ -112,12 +112,10 @@ Guidance:
 - Re-run or suggest the smallest relevant checks to verify the fix.
 
 ## Run context
-Gate run: https://github.com/stranske/Workflows/actions/runs/20515491056
-Conclusion: failure
-PR: #166
-Head SHA: cb79002f67016ab2f196efa524734a75d832223a
+Gate run: https://github.com/stranske/Workflows/actions/runs/20515802559
+Conclusion: cancelled
+PR: #168
+Head SHA: 4baff196d7a4d60a448a4255c45c137681635885
 Autofix attempts for this head: 1 / 3
 Fix scope: src/, tests/, tools/, scripts/, agents/, templates/, .github/
-Failing jobs:
-- github scripts tests (failure)
-  - steps: Run node --test .github/scripts/__tests__/*.test.js (failure)
+Failing jobs: none reported.
