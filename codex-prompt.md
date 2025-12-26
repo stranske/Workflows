@@ -123,7 +123,7 @@ Your objective is to satisfy the **Acceptance Criteria** by completing each **Ta
 ---
 ## PR Tasks and Acceptance Criteria
 
-**Progress:** 14/21 tasks complete, 7 remaining
+**Progress:** 17/21 tasks complete, 4 remaining
 
 ### ⚠️ IMPORTANT: Task Reconciliation Required
 
@@ -154,15 +154,15 @@ _Failure to update checkboxes means progress is not being tracked properly._
 ### Tasks
 Complete these in order. Mark checkbox done ONLY after implementation is verified:
 
-- [ ] ### Round 1: Add CI result querying
+- [x] ### Round 1: Add CI result querying
 - [x] Create `verifier_ci_query.js` script to fetch workflow run results for a commit
 - [x] Query Gate, Selftest CI, and PR 11 workflow conclusions
 - [x] Return structured data: `{ workflow_name, conclusion, run_url }`
-- [ ] ### Round 2: Integrate into verifier context
+- [x] ### Round 2: Integrate into verifier context
 - [x] Modify `agents_verifier_context.js` to include CI results in context
 - [x] Add "CI Verification" section to verifier prompt with actual results
 - [x] Remove instruction to run tests locally (rely on CI results)
-- [ ] ### Round 3: Update verifier prompt
+- [x] ### Round 3: Update verifier prompt
 - [x] Update `.github/codex/prompts/verifier_acceptance_check.md`
 - [x] Instruct verifier to check CI results section instead of running tests
 - [x] Keep file existence and pattern checks as local verification

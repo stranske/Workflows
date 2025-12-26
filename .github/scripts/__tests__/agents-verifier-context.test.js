@@ -258,6 +258,73 @@ test('buildVerifierContext writes verifier context with linked issues', async ()
   fs.rmSync(contextPath, { force: true });
 });
 
+test('buildVerifierContext queries CI runs for merge and head SHAs', async () => {
+  const core = buildCore();
+  const prDetails = {
+    number: 404,
+    title: 'Verify CI results',
+    body: prBodyFixture,
+    html_url: 'https://example.com/pr/404',
+    merge_commit_sha: 'merge-sha-404',
+    base: { ref: 'main' },
+    head: { sha: 'head-sha-404' },
+  };
+  const context = {
+    eventName: 'pull_request',
+    repo: { owner: 'octo', repo: 'workflows' },
+    payload: {
+      repository: { default_branch: 'main' },
+      pull_request: {
+        merged: true,
+        number: 404,
+        base: { ref: 'main' },
+        html_url: 'https://example.com/pr/404',
+      },
+    },
+    sha: 'context-sha-404',
+  };
+  const calls = [];
+  const github = buildGithubStub({
+    prDetails,
+    listWorkflowRunsHook: ({ workflow_id: workflowId, head_sha: headSha }) => {
+      calls.push({ workflowId, headSha });
+      if (headSha === 'merge-sha-404') {
+        return { data: { workflow_runs: [] } };
+      }
+      if (headSha === 'head-sha-404') {
+        return {
+          data: {
+            workflow_runs: [
+              {
+                head_sha: headSha,
+                conclusion: 'success',
+                html_url: `https://ci/${workflowId}`,
+              },
+            ],
+          },
+        };
+      }
+      return { data: { workflow_runs: [] } };
+    },
+  });
+
+  const result = await buildVerifierContext({ github, context, core });
+  assert.equal(result.ciResults.length, 3);
+  const callMap = new Map();
+  for (const call of calls) {
+    if (!callMap.has(call.workflowId)) {
+      callMap.set(call.workflowId, new Set());
+    }
+    callMap.get(call.workflowId).add(call.headSha);
+  }
+  for (const workflowId of ['pr-00-gate.yml', 'selftest-ci.yml', 'pr-11-ci-smoke.yml']) {
+    const shas = callMap.get(workflowId);
+    assert.ok(shas, `missing calls for ${workflowId}`);
+    assert.ok(shas.has('merge-sha-404'));
+    assert.ok(shas.has('head-sha-404'));
+  }
+});
+
 test('buildVerifierContext queries CI runs with merge commit SHA', async () => {
   const core = buildCore();
   const prDetails = {
