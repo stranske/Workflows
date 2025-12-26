@@ -282,6 +282,38 @@ test('runKeepaliveGate reports missing keepalive labels', async () => {
   restore();
 });
 
+test('runKeepaliveGate stops after too many prior failures', async () => {
+  const { core, outputs } = createCore();
+  const gateStub = async () => createGateResult();
+  const { runKeepaliveGate, restore } = loadRunnerWithGate(gateStub);
+
+  const pr = makePullRequest({
+    labels: [],
+  });
+
+  await runKeepaliveGate({
+    core,
+    github: createGithub({
+      pull: pr,
+      runsByWorkflow: {
+        'pr-00-gate.yml': [
+          { head_sha: 'abc123', status: 'completed', conclusion: 'success' },
+        ],
+      },
+      comments: [
+        { body: `${SKIP_MARKER}\nKeepalive 1 trace skipped: missing-label:agents:keepalive` },
+        { body: `${SKIP_MARKER}\nKeepalive 2 trace skipped: missing-label:agent:codex` },
+      ],
+    }),
+    context: { repo: { owner: 'octo', repo: 'demo' }, runId: 49 },
+    env: makeEnv({ KEEPALIVE_MAX_RETRIES: '1' }),
+  });
+
+  assert.equal(outputs.proceed, 'false');
+  assert.equal(outputs.reason, 'too-many-failures');
+  restore();
+});
+
 test('runKeepaliveGate records prior non-gate failures for draft PRs', async () => {
   const { core, outputs } = createCore();
   const gateStub = async () => createGateResult();
