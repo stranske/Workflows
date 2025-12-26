@@ -409,7 +409,7 @@ jobs:
 
           # Check if only status files changed (codex-output.md, codex-prompt.md, agents/*.md)
           # These are metadata files that don't need individual commits when no real work was done
-          STATUS_ONLY_CHANGES=$(git status --porcelain | grep -cvE '^.. (codex-output\.md|codex-prompt\.md|agents/.*\.md)$' || echo "0")
+          STATUS_ONLY_CHANGES=$(git status --porcelain | grep -cvE '^\S+\s+(codex-output\.md|codex-prompt\.md|agents/.*\.md)$' || echo "0")
           if [ "$STATUS_ONLY_CHANGES" -eq 0 ] && [ "$CHANGED_FILES" -gt 0 ]; then
             echo "Only status/metadata files changed - skipping commit to reduce noise."
             echo "changes-made=false" >> "$GITHUB_OUTPUT"
