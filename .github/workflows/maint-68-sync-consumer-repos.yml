@@ -50,7 +50,13 @@ jobs:
           sparse-checkout: |
             templates/consumer-repo
             .github/workflows/autofix-versions.env
+            scripts/validate_version_pins.py
           sparse-checkout-cone-mode: false
+
+      - name: Validate version pins compatibility
+        run: |
+          python scripts/validate_version_pins.py templates/consumer-repo/.github/workflows/autofix-versions.env
+          echo "✅ Version pins are compatible"
 
       - name: Compute template hash
         id: hash
