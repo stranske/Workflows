@@ -1,7 +1,8 @@
-Extended guard coverage by adding safe-workflow and read-failure tests in `.github/scripts/__tests__/agents-guard.test.js`, then updated the PR checklist/acceptance tracking in `codex-prompt.md` after verifying all new tests pass and reviewing docs (no doc updates needed).
+Added coverage for keepalive skip-count handling and refreshed the task checklist to reflect completed test work in the keepalive prompt. Changes are in `.github/scripts/__tests__/keepalive-guard-utils.test.js` and `codex-prompt.md`.
 
-Tests run:
+Tests:
 - `node --test .github/scripts/__tests__/*.test.js`
 
-Next steps:
-1. Run the repo’s Selftest CI workflow (or equivalent full CI) to satisfy the remaining “no regressions” acceptance item.
+Next steps (if you want to finish the remaining checklist items):
+1) Run the full test suite used by Selftest CI.
+2) Update test documentation if there’s a specific doc you want to keep in sync.
