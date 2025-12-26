@@ -1,7 +1,10 @@
-Added a focused Node test to enforce required Scope/Tasks/Acceptance sections in the agent issue templates, then marked the PR task checkboxes complete after verifying the templates. Updates are in `.github/scripts/__tests__/issue_template_sections.test.js` and `codex-prompt.md`.
+Added required Scope/Tasks/Acceptance fields to the Codex bug/feature issue forms so source issues always carry those sections, and added a test to enforce the requirement going forward. Updated the PR body checklist to reflect completion.
 
-Tests:
-- `node --test .github/scripts/__tests__/issue_template_sections.test.js`
+- Updated issue forms: `.github/ISSUE_TEMPLATE/bug_report_codex.yml`, `.github/ISSUE_TEMPLATE/feature_request_codex.yml`
+- Added validation test: `tests/workflows/test_workflow_agents_consolidation.py`
+- Checked off tasks: `codex-prompt.md`
 
-Next steps:
-1. Run the broader JS test suite: `node --test .github/scripts/__tests__/*.test.js`
+Tests run:
+- `python -m pytest tests/workflows/test_workflow_agents_consolidation.py`
+
+Next step (optional): run the full test suite with `python -m pytest`.
