@@ -1,7 +1,8 @@
-I noticed unexpected local changes I didn’t make in `codex-prompt.md` (Progress 10/14→11/14 and “changed 2 file(s)”→“5 file(s)”). How would you like to proceed?
+Added an optional NDJSON append path to keepalive loop metrics so iterations can write structured records directly when `KEEPALIVE_METRICS_PATH` (or `metrics_path` input) is set, plus a test that verifies the file output. This keeps the metrics logging requirement moving forward while the workflow change is blocked by repository policy. Changes are in `.github/scripts/keepalive_loop.js` and `.github/scripts/__tests__/keepalive-loop.test.js`.
 
-1) Keep these changes and continue  
-2) Revert them  
-3) Investigate further before continuing
+Tests: `node --test .github/scripts/__tests__/keepalive-loop.test.js`
 
-Also, the remaining task requires editing `.github/workflows/agents-orchestrator.yml`, which is protected in this run; I’ll need explicit high‑privilege approval or a manual workflow edit.
+Blocked item: Updating `.github/workflows/agents-orchestrator.yml` requires `agent-high-privilege`; I can’t edit workflows in this run. Please add a `needs-human` label and a PR comment noting the required workflow change: call `scripts/keepalive_metrics_collector.py` after keepalive completes or set `KEEPALIVE_METRICS_PATH` so `updateKeepaliveLoopSummary` appends to the NDJSON log.
+
+Next steps:
+1) Have a human update `.github/workflows/agents-orchestrator.yml` to invoke the collector or export `KEEPALIVE_METRICS_PATH`.
