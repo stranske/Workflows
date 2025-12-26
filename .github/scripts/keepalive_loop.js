@@ -466,9 +466,14 @@ function formatProgressBar(current, total, width = 10) {
   return `[${'#'.repeat(filled)}${'-'.repeat(empty)}] ${bounded}/${total}`;
 }
 
-async function resolvePrNumber({ github, context, core }) {
-  const payload = context.payload || {};
+async function resolvePrNumber({ github, context, core, payload: overridePayload }) {
+  const payload = overridePayload || context.payload || {};
   const eventName = context.eventName;
+
+  // Support explicit PR number from override payload (for workflow_dispatch)
+  if (overridePayload?.workflow_run?.pull_requests?.[0]?.number) {
+    return overridePayload.workflow_run.pull_requests[0].number;
+  }
 
   if (eventName === 'pull_request' && payload.pull_request) {
     return payload.pull_request.number;
@@ -536,9 +541,9 @@ async function resolveGateConclusion({ github, context, pr, eventName, payload, 
   return '';
 }
 
-async function evaluateKeepaliveLoop({ github, context, core }) {
-  const payload = context.payload || {};
-  const prNumber = await resolvePrNumber({ github, context, core });
+async function evaluateKeepaliveLoop({ github, context, core, payload: overridePayload }) {
+  const payload = overridePayload || context.payload || {};
+  const prNumber = await resolvePrNumber({ github, context, core, payload });
   if (!prNumber) {
     return {
       prNumber: 0,

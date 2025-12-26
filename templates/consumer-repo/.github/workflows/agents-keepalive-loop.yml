@@ -118,6 +118,24 @@ jobs:
               const prs = payload.workflow_run.pull_requests || [];
               if (prs[0]?.number) {
                 prNumber = prs[0].number;
+              } else {
+                // Fallback: query PRs by head SHA when pull_requests array is empty
+                // This happens due to GitHub's workflow_run event limitations
+                const headSha = payload.workflow_run.head_sha;
+                if (headSha) {
+                  console.log(`pull_requests array empty, querying by head SHA: ${headSha}`);
+                  const { data: commits } = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    commit_sha: headSha,
+                  });
+                  if (commits[0]?.number) {
+                    prNumber = commits[0].number;
+                    console.log(`Found PR #${prNumber} via commit SHA lookup`);
+                  }
+                }
+              }
+              if (prNumber > 0) {
                 const { data } = await github.rest.pulls.get({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
