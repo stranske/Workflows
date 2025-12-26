@@ -240,13 +240,19 @@ async function buildVerifierContext({ github, context, core }) {
   content.push('');
   content.push(`- Repository: ${owner}/${repo}`);
   content.push(`- Base branch: ${baseRef || defaultBranch}`);
-  const targetSha = pull.merge_commit_sha || pull.head?.sha || context.sha || '';
+  const ciTargetShas = [pull.merge_commit_sha, pull.head?.sha, context.sha].filter(Boolean);
+  const targetSha = ciTargetShas[0] || '';
   if (targetSha) {
     content.push(`- Target commit: \`${targetSha}\``);
   }
   content.push(`- Pull request: [#${pull.number}](${pull.html_url || ''})`);
   content.push('');
-  const ciResults = await queryVerifierCiResults({ github, context, core, targetSha });
+  const ciResults = await queryVerifierCiResults({
+    github,
+    context,
+    core,
+    targetShas: ciTargetShas,
+  });
   content.push('## CI Verification');
   content.push('');
   content.push('Use these CI results to verify test-related criteria; do not rerun test suites locally.');

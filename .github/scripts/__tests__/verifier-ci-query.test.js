@@ -5,12 +5,22 @@ const assert = require('node:assert/strict');
 
 const { queryVerifierCiResults } = require('../verifier_ci_query.js');
 
-const buildGithubStub = ({ runsByWorkflow = {}, errorWorkflow = null } = {}) => ({
+const buildGithubStub = ({
+  runsByWorkflow = {},
+  errorWorkflow = null,
+  listWorkflowRunsHook = null,
+} = {}) => ({
   rest: {
     actions: {
-      async listWorkflowRuns({ workflow_id: workflowId }) {
+      async listWorkflowRuns({ workflow_id: workflowId, head_sha: headSha }) {
         if (errorWorkflow && workflowId === errorWorkflow) {
           throw new Error('boom');
+        }
+        if (listWorkflowRunsHook) {
+          const hooked = await listWorkflowRunsHook({ workflow_id: workflowId, head_sha: headSha });
+          if (hooked !== undefined) {
+            return hooked;
+          }
         }
         return { data: { workflow_runs: runsByWorkflow[workflowId] || [] } };
       },
@@ -108,6 +118,46 @@ test('queryVerifierCiResults uses latest run when no target SHA is provided', as
       run_url: 'gate-latest-url',
     },
   ]);
+});
+
+test('queryVerifierCiResults falls back to secondary SHA when primary has no runs', async () => {
+  const headShas = [];
+  const github = buildGithubStub({
+    listWorkflowRunsHook: ({ head_sha: headSha }) => {
+      headShas.push(headSha);
+      if (headSha === 'merge-sha') {
+        return { data: { workflow_runs: [] } };
+      }
+      if (headSha === 'head-sha') {
+        return {
+          data: {
+            workflow_runs: [
+              { head_sha: 'head-sha', conclusion: 'success', html_url: 'head-url' },
+            ],
+          },
+        };
+      }
+      return { data: { workflow_runs: [] } };
+    },
+  });
+  const context = { repo: { owner: 'octo', repo: 'workflows' } };
+  const workflows = [{ workflow_name: 'Gate', workflow_id: 'pr-00-gate.yml' }];
+
+  const results = await queryVerifierCiResults({
+    github,
+    context,
+    targetShas: ['merge-sha', 'head-sha'],
+    workflows,
+  });
+
+  assert.deepEqual(results, [
+    {
+      workflow_name: 'Gate',
+      conclusion: 'success',
+      run_url: 'head-url',
+    },
+  ]);
+  assert.deepEqual(headShas, ['merge-sha', 'head-sha']);
 });
 
 test('queryVerifierCiResults falls back to default workflows', async () => {

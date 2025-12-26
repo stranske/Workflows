@@ -123,7 +123,7 @@ Your objective is to satisfy the **Acceptance Criteria** by completing each **Ta
 ---
 ## PR Tasks and Acceptance Criteria
 
-**Progress:** 17/21 tasks complete, 4 remaining
+**Progress:** 16/21 tasks complete, 5 remaining
 
 ### Scope
 - [ ] The post-merge verifier (agents-verifier.yml) currently runs tests locally in a read-only sandbox to verify acceptance criteria. This approach has critical flaws exposed by PR #154:
@@ -156,7 +156,7 @@ Complete these in order. Mark checkbox done ONLY after implementation is verifie
 - [x] Keep file existence and pattern checks as local verification
 - [ ] ### Round 4: Testing
 - [x] Add tests for `verifier_ci_query.js`
-- [x] Test with a merged PR to verify CI results are correctly fetched
+- [ ] Test with a merged PR to verify CI results are correctly fetched
 - [ ] Verify verifier no longer produces false negatives
 
 ### Acceptance Criteria

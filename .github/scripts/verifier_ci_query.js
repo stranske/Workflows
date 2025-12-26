@@ -13,33 +13,67 @@ function normalizeConclusion(run) {
   return run.conclusion || run.status || 'unknown';
 }
 
-async function fetchWorkflowRun({ github, owner, repo, workflowId, headSha, core }) {
+async function fetchWorkflowRun({ github, owner, repo, workflowId, headShas, core }) {
+  const candidates = Array.isArray(headShas)
+    ? headShas.map((sha) => String(sha || '').trim()).filter(Boolean)
+    : [];
+
   try {
-    const response = await github.rest.actions.listWorkflowRuns({
-      owner,
-      repo,
-      workflow_id: workflowId,
-      head_sha: headSha || undefined,
-      per_page: 10,
-    });
-    const runs = response?.data?.workflow_runs || [];
-    if (!runs.length) {
-      return null;
+    if (!candidates.length) {
+      const response = await github.rest.actions.listWorkflowRuns({
+        owner,
+        repo,
+        workflow_id: workflowId,
+        per_page: 10,
+      });
+      const runs = response?.data?.workflow_runs || [];
+      return runs[0] || null;
     }
-    if (!headSha) {
-      return runs[0];
+
+    for (const sha of candidates) {
+      const response = await github.rest.actions.listWorkflowRuns({
+        owner,
+        repo,
+        workflow_id: workflowId,
+        head_sha: sha,
+        per_page: 10,
+      });
+      const runs = response?.data?.workflow_runs || [];
+      if (!runs.length) {
+        continue;
+      }
+      const exact = runs.find((run) => run.head_sha === sha);
+      return exact || runs[0];
     }
-    const exact = runs.find((run) => run.head_sha === headSha);
-    return exact || runs[0];
+    return null;
   } catch (error) {
     core?.warning?.(`Failed to fetch workflow runs for ${workflowId}: ${error.message}`);
     return null;
   }
 }
 
-async function queryVerifierCiResults({ github, context, core, targetSha, workflows } = {}) {
+async function queryVerifierCiResults({
+  github,
+  context,
+  core,
+  targetSha,
+  targetShas,
+  workflows,
+} = {}) {
   const { owner, repo } = context.repo;
-  const headSha = String(targetSha || '').trim();
+  const candidates = [];
+  if (Array.isArray(targetShas)) {
+    for (const sha of targetShas) {
+      const normalized = String(sha || '').trim();
+      if (normalized && !candidates.includes(normalized)) {
+        candidates.push(normalized);
+      }
+    }
+  }
+  const normalizedTarget = String(targetSha || '').trim();
+  if (normalizedTarget && !candidates.includes(normalizedTarget)) {
+    candidates.push(normalizedTarget);
+  }
   const targets = Array.isArray(workflows) && workflows.length ? workflows : DEFAULT_WORKFLOWS;
   const results = [];
 
@@ -51,7 +85,7 @@ async function queryVerifierCiResults({ github, context, core, targetSha, workfl
       owner,
       repo,
       workflowId,
-      headSha,
+      headShas: candidates,
       core,
     });
     results.push({

@@ -292,7 +292,8 @@ test('buildVerifierContext queries CI runs with merge commit SHA', async () => {
 
   assert.equal(result.shouldRun, true);
   assert.ok(headShas.length > 0);
-  assert.ok(headShas.every((sha) => sha === 'merge-sha-222'));
+  assert.equal(headShas[0], 'merge-sha-222');
+  assert.ok(headShas.includes('merge-sha-222'));
 
   const contextPath = result.contextPath || path.join(process.cwd(), 'verifier-context.md');
   fs.rmSync(contextPath, { force: true });
