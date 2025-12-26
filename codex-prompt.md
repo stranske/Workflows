@@ -123,7 +123,19 @@ Your objective is to satisfy the **Acceptance Criteria** by completing each **Ta
 ---
 ## PR Tasks and Acceptance Criteria
 
-**Progress:** 2/14 tasks complete, 12 remaining
+**Progress:** 6/14 tasks complete, 8 remaining
+
+### ⚠️ IMPORTANT: Task Reconciliation Required
+
+The previous iteration changed **2 file(s)** but did not update task checkboxes.
+
+**Before continuing, you MUST:**
+1. Review the recent commits to understand what was changed
+2. Determine which task checkboxes should be marked complete
+3. Update the PR body to check off completed tasks
+4. Then continue with remaining tasks
+
+_Failure to update checkboxes means progress is not being tracked properly._
 
 ### Scope
 - [ ] The keepalive loop currently tracks iteration counts in PR state comments, but there is no aggregated view of keepalive performance across PRs. Operators cannot easily answer questions like:
@@ -148,20 +160,20 @@ Complete these in order. Mark checkbox done ONLY after implementation is verifie
 
 - [x] Define metrics schema in `docs/keepalive/METRICS_SCHEMA.md` with fields for PR number, iteration, timestamp, action, error_category, duration_ms, tasks_total, tasks_complete
 - [x] Create `scripts/keepalive_metrics_collector.py` to append structured metrics to `keepalive-metrics.ndjson`
-- [ ] Integrate metrics collection into `.github/scripts/keepalive_loop.js` to emit metrics after each iteration
-- [ ] Create `scripts/keepalive_metrics_dashboard.py` that reads the NDJSON log and outputs a markdown summary table
-- [ ] Add tests for metrics collector (schema validation, append behavior)
-- [ ] Add tests for dashboard generator (aggregation logic, edge cases)
+- [x] Integrate metrics collection into `.github/scripts/keepalive_loop.js` to emit metrics after each iteration
+- [x] Create `scripts/keepalive_metrics_dashboard.py` that reads the NDJSON log and outputs a markdown summary table
+- [x] Add tests for metrics collector (schema validation, append behavior)
+- [x] Add tests for dashboard generator (aggregation logic, edge cases)
 - [ ] Update `.github/workflows/agents-orchestrator.yml` to call metrics collector after keepalive completes
 
 ### Acceptance Criteria
 The PR is complete when ALL of these are satisfied:
 
-- [ ] Metrics schema is documented with field descriptions and example records
+- [x] Metrics schema is documented with field descriptions and example records
 - [ ] Each keepalive iteration logs a structured record with all required fields
-- [ ] Dashboard script produces a valid markdown table with success rate, avg iterations, and error breakdown
-- [ ] Tests cover metrics schema validation and reject malformed records
-- [ ] Tests cover dashboard aggregation with empty, single, and multi-record inputs
+- [x] Dashboard script produces a valid markdown table with success rate, avg iterations, and error breakdown
+- [x] Tests cover metrics schema validation and reject malformed records
+- [x] Tests cover dashboard aggregation with empty, single, and multi-record inputs
 - [ ] Integration smoke test confirms metrics are written during actual keepalive runs
 - [ ] Selftest CI passes
 
