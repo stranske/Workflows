@@ -38,11 +38,12 @@ const buildGithubStub = ({
   closingIssues = [],
   listError = null,
   graphqlError = null,
+  runsByWorkflow = {},
 } = {}) => ({
   rest: {
     actions: {
-      async listWorkflowRuns() {
-        return { data: { workflow_runs: [] } };
+      async listWorkflowRuns({ workflow_id: workflowId }) {
+        return { data: { workflow_runs: runsByWorkflow[workflowId] || [] } };
       },
     },
     pulls: {
@@ -211,6 +212,17 @@ test('buildVerifierContext writes verifier context with linked issues', async ()
         url: 'https://example.com/issues/789',
       },
     ],
+    runsByWorkflow: {
+      'pr-00-gate.yml': [
+        { head_sha: 'merge-sha', conclusion: 'success', html_url: 'https://ci/gate' },
+      ],
+      'selftest-ci.yml': [
+        { head_sha: 'merge-sha', conclusion: 'success', html_url: 'https://ci/selftest' },
+      ],
+      'pr-11-ci-smoke.yml': [
+        { head_sha: 'merge-sha', conclusion: 'success', html_url: 'https://ci/pr11' },
+      ],
+    },
   });
 
   const result = await buildVerifierContext({ github, context, core });
@@ -223,6 +235,10 @@ test('buildVerifierContext writes verifier context with linked issues', async ()
   assert.ok(markdown.includes('Pull request #321'));
   assert.ok(markdown.includes('Issue #456'));
   assert.ok(markdown.includes('Issue #789'));
+  assert.ok(markdown.includes('## CI Verification'));
+  assert.ok(markdown.includes('Gate: success'));
+  assert.ok(markdown.includes('Selftest CI: success'));
+  assert.ok(markdown.includes('PR 11 - Minimal invariant CI: success'));
 
   fs.rmSync(contextPath, { force: true });
 });
