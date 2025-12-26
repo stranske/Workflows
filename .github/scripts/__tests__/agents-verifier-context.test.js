@@ -39,10 +39,14 @@ const buildGithubStub = ({
   listError = null,
   graphqlError = null,
   runsByWorkflow = {},
+  listWorkflowRunsHook = null,
 } = {}) => ({
   rest: {
     actions: {
-      async listWorkflowRuns({ workflow_id: workflowId }) {
+      async listWorkflowRuns({ workflow_id: workflowId, head_sha: headSha }) {
+        if (listWorkflowRunsHook) {
+          listWorkflowRunsHook({ workflow_id: workflowId, head_sha: headSha });
+        }
         return { data: { workflow_runs: runsByWorkflow[workflowId] || [] } };
       },
     },
@@ -228,10 +232,14 @@ test('buildVerifierContext writes verifier context with linked issues', async ()
   const result = await buildVerifierContext({ github, context, core });
   const contextPath = result.contextPath || path.join(process.cwd(), 'verifier-context.md');
   const markdown = fs.readFileSync(contextPath, 'utf8');
+  const ciResults = JSON.parse(core.outputs.ci_results);
 
   assert.equal(result.shouldRun, true);
   assert.equal(core.outputs.should_run, 'true');
   assert.equal(core.outputs.issue_numbers, JSON.stringify([456, 789]));
+  assert.equal(ciResults.length, 3);
+  assert.equal(ciResults[0].workflow_name, 'Gate');
+  assert.equal(ciResults[0].conclusion, 'success');
   assert.ok(markdown.includes('Pull request #321'));
   assert.ok(markdown.includes('Issue #456'));
   assert.ok(markdown.includes('Issue #789'));
@@ -240,6 +248,49 @@ test('buildVerifierContext writes verifier context with linked issues', async ()
   assert.ok(markdown.includes('Selftest CI: success'));
   assert.ok(markdown.includes('PR 11 - Minimal invariant CI: success'));
 
+  fs.rmSync(contextPath, { force: true });
+});
+
+test('buildVerifierContext queries CI runs with merge commit SHA', async () => {
+  const core = buildCore();
+  const prDetails = {
+    number: 222,
+    title: 'Merge commit',
+    body: prBodyFixture,
+    html_url: 'https://example.com/pr/222',
+    merge_commit_sha: 'merge-sha-222',
+    base: { ref: 'main' },
+    head: { sha: 'head-sha-222' },
+  };
+  const context = {
+    eventName: 'pull_request',
+    repo: { owner: 'octo', repo: 'workflows' },
+    payload: {
+      repository: { default_branch: 'main' },
+      pull_request: {
+        merged: true,
+        number: 222,
+        base: { ref: 'main' },
+        html_url: 'https://example.com/pr/222',
+      },
+    },
+    sha: 'sha-222',
+  };
+  const headShas = [];
+  const github = buildGithubStub({
+    prDetails,
+    listWorkflowRunsHook: ({ head_sha: headSha }) => {
+      headShas.push(headSha);
+    },
+  });
+
+  const result = await buildVerifierContext({ github, context, core });
+
+  assert.equal(result.shouldRun, true);
+  assert.ok(headShas.length > 0);
+  assert.ok(headShas.every((sha) => sha === 'merge-sha-222'));
+
+  const contextPath = result.contextPath || path.join(process.cwd(), 'verifier-context.md');
   fs.rmSync(contextPath, { force: true });
 });
 

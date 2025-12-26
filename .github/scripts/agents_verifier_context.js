@@ -152,6 +152,7 @@ async function buildVerifierContext({ github, context, core }) {
     core?.setOutput?.('target_sha', context.sha || '');
     core?.setOutput?.('context_path', '');
     core?.setOutput?.('acceptance_count', '0');
+    core?.setOutput?.('ci_results', '[]');
     return { shouldRun: false, reason: resolveReason || 'No pull request detected.' };
   }
 
@@ -168,6 +169,7 @@ async function buildVerifierContext({ github, context, core }) {
     core?.setOutput?.('target_sha', pr.merge_commit_sha || pr.head?.sha || context.sha || '');
     core?.setOutput?.('context_path', '');
     core?.setOutput?.('acceptance_count', '0');
+    core?.setOutput?.('ci_results', '[]');
     return { shouldRun: false, reason: skipReason };
   }
 
@@ -185,6 +187,7 @@ async function buildVerifierContext({ github, context, core }) {
     core?.setOutput?.('target_sha', pull.merge_commit_sha || pull.head?.sha || context.sha || '');
     core?.setOutput?.('context_path', '');
     core?.setOutput?.('acceptance_count', '0');
+    core?.setOutput?.('ci_results', '[]');
     return { shouldRun: false, reason: skipReason };
   }
 
@@ -271,6 +274,7 @@ async function buildVerifierContext({ github, context, core }) {
   core?.setOutput?.('target_sha', targetSha);
   core?.setOutput?.('context_path', contextPath);
   core?.setOutput?.('acceptance_count', String(acceptanceCount));
+  core?.setOutput?.('ci_results', JSON.stringify(ciResults));
 
   return { shouldRun: true, markdown, contextPath, issueNumbers, targetSha, acceptanceCount };
 }
