@@ -536,9 +536,9 @@ def test_codex_issue_forms_require_scope_tasks_acceptance():
                 required_label in entries
             ), f"Issue template {name} must include {required_label} section"
             validations = entries[required_label].get("validations") or {}
-            assert validations.get("required") is True, (
-                f"Issue template {name} must require {required_label} section"
-            )
+            assert (
+                validations.get("required") is True
+            ), f"Issue template {name} must require {required_label} section"
 
 
 def test_issue_intake_guard_checks_agent_label():
