@@ -51,7 +51,7 @@ jobs:
             echo "Using SERVICE_BOT_PAT token"
           else
             echo "token_available=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::No sync token available - sync will be skipped"
+            echo "WARNING: No sync token available - sync will be skipped"
           fi
 
       - name: Clone Integration-Tests repo
@@ -76,9 +76,8 @@ jobs:
             echo "✅ Updated ci.yml with workflow reference"
           fi
 
-          # Sync autofix-versions.env from canonical source
-          if [ -f "../workflows/.github/workflows/autofix-versions.env" ]; then
-            # Copy only the versions that exist in integration-tests template
+          # Sync autofix-versions.env from template (which matches canonical)
+          if [ -f "../workflows/templates/integration-repo/.github/workflows/autofix-versions.env" ]; then
             cp "../workflows/templates/integration-repo/.github/workflows/autofix-versions.env" \
               .github/workflows/autofix-versions.env
             echo "✅ Updated autofix-versions.env"
