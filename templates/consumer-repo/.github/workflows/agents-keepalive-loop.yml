@@ -27,6 +27,12 @@ on:
   pull_request:
     types:
       - labeled
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to run keepalive on'
+        required: true
+        type: number
 
 permissions:
   contents: write
@@ -92,6 +98,8 @@ jobs:
       - name: Security gate - prompt injection guard
         id: security_gate
         uses: actions/github-script@v7
+        env:
+          INPUT_PR_NUMBER: ${{ inputs.pr_number || '' }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -110,6 +118,34 @@ jobs:
               const prs = payload.workflow_run.pull_requests || [];
               if (prs[0]?.number) {
                 prNumber = prs[0].number;
+              } else {
+                // Fallback: query PRs by head SHA when pull_requests array is empty
+                // This happens due to GitHub's workflow_run event limitations
+                const headSha = payload.workflow_run.head_sha;
+                if (headSha) {
+                  console.log(`pull_requests array empty, querying by head SHA: ${headSha}`);
+                  const { data: commits } = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    commit_sha: headSha,
+                  });
+                  if (commits[0]?.number) {
+                    prNumber = commits[0].number;
+                    console.log(`Found PR #${prNumber} via commit SHA lookup`);
+                  }
+                }
+              }
+              if (prNumber > 0) {
+                const { data } = await github.rest.pulls.get({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  pull_number: prNumber,
+                });
+                pr = data;
+              }
+            } else if (context.eventName === 'workflow_dispatch' && process.env.INPUT_PR_NUMBER) {
+              prNumber = Number(process.env.INPUT_PR_NUMBER);
+              if (prNumber > 0) {
                 const { data } = await github.rest.pulls.get({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
@@ -145,17 +181,42 @@ jobs:
         id: evaluate
         if: steps.security_gate.outputs.blocked != 'true'
         uses: actions/github-script@v7
+        env:
+          INPUT_PR_NUMBER: ${{ inputs.pr_number || '' }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const scriptsPath = process.env.WORKFLOWS_SCRIPTS_PATH;
             const { evaluateKeepaliveLoop } = require(`${scriptsPath}/keepalive_loop.js`);
 
+            // For workflow_dispatch, inject PR number into payload structure
+            let payload = context.payload;
+            if (context.eventName === 'workflow_dispatch' && process.env.INPUT_PR_NUMBER) {
+              const prNumber = Number(process.env.INPUT_PR_NUMBER);
+              if (prNumber > 0) {
+                // Fetch PR data and inject into a mock workflow_run structure
+                const { data: pr } = await github.rest.pulls.get({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  pull_number: prNumber,
+                });
+                payload = {
+                  ...payload,
+                  workflow_run: {
+                    pull_requests: [{ number: prNumber }],
+                    head_sha: pr.head.sha,
+                    head_branch: pr.head.ref,
+                    conclusion: 'success',  // Assume success for manual trigger
+                  },
+                };
+              }
+            }
+
             const result = await evaluateKeepaliveLoop({
               github,
               context,
               core,
-              payload: context.payload,
+              payload,
             });
 
             // Map flat result properties to outputs (same pattern as Workflows repo)
