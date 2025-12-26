@@ -91,6 +91,19 @@ test('does not allow label-only bypass without codeowner approval', () => {
   assert.ok(result.failureReasons.some((reason) => reason.includes('Request approval from a CODEOWNER')));
 });
 
+test('validatePullRequestTargetSafety skips checks for non pull_request_target events', () => {
+  const result = validatePullRequestTargetSafety({
+    eventName: 'pull_request',
+    fsModule: {
+      readFileSync() {
+        throw new Error('unexpected read');
+      },
+    },
+  });
+
+  assert.deepEqual(result, { checked: false, violations: [] });
+});
+
 test('validatePullRequestTargetSafety blocks unsafe checkout and secrets usage', () => {
   const workflowSource = [
     'on: pull_request_target',
