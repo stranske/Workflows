@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 📖 Agent Workflow Guide
+    url: https://github.com/stranske/Workflows/blob/main/docs/ci/WORKFLOW_SYSTEM.md
+    about: Learn how the agent automation system works
