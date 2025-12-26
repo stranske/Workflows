@@ -382,7 +382,7 @@ jobs:
           from datetime import datetime, timezone
 
           def count_checkboxes(text: str) -> int:
-              return sum(1 for line in text.splitlines() if re.match(r"^- \\[[ xX]\\]", line.strip()))
+              return sum(1 for line in text.splitlines() if re.match(r"^- \[[ xX]\]", line.strip()))
 
           should_run = (os.environ.get("SHOULD_RUN") or "").lower() == "true"
           pr_number = int(os.environ.get("PR_NUMBER") or 0)
