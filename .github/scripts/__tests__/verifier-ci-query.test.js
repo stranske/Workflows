@@ -109,3 +109,44 @@ test('queryVerifierCiResults uses latest run when no target SHA is provided', as
     },
   ]);
 });
+
+test('queryVerifierCiResults falls back to default workflows', async () => {
+  const github = buildGithubStub({
+    runsByWorkflow: {
+      'pr-00-gate.yml': [
+        { head_sha: 'default-sha', conclusion: 'success', html_url: 'gate-default-url' },
+      ],
+      'selftest-ci.yml': [
+        { head_sha: 'default-sha', conclusion: 'failure', html_url: 'selftest-default-url' },
+      ],
+      'pr-11-ci-smoke.yml': [
+        { head_sha: 'default-sha', conclusion: 'success', html_url: 'pr11-default-url' },
+      ],
+    },
+  });
+  const context = { repo: { owner: 'octo', repo: 'workflows' } };
+
+  const results = await queryVerifierCiResults({
+    github,
+    context,
+    targetSha: 'default-sha',
+  });
+
+  assert.deepEqual(results, [
+    {
+      workflow_name: 'Gate',
+      conclusion: 'success',
+      run_url: 'gate-default-url',
+    },
+    {
+      workflow_name: 'Selftest CI',
+      conclusion: 'failure',
+      run_url: 'selftest-default-url',
+    },
+    {
+      workflow_name: 'PR 11 - Minimal invariant CI',
+      conclusion: 'success',
+      run_url: 'pr11-default-url',
+    },
+  ]);
+});
