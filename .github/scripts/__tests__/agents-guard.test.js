@@ -73,6 +73,23 @@ test('allows protected workflow edits with codeowner review approval', () => {
   assert.equal(result.hasAllowLabel, false);
 });
 
+test('treats allow-change labels as case-insensitive', () => {
+  const result = evaluateGuard({
+    files: [protectedFile],
+    codeownersContent,
+    authorLogin: 'someone',
+    labels: [{ name: 'Agents:Allow-Change' }],
+    reviews: [{
+      user: { login: 'owner' },
+      state: 'APPROVED',
+    }],
+  });
+
+  assert.equal(result.blocked, false);
+  assert.equal(result.hasAllowLabel, true);
+  assert.equal(result.hasCodeownerApproval, true);
+});
+
 test('blocks deletion of protected workflows that are not allowlisted', () => {
   const result = evaluateGuard({
     files: [{
