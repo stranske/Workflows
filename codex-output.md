@@ -1,12 +1,15 @@
-Adjusted the keepalive scope extraction to ignore placeholder-only sections and prefer real content, added a fixture + test to lock in that behavior, and checked off the completed PR tasks in `codex-prompt.md`.
+Improved placeholder handling so placeholder-only Scope/Tasks/Acceptance sections no longer count as real content, and added coverage to lock in missing-section detection. This keeps missing sections visible to the system while avoiding false “present” signals in `.github/scripts/issue_scope_parser.js` and ensures `buildIssueContext` surfaces warnings when placeholders are used.
 
 Details
-- Added placeholder detection in `.github/scripts/issue_scope_parser.js` and wired it into `scripts/keepalive-runner.js` so real sections win over placeholder-only comments.
-- New scenario fixture `tests/workflows/fixtures/keepalive/prefers_real_sections.json` plus test coverage in `tests/workflows/test_keepalive_workflow.py`.
-- Updated task checkboxes and progress line in `codex-prompt.md`.
+- Updated `.github/scripts/issue_scope_parser.js` to treat placeholder-only content as not present for `analyzeSectionPresence`.
+- Added placeholder-specific tests in `.github/scripts/__tests__/issue_scope_parser.test.js`.
+- Added placeholder-missing coverage in `.github/scripts/__tests__/issue_context_utils.test.js`.
 
 Tests
-- `python -m pytest tests/workflows/test_keepalive_workflow.py -k "sections_missing or prefers_non_placeholder"`
+- `node --test .github/scripts/__tests__/issue_scope_parser.test.js .github/scripts/__tests__/issue_context_utils.test.js`
 
-Suggestions
-1) Run the full keepalive workflow tests: `python -m pytest tests/workflows/test_keepalive_workflow.py`
+Notes
+- `codex-prompt.md` has existing uncommitted changes (progress/checkbox resets). I didn’t modify it this round; let me know if you want me to update/commit it.
+
+Next steps
+1) Update the source issue to add `Scope`, `Tasks`, and `Acceptance Criteria` sections, then re-run the PR body sync/keepalive.
