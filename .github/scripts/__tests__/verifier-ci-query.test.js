@@ -254,3 +254,28 @@ test('queryVerifierCiResults uses API url when html_url is missing', async () =>
     },
   ]);
 });
+
+test('queryVerifierCiResults treats completed runs without conclusion as unknown', async () => {
+  const github = buildGithubStub({
+    runsByWorkflow: {
+      'pr-00-gate.yml': [{ head_sha: 'target-sha', status: 'completed', html_url: 'gate-url' }],
+    },
+  });
+  const context = { repo: { owner: 'octo', repo: 'workflows' } };
+  const workflows = [{ workflow_name: 'Gate', workflow_id: 'pr-00-gate.yml' }];
+
+  const results = await queryVerifierCiResults({
+    github,
+    context,
+    targetSha: 'target-sha',
+    workflows,
+  });
+
+  assert.deepEqual(results, [
+    {
+      workflow_name: 'Gate',
+      conclusion: 'unknown',
+      run_url: 'gate-url',
+    },
+  ]);
+});
