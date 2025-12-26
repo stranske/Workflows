@@ -13,6 +13,7 @@ permissions:
   contents: read
   pull-requests: read
   issues: write
+  actions: read
 
 jobs:
   verifier:
@@ -38,15 +39,15 @@ jobs:
               return;
             }
 
-            const targetSha = pr.merge_commit_sha || pr.head?.sha;
+            const targetSha = pr.merge_commit_sha;
             if (!targetSha) {
-              core.warning('No target SHA found; skipping CI wait.');
+              core.setFailed('Merged PR is missing merge_commit_sha; cannot determine CI target SHA.');
               return;
             }
 
             const ciWorkflows = [
               'selftest-ci.yml',
-              'pr-11-ci-smoke.yml',
+              'pr-11-selftest-invariant.yml',
             ];
 
             const maxWaitMs = 5 * 60 * 1000; // 5 minutes max wait
@@ -382,7 +383,7 @@ jobs:
           from datetime import datetime, timezone
 
           def count_checkboxes(text: str) -> int:
-              return sum(1 for line in text.splitlines() if re.match(r"^- \\[[ xX]\\]", line.strip()))
+              return sum(1 for line in text.splitlines() if re.match(r"^- \[[ xX]\]", line.strip()))
 
           should_run = (os.environ.get("SHOULD_RUN") or "").lower() == "true"
           pr_number = int(os.environ.get("PR_NUMBER") or 0)
