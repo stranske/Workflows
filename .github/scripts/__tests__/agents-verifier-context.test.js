@@ -374,6 +374,52 @@ test('buildVerifierContext selects CI results for the merge commit SHA', async (
   fs.rmSync(contextPath, { force: true });
 });
 
+test('buildVerifierContext uses API url when html_url is missing', async () => {
+  const core = buildCore();
+  const prDetails = {
+    number: 444,
+    title: 'Run URL fallback',
+    body: prBodyFixture,
+    html_url: 'https://example.com/pr/444',
+    merge_commit_sha: 'merge-sha-444',
+    base: { ref: 'main' },
+    head: { sha: 'head-sha-444' },
+  };
+  const context = {
+    eventName: 'pull_request',
+    repo: { owner: 'octo', repo: 'workflows' },
+    payload: {
+      repository: { default_branch: 'main' },
+      pull_request: {
+        merged: true,
+        number: 444,
+        base: { ref: 'main' },
+        html_url: 'https://example.com/pr/444',
+      },
+    },
+    sha: 'sha-444',
+  };
+  const github = buildGithubStub({
+    prDetails,
+    runsByWorkflow: {
+      'pr-00-gate.yml': [
+        { head_sha: 'merge-sha-444', conclusion: 'success', url: 'https://ci/gate-api' },
+      ],
+    },
+  });
+
+  const result = await buildVerifierContext({ github, context, core });
+  const ciResults = JSON.parse(core.outputs.ci_results);
+  const contextPath = result.contextPath || path.join(process.cwd(), 'verifier-context.md');
+  const markdown = fs.readFileSync(contextPath, 'utf8');
+
+  assert.equal(result.shouldRun, true);
+  assert.equal(ciResults[0].run_url, 'https://ci/gate-api');
+  assert.ok(markdown.includes('| Gate | success | [run](https://ci/gate-api) |'));
+
+  fs.rmSync(contextPath, { force: true });
+});
+
 test('buildVerifierContext falls back to head SHA when merge runs are missing', async () => {
   const core = buildCore();
   const prDetails = {
