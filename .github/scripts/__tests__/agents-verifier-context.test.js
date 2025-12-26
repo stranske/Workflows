@@ -298,6 +298,78 @@ test('buildVerifierContext queries CI runs with merge commit SHA', async () => {
   fs.rmSync(contextPath, { force: true });
 });
 
+test('buildVerifierContext selects CI results for the merge commit SHA', async () => {
+  const core = buildCore();
+  const prDetails = {
+    number: 333,
+    title: 'Merge commit selection',
+    body: prBodyFixture,
+    html_url: 'https://example.com/pr/333',
+    merge_commit_sha: 'merge-sha-333',
+    base: { ref: 'main' },
+    head: { sha: 'head-sha-333' },
+  };
+  const context = {
+    eventName: 'pull_request',
+    repo: { owner: 'octo', repo: 'workflows' },
+    payload: {
+      repository: { default_branch: 'main' },
+      pull_request: {
+        merged: true,
+        number: 333,
+        base: { ref: 'main' },
+        html_url: 'https://example.com/pr/333',
+      },
+    },
+    sha: 'sha-333',
+  };
+  const headShas = [];
+  const github = buildGithubStub({
+    prDetails,
+    runsByWorkflow: {
+      'pr-00-gate.yml': [
+        { head_sha: 'other-sha', conclusion: 'failure', html_url: 'https://ci/gate-old' },
+        { head_sha: 'merge-sha-333', conclusion: 'success', html_url: 'https://ci/gate-merge' },
+      ],
+      'selftest-ci.yml': [
+        { head_sha: 'merge-sha-333', conclusion: 'success', html_url: 'https://ci/selftest-merge' },
+      ],
+      'pr-11-ci-smoke.yml': [
+        { head_sha: 'merge-sha-333', conclusion: 'success', html_url: 'https://ci/pr11-merge' },
+      ],
+    },
+    listWorkflowRunsHook: ({ head_sha: headSha }) => {
+      headShas.push(headSha);
+    },
+  });
+
+  const result = await buildVerifierContext({ github, context, core });
+
+  assert.equal(result.shouldRun, true);
+  assert.ok(headShas.length > 0);
+  assert.ok(headShas.every((sha) => sha === 'merge-sha-333'));
+  assert.deepEqual(result.ciResults, [
+    {
+      workflow_name: 'Gate',
+      conclusion: 'success',
+      run_url: 'https://ci/gate-merge',
+    },
+    {
+      workflow_name: 'Selftest CI',
+      conclusion: 'success',
+      run_url: 'https://ci/selftest-merge',
+    },
+    {
+      workflow_name: 'PR 11 - Minimal invariant CI',
+      conclusion: 'success',
+      run_url: 'https://ci/pr11-merge',
+    },
+  ]);
+
+  const contextPath = result.contextPath || path.join(process.cwd(), 'verifier-context.md');
+  fs.rmSync(contextPath, { force: true });
+});
+
 test('buildVerifierContext skips push events without a commit SHA', async () => {
   const core = buildCore();
   const context = {

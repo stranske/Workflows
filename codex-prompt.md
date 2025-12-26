@@ -123,7 +123,7 @@ Your objective is to satisfy the **Acceptance Criteria** by completing each **Ta
 ---
 ## PR Tasks and Acceptance Criteria
 
-**Progress:** 3/21 tasks complete, 18 remaining
+**Progress:** 15/21 tasks complete, 6 remaining
 
 ### Scope
 - [ ] The post-merge verifier (agents-verifier.yml) currently runs tests locally in a read-only sandbox to verify acceptance criteria. This approach has critical flaws exposed by PR #154:
@@ -142,30 +142,30 @@ Your objective is to satisfy the **Acceptance Criteria** by completing each **Ta
 ### Tasks
 Complete these in order. Mark checkbox done ONLY after implementation is verified:
 
-- [ ] ### Round 1: Add CI result querying
-- [ ] Create `verifier_ci_query.js` script to fetch workflow run results for a commit
-- [ ] Query Gate, Selftest CI, and PR 11 workflow conclusions
-- [ ] Return structured data: `{ workflow_name, conclusion, run_url }`
+- [x] ### Round 1: Add CI result querying
+- [x] Create `verifier_ci_query.js` script to fetch workflow run results for a commit
+- [x] Query Gate, Selftest CI, and PR 11 workflow conclusions
+- [x] Return structured data: `{ workflow_name, conclusion, run_url }`
 - [ ] ### Round 2: Integrate into verifier context
 - [x] Modify `agents_verifier_context.js` to include CI results in context
-- [ ] Add "CI Verification" section to verifier prompt with actual results
-- [ ] Remove instruction to run tests locally (rely on CI results)
+- [x] Add "CI Verification" section to verifier prompt with actual results
+- [x] Remove instruction to run tests locally (rely on CI results)
 - [ ] ### Round 3: Update verifier prompt
 - [x] Update `.github/codex/prompts/verifier_acceptance_check.md`
-- [ ] Instruct verifier to check CI results section instead of running tests
-- [ ] Keep file existence and pattern checks as local verification
+- [x] Instruct verifier to check CI results section instead of running tests
+- [x] Keep file existence and pattern checks as local verification
 - [ ] ### Round 4: Testing
 - [x] Add tests for `verifier_ci_query.js`
-- [ ] Test with a merged PR to verify CI results are correctly fetched
+- [x] Test with a merged PR to verify CI results are correctly fetched
 - [ ] Verify verifier no longer produces false negatives
 
 ### Acceptance Criteria
 The PR is complete when ALL of these are satisfied:
 
-- [ ] Verifier context includes CI workflow results (Gate, Selftest CI conclusions)
-- [ ] Verifier prompt instructs to use CI results for test pass/fail verification
+- [x] Verifier context includes CI workflow results (Gate, Selftest CI conclusions)
+- [x] Verifier prompt instructs to use CI results for test pass/fail verification
 - [ ] "Selftest CI passes" criterion can be verified as PASS when CI actually passed
 - [ ] No false negatives from stale local test runs
-- [ ] Tests exist for the new CI query functionality
+- [x] Tests exist for the new CI query functionality
 
 ---
