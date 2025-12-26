@@ -153,7 +153,11 @@ async function buildVerifierContext({ github, context, core }) {
     core?.setOutput?.('context_path', '');
     core?.setOutput?.('acceptance_count', '0');
     core?.setOutput?.('ci_results', '[]');
-    return { shouldRun: false, reason: resolveReason || 'No pull request detected.' };
+    return {
+      shouldRun: false,
+      reason: resolveReason || 'No pull request detected.',
+      ciResults: [],
+    };
   }
 
   const baseRef = pr.base?.ref || '';
@@ -170,7 +174,7 @@ async function buildVerifierContext({ github, context, core }) {
     core?.setOutput?.('context_path', '');
     core?.setOutput?.('acceptance_count', '0');
     core?.setOutput?.('ci_results', '[]');
-    return { shouldRun: false, reason: skipReason };
+    return { shouldRun: false, reason: skipReason, ciResults: [] };
   }
 
   const prDetails = await github.rest.pulls.get({ owner, repo, pull_number: pr.number });
@@ -188,7 +192,7 @@ async function buildVerifierContext({ github, context, core }) {
     core?.setOutput?.('context_path', '');
     core?.setOutput?.('acceptance_count', '0');
     core?.setOutput?.('ci_results', '[]');
-    return { shouldRun: false, reason: skipReason };
+    return { shouldRun: false, reason: skipReason, ciResults: [] };
   }
 
   const closingIssues = await fetchClosingIssues({
@@ -276,7 +280,15 @@ async function buildVerifierContext({ github, context, core }) {
   core?.setOutput?.('acceptance_count', String(acceptanceCount));
   core?.setOutput?.('ci_results', JSON.stringify(ciResults));
 
-  return { shouldRun: true, markdown, contextPath, issueNumbers, targetSha, acceptanceCount };
+  return {
+    shouldRun: true,
+    markdown,
+    contextPath,
+    issueNumbers,
+    targetSha,
+    acceptanceCount,
+    ciResults,
+  };
 }
 
 module.exports = {

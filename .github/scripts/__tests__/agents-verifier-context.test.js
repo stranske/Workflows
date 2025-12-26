@@ -94,6 +94,7 @@ test('buildVerifierContext skips when pull request is not merged', async () => {
     core,
   });
   assert.equal(result.shouldRun, false);
+  assert.deepEqual(result.ciResults, []);
   assert.equal(core.outputs.should_run, 'false');
   assert.ok(core.outputs.skip_reason.includes('not merged'));
 });
@@ -235,6 +236,7 @@ test('buildVerifierContext writes verifier context with linked issues', async ()
   const ciResults = JSON.parse(core.outputs.ci_results);
 
   assert.equal(result.shouldRun, true);
+  assert.equal(result.ciResults.length, 3);
   assert.equal(core.outputs.should_run, 'true');
   assert.equal(core.outputs.issue_numbers, JSON.stringify([456, 789]));
   assert.equal(ciResults.length, 3);
