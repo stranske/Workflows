@@ -225,7 +225,7 @@ jobs:
               echo
               echo "---"
               echo
-              echo "# Task Prompt"
+              echo "## Task Prompt"
               echo
             } > "$output"
             cat "$base" >> "$output"
