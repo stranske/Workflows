@@ -59,11 +59,13 @@ Navigate to: **Settings** → **Secrets and variables** → **Actions** → **Se
 | `SERVICE_BOT_PAT` | PAT for stranske-automation-bot | Contact admin for token |
 | `ACTIONS_BOT_PAT` | PAT for workflow dispatch | Same as SERVICE_BOT_PAT or dedicated |
 | `OWNER_PR_PAT` | PAT for PR creation | Repository owner's PAT |
+| `CODEX_AUTH_JSON` | Codex CLI authentication | Export from `~/.codex/auth.json` |
 
 Add each secret:
 - [ ] `SERVICE_BOT_PAT` — Required for orchestrator and agent workflows
 - [ ] `ACTIONS_BOT_PAT` — Required for triggering workflows between repos
 - [ ] `OWNER_PR_PAT` — Required for creating PRs from agent bridge
+- [ ] `CODEX_AUTH_JSON` — Required for Codex CLI to authenticate with ChatGPT
 
 ### 2.2 Required Variables
 
@@ -178,7 +180,22 @@ These scripts MUST exist in `.github/scripts/`:
 
 - [ ] All 3 Python scripts present
 
-### 4.3 Required Templates
+### 4.3 Required Codex Prompts
+
+These files MUST exist in `.github/codex/` for the keepalive pipeline:
+
+| File | Purpose |
+|------|---------|
+| `AGENT_INSTRUCTIONS.md` | Security boundaries and operational guidelines for Codex |
+| `prompts/keepalive_next_task.md` | Prompt template for keepalive iterations |
+
+- [ ] `.github/codex/AGENT_INSTRUCTIONS.md` present
+- [ ] `.github/codex/prompts/keepalive_next_task.md` present
+
+> **Critical**: Without these files, the `reusable-codex-run.yml` workflow will
+> fail with "Base prompt file not found".
+
+### 4.4 Required Templates
 
 Templates MUST exist in `.github/templates/`:
 
@@ -327,6 +344,10 @@ inputs:
 
 ```
 .github/
+├── codex/
+│   ├── AGENT_INSTRUCTIONS.md
+│   └── prompts/
+│       └── keepalive_next_task.md
 ├── scripts/
 │   ├── decode_raw_input.py
 │   ├── fallback_split.py
@@ -351,6 +372,7 @@ inputs:
 - `SERVICE_BOT_PAT`
 - `ACTIONS_BOT_PAT`
 - `OWNER_PR_PAT`
+- `CODEX_AUTH_JSON`
 
 ### Required Variables
 

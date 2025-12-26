@@ -134,6 +134,12 @@ jobs:
             "prompts/keepalive_next_task.md"
           )
 
+          # Issue templates for agent automation
+          SYNC_ISSUE_TEMPLATES=(
+            "agent_task.yml"
+            "config.yml"
+          )
+
           changes=""
           sync_report=""
 
@@ -228,6 +234,24 @@ jobs:
             fi
           done
 
+          # Check issue templates
+          for template_file in "${SYNC_ISSUE_TEMPLATES[@]}"; do
+            source_file="workflows/templates/consumer-repo/.github/ISSUE_TEMPLATE/$template_file"
+            consumer_file="consumer/.github/ISSUE_TEMPLATE/$template_file"
+
+            if [ ! -f "$source_file" ]; then
+              continue
+            fi
+
+            if [ ! -f "$consumer_file" ]; then
+              changes="$changes ISSUE_TEMPLATE/$template_file"
+              sync_report="$sync_report\n- ISSUE_TEMPLATE/$template_file (missing)"
+            elif ! compare_files "$source_file" "$consumer_file" false; then
+              changes="$changes ISSUE_TEMPLATE/$template_file"
+              sync_report="$sync_report\n- ISSUE_TEMPLATE/$template_file (differs)"
+            fi
+          done
+
           if [ -n "$changes" ]; then
             echo "has_changes=true" >> "$GITHUB_OUTPUT"
             echo "changed_files=$changes" >> "$GITHUB_OUTPUT"
@@ -310,6 +334,22 @@ jobs:
           for codex_file in "${SYNC_CODEX_FILES[@]}"; do
             source="../workflows/templates/consumer-repo/.github/codex/$codex_file"
             target=".github/codex/$codex_file"
+
+            if [ -f "$source" ]; then
+              cp "$source" "$target"
+            fi
+          done
+
+          # Sync issue templates (for agent automation)
+          SYNC_ISSUE_TEMPLATES=(
+            "agent_task.yml"
+            "config.yml"
+          )
+
+          mkdir -p .github/ISSUE_TEMPLATE
+          for template_file in "${SYNC_ISSUE_TEMPLATES[@]}"; do
+            source="../workflows/templates/consumer-repo/.github/ISSUE_TEMPLATE/$template_file"
+            target=".github/ISSUE_TEMPLATE/$template_file"
 
             if [ -f "$source" ]; then
               cp "$source" "$target"

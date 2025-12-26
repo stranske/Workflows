@@ -1,0 +1,57 @@
+name: Agent Task
+description: Create a task for Codex to work on automatically
+title: "[Agent] "
+labels:
+  - agent:codex
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template to create tasks that Codex will pick up automatically.
+
+        The `agent:codex` label triggers the agent pipeline which will:
+        1. Create a branch and PR from this issue
+        2. Have Codex work through the tasks iteratively
+        3. Run CI after each iteration until all tasks are complete
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: What should be changed or implemented?
+      placeholder: |
+        Describe the work to be done. Be specific about files, functions, or features.
+    validations:
+      required: true
+
+  - type: textarea
+    id: tasks
+    attributes:
+      label: Tasks
+      description: Break down the work into specific actionable items
+      placeholder: |
+        - [ ] Task 1
+        - [ ] Task 2
+        - [ ] Task 3
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance Criteria
+      description: How do we know the work is complete?
+      placeholder: |
+        - [ ] All tests pass
+        - [ ] Feature works as described
+        - [ ] Documentation updated
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional Context
+      description: Any extra information, constraints, or references
+      placeholder: |
+        Links, screenshots, or other context that helps understand the task.
