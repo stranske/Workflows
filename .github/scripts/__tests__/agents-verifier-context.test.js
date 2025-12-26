@@ -40,6 +40,11 @@ const buildGithubStub = ({
   graphqlError = null,
 } = {}) => ({
   rest: {
+    actions: {
+      async listWorkflowRuns() {
+        return { data: { workflow_runs: [] } };
+      },
+    },
     pulls: {
       async get() {
         return { data: prDetails };

@@ -7,6 +7,7 @@ const {
   extractScopeTasksAcceptanceSections,
   parseScopeTasksAcceptanceSections,
 } = require('./issue_scope_parser.js');
+const { queryVerifierCiResults } = require('./verifier_ci_query.js');
 
 const DEFAULT_BRANCH = process.env.DEFAULT_BRANCH || 'main';
 
@@ -237,6 +238,18 @@ async function buildVerifierContext({ github, context, core }) {
     content.push(`- Target commit: \`${targetSha}\``);
   }
   content.push(`- Pull request: [#${pull.number}](${pull.html_url || ''})`);
+  content.push('');
+  const ciResults = await queryVerifierCiResults({ github, context, core, targetSha });
+  content.push('## CI Verification');
+  content.push('');
+  if (ciResults.length) {
+    for (const result of ciResults) {
+      const runLink = result.run_url ? `[run](${result.run_url})` : 'no run link';
+      content.push(`- ${result.workflow_name}: ${result.conclusion} (${runLink})`);
+    }
+  } else {
+    content.push('_No CI workflow runs were found for the target commit._');
+  }
   content.push('');
   content.push('## Plan sources (scope, tasks, acceptance)');
   content.push('');
