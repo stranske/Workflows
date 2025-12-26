@@ -91,7 +91,7 @@ async function queryVerifierCiResults({
     results.push({
       workflow_name: workflowName,
       conclusion: normalizeConclusion(run),
-      run_url: run?.html_url || '',
+      run_url: run?.html_url || run?.url || '',
     });
   }
 

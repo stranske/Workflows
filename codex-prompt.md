@@ -123,7 +123,7 @@ Your objective is to satisfy the **Acceptance Criteria** by completing each **Ta
 ---
 ## PR Tasks and Acceptance Criteria
 
-**Progress:** 3/21 tasks complete, 18 remaining
+**Progress:** 17/21 tasks complete, 4 remaining
 
 ### ⚠️ IMPORTANT: Task Reconciliation Required
 
@@ -166,7 +166,7 @@ Complete these in order. Mark checkbox done ONLY after implementation is verifie
 - [x] Update `.github/codex/prompts/verifier_acceptance_check.md`
 - [x] Instruct verifier to check CI results section instead of running tests
 - [x] Keep file existence and pattern checks as local verification
-- [x] ### Round 4: Testing
+- [ ] ### Round 4: Testing
 - [x] Add tests for `verifier_ci_query.js`
 - [x] Test with a merged PR to verify CI results are correctly fetched
 - [ ] Verify verifier no longer produces false negatives

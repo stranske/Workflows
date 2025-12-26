@@ -200,3 +200,28 @@ test('queryVerifierCiResults falls back to default workflows', async () => {
     },
   ]);
 });
+
+test('queryVerifierCiResults uses API url when html_url is missing', async () => {
+  const github = buildGithubStub({
+    runsByWorkflow: {
+      'pr-00-gate.yml': [{ head_sha: 'target-sha', conclusion: 'success', url: 'api-url' }],
+    },
+  });
+  const context = { repo: { owner: 'octo', repo: 'workflows' } };
+  const workflows = [{ workflow_name: 'Gate', workflow_id: 'pr-00-gate.yml' }];
+
+  const results = await queryVerifierCiResults({
+    github,
+    context,
+    targetSha: 'target-sha',
+    workflows,
+  });
+
+  assert.deepEqual(results, [
+    {
+      workflow_name: 'Gate',
+      conclusion: 'success',
+      run_url: 'api-url',
+    },
+  ]);
+});
