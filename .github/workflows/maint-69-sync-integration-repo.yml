@@ -1,0 +1,163 @@
+name: Maint 69 Sync Integration Repo
+
+# Push template updates to Workflows-Integration-Tests repository
+# Triggered after template changes or manually
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'templates/integration-repo/**'
+      - '.github/workflows/autofix-versions.env'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Preview changes without pushing'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+env:
+  INTEGRATION_REPO: stranske/Workflows-Integration-Tests
+  WORKFLOW_REF: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
+
+jobs:
+  sync:
+    name: Sync integration-repo templates
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Workflows repo
+        uses: actions/checkout@v4
+        with:
+          path: workflows
+          sparse-checkout: |
+            templates/integration-repo
+            .github/workflows/autofix-versions.env
+          sparse-checkout-cone-mode: false
+
+      - name: Prepare sync token
+        id: token
+        env:
+          CODESPACES_PAT: ${{ secrets.CODESPACES_WORKFLOWS }}
+          SERVICE_PAT: ${{ secrets.SERVICE_BOT_PAT }}
+        run: |
+          if [ -n "${CODESPACES_PAT}" ]; then
+            echo "token_available=true" >> "$GITHUB_OUTPUT"
+            echo "Using CODESPACES_WORKFLOWS token"
+          elif [ -n "${SERVICE_PAT}" ]; then
+            echo "token_available=true" >> "$GITHUB_OUTPUT"
+            echo "Using SERVICE_BOT_PAT token"
+          else
+            echo "token_available=false" >> "$GITHUB_OUTPUT"
+            echo "WARNING: No sync token available - sync will be skipped"
+          fi
+
+      - name: Clone Integration-Tests repo
+        if: steps.token.outputs.token_available == 'true'
+        env:
+          SYNC_TOKEN: ${{ secrets.CODESPACES_WORKFLOWS || secrets.SERVICE_BOT_PAT }}
+        run: |
+          git clone --depth 1 "https://x-access-token:${SYNC_TOKEN}@github.com/${INTEGRATION_REPO}.git" integration-tests
+
+      - name: Apply template updates
+        if: steps.token.outputs.token_available == 'true'
+        run: |
+          set -euo pipefail
+
+          cd integration-tests
+
+          # Sync ci.yml - replace __WORKFLOW_REF__ placeholder with actual reference
+          if [ -f "../workflows/templates/integration-repo/.github/workflows/ci.yml" ]; then
+            sed "s|__WORKFLOW_REF__|${WORKFLOW_REF}|g" \
+              "../workflows/templates/integration-repo/.github/workflows/ci.yml" \
+              > .github/workflows/ci.yml
+            echo "✅ Updated ci.yml with workflow reference"
+          fi
+
+          # Sync autofix-versions.env from canonical workflow
+          if [ -f "../workflows/.github/workflows/autofix-versions.env" ]; then
+            cp "../workflows/.github/workflows/autofix-versions.env" \
+              .github/workflows/autofix-versions.env
+            echo "✅ Updated autofix-versions.env"
+          fi
+
+          # Sync notify-workflows.yml (handles bidirectional sync)
+          if [ -f "../workflows/templates/integration-repo/.github/workflows/notify-workflows.yml" ]; then
+            cp "../workflows/templates/integration-repo/.github/workflows/notify-workflows.yml" \
+              .github/workflows/notify-workflows.yml
+            echo "✅ Updated notify-workflows.yml"
+          fi
+
+      - name: Check for changes
+        if: steps.token.outputs.token_available == 'true'
+        id: changes
+        run: |
+          cd integration-tests
+          
+          if git diff --quiet; then
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            echo "No changes needed"
+          else
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+            echo "Changes detected:"
+            git --no-pager diff --stat
+          fi
+
+      - name: Show diff in dry run
+        if: steps.token.outputs.token_available == 'true' && steps.changes.outputs.has_changes == 'true' && inputs.dry_run == true
+        run: |
+          cd integration-tests
+          echo "## Dry Run - Changes Preview" >> "$GITHUB_STEP_SUMMARY"
+          echo "\`\`\`diff" >> "$GITHUB_STEP_SUMMARY"
+          git --no-pager diff >> "$GITHUB_STEP_SUMMARY" || true
+          echo "\`\`\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Commit and push changes
+        if: steps.token.outputs.token_available == 'true' && steps.changes.outputs.has_changes == 'true' && inputs.dry_run != true
+        run: |
+          cd integration-tests
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          
+          git add .github/workflows/
+          git commit -m "sync: Update workflow templates from stranske/Workflows" \
+            -m "" \
+            -m "This sync updates integration-repo templates to match the source of truth" \
+            -m "in the Workflows repository." \
+            -m "" \
+            -m "Updated files:" \
+            -m "- ci.yml (with workflow reference)" \
+            -m "- autofix-versions.env (version pins)" \
+            -m "- notify-workflows.yml (bidirectional sync trigger)" \
+            -m "" \
+            -m "Auto-synced by: https://github.com/stranske/Workflows/actions/workflows/maint-69-sync-integration-repo.yml"
+
+          if git push; then
+            echo "✅ Successfully pushed changes to ${INTEGRATION_REPO}"
+            echo "## Sync Successful" >> "$GITHUB_STEP_SUMMARY"
+            echo "Changes pushed to ${INTEGRATION_REPO}" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::error::Failed to push changes"
+            exit 1
+          fi
+
+      - name: Summary
+        run: |
+          {
+            echo "## Integration Repo Sync"
+            echo ""
+            echo "**Target repo:** ${INTEGRATION_REPO}"
+            echo ""
+            if [ "${{ steps.token.outputs.token_available }}" != "true" ]; then
+              echo "❌ Sync skipped - no token available"
+            elif [ "${{ steps.changes.outputs.has_changes }}" != "true" ]; then
+              echo "✅ No changes needed - already in sync"
+            elif [ "${{ inputs.dry_run }}" = "true" ]; then
+              echo "✅ Dry run complete - see diff above"
+            else
+              echo "✅ Sync complete - templates pushed to Integration-Tests"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
