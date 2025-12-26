@@ -35,6 +35,60 @@ function toNumber(value, fallback = 0) {
   return Number.isFinite(fallback) ? Number(fallback) : 0;
 }
 
+function toOptionalNumber(value) {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+  const parsed = Number(value);
+  if (Number.isFinite(parsed)) {
+    return parsed;
+  }
+  const int = parseInt(String(value), 10);
+  if (Number.isFinite(int)) {
+    return int;
+  }
+  return null;
+}
+
+function resolveDurationMs({ durationMs, startTs }) {
+  if (Number.isFinite(durationMs)) {
+    return Math.max(0, Math.floor(durationMs));
+  }
+  if (!Number.isFinite(startTs)) {
+    return 0;
+  }
+  const startMs = startTs > 1e12 ? startTs : startTs * 1000;
+  const delta = Date.now() - startMs;
+  return Math.max(0, Math.floor(delta));
+}
+
+function buildMetricsRecord({
+  prNumber,
+  iteration,
+  action,
+  errorCategory,
+  durationMs,
+  tasksTotal,
+  tasksComplete,
+}) {
+  return {
+    pr_number: toNumber(prNumber, 0),
+    iteration: Math.max(1, toNumber(iteration, 0)),
+    timestamp: new Date().toISOString(),
+    action: normalise(action) || 'unknown',
+    error_category: normalise(errorCategory) || 'none',
+    duration_ms: Math.max(0, toNumber(durationMs, 0)),
+    tasks_total: Math.max(0, toNumber(tasksTotal, 0)),
+    tasks_complete: Math.max(0, toNumber(tasksComplete, 0)),
+  };
+}
+
+function emitMetricsRecord({ core, record }) {
+  if (core && typeof core.setOutput === 'function') {
+    core.setOutput('metrics_record_json', JSON.stringify(record));
+  }
+}
+
 async function writeStepSummary({
   core,
   iteration,
@@ -706,6 +760,22 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
   const errorCategory = failureDetails.category;
   const errorType = failureDetails.type;
   const errorRecovery = failureDetails.recovery;
+  const tasksComplete = Math.max(0, tasksTotal - tasksUnchecked);
+  const metricsIteration = action === 'run' ? currentIteration + 1 : currentIteration;
+  const durationMs = resolveDurationMs({
+    durationMs: toOptionalNumber(inputs.duration_ms ?? inputs.durationMs),
+    startTs: toOptionalNumber(inputs.start_ts ?? inputs.startTs),
+  });
+  const metricsRecord = buildMetricsRecord({
+    prNumber,
+    iteration: metricsIteration,
+    action,
+    errorCategory,
+    durationMs,
+    tasksTotal,
+    tasksComplete,
+  });
+  emitMetricsRecord({ core, record: metricsRecord });
 
   // Capitalize agent name for display
   const agentDisplayName = agentType.charAt(0).toUpperCase() + agentType.slice(1);
@@ -735,7 +805,7 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
     } |`,
     `| Action | ${action || 'unknown'} (${summaryReason || 'n/a'}) |`,
     `| Gate | ${gateConclusion || 'unknown'} |`,
-    `| Tasks | ${Math.max(0, tasksTotal - tasksUnchecked)}/${tasksTotal} complete |`,
+    `| Tasks | ${tasksComplete}/${tasksTotal} complete |`,
     `| Keepalive | ${keepaliveEnabled ? '✅ enabled' : '❌ disabled'} |`,
     `| Autofix | ${autofixEnabled ? '✅ enabled' : '❌ disabled'} |`,
   ];
