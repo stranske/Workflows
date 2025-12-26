@@ -101,71 +101,21 @@ You should assume you're running in `agent-standard` unless explicitly told othe
 
 # Task Prompt
 
-# Keepalive Next Task
+# Autofix from CI failure
 
-Your objective is to satisfy the **Acceptance Criteria** by completing each **Task** within the defined **Scope**.
+You are Codex running in autofix mode after a CI failure. Use the available logs and repository context to repair the failing checks.
 
-**This round you MUST:**
-1. Implement actual code or test changes that advance at least one incomplete task toward acceptance.
-2. Commit meaningful source code (.py, .yml, .js, etc.)—not just status/docs updates.
-3. Mark a task checkbox complete ONLY after verifying the implementation works.
-4. Focus on the FIRST unchecked task unless blocked, then move to the next.
-
-**Guidelines:**
-- Keep edits scoped to the current task rather than reshaping the entire PR.
-- Use repository instructions, conventions, and tests to validate work.
-- Prefer small, reviewable commits; leave clear notes when follow-up is required.
-- Do NOT work on unrelated improvements until all PR tasks are complete.
-
-**The Tasks and Acceptance Criteria are provided in the appendix below.** Work through them in order.
+Guidance:
+- Inspect the latest CI output provided by the caller (logs or summaries) to pinpoint the root cause.
+- Focus on minimal, targeted fixes that unblock the failing job.
+- Leave diagnostic breadcrumbs when a failure cannot be reproduced or fully addressed.
+- Re-run or suggest the smallest relevant checks to verify the fix.
 
 ## Run context
----
-## PR Tasks and Acceptance Criteria
-
-**Progress:** 17/21 tasks complete, 4 remaining
-
-### Scope
-- [ ] The post-merge verifier (agents-verifier.yml) currently runs tests locally in a read-only sandbox to verify acceptance criteria. This approach has critical flaws exposed by PR #154:
-- [ ] 1. **Stale State**: Verifier may run against incomplete merge state, causing false test failures
-- [ ] 2. **No CI Access**: Cannot verify "Selftest CI passes" criterion - always marks as NOT MET
-- [ ] 3. **Duplicate Work**: Re-runs tests that CI already validated, wasting compute
-- [ ] 4. **False Negatives**: PR #154 created Issue #155 claiming 4 test suites failed when all 301 tests actually pass
-- [ ] ### Evidence from Issue #155
-- [ ] The verifier incorrectly reported:
-- [ ] - `agents-verifier-context.test.js` failing (unrelated to PR scope)
-- [ ] - `comment-dedupe.test.js` failing (unrelated to PR scope)
-- [ ] - `coverage-normalize.test.js` failing (unrelated to PR scope)
-- [ ] - `maint-post-ci.test.js` failing (unrelated to PR scope)
-- [ ] Reality: All tests pass. The verifier created a bogus follow-up issue that would have caused duplicate work.
-
-### Tasks
-Complete these in order. Mark checkbox done ONLY after implementation is verified:
-
-- [x] ### Round 1: Add CI result querying
-- [x] Create `verifier_ci_query.js` script to fetch workflow run results for a commit
-- [x] Query Gate, Selftest CI, and PR 11 workflow conclusions
-- [x] Return structured data: `{ workflow_name, conclusion, run_url }`
-- [x] ### Round 2: Integrate into verifier context
-- [x] Modify `agents_verifier_context.js` to include CI results in context
-- [x] Add "CI Verification" section to verifier prompt with actual results
-- [x] Remove instruction to run tests locally (rely on CI results)
-- [x] ### Round 3: Update verifier prompt
-- [x] Update `.github/codex/prompts/verifier_acceptance_check.md`
-- [x] Instruct verifier to check CI results section instead of running tests
-- [x] Keep file existence and pattern checks as local verification
-- [ ] ### Round 4: Testing
-- [x] Add tests for `verifier_ci_query.js`
-- [x] Test with a merged PR to verify CI results are correctly fetched
-- [ ] Verify verifier no longer produces false negatives
-
-### Acceptance Criteria
-The PR is complete when ALL of these are satisfied:
-
-- [x] Verifier context includes CI workflow results (Gate, Selftest CI conclusions)
-- [x] Verifier prompt instructs to use CI results for test pass/fail verification
-- [ ] "Selftest CI passes" criterion can be verified as PASS when CI actually passed
-- [ ] No false negatives from stale local test runs
-- [x] Tests exist for the new CI query functionality
-
----
+Gate run: https://github.com/stranske/Workflows/actions/runs/20515002752
+Conclusion: cancelled
+PR: #161
+Head SHA: c174aaf737a1bf2a689b194d520112a074d48b0f
+Autofix attempts for this head: 1 / 3
+Fix scope: src/, tests/, tools/, scripts/, agents/, templates/, .github/
+Failing jobs: none reported.
