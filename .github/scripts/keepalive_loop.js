@@ -1144,7 +1144,7 @@ async function analyzeTaskCompletion({ github, context, prNumber, baseSha, headS
     const score = taskWords.length > 0 ? matchingWords.length / taskWords.length : 0;
 
     // Extract explicit file references from task (e.g., `filename.js` or filename.test.js)
-    const fileRefs = taskLower.match(/`([^`]+\.[a-z]+)`|([a-z0-9_-]+(?:\.test)?\.(?:js|ts|py|yml|yaml|md))/g) || [];
+    const fileRefs = taskLower.match(/`([^`]+\.[a-z]+)`|([a-z0-9_./-]+(?:\.test)?\.(?:js|ts|py|yml|yaml|md))/g) || [];
     const cleanFileRefs = fileRefs.map(f => f.replace(/`/g, '').toLowerCase());
     
     // Check for explicit file creation (high confidence if exact file was created)
