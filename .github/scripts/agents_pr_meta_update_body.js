@@ -188,6 +188,39 @@ async function fetchConnectorCheckboxStates(github, owner, repo, prNumber, core)
   return states;
 }
 
+/**
+ * Strip PR template content that appears before the first managed marker.
+ * This handles the case where GitHub prepends PULL_REQUEST_TEMPLATE.md content
+ * when a PR is created via the API or UI for agent-managed branches.
+ * 
+ * @param {string} body - PR body that may contain template content
+ * @returns {string} Body with template content stripped (everything before first marker)
+ */
+function stripPrTemplateContent(body) {
+  if (!body) return '';
+  
+  // Look for the first managed marker (preamble or status summary)
+  const preambleStart = body.indexOf('<!-- pr-preamble:start -->');
+  const statusStart = body.indexOf('<!-- auto-status-summary:start -->');
+  
+  // Find the earliest marker
+  let firstMarkerIndex = -1;
+  if (preambleStart !== -1 && statusStart !== -1) {
+    firstMarkerIndex = Math.min(preambleStart, statusStart);
+  } else if (preambleStart !== -1) {
+    firstMarkerIndex = preambleStart;
+  } else if (statusStart !== -1) {
+    firstMarkerIndex = statusStart;
+  }
+  
+  // If we found a marker and there's content before it, strip that content
+  if (firstMarkerIndex > 0) {
+    return body.slice(firstMarkerIndex);
+  }
+  
+  return body;
+}
+
 function upsertBlock(body, marker, replacement) {
   const start = `<!-- ${marker}:start -->`;
   const end = `<!-- ${marker}:end -->`;
@@ -705,7 +738,11 @@ async function run({github, context, core, inputs}) {
     agentType,
   });
 
-  const bodyWithPreamble = upsertBlock(pr.body || '', 'pr-preamble', preamble);
+  // Strip PR template content that GitHub may have prepended when the PR was created
+  // This only affects agent PRs (those linked to issues with agent processing)
+  const cleanedBody = stripPrTemplateContent(pr.body || '');
+  
+  const bodyWithPreamble = upsertBlock(cleanedBody, 'pr-preamble', preamble);
   const newBody = upsertBlock(bodyWithPreamble, 'auto-status-summary', statusBlock);
 
   if (newBody !== (pr.body || '')) {
@@ -735,6 +772,7 @@ module.exports = {
   parseCheckboxStates,
   mergeCheckboxStates,
   fetchConnectorCheckboxStates,
+  stripPrTemplateContent,
   upsertBlock,
   buildPreamble,
   buildStatusBlock,
