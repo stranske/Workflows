@@ -51,7 +51,9 @@ jobs:
           TEMPLATE="workflows/templates/integration-repo/.github/workflows/ci.yml"
           ACTUAL="integration-tests/.github/workflows/ci.yml"
 
-          echo "## CI Workflow Comparison" >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "## CI Workflow Comparison"
+          } >> "$GITHUB_STEP_SUMMARY"
 
           # Extract job names from template (ignoring __WORKFLOW_REF__ placeholder)
           template_jobs=$(grep -E "^  [a-z].*:$" "$TEMPLATE" | sed 's/:$//' | sort)
@@ -59,9 +61,11 @@ jobs:
 
           if [ "$template_jobs" != "$actual_jobs" ]; then
             echo "::warning::Job structure differs between template and Integration-Tests"
-            echo "❌ Job structure differs" >> "$GITHUB_STEP_SUMMARY"
-            echo "Template jobs: $template_jobs" >> "$GITHUB_STEP_SUMMARY"
-            echo "Actual jobs: $actual_jobs" >> "$GITHUB_STEP_SUMMARY"
+            {
+              echo "❌ Job structure differs"
+              echo "Template jobs: $template_jobs"
+              echo "Actual jobs: $actual_jobs"
+            } >> "$GITHUB_STEP_SUMMARY"
             echo "drift=true" >> "$GITHUB_OUTPUT"
           else
             echo "✅ Job structure matches" >> "$GITHUB_STEP_SUMMARY"

@@ -311,8 +311,10 @@ jobs:
     steps:
       - name: Generate summary
         run: |
-          echo "## Consumer Repo Sync Summary" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "Template hash: \`${{ needs.prepare.outputs.template_hash }}\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "See individual job results above for per-repo details." >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "## Consumer Repo Sync Summary"
+            echo ""
+            echo "Template hash: \`${{ needs.prepare.outputs.template_hash }}\`"
+            echo ""
+            echo "See individual job results above for per-repo details."
+          } >> "$GITHUB_STEP_SUMMARY"
