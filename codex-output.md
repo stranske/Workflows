@@ -1,13 +1,12 @@
-Added a fallback so keepalive comments still include Scope/Tasks/Acceptance with placeholders even when the source issue omits those sections, and covered it with a new fixture-based test.
+Adjusted the keepalive scope extraction to ignore placeholder-only sections and prefer real content, added a fixture + test to lock in that behavior, and checked off the completed PR tasks in `codex-prompt.md`.
 
-- `scripts/keepalive-runner.js` now prefers real sections but falls back to placeholder extraction when none are found, preventing the keepalive comment from being skipped.
-- `tests/workflows/fixtures/keepalive/missing_sections.json` simulates an unstructured PR body.
-- `tests/workflows/test_keepalive_workflow.py` asserts the placeholder headings and checklist lines are present and dispatch occurs.
+Details
+- Added placeholder detection in `.github/scripts/issue_scope_parser.js` and wired it into `scripts/keepalive-runner.js` so real sections win over placeholder-only comments.
+- New scenario fixture `tests/workflows/fixtures/keepalive/prefers_real_sections.json` plus test coverage in `tests/workflows/test_keepalive_workflow.py`.
+- Updated task checkboxes and progress line in `codex-prompt.md`.
 
-Tests:
-- `python -m pytest tests/workflows/test_keepalive_workflow.py -k "sections_missing"`
+Tests
+- `python -m pytest tests/workflows/test_keepalive_workflow.py -k "sections_missing or prefers_non_placeholder"`
 
-Note: `codex-prompt.md` was already modified in the working tree and was left untouched.
-
-If you want a broader check, you can run:
-1) `python -m pytest tests/workflows/test_keepalive_workflow.py`
+Suggestions
+1) Run the full keepalive workflow tests: `python -m pytest tests/workflows/test_keepalive_workflow.py`
