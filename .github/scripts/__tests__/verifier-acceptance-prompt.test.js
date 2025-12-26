@@ -20,5 +20,6 @@ test('verifier prompt relies on CI results for test verification', () => {
   assert.ok(content.includes('CI Verification'));
   assert.ok(content.includes('Use the "CI Verification" section'));
   assert.ok(content.includes('Do not run test suites locally'));
+  assert.ok(content.includes('mark it NOT MET'));
   assert.ok(content.includes('Only run local checks for file existence'));
 });

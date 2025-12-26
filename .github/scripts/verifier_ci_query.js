@@ -10,7 +10,13 @@ function normalizeConclusion(run) {
   if (!run) {
     return 'not_found';
   }
-  return run.conclusion || run.status || 'unknown';
+  if (run.conclusion) {
+    return run.conclusion;
+  }
+  if (run.status && run.status !== 'completed') {
+    return run.status;
+  }
+  return 'unknown';
 }
 
 async function fetchWorkflowRun({ github, owner, repo, workflowId, headShas, core }) {

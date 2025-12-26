@@ -1,8 +1,4 @@
-Added a CI query test that covers workflowId/workflowName aliases and updated the task checklist to reflect verified CI integration and prompt guidance. The new coverage lives in `.github/scripts/__tests__/verifier-ci-query.test.js`, and progress updates are in `codex-prompt.md`.
+Updated verifier guidance to explicitly require marking test-related criteria NOT MET when CI evidence is missing, and tightened the prompt test to enforce the new instruction. I also reconciled the task checklist and acceptance criteria in `codex-prompt.md` to reflect the verified CI integration work.
 
-- Tests run: `node --test .github/scripts/__tests__/verifier-ci-query.test.js`, `node --test .github/scripts/__tests__/agents-verifier-context.test.js`, `node --test .github/scripts/__tests__/verifier-acceptance-prompt.test.js`
-- Commit: `Add CI query alias test`
-
-Next steps:
-1) Run the verifier against a real merged PR to validate CI result fetching end-to-end and confirm “Selftest CI passes” can be marked PASS.
-2) Validate that post-merge verification no longer creates false negatives in a recent merged PR.
+Tests:
+- `node --test .github/scripts/__tests__/verifier-acceptance-prompt.test.js .github/scripts/__tests__/verifier-ci-query.test.js .github/scripts/__tests__/agents-verifier-context.test.js`
