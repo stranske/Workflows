@@ -163,6 +163,19 @@ jobs:
           ref: ${{ inputs.pr_ref || github.ref }}
           token: ${{ steps.auth_token.outputs.checkout_token }}
 
+      # Checkout Workflows repo scripts for post-completion and error handling
+      # These scripts are in stranske/Workflows but need to be available when
+      # this reusable workflow runs in consumer repos
+      - name: Checkout Workflows scripts
+        uses: actions/checkout@v4
+        with:
+          repository: stranske/Workflows
+          ref: main
+          sparse-checkout: .github/scripts
+          sparse-checkout-cone-mode: false
+          path: .workflows-lib
+          token: ${{ steps.auth_token.outputs.checkout_token }}
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -478,7 +491,7 @@ jobs:
           ITERATION: ${{ inputs.iteration || '' }}
         with:
           script: |
-            const { postCompletionComment } = require('./.github/scripts/post_completion_comment.js');
+            const { postCompletionComment } = require('./.workflows-lib/.github/scripts/post_completion_comment.js');
             const result = await postCompletionComment({
               github, context, core,
               inputs: {
@@ -506,7 +519,7 @@ jobs:
           PR_NUMBER: ${{ inputs.pr_number }}
         with:
           script: |
-            const { classifyError, ERROR_CATEGORIES, suggestRecoveryAction } = require('./.github/scripts/error_classifier.js');
+            const { classifyError, ERROR_CATEGORIES, suggestRecoveryAction } = require('./.workflows-lib/.github/scripts/error_classifier.js');
 
             const exitCode = process.env.EXIT_CODE || '';
             const summary = process.env.OUTPUT_SUMMARY || '';
