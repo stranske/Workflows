@@ -66,6 +66,16 @@ repos:
         stages: [pre-commit]
         verbose: true
 
+      # Prevent pushing when behind remote - runs on push
+      - id: check-remote-sync
+        name: Check branch is synced with remote
+        entry: ./scripts/check_remote_sync.sh
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
+        verbose: true
+
       # Adaptive validation (5-30s) - runs on push
       - id: validate-fast
         name: Adaptive validation
