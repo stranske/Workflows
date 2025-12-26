@@ -1,6 +1,10 @@
-I couldn’t find any CI failure details to act on. The run is marked “cancelled” and the prompt says “Failing jobs: none reported,” so there’s no actionable failure to fix from here.
+Expanded verifier CI retry coverage so transient status codes 429/500/502/503/504 are all exercised with max-retry exhaustion checks, keeping the API-error path explicit in results. This is in `.github/scripts/__tests__/verifier-ci-query.test.js`.
 
-If you can share the relevant job log(s) or a failure summary for the cancelled run, I can target the minimal fix.  
-Suggested next steps:
-1) Paste the failing job log excerpt or upload the CI summary here.  
-2) If the job was manually cancelled, re-run the workflow and share the first failing step output.
+Tests run:
+- `node --test .github/scripts/__tests__/verifier-ci-query.test.js`
+
+Notes:
+- Set repo-local git identity to `codex <codex@users.noreply.github.com>` to complete the commit.
+
+Next steps (optional):
+1. Run the full JS test suite if you want broader verification.

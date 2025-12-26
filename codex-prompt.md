@@ -101,21 +101,63 @@ You should assume you're running in `agent-standard` unless explicitly told othe
 
 # Task Prompt
 
-# Autofix from CI failure
+# Keepalive Next Task
 
-You are Codex running in autofix mode after a CI failure. Use the available logs and repository context to repair the failing checks.
+Your objective is to satisfy the **Acceptance Criteria** by completing each **Task** within the defined **Scope**.
 
-Guidance:
-- Inspect the latest CI output provided by the caller (logs or summaries) to pinpoint the root cause.
-- Focus on minimal, targeted fixes that unblock the failing job.
-- Leave diagnostic breadcrumbs when a failure cannot be reproduced or fully addressed.
-- Re-run or suggest the smallest relevant checks to verify the fix.
+**This round you MUST:**
+1. Implement actual code or test changes that advance at least one incomplete task toward acceptance.
+2. Commit meaningful source code (.py, .yml, .js, etc.)—not just status/docs updates.
+3. Mark a task checkbox complete ONLY after verifying the implementation works.
+4. Focus on the FIRST unchecked task unless blocked, then move to the next.
+
+**Guidelines:**
+- Keep edits scoped to the current task rather than reshaping the entire PR.
+- Use repository instructions, conventions, and tests to validate work.
+- Prefer small, reviewable commits; leave clear notes when follow-up is required.
+- Do NOT work on unrelated improvements until all PR tasks are complete.
+
+**The Tasks and Acceptance Criteria are provided in the appendix below.** Work through them in order.
 
 ## Run context
-Gate run: https://github.com/stranske/Workflows/actions/runs/20515802559
-Conclusion: cancelled
-PR: #168
-Head SHA: 4baff196d7a4d60a448a4255c45c137681635885
-Autofix attempts for this head: 1 / 3
-Fix scope: src/, tests/, tools/, scripts/, agents/, templates/, .github/
-Failing jobs: none reported.
+---
+## PR Tasks and Acceptance Criteria
+
+**Progress:** 0/12 tasks complete, 12 remaining
+
+### Scope
+- [ ] <!-- Updated scope for this follow-up -->
+- [ ] Address unmet acceptance criteria from PR #166.
+- [ ] Original scope:
+- [ ] The verifier CI query (`verifier_ci_query.js`) currently makes a single API call to fetch workflow run results. If the GitHub API returns a transient error (rate limit, timeout, network hiccup), the query fails silently and the verifier sees missing CI results.
+- [ ] This can cause false negatives where the verifier marks test-related criteria as NOT MET due to API failures rather than actual CI failures.
+- [ ] ### Current Behavior
+- [ ] - Single API call per workflow
+- [ ] - Failures logged as warnings but not retried
+- [ ] - Missing results treated as "not found"
+- [ ] ### Desired Behavior
+- [ ] - Retry transient failures with exponential backoff
+- [ ] - Distinguish between "CI not run" and "API error"
+- [ ] - Log retry attempts for debugging
+
+### Tasks
+Complete these in order. Mark checkbox done ONLY after implementation is verified:
+
+- [ ] <!-- New tasks to address unmet acceptance criteria -->
+- [ ] Satisfy: Transient API failures (429, 500, 502, 503, 504) are retried up to 3 times
+- [ ] Satisfy: Successful retry results in correct CI data being returned
+- [ ] Satisfy: Max retry exceeded results in clear error message, not silent "not found"
+- [ ] Satisfy: Tests cover retry success and retry exhaustion scenarios
+- [ ] Satisfy: Selftest CI passes
+
+### Acceptance Criteria
+The PR is complete when ALL of these are satisfied:
+
+- [ ] <!-- Criteria verified as unmet by verifier -->
+- [ ] Transient API failures (429, 500, 502, 503, 504) are retried up to 3 times
+- [ ] Successful retry results in correct CI data being returned
+- [ ] Max retry exceeded results in clear error message, not silent "not found"
+- [ ] Tests cover retry success and retry exhaustion scenarios
+- [ ] Selftest CI passes
+
+---
