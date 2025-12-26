@@ -1,14 +1,7 @@
-Added focused test coverage for agents guard messaging and keepalive gate reason normalization, then updated the PR checklist after running the full test suite. Updated `codex-prompt.md` to reflect verified task completion.
+Added a case-insensitive allow-change label test to strengthen agents guard label validation while keeping the rest of the suite passing. The new coverage lives in `.github/scripts/__tests__/agents-guard.test.js`.
 
-- Added a guard comment-body assertion for blocked workflow edits in `.github/scripts/__tests__/agents-guard.test.js`.
-- Added gate-reason normalization coverage in `.github/scripts/__tests__/keepalive-guard-utils.test.js`.
-- Checked off completed tasks and acceptance items in `codex-prompt.md` after verifying tests.
-
-Tests run:
-```
-node --test .github/scripts/__tests__/*.test.js
-```
+Tests: `node --test .github/scripts/__tests__/*.test.js`
 
 Next steps:
-1) Run/verify the `Selftest CI` workflow to satisfy the “no regressions” acceptance item.  
-2) Confirm whether any test documentation needs updates; I didn’t change docs this round.
+1. Run/confirm the `Selftest CI` workflow for regression coverage.
+2. Update test documentation if you want explicit notes about the new guard coverage.
