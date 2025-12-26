@@ -11,6 +11,7 @@ const {
   fetchConnectorCheckboxStates,
   buildStatusBlock,
   resolveAgentType,
+  stripPrTemplateContent,
 } = require('../agents_pr_meta_update_body.js');
 
 test('parseCheckboxStates extracts checked items from a checkbox list', () => {
@@ -188,6 +189,69 @@ test('extractBlock returns empty string if markers not found', () => {
   assert.strictEqual(extractBlock('no markers here', 'auto-status-summary'), '');
   assert.strictEqual(extractBlock('', 'auto-status-summary'), '');
   assert.strictEqual(extractBlock(null, 'auto-status-summary'), '');
+});
+
+// ========== stripPrTemplateContent tests ==========
+
+test('stripPrTemplateContent removes content before pr-preamble marker', () => {
+  const body = `# Summary
+
+One sentence.
+
+## Checklist
+
+- [ ] Does NOT touch protected paths
+
+## Labels
+
+Add labels.
+
+<!-- pr-preamble:start -->
+<!-- pr-preamble:end -->
+
+<!-- auto-status-summary:start -->
+## Automated Status Summary
+<!-- auto-status-summary:end -->`;
+
+  const result = stripPrTemplateContent(body);
+  
+  assert.ok(result.startsWith('<!-- pr-preamble:start -->'));
+  assert.ok(!result.includes('# Summary'));
+  assert.ok(!result.includes('Checklist'));
+});
+
+test('stripPrTemplateContent removes content before auto-status-summary if no preamble', () => {
+  const body = `Template junk here
+
+<!-- auto-status-summary:start -->
+## Automated Status Summary
+<!-- auto-status-summary:end -->`;
+
+  const result = stripPrTemplateContent(body);
+  
+  assert.ok(result.startsWith('<!-- auto-status-summary:start -->'));
+  assert.ok(!result.includes('Template junk'));
+});
+
+test('stripPrTemplateContent preserves body if no markers present', () => {
+  const body = 'Just a normal PR body with no markers';
+  const result = stripPrTemplateContent(body);
+  assert.strictEqual(result, body);
+});
+
+test('stripPrTemplateContent preserves body if markers are at start', () => {
+  const body = `<!-- pr-preamble:start -->
+Content here
+<!-- pr-preamble:end -->`;
+  
+  const result = stripPrTemplateContent(body);
+  assert.strictEqual(result, body);
+});
+
+test('stripPrTemplateContent handles empty and null input', () => {
+  assert.strictEqual(stripPrTemplateContent(''), '');
+  assert.strictEqual(stripPrTemplateContent(null), '');
+  assert.strictEqual(stripPrTemplateContent(undefined), '');
 });
 
 // ========== fetchConnectorCheckboxStates tests ==========
