@@ -80,7 +80,8 @@ test('getKeepaliveInstruction falls back to the default copy when template is mi
 
   try {
     const result = getKeepaliveInstruction();
-    assert.ok(result.includes('Example reply format'));
+    // Fallback includes example for checkbox updates and critical instructions
+    assert.ok(result.includes('**Example:**'));
     assert.ok(result.includes('Review the Scope/Tasks/Acceptance'));
   } finally {
     fs.readFileSync = originalRead;

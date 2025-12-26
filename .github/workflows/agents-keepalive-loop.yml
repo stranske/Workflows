@@ -221,6 +221,7 @@ jobs:
       pr_number: ${{ needs.evaluate.outputs.pr_number }}
       pr_ref: ${{ needs.evaluate.outputs.pr_ref }}
       appendix: ${{ needs.evaluate.outputs.task_appendix }}
+      iteration: ${{ needs.evaluate.outputs.iteration }}
 
   # Placeholder for future Claude agent support
   # run-claude:
