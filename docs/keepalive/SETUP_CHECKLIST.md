@@ -86,6 +86,16 @@ Navigate to **Settings** → **Secrets and variables** → **Actions** → **Sec
 | `ACTIONS_BOT_PAT` | Alternative bot PAT (if using separate bot) | Same scopes as SERVICE_BOT_PAT |
 | `OWNER_PR_PAT` | Owner PAT for PR operations | Create from your account with `repo` scope |
 
+#### Keepalive/Codex-Specific Secrets (Required for agent automation):
+
+| Secret Name | Purpose | How to Create |
+|-------------|---------|---------------|
+| `CODEX_AUTH_JSON` | ChatGPT/Codex authentication JSON | Export from Codex CLI config |
+| `WORKFLOWS_APP_ID` | GitHub App ID for workflow triggers | Create GitHub App in org |
+| `WORKFLOWS_APP_PRIVATE_KEY` | GitHub App private key | Generate from GitHub App settings |
+
+**Important**: The `agent-standard` environment must have access to these secrets. Go to **Settings** → **Environments** → **agent-standard** and ensure the secrets are accessible.
+
 #### Creating SERVICE_BOT_PAT (Critical):
 
 1. [ ] Log into bot account (e.g., `stranske-bot`)
@@ -114,6 +124,21 @@ Navigate to **Settings** → **Secrets and variables** → **Actions** → **Var
 |--------------|---------|---------------|
 | `PRIMARY_PYTHON` | Default Python version | `3.13` |
 | `COVERAGE_THRESHOLD` | Minimum coverage % | `80` |
+
+### Step 6a: Create agent-standard Environment (Required for Keepalive)
+
+1. [ ] Go to **Settings** → **Environments**
+2. [ ] Click **New environment**
+3. [ ] Name: `agent-standard`
+4. [ ] Click **Configure environment**
+5. [ ] Under "Environment secrets", add:
+   - [ ] `CODEX_AUTH_JSON` (from Codex CLI config)
+   - [ ] `WORKFLOWS_APP_ID` (GitHub App ID)
+   - [ ] `WORKFLOWS_APP_PRIVATE_KEY` (GitHub App private key)
+6. [ ] (Optional) Add deployment protection rules if desired
+7. [ ] Click **Save protection rules**
+
+**Note**: The keepalive workflow uses `environment: agent-standard` to access these secrets.
 
 ---
 
@@ -270,9 +295,16 @@ jobs:
 
 #### C. Agent Workflows (if using keepalive)
 
+- [ ] Copy `agents-keepalive-loop.yml` from templates - **CRITICAL** for CLI Codex keepalive
 - [ ] Copy `agents-pr-meta.yml` from templates
 - [ ] Copy `agents-63-issue-intake.yml` from templates
 - [ ] Copy `agents-70-orchestrator.yml` from templates
+
+**Required for keepalive**: The `agents-keepalive-loop.yml` workflow is essential for the keepalive pipeline. It:
+- Triggers automatically when Gate completes on PR branches
+- Evaluates if keepalive should run (checks labels, tasks, gate status)
+- Calls the Codex CLI via the reusable workflow
+- Uses dual-checkout pattern (checks out consumer repo + Workflows scripts)
 
 **Critical**: Ensure `agents-pr-meta.yml` includes the `fromJSON()` fix:
 
