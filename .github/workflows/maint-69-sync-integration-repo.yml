@@ -76,9 +76,9 @@ jobs:
             echo "✅ Updated ci.yml with workflow reference"
           fi
 
-          # Sync autofix-versions.env from template (which matches canonical)
-          if [ -f "../workflows/templates/integration-repo/.github/workflows/autofix-versions.env" ]; then
-            cp "../workflows/templates/integration-repo/.github/workflows/autofix-versions.env" \
+          # Sync autofix-versions.env from canonical workflow
+          if [ -f "../workflows/.github/workflows/autofix-versions.env" ]; then
+            cp "../workflows/.github/workflows/autofix-versions.env" \
               .github/workflows/autofix-versions.env
             echo "✅ Updated autofix-versions.env"
           fi
