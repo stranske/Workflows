@@ -1,11 +1,7 @@
-Added a verifier-context test to cover CI fallback from merge SHA to head SHA and updated the task checklist to reflect completed work in `codex-prompt.md`.
+Updated the verifier CI query to fall back to API `url` when `html_url` is missing, added coverage for that path, and reconciled the task checklist/progress after running the verifier script tests. Changes are in `.github/scripts/verifier_ci_query.js`, `.github/scripts/__tests__/verifier-ci-query.test.js`, and `codex-prompt.md`.
 
-- Updated test helper to allow custom workflow-run responses and added a merged-PR fallback test in `.github/scripts/__tests__/agents-verifier-context.test.js`.
-- Reconciled task and acceptance checkboxes in `codex-prompt.md` after verifying tests.
-
-Tests run:
-- `node --test .github/scripts/__tests__/agents-verifier-context.test.js .github/scripts/__tests__/verifier-ci-query.test.js`
+Tests:
+- `node --test .github/scripts/__tests__/*.test.js`
 
 Next steps:
-1. Validate on a real merged PR run to confirm CI results appear in the verifier context.
-2. Confirm the verifier no longer flags stale local test failures and then check the final remaining task/acceptance boxes.
+1) Run the verifier workflow against an actual merged PR to confirm CI results are pulled from live runs (needed to fully close “no false negatives” and the remaining acceptance criteria).
