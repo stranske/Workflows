@@ -123,7 +123,19 @@ Your objective is to satisfy the **Acceptance Criteria** by completing each **Ta
 ---
 ## PR Tasks and Acceptance Criteria
 
-**Progress:** 0/21 tasks complete, 21 remaining
+**Progress:** 1/21 tasks complete, 20 remaining
+
+### ⚠️ IMPORTANT: Task Reconciliation Required
+
+The previous iteration changed **7 file(s)** but did not update task checkboxes.
+
+**Before continuing, you MUST:**
+1. Review the recent commits to understand what was changed
+2. Determine which task checkboxes should be marked complete
+3. Update the PR body to check off completed tasks
+4. Then continue with remaining tasks
+
+_Failure to update checkboxes means progress is not being tracked properly._
 
 ### Scope
 - [ ] The post-merge verifier (agents-verifier.yml) currently runs tests locally in a read-only sandbox to verify acceptance criteria. This approach has critical flaws exposed by PR #154:
@@ -151,7 +163,7 @@ Complete these in order. Mark checkbox done ONLY after implementation is verifie
 - [ ] Add "CI Verification" section to verifier prompt with actual results
 - [ ] Remove instruction to run tests locally (rely on CI results)
 - [ ] ### Round 3: Update verifier prompt
-- [ ] Update `.github/codex/prompts/verifier_acceptance_check.md`
+- [x] Update `.github/codex/prompts/verifier_acceptance_check.md`
 - [ ] Instruct verifier to check CI results section instead of running tests
 - [ ] Keep file existence and pattern checks as local verification
 - [ ] ### Round 4: Testing

@@ -1,1 +1,1 @@
-I noticed an unexpected change in `codex-prompt.md` that I did not make. How would you like me to proceed with that file (ignore it, revert it, or include it in this work)?
+I see an unexpected, uncommitted change in `codex-prompt.md`. How would you like me to proceed with that file: ignore it, revert it, or include it in this work?
