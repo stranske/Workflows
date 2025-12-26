@@ -246,6 +246,7 @@ test('buildVerifierContext writes verifier context with linked issues', async ()
   assert.ok(markdown.includes('Issue #456'));
   assert.ok(markdown.includes('Issue #789'));
   assert.ok(markdown.includes('## CI Verification'));
+  assert.ok(markdown.includes('Use these CI results to verify test-related criteria'));
   assert.ok(markdown.includes('Gate: success'));
   assert.ok(markdown.includes('Selftest CI: success'));
   assert.ok(markdown.includes('PR 11 - Minimal invariant CI: success'));

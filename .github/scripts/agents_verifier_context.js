@@ -249,6 +249,8 @@ async function buildVerifierContext({ github, context, core }) {
   const ciResults = await queryVerifierCiResults({ github, context, core, targetSha });
   content.push('## CI Verification');
   content.push('');
+  content.push('Use these CI results to verify test-related criteria; do not rerun test suites locally.');
+  content.push('');
   if (ciResults.length) {
     for (const result of ciResults) {
       const runLink = result.run_url ? `[run](${result.run_url})` : 'no run link';
