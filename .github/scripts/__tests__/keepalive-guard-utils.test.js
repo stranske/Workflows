@@ -64,3 +64,17 @@ test('analyseSkipComments defaults highestCount to total and tracks non-gate rea
   assert.equal(result.nonGateCount, 1);
   assert.deepEqual(result.nonGateReasons, ['dependency-missing']);
 });
+
+test('analyseSkipComments ignores unrelated comments and tolerates malformed counts', () => {
+  const result = analyseSkipComments([
+    { body: 'Looks good to me.' },
+    { body: `${SKIP_MARKER}\n<!-- keepalive-skip-count: nope -->` },
+    { body: 'Keepalive 9 check skipped: gate-not-green' },
+  ]);
+
+  assert.equal(result.total, 2);
+  assert.equal(result.highestCount, 2);
+  assert.equal(result.gateCount, 1);
+  assert.equal(result.nonGateCount, 0);
+  assert.deepEqual(result.reasons, ['gate-not-green']);
+});
