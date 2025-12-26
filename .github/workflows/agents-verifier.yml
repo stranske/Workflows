@@ -46,7 +46,7 @@ jobs:
 
             const ciWorkflows = [
               'selftest-ci.yml',
-              'pr-11-ci-smoke.yml',
+              'pr-11-selftest-invariant.yml',
             ];
 
             const maxWaitMs = 5 * 60 * 1000; // 5 minutes max wait
