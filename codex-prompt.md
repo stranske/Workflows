@@ -101,77 +101,21 @@ You should assume you're running in `agent-standard` unless explicitly told othe
 
 # Task Prompt
 
-# Keepalive Next Task
+# Autofix from CI failure
 
-Your objective is to satisfy the **Acceptance Criteria** by completing each **Task** within the defined **Scope**.
+You are Codex running in autofix mode after a CI failure. Use the available logs and repository context to repair the failing checks.
 
-**This round you MUST:**
-1. Implement actual code or test changes that advance at least one incomplete task toward acceptance.
-2. Commit meaningful source code (.py, .yml, .js, etc.)—not just status/docs updates.
-3. Mark a task checkbox complete ONLY after verifying the implementation works.
-4. Focus on the FIRST unchecked task unless blocked, then move to the next.
-
-**Guidelines:**
-- Keep edits scoped to the current task rather than reshaping the entire PR.
-- Use repository instructions, conventions, and tests to validate work.
-- Prefer small, reviewable commits; leave clear notes when follow-up is required.
-- Do NOT work on unrelated improvements until all PR tasks are complete.
-
-**The Tasks and Acceptance Criteria are provided in the appendix below.** Work through them in order.
+Guidance:
+- Inspect the latest CI output provided by the caller (logs or summaries) to pinpoint the root cause.
+- Focus on minimal, targeted fixes that unblock the failing job.
+- Leave diagnostic breadcrumbs when a failure cannot be reproduced or fully addressed.
+- Re-run or suggest the smallest relevant checks to verify the fix.
 
 ## Run context
----
-## PR Tasks and Acceptance Criteria
-
-**Progress:** 16/18 tasks complete, 2 remaining
-
-### ⚠️ IMPORTANT: Task Reconciliation Required
-
-The previous iteration changed **1 file(s)** but did not update task checkboxes.
-
-**Before continuing, you MUST:**
-1. Review the recent commits to understand what was changed
-2. Determine which task checkboxes should be marked complete
-3. Update the PR body to check off completed tasks
-4. Then continue with remaining tasks
-
-_Failure to update checkboxes means progress is not being tracked properly._
-
-### Scope
-- [ ] Seven core GitHub Action scripts in `.github/scripts/` lack dedicated test coverage:
-- [ ] 1. `agents-guard.js` - Critical security guardrail for agents surface
-- [ ] 2. `agents_pr_meta_orchestrator.js` - PR metadata coordination
-- [ ] 3. `keepalive_guard_utils.js` - Keepalive safety utilities
-- [ ] 4. `keepalive_instruction_template.js` - Prompt generation for keepalive
-- [ ] 5. `keepalive_orchestrator_gate_runner.js` - Gate integration for orchestrator
-- [ ] 6. `keepalive_post_work.js` - Post-keepalive cleanup operations
-- [ ] 7. `merge_manager.js` - PR merge automation
-- [ ] These scripts handle critical workflow orchestration and security checks. Without tests, regressions can slip through undetected. The recent API retry integration (PR #151) highlighted how untested code paths can harbor subtle bugs.
-
-### Tasks
-Complete these in order. Mark checkbox done ONLY after implementation is verified:
-
-- [x] ### Round 1: Security-critical scripts
-- [x] Create `agents-guard.test.js` with tests for label validation, immutable surface checks, and bypass detection
-- [x] Create `keepalive-guard-utils.test.js` covering pause label detection and guard state management
-- [x] ### Round 2: Orchestration scripts
-- [x] Create `agents-pr-meta-orchestrator.test.js` testing body section updates and conflict resolution
-- [x] Create `keepalive-orchestrator-gate-runner.test.js` for gate status evaluation and dispatch logic
-- [x] ### Round 3: Keepalive utilities
-- [x] Create `keepalive-instruction-template.test.js` validating prompt generation and variable substitution
-- [x] Create `keepalive-post-work.test.js` testing cleanup operations and state transitions
-- [x] ### Round 4: Merge automation
-- [x] Create `merge-manager.test.js` covering merge eligibility, conflict detection, and squash behavior
-- [x] Run full test suite and verify all new tests pass
-- [ ] Update test documentation if needed
-
-### Acceptance Criteria
-The PR is complete when ALL of these are satisfied:
-
-- [x] - All 7 test files exist in `.github/scripts/__tests__/`
-- [x] - Each test file has at least 5 test cases covering core functionality
-- [x] - `node --test .github/scripts/__tests__/*.test.js` passes with 0 failures
-- [ ] - No regressions in existing tests (`Selftest CI` workflow passes)
-- [x] - New tests follow patterns established in existing test files (e.g., `api-helpers.test.js`)
-
----
+Gate run: https://github.com/stranske/Workflows/actions/runs/20513726542
+Conclusion: cancelled
+PR: #158
+Head SHA: ac32cecf701ac3d01fb5431fb7dc6fb97e224d7f
+Autofix attempts for this head: 1 / 3
+Fix scope: src/, tests/, tools/, scripts/, agents/, templates/, .github/
+Failing jobs: none reported.

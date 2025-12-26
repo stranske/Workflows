@@ -1,7 +1,3 @@
-Added a case-insensitive allow-change label test to strengthen agents guard label validation while keeping the rest of the suite passing. The new coverage lives in `.github/scripts/__tests__/agents-guard.test.js`.
+I don’t have any failing job details to act on. The run was cancelled and the metadata says “Failing jobs: none reported,” so there’s no actionable signal to fix.
 
-Tests: `node --test .github/scripts/__tests__/*.test.js`
-
-Next steps:
-1. Run/confirm the `Selftest CI` workflow for regression coverage.
-2. Update test documentation if you want explicit notes about the new guard coverage.
+If you can share the CI log excerpt or the specific failing check name, I can target a minimal fix. If you just want a sanity check rerun, the smallest local verification would be whatever job previously failed (once identified).
