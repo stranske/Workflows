@@ -389,6 +389,56 @@ test('updateKeepaliveLoopSummary writes step summary for agent runs', async () =
   assert.match(summary.buffer, /Outcome \| success/);
 });
 
+test('updateKeepaliveLoopSummary emits metrics output for keepalive runs', async () => {
+  const outputs = {};
+  const core = {
+    info() {},
+    setOutput(key, value) {
+      outputs[key] = value;
+    },
+  };
+  const existingState = formatStateComment({
+    trace: 'trace-metrics',
+    iteration: 3,
+    max_iterations: 5,
+  });
+  const github = buildGithubStub({
+    comments: [{ id: 77, body: existingState, html_url: 'https://example.com/77' }],
+  });
+
+  await updateKeepaliveLoopSummary({
+    github,
+    context: buildContext(2468),
+    core,
+    inputs: {
+      prNumber: 2468,
+      action: 'run',
+      runResult: 'success',
+      gateConclusion: 'success',
+      tasksTotal: 10,
+      tasksUnchecked: 6,
+      keepaliveEnabled: true,
+      autofixEnabled: false,
+      iteration: 3,
+      maxIterations: 5,
+      failureThreshold: 3,
+      trace: 'trace-metrics',
+      duration_ms: 1234,
+    },
+  });
+
+  assert.ok(outputs.metrics_record_json);
+  const record = JSON.parse(outputs.metrics_record_json);
+  assert.equal(record.pr_number, 2468);
+  assert.equal(record.iteration, 4);
+  assert.equal(record.action, 'run');
+  assert.equal(record.error_category, 'none');
+  assert.equal(record.duration_ms, 1234);
+  assert.equal(record.tasks_total, 10);
+  assert.equal(record.tasks_complete, 4);
+  assert.ok(typeof record.timestamp === 'string' && record.timestamp.includes('T'));
+});
+
 test('updateKeepaliveLoopSummary resets failure count on transient errors', async () => {
   const existingState = formatStateComment({
     trace: 'trace-transient',
