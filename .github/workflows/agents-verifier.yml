@@ -38,9 +38,9 @@ jobs:
               return;
             }
 
-            const targetSha = pr.merge_commit_sha || pr.head?.sha;
+            const targetSha = pr.merge_commit_sha;
             if (!targetSha) {
-              core.warning('No target SHA found; skipping CI wait.');
+              core.setFailed('Merged PR is missing merge_commit_sha; cannot determine CI target SHA.');
               return;
             }
 
