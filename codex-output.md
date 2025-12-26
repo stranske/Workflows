@@ -1,9 +1,7 @@
-Added guard test coverage for codeowner approvals and marker-only skip entries, and reconciled PR task checkboxes based on verified test runs in `codex-prompt.md`. Updates are in `.github/scripts/__tests__/agents-guard.test.js`, `.github/scripts/__tests__/keepalive-guard-utils.test.js`, and `codex-prompt.md`.
+Added a keepalive gate runner test for the retry-cap path so prior skip history triggers `too-many-failures`, and reconciled the PR checklist after confirming tests and docs. Updates are in `.github/scripts/__tests__/keepalive-orchestrator-gate-runner.test.js` (new retry-cap coverage) and `codex-prompt.md` (task/acceptance checkbox updates after verifying tests and reviewing `.github/scripts/README.md`).
 
 Tests run:
-- `node --test .github/scripts/__tests__/agents-guard.test.js .github/scripts/__tests__/keepalive-guard-utils.test.js`
 - `node --test .github/scripts/__tests__/*.test.js`
 
 Next steps:
-1. Decide whether test documentation needs an update and check off that task if not needed.
-2. Run/confirm the `Selftest CI` workflow to satisfy the remaining acceptance criterion.
+1. Run the `Selftest CI` workflow to satisfy the remaining acceptance criterion.
