@@ -1,3 +1,12 @@
-I couldn’t identify any failing check to fix from the local context. The run summary says “Conclusion: cancelled” and “Failing jobs: none reported,” and there are no CI logs in the workspace to inspect. Without a concrete failure, I don’t have a targeted change to make.
+Implemented retry-backed CI querying so transient GitHub API failures no longer show up as “not found”, with clear error classification and logging. Updated `fetchWorkflowRun` to use an exponential backoff retry wrapper (1s/2s/4s, 3 retries) and surfaced `api_error` plus `error_category` in results to distinguish API errors from missing runs in `agents_verifier_context`. Added tests covering retry success and retry exhaustion.
 
-If you can share the failing job name and log excerpt, I can take another pass. If you want me to attempt a local repro anyway, tell me which check to run.
+Files touched:
+- `.github/scripts/verifier_ci_query.js`
+- `.github/scripts/__tests__/verifier-ci-query.test.js`
+
+Tests:
+- `node --test .github/scripts/__tests__/verifier-ci-query.test.js`
+
+Next steps:
+1. If you want a broader check, run the full JS test suite for `.github/scripts/__tests__`.
+2. If you want the error_category displayed in other reports, I can update those consumers.
