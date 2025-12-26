@@ -252,9 +252,11 @@ async function buildVerifierContext({ github, context, core }) {
   content.push('Use these CI results to verify test-related criteria; do not rerun test suites locally.');
   content.push('');
   if (ciResults.length) {
+    content.push('| Workflow | Conclusion | Run |');
+    content.push('| --- | --- | --- |');
     for (const result of ciResults) {
-      const runLink = result.run_url ? `[run](${result.run_url})` : 'no run link';
-      content.push(`- ${result.workflow_name}: ${result.conclusion} (${runLink})`);
+      const runLink = result.run_url ? `[run](${result.run_url})` : 'n/a';
+      content.push(`| ${result.workflow_name} | ${result.conclusion} | ${runLink} |`);
     }
   } else {
     content.push('_No CI workflow runs were found for the target commit._');
