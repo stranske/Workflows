@@ -1,4 +1,6 @@
-Updated verifier guidance to explicitly require marking test-related criteria NOT MET when CI evidence is missing, and tightened the prompt test to enforce the new instruction. I also reconciled the task checklist and acceptance criteria in `codex-prompt.md` to reflect the verified CI integration work.
+Updated the verifier context expectations to include the new `error_category`/`error_message` fields emitted by `queryVerifierCiResults`, so the deep-equal assertions match the current output shape in `.github/scripts/__tests__/agents-verifier-context.test.js`.
 
-Tests:
-- `node --test .github/scripts/__tests__/verifier-acceptance-prompt.test.js .github/scripts/__tests__/verifier-ci-query.test.js .github/scripts/__tests__/agents-verifier-context.test.js`
+Tests run:
+- `node .github/scripts/__tests__/agents-verifier-context.test.js`
+
+If you want, I can re-run the full suite with `node --test .github/scripts/__tests__/*.test.js`.
