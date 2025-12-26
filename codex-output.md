@@ -1,13 +1,12 @@
-Added coverage for the CI query helper to verify latest-run selection when no target SHA is supplied, and updated the PR task checklist/acceptance criteria to reflect verified work in `codex-prompt.md`.
+Captured CI query output in the verifier context and expanded tests to validate the new output plus merge-SHA targeting. Updated the checklist to reflect the verified CI-query work and prompt changes in `codex-prompt.md`.
 
 Details:
-- Added a new test case in `.github/scripts/__tests__/verifier-ci-query.test.js` to assert the latest workflow run is used when `targetSha` is omitted.
-- Marked completed tasks and acceptance criteria in `codex-prompt.md` now that the CI query logic, context integration, and prompt updates are verified.
+- ` .github/scripts/agents_verifier_context.js` now sets `ci_results` on success and defaults it to `[]` when skipping, so downstream steps can rely on a consistent output.
+- ` .github/scripts/__tests__/agents-verifier-context.test.js` asserts the `ci_results` output and verifies CI queries use the merge commit SHA.
+- `codex-prompt.md` checkboxes updated after running tests and reviewing the completed tasks/criteria.
 
 Tests:
-- `node --test .github/scripts/__tests__/verifier-ci-query.test.js`
-- `node --test .github/scripts/__tests__/agents-verifier-context.test.js`
+- `node --test .github/scripts/__tests__/verifier-ci-query.test.js .github/scripts/__tests__/agents-verifier-context.test.js`
 
 Next steps:
-1) Exercise the verifier against a merged PR to confirm CI results are fetched as expected.
-2) Confirm the verifier no longer reports false negatives from stale local test runs.
+1. Run the verifier on a real merged PR to confirm CI results are fetched in production and the “no false negatives” item can be checked.
