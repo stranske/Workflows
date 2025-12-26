@@ -1,4 +1,3 @@
-Updated verifier guidance to explicitly require marking test-related criteria NOT MET when CI evidence is missing, and tightened the prompt test to enforce the new instruction. I also reconciled the task checklist and acceptance criteria in `codex-prompt.md` to reflect the verified CI integration work.
+I couldn’t identify any failing check to fix from the local context. The run summary says “Conclusion: cancelled” and “Failing jobs: none reported,” and there are no CI logs in the workspace to inspect. Without a concrete failure, I don’t have a targeted change to make.
 
-Tests:
-- `node --test .github/scripts/__tests__/verifier-acceptance-prompt.test.js .github/scripts/__tests__/verifier-ci-query.test.js .github/scripts/__tests__/agents-verifier-context.test.js`
+If you can share the failing job name and log excerpt, I can take another pass. If you want me to attempt a local repro anyway, tell me which check to run.
