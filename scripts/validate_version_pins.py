@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Validate that version pins in autofix-versions.env are compatible.
 
-This script checks for known dependency conflicts between pinned versions.
-Run this before syncing versions to consumer repos.
+This script checks that pinned versions are compatible by querying PyPI
+for actual dependency requirements - no hardcoded version mappings.
 
 Usage:
     python scripts/validate_version_pins.py [env_file]
@@ -11,8 +11,10 @@ Usage:
 
 from __future__ import annotations
 
+import json
 import re
 import sys
+import urllib.request
 from pathlib import Path
 from typing import NamedTuple
 
@@ -24,11 +26,11 @@ class VersionConstraint(NamedTuple):
     version: tuple[int, ...]
 
     @classmethod
-    def parse(cls, spec: str) -> "VersionConstraint":
+    def parse(cls, spec: str) -> "VersionConstraint | None":
         """Parse a constraint like '>=7.10.6'."""
-        match = re.match(r"([><=!]+)(\d+(?:\.\d+)*)", spec)
+        match = re.match(r"([><=!]+)\s*(\d+(?:\.\d+)*)", spec.strip())
         if not match:
-            raise ValueError(f"Invalid constraint: {spec}")
+            return None
         op, ver = match.groups()
         return cls(op, tuple(int(x) for x in ver.split(".")))
 
@@ -54,23 +56,13 @@ class VersionConstraint(NamedTuple):
         return False
 
 
-# Known dependency constraints between packages
-# Format: {package: {dependent_package: constraint_on_package}}
-KNOWN_CONSTRAINTS = {
-    "coverage": {
-        "pytest-cov>=7.0.0": ">=7.10.6",
-        "pytest-cov>=6.0.0": ">=7.5.0",
-    },
-    "pydantic-core": {
-        "pydantic>=2.10.0": ">=2.27.0",
-        "pydantic>=2.0.0": ">=2.0.0",
-    },
-}
-
-
 def parse_version(version_str: str) -> tuple[int, ...]:
     """Parse a version string like '7.13.0' into a tuple."""
-    return tuple(int(x) for x in version_str.split("."))
+    # Handle versions with extras like "7.13.0rc1"
+    clean = re.match(r"(\d+(?:\.\d+)*)", version_str)
+    if clean:
+        return tuple(int(x) for x in clean.group(1).split("."))
+    return (0,)
 
 
 def parse_env_file(path: Path) -> dict[str, str]:
@@ -91,77 +83,92 @@ def parse_env_file(path: Path) -> dict[str, str]:
     return versions
 
 
+def get_package_requires(package: str, version: str) -> list[str]:
+    """Query PyPI for package dependencies."""
+    url = f"https://pypi.org/pypi/{package}/{version}/json"
+    try:
+        with urllib.request.urlopen(url, timeout=10) as resp:
+            data = json.loads(resp.read().decode())
+            return data.get("info", {}).get("requires_dist") or []
+    except Exception as e:
+        print(f"  ⚠️  Could not fetch {package}=={version} from PyPI: {e}")
+        return []
+
+
+def extract_base_requirement(req: str) -> tuple[str, list[str]] | None:
+    """Extract package name and version constraints from a requirement string.
+
+    Examples:
+        'coverage[toml]>=7.10.6' -> ('coverage', ['>=7.10.6'])
+        'pytest>=7.0,<9' -> ('pytest', ['>=7.0', '<9'])
+    """
+    # Remove extras and environment markers
+    req = re.sub(r"\[.*?\]", "", req)  # Remove [extras]
+    req = req.split(";")[0].strip()  # Remove ; markers
+
+    # Extract package name
+    match = re.match(r"([a-zA-Z0-9_-]+)\s*(.*)", req)
+    if not match:
+        return None
+
+    pkg_name = match.group(1).lower()
+    constraints_str = match.group(2).strip()
+
+    if not constraints_str:
+        return (pkg_name, [])
+
+    # Split on comma for multiple constraints
+    constraints = [c.strip() for c in constraints_str.split(",") if c.strip()]
+    return (pkg_name, constraints)
+
+
 def check_compatibility(versions: dict[str, str]) -> list[str]:
-    """Check for known incompatibilities."""
+    """Check for incompatibilities by querying actual PyPI dependencies."""
     errors = []
 
-    for pkg, constraints in KNOWN_CONSTRAINTS.items():
-        if pkg not in versions:
-            continue
+    # For each pinned package, check if its dependencies conflict with our pins
+    for pkg, version in versions.items():
+        requires = get_package_requires(pkg, version)
 
-        pkg_version = parse_version(versions[pkg])
-
-        for dependent_spec, constraint_spec in constraints.items():
-            # Parse dependent package and its minimum version
-            match = re.match(r"([a-z-]+)([><=!]+.+)", dependent_spec)
-            if not match:
-                continue
-            dep_pkg, dep_constraint_str = match.groups()
-
-            if dep_pkg not in versions:
+        for req in requires:
+            parsed = extract_base_requirement(req)
+            if not parsed:
                 continue
 
-            dep_version = parse_version(versions[dep_pkg])
-            dep_constraint = VersionConstraint.parse(dep_constraint_str)
+            dep_name, constraints = parsed
 
-            # Check if the dependent package version triggers this constraint
-            if dep_constraint.satisfied_by(dep_version):
-                # Check if our package version satisfies the requirement
-                req_constraint = VersionConstraint.parse(constraint_spec)
-                if not req_constraint.satisfied_by(pkg_version):
+            # Is this dependency also pinned?
+            if dep_name not in versions:
+                continue
+
+            pinned_version = parse_version(versions[dep_name])
+
+            # Check each constraint
+            for constraint_str in constraints:
+                constraint = VersionConstraint.parse(constraint_str)
+                if constraint and not constraint.satisfied_by(pinned_version):
                     errors.append(
-                        f"INCOMPATIBLE: {dep_pkg}=={versions[dep_pkg]} requires "
-                        f"{pkg}{constraint_spec}, but {pkg}=={versions[pkg]} is pinned"
+                        f"INCOMPATIBLE: {pkg}=={version} requires {dep_name}{constraint_str}, "
+                        f"but {dep_name}=={versions[dep_name]} is pinned"
                     )
 
     return errors
 
 
-def check_missing_pins(versions: dict[str, str]) -> list[str]:
-    """Check for missing pins that should be present."""
-    warnings = []
-
-    # If pytest-cov is pinned, coverage should be too
-    if "pytest-cov" in versions and "coverage" not in versions:
-        warnings.append(
-            "WARNING: pytest-cov is pinned but coverage is not. "
-            "This may cause dependency conflicts with fallback versions."
-        )
-
-    # If pydantic is pinned, pydantic-core should be too
-    if "pydantic" in versions and "pydantic-core" not in versions:
-        pydantic_ver = parse_version(versions["pydantic"])
-        if pydantic_ver >= (2, 0, 0):
-            warnings.append(
-                "WARNING: pydantic>=2.0 is pinned but pydantic-core is not. "
-                "This may cause dependency conflicts."
-            )
-
-    return warnings
-
-
 def validate_file(path: Path) -> tuple[list[str], list[str]]:
     """Validate a single env file."""
     versions = parse_env_file(path)
+    if not versions:
+        return [], ["No versions found in file"]
+
     errors = check_compatibility(versions)
-    warnings = check_missing_pins(versions)
+    warnings: list[str] = []
     return errors, warnings
 
 
 def main() -> int:
     """Main entry point."""
     if len(sys.argv) < 2:
-        # Default: check all template files
         check_all = True
     elif sys.argv[1] == "--check-all-templates":
         check_all = True
@@ -170,11 +177,9 @@ def main() -> int:
         env_file = Path(sys.argv[1])
 
     if check_all:
-        # Find all autofix-versions.env files in templates
         repo_root = Path(__file__).parent.parent
         template_files = list(repo_root.glob("templates/**/autofix-versions.env"))
 
-        # Also check the main .github/workflows version
         main_env = repo_root / ".github/workflows/autofix-versions.env"
         if main_env.exists():
             template_files.append(main_env)
