@@ -370,6 +370,83 @@ test('buildVerifierContext selects CI results for the merge commit SHA', async (
   fs.rmSync(contextPath, { force: true });
 });
 
+test('buildVerifierContext uses merge commit SHA for push events', async () => {
+  const core = buildCore();
+  const prDetails = {
+    number: 444,
+    title: 'Push merge commit',
+    body: prBodyFixture,
+    html_url: 'https://example.com/pr/444',
+    merge_commit_sha: 'merge-sha-444',
+    base: { ref: 'main' },
+    head: { sha: 'head-sha-444' },
+  };
+  const context = {
+    eventName: 'push',
+    repo: { owner: 'octo', repo: 'workflows' },
+    payload: {
+      after: 'merge-sha-444',
+      repository: { default_branch: 'main' },
+    },
+    sha: 'merge-sha-444',
+  };
+  const headShas = [];
+  const github = buildGithubStub({
+    prDetails,
+    prsForSha: [
+      {
+        number: 444,
+        merged_at: '2024-01-01T00:00:00Z',
+        merge_commit_sha: 'merge-sha-444',
+      },
+    ],
+    runsByWorkflow: {
+      'pr-00-gate.yml': [
+        { head_sha: 'merge-sha-444', conclusion: 'success', html_url: 'https://ci/gate-push' },
+      ],
+      'selftest-ci.yml': [
+        {
+          head_sha: 'merge-sha-444',
+          conclusion: 'success',
+          html_url: 'https://ci/selftest-push',
+        },
+      ],
+      'pr-11-ci-smoke.yml': [
+        { head_sha: 'merge-sha-444', conclusion: 'success', html_url: 'https://ci/pr11-push' },
+      ],
+    },
+    listWorkflowRunsHook: ({ head_sha: headSha }) => {
+      headShas.push(headSha);
+    },
+  });
+
+  const result = await buildVerifierContext({ github, context, core });
+
+  assert.equal(result.shouldRun, true);
+  assert.ok(headShas.length > 0);
+  assert.ok(headShas.every((sha) => sha === 'merge-sha-444'));
+  assert.deepEqual(result.ciResults, [
+    {
+      workflow_name: 'Gate',
+      conclusion: 'success',
+      run_url: 'https://ci/gate-push',
+    },
+    {
+      workflow_name: 'Selftest CI',
+      conclusion: 'success',
+      run_url: 'https://ci/selftest-push',
+    },
+    {
+      workflow_name: 'PR 11 - Minimal invariant CI',
+      conclusion: 'success',
+      run_url: 'https://ci/pr11-push',
+    },
+  ]);
+
+  const contextPath = result.contextPath || path.join(process.cwd(), 'verifier-context.md');
+  fs.rmSync(contextPath, { force: true });
+});
+
 test('buildVerifierContext skips push events without a commit SHA', async () => {
   const core = buildCore();
   const context = {

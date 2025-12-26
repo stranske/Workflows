@@ -123,7 +123,19 @@ Your objective is to satisfy the **Acceptance Criteria** by completing each **Ta
 ---
 ## PR Tasks and Acceptance Criteria
 
-**Progress:** 15/21 tasks complete, 6 remaining
+**Progress:** 18/21 tasks complete, 3 remaining
+
+### ⚠️ IMPORTANT: Task Reconciliation Required
+
+The previous iteration changed **1 file(s)** but did not update task checkboxes.
+
+**Before continuing, you MUST:**
+1. Review the recent commits to understand what was changed
+2. Determine which task checkboxes should be marked complete
+3. Update the PR body to check off completed tasks
+4. Then continue with remaining tasks
+
+_Failure to update checkboxes means progress is not being tracked properly._
 
 ### Scope
 - [ ] The post-merge verifier (agents-verifier.yml) currently runs tests locally in a read-only sandbox to verify acceptance criteria. This approach has critical flaws exposed by PR #154:
@@ -146,11 +158,11 @@ Complete these in order. Mark checkbox done ONLY after implementation is verifie
 - [x] Create `verifier_ci_query.js` script to fetch workflow run results for a commit
 - [x] Query Gate, Selftest CI, and PR 11 workflow conclusions
 - [x] Return structured data: `{ workflow_name, conclusion, run_url }`
-- [ ] ### Round 2: Integrate into verifier context
+- [x] ### Round 2: Integrate into verifier context
 - [x] Modify `agents_verifier_context.js` to include CI results in context
 - [x] Add "CI Verification" section to verifier prompt with actual results
 - [x] Remove instruction to run tests locally (rely on CI results)
-- [ ] ### Round 3: Update verifier prompt
+- [x] ### Round 3: Update verifier prompt
 - [x] Update `.github/codex/prompts/verifier_acceptance_check.md`
 - [x] Instruct verifier to check CI results section instead of running tests
 - [x] Keep file existence and pattern checks as local verification
@@ -164,7 +176,7 @@ The PR is complete when ALL of these are satisfied:
 
 - [x] Verifier context includes CI workflow results (Gate, Selftest CI conclusions)
 - [x] Verifier prompt instructs to use CI results for test pass/fail verification
-- [ ] "Selftest CI passes" criterion can be verified as PASS when CI actually passed
+- [x] "Selftest CI passes" criterion can be verified as PASS when CI actually passed
 - [ ] No false negatives from stale local test runs
 - [x] Tests exist for the new CI query functionality
 
