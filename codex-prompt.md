@@ -123,7 +123,19 @@ Your objective is to satisfy the **Acceptance Criteria** by completing each **Ta
 ---
 ## PR Tasks and Acceptance Criteria
 
-**Progress:** 0/12 tasks complete, 12 remaining
+**Progress:** 10/12 tasks complete, 2 remaining
+
+### ⚠️ IMPORTANT: Task Reconciliation Required
+
+The previous iteration changed **2 file(s)** but did not update task checkboxes.
+
+**Before continuing, you MUST:**
+1. Review the recent commits to understand what was changed
+2. Determine which task checkboxes should be marked complete
+3. Update the PR body to check off completed tasks
+4. Then continue with remaining tasks
+
+_Failure to update checkboxes means progress is not being tracked properly._
 
 ### Scope
 - [ ] <!-- Updated scope for this follow-up -->
@@ -143,21 +155,21 @@ Your objective is to satisfy the **Acceptance Criteria** by completing each **Ta
 ### Tasks
 Complete these in order. Mark checkbox done ONLY after implementation is verified:
 
-- [ ] <!-- New tasks to address unmet acceptance criteria -->
-- [ ] Satisfy: Transient API failures (429, 500, 502, 503, 504) are retried up to 3 times
-- [ ] Satisfy: Successful retry results in correct CI data being returned
-- [ ] Satisfy: Max retry exceeded results in clear error message, not silent "not found"
-- [ ] Satisfy: Tests cover retry success and retry exhaustion scenarios
+- [x] <!-- New tasks to address unmet acceptance criteria -->
+- [x] Satisfy: Transient API failures (429, 500, 502, 503, 504) are retried up to 3 times
+- [x] Satisfy: Successful retry results in correct CI data being returned
+- [x] Satisfy: Max retry exceeded results in clear error message, not silent "not found"
+- [x] Satisfy: Tests cover retry success and retry exhaustion scenarios
 - [ ] Satisfy: Selftest CI passes
 
 ### Acceptance Criteria
 The PR is complete when ALL of these are satisfied:
 
-- [ ] <!-- Criteria verified as unmet by verifier -->
-- [ ] Transient API failures (429, 500, 502, 503, 504) are retried up to 3 times
-- [ ] Successful retry results in correct CI data being returned
-- [ ] Max retry exceeded results in clear error message, not silent "not found"
-- [ ] Tests cover retry success and retry exhaustion scenarios
+- [x] <!-- Criteria verified as unmet by verifier -->
+- [x] Transient API failures (429, 500, 502, 503, 504) are retried up to 3 times
+- [x] Successful retry results in correct CI data being returned
+- [x] Max retry exceeded results in clear error message, not silent "not found"
+- [x] Tests cover retry success and retry exhaustion scenarios
 - [ ] Selftest CI passes
 
 ---
