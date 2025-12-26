@@ -123,7 +123,7 @@ Your objective is to satisfy the **Acceptance Criteria** by completing each **Ta
 ---
 ## PR Tasks and Acceptance Criteria
 
-**Progress:** 9/21 tasks complete, 12 remaining
+**Progress:** 14/21 tasks complete, 7 remaining
 
 ### ⚠️ IMPORTANT: Task Reconciliation Required
 
@@ -168,16 +168,16 @@ Complete these in order. Mark checkbox done ONLY after implementation is verifie
 - [x] Keep file existence and pattern checks as local verification
 - [ ] ### Round 4: Testing
 - [x] Add tests for `verifier_ci_query.js`
-- [ ] Test with a merged PR to verify CI results are correctly fetched
+- [x] Test with a merged PR to verify CI results are correctly fetched
 - [ ] Verify verifier no longer produces false negatives
 
 ### Acceptance Criteria
 The PR is complete when ALL of these are satisfied:
 
-- [ ] Verifier context includes CI workflow results (Gate, Selftest CI conclusions)
-- [ ] Verifier prompt instructs to use CI results for test pass/fail verification
+- [x] Verifier context includes CI workflow results (Gate, Selftest CI conclusions)
+- [x] Verifier prompt instructs to use CI results for test pass/fail verification
 - [ ] "Selftest CI passes" criterion can be verified as PASS when CI actually passed
 - [ ] No false negatives from stale local test runs
-- [ ] Tests exist for the new CI query functionality
+- [x] Tests exist for the new CI query functionality
 
 ---
