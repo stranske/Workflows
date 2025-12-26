@@ -45,7 +45,10 @@ const buildGithubStub = ({
     actions: {
       async listWorkflowRuns({ workflow_id: workflowId, head_sha: headSha }) {
         if (listWorkflowRunsHook) {
-          listWorkflowRunsHook({ workflow_id: workflowId, head_sha: headSha });
+          const hooked = await listWorkflowRunsHook({ workflow_id: workflowId, head_sha: headSha });
+          if (hooked !== undefined) {
+            return hooked;
+          }
         }
         return { data: { workflow_runs: runsByWorkflow[workflowId] || [] } };
       },
@@ -366,6 +369,86 @@ test('buildVerifierContext selects CI results for the merge commit SHA', async (
       run_url: 'https://ci/pr11-merge',
     },
   ]);
+
+  const contextPath = result.contextPath || path.join(process.cwd(), 'verifier-context.md');
+  fs.rmSync(contextPath, { force: true });
+});
+
+test('buildVerifierContext falls back to head SHA when merge runs are missing', async () => {
+  const core = buildCore();
+  const prDetails = {
+    number: 555,
+    title: 'Merge commit fallback',
+    body: prBodyFixture,
+    html_url: 'https://example.com/pr/555',
+    merge_commit_sha: 'merge-sha-555',
+    base: { ref: 'main' },
+    head: { sha: 'head-sha-555' },
+  };
+  const context = {
+    eventName: 'pull_request',
+    repo: { owner: 'octo', repo: 'workflows' },
+    payload: {
+      repository: { default_branch: 'main' },
+      pull_request: {
+        merged: true,
+        number: 555,
+        base: { ref: 'main' },
+        html_url: 'https://example.com/pr/555',
+      },
+    },
+    sha: 'sha-555',
+  };
+  const calls = [];
+  const workflowIds = ['pr-00-gate.yml', 'selftest-ci.yml', 'pr-11-ci-smoke.yml'];
+  const github = buildGithubStub({
+    prDetails,
+    listWorkflowRunsHook: ({ workflow_id: workflowId, head_sha: headSha }) => {
+      calls.push(`${workflowId}:${headSha}`);
+      if (headSha === 'merge-sha-555') {
+        return { data: { workflow_runs: [] } };
+      }
+      if (headSha === 'head-sha-555') {
+        return {
+          data: {
+            workflow_runs: [
+              {
+                head_sha: 'head-sha-555',
+                conclusion: 'success',
+                html_url: `https://ci/${workflowId}`,
+              },
+            ],
+          },
+        };
+      }
+      return { data: { workflow_runs: [] } };
+    },
+  });
+
+  const result = await buildVerifierContext({ github, context, core });
+
+  assert.equal(result.shouldRun, true);
+  assert.deepEqual(result.ciResults, [
+    {
+      workflow_name: 'Gate',
+      conclusion: 'success',
+      run_url: 'https://ci/pr-00-gate.yml',
+    },
+    {
+      workflow_name: 'Selftest CI',
+      conclusion: 'success',
+      run_url: 'https://ci/selftest-ci.yml',
+    },
+    {
+      workflow_name: 'PR 11 - Minimal invariant CI',
+      conclusion: 'success',
+      run_url: 'https://ci/pr-11-ci-smoke.yml',
+    },
+  ]);
+  for (const workflowId of workflowIds) {
+    assert.ok(calls.includes(`${workflowId}:merge-sha-555`));
+    assert.ok(calls.includes(`${workflowId}:head-sha-555`));
+  }
 
   const contextPath = result.contextPath || path.join(process.cwd(), 'verifier-context.md');
   fs.rmSync(contextPath, { force: true });

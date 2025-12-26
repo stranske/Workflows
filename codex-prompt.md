@@ -123,7 +123,19 @@ Your objective is to satisfy the **Acceptance Criteria** by completing each **Ta
 ---
 ## PR Tasks and Acceptance Criteria
 
-**Progress:** 16/21 tasks complete, 5 remaining
+**Progress:** 3/21 tasks complete, 18 remaining
+
+### ⚠️ IMPORTANT: Task Reconciliation Required
+
+The previous iteration changed **1 file(s)** but did not update task checkboxes.
+
+**Before continuing, you MUST:**
+1. Review the recent commits to understand what was changed
+2. Determine which task checkboxes should be marked complete
+3. Update the PR body to check off completed tasks
+4. Then continue with remaining tasks
+
+_Failure to update checkboxes means progress is not being tracked properly._
 
 ### Scope
 - [ ] The post-merge verifier (agents-verifier.yml) currently runs tests locally in a read-only sandbox to verify acceptance criteria. This approach has critical flaws exposed by PR #154:
@@ -154,9 +166,9 @@ Complete these in order. Mark checkbox done ONLY after implementation is verifie
 - [x] Update `.github/codex/prompts/verifier_acceptance_check.md`
 - [x] Instruct verifier to check CI results section instead of running tests
 - [x] Keep file existence and pattern checks as local verification
-- [ ] ### Round 4: Testing
+- [x] ### Round 4: Testing
 - [x] Add tests for `verifier_ci_query.js`
-- [ ] Test with a merged PR to verify CI results are correctly fetched
+- [x] Test with a merged PR to verify CI results are correctly fetched
 - [ ] Verify verifier no longer produces false negatives
 
 ### Acceptance Criteria
