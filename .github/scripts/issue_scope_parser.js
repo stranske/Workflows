@@ -24,6 +24,30 @@ const PLACEHOLDERS = {
 
 const CHECKBOX_SECTIONS = new Set(['tasks', 'acceptance']);
 
+function normaliseSectionContent(sectionKey, content) {
+  const trimmed = String(content || '').trim();
+  if (!trimmed) {
+    return '';
+  }
+  if (CHECKBOX_SECTIONS.has(sectionKey)) {
+    return normaliseChecklist(trimmed).trim();
+  }
+  return trimmed;
+}
+
+function isPlaceholderContent(sectionKey, content) {
+  const placeholder = PLACEHOLDERS[sectionKey];
+  if (!placeholder) {
+    return false;
+  }
+  const normalized = normaliseSectionContent(sectionKey, content);
+  if (!normalized) {
+    return false;
+  }
+  const placeholderNormalized = normaliseSectionContent(sectionKey, placeholder);
+  return normalized === placeholderNormalized;
+}
+
 function normaliseChecklist(content) {
   const raw = String(content || '');
   if (!raw.trim()) {
@@ -215,6 +239,20 @@ const parseScopeTasksAcceptanceSections = (source) => {
   return sections;
 };
 
+const hasNonPlaceholderScopeTasksAcceptanceContent = (source) => {
+  const { sections } = collectSections(source);
+  if (!sections || typeof sections !== 'object') {
+    return false;
+  }
+  return Object.entries(sections).some(([key, value]) => {
+    const content = String(value || '').trim();
+    if (!content) {
+      return false;
+    }
+    return !isPlaceholderContent(key, content);
+  });
+};
+
 const analyzeSectionPresence = (source) => {
   const { sections } = collectSections(source);
   const entries = SECTION_DEFS.map((section) => {
@@ -245,5 +283,6 @@ const analyzeSectionPresence = (source) => {
 module.exports = {
   extractScopeTasksAcceptanceSections,
   parseScopeTasksAcceptanceSections,
+  hasNonPlaceholderScopeTasksAcceptanceContent,
   analyzeSectionPresence,
 };

@@ -6,7 +6,7 @@ const {
 } = require('./keepalive_instruction_segment.js');
 const {
   extractScopeTasksAcceptanceSections: extractScopeTasksAcceptanceSectionsFromIssue,
-  parseScopeTasksAcceptanceSections,
+  hasNonPlaceholderScopeTasksAcceptanceContent,
 } = require('../.github/scripts/issue_scope_parser.js');
 const {
   getKeepaliveInstructionWithMention,
@@ -223,12 +223,7 @@ function buildOctokitInstance({ core, github, token }) {
 }
 
 function hasScopeTasksAcceptanceContent(source) {
-  const sections = parseScopeTasksAcceptanceSections(source);
-  if (!sections || typeof sections !== 'object') {
-    return false;
-  }
-
-  return Object.values(sections).some((value) => Boolean(String(value || '').trim()));
+  return hasNonPlaceholderScopeTasksAcceptanceContent(source);
 }
 
 function extractScopeTasksAcceptanceSections(source, options = {}) {

@@ -225,6 +225,19 @@ def test_keepalive_includes_placeholders_when_sections_missing() -> None:
     _assert_single_dispatch(data, 111, round_expected=1)
 
 
+def test_keepalive_prefers_non_placeholder_sections() -> None:
+    data = _run_scenario("prefers_real_sections")
+    created = data["created_comments"]
+    assert len(created) == 1
+    body = created[0]["body"]
+    assert "Ship missing sections fix." in body
+    assert "- [ ] Update parser" in body
+    assert "- [ ] Placeholders are only used when no real sections exist." in body
+    assert "_No scope information provided_" not in body
+    assert "_No tasks defined_" not in body
+    assert "_No acceptance criteria defined_" not in body
+
+
 def test_keepalive_dedupes_configuration() -> None:
     data = _run_scenario("dedupe")
     summary = data["summary"]
