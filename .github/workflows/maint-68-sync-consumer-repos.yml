@@ -112,6 +112,7 @@ jobs:
             "agents-orchestrator.yml:agents-orchestrator.yml"
             "agents-orchestrator.yml:agents-70-orchestrator.yml"
             "agents-pr-meta.yml:agents-pr-meta.yml"
+            "agents-keepalive-loop.yml:agents-keepalive-loop.yml"
             "autofix.yml:autofix.yml"
             "pr-00-gate.yml:pr-00-gate.yml"
           )
@@ -295,6 +296,7 @@ jobs:
           SYNC_TEMPLATES=(
             "agents-orchestrator.yml"
             "agents-pr-meta.yml"
+            "agents-keepalive-loop.yml"
             "autofix.yml"
             "pr-00-gate.yml"
           )
@@ -308,7 +310,9 @@ jobs:
             elif [ -f ".github/workflows/agents-70-orchestrator.yml" ] && [ "$file" = "agents-orchestrator.yml" ]; then
               target=".github/workflows/agents-70-orchestrator.yml"
             else
-              continue
+              # Create new file if it doesn't exist (for new workflows like keepalive-loop)
+              mkdir -p .github/workflows
+              target=".github/workflows/$file"
             fi
 
             if [ -f "$template" ]; then

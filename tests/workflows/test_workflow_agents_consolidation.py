@@ -3,6 +3,7 @@ from pathlib import Path
 import yaml
 
 WORKFLOWS_DIR = Path(".github/workflows")
+ISSUE_TEMPLATE_DIR = Path(".github/ISSUE_TEMPLATE")
 KEEPALIVE_HELPER = Path("scripts/keepalive-runner.js")
 
 
@@ -10,6 +11,23 @@ def _load_workflow_yaml(name: str) -> dict:
     path = WORKFLOWS_DIR / name
     assert path.exists(), f"Workflow {name} must exist"
     return yaml.safe_load(path.read_text(encoding="utf-8"))
+
+
+def _load_issue_template_yaml(name: str) -> dict:
+    path = ISSUE_TEMPLATE_DIR / name
+    assert path.exists(), f"Issue template {name} must exist"
+    return yaml.safe_load(path.read_text(encoding="utf-8"))
+
+
+def _issue_form_entries_by_label(data: dict) -> dict:
+    entries = {}
+    for item in data.get("body") or []:
+        attributes = item.get("attributes") or {}
+        label = attributes.get("label")
+        if not label:
+            continue
+        entries[str(label).strip().lower()] = item
+    return entries
 
 
 def _workflow_on_section(data: dict) -> dict:
@@ -507,6 +525,20 @@ def test_agent_task_template_auto_labels_codex():
     assert {"agents", "agent:codex"}.issubset(
         labels
     ), "Agent task template must auto-apply agents + agent:codex labels"
+
+
+def test_codex_issue_forms_require_scope_tasks_acceptance():
+    for name in ("bug_report_codex.yml", "feature_request_codex.yml"):
+        data = _load_issue_template_yaml(name)
+        entries = _issue_form_entries_by_label(data)
+        for required_label in ("scope", "tasks", "acceptance criteria"):
+            assert (
+                required_label in entries
+            ), f"Issue template {name} must include {required_label} section"
+            validations = entries[required_label].get("validations") or {}
+            assert (
+                validations.get("required") is True
+            ), f"Issue template {name} must require {required_label} section"
 
 
 def test_issue_intake_guard_checks_agent_label():

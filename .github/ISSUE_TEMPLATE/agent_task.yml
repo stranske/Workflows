@@ -23,15 +23,31 @@ body:
     validations:
       required: true
   - type: textarea
-    id: goals
+    id: scope
     attributes:
-      label: Goals
-      description: List the concrete outcomes this task should deliver.
-      placeholder: Bullet the acceptance criteria or deliverables.
+      label: Scope
+      description: What is in scope for this work? Call out files, systems, or workflows to touch.
+      placeholder: Describe the intended scope.
     validations:
       required: true
   - type: textarea
-    id: scope
+    id: tasks
+    attributes:
+      label: Tasks
+      description: List the concrete tasks Codex should complete.
+      placeholder: "- [ ] Task 1\n- [ ] Task 2"
+    validations:
+      required: true
+  - type: textarea
+    id: goals
+    attributes:
+      label: Acceptance criteria
+      description: Describe what must be true for this work to be considered complete.
+      placeholder: "- [ ] Criterion 1\n- [ ] Criterion 2"
+    validations:
+      required: true
+  - type: textarea
+    id: guardrails
     attributes:
       label: Out of scope / guardrails
       description: Clarify any boundaries Codex must respect (files to avoid, limits, etc.).

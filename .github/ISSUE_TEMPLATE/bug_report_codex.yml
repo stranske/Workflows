@@ -31,3 +31,32 @@ body:
         1.
         2.
         3.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: What is in scope for the fix? Call out files, systems, or workflows to touch.
+      placeholder: Describe the intended scope.
+    validations:
+      required: true
+  - type: textarea
+    id: tasks
+    attributes:
+      label: Tasks
+      description: Checklist of concrete work items for Codex to complete.
+      placeholder: "- [ ] Task 1\n- [ ] Task 2"
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Bullet list of verifiable outcomes for the fix.
+      value: |
+        - [ ] A
+        - [ ] B
+        - [ ] C
+    validations:
+      required: true

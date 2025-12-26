@@ -1,9 +1,12 @@
-Added an automatic default metrics log path for keepalive iterations running under GitHub Actions so records are appended without extra inputs, and expanded keepalive-loop tests to verify the default log behavior and clean up the workspace file. Updated the acceptance checkbox in `codex-prompt.md` after verifying the new logging behavior. Changes are in `.github/scripts/keepalive_loop.js`, `.github/scripts/__tests__/keepalive-loop.test.js`, and `codex-prompt.md`.
+Adjusted the keepalive scope extraction to ignore placeholder-only sections and prefer real content, added a fixture + test to lock in that behavior, and checked off the completed PR tasks in `codex-prompt.md`.
 
-Tests: `node --test .github/scripts/__tests__/keepalive-loop.test.js`
+Details
+- Added placeholder detection in `.github/scripts/issue_scope_parser.js` and wired it into `scripts/keepalive-runner.js` so real sections win over placeholder-only comments.
+- New scenario fixture `tests/workflows/fixtures/keepalive/prefers_real_sections.json` plus test coverage in `tests/workflows/test_keepalive_workflow.py`.
+- Updated task checkboxes and progress line in `codex-prompt.md`.
 
-Workflow update is still blocked by policy: I can’t edit `.github/workflows/agents-orchestrator.yml` in this run. Please add a `needs-human` label and a PR comment instructing the workflow update to call `scripts/keepalive_metrics_collector.py` after keepalive completes (or set `KEEPALIVE_METRICS_PATH` for the loop).
+Tests
+- `python -m pytest tests/workflows/test_keepalive_workflow.py -k "sections_missing or prefers_non_placeholder"`
 
-Next steps:
-1) Have a human update `.github/workflows/agents-orchestrator.yml` to invoke the metrics collector or set `KEEPALIVE_METRICS_PATH`.
-2) Run the full selftest CI to satisfy the remaining acceptance criterion.
+Suggestions
+1) Run the full keepalive workflow tests: `python -m pytest tests/workflows/test_keepalive_workflow.py`

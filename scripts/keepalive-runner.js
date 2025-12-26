@@ -6,7 +6,7 @@ const {
 } = require('./keepalive_instruction_segment.js');
 const {
   extractScopeTasksAcceptanceSections: extractScopeTasksAcceptanceSectionsFromIssue,
-  parseScopeTasksAcceptanceSections,
+  hasNonPlaceholderScopeTasksAcceptanceContent,
 } = require('../.github/scripts/issue_scope_parser.js');
 const {
   getKeepaliveInstructionWithMention,
@@ -223,12 +223,7 @@ function buildOctokitInstance({ core, github, token }) {
 }
 
 function hasScopeTasksAcceptanceContent(source) {
-  const sections = parseScopeTasksAcceptanceSections(source);
-  if (!sections || typeof sections !== 'object') {
-    return false;
-  }
-
-  return Object.values(sections).some((value) => Boolean(String(value || '').trim()));
+  return hasNonPlaceholderScopeTasksAcceptanceContent(source);
 }
 
 function extractScopeTasksAcceptanceSections(source, options = {}) {
@@ -248,19 +243,32 @@ function findScopeTasksAcceptanceBlock({ prBody, comments, override }) {
     }
   }
 
-  const sources = [];
-  if (hasScopeTasksAcceptanceContent(prBody)) {
-    sources.push(prBody);
+  const candidates = [];
+  if (prBody) {
+    candidates.push(prBody);
   }
 
   for (const comment of comments || []) {
     const body = comment?.body || '';
-    if (body && hasScopeTasksAcceptanceContent(body)) {
-      sources.push(body);
+    if (body) {
+      candidates.push(body);
     }
   }
 
-  for (const source of sources) {
+  for (const source of candidates) {
+    if (!hasScopeTasksAcceptanceContent(source)) {
+      continue;
+    }
+    const extracted = extractScopeTasksAcceptanceSections(source, { includePlaceholders: false });
+    if (extracted) {
+      return extractScopeTasksAcceptanceSections(source);
+    }
+  }
+
+  for (const source of candidates) {
+    if (!String(source).trim()) {
+      continue;
+    }
     const extracted = extractScopeTasksAcceptanceSections(source);
     if (extracted) {
       return extracted;

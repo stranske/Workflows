@@ -1,0 +1,32 @@
+{
+  "repo": {"owner": "stranske", "repo": "Workflows"},
+  "now": "2024-05-18T12:00:00Z",
+  "env": {
+    "OPTIONS_JSON": "{}",
+    "DRY_RUN": "false"
+  },
+  "pulls": [
+    {
+      "number": 222,
+      "labels": ["agents:keepalive"],
+      "body": "Quick update without structured sections.",
+      "comments": [
+        {
+          "user": {"login": "triage-bot"},
+          "body": "@codex plan-and-execute",
+          "created_at": "2024-05-18T08:00:00Z"
+        },
+        {
+          "user": {"login": "stranske-automation-bot"},
+          "body": "#### Scope\n_No scope information provided_\n\n#### Tasks\n- [ ] _No tasks defined_\n\n#### Acceptance Criteria\n- [ ] _No acceptance criteria defined_",
+          "created_at": "2024-05-18T08:30:00Z"
+        },
+        {
+          "user": {"login": "alice"},
+          "body": "#### Scope\nShip missing sections fix.\n\n#### Tasks\n- [ ] Update parser\n\n#### Acceptance Criteria\n- [ ] Placeholders are only used when no real sections exist.",
+          "created_at": "2024-05-18T09:00:00Z"
+        }
+      ]
+    }
+  ]
+}
