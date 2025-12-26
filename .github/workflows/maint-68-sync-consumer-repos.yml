@@ -128,6 +128,12 @@ jobs:
             "fallback_split.py"
           )
 
+          # Codex prompts and instructions (required for keepalive to work)
+          SYNC_CODEX_FILES=(
+            "AGENT_INSTRUCTIONS.md"
+            "prompts/keepalive_next_task.md"
+          )
+
           changes=""
           sync_report=""
 
@@ -204,6 +210,24 @@ jobs:
             fi
           done
 
+          # Check codex prompts and instructions
+          for codex_file in "${SYNC_CODEX_FILES[@]}"; do
+            source_file="workflows/templates/consumer-repo/.github/codex/$codex_file"
+            consumer_file="consumer/.github/codex/$codex_file"
+
+            if [ ! -f "$source_file" ]; then
+              continue
+            fi
+
+            if [ ! -f "$consumer_file" ]; then
+              changes="$changes codex/$codex_file"
+              sync_report="$sync_report\n- codex/$codex_file (missing)"
+            elif ! compare_files "$source_file" "$consumer_file" false; then
+              changes="$changes codex/$codex_file"
+              sync_report="$sync_report\n- codex/$codex_file (differs)"
+            fi
+          done
+
           if [ -n "$changes" ]; then
             echo "has_changes=true" >> "$GITHUB_OUTPUT"
             echo "changed_files=$changes" >> "$GITHUB_OUTPUT"
@@ -270,6 +294,22 @@ jobs:
           for script in "${SYNC_SCRIPTS[@]}"; do
             source="../workflows/.github/scripts/$script"
             target=".github/scripts/$script"
+
+            if [ -f "$source" ]; then
+              cp "$source" "$target"
+            fi
+          done
+
+          # Sync codex prompts and instructions (required for keepalive)
+          SYNC_CODEX_FILES=(
+            "AGENT_INSTRUCTIONS.md"
+            "prompts/keepalive_next_task.md"
+          )
+
+          mkdir -p .github/codex/prompts
+          for codex_file in "${SYNC_CODEX_FILES[@]}"; do
+            source="../workflows/templates/consumer-repo/.github/codex/$codex_file"
+            target=".github/codex/$codex_file"
 
             if [ -f "$source" ]; then
               cp "$source" "$target"
