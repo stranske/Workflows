@@ -1,12 +1,13 @@
-Emitted a structured keepalive metrics record from the summary step so each iteration can publish a JSON payload (including duration and task counts) for the collector to consume later. This centralizes the record assembly in the keepalive loop and exposes it via `metrics_record_json` for workflow wiring.
+Implemented the keepalive metrics dashboard generator and added unit coverage for both the collector and dashboard aggregation, then updated the PR task/acceptance checkboxes to reflect verified progress in `codex-prompt.md`.
 
 Details:
-- Built helpers for optional numeric parsing, duration resolution, and metrics record construction in `.github/scripts/keepalive_loop.js`.
-- Emitted a metrics record after each summary update, with a 1-based iteration and sensible defaults for action/error category in `.github/scripts/keepalive_loop.js`.
+- New dashboard script at `scripts/keepalive_metrics_dashboard.py` reads NDJSON, computes success rate/avg iterations/error breakdown, and writes a markdown table.
+- Added collector validation/append tests in `tests/scripts/test_keepalive_metrics_collector.py`.
+- Added dashboard aggregation tests for empty/single/multi inputs in `tests/scripts/test_keepalive_metrics_dashboard.py`.
+- Marked completed tasks and acceptance criteria in `codex-prompt.md`.
 
-Tests not run (not requested).
+Tests:
+- `pytest tests/scripts/test_keepalive_metrics_collector.py tests/scripts/test_keepalive_metrics_dashboard.py`
 
 Next steps:
-1. Wire `metrics_record_json` into the collector invocation in the keepalive workflow (once workflow edits are allowed).
-2. Add tests for the new metrics helpers and duration handling.
-3. Run the relevant keepalive workflow tests to validate outputs end-to-end.
+1. Decide how to handle `agents-orchestrator.yml` updates (requires `agent-high-privilege` per repo policy).
