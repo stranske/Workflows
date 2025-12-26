@@ -248,19 +248,32 @@ function findScopeTasksAcceptanceBlock({ prBody, comments, override }) {
     }
   }
 
-  const sources = [];
-  if (hasScopeTasksAcceptanceContent(prBody)) {
-    sources.push(prBody);
+  const candidates = [];
+  if (prBody) {
+    candidates.push(prBody);
   }
 
   for (const comment of comments || []) {
     const body = comment?.body || '';
-    if (body && hasScopeTasksAcceptanceContent(body)) {
-      sources.push(body);
+    if (body) {
+      candidates.push(body);
     }
   }
 
-  for (const source of sources) {
+  for (const source of candidates) {
+    if (!hasScopeTasksAcceptanceContent(source)) {
+      continue;
+    }
+    const extracted = extractScopeTasksAcceptanceSections(source, { includePlaceholders: false });
+    if (extracted) {
+      return extractScopeTasksAcceptanceSections(source);
+    }
+  }
+
+  for (const source of candidates) {
+    if (!String(source).trim()) {
+      continue;
+    }
     const extracted = extractScopeTasksAcceptanceSections(source);
     if (extracted) {
       return extracted;
