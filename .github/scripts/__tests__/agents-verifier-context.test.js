@@ -424,16 +424,22 @@ test('buildVerifierContext selects CI results for the merge commit SHA', async (
       workflow_name: 'Gate',
       conclusion: 'success',
       run_url: 'https://ci/gate-merge',
+      error_category: '',
+      error_message: '',
     },
     {
       workflow_name: 'Selftest CI',
       conclusion: 'success',
       run_url: 'https://ci/selftest-merge',
+      error_category: '',
+      error_message: '',
     },
     {
       workflow_name: 'PR 11 - Minimal invariant CI',
       conclusion: 'success',
       run_url: 'https://ci/pr11-merge',
+      error_category: '',
+      error_message: '',
     },
   ]);
 
@@ -546,16 +552,22 @@ test('buildVerifierContext falls back to head SHA when merge runs are missing', 
       workflow_name: 'Gate',
       conclusion: 'success',
       run_url: 'https://ci/pr-00-gate.yml',
+      error_category: '',
+      error_message: '',
     },
     {
       workflow_name: 'Selftest CI',
       conclusion: 'success',
       run_url: 'https://ci/selftest-ci.yml',
+      error_category: '',
+      error_message: '',
     },
     {
       workflow_name: 'PR 11 - Minimal invariant CI',
       conclusion: 'success',
       run_url: 'https://ci/pr-11-ci-smoke.yml',
+      error_category: '',
+      error_message: '',
     },
   ]);
   for (const workflowId of workflowIds) {
@@ -627,16 +639,22 @@ test('buildVerifierContext uses merge commit SHA for push events', async () => {
       workflow_name: 'Gate',
       conclusion: 'success',
       run_url: 'https://ci/gate-push',
+      error_category: '',
+      error_message: '',
     },
     {
       workflow_name: 'Selftest CI',
       conclusion: 'success',
       run_url: 'https://ci/selftest-push',
+      error_category: '',
+      error_message: '',
     },
     {
       workflow_name: 'PR 11 - Minimal invariant CI',
       conclusion: 'success',
       run_url: 'https://ci/pr11-push',
+      error_category: '',
+      error_message: '',
     },
   ]);
 
