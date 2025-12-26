@@ -88,6 +88,8 @@ jobs:
         with:
           sparse-checkout: |
             templates/consumer-repo
+            .github/workflows/agents-63-issue-intake.yml
+            .github/scripts
           sparse-checkout-cone-mode: false
           path: workflows
 
@@ -102,12 +104,11 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Files that should be synced (thin callers)
+          # Files that should be synced (thin callers from templates)
           # NOTE: autofix-versions.env is NOT synced - each repo maintains its own
-          # dependency versions based on its lock files
+          # NOTE: agents-63-issue-intake.yml is NOT a thin caller - it uses local scripts
+          #       and should be synced from .github/workflows/, not templates/
           SYNC_FILES=(
-            "agents-issue-intake.yml:agents-issue-intake.yml"
-            "agents-issue-intake.yml:agents-63-issue-intake.yml"
             "agents-orchestrator.yml:agents-orchestrator.yml"
             "agents-orchestrator.yml:agents-70-orchestrator.yml"
             "agents-pr-meta.yml:agents-pr-meta.yml"
@@ -115,9 +116,44 @@ jobs:
             "pr-00-gate.yml:pr-00-gate.yml"
           )
 
+          # Full workflows synced from .github/workflows/ (not templates)
+          FULL_WORKFLOWS=(
+            "agents-63-issue-intake.yml"
+          )
+
+          # Scripts that need to be synced for full workflows
+          SYNC_SCRIPTS=(
+            "decode_raw_input.py"
+            "parse_chatgpt_topics.py"
+            "fallback_split.py"
+          )
+
           changes=""
           sync_report=""
 
+          # Helper function to compare files safely
+          compare_files() {
+            local file1="$1"
+            local file2="$2"
+            local skip_header="${3:-false}"
+
+            if [ "$skip_header" = "true" ]; then
+              local lines1 lines2
+              lines1=$(wc -l < "$file1")
+              lines2=$(wc -l < "$file2")
+
+              # If either file is too short, compare entire files
+              if [ "$lines1" -lt 15 ] || [ "$lines2" -lt 15 ]; then
+                diff -q "$file1" "$file2" > /dev/null 2>&1
+              else
+                diff -q <(tail -n +10 "$file1") <(tail -n +10 "$file2") > /dev/null 2>&1
+              fi
+            else
+              diff -q "$file1" "$file2" > /dev/null 2>&1
+            fi
+          }
+
+          # Check thin caller templates
           for mapping in "${SYNC_FILES[@]}"; do
             template_name="${mapping%%:*}"
             consumer_name="${mapping##*:}"
@@ -125,19 +161,46 @@ jobs:
             template_file="workflows/templates/consumer-repo/.github/workflows/$template_name"
             consumer_file="consumer/.github/workflows/$consumer_name"
 
-            if [ ! -f "$template_file" ]; then
+            if [ ! -f "$template_file" ] || [ ! -f "$consumer_file" ]; then
+              continue
+            fi
+
+            if ! compare_files "$template_file" "$consumer_file" true; then
+              changes="$changes $consumer_name"
+              sync_report="$sync_report\n- $consumer_name (differs from template)"
+            fi
+          done
+
+          # Check full workflows (from .github/workflows/)
+          for workflow in "${FULL_WORKFLOWS[@]}"; do
+            source_file="workflows/.github/workflows/$workflow"
+            consumer_file="consumer/.github/workflows/$workflow"
+
+            if [ ! -f "$source_file" ] || [ ! -f "$consumer_file" ]; then
+              continue
+            fi
+
+            if ! compare_files "$source_file" "$consumer_file" true; then
+              changes="$changes $workflow"
+              sync_report="$sync_report\n- $workflow (differs from source)"
+            fi
+          done
+
+          # Check scripts
+          for script in "${SYNC_SCRIPTS[@]}"; do
+            source_file="workflows/.github/scripts/$script"
+            consumer_file="consumer/.github/scripts/$script"
+
+            if [ ! -f "$source_file" ]; then
               continue
             fi
 
             if [ ! -f "$consumer_file" ]; then
-              # Check alternative name
-              continue
-            fi
-
-            # Compare (ignoring repo-specific comments at top)
-            if ! diff -q <(tail -n +10 "$template_file") <(tail -n +10 "$consumer_file") > /dev/null 2>&1; then
-              changes="$changes $consumer_name"
-              sync_report="$sync_report\n- $consumer_name (differs from template)"
+              changes="$changes scripts/$script"
+              sync_report="$sync_report\n- scripts/$script (missing)"
+            elif ! compare_files "$source_file" "$consumer_file" false; then
+              changes="$changes scripts/$script"
+              sync_report="$sync_report\n- scripts/$script (differs)"
             fi
           done
 
@@ -157,23 +220,20 @@ jobs:
 
           cd consumer
 
-          # Sync workflow files (preserving repo-specific headers)
-          SYNC_MAPPINGS=(
-            "agents-issue-intake.yml"
+          # Sync thin caller workflow files from templates
+          SYNC_TEMPLATES=(
             "agents-orchestrator.yml"
             "agents-pr-meta.yml"
             "autofix.yml"
             "pr-00-gate.yml"
           )
 
-          for file in "${SYNC_MAPPINGS[@]}"; do
+          for file in "${SYNC_TEMPLATES[@]}"; do
             template="../workflows/templates/consumer-repo/.github/workflows/$file"
 
             # Find target file (may have numbered prefix)
             if [ -f ".github/workflows/$file" ]; then
               target=".github/workflows/$file"
-            elif [ -f ".github/workflows/agents-63-issue-intake.yml" ] && [ "$file" = "agents-issue-intake.yml" ]; then
-              target=".github/workflows/agents-63-issue-intake.yml"
             elif [ -f ".github/workflows/agents-70-orchestrator.yml" ] && [ "$file" = "agents-orchestrator.yml" ]; then
               target=".github/workflows/agents-70-orchestrator.yml"
             else
@@ -181,13 +241,38 @@ jobs:
             fi
 
             if [ -f "$template" ]; then
-              # Preserve first 10 lines (repo-specific comments) if they exist
-              if [ -f "$target" ]; then
-                head -10 "$target" > /tmp/header.yml || true
-                cp "$template" "$target"
-              else
-                cp "$template" "$target"
-              fi
+              cp "$template" "$target"
+            fi
+          done
+
+          # Sync full workflows from .github/workflows/ (not templates)
+          FULL_WORKFLOWS=(
+            "agents-63-issue-intake.yml"
+          )
+
+          for workflow in "${FULL_WORKFLOWS[@]}"; do
+            source="../workflows/.github/workflows/$workflow"
+            target=".github/workflows/$workflow"
+
+            if [ -f "$source" ] && [ -f "$target" ]; then
+              cp "$source" "$target"
+            fi
+          done
+
+          # Sync scripts
+          SYNC_SCRIPTS=(
+            "decode_raw_input.py"
+            "parse_chatgpt_topics.py"
+            "fallback_split.py"
+          )
+
+          mkdir -p .github/scripts
+          for script in "${SYNC_SCRIPTS[@]}"; do
+            source="../workflows/.github/scripts/$script"
+            target=".github/scripts/$script"
+
+            if [ -f "$source" ]; then
+              cp "$source" "$target"
             fi
           done
 
