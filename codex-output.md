@@ -1,7 +1,7 @@
-Added a keepalive gate runner test for the retry-cap path so prior skip history triggers `too-many-failures`, and reconciled the PR checklist after confirming tests and docs. Updates are in `.github/scripts/__tests__/keepalive-orchestrator-gate-runner.test.js` (new retry-cap coverage) and `codex-prompt.md` (task/acceptance checkbox updates after verifying tests and reviewing `.github/scripts/README.md`).
+Extended guard coverage by adding safe-workflow and read-failure tests in `.github/scripts/__tests__/agents-guard.test.js`, then updated the PR checklist/acceptance tracking in `codex-prompt.md` after verifying all new tests pass and reviewing docs (no doc updates needed).
 
 Tests run:
 - `node --test .github/scripts/__tests__/*.test.js`
 
 Next steps:
-1. Run the `Selftest CI` workflow to satisfy the remaining acceptance criterion.
+1. Run the repo’s Selftest CI workflow (or equivalent full CI) to satisfy the remaining “no regressions” acceptance item.
