@@ -146,3 +146,38 @@ test('validatePullRequestTargetSafety blocks unsafe checkout and secrets usage',
     /Unsafe pull_request_target usage detected/,
   );
 });
+
+test('validatePullRequestTargetSafety allows safe pull_request_target workflow', () => {
+  const workflowSource = [
+    'on: pull_request_target',
+    'jobs:',
+    '  test:',
+    '    runs-on: ubuntu-latest',
+    '    steps:',
+    '      - uses: actions/checkout@v4',
+    '        with:',
+    '          fetch-depth: 1',
+    '      - run: echo "hello"',
+  ].join('\n');
+
+  const result = validatePullRequestTargetSafety({
+    eventName: 'pull_request_target',
+    workflowPath: '.github/workflows/agents-guard.yml',
+    workspaceRoot: process.cwd(),
+    fsModule: { readFileSync: () => workflowSource },
+  });
+
+  assert.deepEqual(result, { checked: true, violations: [] });
+});
+
+test('validatePullRequestTargetSafety throws when workflow file cannot be read', () => {
+  assert.throws(
+    () => validatePullRequestTargetSafety({
+      eventName: 'pull_request_target',
+      workflowPath: '.github/workflows/agents-guard.yml',
+      workspaceRoot: process.cwd(),
+      fsModule: { readFileSync: () => { throw new Error('no access'); } },
+    }),
+    /Failed to read \.github\/workflows\/agents-guard\.yml: no access/,
+  );
+});
