@@ -123,31 +123,19 @@ Your objective is to satisfy the **Acceptance Criteria** by completing each **Ta
 ---
 ## PR Tasks and Acceptance Criteria
 
-**Progress:** 3/3 tasks complete, 0 remaining
-
-### ⚠️ IMPORTANT: Task Reconciliation Required
-
-The previous iteration changed **1 file(s)** but did not update task checkboxes.
-
-**Before continuing, you MUST:**
-1. Review the recent commits to understand what was changed
-2. Determine which task checkboxes should be marked complete
-3. Update the PR body to check off completed tasks
-4. Then continue with remaining tasks
-
-_Failure to update checkboxes means progress is not being tracked properly._
+**Progress:** 0/2 tasks complete, 2 remaining
 
 ### Scope
-- [x] Scope section missing from source issue.
+- [ ] Scope section missing from source issue.
 
 ### Tasks
 Complete these in order. Mark checkbox done ONLY after implementation is verified:
 
-- [x] Tasks section missing from source issue.
+- [ ] Tasks section missing from source issue.
 
 ### Acceptance Criteria
 The PR is complete when ALL of these are satisfied:
 
-- [x] Acceptance criteria section missing from source issue.
+- [ ] Acceptance criteria section missing from source issue.
 
 ---
