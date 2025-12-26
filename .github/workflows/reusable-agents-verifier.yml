@@ -234,7 +234,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const fs = require('fs');
-            const { formatFollowUpIssue, formatSimpleFollowUpIssue, formatErrorIssue } = require('./.workflows-lib/.github/scripts/verifier_issue_formatter.js');
+            const { formatFollowUpIssue, formatSimpleFollowUpIssue } = require('./.workflows-lib/.github/scripts/verifier_issue_formatter.js');
 
             const rawPrNumber = Number('${{ steps.context.outputs.pr_number }}');
             const prNumber = !Number.isNaN(rawPrNumber) && rawPrNumber > 0 ? rawPrNumber : null;
@@ -245,20 +245,6 @@ jobs:
 
             // Handle Codex crash/error case
             if (verdict === 'error') {
-              // Check if formatErrorIssue exists, otherwise use fallback
-              if (typeof formatErrorIssue === 'function') {
-                const result = formatErrorIssue({ prNumber, prUrl, runUrl, issueNumbers });
-                const { data: issue } = await github.rest.issues.create({
-                  ...context.repo,
-                  title: result.title,
-                  body: result.body,
-                  labels: ['agent:codex', 'bug'],
-                });
-                core.setOutput('issue_number', issue?.number ? String(issue.number) : '');
-                core.info(`Created error follow-up issue #${issue.number}: ${result.title}`);
-                return;
-              }
-              // Fallback if formatErrorIssue doesn't exist
               const title = prNumber ? `[Verifier Error] PR #${prNumber} verification failed` : '[Verifier Error] Verification failed';
               const body = `## Verifier Error\n\nThe verifier encountered an error while checking acceptance criteria.\n\n**PR:** ${prUrl || `#${prNumber}` || 'unknown'}\n**Run:** ${runUrl}\n\nPlease review the workflow run logs for details.`;
               const { data: issue } = await github.rest.issues.create({
