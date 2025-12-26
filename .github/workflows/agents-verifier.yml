@@ -24,6 +24,79 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Wait for CI workflows to complete
+        id: wait_ci
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            // Wait for CI workflows to complete before running the verifier.
+            // This prevents race conditions where the verifier runs before CI finishes.
+            const pr = context.payload.pull_request;
+            if (!pr || !pr.merged) {
+              core.info('PR not merged; skipping CI wait.');
+              return;
+            }
+
+            const targetSha = pr.merge_commit_sha || pr.head?.sha;
+            if (!targetSha) {
+              core.warning('No target SHA found; skipping CI wait.');
+              return;
+            }
+
+            const ciWorkflows = [
+              'selftest-ci.yml',
+              'pr-11-ci-smoke.yml',
+            ];
+
+            const maxWaitMs = 5 * 60 * 1000; // 5 minutes max wait
+            const pollIntervalMs = 15 * 1000; // Poll every 15 seconds
+            const startTime = Date.now();
+
+            core.info(`Waiting for CI workflows to complete for SHA ${targetSha}...`);
+
+            while (Date.now() - startTime < maxWaitMs) {
+              let allComplete = true;
+              let anyFound = false;
+
+              for (const workflowFile of ciWorkflows) {
+                try {
+                  const { data: runs } = await github.rest.actions.listWorkflowRuns({
+                    ...context.repo,
+                    workflow_id: workflowFile,
+                    head_sha: targetSha,
+                    per_page: 1,
+                  });
+
+                  if (runs.workflow_runs.length > 0) {
+                    anyFound = true;
+                    const run = runs.workflow_runs[0];
+                    core.info(`${workflowFile}: status=${run.status}, conclusion=${run.conclusion || 'pending'}`);
+
+                    if (run.status !== 'completed') {
+                      allComplete = false;
+                    }
+                  }
+                } catch (err) {
+                  core.warning(`Failed to check ${workflowFile}: ${err.message}`);
+                }
+              }
+
+              if (anyFound && allComplete) {
+                core.info('All CI workflows have completed.');
+                return;
+              }
+
+              if (!anyFound) {
+                core.info('No CI workflow runs found yet; waiting...');
+              }
+
+              core.info(`Waiting ${pollIntervalMs / 1000}s for CI to complete...`);
+              await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
+            }
+
+            core.warning(`CI wait timed out after ${maxWaitMs / 1000}s. Proceeding with available results.`);
+
       - name: Build verifier context
         id: context
         uses: actions/github-script@v7
