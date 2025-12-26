@@ -116,9 +116,7 @@ def build_dashboard(records: list[dict[str, Any]], errors: int) -> str:
 
 
 def _build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        description="Build keepalive metrics dashboard from NDJSON logs."
-    )
+    parser = argparse.ArgumentParser(description="Build keepalive metrics dashboard from NDJSON logs.")
     parser.add_argument("--path", default="keepalive-metrics.ndjson", help="NDJSON log path")
     parser.add_argument(
         "--output", default="keepalive-metrics-dashboard.md", help="Markdown output path"

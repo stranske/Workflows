@@ -10,7 +10,9 @@ def _sample_record() -> dict:
     return {
         "pr_number": 101,
         "iteration": 2,
-        "timestamp": datetime(2025, 1, 1, tzinfo=timezone.utc).isoformat().replace("+00:00", "Z"),
+        "timestamp": datetime(2025, 1, 1, tzinfo=timezone.utc).isoformat().replace(
+            "+00:00", "Z"
+        ),
         "action": "retry",
         "error_category": "none",
         "duration_ms": 4321,
