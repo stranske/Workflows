@@ -1,11 +1,8 @@
-Added a new agents-guard test to assert non-`pull_request_target` events skip safety checks, and reconciled the PR checklist now that the round test files are verified. Updated `codex-prompt.md` to mark completed tasks and acceptance items based on the passing test run.
-
-- Test change: ` .github/scripts/__tests__/agents-guard.test.js`
-- PR body updates: `codex-prompt.md`
+Added merge-manager coverage for CI label add/missing branches and updated the PR checklist/progress now that the JS suite was run. Changes are in `.github/scripts/__tests__/merge-manager.test.js` and `codex-prompt.md`.
 
 Tests:
 - `node --test .github/scripts/__tests__/*.test.js`
 
 Next steps:
-1) Run the full repo test suite (if required by your CI policy) to cover the remaining checklist item.  
-2) Decide whether any test documentation updates are still needed.
+1. Decide whether any test documentation updates are needed and check off the task in `codex-prompt.md`.
+2. Run/verify the `Selftest CI` workflow to satisfy the remaining acceptance item.
