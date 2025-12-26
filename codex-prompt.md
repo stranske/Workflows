@@ -125,6 +125,18 @@ Your objective is to satisfy the **Acceptance Criteria** by completing each **Ta
 
 **Progress:** 11/14 tasks complete, 3 remaining
 
+### ⚠️ IMPORTANT: Task Reconciliation Required
+
+The previous iteration changed **2 file(s)** but did not update task checkboxes.
+
+**Before continuing, you MUST:**
+1. Review the recent commits to understand what was changed
+2. Determine which task checkboxes should be marked complete
+3. Update the PR body to check off completed tasks
+4. Then continue with remaining tasks
+
+_Failure to update checkboxes means progress is not being tracked properly._
+
 ### Scope
 - [ ] The keepalive loop currently tracks iteration counts in PR state comments, but there is no aggregated view of keepalive performance across PRs. Operators cannot easily answer questions like:
 - [ ] - How many iterations does a typical PR require before completion?
@@ -158,7 +170,7 @@ Complete these in order. Mark checkbox done ONLY after implementation is verifie
 The PR is complete when ALL of these are satisfied:
 
 - [x] Metrics schema is documented with field descriptions and example records
-- [ ] Each keepalive iteration logs a structured record with all required fields
+- [x] Each keepalive iteration logs a structured record with all required fields
 - [x] Dashboard script produces a valid markdown table with success rate, avg iterations, and error breakdown
 - [x] Tests cover metrics schema validation and reject malformed records
 - [x] Tests cover dashboard aggregation with empty, single, and multi-record inputs

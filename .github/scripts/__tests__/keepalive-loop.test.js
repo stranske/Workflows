@@ -71,6 +71,17 @@ const buildCore = () => ({
   setOutput() {},
 });
 
+test.after(() => {
+  const metricsPath = path.join(process.cwd(), 'keepalive-metrics.ndjson');
+  try {
+    fs.unlinkSync(metricsPath);
+  } catch (error) {
+    if (error?.code !== 'ENOENT') {
+      throw error;
+    }
+  }
+});
+
 test('countCheckboxes tallies checked and unchecked tasks', () => {
   const counts = countCheckboxes('- [ ] one\n- [x] two\n- [X] three\n- [ ] four');
   assert.deepEqual(counts, { total: 4, checked: 2, unchecked: 2 });
@@ -493,6 +504,68 @@ test('updateKeepaliveLoopSummary appends metrics record when path provided', asy
   assert.equal(record.iteration, 2);
   assert.equal(record.tasks_total, 2);
   assert.equal(record.tasks_complete, 1);
+});
+
+test('updateKeepaliveLoopSummary appends metrics record in GitHub Actions workspace by default', async () => {
+  const core = {
+    info() {},
+    warning() {},
+    setOutput() {},
+  };
+  const existingState = formatStateComment({
+    trace: 'trace-metrics-default',
+    iteration: 2,
+    max_iterations: 5,
+  });
+  const github = buildGithubStub({
+    comments: [{ id: 77, body: existingState, html_url: 'https://example.com/77' }],
+  });
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'keepalive-metrics-actions-'));
+  const originalActions = process.env.GITHUB_ACTIONS;
+  const originalWorkspace = process.env.GITHUB_WORKSPACE;
+  process.env.GITHUB_ACTIONS = 'true';
+  process.env.GITHUB_WORKSPACE = tmpDir;
+  try {
+    await updateKeepaliveLoopSummary({
+      github,
+      context: buildContext(2469),
+      core,
+      inputs: {
+        prNumber: 2469,
+        action: 'run',
+        runResult: 'success',
+        gateConclusion: 'success',
+        tasksTotal: 3,
+        tasksUnchecked: 1,
+        keepaliveEnabled: true,
+        autofixEnabled: false,
+        iteration: 2,
+        maxIterations: 5,
+        failureThreshold: 3,
+        trace: 'trace-metrics-default',
+      },
+    });
+  } finally {
+    if (originalActions === undefined) {
+      delete process.env.GITHUB_ACTIONS;
+    } else {
+      process.env.GITHUB_ACTIONS = originalActions;
+    }
+    if (originalWorkspace === undefined) {
+      delete process.env.GITHUB_WORKSPACE;
+    } else {
+      process.env.GITHUB_WORKSPACE = originalWorkspace;
+    }
+  }
+
+  const metricsPath = path.join(tmpDir, 'keepalive-metrics.ndjson');
+  const lines = fs.readFileSync(metricsPath, 'utf8').trim().split('\n');
+  assert.equal(lines.length, 1);
+  const record = JSON.parse(lines[0]);
+  assert.equal(record.pr_number, 2469);
+  assert.equal(record.iteration, 3);
+  assert.equal(record.tasks_total, 3);
+  assert.equal(record.tasks_complete, 2);
 });
 
 test('updateKeepaliveLoopSummary resets failure count on transient errors', async () => {

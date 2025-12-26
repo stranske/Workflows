@@ -29,7 +29,7 @@ jobs:
     uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
     with:
       python-versions: '["3.11", "3.12"]'
-      enable-mypy: true
-      enable-coverage: true
-      coverage-threshold: 80
+      typecheck: true
+      coverage: true
+      coverage-min: '80'
     secrets: inherit

@@ -93,12 +93,21 @@ function emitMetricsRecord({ core, record }) {
 }
 
 function resolveMetricsPath(inputs) {
-  return normalise(
+  const explicitPath = normalise(
     inputs.metrics_path ??
       inputs.metricsPath ??
       process.env.KEEPALIVE_METRICS_PATH ??
       process.env.keepalive_metrics_path
   );
+  if (explicitPath) {
+    return explicitPath;
+  }
+  const githubActions = normalise(process.env.GITHUB_ACTIONS).toLowerCase();
+  const workspace = normalise(process.env.GITHUB_WORKSPACE);
+  if (githubActions === 'true' && workspace) {
+    return path.join(workspace, 'keepalive-metrics.ndjson');
+  }
+  return '';
 }
 
 async function appendMetricsRecord({ core, record, metricsPath }) {

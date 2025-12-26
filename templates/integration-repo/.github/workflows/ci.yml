@@ -29,6 +29,7 @@ jobs:
       enable-history: false
       enable-coverage-delta: false
       enable-soft-gate: false
+      artifact-prefix: basic-
     secrets: inherit
 
   # Configuration 2: Full coverage - all features enabled
@@ -48,6 +49,7 @@ jobs:
       enable-soft-gate: false
       baseline-coverage: '80'
       coverage-alert-drop: '2'
+      artifact-prefix: full-
     secrets: inherit
 
   # Configuration 3: Typecheck only - focused mypy validation
@@ -65,6 +67,7 @@ jobs:
       enable-history: false
       enable-coverage-delta: false
       enable-soft-gate: false
+      artifact-prefix: typecheck-
     secrets: inherit
 
   # Configuration 4: Lint only - no tests, just code quality
@@ -81,6 +84,7 @@ jobs:
       enable-history: false
       enable-coverage-delta: false
       enable-soft-gate: false
+      artifact-prefix: lint-
     secrets: inherit
 
   notify-failure:
