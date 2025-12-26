@@ -38,6 +38,7 @@ function createGithubStub({
   checks = { total_count: 0, check_runs: [] },
   statuses = { total_count: 0, statuses: [] },
   comments = [],
+  removeLabelError,
 } = {}) {
   const calls = {
     deleteComment: [],
@@ -93,6 +94,13 @@ function createGithubStub({
         },
         async removeLabel(payload) {
           calls.removeLabel.push(payload);
+          if (removeLabelError) {
+            const error = new Error(removeLabelError.message || 'remove label failed');
+            if (removeLabelError.status) {
+              error.status = removeLabelError.status;
+            }
+            throw error;
+          }
           return { status: 200 };
         },
       },
@@ -270,4 +278,42 @@ test('syncCiStatusLabel removes the CI label when no longer desired', async () =
   assert.equal(result, 'removed');
   assert.equal(github.calls.removeLabel.length, 1);
   assert.equal(github.calls.removeLabel[0].name, 'ci:green');
+});
+
+test('syncCiStatusLabel adds the CI label when desired but missing', async () => {
+  const github = createGithubStub({ pr: makePullRequest() });
+
+  const result = await syncCiStatusLabel({
+    github,
+    owner: 'octo',
+    repo: 'demo',
+    prNumber: 7,
+    labelName: 'ci:green',
+    desired: true,
+    present: false,
+  });
+
+  assert.equal(result, 'added');
+  assert.equal(github.calls.addLabels.length, 1);
+  assert.equal(github.calls.addLabels[0].labels[0], 'ci:green');
+});
+
+test('syncCiStatusLabel reports missing when label removal 404s', async () => {
+  const github = createGithubStub({
+    pr: makePullRequest(),
+    removeLabelError: { status: 404 },
+  });
+
+  const result = await syncCiStatusLabel({
+    github,
+    owner: 'octo',
+    repo: 'demo',
+    prNumber: 7,
+    labelName: 'ci:green',
+    desired: false,
+    present: true,
+  });
+
+  assert.equal(result, 'missing');
+  assert.equal(github.calls.removeLabel.length, 1);
 });
