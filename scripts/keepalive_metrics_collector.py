@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterable
 
+
 REQUIRED_FIELDS = (
     "pr_number",
     "iteration",
