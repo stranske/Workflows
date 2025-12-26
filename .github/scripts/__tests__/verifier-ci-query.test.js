@@ -82,3 +82,30 @@ test('queryVerifierCiResults treats query errors as not_found', async () => {
     },
   ]);
 });
+
+test('queryVerifierCiResults uses latest run when no target SHA is provided', async () => {
+  const github = buildGithubStub({
+    runsByWorkflow: {
+      'pr-00-gate.yml': [
+        { head_sha: 'latest-sha', conclusion: 'success', html_url: 'gate-latest-url' },
+        { head_sha: 'older-sha', conclusion: 'failure', html_url: 'gate-old-url' },
+      ],
+    },
+  });
+  const context = { repo: { owner: 'octo', repo: 'workflows' } };
+  const workflows = [{ workflow_name: 'Gate', workflow_id: 'pr-00-gate.yml' }];
+
+  const results = await queryVerifierCiResults({
+    github,
+    context,
+    workflows,
+  });
+
+  assert.deepEqual(results, [
+    {
+      workflow_name: 'Gate',
+      conclusion: 'success',
+      run_url: 'gate-latest-url',
+    },
+  ]);
+});
