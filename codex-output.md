@@ -1,9 +1,11 @@
-Implemented a merge-then-head SHA fallback for CI lookup so PR-triggered workflows like Gate still resolve after merge, then updated the verifier context to pass the SHA list and expanded tests plus checklist reconciliation. Changes are in `.github/scripts/verifier_ci_query.js`, `.github/scripts/agents_verifier_context.js`, `.github/scripts/__tests__/verifier-ci-query.test.js`, `.github/scripts/__tests__/agents-verifier-context.test.js`, and `codex-prompt.md`.
+Added a verifier-context test to cover CI fallback from merge SHA to head SHA and updated the task checklist to reflect completed work in `codex-prompt.md`.
+
+- Updated test helper to allow custom workflow-run responses and added a merged-PR fallback test in `.github/scripts/__tests__/agents-verifier-context.test.js`.
+- Reconciled task and acceptance checkboxes in `codex-prompt.md` after verifying tests.
 
 Tests run:
-- `node --test .github/scripts/__tests__/verifier-ci-query.test.js`
-- `node --test .github/scripts/__tests__/agents-verifier-context.test.js`
+- `node --test .github/scripts/__tests__/agents-verifier-context.test.js .github/scripts/__tests__/verifier-ci-query.test.js`
 
 Next steps:
-1. Run the verifier on a real merged PR to confirm CI results resolve and “Selftest CI passes” can be marked PASS.
-2. Compare verifier output to CI on a recent merge to confirm no false negatives remain.
+1. Validate on a real merged PR run to confirm CI results appear in the verifier context.
+2. Confirm the verifier no longer flags stale local test failures and then check the final remaining task/acceptance boxes.
