@@ -101,68 +101,25 @@ You should assume you're running in `agent-standard` unless explicitly told othe
 
 # Task Prompt
 
-# Keepalive Next Task
+# Autofix from CI failure
 
-Your objective is to satisfy the **Acceptance Criteria** by completing each **Task** within the defined **Scope**.
+You are Codex running in autofix mode after a CI failure. Use the available logs and repository context to repair the failing checks.
 
-**This round you MUST:**
-1. Implement actual code or test changes that advance at least one incomplete task toward acceptance.
-2. Commit meaningful source code (.py, .yml, .js, etc.)—not just status/docs updates.
-3. Mark a task checkbox complete ONLY after verifying the implementation works.
-4. Focus on the FIRST unchecked task unless blocked, then move to the next.
-
-**Guidelines:**
-- Keep edits scoped to the current task rather than reshaping the entire PR.
-- Use repository instructions, conventions, and tests to validate work.
-- Prefer small, reviewable commits; leave clear notes when follow-up is required.
-- Do NOT work on unrelated improvements until all PR tasks are complete.
-
-**The Tasks and Acceptance Criteria are provided in the appendix below.** Work through them in order.
+Guidance:
+- Inspect the latest CI output provided by the caller (logs or summaries) to pinpoint the root cause.
+- Focus on minimal, targeted fixes that unblock the failing job.
+- Leave diagnostic breadcrumbs when a failure cannot be reproduced or fully addressed.
+- Re-run or suggest the smallest relevant checks to verify the fix.
 
 ## Run context
----
-## PR Tasks and Acceptance Criteria
-
-**Progress:** 0/14 tasks complete, 14 remaining
-
-### Scope
-- [ ] The keepalive loop currently tracks iteration counts in PR state comments, but there is no aggregated view of keepalive performance across PRs. Operators cannot easily answer questions like:
-- [ ] - How many iterations does a typical PR require before completion?
-- [ ] - What percentage of PRs complete within the 5-iteration limit vs timing out?
-- [ ] - Which error categories are most common during keepalive runs?
-- [ ] - What is the average time from PR open to keepalive completion?
-- [ ] This issue adds structured metrics collection and a summary dashboard to provide observability into the keepalive pipeline health.
-- [ ] ### Current Behavior
-- [ ] - Iteration count stored in PR state comment (hidden marker)
-- [ ] - No aggregation across PRs
-- [ ] - Error classification exists but is not persisted
-- [ ] - No historical trend data
-- [ ] ### Desired Behavior
-- [ ] - Each keepalive iteration appends a metrics record to an NDJSON log
-- [ ] - Metrics include: PR number, iteration, action taken, error category, duration, tasks completed
-- [ ] - A summary script aggregates metrics into a dashboard report
-- [ ] - Dashboard shows success rates, iteration distributions, and error breakdowns
-
-### Tasks
-Complete these in order. Mark checkbox done ONLY after implementation is verified:
-
-- [ ] Define metrics schema in `docs/keepalive/METRICS_SCHEMA.md` with fields for PR number, iteration, timestamp, action, error_category, duration_ms, tasks_total, tasks_complete
-- [ ] Create `scripts/keepalive_metrics_collector.py` to append structured metrics to `keepalive-metrics.ndjson`
-- [ ] Integrate metrics collection into `.github/scripts/keepalive_loop.js` to emit metrics after each iteration
-- [ ] Create `scripts/keepalive_metrics_dashboard.py` that reads the NDJSON log and outputs a markdown summary table
-- [ ] Add tests for metrics collector (schema validation, append behavior)
-- [ ] Add tests for dashboard generator (aggregation logic, edge cases)
-- [ ] Update `.github/workflows/agents-orchestrator.yml` to call metrics collector after keepalive completes
-
-### Acceptance Criteria
-The PR is complete when ALL of these are satisfied:
-
-- [ ] Metrics schema is documented with field descriptions and example records
-- [ ] Each keepalive iteration logs a structured record with all required fields
-- [ ] Dashboard script produces a valid markdown table with success rate, avg iterations, and error breakdown
-- [ ] Tests cover metrics schema validation and reject malformed records
-- [ ] Tests cover dashboard aggregation with empty, single, and multi-record inputs
-- [ ] Integration smoke test confirms metrics are written during actual keepalive runs
-- [ ] Selftest CI passes
-
----
+Gate run: https://github.com/stranske/Workflows/actions/runs/20516657078
+Conclusion: failure
+PR: #171
+Head SHA: 69630f5d50b61bfd7f4846429822d9877d6d9d6b
+Autofix attempts for this head: 1 / 3
+Fix scope: src/, tests/, tools/, scripts/, agents/, templates/, .github/
+Failing jobs:
+- python ci / lint-ruff (failure)
+  - steps: Finalize lint (failure)
+- summary (failure)
+  - steps: Enforce Gate success (failure)

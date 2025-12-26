@@ -1,8 +1,7 @@
-Added the keepalive metrics schema doc and a collector script that validates records and appends NDJSON entries for each iteration. The collector supports either a JSON payload or individual CLI fields, enforces required types, and auto-fills timestamps when missing in JSON input. Files: `docs/keepalive/METRICS_SCHEMA.md`, `scripts/keepalive_metrics_collector.py`.
+Removed the extra blank line between the import block and constants so ruff/isort treats the imports as properly formatted in `scripts/keepalive_metrics_collector.py`.
 
-Tests run: `python -m pytest tests/scripts/test_aggregate_agent_metrics.py`
+Details: ruff’s I001 wanted the import block to end with a single blank line, so I tightened that spacing in `scripts/keepalive_metrics_collector.py`.
 
 Next steps:
-1. Integrate metrics emission into `.github/scripts/keepalive_loop.js`.
-2. Add the dashboard generator plus tests for collector and dashboard.
-3. Plan a human-approved update for `.github/workflows/agents-orchestrator.yml` (workflow edits are restricted in `agent-standard`).
+1. Run `python -m ruff check .` to confirm the lint job passes locally.
+2. If you want, run the full CI lint task to match the pipeline.
