@@ -1,0 +1,437 @@
+# Reusable Agents Verifier workflow
+# Runs post-merge to verify acceptance criteria were met
+#
+# This workflow:
+# 1. Builds context from merged PR and linked issues
+# 2. Runs Codex in verifier mode to check acceptance criteria
+# 3. Opens a follow-up issue if criteria weren't met
+name: Reusable Agents Verifier
+
+on:
+  workflow_call:
+    inputs:
+      ci_workflows:
+        description: 'JSON array of CI workflow filenames to wait for'
+        required: false
+        type: string
+        default: '["ci.yml", "pr-00-gate.yml"]'
+      ci_wait_timeout_ms:
+        description: 'Max time to wait for CI workflows (ms)'
+        required: false
+        type: number
+        default: 300000
+    secrets:
+      CODEX_AUTH_JSON:
+        required: true
+        description: 'Codex authentication JSON from codex login'
+
+permissions:
+  contents: read
+  pull-requests: read
+  issues: write
+  actions: read
+
+jobs:
+  verifier:
+    name: Run post-merge verifier
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout caller repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Checkout Workflows scripts
+        uses: actions/checkout@v4
+        with:
+          repository: stranske/Workflows
+          ref: main
+          sparse-checkout: |
+            .github/scripts
+            .github/codex/prompts
+          sparse-checkout-cone-mode: false
+          path: .workflows-lib
+          fetch-depth: 1
+
+      - name: Wait for CI workflows to complete
+        id: wait_ci
+        uses: actions/github-script@v7
+        env:
+          CI_WORKFLOWS: ${{ inputs.ci_workflows }}
+          CI_WAIT_TIMEOUT_MS: ${{ inputs.ci_wait_timeout_ms }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const pr = context.payload.pull_request;
+            if (!pr || !pr.merged) {
+              core.info('PR not merged; skipping CI wait.');
+              return;
+            }
+
+            const targetSha = pr.merge_commit_sha;
+            if (!targetSha) {
+              core.setFailed('Merged PR is missing merge_commit_sha.');
+              return;
+            }
+
+            const ciWorkflows = JSON.parse(process.env.CI_WORKFLOWS || '[]');
+            const maxWaitMs = Number(process.env.CI_WAIT_TIMEOUT_MS) || 300000;
+            const pollIntervalMs = 15000;
+            const startTime = Date.now();
+
+            core.info(`Waiting for CI workflows to complete for SHA ${targetSha}...`);
+
+            while (Date.now() - startTime < maxWaitMs) {
+              let allComplete = true;
+              let anyFound = false;
+
+              for (const workflowFile of ciWorkflows) {
+                try {
+                  const { data: runs } = await github.rest.actions.listWorkflowRuns({
+                    ...context.repo,
+                    workflow_id: workflowFile,
+                    head_sha: targetSha,
+                    per_page: 1,
+                  });
+
+                  if (runs.workflow_runs.length > 0) {
+                    anyFound = true;
+                    const run = runs.workflow_runs[0];
+                    core.info(`${workflowFile}: status=${run.status}, conclusion=${run.conclusion || 'pending'}`);
+                    if (run.status !== 'completed') {
+                      allComplete = false;
+                    }
+                  }
+                } catch (err) {
+                  core.warning(`Failed to check ${workflowFile}: ${err.message}`);
+                }
+              }
+
+              if (anyFound && allComplete) {
+                core.info('All CI workflows have completed.');
+                return;
+              }
+
+              core.info(`Waiting ${pollIntervalMs / 1000}s for CI to complete...`);
+              await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
+            }
+
+            core.warning(`CI wait timed out after ${maxWaitMs / 1000}s.`);
+
+      - name: Build verifier context
+        id: context
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { buildVerifierContext } = require('./.workflows-lib/.github/scripts/agents_verifier_context.js');
+            await buildVerifierContext({ github, context, core });
+
+      - name: Stop when verifier is skipped
+        if: steps.context.outputs.should_run != 'true'
+        run: |
+          echo "Verifier skipped: ${{ steps.context.outputs.skip_reason || 'no reason provided' }}"
+
+      - name: Prepare verifier prompt
+        if: steps.context.outputs.should_run == 'true'
+        id: prepare
+        run: |
+          set -euo pipefail
+          # Use prompt from Workflows repo
+          base_prompt=".workflows-lib/.github/codex/prompts/verifier_acceptance_check.md"
+          context_file="${{ steps.context.outputs.context_path }}"
+          combined="verifier-prompt.md"
+
+          if [ ! -f "$base_prompt" ]; then
+            echo "::error::Base prompt file missing: $base_prompt"
+            exit 1
+          fi
+          if [ ! -f "$context_file" ]; then
+            echo "::error::Context file missing: $context_file"
+            exit 1
+          fi
+
+          {
+            cat "$base_prompt"
+            printf '\n\n---\n\n'
+            cat "$context_file"
+          } > "$combined"
+          echo "prompt_file=$combined" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Codex auth
+        if: steps.context.outputs.should_run == 'true'
+        env:
+          CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
+          CODEX_HOME: ${{ runner.temp }}/.codex-verifier
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.codex "$CODEX_HOME"
+          echo "$CODEX_AUTH_JSON" > ~/.codex/auth.json
+          chmod 600 ~/.codex/auth.json
+          cp ~/.codex/auth.json "$CODEX_HOME/auth.json"
+          chmod 600 "$CODEX_HOME/auth.json"
+          echo "Codex auth configured"
+
+      - name: Install Codex CLI
+        if: steps.context.outputs.should_run == 'true'
+        run: npm install -g @openai/codex
+
+      - name: Run verifier
+        id: codex
+        if: steps.context.outputs.should_run == 'true'
+        continue-on-error: true
+        env:
+          CODEX_HOME: ${{ runner.temp }}/.codex-verifier
+        run: |
+          set -euo pipefail
+          PROMPT_FILE="${{ steps.prepare.outputs.prompt_file }}"
+
+          set +e
+          codex exec \
+            --sandbox read-only \
+            --skip-git-repo-check \
+            --output-last-message codex-output.md \
+            "$(cat "$PROMPT_FILE")"
+          codex_exit_code=$?
+          set -euo pipefail
+
+          echo "Codex verifier completed (exit code: ${codex_exit_code})"
+          if [ -f codex-output.md ]; then
+            echo "=== Verifier Output ==="
+            cat codex-output.md
+          fi
+          exit "${codex_exit_code}"
+
+      - name: Parse verifier verdict
+        id: verdict
+        if: steps.context.outputs.should_run == 'true'
+        run: |
+          set -euo pipefail
+          verdict="unknown"
+
+          # Check if the codex step failed (continue-on-error means we still get here)
+          codex_outcome="${{ steps.codex.outcome }}"
+          if [ "$codex_outcome" = "failure" ]; then
+            # Codex crashed - treat as error verdict for follow-up
+            verdict="error"
+          elif [ -f "codex-output.md" ]; then
+            if grep -qiE 'verdict:[[:space:]]*fail' "codex-output.md"; then
+              verdict="fail"
+            elif grep -qiE 'verdict:[[:space:]]*pass' "codex-output.md"; then
+              verdict="pass"
+            fi
+          fi
+          echo "verdict=$verdict" >> "$GITHUB_OUTPUT"
+
+      - name: Open follow-up issue on verifier failure
+        id: failure_issue
+        if: steps.context.outputs.should_run == 'true' && (steps.verdict.outputs.verdict == 'fail' || steps.verdict.outputs.verdict == 'error')
+        uses: actions/github-script@v7
+        env:
+          PR_URL: ${{ steps.context.outputs.pr_html_url }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const { formatFollowUpIssue, formatSimpleFollowUpIssue, formatErrorIssue } = require('./.workflows-lib/.github/scripts/verifier_issue_formatter.js');
+
+            const rawPrNumber = Number('${{ steps.context.outputs.pr_number }}');
+            const prNumber = !Number.isNaN(rawPrNumber) && rawPrNumber > 0 ? rawPrNumber : null;
+            const issueNumbers = JSON.parse('${{ steps.context.outputs.issue_numbers || '[]' }}');
+            const verdict = '${{ steps.verdict.outputs.verdict }}';
+            const prUrl = process.env.PR_URL || '';
+            const runUrl = process.env.RUN_URL || '';
+
+            // Handle Codex crash/error case
+            if (verdict === 'error') {
+              // Check if formatErrorIssue exists, otherwise use fallback
+              if (typeof formatErrorIssue === 'function') {
+                const result = formatErrorIssue({ prNumber, prUrl, runUrl, issueNumbers });
+                const { data: issue } = await github.rest.issues.create({
+                  ...context.repo,
+                  title: result.title,
+                  body: result.body,
+                  labels: ['agent:codex', 'bug'],
+                });
+                core.setOutput('issue_number', issue?.number ? String(issue.number) : '');
+                core.info(`Created error follow-up issue #${issue.number}: ${result.title}`);
+                return;
+              }
+              // Fallback if formatErrorIssue doesn't exist
+              const title = prNumber ? `[Verifier Error] PR #${prNumber} verification failed` : '[Verifier Error] Verification failed';
+              const body = `## Verifier Error\n\nThe verifier encountered an error while checking acceptance criteria.\n\n**PR:** ${prUrl || `#${prNumber}` || 'unknown'}\n**Run:** ${runUrl}\n\nPlease review the workflow run logs for details.`;
+              const { data: issue } = await github.rest.issues.create({
+                ...context.repo,
+                title,
+                body,
+                labels: ['agent:codex', 'bug'],
+              });
+              core.setOutput('issue_number', issue?.number ? String(issue.number) : '');
+              core.info(`Created error follow-up issue #${issue.number}: ${title}`);
+              return;
+            }
+
+            // Normal failure case - verifier ran but criteria weren't met
+            let verifierOutput = '';
+            try {
+              verifierOutput = fs.readFileSync('codex-output.md', 'utf8');
+            } catch (err) {
+              core.warning(`Could not read codex-output.md: ${err.message}`);
+              verifierOutput = '_Verifier output not available_';
+            }
+
+            let prBody = '';
+            if (prNumber) {
+              try {
+                const { data: pr } = await github.rest.pulls.get({
+                  ...context.repo,
+                  pull_number: prNumber,
+                });
+                prBody = pr.body || '';
+              } catch (err) {
+                core.warning(`Failed to fetch PR body: ${err.message}`);
+              }
+            }
+
+            const issues = [];
+            for (const issueNum of issueNumbers) {
+              try {
+                const { data: issue } = await github.rest.issues.get({
+                  ...context.repo,
+                  issue_number: issueNum,
+                });
+                issues.push({
+                  number: issue.number,
+                  title: issue.title || '',
+                  body: issue.body || '',
+                });
+              } catch (err) {
+                core.warning(`Failed to fetch issue #${issueNum}: ${err.message}`);
+              }
+            }
+
+            let result;
+            if (prBody || issues.length > 0) {
+              result = formatFollowUpIssue({
+                verifierOutput,
+                prBody,
+                issues,
+                prNumber,
+                prUrl,
+                runUrl,
+              });
+            } else {
+              result = formatSimpleFollowUpIssue({
+                verifierOutput,
+                prNumber,
+                prUrl,
+                issueNumbers,
+                runUrl,
+              });
+            }
+
+            const { data: issue } = await github.rest.issues.create({
+              ...context.repo,
+              title: result.title,
+              body: result.body,
+              labels: ['agent:codex'],
+            });
+            core.setOutput('issue_number', issue?.number ? String(issue.number) : '');
+            core.info(`Created follow-up issue #${issue.number}: ${result.title}`);
+
+      - name: Collect verifier metrics
+        if: always()
+        id: collect_metrics
+        env:
+          SHOULD_RUN: ${{ steps.context.outputs.should_run }}
+          PR_NUMBER: ${{ steps.context.outputs.pr_number }}
+          VERDICT: ${{ steps.verdict.outputs.verdict }}
+          CONTEXT_PATH: ${{ steps.context.outputs.context_path }}
+          ISSUE_NUMBER: ${{ steps.failure_issue.outputs.issue_number }}
+          SKIP_REASON: ${{ steps.context.outputs.skip_reason }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, re
+          from pathlib import Path
+          from datetime import datetime, timezone
+
+          def count_checkboxes(text):
+              return sum(1 for line in text.splitlines() if re.match(r"^\s*[-*]\s+\[[ xX]\]", line))
+
+          should_run = (os.environ.get("SHOULD_RUN") or "").lower() == "true"
+          pr_number = int(os.environ.get("PR_NUMBER") or 0)
+          verdict = os.environ.get("VERDICT") or "unknown"
+          context_path = Path(os.environ.get("CONTEXT_PATH") or "")
+          skip_reason = os.environ.get("SKIP_REASON") or ""
+          issue_number = os.environ.get("ISSUE_NUMBER") or ""
+
+          if not should_run:
+              verdict = "skipped"
+
+          issues_created = 1 if issue_number else 0
+          issue_numbers = [issue_number] if issue_number else []
+
+          acceptance_criteria_count = 0
+          if context_path.is_file():
+              acceptance_criteria_count = count_checkboxes(context_path.read_text(encoding="utf-8"))
+
+          checks_run = 0
+          codex_output = Path("codex-output.md")
+          if codex_output.is_file():
+              content = codex_output.read_text(encoding="utf-8")
+              # Count checkbox items (e.g., "- [x] ..." or "- [ ] ...") in verifier output
+              for line in content.splitlines():
+                  if re.match(r"^\s*[-*]\s+\[[ xX]\]", line):
+                      checks_run += 1
+
+          metrics = {
+              "pr_number": pr_number,
+              "verdict": verdict,
+              "issues_created": issues_created,
+              "issue_numbers": issue_numbers,
+              "acceptance_criteria_count": acceptance_criteria_count,
+              "checks_run": checks_run,
+              "skip_reason": skip_reason,
+              "recorded_at": datetime.now(timezone.utc).isoformat(),
+          }
+
+          print(json.dumps(metrics, indent=2))
+          with open(os.environ["GITHUB_OUTPUT"], "a") as fp:
+              fp.write(f"metrics_json={json.dumps(metrics)}\n")
+          PY
+
+      - name: Write verifier summary
+        if: always()
+        env:
+          METRICS_JSON: ${{ steps.collect_metrics.outputs.metrics_json }}
+        run: |
+          set -euo pipefail
+          if [ -z "${METRICS_JSON:-}" ]; then
+            echo "No verifier metrics captured."
+            exit 0
+          fi
+          python3 - <<'PY'
+          import json, os
+          metrics = json.loads(os.environ["METRICS_JSON"])
+          lines = ["## Verifier metrics", "", "| Field | Value |", "| --- | --- |"]
+          for key in ["pr_number", "verdict", "issues_created", "acceptance_criteria_count", "checks_run", "skip_reason"]:
+              lines.append(f"| {key} | `{metrics.get(key, '')}` |")
+
+          summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+          if summary_path:
+              with open(summary_path, "a") as fp:
+                  fp.write("\n".join(lines) + "\n")
+
+          with open("verifier-metrics.ndjson", "a") as fp:
+              fp.write(json.dumps(metrics) + "\n")
+          PY
+
+      - name: Upload verifier metrics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: agents-verifier-metrics
+          path: verifier-metrics.ndjson
+          retention-days: 30
