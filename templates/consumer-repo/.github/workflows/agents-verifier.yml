@@ -2,11 +2,18 @@
 # Runs post-merge to verify acceptance criteria were met and opens follow-up issues
 #
 # Triggers:
-# - PR merged (pull_request closed with merged=true)
+# - PR merged (pull_request_target closed with merged=true)
+#
+# Required secrets (via secrets: inherit):
+# - CODEX_AUTH_JSON: Authentication for Codex API
+# - Ensure repository/org secrets are configured for verification to work
+#
+# Note: Uses pull_request_target instead of pull_request to ensure secrets
+# are available for PRs from forks after merge.
 name: Agents Verifier
 
 on:
-  pull_request:
+  pull_request_target:
     types:
       - closed
 
@@ -24,5 +31,4 @@ jobs:
     with:
       # CI workflows to wait for before running verifier
       ci_workflows: '["ci.yml", "pr-00-gate.yml"]'
-    secrets:
-      CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
+    secrets: inherit
