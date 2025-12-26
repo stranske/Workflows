@@ -1,7 +1,11 @@
-Updated the verifier CI query to fall back to API `url` when `html_url` is missing, added coverage for that path, and reconciled the task checklist/progress after running the verifier script tests. Changes are in `.github/scripts/verifier_ci_query.js`, `.github/scripts/__tests__/verifier-ci-query.test.js`, and `codex-prompt.md`.
+Added coverage to confirm the verifier context renders CI run links using the API `url` fallback when `html_url` is missing, and updated the PR task checklist to reflect completed CI-query work in `codex-prompt.md`.
+
+- Added a new verifier-context test for the run URL fallback in `.github/scripts/__tests__/agents-verifier-context.test.js`.
+- Updated task completion/progress in `codex-prompt.md`.
 
 Tests:
-- `node --test .github/scripts/__tests__/*.test.js`
+- `node --test .github/scripts/__tests__/agents-verifier-context.test.js`
 
 Next steps:
-1) Run the verifier workflow against an actual merged PR to confirm CI results are pulled from live runs (needed to fully close “no false negatives” and the remaining acceptance criteria).
+1) Run the verifier workflow against an actual merged PR to confirm live CI results are fetched (requires CI/network access).
+2) Verify the verifier no longer produces false negatives once CI-backed validation is exercised.
