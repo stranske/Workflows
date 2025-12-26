@@ -179,6 +179,7 @@ jobs:
       - name: Run verifier
         id: codex
         if: steps.context.outputs.should_run == 'true'
+        continue-on-error: true
         env:
           CODEX_HOME: ${{ runner.temp }}/.codex-verifier
         run: |
@@ -207,7 +208,13 @@ jobs:
         run: |
           set -euo pipefail
           verdict="unknown"
-          if [ -f "codex-output.md" ]; then
+
+          # Check if the codex step failed (continue-on-error means we still get here)
+          codex_outcome="${{ steps.codex.outcome }}"
+          if [ "$codex_outcome" = "failure" ]; then
+            # Codex crashed - treat as error verdict for follow-up
+            verdict="error"
+          elif [ -f "codex-output.md" ]; then
             if grep -qiE 'verdict:[[:space:]]*fail' "codex-output.md"; then
               verdict="fail"
             elif grep -qiE 'verdict:[[:space:]]*pass' "codex-output.md"; then
@@ -218,7 +225,7 @@ jobs:
 
       - name: Open follow-up issue on verifier failure
         id: failure_issue
-        if: steps.context.outputs.should_run == 'true' && steps.verdict.outputs.verdict == 'fail'
+        if: steps.context.outputs.should_run == 'true' && (steps.verdict.outputs.verdict == 'fail' || steps.verdict.outputs.verdict == 'error')
         uses: actions/github-script@v7
         env:
           PR_URL: ${{ steps.context.outputs.pr_html_url }}
@@ -227,14 +234,52 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const fs = require('fs');
-            const { formatFollowUpIssue, formatSimpleFollowUpIssue } = require('./.workflows-lib/.github/scripts/verifier_issue_formatter.js');
+            const { formatFollowUpIssue, formatSimpleFollowUpIssue, formatErrorIssue } = require('./.workflows-lib/.github/scripts/verifier_issue_formatter.js');
 
             const rawPrNumber = Number('${{ steps.context.outputs.pr_number }}');
             const prNumber = !Number.isNaN(rawPrNumber) && rawPrNumber > 0 ? rawPrNumber : null;
             const issueNumbers = JSON.parse('${{ steps.context.outputs.issue_numbers || '[]' }}');
-            const verifierOutput = fs.readFileSync('codex-output.md', 'utf8');
+            const verdict = '${{ steps.verdict.outputs.verdict }}';
             const prUrl = process.env.PR_URL || '';
             const runUrl = process.env.RUN_URL || '';
+
+            // Handle Codex crash/error case
+            if (verdict === 'error') {
+              // Check if formatErrorIssue exists, otherwise use fallback
+              if (typeof formatErrorIssue === 'function') {
+                const result = formatErrorIssue({ prNumber, prUrl, runUrl, issueNumbers });
+                const { data: issue } = await github.rest.issues.create({
+                  ...context.repo,
+                  title: result.title,
+                  body: result.body,
+                  labels: ['agent:codex', 'bug'],
+                });
+                core.setOutput('issue_number', issue?.number ? String(issue.number) : '');
+                core.info(`Created error follow-up issue #${issue.number}: ${result.title}`);
+                return;
+              }
+              // Fallback if formatErrorIssue doesn't exist
+              const title = prNumber ? `[Verifier Error] PR #${prNumber} verification failed` : '[Verifier Error] Verification failed';
+              const body = `## Verifier Error\n\nThe verifier encountered an error while checking acceptance criteria.\n\n**PR:** ${prUrl || `#${prNumber}` || 'unknown'}\n**Run:** ${runUrl}\n\nPlease review the workflow run logs for details.`;
+              const { data: issue } = await github.rest.issues.create({
+                ...context.repo,
+                title,
+                body,
+                labels: ['agent:codex', 'bug'],
+              });
+              core.setOutput('issue_number', issue?.number ? String(issue.number) : '');
+              core.info(`Created error follow-up issue #${issue.number}: ${title}`);
+              return;
+            }
+
+            // Normal failure case - verifier ran but criteria weren't met
+            let verifierOutput = '';
+            try {
+              verifierOutput = fs.readFileSync('codex-output.md', 'utf8');
+            } catch (err) {
+              core.warning(`Could not read codex-output.md: ${err.message}`);
+              verifierOutput = '_Verifier output not available_';
+            }
 
             let prBody = '';
             if (prNumber) {
@@ -313,7 +358,7 @@ jobs:
           from datetime import datetime, timezone
 
           def count_checkboxes(text):
-              return sum(1 for line in text.splitlines() if re.match(r"^- \[[ xX]\]", line.strip()))
+              return sum(1 for line in text.splitlines() if re.match(r"^\s*[-*]\s+\[[ xX]\]", line))
 
           should_run = (os.environ.get("SHOULD_RUN") or "").lower() == "true"
           pr_number = int(os.environ.get("PR_NUMBER") or 0)
@@ -336,7 +381,10 @@ jobs:
           codex_output = Path("codex-output.md")
           if codex_output.is_file():
               content = codex_output.read_text(encoding="utf-8")
-              checks_run = sum(1 for line in content.splitlines()[1:] if line.lstrip().startswith("- "))
+              # Count checkbox items (e.g., "- [x] ..." or "- [ ] ...") in verifier output
+              for line in content.splitlines():
+                  if re.match(r"^\s*[-*]\s+\[[ xX]\]", line):
+                      checks_run += 1
 
           metrics = {
               "pr_number": pr_number,
