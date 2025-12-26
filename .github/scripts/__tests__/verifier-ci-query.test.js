@@ -14,7 +14,9 @@ const buildGithubStub = ({
     actions: {
       async listWorkflowRuns({ workflow_id: workflowId, head_sha: headSha }) {
         if (errorWorkflow && workflowId === errorWorkflow) {
-          throw new Error('boom');
+          const error = new Error('boom');
+          error.status = 404;
+          throw error;
         }
         if (listWorkflowRunsHook) {
           const hooked = await listWorkflowRunsHook({ workflow_id: workflowId, head_sha: headSha });
@@ -59,16 +61,19 @@ test('queryVerifierCiResults selects runs and reports conclusions', async () => 
     workflow_name: 'Gate',
     conclusion: 'success',
     run_url: 'gate-url',
+    error_category: '',
   });
   assert.deepEqual(results[1], {
     workflow_name: 'Selftest CI',
     conclusion: 'in_progress',
     run_url: 'selftest-url',
+    error_category: '',
   });
   assert.deepEqual(results[2], {
     workflow_name: 'PR 11',
     conclusion: 'not_found',
     run_url: '',
+    error_category: '',
   });
 });
 
@@ -97,11 +102,12 @@ test('queryVerifierCiResults supports workflowId/workflowName aliases', async ()
       workflow_name: 'Selftest CI',
       conclusion: 'success',
       run_url: 'selftest-alias-url',
+      error_category: '',
     },
   ]);
 });
 
-test('queryVerifierCiResults treats query errors as not_found', async () => {
+test('queryVerifierCiResults treats query errors as api_error', async () => {
   const github = buildGithubStub({ errorWorkflow: 'pr-00-gate.yml' });
   const context = { repo: { owner: 'octo', repo: 'workflows' } };
   const workflows = [{ workflow_name: 'Gate', workflow_id: 'pr-00-gate.yml' }];
@@ -116,8 +122,9 @@ test('queryVerifierCiResults treats query errors as not_found', async () => {
   assert.deepEqual(results, [
     {
       workflow_name: 'Gate',
-      conclusion: 'not_found',
+      conclusion: 'api_error',
       run_url: '',
+      error_category: 'resource',
     },
   ]);
 });
@@ -145,6 +152,7 @@ test('queryVerifierCiResults uses latest run when no target SHA is provided', as
       workflow_name: 'Gate',
       conclusion: 'success',
       run_url: 'gate-latest-url',
+      error_category: '',
     },
   ]);
 });
@@ -184,6 +192,7 @@ test('queryVerifierCiResults falls back to secondary SHA when primary has no run
       workflow_name: 'Gate',
       conclusion: 'success',
       run_url: 'head-url',
+      error_category: '',
     },
   ]);
   assert.deepEqual(headShas, ['merge-sha', 'head-sha']);
@@ -216,16 +225,19 @@ test('queryVerifierCiResults falls back to default workflows', async () => {
       workflow_name: 'Gate',
       conclusion: 'success',
       run_url: 'gate-default-url',
+      error_category: '',
     },
     {
       workflow_name: 'Selftest CI',
       conclusion: 'failure',
       run_url: 'selftest-default-url',
+      error_category: '',
     },
     {
       workflow_name: 'PR 11 - Minimal invariant CI',
       conclusion: 'success',
       run_url: 'pr11-default-url',
+      error_category: '',
     },
   ]);
 });
@@ -251,6 +263,7 @@ test('queryVerifierCiResults uses API url when html_url is missing', async () =>
       workflow_name: 'Gate',
       conclusion: 'success',
       run_url: 'api-url',
+      error_category: '',
     },
   ]);
 });
@@ -276,6 +289,86 @@ test('queryVerifierCiResults treats completed runs without conclusion as unknown
       workflow_name: 'Gate',
       conclusion: 'unknown',
       run_url: 'gate-url',
+      error_category: '',
+    },
+  ]);
+});
+
+test('queryVerifierCiResults retries transient errors and returns success', async () => {
+  let attempts = 0;
+  const warnings = [];
+  const github = buildGithubStub({
+    listWorkflowRunsHook: async () => {
+      attempts += 1;
+      if (attempts < 3) {
+        const error = new Error('Service unavailable');
+        error.status = 503;
+        throw error;
+      }
+      return {
+        data: {
+          workflow_runs: [
+            { head_sha: 'retry-sha', conclusion: 'success', html_url: 'retry-url' },
+          ],
+        },
+      };
+    },
+  });
+  const context = { repo: { owner: 'octo', repo: 'workflows' } };
+  const workflows = [{ workflow_name: 'Gate', workflow_id: 'pr-00-gate.yml' }];
+
+  const results = await queryVerifierCiResults({
+    github,
+    context,
+    targetSha: 'retry-sha',
+    workflows,
+    core: { warning: (message) => warnings.push(String(message)) },
+    retryOptions: { sleepFn: async () => {} },
+  });
+
+  assert.equal(attempts, 3);
+  assert.equal(warnings.length, 2);
+  assert.deepEqual(results, [
+    {
+      workflow_name: 'Gate',
+      conclusion: 'success',
+      run_url: 'retry-url',
+      error_category: '',
+    },
+  ]);
+});
+
+test('queryVerifierCiResults returns api_error after max retries', async () => {
+  let attempts = 0;
+  const warnings = [];
+  const github = buildGithubStub({
+    listWorkflowRunsHook: async () => {
+      attempts += 1;
+      const error = new Error('timeout');
+      error.status = 504;
+      throw error;
+    },
+  });
+  const context = { repo: { owner: 'octo', repo: 'workflows' } };
+  const workflows = [{ workflow_name: 'Gate', workflow_id: 'pr-00-gate.yml' }];
+
+  const results = await queryVerifierCiResults({
+    github,
+    context,
+    targetSha: 'retry-sha',
+    workflows,
+    core: { warning: (message) => warnings.push(String(message)) },
+    retryOptions: { sleepFn: async () => {} },
+  });
+
+  assert.equal(attempts, 4);
+  assert.equal(warnings.length, 4);
+  assert.deepEqual(results, [
+    {
+      workflow_name: 'Gate',
+      conclusion: 'api_error',
+      run_url: '',
+      error_category: 'transient',
     },
   ]);
 });
