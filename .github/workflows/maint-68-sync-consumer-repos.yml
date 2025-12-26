@@ -140,6 +140,11 @@ jobs:
             "config.yml"
           )
 
+          # Documentation files for agent pipeline
+          SYNC_DOCS=(
+            "AGENT_ISSUE_FORMAT.md"
+          )
+
           changes=""
           sync_report=""
 
@@ -252,6 +257,24 @@ jobs:
             fi
           done
 
+          # Check documentation files
+          for doc_file in "${SYNC_DOCS[@]}"; do
+            source_file="workflows/templates/consumer-repo/docs/$doc_file"
+            consumer_file="consumer/docs/$doc_file"
+
+            if [ ! -f "$source_file" ]; then
+              continue
+            fi
+
+            if [ ! -f "$consumer_file" ]; then
+              changes="$changes docs/$doc_file"
+              sync_report="$sync_report\n- docs/$doc_file (missing)"
+            elif ! compare_files "$source_file" "$consumer_file" false; then
+              changes="$changes docs/$doc_file"
+              sync_report="$sync_report\n- docs/$doc_file (differs)"
+            fi
+          done
+
           if [ -n "$changes" ]; then
             echo "has_changes=true" >> "$GITHUB_OUTPUT"
             echo "changed_files=$changes" >> "$GITHUB_OUTPUT"
@@ -350,6 +373,21 @@ jobs:
           for template_file in "${SYNC_ISSUE_TEMPLATES[@]}"; do
             source="../workflows/templates/consumer-repo/.github/ISSUE_TEMPLATE/$template_file"
             target=".github/ISSUE_TEMPLATE/$template_file"
+
+            if [ -f "$source" ]; then
+              cp "$source" "$target"
+            fi
+          done
+
+          # Sync documentation files (for LLM reference)
+          SYNC_DOCS=(
+            "AGENT_ISSUE_FORMAT.md"
+          )
+
+          mkdir -p docs
+          for doc_file in "${SYNC_DOCS[@]}"; do
+            source="../workflows/templates/consumer-repo/docs/$doc_file"
+            target="docs/$doc_file"
 
             if [ -f "$source" ]; then
               cp "$source" "$target"
