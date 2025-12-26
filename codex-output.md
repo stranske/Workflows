@@ -1,9 +1,9 @@
-Extended merge-manager decision comment coverage to exercise the create and unchanged paths, and reconciled the PR checklist now that the seven required test files and coverage thresholds are verified in `codex-prompt.md`. The extra tests sit in `.github/scripts/__tests__/merge-manager.test.js` so the merge automation cases are covered alongside the existing eligibility checks.
+Added guard test coverage for codeowner approvals and marker-only skip entries, and reconciled PR task checkboxes based on verified test runs in `codex-prompt.md`. Updates are in `.github/scripts/__tests__/agents-guard.test.js`, `.github/scripts/__tests__/keepalive-guard-utils.test.js`, and `codex-prompt.md`.
 
-**Tests**
-- `node --test .github/scripts/__tests__/merge-manager.test.js`
-- `./scripts/check_branch.sh` (failed: no `.venv/` found)
+Tests run:
+- `node --test .github/scripts/__tests__/agents-guard.test.js .github/scripts/__tests__/keepalive-guard-utils.test.js`
+- `node --test .github/scripts/__tests__/*.test.js`
 
 Next steps:
-1) Create/activate the repo virtualenv and rerun `./scripts/check_branch.sh` to satisfy the full test suite task.  
-2) Run/verify the `Selftest CI` workflow to close the remaining acceptance item.
+1. Decide whether test documentation needs an update and check off that task if not needed.
+2. Run/confirm the `Selftest CI` workflow to satisfy the remaining acceptance criterion.
