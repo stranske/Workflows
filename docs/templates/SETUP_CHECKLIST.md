@@ -278,6 +278,27 @@ curl -o .github/workflows/maint-sync-workflows.yml \
   https://raw.githubusercontent.com/stranske/Travel-Plan-Permission/main/.github/workflows/maint-sync-workflows.yml
 ```
 
+> **⚠️ CRITICAL: Fix reusable workflow references after copying!**
+> 
+> The `agents-63-issue-intake.yml` file in the Workflows repo contains a LOCAL 
+> reference to `reusable-agents-issue-bridge.yml`. This works in Workflows but
+> **will break in consumer repos** because the file doesn't exist locally.
+> 
+> After copying, you MUST change line ~1171 from:
+> ```yaml
+> uses: ./.github/workflows/reusable-agents-issue-bridge.yml
+> ```
+> To the remote reference:
+> ```yaml
+> uses: stranske/Workflows/.github/workflows/reusable-agents-issue-bridge.yml@main
+> ```
+> 
+> **Alternative**: Copy from Template repo instead (already has correct reference):
+> ```bash
+> curl -o .github/workflows/agents-63-issue-intake.yml \
+>   https://raw.githubusercontent.com/stranske/Template/main/.github/workflows/agents-63-issue-intake.yml
+> ```
+
 ### 4.2 Autofix Versions Configuration
 
 > **Important**: Each repository maintains its own `autofix-versions.env` file
@@ -800,6 +821,7 @@ inputs:
 2. **Missing commit status** — Keepalive checks for `Gate / gate` status to know when CI passes
 3. **Wrong workflow name in trigger** — The `workflows:` array must match the exact workflow `name:` field
 4. **Missing scripts** — Scripts are NOT automatically synced; they must exist in consumer repo
+5. **Local reusable workflow references** — When copying `agents-63-issue-intake.yml` from Workflows, it has a LOCAL reference to `reusable-agents-issue-bridge.yml` that doesn't exist in consumer repos. Must change to remote reference: `stranske/Workflows/.github/workflows/reusable-agents-issue-bridge.yml@main`
 
 ---
 
