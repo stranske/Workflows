@@ -327,7 +327,7 @@ async function buildVerifierContext({ github, context, core, ciWorkflows }) {
     const missingParts = [];
     if (!hasTasksContent) missingParts.push('tasks');
     if (!hasAcceptanceContent) missingParts.push('acceptance criteria');
-    const skipReason = `No ${missingParts.join(' or ')} found in PR or linked issues; skipping verifier.`;
+    const skipReason = `No ${missingParts.join(' and ')} found in PR or linked issues; skipping verifier.`;
     core?.notice?.(skipReason);
     core?.setOutput?.('should_run', 'false');
     core?.setOutput?.('skip_reason', skipReason);
