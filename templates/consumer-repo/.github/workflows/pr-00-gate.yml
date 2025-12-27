@@ -4,10 +4,26 @@
 # Orchestrates CI enforcement for pull requests. The `summary` job aggregates
 # results and publishes the commit status that keepalive automation relies on.
 #
+# USAGE:
+#   - Standard Python projects: Use this template as-is
+#   - Custom projects: Use as a STARTING POINT, customize the test job(s)
+#
+# IMPORTANT: The `summary` job and `Gate / gate` commit status are REQUIRED
+# for keepalive automation to detect CI results. Do not remove or rename them.
+#
+# SYNC BEHAVIOR:
+#   - This file is NOT auto-synced to repos with custom Gate workflows
+#   - Repos in CUSTOM_GATE_REPOS list in maint-68-sync-consumer-repos.yml
+#     maintain their own Gate and should update manually if needed
+#
 # Copy this file to: .github/workflows/pr-00-gate.yml
 #
 # Required secrets: None (uses GITHUB_TOKEN)
 # Optional secrets: Passed via `secrets: inherit` to reusable workflow
+#
+# Examples of custom Gates based on this template:
+#   - stranske/trip-planner (Flask + requirements.txt)
+#   - stranske/Manager-Database (FastAPI + docker-compose)
 # -----------------------------------------------------------------------------
 
 name: Gate

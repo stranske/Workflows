@@ -77,11 +77,36 @@ For repositories that already exist (not created from Template):
    verifier-context.md
    ```
 
-4. **Custom Gate workflow**: If your repo doesn't use the standard Python CI
-   structure (pyproject.toml + ruff + pytest), create a custom `pr-00-gate.yml`:
-   - Must run your existing CI/tests
-   - Must post `Gate / gate` commit status for keepalive to detect
-   - See examples in trip-planner or Manager-Database repos
+4. **Gate workflow setup** — The Gate is critical for keepalive automation.
+   
+   **Option A: Use template Gate (standard Python projects)**
+   
+   If your repo uses pyproject.toml + ruff + pytest:
+   - Copy `workflows/pr-00-gate.yml` directly from the template
+   - The template calls `reusable-10-ci-python.yml` for standard Python CI
+   
+   **Option B: Create custom Gate (other project types)**
+   
+   If your repo has different CI needs, use the template as a **starting point**:
+   
+   ```bash
+   # Start with the template
+   cp templates/consumer-repo/.github/workflows/pr-00-gate.yml .github/workflows/
+   ```
+   
+   Then customize the `test` job for your project while keeping:
+   - The `summary` job structure (aggregates results)
+   - The `Gate / gate` commit status (keepalive depends on this!)
+   - The workflow name `Gate` and job name pattern
+   
+   **Required elements for custom Gate:**
+   - [ ] Workflow named `Gate`
+   - [ ] Summary job that posts `Gate / gate` commit status
+   - [ ] Status must be `success`/`failure`/`error` (not `pending`)
+   
+   **Examples of custom Gates:**
+   - `stranske/trip-planner` — Flask app with requirements.txt + pytest
+   - `stranske/Manager-Database` — FastAPI with docker-compose + coverage
 
 ---
 
