@@ -242,6 +242,13 @@ function classifyFailureDetails({ action, runResult, summaryReason, agentExitCod
     type = 'infrastructure';
   }
 
+
+  // Determine prompt mode based on action
+  const promptMode = action === 'fix' ? 'fix_ci' : 'normal';
+  const promptFile = action === 'fix'
+    ? '.github/codex/prompts/fix_ci_failures.md'
+    : '.github/codex/prompts/keepalive_next_task.md';
+
   return {
     category,
     type,
@@ -506,6 +513,83 @@ async function resolvePrNumber({ github, context, core, payload: overridePayload
   return 0;
 }
 
+/**
+ * Classify gate failure type to determine appropriate fix mode
+ * @returns {Object} { failureType: 'test'|'mypy'|'lint'|'unknown', shouldFixMode: boolean }
+ */
+async function classifyGateFailure({ github, context, pr, core }) {
+  if (!pr) {
+    return { failureType: 'unknown', shouldFixMode: false, failedJobs: [] };
+  }
+
+  try {
+    // Get the latest Gate workflow run
+    const { data } = await github.rest.actions.listWorkflowRuns({
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+      workflow_id: 'pr-00-gate.yml',
+      branch: pr.head.ref,
+      event: 'pull_request',
+      per_page: 5,
+    });
+
+    const run = data?.workflow_runs?.find((r) => r.head_sha === pr.head.sha);
+    if (!run || run.conclusion === 'success') {
+      return { failureType: 'none', shouldFixMode: false, failedJobs: [] };
+    }
+
+    // Get jobs for this run to identify what failed
+    const { data: jobsData } = await github.rest.actions.listJobsForWorkflowRun({
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+      run_id: run.id,
+    });
+
+    const failedJobs = (jobsData?.jobs || [])
+      .filter((job) => job.conclusion === 'failure')
+      .map((job) => job.name.toLowerCase());
+
+    if (failedJobs.length === 0) {
+      return { failureType: 'unknown', shouldFixMode: false, failedJobs: [] };
+    }
+
+    // Classify failure type based on job names
+    const hasTestFailure = failedJobs.some((name) => 
+      name.includes('test') || name.includes('pytest') || name.includes('unittest')
+    );
+    const hasMypyFailure = failedJobs.some((name) => 
+      name.includes('mypy') || name.includes('type') || name.includes('typecheck')
+    );
+    const hasLintFailure = failedJobs.some((name) => 
+      name.includes('lint') || name.includes('ruff') || name.includes('black') || name.includes('format')
+    );
+
+    // Determine primary failure type (prioritize test > mypy > lint)
+    let failureType = 'unknown';
+    if (hasTestFailure) {
+      failureType = 'test';
+    } else if (hasMypyFailure) {
+      failureType = 'mypy';
+    } else if (hasLintFailure) {
+      failureType = 'lint';
+    }
+
+    // Only route to fix mode for test/mypy failures
+    // Lint failures should go to autofix
+    const shouldFixMode = failureType === 'test' || failureType === 'mypy' || failureType === 'unknown';
+
+    if (core) {
+      core.info(`[keepalive] Gate failure classification: type=${failureType}, shouldFixMode=${shouldFixMode}, failedJobs=[${failedJobs.join(', ')}]`);
+    }
+
+    return { failureType, shouldFixMode, failedJobs };
+  } catch (error) {
+    if (core) core.info(`Failed to classify gate failure: ${error.message}`);
+    return { failureType: 'unknown', shouldFixMode: true, failedJobs: [] };
+  }
+}
+
+
 async function resolveGateConclusion({ github, context, pr, eventName, payload, core }) {
   if (eventName === 'workflow_run') {
     return normalise(payload?.workflow_run?.conclusion);
@@ -632,12 +716,25 @@ async function evaluateKeepaliveLoop({ github, context, core, payload: overrideP
     action = 'stop';
     reason = isProductive ? 'max-iterations' : 'max-iterations-unproductive';
   } else if (gateNormalized !== 'success') {
-    action = 'wait';
-    reason = gateNormalized ? 'gate-not-success' : 'gate-pending';
+    // Gate failed - check if we should route to fix mode or wait
+    const gateFailure = await classifyGateFailure({ github, context, pr, core });
+    if (gateFailure.shouldFixMode && gateNormalized === 'failure') {
+      action = 'fix';
+      reason = `fix-${gateFailure.failureType}`;
+    } else {
+      action = 'wait';
+      reason = gateNormalized ? 'gate-not-success' : 'gate-pending';
+    }
   } else if (tasksRemaining) {
     action = 'run';
     reason = iteration >= maxIterations ? 'ready-extended' : 'ready';
   }
+
+  // Determine prompt mode based on action
+  const promptMode = action === 'fix' ? 'fix_ci' : 'normal';
+  const promptFile = action === 'fix'
+    ? '.github/codex/prompts/fix_ci_failures.md'
+    : '.github/codex/prompts/keepalive_next_task.md';
 
   return {
     prNumber,
@@ -645,6 +742,8 @@ async function evaluateKeepaliveLoop({ github, context, core, payload: overrideP
     headSha: pr.head.sha || '',
     action,
     reason,
+    promptMode,
+    promptFile,
     gateConclusion,
     config,
     iteration,

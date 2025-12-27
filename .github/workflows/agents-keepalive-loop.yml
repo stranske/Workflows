@@ -126,6 +126,8 @@ jobs:
               has_agent_label: String(result.hasAgentLabel ?? ''),
               agent_type: String(result.agentType || ''),
               trace: String(result.config?.trace || result.state?.trace || ''),
+              prompt_mode: String(result.promptMode || 'normal'),
+              prompt_file: String(result.promptFile || '.github/codex/prompts/keepalive_next_task.md'),
             };
             for (const [key, value] of Object.entries(output)) {
               core.setOutput(key, value);
@@ -136,7 +138,7 @@ jobs:
   preflight:
     name: Verify secrets available
     needs: evaluate
-    if: needs.evaluate.outputs.action == 'run'
+    if: needs.evaluate.outputs.action == 'run' || needs.evaluate.outputs.action == 'fix'
     runs-on: ubuntu-latest
     environment: agent-standard
     outputs:
@@ -174,7 +176,7 @@ jobs:
     needs:
       - evaluate
       - preflight
-    if: needs.evaluate.outputs.action == 'run'
+    if: needs.evaluate.outputs.action == 'run' || needs.evaluate.outputs.action == 'fix'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -216,7 +218,7 @@ jobs:
       WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
     with:
       skip: ${{ needs.evaluate.outputs.action != 'run' }}
-      prompt_file: .github/codex/prompts/keepalive_next_task.md
+      prompt_file: ${{ needs.evaluate.outputs.prompt_file }}
       mode: keepalive
       pr_number: ${{ needs.evaluate.outputs.pr_number }}
       pr_ref: ${{ needs.evaluate.outputs.pr_ref }}

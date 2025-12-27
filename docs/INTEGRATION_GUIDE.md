@@ -468,3 +468,139 @@ This eliminates manual formatting work and ensures consistent style.
 - **Issues:** Open an issue in stranske/Workflows for bugs or feature requests
 - **Templates:** Check `/templates/` for copy-paste solutions
 - **Consumer templates:** See `/templates/consumer-repo/` for full automation setup
+
+---
+
+## CI Failure Routing
+
+The keepalive system intelligently routes CI failures to the appropriate fix mechanism:
+
+### Decision Flow
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                     Gate Workflow Result                         │
+└──────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+                    ┌─────────────────┐
+                    │  Gate Passed?   │
+                    └─────────────────┘
+                              │
+              ┌───────────────┼───────────────┐
+              │ Yes           │ No            │
+              ▼               ▼               ▼
+    ┌─────────────────┐  ┌─────────────────┐
+    │  Normal Work    │  │ Classify Failure│
+    │  (run action)   │  └─────────────────┘
+    │                 │           │
+    │  Prompt:        │     ┌─────┴─────┐
+    │  keepalive_     │     │           │
+    │  next_task.md   │     ▼           ▼
+    └─────────────────┘  ┌───────┐  ┌──────────────┐
+                         │ Lint/ │  │ Tests/Mypy/  │
+                         │Format │  │ Unknown      │
+                         └───┬───┘  └──────┬───────┘
+                             │             │
+                             ▼             ▼
+                     ┌────────────┐  ┌─────────────────┐
+                     │  Autofix   │  │   Fix Mode      │
+                     │  Workflow  │  │  (fix action)   │
+                     │            │  │                 │
+                     │  Black +   │  │  Prompt:        │
+                     │  Ruff      │  │  fix_ci_        │
+                     └────────────┘  │  failures.md    │
+                                     └─────────────────┘
+```
+
+### How It Works
+
+1. **Gate Evaluation**: When the keepalive loop evaluates, it checks the gate workflow status
+
+2. **Failure Classification**: If the gate failed, the system inspects which jobs failed:
+   - **Test failures**: Jobs with names containing `test`, `pytest`, `unittest`
+   - **Mypy failures**: Jobs with names containing `mypy`, `type`, `typecheck`
+   - **Lint failures**: Jobs with names containing `lint`, `ruff`, `black`, `format`
+
+3. **Routing Decision**:
+   - **Lint/Format failures** → Route to **Autofix** (Black + Ruff can fix these automatically)
+   - **Test/Mypy failures** → Route to **Codex with fix_ci_failures.md prompt** (requires code changes)
+   - **Unknown failures** → Route to **Codex with fix_ci_failures.md prompt** (needs investigation)
+
+### Prompt Files
+
+| Prompt | Purpose | When Used |
+|--------|---------|-----------|
+| `keepalive_next_task.md` | Normal task work | Gate passed, tasks remaining |
+| `fix_ci_failures.md` | Focus on fixing CI | Test/mypy failures detected |
+
+### Output Variables
+
+The `evaluate` job outputs these new fields:
+
+| Output | Description | Values |
+|--------|-------------|--------|
+| `prompt_mode` | Which prompt mode to use | `normal`, `fix_ci` |
+| `prompt_file` | Full path to prompt file | Path to `.md` file |
+| `reason` | Why this action was chosen | `fix-test`, `fix-mypy`, `fix-unknown`, etc. |
+
+### Action Types
+
+| Action | Description | Triggers |
+|--------|-------------|----------|
+| `run` | Normal Codex run | Gate passed, tasks remaining |
+| `fix` | CI fix mode | Test/mypy failure detected |
+| `wait` | Wait for gate | Gate pending or lint failure (autofix handles) |
+| `stop` | Stop iteration | Tasks complete or max iterations |
+| `skip` | Skip entirely | Keepalive disabled |
+
+### Example Scenarios
+
+**Scenario 1: Tests Failing**
+```
+Gate Status: failure
+Failed Jobs: [test (3.11), test (3.12)]
+Classification: test failure
+Action: fix
+Reason: fix-test
+Prompt: fix_ci_failures.md
+```
+
+**Scenario 2: Mypy Errors**
+```
+Gate Status: failure
+Failed Jobs: [mypy]
+Classification: mypy failure
+Action: fix
+Reason: fix-mypy
+Prompt: fix_ci_failures.md
+```
+
+**Scenario 3: Black Formatting**
+```
+Gate Status: failure
+Failed Jobs: [lint (black)]
+Classification: lint failure
+Action: wait
+Reason: gate-not-success
+→ Autofix workflow handles this separately
+```
+
+**Scenario 4: All Passing**
+```
+Gate Status: success
+Action: run
+Reason: ready
+Prompt: keepalive_next_task.md
+```
+
+### Consumer Setup
+
+No additional configuration needed. The CI failure routing is built into the keepalive system and works automatically when you have:
+
+1. `agents-keepalive-loop.yml` workflow
+2. `pr-00-gate.yml` workflow (for gate status)
+3. `fix_ci_failures.md` prompt (in `.github/codex/prompts/`)
+
+If `fix_ci_failures.md` doesn't exist, the system falls back to `keepalive_next_task.md`.
+
