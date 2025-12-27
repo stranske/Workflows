@@ -6,6 +6,7 @@ const path = require('path');
 const { parseScopeTasksAcceptanceSections } = require('./issue_scope_parser');
 const { loadKeepaliveState, formatStateComment } = require('./keepalive_state');
 const { classifyError, ERROR_CATEGORIES } = require('./error_classifier');
+const { formatFailureComment } = require('./failure_comment_formatter');
 
 function normalise(value) {
   return String(value ?? '').trim();
@@ -255,57 +256,6 @@ function classifyFailureDetails({ action, runResult, summaryReason, agentExitCod
     recovery: errorInfo.recovery,
     message: errorInfo.message,
   };
-}
-
-function truncateText(value, maxLength = 300) {
-  const text = normalise(value);
-  if (!text) {
-    return '';
-  }
-  if (text.length <= maxLength) {
-    return text;
-  }
-  return `${text.slice(0, maxLength)}...`;
-}
-
-function buildAttentionComment({
-  agentDisplayName,
-  summaryReason,
-  runResult,
-  agentExitCode,
-  agentSummary,
-  errorCategory,
-  errorType,
-  errorRecovery,
-  runUrl,
-}) {
-  const lines = [
-    `Keepalive detected a non-transient failure in the last ${agentDisplayName} run.`,
-    '',
-    `- Error category: ${errorCategory || 'unknown'}`,
-    `- Error type: ${errorType || 'unknown'}`,
-    `- Result: ${runResult || summaryReason || 'unknown'}`,
-    `- Exit code: ${agentExitCode || 'unknown'}`,
-  ];
-
-  const summarySnippet = truncateText(agentSummary, 300);
-  if (summarySnippet) {
-    lines.push(`- Agent output: ${summarySnippet}`);
-  }
-  if (runUrl) {
-    lines.push(`- Run logs: ${runUrl}`);
-  }
-
-  lines.push('', 'Suggested manual steps:');
-  if (errorRecovery) {
-    lines.push(`1. ${errorRecovery}`);
-  } else {
-    lines.push('1. Review the error details and validate inputs/permissions.');
-  }
-  lines.push('2. Inspect the workflow logs for the failing step.');
-  lines.push('3. Re-run the keepalive workflow after applying the fix.');
-
-  return lines.join('\n');
 }
 
 /**
@@ -817,6 +767,7 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
     agentExitCode,
     agentSummary,
   });
+  const runFailed = action === 'run' && runResult && runResult !== 'success';
   const isTransientFailure =
     action === 'run' &&
     runResult &&
@@ -950,6 +901,7 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
         : 'n/a (unbounded)'
     } |`,
     `| Action | ${action || 'unknown'} (${summaryReason || 'n/a'}) |`,
+    ...(runFailed ? [`| Agent status | ❌ AGENT FAILED |`] : []),
     `| Gate | ${gateConclusion || 'unknown'} |`,
     `| Tasks | ${tasksComplete}/${tasksTotal} complete |`,
     `| Keepalive | ${keepaliveEnabled ? '✅ enabled' : '❌ disabled'} |`,
@@ -976,7 +928,9 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
       summaryLines.push(
         `| Result | Value |`,
         `|--------|-------|`,
-        `| Status | ❌ Failed (exit code: ${agentExitCode || 'unknown'}) |`,
+        `| Status | ❌ AGENT FAILED |`,
+        `| Reason | ${summaryReason || runResult || 'unknown'} |`,
+        `| Exit code | ${agentExitCode || 'unknown'} |`,
         `| Failures | ${failure.count || 1}/${failureThreshold} before pause |`,
       );
     }
@@ -1103,17 +1057,16 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
   const attentionKey = [summaryReason, runResult, errorCategory, errorType, agentExitCode].filter(Boolean).join('|');
   const priorAttentionKey = normalise(previousAttention.key);
 
-  if (shouldEscalate && (attentionKey !== priorAttentionKey || !previousAttention.comment_id)) {
-    const attentionBody = buildAttentionComment({
-      agentDisplayName,
-      summaryReason,
-      runResult,
-      agentExitCode,
-      agentSummary,
-      errorCategory,
-      errorType,
-      errorRecovery,
-      runUrl,
+  const shouldPostFailureComment = runFailed;
+  if (shouldPostFailureComment && (attentionKey !== priorAttentionKey || !previousAttention.comment_id)) {
+    const attentionBody = formatFailureComment({
+      mode: 'keepalive',
+      exitCode: agentExitCode || 'unknown',
+      errorCategory: errorCategory || 'unknown',
+      errorType: errorType || 'unknown',
+      recovery: errorRecovery || 'Check logs for details.',
+      summary: agentSummary || summaryReason || runResult || 'No output captured',
+      runUrl: runUrl || '',
     });
     try {
       const { data } = await github.rest.issues.createComment({
@@ -1291,6 +1244,7 @@ async function analyzeTaskCompletion({ github, context, prNumber, baseSha, headS
   const log = (msg) => core?.info?.(msg) || console.log(msg);
 
   if (!taskText || !baseSha || !headSha) {
+    log('Skipping task analysis: missing task text or commit range.');
     return { matches, summary: 'Insufficient data for task analysis' };
   }
 
@@ -1445,6 +1399,7 @@ async function autoReconcileTasks({ github, context, prNumber, baseSha, headSha,
   const taskText = [sections.tasks, sections.acceptance].filter(Boolean).join('\n');
 
   if (!taskText) {
+    log('Skipping reconciliation: no tasks found in PR body.');
     return { updated: false, tasksChecked: 0, details: 'No tasks found in PR body' };
   }
 
@@ -1482,6 +1437,7 @@ async function autoReconcileTasks({ github, context, prNumber, baseSha, headSha,
   }
 
   if (checkedCount === 0) {
+    log('Matched tasks but no checkbox patterns found to update.');
     return { 
       updated: false, 
       tasksChecked: 0, 
