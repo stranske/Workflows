@@ -679,9 +679,11 @@ jobs:
             exit 0
           fi
 
-          # Configure git
+          # Configure git with token-based authentication for push
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config credential.helper store
+          echo "https://x-access-token:${GH_TOKEN}@github.com" > ~/.git-credentials
 
           # Create branch
           branch="sync/workflows-${{ needs.prepare.outputs.template_hash }}"
@@ -699,8 +701,8 @@ jobs:
 
           Changed files: ${{ steps.detect.outputs.changed_files }}"
 
-          # Push
-          git push origin "$branch" --force
+          # Push using token-authenticated URL
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${{ matrix.repo }}.git" "$branch" --force
 
           # Create or update PR
           existing_pr=$(gh pr list --base main --head "$branch" --json number --jq '.[0].number // empty')
