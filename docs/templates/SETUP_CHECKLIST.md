@@ -62,8 +62,14 @@ For repositories that already exist (not created from Template):
    - [ ] `codex/prompts/keepalive_next_task.md`
    - [ ] `ISSUE_TEMPLATE/agent_task.yml`
    - [ ] `ISSUE_TEMPLATE/config.yml`
+   - [ ] `PULL_REQUEST_TEMPLATE.md`
 
-2. Update `.gitignore` to include:
+2. Copy documentation from `stranske/Workflows/templates/consumer-repo/docs/`:
+   - [ ] `docs/AGENT_ISSUE_FORMAT.md` — How to format issues for agents
+   - [ ] `docs/CI_SYSTEM_GUIDE.md` — CI system overview and troubleshooting
+   - [ ] `docs/LABELS.md` — Label reference for workflow triggers
+
+3. Update `.gitignore` to include:
    ```
    # Codex working files (preserved via workflow artifacts, not git)
    codex-prompt.md
@@ -71,7 +77,7 @@ For repositories that already exist (not created from Template):
    verifier-context.md
    ```
 
-3. **Custom Gate workflow**: If your repo doesn't use the standard Python CI
+4. **Custom Gate workflow**: If your repo doesn't use the standard Python CI
    structure (pyproject.toml + ruff + pytest), create a custom `pr-00-gate.yml`:
    - Must run your existing CI/tests
    - Must post `Gate / gate` commit status for keepalive to detect
