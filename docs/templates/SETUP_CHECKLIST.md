@@ -69,13 +69,19 @@ For repositories that already exist (not created from Template):
    - [ ] `docs/CI_SYSTEM_GUIDE.md` — CI system overview and troubleshooting
    - [ ] `docs/LABELS.md` — Label reference for workflow triggers
 
-3. Update `.gitignore` to include:
+3. Update `.gitignore` to include codex working files:
    ```
    # Codex working files (preserved via workflow artifacts, not git)
+   # CRITICAL: These must be gitignored to prevent merge conflicts when
+   # multiple PRs run keepalive simultaneously. Each run rebuilds these files.
    codex-prompt.md
    codex-output.md
    verifier-context.md
    ```
+   
+   > **Why this matters**: When multiple PRs run keepalive at the same time,
+   > each generates these files. If committed, merging one PR causes conflicts
+   > in others. Historical data is preserved in PR comments and workflow artifacts.
 
 4. **Gate workflow setup** — The Gate is critical for keepalive automation.
    
@@ -487,6 +493,7 @@ tasks are complete or the iteration limit is reached.
 - `.github/codex/prompts/keepalive_next_task.md` — Iteration prompt template
 - `Gate / gate` commit status — Keepalive waits for CI before proceeding
 - `ALLOWED_KEEPALIVE_LOGINS` variable — Who can trigger keepalive
+- `.gitignore` entries for `codex-prompt.md`, `codex-output.md`, `verifier-context.md`
 
 **Verification checklist**:
 - [ ] `agents-pr-meta.yml` exists with `issue_comment` and `workflow_run` triggers
@@ -495,6 +502,7 @@ tasks are complete or the iteration limit is reached.
 - [ ] `.github/codex/AGENT_INSTRUCTIONS.md` exists
 - [ ] `.github/codex/prompts/keepalive_next_task.md` exists
 - [ ] `ALLOWED_KEEPALIVE_LOGINS` variable is set in repo settings
+- [ ] `.gitignore` includes codex working files (prevents multi-PR conflicts)
 
 **How to test**:
 1. Create a PR from an issue with `agent:codex` label
