@@ -265,6 +265,37 @@ grep -E "ruff|mypy|black|isort" requirements*.txt pyproject.toml 2>/dev/null
 
 ### 4.3 Critical Workflow Configuration
 
+**In `agents-keepalive-loop.yml`:**
+
+This workflow file is CRITICAL and must be kept in sync with the Workflows repo 
+template. The most common bug is incorrect output mapping in the evaluate step.
+
+Verify the evaluate step maps outputs correctly:
+```yaml
+- name: Evaluate keepalive conditions
+  id: evaluate
+  uses: actions/github-script@v7
+  with:
+    script: |
+      const result = await evaluateKeepaliveLoop({ ... });
+      
+      // ✅ CORRECT - explicit property mapping
+      const output = {
+        pr_number: String(result.prNumber || ''),
+        action: result.action || '',
+        // ... other properties
+      };
+```
+
+NOT:
+```yaml
+      // ❌ WRONG - evaluateKeepaliveLoop doesn't return result.outputs
+      const output = result.outputs || {};
+```
+
+- [ ] Verify evaluate step has explicit property mapping (not `result.outputs`)
+- [ ] Compare with `templates/consumer-repo/.github/workflows/agents-keepalive-loop.yml`
+
 **In `agents-pr-meta.yml`:**
 
 The `pr_number` input MUST use `fromJSON()` to convert the string output to a number:
@@ -422,10 +453,53 @@ Why
 
 For Python projects, ensure:
 
-- [ ] `pyproject.toml` exists with dependencies
-- [ ] `src/` directory structure follows package conventions
+- [ ] `pyproject.toml` exists with proper configuration (see below)
+- [ ] Project structure is either:
+  - `src/` layout: code in `src/<package_name>/` (recommended)
+  - Flat layout: explicit package list in pyproject.toml
 - [ ] `tests/` directory exists with `conftest.py`
 - [ ] `.python-version` file specifies Python version (e.g., `3.11`)
+
+**pyproject.toml Requirements**:
+
+For projects using `src/` layout:
+```toml
+[project]
+name = "your-project"
+version = "0.1.0"
+requires-python = ">=3.11"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+```
+
+For projects with flat layout (multiple top-level packages):
+```toml
+[project]
+name = "your-project"
+version = "0.1.0"
+requires-python = ">=3.11"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+# CRITICAL: Explicit package discovery for flat layout
+[tool.setuptools.packages.find]
+include = ["package1*", "package2*", "package3*"]
+```
+
+> **Why this matters**: The Codex CLI runs `pip install -e .` to install your project
+> in development mode. Without proper pyproject.toml configuration, this fails with
+> "Multiple top-level packages discovered" for flat layouts, or module import errors
+> for missing package configuration.
 
 ---
 
@@ -743,6 +817,97 @@ including watchdog checks for stalled automation.
 | "Module not found" errors | Missing JS scripts | Add scripts from template |
 | Gate completes but no keepalive | Missing `workflow_run` trigger | Add trigger for Gate |
 | Keepalive defers with `gate-not-concluded` | Gate still running | Wait for Gate, or check `allow_replay` |
+| All jobs after "Evaluate" skipped | Output mapping bug in workflow | See "Critical: Output Mapping Bug" below |
+| `no-pr-context` in evaluate logs | PR number not resolved | Check workflow triggers and outputs |
+
+### Critical: Output Mapping Bug in agents-keepalive-loop.yml
+
+**Symptom**: The "Evaluate keepalive loop" job succeeds but ALL subsequent jobs 
+(Verify secrets, Mark running, Codex, Summary) are skipped. The action output 
+shows empty string or the reason shows `no-pr-context`.
+
+**Root Cause**: The `evaluateKeepaliveLoop()` function returns properties directly 
+on the result object (e.g., `result.prNumber`, `result.action`), NOT nested in 
+`result.outputs`. Old workflow code that used `result.outputs || {}` would get 
+an empty object, causing all outputs to be undefined.
+
+**How to verify**: Check the "Complete job" section of the Evaluate job logs:
+```
+# ❌ BROKEN - only shows timestamps
+Set output 'start_ts'
+Set output 'security_blocked'
+
+# ✅ WORKING - shows all PR context outputs
+Set output 'pr_number'
+Set output 'pr_ref'
+Set output 'head_sha'
+Set output 'action'
+Set output 'reason'
+```
+
+**Fix**: The evaluate step MUST explicitly map result properties:
+
+```javascript
+// ❌ WRONG - evaluateKeepaliveLoop doesn't have result.outputs
+const output = result.outputs || {};
+
+// ✅ CORRECT - map individual properties
+const output = {
+  pr_number: String(result.prNumber || ''),
+  pr_ref: String(result.prRef || ''),
+  head_sha: String(result.headSha || ''),
+  action: result.action || '',
+  reason: result.reason || '',
+  gate_conclusion: result.gateConclusion || '',
+  iteration: String(result.iteration ?? ''),
+  max_iterations: String(result.maxIterations ?? ''),
+  failure_threshold: String(result.failureThreshold ?? ''),
+  tasks_total: String(result.checkboxCounts?.total ?? ''),
+  tasks_unchecked: String(result.checkboxCounts?.unchecked ?? ''),
+  keepalive_enabled: String(result.keepaliveEnabled || false),
+  autofix_enabled: String(result.config?.autofix_enabled || false),
+  has_agent_label: String(result.hasAgentLabel || false),
+  agent_type: String(result.agentType || ''),
+  trace: String(result.config?.trace || ''),
+};
+```
+
+**Important**: The `workflow_run` event ALWAYS executes workflow files from the 
+**default branch (main)**, not the PR branch. This means fixes to workflow files 
+in PRs won't take effect until either:
+1. The fix is pushed directly to main, OR
+2. The PR is merged
+
+### pyproject.toml Package Discovery Errors
+
+**Symptom**: Codex job fails with error:
+```
+error: Multiple top-level packages discovered in a flat-layout: ['ui', 'api', 'etl', 'adapters'].
+```
+
+**Cause**: Projects with multiple top-level packages (not using `src/` layout) need 
+explicit package configuration in pyproject.toml.
+
+**Fix**: Add `[tool.setuptools.packages.find]` with explicit include:
+
+```toml
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+# For flat layout with multiple top-level packages
+[tool.setuptools.packages.find]
+include = ["adapters*", "api*", "etl*", "ui*"]  # List your packages
+```
+
+Alternatively, restructure to use `src/` layout:
+```toml
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+```
 
 ### Debug Logging
 
@@ -830,5 +995,6 @@ the thin caller workflows are synced, not custom implementations.
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 1.2 | 2025-12-27 | Added critical keepalive output mapping troubleshooting, pyproject.toml configuration guidance for flat layouts |
 | 1.1 | 2025-12-27 | Added existing repo setup, bot collaborator access, sync registration |
 | 1.0 | 2025-01 | Initial checklist based on Travel-Plan-Permission learnings |
