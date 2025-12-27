@@ -34,6 +34,10 @@ const buildGithubStub = ({ pr, comments = [], workflowRuns = [] } = {}) => {
         async listWorkflowRuns() {
           return { data: { workflow_runs: workflowRuns } };
         },
+        async listJobsForWorkflowRun() {
+          // Return empty jobs by default - tests can override if needed
+          return { data: { jobs: [] } };
+        },
       },
       issues: {
         async listComments() {
@@ -256,7 +260,7 @@ test('evaluateKeepaliveLoop continues past max iterations when productive', asyn
   assert.equal(result.reason, 'ready-extended', 'Should show extended mode');
 });
 
-test('evaluateKeepaliveLoop waits when gate has not succeeded', async () => {
+test('evaluateKeepaliveLoop triggers fix mode when gate fails with test failures', async () => {
   const pr = {
     number: 505,
     head: { ref: 'feature/five', sha: 'sha-5' },
@@ -265,7 +269,36 @@ test('evaluateKeepaliveLoop waits when gate has not succeeded', async () => {
   };
   const github = buildGithubStub({
     pr,
-    workflowRuns: [{ head_sha: 'sha-5', conclusion: 'failure' }],
+    workflowRuns: [{ id: 1001, head_sha: 'sha-5', conclusion: 'failure' }],
+  });
+  // Override listJobsForWorkflowRun to return test failures
+  github.rest.actions.listJobsForWorkflowRun = async () => ({
+    data: { jobs: [{ name: 'test (3.11)', conclusion: 'failure' }] },
+  });
+  const result = await evaluateKeepaliveLoop({
+    github,
+    context: buildContext(pr.number),
+    core: buildCore(),
+  });
+  assert.equal(result.action, 'fix');
+  assert.equal(result.reason, 'fix-test');
+  assert.equal(result.promptMode, 'fix_ci');
+});
+
+test('evaluateKeepaliveLoop waits when gate fails with lint failures', async () => {
+  const pr = {
+    number: 506,
+    head: { ref: 'feature/lint', sha: 'sha-lint' },
+    labels: [{ name: 'agent:codex' }],
+    body: '## Tasks\n- [ ] one\n## Acceptance Criteria\n- [ ] a',
+  };
+  const github = buildGithubStub({
+    pr,
+    workflowRuns: [{ id: 1002, head_sha: 'sha-lint', conclusion: 'failure' }],
+  });
+  // Override listJobsForWorkflowRun to return lint failures
+  github.rest.actions.listJobsForWorkflowRun = async () => ({
+    data: { jobs: [{ name: 'lint (ruff)', conclusion: 'failure' }] },
   });
   const result = await evaluateKeepaliveLoop({
     github,
@@ -274,6 +307,26 @@ test('evaluateKeepaliveLoop waits when gate has not succeeded', async () => {
   });
   assert.equal(result.action, 'wait');
   assert.equal(result.reason, 'gate-not-success');
+});
+
+test('evaluateKeepaliveLoop waits when gate is pending', async () => {
+  const pr = {
+    number: 507,
+    head: { ref: 'feature/pending', sha: 'sha-pending' },
+    labels: [{ name: 'agent:codex' }],
+    body: '## Tasks\n- [ ] one\n## Acceptance Criteria\n- [ ] a',
+  };
+  const github = buildGithubStub({
+    pr,
+    workflowRuns: [{ id: 1003, head_sha: 'sha-pending', conclusion: null }],
+  });
+  const result = await evaluateKeepaliveLoop({
+    github,
+    context: buildContext(pr.number),
+    core: buildCore(),
+  });
+  assert.equal(result.action, 'wait');
+  assert.equal(result.reason, 'gate-pending');
 });
 
 test('evaluateKeepaliveLoop runs when ready', async () => {
