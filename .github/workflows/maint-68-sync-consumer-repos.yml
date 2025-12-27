@@ -409,6 +409,42 @@ jobs:
             } >> "$GITHUB_STEP_SUMMARY"
           fi
 
+
+          # Check for deprecated workflow files that should be removed
+          # These old files indicate incomplete migration to new naming convention
+          DEPRECATED_FILES=(
+            "agents-issue-intake.yml"  # Replaced by agents-63-issue-intake.yml
+          )
+
+          deprecated_warnings=""
+          for deprecated in "${DEPRECATED_FILES[@]}"; do
+            if [ -f "consumer/.github/workflows/$deprecated" ]; then
+              deprecated_warnings="$deprecated_warnings\n- FOUND: $deprecated (should be removed, replaced by agents-63-issue-intake.yml)"
+            fi
+          done
+
+          # Check that FULL_WORKFLOWS actually exist (not just thin caller equivalents)
+          for workflow in "${FULL_WORKFLOWS[@]}"; do
+            if [ ! -f "consumer/.github/workflows/$workflow" ]; then
+              deprecated_warnings="$deprecated_warnings\n- MISSING: $workflow (required full workflow, not just thin caller)"
+            fi
+          done
+
+          # Check for local sync helper workflow
+          if [ ! -f "consumer/.github/workflows/maint-sync-workflows.yml" ]; then
+            deprecated_warnings="$deprecated_warnings\n- MISSING: maint-sync-workflows.yml (local sync check helper)"
+          fi
+
+          if [ -n "$deprecated_warnings" ]; then
+            {
+              echo ""
+              echo "⚠️ **Workflow file validation:**$deprecated_warnings"
+              echo ""
+              echo "**Action required:** Remove deprecated files and add missing workflows."
+              echo "See [SETUP_CHECKLIST](https://github.com/stranske/Workflows/blob/main/docs/templates/SETUP_CHECKLIST.md) for details."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
       - name: Verify required labels
         env:
           GH_TOKEN: ${{ env.SYNC_TOKEN }}
