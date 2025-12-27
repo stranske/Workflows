@@ -82,7 +82,8 @@ jobs:
       comment_body: ${{ needs.resolve_pr.outputs.comment_body }}
       event_name: 'issue_comment'
       event_action: ${{ github.event.action }}
-      allowed_keepalive_logins: ${{ vars.ALLOWED_KEEPALIVE_LOGINS || '' }}
+      # Only pass if explicitly set - omitting lets reusable workflow use its default
+      allowed_keepalive_logins: ${{ vars.ALLOWED_KEEPALIVE_LOGINS }}
     secrets: inherit
 
   # Call reusable PR meta workflow for PR events

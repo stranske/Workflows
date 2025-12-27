@@ -189,10 +189,19 @@ jobs:
             fi
           }
 
+          # Repos with custom Gate workflows - skip pr-00-gate.yml detection for these
+          CUSTOM_GATE_REPOS="stranske/trip-planner stranske/Manager-Database"
+          CURRENT_REPO="${{ matrix.repo }}"
+
           # Check thin caller templates
           for mapping in "${SYNC_FILES[@]}"; do
             template_name="${mapping%%:*}"
             consumer_name="${mapping##*:}"
+
+            # Skip pr-00-gate.yml detection for repos with custom Gate workflows
+            if [ "$template_name" = "pr-00-gate.yml" ] && echo "$CUSTOM_GATE_REPOS" | grep -qw "$CURRENT_REPO"; then
+              continue
+            fi
 
             template_file="workflows/templates/consumer-repo/.github/workflows/$template_name"
             consumer_file="consumer/.github/workflows/$consumer_name"
@@ -354,6 +363,10 @@ jobs:
 
           cd consumer
 
+          # Repos with custom Gate workflows that should NOT be overwritten
+          CUSTOM_GATE_REPOS="stranske/trip-planner stranske/Manager-Database"
+          CURRENT_REPO="${{ matrix.repo }}"
+
           # Sync thin caller workflow files from templates
           SYNC_TEMPLATES=(
             "agents-orchestrator.yml"
@@ -365,6 +378,12 @@ jobs:
           )
 
           for file in "${SYNC_TEMPLATES[@]}"; do
+            # Skip pr-00-gate.yml for repos with custom Gate workflows
+            if [ "$file" = "pr-00-gate.yml" ] && echo "$CUSTOM_GATE_REPOS" | grep -qw "$CURRENT_REPO"; then
+              echo "Skipping $file for $CURRENT_REPO (has custom Gate workflow)"
+              continue
+            fi
+
             template="../workflows/templates/consumer-repo/.github/workflows/$file"
 
             # Find target file (may have numbered prefix)
