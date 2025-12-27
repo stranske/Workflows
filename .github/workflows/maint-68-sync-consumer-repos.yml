@@ -147,7 +147,6 @@ jobs:
           )
 
           # Documentation files for agent pipeline
-          # Documentation files for agent pipeline
           SYNC_DOCS=(
             "AGENT_ISSUE_FORMAT.md"
             "CI_SYSTEM_GUIDE.md"
@@ -355,6 +354,33 @@ jobs:
           fi
 
           echo -e "Sync report:$sync_report" >> "$GITHUB_STEP_SUMMARY"
+
+          # Verify required gitignore entries for keepalive system
+          # These entries prevent merge conflicts when multiple PRs run keepalive simultaneously
+          REQUIRED_GITIGNORE_ENTRIES=(
+            "codex-prompt.md"
+            "codex-output.md"
+            "verifier-context.md"
+          )
+
+          gitignore_warnings=""
+          if [ -f "consumer/.gitignore" ]; then
+            for entry in "${REQUIRED_GITIGNORE_ENTRIES[@]}"; do
+              if ! grep -qxF "$entry" "consumer/.gitignore" 2>/dev/null; then
+                gitignore_warnings="$gitignore_warnings\n- Missing: $entry"
+              fi
+            done
+          else
+            gitignore_warnings="\n- .gitignore file not found"
+          fi
+
+          if [ -n "$gitignore_warnings" ]; then
+            {
+              echo ""
+              echo "⚠️ **Keepalive gitignore check:**$gitignore_warnings"
+              echo "These entries prevent merge conflicts when multiple agent PRs run simultaneously."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Apply template updates
         if: steps.detect.outputs.has_changes == 'true' || inputs.force == true
