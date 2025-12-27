@@ -436,7 +436,7 @@ jobs:
               if [ "$config_file" = ".gitignore" ] && [ -f "$target" ]; then
                 # Append any lines from source that aren't already in target
                 while IFS= read -r line; do
-                  if [ -n "$line" ] && ! grep -qxF "$line" "$target" 2>/dev/null; then
+                  if ! grep -qxF "$line" "$target" 2>/dev/null; then
                     echo "$line" >> "$target"
                   fi
                 done < "$source"
