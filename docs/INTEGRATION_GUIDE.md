@@ -460,6 +460,37 @@ When a PR has lint/format issues:
 
 This eliminates manual formatting work and ensures consistent style.
 
+##### Dynamic Target Detection
+
+Autofix automatically detects Python directories by finding all `.py` files in the repository. Standard non-source directories are excluded by default:
+
+- `.git`, `.venv`, `venv`, `.env`, `env`
+- `__pycache__`, `node_modules`
+- `build`, `dist`, `.eggs`, `*.egg-info`
+- `.tox`, `.pytest_cache`, `.mypy_cache`, `.ruff_cache`
+- `htmlcov`, `.coverage`
+
+##### Custom Exclusions (`.autofix-exclude`)
+
+To exclude additional directories from autofix (e.g., generated code, vendor packages, legacy modules), create a `.autofix-exclude` file in your repository root:
+
+```
+# .autofix-exclude
+# Comments start with #
+
+# Exclude generated migrations
+migrations/
+
+# Exclude vendored code
+vendor/
+third_party/
+
+# Exclude legacy modules being deprecated
+legacy_api/
+```
+
+Each line specifies a directory to exclude. This file is optional - if not present, only standard exclusions apply.
+
 ---
 
 ## Getting Help
