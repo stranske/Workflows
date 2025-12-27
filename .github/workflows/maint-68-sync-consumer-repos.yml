@@ -33,9 +33,13 @@ permissions:
 env:
   # Consumer repos registered for automatic sync
   # Add new repos here as they're onboarded
+  # NOTE: Repos with custom Gate workflows (trip-planner, Manager-Database)
+  # still get synced for agent workflows - only pr-00-gate.yml is repo-specific
   REGISTERED_CONSUMER_REPOS: |
     stranske/Travel-Plan-Permission
     stranske/Template
+    stranske/trip-planner
+    stranske/Manager-Database
 
 jobs:
   prepare:
@@ -143,8 +147,16 @@ jobs:
           )
 
           # Documentation files for agent pipeline
+          # Documentation files for agent pipeline
           SYNC_DOCS=(
             "AGENT_ISSUE_FORMAT.md"
+            "CI_SYSTEM_GUIDE.md"
+            "LABELS.md"
+          )
+
+          # GitHub config files
+          SYNC_GITHUB_CONFIG=(
+            "PULL_REQUEST_TEMPLATE.md"
           )
 
           # Root config files from template
@@ -300,6 +312,24 @@ jobs:
             fi
           done
 
+          # Check GitHub config files (PR template, etc.)
+          for config_file in "${SYNC_GITHUB_CONFIG[@]}"; do
+            source_file="workflows/templates/consumer-repo/.github/$config_file"
+            consumer_file="consumer/.github/$config_file"
+
+            if [ ! -f "$source_file" ]; then
+              continue
+            fi
+
+            if [ ! -f "$consumer_file" ]; then
+              changes="$changes .github/$config_file"
+              sync_report="$sync_report\n- .github/$config_file (missing)"
+            elif ! compare_files "$source_file" "$consumer_file" false; then
+              changes="$changes .github/$config_file"
+              sync_report="$sync_report\n- .github/$config_file (differs)"
+            fi
+          done
+
           if [ -n "$changes" ]; then
             echo "has_changes=true" >> "$GITHUB_OUTPUT"
             echo "changed_files=$changes" >> "$GITHUB_OUTPUT"
@@ -407,15 +437,31 @@ jobs:
             fi
           done
 
-          # Sync documentation files (for LLM reference)
+          # Sync documentation files (for LLM reference and user guidance)
           SYNC_DOCS=(
             "AGENT_ISSUE_FORMAT.md"
+            "CI_SYSTEM_GUIDE.md"
+            "LABELS.md"
           )
 
           mkdir -p docs
           for doc_file in "${SYNC_DOCS[@]}"; do
             source="../workflows/templates/consumer-repo/docs/$doc_file"
             target="docs/$doc_file"
+
+            if [ -f "$source" ]; then
+              cp "$source" "$target"
+            fi
+          done
+
+          # Sync GitHub config files (PR template, etc.)
+          SYNC_GITHUB_CONFIG=(
+            "PULL_REQUEST_TEMPLATE.md"
+          )
+
+          for config_file in "${SYNC_GITHUB_CONFIG[@]}"; do
+            source="../workflows/templates/consumer-repo/.github/$config_file"
+            target=".github/$config_file"
 
             if [ -f "$source" ]; then
               cp "$source" "$target"

@@ -8,7 +8,7 @@
 # Copy this file to: .github/workflows/agents-issue-intake.yml
 #
 # Required secrets:
-# - SERVICE_BOT_PAT: PAT for stranske-automation-bot (comments, labels)
+# - SERVICE_BOT_PAT: PAT for service bot account (comments, labels)
 # - OWNER_PR_PAT: PAT for creating PRs on behalf of repository owner
 name: Agents Issue Intake
 
@@ -105,7 +105,7 @@ jobs:
       agent: ${{ needs.check_labels.outputs.agent }}
       issue_number: ${{ needs.check_labels.outputs.issue_number }}
       mode: "invite"
-      post_agent_comment: ${{ inputs.post_codex_comment && 'true' || 'true' }}
+      post_agent_comment: ${{ inputs.post_codex_comment && 'true' || 'false' }}
       agent_pr_draft: ${{ inputs.bridge_draft_pr && 'true' || 'false' }}
     secrets:
       service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
