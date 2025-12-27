@@ -266,6 +266,59 @@ Simple change.
   assert.equal(core.outputs.pr_number, '89');
 });
 
+test('buildVerifierContext uses custom ciWorkflows when provided', async () => {
+  const core = buildCore();
+  const prDetails = {
+    number: 90,
+    title: 'Custom CI test',
+    body: `## Acceptance Criteria\n- [ ] CI passes`,
+    html_url: 'https://example.com/pr/90',
+    merge_commit_sha: 'merge-sha-90',
+    base: { ref: 'main' },
+    head: { sha: 'head-sha-90' },
+  };
+  const context = {
+    eventName: 'pull_request',
+    repo: { owner: 'octo', repo: 'workflows' },
+    payload: {
+      repository: { default_branch: 'main' },
+      pull_request: {
+        merged: true,
+        number: 90,
+        base: { ref: 'main' },
+        html_url: 'https://example.com/pr/90',
+      },
+    },
+    sha: 'sha-90',
+  };
+  // Custom CI workflow
+  const customCiWorkflows = '["custom-ci.yml", "another-ci.yml"]';
+  const github = buildGithubStub({
+    prDetails,
+    closingIssues: [],
+    runsByWorkflow: {
+      'custom-ci.yml': [
+        { head_sha: 'merge-sha-90', conclusion: 'success', html_url: 'https://ci/custom' },
+      ],
+      'another-ci.yml': [
+        { head_sha: 'merge-sha-90', conclusion: 'success', html_url: 'https://ci/another' },
+      ],
+    },
+  });
+  const result = await buildVerifierContext({
+    github,
+    context,
+    core,
+    ciWorkflows: customCiWorkflows,
+  });
+  const ciResults = JSON.parse(core.outputs.ci_results);
+  assert.equal(result.shouldRun, true);
+  // Should query custom workflows, not defaults
+  assert.equal(ciResults.length, 2);
+  assert.equal(ciResults[0].workflow_name, 'custom-ci.yml');
+  assert.equal(ciResults[1].workflow_name, 'another-ci.yml');
+});
+
 test('buildVerifierContext writes verifier context with linked issues', async () => {
   const core = buildCore();
   const prDetails = {
