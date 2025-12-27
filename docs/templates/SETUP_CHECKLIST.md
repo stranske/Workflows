@@ -129,6 +129,7 @@ Create these labels in **Settings** → **Labels** (exact names required):
 |-------|-------|-------------|--------------|
 | `agent:codex` | `#0052CC` | Assigns Codex agent to issue | Issue intake, keepalive |
 | `agent:needs-attention` | `#D93F0B` | Agent needs human help | Error recovery |
+| `agents:keepalive` | `#0E8A16` | Enables keepalive automation | PR keepalive loops |
 | `autofix` | `#1D76DB` | Triggers autofix on PR | Autofix workflow |
 | `autofix:clean` | `#5319E7` | Aggressive autofix mode | Autofix workflow |
 | `autofix:applied` | `#0E8A16` | Autofix was applied | Auto-created by workflow |
@@ -137,6 +138,7 @@ Create these labels in **Settings** → **Labels** (exact names required):
 Create each label:
 - [ ] `agent:codex`
 - [ ] `agent:needs-attention`
+- [ ] `agents:keepalive`
 - [ ] `autofix`
 - [ ] `autofix:clean`
 - [ ] `autofix:applied`
@@ -149,6 +151,7 @@ REPO="stranske/<your-repo>"
 # Create required labels
 gh label create "agent:codex" --color "0052CC" --description "Assigns Codex agent" --repo "$REPO" 2>/dev/null || echo "agent:codex exists"
 gh label create "agent:needs-attention" --color "D93F0B" --description "Agent needs human help" --repo "$REPO" 2>/dev/null || echo "agent:needs-attention exists"
+gh label create "agents:keepalive" --color "0E8A16" --description "Enables keepalive automation" --repo "$REPO" 2>/dev/null || echo "agents:keepalive exists"
 gh label create "autofix" --color "1D76DB" --description "Triggers autofix on PR" --repo "$REPO" 2>/dev/null || echo "autofix exists"
 gh label create "autofix:clean" --color "5319E7" --description "Aggressive autofix mode" --repo "$REPO" 2>/dev/null || echo "autofix:clean exists"
 gh label create "autofix:applied" --color "0E8A16" --description "Autofix was applied" --repo "$REPO" 2>/dev/null || echo "autofix:applied exists"
