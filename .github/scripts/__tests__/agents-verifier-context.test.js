@@ -170,6 +170,155 @@ test('buildVerifierContext skips forked pull requests', async () => {
   assert.ok(core.outputs.skip_reason.includes('fork'));
 });
 
+test('buildVerifierContext skips when no acceptance criteria found', async () => {
+  const core = buildCore();
+  // PR body with no acceptance criteria section
+  const prBodyNoAcceptance = `## Summary
+This PR adds a new feature.
+
+## Tasks
+- [x] Implement the feature
+- [x] Add documentation
+`;
+  const prDetails = {
+    number: 88,
+    title: 'Feature without acceptance',
+    body: prBodyNoAcceptance,
+    html_url: 'https://example.com/pr/88',
+    merge_commit_sha: 'merge-sha-88',
+    base: { ref: 'main' },
+    head: { sha: 'head-sha-88' },
+  };
+  const context = {
+    eventName: 'pull_request',
+    repo: { owner: 'octo', repo: 'workflows' },
+    payload: {
+      repository: { default_branch: 'main' },
+      pull_request: {
+        merged: true,
+        number: 88,
+        base: { ref: 'main' },
+        html_url: 'https://example.com/pr/88',
+      },
+    },
+    sha: 'sha-88',
+  };
+  // No linked issues, no acceptance criteria in PR
+  const result = await buildVerifierContext({
+    github: buildGithubStub({ prDetails, closingIssues: [] }),
+    context,
+    core,
+  });
+  assert.equal(result.shouldRun, false);
+  assert.equal(core.outputs.should_run, 'false');
+  assert.equal(core.outputs.pr_number, '88');
+  assert.ok(core.outputs.skip_reason.includes('No acceptance criteria'));
+  assert.equal(core.outputs.acceptance_count, '0');
+});
+
+test('buildVerifierContext runs when acceptance criteria exists in linked issue', async () => {
+  const core = buildCore();
+  // PR body with no acceptance criteria
+  const prBodyNoAcceptance = `## Summary
+Simple change.
+`;
+  const prDetails = {
+    number: 89,
+    title: 'PR with issue acceptance',
+    body: prBodyNoAcceptance,
+    html_url: 'https://example.com/pr/89',
+    merge_commit_sha: 'merge-sha-89',
+    base: { ref: 'main' },
+    head: { sha: 'head-sha-89' },
+  };
+  const context = {
+    eventName: 'pull_request',
+    repo: { owner: 'octo', repo: 'workflows' },
+    payload: {
+      repository: { default_branch: 'main' },
+      pull_request: {
+        merged: true,
+        number: 89,
+        base: { ref: 'main' },
+        html_url: 'https://example.com/pr/89',
+      },
+    },
+    sha: 'sha-89',
+  };
+  // Linked issue HAS acceptance criteria
+  const issueWithAcceptance = {
+    number: 100,
+    title: 'Issue with acceptance',
+    body: `## Acceptance Criteria
+- [ ] Feature works correctly
+- [ ] Tests pass
+`,
+    state: 'OPEN',
+    url: 'https://example.com/issues/100',
+  };
+  const result = await buildVerifierContext({
+    github: buildGithubStub({ prDetails, closingIssues: [issueWithAcceptance] }),
+    context,
+    core,
+  });
+  assert.equal(result.shouldRun, true);
+  assert.equal(core.outputs.should_run, 'true');
+  assert.equal(core.outputs.pr_number, '89');
+});
+
+test('buildVerifierContext uses custom ciWorkflows when provided', async () => {
+  const core = buildCore();
+  const prDetails = {
+    number: 90,
+    title: 'Custom CI test',
+    body: `## Acceptance Criteria\n- [ ] CI passes`,
+    html_url: 'https://example.com/pr/90',
+    merge_commit_sha: 'merge-sha-90',
+    base: { ref: 'main' },
+    head: { sha: 'head-sha-90' },
+  };
+  const context = {
+    eventName: 'pull_request',
+    repo: { owner: 'octo', repo: 'workflows' },
+    payload: {
+      repository: { default_branch: 'main' },
+      pull_request: {
+        merged: true,
+        number: 90,
+        base: { ref: 'main' },
+        html_url: 'https://example.com/pr/90',
+      },
+    },
+    sha: 'sha-90',
+  };
+  // Custom CI workflow
+  const customCiWorkflows = '["custom-ci.yml", "another-ci.yml"]';
+  const github = buildGithubStub({
+    prDetails,
+    closingIssues: [],
+    runsByWorkflow: {
+      'custom-ci.yml': [
+        { head_sha: 'merge-sha-90', conclusion: 'success', html_url: 'https://ci/custom' },
+      ],
+      'another-ci.yml': [
+        { head_sha: 'merge-sha-90', conclusion: 'success', html_url: 'https://ci/another' },
+      ],
+    },
+  });
+  const result = await buildVerifierContext({
+    github,
+    context,
+    core,
+    ciWorkflows: customCiWorkflows,
+  });
+  const ciResults = JSON.parse(core.outputs.ci_results);
+  assert.equal(result.shouldRun, true);
+  // Should query custom workflows, not defaults
+  assert.equal(ciResults.length, 2);
+  assert.equal(ciResults[0].workflow_name, 'custom-ci.yml');
+  assert.equal(ciResults[1].workflow_name, 'another-ci.yml');
+});
+
 test('buildVerifierContext writes verifier context with linked issues', async () => {
   const core = buildCore();
   const prDetails = {

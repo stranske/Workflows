@@ -95,7 +95,7 @@ jobs:
         id: changes
         run: |
           cd integration-tests
-          
+
           if git diff --quiet; then
             echo "has_changes=false" >> "$GITHUB_OUTPUT"
             echo "No changes needed"
@@ -121,7 +121,7 @@ jobs:
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          
+
           git add .github/workflows/
           git commit -m "sync: Update workflow templates from stranske/Workflows" \
             -m "" \

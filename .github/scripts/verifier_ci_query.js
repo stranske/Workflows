@@ -148,7 +148,11 @@ async function fetchWorkflowRun({
     return { run: null, error: null };
   } catch (error) {
     const category = getErrorCategory(error);
-    core?.warning?.(
+    // 404 errors are expected for workflows that don't exist in consumer repos
+    // Use info level instead of warning to reduce noise
+    const isNotFound = category === ERROR_CATEGORIES.RESOURCE || error.status === 404;
+    const logFn = isNotFound ? core?.info?.bind(core) : core?.warning?.bind(core);
+    logFn?.(
       `Failed to fetch workflow runs for ${workflowId}: ${error.message}; category=${category}`
     );
     return { run: null, error: { category, message: error.message } };

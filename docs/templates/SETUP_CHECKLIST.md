@@ -8,6 +8,9 @@ configuration** and will fail silently if any element is missing.
 > before keepalive started functioning correctly. The lessons learned are encoded
 > in this checklist.
 
+> **See also**: [Consumer Repo Maintenance Guide](../ops/CONSUMER_REPO_MAINTENANCE.md)
+> for debugging issues across multiple repos.
+
 ---
 
 ## Prerequisites
@@ -15,7 +18,7 @@ configuration** and will fail silently if any element is missing.
 Before starting, ensure you have:
 
 - [ ] Access to [stranske/Workflows](https://github.com/stranske/Workflows) repository
-- [ ] A GitHub PAT for `stranske-automation-bot` (for SERVICE_BOT_PAT)
+- [ ] A GitHub PAT for the service bot account (for SERVICE_BOT_PAT)
 - [ ] Admin access to create repository secrets and variables
 - [ ] Python 3.11+ installed locally for testing
 
@@ -24,6 +27,9 @@ Before starting, ensure you have:
 ## Phase 1: Repository Creation
 
 ### 1.1 Create Repository from Template
+
+> **For existing repos**: Skip to [Phase 1.3](#13-existing-repository-setup) if 
+> you're adding workflow system to an existing repository.
 
 - [ ] Go to [stranske/Template](https://github.com/stranske/Template)
 - [ ] Click **Use this template** → **Create a new repository**
@@ -44,19 +50,69 @@ Verify these directories exist:
 - [ ] `.github/scripts/` (should contain JS and Python scripts)
 - [ ] `.github/templates/` (should contain `keepalive-instruction.md`)
 
+### 1.3 Existing Repository Setup
+
+For repositories that already exist (not created from Template):
+
+1. Copy workflow files from `stranske/Workflows/templates/consumer-repo/.github/`:
+   - [ ] `workflows/agents-*.yml` (all agent workflows)
+   - [ ] `workflows/autofix.yml`
+   - [ ] `workflows/pr-00-gate.yml` (or create custom - see below)
+   - [ ] `codex/AGENT_INSTRUCTIONS.md`
+   - [ ] `codex/prompts/keepalive_next_task.md`
+   - [ ] `ISSUE_TEMPLATE/agent_task.yml`
+   - [ ] `ISSUE_TEMPLATE/config.yml`
+   - [ ] `PULL_REQUEST_TEMPLATE.md`
+
+2. Copy documentation from `stranske/Workflows/templates/consumer-repo/docs/`:
+   - [ ] `docs/AGENT_ISSUE_FORMAT.md` — How to format issues for agents
+   - [ ] `docs/CI_SYSTEM_GUIDE.md` — CI system overview and troubleshooting
+   - [ ] `docs/LABELS.md` — Label reference for workflow triggers
+
+3. Update `.gitignore` to include:
+   ```
+   # Codex working files (preserved via workflow artifacts, not git)
+   codex-prompt.md
+   codex-output.md
+   verifier-context.md
+   ```
+
+4. **Custom Gate workflow**: If your repo doesn't use the standard Python CI
+   structure (pyproject.toml + ruff + pytest), create a custom `pr-00-gate.yml`:
+   - Must run your existing CI/tests
+   - Must post `Gate / gate` commit status for keepalive to detect
+   - See examples in trip-planner or Manager-Database repos
+
 ---
 
-## Phase 2: Secrets Configuration
+## Phase 2: Secrets and Access Configuration
 
 > **Critical**: Keepalive automation will fail silently without these secrets.
 
-### 2.1 Required Secrets
+### 2.1 Bot Collaborator Access
+
+The service bot account needs **push access** to the repository for:
+- Autofix commits
+- Agent-created branches
+
+```bash
+# Add bot as collaborator with push access
+curl -s -X PUT \
+  -H "Authorization: token $YOUR_PAT" \
+  "https://api.github.com/repos/stranske/<your-repo>/collaborators/stranske-automation-bot" \
+  -d '{"permission": "push"}'
+```
+
+- [ ] Bot invitation sent
+- [ ] Bot accepted invitation (check bot's GitHub notifications)
+
+### 2.2 Required Secrets
 
 Navigate to: **Settings** → **Secrets and variables** → **Actions** → **Secrets**
 
 | Secret Name | Description | Source |
 |-------------|-------------|--------|
-| `SERVICE_BOT_PAT` | PAT for stranske-automation-bot | Contact admin for token |
+| `SERVICE_BOT_PAT` | PAT for service bot account | Contact admin for token |
 | `ACTIONS_BOT_PAT` | PAT for workflow dispatch | Same as SERVICE_BOT_PAT or dedicated |
 | `OWNER_PR_PAT` | PAT for PR creation | Repository owner's PAT |
 | `CODEX_AUTH_JSON` | Codex CLI authentication | Export from `~/.codex/auth.json` |
@@ -380,8 +436,29 @@ inputs:
 
 ---
 
+## Phase 8: Register for Automatic Sync (Optional)
+
+To receive automatic updates when workflow templates change:
+
+1. Add your repo to `REGISTERED_CONSUMER_REPOS` in 
+   `stranske/Workflows/.github/workflows/maint-68-sync-consumer-repos.yml`
+
+2. Verify sync works:
+   ```bash
+   gh workflow run "Maint 68 Sync Consumer Repos" \
+     --repo stranske/Workflows \
+     -f repos="stranske/<your-repo>" \
+     -f dry_run=true
+   ```
+
+**Note**: Repos with custom Gate workflows should still be registered—only
+the thin caller workflows are synced, not custom implementations.
+
+---
+
 ## Version History
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 1.1 | 2025-12-27 | Added existing repo setup, bot collaborator access, sync registration |
 | 1.0 | 2025-01 | Initial checklist based on Travel-Plan-Permission learnings |
