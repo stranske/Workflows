@@ -33,9 +33,13 @@ permissions:
 env:
   # Consumer repos registered for automatic sync
   # Add new repos here as they're onboarded
+  # NOTE: Repos with custom Gate workflows (trip-planner, Manager-Database)
+  # still get synced for agent workflows - only pr-00-gate.yml is repo-specific
   REGISTERED_CONSUMER_REPOS: |
     stranske/Travel-Plan-Permission
     stranske/Template
+    stranske/trip-planner
+    stranske/Manager-Database
 
 jobs:
   prepare:
