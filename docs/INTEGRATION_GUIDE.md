@@ -487,9 +487,9 @@ The keepalive system intelligently routes CI failures to the appropriate fix mec
                     │  Gate Passed?   │
                     └─────────────────┘
                               │
-              ┌───────────────┼───────────────┐
-              │ Yes           │ No            │
-              ▼               ▼               ▼
+              ┌───────────────┴───────────────┐
+              │ Yes                           │ No
+              ▼                               ▼
     ┌─────────────────┐  ┌─────────────────┐
     │  Normal Work    │  │ Classify Failure│
     │  (run action)   │  └─────────────────┘
@@ -602,5 +602,5 @@ No additional configuration needed. The CI failure routing is built into the kee
 2. `pr-00-gate.yml` workflow (for gate status)
 3. `fix_ci_failures.md` prompt (in `.github/codex/prompts/`)
 
-If `fix_ci_failures.md` doesn't exist, the system falls back to `keepalive_next_task.md`.
+Ensure `fix_ci_failures.md` exists in `.github/codex/prompts/` for fix mode to work properly.
 

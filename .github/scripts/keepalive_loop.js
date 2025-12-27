@@ -244,12 +244,6 @@ function classifyFailureDetails({ action, runResult, summaryReason, agentExitCod
   }
 
 
-  // Determine prompt mode based on action
-  const promptMode = action === 'fix' ? 'fix_ci' : 'normal';
-  const promptFile = action === 'fix'
-    ? '.github/codex/prompts/fix_ci_failures.md'
-    : '.github/codex/prompts/keepalive_next_task.md';
-
   return {
     category,
     type,
@@ -465,7 +459,7 @@ async function resolvePrNumber({ github, context, core, payload: overridePayload
 
 /**
  * Classify gate failure type to determine appropriate fix mode
- * @returns {Object} { failureType: 'test'|'mypy'|'lint'|'unknown', shouldFixMode: boolean }
+ * @returns {Object} { failureType: 'test'|'mypy'|'lint'|'none'|'unknown', shouldFixMode: boolean, failedJobs: string[] }
  */
 async function classifyGateFailure({ github, context, pr, core }) {
   if (!pr) {
