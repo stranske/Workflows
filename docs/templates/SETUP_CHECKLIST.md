@@ -328,6 +328,12 @@ These scripts MUST exist in `.github/scripts/`:
 | `issue_scope_parser.js` | Parses scope from issue body | Agent bridge |
 | `keepalive_instruction_template.js` | Generates keepalive instructions | Agent bridge |
 
+> **Source**: These scripts are copied from `stranske/Workflows/.github/scripts/`
+> and are automatically synced by the `maint-68-sync-consumer-repos` workflow.
+> 
+> **Manual setup**: If setting up before sync, copy from the Workflows repo or
+> use the consumer-repo template at `templates/consumer-repo/.github/scripts/`.
+
 - [ ] All 4 JS scripts present
 
 ### 5.2 Required Python Scripts
@@ -569,6 +575,7 @@ bootstrapping agent work with a linked branch and draft PR.
 - `agent:codex` label — Triggers intake
 - `SERVICE_BOT_PAT` secret — For creating branches
 - `OWNER_PR_PAT` secret — For creating PRs
+- `.github/scripts/` — JavaScript scripts required by reusable workflow
 
 **Verification checklist**:
 - [ ] `agents-issue-intake.yml` exists in `.github/workflows/`
@@ -576,6 +583,7 @@ bootstrapping agent work with a linked branch and draft PR.
 - [ ] `SERVICE_BOT_PAT` secret is configured
 - [ ] `OWNER_PR_PAT` secret is configured
 - [ ] Issue templates exist in `.github/ISSUE_TEMPLATE/`
+- [ ] JavaScript scripts exist in `.github/scripts/` (see Phase 5.1)
 
 **How to test**:
 1. Create an issue with clear Tasks and Acceptance Criteria sections
@@ -588,6 +596,8 @@ bootstrapping agent work with a linked branch and draft PR.
 - Intake doesn't trigger: Check label is `agent:codex` (not `codex` or `agent-codex`)
 - PR not created: Check `OWNER_PR_PAT` has repo and workflow permissions
 - Branch not created: Check `SERVICE_BOT_PAT` has push access
+- `MODULE_NOT_FOUND` error: Missing `.github/scripts/*.js` files — copy from 
+  `stranske/Workflows/.github/scripts/` or run the sync workflow
 
 ---
 
