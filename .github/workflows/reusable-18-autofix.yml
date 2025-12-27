@@ -358,6 +358,7 @@ jobs:
         run: |
           set -euo pipefail
           # === Dynamic Python Target Detection ===
+          # shellcheck disable=SC2016 # Single quotes intentional - literal regex pattern
           STANDARD_EXCLUSIONS='\.git|\.venv|venv|\.env|env|__pycache__|node_modules|build|dist|\.tox|\.pytest_cache|\.mypy_cache|\.ruff_cache|htmlcov|\.coverage|\.eggs|\.egg-info'
           exclusion_pattern="$STANDARD_EXCLUSIONS"
           if [[ -f ".autofix-exclude" ]]; then
@@ -365,7 +366,7 @@ jobs:
             while IFS= read -r line || [[ -n "$line" ]]; do
               line=$(printf '%s' "$line" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
               if [[ -z "$line" ]] || [[ "$line" == \#* ]]; then continue; fi
-              escaped=$(printf '%s' "$line" | sed 's/[.[\*^$()+?{|]/\\&/g')
+              escaped=$(printf '%s' "$line" | sed 's/[][.\\*^$()+?{|]/\\&/g')
               exclusion_pattern="${exclusion_pattern}|${escaped}"
               echo "[autofix] Excluding: $line"
             done < ".autofix-exclude"
@@ -401,6 +402,7 @@ jobs:
           set -euo pipefail
           echo "[autofix-clean] Running clean cosmetic sweep"
           # === Dynamic Python Target Detection ===
+          # shellcheck disable=SC2016 # Single quotes intentional - literal regex pattern
           STANDARD_EXCLUSIONS='\.git|\.venv|venv|\.env|env|__pycache__|node_modules|build|dist|\.tox|\.pytest_cache|\.mypy_cache|\.ruff_cache|htmlcov|\.coverage|\.eggs|\.egg-info'
           exclusion_pattern="$STANDARD_EXCLUSIONS"
           if [[ -f ".autofix-exclude" ]]; then
@@ -408,7 +410,7 @@ jobs:
             while IFS= read -r line || [[ -n "$line" ]]; do
               line=$(printf '%s' "$line" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
               if [[ -z "$line" ]] || [[ "$line" == \#* ]]; then continue; fi
-              escaped=$(printf '%s' "$line" | sed 's/[.[\*^$()+?{|]/\\&/g')
+              escaped=$(printf '%s' "$line" | sed 's/[][.\\*^$()+?{|]/\\&/g')
               exclusion_pattern="${exclusion_pattern}|${escaped}"
               echo "[autofix-clean] Excluding: $line"
             done < ".autofix-exclude"
@@ -452,7 +454,7 @@ jobs:
             is_allowed=false
             for target in "${targets[@]}"; do
               clean_target="${target#./}"
-              if [[ "$path" == "$clean_target"/* ]] || [[ "$path" == "$clean_target" ]] || [[ "./$path" == "$target"/* ]]; then
+              if [[ "$path" == "$clean_target"/* ]] || [[ "$path" == "$clean_target" ]]; then
                 is_allowed=true; break
               fi
             done
@@ -495,18 +497,30 @@ jobs:
             done <<<"${ALLOWED_FILE_GLOBS}"
             if [ ${#allowed_patterns[@]} -eq 0 ]; then
               # Dynamic: Build allowed patterns from detected Python directories
+              # shellcheck disable=SC2016 # Single quotes intentional - literal regex pattern
               STANDARD_EXCLUSIONS='\.git|\.venv|venv|\.env|env|__pycache__|node_modules|build|dist|\.tox|\.pytest_cache|\.mypy_cache|\.ruff_cache|htmlcov|\.coverage|\.eggs|\.egg-info'
               exclusion_pattern="$STANDARD_EXCLUSIONS"
               if [[ -f ".autofix-exclude" ]]; then
                 while IFS= read -r line || [[ -n "$line" ]]; do
                   line=$(printf '%s' "$line" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
                   if [[ -z "$line" ]] || [[ "$line" == \#* ]]; then continue; fi
-                  escaped=$(printf '%s' "$line" | sed 's/[.[\*^$()+?{|]/\\&/g')
+                  escaped=$(printf '%s' "$line" | sed 's/[][.\\*^$()+?{|]/\\&/g')
                   exclusion_pattern="${exclusion_pattern}|${escaped}"
                 done < ".autofix-exclude"
               fi
               mapfile -t py_dirs < <(find . -name "*.py" -type f -printf '%h\n' 2>/dev/null | sort -u | grep -vE "$exclusion_pattern" || true)
+              # Filter out subdirectories when a parent directory is already present
+              filtered_py_dirs=()
               for dir in "${py_dirs[@]}"; do
+                is_subdir=false
+                if [ ${#filtered_py_dirs[@]} -gt 0 ]; then
+                  for parent in "${filtered_py_dirs[@]}"; do
+                    if [[ "$dir" == "$parent"/* ]]; then is_subdir=true; break; fi
+                  done
+                fi
+                if [ "$is_subdir" = false ]; then filtered_py_dirs+=("$dir"); fi
+              done
+              for dir in "${filtered_py_dirs[@]}"; do
                 clean_dir="${dir#./}"
                 if [[ -n "$clean_dir" ]]; then allowed_patterns+=("${clean_dir}/**"); fi
               done
