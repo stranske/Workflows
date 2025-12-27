@@ -262,7 +262,7 @@ Check that these workflows exist in `.github/workflows/`:
 
 **To fix if using old naming:**
 ```bash
-# Remove old thin caller (if agents-63 doesn't exist)
+# Remove old thin caller workflow
 rm .github/workflows/agents-issue-intake.yml
 
 # Copy full workflow from Workflows repo
