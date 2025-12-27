@@ -197,7 +197,15 @@ jobs:
             template_file="workflows/templates/consumer-repo/.github/workflows/$template_name"
             consumer_file="consumer/.github/workflows/$consumer_name"
 
-            if [ ! -f "$template_file" ] || [ ! -f "$consumer_file" ]; then
+            # Skip if template doesn't exist (nothing to sync from)
+            if [ ! -f "$template_file" ]; then
+              continue
+            fi
+
+            # Mark as change if consumer file is missing (new workflow to add)
+            if [ ! -f "$consumer_file" ]; then
+              changes="$changes $consumer_name"
+              sync_report="$sync_report\n- $consumer_name (missing, will be created)"
               continue
             fi
 
@@ -351,6 +359,7 @@ jobs:
             "agents-orchestrator.yml"
             "agents-pr-meta.yml"
             "agents-keepalive-loop.yml"
+            "agents-verifier.yml"
             "autofix.yml"
             "pr-00-gate.yml"
           )
