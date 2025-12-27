@@ -710,7 +710,7 @@ jobs:
           if [ -n "$existing_pr" ]; then
             echo "Updated existing PR #$existing_pr"
           else
-            gh pr create \
+            gh pr create --head "$branch" \
               --title "sync: Update workflow templates from stranske/Workflows" \
               --body "## Workflow Sync
 
