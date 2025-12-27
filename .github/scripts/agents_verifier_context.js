@@ -207,12 +207,17 @@ async function buildVerifierContext({ github, context, core, ciWorkflows }) {
   const sections = [];
   let acceptanceCount = 0;
   let hasAcceptanceContent = false;
+  let hasTasksContent = false;
 
   const pullSections = parseScopeTasksAcceptanceSections(pull.body || '');
   acceptanceCount += countCheckboxes(pullSections.acceptance);
   // Check for any acceptance content, not just checkboxes
   if (pullSections.acceptance && String(pullSections.acceptance).trim()) {
     hasAcceptanceContent = true;
+  }
+  // Check for any tasks content
+  if (pullSections.tasks && String(pullSections.tasks).trim()) {
+    hasTasksContent = true;
   }
   const prSections = extractScopeTasksAcceptanceSections(pull.body || '', {
     includePlaceholders: true,
@@ -231,6 +236,10 @@ async function buildVerifierContext({ github, context, core, ciWorkflows }) {
     // Check for any acceptance content, not just checkboxes
     if (issueSectionsParsed.acceptance && String(issueSectionsParsed.acceptance).trim()) {
       hasAcceptanceContent = true;
+    }
+    // Check for any tasks content
+    if (issueSectionsParsed.tasks && String(issueSectionsParsed.tasks).trim()) {
+      hasTasksContent = true;
     }
     const issueSections = extractScopeTasksAcceptanceSections(issue.body || '', {
       includePlaceholders: true,
@@ -312,8 +321,13 @@ async function buildVerifierContext({ github, context, core, ciWorkflows }) {
 
   // Skip verifier early if there are no acceptance criteria to verify
   // Check for any acceptance content (not just checkboxes) to handle plain-text criteria
-  if (!hasAcceptanceContent) {
-    const skipReason = 'No acceptance criteria found in PR or linked issues; skipping verifier.';
+  // Also require tasks content - PRs without both are likely bug fixes or simple changes
+  // that weren't intended for structured agent verification
+  if (!hasAcceptanceContent || !hasTasksContent) {
+    const missingParts = [];
+    if (!hasTasksContent) missingParts.push('tasks');
+    if (!hasAcceptanceContent) missingParts.push('acceptance criteria');
+    const skipReason = `No ${missingParts.join(' and ')} found in PR or linked issues; skipping verifier.`;
     core?.notice?.(skipReason);
     core?.setOutput?.('should_run', 'false');
     core?.setOutput?.('skip_reason', skipReason);

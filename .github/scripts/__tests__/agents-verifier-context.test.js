@@ -245,11 +245,14 @@ Simple change.
     },
     sha: 'sha-89',
   };
-  // Linked issue HAS acceptance criteria
+  // Linked issue HAS acceptance criteria AND tasks
   const issueWithAcceptance = {
     number: 100,
     title: 'Issue with acceptance',
-    body: `## Acceptance Criteria
+    body: `## Tasks
+- [ ] Implement feature
+
+## Acceptance Criteria
 - [ ] Feature works correctly
 - [ ] Tests pass
 `,
@@ -271,7 +274,7 @@ test('buildVerifierContext uses custom ciWorkflows when provided', async () => {
   const prDetails = {
     number: 90,
     title: 'Custom CI test',
-    body: `## Acceptance Criteria\n- [ ] CI passes`,
+    body: `## Tasks\n- [ ] Setup CI\n\n## Acceptance Criteria\n- [ ] CI passes`,
     html_url: 'https://example.com/pr/90',
     merge_commit_sha: 'merge-sha-90',
     base: { ref: 'main' },
