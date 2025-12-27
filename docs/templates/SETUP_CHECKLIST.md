@@ -229,15 +229,54 @@ Check that these workflows exist in `.github/workflows/`:
 |----------|---------|------------------------|
 | `pr-00-gate.yml` | CI enforcement, posts commit status | **YES** |
 | `agents-pr-meta.yml` | Detects keepalive comments | **YES** |
-| `agents-orchestrator.yml` | Runs keepalive sweeps (every 30 min) | **YES** |
-| `agents-issue-intake.yml` | Creates PRs from labeled issues | No |
+| `agents-70-orchestrator.yml` | Runs keepalive sweeps (every 30 min) | **YES** |
+| `agents-63-issue-intake.yml` | Creates PRs from labeled issues (full workflow) | No |
 | `agents-keepalive-loop.yml` | Keepalive iteration execution | **YES** |
 | `agents-verifier.yml` | Post-merge verification | No |
 | `autofix.yml` | Auto-fixes lint/format issues | No |
 | `ci.yml` | Thin caller for Python CI | No |
+| `maint-sync-workflows.yml` | Local sync check (weekly) | Recommended |
 
 - [ ] All workflow files present
 - [ ] Workflow files reference `stranske/Workflows@main`
+
+
+### 4.1b Validate Workflow File Naming
+
+> **Critical**: Consumer repos must use the correct workflow file naming convention.
+> Old naming (without numbers) indicates incomplete migration.
+
+**Expected files** (correct naming):
+- `agents-63-issue-intake.yml` — Full workflow with ChatGPT sync (NOT the old thin caller)
+- `agents-70-orchestrator.yml` — Orchestrator with numbered naming
+
+**Files that should NOT exist** (deprecated):
+- ~~`agents-issue-intake.yml`~~ — Old thin caller, replaced by `agents-63-issue-intake.yml`
+- ~~`agents-orchestrator.yml`~~ — Old naming, use `agents-70-orchestrator.yml` instead
+
+**Validation checklist:**
+- [ ] No deprecated workflow files present
+- [ ] `agents-63-issue-intake.yml` exists (NOT `agents-issue-intake.yml`)
+- [ ] `agents-70-orchestrator.yml` exists (may coexist with `agents-orchestrator.yml`)
+- [ ] `maint-sync-workflows.yml` exists for local sync checks
+
+**To fix if using old naming:**
+```bash
+# Remove old thin caller (if agents-63 doesn't exist)
+rm .github/workflows/agents-issue-intake.yml
+
+# Copy full workflow from Workflows repo
+curl -o .github/workflows/agents-63-issue-intake.yml \
+  https://raw.githubusercontent.com/stranske/Workflows/main/.github/workflows/agents-63-issue-intake.yml
+
+# Copy orchestrator with numbered naming  
+curl -o .github/workflows/agents-70-orchestrator.yml \
+  https://raw.githubusercontent.com/stranske/Workflows/main/templates/consumer-repo/.github/workflows/agents-orchestrator.yml
+
+# Copy local sync check workflow
+curl -o .github/workflows/maint-sync-workflows.yml \
+  https://raw.githubusercontent.com/stranske/Workflows/main/templates/consumer-repo/.github/workflows/maint-sync-workflows.yml
+```
 
 ### 4.2 Autofix Versions Configuration
 
