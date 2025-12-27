@@ -423,6 +423,15 @@ jobs:
             } >> "$GITHUB_OUTPUT"
             exit 0
           fi
+          # Build targets array from all_dirs (dedupe subdirectories)
+          targets=()
+          for dir in "${all_dirs[@]}"; do
+            is_subdir=false
+            for existing in "${targets[@]}"; do
+              if [[ "$dir" == "$existing"/* ]]; then is_subdir=true; break; fi
+            done
+            if [[ "$is_subdir" == "false" ]]; then targets+=("$dir"); fi
+          done
           printf '[autofix-clean] Target directories: %s\n' "${targets[*]}"
           ruff check "${targets[@]}" --select I --fix --exit-zero
           ruff check "${targets[@]}" --fix --exit-zero
@@ -437,14 +446,7 @@ jobs:
           mapfile -t changed_paths < <(git diff --name-only --diff-filter=ACMRTUXB)
           allowed_changes=()
           other_changes=()
-          targets=()
-          for dir in "${all_dirs[@]}"; do
-            is_subdir=false
-            for existing in "${targets[@]}"; do
-              if [[ "$dir" == "$existing"/* ]]; then is_subdir=true; break; fi
-            done
-            if [[ "$is_subdir" == "false" ]]; then targets+=("$dir"); fi
-          done
+          # targets already initialized above
           for path in "${changed_paths[@]}"; do
             if [[ -z "$path" ]]; then continue; fi
             is_allowed=false
