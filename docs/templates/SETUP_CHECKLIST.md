@@ -110,11 +110,60 @@ For repositories that already exist (not created from Template):
 
 ---
 
-## Phase 2: Secrets and Access Configuration
+## Phase 2: Labels Configuration
+
+> **Critical**: Workflows rely on specific labels to trigger automation. Missing labels
+> cause silent failures.
+
+### 2.1 Required Labels
+
+Create these labels in **Settings** → **Labels** (exact names required):
+
+| Label | Color | Description | Required For |
+|-------|-------|-------------|--------------|
+| `agent:codex` | `#0052CC` | Assigns Codex agent to issue | Issue intake, keepalive |
+| `agent:needs-attention` | `#D93F0B` | Agent needs human help | Error recovery |
+| `autofix` | `#1D76DB` | Triggers autofix on PR | Autofix workflow |
+| `autofix:clean` | `#5319E7` | Aggressive autofix mode | Autofix workflow |
+| `autofix:applied` | `#0E8A16` | Autofix was applied | Auto-created by workflow |
+| `autofix:clean-only` | `#FBCA04` | Clean-only autofix | Autofix workflow |
+
+Create each label:
+- [ ] `agent:codex`
+- [ ] `agent:needs-attention`
+- [ ] `autofix`
+- [ ] `autofix:clean`
+- [ ] `autofix:applied`
+- [ ] `autofix:clean-only`
+
+**Quick creation script:**
+```bash
+REPO="stranske/<your-repo>"
+
+# Create required labels
+gh label create "agent:codex" --color "0052CC" --description "Assigns Codex agent" --repo "$REPO" 2>/dev/null || echo "agent:codex exists"
+gh label create "agent:needs-attention" --color "D93F0B" --description "Agent needs human help" --repo "$REPO" 2>/dev/null || echo "agent:needs-attention exists"
+gh label create "autofix" --color "1D76DB" --description "Triggers autofix on PR" --repo "$REPO" 2>/dev/null || echo "autofix exists"
+gh label create "autofix:clean" --color "5319E7" --description "Aggressive autofix mode" --repo "$REPO" 2>/dev/null || echo "autofix:clean exists"
+gh label create "autofix:applied" --color "0E8A16" --description "Autofix was applied" --repo "$REPO" 2>/dev/null || echo "autofix:applied exists"
+gh label create "autofix:clean-only" --color "FBCA04" --description "Clean-only autofix" --repo "$REPO" 2>/dev/null || echo "autofix:clean-only exists"
+```
+
+### 2.2 Optional Labels
+
+| Label | Color | Description | Use Case |
+|-------|-------|-------------|----------|
+| `agent:codex-invite` | `#0052CC` | Invites Codex to participate | Staged agent activation |
+| `status:ready` | `#0E8A16` | Issue ready for processing | Manual workflow triggers |
+| `agent:copilot` | `#0052CC` | Assigns Copilot agent | Alternative agent |
+
+---
+
+## Phase 3: Secrets and Access Configuration
 
 > **Critical**: Keepalive automation will fail silently without these secrets.
 
-### 2.1 Bot Collaborator Access
+### 3.1 Bot Collaborator Access
 
 The service bot account needs **push access** to the repository for:
 - Autofix commits
@@ -131,7 +180,7 @@ curl -s -X PUT \
 - [ ] Bot invitation sent
 - [ ] Bot accepted invitation (check bot's GitHub notifications)
 
-### 2.2 Required Secrets
+### 3.2 Required Secrets
 
 Navigate to: **Settings** → **Secrets and variables** → **Actions** → **Secrets**
 
@@ -148,7 +197,7 @@ Add each secret:
 - [ ] `OWNER_PR_PAT` — Required for creating PRs from agent bridge
 - [ ] `CODEX_AUTH_JSON` — Required for Codex CLI to authenticate with ChatGPT
 
-### 2.2 Required Variables
+### 3.3 Required Variables
 
 Navigate to: **Settings** → **Secrets and variables** → **Actions** → **Variables**
 
@@ -161,9 +210,9 @@ Add the variable:
 
 ---
 
-## Phase 3: Workflow Configuration
+## Phase 4: Workflow Configuration
 
-### 3.1 Verify Workflow Files
+### 4.1 Verify Workflow Files
 
 Check that these workflows exist in `.github/workflows/`:
 
@@ -171,15 +220,41 @@ Check that these workflows exist in `.github/workflows/`:
 |----------|---------|------------------------|
 | `pr-00-gate.yml` | CI enforcement, posts commit status | **YES** |
 | `agents-pr-meta.yml` | Detects keepalive comments | **YES** |
-| `agents-70-orchestrator.yml` | Runs keepalive sweeps (every 30 min) | **YES** |
-| `agents-63-issue-intake.yml` | Creates issues from Issues.txt | No |
+| `agents-orchestrator.yml` | Runs keepalive sweeps (every 30 min) | **YES** |
+| `agents-issue-intake.yml` | Creates PRs from labeled issues | No |
+| `agents-keepalive-loop.yml` | Keepalive iteration execution | **YES** |
+| `agents-verifier.yml` | Post-merge verification | No |
 | `autofix.yml` | Auto-fixes lint/format issues | No |
 | `ci.yml` | Thin caller for Python CI | No |
 
 - [ ] All workflow files present
 - [ ] Workflow files reference `stranske/Workflows@main`
 
-### 3.2 Critical Workflow Configuration
+### 4.2 Autofix Versions Configuration
+
+> **Important**: Each repository maintains its own `autofix-versions.env` file
+> with dependency versions matching its lock files. This file is NOT synced.
+
+Create `.github/workflows/autofix-versions.env`:
+
+```bash
+# Tool versions for autofix - match your project's lock files
+RUFF_VERSION=0.8.1
+MYPY_VERSION=1.14.0
+BLACK_VERSION=24.10.0
+ISORT_VERSION=5.13.2
+```
+
+- [ ] `autofix-versions.env` file created
+- [ ] Versions match project's dependency versions
+
+To find your current versions:
+```bash
+# From your project's requirements or pyproject.toml
+grep -E "ruff|mypy|black|isort" requirements*.txt pyproject.toml 2>/dev/null
+```
+
+### 4.3 Critical Workflow Configuration
 
 **In `agents-pr-meta.yml`:**
 
@@ -234,9 +309,9 @@ This handles the race condition where a human posts `@codex` before Gate finishe
 
 ---
 
-## Phase 4: Scripts Configuration
+## Phase 5: Scripts Configuration
 
-### 4.1 Required JavaScript Scripts
+### 5.1 Required JavaScript Scripts
 
 These scripts MUST exist in `.github/scripts/`:
 
@@ -249,7 +324,7 @@ These scripts MUST exist in `.github/scripts/`:
 
 - [ ] All 4 JS scripts present
 
-### 4.2 Required Python Scripts
+### 5.2 Required Python Scripts
 
 These scripts MUST exist in `.github/scripts/`:
 
@@ -261,7 +336,7 @@ These scripts MUST exist in `.github/scripts/`:
 
 - [ ] All 3 Python scripts present
 
-### 4.3 Required Codex Prompts
+### 5.3 Required Codex Prompts
 
 These files MUST exist in `.github/codex/` for the keepalive pipeline:
 
@@ -276,7 +351,7 @@ These files MUST exist in `.github/codex/` for the keepalive pipeline:
 > **Critical**: Without these files, the `reusable-codex-run.yml` workflow will
 > fail with "Base prompt file not found".
 
-### 4.4 Required Templates
+### 5.4 Required Templates
 
 Templates MUST exist in `.github/templates/`:
 
@@ -288,9 +363,9 @@ Templates MUST exist in `.github/templates/`:
 
 ---
 
-## Phase 5: Project Files
+## Phase 6: Project Files
 
-### 5.1 Issues.txt Format
+### 6.1 Issues.txt Format
 
 If using ChatGPT sync, create an `Issues.txt` file in the repository root:
 
@@ -328,7 +403,7 @@ Why
 - [ ] Each issue has `Labels:` line with `agent:codex`
 - [ ] Each issue has Why, Scope, Tasks, and Acceptance criteria sections
 
-### 5.2 Python Project Files
+### 6.2 Python Project Files
 
 For Python projects, ensure:
 
@@ -339,12 +414,12 @@ For Python projects, ensure:
 
 ---
 
-## Phase 6: Branch Protection (Optional but Recommended)
+## Phase 7: Branch Protection (Optional but Recommended)
 
 > **Note**: Configure branch protection AFTER your first successful PR to avoid
 > blocking the initial setup.
 
-### 6.1 Recommended Settings
+### 7.1 Recommended Settings
 
 Navigate to: **Settings** → **Branches** → **Add branch protection rule**
 
@@ -358,9 +433,9 @@ For the `main` branch:
 
 ---
 
-## Phase 7: Testing the Setup
+## Phase 8: Testing the Setup
 
-### 7.1 Test CI Workflow
+### 8.1 Test CI Workflow
 
 1. Create a test branch:
    ```bash
@@ -376,7 +451,7 @@ For the `main` branch:
    - [ ] Python CI job runs (if Python code exists)
    - [ ] Commit status is posted (`Gate / gate`)
 
-### 7.2 Test Keepalive (After Gate Works)
+### 8.2 Test Keepalive (After Gate Works)
 
 1. Create an issue with `agent:codex` label
 2. Wait for agents-63 to create a bootstrap PR
@@ -461,7 +536,7 @@ inputs:
 
 ---
 
-## Phase 8: Register for Automatic Sync (Optional)
+## Phase 9: Register for Automatic Sync (Optional)
 
 To receive automatic updates when workflow templates change:
 
