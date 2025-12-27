@@ -21,3 +21,13 @@ repository. It is intended to validate compatibility from an external consumer p
 
 The placeholder string `__WORKFLOW_REF__` inside the template files is replaced with your provided
 workflow reference when rendering.
+
+## Automated Sync
+
+This template is automatically synced to the [Workflows-Integration-Tests](https://github.com/stranske/Workflows-Integration-Tests) repository:
+
+- **Sync Workflow**: `.github/workflows/maint-69-sync-integration-repo.yml`
+- **Health Check**: `.github/workflows/health-67-integration-sync-check.yml`
+- **Trigger**: Pushes to main that modify `templates/integration-repo/**` or `.github/workflows/autofix-versions.env`
+
+The Integration-Tests repo serves as the live validation environment for the reusable CI workflow.
