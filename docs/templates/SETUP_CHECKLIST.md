@@ -250,9 +250,9 @@ Check that these workflows exist in `.github/workflows/`:
 - `agents-63-issue-intake.yml` — Full workflow with ChatGPT sync (NOT the old thin caller)
 - `agents-70-orchestrator.yml` — Orchestrator with numbered naming
 
-**Files that should NOT exist** (deprecated):
+**Deprecated or legacy files:**
 - ~~`agents-issue-intake.yml`~~ — Old thin caller, replaced by `agents-63-issue-intake.yml`
-- ~~`agents-orchestrator.yml`~~ — Old naming, use `agents-70-orchestrator.yml` instead
+- `agents-orchestrator.yml` — Legacy unnumbered naming; still valid and may coexist, but prefer `agents-70-orchestrator.yml`
 
 **Validation checklist:**
 - [ ] No deprecated workflow files present
@@ -275,7 +275,7 @@ curl -o .github/workflows/agents-70-orchestrator.yml \
 
 # Copy local sync check workflow
 curl -o .github/workflows/maint-sync-workflows.yml \
-  https://raw.githubusercontent.com/stranske/Workflows/main/templates/consumer-repo/.github/workflows/maint-sync-workflows.yml
+  https://raw.githubusercontent.com/stranske/Travel-Plan-Permission/main/.github/workflows/maint-sync-workflows.yml
 ```
 
 ### 4.2 Autofix Versions Configuration

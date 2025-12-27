@@ -441,7 +441,7 @@ jobs:
               echo "⚠️ **Workflow file validation:**$deprecated_warnings"
               echo ""
               echo "**Action required:** Remove deprecated files and add missing workflows."
-              echo "See [SETUP_CHECKLIST](../docs/templates/SETUP_CHECKLIST.md) for details."
+              echo "See [SETUP_CHECKLIST](https://github.com/stranske/Workflows/blob/main/docs/templates/SETUP_CHECKLIST.md) for details."
             } >> "$GITHUB_STEP_SUMMARY"
           fi
 
