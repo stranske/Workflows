@@ -9,7 +9,7 @@
 # Copy this file to: .github/workflows/agents-orchestrator.yml
 #
 # Required secrets:
-# - SERVICE_BOT_PAT: PAT for stranske-automation-bot
+# - SERVICE_BOT_PAT: PAT for service bot account (used by agents)
 # - ACTIONS_BOT_PAT: PAT for workflow dispatch (triggers connector)
 name: Agents Orchestrator
 
@@ -64,8 +64,8 @@ jobs:
       readiness_agents: "copilot,codex"
       enable_preflight: "false"
       enable_verify_issue: "false"
-      enable_watchdog: ${{ inputs.enable_watchdog && 'true' || 'true' }}
-      enable_keepalive: ${{ inputs.enable_keepalive && 'true' || 'true' }}
+      enable_watchdog: ${{ inputs.enable_watchdog && 'true' || 'false' }}
+      enable_keepalive: ${{ inputs.enable_keepalive && 'true' || 'false' }}
       enable_bootstrap: ${{ inputs.enable_bootstrap && 'true' || 'false' }}
       bootstrap_issues_label: "agent:codex"
       draft_pr: "false"
