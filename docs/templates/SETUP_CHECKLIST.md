@@ -129,6 +129,7 @@ Create these labels in **Settings** → **Labels** (exact names required):
 |-------|-------|-------------|--------------|
 | `agent:codex` | `#0052CC` | Assigns Codex agent to issue | Issue intake, keepalive |
 | `agent:needs-attention` | `#D93F0B` | Agent needs human help | Error recovery |
+| `agents:keepalive` | `#0E8A16` | Enables keepalive automation | PR keepalive loops |
 | `autofix` | `#1D76DB` | Triggers autofix on PR | Autofix workflow |
 | `autofix:clean` | `#5319E7` | Aggressive autofix mode | Autofix workflow |
 | `autofix:applied` | `#0E8A16` | Autofix was applied | Auto-created by workflow |
@@ -137,6 +138,7 @@ Create these labels in **Settings** → **Labels** (exact names required):
 Create each label:
 - [ ] `agent:codex`
 - [ ] `agent:needs-attention`
+- [ ] `agents:keepalive`
 - [ ] `autofix`
 - [ ] `autofix:clean`
 - [ ] `autofix:applied`
@@ -149,6 +151,7 @@ REPO="stranske/<your-repo>"
 # Create required labels
 gh label create "agent:codex" --color "0052CC" --description "Assigns Codex agent" --repo "$REPO" 2>/dev/null || echo "agent:codex exists"
 gh label create "agent:needs-attention" --color "D93F0B" --description "Agent needs human help" --repo "$REPO" 2>/dev/null || echo "agent:needs-attention exists"
+gh label create "agents:keepalive" --color "0E8A16" --description "Enables keepalive automation" --repo "$REPO" 2>/dev/null || echo "agents:keepalive exists"
 gh label create "autofix" --color "1D76DB" --description "Triggers autofix on PR" --repo "$REPO" 2>/dev/null || echo "autofix exists"
 gh label create "autofix:clean" --color "5319E7" --description "Aggressive autofix mode" --repo "$REPO" 2>/dev/null || echo "autofix:clean exists"
 gh label create "autofix:applied" --color "0E8A16" --description "Autofix was applied" --repo "$REPO" 2>/dev/null || echo "autofix:applied exists"
@@ -327,6 +330,12 @@ These scripts MUST exist in `.github/scripts/`:
 | `issue_context_utils.js` | Issue context helpers | Agent bridge |
 | `issue_scope_parser.js` | Parses scope from issue body | Agent bridge |
 | `keepalive_instruction_template.js` | Generates keepalive instructions | Agent bridge |
+
+> **Source**: These scripts are copied from `stranske/Workflows/.github/scripts/`
+> and are automatically synced by the `maint-68-sync-consumer-repos` workflow.
+> 
+> **Manual setup**: If setting up before sync, copy from the Workflows repo or
+> use the consumer-repo template at `templates/consumer-repo/.github/scripts/`.
 
 - [ ] All 4 JS scripts present
 
@@ -569,6 +578,7 @@ bootstrapping agent work with a linked branch and draft PR.
 - `agent:codex` label — Triggers intake
 - `SERVICE_BOT_PAT` secret — For creating branches
 - `OWNER_PR_PAT` secret — For creating PRs
+- `.github/scripts/` — JavaScript scripts required by reusable workflow
 
 **Verification checklist**:
 - [ ] `agents-issue-intake.yml` exists in `.github/workflows/`
@@ -576,6 +586,7 @@ bootstrapping agent work with a linked branch and draft PR.
 - [ ] `SERVICE_BOT_PAT` secret is configured
 - [ ] `OWNER_PR_PAT` secret is configured
 - [ ] Issue templates exist in `.github/ISSUE_TEMPLATE/`
+- [ ] JavaScript scripts exist in `.github/scripts/` (see Phase 5.1)
 
 **How to test**:
 1. Create an issue with clear Tasks and Acceptance Criteria sections
@@ -588,6 +599,8 @@ bootstrapping agent work with a linked branch and draft PR.
 - Intake doesn't trigger: Check label is `agent:codex` (not `codex` or `agent-codex`)
 - PR not created: Check `OWNER_PR_PAT` has repo and workflow permissions
 - Branch not created: Check `SERVICE_BOT_PAT` has push access
+- `MODULE_NOT_FOUND` error: Missing `.github/scripts/*.js` files — copy from 
+  `stranske/Workflows/.github/scripts/` or run the sync workflow
 
 ---
 

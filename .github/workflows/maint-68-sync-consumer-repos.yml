@@ -128,10 +128,19 @@ jobs:
           )
 
           # Scripts that need to be synced for full workflows
+          # Python scripts for ChatGPT sync
           SYNC_SCRIPTS=(
             "decode_raw_input.py"
             "parse_chatgpt_topics.py"
             "fallback_split.py"
+          )
+
+          # JavaScript scripts required by reusable workflows (issue-bridge)
+          SYNC_JS_SCRIPTS=(
+            "issue_pr_locator.js"
+            "issue_context_utils.js"
+            "issue_scope_parser.js"
+            "keepalive_instruction_template.js"
           )
 
           # Codex prompts and instructions (required for keepalive to work)
@@ -240,6 +249,24 @@ jobs:
 
           # Check scripts
           for script in "${SYNC_SCRIPTS[@]}"; do
+            source_file="workflows/.github/scripts/$script"
+            consumer_file="consumer/.github/scripts/$script"
+
+            if [ ! -f "$source_file" ]; then
+              continue
+            fi
+
+            if [ ! -f "$consumer_file" ]; then
+              changes="$changes scripts/$script"
+              sync_report="$sync_report\n- scripts/$script (missing)"
+            elif ! compare_files "$source_file" "$consumer_file" false; then
+              changes="$changes scripts/$script"
+              sync_report="$sync_report\n- scripts/$script (differs)"
+            fi
+          done
+
+          # Check JavaScript scripts (required by reusable workflows)
+          for script in "${SYNC_JS_SCRIPTS[@]}"; do
             source_file="workflows/.github/scripts/$script"
             consumer_file="consumer/.github/scripts/$script"
 
@@ -382,6 +409,41 @@ jobs:
             } >> "$GITHUB_STEP_SUMMARY"
           fi
 
+      - name: Verify required labels
+        env:
+          GH_TOKEN: ${{ env.SYNC_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          REQUIRED_LABELS=(
+            "agent:codex"
+            "agent:needs-attention"
+            "agents:keepalive"
+            "autofix"
+            "autofix:applied"
+            "autofix:clean"
+            "autofix:clean-only"
+          )
+
+          # Get existing labels from the consumer repo
+          existing_labels=$(gh api "repos/${{ matrix.repo }}/labels" --jq '.[].name' 2>/dev/null || echo "")
+
+          label_warnings=""
+          for label in "${REQUIRED_LABELS[@]}"; do
+            if ! echo "$existing_labels" | grep -qx "$label"; then
+              label_warnings="$label_warnings\n- Missing: \`$label\`"
+            fi
+          done
+
+          if [ -n "$label_warnings" ]; then
+            {
+              echo ""
+              echo "⚠️ **Required labels check:**$label_warnings"
+              echo "Create missing labels in Settings → Labels. See [SETUP_CHECKLIST](https://github.com/stranske/Workflows/blob/main/docs/templates/SETUP_CHECKLIST.md#21-required-labels) for details."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+
       - name: Apply template updates
         if: steps.detect.outputs.has_changes == 'true' || inputs.force == true
         run: |
@@ -442,7 +504,7 @@ jobs:
             fi
           done
 
-          # Sync scripts
+          # Sync Python scripts
           SYNC_SCRIPTS=(
             "decode_raw_input.py"
             "parse_chatgpt_topics.py"
@@ -451,6 +513,23 @@ jobs:
 
           mkdir -p .github/scripts
           for script in "${SYNC_SCRIPTS[@]}"; do
+            source="../workflows/.github/scripts/$script"
+            target=".github/scripts/$script"
+
+            if [ -f "$source" ]; then
+              cp "$source" "$target"
+            fi
+          done
+
+          # Sync JavaScript scripts required by reusable workflows (issue-bridge)
+          SYNC_JS_SCRIPTS=(
+            "issue_pr_locator.js"
+            "issue_context_utils.js"
+            "issue_scope_parser.js"
+            "keepalive_instruction_template.js"
+          )
+
+          for script in "${SYNC_JS_SCRIPTS[@]}"; do
             source="../workflows/.github/scripts/$script"
             target=".github/scripts/$script"
 
