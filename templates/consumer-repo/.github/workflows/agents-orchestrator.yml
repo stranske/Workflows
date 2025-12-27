@@ -60,12 +60,16 @@ jobs:
     name: Agent Orchestration
     uses: stranske/Workflows/.github/workflows/reusable-16-agents.yml@main
     with:
+      # Readiness/bootstrap default to false (opt-in)
       enable_readiness: ${{ inputs.enable_readiness && 'true' || 'false' }}
       readiness_agents: "copilot,codex"
       enable_preflight: "false"
       enable_verify_issue: "false"
-      enable_watchdog: ${{ inputs.enable_watchdog && 'true' || 'false' }}
-      enable_keepalive: ${{ inputs.enable_keepalive && 'true' || 'false' }}
+      # Watchdog/keepalive default to true for schedule, respect input for dispatch
+      # When triggered by schedule, inputs.* is null, so we default to 'true'
+      # When triggered by workflow_dispatch, we use the actual input value
+      enable_watchdog: ${{ github.event_name == 'schedule' && 'true' || (inputs.enable_watchdog && 'true' || 'false') }}
+      enable_keepalive: ${{ github.event_name == 'schedule' && 'true' || (inputs.enable_keepalive && 'true' || 'false') }}
       enable_bootstrap: ${{ inputs.enable_bootstrap && 'true' || 'false' }}
       bootstrap_issues_label: "agent:codex"
       draft_pr: "false"
