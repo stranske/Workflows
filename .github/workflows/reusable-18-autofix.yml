@@ -818,7 +818,7 @@ jobs:
               labels="$labels, \`${CLEAN_LABEL}\`"
             fi
           else
-            labels="\`autofix:clean\`"
+            labels="(none)"
           fi
           if [ "${REMAINING:-0}" -gt 0 ]; then
             labels="$labels, \`autofix:debt\`"
@@ -924,9 +924,9 @@ jobs:
             if (changed && (!sameRepo || authMode !== 'pat')) {
               desired.add(patchLabel);
             }
-            if (!changed) {
-              desired.add(cleanLabel);
-            }
+            // NOTE: We intentionally do NOT add cleanLabel when !changed
+            // The autofix:clean label is used as a trigger, not an outcome
+            // Adding it here caused a race condition with bootstrap PRs (see issue #217)
             if ((process.env.MODE || '').toLowerCase() === 'clean') {
               desired.add(cleanOnlyLabel);
               if (cleanInputLabel) {
