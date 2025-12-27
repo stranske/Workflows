@@ -259,20 +259,23 @@ async function buildVerifierContext({ github, context, core, ciWorkflows }) {
 
   // Parse ciWorkflows if provided (can be array or JSON string)
   let workflows = null;
-  if (ciWorkflows) {
-    if (Array.isArray(ciWorkflows)) {
-      workflows = ciWorkflows.map((w) =>
-        typeof w === 'string' ? { workflow_id: w, workflow_name: w } : w
-      );
-    } else if (typeof ciWorkflows === 'string') {
+  if (Array.isArray(ciWorkflows)) {
+    workflows = ciWorkflows.map((w) =>
+      typeof w === 'string' ? { workflow_id: w, workflow_name: w } : w
+    );
+  } else if (typeof ciWorkflows === 'string') {
+    const trimmed = ciWorkflows.trim();
+    if (trimmed) {
       try {
-        const parsed = JSON.parse(ciWorkflows);
+        const parsed = JSON.parse(trimmed);
         workflows = Array.isArray(parsed)
-          ? parsed.map((w) => (typeof w === 'string' ? { workflow_id: w, workflow_name: w } : w))
+          ? parsed.map((w) =>
+              typeof w === 'string' ? { workflow_id: w, workflow_name: w } : w
+            )
           : null;
       } catch {
         // Not valid JSON, treat as single workflow name
-        workflows = [{ workflow_id: ciWorkflows, workflow_name: ciWorkflows }];
+        workflows = [{ workflow_id: trimmed, workflow_name: trimmed }];
       }
     }
   }
