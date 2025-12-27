@@ -147,6 +147,11 @@ jobs:
             "AGENT_ISSUE_FORMAT.md"
           )
 
+          # Root config files from template
+          SYNC_ROOT_CONFIGS=(
+            ".gitignore"
+          )
+
           changes=""
           sync_report=""
 
@@ -277,6 +282,24 @@ jobs:
             fi
           done
 
+          # Check root config files
+          for config_file in "${SYNC_ROOT_CONFIGS[@]}"; do
+            source_file="workflows/templates/consumer-repo/$config_file"
+            consumer_file="consumer/$config_file"
+
+            if [ ! -f "$source_file" ]; then
+              continue
+            fi
+
+            if [ ! -f "$consumer_file" ]; then
+              changes="$changes $config_file"
+              sync_report="$sync_report\n- $config_file (missing)"
+            elif ! compare_files "$source_file" "$consumer_file" false; then
+              changes="$changes $config_file"
+              sync_report="$sync_report\n- $config_file (differs)"
+            fi
+          done
+
           if [ -n "$changes" ]; then
             echo "has_changes=true" >> "$GITHUB_OUTPUT"
             echo "changed_files=$changes" >> "$GITHUB_OUTPUT"
@@ -396,6 +419,30 @@ jobs:
 
             if [ -f "$source" ]; then
               cp "$source" "$target"
+            fi
+          done
+
+          # Sync root config files
+          SYNC_ROOT_CONFIGS=(
+            ".gitignore"
+          )
+
+          for config_file in "${SYNC_ROOT_CONFIGS[@]}"; do
+            source="../workflows/templates/consumer-repo/$config_file"
+            target="$config_file"
+
+            if [ -f "$source" ]; then
+              # For .gitignore, merge rather than replace to preserve custom entries
+              if [ "$config_file" = ".gitignore" ] && [ -f "$target" ]; then
+                # Append any lines from source that aren't already in target
+                while IFS= read -r line; do
+                  if ! grep -qxF "$line" "$target" 2>/dev/null; then
+                    echo "$line" >> "$target"
+                  fi
+                done < "$source"
+              else
+                cp "$source" "$target"
+              fi
             fi
           done
 
