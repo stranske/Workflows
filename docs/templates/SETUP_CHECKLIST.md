@@ -433,9 +433,258 @@ For the `main` branch:
 
 ---
 
-## Phase 8: Testing the Setup
+## Phase 8: Functional Areas Walkthrough
 
-### 8.1 Test CI Workflow
+This section explains each functional area of the workflow system, how to verify
+it's properly configured, and how to test it.
+
+### 8.1 Gate/CI System
+
+**Purpose**: Enforces code quality by running tests, linting, and formatting checks
+on every PR. Posts a commit status that other workflows depend on.
+
+**Workflows involved**:
+| Workflow | Role |
+|----------|------|
+| `pr-00-gate.yml` | Orchestrates CI jobs, posts `Gate / gate` commit status |
+| `ci.yml` | Optional thin caller for Python CI (if not using Gate's built-in) |
+
+**Key dependencies**:
+- `autofix-versions.env` — Tool version pins for consistent behavior
+
+**Verification checklist**:
+- [ ] `pr-00-gate.yml` exists in `.github/workflows/`
+- [ ] Workflow has a `summary` job that posts commit status
+- [ ] Commit status context is exactly `Gate / gate`
+- [ ] `autofix-versions.env` exists with tool versions
+
+**How to test**:
+1. Create a PR with a simple change
+2. Verify the Gate workflow runs
+3. Check that commit status `Gate / gate` appears on the PR
+4. Status should be `success`, `failure`, or `error` (never stuck at `pending`)
+
+**Troubleshooting**:
+- If status stays `pending`: Check the summary job ran and used `createCommitStatus`
+- If tests fail unexpectedly: Verify tool versions in `autofix-versions.env` match local
+
+---
+
+### 8.2 Keepalive System
+
+**Purpose**: Automatically continues agent work through multiple iterations until
+tasks are complete or the iteration limit is reached.
+
+**Workflows involved**:
+| Workflow | Role |
+|----------|------|
+| `agents-pr-meta.yml` | Detects `@codex` comments, triggers keepalive |
+| `agents-orchestrator.yml` | Scheduled sweeps to find stalled PRs |
+| `agents-keepalive-loop.yml` | Executes keepalive iterations |
+
+**Key dependencies**:
+- `.github/codex/AGENT_INSTRUCTIONS.md` — Agent security boundaries
+- `.github/codex/prompts/keepalive_next_task.md` — Iteration prompt template
+- `Gate / gate` commit status — Keepalive waits for CI before proceeding
+- `ALLOWED_KEEPALIVE_LOGINS` variable — Who can trigger keepalive
+
+**Verification checklist**:
+- [ ] `agents-pr-meta.yml` exists with `issue_comment` and `workflow_run` triggers
+- [ ] `agents-orchestrator.yml` exists with `schedule` trigger
+- [ ] `agents-keepalive-loop.yml` exists
+- [ ] `.github/codex/AGENT_INSTRUCTIONS.md` exists
+- [ ] `.github/codex/prompts/keepalive_next_task.md` exists
+- [ ] `ALLOWED_KEEPALIVE_LOGINS` variable is set in repo settings
+
+**How to test**:
+1. Create a PR from an issue with `agent:codex` label
+2. Post `@codex` comment on the PR
+3. Verify `agents-pr-meta.yml` workflow triggers
+4. Check workflow logs for keepalive evaluation
+5. If Gate passed, keepalive should dispatch to `agents-keepalive-loop.yml`
+
+**Troubleshooting**:
+- `pr_meta_comment` job skipped: Check `pr_number` uses `fromJSON()` wrapper
+- "keepalive disabled": Check `ALLOWED_KEEPALIVE_LOGINS` includes comment author
+- "gate-not-concluded": Gate hasn't finished; wait or check Gate workflow
+- Missing codex files: Add from `templates/consumer-repo/.github/codex/`
+
+---
+
+### 8.3 Autofix System
+
+**Purpose**: Automatically fixes code style issues (formatting, linting, imports)
+when the `autofix` or `autofix:clean` label is added to a PR.
+
+**Workflows involved**:
+| Workflow | Role |
+|----------|------|
+| `autofix.yml` | Thin caller that triggers on label, delegates to reusable workflow |
+
+**Key dependencies**:
+- `autofix-versions.env` — Tool versions (ruff, black, mypy, etc.)
+- `SERVICE_BOT_PAT` secret — For pushing autofix commits
+- `autofix` label — Triggers standard autofix
+- `autofix:clean` label — Triggers aggressive clean mode
+
+**Verification checklist**:
+- [ ] `autofix.yml` exists in `.github/workflows/`
+- [ ] `autofix-versions.env` exists with tool versions
+- [ ] `SERVICE_BOT_PAT` secret is configured
+- [ ] Labels `autofix` and `autofix:clean` exist in repository
+
+**How to test**:
+1. Create a PR with intentional style issues (wrong indentation, unsorted imports)
+2. Add the `autofix` label to the PR
+3. Verify autofix workflow runs
+4. Check that autofix commits are pushed to the PR branch
+5. Verify `autofix:applied` label is added after successful fix
+
+**Troubleshooting**:
+- Autofix doesn't run: Check label name is exactly `autofix` (case-sensitive)
+- Fixes don't match local: Ensure `autofix-versions.env` matches local tool versions
+- Permission denied on push: Check `SERVICE_BOT_PAT` has push access
+
+---
+
+### 8.4 Issue Intake System
+
+**Purpose**: Automatically creates PRs from issues labeled with `agent:codex`,
+bootstrapping agent work with a linked branch and draft PR.
+
+**Workflows involved**:
+| Workflow | Role |
+|----------|------|
+| `agents-issue-intake.yml` | Triggers on issue label, creates branch and PR |
+
+**Key dependencies**:
+- `agent:codex` label — Triggers intake
+- `SERVICE_BOT_PAT` secret — For creating branches
+- `OWNER_PR_PAT` secret — For creating PRs
+
+**Verification checklist**:
+- [ ] `agents-issue-intake.yml` exists in `.github/workflows/`
+- [ ] `agent:codex` label exists in repository
+- [ ] `SERVICE_BOT_PAT` secret is configured
+- [ ] `OWNER_PR_PAT` secret is configured
+- [ ] Issue templates exist in `.github/ISSUE_TEMPLATE/`
+
+**How to test**:
+1. Create an issue with clear Tasks and Acceptance Criteria sections
+2. Add the `agent:codex` label
+3. Verify intake workflow runs
+4. Check that a branch `codex/issue-<number>` is created
+5. Verify a draft PR is opened linking to the issue
+
+**Troubleshooting**:
+- Intake doesn't trigger: Check label is `agent:codex` (not `codex` or `agent-codex`)
+- PR not created: Check `OWNER_PR_PAT` has repo and workflow permissions
+- Branch not created: Check `SERVICE_BOT_PAT` has push access
+
+---
+
+### 8.5 Verifier System
+
+**Purpose**: After a PR is merged, verifies that acceptance criteria were met and
+creates follow-up issues for any unmet criteria.
+
+**Workflows involved**:
+| Workflow | Role |
+|----------|------|
+| `agents-verifier.yml` | Triggers on PR merge, evaluates acceptance criteria |
+
+**Key dependencies**:
+- PR must have Tasks AND Acceptance Criteria sections (or linked issue does)
+- CI results are collected for context
+
+**Verification checklist**:
+- [ ] `agents-verifier.yml` exists in `.github/workflows/`
+- [ ] Workflow has `pull_request` trigger with `closed` type
+
+**How to test**:
+1. Create a PR with Tasks and Acceptance Criteria sections
+2. Merge the PR
+3. Verify verifier workflow runs
+4. Check workflow output for verification results
+5. If criteria unmet, verify follow-up issue is created
+
+**Troubleshooting**:
+- Verifier skipped: PR or linked issue must have BOTH Tasks and Acceptance Criteria
+- No follow-up issue: All criteria were met (success case)
+- Wrong criteria evaluated: Check linked issues are properly referenced
+
+---
+
+### 8.6 Orchestrator System
+
+**Purpose**: Runs scheduled sweeps to find PRs that need keepalive attention,
+including watchdog checks for stalled automation.
+
+**Workflows involved**:
+| Workflow | Role |
+|----------|------|
+| `agents-orchestrator.yml` | Scheduled (every 30 min) keepalive sweeps |
+
+**Key dependencies**:
+- Scheduled cron trigger
+- `SERVICE_BOT_PAT` for cross-repo operations
+
+**Verification checklist**:
+- [ ] `agents-orchestrator.yml` exists in `.github/workflows/`
+- [ ] Workflow has `schedule` trigger with cron expression
+- [ ] `SERVICE_BOT_PAT` secret is configured
+
+**How to test**:
+1. Manually dispatch the orchestrator workflow
+2. Check workflow logs for PR sweep results
+3. Verify it identifies PRs needing keepalive
+
+**Troubleshooting**:
+- Scheduled runs don't occur: GitHub may delay/skip schedules on inactive repos
+- No PRs found: Check filter criteria (open PRs with agent labels)
+
+---
+
+### 8.7 System Dependencies Diagram
+
+```
+┌─────────────────┐
+│   Issue Intake  │  Creates branch + PR from labeled issue
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│      Gate       │  Runs CI, posts commit status
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│   PR Meta       │  Detects @codex, checks Gate status
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ Keepalive Loop  │  Runs agent iterations
+└────────┬────────┘
+         │
+         ├──────────────────────┐
+         ▼                      ▼
+┌─────────────────┐    ┌─────────────────┐
+│    Autofix      │    │  Orchestrator   │
+│  (on demand)    │    │  (scheduled)    │
+└─────────────────┘    └─────────────────┘
+         │
+         ▼
+┌─────────────────┐
+│    Verifier     │  Post-merge validation
+└─────────────────┘
+```
+
+---
+
+## Phase 9: Testing the Setup
+
+### 9.1 Test CI Workflow
 
 1. Create a test branch:
    ```bash
@@ -451,7 +700,7 @@ For the `main` branch:
    - [ ] Python CI job runs (if Python code exists)
    - [ ] Commit status is posted (`Gate / gate`)
 
-### 8.2 Test Keepalive (After Gate Works)
+### 9.2 Test Keepalive (After Gate Works)
 
 1. Create an issue with `agent:codex` label
 2. Wait for agents-63 to create a bootstrap PR
@@ -536,7 +785,7 @@ inputs:
 
 ---
 
-## Phase 9: Register for Automatic Sync (Optional)
+## Phase 10: Register for Automatic Sync (Optional)
 
 To receive automatic updates when workflow templates change:
 
