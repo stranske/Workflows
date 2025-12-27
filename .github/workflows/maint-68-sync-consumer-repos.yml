@@ -375,9 +375,11 @@ jobs:
           fi
 
           if [ -n "$gitignore_warnings" ]; then
-            echo "" >> "$GITHUB_STEP_SUMMARY"
-            echo "⚠️ **Keepalive gitignore check:**$gitignore_warnings" >> "$GITHUB_STEP_SUMMARY"
-            echo "These entries prevent merge conflicts when multiple agent PRs run simultaneously." >> "$GITHUB_STEP_SUMMARY"
+            {
+              echo ""
+              echo "⚠️ **Keepalive gitignore check:**$gitignore_warnings"
+              echo "These entries prevent merge conflicts when multiple agent PRs run simultaneously."
+            } >> "$GITHUB_STEP_SUMMARY"
           fi
 
       - name: Apply template updates
