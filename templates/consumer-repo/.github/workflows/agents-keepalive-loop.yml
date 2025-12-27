@@ -219,7 +219,26 @@ jobs:
               payload,
             });
 
-            const output = result.outputs || {};
+            // Map flat result properties to outputs (evaluateKeepaliveLoop returns
+            // properties directly on result object, not nested in result.outputs)
+            const output = {
+              pr_number: String(result.prNumber || ''),
+              pr_ref: String(result.prRef || ''),
+              head_sha: String(result.headSha || ''),
+              action: result.action || '',
+              reason: result.reason || '',
+              gate_conclusion: result.gateConclusion || '',
+              iteration: String(result.iteration ?? ''),
+              max_iterations: String(result.maxIterations ?? ''),
+              failure_threshold: String(result.failureThreshold ?? ''),
+              tasks_total: String(result.checkboxCounts?.total ?? ''),
+              tasks_unchecked: String(result.checkboxCounts?.unchecked ?? ''),
+              keepalive_enabled: String(result.keepaliveEnabled || false),
+              autofix_enabled: String(result.config?.autofix_enabled || false),
+              has_agent_label: String(result.hasAgentLabel || false),
+              agent_type: String(result.agentType || ''),
+              trace: String(result.config?.trace || ''),
+            };
             for (const [key, value] of Object.entries(output)) {
               core.setOutput(key, value);
             }
