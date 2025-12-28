@@ -85,7 +85,7 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJson(needs.prepare.outputs.repos) }}
     env:
-      SYNC_TOKEN: ${{ secrets.CODESPACES_WORKFLOWS || secrets.SERVICE_BOT_PAT }}
+      SYNC_TOKEN: ${{ secrets.OWNER_PR_PAT || secrets.SERVICE_BOT_PAT }}
     steps:
       - name: Checkout Workflows templates
         uses: actions/checkout@v4
