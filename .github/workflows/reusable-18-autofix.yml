@@ -154,7 +154,19 @@ jobs:
           set -euo pipefail
           echo "PR_HEAD_REF=${PR_HEAD_REF}" >> "$GITHUB_ENV"
 
+      - name: Check GitHub App credentials
+        id: check_app
+        env:
+          APP_ID: ${{ secrets.WORKFLOWS_APP_ID }}
+        run: |
+          if [ -n "${APP_ID:-}" ]; then
+            echo "has_app_creds=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_app_creds=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Mint GitHub App token (preferred)
+        if: steps.check_app.outputs.has_app_creds == 'true'
         id: app_token
         continue-on-error: true
         uses: actions/create-github-app-token@v1
@@ -359,7 +371,7 @@ jobs:
           set -euo pipefail
           # === Dynamic Python Target Detection ===
           # shellcheck disable=SC2016 # Single quotes intentional - literal regex pattern
-          STANDARD_EXCLUSIONS='\.git|\.venv|venv|\.env|env|__pycache__|node_modules|build|dist|\.tox|\.pytest_cache|\.mypy_cache|\.ruff_cache|htmlcov|\.coverage|\.eggs|\.egg-info'
+          STANDARD_EXCLUSIONS='(^|/)\.git($|/)|\.venv|venv|\.env|env|__pycache__|node_modules|build|dist|\.tox|\.pytest_cache|\.mypy_cache|\.ruff_cache|htmlcov|\.coverage|\.eggs|\.egg-info'
           exclusion_pattern="$STANDARD_EXCLUSIONS"
           if [[ -f ".autofix-exclude" ]]; then
             echo "[autofix] Found .autofix-exclude, applying repo-specific exclusions"
@@ -404,7 +416,7 @@ jobs:
           echo "[autofix-clean] Running clean cosmetic sweep"
           # === Dynamic Python Target Detection ===
           # shellcheck disable=SC2016 # Single quotes intentional - literal regex pattern
-          STANDARD_EXCLUSIONS='\.git|\.venv|venv|\.env|env|__pycache__|node_modules|build|dist|\.tox|\.pytest_cache|\.mypy_cache|\.ruff_cache|htmlcov|\.coverage|\.eggs|\.egg-info'
+          STANDARD_EXCLUSIONS='(^|/)\.git($|/)|\.venv|venv|\.env|env|__pycache__|node_modules|build|dist|\.tox|\.pytest_cache|\.mypy_cache|\.ruff_cache|htmlcov|\.coverage|\.eggs|\.egg-info'
           exclusion_pattern="$STANDARD_EXCLUSIONS"
           if [[ -f ".autofix-exclude" ]]; then
             echo "[autofix-clean] Found .autofix-exclude, applying repo-specific exclusions"
@@ -456,6 +468,10 @@ jobs:
             is_allowed=false
             for target in "${targets[@]}"; do
               clean_target="${target#./}"
+              # When target is "." (root), all paths are within it
+              if [[ -z "$clean_target" ]] || [[ "$clean_target" == "." ]]; then
+                is_allowed=true; break
+              fi
               if [[ "$path" == "$clean_target"/* ]] || [[ "$path" == "$clean_target" ]]; then
                 is_allowed=true; break
               fi
@@ -500,7 +516,7 @@ jobs:
             if [ ${#allowed_patterns[@]} -eq 0 ]; then
               # Dynamic: Build allowed patterns from detected Python directories
               # shellcheck disable=SC2016 # Single quotes intentional - literal regex pattern
-              STANDARD_EXCLUSIONS='\.git|\.venv|venv|\.env|env|__pycache__|node_modules|build|dist|\.tox|\.pytest_cache|\.mypy_cache|\.ruff_cache|htmlcov|\.coverage|\.eggs|\.egg-info'
+              STANDARD_EXCLUSIONS='(^|/)\.git($|/)|\.venv|venv|\.env|env|__pycache__|node_modules|build|dist|\.tox|\.pytest_cache|\.mypy_cache|\.ruff_cache|htmlcov|\.coverage|\.eggs|\.egg-info'
               exclusion_pattern="$STANDARD_EXCLUSIONS"
               if [[ -f ".autofix-exclude" ]]; then
                 while IFS= read -r line || [[ -n "$line" ]]; do
