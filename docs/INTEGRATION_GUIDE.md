@@ -280,6 +280,27 @@ For the gate pattern to work:
 3. Enable "Require status checks"
 4. Add required checks: `CI Gate`, `Lint`, `Test`
 
+
+### Workflow Permissions
+
+**Critical for reusable workflows:** The repository must have write permissions enabled.
+
+1. Go to Settings → Actions → General
+2. Scroll to "Workflow permissions"
+3. Select **"Read and write permissions"**
+4. Check **"Allow GitHub Actions to create and approve pull requests"**
+5. Click Save
+
+Without these settings, workflows calling reusable workflows from this repo will fail
+with `startup_failure` status and no useful error message.
+
+**Via API (for automation):**
+```bash
+gh api repos/OWNER/REPO/actions/permissions/workflow -X PUT --input - << 'EOF'
+{"default_workflow_permissions": "write", "can_approve_pull_request_reviews": true}
+EOF
+```
+
 ---
 
 ## Common Patterns
@@ -381,6 +402,48 @@ uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
 ```yaml
 concurrency:
   group: ci-${{ github.event.pull_request.number || github.run_id }}
+```
+
+
+### Startup Failure (No Error Message)
+
+**Cause:** Repository workflow permissions set to "Read" instead of "Read and write".
+
+**Symptoms:**
+- Workflow shows `startup_failure` status
+- No error message or logs available
+- Same workflow works in other repositories
+- Only affects workflows calling reusable workflows
+
+**Fix:** Update repository workflow permissions:
+1. Go to Settings → Actions → General
+2. Set "Workflow permissions" to **"Read and write permissions"**
+3. Enable **"Allow GitHub Actions to create and approve pull requests"**
+
+
+### Startup Failure (Caller Workflow Permissions)
+
+**Cause:** Caller workflow has a top-level `permissions:` block when calling a reusable workflow.
+
+**Symptoms:**
+- Same as above: `startup_failure`, no logs, zero jobs started
+- The reusable workflow also specifies permissions
+
+**Fix:** Remove the `permissions:` block from the caller workflow:
+```yaml
+# WRONG - causes startup_failure
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  ci:
+    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
+
+# CORRECT - let the reusable workflow handle permissions
+jobs:
+  ci:
+    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
 ```
 
 ---
