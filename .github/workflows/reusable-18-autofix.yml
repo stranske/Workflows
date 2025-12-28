@@ -154,7 +154,19 @@ jobs:
           set -euo pipefail
           echo "PR_HEAD_REF=${PR_HEAD_REF}" >> "$GITHUB_ENV"
 
+      - name: Check GitHub App credentials
+        id: check_app
+        env:
+          APP_ID: ${{ secrets.WORKFLOWS_APP_ID }}
+        run: |
+          if [ -n "${APP_ID:-}" ]; then
+            echo "has_app_creds=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_app_creds=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Mint GitHub App token (preferred)
+        if: steps.check_app.outputs.has_app_creds == 'true'
         id: app_token
         continue-on-error: true
         uses: actions/create-github-app-token@v1
