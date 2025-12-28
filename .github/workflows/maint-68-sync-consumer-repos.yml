@@ -493,12 +493,14 @@ jobs:
       - name: Dry run summary
         if: inputs.dry_run == true
         run: |
-          echo "## Dry Run Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Repo:** ${{ matrix.repo }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Changes:** ${{ steps.sync.outputs.changes_count }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          cat sync_summary.md >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## Dry Run Summary"
+            echo ""
+            echo "**Repo:** ${{ matrix.repo }}"
+            echo "**Changes:** ${{ steps.sync.outputs.changes_count }}"
+            echo ""
+            cat sync_summary.md
+          } >> "$GITHUB_STEP_SUMMARY"
 
   # ============================================================================
   # SUMMARY: Generate overall sync report
