@@ -78,10 +78,10 @@ jobs:
       agent: ${{ steps.agent.outputs.agent }}
       agent_workflow: ${{ steps.agent.outputs.workflow }}
     steps:
-      - name: Generate token
+      - name: Generate token (if App configured)
         id: token
         uses: actions/create-github-app-token@v1
-        if: ${{ secrets.gh_app_id != '' }}
+        
         continue-on-error: true
         with:
           app-id: ${{ secrets.gh_app_id }}
@@ -325,10 +325,9 @@ jobs:
     outputs:
       triggered: ${{ steps.dispatch.outputs.triggered }}
     steps:
-      - name: Generate token
+      - name: Generate token (if App configured)
         id: token
         uses: actions/create-github-app-token@v1
-        if: ${{ secrets.gh_app_id != '' }}
         continue-on-error: true
         with:
           app-id: ${{ secrets.gh_app_id }}
