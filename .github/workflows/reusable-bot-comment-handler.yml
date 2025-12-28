@@ -31,10 +31,10 @@ on:
         type: boolean
         default: false
       bot_authors:
-        description: 'Comma-separated list of bot login names including [bot] suffix (default: copilot[bot],github-actions[bot],coderabbitai[bot])'
+        description: 'Comma-separated list of bot login names (default includes Copilot, github-actions, coderabbitai, chatgpt-codex-connector)'
         required: false
         type: string
-        default: 'copilot[bot],github-actions[bot],coderabbitai[bot]'
+        default: 'Copilot,copilot[bot],github-actions[bot],coderabbitai[bot],chatgpt-codex-connector[bot]'
       skip_if_human_replied:
         description: 'Skip comments where a human has already replied'
         required: false
