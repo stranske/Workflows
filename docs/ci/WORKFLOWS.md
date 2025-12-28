@@ -78,6 +78,7 @@ pull_request ──▶ Gate ──▶ Summary comment & status
 | [`reusable-70-orchestrator-main.yml`](../../.github/workflows/reusable-70-orchestrator-main.yml) | None. | Consumes init outputs; reports via summaries/artifacts. |
 | [`reusable-agents-issue-bridge.yml`](../../.github/workflows/reusable-agents-issue-bridge.yml) | None. | Bridge emits PRs/comments only. |
 | [`reusable-agents-verifier.yml`](../../.github/workflows/reusable-agents-verifier.yml) | None. | Post-merge verification with CI wait logic; creates follow-up issues in consumer repos. |
+| [`reusable-bot-comment-handler.yml`](../../.github/workflows/reusable-bot-comment-handler.yml) | `comments_found`, `comments_count`, `agent_triggered`. | Collects and dispatches agent to address bot review comments. |
 
 ## Pull Request Gate
 
