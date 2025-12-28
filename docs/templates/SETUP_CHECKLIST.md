@@ -254,6 +254,12 @@ Check that these workflows exist in `.github/workflows/`:
 - ~~`agents-issue-intake.yml`~~ — Old thin caller, replaced by `agents-63-issue-intake.yml`
 - `agents-orchestrator.yml` — Legacy unnumbered naming; still valid and may coexist, but prefer `agents-70-orchestrator.yml`
 
+> **Why both orchestrator files may exist**: The `maint-68-sync-consumer-repos` workflow
+> uses a mapping syntax (`"agents-70-orchestrator.yml:agents-orchestrator.yml"`) that
+> syncs the source file to both names. This ensures repos using either convention
+> receive updates. New repos should use `agents-70-orchestrator.yml`; existing repos
+> with `agents-orchestrator.yml` continue to work.
+
 **Validation checklist:**
 - [ ] No deprecated workflow files present
 - [ ] `agents-63-issue-intake.yml` exists (NOT `agents-issue-intake.yml`)
@@ -278,6 +284,24 @@ curl -o .github/workflows/maint-sync-workflows.yml \
   https://raw.githubusercontent.com/stranske/Travel-Plan-Permission/main/.github/workflows/maint-sync-workflows.yml
 ```
 
+> **Lesson learned**: When writing workflow sync scripts that use `curl` to download
+> files, always verify both success AND that the file exists with content:
+> ```bash
+> # BAD - curl failure silently continues
+> curl -sfL "$URL" -o "$FILE" 2>/dev/null || continue
+> 
+> # GOOD - explicit failure tracking and file verification
+> download_failed=false
+> if ! curl -sfL "$URL" -o "$FILE" 2>/dev/null; then
+>   download_failed=true
+> fi
+> if [ "$download_failed" = "true" ] || [ ! -s "$FILE" ]; then
+>   echo "Download failed: $FILE"
+>   continue
+> fi
+> ```
+> This pattern was added to consumer repo `maint-sync-workflows.yml` files after
+> silent failures masked sync issues.
 > **⚠️ CRITICAL: Fix reusable workflow references after copying!**
 > 
 > The `agents-63-issue-intake.yml` file in the Workflows repo contains a LOCAL 
@@ -821,7 +845,14 @@ inputs:
 2. **Missing commit status** — Keepalive checks for `Gate / gate` status to know when CI passes
 3. **Wrong workflow name in trigger** — The `workflows:` array must match the exact workflow `name:` field
 4. **Missing scripts** — Scripts are NOT automatically synced; they must exist in consumer repo
-5. **Local reusable workflow references** — When copying `agents-63-issue-intake.yml` from Workflows, it has a LOCAL reference to `reusable-agents-issue-bridge.yml` that doesn't exist in consumer repos. Must change to remote reference: `stranske/Workflows/.github/workflows/reusable-agents-issue-bridge.yml@main`
+5. **Silent download failures** — `curl -sf` failing without verification leaves empty/missing files
+6. **Codex-specific naming in job names** — Prefer agent-agnostic names (e.g., "Validate agent issue labels" not "Validate Codex issue labels") for flexibility
+
+> **Note on naming conventions**: The workflow source files in stranske/Workflows
+> contain some Codex-specific references (job names, descriptions, variable names).
+> While variable names like `post_codex_input` are preserved for backward compatibility,
+> user-facing job names should use agent-agnostic terminology. Copilot code review
+> may flag these as suggestions.
 
 ---
 
