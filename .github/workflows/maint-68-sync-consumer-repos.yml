@@ -253,6 +253,7 @@ jobs:
           # Root config files from template
           SYNC_ROOT_CONFIGS=(
             ".gitignore"
+            "CLAUDE.md"
           )
 
           changes=""
@@ -723,6 +724,7 @@ jobs:
           # Sync root config files
           SYNC_ROOT_CONFIGS=(
             ".gitignore"
+            "CLAUDE.md"
           )
 
           for config_file in "${SYNC_ROOT_CONFIGS[@]}"; do
