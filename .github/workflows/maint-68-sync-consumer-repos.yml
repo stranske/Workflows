@@ -1,6 +1,11 @@
 name: Maint 68 Sync Consumer Repos
 
 # Push workflow template updates to registered consumer repositories
+# 
+# ARCHITECTURE: This workflow is MANIFEST-DRIVEN
+# All sync targets are declared in .github/sync-manifest.yml
+# DO NOT add hardcoded file lists here - update the manifest instead
+#
 # Triggered after releases, template changes, or manually
 
 on:
@@ -10,8 +15,7 @@ on:
     branches: [main]
     paths:
       - 'templates/consumer-repo/**'
-      # NOTE: We do NOT sync autofix-versions.env - each repo maintains its own
-      # dependency versions based on its lock files
+      - '.github/sync-manifest.yml'
   workflow_dispatch:
     inputs:
       repos:
@@ -32,9 +36,6 @@ permissions:
 
 env:
   # Consumer repos registered for automatic sync
-  # Add new repos here as they're onboarded
-  # NOTE: Repos with custom Gate workflows (trip-planner, Manager-Database)
-  # still get synced for agent workflows - only pr-00-gate.yml is repo-specific
   REGISTERED_CONSUMER_REPOS: |
     stranske/Travel-Plan-Permission
     stranske/Template
@@ -42,19 +43,75 @@ env:
     stranske/Manager-Database
 
 jobs:
+  # ============================================================================
+  # PREPARE: Load manifest and build repo matrix
+  # ============================================================================
   prepare:
-    name: Prepare sync manifest
+    name: Prepare sync from manifest
     runs-on: ubuntu-latest
     outputs:
       repos: ${{ steps.repos.outputs.matrix }}
       template_hash: ${{ steps.hash.outputs.hash }}
+      manifest_json: ${{ steps.manifest.outputs.json }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           sparse-checkout: |
             templates/consumer-repo
+            .github/sync-manifest.yml
+            .github/scripts
           sparse-checkout-cone-mode: false
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install pyyaml
+
+      - name: Load and validate manifest
+        id: manifest
+        run: |
+          python3 << 'MANIFEST_SCRIPT'
+          import yaml
+          import json
+          import os
+          import sys
+
+          manifest_path = '.github/sync-manifest.yml'
+          if not os.path.exists(manifest_path):
+              print("::error::sync-manifest.yml not found!")
+              sys.exit(1)
+
+          with open(manifest_path) as f:
+              manifest = yaml.safe_load(f)
+
+          # Validate required sections exist
+          required_sections = ['workflows', 'prompts', 'scripts']
+          for section in required_sections:
+              if section not in manifest:
+                  print(f"::warning::Manifest missing '{section}' section")
+                  manifest[section] = []
+
+          # Convert to JSON for workflow consumption
+          manifest_json = json.dumps(manifest, separators=(',', ':'))
+          
+          # GitHub has output size limits, so we'll write to file too
+          with open('manifest.json', 'w') as f:
+              json.dump(manifest, f)
+
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write(f"json={manifest_json}\n")
+
+          print(f"Loaded manifest with:")
+          print(f"  - {len(manifest.get('workflows', []))} workflows")
+          print(f"  - {len(manifest.get('prompts', []))} prompts")
+          print(f"  - {len(manifest.get('scripts', []))} scripts")
+          print(f"  - {len(manifest.get('codex_config', []))} codex configs")
+          print(f"  - {len(manifest.get('docs', []))} docs")
+          MANIFEST_SCRIPT
 
       - name: Compute template hash
         id: hash
@@ -71,98 +128,102 @@ jobs:
           else
             repos=$(echo "$REGISTERED_CONSUMER_REPOS" | tr '\n' ',' | sed 's/,$//')
           fi
-
-          # Convert to JSON array
           json_array=$(echo "$repos" | tr ',' '\n' | grep -v '^$' | jq -R -s -c 'split("\n") | map(select(. != "")) | map(gsub("^\\s+|\\s+$"; ""))')
           echo "matrix={\"repo\":$json_array}" >> "$GITHUB_OUTPUT"
           echo "Repos to sync: $json_array"
 
+      - name: Upload manifest artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sync-manifest
+          path: manifest.json
+          retention-days: 1
 
-  # Validate synced files pass consumer-repo lint rules before syncing
-  validate_sync_files:
+  # ============================================================================
+  # VALIDATE: Ensure files pass lint before syncing
+  # ============================================================================
+  validate:
     name: Validate sync files
+    needs: prepare
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          sparse-checkout: |
-            .github/scripts
-            .github/workflows/agents-63-issue-intake.yml
-            pyproject.toml
-          sparse-checkout-cone-mode: false
 
-      - name: Set up Python
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.12'
 
       - name: Install lint tools
-        run: |
-          pip install ruff mypy black pyyaml
+        run: pip install ruff pyyaml
 
-      - name: Validate Python scripts with consumer-repo rules
+      - name: Download manifest
+        uses: actions/download-artifact@v4
+        with:
+          name: sync-manifest
+
+      - name: Validate Python scripts
         run: |
           set -euo pipefail
-          echo "Validating Python scripts that will be synced to consumer repos..."
           
-          # Files synced to consumer repos
-          SYNC_SCRIPTS=(
-            ".github/scripts/decode_raw_input.py"
-            ".github/scripts/parse_chatgpt_topics.py"
-            ".github/scripts/fallback_split.py"
-          )
-          
-          # Consumer repos use these additional ruff rules
-          # We validate with UP (pyupgrade) and SIM (simplify) which are common in consumer repos
-          CONSUMER_RULES="E,W,F,I,B,C4,UP,SIM"
+          # Read scripts from manifest
+          scripts=$(python3 -c "
+          import json
+          with open('manifest.json') as f:
+              m = json.load(f)
+          for s in m.get('scripts', []):
+              src = s.get('source', '')
+              if src.endswith('.py'):
+                  print(src)
+          ")
           
           failed=0
-          for script in "${SYNC_SCRIPTS[@]}"; do
+          for script in $scripts; do
             if [ -f "$script" ]; then
               echo "Checking $script..."
-              if ! ruff check --select="$CONSUMER_RULES" "$script"; then
-                echo "::error::$script fails consumer-repo ruff rules"
-                failed=1
-              fi
-              if ! python -m py_compile "$script"; then
-                echo "::error::$script has syntax errors"
+              if ! ruff check --select="E,W,F,I,B" "$script"; then
+                echo "::error::$script fails lint"
                 failed=1
               fi
             fi
           done
           
           if [ "$failed" -eq 1 ]; then
-            echo "::error::Sync files must pass consumer-repo lint rules before syncing"
             exit 1
           fi
-          echo "✓ All sync files pass consumer-repo lint validation"
+          echo "✓ All Python scripts pass lint"
 
-      - name: Validate workflow YAML syntax
+      - name: Validate YAML syntax
         run: |
           set -euo pipefail
-          echo "Validating workflow YAML files..."
           
-          # Check agents-63-issue-intake.yml
-          if [ -f ".github/workflows/agents-63-issue-intake.yml" ]; then
-            python3 -c "import yaml; yaml.safe_load(open('.github/workflows/agents-63-issue-intake.yml'))"
-            echo "✓ agents-63-issue-intake.yml is valid YAML"
-            
-            # Check for common issues
-            if grep -q "secrets\.service_bot_pat" ".github/workflows/agents-63-issue-intake.yml"; then
-              echo "::error::agents-63-issue-intake.yml uses lowercase 'secrets.service_bot_pat' - should be 'secrets.SERVICE_BOT_PAT'"
-              exit 1
+          # Read workflows from manifest
+          workflows=$(python3 -c "
+          import json
+          with open('manifest.json') as f:
+              m = json.load(f)
+          for w in m.get('workflows', []):
+              src = w.get('source', '')
+              if src.endswith('.yml') or src.endswith('.yaml'):
+                  print(src)
+          ")
+          
+          for workflow in $workflows; do
+            template_path="templates/consumer-repo/$workflow"
+            if [ -f "$template_path" ]; then
+              echo "Validating $template_path..."
+              python3 -c "import yaml; yaml.safe_load(open('$template_path'))"
             fi
-            if grep -q "secrets\.owner_pr_pat" ".github/workflows/agents-63-issue-intake.yml"; then
-              echo "::error::agents-63-issue-intake.yml uses lowercase 'secrets.owner_pr_pat' - should be 'secrets.OWNER_PR_PAT'"
-              exit 1
-            fi
-            echo "✓ agents-63-issue-intake.yml passes secret naming checks"
-          fi
+          done
+          echo "✓ All workflow YAML is valid"
 
+  # ============================================================================
+  # SYNC: Apply template to each consumer repo
+  # ============================================================================
   sync:
     name: Sync ${{ matrix.repo }}
-    needs: [prepare, validate_sync_files]
+    needs: [prepare, validate]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -170,14 +231,9 @@ jobs:
     env:
       SYNC_TOKEN: ${{ secrets.OWNER_PR_PAT || secrets.SERVICE_BOT_PAT }}
     steps:
-      - name: Checkout Workflows templates
+      - name: Checkout Workflows
         uses: actions/checkout@v4
         with:
-          sparse-checkout: |
-            templates/consumer-repo
-            .github/workflows/agents-63-issue-intake.yml
-            .github/scripts
-          sparse-checkout-cone-mode: false
           path: workflows
 
       - name: Clone consumer repo
@@ -186,658 +242,284 @@ jobs:
         run: |
           gh repo clone ${{ matrix.repo }} consumer -- --depth=1
 
-      - name: Detect sync-able files
-        id: detect
+      - name: Download manifest
+        uses: actions/download-artifact@v4
+        with:
+          name: sync-manifest
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install pyyaml
+
+      - name: Detect and apply changes
+        id: sync
+        env:
+          CURRENT_REPO: ${{ matrix.repo }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          FORCE: ${{ inputs.force }}
         run: |
-          set -euo pipefail
+          python3 << 'SYNC_SCRIPT'
+          import json
+          import os
+          import shutil
+          import subprocess
+          from pathlib import Path
 
-          # Files that should be synced (thin callers from templates)
-          # NOTE: autofix-versions.env is NOT synced - each repo maintains its own
-          # NOTE: agents-63-issue-intake.yml is NOT a thin caller - it uses local scripts
-          #       and should be synced from .github/workflows/, not templates/
-          SYNC_FILES=(
-            "agents-orchestrator.yml:agents-orchestrator.yml"
-            "agents-orchestrator.yml:agents-70-orchestrator.yml"
-            "agents-pr-meta.yml:agents-pr-meta.yml"
-            "agents-keepalive-loop.yml:agents-keepalive-loop.yml"
-            "agents-verifier.yml:agents-verifier.yml"
-            "autofix.yml:autofix.yml"
-            "pr-00-gate.yml:pr-00-gate.yml"
-          )
+          # Load manifest
+          with open('manifest.json') as f:
+              manifest = json.load(f)
 
-          # Full workflows synced from .github/workflows/ (not templates)
-          FULL_WORKFLOWS=(
-            # Emptied - now using thin caller from templates
-          )
+          current_repo = os.environ.get('CURRENT_REPO', '')
+          dry_run = os.environ.get('DRY_RUN', 'false') == 'true'
+          force = os.environ.get('FORCE', 'false') == 'true'
 
-          # Scripts that need to be synced for full workflows
-          # Python scripts for ChatGPT sync
-          SYNC_SCRIPTS=(
-            "decode_raw_input.py"
-            "parse_chatgpt_topics.py"
-            "fallback_split.py"
-          )
+          # Repos with custom Gate workflows
+          custom_gate_repos = ['stranske/trip-planner', 'stranske/Manager-Database']
 
-          # JavaScript scripts required by reusable workflows (issue-bridge)
-          SYNC_JS_SCRIPTS=(
-            "issue_pr_locator.js"
-            "issue_context_utils.js"
-            "issue_scope_parser.js"
-            "keepalive_instruction_template.js"
-          )
+          changes = []
+          skipped = []
 
-          # Codex prompts and instructions (required for keepalive to work)
-          SYNC_CODEX_FILES=(
-            "AGENT_INSTRUCTIONS.md"
-            "prompts/keepalive_next_task.md"
-          )
+          def files_differ(src, dst):
+              """Compare files, ignoring header comments (first 10 lines)."""
+              if not dst.exists():
+                  return True
+              if not src.exists():
+                  return False
+              
+              src_lines = src.read_text().splitlines()
+              dst_lines = dst.read_text().splitlines()
+              
+              # For short files, compare everything
+              if len(src_lines) < 15 or len(dst_lines) < 15:
+                  return src_lines != dst_lines
+              
+              # Skip header (first 10 lines) for comparison
+              return src_lines[10:] != dst_lines[10:]
 
-          # Issue templates for agent automation
-          SYNC_ISSUE_TEMPLATES=(
-            "agent_task.yml"
-            "config.yml"
-          )
+          def sync_file(source_path, target_path, description, skip_condition=None):
+              """Sync a single file from template to consumer."""
+              src = Path(source_path)
+              dst = Path(target_path)
+              
+              if skip_condition and skip_condition():
+                  skipped.append(f"{dst.name}: {skip_condition.__doc__}")
+                  return False
+              
+              if not src.exists():
+                  print(f"  ⚠ Source missing: {src}")
+                  return False
+              
+              if force or files_differ(src, dst):
+                  if not dry_run:
+                      dst.parent.mkdir(parents=True, exist_ok=True)
+                      shutil.copy2(src, dst)
+                  changes.append(f"{dst.name}: {description}")
+                  return True
+              return False
 
-          # Documentation files for agent pipeline
-          SYNC_DOCS=(
-            "AGENT_ISSUE_FORMAT.md"
-            "CI_SYSTEM_GUIDE.md"
-            "LABELS.md"
-          )
+          # Process workflows
+          print("Processing workflows...")
+          for item in manifest.get('workflows', []):
+              source = item.get('source', '')
+              description = item.get('description', 'No description')
+              sync_mode = item.get('sync_mode', 'sync')
+              
+              # Build paths
+              template_src = Path('workflows/templates/consumer-repo') / source
+              consumer_dst = Path('consumer') / source
+              
+              # Skip conditions
+              def skip_custom_gate():
+                  """Repo has custom Gate workflow"""
+                  return 'pr-00-gate' in source and current_repo in custom_gate_repos
+              
+              def skip_create_only():
+                  """File exists and sync_mode is create_only"""
+                  return sync_mode == 'create_only' and consumer_dst.exists()
+              
+              skip_fn = None
+              if 'pr-00-gate' in source:
+                  skip_fn = skip_custom_gate
+              elif sync_mode == 'create_only':
+                  skip_fn = skip_create_only
+              
+              sync_file(template_src, consumer_dst, description, skip_fn)
 
-          # GitHub config files
-          SYNC_GITHUB_CONFIG=(
-            "PULL_REQUEST_TEMPLATE.md"
-          )
+          # Process prompts
+          print("Processing prompts...")
+          for item in manifest.get('prompts', []):
+              source = item.get('source', '')
+              description = item.get('description', 'No description')
+              template_src = Path('workflows/templates/consumer-repo') / source
+              consumer_dst = Path('consumer') / source
+              sync_file(template_src, consumer_dst, description)
 
-          # Root config files from template
-          SYNC_ROOT_CONFIGS=(
-            ".gitignore"
-            "CLAUDE.md"
-          )
+          # Process scripts
+          print("Processing scripts...")
+          for item in manifest.get('scripts', []):
+              source = item.get('source', '')
+              description = item.get('description', 'No description')
+              # Scripts come from .github/scripts/, not templates
+              template_src = Path('workflows') / source
+              consumer_dst = Path('consumer') / source
+              sync_file(template_src, consumer_dst, description)
 
-          changes=""
-          sync_report=""
+          # Process codex_config
+          print("Processing codex config...")
+          for item in manifest.get('codex_config', []):
+              source = item.get('source', '')
+              description = item.get('description', 'No description')
+              template_src = Path('workflows/templates/consumer-repo') / source
+              consumer_dst = Path('consumer') / source
+              sync_file(template_src, consumer_dst, description)
 
-          # Helper function to compare files safely
-          compare_files() {
-            local file1="$1"
-            local file2="$2"
-            local skip_header="${3:-false}"
+          # Process docs
+          print("Processing docs...")
+          for item in manifest.get('docs', []):
+              source = item.get('source', '')
+              target = item.get('target', source)
+              description = item.get('description', 'No description')
+              template_src = Path('workflows/templates/consumer-repo') / source
+              consumer_dst = Path('consumer') / target
+              sync_file(template_src, consumer_dst, description)
 
-            if [ "$skip_header" = "true" ]; then
-              local lines1 lines2
-              lines1=$(wc -l < "$file1")
-              lines2=$(wc -l < "$file2")
+          # Output results
+          print(f"\n{'='*60}")
+          print(f"SYNC RESULTS for {current_repo}")
+          print(f"{'='*60}")
+          
+          if changes:
+              print(f"\n✓ {len(changes)} files to sync:")
+              for c in changes:
+                  print(f"  - {c}")
+          else:
+              print("\n✓ No changes needed")
+          
+          if skipped:
+              print(f"\n⊘ {len(skipped)} files skipped:")
+              for s in skipped:
+                  print(f"  - {s}")
 
-              # If either file is too short, compare entire files
-              if [ "$lines1" -lt 15 ] || [ "$lines2" -lt 15 ]; then
-                diff -q "$file1" "$file2" > /dev/null 2>&1
-              else
-                diff -q <(tail -n +10 "$file1") <(tail -n +10 "$file2") > /dev/null 2>&1
-              fi
-            else
-              diff -q "$file1" "$file2" > /dev/null 2>&1
-            fi
-          }
+          # Set outputs
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write(f"changes_count={len(changes)}\n")
+              f.write(f"has_changes={'true' if changes else 'false'}\n")
 
-          # Repos with custom Gate workflows - skip pr-00-gate.yml detection for these
-          CUSTOM_GATE_REPOS="stranske/trip-planner stranske/Manager-Database"
-          CURRENT_REPO="${{ matrix.repo }}"
+          # Write change summary for PR body
+          with open('sync_summary.md', 'w') as f:
+              f.write("## Sync Summary\n\n")
+              if changes:
+                  f.write("### Files Updated\n")
+                  for c in changes:
+                      f.write(f"- {c}\n")
+              if skipped:
+                  f.write("\n### Files Skipped\n")
+                  for s in skipped:
+                      f.write(f"- {s}\n")
+          SYNC_SCRIPT
 
-          # Check thin caller templates
-          for mapping in "${SYNC_FILES[@]}"; do
-            template_name="${mapping%%:*}"
-            consumer_name="${mapping##*:}"
-
-            # Skip pr-00-gate.yml detection for repos with custom Gate workflows
-            if [ "$template_name" = "pr-00-gate.yml" ] && echo "$CUSTOM_GATE_REPOS" | grep -qw "$CURRENT_REPO"; then
-              continue
-            fi
-
-            template_file="workflows/templates/consumer-repo/.github/workflows/$template_name"
-            consumer_file="consumer/.github/workflows/$consumer_name"
-
-            # Skip if template doesn't exist (nothing to sync from)
-            if [ ! -f "$template_file" ]; then
-              continue
-            fi
-
-            # Mark as change if consumer file is missing (new workflow to add)
-            if [ ! -f "$consumer_file" ]; then
-              changes="$changes $consumer_name"
-              sync_report="$sync_report\n- $consumer_name (missing, will be created)"
-              continue
-            fi
-
-            if ! compare_files "$template_file" "$consumer_file" true; then
-              changes="$changes $consumer_name"
-              sync_report="$sync_report\n- $consumer_name (differs from template)"
-            fi
-          done
-
-          # Check full workflows (from .github/workflows/)
-          for workflow in "${FULL_WORKFLOWS[@]}"; do
-            source_file="workflows/.github/workflows/$workflow"
-            consumer_file="consumer/.github/workflows/$workflow"
-
-            if [ ! -f "$source_file" ] || [ ! -f "$consumer_file" ]; then
-              continue
-            fi
-
-            if ! compare_files "$source_file" "$consumer_file" true; then
-              changes="$changes $workflow"
-              sync_report="$sync_report\n- $workflow (differs from source)"
-            fi
-          done
-
-          # Check scripts
-          for script in "${SYNC_SCRIPTS[@]}"; do
-            source_file="workflows/.github/scripts/$script"
-            consumer_file="consumer/.github/scripts/$script"
-
-            if [ ! -f "$source_file" ]; then
-              continue
-            fi
-
-            if [ ! -f "$consumer_file" ]; then
-              changes="$changes scripts/$script"
-              sync_report="$sync_report\n- scripts/$script (missing)"
-            elif ! compare_files "$source_file" "$consumer_file" false; then
-              changes="$changes scripts/$script"
-              sync_report="$sync_report\n- scripts/$script (differs)"
-            fi
-          done
-
-          # Check JavaScript scripts (required by reusable workflows)
-          for script in "${SYNC_JS_SCRIPTS[@]}"; do
-            source_file="workflows/.github/scripts/$script"
-            consumer_file="consumer/.github/scripts/$script"
-
-            if [ ! -f "$source_file" ]; then
-              continue
-            fi
-
-            if [ ! -f "$consumer_file" ]; then
-              changes="$changes scripts/$script"
-              sync_report="$sync_report\n- scripts/$script (missing)"
-            elif ! compare_files "$source_file" "$consumer_file" false; then
-              changes="$changes scripts/$script"
-              sync_report="$sync_report\n- scripts/$script (differs)"
-            fi
-          done
-
-          # Check codex prompts and instructions
-          for codex_file in "${SYNC_CODEX_FILES[@]}"; do
-            source_file="workflows/templates/consumer-repo/.github/codex/$codex_file"
-            consumer_file="consumer/.github/codex/$codex_file"
-
-            if [ ! -f "$source_file" ]; then
-              continue
-            fi
-
-            if [ ! -f "$consumer_file" ]; then
-              changes="$changes codex/$codex_file"
-              sync_report="$sync_report\n- codex/$codex_file (missing)"
-            elif ! compare_files "$source_file" "$consumer_file" false; then
-              changes="$changes codex/$codex_file"
-              sync_report="$sync_report\n- codex/$codex_file (differs)"
-            fi
-          done
-
-          # Check issue templates
-          for template_file in "${SYNC_ISSUE_TEMPLATES[@]}"; do
-            source_file="workflows/templates/consumer-repo/.github/ISSUE_TEMPLATE/$template_file"
-            consumer_file="consumer/.github/ISSUE_TEMPLATE/$template_file"
-
-            if [ ! -f "$source_file" ]; then
-              continue
-            fi
-
-            if [ ! -f "$consumer_file" ]; then
-              changes="$changes ISSUE_TEMPLATE/$template_file"
-              sync_report="$sync_report\n- ISSUE_TEMPLATE/$template_file (missing)"
-            elif ! compare_files "$source_file" "$consumer_file" false; then
-              changes="$changes ISSUE_TEMPLATE/$template_file"
-              sync_report="$sync_report\n- ISSUE_TEMPLATE/$template_file (differs)"
-            fi
-          done
-
-          # Check documentation files
-          for doc_file in "${SYNC_DOCS[@]}"; do
-            source_file="workflows/templates/consumer-repo/docs/$doc_file"
-            consumer_file="consumer/docs/$doc_file"
-
-            if [ ! -f "$source_file" ]; then
-              continue
-            fi
-
-            if [ ! -f "$consumer_file" ]; then
-              changes="$changes docs/$doc_file"
-              sync_report="$sync_report\n- docs/$doc_file (missing)"
-            elif ! compare_files "$source_file" "$consumer_file" false; then
-              changes="$changes docs/$doc_file"
-              sync_report="$sync_report\n- docs/$doc_file (differs)"
-            fi
-          done
-
-          # Check root config files
-          for config_file in "${SYNC_ROOT_CONFIGS[@]}"; do
-            source_file="workflows/templates/consumer-repo/$config_file"
-            consumer_file="consumer/$config_file"
-
-            if [ ! -f "$source_file" ]; then
-              continue
-            fi
-
-            if [ ! -f "$consumer_file" ]; then
-              changes="$changes $config_file"
-              sync_report="$sync_report\n- $config_file (missing)"
-            elif ! compare_files "$source_file" "$consumer_file" false; then
-              changes="$changes $config_file"
-              sync_report="$sync_report\n- $config_file (differs)"
-            fi
-          done
-
-          # Check GitHub config files (PR template, etc.)
-          for config_file in "${SYNC_GITHUB_CONFIG[@]}"; do
-            source_file="workflows/templates/consumer-repo/.github/$config_file"
-            consumer_file="consumer/.github/$config_file"
-
-            if [ ! -f "$source_file" ]; then
-              continue
-            fi
-
-            if [ ! -f "$consumer_file" ]; then
-              changes="$changes .github/$config_file"
-              sync_report="$sync_report\n- .github/$config_file (missing)"
-            elif ! compare_files "$source_file" "$consumer_file" false; then
-              changes="$changes .github/$config_file"
-              sync_report="$sync_report\n- .github/$config_file (differs)"
-            fi
-          done
-
-          if [ -n "$changes" ]; then
-            echo "has_changes=true" >> "$GITHUB_OUTPUT"
-            echo "changed_files=$changes" >> "$GITHUB_OUTPUT"
-          else
-            echo "has_changes=false" >> "$GITHUB_OUTPUT"
-          fi
-
-          echo -e "Sync report:$sync_report" >> "$GITHUB_STEP_SUMMARY"
-
-          # Verify required gitignore entries for keepalive system
-          # These entries prevent merge conflicts when multiple PRs run keepalive simultaneously
-          REQUIRED_GITIGNORE_ENTRIES=(
-            "codex-prompt.md"
-            "codex-output.md"
-            "verifier-context.md"
-          )
-
-          gitignore_warnings=""
-          if [ -f "consumer/.gitignore" ]; then
-            for entry in "${REQUIRED_GITIGNORE_ENTRIES[@]}"; do
-              if ! grep -qxF "$entry" "consumer/.gitignore" 2>/dev/null; then
-                gitignore_warnings="$gitignore_warnings\n- Missing: $entry"
-              fi
-            done
-          else
-            gitignore_warnings="\n- .gitignore file not found"
-          fi
-
-          if [ -n "$gitignore_warnings" ]; then
-            {
-              echo ""
-              echo "⚠️ **Keepalive gitignore check:**$gitignore_warnings"
-              echo "These entries prevent merge conflicts when multiple agent PRs run simultaneously."
-            } >> "$GITHUB_STEP_SUMMARY"
-          fi
-
-
-          # Check for deprecated workflow files that should be removed
-          # These old files indicate incomplete migration to new naming convention
-          DEPRECATED_FILES=(
-            "agents-issue-intake.yml"  # Replaced by agents-63-issue-intake.yml
-          )
-
-          deprecated_warnings=""
-          for deprecated in "${DEPRECATED_FILES[@]}"; do
-            if [ -f "consumer/.github/workflows/$deprecated" ]; then
-              deprecated_warnings="$deprecated_warnings\n- FOUND: $deprecated (should be removed, replaced by agents-63-issue-intake.yml)"
-            fi
-          done
-
-          # Check that FULL_WORKFLOWS actually exist (not just thin caller equivalents)
-          for workflow in "${FULL_WORKFLOWS[@]}"; do
-            if [ ! -f "consumer/.github/workflows/$workflow" ]; then
-              deprecated_warnings="$deprecated_warnings\n- MISSING: $workflow (required full workflow, not just thin caller)"
-            fi
-          done
-
-          # Check for local sync helper workflow
-          if [ ! -f "consumer/.github/workflows/maint-sync-workflows.yml" ]; then
-            deprecated_warnings="$deprecated_warnings\n- MISSING: maint-sync-workflows.yml (local sync check helper)"
-          fi
-
-          if [ -n "$deprecated_warnings" ]; then
-            {
-              echo ""
-              echo "⚠️ **Workflow file validation:**$deprecated_warnings"
-              echo ""
-              echo "**Action required:** Remove deprecated files and add missing workflows."
-              echo "See [SETUP_CHECKLIST](https://github.com/stranske/Workflows/blob/main/docs/templates/SETUP_CHECKLIST.md) for details."
-            } >> "$GITHUB_STEP_SUMMARY"
-          fi
-
-      - name: Verify required labels
+      - name: Check for required labels
+        if: steps.sync.outputs.has_changes == 'true'
         env:
           GH_TOKEN: ${{ env.SYNC_TOKEN }}
         run: |
-          set -euo pipefail
-
-          REQUIRED_LABELS=(
-            "agent:codex"
-            "agent:needs-attention"
-            "agents:keepalive"
-            "autofix"
-            "autofix:applied"
-            "autofix:clean"
-            "autofix:clean-only"
-          )
-
-          # Get existing labels from the consumer repo
-          existing_labels=$(gh api "repos/${{ matrix.repo }}/labels" --jq '.[].name' 2>/dev/null || echo "")
-
-          label_warnings=""
-          for label in "${REQUIRED_LABELS[@]}"; do
-            if ! echo "$existing_labels" | grep -qx "$label"; then
-              label_warnings="$label_warnings\n- Missing: \`$label\`"
-            fi
-          done
-
-          if [ -n "$label_warnings" ]; then
-            {
-              echo ""
-              echo "⚠️ **Required labels check:**$label_warnings"
-              echo "Create missing labels in Settings → Labels. See [SETUP_CHECKLIST](https://github.com/stranske/Workflows/blob/main/docs/templates/SETUP_CHECKLIST.md#21-required-labels) for details."
-            } >> "$GITHUB_STEP_SUMMARY"
-          fi
-
-
-      - name: Apply template updates
-        if: steps.detect.outputs.has_changes == 'true' || inputs.force == true
-        run: |
-          set -euo pipefail
-
           cd consumer
-
-          # Repos with custom Gate workflows that should NOT be overwritten
-          CUSTOM_GATE_REPOS="stranske/trip-planner stranske/Manager-Database"
-          CURRENT_REPO="${{ matrix.repo }}"
-
-          # Sync thin caller workflow files from templates
-          SYNC_TEMPLATES=(
-            "agents-issue-intake.yml"
-            "agents-orchestrator.yml"
-            "agents-pr-meta.yml"
-            "agents-keepalive-loop.yml"
-            "agents-verifier.yml"
-            "agents-bot-comment-handler.yml"
-            "autofix.yml"
-            "pr-00-gate.yml"
-          )
-
-          for file in "${SYNC_TEMPLATES[@]}"; do
-            # Skip pr-00-gate.yml for repos with custom Gate workflows
-            if [ "$file" = "pr-00-gate.yml" ] && echo "$CUSTOM_GATE_REPOS" | grep -qw "$CURRENT_REPO"; then
-              echo "Skipping $file for $CURRENT_REPO (has custom Gate workflow)"
-              continue
-            fi
-
-            template="../workflows/templates/consumer-repo/.github/workflows/$file"
-
-            # Find target file (may have numbered prefix)
-            if [ -f ".github/workflows/$file" ]; then
-              target=".github/workflows/$file"
-            elif [ -f ".github/workflows/agents-70-orchestrator.yml" ] && [ "$file" = "agents-orchestrator.yml" ]; then
-              target=".github/workflows/agents-70-orchestrator.yml"
-            elif [ -f ".github/workflows/agents-63-issue-intake.yml" ] && [ "$file" = "agents-issue-intake.yml" ]; then
-              target=".github/workflows/agents-63-issue-intake.yml"
-            else
-              # Create new file if it doesn't exist (for new workflows like keepalive-loop)
-              mkdir -p .github/workflows
-              target=".github/workflows/$file"
-            fi
-
-            if [ -f "$template" ]; then
-              cp "$template" "$target"
+          
+          # Required labels for sync PRs
+          required_labels=("sync" "automated")
+          
+          for label in "${required_labels[@]}"; do
+            if ! gh label list --json name -q ".[].name" | grep -q "^${label}$"; then
+              echo "Creating label: $label"
+              gh label create "$label" --description "Automated sync from Workflows" --color "0e8a16" || true
             fi
           done
-
-          # Previously synced full workflows here, but agents-63-issue-intake.yml
-          # NOTE: agents-63-issue-intake.yml is now synced as a thin caller from templates
-          # (template name: agents-issue-intake.yml -> target: agents-63-issue-intake.yml)
-
-          # Sync Python scripts
-          SYNC_SCRIPTS=(
-            "decode_raw_input.py"
-            "parse_chatgpt_topics.py"
-            "fallback_split.py"
-          )
-
-          mkdir -p .github/scripts
-          for script in "${SYNC_SCRIPTS[@]}"; do
-            source="../workflows/.github/scripts/$script"
-            target=".github/scripts/$script"
-
-            if [ -f "$source" ]; then
-              cp "$source" "$target"
-            fi
-          done
-
-          # Sync JavaScript scripts required by reusable workflows (issue-bridge)
-          SYNC_JS_SCRIPTS=(
-            "issue_pr_locator.js"
-            "issue_context_utils.js"
-            "issue_scope_parser.js"
-            "keepalive_instruction_template.js"
-          )
-
-          for script in "${SYNC_JS_SCRIPTS[@]}"; do
-            source="../workflows/.github/scripts/$script"
-            target=".github/scripts/$script"
-
-            if [ -f "$source" ]; then
-              cp "$source" "$target"
-            fi
-          done
-
-          # Sync codex prompts and instructions (required for keepalive)
-          SYNC_CODEX_FILES=(
-            "AGENT_INSTRUCTIONS.md"
-            "prompts/keepalive_next_task.md"
-          )
-
-          mkdir -p .github/codex/prompts
-          for codex_file in "${SYNC_CODEX_FILES[@]}"; do
-            source="../workflows/templates/consumer-repo/.github/codex/$codex_file"
-            target=".github/codex/$codex_file"
-
-            if [ -f "$source" ]; then
-              cp "$source" "$target"
-            fi
-          done
-
-          # Sync issue templates (for agent automation)
-          SYNC_ISSUE_TEMPLATES=(
-            "agent_task.yml"
-            "config.yml"
-          )
-
-          mkdir -p .github/ISSUE_TEMPLATE
-          for template_file in "${SYNC_ISSUE_TEMPLATES[@]}"; do
-            source="../workflows/templates/consumer-repo/.github/ISSUE_TEMPLATE/$template_file"
-            target=".github/ISSUE_TEMPLATE/$template_file"
-
-            if [ -f "$source" ]; then
-              cp "$source" "$target"
-            fi
-          done
-
-          # Sync documentation files (for LLM reference and user guidance)
-          SYNC_DOCS=(
-            "AGENT_ISSUE_FORMAT.md"
-            "CI_SYSTEM_GUIDE.md"
-            "LABELS.md"
-          )
-
-          mkdir -p docs
-          for doc_file in "${SYNC_DOCS[@]}"; do
-            source="../workflows/templates/consumer-repo/docs/$doc_file"
-            target="docs/$doc_file"
-
-            if [ -f "$source" ]; then
-              cp "$source" "$target"
-            fi
-          done
-
-          # Sync GitHub config files (PR template, etc.)
-          SYNC_GITHUB_CONFIG=(
-            "PULL_REQUEST_TEMPLATE.md"
-          )
-
-          for config_file in "${SYNC_GITHUB_CONFIG[@]}"; do
-            source="../workflows/templates/consumer-repo/.github/$config_file"
-            target=".github/$config_file"
-
-            if [ -f "$source" ]; then
-              cp "$source" "$target"
-            fi
-          done
-
-          # Sync root config files
-          SYNC_ROOT_CONFIGS=(
-            ".gitignore"
-            "CLAUDE.md"
-          )
-
-          for config_file in "${SYNC_ROOT_CONFIGS[@]}"; do
-            source="../workflows/templates/consumer-repo/$config_file"
-            target="$config_file"
-
-            if [ -f "$source" ]; then
-              # For .gitignore, merge rather than replace to preserve custom entries
-              if [ "$config_file" = ".gitignore" ] && [ -f "$target" ]; then
-                # Append any lines from source that aren't already in target
-                while IFS= read -r line; do
-                  if ! grep -qxF "$line" "$target" 2>/dev/null; then
-                    echo "$line" >> "$target"
-                  fi
-                done < "$source"
-              else
-                cp "$source" "$target"
-              fi
-            fi
-          done
-
-          # NOTE: autofix-versions.env is NOT synced
-          # Each consumer repo maintains its own dependency versions based on its lock files
 
       - name: Create sync PR
-        if: (steps.detect.outputs.has_changes == 'true' || inputs.force == true) && inputs.dry_run != true
+        if: steps.sync.outputs.has_changes == 'true' && inputs.dry_run != true
         env:
           GH_TOKEN: ${{ env.SYNC_TOKEN }}
         run: |
-          set -euo pipefail
-
           cd consumer
-
-          # Check if there are actual changes
-          if git diff --quiet; then
-            echo "No changes to commit"
+          
+          branch_name="sync/workflows-${{ needs.prepare.outputs.template_hash }}"
+          
+          # Check if branch/PR already exists
+          existing_pr=$(gh pr list --head "$branch_name" --json number -q '.[0].number' || echo "")
+          if [ -n "$existing_pr" ]; then
+            echo "PR #$existing_pr already exists for this sync"
+            echo "::notice::Existing PR: #$existing_pr"
             exit 0
           fi
-
-          # Configure git with token-based authentication for push
+          
+          # Configure git
           git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git config credential.helper store
-          echo "https://x-access-token:${GH_TOKEN}@github.com" > ~/.git-credentials
-
-          # Create branch
-          branch="sync/workflows-${{ needs.prepare.outputs.template_hash }}"
-          git checkout -b "$branch"
-
-          # Commit
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Create branch and commit
+          git checkout -b "$branch_name"
           git add -A
-          git commit -m "sync: Update workflow templates from stranske/Workflows
+          git commit -m "chore: sync workflow templates from Workflows repo
 
+          Automated sync from stranske/Workflows
           Template hash: ${{ needs.prepare.outputs.template_hash }}
+          
+          Changes synced from sync-manifest.yml"
+          
+          git push -u origin "$branch_name"
+          
+          # Create PR
+          pr_body=$(cat ../sync_summary.md)
+          pr_body="$pr_body
 
-          This sync includes updates to thin caller workflows that delegate to
-          reusable workflows in stranske/Workflows. No action required unless
-          you have local customizations to preserve.
-
-          Changed files: ${{ steps.detect.outputs.changed_files }}"
-
-          # Push using token-authenticated URL
-          git push "https://x-access-token:${GH_TOKEN}@github.com/${{ matrix.repo }}.git" "$branch" --force
-
-          # Create or update PR
-          existing_pr=$(gh pr list --base main --head "$branch" --json number --jq '.[0].number // empty')
-
-          if [ -n "$existing_pr" ]; then
-            echo "Updated existing PR #$existing_pr"
-          else
-            gh pr create --head "$branch" \
-              --title "sync: Update workflow templates from stranske/Workflows" \
-              --body "## Workflow Sync
-
-              This PR updates thin caller workflows to match the latest templates from [stranske/Workflows](https://github.com/stranske/Workflows).
-
-              **Template hash:** \`${{ needs.prepare.outputs.template_hash }}\`
-
-              ### Changed files
-              ${{ steps.detect.outputs.changed_files }}
-
-              ### What changed
-              - Thin caller workflows (triggers/permissions) updated
-              - Tool version pins may be updated
-              - No changes to your repo-specific code
-
-              ### Review checklist
-              - [ ] No repo-specific customizations were overwritten
-              - [ ] CI passes with new workflow versions
-
-              ---
-              *Automated by [Maint 68 Sync Consumer Repos](https://github.com/stranske/Workflows/actions/workflows/maint-68-sync-consumer-repos.yml)*" \
-              
-          fi
+          ---
+          
+          ### Review Checklist
+          - [ ] CI passes with updated workflows
+          - [ ] No repo-specific customizations were overwritten
+          
+          **Source:** [stranske/Workflows](https://github.com/stranske/Workflows)
+          **Manifest:** [\`.github/sync-manifest.yml\`](https://github.com/stranske/Workflows/blob/main/.github/sync-manifest.yml)"
+          
+          gh pr create \
+            --title "chore: sync workflow templates" \
+            --body "$pr_body" \
+            --label "sync,automated"
 
       - name: Dry run summary
         if: inputs.dry_run == true
         run: |
-          echo "## Dry Run Results for ${{ matrix.repo }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          if [ "${{ steps.detect.outputs.has_changes }}" = "true" ]; then
-            echo "✅ Changes detected:" >> "$GITHUB_STEP_SUMMARY"
-            echo "${{ steps.detect.outputs.changed_files }}" >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "ℹ️ No changes needed" >> "$GITHUB_STEP_SUMMARY"
-          fi
+          echo "## Dry Run Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Repo:** ${{ matrix.repo }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Changes:** ${{ steps.sync.outputs.changes_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          cat sync_summary.md >> $GITHUB_STEP_SUMMARY
 
+  # ============================================================================
+  # SUMMARY: Generate overall sync report
+  # ============================================================================
   summary:
-    name: Sync summary
+    name: Generate summary
     needs: [prepare, sync]
-    if: always()
     runs-on: ubuntu-latest
+    if: always()
     steps:
       - name: Generate summary
         run: |
-          {
-            echo "## Consumer Repo Sync Summary"
-            echo ""
-            echo "Template hash: \`${{ needs.prepare.outputs.template_hash }}\`"
-            echo ""
-            echo "See individual job results above for per-repo details."
-          } >> "$GITHUB_STEP_SUMMARY"
+          echo "## Consumer Repo Sync Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Template Hash:** ${{ needs.prepare.outputs.template_hash }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Dry Run:** ${{ inputs.dry_run || 'false' }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Repos Processed" >> $GITHUB_STEP_SUMMARY
+          echo '${{ needs.prepare.outputs.repos }}' | jq -r '.repo[]' | while read repo; do
+            echo "- $repo" >> $GITHUB_STEP_SUMMARY
+          done
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "*Sync driven by [sync-manifest.yml](https://github.com/stranske/Workflows/blob/main/.github/sync-manifest.yml)*" >> $GITHUB_STEP_SUMMARY

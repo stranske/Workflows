@@ -93,3 +93,56 @@ diff /tmp/tpp.txt /tmp/here.txt
 # Trigger workflow sync from Workflows repo
 gh workflow run maint-68-sync-consumer-repos.yml --repo stranske/Workflows
 ```
+
+---
+
+## �� POLICY: Cross-Repo Work
+
+> **CRITICAL**: Read this before ANY work that might affect the Workflows repo.
+
+### Policy Checkpoint Trigger
+
+When creating a todo list, ask:
+
+**"Does this work need changes in stranske/Workflows?"**
+
+Signs that you need Workflows changes:
+- Adding a new agent capability
+- Modifying how keepalive/autofix/verifier works
+- Needing a new Codex prompt
+- Bug in a reusable workflow
+
+### If YES → Work in Workflows First
+
+1. Clone/checkout stranske/Workflows
+2. Make changes there (following Workflows CLAUDE.md policy)
+3. Ensure sync manifest is updated
+4. Trigger sync to propagate to this repo
+5. Then verify in this repo
+
+**DO NOT** try to fix Workflows issues by editing local files - they will be overwritten on next sync.
+
+### Add Policy Verification Todo
+
+When your todo list involves cross-repo coordination, add as **FINAL** item:
+
+```
+✅ Verify cross-repo policy compliance:
+   - [ ] Changes made in correct repo (Workflows vs Consumer)
+   - [ ] Sync triggered if needed
+   - [ ] Both repos have passing CI
+```
+
+### Quick Commands
+
+```bash
+# Check if a file is synced (compare to template)
+diff .github/workflows/agents-keepalive-loop.yml \
+     <(gh api repos/stranske/Workflows/contents/templates/consumer-repo/.github/workflows/agents-keepalive-loop.yml --jq '.content' | base64 -d)
+
+# Trigger sync from Workflows
+gh workflow run maint-68-sync-consumer-repos.yml --repo stranske/Workflows -f repos="${{ github.repository }}"
+
+# Check sync manifest for what SHOULD be here
+gh api repos/stranske/Workflows/contents/.github/sync-manifest.yml --jq '.content' | base64 -d
+```

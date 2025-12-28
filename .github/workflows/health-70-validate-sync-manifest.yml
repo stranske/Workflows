@@ -1,0 +1,217 @@
+# Sync Manifest Validation - Ensures sync-manifest.yml is complete
+#
+# This workflow validates that:
+# 1. Every file in templates/consumer-repo/ is accounted for in sync-manifest.yml
+# 2. Every workflow in .github/workflows/ is categorized (reusable-*, maint-*, or in manifest)
+# 3. Every prompt in .github/codex/prompts/ is in the manifest
+# 4. No orphaned files exist that should be synced but aren't declared
+#
+# POLICY ENFORCEMENT: This workflow fails PRs that add sync-able files without
+# updating the manifest, preventing the "forgot to wire it up" failure mode.
+
+name: Validate Sync Manifest
+
+on:
+  pull_request:
+    paths:
+      - '.github/sync-manifest.yml'
+      - '.github/workflows/**'
+      - '.github/codex/**'
+      - '.github/scripts/**'
+      - 'templates/consumer-repo/**'
+  push:
+    branches: [main]
+    paths:
+      - '.github/sync-manifest.yml'
+      - '.github/workflows/**'
+      - '.github/codex/**'
+      - '.github/scripts/**'
+      - 'templates/consumer-repo/**'
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  validate-manifest:
+    name: Validate sync manifest completeness
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install pyyaml
+
+      - name: Validate manifest
+        id: validate
+        run: |
+          python3 << 'VALIDATION_SCRIPT'
+          import yaml
+          import os
+          import sys
+          from pathlib import Path
+
+          errors = []
+          warnings = []
+
+          # Load manifest
+          manifest_path = '.github/sync-manifest.yml'
+          if not os.path.exists(manifest_path):
+              print("::error::sync-manifest.yml not found!")
+              sys.exit(1)
+
+          with open(manifest_path) as f:
+              manifest = yaml.safe_load(f)
+
+          # Build sets of declared files
+          declared_workflows = set()
+          declared_prompts = set()
+          declared_scripts = set()
+          declared_docs = set()
+          declared_codex_config = set()
+          excluded_paths = set()
+
+          for item in manifest.get('workflows', []):
+              src = item.get('source', '')
+              if src.startswith('.github/workflows/'):
+                  declared_workflows.add(os.path.basename(src))
+
+          for item in manifest.get('prompts', []):
+              src = item.get('source', '')
+              if 'prompts/' in src:
+                  declared_prompts.add(os.path.basename(src))
+
+          for item in manifest.get('scripts', []):
+              src = item.get('source', '')
+              if 'scripts/' in src:
+                  declared_scripts.add(os.path.basename(src))
+
+          for item in manifest.get('codex_config', []):
+              src = item.get('source', '')
+              declared_codex_config.add(os.path.basename(src))
+
+          for item in manifest.get('docs', []):
+              src = item.get('source', '')
+              declared_docs.add(src)
+
+          for item in manifest.get('excluded', []):
+              excluded_paths.add(item.get('path', ''))
+
+          # Check templates/consumer-repo/.github/workflows/
+          template_workflows_dir = 'templates/consumer-repo/.github/workflows'
+          if os.path.isdir(template_workflows_dir):
+              for f in os.listdir(template_workflows_dir):
+                  if f.endswith('.yml') or f.endswith('.yaml'):
+                      if f not in declared_workflows:
+                          full_path = f'.github/workflows/{f}'
+                          if full_path not in excluded_paths:
+                              errors.append(f"Template workflow '{f}' not in manifest (add to workflows: or excluded:)")
+
+          # Check templates/consumer-repo/.github/codex/prompts/
+          template_prompts_dir = 'templates/consumer-repo/.github/codex/prompts'
+          if os.path.isdir(template_prompts_dir):
+              for f in os.listdir(template_prompts_dir):
+                  if f.endswith('.md'):
+                      if f not in declared_prompts:
+                          errors.append(f"Template prompt '{f}' not in manifest (add to prompts:)")
+
+          # Check .github/workflows/ for uncategorized workflows
+          workflows_dir = '.github/workflows'
+          known_prefixes = ('reusable-', 'maint-', 'health-', 'selftest-')
+          workflows_only_patterns = ('maint-', 'health-', 'selftest-')
+          
+          if os.path.isdir(workflows_dir):
+              for f in os.listdir(workflows_dir):
+                  if not (f.endswith('.yml') or f.endswith('.yaml')):
+                      continue
+                  if f.startswith(known_prefixes):
+                      # These are categorized by prefix
+                      continue
+                  if f.startswith('agents-') or f == 'autofix.yml' or f.startswith('pr-') or f == 'ci.yml':
+                      # These should be in template OR manifest
+                      template_path = f'templates/consumer-repo/.github/workflows/{f}'
+                      if not os.path.exists(template_path) and f not in declared_workflows:
+                          warnings.append(f"Workflow '{f}' is not in template and not categorized - should it be synced?")
+
+          # Check .github/codex/prompts/ against manifest
+          prompts_dir = '.github/codex/prompts'
+          if os.path.isdir(prompts_dir):
+              for f in os.listdir(prompts_dir):
+                  if f.endswith('.md'):
+                      template_path = f'templates/consumer-repo/.github/codex/prompts/{f}'
+                      if not os.path.exists(template_path) and f not in declared_prompts:
+                          warnings.append(f"Prompt '{f}' exists in .github/codex/prompts/ but not in template - should it be synced?")
+
+          # Validate manifest entries have descriptions
+          for category in ['workflows', 'prompts', 'scripts', 'codex_config', 'docs']:
+              for item in manifest.get(category, []):
+                  if not item.get('description'):
+                      errors.append(f"Missing description for {item.get('source', 'unknown')} in {category}")
+
+          # Output results
+          print("=" * 60)
+          print("SYNC MANIFEST VALIDATION REPORT")
+          print("=" * 60)
+          
+          if errors:
+              print(f"\n❌ ERRORS ({len(errors)}):")
+              for e in errors:
+                  print(f"  - {e}")
+                  print(f"::error::{e}")
+          
+          if warnings:
+              print(f"\n⚠️ WARNINGS ({len(warnings)}):")
+              for w in warnings:
+                  print(f"  - {w}")
+                  print(f"::warning::{w}")
+
+          if not errors and not warnings:
+              print("\n✅ Manifest is complete and valid!")
+
+          print("\n" + "=" * 60)
+          print(f"Declared: {len(declared_workflows)} workflows, {len(declared_prompts)} prompts, {len(declared_scripts)} scripts")
+          print("=" * 60)
+
+          # Set outputs
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write(f"errors={len(errors)}\n")
+              f.write(f"warnings={len(warnings)}\n")
+
+          if errors:
+              sys.exit(1)
+          VALIDATION_SCRIPT
+
+      - name: Comment on PR
+        if: failure() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = `## ❌ Sync Manifest Validation Failed
+
+            This PR modifies files that should be synced to consumer repos, but the sync manifest is incomplete.
+
+            **Required action:** Update \`.github/sync-manifest.yml\` to include the new/modified files.
+
+            ### Why this matters
+            Files not declared in the manifest won't be synced to consumer repos (Template, Manager-Database, trip-planner, Travel-Plan-Permission), causing features to silently not work in those repos.
+
+            ### How to fix
+            1. Open \`.github/sync-manifest.yml\`
+            2. Add your new files to the appropriate section (workflows, prompts, scripts, etc.)
+            3. Include a \`description\` explaining what the file does
+            4. If the file should NOT be synced, add it to \`excluded:\` with a reason
+
+            See the workflow logs for specific files that need to be added.`;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: body
+            });

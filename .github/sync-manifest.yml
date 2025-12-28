@@ -1,0 +1,148 @@
+# Sync Manifest - Single Source of Truth for Consumer Repo Synchronization
+#
+# This manifest declares ALL files that should be synced from Workflows to consumer repos.
+# The sync workflow (maint-68-sync-consumer-repos.yml) reads this manifest.
+# A validation CI workflow ensures this manifest is complete.
+#
+# POLICY: Any file intended for consumer repos MUST be listed here.
+# Files not listed will NOT be synced, even if they exist in templates/consumer-repo/.
+#
+# Categories:
+#   workflows: Thin caller workflows that consumers run directly
+#   prompts: Codex prompt files for agent operations  
+#   scripts: JavaScript/Python scripts required by workflows
+#   codex_config: Codex configuration files (AGENT_INSTRUCTIONS.md, etc.)
+#   docs: Documentation files synced to consumer repos
+#
+# Each entry can specify:
+#   - source: Path relative to templates/consumer-repo/ (or .github/ for reusable-only)
+#   - target: Path in consumer repo (defaults to same as source)
+#   - description: What this file does (required for documentation)
+
+version: 1
+
+# Workflows that run in consumer repos (thin callers)
+workflows:
+  # Core CI/CD
+  - source: .github/workflows/pr-00-gate.yml
+    description: "Gate workflow - runs tests, lint, type checking before merge"
+  
+  - source: .github/workflows/ci.yml
+    description: "CI workflow - main continuous integration entry point"
+  
+  - source: .github/workflows/autofix.yml
+    description: "Autofix workflow - automatically fixes lint/format issues"
+
+  # Agent system - orchestration
+  - source: .github/workflows/agents-orchestrator.yml
+    description: "Agent orchestrator - dispatches work to Codex/Copilot agents"
+  
+  - source: .github/workflows/agents-pr-meta.yml
+    description: "PR metadata - tracks agent PR state and labels"
+  
+  - source: .github/workflows/agents-issue-intake.yml
+    description: "Issue intake - processes new issues for agent assignment"
+
+  # Agent system - execution
+  - source: .github/workflows/agents-keepalive-loop.yml
+    description: "Keepalive loop - continues agent work until tasks complete"
+  
+  - source: .github/workflows/agents-autofix-loop.yml
+    description: "Autofix loop - dispatches Codex when autofix can't fix Gate failures"
+  
+  - source: .github/workflows/agents-verifier.yml
+    description: "Verifier - validates agent work meets acceptance criteria"
+  
+  - source: .github/workflows/agents-bot-comment-handler.yml
+    description: "Bot comment handler - dispatches agents to address bot review comments"
+
+  # Version pins
+  - source: .github/workflows/autofix-versions.env
+    description: "Autofix tool version pins - ruff, black versions"
+    sync_mode: create_only  # Don't overwrite if exists - repos customize this
+
+# Codex prompts for agent operations
+prompts:
+  - source: .github/codex/prompts/keepalive_next_task.md
+    description: "Keepalive prompt - instructs Codex on next task in PR"
+  
+  - source: .github/codex/prompts/autofix_from_ci_failure.md
+    description: "Autofix prompt - instructs Codex to fix CI/Gate failures"
+  
+  - source: .github/codex/prompts/fix_ci_failures.md
+    description: "CI fix prompt - general CI failure resolution instructions"
+  
+  - source: .github/codex/prompts/fix_bot_comments.md
+    description: "Bot comments prompt - instructs Codex to address bot review comments"
+  
+  - source: .github/codex/prompts/verifier_acceptance_check.md
+    description: "Verifier prompt - acceptance criteria validation"
+
+# Codex configuration
+codex_config:
+  - source: .github/codex/AGENT_INSTRUCTIONS.md
+    description: "Agent instructions - base instructions for all Codex runs"
+
+# Scripts required by consumer workflows
+scripts:
+  # Python scripts for ChatGPT topic sync
+  - source: .github/scripts/decode_raw_input.py
+    description: "Decodes raw input from ChatGPT connector"
+  
+  - source: .github/scripts/parse_chatgpt_topics.py
+    description: "Parses ChatGPT conversation into issue topics"
+  
+  - source: .github/scripts/fallback_split.py
+    description: "Fallback topic splitting when parsing fails"
+
+  # JavaScript scripts for issue/PR handling
+  - source: .github/scripts/issue_pr_locator.js
+    description: "Locates PRs associated with issues"
+  
+  - source: .github/scripts/issue_context_utils.js
+    description: "Utilities for issue context extraction"
+  
+  - source: .github/scripts/issue_scope_parser.js
+    description: "Parses issue scope and requirements"
+  
+  - source: .github/scripts/keepalive_instruction_template.js
+    description: "Generates keepalive instructions for Codex"
+  
+  - source: .github/scripts/keepalive_loop.js
+    description: "Core keepalive loop logic"
+  
+  - source: .github/scripts/keepalive_state.js
+    description: "Keepalive state management"
+  
+  - source: .github/scripts/prompt_injection_guard.js
+    description: "Security guard against prompt injection attacks"
+  
+  - source: .github/scripts/error_classifier.js
+    description: "Classifies CI errors for agent handling"
+
+# Documentation synced to consumer repos
+docs:
+  - source: docs/AGENT_ISSUE_FORMAT.md
+    target: docs/AGENT_ISSUE_FORMAT.md
+    description: "Format specification for agent-compatible issues"
+  
+  - source: docs/CI_SYSTEM_GUIDE.md
+    target: docs/CI_SYSTEM_GUIDE.md
+    description: "Guide to the CI system for agents"
+  
+  - source: docs/LABELS.md
+    target: docs/LABELS.md
+    description: "Label definitions and usage"
+
+  - source: CLAUDE.md
+    target: CLAUDE.md
+    description: "Context file for Claude/AI assistants"
+
+# Files that exist in templates but are NOT synced (consumer creates their own)
+excluded:
+  - path: .github/workflows/autofix-versions.env
+    reason: "Each repo maintains its own tool version pins"
+  - path: .gitignore
+    reason: "Repo-specific ignore patterns"
+  - path: README.md
+    reason: "Repo-specific documentation"
