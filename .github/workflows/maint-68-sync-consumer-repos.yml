@@ -511,15 +511,17 @@ jobs:
     steps:
       - name: Generate summary
         run: |
-          echo "## Consumer Repo Sync Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Template Hash:** ${{ needs.prepare.outputs.template_hash }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Dry Run:** ${{ inputs.dry_run || 'false' }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Repos Processed" >> $GITHUB_STEP_SUMMARY
-          echo '${{ needs.prepare.outputs.repos }}' | jq -r '.repo[]' | while read repo; do
-            echo "- $repo" >> $GITHUB_STEP_SUMMARY
-          done
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "---" >> $GITHUB_STEP_SUMMARY
-          echo "*Sync driven by [sync-manifest.yml](https://github.com/stranske/Workflows/blob/main/.github/sync-manifest.yml)*" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## Consumer Repo Sync Summary"
+            echo ""
+            echo "**Template Hash:** ${{ needs.prepare.outputs.template_hash }}"
+            echo "**Dry Run:** ${{ inputs.dry_run || 'false' }}"
+            echo ""
+            echo "### Repos Processed"
+            echo '${{ needs.prepare.outputs.repos }}' | jq -r '.repo[]' | while read -r repo; do
+              echo "- $repo"
+            done
+            echo ""
+            echo "---"
+            echo "*Sync driven by [sync-manifest.yml](https://github.com/stranske/Workflows/blob/main/.github/sync-manifest.yml)*"
+          } >> "$GITHUB_STEP_SUMMARY"
