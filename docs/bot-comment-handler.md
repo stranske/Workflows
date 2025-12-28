@@ -10,7 +10,6 @@ Automatically addresses review comments from bots (Copilot, CodeRabbit, etc.) us
 │  - Collects unresolved bot comments via GitHub API             │
 │  - Detects agent from PR labels (agent:codex, agent:claude)    │
 │  - Posts @agent command to trigger fix                          │
-│  - Creates issue for unaddressable items                        │
 └─────────────────────────────────────────────────────────────────┘
                               │
               ┌───────────────┼───────────────┐
@@ -69,9 +68,9 @@ The agent is instructed to:
 
 ### After Processing
 
-- Comment threads with fixes are resolved automatically
-- Skipped/complex items can be turned into follow-up issues
-- Summary posted to workflow run
+- Agent commits fixes with message documenting what was addressed vs skipped
+- Summary posted to workflow run showing all comments found
+- Skipped/complex items are highlighted in the summary for potential follow-up
 
 ## Consumer Repo Setup
 
@@ -99,83 +98,67 @@ Create `autofix:bot-comments` label in your repository:
 - **Color:** `#7057ff` (purple)
 - **Description:** Trigger bot to address review bot comments
 
-### 4. Ensure secrets
-
-The workflow uses the same secrets as other agent workflows:
-- `SERVICE_BOT_PAT` or GitHub App credentials
-- Same permissions as keepalive
-
 ## Usage
 
-### Manual (Label Trigger)
+### One-off PRs
 
-1. Open a PR with bot review comments
-2. Add the `autofix:bot-comments` label
-3. Workflow collects comments and dispatches agent
-4. Label is automatically removed after processing
+Add the `autofix:bot-comments` label to any PR with bot review comments. The workflow will:
+1. Collect all unresolved bot comments
+2. Post `@<agent>` command to trigger the agent
+3. Remove the label after processing
 
-### Automatic (Agent PRs)
+### Agent PRs (Automatic)
 
-For PRs with `agent:codex` or other agent labels:
-1. Gate workflow completes successfully
-2. Bot comment handler checks for unresolved comments
-3. If found, dispatches agent to address them
-4. Agent fixes flow into normal keepalive cycle
+For PRs created by agents (with `agent:*` labels), the workflow automatically runs after Gate completes:
+1. Checks if Gate succeeded
+2. Collects any bot review comments
+3. Dispatches the agent to address them
 
-### Manual Dispatch
+### Testing
 
 ```bash
-gh workflow run agents-bot-comment-handler.yml \
-  -f pr_number=123 \
-  -f dry_run=true
+# Dry run - see what would be processed
+gh workflow run agents-bot-comment-handler.yml -f pr_number=123 -f dry_run=true
+
+# Full run
+gh workflow run agents-bot-comment-handler.yml -f pr_number=123
 ```
 
-## Integration with Keepalive
+## Configuration
 
-The bot comment handler runs **in parallel** with the normal keepalive cycle:
+### Inputs
 
-```
-Push → Gate runs → Bot comment handler checks for comments
-                 → Keepalive evaluates tasks
-                 
-Both can trigger agent, but concurrency group ensures orderly execution
-```
+| Input | Default | Description |
+|-------|---------|-------------|
+| `pr_number` | (required) | PR number to process |
+| `dry_run` | `false` | Preview without triggering agent |
+| `bot_authors` | `copilot[bot],github-actions[bot],coderabbitai[bot]` | Bot login names to process |
+| `skip_if_human_replied` | `true` | Skip threads with human replies |
 
-The agent command posted by bot comment handler goes through `agents-pr-meta.yml`, which uses the same concurrency group as keepalive, preventing race conditions.
+### Secrets
+
+| Secret | Required | Description |
+|--------|----------|-------------|
+| `SERVICE_BOT_PAT` | No | PAT for service bot account |
+| `GH_APP_ID` | No | GitHub App ID (alternative auth) |
+| `GH_APP_PRIVATE_KEY` | No | GitHub App private key |
 
 ## Troubleshooting
 
 ### No comments found
 
-- Check that bot authors match (case-sensitive)
-- Verify comments are review comments (not issue comments)
-- Check if human already replied (skipped by default)
+- Check that bot authors match exactly (including `[bot]` suffix)
+- Verify comments are review comments, not PR comments
+- Check if threads were already resolved
 
 ### Agent not triggered
 
-- Verify PR has an agent label or workflow is using correct default
-- Check secrets are configured
-- Review workflow run logs
+- Ensure `dry_run` is not enabled
+- Check workflow permissions (needs `pull-requests: write`)
+- Verify authentication tokens are configured
 
-### Agent doesn't address all comments
+### Gate trigger not working
 
-- Some suggestions may not have enough context
-- Agent may skip suggestions it deems incorrect
-- Check commit message for agent's reasoning
-
-## Inputs Reference
-
-| Input | Type | Default | Description |
-|-------|------|---------|-------------|
-| `pr_number` | string | required | PR number to process |
-| `dry_run` | boolean | false | Preview without changes |
-| `bot_authors` | string | `copilot[bot],github-actions[bot],coderabbitai[bot]` | Bot usernames to process |
-| `skip_if_human_replied` | boolean | true | Skip threads with human replies |
-
-## Outputs Reference
-
-| Output | Description |
-|--------|-------------|
-| `comments_found` | Whether unresolved bot comments were found |
-| `comments_count` | Number of comments found |
-| `agent_triggered` | Whether agent was dispatched |
+- Ensure PR has an `agent:*` label
+- Check that Gate workflow completed successfully
+- Verify workflow_run trigger is configured correctly

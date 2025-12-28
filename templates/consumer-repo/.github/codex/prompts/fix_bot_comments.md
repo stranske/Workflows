@@ -38,10 +38,6 @@ Review bots have left suggestions on this PR. Your task is to address each one.
    - Suggestion to rename variable (matches project convention)
    ```
 
-3. The automation will:
-   - Resolve comment threads for fixes you made
-   - Create a follow-up issue for complex items that need human review
-
 ## Bot Comments
 
 <!-- Bot comments will be dynamically appended below by the workflow -->

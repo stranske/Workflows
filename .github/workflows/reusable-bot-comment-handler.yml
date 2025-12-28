@@ -13,8 +13,8 @@
 #
 # Outputs:
 # - comments_found: 'true' if unresolved bot comments were found
-# - comments_addressed: Number of comments the agent attempted to address
-# - issues_created: 'true' if an issue was created for unaddressable items
+# - comments_count: Number of unresolved bot comments found
+# - agent_triggered: 'true' if the agent was triggered to address comments
 
 name: Reusable Bot Comment Handler
 
@@ -31,7 +31,7 @@ on:
         type: boolean
         default: false
       bot_authors:
-        description: 'Comma-separated list of bot usernames to process (default: copilot,github-actions)'
+        description: 'Comma-separated list of bot login names including [bot] suffix (default: copilot[bot],github-actions[bot],coderabbitai[bot])'
         required: false
         type: string
         default: 'copilot[bot],github-actions[bot],coderabbitai[bot]'
@@ -81,20 +81,25 @@ jobs:
       - name: Generate token
         id: token
         uses: actions/create-github-app-token@v1
-        if: inputs.gh_app_id != ''
+        if: ${{ secrets.gh_app_id != '' }}
+        continue-on-error: true
         with:
           app-id: ${{ secrets.gh_app_id }}
           private-key: ${{ secrets.gh_app_private_key }}
 
       - name: Resolve token
         id: auth
+        env:
+          TOKEN_OUTPUT: ${{ steps.token.outputs.token }}
+          SERVICE_PAT: ${{ secrets.service_bot_pat }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
-          if [ -n "${{ steps.token.outputs.token }}" ]; then
-            echo "token=${{ steps.token.outputs.token }}" >> $GITHUB_OUTPUT
-          elif [ -n "${{ secrets.service_bot_pat }}" ]; then
-            echo "token=${{ secrets.service_bot_pat }}" >> $GITHUB_OUTPUT
+          if [ -n "${TOKEN_OUTPUT}" ]; then
+            echo "token=${TOKEN_OUTPUT}" >> "$GITHUB_OUTPUT"
+          elif [ -n "${SERVICE_PAT}" ]; then
+            echo "token=${SERVICE_PAT}" >> "$GITHUB_OUTPUT"
           else
-            echo "token=${{ github.token }}" >> $GITHUB_OUTPUT
+            echo "token=${GITHUB_TOKEN}" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Detect agent from PR labels
@@ -103,11 +108,21 @@ jobs:
         with:
           github-token: ${{ steps.auth.outputs.token }}
           script: |
-            const { data: pr } = await github.rest.pulls.get({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: parseInt('${{ inputs.pr_number }}')
-            });
+            const prNumber = parseInt('${{ inputs.pr_number }}');
+            
+            let pr;
+            try {
+              const response = await github.rest.pulls.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: prNumber
+              });
+              pr = response.data;
+            } catch (error) {
+              console.log(`Failed to fetch PR #${prNumber}: ${error.message}`);
+              core.setFailed(`Could not fetch PR #${prNumber}`);
+              return;
+            }
             
             const labels = pr.labels.map(l => l.name);
             let agent = 'codex';  // default
@@ -167,13 +182,13 @@ jobs:
                 continue;
               }
               
-              // Check if human replied to this thread
+              // Check if human replied to this thread (check all comments in thread)
               if (skipIfHumanReplied) {
-                const replies = comments.filter(c => 
-                  c.in_reply_to_id === comment.id && 
+                const threadReplies = comments.filter(c => 
+                  (c.in_reply_to_id === comment.id || c.in_reply_to_id === threadId) && 
                   !botAuthors.some(bot => c.user.login.toLowerCase() === bot.toLowerCase())
                 );
-                if (replies.length > 0) {
+                if (threadReplies.length > 0) {
                   console.log(`Skipping comment ${comment.id} - human already replied`);
                   processedThreads.add(threadId);
                   continue;
@@ -211,10 +226,12 @@ jobs:
       - name: Post summary
         if: steps.collect.outputs.found == 'true'
         uses: actions/github-script@v7
+        env:
+          COMMENTS_JSON: ${{ steps.collect.outputs.comments }}
         with:
           github-token: ${{ steps.auth.outputs.token }}
           script: |
-            const comments = JSON.parse('${{ steps.collect.outputs.comments }}'.replace(/'/g, "\\'"));
+            const comments = JSON.parse(process.env.COMMENTS_JSON);
             const count = comments.length;
             const agent = '${{ steps.agent.outputs.agent }}';
             const dryRun = ${{ inputs.dry_run }};
@@ -255,13 +272,12 @@ jobs:
 
       - name: Generate bot comments prompt
         id: prompt
+        env:
+          COMMENTS_JSON: ${{ needs.collect.outputs.comments_json }}
         run: |
           set -euo pipefail
           
           mkdir -p .github/codex/prompts
-          
-          # Parse comments JSON
-          COMMENTS='${{ needs.collect.outputs.comments_json }}'
           
           cat > .github/codex/prompts/fix_bot_comments_dynamic.md << 'PROMPT_HEADER'
           # Fix Bot Review Comments
@@ -273,26 +289,25 @@ jobs:
           1. Read each bot comment below
           2. Implement the suggested fix if it improves the code
           3. If a suggestion is incorrect or doesn't apply, skip it and note why
-          4. After fixing, the automation will resolve the comment threads
+          4. After fixing, summarize what you addressed in your commit message
           
           ## Bot Comments to Address
           
           PROMPT_HEADER
           
-          # Append each comment
-          echo "$COMMENTS" | jq -r '.[] | "### \(.path):\(.line // "N/A")\n\n**From:** \(.author)\n\n```\n\(.body)\n```\n\n**Context (diff hunk):**\n```diff\n\(.diff_hunk)\n```\n\n---\n"' >> .github/codex/prompts/fix_bot_comments_dynamic.md
+          # Append each comment using jq with proper escaping
+          echo "${COMMENTS_JSON}" | jq -r '.[] | "### \(.path):\(.line // "N/A")\n\n**From:** \(.author)\n\n```\n\(.body)\n```\n\n**Context (diff hunk):**\n```diff\n\(.diff_hunk)\n```\n\n---\n"' >> .github/codex/prompts/fix_bot_comments_dynamic.md
           
           cat >> .github/codex/prompts/fix_bot_comments_dynamic.md << 'PROMPT_FOOTER'
           
           ## After Addressing Comments
           
           - Commit your changes with message: "fix: address bot review comments"
-          - The automation will resolve comment threads for fixes you made
-          - For suggestions you skipped, the automation will create a follow-up issue
+          - Include which suggestions you addressed vs skipped in the commit message
           PROMPT_FOOTER
           
-          echo "ready=true" >> $GITHUB_OUTPUT
-          echo "Generated prompt with $(echo "$COMMENTS" | jq length) comments"
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+          echo "Generated prompt with $(echo "${COMMENTS_JSON}" | jq length) comments"
 
       - name: Upload prompt artifact
         uses: actions/upload-artifact@v4
@@ -313,7 +328,7 @@ jobs:
       - name: Generate token
         id: token
         uses: actions/create-github-app-token@v1
-        if: inputs.gh_app_id != ''
+        if: ${{ secrets.gh_app_id != '' }}
         continue-on-error: true
         with:
           app-id: ${{ secrets.gh_app_id }}
@@ -321,13 +336,17 @@ jobs:
 
       - name: Resolve token
         id: auth
+        env:
+          TOKEN_OUTPUT: ${{ steps.token.outputs.token }}
+          SERVICE_PAT: ${{ secrets.service_bot_pat }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
-          if [ -n "${{ steps.token.outputs.token }}" ]; then
-            echo "token=${{ steps.token.outputs.token }}" >> $GITHUB_OUTPUT
-          elif [ -n "${{ secrets.service_bot_pat }}" ]; then
-            echo "token=${{ secrets.service_bot_pat }}" >> $GITHUB_OUTPUT
+          if [ -n "${TOKEN_OUTPUT}" ]; then
+            echo "token=${TOKEN_OUTPUT}" >> "$GITHUB_OUTPUT"
+          elif [ -n "${SERVICE_PAT}" ]; then
+            echo "token=${SERVICE_PAT}" >> "$GITHUB_OUTPUT"
           else
-            echo "token=${{ github.token }}" >> $GITHUB_OUTPUT
+            echo "token=${GITHUB_TOKEN}" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Post agent command comment
@@ -368,12 +387,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Final summary
+        env:
+          COMMENTS_COUNT: ${{ needs.collect.outputs.comments_count }}
+          AGENT: ${{ needs.collect.outputs.agent }}
+          TRIGGERED: ${{ needs.dispatch.outputs.triggered }}
+          DRY_RUN: ${{ inputs.dry_run }}
         run: |
-          echo "## Bot Comment Handler Results" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
-          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Comments Found | ${{ needs.collect.outputs.comments_count || 0 }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Agent | ${{ needs.collect.outputs.agent || 'N/A' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Agent Triggered | ${{ needs.dispatch.outputs.triggered || 'false' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Dry Run | ${{ inputs.dry_run }} |" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## Bot Comment Handler Results"
+            echo ""
+            echo "| Metric | Value |"
+            echo "|--------|-------|"
+            echo "| Comments Found | ${COMMENTS_COUNT:-0} |"
+            echo "| Agent | ${AGENT:-N/A} |"
+            echo "| Agent Triggered | ${TRIGGERED:-false} |"
+            echo "| Dry Run | ${DRY_RUN} |"
+          } >> "$GITHUB_STEP_SUMMARY"
