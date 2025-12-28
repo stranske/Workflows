@@ -99,7 +99,7 @@ jobs:
 
       - name: Install lint tools
         run: |
-          pip install ruff mypy black
+          pip install ruff mypy black pyyaml
 
       - name: Validate Python scripts with consumer-repo rules
         run: |
