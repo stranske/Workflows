@@ -468,6 +468,10 @@ jobs:
             is_allowed=false
             for target in "${targets[@]}"; do
               clean_target="${target#./}"
+              # When target is "." (root), all paths are within it
+              if [[ -z "$clean_target" ]] || [[ "$clean_target" == "." ]]; then
+                is_allowed=true; break
+              fi
               if [[ "$path" == "$clean_target"/* ]] || [[ "$path" == "$clean_target" ]]; then
                 is_allowed=true; break
               fi
