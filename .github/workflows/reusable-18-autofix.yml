@@ -371,7 +371,7 @@ jobs:
           set -euo pipefail
           # === Dynamic Python Target Detection ===
           # shellcheck disable=SC2016 # Single quotes intentional - literal regex pattern
-          STANDARD_EXCLUSIONS='\.git|\.venv|venv|\.env|env|__pycache__|node_modules|build|dist|\.tox|\.pytest_cache|\.mypy_cache|\.ruff_cache|htmlcov|\.coverage|\.eggs|\.egg-info'
+          STANDARD_EXCLUSIONS='(^|/)\.git($|/)|\.venv|venv|\.env|env|__pycache__|node_modules|build|dist|\.tox|\.pytest_cache|\.mypy_cache|\.ruff_cache|htmlcov|\.coverage|\.eggs|\.egg-info'
           exclusion_pattern="$STANDARD_EXCLUSIONS"
           if [[ -f ".autofix-exclude" ]]; then
             echo "[autofix] Found .autofix-exclude, applying repo-specific exclusions"
@@ -416,7 +416,7 @@ jobs:
           echo "[autofix-clean] Running clean cosmetic sweep"
           # === Dynamic Python Target Detection ===
           # shellcheck disable=SC2016 # Single quotes intentional - literal regex pattern
-          STANDARD_EXCLUSIONS='\.git|\.venv|venv|\.env|env|__pycache__|node_modules|build|dist|\.tox|\.pytest_cache|\.mypy_cache|\.ruff_cache|htmlcov|\.coverage|\.eggs|\.egg-info'
+          STANDARD_EXCLUSIONS='(^|/)\.git($|/)|\.venv|venv|\.env|env|__pycache__|node_modules|build|dist|\.tox|\.pytest_cache|\.mypy_cache|\.ruff_cache|htmlcov|\.coverage|\.eggs|\.egg-info'
           exclusion_pattern="$STANDARD_EXCLUSIONS"
           if [[ -f ".autofix-exclude" ]]; then
             echo "[autofix-clean] Found .autofix-exclude, applying repo-specific exclusions"
@@ -512,7 +512,7 @@ jobs:
             if [ ${#allowed_patterns[@]} -eq 0 ]; then
               # Dynamic: Build allowed patterns from detected Python directories
               # shellcheck disable=SC2016 # Single quotes intentional - literal regex pattern
-              STANDARD_EXCLUSIONS='\.git|\.venv|venv|\.env|env|__pycache__|node_modules|build|dist|\.tox|\.pytest_cache|\.mypy_cache|\.ruff_cache|htmlcov|\.coverage|\.eggs|\.egg-info'
+              STANDARD_EXCLUSIONS='(^|/)\.git($|/)|\.venv|venv|\.env|env|__pycache__|node_modules|build|dist|\.tox|\.pytest_cache|\.mypy_cache|\.ruff_cache|htmlcov|\.coverage|\.eggs|\.egg-info'
               exclusion_pattern="$STANDARD_EXCLUSIONS"
               if [[ -f ".autofix-exclude" ]]; then
                 while IFS= read -r line || [[ -n "$line" ]]; do
