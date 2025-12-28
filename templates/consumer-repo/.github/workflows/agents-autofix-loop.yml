@@ -1,0 +1,499 @@
+name: Agents Autofix Loop
+
+on:
+  workflow_run:
+    workflows:
+      - Gate
+    types:
+      - completed
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+
+concurrency:
+  group: agents-autofix-loop-${{ github.event.workflow_run.pull_requests[0].number || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Prepare autofix context
+    runs-on: ubuntu-latest
+    environment: agent-standard
+    outputs:
+      should_run: ${{ steps.evaluate.outputs.should_run }}
+      pr_number: ${{ steps.evaluate.outputs.pr_number }}
+      head_ref: ${{ steps.evaluate.outputs.head_ref }}
+      head_sha: ${{ steps.evaluate.outputs.head_sha }}
+      appendix: ${{ steps.evaluate.outputs.appendix }}
+      stop_reason: ${{ steps.evaluate.outputs.stop_reason }}
+      attempts: ${{ steps.evaluate.outputs.attempts }}
+      max_attempts: ${{ steps.evaluate.outputs.max_attempts }}
+      trigger_reason: ${{ steps.evaluate.outputs.trigger_reason }}
+      trigger_job: ${{ steps.evaluate.outputs.trigger_job }}
+      trigger_step: ${{ steps.evaluate.outputs.trigger_step }}
+      gate_conclusion: ${{ steps.evaluate.outputs.gate_conclusion }}
+      gate_run_id: ${{ steps.evaluate.outputs.gate_run_id }}
+      security_blocked: ${{ steps.security_gate.outputs.blocked }}
+      security_reason: ${{ steps.security_gate.outputs.reason }}
+    steps:
+      - name: Checkout (for security gate)
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            .github/scripts/prompt_injection_guard.js
+          sparse-checkout-cone-mode: false
+
+      - name: Security gate - prompt injection guard
+        id: security_gate
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const guardPath = './.github/scripts/prompt_injection_guard.js';
+
+            // Check if guard exists (may not exist on older branches)
+            if (!fs.existsSync(guardPath)) {
+              core.info('Prompt injection guard not found, skipping security check.');
+              core.setOutput('blocked', 'false');
+              core.setOutput('reason', 'guard-not-found');
+              return;
+            }
+
+            const { evaluatePromptInjectionGuard } = require(guardPath);
+
+            const run = context.payload.workflow_run;
+            if (!run) {
+              core.setOutput('blocked', 'false');
+              core.setOutput('reason', 'no-workflow-run');
+              return;
+            }
+
+            const prInfo = Array.isArray(run.pull_requests) ? run.pull_requests[0] : undefined;
+            if (!prInfo?.number) {
+              core.setOutput('blocked', 'false');
+              core.setOutput('reason', 'no-pr-context');
+              return;
+            }
+
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prInfo.number,
+            });
+
+            const result = await evaluatePromptInjectionGuard({
+              github,
+              context,
+              pr,
+              actor: run.actor?.login || context.actor,
+              promptContent: pr.body || '',
+              core,
+            });
+
+            core.setOutput('blocked', String(result.blocked));
+            core.setOutput('reason', result.reason);
+
+            if (result.blocked) {
+              core.setFailed(`Security gate blocked: ${result.reason}`);
+            }
+
+      - name: Evaluate workflow_run
+        id: evaluate
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const run = context.payload.workflow_run;
+            const outputs = {
+              should_run: 'false',
+              pr_number: '',
+              head_ref: '',
+              head_sha: '',
+              appendix: '',
+              stop_reason: '',
+              attempts: '0',
+              max_attempts: '3',
+              trigger_reason: 'unknown',
+              trigger_job: '',
+              trigger_step: '',
+              gate_conclusion: String(run?.conclusion || run?.status || ''),
+              gate_run_id: String(run?.id || ''),
+            };
+
+            const stop = (reason, stopReason = '') => {
+              core.info(`Autofix loop skipped: ${reason}.`);
+              outputs.stop_reason = stopReason || reason;
+              for (const [key, value] of Object.entries(outputs)) {
+                core.setOutput(key, value);
+              }
+            };
+
+            if (!run) {
+              return stop('missing workflow_run payload');
+            }
+
+            if ((run.conclusion || '').toLowerCase() === 'success') {
+              return stop('upstream Gate succeeded');
+            }
+
+            if ((run.event || '').toLowerCase() !== 'pull_request') {
+              return stop(`unsupported event type: ${run.event || 'unknown'}`);
+            }
+
+            const prInfo = Array.isArray(run.pull_requests) ? run.pull_requests[0] : undefined;
+            if (!prInfo?.number) {
+              return stop('no pull request context on workflow_run');
+            }
+
+            outputs.pr_number = String(prInfo.number);
+
+            const { owner, repo } = context.repo;
+            const prNumber = Number(prInfo.number);
+            const pr = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+            const prData = pr.data;
+
+            if (!prData || prData.state !== 'open') {
+              return stop('pull request is not open');
+            }
+
+            if (prData.draft) {
+              return stop('draft pull request');
+            }
+
+            const headSha = prData.head?.sha;
+            if (!headSha || headSha !== run.head_sha) {
+              return stop('head SHA drifted since Gate started');
+            }
+
+            const sameRepo = prData.head?.repo?.full_name === `${owner}/${repo}`;
+            if (!sameRepo) {
+              return stop('head repository mismatch (likely fork)');
+            }
+
+            const labels = Array.isArray(prData.labels)
+              ? prData.labels
+                  .map((label) => (label?.name || '').toLowerCase())
+                  .filter(Boolean)
+              : [];
+            const hasAgentLabel = labels.includes('agent:codex');
+
+            const body = prData.body || '';
+            const configMatch = body.match(/autofix\s*:\s*(true|false)/i);
+            const autofixEnabled = configMatch
+              ? configMatch[1].toLowerCase() === 'true'
+              : hasAgentLabel;
+
+            if (!autofixEnabled) {
+              return stop('autofix disabled for this pull request');
+            }
+
+            const jobs = await github.paginate(github.rest.actions.listJobsForWorkflowRun, {
+              owner,
+              repo,
+              run_id: run.id,
+              per_page: 100,
+            });
+
+            const workflowFile = 'agents-autofix-loop.yml';
+            const maxAttempts = Number(outputs.max_attempts);
+            const previousRuns = await github.paginate(github.rest.actions.listWorkflowRuns, {
+              owner,
+              repo,
+              workflow_id: workflowFile,
+              head_sha: run.head_sha,
+              per_page: 100,
+              status: 'completed',
+            });
+
+            const attemptCount = previousRuns.length + 1;
+            outputs.attempts = String(attemptCount);
+            outputs.max_attempts = String(maxAttempts);
+
+            const failingJobs = [];
+            let triggerJob = null;
+            let triggerStep = null;
+            for (const job of jobs) {
+              const conclusion = (job.conclusion || job.status || '').toLowerCase();
+              if (!conclusion || ['success', 'skipped'].includes(conclusion)) {
+                continue;
+              }
+
+              const failingSteps =
+                Array.isArray(job.steps)
+                  ? job.steps
+                      .filter((step) => {
+                        const stepConclusion = (step.conclusion || step.status || '').toLowerCase();
+                        return stepConclusion && !['success', 'skipped'].includes(stepConclusion);
+                      })
+                      .map((step) => `${step.name} (${step.conclusion || step.status || 'unknown'})`)
+                  : [];
+
+              const detailLines = [`- ${job.name} (${job.conclusion || job.status || 'unknown'})`];
+              if (failingSteps.length > 0) {
+                detailLines.push(`  - steps: ${failingSteps.join('; ')}`);
+              }
+              failingJobs.push(detailLines.join('\n'));
+
+              if (!triggerJob) {
+                triggerJob = job;
+                const failingStep = Array.isArray(job.steps)
+                  ? job.steps.find((step) => {
+                      const stepConclusion = (step.conclusion || step.status || '').toLowerCase();
+                      return stepConclusion && !['success', 'skipped'].includes(stepConclusion);
+                    })
+                  : null;
+                triggerStep = failingStep || null;
+              }
+            }
+
+            const inferTriggerReason = (job, step) => {
+              const text = [job?.name, step?.name]
+                .filter(Boolean)
+                .map((value) => String(value).toLowerCase())
+                .join(' ');
+
+              if (!text) return 'unknown';
+              if (text.includes('mypy')) return 'mypy';
+              if (text.includes('lint') || text.includes('flake8') || text.includes('ruff')) return 'lint';
+              if (text.includes('pytest') || text.includes('test')) return 'pytest';
+              return 'unknown';
+            };
+
+            outputs.trigger_reason = inferTriggerReason(triggerJob, triggerStep);
+            outputs.trigger_job = triggerJob?.name || triggerJob?.id || '';
+            outputs.trigger_step = triggerStep?.name || '';
+
+            const appendixLines = [
+              `Gate run: ${run.html_url || run.id}`,
+              `Conclusion: ${run.conclusion || run.status || 'unknown'}`,
+              `PR: #${prNumber}`,
+              `Head SHA: ${headSha}`,
+              `Autofix attempts for this head: ${attemptCount} / ${maxAttempts}`,
+              'Fix scope: src/, tests/, tools/, scripts/, agents/, templates/, .github/',
+            ];
+
+            if (failingJobs.length > 0) {
+              appendixLines.push('Failing jobs:', ...failingJobs);
+            } else {
+              appendixLines.push('Failing jobs: none reported.');
+            }
+
+            outputs.appendix = appendixLines.join('\n');
+
+            if (attemptCount > maxAttempts) {
+              return stop(`autofix attempt limit reached (${attemptCount} > ${maxAttempts})`, 'max_attempts');
+            }
+
+            outputs.should_run = 'true';
+            outputs.head_ref = prData.head.ref || '';
+            outputs.head_sha = headSha;
+
+            for (const [key, value] of Object.entries(outputs)) {
+              core.setOutput(key, value);
+            }
+
+  autofix:
+    needs: prepare
+    if: needs.prepare.outputs.should_run == 'true'
+    name: Run Codex autofix
+    uses: stranske/Workflows/.github/workflows/reusable-codex-run.yml@main
+    with:
+      prompt_file: .github/codex/prompts/autofix_from_ci_failure.md
+      mode: autofix
+      pr_number: ${{ needs.prepare.outputs.pr_number }}
+      pr_ref: ${{ needs.prepare.outputs.head_ref }}
+      appendix: ${{ needs.prepare.outputs.appendix }}
+    secrets:
+      CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
+      WORKFLOWS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID }}
+      WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+
+  needs-human:
+    needs: prepare
+    if: needs.prepare.outputs.stop_reason == 'max_attempts'
+    name: Flag for human follow-up
+    runs-on: ubuntu-latest
+    environment: agent-standard
+    steps:
+      - name: Add needs-human label and comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = Number('${{ needs.prepare.outputs.pr_number }}');
+            if (!prNumber) {
+              core.info('No PR number available; skipping comment/label.');
+              return;
+            }
+
+            const appendix = `${{ toJSON(needs.prepare.outputs.appendix) }}`.replace(/^"|"$/g, '');
+            const attempts = ${{ needs.prepare.outputs.attempts || 0 }};
+            const maxAttempts = ${{ needs.prepare.outputs.max_attempts || 0 }};
+
+            const { owner, repo } = context.repo;
+
+            await github.rest.issues.addLabels({
+              owner,
+              repo,
+              issue_number: prNumber,
+              labels: ['needs-human'],
+            }).catch((error) => {
+              core.warning(`Failed to add label: ${error.message}`);
+            });
+
+            const body = [
+              'Autofix attempts exhausted for this head.',
+              `Attempts: ${attempts} / ${maxAttempts}`,
+              '',
+              'Latest Gate summary:',
+              '```',
+              appendix || 'No run context available.',
+              '```',
+              '',
+              'Please investigate manually.',
+            ].join('\n');
+
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: prNumber,
+              body,
+            });
+
+  metrics:
+    name: Record autofix metrics
+    needs:
+      - prepare
+      - autofix
+    if: always()
+    runs-on: ubuntu-latest
+    environment: agent-standard
+    steps:
+      - name: Collect metrics
+        id: collect
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const prNumber = Number('${{ needs.prepare.outputs.pr_number || 0 }}') || 0;
+            const attemptNumber = Number('${{ needs.prepare.outputs.attempts || 0 }}') || 0;
+            const attemptLimit = Number('${{ needs.prepare.outputs.max_attempts || 0 }}') || 0;
+            const headShaBefore = '${{ needs.prepare.outputs.head_sha }}';
+            const gateConclusionBefore = '${{ needs.prepare.outputs.gate_conclusion }}' || (context.payload.workflow_run?.conclusion || '');
+            const gateRunId = '${{ needs.prepare.outputs.gate_run_id }}' || String(context.payload.workflow_run?.id || '');
+            const triggerReason = '${{ needs.prepare.outputs.trigger_reason || 'unknown' }}';
+            const triggerJob = '${{ needs.prepare.outputs.trigger_job }}';
+            const triggerStep = '${{ needs.prepare.outputs.trigger_step }}';
+            const stopReason = '${{ needs.prepare.outputs.stop_reason }}';
+            const autofixResult = '${{ needs.autofix.result }}';
+
+            const { owner, repo } = context.repo;
+            let fixApplied = false;
+            let headShaAfter = headShaBefore;
+            let gateResultAfter = gateConclusionBefore || 'unknown';
+
+            if (prNumber) {
+              try {
+                const { data: pr } = await github.rest.pulls.get({
+                  owner,
+                  repo,
+                  pull_number: prNumber,
+                });
+                headShaAfter = pr.head?.sha || headShaAfter;
+                fixApplied = Boolean(headShaBefore && headShaAfter && headShaBefore !== headShaAfter);
+
+                const gateWorkflow = 'pr-00-gate.yml';
+                const runs = await github.paginate(github.rest.actions.listWorkflowRuns, {
+                  owner,
+                  repo,
+                  workflow_id: gateWorkflow,
+                  head_sha: headShaAfter,
+                  per_page: 20,
+                });
+                const latestGateRun = runs[0];
+                if (latestGateRun) {
+                  gateResultAfter = latestGateRun.conclusion || latestGateRun.status || 'unknown';
+                } else {
+                  gateResultAfter = 'not-found';
+                }
+              } catch (error) {
+                core.warning(`Failed to resolve PR or gate status: ${error.message}`);
+              }
+            }
+
+            const metrics = {
+              workflow_run_id: gateRunId,
+              pr_number: prNumber,
+              attempt_number: attemptNumber,
+              attempt_limit: attemptLimit,
+              trigger_reason: triggerReason || 'unknown',
+              trigger_job: triggerJob,
+              trigger_step: triggerStep,
+              fix_applied: fixApplied,
+              gate_result_after: gateResultAfter || 'unknown',
+              gate_conclusion_before: gateConclusionBefore || 'unknown',
+              stop_reason: stopReason || '',
+              autofix_result: autofixResult || 'unknown',
+              head_sha_before: headShaBefore,
+              head_sha_after: headShaAfter,
+              recorded_at: new Date().toISOString(),
+            };
+
+            core.setOutput('metrics_json', JSON.stringify(metrics));
+
+      - name: Write summary and artifact
+        env:
+          METRICS_JSON: ${{ steps.collect.outputs.metrics_json }}
+        run: |
+          set -euo pipefail
+          if [ -z "${METRICS_JSON:-}" ]; then
+            echo "No metrics JSON captured; skipping summary."
+            exit 0
+          fi
+
+          python - <<'PY'
+          import json
+          import os
+
+          metrics = json.loads(os.environ["METRICS_JSON"])
+          order = [
+              "pr_number",
+              "attempt_number",
+              "attempt_limit",
+              "trigger_reason",
+              "trigger_job",
+              "trigger_step",
+              "fix_applied",
+              "gate_conclusion_before",
+              "gate_result_after",
+              "autofix_result",
+              "stop_reason",
+              "workflow_run_id",
+              "head_sha_before",
+              "head_sha_after",
+              "recorded_at",
+          ]
+
+          lines = ["## Autofix loop metrics", ""] + ["| Field | Value |", "| --- | --- |"]
+          for key in order:
+              value = metrics.get(key, "")
+              lines.append(f"| {key} | `{value}` |")
+
+          summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+          if summary_path:
+              with open(summary_path, "a", encoding="utf-8") as fp:
+                  fp.write("\n".join(lines) + "\n")
+
+          out_path = "autofix-metrics.ndjson"
+          with open(out_path, "a", encoding="utf-8") as fp:
+              fp.write(json.dumps(metrics) + "\n")
+          print(f"Wrote metrics to {out_path}")
+          PY
+
+      - name: Upload metrics artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: agents-autofix-metrics
+          path: autofix-metrics.ndjson
+          retention-days: 30

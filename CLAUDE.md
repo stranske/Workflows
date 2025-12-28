@@ -169,3 +169,77 @@ gh workflow run maint-68-sync-consumer-repos.yml -f dry_run=true
 diff templates/consumer-repo/.github/workflows/autofix.yml \
      <(gh api repos/stranske/Travel-Plan-Permission/contents/.github/workflows/autofix.yml --jq '.content' | base64 -d)
 ```
+
+---
+
+## 🔴 POLICY ENFORCEMENT: Sync Artifacts
+
+> **CRITICAL**: This section enforces the sync policy. Read before creating ANY todo list.
+
+### Policy Checkpoint Trigger
+
+When creating a todo list, ALWAYS ask yourself:
+
+**"Does this work involve creating or modifying artifacts that consumers need?"**
+
+Artifacts include:
+- Workflows (`.github/workflows/*.yml`)
+- Codex prompts (`.github/codex/prompts/*.md`)
+- Scripts (`.github/scripts/*.js`, `.github/scripts/*.py`)
+- Documentation synced to consumers
+
+### If YES → Add Policy Verification Todo
+
+Add this item as the **FINAL** todo in your list:
+
+```
+✅ Verify sync policy compliance:
+   - [ ] New files added to .github/sync-manifest.yml
+   - [ ] New files copied to templates/consumer-repo/
+   - [ ] Validation CI passes
+```
+
+### Sync Manifest Location
+
+All sync-able files MUST be declared in: **`.github/sync-manifest.yml`**
+
+This manifest is the **single source of truth**. The sync workflow reads from it.
+The validation CI (`health-70-validate-sync-manifest.yml`) enforces completeness.
+
+### File Categorization
+
+| File Pattern | Category | Sync Behavior |
+|--------------|----------|---------------|
+| `reusable-*.yml` | Reusable | NOT synced - called via `uses:` |
+| `maint-*.yml` | Maintenance | NOT synced - Workflows-only |
+| `health-*.yml` | Health checks | NOT synced - Workflows-only |
+| `selftest-*.yml` | Self-tests | NOT synced - Workflows-only |
+| `agents-*.yml` | Agent workflows | SYNCED - must be in manifest |
+| `autofix.yml` | Autofix | SYNCED - must be in manifest |
+| `pr-00-gate.yml` | Gate | SYNCED - must be in manifest |
+| `*.md` in codex/prompts | Prompts | SYNCED - must be in manifest |
+
+### Example: Adding a New Agent Workflow
+
+1. Create workflow in `.github/workflows/agents-new-feature.yml`
+2. Copy to `templates/consumer-repo/.github/workflows/agents-new-feature.yml`
+3. Add to `.github/sync-manifest.yml`:
+   ```yaml
+   workflows:
+     - source: .github/workflows/agents-new-feature.yml
+       description: "New feature workflow"
+   ```
+4. Run validation: `gh workflow run health-70-validate-sync-manifest.yml`
+5. Trigger sync: `gh workflow run maint-68-sync-consumer-repos.yml`
+
+### Why This Matters
+
+Without this policy:
+- New features work in Workflows but silently fail in consumer repos
+- Hours of debugging "why doesn't X work in Manager-Database?"
+- Repeated failures of the same category
+
+With this policy:
+- CI fails if you forget to declare sync-able files
+- Single source of truth (manifest) prevents drift
+- Clear enforcement at PR time, not after deployment
