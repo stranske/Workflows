@@ -732,7 +732,7 @@ jobs:
 
               ---
               *Automated by [Maint 68 Sync Consumer Repos](https://github.com/stranske/Workflows/actions/workflows/maint-68-sync-consumer-repos.yml)*" \
-              --label "sync,automation"
+              
           fi
 
       - name: Dry run summary
