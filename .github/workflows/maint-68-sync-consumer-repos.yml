@@ -580,6 +580,7 @@ jobs:
             "agents-pr-meta.yml"
             "agents-keepalive-loop.yml"
             "agents-verifier.yml"
+            "agents-bot-comment-handler.yml"
             "autofix.yml"
             "pr-00-gate.yml"
           )
