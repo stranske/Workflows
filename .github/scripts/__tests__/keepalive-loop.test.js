@@ -34,6 +34,10 @@ const buildGithubStub = ({ pr, comments = [], workflowRuns = [] } = {}) => {
         async listWorkflowRuns() {
           return { data: { workflow_runs: workflowRuns } };
         },
+        async listJobsForWorkflowRun() {
+          // Return empty jobs by default - tests can override if needed
+          return { data: { jobs: [] } };
+        },
       },
       issues: {
         async listComments() {
@@ -256,7 +260,7 @@ test('evaluateKeepaliveLoop continues past max iterations when productive', asyn
   assert.equal(result.reason, 'ready-extended', 'Should show extended mode');
 });
 
-test('evaluateKeepaliveLoop waits when gate has not succeeded', async () => {
+test('evaluateKeepaliveLoop triggers fix mode when gate fails with test failures', async () => {
   const pr = {
     number: 505,
     head: { ref: 'feature/five', sha: 'sha-5' },
@@ -265,7 +269,36 @@ test('evaluateKeepaliveLoop waits when gate has not succeeded', async () => {
   };
   const github = buildGithubStub({
     pr,
-    workflowRuns: [{ head_sha: 'sha-5', conclusion: 'failure' }],
+    workflowRuns: [{ id: 1001, head_sha: 'sha-5', conclusion: 'failure' }],
+  });
+  // Override listJobsForWorkflowRun to return test failures
+  github.rest.actions.listJobsForWorkflowRun = async () => ({
+    data: { jobs: [{ name: 'test (3.11)', conclusion: 'failure' }] },
+  });
+  const result = await evaluateKeepaliveLoop({
+    github,
+    context: buildContext(pr.number),
+    core: buildCore(),
+  });
+  assert.equal(result.action, 'fix');
+  assert.equal(result.reason, 'fix-test');
+  assert.equal(result.promptMode, 'fix_ci');
+});
+
+test('evaluateKeepaliveLoop waits when gate fails with lint failures', async () => {
+  const pr = {
+    number: 506,
+    head: { ref: 'feature/lint', sha: 'sha-lint' },
+    labels: [{ name: 'agent:codex' }],
+    body: '## Tasks\n- [ ] one\n## Acceptance Criteria\n- [ ] a',
+  };
+  const github = buildGithubStub({
+    pr,
+    workflowRuns: [{ id: 1002, head_sha: 'sha-lint', conclusion: 'failure' }],
+  });
+  // Override listJobsForWorkflowRun to return lint failures
+  github.rest.actions.listJobsForWorkflowRun = async () => ({
+    data: { jobs: [{ name: 'lint (ruff)', conclusion: 'failure' }] },
   });
   const result = await evaluateKeepaliveLoop({
     github,
@@ -274,6 +307,26 @@ test('evaluateKeepaliveLoop waits when gate has not succeeded', async () => {
   });
   assert.equal(result.action, 'wait');
   assert.equal(result.reason, 'gate-not-success');
+});
+
+test('evaluateKeepaliveLoop waits when gate is pending', async () => {
+  const pr = {
+    number: 507,
+    head: { ref: 'feature/pending', sha: 'sha-pending' },
+    labels: [{ name: 'agent:codex' }],
+    body: '## Tasks\n- [ ] one\n## Acceptance Criteria\n- [ ] a',
+  };
+  const github = buildGithubStub({
+    pr,
+    workflowRuns: [{ id: 1003, head_sha: 'sha-pending', conclusion: null }],
+  });
+  const result = await evaluateKeepaliveLoop({
+    github,
+    context: buildContext(pr.number),
+    core: buildCore(),
+  });
+  assert.equal(result.action, 'wait');
+  assert.equal(result.reason, 'gate-pending');
 });
 
 test('evaluateKeepaliveLoop runs when ready', async () => {
@@ -601,14 +654,19 @@ test('updateKeepaliveLoopSummary resets failure count on transient errors', asyn
     },
   });
 
-  assert.equal(github.actions.length, 1);
-  assert.equal(github.actions[0].type, 'update');
-  const body = github.actions[0].body;
+  assert.equal(github.actions.length, 2);
+  const updateAction = github.actions.find((action) => action.type === 'update');
+  assert.ok(updateAction);
+  const body = updateAction.body;
   assert.match(body, /agent-run-transient/);
   assert.match(body, /Transient Issue Detected/);
   assert.match(body, /"failure":\{\}/);
   assert.match(body, /"error_type":"infrastructure"/);
   assert.match(body, /"error_category":"transient"/);
+  const attentionComment = github.actions.find((action) =>
+    action.type === 'create' && action.body.includes('codex-failure-notification')
+  );
+  assert.ok(attentionComment);
 });
 
 test('updateKeepaliveLoopSummary uses state iteration when inputs have stale value', async () => {
@@ -724,9 +782,10 @@ test('updateKeepaliveLoopSummary adds needs-human after repeated actual failures
   const updateAction = github.actions.find((action) => action.type === 'update');
   assert.ok(updateAction);
   assert.match(updateAction.body, /agent-run-failed-repeat/);
+  assert.match(updateAction.body, /AGENT FAILED/);
 
   const attentionComment = github.actions.find((action) =>
-    action.type === 'create' && action.body.includes('non-transient failure')
+    action.type === 'create' && action.body.includes('codex-failure-notification')
   );
   assert.ok(attentionComment);
 
@@ -775,10 +834,10 @@ test('updateKeepaliveLoopSummary posts attention comment for auth failures', asy
   });
 
   const attentionComment = github.actions.find((action) =>
-    action.type === 'create' && action.body.includes('non-transient failure')
+    action.type === 'create' && action.body.includes('codex-failure-notification')
   );
   assert.ok(attentionComment);
-  assert.match(attentionComment.body, /Error category: auth/);
+  assert.match(attentionComment.body, /Error Category.*`auth`/);
   assert.match(attentionComment.body, /Verify credentials/);
 
   const labelAction = github.actions.find((action) =>
@@ -821,10 +880,10 @@ test('updateKeepaliveLoopSummary posts attention comment for resource failures',
   });
 
   const attentionComment = github.actions.find((action) =>
-    action.type === 'create' && action.body.includes('non-transient failure')
+    action.type === 'create' && action.body.includes('codex-failure-notification')
   );
   assert.ok(attentionComment);
-  assert.match(attentionComment.body, /Error category: resource/);
+  assert.match(attentionComment.body, /Error Category.*`resource`/);
   assert.match(attentionComment.body, /Confirm the referenced resource exists/);
 });
 
@@ -862,10 +921,10 @@ test('updateKeepaliveLoopSummary posts attention comment for logic failures', as
   });
 
   const attentionComment = github.actions.find((action) =>
-    action.type === 'create' && action.body.includes('non-transient failure')
+    action.type === 'create' && action.body.includes('codex-failure-notification')
   );
   assert.ok(attentionComment);
-  assert.match(attentionComment.body, /Error category: logic/);
+  assert.match(attentionComment.body, /Error Category.*`logic`/);
   assert.match(attentionComment.body, /Review request inputs/);
 });
 
@@ -905,13 +964,13 @@ test('updateKeepaliveLoopSummary formats codex attention comment details', async
   });
 
   const attentionComment = github.actions.find((action) =>
-    action.type === 'create' && action.body.includes('non-transient failure')
+    action.type === 'create' && action.body.includes('codex-failure-notification')
   );
   assert.ok(attentionComment);
-  assert.match(attentionComment.body, /Error category: logic/);
-  assert.match(attentionComment.body, /Error type: codex/);
-  assert.match(attentionComment.body, /Run logs: https:\/\/example.com\/run\/657/);
-  assert.match(attentionComment.body, /Agent output: .*\.{3}/);
+  assert.match(attentionComment.body, /Error Category.*`logic`/);
+  assert.match(attentionComment.body, /Error Type.*`codex`/);
+  assert.match(attentionComment.body, /https:\/\/example.com\/run\/657/);
+  assert.match(attentionComment.body, /Output summary/);
 });
 
 test('updateKeepaliveLoopSummary does NOT add needs-human on tasks-complete', async () => {

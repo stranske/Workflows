@@ -302,6 +302,26 @@ curl -o .github/workflows/maint-sync-workflows.yml \
 > ```
 > This pattern was added to consumer repo `maint-sync-workflows.yml` files after
 > silent failures masked sync issues.
+> **⚠️ CRITICAL: Fix reusable workflow references after copying!**
+> 
+> The `agents-63-issue-intake.yml` file in the Workflows repo contains a LOCAL 
+> reference to `reusable-agents-issue-bridge.yml`. This works in Workflows but
+> **will break in consumer repos** because the file doesn't exist locally.
+> 
+> After copying, you MUST change line ~1171 from:
+> ```yaml
+> uses: ./.github/workflows/reusable-agents-issue-bridge.yml
+> ```
+> To the remote reference:
+> ```yaml
+> uses: stranske/Workflows/.github/workflows/reusable-agents-issue-bridge.yml@main
+> ```
+> 
+> **Alternative**: Copy from Template repo instead (already has correct reference):
+> ```bash
+> curl -o .github/workflows/agents-63-issue-intake.yml \
+>   https://raw.githubusercontent.com/stranske/Template/main/.github/workflows/agents-63-issue-intake.yml
+> ```
 
 ### 4.2 Autofix Versions Configuration
 

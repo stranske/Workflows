@@ -154,7 +154,19 @@ jobs:
           set -euo pipefail
           echo "PR_HEAD_REF=${PR_HEAD_REF}" >> "$GITHUB_ENV"
 
+      - name: Check GitHub App credentials
+        id: check_app
+        env:
+          APP_ID: ${{ secrets.WORKFLOWS_APP_ID }}
+        run: |
+          if [ -n "${APP_ID:-}" ]; then
+            echo "has_app_creds=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_app_creds=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Mint GitHub App token (preferred)
+        if: steps.check_app.outputs.has_app_creds == 'true'
         id: app_token
         continue-on-error: true
         uses: actions/create-github-app-token@v1
@@ -357,16 +369,34 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          targets=()
-          for path in src tests tools streamlit_app .github/scripts; do
-            if [ -d "$path" ]; then
-              targets+=("$path")
-            fi
-          done
-          if [ ${#targets[@]} -eq 0 ]; then
-            echo "[autofix] No src/ or tests/ directories detected; skipping safe sweep."
+          # === Dynamic Python Target Detection ===
+          # shellcheck disable=SC2016 # Single quotes intentional - literal regex pattern
+          STANDARD_EXCLUSIONS='(^|/)\.git($|/)|\.venv|venv|\.env|env|__pycache__|node_modules|build|dist|\.tox|\.pytest_cache|\.mypy_cache|\.ruff_cache|htmlcov|\.coverage|\.eggs|\.egg-info'
+          exclusion_pattern="$STANDARD_EXCLUSIONS"
+          if [[ -f ".autofix-exclude" ]]; then
+            echo "[autofix] Found .autofix-exclude, applying repo-specific exclusions"
+            while IFS= read -r line || [[ -n "$line" ]]; do
+              line=$(printf '%s' "$line" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+              if [[ -z "$line" ]] || [[ "$line" == \#* ]]; then continue; fi
+              # shellcheck disable=SC2016
+              escaped=$(printf '%s' "$line" | sed 's/[][.\\*^$()+?{|]/\\&/g')
+              exclusion_pattern="${exclusion_pattern}|${escaped}"
+              echo "[autofix] Excluding: $line"
+            done < ".autofix-exclude"
+          fi
+          mapfile -t all_dirs < <(find . -name "*.py" -type f -printf '%h\n' 2>/dev/null | sort -u | grep -vE "$exclusion_pattern" || true)
+          if [ ${#all_dirs[@]} -eq 0 ]; then
+            echo "[autofix] No Python directories detected; skipping safe sweep."
             exit 0
           fi
+          targets=()
+          for dir in "${all_dirs[@]}"; do
+            is_subdir=false
+            for existing in "${targets[@]}"; do
+              if [[ "$dir" == "$existing"/* ]]; then is_subdir=true; break; fi
+            done
+            if [[ "$is_subdir" == "false" ]]; then targets+=("$dir"); fi
+          done
           printf '[autofix] Target directories: %s\n' "${targets[*]}"
           ruff --version
           black --version
@@ -384,18 +414,24 @@ jobs:
         run: |
           set -euo pipefail
           echo "[autofix-clean] Running clean cosmetic sweep"
-          targets=()
-          if [ -d src ]; then
-            targets+=("src")
+          # === Dynamic Python Target Detection ===
+          # shellcheck disable=SC2016 # Single quotes intentional - literal regex pattern
+          STANDARD_EXCLUSIONS='(^|/)\.git($|/)|\.venv|venv|\.env|env|__pycache__|node_modules|build|dist|\.tox|\.pytest_cache|\.mypy_cache|\.ruff_cache|htmlcov|\.coverage|\.eggs|\.egg-info'
+          exclusion_pattern="$STANDARD_EXCLUSIONS"
+          if [[ -f ".autofix-exclude" ]]; then
+            echo "[autofix-clean] Found .autofix-exclude, applying repo-specific exclusions"
+            while IFS= read -r line || [[ -n "$line" ]]; do
+              line=$(printf '%s' "$line" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+              if [[ -z "$line" ]] || [[ "$line" == \#* ]]; then continue; fi
+              # shellcheck disable=SC2016
+              escaped=$(printf '%s' "$line" | sed 's/[][.\\*^$()+?{|]/\\&/g')
+              exclusion_pattern="${exclusion_pattern}|${escaped}"
+              echo "[autofix-clean] Excluding: $line"
+            done < ".autofix-exclude"
           fi
-          if [ -d tests ]; then
-            targets+=("tests")
-          fi
-          if [ -d streamlit_app ]; then
-            targets+=("streamlit_app")
-          fi
-          if [ ${#targets[@]} -eq 0 ]; then
-            echo "[autofix-clean] No src/ or tests/ directory detected; skipping"
+          mapfile -t all_dirs < <(find . -name "*.py" -type f -printf '%h\n' 2>/dev/null | sort -u | grep -vE "$exclusion_pattern" || true)
+          if [ ${#all_dirs[@]} -eq 0 ]; then
+            echo "[autofix-clean] No Python directories detected; skipping"
             {
               echo "changed=false"
               echo "remaining_issues=0"
@@ -403,6 +439,15 @@ jobs:
             } >> "$GITHUB_OUTPUT"
             exit 0
           fi
+          # Build targets array from all_dirs (dedupe subdirectories)
+          targets=()
+          for dir in "${all_dirs[@]}"; do
+            is_subdir=false
+            for existing in "${targets[@]}"; do
+              if [[ "$dir" == "$existing"/* ]]; then is_subdir=true; break; fi
+            done
+            if [[ "$is_subdir" == "false" ]]; then targets+=("$dir"); fi
+          done
           printf '[autofix-clean] Target directories: %s\n' "${targets[*]}"
           ruff check "${targets[@]}" --select I --fix --exit-zero
           ruff check "${targets[@]}" --fix --exit-zero
@@ -417,19 +462,25 @@ jobs:
           mapfile -t changed_paths < <(git diff --name-only --diff-filter=ACMRTUXB)
           allowed_changes=()
           other_changes=()
+          # targets already initialized above
           for path in "${changed_paths[@]}"; do
-            if [[ -z "$path" ]]; then
-              continue
-            fi
-            if [[ "$path" == tests/* ]] || [[ "$path" == src/* ]] || [[ "$path" == streamlit_app/* ]]; then
-              allowed_changes+=("$path")
-            else
-              other_changes+=("$path")
-            fi
+            if [[ -z "$path" ]]; then continue; fi
+            is_allowed=false
+            for target in "${targets[@]}"; do
+              clean_target="${target#./}"
+              # When target is "." (root), all paths are within it
+              if [[ -z "$clean_target" ]] || [[ "$clean_target" == "." ]]; then
+                is_allowed=true; break
+              fi
+              if [[ "$path" == "$clean_target"/* ]] || [[ "$path" == "$clean_target" ]]; then
+                is_allowed=true; break
+              fi
+            done
+            if [[ "$is_allowed" == "true" ]]; then allowed_changes+=("$path"); else other_changes+=("$path"); fi
           done
           if [ ${#other_changes[@]} -gt 0 ]; then
             {
-              echo "[autofix-clean] ERROR: clean mode produced changes outside src/, tests/, and streamlit_app/:" >&2
+              echo "[autofix-clean] ERROR: clean mode produced changes outside detected Python targets:" >&2
               printf '  - %s\n' "${other_changes[@]}" >&2
             }
             exit 1
@@ -463,7 +514,36 @@ jobs:
               fi
             done <<<"${ALLOWED_FILE_GLOBS}"
             if [ ${#allowed_patterns[@]} -eq 0 ]; then
-              allowed_patterns=("src/**" "tests/**" "tools/**" ".github/scripts/**")
+              # Dynamic: Build allowed patterns from detected Python directories
+              # shellcheck disable=SC2016 # Single quotes intentional - literal regex pattern
+              STANDARD_EXCLUSIONS='(^|/)\.git($|/)|\.venv|venv|\.env|env|__pycache__|node_modules|build|dist|\.tox|\.pytest_cache|\.mypy_cache|\.ruff_cache|htmlcov|\.coverage|\.eggs|\.egg-info'
+              exclusion_pattern="$STANDARD_EXCLUSIONS"
+              if [[ -f ".autofix-exclude" ]]; then
+                while IFS= read -r line || [[ -n "$line" ]]; do
+                  line=$(printf '%s' "$line" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+                  if [[ -z "$line" ]] || [[ "$line" == \#* ]]; then continue; fi
+                  # shellcheck disable=SC2016
+                  escaped=$(printf '%s' "$line" | sed 's/[][.\\*^$()+?{|]/\\&/g')
+                  exclusion_pattern="${exclusion_pattern}|${escaped}"
+                done < ".autofix-exclude"
+              fi
+              mapfile -t py_dirs < <(find . -name "*.py" -type f -printf '%h\n' 2>/dev/null | sort -u | grep -vE "$exclusion_pattern" || true)
+              # Filter out subdirectories when a parent directory is already present
+              filtered_py_dirs=()
+              for dir in "${py_dirs[@]}"; do
+                is_subdir=false
+                if [ ${#filtered_py_dirs[@]} -gt 0 ]; then
+                  for parent in "${filtered_py_dirs[@]}"; do
+                    if [[ "$dir" == "$parent"/* ]]; then is_subdir=true; break; fi
+                  done
+                fi
+                if [ "$is_subdir" = false ]; then filtered_py_dirs+=("$dir"); fi
+              done
+              for dir in "${filtered_py_dirs[@]}"; do
+                clean_dir="${dir#./}"
+                if [[ -n "$clean_dir" ]]; then allowed_patterns+=("${clean_dir}/**"); fi
+              done
+              if [ ${#allowed_patterns[@]} -eq 0 ]; then allowed_patterns=("**/*.py"); fi
             fi
             shopt -s nullglob globstar extglob
             disallowed=()
@@ -773,7 +853,7 @@ jobs:
               labels="$labels, \`${CLEAN_LABEL}\`"
             fi
           else
-            labels="\`autofix:clean\`"
+            labels="(none)"
           fi
           if [ "${REMAINING:-0}" -gt 0 ]; then
             labels="$labels, \`autofix:debt\`"
@@ -879,9 +959,9 @@ jobs:
             if (changed && (!sameRepo || authMode !== 'pat')) {
               desired.add(patchLabel);
             }
-            if (!changed) {
-              desired.add(cleanLabel);
-            }
+            // NOTE: We intentionally do NOT add cleanLabel when !changed
+            // The autofix:clean label is used as a trigger, not an outcome
+            // Adding it here caused a race condition with bootstrap PRs (see issue #217)
             if ((process.env.MODE || '').toLowerCase() === 'clean') {
               desired.add(cleanOnlyLabel);
               if (cleanInputLabel) {

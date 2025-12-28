@@ -85,7 +85,7 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJson(needs.prepare.outputs.repos) }}
     env:
-      SYNC_TOKEN: ${{ secrets.CODESPACES_WORKFLOWS || secrets.SERVICE_BOT_PAT }}
+      SYNC_TOKEN: ${{ secrets.OWNER_PR_PAT || secrets.SERVICE_BOT_PAT }}
     steps:
       - name: Checkout Workflows templates
         uses: actions/checkout@v4
@@ -679,9 +679,11 @@ jobs:
             exit 0
           fi
 
-          # Configure git
+          # Configure git with token-based authentication for push
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config credential.helper store
+          echo "https://x-access-token:${GH_TOKEN}@github.com" > ~/.git-credentials
 
           # Create branch
           branch="sync/workflows-${{ needs.prepare.outputs.template_hash }}"
@@ -699,8 +701,8 @@ jobs:
 
           Changed files: ${{ steps.detect.outputs.changed_files }}"
 
-          # Push
-          git push origin "$branch" --force
+          # Push using token-authenticated URL
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${{ matrix.repo }}.git" "$branch" --force
 
           # Create or update PR
           existing_pr=$(gh pr list --base main --head "$branch" --json number --jq '.[0].number // empty')
@@ -708,7 +710,7 @@ jobs:
           if [ -n "$existing_pr" ]; then
             echo "Updated existing PR #$existing_pr"
           else
-            gh pr create \
+            gh pr create --head "$branch" \
               --title "sync: Update workflow templates from stranske/Workflows" \
               --body "## Workflow Sync
 
@@ -730,7 +732,7 @@ jobs:
 
               ---
               *Automated by [Maint 68 Sync Consumer Repos](https://github.com/stranske/Workflows/actions/workflows/maint-68-sync-consumer-repos.yml)*" \
-              --label "sync,automation"
+              
           fi
 
       - name: Dry run summary

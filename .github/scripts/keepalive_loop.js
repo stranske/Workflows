@@ -6,6 +6,7 @@ const path = require('path');
 const { parseScopeTasksAcceptanceSections } = require('./issue_scope_parser');
 const { loadKeepaliveState, formatStateComment } = require('./keepalive_state');
 const { classifyError, ERROR_CATEGORIES } = require('./error_classifier');
+const { formatFailureComment } = require('./failure_comment_formatter');
 
 function normalise(value) {
   return String(value ?? '').trim();
@@ -242,63 +243,13 @@ function classifyFailureDetails({ action, runResult, summaryReason, agentExitCod
     type = 'infrastructure';
   }
 
+
   return {
     category,
     type,
     recovery: errorInfo.recovery,
     message: errorInfo.message,
   };
-}
-
-function truncateText(value, maxLength = 300) {
-  const text = normalise(value);
-  if (!text) {
-    return '';
-  }
-  if (text.length <= maxLength) {
-    return text;
-  }
-  return `${text.slice(0, maxLength)}...`;
-}
-
-function buildAttentionComment({
-  agentDisplayName,
-  summaryReason,
-  runResult,
-  agentExitCode,
-  agentSummary,
-  errorCategory,
-  errorType,
-  errorRecovery,
-  runUrl,
-}) {
-  const lines = [
-    `Keepalive detected a non-transient failure in the last ${agentDisplayName} run.`,
-    '',
-    `- Error category: ${errorCategory || 'unknown'}`,
-    `- Error type: ${errorType || 'unknown'}`,
-    `- Result: ${runResult || summaryReason || 'unknown'}`,
-    `- Exit code: ${agentExitCode || 'unknown'}`,
-  ];
-
-  const summarySnippet = truncateText(agentSummary, 300);
-  if (summarySnippet) {
-    lines.push(`- Agent output: ${summarySnippet}`);
-  }
-  if (runUrl) {
-    lines.push(`- Run logs: ${runUrl}`);
-  }
-
-  lines.push('', 'Suggested manual steps:');
-  if (errorRecovery) {
-    lines.push(`1. ${errorRecovery}`);
-  } else {
-    lines.push('1. Review the error details and validate inputs/permissions.');
-  }
-  lines.push('2. Inspect the workflow logs for the failing step.');
-  lines.push('3. Re-run the keepalive workflow after applying the fix.');
-
-  return lines.join('\n');
 }
 
 /**
@@ -506,6 +457,83 @@ async function resolvePrNumber({ github, context, core, payload: overridePayload
   return 0;
 }
 
+/**
+ * Classify gate failure type to determine appropriate fix mode
+ * @returns {Object} { failureType: 'test'|'mypy'|'lint'|'none'|'unknown', shouldFixMode: boolean, failedJobs: string[] }
+ */
+async function classifyGateFailure({ github, context, pr, core }) {
+  if (!pr) {
+    return { failureType: 'unknown', shouldFixMode: false, failedJobs: [] };
+  }
+
+  try {
+    // Get the latest Gate workflow run
+    const { data } = await github.rest.actions.listWorkflowRuns({
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+      workflow_id: 'pr-00-gate.yml',
+      branch: pr.head.ref,
+      event: 'pull_request',
+      per_page: 5,
+    });
+
+    const run = data?.workflow_runs?.find((r) => r.head_sha === pr.head.sha);
+    if (!run || run.conclusion === 'success') {
+      return { failureType: 'none', shouldFixMode: false, failedJobs: [] };
+    }
+
+    // Get jobs for this run to identify what failed
+    const { data: jobsData } = await github.rest.actions.listJobsForWorkflowRun({
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+      run_id: run.id,
+    });
+
+    const failedJobs = (jobsData?.jobs || [])
+      .filter((job) => job.conclusion === 'failure')
+      .map((job) => job.name.toLowerCase());
+
+    if (failedJobs.length === 0) {
+      return { failureType: 'unknown', shouldFixMode: false, failedJobs: [] };
+    }
+
+    // Classify failure type based on job names
+    const hasTestFailure = failedJobs.some((name) => 
+      name.includes('test') || name.includes('pytest') || name.includes('unittest')
+    );
+    const hasMypyFailure = failedJobs.some((name) => 
+      name.includes('mypy') || name.includes('type') || name.includes('typecheck')
+    );
+    const hasLintFailure = failedJobs.some((name) => 
+      name.includes('lint') || name.includes('ruff') || name.includes('black') || name.includes('format')
+    );
+
+    // Determine primary failure type (prioritize test > mypy > lint)
+    let failureType = 'unknown';
+    if (hasTestFailure) {
+      failureType = 'test';
+    } else if (hasMypyFailure) {
+      failureType = 'mypy';
+    } else if (hasLintFailure) {
+      failureType = 'lint';
+    }
+
+    // Only route to fix mode for test/mypy failures
+    // Lint failures should go to autofix
+    const shouldFixMode = failureType === 'test' || failureType === 'mypy' || failureType === 'unknown';
+
+    if (core) {
+      core.info(`[keepalive] Gate failure classification: type=${failureType}, shouldFixMode=${shouldFixMode}, failedJobs=[${failedJobs.join(', ')}]`);
+    }
+
+    return { failureType, shouldFixMode, failedJobs };
+  } catch (error) {
+    if (core) core.info(`Failed to classify gate failure: ${error.message}`);
+    return { failureType: 'unknown', shouldFixMode: true, failedJobs: [] };
+  }
+}
+
+
 async function resolveGateConclusion({ github, context, pr, eventName, payload, core }) {
   if (eventName === 'workflow_run') {
     return normalise(payload?.workflow_run?.conclusion);
@@ -632,12 +660,25 @@ async function evaluateKeepaliveLoop({ github, context, core, payload: overrideP
     action = 'stop';
     reason = isProductive ? 'max-iterations' : 'max-iterations-unproductive';
   } else if (gateNormalized !== 'success') {
-    action = 'wait';
-    reason = gateNormalized ? 'gate-not-success' : 'gate-pending';
+    // Gate failed - check if we should route to fix mode or wait
+    const gateFailure = await classifyGateFailure({ github, context, pr, core });
+    if (gateFailure.shouldFixMode && gateNormalized === 'failure') {
+      action = 'fix';
+      reason = `fix-${gateFailure.failureType}`;
+    } else {
+      action = 'wait';
+      reason = gateNormalized ? 'gate-not-success' : 'gate-pending';
+    }
   } else if (tasksRemaining) {
     action = 'run';
     reason = iteration >= maxIterations ? 'ready-extended' : 'ready';
   }
+
+  // Determine prompt mode based on action
+  const promptMode = action === 'fix' ? 'fix_ci' : 'normal';
+  const promptFile = action === 'fix'
+    ? '.github/codex/prompts/fix_ci_failures.md'
+    : '.github/codex/prompts/keepalive_next_task.md';
 
   return {
     prNumber,
@@ -645,6 +686,8 @@ async function evaluateKeepaliveLoop({ github, context, core, payload: overrideP
     headSha: pr.head.sha || '',
     action,
     reason,
+    promptMode,
+    promptFile,
     gateConclusion,
     config,
     iteration,
@@ -718,6 +761,7 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
     agentExitCode,
     agentSummary,
   });
+  const runFailed = action === 'run' && runResult && runResult !== 'success';
   const isTransientFailure =
     action === 'run' &&
     runResult &&
@@ -851,6 +895,7 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
         : 'n/a (unbounded)'
     } |`,
     `| Action | ${action || 'unknown'} (${summaryReason || 'n/a'}) |`,
+    ...(runFailed ? [`| Agent status | ❌ AGENT FAILED |`] : []),
     `| Gate | ${gateConclusion || 'unknown'} |`,
     `| Tasks | ${tasksComplete}/${tasksTotal} complete |`,
     `| Keepalive | ${keepaliveEnabled ? '✅ enabled' : '❌ disabled'} |`,
@@ -877,7 +922,9 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
       summaryLines.push(
         `| Result | Value |`,
         `|--------|-------|`,
-        `| Status | ❌ Failed (exit code: ${agentExitCode || 'unknown'}) |`,
+        `| Status | ❌ AGENT FAILED |`,
+        `| Reason | ${summaryReason || runResult || 'unknown'} |`,
+        `| Exit code | ${agentExitCode || 'unknown'} |`,
         `| Failures | ${failure.count || 1}/${failureThreshold} before pause |`,
       );
     }
@@ -1004,17 +1051,16 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
   const attentionKey = [summaryReason, runResult, errorCategory, errorType, agentExitCode].filter(Boolean).join('|');
   const priorAttentionKey = normalise(previousAttention.key);
 
-  if (shouldEscalate && (attentionKey !== priorAttentionKey || !previousAttention.comment_id)) {
-    const attentionBody = buildAttentionComment({
-      agentDisplayName,
-      summaryReason,
-      runResult,
-      agentExitCode,
-      agentSummary,
-      errorCategory,
-      errorType,
-      errorRecovery,
-      runUrl,
+  const shouldPostFailureComment = runFailed;
+  if (shouldPostFailureComment && (attentionKey !== priorAttentionKey || !previousAttention.comment_id)) {
+    const attentionBody = formatFailureComment({
+      mode: 'keepalive',
+      exitCode: agentExitCode || 'unknown',
+      errorCategory: errorCategory || 'unknown',
+      errorType: errorType || 'unknown',
+      recovery: errorRecovery || 'Check logs for details.',
+      summary: agentSummary || summaryReason || runResult || 'No output captured',
+      runUrl: runUrl || '',
     });
     try {
       const { data } = await github.rest.issues.createComment({
@@ -1192,6 +1238,7 @@ async function analyzeTaskCompletion({ github, context, prNumber, baseSha, headS
   const log = (msg) => core?.info?.(msg) || console.log(msg);
 
   if (!taskText || !baseSha || !headSha) {
+    log('Skipping task analysis: missing task text or commit range.');
     return { matches, summary: 'Insufficient data for task analysis' };
   }
 
@@ -1346,6 +1393,7 @@ async function autoReconcileTasks({ github, context, prNumber, baseSha, headSha,
   const taskText = [sections.tasks, sections.acceptance].filter(Boolean).join('\n');
 
   if (!taskText) {
+    log('Skipping reconciliation: no tasks found in PR body.');
     return { updated: false, tasksChecked: 0, details: 'No tasks found in PR body' };
   }
 
@@ -1383,6 +1431,7 @@ async function autoReconcileTasks({ github, context, prNumber, baseSha, headSha,
   }
 
   if (checkedCount === 0) {
+    log('Matched tasks but no checkbox patterns found to update.');
     return { 
       updated: false, 
       tasksChecked: 0, 
