@@ -1,0 +1,404 @@
+# Reusable workflow to address bot review comments on PRs
+#
+# Collects unresolved review comments from known bot authors (Copilot, CodeRabbit, etc.)
+# and dispatches the configured agent to address them.
+#
+# Triggers:
+# - Called by consumer repo workflows (label trigger or keepalive integration)
+# - Manual dispatch for testing
+#
+# Agent selection:
+# - Reads PR labels (agent:codex, agent:claude, etc.) to determine which agent
+# - Falls back to Codex if no agent label found
+#
+# Outputs:
+# - comments_found: 'true' if unresolved bot comments were found
+# - comments_count: Number of unresolved bot comments found
+# - agent_triggered: 'true' if the agent was triggered to address comments
+
+name: Reusable Bot Comment Handler
+
+on:
+  workflow_call:
+    inputs:
+      pr_number:
+        description: 'PR number to process'
+        required: true
+        type: string
+      dry_run:
+        description: 'Preview what would be done without making changes'
+        required: false
+        type: boolean
+        default: false
+      bot_authors:
+        description: 'Comma-separated list of bot login names (default includes Copilot, github-actions, coderabbitai, chatgpt-codex-connector)'
+        required: false
+        type: string
+        default: 'Copilot,copilot[bot],github-actions[bot],coderabbitai[bot],chatgpt-codex-connector[bot]'
+      skip_if_human_replied:
+        description: 'Skip comments where a human has already replied'
+        required: false
+        type: boolean
+        default: true
+    outputs:
+      comments_found:
+        description: 'Whether unresolved bot comments were found'
+        value: ${{ jobs.collect.outputs.comments_found }}
+      comments_count:
+        description: 'Number of unresolved bot comments found'
+        value: ${{ jobs.collect.outputs.comments_count }}
+      agent_triggered:
+        description: 'Whether the agent was triggered to address comments'
+        value: ${{ jobs.dispatch.outputs.triggered }}
+    secrets:
+      service_bot_pat:
+        description: 'PAT for service bot (comments, labels)'
+        required: false
+      gh_app_id:
+        description: 'GitHub App ID for authentication'
+        required: false
+      gh_app_private_key:
+        description: 'GitHub App private key'
+        required: false
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  # Collect unresolved bot comments
+  collect:
+    name: Collect bot comments
+    runs-on: ubuntu-latest
+    outputs:
+      comments_found: ${{ steps.collect.outputs.found }}
+      comments_count: ${{ steps.collect.outputs.count }}
+      comments_json: ${{ steps.collect.outputs.comments }}
+      agent: ${{ steps.agent.outputs.agent }}
+      agent_workflow: ${{ steps.agent.outputs.workflow }}
+    steps:
+      - name: Generate token (if App configured)
+        id: token
+        uses: actions/create-github-app-token@v1
+        
+        continue-on-error: true
+        with:
+          app-id: ${{ secrets.gh_app_id }}
+          private-key: ${{ secrets.gh_app_private_key }}
+
+      - name: Resolve token
+        id: auth
+        env:
+          TOKEN_OUTPUT: ${{ steps.token.outputs.token }}
+          SERVICE_PAT: ${{ secrets.service_bot_pat }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          if [ -n "${TOKEN_OUTPUT}" ]; then
+            echo "token=${TOKEN_OUTPUT}" >> "$GITHUB_OUTPUT"
+          elif [ -n "${SERVICE_PAT}" ]; then
+            echo "token=${SERVICE_PAT}" >> "$GITHUB_OUTPUT"
+          else
+            echo "token=${GITHUB_TOKEN}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Detect agent from PR labels
+        id: agent
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ steps.auth.outputs.token }}
+          script: |
+            const prNumber = parseInt('${{ inputs.pr_number }}');
+            
+            let pr;
+            try {
+              const response = await github.rest.pulls.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: prNumber
+              });
+              pr = response.data;
+            } catch (error) {
+              console.log(`Failed to fetch PR #${prNumber}: ${error.message}`);
+              core.setFailed(`Could not fetch PR #${prNumber}`);
+              return;
+            }
+            
+            const labels = pr.labels.map(l => l.name);
+            let agent = 'codex';  // default
+            let workflow = 'reusable-codex-run.yml';
+            
+            if (labels.includes('agent:claude')) {
+              agent = 'claude';
+              workflow = 'reusable-claude-run.yml';
+            } else if (labels.includes('agent:gemini')) {
+              agent = 'gemini';
+              workflow = 'reusable-gemini-run.yml';
+            } else if (labels.includes('agent:codex')) {
+              agent = 'codex';
+              workflow = 'reusable-codex-run.yml';
+            }
+            
+            core.setOutput('agent', agent);
+            core.setOutput('workflow', workflow);
+            console.log(`Detected agent: ${agent}, workflow: ${workflow}`);
+
+      - name: Collect unresolved bot comments
+        id: collect
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ steps.auth.outputs.token }}
+          script: |
+            const prNumber = parseInt('${{ inputs.pr_number }}');
+            const botAuthors = '${{ inputs.bot_authors }}'.split(',').map(s => s.trim());
+            const skipIfHumanReplied = ${{ inputs.skip_if_human_replied }};
+            
+            console.log(`Collecting comments for PR #${prNumber}`);
+            console.log(`Bot authors: ${botAuthors.join(', ')}`);
+            
+            // Get all review comments
+            const { data: comments } = await github.rest.pulls.listReviewComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber,
+              per_page: 100
+            });
+            
+            // Filter for unresolved bot comments
+            const botComments = [];
+            const processedThreads = new Set();
+            
+            for (const comment of comments) {
+              // Skip if not from a known bot
+              if (!botAuthors.some(bot => comment.user.login.toLowerCase() === bot.toLowerCase())) {
+                continue;
+              }
+              
+              // Skip resolved threads (check via GraphQL would be better, but this approximates)
+              // We'll use in_reply_to_id to track threads
+              const threadId = comment.in_reply_to_id || comment.id;
+              
+              if (processedThreads.has(threadId)) {
+                continue;
+              }
+              
+              // Check if human replied to this thread (check all comments in thread)
+              if (skipIfHumanReplied) {
+                const threadReplies = comments.filter(c => 
+                  (c.in_reply_to_id === comment.id || c.in_reply_to_id === threadId) && 
+                  !botAuthors.some(bot => c.user.login.toLowerCase() === bot.toLowerCase())
+                );
+                if (threadReplies.length > 0) {
+                  console.log(`Skipping comment ${comment.id} - human already replied`);
+                  processedThreads.add(threadId);
+                  continue;
+                }
+              }
+              
+              processedThreads.add(threadId);
+              
+              // Extract useful info
+              botComments.push({
+                id: comment.id,
+                path: comment.path,
+                line: comment.line || comment.original_line,
+                body: comment.body,
+                author: comment.user.login,
+                url: comment.html_url,
+                diff_hunk: comment.diff_hunk
+              });
+            }
+            
+            const found = botComments.length > 0;
+            core.setOutput('found', found ? 'true' : 'false');
+            core.setOutput('count', botComments.length);
+            core.setOutput('comments', JSON.stringify(botComments));
+            
+            console.log(`Found ${botComments.length} unresolved bot comments`);
+            
+            if (botComments.length > 0) {
+              console.log('Comments to address:');
+              for (const c of botComments) {
+                console.log(`- ${c.path}:${c.line} (${c.author}): ${c.body.substring(0, 100)}...`);
+              }
+            }
+
+      - name: Post summary
+        if: steps.collect.outputs.found == 'true'
+        uses: actions/github-script@v7
+        env:
+          COMMENTS_JSON: ${{ steps.collect.outputs.comments }}
+        with:
+          github-token: ${{ steps.auth.outputs.token }}
+          script: |
+            const comments = JSON.parse(process.env.COMMENTS_JSON);
+            const count = comments.length;
+            const agent = '${{ steps.agent.outputs.agent }}';
+            const dryRun = ${{ inputs.dry_run }};
+            
+            let summary = `## 🤖 Bot Comment Handler\n\n`;
+            summary += `Found **${count}** unresolved bot comment(s) to address.\n\n`;
+            summary += `| File | Line | Bot | Preview |\n`;
+            summary += `|------|------|-----|--------|\n`;
+            
+            for (const c of comments.slice(0, 10)) {
+              const preview = c.body.substring(0, 50).replace(/\n/g, ' ') + '...';
+              summary += `| \`${c.path}\` | ${c.line || 'N/A'} | ${c.author} | ${preview} |\n`;
+            }
+            
+            if (comments.length > 10) {
+              summary += `\n*...and ${comments.length - 10} more*\n`;
+            }
+            
+            if (dryRun) {
+              summary += `\n⚠️ **Dry run** - agent will not be triggered.\n`;
+            } else {
+              summary += `\n🚀 Dispatching **${agent}** to address these comments...\n`;
+            }
+            
+            await core.summary.addRaw(summary).write();
+
+  # Generate prompt file with bot comments
+  prepare:
+    name: Prepare agent prompt
+    needs: collect
+    if: needs.collect.outputs.comments_found == 'true' && inputs.dry_run == false
+    runs-on: ubuntu-latest
+    outputs:
+      prompt_ready: ${{ steps.prompt.outputs.ready }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Generate bot comments prompt
+        id: prompt
+        env:
+          COMMENTS_JSON: ${{ needs.collect.outputs.comments_json }}
+        run: |
+          set -euo pipefail
+          
+          mkdir -p .github/codex/prompts
+          
+          cat > .github/codex/prompts/fix_bot_comments_dynamic.md << 'PROMPT_HEADER'
+          # Fix Bot Review Comments
+          
+          Review bots have left suggestions on this PR. Address each one:
+          
+          ## Instructions
+          
+          1. Read each bot comment below
+          2. Implement the suggested fix if it improves the code
+          3. If a suggestion is incorrect or doesn't apply, skip it and note why
+          4. After fixing, summarize what you addressed in your commit message
+          
+          ## Bot Comments to Address
+          
+          PROMPT_HEADER
+          
+          # Append each comment using jq with proper escaping
+          echo "${COMMENTS_JSON}" | jq -r '.[] | "### \(.path):\(.line // "N/A")\n\n**From:** \(.author)\n\n```\n\(.body)\n```\n\n**Context (diff hunk):**\n```diff\n\(.diff_hunk)\n```\n\n---\n"' >> .github/codex/prompts/fix_bot_comments_dynamic.md
+          
+          cat >> .github/codex/prompts/fix_bot_comments_dynamic.md << 'PROMPT_FOOTER'
+          
+          ## After Addressing Comments
+          
+          - Commit your changes with message: "fix: address bot review comments"
+          - Include which suggestions you addressed vs skipped in the commit message
+          PROMPT_FOOTER
+          
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+          echo "Generated prompt with $(echo "${COMMENTS_JSON}" | jq length) comments"
+
+      - name: Upload prompt artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bot-comments-prompt-${{ github.run_id }}
+          path: .github/codex/prompts/fix_bot_comments_dynamic.md
+          retention-days: 1
+
+  # Dispatch to agent
+  dispatch:
+    name: Dispatch to agent
+    needs: [collect, prepare]
+    if: needs.collect.outputs.comments_found == 'true' && inputs.dry_run == false
+    runs-on: ubuntu-latest
+    outputs:
+      triggered: ${{ steps.dispatch.outputs.triggered }}
+    steps:
+      - name: Generate token (if App configured)
+        id: token
+        uses: actions/create-github-app-token@v1
+        continue-on-error: true
+        with:
+          app-id: ${{ secrets.gh_app_id }}
+          private-key: ${{ secrets.gh_app_private_key }}
+
+      - name: Resolve token
+        id: auth
+        env:
+          TOKEN_OUTPUT: ${{ steps.token.outputs.token }}
+          SERVICE_PAT: ${{ secrets.service_bot_pat }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          if [ -n "${TOKEN_OUTPUT}" ]; then
+            echo "token=${TOKEN_OUTPUT}" >> "$GITHUB_OUTPUT"
+          elif [ -n "${SERVICE_PAT}" ]; then
+            echo "token=${SERVICE_PAT}" >> "$GITHUB_OUTPUT"
+          else
+            echo "token=${GITHUB_TOKEN}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Post agent command comment
+        id: dispatch
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ steps.auth.outputs.token }}
+          script: |
+            const prNumber = parseInt('${{ inputs.pr_number }}');
+            const agent = '${{ needs.collect.outputs.agent }}';
+            const count = '${{ needs.collect.outputs.comments_count }}';
+            
+            // Post a comment that triggers the agent via pr-meta workflow
+            // This uses the existing concurrency/dispatch infrastructure
+            const comment = `@${agent} Please address the ${count} bot review comment(s) on this PR.
+
+            Focus on:
+            1. Implementing suggested fixes that improve the code
+            2. Skipping suggestions that don't apply (note why in your response)
+            
+            The bot comment handler workflow has prepared context for you.`;
+            
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              body: comment
+            });
+            
+            core.setOutput('triggered', 'true');
+            console.log(`Posted @${agent} command on PR #${prNumber}`);
+
+  # Summary
+  summary:
+    name: Generate summary
+    needs: [collect, dispatch]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Final summary
+        env:
+          COMMENTS_COUNT: ${{ needs.collect.outputs.comments_count }}
+          AGENT: ${{ needs.collect.outputs.agent }}
+          TRIGGERED: ${{ needs.dispatch.outputs.triggered }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          {
+            echo "## Bot Comment Handler Results"
+            echo ""
+            echo "| Metric | Value |"
+            echo "|--------|-------|"
+            echo "| Comments Found | ${COMMENTS_COUNT:-0} |"
+            echo "| Agent | ${AGENT:-N/A} |"
+            echo "| Agent Triggered | ${TRIGGERED:-false} |"
+            echo "| Dry Run | ${DRY_RUN} |"
+          } >> "$GITHUB_STEP_SUMMARY"
