@@ -33,7 +33,7 @@ def test_violation_case2_compute_and_helpers() -> None:
     assert _autofix_violation_case2.unused_func(1, 2, 3) is None
 
 
-def test_violation_case2_runs_as_script(capsys: "pytest.CaptureFixture[str]") -> None:
+def test_violation_case2_runs_as_script(capsys: pytest.CaptureFixture[str]) -> None:
     """Ensure the module's ``__main__`` branch emits the expected payload."""
 
     module_name = "trend_analysis._autofix_violation_case2"

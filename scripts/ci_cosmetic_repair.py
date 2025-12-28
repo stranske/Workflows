@@ -26,10 +26,10 @@ import os
 import re
 import subprocess
 import sys
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from collections.abc import Iterable, Sequence
 
 ROOT = Path(__file__).resolve().parent.parent
 GUARD_PREFIX = "# cosmetic-repair:"

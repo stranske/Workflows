@@ -26,8 +26,8 @@ def test_canonical_workflow_names_match_expected_mapping() -> None:
     assert (
         set(EXPECTED_NAMES) == CANONICAL_WORKFLOW_FILES
     ), "Workflow naming expectations drifted; keep EXPECTED_NAMES in sync with the allowlist."
-    assert CANONICAL_WORKFLOW_NAMES == set(
-        EXPECTED_NAMES.values()
+    assert (
+        set(EXPECTED_NAMES.values()) == CANONICAL_WORKFLOW_NAMES
     ), "Workflow display-name allowlist drifted; synchronize EXPECTED_NAMES in tests/test_workflow_naming.py."
 
 

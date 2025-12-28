@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -28,7 +27,7 @@ def compute_expected_autofix_selected_funds() -> int:
     return len(selected)
 
 
-def _optional_passthrough(value: Optional[int]) -> int:
+def _optional_passthrough(value: int | None) -> int:
     if value is None:
         return 0
     return value

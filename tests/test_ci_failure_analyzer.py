@@ -1,8 +1,8 @@
 """Tests for ci_failure_analyzer module."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 import pytest
 
@@ -95,7 +95,7 @@ class TestAggregateFailures:
 
     def test_aggregate_mixed_failures(self) -> None:
         """Test aggregating failures of different types."""
-        failures: List[Dict[str, Any]] = [
+        failures: list[dict[str, Any]] = [
             {"error": "timeout exceeded"},
             {"error": "timeout exceeded"},
             {"error": "assertion failed"},
@@ -113,7 +113,7 @@ class TestIdentifyFlakyTests:
 
     def test_identify_no_flaky(self) -> None:
         """Test when no tests are flaky (all pass or all fail)."""
-        failures: List[Dict[str, Any]] = [
+        failures: list[dict[str, Any]] = [
             {"test_name": "test_a", "verdict": "pass"},
             {"test_name": "test_a", "verdict": "pass"},
             {"test_name": "test_b", "verdict": "fail"},
@@ -125,7 +125,7 @@ class TestIdentifyFlakyTests:
 
     def test_identify_flaky_test(self) -> None:
         """Test identifying a flaky test."""
-        failures: List[Dict[str, Any]] = [
+        failures: list[dict[str, Any]] = [
             {"test_name": "test_flaky", "verdict": "pass"},
             {"test_name": "test_flaky", "verdict": "fail"},
             {"test_name": "test_flaky", "verdict": "pass"},
@@ -138,7 +138,7 @@ class TestIdentifyFlakyTests:
     def test_identify_with_threshold(self) -> None:
         """Test that threshold affects flaky detection."""
         # 2 pass, 1 fail = 33% failure rate
-        failures: List[Dict[str, Any]] = [
+        failures: list[dict[str, Any]] = [
             {"test_name": "test_a", "verdict": "pass"},
             {"test_name": "test_a", "verdict": "pass"},
             {"test_name": "test_a", "verdict": "fail"},
@@ -160,7 +160,7 @@ class TestGenerateFailureReport:
 
     def test_report_text_format(self) -> None:
         """Test text format report generation."""
-        failures: List[Dict[str, Any]] = [
+        failures: list[dict[str, Any]] = [
             {"error": "timeout", "test_name": "test_a", "verdict": "fail"},
         ]
 
@@ -170,7 +170,7 @@ class TestGenerateFailureReport:
 
     def test_report_markdown_format(self) -> None:
         """Test markdown format report generation."""
-        failures: List[Dict[str, Any]] = [
+        failures: list[dict[str, Any]] = [
             {"error": "timeout", "test_name": "test_a", "verdict": "fail"},
         ]
 
@@ -184,11 +184,11 @@ class TestGetRecentFailures:
 
     def test_filter_recent_only(self) -> None:
         """Test filtering to recent failures only."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         recent_ts = now.isoformat()
         old_ts = "2020-01-01T00:00:00+00:00"
 
-        failures: List[Dict[str, Any]] = [
+        failures: list[dict[str, Any]] = [
             {"error": "recent", "timestamp": recent_ts},
             {"error": "old", "timestamp": old_ts},
         ]
@@ -199,9 +199,9 @@ class TestGetRecentFailures:
 
     def test_handle_missing_timestamp(self) -> None:
         """Test handling records without timestamp."""
-        failures: List[Dict[str, Any]] = [
+        failures: list[dict[str, Any]] = [
             {"error": "no timestamp"},
-            {"error": "with ts", "timestamp": datetime.now(timezone.utc).isoformat()},
+            {"error": "with ts", "timestamp": datetime.now(UTC).isoformat()},
         ]
 
         recent = get_recent_failures(failures, days=7)
@@ -232,7 +232,7 @@ class TestIntentionalFailures:
 
     def test_key_error(self) -> None:
         """Test with intentional key error - AUTOFIX CANNOT FIX."""
-        data: Dict[str, int] = {"a": 1, "b": 2}
+        data: dict[str, int] = {"a": 1, "b": 2}
         # Key "missing" doesn't exist
         value = data["missing"]
         assert value == 1

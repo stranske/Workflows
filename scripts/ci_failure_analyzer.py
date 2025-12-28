@@ -7,7 +7,7 @@ in test failures that may indicate flaky tests or infrastructure issues.
 import json
 import re
 from collections import Counter
-from datetime import datetime, timezone, UTC
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 

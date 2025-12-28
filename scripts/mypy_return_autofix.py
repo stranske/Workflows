@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import ast
 import re
-from pathlib import Path
 from collections.abc import Iterable
+from pathlib import Path
 
 ROOT = Path(".")
 PROJECT_DIRS: list[Path] = [Path("src")]

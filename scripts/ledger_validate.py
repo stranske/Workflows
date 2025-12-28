@@ -14,9 +14,9 @@ import json
 import re
 import subprocess
 import sys
-from pathlib import Path
-from typing import Any, Optional
 from collections.abc import Iterable
+from pathlib import Path
+from typing import Any
 
 import yaml
 

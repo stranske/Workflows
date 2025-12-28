@@ -1,7 +1,7 @@
 """Tests for pr_metrics_tracker module."""
 
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from scripts.pr_metrics_tracker import (
@@ -20,8 +20,8 @@ class TestPRMetrics:
 
     def test_time_to_merge_merged_pr(self) -> None:
         """Test time calculation for merged PR."""
-        created = datetime(2025, 1, 1, 10, 0, 0, tzinfo=timezone.utc)
-        merged = datetime(2025, 1, 1, 12, 30, 0, tzinfo=timezone.utc)
+        created = datetime(2025, 1, 1, 10, 0, 0, tzinfo=UTC)
+        merged = datetime(2025, 1, 1, 12, 30, 0, tzinfo=UTC)
 
         pr = PRMetrics(
             pr_number=1,
@@ -40,7 +40,7 @@ class TestPRMetrics:
         """Test time calculation for unmerged PR."""
         pr = PRMetrics(
             pr_number=1,
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
             merged_at=None,
             review_count=0,
             commit_count=1,
@@ -123,7 +123,7 @@ class TestCalculateAverageMergeTime:
 
     def test_average_with_merged_prs(self) -> None:
         """Test average calculation with merged PRs."""
-        base = datetime(2025, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+        base = datetime(2025, 1, 1, 0, 0, 0, tzinfo=UTC)
         metrics = [
             PRMetrics(1, base, base + timedelta(hours=2), 0, 1, False, []),
             PRMetrics(2, base, base + timedelta(hours=4), 0, 1, False, []),
@@ -134,7 +134,7 @@ class TestCalculateAverageMergeTime:
 
     def test_average_with_no_merged_prs(self) -> None:
         """Test average calculation with no merged PRs."""
-        base = datetime.now(timezone.utc)
+        base = datetime.now(UTC)
         metrics = [
             PRMetrics(1, base, None, 0, 1, False, []),
             PRMetrics(2, base, None, 0, 1, False, []),
@@ -154,7 +154,7 @@ class TestCalculateAutofixRate:
 
     def test_rate_with_autofix_prs(self) -> None:
         """Test autofix rate calculation."""
-        base = datetime.now(timezone.utc)
+        base = datetime.now(UTC)
         metrics = [
             PRMetrics(1, base, None, 0, 1, True, []),
             PRMetrics(2, base, None, 0, 1, False, []),
@@ -176,7 +176,7 @@ class TestGroupByLabel:
 
     def test_group_prs_by_label(self) -> None:
         """Test grouping PRs by their labels."""
-        base = datetime.now(timezone.utc)
+        base = datetime.now(UTC)
         metrics = [
             PRMetrics(1, base, None, 0, 1, False, ["bug", "urgent"]),
             PRMetrics(2, base, None, 0, 1, False, ["enhancement"]),
@@ -199,7 +199,7 @@ class TestGenerateMetricsSummary:
 
     def test_summary_generation(self) -> None:
         """Test summary generation with mixed PRs."""
-        base = datetime(2025, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+        base = datetime(2025, 1, 1, 0, 0, 0, tzinfo=UTC)
         metrics = [
             PRMetrics(1, base, base + timedelta(hours=2), 2, 3, True, []),
             PRMetrics(2, base, None, 1, 2, False, []),

@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import argparse
 import json
-from datetime import datetime, timezone, UTC
+from collections.abc import Iterable
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
-from collections.abc import Iterable
 
 MARKER = "<!-- AUTOFIX REPORT -->"
 

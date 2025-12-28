@@ -4,13 +4,12 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Optional
 
 
 def setup_script_logging(
     name: str = "trend_analysis",
     *,
-    module_file: Optional[str] = None,
+    module_file: str | None = None,
     announce: bool = True,
 ) -> logging.Logger:
     """Set up logging for a script.

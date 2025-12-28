@@ -1,8 +1,8 @@
 """Tests for workflow_health_check module."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 from scripts.workflow_health_check import (
     analyze_failure_patterns,
@@ -56,12 +56,12 @@ class TestCalculateSuccessRate:
 
     def test_all_pass(self) -> None:
         """Test with all passing runs."""
-        runs: List[Dict[str, Any]] = [{"verdict": "pass"}, {"verdict": "pass"}]
+        runs: list[dict[str, Any]] = [{"verdict": "pass"}, {"verdict": "pass"}]
         assert calculate_success_rate(runs) == 100.0
 
     def test_mixed_results(self) -> None:
         """Test with mixed pass/fail results."""
-        runs: List[Dict[str, Any]] = [
+        runs: list[dict[str, Any]] = [
             {"verdict": "pass"},
             {"verdict": "fail"},
             {"status": "success"},
@@ -72,12 +72,12 @@ class TestCalculateSuccessRate:
 
     def test_single_failure(self) -> None:
         """Test with single failing run."""
-        runs: List[Dict[str, Any]] = [{"verdict": "fail"}]
+        runs: list[dict[str, Any]] = [{"verdict": "fail"}]
         assert calculate_success_rate(runs) == 0.0
 
     def test_status_attribute(self) -> None:
         """Test success rate returned as float value."""
-        runs: List[Dict[str, Any]] = [{"verdict": "pass"}]
+        runs: list[dict[str, Any]] = [{"verdict": "pass"}]
         rate = calculate_success_rate(runs)
         assert rate == 100.0
 
@@ -87,13 +87,13 @@ class TestAnalyzeFailurePatterns:
 
     def test_no_failures(self) -> None:
         """Test with no failing runs."""
-        runs: List[Dict[str, Any]] = [{"verdict": "pass"}]
+        runs: list[dict[str, Any]] = [{"verdict": "pass"}]
         patterns = analyze_failure_patterns(runs)
         assert patterns == {}
 
     def test_grouped_failures(self) -> None:
         """Test that failures are grouped by reason."""
-        runs: List[Dict[str, Any]] = [
+        runs: list[dict[str, Any]] = [
             {"verdict": "fail", "skip_reason": "token expired"},
             {"verdict": "fail", "skip_reason": "token expired"},
             {"verdict": "fail", "error": "timeout"},
@@ -104,7 +104,7 @@ class TestAnalyzeFailurePatterns:
 
     def test_unknown_reason(self) -> None:
         """Test failures without skip_reason or error."""
-        runs: List[Dict[str, Any]] = [{"verdict": "fail"}]
+        runs: list[dict[str, Any]] = [{"verdict": "fail"}]
         patterns = analyze_failure_patterns(runs)
         # Failures without skip_reason or error should be counted under the "unknown" key
         assert patterns["unknown"] == 1
@@ -115,15 +115,15 @@ class TestGetRecentRuns:
 
     def test_filters_old_runs(self) -> None:
         """Test that old runs are filtered out."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         old_time = now.timestamp() - 30 * 86400  # 30 days ago
         recent_time = now.isoformat()
 
-        runs: List[Dict[str, Any]] = [
+        runs: list[dict[str, Any]] = [
             {"verdict": "pass", "recorded_at": recent_time},
             {
                 "verdict": "fail",
-                "recorded_at": datetime.fromtimestamp(old_time, tz=timezone.utc).isoformat(),
+                "recorded_at": datetime.fromtimestamp(old_time, tz=UTC).isoformat(),
             },
         ]
         recent = get_recent_runs(runs, days=7)

@@ -8,9 +8,7 @@ SCRIPT_PATH = PROJECT_ROOT / "scripts" / "update-floating-tag.sh"
 
 
 def _run(cmd, cwd, env=None):
-    subprocess.run(
-        cmd, cwd=cwd, env=env, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-    )
+    subprocess.run(cmd, cwd=cwd, env=env, check=True, capture_output=True)
 
 
 def _init_repo(path: pathlib.Path):
@@ -69,8 +67,7 @@ def test_update_floating_tag_creates_floating_tag_when_missing(monkeypatch):
         completed = subprocess.run(
             ["git", "rev-parse", "v1"],
             cwd=repo_path,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            capture_output=True,
         )
         assert completed.returncode != 0
 
@@ -100,8 +97,7 @@ def test_update_floating_tag_requires_tagged_commit(monkeypatch):
             ["bash", str(SCRIPT_PATH), "v1", "v1.", commit_unreleased],
             cwd=repo_path,
             env=env,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            capture_output=True,
         )
 
         assert completed.returncode != 0
@@ -123,16 +119,14 @@ def test_update_floating_tag_skips_when_missing_release_and_allowed(monkeypatch)
             ["bash", str(SCRIPT_PATH), "v1", "v1."],
             cwd=repo_path,
             env=env,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            capture_output=True,
         )
 
         assert completed.returncode == 0
         floating_missing = subprocess.run(
             ["git", "rev-parse", "v1"],
             cwd=repo_path,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            capture_output=True,
         )
 
         assert floating_missing.returncode != 0

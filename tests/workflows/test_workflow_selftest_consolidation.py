@@ -575,7 +575,7 @@ def test_selftest_dispatch_reason_input() -> None:
     reason_input = inputs["reason"] or {}
     # Normalize the "required" field to a boolean for consistency.
     required_raw = reason_input.get("required")
-    required_bool = False if required_raw in (False, "false", None) else True
+    required_bool = required_raw not in (False, "false", None)
     assert (
         not required_bool
     ), "Selftest workflow dispatch reason should be optional for manual launches."

@@ -2,7 +2,7 @@ import json
 import shutil
 import subprocess
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 import pytest
 
@@ -16,7 +16,7 @@ def _require_node() -> None:
         pytest.skip("Node.js is required for keepalive post-work tests")
 
 
-def _run_scenario(name: str) -> Dict[str, Any]:
+def _run_scenario(name: str) -> dict[str, Any]:
     _require_node()
     scenario_path = FIXTURES_DIR / f"{name}.json"
     assert scenario_path.exists(), f"Missing scenario fixture: {scenario_path}"
@@ -27,8 +27,7 @@ def _run_scenario(name: str) -> Dict[str, Any]:
     )
     if result.returncode != 0:
         raise AssertionError(
-            "Harness failed with code %s:\nSTDOUT:\n%s\nSTDERR:\n%s"
-            % (result.returncode, result.stdout, result.stderr)
+            f"Harness failed with code {result.returncode}:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
         )
     try:
         return json.loads(result.stdout or "{}")
@@ -44,9 +43,9 @@ def _summary_table(data: dict) -> list[list[str]]:
 
 
 def _partition_comments(
-    events: Dict[str, List[Dict[str, str]]],
-) -> Tuple[List[Dict[str, str]], List[Dict[str, str]]]:
-    comments: List[Dict[str, str]] = events.get("comments", [])  # type: ignore[assignment]
+    events: dict[str, list[dict[str, str]]],
+) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
+    comments: list[dict[str, str]] = events.get("comments", [])  # type: ignore[assignment]
     state_comments = [
         entry for entry in comments if entry.get("body", "").startswith(STATE_COMMENT_PREFIX)
     ]

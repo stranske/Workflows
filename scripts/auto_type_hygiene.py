@@ -27,8 +27,8 @@ import importlib.util
 import os
 import re
 import sys
-from pathlib import Path
 from collections.abc import Iterator
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 SRC_DIRS = [ROOT / "src", ROOT / "tests"]

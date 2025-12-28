@@ -10,9 +10,10 @@ from __future__ import annotations
 import json
 import os
 import re
+from collections.abc import Iterable, Mapping, MutableSequence, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable, List, Mapping, MutableSequence, Sequence, TypedDict
+from typing import Any, TypedDict
 
 
 @dataclass(frozen=True)
@@ -36,10 +37,10 @@ class RunRecord:
 
 class RequiredJobGroup(TypedDict):
     label: str
-    patterns: List[str]
+    patterns: list[str]
 
 
-DEFAULT_REQUIRED_JOB_GROUPS: List[RequiredJobGroup] = [
+DEFAULT_REQUIRED_JOB_GROUPS: list[RequiredJobGroup] = [
     {
         "label": "python ci (3.11)",
         "patterns": [r"(python\s*ci|core\s*(tests?)?).*(3\.11|py\.?311)"],
@@ -58,7 +59,7 @@ REQUIRED_CONTEXTS_PATH = Path(".github/config/required-contexts.json")
 
 def _copy_required_groups(
     groups: Sequence[RequiredJobGroup],
-) -> List[RequiredJobGroup]:
+) -> list[RequiredJobGroup]:
     return [{"label": group["label"], "patterns": list(group["patterns"])} for group in groups]
 
 
@@ -100,7 +101,7 @@ def _priority(state: str | None) -> int:
 
 
 def _combine_states(states: Iterable[str | None]) -> str:
-    lowered: List[str] = [s.lower() for s in states if isinstance(s, str) and s]
+    lowered: list[str] = [s.lower() for s in states if isinstance(s, str) and s]
     if not lowered:
         return "missing"
     for candidate in ("failure", "cancelled", "timed_out", "action_required"):
@@ -124,11 +125,11 @@ def _slugify(value: str) -> str:
 class RequiredJobRule(TypedDict):
     key: str
     label: str
-    slug_variants: List[List[str]]
-    fallback_patterns: List[str]
+    slug_variants: list[list[str]]
+    fallback_patterns: list[str]
 
 
-REQUIRED_JOB_RULES: List[RequiredJobRule] = [
+REQUIRED_JOB_RULES: list[RequiredJobRule] = [
     {
         "key": "core311",
         "label": "core tests (3.11)",
@@ -183,7 +184,7 @@ def _classify_job_key(name: str) -> str | None:
 
 def _derive_required_groups_from_runs(
     runs: Sequence[Mapping[str, object]],
-) -> List[RequiredJobGroup]:
+) -> list[RequiredJobGroup]:
     job_names: list[tuple[str, str]] = []
     for run in runs:
         if not isinstance(run, Mapping):
@@ -202,10 +203,10 @@ def _derive_required_groups_from_runs(
                 continue
             job_names.append((name, _slugify(name)))
 
-    groups: List[RequiredJobGroup] = []
+    groups: list[RequiredJobGroup] = []
     used: set[str] = set()
     for rule in REQUIRED_JOB_RULES:
-        matches: List[str] = []
+        matches: list[str] = []
         for original, slug in job_names:
             if _matches_slug(slug, rule["slug_variants"]):
                 lowered = original.casefold()
@@ -278,7 +279,7 @@ def _is_docs_only_fast_pass(
 
 def _load_required_groups(
     env_value: str | None, runs: Sequence[Mapping[str, object]]
-) -> List[RequiredJobGroup]:
+) -> list[RequiredJobGroup]:
     if not env_value:
         derived = _derive_required_groups_from_runs(runs)
         if derived:
@@ -296,7 +297,7 @@ def _load_required_groups(
         if derived:
             return derived
         return _copy_required_groups(DEFAULT_REQUIRED_JOB_GROUPS)
-    result: List[RequiredJobGroup] = []
+    result: list[RequiredJobGroup] = []
     for item in parsed:
         if not isinstance(item, Mapping):
             continue
@@ -304,7 +305,7 @@ def _load_required_groups(
         patterns = item.get("patterns")
         if not label or not isinstance(patterns, Sequence) or isinstance(patterns, (str, bytes)):
             continue
-        cleaned: List[str] = [p for p in patterns if isinstance(p, str) and p]
+        cleaned: list[str] = [p for p in patterns if isinstance(p, str) and p]
         if not cleaned:
             continue
         result.append({"label": label, "patterns": cleaned})
@@ -318,7 +319,7 @@ def _load_required_groups(
 
 def _load_required_contexts(
     config_path: str | os.PathLike[str] | None = None,
-) -> List[str]:
+) -> list[str]:
     candidate = Path(config_path or os.getenv("REQUIRED_CONTEXTS_FILE") or REQUIRED_CONTEXTS_PATH)
     try:
         payload = json.loads(candidate.read_text(encoding="utf-8"))
@@ -332,7 +333,7 @@ def _load_required_contexts(
     else:
         contexts_value = payload
 
-    contexts: List[str] = []
+    contexts: list[str] = []
     if isinstance(contexts_value, Iterable) and not isinstance(contexts_value, (str, bytes)):
         for item in contexts_value:
             if isinstance(item, str):
@@ -342,8 +343,8 @@ def _load_required_contexts(
     return contexts
 
 
-def _dedupe_runs(runs: Sequence[Mapping[str, object]]) -> List[Mapping[str, object]]:
-    deduped: List[Mapping[str, object]] = []
+def _dedupe_runs(runs: Sequence[Mapping[str, object]]) -> list[Mapping[str, object]]:
+    deduped: list[Mapping[str, object]] = []
     index_by_key: dict[str, int] = {}
 
     for run in runs:
@@ -394,8 +395,8 @@ def _dedupe_runs(runs: Sequence[Mapping[str, object]]) -> List[Mapping[str, obje
     return deduped
 
 
-def _build_job_rows(runs: Sequence[Mapping[str, object]]) -> List[JobRecord]:
-    rows: List[JobRecord] = []
+def _build_job_rows(runs: Sequence[Mapping[str, object]]) -> list[JobRecord]:
+    rows: list[JobRecord] = []
     for run in runs:
         if not isinstance(run, Mapping):
             continue
@@ -435,7 +436,7 @@ def _build_job_rows(runs: Sequence[Mapping[str, object]]) -> List[JobRecord]:
     return rows
 
 
-def _format_jobs_table(rows: Sequence[JobRecord]) -> List[str]:
+def _format_jobs_table(rows: Sequence[JobRecord]) -> list[str]:
     header = [
         "| Workflow / Job | Result | Logs |",
         "|----------------|--------|------|",
@@ -471,11 +472,11 @@ def _format_delta_pp(value: Any, *, signed: bool = True) -> str | None:
 def _collect_required_segments(
     runs: Sequence[Mapping[str, object]],
     groups: Sequence[RequiredJobGroup],
-) -> List[str]:
+) -> list[str]:
     import re
 
-    segments: List[str] = []
-    job_sources: List[Mapping[str, object]] = []
+    segments: list[str] = []
+    job_sources: list[Mapping[str, object]] = []
     for run in runs:
         if not isinstance(run, Mapping) or not run.get("present"):
             continue
@@ -500,8 +501,8 @@ def _collect_required_segments(
         if not regexes:
             continue
 
-        matched_states: List[str | None] = []
-        matched_names: List[str] = []
+        matched_states: list[str | None] = []
+        matched_names: list[str] = []
         for run in job_sources:
             jobs = run.get("jobs")
             if not isinstance(jobs, Sequence):
@@ -517,10 +518,7 @@ def _collect_required_segments(
                     state_value = job.get("conclusion") or job.get("status")
                     matched_states.append(str(state_value) if state_value is not None else None)
 
-        if matched_states:
-            state = _combine_states(matched_states)
-        else:
-            state = None
+        state = _combine_states(matched_states) if matched_states else None
         canonical_name: str | None = None
         if matched_names:
             seen: set[str] = set()
@@ -538,7 +536,7 @@ def _collect_required_segments(
 
 
 def _format_latest_runs(runs: Sequence[Mapping[str, object]]) -> str:
-    parts: List[str] = []
+    parts: list[str] = []
     for run in runs:
         if not isinstance(run, Mapping):
             continue
@@ -570,11 +568,11 @@ def _format_latest_runs(runs: Sequence[Mapping[str, object]]) -> str:
     return " · ".join(parts)
 
 
-def _format_coverage_lines(stats: Mapping[str, object] | None) -> List[str]:
+def _format_coverage_lines(stats: Mapping[str, object] | None) -> list[str]:
     if not isinstance(stats, Mapping):
         return []
 
-    lines: List[str] = []
+    lines: list[str] = []
     avg_latest = _format_percent(stats.get("avg_latest"))
     avg_delta = _format_delta_pp(stats.get("avg_delta"))
     avg_parts = [part for part in (avg_latest, f"Δ {avg_delta}" if avg_delta else None) if part]
@@ -597,7 +595,7 @@ def _format_coverage_lines(stats: Mapping[str, object] | None) -> List[str]:
 
 def _format_coverage_delta_lines(
     delta: Mapping[str, object] | None,
-) -> List[str]:
+) -> list[str]:
     if not isinstance(delta, Mapping):
         return []
 
@@ -607,7 +605,7 @@ def _format_coverage_delta_lines(
     drop_value = _format_delta_pp(delta.get("drop"), signed=False)
     threshold_value = _format_delta_pp(delta.get("threshold"), signed=False)
 
-    parts: List[str] = []
+    parts: list[str] = []
     if head_value:
         parts.append(f"head {head_value}")
     if baseline_value:
@@ -654,7 +652,7 @@ def build_summary_comment(
         if isinstance(table_value, str):
             coverage_table = table_value.strip()
 
-    coverage_block: List[str] = []
+    coverage_block: list[str] = []
     coverage_section_clean = (coverage_section or "").strip()
     if coverage_lines or coverage_delta_lines:
         coverage_block.append("### Coverage Overview")

@@ -5,7 +5,6 @@ This module checks workflow files for common issues and anti-patterns.
 
 import re
 from pathlib import Path
-from typing import Optional
 
 import yaml
 

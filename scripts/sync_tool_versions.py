@@ -6,11 +6,11 @@ import argparse
 import dataclasses
 import re
 import sys
+from collections.abc import Iterable
 from pathlib import Path
 
 # Removed: typing.Dict, typing.Tuple - use builtin dict, tuple
 from re import Pattern
-from collections.abc import Iterable
 
 PIN_FILE = Path(".github/workflows/autofix-versions.env")
 PYPROJECT_FILE = Path("pyproject.toml")

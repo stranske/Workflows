@@ -3,8 +3,8 @@ from __future__ import annotations
 import runpy
 import sys
 import zipfile
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable
 
 import pytest
 

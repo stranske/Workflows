@@ -4,9 +4,9 @@ import os
 import sys
 import tempfile
 import zipfile
+from collections.abc import Iterable, Iterator, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from collections.abc import Iterable, Iterator, Sequence
 
 import requests
 

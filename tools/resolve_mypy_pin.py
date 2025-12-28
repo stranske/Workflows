@@ -60,7 +60,7 @@ def main() -> int:
 
     # Determine which version to output
     # If mypy has a configured version, use it; otherwise use matrix version
-    if mypy_version:
+    if mypy_version:  # noqa: SIM108
         output_version = mypy_version
     else:
         # Default to the primary Python version (first in typical matrices)

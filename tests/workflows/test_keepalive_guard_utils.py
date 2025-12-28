@@ -28,8 +28,7 @@ def _run_guard_analysis(comments: list[str]) -> dict:
         )
         if result.returncode != 0:
             pytest.fail(
-                "Guard analysis failed with code %s:\nSTDOUT:\n%s\nSTDERR:\n%s"
-                % (result.returncode, result.stdout, result.stderr)
+                f"Guard analysis failed with code {result.returncode}:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
             )
         try:
             return json.loads(result.stdout or "{}")

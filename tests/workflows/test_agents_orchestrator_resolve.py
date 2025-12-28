@@ -24,8 +24,7 @@ def _run_resolver(name: str) -> dict:
     result = subprocess.run(command, capture_output=True, text=True)
     if result.returncode != 0:
         pytest.fail(
-            "Resolver harness failed with code %s:\nSTDOUT:\n%s\nSTDERR:\n%s"
-            % (result.returncode, result.stdout, result.stderr)
+            f"Resolver harness failed with code {result.returncode}:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
         )
     try:
         return json.loads(result.stdout or "{}")

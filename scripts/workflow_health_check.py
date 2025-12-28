@@ -8,9 +8,8 @@ that may indicate issues needing attention.
 import json
 import os
 import sys
-from datetime import datetime, timezone, UTC
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Optional
 
 
 def load_workflow_runs(metrics_path: str) -> list[dict]:

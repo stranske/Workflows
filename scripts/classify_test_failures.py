@@ -23,9 +23,9 @@ import json
 import re
 import sys
 import xml.etree.ElementTree as ET
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from collections.abc import Iterable, Sequence
 
 _MARKER_KEYS = {
     "test_markers",
