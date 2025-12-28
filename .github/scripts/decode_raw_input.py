@@ -10,7 +10,7 @@ import argparse
 import json
 import re
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 RAW_FILE = Path("raw_input.json")
 OUT_FILE = Path("input.txt")
@@ -44,10 +44,7 @@ def main() -> None:
             return
         raw = RAW_FILE.read_text(encoding="utf-8")
         try:
-            if raw not in ("", "null"):
-                text = json.loads(raw)
-            else:
-                text = ""
+            text = json.loads(raw) if raw not in ("", "null") else ""
         except Exception:
             text = raw
     original = text or ""
@@ -85,13 +82,13 @@ def main() -> None:
 
     # Heuristic: if the input lost original line breaks (appears mostly as one very long line)
     # reconstruct newlines before common enumeration patterns so the parser can split topics.
-    applied: List[str] = []
+    applied: list[str] = []
 
     def apply_enumerator_newlines(s: str) -> str:
         pattern = re.compile(
             r"(?<!\n)(?:(?<=\s)|^)(?P<enum>([0-9]{1,3}|[A-Za-z][0-9]*))[\)\.:\-]\s+"
         )
-        parts: List[str] = []
+        parts: list[str] = []
         last = 0
         for m in pattern.finditer(s):
             start = m.start()
@@ -134,10 +131,10 @@ def main() -> None:
             applied.append("forced_split")
             text = forced
 
-    def extract_enumerators(s: str) -> Tuple[List[str], List[str]]:
+    def extract_enumerators(s: str) -> tuple[list[str], list[str]]:
         # Enumerators followed by punctuation ) . : - then space
         enum_pattern = re.compile(r"(^|\s)(([0-9]{1,3}|[A-Za-z][0-9]*))[\)\.:\-](?=\s)")
-        tokens: List[str] = []
+        tokens: list[str] = []
         for m in enum_pattern.finditer(s):
             token = m.group(2)
             tokens.append(token)
@@ -150,7 +147,7 @@ def main() -> None:
     raw_tokens, raw_distinct = extract_enumerators(original)
     reb_tokens, reb_distinct = extract_enumerators(text)
 
-    diagnostics: Dict[str, Any] = {
+    diagnostics: dict[str, Any] = {
         "raw_len": len(original),
         "raw_newlines": original.count("\n"),
         "rebuilt_len": len(text),
