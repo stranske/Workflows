@@ -81,7 +81,7 @@ def _split_numbered_items(text: str) -> list[dict[str, str | list[str] | bool]]:
         if m:
             token = m.group("enum")
             title = m.group("title").strip()
-            # Clean simple markdown emphasis and stray trailing punctuation that harms GUID stability
+            # Clean markdown emphasis and trailing punctuation for GUID stability
             title = re.sub(r"^[*_`]+|[*_`]+$", "", title).strip()
             title = title.rstrip(". ")
             if current:
