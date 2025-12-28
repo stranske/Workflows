@@ -26,7 +26,7 @@ class VersionConstraint(NamedTuple):
     version: tuple[int, ...]
 
     @classmethod
-    def parse(cls, spec: str) -> "VersionConstraint | None":
+    def parse(cls, spec: str) -> VersionConstraint | None:
         """Parse a constraint like '>=7.10.6'."""
         match = re.match(r"([><=!]+)\s*(\d+(?:\.\d+)*)", spec.strip())
         if not match:
@@ -168,9 +168,7 @@ def validate_file(path: Path) -> tuple[list[str], list[str]]:
 
 def main() -> int:
     """Main entry point."""
-    if len(sys.argv) < 2:
-        check_all = True
-    elif sys.argv[1] == "--check-all-templates":
+    if len(sys.argv) < 2 or sys.argv[1] == "--check-all-templates":
         check_all = True
     else:
         check_all = False

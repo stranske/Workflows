@@ -27,8 +27,8 @@ import importlib.util
 import os
 import re
 import sys
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Iterator, List
 
 ROOT = Path(__file__).resolve().parent.parent
 SRC_DIRS = [ROOT / "src", ROOT / "tests"]
@@ -193,7 +193,7 @@ def iter_python_files() -> Iterator[Path]:
 
 
 def main() -> int:
-    modified: List[Path] = []
+    modified: list[Path] = []
     for py_file in iter_python_files():
         changed, new_lines = process_file(py_file)
         if changed:

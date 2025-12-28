@@ -45,7 +45,7 @@ def main() -> None:
         raw = RAW_FILE.read_text(encoding="utf-8")
         try:
             text = json.loads(raw) if raw not in ("", "null") else ""
-        except Exception:
+        except json.JSONDecodeError:
             text = raw
     original = text or ""
     # Normalize CR-only to LF and remove BOM if present

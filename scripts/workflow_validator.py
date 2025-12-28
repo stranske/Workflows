@@ -5,7 +5,6 @@ This module checks workflow files for common issues and anti-patterns.
 
 import re
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 
 import yaml
 
@@ -20,7 +19,7 @@ DEPRECATED_ACTIONS = {
 }
 
 
-def load_workflow(path: str) -> Optional[Dict]:
+def load_workflow(path: str) -> dict | None:
     """Load and parse a workflow YAML file.
 
     Args:
@@ -30,13 +29,13 @@ def load_workflow(path: str) -> Optional[Dict]:
         Parsed YAML content or None if invalid
     """
     try:
-        with open(path, "r") as f:
+        with open(path) as f:
             return yaml.safe_load(f)
-    except (yaml.YAMLError, FileNotFoundError, IOError):
+    except (OSError, yaml.YAMLError, FileNotFoundError):
         return None
 
 
-def check_deprecated_actions(workflow: Dict) -> List[Tuple[str, str, str]]:
+def check_deprecated_actions(workflow: dict) -> list[tuple[str, str, str]]:
     """Check for deprecated action versions.
 
     Args:
@@ -45,7 +44,7 @@ def check_deprecated_actions(workflow: Dict) -> List[Tuple[str, str, str]]:
     Returns:
         List of (job_name, step_name, issue) tuples
     """
-    issues: List[Tuple[str, str, str]] = []
+    issues: list[tuple[str, str, str]] = []
 
     jobs = workflow.get("jobs", {})
     for job_name, job in jobs.items():
@@ -63,7 +62,7 @@ def check_deprecated_actions(workflow: Dict) -> List[Tuple[str, str, str]]:
     return issues
 
 
-def check_missing_timeout(workflow: Dict) -> List[str]:
+def check_missing_timeout(workflow: dict) -> list[str]:
     """Check for jobs without timeout-minutes.
 
     Args:
@@ -82,7 +81,7 @@ def check_missing_timeout(workflow: Dict) -> List[str]:
     return missing
 
 
-def check_hardcoded_secrets(workflow: Dict) -> List[Tuple[str, str]]:
+def check_hardcoded_secrets(workflow: dict) -> list[tuple[str, str]]:
     """Check for potentially hardcoded secrets or tokens.
 
     Args:
@@ -110,7 +109,7 @@ def check_hardcoded_secrets(workflow: Dict) -> List[Tuple[str, str]]:
     return issues
 
 
-def check_permissions(workflow: Dict) -> List[str]:
+def check_permissions(workflow: dict) -> list[str]:
     """Check for overly permissive permissions.
 
     Args:
@@ -139,7 +138,7 @@ def check_permissions(workflow: Dict) -> List[str]:
     return issues
 
 
-def validate_workflow(path: str) -> Dict[str, List]:
+def validate_workflow(path: str) -> dict[str, list]:
     """Run all validations on a workflow file.
 
     Args:
@@ -148,7 +147,7 @@ def validate_workflow(path: str) -> Dict[str, List]:
     Returns:
         Dictionary with validation results
     """
-    results: Dict[str, List] = {
+    results: dict[str, list] = {
         "deprecated_actions": [],
         "missing_timeout": [],
         "hardcoded_secrets": [],
@@ -169,7 +168,7 @@ def validate_workflow(path: str) -> Dict[str, List]:
     return results
 
 
-def validate_all_workflows(directory: str) -> Dict[str, Dict[str, List]]:
+def validate_all_workflows(directory: str) -> dict[str, dict[str, list]]:
     """Validate all workflow files in a directory.
 
     Args:

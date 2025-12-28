@@ -7,8 +7,9 @@ import argparse
 import json
 import os
 import sys
+from collections.abc import Iterable, Mapping
 from pathlib import Path
-from typing import Any, Iterable, Mapping
+from typing import Any
 
 # Add the root directory to Python path to enable tools import
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -41,10 +42,7 @@ def _doc_url() -> str:
     base_ref = os.environ.get("GITHUB_BASE_REF")
     event_name = os.environ.get("GITHUB_EVENT_NAME", "")
 
-    if event_name == "pull_request" and base_ref:
-        ref = base_ref
-    else:
-        ref = ref_name or "main"
+    ref = base_ref if event_name == "pull_request" and base_ref else ref_name or "main"
 
     if not repo:
         return "https://github.com/stranske/Workflows/blob/main/docs/ci/WORKFLOWS.md#ci-signature-guard-fixtures"
@@ -92,10 +90,7 @@ def _signature_row(jobs_path: Path, expected_path: Path) -> Mapping[str, str]:
 
 
 def _extract_contexts(section: object) -> list[str]:
-    if isinstance(section, Mapping):
-        raw_contexts = section.get("contexts")
-    else:
-        raw_contexts = section
+    raw_contexts = section.get("contexts") if isinstance(section, Mapping) else section
 
     if isinstance(raw_contexts, str):
         contexts = [raw_contexts]
@@ -191,10 +186,7 @@ def _format_delta(
             return str(value)
 
         parts.append(
-            "Require up to date: {before} → {after}".format(
-                before=_bool_status(previous_strict),
-                after=_bool_status(current_strict),
-            )
+            f"Require up to date: {_bool_status(previous_strict)} → {_bool_status(current_strict)}"
         )
 
     return "; ".join(parts) if parts else "No change"

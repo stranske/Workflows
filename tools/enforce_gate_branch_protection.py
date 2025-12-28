@@ -8,11 +8,12 @@ import json
 import os
 import sys
 import time
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from fnmatch import fnmatch
 from pathlib import Path
-from typing import Any, Callable, Iterable, List, Mapping, Sequence
+from typing import Any
 
 import requests
 
@@ -52,10 +53,10 @@ class BranchProtectionMissingError(BranchProtectionError):
 @dataclass
 class StatusCheckState:
     strict: bool | None
-    contexts: List[str]
+    contexts: list[str]
 
     @classmethod
-    def from_api(cls, payload: Mapping[str, Any]) -> "StatusCheckState":
+    def from_api(cls, payload: Mapping[str, Any]) -> StatusCheckState:
         return _state_from_status_payload(payload)
 
 
@@ -506,7 +507,7 @@ def bootstrap_branch_protection(
 
 def load_required_contexts(
     config_path: str | os.PathLike[str] | None = None,
-) -> List[str]:
+) -> list[str]:
     """Return contexts defined in the shared configuration file."""
 
     candidate = Path(config_path or os.getenv("REQUIRED_CONTEXTS_FILE") or DEFAULT_CONFIG_PATH)
@@ -522,7 +523,7 @@ def load_required_contexts(
     else:
         contexts_value = payload
 
-    contexts: List[str] = []
+    contexts: list[str] = []
     if isinstance(contexts_value, Iterable) and not isinstance(contexts_value, (str, bytes)):
         for item in contexts_value:
             if isinstance(item, str):
@@ -534,11 +535,11 @@ def load_required_contexts(
 
 def parse_contexts(
     values: Iterable[str] | None, *, config_path: str | os.PathLike[str] | None = None
-) -> List[str]:
+) -> list[str]:
     if not values:
         contexts = load_required_contexts(config_path)
         return contexts or list(DEFAULT_CONTEXTS)
-    cleaned: List[str] = []
+    cleaned: list[str] = []
     for value in values:
         candidate = value.strip()
         if not candidate:
@@ -550,9 +551,9 @@ def parse_contexts(
     return cleaned
 
 
-def normalise_contexts(contexts: Sequence[str]) -> List[str]:
+def normalise_contexts(contexts: Sequence[str]) -> list[str]:
     seen: set[str] = set()
-    ordered: List[str] = []
+    ordered: list[str] = []
     for context in contexts:
         if not context or context in seen:
             continue

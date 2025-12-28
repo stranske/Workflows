@@ -7,7 +7,7 @@ import json
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -16,13 +16,13 @@ class PRMetrics:
 
     pr_number: int
     created_at: datetime
-    merged_at: Optional[datetime]
+    merged_at: datetime | None
     review_count: int
     commit_count: int
     autofix_applied: bool
-    labels: List[str]
+    labels: list[str]
 
-    def time_to_merge_hours(self) -> Optional[float]:
+    def time_to_merge_hours(self) -> float | None:
         """Calculate hours from creation to merge."""
         if self.merged_at is None:
             return None
@@ -30,7 +30,7 @@ class PRMetrics:
         return delta.total_seconds() / 3600
 
 
-def parse_pr_data(data: Dict[str, Any]) -> PRMetrics:
+def parse_pr_data(data: dict[str, Any]) -> PRMetrics:
     """Parse PR data from GitHub API response.
 
     Args:
@@ -59,7 +59,7 @@ def parse_pr_data(data: Dict[str, Any]) -> PRMetrics:
     )
 
 
-def load_pr_history(path: str) -> List[PRMetrics]:
+def load_pr_history(path: str) -> list[PRMetrics]:
     """Load PR metrics history from NDJSON file.
 
     Args:
@@ -68,13 +68,13 @@ def load_pr_history(path: str) -> List[PRMetrics]:
     Returns:
         List of PRMetrics instances
     """
-    metrics: List[PRMetrics] = []
+    metrics: list[PRMetrics] = []
     history_path = Path(path)
 
     if not history_path.exists():
         return metrics
 
-    with open(history_path, "r") as f:
+    with open(history_path) as f:
         for line in f:
             line = line.strip()
             if not line:
@@ -88,7 +88,7 @@ def load_pr_history(path: str) -> List[PRMetrics]:
     return metrics
 
 
-def calculate_average_merge_time(metrics: List[PRMetrics]) -> float:
+def calculate_average_merge_time(metrics: list[PRMetrics]) -> float:
     """Calculate average time to merge in hours.
 
     Args:
@@ -109,7 +109,7 @@ def calculate_average_merge_time(metrics: List[PRMetrics]) -> float:
     return sum(merge_times) / len(merge_times)
 
 
-def calculate_autofix_rate(metrics: List[PRMetrics]) -> float:
+def calculate_autofix_rate(metrics: list[PRMetrics]) -> float:
     """Calculate percentage of PRs with autofix applied.
 
     Args:
@@ -125,7 +125,7 @@ def calculate_autofix_rate(metrics: List[PRMetrics]) -> float:
     return (autofix_count / len(metrics)) * 100
 
 
-def group_by_label(metrics: List[PRMetrics]) -> Dict[str, List[PRMetrics]]:
+def group_by_label(metrics: list[PRMetrics]) -> dict[str, list[PRMetrics]]:
     """Group PRs by their labels.
 
     Args:
@@ -134,7 +134,7 @@ def group_by_label(metrics: List[PRMetrics]) -> Dict[str, List[PRMetrics]]:
     Returns:
         Dictionary mapping label to list of PRs
     """
-    grouped: Dict[str, List[PRMetrics]] = {}
+    grouped: dict[str, list[PRMetrics]] = {}
 
     for pr in metrics:
         for label in pr.labels:
@@ -145,7 +145,7 @@ def group_by_label(metrics: List[PRMetrics]) -> Dict[str, List[PRMetrics]]:
     return grouped
 
 
-def generate_metrics_summary(metrics: List[PRMetrics]) -> Dict[str, Any]:
+def generate_metrics_summary(metrics: list[PRMetrics]) -> dict[str, Any]:
     """Generate a summary of PR metrics.
 
     Args:

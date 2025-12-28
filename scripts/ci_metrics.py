@@ -20,9 +20,10 @@ import datetime as _dt
 import json
 import os
 import sys
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable, Sequence
+from typing import Any
 from xml.etree import ElementTree as ET
 
 _DEFAULT_JUNIT = "pytest-junit.xml"

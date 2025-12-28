@@ -99,6 +99,8 @@ select = [
     "I",  # isort
     "B",  # flake8-bugbear
     "C4",  # flake8-comprehensions
+    "UP",  # pyupgrade - modern Python syntax
+    "SIM", # flake8-simplify - code simplification
 ]
 ignore = [
     "E501",  # Line too long (handled by black)

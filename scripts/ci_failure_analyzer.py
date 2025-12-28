@@ -7,9 +7,9 @@ in test failures that may indicate flaky tests or infrastructure issues.
 import json
 import re
 from collections import Counter
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 # Common failure pattern signatures
 FLAKY_PATTERNS = [
@@ -27,7 +27,7 @@ INFRASTRUCTURE_PATTERNS = [
 ]
 
 
-def load_failure_logs(log_path: str) -> List[Dict[str, Any]]:
+def load_failure_logs(log_path: str) -> list[dict[str, Any]]:
     """Load failure logs from NDJSON file.
 
     Args:
@@ -36,13 +36,13 @@ def load_failure_logs(log_path: str) -> List[Dict[str, Any]]:
     Returns:
         List of failure records
     """
-    failures: List[Dict[str, Any]] = []
+    failures: list[dict[str, Any]] = []
     path = Path(log_path)
 
     if not path.exists():
         return failures
 
-    with open(path, "r") as f:
+    with open(path) as f:
         for line in f:
             line = line.strip()
             if line:
@@ -81,7 +81,7 @@ def classify_failure(error_message: str) -> str:
     return "unknown"
 
 
-def aggregate_failures(failures: List[Dict[str, Any]]) -> Dict[str, int]:
+def aggregate_failures(failures: list[dict[str, Any]]) -> dict[str, int]:
     """Aggregate failures by classification.
 
     Args:
@@ -100,9 +100,9 @@ def aggregate_failures(failures: List[Dict[str, Any]]) -> Dict[str, int]:
 
 
 def identify_flaky_tests(
-    failures: List[Dict[str, Any]],
+    failures: list[dict[str, Any]],
     threshold: float = 0.3,
-) -> List[str]:
+) -> list[str]:
     """Identify tests that fail intermittently (flaky tests).
 
     A test is considered flaky if it fails more than threshold% of the time
@@ -115,7 +115,7 @@ def identify_flaky_tests(
     Returns:
         List of test names identified as flaky
     """
-    test_results: Dict[str, Dict[str, int]] = {}
+    test_results: dict[str, dict[str, int]] = {}
 
     for record in failures:
         test_name = record.get("test_name", "")
@@ -146,7 +146,7 @@ def identify_flaky_tests(
 
 
 def generate_failure_report(
-    failures: List[Dict[str, Any]],
+    failures: list[dict[str, Any]],
     output_format: str = "text",
 ) -> str:
     """Generate a human-readable failure report.
@@ -194,9 +194,9 @@ def generate_failure_report(
 
 
 def get_recent_failures(
-    failures: List[Dict[str, Any]],
+    failures: list[dict[str, Any]],
     days: int = 7,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Filter failures to only recent ones.
 
     Args:
@@ -206,7 +206,7 @@ def get_recent_failures(
     Returns:
         Filtered list of recent failures
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     cutoff = now.timestamp() - (days * 86400)
 
     recent = []

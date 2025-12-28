@@ -77,9 +77,92 @@ jobs:
           echo "matrix={\"repo\":$json_array}" >> "$GITHUB_OUTPUT"
           echo "Repos to sync: $json_array"
 
+
+  # Validate synced files pass consumer-repo lint rules before syncing
+  validate_sync_files:
+    name: Validate sync files
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            .github/scripts
+            .github/workflows/agents-63-issue-intake.yml
+            pyproject.toml
+          sparse-checkout-cone-mode: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install lint tools
+        run: |
+          pip install ruff mypy black
+
+      - name: Validate Python scripts with consumer-repo rules
+        run: |
+          set -euo pipefail
+          echo "Validating Python scripts that will be synced to consumer repos..."
+          
+          # Files synced to consumer repos
+          SYNC_SCRIPTS=(
+            ".github/scripts/decode_raw_input.py"
+            ".github/scripts/parse_chatgpt_topics.py"
+            ".github/scripts/fallback_split.py"
+          )
+          
+          # Consumer repos use these additional ruff rules
+          # We validate with UP (pyupgrade) and SIM (simplify) which are common in consumer repos
+          CONSUMER_RULES="E,W,F,I,B,C4,UP,SIM"
+          
+          failed=0
+          for script in "${SYNC_SCRIPTS[@]}"; do
+            if [ -f "$script" ]; then
+              echo "Checking $script..."
+              if ! ruff check --select="$CONSUMER_RULES" "$script"; then
+                echo "::error::$script fails consumer-repo ruff rules"
+                failed=1
+              fi
+              if ! python -m py_compile "$script"; then
+                echo "::error::$script has syntax errors"
+                failed=1
+              fi
+            fi
+          done
+          
+          if [ "$failed" -eq 1 ]; then
+            echo "::error::Sync files must pass consumer-repo lint rules before syncing"
+            exit 1
+          fi
+          echo "✓ All sync files pass consumer-repo lint validation"
+
+      - name: Validate workflow YAML syntax
+        run: |
+          set -euo pipefail
+          echo "Validating workflow YAML files..."
+          
+          # Check agents-63-issue-intake.yml
+          if [ -f ".github/workflows/agents-63-issue-intake.yml" ]; then
+            python3 -c "import yaml; yaml.safe_load(open('.github/workflows/agents-63-issue-intake.yml'))"
+            echo "✓ agents-63-issue-intake.yml is valid YAML"
+            
+            # Check for common issues
+            if grep -q "secrets\.service_bot_pat" ".github/workflows/agents-63-issue-intake.yml"; then
+              echo "::error::agents-63-issue-intake.yml uses lowercase 'secrets.service_bot_pat' - should be 'secrets.SERVICE_BOT_PAT'"
+              exit 1
+            fi
+            if grep -q "secrets\.owner_pr_pat" ".github/workflows/agents-63-issue-intake.yml"; then
+              echo "::error::agents-63-issue-intake.yml uses lowercase 'secrets.owner_pr_pat' - should be 'secrets.OWNER_PR_PAT'"
+              exit 1
+            fi
+            echo "✓ agents-63-issue-intake.yml passes secret naming checks"
+          fi
+
   sync:
     name: Sync ${{ matrix.repo }}
-    needs: prepare
+    needs: [prepare, validate_sync_files]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false

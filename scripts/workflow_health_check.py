@@ -8,14 +8,13 @@ that may indicate issues needing attention.
 import json
 import os
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Dict, List, Optional
 
 
-def load_workflow_runs(metrics_path: str) -> List[Dict]:
+def load_workflow_runs(metrics_path: str) -> list[dict]:
     """Load workflow run metrics from NDJSON file."""
-    runs: List[Dict] = []
+    runs: list[dict] = []
     path = Path(metrics_path)
     if not path.exists():
         return runs
@@ -28,7 +27,7 @@ def load_workflow_runs(metrics_path: str) -> List[Dict]:
     return runs
 
 
-def calculate_success_rate(runs: List[Dict]) -> float:
+def calculate_success_rate(runs: list[dict]) -> float:
     """Calculate success rate from workflow runs."""
     if not runs:
         return 0.0
@@ -37,11 +36,11 @@ def calculate_success_rate(runs: List[Dict]) -> float:
     return successes / len(runs) * 100
 
 
-def analyze_failure_patterns(runs: List[Dict]) -> Dict[str, int]:
+def analyze_failure_patterns(runs: list[dict]) -> dict[str, int]:
     """Analyze runs to identify common failure patterns."""
     failures = [r for r in runs if r.get("verdict") == "fail" or r.get("status") == "failure"]
 
-    patterns: Dict[str, int] = {}
+    patterns: dict[str, int] = {}
     for failure in failures:
         reason = failure.get("skip_reason") or failure.get("error") or "unknown"
         if reason in patterns:
@@ -52,11 +51,11 @@ def analyze_failure_patterns(runs: List[Dict]) -> Dict[str, int]:
     return patterns
 
 
-def get_recent_runs(runs: List[Dict], days: int = 7) -> List[Dict]:
+def get_recent_runs(runs: list[dict], days: int = 7) -> list[dict]:
     """Filter runs to only those within the last N days."""
-    cutoff = datetime.now(timezone.utc).timestamp() - (days * 86400)
+    cutoff = datetime.now(UTC).timestamp() - (days * 86400)
 
-    recent: List[Dict] = []
+    recent: list[dict] = []
     for run in runs:
         recorded = run.get("recorded_at", "")
         if recorded:
@@ -82,7 +81,7 @@ def format_duration(seconds: int) -> str:
         return f"{hours}h {mins}m"
 
 
-def generate_report(metrics_path: str, output_path: Optional[str] = None) -> Dict:
+def generate_report(metrics_path: str, output_path: str | None = None) -> dict:
     """Generate a health report from workflow metrics."""
     runs = load_workflow_runs(metrics_path)
     recent = get_recent_runs(runs)
@@ -93,7 +92,7 @@ def generate_report(metrics_path: str, output_path: Optional[str] = None) -> Dic
         "overall_success_rate": calculate_success_rate(runs),
         "recent_success_rate": calculate_success_rate(recent),
         "failure_patterns": analyze_failure_patterns(runs),
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": datetime.now(UTC).isoformat(),
     }
 
     if output_path:

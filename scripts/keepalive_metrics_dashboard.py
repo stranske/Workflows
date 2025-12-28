@@ -7,8 +7,9 @@ import argparse
 import json
 import sys
 from collections import Counter
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 
 def _safe_int(value: Any) -> int | None:

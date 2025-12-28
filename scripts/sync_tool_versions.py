@@ -6,8 +6,11 @@ import argparse
 import dataclasses
 import re
 import sys
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Dict, Iterable, Pattern, Tuple
+
+# Removed: typing.Dict, typing.Tuple - use builtin dict, tuple
+from re import Pattern
 
 PIN_FILE = Path(".github/workflows/autofix-versions.env")
 PYPROJECT_FILE = Path("pyproject.toml")
@@ -31,7 +34,7 @@ def _format_entry(pattern: str, version: str) -> str:
     return pattern.format(version=version)
 
 
-TOOL_CONFIGS: Tuple[ToolConfig, ...] = (
+TOOL_CONFIGS: tuple[ToolConfig, ...] = (
     ToolConfig(
         env_key="BLACK_VERSION",
         package_name="black",
@@ -87,11 +90,11 @@ class SyncError(RuntimeError):
     """Raised when the repository is misconfigured or a sync fails."""
 
 
-def parse_env_file(path: Path) -> Dict[str, str]:
+def parse_env_file(path: Path) -> dict[str, str]:
     if not path.exists():
         raise SyncError(f"Pin file '{path}' does not exist")
 
-    values: Dict[str, str] = {}
+    values: dict[str, str] = {}
     for line in path.read_text(encoding="utf-8").splitlines():
         if not line or line.lstrip().startswith("#"):
             continue
@@ -107,9 +110,9 @@ def parse_env_file(path: Path) -> Dict[str, str]:
 
 
 def ensure_pyproject(
-    content: str, configs: Iterable[ToolConfig], env: Dict[str, str], apply: bool
-) -> Tuple[str, Dict[str, str]]:
-    mismatches: Dict[str, str] = {}
+    content: str, configs: Iterable[ToolConfig], env: dict[str, str], apply: bool
+) -> tuple[str, dict[str, str]]:
+    mismatches: dict[str, str] = {}
     updated_content = content
 
     for cfg in configs:
@@ -117,10 +120,8 @@ def ensure_pyproject(
         match = cfg.pyproject_pattern.search(updated_content)
         if not match:
             raise SyncError(
-                (
-                    f"pyproject.toml is missing an entry for {cfg.package_name}; "
-                    f"expected pattern '{cfg.pyproject_pattern.pattern}'"
-                )
+                f"pyproject.toml is missing an entry for {cfg.package_name}; "
+                f"expected pattern '{cfg.pyproject_pattern.pattern}'"
             )
         current = match.group("version")
         if current != expected:

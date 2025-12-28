@@ -6,10 +6,11 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Dict, Iterable
+from typing import Any
 
 REQUIRED_FIELDS = (
     "pr_number",
@@ -52,7 +53,7 @@ def _parse_timestamp(value: str) -> datetime:
     return parsed
 
 
-def validate_record(record: Dict[str, Any]) -> None:
+def validate_record(record: dict[str, Any]) -> None:
     """Validate required fields and types for a metrics record."""
     missing = [field for field in REQUIRED_FIELDS if field not in record]
     if missing:
@@ -77,7 +78,7 @@ def validate_record(record: Dict[str, Any]) -> None:
 
 
 def _utc_now_iso() -> str:
-    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def _coerce_int(value: str, field: str) -> int:
@@ -87,7 +88,7 @@ def _coerce_int(value: str, field: str) -> int:
         raise ValidationError(f"{field} must be an integer") from exc
 
 
-def build_record_from_args(args: argparse.Namespace) -> Dict[str, Any]:
+def build_record_from_args(args: argparse.Namespace) -> dict[str, Any]:
     record = {
         "pr_number": _coerce_int(args.pr_number, "pr_number"),
         "iteration": _coerce_int(args.iteration, "iteration"),
@@ -101,7 +102,7 @@ def build_record_from_args(args: argparse.Namespace) -> Dict[str, Any]:
     return record
 
 
-def load_record_from_json(payload: str) -> Dict[str, Any]:
+def load_record_from_json(payload: str) -> dict[str, Any]:
     try:
         record = json.loads(payload)
     except json.JSONDecodeError as exc:
@@ -113,7 +114,7 @@ def load_record_from_json(payload: str) -> Dict[str, Any]:
     return record
 
 
-def append_record(path: Path, record: Dict[str, Any]) -> None:
+def append_record(path: Path, record: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = json.dumps(record, separators=(",", ":"), sort_keys=True)
     with path.open("a", encoding="utf-8") as handle:

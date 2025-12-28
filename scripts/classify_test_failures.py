@@ -23,9 +23,9 @@ import json
 import re
 import sys
 import xml.etree.ElementTree as ET
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, List, Sequence
 
 _MARKER_KEYS = {
     "test_markers",
@@ -50,9 +50,9 @@ class FailureRecord:
 
 @dataclass
 class FailureSummary:
-    cosmetic: List[FailureRecord]
-    runtime: List[FailureRecord]
-    unknown: List[FailureRecord]
+    cosmetic: list[FailureRecord]
+    runtime: list[FailureRecord]
+    unknown: list[FailureRecord]
 
     def as_dict(self) -> dict[str, object]:
         cosmetic = [record.__dict__ for record in self.cosmetic]

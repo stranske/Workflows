@@ -14,8 +14,9 @@ import json
 import re
 import subprocess
 import sys
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any
 
 import yaml
 
@@ -34,7 +35,7 @@ ISO8601_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 class LedgerError(Exception):
     """Collect validation errors for reporting."""
 
-    def __init__(self, message: str, *, context: Optional[str] = None) -> None:
+    def __init__(self, message: str, *, context: str | None = None) -> None:
         super().__init__(message)
         self.context = context
 
@@ -53,8 +54,8 @@ def _ensure_type(value: Any, expected: type, *, allow_none: bool = False) -> boo
     return isinstance(value, expected)
 
 
-def _validate_timestamp(value: Any, *, field: str, path: str) -> List[str]:
-    errors: List[str] = []
+def _validate_timestamp(value: Any, *, field: str, path: str) -> list[str]:
+    errors: list[str] = []
     if value is None:
         return errors
     if not isinstance(value, str):
@@ -137,7 +138,7 @@ def _fetch_commit(commit: str) -> bool:
     return False
 
 
-def _commit_files(commit: str) -> List[str]:
+def _commit_files(commit: str) -> list[str]:
     try:
         output = subprocess.check_output(
             ["git", "show", "--pretty=format:", "--name-only", commit],
@@ -175,9 +176,9 @@ def _commit_subject(commit: str) -> str:
 
 
 def _validate_task(
-    task: Dict[str, Any], *, index: int, seen_ids: set[str], ledger_path: Path
-) -> List[str]:
-    errors: List[str] = []
+    task: dict[str, Any], *, index: int, seen_ids: set[str], ledger_path: Path
+) -> list[str]:
+    errors: list[str] = []
     context = f"tasks[{index}]"
 
     task_id = task.get("id")
@@ -272,8 +273,8 @@ def _validate_task(
     return errors
 
 
-def validate_ledger(path: Path) -> List[str]:
-    problems: List[str] = []
+def validate_ledger(path: Path) -> list[str]:
+    problems: list[str] = []
     data = _load_yaml(path)
     if not isinstance(data, dict):
         return [f"{path}: top-level document must be a mapping"]
@@ -315,7 +316,7 @@ def validate_ledger(path: Path) -> List[str]:
     return problems
 
 
-def find_ledgers(explicit: Iterable[str]) -> List[Path]:
+def find_ledgers(explicit: Iterable[str]) -> list[Path]:
     if explicit:
         return [Path(item) for item in explicit]
     root = proj_path()
@@ -325,7 +326,7 @@ def find_ledgers(explicit: Iterable[str]) -> List[Path]:
     return sorted(agents_dir.glob("issue-*-ledger.yml"))
 
 
-def main(argv: Optional[List[str]] = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Validate Codex ledger files")
     parser.add_argument(
         "paths",
@@ -341,7 +342,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     args = parser.parse_args(argv)
 
     ledgers = find_ledgers(args.paths)
-    results: Dict[str, List[str]] = {}
+    results: dict[str, list[str]] = {}
     for path in ledgers:
         problems = validate_ledger(path)
         if problems:
