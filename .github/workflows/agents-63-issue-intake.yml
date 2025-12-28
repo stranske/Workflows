@@ -1176,5 +1176,5 @@ jobs:
       post_agent_comment: ${{ needs.normalize_inputs.outputs.post_codex_comment }}
       agent_pr_draft: ${{ needs.normalize_inputs.outputs.bridge_draft_pr }}
     secrets:
-      service_bot_pat: ${{ secrets.service_bot_pat }}
-      owner_pr_pat: ${{ secrets.owner_pr_pat }}
+      service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
+      owner_pr_pat: ${{ secrets.OWNER_PR_PAT }}

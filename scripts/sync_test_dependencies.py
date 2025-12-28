@@ -14,7 +14,7 @@ import re
 import sys
 import tomllib
 from pathlib import Path
-from typing import Any, Set, cast
+from typing import Any, cast
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SRC_PATH = REPO_ROOT / "src"
@@ -138,13 +138,13 @@ _BASE_PROJECT_MODULES = {
 }
 
 
-def _detect_local_project_modules() -> Set[str]:
+def _detect_local_project_modules() -> set[str]:
     """Dynamically detect first-party modules from src/ and other common dirs.
 
     Scans for packages (directories with __init__.py) and standalone modules
     in standard source locations to prevent false positives on first-party imports.
     """
-    detected: Set[str] = set()
+    detected: set[str] = set()
     source_dirs = [Path("src"), Path(".")]
 
     for source_dir in source_dirs:
@@ -176,13 +176,13 @@ def _detect_local_project_modules() -> Set[str]:
     return detected
 
 
-def get_project_modules() -> Set[str]:
+def get_project_modules() -> set[str]:
     """Return the full set of project modules (static + dynamically detected)."""
     return _BASE_PROJECT_MODULES | _detect_local_project_modules()
 
 
 # For backward compatibility - will be populated on first use
-PROJECT_MODULES: Set[str] = set()
+PROJECT_MODULES: set[str] = set()
 
 # Module name to package name mappings for known exceptions
 MODULE_TO_PACKAGE = {
@@ -224,10 +224,10 @@ def _extract_requirement_name(entry: str) -> str | None:
     return token or None
 
 
-def extract_imports_from_file(file_path: Path) -> Set[str]:
+def extract_imports_from_file(file_path: Path) -> set[str]:
     """Extract all top-level import names from a Python file."""
     try:
-        with open(file_path, "r", encoding="utf-8") as f:
+        with open(file_path, encoding="utf-8") as f:
             tree = ast.parse(f.read(), filename=str(file_path))
     except (SyntaxError, UnicodeDecodeError):
         return set()
@@ -238,15 +238,14 @@ def extract_imports_from_file(file_path: Path) -> Set[str]:
             for alias in node.names:
                 module = alias.name.split(".")[0]
                 imports.add(module)
-        elif isinstance(node, ast.ImportFrom):
-            if node.module:
-                module = node.module.split(".")[0]
-                imports.add(module)
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            module = node.module.split(".")[0]
+            imports.add(module)
 
     return imports
 
 
-def get_all_test_imports() -> Set[str]:
+def get_all_test_imports() -> set[str]:
     """Get all imports used across all test files."""
     test_dir = Path("tests")
     if not test_dir.exists():
@@ -262,7 +261,7 @@ def get_all_test_imports() -> Set[str]:
     return all_imports
 
 
-def get_declared_dependencies() -> tuple[Set[str], dict[str, list[str]]]:
+def get_declared_dependencies() -> tuple[set[str], dict[str, list[str]]]:
     """Return declared dependency module names and raw dependency groups."""
     if not PYPROJECT_FILE.exists():
         return set(), {}
@@ -270,7 +269,7 @@ def get_declared_dependencies() -> tuple[Set[str], dict[str, list[str]]]:
     data = tomllib.loads(PYPROJECT_FILE.read_text(encoding="utf-8"))
     project = data.get("project", {})
 
-    declared: Set[str] = set()
+    declared: set[str] = set()
     groups: dict[str, list[str]] = {}
 
     for entry in project.get("dependencies", []):
@@ -291,7 +290,7 @@ def get_declared_dependencies() -> tuple[Set[str], dict[str, list[str]]]:
     return declared, groups
 
 
-def find_missing_dependencies() -> Set[str]:
+def find_missing_dependencies() -> set[str]:
     """Find imports that are not declared as dependencies."""
     declared, _ = get_declared_dependencies()
     all_imports = get_all_test_imports()
@@ -300,7 +299,7 @@ def find_missing_dependencies() -> Set[str]:
     project_modules = get_project_modules()
     potential = all_imports - STDLIB_MODULES - TEST_FRAMEWORK_MODULES - project_modules
 
-    missing: Set[str] = set()
+    missing: set[str] = set()
     for import_name in potential:
         package_name = MODULE_TO_PACKAGE.get(import_name, import_name)
         normalised = _normalise_package_name(package_name)
@@ -310,7 +309,7 @@ def find_missing_dependencies() -> Set[str]:
     return missing
 
 
-def add_dependencies_to_pyproject(missing: Set[str], fix: bool = False) -> bool:
+def add_dependencies_to_pyproject(missing: set[str], fix: bool = False) -> bool:
     """Add missing dependencies to the dev extra inside pyproject.toml."""
     if not missing or not fix:
         return False

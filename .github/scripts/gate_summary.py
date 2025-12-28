@@ -5,7 +5,7 @@ import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Mapping
+from collections.abc import Iterable, Mapping
 
 
 @dataclass(slots=True)
@@ -194,18 +194,7 @@ def _collect_table(records: Iterable[Mapping[str, object]]) -> tuple[
             percent_display = "—"
 
         table.append(
-            "| {runtime} | {lint} {lint_status} | {typing} {type_status} | {tests} {test_status} | {coverage_min} {cov_status} | {percent} |".format(
-                runtime=runtime,
-                lint=_emoji(lint),
-                lint_status=_friendly(lint),
-                typing=_emoji(typing),
-                type_status=_friendly(typing),
-                tests=_emoji(tests),
-                test_status=_friendly(tests),
-                coverage_min=_emoji(coverage_min),
-                cov_status=_friendly(coverage_min),
-                percent=percent_display,
-            )
+            f"| {runtime} | {_emoji(lint)} {_friendly(lint)} | {_emoji(typing)} {_friendly(typing)} | {_emoji(tests)} {_friendly(tests)} | {_emoji(coverage_min)} {_friendly(coverage_min)} | {percent_display} |"
         )
 
     return (

@@ -4,8 +4,6 @@
 This module provides helper functions for formatting metrics output.
 """
 
-from typing import Dict, List
-
 
 def format_percentage(value: float, decimals: int = 1) -> str:
     """Format a float as a percentage string."""
@@ -20,7 +18,7 @@ def format_count(count: int, singular: str, plural: str = None) -> str:
     return f"{count} {label}"
 
 
-def summarize_patterns(patterns: Dict[str, int]) -> List[str]:
+def summarize_patterns(patterns: dict[str, int]) -> list[str]:
     """Summarize failure patterns as formatted strings."""
     if not patterns:
         return []

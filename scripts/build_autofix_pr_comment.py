@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import argparse
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timezone, UTC
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
+from collections.abc import Iterable
 
 MARKER = "<!-- AUTOFIX REPORT -->"
 
@@ -43,10 +44,10 @@ def coerce_int(value: Any, default: int = 0) -> int:
 
 def format_timestamp(timestamp: str | None) -> str:
     if timestamp is None:
-        return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+        return datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
     try:
         parsed = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
-        return parsed.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+        return parsed.astimezone(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
     except ValueError:
         return timestamp
 

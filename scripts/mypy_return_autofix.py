@@ -5,7 +5,7 @@ from __future__ import annotations
 import ast
 import re
 from pathlib import Path
-from typing import Iterable
+from collections.abc import Iterable
 
 ROOT = Path(".")
 PROJECT_DIRS: list[Path] = [Path("src")]
@@ -31,9 +31,7 @@ def _is_str_like(node: ast.AST, str_vars: set[str]) -> bool:
 def _is_list_of_str(node: ast.AST, list_vars: set[str]) -> bool:
     if isinstance(node, ast.List):
         return all(_is_str_like(value, set()) for value in node.elts)
-    if isinstance(node, ast.Name) and node.id in list_vars:
-        return True
-    return False
+    return bool(isinstance(node, ast.Name) and node.id in list_vars)
 
 
 def _collect_string_vars(body: Iterable[ast.stmt]) -> tuple[set[str], set[str]]:

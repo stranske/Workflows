@@ -13,7 +13,6 @@ from __future__ import annotations
 import collections
 import json
 import pathlib
-from typing import Dict, List
 
 HISTORY = pathlib.Path("ci/autofix/history.json")
 OUT = pathlib.Path("ci/autofix/trend.json")
@@ -33,7 +32,7 @@ def _coerce_int(value: object) -> int:
     return 0
 
 
-def sparkline(series: List[int]) -> str:
+def sparkline(series: list[int]) -> str:
     if not series:
         return ""
     mn = min(series)
@@ -53,7 +52,7 @@ def main() -> int:
         hist_raw = json.loads(HISTORY.read_text())
     except Exception:
         hist_raw = []
-    hist: List[dict[str, object]]
+    hist: list[dict[str, object]]
     if isinstance(hist_raw, list):
         hist = [snap for snap in hist_raw if isinstance(snap, dict)]
     else:
@@ -70,7 +69,7 @@ def main() -> int:
                 if isinstance(code, str):
                     code_counts_latest[code] += int(c)
     top_codes = [code for code, _ in code_counts_latest.most_common(6)]  # limit to 6
-    code_series: Dict[str, List[int]] = {code: [] for code in top_codes}
+    code_series: dict[str, list[int]] = {code: [] for code in top_codes}
     for snap in hist[-40:]:
         by_code_obj = snap.get("by_code")
         by_code = by_code_obj if isinstance(by_code_obj, dict) else {}

@@ -5,7 +5,8 @@ import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, List, Optional
+from typing import Optional
+from collections.abc import Iterable
 
 import yaml  # type: ignore
 
@@ -22,8 +23,8 @@ class MigrationError(Exception):
 @dataclass
 class LedgerResult:
     path: Path
-    previous: Optional[str]
-    updated: Optional[str]
+    previous: str | None
+    updated: str | None
     changed: bool
 
 
@@ -43,7 +44,7 @@ def _run_git(args: Iterable[str]) -> str:
     return completed.stdout
 
 
-def detect_default_branch(explicit: Optional[str] = None) -> str:
+def detect_default_branch(explicit: str | None = None) -> str:
     if explicit:
         candidate = explicit.strip()
         if not candidate:
@@ -101,7 +102,7 @@ def detect_default_branch(explicit: Optional[str] = None) -> str:
     raise MigrationError("unable to determine default branch; pass --default explicitly")
 
 
-def load_ledger(path: Path) -> tuple[dict, Optional[str]]:
+def load_ledger(path: Path) -> tuple[dict, str | None]:
     with path.open("r", encoding="utf-8") as handle:
         data = yaml.safe_load(handle)
     if not isinstance(data, dict):
@@ -139,14 +140,14 @@ def find_repo_root() -> Path:
     return Path(path)
 
 
-def discover_ledgers(root: Path) -> List[Path]:
+def discover_ledgers(root: Path) -> list[Path]:
     agents_dir = root / ".agents"
     if not agents_dir.exists():
         return []
     return sorted(agents_dir.glob("issue-*-ledger.yml"))
 
 
-def main(argv: Optional[Iterable[str]] = None) -> int:
+def main(argv: Iterable[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Update ledger base branch to repository default")
     parser.add_argument(
         "--check",
@@ -172,8 +173,8 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
         print("No ledgers found; nothing to do.")
         return 0
 
-    mismatches: List[LedgerResult] = []
-    updated: List[LedgerResult] = []
+    mismatches: list[LedgerResult] = []
+    updated: list[LedgerResult] = []
     for ledger_path in ledgers:
         result = migrate_ledger(ledger_path, default_branch, check=args.check)
         if args.check:
