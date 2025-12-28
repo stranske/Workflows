@@ -207,7 +207,7 @@ jobs:
 
           # Full workflows synced from .github/workflows/ (not templates)
           FULL_WORKFLOWS=(
-            "agents-63-issue-intake.yml"
+            # Emptied - now using thin caller from templates
           )
 
           # Scripts that need to be synced for full workflows
@@ -577,6 +577,7 @@ jobs:
 
           # Sync thin caller workflow files from templates
           SYNC_TEMPLATES=(
+            "agents-issue-intake.yml"
             "agents-orchestrator.yml"
             "agents-pr-meta.yml"
             "agents-keepalive-loop.yml"
@@ -599,6 +600,8 @@ jobs:
               target=".github/workflows/$file"
             elif [ -f ".github/workflows/agents-70-orchestrator.yml" ] && [ "$file" = "agents-orchestrator.yml" ]; then
               target=".github/workflows/agents-70-orchestrator.yml"
+            elif [ -f ".github/workflows/agents-63-issue-intake.yml" ] && [ "$file" = "agents-issue-intake.yml" ]; then
+              target=".github/workflows/agents-63-issue-intake.yml"
             else
               # Create new file if it doesn't exist (for new workflows like keepalive-loop)
               mkdir -p .github/workflows
@@ -608,21 +611,13 @@ jobs:
             if [ -f "$template" ]; then
               cp "$template" "$target"
             fi
-          done
-
-          # Sync full workflows from .github/workflows/ (not templates)
-          FULL_WORKFLOWS=(
-            "agents-63-issue-intake.yml"
-          )
-
-          for workflow in "${FULL_WORKFLOWS[@]}"; do
-            source="../workflows/.github/workflows/$workflow"
-            target=".github/workflows/$workflow"
-
-            if [ -f "$source" ] && [ -f "$target" ]; then
-              cp "$source" "$target"
+            fi
             fi
           done
+
+          # Previously synced full workflows here, but agents-63-issue-intake.yml
+          # NOTE: agents-63-issue-intake.yml is now synced as a thin caller from templates
+          # (template name: agents-issue-intake.yml -> target: agents-63-issue-intake.yml)
 
           # Sync Python scripts
           SYNC_SCRIPTS=(
