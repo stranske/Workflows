@@ -106,3 +106,5 @@ jobs:
       caller_actor: ${{ needs.resolve.outputs.caller_actor }}
     secrets:
       service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
+      WORKFLOWS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID }}
+      WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
