@@ -21,16 +21,18 @@ This Repo (consumer)
     .github/workflows/
       ├── agents-*.yml      → SYNCED from Workflows (don't edit)
       ├── autofix.yml       → SYNCED from Workflows (don't edit)
-      ├── pr-00-gate.yml    → REPO-SPECIFIC (can edit)
-      └── ci.yml            → REPO-SPECIFIC (can edit)
+      ├── pr-00-gate.yml    → SYNCED but customizable
+      ├── ci.yml            → REPO-SPECIFIC (can edit)
+      └── autofix-versions.env → REPO-SPECIFIC (can edit)
 ```
 
 ## Which Files Can Be Edited
 
 | File | Editable? | Notes |
 |------|-----------|-------|
-| `pr-00-gate.yml` | ✅ Yes | Repo-specific CI configuration |
 | `ci.yml` | ✅ Yes | Repo-specific CI configuration |
+| `autofix-versions.env` | ✅ Yes | Repo-specific dependency versions |
+| `pr-00-gate.yml` | ⚠️ Careful | Synced, but can customize if needed |
 | `agents-*.yml` | ❌ No | Synced from Workflows |
 | `autofix.yml` | ❌ No | Synced from Workflows |
 
@@ -60,7 +62,7 @@ When an issue is labeled `agent:codex`:
 ### Need to update agent workflows
 - DON'T edit locally - changes will be overwritten
 - Fix in Workflows repo → sync will propagate here
-- Or request manual sync: `gh workflow run maint-sync-workflows.yml`
+- Or request manual sync: `gh workflow run maint-68-sync-consumer-repos.yml --repo stranske/Workflows`
 
 ## Reference Implementation
 

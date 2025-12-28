@@ -32,7 +32,6 @@ This is the **central workflow library** for the stranske organization. It provi
 ├─────────────────────────────────────────────────────────────────┤
 │  .github/workflows/                                              │
 │    agents-*.yml          → Thin callers (from templates)         │
-│    pr-00-gate.yml        → REPO-SPECIFIC (not synced)            │
 │    ci.yml                → REPO-SPECIFIC (not synced)            │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -41,10 +40,10 @@ This is the **central workflow library** for the stranske organization. It provi
 
 | Repo | Status | Notes |
 |------|--------|-------|
-| Travel-Plan-Permission | Reference | Gold standard - sync FROM here when debugging |
-| Manager-Database | Consumer | Has custom Gate/CI workflows |
+| Travel-Plan-Permission | Reference | Gold standard - compare TO here when debugging |
+| Manager-Database | Consumer | Has custom ci.yml |
 | Template | Consumer | Minimal Python template |
-| trip-planner | Consumer | Has custom Gate/CI workflows |
+| trip-planner | Consumer | Has custom ci.yml |
 
 ## Key Workflows
 
@@ -68,10 +67,13 @@ These get **synced** to consumer repos via `maint-68-sync-consumer-repos.yml`:
 | `agents-keepalive-loop.yml` | `agents-keepalive-loop.yml` | Keepalive iteration loop |
 | `agents-orchestrator.yml` | `agents-70-orchestrator.yml` | Scheduled orchestration |
 | `agents-pr-meta.yml` | `agents-pr-meta.yml` | PR comment/dispatch handling |
+| `agents-verifier.yml` | `agents-verifier.yml` | PR verification checks |
+| `agents-bot-comment-handler.yml` | `agents-bot-comment-handler.yml` | Address bot review comments |
 | `autofix.yml` | `autofix.yml` | Lint/format auto-fix |
+| `pr-00-gate.yml` | `pr-00-gate.yml` | PR gate (synced but customizable) |
 
 **NOT synced** (repo-specific):
-- `pr-00-gate.yml` - Each repo has custom CI configuration
+- `autofix-versions.env` - Each repo maintains its own dependency versions
 - `ci.yml` - Each repo has custom CI configuration
 
 ## Sync Mechanism
