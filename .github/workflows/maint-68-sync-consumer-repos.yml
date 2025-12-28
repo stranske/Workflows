@@ -612,8 +612,6 @@ jobs:
             if [ -f "$template" ]; then
               cp "$template" "$target"
             fi
-            fi
-            fi
           done
 
           # Previously synced full workflows here, but agents-63-issue-intake.yml
