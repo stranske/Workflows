@@ -181,9 +181,33 @@ jobs:
 
             const body = prData.body || '';
             const configMatch = body.match(/autofix\s*:\s*(true|false)/i);
-            const autofixEnabled = configMatch
+            let autofixEnabled = configMatch
               ? configMatch[1].toLowerCase() === 'true'
               : hasAgentLabel;
+
+            // Auto-escalation: If basic autofix ran but Gate still fails, auto-add agent:codex
+            // This ensures non-agent PRs can be fixed by Codex when ruff/black isn't enough
+            if (!autofixEnabled && !configMatch) {
+              const hasAutofixApplied = labels.includes('autofix:applied') || labels.includes('autofix');
+              const gateConclusion = (run.conclusion || '').toLowerCase();
+              const gateFailed = gateConclusion === 'failure';
+
+              if (hasAutofixApplied && gateFailed) {
+                core.info('🔄 Auto-escalation: Basic autofix ran but Gate still failing. Adding agent:codex label...');
+                try {
+                  await github.rest.issues.addLabels({
+                    owner,
+                    repo,
+                    issue_number: prNumber,
+                    labels: ['agent:codex', 'autofix:escalated'],
+                  });
+                  core.info('✅ Added agent:codex and autofix:escalated labels for Codex escalation');
+                  autofixEnabled = true;
+                } catch (error) {
+                  core.warning(`Failed to add escalation labels: ${error.message}`);
+                }
+              }
+            }
 
             if (!autofixEnabled) {
               return stop('autofix disabled for this pull request');
@@ -197,7 +221,9 @@ jobs:
             });
 
             const workflowFile = 'agents-autofix-loop.yml';
-            const maxAttempts = Number(outputs.max_attempts);
+            // Reduce attempts for auto-escalated PRs (they weren't agent-initiated)
+            const isEscalated = labels.includes('autofix:escalated');
+            const maxAttempts = isEscalated ? Math.min(2, Number(outputs.max_attempts)) : Number(outputs.max_attempts);
             const previousRuns = await github.paginate(github.rest.actions.listWorkflowRuns, {
               owner,
               repo,
