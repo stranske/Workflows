@@ -5,9 +5,9 @@ on:
   workflow_call:
     inputs:
       opt_in_label:
-        description: 'Label to opt-in when PR is draft'
+        description: 'Label to opt-in when PR is draft (should differ from clean_label)'
         required: false
-        default: 'autofix:clean'
+        default: 'autofix'
         type: string
       commit_prefix:
         description: 'Commit message prefix'
@@ -300,6 +300,7 @@ jobs:
         env:
           PR_NUMBER: ${{ inputs.pr_number }}
           OPT_IN_LABEL: ${{ inputs.opt_in_label }}
+          CLEAN_LABEL: ${{ inputs.clean_label }}
         with:
           script: |
             const prNumber = Number(process.env.PR_NUMBER || '0');
@@ -308,6 +309,14 @@ jobs:
               return;
             }
             const label = process.env.OPT_IN_LABEL;
+            const cleanLabel = process.env.CLEAN_LABEL;
+            // Don't add the clean mode label here - that should only be added by
+            // the gate workflow when it detects a cosmetic-only failure. Adding it
+            // unconditionally causes all autofix runs to be in clean mode.
+            if (label === cleanLabel) {
+              core.info(`Skipping label application: opt_in_label '${label}' equals clean_label, which should only be added by gate workflow.`);
+              return;
+            }
             try {
               await github.rest.issues.addLabels({
                 owner: context.repo.owner,
