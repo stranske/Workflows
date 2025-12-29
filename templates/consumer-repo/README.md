@@ -26,7 +26,9 @@
 # These templates follow the "thin caller" pattern:
 # - Triggers and permissions are defined locally (required by GitHub)
 # - All logic is delegated to reusable workflows in stranske/Workflows
-# - Scripts are fetched from stranske/Workflows via dual checkout (no local scripts needed)
+# - Consumer repos must include scripts required by `reusable-10-ci-python.yml`
+#   - `scripts/sync_test_dependencies.py`
+#   - `tools/resolve_mypy_pin.py`
 #
 # ## Security Note: Workflow Pinning
 #
