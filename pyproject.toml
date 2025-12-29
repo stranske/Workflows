@@ -37,7 +37,7 @@ dev = [
     "flake8==7.3.0",
     "pytest==9.0.2",
     "pytest-cov==7.0.0",
-    "coverage==7.13.0",
+    "coverage==7.13.1",
     "pytest-xdist==3.8.0",
 
     # Required by repo dependency checks / CI fallback checks
