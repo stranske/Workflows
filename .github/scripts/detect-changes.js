@@ -255,11 +255,11 @@ async function detectChanges({ github, context, core, files, fetchFiles } = {}) 
       doc_only: 'false',
       run_core: 'true',
       reason: 'rate_limited',
-      docker_changed: 'true',
+      docker_changed: 'false',  // Don't assume docker changes - causes failures in repos without Dockerfile
       workflow_changed: 'true',
     };
     const warn = core?.warning ? core.warning.bind(core) : console.warn.bind(console);
-    warn('Rate limit reached while determining changed files; assuming code changes.');
+    warn('Rate limit reached while determining changed files; assuming code changes (but not docker).');
     if (core) {
       for (const [key, value] of Object.entries(outputs)) {
         core.setOutput(key, value);
