@@ -414,7 +414,35 @@ jobs:
           echo "files-changed=${CHANGED_FILES}" >> "$GITHUB_OUTPUT"
 
           if [ "$CHANGED_FILES" -eq 0 ]; then
-            echo "No changes to commit."
+            echo "No uncommitted changes."
+            # Check if Codex made commits that we need to push
+            # This happens when Codex commits during its run (workspace-write mode)
+            REMOTE_URL="https://x-access-token:${PUSH_TOKEN}@github.com/${{ github.repository }}"
+            git fetch "${REMOTE_URL}" "${TARGET_BRANCH}" 2>/dev/null || true
+            
+            UNPUSHED_COMMITS=0
+            if git rev-parse "FETCH_HEAD" >/dev/null 2>&1; then
+              UNPUSHED_COMMITS=$(git rev-list FETCH_HEAD..HEAD --count 2>/dev/null || echo "0")
+            else
+              # Remote branch doesn't exist yet - all local commits are unpushed
+              UNPUSHED_COMMITS=$(git rev-list HEAD --count 2>/dev/null || echo "0")
+            fi
+            
+            if [ "$UNPUSHED_COMMITS" -gt 0 ]; then
+              echo "Found ${UNPUSHED_COMMITS} unpushed commit(s) from Codex - pushing them."
+              COMMIT_SHA=$(git rev-parse HEAD)
+              echo "commit-sha=${COMMIT_SHA}" >> "$GITHUB_OUTPUT"
+              echo "changes-made=true" >> "$GITHUB_OUTPUT"
+              if [ "$PUSH_ALLOWED" != "true" ]; then
+                echo "::error::GitHub App token missing; refusing to push without app identity."
+                exit 1
+              fi
+              git push "${REMOTE_URL}" "HEAD:${TARGET_BRANCH}"
+              echo "::notice::Pushed ${UNPUSHED_COMMITS} commit(s) from Codex (SHA: ${COMMIT_SHA})"
+              exit 0
+            fi
+            
+            echo "No uncommitted changes and no unpushed commits."
             echo "changes-made=false" >> "$GITHUB_OUTPUT"
             echo "commit-sha=" >> "$GITHUB_OUTPUT"
             exit 0
