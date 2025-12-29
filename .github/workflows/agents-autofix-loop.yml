@@ -185,30 +185,36 @@ jobs:
               ? configMatch[1].toLowerCase() === 'true'
               : hasAgentLabel;
 
-            // Auto-escalation: If basic autofix ran but Gate still fails, auto-add agent:codex
-            // This ensures non-agent PRs can be fixed by Codex when ruff/black isn't enough
+            // Auto-escalation: Escalate to Codex CLI when Gate fails
+            // Triggers if: (1) basic autofix ran but insufficient, OR (2) no basic autofix applied
+            // Note: We do NOT add agent:codex label here because that triggers external Codex UI
+            // which would conflict with our internal Codex CLI run. Only add autofix:escalated.
             if (!autofixEnabled && !configMatch) {
-              const hasAutofixApplied = labels.includes('autofix:applied') || labels.includes('autofix');
+              const hasAutofixLabel = labels.includes('autofix:applied') || labels.includes('autofix');
+              const hasEscalatedLabel = labels.includes('autofix:escalated');
               const gateConclusion = (run.conclusion || '').toLowerCase();
               const gateFailed = gateConclusion === 'failure';
 
-              if (hasAutofixApplied && gateFailed) {
-                core.info('🔄 Auto-escalation: Basic autofix ran but Gate still failing. Adding agent:codex label...');
+              // Escalate if Gate failed and we haven't already escalated
+              if (gateFailed && !hasEscalatedLabel) {
+                const reason = hasAutofixLabel
+                  ? 'Basic autofix ran but Gate still failing'
+                  : 'No basic autofix (non-Python PR?) and Gate failing';
+                core.info(`🔄 Auto-escalation: ${reason}. Escalating to Codex CLI...`);
                 try {
                   await github.rest.issues.addLabels({
                     owner,
                     repo,
                     issue_number: prNumber,
-                    labels: ['agent:codex', 'autofix:escalated'],
+                    labels: ['autofix:escalated'],
                   });
-                  core.info('✅ Added agent:codex and autofix:escalated labels for Codex escalation');
+                  core.info('✅ Added autofix:escalated label - Codex CLI will run in this workflow');
                   autofixEnabled = true;
                 } catch (error) {
                   core.warning(`Failed to add escalation labels: ${error.message}`);
                 }
               }
             }
-
             if (!autofixEnabled) {
               return stop('autofix disabled for this pull request');
             }
