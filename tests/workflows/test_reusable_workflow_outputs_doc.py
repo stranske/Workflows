@@ -46,7 +46,15 @@ def _parse_reference_table(text: str) -> dict[str, set[str]]:
         assert output_type, f"Type missing for {workflow}.{output}"
         assert description, f"Description missing for {workflow}.{output}"
         assert example, f"Example missing for {workflow}.{output}"
-        outputs.setdefault(workflow.strip("`"), set()).add(output.strip("`"))
+        example_value = example.strip("`")
+        output_name = output.strip("`")
+        assert "needs." in example_value and ".outputs." in example_value, (
+            f"Example should use needs.<job>.outputs.<name> for {workflow}.{output}"
+        )
+        assert f"outputs.{output_name}" in example_value, (
+            f"Example should reference outputs.{output_name} for {workflow}"
+        )
+        outputs.setdefault(workflow.strip("`"), set()).add(output_name)
     return outputs
 
 
