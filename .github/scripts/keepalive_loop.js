@@ -1298,10 +1298,29 @@ async function analyzeTaskCompletion({ github, context, prNumber, baseSha, headS
     parts.forEach(p => p.length > 2 && commitKeywords.add(p));
   });
 
+  // Build module-to-test-file map for better test task matching
+  // e.g., tests/test_adapter_base.py -> ["adapter", "base", "adapters"]
+  const testFileModules = new Map();
+  filesChanged.forEach(f => {
+    const match = f.match(/tests\/test_([a-z_]+)\.py$/i);
+    if (match) {
+      const moduleParts = match[1].toLowerCase().split('_');
+      // Add both singular and plural forms, plus the full module name
+      const modules = [...moduleParts];
+      moduleParts.forEach(p => {
+        if (!p.endsWith('s')) modules.push(p + 's');
+        if (p.endsWith('s')) modules.push(p.slice(0, -1));
+      });
+      modules.push(match[1]); // full module name like "adapter_base"
+      testFileModules.set(f, modules);
+    }
+  });
+
   // Match tasks to commits/files
   for (const task of taskLines) {
     const taskLower = task.toLowerCase();
     const taskWords = taskLower.match(/\b[a-z_-]{3,}\b/g) || [];
+    const isTestTask = /\b(test|tests|unit\s*test|coverage)\b/i.test(task);
     
     // Calculate overlap score
     const matchingWords = taskWords.filter(w => commitKeywords.has(w));
@@ -1319,6 +1338,24 @@ async function analyzeTaskCompletion({ github, context, prNumber, baseSha, headS
         return fBase === refBase || f.toLowerCase().endsWith(ref);
       });
     });
+
+
+    // Special check for test tasks: match module references to test files
+    // e.g., "Add unit tests for `adapters/` module" should match tests/test_adapter_base.py
+    let testModuleMatch = false;
+    if (isTestTask) {
+      // Extract module references from task (e.g., `adapters/`, `etl/`)
+      const moduleRefs = taskLower.match(/`([a-z_\/]+)`|for\s+([a-z_]+)\s+module/gi) || [];
+      const cleanModuleRefs = moduleRefs.map(m => m.replace(/[`\/]/g, '').toLowerCase().trim())
+        .flatMap(m => [m, m.replace(/s$/, ''), m + 's']); // singular/plural
+      
+      for (const [testFile, modules] of testFileModules.entries()) {
+        if (cleanModuleRefs.some(ref => modules.some(mod => mod.includes(ref) || ref.includes(mod)))) {
+          testModuleMatch = true;
+          break;
+        }
+      }
+    }
 
     // Check for specific file mentions (partial match)
     const fileMatch = filesChanged.some(f => {
@@ -1340,6 +1377,10 @@ async function analyzeTaskCompletion({ github, context, prNumber, baseSha, headS
       confidence = 'high';
       const matchedFile = cleanFileRefs.find(ref => filesChanged.some(f => f.toLowerCase().includes(ref)));
       reason = `Exact file created: ${matchedFile}`;
+      matches.push({ task, reason, confidence });
+    } else if (isTestTask && testModuleMatch) {
+      confidence = 'high';
+      reason = 'Test file created matching module reference';
       matches.push({ task, reason, confidence });
     } else if (score >= 0.5 && (fileMatch || commitMatch)) {
       confidence = 'high';
