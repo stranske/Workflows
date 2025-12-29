@@ -28,6 +28,13 @@ def test_integration_template_installs_and_tests(tmp_path: Path) -> None:
     env = os.environ.copy()
     env["PYTHONUSERBASE"] = str(user_base)
 
+    # Install setuptools first (required for --no-build-isolation with pyproject.toml builds)
+    _run(
+        [sys.executable, "-m", "pip", "install", "setuptools>=64", "wheel", "--user"],
+        cwd=destination,
+        env=env,
+    )
+
     _run(
         [
             sys.executable,
