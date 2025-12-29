@@ -163,7 +163,10 @@ Create the following directory structure:
 scripts/                        # Python utility scripts
 ├── decode_raw_input.py
 ├── fallback_split.py
-└── parse_chatgpt_topics.py
+├── parse_chatgpt_topics.py
+└── sync_test_dependencies.py
+tools/                          # CI helper scripts for reusable workflows
+└── resolve_mypy_pin.py
 src/
 └── my_project/                 # Your Python package
     ├── __init__.py
@@ -193,6 +196,18 @@ Copy from Travel-Plan-Permission or use the templates:
 - [ ] `decode_raw_input.py` - Decodes base64 input
 - [ ] `parse_chatgpt_topics.py` - Parses Topics.txt format
 - [ ] `fallback_split.py` - Splits large issues into subtasks
+
+#### CI Scripts Required by `reusable-10-ci-python.yml`
+
+Add these files or CI will fail when the reusable Python workflow runs:
+
+- [ ] `scripts/sync_test_dependencies.py` - Checks test imports vs dev dependencies
+- [ ] `tools/resolve_mypy_pin.py` - Selects the Python version used by mypy
+
+Copy from:
+
+- [ ] `templates/consumer-repo/scripts/sync_test_dependencies.py`
+- [ ] `templates/consumer-repo/tools/resolve_mypy_pin.py`
 
 #### Templates (`.github/templates/`)
 

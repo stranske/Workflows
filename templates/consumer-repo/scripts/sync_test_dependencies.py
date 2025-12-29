@@ -366,24 +366,24 @@ def main(argv: list[str] | None = None) -> int:
     missing = find_missing_dependencies()
 
     if not missing:
-        print("✅ All test dependencies are declared in pyproject.toml")
+        print("OK: All test dependencies are declared in pyproject.toml")
         return 0
 
-    print(f"⚠️  Found {len(missing)} undeclared dependencies:")
+    print(f"WARN: Found {len(missing)} undeclared dependencies:")
     for dep in sorted(missing):
         print(f"  - {dep}")
 
     if args.fix:
         added = add_dependencies_to_pyproject(missing, fix=True)
         if added:
-            print("\n✅ Added dependencies to [project.optional-dependencies.dev]")
+            print("\nOK: Added dependencies to [project.optional-dependencies.dev]")
             print("Please run: make lock")
         else:
-            print("\nℹ️  Dependencies already declared in dev extra")
+            print("\nINFO: Dependencies already declared in dev extra")
         return 0
 
     if args.verify:
-        print("\n❌ Run: python scripts/sync_test_dependencies.py --fix")
+        print("\nERROR: Run: python scripts/sync_test_dependencies.py --fix")
         return 1
 
     print("\nTo fix, run: python scripts/sync_test_dependencies.py --fix")

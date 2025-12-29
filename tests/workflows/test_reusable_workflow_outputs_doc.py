@@ -4,8 +4,9 @@ from pathlib import Path
 
 import yaml
 
-DOC_PATH = Path("docs/ci/WORKFLOW_OUTPUTS.md")
-WORKFLOW_DIR = Path(".github/workflows")
+REPO_ROOT = Path(__file__).resolve().parents[2]
+DOC_PATH = REPO_ROOT / "docs/ci/WORKFLOW_OUTPUTS.md"
+WORKFLOW_DIR = REPO_ROOT / ".github/workflows"
 
 REFERENCE_START = "<!-- OUTPUT-REFERENCE-START -->"
 REFERENCE_END = "<!-- OUTPUT-REFERENCE-END -->"

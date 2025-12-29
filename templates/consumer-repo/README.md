@@ -26,7 +26,25 @@
 # These templates follow the "thin caller" pattern:
 # - Triggers and permissions are defined locally (required by GitHub)
 # - All logic is delegated to reusable workflows in stranske/Workflows
-# - Scripts are fetched from stranske/Workflows via dual checkout (no local scripts needed)
+# - Consumer repos must include scripts required by `reusable-10-ci-python.yml`
+#   - `scripts/sync_test_dependencies.py`
+#   - `tools/resolve_mypy_pin.py`
+#
+# ## Required CI Scripts (Consumer Repos)
+#
+# The reusable Python CI workflow runs two scripts from the consumer repo.
+# Add them before enabling `ci.yml` or the workflow will fail.
+#
+# 1. Create the folders if they do not exist:
+#    - `scripts/`
+#    - `tools/`
+# 2. Copy the reference scripts into your repo:
+#    - `templates/consumer-repo/scripts/sync_test_dependencies.py` → `scripts/sync_test_dependencies.py`
+#    - `templates/consumer-repo/tools/resolve_mypy_pin.py` → `tools/resolve_mypy_pin.py`
+#
+# If you already use the integration repo template, you can copy the same files from:
+# - `templates/integration-repo/scripts/sync_test_dependencies.py`
+# - `templates/integration-repo/tools/resolve_mypy_pin.py`
 #
 # ## Security Note: Workflow Pinning
 #
