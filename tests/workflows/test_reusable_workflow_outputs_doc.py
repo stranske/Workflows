@@ -81,9 +81,7 @@ def test_reusable_workflow_outputs_documented() -> None:
         workflow = _load_workflow(path)
         outputs = _workflow_outputs(workflow)
         if outputs:
-            assert (
-                path.name in documented_outputs
-            ), f"{path.name} outputs missing from docs"
+            assert path.name in documented_outputs, f"{path.name} outputs missing from docs"
             assert set(outputs.keys()) == documented_outputs[path.name]
         else:
             assert (
