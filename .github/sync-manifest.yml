@@ -146,3 +146,11 @@ excluded:
     reason: "Repo-specific ignore patterns"
   - path: README.md
     reason: "Repo-specific documentation"
+
+# Copilot configuration - skills and instructions for AI assistants
+copilot_config:
+  - source: .github/copilot-instructions.md
+    description: "Repository-specific instructions for GitHub Copilot"
+  
+  - source: .github/copilot-skills.md
+    description: "Reusable skill patterns for Copilot to follow"
