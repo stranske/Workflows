@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -7,8 +8,8 @@ from pathlib import Path
 from tools.integration_repo import WORKFLOW_PLACEHOLDER, render_integration_repo
 
 
-def _run(cmd: list[str], cwd: Path) -> None:
-    subprocess.run(cmd, cwd=cwd, check=True)
+def _run(cmd: list[str], cwd: Path, env: dict[str, str] | None = None) -> None:
+    subprocess.run(cmd, cwd=cwd, check=True, env=env)
 
 
 def test_integration_template_installs_and_tests(tmp_path: Path) -> None:
@@ -23,5 +24,22 @@ def test_integration_template_installs_and_tests(tmp_path: Path) -> None:
     assert WORKFLOW_PLACEHOLDER not in workflow_contents
     assert workflow_ref in workflow_contents
 
-    _run([sys.executable, "-m", "pip", "install", "-e", ".[test]"], cwd=destination)
-    _run([sys.executable, "-m", "pytest"], cwd=destination)
+    user_base = tmp_path / "userbase"
+    env = os.environ.copy()
+    env["PYTHONUSERBASE"] = str(user_base)
+
+    _run(
+        [
+            sys.executable,
+            "-m",
+            "pip",
+            "install",
+            "-e",
+            ".[test]",
+            "--no-build-isolation",
+            "--user",
+        ],
+        cwd=destination,
+        env=env,
+    )
+    _run([sys.executable, "-m", "pytest"], cwd=destination, env=env)
