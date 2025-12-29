@@ -241,6 +241,48 @@ test('evaluatePullRequest enforces max_lines_changed limits', async () => {
   assert.equal(outputs.safe, 'false');
 });
 
+test('evaluatePullRequest treats ./ glob the same as root glob', async () => {
+  const pr = makePullRequest({
+    labels: [{ name: 'automerge' }, { name: 'from:codex' }, { name: 'risk:low' }],
+  });
+  const files = [{ filename: 'app.py', changes: 2 }];
+
+  const first = createCore();
+  const githubDot = createGithubStub({
+    pr,
+    files,
+    allowlist: { patterns: ['./**'], max_lines_changed: 10 },
+  });
+
+  await evaluatePullRequest({
+    github: githubDot,
+    core: first.core,
+    owner: 'octo',
+    repo: 'demo',
+    prNumber: 7,
+    config: {},
+  });
+
+  const second = createCore();
+  const githubRoot = createGithubStub({
+    pr,
+    files,
+    allowlist: { patterns: ['**'], max_lines_changed: 10 },
+  });
+
+  await evaluatePullRequest({
+    github: githubRoot,
+    core: second.core,
+    owner: 'octo',
+    repo: 'demo',
+    prNumber: 7,
+    config: {},
+  });
+
+  assert.equal(first.outputs.allowlist_ok, 'true');
+  assert.equal(second.outputs.allowlist_ok, 'true');
+});
+
 test('upsertDecisionComment deletes existing decision comments when body is empty', async () => {
   const marker = '<!-- decision -->';
   const github = createGithubStub({

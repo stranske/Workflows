@@ -33,16 +33,25 @@ function escapeRegexSegment(segment) {
   return segment.replace(/([\\^$*+?.()|{}\[\]])/g, '\\$1');
 }
 
+function normalizeGlobPattern(pattern) {
+  let normalized = String(pattern || '').trim();
+  while (normalized.startsWith('./')) {
+    normalized = normalized.slice(2);
+  }
+  return normalized;
+}
+
 function compileGlob(pattern) {
-  if (patternCache.has(pattern)) {
-    return patternCache.get(pattern);
+  const normalized = normalizeGlobPattern(pattern);
+  if (patternCache.has(normalized)) {
+    return patternCache.get(normalized);
   }
   let regex = '';
-  for (let i = 0; i < pattern.length; i += 1) {
-    const char = pattern[i];
+  for (let i = 0; i < normalized.length; i += 1) {
+    const char = normalized[i];
     if (char === '*') {
-      if (pattern[i + 1] === '*') {
-        if (pattern[i + 2] === '/') {
+      if (normalized[i + 1] === '*') {
+        if (normalized[i + 2] === '/') {
           regex += '(?:.*/)?';
           i += 2;
         } else {
@@ -61,7 +70,7 @@ function compileGlob(pattern) {
     regex += escapeRegexSegment(char);
   }
   const compiled = new RegExp(`^${regex}$`);
-  patternCache.set(pattern, compiled);
+  patternCache.set(normalized, compiled);
   return compiled;
 }
 
