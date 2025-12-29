@@ -321,6 +321,30 @@ jobs:
                   return True
               return False
 
+          def sync_directory(source_path, target_path, description):
+              """Sync an entire directory from template to consumer."""
+              src = Path(source_path)
+              dst = Path(target_path)
+              
+              if not src.exists() or not src.is_dir():
+                  print(f"  ⚠ Source directory missing: {src}")
+                  return False
+              
+              dir_changes = []
+              for src_file in src.rglob('*'):
+                  if src_file.is_file():
+                      rel_path = src_file.relative_to(src)
+                      dst_file = dst / rel_path
+                      if force or files_differ(src_file, dst_file):
+                          if not dry_run:
+                              dst_file.parent.mkdir(parents=True, exist_ok=True)
+                              shutil.copy2(src_file, dst_file)
+                          dir_changes.append(str(rel_path))
+              
+              if dir_changes:
+                  changes.append(f"{dst.name}/ ({len(dir_changes)} files): {description}")
+              return len(dir_changes) > 0
+
           # Process workflows
           print("Processing workflows...")
           for item in manifest.get('workflows', []):
@@ -383,9 +407,14 @@ jobs:
           for item in manifest.get('copilot_config', []):
               source = item.get('source', '')
               description = item.get('description', 'No description')
+              is_directory = item.get('is_directory', False)
               template_src = Path('workflows/templates/consumer-repo') / source
               consumer_dst = Path('consumer') / source
-              sync_file(template_src, consumer_dst, description)
+              
+              if is_directory:
+                  sync_directory(template_src, consumer_dst, description)
+              else:
+                  sync_file(template_src, consumer_dst, description)
           # Process docs
           print("Processing docs...")
           for item in manifest.get('docs', []):

@@ -152,5 +152,7 @@ copilot_config:
   - source: .github/copilot-instructions.md
     description: "Repository-specific instructions for GitHub Copilot"
   
-  - source: .github/copilot-skills.md
-    description: "Reusable skill patterns for Copilot to follow"
+  # Skills folder - synced as a directory
+  - source: .github/copilot-skills/
+    is_directory: true
+    description: "Copilot skill definitions - patterns for CI, GitHub ops, etc."
