@@ -468,7 +468,7 @@ jobs:
             mypy_spec=$(resolve_spec "mypy" "${MYPY_VERSION:-}" "")
             pytest_spec=$(resolve_spec "pytest" "${PYTEST_VERSION:-}" "")
             pytest_cov_spec=$(resolve_spec "pytest-cov" "${PYTEST_COV_VERSION:-}" "")
-            coverage_spec=$(resolve_spec "coverage" "${COVERAGE_VERSION:-}" "7.13.0")
+            coverage_spec=$(resolve_spec "coverage" "${COVERAGE_VERSION:-}" "7.13.1")
             pytest_xdist_spec=$(resolve_spec "pytest-xdist" "${PYTEST_XDIST_VERSION:-}" "3.6.1")
             base_test_specs=(
               "$(resolve_spec "hypothesis" "${HYPOTHESIS_VERSION:-}" "6.115.1")"
@@ -746,7 +746,7 @@ jobs:
             mypy_spec=$(resolve_spec "mypy" "${MYPY_VERSION:-}" "")
             pytest_spec=$(resolve_spec "pytest" "${PYTEST_VERSION:-}" "")
             pytest_cov_spec=$(resolve_spec "pytest-cov" "${PYTEST_COV_VERSION:-}" "")
-            coverage_spec=$(resolve_spec "coverage" "${COVERAGE_VERSION:-}" "7.13.0")
+            coverage_spec=$(resolve_spec "coverage" "${COVERAGE_VERSION:-}" "7.13.1")
             pytest_xdist_spec=$(resolve_spec "pytest-xdist" "${PYTEST_XDIST_VERSION:-}" "3.6.1")
             base_test_specs=(
               "$(resolve_spec "hypothesis" "${HYPOTHESIS_VERSION:-}" "6.115.1")"
@@ -1032,7 +1032,7 @@ jobs:
             mypy_spec=$(resolve_spec "mypy" "${MYPY_VERSION:-}" "")
             pytest_spec=$(resolve_spec "pytest" "${PYTEST_VERSION:-}" "")
             pytest_cov_spec=$(resolve_spec "pytest-cov" "${PYTEST_COV_VERSION:-}" "")
-            coverage_spec=$(resolve_spec "coverage" "${COVERAGE_VERSION:-}" "7.13.0")
+            coverage_spec=$(resolve_spec "coverage" "${COVERAGE_VERSION:-}" "7.13.1")
             pytest_xdist_spec=$(resolve_spec "pytest-xdist" "${PYTEST_XDIST_VERSION:-}" "3.6.1")
             base_test_specs=(
               "$(resolve_spec "hypothesis" "${HYPOTHESIS_VERSION:-}" "6.115.1")"
@@ -1361,7 +1361,7 @@ jobs:
             mypy_spec=$(resolve_spec "mypy" "${MYPY_VERSION:-}" "")
             pytest_spec=$(resolve_spec "pytest" "${PYTEST_VERSION:-}" "")
             pytest_cov_spec=$(resolve_spec "pytest-cov" "${PYTEST_COV_VERSION:-}" "")
-            coverage_spec=$(resolve_spec "coverage" "${COVERAGE_VERSION:-}" "7.13.0")
+            coverage_spec=$(resolve_spec "coverage" "${COVERAGE_VERSION:-}" "7.13.1")
             pytest_xdist_spec=$(resolve_spec "pytest-xdist" "${PYTEST_XDIST_VERSION:-}" "3.6.1")
             base_test_specs=(
               "$(resolve_spec "hypothesis" "${HYPOTHESIS_VERSION:-}" "6.115.1")"
