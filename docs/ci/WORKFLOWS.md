@@ -92,6 +92,7 @@ The gate uses the shared `.github/scripts/detect-changes.js` helper to decide wh
 
 * [`reusable-codex-run.yml`](../../.github/workflows/reusable-codex-run.yml) exposes a reusable Codex runner with prompt-file input, sandbox/safety defaults, artifact upload, and commit/push handling so keepalive, autofix, and verifier wrappers can share the same execution surface.
 * [`reusable-agents-verifier.yml`](../../.github/workflows/reusable-agents-verifier.yml) provides post-merge verification for consumer repos, waits for CI workflows to complete, then builds context and optionally runs Codex to verify acceptance criteria were met and creates follow-up issues when gaps are identified.
+* [`reusable-bot-comment-handler.yml`](../../.github/workflows/reusable-bot-comment-handler.yml) collects unresolved review comments from known bot authors (Copilot, CodeRabbit, etc.) and dispatches the configured agent to address them.
 * [`reusable-18-autofix.yml`](../../.github/workflows/reusable-18-autofix.yml) provides the shared jobs used by autofix callers to stage, classify, and report automatic fixes.
 * [`reusable-20-pr-meta.yml`](../../.github/workflows/reusable-20-pr-meta.yml) detects keepalive round-marker comments in PRs, dispatches the orchestrator when detected, and manages PR body section updates for consumer repositories using the dual-checkout pattern.
 * [`maint-45-cosmetic-repair.yml`](../../.github/workflows/maint-45-cosmetic-repair.yml) invokes the reusable autofix pipeline on a schedule to keep cosmetic issues in check.
