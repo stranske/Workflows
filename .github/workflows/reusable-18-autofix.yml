@@ -541,7 +541,12 @@ jobs:
               done
               for dir in "${filtered_py_dirs[@]}"; do
                 clean_dir="${dir#./}"
-                if [[ -n "$clean_dir" ]]; then allowed_patterns+=("${clean_dir}/**"); fi
+                # Handle root directory: "." or empty becomes "**" to match all files
+                if [[ -z "$clean_dir" || "$clean_dir" == "." ]]; then
+                  allowed_patterns+=("**")
+                else
+                  allowed_patterns+=("${clean_dir}/**")
+                fi
               done
               if [ ${#allowed_patterns[@]} -eq 0 ]; then allowed_patterns=("**/*.py"); fi
             fi
