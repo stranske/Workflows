@@ -301,6 +301,19 @@ gh api repos/OWNER/REPO/actions/permissions/workflow -X PUT --input - << 'EOF'
 EOF
 ```
 
+### Consumer Repo Setup: Required Scripts
+
+The reusable `reusable-10-ci-python.yml` workflow runs two scripts from the
+consumer repository. Add these files to your repo or CI will fail:
+
+- `scripts/sync_test_dependencies.py` (validates test imports vs. dev deps)
+- `tools/resolve_mypy_pin.py` (selects the Python version used by mypy)
+
+You can copy the reference implementations from:
+
+- `templates/integration-repo/scripts/sync_test_dependencies.py`
+- `templates/integration-repo/tools/resolve_mypy_pin.py`
+
 ---
 
 ## Common Patterns
@@ -494,8 +507,8 @@ Consumer repo workflows use the **dual checkout pattern**:
 2. **Workflows repo** is checked out (sparse) for scripts
 
 This means:
-- ✅ **No scripts needed** in your `.github/scripts/` directory
-- ✅ Scripts are **always up-to-date** from Workflows
+- ✅ Consumer repos still provide CI helper scripts in `scripts/` and `tools/`
+- ✅ Automation scripts under `.github/scripts/` stay **up-to-date** from Workflows
 - ✅ **No sync required** when Workflows scripts change
 - ✅ Only **thin caller workflows** (~50-100 lines each) in your repo
 
@@ -697,4 +710,3 @@ No additional configuration needed. The CI failure routing is built into the kee
 3. `fix_ci_failures.md` prompt (in `.github/codex/prompts/`)
 
 Ensure `fix_ci_failures.md` exists in `.github/codex/prompts/` for fix mode to work properly.
-

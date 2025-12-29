@@ -84,6 +84,9 @@ codex_config:
     description: "Agent instructions - base instructions for all Codex runs"
 
 # Scripts required by consumer workflows
+# Note: CI helper scripts (scripts/sync_test_dependencies.py, tools/resolve_mypy_pin.py)
+# live in each consumer repo and are not synced; reusable workflows expect them
+# to be present and repo-specific.
 scripts:
   # Python scripts for ChatGPT topic sync
   - source: .github/scripts/decode_raw_input.py
