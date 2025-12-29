@@ -6,6 +6,7 @@ const path = require('path');
 const {
   extractScopeTasksAcceptanceSections,
   parseScopeTasksAcceptanceSections,
+  hasNonPlaceholderScopeTasksAcceptanceContent,
 } = require('./issue_scope_parser.js');
 const { queryVerifierCiResults } = require('./verifier_ci_query.js');
 
@@ -206,18 +207,21 @@ async function buildVerifierContext({ github, context, core, ciWorkflows }) {
 
   const sections = [];
   let acceptanceCount = 0;
+  // Use hasNonPlaceholderScopeTasksAcceptanceContent to detect real content vs placeholders
   let hasAcceptanceContent = false;
   let hasTasksContent = false;
 
   const pullSections = parseScopeTasksAcceptanceSections(pull.body || '');
   acceptanceCount += countCheckboxes(pullSections.acceptance);
-  // Check for any acceptance content, not just checkboxes
-  if (pullSections.acceptance && String(pullSections.acceptance).trim()) {
-    hasAcceptanceContent = true;
-  }
-  // Check for any tasks content
-  if (pullSections.tasks && String(pullSections.tasks).trim()) {
-    hasTasksContent = true;
+  // Check for real acceptance content (not placeholders) from PR body
+  if (hasNonPlaceholderScopeTasksAcceptanceContent(pull.body || '')) {
+    // Check which specific sections have real content
+    if (pullSections.acceptance && String(pullSections.acceptance).trim()) {
+      hasAcceptanceContent = true;
+    }
+    if (pullSections.tasks && String(pullSections.tasks).trim()) {
+      hasTasksContent = true;
+    }
   }
   const prSections = extractScopeTasksAcceptanceSections(pull.body || '', {
     includePlaceholders: true,
@@ -233,13 +237,14 @@ async function buildVerifierContext({ github, context, core, ciWorkflows }) {
   for (const issue of closingIssues) {
     const issueSectionsParsed = parseScopeTasksAcceptanceSections(issue.body || '');
     acceptanceCount += countCheckboxes(issueSectionsParsed.acceptance);
-    // Check for any acceptance content, not just checkboxes
-    if (issueSectionsParsed.acceptance && String(issueSectionsParsed.acceptance).trim()) {
-      hasAcceptanceContent = true;
-    }
-    // Check for any tasks content
-    if (issueSectionsParsed.tasks && String(issueSectionsParsed.tasks).trim()) {
-      hasTasksContent = true;
+    // Check for real acceptance/tasks content (not placeholders) from linked issues
+    if (hasNonPlaceholderScopeTasksAcceptanceContent(issue.body || '')) {
+      if (issueSectionsParsed.acceptance && String(issueSectionsParsed.acceptance).trim()) {
+        hasAcceptanceContent = true;
+      }
+      if (issueSectionsParsed.tasks && String(issueSectionsParsed.tasks).trim()) {
+        hasTasksContent = true;
+      }
     }
     const issueSections = extractScopeTasksAcceptanceSections(issue.body || '', {
       includePlaceholders: true,

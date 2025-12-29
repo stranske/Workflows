@@ -7,6 +7,7 @@ const {
   extractScopeTasksAcceptanceSections,
   parseScopeTasksAcceptanceSections,
   analyzeSectionPresence,
+  hasNonPlaceholderScopeTasksAcceptanceContent,
 } = require('../issue_scope_parser');
 
 test('extracts sections inside auto-status markers', () => {
@@ -324,4 +325,60 @@ test('extracts "Implementation notes" as Tasks alias', () => {
   const result = extractScopeTasksAcceptanceSections(issue);
   assert.ok(result.includes('Target specific function'));
   assert.ok(result.includes('#### Tasks'));
+});
+
+test('hasNonPlaceholderScopeTasksAcceptanceContent detects PR meta fallback placeholders', () => {
+  // Content with only PR meta manager fallback placeholders should return false
+  const prMetaPlaceholders = [
+    '## Scope',
+    '- [ ] Scope section missing from source issue.',
+    '',
+    '## Tasks',
+    '- [ ] Tasks section missing from source issue.',
+    '',
+    '## Acceptance Criteria',
+    '- [ ] Acceptance criteria section missing from source issue.',
+  ].join('\n');
+
+  assert.equal(
+    hasNonPlaceholderScopeTasksAcceptanceContent(prMetaPlaceholders),
+    false,
+    'PR meta fallback placeholders should not be treated as real content'
+  );
+
+  // Content with standard placeholders should also return false
+  const standardPlaceholders = [
+    '## Scope',
+    '_No scope information provided_',
+    '',
+    '## Tasks',
+    '- [ ] _No tasks defined_',
+    '',
+    '## Acceptance Criteria',
+    '- [ ] _No acceptance criteria defined_',
+  ].join('\n');
+
+  assert.equal(
+    hasNonPlaceholderScopeTasksAcceptanceContent(standardPlaceholders),
+    false,
+    'Standard placeholders should not be treated as real content'
+  );
+
+  // Real content should return true
+  const realContent = [
+    '## Scope',
+    'Update coverage tool version.',
+    '',
+    '## Tasks',
+    '- [ ] Bump coverage to 7.13.1',
+    '',
+    '## Acceptance Criteria',
+    '- [ ] CI passes with new version',
+  ].join('\n');
+
+  assert.equal(
+    hasNonPlaceholderScopeTasksAcceptanceContent(realContent),
+    true,
+    'Real content should be treated as real content'
+  );
 });

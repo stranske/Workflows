@@ -22,6 +22,13 @@ const PLACEHOLDERS = {
   acceptance: '- [ ] _No acceptance criteria defined_',
 };
 
+// Fallback placeholders used by PR meta manager when source issue lacks sections
+const PR_META_FALLBACK_PLACEHOLDERS = {
+  scope: '- [ ] Scope section missing from source issue.',
+  tasks: '- [ ] Tasks section missing from source issue.',
+  acceptance: '- [ ] Acceptance criteria section missing from source issue.',
+};
+
 const CHECKBOX_SECTIONS = new Set(['tasks', 'acceptance']);
 
 function normaliseSectionContent(sectionKey, content) {
@@ -36,16 +43,30 @@ function normaliseSectionContent(sectionKey, content) {
 }
 
 function isPlaceholderContent(sectionKey, content) {
-  const placeholder = PLACEHOLDERS[sectionKey];
-  if (!placeholder) {
-    return false;
-  }
   const normalized = normaliseSectionContent(sectionKey, content);
   if (!normalized) {
     return false;
   }
-  const placeholderNormalized = normaliseSectionContent(sectionKey, placeholder);
-  return normalized === placeholderNormalized;
+
+  // Check against standard placeholders
+  const placeholder = PLACEHOLDERS[sectionKey];
+  if (placeholder) {
+    const placeholderNormalized = normaliseSectionContent(sectionKey, placeholder);
+    if (normalized === placeholderNormalized) {
+      return true;
+    }
+  }
+
+  // Check against PR meta manager fallback placeholders
+  const fallbackPlaceholder = PR_META_FALLBACK_PLACEHOLDERS[sectionKey];
+  if (fallbackPlaceholder) {
+    const fallbackNormalized = normaliseSectionContent(sectionKey, fallbackPlaceholder);
+    if (normalized === fallbackNormalized) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 function normaliseChecklist(content) {
