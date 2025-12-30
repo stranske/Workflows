@@ -1,6 +1,6 @@
 name: signature-verify
 description: Verify failure signature hashing remains stable against a fixture.
-author: Workflows
+author: Trend Analysis Project
 inputs:
   jobs-json:
     description: JSON array of job dicts (name, step, stack)

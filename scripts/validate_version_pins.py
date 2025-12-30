@@ -214,5 +214,5 @@ def main() -> int:
         return 1 if errors else 0
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover - CLI entry point
     sys.exit(main())

@@ -49,7 +49,7 @@ on:
         value: ${{ jobs.collect.outputs.comments_count }}
       agent_triggered:
         description: 'Whether the agent was triggered to address comments'
-        value: ${{ jobs.dispatch-codex.result == 'success' || jobs.dispatch-other.outputs.triggered == 'true' }}
+        value: ${{ jobs.dispatch.outputs.triggered }}
     secrets:
       service_bot_pat:
         description: 'PAT for service bot (comments, labels)'
@@ -59,9 +59,6 @@ on:
         required: false
       gh_app_private_key:
         description: 'GitHub App private key'
-        required: false
-      CODEX_AUTH_JSON:
-        description: 'JSON contents of ~/.codex/auth.json for Codex CLI authentication'
         required: false
 
 permissions:
@@ -77,7 +74,6 @@ jobs:
     outputs:
       comments_found: ${{ steps.collect.outputs.found }}
       comments_count: ${{ steps.collect.outputs.count }}
-      head_ref: ${{ steps.agent.outputs.head_ref }}
       comments_json: ${{ steps.collect.outputs.comments }}
       agent: ${{ steps.agent.outputs.agent }}
       agent_workflow: ${{ steps.agent.outputs.workflow }}
@@ -145,8 +141,7 @@ jobs:
 
             core.setOutput('agent', agent);
             core.setOutput('workflow', workflow);
-            core.setOutput('head_ref', pr.head.ref || '');
-            console.log(`Detected agent: ${agent}, workflow: ${workflow}, head_ref: ${pr.head.ref}`);
+            console.log(`Detected agent: ${agent}, workflow: ${workflow}`);
 
       - name: Collect unresolved bot comments
         id: collect
@@ -321,35 +316,11 @@ jobs:
           path: .github/codex/prompts/fix_bot_comments_dynamic.md
           retention-days: 1
 
-  # Dispatch to Codex CLI (for codex agent)
-  dispatch-codex:
-    name: Dispatch to Codex CLI
+  # Dispatch to agent
+  dispatch:
+    name: Dispatch to agent
     needs: [collect, prepare]
-    if: needs.collect.outputs.comments_found == 'true' && inputs.dry_run == false && needs.collect.outputs.agent == 'codex'
-    uses: stranske/Workflows/.github/workflows/reusable-codex-run.yml@main
-    with:
-      prompt_file: .github/codex/prompts/fix_bot_comments.md
-      mode: bot-comments
-      pr_number: ${{ inputs.pr_number }}
-      pr_ref: ${{ needs.collect.outputs.head_ref }}
-      appendix: |
-        ## Bot Comments to Address
-
-        ${{ needs.collect.outputs.comments_json }}
-
-        Focus on:
-        1. Implementing suggested fixes that improve the code
-        2. Skipping suggestions that don't apply (note why in your commit message)
-    secrets:
-      CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
-      WORKFLOWS_APP_ID: ${{ secrets.gh_app_id }}
-      WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.gh_app_private_key }}
-
-  # Dispatch to other agents via comment (for non-codex agents)
-  dispatch-other:
-    name: Dispatch to other agent
-    needs: [collect, prepare]
-    if: needs.collect.outputs.comments_found == 'true' && inputs.dry_run == false && needs.collect.outputs.agent != 'codex'
+    if: needs.collect.outputs.comments_found == 'true' && inputs.dry_run == false
     runs-on: ubuntu-latest
     outputs:
       triggered: ${{ steps.dispatch.outputs.triggered }}
@@ -387,7 +358,8 @@ jobs:
             const agent = '${{ needs.collect.outputs.agent }}';
             const count = '${{ needs.collect.outputs.comments_count }}';
 
-            // Post a comment that triggers the non-Codex agent via pr-meta workflow
+            // Post a comment that triggers the agent via pr-meta workflow
+            // This uses the existing concurrency/dispatch infrastructure
             const comment = `@${agent} Please address the ${count} bot review comment(s) on this PR.
 
             Focus on:
@@ -409,7 +381,7 @@ jobs:
   # Summary
   summary:
     name: Generate summary
-    needs: [collect, dispatch-codex, dispatch-other]
+    needs: [collect, dispatch]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -417,8 +389,7 @@ jobs:
         env:
           COMMENTS_COUNT: ${{ needs.collect.outputs.comments_count }}
           AGENT: ${{ needs.collect.outputs.agent }}
-          CODEX_TRIGGERED: ${{ needs.dispatch-codex.result == 'success' }}
-          OTHER_TRIGGERED: ${{ needs.dispatch-other.outputs.triggered }}
+          TRIGGERED: ${{ needs.dispatch.outputs.triggered }}
           DRY_RUN: ${{ inputs.dry_run }}
         run: |
           {
@@ -428,7 +399,6 @@ jobs:
             echo "|--------|-------|"
             echo "| Comments Found | ${COMMENTS_COUNT:-0} |"
             echo "| Agent | ${AGENT:-N/A} |"
-            echo "| Codex CLI Triggered | ${CODEX_TRIGGERED:-false} |"
-            echo "| Other Agent Triggered | ${OTHER_TRIGGERED:-false} |"
+            echo "| Agent Triggered | ${TRIGGERED:-false} |"
             echo "| Dry Run | ${DRY_RUN} |"
           } >> "$GITHUB_STEP_SUMMARY"
