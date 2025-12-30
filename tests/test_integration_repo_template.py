@@ -1,10 +1,10 @@
 from __future__ import annotations
 
+import importlib.metadata as metadata
+import importlib.util
 import os
 import subprocess
 import sys
-import importlib.metadata as metadata
-import importlib.util
 from pathlib import Path
 
 import pytest
