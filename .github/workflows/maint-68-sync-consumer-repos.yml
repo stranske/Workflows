@@ -229,8 +229,8 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJson(needs.prepare.outputs.repos) }}
     env:
-      # Local alias for the repo token (uses OWNER_PR_PAT or SERVICE_BOT_PAT)
-      _repo_token: ${{ secrets.OWNER_PR_PAT || secrets.SERVICE_BOT_PAT }}
+      # Job-level alias for repo token (uses OWNER_PR_PAT or SERVICE_BOT_PAT)
+      REPO_TOKEN: ${{ secrets.OWNER_PR_PAT || secrets.SERVICE_BOT_PAT }}
     steps:
       - name: Checkout Workflows
         uses: actions/checkout@v4
@@ -239,7 +239,7 @@ jobs:
 
       - name: Clone consumer repo
         env:
-          GH_TOKEN: ${{ env._repo_token }}
+          GH_TOKEN: ${{ env.REPO_TOKEN }}
         run: |
           gh repo clone ${{ matrix.repo }} consumer -- --depth=1
 
@@ -464,7 +464,7 @@ jobs:
       - name: Check for required labels
         if: steps.sync.outputs.has_changes == 'true'
         env:
-          GH_TOKEN: ${{ env._repo_token }}
+          GH_TOKEN: ${{ env.REPO_TOKEN }}
         run: |
           cd consumer
 
@@ -481,7 +481,7 @@ jobs:
       - name: Create sync PR
         if: steps.sync.outputs.has_changes == 'true' && inputs.dry_run != true
         env:
-          GH_TOKEN: ${{ env._repo_token }}
+          GH_TOKEN: ${{ env.REPO_TOKEN }}
         run: |
           cd consumer
 
@@ -495,10 +495,11 @@ jobs:
             exit 0
           fi
 
-          # Configure git with token for push authentication
+          # Configure git for push authentication using credential helper
+          # This avoids exposing token in git remote URL or command output
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${{ matrix.repo }}.git"
+          git config credential.helper '!f() { echo "username=x-access-token"; echo "password=${GH_TOKEN}"; }; f'
 
           # Create branch and commit
           git checkout -b "$branch_name"
@@ -510,7 +511,7 @@ jobs:
 
           Changes synced from sync-manifest.yml"
 
-          git push -u origin "$branch_name"
+          git push --quiet -u origin "$branch_name"
 
           # Create PR
           pr_body=$(cat ../sync_summary.md)
