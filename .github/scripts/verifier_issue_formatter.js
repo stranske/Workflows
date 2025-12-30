@@ -14,9 +14,9 @@ const {
 function isPlaceholderContent(text) {
   const normalized = String(text || '').toLowerCase().trim();
   // Match common placeholder patterns
-  return /^\s*[-*]?\s*\[[\sxX]\]\s*(scope|tasks?|acceptance\s*criteria?)\s+(section\s+)?missing\s+from\s+source\s+issue\.?\s*$/i.test(normalized) ||
-    /section\s+missing\s+from\s+source\s+issue/i.test(normalized) ||
-    /^\s*n\s*\/?\s*a\s*$/i.test(normalized) ||
+  return /^[-*]?\s*\[[\sx]\]\s*(scope|tasks?|acceptance\s*criteria?)\s+(section\s+)?missing\s+from\s+source\s+issue\.?$/.test(normalized) ||
+    /section\s+missing\s+from\s+source\s+issue/.test(normalized) ||
+    /^n\s*\/?\s*a$/.test(normalized) ||
     normalized === '';
 }
 
