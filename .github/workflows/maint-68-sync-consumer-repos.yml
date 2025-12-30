@@ -509,7 +509,14 @@ jobs:
           if git ls-remote --exit-code origin "refs/heads/$branch_name" >/dev/null 2>&1; then
             echo "Remote branch $branch_name already exists without PR - deleting and recreating"
             # Delete the remote branch so we can push fresh
-            git push origin --delete "$branch_name" 2>/dev/null || true
+            delete_output=$(git push origin --delete "$branch_name" 2>&1) || {
+              if printf '%s\n' "$delete_output" | grep -qiE 'remote ref .* not found|remote ref does not exist|could not find remote ref'; then
+                echo "Remote branch $branch_name no longer exists; continuing"
+              else
+                printf '%s\n' "$delete_output" >&2
+                exit 1
+              fi
+            }
           fi
 
           # Create branch and commit
