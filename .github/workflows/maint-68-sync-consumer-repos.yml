@@ -118,7 +118,13 @@ jobs:
       - name: Compute template hash
         id: hash
         run: |
-          hash=$(find templates/consumer-repo -type f -exec sha256sum {} \; | sort | sha256sum | cut -d' ' -f1)
+          # Hash includes all directories that contain synced files
+          hash=$({
+            find templates/consumer-repo -type f -exec sha256sum {} \;
+            find tools -name "*.py" -type f -exec sha256sum {} \; 2>/dev/null || true
+            find .github/scripts -type f -exec sha256sum {} \;
+            sha256sum .github/sync-manifest.yml
+          } | sort | sha256sum | cut -d' ' -f1)
           echo "hash=${hash:0:12}" >> "$GITHUB_OUTPUT"
           echo "Template hash: ${hash:0:12}"
 
