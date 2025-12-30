@@ -73,7 +73,8 @@ function stripCheckboxesFromScope(content) {
     if (isPlaceholderContent(trimmed)) continue;
     
     // Convert checkbox to plain bullet
-    const checkboxMatch = line.match(/^(\s*)[-*]\s+\[[\sxX]\]\s+(.+)$/);
+    // Use \s* to handle edge cases where space after bracket is missing
+    const checkboxMatch = line.match(/^(\s*)[-*]\s+\[[\sxX]\]\s*(.+)$/);
     if (checkboxMatch) {
       const [, indent, text] = checkboxMatch;
       // Skip if text is also a placeholder
