@@ -90,10 +90,16 @@ codex_config:
     description: "Agent instructions - base instructions for all Codex runs"
 
 # Scripts required by consumer workflows
-# Note: CI helper scripts (scripts/sync_test_dependencies.py, tools/resolve_mypy_pin.py)
-# live in each consumer repo and are not synced; reusable workflows expect them
-# to be present and repo-specific.
+# Note: These scripts are synced because they're referenced by reusable workflows
+# that run in the consumer repo context
 scripts:
+  # Tools directory - Python helpers used by reusable-10-ci-python.yml
+  - source: tools/resolve_mypy_pin.py
+    description: "Resolves mypy version pinning - required by reusable CI workflow"
+
+  - source: tools/coverage_trend.py
+    description: "Generates coverage trend summaries - required by reusable CI workflow"
+
   # Python scripts for ChatGPT topic sync
   - source: .github/scripts/decode_raw_input.py
     description: "Decodes raw input from ChatGPT connector"
