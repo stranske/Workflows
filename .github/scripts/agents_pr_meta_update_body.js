@@ -396,8 +396,9 @@ function buildStatusBlock({scope, tasks, acceptance, headSha, workflowRuns, requ
   }
 
   statusLines.push('#### Scope');
-  let scopeFormatted = scope ? ensureChecklist(scope) : fallbackChecklist('Scope section missing from source issue.');
-  scopeFormatted = mergeCheckboxStates(scopeFormatted, mergedStates);
+  // Scope is informational, not actionable - don't force checkbox format
+  // Use italicized placeholder if missing, otherwise preserve original scope text
+  let scopeFormatted = scope ? scope.trim() : '_Scope section missing from source issue._';
   statusLines.push(scopeFormatted);
   statusLines.push('');
 

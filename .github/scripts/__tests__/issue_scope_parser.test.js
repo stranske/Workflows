@@ -357,9 +357,10 @@ test('extracts "To Do" as Tasks alias', () => {
 
 test('hasNonPlaceholderScopeTasksAcceptanceContent detects PR meta fallback placeholders', () => {
   // Content with only PR meta manager fallback placeholders should return false
+  // Note: scope uses italicized text (not checkbox) since it's informational
   const prMetaPlaceholders = [
     '## Scope',
-    '- [ ] Scope section missing from source issue.',
+    '_Scope section missing from source issue._',
     '',
     '## Tasks',
     '- [ ] Tasks section missing from source issue.',

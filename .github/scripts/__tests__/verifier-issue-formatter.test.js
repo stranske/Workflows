@@ -14,6 +14,7 @@ const {
   isPlaceholderContent,
   looksLikeSectionHeader,
   looksLikeReferenceLink,
+  stripCheckboxesFromScope,
 } = require('../verifier_issue_formatter.js');
 
 describe('verifier_issue_formatter', () => {
@@ -358,6 +359,74 @@ Blocking gaps:
       assert.ok(!looksLikeReferenceLink(''));
       assert.ok(!looksLikeReferenceLink(null));
       assert.ok(!looksLikeReferenceLink(undefined));
+    });
+  });
+
+  describe('stripCheckboxesFromScope', () => {
+    it('converts unchecked checkbox to plain bullet', () => {
+      const input = '- [ ] Implement feature A';
+      const result = stripCheckboxesFromScope(input);
+      assert.equal(result, '- Implement feature A');
+    });
+
+    it('converts checked checkbox (lowercase x) to plain bullet', () => {
+      const input = '- [x] Completed task';
+      const result = stripCheckboxesFromScope(input);
+      assert.equal(result, '- Completed task');
+    });
+
+    it('converts checked checkbox (uppercase X) to plain bullet', () => {
+      const input = '- [X] Done';
+      const result = stripCheckboxesFromScope(input);
+      assert.equal(result, '- Done');
+    });
+
+    it('preserves indentation', () => {
+      const input = '  - [ ] Indented task';
+      const result = stripCheckboxesFromScope(input);
+      assert.equal(result, '  - Indented task');
+    });
+
+    it('handles multiple checkboxes', () => {
+      const input = '- [ ] Task 1\n- [x] Task 2\n- [X] Task 3';
+      const result = stripCheckboxesFromScope(input);
+      assert.equal(result, '- Task 1\n- Task 2\n- Task 3');
+    });
+
+    it('filters out empty lines', () => {
+      const input = '- [ ] Task 1\n\n- [ ] Task 2';
+      const result = stripCheckboxesFromScope(input);
+      assert.equal(result, '- Task 1\n- Task 2');
+    });
+
+    it('filters out placeholder content', () => {
+      const input = '- [ ] Scope section missing from source issue.\n- [ ] Real task';
+      const result = stripCheckboxesFromScope(input);
+      assert.equal(result, '- Real task');
+    });
+
+    it('passes through non-checkbox lines unchanged', () => {
+      const input = 'Regular text\n- [ ] Checkbox item';
+      const result = stripCheckboxesFromScope(input);
+      assert.equal(result, 'Regular text\n- Checkbox item');
+    });
+
+    it('handles asterisk bullet markers', () => {
+      const input = '* [ ] Asterisk bullet task';
+      const result = stripCheckboxesFromScope(input);
+      assert.equal(result, '- Asterisk bullet task');
+    });
+
+    it('handles checkbox without space after bracket', () => {
+      const input = '- [ ]No space after bracket';
+      const result = stripCheckboxesFromScope(input);
+      assert.equal(result, '- No space after bracket');
+    });
+
+    it('returns empty string for null/undefined input', () => {
+      assert.equal(stripCheckboxesFromScope(null), '');
+      assert.equal(stripCheckboxesFromScope(undefined), '');
+      assert.equal(stripCheckboxesFromScope(''), '');
     });
   });
 

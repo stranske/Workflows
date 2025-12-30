@@ -50,6 +50,46 @@ function looksLikeReferenceLink(text) {
 }
 
 /**
+ * Convert checkbox items to plain text bullets.
+ * Scope is informational, not something to be checked off.
+ * Also filters out empty/blank lines and placeholder content.
+ *
+ * @param {string} content - Content possibly containing checkboxes
+ * @returns {string} Content with checkboxes converted to plain bullets
+ */
+function stripCheckboxesFromScope(content) {
+  if (!content) return '';
+  
+  const lines = String(content).split('\n');
+  const result = [];
+  
+  for (const line of lines) {
+    const trimmed = line.trim();
+    
+    // Skip empty lines
+    if (!trimmed) continue;
+    
+    // Skip placeholder content
+    if (isPlaceholderContent(trimmed)) continue;
+    
+    // Convert checkbox to plain bullet
+    // Use \s* to handle edge cases where space after bracket is missing
+    const checkboxMatch = line.match(/^(\s*)[-*]\s+\[[\sxX]\]\s*(.+)$/);
+    if (checkboxMatch) {
+      const [, indent, text] = checkboxMatch;
+      // Skip if text is also a placeholder
+      if (!isPlaceholderContent(text)) {
+        result.push(`${indent}- ${text}`);
+      }
+    } else {
+      result.push(line);
+    }
+  }
+  
+  return result.join('\n');
+}
+
+/**
  * Simple similarity score between two strings (0-1).
  * Uses Jaccard similarity on word sets for fuzzy matching.
  *
@@ -466,9 +506,10 @@ function formatFollowUpIssue({
     sections.push(['## Why', '', `<!-- Preserved from parent issue -->`, why].join('\n'));
   }
 
-  // Scope section
-  if (merged.scope) {
-    sections.push(['## Scope', '', `<!-- Updated scope for this follow-up -->`, `Address unmet acceptance criteria from PR #${prNumber || 'N/A'}.`, '', 'Original scope:', merged.scope].join('\n'));
+  // Scope section - strip checkboxes since scope is informational, not actionable
+  const cleanedScope = stripCheckboxesFromScope(merged.scope);
+  if (cleanedScope) {
+    sections.push(['## Scope', '', `<!-- Updated scope for this follow-up -->`, `Address unmet acceptance criteria from PR #${prNumber || 'N/A'}.`, '', 'Original scope:', cleanedScope].join('\n'));
   } else {
     sections.push(['## Scope', '', `Address unmet acceptance criteria from PR #${prNumber || 'N/A'}.`].join('\n'));
   }
@@ -610,4 +651,5 @@ module.exports = {
   isPlaceholderContent,
   looksLikeSectionHeader,
   looksLikeReferenceLink,
+  stripCheckboxesFromScope,
 };

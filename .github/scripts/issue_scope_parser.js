@@ -28,8 +28,9 @@ const PLACEHOLDERS = {
 };
 
 // Fallback placeholders used by PR meta manager when source issue lacks sections
+// Note: scope uses plain text (not checkbox) since it's informational, not actionable
 const PR_META_FALLBACK_PLACEHOLDERS = {
-  scope: '- [ ] Scope section missing from source issue.',
+  scope: '_Scope section missing from source issue._',
   tasks: '- [ ] Tasks section missing from source issue.',
   acceptance: '- [ ] Acceptance criteria section missing from source issue.',
 };
