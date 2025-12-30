@@ -5,10 +5,10 @@ import logging
 import pandas as pd
 
 import sitecustomize  # noqa: F401
+from trend_analysis import constants
 from trend_analysis.script_logging import setup_script_logging
 from trend_analysis.selector import RankSelector
 from trend_analysis.weighting import EqualWeight
-from trend_analysis import constants
 
 
 def test_equal_weight_adds_weight_column_for_empty_frame() -> None:
