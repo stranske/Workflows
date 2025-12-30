@@ -184,17 +184,9 @@ def main(argv: Iterable[str]) -> int:
 
 
 if __name__ == "__main__":
-    # TODO Phase 4: Remove trend_analysis.script_logging dependency when available
-    # For now, use simple logging setup
-    try:
-        from trend_analysis.script_logging import setup_script_logging
+    import logging
 
-        setup_script_logging(module_file=__file__)
-    except ImportError:
-        # Fallback for workflow repo without trend_analysis package
-        import logging
-
-        logging.basicConfig(level=logging.INFO, format="%(message)s")
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
 
     try:
         sys.exit(main(sys.argv[1:]))

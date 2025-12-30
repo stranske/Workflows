@@ -73,11 +73,4 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    try:
-        from trend_analysis.script_logging import setup_script_logging
-
-        setup_script_logging(module_file=__file__)
-    except ImportError:
-        # trend_analysis not available in CI; continue without custom logging
-        pass
     raise SystemExit(main())
