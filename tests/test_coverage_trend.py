@@ -1,0 +1,95 @@
+import json
+from pathlib import Path
+
+from tools import coverage_trend
+
+
+def _write_json(path: Path, payload: dict) -> None:
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+
+def test_load_json_returns_empty_on_error(tmp_path: Path) -> None:
+    missing = tmp_path / "missing.json"
+    assert coverage_trend._load_json(missing) == {}
+
+    invalid = tmp_path / "invalid.json"
+    invalid.write_text("{not-json}", encoding="utf-8")
+    assert coverage_trend._load_json(invalid) == {}
+
+
+def test_extract_coverage_percent_defaults() -> None:
+    assert coverage_trend._extract_coverage_percent({}) == 0.0
+    assert coverage_trend._extract_coverage_percent({"totals": {}}) == 0.0
+
+
+def test_main_writes_outputs_and_passes(tmp_path: Path) -> None:
+    coverage_json = tmp_path / "coverage.json"
+    baseline_json = tmp_path / "baseline.json"
+    summary_path = tmp_path / "summary.md"
+    job_summary = tmp_path / "job_summary.md"
+    artifact_path = tmp_path / "trend.json"
+    github_output = tmp_path / "github_output.txt"
+
+    _write_json(coverage_json, {"totals": {"percent_covered": 75.5}})
+    _write_json(baseline_json, {"coverage": 70.0})
+    job_summary.write_text("Before\n", encoding="utf-8")
+
+    exit_code = coverage_trend.main(
+        [
+            "--coverage-json",
+            str(coverage_json),
+            "--baseline",
+            str(baseline_json),
+            "--summary-path",
+            str(summary_path),
+            "--job-summary",
+            str(job_summary),
+            "--artifact-path",
+            str(artifact_path),
+            "--github-output",
+            str(github_output),
+            "--minimum",
+            "70",
+        ]
+    )
+
+    assert exit_code == 0
+    trend = json.loads(artifact_path.read_text(encoding="utf-8"))
+    assert trend["current"] == 75.5
+    assert trend["baseline"] == 70.0
+    assert trend["passes_minimum"] is True
+
+    summary = summary_path.read_text(encoding="utf-8")
+    assert "Coverage Trend" in summary
+    assert "75.50%" in summary
+
+    job_summary_text = job_summary.read_text(encoding="utf-8")
+    assert "Before" in job_summary_text
+    assert "Coverage Trend" in job_summary_text
+
+    output_text = github_output.read_text(encoding="utf-8")
+    assert "coverage=75.50" in output_text
+    assert "baseline=70.00" in output_text
+    assert "passes_minimum=true" in output_text
+
+
+def test_main_fails_below_minimum(tmp_path: Path) -> None:
+    coverage_json = tmp_path / "coverage.json"
+    artifact_path = tmp_path / "trend.json"
+
+    _write_json(coverage_json, {"totals": {"percent_covered": 60.0}})
+
+    exit_code = coverage_trend.main(
+        [
+            "--coverage-json",
+            str(coverage_json),
+            "--artifact-path",
+            str(artifact_path),
+            "--minimum",
+            "65",
+        ]
+    )
+
+    assert exit_code == 1
+    trend = json.loads(artifact_path.read_text(encoding="utf-8"))
+    assert trend["passes_minimum"] is False
