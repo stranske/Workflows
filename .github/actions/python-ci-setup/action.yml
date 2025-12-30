@@ -156,18 +156,19 @@ runs:
           mypy_spec="mypy==${MYPY_VERSION}"
           pytest_spec="pytest==${PYTEST_VERSION}"
           pytest_cov_spec="pytest-cov==${PYTEST_COV_VERSION}"
-          coverage_spec="coverage==${COVERAGE_VERSION:-7.2.7}"
-          pytest_xdist_spec="pytest-xdist==${PYTEST_XDIST_VERSION:-3.6.1}"
+          coverage_spec="coverage>=${COVERAGE_VERSION:-7.2.7}"
+          pytest_xdist_spec="pytest-xdist>=${PYTEST_XDIST_VERSION:-3.6.1}"
+          # Use >= for base test specs to avoid conflicts with consumer repo pins
           base_test_specs=(
-            "hypothesis==${HYPOTHESIS_VERSION:-6.0.0}"
-            "pandas==${PANDAS_VERSION:-2.3.0}"
-            "numpy==${NUMPY_VERSION:-2.1.0}"
-            "pydantic==${PYDANTIC_VERSION:-2.10.3}"
-            "pydantic-core==${PYDANTIC_CORE_VERSION:-2.23.4}"
-            "requests==${REQUESTS_VERSION:-2.31.0}"
-            "jsonschema==${JSONSCHEMA_VERSION:-4.0.0}"
-            "PyYAML==${PYYAML_VERSION:-6.0.2}"
-            "tomlkit==${TOMLKIT_VERSION:-0.13.0}"
+            "hypothesis>=${HYPOTHESIS_VERSION:-6.0.0}"
+            "pandas>=${PANDAS_VERSION:-2.3.0}"
+            "numpy>=${NUMPY_VERSION:-2.1.0}"
+            "pydantic>=${PYDANTIC_VERSION:-2.10.3}"
+            "pydantic-core>=${PYDANTIC_CORE_VERSION:-2.23.4}"
+            "requests>=${REQUESTS_VERSION:-2.31.0}"
+            "jsonschema>=${JSONSCHEMA_VERSION:-4.0.0}"
+            "PyYAML>=${PYYAML_VERSION:-6.0.2}"
+            "tomlkit"
           )
         else
           echo "Warning: .github/workflows/autofix-versions.env not found, installing latest versions" >&2

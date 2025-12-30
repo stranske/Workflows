@@ -451,7 +451,7 @@ jobs:
             if [ -n "$version" ]; then
               echo "${package}==${version}"
             elif [ -n "$default_version" ]; then
-              echo "${package}==${default_version}"
+              echo "${package}>=${default_version}"
             else
               echo "$package"
             fi
@@ -729,7 +729,7 @@ jobs:
             if [ -n "$version" ]; then
               echo "${package}==${version}"
             elif [ -n "$default_version" ]; then
-              echo "${package}==${default_version}"
+              echo "${package}>=${default_version}"
             else
               echo "$package"
             fi
@@ -1015,7 +1015,7 @@ jobs:
             if [ -n "$version" ]; then
               echo "${package}==${version}"
             elif [ -n "$default_version" ]; then
-              echo "${package}==${default_version}"
+              echo "${package}>=${default_version}"
             else
               echo "$package"
             fi
@@ -1344,7 +1344,7 @@ jobs:
             if [ -n "$version" ]; then
               echo "${package}==${version}"
             elif [ -n "$default_version" ]; then
-              echo "${package}==${default_version}"
+              echo "${package}>=${default_version}"
             else
               echo "$package"
             fi
