@@ -499,6 +499,7 @@ jobs:
           # This avoids exposing token in git remote URL or command output
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          # shellcheck disable=SC2016 # Single quotes intentional - ${GH_TOKEN} expands at runtime in credential helper
           git config credential.helper '!f() { echo "username=x-access-token"; echo "password=${GH_TOKEN}"; }; f'
 
           # Create branch and commit
