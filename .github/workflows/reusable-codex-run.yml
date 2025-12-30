@@ -221,10 +221,16 @@ jobs:
         env:
           BASE_PROMPT: ${{ inputs.prompt_file }}
           APPENDIX: ${{ inputs.appendix }}
+          PR_NUMBER: ${{ inputs.pr_number }}
         run: |
           set -euo pipefail
           base="${BASE_PROMPT}"
-          output="codex-prompt.md"
+          # Use PR-specific filename to avoid merge conflicts when multiple PRs run concurrently
+          if [ -n "${PR_NUMBER}" ]; then
+            output="codex-prompt-${PR_NUMBER}.md"
+          else
+            output="codex-prompt.md"
+          fi
 
           if [ -z "$base" ] || [ ! -f "$base" ]; then
             echo "Base prompt file not found: ${base}" >&2
@@ -343,7 +349,13 @@ jobs:
 
           # Build codex exec command
           PROMPT_FILE="${{ steps.prompt.outputs.file }}"
-          OUTPUT_FILE="codex-output.md"
+          # Use PR-specific output filename to avoid merge conflicts
+          PR_NUM="${{ inputs.pr_number }}"
+          if [ -n "${PR_NUM}" ]; then
+            OUTPUT_FILE="codex-output-${PR_NUM}.md"
+          else
+            OUTPUT_FILE="codex-output.md"
+          fi
           SANDBOX="${{ inputs.sandbox }}"
           EXTRA_ARGS="${{ inputs.codex_args }}"
 
@@ -419,7 +431,7 @@ jobs:
             # This happens when Codex commits during its run (workspace-write mode)
             REMOTE_URL="https://x-access-token:${PUSH_TOKEN}@github.com/${{ github.repository }}"
             git fetch "${REMOTE_URL}" "${TARGET_BRANCH}" 2>/dev/null || true
-            
+
             UNPUSHED_COMMITS=0
             if git rev-parse "FETCH_HEAD" >/dev/null 2>&1; then
               UNPUSHED_COMMITS=$(git rev-list FETCH_HEAD..HEAD --count 2>/dev/null || echo "0")
@@ -427,7 +439,7 @@ jobs:
               # Remote branch doesn't exist yet - all local commits are unpushed
               UNPUSHED_COMMITS=$(git rev-list HEAD --count 2>/dev/null || echo "0")
             fi
-            
+
             if [ "$UNPUSHED_COMMITS" -gt 0 ]; then
               echo "Found ${UNPUSHED_COMMITS} unpushed commit(s) from Codex - pushing them."
               COMMIT_SHA=$(git rev-parse HEAD)
@@ -441,22 +453,36 @@ jobs:
               echo "::notice::Pushed ${UNPUSHED_COMMITS} commit(s) from Codex (SHA: ${COMMIT_SHA})"
               exit 0
             fi
-            
+
             echo "No uncommitted changes and no unpushed commits."
             echo "changes-made=false" >> "$GITHUB_OUTPUT"
             echo "commit-sha=" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          # Check if only status files changed (codex-output.md, codex-prompt.md, agents/*.md)
-          # These are metadata files that don't need individual commits when no real work was done
-          STATUS_ONLY_CHANGES=$(git status --porcelain | grep -cvE '^\S+\s+(codex-output\.md|codex-prompt\.md|agents/.*\.md)$' || echo "0")
+          # Exclude codex prompt/output files from commits - they cause merge conflicts
+          # when multiple PRs run concurrently. These files are workflow-local and their
+          # contents are preserved in workflow artifacts and PR comments instead.
+          git checkout -- codex-output*.md codex-prompt*.md 2>/dev/null || true
+
+          # Re-count changes after excluding status files
+          CHANGED_FILES=$(git status --porcelain | wc -l)
+          echo "files-changed=${CHANGED_FILES}" >> "$GITHUB_OUTPUT"
+
+          # Check if only agents/*.md bootstrap files changed
+          STATUS_ONLY_CHANGES=$(git status --porcelain | grep -cvE '^\S+\s+agents/.*\.md$' || echo "0")
           if [ "$STATUS_ONLY_CHANGES" -eq 0 ] && [ "$CHANGED_FILES" -gt 0 ]; then
-            echo "Only status/metadata files changed - skipping commit to reduce noise."
+            echo "Only agent bootstrap files changed - skipping commit to reduce noise."
             echo "changes-made=false" >> "$GITHUB_OUTPUT"
             echo "commit-sha=" >> "$GITHUB_OUTPUT"
-            # Reset the status files since we're not committing them
-            git checkout -- codex-output.md codex-prompt.md agents/ 2>/dev/null || true
+            git checkout -- agents/ 2>/dev/null || true
+            exit 0
+          fi
+
+          if [ "$CHANGED_FILES" -eq 0 ]; then
+            echo "No changes to commit after excluding status files."
+            echo "changes-made=false" >> "$GITHUB_OUTPUT"
+            echo "commit-sha=" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -475,6 +501,8 @@ jobs:
           fi
 
           git add -A
+          # Double-check exclusion after git add (safety net)
+          git reset HEAD -- codex-output*.md codex-prompt*.md 2>/dev/null || true
           git commit -m "$commit_message"
 
           # Capture commit SHA before push
@@ -503,11 +531,13 @@ jobs:
           echo "::notice::Pushed commit ${COMMIT_SHA} with ${CHANGED_FILES} file(s) changed"
 
       - name: Upload Codex output
-        if: always() && hashFiles('codex-output.md') != ''
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: codex-output
-          path: codex-output.md
+          name: codex-output-${{ inputs.pr_number || github.run_id }}
+          path: |
+            codex-output*.md
+          if-no-files-found: ignore
 
       - name: Post completion checkpoint comment
         id: completion_comment

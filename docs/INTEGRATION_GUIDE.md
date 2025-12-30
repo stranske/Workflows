@@ -314,6 +314,32 @@ You can copy the reference implementations from:
 - `templates/integration-repo/scripts/sync_test_dependencies.py`
 - `templates/integration-repo/tools/resolve_mypy_pin.py`
 
+### Consumer Repo Setup: .gitignore Entries
+
+**Critical for keepalive/codex workflows:** Add these entries to your `.gitignore`
+to prevent merge conflicts when multiple PRs run concurrently:
+
+```gitignore
+# Codex working files (preserved via workflow artifacts, not git)
+# CRITICAL: These must be gitignored to prevent merge conflicts when
+# multiple PRs run keepalive simultaneously. Each run rebuilds these files.
+# Generic names (legacy)
+codex-prompt.md
+codex-output.md
+# PR-specific names (used by reusable-codex-run.yml to avoid conflicts)
+codex-prompt-*.md
+codex-output-*.md
+verifier-context.md
+```
+
+**Why this matters:** When multiple PRs run keepalive concurrently, each workflow
+generates these working files. The workflow uses PR-specific filenames (e.g.,
+`codex-output-123.md`) and explicitly excludes them from commits, but the
+`.gitignore` provides defense-in-depth. Historical data is preserved in:
+- PR comments (completion summaries)
+- Workflow artifacts (full outputs)
+- Commit messages (change descriptions)
+
 ---
 
 ## Common Patterns

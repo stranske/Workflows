@@ -74,14 +74,22 @@ For repositories that already exist (not created from Template):
    # Codex working files (preserved via workflow artifacts, not git)
    # CRITICAL: These must be gitignored to prevent merge conflicts when
    # multiple PRs run keepalive simultaneously. Each run rebuilds these files.
+   # Generic names (legacy)
    codex-prompt.md
    codex-output.md
+   # PR-specific names (used by reusable-codex-run.yml to avoid conflicts)
+   codex-prompt-*.md
+   codex-output-*.md
    verifier-context.md
    ```
    
    > **Why this matters**: When multiple PRs run keepalive at the same time,
    > each generates these files. If committed, merging one PR causes conflicts
    > in others. Historical data is preserved in PR comments and workflow artifacts.
+   > 
+   > The workflow now generates PR-specific filenames (e.g., `codex-output-123.md`)
+   > and explicitly excludes them from commits, but the `.gitignore` provides
+   > defense-in-depth.
 
 4. **Gate workflow setup** — The Gate is critical for keepalive automation.
    
@@ -586,7 +594,7 @@ tasks are complete or the iteration limit is reached.
 - `.github/codex/prompts/keepalive_next_task.md` — Iteration prompt template
 - `Gate / gate` commit status — Keepalive waits for CI before proceeding
 - `ALLOWED_KEEPALIVE_LOGINS` variable — Who can trigger keepalive
-- `.gitignore` entries for `codex-prompt.md`, `codex-output.md`, `verifier-context.md`
+- `.gitignore` entries for `codex-prompt*.md`, `codex-output*.md`, `verifier-context.md`
 
 **Verification checklist**:
 - [ ] `agents-pr-meta.yml` exists with `issue_comment` and `workflow_run` triggers
