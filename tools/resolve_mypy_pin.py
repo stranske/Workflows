@@ -30,7 +30,14 @@ def get_mypy_python_version() -> str | None:
 
         content = pyproject_path.read_text()
         data = tomlkit.parse(content)
-        return data.get("tool", {}).get("mypy", {}).get("python_version")
+        tool = data.get("tool")
+        if not isinstance(tool, dict):
+            tool = {}
+        mypy = tool.get("mypy")
+        if not isinstance(mypy, dict):
+            mypy = {}
+        version = mypy.get("python_version")
+        return str(version) if version is not None else None
     except ImportError:
         pass
 

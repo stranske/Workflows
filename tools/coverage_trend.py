@@ -17,7 +17,10 @@ from typing import Any
 def _load_json(path: Path) -> dict[str, Any]:
     """Load JSON from a file, returning empty dict on error."""
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        data = json.loads(path.read_text(encoding="utf-8"))
+        if isinstance(data, dict):
+            return data
+        return {}
     except (FileNotFoundError, json.JSONDecodeError):
         return {}
 
