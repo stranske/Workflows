@@ -28,6 +28,8 @@ to_bool() {
 }
 
 # Resolve package spec with version
+# - Explicit version: use exact pin (==)
+# - Default version: use minimum (>=) to avoid conflicts with consumer repos
 resolve_spec() {
   local package=$1
   local version=${2:-}
@@ -35,7 +37,7 @@ resolve_spec() {
   if [ -n "$version" ]; then
     echo "${package}==${version}"
   elif [ -n "$default_version" ]; then
-    echo "${package}==${default_version}"
+    echo "${package}>=${default_version}"
   else
     echo "$package"
   fi
