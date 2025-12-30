@@ -26,7 +26,9 @@ def test_load_existing_skips_invalid_lines(tmp_path: Path) -> None:
     assert records == [{"run_id": 1}, {"run_id": 2}]
 
 
-def test_main_replaces_matching_run_id_and_sorts(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_main_replaces_matching_run_id_and_sorts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     history_path = tmp_path / "history.ndjson"
     record_path = tmp_path / "record.json"
 
