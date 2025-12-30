@@ -581,8 +581,8 @@ function formatSimpleFollowUpIssue({
     ? `Verifier failure for PR #${prNumber}`
     : 'Verifier failure on merged commit';
 
-  // Simple format always has substantive content (verifier output)
-  // since we only use it when we have actual verifier output to display
+  // Check if there's substantive content to report:
+  // parsed findings (gaps/unmet criteria) or non-empty verifier output
   const hasSubstantiveContent = 
     findings.gaps.length > 0 || 
     findings.unmetCriteria.length > 0 ||
