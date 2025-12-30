@@ -165,10 +165,8 @@ def _detect_local_project_modules() -> set[str]:
                 continue
 
             # Check for packages (directories with __init__.py)
-            if item.is_dir():
-                init_file = item / "__init__.py"
-                if init_file.exists():
-                    detected.add(item.name)
+            if item.is_dir() and (item / "__init__.py").exists():
+                detected.add(item.name)
             # Check for standalone .py modules (but not in root .)
             elif source_dir != Path(".") and item.suffix == ".py":
                 detected.add(item.stem)
