@@ -528,6 +528,7 @@ jobs:
           **Manifest:** [\`.github/sync-manifest.yml\`](https://github.com/stranske/Workflows/blob/main/.github/sync-manifest.yml)"
 
           gh pr create \
+            --head "$branch_name" \
             --title "chore: sync workflow templates" \
             --body "$pr_body" \
             --label "sync,automated"
