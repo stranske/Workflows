@@ -5,7 +5,6 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import yaml
-
 from trend_analysis.automation_multifailure import aggregate_numbers
 from trend_analysis.constants import NUMERICAL_TOLERANCE_MEDIUM
 from trend_analysis.selector import RankSelector

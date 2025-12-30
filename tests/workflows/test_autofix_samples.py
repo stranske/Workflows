@@ -5,7 +5,6 @@ import runpy
 import sys  # Added: required for module cache manipulation in script test
 
 import pytest
-
 from trend_analysis import (
     _autofix_trigger_sample,
     _autofix_violation_case2,
