@@ -418,6 +418,17 @@ jobs:
                   sync_directory(template_src, consumer_dst, description)
               else:
                   sync_file(template_src, consumer_dst, description)
+
+          # Process templates (markdown templates, instructions, etc.)
+          print("Processing templates...")
+          for item in manifest.get('templates', []):
+              source = item.get('source', '')
+              description = item.get('description', 'No description')
+              # Templates come from .github/templates/, same as scripts pattern
+              template_src = Path('workflows') / source
+              consumer_dst = Path('consumer') / source
+              sync_file(template_src, consumer_dst, description)
+
           # Process docs
           print("Processing docs...")
           for item in manifest.get('docs', []):

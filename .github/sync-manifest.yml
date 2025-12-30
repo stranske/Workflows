@@ -120,11 +120,6 @@ scripts:
   - source: .github/scripts/keepalive_loop.js
     description: "Core keepalive loop logic"
 
-# Templates required by keepalive system
-templates:
-  - source: .github/templates/keepalive-instruction.md
-    description: "Keepalive instruction template - directives for Codex on each round"
-
   - source: .github/scripts/keepalive_state.js
     description: "Keepalive state management"
 
@@ -136,6 +131,11 @@ templates:
 
   - source: .github/scripts/failure_comment_formatter.js
     description: "Formats failure comments for PR status updates"
+
+# Templates required by keepalive system
+templates:
+  - source: .github/templates/keepalive-instruction.md
+    description: "Keepalive instruction template - directives for Codex on each round"
 
 # Documentation synced to consumer repos
 docs:
