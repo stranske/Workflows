@@ -383,18 +383,20 @@ jobs:
             }
 
             // Post informational comment (without @mention to avoid triggering connector twice)
-            const comment = `## 🤖 Bot Comment Handler
-
-**Agent:** ${agent}
-**Bot comments to address:** ${count}
-
-The agent has been assigned to this PR to address the bot review comments.
-
-**Instructions for agent:**
-1. Implement suggested fixes that improve the code
-2. Skip suggestions that don't apply (note why in your response)
-
-The bot comment handler workflow has prepared context in the artifacts.`;
+            const comment = [
+              '## 🤖 Bot Comment Handler',
+              '',
+              `- Agent: ${agent}`,
+              `- Bot comments to address: ${count}`,
+              '',
+              'The agent has been assigned to this PR to address the bot review comments.',
+              '',
+              '### Instructions for agent',
+              '1. Implement suggested fixes that improve the code',
+              '2. Skip suggestions that don\'t apply (note why in your response)',
+              '',
+              'The bot comment handler workflow has prepared context in the artifacts.'
+            ].join('\n');
 
             await github.rest.issues.createComment({
               owner,
