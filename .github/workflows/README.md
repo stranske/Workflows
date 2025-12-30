@@ -109,7 +109,7 @@ on:
         default: "3.12"
 jobs:
   ci:
-    uses: stranske/Trend_Model_Project/.github/workflows/reusable-10-ci-python.yml@main
+    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
     with:
       marker: ${{ inputs.marker }}
       python-version: ${{ inputs["python-version"] }}
@@ -130,7 +130,7 @@ on:
   workflow_dispatch:
 jobs:
   call:
-    uses: stranske/Trend_Model_Project/.github/workflows/reusable-16-agents.yml@main
+    uses: stranske/Workflows/.github/workflows/reusable-16-agents.yml@main
     with:
       enable_readiness: true
       enable_preflight: true
@@ -382,4 +382,4 @@ inputs without duplicating JSON parsing.
 Refer to the archive if you need to resurrect behaviour for forensic analysis;
 otherwise, prefer the consolidated orchestrator and reusable workflows.
 
-[agent-task-template]: https://github.com/stranske/Trend_Model_Project/issues/new?template=agent_task.yml
+[agent-task-template]: https://github.com/stranske/Workflows/issues/new?template=agent_task.yml

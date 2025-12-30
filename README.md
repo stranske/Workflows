@@ -3,22 +3,18 @@
 [![Maint 62 Integration Consumer](https://github.com/stranske/Workflows/actions/workflows/maint-62-integration-consumer.yml/badge.svg)](https://github.com/stranske/Workflows/actions/workflows/maint-62-integration-consumer.yml)
 [![Integration Tests](https://github.com/stranske/Workflows-Integration-Tests/actions/workflows/ci.yml/badge.svg)](https://github.com/stranske/Workflows-Integration-Tests/actions/workflows/ci.yml)
 
-A reusable GitHub Actions workflow system extracted from [Trend_Model_Project](https://github.com/stranske/Trend_Model_Project) for use across multiple repositories.
+A reusable GitHub Actions workflow system for Python projects with integrated agent automation (Codex keepalive, autofix, CI orchestration).
 
 ## Project Status
 
-✅ **Extraction Complete** - Core workflow system fully extracted and validated
+✅ **Production Ready** - Actively used across multiple consumer repositories
 
-| Phase | Status | Description |
-|-------|--------|-------------|
-| Phase 1 | ✅ | Validation scripts (3 scripts, 1,018 lines) |
-| Phase 2 | ✅ | Git hooks (pre-commit framework) |
-| Phase 3 | ✅ | Documentation framework (17 Tier 1 docs, 6,180 lines) |
-| Phase 4 | ✅ | GitHub Actions (103 files, 33,700 lines) |
-| Phase 5 | ✅ | Workflow validation (actionlint verified) |
-| Phase 6 | ✅ | Script testing (128/128 tests passing) |
-| Phase 7 | ✅ | Infrastructure (devcontainer, 13 additional scripts) |
-| Phase 8 | ✅ | Tier 2 documentation (36 additional docs) |
+### Consumer Repositories
+- [Travel-Plan-Permission](https://github.com/stranske/Travel-Plan-Permission)
+- [Template](https://github.com/stranske/Template)
+- [trip-planner](https://github.com/stranske/trip-planner)
+- [Manager-Database](https://github.com/stranske/Manager-Database)
+- [Portable-Alpha-Extension-Model](https://github.com/stranske/Portable-Alpha-Extension-Model)
 
 ## What's Included
 
