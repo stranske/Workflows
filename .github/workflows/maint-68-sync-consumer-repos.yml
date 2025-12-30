@@ -505,9 +505,9 @@ jobs:
           # shellcheck disable=SC2016 # Single quotes intentional - ${GH_TOKEN} expands at runtime in credential helper
           git config credential.helper '!f() { echo "username=x-access-token"; echo "password=${GH_TOKEN}"; }; f'
 
-          # Check if remote branch exists (from a failed previous run)
+          # Remote branch exists but no PR was found (from a failed previous run) - deleting and recreating
           if git ls-remote --exit-code origin "refs/heads/$branch_name" >/dev/null 2>&1; then
-            echo "Remote branch $branch_name already exists without PR - deleting and recreating"
+            echo "Remote branch $branch_name exists but no PR was found (from a failed previous run) - deleting and recreating"
             # Delete the remote branch so we can push fresh
             delete_output=$(git push origin --delete "$branch_name" 2>&1) || {
               if printf '%s\n' "$delete_output" | grep -qiE 'remote ref .* not found|remote ref does not exist|could not find remote ref'; then
