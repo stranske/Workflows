@@ -190,7 +190,8 @@ def main(args: list[str] | None = None) -> int:
             f.write(f"low_coverage_count={len(low_coverage)}\n")
 
     print(
-        f"Coverage: {current_coverage:.2f}% (baseline: {baseline_coverage:.2f}%, delta: {delta:+.2f}%)"
+        f"Coverage: {current_coverage:.2f}% "
+        f"(baseline: {baseline_coverage:.2f}%, delta: {delta:+.2f}%)"
     )
     if hotspots:
         print(f"Hotspots: {len(hotspots)} files with lowest coverage")
