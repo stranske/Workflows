@@ -327,6 +327,34 @@ test('extracts "Implementation notes" as Tasks alias', () => {
   assert.ok(result.includes('#### Tasks'));
 });
 
+test('extracts "Task" as Tasks alias', () => {
+  const issue = [
+    '## Task',
+    '- [ ] first item',
+    '',
+    '## Acceptance Criteria',
+    '- [ ] ok',
+  ].join('\n');
+
+  const result = extractScopeTasksAcceptanceSections(issue);
+  assert.ok(result.includes('first item'));
+  assert.ok(result.includes('#### Tasks'));
+});
+
+test('extracts "To Do" as Tasks alias', () => {
+  const issue = [
+    '## To Do',
+    '- [ ] second item',
+    '',
+    '## Acceptance Criteria',
+    '- [ ] ok',
+  ].join('\n');
+
+  const result = extractScopeTasksAcceptanceSections(issue);
+  assert.ok(result.includes('second item'));
+  assert.ok(result.includes('#### Tasks'));
+});
+
 test('hasNonPlaceholderScopeTasksAcceptanceContent detects PR meta fallback placeholders', () => {
   // Content with only PR meta manager fallback placeholders should return false
   const prMetaPlaceholders = [
