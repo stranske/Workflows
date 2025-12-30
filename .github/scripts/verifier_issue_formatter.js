@@ -37,7 +37,7 @@ function looksLikeSectionHeader(text) {
  * Check if an item looks like a PR/Issue reference link rather than actual criteria.
  * Matches patterns like:
  * - "- PR #123 - Title"
- * - "- Issue #456 - Description"  
+ * - "- Issue #456 - Description"
  * - "PR #789 - Some fix"
  *
  * @param {string} text - Text to check
@@ -550,11 +550,12 @@ function formatFollowUpIssue({
 
   // Determine if this issue has substantive content worth creating
   // Skip if we have no real tasks/criteria (just defaults) and no verifier gaps
-  const hasSubstantiveContent =
+  const hasSubstantiveContent = Boolean(
     (newTasks.length > 0 && !newTasks.every(t => isPlaceholderContent(t))) ||
     (refinedUnmetCriteria.length > 0 && !refinedUnmetCriteria.every(c => isPlaceholderContent(c))) ||
     findings.gaps.length > 0 ||
-    findings.unmetCriteria.length > 0;
+    findings.unmetCriteria.length > 0
+  );
 
   return {
     title,
@@ -621,12 +622,13 @@ function formatSimpleFollowUpIssue({
     ? `Verifier failure for PR #${prNumber}`
     : 'Verifier failure on merged commit';
 
-  // Check if there's substantive content to report:
-  // parsed findings (gaps/unmet criteria) or non-empty verifier output
-  const hasSubstantiveContent = 
+  // Simple format always has substantive content (verifier output)
+  // since we only use it when we have actual verifier output to display
+  const hasSubstantiveContent = Boolean(
     findings.gaps.length > 0 || 
     findings.unmetCriteria.length > 0 ||
-    (verifierOutput && verifierOutput.trim().length > 0);
+    (verifierOutput && verifierOutput.trim().length > 0)
+  );
 
   return {
     title,
