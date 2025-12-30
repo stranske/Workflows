@@ -207,6 +207,44 @@ def test_main_fails_below_minimum(tmp_path: Path) -> None:
     assert trend["passes_minimum"] is False
 
 
+def test_main_respects_hotspot_limit(tmp_path: Path) -> None:
+    coverage_json = tmp_path / "coverage.json"
+    artifact_path = tmp_path / "trend.json"
+
+    _write_json(
+        coverage_json,
+        {
+            "totals": {"percent_covered": 72.0},
+            "files": {
+                "src/low.py": {"summary": {"percent_covered": 10.0, "missing_lines": 9}},
+                "src/mid.py": {"summary": {"percent_covered": 20.0, "missing_lines": 5}},
+                "src/high.py": {"summary": {"percent_covered": 30.0, "missing_lines": 3}},
+            },
+        },
+    )
+
+    exit_code = coverage_trend.main(
+        [
+            "--coverage-json",
+            str(coverage_json),
+            "--artifact-path",
+            str(artifact_path),
+            "--hotspot-limit",
+            "1",
+            "--low-threshold",
+            "50",
+            "--minimum",
+            "0",
+        ]
+    )
+
+    assert exit_code == 0
+    trend = json.loads(artifact_path.read_text(encoding="utf-8"))
+    assert trend["hotspot_count"] == 1
+    assert trend["low_coverage_count"] == 1
+    assert trend["hotspots"][0]["file"] == "src/low.py"
+
+
 def test_main_soft_mode_reports_without_failing(tmp_path: Path) -> None:
     coverage_json = tmp_path / "coverage.json"
     artifact_path = tmp_path / "trend.json"
