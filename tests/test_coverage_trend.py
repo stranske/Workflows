@@ -99,6 +99,41 @@ def test_main_handles_missing_coverage_json(tmp_path: Path) -> None:
     assert "coverage=0.00" in output_text
 
 
+def test_main_handles_missing_baseline_and_empty_hotspots(tmp_path: Path) -> None:
+    coverage_json = tmp_path / "coverage.json"
+    baseline_json = tmp_path / "baseline.json"
+    summary_path = tmp_path / "summary.md"
+    github_output = tmp_path / "github_output.txt"
+
+    _write_json(coverage_json, {"totals": {"percent_covered": 72.0}})
+
+    exit_code = coverage_trend.main(
+        [
+            "--coverage-json",
+            str(coverage_json),
+            "--baseline",
+            str(baseline_json),
+            "--summary-path",
+            str(summary_path),
+            "--github-output",
+            str(github_output),
+            "--minimum",
+            "70",
+        ]
+    )
+
+    assert exit_code == 0
+    summary = summary_path.read_text(encoding="utf-8")
+    assert "Baseline | 0.00%" in summary
+    assert "Top Coverage Hotspots" not in summary
+    assert "Low Coverage Files" not in summary
+
+    output_text = github_output.read_text(encoding="utf-8")
+    assert "baseline=0.00" in output_text
+    assert "hotspot_count=0" in output_text
+    assert "low_coverage_count=0" in output_text
+
+
 def test_main_writes_outputs_and_passes(tmp_path: Path) -> None:
     coverage_json = tmp_path / "coverage.json"
     baseline_json = tmp_path / "baseline.json"
