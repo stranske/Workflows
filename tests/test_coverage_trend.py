@@ -203,6 +203,33 @@ def test_main_soft_mode_reports_without_failing(tmp_path: Path) -> None:
     assert trend["low_coverage_count"] == 1
 
 
+def test_main_handles_invalid_coverage_json(tmp_path: Path) -> None:
+    coverage_json = tmp_path / "coverage.json"
+    summary_path = tmp_path / "summary.md"
+    job_summary = tmp_path / "job_summary.md"
+
+    coverage_json.write_text("{not-json}", encoding="utf-8")
+
+    exit_code = coverage_trend.main(
+        [
+            "--coverage-json",
+            str(coverage_json),
+            "--summary-path",
+            str(summary_path),
+            "--job-summary",
+            str(job_summary),
+            "--minimum",
+            "70",
+        ]
+    )
+
+    assert exit_code == 1
+    summary = summary_path.read_text(encoding="utf-8")
+    assert "Top Coverage Hotspots" not in summary
+    assert "Low Coverage Files" not in summary
+    assert not job_summary.exists()
+
+
 def test_main_includes_hotspot_tables_and_counts(tmp_path: Path) -> None:
     coverage_json = tmp_path / "coverage.json"
     baseline_json = tmp_path / "baseline.json"
