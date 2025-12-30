@@ -7,7 +7,7 @@
 # POLICY: Any file intended for consumer repos MUST be listed here.
 # Files not listed will NOT be synced, even if they exist in templates/consumer-repo/.
 #
-# Last sync trigger: 2025-12-30T20:15:00Z - Add pyproject.toml with line-length=100
+# Last sync trigger: 2025-12-30T20:30:00Z - Revert pyproject.toml sync (breaks existing repos)
 #
 # Categories:
 #   workflows: Thin caller workflows that consumers run directly
@@ -15,7 +15,6 @@
 #   scripts: JavaScript/Python scripts required by workflows
 #   codex_config: Codex configuration files (AGENT_INSTRUCTIONS.md, etc.)
 #   docs: Documentation files synced to consumer repos
-#   config: Tool configuration files (pyproject.toml, etc.)
 #
 # Each entry can specify:
 #   - source: Path relative to templates/consumer-repo/ (or .github/ for reusable-only)
@@ -23,11 +22,6 @@
 #   - description: What this file does (required for documentation)
 
 version: 1
-
-# Tool configuration - ensures consistent formatting across all repos
-config:
-  - source: pyproject.toml
-    description: "Tool configuration - black, ruff, mypy settings with line-length=100"
 
 # Workflows that run in consumer repos (thin callers)
 workflows:
