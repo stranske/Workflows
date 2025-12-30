@@ -497,10 +497,18 @@ jobs:
 
           # Configure git for push authentication using credential helper
           # This avoids exposing token in git remote URL or command output
+          # Must be configured before any git operations that need auth
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           # shellcheck disable=SC2016 # Single quotes intentional - ${GH_TOKEN} expands at runtime in credential helper
           git config credential.helper '!f() { echo "username=x-access-token"; echo "password=${GH_TOKEN}"; }; f'
+
+          # Check if remote branch exists (from a failed previous run)
+          if git ls-remote --exit-code origin "refs/heads/$branch_name" >/dev/null 2>&1; then
+            echo "Remote branch $branch_name already exists without PR - deleting and recreating"
+            # Delete the remote branch so we can push fresh
+            git push origin --delete "$branch_name" 2>/dev/null || true
+          fi
 
           # Create branch and commit
           git checkout -b "$branch_name"
