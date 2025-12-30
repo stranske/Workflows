@@ -3,7 +3,11 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+import importlib.metadata as metadata
+import importlib.util
 from pathlib import Path
+
+import pytest
 
 from tools.integration_repo import WORKFLOW_PLACEHOLDER, render_integration_repo
 
@@ -27,6 +31,13 @@ def test_integration_template_installs_and_tests(tmp_path: Path) -> None:
     user_base = tmp_path / "userbase"
     env = os.environ.copy()
     env["PYTHONUSERBASE"] = str(user_base)
+
+    if importlib.util.find_spec("wheel") is None:
+        pytest.skip("wheel is unavailable in the test environment")
+    try:
+        metadata.version("setuptools")
+    except metadata.PackageNotFoundError:
+        pytest.skip("setuptools is unavailable in the test environment")
 
     # Install setuptools first (required for --no-build-isolation with pyproject.toml builds)
     _run(
