@@ -498,6 +498,8 @@ Keep this table handy when you are triaging automation: it confirms which workfl
   downloads the latest Gate coverage payload plus the trend artifact and
   compares them against `config/coverage-baseline.json`, surfacing notices when
   coverage dips outside the allowed guard band.
+  - Coverage reports intentionally exclude CLI-only entry points (for example,
+    `if __name__ == "__main__"` blocks marked with `# pragma: no cover`).
 - **Maint 46 Post CI** – `.github/workflows/maint-46-post-ci.yml` is a recovery
   shim. It inspects the finished Gate run, exits immediately when the Gate
   `summary` job succeeded, and only downloads artifacts, rebuilds the summary
