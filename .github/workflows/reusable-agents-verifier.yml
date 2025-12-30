@@ -320,6 +320,15 @@ jobs:
               });
             }
 
+            // Skip issue creation if there's no substantive content
+            // (e.g., all sections are placeholder text or empty)
+            if (!result.hasSubstantiveContent) {
+              core.info('Skipping issue creation: no substantive content to act on (all placeholder sections)');
+              core.setOutput('issue_number', '');
+              core.setOutput('skipped', 'true');
+              return;
+            }
+
             const { data: issue } = await github.rest.issues.create({
               ...context.repo,
               title: result.title,
@@ -327,6 +336,7 @@ jobs:
               labels: ['agent:codex'],
             });
             core.setOutput('issue_number', issue?.number ? String(issue.number) : '');
+            core.setOutput('skipped', 'false');
             core.info(`Created follow-up issue #${issue.number}: ${result.title}`);
 
       - name: Collect verifier metrics
