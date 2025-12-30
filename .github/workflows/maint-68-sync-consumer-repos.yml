@@ -414,15 +414,6 @@ jobs:
               consumer_dst = Path('consumer') / source
               sync_file(template_src, consumer_dst, description)
 
-          # Process config (pyproject.toml, etc.)
-          print("Processing config...")
-          for item in manifest.get('config', []):
-              source = item.get('source', '')
-              description = item.get('description', 'No description')
-              template_src = Path('workflows/templates/consumer-repo') / source
-              consumer_dst = Path('consumer') / source
-              sync_file(template_src, consumer_dst, description)
-
           # Process copilot_config
           print("Processing copilot config...")
           for item in manifest.get('copilot_config', []):
