@@ -1,3 +1,5 @@
+import json
+
 import pytest
 
 from trend_analysis import _ci_probe_faults as probe
@@ -56,3 +58,12 @@ def test_internal_helper_handles_empty_sequence(monkeypatch):
     assert probe._internal_helper([]) == 0
     assert calls["yaml"] == "numbers: [1,2,3]"
     assert calls["sqrt"] == 0
+
+
+def test_main_outputs_json(capsys: pytest.CaptureFixture[str]) -> None:
+    exit_code = probe._main()
+
+    assert exit_code == 0
+    captured = capsys.readouterr()
+    payload = json.loads(captured.out.strip())
+    assert payload == {"sum": 6}
