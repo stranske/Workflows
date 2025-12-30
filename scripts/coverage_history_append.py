@@ -72,7 +72,7 @@ def main() -> int:
     return 0
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover - CLI entry point
     try:
         from trend_analysis.script_logging import setup_script_logging
 

@@ -104,5 +104,5 @@ def main(args: list[str] | None = None) -> int:
     return 0 if passes_minimum else 1
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover - CLI entry point
     sys.exit(main())
