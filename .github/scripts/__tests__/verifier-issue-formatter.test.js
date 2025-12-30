@@ -11,6 +11,9 @@ const {
   extractUncheckedItems,
   extractCheckedItems,
   buildChecklist,
+  isPlaceholderContent,
+  looksLikeSectionHeader,
+  looksLikeReferenceLink,
 } = require('../verifier_issue_formatter.js');
 
 describe('verifier_issue_formatter', () => {
@@ -207,6 +210,154 @@ Blocking gaps:
     it('returns empty string for non-array', () => {
       const result = buildChecklist(null);
       assert.equal(result, '');
+    });
+  });
+
+  describe('isPlaceholderContent', () => {
+    it('identifies checkbox placeholder with section name', () => {
+      assert.ok(isPlaceholderContent('- [ ] Scope section missing from source issue.'));
+      assert.ok(isPlaceholderContent('- [x] Tasks section missing from source issue.'));
+      assert.ok(isPlaceholderContent('* [ ] Acceptance Criteria section missing from source issue.'));
+    });
+
+    it('identifies placeholder without checkbox', () => {
+      assert.ok(isPlaceholderContent('Scope section missing from source issue.'));
+      assert.ok(isPlaceholderContent('Tasks section missing from source issue.'));
+      assert.ok(isPlaceholderContent('acceptance criteria section missing from source issue'));
+    });
+
+    it('identifies placeholder with "section missing" phrase', () => {
+      assert.ok(isPlaceholderContent('Some section missing from source issue'));
+      assert.ok(isPlaceholderContent('anything section missing from source issue.'));
+    });
+
+    it('identifies N/A variations', () => {
+      assert.ok(isPlaceholderContent('N/A'));
+      assert.ok(isPlaceholderContent('n/a'));
+      assert.ok(isPlaceholderContent('N / A'));
+      assert.ok(isPlaceholderContent('  n a  '));
+    });
+
+    it('identifies empty strings', () => {
+      assert.ok(isPlaceholderContent(''));
+      assert.ok(isPlaceholderContent('   '));
+      assert.ok(isPlaceholderContent(null));
+      assert.ok(isPlaceholderContent(undefined));
+    });
+
+    it('rejects actual content', () => {
+      assert.ok(!isPlaceholderContent('Implement error handling'));
+      assert.ok(!isPlaceholderContent('Add retry logic for rate limits'));
+      assert.ok(!isPlaceholderContent('Tests cover all error paths'));
+    });
+
+    it('rejects content with "missing" but not placeholder pattern', () => {
+      assert.ok(!isPlaceholderContent('The missing feature should be added'));
+      assert.ok(!isPlaceholderContent('Fix missing validation'));
+    });
+
+    it('is case insensitive', () => {
+      assert.ok(isPlaceholderContent('SCOPE SECTION MISSING FROM SOURCE ISSUE'));
+      assert.ok(isPlaceholderContent('Tasks Section Missing From Source Issue.'));
+    });
+  });
+
+  describe('looksLikeSectionHeader', () => {
+    it('identifies markdown headers', () => {
+      assert.ok(looksLikeSectionHeader('## Related'));
+      assert.ok(looksLikeSectionHeader('### Notes'));
+      assert.ok(looksLikeSectionHeader('# Title'));
+      assert.ok(looksLikeSectionHeader('#### Subsection'));
+    });
+
+    it('identifies headers with varying whitespace', () => {
+      assert.ok(looksLikeSectionHeader('##  Related'));
+      assert.ok(looksLikeSectionHeader('###   Notes'));
+      assert.ok(looksLikeSectionHeader('  ## Related'));
+    });
+
+    it('identifies headers up to level 6', () => {
+      assert.ok(looksLikeSectionHeader('##### Level 5'));
+      assert.ok(looksLikeSectionHeader('###### Level 6'));
+    });
+
+    it('rejects non-header content', () => {
+      assert.ok(!looksLikeSectionHeader('Regular text'));
+      assert.ok(!looksLikeSectionHeader('Some task description'));
+      assert.ok(!looksLikeSectionHeader('- [ ] Task item'));
+    });
+
+    it('rejects hashes not at start', () => {
+      assert.ok(!looksLikeSectionHeader('Text with ## hash'));
+      assert.ok(!looksLikeSectionHeader('Not a # header'));
+    });
+
+    it('rejects hash symbols without text', () => {
+      assert.ok(!looksLikeSectionHeader('##'));
+      assert.ok(!looksLikeSectionHeader('###   '));
+      assert.ok(!looksLikeSectionHeader('#'));
+    });
+
+    it('handles empty and null input', () => {
+      assert.ok(!looksLikeSectionHeader(''));
+      assert.ok(!looksLikeSectionHeader(null));
+      assert.ok(!looksLikeSectionHeader(undefined));
+    });
+  });
+
+  describe('looksLikeReferenceLink', () => {
+    it('identifies PR references with dash bullet', () => {
+      assert.ok(looksLikeReferenceLink('- PR #123 - Title'));
+      assert.ok(looksLikeReferenceLink('- PR #456 - Description'));
+    });
+
+    it('identifies Issue references with dash bullet', () => {
+      assert.ok(looksLikeReferenceLink('- Issue #789 - Description'));
+      assert.ok(looksLikeReferenceLink('- Issue #100 - Fix bug'));
+    });
+
+    it('identifies Pull Request (spelled out) references', () => {
+      assert.ok(looksLikeReferenceLink('- Pull Request #200 - Feature'));
+      assert.ok(looksLikeReferenceLink('Pull Request #300 - Update'));
+    });
+
+    it('identifies references without dash bullet', () => {
+      assert.ok(looksLikeReferenceLink('PR #123 - Title'));
+      assert.ok(looksLikeReferenceLink('Issue #456 - Description'));
+    });
+
+    it('identifies references with various bullet styles', () => {
+      assert.ok(looksLikeReferenceLink('– PR #123 - Title')); // en-dash
+      assert.ok(looksLikeReferenceLink('• Issue #456 - Description')); // bullet
+    });
+
+    it('is case insensitive', () => {
+      assert.ok(looksLikeReferenceLink('- pr #123 - title'));
+      assert.ok(looksLikeReferenceLink('- ISSUE #456 - Description'));
+      assert.ok(looksLikeReferenceLink('- PuLl ReQuEsT #789 - test'));
+    });
+
+    it('rejects regular task descriptions', () => {
+      assert.ok(!looksLikeReferenceLink('- [ ] Implement feature'));
+      assert.ok(!looksLikeReferenceLink('Add error handling'));
+      assert.ok(!looksLikeReferenceLink('Tests cover all paths'));
+    });
+
+    it('rejects text that mentions PR/Issue but not at start', () => {
+      assert.ok(!looksLikeReferenceLink('Related to PR #123'));
+      assert.ok(!looksLikeReferenceLink('See Issue #456 for details'));
+      assert.ok(!looksLikeReferenceLink('Task for PR #789'));
+    });
+
+    it('rejects PR/Issue without number', () => {
+      assert.ok(!looksLikeReferenceLink('- PR - Title'));
+      assert.ok(!looksLikeReferenceLink('- Issue - Description'));
+    });
+
+    it('handles empty and null input', () => {
+      assert.ok(!looksLikeReferenceLink(''));
+      assert.ok(!looksLikeReferenceLink(null));
+      assert.ok(!looksLikeReferenceLink(undefined));
     });
   });
 
