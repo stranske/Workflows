@@ -1916,6 +1916,10 @@ jobs:
       - name: Generate coverage trend summary
         if: ${{ inputs.coverage && inputs['enable-soft-gate'] && matrix.python-version == inputs['primary-python-version'] }}
         run: |
+          MIN_ARG=""
+          if [ -n "${{ inputs['coverage-min'] }}" ]; then
+            MIN_ARG="--minimum ${{ inputs['coverage-min'] }}"
+          fi
           python "${GITHUB_WORKSPACE}/tools/coverage_trend.py" \
             --coverage-xml coverage.xml \
             --coverage-json coverage.json \
@@ -1924,7 +1928,7 @@ jobs:
             --job-summary "$GITHUB_STEP_SUMMARY" \
             --artifact-path coverage-trend.json \
             --github-output coverage-trend.env \
-            --minimum ${{ inputs['coverage-min'] }}
+            $MIN_ARG
 
       - name: Annotate coverage trend record
         if: ${{ inputs.coverage && inputs['enable-soft-gate'] && matrix.python-version == inputs['primary-python-version'] }}
