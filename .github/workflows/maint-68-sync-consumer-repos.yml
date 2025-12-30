@@ -378,11 +378,13 @@ jobs:
                   """File exists and sync_mode is create_only"""
                   return sync_mode == 'create_only' and consumer_dst.exists()
 
+              # Determine skip function: check create_only first (covers most cases),
+              # then custom_gate for legacy repos that have completely custom Gates
               skip_fn = None
-              if 'pr-00-gate' in source:
-                  skip_fn = skip_custom_gate
-              elif sync_mode == 'create_only':
+              if sync_mode == 'create_only':
                   skip_fn = skip_create_only
+              elif 'pr-00-gate' in source and current_repo in custom_gate_repos:
+                  skip_fn = skip_custom_gate
 
               sync_file(template_src, consumer_dst, description, skip_fn)
 
