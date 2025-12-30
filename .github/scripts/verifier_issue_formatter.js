@@ -37,7 +37,7 @@ function looksLikeSectionHeader(text) {
  * Check if an item looks like a PR/Issue reference link rather than actual criteria.
  * Matches patterns like:
  * - "- PR #123 - Title"
- * - "- Issue #456 - Description"  
+ * - "- Issue #456 - Description"
  * - "PR #789 - Some fix"
  *
  * @param {string} text - Text to check
