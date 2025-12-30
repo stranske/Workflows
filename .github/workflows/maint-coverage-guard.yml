@@ -129,9 +129,47 @@ jobs:
           COVERAGE_RUN_URL: ${{ steps.discover.outputs.run_url }}
           COVERAGE_RUN_NUMBER: ${{ steps.discover.outputs.run_number }}
         run: |
-          python tools/coverage_guard.py \
-            --repo "${{ github.repository }}" \
-            --trend-path coverage_artifacts/trend/coverage-trend.json \
-            --coverage-path coverage_artifacts/payload/artifacts/coverage/runtimes/3.11/coverage.json \
-            --baseline-path config/coverage-baseline.json \
+          # Try multiple possible artifact paths (workflow uses different naming)
+          TREND_PATH=""
+          COVERAGE_PATH=""
+
+          # Check for trend artifact
+          for candidate in \
+            "coverage_artifacts/trend/coverage-trend.json" \
+            "coverage_artifacts/coverage-trend.json"; do
+            if [ -f "$candidate" ]; then
+              TREND_PATH="$candidate"
+              break
+            fi
+          done
+
+          # Check for coverage json
+          for candidate in \
+            "coverage_artifacts/payload/artifacts/coverage/runtimes/3.11/coverage.json" \
+            "coverage_artifacts/payload/coverage.json" \
+            "coverage_artifacts/coverage.json"; do
+            if [ -f "$candidate" ]; then
+              COVERAGE_PATH="$candidate"
+              break
+            fi
+          done
+
+          # Build args
+          ARGS=(
+            --repo "${{ github.repository }}"
             --run-url "${{ steps.discover.outputs.run_url }}"
+          )
+
+          if [ -n "$TREND_PATH" ]; then
+            ARGS+=(--trend-path "$TREND_PATH")
+          fi
+
+          if [ -n "$COVERAGE_PATH" ]; then
+            ARGS+=(--coverage-path "$COVERAGE_PATH")
+          fi
+
+          if [ -f "config/coverage-baseline.json" ]; then
+            ARGS+=(--baseline-path "config/coverage-baseline.json")
+          fi
+
+          python tools/coverage_guard.py "${ARGS[@]}"

@@ -1,33 +1,29 @@
-"""Simplified autofix case for return-type and formatting checks."""
+"""Autofix fixture that intentionally includes minor issues."""
 
 from __future__ import annotations
 
 from collections.abc import Iterable
 
 
-def _payload(values: Iterable[int]) -> dict[str, float | int]:
-    items = list(values)
-    total = sum(items)
-    count = len(items)
-    mean = total / count if count else 0
-    return {"total": total, "mean": mean, "count": count}
-
-
 def compute(values: Iterable[int] | None = None) -> dict[str, float | int]:
-    return _payload(values or [1, 2, 3])
-
-
-class Example:
-    def method(self, value: float, offset: float) -> float:
-        return value + offset
+    numbers = list(values) if values is not None else [1, 2, 3]
+    total = sum(numbers)
+    count = len(numbers)
+    mean = total / count if count else 0.0
+    return {"total": total, "mean": float(mean), "count": count}
 
 
 def long_line_function() -> str:
-    return "An extravagantly elongated string intended to trigger formatting rules."
+    return "An extravagantly long sentence exists here solely for autofix coverage."
 
 
-def unused_func(a: int, b: int, c: int) -> None:  # noqa: ARG001
+def unused_func(*_args: int) -> None:
     return None
+
+
+class Example:
+    def method(self, left: float, right: float) -> float:
+        return left + right
 
 
 if __name__ == "__main__":

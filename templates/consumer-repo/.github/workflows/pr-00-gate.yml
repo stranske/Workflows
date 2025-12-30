@@ -47,6 +47,8 @@ jobs:
       format_check: false  # Using ruff for formatting
       working-directory: "."
       artifact-prefix: "gate-"
+      # Enable soft coverage gate for trend tracking and hotspot reporting
+      enable-soft-gate: true
     secrets: inherit
 
   summary:

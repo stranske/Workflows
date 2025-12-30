@@ -3,8 +3,7 @@
 This module ensures the repository's ``src`` directory is available on ``sys.path``
 without requiring editable installs. Python automatically imports ``sitecustomize``
 when present, so keeping this lightweight avoids surprises while still allowing
-local modules (for example, ``trend_analysis`` stubs) to be imported in tests and
-utility scripts.
+local modules to be imported in tests and utility scripts.
 """
 
 from __future__ import annotations

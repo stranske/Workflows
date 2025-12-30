@@ -11,14 +11,6 @@ import json
 import pathlib
 import time
 
-try:
-    from trend_analysis.script_logging import setup_script_logging
-
-    setup_script_logging(module_file=__file__, announce=False)
-except ImportError:
-    # trend_analysis not available in CI; continue without custom logging
-    pass
-
 report_path = pathlib.Path("autofix_report_enriched.json")
 hist_path = pathlib.Path("ci/autofix/history.json")
 hist_path.parent.mkdir(parents=True, exist_ok=True)

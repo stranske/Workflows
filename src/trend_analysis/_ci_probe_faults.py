@@ -1,8 +1,7 @@
-"""Probe helper exercising lightweight dependencies."""
+"""Small helpers exercised by CI probe tests."""
 
 from __future__ import annotations
 
-import json
 import math
 from collections.abc import Iterable
 
@@ -13,23 +12,18 @@ def add_numbers(a: int, b: int) -> int:
     return a + b
 
 
-def build_message(*, name: str | None = None, excited: bool = False) -> str:
-    base = f"Hello {name}" if name else "Hello World"
-    return f"{base}!" if excited else base
+def build_message(name: str = "World", excited: bool = False) -> str:
+    message = f"Hello {name}"
+    if excited:
+        message += "!"
+    return message
 
 
 def _internal_helper(values: Iterable[int]) -> int:
+    """Aggregate values while touching optional dependencies."""
+    values_list = list(values)
+    total = sum(values_list)
     yaml.safe_load("numbers: [1,2,3]")
-    items = list(values)
-    math.sqrt(items[0] if items else 0)
-    return sum(items)
-
-
-def _main() -> int:
-    payload = {"sum": _internal_helper([1, 2, 3])}
-    print(json.dumps(payload))
-    return 0
-
-
-if __name__ == "__main__":  # pragma: no cover - CLI entry point
-    raise SystemExit(_main())
+    first_value = values_list[0] if values_list else 0
+    math.sqrt(first_value)
+    return total
