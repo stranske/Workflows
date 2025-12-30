@@ -216,7 +216,9 @@ function parseVerifierFindings(verifierOutput) {
 
 /**
  * Extract unchecked items from a checkbox section.
- * Filters out placeholder content, section headers, and reference links.
+ * Filters out generic noise such as placeholder content, section headers, and
+ * reference links so it can be reused for any checkbox-based content
+ * (e.g., criteria, tasks, or other checklist items).
  *
  * @param {string} content - Section content with checkboxes
  * @returns {string[]} Array of unchecked item texts
