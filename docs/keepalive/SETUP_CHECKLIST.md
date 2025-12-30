@@ -140,7 +140,30 @@ Navigate to **Settings** → **Secrets and variables** → **Actions** → **Var
 
 ## File Structure Setup
 
-### Step 8: Create Directory Structure
+### Step 8: Update .gitignore
+
+Add the following entries to your `.gitignore` to prevent merge conflicts when multiple PRs run keepalive simultaneously:
+
+```gitignore
+# Codex working files (preserved via workflow artifacts, not git)
+# CRITICAL: These must be gitignored to prevent merge conflicts when
+# multiple PRs run keepalive simultaneously. Each run rebuilds these files.
+# Generic names (legacy)
+codex-prompt.md
+codex-output.md
+# PR-specific names (used by reusable-codex-run.yml to avoid conflicts)
+codex-prompt-*.md
+codex-output-*.md
+verifier-context.md
+```
+
+> **Why this matters**: When multiple PRs run keepalive concurrently, each
+> generates these working files. The workflow uses PR-specific filenames
+> (e.g., `codex-output-123.md`) and explicitly excludes them from commits.
+> The `.gitignore` provides defense-in-depth against accidental commits.
+> Historical data is preserved in PR comments and workflow artifacts.
+
+### Step 9: Create Directory Structure
 
 Create the following directory structure:
 
@@ -180,7 +203,7 @@ pyproject.toml                  # Python project configuration
 README.md
 ```
 
-### Step 9: Copy Essential Files
+### Step 10: Copy Essential Files
 
 #### JavaScript Agent Scripts (`.github/scripts/`)
 
@@ -217,7 +240,7 @@ Copy from:
 
 ## Workflow Configuration
 
-### Step 10: Configure Workflow Files
+### Step 11: Configure Workflow Files
 
 #### A. Gate Workflow (`pr-00-gate.yml`)
 
@@ -295,7 +318,7 @@ jobs:
 pr_number: ${{ fromJSON(needs.detect.outputs.pr_number) }}
 ```
 
-### Step 11: Configure pyproject.toml
+### Step 12: Configure pyproject.toml
 
 ```toml
 [build-system]
@@ -337,7 +360,7 @@ warn_return_any = true
 warn_unused_configs = true
 ```
 
-### Step 12: Create Issues.txt
+### Step 13: Create Issues.txt
 
 ```text
 # Issues.txt - Agent Issue Queue
@@ -349,7 +372,7 @@ warn_unused_configs = true
 - [ ] Implement core functionality
 ```
 
-### Step 13: Create Topics.txt
+### Step 14: Create Topics.txt
 
 ```text
 # Topics.txt - Issue Topic Configuration
@@ -375,13 +398,13 @@ category: maintenance
 
 ## Verification Steps
 
-### Step 14: Verify Workflow Access
+### Step 15: Verify Workflow Access
 
 1. [ ] Go to **Actions** tab
 2. [ ] Confirm "I understand my workflows, go ahead and enable them" if prompted
 3. [ ] Verify no workflow errors in the list
 
-### Step 15: Create Test PR
+### Step 16: Create Test PR
 
 1. [ ] Create a new branch: `git checkout -b test/initial-setup`
 2. [ ] Make a small change (e.g., update README)
@@ -390,7 +413,7 @@ category: maintenance
 5. [ ] Verify CI checks run
 6. [ ] Verify status checks appear on PR
 
-### Step 16: Verify Agent Automation (if using keepalive)
+### Step 17: Verify Agent Automation (if using keepalive)
 
 1. [ ] Ensure Issues.txt has at least one issue
 2. [ ] Manually trigger `agents-63-issue-intake.yml` via Actions tab

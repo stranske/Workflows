@@ -151,7 +151,16 @@ async function postCompletionComment({ github, context, core, inputs }) {
     return { posted: false, reason: 'no-pr-number' };
   }
   
-  const promptFile = inputs.prompt_file || inputs.promptFile || 'codex-prompt.md';
+  // Support PR-specific prompt files to avoid merge conflicts
+  // Try PR-specific file first, fall back to generic name
+  const basePromptFile = inputs.prompt_file || inputs.promptFile || 'codex-prompt.md';
+  let promptFile = basePromptFile;
+  const prSpecificFile = `codex-prompt-${prNumber}.md`;
+  const prSpecificPath = path.resolve(process.cwd(), prSpecificFile);
+  if (fs.existsSync(prSpecificPath)) {
+    promptFile = prSpecificFile;
+    core.info(`Using PR-specific prompt file: ${prSpecificFile}`);
+  }
   const commitSha = inputs.commit_sha || inputs.commitSha || '';
   const iteration = inputs.iteration || '';
   

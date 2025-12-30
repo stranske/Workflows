@@ -64,8 +64,12 @@ tmp/
 # - PR comments (completion summaries)
 # - Workflow artifacts (full outputs)
 # - Commit messages (change descriptions)
+# Generic names (legacy)
 codex-prompt.md
 codex-output.md
+# PR-specific names (to avoid conflicts with concurrent PRs)
+codex-prompt-*.md
+codex-output-*.md
 verifier-context.md
 
 # OS
