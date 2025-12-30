@@ -7,7 +7,12 @@ const escapeRegExp = (value) => String(value ?? '').replace(/[\\^$.*+?()[\]{}|]/
 
 const SECTION_DEFS = [
   { key: 'scope', label: 'Scope', aliases: ['Scope', 'Issue Scope', 'Why', 'Background', 'Context', 'Overview'], optional: true },
-  { key: 'tasks', label: 'Tasks', aliases: ['Tasks', 'Task List', 'Implementation', 'Implementation notes'], optional: false },
+  {
+    key: 'tasks',
+    label: 'Tasks',
+    aliases: ['Tasks', 'Task', 'Task List', 'Implementation', 'Implementation notes', 'To Do', 'Todo', 'To-Do'],
+    optional: false,
+  },
   {
     key: 'acceptance',
     label: 'Acceptance Criteria',
