@@ -183,7 +183,16 @@ function extractUncheckedItems(content) {
     // Match unchecked boxes: - [ ] or * [ ]
     const match = line.match(/^\s*[-*]\s+\[\s\]\s+(.+)$/);
     if (match) {
-      items.push(match[1].trim());
+      const text = match[1].trim();
+      // Skip markdown section headers that were incorrectly captured as criteria
+      if (text.startsWith('#') || text.startsWith('##')) {
+        continue;
+      }
+      // Skip items that look like markdown links to sections (e.g., "- PR #123")
+      if (/^[-–]\s*(PR|Issue)\s*#\d+/i.test(text)) {
+        continue;
+      }
+      items.push(text);
     }
   }
 
@@ -352,11 +361,11 @@ function formatFollowUpIssue({
     if (findings.gaps.length > 0) {
       newTasks = findings.gaps.map((gap) => `Address: ${gap}`);
     } else if (findings.unmetCriteria.length > 0) {
-      // Use verifier's specific unmet criteria
-      newTasks = findings.unmetCriteria.map((criterion) => `Satisfy: ${criterion}`);
+      // Use verifier's specific unmet criteria (no prefix - it's clear these need work)
+      newTasks = findings.unmetCriteria;
     } else {
       // Fall back to creating tasks from unmet acceptance criteria
-      newTasks = refinedUnmetCriteria.map((criterion) => `Satisfy: ${criterion}`);
+      newTasks = refinedUnmetCriteria;
     }
   }
 
