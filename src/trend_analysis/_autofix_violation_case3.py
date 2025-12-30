@@ -14,7 +14,7 @@ def list_builder(values: list[int]) -> list[int]:
 
 
 def ambiguous_types(left: Sequence[int], right: Sequence[int]) -> list[int]:
-    return [a + b for a, b in zip(left, right)]
+    return [a + b for a, b in zip(left, right, strict=True)]
 
 
 class SomeContainer:

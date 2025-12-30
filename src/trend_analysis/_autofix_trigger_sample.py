@@ -8,7 +8,7 @@ def badly_formatted_function(left: int, right: int) -> int:
 
 
 def another_func(left: list[int], right: list[int]) -> list[int]:
-    return [a + b for a, b in zip(left, right)]
+    return [a + b for a, b in zip(left, right, strict=True)]
 
 
 def long_line() -> str:
