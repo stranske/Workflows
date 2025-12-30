@@ -162,6 +162,9 @@ scripts:
   - source: .github/scripts/failure_comment_formatter.js
     description: "Formats failure comments for PR status updates"
 
+  - source: .github/scripts/agents-guard.js
+    description: "Guards against unauthorized agent workflow file changes"
+
 # Templates required by keepalive system
 templates:
   - source: .github/templates/keepalive-instruction.md
