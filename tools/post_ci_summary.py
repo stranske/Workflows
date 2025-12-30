@@ -741,5 +741,5 @@ def main() -> None:
         print(body)
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover - CLI entry point
     main()
