@@ -22,6 +22,27 @@ def test_extract_coverage_percent_defaults() -> None:
     assert coverage_trend._extract_coverage_percent({"totals": {}}) == 0.0
 
 
+def test_get_hotspots_handles_missing_fields() -> None:
+    coverage_json = {
+        "files": {
+            "src/a.py": {"summary": {"percent_covered": 20.0, "missing_lines": 10}},
+            "src/b.py": {"summary": {"percent_covered": 80.0, "missing_lines": 1}},
+            "src/c.py": {"summary": {}},
+        }
+    }
+
+    hotspots, low_coverage = coverage_trend._get_hotspots(
+        coverage_json, limit=2, low_threshold=50.0
+    )
+
+    assert [spot["file"] for spot in hotspots] == ["src/c.py", "src/a.py"]
+    assert [spot["file"] for spot in low_coverage] == ["src/c.py", "src/a.py"]
+
+
+def test_format_hotspot_table_handles_empty() -> None:
+    assert coverage_trend._format_hotspot_table([], "Empty") == ""
+
+
 def test_main_writes_outputs_and_passes(tmp_path: Path) -> None:
     coverage_json = tmp_path / "coverage.json"
     baseline_json = tmp_path / "baseline.json"
@@ -93,3 +114,34 @@ def test_main_fails_below_minimum(tmp_path: Path) -> None:
     assert exit_code == 1
     trend = json.loads(artifact_path.read_text(encoding="utf-8"))
     assert trend["passes_minimum"] is False
+
+
+def test_main_soft_mode_reports_without_failing(tmp_path: Path) -> None:
+    coverage_json = tmp_path / "coverage.json"
+    artifact_path = tmp_path / "trend.json"
+
+    _write_json(
+        coverage_json,
+        {
+            "totals": {"percent_covered": 40.0},
+            "files": {"src/app.py": {"summary": {"percent_covered": 40.0, "missing_lines": 5}}},
+        },
+    )
+
+    exit_code = coverage_trend.main(
+        [
+            "--coverage-json",
+            str(coverage_json),
+            "--artifact-path",
+            str(artifact_path),
+            "--minimum",
+            "65",
+            "--soft",
+        ]
+    )
+
+    assert exit_code == 0
+    trend = json.loads(artifact_path.read_text(encoding="utf-8"))
+    assert trend["passes_minimum"] is False
+    assert trend["hotspot_count"] == 1
+    assert trend["low_coverage_count"] == 1
