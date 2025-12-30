@@ -126,3 +126,63 @@ def test_main_skips_issue_management_when_at_or_above_baseline(
 
     assert exit_code == 0
     assert not calls
+
+
+def test_main_uses_trend_baseline_when_baseline_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    trend_path = tmp_path / "trend.json"
+    coverage_path = tmp_path / "coverage.json"
+    _write_json(trend_path, {"current": 60.0, "baseline": 65.0})
+    _write_json(
+        coverage_path,
+        {"files": {"src/app.py": {"summary": {"percent_covered": 60.0, "missing_lines": 4}}}},
+    )
+
+    calls = []
+
+    def fake_issue(repo, title, body, labels):
+        calls.append((repo, title, body, labels))
+
+    monkeypatch.setattr(coverage_guard, "_find_or_create_issue", fake_issue)
+
+    exit_code = coverage_guard.main(
+        [
+            "--repo",
+            "octo/repo",
+            "--trend-path",
+            str(trend_path),
+            "--coverage-path",
+            str(coverage_path),
+        ]
+    )
+
+    assert exit_code == 0
+    assert calls
+
+
+def test_main_dry_run_prints_issue_body(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    trend_path = tmp_path / "trend.json"
+    baseline_path = tmp_path / "baseline.json"
+    _write_json(trend_path, {"current": 60.0, "baseline": 70.0})
+    _write_json(baseline_path, {"coverage": 70.0})
+
+    exit_code = coverage_guard.main(
+        [
+            "--repo",
+            "octo/repo",
+            "--trend-path",
+            str(trend_path),
+            "--baseline-path",
+            str(baseline_path),
+            "--run-url",
+            "https://example/run",
+            "--dry-run",
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "Coverage Baseline Breach Report" in captured.out

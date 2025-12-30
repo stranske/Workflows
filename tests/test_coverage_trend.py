@@ -201,3 +201,55 @@ def test_main_soft_mode_reports_without_failing(tmp_path: Path) -> None:
     assert trend["passes_minimum"] is False
     assert trend["hotspot_count"] == 1
     assert trend["low_coverage_count"] == 1
+
+
+def test_main_includes_hotspot_tables_and_counts(tmp_path: Path) -> None:
+    coverage_json = tmp_path / "coverage.json"
+    baseline_json = tmp_path / "baseline.json"
+    summary_path = tmp_path / "summary.md"
+    artifact_path = tmp_path / "trend.json"
+    github_output = tmp_path / "github_output.txt"
+
+    _write_json(
+        coverage_json,
+        {
+            "totals": {"percent_covered": 88.0},
+            "files": {
+                "src/low.py": {"summary": {"percent_covered": 10.0, "missing_lines": 9}},
+                "src/high.py": {"summary": {"percent_covered": 95.0, "missing_lines": 1}},
+            },
+        },
+    )
+    _write_json(baseline_json, {"coverage": 85.0})
+
+    exit_code = coverage_trend.main(
+        [
+            "--coverage-json",
+            str(coverage_json),
+            "--baseline",
+            str(baseline_json),
+            "--summary-path",
+            str(summary_path),
+            "--artifact-path",
+            str(artifact_path),
+            "--github-output",
+            str(github_output),
+            "--minimum",
+            "70",
+            "--low-threshold",
+            "50",
+        ]
+    )
+
+    assert exit_code == 0
+    summary = summary_path.read_text(encoding="utf-8")
+    assert "Top Coverage Hotspots" in summary
+    assert "Low Coverage Files" in summary
+
+    trend = json.loads(artifact_path.read_text(encoding="utf-8"))
+    assert len(trend["hotspots"]) == 2
+    assert len(trend["low_coverage_files"]) == 1
+
+    output_text = github_output.read_text(encoding="utf-8")
+    assert "hotspot_count=2" in output_text
+    assert "low_coverage_count=1" in output_text

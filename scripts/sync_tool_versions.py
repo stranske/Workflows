@@ -183,7 +183,7 @@ def main(argv: Iterable[str]) -> int:
     return 0
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover - CLI entry point
     import logging
 
     logging.basicConfig(level=logging.INFO, format="%(message)s")
