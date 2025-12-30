@@ -28,6 +28,7 @@ workflows:
   # Core CI/CD
   - source: .github/workflows/pr-00-gate.yml
     description: "Gate workflow - runs tests, lint, type checking before merge"
+    sync_mode: create_only  # Don't overwrite - repos customize coverage-min, python versions
 
   - source: .github/workflows/ci.yml
     description: "CI workflow - main continuous integration entry point"
@@ -57,6 +58,9 @@ workflows:
 
   - source: .github/workflows/agents-bot-comment-handler.yml
     description: "Bot comment handler - dispatches agents to address bot review comments"
+
+  - source: .github/workflows/agents-guard.yml
+    description: "Agents guard - enforces agents workflow protections (Health 45)"
 
   # Maintenance workflows
   - source: .github/workflows/maint-coverage-guard.yml
