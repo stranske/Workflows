@@ -19,10 +19,31 @@ def _normalized_slug(path: Path) -> str:
     return name
 
 
+def _extract_workflow_name(path: Path) -> str:
+    contents = path.read_text(encoding="utf-8")
+    try:
+        data = yaml.safe_load(contents)
+    except yaml.YAMLError:
+        data = None
+    if isinstance(data, dict):
+        name = data.get("name")
+        if name:
+            return str(name).strip()
+
+    for line in contents.splitlines():
+        if line.startswith("name:"):
+            value = line.split(":", 1)[1].strip()
+            if (value.startswith('"') and value.endswith('"')) or (
+                value.startswith("'") and value.endswith("'")
+            ):
+                value = value[1:-1]
+            return value
+    return ""
+
+
 CANONICAL_WORKFLOW_FILES = {_normalized_slug(path) for path in WORKFLOW_DIR.glob("*.yml*")}
 CANONICAL_WORKFLOW_NAMES = {
-    str((yaml.safe_load(path.read_text(encoding="utf-8")) or {}).get("name", "")).strip()
-    for path in WORKFLOW_DIR.glob("*.yml*")
+    name for path in WORKFLOW_DIR.glob("*.yml*") if (name := _extract_workflow_name(path))
 }
 
 
