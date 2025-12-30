@@ -149,7 +149,7 @@ install_ci_deps() {
       "$(resolve_spec "requests" "${REQUESTS_VERSION:-}" "2.31.0")"
       "$(resolve_spec "jsonschema" "${JSONSCHEMA_VERSION:-}" "4.0.0")"
       "$(resolve_spec "PyYAML" "${PYYAML_VERSION:-}" "6.0.2")"
-      "$(resolve_spec "tomlkit" "${TOMLKIT_VERSION:-}" "0.13.0")"
+      "$(resolve_spec "tomlkit" "${TOMLKIT_VERSION:-}" "")"
     )
   else
     echo "Warning: autofix-versions.env not found, installing latest tool versions" >&2
