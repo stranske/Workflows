@@ -63,6 +63,8 @@ jobs:
             templates/consumer-repo
             .github/sync-manifest.yml
             .github/scripts
+            scripts
+            tools
           sparse-checkout-cone-mode: false
 
       - name: Setup Python
@@ -122,6 +124,8 @@ jobs:
           hash=$({
             find templates/consumer-repo -type f -exec sha256sum {} \;
             find tools -name "*.py" -type f -exec sha256sum {} \; 2>/dev/null || true
+            find scripts -name "*.py" -type f -exec sha256sum {} \; 2>/dev/null || true
+            find scripts -name "*.sh" -type f -exec sha256sum {} \; 2>/dev/null || true
             find .github/scripts -type f -exec sha256sum {} \;
             sha256sum .github/sync-manifest.yml
           } | sort | sha256sum | cut -d' ' -f1)
