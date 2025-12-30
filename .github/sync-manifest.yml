@@ -7,7 +7,7 @@
 # POLICY: Any file intended for consumer repos MUST be listed here.
 # Files not listed will NOT be synced, even if they exist in templates/consumer-repo/.
 #
-# Last sync trigger: 2025-12-30T19:35:00Z - Trigger sync after hash computation fix (PR #341)
+# Last sync trigger: 2025-12-30T19:50:00Z - Add CI scripts referenced by reusable workflow
 #
 # Categories:
 #   workflows: Thin caller workflows that consumers run directly
@@ -99,6 +99,25 @@ scripts:
 
   - source: tools/coverage_trend.py
     description: "Generates coverage trend summaries - required by reusable CI workflow"
+
+  # Scripts directory - CI helpers used by reusable-10-ci-python.yml
+  - source: scripts/coverage_history_append.py
+    description: "Appends coverage data to history file - required by reusable CI workflow"
+
+  - source: scripts/ci_metrics.py
+    description: "Collects CI metrics for dashboard - required by reusable CI workflow"
+
+  - source: scripts/ci_history.py
+    description: "Manages CI history data - required by reusable CI workflow"
+
+  - source: scripts/ci_coverage_delta.py
+    description: "Computes coverage delta between runs - required by reusable CI workflow"
+
+  - source: scripts/sync_test_dependencies.py
+    description: "Syncs test dependency pins - required by reusable CI workflow"
+
+  - source: scripts/check_test_dependencies.sh
+    description: "Checks test dependencies match - required by reusable CI workflow"
 
   # Python scripts for ChatGPT topic sync
   - source: .github/scripts/decode_raw_input.py
