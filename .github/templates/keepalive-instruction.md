@@ -5,9 +5,18 @@ Your objective is to satisfy the **Acceptance Criteria** by completing each **Ta
 2. Commit meaningful source code (.py, .yml, .js, etc.)—not just status/docs updates.
 3. **UPDATE THE CHECKBOXES** in the Tasks and Acceptance Criteria sections below to mark completed items.
 4. Change `- [ ]` to `- [x]` for items you have completed and verified.
+5. **In your final summary**, list completed tasks using the format: `✅ Completed: [exact task text]`
 
 **CRITICAL - Checkbox Updates:**
 When you complete a task or acceptance criterion, update its checkbox directly in this prompt file. Change the `[ ]` to `[x]` for completed items. The automation will read these checkboxes and update the PR's status summary.
+
+**CRITICAL - Summary Format:**
+At the end of your work, include explicit completion markers for each task you finished:
+```
+✅ Completed: Add validation for user input
+✅ Completed: Write unit tests for validator module
+```
+This helps the automation accurately track which tasks were addressed in this round.
 
 **Example:**
 Before: `- [ ] Add validation for user input`
