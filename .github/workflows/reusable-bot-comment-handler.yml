@@ -348,7 +348,7 @@ jobs:
             echo "token=${GITHUB_TOKEN}" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Post agent command comment
+      - name: Assign agent and post context comment
         id: dispatch
         uses: actions/github-script@v7
         with:
@@ -357,26 +357,54 @@ jobs:
             const prNumber = parseInt('${{ inputs.pr_number }}');
             const agent = '${{ needs.collect.outputs.agent }}';
             const count = '${{ needs.collect.outputs.comments_count }}';
+            const {owner, repo} = context.repo;
 
-            // Post a comment that triggers the agent via pr-meta workflow
-            // This uses the existing concurrency/dispatch infrastructure
-            const comment = `@${agent} Please address the ${count} bot review comment(s) on this PR.
+            // Map agent name to assignee login
+            // Codex CLI uses chatgpt-codex-connector for assignment
+            const agentAssignees = {
+              'codex': ['chatgpt-codex-connector'],
+              'claude': ['copilot'],  // Claude uses Copilot workspace
+              'gemini': ['copilot']   // Gemini uses Copilot workspace
+            };
 
-            Focus on:
-            1. Implementing suggested fixes that improve the code
-            2. Skipping suggestions that don't apply (note why in your response)
+            const assignees = agentAssignees[agent] || ['chatgpt-codex-connector'];
 
-            The bot comment handler workflow has prepared context for you.`;
+            // Assign the agent to the PR (this is what triggers Codex CLI properly)
+            try {
+              await github.rest.issues.addAssignees({
+                owner,
+                repo,
+                issue_number: prNumber,
+                assignees
+              });
+              core.info(`Assigned ${assignees.join(', ')} to PR #${prNumber}`);
+            } catch (error) {
+              core.warning(`Failed to assign agent: ${error.message}`);
+            }
+
+            // Post informational comment (without @mention to avoid triggering connector twice)
+            const comment = `## 🤖 Bot Comment Handler
+
+**Agent:** ${agent}
+**Bot comments to address:** ${count}
+
+The agent has been assigned to this PR to address the bot review comments.
+
+**Instructions for agent:**
+1. Implement suggested fixes that improve the code
+2. Skip suggestions that don't apply (note why in your response)
+
+The bot comment handler workflow has prepared context in the artifacts.`;
 
             await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
+              owner,
+              repo,
               issue_number: prNumber,
               body: comment
             });
 
             core.setOutput('triggered', 'true');
-            console.log(`Posted @${agent} command on PR #${prNumber}`);
+            console.log(`Assigned ${assignees.join(', ')} and posted context on PR #${prNumber}`);
 
   # Summary
   summary:
