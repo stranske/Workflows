@@ -43,6 +43,62 @@ def test_format_hotspot_table_handles_empty() -> None:
     assert coverage_trend._format_hotspot_table([], "Empty") == ""
 
 
+def test_format_hotspot_table_formats_rows() -> None:
+    table = coverage_trend._format_hotspot_table(
+        [{"file": "src/app.py", "coverage": 12.345, "missing_lines": 7}], "Hotspots"
+    )
+
+    assert "### Hotspots" in table
+    assert "| `src/app.py` | 12.3% | 7 |" in table
+
+
+def test_get_hotspots_applies_limits_and_threshold() -> None:
+    coverage_json = {
+        "files": {
+            "src/low.py": {"summary": {"percent_covered": 10.0, "missing_lines": 9}},
+            "src/mid.py": {"summary": {"percent_covered": 55.0, "missing_lines": 4}},
+            "src/high.py": {"summary": {"percent_covered": 90.0, "missing_lines": 1}},
+        }
+    }
+
+    hotspots, low_coverage = coverage_trend._get_hotspots(
+        coverage_json, limit=2, low_threshold=50.0
+    )
+
+    assert [spot["file"] for spot in hotspots] == ["src/low.py", "src/mid.py"]
+    assert [spot["file"] for spot in low_coverage] == ["src/low.py"]
+
+
+def test_main_handles_missing_coverage_json(tmp_path: Path) -> None:
+    missing_coverage = tmp_path / "missing.json"
+    baseline_json = tmp_path / "baseline.json"
+    summary_path = tmp_path / "summary.md"
+    github_output = tmp_path / "github_output.txt"
+
+    _write_json(baseline_json, {"coverage": 12.0})
+
+    exit_code = coverage_trend.main(
+        [
+            "--coverage-json",
+            str(missing_coverage),
+            "--baseline",
+            str(baseline_json),
+            "--summary-path",
+            str(summary_path),
+            "--github-output",
+            str(github_output),
+            "--minimum",
+            "70",
+        ]
+    )
+
+    assert exit_code == 1
+    summary = summary_path.read_text(encoding="utf-8")
+    assert "0.00%" in summary
+    output_text = github_output.read_text(encoding="utf-8")
+    assert "coverage=0.00" in output_text
+
+
 def test_main_writes_outputs_and_passes(tmp_path: Path) -> None:
     coverage_json = tmp_path / "coverage.json"
     baseline_json = tmp_path / "baseline.json"
