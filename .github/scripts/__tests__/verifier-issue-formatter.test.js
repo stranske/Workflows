@@ -426,6 +426,127 @@ Error classification and recovery.
       assert.ok(result.body.includes('Verifier confirmed these criteria were met'));
       assert.ok(result.body.includes('✓ First criterion'));
     });
+
+    describe('hasSubstantiveContent property', () => {
+      it('returns false when all tasks and criteria are placeholders', () => {
+        const verifierOutput = 'Verdict: PASS\n\nEverything looks good.';
+        const prBody = `## Tasks
+- [ ] Tasks section missing from source issue
+
+## Acceptance Criteria
+- [ ] Acceptance Criteria section missing from source issue`;
+
+        const result = formatFollowUpIssue({
+          verifierOutput,
+          prBody,
+          issues: [],
+          prNumber: 123,
+        });
+
+        assert.equal(result.hasSubstantiveContent, false);
+      });
+
+      it('returns true when there are real tasks', () => {
+        const verifierOutput = 'Verdict: PASS\n\nEverything looks good.';
+        const prBody = `## Tasks
+- [ ] Implement feature A
+- [ ] Add tests
+
+## Acceptance Criteria
+- [ ] Acceptance Criteria section missing from source issue`;
+
+        const result = formatFollowUpIssue({
+          verifierOutput,
+          prBody,
+          issues: [],
+          prNumber: 123,
+        });
+
+        assert.equal(result.hasSubstantiveContent, true);
+      });
+
+      it('returns true when there are real criteria', () => {
+        const verifierOutput = 'Verdict: PASS\n\nEverything looks good.';
+        const prBody = `## Tasks
+- [ ] Tasks section missing from source issue
+
+## Acceptance Criteria
+- [ ] Feature works correctly
+- [ ] Tests pass`;
+
+        const result = formatFollowUpIssue({
+          verifierOutput,
+          prBody,
+          issues: [],
+          prNumber: 123,
+        });
+
+        assert.equal(result.hasSubstantiveContent, true);
+      });
+
+      it('returns true when verifier has gaps', () => {
+        const verifierOutput = `Verdict: FAIL
+
+Blocking gaps:
+- Missing test coverage
+- API returns wrong status code`;
+        const prBody = `## Tasks
+- [ ] Tasks section missing from source issue
+
+## Acceptance Criteria
+- [ ] Acceptance Criteria section missing from source issue`;
+
+        const result = formatFollowUpIssue({
+          verifierOutput,
+          prBody,
+          issues: [],
+          prNumber: 123,
+        });
+
+        assert.equal(result.hasSubstantiveContent, true);
+      });
+
+      it('returns true when verifier has unmet criteria', () => {
+        const verifierOutput = `Verdict: FAIL
+
+## Criteria Status
+- [ ] First criterion - NOT MET (missing implementation)
+- [ ] Second criterion - NOT MET (no tests)`;
+        const prBody = `## Tasks
+- [x] Done
+
+## Acceptance Criteria
+- [ ] First criterion
+- [ ] Second criterion`;
+
+        const result = formatFollowUpIssue({
+          verifierOutput,
+          prBody,
+          issues: [],
+          prNumber: 123,
+        });
+
+        assert.equal(result.hasSubstantiveContent, true);
+      });
+
+      it('returns false when only some placeholders mixed with empty content', () => {
+        const verifierOutput = 'Verdict: PASS\n\nLooks good.';
+        const prBody = `## Tasks
+- [ ] Tasks section missing from source issue
+
+## Acceptance Criteria
+- [ ] n/a`;
+
+        const result = formatFollowUpIssue({
+          verifierOutput,
+          prBody,
+          issues: [],
+          prNumber: 123,
+        });
+
+        assert.equal(result.hasSubstantiveContent, false);
+      });
+    });
   });
 
   describe('formatSimpleFollowUpIssue', () => {
@@ -475,6 +596,73 @@ Something went wrong.`;
       });
       assert.ok(result.title.includes('Verifier failure'));
       assert.ok(!result.title.includes('PR #'));
+    });
+
+    describe('hasSubstantiveContent property', () => {
+      it('returns true when there are verifier gaps', () => {
+        const output = `Verdict: FAIL
+
+Blocking gaps:
+- Missing test coverage
+- API error handling incomplete`;
+
+        const result = formatSimpleFollowUpIssue({
+          verifierOutput: output,
+          prNumber: 123,
+        });
+
+        assert.equal(result.hasSubstantiveContent, true);
+      });
+
+      it('returns true when there are unmet criteria', () => {
+        const output = `Verdict: FAIL
+
+## Criteria Status
+- [ ] First criterion - NOT MET
+- [ ] Second criterion - NOT MET`;
+
+        const result = formatSimpleFollowUpIssue({
+          verifierOutput: output,
+          prNumber: 123,
+        });
+
+        assert.equal(result.hasSubstantiveContent, true);
+      });
+
+      it('returns true when there is verifier output', () => {
+        const output = `Verdict: FAIL
+
+Something went wrong with the verification.`;
+
+        const result = formatSimpleFollowUpIssue({
+          verifierOutput: output,
+          prNumber: 123,
+        });
+
+        assert.equal(result.hasSubstantiveContent, true);
+      });
+
+      it('returns true even for minimal verifier output', () => {
+        const output = 'Verdict: FAIL';
+
+        const result = formatSimpleFollowUpIssue({
+          verifierOutput: output,
+          prNumber: 123,
+        });
+
+        assert.equal(result.hasSubstantiveContent, true);
+      });
+
+      it('returns false for empty verifier output', () => {
+        const output = '';
+
+        const result = formatSimpleFollowUpIssue({
+          verifierOutput: output,
+          prNumber: 123,
+        });
+
+        assert.equal(result.hasSubstantiveContent, false);
+      });
     });
   });
 });
