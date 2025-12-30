@@ -49,7 +49,7 @@ on:
         value: ${{ jobs.collect.outputs.comments_count }}
       agent_triggered:
         description: 'Whether the agent was triggered to address comments'
-        value: ${{ jobs.dispatch.outputs.triggered }}
+        value: ${{ jobs.dispatch-codex.result == 'success' || jobs.dispatch-other.outputs.triggered == 'true' }}
     secrets:
       service_bot_pat:
         description: 'PAT for service bot (comments, labels)'
@@ -59,6 +59,9 @@ on:
         required: false
       gh_app_private_key:
         description: 'GitHub App private key'
+        required: false
+      CODEX_AUTH_JSON:
+        description: 'JSON contents of ~/.codex/auth.json for Codex CLI authentication'
         required: false
 
 permissions:
@@ -74,6 +77,7 @@ jobs:
     outputs:
       comments_found: ${{ steps.collect.outputs.found }}
       comments_count: ${{ steps.collect.outputs.count }}
+      head_ref: ${{ steps.agent.outputs.head_ref }}
       comments_json: ${{ steps.collect.outputs.comments }}
       agent: ${{ steps.agent.outputs.agent }}
       agent_workflow: ${{ steps.agent.outputs.workflow }}
@@ -81,7 +85,7 @@ jobs:
       - name: Generate token (if App configured)
         id: token
         uses: actions/create-github-app-token@v1
-        
+
         continue-on-error: true
         with:
           app-id: ${{ secrets.gh_app_id }}
@@ -109,7 +113,7 @@ jobs:
           github-token: ${{ steps.auth.outputs.token }}
           script: |
             const prNumber = parseInt('${{ inputs.pr_number }}');
-            
+
             let pr;
             try {
               const response = await github.rest.pulls.get({
@@ -123,11 +127,11 @@ jobs:
               core.setFailed(`Could not fetch PR #${prNumber}`);
               return;
             }
-            
+
             const labels = pr.labels.map(l => l.name);
             let agent = 'codex';  // default
             let workflow = 'reusable-codex-run.yml';
-            
+
             if (labels.includes('agent:claude')) {
               agent = 'claude';
               workflow = 'reusable-claude-run.yml';
@@ -138,10 +142,11 @@ jobs:
               agent = 'codex';
               workflow = 'reusable-codex-run.yml';
             }
-            
+
             core.setOutput('agent', agent);
             core.setOutput('workflow', workflow);
-            console.log(`Detected agent: ${agent}, workflow: ${workflow}`);
+            core.setOutput('head_ref', pr.head.ref || '');
+            console.log(`Detected agent: ${agent}, workflow: ${workflow}, head_ref: ${pr.head.ref}`);
 
       - name: Collect unresolved bot comments
         id: collect
@@ -152,10 +157,10 @@ jobs:
             const prNumber = parseInt('${{ inputs.pr_number }}');
             const botAuthors = '${{ inputs.bot_authors }}'.split(',').map(s => s.trim());
             const skipIfHumanReplied = ${{ inputs.skip_if_human_replied }};
-            
+
             console.log(`Collecting comments for PR #${prNumber}`);
             console.log(`Bot authors: ${botAuthors.join(', ')}`);
-            
+
             // Get all review comments
             const { data: comments } = await github.rest.pulls.listReviewComments({
               owner: context.repo.owner,
@@ -163,29 +168,29 @@ jobs:
               pull_number: prNumber,
               per_page: 100
             });
-            
+
             // Filter for unresolved bot comments
             const botComments = [];
             const processedThreads = new Set();
-            
+
             for (const comment of comments) {
               // Skip if not from a known bot
               if (!botAuthors.some(bot => comment.user.login.toLowerCase() === bot.toLowerCase())) {
                 continue;
               }
-              
+
               // Skip resolved threads (check via GraphQL would be better, but this approximates)
               // We'll use in_reply_to_id to track threads
               const threadId = comment.in_reply_to_id || comment.id;
-              
+
               if (processedThreads.has(threadId)) {
                 continue;
               }
-              
+
               // Check if human replied to this thread (check all comments in thread)
               if (skipIfHumanReplied) {
-                const threadReplies = comments.filter(c => 
-                  (c.in_reply_to_id === comment.id || c.in_reply_to_id === threadId) && 
+                const threadReplies = comments.filter(c =>
+                  (c.in_reply_to_id === comment.id || c.in_reply_to_id === threadId) &&
                   !botAuthors.some(bot => c.user.login.toLowerCase() === bot.toLowerCase())
                 );
                 if (threadReplies.length > 0) {
@@ -194,9 +199,9 @@ jobs:
                   continue;
                 }
               }
-              
+
               processedThreads.add(threadId);
-              
+
               // Extract useful info
               botComments.push({
                 id: comment.id,
@@ -208,14 +213,14 @@ jobs:
                 diff_hunk: comment.diff_hunk
               });
             }
-            
+
             const found = botComments.length > 0;
             core.setOutput('found', found ? 'true' : 'false');
             core.setOutput('count', botComments.length);
             core.setOutput('comments', JSON.stringify(botComments));
-            
+
             console.log(`Found ${botComments.length} unresolved bot comments`);
-            
+
             if (botComments.length > 0) {
               console.log('Comments to address:');
               for (const c of botComments) {
@@ -235,27 +240,27 @@ jobs:
             const count = comments.length;
             const agent = '${{ steps.agent.outputs.agent }}';
             const dryRun = ${{ inputs.dry_run }};
-            
+
             let summary = `## 🤖 Bot Comment Handler\n\n`;
             summary += `Found **${count}** unresolved bot comment(s) to address.\n\n`;
             summary += `| File | Line | Bot | Preview |\n`;
             summary += `|------|------|-----|--------|\n`;
-            
+
             for (const c of comments.slice(0, 10)) {
               const preview = c.body.substring(0, 50).replace(/\n/g, ' ') + '...';
               summary += `| \`${c.path}\` | ${c.line || 'N/A'} | ${c.author} | ${preview} |\n`;
             }
-            
+
             if (comments.length > 10) {
               summary += `\n*...and ${comments.length - 10} more*\n`;
             }
-            
+
             if (dryRun) {
               summary += `\n⚠️ **Dry run** - agent will not be triggered.\n`;
             } else {
               summary += `\n🚀 Dispatching **${agent}** to address these comments...\n`;
             }
-            
+
             await core.summary.addRaw(summary).write();
 
   # Generate prompt file with bot comments
@@ -276,36 +281,36 @@ jobs:
           COMMENTS_JSON: ${{ needs.collect.outputs.comments_json }}
         run: |
           set -euo pipefail
-          
+
           mkdir -p .github/codex/prompts
-          
+
           cat > .github/codex/prompts/fix_bot_comments_dynamic.md << 'PROMPT_HEADER'
           # Fix Bot Review Comments
-          
+
           Review bots have left suggestions on this PR. Address each one:
-          
+
           ## Instructions
-          
+
           1. Read each bot comment below
           2. Implement the suggested fix if it improves the code
           3. If a suggestion is incorrect or doesn't apply, skip it and note why
           4. After fixing, summarize what you addressed in your commit message
-          
+
           ## Bot Comments to Address
-          
+
           PROMPT_HEADER
-          
+
           # Append each comment using jq with proper escaping
           echo "${COMMENTS_JSON}" | jq -r '.[] | "### \(.path):\(.line // "N/A")\n\n**From:** \(.author)\n\n```\n\(.body)\n```\n\n**Context (diff hunk):**\n```diff\n\(.diff_hunk)\n```\n\n---\n"' >> .github/codex/prompts/fix_bot_comments_dynamic.md
-          
+
           cat >> .github/codex/prompts/fix_bot_comments_dynamic.md << 'PROMPT_FOOTER'
-          
+
           ## After Addressing Comments
-          
+
           - Commit your changes with message: "fix: address bot review comments"
           - Include which suggestions you addressed vs skipped in the commit message
           PROMPT_FOOTER
-          
+
           echo "ready=true" >> "$GITHUB_OUTPUT"
           echo "Generated prompt with $(echo "${COMMENTS_JSON}" | jq length) comments"
 
@@ -316,11 +321,35 @@ jobs:
           path: .github/codex/prompts/fix_bot_comments_dynamic.md
           retention-days: 1
 
-  # Dispatch to agent
-  dispatch:
-    name: Dispatch to agent
+  # Dispatch to Codex CLI (for codex agent)
+  dispatch-codex:
+    name: Dispatch to Codex CLI
     needs: [collect, prepare]
-    if: needs.collect.outputs.comments_found == 'true' && inputs.dry_run == false
+    if: needs.collect.outputs.comments_found == 'true' && inputs.dry_run == false && needs.collect.outputs.agent == 'codex'
+    uses: stranske/Workflows/.github/workflows/reusable-codex-run.yml@main
+    with:
+      prompt_file: .github/codex/prompts/fix_bot_comments.md
+      mode: bot-comments
+      pr_number: ${{ inputs.pr_number }}
+      pr_ref: ${{ needs.collect.outputs.head_ref }}
+      appendix: |
+        ## Bot Comments to Address
+
+        ${{ needs.collect.outputs.comments_json }}
+
+        Focus on:
+        1. Implementing suggested fixes that improve the code
+        2. Skipping suggestions that don't apply (note why in your commit message)
+    secrets:
+      CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
+      WORKFLOWS_APP_ID: ${{ secrets.gh_app_id }}
+      WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.gh_app_private_key }}
+
+  # Dispatch to other agents via comment (for non-codex agents)
+  dispatch-other:
+    name: Dispatch to other agent
+    needs: [collect, prepare]
+    if: needs.collect.outputs.comments_found == 'true' && inputs.dry_run == false && needs.collect.outputs.agent != 'codex'
     runs-on: ubuntu-latest
     outputs:
       triggered: ${{ steps.dispatch.outputs.triggered }}
@@ -357,31 +386,30 @@ jobs:
             const prNumber = parseInt('${{ inputs.pr_number }}');
             const agent = '${{ needs.collect.outputs.agent }}';
             const count = '${{ needs.collect.outputs.comments_count }}';
-            
-            // Post a comment that triggers the agent via pr-meta workflow
-            // This uses the existing concurrency/dispatch infrastructure
+
+            // Post a comment that triggers the non-Codex agent via pr-meta workflow
             const comment = `@${agent} Please address the ${count} bot review comment(s) on this PR.
 
             Focus on:
             1. Implementing suggested fixes that improve the code
             2. Skipping suggestions that don't apply (note why in your response)
-            
+
             The bot comment handler workflow has prepared context for you.`;
-            
+
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: prNumber,
               body: comment
             });
-            
+
             core.setOutput('triggered', 'true');
             console.log(`Posted @${agent} command on PR #${prNumber}`);
 
   # Summary
   summary:
     name: Generate summary
-    needs: [collect, dispatch]
+    needs: [collect, dispatch-codex, dispatch-other]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -389,7 +417,8 @@ jobs:
         env:
           COMMENTS_COUNT: ${{ needs.collect.outputs.comments_count }}
           AGENT: ${{ needs.collect.outputs.agent }}
-          TRIGGERED: ${{ needs.dispatch.outputs.triggered }}
+          CODEX_TRIGGERED: ${{ needs.dispatch-codex.result == 'success' }}
+          OTHER_TRIGGERED: ${{ needs.dispatch-other.outputs.triggered }}
           DRY_RUN: ${{ inputs.dry_run }}
         run: |
           {
@@ -399,6 +428,7 @@ jobs:
             echo "|--------|-------|"
             echo "| Comments Found | ${COMMENTS_COUNT:-0} |"
             echo "| Agent | ${AGENT:-N/A} |"
-            echo "| Agent Triggered | ${TRIGGERED:-false} |"
+            echo "| Codex CLI Triggered | ${CODEX_TRIGGERED:-false} |"
+            echo "| Other Agent Triggered | ${OTHER_TRIGGERED:-false} |"
             echo "| Dry Run | ${DRY_RUN} |"
           } >> "$GITHUB_STEP_SUMMARY"
