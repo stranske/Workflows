@@ -161,9 +161,7 @@ def test_main_uses_trend_baseline_when_baseline_missing(
     assert calls
 
 
-def test_main_dry_run_prints_issue_body(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
+def test_main_dry_run_prints_issue_body(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     trend_path = tmp_path / "trend.json"
     baseline_path = tmp_path / "baseline.json"
     _write_json(trend_path, {"current": 60.0, "baseline": 70.0})

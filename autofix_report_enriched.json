@@ -1,1 +1,1 @@
-{"changed": true, "classification": {"total": 0, "new": 0, "allowed": 0}, "timestamp": "2025-12-30T04:30:06Z", "files": ["tests/test_trend_analysis_helpers.py"]}
+{"changed": true, "classification": {"total": 0, "new": 0, "allowed": 0}, "timestamp": "2025-12-30T05:16:35Z", "files": ["tests/test_coverage_guard.py"]}
