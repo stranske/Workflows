@@ -1928,6 +1928,7 @@ jobs:
             --job-summary "$GITHUB_STEP_SUMMARY" \
             --artifact-path coverage-trend.json \
             --github-output coverage-trend.env \
+            --soft \
             $MIN_ARG
 
       - name: Annotate coverage trend record

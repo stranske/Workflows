@@ -97,6 +97,9 @@ def main(args: list[str] | None = None) -> int:
     parser.add_argument("--minimum", type=float, default=70.0, help="Minimum coverage threshold")
     parser.add_argument("--hotspot-limit", type=int, default=15, help="Max hotspot files to show")
     parser.add_argument("--low-threshold", type=float, default=50.0, help="Low coverage threshold")
+    parser.add_argument(
+        "--soft", action="store_true", help="Soft gate mode - report only, always exit 0"
+    )
     parsed = parser.parse_args(args)
 
     # Load current coverage
@@ -191,6 +194,10 @@ def main(args: list[str] | None = None) -> int:
     )
     if hotspots:
         print(f"Hotspots: {len(hotspots)} files with lowest coverage")
+
+    # In soft mode, always return 0 (report only, don't fail build)
+    if parsed.soft:
+        return 0
     return 0 if passes_minimum else 1
 
 
