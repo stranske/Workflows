@@ -148,6 +148,8 @@ omit = [
     "*/.venv/*",
     "archive/*",
     ".extraction/*",
+    # CI autofix test fixtures - not production code
+    "src/trend_analysis/*",
 ]
 
 [tool.coverage.report]
