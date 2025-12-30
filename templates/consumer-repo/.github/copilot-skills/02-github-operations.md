@@ -52,14 +52,20 @@ gh pr create --title "{type}: {description}" --body "..."
 **Cause**: GITHUB_TOKEN doesn't have required scope
 **Fix**: Use PAT with elevated permissions:
 ```bash
-GH_TOKEN="ghp_xxx" gh pr create ...
+# Set token in environment (don't use inline - avoids shell history exposure)
+export GH_TOKEN="$YOUR_PAT"
+gh pr create ...
 ```
 
 ### PR Creation Fails
 **Cause**: GraphQL API access issue
 **Fix**: Set token explicitly:
 ```bash
-GH_TOKEN="your_pat" gh pr create ...
+# Authenticate via gh CLI (preferred - no token in history)
+gh auth login
+# Or export token (avoid inline assignment)
+export GH_TOKEN="$YOUR_PAT"
+gh pr create ...
 ```
 
 ## Key Rule

@@ -134,6 +134,9 @@ templates:
   - source: .github/scripts/error_classifier.js
     description: "Classifies CI errors for agent handling"
 
+  - source: .github/scripts/failure_comment_formatter.js
+    description: "Formats failure comments for PR status updates"
+
 # Documentation synced to consumer repos
 docs:
   - source: docs/AGENT_ISSUE_FORMAT.md
