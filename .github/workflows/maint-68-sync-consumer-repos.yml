@@ -41,6 +41,8 @@ env:
     stranske/Template
     stranske/trip-planner
     stranske/Manager-Database
+    stranske/Portable-Alpha-Extension-Model
+    stranske/Trend_Model_Project
 
 jobs:
   # ============================================================================
@@ -497,10 +499,25 @@ jobs:
 
           # Configure git for push authentication using credential helper
           # This avoids exposing token in git remote URL or command output
+          # Must be configured before any git operations that need auth
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           # shellcheck disable=SC2016 # Single quotes intentional - ${GH_TOKEN} expands at runtime in credential helper
           git config credential.helper '!f() { echo "username=x-access-token"; echo "password=${GH_TOKEN}"; }; f'
+
+          # Remote branch exists but no PR was found (from a failed previous run) - deleting and recreating
+          if git ls-remote --exit-code origin "refs/heads/$branch_name" >/dev/null 2>&1; then
+            echo "Remote branch $branch_name exists but no PR was found (from a failed previous run) - deleting and recreating"
+            # Delete the remote branch so we can push fresh
+            delete_output=$(git push origin --delete "$branch_name" 2>&1) || {
+              if printf '%s\n' "$delete_output" | grep -qiE 'remote ref .* not found|remote ref does not exist|could not find remote ref'; then
+                echo "Remote branch $branch_name no longer exists; continuing"
+              else
+                printf '%s\n' "$delete_output" >&2
+                exit 1
+              fi
+            }
+          fi
 
           # Create branch and commit
           git checkout -b "$branch_name"
