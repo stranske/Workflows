@@ -197,6 +197,7 @@ EXPECTED_NAMES = {
     "maint-69-sync-integration-repo.yml": "Maint 69 Sync Integration Repo",
     "maint-60-release.yml": "Maint 60 Release",
     "maint-61-create-floating-v1-tag.yml": "Maint 61 Create Floating v1 Tag",
+    "maint-coverage-guard.yml": "Maint Coverage Guard",
     "pr-00-gate.yml": "Gate",
     "pr-11-ci-smoke.yml": "PR 11 - Minimal invariant CI",
     "reusable-10-ci-python.yml": "Reusable CI",
