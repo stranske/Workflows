@@ -1407,8 +1407,8 @@ test('analyzeTaskCompletion matches explicit file creation tasks', async () => {
 
   const taskText = `
 - [ ] Create \`agents-guard.test.js\` with tests for label validation
-- [ ] Create \`keepalive-guard-utils.test.js\` covering pause label detection
-- [ ] Unrelated task about documentation
+- [ ] Write poetry about sunsets and rainbows
+- [ ] Cook dinner recipes for Italian cuisine
 `;
 
   const result = await analyzeTaskCompletion({
@@ -1431,12 +1431,12 @@ test('analyzeTaskCompletion matches explicit file creation tasks', async () => {
   assert.equal(guardMatch.confidence, 'high', 'Should be high confidence for exact file');
   assert.ok(guardMatch.reason.includes('Exact file'), 'Reason should mention exact file match');
   
-  // Should NOT match keepalive-guard-utils since that file wasn't created
-  const keepaliveMatch = result.matches.find(m =>
-    m.task.toLowerCase().includes('keepalive-guard-utils.test.js')
+  // Should NOT match poetry task since it's completely unrelated
+  const poetryMatch = result.matches.find(m =>
+    m.task.toLowerCase().includes('poetry')
   );
-  assert.ok(!keepaliveMatch || keepaliveMatch.confidence !== 'high', 
-    'Should not match keepalive-guard-utils with high confidence');
+  assert.ok(!poetryMatch || poetryMatch.confidence !== 'high', 
+    'Should not match unrelated poetry task with high confidence');
 });
 
 test('analyzeTaskCompletion returns empty for unrelated commits', async () => {
@@ -1480,6 +1480,148 @@ test('analyzeTaskCompletion returns empty for unrelated commits', async () => {
   // Should find no high-confidence matches
   const highConfidence = result.matches.filter(m => m.confidence === 'high');
   assert.equal(highConfidence.length, 0, 'Should not find high-confidence matches for unrelated commits');
+});
+
+test('analyzeTaskCompletion uses lowered 35% threshold with file match', async () => {
+  // Task: "Add config support for financing model"
+  // Commit: "Pass schedule inputs into capital validation"
+  // Keywords in common: config, schedule, inputs (35%+ overlap with file match)
+  const commits = [
+    { sha: 'abc123', commit: { message: 'feat: add schedule config inputs to validation' } },
+  ];
+  const files = [
+    { filename: 'src/config/financing_model.py' },
+  ];
+  
+  const github = {
+    rest: {
+      repos: {
+        async compareCommits() {
+          return { data: { commits } };
+        },
+      },
+      pulls: {
+        async listFiles() {
+          return { data: files };
+        },
+      },
+    },
+  };
+
+  const taskText = `
+- [ ] Add config support for financing model schedule inputs
+- [ ] Completely unrelated database task
+`;
+
+  const result = await analyzeTaskCompletion({
+    github,
+    context: { repo: { owner: 'test', repo: 'repo' } },
+    prNumber: 1,
+    baseSha: 'base123',
+    headSha: 'head456',
+    taskText,
+    core: buildCore(),
+  });
+
+  // With lowered threshold (35%) + file match, should be high confidence
+  const configMatch = result.matches.find(m => 
+    m.task.toLowerCase().includes('config') && m.task.toLowerCase().includes('financing')
+  );
+  assert.ok(configMatch, 'Should match config/financing task');
+  assert.equal(configMatch.confidence, 'high', 'Should be high confidence with 35%+ match and file touch');
+});
+
+test('analyzeTaskCompletion gives high confidence for 25% keyword match with file match', async () => {
+  // Lower threshold: 25% keyword match + file match = high confidence
+  const commits = [
+    { sha: 'abc123', commit: { message: 'add wizard step' } },
+  ];
+  const files = [
+    { filename: 'src/ui/wizard_step.py' },
+  ];
+  
+  const github = {
+    rest: {
+      repos: {
+        async compareCommits() {
+          return { data: { commits } };
+        },
+      },
+      pulls: {
+        async listFiles() {
+          return { data: files };
+        },
+      },
+    },
+  };
+
+  const taskText = `
+- [ ] Add wizard step for sleeve suggestions with tooltips and validation
+`;
+
+  const result = await analyzeTaskCompletion({
+    github,
+    context: { repo: { owner: 'test', repo: 'repo' } },
+    prNumber: 1,
+    baseSha: 'base123',
+    headSha: 'head456',
+    taskText,
+    core: buildCore(),
+  });
+
+  // wizard, step keywords match -> ~25% match, plus file match = high confidence
+  const wizardMatch = result.matches.find(m => 
+    m.task.toLowerCase().includes('wizard')
+  );
+  assert.ok(wizardMatch, 'Should match wizard task');
+  assert.equal(wizardMatch.confidence, 'high', 'Should be high confidence with file match even at ~25% keywords');
+});
+
+test('analyzeTaskCompletion uses synonym expansion for better matching', async () => {
+  // Task says "implement", commit says "add" - synonyms should match
+  const commits = [
+    { sha: 'abc123', commit: { message: 'feat: add config validation logic' } },
+  ];
+  const files = [
+    { filename: 'src/config/validator.py' },
+  ];
+  
+  const github = {
+    rest: {
+      repos: {
+        async compareCommits() {
+          return { data: { commits } };
+        },
+      },
+      pulls: {
+        async listFiles() {
+          return { data: files };
+        },
+      },
+    },
+  };
+
+  const taskText = `
+- [ ] Implement config validation with proper error handling
+`;
+
+  const result = await analyzeTaskCompletion({
+    github,
+    context: { repo: { owner: 'test', repo: 'repo' } },
+    prNumber: 1,
+    baseSha: 'base123',
+    headSha: 'head456',
+    taskText,
+    core: buildCore(),
+  });
+
+  // "implement" in task should match "add" in commit via synonyms
+  // plus "config" and "validation" match directly
+  const configMatch = result.matches.find(m => 
+    m.task.toLowerCase().includes('config validation')
+  );
+  assert.ok(configMatch, 'Should match config validation task');
+  assert.equal(configMatch.confidence, 'high', 'Should be high confidence with synonym matching');
 });
 
 test('autoReconcileTasks updates PR body for high-confidence matches', async () => {

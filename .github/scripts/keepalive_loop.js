@@ -1315,6 +1315,29 @@ async function analyzeTaskCompletion({ github, context, prNumber, baseSha, headS
 
   log(`Analyzing ${commits.length} commits against ${taskLines.length} unchecked tasks`);
 
+  // Common action synonyms for better matching
+  const SYNONYMS = {
+    add: ['create', 'implement', 'introduce', 'build'],
+    create: ['add', 'implement', 'introduce', 'build'],
+    implement: ['add', 'create', 'build'],
+    fix: ['repair', 'resolve', 'correct', 'patch'],
+    update: ['modify', 'change', 'revise', 'edit'],
+    remove: ['delete', 'drop', 'eliminate'],
+    test: ['tests', 'testing', 'spec', 'specs'],
+    config: ['configuration', 'settings', 'configure'],
+    doc: ['docs', 'documentation', 'document'],
+  };
+
+  // Helper to split camelCase/PascalCase into words
+  function splitCamelCase(str) {
+    return str
+      .replace(/([a-z])([A-Z])/g, '$1 $2')
+      .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
+      .toLowerCase()
+      .split(/[\s_-]+/)
+      .filter(w => w.length > 2);
+  }
+
   // Build keyword map from commits
   const commitKeywords = new Set();
   const commitMessages = commits
@@ -1324,12 +1347,31 @@ async function analyzeTaskCompletion({ github, context, prNumber, baseSha, headS
   // Extract meaningful words from commit messages
   const words = commitMessages.match(/\b[a-z_-]{3,}\b/g) || [];
   words.forEach(w => commitKeywords.add(w));
+  
+  // Also split camelCase words from commit messages
+  const camelWords = commits
+    .map(c => c.commit.message)
+    .join(' ')
+    .match(/[a-zA-Z][a-z]+[A-Z][a-zA-Z]*/g) || [];
+  camelWords.forEach(w => splitCamelCase(w).forEach(part => commitKeywords.add(part)));
 
   // Also extract from file paths
   filesChanged.forEach(f => {
     const parts = f.toLowerCase().replace(/[^a-z0-9_/-]/g, ' ').split(/[\s/]+/);
     parts.forEach(p => p.length > 2 && commitKeywords.add(p));
+    // Extract camelCase from file names
+    const fileName = f.split('/').pop() || '';
+    splitCamelCase(fileName.replace(/\.[^.]+$/, '')).forEach(w => commitKeywords.add(w));
   });
+  
+  // Add synonyms for all commit keywords
+  const expandedKeywords = new Set(commitKeywords);
+  for (const keyword of commitKeywords) {
+    const synonymList = SYNONYMS[keyword];
+    if (synonymList) {
+      synonymList.forEach(syn => expandedKeywords.add(syn));
+    }
+  }
 
   // Build module-to-test-file map for better test task matching
   // e.g., tests/test_adapter_base.py -> ["adapter", "base", "adapters"]
@@ -1355,8 +1397,8 @@ async function analyzeTaskCompletion({ github, context, prNumber, baseSha, headS
     const taskWords = taskLower.match(/\b[a-z_-]{3,}\b/g) || [];
     const isTestTask = /\b(test|tests|unit\s*test|coverage)\b/i.test(task);
     
-    // Calculate overlap score
-    const matchingWords = taskWords.filter(w => commitKeywords.has(w));
+    // Calculate overlap score using expanded keywords (with synonyms)
+    const matchingWords = taskWords.filter(w => expandedKeywords.has(w));
     const score = taskWords.length > 0 ? matchingWords.length / taskWords.length : 0;
 
     // Extract explicit file references from task (e.g., `filename.js` or filename.test.js)
@@ -1415,11 +1457,17 @@ async function analyzeTaskCompletion({ github, context, prNumber, baseSha, headS
       confidence = 'high';
       reason = 'Test file created matching module reference';
       matches.push({ task, reason, confidence });
-    } else if (score >= 0.5 && (fileMatch || commitMatch)) {
+    } else if (score >= 0.35 && (fileMatch || commitMatch)) {
+      // Lowered threshold from 0.5 to 0.35 to catch more legitimate completions
       confidence = 'high';
       reason = `${Math.round(score * 100)}% keyword match, ${fileMatch ? 'file match' : 'commit match'}`;
       matches.push({ task, reason, confidence });
-    } else if (score >= 0.3 || fileMatch) {
+    } else if (score >= 0.25 && fileMatch) {
+      // File match with moderate keyword overlap is high confidence
+      confidence = 'high';
+      reason = `${Math.round(score * 100)}% keyword match with file match`;
+      matches.push({ task, reason, confidence });
+    } else if (score >= 0.2 || fileMatch) {
       confidence = 'medium';
       reason = `${Math.round(score * 100)}% keyword match${fileMatch ? ', file touched' : ''}`;
       matches.push({ task, reason, confidence });
