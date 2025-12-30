@@ -1,7 +1,7 @@
 name: Maint 68 Sync Consumer Repos
 
 # Push workflow template updates to registered consumer repositories
-# 
+#
 # ARCHITECTURE: This workflow is MANIFEST-DRIVEN
 # All sync targets are declared in .github/sync-manifest.yml
 # DO NOT add hardcoded file lists here - update the manifest instead
@@ -97,7 +97,7 @@ jobs:
 
           # Convert to JSON for workflow consumption
           manifest_json = json.dumps(manifest, separators=(',', ':'))
-          
+
           # GitHub has output size limits, so we'll write to file too
           with open('manifest.json', 'w') as f:
               json.dump(manifest, f)
@@ -166,7 +166,7 @@ jobs:
       - name: Validate Python scripts
         run: |
           set -euo pipefail
-          
+
           # Read scripts from manifest
           scripts=$(python3 -c "
           import json
@@ -177,7 +177,7 @@ jobs:
               if src.endswith('.py'):
                   print(src)
           ")
-          
+
           failed=0
           for script in $scripts; do
             if [ -f "$script" ]; then
@@ -188,7 +188,7 @@ jobs:
               fi
             fi
           done
-          
+
           if [ "$failed" -eq 1 ]; then
             exit 1
           fi
@@ -197,7 +197,7 @@ jobs:
       - name: Validate YAML syntax
         run: |
           set -euo pipefail
-          
+
           # Read workflows from manifest
           workflows=$(python3 -c "
           import json
@@ -208,7 +208,7 @@ jobs:
               if src.endswith('.yml') or src.endswith('.yaml'):
                   print(src)
           ")
-          
+
           for workflow in $workflows; do
             template_path="templates/consumer-repo/$workflow"
             if [ -f "$template_path" ]; then
@@ -229,7 +229,8 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJson(needs.prepare.outputs.repos) }}
     env:
-      SYNC_TOKEN: ${{ secrets.OWNER_PR_PAT || secrets.SERVICE_BOT_PAT }}
+      # Local alias for the repo token (uses OWNER_PR_PAT or SERVICE_BOT_PAT)
+      _repo_token: ${{ secrets.OWNER_PR_PAT || secrets.SERVICE_BOT_PAT }}
     steps:
       - name: Checkout Workflows
         uses: actions/checkout@v4
@@ -238,7 +239,7 @@ jobs:
 
       - name: Clone consumer repo
         env:
-          GH_TOKEN: ${{ env.SYNC_TOKEN }}
+          GH_TOKEN: ${{ env._repo_token }}
         run: |
           gh repo clone ${{ matrix.repo }} consumer -- --depth=1
 
@@ -289,14 +290,14 @@ jobs:
                   return True
               if not src.exists():
                   return False
-              
+
               src_lines = src.read_text().splitlines()
               dst_lines = dst.read_text().splitlines()
-              
+
               # For short files, compare everything
               if len(src_lines) < 15 or len(dst_lines) < 15:
                   return src_lines != dst_lines
-              
+
               # Skip header (first 10 lines) for comparison
               return src_lines[10:] != dst_lines[10:]
 
@@ -304,15 +305,15 @@ jobs:
               """Sync a single file from template to consumer."""
               src = Path(source_path)
               dst = Path(target_path)
-              
+
               if skip_condition and skip_condition():
                   skipped.append(f"{dst.name}: {skip_condition.__doc__}")
                   return False
-              
+
               if not src.exists():
                   print(f"  ⚠ Source missing: {src}")
                   return False
-              
+
               if force or files_differ(src, dst):
                   if not dry_run:
                       dst.parent.mkdir(parents=True, exist_ok=True)
@@ -325,11 +326,11 @@ jobs:
               """Sync an entire directory from template to consumer."""
               src = Path(source_path)
               dst = Path(target_path)
-              
+
               if not src.exists() or not src.is_dir():
                   print(f"  ⚠ Source directory missing: {src}")
                   return False
-              
+
               dir_changes = []
               for src_file in src.rglob('*'):
                   if src_file.is_file():
@@ -340,7 +341,7 @@ jobs:
                               dst_file.parent.mkdir(parents=True, exist_ok=True)
                               shutil.copy2(src_file, dst_file)
                           dir_changes.append(str(rel_path))
-              
+
               if dir_changes:
                   changes.append(f"{dst.name}/ ({len(dir_changes)} files): {description}")
               return len(dir_changes) > 0
@@ -351,26 +352,26 @@ jobs:
               source = item.get('source', '')
               description = item.get('description', 'No description')
               sync_mode = item.get('sync_mode', 'sync')
-              
+
               # Build paths
               template_src = Path('workflows/templates/consumer-repo') / source
               consumer_dst = Path('consumer') / source
-              
+
               # Skip conditions
               def skip_custom_gate():
                   """Repo has custom Gate workflow"""
                   return 'pr-00-gate' in source and current_repo in custom_gate_repos
-              
+
               def skip_create_only():
                   """File exists and sync_mode is create_only"""
                   return sync_mode == 'create_only' and consumer_dst.exists()
-              
+
               skip_fn = None
               if 'pr-00-gate' in source:
                   skip_fn = skip_custom_gate
               elif sync_mode == 'create_only':
                   skip_fn = skip_create_only
-              
+
               sync_file(template_src, consumer_dst, description, skip_fn)
 
           # Process prompts
@@ -410,7 +411,7 @@ jobs:
               is_directory = item.get('is_directory', False)
               template_src = Path('workflows/templates/consumer-repo') / source
               consumer_dst = Path('consumer') / source
-              
+
               if is_directory:
                   sync_directory(template_src, consumer_dst, description)
               else:
@@ -429,14 +430,14 @@ jobs:
           print(f"\n{'='*60}")
           print(f"SYNC RESULTS for {current_repo}")
           print(f"{'='*60}")
-          
+
           if changes:
               print(f"\n✓ {len(changes)} files to sync:")
               for c in changes:
                   print(f"  - {c}")
           else:
               print("\n✓ No changes needed")
-          
+
           if skipped:
               print(f"\n⊘ {len(skipped)} files skipped:")
               for s in skipped:
@@ -463,13 +464,13 @@ jobs:
       - name: Check for required labels
         if: steps.sync.outputs.has_changes == 'true'
         env:
-          GH_TOKEN: ${{ env.SYNC_TOKEN }}
+          GH_TOKEN: ${{ env._repo_token }}
         run: |
           cd consumer
-          
+
           # Required labels for sync PRs
           required_labels=("sync" "automated")
-          
+
           for label in "${required_labels[@]}"; do
             if ! gh label list --json name -q ".[].name" | grep -q "^${label}$"; then
               echo "Creating label: $label"
@@ -480,12 +481,12 @@ jobs:
       - name: Create sync PR
         if: steps.sync.outputs.has_changes == 'true' && inputs.dry_run != true
         env:
-          GH_TOKEN: ${{ env.SYNC_TOKEN }}
+          GH_TOKEN: ${{ env._repo_token }}
         run: |
           cd consumer
-          
+
           branch_name="sync/workflows-${{ needs.prepare.outputs.template_hash }}"
-          
+
           # Check if branch/PR already exists
           existing_pr=$(gh pr list --head "$branch_name" --json number -q '.[0].number' || echo "")
           if [ -n "$existing_pr" ]; then
@@ -493,11 +494,12 @@ jobs:
             echo "::notice::Existing PR: #$existing_pr"
             exit 0
           fi
-          
-          # Configure git
+
+          # Configure git with token for push authentication
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          
+          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${{ matrix.repo }}.git"
+
           # Create branch and commit
           git checkout -b "$branch_name"
           git add -A
@@ -505,24 +507,24 @@ jobs:
 
           Automated sync from stranske/Workflows
           Template hash: ${{ needs.prepare.outputs.template_hash }}
-          
+
           Changes synced from sync-manifest.yml"
-          
+
           git push -u origin "$branch_name"
-          
+
           # Create PR
           pr_body=$(cat ../sync_summary.md)
           pr_body="$pr_body
 
           ---
-          
+
           ### Review Checklist
           - [ ] CI passes with updated workflows
           - [ ] No repo-specific customizations were overwritten
-          
+
           **Source:** [stranske/Workflows](https://github.com/stranske/Workflows)
           **Manifest:** [\`.github/sync-manifest.yml\`](https://github.com/stranske/Workflows/blob/main/.github/sync-manifest.yml)"
-          
+
           gh pr create \
             --title "chore: sync workflow templates" \
             --body "$pr_body" \
