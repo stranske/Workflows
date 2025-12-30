@@ -204,10 +204,4 @@ def main(argv: Iterable[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
-    try:
-        from trend_analysis.script_logging import setup_script_logging
-
-        setup_script_logging(module_file=__file__)
-    except ImportError:
-        pass
     sys.exit(main())

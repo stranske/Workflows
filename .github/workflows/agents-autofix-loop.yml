@@ -435,6 +435,25 @@ jobs:
                 headShaAfter = pr.head?.sha || headShaAfter;
                 fixApplied = Boolean(headShaBefore && headShaAfter && headShaBefore !== headShaAfter);
 
+                // Remove autofix:escalated label when fixes are applied
+                // This allows re-escalation to Codex if Gate fails again
+                if (fixApplied) {
+                  const prLabels = pr.labels?.map(l => l.name) || [];
+                  if (prLabels.includes('autofix:escalated')) {
+                    try {
+                      await github.rest.issues.removeLabel({
+                        owner,
+                        repo,
+                        issue_number: prNumber,
+                        name: 'autofix:escalated',
+                      });
+                      core.info('✅ Removed autofix:escalated label - allows re-escalation if Gate fails again');
+                    } catch (labelError) {
+                      core.warning(`Failed to remove autofix:escalated label: ${labelError.message}`);
+                    }
+                  }
+                }
+
                 const gateWorkflow = 'pr-00-gate.yml';
                 const runs = await github.paginate(github.rest.actions.listWorkflowRuns, {
                   owner,

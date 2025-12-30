@@ -1,20 +1,20 @@
-"""Sample module mirroring the Trend_Model_Project autofix fixtures."""
+"""Sample module used to exercise autofix flows."""
 
 from __future__ import annotations
 
 
-def badly_formatted_function(x: int, y: int) -> int:
-    return x + y
+def badly_formatted_function(left: int, right: int) -> int:
+    return left + right
 
 
-def another_func(items: list[int], extra: list[int]) -> list[int]:
-    return [a + b for a, b in zip(items, extra, strict=False)]
+def another_func(left: list[int], right: list[int]) -> list[int]:
+    return [a + b for a, b in zip(left, right, strict=True)]
+
+
+def long_line() -> str:
+    return "This is an overly verbose line that exists for autofix demonstrations."
 
 
 class Demo:
     def method(self, value: float) -> float:
         return value * 2
-
-
-def long_line() -> str:
-    return "An overly verbose line that exists solely to exercise autofix behaviour."

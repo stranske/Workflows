@@ -58,5 +58,5 @@ Breaking changes are called out with a **BREAKING** marker and scheduled accordi
 
 ### Notes
 
-This is the initial release, extracted from [Trend_Model_Project](https://github.com/stranske/Trend_Model_Project).
-The extraction preserved all functionality while making the workflow system independent and reusable.
+This is the initial release of the standalone workflow system.
+The system is designed to be reusable across multiple consumer repositories.
