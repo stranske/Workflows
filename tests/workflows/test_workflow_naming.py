@@ -20,6 +20,17 @@ def _workflow_paths():
     return sorted(WORKFLOW_DIR.glob("*.yml"))
 
 
+def _extract_name_from_lines(data: list[str]) -> str:
+    name_line = next((line for line in data if line.startswith("name:")), None)
+    assert name_line is not None, "Workflow missing name field"
+    value = name_line.split(":", 1)[1].strip()
+    if (value.startswith('"') and value.endswith('"')) or (
+        value.startswith("'") and value.endswith("'")
+    ):
+        value = value[1:-1]
+    return value
+
+
 def test_workflow_slugs_follow_wfv1_prefixes():
     non_compliant = [
         path.name for path in _workflow_paths() if not path.name.startswith(ALLOWED_PREFIXES)
@@ -131,13 +142,7 @@ def test_workflow_names_match_filename_convention():
         expected = EXPECTED_NAMES.get(path.name)
         assert expected, f"Missing expected name mapping for {path.name}"
         data = path.read_text(encoding="utf-8").splitlines()
-        name_line = next((line for line in data if line.startswith("name:")), None)
-        assert name_line is not None, f"Workflow {path.name} missing name field"
-        actual = name_line.split(":", 1)[1].strip()
-        if (actual.startswith('"') and actual.endswith('"')) or (
-            actual.startswith("'") and actual.endswith("'")
-        ):
-            actual = actual[1:-1]
+        actual = _extract_name_from_lines(data)
         if actual != expected:
             mismatches[path.name] = actual
     assert not mismatches, f"Workflow name mismatch detected: {mismatches}"
@@ -146,8 +151,8 @@ def test_workflow_names_match_filename_convention():
 def test_workflow_display_names_are_unique():
     names_to_files: dict[str, list[str]] = {}
     for path in _workflow_paths():
-        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-        display_name = str(data.get("name", "")).strip()
+        data = path.read_text(encoding="utf-8").splitlines()
+        display_name = _extract_name_from_lines(data).strip()
         assert display_name, f"Workflow {path.name} missing name field"
         names_to_files.setdefault(display_name, []).append(path.name)
 
