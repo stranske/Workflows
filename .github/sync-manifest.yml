@@ -32,6 +32,7 @@ workflows:
 
   - source: .github/workflows/ci.yml
     description: "CI workflow - main continuous integration entry point"
+    sync_mode: create_only  # Don't overwrite - repos customize coverage-min, python versions
 
   - source: .github/workflows/autofix.yml
     description: "Autofix workflow - automatically fixes lint/format issues"
