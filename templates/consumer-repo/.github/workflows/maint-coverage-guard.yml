@@ -1,0 +1,175 @@
+# -----------------------------------------------------------------------------
+# Coverage Guard — Consumer Repository Template
+# -----------------------------------------------------------------------------
+# Daily monitoring of coverage baseline with automatic issue creation/updates.
+# When coverage falls below baseline, creates a tracking issue with:
+# - Coverage summary (current vs baseline)
+# - Low coverage hotspot files
+# - Link to the source workflow run
+#
+# USAGE:
+#   1. Copy this file to .github/workflows/maint-coverage-guard.yml
+#   2. Create config/coverage-baseline.json with: {"coverage": 80.0}
+#   3. Workflow runs daily and on-demand via workflow_dispatch
+#
+# REQUIREMENTS:
+#   - Gate workflow must use `enable-soft-gate: true`
+#   - Gate workflow must upload coverage artifacts with `artifact-prefix: "gate-"`
+# -----------------------------------------------------------------------------
+
+name: Maint Coverage Guard
+
+'on':
+  schedule:
+    - cron: '45 6 * * *'  # Daily at 6:45 AM UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+  issues: write
+
+jobs:
+  guard:
+    name: coverage baseline monitor
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Locate latest Gate workflow run
+        id: discover
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { owner, repo } = context.repo;
+            const workflowId = '.github/workflows/pr-00-gate.yml';
+
+            const runs = await github.paginate(
+              github.rest.actions.listWorkflowRuns,
+              {
+                owner,
+                repo,
+                workflow_id: workflowId,
+                status: 'completed',
+                per_page: 50,
+              },
+            );
+
+            if (!runs.length) {
+              core.warning('No Gate workflow runs found.');
+              core.setOutput('run_id', '');
+              return;
+            }
+
+            runs.sort((a, b) => new Date(b.run_started_at || b.created_at || 0) - new Date(a.run_started_at || a.created_at || 0));
+            const candidate = runs.find(run => ['success', 'neutral'].includes(run.conclusion || '')) || runs[0];
+
+            if (!candidate) {
+              core.warning('Unable to locate a completed Gate workflow run.');
+              core.setOutput('run_id', '');
+              return;
+            }
+
+            core.setOutput('run_id', String(candidate.id || ''));
+            core.setOutput('run_number', String(candidate.run_number || ''));
+            core.setOutput('run_url', candidate.html_url || '');
+            core.notice(`Using Gate workflow run ${candidate.id} (${candidate.html_url || 'no url'})`);
+
+      - name: Download coverage trend artifact
+        if: ${{ steps.discover.outputs.run_id }}
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: gate-coverage-trend
+          run-id: ${{ steps.discover.outputs.run_id }}
+          path: coverage_artifacts/trend
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download coverage artifact
+        if: ${{ steps.discover.outputs.run_id }}
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          pattern: gate-coverage-*
+          run-id: ${{ steps.discover.outputs.run_id }}
+          path: coverage_artifacts/payload
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          merge-multiple: true
+
+      - name: Check coverage against baseline
+        if: ${{ steps.discover.outputs.run_id }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_URL: ${{ steps.discover.outputs.run_url }}
+        run: |
+          set -euo pipefail
+
+          # Find coverage files
+          TREND_FILE=$(find coverage_artifacts -name "coverage-trend.json" -type f 2>/dev/null | head -1 || true)
+          COVERAGE_FILE=$(find coverage_artifacts -name "coverage.json" -type f 2>/dev/null | head -1 || true)
+
+          # Load baseline
+          BASELINE=80
+          if [ -f "config/coverage-baseline.json" ]; then
+            BASELINE=$(python3 -c "import json; print(json.load(open('config/coverage-baseline.json')).get('coverage', 80))")
+          fi
+
+          # Load current coverage
+          CURRENT=0
+          if [ -n "$COVERAGE_FILE" ] && [ -f "$COVERAGE_FILE" ]; then
+            CURRENT=$(python3 -c "import json; print(json.load(open('$COVERAGE_FILE')).get('totals', {}).get('percent_covered', 0))")
+          elif [ -n "$TREND_FILE" ] && [ -f "$TREND_FILE" ]; then
+            CURRENT=$(python3 -c "import json; print(json.load(open('$TREND_FILE')).get('current', 0))")
+          fi
+
+          echo "Coverage: $CURRENT% (baseline: $BASELINE%)"
+
+          # Compare to baseline
+          if python3 -c "import sys; sys.exit(0 if $CURRENT >= $BASELINE else 1)"; then
+            echo "✅ Coverage meets baseline"
+          else
+            echo "❌ Coverage below baseline - creating/updating issue"
+
+            # Write issue body to file to avoid YAML parsing issues
+            cat > /tmp/coverage_issue.md << 'BODY_EOF'
+          ## Coverage Baseline Breach
+
+          Coverage has dropped below the configured baseline.
+
+          ### Actions
+          1. Review low coverage files in the Gate run summary
+          2. Add tests to improve coverage
+          3. Update baseline once target is reached
+
+          _Auto-updated by coverage guard workflow_
+          BODY_EOF
+
+            # Prepend dynamic content
+            {
+              echo "## Coverage Baseline Breach"
+              echo ""
+              echo "❌ **Current Coverage:** ${CURRENT}% (baseline: ${BASELINE}%)"
+              echo ""
+              echo "### Details"
+              echo "Run URL: ${RUN_URL}"
+              echo "Coverage: ${CURRENT}%"
+              echo "Baseline: ${BASELINE}%"
+              echo ""
+              echo "### Actions"
+              echo "1. Review low coverage files in the Gate run summary"
+              echo "2. Add tests to improve coverage"
+              echo "3. Update baseline once target is reached"
+              echo ""
+              echo "_Auto-updated by coverage guard workflow_"
+            } > /tmp/coverage_issue.md
+
+            # Find or create issue
+            EXISTING=$(gh issue list --search "[coverage] baseline breach in:title" --json number --limit 1 -q '.[0].number' || true)
+
+            if [ -n "$EXISTING" ]; then
+              gh issue edit "$EXISTING" --body-file /tmp/coverage_issue.md
+              echo "Updated issue #$EXISTING"
+            else
+              gh issue create --title "[coverage] baseline breach" --body-file /tmp/coverage_issue.md --label "coverage"

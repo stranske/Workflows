@@ -340,6 +340,54 @@ generates these working files. The workflow uses PR-specific filenames (e.g.,
 - Workflow artifacts (full outputs)
 - Commit messages (change descriptions)
 
+### Consumer Repo Setup: Coverage Soft Gate
+
+Enable coverage tracking with automatic issue creation when coverage drops:
+
+**1. Enable soft-gate in your Gate workflow:**
+
+```yaml
+jobs:
+  python-ci:
+    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
+    with:
+      coverage-min: "80"           # Minimum threshold
+      enable-soft-gate: true       # Enable trend tracking & hotspot reporting
+      artifact-prefix: "gate-"     # Required for coverage guard
+```
+
+**2. Create a coverage baseline file (`config/coverage-baseline.json`):**
+
+```json
+{
+  "coverage": 80.0,
+  "updated": "2025-12-30",
+  "notes": "Initial baseline - adjust based on project maturity"
+}
+```
+
+**3. Add the coverage guard workflow (`.github/workflows/maint-coverage-guard.yml`):**
+
+Copy from `templates/consumer-repo/.github/workflows/maint-coverage-guard.yml`
+
+**What you get:**
+
+| Feature | Description |
+|---------|-------------|
+| **Coverage Summary** | Table in workflow run summary showing current vs baseline |
+| **Hotspot Report** | List of files with lowest coverage (candidates for new tests) |
+| **Low Coverage Alert** | Files below 50% threshold highlighted separately |
+| **Baseline Issue** | Auto-created/updated issue when coverage drops below baseline |
+| **Trend Artifacts** | `coverage-trend.json` and `coverage-trend-history.ndjson` for analysis |
+
+**Soft vs Hard Gate:**
+
+- **Soft gate** (`enable-soft-gate: true`): Reports coverage but doesn't fail the build
+- **Hard gate** (`coverage-min: "80"`): Fails build if coverage below threshold
+
+Use both together for maximum visibility: soft gate shows trends while hard gate
+enforces the minimum.
+
 ---
 
 ## Common Patterns
