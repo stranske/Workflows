@@ -41,6 +41,8 @@ env:
     stranske/Template
     stranske/trip-planner
     stranske/Manager-Database
+    stranske/Portable-Alpha-Extension-Model
+    stranske/Trend_Model_Project
 
 jobs:
   # ============================================================================
