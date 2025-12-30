@@ -1172,6 +1172,83 @@ test('buildTaskAppendix omits reconciliation warning when state.needs_task_recon
   assert.ok(!appendix.includes('Task Reconciliation Required'));
 });
 
+test('extractSourceSection extracts source links from PR body', () => {
+  const { extractSourceSection } = require('../keepalive_loop.js');
+  
+  const prBody = `## Summary
+Some summary text
+
+## Source
+- Original PR: #123
+- Parent issue: #456
+
+## Tasks
+- [ ] Do something`;
+  
+  const source = extractSourceSection(prBody);
+  assert.ok(source.includes('#123'));
+  assert.ok(source.includes('#456'));
+});
+
+test('extractSourceSection returns null when no source section', () => {
+  const { extractSourceSection } = require('../keepalive_loop.js');
+  
+  const prBody = `## Summary
+Some summary text
+
+## Tasks
+- [ ] Do something`;
+  
+  const source = extractSourceSection(prBody);
+  assert.equal(source, null);
+});
+
+test('extractSourceSection returns null for source section without links', () => {
+  const { extractSourceSection } = require('../keepalive_loop.js');
+  
+  const prBody = `## Source
+No actual links here, just text`;
+  
+  const source = extractSourceSection(prBody);
+  assert.equal(source, null);
+});
+
+test('buildTaskAppendix includes Source Context when prBody has source links', () => {
+  const { buildTaskAppendix } = require('../keepalive_loop.js');
+  const sections = {
+    scope: 'Fix the bug',
+    tasks: '- [ ] Update code',
+    acceptance: '- [ ] Tests pass',
+  };
+  const checkboxCounts = { total: 2, checked: 0, unchecked: 2 };
+  const prBody = `## Summary
+Fix stuff
+
+## Source
+- Original PR: #789
+- Parent issue: https://github.com/org/repo/issues/100`;
+  
+  const appendix = buildTaskAppendix(sections, checkboxCounts, {}, { prBody });
+  
+  assert.ok(appendix.includes('### Source Context'));
+  assert.ok(appendix.includes('#789'));
+  assert.ok(appendix.includes('github.com'));
+});
+
+test('buildTaskAppendix omits Source Context when prBody has no source section', () => {
+  const { buildTaskAppendix } = require('../keepalive_loop.js');
+  const sections = {
+    tasks: '- [ ] Update code',
+  };
+  const checkboxCounts = { total: 1, checked: 0, unchecked: 1 };
+  const prBody = `## Summary
+Just some info`;
+  
+  const appendix = buildTaskAppendix(sections, checkboxCounts, {}, { prBody });
+  
+  assert.ok(!appendix.includes('Source Context'));
+});
+
 test('markAgentRunning updates summary comment with running status', async () => {
   // Use formatStateComment to create proper state marker
   const existingStateBody = formatStateComment({

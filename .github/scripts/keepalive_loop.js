@@ -253,13 +253,34 @@ function classifyFailureDetails({ action, runResult, summaryReason, agentExitCod
 }
 
 /**
+ * Extract Source section from PR/issue body that contains links to parent issues/PRs.
+ * @param {string} body - PR or issue body text
+ * @returns {string|null} Source section content or null if not found
+ */
+function extractSourceSection(body) {
+  const text = String(body || '');
+  // Match "## Source" or "### Source" section
+  const match = text.match(/##?\s*Source\s*\n([\s\S]*?)(?=\n##|\n---|\n\n\n|$)/i);
+  if (match && match[1]) {
+    const content = match[1].trim();
+    // Only return if it has meaningful content (links to issues/PRs)
+    if (/#\d+|github\.com/.test(content)) {
+      return content;
+    }
+  }
+  return null;
+}
+
+/**
  * Build the task appendix that gets passed to the agent prompt.
  * This provides explicit, structured tasks and acceptance criteria.
  * @param {object} sections - Parsed scope/tasks/acceptance sections
  * @param {object} checkboxCounts - { total, checked, unchecked }
  * @param {object} [state] - Optional keepalive state for reconciliation info
+ * @param {object} [options] - Additional options
+ * @param {string} [options.prBody] - Full PR body to extract Source section from
  */
-function buildTaskAppendix(sections, checkboxCounts, state = {}) {
+function buildTaskAppendix(sections, checkboxCounts, state = {}, options = {}) {
   const lines = [];
   
   lines.push('---');
@@ -304,6 +325,18 @@ function buildTaskAppendix(sections, checkboxCounts, state = {}) {
     lines.push('');
     lines.push(sections.acceptance);
     lines.push('');
+  }
+  
+  // Add Source section if PR body contains links to parent issues/PRs
+  if (options.prBody) {
+    const sourceSection = extractSourceSection(options.prBody);
+    if (sourceSection) {
+      lines.push('### Source Context');
+      lines.push('_For additional background, check these linked issues/PRs:_');
+      lines.push('');
+      lines.push(sourceSection);
+      lines.push('');
+    }
   }
   
   lines.push('---');
@@ -639,7 +672,7 @@ async function evaluateKeepaliveLoop({ github, context, core, payload: overrideP
   const shouldStopForMaxIterations = iteration >= maxIterations && !isProductive;
 
   // Build task appendix for the agent prompt (after state load for reconciliation info)
-  const taskAppendix = buildTaskAppendix(normalisedSections, checkboxCounts, state);
+  const taskAppendix = buildTaskAppendix(normalisedSections, checkboxCounts, state, { prBody: pr.body });
 
   let action = 'wait';
   let reason = 'pending';
@@ -1509,6 +1542,7 @@ module.exports = {
   countCheckboxes,
   parseConfig,
   buildTaskAppendix,
+  extractSourceSection,
   evaluateKeepaliveLoop,
   markAgentRunning,
   updateKeepaliveLoopSummary,

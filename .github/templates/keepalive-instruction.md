@@ -19,4 +19,7 @@ After:  `- [x] Add validation for user input`
 - Close the round without source-code changes when acceptance criteria require them.
 - Change the text of checkboxes—only change `[ ]` to `[x]`.
 
+**CONTEXT TIP:**
+If the PR body includes a **Source** section with links to a parent issue or original PR, those contain additional context about the problem being solved. Check the linked issue/PR for background information, related discussions, or details not captured in the Scope section.
+
 Review the Scope/Tasks/Acceptance below, identify the next incomplete task that requires code, implement it, then **update the checkboxes** to mark completed items.
