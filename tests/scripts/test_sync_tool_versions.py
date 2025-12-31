@@ -55,10 +55,12 @@ def test_parse_env_file_reads_values(tmp_path: Path) -> None:
 
 def test_ensure_pyproject_missing_entry() -> None:
     versions = {cfg.env_key: "1.0" for cfg in sync_tool_versions.TOOL_CONFIGS}
-    content = _make_pyproject_content(versions).replace("\"ruff==1.0\",\n", "")
+    content = _make_pyproject_content(versions).replace('"ruff==1.0",\n', "")
 
     with pytest.raises(sync_tool_versions.SyncError, match="missing an entry"):
-        sync_tool_versions.ensure_pyproject(content, sync_tool_versions.TOOL_CONFIGS, versions, False)
+        sync_tool_versions.ensure_pyproject(
+            content, sync_tool_versions.TOOL_CONFIGS, versions, False
+        )
 
 
 def test_ensure_pyproject_mismatch_without_apply() -> None:
@@ -87,7 +89,9 @@ def test_ensure_pyproject_apply_updates_version() -> None:
     assert '"mypy==3.0",' in updated
 
 
-def test_main_reports_mismatch(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+def test_main_reports_mismatch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
     env_path = tmp_path / "pins.env"
     pyproject_path = tmp_path / "pyproject.toml"
     env_versions = {cfg.env_key: "2.0" for cfg in sync_tool_versions.TOOL_CONFIGS}
