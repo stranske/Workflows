@@ -161,6 +161,13 @@ class TestCheckPermissions:
         issues = check_permissions(workflow)
         assert issues == ["Job build has write-all permissions"]
 
+    def test_allows_contents_write(self) -> None:
+        """Test that contents: write does not raise a permission issue."""
+        workflow = {"permissions": {"contents": "write"}, "jobs": {}}
+
+        issues = check_permissions(workflow)
+        assert issues == []
+
 
 class TestValidateWorkflow:
     """Tests for validate_workflow function."""
