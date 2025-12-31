@@ -53,6 +53,20 @@ def test_detect_default_branch_falls_back_to_head(monkeypatch) -> None:
     assert ledger_migrate_base.detect_default_branch() == "release"
 
 
+def test_detect_default_branch_from_rev_parse(monkeypatch) -> None:
+    def fake_run(args):
+        if args == ["remote", "show", "origin"]:
+            raise ledger_migrate_base.MigrationError("no remote")
+        if args == ["symbolic-ref", "--quiet", "refs/remotes/origin/HEAD"]:
+            raise ledger_migrate_base.MigrationError("no origin head")
+        if args == ["rev-parse", "--abbrev-ref", "origin/HEAD"]:
+            return "origin/stable\n"
+        raise AssertionError(f"unexpected args: {args}")
+
+    monkeypatch.setattr(ledger_migrate_base, "_run_git", fake_run)
+    assert ledger_migrate_base.detect_default_branch() == "stable"
+
+
 def test_detect_default_branch_requires_fallback(monkeypatch) -> None:
     def fake_run(args):
         raise ledger_migrate_base.MigrationError(f"no git for {args}")
@@ -67,6 +81,16 @@ def test_load_ledger_requires_mapping(tmp_path) -> None:
     ledger_path.write_text("- item\n", encoding="utf-8")
     with pytest.raises(ledger_migrate_base.MigrationError, match="ledger must be a mapping"):
         ledger_migrate_base.load_ledger(ledger_path)
+
+
+def test_load_ledger_returns_none_for_non_string_base(tmp_path) -> None:
+    ledger_path = tmp_path / "issue-10-ledger.yml"
+    _write_ledger(ledger_path, {"base": 123, "items": []})
+
+    data, base = ledger_migrate_base.load_ledger(ledger_path)
+
+    assert data["base"] == 123
+    assert base is None
 
 
 def test_migrate_ledger_updates_when_needed(tmp_path) -> None:
@@ -102,6 +126,16 @@ def test_migrate_ledger_noop_when_matching(tmp_path) -> None:
     assert result.updated == "main"
 
 
+def test_migrate_ledger_noop_when_matching_without_check(tmp_path) -> None:
+    ledger_path = tmp_path / "issue-5-ledger.yml"
+    _write_ledger(ledger_path, {"base": "main", "items": []})
+
+    result = ledger_migrate_base.migrate_ledger(ledger_path, "main", check=False)
+
+    assert result.changed is False
+    assert result.updated == "main"
+
+
 def test_find_repo_root_wraps_git_failure(monkeypatch) -> None:
     def fake_run(args):
         raise ledger_migrate_base.MigrationError("no git")
@@ -132,6 +166,23 @@ def test_main_reports_no_ledgers(monkeypatch, capsys, tmp_path) -> None:
     assert "No ledgers found" in out
 
 
+def test_main_check_reports_no_mismatches(monkeypatch, capsys, tmp_path) -> None:
+    agents_dir = tmp_path / ".agents"
+    agents_dir.mkdir()
+    ledger_path = agents_dir / "issue-11-ledger.yml"
+    ledger_path.write_text("base: main\n", encoding="utf-8")
+
+    monkeypatch.setattr(ledger_migrate_base, "find_repo_root", lambda: tmp_path)
+    monkeypatch.setattr(ledger_migrate_base, "detect_default_branch", lambda _=None: "main")
+
+    exit_code = ledger_migrate_base.main(["--check"])
+
+    assert exit_code == 0
+    out = capsys.readouterr().out
+    assert str(ledger_path) not in out
+    assert "All ledgers already track the default branch." in out
+
+
 def test_main_check_reports_mismatches(monkeypatch, capsys, tmp_path) -> None:
     agents_dir = tmp_path / ".agents"
     agents_dir.mkdir()
@@ -155,6 +206,24 @@ def test_main_check_reports_mismatches(monkeypatch, capsys, tmp_path) -> None:
     out = capsys.readouterr().out
     assert "Found ledgers with stale base values" in out
     assert str(ledger_path) in out
+
+
+def test_main_updates_ledgers(monkeypatch, capsys, tmp_path) -> None:
+    agents_dir = tmp_path / ".agents"
+    agents_dir.mkdir()
+    ledger_path = agents_dir / "issue-12-ledger.yml"
+    _write_ledger(ledger_path, {"base": "develop", "items": []})
+
+    monkeypatch.setattr(ledger_migrate_base, "find_repo_root", lambda: tmp_path)
+    monkeypatch.setattr(ledger_migrate_base, "detect_default_branch", lambda _=None: "main")
+
+    exit_code = ledger_migrate_base.main([])
+
+    assert exit_code == 0
+    out = capsys.readouterr().out
+    assert "Updated ledgers:" in out
+    assert str(ledger_path) in out
+    assert yaml.safe_load(ledger_path.read_text(encoding="utf-8"))["base"] == "main"
 
 
 def test_main_emits_error_on_detection_failure(monkeypatch, capsys) -> None:
