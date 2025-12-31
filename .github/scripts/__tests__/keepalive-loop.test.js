@@ -654,7 +654,7 @@ test('updateKeepaliveLoopSummary resets failure count on transient errors', asyn
     },
   });
 
-  assert.equal(github.actions.length, 2);
+  assert.equal(github.actions.length, 1);
   const updateAction = github.actions.find((action) => action.type === 'update');
   assert.ok(updateAction);
   const body = updateAction.body;
@@ -663,10 +663,6 @@ test('updateKeepaliveLoopSummary resets failure count on transient errors', asyn
   assert.match(body, /"failure":\{\}/);
   assert.match(body, /"error_type":"infrastructure"/);
   assert.match(body, /"error_category":"transient"/);
-  const attentionComment = github.actions.find((action) =>
-    action.type === 'create' && action.body.includes('codex-failure-notification')
-  );
-  assert.ok(attentionComment);
 });
 
 test('updateKeepaliveLoopSummary uses state iteration when inputs have stale value', async () => {
@@ -778,16 +774,11 @@ test('updateKeepaliveLoopSummary adds needs-human after repeated actual failures
     },
   });
 
-  assert.equal(github.actions.length, 4);
+  assert.equal(github.actions.length, 3);
   const updateAction = github.actions.find((action) => action.type === 'update');
   assert.ok(updateAction);
   assert.match(updateAction.body, /agent-run-failed-repeat/);
   assert.match(updateAction.body, /AGENT FAILED/);
-
-  const attentionComment = github.actions.find((action) =>
-    action.type === 'create' && action.body.includes('codex-failure-notification')
-  );
-  assert.ok(attentionComment);
 
   const needsAttentionLabel = github.actions.find((action) =>
     action.type === 'label' && action.labels.includes('agent:needs-attention')
@@ -800,7 +791,7 @@ test('updateKeepaliveLoopSummary adds needs-human after repeated actual failures
   assert.ok(needsHumanLabel);
 });
 
-test('updateKeepaliveLoopSummary posts attention comment for auth failures', async () => {
+test('updateKeepaliveLoopSummary adds attention label for auth failures', async () => {
   const existingState = formatStateComment({
     trace: 'trace-attention-auth',
     iteration: 1,
@@ -833,20 +824,13 @@ test('updateKeepaliveLoopSummary posts attention comment for auth failures', asy
     },
   });
 
-  const attentionComment = github.actions.find((action) =>
-    action.type === 'create' && action.body.includes('codex-failure-notification')
-  );
-  assert.ok(attentionComment);
-  assert.match(attentionComment.body, /Error Category.*`auth`/);
-  assert.match(attentionComment.body, /Verify credentials/);
-
   const labelAction = github.actions.find((action) =>
     action.type === 'label' && action.labels.includes('agent:needs-attention')
   );
   assert.ok(labelAction);
 });
 
-test('updateKeepaliveLoopSummary posts attention comment for resource failures', async () => {
+test('updateKeepaliveLoopSummary adds attention label for resource failures', async () => {
   const existingState = formatStateComment({
     trace: 'trace-attention-resource',
     iteration: 1,
@@ -879,15 +863,13 @@ test('updateKeepaliveLoopSummary posts attention comment for resource failures',
     },
   });
 
-  const attentionComment = github.actions.find((action) =>
-    action.type === 'create' && action.body.includes('codex-failure-notification')
+  const attentionLabel = github.actions.find((action) =>
+    action.type === 'label' && action.labels.includes('agent:needs-attention')
   );
-  assert.ok(attentionComment);
-  assert.match(attentionComment.body, /Error Category.*`resource`/);
-  assert.match(attentionComment.body, /Confirm the referenced resource exists/);
+  assert.ok(attentionLabel);
 });
 
-test('updateKeepaliveLoopSummary posts attention comment for logic failures', async () => {
+test('updateKeepaliveLoopSummary adds attention label for logic failures', async () => {
   const existingState = formatStateComment({
     trace: 'trace-attention-logic',
     iteration: 1,
@@ -920,15 +902,13 @@ test('updateKeepaliveLoopSummary posts attention comment for logic failures', as
     },
   });
 
-  const attentionComment = github.actions.find((action) =>
-    action.type === 'create' && action.body.includes('codex-failure-notification')
+  const attentionLabel = github.actions.find((action) =>
+    action.type === 'label' && action.labels.includes('agent:needs-attention')
   );
-  assert.ok(attentionComment);
-  assert.match(attentionComment.body, /Error Category.*`logic`/);
-  assert.match(attentionComment.body, /Review request inputs/);
+  assert.ok(attentionLabel);
 });
 
-test('updateKeepaliveLoopSummary formats codex attention comment details', async () => {
+test('updateKeepaliveLoopSummary formats codex failure details in summary', async () => {
   const existingState = formatStateComment({
     trace: 'trace-attention-codex',
     iteration: 1,
@@ -963,14 +943,12 @@ test('updateKeepaliveLoopSummary formats codex attention comment details', async
     },
   });
 
-  const attentionComment = github.actions.find((action) =>
-    action.type === 'create' && action.body.includes('codex-failure-notification')
-  );
-  assert.ok(attentionComment);
-  assert.match(attentionComment.body, /Error Category.*`logic`/);
-  assert.match(attentionComment.body, /Error Type.*`codex`/);
-  assert.match(attentionComment.body, /https:\/\/example.com\/run\/657/);
-  assert.match(attentionComment.body, /Output summary/);
+  const updateAction = github.actions.find((action) => action.type === 'update');
+  assert.ok(updateAction);
+  assert.match(updateAction.body, /Error category \| logic/);
+  assert.match(updateAction.body, /Error type \| codex/);
+  assert.match(updateAction.body, /https:\/\/example.com\/run\/657/);
+  assert.match(updateAction.body, /Codex output/);
 });
 
 test('updateKeepaliveLoopSummary does NOT add needs-human on tasks-complete', async () => {
