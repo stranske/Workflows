@@ -243,7 +243,6 @@ def test_main_check_all_templates_reports_errors(
         env_path = Path(temp_dir) / "autofix-versions.env"
         env_path.write_text("PYTEST_VERSION=7.0.0\n", encoding="utf-8")
 
-        original_glob = Path.glob
         original_exists = Path.exists
 
         def fake_glob(self: Path, pattern: str) -> list[Path]:
