@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 from scripts import auto_type_hygiene
 
 
@@ -71,9 +69,7 @@ def test_module_has_types_handles_spec_variants(tmp_path, monkeypatch):
         origin = "typed.pyi"
         submodule_search_locations = None
 
-    monkeypatch.setattr(
-        auto_type_hygiene.importlib.util, "find_spec", lambda _: FakeSpec()
-    )
+    monkeypatch.setattr(auto_type_hygiene.importlib.util, "find_spec", lambda _: FakeSpec())
     assert auto_type_hygiene.module_has_types("typed_mod") is True
 
     typed_dir = tmp_path / "typed"
@@ -84,9 +80,7 @@ def test_module_has_types_handles_spec_variants(tmp_path, monkeypatch):
         origin = "file.py"
         submodule_search_locations = [str(typed_dir)]
 
-    monkeypatch.setattr(
-        auto_type_hygiene.importlib.util, "find_spec", lambda _: SearchSpec()
-    )
+    monkeypatch.setattr(auto_type_hygiene.importlib.util, "find_spec", lambda _: SearchSpec())
     assert auto_type_hygiene.module_has_types("search_mod") is True
 
     class EmptySearchSpec:
@@ -94,9 +88,7 @@ def test_module_has_types_handles_spec_variants(tmp_path, monkeypatch):
         submodule_search_locations = [None]
 
     monkeypatch.setattr(auto_type_hygiene, "_has_stub_package", lambda _: False)
-    monkeypatch.setattr(
-        auto_type_hygiene.importlib.util, "find_spec", lambda _: EmptySearchSpec()
-    )
+    monkeypatch.setattr(auto_type_hygiene.importlib.util, "find_spec", lambda _: EmptySearchSpec())
     assert auto_type_hygiene.module_has_types("empty_search") is False
 
 
