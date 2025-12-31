@@ -188,7 +188,9 @@ function normaliseChecklistSection(content) {
   }
   const lines = raw.split('\n');
   let mutated = false;
+  
   const updated = lines.map((line) => {
+    // Match bullet points (-, *, +) or numbered lists (1., 2), 3.)
     const match = line.match(/^(\s*)([-*+]|\d+[.)])\s+(.*)$/);
     if (!match) {
       return line;
@@ -198,9 +200,11 @@ function normaliseChecklistSection(content) {
     if (!remainder) {
       return line;
     }
+    // If already a checkbox, preserve it
     if (/^\[[ xX]\]/.test(remainder)) {
       return `${indent}${bullet} ${remainder}`;
     }
+
     mutated = true;
     return `${indent}${bullet} [ ] ${remainder}`;
   });
@@ -1566,4 +1570,5 @@ module.exports = {
   updateKeepaliveLoopSummary,
   analyzeTaskCompletion,
   autoReconcileTasks,
+  normaliseChecklistSection,
 };

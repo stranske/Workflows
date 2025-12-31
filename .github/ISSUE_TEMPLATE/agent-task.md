@@ -13,6 +13,14 @@ assignees: ''
    section header options, and examples of valid issue structures.
 -->
 
+<!-- 
+⚠️ CHECKPOINT CONVERSION RULES:
+   • ALL bullet points (- item) in "Tasks" and "Acceptance criteria" sections become checkboxes
+   • Put instructions, notes, and verification steps in "Scope" or "Implementation Notes" instead
+   • Use plain text, bold headings, or code blocks for instructions - NOT bullet points
+   • Only use bullet points for actual work items you want to check off
+-->
+
 ## Why
 <!-- Describe the primary objective Codex should accomplish. Include links to relevant issues, documents, or workflows. -->
 
