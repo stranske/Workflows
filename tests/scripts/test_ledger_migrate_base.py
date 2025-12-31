@@ -136,10 +136,15 @@ def test_main_check_reports_mismatches(monkeypatch, capsys, tmp_path) -> None:
     agents_dir = tmp_path / ".agents"
     agents_dir.mkdir()
     ledger_path = agents_dir / "issue-9-ledger.yml"
-    ledger_path.write_text(textwrap.dedent("""\
+    ledger_path.write_text(
+        textwrap.dedent(
+            """\
         base: develop
         items: []
-        """), encoding="utf-8")
+        """
+        ),
+        encoding="utf-8",
+    )
 
     monkeypatch.setattr(ledger_migrate_base, "find_repo_root", lambda: tmp_path)
     monkeypatch.setattr(ledger_migrate_base, "detect_default_branch", lambda _=None: "main")
