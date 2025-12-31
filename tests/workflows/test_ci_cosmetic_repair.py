@@ -397,7 +397,7 @@ def test_stage_and_commit_uses_git(monkeypatch: pytest.MonkeyPatch, tmp_path: Pa
 
     class FakeDateTime:
         @staticmethod
-        def utcnow() -> dt_datetime:
+        def now(tz=None) -> dt_datetime:
             return dt_datetime(2024, 1, 2, 3, 4, 5)
 
     monkeypatch.setattr(ci_cosmetic_repair, "_run", fake_run)
