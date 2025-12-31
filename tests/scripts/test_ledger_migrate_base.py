@@ -1,4 +1,5 @@
 import textwrap
+from pathlib import Path
 
 import pytest
 import yaml
@@ -35,6 +36,46 @@ def test_detect_default_branch_from_symbolic_ref_origin(monkeypatch) -> None:
 
     monkeypatch.setattr(ledger_migrate_base, "_run_git", fake_run)
     assert ledger_migrate_base.detect_default_branch() == "main"
+
+
+def test_detect_default_branch_ignores_blank_head_branch(monkeypatch) -> None:
+    def fake_run(args):
+        if args == ["remote", "show", "origin"]:
+            return "  HEAD branch:\n"
+        if args == ["symbolic-ref", "--quiet", "refs/remotes/origin/HEAD"]:
+            return "refs/heads/dev\n"
+        raise AssertionError(f"unexpected args: {args}")
+
+    monkeypatch.setattr(ledger_migrate_base, "_run_git", fake_run)
+    assert ledger_migrate_base.detect_default_branch() == "dev"
+
+
+def test_detect_default_branch_returns_raw_ref(monkeypatch) -> None:
+    def fake_run(args):
+        if args == ["remote", "show", "origin"]:
+            raise ledger_migrate_base.MigrationError("no remote")
+        if args == ["symbolic-ref", "--quiet", "refs/remotes/origin/HEAD"]:
+            return "feature\n"
+        raise AssertionError(f"unexpected args: {args}")
+
+    monkeypatch.setattr(ledger_migrate_base, "_run_git", fake_run)
+    assert ledger_migrate_base.detect_default_branch() == "feature"
+
+
+def test_detect_default_branch_falls_back_to_current_branch(monkeypatch) -> None:
+    def fake_run(args):
+        if args == ["remote", "show", "origin"]:
+            raise ledger_migrate_base.MigrationError("no remote")
+        if args == ["symbolic-ref", "--quiet", "refs/remotes/origin/HEAD"]:
+            raise ledger_migrate_base.MigrationError("no origin head")
+        if args == ["rev-parse", "--abbrev-ref", "origin/HEAD"]:
+            return "origin/HEAD\n"
+        if args == ["symbolic-ref", "--quiet", "HEAD"]:
+            return "release\n"
+        raise AssertionError(f"unexpected args: {args}")
+
+    monkeypatch.setattr(ledger_migrate_base, "_run_git", fake_run)
+    assert ledger_migrate_base.detect_default_branch() == "release"
 
 
 def test_detect_default_branch_falls_back_to_head(monkeypatch) -> None:
@@ -74,6 +115,16 @@ def test_detect_default_branch_requires_fallback(monkeypatch) -> None:
     monkeypatch.setattr(ledger_migrate_base, "_run_git", fake_run)
     with pytest.raises(ledger_migrate_base.MigrationError, match="unable to determine default"):
         ledger_migrate_base.detect_default_branch()
+
+
+def test_run_git_returns_stdout(monkeypatch) -> None:
+    def fake_run(args, check, capture_output, text):
+        assert args[0] == "git"
+        return type("Result", (), {"stdout": "ok\n"})()
+
+    monkeypatch.setattr(ledger_migrate_base.subprocess, "run", fake_run)
+
+    assert ledger_migrate_base._run_git(["status"]) == "ok\n"
 
 
 def test_load_ledger_requires_mapping(tmp_path) -> None:
@@ -145,6 +196,12 @@ def test_find_repo_root_wraps_git_failure(monkeypatch) -> None:
         ledger_migrate_base.find_repo_root()
 
 
+def test_find_repo_root_returns_path(monkeypatch) -> None:
+    monkeypatch.setattr(ledger_migrate_base, "_run_git", lambda args: "/tmp/repo\n")
+
+    assert ledger_migrate_base.find_repo_root() == Path("/tmp/repo")
+
+
 def test_discover_ledgers_lists_agents(tmp_path) -> None:
     agents_dir = tmp_path / ".agents"
     agents_dir.mkdir()
@@ -154,6 +211,10 @@ def test_discover_ledgers_lists_agents(tmp_path) -> None:
     second.write_text("base: main\n", encoding="utf-8")
 
     assert ledger_migrate_base.discover_ledgers(tmp_path) == [first, second]
+
+
+def test_discover_ledgers_returns_empty_when_missing(tmp_path) -> None:
+    assert ledger_migrate_base.discover_ledgers(tmp_path) == []
 
 
 def test_main_reports_no_ledgers(monkeypatch, capsys, tmp_path) -> None:
@@ -237,3 +298,26 @@ def test_main_emits_error_on_detection_failure(monkeypatch, capsys) -> None:
     assert exit_code == 2
     err = capsys.readouterr().err
     assert "::error::boom" in err
+
+
+def test_main_reports_no_updates(monkeypatch, capsys, tmp_path) -> None:
+    agents_dir = tmp_path / ".agents"
+    agents_dir.mkdir()
+    ledger_path = agents_dir / "issue-33-ledger.yml"
+    ledger_path.write_text("base: main\n", encoding="utf-8")
+
+    monkeypatch.setattr(ledger_migrate_base, "find_repo_root", lambda: tmp_path)
+    monkeypatch.setattr(ledger_migrate_base, "detect_default_branch", lambda _=None: "main")
+    monkeypatch.setattr(
+        ledger_migrate_base,
+        "migrate_ledger",
+        lambda path, default_branch, check: ledger_migrate_base.LedgerResult(
+            path=path, previous="main", updated="main", changed=False
+        ),
+    )
+
+    exit_code = ledger_migrate_base.main([])
+
+    assert exit_code == 0
+    out = capsys.readouterr().out
+    assert "Ledgers already matched the default branch; no updates written." in out
