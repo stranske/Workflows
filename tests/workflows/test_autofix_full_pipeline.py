@@ -25,6 +25,7 @@ def _run(
     return result
 
 
+@pytest.mark.slow
 @pytest.mark.integration
 def test_autofix_pipeline_resolves_lint_and_typing(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch

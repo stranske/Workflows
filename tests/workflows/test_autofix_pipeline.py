@@ -25,6 +25,7 @@ def _run(cmd: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
     return result
 
 
+@pytest.mark.slow
 @pytest.mark.integration
 def test_autofix_pipeline_fixes_trivial_ruff_issue(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
