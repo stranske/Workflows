@@ -1,8 +1,11 @@
 import importlib
+import json
+import subprocess
 import sys
 import types
 from pathlib import Path
 
+import pytest
 import yaml
 
 
@@ -126,3 +129,79 @@ def test_find_ledgers_returns_expected_paths(tmp_path: Path, monkeypatch) -> Non
     ledgers = ledger_validate.find_ledgers([])
 
     assert ledgers == [ledger_path]
+
+
+def test_load_yaml_invalid_raises_ledger_error(tmp_path: Path, monkeypatch) -> None:
+    ledger_validate = _load_module(monkeypatch, tmp_path)
+    ledger_path = tmp_path / "ledger.yml"
+    ledger_path.write_text("foo: [", encoding="utf-8")
+
+    with pytest.raises(ledger_validate.LedgerError) as excinfo:
+        ledger_validate._load_yaml(ledger_path)
+
+    assert "invalid YAML" in str(excinfo.value)
+    assert excinfo.value.context == str(ledger_path)
+
+
+def test_validate_timestamp_formats_are_checked(tmp_path: Path, monkeypatch) -> None:
+    ledger_validate = _load_module(monkeypatch, tmp_path)
+
+    errors = ledger_validate._validate_timestamp(
+        123,
+        field="started_at",
+        path="tasks[0]",
+    )
+    assert errors == ["tasks[0].started_at must be a string or null"]
+
+    errors = ledger_validate._validate_timestamp(
+        "2024-13-01T00:00:00Z",
+        field="finished_at",
+        path="tasks[1]",
+    )
+    assert "tasks[1].finished_at is not a valid timestamp" in errors[0]
+
+
+def test_commit_files_raises_for_unknown_commit(tmp_path: Path, monkeypatch) -> None:
+    ledger_validate = _load_module(monkeypatch, tmp_path)
+
+    def raise_called_process_error(*args, **kwargs):
+        raise subprocess.CalledProcessError(1, args[0])
+
+    monkeypatch.setattr(ledger_validate.subprocess, "check_output", raise_called_process_error)
+    monkeypatch.setattr(ledger_validate, "_fetch_commit", lambda commit: False)
+
+    with pytest.raises(ledger_validate.LedgerError, match="unknown commit deadbeef"):
+        ledger_validate._commit_files("deadbeef")
+
+
+def test_main_json_output_includes_errors(tmp_path: Path, monkeypatch, capsys) -> None:
+    ledger_validate = _load_module(monkeypatch, tmp_path)
+    ledger_path = tmp_path / "ledger.yml"
+    ledger_path.write_text(
+        yaml.safe_dump(
+            {
+                "version": 2,
+                "issue": 10,
+                "base": "main",
+                "branch": "feature/ledger",
+                "tasks": [
+                    {
+                        "id": "task-1",
+                        "title": "Example",
+                        "status": "todo",
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(ledger_validate, "find_ledgers", lambda paths: [ledger_path])
+
+    exit_code = ledger_validate.main(["--json"])
+    captured = capsys.readouterr()
+    payload = json.loads(captured.out)
+
+    assert exit_code == 1
+    assert str(ledger_path) in payload
+    assert any("version must be 1" in msg for msg in payload[str(ledger_path)])
