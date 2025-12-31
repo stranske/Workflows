@@ -1,7 +1,7 @@
 # Coverage Gap Analysis
 
-> **Baseline**: 2025-12-31 (main branch, post-PR #374 + devcontainer fix)
-> **Overall Coverage**: 71.60%
+> **Baseline**: 2025-12-31 (fix/codex-coverage-verification branch)
+> **Overall Coverage**: 74.76%
 > **Tests**: 592 passed, 0 skipped, 3 xfailed
 > **Target**: 95%
 
@@ -9,11 +9,11 @@
 
 | Metric | Value |
 |--------|-------|
-| Total Statements | 2,798 |
-| Covered Statements | 2,086 |
-| Missing Statements | 712 |
-| Coverage | 71.60% |
-| Gap to 95% | 23.40% (~654 statements) |
+| Total Statements | 3,828 |
+| Covered Statements | 2,946 |
+| Missing Statements | 882 |
+| Coverage | 74.76% |
+| Gap to 95% | 20.24% (~775 statements) |
 
 ## Scripts by Coverage (Lowest to Highest)
 
@@ -25,13 +25,13 @@
 | `update_residual_history.py` | 25 | 0.00% | 25 |
 | `validate_version_pins.py` | 135 | 0.00% | 135 |
 
-### Tier 2: Very Low Coverage <50% (3 scripts, 265 statements missing)
+### Tier 2: Very Low Coverage <50% (3 scripts, 248 statements missing)
 
 | Script | Statements | Coverage | Missing |
 |--------|------------|----------|---------|
 | `sync_test_dependencies.py` | 163 | 15.32% | 128 |
-| `auto_type_hygiene.py` | 139 | 34.78% | 81 |
 | `keepalive_metrics_collector.py` | 108 | 46.48% | 56 |
+| `auto_type_hygiene.py` | 139 | 48.79% | 64 |
 
 ### Tier 3: Medium Coverage 50-75% (5 scripts, 196 statements missing)
 
@@ -43,7 +43,7 @@
 | `mypy_autofix.py` | 45 | 63.08% | 13 |
 | `ledger_validate.py` | 205 | 65.32% | 63 |
 
-### Tier 4: High Coverage 75-95% (6 scripts, 35 statements missing)
+### Tier 4: High Coverage 75-95% (7 scripts, 46 statements missing)
 
 | Script | Statements | Coverage | Missing |
 |--------|------------|----------|---------|
@@ -52,10 +52,10 @@
 | `ci_failure_analyzer.py` | 108 | 87.35% | 11 |
 | `fix_cosmetic_aggregate.py` | 20 | 92.31% | 1 |
 | `coverage_history_append.py` | 53 | 92.75% | 2 |
-| `update_autofix_expectations.py` | 37 | 93.88% | 1 |
 | `workflow_validator.py` | 72 | 93.27% | 4 |
+| `update_autofix_expectations.py` | 37 | 93.88% | 1 |
 
-### Tier 5: At Target ≥95% (14 scripts)
+### Tier 5: At Target ≥95% (11 scripts)
 
 | Script | Statements | Coverage |
 |--------|------------|----------|
