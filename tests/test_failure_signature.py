@@ -18,9 +18,7 @@ def test_main_returns_zero_on_expected_match(capsys: pytest.CaptureFixture[str])
     jobs = [{"name": "Tests", "step": "pytest", "stack": "ValueError: boom"}]
     expected = test_failure_signature.build_signature_hash(jobs)
 
-    exit_code = test_failure_signature.main(
-        ["--jobs", json.dumps(jobs), "--expected", expected]
-    )
+    exit_code = test_failure_signature.main(["--jobs", json.dumps(jobs), "--expected", expected])
 
     captured = capsys.readouterr()
     assert exit_code == 0
