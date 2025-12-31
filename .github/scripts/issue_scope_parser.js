@@ -97,32 +97,6 @@ function normaliseChecklist(content) {
       return `${indent}${bullet} ${remainder}`;
     }
     
-    // Skip lines that look like instructions, notes, or meta-commentary
-    // These patterns indicate the line is NOT an actionable task/criterion:
-    // - Starts with instructional words (Before, After, To, When, If, etc.)
-    // - Starts with a number (numbered list item like "1. Do this")
-    // - Contains imperative phrases like "you must", "make sure", "remember to"
-    // - Starts with label prefixes like "IMPORTANT:", "NOTE:"
-    const instructionalPatterns = [
-      // Temporal/conditional instruction starters
-      /^(before|after|to|when|if|once|while|during|for)\b/i,
-      // Imperative instruction verbs ONLY when clearly instructional
-      /^(ensure|make sure|remember)\s+(that|to)\b/i,
-      /^(verify|check|confirm)\s+(that|to|the)\b/i,
-      // Numbered list items
-      /^\d+\.\s/,
-      // Imperative phrases
-      /\b(you must|must first|should first|you should|be sure to|make sure|remember to|don't forget|do not)\b/i,
-      // Label prefixes (with or without colon)
-      /^(important|note|warning|tip|hint|example|see also|refer to):/i,
-      // Bold formatting with labels - match **WORD:** (colon inside bold)
-      /^\*\*[A-Za-z]+:\*\*/,
-    ];
-    
-    if (instructionalPatterns.some(pattern => pattern.test(remainder))) {
-      return line;  // Keep as-is, don't add checkbox
-    }
-    
     mutated = true;
     return `${indent}${bullet} [ ] ${remainder}`;
   });
