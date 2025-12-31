@@ -43,3 +43,45 @@ def test_main_writes_trend_file(tmp_path: Path, monkeypatch) -> None:
     assert len(trend["remaining_spark"]) == 2
     assert len(trend["new_spark"]) == 2
     assert "F401" in trend["codes"]
+
+
+def test_main_handles_invalid_history_payload(tmp_path: Path, monkeypatch) -> None:
+    history_path = tmp_path / "history.json"
+    out_path = tmp_path / "trend.json"
+
+    history_path.write_text("not-json", encoding="utf-8")
+
+    monkeypatch.setattr(generate_residual_trend, "HISTORY", history_path)
+    monkeypatch.setattr(generate_residual_trend, "OUT", out_path)
+
+    exit_code = generate_residual_trend.main()
+
+    assert exit_code == 0
+    trend = json.loads(out_path.read_text(encoding="utf-8"))
+    assert trend["points"] == 0
+    assert trend["remaining_latest"] == 0
+    assert trend["new_latest"] == 0
+    assert trend["codes"] == {}
+
+
+def test_main_skips_invalid_by_code_entries(tmp_path: Path, monkeypatch) -> None:
+    history_path = tmp_path / "history.json"
+    out_path = tmp_path / "trend.json"
+    history_path.write_text("[]", encoding="utf-8")
+    original_loads = json.loads
+
+    def fake_loads(_: str) -> list[dict[str, object]]:
+        return [
+            {"remaining": 2, "new": 1, "by_code": "not-a-dict"},
+            {"remaining": 1, "new": 0, "by_code": {1: "2", "F401": "3"}},
+        ]
+
+    monkeypatch.setattr(generate_residual_trend, "HISTORY", history_path)
+    monkeypatch.setattr(generate_residual_trend, "OUT", out_path)
+    monkeypatch.setattr(generate_residual_trend.json, "loads", fake_loads)
+
+    exit_code = generate_residual_trend.main()
+
+    assert exit_code == 0
+    trend = original_loads(out_path.read_text(encoding="utf-8"))
+    assert trend["codes"]["F401"]["latest"] == 3
