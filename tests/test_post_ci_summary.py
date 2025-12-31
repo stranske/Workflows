@@ -93,9 +93,7 @@ def test_build_summary_comment_includes_required_sections(tmp_path: Path, monkey
         "status": "below",
     }
 
-    required_groups_env = json.dumps(
-        [{"label": "required", "patterns": ["Unit Tests", "Lint"]}]
-    )
+    required_groups_env = json.dumps([{"label": "required", "patterns": ["Unit Tests", "Lint"]}])
 
     summary = post_ci_summary.build_summary_comment(
         runs=runs,
