@@ -356,6 +356,11 @@ function fallbackChecklist(message) {
 function buildPreamble(sections) {
   const lines = ['<!-- pr-preamble:start -->'];
   
+  // Add reference to source issue if available
+  if (sections.issueNumber) {
+    lines.push(`> **Source:** Issue #${sections.issueNumber}`, '');
+  }
+  
   if (sections.summary && sections.summary.trim()) {
     lines.push('## Summary', sections.summary, '');
   }
@@ -702,7 +707,7 @@ async function run({github, context, core, inputs}) {
     || extractWithAliases(issueBody, ['Acceptance criteria', 'Success criteria', 'Definition of done'])
     || '';
 
-  const preamble = buildPreamble({summary, testing, ci});
+  const preamble = buildPreamble({summary, testing, ci, issueNumber});
 
   const workflowRunResponse = await withRetries(
     () => github.rest.actions.listWorkflowRunsForRepo({
