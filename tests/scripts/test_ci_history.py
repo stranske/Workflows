@@ -50,6 +50,28 @@ def test_load_metrics_falls_back_to_builder(
     assert from_file is False
 
 
+def test_load_metrics_rebuilds_when_summary_missing(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    junit_path = tmp_path / "pytest-junit.xml"
+    junit_path.write_text("<testsuite />", encoding="utf-8")
+    metrics_path = tmp_path / "ci-metrics.json"
+    metrics_path.write_text(json.dumps({"note": "no summary"}), encoding="utf-8")
+
+    expected = {"summary": {"tests": 4}}
+
+    def fake_build_metrics(path: Path) -> dict:
+        assert path == junit_path
+        return expected
+
+    monkeypatch.setattr(ci_history.ci_metrics, "build_metrics", fake_build_metrics)
+
+    metrics, from_file = ci_history._load_metrics(junit_path, metrics_path)
+
+    assert metrics == expected
+    assert from_file is False
+
+
 def _write_junit(path: Path) -> None:
     path.write_text(
         """<testsuite tests="1" failures="1" errors="0" skipped="0">
@@ -88,6 +110,30 @@ def test_main_builds_metrics_from_junit(tmp_path: Path, monkeypatch: pytest.Monk
     payload = json.loads(classification_path.read_text(encoding="utf-8"))
     assert payload["total"] == 1
     assert payload["counts"]["failure"] == 1
+
+
+def test_main_clears_classification_when_disabled(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    junit_path = tmp_path / "pytest-junit.xml"
+    _write_junit(junit_path)
+    metrics_path = tmp_path / "ci-metrics.json"
+    metrics_path.write_text(json.dumps({"summary": {"tests": 1}}), encoding="utf-8")
+    history_path = tmp_path / "metrics-history.ndjson"
+    classification_path = tmp_path / "classification.json"
+    classification_path.write_text("stale", encoding="utf-8")
+
+    monkeypatch.setenv("JUNIT_PATH", str(junit_path))
+    monkeypatch.setenv("METRICS_PATH", str(metrics_path))
+    monkeypatch.setenv("HISTORY_PATH", str(history_path))
+    monkeypatch.setenv("CLASSIFICATION_OUT", str(classification_path))
+
+    exit_code = ci_history.main()
+
+    assert exit_code == 0
+    assert not classification_path.exists()
+    record = json.loads(history_path.read_text(encoding="utf-8").strip())
+    assert record["metrics_path"] == str(metrics_path)
 
 
 def test_build_history_record_includes_metadata(
