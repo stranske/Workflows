@@ -1,8 +1,8 @@
 # Coverage Gap Analysis
 
-> **Baseline**: 2025-12-31 (main branch, post-PR #369)
-> **Overall Coverage**: 67.30%
-> **Tests**: 573 passed, 3 skipped, 3 xfailed
+> **Baseline**: 2025-12-31 (main branch, post-PR #374)
+> **Overall Coverage**: 69.35%
+> **Tests**: 589 passed, 3 skipped, 3 xfailed
 > **Target**: 95%
 
 ## Summary
@@ -10,10 +10,10 @@
 | Metric | Value |
 |--------|-------|
 | Total Statements | 2,798 |
-| Covered Statements | 1,983 |
-| Missing Statements | 815 |
-| Coverage | 67.30% |
-| Gap to 95% | 27.70% (~775 statements) |
+| Covered Statements | 2,032 |
+| Missing Statements | 766 |
+| Coverage | 69.35% |
+| Gap to 95% | 25.65% (~717 statements) |
 
 ## Scripts by Coverage (Lowest to Highest)
 
@@ -44,19 +44,19 @@
 | `ledger_validate.py` | 205 | 65.32% | 63 |
 | `mypy_return_autofix.py` | 89 | 69.13% | 20 |
 
-### Tier 4: High Coverage 75-95% (7 scripts, 81 statements missing)
+### Tier 4: High Coverage 75-95% (5 scripts, 32 statements missing)
 
 | Script | Statements | Coverage | Missing |
 |--------|------------|----------|---------|
-| `aggregate_agent_metrics.py` | 201 | 74.05% | 41 |
 | `ledger_migrate_base.py` | 134 | 85.48% | 13 |
 | `ci_failure_analyzer.py` | 108 | 87.35% | 11 |
 | `fix_numpy_asserts.py` | 38 | 87.04% | 4 |
-| `sync_status_file_ignores.py` | 94 | 90.30% | 8 |
 | `fix_cosmetic_aggregate.py` | 20 | 92.31% | 1 |
 | `coverage_history_append.py` | 53 | 92.75% | 2 |
+| `update_autofix_expectations.py` | 37 | 93.88% | 1 |
+| `workflow_validator.py` | 72 | 93.27% | 4 |
 
-### Tier 5: At Target ≥95% (12 scripts)
+### Tier 5: At Target ≥95% (13 scripts)
 
 | Script | Statements | Coverage |
 |--------|------------|----------|
@@ -64,12 +64,12 @@
 | `ci_history.py` | 77 | 100.00% |
 | `ci_metrics.py` | 120 | 100.00% |
 | `metrics_format_utils.py` | 16 | 100.00% |
+| `sync_status_file_ignores.py` | 94 | 100.00% |
 | `ci_cosmetic_repair.py` | 256 | 99.71% |
+| `aggregate_agent_metrics.py` | 201 | 97.23% |
 | `build_autofix_pr_comment.py` | 105 | 97.04% |
 | `generate_residual_trend.py` | 61 | 96.55% |
 | `pr_metrics_tracker.py` | 68 | 95.65% |
-| `update_autofix_expectations.py` | 37 | 93.88% |
-| `workflow_validator.py` | 72 | 93.27% |
 
 ## Verification Command
 
@@ -84,9 +84,10 @@ Check the `Cover` column in the output. A script meets its target when coverage 
 ### Reference Test Files (High Coverage)
 
 - `tests/scripts/test_ci_metrics.py` — 100% coverage
+- `tests/scripts/test_sync_status_file_ignores.py` — 100% coverage
 - `tests/workflows/test_ci_cosmetic_repair.py` — 99.71% coverage
 - `tests/scripts/test_ci_history.py` — 100% coverage
-- `tests/scripts/test_sync_status_file_ignores.py` — 90.30% coverage
+- `tests/scripts/test_aggregate_agent_metrics.py` — 97.23% coverage
 
 ### Mocking Guidelines
 
@@ -109,3 +110,4 @@ Check the `Cover` column in the output. A script meets its target when coverage 
 | 2025-12-31 | 63.17% | 546 | +4.30% | PR #363 (branch) |
 | 2025-12-31 | 64.12% | 558 | +0.95% | PR #366 merged |
 | 2025-12-31 | 67.30% | 573 | +3.18% | PR #369 merged |
+| 2025-12-31 | 69.35% | 589 | +2.05% | PR #374 merged |
