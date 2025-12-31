@@ -87,6 +87,101 @@ def test_disable_handles_non_disableable_workflow(
     ]
 
 
+def test_disable_legacy_workflows_keeps_allowlisted_and_disables_others(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    allow_file = sorted(CANONICAL_WORKFLOW_FILES)[0]
+    kept = {
+        "id": 101,
+        "name": "Kept Workflow",
+        "path": f".github/workflows/{allow_file}",
+        "state": "active",
+    }
+    disabled = {
+        "id": 202,
+        "name": "Disabled Workflow",
+        "path": "dynamic/legacy.yml",
+        "state": "active",
+    }
+
+    def fake_list_all_workflows(base_url: str, headers: dict[str, str]) -> list[dict[str, object]]:
+        return [kept, disabled]
+
+    calls: list[tuple[str, str]] = []
+
+    def fake_http_request(
+        method: str,
+        url: str,
+        *,
+        headers: dict[str, str],
+        data: bytes | None = None,
+    ) -> tuple[bytes, dict[str, str]]:
+        calls.append((method, url))
+        return b"", {}
+
+    monkeypatch.setattr(
+        "tools.disable_legacy_workflows._list_all_workflows",
+        fake_list_all_workflows,
+        raising=True,
+    )
+    monkeypatch.setattr(
+        "tools.disable_legacy_workflows._http_request",
+        fake_http_request,
+        raising=True,
+    )
+
+    summary = disable_legacy_workflows(
+        repository="octo/repo",
+        token="dummy-token",
+        dry_run=False,
+        extra_allow=(),
+    )
+
+    assert summary["kept"] == ["Kept Workflow"]
+    assert summary["disabled"] == ["Disabled Workflow"]
+    assert summary["skipped"] == []
+    assert calls == [
+        ("PUT", "https://api.github.com/repos/octo/repo/actions/workflows/202/disable")
+    ]
+
+
+def test_disable_legacy_workflows_dry_run_skips_http_requests(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    workflow = {
+        "id": 303,
+        "name": "Dry Run Workflow",
+        "path": "dynamic/dry-run.yml",
+        "state": "active",
+    }
+
+    def fake_list_all_workflows(base_url: str, headers: dict[str, str]) -> list[dict[str, object]]:
+        return [workflow]
+
+    def fail_http_request(*args, **kwargs) -> tuple[bytes, dict[str, str]]:
+        raise AssertionError("http_request should not be called in dry run mode")
+
+    monkeypatch.setattr(
+        "tools.disable_legacy_workflows._list_all_workflows",
+        fake_list_all_workflows,
+        raising=True,
+    )
+    monkeypatch.setattr(
+        "tools.disable_legacy_workflows._http_request",
+        fail_http_request,
+        raising=True,
+    )
+
+    summary = disable_legacy_workflows(
+        repository="octo/repo",
+        token="dummy-token",
+        dry_run=True,
+        extra_allow=(),
+    )
+
+    assert summary["disabled"] == ["Dry Run Workflow"]
+
+
 def test_extract_next_link_handles_missing_header() -> None:
     assert _extract_next_link(None) is None
     assert _extract_next_link("") is None
