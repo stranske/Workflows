@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import runpy
 import sys
 from pathlib import Path
 
@@ -69,6 +70,15 @@ def test_print_check_report_all_present(capsys: pytest.CaptureFixture[str]) -> N
     captured = capsys.readouterr()
     assert exit_code == 0
     assert "All canonical patterns present" in captured.out
+
+
+def test_print_check_report_no_present(capsys: pytest.CaptureFixture[str]) -> None:
+    exit_code = sync_status_file_ignores.print_check_report("", "demo")
+
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert "Present" not in captured.out
+    assert "Missing" in captured.out
 
 
 def test_load_template_gitignore_falls_back(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -156,6 +166,19 @@ def test_main_check_local_ok(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) ->
     assert exit_code == 0
 
 
+def test_main_check_local_missing_gitignore(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(sys, "argv", ["script", "--check"])
+
+    exit_code = sync_status_file_ignores.main()
+
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert "No .gitignore found" in captured.err
+
+
 def test_main_repo_success(
     capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -176,3 +199,45 @@ def test_main_repo_success(
     captured = capsys.readouterr()
     assert exit_code == 0
     assert "All canonical patterns present" in captured.out
+
+
+def test_main_repo_error(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class DummyResult:
+        returncode = 1
+        stdout = ""
+        stderr = "boom"
+
+    import subprocess
+
+    monkeypatch.setattr(subprocess, "run", lambda *args, **kwargs: DummyResult())
+    monkeypatch.setattr(sys, "argv", ["script", "--repo", "owner/repo"])
+
+    exit_code = sync_status_file_ignores.main()
+
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert "Error fetching .gitignore" in captured.err
+    assert "boom" in captured.err
+
+
+def test_main_default_print_help(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(sys, "argv", ["script"])
+
+    exit_code = sync_status_file_ignores.main()
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "usage:" in captured.out
+
+
+def test_module_main_exit(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(sys, "argv", ["script", "--print-patterns"])
+
+    with pytest.raises(SystemExit) as excinfo:
+        runpy.run_path(str(Path(sync_status_file_ignores.__file__)), run_name="__main__")
+
+    assert excinfo.value.code == 0
