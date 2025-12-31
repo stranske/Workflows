@@ -404,8 +404,12 @@ def test_validate_task_commit_type_and_duplicate_ids(tmp_path: Path, monkeypatch
         "status": "todo",
     }
 
-    errors = ledger_validate._validate_task(first, index=0, seen_ids=seen_ids, ledger_path=ledger_path)
-    errors += ledger_validate._validate_task(second, index=1, seen_ids=seen_ids, ledger_path=ledger_path)
+    errors = ledger_validate._validate_task(
+        first, index=0, seen_ids=seen_ids, ledger_path=ledger_path
+    )
+    errors += ledger_validate._validate_task(
+        second, index=1, seen_ids=seen_ids, ledger_path=ledger_path
+    )
 
     assert "tasks[0].commit must be a string" in errors
     assert "duplicate task id: task-1" in errors
