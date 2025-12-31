@@ -9,12 +9,12 @@ from tools.disable_legacy_workflows import (
     CANONICAL_WORKFLOW_FILES,
     CANONICAL_WORKFLOW_NAMES,
     WorkflowAPIError,
-    _extract_workflow_name,
     _extract_next_link,
-    _normalize_allowlist,
-    _normalized_slug,
+    _extract_workflow_name,
     _http_request,
     _list_all_workflows,
+    _normalize_allowlist,
+    _normalized_slug,
     disable_legacy_workflows,
 )
 
