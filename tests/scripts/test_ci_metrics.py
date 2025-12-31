@@ -1,6 +1,8 @@
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
+import pytest
+
 from scripts import ci_metrics
 
 
@@ -20,6 +22,19 @@ def _write_junit_xml(path: Path) -> None:
 </testsuite>
 """
     path.write_text(xml, encoding="utf-8")
+
+
+def test_parse_helpers_validate_non_negative() -> None:
+    assert ci_metrics._parse_int(None, "TOP_N", 5) == 5
+    assert ci_metrics._parse_int("", "TOP_N", 5) == 5
+    assert ci_metrics._parse_float(None, "MIN_SECONDS", 1.25) == 1.25
+    assert ci_metrics._parse_float("", "MIN_SECONDS", 1.25) == 1.25
+
+    with pytest.raises(SystemExit, match="TOP_N must be non-negative"):
+        ci_metrics._parse_int("-1", "TOP_N", 5)
+
+    with pytest.raises(SystemExit, match="MIN_SECONDS must be non-negative"):
+        ci_metrics._parse_float("-0.5", "MIN_SECONDS", 1.25)
 
 
 def test_tag_name_strips_namespace() -> None:
@@ -60,3 +75,68 @@ def test_build_metrics_parses_junit(tmp_path: Path) -> None:
     assert slow_tests["limit"] == 2
     assert len(slow_tests["items"]) == 2
     assert slow_tests["items"][0]["time"] >= slow_tests["items"][1]["time"]
+
+
+def test_extract_testcases_handles_invalid_time_and_prioritizes_status() -> None:
+    xml = """<testsuite>
+  <testcase classname="suite" name="bad_time" time="oops">
+    <failure message="fail" type="AssertionError"> boom </failure>
+    <system-out>ignored</system-out>
+  </testcase>
+  <testcase classname="suite" name="skipped" time="0.2">
+    <skipped />
+  </testcase>
+</testsuite>
+"""
+    root = ET.fromstring(xml)
+
+    cases = ci_metrics._extract_testcases(root)
+
+    assert cases[0].time == 0.0
+    assert cases[0].outcome == "failure"
+    assert cases[0].message == "fail"
+    assert cases[0].error_type == "AssertionError"
+    assert cases[0].details == "boom"
+    assert cases[1].outcome == "skipped"
+    assert cases[1].details is None
+
+
+def test_collect_slow_tests_handles_zero_limit_and_ties() -> None:
+    cases = [
+        ci_metrics._TestCase(
+            name="a",
+            classname="suite",
+            nodeid="suite::b",
+            time=2.0,
+            outcome="passed",
+            message=None,
+            error_type=None,
+            details=None,
+        ),
+        ci_metrics._TestCase(
+            name="b",
+            classname="suite",
+            nodeid="suite::a",
+            time=2.0,
+            outcome="passed",
+            message=None,
+            error_type=None,
+            details=None,
+        ),
+        ci_metrics._TestCase(
+            name="c",
+            classname="suite",
+            nodeid="suite::c",
+            time=0.5,
+            outcome="passed",
+            message=None,
+            error_type=None,
+            details=None,
+        ),
+    ]
+
+    assert ci_metrics._collect_slow_tests(cases, top_n=0, min_seconds=0.0) == []
+
+    slow_tests = ci_metrics._collect_slow_tests(cases, top_n=2, min_seconds=1.0)
+
+    assert [entry["nodeid"] for entry in slow_tests] == ["suite::a", "suite::b"]

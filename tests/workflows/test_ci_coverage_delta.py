@@ -138,3 +138,24 @@ def test_coverage_delta_missing_xml(monkeypatch: pytest.MonkeyPatch, tmp_path: P
 
     assert exit_code == 1
     assert not out_path.exists()
+
+
+def test_extract_line_rate_requires_attribute(tmp_path: Path) -> None:
+    xml_path = tmp_path / "coverage.xml"
+    xml_path.write_text("<coverage></coverage>", encoding="utf-8")
+
+    with pytest.raises(SystemExit, match="missing line-rate"):
+        ci_coverage_delta._extract_line_rate(xml_path)
+
+
+def test_build_payload_ok_when_drop_below_threshold() -> None:
+    payload, should_fail = ci_coverage_delta._build_payload(
+        current=79.5,
+        baseline=80.0,
+        alert_drop=2.0,
+        fail_on_drop=True,
+    )
+
+    assert should_fail is False
+    assert payload["status"] == "ok"
+    assert payload["drop"] == pytest.approx(0.5)
