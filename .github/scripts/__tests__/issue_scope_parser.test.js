@@ -411,3 +411,181 @@ test('hasNonPlaceholderScopeTasksAcceptanceContent detects PR meta fallback plac
     'Real content should be treated as real content'
   );
 });
+
+test('normalises bullets but skips instructional lines', () => {
+  const issue = [
+    'Tasks',
+    '- Add unit tests',
+    '- Before implementing, review the code',
+    '- Update documentation',
+    '- To verify, run pytest',
+    '- Remember to check coverage',
+    '',
+    'Acceptance criteria',
+    '- All tests pass',
+    '- Before marking complete, run pytest',
+    '- Code coverage ≥95%',
+    '- 1. Run tests',
+    '- 2. Check output',
+    '- Make sure all edge cases are covered',
+  ].join('\n');
+
+  const result = extractScopeTasksAcceptanceSections(issue);
+  assert.equal(
+    result,
+    [
+      '#### Tasks',
+      '- [ ] Add unit tests',
+      '- Before implementing, review the code',
+      '- [ ] Update documentation',
+      '- To verify, run pytest',
+      '- Remember to check coverage',
+      '',
+      '#### Acceptance Criteria',
+      '- [ ] All tests pass',
+      '- Before marking complete, run pytest',
+      '- [ ] Code coverage ≥95%',
+      '- 1. Run tests',
+      '- 2. Check output',
+      '- Make sure all edge cases are covered',
+    ].join('\n')
+  );
+});
+
+test('skips lines with instructional keywords', () => {
+  const issue = [
+    'Tasks',
+    '- Add feature X',
+    '- When ready, deploy to staging',
+    '- If tests fail, check logs',
+    '- After completion, notify team',
+    '- While testing, monitor metrics',
+    '- For production, use feature flag',
+    '- Ensure all tests pass',
+    '',
+    'Acceptance Criteria',
+    '- Tests pass',
+    '- Ensure that error handling works',
+    '- Verify the API responses',
+    '- Check that performance meets SLA',
+  ].join('\n');
+
+  const result = extractScopeTasksAcceptanceSections(issue);
+  assert.equal(
+    result,
+    [
+      '#### Tasks',
+      '- [ ] Add feature X',
+      '- When ready, deploy to staging',
+      '- If tests fail, check logs',
+      '- After completion, notify team',
+      '- While testing, monitor metrics',
+      '- For production, use feature flag',
+      '- [ ] Ensure all tests pass',
+      '',
+      '#### Acceptance Criteria',
+      '- [ ] Tests pass',
+      '- Ensure that error handling works',
+      '- Verify the API responses',
+      '- Check that performance meets SLA',
+    ].join('\n')
+  );
+});
+
+test('skips lines with numbered list format', () => {
+  const issue = [
+    'Tasks',
+    '- Configure database',
+    '- 1. First step',
+    '- 2. Second step',
+    '- Deploy application',
+    '',
+    'Acceptance Criteria',
+    '- All services running',
+    '- 1. Check service A',
+    '- 2. Check service B',
+  ].join('\n');
+
+  const result = extractScopeTasksAcceptanceSections(issue);
+  assert.equal(
+    result,
+    [
+      '#### Tasks',
+      '- [ ] Configure database',
+      '- 1. First step',
+      '- 2. Second step',
+      '- [ ] Deploy application',
+      '',
+      '#### Acceptance Criteria',
+      '- [ ] All services running',
+      '- 1. Check service A',
+      '- 2. Check service B',
+    ].join('\n')
+  );
+});
+
+test('skips lines with "you must" and similar phrases', () => {
+  const issue = [
+    'Tasks',
+    '- Implement feature',
+    '- You must run tests after',
+    '- Make sure to update docs',
+    "- Don't forget to tag the release",
+    '',
+    'Acceptance Criteria',
+    '- Feature works correctly',
+    '- You should verify edge cases',
+    '- Be sure to check performance',
+  ].join('\n');
+
+  const result = extractScopeTasksAcceptanceSections(issue);
+  assert.equal(
+    result,
+    [
+      '#### Tasks',
+      '- [ ] Implement feature',
+      '- You must run tests after',
+      '- Make sure to update docs',
+      "- Don't forget to tag the release",
+      '',
+      '#### Acceptance Criteria',
+      '- [ ] Feature works correctly',
+      '- You should verify edge cases',
+      '- Be sure to check performance',
+    ].join('\n')
+  );
+});
+
+test('skips lines with IMPORTANT/NOTE/WARNING prefixes', () => {
+  const issue = [
+    'Tasks',
+    '- Add logging',
+    '- IMPORTANT: Check with team first',
+    '- Note: requires approval',
+    '- WARNING: This will affect production',
+    '- **IMPORTANT:** Read the docs',
+    '',
+    'Acceptance Criteria',
+    '- Logging enabled',
+    '- Tip: use the debug flag',
+    '- Hint: check the config file',
+  ].join('\n');
+
+  const result = extractScopeTasksAcceptanceSections(issue);
+  assert.equal(
+    result,
+    [
+      '#### Tasks',
+      '- [ ] Add logging',
+      '- IMPORTANT: Check with team first',
+      '- Note: requires approval',
+      '- WARNING: This will affect production',
+      '- **IMPORTANT:** Read the docs',
+      '',
+      '#### Acceptance Criteria',
+      '- [ ] Logging enabled',
+      '- Tip: use the debug flag',
+      '- Hint: check the config file',
+    ].join('\n')
+  );
+});

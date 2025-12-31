@@ -28,6 +28,19 @@ This template defines the canonical structure for issues that feed into the Code
      - Small enough to complete in one iteration
      - Listed with unchecked boxes [ ] for new work
      
+     IMPORTANT: Do NOT use bullet points for instructions or notes.
+     Only use bullets for actual, actionable tasks. Lines starting with
+     bullets will be automatically converted to checkboxes.
+     
+     CORRECT:
+     - [ ] Add unit tests for feature X
+     - [ ] Update documentation in README.md
+     
+     INCORRECT:
+     - Before implementing, review the existing code  (instruction, not task)
+     - Remember to run tests after each change  (reminder, not task)
+     - 1. First do X, then do Y  (numbered guidance, not discrete tasks)
+     
      Use sub-tasks (indented) for complex items. -->
 
 - [ ] First task description
@@ -40,10 +53,24 @@ This template defines the canonical structure for issues that feed into the Code
 <!-- Verifiable conditions that must be met for this issue to be considered
      complete. These are checked by the verifier workflow after merge.
      
+     IMPORTANT: Do NOT use bullet points for instructions on HOW to verify.
+     Only use bullets for the actual criteria. Lines starting with bullets
+     will be automatically converted to checkboxes.
+     
      Write criteria that can be objectively verified:
-     - Tests pass
-     - Feature works as described
-     - No regressions introduced -->
+     
+     CORRECT:
+     - [ ] All tests pass
+     - [ ] Code coverage ≥95%
+     - [ ] No regressions introduced
+     
+     INCORRECT:
+     - Before marking complete, run pytest  (instruction, not criterion)
+     - To verify coverage, check the report  (guidance, not criterion)
+     - 1. Run tests 2. Check output  (numbered steps, not criteria)
+     
+     If you need to provide verification instructions, put them in a
+     comment or in the Implementation Notes section. -->
 
 - [ ] First criterion
 - [ ] Second criterion
