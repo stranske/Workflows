@@ -81,10 +81,7 @@ def test_validate_ledger_task_rules(tmp_path: Path, monkeypatch) -> None:
 
     assert "tasks[0].finished_at must be null unless status is done" in errors
     assert "tasks[2].started_at must be null when status is todo" in errors
-    assert (
-        f"{ledger_path}: at most one task may have status=doing (found 2)"
-        in errors
-    )
+    assert f"{ledger_path}: at most one task may have status=doing (found 2)" in errors
 
 
 def test_commit_validation_for_done_task(tmp_path: Path, monkeypatch) -> None:
@@ -116,10 +113,7 @@ def test_commit_validation_for_done_task(tmp_path: Path, monkeypatch) -> None:
 
     errors = ledger_validate.validate_ledger(ledger_path)
 
-    assert (
-        f"{ledger_path}: tasks[0].commit abcdef1 must include non-ledger changes"
-        in errors
-    )
+    assert f"{ledger_path}: tasks[0].commit abcdef1 must include non-ledger changes" in errors
 
 
 def test_find_ledgers_returns_expected_paths(tmp_path: Path, monkeypatch) -> None:
