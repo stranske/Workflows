@@ -1084,38 +1084,8 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
   const attentionKey = [summaryReason, runResult, errorCategory, errorType, agentExitCode].filter(Boolean).join('|');
   const priorAttentionKey = normalise(previousAttention.key);
 
-  const shouldPostFailureComment = runFailed;
-  if (shouldPostFailureComment && (attentionKey !== priorAttentionKey || !previousAttention.comment_id)) {
-    const attentionBody = formatFailureComment({
-      mode: 'keepalive',
-      exitCode: agentExitCode || 'unknown',
-      errorCategory: errorCategory || 'unknown',
-      errorType: errorType || 'unknown',
-      recovery: errorRecovery || 'Check logs for details.',
-      summary: agentSummary || summaryReason || runResult || 'No output captured',
-      runUrl: runUrl || '',
-    });
-    try {
-      const { data } = await github.rest.issues.createComment({
-        owner: context.repo.owner,
-        repo: context.repo.repo,
-        issue_number: prNumber,
-        body: attentionBody,
-      });
-      newState.attention = {
-        key: attentionKey,
-        comment_id: data?.id || '',
-        comment_url: data?.html_url || '',
-        error_category: errorCategory || '',
-        error_type: errorType || '',
-        reason: summaryReason || '',
-        recovery: errorRecovery || '',
-        recorded_at: new Date().toISOString(),
-      };
-    } catch (error) {
-      if (core) core.warning(`Failed to post attention comment: ${error.message}`);
-    }
-  }
+  // NOTE: Failure comment posting removed - handled by reusable-codex-run.yml with proper deduplication
+  // This prevents duplicate failure notifications on PRs
 
   summaryLines.push('', formatStateComment(newState));
   const body = summaryLines.join('\n');
