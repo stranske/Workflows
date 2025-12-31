@@ -152,7 +152,7 @@ def test_get_package_requires_returns_dependencies(
     payload = json.dumps({"info": {"requires_dist": ["pluggy>=1.0"]}}).encode()
 
     class FakeResponse:
-        def __enter__(self) -> "FakeResponse":
+        def __enter__(self) -> FakeResponse:
             return self
 
         def __exit__(self, exc_type, exc, tb) -> None:
@@ -165,9 +165,7 @@ def test_get_package_requires_returns_dependencies(
         validate_version_pins.urllib.request, "urlopen", lambda *args, **kwargs: FakeResponse()
     )
 
-    assert validate_version_pins.get_package_requires("pytest", "7.0.0") == [
-        "pluggy>=1.0"
-    ]
+    assert validate_version_pins.get_package_requires("pytest", "7.0.0") == ["pluggy>=1.0"]
 
 
 def test_get_package_requires_handles_error(
@@ -193,15 +191,11 @@ def test_validate_file_no_versions(tmp_path: Path) -> None:
     assert warnings == ["No versions found in file"]
 
 
-def test_validate_file_returns_errors(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_validate_file_returns_errors(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     env_path = tmp_path / "pins.env"
     env_path.write_text("PYTEST_VERSION=7.0.0\n", encoding="utf-8")
 
-    monkeypatch.setattr(
-        validate_version_pins, "check_compatibility", lambda versions: ["bad pin"]
-    )
+    monkeypatch.setattr(validate_version_pins, "check_compatibility", lambda versions: ["bad pin"])
 
     errors, warnings = validate_version_pins.validate_file(env_path)
 
@@ -209,9 +203,7 @@ def test_validate_file_returns_errors(
     assert warnings == []
 
 
-def test_main_single_file_ok(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_main_single_file_ok(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     env_path = tmp_path / "pins.env"
     env_path.write_text("PYTEST_VERSION=7.0.0\n", encoding="utf-8")
 
@@ -299,9 +291,7 @@ def test_main_check_all_templates_ok(
 
         monkeypatch.setattr(Path, "glob", fake_glob)
         monkeypatch.setattr(Path, "exists", lambda self: False)
-        monkeypatch.setattr(
-            validate_version_pins, "validate_file", lambda path: ([], [])
-        )
+        monkeypatch.setattr(validate_version_pins, "validate_file", lambda path: ([], []))
         monkeypatch.setattr(
             validate_version_pins.sys,
             "argv",
@@ -331,9 +321,7 @@ def test_main_check_all_templates_warnings_only(
 
         monkeypatch.setattr(Path, "glob", fake_glob)
         monkeypatch.setattr(Path, "exists", fake_exists)
-        monkeypatch.setattr(
-            validate_version_pins, "validate_file", lambda path: ([], ["warn"])
-        )
+        monkeypatch.setattr(validate_version_pins, "validate_file", lambda path: ([], ["warn"]))
         monkeypatch.setattr(
             validate_version_pins.sys,
             "argv",
