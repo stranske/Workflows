@@ -1,0 +1,140 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.14, pytest-9.0.2, pluggy-1.6.0
+rootdir: /workspaces/Workflows
+configfile: pyproject.toml
+plugins: timeout-2.4.0, cov-7.0.0
+collected 719 items
+
+tests/scripts/test_aggregate_agent_metrics.py .............              [  1%]
+tests/scripts/test_auto_type_hygiene.py ...........                      [  3%]
+tests/scripts/test_ci_history.py ........                                [  4%]
+tests/scripts/test_ci_metrics.py ......                                  [  5%]
+tests/scripts/test_coverage_history_append.py .....                      [  5%]
+tests/scripts/test_fix_numpy_asserts.py ...                              [  6%]
+tests/scripts/test_generate_residual_trend.py .....                      [  7%]
+tests/scripts/test_keepalive_metrics_collector.py ...................... [ 10%]
+                                                                         [ 10%]
+tests/scripts/test_keepalive_metrics_dashboard.py ...........            [ 11%]
+tests/scripts/test_keepalive_metrics_integration.py .                    [ 11%]
+tests/scripts/test_ledger_migrate_base.py ...................            [ 14%]
+tests/scripts/test_ledger_validate.py .........                          [ 15%]
+tests/scripts/test_metrics_format_utils.py .....                         [ 16%]
+tests/scripts/test_mypy_autofix.py ......                                [ 17%]
+tests/scripts/test_sync_status_file_ignores.py ..................        [ 19%]
+tests/scripts/test_sync_test_dependencies.py ..........................  [ 23%]
+tests/scripts/test_sync_test_dependencies_mapping.py ..                  [ 23%]
+tests/scripts/test_sync_tool_versions.py ................                [ 25%]
+tests/scripts/test_update_floating_tag.py .....                          [ 26%]
+tests/scripts/test_update_residual_history.py ...                        [ 26%]
+tests/scripts/test_validate_version_pins.py ............................ [ 30%]
+..                                                                       [ 31%]
+tests/test_ci_failure_analyzer.py ........................xxx            [ 34%]
+tests/test_coverage_guard.py ..........                                  [ 36%]
+tests/test_coverage_trend.py ...............                             [ 38%]
+tests/test_enforce_gate_branch_protection.py .........                   [ 39%]
+tests/test_failure_signature.py ....                                     [ 40%]
+tests/test_integration_repo_template.py .....                            [ 40%]
+tests/test_post_ci_summary.py .....                                      [ 41%]
+tests/test_pr_metrics_tracker.py ................                        [ 43%]
+tests/test_resolve_mypy_pin.py .....                                     [ 44%]
+tests/test_setup_checklist_ci_scripts.py .                               [ 44%]
+tests/test_workflow_health_check.py ..............                       [ 46%]
+tests/test_workflow_validator.py ................                        [ 48%]
+tests/workflows/github_scripts/test_decode_raw_input.py .....            [ 49%]
+tests/workflows/github_scripts/test_fallback_split.py ...                [ 49%]
+tests/workflows/github_scripts/test_gate_summary.py ...................  [ 52%]
+tests/workflows/github_scripts/test_health_summarize.py ................ [ 54%]
+.............................                                            [ 58%]
+tests/workflows/github_scripts/test_parse_chatgpt_topics.py ...........  [ 60%]
+tests/workflows/github_scripts/test_restore_branch_snapshots.py ........ [ 61%]
+.........                                                                [ 62%]
+tests/workflows/test_agents_guard.py ...................                 [ 65%]
+tests/workflows/test_agents_orchestrator_resolve.py .                    [ 65%]
+tests/workflows/test_agents_pr_meta_keepalive.py ..........              [ 66%]
+tests/workflows/test_autofix_full_pipeline.py .                          [ 67%]
+tests/workflows/test_autofix_pipeline.py ..                              [ 67%]
+tests/workflows/test_autofix_pipeline_diverse.py .                       [ 67%]
+tests/workflows/test_autofix_pipeline_tools.py ..........                [ 68%]
+tests/workflows/test_autofix_pr_comment.py .....                         [ 69%]
+tests/workflows/test_autofix_trigger_scenario2.py .....                  [ 70%]
+tests/workflows/test_chatgpt_topics_parser.py .........................  [ 73%]
+tests/workflows/test_ci_cosmetic_repair.py ............................. [ 77%]
+...                                                                      [ 78%]
+tests/workflows/test_ci_coverage_delta.py .......                        [ 79%]
+tests/workflows/test_ci_history.py .......                               [ 80%]
+tests/workflows/test_ci_metrics.py ..........                            [ 81%]
+tests/workflows/test_codex_belt_pipeline.py ...                          [ 81%]
+tests/workflows/test_disable_legacy_workflows.py ...............         [ 84%]
+tests/workflows/test_issue_bridge_triggers.py ........                   [ 85%]
+tests/workflows/test_keepalive_guard_utils.py ..                         [ 85%]
+tests/workflows/test_keepalive_post_work.py ......                       [ 86%]
+tests/workflows/test_keepalive_workflow.py ................F             [ 88%]
+tests/workflows/test_reusable_ci_workflow.py .....                       [ 89%]
+tests/workflows/test_reusable_workflow_outputs_doc.py .                  [ 89%]
+tests/workflows/test_workflow_agents_consolidation.py .................. [ 91%]
+........................                                                 [ 95%]
+tests/workflows/test_workflow_archival_issue2823.py ..                   [ 95%]
+tests/workflows/test_workflow_autofix_guard.py .....                     [ 96%]
+tests/workflows/test_workflow_multi_failure_demo.py ...                  [ 96%]
+tests/workflows/test_workflow_naming.py .......                          [ 97%]
+tests/workflows/test_workflow_selftest_consolidation.py ............     [ 99%]
+tests/workflows/test_workflow_templates.py .....                         [100%]
+
+=================================== FAILURES ===================================
+____________________ test_keepalive_requires_dispatch_token ____________________
+
+    def test_keepalive_requires_dispatch_token() -> None:
+        _require_node()
+        scenario_path = FIXTURES_DIR / "missing_dispatch_token.json"
+        assert scenario_path.exists(), "Scenario fixture missing"
+        command = ["node", str(HARNESS), str(scenario_path)]
+        result = subprocess.run(command, capture_output=True, text=True)
+>       assert result.returncode != 0, "Expected harness to fail without dispatch token"
+E       AssertionError: Expected harness to fail without dispatch token
+E       assert 0 != 0
+E        +  where 0 = CompletedProcess(args=['node', '/workspaces/Workflows/tests/workflows/fixtures/keepalive/harness.js', '/workspaces/Wor...h-pr909-r2"},"quiet":true,"reply":"none"}}],"instruction_reactions":[{"comment_id":3,"content":"hooray"}]}', stderr='').returncode
+
+tests/workflows/test_keepalive_workflow.py:523: AssertionError
+================================ tests coverage ================================
+_______________ coverage: platform linux, python 3.11.14-final-0 _______________
+
+Name                                     Stmts   Miss Branch BrPart   Cover   Missing
+-------------------------------------------------------------------------------------
+scripts/aggregate_agent_metrics.py         201      0     88      8  97.23%   128->130, 153->155, 156->158, 159->161, 179->181, 182->184, 185->187, 188->177
+scripts/auto_type_hygiene.py               139      0     68      0 100.00%
+scripts/build_autofix_pr_comment.py        105      2     30      2  97.04%   31->33, 59-60
+scripts/ci_cosmetic_repair.py              256      0     92      1  99.71%   348->346
+scripts/ci_coverage_delta.py                61      0     14      0 100.00%
+scripts/ci_failure_analyzer.py             108      0     58      1  99.40%   48->46
+scripts/ci_history.py                       77      0     20      0 100.00%
+scripts/ci_metrics.py                      120      0     26      0 100.00%
+scripts/classify_test_failures.py          123     37     44     13  62.87%   78, 83, 87-88, 95->93, 99, 101, 103, 111-113, 125, 128-138, 144, 149, 160, 163-167, 174-186, 190-203
+scripts/coverage_history_append.py          53      2     16      3  92.75%   22, 55->57, 63
+scripts/fix_cosmetic_aggregate.py           20      1      6      1  92.31%   22
+scripts/fix_numpy_asserts.py                38      0     16      1  98.15%   33->39
+scripts/generate_residual_trend.py          61      1     26      2  96.55%   59, 67->65
+scripts/keepalive_metrics_collector.py     108      0     34      1  99.30%   112->114
+scripts/keepalive_metrics_dashboard.py      94      0     26      0 100.00%
+scripts/ledger_migrate_base.py             134     13     52      8  85.48%   31-43, 60->68, 62->60, 64->60, 76-79, 99-101, 139, 145, 182->177, 202
+scripts/ledger_validate.py                 205     63     92     22  65.32%   25->28, 52-54, 65-66, 77-138, 149, 156-158, 162-175, 186, 188, 194, 198, 202-203, 205, 212-213, 215, 219, 221, 225-226, 231, 237-238, 240->268, 250-254, 256->268, 266, 307-308, 321, 325, 348->346, 354-361
+scripts/metrics_format_utils.py             16      0      6      0 100.00%
+scripts/mypy_autofix.py                     45      0     20      1  98.46%   33->37
+scripts/mypy_return_autofix.py              89     11     60      7  82.55%   21, 25, 43-45, 49-51, 58, 71, 113
+scripts/pr_metrics_tracker.py               68      3     24      1  95.65%   81, 85-86
+scripts/sync_status_file_ignores.py         94      0     40      0 100.00%
+scripts/sync_test_dependencies.py          163      1     72      3  98.30%   21->25, 220, 281->276
+scripts/sync_tool_versions.py               74      0     28      0 100.00%
+scripts/update_autofix_expectations.py      37      1     12      2  93.88%   31, 44->46
+scripts/update_residual_history.py          25      0      4      0 100.00%
+scripts/validate_version_pins.py           135      0     68      1  99.51%   78->74
+scripts/workflow_health_check.py            77     28     30      2  62.62%   25->23, 66-68, 74-81, 99-100, 107-128
+scripts/workflow_validator.py               72      4     32      3  93.27%   129, 136, 160-161
+-------------------------------------------------------------------------------------
+TOTAL                                     2798    167   1104     83  92.21%
+Coverage JSON written to file coverage.json
+=========================== short test summary info ============================
+XFAIL tests/test_ci_failure_analyzer.py::TestIntentionalFailures::test_assertion_failure - Intentional autofix failure fixture
+XFAIL tests/test_ci_failure_analyzer.py::TestIntentionalFailures::test_attribute_error - Intentional autofix failure fixture
+XFAIL tests/test_ci_failure_analyzer.py::TestIntentionalFailures::test_key_error - Intentional autofix failure fixture
+FAILED tests/workflows/test_keepalive_workflow.py::test_keepalive_requires_dispatch_token
+================== 1 failed, 715 passed, 3 xfailed in 44.57s ===================

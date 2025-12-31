@@ -13,11 +13,11 @@ This template defines the canonical structure for issues that feed into the Code
 
 | Content Type | Put it in... | Format to Use |
 |---|---|---|
-| Background/context | Scope, Why, Implementation Notes | Any format |
-| Instructions/steps | Scope, Implementation Notes | Numbered lists (1. 2. 3.) |
-| Reminders/notes | Scope, Implementation Notes | Bold text, quotes, any format |
-| Actual work items | Tasks | Bullet points (-) |
-| Success conditions | Acceptance Criteria | Bullet points (-) |
+| Background/context | Scope, Why, Implementation Notes | Plain text, paragraphs |
+| Instructions/steps | Scope, Implementation Notes | Plain text, bold headings, code blocks |
+| Reminders/notes | Scope, Implementation Notes | Plain text, bold text, blockquotes |
+| Actual work items | Tasks | Bullet points (-) only |
+| Success conditions | Acceptance Criteria | Bullet points (-) only |
 
 ## Template Structure
 

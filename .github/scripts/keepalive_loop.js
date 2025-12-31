@@ -188,24 +188,9 @@ function normaliseChecklistSection(content) {
   }
   const lines = raw.split('\n');
   let mutated = false;
-  let skipNextLists = false; // Track if we should skip upcoming list items
   
-  const updated = lines.map((line, index) => {
-    // Check if this line is a bold instructional heading
-    // If so, mark that following lists should be skipped
-    if (/^\*\*.*(:|\bmust\b|\bshould\b|\bnote\b|\bimportant\b).*\*\*\s*$/i.test(line.trim())) {
-      skipNextLists = true;
-      return line;
-    }
-    
-    // Reset skip flag if we hit a blank line or non-list content after instructions
-    if (!line.trim() || (!line.match(/^(\s*)([-*+]|\d+[.)])\s+/) && !line.match(/^\*\*/))) {
-      if (!line.trim() || !line.match(/^\*\*/)) {
-        skipNextLists = false;
-      }
-      return line;
-    }
-    
+  const updated = lines.map((line) => {
+    // Match bullet points (-, *, +) or numbered lists (1., 2), 3.)
     const match = line.match(/^(\s*)([-*+]|\d+[.)])\s+(.*)$/);
     if (!match) {
       return line;
@@ -215,27 +200,9 @@ function normaliseChecklistSection(content) {
     if (!remainder) {
       return line;
     }
+    // If already a checkbox, preserve it
     if (/^\[[ xX]\]/.test(remainder)) {
       return `${indent}${bullet} ${remainder}`;
-    }
-
-    // If we're in a section following an instructional heading, skip checkbox conversion
-    if (skipNextLists) {
-      return line;
-    }
-
-    // Skip lines that start with explicit instruction markers
-    const instructionalPatterns = [
-      // Temporal/conditional instruction starters
-      /^(before|after|when|if|once)\b/i,
-      // Label prefixes
-      /^(important|note|warning|tip):/i,
-      // Bold labels at start of line content
-      /^\*\*[A-Za-z]+:(\*\*)?/,
-    ];
-
-    if (instructionalPatterns.some(pattern => pattern.test(remainder))) {
-      return line;
     }
 
     mutated = true;
