@@ -9,8 +9,12 @@ from tools.disable_legacy_workflows import (
     CANONICAL_WORKFLOW_FILES,
     CANONICAL_WORKFLOW_NAMES,
     WorkflowAPIError,
+    _extract_workflow_name,
     _extract_next_link,
     _normalize_allowlist,
+    _normalized_slug,
+    _http_request,
+    _list_all_workflows,
     disable_legacy_workflows,
 )
 
@@ -120,3 +124,40 @@ def test_normalize_allowlist_trims_and_splits_values() -> None:
 
 def test_normalize_allowlist_skips_empty_tokens() -> None:
     assert _normalize_allowlist([" , , ", " "]) == set()
+
+
+def test_normalized_slug_handles_disabled_suffix() -> None:
+    assert _normalized_slug(Path("ci.yml")) == "ci.yml"
+    assert _normalized_slug(Path("ci.yml.disabled")) == "ci.yml"
+
+
+def test_extract_workflow_name_prefers_yaml_name(tmp_path: Path) -> None:
+    path = tmp_path / "workflow.yml"
+    path.write_text("name: Example Workflow\non: push\n", encoding="utf-8")
+
+    assert _extract_workflow_name(path) == "Example Workflow"
+
+
+def test_extract_workflow_name_falls_back_on_parse_errors(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "workflow.yml"
+    path.write_text("name: 'Fallback Workflow'\n::\n", encoding="utf-8")
+
+    class FakeYamlError(Exception):
+        pass
+
+    def raise_error(_: str) -> None:
+        raise FakeYamlError("bad yaml")
+
+    monkeypatch.setattr("tools.disable_legacy_workflows.yaml.safe_load", raise_error)
+    monkeypatch.setattr("tools.disable_legacy_workflows.yaml.YAMLError", FakeYamlError)
+
+    assert _extract_workflow_name(path) == "Fallback Workflow"
+
+
+def test_http_request_and_list_all_workflows_stubs_return_empty() -> None:
+    assert _list_all_workflows("https://example.com", headers={}) == []
+    body, headers = _http_request("GET", "https://example.com", headers={})
+    assert body == b""
+    assert headers == {}
