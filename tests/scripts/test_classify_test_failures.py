@@ -8,8 +8,7 @@ from scripts import classify_test_failures
 def _write_junit(tmp_path: Path, name: str, body: str) -> Path:
     path = tmp_path / name
     path.write_text(
-        '<?xml version="1.0" encoding="utf-8"?>\n<testsuite>\n'
-        f"{body}\n</testsuite>\n",
+        '<?xml version="1.0" encoding="utf-8"?>\n<testsuite>\n' f"{body}\n</testsuite>\n",
         encoding="utf-8",
     )
     return path
@@ -94,7 +93,7 @@ def test_failure_message_and_test_id_helpers() -> None:
     assert message == "boom: trace"
     assert classify_test_failures._test_id(failure_case, Path("report.xml")) == "pkg.mod::test_it"
 
-    error_case = ET.fromstring("<testcase name=\"test_err\"><error>stack</error></testcase>")
+    error_case = ET.fromstring('<testcase name="test_err"><error>stack</error></testcase>')
     message, failure_type = classify_test_failures._failure_message(error_case)
 
     assert failure_type == "error"
@@ -103,8 +102,7 @@ def test_failure_message_and_test_id_helpers() -> None:
 
     unnamed_case = ET.fromstring("<testcase></testcase>")
     assert (
-        classify_test_failures._test_id(unnamed_case, Path("report.xml"))
-        == "report.xml::testcase"
+        classify_test_failures._test_id(unnamed_case, Path("report.xml")) == "report.xml::testcase"
     )
     empty_case = ET.fromstring("<testcase></testcase>")
     assert classify_test_failures._failure_message(empty_case) == ("", "failure")
@@ -114,9 +112,9 @@ def test_extract_markers_skips_blank_values() -> None:
     testcase = ET.fromstring(
         "<testcase>"
         "<properties>"
-        "<property name=\"markers\" value=\"\"/>"
-        "<property name=\"marker:runtime\" value=\"1\"/>"
-        "<property name=\"note\" value=\"ignored\"/>"
+        '<property name="markers" value=""/>'
+        '<property name="marker:runtime" value="1"/>'
+        '<property name="note" value="ignored"/>'
         "</properties>"
         "</testcase>"
     )
@@ -169,9 +167,7 @@ def test_main_writes_output_file(tmp_path: Path, capsys, monkeypatch) -> None:
     assert '"total_failures": 1' in captured.out
 
 
-def test_main_with_missing_report_prints_empty_summary(
-    tmp_path: Path, capsys, monkeypatch
-) -> None:
+def test_main_with_missing_report_prints_empty_summary(tmp_path: Path, capsys, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
 
     status = classify_test_failures.main(["missing-report.xml"])
