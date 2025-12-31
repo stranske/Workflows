@@ -65,6 +65,93 @@ def test_generate_report_writes_output(tmp_path: Path) -> None:
     assert saved == report
 
 
+def test_load_workflow_runs_skips_missing_file(tmp_path: Path) -> None:
+    missing = tmp_path / "missing.ndjson"
+
+    runs = workflow_health_check.load_workflow_runs(str(missing))
+
+    assert runs == []
+
+
+def test_load_workflow_runs_reads_nonempty_lines(tmp_path: Path) -> None:
+    metrics_file = tmp_path / "metrics.ndjson"
+    metrics_file.write_text(
+        "\n".join(
+            [
+                json.dumps({"verdict": "pass"}),
+                "",
+                json.dumps({"status": "failure"}),
+            ]
+        )
+        + "\n"
+    )
+
+    runs = workflow_health_check.load_workflow_runs(str(metrics_file))
+
+    assert runs == [{"verdict": "pass"}, {"status": "failure"}]
+
+
+def test_calculate_success_rate_uses_verdict_or_status() -> None:
+    runs = [
+        {"verdict": "pass"},
+        {"status": "success"},
+        {"verdict": "fail"},
+        {"status": "failure"},
+    ]
+
+    assert workflow_health_check.calculate_success_rate(runs) == 50.0
+
+
+def test_calculate_success_rate_empty() -> None:
+    assert workflow_health_check.calculate_success_rate([]) == 0.0
+
+
+def test_analyze_failure_patterns_counts_reasons() -> None:
+    runs = [
+        {"verdict": "pass"},
+        {"verdict": "fail", "skip_reason": "flaky"},
+        {"status": "failure", "error": "timeout"},
+        {"status": "failure"},
+        {"verdict": "fail", "skip_reason": "flaky"},
+    ]
+
+    patterns = workflow_health_check.analyze_failure_patterns(runs)
+
+    assert patterns == {"flaky": 2, "timeout": 1, "unknown": 1}
+
+
+def test_get_recent_runs_skips_older_runs() -> None:
+    old_time = datetime(2000, 1, 1, tzinfo=UTC).isoformat()
+    runs = [{"verdict": "pass", "recorded_at": old_time}]
+
+    recent = workflow_health_check.get_recent_runs(runs, days=7)
+
+    assert recent == []
+
+
+def test_main_successful_run_prints_summary(
+    tmp_path: Path, capsys, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    metrics_file = tmp_path / "metrics.ndjson"
+    metrics_file.write_text(
+        json.dumps(
+            {
+                "verdict": "pass",
+                "recorded_at": datetime.now(UTC).isoformat(),
+            }
+        )
+        + "\n"
+    )
+    monkeypatch.setenv("METRICS_PATH", str(metrics_file))
+    monkeypatch.setenv("SUCCESS_THRESHOLD", "80")
+
+    workflow_health_check.main()
+
+    captured = capsys.readouterr()
+    assert "Workflow Health Report" in captured.out
+    assert "Overall success rate: 100.0%" in captured.out
+
+
 def test_main_exits_below_threshold(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Main should exit non-zero when recent success rate is below threshold."""
     metrics_file = tmp_path / "metrics.ndjson"
