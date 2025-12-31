@@ -370,11 +370,12 @@ jobs:
 
           # Run codex exec with prompt from file
           # Build command array to handle EXTRA_ARGS properly
+          # Use --mode code-generation to avoid counting against code review quota
           CODEX_EXIT=0
           if [ -n "${EXTRA_ARGS:-}" ]; then
-            eval "codex exec --skip-git-repo-check --sandbox \"$SANDBOX\" --output-last-message \"$OUTPUT_FILE\" $EXTRA_ARGS \"\$(cat \"\$PROMPT_FILE\")\"" || CODEX_EXIT=$?
+            eval "codex exec --skip-git-repo-check --sandbox \"$SANDBOX\" --mode code-generation --output-last-message \"$OUTPUT_FILE\" $EXTRA_ARGS \"\$(cat \"\$PROMPT_FILE\")\"" || CODEX_EXIT=$?
           else
-            codex exec --skip-git-repo-check --sandbox "$SANDBOX" --output-last-message "$OUTPUT_FILE" "$(cat "$PROMPT_FILE")" || CODEX_EXIT=$?
+            codex exec --skip-git-repo-check --sandbox "$SANDBOX" --mode code-generation --output-last-message "$OUTPUT_FILE" "$(cat "$PROMPT_FILE")" || CODEX_EXIT=$?
           fi
 
           echo "exit-code=${CODEX_EXIT}" >> "$GITHUB_OUTPUT"
