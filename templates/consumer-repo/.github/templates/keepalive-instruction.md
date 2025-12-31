@@ -30,11 +30,18 @@ After:  `- [x] Add validation for user input`
 
 **COVERAGE TASKS - SPECIAL RULES:**
 If a task mentions "coverage" or a percentage target (e.g., "≥95%", "to 95%"), you MUST:
-1. Run `pytest tests/ --cov=scripts --cov-report=term-missing` after adding tests
+1. After adding tests, run TARGETED coverage verification to avoid timeouts:
+   - For a specific script like `scripts/foo.py`, run:
+     `pytest tests/scripts/test_foo.py --cov=scripts/foo --cov-report=term-missing -m "not slow"`
+   - If no matching test file exists, run:
+     `pytest tests/ --cov=scripts/foo --cov-report=term-missing -m "not slow" -x`
 2. Find the specific script in the coverage output table
 3. Verify the `Cover` column shows the target percentage or higher
 4. Only mark the task complete if the actual coverage meets the target
 5. If coverage is below target, add more tests until it meets the target
+
+IMPORTANT: Always use `-m "not slow"` to skip slow integration tests that may timeout.
+IMPORTANT: Use targeted `--cov=scripts/specific_module` instead of `--cov=scripts` for faster feedback.
 
 A coverage task is NOT complete just because you added tests. It is complete ONLY when the coverage command output confirms the target is met.
 

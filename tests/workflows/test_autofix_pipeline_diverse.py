@@ -35,6 +35,7 @@ def _run(
     return result
 
 
+@pytest.mark.slow
 @pytest.mark.integration
 def test_autofix_pipeline_handles_diverse_errors(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
