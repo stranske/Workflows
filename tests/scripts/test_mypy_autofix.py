@@ -23,7 +23,10 @@ def test_ensure_typing_imports_merges_existing_import(tmp_path: Path) -> None:
     )
 
     assert mypy_autofix._ensure_typing_imports(sample, {"Optional", "Iterable"})
-    assert sample.read_text(encoding="utf-8").splitlines()[0] == "from typing import Iterable, Optional"
+    assert (
+        sample.read_text(encoding="utf-8").splitlines()[0]
+        == "from typing import Iterable, Optional"
+    )
 
 
 def test_ensure_typing_imports_no_missing_in_existing_import(tmp_path: Path) -> None:
@@ -36,7 +39,10 @@ def test_ensure_typing_imports_no_missing_in_existing_import(tmp_path: Path) -> 
     )
 
     assert not mypy_autofix._ensure_typing_imports(sample, {"Optional", "Iterable"})
-    assert sample.read_text(encoding="utf-8").splitlines()[0] == "from typing import Iterable, Optional"
+    assert (
+        sample.read_text(encoding="utf-8").splitlines()[0]
+        == "from typing import Iterable, Optional"
+    )
 
 
 def test_ensure_typing_imports_inserts_after_future(tmp_path: Path) -> None:
@@ -60,8 +66,7 @@ def test_ensure_typing_imports_inserts_after_future(tmp_path: Path) -> None:
 def test_main_processes_files_and_dirs(tmp_path: Path, monkeypatch) -> None:
     sample_file = tmp_path / "sample.py"
     sample_file.write_text(
-        "def foo(x: Optional[int]) -> None:\n"
-        "    pass\n",
+        "def foo(x: Optional[int]) -> None:\n" "    pass\n",
         encoding="utf-8",
     )
 
@@ -69,8 +74,7 @@ def test_main_processes_files_and_dirs(tmp_path: Path, monkeypatch) -> None:
     sample_dir.mkdir()
     module_file = sample_dir / "mod.py"
     module_file.write_text(
-        "def bar(items: Iterable[int]) -> None:\n"
-        "    pass\n",
+        "def bar(items: Iterable[int]) -> None:\n" "    pass\n",
         encoding="utf-8",
     )
 
@@ -89,8 +93,7 @@ def test_main_uses_default_targets(tmp_path: Path, monkeypatch) -> None:
     defaults_dir.mkdir()
     default_file = defaults_dir / "default.py"
     default_file.write_text(
-        "def baz(items: Iterable[int]) -> None:\n"
-        "    pass\n",
+        "def baz(items: Iterable[int]) -> None:\n" "    pass\n",
         encoding="utf-8",
     )
 
