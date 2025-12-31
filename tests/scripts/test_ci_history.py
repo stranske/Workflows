@@ -50,6 +50,46 @@ def test_load_metrics_falls_back_to_builder(
     assert from_file is False
 
 
+def _write_junit(path: Path) -> None:
+    path.write_text(
+        """<testsuite tests="1" failures="1" errors="0" skipped="0">
+  <testcase classname="tests.sample" name="test_failure" time="1.2">
+    <failure message="boom" type="AssertionError">details</failure>
+  </testcase>
+</testsuite>
+""",
+        encoding="utf-8",
+    )
+
+
+def test_main_builds_metrics_from_junit(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    junit_path = tmp_path / "pytest-junit.xml"
+    _write_junit(junit_path)
+    metrics_path = tmp_path / "ci-metrics.json"
+    history_path = tmp_path / "metrics-history.ndjson"
+    classification_path = tmp_path / "classification.json"
+
+    monkeypatch.setenv("JUNIT_PATH", str(junit_path))
+    monkeypatch.setenv("METRICS_PATH", str(metrics_path))
+    monkeypatch.setenv("HISTORY_PATH", str(history_path))
+    monkeypatch.setenv("ENABLE_CLASSIFICATION", "1")
+    monkeypatch.setenv("CLASSIFICATION_OUT", str(classification_path))
+
+    exit_code = ci_history.main()
+
+    assert exit_code == 0
+    history_lines = history_path.read_text(encoding="utf-8").splitlines()
+    assert len(history_lines) == 1
+    record = json.loads(history_lines[0])
+    assert record["summary"]["tests"] == 1
+    assert record["failures"][0]["status"] == "failure"
+    assert "metrics_path" not in record
+
+    payload = json.loads(classification_path.read_text(encoding="utf-8"))
+    assert payload["total"] == 1
+    assert payload["counts"]["failure"] == 1
+
+
 def test_build_history_record_includes_metadata(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
