@@ -1,75 +1,65 @@
 # Coverage Gap Analysis
 
-> **Baseline**: 2025-12-31 (fix/codex-coverage-verification branch)
-> **Overall Coverage**: 74.76%
-> **Tests**: 592 passed, 0 skipped, 3 xfailed
+> **Baseline**: 2025-12-31 (Updated after PR #401)
+> **Overall Coverage**: 94.03%
+> **Tests**: 715 passed, 3 xfailed, 1 failed
 > **Target**: 95%
 
 ## Summary
 
 | Metric | Value |
 |--------|-------|
-| Total Statements | 3,828 |
-| Covered Statements | 2,946 |
-| Missing Statements | 882 |
-| Coverage | 74.76% |
-| Gap to 95% | 20.24% (~775 statements) |
+| Total Statements | 2,798 |
+| Covered Statements | 2,631 |
+| Missing Statements | 167 |
+| Coverage | 94.03% |
+| Gap to 95% | 0.97% (~27 statements) |
 
 ## Scripts by Coverage (Lowest to Highest)
 
-### Tier 1: Zero Coverage (3 scripts, 234 statements)
+### Tier 3: Medium Coverage 50-75% (3 scripts, 128 statements missing)
 
 | Script | Statements | Coverage | Missing |
 |--------|------------|----------|---------|
-| `sync_tool_versions.py` | 74 | 0.00% | 74 |
-| `update_residual_history.py` | 25 | 0.00% | 25 |
-| `validate_version_pins.py` | 135 | 0.00% | 135 |
+| `workflow_health_check.py` | 77 | 63.64% | 28 |
+| `ledger_validate.py` | 205 | 69.27% | 63 |
+| `classify_test_failures.py` | 123 | 69.92% | 37 |
 
-### Tier 2: Very Low Coverage <50% (3 scripts, 248 statements missing)
-
-| Script | Statements | Coverage | Missing |
-|--------|------------|----------|---------|
-| `sync_test_dependencies.py` | 163 | 15.32% | 128 |
-| `keepalive_metrics_collector.py` | 108 | 46.48% | 56 |
-| `auto_type_hygiene.py` | 139 | 48.79% | 64 |
-
-### Tier 3: Medium Coverage 50-75% (5 scripts, 196 statements missing)
+### Tier 4: High Coverage 75-95% (3 scripts, 28 statements missing)
 
 | Script | Statements | Coverage | Missing |
 |--------|------------|----------|---------|
-| `keepalive_metrics_dashboard.py` | 94 | 56.67% | 40 |
-| `workflow_health_check.py` | 77 | 62.62% | 28 |
-| `classify_test_failures.py` | 123 | 62.87% | 37 |
-| `mypy_autofix.py` | 45 | 63.08% | 13 |
-| `ledger_validate.py` | 205 | 65.32% | 63 |
+| `mypy_return_autofix.py` | 89 | 87.64% | 11 |
+| `ledger_migrate_base.py` | 134 | 90.30% | 13 |
+| `workflow_validator.py` | 72 | 94.44% | 4 |
 
-### Tier 4: High Coverage 75-95% (7 scripts, 46 statements missing)
-
-| Script | Statements | Coverage | Missing |
-|--------|------------|----------|---------|
-| `mypy_return_autofix.py` | 89 | 82.55% | 11 |
-| `ledger_migrate_base.py` | 134 | 85.48% | 13 |
-| `ci_failure_analyzer.py` | 108 | 87.35% | 11 |
-| `fix_cosmetic_aggregate.py` | 20 | 92.31% | 1 |
-| `coverage_history_append.py` | 53 | 92.75% | 2 |
-| `workflow_validator.py` | 72 | 93.27% | 4 |
-| `update_autofix_expectations.py` | 37 | 93.88% | 1 |
-
-### Tier 5: At Target ≥95% (11 scripts)
+### Tier 5: At Target ≥95% (23 scripts)
 
 | Script | Statements | Coverage |
 |--------|------------|----------|
+| `auto_type_hygiene.py` | 139 | 100.00% |
 | `ci_coverage_delta.py` | 61 | 100.00% |
 | `ci_history.py` | 77 | 100.00% |
 | `ci_metrics.py` | 120 | 100.00% |
+| `keepalive_metrics_dashboard.py` | 94 | 100.00% |
 | `metrics_format_utils.py` | 16 | 100.00% |
 | `sync_status_file_ignores.py` | 94 | 100.00% |
+| `sync_test_dependencies.py` | 163 | 98.30% |
+| `sync_tool_versions.py` | 74 | 100.00% |
+| `update_residual_history.py` | 25 | 100.00% |
+| `validate_version_pins.py` | 135 | 99.51% |
 | `ci_cosmetic_repair.py` | 256 | 99.71% |
+| `ci_failure_analyzer.py` | 108 | 99.40% |
 | `fix_numpy_asserts.py` | 38 | 98.15% |
+| `keepalive_metrics_collector.py` | 108 | 99.30% |
+| `mypy_autofix.py` | 45 | 98.46% |
 | `aggregate_agent_metrics.py` | 201 | 97.23% |
 | `build_autofix_pr_comment.py` | 105 | 97.04% |
 | `generate_residual_trend.py` | 61 | 96.55% |
 | `pr_metrics_tracker.py` | 68 | 95.65% |
+| `coverage_history_append.py` | 53 | 95.65% |
+| `fix_cosmetic_aggregate.py` | 20 | 95.00% |
+| `update_autofix_expectations.py` | 37 | 97.30% |
 
 ## Verification Command
 
