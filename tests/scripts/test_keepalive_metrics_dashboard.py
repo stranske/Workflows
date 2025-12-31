@@ -80,7 +80,9 @@ def test_main_missing_path_returns_error(capsys) -> None:
 
 def test_main_writes_output(tmp_path, capsys) -> None:
     log_path = tmp_path / "metrics.ndjson"
-    log_path.write_text('{"pr_number": 7, "iteration": 2, "error_category": "none"}', encoding="utf-8")
+    log_path.write_text(
+        '{"pr_number": 7, "iteration": 2, "error_category": "none"}', encoding="utf-8"
+    )
     output_path = tmp_path / "out" / "dashboard.md"
 
     result = dashboard.main(["--path", str(log_path), "--output", str(output_path)])
@@ -90,6 +92,7 @@ def test_main_writes_output(tmp_path, capsys) -> None:
     assert output_path.exists()
     assert "# Keepalive Metrics Dashboard" in output_path.read_text(encoding="utf-8")
     assert "Wrote keepalive metrics dashboard to" in captured.out
+
 
 def test_build_dashboard_handles_empty_records() -> None:
     output = dashboard.build_dashboard([], errors=0)
