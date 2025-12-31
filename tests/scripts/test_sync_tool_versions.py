@@ -89,6 +89,18 @@ def test_ensure_pyproject_apply_updates_version() -> None:
     assert '"mypy==3.0",' in updated
 
 
+def test_ensure_pyproject_apply_no_changes() -> None:
+    env_versions = {cfg.env_key: "5.0" for cfg in sync_tool_versions.TOOL_CONFIGS}
+    content = _make_pyproject_content(env_versions)
+
+    updated, mismatches = sync_tool_versions.ensure_pyproject(
+        content, sync_tool_versions.TOOL_CONFIGS, env_versions, True
+    )
+
+    assert mismatches == {}
+    assert updated == content
+
+
 def test_main_reports_mismatch(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -126,6 +138,46 @@ def test_main_apply_updates_pyproject(tmp_path: Path, monkeypatch: pytest.Monkey
 
     assert exit_code == 0
     assert '"pytest==4.0",' in pyproject_path.read_text(encoding="utf-8")
+
+
+def test_main_check_ok(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    env_path = tmp_path / "pins.env"
+    pyproject_path = tmp_path / "pyproject.toml"
+    env_versions = {cfg.env_key: "6.0" for cfg in sync_tool_versions.TOOL_CONFIGS}
+
+    _write_env_file(env_path, env_versions)
+    pyproject_path.write_text(_make_pyproject_content(env_versions), encoding="utf-8")
+
+    monkeypatch.setattr(sync_tool_versions, "PIN_FILE", env_path)
+    monkeypatch.setattr(sync_tool_versions, "PYPROJECT_FILE", pyproject_path)
+
+    exit_code = sync_tool_versions.main(["--check"])
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert captured.err == ""
+
+
+def test_main_apply_no_changes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    env_path = tmp_path / "pins.env"
+    pyproject_path = tmp_path / "pyproject.toml"
+    env_versions = {cfg.env_key: "7.0" for cfg in sync_tool_versions.TOOL_CONFIGS}
+
+    _write_env_file(env_path, env_versions)
+    pyproject_path.write_text(_make_pyproject_content(env_versions), encoding="utf-8")
+
+    monkeypatch.setattr(sync_tool_versions, "PIN_FILE", env_path)
+    monkeypatch.setattr(sync_tool_versions, "PYPROJECT_FILE", pyproject_path)
+
+    exit_code = sync_tool_versions.main(["--apply"])
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert "tool pins synced" not in captured.out
 
 
 def test_main_rejects_check_and_apply_together() -> None:
