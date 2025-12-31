@@ -229,6 +229,26 @@ def test_main_apply_no_changes(
     assert "tool pins synced" not in captured.out
 
 
+def test_main_default_ok(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    env_path = tmp_path / "pins.env"
+    pyproject_path = tmp_path / "pyproject.toml"
+    env_versions = {cfg.env_key: "11.0" for cfg in sync_tool_versions.TOOL_CONFIGS}
+
+    _write_env_file(env_path, env_versions)
+    pyproject_path.write_text(_make_pyproject_content(env_versions), encoding="utf-8")
+
+    monkeypatch.setattr(sync_tool_versions, "PIN_FILE", env_path)
+    monkeypatch.setattr(sync_tool_versions, "PYPROJECT_FILE", pyproject_path)
+
+    exit_code = sync_tool_versions.main([])
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert captured.err == ""
+
+
 def test_main_rejects_check_and_apply_together() -> None:
     with pytest.raises(SystemExit):
         sync_tool_versions.main(["--check", "--apply"])
