@@ -26,6 +26,14 @@ def test_load_existing_skips_invalid_lines(tmp_path: Path) -> None:
     assert records == [{"run_id": 1}, {"run_id": 2}]
 
 
+def test_load_existing_returns_empty_when_missing(tmp_path: Path) -> None:
+    history_path = tmp_path / "missing.ndjson"
+
+    records = coverage_history_append.load_existing(history_path)
+
+    assert records == []
+
+
 def test_main_replaces_matching_run_id_and_sorts(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -53,6 +61,62 @@ def test_main_replaces_matching_run_id_and_sorts(
     records = _read_ndjson(history_path)
     assert [record["run_id"] for record in records] == [2, 1]
     assert records[1]["coverage"] == 75.0
+
+
+def test_main_sorts_by_run_id_when_no_run_number(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    history_path = tmp_path / "history.ndjson"
+    record_path = tmp_path / "record.json"
+
+    _write_ndjson(
+        history_path,
+        [
+            {"run_id": 3, "coverage": 50.0},
+            {"run_id": 1, "coverage": 45.0},
+        ],
+    )
+    record_path.write_text(
+        json.dumps({"run_id": 2, "coverage": 60.0}),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setenv("HISTORY_PATH", str(history_path))
+    monkeypatch.setenv("RECORD_PATH", str(record_path))
+
+    exit_code = coverage_history_append.main()
+
+    assert exit_code == 0
+    records = _read_ndjson(history_path)
+    assert [record["run_id"] for record in records] == [1, 2, 3]
+
+
+def test_main_appends_record_without_run_id(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    history_path = tmp_path / "history.ndjson"
+    record_path = tmp_path / "record.json"
+
+    _write_ndjson(
+        history_path,
+        [
+            {"run_number": 1, "coverage": 50.0},
+            {"run_number": 2, "coverage": 55.0},
+        ],
+    )
+    record_path.write_text(
+        json.dumps({"run_number": 3, "coverage": 60.0}),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setenv("HISTORY_PATH", str(history_path))
+    monkeypatch.setenv("RECORD_PATH", str(record_path))
+
+    exit_code = coverage_history_append.main()
+
+    assert exit_code == 0
+    records = _read_ndjson(history_path)
+    assert len(records) == 3
 
 
 def test_main_skips_missing_record(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

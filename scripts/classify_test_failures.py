@@ -139,7 +139,9 @@ def classify_reports(paths: Iterable[str | Path]) -> dict[str, object]:
         root = tree.getroot()
         testcases = list(root.iter("testcase"))
         for testcase in testcases:
-            failure_node = testcase.find("failure") or testcase.find("error")
+            failure_node = testcase.find("failure")
+            if failure_node is None:
+                failure_node = testcase.find("error")
             if failure_node is None:
                 continue
             marker_set = _extract_markers(testcase)

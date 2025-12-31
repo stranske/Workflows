@@ -307,7 +307,7 @@ def stage_and_commit(
     summary: str,
     branch_suffix: str | None,
 ) -> str:
-    branch_suffix = branch_suffix or datetime.utcnow().strftime("%Y%m%d%H%M%S")
+    branch_suffix = branch_suffix or datetime.now(UTC).strftime("%Y%m%d%H%M%S")
     branch = f"{BRANCH_PREFIX}-{branch_suffix}"
     _run(["git", "checkout", "-B", branch], cwd=root)
     _run(["git", "add", *{str(p.relative_to(root)) for p in paths}], cwd=root)

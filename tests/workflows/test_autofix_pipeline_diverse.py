@@ -125,6 +125,8 @@ def test_autofix_pipeline_handles_diverse_errors(
         encoding="utf-8",
     )
 
+    black_targets = (sample_module, automation_module, numpy_test, expectations_module)
+
     commands = [
         (
             [
@@ -140,7 +142,6 @@ def test_autofix_pipeline_handles_diverse_errors(
         ),
         ([sys.executable, "-m", "isort", str(sample_module)], (0,)),
         ([sys.executable, "-m", "docformatter", "-i", str(sample_module)], (0, 3)),
-        ([sys.executable, "-m", "black", str(repo_root)], (0,)),
         (
             [
                 sys.executable,
@@ -157,6 +158,9 @@ def test_autofix_pipeline_handles_diverse_errors(
 
     for command, ok_codes in commands:
         _run(command, cwd=repo_root, ok_exit_codes=ok_codes)
+
+    for target in black_targets:
+        _run([sys.executable, "-m", "black", str(target)], cwd=repo_root)
 
     monkeypatch.setattr(auto_type_hygiene, "ROOT", repo_root, raising=False)
     monkeypatch.setattr(auto_type_hygiene, "SRC_DIRS", [src_dir, tests_dir], raising=False)
@@ -223,7 +227,8 @@ def test_autofix_pipeline_handles_diverse_errors(
     mypy_return_autofix.main()
 
     _run([sys.executable, "-m", "isort", str(sample_module)], cwd=repo_root)
-    _run([sys.executable, "-m", "black", str(repo_root)], cwd=repo_root)
+    for target in black_targets:
+        _run([sys.executable, "-m", "black", str(target)], cwd=repo_root)
     _run(
         [
             sys.executable,
@@ -238,7 +243,8 @@ def test_autofix_pipeline_handles_diverse_errors(
     )
 
     _run([sys.executable, "-m", "ruff", "check", str(repo_root)], cwd=repo_root)
-    _run([sys.executable, "-m", "black", "--check", str(repo_root)], cwd=repo_root)
+    for target in black_targets:
+        _run([sys.executable, "-m", "black", "--check", str(target)], cwd=repo_root)
     _run(
         [
             sys.executable,

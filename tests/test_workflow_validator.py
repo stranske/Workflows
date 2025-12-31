@@ -154,6 +154,20 @@ class TestCheckPermissions:
         issues = check_permissions(workflow)
         assert len(issues) >= 1
 
+    def test_detect_job_write_all(self) -> None:
+        """Test detection of job-level write-all permissions."""
+        workflow = {"jobs": {"build": {"permissions": "write-all"}}}
+
+        issues = check_permissions(workflow)
+        assert issues == ["Job build has write-all permissions"]
+
+    def test_allows_contents_write(self) -> None:
+        """Test that contents: write does not raise a permission issue."""
+        workflow = {"permissions": {"contents": "write"}, "jobs": {}}
+
+        issues = check_permissions(workflow)
+        assert issues == []
+
 
 class TestValidateWorkflow:
     """Tests for validate_workflow function."""
@@ -201,6 +215,14 @@ jobs:
         assert len(results["deprecated_actions"]) >= 1
         assert len(results["missing_timeout"]) >= 1
         assert len(results["permission_issues"]) >= 1
+
+    def test_validate_invalid_yaml(self, tmp_path: Path) -> None:
+        """Test validation reports errors for invalid YAML."""
+        workflow_file = tmp_path / "invalid.yml"
+        workflow_file.write_text("{{invalid yaml")
+
+        results = validate_workflow(str(workflow_file))
+        assert results["errors"] == [f"Failed to load workflow: {workflow_file}"]
 
 
 class TestValidateAllWorkflows:
