@@ -66,3 +66,31 @@ def test_main_skips_missing_record(tmp_path: Path, monkeypatch: pytest.MonkeyPat
 
     assert exit_code == 0
     assert not history_path.exists()
+
+
+def test_main_skips_invalid_record_json(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    history_path = tmp_path / "history.ndjson"
+    record_path = tmp_path / "record.json"
+    record_path.write_text("not-json", encoding="utf-8")
+
+    monkeypatch.setenv("HISTORY_PATH", str(history_path))
+    monkeypatch.setenv("RECORD_PATH", str(record_path))
+
+    exit_code = coverage_history_append.main()
+
+    assert exit_code == 0
+    assert not history_path.exists()
+
+
+def test_main_skips_non_dict_record(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    history_path = tmp_path / "history.ndjson"
+    record_path = tmp_path / "record.json"
+    record_path.write_text(json.dumps(["not-a-dict"]), encoding="utf-8")
+
+    monkeypatch.setenv("HISTORY_PATH", str(history_path))
+    monkeypatch.setenv("RECORD_PATH", str(record_path))
+
+    exit_code = coverage_history_append.main()
+
+    assert exit_code == 0
+    assert not history_path.exists()
