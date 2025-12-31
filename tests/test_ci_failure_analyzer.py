@@ -149,6 +149,18 @@ class TestIdentifyFlakyTests:
         # Should NOT be flaky at 0.5 threshold
         assert "test_a" not in identify_flaky_tests(failures, threshold=0.5)
 
+    def test_identify_skips_empty_or_unknown_verdicts(self) -> None:
+        """Test that missing names and unknown verdicts are ignored."""
+        failures: list[dict[str, Any]] = [
+            {"test_name": "", "verdict": "pass"},
+            {"test_name": "test_unknown", "verdict": "skipped"},
+            {"test_name": "test_known", "verdict": "pass"},
+            {"test_name": "test_known", "verdict": "fail"},
+        ]
+
+        flaky = identify_flaky_tests(failures, threshold=0.4)
+        assert flaky == ["test_known"]
+
 
 class TestGenerateFailureReport:
     """Tests for generate_failure_report function."""
@@ -177,6 +189,28 @@ class TestGenerateFailureReport:
         report = generate_failure_report(failures, output_format="markdown")
         assert "# CI Failure Report" in report
         assert "**flaky**" in report
+
+    def test_report_text_includes_flaky_tests(self) -> None:
+        """Test text format report with flaky tests section."""
+        failures: list[dict[str, Any]] = [
+            {"error": "timeout", "test_name": "test_flaky", "verdict": "pass"},
+            {"error": "timeout", "test_name": "test_flaky", "verdict": "fail"},
+        ]
+
+        report = generate_failure_report(failures, output_format="text")
+        assert "Flaky Tests:" in report
+        assert "test_flaky" in report
+
+    def test_report_markdown_includes_flaky_tests(self) -> None:
+        """Test markdown format report with flaky tests section."""
+        failures: list[dict[str, Any]] = [
+            {"error": "timeout", "test_name": "test_flaky", "verdict": "pass"},
+            {"error": "timeout", "test_name": "test_flaky", "verdict": "fail"},
+        ]
+
+        report = generate_failure_report(failures, output_format="markdown")
+        assert "## Flaky Tests" in report
+        assert "`test_flaky`" in report
 
 
 class TestGetRecentFailures:
@@ -207,6 +241,19 @@ class TestGetRecentFailures:
         recent = get_recent_failures(failures, days=7)
         # Only the one with valid timestamp should be included
         assert len(recent) == 1
+
+    def test_handle_invalid_timestamp_values(self) -> None:
+        """Test handling invalid timestamp values."""
+        now = datetime.now(UTC).isoformat()
+        failures: list[dict[str, Any]] = [
+            {"error": "bad format", "timestamp": "not-a-timestamp"},
+            {"error": "bad type", "timestamp": 123},
+            {"error": "good", "timestamp": now},
+        ]
+
+        recent = get_recent_failures(failures, days=7)
+        assert len(recent) == 1
+        assert recent[0]["error"] == "good"
 
 
 # ============================================================================
