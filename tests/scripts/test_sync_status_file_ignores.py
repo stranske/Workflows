@@ -86,7 +86,9 @@ def test_load_template_gitignore_falls_back(monkeypatch: pytest.MonkeyPatch) -> 
     assert content == sync_status_file_ignores.generate_minimal_block()
 
 
-def test_main_print_block(capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch) -> None:
+def test_main_print_block(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setattr(sys, "argv", ["script", "--print-block"])
 
     exit_code = sync_status_file_ignores.main()
@@ -96,7 +98,9 @@ def test_main_print_block(capsys: pytest.CaptureFixture[str], monkeypatch: pytes
     assert captured.out == sync_status_file_ignores.load_template_gitignore() + "\n"
 
 
-def test_main_print_patterns(capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch) -> None:
+def test_main_print_patterns(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setattr(sys, "argv", ["script", "--print-patterns"])
 
     exit_code = sync_status_file_ignores.main()
