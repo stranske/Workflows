@@ -1087,7 +1087,7 @@ test('evaluateKeepaliveLoop normalizes bullet tasks into checkboxes', async () =
   assert.ok(result.taskAppendix.includes('- [ ] tests pass'));
 });
 
-test('evaluateKeepaliveLoop normalizes numbered lists with parentheses', async () => {
+test('evaluateKeepaliveLoop converts all lists to checkboxes', async () => {
   const pr = {
     number: 110,
     head: { ref: 'feature/numbered', sha: 'sha-10' },
@@ -1113,6 +1113,7 @@ test('evaluateKeepaliveLoop normalizes numbered lists with parentheses', async (
   });
   assert.equal(result.action, 'run');
   assert.equal(result.reason, 'ready');
+  // All lists are converted to checkboxes
   assert.deepEqual(result.checkboxCounts, { total: 3, checked: 0, unchecked: 3 });
   assert.ok(result.taskAppendix.includes('1) [ ] add metrics'));
   assert.ok(result.taskAppendix.includes('1) [ ] reports render'));
@@ -1706,3 +1707,74 @@ test('autoReconcileTasks skips when no high-confidence matches', async () => {
   assert.equal(result.tasksChecked, 0, 'Should not check any tasks');
   assert.equal(updateCalled, false, 'Should not call update API');
 });
+
+// ========================================================
+// normaliseChecklistSection tests - Simple checkbox conversion
+// ========================================================
+
+test('normaliseChecklistSection converts all bullets to checkboxes', () => {
+  const { normaliseChecklistSection } = require('../keepalive_loop.js');
+  
+  const input = `- Deploy application
+- Run tests
+- Update documentation`;
+
+  const result = normaliseChecklistSection(input);
+  const expected = `- [ ] Deploy application
+- [ ] Run tests
+- [ ] Update documentation`;
+
+  assert.equal(result, expected);
+});
+
+test('normaliseChecklistSection preserves existing checkboxes', () => {
+  const { normaliseChecklistSection } = require('../keepalive_loop.js');
+  
+  const input = `- [ ] Deploy application
+- [x] Run tests
+- [X] Update documentation`;
+
+  const result = normaliseChecklistSection(input);
+  
+  assert.equal(result, input, 'Should not modify existing checkboxes');
+});
+
+test('normaliseChecklistSection handles numbered lists', () => {
+  const { normaliseChecklistSection } = require('../keepalive_loop.js');
+  
+  const input = `- Deploy application
+1. Run pytest tests
+2. Verify coverage
+3. Check CI status
+- Update documentation`;
+
+  const result = normaliseChecklistSection(input);
+  const expected = `- [ ] Deploy application
+1. [ ] Run pytest tests
+2. [ ] Verify coverage
+3. [ ] Check CI status
+- [ ] Update documentation`;
+
+  assert.equal(result, expected);
+});
+
+test('normaliseChecklistSection preserves non-list content', () => {
+  const { normaliseChecklistSection } = require('../keepalive_loop.js');
+  
+  const input = `- Deploy application
+
+**Important:** Run all tests
+
+- Update documentation`;
+
+  const result = normaliseChecklistSection(input);
+  const expected = `- [ ] Deploy application
+
+**Important:** Run all tests
+
+- [ ] Update documentation`;
+
+  assert.equal(result, expected);
+});
+
+

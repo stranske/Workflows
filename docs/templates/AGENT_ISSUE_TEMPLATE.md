@@ -2,6 +2,23 @@
 
 This template defines the canonical structure for issues that feed into the Codex keepalive automation pipeline. Follow this format to ensure issues are correctly parsed and actionable by agents.
 
+## ⚠️ Critical Rule: Checkbox Conversion
+
+**ALL bullet points (`-`) in Tasks and Acceptance Criteria sections are automatically converted to checkboxes.**
+
+- ✅ **DO:** Use bullets only for actual tasks/criteria to check off
+- ❌ **DON'T:** Use bullets for instructions, notes, or explanations
+
+**Where to put different types of content:**
+
+| Content Type | Put it in... | Format to Use |
+|---|---|---|
+| Background/context | Scope, Why, Implementation Notes | Any format |
+| Instructions/steps | Scope, Implementation Notes | Numbered lists (1. 2. 3.) |
+| Reminders/notes | Scope, Implementation Notes | Bold text, quotes, any format |
+| Actual work items | Tasks | Bullet points (-) |
+| Success conditions | Acceptance Criteria | Bullet points (-) |
+
 ## Template Structure
 
 ```markdown

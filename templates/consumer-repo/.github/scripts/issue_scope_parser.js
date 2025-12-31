@@ -78,7 +78,24 @@ function normaliseChecklist(content) {
 
   const lines = raw.split('\n');
   let mutated = false;
+  let skipNextLists = false; // Track if we should skip upcoming list items
+  
   const updated = lines.map((line) => {
+    // Check if this line is a bold instructional heading
+    // If so, mark that following lists should be skipped
+    if (/^\*\*.*(:|\bmust\b|\bshould\b|\bnote\b|\bimportant\b).*\*\*\s*$/i.test(line.trim())) {
+      skipNextLists = true;
+      return line;
+    }
+    
+    // Reset skip flag if we hit a blank line or non-list content after instructions
+    if (!line.trim() || (!line.match(/^(\s*)([-*+]|\d+[.)])\s+/) && !line.match(/^\*\*/))) {
+      if (!line.trim() || !line.match(/^\*\*/)) {
+        skipNextLists = false;
+      }
+      return line;
+    }
+    
     const match = line.match(/^(\s*)([-*])\s+(.*)$/);
     if (!match) {
       return line;
@@ -92,26 +109,19 @@ function normaliseChecklist(content) {
       return `${indent}${bullet} ${remainder}`;
     }
     
-    // Skip lines that look like instructions, notes, or meta-commentary
-    // These patterns indicate the line is NOT an actionable task/criterion:
-    // - Starts with instructional words (Before, After, To, When, If, etc.)
-    // - Starts with a number (numbered list item like "1. Do this")
-    // - Contains imperative phrases like "you must", "make sure", "remember to"
-    // - Starts with label prefixes like "IMPORTANT:", "NOTE:"
+    // If we're in a section following an instructional heading, skip checkbox conversion
+    if (skipNextLists) {
+      return line;
+    }
+
+    // Skip lines that start with explicit instruction markers
     const instructionalPatterns = [
       // Temporal/conditional instruction starters
-      /^(before|after|to|when|if|once|while|during|for)\b/i,
-      // Imperative instruction verbs ONLY when clearly instructional
-      /^(ensure|make sure|remember)\s+(that|to)\b/i,
-      /^(verify|check|confirm)\s+(that|to|the)\b/i,
-      // Numbered list items
-      /^\d+\.\s/,
-      // Imperative phrases
-      /\b(you must|must first|should first|you should|be sure to|make sure|remember to|don't forget|do not)\b/i,
-      // Label prefixes (with or without colon)
-      /^(important|note|warning|tip|hint|example|see also|refer to):/i,
-      // Bold formatting with labels - match **WORD:** (colon inside bold)
-      /^\*\*[A-Za-z]+:\*\*/,
+      /^(before|after|when|if|once)\b/i,
+      // Label prefixes
+      /^(important|note|warning|tip):/i,
+      // Bold labels at start of line content
+      /^\*\*[A-Za-z]+:(\*\*)?/,
     ];
     
     if (instructionalPatterns.some(pattern => pattern.test(remainder))) {
