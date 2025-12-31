@@ -1,3 +1,1 @@
-a) first
-b) second
-d) fourth skipped c
+1) **Title with markdown.**

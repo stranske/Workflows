@@ -21,7 +21,7 @@ def _parse_timestamp(value: Any) -> _dt.datetime | None:
     if isinstance(value, (int, float)):
         try:
             return _dt.datetime.fromtimestamp(float(value), tz=_dt.UTC)
-        except (ValueError, OSError):
+        except (ValueError, OSError, OverflowError):
             return None
     if isinstance(value, str):
         text = value.strip()

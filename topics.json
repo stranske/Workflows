@@ -1,6 +1,6 @@
 [
   {
-    "title": "first",
+    "title": "Title with markdown",
     "labels": [],
     "sections": {
       "why": "",
@@ -9,36 +9,8 @@
       "implementation_notes": ""
     },
     "extras": "",
-    "enumerator": "a",
+    "enumerator": "1",
     "continuity_break": false,
-    "guid": "73c855f1-b888-5588-adef-f3bb0a4428f7"
-  },
-  {
-    "title": "second",
-    "labels": [],
-    "sections": {
-      "why": "",
-      "tasks": "",
-      "acceptance_criteria": "",
-      "implementation_notes": ""
-    },
-    "extras": "",
-    "enumerator": "b",
-    "continuity_break": false,
-    "guid": "d921752b-ac6b-56f7-b41e-12a2879063fc"
-  },
-  {
-    "title": "fourth skipped c",
-    "labels": [],
-    "sections": {
-      "why": "",
-      "tasks": "",
-      "acceptance_criteria": "",
-      "implementation_notes": ""
-    },
-    "extras": "",
-    "enumerator": "d",
-    "continuity_break": true,
-    "guid": "2a90fd6f-b61d-5533-afdb-bb6872cb2bd4"
+    "guid": "d293df17-37ca-5997-b98b-3c78867aa7c9"
   }
 ]
