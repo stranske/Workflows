@@ -28,6 +28,16 @@ After:  `- [x] Add validation for user input`
 - Close the round without source-code changes when acceptance criteria require them.
 - Change the text of checkboxes—only change `[ ]` to `[x]`.
 
+**COVERAGE TASKS - SPECIAL RULES:**
+If a task mentions "coverage" or a percentage target (e.g., "≥95%", "to 95%"), you MUST:
+1. Run `pytest tests/ --cov=scripts --cov-report=term-missing` after adding tests
+2. Find the specific script in the coverage output table
+3. Verify the `Cover` column shows the target percentage or higher
+4. Only mark the task complete if the actual coverage meets the target
+5. If coverage is below target, add more tests until it meets the target
+
+A coverage task is NOT complete just because you added tests. It is complete ONLY when the coverage command output confirms the target is met.
+
 **CONTEXT TIP:**
 If the PR body includes a **Source** section with links to a parent issue or original PR, those contain additional context about the problem being solved. Check the linked issue/PR for background information, related discussions, or details not captured in the Scope section.
 
