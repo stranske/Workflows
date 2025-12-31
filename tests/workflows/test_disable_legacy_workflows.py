@@ -10,7 +10,11 @@ from tools.disable_legacy_workflows import (
     CANONICAL_WORKFLOW_NAMES,
     WorkflowAPIError,
     _extract_next_link,
+    _extract_workflow_name,
+    _http_request,
+    _list_all_workflows,
     _normalize_allowlist,
+    _normalized_slug,
     disable_legacy_workflows,
 )
 
@@ -83,6 +87,101 @@ def test_disable_handles_non_disableable_workflow(
     ]
 
 
+def test_disable_legacy_workflows_keeps_allowlisted_and_disables_others(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    allow_file = sorted(CANONICAL_WORKFLOW_FILES)[0]
+    kept = {
+        "id": 101,
+        "name": "Kept Workflow",
+        "path": f".github/workflows/{allow_file}",
+        "state": "active",
+    }
+    disabled = {
+        "id": 202,
+        "name": "Disabled Workflow",
+        "path": "dynamic/legacy.yml",
+        "state": "active",
+    }
+
+    def fake_list_all_workflows(base_url: str, headers: dict[str, str]) -> list[dict[str, object]]:
+        return [kept, disabled]
+
+    calls: list[tuple[str, str]] = []
+
+    def fake_http_request(
+        method: str,
+        url: str,
+        *,
+        headers: dict[str, str],
+        data: bytes | None = None,
+    ) -> tuple[bytes, dict[str, str]]:
+        calls.append((method, url))
+        return b"", {}
+
+    monkeypatch.setattr(
+        "tools.disable_legacy_workflows._list_all_workflows",
+        fake_list_all_workflows,
+        raising=True,
+    )
+    monkeypatch.setattr(
+        "tools.disable_legacy_workflows._http_request",
+        fake_http_request,
+        raising=True,
+    )
+
+    summary = disable_legacy_workflows(
+        repository="octo/repo",
+        token="dummy-token",
+        dry_run=False,
+        extra_allow=(),
+    )
+
+    assert summary["kept"] == ["Kept Workflow"]
+    assert summary["disabled"] == ["Disabled Workflow"]
+    assert summary["skipped"] == []
+    assert calls == [
+        ("PUT", "https://api.github.com/repos/octo/repo/actions/workflows/202/disable")
+    ]
+
+
+def test_disable_legacy_workflows_dry_run_skips_http_requests(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    workflow = {
+        "id": 303,
+        "name": "Dry Run Workflow",
+        "path": "dynamic/dry-run.yml",
+        "state": "active",
+    }
+
+    def fake_list_all_workflows(base_url: str, headers: dict[str, str]) -> list[dict[str, object]]:
+        return [workflow]
+
+    def fail_http_request(*args, **kwargs) -> tuple[bytes, dict[str, str]]:
+        raise AssertionError("http_request should not be called in dry run mode")
+
+    monkeypatch.setattr(
+        "tools.disable_legacy_workflows._list_all_workflows",
+        fake_list_all_workflows,
+        raising=True,
+    )
+    monkeypatch.setattr(
+        "tools.disable_legacy_workflows._http_request",
+        fail_http_request,
+        raising=True,
+    )
+
+    summary = disable_legacy_workflows(
+        repository="octo/repo",
+        token="dummy-token",
+        dry_run=True,
+        extra_allow=(),
+    )
+
+    assert summary["disabled"] == ["Dry Run Workflow"]
+
+
 def test_extract_next_link_handles_missing_header() -> None:
     assert _extract_next_link(None) is None
     assert _extract_next_link("") is None
@@ -120,3 +219,40 @@ def test_normalize_allowlist_trims_and_splits_values() -> None:
 
 def test_normalize_allowlist_skips_empty_tokens() -> None:
     assert _normalize_allowlist([" , , ", " "]) == set()
+
+
+def test_normalized_slug_handles_disabled_suffix() -> None:
+    assert _normalized_slug(Path("ci.yml")) == "ci.yml"
+    assert _normalized_slug(Path("ci.yml.disabled")) == "ci.yml"
+
+
+def test_extract_workflow_name_prefers_yaml_name(tmp_path: Path) -> None:
+    path = tmp_path / "workflow.yml"
+    path.write_text("name: Example Workflow\non: push\n", encoding="utf-8")
+
+    assert _extract_workflow_name(path) == "Example Workflow"
+
+
+def test_extract_workflow_name_falls_back_on_parse_errors(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "workflow.yml"
+    path.write_text("name: 'Fallback Workflow'\n::\n", encoding="utf-8")
+
+    class FakeYamlError(Exception):
+        pass
+
+    def raise_error(_: str) -> None:
+        raise FakeYamlError("bad yaml")
+
+    monkeypatch.setattr("tools.disable_legacy_workflows.yaml.safe_load", raise_error)
+    monkeypatch.setattr("tools.disable_legacy_workflows.yaml.YAMLError", FakeYamlError)
+
+    assert _extract_workflow_name(path) == "Fallback Workflow"
+
+
+def test_http_request_and_list_all_workflows_stubs_return_empty() -> None:
+    assert _list_all_workflows("https://example.com", headers={}) == []
+    body, headers = _http_request("GET", "https://example.com", headers={})
+    assert body == b""
+    assert headers == {}

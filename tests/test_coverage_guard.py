@@ -184,3 +184,53 @@ def test_main_dry_run_prints_issue_body(tmp_path: Path, capsys: pytest.CaptureFi
     captured = capsys.readouterr()
     assert exit_code == 0
     assert "Coverage Baseline Breach Report" in captured.out
+
+
+def test_load_json_handles_missing_and_invalid(tmp_path: Path) -> None:
+    missing = tmp_path / "missing.json"
+    invalid = tmp_path / "invalid.json"
+    invalid.write_text("{not-json}", encoding="utf-8")
+
+    assert coverage_guard._load_json(missing) == {}
+    assert coverage_guard._load_json(invalid) == {}
+
+
+def test_get_hotspots_sorts_and_limits() -> None:
+    coverage_data = {
+        "files": {
+            "src/high.py": {"summary": {"percent_covered": 90.0, "missing_lines": 1}},
+            "src/low.py": {"summary": {"percent_covered": 10.0, "missing_lines": 9}},
+            "src/mid.py": {"summary": {"percent_covered": 50.0, "missing_lines": 4}},
+        }
+    }
+
+    hotspots = coverage_guard._get_hotspots(coverage_data, limit=2)
+
+    assert [spot["file"] for spot in hotspots] == ["src/low.py", "src/mid.py"]
+    assert hotspots[0]["missing_lines"] == 9
+
+
+def test_format_issue_body_includes_hotspots() -> None:
+    body = coverage_guard._format_issue_body(
+        current=60.0,
+        baseline=70.0,
+        delta=-10.0,
+        hotspots=[{"file": "src/app.py", "coverage": 60.0, "missing_lines": 4}],
+        run_url="https://example/run",
+    )
+
+    assert "Coverage Baseline Breach Report" in body
+    assert "| `src/app.py` | 60.0% | 4 |" in body
+    assert "Gate Workflow Run" in body
+
+
+def test_format_issue_body_handles_no_hotspots() -> None:
+    body = coverage_guard._format_issue_body(
+        current=72.0,
+        baseline=70.0,
+        delta=2.0,
+        hotspots=[],
+        run_url="https://example/run",
+    )
+
+    assert "| _(no files with low coverage)_ | - | - |" in body

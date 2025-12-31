@@ -17,6 +17,13 @@ def test_load_json_returns_empty_on_error(tmp_path: Path) -> None:
     assert coverage_trend._load_json(invalid) == {}
 
 
+def test_load_json_returns_empty_for_non_dict(tmp_path: Path) -> None:
+    path = tmp_path / "payload.json"
+    path.write_text(json.dumps(["not", "a", "dict"]), encoding="utf-8")
+
+    assert coverage_trend._load_json(path) == {}
+
+
 def test_extract_coverage_percent_defaults() -> None:
     assert coverage_trend._extract_coverage_percent({}) == 0.0
     assert coverage_trend._extract_coverage_percent({"totals": {}}) == 0.0
