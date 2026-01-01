@@ -1,0 +1,150 @@
+name: Maint Sync Action Versions
+
+# Sync GitHub Action versions from .github/workflows to templates
+# after Dependabot merges action version updates.
+#
+# This ensures templates stay in sync with the latest action versions
+# that Dependabot updates in the main workflows.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/*.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync-versions:
+    name: Sync action versions to templates
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Extract action versions from workflows
+        id: extract
+        run: |
+          set -euo pipefail
+          
+          # Extract unique action versions from .github/workflows/
+          declare -A versions
+          
+          for file in .github/workflows/*.yml; do
+            while IFS= read -r line; do
+              # Match 'uses: owner/action@version'
+              if [[ "$line" =~ uses:[[:space:]]*([^[:space:]]+)@(v[0-9]+) ]]; then
+                action="${BASH_REMATCH[1]}"
+                version="${BASH_REMATCH[2]}"
+                # Store highest version for each action
+                if [[ -z "${versions[$action]:-}" ]] || [[ "$version" > "${versions[$action]}" ]]; then
+                  versions["$action"]="$version"
+                fi
+              fi
+            done < "$file"
+          done
+          
+          # Output versions for key actions
+          echo "checkout=${versions[actions/checkout]:-v4}" >> "$GITHUB_OUTPUT"
+          echo "github_script=${versions[actions/github-script]:-v7}" >> "$GITHUB_OUTPUT"
+          echo "upload_artifact=${versions[actions/upload-artifact]:-v4}" >> "$GITHUB_OUTPUT"
+          echo "download_artifact=${versions[actions/download-artifact]:-v4}" >> "$GITHUB_OUTPUT"
+          echo "cache=${versions[actions/cache]:-v4}" >> "$GITHUB_OUTPUT"
+          
+          echo "Detected versions:"
+          for action in "${!versions[@]}"; do
+            echo "  $action: ${versions[$action]}"
+          done
+
+      - name: Update templates with synced versions
+        id: update
+        run: |
+          set -euo pipefail
+          
+          checkout="${{ steps.extract.outputs.checkout }}"
+          github_script="${{ steps.extract.outputs.github_script }}"
+          upload_artifact="${{ steps.extract.outputs.upload_artifact }}"
+          download_artifact="${{ steps.extract.outputs.download_artifact }}"
+          cache="${{ steps.extract.outputs.cache }}"
+          
+          changed=0
+          
+          # Update all YAML files in templates/
+          find templates/ -name "*.yml" -type f | while read -r file; do
+            orig_hash=$(md5sum "$file" | cut -d' ' -f1)
+            
+            sed -i \
+              -e "s|actions/checkout@v[0-9]\+|actions/checkout@${checkout}|g" \
+              -e "s|actions/github-script@v[0-9]\+|actions/github-script@${github_script}|g" \
+              -e "s|actions/upload-artifact@v[0-9]\+|actions/upload-artifact@${upload_artifact}|g" \
+              -e "s|actions/download-artifact@v[0-9]\+|actions/download-artifact@${download_artifact}|g" \
+              -e "s|actions/cache@v[0-9]\+|actions/cache@${cache}|g" \
+              "$file"
+            
+            new_hash=$(md5sum "$file" | cut -d' ' -f1)
+            if [[ "$orig_hash" != "$new_hash" ]]; then
+              echo "Updated: $file"
+              changed=1
+            fi
+          done
+          
+          echo "changed=$changed" >> "$GITHUB_OUTPUT"
+
+      - name: Check for changes
+        id: check
+        run: |
+          if git diff --quiet templates/; then
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            echo "No changes to templates"
+          else
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+            echo "Changes detected:"
+            git diff --stat templates/
+          fi
+
+      - name: Create PR if changes exist
+        if: steps.check.outputs.has_changes == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          
+          branch="auto/sync-action-versions-$(date +%Y%m%d%H%M%S)"
+          
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          git checkout -b "$branch"
+          git add templates/
+          git commit -m "ci(deps): sync action versions to templates
+
+          Automated sync from .github/workflows/ to templates/
+          
+          Updated versions:
+          - actions/checkout: ${{ steps.extract.outputs.checkout }}
+          - actions/github-script: ${{ steps.extract.outputs.github_script }}
+          - actions/upload-artifact: ${{ steps.extract.outputs.upload_artifact }}
+          - actions/download-artifact: ${{ steps.extract.outputs.download_artifact }}
+          - actions/cache: ${{ steps.extract.outputs.cache }}"
+          
+          git push origin "$branch"
+          
+          gh pr create \
+            --title "ci(deps): sync action versions to templates" \
+            --body "Automated PR to sync GitHub Action versions from \`.github/workflows/\` to \`templates/\`.
+
+          This ensures templates stay in sync with Dependabot updates.
+          
+          **Updated versions:**
+          - actions/checkout: \`${{ steps.extract.outputs.checkout }}\`
+          - actions/github-script: \`${{ steps.extract.outputs.github_script }}\`
+          - actions/upload-artifact: \`${{ steps.extract.outputs.upload_artifact }}\`
+          - actions/download-artifact: \`${{ steps.extract.outputs.download_artifact }}\`
+          - actions/cache: \`${{ steps.extract.outputs.cache }}\`" \
+            --label "dependencies" \
+            --label "github-actions"
