@@ -190,7 +190,7 @@ function normaliseChecklistSection(content) {
   let mutated = false;
   
   const updated = lines.map((line) => {
-    // Match bullet points (-, *, +) or numbered lists (1., 2), 3.)
+    // Match bullet points (-, *, +) or numbered lists (e.g. 1., 2., 3))
     const match = line.match(/^(\s*)([-*+]|\d+[.)])\s+(.*)$/);
     if (!match) {
       return line;
