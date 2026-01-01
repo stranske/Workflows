@@ -272,6 +272,12 @@ def main(argv: list[str] | None = None) -> int:
         help="Force lockfile sync even if requirements.lock doesn't exist (no-op)",
     )
     parser.add_argument(
+        "--lockfile-path",
+        type=Path,
+        default=LOCKFILE_FILE,
+        help="Path to lockfile (default: requirements.lock)",
+    )
+    parser.add_argument(
         "--pin-file",
         type=Path,
         default=PIN_FILE,
@@ -300,9 +306,10 @@ def main(argv: list[str] | None = None) -> int:
         apply=args.apply,
     )
 
-    lockfile_enabled = args.lockfile or LOCKFILE_FILE.exists()
+    lockfile_path = args.lockfile_path
+    lockfile_enabled = args.lockfile or lockfile_path.exists()
     if lockfile_enabled:
-        lock_changes, lock_errors = sync_lockfile(LOCKFILE_FILE, pins, apply=args.apply)
+        lock_changes, lock_errors = sync_lockfile(lockfile_path, pins, apply=args.apply)
         changes.extend(lock_changes)
         errors.extend(lock_errors)
 
