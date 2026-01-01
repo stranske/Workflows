@@ -72,12 +72,12 @@ jobs:
     steps:
       # Dual checkout pattern: consumer repo for context, Workflows repo for scripts
       - name: Checkout consumer repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           path: consumer
 
       - name: Checkout Workflows scripts
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: stranske/Workflows
           ref: main
@@ -97,7 +97,7 @@ jobs:
 
       - name: Security gate - prompt injection guard
         id: security_gate
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           INPUT_PR_NUMBER: ${{ inputs.pr_number || '' }}
         with:
@@ -180,7 +180,7 @@ jobs:
       - name: Evaluate keepalive conditions
         id: evaluate
         if: steps.security_gate.outputs.blocked != 'true'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           INPUT_PR_NUMBER: ${{ inputs.pr_number || '' }}
         with:
@@ -282,7 +282,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Workflows scripts
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: stranske/Workflows
           ref: main
@@ -292,7 +292,7 @@ jobs:
           fetch-depth: 1
 
       - name: Update summary with running status
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -342,7 +342,7 @@ jobs:
     environment: agent-standard
     steps:
       - name: Checkout Workflows scripts
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: stranske/Workflows
           ref: main
@@ -428,7 +428,7 @@ jobs:
 
       - name: Auto-reconcile task checkboxes
         if: needs.run-codex.outputs.changes-made == 'true'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -461,7 +461,7 @@ jobs:
             core.setOutput('reconciliation_details', result.details);
 
       - name: Update summary comment
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           CODEX_SUMMARY: ${{ needs.run-codex.outputs.final-message-summary || '' }}
         with:

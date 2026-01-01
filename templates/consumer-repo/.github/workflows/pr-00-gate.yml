@@ -65,7 +65,7 @@ jobs:
       description: ${{ steps.summarize.outputs.description }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           sparse-checkout: |
             .github/scripts
@@ -111,7 +111,7 @@ jobs:
 
       - name: Report Gate commit status
         if: ${{ always() }}
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           STATE: ${{ steps.summarize.outputs.state || 'pending' }}
           DESCRIPTION: ${{ steps.summarize.outputs.description || 'Gate status pending' }}
