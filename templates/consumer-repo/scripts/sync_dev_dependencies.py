@@ -60,75 +60,65 @@ def parse_env_file(path: Path) -> dict[str, str]:
 
 def find_dev_dependencies_section(content: str) -> tuple[int, int, str] | None:
     """Find the dev dependencies section in pyproject.toml.
-    
+
     Returns (start_index, end_index, section_content) or None if not found.
     """
     # Look for [project.optional-dependencies] section with dev = [...]
     # Handle both inline and multi-line formats
-    
+
     # Pattern for multi-line dev dependencies
-    pattern = re.compile(
-        r'^dev\s*=\s*\[\s*\n(.*?)\n\s*\]',
-        re.MULTILINE | re.DOTALL
-    )
-    
+    pattern = re.compile(r"^dev\s*=\s*\[\s*\n(.*?)\n\s*\]", re.MULTILINE | re.DOTALL)
+
     match = pattern.search(content)
     if match:
         return match.start(), match.end(), match.group(0)
-    
+
     # Try inline format: dev = ["pkg1", "pkg2"]
-    inline_pattern = re.compile(
-        r'^dev\s*=\s*\[(.*?)\]',
-        re.MULTILINE
-    )
+    inline_pattern = re.compile(r"^dev\s*=\s*\[(.*?)\]", re.MULTILINE)
     match = inline_pattern.search(content)
     if match:
         return match.start(), match.end(), match.group(0)
-    
+
     return None
 
 
 def extract_dependencies(section: str) -> list[tuple[str, str, str]]:
     """Extract dependencies from a dev section.
-    
+
     Returns list of (package_name, operator, version) tuples.
     """
     deps = []
     # Match patterns like "package>=1.0.0" or "package==1.0.0" or just "package"
     pattern = re.compile(r'"([a-zA-Z0-9_-]+)(?:(>=|==|~=|>|<|<=|!=)([^"]+))?(?:\[.*?\])?"')
-    
+
     for match in pattern.finditer(section):
         package = match.group(1)
         operator = match.group(2) or ""
         version = match.group(3) or ""
         deps.append((package, operator, version))
-    
+
     return deps
 
 
 def update_dependency_version(
-    content: str,
-    package: str,
-    new_version: str,
-    use_exact_pin: bool = True
+    content: str, package: str, new_version: str, use_exact_pin: bool = True
 ) -> tuple[str, bool]:
     """Update a single dependency version in the content.
-    
+
     Returns (new_content, was_changed).
     """
     # Pattern to match the package with any version specifier
     # Handles: "package>=1.0", "package==1.0", "package~=1.0", or just "package"
     pattern = re.compile(
-        rf'"({re.escape(package)})(>=|==|~=|>|<|<=|!=)?([^"\[\]]*)?(\[.*?\])?"',
-        re.IGNORECASE
+        rf'"({re.escape(package)})(>=|==|~=|>|<|<=|!=)?([^"\[\]]*)?(\[.*?\])?"', re.IGNORECASE
     )
-    
+
     def replacer(m: re.Match) -> str:
         pkg_name = m.group(1)
         extras = m.group(4) or ""
         op = "==" if use_exact_pin else ">="
         return f'"{pkg_name}{op}{new_version}{extras}"'
-    
+
     new_content, count = pattern.subn(replacer, content)
     return new_content, count > 0
 
@@ -140,47 +130,47 @@ def sync_versions(
     use_exact_pins: bool = True,
 ) -> tuple[list[str], list[str]]:
     """Sync versions from pin file to pyproject.toml.
-    
+
     Returns (changes_made, errors).
     """
     changes: list[str] = []
     errors: list[str] = []
-    
+
     # Parse pin file
     pins = parse_env_file(pin_file_path)
     if not pins:
         return [], ["No pins found in env file"]
-    
+
     # Read pyproject.toml
     if not pyproject_path.exists():
         return [], [f"pyproject.toml not found at {pyproject_path}"]
-    
+
     content = pyproject_path.read_text(encoding="utf-8")
     original_content = content
-    
+
     # Find dev section
     section_info = find_dev_dependencies_section(content)
     if not section_info:
         return [], ["No dev dependencies section found in pyproject.toml"]
-    
+
     # Extract current dependencies
     _, _, section = section_info
     current_deps = extract_dependencies(section)
     current_packages = {pkg.lower(): (pkg, op, ver) for pkg, op, ver in current_deps}
-    
+
     # Check each pinned tool
     for env_key, package_names in TOOL_MAPPING.items():
         if env_key not in pins:
             continue
-        
+
         target_version = pins[env_key]
-        
+
         # Find if any of the package names exist in current deps
         for pkg_name in package_names:
             pkg_lower = pkg_name.lower()
             if pkg_lower in current_packages:
                 actual_pkg, current_op, current_ver = current_packages[pkg_lower]
-                
+
                 # Check if version differs
                 if current_ver != target_version:
                     content, changed = update_dependency_version(
@@ -192,11 +182,11 @@ def sync_versions(
                             f"{actual_pkg}: {current_op}{current_ver} -> {op}{target_version}"
                         )
                 break
-    
+
     # Apply changes if requested
     if apply and content != original_content:
         pyproject_path.write_text(content, encoding="utf-8")
-    
+
     return changes, errors
 
 
@@ -231,34 +221,34 @@ def main() -> int:
         default=PYPROJECT_FILE,
         help="Path to pyproject.toml",
     )
-    
+
     args = parser.parse_args()
-    
+
     if args.check and args.apply:
         parser.error("--check and --apply are mutually exclusive")
-    
+
     if not args.check and not args.apply:
         args.check = True  # Default to check mode
-    
+
     use_exact_pins = not args.use_minimum_pins
-    
+
     changes, errors = sync_versions(
         args.pyproject,
         args.pin_file,
         apply=args.apply,
         use_exact_pins=use_exact_pins,
     )
-    
+
     if errors:
         for err in errors:
             print(f"Error: {err}", file=sys.stderr)
         return 2
-    
+
     if changes:
         print(f"{'Applied' if args.apply else 'Found'} {len(changes)} version updates:")
         for change in changes:
             print(f"  - {change}")
-        
+
         if args.check:
             print("\nRun with --apply to update pyproject.toml")
             return 1
