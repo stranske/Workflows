@@ -18,6 +18,7 @@ from typing import Any, cast
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SRC_PATH = REPO_ROOT / "src"
+LOCAL_MODULES_FILE = REPO_ROOT / ".project_modules.txt"
 if SRC_PATH.exists():
     sys.path.insert(0, str(SRC_PATH))
 
@@ -75,6 +76,7 @@ STDLIB_MODULES = {
     "signal",
     "sitecustomize",
     "socket",
+    "sqlite3",
     "stat",
     "string",
     "struct",
@@ -89,6 +91,7 @@ STDLIB_MODULES = {
     "unittest",
     "urllib",
     "uuid",
+    "venv",
     "warnings",
     "weakref",
     "xml",
@@ -165,10 +168,8 @@ def _detect_local_project_modules() -> set[str]:
                 continue
 
             # Check for packages (directories with __init__.py)
-            if item.is_dir():
-                init_file = item / "__init__.py"
-                if init_file.exists():
-                    detected.add(item.name)
+            if item.is_dir() and (item / "__init__.py").exists():
+                detected.add(item.name)
             # Check for standalone .py modules (but not in root .)
             elif source_dir != Path(".") and item.suffix == ".py":
                 detected.add(item.stem)
@@ -176,9 +177,26 @@ def _detect_local_project_modules() -> set[str]:
     return detected
 
 
+def _read_local_modules() -> set[str]:
+    """Read repo-specific module names from .project_modules.txt if it exists.
+
+    This allows consumer repos to specify additional first-party modules
+    (like standalone .py files in root) without modifying this script.
+    One module name per line, comments start with #.
+    """
+    if not LOCAL_MODULES_FILE.exists():
+        return set()
+    modules: set[str] = set()
+    for line in LOCAL_MODULES_FILE.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line and not line.startswith("#"):
+            modules.add(line)
+    return modules
+
+
 def get_project_modules() -> set[str]:
-    """Return the full set of project modules (static + dynamically detected)."""
-    return _BASE_PROJECT_MODULES | _detect_local_project_modules()
+    """Return the full set of project modules (static + dynamically detected + local)."""
+    return _BASE_PROJECT_MODULES | _detect_local_project_modules() | _read_local_modules()
 
 
 # For backward compatibility - will be populated on first use
@@ -366,29 +384,29 @@ def main(argv: list[str] | None = None) -> int:
     missing = find_missing_dependencies()
 
     if not missing:
-        print("OK: All test dependencies are declared in pyproject.toml")
+        print("✅ All test dependencies are declared in pyproject.toml")
         return 0
 
-    print(f"WARN: Found {len(missing)} undeclared dependencies:")
+    print(f"⚠️  Found {len(missing)} undeclared dependencies:")
     for dep in sorted(missing):
         print(f"  - {dep}")
 
     if args.fix:
         added = add_dependencies_to_pyproject(missing, fix=True)
         if added:
-            print("\nOK: Added dependencies to [project.optional-dependencies.dev]")
+            print("\n✅ Added dependencies to [project.optional-dependencies.dev]")
             print("Please run: make lock")
         else:
-            print("\nINFO: Dependencies already declared in dev extra")
+            print("\nℹ️  Dependencies already declared in dev extra")
         return 0
 
     if args.verify:
-        print("\nERROR: Run: python scripts/sync_test_dependencies.py --fix")
+        print("\n❌ Run: python scripts/sync_test_dependencies.py --fix")
         return 1
 
     print("\nTo fix, run: python scripts/sync_test_dependencies.py --fix")
     return 0
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover - CLI entry point
     sys.exit(main())
