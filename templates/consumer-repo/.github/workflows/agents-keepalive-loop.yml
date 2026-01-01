@@ -419,7 +419,7 @@ jobs:
           echo "$metrics_json" >> keepalive-metrics.ndjson
 
       - name: Upload keepalive metrics artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: keepalive-metrics
           path: keepalive-metrics.ndjson
