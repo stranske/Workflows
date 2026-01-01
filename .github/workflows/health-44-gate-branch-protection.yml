@@ -200,7 +200,7 @@ jobs:
             --write-summary "${GITHUB_STEP_SUMMARY}"
       - name: Upload branch protection snapshots
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: gate-branch-protection-${{ github.run_id }}
           path: ${{ env.SNAPSHOT_DIR }}

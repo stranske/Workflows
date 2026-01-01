@@ -310,7 +310,7 @@ jobs:
           echo "Generated prompt with $(echo "${COMMENTS_JSON}" | jq length) comments"
 
       - name: Upload prompt artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: bot-comments-prompt-${{ github.run_id }}
           path: .github/codex/prompts/fix_bot_comments_dynamic.md

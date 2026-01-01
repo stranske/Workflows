@@ -4,7 +4,8 @@
   "env": {
     "OPTIONS_JSON": "{}",
     "DRY_RUN": "false",
-    "ACTIONS_BOT_PAT": ""
+    "ACTIONS_BOT_PAT": "",
+    "SERVICE_BOT_PAT": ""
   },
   "pulls": [
     {

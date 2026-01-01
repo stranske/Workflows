@@ -615,7 +615,7 @@ jobs:
 
       - name: Upload Gate summary artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: gate-summary.md
           path: gate-summary.md
@@ -625,7 +625,7 @@ jobs:
 
       - name: Upload coverage stats artifact
         if: ${{ always() && steps.coverage_stats.outputs.stats_json != '' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: gate-coverage.json
           path: gate-coverage.json
@@ -635,7 +635,7 @@ jobs:
 
       - name: Upload coverage delta artifact
         if: ${{ always() && steps.coverage_stats.outputs.delta_json != '' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: gate-coverage-delta.json
           path: gate-coverage-delta.json
@@ -645,7 +645,7 @@ jobs:
 
       - name: Upload coverage summary artifact copy
         if: ${{ always() && steps.coverage_summary.outputs.body != '' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: gate-coverage-summary.md
           path: gate-coverage-summary.md

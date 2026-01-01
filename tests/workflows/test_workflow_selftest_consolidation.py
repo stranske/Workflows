@@ -368,8 +368,8 @@ def test_selftest_runner_jobs_contract() -> None:
     upload_step = _find_step(lambda step: step.get("name") == "Upload self-test report")
     assert upload_step, "Aggregate job must upload the self-test report artifact."
     assert (
-        upload_step.get("uses") == "actions/upload-artifact@v4"
-    ), "Self-test report upload should use actions/upload-artifact@v4."
+        upload_step.get("uses") == "actions/upload-artifact@v6"
+    ), "Self-test report upload should use actions/upload-artifact@v6."
     upload_with = upload_step.get("with", {})
     assert (
         upload_with.get("name") == "selftest-report"
