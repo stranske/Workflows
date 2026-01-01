@@ -311,8 +311,8 @@ jobs:
                   const headers = error?.response?.headers || {};
                   const remainingRaw = headers['x-ratelimit-remaining'] ?? headers['X-RateLimit-Remaining'];
                   const resetRaw = headers['x-ratelimit-reset'] ?? headers['X-RateLimit-Reset'];
-                  const remaining = typeof remainingRaw === 'string' ? Number(remainingRaw) : Number(remainingRaw);
-                  const reset = typeof resetRaw === 'string' ? Number(resetRaw) : Number(resetRaw);
+                  const remaining = Number(remainingRaw);
+                  const reset = Number(resetRaw);
                   const isRateLimit = status === 403 && Number.isFinite(remaining) && remaining <= 0;
                   const retryable = isRateLimit || status === 429 || !status || (status >= 500 && status < 600);
                   if (!retryable || attempt === maxAttempts) {
@@ -439,8 +439,8 @@ jobs:
                   const headers = error?.response?.headers || {};
                   const remainingRaw = headers['x-ratelimit-remaining'] ?? headers['X-RateLimit-Remaining'];
                   const resetRaw = headers['x-ratelimit-reset'] ?? headers['X-RateLimit-Reset'];
-                  const remaining = typeof remainingRaw === 'string' ? Number(remainingRaw) : Number(remainingRaw);
-                  const reset = typeof resetRaw === 'string' ? Number(resetRaw) : Number(resetRaw);
+                  const remaining = Number(remainingRaw);
+                  const reset = Number(resetRaw);
                   const isRateLimit = status === 403 && Number.isFinite(remaining) && remaining <= 0;
                   const retryable = isRateLimit || status === 429 || !status || (status >= 500 && status < 600);
                   if (!retryable || attempt === maxAttempts) {

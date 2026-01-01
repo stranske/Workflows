@@ -31,11 +31,12 @@ function isPlaceholderContent(text) {
 function isMissingInfoGap(text) {
   const normalized = String(text || '').toLowerCase().trim();
   // Match verifier complaints about missing acceptance criteria or testability
-  return /provide\s+explicit\s+acceptance\s+criteria/i.test(normalized) ||
-    /acceptance\s+criteria.*missing/i.test(normalized) ||
-    /no\s+(testable|verifiable)\s+(criteria|requirements)/i.test(normalized) ||
-    /unable\s+to\s+verify.*missing/i.test(normalized) ||
-    /cannot\s+verify.*no\s+criteria/i.test(normalized);
+  // Note: /i flag removed since text is already lowercased
+  return /provide\s+explicit\s+acceptance\s+criteria/.test(normalized) ||
+    /acceptance\s+criteria.*missing/.test(normalized) ||
+    /no\s+(testable|verifiable)\s+(criteria|requirements)/.test(normalized) ||
+    /unable\s+to\s+verify.*missing/.test(normalized) ||
+    /cannot\s+verify.*no\s+criteria/.test(normalized);
 }
 
 /**

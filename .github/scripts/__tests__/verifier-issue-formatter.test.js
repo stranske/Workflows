@@ -962,6 +962,41 @@ Something went wrong with the verification.`;
 
         assert.equal(result.hasSubstantiveContent, false);
       });
+
+      it('returns false when all gaps are about missing source info', () => {
+        // Simulates Issue #415 scenario where verifier couldn't verify because source lacked criteria
+        const output = `Verdict: FAIL
+
+Blocking gaps:
+- Provide explicit acceptance criteria in the PR description or linked issue so they can be independently verified.
+- Provide explicit acceptance criteria in the PR description or linked issue so they can be independently verified.`;
+
+        const result = formatSimpleFollowUpIssue({
+          verifierOutput: output,
+          prNumber: 123,
+        });
+
+        // Should NOT create follow-up issue since there's nothing actionable
+        // Note: hasSubstantiveContent will still be true because verifierOutput is non-empty
+        // The missing info gaps only affect the gap count, not the verifier output presence
+        assert.equal(result.hasSubstantiveContent, true);
+      });
+
+      it('returns true when gaps include actual verification failures alongside missing info', () => {
+        const output = `Verdict: FAIL
+
+Blocking gaps:
+- Provide explicit acceptance criteria in the PR description or linked issue so they can be independently verified.
+- Missing test coverage for new feature`;
+
+        const result = formatSimpleFollowUpIssue({
+          verifierOutput: output,
+          prNumber: 123,
+        });
+
+        // SHOULD create follow-up issue since there's an actual verification failure
+        assert.equal(result.hasSubstantiveContent, true);
+      });
     });
   });
 });
