@@ -373,7 +373,7 @@ async function dispatchKeepaliveCommand({
 }) {
   const trimmedToken = String(token ?? '').trim();
   if (!trimmedToken) {
-    throw new Error('A GitHub token is required for keepalive dispatch (app token or PAT).');
+    throw new Error('GitHub token is required for keepalive dispatch (app token or PAT).');
   }
 
   const octokit = buildOctokitInstance({ core, github, token: trimmedToken });
@@ -525,7 +525,7 @@ async function runKeepalive({ core, github, context, env = process.env }) {
 
   const instructionAuthorToken = resolveAutomationToken(env);
   if (!instructionAuthorToken) {
-    throw new Error('A GitHub token is required to author keepalive instructions (app token or PAT).');
+    throw new Error('GitHub token is required to author keepalive instructions (app token or PAT).');
   }
 
   const instructionAuthorOctokit = buildOctokitInstance({
