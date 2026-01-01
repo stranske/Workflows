@@ -20,6 +20,12 @@ fi
 echo "✅ Found Integration Tests repository"
 echo ""
 
+echo "🐍 Checking for Python 3..."
+if ! command -v python3 >/dev/null 2>&1; then
+    echo "❌ Error: python3 is not installed or not found in PATH."
+    echo "   Please install Python 3 and ensure 'python3' is available before running this script."
+    exit 1
+fi
 echo "📦 Installing formatting/linting tools..."
 python3 -m pip install --quiet --upgrade black ruff
 
