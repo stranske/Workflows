@@ -35,7 +35,7 @@ jobs:
 
       - name: Cache uv binary
         id: cache-uv
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.local/bin/uv
           key: uv-binary-${{ runner.os }}-latest
