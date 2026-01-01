@@ -404,12 +404,7 @@ def test_read_local_modules_ignores_comments_and_empty_lines(
     """Test _read_local_modules skips comments and blank lines."""
     modules_file = tmp_path / ".project_modules.txt"
     modules_file.write_text(
-        "# This is a comment\n"
-        "\n"
-        "  # Indented comment  \n"
-        "module_a\n"
-        "   \n"
-        "module_b\n",
+        "# This is a comment\n" "\n" "  # Indented comment  \n" "module_a\n" "   \n" "module_b\n",
         encoding="utf-8",
     )
     monkeypatch.setattr(std, "LOCAL_MODULES_FILE", modules_file)
@@ -438,11 +433,7 @@ def test_read_local_modules_warns_on_invalid_names(
     """Test _read_local_modules warns about invalid Python identifiers."""
     modules_file = tmp_path / ".project_modules.txt"
     modules_file.write_text(
-        "valid_module\n"
-        "123invalid\n"
-        "has-hyphen\n"
-        "has space\n"
-        "another_valid\n",
+        "valid_module\n" "123invalid\n" "has-hyphen\n" "has space\n" "another_valid\n",
         encoding="utf-8",
     )
     monkeypatch.setattr(std, "LOCAL_MODULES_FILE", modules_file)
