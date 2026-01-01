@@ -66,7 +66,7 @@ jobs:
           echo "Versions hash: ${hash:0:12}"
           echo ""
           echo "Current versions:"
-          cat .github/workflows/autofix-versions.env | grep -v '^#' | grep '='
+          grep -v '^#' .github/workflows/autofix-versions.env | grep '='
 
       - name: Build repo matrix
         id: repos
@@ -186,6 +186,7 @@ jobs:
           # Configure git
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+            # shellcheck disable=SC2016 # Single quotes intentional - GH_TOKEN expands at runtime in credential helper
           git config credential.helper '!f() { echo "username=x-access-token"; echo "password=${GH_TOKEN}"; }; f'
 
           # Create branch and commit
