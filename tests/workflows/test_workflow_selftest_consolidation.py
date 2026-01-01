@@ -446,8 +446,8 @@ def test_selftest_runner_publish_job_contract() -> None:
     download_step = _find_step("Download self-test report")
     assert download_step, "Download step missing from publish job."
     assert (
-        download_step.get("uses") == "actions/download-artifact@v4"
-    ), "Download step should use actions/download-artifact@v4."
+        download_step.get("uses") == "actions/download-artifact@v7"
+    ), "Download step should use actions/download-artifact@v7."
     assert (
         download_step.get("if") == "${{ env.ENABLE_HISTORY == 'true' && env.RUN_ID != '' }}"
     ), "Download step must guard on enable_history input and aggregate run id."
