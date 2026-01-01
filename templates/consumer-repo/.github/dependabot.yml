@@ -1,0 +1,68 @@
+# Dependabot configuration for consumer repos
+# Dev tools are synced from stranske/Workflows - DO NOT update them here
+# 
+# Flow: Workflows (Dependabot) -> autofix-versions.env -> maint-52 sync -> this repo
+
+version: 2
+updates:
+  # Python dependencies
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "America/New_York"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "stranske"
+    labels:
+      - "dependencies"
+      - "python"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+    # Ignore dev tools - synced from stranske/Workflows via maint-52
+    ignore:
+      - dependency-name: "ruff"
+      - dependency-name: "black"
+      - dependency-name: "mypy"
+      - dependency-name: "pytest"
+      - dependency-name: "pytest-cov"
+      - dependency-name: "pytest-xdist"
+      - dependency-name: "isort"
+      - dependency-name: "docformatter"
+      - dependency-name: "coverage"
+      - dependency-name: "hypothesis"
+    groups:
+      runtime-minor:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "America/New_York"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "stranske"
+    labels:
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    groups:
+      actions-minor:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
