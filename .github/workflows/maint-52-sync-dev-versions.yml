@@ -1,0 +1,259 @@
+name: Maint 52 Sync Dev Versions
+
+# Sync dev tool versions from Workflows autofix-versions.env to consumer repos
+#
+# This workflow ensures all consumer repos use consistent dev tool versions
+# (ruff, mypy, pytest, etc.) by updating their pyproject.toml files.
+#
+# Triggered:
+# - When autofix-versions.env changes in Workflows
+# - Weekly schedule to catch any drift
+# - Manual dispatch
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/autofix-versions.env'
+  schedule:
+    # Weekly on Sundays at 5:00 UTC
+    - cron: '0 5 * * 0'
+  workflow_dispatch:
+    inputs:
+      repos:
+        description: 'Comma-separated repos to sync (empty for all registered)'
+        type: string
+        required: false
+      dry_run:
+        description: 'Preview changes without creating PRs'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+env:
+  # Consumer repos registered for version sync
+  REGISTERED_CONSUMER_REPOS: |
+    stranske/Travel-Plan-Permission
+    stranske/Template
+    stranske/trip-planner
+    stranske/Manager-Database
+    stranske/Portable-Alpha-Extension-Model
+    stranske/Trend_Model_Project
+
+jobs:
+  prepare:
+    name: Prepare version sync
+    runs-on: ubuntu-latest
+    outputs:
+      repos: ${{ steps.repos.outputs.matrix }}
+      versions_hash: ${{ steps.hash.outputs.hash }}
+    steps:
+      - name: Checkout Workflows
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            .github/workflows/autofix-versions.env
+            scripts/sync_dev_dependencies.py
+          sparse-checkout-cone-mode: false
+
+      - name: Compute versions hash
+        id: hash
+        run: |
+          hash=$(sha256sum .github/workflows/autofix-versions.env | cut -d' ' -f1)
+          echo "hash=${hash:0:12}" >> "$GITHUB_OUTPUT"
+          echo "Versions hash: ${hash:0:12}"
+          echo ""
+          echo "Current versions:"
+          cat .github/workflows/autofix-versions.env | grep -v '^#' | grep '='
+
+      - name: Build repo matrix
+        id: repos
+        run: |
+          if [ -n "${{ inputs.repos }}" ]; then
+            repos='${{ inputs.repos }}'
+          else
+            repos=$(echo "$REGISTERED_CONSUMER_REPOS" | tr '\n' ',' | sed 's/,$//')
+          fi
+          json_array=$(echo "$repos" | tr ',' '\n' | grep -v '^$' | jq -R -s -c 'split("\n") | map(select(. != "")) | map(gsub("^\\s+|\\s+$"; ""))')
+          echo "matrix={\"repo\":$json_array}" >> "$GITHUB_OUTPUT"
+          echo "Repos to sync: $json_array"
+
+      - name: Upload sync script
+        uses: actions/upload-artifact@v4
+        with:
+          name: sync-script
+          path: |
+            scripts/sync_dev_dependencies.py
+            .github/workflows/autofix-versions.env
+          retention-days: 1
+
+  sync:
+    name: Sync ${{ matrix.repo }}
+    needs: prepare
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.prepare.outputs.repos) }}
+    env:
+      REPO_TOKEN: ${{ secrets.OWNER_PR_PAT || secrets.SERVICE_BOT_PAT }}
+    steps:
+      - name: Clone consumer repo
+        env:
+          GH_TOKEN: ${{ env.REPO_TOKEN }}
+        run: |
+          gh repo clone ${{ matrix.repo }} consumer -- --depth=1
+
+      - name: Download sync script
+        uses: actions/download-artifact@v4
+        with:
+          name: sync-script
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Check for pyproject.toml
+        id: check
+        run: |
+          if [ -f "consumer/pyproject.toml" ]; then
+            echo "has_pyproject=true" >> "$GITHUB_OUTPUT"
+            
+            # Check if it has dev dependencies
+            if grep -q '\[project.optional-dependencies\]' consumer/pyproject.toml; then
+              if grep -q '^dev\s*=' consumer/pyproject.toml; then
+                echo "has_dev_deps=true" >> "$GITHUB_OUTPUT"
+              else
+                echo "has_dev_deps=false" >> "$GITHUB_OUTPUT"
+              fi
+            else
+              echo "has_dev_deps=false" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "has_pyproject=false" >> "$GITHUB_OUTPUT"
+            echo "has_dev_deps=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Sync versions
+        id: sync
+        if: steps.check.outputs.has_dev_deps == 'true'
+        run: |
+          # Copy pin file to expected location
+          mkdir -p consumer/.github/workflows
+          cp .github/workflows/autofix-versions.env consumer/.github/workflows/
+
+          cd consumer
+
+          # Run sync check first
+          if python ../scripts/sync_dev_dependencies.py --check --use-minimum-pins 2>&1 | tee /tmp/sync_output.txt; then
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+            
+            # Apply if not dry run
+            if [ "${{ inputs.dry_run }}" != "true" ]; then
+              python ../scripts/sync_dev_dependencies.py --apply --use-minimum-pins
+            fi
+          fi
+
+          # Save output for PR body
+          cat /tmp/sync_output.txt > ../sync_summary.txt
+
+      - name: Skip - no dev dependencies
+        if: steps.check.outputs.has_dev_deps != 'true'
+        run: |
+          echo "Skipping ${{ matrix.repo }}: no dev dependencies section in pyproject.toml"
+          echo "has_changes=false" >> "$GITHUB_OUTPUT"
+
+      - name: Create sync PR
+        if: steps.sync.outputs.has_changes == 'true' && inputs.dry_run != true
+        env:
+          GH_TOKEN: ${{ env.REPO_TOKEN }}
+        run: |
+          cd consumer
+
+          branch_name="deps/sync-dev-versions-${{ needs.prepare.outputs.versions_hash }}"
+
+          # Check if PR already exists
+          existing_pr=$(gh pr list --head "$branch_name" --json number -q '.[0].number' || echo "")
+          if [ -n "$existing_pr" ]; then
+            echo "PR #$existing_pr already exists"
+            exit 0
+          fi
+
+          # Configure git
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config credential.helper '!f() { echo "username=x-access-token"; echo "password=${GH_TOKEN}"; }; f'
+
+          # Create branch and commit
+          git checkout -b "$branch_name"
+          git add pyproject.toml .github/workflows/autofix-versions.env
+          git commit -m "deps: sync dev tool versions from Workflows
+
+          Automated sync from stranske/Workflows autofix-versions.env
+          Versions hash: ${{ needs.prepare.outputs.versions_hash }}
+
+          This ensures consistent dev tool versions across all repos."
+
+          git push -u origin "$branch_name"
+
+          # Create PR
+          pr_body="## Dev Tool Version Sync
+
+          This PR updates dev tool versions in \`pyproject.toml\` to match the central
+          version pins from [stranske/Workflows](https://github.com/stranske/Workflows).
+
+          ### Changes
+          \`\`\`
+          $(cat ../sync_summary.txt)
+          \`\`\`
+
+          ### Why
+          Consistent dev tool versions across repos ensures:
+          - CI behaviors match between repos
+          - No surprises from version drift
+          - Easier debugging when tools behave the same everywhere
+
+          ---
+          **Source:** [\`.github/workflows/autofix-versions.env\`](https://github.com/stranske/Workflows/blob/main/.github/workflows/autofix-versions.env)"
+
+          gh pr create \
+            --head "$branch_name" \
+            --title "deps: sync dev tool versions" \
+            --body "$pr_body" \
+            --label "dependencies,automated"
+
+      - name: Dry run summary
+        if: inputs.dry_run == true && steps.sync.outputs.has_changes == 'true'
+        run: |
+          {
+            echo "## Dry Run - ${{ matrix.repo }}"
+            echo ""
+            echo "Would update:"
+            echo "\`\`\`"
+            cat sync_summary.txt
+            echo "\`\`\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  summary:
+    name: Summary
+    needs: [prepare, sync]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Generate summary
+        run: |
+          {
+            echo "## Dev Version Sync Summary"
+            echo ""
+            echo "**Versions Hash:** ${{ needs.prepare.outputs.versions_hash }}"
+            echo "**Dry Run:** ${{ inputs.dry_run || 'false' }}"
+            echo ""
+            echo "### Repos Processed"
+            echo '${{ needs.prepare.outputs.repos }}' | jq -r '.repo[]' | while read -r repo; do
+              echo "- $repo"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"

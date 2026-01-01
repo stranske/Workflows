@@ -69,8 +69,7 @@ workflows:
 
   # Version pins
   - source: .github/workflows/autofix-versions.env
-    description: "Autofix tool version pins - ruff, black versions"
-    sync_mode: create_only  # Don't overwrite if exists - repos customize this
+    description: "Autofix tool version pins - shared dev tool versions (synced)"
 
 # Codex prompts for agent operations
 prompts:
@@ -99,6 +98,10 @@ codex_config:
 # that run in the consumer repo context
 scripts:
   # Tools directory - Python helpers used by reusable-10-ci-python.yml
+
+  # Dev dependency sync script
+  - source: scripts/sync_dev_dependencies.py
+    description: "Syncs dev dependency versions from autofix-versions.env to pyproject.toml"
   - source: tools/resolve_mypy_pin.py
     description: "Resolves mypy version pinning - required by reusable CI workflow"
 
@@ -190,8 +193,7 @@ docs:
 
 # Files that exist in templates but are NOT synced (consumer creates their own)
 excluded:
-  - path: .github/workflows/autofix-versions.env
-    reason: "Each repo maintains its own tool version pins"
+
   - path: .gitignore
     reason: "Repo-specific ignore patterns"
   - path: README.md
