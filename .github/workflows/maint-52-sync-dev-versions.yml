@@ -5,6 +5,8 @@ name: Maint 52 Sync Dev Versions
 # This workflow ensures all consumer repos use consistent dev tool versions
 # (ruff, mypy, pytest, etc.) by updating their pyproject.toml files.
 #
+# If a repo has pyproject.toml but no dev dependencies, it will add them.
+#
 # Triggered:
 # - When autofix-versions.env changes in Workflows
 # - Weekly schedule to catch any drift
@@ -123,7 +125,7 @@ jobs:
             
             # Check if it has dev dependencies
             if grep -q '\[project.optional-dependencies\]' consumer/pyproject.toml; then
-              if grep -q '^dev\s*=' consumer/pyproject.toml; then
+              if grep -qE '^dev\s*=' consumer/pyproject.toml; then
                 echo "has_dev_deps=true" >> "$GITHUB_OUTPUT"
               else
                 echo "has_dev_deps=false" >> "$GITHUB_OUTPUT"
@@ -136,7 +138,7 @@ jobs:
             echo "has_dev_deps=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Sync versions
+      - name: Sync versions (existing dev deps)
         id: sync
         if: steps.check.outputs.has_dev_deps == 'true'
         run: |
@@ -162,14 +164,40 @@ jobs:
           # Save output for PR body
           cat /tmp/sync_output.txt > ../sync_summary.txt
 
-      - name: Skip - no dev dependencies
-        if: steps.check.outputs.has_dev_deps != 'true'
+      - name: Add dev dependencies (missing dev deps)
+        id: add_deps
+        if: steps.check.outputs.has_pyproject == 'true' && steps.check.outputs.has_dev_deps != 'true'
         run: |
-          echo "Skipping ${{ matrix.repo }}: no dev dependencies section in pyproject.toml"
-          echo "has_changes=false" >> "$GITHUB_OUTPUT"
+          set -o pipefail
+          # Copy pin file to expected location
+          mkdir -p consumer/.github/workflows
+          cp .github/workflows/autofix-versions.env consumer/.github/workflows/
+
+          cd consumer
+
+          echo "Adding dev dependencies section to pyproject.toml..."
+          
+          # Use --create-if-missing to add dev deps
+          if python ../scripts/sync_dev_dependencies.py --apply --use-minimum-pins --create-if-missing 2>&1 | tee /tmp/sync_output.txt; then
+            if grep -q "version updates" /tmp/sync_output.txt; then
+              echo "has_changes=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+          fi
+
+          # Save output for PR body
+          cat /tmp/sync_output.txt > ../sync_summary.txt
+
+      - name: Skip - no pyproject.toml
+        if: steps.check.outputs.has_pyproject != 'true'
+        run: |
+          echo "Skipping ${{ matrix.repo }}: no pyproject.toml found"
 
       - name: Create sync PR
-        if: steps.sync.outputs.has_changes == 'true' && inputs.dry_run != true
+        if: (steps.sync.outputs.has_changes == 'true' || steps.add_deps.outputs.has_changes == 'true') && inputs.dry_run != true
         env:
           GH_TOKEN: ${{ env.REPO_TOKEN }}
         run: |
@@ -187,22 +215,25 @@ jobs:
           # Configure git
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-            # shellcheck disable=SC2016 # Single quotes intentional - GH_TOKEN expands at runtime in credential helper
+          # shellcheck disable=SC2016 # Single quotes intentional - GH_TOKEN expands at runtime in credential helper
           git config credential.helper '!f() { echo "username=x-access-token"; echo "password=${GH_TOKEN}"; }; f'
 
           # Create branch and commit
           git checkout -b "$branch_name"
           git add pyproject.toml .github/workflows/autofix-versions.env
-          git commit -m "deps: sync dev tool versions from Workflows
+          
+          # Commit with multi-line message
+          commit_msg="deps: sync dev tool versions from Workflows
 
           Automated sync from stranske/Workflows autofix-versions.env
           Versions hash: ${{ needs.prepare.outputs.versions_hash }}
 
           This ensures consistent dev tool versions across all repos."
+          git commit -m "$commit_msg"
 
           git push --force -u origin "$branch_name"
 
-          # Create PR
+          # Create PR body
           pr_body="## Dev Tool Version Sync
 
           This PR updates dev tool versions in \`pyproject.toml\` to match the central
@@ -225,11 +256,10 @@ jobs:
           gh pr create \
             --head "$branch_name" \
             --title "deps: sync dev tool versions" \
-            --body "$pr_body" \
-            
+            --body "$pr_body"
 
       - name: Dry run summary
-        if: inputs.dry_run == true && steps.sync.outputs.has_changes == 'true'
+        if: inputs.dry_run == true && (steps.sync.outputs.has_changes == 'true' || steps.add_deps.outputs.has_changes == 'true')
         run: |
           {
             echo "## Dry Run - ${{ matrix.repo }}"
