@@ -352,9 +352,20 @@ async function runScenario(scenario) {
     actions_bot_pat: '',
     ...(scenario.env || {}),
   };
+  const tokenKeys = new Set([
+    'ACTIONS_BOT_PAT',
+    'SERVICE_BOT_PAT',
+    'GH_TOKEN',
+    'gh_token',
+    'actions_bot_pat',
+  ]);
   for (const [key, value] of Object.entries(envOverrides)) {
     originalEnv[key] = process.env[key];
-    process.env[key] = String(value);
+    if (value === '' && tokenKeys.has(key)) {
+      delete process.env[key];
+    } else {
+      process.env[key] = String(value);
+    }
   }
 
   const originalNow = Date.now;
