@@ -1,0 +1,151 @@
+# Syncs dev tool versions from pyproject.toml to autofix-versions.env
+# Triggered when Dependabot PRs merge to keep the .env file in sync
+#
+# Flow: Dependabot -> pyproject.toml -> this workflow -> autofix-versions.env
+
+name: Maint - Sync versions.env from pyproject.toml
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'pyproject.toml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync-env:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract versions from pyproject.toml
+        id: extract
+        run: |
+          # Parse pyproject.toml and extract pinned dev tool versions
+          python3 << 'PYTHON'
+          import re
+          import sys
+          
+          with open('pyproject.toml', 'r') as f:
+              content = f.read()
+          
+          # Find the dev dependencies section
+          dev_match = re.search(r'\[project\.optional-dependencies\]\s*\ndev\s*=\s*\[(.*?)\]', content, re.DOTALL)
+          if not dev_match:
+              print("ERROR: Could not find dev dependencies in pyproject.toml", file=sys.stderr)
+              sys.exit(1)
+          
+          dev_section = dev_match.group(1)
+          
+          # Map package names to env var names
+          package_to_env = {
+              'black': 'BLACK_VERSION',
+              'ruff': 'RUFF_VERSION',
+              'isort': 'ISORT_VERSION',
+              'docformatter': 'DOCFORMATTER_VERSION',
+              'mypy': 'MYPY_VERSION',
+              'pytest': 'PYTEST_VERSION',
+              'pytest-cov': 'PYTEST_COV_VERSION',
+              'pytest-xdist': 'PYTEST_XDIST_VERSION',
+              'coverage': 'COVERAGE_VERSION',
+              'pyyaml': 'PYYAML_VERSION',
+              'pydantic': 'PYDANTIC_VERSION',
+              'hypothesis': 'HYPOTHESIS_VERSION',
+              'jsonschema': 'JSONSCHEMA_VERSION',
+          }
+          
+          versions = {}
+          
+          # Extract pinned versions (package==version format)
+          for match in re.finditer(r'"([a-zA-Z0-9_-]+)==([^"]+)"', dev_section):
+              pkg, ver = match.groups()
+              pkg_lower = pkg.lower()
+              if pkg_lower in package_to_env:
+                  versions[package_to_env[pkg_lower]] = ver
+          
+          # Output for GitHub Actions
+          for env_var, version in sorted(versions.items()):
+              print(f"{env_var}={version}")
+          PYTHON
+
+      - name: Update autofix-versions.env
+        run: |
+          ENV_FILE=".github/workflows/autofix-versions.env"
+          
+          # Read current pyproject versions
+          declare -A NEW_VERSIONS
+          while IFS='=' read -r key value; do
+              NEW_VERSIONS[$key]=$value
+          done < <(python3 << 'PYTHON'
+          import re
+          
+          with open('pyproject.toml', 'r') as f:
+              content = f.read()
+          
+          dev_match = re.search(r'\[project\.optional-dependencies\]\s*\ndev\s*=\s*\[(.*?)\]', content, re.DOTALL)
+          dev_section = dev_match.group(1) if dev_match else ""
+          
+          package_to_env = {
+              'black': 'BLACK_VERSION',
+              'ruff': 'RUFF_VERSION',
+              'isort': 'ISORT_VERSION',
+              'docformatter': 'DOCFORMATTER_VERSION',
+              'mypy': 'MYPY_VERSION',
+              'pytest': 'PYTEST_VERSION',
+              'pytest-cov': 'PYTEST_COV_VERSION',
+              'pytest-xdist': 'PYTEST_XDIST_VERSION',
+              'coverage': 'COVERAGE_VERSION',
+              'pyyaml': 'PYYAML_VERSION',
+              'pydantic': 'PYDANTIC_VERSION',
+              'hypothesis': 'HYPOTHESIS_VERSION',
+              'jsonschema': 'JSONSCHEMA_VERSION',
+          }
+          
+          for match in re.finditer(r'"([a-zA-Z0-9_-]+)==([^"]+)"', dev_section):
+              pkg, ver = match.groups()
+              pkg_lower = pkg.lower()
+              if pkg_lower in package_to_env:
+                  print(f"{package_to_env[pkg_lower]}={ver}")
+          PYTHON
+          )
+          
+          # Update each version in the .env file
+          CHANGES=0
+          for key in "${!NEW_VERSIONS[@]}"; do
+              value="${NEW_VERSIONS[$key]}"
+              if grep -q "^${key}=" "$ENV_FILE"; then
+                  OLD_VALUE=$(grep "^${key}=" "$ENV_FILE" | cut -d= -f2)
+                  if [ "$OLD_VALUE" != "$value" ]; then
+                      sed -i "s/^${key}=.*/${key}=${value}/" "$ENV_FILE"
+                      echo "Updated $key: $OLD_VALUE -> $value"
+                      CHANGES=$((CHANGES + 1))
+                  fi
+              fi
+          done
+          
+          echo "changes=$CHANGES" >> "$GITHUB_OUTPUT"
+          
+          if [ $CHANGES -eq 0 ]; then
+              echo "No version changes detected"
+          else
+              echo "Updated $CHANGES version(s)"
+          fi
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          if git diff --quiet .github/workflows/autofix-versions.env; then
+              echo "No changes to commit"
+              exit 0
+          fi
+          
+          git add .github/workflows/autofix-versions.env
+          git commit -m "chore: sync autofix-versions.env from pyproject.toml
+
+          Auto-generated by maint-sync-env-from-pyproject workflow"
+          git push
