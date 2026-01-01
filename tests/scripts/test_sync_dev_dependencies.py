@@ -148,6 +148,35 @@ def test_main_check_reports_lockfile_mismatch(
     assert "requirements.lock:ruff" in captured.out
 
 
+def test_main_check_auto_syncs_lockfile_when_present(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    env_path = tmp_path / "pins.env"
+    pyproject_path = tmp_path / "pyproject.toml"
+    lockfile = tmp_path / "requirements.lock"
+    pins = {"RUFF_VERSION": "1.0.0", "BLACK_VERSION": "2.0.0"}
+
+    _write_env_file(env_path, pins)
+    _write_pyproject(pyproject_path, "1.0.0", "2.0.0")
+    lockfile.write_text("ruff==0.9.0\n", encoding="utf-8")
+
+    monkeypatch.chdir(tmp_path)
+
+    exit_code = sdd.main(
+        [
+            "--check",
+            "--pin-file",
+            str(env_path),
+            "--pyproject",
+            str(pyproject_path),
+        ]
+    )
+    captured = capsys.readouterr()
+
+    assert exit_code == 1
+    assert "requirements.lock:ruff" in captured.out
+
+
 def test_main_check_skips_missing_lockfile(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     env_path = tmp_path / "pins.env"
     pyproject_path = tmp_path / "pyproject.toml"

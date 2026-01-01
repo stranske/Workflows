@@ -11,6 +11,8 @@ Usage:
     python sync_dev_dependencies.py --check    # Verify versions match
     python sync_dev_dependencies.py --apply    # Update pyproject.toml
     python sync_dev_dependencies.py --apply --lockfile  # Update requirements.lock too
+
+If requirements.lock exists, it will be synced automatically; --lockfile still forces it.
 """
 
 from __future__ import annotations
@@ -300,7 +302,8 @@ def main(argv: list[str] | None = None) -> int:
         apply=args.apply,
     )
 
-    if args.lockfile:
+    lockfile_enabled = args.lockfile or LOCKFILE_FILE.exists()
+    if lockfile_enabled:
         lock_changes, lock_errors = sync_lockfile(LOCKFILE_FILE, pins, apply=args.apply)
         changes.extend(lock_changes)
         errors.extend(lock_errors)
