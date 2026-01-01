@@ -347,6 +347,9 @@ async function runScenario(scenario) {
   const envOverrides = {
     ACTIONS_BOT_PAT: 'dummy-token',
     SERVICE_BOT_PAT: 'service-token',
+    GH_TOKEN: '',
+    gh_token: '',
+    actions_bot_pat: '',
     ...(scenario.env || {}),
   };
   for (const [key, value] of Object.entries(envOverrides)) {
