@@ -63,6 +63,31 @@ def test_sync_lockfile_apply_updates_versions(tmp_path: Path) -> None:
     assert "requests==2.0.0" in updated
 
 
+def test_sync_lockfile_preserves_comments_and_whitespace(tmp_path: Path) -> None:
+    lockfile = tmp_path / "requirements.lock"
+    lockfile.write_text(
+        "\n".join(
+            [
+                "  ruff==0.1.0  # pinned",
+                "black==0.2.0",
+                "  # comment-only",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    pins = {"RUFF_VERSION": "1.0.0", "BLACK_VERSION": "2.0.0"}
+
+    changes, errors = sdd.sync_lockfile(lockfile, pins, apply=True)
+
+    assert errors == []
+    assert "requirements.lock:ruff: 0.1.0 -> ==1.0.0" in changes
+    assert "requirements.lock:black: 0.2.0 -> ==2.0.0" in changes
+    updated = lockfile.read_text(encoding="utf-8")
+    assert "  ruff==1.0.0  # pinned" in updated
+    assert "black==2.0.0" in updated
+
+
 def test_main_apply_updates_pyproject_and_lockfile(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
