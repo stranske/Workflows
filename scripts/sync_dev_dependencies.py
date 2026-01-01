@@ -13,6 +13,9 @@ Usage:
     python sync_dev_dependencies.py --check           # Verify versions match
     python sync_dev_dependencies.py --apply           # Update pyproject.toml
     python sync_dev_dependencies.py --apply --create-if-missing  # Create dev deps if missing
+    python sync_dev_dependencies.py --apply --lockfile  # Update requirements.lock too
+
+If requirements.lock exists, it will be synced automatically; --lockfile still forces it.
 """
 
 from __future__ import annotations
@@ -25,6 +28,7 @@ from pathlib import Path
 # Default paths (can be overridden for testing)
 PIN_FILE = Path(".github/workflows/autofix-versions.env")
 PYPROJECT_FILE = Path("pyproject.toml")
+LOCKFILE_FILE = Path("requirements.lock")
 
 # Map env file keys to package names
 # Format: ENV_KEY -> (package_name, optional_alternative_names)
@@ -49,6 +53,10 @@ CORE_DEV_TOOLS = [
     "PYTEST_VERSION",
     "PYTEST_COV_VERSION",
 ]
+
+LOCKFILE_PATTERN = re.compile(
+    r"^(?P<lead>\s*)(?P<name>[A-Za-z0-9_.-]+)==(?P<version>[^\s#]+)(?P<trail>\s*(?:#.*)?)$"
+)
 
 
 def parse_env_file(path: Path) -> dict[str, str]:
@@ -193,9 +201,9 @@ def update_dependency_in_section(
     return new_section, count > 0
 
 
-def sync_versions(
+def sync_pyproject(
     pyproject_path: Path,
-    pin_file_path: Path,
+    pins: dict[str, str],
     apply: bool = False,
     use_exact_pins: bool = True,
     create_if_missing: bool = False,
@@ -206,11 +214,6 @@ def sync_versions(
     """
     changes: list[str] = []
     errors: list[str] = []
-
-    # Parse pin file
-    pins = parse_env_file(pin_file_path)
-    if not pins:
-        return [], ["No pins found in env file"]
 
     # Read pyproject.toml
     if not pyproject_path.exists():
@@ -302,7 +305,60 @@ def sync_versions(
     return changes, errors
 
 
-def main() -> int:
+def _build_lockfile_targets(pins: dict[str, str]) -> dict[str, str]:
+    targets: dict[str, str] = {}
+    for env_key, package_names in TOOL_MAPPING.items():
+        if env_key not in pins:
+            continue
+        for name in package_names:
+            targets[name.lower()] = pins[env_key]
+    return targets
+
+
+def sync_lockfile(
+    lockfile_path: Path, pins: dict[str, str], apply: bool = False
+) -> tuple[list[str], list[str]]:
+    """Sync versions from pin file to requirements.lock."""
+    if not lockfile_path.exists():
+        return [], []
+
+    content = lockfile_path.read_text(encoding="utf-8")
+    lines = content.splitlines()
+    targets = _build_lockfile_targets(pins)
+    changes: list[str] = []
+    updated_lines: list[str] = []
+
+    for line in lines:
+        match = LOCKFILE_PATTERN.match(line)
+        if not match:
+            updated_lines.append(line)
+            continue
+
+        name = match.group("name")
+        version = match.group("version")
+        target_version = targets.get(name.lower())
+        if target_version and version != target_version:
+            changes.append(f"requirements.lock:{name}: {version} -> =={target_version}")
+            if apply:
+                updated_lines.append(
+                    f"{match.group('lead')}{name}=={target_version}{match.group('trail')}"
+                )
+            else:
+                updated_lines.append(line)
+        else:
+            updated_lines.append(line)
+
+    if apply:
+        new_content = "\n".join(updated_lines)
+        if content.endswith("\n"):
+            new_content += "\n"
+        if new_content != content:
+            lockfile_path.write_text(new_content, encoding="utf-8")
+
+    return changes, []
+
+
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Sync dev dependency versions from autofix-versions.env to pyproject.toml"
     )
@@ -327,6 +383,11 @@ def main() -> int:
         help="Use >= instead of == for version pins",
     )
     parser.add_argument(
+        "--lockfile",
+        action="store_true",
+        help="Also sync requirements.lock if present",
+    )
+    parser.add_argument(
         "--pin-file",
         type=Path,
         default=PIN_FILE,
@@ -339,7 +400,7 @@ def main() -> int:
         help="Path to pyproject.toml",
     )
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     if args.check and args.apply:
         parser.error("--check and --apply are mutually exclusive")
@@ -349,13 +410,24 @@ def main() -> int:
 
     use_exact_pins = not args.use_minimum_pins
 
-    changes, errors = sync_versions(
+    pins = parse_env_file(args.pin_file)
+    if not pins:
+        print("Error: No pins found in env file", file=sys.stderr)
+        return 2
+
+    changes, errors = sync_pyproject(
         args.pyproject,
-        args.pin_file,
+        pins,
         apply=args.apply,
         use_exact_pins=use_exact_pins,
         create_if_missing=args.create_if_missing,
     )
+
+    lockfile_enabled = args.lockfile or LOCKFILE_FILE.exists()
+    if lockfile_enabled:
+        lock_changes, lock_errors = sync_lockfile(LOCKFILE_FILE, pins, apply=args.apply)
+        changes.extend(lock_changes)
+        errors.extend(lock_errors)
 
     if errors:
         for err in errors:
@@ -368,10 +440,10 @@ def main() -> int:
             print(f"  - {change}")
 
         if args.check:
-            print("\nRun with --apply to update pyproject.toml")
+            print("\nRun with --apply to update dependency files")
             return 1
         else:
-            print("\n✓ pyproject.toml updated")
+            print("\n✓ Dependency files updated")
             return 0
     else:
         print("✓ All dev dependency versions are in sync")
