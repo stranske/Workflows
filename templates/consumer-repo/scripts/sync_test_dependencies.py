@@ -187,10 +187,25 @@ def _read_local_modules() -> set[str]:
     if not LOCAL_MODULES_FILE.exists():
         return set()
     modules: set[str] = set()
-    for line in LOCAL_MODULES_FILE.read_text(encoding="utf-8").splitlines():
+    try:
+        content = LOCAL_MODULES_FILE.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as exc:
+        print(
+            f"Warning: could not read {LOCAL_MODULES_FILE}: {exc}",
+            file=sys.stderr,
+        )
+        return set()
+    for line in content.splitlines():
         line = line.strip()
-        if line and not line.startswith("#"):
-            modules.add(line)
+        if not line or line.startswith("#"):
+            continue
+        if not line.isidentifier():
+            print(
+                f"Warning: ignoring invalid module name in {LOCAL_MODULES_FILE}: {line!r}",
+                file=sys.stderr,
+            )
+            continue
+        modules.add(line)
     return modules
 
 
