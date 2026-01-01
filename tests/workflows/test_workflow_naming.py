@@ -206,6 +206,7 @@ EXPECTED_NAMES = {
     "maint-60-release.yml": "Maint 60 Release",
     "maint-61-create-floating-v1-tag.yml": "Maint 61 Create Floating v1 Tag",
     "maint-coverage-guard.yml": "Maint Coverage Guard",
+    "maint-sync-env-from-pyproject.yml": "Maint - Sync versions.env from pyproject.toml",
     "pr-00-gate.yml": "Gate",
     "pr-11-ci-smoke.yml": "PR 11 - Minimal invariant CI",
     "reusable-10-ci-python.yml": "Reusable CI",

@@ -494,6 +494,9 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 - **Gate summary job** – the `summary` job within `pr-00-gate.yml` consolidates
   CI results, uploads artifacts, and applies small, low-risk fixes (for example,
   syncing generated docs or updating the failure tracker).
+- **Maint Sync Env from Pyproject** – `.github/workflows/maint-sync-env-from-pyproject.yml`
+  syncs dev tool versions from `pyproject.toml` to `autofix-versions.env` after
+  Dependabot PRs merge, keeping the version pins in sync for downstream consumers.
 - **Maint Coverage Guard** – `.github/workflows/maint-coverage-guard.yml`
   downloads the latest Gate coverage payload plus the trend artifact and
   compares them against `config/coverage-baseline.json`, surfacing notices when
