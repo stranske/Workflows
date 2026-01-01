@@ -226,7 +226,7 @@ jobs:
             --head "$branch_name" \
             --title "deps: sync dev tool versions" \
             --body "$pr_body" \
-            --label "dependencies,automated"
+            
 
       - name: Dry run summary
         if: inputs.dry_run == true && steps.sync.outputs.has_changes == 'true'
