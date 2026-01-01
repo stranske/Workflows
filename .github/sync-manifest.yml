@@ -71,6 +71,11 @@ workflows:
   - source: .github/workflows/autofix-versions.env
     description: "Autofix tool version pins - shared dev tool versions (synced)"
 
+  # Dependabot configuration for consumer repos
+  - source: .github/dependabot.yml
+    description: "Dependabot config - ignores dev tools synced via maint-52"
+    sync_mode: create_only
+
 # Codex prompts for agent operations
 prompts:
   - source: .github/codex/prompts/keepalive_next_task.md
