@@ -176,7 +176,7 @@ def update_dependency_in_section(
     # Pattern: "package" or "package>=version" or "package[extras]>=version"
     # We need to be careful not to match "pytest" when looking at "pytest-cov"
 
-    # Match: "package" followed by optional version spec, but NOT followed by more package name chars
+    # Match: "package" + optional version spec, NOT followed by more pkg name chars
     # The negative lookahead (?!-) ensures we don't match "pytest" in "pytest-cov"
     pattern = re.compile(
         rf'"({re.escape(package)})(?![-\w])(>=|==|~=|>|<|<=|!=)?([^"\[\]]*)?(\[.*?\])?"',
