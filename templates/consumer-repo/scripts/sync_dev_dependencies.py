@@ -92,10 +92,10 @@ def extract_dependencies(section: str) -> list[tuple[str, str, str]]:
     # Match patterns like "package>=1.0.0", "package==1.0.0", "package", or "package[extra]==1.0.0"
     # Per PEP 508, extras come BEFORE version specifier: package[extra]>=1.0.0
     pattern = re.compile(
-        r'"([a-zA-Z0-9_-]+)'          # package name
-        r'(?:\[[^\]]+\])?'            # optional extras, e.g. [standard]
-        r'(?:(>=|==|~=|>|<|<=|!=)'    # optional operator
-        r'([^"\[\]]+))?"'             # optional version
+        r'"([a-zA-Z0-9_-]+)'  # package name
+        r"(?:\[[^\]]+\])?"  # optional extras, e.g. [standard]
+        r"(?:(>=|==|~=|>|<|<=|!=)"  # optional operator
+        r'([^"\[\]]+))?"'  # optional version
     )
 
     for match in pattern.finditer(section):
