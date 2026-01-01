@@ -478,7 +478,7 @@ jobs:
 
       - name: Upload verifier metrics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: agents-verifier-metrics
           path: verifier-metrics.ndjson

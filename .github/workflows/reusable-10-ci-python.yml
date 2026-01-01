@@ -1789,7 +1789,7 @@ jobs:
 
       - name: Upload coverage artifact
         if: ${{ always() && steps.coverage_paths.outputs.has_payload == 'true' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ inputs['artifact-prefix'] }}coverage-${{ matrix.python-version }}-${{ github.run_attempt }}
           path: ${{ env.PROJECT_ROOT }}/artifacts/coverage
@@ -1853,7 +1853,7 @@ jobs:
 
       - name: Upload metrics artifact
         if: ${{ inputs['enable-metrics'] }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ inputs['artifact-prefix'] }}ci-metrics
           path: ${{ env.PROJECT_ROOT }}/ci-metrics.json
@@ -1874,7 +1874,7 @@ jobs:
 
       - name: Upload metrics history artifact
         if: ${{ inputs['enable-history'] }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ inputs['artifact-prefix'] }}metrics-history
           path: ${{ env.PROJECT_ROOT }}/${{ inputs['history-artifact-name'] }}
@@ -1884,7 +1884,7 @@ jobs:
 
       - name: Upload classification artifact
         if: ${{ inputs['enable-classification'] }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ inputs['artifact-prefix'] }}classification
           path: ${{ env.PROJECT_ROOT }}/classification.json
@@ -1905,7 +1905,7 @@ jobs:
 
       - name: Upload coverage delta artifact
         if: ${{ inputs.coverage && inputs['enable-coverage-delta'] }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ inputs['artifact-prefix'] }}coverage-delta
           path: ${{ env.PROJECT_ROOT }}/coverage-delta.json
@@ -1960,7 +1960,7 @@ jobs:
 
       - name: Upload coverage summary artifact
         if: ${{ inputs.coverage && inputs['enable-soft-gate'] && matrix.python-version == inputs['primary-python-version'] }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ inputs['artifact-prefix'] }}coverage-summary
           path: ${{ env.PROJECT_ROOT }}/coverage-summary.md
@@ -1970,7 +1970,7 @@ jobs:
 
       - name: Upload coverage trend artifact
         if: ${{ inputs.coverage && inputs['enable-soft-gate'] && matrix.python-version == inputs['primary-python-version'] }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ inputs['artifact-prefix'] }}coverage-trend
           path: ${{ env.PROJECT_ROOT }}/coverage-trend.json
@@ -1980,7 +1980,7 @@ jobs:
 
       - name: Upload coverage trend history artifact
         if: ${{ inputs.coverage && inputs['enable-soft-gate'] && matrix.python-version == inputs['primary-python-version'] }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ inputs['artifact-prefix'] }}coverage-trend-history
           path: ${{ env.PROJECT_ROOT }}/coverage-trend-history.ndjson

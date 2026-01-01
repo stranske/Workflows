@@ -402,7 +402,7 @@ jobs:
 
       - name: Upload coverage artifact
         if: ${{ always() && steps.coverage_paths.outputs.has_payload == 'true' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ inputs['artifact-prefix'] }}coverage-${{ matrix.node-version }}
           path: ${{ env.PROJECT_ROOT }}/artifacts/coverage

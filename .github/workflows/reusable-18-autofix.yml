@@ -775,7 +775,7 @@ jobs:
 
       - name: Upload patch artifact
         if: steps.guard.outputs.skip != 'true' && steps.fix_results.outputs.changed == 'true' && env.AUTOFIX_CAN_PUSH != 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: autofix-patch-pr-${{ inputs.pr_number }}
           path: autofix.patch
@@ -1060,7 +1060,7 @@ jobs:
 
       - name: Upload autofix history artifact (same-repo)
         if: steps.guard.outputs.skip != 'true' && steps.same_repo.outputs.same == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: autofix-history-pr-${{ inputs.pr_number }}
           path: ci/autofix/history.json
@@ -1278,7 +1278,7 @@ jobs:
 
       - name: Upload JSON report
         if: steps.guard.outputs.skip != 'true' && steps.same_repo.outputs.same == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: autofix-report-pr-${{ inputs.pr_number }}
           path: autofix_report.json

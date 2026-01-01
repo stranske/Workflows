@@ -533,7 +533,7 @@ jobs:
 
       - name: Upload Codex output
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: codex-output-${{ inputs.pr_number || github.run_id }}
           path: |
@@ -720,7 +720,7 @@ jobs:
 
       - name: Upload error diagnostics
         if: always() && steps.run_codex.outputs.exit-code != '0'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: error-diagnostics-${{ inputs.mode }}-${{ github.run_id }}
           path: error-diagnostics/

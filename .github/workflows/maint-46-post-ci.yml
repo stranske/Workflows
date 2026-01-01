@@ -220,7 +220,7 @@ jobs:
 
       - name: Upload summary preview artifact
         if: ${{ steps.gate_guard.outputs.recover == 'true' && steps.render.outputs.body != '' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: maint-46-post-ci-summary.md
           path: ${{ env.ARTIFACT_ROOT }}/post-ci-summary.md
