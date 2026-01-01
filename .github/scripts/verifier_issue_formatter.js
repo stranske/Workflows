@@ -21,6 +21,24 @@ function isPlaceholderContent(text) {
 }
 
 /**
+ * Check if a "blocking gap" is actually about missing source info rather than
+ * an actual verification failure. These should not trigger follow-up issues
+ * since there's nothing actionable to fix - the source simply lacked criteria.
+ *
+ * @param {string} text - Gap text to check
+ * @returns {boolean} True if gap is about missing source info
+ */
+function isMissingInfoGap(text) {
+  const normalized = String(text || '').toLowerCase().trim();
+  // Match verifier complaints about missing acceptance criteria or testability
+  return /provide\s+explicit\s+acceptance\s+criteria/i.test(normalized) ||
+    /acceptance\s+criteria.*missing/i.test(normalized) ||
+    /no\s+(testable|verifiable)\s+(criteria|requirements)/i.test(normalized) ||
+    /unable\s+to\s+verify.*missing/i.test(normalized) ||
+    /cannot\s+verify.*no\s+criteria/i.test(normalized);
+}
+
+/**
  * Check if an item looks like a markdown section header that was incorrectly
  * captured as a list item (e.g., "## Related" or "### Notes").
  *
@@ -550,11 +568,13 @@ function formatFollowUpIssue({
     : '[Follow-up] Verifier failure - unmet acceptance criteria';
 
   // Determine if this issue has substantive content worth creating
-  // Skip if we have no real tasks/criteria (just defaults) and no verifier gaps
+  // Skip if we have no real tasks/criteria (just defaults) and no verifier gaps.
+  // Also skip if all gaps are about missing source info (not actual verification failures).
+  const substantiveGaps = findings.gaps.filter(g => !isMissingInfoGap(g));
   const hasSubstantiveContent = Boolean(
     (newTasks.length > 0 && !newTasks.every(t => isPlaceholderContent(t))) ||
     (refinedUnmetCriteria.length > 0 && !refinedUnmetCriteria.every(c => isPlaceholderContent(c))) ||
-    findings.gaps.length > 0 ||
+    substantiveGaps.length > 0 ||
     findings.unmetCriteria.length > 0
   );
 
@@ -623,10 +643,11 @@ function formatSimpleFollowUpIssue({
     ? `Verifier failure for PR #${prNumber}`
     : 'Verifier failure on merged commit';
 
-  // Simple format always has substantive content (verifier output)
-  // since we only use it when we have actual verifier output to display
+  // Simple format: check substantive content.
+  // Filter out gaps that are about missing source info (not actual failures).
+  const substantiveGaps = findings.gaps.filter(g => !isMissingInfoGap(g));
   const hasSubstantiveContent = Boolean(
-    findings.gaps.length > 0 || 
+    substantiveGaps.length > 0 || 
     findings.unmetCriteria.length > 0 ||
     (verifierOutput && verifierOutput.trim().length > 0)
   );
@@ -649,6 +670,7 @@ module.exports = {
   buildChecklist,
   // Helper functions exported for testing
   isPlaceholderContent,
+  isMissingInfoGap,
   looksLikeSectionHeader,
   looksLikeReferenceLink,
   stripCheckboxesFromScope,
