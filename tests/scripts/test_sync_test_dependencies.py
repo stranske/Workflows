@@ -374,3 +374,104 @@ def test_main_fix_mode_reports_already_declared(
 
     output = capsys.readouterr().out
     assert "Dependencies already declared in dev extra" in output
+
+
+def test_read_local_modules_returns_empty_without_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test _read_local_modules returns empty set when file doesn't exist."""
+    monkeypatch.setattr(std, "LOCAL_MODULES_FILE", tmp_path / ".project_modules.txt")
+
+    assert std._read_local_modules() == set()
+
+
+def test_read_local_modules_reads_valid_module_names(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test _read_local_modules parses valid module names."""
+    modules_file = tmp_path / ".project_modules.txt"
+    modules_file.write_text("diff_holdings\nembeddings\n", encoding="utf-8")
+    monkeypatch.setattr(std, "LOCAL_MODULES_FILE", modules_file)
+
+    result = std._read_local_modules()
+
+    assert result == {"diff_holdings", "embeddings"}
+
+
+def test_read_local_modules_ignores_comments_and_empty_lines(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test _read_local_modules skips comments and blank lines."""
+    modules_file = tmp_path / ".project_modules.txt"
+    modules_file.write_text(
+        "# This is a comment\n" "\n" "  # Indented comment  \n" "module_a\n" "   \n" "module_b\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(std, "LOCAL_MODULES_FILE", modules_file)
+
+    result = std._read_local_modules()
+
+    assert result == {"module_a", "module_b"}
+
+
+def test_read_local_modules_strips_whitespace(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test _read_local_modules strips leading/trailing whitespace."""
+    modules_file = tmp_path / ".project_modules.txt"
+    modules_file.write_text("  spaced_module  \n\ttabbed_module\t\n", encoding="utf-8")
+    monkeypatch.setattr(std, "LOCAL_MODULES_FILE", modules_file)
+
+    result = std._read_local_modules()
+
+    assert result == {"spaced_module", "tabbed_module"}
+
+
+def test_read_local_modules_warns_on_invalid_names(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Test _read_local_modules warns about invalid Python identifiers."""
+    modules_file = tmp_path / ".project_modules.txt"
+    modules_file.write_text(
+        "valid_module\n" "123invalid\n" "has-hyphen\n" "has space\n" "another_valid\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(std, "LOCAL_MODULES_FILE", modules_file)
+
+    result = std._read_local_modules()
+
+    assert result == {"valid_module", "another_valid"}
+    stderr = capsys.readouterr().err
+    assert "123invalid" in stderr
+    assert "has-hyphen" in stderr
+    assert "has space" in stderr
+
+
+def test_read_local_modules_handles_read_errors(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Test _read_local_modules gracefully handles file read errors."""
+    modules_file = tmp_path / ".project_modules.txt"
+    # Create a directory with same name to cause read error
+    modules_file.mkdir()
+    monkeypatch.setattr(std, "LOCAL_MODULES_FILE", modules_file)
+
+    result = std._read_local_modules()
+
+    assert result == set()
+    stderr = capsys.readouterr().err
+    assert "Warning" in stderr or "could not read" in stderr
+
+
+def test_get_project_modules_includes_local_modules(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test get_project_modules includes modules from .project_modules.txt."""
+    modules_file = tmp_path / ".project_modules.txt"
+    modules_file.write_text("custom_module\n", encoding="utf-8")
+    monkeypatch.setattr(std, "LOCAL_MODULES_FILE", modules_file)
+    monkeypatch.chdir(tmp_path)
+
+    result = std.get_project_modules()
+
+    assert "custom_module" in result
