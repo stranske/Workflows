@@ -117,7 +117,7 @@ def find_project_section_end(content: str) -> int | None:
         return None
 
     # Find the next section header after [project]
-    next_section = re.search(r"^\[", content[project_match.end():], re.MULTILINE)
+    next_section = re.search(r"^\[", content[project_match.end() :], re.MULTILINE)
     if next_section:
         return project_match.end() + next_section.start()
 
@@ -175,12 +175,12 @@ def update_dependency_in_section(
     # The key is using word boundaries and ensuring we match the exact package
     # Pattern: "package" or "package>=version" or "package[extras]>=version"
     # We need to be careful not to match "pytest" when looking at "pytest-cov"
-    
+
     # Match: "package" followed by optional version spec, but NOT followed by more package name chars
     # The negative lookahead (?!-) ensures we don't match "pytest" in "pytest-cov"
     pattern = re.compile(
         rf'"({re.escape(package)})(?![-\w])(>=|==|~=|>|<|<=|!=)?([^"\[\]]*)?(\[.*?\])?"',
-        re.IGNORECASE
+        re.IGNORECASE,
     )
 
     def replacer(m: re.Match) -> str:
