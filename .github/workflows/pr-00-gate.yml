@@ -279,7 +279,7 @@ jobs:
       - name: Download Gate artifacts
         if: ${{ needs.detect.outputs.doc_only != 'true' && needs.python-ci.result != 'skipped' }}
         continue-on-error: true
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           pattern: gate-*
           merge-multiple: true
