@@ -50,21 +50,36 @@ git commit -m "fix: auto-format and lint test files"
 git push origin main
 ```
 
-Or use the helper script:
+Or use the helper script (requires execute permissions):
 
 ```bash
 cd Workflows-Integration-Tests
+# Make script executable
+chmod +x ../Workflows/scripts/fix_integration_tests_formatting.sh
+# Run the script
 bash ../Workflows/scripts/fix_integration_tests_formatting.sh
 # Follow the prompts to commit and push
 ```
 
 ### Manual Fix
 
-Apply the patch file:
+Apply the patch file (from Workflows repo):
 
 ```bash
 cd Workflows-Integration-Tests
-curl -o fix.patch https://raw.githubusercontent.com/stranske/Workflows/.../fix-integration-tests.patch
+# Assuming Workflows repo is cloned alongside Integration Tests repo
+git apply ../Workflows/docs/integration-test-failure-fix.patch
+git add -A
+git commit -m "fix: auto-format and lint test files"
+git push origin main
+```
+
+Or download and apply from a PR:
+
+```bash
+cd Workflows-Integration-Tests
+# Replace <PR_NUMBER> with actual PR number
+curl -o fix.patch "https://raw.githubusercontent.com/stranske/Workflows/copilot/fix-integration-test-failure/docs/integration-test-failure-fix.patch"
 git apply fix.patch
 git add -A
 git commit -m "fix: auto-format and lint test files"
