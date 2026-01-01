@@ -123,9 +123,7 @@ def test_main_check_reports_lockfile_mismatch(
     assert "requirements.lock:ruff" in captured.out
 
 
-def test_main_check_skips_missing_lockfile(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_main_check_skips_missing_lockfile(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     env_path = tmp_path / "pins.env"
     pyproject_path = tmp_path / "pyproject.toml"
     pins = {"RUFF_VERSION": "1.0.0", "BLACK_VERSION": "2.0.0"}

@@ -301,9 +301,7 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     if args.lockfile:
-        lock_changes, lock_errors = sync_lockfile(
-            LOCKFILE_FILE, pins, apply=args.apply
-        )
+        lock_changes, lock_errors = sync_lockfile(LOCKFILE_FILE, pins, apply=args.apply)
         changes.extend(lock_changes)
         errors.extend(lock_errors)
 
