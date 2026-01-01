@@ -1,0 +1,75 @@
+# Dependabot configuration for Workflows repo
+# This repo is the SOURCE OF TRUTH for dev tool versions (autofix-versions.env)
+# 
+# Dependabot updates dev tools here -> we test -> sync to consumer repos via maint-52
+
+version: 2
+updates:
+  # Python dev tools - SOURCE OF TRUTH
+  # Updates here flow to consumer repos via maint-52-sync-dev-versions workflow
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "sunday"  # Before Monday when consumers might get updates
+      time: "06:00"
+      timezone: "America/New_York"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "stranske"
+    labels:
+      - "dependencies"
+      - "python"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+    groups:
+      # Group dev tools together for batch review
+      dev-tools:
+        patterns:
+          - "ruff"
+          - "black"
+          - "mypy"
+          - "pytest*"
+          - "coverage"
+          - "isort"
+          - "docformatter"
+          - "hypothesis"
+        update-types:
+          - "minor"
+          - "patch"
+      # Major versions get individual PRs for careful review
+      dev-tools-major:
+        patterns:
+          - "ruff"
+          - "black"
+          - "mypy"
+          - "pytest*"
+        update-types:
+          - "major"
+
+  # GitHub Actions - update action versions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "sunday"
+      time: "06:00"
+      timezone: "America/New_York"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "stranske"
+    labels:
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    groups:
+      # Group minor/patch action updates
+      actions-minor:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
