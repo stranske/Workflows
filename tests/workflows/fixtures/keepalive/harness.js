@@ -343,7 +343,6 @@ async function runScenario(scenario) {
     },
   };
 
-  const originalEnv = {};
   const envOverrides = {
     ACTIONS_BOT_PAT: 'dummy-token',
     SERVICE_BOT_PAT: 'service-token',
@@ -359,13 +358,12 @@ async function runScenario(scenario) {
     'gh_token',
     'actions_bot_pat',
   ]);
+  const env = {};
   for (const [key, value] of Object.entries(envOverrides)) {
-    originalEnv[key] = process.env[key];
     if (value === '' && tokenKeys.has(key)) {
-      delete process.env[key];
-    } else {
-      process.env[key] = String(value);
+      continue;
     }
+    env[key] = String(value);
   }
 
   const originalNow = Date.now;
@@ -376,16 +374,9 @@ async function runScenario(scenario) {
 
   try {
     const { runKeepalive } = loadKeepaliveRunner();
-    await runKeepalive({ core, github, context, env: process.env });
+    await runKeepalive({ core, github, context, env });
   } finally {
     Date.now = originalNow;
-    for (const [key, value] of Object.entries(originalEnv)) {
-      if (value === undefined) {
-        delete process.env[key];
-      } else {
-        process.env[key] = value;
-      }
-    }
   }
 
   return {
