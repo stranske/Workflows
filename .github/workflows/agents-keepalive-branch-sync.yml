@@ -105,7 +105,7 @@ jobs:
           printf 'Selected token source: %s\n' "$token_source"
 
       - name: Checkout PR head
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ${{ inputs.head_repository || github.repository }}
           ref: ${{ inputs.head_ref }}

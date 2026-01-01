@@ -28,7 +28,7 @@ jobs:
     steps:
       - name: Check Gate summary completion
         id: gate_guard
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const run = context.payload.workflow_run;
@@ -84,7 +84,7 @@ jobs:
 
       - name: Checkout helpers
         if: ${{ steps.gate_guard.outputs.recover == 'true' }}
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           sparse-checkout: |
             .github/scripts
@@ -94,7 +94,7 @@ jobs:
       - name: Discover Gate workflow runs
         if: ${{ steps.gate_guard.outputs.recover == 'true' }}
         id: discover
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const { discoverWorkflowRuns } = require('./.github/scripts/maint-post-ci.js');
@@ -230,7 +230,7 @@ jobs:
 
       - name: Propagate Gate commit status
         if: ${{ steps.gate_guard.outputs.recover == 'true' && steps.discover.outputs.head_sha != '' }}
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           HEAD_SHA: ${{ steps.discover.outputs.head_sha }}
           RUN_CONCLUSION: ${{ github.event.workflow_run.conclusion || '' }}

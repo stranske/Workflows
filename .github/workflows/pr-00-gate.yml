@@ -30,7 +30,7 @@ jobs:
       workflow_changed: ${{ steps.diff.outputs.workflow_changed || 'false' }}
     steps:
       - name: Checkout workflow helpers
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -39,7 +39,7 @@ jobs:
           sparse-checkout-cone-mode: false
       - name: Detect changes via API
         id: diff
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const { detectChanges } = require('./.github/scripts/detect-changes.js');
@@ -133,7 +133,7 @@ jobs:
     if: ${{ needs.detect.outputs.doc_only != 'true' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -163,7 +163,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -211,7 +211,7 @@ jobs:
       autofix_label_skipped: ${{ steps.autofix_label.outputs.skipped_reason || '' }}
     steps:
       - name: Checkout workflow helpers
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -223,7 +223,7 @@ jobs:
       - name: Handle docs-only change
         if: needs.detect.outputs.doc_only == 'true'
         id: docs_only
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           REASON: ${{ needs.detect.outputs.reason || 'docs_only' }}
         with:
@@ -233,7 +233,7 @@ jobs:
 
       - name: Ensure docs-only fast-pass comment
         if: needs.detect.outputs.doc_only == 'true'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           COMMENT_BODY: ${{ steps.docs_only.outputs.comment_body }}
           MARKER: ${{ steps.docs_only.outputs.marker }}
@@ -253,7 +253,7 @@ jobs:
 
       - name: Remove docs-only fast-pass comment when not needed
         if: needs.detect.outputs.doc_only != 'true'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           MARKER: ${{ steps.docs_only.outputs.marker }}
           BASE_MESSAGE: ${{ steps.docs_only.outputs.base_message }}
@@ -270,7 +270,7 @@ jobs:
             });
       - name: Discover Gate workflow runs
         id: gather
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const { discoverWorkflowRuns } = require('./.github/scripts/maint-post-ci.js');
@@ -322,7 +322,7 @@ jobs:
       - name: Compute coverage stats
         if: needs.detect.outputs.doc_only != 'true' && needs.detect.outputs.coverage == 'true'
         id: coverage_stats
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           COVERAGE_ROOT: gate_artifacts/downloads
         with:
@@ -379,7 +379,7 @@ jobs:
           steps.summarize.outputs.state == 'failure' &&
           steps.summarize.outputs.cosmetic_failure == 'true' &&
           !contains(github.event.pull_request.labels.*.name, 'autofix:clean')
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           ALLOWED_EXTENSIONS: 'py,pyi'
           FORMAT_FAILURE: ${{ steps.summarize.outputs.format_failure || 'false' }}
@@ -514,7 +514,7 @@ jobs:
           HEAD_SHA: ${{ steps.gather.outputs.head_sha || github.event.pull_request.head.sha || github.sha }}
 
       - name: Append keepalive checklists
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           LABEL_APPLIED: ${{ steps.autofix_label.outputs.applied || 'false' }}
@@ -655,7 +655,7 @@ jobs:
 
       - name: Ensure consolidated summary comment
         if: always()
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           github-token: ${{ github.token }}
           script: |
@@ -677,7 +677,7 @@ jobs:
 
       - name: Report Gate commit status
         if: ${{ always() }}
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           STATE: ${{ steps.summarize.outputs.state || steps.docs_only.outputs.state || 'pending' }}
           DESCRIPTION: ${{ steps.summarize.outputs.description || steps.docs_only.outputs.description || 'Gate status pending' }}

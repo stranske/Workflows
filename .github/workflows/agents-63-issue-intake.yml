@@ -226,7 +226,7 @@ jobs:
       issues: write # Only elevated when a sync actually mutates issues; early exits remain read-only.
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Echo received inputs
         run: |
@@ -362,7 +362,7 @@ jobs:
           fi
 
       - name: Sync issues
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
         with:
@@ -1093,7 +1093,7 @@ jobs:
         env:
           INPUT_ISSUE: ${{ needs.normalize_inputs.outputs.issue_number }}
           DEFAULT_AGENT: ${{ needs.normalize_inputs.outputs.bridge_agent }}
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const manual = (process.env.INPUT_ISSUE || '').trim();

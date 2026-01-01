@@ -187,7 +187,7 @@ jobs:
 
       - name: Determine worker mode
         id: mode
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const coerce = (value) => {
@@ -220,7 +220,7 @@ jobs:
 
       - name: Resolve worker context
         id: ctx
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           github-token: ${{ env.GH_BELT_TOKEN }}
           script: |
@@ -286,7 +286,7 @@ jobs:
 
       - name: Determine default branch
         id: base
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           github-token: ${{ env.GH_BELT_TOKEN }}
           script: |
@@ -301,7 +301,7 @@ jobs:
 
       - name: Check parallel allowance
         id: parallel
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           github-token: ${{ env.GH_BELT_TOKEN }}
           script: |
@@ -336,7 +336,7 @@ jobs:
       - name: Evaluate keepalive worker gate
         if: ${{ inputs.keepalive == true }}
         id: keepalive_gate
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           KEEPALIVE: ${{ inputs.keepalive && 'true' || 'false' }}
           ISSUE_NUMBER: ${{ steps.ctx.outputs.issue }}
@@ -393,7 +393,7 @@ jobs:
       - name: Prune merged step branches
         if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.keepalive_gate.outputs.action != 'skip') && steps.mode.outputs.dry_run != 'true' }}
         id: prune
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           github-token: ${{ env.GH_BELT_TOKEN }}
           script: |
@@ -466,7 +466,7 @@ jobs:
       - name: Re-verify issue labels
         if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.keepalive_gate.outputs.action != 'skip') }}
         id: verify
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           github-token: ${{ env.GH_BELT_TOKEN }}
           script: |
@@ -487,7 +487,7 @@ jobs:
 
       - name: Checkout branch
         if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.keepalive_gate.outputs.action != 'skip') }}
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ steps.ctx.outputs.branch }}
           token: ${{ env.GH_BELT_TOKEN }}
@@ -851,7 +851,7 @@ jobs:
 
       - name: Ensure issue labels reflect in-progress state
         if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.keepalive_gate.outputs.action != 'skip') && steps.mode.outputs.dry_run != 'true' && steps.verify.outputs.has_in_progress != 'true' }}
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           github-token: ${{ env.GH_BELT_TOKEN }}
           script: |
@@ -865,7 +865,7 @@ jobs:
 
       - name: Remove residual status:ready label
         if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.keepalive_gate.outputs.action != 'skip') && steps.mode.outputs.dry_run != 'true' && steps.verify.outputs.has_ready == 'true' }}
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           github-token: ${{ env.GH_BELT_TOKEN }}
           script: |
@@ -882,7 +882,7 @@ jobs:
       - name: Open or refresh Codex PR
         if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.keepalive_gate.outputs.action != 'skip') && steps.mode.outputs.dry_run != 'true' }}
         id: pr
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           github-token: ${{ env.GH_BELT_TOKEN }}
           script: |
@@ -935,7 +935,7 @@ jobs:
 
       - name: Configure auto-merge strategy
         if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.keepalive_gate.outputs.action != 'skip') && steps.mode.outputs.dry_run != 'true' && steps.pr.outputs.number }}
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           github-token: ${{ env.GH_BELT_TOKEN }}
           script: |
@@ -967,7 +967,7 @@ jobs:
 
       - name: Apply automation labels
         if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.keepalive_gate.outputs.action != 'skip') && steps.mode.outputs.dry_run != 'true' && steps.pr.outputs.number }}
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           github-token: ${{ env.GH_BELT_TOKEN }}
           script: |
@@ -982,7 +982,7 @@ jobs:
 
       - name: Ensure PR assignees include automation
         if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.keepalive_gate.outputs.action != 'skip') && steps.mode.outputs.dry_run != 'true' && steps.pr.outputs.number }}
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           github-token: ${{ env.GH_BELT_TOKEN }}
           script: |
@@ -1000,7 +1000,7 @@ jobs:
 
       - name: Post activation comment
         if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.keepalive_gate.outputs.action != 'skip') && steps.mode.outputs.dry_run != 'true' && steps.pr.outputs.number && inputs.keepalive != true }}
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           github-token: ${{ env.GH_BELT_TOKEN }}
           script: |
@@ -1042,7 +1042,7 @@ jobs:
 
       - name: Sync issue comment with PR link
         if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.keepalive_gate.outputs.action != 'skip') && steps.mode.outputs.dry_run != 'true' && steps.pr.outputs.number }}
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           github-token: ${{ env.GH_BELT_TOKEN }}
           script: |

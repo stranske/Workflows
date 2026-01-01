@@ -33,7 +33,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Workflows repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           path: workflows
 
@@ -149,7 +149,7 @@ jobs:
 
       - name: Create drift issue
         if: ${{ failure() || steps.compare-ci.outputs.drift == 'true' || steps.compare-versions.outputs.drift == 'true' || steps.compare-inputs.outputs.drift == 'true' }}
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const title = '🔄 Integration-Tests sync drift detected';

@@ -131,7 +131,7 @@ jobs:
           private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
 
       - name: Checkout guard helpers
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           sparse-checkout: |
             .github/scripts
@@ -139,7 +139,7 @@ jobs:
           fetch-depth: 1
       - name: Evaluate keepalive prerequisites
         id: guard
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           KEEPALIVE_ENABLED: ${{ inputs.enable_keepalive }}
           KEEPALIVE_TRACE: ${{ inputs.keepalive_trace }}
@@ -216,7 +216,7 @@ jobs:
       cap: ${{ steps.cap.outputs.cap || '' }}
     steps:
       - name: Checkout run cap helpers
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           sparse-checkout: |
             .github/scripts
@@ -225,7 +225,7 @@ jobs:
 
       - name: Evaluate orchestrator run cap
         id: cap
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           PR_NUMBER: ${{ inputs.keepalive_pr || '' }}
           ENABLE_KEEPALIVE: ${{ inputs.enable_keepalive || 'false' }}
@@ -317,7 +317,7 @@ jobs:
     steps:
       - name: Resolve PR number and agent alias
         id: resolve
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -461,7 +461,7 @@ jobs:
       head_repo: ${{ steps.snapshot.outputs.head_repo || '' }}
     steps:
       - name: Checkout orchestrator scripts
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           sparse-checkout: |
             .github/scripts
@@ -479,7 +479,7 @@ jobs:
 
       - name: Prepare keepalive instruction
         id: prepare
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           PR_NUMBER: ${{ inputs.keepalive_pr }}
           ROUND_HINT: ${{ inputs.keepalive_round }}
@@ -822,7 +822,7 @@ jobs:
             core.setOutput('scope_tasks_acceptance', instruction);
       - name: Capture keepalive head snapshot
         id: snapshot
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           PR_NUMBER: ${{ steps.prepare.outputs.pr_number }}
         with:
@@ -855,7 +855,7 @@ jobs:
 
       - name: Persist keepalive head snapshot
         if: steps.snapshot.outputs.head != ''
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           PR_NUMBER: ${{ steps.prepare.outputs.pr_number }}
           TRACE: ${{ steps.prepare.outputs.trace }}
@@ -889,7 +889,7 @@ jobs:
 
       - name: Render keepalive instruction body
         id: render_instruction_body
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           ROUND_DISPLAY: ${{ steps.prepare.outputs.round || '(unknown)' }}
           TRACE_DISPLAY: ${{ steps.prepare.outputs.trace || '(missing)' }}
@@ -963,7 +963,7 @@ jobs:
 
       - name: Extract instruction payload
         id: extract_instruction_segment
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           COMMENT_BODY: ${{ steps.render_instruction_body.outputs.body }}
         with:
@@ -1097,7 +1097,7 @@ jobs:
     steps:
       - name: Detect existing PR for issue branch
         id: lookup
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           KEEPALIVE_ENABLED: ${{ inputs.enable_keepalive }}
         with:
@@ -1229,7 +1229,7 @@ jobs:
 
       - name: Dispatch keepalive branch sync
         id: dispatch
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           WORKFLOW_ID: agents-keepalive-branch-sync.yml
           TARGET_REF: ${{ github.event.repository.default_branch }}
@@ -1315,7 +1315,7 @@ jobs:
 
       - name: Await branch-sync completion
         id: await
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           WORKFLOW_ID: agents-keepalive-branch-sync.yml
           REF: ${{ steps.dispatch.outputs.ref }}
@@ -1406,7 +1406,7 @@ jobs:
 
       - name: Check staging PR head
         id: head_check
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           PR_NUMBER: ${{ needs.keepalive-prep.outputs.pr_number }}
           BASELINE_HEAD: ${{ needs.keepalive-prep.outputs.baseline_head }}
@@ -1518,7 +1518,7 @@ jobs:
           fi
 
       - name: Checkout orchestrator scripts
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           sparse-checkout: |
             .github/scripts
@@ -1527,7 +1527,7 @@ jobs:
 
       - name: Reconcile keepalive branch state
         id: reconcile
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           TRACE: ${{ needs.keepalive-prep.outputs.trace }}
           ROUND: ${{ needs.keepalive-prep.outputs.round }}
@@ -1674,7 +1674,7 @@ jobs:
 
       - name: Checkout orchestrator scripts
         if: steps.gate.outputs.should_post == 'true'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           sparse-checkout: |
             .github/scripts
@@ -1739,7 +1739,7 @@ jobs:
       - name: Post keepalive instruction (App token preferred)
         id: post_instruction_app
         if: steps.gate.outputs.should_post == 'true' && steps.author_token.outputs.token == 'APP_TOKEN'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           PR_NUMBER: ${{ needs.keepalive-prep.outputs.pr_number }}
           COMMENT_BODY: ${{ needs.keepalive-prep.outputs.body }}
@@ -1770,7 +1770,7 @@ jobs:
       - name: Post keepalive instruction (as stranske if possible)
         id: post_instruction_primary
         if: steps.gate.outputs.should_post == 'true' && steps.author_token.outputs.token == 'ACTIONS_BOT_PAT'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           PR_NUMBER: ${{ needs.keepalive-prep.outputs.pr_number }}
           COMMENT_BODY: ${{ needs.keepalive-prep.outputs.body }}
@@ -1801,7 +1801,7 @@ jobs:
       - name: Post keepalive instruction (fallback)
         id: post_instruction_fallback
         if: steps.gate.outputs.should_post == 'true' && steps.author_token.outputs.token == 'SERVICE_BOT_PAT'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           PR_NUMBER: ${{ needs.keepalive-prep.outputs.pr_number }}
           COMMENT_BODY: ${{ needs.keepalive-prep.outputs.body }}
@@ -1877,7 +1877,7 @@ jobs:
       - name: Ack keepalive instruction
         id: ack
         if: steps.gate.outputs.should_post == 'true'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           PR_NUMBER: ${{ needs.keepalive-prep.outputs.pr_number }}
           COMMENT_ID: ${{ steps.capture_comment.outputs.comment_id }}
@@ -2006,7 +2006,7 @@ jobs:
 
       - name: Emit fallback dispatch
         if: steps.gate.outputs.should_post == 'true' && steps.ack.outputs.acknowledged != 'true' && needs.keepalive-prep.outputs.actions_available == 'true'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           PR_NUMBER: ${{ needs.keepalive-prep.outputs.pr_number }}
           COMMENT_ID: ${{ steps.capture_comment.outputs.comment_id }}
@@ -2098,7 +2098,7 @@ jobs:
 
       - name: Post fallback comment
         if: steps.gate.outputs.should_post == 'true' && steps.ack.outputs.acknowledged != 'true'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           PR_NUMBER: ${{ needs.keepalive-prep.outputs.pr_number }}
           ROUND: ${{ needs.keepalive-prep.outputs.round }}
@@ -2323,7 +2323,7 @@ jobs:
 
       # Do not remove checkout; local helper is required.
       - name: Checkout orchestrator scripts
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           sparse-checkout: |
             .github/scripts
@@ -2331,7 +2331,7 @@ jobs:
           fetch-depth: 1
 
       - name: Append dispatch summary
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           DISPATCH_RESULT: ${{ needs.belt-dispatch.result || '' }}
           DISPATCH_ISSUE: ${{ needs.belt-dispatch.outputs.issue || '' }}
@@ -2353,7 +2353,7 @@ jobs:
         if: |
           needs.keepalive-guard.outputs.proceed != 'false' &&
           needs.keepalive-instruction.outputs.trace != ''
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           KEEPALIVE_TRACE: ${{ needs.keepalive-instruction.outputs.trace }}
           KEEPALIVE_ROUND: ${{ needs.keepalive-instruction.outputs.round || inputs.keepalive_round }}
@@ -2516,7 +2516,7 @@ jobs:
     steps:
       # Do not remove checkout; local helper is required.
       - name: Checkout orchestrator scripts
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           sparse-checkout: |
             .github/scripts
@@ -2524,7 +2524,7 @@ jobs:
           fetch-depth: 1
       - name: Identify ready Codex PRs
         id: scan
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             // Do not remove checkout; local helper is required.
@@ -2564,7 +2564,7 @@ jobs:
     steps:
       - name: Merge Codex PRs tagged for automerge
         id: automerge
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch || '' }}
           AUTOMERGE_LABEL: automerge

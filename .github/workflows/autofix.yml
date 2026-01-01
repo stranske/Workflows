@@ -36,14 +36,14 @@ jobs:
       caller_actor: ${{ steps.context.outputs.caller_actor }}
     steps:
       - name: Checkout for API helpers
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           sparse-checkout: .github/scripts
           sparse-checkout-cone-mode: false
 
       - name: Resolve PR context
         id: context
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const path = require('path');

@@ -142,7 +142,7 @@ jobs:
 
       - name: Resolve candidate issue
         id: pick
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           github-token: ${{ env.GH_DISPATCH_TOKEN }}
           script: |
@@ -211,7 +211,7 @@ jobs:
 
       - name: Checkout default branch
         if: ${{ steps.pick.outputs.issue != '' && steps.mode.outputs.dry_run != 'true' }}
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ steps.pick.outputs.base }}
           token: ${{ env.GH_DISPATCH_TOKEN }}
@@ -237,7 +237,7 @@ jobs:
 
       - name: Transition issue to in-progress
         if: ${{ steps.pick.outputs.issue != '' && steps.mode.outputs.dry_run != 'true' }}
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           github-token: ${{ env.GH_DISPATCH_TOKEN }}
           script: |

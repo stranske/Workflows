@@ -104,13 +104,13 @@ jobs:
     steps:
       # Dual checkout pattern: consumer repo for context, Workflows repo for scripts
       - name: Checkout consumer repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 1
           path: consumer
 
       - name: Checkout Workflows scripts
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: stranske/Workflows
           ref: main
@@ -128,7 +128,7 @@ jobs:
 
       - name: Evaluate keepalive pre-gate
         id: pre_gate
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           PR_NUMBER: ${{ inputs.pr_number }}
           COMMENT_ID: ${{ inputs.comment_id }}
@@ -157,7 +157,7 @@ jobs:
 
       - name: Evaluate keepalive comment
         id: detect
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           ALLOWED_LOGINS: ${{ inputs.allowed_keepalive_logins }}
           KEEPALIVE_MARKER: ${{ inputs.keepalive_marker }}
@@ -184,7 +184,7 @@ jobs:
       AGENTS_AUTOMATION_PAT: ${{ secrets.AGENTS_AUTOMATION_PAT || '' }}
     steps:
       - name: Checkout Workflows scripts
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: stranske/Workflows
           ref: main
@@ -207,7 +207,7 @@ jobs:
           private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
 
       - name: Run orchestrator
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           INSTRUCTION_BODY: ${{ needs.keepalive_dispatch.outputs.instruction_body }}
         with:
@@ -243,7 +243,7 @@ jobs:
     if: inputs.event_name == 'pull_request'
     steps:
       - name: Checkout Workflows scripts
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: stranske/Workflows
           ref: main
@@ -258,7 +258,7 @@ jobs:
           echo "WORKFLOWS_SCRIPTS_PATH=${GITHUB_WORKSPACE}/workflows-lib" >> "$GITHUB_ENV"
 
       - name: Upsert PR body sections
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           PR_NUMBER: ${{ inputs.pr_number }}
           DRY_RUN: ${{ inputs.dry_run }}

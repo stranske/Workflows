@@ -53,7 +53,7 @@ jobs:
       versions_hash: ${{ steps.hash.outputs.hash }}
     steps:
       - name: Checkout Workflows
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           sparse-checkout: |
             .github/workflows/autofix-versions.env

@@ -153,7 +153,7 @@ jobs:
 
       - name: Summarise invocation
         id: summary
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const summary = core.summary;
@@ -212,7 +212,7 @@ jobs:
 
       - name: Load PR details
         id: pr
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           github-token: ${{ env.GH_CONVEYOR_TOKEN }}
           script: |
@@ -251,7 +251,7 @@ jobs:
 
       - name: Ensure Gate succeeded
         id: gate
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           github-token: ${{ env.GH_CONVEYOR_TOKEN }}
           script: |
@@ -270,7 +270,7 @@ jobs:
 
       - name: Detect bootstrap-only placeholder change
         id: bootstrap
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           github-token: ${{ env.GH_CONVEYOR_TOKEN }}
           script: |
@@ -335,7 +335,7 @@ jobs:
       - name: Merge PR with squash
         if: ${{ steps.mode.outputs.dry_run != 'true' && steps.bootstrap.outputs.bootstrap != 'true' }}
         id: merge
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           github-token: ${{ env.GH_CONVEYOR_TOKEN }}
           script: |
@@ -350,7 +350,7 @@ jobs:
 
       - name: Delete branch after merge
         if: ${{ steps.mode.outputs.dry_run != 'true' && steps.bootstrap.outputs.bootstrap != 'true' && steps.merge.outputs.merged == 'true' }}
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           github-token: ${{ env.GH_CONVEYOR_TOKEN }}
           script: |
@@ -364,7 +364,7 @@ jobs:
 
       - name: Close source issue
         if: ${{ steps.mode.outputs.dry_run != 'true' && steps.bootstrap.outputs.bootstrap != 'true' && steps.merge.outputs.merged == 'true' }}
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           github-token: ${{ env.GH_CONVEYOR_TOKEN }}
           script: |
@@ -394,7 +394,7 @@ jobs:
 
       - name: Leave merge confirmation on PR
         if: ${{ steps.mode.outputs.dry_run != 'true' && steps.bootstrap.outputs.bootstrap != 'true' && steps.merge.outputs.merged == 'true' }}
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           github-token: ${{ env.GH_CONVEYOR_TOKEN }}
           script: |
@@ -416,7 +416,7 @@ jobs:
 
       - name: Re-dispatch dispatcher
         if: ${{ steps.mode.outputs.dry_run != 'true' && steps.bootstrap.outputs.bootstrap != 'true' && steps.merge.outputs.merged == 'true' }}
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           github-token: ${{ env.GH_CONVEYOR_TOKEN }}
           script: |

@@ -78,10 +78,10 @@ jobs:
       agent_alias: ${{ steps.pre_gate.outputs.agent_alias }}
       head_sha: ${{ steps.pre_gate.outputs.head_sha }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Evaluate keepalive pre-gate
         id: pre_gate
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const { evaluateKeepaliveGate } = require('./.github/scripts/keepalive_gate.js');
@@ -102,7 +102,7 @@ jobs:
 
       - name: Evaluate keepalive comment
         id: detect
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           ALLOWED_LOGINS: stranske
           KEEPALIVE_MARKER: '<!-- codex-keepalive-marker -->'
@@ -119,7 +119,7 @@ jobs:
     name: Dispatch keepalive orchestrator
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Mint GitHub App token (preferred)
         id: app_token
@@ -130,7 +130,7 @@ jobs:
           private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
 
       - name: Run orchestrator
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           github-token: ${{ steps.app_token.outputs.token || secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT || secrets.AGENTS_AUTOMATION_PAT || github.token }}
           script: |
@@ -168,7 +168,7 @@ jobs:
     steps:
       - name: Resolve Gate pull request context
         id: resolve
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const prs = context.payload?.workflow_run?.pull_requests || [];
@@ -184,10 +184,10 @@ jobs:
     name: Resume keepalive after Gate
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Evaluate keepalive gate
         id: gate
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const { evaluateKeepaliveGate } = require('./.github/scripts/keepalive_gate.js');
@@ -220,7 +220,7 @@ jobs:
       - name: Detect keepalive from activation
         id: detect
         if: steps.gate.outputs.ok == 'true' && steps.gate.outputs.activation_comment != ''
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           ALLOWED_LOGINS: stranske
           ACTIVATION_COMMENT: ${{ steps.gate.outputs.activation_comment }}
@@ -248,7 +248,7 @@ jobs:
 
       - name: Run orchestrator from gate
         if: steps.gate.outputs.ok == 'true' && steps.detect.outputs.dispatch == 'true'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           github-token: ${{ steps.app_token_gate.outputs.token || secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT || secrets.AGENTS_AUTOMATION_PAT || github.token }}
           script: |
@@ -296,7 +296,7 @@ jobs:
     name: Upsert PR body sections
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Mint GitHub App token (preferred)
         id: app_token
@@ -307,7 +307,7 @@ jobs:
           private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
 
       - name: Update PR body
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           github-token: ${{ steps.app_token.outputs.token || secrets.AGENTS_AUTOMATION_PAT || secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT || github.token }}
           script: |

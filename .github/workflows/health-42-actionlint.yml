@@ -40,7 +40,7 @@ jobs:
           else
             echo "reporter=github-check" >> "$GITHUB_OUTPUT"
           fi
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Compute actionlint allowlist
         id: allowlist

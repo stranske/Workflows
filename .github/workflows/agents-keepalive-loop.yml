@@ -47,14 +47,14 @@ jobs:
       security_reason: ${{ steps.security_gate.outputs.reason }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Capture timestamps
         id: timestamps
         run: echo "start_ts=$(date -u +%s)" >> "$GITHUB_OUTPUT"
       - name: Security gate - prompt injection guard
         id: security_gate
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -105,7 +105,7 @@ jobs:
 
       - name: Evaluate keepalive state
         id: evaluate
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -182,10 +182,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Update summary with running status
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -249,7 +249,7 @@ jobs:
     environment: agent-standard
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Emit keepalive metrics
         id: keepalive-metrics
@@ -328,7 +328,7 @@ jobs:
 
       - name: Auto-reconcile task checkboxes
         if: needs.run-codex.outputs.changes-made == 'true'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -362,7 +362,7 @@ jobs:
             core.setOutput('reconciliation_details', result.details);
 
       - name: Update summary comment
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           CODEX_SUMMARY: ${{ needs.run-codex.outputs.final-message-summary || '' }}
         with:

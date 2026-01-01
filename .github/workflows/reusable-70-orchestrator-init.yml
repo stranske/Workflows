@@ -114,7 +114,7 @@ jobs:
       reset_time: ${{ steps.check.outputs.reset_time || '' }}
     steps:
       - name: Checkout API helpers
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           sparse-checkout: |
             .github/scripts
@@ -123,7 +123,7 @@ jobs:
 
       - name: Check GitHub API rate limit
         id: check
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           RATE_LIMIT_THRESHOLD: '1000'
         with:
@@ -173,7 +173,7 @@ jobs:
     steps:
       - name: Count agent issues
         id: precheck
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           INPUT_KEEPALIVE_ENABLED: ${{ inputs.keepalive_enabled }}
           INPUT_PR_NUMBER: ${{ inputs.pr_number }}
@@ -318,7 +318,7 @@ jobs:
       - name: Probe keepalive token identity
         if: steps.select.outcome == 'success' && steps.select.outputs.token != 'APP_TOKEN'
         id: probe_token_identity
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           github-token: ${{ steps.select.outputs.token == 'ACTIONS_BOT_PAT' && secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
           script: |
@@ -403,7 +403,7 @@ jobs:
       keepalive_pr: ${{ steps.resolve.outputs.keepalive_pr }}
     steps:
       - name: Confirm default-branch execution context
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const ref = context.ref || '';
@@ -416,7 +416,7 @@ jobs:
             }
 
       - name: Bootstrap checkout resolver
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           path: helpers
           sparse-checkout: |
@@ -426,7 +426,7 @@ jobs:
 
       - name: Resolve workflow_run checkout source
         id: checkout_source
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const { resolveCheckoutSource } = require('./helpers/.github/scripts/checkout_source.js');
@@ -440,7 +440,7 @@ jobs:
             warnings.forEach((warning) => core.warning(warning));
 
       - name: Checkout orchestrator scripts
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ${{ steps.checkout_source.outputs.repository || github.repository }}
           ref: ${{ steps.checkout_source.outputs.ref || github.sha }}
@@ -451,7 +451,7 @@ jobs:
 
       - name: Resolve dispatch parameters
         id: resolve
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           PARAMS_JSON: ${{ inputs.params_json }}
           WORKFLOW_DRY_RUN: ${{ inputs.dry_run }}

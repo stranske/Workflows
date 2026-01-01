@@ -21,7 +21,7 @@ jobs:
     name: Repository health summary
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Prepare branch protection token
         id: branch-token
@@ -49,7 +49,7 @@ jobs:
 
       - name: Determine default branch
         id: default-branch
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           github-token: ${{ github.token }}
           script: |
@@ -108,7 +108,7 @@ jobs:
 
       - name: Collect repository signals
         id: collect
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           REQUIRED_LABELS: agent:codex,agent:copilot,automerge,risk:low,codex-ready
           BRANCH_PROTECTION_TOKEN: ${{ steps.branch-token.outputs.token }}
@@ -726,7 +726,7 @@ jobs:
 
       - name: Update failure tracker issue
         if: ${{ steps.aggregate.outputs.has_errors == 'true' || steps.aggregate.outputs.has_warnings == 'true' }}
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           ISSUE_BODY: ${{ steps.aggregate.outputs.issue_body }}
         with:
@@ -809,7 +809,7 @@ jobs:
 
       - name: Close failure tracker issue
         if: ${{ steps.aggregate.outputs.has_errors != 'true' && steps.aggregate.outputs.has_warnings != 'true' }}
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           github-token: ${{ github.token }}
           script: |
@@ -842,7 +842,7 @@ jobs:
 
       - name: Update repo health snapshot issue
         if: ${{ env.HAS_ADMIN_TOKEN == 'true' }}
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           ISSUE_BODY_PATH: repo-health-issue.md
         with:
@@ -968,7 +968,7 @@ jobs:
 
       - name: Publish PR checklist comment
         if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pull_request_number != '' && steps.aggregate.outputs.comment_body != '' }}
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           PR_NUMBER: ${{ github.event.inputs.pull_request_number }}
           COMMENT_BODY: ${{ steps.aggregate.outputs.comment_body }}

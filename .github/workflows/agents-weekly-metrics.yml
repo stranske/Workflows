@@ -17,7 +17,7 @@ jobs:
     environment: agent-standard
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -60,7 +60,7 @@ jobs:
           retention-days: 30
 
       - name: Post summary to tracking issue
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |

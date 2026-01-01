@@ -90,7 +90,7 @@ jobs:
 
       - name: Resolve issue number
         id: ctx
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const issueFromEvent = context.payload.issue && context.payload.issue.number;
@@ -102,7 +102,7 @@ jobs:
       - name: Resolve agent label
         if: ${{ steps.ctx.outputs.has_issue == 'true' }}
         id: agent_label
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const issueNumber = Number('${{ steps.ctx.outputs.issue }}');
@@ -213,7 +213,7 @@ jobs:
 
       - name: Resolve base and head refs
         id: refs
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const { owner, repo } = context.repo;
@@ -232,7 +232,7 @@ jobs:
           echo "::error::Missing issue number for workflow_dispatch. Provide an issue number when manually running this workflow." && exit 1
 
       - name: Checkout default
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ steps.refs.outputs.base }}
           fetch-depth: 0
@@ -240,7 +240,7 @@ jobs:
 
       - name: Select PR mode
         id: mode
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           AGENT: ${{ steps.agent_label.outputs.agent || inputs.agent }}
         with:
@@ -274,7 +274,7 @@ jobs:
 
       - name: Resolve draft flag
         id: draft
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const val = '${{ inputs.agent_pr_draft }}' === 'true';
@@ -282,7 +282,7 @@ jobs:
 
       - name: Resolve post-agent comment flag
         id: agent_comment
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const val = '${{ inputs.post_agent_comment }}' === 'true';
@@ -291,7 +291,7 @@ jobs:
       - name: Resolve keepalive opt-in
         if: ${{ steps.ctx.outputs.has_issue == 'true' }}
         id: keepalive
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           DEFAULT_BASE: ${{ steps.refs.outputs.base || '' }}
         with:
@@ -422,7 +422,7 @@ jobs:
           echo "Keepalive mode: ${{ steps.keepalive.outputs.mode || 'OFF' }} (source: ${{ steps.keepalive.outputs.source || 'default' }})"
 
       - name: Publish bridge summary
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const agent = (process.env.AGENT || '').trim();
@@ -499,7 +499,7 @@ jobs:
       - name: Invite human to open PR (invite mode)
         if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.mode.outputs.mode == 'invite' }}
         id: invite
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           BRANCH: ${{ steps.mk.outputs.branch }}
           KEEPALIVE_MODE: ${{ steps.keepalive.outputs.mode || 'OFF' }}
@@ -689,7 +689,7 @@ jobs:
       - name: Open or reuse PR (create mode)
         if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.mode.outputs.mode != 'invite' }}
         id: pr
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           BRANCH: ${{ steps.mk.outputs.branch }}
           KEEPALIVE_MODE: ${{ steps.keepalive.outputs.mode || 'OFF' }}
@@ -839,7 +839,7 @@ jobs:
 
       - name: Label PR with agent
         if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.mode.outputs.mode != 'invite' }}
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           PR: ${{ steps.pr.outputs.number }}
           AGENT: ${{ steps.agent_label.outputs.agent || inputs.agent }}
@@ -856,7 +856,7 @@ jobs:
 
       - name: Post issue context on PR
         if: ${{ steps.ctx.outputs.has_issue == 'true' }}
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           ISSUE_BODY: ${{ steps.pr.outputs.issue_body }}
           ISSUE_TITLE: ${{ steps.pr.outputs.issue_title }}
@@ -983,7 +983,7 @@ jobs:
 
       - name: Post agent command as service user
         if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.mode.outputs.mode != 'invite' && env.SERVICE_BOT_PAT != '' && steps.agent_comment.outputs.post == 'true' }}
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           AGENT: ${{ steps.agent_label.outputs.agent || inputs.agent }}
         with:
@@ -1001,7 +1001,7 @@ jobs:
 
       - name: Post agent command (fallback as github-actions)
         if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.mode.outputs.mode != 'invite' && env.SERVICE_BOT_PAT == '' && steps.agent_comment.outputs.post == 'true' }}
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           AGENT: ${{ steps.agent_label.outputs.agent || inputs.agent }}
         with:
@@ -1018,7 +1018,7 @@ jobs:
 
       - name: Prompt human to post agent command
         if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.mode.outputs.mode != 'invite' && steps.agent_comment.outputs.post != 'true' }}
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           AGENT: ${{ steps.agent_label.outputs.agent || inputs.agent }}
         with:
@@ -1045,7 +1045,7 @@ jobs:
 
       - name: Link PR on original issue (fallback)
         if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.mode.outputs.mode != 'invite' }}
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           KEEPALIVE_MODE: ${{ steps.keepalive.outputs.mode || 'OFF' }}
           AGENT: ${{ steps.agent_label.outputs.agent || inputs.agent }}

@@ -37,12 +37,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout caller repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Checkout Workflows scripts
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: stranske/Workflows
           ref: main
@@ -55,7 +55,7 @@ jobs:
 
       - name: Wait for CI workflows to complete
         id: wait_ci
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           CI_WORKFLOWS: ${{ inputs.ci_workflows }}
           CI_WAIT_TIMEOUT_MS: ${{ inputs.ci_wait_timeout_ms }}
@@ -120,7 +120,7 @@ jobs:
 
       - name: Build verifier context
         id: context
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           CI_WORKFLOWS: ${{ inputs.ci_workflows }}
         with:
@@ -229,7 +229,7 @@ jobs:
       - name: Open follow-up issue on verifier failure
         id: failure_issue
         if: steps.context.outputs.should_run == 'true' && (steps.verdict.outputs.verdict == 'fail' || steps.verdict.outputs.verdict == 'error')
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           PR_URL: ${{ steps.context.outputs.pr_html_url }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}

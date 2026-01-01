@@ -140,7 +140,7 @@ jobs:
     steps:
       - name: Probe assignable actors
         id: gql
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const { owner, repo } = context.repo;
@@ -150,7 +150,7 @@ jobs:
             core.setOutput('actors', JSON.stringify(actors));
       - name: Create temp issue
         id: tmp
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const { owner, repo } = context.repo;
@@ -163,7 +163,7 @@ jobs:
           AGENTS_REQ: ${{ inputs.readiness_agents }}
           CUSTOM_LOGINS: ${{ inputs.readiness_custom_logins }}
           REQUIRE_ALL: ${{ inputs.require_all }}
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const num = Number(core.getInput('issue_number') || process.env.ISSUE_NUM || '${{ steps.tmp.outputs.num }}');
@@ -206,7 +206,7 @@ jobs:
             }
       - name: Close temp
         if: always()
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const { owner, repo } = context.repo; await github.rest.issues.update({ owner, repo, issue_number: Number('${{ steps.tmp.outputs.num }}'), state: 'closed' });
@@ -231,7 +231,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Preflight probe
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           CODEX_USER: ${{ inputs.codex_user }}
           CODEX_COMMAND: ${{ inputs.codex_command_phrase }}
@@ -252,7 +252,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Token / Env Probe
         shell: bash
         env:
@@ -294,7 +294,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Append verify assignment results
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           STATUS: ${{ needs.verify_issue.outputs.status || '' }}
           MESSAGE: ${{ needs.verify_issue.outputs.message || '' }}
@@ -371,10 +371,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Find Ready Issues
         id: ready
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           LABEL: ${{ inputs.bootstrap_issues_label }}
           DRY_RUN: ${{ inputs.dry_run }}
@@ -581,7 +581,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Basic Repo Sanity
         run: |
           test -f pyproject.toml || { echo 'pyproject.toml missing'; exit 1; }
@@ -602,12 +602,12 @@ jobs:
     steps:
       # Dual checkout pattern: consumer repo for context, Workflows repo for scripts
       - name: Checkout consumer repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 1
           path: consumer
       - name: Checkout Workflows scripts
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: stranske/Workflows
           ref: main
@@ -637,7 +637,7 @@ jobs:
           exit 1
       - name: Verify keepalive identity
         if: ${{ env.SERVICE_BOT_PAT != '' }}
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           github-token: ${{ secrets.service_bot_pat }}
           script: |
@@ -658,7 +658,7 @@ jobs:
           trace="$(python -c 'import secrets, time; print(f"{int(time.time())}-{secrets.token_hex(4)}")')"
           printf 'KEEPALIVE_TRACE=%s\n' "$trace" >> "$GITHUB_ENV"
       - name: Resume Codex on unattended checklists
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           OPTIONS_JSON: ${{ inputs.options_json }}
           DRY_RUN: ${{ inputs.dry_run }}
@@ -687,7 +687,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Collate job outcomes
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           ENABLE_READINESS: ${{ inputs.enable_readiness }}
           ENABLE_PREFLIGHT: ${{ inputs.enable_preflight }}

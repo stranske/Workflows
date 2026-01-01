@@ -24,11 +24,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Determine default branch
         id: default-branch
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
