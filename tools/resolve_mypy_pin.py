@@ -31,13 +31,16 @@ def get_mypy_python_version() -> str | None:
         content = pyproject_path.read_text()
         data = tomlkit.parse(content)
         tool = data.get("tool")
-        if not isinstance(tool, dict):
+        if not hasattr(tool, "get"):
             tool = {}
         mypy = tool.get("mypy")
-        if not isinstance(mypy, dict):
+        if not hasattr(mypy, "get"):
             mypy = {}
         version = mypy.get("python_version")
-        return str(version) if version is not None else None
+        # Validate type before conversion - TOML can parse various types
+        if isinstance(version, (str, int, float)):
+            return str(version)
+        return None
     except ImportError:
         pass
 
