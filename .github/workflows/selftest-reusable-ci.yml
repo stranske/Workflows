@@ -398,7 +398,7 @@ jobs:
 
       - name: Download self-test report
         if: ${{ env.ENABLE_HISTORY == 'true' && env.RUN_ID != '' }}
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           run-id: ${{ env.RUN_ID }}
           name: selftest-report

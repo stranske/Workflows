@@ -171,7 +171,7 @@ jobs:
         run: pip install ruff pyyaml
 
       - name: Download manifest
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: sync-manifest
 
@@ -256,7 +256,7 @@ jobs:
           gh repo clone ${{ matrix.repo }} consumer -- --depth=1
 
       - name: Download manifest
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: sync-manifest
 
