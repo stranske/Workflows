@@ -159,6 +159,20 @@ test('ensureChecklist preserves existing checkbox formatting', () => {
   assert.strictEqual(result, '- [x] Completed task\n- [ ] Pending task');
 });
 
+test('ensureChecklist preserves HTML comments without adding checkboxes', () => {
+  const text = '<!-- Incomplete tasks from original issue -->\n- [x] Completed task\n- [ ] Pending task';
+  const result = ensureChecklist(text);
+
+  assert.strictEqual(result, '<!-- Incomplete tasks from original issue -->\n- [x] Completed task\n- [ ] Pending task');
+});
+
+test('ensureChecklist preserves section headers without adding checkboxes', () => {
+  const text = '## Tasks\n- [ ] Task one';
+  const result = ensureChecklist(text);
+
+  assert.strictEqual(result, '## Tasks\n- [ ] Task one');
+});
+
 test('ensureChecklist returns placeholder for empty input', () => {
   assert.strictEqual(ensureChecklist(''), '- [ ] —');
   assert.strictEqual(ensureChecklist('   '), '- [ ] —');
