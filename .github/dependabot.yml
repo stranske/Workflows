@@ -1,0 +1,72 @@
+# Dependabot configuration for Workflows repo
+# 
+# ARCHITECTURE:
+# 1. Dependabot updates pyproject.toml [project.optional-dependencies].dev
+# 2. A post-merge workflow syncs pyproject.toml -> autofix-versions.env
+# 3. maint-52 syncs autofix-versions.env -> consumer repos
+#
+# This keeps the .env file (source of truth for consumers) automatically updated.
+
+version: 2
+updates:
+  # Python dev tools - updates pyproject.toml
+  # After merge, a workflow syncs versions to autofix-versions.env
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "sunday"  # Before Monday when consumers might get updates
+      time: "06:00"
+      timezone: "America/New_York"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "stranske"
+    labels:
+      - "dependencies"
+      - "python"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+    groups:
+      # Group dev tools together for batch review (minor/patch only)
+      dev-tools:
+        patterns:
+          - "ruff"
+          - "black"
+          - "mypy"
+          - "pytest*"
+          - "coverage"
+          - "isort"
+          - "docformatter"
+          - "hypothesis"
+        update-types:
+          - "minor"
+          - "patch"
+      # NOTE: Major updates are NOT grouped, so each gets its own PR
+      # This allows careful individual review of breaking changes
+
+  # GitHub Actions - update action versions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "sunday"
+      time: "06:00"
+      timezone: "America/New_York"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "stranske"
+    labels:
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    groups:
+      # Group minor/patch action updates
+      actions-minor:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
