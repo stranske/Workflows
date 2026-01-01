@@ -39,7 +39,7 @@ jobs:
       security_reason: ${{ steps.security_gate.outputs.reason }}
     steps:
       - name: Checkout (for security gate)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           sparse-checkout: |
             .github/scripts/prompt_injection_guard.js
@@ -47,7 +47,7 @@ jobs:
 
       - name: Security gate - prompt injection guard
         id: security_gate
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -102,7 +102,7 @@ jobs:
 
       - name: Evaluate workflow_run
         id: evaluate
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const run = context.payload.workflow_run;
@@ -318,7 +318,7 @@ jobs:
     environment: agent-standard
     steps:
       - name: Add needs-human label and comment
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const prNumber = Number('${{ needs.prepare.outputs.pr_number }}');
@@ -372,7 +372,7 @@ jobs:
     steps:
       - name: Collect metrics
         id: collect
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |

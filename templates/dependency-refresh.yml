@@ -35,7 +35,7 @@ jobs:
       DRY_RUN: ${{ inputs.dry-run || 'false' }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -72,7 +72,7 @@ jobs:
 
       - name: Create pull request
         if: steps.diff.outputs.changed == 'true' && env.DRY_RUN != 'true'
-        uses: peter-evans/create-pull-request@v6
+        uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: 'chore(deps): refresh requirements.lock'
