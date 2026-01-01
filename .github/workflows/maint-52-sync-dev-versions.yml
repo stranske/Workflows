@@ -200,7 +200,7 @@ jobs:
 
           This ensures consistent dev tool versions across all repos."
 
-          git push -u origin "$branch_name"
+          git push --force-with-lease -u origin "$branch_name"
 
           # Create PR
           pr_body="## Dev Tool Version Sync
