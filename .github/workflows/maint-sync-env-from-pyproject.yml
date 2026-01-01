@@ -126,7 +126,7 @@ jobs:
               fi
           done
           
-          echo "changes=$CHANGES" >> $GITHUB_OUTPUT
+          echo "changes=$CHANGES" >> "$GITHUB_OUTPUT"
           
           if [ $CHANGES -eq 0 ]; then
               echo "No version changes detected"
