@@ -13,9 +13,7 @@ Usage:
     python sync_dev_dependencies.py --check           # Verify versions match
     python sync_dev_dependencies.py --apply           # Update pyproject.toml
     python sync_dev_dependencies.py --apply --create-if-missing  # Create dev deps if missing
-    python sync_dev_dependencies.py --apply --lockfile  # Update requirements.lock too
-
-If requirements.lock exists, it will be synced automatically; --lockfile still forces it.
+    python sync_dev_dependencies.py --apply  # Syncs requirements.lock automatically if it exists
 """
 
 from __future__ import annotations
@@ -385,7 +383,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--lockfile",
         action="store_true",
-        help="Also sync requirements.lock if present",
+        help="Force lockfile sync even if requirements.lock doesn't exist (no-op)",
     )
     parser.add_argument(
         "--pin-file",
