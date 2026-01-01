@@ -140,6 +140,7 @@ jobs:
         id: sync
         if: steps.check.outputs.has_dev_deps == 'true'
         run: |
+          set -o pipefail  # Ensure pipeline returns first failing command's exit code
           # Copy pin file to expected location
           mkdir -p consumer/.github/workflows
           cp .github/workflows/autofix-versions.env consumer/.github/workflows/
