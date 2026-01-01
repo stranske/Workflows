@@ -511,6 +511,9 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 - **Maint 47 Disable Legacy Workflows** – `.github/workflows/maint-47-disable-legacy-workflows.yml`
   runs on-demand and disables archived workflows still listed as active in the
   Actions UI.
+- **Maint Sync Action Versions** – `.github/workflows/maint-sync-action-versions.yml`
+  syncs action version pins from `.github/workflows` into workflow templates after
+  Dependabot updates land.
 - **Maint 50 Tool Version Check** – `.github/workflows/maint-50-tool-version-check.yml`
   runs weekly (Mondays 8:00 AM UTC) to check PyPI for new versions of CI/autofix tools
   (black, ruff, mypy, pytest, etc.) and creates an issue when updates are available.
