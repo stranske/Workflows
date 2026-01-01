@@ -194,6 +194,7 @@ EXPECTED_NAMES = {
     "maint-50-tool-version-check.yml": "Maint 50 Tool Version Check",
     "maint-51-dependency-refresh.yml": "Maint 51 Dependency Refresh",
     "maint-52-validate-workflows.yml": "Maint 52 Validate Workflows",
+    "maint-52-sync-dev-versions.yml": "Maint 52 Sync Dev Versions",
     "maint-62-integration-consumer.yml": "Maint 62 Integration Consumer",
     "maint-65-sync-label-docs.yml": "Maint 65 Sync Label Docs",
     "maint-66-monthly-audit.yml": "Maint 66 Monthly Audit",
