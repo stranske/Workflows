@@ -49,7 +49,22 @@ function ensureChecklist(text) {
     return '- [ ] —';
   }
   return lines
-    .map((line) => (line.startsWith('- [') ? line : `- [ ] ${line}`))
+    .map((line) => {
+      // Skip lines that are already checkboxes
+      if (line.startsWith('- [')) {
+        return line;
+      }
+      // Skip HTML comments - they are informational, not actionable
+      if (line.startsWith('<!--') && line.endsWith('-->')) {
+        return line;
+      }
+      // Skip section headers
+      if (line.startsWith('#')) {
+        return line;
+      }
+      // Convert other lines to checkboxes
+      return `- [ ] ${line}`;
+    })
     .join('\n');
 }
 
