@@ -17,8 +17,15 @@ for file in .github/workflows/*.yml; do
         if [[ "$line" =~ uses:[[:space:]]*([^[:space:]]+)@(v[0-9]+) ]]; then
             action="${BASH_REMATCH[1]}"
             version="${BASH_REMATCH[2]}"
-            if [[ -z "${versions[$action]:-}" ]] || [[ "$version" > "${versions[$action]}" ]]; then
+            # Use numeric comparison for versions
+            if [[ -z "${versions[$action]:-}" ]]; then
                 versions["$action"]="$version"
+            else
+                new_num="${version#v}"
+                current_num="${versions[$action]#v}"
+                if (( new_num > current_num )); then
+                    versions["$action"]="$version"
+                fi
             fi
         fi
     done < "$file"

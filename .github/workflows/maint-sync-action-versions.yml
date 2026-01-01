@@ -23,7 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -41,9 +41,15 @@ jobs:
               if [[ "$line" =~ uses:[[:space:]]*([^[:space:]]+)@(v[0-9]+) ]]; then
                 action="${BASH_REMATCH[1]}"
                 version="${BASH_REMATCH[2]}"
-                # Store highest version for each action
-                if [[ -z "${versions[$action]:-}" ]] || [[ "$version" > "${versions[$action]}" ]]; then
+                # Use numeric comparison for versions
+                if [[ -z "${versions[$action]:-}" ]]; then
                   versions["$action"]="$version"
+                else
+                  new_num="${version#v}"
+                  current_num="${versions[$action]#v}"
+                  if (( new_num > current_num )); then
+                    versions["$action"]="$version"
+                  fi
                 fi
               fi
             done < "$file"
@@ -72,10 +78,8 @@ jobs:
           download_artifact="${{ steps.extract.outputs.download_artifact }}"
           cache="${{ steps.extract.outputs.cache }}"
           
-          changed=0
-          
           # Update all YAML files in templates/
-          find templates/ -name "*.yml" -type f | while read -r file; do
+          for file in $(find templates/ -name "*.yml" -type f); do
             orig_hash=$(md5sum "$file" | cut -d' ' -f1)
             
             sed -i \
@@ -89,11 +93,8 @@ jobs:
             new_hash=$(md5sum "$file" | cut -d' ' -f1)
             if [[ "$orig_hash" != "$new_hash" ]]; then
               echo "Updated: $file"
-              changed=1
             fi
           done
-          
-          echo "changed=$changed" >> "$GITHUB_OUTPUT"
 
       - name: Check for changes
         id: check
