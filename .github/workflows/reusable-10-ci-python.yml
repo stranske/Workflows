@@ -1561,13 +1561,14 @@ jobs:
           restore-keys: |
             pytest-${{ runner.os }}-${{ matrix.python-version }}-
             pytest-${{ runner.os }}-
-
       - name: Pytest (unit tests with coverage)
         id: pytest
         continue-on-error: true
+        working-directory: ${{ inputs['working-directory'] || '.' }}
         env:
           PYTEST_MARKERS: ${{ inputs.pytest_markers != '' && inputs.pytest_markers || inputs.marker }}
           COVERAGE_ENABLED: ${{ inputs.coverage }}
+          PYTHONPATH: ${{ github.workspace }}/${{ inputs['working-directory'] || '.' }}
         run: |
           set -euo pipefail
           coverage_target="src"
@@ -1586,7 +1587,6 @@ jobs:
             echo "Running tests in parallel with pytest-xdist (loadgroup scheduler)..."
           fi
           pytest "${args[@]}"
-
       - name: Enforce coverage minimum
         id: coverage_min
         if: ${{ inputs.coverage && inputs['coverage-min'] != '' }}
