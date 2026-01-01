@@ -25,6 +25,8 @@ PYPROJECT_FILE = Path("pyproject.toml")
 
 # Map env file keys to package names
 # Format: ENV_KEY -> (package_name, optional_alternative_names)
+# NOTE: Only include dev tools here. Runtime dependencies (hypothesis, pyyaml,
+# pydantic, jsonschema) should NOT be synced - they're managed by Dependabot.
 TOOL_MAPPING: dict[str, tuple[str, ...]] = {
     "RUFF_VERSION": ("ruff",),
     "BLACK_VERSION": ("black",),
@@ -35,7 +37,6 @@ TOOL_MAPPING: dict[str, tuple[str, ...]] = {
     "PYTEST_XDIST_VERSION": ("pytest-xdist",),
     "COVERAGE_VERSION": ("coverage",),
     "DOCFORMATTER_VERSION": ("docformatter",),
-    "HYPOTHESIS_VERSION": ("hypothesis",),
 }
 
 
@@ -88,13 +89,19 @@ def extract_dependencies(section: str) -> list[tuple[str, str, str]]:
     Returns list of (package_name, operator, version) tuples.
     """
     deps = []
-    # Match patterns like "package>=1.0.0" or "package==1.0.0" or just "package"
-    pattern = re.compile(r'"([a-zA-Z0-9_-]+)(?:(>=|==|~=|>|<|<=|!=)([^"]+))?(?:\[.*?\])?"')
+    # Match patterns like "package>=1.0.0", "package==1.0.0", "package", or "package[extra]==1.0.0"
+    # Per PEP 508, extras come BEFORE version specifier: package[extra]>=1.0.0
+    pattern = re.compile(
+        r'"([a-zA-Z0-9_-]+)'          # package name
+        r'(?:\[[^\]]+\])?'            # optional extras, e.g. [standard]
+        r'(?:(>=|==|~=|>|<|<=|!=)'    # optional operator
+        r'([^"\[\]]+))?"'             # optional version
+    )
 
     for match in pattern.finditer(section):
         package = match.group(1)
         operator = match.group(2) or ""
-        version = match.group(3) or ""
+        version = (match.group(3) or "").strip()
         deps.append((package, operator, version))
 
     return deps
@@ -108,16 +115,18 @@ def update_dependency_version(
     Returns (new_content, was_changed).
     """
     # Pattern to match the package with any version specifier
-    # Handles: "package>=1.0", "package==1.0", "package~=1.0", or just "package"
+    # Per PEP 508: extras come BEFORE version specifier (package[extra]>=1.0.0)
     pattern = re.compile(
-        rf'"({re.escape(package)})(>=|==|~=|>|<|<=|!=)?([^"\[\]]*)?(\[.*?\])?"', re.IGNORECASE
+        rf'"({re.escape(package)})(\[[^\]]+\])?(?![-\w])(>=|==|~=|>|<|<=|!=)?([^"\[\]]*)?"',
+        re.IGNORECASE,
     )
 
     def replacer(m: re.Match) -> str:
         pkg_name = m.group(1)
-        extras = m.group(4) or ""
+        extras = m.group(2) or ""
         op = "==" if use_exact_pin else ">="
-        return f'"{pkg_name}{op}{new_version}{extras}"'
+        # PEP 508: extras come BEFORE version specifier
+        return f'"{pkg_name}{extras}{op}{new_version}"'
 
     new_content, count = pattern.subn(replacer, content)
     return new_content, count > 0
@@ -205,59 +214,45 @@ def main() -> int:
         help="Apply version updates to pyproject.toml",
     )
     parser.add_argument(
-        "--use-minimum-pins",
-        action="store_true",
-        help="Use >= instead of == for version pins",
-    )
-    parser.add_argument(
         "--pin-file",
         type=Path,
         default=PIN_FILE,
-        help="Path to the version pins file",
+        help=f"Path to pin file (default: {PIN_FILE})",
     )
     parser.add_argument(
         "--pyproject",
         type=Path,
         default=PYPROJECT_FILE,
-        help="Path to pyproject.toml",
+        help=f"Path to pyproject.toml (default: {PYPROJECT_FILE})",
     )
 
     args = parser.parse_args()
 
-    if args.check and args.apply:
-        parser.error("--check and --apply are mutually exclusive")
-
     if not args.check and not args.apply:
-        args.check = True  # Default to check mode
-
-    use_exact_pins = not args.use_minimum_pins
+        parser.error("Must specify either --check or --apply")
 
     changes, errors = sync_versions(
         args.pyproject,
         args.pin_file,
         apply=args.apply,
-        use_exact_pins=use_exact_pins,
     )
 
     if errors:
-        for err in errors:
-            print(f"Error: {err}", file=sys.stderr)
-        return 2
+        for error in errors:
+            print(f"Error: {error}", file=sys.stderr)
+        return 1
 
     if changes:
-        print(f"{'Applied' if args.apply else 'Found'} {len(changes)} version updates:")
+        action = "Updated" if args.apply else "Would update"
+        print(f"{action} the following dependencies:")
         for change in changes:
-            print(f"  - {change}")
-
+            print(f"  {change}")
         if args.check:
-            print("\nRun with --apply to update pyproject.toml")
             return 1
-        else:
-            print("\n✓ pyproject.toml updated")
-            return 0
     else:
-        print("✓ All dev dependency versions are in sync")
-        return 0
+        print("All dev dependencies are in sync")
+
+    return 0
 
 
 if __name__ == "__main__":
