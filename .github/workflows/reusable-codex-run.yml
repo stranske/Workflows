@@ -567,9 +567,11 @@ jobs:
             COMPLETED=$(python3 -c "import json; d=json.load(open('$ANALYSIS_FILE')); print(json.dumps(d.get('completed_tasks', [])))")
             PROVIDER=$(python3 -c "import json; d=json.load(open('$ANALYSIS_FILE')); print(d.get('provider', 'unknown'))")
             CONFIDENCE=$(python3 -c "import json; d=json.load(open('$ANALYSIS_FILE')); print(d.get('confidence', 0))")
-            echo "completed-tasks=$COMPLETED" >> "$GITHUB_OUTPUT"
-            echo "provider=$PROVIDER" >> "$GITHUB_OUTPUT"
-            echo "confidence=$CONFIDENCE" >> "$GITHUB_OUTPUT"
+            {
+              echo "completed-tasks=$COMPLETED"
+              echo "provider=$PROVIDER"
+              echo "confidence=$CONFIDENCE"
+            } >> "$GITHUB_OUTPUT"
           fi
 
       - name: Commit and push changes
