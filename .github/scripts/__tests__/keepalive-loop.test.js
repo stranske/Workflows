@@ -385,7 +385,7 @@ test('evaluateKeepaliveLoop detects rate limit cancelled gate', async () => {
     context: buildContext(pr.number),
     core: buildCore(),
   });
-  assert.equal(result.action, 'wait');
+  assert.equal(result.action, 'defer');
   assert.equal(result.reason, 'gate-cancelled-rate-limit');
 });
 
@@ -409,7 +409,7 @@ test('evaluateKeepaliveLoop detects rate limit cancelled gate from logs', async 
     context: buildContext(pr.number),
     core: buildCore(),
   });
-  assert.equal(result.action, 'wait');
+  assert.equal(result.action, 'defer');
   assert.equal(result.reason, 'gate-cancelled-rate-limit');
 });
 
@@ -824,6 +824,44 @@ test('updateKeepaliveLoopSummary does NOT count wait states as failures', async 
   assert.match(github.actions[0].body, /"failure":\{\}/);
   // Should NOT have -repeat suffix since we're not counting wait states
   assert.doesNotMatch(github.actions[0].body, /gate-not-success-repeat/);
+});
+
+test('updateKeepaliveLoopSummary marks deferred rate limit cancellations as transient', async () => {
+  const existingState = formatStateComment({
+    trace: 'trace-defer',
+    iteration: 1,
+    failure_threshold: 3,
+    failure: { reason: 'gate-not-success', count: 1 },
+  });
+  const github = buildGithubStub({
+    comments: [{ id: 50, body: existingState, html_url: 'https://example.com/50' }],
+  });
+  await updateKeepaliveLoopSummary({
+    github,
+    context: buildContext(500),
+    core: buildCore(),
+    inputs: {
+      prNumber: 500,
+      action: 'defer',
+      reason: 'gate-cancelled-rate-limit',
+      gateConclusion: 'cancelled',
+      tasksTotal: 2,
+      tasksUnchecked: 2,
+      keepaliveEnabled: true,
+      autofixEnabled: false,
+      iteration: 1,
+      maxIterations: 5,
+      failureThreshold: 3,
+      trace: 'trace-defer',
+    },
+  });
+
+  assert.equal(github.actions.length, 1);
+  const updateAction = github.actions[0];
+  assert.equal(updateAction.type, 'update');
+  assert.match(updateAction.body, /Disposition \| deferred \(transient\)/);
+  assert.match(updateAction.body, /Deferred/);
+  assert.match(updateAction.body, /"failure":\{\}/);
 });
 
 test('updateKeepaliveLoopSummary adds needs-human after repeated actual failures', async () => {

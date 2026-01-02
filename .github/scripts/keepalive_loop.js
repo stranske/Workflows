@@ -229,7 +229,7 @@ function classifyFailureDetails({ action, runResult, summaryReason, agentExitCod
   const message = [agentSummary, summaryReason, runResult].filter(Boolean).join(' ');
   const errorInfo = classifyError({ message, code: agentExitCode });
   let category = errorInfo.category;
-  const isGateCancelled = summaryReason === 'gate-cancelled';
+  const isGateCancelled = summaryReason.startsWith('gate-cancelled');
 
   if (runFailed && (runResult === 'cancelled' || runResult === 'skipped')) {
     category = ERROR_CATEGORIES.transient;
@@ -639,6 +639,8 @@ function extractCheckRunId(job) {
 
 const RATE_LIMIT_PATTERNS = [
   /rate limit/i,
+  /rate[-\s]limit/i,
+  /rate[-\s]limited/i,
   /secondary rate limit/i,
   /abuse detection/i,
   /too many requests/i,
@@ -859,7 +861,7 @@ async function evaluateKeepaliveLoop({ github, context, core, payload: overrideP
         runId: gateRun.runId,
         core,
       });
-      action = 'wait';
+      action = gateRateLimit ? 'defer' : 'wait';
       reason = gateRateLimit ? 'gate-cancelled-rate-limit' : 'gate-cancelled';
     } else {
       // Gate failed - check if we should route to fix mode or wait
@@ -957,6 +959,7 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
   const isNeutralStop = reason === 'no-checklists' || reason === 'keepalive-disabled';
   let stop = action === 'stop' && !isSuccessStop && !isNeutralStop;
   let summaryReason = reason || action || 'unknown';
+  const baseReason = summaryReason;
   const transientDetails = classifyFailureDetails({
     action,
     runResult,
@@ -970,6 +973,16 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
     runResult &&
     runResult !== 'success' &&
     transientDetails.category === ERROR_CATEGORIES.transient;
+  const waitLikeAction = action === 'wait' || action === 'defer';
+  const waitIsTransientReason = [
+    'gate-pending',
+    'missing-agent-label',
+    'gate-cancelled',
+    'gate-cancelled-rate-limit',
+  ].includes(baseReason);
+  const isTransientWait =
+    waitLikeAction &&
+    (transientDetails.category === ERROR_CATEGORIES.transient || waitIsTransientReason);
 
   // Task reconciliation: detect when agent made changes but didn't update checkboxes
   const previousTasks = previousState?.tasks || {};
@@ -1022,12 +1035,12 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
         summaryReason = `${summaryReason}-repeat`;
       }
     }
-  } else if (action === 'wait') {
+  } else if (waitLikeAction) {
     // Wait states are NOT failures - they're transient conditions
     // Don't increment failure counter for: gate-pending, gate-not-success, missing-agent-label
     // These are expected states that will resolve on their own
     // Check if this is a transient error (from error classification)
-    if (transientDetails.category === ERROR_CATEGORIES.transient) {
+    if (isTransientWait) {
       failure = {};
       summaryReason = `${summaryReason}-transient`;
     } else if (failure.reason && !failure.reason.startsWith('gate-') && failure.reason !== 'missing-agent-label') {
@@ -1081,6 +1094,22 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
     ? `**${maxIterations}+${extendedCount}** 🚀 extended`
     : `${nextIteration}/${maxIterations || '∞'}`;
 
+  const dispositionLabel = (() => {
+    if (action === 'defer') {
+      return 'deferred (transient)';
+    }
+    if (action === 'wait') {
+      return isTransientWait ? 'skipped (transient)' : 'skipped (failure)';
+    }
+    if (action === 'skip') {
+      return 'skipped';
+    }
+    return '';
+  })();
+  const actionReason = waitLikeAction
+    ? (baseReason || summaryReason)
+    : (summaryReason || baseReason);
+
   const summaryLines = [
     '<!-- keepalive-loop-summary -->',
     `## 🤖 Keepalive Loop Status`,
@@ -1097,7 +1126,8 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
           : formatProgressBar(nextIteration, maxIterations)
         : 'n/a (unbounded)'
     } |`,
-    `| Action | ${action || 'unknown'} (${summaryReason || 'n/a'}) |`,
+    `| Action | ${action || 'unknown'} (${actionReason || 'n/a'}) |`,
+    ...(dispositionLabel ? [`| Disposition | ${dispositionLabel} |`] : []),
     ...(runFailed ? [`| Agent status | ❌ AGENT FAILED |`] : []),
     `| Gate | ${gateConclusion || 'unknown'} |`,
     `| Tasks | ${tasksComplete}/${tasksTotal} complete |`,
@@ -1173,6 +1203,14 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
       '',
       '### ♻️ Transient Issue Detected',
       'This run failed due to a transient issue. The failure counter has been reset to avoid pausing the loop.',
+    );
+  }
+
+  if (action === 'defer') {
+    summaryLines.push(
+      '',
+      '### ⏳ Deferred',
+      'Keepalive deferred due to a transient Gate cancellation (likely rate limits). It will retry later.',
     );
   }
 
