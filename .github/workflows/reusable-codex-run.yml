@@ -174,16 +174,39 @@ jobs:
       # Checkout Workflows repo scripts for post-completion, error handling, and LLM analysis
       # These scripts are in stranske/Workflows but need to be available when
       # this reusable workflow runs in consumer repos
-      # Note: github.job_workflow_sha is the SHA of this reusable workflow file
+      - name: Debug context variables
+        id: workflow_debug
+        run: |
+          echo "job_workflow_sha: ${{ github.job_workflow_sha }}"
+          echo "workflow_ref: ${{ github.workflow_ref }}"
+          echo "repository: ${{ github.repository }}"
+          echo "sha: ${{ github.sha }}"
+
+          # Extract ref from workflow_ref if it contains this repo's path
+          FULL_REF="${{ github.workflow_ref }}"
+          echo "Full workflow_ref: $FULL_REF"
+
+          # For the called workflow's ref, we need to extract from workflow_ref
+          # Format: owner/repo/.github/workflows/file.yml@ref
+          if [[ "$FULL_REF" == *"stranske/Workflows"* ]]; then
+            # This is the calling workflow's ref, not the called workflow's
+            # The job_workflow_sha is the SHA of the called reusable workflow
+            echo "This is the Workflows repo context"
+            echo "Using job_workflow_sha: ${{ github.job_workflow_sha }}"
+            echo "workflows_sha=${{ github.job_workflow_sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "workflows_sha=" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Checkout Workflows scripts
         uses: actions/checkout@v4
         with:
           repository: stranske/Workflows
-          # Use the exact SHA of the called workflow to ensure we get the right version
-          ref: ${{ github.job_workflow_sha }}
-          # Disable sparse checkout temporarily to troubleshoot
-          # Full checkout ensures scripts/ and tools/ are available
+          # Use job_workflow_sha which is the SHA of this reusable workflow
+          ref: ${{ github.job_workflow_sha || 'main' }}
           path: .workflows-lib
+          # Need to fetch enough history for the SHA
+          fetch-depth: 0
           token: ${{ steps.auth_token.outputs.checkout_token }}
 
       - name: Set up Python
