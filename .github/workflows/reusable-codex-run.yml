@@ -171,15 +171,19 @@ jobs:
           ref: ${{ inputs.pr_ref || github.ref }}
           token: ${{ steps.auth_token.outputs.checkout_token }}
 
-      # Checkout Workflows repo scripts for post-completion and error handling
+      # Checkout Workflows repo scripts for post-completion, error handling, and LLM analysis
       # These scripts are in stranske/Workflows but need to be available when
       # this reusable workflow runs in consumer repos
+      # Note: Uses github.job_workflow_sha to get the same ref as the calling workflow
       - name: Checkout Workflows scripts
         uses: actions/checkout@v4
         with:
           repository: stranske/Workflows
-          ref: main
-          sparse-checkout: .github/scripts
+          ref: ${{ github.job_workflow_sha }}
+          sparse-checkout: |
+            .github/scripts
+            scripts
+            tools
           sparse-checkout-cone-mode: false
           path: .workflows-lib
           token: ${{ steps.auth_token.outputs.checkout_token }}
@@ -224,6 +228,17 @@ jobs:
           if [ -f pyproject.toml ]; then
             python -m pip install -e ".[dev]" || python -m pip install -e .
           fi
+
+      - name: Install Workflows repo LLM dependencies
+        run: |
+          # Install LLM dependencies from Workflows repo for session analysis
+          if [ -f .workflows-lib/tools/requirements.txt ]; then
+            echo "Installing LLM analysis dependencies..."
+            python -m pip install -r .workflows-lib/tools/requirements.txt || {
+              echo "::notice::LLM dependencies not installed, will fall back to regex analysis"
+            }
+          fi
+
       - name: Validate prompt template integrity
         id: guard
         env:
@@ -500,7 +515,7 @@ jobs:
         id: llm_analysis
         if: always() && steps.analyze_session.outputs.session-available == 'true' && inputs.pr_number != ''
         env:
-          PYTHONPATH: ${{ github.workspace }}
+          PYTHONPATH: ${{ github.workspace }}/.workflows-lib:${{ github.workspace }}
           PR_NUM: ${{ inputs.pr_number }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -523,19 +538,21 @@ jobs:
           echo "$PR_BODY" > pr_body.md
 
           # Run full LLM analysis and save JSON output
+          # Scripts are in .workflows-lib from Workflows repo checkout
           echo "Running LLM-powered task completion analysis..."
-          python3 scripts/analyze_codex_session.py \
+          python3 .workflows-lib/scripts/analyze_codex_session.py \
             --session-file "$SESSION_JSONL" \
             --pr-body-file pr_body.md \
             --output json > "$ANALYSIS_FILE" 2>&1 || {
               echo "::warning::LLM analysis failed, continuing without it"
+              cat "$ANALYSIS_FILE" 2>/dev/null || true  # Show error for debugging
               echo "llm-analysis-run=false" >> "$GITHUB_OUTPUT"
               rm -f "$ANALYSIS_FILE"
               exit 0
             }
 
           # Also output to GitHub Actions for visibility
-          python3 scripts/analyze_codex_session.py \
+          python3 .workflows-lib/scripts/analyze_codex_session.py \
             --session-file "$SESSION_JSONL" \
             --pr-body-file pr_body.md \
             --output github-actions || true
