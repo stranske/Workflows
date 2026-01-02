@@ -216,6 +216,23 @@ jobs:
           if [ -f pyproject.toml ]; then
             python -m pip install -e ".[dev]" || python -m pip install -e .
           fi
+      - name: Validate prompt template integrity
+        id: guard
+        env:
+          BASE_PROMPT: ${{ inputs.prompt_file }}
+        run: |
+          set -euo pipefail
+          if [ -f ".github/scripts/prompt_integrity_guard.js" ]; then
+            echo "Checking prompt template for embedded task content..."
+            node .github/scripts/prompt_integrity_guard.js "${BASE_PROMPT}" || {
+              echo "::error::Prompt template integrity check failed. See output above."
+              echo "::error::The base prompt contains embedded task content that should be removed."
+              exit 1
+            }
+          else
+            echo "Guard script not found, skipping integrity check"
+          fi
+
       - name: Assemble prompt
         id: prompt
         env:

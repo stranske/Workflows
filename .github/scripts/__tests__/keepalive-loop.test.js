@@ -413,6 +413,97 @@ test('evaluateKeepaliveLoop detects rate limit cancelled gate from logs', async 
   assert.equal(result.reason, 'gate-cancelled-rate-limit');
 });
 
+test('evaluateKeepaliveLoop force_retry bypasses cancelled gate', async () => {
+  const pr = {
+    number: 511,
+    head: { ref: 'feature/force-retry', sha: 'sha-force-retry' },
+    labels: [{ name: 'agent:codex' }],
+    body: '## Tasks\n- [ ] one\n## Acceptance Criteria\n- [ ] a',
+  };
+  const github = buildGithubStub({
+    pr,
+    workflowRuns: [{ id: 2003, head_sha: 'sha-force-retry', conclusion: 'cancelled' }],
+  });
+  const result = await evaluateKeepaliveLoop({
+    github,
+    context: buildContext(pr.number),
+    core: buildCore(),
+    forceRetry: true,
+  });
+  assert.equal(result.action, 'run');
+  assert.equal(result.reason, 'force-retry-cancelled');
+  assert.equal(result.forceRetry, true);
+});
+
+test('evaluateKeepaliveLoop force_retry bypasses rate limit deferred gate', async () => {
+  const pr = {
+    number: 512,
+    head: { ref: 'feature/force-retry-rate', sha: 'sha-force-retry-rate' },
+    labels: [{ name: 'agent:codex' }],
+    body: '## Tasks\n- [ ] one\n## Acceptance Criteria\n- [ ] a',
+  };
+  const github = buildGithubStub({
+    pr,
+    workflowRuns: [{ id: 2004, head_sha: 'sha-force-retry-rate', conclusion: 'cancelled' }],
+    workflowJobs: [{ id: 3004, check_run_id: 9004, name: 'gate' }],
+    annotationsByCheckRunId: {
+      9004: [{ message: 'Secondary rate limit exceeded for GitHub API.' }],
+    },
+  });
+  const result = await evaluateKeepaliveLoop({
+    github,
+    context: buildContext(pr.number),
+    core: buildCore(),
+    forceRetry: true,
+  });
+  // Even rate-limited cancellations should be bypassed with forceRetry
+  assert.equal(result.action, 'run');
+  assert.equal(result.reason, 'force-retry-cancelled');
+});
+
+test('evaluateKeepaliveLoop force_retry bypasses failed gate', async () => {
+  const pr = {
+    number: 513,
+    head: { ref: 'feature/force-retry-failed', sha: 'sha-force-retry-failed' },
+    labels: [{ name: 'agent:codex' }],
+    body: '## Tasks\n- [ ] one\n## Acceptance Criteria\n- [ ] a',
+  };
+  const github = buildGithubStub({
+    pr,
+    workflowRuns: [{ id: 2005, head_sha: 'sha-force-retry-failed', conclusion: 'failure' }],
+  });
+  const result = await evaluateKeepaliveLoop({
+    github,
+    context: buildContext(pr.number),
+    core: buildCore(),
+    forceRetry: true,
+  });
+  assert.equal(result.action, 'run');
+  assert.equal(result.reason, 'force-retry-gate');
+});
+
+test('evaluateKeepaliveLoop overridePrNumber takes precedence', async () => {
+  const pr = {
+    number: 514,
+    head: { ref: 'feature/override-pr', sha: 'sha-override-pr' },
+    labels: [{ name: 'agent:codex' }],
+    body: '## Tasks\n- [ ] one\n## Acceptance Criteria\n- [ ] a',
+  };
+  const github = buildGithubStub({
+    pr,
+    workflowRuns: [{ id: 2006, head_sha: 'sha-override-pr', conclusion: 'success' }],
+  });
+  // Context says PR 999 but overridePrNumber says 514
+  const result = await evaluateKeepaliveLoop({
+    github,
+    context: buildContext(999),
+    core: buildCore(),
+    overridePrNumber: 514,
+  });
+  assert.equal(result.prNumber, 514);
+  assert.equal(result.action, 'run');
+});
+
 test('evaluateKeepaliveLoop runs when ready', async () => {
   const pr = {
     number: 606,

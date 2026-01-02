@@ -33,26 +33,12 @@ A coverage task is NOT complete just because you added tests. It is complete ONL
 
 **The Tasks and Acceptance Criteria are provided in the appendix below.** Work through them in order.
 
-## PR Tasks and Acceptance Criteria
-
-**Progress:** 7/9 tasks complete, 2 remaining
-
-### Scope
-When `autofix-versions.env` is updated with new tool versions, `sync_dev_dependencies.py` correctly updates `pyproject.toml`. However, consumer repos often have a `requirements.lock` file that also pins these versions, causing CI failures due to version conflicts.
-
-### Tasks
-Complete these in order. Mark checkbox done ONLY after implementation is verified:
-
-- [x] Extend `sync_dev_dependencies.py` with `--lockfile` flag to update `requirements.lock`
-- [x] Add logic to detect and parse `requirements.lock` format (simple `package==version` lines)
-- [x] Update matching package versions to align with `autofix-versions.env`
-- [x] Add tests for lockfile sync functionality
-- [ ] Update maint-52 sync workflow to run with `--lockfile` when `requirements.lock` exists
-
-### Acceptance Criteria
-The PR is complete when ALL of these are satisfied:
-
-- [x] Running `sync_dev_dependencies.py --apply --lockfile` updates both `pyproject.toml` and `requirements.lock`
-- [ ] CI passes without version conflicts like `ruff==0.14.10 and ruff==0.14.9`
-- [x] Script gracefully handles missing `requirements.lock` (no error, just skip)
-- [x] Existing `--check` mode reports lockfile mismatches
+<!-- 
+  DO NOT ADD TASK CONTENT BELOW THIS LINE
+  
+  Task content is dynamically injected from the PR body via the `appendix` input.
+  This template file should only contain instructions, not PR-specific tasks.
+  
+  If you see task content in this file, it was incorrectly committed and should
+  be removed. The guard script will flag this as an error.
+-->

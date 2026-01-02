@@ -761,9 +761,9 @@ async function detectRateLimitCancellation({ github, context, runId, core }) {
   return false;
 }
 
-async function evaluateKeepaliveLoop({ github, context, core, payload: overridePayload }) {
+async function evaluateKeepaliveLoop({ github, context, core, payload: overridePayload, overridePrNumber, forceRetry }) {
   const payload = overridePayload || context.payload || {};
-  const prNumber = await resolvePrNumber({ github, context, core, payload });
+  let prNumber = overridePrNumber || await resolvePrNumber({ github, context, core, payload });
   if (!prNumber) {
     return {
       prNumber: 0,
@@ -861,14 +861,26 @@ async function evaluateKeepaliveLoop({ github, context, core, payload: overrideP
         runId: gateRun.runId,
         core,
       });
-      action = gateRateLimit ? 'defer' : 'wait';
-      reason = gateRateLimit ? 'gate-cancelled-rate-limit' : 'gate-cancelled';
+      // forceRetry bypasses defer/wait for cancelled gates
+      if (forceRetry && tasksRemaining) {
+        action = 'run';
+        reason = 'force-retry-cancelled';
+        if (core) core.info(`Force retry enabled: bypassing cancelled gate (rate_limit=${gateRateLimit})`);
+      } else {
+        action = gateRateLimit ? 'defer' : 'wait';
+        reason = gateRateLimit ? 'gate-cancelled-rate-limit' : 'gate-cancelled';
+      }
     } else {
       // Gate failed - check if we should route to fix mode or wait
       const gateFailure = await classifyGateFailure({ github, context, pr, core });
       if (gateFailure.shouldFixMode && gateNormalized === 'failure') {
         action = 'fix';
         reason = `fix-${gateFailure.failureType}`;
+      } else if (forceRetry && tasksRemaining) {
+        // forceRetry can also bypass non-success gates (user explicitly wants to retry)
+        action = 'run';
+        reason = 'force-retry-gate';
+        if (core) core.info(`Force retry enabled: bypassing gate conclusion '${gateNormalized}'`);
       } else {
         action = 'wait';
         reason = gateNormalized ? 'gate-not-success' : 'gate-pending';
@@ -905,6 +917,7 @@ async function evaluateKeepaliveLoop({ github, context, core, payload: overrideP
     keepaliveEnabled,
     stateCommentId: stateResult.commentId || 0,
     state,
+    forceRetry: Boolean(forceRetry),
   };
 }
 
