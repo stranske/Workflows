@@ -26,6 +26,7 @@ const buildGithubStub = ({
   workflowRuns = [],
   workflowJobs = [],
   annotationsByCheckRunId = {},
+  jobLogsByJobId = {},
 } = {}) => {
   const actions = [];
   return {
@@ -42,6 +43,11 @@ const buildGithubStub = ({
         },
         async listJobsForWorkflowRun() {
           return { data: { jobs: workflowJobs } };
+        },
+        async downloadJobLogsForWorkflowRun({ job_id: jobId }) {
+          const data = jobLogsByJobId[jobId] ?? '';
+          const buffer = Buffer.isBuffer(data) ? data : Buffer.from(data);
+          return { data: buffer };
         },
       },
       checks: {
@@ -372,6 +378,30 @@ test('evaluateKeepaliveLoop detects rate limit cancelled gate', async () => {
     workflowJobs: [{ id: 3001, check_run_id: 9001, name: 'gate' }],
     annotationsByCheckRunId: {
       9001: [{ message: 'Secondary rate limit exceeded for GitHub API.' }],
+    },
+  });
+  const result = await evaluateKeepaliveLoop({
+    github,
+    context: buildContext(pr.number),
+    core: buildCore(),
+  });
+  assert.equal(result.action, 'wait');
+  assert.equal(result.reason, 'gate-cancelled-rate-limit');
+});
+
+test('evaluateKeepaliveLoop detects rate limit cancelled gate from logs', async () => {
+  const pr = {
+    number: 510,
+    head: { ref: 'feature/cancelled-rate-logs', sha: 'sha-cancelled-rate-logs' },
+    labels: [{ name: 'agent:codex' }],
+    body: '## Tasks\n- [ ] one\n## Acceptance Criteria\n- [ ] a',
+  };
+  const github = buildGithubStub({
+    pr,
+    workflowRuns: [{ id: 2002, head_sha: 'sha-cancelled-rate-logs', conclusion: 'cancelled' }],
+    workflowJobs: [{ id: 3002, name: 'gate' }],
+    jobLogsByJobId: {
+      3002: 'Error: API rate limit exceeded, please retry later.',
     },
   });
   const result = await evaluateKeepaliveLoop({

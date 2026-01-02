@@ -670,13 +670,40 @@ function annotationsContainRateLimit(annotations = []) {
   return false;
 }
 
+function extractRateLimitLogText(data) {
+  if (!data) {
+    return '';
+  }
+  const buffer = Buffer.isBuffer(data) ? data : Buffer.from(data);
+  if (buffer.length >= 2 && buffer[0] === 0x1f && buffer[1] === 0x8b) {
+    try {
+      const zlib = require('zlib');
+      return zlib.gunzipSync(buffer).toString('utf8');
+    } catch (error) {
+      return buffer.toString('utf8');
+    }
+  }
+  return buffer.toString('utf8');
+}
+
+function logContainsRateLimit(data) {
+  const text = extractRateLimitLogText(data);
+  if (!text) {
+    return false;
+  }
+  const sample = text.length > 500000 ? `${text.slice(0, 250000)}\n${text.slice(-250000)}` : text;
+  return hasRateLimitSignal(sample);
+}
+
 async function detectRateLimitCancellation({ github, context, runId, core }) {
   const targetRunId = Number(runId) || 0;
   if (!targetRunId || !github?.rest?.actions?.listJobsForWorkflowRun) {
     return false;
   }
-  if (!github?.rest?.checks?.listAnnotations) {
-    if (core) core.info('GitHub checks API unavailable; rate limit detection skipped.');
+  const canCheckAnnotations = Boolean(github?.rest?.checks?.listAnnotations);
+  const canCheckLogs = Boolean(github?.rest?.actions?.downloadJobLogsForWorkflowRun);
+  if (!canCheckAnnotations && !canCheckLogs) {
+    if (core) core.info('Rate limit detection skipped; no annotations or logs API available.');
     return false;
   }
 
@@ -689,25 +716,44 @@ async function detectRateLimitCancellation({ github, context, runId, core }) {
     });
     const jobs = Array.isArray(data?.jobs) ? data.jobs : [];
     for (const job of jobs) {
-      const checkRunId = extractCheckRunId(job);
-      if (!checkRunId) {
-        continue;
+      if (canCheckAnnotations) {
+        const checkRunId = extractCheckRunId(job);
+        if (checkRunId) {
+          const params = {
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            check_run_id: checkRunId,
+            per_page: 100,
+          };
+          const annotations = github.paginate
+            ? await github.paginate(github.rest.checks.listAnnotations, params)
+            : (await github.rest.checks.listAnnotations(params))?.data;
+          if (annotationsContainRateLimit(annotations)) {
+            return true;
+          }
+        }
       }
-      const params = {
-        owner: context.repo.owner,
-        repo: context.repo.repo,
-        check_run_id: checkRunId,
-        per_page: 100,
-      };
-      const annotations = github.paginate
-        ? await github.paginate(github.rest.checks.listAnnotations, params)
-        : (await github.rest.checks.listAnnotations(params))?.data;
-      if (annotationsContainRateLimit(annotations)) {
-        return true;
+
+      if (canCheckLogs) {
+        const jobId = Number(job?.id) || 0;
+        if (jobId) {
+          try {
+            const logs = await github.rest.actions.downloadJobLogsForWorkflowRun({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              job_id: jobId,
+            });
+            if (logContainsRateLimit(logs?.data)) {
+              return true;
+            }
+          } catch (error) {
+            if (core) core.info(`Failed to inspect Gate job logs for rate limits: ${error.message}`);
+          }
+        }
       }
     }
   } catch (error) {
-    if (core) core.info(`Failed to inspect Gate annotations for rate limits: ${error.message}`);
+    if (core) core.info(`Failed to inspect Gate cancellation signals for rate limits: ${error.message}`);
   }
 
   return false;
