@@ -438,6 +438,18 @@ jobs:
             const beforeSha = '${{ needs.evaluate.outputs.head_sha }}';
             const headSha = '${{ needs.run-codex.outputs.commit-sha }}';
 
+            // Parse LLM completed tasks if available
+            let llmCompletedTasks = [];
+            const llmTasksJson = '${{ needs.run-codex.outputs.llm-completed-tasks || '[]' }}';
+            try {
+              llmCompletedTasks = JSON.parse(llmTasksJson);
+              if (llmCompletedTasks.length > 0) {
+                core.info(`LLM analysis found ${llmCompletedTasks.length} completed task(s)`);
+              }
+            } catch (e) {
+              core.debug(`Failed to parse LLM tasks: ${e.message}`);
+            }
+
             if (!prNumber || !beforeSha || !headSha) {
               core.info('Missing required inputs for task reconciliation');
               return;
@@ -447,12 +459,12 @@ jobs:
             core.info(`Comparing ${beforeSha.slice(0, 7)} → ${headSha.slice(0, 7)}`);
 
             const result = await autoReconcileTasks({
-              github, context, prNumber, baseSha: beforeSha, headSha, core
+              github, context, prNumber, baseSha: beforeSha, headSha, llmCompletedTasks, core
             });
 
             if (result.updated) {
               core.info(`✅ ${result.details}`);
-              core.notice(`Auto-checked ${result.tasksChecked} task(s) based on commit analysis`);
+              core.notice(`Auto-checked ${result.tasksChecked} task(s) based on analysis`);
             } else {
               core.info(`ℹ️ ${result.details}`);
             }
@@ -488,5 +500,9 @@ jobs:
               agent_commit_sha: '${{ needs.run-codex.outputs.commit-sha }}',
               agent_files_changed: '${{ needs.run-codex.outputs.files-changed }}',
               agent_summary: process.env.CODEX_SUMMARY || '',
+              // LLM task analysis provider info
+              llm_provider: '${{ needs.run-codex.outputs.llm-provider || '' }}',
+              llm_confidence: '${{ needs.run-codex.outputs.llm-confidence || '' }}',
+              llm_analysis_run: '${{ needs.run-codex.outputs.llm-analysis-run }}' === 'true',
             };
             await updateKeepaliveLoopSummary({ github, context, core, inputs });

@@ -27,6 +27,11 @@ on:
         required: false
         default: ''
         type: string
+      workflows_ref:
+        description: 'The ref of the Workflows repo to checkout for scripts. Defaults to main.'
+        required: false
+        default: 'main'
+        type: string
       max_runtime_minutes:
         description: 'Upper bound for the job runtime in minutes.'
         required: false
@@ -116,6 +121,14 @@ jobs:
       error-category: ${{ steps.classify_failure.outputs.error_category }}
       error-type: ${{ steps.classify_failure.outputs.error_type }}
       error-recovery: ${{ steps.classify_failure.outputs.error_recovery }}
+      # LLM analysis outputs
+      llm-analysis-run: ${{ steps.llm_analysis.outputs.llm-analysis-run }}
+      llm-completed-tasks: ${{ steps.llm_analysis.outputs.completed-tasks }}
+      llm-has-completions: ${{ steps.llm_analysis.outputs.has-completions }}
+      llm-provider: ${{ steps.llm_analysis.outputs.provider }}
+      llm-confidence: ${{ steps.llm_analysis.outputs.confidence }}
+      session-event-count: ${{ steps.analyze_session.outputs.event-count }}
+      session-todo-count: ${{ steps.analyze_session.outputs.todo-count }}
     steps:
       - name: Mint GitHub App token (preferred)
         id: app_token
@@ -163,16 +176,15 @@ jobs:
           ref: ${{ inputs.pr_ref || github.ref }}
           token: ${{ steps.auth_token.outputs.checkout_token }}
 
-      # Checkout Workflows repo scripts for post-completion and error handling
+      # Checkout Workflows repo scripts for post-completion, error handling, and LLM analysis
       # These scripts are in stranske/Workflows but need to be available when
       # this reusable workflow runs in consumer repos
       - name: Checkout Workflows scripts
         uses: actions/checkout@v4
         with:
           repository: stranske/Workflows
-          ref: main
-          sparse-checkout: .github/scripts
-          sparse-checkout-cone-mode: false
+          # Use the workflows_ref input which should match the @ref in the uses: line
+          ref: ${{ inputs.workflows_ref }}
           path: .workflows-lib
           token: ${{ steps.auth_token.outputs.checkout_token }}
 
@@ -216,6 +228,17 @@ jobs:
           if [ -f pyproject.toml ]; then
             python -m pip install -e ".[dev]" || python -m pip install -e .
           fi
+
+      - name: Install Workflows repo LLM dependencies
+        run: |
+          # Install LLM dependencies from Workflows repo for session analysis
+          if [ -f .workflows-lib/tools/requirements.txt ]; then
+            echo "Installing LLM analysis dependencies..."
+            python -m pip install -r .workflows-lib/tools/requirements.txt || {
+              echo "::notice::LLM dependencies not installed, will fall back to regex analysis"
+            }
+          fi
+
       - name: Validate prompt template integrity
         id: guard
         env:
@@ -370,8 +393,10 @@ jobs:
           PR_NUM="${{ inputs.pr_number }}"
           if [ -n "${PR_NUM}" ]; then
             OUTPUT_FILE="codex-output-${PR_NUM}.md"
+            SESSION_JSONL="codex-session-${PR_NUM}.jsonl"
           else
             OUTPUT_FILE="codex-output.md"
+            SESSION_JSONL="codex-session.jsonl"
           fi
           SANDBOX="${{ inputs.sandbox }}"
           EXTRA_ARGS="${{ inputs.codex_args }}"
@@ -385,14 +410,15 @@ jobs:
           echo "Prompt file: $PROMPT_FILE"
           echo "Sandbox: $SANDBOX"
 
-          # Run codex exec with prompt from file
+          # Run codex exec with --json to capture rich session data
+          # JSONL events stream to stdout, final message still goes to OUTPUT_FILE
           # Build command array to handle EXTRA_ARGS properly
           # NOTE: --mode flag not yet supported by Codex CLI, removed for now
           CODEX_EXIT=0
           if [ -n "${EXTRA_ARGS:-}" ]; then
-            eval "codex exec --skip-git-repo-check --sandbox \"$SANDBOX\" --output-last-message \"$OUTPUT_FILE\" $EXTRA_ARGS \"\$(cat \"\$PROMPT_FILE\")\"" || CODEX_EXIT=$?
+            eval "codex exec --json --skip-git-repo-check --sandbox \"$SANDBOX\" --output-last-message \"$OUTPUT_FILE\" $EXTRA_ARGS \"\$(cat \"\$PROMPT_FILE\")\"" > "$SESSION_JSONL" 2>&1 || CODEX_EXIT=$?
           else
-            codex exec --skip-git-repo-check --sandbox "$SANDBOX" --output-last-message "$OUTPUT_FILE" "$(cat "$PROMPT_FILE")" || CODEX_EXIT=$?
+            codex exec --json --skip-git-repo-check --sandbox "$SANDBOX" --output-last-message "$OUTPUT_FILE" "$(cat "$PROMPT_FILE")" > "$SESSION_JSONL" 2>&1 || CODEX_EXIT=$?
           fi
 
           echo "exit-code=${CODEX_EXIT}" >> "$GITHUB_OUTPUT"
@@ -419,6 +445,130 @@ jobs:
 
           # Exit with original code to mark job as failed if Codex failed
           exit "$CODEX_EXIT"
+
+      - name: Analyze Codex session
+        id: analyze_session
+        if: always()
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+          PR_NUM: ${{ inputs.pr_number }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          if [ -n "${PR_NUM}" ]; then
+            SESSION_JSONL="codex-session-${PR_NUM}.jsonl"
+          else
+            SESSION_JSONL="codex-session.jsonl"
+          fi
+          export SESSION_JSONL
+
+          # Check if session file exists and has content
+          if [ ! -f "$SESSION_JSONL" ] || [ ! -s "$SESSION_JSONL" ]; then
+            echo "No session JSONL found or file is empty"
+            echo "session-available=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "Session JSONL captured: $(wc -l < "$SESSION_JSONL") lines"
+          echo "session-available=true" >> "$GITHUB_OUTPUT"
+
+          # Basic parsing (always available)
+          python3 << 'PYEOF'
+          import os
+          import sys
+          sys.path.insert(0, '.')
+
+          session_file = os.environ.get("SESSION_JSONL", "codex-session.jsonl")
+          github_output = os.environ.get("GITHUB_OUTPUT", "/dev/null")
+
+          try:
+              from tools.codex_jsonl_parser import parse_codex_jsonl_file
+
+              session = parse_codex_jsonl_file(session_file)
+
+              print(f"::notice::Session parsed: {session.raw_event_count} events")
+              print(f"::notice::Agent messages: {len(session.agent_messages)}")
+              print(f"::notice::Commands: {len(session.commands)} ({len(session.successful_commands)} ok, {len(session.failed_commands)} failed)")
+              print(f"::notice::File changes: {len(session.file_changes)}")
+              print(f"::notice::Todo items: {len(session.todo_items)}")
+
+              if session.parse_errors:
+                  print(f"::warning::Parse errors: {len(session.parse_errors)}")
+
+              # Output key metrics for downstream steps
+              with open(github_output, "a") as f:
+                  f.write(f"event-count={session.raw_event_count}\n")
+                  f.write(f"message-count={len(session.agent_messages)}\n")
+                  f.write(f"command-count={len(session.commands)}\n")
+                  f.write(f"file-change-count={len(session.file_changes)}\n")
+                  f.write(f"todo-count={len(session.todo_items)}\n")
+                  f.write(f"completed-todo-count={len(session.completed_todos)}\n")
+
+          except ImportError as e:
+              print(f"::notice::Session parser not available: {e}")
+          except Exception as e:
+              print(f"::warning::Session analysis failed: {e}")
+          PYEOF
+
+      - name: Analyze task completion with LLM
+        id: llm_analysis
+        if: always() && steps.analyze_session.outputs.session-available == 'true' && inputs.pr_number != ''
+        env:
+          PYTHONPATH: ${{ github.workspace }}/.workflows-lib:${{ github.workspace }}
+          PR_NUM: ${{ inputs.pr_number }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          SESSION_JSONL="codex-session-${PR_NUM}.jsonl"
+          ANALYSIS_FILE="codex-analysis-${PR_NUM}.json"
+
+          # Fetch PR body to extract tasks
+          echo "Fetching PR #${PR_NUM} body..."
+          PR_BODY=$(gh pr view "${PR_NUM}" --json body --jq '.body' 2>/dev/null || echo "")
+
+          if [ -z "$PR_BODY" ]; then
+            echo "::notice::Could not fetch PR body, skipping LLM analysis"
+            echo "llm-analysis-run=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Save PR body to temp file
+          echo "$PR_BODY" > pr_body.md
+
+          # Run full LLM analysis and save JSON output
+          # Scripts are in .workflows-lib from Workflows repo checkout
+          echo "Running LLM-powered task completion analysis..."
+          python3 .workflows-lib/scripts/analyze_codex_session.py \
+            --session-file "$SESSION_JSONL" \
+            --pr-body-file pr_body.md \
+            --output json > "$ANALYSIS_FILE" 2>&1 || {
+              echo "::warning::LLM analysis failed, continuing without it"
+              cat "$ANALYSIS_FILE" 2>/dev/null || true  # Show error for debugging
+              echo "llm-analysis-run=false" >> "$GITHUB_OUTPUT"
+              rm -f "$ANALYSIS_FILE"
+              exit 0
+            }
+
+          # Also output to GitHub Actions for visibility
+          python3 .workflows-lib/scripts/analyze_codex_session.py \
+            --session-file "$SESSION_JSONL" \
+            --pr-body-file pr_body.md \
+            --output github-actions || true
+
+          echo "llm-analysis-run=true" >> "$GITHUB_OUTPUT"
+          echo "analysis-file=$ANALYSIS_FILE" >> "$GITHUB_OUTPUT"
+
+          # Extract key fields for downstream use
+          if [ -f "$ANALYSIS_FILE" ]; then
+            COMPLETED=$(python3 -c "import json; d=json.load(open('$ANALYSIS_FILE')); print(json.dumps(d.get('completed_tasks', [])))")
+            PROVIDER=$(python3 -c "import json; d=json.load(open('$ANALYSIS_FILE')); print(d.get('provider', 'unknown'))")
+            CONFIDENCE=$(python3 -c "import json; d=json.load(open('$ANALYSIS_FILE')); print(d.get('confidence', 0))")
+            echo "completed-tasks=$COMPLETED" >> "$GITHUB_OUTPUT"
+            echo "provider=$PROVIDER" >> "$GITHUB_OUTPUT"
+            echo "confidence=$CONFIDENCE" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Commit and push changes
         id: commit
@@ -555,6 +705,8 @@ jobs:
           name: codex-output-${{ inputs.pr_number || github.run_id }}
           path: |
             codex-output*.md
+            codex-session*.jsonl
+            codex-analysis*.json
           if-no-files-found: ignore
 
       - name: Post completion checkpoint comment

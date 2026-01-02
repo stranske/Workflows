@@ -950,6 +950,11 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
   const agentSummary = normalise(inputs.agent_summary ?? inputs.agentSummary ?? inputs.codex_summary ?? inputs.codexSummary);
   const runUrl = normalise(inputs.run_url ?? inputs.runUrl);
 
+  // LLM task analysis details
+  const llmProvider = normalise(inputs.llm_provider ?? inputs.llmProvider);
+  const llmConfidence = toNumber(inputs.llm_confidence ?? inputs.llmConfidence, 0);
+  const llmAnalysisRun = toBool(inputs.llm_analysis_run ?? inputs.llmAnalysisRun, false);
+
   const { state: previousState, commentId } = await loadKeepaliveState({
     github,
     context,
@@ -1208,6 +1213,29 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
     );
     if (errorRecovery) {
       summaryLines.push(`| Suggested recovery | ${errorRecovery} |`);
+    }
+  }
+
+  // LLM analysis details - show which provider was used for task completion detection
+  if (llmAnalysisRun && llmProvider) {
+    const providerIcon = llmProvider === 'github-models' ? '✅' :
+                         llmProvider === 'openai' ? '⚠️' :
+                         llmProvider === 'regex-fallback' ? '🔶' : 'ℹ️';
+    const providerLabel = llmProvider === 'github-models' ? 'GitHub Models (primary)' :
+                          llmProvider === 'openai' ? 'OpenAI (fallback)' :
+                          llmProvider === 'regex-fallback' ? 'Regex (fallback)' : llmProvider;
+    const confidencePercent = Math.round(llmConfidence * 100);
+    summaryLines.push(
+      '',
+      '### 🧠 Task Analysis',
+      `| Provider | ${providerIcon} ${providerLabel} |`,
+      `| Confidence | ${confidencePercent}% |`,
+    );
+    if (llmProvider !== 'github-models') {
+      summaryLines.push(
+        '',
+        `> ⚠️ Primary provider (GitHub Models) was unavailable; used ${providerLabel} instead.`,
+      );
     }
   }
 
@@ -1682,12 +1710,13 @@ async function analyzeTaskCompletion({ github, context, prNumber, baseSha, headS
  * @param {number} params.prNumber - PR number
  * @param {string} params.baseSha - Base SHA (before agent work)
  * @param {string} params.headSha - Head SHA (after agent work)
+ * @param {string[]} [params.llmCompletedTasks] - Tasks marked complete by LLM analysis
  * @param {object} [params.core] - Optional core for logging
  * @returns {Promise<{updated: boolean, tasksChecked: number, details: string}>}
  */
-async function autoReconcileTasks({ github, context, prNumber, baseSha, headSha, core }) {
+async function autoReconcileTasks({ github, context, prNumber, baseSha, headSha, llmCompletedTasks, core }) {
   const log = (msg) => core?.info?.(msg) || console.log(msg);
-  
+
   // Get current PR body
   let pr;
   try {
@@ -1710,13 +1739,39 @@ async function autoReconcileTasks({ github, context, prNumber, baseSha, headSha,
     return { updated: false, tasksChecked: 0, details: 'No tasks found in PR body' };
   }
 
-  // Analyze what tasks may have been completed
+  // Build high-confidence matches from multiple sources
+  let highConfidence = [];
+
+  // Source 1: LLM analysis (highest priority if available)
+  if (llmCompletedTasks && Array.isArray(llmCompletedTasks) && llmCompletedTasks.length > 0) {
+    log(`LLM analysis found ${llmCompletedTasks.length} completed task(s)`);
+    for (const task of llmCompletedTasks) {
+      highConfidence.push({
+        task,
+        reason: 'LLM session analysis',
+        confidence: 'high',
+        source: 'llm',
+      });
+    }
+  }
+
+  // Source 2: Commit/file analysis (fallback or supplementary)
   const analysis = await analyzeTaskCompletion({
     github, context, prNumber, baseSha, headSha, taskText, core
   });
 
-  // Only auto-check high-confidence matches
-  const highConfidence = analysis.matches.filter(m => m.confidence === 'high');
+  // Add commit-based matches that aren't already covered by LLM
+  const llmTasksLower = new Set((llmCompletedTasks || []).map(t => t.toLowerCase()));
+  const commitMatches = analysis.matches
+    .filter(m => m.confidence === 'high')
+    .filter(m => !llmTasksLower.has(m.task.toLowerCase()));
+
+  if (commitMatches.length > 0) {
+    log(`Commit analysis found ${commitMatches.length} additional task(s)`);
+    for (const match of commitMatches) {
+      highConfidence.push({ ...match, source: 'commit' });
+    }
+  }
   
   if (highConfidence.length === 0) {
     log('No high-confidence task matches to auto-check');
@@ -1766,14 +1821,26 @@ async function autoReconcileTasks({ github, context, prNumber, baseSha, headSha,
     return { 
       updated: false, 
       tasksChecked: 0, 
-      details: `Failed to update PR: ${error.message}` 
+      details: `Failed to update PR: ${error.message}`,
+      sources: { llm: 0, commit: 0 },
     };
   }
+
+  // Count matches by source for reporting
+  const llmCount = highConfidence.filter(m => m.source === 'llm').length;
+  const commitCount = highConfidence.filter(m => m.source === 'commit').length;
+  
+  // Build detailed description
+  const sourceDesc = [];
+  if (llmCount > 0) sourceDesc.push(`${llmCount} from LLM analysis`);
+  if (commitCount > 0) sourceDesc.push(`${commitCount} from commit analysis`);
+  const sourceInfo = sourceDesc.length > 0 ? ` (${sourceDesc.join(', ')})` : '';
 
   return {
     updated: true,
     tasksChecked: checkedCount,
-    details: `Auto-checked ${checkedCount} task(s): ${highConfidence.map(m => m.task.slice(0, 30) + '...').join(', ')}`
+    details: `Auto-checked ${checkedCount} task(s)${sourceInfo}: ${highConfidence.map(m => m.task.slice(0, 30) + '...').join(', ')}`,
+    sources: { llm: llmCount, commit: commitCount },
   };
 }
 
