@@ -247,8 +247,9 @@ def analyze_from_files(
 
 
 if __name__ == "__main__":
+    import sys
 
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.INFO, stream=sys.stderr)
 
     # Example usage
     sample_tasks = [

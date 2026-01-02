@@ -409,8 +409,10 @@ def check_providers() -> dict[str, bool]:
 
 
 if __name__ == "__main__":
-    # Quick test
-    logging.basicConfig(level=logging.INFO)
+    import sys
+
+    # Quick test - log to stderr
+    logging.basicConfig(level=logging.INFO, stream=sys.stderr)
 
     print("Provider availability:")
     for name, available in check_providers().items():
