@@ -450,7 +450,7 @@ jobs:
         id: analyze_session
         if: always()
         env:
-          PYTHONPATH: ${{ github.workspace }}
+          PYTHONPATH: ${{ github.workspace }}/.workflows-lib:${{ github.workspace }}
           PR_NUM: ${{ inputs.pr_number }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -477,6 +477,8 @@ jobs:
           python3 << 'PYEOF'
           import os
           import sys
+          # Add .workflows-lib to path for tools imports
+          sys.path.insert(0, '.workflows-lib')
           sys.path.insert(0, '.')
 
           session_file = os.environ.get("SESSION_JSONL", "codex-session.jsonl")
