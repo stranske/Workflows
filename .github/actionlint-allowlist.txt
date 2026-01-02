@@ -1,2 +1,6 @@
 # Suppress false positives for properties not defined in reusable workflow outputs
 property ".+" is not defined in object type {}
+
+# Suppress actionlint false positive for 'models' permission (GitHub Models API)
+# actionlint 1.7.3 doesn't recognize this newer permission scope
+unknown permission scope "models"
