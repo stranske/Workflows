@@ -576,12 +576,20 @@ async function classifyGateFailure({ github, context, pr, core }) {
 
 
 async function resolveGateConclusion({ github, context, pr, eventName, payload, core }) {
+  const run = await resolveGateRun({ github, context, pr, eventName, payload, core });
+  return run.conclusion;
+}
+
+async function resolveGateRun({ github, context, pr, eventName, payload, core }) {
   if (eventName === 'workflow_run') {
-    return normalise(payload?.workflow_run?.conclusion);
+    return {
+      conclusion: normalise(payload?.workflow_run?.conclusion),
+      runId: payload?.workflow_run?.id ? Number(payload.workflow_run.id) : 0,
+    };
   }
 
   if (!pr) {
-    return '';
+    return { conclusion: '', runId: 0 };
   }
 
   try {
@@ -596,18 +604,113 @@ async function resolveGateConclusion({ github, context, pr, eventName, payload, 
     if (Array.isArray(data?.workflow_runs)) {
       const match = data.workflow_runs.find((run) => run.head_sha === pr.head.sha);
       if (match) {
-        return normalise(match.conclusion);
+        return {
+          conclusion: normalise(match.conclusion),
+          runId: Number(match.id) || 0,
+        };
       }
       const latest = data.workflow_runs[0];
       if (latest) {
-        return normalise(latest.conclusion);
+        return {
+          conclusion: normalise(latest.conclusion),
+          runId: Number(latest.id) || 0,
+        };
       }
     }
   } catch (error) {
     if (core) core.info(`Failed to resolve Gate conclusion: ${error.message}`);
   }
 
-  return '';
+  return { conclusion: '', runId: 0 };
+}
+
+function extractCheckRunId(job) {
+  const directId = Number(job?.check_run_id);
+  if (Number.isFinite(directId) && directId > 0) {
+    return directId;
+  }
+  const url = normalise(job?.check_run_url ?? job?.check_run?.url);
+  const match = url.match(/\/check-runs\/(\d+)/i);
+  if (match) {
+    return Number(match[1]) || 0;
+  }
+  return 0;
+}
+
+const RATE_LIMIT_PATTERNS = [
+  /rate limit/i,
+  /secondary rate limit/i,
+  /abuse detection/i,
+  /too many requests/i,
+  /api rate/i,
+  /exceeded.*rate limit/i,
+];
+
+function hasRateLimitSignal(text) {
+  const candidate = normalise(text);
+  if (!candidate) {
+    return false;
+  }
+  return RATE_LIMIT_PATTERNS.some((pattern) => pattern.test(candidate));
+}
+
+function annotationsContainRateLimit(annotations = []) {
+  for (const annotation of annotations) {
+    const combined = [
+      annotation?.message,
+      annotation?.title,
+      annotation?.raw_details,
+    ]
+      .filter(Boolean)
+      .join(' ');
+    if (hasRateLimitSignal(combined)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+async function detectRateLimitCancellation({ github, context, runId, core }) {
+  const targetRunId = Number(runId) || 0;
+  if (!targetRunId || !github?.rest?.actions?.listJobsForWorkflowRun) {
+    return false;
+  }
+  if (!github?.rest?.checks?.listAnnotations) {
+    if (core) core.info('GitHub checks API unavailable; rate limit detection skipped.');
+    return false;
+  }
+
+  try {
+    const { data } = await github.rest.actions.listJobsForWorkflowRun({
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+      run_id: targetRunId,
+      per_page: 100,
+    });
+    const jobs = Array.isArray(data?.jobs) ? data.jobs : [];
+    for (const job of jobs) {
+      const checkRunId = extractCheckRunId(job);
+      if (!checkRunId) {
+        continue;
+      }
+      const params = {
+        owner: context.repo.owner,
+        repo: context.repo.repo,
+        check_run_id: checkRunId,
+        per_page: 100,
+      };
+      const annotations = github.paginate
+        ? await github.paginate(github.rest.checks.listAnnotations, params)
+        : (await github.rest.checks.listAnnotations(params))?.data;
+      if (annotationsContainRateLimit(annotations)) {
+        return true;
+      }
+    }
+  } catch (error) {
+    if (core) core.info(`Failed to inspect Gate annotations for rate limits: ${error.message}`);
+  }
+
+  return false;
 }
 
 async function evaluateKeepaliveLoop({ github, context, core, payload: overridePayload }) {
@@ -627,7 +730,7 @@ async function evaluateKeepaliveLoop({ github, context, core, payload: overrideP
     pull_number: prNumber,
   });
 
-  const gateConclusion = await resolveGateConclusion({
+  const gateRun = await resolveGateRun({
     github,
     context,
     pr,
@@ -635,7 +738,9 @@ async function evaluateKeepaliveLoop({ github, context, core, payload: overrideP
     payload,
     core,
   });
+  const gateConclusion = gateRun.conclusion;
   const gateNormalized = normalise(gateConclusion).toLowerCase();
+  let gateRateLimit = false;
 
   const config = parseConfig(pr.body || '');
   const labels = Array.isArray(pr.labels) ? pr.labels.map((label) => normalise(label.name).toLowerCase()) : [];
@@ -702,8 +807,14 @@ async function evaluateKeepaliveLoop({ github, context, core, payload: overrideP
     reason = isProductive ? 'max-iterations' : 'max-iterations-unproductive';
   } else if (gateNormalized !== 'success') {
     if (gateNormalized === 'cancelled') {
+      gateRateLimit = await detectRateLimitCancellation({
+        github,
+        context,
+        runId: gateRun.runId,
+        core,
+      });
       action = 'wait';
-      reason = 'gate-cancelled';
+      reason = gateRateLimit ? 'gate-cancelled-rate-limit' : 'gate-cancelled';
     } else {
       // Gate failed - check if we should route to fix mode or wait
       const gateFailure = await classifyGateFailure({ github, context, pr, core });

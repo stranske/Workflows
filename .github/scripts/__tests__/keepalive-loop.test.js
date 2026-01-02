@@ -20,7 +20,13 @@ const { formatStateComment } = require('../keepalive_state.js');
 const fixturesDir = path.join(__dirname, 'fixtures');
 const prBodyFixture = fs.readFileSync(path.join(fixturesDir, 'pr-body.md'), 'utf8');
 
-const buildGithubStub = ({ pr, comments = [], workflowRuns = [] } = {}) => {
+const buildGithubStub = ({
+  pr,
+  comments = [],
+  workflowRuns = [],
+  workflowJobs = [],
+  annotationsByCheckRunId = {},
+} = {}) => {
   const actions = [];
   return {
     actions,
@@ -35,8 +41,12 @@ const buildGithubStub = ({ pr, comments = [], workflowRuns = [] } = {}) => {
           return { data: { workflow_runs: workflowRuns } };
         },
         async listJobsForWorkflowRun() {
-          // Return empty jobs by default - tests can override if needed
-          return { data: { jobs: [] } };
+          return { data: { jobs: workflowJobs } };
+        },
+      },
+      checks: {
+        async listAnnotations({ check_run_id: checkRunId }) {
+          return { data: annotationsByCheckRunId[checkRunId] || [] };
         },
       },
       issues: {
@@ -347,6 +357,30 @@ test('evaluateKeepaliveLoop treats cancelled gate as transient wait', async () =
   });
   assert.equal(result.action, 'wait');
   assert.equal(result.reason, 'gate-cancelled');
+});
+
+test('evaluateKeepaliveLoop detects rate limit cancelled gate', async () => {
+  const pr = {
+    number: 509,
+    head: { ref: 'feature/cancelled-rate', sha: 'sha-cancelled-rate' },
+    labels: [{ name: 'agent:codex' }],
+    body: '## Tasks\n- [ ] one\n## Acceptance Criteria\n- [ ] a',
+  };
+  const github = buildGithubStub({
+    pr,
+    workflowRuns: [{ id: 2001, head_sha: 'sha-cancelled-rate', conclusion: 'cancelled' }],
+    workflowJobs: [{ id: 3001, check_run_id: 9001, name: 'gate' }],
+    annotationsByCheckRunId: {
+      9001: [{ message: 'Secondary rate limit exceeded for GitHub API.' }],
+    },
+  });
+  const result = await evaluateKeepaliveLoop({
+    github,
+    context: buildContext(pr.number),
+    core: buildCore(),
+  });
+  assert.equal(result.action, 'wait');
+  assert.equal(result.reason, 'gate-cancelled-rate-limit');
 });
 
 test('evaluateKeepaliveLoop runs when ready', async () => {
@@ -1796,4 +1830,3 @@ test('normaliseChecklistSection preserves non-list content', () => {
 
   assert.equal(result, expected);
 });
-
