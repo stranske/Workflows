@@ -53,6 +53,13 @@ dev = [
     "tomlkit>=0.13.0",
 ]
 
+# LangChain integration for LLM-enhanced task analysis
+# Install with: pip install -e ".[langchain]"
+langchain = [
+    "langchain-core>=0.3.0",
+    "langchain-openai>=0.3.0",
+]
+
 [tool.setuptools]
 # This repo is primarily automation + scripts; avoid setuptools trying to auto-discover
 # random top-level dirs as importable packages (which breaks editable installs).
