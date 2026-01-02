@@ -120,6 +120,8 @@ jobs:
       llm-analysis-run: ${{ steps.llm_analysis.outputs.llm-analysis-run }}
       llm-completed-tasks: ${{ steps.llm_analysis.outputs.completed-tasks }}
       llm-has-completions: ${{ steps.llm_analysis.outputs.has-completions }}
+      llm-provider: ${{ steps.llm_analysis.outputs.provider }}
+      llm-confidence: ${{ steps.llm_analysis.outputs.confidence }}
       session-event-count: ${{ steps.analyze_session.outputs.event-count }}
       session-todo-count: ${{ steps.analyze_session.outputs.todo-count }}
     steps:
@@ -544,7 +546,11 @@ jobs:
           # Extract key fields for downstream use
           if [ -f "$ANALYSIS_FILE" ]; then
             COMPLETED=$(python3 -c "import json; d=json.load(open('$ANALYSIS_FILE')); print(json.dumps(d.get('completed_tasks', [])))")
+            PROVIDER=$(python3 -c "import json; d=json.load(open('$ANALYSIS_FILE')); print(d.get('provider', 'unknown'))")
+            CONFIDENCE=$(python3 -c "import json; d=json.load(open('$ANALYSIS_FILE')); print(d.get('confidence', 0))")
             echo "completed-tasks=$COMPLETED" >> "$GITHUB_OUTPUT"
+            echo "provider=$PROVIDER" >> "$GITHUB_OUTPUT"
+            echo "confidence=$CONFIDENCE" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Commit and push changes

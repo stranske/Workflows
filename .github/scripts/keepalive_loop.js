@@ -950,6 +950,11 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
   const agentSummary = normalise(inputs.agent_summary ?? inputs.agentSummary ?? inputs.codex_summary ?? inputs.codexSummary);
   const runUrl = normalise(inputs.run_url ?? inputs.runUrl);
 
+  // LLM task analysis details
+  const llmProvider = normalise(inputs.llm_provider ?? inputs.llmProvider);
+  const llmConfidence = toNumber(inputs.llm_confidence ?? inputs.llmConfidence, 0);
+  const llmAnalysisRun = toBool(inputs.llm_analysis_run ?? inputs.llmAnalysisRun, false);
+
   const { state: previousState, commentId } = await loadKeepaliveState({
     github,
     context,
@@ -1208,6 +1213,29 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
     );
     if (errorRecovery) {
       summaryLines.push(`| Suggested recovery | ${errorRecovery} |`);
+    }
+  }
+
+  // LLM analysis details - show which provider was used for task completion detection
+  if (llmAnalysisRun && llmProvider) {
+    const providerIcon = llmProvider === 'github-models' ? '✅' :
+                         llmProvider === 'openai' ? '⚠️' :
+                         llmProvider === 'regex-fallback' ? '🔶' : 'ℹ️';
+    const providerLabel = llmProvider === 'github-models' ? 'GitHub Models (primary)' :
+                          llmProvider === 'openai' ? 'OpenAI (fallback)' :
+                          llmProvider === 'regex-fallback' ? 'Regex (fallback)' : llmProvider;
+    const confidencePercent = Math.round(llmConfidence * 100);
+    summaryLines.push(
+      '',
+      '### 🧠 Task Analysis',
+      `| Provider | ${providerIcon} ${providerLabel} |`,
+      `| Confidence | ${confidencePercent}% |`,
+    );
+    if (llmProvider !== 'github-models') {
+      summaryLines.push(
+        '',
+        `> ⚠️ Primary provider (GitHub Models) was unavailable; used ${providerLabel} instead.`,
+      );
     }
   }
 
@@ -1793,14 +1821,26 @@ async function autoReconcileTasks({ github, context, prNumber, baseSha, headSha,
     return { 
       updated: false, 
       tasksChecked: 0, 
-      details: `Failed to update PR: ${error.message}` 
+      details: `Failed to update PR: ${error.message}`,
+      sources: { llm: 0, commit: 0 },
     };
   }
+
+  // Count matches by source for reporting
+  const llmCount = highConfidence.filter(m => m.source === 'llm').length;
+  const commitCount = highConfidence.filter(m => m.source === 'commit').length;
+  
+  // Build detailed description
+  const sourceDesc = [];
+  if (llmCount > 0) sourceDesc.push(`${llmCount} from LLM analysis`);
+  if (commitCount > 0) sourceDesc.push(`${commitCount} from commit analysis`);
+  const sourceInfo = sourceDesc.length > 0 ? ` (${sourceDesc.join(', ')})` : '';
 
   return {
     updated: true,
     tasksChecked: checkedCount,
-    details: `Auto-checked ${checkedCount} task(s): ${highConfidence.map(m => m.task.slice(0, 30) + '...').join(', ')}`
+    details: `Auto-checked ${checkedCount} task(s)${sourceInfo}: ${highConfidence.map(m => m.task.slice(0, 30) + '...').join(', ')}`,
+    sources: { llm: llmCount, commit: commitCount },
   };
 }
 

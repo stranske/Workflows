@@ -1989,3 +1989,123 @@ test('normaliseChecklistSection preserves non-list content', () => {
 
   assert.equal(result, expected);
 });
+
+test('updateKeepaliveLoopSummary displays LLM provider analysis details', async () => {
+  const existingState = formatStateComment({
+    trace: 'trace-llm',
+    iteration: 1,
+    max_iterations: 5,
+    failure_threshold: 3,
+  });
+  const github = buildGithubStub({
+    comments: [{ id: 77, body: existingState, html_url: 'https://example.com/77' }],
+  });
+  await updateKeepaliveLoopSummary({
+    github,
+    context: buildContext(123),
+    core: buildCore(),
+    inputs: {
+      prNumber: 123,
+      action: 'run',
+      runResult: 'success',
+      gateConclusion: 'success',
+      tasksTotal: 4,
+      tasksUnchecked: 2,
+      keepaliveEnabled: true,
+      autofixEnabled: false,
+      iteration: 1,
+      maxIterations: 5,
+      failureThreshold: 3,
+      trace: 'trace-llm',
+      llm_provider: 'github-models',
+      llm_confidence: 0.95,
+      llm_analysis_run: true,
+    },
+  });
+
+  assert.equal(github.actions.length, 1);
+  assert.equal(github.actions[0].type, 'update');
+  assert.match(github.actions[0].body, /### 🧠 Task Analysis/);
+  assert.match(github.actions[0].body, /GitHub Models \(primary\)/);
+  assert.match(github.actions[0].body, /Confidence \| 95%/);
+});
+
+test('updateKeepaliveLoopSummary shows fallback warning for OpenAI provider', async () => {
+  const existingState = formatStateComment({
+    trace: 'trace-openai',
+    iteration: 1,
+    max_iterations: 5,
+    failure_threshold: 3,
+  });
+  const github = buildGithubStub({
+    comments: [{ id: 78, body: existingState, html_url: 'https://example.com/78' }],
+  });
+  await updateKeepaliveLoopSummary({
+    github,
+    context: buildContext(123),
+    core: buildCore(),
+    inputs: {
+      prNumber: 123,
+      action: 'run',
+      runResult: 'success',
+      gateConclusion: 'success',
+      tasksTotal: 4,
+      tasksUnchecked: 2,
+      keepaliveEnabled: true,
+      autofixEnabled: false,
+      iteration: 1,
+      maxIterations: 5,
+      failureThreshold: 3,
+      trace: 'trace-openai',
+      llm_provider: 'openai',
+      llm_confidence: 0.87,
+      llm_analysis_run: true,
+    },
+  });
+
+  assert.equal(github.actions.length, 1);
+  assert.equal(github.actions[0].type, 'update');
+  assert.match(github.actions[0].body, /### 🧠 Task Analysis/);
+  assert.match(github.actions[0].body, /OpenAI \(fallback\)/);
+  assert.match(github.actions[0].body, /Primary provider.*was unavailable/);
+});
+
+test('updateKeepaliveLoopSummary shows regex fallback warning', async () => {
+  const existingState = formatStateComment({
+    trace: 'trace-regex',
+    iteration: 1,
+    max_iterations: 5,
+    failure_threshold: 3,
+  });
+  const github = buildGithubStub({
+    comments: [{ id: 79, body: existingState, html_url: 'https://example.com/79' }],
+  });
+  await updateKeepaliveLoopSummary({
+    github,
+    context: buildContext(123),
+    core: buildCore(),
+    inputs: {
+      prNumber: 123,
+      action: 'run',
+      runResult: 'success',
+      gateConclusion: 'success',
+      tasksTotal: 4,
+      tasksUnchecked: 2,
+      keepaliveEnabled: true,
+      autofixEnabled: false,
+      iteration: 1,
+      maxIterations: 5,
+      failureThreshold: 3,
+      trace: 'trace-regex',
+      llm_provider: 'regex-fallback',
+      llm_confidence: 0.7,
+      llm_analysis_run: true,
+    },
+  });
+
+  assert.equal(github.actions.length, 1);
+  assert.equal(github.actions[0].type, 'update');
+  assert.match(github.actions[0].body, /### 🧠 Task Analysis/);
+  assert.match(github.actions[0].body, /Regex \(fallback\)/);
+  assert.match(github.actions[0].body, /Primary provider.*was unavailable/);
+});

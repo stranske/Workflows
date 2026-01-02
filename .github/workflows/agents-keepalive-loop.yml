@@ -362,6 +362,11 @@ jobs:
             const beforeSha = '${{ needs.evaluate.outputs.head_sha }}';  // SHA before agent ran
             const headSha = '${{ needs.run-codex.outputs.commit-sha }}';  // SHA after agent ran
 
+            // LLM analysis metadata
+            const llmProvider = '${{ needs.run-codex.outputs.llm-provider || '' }}';
+            const llmConfidence = '${{ needs.run-codex.outputs.llm-confidence || '' }}';
+            const llmAnalysisRun = '${{ needs.run-codex.outputs.llm-analysis-run }}' === 'true';
+
             // Parse LLM completed tasks if available
             let llmCompletedTasks = [];
             const llmTasksJson = '${{ needs.run-codex.outputs.llm-completed-tasks || '[]' }}';
@@ -369,6 +374,9 @@ jobs:
               llmCompletedTasks = JSON.parse(llmTasksJson);
               if (llmCompletedTasks.length > 0) {
                 core.info(`LLM analysis found ${llmCompletedTasks.length} completed task(s)`);
+                if (llmProvider) {
+                  core.info(`LLM provider: ${llmProvider} (confidence: ${llmConfidence})`);
+                }
               }
             } catch (e) {
               core.debug(`Failed to parse LLM tasks: ${e.message}`);
@@ -393,9 +401,14 @@ jobs:
               core.info(`ℹ️ ${result.details}`);
             }
 
-            // Output for step summary
+            // Output for step summary and downstream reporting
             core.setOutput('tasks_checked', result.tasksChecked);
             core.setOutput('reconciliation_details', result.details);
+            core.setOutput('llm_provider', llmProvider);
+            core.setOutput('llm_confidence', llmConfidence);
+            core.setOutput('llm_analysis_run', llmAnalysisRun);
+            core.setOutput('llm_tasks_count', llmCompletedTasks.length);
+            core.setOutput('commit_tasks_count', result.sources?.commit || 0);
 
       - name: Update summary comment
         uses: actions/github-script@v7
@@ -427,5 +440,9 @@ jobs:
               agent_commit_sha: '${{ needs.run-codex.outputs.commit-sha }}',
               agent_files_changed: '${{ needs.run-codex.outputs.files-changed }}',
               agent_summary: process.env.CODEX_SUMMARY || '',
+              // LLM analysis details for task completion reporting
+              llm_provider: '${{ needs.run-codex.outputs.llm-provider || '' }}',
+              llm_confidence: '${{ needs.run-codex.outputs.llm-confidence || '' }}',
+              llm_analysis_run: '${{ needs.run-codex.outputs.llm-analysis-run }}' === 'true',
             };
             await updateKeepaliveLoopSummary({ github, context, core, inputs });

@@ -500,5 +500,9 @@ jobs:
               agent_commit_sha: '${{ needs.run-codex.outputs.commit-sha }}',
               agent_files_changed: '${{ needs.run-codex.outputs.files-changed }}',
               agent_summary: process.env.CODEX_SUMMARY || '',
+              // LLM task analysis provider info
+              llm_provider: '${{ needs.run-codex.outputs.llm-provider || '' }}',
+              llm_confidence: '${{ needs.run-codex.outputs.llm-confidence || '' }}',
+              llm_analysis_run: '${{ needs.run-codex.outputs.llm-analysis-run }}' === 'true',
             };
             await updateKeepaliveLoopSummary({ github, context, core, inputs });
