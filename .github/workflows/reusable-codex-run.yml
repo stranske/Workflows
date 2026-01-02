@@ -103,6 +103,7 @@ permissions:
   contents: write
   pull-requests: write
   actions: write
+  models: read
 
 jobs:
   codex:
