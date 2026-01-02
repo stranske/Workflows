@@ -1,0 +1,6 @@
+{
+  "pr_number": 2201,
+  "gate_conclusion": "cancelled",
+  "run_id": 556677,
+  "logs": "HTTP 403: rate limit exceeded while calling GitHub API"
+}

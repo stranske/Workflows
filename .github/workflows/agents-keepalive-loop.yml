@@ -7,6 +7,17 @@ on:
   pull_request:
     types:
       - labeled
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to force retry'
+        required: true
+        type: number
+      force_retry:
+        description: 'Force retry even if gate is cancelled/deferred'
+        required: false
+        default: true
+        type: boolean
 
 permissions:
   contents: write
@@ -14,7 +25,7 @@ permissions:
   actions: write
 
 concurrency:
-  group: keepalive-${{ github.event.workflow_run.pull_requests[0].number || github.event.pull_request.number || github.run_id }}
+  group: keepalive-${{ github.event.workflow_run.pull_requests[0].number || github.event.pull_request.number || github.event.inputs.pr_number || github.run_id }}
   cancel-in-progress: false
 
 jobs:
@@ -106,11 +117,24 @@ jobs:
       - name: Evaluate keepalive state
         id: evaluate
         uses: actions/github-script@v7
+        env:
+          INPUT_PR_NUMBER: ${{ github.event.inputs.pr_number || '' }}
+          INPUT_FORCE_RETRY: ${{ github.event.inputs.force_retry || 'false' }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const { evaluateKeepaliveLoop } = require('./.github/scripts/keepalive_loop.js');
-            const result = await evaluateKeepaliveLoop({ github, context, core });
+            const options = { github, context, core };
+            // Pass workflow_dispatch inputs if present
+            const inputPrNumber = process.env.INPUT_PR_NUMBER;
+            const forceRetry = process.env.INPUT_FORCE_RETRY === 'true';
+            if (inputPrNumber) {
+              options.overridePrNumber = parseInt(inputPrNumber, 10);
+            }
+            if (forceRetry) {
+              options.forceRetry = true;
+            }
+            const result = await evaluateKeepaliveLoop(options);
             const output = {
               pr_number: String(result.prNumber || ''),
               pr_ref: String(result.prRef || ''),

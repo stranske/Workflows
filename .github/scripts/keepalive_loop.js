@@ -229,8 +229,12 @@ function classifyFailureDetails({ action, runResult, summaryReason, agentExitCod
   const message = [agentSummary, summaryReason, runResult].filter(Boolean).join(' ');
   const errorInfo = classifyError({ message, code: agentExitCode });
   let category = errorInfo.category;
+  const isGateCancelled = summaryReason.startsWith('gate-cancelled');
 
   if (runFailed && (runResult === 'cancelled' || runResult === 'skipped')) {
+    category = ERROR_CATEGORIES.transient;
+  }
+  if (!runFailed && isGateCancelled) {
     category = ERROR_CATEGORIES.transient;
   }
 
@@ -572,12 +576,20 @@ async function classifyGateFailure({ github, context, pr, core }) {
 
 
 async function resolveGateConclusion({ github, context, pr, eventName, payload, core }) {
+  const run = await resolveGateRun({ github, context, pr, eventName, payload, core });
+  return run.conclusion;
+}
+
+async function resolveGateRun({ github, context, pr, eventName, payload, core }) {
   if (eventName === 'workflow_run') {
-    return normalise(payload?.workflow_run?.conclusion);
+    return {
+      conclusion: normalise(payload?.workflow_run?.conclusion),
+      runId: payload?.workflow_run?.id ? Number(payload.workflow_run.id) : 0,
+    };
   }
 
   if (!pr) {
-    return '';
+    return { conclusion: '', runId: 0 };
   }
 
   try {
@@ -592,23 +604,166 @@ async function resolveGateConclusion({ github, context, pr, eventName, payload, 
     if (Array.isArray(data?.workflow_runs)) {
       const match = data.workflow_runs.find((run) => run.head_sha === pr.head.sha);
       if (match) {
-        return normalise(match.conclusion);
+        return {
+          conclusion: normalise(match.conclusion),
+          runId: Number(match.id) || 0,
+        };
       }
       const latest = data.workflow_runs[0];
       if (latest) {
-        return normalise(latest.conclusion);
+        return {
+          conclusion: normalise(latest.conclusion),
+          runId: Number(latest.id) || 0,
+        };
       }
     }
   } catch (error) {
     if (core) core.info(`Failed to resolve Gate conclusion: ${error.message}`);
   }
 
-  return '';
+  return { conclusion: '', runId: 0 };
 }
 
-async function evaluateKeepaliveLoop({ github, context, core, payload: overridePayload }) {
+function extractCheckRunId(job) {
+  const directId = Number(job?.check_run_id);
+  if (Number.isFinite(directId) && directId > 0) {
+    return directId;
+  }
+  const url = normalise(job?.check_run_url ?? job?.check_run?.url);
+  const match = url.match(/\/check-runs\/(\d+)/i);
+  if (match) {
+    return Number(match[1]) || 0;
+  }
+  return 0;
+}
+
+const RATE_LIMIT_PATTERNS = [
+  /rate limit/i,
+  /rate[-\s]limit/i,
+  /rate[-\s]limited/i,
+  /secondary rate limit/i,
+  /abuse detection/i,
+  /too many requests/i,
+  /api rate/i,
+  /exceeded.*rate limit/i,
+];
+
+function hasRateLimitSignal(text) {
+  const candidate = normalise(text);
+  if (!candidate) {
+    return false;
+  }
+  return RATE_LIMIT_PATTERNS.some((pattern) => pattern.test(candidate));
+}
+
+function annotationsContainRateLimit(annotations = []) {
+  for (const annotation of annotations) {
+    const combined = [
+      annotation?.message,
+      annotation?.title,
+      annotation?.raw_details,
+    ]
+      .filter(Boolean)
+      .join(' ');
+    if (hasRateLimitSignal(combined)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function extractRateLimitLogText(data) {
+  if (!data) {
+    return '';
+  }
+  const buffer = Buffer.isBuffer(data) ? data : Buffer.from(data);
+  if (buffer.length >= 2 && buffer[0] === 0x1f && buffer[1] === 0x8b) {
+    try {
+      const zlib = require('zlib');
+      return zlib.gunzipSync(buffer).toString('utf8');
+    } catch (error) {
+      return buffer.toString('utf8');
+    }
+  }
+  return buffer.toString('utf8');
+}
+
+function logContainsRateLimit(data) {
+  const text = extractRateLimitLogText(data);
+  if (!text) {
+    return false;
+  }
+  const sample = text.length > 500000 ? `${text.slice(0, 250000)}\n${text.slice(-250000)}` : text;
+  return hasRateLimitSignal(sample);
+}
+
+async function detectRateLimitCancellation({ github, context, runId, core }) {
+  const targetRunId = Number(runId) || 0;
+  if (!targetRunId || !github?.rest?.actions?.listJobsForWorkflowRun) {
+    return false;
+  }
+  const canCheckAnnotations = Boolean(github?.rest?.checks?.listAnnotations);
+  const canCheckLogs = Boolean(github?.rest?.actions?.downloadJobLogsForWorkflowRun);
+  if (!canCheckAnnotations && !canCheckLogs) {
+    if (core) core.info('Rate limit detection skipped; no annotations or logs API available.');
+    return false;
+  }
+
+  try {
+    const { data } = await github.rest.actions.listJobsForWorkflowRun({
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+      run_id: targetRunId,
+      per_page: 100,
+    });
+    const jobs = Array.isArray(data?.jobs) ? data.jobs : [];
+    for (const job of jobs) {
+      if (canCheckAnnotations) {
+        const checkRunId = extractCheckRunId(job);
+        if (checkRunId) {
+          const params = {
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            check_run_id: checkRunId,
+            per_page: 100,
+          };
+          const annotations = github.paginate
+            ? await github.paginate(github.rest.checks.listAnnotations, params)
+            : (await github.rest.checks.listAnnotations(params))?.data;
+          if (annotationsContainRateLimit(annotations)) {
+            return true;
+          }
+        }
+      }
+
+      if (canCheckLogs) {
+        const jobId = Number(job?.id) || 0;
+        if (jobId) {
+          try {
+            const logs = await github.rest.actions.downloadJobLogsForWorkflowRun({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              job_id: jobId,
+            });
+            if (logContainsRateLimit(logs?.data)) {
+              return true;
+            }
+          } catch (error) {
+            if (core) core.info(`Failed to inspect Gate job logs for rate limits: ${error.message}`);
+          }
+        }
+      }
+    }
+  } catch (error) {
+    if (core) core.info(`Failed to inspect Gate cancellation signals for rate limits: ${error.message}`);
+  }
+
+  return false;
+}
+
+async function evaluateKeepaliveLoop({ github, context, core, payload: overridePayload, overridePrNumber, forceRetry }) {
   const payload = overridePayload || context.payload || {};
-  const prNumber = await resolvePrNumber({ github, context, core, payload });
+  let prNumber = overridePrNumber || await resolvePrNumber({ github, context, core, payload });
   if (!prNumber) {
     return {
       prNumber: 0,
@@ -623,7 +778,7 @@ async function evaluateKeepaliveLoop({ github, context, core, payload: overrideP
     pull_number: prNumber,
   });
 
-  const gateConclusion = await resolveGateConclusion({
+  const gateRun = await resolveGateRun({
     github,
     context,
     pr,
@@ -631,7 +786,9 @@ async function evaluateKeepaliveLoop({ github, context, core, payload: overrideP
     payload,
     core,
   });
+  const gateConclusion = gateRun.conclusion;
   const gateNormalized = normalise(gateConclusion).toLowerCase();
+  let gateRateLimit = false;
 
   const config = parseConfig(pr.body || '');
   const labels = Array.isArray(pr.labels) ? pr.labels.map((label) => normalise(label.name).toLowerCase()) : [];
@@ -697,14 +854,37 @@ async function evaluateKeepaliveLoop({ github, context, core, payload: overrideP
     action = 'stop';
     reason = isProductive ? 'max-iterations' : 'max-iterations-unproductive';
   } else if (gateNormalized !== 'success') {
-    // Gate failed - check if we should route to fix mode or wait
-    const gateFailure = await classifyGateFailure({ github, context, pr, core });
-    if (gateFailure.shouldFixMode && gateNormalized === 'failure') {
-      action = 'fix';
-      reason = `fix-${gateFailure.failureType}`;
+    if (gateNormalized === 'cancelled') {
+      gateRateLimit = await detectRateLimitCancellation({
+        github,
+        context,
+        runId: gateRun.runId,
+        core,
+      });
+      // forceRetry bypasses defer/wait for cancelled gates
+      if (forceRetry && tasksRemaining) {
+        action = 'run';
+        reason = 'force-retry-cancelled';
+        if (core) core.info(`Force retry enabled: bypassing cancelled gate (rate_limit=${gateRateLimit})`);
+      } else {
+        action = gateRateLimit ? 'defer' : 'wait';
+        reason = gateRateLimit ? 'gate-cancelled-rate-limit' : 'gate-cancelled';
+      }
     } else {
-      action = 'wait';
-      reason = gateNormalized ? 'gate-not-success' : 'gate-pending';
+      // Gate failed - check if we should route to fix mode or wait
+      const gateFailure = await classifyGateFailure({ github, context, pr, core });
+      if (gateFailure.shouldFixMode && gateNormalized === 'failure') {
+        action = 'fix';
+        reason = `fix-${gateFailure.failureType}`;
+      } else if (forceRetry && tasksRemaining) {
+        // forceRetry can also bypass non-success gates (user explicitly wants to retry)
+        action = 'run';
+        reason = 'force-retry-gate';
+        if (core) core.info(`Force retry enabled: bypassing gate conclusion '${gateNormalized}'`);
+      } else {
+        action = 'wait';
+        reason = gateNormalized ? 'gate-not-success' : 'gate-pending';
+      }
     }
   } else if (tasksRemaining) {
     action = 'run';
@@ -737,6 +917,7 @@ async function evaluateKeepaliveLoop({ github, context, core, payload: overrideP
     keepaliveEnabled,
     stateCommentId: stateResult.commentId || 0,
     state,
+    forceRetry: Boolean(forceRetry),
   };
 }
 
@@ -791,6 +972,7 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
   const isNeutralStop = reason === 'no-checklists' || reason === 'keepalive-disabled';
   let stop = action === 'stop' && !isSuccessStop && !isNeutralStop;
   let summaryReason = reason || action || 'unknown';
+  const baseReason = summaryReason;
   const transientDetails = classifyFailureDetails({
     action,
     runResult,
@@ -804,6 +986,16 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
     runResult &&
     runResult !== 'success' &&
     transientDetails.category === ERROR_CATEGORIES.transient;
+  const waitLikeAction = action === 'wait' || action === 'defer';
+  const waitIsTransientReason = [
+    'gate-pending',
+    'missing-agent-label',
+    'gate-cancelled',
+    'gate-cancelled-rate-limit',
+  ].includes(baseReason);
+  const isTransientWait =
+    waitLikeAction &&
+    (transientDetails.category === ERROR_CATEGORIES.transient || waitIsTransientReason);
 
   // Task reconciliation: detect when agent made changes but didn't update checkboxes
   const previousTasks = previousState?.tasks || {};
@@ -856,12 +1048,12 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
         summaryReason = `${summaryReason}-repeat`;
       }
     }
-  } else if (action === 'wait') {
+  } else if (waitLikeAction) {
     // Wait states are NOT failures - they're transient conditions
     // Don't increment failure counter for: gate-pending, gate-not-success, missing-agent-label
     // These are expected states that will resolve on their own
     // Check if this is a transient error (from error classification)
-    if (transientDetails.category === ERROR_CATEGORIES.transient) {
+    if (isTransientWait) {
       failure = {};
       summaryReason = `${summaryReason}-transient`;
     } else if (failure.reason && !failure.reason.startsWith('gate-') && failure.reason !== 'missing-agent-label') {
@@ -915,6 +1107,22 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
     ? `**${maxIterations}+${extendedCount}** 🚀 extended`
     : `${nextIteration}/${maxIterations || '∞'}`;
 
+  const dispositionLabel = (() => {
+    if (action === 'defer') {
+      return 'deferred (transient)';
+    }
+    if (action === 'wait') {
+      return isTransientWait ? 'skipped (transient)' : 'skipped (failure)';
+    }
+    if (action === 'skip') {
+      return 'skipped';
+    }
+    return '';
+  })();
+  const actionReason = waitLikeAction
+    ? (baseReason || summaryReason)
+    : (summaryReason || baseReason);
+
   const summaryLines = [
     '<!-- keepalive-loop-summary -->',
     `## 🤖 Keepalive Loop Status`,
@@ -931,7 +1139,8 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
           : formatProgressBar(nextIteration, maxIterations)
         : 'n/a (unbounded)'
     } |`,
-    `| Action | ${action || 'unknown'} (${summaryReason || 'n/a'}) |`,
+    `| Action | ${action || 'unknown'} (${actionReason || 'n/a'}) |`,
+    ...(dispositionLabel ? [`| Disposition | ${dispositionLabel} |`] : []),
     ...(runFailed ? [`| Agent status | ❌ AGENT FAILED |`] : []),
     `| Gate | ${gateConclusion || 'unknown'} |`,
     `| Tasks | ${tasksComplete}/${tasksTotal} complete |`,
@@ -1007,6 +1216,14 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
       '',
       '### ♻️ Transient Issue Detected',
       'This run failed due to a transient issue. The failure counter has been reset to avoid pausing the loop.',
+    );
+  }
+
+  if (action === 'defer') {
+    summaryLines.push(
+      '',
+      '### ⏳ Deferred',
+      'Keepalive deferred due to a transient Gate cancellation (likely rate limits). It will retry later.',
     );
   }
 

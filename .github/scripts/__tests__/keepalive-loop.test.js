@@ -20,7 +20,14 @@ const { formatStateComment } = require('../keepalive_state.js');
 const fixturesDir = path.join(__dirname, 'fixtures');
 const prBodyFixture = fs.readFileSync(path.join(fixturesDir, 'pr-body.md'), 'utf8');
 
-const buildGithubStub = ({ pr, comments = [], workflowRuns = [] } = {}) => {
+const buildGithubStub = ({
+  pr,
+  comments = [],
+  workflowRuns = [],
+  workflowJobs = [],
+  annotationsByCheckRunId = {},
+  jobLogsByJobId = {},
+} = {}) => {
   const actions = [];
   return {
     actions,
@@ -35,8 +42,17 @@ const buildGithubStub = ({ pr, comments = [], workflowRuns = [] } = {}) => {
           return { data: { workflow_runs: workflowRuns } };
         },
         async listJobsForWorkflowRun() {
-          // Return empty jobs by default - tests can override if needed
-          return { data: { jobs: [] } };
+          return { data: { jobs: workflowJobs } };
+        },
+        async downloadJobLogsForWorkflowRun({ job_id: jobId }) {
+          const data = jobLogsByJobId[jobId] ?? '';
+          const buffer = Buffer.isBuffer(data) ? data : Buffer.from(data);
+          return { data: buffer };
+        },
+      },
+      checks: {
+        async listAnnotations({ check_run_id: checkRunId }) {
+          return { data: annotationsByCheckRunId[checkRunId] || [] };
         },
       },
       issues: {
@@ -327,6 +343,165 @@ test('evaluateKeepaliveLoop waits when gate is pending', async () => {
   });
   assert.equal(result.action, 'wait');
   assert.equal(result.reason, 'gate-pending');
+});
+
+test('evaluateKeepaliveLoop treats cancelled gate as transient wait', async () => {
+  const pr = {
+    number: 508,
+    head: { ref: 'feature/cancelled', sha: 'sha-cancelled' },
+    labels: [{ name: 'agent:codex' }],
+    body: '## Tasks\n- [ ] one\n## Acceptance Criteria\n- [ ] a',
+  };
+  const github = buildGithubStub({
+    pr,
+    workflowRuns: [{ id: 1004, head_sha: 'sha-cancelled', conclusion: 'cancelled' }],
+  });
+  const result = await evaluateKeepaliveLoop({
+    github,
+    context: buildContext(pr.number),
+    core: buildCore(),
+  });
+  assert.equal(result.action, 'wait');
+  assert.equal(result.reason, 'gate-cancelled');
+});
+
+test('evaluateKeepaliveLoop detects rate limit cancelled gate', async () => {
+  const pr = {
+    number: 509,
+    head: { ref: 'feature/cancelled-rate', sha: 'sha-cancelled-rate' },
+    labels: [{ name: 'agent:codex' }],
+    body: '## Tasks\n- [ ] one\n## Acceptance Criteria\n- [ ] a',
+  };
+  const github = buildGithubStub({
+    pr,
+    workflowRuns: [{ id: 2001, head_sha: 'sha-cancelled-rate', conclusion: 'cancelled' }],
+    workflowJobs: [{ id: 3001, check_run_id: 9001, name: 'gate' }],
+    annotationsByCheckRunId: {
+      9001: [{ message: 'Secondary rate limit exceeded for GitHub API.' }],
+    },
+  });
+  const result = await evaluateKeepaliveLoop({
+    github,
+    context: buildContext(pr.number),
+    core: buildCore(),
+  });
+  assert.equal(result.action, 'defer');
+  assert.equal(result.reason, 'gate-cancelled-rate-limit');
+});
+
+test('evaluateKeepaliveLoop detects rate limit cancelled gate from logs', async () => {
+  const pr = {
+    number: 510,
+    head: { ref: 'feature/cancelled-rate-logs', sha: 'sha-cancelled-rate-logs' },
+    labels: [{ name: 'agent:codex' }],
+    body: '## Tasks\n- [ ] one\n## Acceptance Criteria\n- [ ] a',
+  };
+  const github = buildGithubStub({
+    pr,
+    workflowRuns: [{ id: 2002, head_sha: 'sha-cancelled-rate-logs', conclusion: 'cancelled' }],
+    workflowJobs: [{ id: 3002, name: 'gate' }],
+    jobLogsByJobId: {
+      3002: 'Error: API rate limit exceeded, please retry later.',
+    },
+  });
+  const result = await evaluateKeepaliveLoop({
+    github,
+    context: buildContext(pr.number),
+    core: buildCore(),
+  });
+  assert.equal(result.action, 'defer');
+  assert.equal(result.reason, 'gate-cancelled-rate-limit');
+});
+
+test('evaluateKeepaliveLoop force_retry bypasses cancelled gate', async () => {
+  const pr = {
+    number: 511,
+    head: { ref: 'feature/force-retry', sha: 'sha-force-retry' },
+    labels: [{ name: 'agent:codex' }],
+    body: '## Tasks\n- [ ] one\n## Acceptance Criteria\n- [ ] a',
+  };
+  const github = buildGithubStub({
+    pr,
+    workflowRuns: [{ id: 2003, head_sha: 'sha-force-retry', conclusion: 'cancelled' }],
+  });
+  const result = await evaluateKeepaliveLoop({
+    github,
+    context: buildContext(pr.number),
+    core: buildCore(),
+    forceRetry: true,
+  });
+  assert.equal(result.action, 'run');
+  assert.equal(result.reason, 'force-retry-cancelled');
+  assert.equal(result.forceRetry, true);
+});
+
+test('evaluateKeepaliveLoop force_retry bypasses rate limit deferred gate', async () => {
+  const pr = {
+    number: 512,
+    head: { ref: 'feature/force-retry-rate', sha: 'sha-force-retry-rate' },
+    labels: [{ name: 'agent:codex' }],
+    body: '## Tasks\n- [ ] one\n## Acceptance Criteria\n- [ ] a',
+  };
+  const github = buildGithubStub({
+    pr,
+    workflowRuns: [{ id: 2004, head_sha: 'sha-force-retry-rate', conclusion: 'cancelled' }],
+    workflowJobs: [{ id: 3004, check_run_id: 9004, name: 'gate' }],
+    annotationsByCheckRunId: {
+      9004: [{ message: 'Secondary rate limit exceeded for GitHub API.' }],
+    },
+  });
+  const result = await evaluateKeepaliveLoop({
+    github,
+    context: buildContext(pr.number),
+    core: buildCore(),
+    forceRetry: true,
+  });
+  // Even rate-limited cancellations should be bypassed with forceRetry
+  assert.equal(result.action, 'run');
+  assert.equal(result.reason, 'force-retry-cancelled');
+});
+
+test('evaluateKeepaliveLoop force_retry bypasses failed gate', async () => {
+  const pr = {
+    number: 513,
+    head: { ref: 'feature/force-retry-failed', sha: 'sha-force-retry-failed' },
+    labels: [{ name: 'agent:codex' }],
+    body: '## Tasks\n- [ ] one\n## Acceptance Criteria\n- [ ] a',
+  };
+  const github = buildGithubStub({
+    pr,
+    workflowRuns: [{ id: 2005, head_sha: 'sha-force-retry-failed', conclusion: 'failure' }],
+  });
+  const result = await evaluateKeepaliveLoop({
+    github,
+    context: buildContext(pr.number),
+    core: buildCore(),
+    forceRetry: true,
+  });
+  assert.equal(result.action, 'run');
+  assert.equal(result.reason, 'force-retry-gate');
+});
+
+test('evaluateKeepaliveLoop overridePrNumber takes precedence', async () => {
+  const pr = {
+    number: 514,
+    head: { ref: 'feature/override-pr', sha: 'sha-override-pr' },
+    labels: [{ name: 'agent:codex' }],
+    body: '## Tasks\n- [ ] one\n## Acceptance Criteria\n- [ ] a',
+  };
+  const github = buildGithubStub({
+    pr,
+    workflowRuns: [{ id: 2006, head_sha: 'sha-override-pr', conclusion: 'success' }],
+  });
+  // Context says PR 999 but overridePrNumber says 514
+  const result = await evaluateKeepaliveLoop({
+    github,
+    context: buildContext(999),
+    core: buildCore(),
+    overridePrNumber: 514,
+  });
+  assert.equal(result.prNumber, 514);
+  assert.equal(result.action, 'run');
 });
 
 test('evaluateKeepaliveLoop runs when ready', async () => {
@@ -740,6 +915,44 @@ test('updateKeepaliveLoopSummary does NOT count wait states as failures', async 
   assert.match(github.actions[0].body, /"failure":\{\}/);
   // Should NOT have -repeat suffix since we're not counting wait states
   assert.doesNotMatch(github.actions[0].body, /gate-not-success-repeat/);
+});
+
+test('updateKeepaliveLoopSummary marks deferred rate limit cancellations as transient', async () => {
+  const existingState = formatStateComment({
+    trace: 'trace-defer',
+    iteration: 1,
+    failure_threshold: 3,
+    failure: { reason: 'gate-not-success', count: 1 },
+  });
+  const github = buildGithubStub({
+    comments: [{ id: 50, body: existingState, html_url: 'https://example.com/50' }],
+  });
+  await updateKeepaliveLoopSummary({
+    github,
+    context: buildContext(500),
+    core: buildCore(),
+    inputs: {
+      prNumber: 500,
+      action: 'defer',
+      reason: 'gate-cancelled-rate-limit',
+      gateConclusion: 'cancelled',
+      tasksTotal: 2,
+      tasksUnchecked: 2,
+      keepaliveEnabled: true,
+      autofixEnabled: false,
+      iteration: 1,
+      maxIterations: 5,
+      failureThreshold: 3,
+      trace: 'trace-defer',
+    },
+  });
+
+  assert.equal(github.actions.length, 1);
+  const updateAction = github.actions[0];
+  assert.equal(updateAction.type, 'update');
+  assert.match(updateAction.body, /Disposition \| deferred \(transient\)/);
+  assert.match(updateAction.body, /Deferred/);
+  assert.match(updateAction.body, /"failure":\{\}/);
 });
 
 test('updateKeepaliveLoopSummary adds needs-human after repeated actual failures', async () => {
@@ -1776,5 +1989,3 @@ test('normaliseChecklistSection preserves non-list content', () => {
 
   assert.equal(result, expected);
 });
-
-
