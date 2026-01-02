@@ -370,8 +370,10 @@ jobs:
           PR_NUM="${{ inputs.pr_number }}"
           if [ -n "${PR_NUM}" ]; then
             OUTPUT_FILE="codex-output-${PR_NUM}.md"
+            SESSION_JSONL="codex-session-${PR_NUM}.jsonl"
           else
             OUTPUT_FILE="codex-output.md"
+            SESSION_JSONL="codex-session.jsonl"
           fi
           SANDBOX="${{ inputs.sandbox }}"
           EXTRA_ARGS="${{ inputs.codex_args }}"
@@ -385,14 +387,15 @@ jobs:
           echo "Prompt file: $PROMPT_FILE"
           echo "Sandbox: $SANDBOX"
 
-          # Run codex exec with prompt from file
+          # Run codex exec with --json to capture rich session data
+          # JSONL events stream to stdout, final message still goes to OUTPUT_FILE
           # Build command array to handle EXTRA_ARGS properly
           # NOTE: --mode flag not yet supported by Codex CLI, removed for now
           CODEX_EXIT=0
           if [ -n "${EXTRA_ARGS:-}" ]; then
-            eval "codex exec --skip-git-repo-check --sandbox \"$SANDBOX\" --output-last-message \"$OUTPUT_FILE\" $EXTRA_ARGS \"\$(cat \"\$PROMPT_FILE\")\"" || CODEX_EXIT=$?
+            eval "codex exec --json --skip-git-repo-check --sandbox \"$SANDBOX\" --output-last-message \"$OUTPUT_FILE\" $EXTRA_ARGS \"\$(cat \"\$PROMPT_FILE\")\"" > "$SESSION_JSONL" 2>&1 || CODEX_EXIT=$?
           else
-            codex exec --skip-git-repo-check --sandbox "$SANDBOX" --output-last-message "$OUTPUT_FILE" "$(cat "$PROMPT_FILE")" || CODEX_EXIT=$?
+            codex exec --json --skip-git-repo-check --sandbox "$SANDBOX" --output-last-message "$OUTPUT_FILE" "$(cat "$PROMPT_FILE")" > "$SESSION_JSONL" 2>&1 || CODEX_EXIT=$?
           fi
 
           echo "exit-code=${CODEX_EXIT}" >> "$GITHUB_OUTPUT"
@@ -419,6 +422,70 @@ jobs:
 
           # Exit with original code to mark job as failed if Codex failed
           exit "$CODEX_EXIT"
+
+      - name: Analyze Codex session
+        id: analyze_session
+        if: always()
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+          PR_NUM: ${{ inputs.pr_number }}
+        run: |
+          set -euo pipefail
+
+          if [ -n "${PR_NUM}" ]; then
+            SESSION_JSONL="codex-session-${PR_NUM}.jsonl"
+          else
+            SESSION_JSONL="codex-session.jsonl"
+          fi
+          export SESSION_JSONL
+
+          # Check if session file exists and has content
+          if [ ! -f "$SESSION_JSONL" ] || [ ! -s "$SESSION_JSONL" ]; then
+            echo "No session JSONL found or file is empty"
+            echo "session-available=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "Session JSONL captured: $(wc -l < "$SESSION_JSONL") lines"
+          echo "session-available=true" >> "$GITHUB_OUTPUT"
+
+          # Parse session and output summary (analysis requires LangChain, optional)
+          python3 << 'PYEOF'
+          import os
+          import sys
+          sys.path.insert(0, '.')
+
+          session_file = os.environ.get("SESSION_JSONL", "codex-session.jsonl")
+          github_output = os.environ.get("GITHUB_OUTPUT", "/dev/null")
+
+          try:
+              from tools.codex_jsonl_parser import parse_codex_jsonl_file
+
+              session = parse_codex_jsonl_file(session_file)
+
+              print(f"::notice::Session parsed: {session.raw_event_count} events")
+              print(f"::notice::Agent messages: {len(session.agent_messages)}")
+              print(f"::notice::Commands: {len(session.commands)} ({len(session.successful_commands)} ok, {len(session.failed_commands)} failed)")
+              print(f"::notice::File changes: {len(session.file_changes)}")
+              print(f"::notice::Todo items: {len(session.todo_items)}")
+
+              if session.parse_errors:
+                  print(f"::warning::Parse errors: {len(session.parse_errors)}")
+
+              # Output key metrics for downstream steps
+              with open(github_output, "a") as f:
+                  f.write(f"event-count={session.raw_event_count}\n")
+                  f.write(f"message-count={len(session.agent_messages)}\n")
+                  f.write(f"command-count={len(session.commands)}\n")
+                  f.write(f"file-change-count={len(session.file_changes)}\n")
+                  f.write(f"todo-count={len(session.todo_items)}\n")
+                  f.write(f"completed-todo-count={len(session.completed_todos)}\n")
+
+          except ImportError as e:
+              print(f"::notice::Session parser not available: {e}")
+          except Exception as e:
+              print(f"::warning::Session analysis failed: {e}")
+          PYEOF
 
       - name: Commit and push changes
         id: commit
@@ -555,6 +622,7 @@ jobs:
           name: codex-output-${{ inputs.pr_number || github.run_id }}
           path: |
             codex-output*.md
+            codex-session*.jsonl
           if-no-files-found: ignore
 
       - name: Post completion checkpoint comment
