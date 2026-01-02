@@ -249,10 +249,11 @@ def main() -> int:
 
     args = parser.parse_args()
 
-    # Setup logging
+    # Setup logging to stderr (stdout is reserved for JSON output)
     logging.basicConfig(
         level=logging.DEBUG if args.verbose else logging.INFO,
         format="%(levelname)s: %(message)s",
+        stream=sys.stderr,
     )
 
     # Check session file exists

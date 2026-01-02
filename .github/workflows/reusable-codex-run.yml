@@ -541,11 +541,12 @@ jobs:
 
           # Run full LLM analysis and save JSON output
           # Scripts are in .workflows-lib from Workflows repo checkout
+          # Note: logging goes to stderr, JSON output goes to stdout -> file
           echo "Running LLM-powered task completion analysis..."
           python3 .workflows-lib/scripts/analyze_codex_session.py \
             --session-file "$SESSION_JSONL" \
             --pr-body-file pr_body.md \
-            --output json > "$ANALYSIS_FILE" 2>&1 || {
+            --output json > "$ANALYSIS_FILE" || {
               echo "::warning::LLM analysis failed, continuing without it"
               cat "$ANALYSIS_FILE" 2>/dev/null || true  # Show error for debugging
               echo "llm-analysis-run=false" >> "$GITHUB_OUTPUT"
