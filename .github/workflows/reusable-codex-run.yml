@@ -429,6 +429,7 @@ jobs:
         env:
           PYTHONPATH: ${{ github.workspace }}
           PR_NUM: ${{ inputs.pr_number }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
 
@@ -449,7 +450,7 @@ jobs:
           echo "Session JSONL captured: $(wc -l < "$SESSION_JSONL") lines"
           echo "session-available=true" >> "$GITHUB_OUTPUT"
 
-          # Parse session and output summary (analysis requires LangChain, optional)
+          # Basic parsing (always available)
           python3 << 'PYEOF'
           import os
           import sys
@@ -486,6 +487,45 @@ jobs:
           except Exception as e:
               print(f"::warning::Session analysis failed: {e}")
           PYEOF
+
+      - name: Analyze task completion with LLM
+        id: llm_analysis
+        if: always() && steps.analyze_session.outputs.session-available == 'true' && inputs.pr_number != ''
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+          PR_NUM: ${{ inputs.pr_number }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          SESSION_JSONL="codex-session-${PR_NUM}.jsonl"
+
+          # Fetch PR body to extract tasks
+          echo "Fetching PR #${PR_NUM} body..."
+          PR_BODY=$(gh pr view "${PR_NUM}" --json body --jq '.body' 2>/dev/null || echo "")
+
+          if [ -z "$PR_BODY" ]; then
+            echo "::notice::Could not fetch PR body, skipping LLM analysis"
+            echo "llm-analysis-run=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Save PR body to temp file
+          echo "$PR_BODY" > pr_body.md
+
+          # Run full LLM analysis
+          echo "Running LLM-powered task completion analysis..."
+          python3 scripts/analyze_codex_session.py \
+            --session-file "$SESSION_JSONL" \
+            --pr-body-file pr_body.md \
+            --output github-actions \
+            --verbose || {
+              echo "::warning::LLM analysis failed, continuing without it"
+              echo "llm-analysis-run=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            }
+
+          echo "llm-analysis-run=true" >> "$GITHUB_OUTPUT"
 
       - name: Commit and push changes
         id: commit
