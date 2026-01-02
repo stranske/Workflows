@@ -1682,12 +1682,13 @@ async function analyzeTaskCompletion({ github, context, prNumber, baseSha, headS
  * @param {number} params.prNumber - PR number
  * @param {string} params.baseSha - Base SHA (before agent work)
  * @param {string} params.headSha - Head SHA (after agent work)
+ * @param {string[]} [params.llmCompletedTasks] - Tasks marked complete by LLM analysis
  * @param {object} [params.core] - Optional core for logging
  * @returns {Promise<{updated: boolean, tasksChecked: number, details: string}>}
  */
-async function autoReconcileTasks({ github, context, prNumber, baseSha, headSha, core }) {
+async function autoReconcileTasks({ github, context, prNumber, baseSha, headSha, llmCompletedTasks, core }) {
   const log = (msg) => core?.info?.(msg) || console.log(msg);
-  
+
   // Get current PR body
   let pr;
   try {
@@ -1710,13 +1711,39 @@ async function autoReconcileTasks({ github, context, prNumber, baseSha, headSha,
     return { updated: false, tasksChecked: 0, details: 'No tasks found in PR body' };
   }
 
-  // Analyze what tasks may have been completed
+  // Build high-confidence matches from multiple sources
+  let highConfidence = [];
+
+  // Source 1: LLM analysis (highest priority if available)
+  if (llmCompletedTasks && Array.isArray(llmCompletedTasks) && llmCompletedTasks.length > 0) {
+    log(`LLM analysis found ${llmCompletedTasks.length} completed task(s)`);
+    for (const task of llmCompletedTasks) {
+      highConfidence.push({
+        task,
+        reason: 'LLM session analysis',
+        confidence: 'high',
+        source: 'llm',
+      });
+    }
+  }
+
+  // Source 2: Commit/file analysis (fallback or supplementary)
   const analysis = await analyzeTaskCompletion({
     github, context, prNumber, baseSha, headSha, taskText, core
   });
 
-  // Only auto-check high-confidence matches
-  const highConfidence = analysis.matches.filter(m => m.confidence === 'high');
+  // Add commit-based matches that aren't already covered by LLM
+  const llmTasksLower = new Set((llmCompletedTasks || []).map(t => t.toLowerCase()));
+  const commitMatches = analysis.matches
+    .filter(m => m.confidence === 'high')
+    .filter(m => !llmTasksLower.has(m.task.toLowerCase()));
+
+  if (commitMatches.length > 0) {
+    log(`Commit analysis found ${commitMatches.length} additional task(s)`);
+    for (const match of commitMatches) {
+      highConfidence.push({ ...match, source: 'commit' });
+    }
+  }
   
   if (highConfidence.length === 0) {
     log('No high-confidence task matches to auto-check');

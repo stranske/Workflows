@@ -116,6 +116,12 @@ jobs:
       error-category: ${{ steps.classify_failure.outputs.error_category }}
       error-type: ${{ steps.classify_failure.outputs.error_type }}
       error-recovery: ${{ steps.classify_failure.outputs.error_recovery }}
+      # LLM analysis outputs
+      llm-analysis-run: ${{ steps.llm_analysis.outputs.llm-analysis-run }}
+      llm-completed-tasks: ${{ steps.llm_analysis.outputs.completed-tasks }}
+      llm-has-completions: ${{ steps.llm_analysis.outputs.has-completions }}
+      session-event-count: ${{ steps.analyze_session.outputs.event-count }}
+      session-todo-count: ${{ steps.analyze_session.outputs.todo-count }}
     steps:
       - name: Mint GitHub App token (preferred)
         id: app_token
@@ -499,6 +505,7 @@ jobs:
           set -euo pipefail
 
           SESSION_JSONL="codex-session-${PR_NUM}.jsonl"
+          ANALYSIS_FILE="codex-analysis-${PR_NUM}.json"
 
           # Fetch PR body to extract tasks
           echo "Fetching PR #${PR_NUM} body..."
@@ -513,19 +520,32 @@ jobs:
           # Save PR body to temp file
           echo "$PR_BODY" > pr_body.md
 
-          # Run full LLM analysis
+          # Run full LLM analysis and save JSON output
           echo "Running LLM-powered task completion analysis..."
           python3 scripts/analyze_codex_session.py \
             --session-file "$SESSION_JSONL" \
             --pr-body-file pr_body.md \
-            --output github-actions \
-            --verbose || {
+            --output json > "$ANALYSIS_FILE" 2>&1 || {
               echo "::warning::LLM analysis failed, continuing without it"
               echo "llm-analysis-run=false" >> "$GITHUB_OUTPUT"
+              rm -f "$ANALYSIS_FILE"
               exit 0
             }
 
+          # Also output to GitHub Actions for visibility
+          python3 scripts/analyze_codex_session.py \
+            --session-file "$SESSION_JSONL" \
+            --pr-body-file pr_body.md \
+            --output github-actions || true
+
           echo "llm-analysis-run=true" >> "$GITHUB_OUTPUT"
+          echo "analysis-file=$ANALYSIS_FILE" >> "$GITHUB_OUTPUT"
+
+          # Extract key fields for downstream use
+          if [ -f "$ANALYSIS_FILE" ]; then
+            COMPLETED=$(python3 -c "import json; d=json.load(open('$ANALYSIS_FILE')); print(json.dumps(d.get('completed_tasks', [])))")
+            echo "completed-tasks=$COMPLETED" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Commit and push changes
         id: commit
@@ -663,6 +683,7 @@ jobs:
           path: |
             codex-output*.md
             codex-session*.jsonl
+            codex-analysis*.json
           if-no-files-found: ignore
 
       - name: Post completion checkpoint comment
