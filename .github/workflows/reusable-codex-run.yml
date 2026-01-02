@@ -174,12 +174,22 @@ jobs:
       # Checkout Workflows repo scripts for post-completion, error handling, and LLM analysis
       # These scripts are in stranske/Workflows but need to be available when
       # this reusable workflow runs in consumer repos
-      # Note: Uses github.job_workflow_sha to get the same ref as the calling workflow
+      # Extract the ref from workflow_ref (format: owner/repo/.github/workflows/file.yml@ref)
+      - name: Get Workflows ref
+        id: workflow_ref
+        run: |
+          # github.workflow_ref format: owner/repo/path@ref
+          # Extract everything after the @
+          FULL_REF="${{ github.workflow_ref }}"
+          REF="${FULL_REF##*@}"
+          echo "ref=$REF" >> "$GITHUB_OUTPUT"
+          echo "Detected Workflows ref: $REF"
+
       - name: Checkout Workflows scripts
         uses: actions/checkout@v4
         with:
           repository: stranske/Workflows
-          ref: ${{ github.job_workflow_sha }}
+          ref: ${{ steps.workflow_ref.outputs.ref }}
           sparse-checkout: |
             .github/scripts
             scripts
