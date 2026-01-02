@@ -229,8 +229,12 @@ function classifyFailureDetails({ action, runResult, summaryReason, agentExitCod
   const message = [agentSummary, summaryReason, runResult].filter(Boolean).join(' ');
   const errorInfo = classifyError({ message, code: agentExitCode });
   let category = errorInfo.category;
+  const isGateCancelled = summaryReason === 'gate-cancelled';
 
   if (runFailed && (runResult === 'cancelled' || runResult === 'skipped')) {
+    category = ERROR_CATEGORIES.transient;
+  }
+  if (!runFailed && isGateCancelled) {
     category = ERROR_CATEGORIES.transient;
   }
 
@@ -697,14 +701,19 @@ async function evaluateKeepaliveLoop({ github, context, core, payload: overrideP
     action = 'stop';
     reason = isProductive ? 'max-iterations' : 'max-iterations-unproductive';
   } else if (gateNormalized !== 'success') {
-    // Gate failed - check if we should route to fix mode or wait
-    const gateFailure = await classifyGateFailure({ github, context, pr, core });
-    if (gateFailure.shouldFixMode && gateNormalized === 'failure') {
-      action = 'fix';
-      reason = `fix-${gateFailure.failureType}`;
-    } else {
+    if (gateNormalized === 'cancelled') {
       action = 'wait';
-      reason = gateNormalized ? 'gate-not-success' : 'gate-pending';
+      reason = 'gate-cancelled';
+    } else {
+      // Gate failed - check if we should route to fix mode or wait
+      const gateFailure = await classifyGateFailure({ github, context, pr, core });
+      if (gateFailure.shouldFixMode && gateNormalized === 'failure') {
+        action = 'fix';
+        reason = `fix-${gateFailure.failureType}`;
+      } else {
+        action = 'wait';
+        reason = gateNormalized ? 'gate-not-success' : 'gate-pending';
+      }
     }
   } else if (tasksRemaining) {
     action = 'run';

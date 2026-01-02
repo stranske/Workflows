@@ -329,6 +329,26 @@ test('evaluateKeepaliveLoop waits when gate is pending', async () => {
   assert.equal(result.reason, 'gate-pending');
 });
 
+test('evaluateKeepaliveLoop treats cancelled gate as transient wait', async () => {
+  const pr = {
+    number: 508,
+    head: { ref: 'feature/cancelled', sha: 'sha-cancelled' },
+    labels: [{ name: 'agent:codex' }],
+    body: '## Tasks\n- [ ] one\n## Acceptance Criteria\n- [ ] a',
+  };
+  const github = buildGithubStub({
+    pr,
+    workflowRuns: [{ id: 1004, head_sha: 'sha-cancelled', conclusion: 'cancelled' }],
+  });
+  const result = await evaluateKeepaliveLoop({
+    github,
+    context: buildContext(pr.number),
+    core: buildCore(),
+  });
+  assert.equal(result.action, 'wait');
+  assert.equal(result.reason, 'gate-cancelled');
+});
+
 test('evaluateKeepaliveLoop runs when ready', async () => {
   const pr = {
     number: 606,
@@ -1776,5 +1796,4 @@ test('normaliseChecklistSection preserves non-list content', () => {
 
   assert.equal(result, expected);
 });
-
 
