@@ -554,7 +554,15 @@ function buildTraceToken({ seed, prNumber, round }) {
 
 function resolveAutomationToken(env = {}) {
   return (
-    String(env.ACTIONS_BOT_PAT || env.actions_bot_pat || env.GH_TOKEN || env.gh_token || '')
+    String(
+      env.ACTIONS_BOT_PAT ||
+        env.SERVICE_BOT_PAT ||
+        env.actions_bot_pat ||
+        env.service_bot_pat ||
+        env.GH_TOKEN ||
+        env.gh_token ||
+        ''
+    )
       .trim() || ''
   );
 }
