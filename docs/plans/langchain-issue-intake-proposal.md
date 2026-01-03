@@ -391,17 +391,90 @@ This keeps the complexity low while allowing natural interaction.
 **Plausibility**: ⭐⭐⭐ MEDIUM-HIGH
 **Scope**: ~2-3 days (data collection), ongoing refinement
 
-### 6. Duplicate/Related Issue Detection
+### 6. Duplicate/Related Issue Detection (Semantic Matching Upgrade)
 
-**Use Case**: Before creating new issue, check if similar work exists.
+**Use Case**: Before creating new issue, check if similar work exists. Also improve label matching from Levenshtein to semantic similarity.
 
-**Approach**:
-- Embed issue description, compare to existing open issues
-- Warn if high similarity detected
-- Link related issues for context
+**The Problem (Current State)**:
+
+*Issue Deduplication:*
+- Existing dedup logic uses exact title matching or Levenshtein distance
+- Levenshtein is good for typos ("fix bug" vs "fxi bug") but bad at semantic similarity
+- "Add unit tests for portfolio module" and "Write test coverage for portfolio.py" are the same intent but have low Levenshtein similarity
+- Result: False negatives (duplicate issues created) and false positives (unrelated issues flagged)
+
+*Label Matching (in `agents-63-issue-intake.yml` lines 601-634):*
+- Current implementation uses Levenshtein distance to find similar labels
+- Works for typos: `bugfix` → matches `bug` ✅
+- Fails for synonyms: `defect` → doesn't match `bug` ❌
+- "enhancement", "feature", "improvement" are semantically equivalent but have no character similarity
+
+**LangChain Solution**:
+- **Embeddings-based similarity** catches "same idea, different phrasing"
+- Uses vector stores (FAISS, Chroma) for efficient similarity search
+- Semantic distance measures conceptual similarity, not character edits
+- **Same infrastructure serves both use cases** (issues AND labels)
+
+**Technical Approach - Issue Deduplication**:
+```python
+from langchain_openai import OpenAIEmbeddings
+from langchain_community.vectorstores import FAISS
+
+# Generate embeddings for issue description
+embeddings = OpenAIEmbeddings(
+    model="text-embedding-3-small",
+    base_url="https://models.inference.ai.azure.com",
+    api_key=os.environ["GITHUB_TOKEN"],
+)
+
+# Build vector store from existing open issues
+issue_texts = [f"{issue.title}\n{issue.body}" for issue in open_issues]
+vector_store = FAISS.from_texts(issue_texts, embeddings, metadatas=[{"number": i.number} for i in open_issues])
+
+# Search for similar issues
+similar = vector_store.similarity_search_with_score(new_issue_text, k=5)
+duplicates = [(doc.metadata["number"], score) for doc, score in similar if score > THRESHOLD]
+```
+
+**Technical Approach - Label Matching**:
+```python
+# Build vector store from existing repo labels
+label_names = [label.name for label in repo_labels]
+label_store = FAISS.from_texts(label_names, embeddings, metadatas=[{"name": l.name} for l in repo_labels])
+
+# Match user-specified label to existing labels
+def find_semantic_label_match(user_label: str, threshold: float = 0.8) -> str | None:
+    """Find semantically similar existing label."""
+    results = label_store.similarity_search_with_score(user_label, k=1)
+    if results and results[0][1] >= threshold:
+        return results[0][0].metadata["name"]
+    return None
+
+# Examples:
+# find_semantic_label_match("defect") → "bug"
+# find_semantic_label_match("improvement") → "enhancement"
+# find_semantic_label_match("testing") → "tests"
+```
+
+**Advantages over Levenshtein**:
+| Aspect | Levenshtein | Semantic Embeddings |
+|--------|-------------|---------------------|
+| "Same typo" detection | ✅ Excellent | ✅ Good |
+| "Same idea, different words" | ❌ Poor | ✅ Excellent |
+| Performance at scale | ⚠️ O(n*m) per comparison | ✅ O(log n) with vector index |
+| False positives | High (similar chars ≠ similar meaning) | Low |
+| False negatives | High (different chars = missed duplicates) | Low |
+
+**Integration Points**:
+1. **Issue deduplication**: Run during `agents-63-issue-intake.yml` before bridge creation
+   - Post advisory comment with similar issues (doesn't block creation)
+   - Link related issues for context
+2. **Label matching**: Replace Levenshtein in `findMatchingLabel()` function
+   - Same embeddings model, different vector store
+   - Cache label embeddings (labels change rarely)
 
 **Plausibility**: ⭐⭐⭐⭐ HIGH (embeddings are well-understood)
-**Scope**: ~2 days
+**Scope**: ~2-3 days (expanded to include label matching)
 
 ### 7. Automatic Task Decomposition
 

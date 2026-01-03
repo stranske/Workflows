@@ -45,8 +45,34 @@ env:
     stranske/Trend_Model_Project
 
 jobs:
+  # CRITICAL: Verify versions are current BEFORE syncing to consumer repos
+  verify-versions-current:
+    name: Verify versions are current
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Workflows
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            .github/workflows/autofix-versions.env
+            scripts/update_versions_from_pypi.py
+          sparse-checkout-cone-mode: false
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Verify versions against PyPI
+        run: |
+          echo "🔍 Checking that all versions in autofix-versions.env are current..."
+          python scripts/update_versions_from_pypi.py --check --fail-on-outdated
+          echo ""
+          echo "✅ All versions are current - safe to sync to consumer repos!"
+
   prepare:
     name: Prepare version sync
+    needs: verify-versions-current  # Don't sync until we verify versions are current!
     runs-on: ubuntu-latest
     outputs:
       repos: ${{ steps.repos.outputs.matrix }}
@@ -122,7 +148,7 @@ jobs:
         run: |
           if [ -f "consumer/pyproject.toml" ]; then
             echo "has_pyproject=true" >> "$GITHUB_OUTPUT"
-            
+
             # Check if it has dev dependencies
             if grep -q '\[project.optional-dependencies\]' consumer/pyproject.toml; then
               if grep -qE '^dev\s*=' consumer/pyproject.toml; then
@@ -154,7 +180,7 @@ jobs:
             echo "has_changes=false" >> "$GITHUB_OUTPUT"
           else
             echo "has_changes=true" >> "$GITHUB_OUTPUT"
-            
+
             # Apply if not dry run
             if [ "${{ inputs.dry_run }}" != "true" ]; then
               python ../scripts/sync_dev_dependencies.py --apply --use-minimum-pins
@@ -176,7 +202,7 @@ jobs:
           cd consumer
 
           echo "Adding dev dependencies section to pyproject.toml..."
-          
+
           # Use --create-if-missing to add dev deps
           if python ../scripts/sync_dev_dependencies.py --apply --use-minimum-pins --create-if-missing 2>&1 | tee /tmp/sync_output.txt; then
             if grep -q "version updates" /tmp/sync_output.txt; then
@@ -223,7 +249,7 @@ jobs:
           # Add lockfile if it exists and was modified
           git add pyproject.toml .github/workflows/autofix-versions.env
           if [ -f requirements.lock ]; then git add requirements.lock; fi
-          
+
           # Commit with multi-line message
           commit_msg="deps: sync dev tool versions from Workflows
 
