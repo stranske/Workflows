@@ -11,8 +11,8 @@ The current `issue_scope_parser.js` relies on regex patterns to extract Scope, T
 #### Tasks
 - [x] Audit current `issue_scope_parser.js` for fragile patterns
 - [x] Add fallback patterns for common variations:
-- [ ] - Bold headers (`**Tasks**`) vs markdown headers (`## Tasks`)
-- [ ] - Numbered lists with checkboxes (`1. [ ] Task`)
+- [x] - Bold headers (`**Tasks**`) vs markdown headers (`## Tasks`)
+- [x] - Numbered lists with checkboxes (`1. [ ] Task`)
 - [ ] - Nested task lists
 - [ ] - Missing section markers
 - [x] Add optional LLM extraction layer (gated by config/env var)
