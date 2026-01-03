@@ -98,6 +98,22 @@ on:
       error-recovery:
         description: 'Suggested recovery action if failure occurred'
         value: ${{ jobs.codex.outputs.error-recovery }}
+      # LLM task analysis outputs
+      llm-analysis-run:
+        description: 'Whether LLM analysis was performed'
+        value: ${{ jobs.codex.outputs.llm-analysis-run }}
+      llm-provider:
+        description: 'LLM provider used for analysis (github-models, openai, regex-fallback)'
+        value: ${{ jobs.codex.outputs.llm-provider }}
+      llm-confidence:
+        description: 'Confidence level of LLM analysis (0-1)'
+        value: ${{ jobs.codex.outputs.llm-confidence }}
+      llm-completed-tasks:
+        description: 'JSON array of completed task descriptions'
+        value: ${{ jobs.codex.outputs.llm-completed-tasks }}
+      llm-has-completions:
+        description: 'Whether any task completions were detected'
+        value: ${{ jobs.codex.outputs.llm-has-completions }}
 
 permissions:
   contents: write
