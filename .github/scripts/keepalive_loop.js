@@ -1583,6 +1583,11 @@ async function analyzeTaskCompletion({ github, context, prNumber, baseSha, headS
   const matches = [];
   const log = (msg) => core?.info?.(msg) || console.log(msg);
 
+  if (!context?.repo?.owner || !context?.repo?.repo) {
+    log('Skipping task analysis: missing repo context.');
+    return { matches, summary: 'Missing repo context for task analysis' };
+  }
+
   if (!taskText || !baseSha || !headSha) {
     log('Skipping task analysis: missing task text or commit range.');
     return { matches, summary: 'Insufficient data for task analysis' };
@@ -1810,6 +1815,17 @@ async function analyzeTaskCompletion({ github, context, prNumber, baseSha, headS
  */
 async function autoReconcileTasks({ github, context, prNumber, baseSha, headSha, llmCompletedTasks, core }) {
   const log = (msg) => core?.info?.(msg) || console.log(msg);
+  const sources = { llm: 0, commit: 0 };
+
+  if (!context?.repo?.owner || !context?.repo?.repo || !prNumber) {
+    log('Skipping reconciliation: missing repo context or PR number.');
+    return {
+      updated: false,
+      tasksChecked: 0,
+      details: 'Missing repo context or PR number',
+      sources,
+    };
+  }
 
   // Get current PR body
   let pr;
@@ -1830,7 +1846,7 @@ async function autoReconcileTasks({ github, context, prNumber, baseSha, headSha,
 
   if (!taskText) {
     log('Skipping reconciliation: no tasks found in PR body.');
-    return { updated: false, tasksChecked: 0, details: 'No tasks found in PR body' };
+    return { updated: false, tasksChecked: 0, details: 'No tasks found in PR body', sources };
   }
 
   // Build high-confidence matches from multiple sources
@@ -1846,6 +1862,7 @@ async function autoReconcileTasks({ github, context, prNumber, baseSha, headSha,
         confidence: 'high',
         source: 'llm',
       });
+      sources.llm += 1;
     }
   }
 
@@ -1864,6 +1881,7 @@ async function autoReconcileTasks({ github, context, prNumber, baseSha, headSha,
     log(`Commit analysis found ${commitMatches.length} additional task(s)`);
     for (const match of commitMatches) {
       highConfidence.push({ ...match, source: 'commit' });
+      sources.commit += 1;
     }
   }
   
@@ -1872,7 +1890,8 @@ async function autoReconcileTasks({ github, context, prNumber, baseSha, headSha,
     return { 
       updated: false, 
       tasksChecked: 0, 
-      details: analysis.summary + ' (no high-confidence matches for auto-check)'
+      details: analysis.summary + ' (no high-confidence matches for auto-check)',
+      sources,
     };
   }
 
@@ -1897,7 +1916,8 @@ async function autoReconcileTasks({ github, context, prNumber, baseSha, headSha,
     return { 
       updated: false, 
       tasksChecked: 0, 
-      details: 'Tasks matched but patterns not found in body' 
+      details: 'Tasks matched but patterns not found in body',
+      sources,
     };
   }
 
@@ -1916,25 +1936,21 @@ async function autoReconcileTasks({ github, context, prNumber, baseSha, headSha,
       updated: false, 
       tasksChecked: 0, 
       details: `Failed to update PR: ${error.message}`,
-      sources: { llm: 0, commit: 0 },
+      sources,
     };
   }
 
-  // Count matches by source for reporting
-  const llmCount = highConfidence.filter(m => m.source === 'llm').length;
-  const commitCount = highConfidence.filter(m => m.source === 'commit').length;
-  
   // Build detailed description
   const sourceDesc = [];
-  if (llmCount > 0) sourceDesc.push(`${llmCount} from LLM analysis`);
-  if (commitCount > 0) sourceDesc.push(`${commitCount} from commit analysis`);
+  if (sources.llm > 0) sourceDesc.push(`${sources.llm} from LLM analysis`);
+  if (sources.commit > 0) sourceDesc.push(`${sources.commit} from commit analysis`);
   const sourceInfo = sourceDesc.length > 0 ? ` (${sourceDesc.join(', ')})` : '';
 
   return {
     updated: true,
     tasksChecked: checkedCount,
     details: `Auto-checked ${checkedCount} task(s)${sourceInfo}: ${highConfidence.map(m => m.task.slice(0, 30) + '...').join(', ')}`,
-    sources: { llm: llmCount, commit: commitCount },
+    sources,
   };
 }
 

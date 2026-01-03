@@ -16,6 +16,7 @@
 - [9. Orchestrator Invariants](#9-orchestrator-invariants)
 - [10. Restart & Success Conditions](#10-restart--success-conditions)
 - [11. Issue Context & Status Summary](#11-issue-context--status-summary)
+- [12. Progress Detection & Checkbox Reconciliation](#12-progress-detection--checkbox-reconciliation)
 - [Appendix: Operator Checklist](#appendix-operator-checklist)
 
 ---
@@ -182,6 +183,25 @@ The Keepalive workflow depends on the **Automated Status Summary** block in the 
 - **Missing Link:** If the PR lacks the Issue Number, add `#<issue_number>` to the PR body.
 - **Missing Sections:** If the source Issue lacks "Scope"/"Tasks"/"Acceptance", update the source Issue text.
 - **No Tasks:** If no checkboxes are found, keepalive will stop with reason `no-checklists`.
+
+---
+
+## 12. Progress Detection & Checkbox Reconciliation
+
+Keepalive now has two ways to detect task completion and keep PR checkboxes in sync:
+
+1. **Session analysis (preferred):** After an agent run, `scripts/analyze_codex_session.py` analyzes the Codex JSONL session via `tools/codex_session_analyzer.py`. If an LLM provider is available, it returns a list of completed tasks plus quality signals (confidence, data quality, effort score).
+2. **Commit/file analysis (fallback):** `.github/scripts/keepalive_loop.js` runs `analyzeTaskCompletion()` to match commits and changed files against unchecked tasks when LLM data is unavailable or incomplete.
+
+### Auto-Update Rules
+- **Auto-check only high confidence matches.** Low/medium confidence matches are logged but not applied.
+- **Apply only to existing task/acceptance checkboxes.** Scope remains informational and is not mutated.
+- **No changes when evidence is weak.** If no high-confidence matches exist, the PR body is left untouched.
+
+### Operational Notes
+- The keepalive summary comment flags when files changed but no checkboxes were updated, prompting the next iteration to reconcile tasks.
+- The reconciliation step uses the same task text from the Automated Status Summary to avoid accidental mismatch.
+- LLM analysis is optional; if unavailable, the commit/file matcher remains active.
 
 ---
 
