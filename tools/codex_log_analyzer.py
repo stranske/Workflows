@@ -7,9 +7,9 @@ and command evidence. Intended as a lightweight, non-LLM heuristic analyzer.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import re
-from typing import Iterable
+from collections.abc import Iterable
+from dataclasses import dataclass
 
 from tools.codex_jsonl_parser import CodexSession, parse_codex_jsonl
 
@@ -109,7 +109,9 @@ def _match_tasks_to_evidence(
         exact_file_match = _has_exact_file_match(file_refs, files_changed)
         file_match = _has_file_keyword_match(task_words, files_changed)
         command_match = _has_command_keyword_match(task_words, commands)
-        test_module_match = _has_test_module_match(task_lower, test_file_modules) if is_test_task else False
+        test_module_match = (
+            _has_test_module_match(task_lower, test_file_modules) if is_test_task else False
+        )
 
         confidence = "low"
         reason = "No strong evidence"
@@ -134,7 +136,9 @@ def _match_tasks_to_evidence(
             evidence_files = files_changed
         elif score >= 0.2 or file_match:
             confidence = "medium"
-            reason = f"{round(score * 100)}% keyword match" + (", file touched" if file_match else "")
+            reason = f"{round(score * 100)}% keyword match" + (
+                ", file touched" if file_match else ""
+            )
             evidence_files = files_changed
 
         if confidence != "low":
@@ -279,4 +283,3 @@ def _build_summary(matches: list[TaskMatch], files_changed: list[str]) -> str:
         f"Found {len(matches)} potential task completion(s): "
         f"{high} high, {medium} medium confidence"
     )
-
