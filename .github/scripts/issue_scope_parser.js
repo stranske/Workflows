@@ -3,7 +3,7 @@
 const normalizeNewlines = (value) => String(value || '').replace(/\r\n/g, '\n');
 const stripBlockquotePrefixes = (value) =>
   String(value || '').replace(/^[ \t]*>+[ \t]?/gm, '');
-const escapeRegExp = (value) => String(value ?? '').replace(/[\\^$.*+?()[\]{}|]/g, '\\$&');
+const LIST_ITEM_REGEX = /^(\s*)([-*+]|\d+[.)])\s+(.*)$/;
 
 const SECTION_DEFS = [
   { key: 'scope', label: 'Scope', aliases: ['Scope', 'Issue Scope', 'Why', 'Background', 'Context', 'Overview'], optional: true },
@@ -84,7 +84,7 @@ function normaliseChecklist(content) {
   const lines = raw.split('\n');
   let mutated = false;
   const updated = lines.map((line) => {
-    const match = line.match(/^(\s*)([-*])\s+(.*)$/);
+    const match = line.match(LIST_ITEM_REGEX);
     if (!match) {
       return line;
     }
@@ -104,6 +104,90 @@ function normaliseChecklist(content) {
   return mutated ? updated.join('\n') : raw;
 }
 
+function stripHeadingMarkers(rawLine) {
+  if (!rawLine) {
+    return '';
+  }
+  let text = String(rawLine).trim();
+  if (!text) {
+    return '';
+  }
+  text = text.replace(/^#{1,6}\s+/, '');
+  text = text.replace(/\s*:\s*$/, '');
+
+  const boldMatch = text.match(/^(?:\*\*|__)(.+)(?:\*\*|__)$/);
+  if (boldMatch) {
+    text = boldMatch[1].trim();
+  }
+
+  text = text.replace(/\s*:\s*$/, '');
+  return text.trim();
+}
+
+function extractHeadingLabel(rawLine) {
+  const cleaned = stripHeadingMarkers(rawLine);
+  if (!cleaned) {
+    return '';
+  }
+  return cleaned;
+}
+
+function extractListBlocks(lines) {
+  const blocks = [];
+  let current = [];
+
+  const flush = () => {
+    if (current.length) {
+      const block = current.join('\n').trim();
+      if (block) {
+        blocks.push(block);
+      }
+      current = [];
+    }
+  };
+
+  for (const line of lines) {
+    if (LIST_ITEM_REGEX.test(line)) {
+      current.push(line);
+      continue;
+    }
+    if (current.length) {
+      if (!line.trim()) {
+        current.push(line);
+        continue;
+      }
+      flush();
+    }
+  }
+  flush();
+
+  return blocks;
+}
+
+function inferSectionsFromLists(segment) {
+  const sections = { scope: '', tasks: '', acceptance: '' };
+  const lines = String(segment || '').split('\n');
+  const firstListIndex = lines.findIndex((line) => LIST_ITEM_REGEX.test(line));
+  if (firstListIndex === -1) {
+    return sections;
+  }
+
+  const preListText = lines.slice(0, firstListIndex).join('\n').trim();
+  if (preListText) {
+    sections.scope = preListText;
+  }
+
+  const listBlocks = extractListBlocks(lines.slice(firstListIndex));
+  if (listBlocks.length > 0) {
+    sections.tasks = listBlocks[0];
+  }
+  if (listBlocks.length > 1) {
+    sections.acceptance = listBlocks[1];
+  }
+
+  return sections;
+}
+
 function collectSections(source) {
   const normalized = stripBlockquotePrefixes(normalizeNewlines(source));
   if (!normalized.trim()) {
@@ -120,17 +204,6 @@ function collectSections(source) {
     segment = normalized.slice(startIndex + startMarker.length, endIndex);
   }
 
-  const headingLabelPattern = SECTION_DEFS
-    .flatMap((section) => section.aliases)
-    .map((title) => escapeRegExp(title))
-    .join('|');
-
-  // Match headings that may be markdown headers (# H), bold (**H**), or plain text (with optional colon).
-  const headingRegex = new RegExp(
-    `^\\s*(?:#{1,6}\\s+|\\*\\*)?(${headingLabelPattern})(?:\\*\\*|:)?\\s*$`,
-    'gim'
-  );
-
   const aliasLookup = SECTION_DEFS.reduce((acc, section) => {
     section.aliases.forEach((alias) => {
       acc[alias.toLowerCase()] = section;
@@ -139,21 +212,24 @@ function collectSections(source) {
   }, {});
 
   const headings = [];
-  let match;
-  while ((match = headingRegex.exec(segment)) !== null) {
-    const matchedLabel = (match[1] || '').trim();
-    const title = matchedLabel.toLowerCase();
-    if (!title || !aliasLookup[title]) {
-      continue;
+  const lines = segment.split('\n');
+  let offset = 0;
+  for (const line of lines) {
+    const matchedLabel = extractHeadingLabel(line);
+    if (matchedLabel) {
+      const title = matchedLabel.toLowerCase();
+      if (aliasLookup[title]) {
+        const section = aliasLookup[title];
+        headings.push({
+          title: section.key,
+          label: section.label,
+          index: offset,
+          length: line.length,
+          matchedLabel,
+        });
+      }
     }
-    const section = aliasLookup[title];
-    headings.push({
-      title: section.key,
-      label: section.label,
-      index: match.index,
-      length: match[0].length,
-      matchedLabel,
-    });
+    offset += line.length + 1;
   }
 
   const extracted = SECTION_DEFS.reduce((acc, section) => {
@@ -166,7 +242,14 @@ function collectSections(source) {
   }, {});
 
   if (headings.length === 0) {
-    return { segment, sections: extracted, labels };
+    const inferred = inferSectionsFromLists(segment);
+    const merged = {
+      ...extracted,
+      ...Object.fromEntries(
+        Object.entries(inferred).filter(([, value]) => String(value || '').trim())
+      ),
+    };
+    return { segment, sections: merged, labels };
   }
 
   for (const section of SECTION_DEFS) {
