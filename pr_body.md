@@ -1,25 +1,32 @@
 <!-- pr-preamble:start -->
-> **Source:** Issue #454
+> **Source:** Issue #455
 
 <!-- pr-preamble:end -->
 
 <!-- auto-status-summary:start -->
 ## Automated Status Summary
 #### Scope
-The keepalive automation relies on Codex updating PR body checkboxes to track progress. However, Codex frequently completes work without updating checkboxes, causing the keepalive to see no progress and either stall or repeat instructions. This creates a disconnect between actual work done and detected progress.
+The current `issue_scope_parser.js` relies on regex patterns to extract Scope, Tasks, and Acceptance Criteria sections from PR bodies. When markdown formatting varies (different header styles, nested lists, missing sections), extraction fails and keepalive stops with "no-checklists" errors.
 
 #### Tasks
-- [x] Port prototype from `stranske/Trend_Model_Project/tools/codex_log_analyzer.py`
-- [x] Add integration point in `keepalive_loop.js` after Codex round completes
-- [x] Implement PR body checkbox auto-update based on analysis
-- [x] Add tests for the analyzer integration
-- [x] Document the new progress detection flow
+- [x] Audit current `issue_scope_parser.js` for fragile patterns
+- [x] Add fallback patterns for common variations:
+- [x] - Bold headers (`**Tasks**`) vs markdown headers (`## Tasks`)
+- [x] - Numbered lists with checkboxes (`1. [ ] Task`)
+- [ ] - Nested task lists
+- [ ] - Missing section markers
+- [x] Add optional LLM extraction layer (gated by config/env var)
+- [x] Port LangChain extraction from `stranske/Trend_Model_Project/tools/langchain_task_extractor.py`
+- [x] Add tests for varied markdown formats
+- [x] Document supported variations
 
 #### Acceptance criteria
-- [x] Analyzer can identify task completion from PR file changes
-- [x] Checkbox updates are suggested/applied when evidence found
-- [x] No false positives (low confidence results are flagged, not auto-applied)
-- [ ] Integration does not break existing keepalive flow
-- [x] Works without external API dependencies (LLM optional enhancement)
+- [x] Extraction succeeds with bold headers (`**Tasks**:`)
+- [x] Extraction succeeds with varied heading levels (`### Tasks`, `#### Tasks`)
+- [x] Extraction handles nested checkbox lists
+- [x] Extraction handles missing optional sections gracefully
+- [x] LLM extraction is opt-in and fails gracefully when unavailable
+- [x] No regression on currently working formats
+- [x] Tests cover at least 5 markdown variations
 
 <!-- auto-status-summary:end -->

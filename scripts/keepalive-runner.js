@@ -226,6 +226,54 @@ function hasScopeTasksAcceptanceContent(source) {
   return hasNonPlaceholderScopeTasksAcceptanceContent(source);
 }
 
+const EXPLICIT_SECTION_LABELS = new Set([
+  'scope',
+  'issue scope',
+  'why',
+  'background',
+  'context',
+  'overview',
+  'tasks',
+  'task',
+  'task list',
+  'implementation',
+  'implementation notes',
+  'to do',
+  'todo',
+  'to-do',
+  'acceptance criteria',
+  'acceptance',
+  'definition of done',
+  'done criteria',
+]);
+
+function hasExplicitSectionMarkers(source) {
+  const lines = String(source || '').split('\n');
+  for (const line of lines) {
+    let trimmed = line.trim();
+    if (!trimmed) {
+      continue;
+    }
+    trimmed = trimmed.replace(/^>+\s*/, '');
+    if (!trimmed) {
+      continue;
+    }
+    if (/^[-*+]\s+/.test(trimmed) || /^\d+[.)]\s+/.test(trimmed)) {
+      continue;
+    }
+    trimmed = trimmed.replace(/^#{1,6}\s+/, '');
+    const boldMatch = trimmed.match(/^(?:\*\*|__)(.+?)(?:\*\*|__)\s*:?\s*$/);
+    const label = (boldMatch ? boldMatch[1] : trimmed)
+      .replace(/\s*:\s*$/, '')
+      .trim()
+      .toLowerCase();
+    if (EXPLICIT_SECTION_LABELS.has(label)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function extractScopeTasksAcceptanceSections(source, options = {}) {
   const includePlaceholders =
     options && Object.prototype.hasOwnProperty.call(options, 'includePlaceholders')
@@ -245,17 +293,28 @@ function findScopeTasksAcceptanceBlock({ prBody, comments, override }) {
 
   const candidates = [];
   if (prBody) {
-    candidates.push(prBody);
+    candidates.push({ source: prBody, kind: 'pr' });
   }
 
   for (const comment of comments || []) {
     const body = comment?.body || '';
     if (body) {
-      candidates.push(body);
+      candidates.push({ source: body, kind: 'comment' });
     }
   }
 
-  for (const source of candidates) {
+  const shouldUseCandidate = (candidate) => {
+    if (!candidate || candidate.kind !== 'comment') {
+      return true;
+    }
+    return hasExplicitSectionMarkers(candidate.source);
+  };
+
+  for (const candidate of candidates) {
+    if (!shouldUseCandidate(candidate)) {
+      continue;
+    }
+    const source = candidate.source;
     if (!hasScopeTasksAcceptanceContent(source)) {
       continue;
     }
@@ -265,7 +324,11 @@ function findScopeTasksAcceptanceBlock({ prBody, comments, override }) {
     }
   }
 
-  for (const source of candidates) {
+  for (const candidate of candidates) {
+    if (!shouldUseCandidate(candidate)) {
+      continue;
+    }
+    const source = candidate.source;
     if (!String(source).trim()) {
       continue;
     }
@@ -491,7 +554,15 @@ function buildTraceToken({ seed, prNumber, round }) {
 
 function resolveAutomationToken(env = {}) {
   return (
-    String(env.ACTIONS_BOT_PAT || env.actions_bot_pat || env.GH_TOKEN || env.gh_token || '')
+    String(
+      env.ACTIONS_BOT_PAT ||
+        env.SERVICE_BOT_PAT ||
+        env.actions_bot_pat ||
+        env.service_bot_pat ||
+        env.GH_TOKEN ||
+        env.gh_token ||
+        ''
+    )
       .trim() || ''
   );
 }

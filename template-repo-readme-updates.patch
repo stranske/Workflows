@@ -1,0 +1,242 @@
+diff --git a/README.md b/README.md
+index 7d5193e..b19680c 100644
+--- a/README.md
++++ b/README.md
+@@ -1,6 +1,6 @@
+ # Template
+ 
+-A template Python repository with [stranske/Workflows](https://github.com/stranske/Workflows) CI integration and keepalive agent automation.
++A template Python repository with [stranske/Workflows](https://github.com/stranske/Workflows) CI integration and CLI Codex agent automation.
+ 
+ ## Features
+ 
+@@ -8,7 +8,8 @@ A template Python repository with [stranske/Workflows](https://github.com/strans
+ - 🔧 **Ruff** - Fast Python linting and formatting
+ - 🔍 **MyPy** - Strict type checking
+ - 🧪 **Pytest** - Testing with 80% coverage requirement
+-- 🤖 **Agent Automation** - Codex keepalive integration for automated development
++- 🤖 **CLI Codex Automation** - Gate-triggered keepalive for automated development
++- 🔄 **Dual Checkout Pattern** - Consumer repo + centralized Workflows scripts
+ 
+ ## Quick Start
+ 
+@@ -35,15 +36,17 @@ mypy src/ tests/
+ ```
+ Template/
+ ├── .github/
+-│   ├── scripts/           # Agent automation scripts
+-│   ├── templates/         # Keepalive instruction templates
+-│   └── workflows/         # GitHub Actions workflows
+-├── docs/                  # Documentation
++│   ├── codex/
++│   │   ├── AGENT_INSTRUCTIONS.md  # Codex agent guidelines
++│   │   └── prompts/               # Task execution templates
++│   ├── scripts/                   # Agent automation scripts (dual checkout from Workflows)
++│   └── workflows/                 # GitHub Actions workflows
++├── docs/                          # Documentation
+ ├── src/
+-│   └── my_project/        # Main package
+-├── tests/                 # Test suite
+-├── Issues.txt             # Agent issue queue
+-├── pyproject.toml         # Project configuration
++│   └── my_project/                # Main package
++├── tests/                         # Test suite
++├── Issues.txt                     # Agent issue queue
++├── pyproject.toml                 # Project configuration
+ └── README.md
+ ```
+ 
+@@ -51,24 +54,60 @@ Template/
+ 
+ This repository uses reusable workflows from [stranske/Workflows](https://github.com/stranske/Workflows):
+ 
+-| Workflow | Purpose |
+-|----------|---------|
+-| **Gate** | PR validation with Python CI |
+-| **CI** | Push-to-main continuous integration |
+-| **Autofix** | Automatic lint/format fixes |
+-| **Agents PR Meta** | Keepalive comment detection |
+-| **Agents Orchestrator** | Scheduled keepalive sweeps |
+-| **Agents Issue Intake** | Issue→PR automation |
++### Core CI & Quality
++
++| Workflow | Purpose | Trigger |
++|----------|---------|---------|
++| **Gate** | PR validation (CI, lint, tests) | Pull request |
++| **CI** | Push-to-main continuous integration | Push to main |
++| **Autofix** | Automatic lint/format fixes | Label: `autofix` |
++
++### Agent Workflows (CLI Codex)
++
++| Workflow | Purpose | Trigger |
++|----------|---------|---------|
++| **Keepalive Loop** | Runs Codex CLI after Gate passes | Gate completion, PR label |
++| **PR Meta** | Updates PR status summaries | PR events |
++| **Issue Intake** | Creates PRs from labeled issues | Issue labeled |
++| **Guard** | Security checks for agent execution | Before agent runs |
++| **Bot Comment Handler** | Processes @codex commands | Issue comments |
++| **Autofix Loop** | Autofix integration with keepalive | Autofix + agent label |
++
++**Note:** `agents-orchestrator.yml` is legacy and can be removed. The current architecture uses `agents-keepalive-loop.yml` which integrates with the Gate workflow for event-driven triggering.
+ 
+ ## Agent Automation
+ 
+-This template includes full Codex agent integration:
++This template uses the **Gate-triggered keepalive** architecture:
++
++### How It Works
++
++1. **Create Issue** with structured Scope/Tasks/Acceptance sections
++2. **Label Issue** with `agent:codex`
++3. **Issue Intake** creates PR from issue
++4. **Gate Workflow** runs CI validation
++5. **Keepalive Loop** triggers after Gate completion
++   - Evaluates eligibility (unchecked tasks, no pause labels)
++   - Runs CLI Codex via `reusable-codex-run.yml`
++   - Codex implements changes and pushes commits
++6. **Gate Runs Again** → loop continues
++7. **Completion** when all acceptance criteria checked
++
++### Key Components
+ 
+-1. **Create an issue** with the `agent:codex` label
+-2. **Agent creates PR** and starts working
+-3. **Keepalive monitors** progress and nudges if stalled
+-4. **Gate validates** all changes
+-5. **PR is merged** when complete
++- **Activation**: PR must have `agent:codex` label, Gate success, unchecked tasks
++- **Task Tracking**: Agent updates checkboxes in PR body after completing work
++- **Progress Detection**: Automatic checkbox reconciliation via session analysis
++- **Failure Handling**: After 3 failures, adds `needs-human` label and pauses
++- **Concurrency**: One keepalive run per PR (configurable via `agents:max-parallel:N`)
++
++### Control Labels
++
++| Label | Effect |
++|-------|--------|
++| `agent:codex` | Enables Codex automation |
++| `agents:pause` | Halts all agent activity |
++| `needs-human` | Auto-added after failures, blocks keepalive |
++| `agents:max-parallel:N` | Override concurrent run limit (default: 1) |
+ 
+ ### Using Issues.txt
+ 
+@@ -78,40 +117,54 @@ Add issues to `Issues.txt` using the structured format, then trigger the intake
+ 1) Issue title here
+ Labels: agent:codex, enhancement
+ 
+-Why
+-Explanation of the problem or need.
++## Scope
++Explanation of what needs to be done and why.
+ 
+-Scope
+-- What's included
+-- What's excluded
+-
+-Tasks
++## Tasks
+ - [ ] Task 1
+ - [ ] Task 2
++- [ ] Task 3
+ 
+-Acceptance criteria
+-- [ ] Criterion 1
+-- [ ] Criterion 2
++## Acceptance Criteria
++- [ ] All tests pass
++- [ ] Code is documented
++- [ ] Coverage ≥80%
+ 
+ Implementation notes
+-- Technical details
++- Technical details or constraints
+ ```
+ 
+ ## Setup for New Repos
+ 
+-See [SETUP_CHECKLIST.md](docs/keepalive/SETUP_CHECKLIST.md) for detailed instructions on:
++### Required Secrets
+ 
+-- Repository settings
+-- Secrets configuration
+-- Branch protection rules
+-- Workflow setup
++| Secret | Purpose | Alternative |
++|--------|---------|-------------|
++| `CODEX_AUTH_JSON` | ChatGPT auth for Codex CLI | Recommended |
++| `WORKFLOWS_APP_ID` | GitHub App ID | Use with APP_PRIVATE_KEY |
++| `WORKFLOWS_APP_PRIVATE_KEY` | GitHub App private key | Use with APP_ID |
++| `SERVICE_BOT_PAT` | Bot PAT for automation | Required |
++| `OWNER_PR_PAT` | Owner PAT for PR operations | Optional |
+ 
+-### Required Secrets
++**Note:** Choose either `CODEX_AUTH_JSON` OR the GitHub App credentials, not both.
++
++### Required Environments
++
++Create in **Settings** → **Environments**:
++- `agent-standard` - For standard agent execution
+ 
+-| Secret | Purpose |
+-|--------|---------|
+-| `SERVICE_BOT_PAT` | Bot account PAT for automation |
+-| `OWNER_PR_PAT` | Owner PAT for PR operations (optional) |
++### Repository Variables
++
++| Variable | Purpose | Default |
++|----------|---------|---------|
++| `ALLOWED_KEEPALIVE_LOGINS` | Users who can trigger keepalive | `stranske` |
++
++### Branch Protection
++
++Configure branch protection for `main`:
++- Require status checks: `Gate / gate`
++- Require pull request reviews: 1 approval
++- Dismiss stale reviews on new commits
+ 
+ ## Development
+ 
+@@ -128,6 +181,42 @@ pytest --cov
+ ruff format src/ tests/
+ ```
+ 
++## Troubleshooting
++
++### Keepalive Not Triggering
++
++- Verify PR has `agent:codex` label
++- Check Gate workflow passed
++- Ensure PR body has unchecked tasks
++- Look for `agents:pause` or `needs-human` labels
++- Review keepalive summary comment for skip reasons
++
++### No Automated Status Summary
++
++- Verify issue has Scope/Tasks/Acceptance sections
++- Run `agents-pr-meta.yml` manually
++- Check PR links to source issue
++
++### Agent Failures
++
++After 3 failures, keepalive pauses and adds `needs-human`:
++1. Review failure reason in keepalive summary
++2. Fix the issue (code, prompt, auth)
++3. Remove `needs-human` label to resume
++
++### Permission Errors
++
++- Verify `CODEX_AUTH_JSON` or GitHub App credentials are set
++- Check environment `agent-standard` exists
++- Ensure PATs have required scopes: `repo`, `workflow`
++
++## Documentation
++
++- [Workflows Repo](https://github.com/stranske/Workflows) - Central workflow library
++- [Consumer README](https://github.com/stranske/Workflows/blob/main/templates/consumer-repo/README.md) - Complete setup guide
++- [Keepalive Architecture](https://github.com/stranske/Workflows/blob/main/docs/keepalive/GoalsAndPlumbing.md) - Detailed design
++- [Setup Checklist](docs/keepalive/SETUP_CHECKLIST.md) - Step-by-step configuration
++
+ ## License
+ 
+ MIT License - see [LICENSE](LICENSE) for details.

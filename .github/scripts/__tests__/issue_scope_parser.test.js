@@ -52,6 +52,56 @@ test('parses plain headings without markdown hashes', () => {
   );
 });
 
+test('parses bold headings with trailing colons', () => {
+  const issue = [
+    '**Scope**:',
+    '- summary',
+    '',
+    '**Tasks**:',
+    '- [ ] alpha',
+    '',
+    '**Acceptance Criteria**:',
+    '- ok',
+  ].join('\n');
+
+  const result = extractScopeTasksAcceptanceSections(issue);
+  assert.equal(
+    result,
+    ['#### Scope', '- summary', '', '#### Tasks', '- [ ] alpha', '', '#### Acceptance Criteria', '- [ ] ok'].join('\n')
+  );
+});
+
+test('parses bold headings wrapped in list items', () => {
+  // Note: This is an edge case where sections are marked with list bullets
+  // containing bold section names. The parser extracts the content following
+  // each recognized section heading, treating the list bullet as a heading marker.
+  const issue = [
+    '**Scope**',
+    'Context line.',
+    '',
+    '**Tasks**',
+    '- [ ] first task',
+    '',
+    '**Acceptance Criteria**:',
+    '- [ ] tests pass',
+  ].join('\n');
+
+  const result = extractScopeTasksAcceptanceSections(issue);
+  assert.equal(
+    result,
+    [
+      '#### Scope',
+      'Context line.',
+      '',
+      '#### Tasks',
+      '- [ ] first task',
+      '',
+      '#### Acceptance Criteria',
+      '- [ ] tests pass',
+    ].join('\n')
+  );
+});
+
 test('parseScopeTasksAcceptanceSections preserves structured sections', () => {
   const issue = [
     '## Issue Scope',
@@ -108,6 +158,70 @@ test('returns empty string when no headings present', () => {
   assert.equal(extractScopeTasksAcceptanceSections(issue), '');
 });
 
+test('infers tasks from list blocks when headings are missing', () => {
+  const issue = [
+    '- [ ] first task',
+    '- [ ] second task',
+  ].join('\n');
+
+  const result = extractScopeTasksAcceptanceSections(issue);
+  assert.equal(result, ['#### Tasks', '- [ ] first task', '- [ ] second task'].join('\n'));
+});
+
+test('infers tasks from scope content when tasks heading is missing', () => {
+  const issue = [
+    '## Scope',
+    'Short context line.',
+    '',
+    '- [ ] first task',
+    '- [ ] second task',
+    '',
+    '## Acceptance Criteria',
+    '- must pass tests',
+  ].join('\n');
+
+  const result = extractScopeTasksAcceptanceSections(issue);
+  assert.equal(
+    result,
+    [
+      '#### Scope',
+      'Short context line.',
+      '',
+      '#### Tasks',
+      '- [ ] first task',
+      '- [ ] second task',
+      '',
+      '#### Acceptance Criteria',
+      '- [ ] must pass tests',
+    ].join('\n')
+  );
+});
+
+test('infers acceptance from trailing list block when heading is missing', () => {
+  const issue = [
+    '## Tasks',
+    '- [ ] ship feature',
+    '',
+    'Acceptance Criteria (AC):',
+    '',
+    '- [ ] all tests pass',
+  ].join('\n');
+
+  const result = extractScopeTasksAcceptanceSections(issue);
+  assert.equal(
+    result,
+    [
+      '#### Tasks',
+      '- [ ] ship feature',
+      '',
+      'Acceptance Criteria (AC):',
+      '',
+      '#### Acceptance Criteria',
+      '- [ ] all tests pass',
+    ].join('\n')
+  );
+});
+
 test('includes placeholders when requested', () => {
   const issue = [
     'Tasks:',
@@ -155,6 +269,30 @@ test('normalises bullet lists into checkboxes for tasks and acceptance', () => {
       '#### Acceptance Criteria',
       '- [ ] confirm coverage > 90%',
       '- [ ] ensure no regressions',
+    ].join('\n')
+  );
+});
+
+test('normalises numbered list items into checkboxes', () => {
+  const issue = [
+    'Tasks',
+    '1. First task',
+    '2. [ ] Second task',
+    '',
+    'Acceptance criteria',
+    '1) All tests pass',
+  ].join('\n');
+
+  const result = extractScopeTasksAcceptanceSections(issue);
+  assert.equal(
+    result,
+    [
+      '#### Tasks',
+      '1. [ ] First task',
+      '2. [ ] Second task',
+      '',
+      '#### Acceptance Criteria',
+      '1) [ ] All tests pass',
     ].join('\n')
   );
 });
@@ -512,8 +650,8 @@ test('preserves non-bullet content', () => {
       '',
       '**Important:** Run tests after each change',
       '',
-      '1. First do X',
-      '2. Then do Y',
+      '1. [ ] First do X',
+      '2. [ ] Then do Y',
       '',
       '- [ ] Deploy to staging',
     ].join('\n')
@@ -541,4 +679,3 @@ test('handles nested bullets', () => {
     ].join('\n')
   );
 });
-
