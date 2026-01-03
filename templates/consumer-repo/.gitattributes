@@ -1,0 +1,10 @@
+# Git attributes for consumer repos synced from Workflows
+#
+# Merge strategies to prevent recurring conflicts on PR-specific files:
+# pr_body.md contains issue-specific content that differs between branches.
+# Using merge=ours keeps each branch's version during merges.
+
+pr_body.md merge=ours
+
+# CI autofix history is append-only and branch-specific
+ci/autofix/history.json merge=ours linguist-generated
