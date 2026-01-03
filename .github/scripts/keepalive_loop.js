@@ -822,15 +822,44 @@ async function evaluateKeepaliveLoop({ github, context, core, payload: overrideP
   const maxIterations = toNumber(config.max_iterations ?? state.max_iterations, 5);
   const failureThreshold = toNumber(config.failure_threshold ?? state.failure_threshold, 3);
 
-  // Productivity tracking: determine if recent iterations have been productive
-  // An iteration is productive if it made file changes or completed tasks
+  // Evidence-based productivity tracking
+  // Uses multiple signals to determine if work is being done:
+  // 1. File changes (primary signal)
+  // 2. Task completion progress
+  // 3. Historical productivity trend
   const lastFilesChanged = toNumber(state.last_files_changed, 0);
+  const prevFilesChanged = toNumber(state.prev_files_changed, 0);
   const hasRecentFailures = Boolean(state.failure?.count > 0);
-  const isProductive = lastFilesChanged > 0 && !hasRecentFailures;
+  
+  // Track task completion trend
+  const previousTasks = state.tasks || {};
+  const prevUnchecked = toNumber(previousTasks.unchecked, checkboxCounts.unchecked);
+  const tasksCompletedSinceLastRound = prevUnchecked - checkboxCounts.unchecked;
+  
+  // Calculate productivity score (0-100)
+  // This is evidence-based: higher score = more confidence work is happening
+  let productivityScore = 0;
+  if (lastFilesChanged > 0) productivityScore += Math.min(40, lastFilesChanged * 10);
+  if (tasksCompletedSinceLastRound > 0) productivityScore += Math.min(40, tasksCompletedSinceLastRound * 20);
+  if (prevFilesChanged > 0 && iteration > 1) productivityScore += 10; // Recent historical activity
+  if (!hasRecentFailures) productivityScore += 10; // No failures is a positive signal
+  
+  // An iteration is productive if it has a reasonable productivity score
+  const isProductive = productivityScore >= 20 && !hasRecentFailures;
+  
+  // Early detection: Check for diminishing returns pattern
+  // If we had activity before but now have none, might be naturally completing
+  const diminishingReturns = 
+    iteration >= 2 && 
+    prevFilesChanged > 0 && 
+    lastFilesChanged === 0 && 
+    tasksCompletedSinceLastRound === 0;
   
   // max_iterations is a "stuck detection" threshold, not a hard cap
   // Continue past max if productive work is happening
+  // But stop earlier if we detect diminishing returns pattern
   const shouldStopForMaxIterations = iteration >= maxIterations && !isProductive;
+  const shouldStopEarly = diminishingReturns && iteration >= Math.ceil(maxIterations * 0.6);
 
   // Build task appendix for the agent prompt (after state load for reconciliation info)
   const taskAppendix = buildTaskAppendix(normalisedSections, checkboxCounts, state, { prBody: pr.body });
@@ -850,6 +879,10 @@ async function evaluateKeepaliveLoop({ github, context, core, payload: overrideP
   } else if (allComplete) {
     action = 'stop';
     reason = 'tasks-complete';
+  } else if (shouldStopEarly) {
+    // Evidence-based early stopping: diminishing returns detected
+    action = 'stop';
+    reason = 'diminishing-returns';
   } else if (shouldStopForMaxIterations) {
     action = 'stop';
     reason = isProductive ? 'max-iterations' : 'max-iterations-unproductive';
@@ -954,6 +987,14 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
   const llmProvider = normalise(inputs.llm_provider ?? inputs.llmProvider);
   const llmConfidence = toNumber(inputs.llm_confidence ?? inputs.llmConfidence, 0);
   const llmAnalysisRun = toBool(inputs.llm_analysis_run ?? inputs.llmAnalysisRun, false);
+  
+  // Quality metrics for BS detection and evidence-based decisions
+  const llmRawConfidence = toNumber(inputs.llm_raw_confidence ?? inputs.llmRawConfidence, llmConfidence);
+  const llmConfidenceAdjusted = toBool(inputs.llm_confidence_adjusted ?? inputs.llmConfidenceAdjusted, false);
+  const llmQualityWarnings = normalise(inputs.llm_quality_warnings ?? inputs.llmQualityWarnings);
+  const sessionDataQuality = normalise(inputs.session_data_quality ?? inputs.sessionDataQuality);
+  const sessionEffortScore = toNumber(inputs.session_effort_score ?? inputs.sessionEffortScore, 0);
+  const analysisTextLength = toNumber(inputs.analysis_text_length ?? inputs.analysisTextLength, 0);
 
   const { state: previousState, commentId } = await loadKeepaliveState({
     github,
@@ -1225,12 +1266,60 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
                           llmProvider === 'openai' ? 'OpenAI (fallback)' :
                           llmProvider === 'regex-fallback' ? 'Regex (fallback)' : llmProvider;
     const confidencePercent = Math.round(llmConfidence * 100);
+    
     summaryLines.push(
       '',
       '### 🧠 Task Analysis',
       `| Provider | ${providerIcon} ${providerLabel} |`,
       `| Confidence | ${confidencePercent}% |`,
     );
+    
+    // Show quality metrics if available
+    if (sessionDataQuality) {
+      const qualityIcon = sessionDataQuality === 'high' ? '🟢' :
+                          sessionDataQuality === 'medium' ? '🟡' :
+                          sessionDataQuality === 'low' ? '🟠' : '🔴';
+      summaryLines.push(`| Data Quality | ${qualityIcon} ${sessionDataQuality} |`);
+    }
+    if (sessionEffortScore > 0) {
+      summaryLines.push(`| Effort Score | ${sessionEffortScore}/100 |`);
+    }
+    
+    // Show BS detection warnings if confidence was adjusted
+    if (llmConfidenceAdjusted && llmRawConfidence !== llmConfidence) {
+      const rawPercent = Math.round(llmRawConfidence * 100);
+      summaryLines.push(
+        '',
+        `> ⚠️ **Confidence adjusted**: Raw confidence was ${rawPercent}%, adjusted to ${confidencePercent}% based on session quality metrics.`
+      );
+    }
+    
+    // Show specific quality warnings if present
+    if (llmQualityWarnings) {
+      summaryLines.push(
+        '',
+        '#### Quality Warnings',
+      );
+      // Parse warnings (could be JSON array or comma-separated)
+      let warnings = [];
+      try {
+        warnings = JSON.parse(llmQualityWarnings);
+      } catch {
+        warnings = llmQualityWarnings.split(';').filter(w => w.trim());
+      }
+      for (const warning of warnings) {
+        summaryLines.push(`- ⚠️ ${warning.trim()}`);
+      }
+    }
+    
+    // Analysis data health check
+    if (analysisTextLength > 0 && analysisTextLength < 200 && agentFilesChanged > 0) {
+      summaryLines.push(
+        '',
+        `> 🔴 **Data Loss Alert**: Analysis text was only ${analysisTextLength} chars despite ${agentFilesChanged} file changes. Task detection may be inaccurate.`
+      );
+    }
+    
     if (llmProvider !== 'github-models') {
       summaryLines.push(
         '',
@@ -1297,7 +1386,12 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
     failure_threshold: failureThreshold,
     // Track task reconciliation for next iteration
     needs_task_reconciliation: madeChangesButNoTasksChecked,
+    // Productivity tracking for evidence-based decisions
     last_files_changed: agentFilesChanged,
+    prev_files_changed: toNumber(previousState?.last_files_changed, 0),
+    // Quality metrics for analysis validation
+    last_effort_score: sessionEffortScore,
+    last_data_quality: sessionDataQuality,
   };
 
   const summaryOutcome = runResult || summaryReason || action || 'unknown';

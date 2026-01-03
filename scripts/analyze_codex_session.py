@@ -149,6 +149,18 @@ def output_github_actions(result: AnalysisResult) -> None:
             f.write(f"has-progress={str(result.has_progress).lower()}\n")
             f.write(f"is-stalled={str(result.is_stalled).lower()}\n")
 
+            # Quality metrics for keepalive integration
+            f.write(f"effort-score={result.effort_score}\n")
+            f.write(f"data-quality={result.data_quality}\n")
+            f.write(f"analysis-text-length={result.analysis_text_length}\n")
+
+            # Raw vs adjusted confidence for BS detection
+            if result.completion.raw_confidence is not None:
+                f.write(f"raw-confidence={result.completion.raw_confidence}\n")
+            if result.completion.quality_warnings:
+                warnings_json = json.dumps(result.completion.quality_warnings)
+                f.write(f"quality-warnings={warnings_json}\n")
+
             # Encode completed tasks as JSON for downstream use
             completed_json = json.dumps(result.completion.completed_tasks)
             f.write(f"completed-tasks={completed_json}\n")
@@ -166,7 +178,17 @@ def output_json(result: AnalysisResult, pretty: bool = False) -> None:
         "data_source": result.data_source,
         "input_length": result.input_length,
         "analysis_text_length": result.analysis_text_length,
+        # Quality metrics for keepalive integration
+        "effort_score": result.effort_score,
+        "data_quality": result.data_quality,
     }
+
+    # BS detection fields
+    if result.completion.raw_confidence is not None:
+        data["raw_confidence"] = result.completion.raw_confidence
+        data["confidence_adjusted"] = result.completion.confidence_adjusted
+    if result.completion.quality_warnings:
+        data["quality_warnings"] = result.completion.quality_warnings
 
     if result.session:
         data["session"] = {

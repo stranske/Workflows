@@ -114,6 +114,22 @@ on:
       llm-has-completions:
         description: 'Whether any task completions were detected'
         value: ${{ jobs.codex.outputs.llm-has-completions }}
+      # Quality metrics for keepalive integration
+      llm-raw-confidence:
+        description: 'Raw confidence before BS detection adjustment (0-1)'
+        value: ${{ jobs.codex.outputs.llm-raw-confidence }}
+      llm-effort-score:
+        description: 'Estimated effort score based on session activity'
+        value: ${{ jobs.codex.outputs.llm-effort-score }}
+      llm-data-quality:
+        description: 'Session data quality level (high, medium, low, minimal)'
+        value: ${{ jobs.codex.outputs.llm-data-quality }}
+      llm-analysis-text-length:
+        description: 'Length of analysis text sent to LLM'
+        value: ${{ jobs.codex.outputs.llm-analysis-text-length }}
+      llm-quality-warnings:
+        description: 'JSON array of quality warnings from BS detector'
+        value: ${{ jobs.codex.outputs.llm-quality-warnings }}
 
 permissions:
   contents: write
@@ -144,6 +160,12 @@ jobs:
       llm-has-completions: ${{ steps.llm_analysis.outputs.has-completions }}
       llm-provider: ${{ steps.llm_analysis.outputs.provider }}
       llm-confidence: ${{ steps.llm_analysis.outputs.confidence }}
+      # Quality metrics for keepalive integration
+      llm-raw-confidence: ${{ steps.llm_analysis.outputs.raw-confidence }}
+      llm-effort-score: ${{ steps.llm_analysis.outputs.effort-score }}
+      llm-data-quality: ${{ steps.llm_analysis.outputs.data-quality }}
+      llm-analysis-text-length: ${{ steps.llm_analysis.outputs.analysis-text-length }}
+      llm-quality-warnings: ${{ steps.llm_analysis.outputs.quality-warnings }}
       session-event-count: ${{ steps.analyze_session.outputs.event-count }}
       session-todo-count: ${{ steps.analyze_session.outputs.todo-count }}
     steps:
@@ -585,10 +607,21 @@ jobs:
             COMPLETED=$(python3 -c "import json; d=json.load(open('$ANALYSIS_FILE')); print(json.dumps(d.get('completed_tasks', [])))")
             PROVIDER=$(python3 -c "import json; d=json.load(open('$ANALYSIS_FILE')); print(d.get('provider', 'unknown'))")
             CONFIDENCE=$(python3 -c "import json; d=json.load(open('$ANALYSIS_FILE')); print(d.get('confidence', 0))")
+            # Quality metrics for keepalive integration
+            RAW_CONFIDENCE=$(python3 -c "import json; d=json.load(open('$ANALYSIS_FILE')); print(d.get('raw_confidence', d.get('confidence', 0)))")
+            EFFORT_SCORE=$(python3 -c "import json; d=json.load(open('$ANALYSIS_FILE')); print(d.get('effort_score', 0))")
+            DATA_QUALITY=$(python3 -c "import json; d=json.load(open('$ANALYSIS_FILE')); print(d.get('data_quality', 'unknown'))")
+            ANALYSIS_LENGTH=$(python3 -c "import json; d=json.load(open('$ANALYSIS_FILE')); print(d.get('analysis_text_length', 0))")
+            QUALITY_WARNINGS=$(python3 -c "import json; d=json.load(open('$ANALYSIS_FILE')); print(json.dumps(d.get('quality_warnings', [])))")
             {
               echo "completed-tasks=$COMPLETED"
               echo "provider=$PROVIDER"
               echo "confidence=$CONFIDENCE"
+              echo "raw-confidence=$RAW_CONFIDENCE"
+              echo "effort-score=$EFFORT_SCORE"
+              echo "data-quality=$DATA_QUALITY"
+              echo "analysis-text-length=$ANALYSIS_LENGTH"
+              echo "quality-warnings=$QUALITY_WARNINGS"
             } >> "$GITHUB_OUTPUT"
           fi
 
