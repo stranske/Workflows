@@ -83,6 +83,8 @@ jobs:
 
       - name: Summary
         run: |
-          echo "## LLM Provider Test Results" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Provider test completed successfully! ✅" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## LLM Provider Test Results"
+            echo ""
+            echo "Provider test completed successfully! ✅"
+          } >> "$GITHUB_STEP_SUMMARY"
