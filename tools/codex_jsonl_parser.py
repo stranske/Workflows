@@ -410,10 +410,12 @@ class CodexJSONLParser:
                     break
 
         # Item events
+        # Handle both old schema (item_id, item_type at top level) and
+        # new schema (item.id, item.type in nested object)
         elif event_type == "item.started":
-            item_id = event.get("item_id")
-            # Handle both old (item_type) and new (type in nested object) schemas
-            item_type = event.get("item_type") or event.get("item", {}).get("type")
+            item_obj = event.get("item", {})
+            item_id = event.get("item_id") or item_obj.get("id")
+            item_type = event.get("item_type") or item_obj.get("type")
             if item_id:
                 self._current_items[item_id] = {
                     "type": item_type,
@@ -421,23 +423,28 @@ class CodexJSONLParser:
                 }
 
         elif event_type == "item.updated":
-            item_id = event.get("item_id")
+            item_obj = event.get("item", {})
+            item_id = event.get("item_id") or item_obj.get("id")
             if item_id in self._current_items:
-                # Append content updates
-                content = event.get("content", "")
+                # Append content updates - check multiple possible locations
+                content = event.get("content", "") or item_obj.get("text", "")
                 self._current_items[item_id]["content"] += content
 
         elif event_type == "item.completed":
-            item_id = event.get("item_id")
+            item_obj = event.get("item", {})
+            item_id = event.get("item_id") or item_obj.get("id")
             item_data = self._current_items.pop(item_id, None)
 
             if not item_data:
-                # Try to get item type from event itself
-                item_type = event.get("item_type") or event.get("item", {}).get("type")
+                # Item wasn't tracked via item.started - extract from completed event
+                item_type = event.get("item_type") or item_obj.get("type")
                 item_data = {"type": item_type, "content": ""}
 
             item_type = item_data.get("type")
-            content = item_data.get("content", "") or event.get("content", "")
+            # Content can be in multiple places: tracked content, event.content, or item.text
+            content = (
+                item_data.get("content", "") or event.get("content", "") or item_obj.get("text", "")
+            )
 
             self._handle_completed_item(item_type, content, event)
 
@@ -445,6 +452,8 @@ class CodexJSONLParser:
         self, item_type: str | None, content: str, event: dict[str, Any]
     ) -> None:
         """Handle a completed item based on its type."""
+        # Get nested item object for new schema
+        item_obj = event.get("item", {})
 
         # Handle schema variations (old: assistant_message, new: agent_message)
         if item_type in ("agent_message", "assistant_message"):
@@ -456,21 +465,39 @@ class CodexJSONLParser:
                 self._session.reasoning_summaries.append(content)
 
         elif item_type == "command_execution":
+            # Command data can be at event level (old) or in item object (new)
             cmd = CommandExecution(
-                command=event.get("command", content),
-                exit_code=event.get("exit_code", 0),
-                output=event.get("output", ""),
-                duration_seconds=event.get("duration"),
+                command=event.get("command") or item_obj.get("command") or content,
+                exit_code=(
+                    event.get("exit_code")
+                    if event.get("exit_code") is not None
+                    else item_obj.get("exit_code", 0)
+                ),
+                output=event.get("output") or item_obj.get("aggregated_output", ""),
+                duration_seconds=event.get("duration") or item_obj.get("duration"),
             )
             self._session.commands.append(cmd)
 
         elif item_type == "file_change":
-            fc = FileChange(
-                path=event.get("path", ""),
-                change_type=event.get("change_type", "modified"),
-                content_preview=content[:500] if content else None,
-            )
-            self._session.file_changes.append(fc)
+            # File change data can be at event level (old) or in item.changes (new)
+            changes = item_obj.get("changes", [])
+            if changes:
+                # New schema: changes is a list of {path, kind}
+                for change in changes:
+                    fc = FileChange(
+                        path=change.get("path", ""),
+                        change_type=change.get("kind", "modified"),
+                        content_preview=content[:500] if content else None,
+                    )
+                    self._session.file_changes.append(fc)
+            else:
+                # Old schema: path/change_type at event level
+                fc = FileChange(
+                    path=event.get("path", "") or item_obj.get("path", ""),
+                    change_type=event.get("change_type", "modified"),
+                    content_preview=content[:500] if content else None,
+                )
+                self._session.file_changes.append(fc)
 
         elif item_type == "todo_list":
             # Parse todo items from content or event
