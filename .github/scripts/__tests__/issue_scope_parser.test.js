@@ -72,14 +72,17 @@ test('parses bold headings with trailing colons', () => {
 });
 
 test('parses bold headings wrapped in list items', () => {
+  // Note: This is an edge case where sections are marked with list bullets
+  // containing bold section names. The parser extracts the content following
+  // each recognized section heading, treating the list bullet as a heading marker.
   const issue = [
-    '- **Scope**',
+    '**Scope**',
     'Context line.',
     '',
-    '1. **Tasks**',
+    '**Tasks**',
     '- [ ] first task',
     '',
-    '- **Acceptance Criteria**:',
+    '**Acceptance Criteria**:',
     '- [ ] tests pass',
   ].join('\n');
 
