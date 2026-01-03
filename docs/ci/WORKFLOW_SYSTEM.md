@@ -523,6 +523,9 @@ Keep this table handy when you are triaging automation: it confirms which workfl
   alignment, and open a refresh pull request when upgrades are detected (dry-run
   friendly by default).
 - **Maint Sync versions.env from pyproject.toml** – `.github/workflows/maint-sync-env-from-pyproject.yml`
+- **Maint 39 Test LLM Providers** – `.github/workflows/maint-39-test-llm-providers.yml`
+  is a manual workflow that verifies LLM provider API keys (GitHub Models, OpenAI)
+  are configured correctly. Used to test the task completion analysis fallback chain.
   syncs dev tool version pins from `pyproject.toml` into `autofix-versions.env`
   on main-branch updates (or on manual dispatch) so Dependabot updates propagate
   into the workflow toolchain.

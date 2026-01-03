@@ -1,5 +1,5 @@
-# Test LLM Providers - Manual workflow to verify API keys work
-name: Test LLM Providers
+# Maint 39 - Test LLM Providers: Manual workflow to verify API keys work
+name: Maint 39 Test LLM Providers
 
 on:
   workflow_dispatch:
