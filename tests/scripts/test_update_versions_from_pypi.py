@@ -436,13 +436,21 @@ class TestRegressionPrevention:
         content = script_path.read_text()
         tree = ast.parse(content)
 
+        # Check for various fallback naming patterns that could contain stale versions
+        fallback_patterns = [
+            ("VERSION", "FALLBACK"),  # VERSION_FALLBACK, FALLBACK_VERSION
+            ("VERSION", "DEFAULT"),  # DEFAULT_VERSION, VERSION_DEFAULT
+            ("DEFAULT", "VER"),  # DEFAULT_VER
+        ]
+
         for node in ast.walk(tree):
             if isinstance(node, ast.Assign):
                 for target in node.targets:
                     if isinstance(target, ast.Name):
                         name = target.id.upper()
-                        if "VERSION" in name and "FALLBACK" in name:
-                            pytest.fail(
-                                f"Found potential hardcoded fallback: {target.id}. "
-                                f"Remove it - we must always query PyPI!"
-                            )
+                        for pattern1, pattern2 in fallback_patterns:
+                            if pattern1 in name and pattern2 in name:
+                                pytest.fail(
+                                    f"Found potential hardcoded fallback: {target.id}. "
+                                    f"Remove it - we must always query PyPI!"
+                                )

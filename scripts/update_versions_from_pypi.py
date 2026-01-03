@@ -61,7 +61,7 @@ def get_latest_pypi_version(package_name: str) -> str | None:
             # Get the latest version (this is the current stable release)
             latest: str | None = data.get("info", {}).get("version")
             if latest:
-                return str(latest)
+                return latest
 
             # Fallback: find the latest from releases
             releases: dict[str, list[dict[str, object]]] = data.get("releases", {})

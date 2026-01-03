@@ -42,15 +42,13 @@ jobs:
         id: check
         run: |
           echo "🔍 Checking PyPI for latest versions..."
-          if python scripts/update_versions_from_pypi.py --check 2>&1 | tee /tmp/check_output.txt; then
-            echo "has_updates=false" >> "$GITHUB_OUTPUT"
+          python scripts/update_versions_from_pypi.py --check 2>&1 | tee /tmp/check_output.txt
+          # Script exits 0 even for outdated (use --fail-on-outdated for non-zero)
+          # Check output directly for "outdated" to determine if updates are needed
+          if grep -q "outdated" /tmp/check_output.txt; then
+            echo "has_updates=true" >> "$GITHUB_OUTPUT"
           else
-            # Check exits with 0 even for outdated (use --fail-on-outdated for non-zero)
-            if grep -q "outdated" /tmp/check_output.txt; then
-              echo "has_updates=true" >> "$GITHUB_OUTPUT"
-            else
-              echo "has_updates=false" >> "$GITHUB_OUTPUT"
-            fi
+            echo "has_updates=false" >> "$GITHUB_OUTPUT"
           fi
           cat /tmp/check_output.txt
 
