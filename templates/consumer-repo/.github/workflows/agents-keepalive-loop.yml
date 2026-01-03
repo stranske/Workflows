@@ -505,5 +505,11 @@ jobs:
               llm_provider: '${{ needs.run-codex.outputs.llm-provider || '' }}',
               llm_confidence: '${{ needs.run-codex.outputs.llm-confidence || '' }}',
               llm_analysis_run: '${{ needs.run-codex.outputs.llm-analysis-run }}' === 'true',
+              // Quality metrics for BS detection and evidence-based decisions
+              llm_raw_confidence: '${{ needs.run-codex.outputs.llm-raw-confidence || '' }}',
+              llm_quality_warnings: '${{ needs.run-codex.outputs.llm-quality-warnings || '' }}',
+              session_data_quality: '${{ needs.run-codex.outputs.llm-data-quality || '' }}',
+              session_effort_score: '${{ needs.run-codex.outputs.llm-effort-score || '' }}',
+              analysis_text_length: '${{ needs.run-codex.outputs.llm-analysis-text-length || '' }}',
             };
             await updateKeepaliveLoopSummary({ github, context, core, inputs });
