@@ -14,9 +14,9 @@ separately to validate that our pinned versions are actually current on PyPI.
 from __future__ import annotations
 
 import json
-from pathlib import Path
 import urllib.request
 from functools import lru_cache
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -31,6 +31,7 @@ from scripts.update_versions_from_pypi import (
     parse_env_file,
     update_env_file,
 )
+
 
 @lru_cache(maxsize=1)
 def _pypi_reachable() -> bool:
