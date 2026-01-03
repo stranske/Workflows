@@ -1816,6 +1816,36 @@ test('analyzeTaskCompletion uses synonym expansion for better matching', async (
   assert.equal(configMatch.confidence, 'high', 'Should be high confidence with synonym matching');
 });
 
+test('analyzeTaskCompletion skips when repo context is missing', async () => {
+  const github = {
+    rest: {
+      repos: {
+        async compareCommits() {
+          throw new Error('compareCommits should not be called');
+        },
+      },
+      pulls: {
+        async listFiles() {
+          throw new Error('listFiles should not be called');
+        },
+      },
+    },
+  };
+
+  const result = await analyzeTaskCompletion({
+    github,
+    context: {},
+    prNumber: 1,
+    baseSha: 'base123',
+    headSha: 'head456',
+    taskText: '- [ ] Example task',
+    core: buildCore(),
+  });
+
+  assert.deepEqual(result.matches, []);
+  assert.equal(result.summary, 'Missing repo context for task analysis');
+});
+
 test('autoReconcileTasks updates PR body for high-confidence matches', async () => {
   const prBody = `## Tasks
 - [ ] Add step summary output to keepalive loop
@@ -1871,6 +1901,32 @@ test('autoReconcileTasks updates PR body for high-confidence matches', async () 
     assert.ok(updatedBody.includes('[x] Add step summary'), 'Should check off matched task');
     assert.ok(updatedBody.includes('[x] Already completed'), 'Should preserve already-checked tasks');
   }
+});
+
+test('autoReconcileTasks skips when repo context is missing', async () => {
+  const github = {
+    rest: {
+      pulls: {
+        async get() {
+          throw new Error('get should not be called');
+        },
+      },
+    },
+  };
+
+  const result = await autoReconcileTasks({
+    github,
+    context: {},
+    prNumber: 0,
+    baseSha: 'base123',
+    headSha: 'head456',
+    core: buildCore(),
+  });
+
+  assert.equal(result.updated, false);
+  assert.equal(result.tasksChecked, 0);
+  assert.equal(result.details, 'Missing repo context or PR number');
+  assert.deepEqual(result.sources, { llm: 0, commit: 0 });
 });
 
 test('autoReconcileTasks skips when no high-confidence matches', async () => {

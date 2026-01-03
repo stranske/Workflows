@@ -1583,6 +1583,11 @@ async function analyzeTaskCompletion({ github, context, prNumber, baseSha, headS
   const matches = [];
   const log = (msg) => core?.info?.(msg) || console.log(msg);
 
+  if (!context?.repo?.owner || !context?.repo?.repo) {
+    log('Skipping task analysis: missing repo context.');
+    return { matches, summary: 'Missing repo context for task analysis' };
+  }
+
   if (!taskText || !baseSha || !headSha) {
     log('Skipping task analysis: missing task text or commit range.');
     return { matches, summary: 'Insufficient data for task analysis' };
@@ -1811,6 +1816,16 @@ async function analyzeTaskCompletion({ github, context, prNumber, baseSha, headS
 async function autoReconcileTasks({ github, context, prNumber, baseSha, headSha, llmCompletedTasks, core }) {
   const log = (msg) => core?.info?.(msg) || console.log(msg);
   const sources = { llm: 0, commit: 0 };
+
+  if (!context?.repo?.owner || !context?.repo?.repo || !prNumber) {
+    log('Skipping reconciliation: missing repo context or PR number.');
+    return {
+      updated: false,
+      tasksChecked: 0,
+      details: 'Missing repo context or PR number',
+      sources,
+    };
+  }
 
   // Get current PR body
   let pr;
