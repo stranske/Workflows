@@ -13,11 +13,11 @@ The keepalive automation relies on Codex updating PR body checkboxes to track pr
 - [x] Add integration point in `keepalive_loop.js` after Codex round completes
 - [x] Implement PR body checkbox auto-update based on analysis
 - [x] Add tests for the analyzer integration
-- [ ] Document the new progress detection flow
+- [x] Document the new progress detection flow
 
 #### Acceptance criteria
 - [x] Analyzer can identify task completion from PR file changes
-- [ ] Checkbox updates are suggested/applied when evidence found
+- [x] Checkbox updates are suggested/applied when evidence found
 - [x] No false positives (low confidence results are flagged, not auto-applied)
 - [ ] Integration does not break existing keepalive flow
 - [x] Works without external API dependencies (LLM optional enhancement)
