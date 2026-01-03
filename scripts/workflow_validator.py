@@ -109,6 +109,93 @@ def check_hardcoded_secrets(workflow: dict) -> list[tuple[str, str]]:
     return issues
 
 
+def check_unsafe_string_interpolation(workflow: dict) -> list[tuple[str, str, str]]:
+    """Check for unsafe string interpolation patterns in script blocks.
+
+    This detects patterns where GitHub Actions expressions (${{ }}) are
+    directly embedded in JavaScript/shell strings, which can break when
+    the interpolated value contains special characters like backticks,
+    quotes, or newlines.
+
+    Safe pattern: Use env: block and process.env.VAR
+    Unsafe pattern: const x = '${{ outputs.something }}'
+
+    Args:
+        workflow: Parsed workflow YAML
+
+    Returns:
+        List of (job_name, step_name, issue) tuples
+    """
+    issues: list[tuple[str, str, str]] = []
+
+    # Patterns that indicate unsafe string interpolation
+    # These detect ${{ }} expressions inside JS string literals
+    unsafe_patterns = [
+        # Single-quoted JS strings with interpolation
+        (r"'[^']*\$\{\{[^}]+\}\}[^']*'", "Single-quoted string with ${{ }} interpolation"),
+        # Double-quoted JS strings with interpolation
+        (r'"[^"]*\$\{\{[^}]+\}\}[^"]*"', "Double-quoted string with ${{ }} interpolation"),
+        # Template literals with interpolation (backticks)
+        (r"`[^`]*\$\{\{[^}]+\}\}[^`]*`", "Template literal with ${{ }} interpolation"),
+    ]
+
+    # Known safe expression patterns (check the expression inside ${{ }})
+    safe_expression_patterns = [
+        r"^\s*secrets\.",  # Secret references are controlled
+        r"^\s*toJSON\(",  # toJSON produces valid JSON
+        r"^\s*fromJSON\(",  # fromJSON is safe
+        r"^\s*github\.",  # GitHub context is controlled
+        r"^\s*env\.",  # Environment variables are controlled
+        r"^\s*inputs\.",  # Workflow inputs are typically controlled
+        r"^\s*matrix\.",  # Matrix values are controlled
+        r"^\s*runner\.",  # Runner context is controlled
+    ]
+
+    jobs = workflow.get("jobs", {})
+    for job_name, job in jobs.items():
+        steps = job.get("steps", [])
+        for i, step in enumerate(steps):
+            step_name = step.get("name", f"step-{i}")
+            script = step.get("run") or step.get("script", "")
+
+            if not script:
+                continue
+
+            # Skip if step uses env: block (safer pattern)
+            if step.get("env"):
+                # Check if the script uses process.env instead of inline interpolation
+                env_vars = step.get("env", {})
+                # If env vars contain ${{ }} and script references process.env, that's safe
+                has_env_vars_with_expressions = any("${{" in str(v) for v in env_vars.values())
+                uses_process_env = "process.env" in script
+                if has_env_vars_with_expressions and uses_process_env:
+                    continue
+
+            # Check for unsafe patterns
+            for pattern, description in unsafe_patterns:
+                matches = re.findall(pattern, script)
+                for match in matches:
+                    # Extract what's being interpolated
+                    expr_match = re.search(r"\$\{\{\s*([^}]+?)\s*\}\}", match)
+                    expr = expr_match.group(1).strip() if expr_match else "unknown"
+
+                    # Check if the expression is a known safe pattern
+                    is_safe = any(
+                        re.search(safe_pat, expr) for safe_pat in safe_expression_patterns
+                    )
+                    if not is_safe:
+                        issues.append(
+                            (
+                                job_name,
+                                step_name,
+                                f"{description}: '{expr}' may contain special characters. "
+                                f"Use env: block with process.env instead.",
+                            )
+                        )
+
+    return issues
+
+
 def check_permissions(workflow: dict) -> list[str]:
     """Check for overly permissive permissions.
 
@@ -152,6 +239,7 @@ def validate_workflow(path: str) -> dict[str, list]:
         "missing_timeout": [],
         "hardcoded_secrets": [],
         "permission_issues": [],
+        "unsafe_interpolation": [],
         "errors": [],
     }
 
@@ -164,6 +252,7 @@ def validate_workflow(path: str) -> dict[str, list]:
     results["missing_timeout"] = check_missing_timeout(workflow)
     results["hardcoded_secrets"] = check_hardcoded_secrets(workflow)
     results["permission_issues"] = check_permissions(workflow)
+    results["unsafe_interpolation"] = check_unsafe_string_interpolation(workflow)
 
     return results
 
