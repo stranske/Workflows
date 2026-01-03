@@ -61,6 +61,11 @@ that only emit artifacts, see the "Workflows without workflow_call outputs" sect
 | `reusable-codex-run.yml` | `llm-confidence` | string (number-like) | Analysis confidence level (0-1). | `needs.codex.outputs.llm-confidence` |
 | `reusable-codex-run.yml` | `llm-completed-tasks` | string (JSON) | JSON array of detected task completions. | `needs.codex.outputs.llm-completed-tasks` |
 | `reusable-codex-run.yml` | `llm-has-completions` | string (boolean-like) | `true` when task completions were detected. | `needs.codex.outputs.llm-has-completions` |
+| `reusable-codex-run.yml` | `llm-raw-confidence` | string (number-like) | Raw confidence before BS detection adjustment (0-1). | `needs.codex.outputs.llm-raw-confidence` |
+| `reusable-codex-run.yml` | `llm-effort-score` | string (number-like) | Estimated effort score based on session activity. | `needs.codex.outputs.llm-effort-score` |
+| `reusable-codex-run.yml` | `llm-data-quality` | string | Session data quality level (`high`, `medium`, `low`, `minimal`). | `needs.codex.outputs.llm-data-quality` |
+| `reusable-codex-run.yml` | `llm-analysis-text-length` | string (number-like) | Length of analysis text sent to LLM. | `needs.codex.outputs.llm-analysis-text-length` |
+| `reusable-codex-run.yml` | `llm-quality-warnings` | string (JSON) | JSON array of quality warnings from BS detector. | `needs.codex.outputs.llm-quality-warnings` |
 <!-- OUTPUT-REFERENCE-END -->
 
 ## Workflows without workflow_call outputs

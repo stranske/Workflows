@@ -48,6 +48,10 @@ class AnalysisResult:
     input_length: int = 0
     analysis_text_length: int = 0
 
+    # Quality metrics for keepalive integration
+    effort_score: int = 0
+    data_quality: str = "unknown"  # high, medium, low, minimal
+
     @property
     def has_completions(self) -> bool:
         """Check if any tasks were marked complete."""
@@ -145,6 +149,7 @@ def analyze_session(
 
     session = None
     analysis_text = content
+    quality_context = None
 
     # Parse JSONL if applicable
     if data_source in ("jsonl", "jsonl_filtered"):
@@ -158,6 +163,27 @@ def analyze_session(
                 f"{len(session.agent_messages)} messages, "
                 f"{len(session.commands)} commands"
             )
+
+            # Build quality context for BS detection
+            quality_metrics = session.get_quality_metrics()
+            from tools.llm_provider import SessionQualityContext
+
+            quality_context = SessionQualityContext(
+                has_agent_messages=quality_metrics["has_agent_messages"],
+                has_work_evidence=quality_metrics["has_work_evidence"],
+                file_change_count=quality_metrics["file_change_count"],
+                successful_command_count=quality_metrics["successful_command_count"],
+                estimated_effort_score=quality_metrics["estimated_effort_score"],
+                data_quality=quality_metrics["data_quality"],
+                analysis_text_length=len(analysis_text),
+            )
+
+            # Warn if analysis text is suspiciously short
+            if len(analysis_text) < 200 and quality_metrics["has_work_evidence"]:
+                logger.warning(
+                    f"Analysis text very short ({len(analysis_text)} chars) "
+                    f"despite evidence of work. May cause inaccurate analysis."
+                )
         except Exception as e:
             logger.warning(f"Failed to parse as JSONL, falling back to summary: {e}")
             data_source = "summary"
@@ -167,6 +193,23 @@ def analyze_session(
     provider = get_llm_provider(force_provider=force_provider)
 
     try:
+        # Pass quality context if provider supports it
+        if hasattr(provider, "_active_provider"):
+            # FallbackChainProvider - let internal provider handle it
+            completion = provider.analyze_completion(
+                session_output=analysis_text,
+                tasks=tasks,
+                context=context,
+            )
+        else:
+            completion = provider.analyze_completion(
+                session_output=analysis_text,
+                tasks=tasks,
+                context=context,
+                quality_context=quality_context,
+            )
+    except TypeError:
+        # Provider doesn't support quality_context parameter
         completion = provider.analyze_completion(
             session_output=analysis_text,
             tasks=tasks,
@@ -184,12 +227,22 @@ def analyze_session(
             provider_used="error",
         )
 
+    # Build quality metrics from session
+    effort_score = 0
+    data_quality = "unknown"
+    if session:
+        quality_metrics = session.get_quality_metrics()
+        effort_score = quality_metrics.get("estimated_effort_score", 0)
+        data_quality = quality_metrics.get("data_quality", "unknown")
+
     return AnalysisResult(
         completion=completion,
         session=session,
         data_source=data_source,
         input_length=len(content),
         analysis_text_length=len(analysis_text),
+        effort_score=effort_score,
+        data_quality=data_quality,
     )
 
 

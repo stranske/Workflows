@@ -112,35 +112,51 @@ class CodexSession:
     def completed_todos(self) -> list[TodoItem]:
         return [t for t in self.todo_items if t.status == "completed"]
 
-    def get_analysis_text(self, include_reasoning: bool = True) -> str:
+    def get_analysis_text(self, include_reasoning: bool = True, max_length: int = 7000) -> str:
         """
         Get consolidated text suitable for LLM analysis.
 
+        This method builds a comprehensive view of the session by including:
+        1. Agent messages (highest signal)
+        2. Reasoning summaries (understanding intent)
+        3. Todo list (direct task mapping)
+        4. File changes with content previews (concrete evidence)
+        5. Command outputs (evidence of work done)
+
+        If no agent messages are present (common in some Codex modes),
+        it falls back to extracting evidence from commands and file changes.
+
         Args:
             include_reasoning: Whether to include reasoning summaries
+            max_length: Target max length for the analysis text (to fit LLM context)
 
         Returns:
             Formatted text with key session information
         """
         sections = []
+        remaining_budget = max_length
+
+        def add_section(title: str, content: list[str], budget_per_item: int = 500) -> int:
+            """Add a section and return characters used."""
+            if not content:
+                return 0
+            section_text = f"## {title}\n" + "\n".join(c[:budget_per_item] for c in content) + "\n"
+            sections.append(section_text)
+            return len(section_text)
 
         # Agent messages (highest signal)
         if self.agent_messages:
-            sections.append("## Agent Messages")
-            for msg in self.agent_messages:
-                sections.append(msg[:2000])  # Truncate long messages
-                sections.append("")
+            used = add_section("Agent Messages", self.agent_messages, budget_per_item=2000)
+            remaining_budget -= used
 
-        # Reasoning (if requested)
+        # Reasoning (if requested) - important context
         if include_reasoning and self.reasoning_summaries:
-            sections.append("## Reasoning Summaries")
-            for reason in self.reasoning_summaries:
-                sections.append(reason[:1000])
-                sections.append("")
+            used = add_section("Reasoning Summaries", self.reasoning_summaries, budget_per_item=800)
+            remaining_budget -= used
 
         # Todo list (direct task mapping)
         if self.todo_items:
-            sections.append("## Todo List")
+            todo_lines = []
             for item in self.todo_items:
                 status_emoji = {
                     "completed": "✓",
@@ -148,29 +164,180 @@ class CodexSession:
                     "blocked": "✗",
                     "not_started": "○",
                 }.get(item.status, "?")
-                sections.append(f"{status_emoji} {item.task}")
-            sections.append("")
+                todo_lines.append(f"{status_emoji} {item.task}")
+            used = add_section("Todo List", todo_lines, budget_per_item=200)
+            remaining_budget -= used
 
-        # File changes (concrete evidence)
+        # File changes with content previews (concrete evidence)
         if self.file_changes:
-            sections.append("## Files Modified")
+            file_lines = []
             for fc in self.file_changes:
-                sections.append(f"- {fc.change_type}: {fc.path}")
-            sections.append("")
+                line = f"- {fc.change_type}: {fc.path}"
+                if fc.content_preview:
+                    # Include truncated content preview for context
+                    preview = fc.content_preview[:300].replace("\n", " ")
+                    line += f"\n  Preview: {preview}..."
+                file_lines.append(line)
+            used = add_section("Files Modified", file_lines, budget_per_item=500)
+            remaining_budget -= used
 
-        # Command summary
+        # Command outputs (evidence of work done) - CRITICAL for sessions without agent_messages
         if self.commands:
-            sections.append("## Commands Executed")
-            sections.append(f"- Total: {len(self.commands)}")
-            sections.append(f"- Successful: {len(self.successful_commands)}")
-            sections.append(f"- Failed: {len(self.failed_commands)}")
-            if self.failed_commands:
-                sections.append("- Failed commands:")
-                for cmd in self.failed_commands[:3]:  # Limit to first 3
-                    sections.append(f"  - {cmd.command[:100]} (exit {cmd.exit_code})")
-            sections.append("")
+            cmd_section = []
+            cmd_section.append(
+                f"Total: {len(self.commands)} | Successful: {len(self.successful_commands)} | Failed: {len(self.failed_commands)}"
+            )
 
-        return "\n".join(sections)
+            # Include outputs from recent successful commands (shows actual work)
+            meaningful_commands = [
+                c
+                for c in self.successful_commands
+                if c.output
+                and len(c.output) > 20
+                and not c.command.startswith(("cd ", "ls ", "pwd", "echo "))
+            ]
+
+            if meaningful_commands:
+                cmd_section.append("\n### Recent Command Outputs (evidence of work):")
+                # Take last 5 meaningful commands
+                for cmd in meaningful_commands[-5:]:
+                    cmd_section.append(f"\n$ {cmd.command[:100]}")
+                    # Truncate output but include enough to show what was done
+                    output_preview = cmd.output[:600].strip()
+                    if output_preview:
+                        cmd_section.append(output_preview)
+
+            if self.failed_commands:
+                cmd_section.append("\n### Failed Commands:")
+                for cmd in self.failed_commands[:3]:
+                    cmd_section.append(f"- {cmd.command[:100]} (exit {cmd.exit_code})")
+                    if cmd.output:
+                        cmd_section.append(f"  Error: {cmd.output[:200]}")
+
+            used = add_section("Commands Executed", cmd_section, budget_per_item=800)
+            remaining_budget -= used
+
+        # FALLBACK: If we have very little text but evidence of work, synthesize a summary
+        result = "\n".join(sections)
+        if len(result) < 200 and (self.file_changes or self.commands):
+            fallback = self._synthesize_work_evidence_summary()
+            if fallback:
+                result = fallback + "\n\n" + result
+
+        return result
+
+    def _synthesize_work_evidence_summary(self) -> str:
+        """
+        Synthesize a work summary when agent messages are missing.
+
+        This is a fallback that extracts evidence from file changes and
+        command patterns to give the LLM something to analyze.
+        """
+        summary_parts = ["## Work Evidence Summary (synthesized from session data)"]
+
+        if self.file_changes:
+            summary_parts.append(f"\n**{len(self.file_changes)} files were modified:**")
+            for fc in self.file_changes:
+                path_parts = Path(fc.path).parts
+                # Extract meaningful file name context
+                context = "/".join(path_parts[-3:]) if len(path_parts) > 2 else fc.path
+                summary_parts.append(f"- {fc.change_type}: {context}")
+
+        if self.commands:
+            # Categorize commands to understand what was done
+            test_cmds = [
+                c for c in self.commands if "pytest" in c.command or "test" in c.command.lower()
+            ]
+            edit_cmds = [
+                c
+                for c in self.commands
+                if any(x in c.command for x in ["sed", "cat", "echo >", "vim", "nano"])
+            ]
+            grep_cmds = [c for c in self.commands if "grep" in c.command or "rg" in c.command]
+
+            if test_cmds:
+                passed = sum(1 for c in test_cmds if c.exit_code == 0)
+                summary_parts.append(
+                    f"\n**Testing:** {len(test_cmds)} test commands run, {passed} successful"
+                )
+
+            if edit_cmds:
+                summary_parts.append(f"\n**File editing:** {len(edit_cmds)} edit commands executed")
+
+            if grep_cmds:
+                summary_parts.append(
+                    f"\n**Code exploration:** {len(grep_cmds)} search commands used"
+                )
+
+            # Include actual test output if available
+            for cmd in test_cmds:
+                if cmd.exit_code == 0 and cmd.output:
+                    # Extract test summary lines
+                    for line in cmd.output.split("\n"):
+                        if any(
+                            x in line.lower()
+                            for x in ["passed", "failed", "error", "warning", "collected"]
+                        ):
+                            summary_parts.append(f"  {line.strip()}")
+                            break
+
+        return "\n".join(summary_parts) if len(summary_parts) > 1 else ""
+
+    def get_quality_metrics(self) -> dict:
+        """
+        Get metrics about session quality for analysis validation.
+
+        Returns metrics that can be used to detect suspicious analysis results:
+        - has_agent_messages: Whether the session has any agent messages
+        - has_work_evidence: Whether there's concrete evidence of work
+        - command_success_rate: Ratio of successful commands
+        - estimated_effort_score: Rough score of work done (0-100)
+        """
+        total_cmds = len(self.commands)
+        successful_cmds = len(self.successful_commands)
+
+        # Calculate effort score based on multiple signals
+        effort_signals = []
+
+        # File changes are strong evidence
+        if self.file_changes:
+            effort_signals.append(min(40, len(self.file_changes) * 10))
+
+        # Successful commands indicate progress
+        if successful_cmds > 0:
+            effort_signals.append(min(30, successful_cmds * 2))
+
+        # Agent messages indicate active work
+        if self.agent_messages:
+            effort_signals.append(min(20, len(self.agent_messages) * 5))
+
+        # Todo completions are direct evidence
+        completed = len(self.completed_todos)
+        if completed > 0:
+            effort_signals.append(min(30, completed * 10))
+
+        effort_score = min(100, sum(effort_signals))
+
+        return {
+            "has_agent_messages": len(self.agent_messages) > 0,
+            "has_work_evidence": len(self.file_changes) > 0 or successful_cmds > 0,
+            "command_success_rate": successful_cmds / total_cmds if total_cmds > 0 else 0.0,
+            "file_change_count": len(self.file_changes),
+            "successful_command_count": successful_cmds,
+            "estimated_effort_score": effort_score,
+            "data_quality": self._assess_data_quality(),
+        }
+
+    def _assess_data_quality(self) -> str:
+        """Assess the quality of data available for analysis."""
+        if self.agent_messages and self.file_changes:
+            return "high"  # Full data available
+        elif self.file_changes or len(self.successful_commands) > 5:
+            return "medium"  # Concrete evidence but no messages
+        elif self.commands:
+            return "low"  # Only commands, limited insight
+        else:
+            return "minimal"  # Very little data
 
 
 class CodexJSONLParser:

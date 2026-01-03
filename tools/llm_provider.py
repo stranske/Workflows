@@ -39,6 +39,24 @@ class CompletionAnalysis:
     reasoning: str  # Explanation of the analysis
     provider_used: str  # Which provider generated this
 
+    # Quality metrics for BS detection
+    raw_confidence: float | None = None  # Original confidence before adjustment
+    confidence_adjusted: bool = False  # Whether confidence was adjusted
+    quality_warnings: list[str] | None = None  # Warnings about analysis quality
+
+
+@dataclass
+class SessionQualityContext:
+    """Context about session quality for validating LLM responses."""
+
+    has_agent_messages: bool = False
+    has_work_evidence: bool = False
+    file_change_count: int = 0
+    successful_command_count: int = 0
+    estimated_effort_score: int = 0
+    data_quality: str = "unknown"  # high, medium, low, minimal
+    analysis_text_length: int = 0
+
 
 class LLMProvider(ABC):
     """Abstract base class for LLM providers."""
@@ -105,6 +123,7 @@ class GitHubModelsProvider(LLMProvider):
         session_output: str,
         tasks: list[str],
         context: str | None = None,
+        quality_context: SessionQualityContext | None = None,
     ) -> CompletionAnalysis:
         client = self._get_client()
         if not client:
@@ -114,10 +133,109 @@ class GitHubModelsProvider(LLMProvider):
 
         try:
             response = client.invoke(prompt)
-            return self._parse_response(response.content, tasks)
+            return self._parse_response(response.content, tasks, quality_context)
         except Exception as e:
             logger.error(f"GitHub Models API error: {e}")
             raise
+
+    def _validate_confidence(
+        self,
+        raw_confidence: float,
+        completed_count: int,
+        in_progress_count: int,
+        quality_context: SessionQualityContext | None,
+        reasoning: str,
+    ) -> tuple[float, list[str]]:
+        """
+        BS Detector: Validate and potentially adjust LLM confidence.
+
+        This catches cases where the LLM reports high confidence but the
+        analysis is inconsistent with the session evidence.
+
+        Args:
+            raw_confidence: The confidence reported by the LLM
+            completed_count: Number of tasks marked as completed
+            in_progress_count: Number of tasks marked as in progress
+            quality_context: Session quality metrics (if available)
+            reasoning: The LLM's reasoning text
+
+        Returns:
+            Tuple of (adjusted_confidence, list of warnings)
+        """
+        warnings = []
+        confidence = raw_confidence
+
+        # Sanity check: Confidence should be between 0 and 1
+        confidence = max(0.0, min(1.0, confidence))
+
+        if quality_context is None:
+            # No context available, trust LLM but note it
+            return confidence, []
+
+        # BS Detection Rule 1: High confidence + zero work + evidence of work = suspicious
+        if (
+            raw_confidence > 0.7
+            and completed_count == 0
+            and in_progress_count == 0
+            and quality_context.has_work_evidence
+        ):
+            warnings.append(
+                f"High confidence ({raw_confidence:.0%}) but no tasks detected "
+                f"despite {quality_context.file_change_count} file changes and "
+                f"{quality_context.successful_command_count} successful commands"
+            )
+            # Reduce confidence significantly - the LLM might have had insufficient data
+            confidence = min(confidence, 0.3)
+            logger.warning(f"BS detected: {warnings[-1]}")
+
+        # BS Detection Rule 2: Very short analysis text = likely data loss
+        if quality_context.analysis_text_length < 200:
+            warnings.append(
+                f"Analysis text suspiciously short ({quality_context.analysis_text_length} chars) - "
+                "possible data loss in pipeline"
+            )
+            # Short text means limited evidence - cap confidence
+            confidence = min(confidence, 0.4)
+            logger.warning(f"Short analysis text: {quality_context.analysis_text_length} chars")
+
+        # BS Detection Rule 3: Zero tasks + high effort score = something's wrong
+        if (
+            quality_context.estimated_effort_score > 30
+            and completed_count == 0
+            and in_progress_count == 0
+        ):
+            warnings.append(
+                f"Effort score ({quality_context.estimated_effort_score}) suggests work was done "
+                "but no tasks detected"
+            )
+            confidence = min(confidence, 0.4)
+
+        # BS Detection Rule 4: Reasoning mentions "no evidence" but there's evidence
+        no_evidence_phrases = ["no evidence", "no work", "nothing done", "no specific"]
+        reasoning_lower = reasoning.lower()
+        if (
+            any(phrase in reasoning_lower for phrase in no_evidence_phrases)
+            and quality_context.has_work_evidence
+        ):
+            warnings.append("LLM claims 'no evidence' but session has file changes/commands")
+            confidence = min(confidence, 0.35)
+
+        # BS Detection Rule 5: Data quality impacts confidence ceiling
+        quality_caps = {
+            "high": 1.0,
+            "medium": 0.8,
+            "low": 0.6,
+            "minimal": 0.4,
+        }
+        quality_cap = quality_caps.get(quality_context.data_quality, 0.5)
+        if confidence > quality_cap:
+            warnings.append(
+                f"Confidence capped from {raw_confidence:.0%} to {quality_cap:.0%} "
+                f"due to {quality_context.data_quality} data quality"
+            )
+            confidence = quality_cap
+
+        return confidence, warnings
 
     def _build_analysis_prompt(
         self,
@@ -142,19 +260,32 @@ For each task, determine if it was:
 - BLOCKED: Cannot proceed due to an issue
 - NOT_STARTED: No evidence of work on this task
 
+IMPORTANT: Base your analysis on CONCRETE EVIDENCE such as:
+- File modifications (files being created/edited)
+- Successful test runs
+- Command outputs showing completed work
+- Direct statements of completion
+
+If the session output is very short or lacks detail, lower your confidence accordingly.
+
 Respond in JSON format:
 {{
     "completed": ["task description 1", ...],
     "in_progress": ["task description 2", ...],
     "blocked": ["task description 3", ...],
     "confidence": 0.85,
-    "reasoning": "Brief explanation of your analysis"
+    "reasoning": "Brief explanation of your analysis with specific evidence cited"
 }}
 
 Only include tasks in completed/in_progress/blocked if you have evidence. Be conservative - if unsure, don't mark as completed."""
 
-    def _parse_response(self, content: str, tasks: list[str]) -> CompletionAnalysis:
-        """Parse LLM response into CompletionAnalysis."""
+    def _parse_response(
+        self,
+        content: str,
+        tasks: list[str],
+        quality_context: SessionQualityContext | None = None,
+    ) -> CompletionAnalysis:
+        """Parse LLM response into CompletionAnalysis with BS detection."""
         try:
             # Try to extract JSON from response
             json_start = content.find("{")
@@ -164,13 +295,30 @@ Only include tasks in completed/in_progress/blocked if you have evidence. Be con
             else:
                 raise ValueError("No JSON found in response")
 
+            raw_confidence = float(data.get("confidence", 0.5))
+            completed = data.get("completed", [])
+            in_progress = data.get("in_progress", [])
+            reasoning = data.get("reasoning", "")
+
+            # Apply BS detection to validate/adjust confidence
+            adjusted_confidence, warnings = self._validate_confidence(
+                raw_confidence=raw_confidence,
+                completed_count=len(completed),
+                in_progress_count=len(in_progress),
+                quality_context=quality_context,
+                reasoning=reasoning,
+            )
+
             return CompletionAnalysis(
-                completed_tasks=data.get("completed", []),
-                in_progress_tasks=data.get("in_progress", []),
+                completed_tasks=completed,
+                in_progress_tasks=in_progress,
                 blocked_tasks=data.get("blocked", []),
-                confidence=float(data.get("confidence", 0.5)),
-                reasoning=data.get("reasoning", ""),
+                confidence=adjusted_confidence,
+                reasoning=reasoning,
                 provider_used=self.name,
+                raw_confidence=raw_confidence if adjusted_confidence != raw_confidence else None,
+                confidence_adjusted=adjusted_confidence != raw_confidence,
+                quality_warnings=warnings if warnings else None,
             )
         except (json.JSONDecodeError, ValueError) as e:
             logger.warning(f"Failed to parse LLM response: {e}")
