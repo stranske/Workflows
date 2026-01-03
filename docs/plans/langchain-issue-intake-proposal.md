@@ -391,13 +391,54 @@ This keeps the complexity low while allowing natural interaction.
 **Plausibility**: ⭐⭐⭐ MEDIUM-HIGH
 **Scope**: ~2-3 days (data collection), ongoing refinement
 
-### 6. Duplicate/Related Issue Detection
+### 6. Duplicate/Related Issue Detection (Semantic Matching Upgrade)
 
 **Use Case**: Before creating new issue, check if similar work exists.
 
-**Approach**:
-- Embed issue description, compare to existing open issues
-- Warn if high similarity detected
+**The Problem (Current State)**:
+- Existing dedup logic uses exact title matching or Levenshtein distance
+- Levenshtein is good for typos ("fix bug" vs "fxi bug") but bad at semantic similarity
+- "Add unit tests for portfolio module" and "Write test coverage for portfolio.py" are the same intent but have low Levenshtein similarity
+- Result: False negatives (duplicate issues created) and false positives (unrelated issues flagged)
+
+**LangChain Solution**:
+- **Embeddings-based similarity** catches "same idea, different phrasing"
+- Uses vector stores (FAISS, Chroma) for efficient similarity search
+- Semantic distance measures conceptual similarity, not character edits
+
+**Technical Approach**:
+```python
+from langchain_openai import OpenAIEmbeddings
+from langchain_community.vectorstores import FAISS
+
+# Generate embeddings for issue description
+embeddings = OpenAIEmbeddings(
+    model="text-embedding-3-small",
+    base_url="https://models.inference.ai.azure.com",
+    api_key=os.environ["GITHUB_TOKEN"],
+)
+
+# Build vector store from existing open issues
+issue_texts = [f"{issue.title}\n{issue.body}" for issue in open_issues]
+vector_store = FAISS.from_texts(issue_texts, embeddings, metadatas=[{"number": i.number} for i in open_issues])
+
+# Search for similar issues
+similar = vector_store.similarity_search_with_score(new_issue_text, k=5)
+duplicates = [(doc.metadata["number"], score) for doc, score in similar if score > THRESHOLD]
+```
+
+**Advantages over Levenshtein**:
+| Aspect | Levenshtein | Semantic Embeddings |
+|--------|-------------|---------------------|
+| "Same typo" detection | ✅ Excellent | ✅ Good |
+| "Same idea, different words" | ❌ Poor | ✅ Excellent |
+| Performance at scale | ⚠️ O(n*m) per comparison | ✅ O(log n) with vector index |
+| False positives | High (similar chars ≠ similar meaning) | Low |
+| False negatives | High (different chars = missed duplicates) | Low |
+
+**Integration Point**:
+- Run during `agents-63-issue-intake.yml` before bridge creation
+- Post advisory comment with similar issues (doesn't block creation)
 - Link related issues for context
 
 **Plausibility**: ⭐⭐⭐⭐ HIGH (embeddings are well-understood)
