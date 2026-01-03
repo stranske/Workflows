@@ -247,6 +247,12 @@ def main() -> int:
         help="Enable verbose logging",
     )
 
+    parser.add_argument(
+        "--provider",
+        choices=["github-models", "openai", "regex-fallback"],
+        help="Force use of a specific LLM provider (for testing)",
+    )
+
     args = parser.parse_args()
 
     # Setup logging to stderr (stdout is reserved for JSON output)
@@ -293,6 +299,7 @@ def main() -> int:
             content=session_content,
             tasks=tasks,
             context=args.context,
+            force_provider=args.provider,
         )
     except Exception as e:
         logger.error(f"Analysis failed: {e}")

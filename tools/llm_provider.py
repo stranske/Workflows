@@ -381,15 +381,39 @@ class FallbackChainProvider(LLMProvider):
         raise RuntimeError("No providers available")
 
 
-def get_llm_provider() -> LLMProvider:
+def get_llm_provider(force_provider: str | None = None) -> LLMProvider:
     """
     Get the best available LLM provider with fallback chain.
+
+    Args:
+        force_provider: If set, use only this provider (for testing).
+            Options: "github-models", "openai", "regex-fallback"
 
     Returns a FallbackChainProvider that tries:
     1. GitHub Models API (if GITHUB_TOKEN set)
     2. OpenAI API (if OPENAI_API_KEY set)
     3. Regex fallback (always available)
     """
+    # Force a specific provider for testing
+    if force_provider:
+        provider_map = {
+            "github-models": GitHubModelsProvider,
+            "openai": OpenAIProvider,
+            "regex-fallback": RegexFallbackProvider,
+        }
+        if force_provider not in provider_map:
+            raise ValueError(
+                f"Unknown provider: {force_provider}. " f"Options: {list(provider_map.keys())}"
+            )
+        provider = provider_map[force_provider]()
+        if not provider.is_available():
+            raise RuntimeError(
+                f"Forced provider '{force_provider}' is not available. "
+                "Check required environment variables."
+            )
+        logger.info(f"Using forced provider: {force_provider}")
+        return provider
+
     providers = [
         GitHubModelsProvider(),
         OpenAIProvider(),
