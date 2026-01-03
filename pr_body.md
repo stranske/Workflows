@@ -23,10 +23,10 @@ The current `issue_scope_parser.js` relies on regex patterns to extract Scope, T
 #### Acceptance criteria
 - [x] Extraction succeeds with bold headers (`**Tasks**:`)
 - [x] Extraction succeeds with varied heading levels (`### Tasks`, `#### Tasks`)
-- [ ] Extraction handles nested checkbox lists
-- [ ] Extraction handles missing optional sections gracefully
-- [ ] LLM extraction is opt-in and fails gracefully when unavailable
+- [x] Extraction handles nested checkbox lists
+- [x] Extraction handles missing optional sections gracefully
+- [x] LLM extraction is opt-in and fails gracefully when unavailable
 - [x] No regression on currently working formats
-- [ ] Tests cover at least 5 markdown variations
+- [x] Tests cover at least 5 markdown variations
 
 <!-- auto-status-summary:end -->
