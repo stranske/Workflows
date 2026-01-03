@@ -430,6 +430,8 @@ jobs:
       - name: Auto-reconcile task checkboxes
         if: needs.run-codex.outputs.changes-made == 'true'
         uses: actions/github-script@v8
+        env:
+          LLM_COMPLETED_TASKS: ${{ needs.run-codex.outputs.llm-completed-tasks || '[]' }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -439,9 +441,9 @@ jobs:
             const beforeSha = '${{ needs.evaluate.outputs.head_sha }}';
             const headSha = '${{ needs.run-codex.outputs.commit-sha }}';
 
-            // Parse LLM completed tasks if available
+            // Parse LLM completed tasks if available (use env var to avoid JS string escaping issues)
             let llmCompletedTasks = [];
-            const llmTasksJson = '${{ needs.run-codex.outputs.llm-completed-tasks || '[]' }}';
+            const llmTasksJson = process.env.LLM_COMPLETED_TASKS || '[]';
             try {
               llmCompletedTasks = JSON.parse(llmTasksJson);
               if (llmCompletedTasks.length > 0) {
