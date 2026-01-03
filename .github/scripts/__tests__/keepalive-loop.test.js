@@ -1864,6 +1864,8 @@ test('autoReconcileTasks updates PR body for high-confidence matches', async () 
 
   assert.ok(result.updated, 'Should update PR body');
   assert.ok(result.tasksChecked > 0, 'Should check at least one task');
+  assert.equal(result.sources.commit, 2, 'Should report commit-based source count');
+  assert.equal(result.sources.llm, 0, 'Should report no LLM sources');
   
   if (updatedBody) {
     assert.ok(updatedBody.includes('[x] Add step summary'), 'Should check off matched task');
@@ -1919,6 +1921,7 @@ test('autoReconcileTasks skips when no high-confidence matches', async () => {
   assert.equal(result.updated, false, 'Should not update PR body');
   assert.equal(result.tasksChecked, 0, 'Should not check any tasks');
   assert.equal(updateCalled, false, 'Should not call update API');
+  assert.deepEqual(result.sources, { llm: 0, commit: 0 }, 'Should report zero sources');
 });
 
 // ========================================================
