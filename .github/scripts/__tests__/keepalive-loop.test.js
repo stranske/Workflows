@@ -1846,6 +1846,70 @@ test('analyzeTaskCompletion skips when repo context is missing', async () => {
   assert.equal(result.summary, 'Missing repo context for task analysis');
 });
 
+test('autoReconcileTasks handles tasks with backticks and special characters', async () => {
+  // This test documents a critical bug: task names with backticks broke the
+  // workflow when passed via GitHub Actions expression interpolation.
+  // The fix uses environment variables instead of inline string interpolation.
+  // See: https://github.com/stranske/Workflows/pull/494
+  const prBody = `## Tasks
+- [ ] Create \`src/trend_analysis/stages/__init__.py\` package
+- [ ] Add "quoted" task name
+- [ ] Task with 'single quotes'
+- [x] Already completed task
+`;
+
+  const llmCompletedTasks = [
+    'Create `src/trend_analysis/stages/__init__.py` package',
+    'Add "quoted" task name',
+  ];
+
+  let updatedBody = null;
+  const github = {
+    rest: {
+      pulls: {
+        async get() {
+          return { data: { body: prBody } };
+        },
+        async update({ body }) {
+          updatedBody = body;
+          return { data: {} };
+        },
+        async listFiles() {
+          return { data: [] };
+        },
+      },
+      repos: {
+        async compareCommits() {
+          return { data: { commits: [] } };
+        },
+      },
+    },
+  };
+
+  const result = await autoReconcileTasks({
+    github,
+    context: { repo: { owner: 'test', repo: 'repo' } },
+    prNumber: 1,
+    baseSha: 'base123',
+    headSha: 'head456',
+    llmCompletedTasks,
+    core: buildCore(),
+  });
+
+  assert.ok(result.updated, 'Should update PR body with special character tasks');
+  assert.equal(result.tasksChecked, 2, 'Should check off both LLM-detected tasks');
+  assert.equal(result.sources.llm, 2, 'Should report LLM sources');
+  
+  if (updatedBody) {
+    assert.ok(updatedBody.includes('[x] Create `src/trend_analysis/stages/__init__.py` package'), 
+      'Should check off task with backticks');
+    assert.ok(updatedBody.includes('[x] Add "quoted" task name'),
+      'Should check off task with double quotes');
+    assert.ok(updatedBody.includes('[ ] Task with \'single quotes\''),
+      'Should leave uncompleted task with single quotes');
+  }
+});
+
 test('autoReconcileTasks updates PR body for high-confidence matches', async () => {
   const prBody = `## Tasks
 - [ ] Add step summary output to keepalive loop
