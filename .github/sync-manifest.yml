@@ -196,6 +196,12 @@ docs:
     target: CLAUDE.md
     description: "Context file for Claude/AI assistants"
 
+# Git configuration files for merge strategies
+git_config:
+  - source: .gitattributes
+    description: "Git attributes - merge strategies to prevent pr_body.md conflicts"
+
+
 # Files that exist in templates but are NOT synced (consumer creates their own)
 excluded:
 
