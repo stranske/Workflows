@@ -69,6 +69,37 @@ class TestCodexJSONLParser:
         assert len(session.agent_messages) == 1
         assert session.agent_messages[0] == "Done!"
 
+    def test_parse_agent_message_nested_schema(self):
+        """New nested schema (item.type, item.text) is supported."""
+        jsonl = '{"type": "item.completed", "item": {"id": "item_1", "type": "agent_message", "text": "Task completed successfully!"}}'
+        session = parse_codex_jsonl(jsonl)
+        assert len(session.agent_messages) == 1
+        assert session.agent_messages[0] == "Task completed successfully!"
+
+    def test_parse_command_nested_schema(self):
+        """New nested schema for command execution is supported."""
+        jsonl = '{"type": "item.completed", "item": {"id": "cmd_1", "type": "command_execution", "command": "git status", "aggregated_output": "On branch main", "exit_code": 0}}'
+        session = parse_codex_jsonl(jsonl)
+        assert len(session.commands) == 1
+        assert session.commands[0].command == "git status"
+        assert session.commands[0].exit_code == 0
+        assert session.commands[0].output == "On branch main"
+
+    def test_parse_file_change_nested_schema(self):
+        """New nested schema for file changes is supported."""
+        jsonl = '{"type": "item.completed", "item": {"id": "fc_1", "type": "file_change", "changes": [{"path": "/home/user/src/app.py", "kind": "update"}]}}'
+        session = parse_codex_jsonl(jsonl)
+        assert len(session.file_changes) == 1
+        assert session.file_changes[0].path == "/home/user/src/app.py"
+        assert session.file_changes[0].change_type == "update"
+
+    def test_parse_reasoning_nested_schema(self):
+        """New nested schema for reasoning is supported."""
+        jsonl = '{"type": "item.completed", "item": {"id": "r_1", "type": "reasoning", "text": "**Planning the approach**"}}'
+        session = parse_codex_jsonl(jsonl)
+        assert len(session.reasoning_summaries) == 1
+        assert "Planning the approach" in session.reasoning_summaries[0]
+
     def test_parse_reasoning(self):
         """Reasoning summaries are captured."""
         jsonl = '{"type": "item.completed", "item_type": "reasoning", "content": "I should fix the tests first."}'
