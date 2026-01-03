@@ -56,6 +56,11 @@ that only emit artifacts, see the "Workflows without workflow_call outputs" sect
 | `reusable-codex-run.yml` | `error-category` | string | Error category (`transient`, `auth`, `resource`, `logic`, `unknown`). | `needs.codex.outputs.error-category` |
 | `reusable-codex-run.yml` | `error-type` | string | Error type (`codex`, `infrastructure`, `auth`, `unknown`). | `needs.codex.outputs.error-type` |
 | `reusable-codex-run.yml` | `error-recovery` | string | Suggested recovery action if a failure occurred. | `needs.codex.outputs.error-recovery` |
+| `reusable-codex-run.yml` | `llm-analysis-run` | string (boolean-like) | `true` when LLM analysis was performed. | `needs.codex.outputs.llm-analysis-run` |
+| `reusable-codex-run.yml` | `llm-provider` | string | LLM provider used (`github-models`, `openai`, `regex-fallback`). | `needs.codex.outputs.llm-provider` |
+| `reusable-codex-run.yml` | `llm-confidence` | string (number-like) | Analysis confidence level (0-1). | `needs.codex.outputs.llm-confidence` |
+| `reusable-codex-run.yml` | `llm-completed-tasks` | string (JSON) | JSON array of detected task completions. | `needs.codex.outputs.llm-completed-tasks` |
+| `reusable-codex-run.yml` | `llm-has-completions` | string (boolean-like) | `true` when task completions were detected. | `needs.codex.outputs.llm-has-completions` |
 <!-- OUTPUT-REFERENCE-END -->
 
 ## Workflows without workflow_call outputs
