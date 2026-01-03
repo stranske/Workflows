@@ -9,7 +9,7 @@
 The current `issue_scope_parser.js` relies on regex patterns to extract Scope, Tasks, and Acceptance Criteria sections from PR bodies. When markdown formatting varies (different header styles, nested lists, missing sections), extraction fails and keepalive stops with "no-checklists" errors.
 
 #### Tasks
-- [ ] Audit current `issue_scope_parser.js` for fragile patterns
+- [x] Audit current `issue_scope_parser.js` for fragile patterns
 - [ ] Add fallback patterns for common variations:
 - [ ] - Bold headers (`**Tasks**`) vs markdown headers (`## Tasks`)
 - [ ] - Numbered lists with checkboxes (`1. [ ] Task`)
@@ -17,16 +17,16 @@ The current `issue_scope_parser.js` relies on regex patterns to extract Scope, T
 - [ ] - Missing section markers
 - [ ] Add optional LLM extraction layer (gated by config/env var)
 - [ ] Port LangChain extraction from `stranske/Trend_Model_Project/tools/langchain_task_extractor.py`
-- [ ] Add tests for varied markdown formats
+- [x] Add tests for varied markdown formats
 - [ ] Document supported variations
 
 #### Acceptance criteria
-- [ ] Extraction succeeds with bold headers (`**Tasks**:`)
-- [ ] Extraction succeeds with varied heading levels (`### Tasks`, `#### Tasks`)
+- [x] Extraction succeeds with bold headers (`**Tasks**:`)
+- [x] Extraction succeeds with varied heading levels (`### Tasks`, `#### Tasks`)
 - [ ] Extraction handles nested checkbox lists
 - [ ] Extraction handles missing optional sections gracefully
 - [ ] LLM extraction is opt-in and fails gracefully when unavailable
-- [ ] No regression on currently working formats
+- [x] No regression on currently working formats
 - [ ] Tests cover at least 5 markdown variations
 
 <!-- auto-status-summary:end -->
