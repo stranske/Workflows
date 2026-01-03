@@ -15,10 +15,10 @@ The current `issue_scope_parser.js` relies on regex patterns to extract Scope, T
 - [ ] - Numbered lists with checkboxes (`1. [ ] Task`)
 - [ ] - Nested task lists
 - [ ] - Missing section markers
-- [ ] Add optional LLM extraction layer (gated by config/env var)
+- [x] Add optional LLM extraction layer (gated by config/env var)
 - [ ] Port LangChain extraction from `stranske/Trend_Model_Project/tools/langchain_task_extractor.py`
 - [x] Add tests for varied markdown formats
-- [ ] Document supported variations
+- [x] Document supported variations
 
 #### Acceptance criteria
 - [x] Extraction succeeds with bold headers (`**Tasks**:`)
