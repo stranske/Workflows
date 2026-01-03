@@ -8,6 +8,8 @@ const { loadKeepaliveState, formatStateComment } = require('./keepalive_state');
 const { classifyError, ERROR_CATEGORIES } = require('./error_classifier');
 const { formatFailureComment } = require('./failure_comment_formatter');
 
+const ATTEMPT_HISTORY_LIMIT = 5;
+
 function normalise(value) {
   return String(value ?? '').trim();
 }
@@ -52,6 +54,67 @@ function toOptionalNumber(value) {
     return int;
   }
   return null;
+}
+
+function buildAttemptEntry({
+  iteration,
+  action,
+  reason,
+  runResult,
+  promptMode,
+  promptFile,
+  gateConclusion,
+  errorCategory,
+  errorType,
+}) {
+  const actionValue = normalise(action) || 'unknown';
+  const reasonValue = normalise(reason) || actionValue;
+  const entry = {
+    iteration: Math.max(0, toNumber(iteration, 0)),
+    action: actionValue,
+    reason: reasonValue,
+  };
+
+  if (runResult) {
+    entry.run_result = normalise(runResult);
+  }
+  if (promptMode) {
+    entry.prompt_mode = normalise(promptMode);
+  }
+  if (promptFile) {
+    entry.prompt_file = normalise(promptFile);
+  }
+  if (gateConclusion) {
+    entry.gate = normalise(gateConclusion);
+  }
+  if (errorCategory) {
+    entry.error_category = normalise(errorCategory);
+  }
+  if (errorType) {
+    entry.error_type = normalise(errorType);
+  }
+
+  return entry;
+}
+
+function updateAttemptHistory(existing, nextEntry, limit = ATTEMPT_HISTORY_LIMIT) {
+  const history = Array.isArray(existing)
+    ? existing.filter((item) => item && typeof item === 'object')
+    : [];
+  if (!nextEntry || typeof nextEntry !== 'object') {
+    return history.slice(-limit);
+  }
+  const trimmed = history.slice(-limit);
+  const last = trimmed[trimmed.length - 1];
+  if (
+    last &&
+    last.iteration === nextEntry.iteration &&
+    last.action === nextEntry.action &&
+    last.reason === nextEntry.reason
+  ) {
+    return [...trimmed.slice(0, -1), { ...last, ...nextEntry }];
+  }
+  return [...trimmed, nextEntry].slice(-limit);
 }
 
 function resolveDurationMs({ durationMs, startTs }) {
@@ -982,6 +1045,8 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
   const agentFilesChanged = toNumber(inputs.agent_files_changed ?? inputs.agentFilesChanged ?? inputs.codex_files_changed ?? inputs.codexFilesChanged, 0);
   const agentSummary = normalise(inputs.agent_summary ?? inputs.agentSummary ?? inputs.codex_summary ?? inputs.codexSummary);
   const runUrl = normalise(inputs.run_url ?? inputs.runUrl);
+  const promptMode = normalise(inputs.prompt_mode ?? inputs.promptMode);
+  const promptFile = normalise(inputs.prompt_file ?? inputs.promptFile);
 
   // LLM task analysis details
   const llmProvider = normalise(inputs.llm_provider ?? inputs.llmProvider);
@@ -1393,6 +1458,18 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
     last_effort_score: sessionEffortScore,
     last_data_quality: sessionDataQuality,
   };
+  const attemptEntry = buildAttemptEntry({
+    iteration: metricsIteration,
+    action,
+    reason: summaryReason,
+    runResult,
+    promptMode,
+    promptFile,
+    gateConclusion,
+    errorCategory,
+    errorType,
+  });
+  newState.attempts = updateAttemptHistory(previousState?.attempts, attemptEntry);
 
   const summaryOutcome = runResult || summaryReason || action || 'unknown';
   if (action === 'run' || runResult) {

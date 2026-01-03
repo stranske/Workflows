@@ -12,8 +12,8 @@ Keepalive prompt generation uses hand-rolled templates in `keepalive_instruction
 - Adapt instructions based on accumulated state
 
 #### Tasks
-- [ ] Design prompt composition interface
-- [ ] Implement round-over-round state tracking (what was tried, what failed)
+- [x] Design prompt composition interface
+- [x] Implement round-over-round state tracking (what was tried, what failed)
 - [ ] Add routing logic for different scenarios:
 - [ ] - CI failure: prioritize fix instructions
 - [ ] - Feature work: next task selection
@@ -23,11 +23,11 @@ Keepalive prompt generation uses hand-rolled templates in `keepalive_instruction
 - [ ] Document prompt composition patterns
 
 #### Acceptance criteria
-- [ ] Prompts can be composed from reusable segments
+- [x] Prompts can be composed from reusable segments
 - [ ] State persists across keepalive rounds within a session
 - [ ] CI failures trigger fix-first prompt strategy
 - [ ] Previously attempted tasks are tracked and deprioritized
-- [ ] Prompt generation is testable with mock state
+- [x] Prompt generation is testable with mock state
 - [ ] No regression in existing keepalive functionality
 
 <!-- auto-status-summary:end -->

@@ -15,7 +15,7 @@ const {
   analyzeTaskCompletion,
   autoReconcileTasks,
 } = require('../keepalive_loop.js');
-const { formatStateComment } = require('../keepalive_state.js');
+const { formatStateComment, parseStateComment } = require('../keepalive_state.js');
 
 const fixturesDir = path.join(__dirname, 'fixtures');
 const prBodyFixture = fs.readFileSync(path.join(fixturesDir, 'pr-body.md'), 'utf8');
@@ -571,6 +571,51 @@ test('updateKeepaliveLoopSummary increments iteration and clears failures on suc
   assert.match(github.actions[0].body, /✅ Success/);
   assert.match(github.actions[0].body, /"iteration":3/);
   assert.match(github.actions[0].body, /"failure":\{\}/);
+});
+
+test('updateKeepaliveLoopSummary tracks attempt history across rounds', async () => {
+  const existingState = formatStateComment({
+    trace: 'trace-history',
+    iteration: 1,
+    attempts: [{ iteration: 1, action: 'run', reason: 'ready', run_result: 'success' }],
+  });
+  const github = buildGithubStub({
+    comments: [{ id: 40, body: existingState, html_url: 'https://example.com/40' }],
+  });
+
+  await updateKeepaliveLoopSummary({
+    github,
+    context: buildContext(321),
+    core: buildCore(),
+    inputs: {
+      prNumber: 321,
+      action: 'run',
+      reason: 'ready',
+      runResult: 'success',
+      gateConclusion: 'success',
+      tasksTotal: 3,
+      tasksUnchecked: 1,
+      keepaliveEnabled: true,
+      autofixEnabled: false,
+      iteration: 1,
+      maxIterations: 5,
+      failureThreshold: 3,
+      trace: 'trace-history',
+      prompt_mode: 'normal',
+      prompt_file: '.github/codex/prompts/keepalive_next_task.md',
+    },
+  });
+
+  const parsed = parseStateComment(github.actions[0].body);
+  assert.ok(parsed);
+  assert.equal(parsed.version, 'v1');
+  const attempts = parsed.data.attempts;
+  assert.equal(attempts.length, 2);
+  assert.equal(attempts[1].iteration, 2);
+  assert.equal(attempts[1].action, 'run');
+  assert.equal(attempts[1].reason, 'ready');
+  assert.equal(attempts[1].run_result, 'success');
+  assert.equal(attempts[1].prompt_mode, 'normal');
 });
 
 test('updateKeepaliveLoopSummary writes step summary for agent runs', async () => {
