@@ -71,6 +71,34 @@ test('parses bold headings with trailing colons', () => {
   );
 });
 
+test('parses bold headings wrapped in list items', () => {
+  const issue = [
+    '- **Scope**',
+    'Context line.',
+    '',
+    '1. **Tasks**',
+    '- [ ] first task',
+    '',
+    '- **Acceptance Criteria**:',
+    '- [ ] tests pass',
+  ].join('\n');
+
+  const result = extractScopeTasksAcceptanceSections(issue);
+  assert.equal(
+    result,
+    [
+      '#### Scope',
+      'Context line.',
+      '',
+      '#### Tasks',
+      '- [ ] first task',
+      '',
+      '#### Acceptance Criteria',
+      '- [ ] tests pass',
+    ].join('\n')
+  );
+});
+
 test('parseScopeTasksAcceptanceSections preserves structured sections', () => {
   const issue = [
     '## Issue Scope',

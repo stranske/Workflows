@@ -126,19 +126,19 @@ function stripHeadingMarkers(rawLine) {
 }
 
 function extractHeadingLabel(rawLine) {
-  const cleaned = stripHeadingMarkers(rawLine);
-  if (!cleaned) {
-    const listMatch = String(rawLine || '').match(LIST_ITEM_REGEX);
-    if (!listMatch) {
-      return '';
-    }
+  const listMatch = String(rawLine || '').match(LIST_ITEM_REGEX);
+  if (listMatch) {
     const remainder = listMatch[3]?.trim() || '';
-    if (!remainder || /^\[[ xX]\]/.test(remainder)) {
-      return '';
+    if (remainder && !/^\[[ xX]\]/.test(remainder)) {
+      const listLabel = stripHeadingMarkers(remainder);
+      if (listLabel) {
+        return listLabel;
+      }
     }
-    return stripHeadingMarkers(remainder);
   }
-  return cleaned;
+
+  const cleaned = stripHeadingMarkers(rawLine);
+  return cleaned || '';
 }
 
 function extractListBlocks(lines) {
