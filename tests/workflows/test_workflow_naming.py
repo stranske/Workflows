@@ -197,6 +197,7 @@ EXPECTED_NAMES = {
     "maint-sync-env-from-pyproject.yml": "Maint - Sync versions.env from pyproject.toml",
     "maint-52-validate-workflows.yml": "Maint 52 Validate Workflows",
     "maint-52-sync-dev-versions.yml": "Maint 52 Sync Dev Versions",
+    "maint-auto-update-pypi-versions.yml": "Maint Auto-Update PyPI Versions",
     "maint-62-integration-consumer.yml": "Maint 62 Integration Consumer",
     "maint-65-sync-label-docs.yml": "Maint 65 Sync Label Docs",
     "maint-66-monthly-audit.yml": "Maint 66 Monthly Audit",
