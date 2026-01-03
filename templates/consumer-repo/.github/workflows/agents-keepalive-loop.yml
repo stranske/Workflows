@@ -38,6 +38,7 @@ permissions:
   contents: write
   pull-requests: write
   actions: write
+  models: read
 
 concurrency:
   group: keepalive-${{ github.event.workflow_run.pull_requests[0].number || github.event.pull_request.number || github.run_id }}
