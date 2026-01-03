@@ -7,6 +7,7 @@ from scripts.workflow_validator import (
     check_hardcoded_secrets,
     check_missing_timeout,
     check_permissions,
+    check_unsafe_string_interpolation,
     load_workflow,
     validate_all_workflows,
     validate_workflow,
@@ -265,3 +266,203 @@ jobs:
         """Test validating nonexistent directory."""
         results = validate_all_workflows("/nonexistent/path")
         assert results == {}
+
+
+class TestCheckUnsafeStringInterpolation:
+    """Tests for check_unsafe_string_interpolation function.
+
+    This validates that we detect patterns like:
+        const x = '${{ outputs.something }}'
+    which can break when the interpolated value contains backticks,
+    quotes, or other special characters.
+
+    The fix is to use env: blocks with process.env instead:
+        env:
+          MY_VAR: ${{ outputs.something }}
+        run: |
+          const x = process.env.MY_VAR;
+    """
+
+    def test_detects_unsafe_single_quote_interpolation(self) -> None:
+        """Test that single-quoted string interpolation is flagged."""
+        workflow = {
+            "jobs": {
+                "build": {
+                    "steps": [
+                        {
+                            "name": "Parse tasks",
+                            "run": "const tasks = '${{ needs.run.outputs.tasks }}'",
+                        }
+                    ]
+                }
+            }
+        }
+        issues = check_unsafe_string_interpolation(workflow)
+        assert len(issues) == 1
+        assert issues[0][0] == "build"
+        assert issues[0][1] == "Parse tasks"
+        assert "needs.run.outputs.tasks" in issues[0][2]
+        assert "env:" in issues[0][2].lower() or "process.env" in issues[0][2]
+
+    def test_detects_unsafe_double_quote_interpolation(self) -> None:
+        """Test that double-quoted string interpolation is flagged."""
+        workflow = {
+            "jobs": {
+                "test": {
+                    "steps": [
+                        {
+                            "name": "Get data",
+                            "run": 'const data = "${{ steps.fetch.outputs.result }}"',
+                        }
+                    ]
+                }
+            }
+        }
+        issues = check_unsafe_string_interpolation(workflow)
+        assert len(issues) == 1
+        assert "steps.fetch.outputs.result" in issues[0][2]
+
+    def test_detects_unsafe_template_literal_interpolation(self) -> None:
+        """Test that template literal interpolation is flagged."""
+        workflow = {
+            "jobs": {
+                "deploy": {
+                    "steps": [
+                        {
+                            "name": "Process",
+                            "run": "const msg = `Result: ${{ outputs.message }}`",
+                        }
+                    ]
+                }
+            }
+        }
+        issues = check_unsafe_string_interpolation(workflow)
+        assert len(issues) == 1
+
+    def test_safe_env_block_pattern(self) -> None:
+        """Test that env: block with process.env is not flagged."""
+        workflow = {
+            "jobs": {
+                "analyze": {
+                    "steps": [
+                        {
+                            "name": "Parse JSON",
+                            "env": {"TASKS_JSON": "${{ outputs.tasks }}"},
+                            "run": "const tasks = JSON.parse(process.env.TASKS_JSON);",
+                        }
+                    ]
+                }
+            }
+        }
+        issues = check_unsafe_string_interpolation(workflow)
+        assert len(issues) == 0
+
+    def test_safe_condition_pattern(self) -> None:
+        """Test that if: conditions are not flagged."""
+        workflow = {
+            "jobs": {
+                "build": {
+                    "steps": [
+                        {
+                            "name": "Conditional",
+                            "run": "echo 'running'",
+                            "if": "${{ steps.check.outputs.should_run == 'true' }}",
+                        }
+                    ]
+                }
+            }
+        }
+        issues = check_unsafe_string_interpolation(workflow)
+        assert len(issues) == 0
+
+    def test_safe_secret_reference(self) -> None:
+        """Test that secret references are not flagged as unsafe."""
+        workflow = {
+            "jobs": {
+                "deploy": {
+                    "steps": [
+                        {
+                            "name": "Use secret",
+                            "run": "curl -H 'Authorization: ${{ secrets.TOKEN }}'",
+                        }
+                    ]
+                }
+            }
+        }
+        issues = check_unsafe_string_interpolation(workflow)
+        # Secrets are controlled, so they're generally safe
+        assert len(issues) == 0
+
+    def test_multiple_issues_detected(self) -> None:
+        """Test that multiple unsafe patterns in same workflow are all flagged."""
+        workflow = {
+            "jobs": {
+                "job1": {
+                    "steps": [
+                        {
+                            "name": "Step A",
+                            "run": "const a = '${{ outputs.a }}'",
+                        }
+                    ]
+                },
+                "job2": {
+                    "steps": [
+                        {
+                            "name": "Step B",
+                            "run": 'const b = "${{ outputs.b }}"',
+                        }
+                    ]
+                },
+            }
+        }
+        issues = check_unsafe_string_interpolation(workflow)
+        assert len(issues) == 2
+
+    def test_no_false_positives_for_plain_scripts(self) -> None:
+        """Test that scripts without interpolation are not flagged."""
+        workflow = {
+            "jobs": {
+                "build": {
+                    "steps": [
+                        {
+                            "name": "Normal script",
+                            "run": "const x = 'hello'; console.log(x);",
+                        }
+                    ]
+                }
+            }
+        }
+        issues = check_unsafe_string_interpolation(workflow)
+        assert len(issues) == 0
+
+    def test_validate_workflow_includes_unsafe_interpolation(self) -> None:
+        """Test that validate_workflow includes unsafe_interpolation results."""
+        import tempfile
+
+        import yaml
+
+        workflow = {
+            "name": "Test",
+            "on": "push",
+            "jobs": {
+                "build": {
+                    "runs-on": "ubuntu-latest",
+                    "timeout-minutes": 10,
+                    "steps": [
+                        {"uses": "actions/checkout@v4"},
+                        {
+                            "name": "Unsafe step",
+                            "run": "const x = '${{ outputs.data }}'",
+                        },
+                    ],
+                }
+            },
+        }
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yml", delete=False) as f:
+            yaml.dump(workflow, f)
+            path = f.name
+
+        results = validate_workflow(path)
+        assert "unsafe_interpolation" in results
+        assert len(results["unsafe_interpolation"]) == 1
