@@ -223,4 +223,5 @@ EXPECTED_NAMES = {
     "reusable-bot-comment-handler.yml": "Reusable Bot Comment Handler",
     "selftest-reusable-ci.yml": "Selftest: Reusables",
     "selftest-ci.yml": "Selftest CI",
+    "maint-39-test-llm-providers.yml": "Maint 39 Test LLM Providers",
 }

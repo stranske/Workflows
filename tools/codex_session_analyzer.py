@@ -117,6 +117,7 @@ def analyze_session(
     data_source: DataSource = "auto",
     include_reasoning: bool = True,
     context: str | None = None,
+    force_provider: str | None = None,
 ) -> AnalysisResult:
     """
     Analyze Codex session output to determine task completion.
@@ -131,6 +132,8 @@ def analyze_session(
             - "auto": Auto-detect based on content
         include_reasoning: Include reasoning summaries in analysis (for JSONL)
         context: Additional context (PR description, etc.)
+        force_provider: Force use of a specific provider (for testing).
+            Options: "github-models", "openai", "regex-fallback"
 
     Returns:
         AnalysisResult with completion status and metadata
@@ -161,7 +164,7 @@ def analyze_session(
             analysis_text = content
 
     # Get LLM provider and analyze
-    provider = get_llm_provider()
+    provider = get_llm_provider(force_provider=force_provider)
 
     try:
         completion = provider.analyze_completion(
