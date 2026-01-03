@@ -137,6 +137,60 @@ test('infers tasks from list blocks when headings are missing', () => {
   assert.equal(result, ['#### Tasks', '- [ ] first task', '- [ ] second task'].join('\n'));
 });
 
+test('infers tasks from scope content when tasks heading is missing', () => {
+  const issue = [
+    '## Scope',
+    'Short context line.',
+    '',
+    '- [ ] first task',
+    '- [ ] second task',
+    '',
+    '## Acceptance Criteria',
+    '- must pass tests',
+  ].join('\n');
+
+  const result = extractScopeTasksAcceptanceSections(issue);
+  assert.equal(
+    result,
+    [
+      '#### Scope',
+      'Short context line.',
+      '',
+      '#### Tasks',
+      '- [ ] first task',
+      '- [ ] second task',
+      '',
+      '#### Acceptance Criteria',
+      '- [ ] must pass tests',
+    ].join('\n')
+  );
+});
+
+test('infers acceptance from trailing list block when heading is missing', () => {
+  const issue = [
+    '## Tasks',
+    '- [ ] ship feature',
+    '',
+    'Acceptance Criteria (AC):',
+    '',
+    '- [ ] all tests pass',
+  ].join('\n');
+
+  const result = extractScopeTasksAcceptanceSections(issue);
+  assert.equal(
+    result,
+    [
+      '#### Tasks',
+      '- [ ] ship feature',
+      '',
+      'Acceptance Criteria (AC):',
+      '',
+      '#### Acceptance Criteria',
+      '- [ ] all tests pass',
+    ].join('\n')
+  );
+});
+
 test('includes placeholders when requested', () => {
   const issue = [
     'Tasks:',

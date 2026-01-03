@@ -36,6 +36,7 @@ const PR_META_FALLBACK_PLACEHOLDERS = {
 };
 
 const CHECKBOX_SECTIONS = new Set(['tasks', 'acceptance']);
+const ACCEPTANCE_CUE_REGEX = /(acceptance|definition of done|done criteria)/i;
 
 function normaliseSectionContent(sectionKey, content) {
   const trimmed = String(content || '').trim();
@@ -127,7 +128,15 @@ function stripHeadingMarkers(rawLine) {
 function extractHeadingLabel(rawLine) {
   const cleaned = stripHeadingMarkers(rawLine);
   if (!cleaned) {
-    return '';
+    const listMatch = String(rawLine || '').match(LIST_ITEM_REGEX);
+    if (!listMatch) {
+      return '';
+    }
+    const remainder = listMatch[3]?.trim() || '';
+    if (!remainder || /^\[[ xX]\]/.test(remainder)) {
+      return '';
+    }
+    return stripHeadingMarkers(remainder);
   }
   return cleaned;
 }
@@ -164,6 +173,86 @@ function extractListBlocks(lines) {
   return blocks;
 }
 
+function extractListBlocksWithOffsets(lines) {
+  const blocks = [];
+  let current = [];
+  let blockStart = null;
+  let blockEnd = null;
+  let offset = 0;
+
+  const flush = () => {
+    if (!current.length) {
+      return;
+    }
+    const content = current.join('\n').trim();
+    if (content) {
+      blocks.push({ start: blockStart, end: blockEnd, content });
+    }
+    current = [];
+    blockStart = null;
+    blockEnd = null;
+  };
+
+  for (const line of lines) {
+    const isList = LIST_ITEM_REGEX.test(line);
+    if (isList) {
+      if (!current.length) {
+        blockStart = offset;
+      }
+      current.push(line);
+      blockEnd = offset + line.length;
+    } else if (current.length) {
+      if (!line.trim()) {
+        current.push(line);
+        blockEnd = offset + line.length;
+      } else {
+        flush();
+      }
+    }
+    offset += line.length + 1;
+  }
+  flush();
+
+  return blocks;
+}
+
+function removeTrailingBlock(content, block) {
+  const trimmedContent = String(content || '').trim();
+  const trimmedBlock = String(block || '').trim();
+  if (!trimmedContent || !trimmedBlock) {
+    return content;
+  }
+  if (!trimmedContent.endsWith(trimmedBlock)) {
+    return content;
+  }
+  const index = trimmedContent.lastIndexOf(trimmedBlock);
+  if (index === -1) {
+    return content;
+  }
+  return trimmedContent.slice(0, index).trimEnd();
+}
+
+function blockInsideRange(block, range) {
+  if (!range) {
+    return false;
+  }
+  return block.start >= range.start && block.end <= range.end;
+}
+
+function hasAcceptanceCue(content) {
+  const lines = String(content || '').split('\n');
+  return lines.some((line) => {
+    if (LIST_ITEM_REGEX.test(line)) {
+      return false;
+    }
+    const cleaned = stripHeadingMarkers(line);
+    if (!cleaned) {
+      return false;
+    }
+    return ACCEPTANCE_CUE_REGEX.test(cleaned);
+  });
+}
+
 function inferSectionsFromLists(segment) {
   const sections = { scope: '', tasks: '', acceptance: '' };
   const lines = String(segment || '').split('\n');
@@ -186,6 +275,67 @@ function inferSectionsFromLists(segment) {
   }
 
   return sections;
+}
+
+function applyListFallbacks({ segment, sections, listBlocks, ranges }) {
+  const updated = { ...sections };
+  const tasksMissing = !String(updated.tasks || '').trim();
+  const acceptanceMissing = !String(updated.acceptance || '').trim();
+
+  if (!tasksMissing && !acceptanceMissing) {
+    return updated;
+  }
+
+  if (tasksMissing && String(updated.scope || '').trim()) {
+    const inferred = inferSectionsFromLists(updated.scope);
+    if (inferred.tasks) {
+      updated.tasks = inferred.tasks;
+      updated.scope = inferred.scope || '';
+      if (acceptanceMissing && inferred.acceptance) {
+        updated.acceptance = inferred.acceptance;
+      }
+    }
+  }
+
+  const acceptanceStillMissing = !String(updated.acceptance || '').trim();
+  if (acceptanceStillMissing && String(updated.tasks || '').trim()) {
+    const taskBlocks = extractListBlocks(String(updated.tasks || '').split('\n'));
+    if (taskBlocks.length > 1 && hasAcceptanceCue(updated.tasks)) {
+      const acceptanceBlock = taskBlocks[taskBlocks.length - 1];
+      updated.acceptance = acceptanceBlock;
+      updated.tasks = removeTrailingBlock(updated.tasks, acceptanceBlock);
+    }
+  }
+
+  const tasksStillMissing = !String(updated.tasks || '').trim();
+  if (tasksStillMissing && listBlocks.length) {
+    const acceptanceRange = ranges.acceptance;
+    const candidates = listBlocks.filter((block) => !blockInsideRange(block, acceptanceRange));
+    if (candidates.length) {
+      if (acceptanceRange) {
+        const before = candidates.filter((block) => block.end <= acceptanceRange.start);
+        updated.tasks = (before.length ? before[before.length - 1] : candidates[0]).content;
+      } else {
+        updated.tasks = candidates[0].content;
+      }
+    }
+  }
+
+  const acceptanceStillMissingAfter = !String(updated.acceptance || '').trim();
+  if (acceptanceStillMissingAfter && listBlocks.length) {
+    const tasksRange = ranges.tasks;
+    const candidates = listBlocks.filter((block) => !blockInsideRange(block, tasksRange));
+    if (candidates.length) {
+      if (tasksRange) {
+        const after = candidates.filter((block) => block.start >= tasksRange.end);
+        updated.acceptance = (after.length ? after[0] : candidates[candidates.length - 1]).content;
+      } else {
+        updated.acceptance = candidates[candidates.length - 1].content;
+      }
+    }
+  }
+
+  return updated;
 }
 
 function collectSections(source) {
@@ -213,6 +363,7 @@ function collectSections(source) {
 
   const headings = [];
   const lines = segment.split('\n');
+  const listBlocks = extractListBlocksWithOffsets(lines);
   let offset = 0;
   for (const line of lines) {
     const matchedLabel = extractHeadingLabel(line);
@@ -238,6 +389,10 @@ function collectSections(source) {
   }, {});
   const labels = SECTION_DEFS.reduce((acc, section) => {
     acc[section.key] = section.label;
+    return acc;
+  }, {});
+  const ranges = SECTION_DEFS.reduce((acc, section) => {
+    acc[section.key] = null;
     return acc;
   }, {});
 
@@ -272,9 +427,11 @@ function collectSections(source) {
     const content = normalizeNewlines(segment.slice(contentStart, contentEnd)).trim();
     extracted[section.key] = content;
     labels[section.key] = header.matchedLabel?.trim() || canonicalTitle;
+    ranges[section.key] = { start: contentStart, end: contentEnd };
   }
 
-  return { segment, sections: extracted, labels };
+  const sections = applyListFallbacks({ segment, sections: extracted, listBlocks, ranges });
+  return { segment, sections, labels };
 }
 
 /**
