@@ -102,6 +102,29 @@ test('parses bold headings wrapped in list items', () => {
   );
 });
 
+test('parses inline section labels with same-line content', () => {
+  const issue = [
+    'Scope: Keep everything on one line.',
+    'Tasks: - [ ] handle inline labels',
+    'Acceptance Criteria: - [ ] parsing works',
+  ].join('\n');
+
+  const result = extractScopeTasksAcceptanceSections(issue);
+  assert.equal(
+    result,
+    [
+      '#### Scope',
+      'Keep everything on one line.',
+      '',
+      '#### Tasks',
+      '- [ ] handle inline labels',
+      '',
+      '#### Acceptance Criteria',
+      '- [ ] parsing works',
+    ].join('\n')
+  );
+});
+
 test('parseScopeTasksAcceptanceSections preserves structured sections', () => {
   const issue = [
     '## Issue Scope',
@@ -166,6 +189,31 @@ test('infers tasks from list blocks when headings are missing', () => {
 
   const result = extractScopeTasksAcceptanceSections(issue);
   assert.equal(result, ['#### Tasks', '- [ ] first task', '- [ ] second task'].join('\n'));
+});
+
+test('infers nested task lists when headings are missing', () => {
+  const issue = [
+    '- [ ] parent task',
+    '  supporting detail line',
+    '  - [ ] child task',
+    '',
+    'Criteria',
+    '- [ ] acceptance item',
+  ].join('\n');
+
+  const result = extractScopeTasksAcceptanceSections(issue);
+  assert.equal(
+    result,
+    [
+      '#### Tasks',
+      '- [ ] parent task',
+      '  supporting detail line',
+      '  - [ ] child task',
+      '',
+      '#### Acceptance Criteria',
+      '- [ ] acceptance item',
+    ].join('\n')
+  );
 });
 
 test('infers tasks from scope content when tasks heading is missing', () => {

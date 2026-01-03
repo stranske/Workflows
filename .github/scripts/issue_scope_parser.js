@@ -21,6 +21,17 @@ const SECTION_DEFS = [
   },
 ];
 
+const INLINE_SEPARATOR_REGEX = /[:\-–—]/;
+const INLINE_LABELS = Array.from(
+  new Set(SECTION_DEFS.flatMap((section) => [section.label, ...section.aliases]))
+).sort((a, b) => b.length - a.length);
+const escapeRegExp = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const INLINE_LABEL_PATTERN = INLINE_LABELS.map(escapeRegExp).join('|');
+const INLINE_LABEL_REGEX = new RegExp(
+  `^(\\s*(?:\\*\\*|__)?(?:${INLINE_LABEL_PATTERN})(?:\\*\\*|__)?)\\s*[:\\-–—]\\s+(.+)$`,
+  'i'
+);
+
 const PLACEHOLDERS = {
   scope: '_No scope information provided_',
   tasks: '- [ ] _No tasks defined_',
@@ -141,6 +152,41 @@ function extractHeadingLabel(rawLine) {
   return cleaned;
 }
 
+function splitInlineSectionLabels(segment) {
+  const lines = String(segment || '').split('\n');
+  let mutated = false;
+  const updated = [];
+
+  for (const line of lines) {
+    if (!line.trim() || LIST_ITEM_REGEX.test(line)) {
+      updated.push(line);
+      continue;
+    }
+    if (!INLINE_SEPARATOR_REGEX.test(line)) {
+      updated.push(line);
+      continue;
+    }
+
+    const inlineMatch = line.match(INLINE_LABEL_REGEX);
+    if (!inlineMatch) {
+      updated.push(line);
+      continue;
+    }
+
+    const headingRaw = inlineMatch[1] || '';
+    const content = inlineMatch[2] || '';
+    updated.push(`${headingRaw.trim()}:`);
+    updated.push(content.trim());
+    mutated = true;
+  }
+
+  return mutated ? updated.join('\n') : segment;
+}
+
+function isContinuationLine(line) {
+  return /^\s+/.test(line) && Boolean(line.trim());
+}
+
 function extractListBlocks(lines) {
   const blocks = [];
   let current = [];
@@ -161,6 +207,10 @@ function extractListBlocks(lines) {
       continue;
     }
     if (current.length) {
+      if (isContinuationLine(line)) {
+        current.push(line);
+        continue;
+      }
       if (!line.trim()) {
         current.push(line);
         continue;
@@ -202,7 +252,10 @@ function extractListBlocksWithOffsets(lines) {
       current.push(line);
       blockEnd = offset + line.length;
     } else if (current.length) {
-      if (!line.trim()) {
+      if (isContinuationLine(line)) {
+        current.push(line);
+        blockEnd = offset + line.length;
+      } else if (!line.trim()) {
         current.push(line);
         blockEnd = offset + line.length;
       } else {
@@ -353,6 +406,7 @@ function collectSections(source) {
   if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
     segment = normalized.slice(startIndex + startMarker.length, endIndex);
   }
+  segment = splitInlineSectionLabels(segment);
 
   const aliasLookup = SECTION_DEFS.reduce((acc, section) => {
     section.aliases.forEach((alias) => {
