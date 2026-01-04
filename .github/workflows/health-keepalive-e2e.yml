@@ -187,18 +187,20 @@ jobs:
 
       - name: Summary
         run: |
-          echo "## Keepalive E2E Results" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "✅ **Orchestration E2E passed**" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Check | Status |" >> "$GITHUB_STEP_SUMMARY"
-          echo "|-------|--------|" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Core functions (countCheckboxes, parseConfig) | ✅ |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| State management (load, format, parse) | ✅ |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Error classification | ✅ |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Workflow contract | ✅ |" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "_Mode: orchestration-only (no Codex invocation)_" >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "## Keepalive E2E Results"
+            echo ""
+            echo "✅ **Orchestration E2E passed**"
+            echo ""
+            echo "| Check | Status |"
+            echo "|-------|--------|"
+            echo "| Core functions (countCheckboxes, parseConfig) | ✅ |"
+            echo "| State management (load, format, parse) | ✅ |"
+            echo "| Error classification | ✅ |"
+            echo "| Workflow contract | ✅ |"
+            echo ""
+            echo "_Mode: orchestration-only (no Codex invocation)_"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   # Optional: Real Codex minimal ping - only with e2e:codex-ping label
   # Use when orchestration-only isn't catching real issues
@@ -271,8 +273,10 @@ jobs:
 
       - name: Summary
         run: |
-          echo "## Keepalive E2E Results" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "✅ **Codex Ping E2E passed**" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "_Mode: codex-ping (real Codex invocation with minimal prompt)_" >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "## Keepalive E2E Results"
+            echo ""
+            echo "✅ **Codex Ping E2E passed**"
+            echo ""
+            echo "_Mode: codex-ping (real Codex invocation with minimal prompt)_"
+          } >> "$GITHUB_STEP_SUMMARY"

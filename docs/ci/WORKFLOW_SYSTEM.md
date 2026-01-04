@@ -643,7 +643,7 @@ Keep this table handy when you are triaging automation: it confirms which workfl
     and Python matrix).
 - **Selftest CI** – `selftest-ci.yml` runs the repository's own test suite
   (JS + Python tests, linting, YAML validation) on push and PR.
-- **Keepalive E2E** – `selftest-keepalive-e2e.yml` path-filtered E2E test for
+- **Keepalive E2E** – `health-keepalive-e2e.yml` path-filtered E2E test for
   the keepalive system. Runs only when keepalive-related files change.
   - `post_to`: `pr-number` or `none` (comment target when `mode == comment`).
   - `enable_history`: `true` or `false` (download the verification artifact for
