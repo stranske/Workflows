@@ -43,7 +43,6 @@ function resolvePromptMode({ scenario, mode, action, reason } = {}) {
     if (VERIFY_MODES.has(modeValue)) {
       return 'verify';
     }
-    return 'normal';
   }
 
   const actionValue = normalise(action);
