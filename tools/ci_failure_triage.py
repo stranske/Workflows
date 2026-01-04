@@ -39,9 +39,7 @@ class TriageReport:
     summary: str
 
 
-_DEFAULT_FILE_REGEX = re.compile(
-    r"(?P<path>[A-Za-z0-9_./-]+\.(?:py|js|ts|tsx|json|ya?ml))"
-)
+_DEFAULT_FILE_REGEX = re.compile(r"(?P<path>[A-Za-z0-9_./-]+\.(?:py|js|ts|tsx|json|ya?ml))")
 
 
 def _compile(patterns: list[str]) -> tuple[re.Pattern[str], ...]:
