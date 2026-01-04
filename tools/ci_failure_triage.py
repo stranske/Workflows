@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
 from dataclasses import dataclass, field
@@ -130,7 +131,9 @@ DEFAULT_TRIAGE_PATTERNS: tuple[TriagePattern, ...] = (
 
 
 def triage_ci_failure(
-    log_text: str, patterns: tuple[TriagePattern, ...] = DEFAULT_TRIAGE_PATTERNS
+    log_text: str,
+    patterns: tuple[TriagePattern, ...] = DEFAULT_TRIAGE_PATTERNS,
+    use_llm: bool | None = None,
 ) -> TriageReport:
     lines = [line.rstrip() for line in log_text.splitlines() if line.strip()]
     findings: list[TriageFinding] = []
@@ -153,7 +156,8 @@ def triage_ci_failure(
         )
 
     summary = _build_summary(findings)
-    return TriageReport(findings=findings, summary=summary)
+    report = TriageReport(findings=findings, summary=summary)
+    return _maybe_enhance_with_llm(report, log_text, use_llm)
 
 
 def _collect_evidence(lines: list[str], regexes: tuple[re.Pattern[str], ...]) -> list[str]:
@@ -204,6 +208,160 @@ def _build_summary(findings: list[TriageFinding]) -> str:
         return "No known failure patterns detected."
     types = ", ".join(finding.error_type for finding in findings)
     return f"Detected failure types: {types}."
+
+
+def _maybe_enhance_with_llm(
+    report: TriageReport, log_text: str, use_llm: bool | None
+) -> TriageReport:
+    if use_llm is None:
+        use_llm = _bool_env(os.environ.get("KEEPALIVE_USE_LLM_TRIAGE"))
+    if not use_llm:
+        return report
+
+    llm_findings = _run_llm_triage(log_text)
+    if not llm_findings:
+        return report
+
+    existing_types = {finding.error_type for finding in report.findings}
+    merged = list(report.findings)
+    for finding in llm_findings:
+        if finding.error_type in existing_types:
+            continue
+        merged.append(finding)
+        existing_types.add(finding.error_type)
+
+    summary = _build_summary(merged)
+    return TriageReport(findings=merged, summary=summary)
+
+
+def _bool_env(value: str | None) -> bool:
+    if value is None:
+        return False
+    normalized = value.strip().lower()
+    return normalized in {"1", "true", "yes", "on"}
+
+
+def _run_llm_triage(log_text: str) -> list[TriageFinding]:
+    client_info = _get_llm_client()
+    if not client_info:
+        return []
+    client, _ = client_info
+    prompt = _build_llm_prompt(log_text)
+    try:
+        response = client.invoke(prompt)
+    except Exception:
+        return []
+    content = getattr(response, "content", None) or str(response)
+    return _parse_llm_findings(content)
+
+
+def _get_llm_client() -> tuple[object, str] | None:
+    try:
+        from langchain_openai import ChatOpenAI
+    except ImportError:
+        return None
+
+    github_token = os.environ.get("GITHUB_TOKEN")
+    openai_token = os.environ.get("OPENAI_API_KEY")
+    if not github_token and not openai_token:
+        return None
+
+    from tools.llm_provider import DEFAULT_MODEL, GITHUB_MODELS_BASE_URL
+
+    if github_token:
+        return (
+            ChatOpenAI(
+                model=DEFAULT_MODEL,
+                base_url=GITHUB_MODELS_BASE_URL,
+                api_key=github_token,
+                temperature=0.1,
+            ),
+            "github-models",
+        )
+    return (
+        ChatOpenAI(
+            model=DEFAULT_MODEL,
+            api_key=openai_token,
+            temperature=0.1,
+        ),
+        "openai",
+    )
+
+
+def _build_llm_prompt(log_text: str) -> str:
+    trimmed = log_text.strip()
+    if len(trimmed) > 8000:
+        trimmed = trimmed[:8000]
+    schema = {
+        "findings": [
+            {
+                "error_type": "string",
+                "root_cause": "string",
+                "suggested_fix": "string",
+                "relevant_files": ["string"],
+                "playbook_url": "string or null",
+            }
+        ]
+    }
+    return (
+        "You are a CI failure triage assistant. "
+        "Read the log snippet and return JSON only, matching this schema:\n"
+        f"{json.dumps(schema)}\n"
+        "Return an empty findings list if nothing is clear.\n"
+        "Log snippet:\n"
+        f"{trimmed}"
+    )
+
+
+def _parse_llm_findings(text: str) -> list[TriageFinding]:
+    payload = _extract_json_payload(text)
+    if not payload:
+        return []
+    try:
+        data = json.loads(payload)
+    except json.JSONDecodeError:
+        return []
+    findings_data = data.get("findings")
+    if not isinstance(findings_data, list):
+        return []
+    findings: list[TriageFinding] = []
+    for raw in findings_data:
+        if not isinstance(raw, dict):
+            continue
+        error_type = str(raw.get("error_type") or "").strip()
+        root_cause = str(raw.get("root_cause") or "").strip()
+        suggested_fix = str(raw.get("suggested_fix") or "").strip()
+        if not (error_type and root_cause and suggested_fix):
+            continue
+        relevant_files = [
+            str(item).strip()
+            for item in raw.get("relevant_files", [])
+            if isinstance(item, str) and item.strip()
+        ]
+        playbook_url = raw.get("playbook_url")
+        if playbook_url is not None:
+            playbook_url = str(playbook_url).strip() or None
+        findings.append(
+            TriageFinding(
+                error_type=error_type,
+                root_cause=root_cause,
+                suggested_fix=suggested_fix,
+                relevant_files=relevant_files,
+                playbook_url=playbook_url,
+            )
+        )
+    return findings
+
+
+def _extract_json_payload(text: str) -> str | None:
+    stripped = text.strip()
+    if stripped.startswith("{") and stripped.endswith("}"):
+        return stripped
+    start = stripped.find("{")
+    end = stripped.rfind("}")
+    if start == -1 or end == -1 or end <= start:
+        return None
+    return stripped[start : end + 1]
 
 
 def _report_to_dict(report: TriageReport) -> dict[str, object]:

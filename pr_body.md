@@ -19,7 +19,7 @@ Current post-CI summaries (`post_ci_summary.py` / gate summary workflow) effecti
 
 #### Acceptance criteria
 - [x] Pattern-based triage identifies: mypy, pytest, coverage, import, syntax errors
-- [ ] Each error type maps to a suggested fix template
+- [x] Each error type maps to a suggested fix template
 - [ ] LLM triage is opt-in (`KEEPALIVE_USE_LLM_TRIAGE=true`)
 - [x] Output includes: error_type, root_cause, suggested_fix, relevant_files
 - [x] Playbook links are included when available
