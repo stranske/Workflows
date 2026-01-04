@@ -233,6 +233,40 @@ Navigate to: **Settings** → **Secrets and variables** → **Actions** → **Va
 Add the variable:
 - [ ] `ALLOWED_KEEPALIVE_LOGINS` — Comma-separated list of usernames
 
+### 3.4 Install GitHub App on Repository
+
+> **Critical**: Even if you've configured `WORKFLOWS_APP_ID` and `WORKFLOWS_APP_PRIVATE_KEY` 
+> secrets, the GitHub App must be explicitly granted access to this repository.
+
+**Symptom if skipped:** Keepalive fails with `Failed to create token for "<repo-name>": Not Found`
+
+**Steps to install:**
+
+1. Go to: **Settings** → **Applications** → **Installed GitHub Apps**
+   - Direct link: https://github.com/settings/installations
+   
+2. Find your GitHub App in the list (the one matching `WORKFLOWS_APP_ID`)
+
+3. Click **"Configure"** button on the right side of that row
+
+4. Under **"Repository access"** section:
+   - If **"All repositories"** is selected: You're done ✅
+   - If **"Only select repositories"** is selected:
+     - Click the **"Select repositories"** dropdown
+     - Add your new repository to the list
+     - Click **"Save"**
+
+**Verify installation:**
+- Go to: `https://github.com/stranske/<your-repo>/settings/installations`
+- Confirm your GitHub App is listed there
+
+**Checklist:**
+- [ ] GitHub App has access to this repository (verified in repo's settings/installations)
+
+> **Note**: This is separate from repository secrets. Secrets tell workflows which App 
+> credentials to use, but the App itself must be installed on the repository to grant 
+> access. New repositories are NOT automatically included if using "Only select repositories" mode.
+
 ---
 
 ## Phase 4: Workflow Configuration
