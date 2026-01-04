@@ -20,8 +20,8 @@ _Scope section missing from source issue._
 
 #### Acceptance criteria
 - [x] `agents:optimize` triggers analysis comment with structured suggestions
-- [x] Suggestions include task splitting, blocked task identification, objective criteria
-- [x] Comment contains `<- Updated WORKFLOW_OUTPUTS.md suggestions-json: {...} -->` marker
+- [ ] Suggestions include task splitting, blocked task identification, objective criteria
+- [ ] Comment contains `<- Updated WORKFLOW_OUTPUTS.md suggestions-json: {...} -->` marker
 - [x] `agents:apply-suggestions` extracts JSON and calls Formatter
 - [x] Issue body updated with applied improvements
 - [ ] Labels cleaned up appropriately
