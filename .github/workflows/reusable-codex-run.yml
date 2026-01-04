@@ -415,7 +415,8 @@ jobs:
           PYEOF
 
       # Clean up workflow-generated files that would confuse Codex about git state.
-      # The .workflows-lib directory is checked out for scripts and shows as modified.
+      # The .workflows-lib directory is a separate checkout (NOT a submodule) for scripts
+      # and may show as untracked or cause git status issues.
       # Session JSONL files from previous runs may be untracked.
       # These are not user code changes and should not block the agent.
       - name: Clean workspace for Codex
@@ -426,12 +427,23 @@ jobs:
           set -euo pipefail
           echo "Cleaning workspace to ensure clean git state for Codex..."
 
-          # Remove .workflows-lib from git tracking (it's checked out separately)
-          # Using .gitignore approach so it doesn't show as modified
+          # Handle .workflows-lib directory - it's a separate checkout (NOT a submodule)
+          # It may appear as untracked or modified and should be excluded from git status
           if [ -d ".workflows-lib" ]; then
-            echo "Excluding .workflows-lib from git status..."
-            # Add to .git/info/exclude to hide from git status without modifying .gitignore
-            echo ".workflows-lib" >> .git/info/exclude 2>/dev/null || true
+            echo "Handling .workflows-lib directory..."
+
+            # Step 1: Add to .git/info/exclude to hide from git status
+            # This prevents it from showing as untracked (??)
+            if ! grep -q "^\.workflows-lib$" .git/info/exclude 2>/dev/null; then
+              echo ".workflows-lib" >> .git/info/exclude 2>/dev/null || true
+            fi
+
+            # Step 2: If it's showing as modified (unlikely but possible if .gitmodules exists)
+            # clean it by removing and letting subsequent steps re-checkout if needed
+            if git status --porcelain 2>/dev/null | grep -qE "^.M .workflows-lib"; then
+              echo "Resetting .workflows-lib to clean state..."
+              rm -rf .workflows-lib 2>/dev/null || true
+            fi
           fi
 
           # Remove old codex session/output files that may be untracked
@@ -444,7 +456,8 @@ jobs:
           git status --short || true
 
           # Check if any meaningful changes remain
-          REMAINING=$(git status --porcelain | grep -cvE '^\?\? \.(workflows-lib|gitignore)' 2>/dev/null || echo "0")
+          # Exclude: untracked .workflows-lib, .gitignore, codex-*, autofix* artifacts
+          REMAINING=$(git status --porcelain | grep -vE '^\?\? (\.workflows-lib|\.gitignore|codex-|autofix)' | wc -l 2>/dev/null || echo "0")
           echo "remaining-changes=${REMAINING}" >> "$GITHUB_OUTPUT"
 
           if [ "$REMAINING" -gt 0 ]; then
