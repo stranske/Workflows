@@ -5,6 +5,7 @@ const path = require('path');
 
 const { parseScopeTasksAcceptanceSections } = require('./issue_scope_parser');
 const { loadKeepaliveState, formatStateComment } = require('./keepalive_state');
+const { resolvePromptMode } = require('./keepalive_prompt_routing');
 const { classifyError, ERROR_CATEGORIES } = require('./error_classifier');
 const { formatFailureComment } = require('./failure_comment_formatter');
 
@@ -12,7 +13,7 @@ const ATTEMPT_HISTORY_LIMIT = 5;
 const ATTEMPTED_TASK_LIMIT = 6;
 
 const PROMPT_ROUTES = {
-  fix: {
+  fix_ci: {
     mode: 'fix_ci',
     file: '.github/codex/prompts/fix_ci_failures.md',
   },
@@ -30,16 +31,9 @@ function normalise(value) {
   return String(value ?? '').trim();
 }
 
-function resolvePromptRouting({ action, reason }) {
-  const actionValue = normalise(action);
-  const reasonValue = normalise(reason);
-  if (actionValue === 'fix' || reasonValue.startsWith('fix-')) {
-    return PROMPT_ROUTES.fix;
-  }
-  if (reasonValue === 'verify-acceptance' || actionValue === 'verify') {
-    return PROMPT_ROUTES.verify;
-  }
-  return PROMPT_ROUTES.normal;
+function resolvePromptRouting({ scenario, mode, action, reason } = {}) {
+  const resolvedMode = resolvePromptMode({ scenario, mode, action, reason });
+  return PROMPT_ROUTES[resolvedMode] || PROMPT_ROUTES.normal;
 }
 
 function toBool(value, defaultValue = false) {

@@ -2,6 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { resolvePromptMode } = require('./keepalive_prompt_routing');
 
 /**
  * Path to the canonical keepalive instruction template.
@@ -27,37 +28,12 @@ function normalise(value) {
   return String(value ?? '').trim();
 }
 
-function resolveMode({ mode, action, reason } = {}) {
-  const rawMode = normalise(mode).toLowerCase();
-  const actionValue = normalise(action).toLowerCase();
-  const reasonValue = normalise(reason).toLowerCase();
-
-  if (rawMode) {
-    if (['fix', 'fix-ci', 'fix_ci', 'ci', 'ci-failure'].includes(rawMode)) {
-      return 'fix_ci';
-    }
-    if (['verify', 'verification', 'verify-acceptance', 'acceptance'].includes(rawMode)) {
-      return 'verify';
-    }
-    return 'normal';
-  }
-
-  if (actionValue === 'fix' || reasonValue.startsWith('fix-')) {
-    return 'fix_ci';
-  }
-  if (actionValue === 'verify' || reasonValue === 'verify-acceptance') {
-    return 'verify';
-  }
-
-  return 'normal';
-}
-
-function resolveTemplatePath({ templatePath, mode, action, reason } = {}) {
+function resolveTemplatePath({ templatePath, mode, action, reason, scenario } = {}) {
   const explicit = normalise(templatePath);
   if (explicit) {
     return { mode: 'custom', path: explicit };
   }
-  const resolvedMode = resolveMode({ mode, action, reason });
+  const resolvedMode = resolvePromptMode({ mode, action, reason, scenario });
   return { mode: resolvedMode, path: TEMPLATE_PATHS[resolvedMode] || TEMPLATE_PATH };
 }
 

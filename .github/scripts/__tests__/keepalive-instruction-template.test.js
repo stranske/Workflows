@@ -86,6 +86,12 @@ test('getKeepaliveInstruction routes to verify prompt when action requests verif
   assert.equal(result, expected);
 });
 
+test('getKeepaliveInstruction routes to fix prompt when scenario is ci-failure', () => {
+  const expected = fs.readFileSync(FIX_TEMPLATE_PATH, 'utf8').trim();
+  const result = getKeepaliveInstruction({ scenario: 'ci-failure' });
+  assert.equal(result, expected);
+});
+
 test('getKeepaliveInstructionWithMention forwards routing options', () => {
   const expected = fs.readFileSync(FIX_TEMPLATE_PATH, 'utf8').trim();
   const result = getKeepaliveInstructionWithMention('codex', { reason: 'fix-test' });
