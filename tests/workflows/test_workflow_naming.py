@@ -167,6 +167,7 @@ EXPECTED_NAMES = {
     "maint-dependabot-auto-label.yml": "Auto-label Dependabot PRs",
     "agents-63-issue-intake.yml": "Agents 63 Issue Intake",
     "agents-64-verify-agent-assignment.yml": "Agents 64 Verify Agent Assignment",
+    "agents-issue-optimizer.yml": "Agents Issue Optimizer",
     "agents-verifier.yml": "Agents Verifier",
     "agents-weekly-metrics.yml": "agents-weekly-metrics",
     "agents-70-orchestrator.yml": "Agents 70 Orchestrator",
