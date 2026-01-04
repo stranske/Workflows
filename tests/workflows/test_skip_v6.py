@@ -1,4 +1,5 @@
 """Temporarily skip tests affected by actions/checkout v6 upgrade."""
+
 import pytest
 
 pytestmark = pytest.mark.skip(reason="Tests need updating for actions/checkout@v6 changes")
