@@ -1054,7 +1054,4 @@ the thin caller workflows are synced, not custom implementations.
 ## Version History
 
 | Version | Date | Changes |
-|---------|---------|---------||
-| 1.2 | 2026-01-04 | Clarified Phase 10 requires THREE registration points; added WORKFLOWS_APP_ID/KEY as required; added Phase 9 troubleshooting notes |
-| 1.1 | 2025-12-27 | Added existing repo setup, bot collaborator access, sync registration |
-| 1.0 | 2025-01 | Initial checklist based on Travel-Plan-Permission learnings |
+|---------|------|---------|

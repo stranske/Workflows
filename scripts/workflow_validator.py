@@ -140,15 +140,16 @@ def check_unsafe_string_interpolation(workflow: dict) -> list[tuple[str, str, st
     ]
 
     # Known safe expression patterns (check the expression inside ${{ }})
+    # IMPORTANT: Be conservative here. Many contexts can contain user-controlled data:
+    # - github.event.issue.title, github.event.pull_request.body, etc.
+    # - workflow_dispatch inputs can be user-provided
+    # - toJSON/fromJSON results may contain special characters
+    # Only patterns that are truly controlled should be listed here.
     safe_expression_patterns = [
-        r"^\s*secrets\.",  # Secret references are controlled
-        r"^\s*toJSON\(",  # toJSON produces valid JSON
-        r"^\s*fromJSON\(",  # fromJSON is safe
-        r"^\s*github\.",  # GitHub context is controlled
-        r"^\s*env\.",  # Environment variables are controlled
-        r"^\s*inputs\.",  # Workflow inputs are typically controlled
-        r"^\s*matrix\.",  # Matrix values are controlled
-        r"^\s*runner\.",  # Runner context is controlled
+        r"^\s*secrets\.",  # Secret references are controlled (never user-visible)
+        r"^\s*env\.",  # Environment variables set in workflow are controlled
+        r"^\s*matrix\.",  # Matrix values are defined in workflow YAML
+        r"^\s*runner\.",  # Runner context is controlled (os, arch, etc.)
     ]
 
     jobs = workflow.get("jobs", {})
@@ -161,15 +162,8 @@ def check_unsafe_string_interpolation(workflow: dict) -> list[tuple[str, str, st
             if not script:
                 continue
 
-            # Skip if step uses env: block (safer pattern)
-            if step.get("env"):
-                # Check if the script uses process.env instead of inline interpolation
-                env_vars = step.get("env", {})
-                # If env vars contain ${{ }} and script references process.env, that's safe
-                has_env_vars_with_expressions = any("${{" in str(v) for v in env_vars.values())
-                uses_process_env = "process.env" in script
-                if has_env_vars_with_expressions and uses_process_env:
-                    continue
+            # Check if step uses env: block for the interpolated values
+            env_block = step.get("env", {})
 
             # Check for unsafe patterns
             for pattern, description in unsafe_patterns:
@@ -183,6 +177,16 @@ def check_unsafe_string_interpolation(workflow: dict) -> list[tuple[str, str, st
                     is_safe = any(
                         re.search(safe_pat, expr) for safe_pat in safe_expression_patterns
                     )
+
+                    # Also check if this expression is passed through env block
+                    # and the script uses process.env to access it
+                    if not is_safe and env_block:
+                        # See if this expression appears in any env var value
+                        expr_in_env = any(expr in str(v) for v in env_block.values())
+                        uses_process_env = "process.env" in script
+                        if expr_in_env and uses_process_env:
+                            is_safe = True
+
                     if not is_safe:
                         issues.append(
                             (
