@@ -26,3 +26,8 @@ test('resolvePromptMode falls back to action or reason when scenario/mode missin
   assert.equal(resolvePromptMode({ action: 'verify' }), 'verify');
   assert.equal(resolvePromptMode({ reason: 'verify-acceptance' }), 'verify');
 });
+
+test('resolvePromptMode prioritizes fix/verify actions over scenario', () => {
+  assert.equal(resolvePromptMode({ scenario: 'feature-work', action: 'fix' }), 'fix_ci');
+  assert.equal(resolvePromptMode({ scenario: 'feature-work', reason: 'verify-acceptance' }), 'verify');
+});

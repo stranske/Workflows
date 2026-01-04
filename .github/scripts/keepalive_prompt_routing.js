@@ -33,19 +33,6 @@ const FIX_MODES = new Set(['fix', 'fix-ci', 'fix_ci', 'ci', 'ci-failure']);
 const VERIFY_MODES = new Set(['verify', 'verification', 'verify-acceptance', 'acceptance']);
 
 function resolvePromptMode({ scenario, mode, action, reason } = {}) {
-  const scenarioValue = normalise(scenario);
-  if (scenarioValue) {
-    if (FIX_SCENARIOS.has(scenarioValue)) {
-      return 'fix_ci';
-    }
-    if (VERIFY_SCENARIOS.has(scenarioValue)) {
-      return 'verify';
-    }
-    if (FEATURE_SCENARIOS.has(scenarioValue)) {
-      return 'normal';
-    }
-  }
-
   const modeValue = normalise(mode);
   if (modeValue) {
     if (FIX_MODES.has(modeValue)) {
@@ -64,6 +51,19 @@ function resolvePromptMode({ scenario, mode, action, reason } = {}) {
   }
   if (actionValue === 'verify' || reasonValue === 'verify-acceptance') {
     return 'verify';
+  }
+
+  const scenarioValue = normalise(scenario);
+  if (scenarioValue) {
+    if (FIX_SCENARIOS.has(scenarioValue)) {
+      return 'fix_ci';
+    }
+    if (VERIFY_SCENARIOS.has(scenarioValue)) {
+      return 'verify';
+    }
+    if (FEATURE_SCENARIOS.has(scenarioValue)) {
+      return 'normal';
+    }
   }
 
   return 'normal';
