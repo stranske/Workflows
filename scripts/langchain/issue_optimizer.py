@@ -53,6 +53,21 @@ Output JSON with this shape:
 """.strip()
 
 PROMPT_PATH = Path(__file__).resolve().parent / "prompts" / "analyze_issue.md"
+APPLY_PROMPT_PATH = Path(__file__).resolve().parent / "prompts" / "apply_suggestions.md"
+
+APPLY_SUGGESTIONS_PROMPT = """
+Reformat this issue applying the approved suggestions.
+
+Original issue:
+{original_body}
+
+Approved suggestions:
+{suggestions_json}
+
+Apply ALL suggestions and output the complete reformatted issue
+following AGENT_ISSUE_TEMPLATE structure. Move blocked tasks to
+a "## Deferred Tasks (Requires Human)" section.
+""".strip()
 
 SECTION_ALIASES = {
     "why": ["why", "motivation", "summary"],
@@ -104,6 +119,12 @@ def _load_prompt() -> str:
     if PROMPT_PATH.is_file():
         return PROMPT_PATH.read_text(encoding="utf-8").strip()
     return ANALYZE_ISSUE_PROMPT
+
+
+def _load_apply_prompt() -> str:
+    if APPLY_PROMPT_PATH.is_file():
+        return APPLY_PROMPT_PATH.read_text(encoding="utf-8").strip()
+    return APPLY_SUGGESTIONS_PROMPT
 
 
 def _get_llm_client() -> tuple[object, str] | None:
@@ -298,6 +319,30 @@ def _extract_json_payload(text: str) -> str | None:
     return stripped[start : end + 1]
 
 
+def _extract_suggestions_json(comment_body: str) -> dict[str, Any] | None:
+    if not comment_body:
+        return None
+    marker = "suggestions-json:"
+    start = comment_body.find(marker)
+    if start == -1:
+        return None
+    payload = _extract_json_payload(comment_body[start + len(marker) :])
+    if not payload:
+        return None
+    try:
+        data = json.loads(payload)
+    except json.JSONDecodeError:
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def _formatted_output_valid(text: str) -> bool:
+    if not text:
+        return False
+    required = ["## Tasks", "## Acceptance Criteria"]
+    return all(section in text for section in required)
+
+
 def _normalize_result(
     payload: dict[str, Any], provider_used: str | None
 ) -> IssueOptimizationResult:
@@ -361,6 +406,86 @@ def analyze_issue(issue_body: str, *, use_llm: bool = True) -> IssueOptimization
     return _fallback_analysis(issue_body)
 
 
+def _blocked_task_lines(suggestions: dict[str, Any]) -> list[str]:
+    blocked = suggestions.get("blocked_tasks")
+    if not isinstance(blocked, list):
+        return []
+    lines: list[str] = []
+    for entry in blocked:
+        if not isinstance(entry, dict):
+            continue
+        task = str(entry.get("task") or "").strip()
+        reason = str(entry.get("reason") or "").strip()
+        action = str(entry.get("suggested_action") or "").strip()
+        if not task:
+            continue
+        suffix_parts = [part for part in (reason, action) if part]
+        suffix = f" ({' | '.join(suffix_parts)})" if suffix_parts else ""
+        lines.append(f"- [ ] {task}{suffix}")
+    return lines
+
+
+def _append_deferred_tasks(formatted_body: str, suggestions: dict[str, Any]) -> str:
+    blocked_lines = _blocked_task_lines(suggestions)
+    if not blocked_lines:
+        return formatted_body
+    header = "## Deferred Tasks (Requires Human)"
+    if header in formatted_body:
+        return formatted_body
+    parts = [
+        formatted_body.rstrip(),
+        "",
+        header,
+        "",
+        "\n".join(blocked_lines),
+    ]
+    return "\n".join(parts).strip()
+
+
+def apply_suggestions(
+    issue_body: str, suggestions: dict[str, Any], *, use_llm: bool = True
+) -> dict[str, Any]:
+    if not issue_body:
+        issue_body = ""
+
+    if use_llm:
+        client_info = _get_llm_client()
+        if client_info:
+            client, provider = client_info
+            try:
+                from langchain_core.prompts import ChatPromptTemplate
+            except ImportError:
+                client_info = None
+            else:
+                prompt = _load_apply_prompt()
+                template = ChatPromptTemplate.from_template(prompt)
+                chain = template | client
+                response = chain.invoke(
+                    {
+                        "original_body": issue_body,
+                        "suggestions_json": json.dumps(suggestions, ensure_ascii=True, indent=2),
+                    }
+                )
+                content = getattr(response, "content", None) or str(response)
+                formatted = content.strip()
+                if _formatted_output_valid(formatted):
+                    return {
+                        "formatted_body": formatted,
+                        "provider_used": provider,
+                        "used_llm": True,
+                    }
+
+    from scripts.langchain import issue_formatter
+
+    fallback = issue_formatter.format_issue_body(issue_body, use_llm=False)
+    formatted = _append_deferred_tasks(fallback["formatted_body"], suggestions)
+    return {
+        "formatted_body": formatted,
+        "provider_used": None,
+        "used_llm": False,
+    }
+
+
 def _load_input(args: argparse.Namespace) -> str:
     if args.input_file:
         return Path(args.input_file).read_text(encoding="utf-8")
@@ -369,20 +494,79 @@ def _load_input(args: argparse.Namespace) -> str:
     return sys.stdin.read()
 
 
+def _load_suggestions(args: argparse.Namespace) -> dict[str, Any] | None:
+    if args.suggestions_json:
+        try:
+            data = json.loads(args.suggestions_json)
+        except json.JSONDecodeError:
+            return None
+        return data if isinstance(data, dict) else None
+    if args.suggestions_file:
+        try:
+            raw = Path(args.suggestions_file).read_text(encoding="utf-8")
+        except FileNotFoundError:
+            return None
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError:
+            return None
+        return data if isinstance(data, dict) else None
+    if args.suggestions_comment_file:
+        try:
+            raw = Path(args.suggestions_comment_file).read_text(encoding="utf-8")
+        except FileNotFoundError:
+            return None
+        return _extract_suggestions_json(raw)
+    if args.suggestions_comment_text:
+        return _extract_suggestions_json(args.suggestions_comment_text)
+    return None
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Analyze issue text for optimization suggestions.")
     parser.add_argument("--input-file", help="Path to raw issue text.")
     parser.add_argument("--input-text", help="Raw issue text (inline).")
     parser.add_argument("--json", action="store_true", help="Emit JSON payload to stdout.")
     parser.add_argument("--no-llm", action="store_true", help="Disable LLM usage.")
+    parser.add_argument(
+        "--apply-suggestions",
+        action="store_true",
+        help="Apply suggestions JSON to the issue body and format the result.",
+    )
+    parser.add_argument("--suggestions-json", help="Suggestions JSON string.")
+    parser.add_argument("--suggestions-file", help="Path to suggestions JSON file.")
+    parser.add_argument(
+        "--suggestions-comment-file",
+        help="Path to comment text containing a suggestions-json marker.",
+    )
+    parser.add_argument(
+        "--suggestions-comment-text",
+        help="Comment text containing a suggestions-json marker.",
+    )
     args = parser.parse_args()
 
     raw = _load_input(args)
-    result = analyze_issue(raw, use_llm=not args.no_llm)
-    if args.json:
-        print(json.dumps(result.to_dict(), ensure_ascii=True, indent=2))
+    if args.apply_suggestions:
+        suggestions = _load_suggestions(args)
+        if suggestions is None:
+            print("Failed to load suggestions JSON.", file=sys.stderr)
+            sys.exit(1)
+        result = apply_suggestions(raw, suggestions, use_llm=not args.no_llm)
+        if args.json:
+            payload = {
+                "formatted_body": result["formatted_body"],
+                "provider_used": result.get("provider_used"),
+                "used_llm": result.get("used_llm", False),
+            }
+            print(json.dumps(payload, ensure_ascii=True))
+        else:
+            print(result["formatted_body"])
     else:
-        print(json.dumps(result.to_dict(), ensure_ascii=True))
+        result = analyze_issue(raw, use_llm=not args.no_llm)
+        if args.json:
+            print(json.dumps(result.to_dict(), ensure_ascii=True, indent=2))
+        else:
+            print(json.dumps(result.to_dict(), ensure_ascii=True))
 
 
 if __name__ == "__main__":
