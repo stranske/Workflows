@@ -33,3 +33,8 @@ test('resolvePromptMode prioritizes fix/verify actions over scenario', () => {
   assert.equal(resolvePromptMode({ scenario: 'feature-work', action: 'fix' }), 'fix_ci');
   assert.equal(resolvePromptMode({ scenario: 'feature-work', reason: 'verify-acceptance' }), 'verify');
 });
+
+test('resolvePromptMode uses explicit mode overrides', () => {
+  assert.equal(resolvePromptMode({ mode: 'fix', scenario: 'feature-work' }), 'fix_ci');
+  assert.equal(resolvePromptMode({ mode: 'verification', scenario: 'ci-failure' }), 'verify');
+});
