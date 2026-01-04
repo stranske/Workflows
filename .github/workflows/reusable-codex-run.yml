@@ -209,7 +209,7 @@ jobs:
           printf 'Checkout auth: %s; push permitted with app token: %s.\n' "$source" "$push_allowed"
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
           ref: ${{ inputs.pr_ref || github.ref }}
@@ -219,7 +219,7 @@ jobs:
       # These scripts are in stranske/Workflows but need to be available when
       # this reusable workflow runs in consumer repos
       - name: Checkout Workflows scripts
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: stranske/Workflows
           # Use the workflows_ref input which should match the @ref in the uses: line
@@ -413,6 +413,50 @@ jobs:
           except Exception as e:
               print(f"::warning::Could not check token expiration: {e}")
           PYEOF
+
+      # Clean up workflow-generated files that would confuse Codex about git state.
+      # The .workflows-lib directory is a separate checkout (NOT a submodule) for scripts
+      # and may show as untracked. Session JSONL files from previous runs may also be untracked.
+      # These are not user code changes and should not block the agent.
+      - name: Clean workspace for Codex
+        id: clean_workspace
+        env:
+          PR_NUM: ${{ inputs.pr_number }}
+        run: |
+          set -euo pipefail
+          echo "Cleaning workspace to ensure clean git state for Codex..."
+
+          # Handle .workflows-lib directory - it's a separate checkout (NOT a submodule)
+          # It may appear as untracked (??) and should be excluded from git status
+          if [ -d ".workflows-lib" ]; then
+            echo "Handling .workflows-lib directory..."
+            # Add to .git/info/exclude to hide from git status (idempotent check)
+            if ! grep -q "^\.workflows-lib" .git/info/exclude 2>/dev/null; then
+              echo ".workflows-lib" >> .git/info/exclude 2>/dev/null || true
+            fi
+          fi
+
+          # Remove old codex session/output files that may be untracked
+          # These are workflow artifacts, not user code
+          echo "Removing stale workflow artifact files..."
+          rm -f codex-session*.jsonl codex-output*.md codex-prompt*.md codex-analysis*.json 2>/dev/null || true
+
+          # Show git status for debugging
+          echo "Git status after cleanup:"
+          git status --short || true
+
+          # Check if any meaningful changes remain
+          # Exclude: untracked .workflows-lib, .gitignore, codex-*, autofix* artifacts
+          # Use grep -c for count; if grep finds nothing it returns 1, so default to 0
+          REMAINING=$(git status --porcelain | grep -cvE '^\?\? (\.(workflows-lib|gitignore)|codex-.*|autofix.*)' || echo "0")
+          echo "remaining-changes=${REMAINING}" >> "$GITHUB_OUTPUT"
+
+          if [ "$REMAINING" -gt 0 ]; then
+            echo "::notice::Found ${REMAINING} pre-existing change(s) in workspace. Codex will see these."
+            git status --short
+          else
+            echo "Workspace is clean for Codex."
+          fi
 
       - name: Run Codex
         id: run_codex
@@ -725,7 +769,7 @@ jobs:
 
           git add -A
           # Double-check exclusion after git add (safety net)
-          git reset HEAD -- codex-output*.md codex-prompt*.md 2>/dev/null || true
+          git reset HEAD -- codex-output*.md codex-prompt*.md codex-session-*.jsonl codex-analysis-*.json .coverage 2>/dev/null || true
           git commit -m "$commit_message"
 
           # Capture commit SHA before push

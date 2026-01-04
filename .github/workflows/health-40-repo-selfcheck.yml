@@ -21,7 +21,7 @@ jobs:
     name: Repository health summary
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Prepare branch protection token
         id: branch-token

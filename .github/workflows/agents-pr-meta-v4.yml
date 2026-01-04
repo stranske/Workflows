@@ -78,7 +78,7 @@ jobs:
       agent_alias: ${{ steps.pre_gate.outputs.agent_alias }}
       head_sha: ${{ steps.pre_gate.outputs.head_sha }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Evaluate keepalive pre-gate
         id: pre_gate
         uses: actions/github-script@v7
@@ -119,7 +119,7 @@ jobs:
     name: Dispatch keepalive orchestrator
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Mint GitHub App token (preferred)
         id: app_token
@@ -184,7 +184,7 @@ jobs:
     name: Resume keepalive after Gate
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Evaluate keepalive gate
         id: gate
         uses: actions/github-script@v7
@@ -296,7 +296,7 @@ jobs:
     name: Upsert PR body sections
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Mint GitHub App token (preferred)
         id: app_token

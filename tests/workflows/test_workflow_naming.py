@@ -164,6 +164,7 @@ EXPECTED_NAMES = {
     "agents-autofix-loop.yml": "Agents Autofix Loop",
     "agents-bot-comment-handler.yml": "Agents Bot Comment Handler",
     "agents-guard.yml": "Health 45 Agents Guard",
+    "maint-dependabot-auto-label.yml": "Auto-label Dependabot PRs",
     "agents-63-issue-intake.yml": "Agents 63 Issue Intake",
     "agents-64-verify-agent-assignment.yml": "Agents 64 Verify Agent Assignment",
     "agents-verifier.yml": "Agents Verifier",
@@ -224,5 +225,6 @@ EXPECTED_NAMES = {
     "reusable-bot-comment-handler.yml": "Reusable Bot Comment Handler",
     "selftest-reusable-ci.yml": "Selftest: Reusables",
     "selftest-ci.yml": "Selftest CI",
+    "health-keepalive-e2e.yml": "Keepalive E2E",
     "maint-39-test-llm-providers.yml": "Maint 39 Test LLM Providers",
 }

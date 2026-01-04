@@ -1,0 +1,282 @@
+name: Keepalive E2E
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/agents-keepalive-loop.yml'
+      - '.github/workflows/reusable-codex-run.yml'
+      - '.github/scripts/keepalive_*.js'
+      - '.github/scripts/keepalive_state.js'
+      - '.github/scripts/error_classifier.js'
+      - '.github/scripts/failure_comment_formatter.js'
+      - '.github/codex/prompts/keepalive*.md'
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  detect-mode:
+    name: Detect E2E mode
+    runs-on: ubuntu-latest
+    outputs:
+      mode: ${{ steps.check.outputs.mode }}
+    steps:
+      - name: Check for codex-ping label
+        id: check
+        env:
+          LABELS: ${{ toJson(github.event.pull_request.labels.*.name) }}
+        run: |
+          # Default: orchestration-only (fast, no real Codex)
+          # With e2e:codex-ping label: minimal real Codex run
+          if echo "$LABELS" | grep -q 'e2e:codex-ping'; then
+            echo "mode=codex-ping" >> "$GITHUB_OUTPUT"
+            echo "::notice::Running with REAL Codex (minimal ping prompt)"
+          else
+            echo "mode=orchestration" >> "$GITHUB_OUTPUT"
+            echo "::notice::Running orchestration-only E2E (no Codex)"
+          fi
+
+  # Fast orchestration test - verifies job wiring, state, outputs
+  # Runs in parallel with Gate, adds ~1-2 min
+  orchestration-e2e:
+    name: Orchestration E2E
+    needs: detect-mode
+    if: needs.detect-mode.outputs.mode == 'orchestration'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Simulate PR context
+        id: mock_pr
+        run: |
+          # Create a mock PR body with keepalive structure
+          cat > /tmp/mock-pr-body.md << 'EOF'
+          ## Scope
+          Test the keepalive orchestration E2E
+
+          ## Tasks
+          - [ ] Verify evaluate job outputs
+          - [ ] Verify state management
+          - [x] Already completed task
+
+          ## Acceptance Criteria
+          - [ ] All jobs complete successfully
+          EOF
+          echo "pr_body_file=/tmp/mock-pr-body.md" >> "$GITHUB_OUTPUT"
+
+      - name: Test evaluateKeepaliveLoop
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { evaluateKeepaliveLoop, countCheckboxes, parseConfig } = require('./.github/scripts/keepalive_loop.js');
+            const fs = require('fs');
+
+            // Test 1: countCheckboxes
+            const prBody = fs.readFileSync('/tmp/mock-pr-body.md', 'utf8');
+            const counts = countCheckboxes(prBody);
+            console.log('Checkbox counts:', counts);
+
+            if (counts.total !== 3) {
+              throw new Error(`Expected 3 total checkboxes, got ${counts.total}`);
+            }
+            if (counts.unchecked !== 2) {
+              throw new Error(`Expected 2 unchecked, got ${counts.unchecked}`);
+            }
+
+            // Test 2: parseConfig with various formats
+            const configBody = `
+            <!-- keepalive-config: {"keepalive_enabled": true, "max_iterations": 5} -->
+            `;
+            const config = parseConfig(configBody);
+            console.log('Parsed config:', config);
+
+            if (config.keepalive_enabled !== true) {
+              throw new Error('Config parsing failed for keepalive_enabled');
+            }
+            if (config.max_iterations !== 5) {
+              throw new Error('Config parsing failed for max_iterations');
+            }
+
+            console.log('✅ Orchestration core functions verified');
+
+      - name: Test state management
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { loadKeepaliveState, formatStateComment, parseStateFromComment } = require('./.github/scripts/keepalive_state.js');
+
+            // Test state serialization round-trip
+            const testState = {
+              iteration: 3,
+              trace: 'test-trace-123',
+              last_action: 'run',
+              tasks_completed: 2,
+            };
+
+            const comment = formatStateComment(testState);
+            console.log('Formatted state comment length:', comment.length);
+
+            if (!comment.includes('keepalive-state')) {
+              throw new Error('State comment missing marker');
+            }
+
+            // Parse it back
+            const parsed = parseStateFromComment(comment);
+            console.log('Parsed state:', parsed);
+
+            if (parsed.iteration !== 3) {
+              throw new Error(`State round-trip failed: iteration ${parsed.iteration} != 3`);
+            }
+            if (parsed.trace !== 'test-trace-123') {
+              throw new Error('State round-trip failed: trace mismatch');
+            }
+
+            console.log('✅ State management verified');
+
+      - name: Test error classification
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { classifyError, ERROR_CATEGORIES } = require('./.github/scripts/error_classifier.js');
+
+            // Test various error types
+            const testCases = [
+              { input: { status: 429 }, expected: 'transient' },
+              { input: { message: 'rate limit exceeded' }, expected: 'transient' },
+              { input: { status: 401 }, expected: 'auth' },
+              { input: { message: 'unexpected changes in the repo' }, expected: 'transient' },
+              { input: { status: 404 }, expected: 'resource' },
+              { input: { status: 422 }, expected: 'logic' },
+            ];
+
+            for (const tc of testCases) {
+              const result = classifyError(tc.input);
+              if (result.category !== tc.expected) {
+                throw new Error(`Classification failed: ${JSON.stringify(tc.input)} -> ${result.category}, expected ${tc.expected}`);
+              }
+            }
+
+            console.log('✅ Error classification verified');
+
+      - name: Verify reusable workflow contract
+        run: |
+          # Check that reusable-codex-run.yml has expected inputs/outputs
+          echo "Checking reusable-codex-run.yml contract..."
+
+          WORKFLOW=".github/workflows/reusable-codex-run.yml"
+
+          # Required inputs
+          for input in prompt_file skip mode pr_number pr_ref; do
+            if ! grep -q "^      $input:" "$WORKFLOW" && ! grep -q "^        $input:" "$WORKFLOW"; then
+              echo "::error::Missing expected input: $input"
+              exit 1
+            fi
+          done
+
+          # Required outputs
+          for output in exit-code changes-made error-category; do
+            if ! grep -q "$output:" "$WORKFLOW"; then
+              echo "::error::Missing expected output: $output"
+              exit 1
+            fi
+          done
+
+          echo "✅ Workflow contract verified"
+
+      - name: Summary
+        run: |
+          {
+            echo "## Keepalive E2E Results"
+            echo ""
+            echo "✅ **Orchestration E2E passed**"
+            echo ""
+            echo "| Check | Status |"
+            echo "|-------|--------|"
+            echo "| Core functions (countCheckboxes, parseConfig) | ✅ |"
+            echo "| State management (load, format, parse) | ✅ |"
+            echo "| Error classification | ✅ |"
+            echo "| Workflow contract | ✅ |"
+            echo ""
+            echo "_Mode: orchestration-only (no Codex invocation)_"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # Optional: Real Codex minimal ping - only with e2e:codex-ping label
+  # Use when orchestration-only isn't catching real issues
+  # This job creates a minimal prompt, then calls the reusable workflow
+  codex-ping-setup:
+    name: Setup Codex Ping
+    needs: detect-mode
+    if: needs.detect-mode.outputs.mode == 'codex-ping'
+    runs-on: ubuntu-latest
+    outputs:
+      prompt_ready: ${{ steps.setup.outputs.ready }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create minimal ping prompt
+        id: setup
+        run: |
+          # Create the ping prompt in the repo (will be available to reusable workflow)
+          mkdir -p .github/codex/prompts
+          cat > .github/codex/prompts/e2e-ping.md << 'EOF'
+          # E2E Ping Test
+
+          This is an automated E2E test. Do NOT make any file changes.
+
+          Simply respond with exactly: "keepalive-e2e-ping-ok"
+
+          Then exit immediately. Do not attempt any other actions.
+          EOF
+
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+          echo "::notice::Ping prompt created at .github/codex/prompts/e2e-ping.md"
+
+  codex-ping-run:
+    name: Codex Ping E2E
+    needs: [detect-mode, codex-ping-setup]
+    if: needs.detect-mode.outputs.mode == 'codex-ping' && needs.codex-ping-setup.outputs.prompt_ready == 'true'
+    uses: ./.github/workflows/reusable-codex-run.yml
+    with:
+      prompt_file: .github/codex/prompts/e2e-ping.md
+      mode: e2e-test
+      skip: false
+      max_runtime_minutes: 5
+      sandbox: workspace-read
+    secrets:
+      CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
+      WORKFLOWS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID }}
+      WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+
+  codex-ping-verify:
+    name: Verify Codex Ping
+    needs: [detect-mode, codex-ping-run]
+    if: needs.detect-mode.outputs.mode == 'codex-ping'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check results
+        env:
+          EXIT_CODE: ${{ needs.codex-ping-run.outputs.exit-code }}
+          CHANGES_MADE: ${{ needs.codex-ping-run.outputs.changes-made }}
+        run: |
+          echo "Exit code: $EXIT_CODE"
+          echo "Changes made: $CHANGES_MADE"
+
+          if [ "$CHANGES_MADE" = "true" ]; then
+            echo "::error::Codex made unexpected changes in read-only ping test"
+            exit 1
+          fi
+
+          echo "✅ Codex ping E2E passed"
+
+      - name: Summary
+        run: |
+          {
+            echo "## Keepalive E2E Results"
+            echo ""
+            echo "✅ **Codex Ping E2E passed**"
+            echo ""
+            echo "_Mode: codex-ping (real Codex invocation with minimal prompt)_"
+          } >> "$GITHUB_STEP_SUMMARY"

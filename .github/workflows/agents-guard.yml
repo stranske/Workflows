@@ -33,7 +33,7 @@ jobs:
     steps:
       - name: Checkout base ref for safety validation
         if: github.event_name == 'pull_request_target'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.base.sha }}
           sparse-checkout: |
@@ -58,7 +58,7 @@ jobs:
 
       - name: Checkout PR head for pull_request event
         if: github.event_name == 'pull_request'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           sparse-checkout: |
             .github/scripts/agents-guard.js

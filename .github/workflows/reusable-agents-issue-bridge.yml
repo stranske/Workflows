@@ -232,7 +232,7 @@ jobs:
           echo "::error::Missing issue number for workflow_dispatch. Provide an issue number when manually running this workflow." && exit 1
 
       - name: Checkout default
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ steps.refs.outputs.base }}
           fetch-depth: 0

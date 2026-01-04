@@ -447,7 +447,9 @@ function evaluateGuard({
   const hasCodeownerApproval = hasExternalApproval || authorIsCodeowner;
 
   const hasProtectedChanges = modifiedProtectedPaths.size > 0;
-  const needsApproval = hasProtectedChanges && !hasCodeownerApproval;
+  // Allow label to bypass approval for automated PRs (dependabot, renovate)
+  const isAutomatedPR = normalizedAuthor && (normalizedAuthor === 'dependabot[bot]' || normalizedAuthor === 'renovate[bot]');
+  const needsApproval = hasProtectedChanges && !hasCodeownerApproval && !(hasAllowLabel && isAutomatedPR);
   const needsLabel = hasProtectedChanges && !hasAllowLabel && !hasCodeownerApproval;
 
   const failureReasons = [];

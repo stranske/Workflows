@@ -91,7 +91,7 @@ jobs:
           esac
 
       - name: Checkout keepalive scripts
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           token: ${{ env.GH_TOKEN }}
           sparse-checkout: |

@@ -233,7 +233,7 @@ jobs:
 
       # Dual checkout pattern: Workflows scripts as supplement to consumer repo
       - name: Checkout Workflows scripts (for autofix utilities)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: stranske/Workflows
           ref: main
@@ -248,7 +248,7 @@ jobs:
           echo "WORKFLOWS_SCRIPTS_PATH=${GITHUB_WORKSPACE}/workflows-lib" >> "$GITHUB_ENV"
 
       - name: Checkout PR HEAD
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ env.PR_HEAD_REF || github.ref }}
           fetch-depth: 0
@@ -1110,7 +1110,7 @@ jobs:
 
       - name: Checkout Workflows for PR comment action
         if: steps.guard.outputs.skip != 'true'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: stranske/Workflows
           sparse-checkout: |
