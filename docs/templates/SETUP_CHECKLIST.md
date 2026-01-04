@@ -62,7 +62,16 @@ For repositories that already exist (not created from Template):
    - [ ] `codex/prompts/keepalive_next_task.md`
    - [ ] `ISSUE_TEMPLATE/agent_task.yml`
    - [ ] `ISSUE_TEMPLATE/config.yml`
-   - [ ] `PULL_REQUEST_TEMPLATE.md`
+   - [ ] ~~`PULL_REQUEST_TEMPLATE.md`~~ **SKIP THIS** — See note below
+
+   > **Important**: Do NOT copy `PULL_REQUEST_TEMPLATE.md` if it exists in the template.
+   > The generic PR template adds boilerplate text to every PR, which is unhelpful for
+   > agent-created PRs and clutters the PR description. Delete this file if it was
+   > already copied from the template:
+   > ```bash
+   > git rm .github/PULL_REQUEST_TEMPLATE.md
+   > git commit -m "chore: remove generic PR template"
+   > ```
 
 2. Copy documentation from `stranske/Workflows/templates/consumer-repo/docs/`:
    - [ ] `docs/AGENT_ISSUE_FORMAT.md` — How to format issues for agents
