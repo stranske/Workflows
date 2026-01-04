@@ -416,8 +416,7 @@ jobs:
 
       # Clean up workflow-generated files that would confuse Codex about git state.
       # The .workflows-lib directory is a separate checkout (NOT a submodule) for scripts
-      # and may show as untracked or cause git status issues.
-      # Session JSONL files from previous runs may be untracked.
+      # and may show as untracked. Session JSONL files from previous runs may also be untracked.
       # These are not user code changes and should not block the agent.
       - name: Clean workspace for Codex
         id: clean_workspace
@@ -428,21 +427,12 @@ jobs:
           echo "Cleaning workspace to ensure clean git state for Codex..."
 
           # Handle .workflows-lib directory - it's a separate checkout (NOT a submodule)
-          # It may appear as untracked or modified and should be excluded from git status
+          # It may appear as untracked (??) and should be excluded from git status
           if [ -d ".workflows-lib" ]; then
             echo "Handling .workflows-lib directory..."
-
-            # Step 1: Add to .git/info/exclude to hide from git status
-            # This prevents it from showing as untracked (??)
-            if ! grep -q "^\.workflows-lib$" .git/info/exclude 2>/dev/null; then
+            # Add to .git/info/exclude to hide from git status (idempotent check)
+            if ! grep -q "^\.workflows-lib" .git/info/exclude 2>/dev/null; then
               echo ".workflows-lib" >> .git/info/exclude 2>/dev/null || true
-            fi
-
-            # Step 2: If it's showing as modified (unlikely but possible if .gitmodules exists)
-            # clean it by removing and letting subsequent steps re-checkout if needed
-            if git status --porcelain 2>/dev/null | grep -qE "^.M .workflows-lib"; then
-              echo "Resetting .workflows-lib to clean state..."
-              rm -rf .workflows-lib 2>/dev/null || true
             fi
           fi
 
@@ -457,7 +447,8 @@ jobs:
 
           # Check if any meaningful changes remain
           # Exclude: untracked .workflows-lib, .gitignore, codex-*, autofix* artifacts
-          REMAINING=$(git status --porcelain | grep -vE '^\?\? (\.(workflows-lib|gitignore)|codex-|autofix)' | wc -l 2>/dev/null || echo "0")
+          # Use grep -c for count; if grep finds nothing it returns 1, so default to 0
+          REMAINING=$(git status --porcelain | grep -cvE '^\?\? (\.(workflows-lib|gitignore)|codex-.*|autofix.*)' || echo "0")
           echo "remaining-changes=${REMAINING}" >> "$GITHUB_OUTPUT"
 
           if [ "$REMAINING" -gt 0 ]; then
