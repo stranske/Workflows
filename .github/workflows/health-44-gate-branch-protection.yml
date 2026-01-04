@@ -114,7 +114,7 @@ jobs:
         env:
           DEFAULT_BRANCH: ${{ steps.default-branch.outputs.name || github.event.repository.default_branch || 'main' }}
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.11'
 
