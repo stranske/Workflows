@@ -343,7 +343,7 @@ jobs:
           python-version: ${{ inputs['primary-python-version'] || inputs['python-version'] || '3.11' }}
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: "20"
 
@@ -621,7 +621,7 @@ jobs:
           python-version: ${{ inputs['primary-python-version'] || inputs['python-version'] || '3.11' }}
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: "20"
 
@@ -907,7 +907,7 @@ jobs:
           python-version: ${{ steps.mypy-pin.outputs.python-version || inputs['primary-python-version'] || inputs['python-version'] || '3.11' }}
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: "20"
 
@@ -1236,7 +1236,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: "20"
 
