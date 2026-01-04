@@ -32,6 +32,12 @@ Return the sub-tasks as a markdown bullet list.
 PROMPT_PATH = Path(__file__).resolve().parent / "prompts" / "decompose_task.md"
 
 LIST_ITEM_REGEX = re.compile(r"^\s*(?:[-*+]|\d+[.)])\s+(.*)$")
+DEPENDENCY_PHRASE_REGEX = re.compile(
+    r"\b(depends on|blocked by|waiting for|post-merge|"
+    r"(?:after|once|when)\b[^,]*\bmerge\b|requires\b[^.]*\bmerge\b)\b",
+    re.IGNORECASE,
+)
+LEADING_DEPENDENCY_CLAUSE_REGEX = re.compile(r"^(?:after|once|when)\b[^,]+,\s*(.+)$", re.IGNORECASE)
 
 
 def _load_prompt() -> str:
@@ -96,6 +102,10 @@ def _parse_subtasks(text: str) -> list[str]:
 def _split_task_parts(task: str) -> list[str]:
     if " and " in task:
         parts = re.split(r"\s+and\s+", task)
+    elif " then " in task:
+        parts = re.split(r"\s+then\s+", task)
+    elif ";" in task:
+        parts = [part.strip() for part in task.split(";") if part.strip()]
     elif ", " in task:
         parts = [part.strip() for part in task.split(",") if part.strip()]
     elif " / " in task or "/" in task:
@@ -103,6 +113,38 @@ def _split_task_parts(task: str) -> list[str]:
     else:
         parts = [task]
     return [part for part in parts if part]
+
+
+def _strip_dependency_clause(task: str) -> str:
+    match = LEADING_DEPENDENCY_CLAUSE_REGEX.match(task)
+    if match:
+        return match.group(1).strip()
+    return task
+
+
+def _contains_dependency_phrase(task: str) -> bool:
+    return bool(DEPENDENCY_PHRASE_REGEX.search(task))
+
+
+def _rewrite_dependency_task(task: str) -> str:
+    cleaned = DEPENDENCY_PHRASE_REGEX.sub("", task).strip(" ,.-")
+    if not cleaned:
+        cleaned = "dependency details"
+    return f"Document dependency for: {cleaned}"
+
+
+def _normalize_subtasks(sub_tasks: list[str]) -> list[str]:
+    normalized: list[str] = []
+    for task in sub_tasks:
+        cleaned_task = _strip_dependency_clause(task.strip())
+        for part in _split_task_parts(cleaned_task):
+            cleaned = _strip_dependency_clause(part.strip())
+            if not cleaned:
+                continue
+            if _contains_dependency_phrase(cleaned):
+                cleaned = _rewrite_dependency_task(cleaned)
+            normalized.append(_ensure_verification(cleaned))
+    return normalized
 
 
 def _fallback_decompose(task: str) -> list[str]:
@@ -137,7 +179,7 @@ def decompose_task(task: str, *, use_llm: bool = True) -> dict[str, Any]:
                 chain = template | client
                 response = chain.invoke({"large_task": task})
                 content = getattr(response, "content", None) or str(response)
-                sub_tasks = [_ensure_verification(item) for item in _parse_subtasks(content)]
+                sub_tasks = _normalize_subtasks(_parse_subtasks(content))
                 if sub_tasks:
                     return {
                         "sub_tasks": sub_tasks,
@@ -145,7 +187,11 @@ def decompose_task(task: str, *, use_llm: bool = True) -> dict[str, Any]:
                         "used_llm": True,
                     }
 
-    return {"sub_tasks": _fallback_decompose(task), "provider_used": None, "used_llm": False}
+    return {
+        "sub_tasks": _normalize_subtasks(_fallback_decompose(task)),
+        "provider_used": None,
+        "used_llm": False,
+    }
 
 
 def main() -> None:
