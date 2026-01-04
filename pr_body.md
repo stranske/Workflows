@@ -1,28 +1,26 @@
 <!-- pr-preamble:start -->
-> **Source:** Issue #457
+> **Source:** Issue #477
 
 <!-- pr-preamble:end -->
 
 <!-- auto-status-summary:start -->
 ## Automated Status Summary
 #### Scope
-Current post-CI summaries (`post_ci_summary.py` / gate summary workflow) effectively show **what failed** but not **what to do next**. Developers and agents must manually spelunk logs to understand root causes and identify fixes.
+_Scope section missing from source issue._
 
 #### Tasks
-- [x] Port prototype from `stranske/Trend_Model_Project/tools/ci_failure_triage.py`
-- [x] Add pattern-based triage (works without LLM)
-- [x] Add optional LLM triage layer (gated by env var)
-- [x] Integrate with gate summary workflow
-- [x] Map error types to existing playbook docs
-- [x] Add tests for common error patterns
-- [x] Document triage output format
+- [ ] Create `scripts/langchain/capability_check.py` with classification chain
+- [ ] Create `AGENT_CAPABILITY_CHECK_PROMPT` with known limitations
+- [ ] Add pre-bridge check in `agents-63-issue-intake.yml`
+- [ ] Add `agents:review-needed` label handling for blocked tasks
+- [ ] Create comment formatter for human guidance summary
+- [ ] Update `issue_scope_parser.js` to handle deferred section
+- [ ] Add tests for capability classification
 
 #### Acceptance criteria
-- [x] Pattern-based triage identifies: mypy, pytest, coverage, import, syntax errors
-- [x] Each error type maps to a suggested fix template
-- [ ] LLM triage is opt-in (`KEEPALIVE_USE_LLM_TRIAGE=true`)
-- [x] Output includes: error_type, root_cause, suggested_fix, relevant_files
-- [x] Playbook links are included when available
-- [x] Works standalone and integrated with gate summary
+- [ ] Tasks classified as ACTIONABLE/PARTIAL/BLOCKED with JSON output
+- [ ] Blocked tasks trigger `agents:review-needed` label instead of `agent:codex`
+- [ ] Comment posted explaining human actions needed
+- [ ] Deferred tasks moved to separate section (not sent to agent)
 
 <!-- auto-status-summary:end -->
