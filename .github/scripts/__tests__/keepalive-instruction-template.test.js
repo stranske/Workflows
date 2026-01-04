@@ -6,6 +6,7 @@ const fs = require('node:fs');
 
 const {
   TEMPLATE_PATH,
+  NEXT_TASK_TEMPLATE_PATH,
   FIX_TEMPLATE_PATH,
   VERIFY_TEMPLATE_PATH,
   getKeepaliveInstruction,
@@ -18,7 +19,7 @@ test.beforeEach(() => {
 });
 
 test('getKeepaliveInstruction returns trimmed template content', () => {
-  const expected = fs.readFileSync(TEMPLATE_PATH, 'utf8').trim();
+  const expected = fs.readFileSync(NEXT_TASK_TEMPLATE_PATH, 'utf8').trim();
   const result = getKeepaliveInstruction();
   assert.equal(result, expected);
 });
@@ -89,6 +90,12 @@ test('getKeepaliveInstruction routes to verify prompt when action requests verif
 test('getKeepaliveInstruction routes to fix prompt when scenario is ci-failure', () => {
   const expected = fs.readFileSync(FIX_TEMPLATE_PATH, 'utf8').trim();
   const result = getKeepaliveInstruction({ scenario: 'ci-failure' });
+  assert.equal(result, expected);
+});
+
+test('getKeepaliveInstruction routes to next-task prompt for feature scenarios', () => {
+  const expected = fs.readFileSync(NEXT_TASK_TEMPLATE_PATH, 'utf8').trim();
+  const result = getKeepaliveInstruction({ scenario: 'feature-work' });
   assert.equal(result, expected);
 });
 

@@ -5,15 +5,16 @@ const path = require('path');
 const { resolvePromptMode } = require('./keepalive_prompt_routing');
 
 /**
- * Path to the canonical keepalive instruction template.
- * Edit .github/templates/keepalive-instruction.md to change the instruction text.
+ * Path to the fallback keepalive instruction template.
+ * Edit .github/templates/keepalive-instruction.md to change the fallback text.
  */
 const TEMPLATE_PATH = path.resolve(__dirname, '../templates/keepalive-instruction.md');
+const NEXT_TASK_TEMPLATE_PATH = path.resolve(__dirname, '../codex/prompts/keepalive_next_task.md');
 const FIX_TEMPLATE_PATH = path.resolve(__dirname, '../codex/prompts/fix_ci_failures.md');
 const VERIFY_TEMPLATE_PATH = path.resolve(__dirname, '../codex/prompts/verifier_acceptance_check.md');
 
 const TEMPLATE_PATHS = {
-  normal: TEMPLATE_PATH,
+  normal: NEXT_TASK_TEMPLATE_PATH,
   fix_ci: FIX_TEMPLATE_PATH,
   verify: VERIFY_TEMPLATE_PATH,
 };
@@ -134,6 +135,7 @@ function clearCache() {
 
 module.exports = {
   TEMPLATE_PATH,
+  NEXT_TASK_TEMPLATE_PATH,
   FIX_TEMPLATE_PATH,
   VERIFY_TEMPLATE_PATH,
   getKeepaliveInstruction,
