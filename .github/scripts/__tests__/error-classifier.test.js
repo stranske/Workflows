@@ -103,3 +103,21 @@ test('classifyError provides category-specific recovery guidance', () => {
     assert.match(result.recovery, entry.recoveryPattern);
   }
 });
+test('classifyError returns transient for dirty git state messages', () => {
+  // Agent sees unexpected changes (workflow artifacts like .workflows-lib, codex-session-*.jsonl)
+  const messages = [
+    'I noticed unexpected changes in the repo before making edits',
+    '.workflows-lib is modified and codex-session-503.jsonl is untracked',
+    'How would you like me to proceed with these existing changes?',
+    'unexpected changes detected before making edits',
+  ];
+  
+  for (const message of messages) {
+    const result = classifyError({ message });
+    assert.equal(
+      result.category,
+      ERROR_CATEGORIES.transient,
+      `Expected transient for message: "${message}"`
+    );
+  }
+});

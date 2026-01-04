@@ -41,6 +41,13 @@ const TRANSIENT_PATTERNS = [
   'bad gateway',
   'gateway timeout',
   'eai_again',
+  // Git workspace state issues - agent encountered unexpected changes
+  'unexpected changes',
+  'untracked',
+  '.workflows-lib is modified',
+  'codex-session',
+  'existing changes',
+  'how would you like me to proceed',
 ];
 
 const AUTH_PATTERNS = [
