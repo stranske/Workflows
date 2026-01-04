@@ -55,9 +55,12 @@ dev = [
 
 # LangChain integration for LLM-enhanced task analysis
 # Install with: pip install -e ".[langchain]"
+# Versions auto-updated by scripts/update_langchain_versions.py
 langchain = [
-    "langchain-core>=0.3.0",
-    "langchain-openai>=0.3.0",
+    "langchain>=1.2,<1.3",
+    "langchain-core>=1.2,<1.3",
+    "langchain-community>=0.4,<0.5",
+    "langchain-openai>=1.1,<1.2",
 ]
 
 [tool.setuptools]
