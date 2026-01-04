@@ -1,33 +1,28 @@
 <!-- pr-preamble:start -->
-> **Source:** Issue #456
+> **Source:** Issue #457
 
 <!-- pr-preamble:end -->
 
 <!-- auto-status-summary:start -->
 ## Automated Status Summary
 #### Scope
-Keepalive prompt generation uses hand-rolled templates in `keepalive_instruction_template.js` with string concatenation. This makes it difficult to:
-- Route to different prompt strategies based on context (CI failure vs feature work)
-- Track what was attempted in previous rounds
-- Adapt instructions based on accumulated state
+Current post-CI summaries (`post_ci_summary.py` / gate summary workflow) effectively show **what failed** but not **what to do next**. Developers and agents must manually spelunk logs to understand root causes and identify fixes.
 
 #### Tasks
-- [x] Design prompt composition interface
-- [x] Implement round-over-round state tracking (what was tried, what failed)
-- [x] Add routing logic for different scenarios:
-- [x] - CI failure: prioritize fix instructions
-- [x] - Feature work: next task selection
-- [ ] - Verification: completion checking
-- [x] Integrate with existing `keepalive_state.js` state management
-- [x] Add memory of attempted tasks to avoid repetition
-- [x] Document prompt composition patterns
+- [ ] Port prototype from `stranske/Trend_Model_Project/tools/ci_failure_triage.py`
+- [ ] Add pattern-based triage (works without LLM)
+- [ ] Add optional LLM triage layer (gated by env var)
+- [ ] Integrate with gate summary workflow
+- [ ] Map error types to existing playbook docs
+- [ ] Add tests for common error patterns
+- [ ] Document triage output format
 
 #### Acceptance criteria
-- [x] Prompts can be composed from reusable segments
-- [x] State persists across keepalive rounds within a session
-- [x] CI failures trigger fix-first prompt strategy
-- [x] Previously attempted tasks are tracked and deprioritized
-- [x] Prompt generation is testable with mock state
-- [x] No regression in existing keepalive functionality
+- [ ] Pattern-based triage identifies: mypy, pytest, coverage, import, syntax errors
+- [ ] Each error type maps to a suggested fix template
+- [ ] LLM triage is opt-in (`KEEPALIVE_USE_LLM_TRIAGE=true`)
+- [ ] Output includes: error_type, root_cause, suggested_fix, relevant_files
+- [ ] Playbook links are included when available
+- [ ] Works standalone and integrated with gate summary
 
 <!-- auto-status-summary:end -->
