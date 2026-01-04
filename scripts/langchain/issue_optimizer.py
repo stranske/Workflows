@@ -1,0 +1,383 @@
+#!/usr/bin/env python3
+"""
+Analyze issue bodies for optimization suggestions.
+
+Run with:
+    python scripts/langchain/issue_optimizer.py --input-file issue.md --json
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import sys
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+AGENT_LIMITATIONS = [
+    "Cannot modify .github/workflows/*.yml (protected)",
+    "Cannot change repository settings",
+    "Cannot guarantee specific coverage percentages",
+    "Cannot make subjective design decisions",
+    "Cannot retry CI pipelines",
+]
+
+ANALYZE_ISSUE_PROMPT = """
+Analyze this issue for agent compatibility and formatting quality.
+
+Issue body:
+{issue_body}
+
+Identify:
+1. Tasks that are too broad (should be split)
+2. Tasks the agent cannot complete (use AGENT_LIMITATIONS)
+3. Subjective acceptance criteria (suggest objective alternatives)
+4. Missing sections (why, scope, non-goals, implementation notes)
+5. Formatting issues (bullets used for non-tasks, etc.)
+
+AGENT_LIMITATIONS:
+{agent_limitations}
+
+Output JSON with this shape:
+{{
+  "task_splitting": [{{"task": "...", "reason": "...", "split_suggestions": ["..."]}}],
+  "blocked_tasks": [{{"task": "...", "reason": "...", "suggested_action": "..."}}],
+  "objective_criteria": [{{"criterion": "...", "issue": "...", "suggestion": "..."}}],
+  "missing_sections": ["Scope", "Implementation Notes"],
+  "formatting_issues": ["..."],
+  "overall_notes": "..."
+}}
+""".strip()
+
+PROMPT_PATH = Path(__file__).resolve().parent / "prompts" / "analyze_issue.md"
+
+SECTION_ALIASES = {
+    "why": ["why", "motivation", "summary"],
+    "scope": ["scope", "context", "background"],
+    "non_goals": ["non-goals", "nongoals", "out of scope"],
+    "tasks": ["tasks", "task list", "todo", "to do"],
+    "acceptance": ["acceptance criteria", "acceptance", "definition of done"],
+    "implementation": ["implementation notes", "implementation note", "notes"],
+}
+
+SECTION_TITLES = {
+    "why": "Why",
+    "scope": "Scope",
+    "non_goals": "Non-Goals",
+    "tasks": "Tasks",
+    "acceptance": "Acceptance Criteria",
+    "implementation": "Implementation Notes",
+}
+
+LIST_ITEM_REGEX = re.compile(r"^\s*[-*+]\s+(.*)$")
+CHECKBOX_REGEX = re.compile(r"^\[[ xX]\]\s*(.*)$")
+
+SUBJECTIVE_CRITERIA = ("clean", "nice", "good", "fast", "better", "intuitive", "polished")
+
+
+@dataclass
+class IssueOptimizationResult:
+    task_splitting: list[dict[str, Any]]
+    blocked_tasks: list[dict[str, str]]
+    objective_criteria: list[dict[str, str]]
+    missing_sections: list[str]
+    formatting_issues: list[str]
+    overall_notes: str | None
+    provider_used: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "task_splitting": self.task_splitting,
+            "blocked_tasks": self.blocked_tasks,
+            "objective_criteria": self.objective_criteria,
+            "missing_sections": self.missing_sections,
+            "formatting_issues": self.formatting_issues,
+            "overall_notes": self.overall_notes or "",
+            "provider_used": self.provider_used,
+        }
+
+
+def _load_prompt() -> str:
+    if PROMPT_PATH.is_file():
+        return PROMPT_PATH.read_text(encoding="utf-8").strip()
+    return ANALYZE_ISSUE_PROMPT
+
+
+def _get_llm_client() -> tuple[object, str] | None:
+    try:
+        from langchain_openai import ChatOpenAI
+    except ImportError:
+        return None
+
+    github_token = os.environ.get("GITHUB_TOKEN")
+    openai_token = os.environ.get("OPENAI_API_KEY")
+    if not github_token and not openai_token:
+        return None
+
+    from tools.llm_provider import DEFAULT_MODEL, GITHUB_MODELS_BASE_URL
+
+    if github_token:
+        return (
+            ChatOpenAI(
+                model=DEFAULT_MODEL,
+                base_url=GITHUB_MODELS_BASE_URL,
+                api_key=github_token,
+                temperature=0.1,
+            ),
+            "github-models",
+        )
+    return (
+        ChatOpenAI(
+            model=DEFAULT_MODEL,
+            api_key=openai_token,
+            temperature=0.1,
+        ),
+        "openai",
+    )
+
+
+def _normalize_heading(text: str) -> str:
+    cleaned = re.sub(r"[#*_:]+", " ", text).strip().lower()
+    cleaned = re.sub(r"\s+", " ", cleaned)
+    return cleaned
+
+
+def _resolve_section(label: str) -> str | None:
+    normalized = _normalize_heading(label)
+    for key, aliases in SECTION_ALIASES.items():
+        for alias in aliases:
+            if normalized == _normalize_heading(alias):
+                return key
+    return None
+
+
+def _parse_sections(body: str) -> dict[str, list[str]]:
+    sections: dict[str, list[str]] = {key: [] for key in SECTION_TITLES}
+    current: str | None = None
+    for line in body.splitlines():
+        heading_match = re.match(r"^\s*#{1,6}\s+(.*)$", line)
+        if heading_match:
+            section_key = _resolve_section(heading_match.group(1))
+            if section_key:
+                current = section_key
+                continue
+        if current:
+            sections[current].append(line)
+    return sections
+
+
+def _strip_checkbox(line: str) -> str:
+    stripped = line.strip()
+    match = LIST_ITEM_REGEX.match(stripped)
+    if not match:
+        return stripped
+    content = match.group(1).strip()
+    checkbox = CHECKBOX_REGEX.match(content)
+    if checkbox:
+        return checkbox.group(1).strip()
+    return content
+
+
+def _parse_checklist(lines: list[str]) -> list[str]:
+    items: list[str] = []
+    for line in lines:
+        if not line.strip():
+            continue
+        if LIST_ITEM_REGEX.match(line.strip()):
+            value = _strip_checkbox(line)
+            if value:
+                items.append(value)
+    return items
+
+
+def _detect_task_splitting(tasks: list[str]) -> list[dict[str, Any]]:
+    results: list[dict[str, Any]] = []
+    for task in tasks:
+        lowered = task.lower()
+        if len(task.split()) >= 14 or " and " in lowered or ", " in task or "/" in task:
+            results.append(
+                {
+                    "task": task,
+                    "reason": "Task combines multiple actions",
+                    "split_suggestions": ["Split into smaller, single-action tasks"],
+                }
+            )
+    return results
+
+
+def _detect_blocked_tasks(tasks: list[str]) -> list[dict[str, str]]:
+    blocked: list[dict[str, str]] = []
+    for task in tasks:
+        lowered = task.lower()
+        if ".github/workflows" in lowered or "workflow" in lowered:
+            blocked.append(
+                {
+                    "task": task,
+                    "reason": "Requires workflow changes, which are protected",
+                    "suggested_action": "Request a human to apply workflow updates",
+                }
+            )
+        if "coverage" in lowered and "%" in lowered:
+            blocked.append(
+                {
+                    "task": task,
+                    "reason": "Coverage targets are not guaranteed",
+                    "suggested_action": "Convert to adding tests and report achieved coverage",
+                }
+            )
+    return blocked
+
+
+def _detect_objective_criteria(criteria: list[str]) -> list[dict[str, str]]:
+    results: list[dict[str, str]] = []
+    for criterion in criteria:
+        lowered = criterion.lower()
+        if any(word in lowered for word in SUBJECTIVE_CRITERIA):
+            results.append(
+                {
+                    "criterion": criterion,
+                    "issue": "Subjective wording",
+                    "suggestion": "Replace with a measurable check (tests, lint, command output)",
+                }
+            )
+    return results
+
+
+def _detect_formatting_issues(section_lines: list[str]) -> list[str]:
+    issues: list[str] = []
+    for line in section_lines:
+        stripped = line.strip()
+        if stripped and not LIST_ITEM_REGEX.match(stripped):
+            issues.append("Non-bulleted content found in checklist section")
+            break
+    return issues
+
+
+def _fallback_analysis(issue_body: str) -> IssueOptimizationResult:
+    sections = _parse_sections(issue_body)
+
+    tasks = _parse_checklist(sections["tasks"])
+    acceptance = _parse_checklist(sections["acceptance"])
+
+    missing_sections = [
+        title
+        for key, title in SECTION_TITLES.items()
+        if key != "tasks" and key != "acceptance" and not sections[key]
+    ]
+    if not tasks:
+        missing_sections.append("Tasks")
+    if not acceptance:
+        missing_sections.append("Acceptance Criteria")
+
+    formatting_issues = []
+    formatting_issues.extend(_detect_formatting_issues(sections["tasks"]))
+    formatting_issues.extend(_detect_formatting_issues(sections["acceptance"]))
+
+    return IssueOptimizationResult(
+        task_splitting=_detect_task_splitting(tasks),
+        blocked_tasks=_detect_blocked_tasks(tasks),
+        objective_criteria=_detect_objective_criteria(acceptance),
+        missing_sections=missing_sections,
+        formatting_issues=formatting_issues,
+        overall_notes="Fallback analysis used (LLM unavailable).",
+        provider_used=None,
+    )
+
+
+def _extract_json_payload(text: str) -> str | None:
+    stripped = text.strip()
+    if stripped.startswith("{") and stripped.endswith("}"):
+        return stripped
+    start = stripped.find("{")
+    end = stripped.rfind("}")
+    if start == -1 or end == -1 or end <= start:
+        return None
+    return stripped[start : end + 1]
+
+
+def _normalize_result(payload: dict[str, Any], provider_used: str | None) -> IssueOptimizationResult:
+    task_splitting = payload.get("task_splitting") if isinstance(payload, dict) else []
+    blocked_tasks = payload.get("blocked_tasks") if isinstance(payload, dict) else []
+    objective_criteria = payload.get("objective_criteria") if isinstance(payload, dict) else []
+    missing_sections = payload.get("missing_sections") if isinstance(payload, dict) else []
+    formatting_issues = payload.get("formatting_issues") if isinstance(payload, dict) else []
+    overall_notes = payload.get("overall_notes")
+
+    def _coerce_list(value: Any) -> list[Any]:
+        return value if isinstance(value, list) else []
+
+    return IssueOptimizationResult(
+        task_splitting=_coerce_list(task_splitting),
+        blocked_tasks=_coerce_list(blocked_tasks),
+        objective_criteria=_coerce_list(objective_criteria),
+        missing_sections=[str(item) for item in _coerce_list(missing_sections) if str(item).strip()],
+        formatting_issues=[str(item) for item in _coerce_list(formatting_issues) if str(item).strip()],
+        overall_notes=str(overall_notes).strip() if overall_notes else "",
+        provider_used=provider_used,
+    )
+
+
+def analyze_issue(issue_body: str, *, use_llm: bool = True) -> IssueOptimizationResult:
+    if not issue_body:
+        issue_body = ""
+
+    if use_llm:
+        client_info = _get_llm_client()
+        if client_info:
+            client, provider = client_info
+            try:
+                from langchain_core.prompts import ChatPromptTemplate
+            except ImportError:
+                client_info = None
+            else:
+                prompt = _load_prompt()
+                template = ChatPromptTemplate.from_template(prompt)
+                chain = template | client
+                response = chain.invoke(
+                    {
+                        "issue_body": issue_body,
+                        "agent_limitations": "\n".join(f"- {item}" for item in AGENT_LIMITATIONS),
+                    }
+                )
+                content = getattr(response, "content", None) or str(response)
+                payload = _extract_json_payload(content)
+                if payload:
+                    try:
+                        data = json.loads(payload)
+                    except json.JSONDecodeError:
+                        data = None
+                    if isinstance(data, dict):
+                        return _normalize_result(data, provider)
+
+    return _fallback_analysis(issue_body)
+
+
+def _load_input(args: argparse.Namespace) -> str:
+    if args.input_file:
+        return Path(args.input_file).read_text(encoding="utf-8")
+    if args.input_text:
+        return args.input_text
+    return sys.stdin.read()
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Analyze issue text for optimization suggestions.")
+    parser.add_argument("--input-file", help="Path to raw issue text.")
+    parser.add_argument("--input-text", help="Raw issue text (inline).")
+    parser.add_argument("--json", action="store_true", help="Emit JSON payload to stdout.")
+    parser.add_argument("--no-llm", action="store_true", help="Disable LLM usage.")
+    args = parser.parse_args()
+
+    raw = _load_input(args)
+    result = analyze_issue(raw, use_llm=not args.no_llm)
+    if args.json:
+        print(json.dumps(result.to_dict(), ensure_ascii=True, indent=2))
+    else:
+        print(json.dumps(result.to_dict(), ensure_ascii=True))
+
+
+if __name__ == "__main__":
+    main()
