@@ -53,7 +53,13 @@ SECTION_ALIASES = {
         "done criteria",
         "success criteria",
     ],
-    "implementation": ["implementation notes", "implementation note", "notes", "details", "technical notes"],
+    "implementation": [
+        "implementation notes",
+        "implementation note",
+        "notes",
+        "details",
+        "technical notes",
+    ],
 }
 
 SECTION_TITLES = {
