@@ -114,7 +114,7 @@ jobs:
       reset_time: ${{ steps.check.outputs.reset_time || '' }}
     steps:
       - name: Checkout API helpers
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           sparse-checkout: |
             .github/scripts
@@ -416,7 +416,7 @@ jobs:
             }
 
       - name: Bootstrap checkout resolver
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           path: helpers
           sparse-checkout: |
@@ -440,7 +440,7 @@ jobs:
             warnings.forEach((warning) => core.warning(warning));
 
       - name: Checkout orchestrator scripts
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ${{ steps.checkout_source.outputs.repository || github.repository }}
           ref: ${{ steps.checkout_source.outputs.ref || github.sha }}

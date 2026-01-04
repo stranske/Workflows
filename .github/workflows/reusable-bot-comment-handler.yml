@@ -268,7 +268,7 @@ jobs:
       prompt_ready: ${{ steps.prompt.outputs.ready }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Generate bot comments prompt
         id: prompt

@@ -59,7 +59,7 @@ jobs:
       security_reason: ${{ steps.security_gate.outputs.reason }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Capture timestamps
         id: timestamps
@@ -207,7 +207,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Update summary with running status
         uses: actions/github-script@v7
@@ -274,7 +274,7 @@ jobs:
     environment: agent-standard
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Emit keepalive metrics
         id: keepalive-metrics

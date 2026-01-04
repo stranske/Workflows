@@ -31,7 +31,7 @@ jobs:
         stranske/Template
     steps:
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           sparse-checkout: docs/LABELS.md
           sparse-checkout-cone-mode: false

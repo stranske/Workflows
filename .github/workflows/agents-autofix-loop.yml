@@ -39,7 +39,7 @@ jobs:
       security_reason: ${{ steps.security_gate.outputs.reason }}
     steps:
       - name: Checkout (for security gate)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           sparse-checkout: |
             .github/scripts/prompt_injection_guard.js
