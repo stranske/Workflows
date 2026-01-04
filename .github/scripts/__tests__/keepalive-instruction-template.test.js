@@ -6,6 +6,8 @@ const fs = require('node:fs');
 
 const {
   TEMPLATE_PATH,
+  FIX_TEMPLATE_PATH,
+  VERIFY_TEMPLATE_PATH,
   getKeepaliveInstruction,
   getKeepaliveInstructionWithMention,
   clearCache,
@@ -70,6 +72,25 @@ test('getKeepaliveInstructionWithMention prefixes the provided alias', () => {
 test('getKeepaliveInstructionWithMention defaults to codex when alias is blank', () => {
   const result = getKeepaliveInstructionWithMention('   ');
   assert.ok(result.startsWith('@codex '));
+});
+
+test('getKeepaliveInstruction routes to fix CI prompt when mode is fix_ci', () => {
+  const expected = fs.readFileSync(FIX_TEMPLATE_PATH, 'utf8').trim();
+  const result = getKeepaliveInstruction({ mode: 'fix_ci' });
+  assert.equal(result, expected);
+});
+
+test('getKeepaliveInstruction routes to verify prompt when action requests verification', () => {
+  const expected = fs.readFileSync(VERIFY_TEMPLATE_PATH, 'utf8').trim();
+  const result = getKeepaliveInstruction({ action: 'verify' });
+  assert.equal(result, expected);
+});
+
+test('getKeepaliveInstructionWithMention forwards routing options', () => {
+  const expected = fs.readFileSync(FIX_TEMPLATE_PATH, 'utf8').trim();
+  const result = getKeepaliveInstructionWithMention('codex', { reason: 'fix-test' });
+  assert.ok(result.startsWith('@codex '));
+  assert.ok(result.endsWith(expected));
 });
 
 test('getKeepaliveInstruction falls back to the default copy when template is missing', () => {
