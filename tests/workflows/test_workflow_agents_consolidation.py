@@ -575,7 +575,8 @@ def test_reusable_watchdog_job_gated_by_flag():
     assert watchdog.get("timeout-minutes") == 20, "Watchdog job should retain the expected timeout"
     steps = watchdog.get("steps") or []
     assert any(
-        isinstance(step, dict) and step.get("uses", "").startswith("actions/checkout@") for step in steps
+        isinstance(step, dict) and step.get("uses", "").startswith("actions/checkout@")
+        for step in steps
     ), "Watchdog job must continue performing basic repo checks"
 
 
