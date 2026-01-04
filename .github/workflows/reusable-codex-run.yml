@@ -426,12 +426,26 @@ jobs:
           set -euo pipefail
           echo "Cleaning workspace to ensure clean git state for Codex..."
 
-          # Remove .workflows-lib from git tracking (it's checked out separately)
-          # Using .gitignore approach so it doesn't show as modified
+          # Handle .workflows-lib submodule - it's checked out for scripts but shows as modified
+          # Three-step approach: reset to clean state, then exclude from future tracking
           if [ -d ".workflows-lib" ]; then
-            echo "Excluding .workflows-lib from git status..."
-            # Add to .git/info/exclude to hide from git status without modifying .gitignore
-            echo ".workflows-lib" >> .git/info/exclude 2>/dev/null || true
+            echo "Handling .workflows-lib submodule..."
+
+            # Step 1: Reset submodule to recorded commit (removes "modified" status)
+            # This handles the case where submodule pointer changed
+            git submodule update --init .workflows-lib 2>/dev/null || true
+
+            # Step 2: If still showing as modified, discard local changes
+            if git status --porcelain | grep -q "^ M .workflows-lib"; then
+              echo "Resetting .workflows-lib to clean state..."
+              git checkout -- .workflows-lib 2>/dev/null || true
+            fi
+
+            # Step 3: Add to .git/info/exclude to prevent future tracking issues
+            # This ensures any runtime modifications don't show up
+            if ! grep -q "^\.workflows-lib$" .git/info/exclude 2>/dev/null; then
+              echo ".workflows-lib" >> .git/info/exclude 2>/dev/null || true
+            fi
           fi
 
           # Remove old codex session/output files that may be untracked
@@ -443,8 +457,8 @@ jobs:
           echo "Git status after cleanup:"
           git status --short || true
 
-          # Check if any meaningful changes remain
-          REMAINING=$(git status --porcelain | grep -cvE '^\?\? \.(workflows-lib|gitignore)' 2>/dev/null || echo "0")
+          # Check if any meaningful changes remain (exclude workflow artifacts)
+          REMAINING=$(git status --porcelain | grep -cvE '^\?\? (\.workflows-lib|codex-|autofix)' 2>/dev/null || echo "0")
           echo "remaining-changes=${REMAINING}" >> "$GITHUB_OUTPUT"
 
           if [ "$REMAINING" -gt 0 ]; then
