@@ -298,7 +298,9 @@ def _extract_json_payload(text: str) -> str | None:
     return stripped[start : end + 1]
 
 
-def _normalize_result(payload: dict[str, Any], provider_used: str | None) -> IssueOptimizationResult:
+def _normalize_result(
+    payload: dict[str, Any], provider_used: str | None
+) -> IssueOptimizationResult:
     task_splitting = payload.get("task_splitting") if isinstance(payload, dict) else []
     blocked_tasks = payload.get("blocked_tasks") if isinstance(payload, dict) else []
     objective_criteria = payload.get("objective_criteria") if isinstance(payload, dict) else []
@@ -313,8 +315,12 @@ def _normalize_result(payload: dict[str, Any], provider_used: str | None) -> Iss
         task_splitting=_coerce_list(task_splitting),
         blocked_tasks=_coerce_list(blocked_tasks),
         objective_criteria=_coerce_list(objective_criteria),
-        missing_sections=[str(item) for item in _coerce_list(missing_sections) if str(item).strip()],
-        formatting_issues=[str(item) for item in _coerce_list(formatting_issues) if str(item).strip()],
+        missing_sections=[
+            str(item) for item in _coerce_list(missing_sections) if str(item).strip()
+        ],
+        formatting_issues=[
+            str(item) for item in _coerce_list(formatting_issues) if str(item).strip()
+        ],
         overall_notes=str(overall_notes).strip() if overall_notes else "",
         provider_used=provider_used,
     )
