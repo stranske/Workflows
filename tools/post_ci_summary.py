@@ -10,11 +10,13 @@ from __future__ import annotations
 import json
 import os
 import re
+import xml.etree.ElementTree as ET
 from collections.abc import Iterable, Mapping, MutableSequence, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, TypedDict
 
+from tools.ci_failure_triage import triage_ci_failure
 
 @dataclass(frozen=True)
 class JobRecord:
@@ -343,6 +345,139 @@ def _load_required_contexts(
     return contexts
 
 
+def _load_gate_summary_records(artifacts_root: Path) -> list[dict[str, object]]:
+    records: list[dict[str, object]] = []
+    base = artifacts_root / "downloads"
+    if not base.exists():
+        return records
+    for path in sorted(base.rglob("**/summary.json")):
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            continue
+        if isinstance(data, dict):
+            records.append(data)
+    return records
+
+
+def _append_line(lines: list[str], line: str, limit: int) -> None:
+    if len(lines) >= limit:
+        return
+    cleaned = line.strip()
+    if cleaned:
+        lines.append(cleaned)
+
+
+def _append_text(lines: list[str], text: str, limit: int) -> None:
+    for raw in text.splitlines():
+        if len(lines) >= limit:
+            break
+        _append_line(lines, raw, limit)
+
+
+def _collect_junit_failures(artifacts_root: Path, limit: int) -> list[str]:
+    failures: list[str] = []
+    base = artifacts_root / "downloads"
+    if not base.exists():
+        return failures
+
+    for path in sorted(base.rglob("**/pytest-junit.xml")):
+        try:
+            tree = ET.parse(path)
+        except ET.ParseError:
+            continue
+        root = tree.getroot()
+        for case in root.iter("testcase"):
+            file_attr = case.attrib.get("file")
+            line_attr = case.attrib.get("line")
+            if file_attr:
+                line_suffix = f", line {line_attr}" if line_attr else ""
+                _append_line(failures, f'File "{file_attr}"{line_suffix}', limit)
+            for tag in ("failure", "error"):
+                for node in case.findall(tag):
+                    message = node.attrib.get("message")
+                    if message:
+                        _append_text(failures, message, limit)
+                    if node.text:
+                        _append_text(failures, node.text, limit)
+            if len(failures) >= limit:
+                return failures
+    return failures
+
+
+def _collect_check_failure_lines(records: Sequence[Mapping[str, object]]) -> list[str]:
+    lines: list[str] = []
+
+    def _outcome_is_failure(outcome: object) -> bool:
+        normalized = str(outcome or "").strip().lower()
+        return normalized in {"failure", "cancelled", "timed_out", "error", "action_required"}
+
+    for record in records:
+        checks = record.get("checks")
+        if not isinstance(checks, Mapping):
+            continue
+
+        type_check = checks.get("type_check") if isinstance(checks, Mapping) else None
+        if isinstance(type_check, Mapping) and _outcome_is_failure(type_check.get("outcome")):
+            lines.append("mypy: Found 1 errors in 1 files")
+
+        tests = checks.get("tests") if isinstance(checks, Mapping) else None
+        if isinstance(tests, Mapping) and _outcome_is_failure(tests.get("outcome")):
+            lines.append("= FAILURES =")
+
+        coverage_min = checks.get("coverage_minimum") if isinstance(checks, Mapping) else None
+        if isinstance(coverage_min, Mapping) and _outcome_is_failure(coverage_min.get("outcome")):
+            lines.append("coverage failure: required test coverage of 0% not reached")
+
+    return lines
+
+
+def _format_triage_block(log_text: str) -> list[str]:
+    report = triage_ci_failure(log_text)
+    if not report.findings:
+        return []
+
+    lines = ["### Failure triage", report.summary]
+    for finding in report.findings:
+        lines.append(f"- error_type: {finding.error_type}")
+        lines.append(f"  root_cause: {finding.root_cause}")
+        lines.append(f"  suggested_fix: {finding.suggested_fix}")
+        if finding.relevant_files:
+            files = ", ".join(finding.relevant_files)
+            lines.append(f"  relevant_files: {files}")
+        if finding.playbook_url:
+            lines.append(f"  playbook_url: {finding.playbook_url}")
+    return lines
+
+
+def _collect_triage_block(artifacts_root: Path) -> list[str]:
+    if not artifacts_root.exists():
+        return []
+
+    records = _load_gate_summary_records(artifacts_root)
+    lines: list[str] = []
+    limit = 200
+
+    lines.extend(_collect_check_failure_lines(records))
+    lines.extend(_collect_junit_failures(artifacts_root, limit))
+
+    if not lines:
+        return []
+
+    deduped: list[str] = []
+    seen: set[str] = set()
+    for line in lines:
+        if line in seen:
+            continue
+        seen.add(line)
+        deduped.append(line)
+        if len(deduped) >= limit:
+            break
+
+    log_text = "\n".join(deduped)
+    return _format_triage_block(log_text)
+
+
 def _dedupe_runs(runs: Sequence[Mapping[str, object]]) -> list[Mapping[str, object]]:
     deduped: list[Mapping[str, object]] = []
     index_by_key: dict[str, int] = {}
@@ -634,6 +769,7 @@ def build_summary_comment(
     coverage_section: str | None,
     coverage_delta: Mapping[str, object] | None,
     required_groups_env: str | None,
+    triage_block: Sequence[str] | None = None,
 ) -> str:
     deduped_runs = _dedupe_runs(runs)
     category_states = _collect_category_states(deduped_runs)
@@ -693,6 +829,9 @@ def build_summary_comment(
     body_parts.extend(part for part in coverage_block if part)
     if coverage_block:
         body_parts.append("")
+    if triage_block:
+        body_parts.extend(triage_block)
+        body_parts.append("")
     body_parts.append("_Updated automatically; will refresh on subsequent CI/Docker completions._")
 
     return "\n".join(part for part in body_parts if part is not None)
@@ -722,6 +861,8 @@ def main() -> None:
     coverage_section = os.environ.get("COVERAGE_SECTION")
     coverage_delta = _load_json_from_env(os.environ.get("COVERAGE_DELTA"))
     required_groups_env = os.environ.get("REQUIRED_JOB_GROUPS_JSON")
+    artifacts_root = Path(os.environ.get("GATE_ARTIFACTS_ROOT", "gate_artifacts"))
+    triage_block = _collect_triage_block(artifacts_root)
 
     body = build_summary_comment(
         runs=runs,
@@ -730,6 +871,7 @@ def main() -> None:
         coverage_section=coverage_section,
         coverage_delta=coverage_delta,
         required_groups_env=required_groups_env,
+        triage_block=triage_block,
     )
 
     output_path = os.environ.get("GITHUB_OUTPUT")

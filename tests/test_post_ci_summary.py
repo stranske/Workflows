@@ -143,3 +143,40 @@ def test_main_writes_github_output(tmp_path: Path, monkeypatch) -> None:
     output_text = output_path.read_text(encoding="utf-8")
     assert "body<<EOF" in output_text
     assert "Automated Status Summary" in output_text
+
+
+def test_collect_triage_block_from_artifacts(tmp_path: Path) -> None:
+    artifacts_root = tmp_path / "gate_artifacts"
+    runtime_dir = artifacts_root / "downloads" / "coverage" / "runtimes" / "3.11"
+    runtime_dir.mkdir(parents=True)
+
+    summary_payload = {
+        "checks": {
+            "type_check": {"outcome": "failure"},
+            "tests": {"outcome": "failure"},
+            "coverage_minimum": {"outcome": "failure"},
+        }
+    }
+    (runtime_dir / "summary.json").write_text(
+        json.dumps(summary_payload),
+        encoding="utf-8",
+    )
+
+    junit_payload = """<?xml version="1.0" encoding="utf-8"?>
+<testsuite tests="1" failures="1">
+  <testcase classname="tests.test_demo" name="test_import" file="src/app.py" line="12">
+    <failure message="ImportError: No module named foo">Traceback (most recent call last):
+ImportError: No module named foo</failure>
+  </testcase>
+</testsuite>
+"""
+    (runtime_dir / "pytest-junit.xml").write_text(junit_payload, encoding="utf-8")
+
+    triage_block = post_ci_summary._collect_triage_block(artifacts_root)
+    triage_text = "\n".join(triage_block)
+
+    assert "Failure triage" in triage_text
+    assert "error_type: mypy" in triage_text
+    assert "error_type: pytest" in triage_text
+    assert "error_type: coverage" in triage_text
+    assert "error_type: import_error" in triage_text
