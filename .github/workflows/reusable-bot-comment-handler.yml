@@ -80,7 +80,7 @@ jobs:
     steps:
       - name: Generate token (if App configured)
         id: token
-        uses: actions/create-github-app-token@v1
+        uses: actions/create-github-app-token@v2
 
         continue-on-error: true
         with:
@@ -327,7 +327,7 @@ jobs:
     steps:
       - name: Generate token (if App configured)
         id: token
-        uses: actions/create-github-app-token@v1
+        uses: actions/create-github-app-token@v2
         continue-on-error: true
         with:
           app-id: ${{ secrets.gh_app_id }}
