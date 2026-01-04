@@ -19,10 +19,10 @@ _Scope section missing from source issue._
 - [ ] Add tests for analyze and apply phases
 
 #### Acceptance criteria
-- [ ] `agents:optimize` triggers analysis comment with structured suggestions
+- [x] `agents:optimize` triggers analysis comment with structured suggestions
 - [ ] Suggestions include task splitting, blocked task identification, objective criteria
 - [ ] Comment contains `<- Updated WORKFLOW_OUTPUTS.md suggestions-json: {...} -->` marker
-- [ ] `agents:apply-suggestions` extracts JSON and calls Formatter
+- [x] `agents:apply-suggestions` extracts JSON and calls Formatter
 - [ ] Issue body updated with applied improvements
 - [ ] Labels cleaned up appropriately
 
