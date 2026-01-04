@@ -91,6 +91,7 @@ LIST_ITEM_REGEX = re.compile(r"^\s*[-*+]\s+(.*)$")
 CHECKBOX_REGEX = re.compile(r"^\[[ xX]\]\s*(.*)$")
 
 SUBJECTIVE_CRITERIA = ("clean", "nice", "good", "fast", "better", "intuitive", "polished")
+SUGGESTIONS_MARKER_PREFIX = "Updated WORKFLOW_OUTPUTS.md suggestions-json:"
 
 
 @dataclass
@@ -113,6 +114,107 @@ class IssueOptimizationResult:
             "overall_notes": self.overall_notes or "",
             "provider_used": self.provider_used,
         }
+
+
+def _format_list_section(title: str, items: list[str]) -> list[str]:
+    lines = [f"### {title}"]
+    if not items:
+        lines.append("- None")
+        return lines
+    lines.extend(f"- {item}" for item in items)
+    return lines
+
+
+def _format_task_splitting(task_splitting: list[dict[str, Any]]) -> list[str]:
+    entries: list[str] = []
+    for item in task_splitting:
+        if not isinstance(item, dict):
+            continue
+        task = str(item.get("task") or "").strip()
+        reason = str(item.get("reason") or "").strip()
+        suggestions = item.get("split_suggestions") if isinstance(item, dict) else None
+        suggestion_text = ""
+        if isinstance(suggestions, list) and suggestions:
+            suggestion_text = f" Suggested split: {', '.join(str(s) for s in suggestions)}."
+        if task:
+            detail = f"{task} ({reason})" if reason else task
+            entries.append(f"{detail}.{suggestion_text}".strip())
+    return entries
+
+
+def _format_blocked_tasks(blocked_tasks: list[dict[str, str]]) -> list[str]:
+    entries: list[str] = []
+    for item in blocked_tasks:
+        if not isinstance(item, dict):
+            continue
+        task = str(item.get("task") or "").strip()
+        reason = str(item.get("reason") or "").strip()
+        action = str(item.get("suggested_action") or "").strip()
+        detail_parts = [part for part in (reason, action) if part]
+        detail = f" ({' | '.join(detail_parts)})" if detail_parts else ""
+        if task:
+            entries.append(f"{task}{detail}")
+    return entries
+
+
+def _format_objective_criteria(objective_criteria: list[dict[str, str]]) -> list[str]:
+    entries: list[str] = []
+    for item in objective_criteria:
+        if not isinstance(item, dict):
+            continue
+        criterion = str(item.get("criterion") or "").strip()
+        issue = str(item.get("issue") or "").strip()
+        suggestion = str(item.get("suggestion") or "").strip()
+        if not criterion:
+            continue
+        detail_parts = [part for part in (issue, suggestion) if part]
+        detail = f" ({' | '.join(detail_parts)})" if detail_parts else ""
+        entries.append(f"{criterion}{detail}")
+    return entries
+
+
+def format_suggestions_comment(result: IssueOptimizationResult) -> str:
+    data = result.to_dict()
+    data.pop("provider_used", None)
+    suggestions_json = json.dumps(data, ensure_ascii=True)
+
+    sections: list[str] = [
+        "## Issue Optimization Suggestions",
+        "",
+        "Review the suggestions below. If you want the agent to apply them, add the",
+        "`agents:apply-suggestions` label to this issue.",
+        "",
+    ]
+    sections.extend(
+        _format_list_section(
+            "Task splitting",
+            _format_task_splitting(result.task_splitting),
+        )
+    )
+    sections.append("")
+    sections.extend(
+        _format_list_section(
+            "Blocked tasks",
+            _format_blocked_tasks(result.blocked_tasks),
+        )
+    )
+    sections.append("")
+    sections.extend(
+        _format_list_section(
+            "Objective acceptance criteria",
+            _format_objective_criteria(result.objective_criteria),
+        )
+    )
+    sections.append("")
+    sections.extend(_format_list_section("Missing sections", result.missing_sections))
+    sections.append("")
+    sections.extend(_format_list_section("Formatting issues", result.formatting_issues))
+    if result.overall_notes:
+        sections.extend(["", "### Notes", f"- {result.overall_notes.strip()}"])
+
+    sections.append("")
+    sections.append(f"<!-- {SUGGESTIONS_MARKER_PREFIX} {suggestions_json} -->")
+    return "\n".join(sections).strip()
 
 
 def _load_prompt() -> str:

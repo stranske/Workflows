@@ -14,14 +14,14 @@ _Scope section missing from source issue._
 - [x] Create suggestion comment formatter with embedded JSON
 - [x] Add workflow trigger for `agents:optimize` label (Phase 1)
 - [x] Add workflow trigger for `agents:apply-suggestions` label (Phase 2)
-- [ ] Extract suggestions JSON and route to Formatter (#478)
+- [x] Extract suggestions JSON and route to Formatter (#478)
 - [x] Add label management (remove optimize/apply, add formatted)
 - [x] Add tests for analyze and apply phases
 
 #### Acceptance criteria
 - [x] `agents:optimize` triggers analysis comment with structured suggestions
-- [ ] Suggestions include task splitting, blocked task identification, objective criteria
-- [ ] Comment contains `<- Updated WORKFLOW_OUTPUTS.md suggestions-json: {...} -->` marker
+- [x] Suggestions include task splitting, blocked task identification, objective criteria
+- [x] Comment contains `<- Updated WORKFLOW_OUTPUTS.md suggestions-json: {...} -->` marker
 - [x] `agents:apply-suggestions` extracts JSON and calls Formatter
 - [x] Issue body updated with applied improvements
 - [ ] Labels cleaned up appropriately
