@@ -17,7 +17,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-
 AGENT_CAPABILITY_CHECK_PROMPT = """
 Analyze these tasks and acceptance criteria for agent compatibility.
 
@@ -149,7 +148,9 @@ def _coerce_dict_list(value: Any, required_keys: set[str]) -> list[dict[str, str
 def _normalize_result(payload: dict[str, Any], provider_used: str | None) -> CapabilityCheckResult:
     actionable = _coerce_list(payload.get("actionable_tasks"))
     partial = _coerce_dict_list(payload.get("partial_tasks"), {"task", "limitation"})
-    blocked = _coerce_dict_list(payload.get("blocked_tasks"), {"task", "reason", "suggested_action"})
+    blocked = _coerce_dict_list(
+        payload.get("blocked_tasks"), {"task", "reason", "suggested_action"}
+    )
     recommendation = str(payload.get("recommendation") or "REVIEW_NEEDED").strip().upper()
     if recommendation not in {"PROCEED", "REVIEW_NEEDED", "BLOCKED"}:
         recommendation = "REVIEW_NEEDED"
