@@ -99,6 +99,21 @@ function countCheckboxes(markdown) {
   return result;
 }
 
+function resolvePromptCheckboxCounts(scopeCounts, latestChecklist) {
+  const safeScope = scopeCounts && typeof scopeCounts === 'object'
+    ? scopeCounts
+    : { total: 0, unchecked: 0 };
+  if (!latestChecklist || typeof latestChecklist !== 'object') {
+    return safeScope;
+  }
+  const total = Number.isFinite(latestChecklist.total) ? latestChecklist.total : 0;
+  const unchecked = Number.isFinite(latestChecklist.unchecked) ? latestChecklist.unchecked : 0;
+  if (total > 0) {
+    return { total, unchecked };
+  }
+  return safeScope;
+}
+
 function resolveKeepalivePromptContext({ labels, checkboxCounts, options }) {
   const safeLabels = Array.isArray(labels) ? labels : [];
   const counts = checkboxCounts && typeof checkboxCounts === 'object' ? checkboxCounts : {};
@@ -953,13 +968,6 @@ async function runKeepalive({ core, github, context, env = process.env }) {
         continue;
       }
 
-      const checkboxCounts = countCheckboxes(scopeBlock);
-      const promptContext = resolveKeepalivePromptContext({
-        labels: labelNames,
-        checkboxCounts,
-        options,
-      });
-
       const checklistComments = botComments
         .map((comment) => {
           const body = comment.body || '';
@@ -972,6 +980,14 @@ async function runKeepalive({ core, github, context, env = process.env }) {
         .sort((a, b) => new Date(b.comment.updated_at || b.comment.created_at) - new Date(a.comment.updated_at || a.comment.created_at));
 
       const latestChecklist = checklistComments[0];
+      const checkboxCounts = countCheckboxes(scopeBlock);
+      const promptCheckboxCounts = resolvePromptCheckboxCounts(checkboxCounts, latestChecklist);
+      const promptContext = resolveKeepalivePromptContext({
+        labels: labelNames,
+        checkboxCounts: promptCheckboxCounts,
+        options,
+      });
+
       if (!latestChecklist && !(checkboxCounts.total > 0 && checkboxCounts.unchecked === 0)) {
         recordSkip('no Codex checklist with outstanding tasks');
         continue;
@@ -1227,5 +1243,6 @@ module.exports = {
   extractScopeTasksAcceptanceSections,
   findScopeTasksAcceptanceBlock,
   countCheckboxes,
+  resolvePromptCheckboxCounts,
   resolveKeepalivePromptContext,
 };

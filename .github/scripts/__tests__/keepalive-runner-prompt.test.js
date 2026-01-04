@@ -6,6 +6,7 @@ const path = require('node:path');
 
 const {
   resolveKeepalivePromptContext,
+  resolvePromptCheckboxCounts,
 } = require(path.join(__dirname, '../../../scripts/keepalive-runner.js'));
 
 test('resolveKeepalivePromptContext prioritizes ci-failure labels', () => {
@@ -41,4 +42,33 @@ test('resolveKeepalivePromptContext keeps default behavior when tasks remain', (
 
   assert.equal(result.action, 'run');
   assert.equal(result.reason, 'ready');
+});
+
+test('resolvePromptCheckboxCounts prefers latest checklist when it has outstanding work', () => {
+  const scopeCounts = { total: 2, unchecked: 0 };
+  const latestChecklist = { total: 3, unchecked: 1 };
+  const counts = resolvePromptCheckboxCounts(scopeCounts, latestChecklist);
+  const result = resolveKeepalivePromptContext({
+    labels: ['agents:keepalive'],
+    checkboxCounts: counts,
+    options: {},
+  });
+
+  assert.deepEqual(counts, { total: 3, unchecked: 1 });
+  assert.equal(result.action, 'run');
+  assert.equal(result.reason, 'ready');
+});
+
+test('resolvePromptCheckboxCounts falls back to scope counts without a checklist', () => {
+  const scopeCounts = { total: 2, unchecked: 0 };
+  const counts = resolvePromptCheckboxCounts(scopeCounts);
+  const result = resolveKeepalivePromptContext({
+    labels: ['agents:keepalive'],
+    checkboxCounts: counts,
+    options: {},
+  });
+
+  assert.deepEqual(counts, scopeCounts);
+  assert.equal(result.action, 'verify');
+  assert.equal(result.reason, 'verify-acceptance');
 });
