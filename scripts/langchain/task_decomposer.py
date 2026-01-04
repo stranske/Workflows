@@ -111,9 +111,7 @@ def _fallback_decompose(task: str) -> list[str]:
         return []
     parts = _split_task_parts(task)
     if len(parts) > 1:
-        return [
-            _ensure_verification(f"{part}") for part in parts if part.strip()
-        ]
+        return [_ensure_verification(f"{part}") for part in parts if part.strip()]
     return [
         _ensure_verification(f"Define approach for: {task}"),
         _ensure_verification(f"Implement: {task}"),
