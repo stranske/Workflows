@@ -21,6 +21,18 @@ test('resolveKeepalivePromptContext prioritizes ci-failure labels', () => {
   assert.equal(result.scenario, 'ci-failure');
 });
 
+test('resolveKeepalivePromptContext respects explicit scenario overrides', () => {
+  const result = resolveKeepalivePromptContext({
+    labels: ['ci-failure'],
+    checkboxCounts: { total: 2, unchecked: 0 },
+    options: { keepalive_prompt_scenario: 'manual-override' },
+  });
+
+  assert.equal(result.action, 'fix');
+  assert.equal(result.reason, 'ci-failure');
+  assert.equal(result.scenario, 'manual-override');
+});
+
 test('resolveKeepalivePromptContext routes to verification when tasks are complete', () => {
   const result = resolveKeepalivePromptContext({
     labels: ['agents:keepalive'],
