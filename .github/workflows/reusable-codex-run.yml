@@ -437,9 +437,10 @@ jobs:
           fi
 
           # Remove old codex session/output files that may be untracked
+          # NOTE: Do NOT delete codex-prompt*.md - that's the input file we just created!
           # These are workflow artifacts, not user code
           echo "Removing stale workflow artifact files..."
-          rm -f codex-session*.jsonl codex-output*.md codex-prompt*.md codex-analysis*.json 2>/dev/null || true
+          rm -f codex-session*.jsonl codex-output*.md codex-analysis*.json 2>/dev/null || true
 
           # Show git status for debugging
           echo "Git status after cleanup:"
