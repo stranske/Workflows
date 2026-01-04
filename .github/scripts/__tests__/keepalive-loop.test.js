@@ -15,7 +15,7 @@ const {
   analyzeTaskCompletion,
   autoReconcileTasks,
 } = require('../keepalive_loop.js');
-const { formatStateComment } = require('../keepalive_state.js');
+const { formatStateComment, parseStateComment } = require('../keepalive_state.js');
 
 const fixturesDir = path.join(__dirname, 'fixtures');
 const prBodyFixture = fs.readFileSync(path.join(fixturesDir, 'pr-body.md'), 'utf8');
@@ -122,7 +122,7 @@ test('countCheckboxes handles numbered lists with parentheses', () => {
 test('parseConfig reads JSON config snippets and normalizes values', () => {
   const body = `
 <!-- keepalive-config:start -->
-{"keepalive_enabled": false, "iteration": "2", "max_iterations": 4, "failure_threshold": "7", "trace": "abc"}
+{"keepalive_enabled": false, "iteration": "2", "max_iterations": 4, "failure_threshold": "7", "trace": "abc", "prompt_scenario": "verification"}
 <!-- keepalive-config:end -->
 `;
   const config = parseConfig(body);
@@ -131,6 +131,7 @@ test('parseConfig reads JSON config snippets and normalizes values', () => {
   assert.equal(config.max_iterations, 4);
   assert.equal(config.failure_threshold, 7);
   assert.equal(config.trace, 'abc');
+  assert.equal(config.prompt_scenario, 'verification');
 });
 
 test('parseConfig reads key/value config blocks', () => {
@@ -203,15 +204,20 @@ test('evaluateKeepaliveLoop skips when keepalive is disabled', async () => {
   assert.equal(result.reason, 'keepalive-disabled');
 });
 
-test('evaluateKeepaliveLoop stops when tasks are complete', async () => {
+test('evaluateKeepaliveLoop stops when tasks are complete and verification is done', async () => {
   const pr = {
     number: 303,
     head: { ref: 'feature/three', sha: 'sha-3' },
     labels: [{ name: 'agent:codex' }],
     body: prBodyFixture.replace(/- \[ \]/g, '- [x]'),
   };
+  const existingState = formatStateComment({
+    trace: 'fixture-trace',
+    verification: { status: 'done' },
+  });
   const github = buildGithubStub({
     pr,
+    comments: [{ id: 23, body: existingState, html_url: 'https://example.com/23' }],
     workflowRuns: [{ head_sha: 'sha-3', conclusion: 'success' }],
   });
   const result = await evaluateKeepaliveLoop({
@@ -299,6 +305,55 @@ test('evaluateKeepaliveLoop triggers fix mode when gate fails with test failures
   assert.equal(result.action, 'fix');
   assert.equal(result.reason, 'fix-test');
   assert.equal(result.promptMode, 'fix_ci');
+  assert.equal(result.promptFile, '.github/codex/prompts/fix_ci_failures.md');
+});
+
+test('evaluateKeepaliveLoop uses normal prompt when tasks remain', async () => {
+  const pr = {
+    number: 5051,
+    head: { ref: 'feature/next-task', sha: 'sha-next' },
+    labels: [{ name: 'agent:codex' }],
+    body: '## Tasks\n- [ ] one\n## Acceptance Criteria\n- [ ] a',
+  };
+  const github = buildGithubStub({
+    pr,
+    workflowRuns: [{ head_sha: 'sha-next', conclusion: 'success' }],
+  });
+  const result = await evaluateKeepaliveLoop({
+    github,
+    context: buildContext(pr.number),
+    core: buildCore(),
+  });
+  assert.equal(result.action, 'run');
+  assert.equal(result.reason, 'ready');
+  assert.equal(result.promptMode, 'normal');
+  assert.equal(result.promptFile, '.github/codex/prompts/keepalive_next_task.md');
+});
+
+test('evaluateKeepaliveLoop honors prompt scenario overrides from config', async () => {
+  const pr = {
+    number: 5050,
+    head: { ref: 'feature/override', sha: 'sha-override' },
+    labels: [{ name: 'agent:codex' }],
+    body: [
+      '## Tasks',
+      '- [ ] one',
+      '## Acceptance Criteria',
+      '- [ ] a',
+      '<!-- keepalive-config: {"prompt_scenario": "verification"} -->',
+    ].join('\n'),
+  };
+  const github = buildGithubStub({
+    pr,
+    workflowRuns: [{ id: 2001, head_sha: 'sha-override', conclusion: 'success' }],
+  });
+  const result = await evaluateKeepaliveLoop({
+    github,
+    context: buildContext(pr.number),
+    core: buildCore(),
+  });
+  assert.equal(result.action, 'run');
+  assert.equal(result.promptMode, 'verify');
 });
 
 test('evaluateKeepaliveLoop waits when gate fails with lint failures', async () => {
@@ -571,6 +626,138 @@ test('updateKeepaliveLoopSummary increments iteration and clears failures on suc
   assert.match(github.actions[0].body, /✅ Success/);
   assert.match(github.actions[0].body, /"iteration":3/);
   assert.match(github.actions[0].body, /"failure":\{\}/);
+});
+
+test('updateKeepaliveLoopSummary tracks attempt history across rounds', async () => {
+  const existingState = formatStateComment({
+    trace: 'trace-history',
+    iteration: 1,
+    attempts: [{ iteration: 1, action: 'run', reason: 'ready', run_result: 'success' }],
+  });
+  const github = buildGithubStub({
+    comments: [{ id: 40, body: existingState, html_url: 'https://example.com/40' }],
+  });
+
+  await updateKeepaliveLoopSummary({
+    github,
+    context: buildContext(321),
+    core: buildCore(),
+    inputs: {
+      prNumber: 321,
+      action: 'run',
+      reason: 'ready',
+      runResult: 'success',
+      gateConclusion: 'success',
+      tasksTotal: 3,
+      tasksUnchecked: 1,
+      keepaliveEnabled: true,
+      autofixEnabled: false,
+      iteration: 1,
+      maxIterations: 5,
+      failureThreshold: 3,
+      trace: 'trace-history',
+      prompt_mode: 'normal',
+      prompt_file: '.github/codex/prompts/keepalive_next_task.md',
+    },
+  });
+
+  const parsed = parseStateComment(github.actions[0].body);
+  assert.ok(parsed);
+  assert.equal(parsed.version, 'v1');
+  const attempts = parsed.data.attempts;
+  assert.equal(attempts.length, 2);
+  assert.equal(attempts[1].iteration, 2);
+  assert.equal(attempts[1].action, 'run');
+  assert.equal(attempts[1].reason, 'ready');
+  assert.equal(attempts[1].run_result, 'success');
+  assert.equal(attempts[1].prompt_mode, 'normal');
+});
+
+test('updateKeepaliveLoopSummary stores attempted task focus', async () => {
+  const existingState = formatStateComment({
+    trace: 'trace-focus',
+    iteration: 0,
+    current_focus: 'Task B',
+  });
+  const pr = {
+    number: 654,
+    head: { ref: 'feature/attempted', sha: 'sha-attempt' },
+    labels: [{ name: 'agent:codex' }],
+    body: '## Tasks\n- [ ] Task A\n- [ ] Task B\n## Acceptance Criteria\n- [ ] pass',
+  };
+  const github = buildGithubStub({
+    pr,
+    comments: [{ id: 41, body: existingState, html_url: 'https://example.com/41' }],
+  });
+
+  await updateKeepaliveLoopSummary({
+    github,
+    context: buildContext(pr.number),
+    core: buildCore(),
+    inputs: {
+      prNumber: pr.number,
+      action: 'run',
+      reason: 'ready',
+      runResult: 'success',
+      gateConclusion: 'success',
+      tasksTotal: 3,
+      tasksUnchecked: 3,
+      keepaliveEnabled: true,
+      autofixEnabled: false,
+      iteration: 0,
+      maxIterations: 5,
+      failureThreshold: 3,
+      trace: 'trace-focus',
+    },
+  });
+
+  const parsed = parseStateComment(github.actions[0].body);
+  assert.ok(parsed);
+  assert.equal(parsed.data.last_focus, 'Task B');
+  assert.ok(Array.isArray(parsed.data.attempted_tasks));
+  assert.equal(parsed.data.attempted_tasks[0].task, 'Task B');
+});
+
+test('updateKeepaliveLoopSummary marks verification when verifier succeeds', async () => {
+  const existingState = formatStateComment({
+    trace: 'trace-verify',
+    iteration: 1,
+  });
+  const pr = {
+    number: 777,
+    head: { ref: 'feature/verify-summary', sha: 'sha-ver' },
+    labels: [{ name: 'agent:codex' }],
+    body: '## Tasks\n- [x] done\n## Acceptance Criteria\n- [x] pass',
+  };
+  const github = buildGithubStub({
+    pr,
+    comments: [{ id: 52, body: existingState, html_url: 'https://example.com/52' }],
+  });
+
+  await updateKeepaliveLoopSummary({
+    github,
+    context: buildContext(pr.number),
+    core: buildCore(),
+    inputs: {
+      prNumber: pr.number,
+      action: 'run',
+      reason: 'verify-acceptance',
+      runResult: 'success',
+      gateConclusion: 'success',
+      tasksTotal: 2,
+      tasksUnchecked: 0,
+      keepaliveEnabled: true,
+      autofixEnabled: false,
+      iteration: 1,
+      maxIterations: 5,
+      failureThreshold: 3,
+      trace: 'trace-verify',
+    },
+  });
+
+  const parsed = parseStateComment(github.actions[0].body);
+  assert.ok(parsed);
+  assert.equal(parsed.data.verification.status, 'done');
 });
 
 test('updateKeepaliveLoopSummary writes step summary for agent runs', async () => {
@@ -1004,6 +1191,46 @@ test('updateKeepaliveLoopSummary adds needs-human after repeated actual failures
   assert.ok(needsHumanLabel);
 });
 
+test('updateKeepaliveLoopSummary does not treat skipped runs as agent failures', async () => {
+  const existingState = formatStateComment({
+    trace: 'trace-run-skipped',
+    iteration: 1,
+    failure_threshold: 3,
+    failure: {},
+  });
+  const github = buildGithubStub({
+    comments: [{ id: 77, body: existingState, html_url: 'https://example.com/77' }],
+  });
+
+  await updateKeepaliveLoopSummary({
+    github,
+    context: buildContext(777),
+    core: buildCore(),
+    inputs: {
+      prNumber: 777,
+      action: 'run',
+      reason: 'ready',
+      runResult: 'skipped',
+      gateConclusion: 'success',
+      tasksTotal: 3,
+      tasksUnchecked: 3,
+      keepaliveEnabled: true,
+      autofixEnabled: false,
+      iteration: 1,
+      maxIterations: 5,
+      failureThreshold: 3,
+      trace: 'trace-run-skipped',
+    },
+  });
+
+  assert.equal(github.actions.length, 1);
+  const updateAction = github.actions[0];
+  assert.equal(updateAction.type, 'update');
+  assert.match(updateAction.body, /agent-run-skipped/);
+  assert.doesNotMatch(updateAction.body, /AGENT FAILED/);
+  assert.match(updateAction.body, /"failure":\{\}/);
+});
+
 test('updateKeepaliveLoopSummary adds attention label for auth failures', async () => {
   const existingState = formatStateComment({
     trace: 'trace-attention-auth',
@@ -1332,6 +1559,52 @@ test('evaluateKeepaliveLoop converts all lists to checkboxes', async () => {
   assert.ok(result.taskAppendix.includes('1) [ ] reports render'));
 });
 
+test('evaluateKeepaliveLoop routes to verification prompt when tasks complete', async () => {
+  const pr = {
+    number: 111,
+    head: { ref: 'feature/verify', sha: 'sha-11' },
+    labels: [{ name: 'agent:codex' }],
+    body: '## Tasks\n- [x] done\n## Acceptance Criteria\n- [x] pass',
+  };
+  const github = buildGithubStub({
+    pr,
+    workflowRuns: [{ head_sha: 'sha-11', conclusion: 'success' }],
+  });
+  const result = await evaluateKeepaliveLoop({
+    github,
+    context: buildContext(pr.number),
+    core: buildCore(),
+  });
+  assert.equal(result.action, 'run');
+  assert.equal(result.reason, 'verify-acceptance');
+  assert.equal(result.promptMode, 'verify');
+  assert.equal(result.promptFile, '.github/codex/prompts/verifier_acceptance_check.md');
+});
+
+test('evaluateKeepaliveLoop stops when verification already done', async () => {
+  const pr = {
+    number: 112,
+    head: { ref: 'feature/verified', sha: 'sha-12' },
+    labels: [{ name: 'agent:codex' }],
+    body: '## Tasks\n- [x] done\n## Acceptance Criteria\n- [x] pass',
+  };
+  const existingState = formatStateComment({
+    verification: { status: 'done' },
+  });
+  const github = buildGithubStub({
+    pr,
+    comments: [{ id: 45, body: existingState, html_url: 'https://example.com/45' }],
+    workflowRuns: [{ head_sha: 'sha-12', conclusion: 'success' }],
+  });
+  const result = await evaluateKeepaliveLoop({
+    github,
+    context: buildContext(pr.number),
+    core: buildCore(),
+  });
+  assert.equal(result.action, 'stop');
+  assert.equal(result.reason, 'tasks-complete');
+});
+
 test('buildTaskAppendix includes reconciliation warning when state.needs_task_reconciliation is true', () => {
   const { buildTaskAppendix } = require('../keepalive_loop.js');
   const sections = {
@@ -1441,6 +1714,22 @@ Just some info`;
   assert.ok(!appendix.includes('Source Context'));
 });
 
+test('buildTaskAppendix highlights attempted tasks and suggests next task', () => {
+  const { buildTaskAppendix } = require('../keepalive_loop.js');
+  const sections = {
+    tasks: '- [ ] Task A\n- [ ] Task B\n- [ ] Task C',
+  };
+  const checkboxCounts = { total: 3, checked: 0, unchecked: 3 };
+  const state = {
+    attempted_tasks: [{ task: 'Task A' }],
+  };
+  const appendix = buildTaskAppendix(sections, checkboxCounts, state);
+  assert.ok(appendix.includes('Recently Attempted Tasks'));
+  assert.ok(appendix.includes('Task A'));
+  assert.ok(appendix.includes('Suggested Next Task'));
+  assert.ok(appendix.includes('- Task B'));
+});
+
 test('markAgentRunning updates summary comment with running status', async () => {
   // Use formatStateComment to create proper state marker
   const existingStateBody = formatStateComment({
@@ -1516,6 +1805,48 @@ test('markAgentRunning creates comment when none exists', async () => {
   assert.ok(body.includes('Claude is actively working'), 'Should capitalize agent name');
   assert.ok(body.includes('Iteration | 1 of 3'), 'Should show iteration 1 (0+1)');
   assert.ok(body.includes('Task progress | 0/5'), 'Should show task progress');
+});
+
+test('markAgentRunning records suggested focus task in state', async () => {
+  const existingStateBody = formatStateComment({
+    trace: 'trace-focus',
+    iteration: 1,
+    attempted_tasks: [{ task: 'Task A' }],
+  });
+  const comments = [
+    {
+      id: 202,
+      body: `<!-- keepalive-loop-summary -->\n## Summary\n${existingStateBody}`,
+      html_url: 'https://example.com/202',
+    },
+  ];
+  const pr = {
+    number: 51,
+    head: { ref: 'feature/focus', sha: 'sha-focus' },
+    labels: [{ name: 'agent:codex' }],
+    body: '## Tasks\n- [ ] Task A\n- [ ] Task B\n## Acceptance Criteria\n- [ ] pass',
+  };
+  const github = buildGithubStub({ comments, pr });
+  const inputs = {
+    pr_number: 51,
+    agent_type: 'codex',
+    iteration: 1,
+    max_iterations: 3,
+    tasks_total: 3,
+    tasks_unchecked: 3,
+    trace: 'trace-focus',
+  };
+
+  await markAgentRunning({
+    github,
+    context: { repo: { owner: 'test', repo: 'repo' } },
+    core: buildCore(),
+    inputs,
+  });
+
+  const parsed = parseStateComment(github.actions[0].body);
+  assert.ok(parsed);
+  assert.equal(parsed.data.current_focus, 'Task B');
 });
 
 // =====================================================

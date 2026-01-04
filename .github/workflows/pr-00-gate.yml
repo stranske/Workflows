@@ -137,7 +137,7 @@ jobs:
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: '20'
       - run: node --test .github/scripts/__tests__/*.test.js
@@ -471,6 +471,7 @@ jobs:
         run: |
           python tools/post_ci_summary.py
         env:
+          PYTHONPATH: ${{ github.workspace }}
           RUNS_JSON: ${{ steps.gather.outputs.runs || '[]' }}
           HEAD_SHA: ${{ steps.gather.outputs.head_sha || github.event.pull_request.head.sha || github.sha }}
           COVERAGE_SECTION: ${{ steps.coverage_summary.outputs.body || '' }}
@@ -478,6 +479,7 @@ jobs:
           COVERAGE_DELTA: ${{ steps.coverage_stats.outputs.delta_json || '' }}
           REQUIRED_JOB_GROUPS_JSON: ${{ env.REQUIRED_JOB_GROUPS_JSON }}
           REQUIRED_CONTEXTS_FILE: .github/config/required-contexts.json
+          GATE_ARTIFACTS_ROOT: ${{ github.workspace }}/gate_artifacts
 
       - name: Compose PR summary comment
         id: compose_comment

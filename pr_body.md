@@ -1,32 +1,26 @@
 <!-- pr-preamble:start -->
-> **Source:** Issue #455
+> **Source:** Issue #477
 
 <!-- pr-preamble:end -->
 
 <!-- auto-status-summary:start -->
 ## Automated Status Summary
 #### Scope
-The current `issue_scope_parser.js` relies on regex patterns to extract Scope, Tasks, and Acceptance Criteria sections from PR bodies. When markdown formatting varies (different header styles, nested lists, missing sections), extraction fails and keepalive stops with "no-checklists" errors.
+_Scope section missing from source issue._
 
 #### Tasks
-- [x] Audit current `issue_scope_parser.js` for fragile patterns
-- [x] Add fallback patterns for common variations:
-- [x] - Bold headers (`**Tasks**`) vs markdown headers (`## Tasks`)
-- [x] - Numbered lists with checkboxes (`1. [ ] Task`)
-- [ ] - Nested task lists
-- [ ] - Missing section markers
-- [x] Add optional LLM extraction layer (gated by config/env var)
-- [x] Port LangChain extraction from `stranske/Trend_Model_Project/tools/langchain_task_extractor.py`
-- [x] Add tests for varied markdown formats
-- [x] Document supported variations
+- [ ] Create `scripts/langchain/capability_check.py` with classification chain
+- [ ] Create `AGENT_CAPABILITY_CHECK_PROMPT` with known limitations
+- [ ] Add pre-bridge check in `agents-63-issue-intake.yml`
+- [ ] Add `agents:review-needed` label handling for blocked tasks
+- [ ] Create comment formatter for human guidance summary
+- [ ] Update `issue_scope_parser.js` to handle deferred section
+- [ ] Add tests for capability classification
 
 #### Acceptance criteria
-- [x] Extraction succeeds with bold headers (`**Tasks**:`)
-- [x] Extraction succeeds with varied heading levels (`### Tasks`, `#### Tasks`)
-- [x] Extraction handles nested checkbox lists
-- [x] Extraction handles missing optional sections gracefully
-- [x] LLM extraction is opt-in and fails gracefully when unavailable
-- [x] No regression on currently working formats
-- [x] Tests cover at least 5 markdown variations
+- [ ] Tasks classified as ACTIONABLE/PARTIAL/BLOCKED with JSON output
+- [ ] Blocked tasks trigger `agents:review-needed` label instead of `agent:codex`
+- [ ] Comment posted explaining human actions needed
+- [ ] Deferred tasks moved to separate section (not sent to agent)
 
 <!-- auto-status-summary:end -->
