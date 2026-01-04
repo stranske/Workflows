@@ -8,8 +8,38 @@ const { loadKeepaliveState, formatStateComment } = require('./keepalive_state');
 const { classifyError, ERROR_CATEGORIES } = require('./error_classifier');
 const { formatFailureComment } = require('./failure_comment_formatter');
 
+const ATTEMPT_HISTORY_LIMIT = 5;
+const ATTEMPTED_TASK_LIMIT = 6;
+
+const PROMPT_ROUTES = {
+  fix: {
+    mode: 'fix_ci',
+    file: '.github/codex/prompts/fix_ci_failures.md',
+  },
+  verify: {
+    mode: 'verify',
+    file: '.github/codex/prompts/verifier_acceptance_check.md',
+  },
+  normal: {
+    mode: 'normal',
+    file: '.github/codex/prompts/keepalive_next_task.md',
+  },
+};
+
 function normalise(value) {
   return String(value ?? '').trim();
+}
+
+function resolvePromptRouting({ action, reason }) {
+  const actionValue = normalise(action);
+  const reasonValue = normalise(reason);
+  if (actionValue === 'fix' || reasonValue.startsWith('fix-')) {
+    return PROMPT_ROUTES.fix;
+  }
+  if (reasonValue === 'verify-acceptance' || actionValue === 'verify') {
+    return PROMPT_ROUTES.verify;
+  }
+  return PROMPT_ROUTES.normal;
 }
 
 function toBool(value, defaultValue = false) {
@@ -52,6 +82,120 @@ function toOptionalNumber(value) {
     return int;
   }
   return null;
+}
+
+function buildAttemptEntry({
+  iteration,
+  action,
+  reason,
+  runResult,
+  promptMode,
+  promptFile,
+  gateConclusion,
+  errorCategory,
+  errorType,
+}) {
+  const actionValue = normalise(action) || 'unknown';
+  const reasonValue = normalise(reason) || actionValue;
+  const entry = {
+    iteration: Math.max(0, toNumber(iteration, 0)),
+    action: actionValue,
+    reason: reasonValue,
+  };
+
+  if (runResult) {
+    entry.run_result = normalise(runResult);
+  }
+  if (promptMode) {
+    entry.prompt_mode = normalise(promptMode);
+  }
+  if (promptFile) {
+    entry.prompt_file = normalise(promptFile);
+  }
+  if (gateConclusion) {
+    entry.gate = normalise(gateConclusion);
+  }
+  if (errorCategory) {
+    entry.error_category = normalise(errorCategory);
+  }
+  if (errorType) {
+    entry.error_type = normalise(errorType);
+  }
+
+  return entry;
+}
+
+function updateAttemptHistory(existing, nextEntry, limit = ATTEMPT_HISTORY_LIMIT) {
+  const history = Array.isArray(existing)
+    ? existing.filter((item) => item && typeof item === 'object')
+    : [];
+  if (!nextEntry || typeof nextEntry !== 'object') {
+    return history.slice(-limit);
+  }
+  const trimmed = history.slice(-limit);
+  const last = trimmed[trimmed.length - 1];
+  if (
+    last &&
+    last.iteration === nextEntry.iteration &&
+    last.action === nextEntry.action &&
+    last.reason === nextEntry.reason
+  ) {
+    return [...trimmed.slice(0, -1), { ...last, ...nextEntry }];
+  }
+  return [...trimmed, nextEntry].slice(-limit);
+}
+
+function normaliseTaskText(value) {
+  return String(value ?? '').replace(/\s+/g, ' ').trim();
+}
+
+function normaliseTaskKey(value) {
+  return normaliseTaskText(value).toLowerCase();
+}
+
+function normaliseAttemptedTasks(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const entries = [];
+  value.forEach((entry) => {
+    if (typeof entry === 'string') {
+      const task = normaliseTaskText(entry);
+      if (task) {
+        entries.push({ task, key: normaliseTaskKey(task) });
+      }
+      return;
+    }
+    if (entry && typeof entry === 'object') {
+      const task = normaliseTaskText(entry.task || entry.text || '');
+      if (!task) {
+        return;
+      }
+      entries.push({
+        ...entry,
+        task,
+        key: normaliseTaskKey(entry.key || task),
+      });
+    }
+  });
+  return entries;
+}
+
+function updateAttemptedTasks(existing, nextTask, iteration, limit = ATTEMPTED_TASK_LIMIT) {
+  const history = normaliseAttemptedTasks(existing);
+  const taskText = normaliseTaskText(nextTask);
+  if (!taskText) {
+    return history.slice(-limit);
+  }
+  const key = normaliseTaskKey(taskText);
+  const trimmed = history.filter((entry) => entry.key !== key).slice(-limit);
+  const entry = {
+    task: taskText,
+    key,
+    iteration: Math.max(0, toNumber(iteration, 0)),
+    timestamp: new Date().toISOString(),
+  };
+  return [...trimmed, entry].slice(-limit);
 }
 
 function resolveDurationMs({ durationMs, startTs }) {
@@ -279,6 +423,21 @@ function extractSourceSection(body) {
   return null;
 }
 
+function extractChecklistItems(markdown) {
+  const items = [];
+  const content = String(markdown || '');
+  const regex = /(?:^|\n)\s*(?:[-*+]|\d+[.)])\s*\[( |x|X)\]\s*(.+)/g;
+  let match;
+  while ((match = regex.exec(content)) !== null) {
+    const checked = (match[1] || '').toLowerCase() === 'x';
+    const text = normaliseTaskText(match[2] || '');
+    if (text) {
+      items.push({ text, checked });
+    }
+  }
+  return items;
+}
+
 /**
  * Build the task appendix that gets passed to the agent prompt.
  * This provides explicit, structured tasks and acceptance criteria.
@@ -334,6 +493,29 @@ function buildTaskAppendix(sections, checkboxCounts, state = {}, options = {}) {
     lines.push(sections.acceptance);
     lines.push('');
   }
+
+  const attemptedTasks = normaliseAttemptedTasks(state?.attempted_tasks);
+  const candidateSource = sections?.tasks || sections?.acceptance || '';
+  const taskItems = extractChecklistItems(candidateSource);
+  const unchecked = taskItems.filter((item) => !item.checked);
+  const attemptedKeys = new Set(attemptedTasks.map((entry) => entry.key));
+  const suggested = unchecked.find((item) => !attemptedKeys.has(normaliseTaskKey(item.text))) || unchecked[0];
+
+  if (attemptedTasks.length > 0) {
+    lines.push('### Recently Attempted Tasks');
+    lines.push('Avoid repeating these unless a task needs explicit follow-up:');
+    lines.push('');
+    attemptedTasks.slice(-3).forEach((entry) => {
+      lines.push(`- ${entry.task}`);
+    });
+    lines.push('');
+  }
+
+  if (suggested?.text) {
+    lines.push('### Suggested Next Task');
+    lines.push(`- ${suggested.text}`);
+    lines.push('');
+  }
   
   // Add Source section if PR body contains links to parent issues/PRs
   if (options.prBody) {
@@ -350,6 +532,25 @@ function buildTaskAppendix(sections, checkboxCounts, state = {}, options = {}) {
   lines.push('---');
   
   return lines.join('\n');
+}
+
+async function fetchPrBody({ github, context, prNumber, core }) {
+  if (!github?.rest?.pulls?.get || !context?.repo?.owner || !context?.repo?.repo) {
+    return '';
+  }
+  try {
+    const { data } = await github.rest.pulls.get({
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+      pull_number: prNumber,
+    });
+    return String(data?.body || '');
+  } catch (error) {
+    if (core) {
+      core.info(`Failed to fetch PR body for task focus: ${error.message}`);
+    }
+    return '';
+  }
 }
 
 function extractConfigSnippet(body) {
@@ -866,6 +1067,9 @@ async function evaluateKeepaliveLoop({ github, context, core, payload: overrideP
 
   let action = 'wait';
   let reason = 'pending';
+  const verificationStatus = normalise(state?.verification?.status);
+  const verificationDone = ['done', 'verified', 'complete'].includes(verificationStatus.toLowerCase());
+  const needsVerification = allComplete && !verificationDone;
 
   if (!hasAgentLabel) {
     action = 'wait';
@@ -876,16 +1080,6 @@ async function evaluateKeepaliveLoop({ github, context, core, payload: overrideP
   } else if (!tasksPresent) {
     action = 'stop';
     reason = 'no-checklists';
-  } else if (allComplete) {
-    action = 'stop';
-    reason = 'tasks-complete';
-  } else if (shouldStopEarly) {
-    // Evidence-based early stopping: diminishing returns detected
-    action = 'stop';
-    reason = 'diminishing-returns';
-  } else if (shouldStopForMaxIterations) {
-    action = 'stop';
-    reason = isProductive ? 'max-iterations' : 'max-iterations-unproductive';
   } else if (gateNormalized !== 'success') {
     if (gateNormalized === 'cancelled') {
       gateRateLimit = await detectRateLimitCancellation({
@@ -919,16 +1113,29 @@ async function evaluateKeepaliveLoop({ github, context, core, payload: overrideP
         reason = gateNormalized ? 'gate-not-success' : 'gate-pending';
       }
     }
+  } else if (allComplete) {
+    if (needsVerification) {
+      action = 'run';
+      reason = 'verify-acceptance';
+    } else {
+      action = 'stop';
+      reason = 'tasks-complete';
+    }
+  } else if (shouldStopEarly) {
+    // Evidence-based early stopping: diminishing returns detected
+    action = 'stop';
+    reason = 'diminishing-returns';
+  } else if (shouldStopForMaxIterations) {
+    action = 'stop';
+    reason = isProductive ? 'max-iterations' : 'max-iterations-unproductive';
   } else if (tasksRemaining) {
     action = 'run';
     reason = iteration >= maxIterations ? 'ready-extended' : 'ready';
   }
 
-  // Determine prompt mode based on action
-  const promptMode = action === 'fix' ? 'fix_ci' : 'normal';
-  const promptFile = action === 'fix'
-    ? '.github/codex/prompts/fix_ci_failures.md'
-    : '.github/codex/prompts/keepalive_next_task.md';
+  const promptRoute = resolvePromptRouting({ action, reason });
+  const promptMode = promptRoute.mode;
+  const promptFile = promptRoute.file;
 
   return {
     prNumber,
@@ -982,6 +1189,11 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
   const agentFilesChanged = toNumber(inputs.agent_files_changed ?? inputs.agentFilesChanged ?? inputs.codex_files_changed ?? inputs.codexFilesChanged, 0);
   const agentSummary = normalise(inputs.agent_summary ?? inputs.agentSummary ?? inputs.codex_summary ?? inputs.codexSummary);
   const runUrl = normalise(inputs.run_url ?? inputs.runUrl);
+  const promptModeInput = normalise(inputs.prompt_mode ?? inputs.promptMode);
+  const promptFileInput = normalise(inputs.prompt_file ?? inputs.promptFile);
+  const promptRoute = resolvePromptRouting({ action, reason });
+  const promptMode = promptModeInput || promptRoute.mode;
+  const promptFile = promptFileInput || promptRoute.file;
 
   // LLM task analysis details
   const llmProvider = normalise(inputs.llm_provider ?? inputs.llmProvider);
@@ -1003,6 +1215,12 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
     trace: stateTrace,
   });
   const previousFailure = previousState?.failure || {};
+  const prBody = await fetchPrBody({ github, context, prNumber, core });
+  const focusSections = prBody ? normaliseChecklistSections(parseScopeTasksAcceptanceSections(prBody)) : {};
+  const focusItems = extractChecklistItems(focusSections.tasks || focusSections.acceptance || '');
+  const focusUnchecked = focusItems.filter((item) => !item.checked);
+  const currentFocus = normaliseTaskText(previousState?.current_focus || '');
+  const fallbackFocus = focusUnchecked[0]?.text || '';
 
   // Use the iteration from the CURRENT persisted state, not the stale value from evaluate.
   // This prevents race conditions where another run updated state between evaluate and summary.
@@ -1371,6 +1589,27 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
     );
   }
 
+  const focusTask = currentFocus || fallbackFocus;
+  const shouldRecordAttempt = action === 'run' && reason !== 'verify-acceptance';
+  let attemptedTasks = normaliseAttemptedTasks(previousState?.attempted_tasks);
+  if (shouldRecordAttempt && focusTask) {
+    attemptedTasks = updateAttemptedTasks(attemptedTasks, focusTask, metricsIteration);
+  }
+
+  let verification = previousState?.verification && typeof previousState.verification === 'object'
+    ? { ...previousState.verification }
+    : {};
+  if (tasksUnchecked > 0) {
+    verification = {};
+  } else if (reason === 'verify-acceptance') {
+    verification = {
+      status: runResult === 'success' ? 'done' : 'pending',
+      iteration: nextIteration,
+      last_result: runResult || '',
+      updated_at: new Date().toISOString(),
+    };
+  }
+
   const newState = {
     trace: stateTrace || previousState?.trace || '',
     pr_number: prNumber,
@@ -1392,7 +1631,22 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
     // Quality metrics for analysis validation
     last_effort_score: sessionEffortScore,
     last_data_quality: sessionDataQuality,
+    attempted_tasks: attemptedTasks,
+    last_focus: focusTask || '',
+    verification,
   };
+  const attemptEntry = buildAttemptEntry({
+    iteration: metricsIteration,
+    action,
+    reason: summaryReason,
+    runResult,
+    promptMode,
+    promptFile,
+    gateConclusion,
+    errorCategory,
+    errorType,
+  });
+  newState.attempts = updateAttemptHistory(previousState?.attempts, attemptEntry);
 
   const summaryOutcome = runResult || summaryReason || action || 'unknown';
   if (action === 'run' || runResult) {
@@ -1501,6 +1755,13 @@ async function markAgentRunning({ github, context, core, inputs }) {
     prNumber,
     trace: stateTrace,
   });
+  const prBody = await fetchPrBody({ github, context, prNumber, core });
+  const focusSections = prBody ? normaliseChecklistSections(parseScopeTasksAcceptanceSections(prBody)) : {};
+  const focusItems = extractChecklistItems(focusSections.tasks || focusSections.acceptance || '');
+  const focusUnchecked = focusItems.filter((item) => !item.checked);
+  const attemptedTasks = normaliseAttemptedTasks(previousState?.attempted_tasks);
+  const attemptedKeys = new Set(attemptedTasks.map((entry) => entry.key));
+  const suggestedFocus = focusUnchecked.find((item) => !attemptedKeys.has(normaliseTaskKey(item.text))) || focusUnchecked[0];
 
   // Capitalize agent name for display
   const agentDisplayName = agentType.charAt(0).toUpperCase() + agentType.slice(1);
@@ -1543,6 +1804,10 @@ async function markAgentRunning({ github, context, core, inputs }) {
   const preservedState = previousState || {};
   preservedState.running = true;
   preservedState.running_since = new Date().toISOString();
+  if (suggestedFocus?.text) {
+    preservedState.current_focus = suggestedFocus.text;
+    preservedState.current_focus_set_at = new Date().toISOString();
+  }
   
   summaryLines.push('', formatStateComment(preservedState));
   const body = summaryLines.join('\n');
