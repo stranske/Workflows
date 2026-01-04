@@ -13,7 +13,7 @@ Keepalive prompt generation uses hand-rolled templates in `keepalive_instruction
 
 #### Tasks
 - [x] Design prompt composition interface
-- [ ] Implement round-over-round state tracking (what was tried, what failed)
+- [x] Implement round-over-round state tracking (what was tried, what failed)
 - [ ] Add routing logic for different scenarios:
 - [ ] - CI failure: prioritize fix instructions
 - [ ] - Feature work: next task selection
