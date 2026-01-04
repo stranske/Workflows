@@ -457,7 +457,7 @@ jobs:
 
           # Check if any meaningful changes remain
           # Exclude: untracked .workflows-lib, .gitignore, codex-*, autofix* artifacts
-          REMAINING=$(git status --porcelain | grep -vE '^\?\? (\.workflows-lib|\.gitignore|codex-|autofix)' | wc -l 2>/dev/null || echo "0")
+          REMAINING=$(git status --porcelain | grep -vE '^\?\? (\.(workflows-lib|gitignore)|codex-|autofix)' | wc -l 2>/dev/null || echo "0")
           echo "remaining-changes=${REMAINING}" >> "$GITHUB_OUTPUT"
 
           if [ "$REMAINING" -gt 0 ]; then
