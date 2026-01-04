@@ -448,8 +448,11 @@ jobs:
 
           # Check if any meaningful changes remain
           # Exclude: untracked .workflows-lib, .gitignore, codex-*, autofix* artifacts
-          # Use grep -c for count; if grep finds nothing it returns 1, so default to 0
-          REMAINING=$(git status --porcelain | grep -cvE '^\?\? (\.(workflows-lib|gitignore)|codex-.*|autofix.*)' || echo "0")
+          # Use grep -c for count; if grep finds nothing it returns 1
+          # Strip whitespace to ensure clean integer (avoids "integer expression expected" errors)
+          REMAINING=$(git status --porcelain | grep -cvE '^\?\? (\.(workflows-lib|gitignore)|codex-.*|autofix.*)' 2>/dev/null || echo "0")
+          REMAINING=$(printf '%s' "$REMAINING" | tr -d '[:space:]')
+          REMAINING=${REMAINING:-0}
           echo "remaining-changes=${REMAINING}" >> "$GITHUB_OUTPUT"
 
           if [ "$REMAINING" -gt 0 ]; then
