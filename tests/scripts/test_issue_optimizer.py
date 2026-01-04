@@ -76,3 +76,23 @@ def test_apply_suggestions_fallback_adds_deferred_tasks() -> None:
     formatted = result["formatted_body"]
     assert "## Deferred Tasks (Requires Human)" in formatted
     assert "- [ ] Update workflow (Protected | Ask human)" in formatted
+
+
+def test_apply_suggestions_fallback_inserts_decomposed_tasks() -> None:
+    issue_body = "## Tasks\n- [ ] Update docs and add tests\n"
+    suggestions = {
+        "task_splitting": [
+            {
+                "task": "Update docs and add tests",
+                "split_suggestions": [
+                    "Update docs (verify: docs updated)",
+                    "Add tests (verify: tests pass)",
+                ],
+            }
+        ]
+    }
+    result = issue_optimizer.apply_suggestions(issue_body, suggestions, use_llm=False)
+    formatted = result["formatted_body"]
+    assert "- [ ] Update docs and add tests" in formatted
+    assert "  - [ ] Update docs (verify: docs updated)" in formatted
+    assert "  - [ ] Add tests (verify: tests pass)" in formatted

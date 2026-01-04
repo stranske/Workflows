@@ -316,21 +316,6 @@ def _parse_checklist(lines: list[str]) -> list[str]:
     return items
 
 
-def _detect_task_splitting(tasks: list[str]) -> list[dict[str, Any]]:
-    results: list[dict[str, Any]] = []
-    for task in tasks:
-        lowered = task.lower()
-        if len(task.split()) >= 14 or " and " in lowered or ", " in task or "/" in task:
-            results.append(
-                {
-                    "task": task,
-                    "reason": "Task combines multiple actions",
-                    "split_suggestions": ["Split into smaller, single-action tasks"],
-                }
-            )
-    return results
-
-
 def _detect_blocked_tasks(tasks: list[str]) -> list[dict[str, str]]:
     blocked: list[dict[str, str]] = []
     for task in tasks:
@@ -400,7 +385,7 @@ def _fallback_analysis(issue_body: str) -> IssueOptimizationResult:
     formatting_issues.extend(_detect_formatting_issues(sections["acceptance"]))
 
     return IssueOptimizationResult(
-        task_splitting=_detect_task_splitting(tasks),
+        task_splitting=_detect_task_splitting(tasks, use_llm=False),
         blocked_tasks=_detect_blocked_tasks(tasks),
         objective_criteria=_detect_objective_criteria(acceptance),
         missing_sections=missing_sections,
@@ -443,6 +428,81 @@ def _formatted_output_valid(text: str) -> bool:
         return False
     required = ["## Tasks", "## Acceptance Criteria"]
     return all(section in text for section in required)
+
+
+def _strip_task_marker(text: str) -> str:
+    cleaned = re.sub(r"^\s*[-*+]\s*", "", text)
+    cleaned = re.sub(r"^\s*\[[ xX]\]\s*", "", cleaned)
+    return cleaned.strip()
+
+
+def _normalize_task_text(text: str) -> str:
+    cleaned = re.sub(r"\s+", " ", text.strip())
+    return cleaned.lower()
+
+
+def _coerce_split_suggestions(entry: dict[str, Any]) -> list[str]:
+    suggestions = entry.get("split_suggestions")
+    if not isinstance(suggestions, list):
+        return []
+    items: list[str] = []
+    for suggestion in suggestions:
+        value = str(suggestion).strip()
+        if value:
+            items.append(value)
+    return items
+
+
+def _is_large_task(task: str) -> bool:
+    lowered = task.lower()
+    return len(task.split()) >= 14 or " and " in lowered or ", " in task or "/" in task
+
+
+def _detect_task_splitting(tasks: list[str], *, use_llm: bool = False) -> list[dict[str, Any]]:
+    from scripts.langchain import task_decomposer
+
+    results: list[dict[str, Any]] = []
+    for task in tasks:
+        if not _is_large_task(task):
+            continue
+        decomposition = task_decomposer.decompose_task(task, use_llm=use_llm)
+        split_suggestions = decomposition.get("sub_tasks") or []
+        if not split_suggestions:
+            split_suggestions = ["Split into smaller, single-action tasks"]
+        results.append(
+            {
+                "task": task,
+                "reason": "Task combines multiple actions",
+                "split_suggestions": split_suggestions,
+            }
+        )
+    return results
+
+
+def _ensure_task_decomposition(
+    task_splitting: list[dict[str, Any]], *, use_llm: bool
+) -> list[dict[str, Any]]:
+    if not task_splitting:
+        return task_splitting
+
+    from scripts.langchain import task_decomposer
+
+    updated: list[dict[str, Any]] = []
+    for entry in task_splitting:
+        if not isinstance(entry, dict):
+            continue
+        task = str(entry.get("task") or "").strip()
+        if not task:
+            continue
+        suggestions = _coerce_split_suggestions(entry)
+        if not suggestions:
+            decomposition = task_decomposer.decompose_task(task, use_llm=use_llm)
+            suggestions = decomposition.get("sub_tasks") or []
+        updated_entry = dict(entry)
+        if suggestions:
+            updated_entry["split_suggestions"] = suggestions
+        updated.append(updated_entry)
+    return updated
 
 
 def _normalize_result(
@@ -503,9 +563,15 @@ def analyze_issue(issue_body: str, *, use_llm: bool = True) -> IssueOptimization
                     except json.JSONDecodeError:
                         data = None
                     if isinstance(data, dict):
-                        return _normalize_result(data, provider)
+                        result = _normalize_result(data, provider)
+                        result.task_splitting = _ensure_task_decomposition(
+                            result.task_splitting, use_llm=use_llm
+                        )
+                        return result
 
-    return _fallback_analysis(issue_body)
+    result = _fallback_analysis(issue_body)
+    result.task_splitting = _ensure_task_decomposition(result.task_splitting, use_llm=False)
+    return result
 
 
 def _blocked_task_lines(suggestions: dict[str, Any]) -> list[str]:
@@ -544,6 +610,64 @@ def _append_deferred_tasks(formatted_body: str, suggestions: dict[str, Any]) -> 
     return "\n".join(parts).strip()
 
 
+def _apply_task_decomposition(formatted_body: str, suggestions: dict[str, Any]) -> str:
+    raw_entries = suggestions.get("task_splitting")
+    if not isinstance(raw_entries, list) or not raw_entries:
+        return formatted_body
+
+    decomposition_map: dict[str, list[str]] = {}
+    for entry in raw_entries:
+        if not isinstance(entry, dict):
+            continue
+        task = str(entry.get("task") or "").strip()
+        if not task:
+            continue
+        sub_tasks = _coerce_split_suggestions(entry)
+        if not sub_tasks:
+            continue
+        decomposition_map[_normalize_task_text(task)] = sub_tasks
+
+    if not decomposition_map:
+        return formatted_body
+
+    lines = formatted_body.splitlines()
+    header = "## Tasks"
+    try:
+        header_idx = next(i for i, line in enumerate(lines) if line.strip() == header)
+    except StopIteration:
+        return formatted_body
+
+    end_idx = next(
+        (
+            i
+            for i in range(header_idx + 1, len(lines))
+            if lines[i].startswith("## ") and lines[i].strip() != header
+        ),
+        len(lines),
+    )
+
+    updated: list[str] = []
+    updated.extend(lines[: header_idx + 1])
+    task_lines = lines[header_idx + 1 : end_idx]
+    for line in task_lines:
+        updated.append(line)
+        if not line.strip() or not LIST_ITEM_REGEX.match(line.strip()):
+            continue
+        task_text = _strip_task_marker(line)
+        sub_tasks = decomposition_map.get(_normalize_task_text(task_text))
+        if not sub_tasks:
+            continue
+        indent = re.match(r"^\s*", line).group(0)
+        sub_indent = f"{indent}  "
+        for sub_task in sub_tasks:
+            cleaned = _strip_task_marker(sub_task)
+            if cleaned:
+                updated.append(f"{sub_indent}- [ ] {cleaned}")
+
+    updated.extend(lines[end_idx:])
+    return "\n".join(updated).strip()
+
+
 def apply_suggestions(
     issue_body: str, suggestions: dict[str, Any], *, use_llm: bool = True
 ) -> dict[str, Any]:
@@ -580,7 +704,8 @@ def apply_suggestions(
     from scripts.langchain import issue_formatter
 
     fallback = issue_formatter.format_issue_body(issue_body, use_llm=False)
-    formatted = _append_deferred_tasks(fallback["formatted_body"], suggestions)
+    formatted = _apply_task_decomposition(fallback["formatted_body"], suggestions)
+    formatted = _append_deferred_tasks(formatted, suggestions)
     return {
         "formatted_body": formatted,
         "provider_used": None,
