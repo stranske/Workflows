@@ -305,6 +305,29 @@ test('evaluateKeepaliveLoop triggers fix mode when gate fails with test failures
   assert.equal(result.action, 'fix');
   assert.equal(result.reason, 'fix-test');
   assert.equal(result.promptMode, 'fix_ci');
+  assert.equal(result.promptFile, '.github/codex/prompts/fix_ci_failures.md');
+});
+
+test('evaluateKeepaliveLoop uses normal prompt when tasks remain', async () => {
+  const pr = {
+    number: 5051,
+    head: { ref: 'feature/next-task', sha: 'sha-next' },
+    labels: [{ name: 'agent:codex' }],
+    body: '## Tasks\n- [ ] one\n## Acceptance Criteria\n- [ ] a',
+  };
+  const github = buildGithubStub({
+    pr,
+    workflowRuns: [{ head_sha: 'sha-next', conclusion: 'success' }],
+  });
+  const result = await evaluateKeepaliveLoop({
+    github,
+    context: buildContext(pr.number),
+    core: buildCore(),
+  });
+  assert.equal(result.action, 'run');
+  assert.equal(result.reason, 'ready');
+  assert.equal(result.promptMode, 'normal');
+  assert.equal(result.promptFile, '.github/codex/prompts/keepalive_next_task.md');
 });
 
 test('evaluateKeepaliveLoop honors prompt scenario overrides from config', async () => {
