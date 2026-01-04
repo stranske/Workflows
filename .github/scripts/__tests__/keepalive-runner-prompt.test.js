@@ -68,8 +68,8 @@ test('resolveKeepalivePromptContext keeps default behavior when tasks remain', (
   assert.equal(result.reason, 'ready');
 });
 
-test('resolvePromptCheckboxCounts prefers latest checklist when it has outstanding work', () => {
-  const scopeCounts = { total: 2, unchecked: 0 };
+test('resolvePromptCheckboxCounts prefers latest checklist when scope remains incomplete', () => {
+  const scopeCounts = { total: 2, unchecked: 1 };
   const latestChecklist = { total: 3, unchecked: 1 };
   const counts = resolvePromptCheckboxCounts(scopeCounts, latestChecklist);
   const result = resolveKeepalivePromptContext({
@@ -81,6 +81,21 @@ test('resolvePromptCheckboxCounts prefers latest checklist when it has outstandi
   assert.deepEqual(counts, { total: 3, unchecked: 1 });
   assert.equal(result.action, 'run');
   assert.equal(result.reason, 'ready');
+});
+
+test('resolvePromptCheckboxCounts prefers completed scope counts over stale checklist', () => {
+  const scopeCounts = { total: 2, unchecked: 0 };
+  const latestChecklist = { total: 3, unchecked: 1 };
+  const counts = resolvePromptCheckboxCounts(scopeCounts, latestChecklist);
+  const result = resolveKeepalivePromptContext({
+    labels: ['agents:keepalive'],
+    checkboxCounts: counts,
+    options: {},
+  });
+
+  assert.deepEqual(counts, scopeCounts);
+  assert.equal(result.action, 'verify');
+  assert.equal(result.reason, 'verify-acceptance');
 });
 
 test('resolvePromptCheckboxCounts falls back to scope counts without a checklist', () => {

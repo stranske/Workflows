@@ -106,6 +106,9 @@ function resolvePromptCheckboxCounts(scopeCounts, latestChecklist) {
   if (!latestChecklist || typeof latestChecklist !== 'object') {
     return safeScope;
   }
+  if (safeScope.total > 0 && safeScope.unchecked === 0) {
+    return safeScope;
+  }
   const total = Number.isFinite(latestChecklist.total) ? latestChecklist.total : 0;
   const unchecked = Number.isFinite(latestChecklist.unchecked) ? latestChecklist.unchecked : 0;
   if (total > 0) {
