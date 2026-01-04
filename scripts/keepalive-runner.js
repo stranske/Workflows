@@ -52,6 +52,10 @@ function coerceNumber(value, fallback, { min } = { min: 0 }) {
   return num;
 }
 
+function normaliseValue(value) {
+  return String(value ?? '').trim();
+}
+
 function dedupe(values) {
   const seen = new Set();
   const unique = [];
@@ -77,6 +81,61 @@ function hasCliAgentLabel(labels) {
     return false;
   }
   return labels.some((label) => label.startsWith('agent:'));
+}
+
+function countCheckboxes(markdown) {
+  const result = { total: 0, checked: 0, unchecked: 0 };
+  const regex = /(?:^|\n)\s*(?:[-*+]|\d+[.)])\s*\[( |x|X)\]/g;
+  const content = String(markdown || '');
+  let match;
+  while ((match = regex.exec(content)) !== null) {
+    result.total += 1;
+    if ((match[1] || '').toLowerCase() === 'x') {
+      result.checked += 1;
+    } else {
+      result.unchecked += 1;
+    }
+  }
+  return result;
+}
+
+function resolveKeepalivePromptContext({ labels, checkboxCounts, options }) {
+  const safeLabels = Array.isArray(labels) ? labels : [];
+  const counts = checkboxCounts && typeof checkboxCounts === 'object' ? checkboxCounts : {};
+  const total = Number.isFinite(counts.total) ? counts.total : 0;
+  const unchecked = Number.isFinite(counts.unchecked) ? counts.unchecked : 0;
+  const tasksComplete = total > 0 && unchecked === 0;
+  const hasCiFailure = safeLabels.includes('ci-failure');
+
+  const modeOverride = normaliseValue(options?.keepalive_prompt_mode ?? options?.prompt_mode);
+  const scenarioOverride = normaliseValue(
+    options?.keepalive_prompt_scenario ?? options?.prompt_scenario
+  );
+
+  let action = 'run';
+  let reason = 'ready';
+  let scenario = scenarioOverride;
+
+  if (hasCiFailure) {
+    action = 'fix';
+    reason = 'ci-failure';
+    if (!scenario) {
+      scenario = 'ci-failure';
+    }
+  } else if (tasksComplete) {
+    action = 'verify';
+    reason = 'verify-acceptance';
+    if (!scenario) {
+      scenario = 'verification';
+    }
+  }
+
+  return {
+    mode: modeOverride,
+    scenario,
+    action,
+    reason,
+  };
 }
 
 const NON_ASSIGNABLE_LOGINS = new Set([
@@ -632,9 +691,7 @@ async function runKeepalive({ core, github, context, env = process.env }) {
   targetLabels = dedupe(targetLabels);
 
   // Instruction loaded from .github/templates/keepalive-instruction.md
-  const defaultCommand = getKeepaliveInstructionWithMention('codex');
-  const commandRaw = options.keepalive_command ?? defaultCommand;
-  const command = String(commandRaw).trim() || defaultCommand;
+  const commandOverride = normaliseValue(options.keepalive_command);
 
   const canonicalMarker = '<!-- codex-keepalive-marker -->';
   const markerRaw = options.keepalive_marker ?? canonicalMarker;
@@ -884,6 +941,25 @@ async function runKeepalive({ core, github, context, env = process.env }) {
         }
       }
 
+      const scopeBlock = findScopeTasksAcceptanceBlock({
+        prBody: pr.body || '',
+        comments,
+        override: scopeOverride,
+      });
+
+      if (!scopeBlock) {
+        core.warning(`#${prNumber}: missing scope/tasks/acceptance block; keepalive comment skipped.`);
+        recordSkip('scope/tasks/acceptance block unavailable');
+        continue;
+      }
+
+      const checkboxCounts = countCheckboxes(scopeBlock);
+      const promptContext = resolveKeepalivePromptContext({
+        labels: labelNames,
+        checkboxCounts,
+        options,
+      });
+
       const checklistComments = botComments
         .map((comment) => {
           const body = comment.body || '';
@@ -896,7 +972,7 @@ async function runKeepalive({ core, github, context, env = process.env }) {
         .sort((a, b) => new Date(b.comment.updated_at || b.comment.created_at) - new Date(a.comment.updated_at || a.comment.created_at));
 
       const latestChecklist = checklistComments[0];
-      if (!latestChecklist) {
+      if (!latestChecklist && !(checkboxCounts.total > 0 && checkboxCounts.unchecked === 0)) {
         recordSkip('no Codex checklist with outstanding tasks');
         continue;
       }
@@ -916,25 +992,15 @@ async function runKeepalive({ core, github, context, env = process.env }) {
         }
       }
 
-  const totalTasks = latestChecklist.total;
-  const outstanding = latestChecklist.unchecked;
+  const totalTasks = latestChecklist?.total ?? checkboxCounts.total;
+  const outstanding = latestChecklist?.unchecked ?? checkboxCounts.unchecked;
   const nextRound = computeNextRound(keepaliveCandidates);
   const roundMarker = `<!-- keepalive-round: ${nextRound} -->`;
   const attemptMarker = `<!-- keepalive-attempt: ${nextRound} -->`;
   const traceToken = buildTraceToken({ seed: traceSeed, prNumber, round: nextRound });
   const traceMarker = `<!-- keepalive-trace: ${traceToken} -->`;
-
-      const scopeBlock = findScopeTasksAcceptanceBlock({
-        prBody: pr.body || '',
-        comments,
-        override: scopeOverride,
-      });
-
-      if (!scopeBlock) {
-        core.warning(`#${prNumber}: missing scope/tasks/acceptance block; keepalive comment skipped.`);
-        recordSkip('scope/tasks/acceptance block unavailable');
-        continue;
-      }
+      const command =
+        commandOverride || getKeepaliveInstructionWithMention('codex', promptContext);
 
   const bodyParts = [roundMarker, attemptMarker, canonicalMarker, traceMarker, command];
       bodyParts.push('', scopeBlock);
@@ -1160,4 +1226,6 @@ module.exports = {
   buildOctokitInstance,
   extractScopeTasksAcceptanceSections,
   findScopeTasksAcceptanceBlock,
+  countCheckboxes,
+  resolveKeepalivePromptContext,
 };
