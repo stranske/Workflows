@@ -11,10 +11,10 @@ _Scope section missing from source issue._
 #### Tasks
 - [x] Create task decomposition chain with `TASK_DECOMPOSITION_PROMPT`
 - [x] Integrate with Formatter (#478) or Capability Check (#477)
-- [x] Each sub-task must be:
-- [x] - Completable in one iteration
-- [x] - Have clear verification condition
-- [x] - Not depend on un-merged work from other sub-tasks
+- [ ] Each sub-task must be:
+- [ ] - Completable in one iteration
+- [ ] - Have clear verification condition
+- [ ] - Not depend on un-merged work from other sub-tasks
 - [x] Add tests for decomposition scenarios
 
 #### Acceptance criteria
