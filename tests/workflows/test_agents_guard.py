@@ -382,7 +382,7 @@ def test_detect_no_violations_for_clean_workflow():
         jobs:
           guard:
             steps:
-              - uses: actions/checkout@v4
+              - uses: actions/checkout@v6
                 with:
                   ref: main
               - run: echo "safe"
@@ -399,7 +399,7 @@ def test_detect_flags_head_sha_checkout():
         jobs:
           guard:
             steps:
-              - uses: actions/checkout@v4
+              - uses: actions/checkout@v6
                 with:
                   ref: ${{ github.event.pull_request.head.sha }}
         """
@@ -460,7 +460,7 @@ def test_validate_accepts_clean_workflow(tmp_path):
         jobs:
           guard:
             steps:
-              - uses: actions/checkout@v4
+              - uses: actions/checkout@v6
                 with:
                   ref: main
               - run: echo "safe"
@@ -487,7 +487,7 @@ def test_validate_blocks_unsafe_workflow(tmp_path):
         jobs:
           guard:
             steps:
-              - uses: actions/checkout@v4
+              - uses: actions/checkout@v6
                 with:
                   ref: ${{ github.event.pull_request.head.sha }}
         """

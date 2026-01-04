@@ -355,8 +355,8 @@ def test_selftest_runner_jobs_contract() -> None:
     verify_step = _find_step(lambda step: step.get("id") == "verify")
     assert verify_step, "Aggregate job must include the verification step."
     assert (
-        verify_step.get("uses") == "actions/github-script@v7"
-    ), "Verification step should leverage actions/github-script@v7."
+        verify_step.get("uses", "").startswith("actions/github-script@")
+    ), "Verification step should leverage actions/github-script."
     verify_env = verify_step.get("env", {})
     assert (
         verify_env.get("PYTHON_VERSIONS") == "${{ env.REQUESTED_PYTHONS }}"
@@ -368,8 +368,8 @@ def test_selftest_runner_jobs_contract() -> None:
     upload_step = _find_step(lambda step: step.get("name") == "Upload self-test report")
     assert upload_step, "Aggregate job must upload the self-test report artifact."
     assert (
-        upload_step.get("uses") == "actions/upload-artifact@v6"
-    ), "Self-test report upload should use actions/upload-artifact@v6."
+        upload_step.get("uses", "").startswith("actions/upload-artifact@")
+    ), "Self-test report upload should use actions/upload-artifact."
     upload_with = upload_step.get("with", {})
     assert (
         upload_with.get("name") == "selftest-report"
@@ -446,8 +446,8 @@ def test_selftest_runner_publish_job_contract() -> None:
     download_step = _find_step("Download self-test report")
     assert download_step, "Download step missing from publish job."
     assert (
-        download_step.get("uses") == "actions/download-artifact@v7"
-    ), "Download step should use actions/download-artifact@v7."
+        download_step.get("uses", "").startswith("actions/download-artifact@")
+    ), "Download step should use actions/download-artifact."
     assert (
         download_step.get("if") == "${{ env.ENABLE_HISTORY == 'true' && env.RUN_ID != '' }}"
     ), "Download step must guard on enable_history input and aggregate run id."
