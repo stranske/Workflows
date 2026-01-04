@@ -122,7 +122,7 @@ test('countCheckboxes handles numbered lists with parentheses', () => {
 test('parseConfig reads JSON config snippets and normalizes values', () => {
   const body = `
 <!-- keepalive-config:start -->
-{"keepalive_enabled": false, "iteration": "2", "max_iterations": 4, "failure_threshold": "7", "trace": "abc"}
+{"keepalive_enabled": false, "iteration": "2", "max_iterations": 4, "failure_threshold": "7", "trace": "abc", "prompt_scenario": "verification"}
 <!-- keepalive-config:end -->
 `;
   const config = parseConfig(body);
@@ -131,6 +131,7 @@ test('parseConfig reads JSON config snippets and normalizes values', () => {
   assert.equal(config.max_iterations, 4);
   assert.equal(config.failure_threshold, 7);
   assert.equal(config.trace, 'abc');
+  assert.equal(config.prompt_scenario, 'verification');
 });
 
 test('parseConfig reads key/value config blocks', () => {
@@ -304,6 +305,32 @@ test('evaluateKeepaliveLoop triggers fix mode when gate fails with test failures
   assert.equal(result.action, 'fix');
   assert.equal(result.reason, 'fix-test');
   assert.equal(result.promptMode, 'fix_ci');
+});
+
+test('evaluateKeepaliveLoop honors prompt scenario overrides from config', async () => {
+  const pr = {
+    number: 5050,
+    head: { ref: 'feature/override', sha: 'sha-override' },
+    labels: [{ name: 'agent:codex' }],
+    body: [
+      '## Tasks',
+      '- [ ] one',
+      '## Acceptance Criteria',
+      '- [ ] a',
+      '<!-- keepalive-config: {"prompt_scenario": "verification"} -->',
+    ].join('\n'),
+  };
+  const github = buildGithubStub({
+    pr,
+    workflowRuns: [{ id: 2001, head_sha: 'sha-override', conclusion: 'success' }],
+  });
+  const result = await evaluateKeepaliveLoop({
+    github,
+    context: buildContext(pr.number),
+    core: buildCore(),
+  });
+  assert.equal(result.action, 'run');
+  assert.equal(result.promptMode, 'verify');
 });
 
 test('evaluateKeepaliveLoop waits when gate fails with lint failures', async () => {

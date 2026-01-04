@@ -623,6 +623,9 @@ function parseConfigFromSnippet(snippet) {
 function normaliseConfig(config = {}) {
   const cfg = config && typeof config === 'object' ? config : {};
   const trace = normalise(cfg.trace || cfg.keepalive_trace);
+  const promptMode = normalise(cfg.prompt_mode ?? cfg.promptMode);
+  const promptFile = normalise(cfg.prompt_file ?? cfg.promptFile);
+  const promptScenario = normalise(cfg.prompt_scenario ?? cfg.promptScenario);
   return {
     keepalive_enabled: toBool(
       cfg.keepalive_enabled ?? cfg.enable_keepalive ?? cfg.keepalive,
@@ -633,6 +636,9 @@ function normaliseConfig(config = {}) {
     max_iterations: toNumber(cfg.max_iterations ?? cfg.keepalive_max_iterations, 5),
     failure_threshold: toNumber(cfg.failure_threshold ?? cfg.keepalive_failure_threshold, 3),
     trace,
+    prompt_mode: promptMode,
+    prompt_file: promptFile,
+    prompt_scenario: promptScenario,
   };
 }
 
@@ -1127,9 +1133,17 @@ async function evaluateKeepaliveLoop({ github, context, core, payload: overrideP
     reason = iteration >= maxIterations ? 'ready-extended' : 'ready';
   }
 
-  const promptRoute = resolvePromptRouting({ action, reason });
-  const promptMode = promptRoute.mode;
-  const promptFile = promptRoute.file;
+  const promptScenario = normalise(config.prompt_scenario);
+  const promptModeOverride = normalise(config.prompt_mode);
+  const promptFileOverride = normalise(config.prompt_file);
+  const promptRoute = resolvePromptRouting({
+    scenario: promptScenario,
+    mode: promptModeOverride,
+    action,
+    reason,
+  });
+  const promptMode = promptModeOverride || promptRoute.mode;
+  const promptFile = promptFileOverride || promptRoute.file;
 
   return {
     prNumber,
@@ -1185,7 +1199,13 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
   const runUrl = normalise(inputs.run_url ?? inputs.runUrl);
   const promptModeInput = normalise(inputs.prompt_mode ?? inputs.promptMode);
   const promptFileInput = normalise(inputs.prompt_file ?? inputs.promptFile);
-  const promptRoute = resolvePromptRouting({ action, reason });
+  const promptScenarioInput = normalise(inputs.prompt_scenario ?? inputs.promptScenario);
+  const promptRoute = resolvePromptRouting({
+    scenario: promptScenarioInput,
+    mode: promptModeInput,
+    action,
+    reason,
+  });
   const promptMode = promptModeInput || promptRoute.mode;
   const promptFile = promptFileInput || promptRoute.file;
 
