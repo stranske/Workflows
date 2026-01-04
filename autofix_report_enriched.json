@@ -1,1 +1,1 @@
-{"changed": true, "classification": {"total": 0, "new": 0, "allowed": 0}, "timestamp": "2026-01-04T14:43:44Z", "files": ["tests/workflows/test_workflow_agents_consolidation.py"]}
+{"changed": true, "classification": {"total": 0, "new": 0, "allowed": 0}, "timestamp": "2026-01-04T14:44:59Z", "files": ["tests/workflows/test_workflow_selftest_consolidation.py"]}
