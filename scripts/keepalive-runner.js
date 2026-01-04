@@ -114,13 +114,17 @@ function resolvePromptCheckboxCounts(scopeCounts, latestChecklist) {
   return safeScope;
 }
 
+const CI_FAILURE_LABEL_REGEX = /\bci(?:[-_:\s]+)?fail(?:ed|ing|ure)?\b/;
+
 function resolveKeepalivePromptContext({ labels, checkboxCounts, options }) {
   const safeLabels = Array.isArray(labels) ? labels : [];
   const counts = checkboxCounts && typeof checkboxCounts === 'object' ? checkboxCounts : {};
   const total = Number.isFinite(counts.total) ? counts.total : 0;
   const unchecked = Number.isFinite(counts.unchecked) ? counts.unchecked : 0;
   const tasksComplete = total > 0 && unchecked === 0;
-  const hasCiFailure = safeLabels.includes('ci-failure');
+  const hasCiFailure = safeLabels.some((label) =>
+    CI_FAILURE_LABEL_REGEX.test(String(label || '').toLowerCase())
+  );
 
   const modeOverride = normaliseValue(options?.keepalive_prompt_mode ?? options?.prompt_mode);
   const scenarioOverride = normaliseValue(

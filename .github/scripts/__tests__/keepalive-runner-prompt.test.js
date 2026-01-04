@@ -21,6 +21,18 @@ test('resolveKeepalivePromptContext prioritizes ci-failure labels', () => {
   assert.equal(result.scenario, 'ci-failure');
 });
 
+test('resolveKeepalivePromptContext treats ci failure label variants as failures', () => {
+  const result = resolveKeepalivePromptContext({
+    labels: ['ci_failed'],
+    checkboxCounts: { total: 2, unchecked: 1 },
+    options: {},
+  });
+
+  assert.equal(result.action, 'fix');
+  assert.equal(result.reason, 'ci-failure');
+  assert.equal(result.scenario, 'ci-failure');
+});
+
 test('resolveKeepalivePromptContext respects explicit scenario overrides', () => {
   const result = resolveKeepalivePromptContext({
     labels: ['ci-failure'],
