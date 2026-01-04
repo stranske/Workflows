@@ -137,7 +137,7 @@ return after a break:
    every merge.
 4. **Practice finding the agents guardrails** by visiting the
   [Health 45 Agents Guard history](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-guard.yml)
-* [`dependabot-auto-label.yml`](../../.github/workflows/dependabot-auto-label.yml) - Auto-labels Dependabot PRs with agents:allow-change
+* [`maint-dependabot-auto-label.yml`](../../.github/workflows/maint-dependabot-auto-label.yml) - Auto-labels Dependabot PRs with agents:allow-change
    and reading a recent run summary. It confirms how the label and review gates
    manifest in CI when protected files change.
 5. **Walk through a dry-run change**: open this document, the Workflow Catalog,
@@ -177,7 +177,7 @@ explain why a particular status appears in the Checks tab.
 | **Health 42 Actionlint** (`health-42-actionlint.yml`) | Manual dispatch (or via `workflow_call` from the sweep) | ❌ Informational linting | Check annotations in the associated workflow run | Actions tab → workflow → **Run workflow** (set `REPORTER` inputs if needed) |
 | **Agents 70 Orchestrator** (`agents-70-orchestrator.yml`) | Cron every 20 minutes, manual dispatch | ⚪ Automation backbone (not a PR status) | Workflow run in **Actions → Agents 70 Orchestrator** (no Checks tab status) | Actions tab → workflow → **Run workflow** (tune `dry_run` / `params_json`) |
 | **Health 45 Agents Guard** (`agents-guard.yml`) | Every pull request (`pull_request`); label changes via `pull_request_target` (labels starting with `agent:`) | ✅ Required status (fails only when protected workflow policies are violated) | **Health 45 Agents Guard / Enforce agents workflow protections** in PR **Checks → Required** | Checks tab → **Health 45 Agents Guard** → **Re-run** after updating labels/reviews |
-* [`dependabot-auto-label.yml`](../../.github/workflows/dependabot-auto-label.yml) - Auto-labels Dependabot PRs with agents:allow-change
+* [`maint-dependabot-auto-label.yml`](../../.github/workflows/maint-dependabot-auto-label.yml) - Auto-labels Dependabot PRs with agents:allow-change
 
 
 > ℹ️ **Merge-gating recap.**
@@ -257,7 +257,7 @@ explain why a particular status appears in the Checks tab.
   Codex work flowing; failures usually demand immediate triage.
 
 #### Health 45 Agents Guard (`agents-guard.yml`)
-* [`dependabot-auto-label.yml`](../../.github/workflows/dependabot-auto-label.yml) - Auto-labels Dependabot PRs with agents:allow-change
+* [`maint-dependabot-auto-label.yml`](../../.github/workflows/maint-dependabot-auto-label.yml) - Auto-labels Dependabot PRs with agents:allow-change
 
 - **When it runs.** Every pull request (`pull_request`) plus label changes via
   `pull_request_target` (labels beginning with `agent:`—for example
@@ -375,7 +375,7 @@ fires where” without diving into the full tables:
     - **Primary workflows.** `agents-70-orchestrator.yml`, the belt chain (`agents-71/72/73`),
       the shared intake (`agents-63-issue-intake.yml`), `agents-64-verify-agent-assignment.yml`,
       and `agents-guard.yml`.
-* [`dependabot-auto-label.yml`](../../.github/workflows/dependabot-auto-label.yml) - Auto-labels Dependabot PRs with agents:allow-change
+* [`maint-dependabot-auto-label.yml`](../../.github/workflows/maint-dependabot-auto-label.yml) - Auto-labels Dependabot PRs with agents:allow-change
     - **Triggers.** A mix of orchestrator cron/manual dispatches, labelled
       issues, schedules, and guarded pull requests when protected YAML changes.
   - **Purpose.** Convert tracked issues into automation tasks while preserving
@@ -388,7 +388,7 @@ fires where” without diving into the full tables:
     [workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-63-issue-intake.yml).
   Health 45 Agents Guard:
     [workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-guard.yml).
-* [`dependabot-auto-label.yml`](../../.github/workflows/dependabot-auto-label.yml) - Auto-labels Dependabot PRs with agents:allow-change
+* [`maint-dependabot-auto-label.yml`](../../.github/workflows/maint-dependabot-auto-label.yml) - Auto-labels Dependabot PRs with agents:allow-change
 - **Error checking, linting, and testing topology**
   - **Primary workflows.** `reusable-10-ci-python.yml`, `reusable-12-ci-docker.yml`,
     `reusable-16-agents.yml`, `reusable-18-autofix.yml`, `reusable-20-pr-meta.yml`, `reusable-agents-issue-bridge.yml`, `reusable-agents-verifier.yml`, `reusable-bot-comment-handler.yml`, `reusable-codex-run.yml`, and `selftest-reusable-ci.yml`.
@@ -452,7 +452,7 @@ status updates:
     flag disables it.
   - *Health 45 Agents Guard status.* Inspect
     [agents-guard.yml](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-guard.yml)
-* [`dependabot-auto-label.yml`](../../.github/workflows/dependabot-auto-label.yml) - Auto-labels Dependabot PRs with agents:allow-change
+* [`maint-dependabot-auto-label.yml`](../../.github/workflows/maint-dependabot-auto-label.yml) - Auto-labels Dependabot PRs with agents:allow-change
     whenever a protected YAML edit lands; it should be green before merge.
   - *Agents 63 bridge logs.* These runs attach trace logs showing which issues
     were synced or bootstrapped, invaluable when debugging missed escalations.
@@ -473,7 +473,7 @@ status updates:
 | PR checks | Every pull request event (including `pull_request_target` for fork visibility) | `pr-00-gate.yml` | Keep the default branch green by running the gating matrix before reviewers waste time. |
 | Maintenance & repo health | Daily/weekly schedules plus manual dispatch | Gate summary job in `pr-00-gate.yml`, `maint-46-post-ci.yml`, `maint-45-cosmetic-repair.yml`, `maint-51-dependency-refresh.yml`, `maint-62-integration-consumer.yml`, `maint-63-ensure-environments.yml`, `maint-65-sync-label-docs.yml`, `maint-66-monthly-audit.yml`, `health-4x-*.yml` | Scrub lingering CI debt, enforce branch protection, and surface drift before it breaks contributor workflows. |
 | Issue / agents automation | Orchestrator dispatch (`workflow_dispatch`, `workflow_call`, `issues`), belt conveyor (`repository_dispatch`, `workflow_run`) | `agents-70-orchestrator.yml`, `agents-71-codex-belt-dispatcher.yml`, `agents-72-codex-belt-worker.yml`, `agents-73-codex-belt-conveyor.yml`, `agents-moderate-connector.yml`, `agents-autofix-loop.yml`, `agents-keepalive-loop.yml`, `agents-keepalive-branch-sync.yml`, `agents-keepalive-dispatch-handler.yml`, `agents-74-pr-body-writer.yml`, `agents-63-*.yml`, `agents-64-pr-comment-commands.yml`, `agents-64-verify-agent-assignment.yml`, `agents-guard.yml` | Translate labelled issues into automated work while keeping the protected agents surface locked behind guardrails. |
-* [`dependabot-auto-label.yml`](../../.github/workflows/dependabot-auto-label.yml) - Auto-labels Dependabot PRs with agents:allow-change
+* [`maint-dependabot-auto-label.yml`](../../.github/workflows/maint-dependabot-auto-label.yml) - Auto-labels Dependabot PRs with agents:allow-change
 | Error checking, linting, and testing topology | Reusable fan-out invoked by Gate, Gate summary job, and manual triggers | `reusable-10-ci-python.yml`, `reusable-12-ci-docker.yml`, `reusable-16-agents.yml`, `reusable-18-autofix.yml`, `reusable-20-pr-meta.yml`, `reusable-70-orchestrator-init.yml`, `reusable-70-orchestrator-main.yml`, `selftest-reusable-ci.yml` | Provide a single source of truth for lint/type/test/container jobs so every caller runs the same matrix with consistent tooling. |
 
 Keep this table handy when you are triaging automation: it confirms which workflows wake up on which events, the YAML files to inspect, and the safety purpose each bucket serves.
@@ -574,7 +574,7 @@ Keep this table handy when you are triaging automation: it confirms which workfl
   - `health-44-gate-branch-protection.yml` (required check enforcement),
   - `health-codex-auth-check.yml` (Codex auth token expiration monitoring), and
   - `agents-guard.yml` (immutable agents surface guardrail).
-* [`dependabot-auto-label.yml`](../../.github/workflows/dependabot-auto-label.yml) - Auto-labels Dependabot PRs with agents:allow-change
+* [`maint-dependabot-auto-label.yml`](../../.github/workflows/maint-dependabot-auto-label.yml) - Auto-labels Dependabot PRs with agents:allow-change
 
 ### Issue / agents automation
 - **Agents 70 Orchestrator** – `.github/workflows/agents-70-orchestrator.yml`
@@ -700,7 +700,7 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 | **Maint 60 Release** (`maint-60-release.yml`, maintenance bucket) | `push` (tags `v*`) | Create GitHub releases automatically when version tags are pushed. | ⚪ Tag-triggered | [Release workflow runs](https://github.com/stranske/Trend_Model_Project/actions/workflows/maint-60-release.yml) |
 | **Maint 61 Create Floating v1 Tag** (`maint-61-create-floating-v1-tag.yml`, maintenance bucket) | `workflow_dispatch` | Create or refresh the floating `v1` tag to point at the latest `v1.x` release. | ⚪ Manual | [Floating tag workflow runs](https://github.com/stranske/Workflows/actions/workflows/maint-61-create-floating-v1-tag.yml) |
 | **Agents Guard** (`agents-guard.yml`, agents bucket) | `pull_request` (path-filtered), `pull_request_target` (label/unlabel with `agent:` prefix) | Enforce protected agents workflow policies and prevent duplicate guard comments. | ✅ Required when `agents-*.yml` changes | [Agents Guard run history](https://github.com/stranske/Trend_Model_Project/actions/workflows/agents-guard.yml) |
-* [`dependabot-auto-label.yml`](../../.github/workflows/dependabot-auto-label.yml) - Auto-labels Dependabot PRs with agents:allow-change
+* [`maint-dependabot-auto-label.yml`](../../.github/workflows/maint-dependabot-auto-label.yml) - Auto-labels Dependabot PRs with agents:allow-change
 | **Agents Bot Comment Handler** (`agents-bot-comment-handler.yml`, agents bucket) | `pull_request` (labeled), `workflow_run` (Gate, `completed`), `workflow_dispatch` | Dispatch the reusable bot-comment handler to resolve automated review comments after Gate or manual triggers. | ⚪ Event-driven | [Bot comment handler runs](https://github.com/stranske/Workflows/actions/workflows/agents-bot-comment-handler.yml) |
 | **Agents Verifier** (`agents-verifier.yml`, agents bucket) | `pull_request` (`closed` → merged), `push` (`main`) | Build acceptance-context prompt (PR + linked issues), run Codex in verifier mode, and open a follow-up issue when the verdict is FAIL. | ⚪ Post-merge automation | [Agents verifier runs](https://github.com/stranske/Workflows/actions/workflows/agents-verifier.yml) |
 | **agents-weekly-metrics** (`agents-weekly-metrics.yml`, agents bucket) | `schedule` (weekly), `workflow_dispatch` | Aggregate agent metrics (keepalive, autofix, verifier) and generate markdown summary. | ⚪ Scheduled weekly | [Weekly metrics runs](https://github.com/stranske/Workflows/actions/workflows/agents-weekly-metrics.yml) |
@@ -768,7 +768,7 @@ snapshots for audit trails.
   `maint-51-dependency-refresh.yml`, the Gate summary job (inline),
   `maint-coverage-guard.yml`, health 40/41/42/43/44,
   agents 70/63, `agents-moderate-connector.yml`, `agents-debug-issue-event.yml`, `agents-guard.yml`, reusable 10/12/16/18, and
-* [`dependabot-auto-label.yml`](../../.github/workflows/dependabot-auto-label.yml) - Auto-labels Dependabot PRs with agents:allow-change
+* [`maint-dependabot-auto-label.yml`](../../.github/workflows/maint-dependabot-auto-label.yml) - Auto-labels Dependabot PRs with agents:allow-change
   `selftest-reusable-ci.yml`.
 - **Retire.** `pr-14-docs-only.yml`, `maint-47-check-failure-tracker.yml`, the
   removed Agents 61/62 consumer workflows, and the legacy `selftest-*` wrappers
@@ -832,7 +832,7 @@ snapshots for audit trails.
 | --- | --- | --- | --- |
 | **Gate** / `gate` | [`pr-00-gate.yml`](../../.github/workflows/pr-00-gate.yml) | ✅ Required | Checks tab → **Required** section |
 | **Health 45 Agents Guard** / `Health 45 Agents Guard / Enforce agents workflow protections` | [`agents-guard.yml`](../../.github/workflows/agents-guard.yml) | ✅ Required when `agents-*.yml` changes | Checks tab → auto-added under **Required** |
-* [`dependabot-auto-label.yml`](../../.github/workflows/dependabot-auto-label.yml) - Auto-labels Dependabot PRs with agents:allow-change
+* [`maint-dependabot-auto-label.yml`](../../.github/workflows/maint-dependabot-auto-label.yml) - Auto-labels Dependabot PRs with agents:allow-change
 | **Gate summary comment** | Gate summary job (`pr-00-gate.yml`, job `summary`) | ❌ Informational | Pull request timeline comment (after merge) |
 
 > 🆔 **Status context names to copy exactly.**
