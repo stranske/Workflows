@@ -19,3 +19,10 @@ test('resolvePromptMode routes verification scenarios to verify', () => {
   assert.equal(resolvePromptMode({ scenario: 'verification' }), 'verify');
   assert.equal(resolvePromptMode({ scenario: 'verify-acceptance' }), 'verify');
 });
+
+test('resolvePromptMode falls back to action or reason when scenario/mode missing', () => {
+  assert.equal(resolvePromptMode({ action: 'fix' }), 'fix_ci');
+  assert.equal(resolvePromptMode({ reason: 'fix-build' }), 'fix_ci');
+  assert.equal(resolvePromptMode({ action: 'verify' }), 'verify');
+  assert.equal(resolvePromptMode({ reason: 'verify-acceptance' }), 'verify');
+});
