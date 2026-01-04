@@ -18,6 +18,7 @@ from typing import Any, TypedDict
 
 from tools.ci_failure_triage import triage_ci_failure
 
+
 @dataclass(frozen=True)
 class JobRecord:
     name: str
