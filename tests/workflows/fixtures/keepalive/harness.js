@@ -315,7 +315,7 @@ async function runScenario(scenario) {
     },
     getOctokit: (token) => {
       if (!token) {
-        throw new Error('Token is required');
+        throw new Error('GitHub token is required');
       }
       return {
         rest: {
