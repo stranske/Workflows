@@ -1,6 +1,6 @@
-## Keepalive Next Task
-
 Your objective is to satisfy the **Acceptance Criteria** by completing each **Task** within the defined **Scope**.
+
+## Keepalive Next Task
 
 **This round you MUST:**
 1. Implement actual code or test changes that advance at least one incomplete task toward acceptance.
