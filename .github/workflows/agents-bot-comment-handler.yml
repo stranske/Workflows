@@ -61,7 +61,7 @@ jobs:
     steps:
       - name: Resolve PR number and check conditions
         id: resolve
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const eventName = context.eventName;
@@ -162,7 +162,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Remove trigger label
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             try {

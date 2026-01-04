@@ -811,7 +811,7 @@ jobs:
       - name: Post completion checkpoint comment
         id: completion_comment
         if: steps.commit.outputs.changes-made == 'true' && inputs.pr_number != ''
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           PR_NUMBER: ${{ inputs.pr_number }}
           COMMIT_SHA: ${{ steps.commit.outputs.commit-sha }}
@@ -838,7 +838,7 @@ jobs:
       - name: Classify failure type
         id: classify_failure
         if: always() && steps.run_codex.outputs.exit-code != '0'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           EXIT_CODE: ${{ steps.run_codex.outputs.exit-code }}
           OUTPUT_SUMMARY: ${{ steps.run_codex.outputs.final-message-summary }}
@@ -996,7 +996,7 @@ jobs:
 
       - name: Post PR comment on non-transient failure
         if: always() && steps.run_codex.outputs.exit-code != '0' && steps.classify_failure.outputs.is_transient != 'true' && inputs.pr_number != ''
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           PR_NUMBER: ${{ inputs.pr_number }}
           EXIT_CODE: ${{ steps.run_codex.outputs.exit-code }}
@@ -1086,7 +1086,7 @@ jobs:
       - name: Add needs-attention label on non-transient failure
         if: always() && steps.run_codex.outputs.exit-code != '0' && steps.classify_failure.outputs.is_transient != 'true' && inputs.pr_number != ''
         continue-on-error: true
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           PR_NUMBER: ${{ inputs.pr_number }}
         with:

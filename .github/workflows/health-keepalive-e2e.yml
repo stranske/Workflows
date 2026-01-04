@@ -67,7 +67,7 @@ jobs:
           echo "pr_body_file=/tmp/mock-pr-body.md" >> "$GITHUB_OUTPUT"
 
       - name: Test evaluateKeepaliveLoop
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const { evaluateKeepaliveLoop, countCheckboxes, parseConfig } = require('./.github/scripts/keepalive_loop.js');
@@ -102,7 +102,7 @@ jobs:
             console.log('✅ Orchestration core functions verified');
 
       - name: Test state management
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const { loadKeepaliveState, formatStateComment, parseStateFromComment } = require('./.github/scripts/keepalive_state.js');
@@ -136,7 +136,7 @@ jobs:
             console.log('✅ State management verified');
 
       - name: Test error classification
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const { classifyError, ERROR_CATEGORIES } = require('./.github/scripts/error_classifier.js');

@@ -142,7 +142,7 @@ jobs:
 
       - name: Resolve candidate issue
         id: pick
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           github-token: ${{ env.GH_DISPATCH_TOKEN }}
           script: |
@@ -237,7 +237,7 @@ jobs:
 
       - name: Transition issue to in-progress
         if: ${{ steps.pick.outputs.issue != '' && steps.mode.outputs.dry_run != 'true' }}
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           github-token: ${{ env.GH_DISPATCH_TOKEN }}
           script: |
