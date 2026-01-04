@@ -205,7 +205,7 @@ jobs:
           fetch-depth: 1
 
       - name: Setup Node
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node-version }}
           cache: ${{ inputs.cache && (inputs['package-manager'] == 'pnpm' && 'pnpm' || inputs['package-manager'] == 'yarn' && 'yarn' || 'npm') || '' }}
