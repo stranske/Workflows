@@ -369,6 +369,27 @@ function classifyFailureDetails({ action, runResult, summaryReason, agentExitCod
   let category = errorInfo.category;
   const isGateCancelled = summaryReason.startsWith('gate-cancelled');
 
+  // If the agent runner reports failure with exit code 0, that strongly suggests
+  // an infrastructure/control-plane hiccup rather than a code/tool failure.
+  if (runFailed && summaryReason === 'agent-run-failed' && (!agentExitCode || agentExitCode === '0')) {
+    category = ERROR_CATEGORIES.transient;
+  }
+
+  // Detect dirty git state issues - agent saw unexpected changes before starting.
+  // These are typically workflow artifacts (.workflows-lib, codex-session-*.jsonl)
+  // that should have been cleaned up but weren't. Classify as transient.
+  const dirtyGitPatterns = [
+    /unexpected\s*changes/i,
+    /\.workflows-lib.*modified/i,
+    /codex-session.*untracked/i,
+    /existing\s*changes/i,
+    /how\s*would\s*you\s*like\s*me\s*to\s*proceed/i,
+    /before\s*making\s*edits/i,
+  ];
+  if (dirtyGitPatterns.some(pattern => pattern.test(message))) {
+    category = ERROR_CATEGORIES.transient;
+  }
+
   if (runFailed && (runResult === 'cancelled' || runResult === 'skipped')) {
     category = ERROR_CATEGORIES.transient;
   }

@@ -29,6 +29,7 @@ jobs:
         stranske/Workflows-Integration-Tests
         stranske/Travel-Plan-Permission
         stranske/Template
+        stranske/Collab-Admin
     steps:
       - name: Checkout source
         uses: actions/checkout@v6

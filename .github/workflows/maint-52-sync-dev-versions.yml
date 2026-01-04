@@ -43,6 +43,7 @@ env:
     stranske/Manager-Database
     stranske/Portable-Alpha-Extension-Model
     stranske/Trend_Model_Project
+    stranske/Collab-Admin
 
 jobs:
   # CRITICAL: Verify versions are current BEFORE syncing to consumer repos
