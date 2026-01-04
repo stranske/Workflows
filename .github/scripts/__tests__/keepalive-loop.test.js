@@ -1191,6 +1191,46 @@ test('updateKeepaliveLoopSummary adds needs-human after repeated actual failures
   assert.ok(needsHumanLabel);
 });
 
+test('updateKeepaliveLoopSummary does not treat skipped runs as agent failures', async () => {
+  const existingState = formatStateComment({
+    trace: 'trace-run-skipped',
+    iteration: 1,
+    failure_threshold: 3,
+    failure: {},
+  });
+  const github = buildGithubStub({
+    comments: [{ id: 77, body: existingState, html_url: 'https://example.com/77' }],
+  });
+
+  await updateKeepaliveLoopSummary({
+    github,
+    context: buildContext(777),
+    core: buildCore(),
+    inputs: {
+      prNumber: 777,
+      action: 'run',
+      reason: 'ready',
+      runResult: 'skipped',
+      gateConclusion: 'success',
+      tasksTotal: 3,
+      tasksUnchecked: 3,
+      keepaliveEnabled: true,
+      autofixEnabled: false,
+      iteration: 1,
+      maxIterations: 5,
+      failureThreshold: 3,
+      trace: 'trace-run-skipped',
+    },
+  });
+
+  assert.equal(github.actions.length, 1);
+  const updateAction = github.actions[0];
+  assert.equal(updateAction.type, 'update');
+  assert.match(updateAction.body, /agent-run-skipped/);
+  assert.doesNotMatch(updateAction.body, /AGENT FAILED/);
+  assert.match(updateAction.body, /"failure":\{\}/);
+});
+
 test('updateKeepaliveLoopSummary adds attention label for auth failures', async () => {
   const existingState = formatStateComment({
     trace: 'trace-attention-auth',

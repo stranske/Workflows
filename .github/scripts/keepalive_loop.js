@@ -1258,12 +1258,12 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
     agentExitCode,
     agentSummary,
   });
-  const runFailed = action === 'run' && runResult && runResult !== 'success';
-  const isTransientFailure =
+  const runFailed =
     action === 'run' &&
     runResult &&
-    runResult !== 'success' &&
-    transientDetails.category === ERROR_CATEGORIES.transient;
+    !['success', 'skipped', 'cancelled'].includes(runResult);
+  const isTransientFailure =
+    runFailed && transientDetails.category === ERROR_CATEGORIES.transient;
   const waitLikeAction = action === 'wait' || action === 'defer';
   const waitIsTransientReason = [
     'gate-pending',
@@ -1291,7 +1291,16 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
       nextIteration = currentIteration + 1;
       failure = {};
     } else if (runResult) {
-      if (isTransientFailure) {
+      // If the job was skipped/cancelled, it usually means the workflow condition
+      // prevented execution (e.g. gate not ready, label missing, concurrency).
+      // Don't treat this as an agent failure.
+      if (runResult === 'skipped') {
+        failure = {};
+        summaryReason = 'agent-run-skipped';
+      } else if (runResult === 'cancelled') {
+        failure = {};
+        summaryReason = 'agent-run-cancelled';
+      } else if (isTransientFailure) {
         failure = {};
         summaryReason = 'agent-run-transient';
       } else {
@@ -1442,6 +1451,20 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
       if (agentCommitSha) {
         summaryLines.push(`| Commit | [\`${agentCommitSha.slice(0, 7)}\`](../commit/${agentCommitSha}) |`);
       }
+    } else if (runResult === 'skipped') {
+      summaryLines.push(
+        `| Result | Value |`,
+        `|--------|-------|`,
+        `| Status | ⏭️ Skipped |`,
+        `| Reason | ${summaryReason || 'agent-run-skipped'} |`,
+      );
+    } else if (runResult === 'cancelled') {
+      summaryLines.push(
+        `| Result | Value |`,
+        `|--------|-------|`,
+        `| Status | 🚫 Cancelled |`,
+        `| Reason | ${summaryReason || 'agent-run-cancelled'} |`,
+      );
     } else {
       summaryLines.push(
         `| Result | Value |`,
