@@ -47,6 +47,15 @@ def _compile(patterns: list[str]) -> tuple[re.Pattern[str], ...]:
     return tuple(re.compile(pat, re.IGNORECASE) for pat in patterns)
 
 
+SUGGESTED_FIX_TEMPLATES: dict[str, str] = {
+    "mypy": "Fix the reported type errors in {files} or update typing stubs to satisfy mypy.",
+    "pytest": "Inspect failing tests in {files} and fix the regression or update expectations.",
+    "coverage": "Add or expand tests covering {files} to meet the coverage threshold.",
+    "import_error": "Ensure imports in {files} resolve by fixing module paths or packaging.",
+    "syntax_error": "Fix the syntax error in {files} and rerun the formatter or linter if needed.",
+}
+
+
 DEFAULT_TRIAGE_PATTERNS: tuple[TriagePattern, ...] = (
     TriagePattern(
         error_type="mypy",
@@ -58,7 +67,7 @@ DEFAULT_TRIAGE_PATTERNS: tuple[TriagePattern, ...] = (
             ]
         ),
         root_cause="Type checking failed during mypy.",
-        suggested_fix="Fix the reported type errors or update the typing stubs to satisfy mypy.",
+        suggested_fix=SUGGESTED_FIX_TEMPLATES["mypy"],
         file_regexes=_compile([r"(?P<path>[A-Za-z0-9_./-]+\.py):\d+:"]),
         playbook_url="docs/INTEGRATION_GUIDE.md#scenario-2-mypy-errors",
     ),
@@ -72,7 +81,7 @@ DEFAULT_TRIAGE_PATTERNS: tuple[TriagePattern, ...] = (
             ]
         ),
         root_cause="Pytest reported failing tests.",
-        suggested_fix="Inspect the failing tests and fix the regression or update expectations.",
+        suggested_fix=SUGGESTED_FIX_TEMPLATES["pytest"],
         file_regexes=_compile([r"(?P<path>[A-Za-z0-9_./-]+\.py):\d+:"]),
         playbook_url="docs/INTEGRATION_GUIDE.md#scenario-1-tests-failing",
     ),
@@ -86,7 +95,7 @@ DEFAULT_TRIAGE_PATTERNS: tuple[TriagePattern, ...] = (
             ]
         ),
         root_cause="Coverage enforcement failed.",
-        suggested_fix="Add or expand tests to raise coverage for the targeted module.",
+        suggested_fix=SUGGESTED_FIX_TEMPLATES["coverage"],
         playbook_url="docs/INTEGRATION_GUIDE.md#consumer-repo-setup-coverage-soft-gate",
     ),
     TriagePattern(
@@ -99,7 +108,7 @@ DEFAULT_TRIAGE_PATTERNS: tuple[TriagePattern, ...] = (
             ]
         ),
         root_cause="Python import failed during test or runtime.",
-        suggested_fix="Ensure the module exists, is in the correct path, and is declared in packaging.",
+        suggested_fix=SUGGESTED_FIX_TEMPLATES["import_error"],
         file_regexes=_compile([r"File \"(?P<path>[A-Za-z0-9_./-]+\.py)\""]),
         playbook_url="docs/llm-task-analysis.md#import-errors",
     ),
@@ -113,7 +122,7 @@ DEFAULT_TRIAGE_PATTERNS: tuple[TriagePattern, ...] = (
             ]
         ),
         root_cause="Python parser raised a syntax error.",
-        suggested_fix="Fix the syntax error and rerun the formatter or linter if needed.",
+        suggested_fix=SUGGESTED_FIX_TEMPLATES["syntax_error"],
         file_regexes=_compile([r"File \"(?P<path>[A-Za-z0-9_./-]+\.py)\""]),
         playbook_url="docs/fast-validation-ecosystem.md#error-handling",
     ),
@@ -131,11 +140,12 @@ def triage_ci_failure(
         if not evidence:
             continue
         relevant_files = _extract_relevant_files(evidence, pattern.file_regexes)
+        suggested_fix = _format_suggested_fix(pattern.suggested_fix, relevant_files)
         findings.append(
             TriageFinding(
                 error_type=pattern.error_type,
                 root_cause=pattern.root_cause,
-                suggested_fix=pattern.suggested_fix,
+                suggested_fix=suggested_fix,
                 relevant_files=relevant_files,
                 playbook_url=pattern.playbook_url,
                 evidence=evidence,
@@ -180,6 +190,13 @@ def _extract_relevant_files(
         seen.add(path)
         unique_paths.append(path)
     return unique_paths
+
+
+def _format_suggested_fix(template: str, relevant_files: list[str]) -> str:
+    if "{files}" not in template:
+        return template
+    files = ", ".join(relevant_files) if relevant_files else "the reported files"
+    return template.format(files=files)
 
 
 def _build_summary(findings: list[TriageFinding]) -> str:
