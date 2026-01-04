@@ -320,13 +320,15 @@ jobs:
     steps:
       - name: Checkout repository
         if: ${{ inputs['working-directory'] == '' || inputs['working-directory'] == '.' }}
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
+          submodules: false
           fetch-depth: 1
       - name: Checkout repository (sparse)
         if: ${{ inputs['working-directory'] != '' && inputs['working-directory'] != '.' }}
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
+          submodules: false
           fetch-depth: 1
           sparse-checkout: |
             .github/workflows
@@ -598,13 +600,15 @@ jobs:
     steps:
       - name: Checkout repository
         if: ${{ inputs['working-directory'] == '' || inputs['working-directory'] == '.' }}
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
+          submodules: false
           fetch-depth: 1
       - name: Checkout repository (sparse)
         if: ${{ inputs['working-directory'] != '' && inputs['working-directory'] != '.' }}
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
+          submodules: false
           fetch-depth: 1
           sparse-checkout: |
             .github/workflows
@@ -876,13 +880,15 @@ jobs:
     steps:
       - name: Checkout repository
         if: ${{ inputs['working-directory'] == '' || inputs['working-directory'] == '.' }}
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
+          submodules: false
           fetch-depth: 1
       - name: Checkout repository (sparse)
         if: ${{ inputs['working-directory'] != '' && inputs['working-directory'] != '.' }}
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
+          submodules: false
           fetch-depth: 1
           sparse-checkout: |
             .github/workflows
@@ -1213,13 +1219,15 @@ jobs:
     steps:
       - name: Checkout repository
         if: ${{ inputs['working-directory'] == '' || inputs['working-directory'] == '.' }}
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
+          submodules: false
           fetch-depth: 1  # Shallow clone for faster checkout
       - name: Checkout repository (sparse)
         if: ${{ inputs['working-directory'] != '' && inputs['working-directory'] != '.' }}
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
+          submodules: false
           fetch-depth: 1  # Shallow clone for faster checkout
           sparse-checkout: |
             .github/workflows

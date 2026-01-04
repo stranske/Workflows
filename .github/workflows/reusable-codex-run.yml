@@ -209,7 +209,7 @@ jobs:
           printf 'Checkout auth: %s; push permitted with app token: %s.\n' "$source" "$push_allowed"
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
           ref: ${{ inputs.pr_ref || github.ref }}
@@ -219,7 +219,7 @@ jobs:
       # These scripts are in stranske/Workflows but need to be available when
       # this reusable workflow runs in consumer repos
       - name: Checkout Workflows scripts
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: stranske/Workflows
           # Use the workflows_ref input which should match the @ref in the uses: line
@@ -769,7 +769,7 @@ jobs:
 
           git add -A
           # Double-check exclusion after git add (safety net)
-          git reset HEAD -- codex-output*.md codex-prompt*.md 2>/dev/null || true
+          git reset HEAD -- codex-output*.md codex-prompt*.md codex-session-*.jsonl codex-analysis-*.json .coverage 2>/dev/null || true
           git commit -m "$commit_message"
 
           # Capture commit SHA before push

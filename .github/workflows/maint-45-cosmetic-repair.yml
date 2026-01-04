@@ -32,7 +32,7 @@ jobs:
       BASE_BRANCH: ${{ inputs['base-branch'] }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
           ref: ${{ env.BASE_BRANCH }}

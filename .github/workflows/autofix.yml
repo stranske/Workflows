@@ -36,7 +36,7 @@ jobs:
       caller_actor: ${{ steps.context.outputs.caller_actor }}
     steps:
       - name: Checkout for API helpers
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           sparse-checkout: .github/scripts
           sparse-checkout-cone-mode: false

@@ -104,13 +104,13 @@ jobs:
     steps:
       # Dual checkout pattern: consumer repo for context, Workflows repo for scripts
       - name: Checkout consumer repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 1
           path: consumer
 
       - name: Checkout Workflows scripts
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: stranske/Workflows
           ref: main
@@ -184,7 +184,7 @@ jobs:
       AGENTS_AUTOMATION_PAT: ${{ secrets.AGENTS_AUTOMATION_PAT || '' }}
     steps:
       - name: Checkout Workflows scripts
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: stranske/Workflows
           ref: main
@@ -243,7 +243,7 @@ jobs:
     if: inputs.event_name == 'pull_request'
     steps:
       - name: Checkout Workflows scripts
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: stranske/Workflows
           ref: main
