@@ -13,6 +13,8 @@ test('resolvePromptMode routes ci failure scenarios to fix_ci', () => {
 test('resolvePromptMode routes feature scenarios to normal', () => {
   assert.equal(resolvePromptMode({ scenario: 'feature-work' }), 'normal');
   assert.equal(resolvePromptMode({ scenario: 'next-task' }), 'normal');
+  assert.equal(resolvePromptMode({ scenario: 'next_task' }), 'normal');
+  assert.equal(resolvePromptMode({ scenario: 'nexttask' }), 'normal');
 });
 
 test('resolvePromptMode routes verification scenarios to verify', () => {

@@ -27,6 +27,8 @@ const FEATURE_SCENARIOS = new Set([
   'feature_work',
   'task',
   'next-task',
+  'next_task',
+  'nexttask',
 ]);
 
 const FIX_MODES = new Set(['fix', 'fix-ci', 'fix_ci', 'ci', 'ci-failure']);
