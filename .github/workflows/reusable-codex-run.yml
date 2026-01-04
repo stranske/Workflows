@@ -725,7 +725,7 @@ jobs:
 
           git add -A
           # Double-check exclusion after git add (safety net)
-          git reset HEAD -- codex-output*.md codex-prompt*.md 2>/dev/null || true
+          git reset HEAD -- codex-output*.md codex-prompt*.md codex-session-*.jsonl codex-analysis-*.json .coverage 2>/dev/null || true
           git commit -m "$commit_message"
 
           # Capture commit SHA before push
