@@ -1,0 +1,20 @@
+name: Auto-label Dependabot PRs
+
+on:
+  pull_request_target:
+    types: [opened]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  label:
+    if: github.actor == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Add agents:allow-change label
+        run: gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label "agents:allow-change"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
