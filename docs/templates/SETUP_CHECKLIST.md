@@ -207,12 +207,20 @@ Navigate to: **Settings** → **Secrets and variables** → **Actions** → **Se
 | `ACTIONS_BOT_PAT` | PAT for workflow dispatch | Same as SERVICE_BOT_PAT or dedicated |
 | `OWNER_PR_PAT` | PAT for PR creation | Repository owner's PAT |
 | `CODEX_AUTH_JSON` | Codex CLI authentication | Export from `~/.codex/auth.json` |
+| `WORKFLOWS_APP_ID` | GitHub App ID for token minting | Contact admin for App ID |
+| `WORKFLOWS_APP_PRIVATE_KEY` | GitHub App private key | Contact admin for private key |
 
 Add each secret:
 - [ ] `SERVICE_BOT_PAT` — Required for orchestrator and agent workflows
 - [ ] `ACTIONS_BOT_PAT` — Required for triggering workflows between repos
 - [ ] `OWNER_PR_PAT` — Required for creating PRs from agent bridge
 - [ ] `CODEX_AUTH_JSON` — Required for Codex CLI to authenticate with ChatGPT
+- [ ] `WORKFLOWS_APP_ID` — **Required for keepalive** - Used for GitHub App token minting
+- [ ] `WORKFLOWS_APP_PRIVATE_KEY` — **Required for keepalive** - GitHub App authentication
+
+> **Important**: `WORKFLOWS_APP_ID` and `WORKFLOWS_APP_PRIVATE_KEY` are essential for
+> keepalive automation. While workflows have PAT fallback logic, the keepalive system
+> requires GitHub App tokens for proper authentication and rate limits.
 
 ### 3.3 Required Variables
 
@@ -823,6 +831,17 @@ including watchdog checks for stalled automation.
    - [ ] Keepalive detection runs
    - [ ] agents:keepalive label is added (if conditions met)
 
+**Common Non-Issues to Expect:**
+
+> Don't be alarmed by these expected behaviors:
+
+- **"PR number unavailable" warning** — Expected during PR creation, not an error
+- **Multiple workflow attempts** — Retry logic is normal, check final run status
+- **Workflows showing "in_progress"** — Wait for completion before troubleshooting
+- **First keepalive run may fail** — If Codex CLI has issues, check logs; the
+  automation pipeline itself (comment detection, workflow triggers, orchestration)
+  should work correctly even if the Codex execution fails
+
 ---
 
 ## Troubleshooting
@@ -899,6 +918,8 @@ inputs:
 - `ACTIONS_BOT_PAT`
 - `OWNER_PR_PAT`
 - `CODEX_AUTH_JSON`
+- `WORKFLOWS_APP_ID` (required for keepalive)
+- `WORKFLOWS_APP_PRIVATE_KEY` (required for keepalive)
 
 ### Required Variables
 
@@ -906,20 +927,81 @@ inputs:
 
 ---
 
-## Phase 10: Register for Automatic Sync (Optional)
+## Phase 10: Register for Automatic Sync (Recommended)
 
-To receive automatic updates when workflow templates change:
+> **Critical**: Your repo needs to be registered in **THREE** sync workflows to
+> receive all updates. Missing any of these means missing important updates.
 
-1. Add your repo to `REGISTERED_CONSUMER_REPOS` in 
-   `stranske/Workflows/.github/workflows/maint-68-sync-consumer-repos.yml`
+To receive automatic updates when workflow templates, documentation, and tool
+versions change, add your repo to these three workflows:
 
-2. Verify sync works:
-   ```bash
-   gh workflow run "Maint 68 Sync Consumer Repos" \
-     --repo stranske/Workflows \
-     -f repos="stranske/<your-repo>" \
-     -f dry_run=true
+### 10.1 Workflow & Script Sync
+
+1. Add your repo to `REGISTERED_CONSUMER_REPOS` in:
+   - File: `.github/workflows/maint-68-sync-consumer-repos.yml`
+   - Purpose: Syncs workflow files, scripts, and prompts
+
+   ```yaml
+   REGISTERED_CONSUMER_REPOS: |
+     stranske/Travel-Plan-Permission
+     stranske/your-repo  # Add your repo here
    ```
+
+- [ ] Added to `maint-68-sync-consumer-repos.yml`
+
+### 10.2 Label Documentation Sync
+
+2. Add your repo to `DEFAULT_CONSUMER_REPOS` in:
+   - File: `.github/workflows/maint-65-sync-label-docs.yml`
+   - Purpose: Syncs `docs/LABELS.md` to keep label documentation consistent
+
+   ```yaml
+   DEFAULT_CONSUMER_REPOS: |
+     stranske/Travel-Plan-Permission
+     stranske/your-repo  # Add your repo here
+   ```
+
+- [ ] Added to `maint-65-sync-label-docs.yml`
+
+### 10.3 Dev Tool Version Sync
+
+3. Add your repo to `REGISTERED_CONSUMER_REPOS` in:
+   - File: `.github/workflows/maint-52-sync-dev-versions.yml`
+   - Purpose: Syncs `autofix-versions.env` (ruff, black, mypy versions)
+
+   ```yaml
+   REGISTERED_CONSUMER_REPOS: |
+     stranske/Travel-Plan-Permission
+     stranske/your-repo  # Add your repo here
+   ```
+
+- [ ] Added to `maint-52-sync-dev-versions.yml`
+
+### 10.4 Verify Sync Works
+
+Test that sync workflows can access your repo:
+
+```bash
+# Test workflow sync
+gh workflow run "Maint 68 Sync Consumer Repos" \
+  --repo stranske/Workflows \
+  -f repos="stranske/<your-repo>" \
+  -f dry_run=true
+
+# Test label doc sync
+gh workflow run "Maint 65 Sync Label Docs" \
+  --repo stranske/Workflows \
+  -f repos="stranske/<your-repo>" \
+  -f dry_run=true
+
+# Test version sync
+gh workflow run "Maint 52 Sync Dev Versions" \
+  --repo stranske/Workflows \
+  -f repos="stranske/<your-repo>" \
+  -f dry_run=true
+```
+
+- [ ] All three sync workflows tested successfully
 
 **Note**: Repos with custom Gate workflows should still be registered—only
 the thin caller workflows are synced, not custom implementations.
@@ -929,6 +1011,7 @@ the thin caller workflows are synced, not custom implementations.
 ## Version History
 
 | Version | Date | Changes |
-|---------|------|---------|
+|---------|---------|---------||
+| 1.2 | 2026-01-04 | Clarified Phase 10 requires THREE registration points; added WORKFLOWS_APP_ID/KEY as required; added Phase 9 troubleshooting notes |
 | 1.1 | 2025-12-27 | Added existing repo setup, bot collaborator access, sync registration |
 | 1.0 | 2025-01 | Initial checklist based on Travel-Plan-Permission learnings |
