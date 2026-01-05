@@ -60,6 +60,9 @@ workflows:
   - source: .github/workflows/agents-bot-comment-handler.yml
     description: "Bot comment handler - dispatches agents to address bot review comments"
 
+  - source: .github/workflows/agents-issue-optimizer.yml
+    description: "Issue optimizer - LangChain-based issue formatting and optimization (Phase 1)"
+
   - source: .github/workflows/agents-guard.yml
     description: "Agents guard - enforces agents workflow protections (Health 45)"
 
