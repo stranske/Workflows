@@ -16,6 +16,8 @@ def test_normalize_subtasks_splits_multi_action() -> None:
     assert any("update docs" in task.lower() for task in sub_tasks)
     assert any("add tests" in task.lower() for task in sub_tasks)
     assert all("verify" in task.lower() for task in sub_tasks)
+    assert any("docs updated" in task.lower() for task in sub_tasks)
+    assert any("tests pass" in task.lower() for task in sub_tasks)
 
 
 def test_normalize_subtasks_strips_dependency_clause() -> None:
@@ -30,3 +32,4 @@ def test_normalize_subtasks_rephrases_dependency_phrases() -> None:
     assert len(sub_tasks) == 1
     assert sub_tasks[0].lower().startswith("document dependency for:")
     assert "depends on" not in sub_tasks[0].lower()
+    assert "verify" in sub_tasks[0].lower()

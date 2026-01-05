@@ -82,7 +82,29 @@ def _get_llm_client() -> tuple[object, str] | None:
 def _ensure_verification(text: str) -> str:
     if re.search(r"\bverify\b", text, re.IGNORECASE):
         return text
+    inferred = _infer_verification(text)
+    if inferred:
+        return f"{text} (verify: {inferred})"
     return f"{text} (verify: confirm completion in repo)"
+
+
+def _infer_verification(text: str) -> str | None:
+    lowered = text.lower()
+    if "add test" in lowered or "tests" in lowered:
+        return "tests pass"
+    if "update doc" in lowered or "docs" in lowered or "documentation" in lowered:
+        return "docs updated"
+    if "format" in lowered or "black" in lowered or "ruff format" in lowered:
+        return "formatter passes"
+    if "lint" in lowered or "ruff" in lowered:
+        return "lint passes"
+    if "typecheck" in lowered or "mypy" in lowered:
+        return "typecheck passes"
+    if "dependency" in lowered or "dependencies" in lowered or "bump" in lowered:
+        return "dependencies updated"
+    if "config" in lowered:
+        return "config validated"
+    return None
 
 
 def _parse_subtasks(text: str) -> list[str]:
@@ -130,7 +152,7 @@ def _rewrite_dependency_task(task: str) -> str:
     cleaned = DEPENDENCY_PHRASE_REGEX.sub("", task).strip(" ,.-")
     if not cleaned:
         cleaned = "dependency details"
-    return f"Document dependency for: {cleaned}"
+    return f"Document dependency for: {cleaned} (verify: dependency recorded)"
 
 
 def _normalize_subtasks(sub_tasks: list[str]) -> list[str]:
