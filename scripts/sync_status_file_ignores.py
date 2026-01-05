@@ -51,6 +51,12 @@ CANONICAL_PATTERNS: list[str] = [
     "residual-trend-history.ndjson",
     # Build artifacts
     ".autofix-venv/",
+    # PR automation generated files (MEDIUM conflict risk)
+    "pr_body.md",
+    # Test/coverage artifacts
+    "coverage.xml",
+    # Wrong package manager artifacts (defense-in-depth)
+    "poetry.lock",
 ]
 
 GITIGNORE_BLOCK_HEADER = """# =============================================================================
