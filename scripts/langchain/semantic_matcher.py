@@ -7,8 +7,8 @@ Use GitHub Models (preferred) or OpenAI embeddings when credentials are availabl
 
 from __future__ import annotations
 
-import os
 import math
+import os
 from collections.abc import Iterable
 from dataclasses import dataclass
 
