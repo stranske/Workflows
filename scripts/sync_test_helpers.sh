@@ -1,6 +1,6 @@
 #!/bin/bash
 # Sync test helper utilities to consumer repos
-# 
+#
 # This script copies shared test utilities from the Workflows repo
 # to consumer repos, ensuring consistent testing patterns across all projects.
 #
@@ -12,6 +12,14 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORKFLOWS_ROOT="$(dirname "$SCRIPT_DIR")"
 TEMPLATES_DIR="$WORKFLOWS_ROOT/templates/test_helpers"
+
+# Validate templates directory exists
+if [[ ! -d "$TEMPLATES_DIR" ]]; then
+    echo "❌ Templates directory not found: $TEMPLATES_DIR" >&2
+    echo "Ensure you are running this script from the Workflows repo" >&2
+    echo "and that 'templates/test_helpers' exists." >&2
+    exit 1
+fi
 
 # Default to checking current repo
 CHECK_MODE=false
@@ -37,6 +45,10 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Resolve target repo path
+if [[ ! -d "$TARGET_REPO" ]]; then
+    echo "❌ Target repository path does not exist or is not a directory: $TARGET_REPO" >&2
+    exit 1
+fi
 TARGET_REPO="$(cd "$TARGET_REPO" && pwd)"
 TARGET_HELPERS_DIR="$TARGET_REPO/tests/helpers"
 
@@ -72,10 +84,10 @@ for helper_file in "$TEMPLATES_DIR"/*.py; do
     if [[ ! -f "$helper_file" ]]; then
         continue
     fi
-    
+
     filename="$(basename "$helper_file")"
     target_file="$TARGET_HELPERS_DIR/$filename"
-    
+
     if [[ ! -f "$target_file" ]]; then
         if [[ "$CHECK_MODE" == "true" ]]; then
             echo "⚠️  Missing: $filename"

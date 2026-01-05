@@ -43,12 +43,35 @@ def get_package_version(package: str) -> Version:
     return Version(version_str)
 
 
+def _find_pyproject_toml() -> Path:
+    """Search upward from this file to find pyproject.toml.
+
+    Returns:
+        Path to pyproject.toml
+
+    Raises:
+        FileNotFoundError: If pyproject.toml not found in any parent directory
+    """
+    current = Path(__file__).resolve().parent
+    for _ in range(10):  # Limit search depth
+        candidate = current / "pyproject.toml"
+        if candidate.exists():
+            return candidate
+        if current.parent == current:
+            break
+        current = current.parent
+    raise FileNotFoundError(
+        "pyproject.toml not found in any parent directory of " f"{Path(__file__).resolve()}"
+    )
+
+
 def get_declared_version_range(package: str, pyproject_path: Path | None = None) -> SpecifierSet:
     """Extract declared version range from pyproject.toml.
 
     Args:
         package: Package name to look up
-        pyproject_path: Path to pyproject.toml (defaults to repo root)
+        pyproject_path: Path to pyproject.toml (defaults to auto-detect by
+            searching upward from this file)
 
     Returns:
         SpecifierSet representing the declared version constraint
@@ -60,8 +83,7 @@ def get_declared_version_range(package: str, pyproject_path: Path | None = None)
         True
     """
     if pyproject_path is None:
-        # Assume we're in tests/ directory
-        pyproject_path = Path(__file__).parents[2] / "pyproject.toml"
+        pyproject_path = _find_pyproject_toml()
 
     if not pyproject_path.exists():
         raise FileNotFoundError(f"pyproject.toml not found at {pyproject_path}")
@@ -137,7 +159,7 @@ def assert_all_dependencies_within_ranges(
         ...     assert_all_dependencies_within_ranges()
     """
     if pyproject_path is None:
-        pyproject_path = Path(__file__).parents[2] / "pyproject.toml"
+        pyproject_path = _find_pyproject_toml()
 
     with open(pyproject_path, "rb") as f:
         pyproject = tomllib.load(f)
@@ -214,13 +236,20 @@ def _extract_package_name(dep_spec: str) -> str:
 def _parse_version_spec(dep_spec: str) -> SpecifierSet:
     """Parse version specifier from dependency string.
 
+    Handles environment markers (e.g., `; platform_system=="Windows"`) by
+    stripping them before parsing.
+
     Examples:
         "numpy>=2.0,<3.0" -> SpecifierSet(">=2.0,<3.0")
         "pandas" -> SpecifierSet()
+        "colorama>=0.4; platform_system=='Windows'" -> SpecifierSet(">=0.4")
     """
+    # Strip environment markers (everything after `;`)
+    dep_spec_no_markers = dep_spec.split(";", 1)[0].strip()
+
     # Remove package name and extras
-    spec_str = dep_spec.split("]", 1)[-1]  # Remove extras if present
-    package_name = _extract_package_name(dep_spec)
+    spec_str = dep_spec_no_markers.split("]", 1)[-1]  # Remove extras if present
+    package_name = _extract_package_name(dep_spec_no_markers)
 
     # Remove package name from beginning
     spec_str = spec_str.replace(package_name, "", 1).strip()
