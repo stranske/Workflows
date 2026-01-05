@@ -13,8 +13,8 @@ import json
 import os
 import re
 import sys
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable
 
 CONTEXT_EXTRACTOR_PROMPT = """
 From this issue and related discussion, extract:
