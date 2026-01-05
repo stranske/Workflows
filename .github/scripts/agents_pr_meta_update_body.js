@@ -87,11 +87,17 @@ function buildContextBlock(contextText) {
   const cleaned = trimmed
     .replace(/<!--\s*context:start\s*-->/gi, '')
     .replace(/<!--\s*context:end\s*-->/gi, '')
+    .replace(/<!--\s*Updated WORKFLOW_OUTPUTS\.md context:start\s*-->/gi, '')
+    .replace(/<!--\s*Updated WORKFLOW_OUTPUTS\.md context:end\s*-->/gi, '')
     .trim();
   if (!cleaned) {
     return '';
   }
-  return ['<!-- context:start -->', cleaned, '<!-- context:end -->'].join('\n');
+  return [
+    '<!-- Updated WORKFLOW_OUTPUTS.md context:start -->',
+    cleaned,
+    '<!-- Updated WORKFLOW_OUTPUTS.md context:end -->',
+  ].join('\n');
 }
 
 function parseCheckboxStates(block) {

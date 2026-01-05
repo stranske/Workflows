@@ -508,7 +508,7 @@ test('buildStatusBlock inserts context between scope and tasks', () => {
   });
 
   const scopeIndex = result.indexOf('#### Scope');
-  const contextIndex = result.indexOf('<!-- context:start -->');
+  const contextIndex = result.indexOf('<!-- Updated WORKFLOW_OUTPUTS.md context:start -->');
   const tasksIndex = result.indexOf('#### Tasks');
 
   assert.ok(scopeIndex !== -1, 'scope header missing');
@@ -534,6 +534,6 @@ test('buildStatusBlock omits context markers when empty', () => {
     agentType: 'codex',
   });
 
-  assert.ok(!result.includes('<!-- context:start -->'));
-  assert.ok(!result.includes('<!-- context:end -->'));
+  assert.ok(!result.includes('<!-- Updated WORKFLOW_OUTPUTS.md context:start -->'));
+  assert.ok(!result.includes('<!-- Updated WORKFLOW_OUTPUTS.md context:end -->'));
 });
