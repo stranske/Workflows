@@ -8,8 +8,8 @@ Use GitHub Models (preferred) or OpenAI embeddings when credentials are availabl
 from __future__ import annotations
 
 import os
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Iterable
 
 from tools.llm_provider import GITHUB_MODELS_BASE_URL
 
