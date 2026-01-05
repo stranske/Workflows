@@ -485,6 +485,8 @@ test('buildStatusBlock includes workflow details for non-CLI agents', () => {
     connectorStates: new Map(),
     core: null,
     agentType: '',
+    owner: 'octo',
+    repo: 'demo',
   });
 
   assert.ok(output.includes('**Head SHA:** abc123'));
@@ -505,6 +507,8 @@ test('buildStatusBlock inserts context between scope and tasks', () => {
     connectorStates: new Map(),
     core: null,
     agentType: 'codex',
+    owner: 'octo',
+    repo: 'demo',
   });
 
   const scopeIndex = result.indexOf('#### Scope');
@@ -532,8 +536,31 @@ test('buildStatusBlock omits context markers when empty', () => {
     connectorStates: new Map(),
     core: null,
     agentType: 'codex',
+    owner: 'octo',
+    repo: 'demo',
   });
 
   assert.ok(!result.includes('<!-- Updated WORKFLOW_OUTPUTS.md context:start -->'));
   assert.ok(!result.includes('<!-- Updated WORKFLOW_OUTPUTS.md context:end -->'));
+});
+
+test('buildStatusBlock linkifies related issue references in context', () => {
+  const result = buildStatusBlock({
+    scope: 'Scope text',
+    contextSection: '## Context for Agent\n### Related Issues/PRs\n- #123\n- octo/demo#456',
+    tasks: '- [ ] Task one',
+    acceptance: '- [ ] Done',
+    headSha: 'abc123',
+    workflowRuns: new Map(),
+    requiredChecks: [],
+    existingBody: '',
+    connectorStates: new Map(),
+    core: null,
+    agentType: 'codex',
+    owner: 'octo',
+    repo: 'demo',
+  });
+
+  assert.ok(result.includes('[#123](https://github.com/octo/demo/issues/123)'));
+  assert.ok(result.includes('[octo/demo#456](https://github.com/octo/demo/issues/456)'));
 });

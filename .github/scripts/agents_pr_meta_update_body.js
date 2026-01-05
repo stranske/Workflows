@@ -79,7 +79,38 @@ function extractBlock(body, marker) {
   return body.slice(startIndex + start.length, endIndex).trim();
 }
 
-function buildContextBlock(contextText) {
+function linkifyIssueRefs(text, { owner, repo } = {}) {
+  const repoOwner = normalise(owner);
+  const repoName = normalise(repo);
+  if (!repoOwner || !repoName) {
+    return String(text || '');
+  }
+  const slug = `${repoOwner}/${repoName}`;
+  const lines = String(text || '').split(/\r?\n/);
+  const linked = lines.map((line) => {
+    if (!line || line.includes('](')) {
+      return line;
+    }
+    let updated = line.replace(
+      /\b([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)#(\d+)\b/g,
+      (_match, ownerRef, repoRef, number) => {
+        const url = `https://github.com/${ownerRef}/${repoRef}/issues/${number}`;
+        return `[${ownerRef}/${repoRef}#${number}](${url})`;
+      }
+    );
+    updated = updated.replace(
+      /(^|[^A-Za-z0-9_])#(\d+)\b/g,
+      (_match, prefix, number) => {
+        const url = `https://github.com/${slug}/issues/${number}`;
+        return `${prefix}[#${number}](${url})`;
+      }
+    );
+    return updated;
+  });
+  return linked.join('\n');
+}
+
+function buildContextBlock(contextText, { owner, repo } = {}) {
   const trimmed = String(contextText || '').trim();
   if (!trimmed) {
     return '';
@@ -93,9 +124,13 @@ function buildContextBlock(contextText) {
   if (!cleaned) {
     return '';
   }
+  const linked = linkifyIssueRefs(cleaned, { owner, repo }).trim();
+  if (!linked) {
+    return '';
+  }
   return [
     '<!-- Updated WORKFLOW_OUTPUTS.md context:start -->',
-    cleaned,
+    linked,
     '<!-- Updated WORKFLOW_OUTPUTS.md context:end -->',
   ].join('\n');
 }
@@ -413,13 +448,13 @@ function buildPreamble(sections) {
   return lines.join('\n');
 }
 
-function buildStatusBlock({scope, contextSection, tasks, acceptance, headSha, workflowRuns, requiredChecks, existingBody, connectorStates, core, agentType}) {
+function buildStatusBlock({scope, contextSection, tasks, acceptance, headSha, workflowRuns, requiredChecks, existingBody, connectorStates, core, agentType, owner, repo}) {
   const statusLines = ['<!-- auto-status-summary:start -->', '## Automated Status Summary'];
   const isCliAgent = Boolean(agentType && String(agentType).trim());
 
   const existingBlock = extractBlock(existingBody || '', 'auto-status-summary');
   const existingStates = parseCheckboxStates(existingBlock);
-  const contextBlock = buildContextBlock(contextSection);
+  const contextBlock = buildContextBlock(contextSection, { owner, repo });
   
   // Merge existing PR body states with connector bot comment states
   // Connector states take precedence (they represent actual completion signals from agents)
@@ -788,6 +823,8 @@ async function run({github, context, core, inputs}) {
     connectorStates,
     core,
     agentType,
+    owner,
+    repo,
   });
 
   // Strip PR template content that GitHub may have prepended when the PR was created
