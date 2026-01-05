@@ -12,6 +12,8 @@
 
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
+const childProcess = require('child_process');
 
 // ========== Utility Functions ==========
 
@@ -77,6 +79,34 @@ function extractBlock(body, marker) {
     return '';
   }
   return body.slice(startIndex + start.length, endIndex).trim();
+}
+
+function extractContextSectionWithPython(issueBody, comments, core) {
+  const bodyText = String(issueBody || '').trim();
+  if (!bodyText) {
+    return '';
+  }
+
+  try {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'workflows-context-'));
+    const issuePath = path.join(tmpDir, 'issue.md');
+    fs.writeFileSync(issuePath, bodyText, 'utf8');
+
+    const commentsPath = path.join(tmpDir, 'comments.json');
+    fs.writeFileSync(commentsPath, JSON.stringify(Array.isArray(comments) ? comments : [], null, 2), 'utf8');
+
+    const output = childProcess.execFileSync(
+      'python3',
+      ['scripts/langchain/context_extractor.py', '--input-file', issuePath, '--comments-file', commentsPath],
+      { encoding: 'utf8' },
+    );
+    return String(output || '').trim();
+  } catch (error) {
+    if (core && typeof core.warning === 'function') {
+      core.warning(`Context extraction failed (python): ${error.message}`);
+    }
+    return '';
+  }
 }
 
 function linkifyIssueRefs(text, { owner, repo } = {}) {
@@ -881,6 +911,25 @@ async function run({github, context, core, inputs}) {
   let contextSection = extractSection(issueBody, 'Context for Agent')
     || extractBlock(pr.body || '', 'context')
     || '';
+  if (!String(contextSection || '').trim()) {
+    let issueComments = [];
+    try {
+      issueComments = await github.paginate(github.rest.issues.listComments, {
+        owner,
+        repo,
+        issue_number: issueNumber,
+        per_page: 100,
+      });
+    } catch (error) {
+      core.warning(`Failed to fetch issue comments for context extraction: ${error.message}`);
+    }
+    const commentBodies = Array.isArray(issueComments)
+      ? issueComments
+        .map((comment) => String(comment?.body || '').trim())
+        .filter(Boolean)
+      : [];
+    contextSection = extractContextSectionWithPython(issueBody, commentBodies, core);
+  }
   contextSection = augmentContextWithRelatedIssues(contextSection, issueBody);
 
   const preamble = buildPreamble({summary, testing, ci, issueNumber});
@@ -954,6 +1003,7 @@ module.exports = {
   extractSection,
   ensureChecklist,
   extractBlock,
+  extractContextSectionWithPython,
   extractIssueRefsFromText,
   augmentContextWithRelatedIssues,
   parseCheckboxStates,

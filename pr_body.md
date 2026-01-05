@@ -15,7 +15,7 @@ _Scope section missing from source issue._
 
 #### Tasks
 - [x] Create context extraction chain with `CONTEXT_EXTRACTOR_PROMPT`
-- [ ] Run during PR creation in `reusable-agents-issue-bridge.yml`
+- [x] Run during PR creation in `reusable-agents-issue-bridge.yml`
 - [x] Insert context into PR body after Scope, before Tasks
 - [x] Preserve in `<- Updated WORKFLOW_OUTPUTS.md context:start -->...<- Updated WORKFLOW_OUTPUTS.md context:end -->` markers
 - [x] Modify `agents_pr_meta_update_body.js` to include context section

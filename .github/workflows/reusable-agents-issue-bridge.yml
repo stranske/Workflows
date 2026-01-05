@@ -854,6 +854,36 @@ jobs:
             }
             await github.rest.issues.addLabels({ owner, repo, issue_number: prNumber, labels: [`agent:${agent}`] });
 
+      - name: Populate PR body context section
+        if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.mode.outputs.mode != 'invite' }}
+        uses: actions/github-script@v8
+        env:
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+        with:
+          github-token: ${{ secrets.owner_pr_pat || secrets.service_bot_pat || github.token }}
+          script: |
+            const fs = require('fs');
+            const prNumber = Number(process.env.PR_NUMBER || 0);
+            if (!prNumber) {
+              core.info('No PR number available; skipping PR body context population.');
+              return;
+            }
+            if (!fs.existsSync('./.github/scripts/agents_pr_meta_update_body.js')) {
+              core.info('PR meta updater script not present in this repo; skipping context population.');
+              return;
+            }
+            if (!fs.existsSync('./scripts/langchain/context_extractor.py')) {
+              core.info('Context extractor script not present in this repo; skipping context population.');
+              return;
+            }
+            const { run } = require('./.github/scripts/agents_pr_meta_update_body.js');
+            await run({
+              github,
+              context,
+              core,
+              inputs: { pr_number: String(prNumber) },
+            });
+
       - name: Post issue context on PR
         if: ${{ steps.ctx.outputs.has_issue == 'true' }}
         uses: actions/github-script@v8

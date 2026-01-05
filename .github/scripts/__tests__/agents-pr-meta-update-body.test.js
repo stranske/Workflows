@@ -14,7 +14,40 @@ const {
   stripPrTemplateContent,
   augmentContextWithRelatedIssues,
   extractIssueRefsFromText,
+  extractContextSectionWithPython,
 } = require('../agents_pr_meta_update_body.js');
+
+test('extractContextSectionWithPython returns trimmed stdout from python', () => {
+  const childProcess = require('node:child_process');
+  const original = childProcess.execFileSync;
+  childProcess.execFileSync = () => '  ## Context for Agent\n- extracted\n';
+
+  try {
+    const result = extractContextSectionWithPython('Issue body', ['Comment body'], null);
+    assert.strictEqual(result, '## Context for Agent\n- extracted');
+  } finally {
+    childProcess.execFileSync = original;
+  }
+});
+
+test('extractContextSectionWithPython returns empty string on failure', () => {
+  const childProcess = require('node:child_process');
+  const original = childProcess.execFileSync;
+  childProcess.execFileSync = () => {
+    throw new Error('python missing');
+  };
+
+  const core = {
+    warning: () => {},
+  };
+
+  try {
+    const result = extractContextSectionWithPython('Issue body', [], core);
+    assert.strictEqual(result, '');
+  } finally {
+    childProcess.execFileSync = original;
+  }
+});
 
 test('parseCheckboxStates extracts checked items from a checkbox list', () => {
   const block = `
