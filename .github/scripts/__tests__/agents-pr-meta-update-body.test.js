@@ -13,6 +13,7 @@ const {
   resolveAgentType,
   stripPrTemplateContent,
   augmentContextWithRelatedIssues,
+  extractIssueRefsFromText,
 } = require('../agents_pr_meta_update_body.js');
 
 test('parseCheckboxStates extracts checked items from a checkbox list', () => {
@@ -564,6 +565,14 @@ test('buildStatusBlock linkifies related issue references in context', () => {
 
   assert.ok(result.includes('[#123](https://github.com/octo/demo/issues/123)'));
   assert.ok(result.includes('[octo/demo#456](https://github.com/octo/demo/issues/456)'));
+});
+
+test('extractIssueRefsFromText normalizes GitHub issue and pull URLs', () => {
+  const refs = extractIssueRefsFromText(
+    'See https://github.com/octo/demo/issues/12 and https://github.com/octo/demo/pull/34.'
+  );
+
+  assert.deepStrictEqual(refs, ['octo/demo#12', 'octo/demo#34']);
 });
 
 test('augmentContextWithRelatedIssues appends related refs when missing section', () => {

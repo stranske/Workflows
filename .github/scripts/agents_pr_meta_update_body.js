@@ -116,24 +116,26 @@ function extractIssueRefsFromText(text) {
   if (!text) {
     return refs;
   }
+  const pushRef = (ref) => {
+    const key = String(ref || '').toLowerCase();
+    if (!key || seen.has(key)) {
+      return;
+    }
+    seen.add(key);
+    refs.push(ref);
+  };
   const raw = String(text);
+  const urlRegex = /https?:\/\/github\.com\/([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)\/(issues|pull)\/(\d+)/g;
+  for (const match of raw.matchAll(urlRegex)) {
+    pushRef(`${match[1]}/${match[2]}#${match[4]}`);
+  }
   const crossRepoRegex = /\b[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+#\d+\b/g;
   for (const match of raw.matchAll(crossRepoRegex)) {
-    const ref = match[0];
-    const key = ref.toLowerCase();
-    if (!seen.has(key)) {
-      seen.add(key);
-      refs.push(ref);
-    }
+    pushRef(match[0]);
   }
   const localRegex = /(^|[^A-Za-z0-9_])(#\d+)\b/g;
   for (const match of raw.matchAll(localRegex)) {
-    const ref = match[2];
-    const key = ref.toLowerCase();
-    if (!seen.has(key)) {
-      seen.add(key);
-      refs.push(ref);
-    }
+    pushRef(match[2]);
   }
   return refs;
 }
