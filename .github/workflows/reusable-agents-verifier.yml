@@ -1,5 +1,10 @@
 # Reusable Agents Verifier workflow
-# Runs post-merge to verify acceptance criteria were met
+# Verifies acceptance criteria were met on merged PRs
+#
+# Modes:
+# - checkbox: Verify acceptance criteria checkboxes are accurately marked (current)
+# - evaluate: Independent LLM evaluation of implementation (future)
+# - compare: Multi-model comparison evaluation (future)
 #
 # This workflow:
 # 1. Builds context from merged PR and linked issues
@@ -20,6 +25,11 @@ on:
         required: false
         type: number
         default: 300000
+      mode:
+        description: 'Verification mode: checkbox, evaluate, or compare'
+        required: false
+        type: string
+        default: 'checkbox'
     secrets:
       CODEX_AUTH_JSON:
         required: true
@@ -123,9 +133,18 @@ jobs:
         uses: actions/github-script@v8
         env:
           CI_WORKFLOWS: ${{ inputs.ci_workflows }}
+          VERIFIER_MODE: ${{ inputs.mode }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            const mode = process.env.VERIFIER_MODE || 'checkbox';
+            core.info(`Verifier mode: ${mode}`);
+
+            // For now, only checkbox mode is implemented
+            if (mode !== 'checkbox') {
+              core.warning(`Mode '${mode}' is not yet implemented. Falling back to checkbox mode.`);
+            }
+
             const { buildVerifierContext } = require('./.workflows-lib/.github/scripts/agents_verifier_context.js');
             const ciWorkflows = process.env.CI_WORKFLOWS || '[]';
             await buildVerifierContext({ github, context, core, ciWorkflows });

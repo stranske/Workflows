@@ -11,6 +11,10 @@ This document describes all labels that trigger automated workflows or affect CI
 | `agent:codex` | Issue labeled | Triggers Codex agent assignment |
 | `agent:codex-invite` | Issue labeled | Invites Codex agent to participate |
 | `agent:needs-attention` | Auto-applied | Indicates agent needs human intervention |
+| `agents:format` | Issue labeled | Formats raw issue into AGENT_ISSUE_TEMPLATE |
+| `agents:formatted` | Auto-applied | Issue has been formatted by LangChain |
+| `verify:checkbox` | Merged PR labeled | Verifies acceptance criteria checkboxes |
+| `verify:evaluate` | Merged PR labeled | LLM evaluation of implementation (future) |
 | `status:ready` | Issue labeled | Marks issue as ready for agent processing |
 
 ---
@@ -136,6 +140,65 @@ This document describes all labels that trigger automated workflows or affect CI
 
 ---
 
+## Verifier Labels
+
+### `verify:checkbox`
+
+**Applies to:** Merged Pull Requests
+
+**Trigger:** When applied to a merged PR
+
+**Effect:**
+1. Triggers the Agent Verifier workflow
+2. Builds context from PR body and linked issues
+3. Uses Codex to verify each acceptance criteria checkbox
+4. Opens a follow-up issue if criteria weren't accurately marked
+5. Posts verification results
+
+**Prerequisites:**
+- PR must be merged (not just closed)
+- Repository must have `CODEX_AUTH_JSON` secret configured
+
+**Workflow:** `agents-verifier.yml` (Agents Verifier)
+
+---
+
+### `verify:evaluate`
+
+**Applies to:** Merged Pull Requests
+
+**Trigger:** When applied to a merged PR
+
+**Effect:**
+1. *(Future)* Triggers LLM-powered independent evaluation
+2. Evaluates implementation against original requirements
+3. Checks correctness, completeness, code quality, testing, risks
+4. Posts detailed evaluation report
+
+**Status:** Not yet implemented - falls back to checkbox mode
+
+**Workflow:** `agents-verifier.yml` (Agents Verifier)
+
+---
+
+### `verify:compare`
+
+**Applies to:** Merged Pull Requests
+
+**Trigger:** When applied to a merged PR
+
+**Effect:**
+1. *(Future)* Runs evaluation with multiple LLM providers
+2. Compares results across models
+3. Highlights agreements and disagreements
+4. Posts comparison report
+
+**Status:** Not yet implemented - falls back to checkbox mode
+
+**Workflow:** `agents-verifier.yml` (Agents Verifier)
+
+---
+
 ## CI/Build Labels
 
 ### `skip-ci` (if configured)
@@ -156,6 +219,11 @@ This document describes all labels that trigger automated workflows or affect CI
 | `agent:codex` | `agent:codex-invite` | Sends agent invitation |
 | `agent:codex` | `status:ready` | Agent begins processing |
 | `agent:needs-attention` | (removed) | Agent resumes processing |
+| (none) | `agents:format` | Triggers LangChain formatter |
+| `agents:format` | (auto-removed) | Label replaced by `agents:formatted` |
+| `agents:formatted` | `agent:codex` | Ready for agent assignment |
+| (merged PR) | `verify:checkbox` | Triggers checkbox verification |
+| (merged PR) | `verify:evaluate` | Triggers LLM evaluation (future) |
 
 ---
 
