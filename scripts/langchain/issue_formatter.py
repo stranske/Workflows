@@ -319,9 +319,7 @@ def format_issue_body(issue_body: str, *, use_llm: bool = True) -> dict[str, Any
             client, provider = client_info
             try:
                 from langchain_core.prompts import ChatPromptTemplate
-            except ImportError:
-                pass
-            else:
+
                 prompt = _load_prompt()
                 template = ChatPromptTemplate.from_template(prompt)
                 chain = template | client
@@ -335,6 +333,9 @@ def format_issue_body(issue_body: str, *, use_llm: bool = True) -> dict[str, Any
                         "provider_used": provider,
                         "used_llm": True,
                     }
+            except (ImportError, Exception):
+                # Fall through to fallback if LLM fails (import, auth, API errors)
+                pass
 
     formatted = _append_raw_issue_section(_format_issue_fallback(issue_body), issue_body)
     return {
