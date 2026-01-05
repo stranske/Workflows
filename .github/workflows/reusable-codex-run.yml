@@ -771,6 +771,9 @@ jobs:
             exit 1
           fi
 
+            # Define REMOTE_URL early since it is used in multiple code paths
+            REMOTE_URL="https://x-access-token:${PUSH_TOKEN}@github.com/${{ github.repository }}"
+
           git add -A
           # Exclude generated artifacts that cause merge conflicts between concurrent PRs.
           # These files are auto-generated and should never be committed:
