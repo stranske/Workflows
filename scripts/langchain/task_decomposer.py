@@ -147,6 +147,10 @@ def _normalize_subtasks(sub_tasks: list[str]) -> list[str]:
     return normalized
 
 
+def normalize_subtasks(sub_tasks: list[str]) -> list[str]:
+    return _normalize_subtasks(sub_tasks)
+
+
 def _fallback_decompose(task: str) -> list[str]:
     task = task.strip()
     if not task:

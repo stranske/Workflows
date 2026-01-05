@@ -498,9 +498,10 @@ def _ensure_task_decomposition(
         if not suggestions:
             decomposition = task_decomposer.decompose_task(task, use_llm=use_llm)
             suggestions = decomposition.get("sub_tasks") or []
+        normalized = task_decomposer.normalize_subtasks(suggestions)
         updated_entry = dict(entry)
-        if suggestions:
-            updated_entry["split_suggestions"] = suggestions
+        if normalized:
+            updated_entry["split_suggestions"] = normalized
         updated.append(updated_entry)
     return updated
 
@@ -615,6 +616,8 @@ def _apply_task_decomposition(formatted_body: str, suggestions: dict[str, Any]) 
     if not isinstance(raw_entries, list) or not raw_entries:
         return formatted_body
 
+    from scripts.langchain import task_decomposer
+
     decomposition_map: dict[str, list[str]] = {}
     for entry in raw_entries:
         if not isinstance(entry, dict):
@@ -625,7 +628,10 @@ def _apply_task_decomposition(formatted_body: str, suggestions: dict[str, Any]) 
         sub_tasks = _coerce_split_suggestions(entry)
         if not sub_tasks:
             continue
-        decomposition_map[_normalize_task_text(task)] = sub_tasks
+        normalized = task_decomposer.normalize_subtasks(sub_tasks)
+        if not normalized:
+            continue
+        decomposition_map[_normalize_task_text(task)] = normalized
 
     if not decomposition_map:
         return formatted_body

@@ -96,3 +96,24 @@ def test_apply_suggestions_fallback_inserts_decomposed_tasks() -> None:
     assert "- [ ] Update docs and add tests" in formatted
     assert "  - [ ] Update docs (verify: docs updated)" in formatted
     assert "  - [ ] Add tests (verify: tests pass)" in formatted
+
+
+def test_apply_suggestions_normalizes_subtasks() -> None:
+    issue_body = "## Tasks\n- [ ] Update docs\n"
+    suggestions = {
+        "task_splitting": [
+            {
+                "task": "Update docs",
+                "split_suggestions": [
+                    "Add tests and update docs",
+                    "Depends on backend merge",
+                ],
+            }
+        ]
+    }
+    result = issue_optimizer.apply_suggestions(issue_body, suggestions, use_llm=False)
+    formatted = result["formatted_body"].lower()
+    assert "  - [ ] add tests" in formatted
+    assert "  - [ ] update docs" in formatted
+    assert "document dependency for:" in formatted
+    assert "verify:" in formatted
