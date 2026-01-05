@@ -45,9 +45,7 @@ def test_main_writes_report(tmp_path, capsys) -> None:
     )
     output_path = tmp_path / "report.md"
 
-    result = report.main(
-        ["--corpus-path", str(corpus_path), "--output", str(output_path)]
-    )
+    result = report.main(["--corpus-path", str(corpus_path), "--output", str(output_path)])
 
     captured = capsys.readouterr()
     assert result == 0

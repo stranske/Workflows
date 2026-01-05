@@ -33,16 +33,12 @@ def _format_completion(value: Any) -> str:
     return format_percentage(parsed * 100, decimals=1)
 
 
-def build_report(
-    corpus: dict[str, Any], *, max_patterns: int = 10, max_issues: int = 10
-) -> str:
+def build_report(corpus: dict[str, Any], *, max_patterns: int = 10, max_issues: int = 10) -> str:
     generated_at = corpus.get("generated_at") or "n/a"
     criteria = corpus.get("criteria") if isinstance(corpus.get("criteria"), dict) else {}
     patterns = corpus.get("patterns") if isinstance(corpus.get("patterns"), list) else []
     issues = (
-        corpus.get("successful_issues")
-        if isinstance(corpus.get("successful_issues"), list)
-        else []
+        corpus.get("successful_issues") if isinstance(corpus.get("successful_issues"), list) else []
     )
 
     lines = [
@@ -151,9 +147,7 @@ def main(argv: list[str]) -> int:
         print("issue_pattern_report: corpus must be a JSON object", file=sys.stderr)
         return 1
 
-    report = build_report(
-        corpus, max_patterns=args.max_patterns, max_issues=args.max_issues
-    )
+    report = build_report(corpus, max_patterns=args.max_patterns, max_issues=args.max_issues)
     output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(report, encoding="utf-8")

@@ -1,5 +1,4 @@
 import json
-from pathlib import Path
 
 from scripts import issue_pattern_feedback as feedback
 
@@ -10,12 +9,22 @@ def test_build_feedback_with_patterns() -> None:
             {
                 "task_count": 3,
                 "acceptance_count": 2,
-                "sections": {"why": True, "scope": True, "non_goals": False, "implementation": True},
+                "sections": {
+                    "why": True,
+                    "scope": True,
+                    "non_goals": False,
+                    "implementation": True,
+                },
             },
             {
                 "task_count": 4,
                 "acceptance_count": 1,
-                "sections": {"why": True, "scope": False, "non_goals": True, "implementation": True},
+                "sections": {
+                    "why": True,
+                    "scope": False,
+                    "non_goals": True,
+                    "implementation": True,
+                },
             },
         ],
         "patterns": [
@@ -55,9 +64,7 @@ def test_main_writes_feedback(tmp_path, capsys) -> None:
     )
     output_path = tmp_path / "feedback.md"
 
-    result = feedback.main(
-        ["--corpus-path", str(corpus_path), "--output", str(output_path)]
-    )
+    result = feedback.main(["--corpus-path", str(corpus_path), "--output", str(output_path)])
 
     captured = capsys.readouterr()
     assert result == 0

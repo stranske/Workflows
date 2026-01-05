@@ -40,9 +40,7 @@ Raw issue body:
 """.strip()
 
 PROMPT_PATH = Path(__file__).resolve().parent / "prompts" / "format_issue.md"
-FEEDBACK_PROMPT_PATH = (
-    Path(__file__).resolve().parent / "prompts" / "format_issue_feedback.md"
-)
+FEEDBACK_PROMPT_PATH = Path(__file__).resolve().parent / "prompts" / "format_issue_feedback.md"
 
 SECTION_ALIASES = {
     "why": ["why", "motivation", "summary", "goals"],

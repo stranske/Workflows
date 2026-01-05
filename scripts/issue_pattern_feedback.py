@@ -90,8 +90,7 @@ def build_feedback(corpus: dict[str, Any], *, max_patterns: int = 5) -> str:
         sum(entry.get("task_count", 0) for entry in successful_list) / len(successful_list)
     )
     avg_acceptance = _safe_float(
-        sum(entry.get("acceptance_count", 0) for entry in successful_list)
-        / len(successful_list)
+        sum(entry.get("acceptance_count", 0) for entry in successful_list) / len(successful_list)
     )
     avg_tasks_text = f"{avg_tasks:.1f}" if avg_tasks is not None else "n/a"
     avg_acceptance_text = f"{avg_acceptance:.1f}" if avg_acceptance is not None else "n/a"
@@ -163,7 +162,7 @@ def main(argv: list[str]) -> int:
         return 1
 
     if not isinstance(corpus, dict):
-        print(f"issue_pattern_feedback: corpus must be a JSON object", file=sys.stderr)
+        print("issue_pattern_feedback: corpus must be a JSON object", file=sys.stderr)
         return 1
 
     feedback = build_feedback(corpus, max_patterns=args.max_patterns)
