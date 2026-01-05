@@ -94,6 +94,8 @@ def _load_prompt() -> str:
 def _get_llm_client() -> tuple[object, str] | None:
     try:
         from langchain_openai import ChatOpenAI
+
+        from tools.llm_provider import DEFAULT_MODEL, GITHUB_MODELS_BASE_URL
     except ImportError:
         return None
 
@@ -101,8 +103,6 @@ def _get_llm_client() -> tuple[object, str] | None:
     openai_token = os.environ.get("OPENAI_API_KEY")
     if not github_token and not openai_token:
         return None
-
-    from tools.llm_provider import DEFAULT_MODEL, GITHUB_MODELS_BASE_URL
 
     if github_token:
         return (
