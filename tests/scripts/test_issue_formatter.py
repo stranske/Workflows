@@ -70,3 +70,18 @@ def test_format_issue_fallback_uses_placeholders() -> None:
 
     assert tasks == "- [ ] _Not provided._"
     assert acceptance == "- [ ] _Not provided._"
+
+
+def test_load_prompt_appends_feedback(tmp_path, monkeypatch) -> None:
+    prompt_path = tmp_path / "format_issue.md"
+    feedback_path = tmp_path / "format_issue_feedback.md"
+    prompt_path.write_text("Base prompt.", encoding="utf-8")
+    feedback_path.write_text("Feedback notes.", encoding="utf-8")
+
+    monkeypatch.setattr(issue_formatter, "PROMPT_PATH", prompt_path)
+    monkeypatch.setattr(issue_formatter, "FEEDBACK_PROMPT_PATH", feedback_path)
+
+    prompt = issue_formatter._load_prompt()
+
+    assert "Base prompt." in prompt
+    assert "Feedback notes." in prompt

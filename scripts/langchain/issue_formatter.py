@@ -40,6 +40,9 @@ Raw issue body:
 """.strip()
 
 PROMPT_PATH = Path(__file__).resolve().parent / "prompts" / "format_issue.md"
+FEEDBACK_PROMPT_PATH = (
+    Path(__file__).resolve().parent / "prompts" / "format_issue_feedback.md"
+)
 
 SECTION_ALIASES = {
     "why": ["why", "motivation", "summary", "goals"],
@@ -77,8 +80,15 @@ CHECKBOX_REGEX = re.compile(r"^\[([ xX])\]\s*(.*)$")
 
 def _load_prompt() -> str:
     if PROMPT_PATH.is_file():
-        return PROMPT_PATH.read_text(encoding="utf-8").strip()
-    return ISSUE_FORMATTER_PROMPT
+        base_prompt = PROMPT_PATH.read_text(encoding="utf-8").strip()
+    else:
+        base_prompt = ISSUE_FORMATTER_PROMPT
+
+    if FEEDBACK_PROMPT_PATH.is_file():
+        feedback = FEEDBACK_PROMPT_PATH.read_text(encoding="utf-8").strip()
+        if feedback:
+            return f"{base_prompt}\n\n{feedback}\n"
+    return base_prompt
 
 
 def _get_llm_client() -> tuple[object, str] | None:
