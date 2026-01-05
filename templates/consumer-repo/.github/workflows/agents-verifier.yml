@@ -4,7 +4,7 @@
 # Triggers:
 # - Label 'verify:checkbox' added to merged PR (opt-in checkbox verification)
 # - Label 'verify:evaluate' added to merged PR (future: LLM evaluation)
-#
+# - Label 'verify:compare' added to merged PR (compare-based verification)
 # Note: No longer runs automatically on every merge. Add a verify:* label to trigger.
 #
 # Required secrets (via secrets: inherit):
