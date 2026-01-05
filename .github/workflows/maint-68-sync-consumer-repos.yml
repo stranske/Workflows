@@ -503,6 +503,26 @@ jobs:
             fi
           done
 
+          # LangChain Phase 1 labels (agents:format workflow)
+          # These labels are required for the issue formatting and optimization workflows
+          echo "Ensuring LangChain agent labels exist..."
+
+          gh label create "agents:format" \
+            --description "Triggers direct issue formatting to AGENT_ISSUE_TEMPLATE" \
+            --color "0E8A16" --force || true
+
+          gh label create "agents:formatted" \
+            --description "Issue has been formatted to AGENT_ISSUE_TEMPLATE" \
+            --color "1D76DB" --force || true
+
+          gh label create "agents:optimize" \
+            --description "Triggers issue analysis with optimization suggestions" \
+            --color "FBCA04" --force || true
+
+          gh label create "agents:apply-suggestions" \
+            --description "Applies optimization suggestions from agents:optimize" \
+            --color "0E8A16" --force || true
+
       - name: Create sync PR
         if: steps.sync.outputs.has_changes == 'true' && inputs.dry_run != true
         env:
