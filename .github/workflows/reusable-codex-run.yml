@@ -772,9 +772,40 @@ jobs:
           fi
 
           git add -A
-          # Exclude generated artifacts and .workflows-lib (a separate checkout that git treats as a submodule)
-          git reset HEAD -- codex-output*.md codex-prompt*.md codex-session-*.jsonl codex-analysis-*.json .coverage .workflows-lib 2>/dev/null || true
-          git commit -m "$commit_message"
+          # Exclude generated artifacts that cause merge conflicts between concurrent PRs.
+          # These files are auto-generated and should never be committed:
+          # - codex-*: Codex workflow artifacts
+          # - coverage.xml, .coverage: CI test coverage reports
+          # - pr_body.md: Agent-generated PR metadata
+          # - autofix_report_enriched.json: Autofix workflow artifact
+          # - poetry.lock: Defense against wrong package manager
+          # - .workflows-lib: Separate checkout (git treats as submodule)
+          # This may unstage all changes if only artifacts were modified.
+          git reset HEAD -- codex-output*.md codex-prompt*.md codex-session-*.jsonl codex-analysis-*.json .coverage .workflows-lib coverage.xml pr_body.md autofix_report_enriched.json poetry.lock 2>/dev/null || true
+
+          # Check if there are any staged changes remaining after reset
+          if git diff --cached --quiet; then
+            echo "::warning::No non-artifact changes to commit after filtering. All changes were workflow artifacts."
+            # Even if nothing to commit, check for unpushed commits that need pushing
+            git fetch "${REMOTE_URL}" "${TARGET_BRANCH}" 2>/dev/null || true
+            UNPUSHED=$(git rev-list FETCH_HEAD..HEAD --count 2>/dev/null || echo "0")
+            if [ "$UNPUSHED" -gt 0 ]; then
+              echo "::notice::Found ${UNPUSHED} unpushed commit(s) - pushing them."
+              git push "${REMOTE_URL}" "HEAD:${TARGET_BRANCH}"
+              echo "commit-sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+              echo "changes-made=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "changes-made=false" >> "$GITHUB_OUTPUT"
+            echo "commit-sha=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Show what's being committed for debugging
+          echo "::group::Changes being committed"
+          git diff --cached --stat
+          echo "::endgroup::"
+          git commit -m "$commit_message" || { echo "::error::git commit failed"; exit 1; }
 
           # Capture commit SHA before push
           COMMIT_SHA=$(git rev-parse HEAD)
