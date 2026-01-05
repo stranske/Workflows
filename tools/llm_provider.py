@@ -191,7 +191,8 @@ class GitHubModelsProvider(LLMProvider):
         # BS Detection Rule 2: Very short analysis text = likely data loss
         if quality_context.analysis_text_length < 200:
             warnings.append(
-                f"Analysis text suspiciously short ({quality_context.analysis_text_length} chars) - "
+                f"Analysis text suspiciously short "
+                f"({quality_context.analysis_text_length} chars) - "
                 "possible data loss in pipeline"
             )
             # Short text means limited evidence - cap confidence
@@ -277,7 +278,8 @@ Respond in JSON format:
     "reasoning": "Brief explanation of your analysis with specific evidence cited"
 }}
 
-Only include tasks in completed/in_progress/blocked if you have evidence. Be conservative - if unsure, don't mark as completed."""
+Only include tasks in completed/in_progress/blocked if you have evidence.
+Be conservative - if unsure, don't mark as completed."""
 
     def _parse_response(
         self,
