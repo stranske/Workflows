@@ -4,7 +4,6 @@ import json
 import re
 import subprocess
 import sys
-from pathlib import Path
 
 
 def get_latest_pypi_version(package: str) -> str:
@@ -34,7 +33,7 @@ def main() -> int:
         "langchain-community": None,
         "langchain-openai": None,
     }
-    
+
     print("Fetching latest versions from PyPI...")
     for package in packages:
         try:
@@ -45,7 +44,7 @@ def main() -> int:
         except Exception as e:
             print(f"  ERROR fetching {package}: {e}", file=sys.stderr)
             return 1
-    
+
     print("\nRecommended pyproject.toml entries:")
     print("langchain = [")
     for package, version in packages.items():
@@ -53,7 +52,7 @@ def main() -> int:
         # Pin to major.minor range for stability
         print(f'    "{package}>={major}.{minor},<{major}.{minor+1}",')
     print("]")
-    
+
     return 0
 
 
