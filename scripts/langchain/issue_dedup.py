@@ -92,8 +92,7 @@ def build_issue_vector_store(
 
     texts = [_issue_text(issue) for issue in issue_records]
     metadatas = [
-        {"number": issue.number, "title": issue.title, "url": issue.url}
-        for issue in issue_records
+        {"number": issue.number, "title": issue.title, "url": issue.url} for issue in issue_records
     ]
     store = FAISS.from_texts(texts, resolved.client, metadatas=metadatas)
     return IssueVectorStore(

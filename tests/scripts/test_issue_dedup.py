@@ -36,9 +36,7 @@ def test_build_issue_vector_store_uses_faiss_from_texts(monkeypatch):
 
     assert result is not None
     assert result.store["texts"] == ["Sample\nBody"]
-    assert result.store["metadatas"] == [
-        {"number": 42, "title": "Sample", "url": "http://example"}
-    ]
+    assert result.store["metadatas"] == [{"number": 42, "title": "Sample", "url": "http://example"}]
     assert DummyFAISS.calls
 
 
