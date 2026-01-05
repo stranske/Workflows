@@ -14,6 +14,7 @@ This document describes all labels that trigger automated workflows or affect CI
 | `agents:format` | Issue labeled | Formats raw issue into AGENT_ISSUE_TEMPLATE |
 | `agents:formatted` | Auto-applied | Issue has been formatted by LangChain |
 | `verify:checkbox` | Merged PR labeled | Verifies acceptance criteria checkboxes |
+| `verify:compare` | Merged PR labeled | Compares implementation against expected behavior/spec |
 | `verify:evaluate` | Merged PR labeled | LLM evaluation of implementation (future) |
 | `status:ready` | Issue labeled | Marks issue as ready for agent processing |
 
