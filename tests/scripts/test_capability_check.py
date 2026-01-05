@@ -272,6 +272,7 @@ class TestClassifyCapabilities:
             with mock.patch.object(builtins, "__import__", mock_import):
                 result = classify_capabilities(["task1"], "criteria")
                 assert result.recommendation == "REVIEW_NEEDED"
+                assert result.provider_used == "github-models"
                 assert "langchain-core not installed" in result.human_actions_needed
 
 
