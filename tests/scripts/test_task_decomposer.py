@@ -33,3 +33,14 @@ def test_normalize_subtasks_rephrases_dependency_phrases() -> None:
     assert sub_tasks[0].lower().startswith("document dependency for:")
     assert "depends on" not in sub_tasks[0].lower()
     assert "verify" in sub_tasks[0].lower()
+
+
+def test_normalize_subtasks_scopes_large_tasks() -> None:
+    sub_tasks = task_decomposer._normalize_subtasks(
+        ["Implement end-to-end workflow for keepalive metrics collection"]
+    )
+    assert len(sub_tasks) == 3
+    assert any(task.lower().startswith("define scope for:") for task in sub_tasks)
+    assert any(task.lower().startswith("implement focused slice for:") for task in sub_tasks)
+    assert any(task.lower().startswith("validate focused slice for:") for task in sub_tasks)
+    assert all("verify" in task.lower() for task in sub_tasks)

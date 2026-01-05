@@ -38,6 +38,32 @@ DEPENDENCY_PHRASE_REGEX = re.compile(
     re.IGNORECASE,
 )
 LEADING_DEPENDENCY_CLAUSE_REGEX = re.compile(r"^(?:after|once|when)\b[^,]+,\s*(.+)$", re.IGNORECASE)
+LARGE_TASK_KEYWORDS = (
+    "end-to-end",
+    "end to end",
+    "full",
+    "entire",
+    "overall",
+    "across",
+    "overhaul",
+    "rewrite",
+    "redesign",
+    "refactor",
+    "migrate",
+    "migration",
+    "consolidate",
+    "rollout",
+)
+MAX_SUBTASK_WORDS = 12
+LARGE_TASK_PREFIXES = (
+    "define ",
+    "implement ",
+    "validate ",
+    "document ",
+    "scope ",
+    "outline ",
+    "plan ",
+)
 
 
 def _load_prompt() -> str:
@@ -137,6 +163,28 @@ def _split_task_parts(task: str) -> list[str]:
     return [part for part in parts if part]
 
 
+def _word_count(text: str) -> int:
+    return len(re.findall(r"[A-Za-z0-9']+", text))
+
+
+def _is_large_task(task: str) -> bool:
+    lowered = task.lower().strip()
+    has_large_keyword = any(keyword in lowered for keyword in LARGE_TASK_KEYWORDS)
+    if lowered.startswith(LARGE_TASK_PREFIXES):
+        return has_large_keyword or _word_count(task) > MAX_SUBTASK_WORDS
+    if _word_count(task) > MAX_SUBTASK_WORDS:
+        return True
+    return has_large_keyword
+
+
+def _expand_large_task(task: str) -> list[str]:
+    return [
+        f"Define scope for: {task}",
+        f"Implement focused slice for: {task}",
+        f"Validate focused slice for: {task}",
+    ]
+
+
 def _strip_dependency_clause(task: str) -> str:
     match = LEADING_DEPENDENCY_CLAUSE_REGEX.match(task)
     if match:
@@ -165,6 +213,10 @@ def _normalize_subtasks(sub_tasks: list[str]) -> list[str]:
                 continue
             if _contains_dependency_phrase(cleaned):
                 cleaned = _rewrite_dependency_task(cleaned)
+            if _is_large_task(cleaned) and not cleaned.lower().startswith("document dependency"):
+                for scoped_task in _expand_large_task(cleaned):
+                    normalized.append(_ensure_verification(scoped_task))
+                continue
             normalized.append(_ensure_verification(cleaned))
     return normalized
 
