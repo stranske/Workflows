@@ -223,6 +223,7 @@ This document describes all labels that trigger automated workflows or affect CI
 | `agents:format` | (auto-removed) | Label replaced by `agents:formatted` |
 | `agents:formatted` | `agent:codex` | Ready for agent assignment |
 | (merged PR) | `verify:checkbox` | Triggers checkbox verification |
+| (merged PR) | `verify:compare` | Triggers comparison verification |
 | (merged PR) | `verify:evaluate` | Triggers LLM evaluation (future) |
 
 ---
