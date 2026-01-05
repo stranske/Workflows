@@ -99,9 +99,7 @@ def build_label_vector_store(
         return None
 
     texts = [_label_text(label) for label in label_records]
-    metadatas = [
-        {"name": label.name, "description": label.description} for label in label_records
-    ]
+    metadatas = [{"name": label.name, "description": label.description} for label in label_records]
     store = FAISS.from_texts(texts, resolved.client, metadatas=metadatas)
     return LabelVectorStore(
         store=store,
