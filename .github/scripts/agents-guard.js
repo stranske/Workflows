@@ -447,7 +447,9 @@ function evaluateGuard({
   const hasCodeownerApproval = hasExternalApproval || authorIsCodeowner;
 
   const hasProtectedChanges = modifiedProtectedPaths.size > 0;
-  // Allow label to bypass approval for automated PRs (dependabot, renovate)
+  // Security note: Allow `agents:allow-change` label to bypass CODEOWNER approval
+  // ONLY for automated dependency PRs from known bots (dependabot, renovate).
+  // Human PRs or other bot PRs still require CODEOWNER approval even with label.
   const isAutomatedPR = normalizedAuthor && (normalizedAuthor === 'dependabot[bot]' || normalizedAuthor === 'renovate[bot]');
   const needsApproval = hasProtectedChanges && !hasCodeownerApproval && !(hasAllowLabel && isAutomatedPR);
   const needsLabel = hasProtectedChanges && !hasAllowLabel && !hasCodeownerApproval;

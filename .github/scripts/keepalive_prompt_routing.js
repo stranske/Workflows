@@ -31,7 +31,7 @@ const FEATURE_SCENARIOS = new Set([
   'nexttask',
 ]);
 
-const FIX_MODES = new Set(['fix', 'fix-ci', 'fix_ci', 'ci', 'ci-failure']);
+const FIX_MODES = new Set(['fix', 'fix-ci', 'fix_ci', 'ci', 'ci-failure', 'ci_failure', 'fix-ci-failure']);
 const VERIFY_MODES = new Set(['verify', 'verification', 'verify-acceptance', 'acceptance']);
 
 function resolvePromptMode({ scenario, mode, action, reason } = {}) {
