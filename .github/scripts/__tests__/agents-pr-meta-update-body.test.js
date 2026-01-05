@@ -12,6 +12,7 @@ const {
   buildStatusBlock,
   resolveAgentType,
   stripPrTemplateContent,
+  augmentContextWithRelatedIssues,
 } = require('../agents_pr_meta_update_body.js');
 
 test('parseCheckboxStates extracts checked items from a checkbox list', () => {
@@ -563,4 +564,48 @@ test('buildStatusBlock linkifies related issue references in context', () => {
 
   assert.ok(result.includes('[#123](https://github.com/octo/demo/issues/123)'));
   assert.ok(result.includes('[octo/demo#456](https://github.com/octo/demo/issues/456)'));
+});
+
+test('augmentContextWithRelatedIssues appends related refs when missing section', () => {
+  const contextSection = '## Context for Agent\n### Design Decisions\n- Keep behavior stable.';
+  const issueBody = 'Related to #123 and octo/demo#456 for background.';
+
+  const augmented = augmentContextWithRelatedIssues(contextSection, issueBody);
+  const result = buildStatusBlock({
+    scope: 'Scope text',
+    contextSection: augmented,
+    tasks: '- [ ] Task one',
+    acceptance: '- [ ] Done',
+    headSha: 'abc123',
+    workflowRuns: new Map(),
+    requiredChecks: [],
+    existingBody: '',
+    connectorStates: new Map(),
+    core: null,
+    agentType: 'codex',
+    owner: 'octo',
+    repo: 'demo',
+  });
+
+  assert.ok(result.includes('### Related Issues/PRs'));
+  assert.ok(result.includes('[#123](https://github.com/octo/demo/issues/123)'));
+  assert.ok(result.includes('[octo/demo#456](https://github.com/octo/demo/issues/456)'));
+});
+
+test('augmentContextWithRelatedIssues adds missing refs to existing section', () => {
+  const contextSection = [
+    '## Context for Agent',
+    '### Related Issues/PRs',
+    '- #123',
+    '### References',
+    '- https://example.com',
+  ].join('\n');
+  const issueBody = 'Follow-up in #124 and octo/demo#456.';
+
+  const augmented = augmentContextWithRelatedIssues(contextSection, issueBody);
+
+  assert.ok(augmented.includes('- #123'));
+  assert.ok(augmented.includes('- #124'));
+  assert.ok(augmented.includes('- octo/demo#456'));
+  assert.strictEqual(augmented.match(/### Related Issues\/PRs/g).length, 1);
 });

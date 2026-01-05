@@ -110,6 +110,99 @@ function linkifyIssueRefs(text, { owner, repo } = {}) {
   return linked.join('\n');
 }
 
+function extractIssueRefsFromText(text) {
+  const refs = [];
+  const seen = new Set();
+  if (!text) {
+    return refs;
+  }
+  const raw = String(text);
+  const crossRepoRegex = /\b[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+#\d+\b/g;
+  for (const match of raw.matchAll(crossRepoRegex)) {
+    const ref = match[0];
+    const key = ref.toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      refs.push(ref);
+    }
+  }
+  const localRegex = /(^|[^A-Za-z0-9_])(#\d+)\b/g;
+  for (const match of raw.matchAll(localRegex)) {
+    const ref = match[2];
+    const key = ref.toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      refs.push(ref);
+    }
+  }
+  return refs;
+}
+
+function augmentContextWithRelatedIssues(contextSection, issueBody) {
+  const refs = extractIssueRefsFromText(issueBody);
+  if (refs.length === 0) {
+    return contextSection;
+  }
+
+  const contextText = String(contextSection || '').trim();
+  if (!contextText) {
+    return [
+      '## Context for Agent',
+      '',
+      '### Related Issues/PRs',
+      ...refs.map((ref) => `- ${ref}`),
+    ].join('\n').trim();
+  }
+
+  const lines = contextText.split(/\r?\n/);
+  const headerRegex = /^\s*###\s+Related Issues\/PRs\s*$/i;
+  let headerIndex = -1;
+  for (let i = 0; i < lines.length; i += 1) {
+    if (headerRegex.test(lines[i])) {
+      headerIndex = i;
+      break;
+    }
+  }
+
+  if (headerIndex === -1) {
+    return [
+      contextText,
+      '',
+      '### Related Issues/PRs',
+      ...refs.map((ref) => `- ${ref}`),
+    ].join('\n').trim();
+  }
+
+  let endIndex = lines.length;
+  for (let i = headerIndex + 1; i < lines.length; i += 1) {
+    if (/^\s*#{2,3}\s+/.test(lines[i])) {
+      endIndex = i;
+      break;
+    }
+  }
+
+  const existingBlock = lines.slice(headerIndex + 1, endIndex).join('\n');
+  const existingRefs = new Set(
+    extractIssueRefsFromText(existingBlock).map((ref) => ref.toLowerCase())
+  );
+  const missing = refs.filter((ref) => !existingRefs.has(ref.toLowerCase()));
+  if (missing.length === 0) {
+    return contextSection;
+  }
+
+  const beforeLines = lines.slice(0, endIndex);
+  while (beforeLines.length > 0 && beforeLines[beforeLines.length - 1].trim() === '') {
+    beforeLines.pop();
+  }
+  const afterLines = lines.slice(endIndex);
+  const updatedLines = beforeLines.concat(missing.map((ref) => `- ${ref}`));
+  if (afterLines.length > 0) {
+    updatedLines.push('');
+    updatedLines.push(...afterLines);
+  }
+  return updatedLines.join('\n');
+}
+
 function buildContextBlock(contextText, { owner, repo } = {}) {
   const trimmed = String(contextText || '').trim();
   if (!trimmed) {
@@ -783,9 +876,10 @@ async function run({github, context, core, inputs}) {
     parsedSections.acceptance
     || extractWithAliases(issueBody, ['Acceptance criteria', 'Success criteria', 'Definition of done'])
     || '';
-  const contextSection = extractSection(issueBody, 'Context for Agent')
+  let contextSection = extractSection(issueBody, 'Context for Agent')
     || extractBlock(pr.body || '', 'context')
     || '';
+  contextSection = augmentContextWithRelatedIssues(contextSection, issueBody);
 
   const preamble = buildPreamble({summary, testing, ci, issueNumber});
 
@@ -858,6 +952,8 @@ module.exports = {
   extractSection,
   ensureChecklist,
   extractBlock,
+  extractIssueRefsFromText,
+  augmentContextWithRelatedIssues,
   parseCheckboxStates,
   mergeCheckboxStates,
   fetchConnectorCheckboxStates,
