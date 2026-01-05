@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import sys
 from io import StringIO
 from typing import Any
 from unittest import mock
@@ -40,7 +39,9 @@ class TestCapabilityCheckResult:
         data = result.to_dict()
         assert data["actionable_tasks"] == ["task1", "task2"]
         assert data["partial_tasks"] == [{"task": "partial", "limitation": "reason"}]
-        assert data["blocked_tasks"] == [{"task": "blocked", "reason": "why", "suggested_action": "do this"}]
+        assert data["blocked_tasks"] == [
+            {"task": "blocked", "reason": "why", "suggested_action": "do this"}
+        ]
         assert data["recommendation"] == "PROCEED"
         assert data["human_actions_needed"] == ["review this"]
         assert data["provider_used"] == "github-models"
@@ -301,16 +302,18 @@ class TestClassifyCapabilitiesWithLangchain:
         mock_template = mock.MagicMock()
         mock_template.__or__ = mock.MagicMock(return_value=mock_chain)
 
-        with mock.patch(
-            "scripts.langchain.capability_check._get_llm_client",
-            return_value=(mock_client, "github-models"),
+        with (
+            mock.patch(
+                "scripts.langchain.capability_check._get_llm_client",
+                return_value=(mock_client, "github-models"),
+            ),
+            mock.patch("langchain_core.prompts.ChatPromptTemplate") as mock_cpt,
         ):
-            with mock.patch("langchain_core.prompts.ChatPromptTemplate") as mock_cpt:
-                mock_cpt.from_template.return_value = mock_template
+            mock_cpt.from_template.return_value = mock_template
 
-                result = classify_capabilities(["task1"], "criteria")
-                assert result.recommendation == "REVIEW_NEEDED"
-                assert "LLM response missing JSON payload" in result.human_actions_needed
+            result = classify_capabilities(["task1"], "criteria")
+            assert result.recommendation == "REVIEW_NEEDED"
+            assert "LLM response missing JSON payload" in result.human_actions_needed
 
     def test_returns_fallback_when_json_parse_fails(self) -> None:
         mock_client = mock.MagicMock()
@@ -323,27 +326,31 @@ class TestClassifyCapabilitiesWithLangchain:
         mock_template = mock.MagicMock()
         mock_template.__or__ = mock.MagicMock(return_value=mock_chain)
 
-        with mock.patch(
-            "scripts.langchain.capability_check._get_llm_client",
-            return_value=(mock_client, "github-models"),
+        with (
+            mock.patch(
+                "scripts.langchain.capability_check._get_llm_client",
+                return_value=(mock_client, "github-models"),
+            ),
+            mock.patch("langchain_core.prompts.ChatPromptTemplate") as mock_cpt,
         ):
-            with mock.patch("langchain_core.prompts.ChatPromptTemplate") as mock_cpt:
-                mock_cpt.from_template.return_value = mock_template
+            mock_cpt.from_template.return_value = mock_template
 
-                result = classify_capabilities(["task1"], "criteria")
-                assert result.recommendation == "REVIEW_NEEDED"
-                assert "LLM response JSON parse failed" in result.human_actions_needed
+            result = classify_capabilities(["task1"], "criteria")
+            assert result.recommendation == "REVIEW_NEEDED"
+            assert "LLM response JSON parse failed" in result.human_actions_needed
 
     def test_normalizes_valid_llm_response(self) -> None:
         mock_client = mock.MagicMock()
         mock_response = mock.MagicMock()
-        mock_response.content = json.dumps({
-            "actionable_tasks": ["task1"],
-            "partial_tasks": [],
-            "blocked_tasks": [],
-            "recommendation": "PROCEED",
-            "human_actions_needed": [],
-        })
+        mock_response.content = json.dumps(
+            {
+                "actionable_tasks": ["task1"],
+                "partial_tasks": [],
+                "blocked_tasks": [],
+                "recommendation": "PROCEED",
+                "human_actions_needed": [],
+            }
+        )
 
         mock_chain = mock.MagicMock()
         mock_chain.invoke.return_value = mock_response
@@ -351,17 +358,19 @@ class TestClassifyCapabilitiesWithLangchain:
         mock_template = mock.MagicMock()
         mock_template.__or__ = mock.MagicMock(return_value=mock_chain)
 
-        with mock.patch(
-            "scripts.langchain.capability_check._get_llm_client",
-            return_value=(mock_client, "github-models"),
+        with (
+            mock.patch(
+                "scripts.langchain.capability_check._get_llm_client",
+                return_value=(mock_client, "github-models"),
+            ),
+            mock.patch("langchain_core.prompts.ChatPromptTemplate") as mock_cpt,
         ):
-            with mock.patch("langchain_core.prompts.ChatPromptTemplate") as mock_cpt:
-                mock_cpt.from_template.return_value = mock_template
+            mock_cpt.from_template.return_value = mock_template
 
-                result = classify_capabilities(["task1"], "criteria")
-                assert result.actionable_tasks == ["task1"]
-                assert result.recommendation == "PROCEED"
-                assert result.provider_used == "github-models"
+            result = classify_capabilities(["task1"], "criteria")
+            assert result.actionable_tasks == ["task1"]
+            assert result.recommendation == "PROCEED"
+            assert result.provider_used == "github-models"
 
 
 class TestMain:
@@ -379,7 +388,9 @@ class TestMain:
                 human_actions_needed=[],
                 provider_used="github-models",
             )
-            with mock.patch("sys.argv", ["prog", "--tasks-json", '["task1"]', "--acceptance", "criteria"]):
+            with mock.patch(
+                "sys.argv", ["prog", "--tasks-json", '["task1"]', "--acceptance", "criteria"]
+            ):
                 captured = StringIO()
                 with mock.patch("sys.stdout", captured):
                     exit_code = main()
