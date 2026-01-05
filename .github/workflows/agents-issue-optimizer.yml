@@ -73,7 +73,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           ISSUE_NUMBER: ${{ steps.check.outputs.issue_number }}
         run: |
-          gh api repos/${{ github.repository }}/issues/${ISSUE_NUMBER} > /tmp/issue.json
+          gh api "repos/${{ github.repository }}/issues/${ISSUE_NUMBER}" > /tmp/issue.json
           jq -r '.body' /tmp/issue.json > /tmp/issue_body.md
           echo "Issue body saved to /tmp/issue_body.md"
 
@@ -119,7 +119,7 @@ jobs:
           }
           
           # Post comment
-          gh issue comment ${ISSUE_NUMBER} --body-file /tmp/comment.md
+          gh issue comment "${ISSUE_NUMBER}" --body-file /tmp/comment.md
           
           echo "Analysis complete. Review suggestions and add 'agents:apply-suggestions' label to apply."
 
@@ -133,7 +133,7 @@ jobs:
           echo "Extracting suggestions from comments on issue #${ISSUE_NUMBER}"
           
           # Get all comments and find the one with suggestions JSON
-          gh api repos/${{ github.repository }}/issues/${ISSUE_NUMBER}/comments --paginate > /tmp/comments.json
+          gh api "repos/${{ github.repository }}/issues/${ISSUE_NUMBER}/comments" --paginate > /tmp/comments.json
           
           # Extract suggestions JSON from comment
           python -c "
@@ -172,7 +172,7 @@ jobs:
           " || exit 1
           
           # Update issue body
-          gh issue edit ${ISSUE_NUMBER} --body-file /tmp/updated_body.md
+          gh issue edit "${ISSUE_NUMBER}" --body-file /tmp/updated_body.md
           
           echo "Issue body updated with applied suggestions"
 
@@ -185,8 +185,8 @@ jobs:
         run: |
           if [[ "$PHASE" == "apply" ]]; then
             # Remove both optimization labels and add formatted label
-            gh issue edit ${ISSUE_NUMBER} --remove-label "agents:optimize" || true
-            gh issue edit ${ISSUE_NUMBER} --remove-label "agents:apply-suggestions"
-            gh issue edit ${ISSUE_NUMBER} --add-label "agents:formatted"
+            gh issue edit "${ISSUE_NUMBER}" --remove-label "agents:optimize" || true
+            gh issue edit "${ISSUE_NUMBER}" --remove-label "agents:apply-suggestions"
+            gh issue edit "${ISSUE_NUMBER}" --add-label "agents:formatted"
             echo "Labels updated: removed optimize/apply-suggestions, added formatted"
           fi
