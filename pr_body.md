@@ -1,5 +1,5 @@
 <!-- pr-preamble:start -->
-> **Source:** Issue #518
+> **Source:** Issue #481
 
 <!-- pr-preamble:end -->
 
@@ -9,21 +9,26 @@
 _Scope section missing from source issue._
 
 #### Tasks
-- [x] Create `scripts/langchain/issue_optimizer.py` with analyzer chain
-- [x] Create `ANALYZE_ISSUE_PROMPT` with agent limitations context
-- [x] Create suggestion comment formatter with embedded JSON
-- [x] Add workflow trigger for `agents:optimize` label (Phase 1)
-- [x] Add workflow trigger for `agents:apply-suggestions` label (Phase 2)
-- [x] Extract suggestions JSON and route to Formatter (#478)
-- [x] Add label management (remove optimize/apply, add formatted)
-- [x] Add tests for analyze and apply phases
+### Issue Deduplication
+- [ ] Create embedding generation for issue descriptions using OpenAI/GitHub Models
+- [ ] Build FAISS vector store from existing open issues
+- [ ] Implement similarity search with configurable threshold
+- [ ] Post advisory comment linking similar issues
+### Label Matching
+- [ ] Build vector store from repo labels (cache since labels rarely change)
+- [ ] Replace `findMatchingLabel()` Levenshtein logic with semantic search
+- [ ] Add fallback to Levenshtein for edge cases (very short labels)
+### Shared Infrastructure
+- [ ] Create `scripts/langchain/semantic_matcher.py` for shared embeddings logic
+- [ ] Add tests for both issue and label semantic similarity
+- [ ] Deprecate/remove Levenshtein-based matching where applicable
 
 #### Acceptance criteria
-- [x] `agents:optimize` triggers analysis comment with structured suggestions
-- [ ] Suggestions include task splitting, blocked task identification, objective criteria
-- [ ] Comment contains `<- Updated WORKFLOW_OUTPUTS.md suggestions-json: {...} -->` marker
-- [x] `agents:apply-suggestions` extracts JSON and calls Formatter
-- [x] Issue body updated with applied improvements
-- [ ] Labels cleaned up appropriately
+- [ ] New issues compared against existing open issues using embeddings
+- [ ] High semantic similarity triggers warning comment for issues
+- [ ] Label matching catches synonyms (defect→bug, improvement→enhancement)
+- [ ] Related issues linked for context
+- [ ] Does not block issue creation (advisory only)
+- [ ] Catches "same idea, different phrasing" that Levenshtein misses
 
 <!-- auto-status-summary:end -->
