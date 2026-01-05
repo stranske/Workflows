@@ -177,7 +177,7 @@ jobs:
                 '"isort==$ISORT_VERSION" "docformatter==$DOCFORMATTER_VERSION" ' +
                 '"mypy==$MYPY_VERSION" "pytest==$PYTEST_VERSION" ' +
                 '"pytest-cov==$PYTEST_COV_VERSION" "coverage==$COVERAGE_VERSION"',
-              'black --check .',
+              'black --check --line-length 100 .',
               'ruff check .',
               'mypy src tests'
             ].join('\n');

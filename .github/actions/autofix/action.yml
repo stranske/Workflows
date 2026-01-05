@@ -66,7 +66,7 @@ runs:
         # docformatter before black so black enforces final layout
         docformatter -r -i src tests || true
         # black last for canonical formatting
-        black .
+        black --line-length 100 .
         echo "[autofix] Phase 1b: second ruff pass to capture post-format unlocks"
         ruff check --fix --exit-zero .
 
@@ -75,7 +75,7 @@ runs:
         ruff check --select F401,F841 --fix --unsafe-fixes --exit-zero .
         # Normalise style after unsafe edits.
         isort .
-        black .
+        black --line-length 100 .
         ruff check --fix --exit-zero .
 
         echo "[autofix] Phase 2: collect remaining ruff diagnostics (non-fatal)"

@@ -66,7 +66,7 @@ jobs:
         run: pip install black ruff isort
 
       - name: Check Black formatting
-        run: black --check .
+        run: black --check --line-length 100 .
 
       - name: Check import sorting
         run: isort --check-only .
