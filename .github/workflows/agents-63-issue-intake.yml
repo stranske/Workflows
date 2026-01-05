@@ -614,12 +614,25 @@ jobs:
               { owner, repo, per_page: 100 },
             );
             const usedColors = new Set(labelsCache.map((l) => l.color.toLowerCase()));
+            const synonymMap = new Map([
+              ['defect', 'bug'],
+              ['improvement', 'enhancement'],
+            ]);
             const findMatchingLabel = (input) => {
               const candidates = [input];
               if (!input.includes(':')) candidates.push(canonicalizeNewLabel(input));
               for (const cand of candidates) {
                 const norm = normalize(cand);
                 if (!norm) continue;
+                const synonym = synonymMap.get(cand.trim().toLowerCase());
+                if (synonym) {
+                  const synonymNorm = normalize(synonym);
+                  if (synonymNorm) {
+                    for (const label of labelsCache) {
+                      if (normalize(label.name) === synonymNorm) return label.name;
+                    }
+                  }
+                }
                 for (const label of labelsCache) {
                   if (normalize(label.name) === norm) return label.name;
                 }

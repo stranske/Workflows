@@ -8,6 +8,7 @@ Use GitHub Models (preferred) or OpenAI embeddings when credentials are availabl
 from __future__ import annotations
 
 import os
+import math
 from collections.abc import Iterable
 from dataclasses import dataclass
 
@@ -80,3 +81,33 @@ def generate_embeddings(
 
     vectors = resolved.client.embed_documents(items)
     return EmbeddingResult(vectors=vectors, provider=resolved.provider, model=resolved.model)
+
+
+def cosine_similarity(left: list[float], right: list[float]) -> float:
+    if not left or not right or len(left) != len(right):
+        return 0.0
+    dot = 0.0
+    left_norm = 0.0
+    right_norm = 0.0
+    for l_val, r_val in zip(left, right, strict=False):
+        dot += float(l_val) * float(r_val)
+        left_norm += float(l_val) * float(l_val)
+        right_norm += float(r_val) * float(r_val)
+    if left_norm <= 0.0 or right_norm <= 0.0:
+        return 0.0
+    return dot / (math.sqrt(left_norm) * math.sqrt(right_norm))
+
+
+def best_cosine_matches(
+    query: list[float],
+    candidates: list[list[float]],
+    *,
+    top_k: int = 5,
+) -> list[tuple[int, float]]:
+    scored: list[tuple[int, float]] = []
+    for idx, vector in enumerate(candidates):
+        scored.append((idx, cosine_similarity(query, vector)))
+    scored.sort(key=lambda item: item[1], reverse=True)
+    if top_k <= 0:
+        return []
+    return scored[:top_k]
