@@ -63,7 +63,7 @@ jobs:
         run: pip install black ruff pyyaml
 
       - name: Check Black formatting
-        run: black --check .
+        run: black --check --line-length 100 .
 
       - name: Run Ruff linting
         run: ruff check .

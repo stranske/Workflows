@@ -559,7 +559,7 @@ jobs:
         continue-on-error: true
         run: |
           set -euo pipefail
-          black --check .
+          black --check --line-length 100 .
 
       - name: Finalize format check
         id: finalize

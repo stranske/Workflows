@@ -3,7 +3,8 @@
 Format raw issue text into the AGENT_ISSUE_TEMPLATE structure.
 
 Run with:
-    python scripts/langchain/issue_formatter.py --input-file issue.md --output-file formatted.md
+    python scripts/langchain/issue_formatter.py \
+        --input-file issue.md --output-file formatted.md
 """
 
 from __future__ import annotations

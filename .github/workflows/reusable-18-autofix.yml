@@ -414,7 +414,7 @@ jobs:
           echo "[autofix] Applying Ruff lint fixes"
           ruff check --fix --exit-zero "${targets[@]}"
           echo "[autofix] Normalising whitespace with Black"
-          black "${targets[@]}"
+          black --line-length 100 "${targets[@]}"
 
       - name: Clean cosmetic sweep
         if: steps.guard.outputs.skip != 'true' && steps.clean_mode.outputs.enabled == 'true'
@@ -460,7 +460,7 @@ jobs:
           printf '[autofix-clean] Target directories: %s\n' "${targets[*]}"
           ruff check "${targets[@]}" --select I --fix --exit-zero
           ruff check "${targets[@]}" --fix --exit-zero
-          black "${targets[@]}" || true
+          black --line-length 100 "${targets[@]}" || true
           if git diff --quiet; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else

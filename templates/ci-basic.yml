@@ -33,7 +33,7 @@ jobs:
         run: pip install black ruff
 
       - name: Check formatting
-        run: black --check .
+        run: black --check --line-length 100 .
 
       - name: Run linter
         run: ruff check .
