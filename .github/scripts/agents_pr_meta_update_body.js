@@ -79,6 +79,21 @@ function extractBlock(body, marker) {
   return body.slice(startIndex + start.length, endIndex).trim();
 }
 
+function buildContextBlock(contextText) {
+  const trimmed = String(contextText || '').trim();
+  if (!trimmed) {
+    return '';
+  }
+  const cleaned = trimmed
+    .replace(/<!--\s*context:start\s*-->/gi, '')
+    .replace(/<!--\s*context:end\s*-->/gi, '')
+    .trim();
+  if (!cleaned) {
+    return '';
+  }
+  return ['<!-- context:start -->', cleaned, '<!-- context:end -->'].join('\n');
+}
+
 function parseCheckboxStates(block) {
   const states = new Map();
   const lines = String(block || '').split(/\r?\n/);
@@ -392,12 +407,13 @@ function buildPreamble(sections) {
   return lines.join('\n');
 }
 
-function buildStatusBlock({scope, tasks, acceptance, headSha, workflowRuns, requiredChecks, existingBody, connectorStates, core, agentType}) {
+function buildStatusBlock({scope, contextSection, tasks, acceptance, headSha, workflowRuns, requiredChecks, existingBody, connectorStates, core, agentType}) {
   const statusLines = ['<!-- auto-status-summary:start -->', '## Automated Status Summary'];
   const isCliAgent = Boolean(agentType && String(agentType).trim());
 
   const existingBlock = extractBlock(existingBody || '', 'auto-status-summary');
   const existingStates = parseCheckboxStates(existingBlock);
+  const contextBlock = buildContextBlock(contextSection);
   
   // Merge existing PR body states with connector bot comment states
   // Connector states take precedence (they represent actual completion signals from agents)
@@ -421,6 +437,11 @@ function buildStatusBlock({scope, tasks, acceptance, headSha, workflowRuns, requ
   let scopeFormatted = scope ? scope.trim() : '_Scope section missing from source issue._';
   statusLines.push(scopeFormatted);
   statusLines.push('');
+
+  if (contextBlock) {
+    statusLines.push(contextBlock);
+    statusLines.push('');
+  }
 
   statusLines.push('#### Tasks');
   let tasksFormatted = tasks ? ensureChecklist(tasks) : fallbackChecklist('Tasks section missing from source issue.');
@@ -721,6 +742,9 @@ async function run({github, context, core, inputs}) {
     parsedSections.acceptance
     || extractWithAliases(issueBody, ['Acceptance criteria', 'Success criteria', 'Definition of done'])
     || '';
+  const contextSection = extractSection(issueBody, 'Context for Agent')
+    || extractBlock(pr.body || '', 'context')
+    || '';
 
   const preamble = buildPreamble({summary, testing, ci, issueNumber});
 
@@ -748,6 +772,7 @@ async function run({github, context, core, inputs}) {
 
   const statusBlock = buildStatusBlock({
     scope,
+    contextSection,
     tasks,
     acceptance,
     headSha: prInfo.headSha,
@@ -795,6 +820,7 @@ module.exports = {
   fetchConnectorCheckboxStates,
   stripPrTemplateContent,
   upsertBlock,
+  buildContextBlock,
   buildPreamble,
   buildStatusBlock,
   withRetries,
