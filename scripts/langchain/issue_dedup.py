@@ -39,6 +39,7 @@ class IssueMatch:
 
 DEFAULT_SIMILARITY_THRESHOLD = 0.8
 DEFAULT_SIMILARITY_K = 5
+SIMILAR_ISSUES_MARKER = "<!-- issue-dedup:similar-issues -->"
 
 
 def _coerce_issue(item: Any) -> IssueRecord | None:
@@ -198,3 +199,45 @@ def find_similar_issues(
 
     matches.sort(key=lambda match: match.score, reverse=True)
     return matches
+
+
+def _format_similarity(score: float) -> str:
+    clamped = min(max(score, 0.0), 1.0)
+    return f"{round(clamped * 100):d}%"
+
+
+def format_similar_issues_comment(
+    matches: Iterable[IssueMatch],
+    *,
+    max_items: int = DEFAULT_SIMILARITY_K,
+) -> str | None:
+    match_list = list(matches)
+    if not match_list:
+        return None
+
+    lines = [
+        SIMILAR_ISSUES_MARKER,
+        "### Potentially related issues (advisory)",
+        "",
+        "These issues look similar based on semantic embeddings. This notice is advisory only and",
+        "does not block issue creation.",
+        "",
+        "Similar issues:",
+    ]
+
+    for match in match_list[: max(1, max_items)]:
+        issue = match.issue
+        title = issue.title.strip() or "Untitled"
+        score = _format_similarity(match.score)
+        if issue.url:
+            if issue.number is not None:
+                reference = f"[#{issue.number}]({issue.url})"
+            else:
+                reference = f"[issue link]({issue.url})"
+        elif issue.number is not None:
+            reference = f"#{issue.number}"
+        else:
+            reference = "Issue"
+        lines.append(f"- {reference} - {title} ({score} similar)")
+
+    return "\n".join(lines)

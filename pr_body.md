@@ -11,8 +11,8 @@ _Scope section missing from source issue._
 #### Tasks
 ### Issue Deduplication
 - [x] Create embedding generation for issue descriptions using OpenAI/GitHub Models
-- [ ] Build FAISS vector store from existing open issues
-- [ ] Implement similarity search with configurable threshold
+- [x] Build FAISS vector store from existing open issues
+- [x] Implement similarity search with configurable threshold
 - [ ] Post advisory comment linking similar issues
 ### Label Matching
 - [ ] Build vector store from repo labels (cache since labels rarely change)

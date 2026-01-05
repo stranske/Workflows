@@ -92,3 +92,32 @@ def test_find_similar_issues_converts_distance_scores():
     assert matches[0].issue.number == 10
     assert matches[0].raw_score == 0.1
     assert matches[0].score_type == "distance"
+
+
+def test_format_similar_issues_comment_formats_links():
+    matches = [
+        issue_dedup.IssueMatch(
+            issue=issue_dedup.IssueRecord(number=12, title="Alpha", url="http://a"),
+            score=0.92,
+            raw_score=0.92,
+            score_type="relevance",
+        ),
+        issue_dedup.IssueMatch(
+            issue=issue_dedup.IssueRecord(number=34, title="Beta", url=None),
+            score=0.85,
+            raw_score=0.85,
+            score_type="relevance",
+        ),
+    ]
+
+    comment = issue_dedup.format_similar_issues_comment(matches, max_items=1)
+
+    assert comment is not None
+    assert issue_dedup.SIMILAR_ISSUES_MARKER in comment
+    assert "[#12](http://a)" in comment
+    assert "Alpha" in comment
+    assert "92% similar" in comment
+
+
+def test_format_similar_issues_comment_returns_none_for_empty():
+    assert issue_dedup.format_similar_issues_comment([]) is None
