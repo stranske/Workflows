@@ -5,6 +5,7 @@ Build FAISS vector stores for issue deduplication.
 
 from __future__ import annotations
 
+import os
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from typing import Any
@@ -26,6 +27,18 @@ class IssueVectorStore:
     provider: str
     model: str
     issues: list[IssueRecord]
+
+
+@dataclass(frozen=True)
+class IssueMatch:
+    issue: IssueRecord
+    score: float
+    raw_score: float
+    score_type: str
+
+
+DEFAULT_SIMILARITY_THRESHOLD = 0.8
+DEFAULT_SIMILARITY_K = 5
 
 
 def _coerce_issue(item: Any) -> IssueRecord | None:
@@ -101,3 +114,87 @@ def build_issue_vector_store(
         model=resolved.model,
         issues=issue_records,
     )
+
+
+def _resolve_threshold(explicit: float | None) -> float:
+    if explicit is not None:
+        return explicit
+    env_value = os.environ.get("ISSUE_DEDUP_THRESHOLD")
+    if env_value:
+        try:
+            return float(env_value)
+        except ValueError:
+            return DEFAULT_SIMILARITY_THRESHOLD
+    return DEFAULT_SIMILARITY_THRESHOLD
+
+
+def _similarity_from_score(score: float, score_type: str) -> float:
+    if score_type == "distance":
+        if score < 0:
+            return 0.0
+        return 1.0 / (1.0 + score)
+    if score < 0:
+        return 0.0
+    if score > 1:
+        return 1.0
+    return score
+
+
+def _issue_from_metadata(metadata: Mapping[str, Any], fallback_title: str | None) -> IssueRecord:
+    title = str(metadata.get("title") or fallback_title or "").strip()
+    number = metadata.get("number")
+    url = metadata.get("url")
+    return IssueRecord(
+        number=int(number) if isinstance(number, int) else None,
+        title=title or "Untitled",
+        body=None,
+        url=str(url) if url is not None else None,
+    )
+
+
+def find_similar_issues(
+    issue_store: IssueVectorStore,
+    query: str,
+    *,
+    threshold: float | None = None,
+    k: int | None = None,
+) -> list[IssueMatch]:
+    """Return issues similar to query text using the vector store."""
+    if not query or not query.strip():
+        return []
+
+    store = issue_store.store
+    if hasattr(store, "similarity_search_with_relevance_scores"):
+        search_fn = store.similarity_search_with_relevance_scores
+        score_type = "relevance"
+    elif hasattr(store, "similarity_search_with_score"):
+        search_fn = store.similarity_search_with_score
+        score_type = "distance"
+    else:
+        return []
+
+    limit = k or DEFAULT_SIMILARITY_K
+    try:
+        results = search_fn(query, k=limit)
+    except TypeError:
+        results = search_fn(query, limit)
+
+    min_score = _resolve_threshold(threshold)
+    matches: list[IssueMatch] = []
+    for doc, raw_score in results:
+        metadata = getattr(doc, "metadata", {}) or {}
+        fallback_title = getattr(doc, "page_content", None)
+        issue = _issue_from_metadata(metadata, fallback_title)
+        similarity = _similarity_from_score(float(raw_score), score_type)
+        if similarity >= min_score:
+            matches.append(
+                IssueMatch(
+                    issue=issue,
+                    score=similarity,
+                    raw_score=float(raw_score),
+                    score_type=score_type,
+                )
+            )
+
+    matches.sort(key=lambda match: match.score, reverse=True)
+    return matches
