@@ -242,7 +242,7 @@ class GitHubModelsProvider(LLMProvider):
         self,
         session_output: str,
         tasks: list[str],
-        context: str | None = None,
+        _context: str | None = None,
     ) -> str:
         task_list = "\n".join(f"- [ ] {task}" for task in tasks)
 
@@ -284,7 +284,7 @@ Be conservative - if unsure, don't mark as completed."""
     def _parse_response(
         self,
         content: str,
-        tasks: list[str],
+        _tasks: list[str],
         quality_context: SessionQualityContext | None = None,
     ) -> CompletionAnalysis:
         """Parse LLM response into CompletionAnalysis with BS detection."""
@@ -424,7 +424,7 @@ class RegexFallbackProvider(LLMProvider):
         self,
         session_output: str,
         tasks: list[str],
-        context: str | None = None,
+        _context: str | None = None,
     ) -> CompletionAnalysis:
 
         output_lower = session_output.lower()
