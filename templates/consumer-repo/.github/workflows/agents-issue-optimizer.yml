@@ -1,0 +1,300 @@
+name: Agents Issue Optimizer
+
+on:
+  issues:
+    types: [labeled]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: "Issue number to optimize"
+        required: true
+        type: number
+      phase:
+        description: "Phase to run (analyze, apply, or format)"
+        required: true
+        type: choice
+        options:
+          - analyze
+          - apply
+          - format
+
+jobs:
+  optimize_issue:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      contents: read
+
+    steps:
+      - name: Check trigger conditions
+        id: check
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          LABEL_NAME: ${{ github.event.label.name }}
+          DISPATCH_PHASE: ${{ inputs.phase }}
+        run: |
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            {
+              echo "phase=$DISPATCH_PHASE"
+              echo "issue_number=${{ inputs.issue_number }}"
+              echo "should_run=true"
+            } >> "$GITHUB_OUTPUT"
+          elif [[ "$LABEL_NAME" == "agents:optimize" ]]; then
+            {
+              echo "phase=analyze"
+              echo "issue_number=${{ github.event.issue.number }}"
+              echo "should_run=true"
+            } >> "$GITHUB_OUTPUT"
+          elif [[ "$LABEL_NAME" == "agents:apply-suggestions" ]]; then
+            {
+              echo "phase=apply"
+              echo "issue_number=${{ github.event.issue.number }}"
+              echo "should_run=true"
+            } >> "$GITHUB_OUTPUT"
+          elif [[ "$LABEL_NAME" == "agents:format" ]]; then
+            {
+              echo "phase=format"
+              echo "issue_number=${{ github.event.issue.number }}"
+              echo "should_run=true"
+            } >> "$GITHUB_OUTPUT"
+          else
+            echo "should_run=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout repository
+        if: steps.check.outputs.should_run == 'true'
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        if: steps.check.outputs.should_run == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        if: steps.check.outputs.should_run == 'true'
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          # Install langchain dependencies
+          pip install langchain langchain-core langchain-openai langchain-community
+
+      - name: Get issue body
+        if: steps.check.outputs.should_run == 'true'
+        id: get_issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ steps.check.outputs.issue_number }}
+        run: |
+          gh api "repos/${{ github.repository }}/issues/${ISSUE_NUMBER}" > /tmp/issue.json
+          jq -r '.body' /tmp/issue.json > /tmp/issue_body.md
+          echo "Issue body saved to /tmp/issue_body.md"
+
+      - name: Phase 1 - Analyze Issue
+        if: steps.check.outputs.should_run == 'true' && steps.check.outputs.phase == 'analyze'
+        id: analyze
+        env:
+          ISSUE_NUMBER: ${{ steps.check.outputs.issue_number }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          echo "Running analysis on issue #${ISSUE_NUMBER}"
+          python scripts/langchain/issue_optimizer.py \
+            --input-file /tmp/issue_body.md \
+            --json > /tmp/suggestions.json
+
+          # Format the comment
+          python -c "
+          import json
+          import sys
+          sys.path.insert(0, 'scripts/langchain')
+          from issue_optimizer import IssueOptimizationResult, format_suggestions_comment
+
+          with open('/tmp/suggestions.json') as f:
+              data = json.load(f)
+
+          result = IssueOptimizationResult(
+              task_splitting=data.get('task_splitting', []),
+              blocked_tasks=data.get('blocked_tasks', []),
+              objective_criteria=data.get('objective_criteria', []),
+              missing_sections=data.get('missing_sections', []),
+              formatting_issues=data.get('formatting_issues', []),
+              overall_notes=data.get('overall_notes', ''),
+              provider_used=data.get('provider_used')
+          )
+
+          comment = format_suggestions_comment(result)
+          with open('/tmp/comment.md', 'w') as f:
+              f.write(comment)
+          " || {
+            echo "Failed to format comment, using raw JSON"
+            cat /tmp/suggestions.json > /tmp/comment.md
+          }
+
+          # Post comment
+          gh issue comment "${ISSUE_NUMBER}" --body-file /tmp/comment.md
+
+          echo "Analysis complete. Review suggestions and add 'agents:apply-suggestions' label to apply."
+
+      - name: Advisory issue dedup check
+        if: steps.check.outputs.should_run == 'true' && steps.check.outputs.phase == 'analyze'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ steps.check.outputs.issue_number }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          echo "Checking for potential duplicate issues (advisory)"
+          gh api "repos/${{ github.repository }}/issues?state=open&per_page=100" --paginate > /tmp/open_issues.json
+          gh api "repos/${{ github.repository }}/issues/${ISSUE_NUMBER}/comments" --paginate > /tmp/dedup_comments.json
+
+          python - <<'PY' || true
+          import json
+          from scripts.langchain import issue_dedup
+
+          with open('/tmp/issue.json', encoding='utf-8') as f:
+              issue = json.load(f)
+          with open('/tmp/open_issues.json', encoding='utf-8') as f:
+              open_issues = json.load(f)
+            with open('/tmp/dedup_comments.json', encoding='utf-8') as f:
+              comments = json.load(f)
+
+            marker = issue_dedup.SIMILAR_ISSUES_MARKER
+            for comment in comments or []:
+              body = (comment or {}).get('body') or ''
+              if marker in body:
+                raise SystemExit(0)
+
+          # Conservative defaults; can be tuned later.
+          threshold = 0.82
+            store = issue_dedup.build_issue_vector_store(open_issues)
+            if store is None:
+              raise SystemExit(0)
+
+            title = (issue.get('title') or '').strip()
+            body = (issue.get('body') or '').strip()
+            query = f"{title}\n{body}".strip() if body else title
+            if not query:
+              raise SystemExit(0)
+
+            matches = issue_dedup.find_similar_issues(store, query, threshold=threshold, k=5)
+            comment = issue_dedup.format_similar_issues_comment(matches, max_items=5)
+            if comment:
+              with open('/tmp/dedup_comment.md', 'w', encoding='utf-8') as out:
+                out.write(comment)
+          PY
+
+          if [[ -f /tmp/dedup_comment.md ]]; then
+            gh issue comment "${ISSUE_NUMBER}" --body-file /tmp/dedup_comment.md || true
+          else
+            echo "No likely duplicates detected."
+          fi
+
+      - name: Phase 2 - Apply Suggestions
+        if: steps.check.outputs.should_run == 'true' && steps.check.outputs.phase == 'apply'
+        id: apply
+        env:
+          ISSUE_NUMBER: ${{ steps.check.outputs.issue_number }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "Extracting suggestions from comments on issue #${ISSUE_NUMBER}"
+
+          # Get all comments and find the one with suggestions JSON
+          gh api "repos/${{ github.repository }}/issues/${ISSUE_NUMBER}/comments" --paginate > /tmp/comments.json
+
+          # Extract suggestions JSON from comment
+          python -c "
+          import json
+          import sys
+          import re
+          sys.path.insert(0, 'scripts/langchain')
+          from issue_optimizer import _extract_suggestions_json, apply_suggestions
+
+          with open('/tmp/comments.json') as f:
+              comments = json.load(f)
+
+          suggestions = None
+          for comment in comments:
+              body = comment.get('body', '')
+              extracted = _extract_suggestions_json(body)
+              if extracted:
+                  suggestions = extracted
+                  break
+
+          if not suggestions:
+              print('ERROR: No suggestions JSON found in comments')
+              sys.exit(1)
+
+          # Read current issue body
+          with open('/tmp/issue_body.md') as f:
+              issue_body = f.read()
+
+          # Apply suggestions
+          result = apply_suggestions(issue_body, suggestions, use_llm=False)
+
+          with open('/tmp/updated_body.md', 'w') as f:
+              f.write(result['formatted_body'])
+
+          print('Suggestions applied successfully')
+          " || exit 1
+
+          # Update issue body
+          gh issue edit "${ISSUE_NUMBER}" --body-file /tmp/updated_body.md
+
+          echo "Issue body updated with applied suggestions"
+
+      - name: Phase 3 - Format Issue
+        if: steps.check.outputs.should_run == 'true' && steps.check.outputs.phase == 'format'
+        id: format
+        env:
+          ISSUE_NUMBER: ${{ steps.check.outputs.issue_number }}
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          echo "Formatting issue #${ISSUE_NUMBER} into AGENT_ISSUE_TEMPLATE structure"
+
+          # Format the issue using issue_formatter.py
+          python scripts/langchain/issue_formatter.py \
+            --input-file /tmp/issue_body.md \
+            --json > /tmp/format_result.json
+
+          # Extract formatted body
+          python -c "
+          import json
+          with open('/tmp/format_result.json') as f:
+              result = json.load(f)
+          formatted = result.get('formatted_body', '')
+          if not formatted:
+              print('ERROR: No formatted body returned')
+              import sys
+              sys.exit(1)
+          with open('/tmp/formatted_body.md', 'w') as f:
+              f.write(formatted)
+          print('Issue formatted successfully')
+          " || exit 1
+
+          # Update issue body with formatted version
+          gh issue edit "${ISSUE_NUMBER}" --body-file /tmp/formatted_body.md
+
+          echo "Issue body updated with formatted structure"
+
+      - name: Manage labels
+        if: steps.check.outputs.should_run == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ steps.check.outputs.issue_number }}
+          PHASE: ${{ steps.check.outputs.phase }}
+        run: |
+          if [[ "$PHASE" == "apply" ]]; then
+            # Remove both optimization labels and add formatted label
+            gh issue edit "${ISSUE_NUMBER}" --remove-label "agents:optimize" || true
+            gh issue edit "${ISSUE_NUMBER}" --remove-label "agents:apply-suggestions"
+            gh issue edit "${ISSUE_NUMBER}" --add-label "agents:formatted"
+            echo "Labels updated: removed optimize/apply-suggestions, added formatted"
+          elif [[ "$PHASE" == "format" ]]; then
+            # Remove format trigger label and add formatted result label
+            gh issue edit "${ISSUE_NUMBER}" --remove-label "agents:format"
+            gh issue edit "${ISSUE_NUMBER}" --add-label "agents:formatted"
+            echo "Labels updated: removed format, added formatted"
+          fi
