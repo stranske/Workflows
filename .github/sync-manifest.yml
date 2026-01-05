@@ -7,7 +7,7 @@
 # POLICY: Any file intended for consumer repos MUST be listed here.
 # Files not listed will NOT be synced, even if they exist in templates/consumer-repo/.
 #
-# Last sync trigger: 2026-01-05T17:15:00Z - Standardize black line-length 100
+# Last sync trigger: 2026-01-05T19:05:00Z - Fix llm_provider.py lint + P1-P4 bug fixes
 #
 # Categories:
 #   workflows: Thin caller workflows that consumers run directly
