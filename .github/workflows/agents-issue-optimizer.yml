@@ -23,7 +23,7 @@ jobs:
     permissions:
       issues: write
       contents: read
-    
+
     steps:
       - name: Check trigger conditions
         id: check
@@ -33,17 +33,23 @@ jobs:
           DISPATCH_PHASE: ${{ inputs.phase }}
         run: |
           if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
-            echo "phase=$DISPATCH_PHASE" >> "$GITHUB_OUTPUT"
-            echo "issue_number=${{ inputs.issue_number }}" >> "$GITHUB_OUTPUT"
-            echo "should_run=true" >> "$GITHUB_OUTPUT"
+            {
+              echo "phase=$DISPATCH_PHASE"
+              echo "issue_number=${{ inputs.issue_number }}"
+              echo "should_run=true"
+            } >> "$GITHUB_OUTPUT"
           elif [[ "$LABEL_NAME" == "agents:optimize" ]]; then
-            echo "phase=analyze" >> "$GITHUB_OUTPUT"
-            echo "issue_number=${{ github.event.issue.number }}" >> "$GITHUB_OUTPUT"
-            echo "should_run=true" >> "$GITHUB_OUTPUT"
+            {
+              echo "phase=analyze"
+              echo "issue_number=${{ github.event.issue.number }}"
+              echo "should_run=true"
+            } >> "$GITHUB_OUTPUT"
           elif [[ "$LABEL_NAME" == "agents:apply-suggestions" ]]; then
-            echo "phase=apply" >> "$GITHUB_OUTPUT"
-            echo "issue_number=${{ github.event.issue.number }}" >> "$GITHUB_OUTPUT"
-            echo "should_run=true" >> "$GITHUB_OUTPUT"
+            {
+              echo "phase=apply"
+              echo "issue_number=${{ github.event.issue.number }}"
+              echo "should_run=true"
+            } >> "$GITHUB_OUTPUT"
           else
             echo "should_run=false" >> "$GITHUB_OUTPUT"
           fi
@@ -89,17 +95,17 @@ jobs:
           python scripts/langchain/issue_optimizer.py \
             --input-file /tmp/issue_body.md \
             --json > /tmp/suggestions.json
-          
+
           # Format the comment
           python -c "
           import json
           import sys
           sys.path.insert(0, 'scripts/langchain')
           from issue_optimizer import IssueOptimizationResult, format_suggestions_comment
-          
+
           with open('/tmp/suggestions.json') as f:
               data = json.load(f)
-          
+
           result = IssueOptimizationResult(
               task_splitting=data.get('task_splitting', []),
               blocked_tasks=data.get('blocked_tasks', []),
@@ -109,7 +115,7 @@ jobs:
               overall_notes=data.get('overall_notes', ''),
               provider_used=data.get('provider_used')
           )
-          
+
           comment = format_suggestions_comment(result)
           with open('/tmp/comment.md', 'w') as f:
               f.write(comment)
@@ -117,10 +123,10 @@ jobs:
             echo "Failed to format comment, using raw JSON"
             cat /tmp/suggestions.json > /tmp/comment.md
           }
-          
+
           # Post comment
           gh issue comment "${ISSUE_NUMBER}" --body-file /tmp/comment.md
-          
+
           echo "Analysis complete. Review suggestions and add 'agents:apply-suggestions' label to apply."
 
       - name: Phase 2 - Apply Suggestions
@@ -131,10 +137,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           echo "Extracting suggestions from comments on issue #${ISSUE_NUMBER}"
-          
+
           # Get all comments and find the one with suggestions JSON
           gh api "repos/${{ github.repository }}/issues/${ISSUE_NUMBER}/comments" --paginate > /tmp/comments.json
-          
+
           # Extract suggestions JSON from comment
           python -c "
           import json
@@ -142,10 +148,10 @@ jobs:
           import re
           sys.path.insert(0, 'scripts/langchain')
           from issue_optimizer import _extract_suggestions_json, apply_suggestions
-          
+
           with open('/tmp/comments.json') as f:
               comments = json.load(f)
-          
+
           suggestions = None
           for comment in comments:
               body = comment.get('body', '')
@@ -153,27 +159,27 @@ jobs:
               if extracted:
                   suggestions = extracted
                   break
-          
+
           if not suggestions:
               print('ERROR: No suggestions JSON found in comments')
               sys.exit(1)
-          
+
           # Read current issue body
           with open('/tmp/issue_body.md') as f:
               issue_body = f.read()
-          
+
           # Apply suggestions
           result = apply_suggestions(issue_body, suggestions, use_llm=False)
-          
+
           with open('/tmp/updated_body.md', 'w') as f:
               f.write(result['formatted_body'])
-          
+
           print('Suggestions applied successfully')
           " || exit 1
-          
+
           # Update issue body
           gh issue edit "${ISSUE_NUMBER}" --body-file /tmp/updated_body.md
-          
+
           echo "Issue body updated with applied suggestions"
 
       - name: Manage labels

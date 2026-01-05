@@ -1,6 +1,9 @@
 # Extraction workspace (can be ignored after extraction complete)
 # .extraction/
 
+# Local workspace artifacts
+Trend_Model_Project/
+
 # Python
 __pycache__/
 *.py[cod]
