@@ -324,44 +324,67 @@ jobs:
             decode_debug.json
           if-no-files-found: ignore
 
+      - name: Install LLM dependencies
+        if: needs.normalize_inputs.outputs.apply_langchain_formatting == 'true'
+        run: |
+          python -m pip install --upgrade pip
+          pip install langchain langchain-core langchain-openai langchain-community
+
       - name: Parse topics
         env:
           ALLOW_SINGLE_TOPIC: '1'
+          APPLY_LANGCHAIN: ${{ needs.normalize_inputs.outputs.apply_langchain_formatting }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           echo '--- INPUT PREVIEW (first 200 chars) ---'
           head -c 200 input.txt 2>/dev/null | sed 's/[[:cntrl:]]/./g' || true
           printf '\n--------------------------------------\n'
-          if python .github/scripts/parse_chatgpt_topics.py; then
-            echo 'Parser succeeded.'
-          else
-            ec=$?
-            case "$ec" in
-              2) echo '::error::Exit 2 (empty after trimming). Ensure raw_input or source_url contains non-whitespace content.' ;;
-              3) echo '::error::Exit 3 (no enumerated topics). Provide numbered lines.' ;;
-              4) echo '::error::Exit 4 (parsed zero topics unexpectedly).' ;;
-              *) echo "::error::Parser failed with exit code $ec." ;;
-            esac
-            # Fallback: if enumerators detected by decoder (decode_debug.json) and code==3, attempt naive split
-            if [ "$ec" -eq 3 ] && [ -f decode_debug.json ]; then
-              enum_count=$(jq '.rebuilt_enum_count // 0' decode_debug.json 2>/dev/null || echo 0)
-              if [ "$enum_count" -gt 0 ]; then
-                echo '::warning::Structured parser failed; invoking fallback enumerator splitter.'
-                python .github/scripts/fallback_split.py || true
-                if [ -f topics.json ]; then
-                  tmp=$(mktemp)
-                  if jq '. + {fallback_used: true}' decode_debug.json > "$tmp"; then
-                    mv "$tmp" decode_debug.json
-                  else
-                    rm -f "$tmp"
+
+          # Use LLM-based splitting when LangChain formatting is enabled
+          if [ "$APPLY_LANGCHAIN" = "true" ]; then
+            echo '--- Using LLM-based topic splitter ---'
+            if python scripts/langchain/topic_splitter.py --input-file input.txt --output-file topics.json; then
+              echo 'LLM splitter succeeded.'
+            else
+              echo '::warning::LLM splitter failed, falling back to regex parser'
+              APPLY_LANGCHAIN=false
+            fi
+          fi
+
+          # Fallback to regex parser if LLM not enabled or failed
+          if [ "$APPLY_LANGCHAIN" != "true" ]; then
+            if python .github/scripts/parse_chatgpt_topics.py; then
+              echo 'Parser succeeded.'
+            else
+              ec=$?
+              case "$ec" in
+                2) echo '::error::Exit 2 (empty after trimming). Ensure raw_input or source_url contains non-whitespace content.' ;;
+                3) echo '::error::Exit 3 (no enumerated topics). Provide numbered lines.' ;;
+                4) echo '::error::Exit 4 (parsed zero topics unexpectedly).' ;;
+                *) echo "::error::Parser failed with exit code $ec." ;;
+              esac
+              # Fallback: if enumerators detected by decoder (decode_debug.json) and code==3, attempt naive split
+              if [ "$ec" -eq 3 ] && [ -f decode_debug.json ]; then
+                enum_count=$(jq '.rebuilt_enum_count // 0' decode_debug.json 2>/dev/null || echo 0)
+                if [ "$enum_count" -gt 0 ]; then
+                  echo '::warning::Structured parser failed; invoking fallback enumerator splitter.'
+                  python .github/scripts/fallback_split.py || true
+                  if [ -f topics.json ]; then
+                    tmp=$(mktemp)
+                    if jq '. + {fallback_used: true}' decode_debug.json > "$tmp"; then
+                      mv "$tmp" decode_debug.json
+                    else
+                      rm -f "$tmp"
+                    fi
+                    echo 'Fallback succeeded.'
+                    ec=0
                   fi
-                  echo 'Fallback succeeded.'
-                  ec=0
                 fi
               fi
-            fi
-            if [ "$ec" -ne 0 ]; then
-              exit $ec
+              if [ "$ec" -ne 0 ]; then
+                exit $ec
+              fi
             fi
           fi
           echo 'Topics length:'
