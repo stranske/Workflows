@@ -45,7 +45,17 @@ repos:
         args: ["--fix"]
         files: '\.(py|pyi)$'
 
-  # TODO Phase 4: Add workflow-specific validation
+  # Workflow YAML validation for templates
+  - repo: local
+    hooks:
+      - id: validate-workflow-templates
+        name: Validate workflow templates
+        entry: python3 scripts/validate_workflow_yaml.py
+        language: system
+        files: '^templates/consumer-repo/.github/workflows/.*\.yml$'
+        pass_filenames: true
+
+  # TODO Phase 4: Add actionlint
   # - repo: https://github.com/rhysd/actionlint
   #   rev: v1.6.26
   #   hooks:
