@@ -31,33 +31,33 @@ fi
 for repo in "${CONSUMER_REPOS[@]}"; do
     REPO_PATH="$(cd "${WORKFLOWS_ROOT}/.." && pwd)/${repo}"
     TARGET_FILE="${REPO_PATH}/.github/workflows/agents-issue-intake.yml"
-    
+
     echo "📦 Processing ${repo}..."
-    
+
     if [[ ! -d "${REPO_PATH}" ]]; then
         echo "  ⚠️  Repo directory not found: ${REPO_PATH} (skipping)"
         continue
     fi
-    
+
     if [[ ! -d "${REPO_PATH}/.github/workflows" ]]; then
         echo "  📁 Creating .github/workflows directory"
         mkdir -p "${REPO_PATH}/.github/workflows"
     fi
-    
+
     # Backup existing file if present
     if [[ -f "${TARGET_FILE}" ]]; then
         cp "${TARGET_FILE}" "${TARGET_FILE}.backup"
         echo "  💾 Backed up existing workflow to ${TARGET_FILE}.backup"
     fi
-    
+
     # Copy template
     cp "${TEMPLATE_FILE}" "${TARGET_FILE}"
     echo "  ✅ Deployed updated workflow"
-    
+
     # Check if repo has git
     if [[ -d "${REPO_PATH}/.git" ]]; then
         cd "${REPO_PATH}"
-        
+
         # Check if there are changes
         if git diff --quiet .github/workflows/agents-issue-intake.yml 2>/dev/null; then
             echo "  ℹ️  No changes detected (already up to date)"
@@ -66,7 +66,7 @@ for repo in "${CONSUMER_REPOS[@]}"; do
             echo "     Run: cd ${REPO_PATH} && git add .github/workflows/agents-issue-intake.yml && git commit -m 'feat: add ChatGPT sync mode to issue intake'"
         fi
     fi
-    
+
     echo ""
 done
 

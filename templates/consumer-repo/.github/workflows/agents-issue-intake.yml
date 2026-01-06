@@ -1,5 +1,5 @@
 # Thin caller for issue intake - delegates to Workflows repo reusable workflow
-# 
+#
 # Two modes:
 # 1. Label-based (agent_bridge): Assigns agents to issues when labeled with agent:* labels
 # 2. ChatGPT sync (chatgpt_sync): Bulk creates issues from topic files with optional LangChain formatting
@@ -89,9 +89,9 @@ jobs:
             # Issue events always use agent_bridge mode
             mode="agent_bridge"
           fi
-          
+
           echo "mode=${mode}" >> $GITHUB_OUTPUT
-          
+
           if [[ "${mode}" == "agent_bridge" ]]; then
             echo "should_run_bridge=true" >> $GITHUB_OUTPUT
             echo "should_run_sync=false" >> $GITHUB_OUTPUT
