@@ -153,6 +153,57 @@ Secrets use **lowercase** in `workflow_call` definitions but reference org secre
 4. **Run pre-sync validation** to ensure files pass consumer lint rules
 5. **Sync to ALL consumer repos** to maintain consistency
 
+## ⚠️ CRITICAL: Always Sync with Main Before Creating PRs
+
+**BEFORE creating any PR, ALWAYS sync your branch with the latest main to avoid conflicts.**
+
+### Required Process:
+
+```bash
+# Before creating a PR, ALWAYS run:
+git fetch origin main
+git merge origin/main
+# OR
+git rebase origin/main
+```
+
+### Why This Matters:
+
+1. **Prevents merge conflicts** - Main may have moved forward since you branched
+2. **Ensures your changes work with latest code** - CI failures from stale base
+3. **Avoids blocking auto-merge** - Conflicts prevent automatic merging
+4. **Saves time** - Fixing conflicts after PR creation wastes CI resources
+
+### When to Sync:
+
+- ✅ **ALWAYS** before running `gh pr create`
+- ✅ After main has merged other PRs while you're working
+- ✅ Before pushing a feature branch that's been worked on locally
+- ✅ When you see "This branch is X commits behind main"
+
+### Red Flags (You Forgot to Sync):
+
+- ❌ PR shows "CONFLICTING" merge status
+- ❌ PR shows "This branch is out-of-date with the base branch"
+- ❌ Auto-merge fails with "branch must not be behind the base branch"
+- ❌ GitHub shows conflict markers in PR files view
+
+### Recovery:
+
+If you forgot to sync and created a PR with conflicts:
+
+```bash
+# On your feature branch:
+git fetch origin main
+git merge origin/main
+# Resolve any conflicts in files
+git add <conflicted-files>
+git commit -m "Merge main and resolve conflicts"
+git push
+```
+
+**Make this second nature:** Before every `gh pr create`, run `git fetch origin main && git merge origin/main`.
+
 ## ⚠️ CRITICAL: Agent Bot Review Comments
 
 **BEFORE merging any PR, check for and address ALL agent bot comments.**
