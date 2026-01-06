@@ -153,6 +153,55 @@ Secrets use **lowercase** in `workflow_call` definitions but reference org secre
 4. **Run pre-sync validation** to ensure files pass consumer lint rules
 5. **Sync to ALL consumer repos** to maintain consistency
 
+## ⚠️ CRITICAL: Agent Bot Review Comments
+
+**BEFORE merging any PR, check for and address ALL agent bot comments.**
+
+Agent bots (like `copilot-pull-request-reviewer`) analyze code and flag:
+- Standards violations (line length, encoding, etc.)
+- Logic errors (redundant conditions, incorrect defaults)
+- Best practices (cross-platform compatibility, error handling)
+- Repository inconsistencies (mismatched configs)
+
+**These comments are NOT suggestions - they are issues that MUST be fixed.**
+
+### Process for Bot Comments
+
+```bash
+# 1. Check PR for bot comments
+gh pr view <PR_NUMBER> --repo stranske/Workflows --comments
+
+# 2. For each unresolved comment:
+#    - Evaluate if valid (assume yes unless proven wrong)
+#    - Implement the fix
+#    - Test the change
+#    - Commit with clear explanation
+
+# 3. Do NOT merge until all bot comments are resolved or explicitly dismissed with justification
+
+# 4. If bot suggests code change, USE the suggested code unless there's a technical reason not to
+```
+
+### Why This Matters
+
+- Bot comments often catch issues that break consumer repos
+- One ignored comment = potential bugs in 7+ repos after sync
+- Bots enforce repository standards (line-length, encoding, etc.)
+- Standards violations fail CI in consumer repos
+
+### Examples of Critical Bot Catches
+
+- Wrong default parameter values that don't match repo config
+- Missing encoding specifications that cause Windows failures
+- Redundant logic that indicates misunderstanding
+- Line length violations that fail linter checks
+
+**If you disagree with a bot comment:**
+1. Explain why in PR comment
+2. Tag the bot comment as "won't fix" with justification
+3. Document the decision in code comments if needed
+4. Do NOT silently ignore
+
 ## ⚠️ CRITICAL: Template Changes (READ THIS!)
 
 **If you modify `templates/consumer-repo/` YOU WILL SYNC TO ALL CONSUMER REPOS.**
