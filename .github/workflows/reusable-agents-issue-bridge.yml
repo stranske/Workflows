@@ -137,7 +137,8 @@ jobs:
               const prefix = prefixes.find((pref) => lower.startsWith(pref));
               if (!prefix) continue;
               let suffix = lower.slice(prefix.length).trim();
-              if (!suffix || suffix === 'keepalive') {
+              // Skip metadata labels that aren't actual agent assignments
+              if (!suffix || suffix === 'keepalive' || suffix === 'formatted') {
                 continue;
               }
               let base = suffix;
