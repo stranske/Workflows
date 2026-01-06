@@ -153,6 +153,30 @@ Secrets use **lowercase** in `workflow_call` definitions but reference org secre
 4. **Run pre-sync validation** to ensure files pass consumer lint rules
 5. **Sync to ALL consumer repos** to maintain consistency
 
+## ⚠️ CRITICAL: Template Changes (READ THIS!)
+
+**If you modify `templates/consumer-repo/` YOU WILL SYNC TO ALL CONSUMER REPOS.**
+
+Before editing any template file:
+
+```bash
+# 1. Validate YAML syntax and style
+python3 scripts/validate_workflow_yaml.py templates/consumer-repo/.github/workflows/*.yml
+
+# 2. Check against repo standards (line-length = 100)
+ruff check templates/consumer-repo/
+
+# 3. Dry-run the sync to see impact
+gh workflow run maint-68-sync-consumer-repos.yml -f dry_run=true
+```
+
+**Template changes will trigger PRs in 4+ consumer repos. One mistake = 4+ failing CI runs.**
+
+Repo standards (from pyproject.toml):
+- Line length: **100 characters**
+- Format: black, ruff, isort
+- All templates must pass validation before commit
+
 ## Quick Commands
 
 ```bash
