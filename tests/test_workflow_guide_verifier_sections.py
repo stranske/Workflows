@@ -6,7 +6,8 @@ def test_workflow_guide_verifier_sections_present() -> None:
     required_headers = (
         "## Verifier Workflow",
         "### How to trigger verification",
-        "### Modes and outputs",
+        "### What each mode does",
+        "### Expected outputs",
         "### When to use each mode",
     )
     for header in required_headers:

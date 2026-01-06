@@ -120,10 +120,15 @@ The verifier validates merged PRs against tasks and acceptance criteria using la
 1. Apply one of the `verify:*` labels to the PR before merging.
 2. Merge the PR; `agents-verifier.yml` runs in the default branch.
 
-### Modes and outputs
-- **Checkbox (`verify:checkbox`)** — Confirms acceptance criteria checkboxes match actual implementation; posts a verdict summary and opens a follow-up issue on failure.
-- **Evaluate (`verify:evaluate`)** — Runs LLM-based evaluation for correctness/quality; posts a structured report and may open a follow-up issue on failure.
-- **Compare (`verify:compare`)** — Runs evaluation across multiple models and posts a comparison report to help choose a baseline.
+### What each mode does
+- **Checkbox (`verify:checkbox`)** — Validates acceptance-criteria checkboxes against implementation evidence.
+- **Evaluate (`verify:evaluate`)** — Runs LLM-based evaluation for correctness, quality, and completeness.
+- **Compare (`verify:compare`)** — Runs evaluation with multiple models to compare verdicts and coverage.
+
+### Expected outputs
+- **Run summary** — Verdict (PASS/FAIL), highlights, and links to the acceptance/task context.
+- **Issue on failure** — A follow-up issue is opened when the verdict is FAIL.
+- **Mode-specific report** — Checkbox mode posts criteria coverage, Evaluate posts a structured rubric report, Compare posts a model comparison table.
 
 ### When to use each mode
 - **Checkbox** — Lightweight audit of acceptance criteria after merge.
