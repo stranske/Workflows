@@ -36,9 +36,11 @@ jobs:
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "run_id=${{ inputs.run_id }}" >> "$GITHUB_OUTPUT"
           else
-            # Extract run ID from issue body
-            BODY="${{ github.event.issue.body || github.event.comment.body }}"
-            RUN_ID=$(echo "$BODY" | grep -oP '(?<=runs/)\d+' | head -1)
+            # Extract run ID from issue or comment body using jq on the event payload
+            RUN_ID=$(jq -r '
+              (.issue.body // .comment.body // "") 
+              | capture("runs/(?<id>[0-9]+)")?.id // empty
+            ' "$GITHUB_EVENT_PATH")
             echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
           fi
 
