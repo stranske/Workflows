@@ -1,57 +1,26 @@
 <!-- pr-preamble:start -->
-> **Source:** Issue #483
+> **Source:** Issue #582
 
 <!-- pr-preamble:end -->
 
-<!-- auto-status-summary:start -->
-## Automated Status Summary
-#### Scope
-Related to master tracking issue #484 (LangChain Issue Intake Enhancement).
+## Scope
+The new label-triggered verifier workflow needs to be documented and rolled out to all consumer repositories for consistent behavior across the ecosystem.
 
-The `capability_check.py` module is P0 priority as it's designed to prevent wasted agent iterations by pre-validating task compatibility before engaging the keepalive pipeline.
+## Tasks
+- [ ] Create `verify:checkbox` label in all 6 consumer repos
+- [ ] Create `verify:evaluate` label in all 6 consumer repos (for future use)
+- [ ] Create `verify:compare` label in all 6 consumer repos (for future use)
+- [ ] Sync updated `agents-verifier.yml` to consumer repos via sync workflow
+- [x] Update `docs/WORKFLOW_GUIDE.md` with verifier usage section
+- [x] Add verifier troubleshooting guide
+- [ ] Update consumer repo READMEs to mention verify labels
 
-<!-- Updated WORKFLOW_OUTPUTS.md context:start -->
-## Context for Agent
-
-### Design Decisions & Constraints
-- The `capability_check.py` module is P0 priority as it's designed to prevent wasted agent iterations by pre-validating task compatibility before engaging the keepalive pipeline.
-
-### Related Issues/PRs
-- [#484](https://github.com/stranske/Workflows/issues/484)
-- [#540](https://github.com/stranske/Workflows/issues/540)
-
-### References
-- https://github.com/stranske/Workflows/compare/main...codex/issue-540?expand=1
-<!-- Updated WORKFLOW_OUTPUTS.md context:end -->
-
-#### Tasks
-- [x] Add `format_issue` job to `agents-issue-optimizer.yml` (or create separate workflow)
-- [ ] Trigger on `labeled` event with `agents:format` (blocked: requires workflow edit)
-- [x] Call `scripts/langchain/issue_formatter.py` on issue body
-- [x] Update issue body with formatted output
-- [x] Remove `agents:format` label and add `agents:formatted`
-- [x] Add tests for the new flow
-
-#### Acceptance criteria
-- [x] Adding `agents:format` label to an issue reformats it to AGENT_ISSUE_TEMPLATE
-- [x] Original raw text is preserved in a collapsed section (optional)
-- [x] Labels are correctly transitioned: `agents:format` → `agents:formatted`
-- [x] Works with both LLM and fallback formatting modes
-
-<!-- auto-status-summary:end -->
-
-## LangChain Coverage Tasks (Issue #567)
-- [x] Add comprehensive tests for `issue_formatter.py` (213 statements, 82 branches)
-- [x] - Test LLM-based formatting path
-- [x] - Test fallback regex parsing
-- [x] - Test template validation
-- [x] - Test error handling
-- [x] - Test CLI interface
-- [x] Add tests for `capability_check.py` (141 statements, 46 branches)
-- [x] - Test agent capability detection
-- [x] - Test pre-flight checks
-- [x] - Test error scenarios
-- [x] Improve `task_decomposer.py` coverage from 82.16% to 90%+
-- [x] - Cover missing lines: 72, 76-98, 213, 247-262, 290
-- [x] - Cover missing branch: 145->138
-- [x] Rollout plan: `docs/plans/langchain-rollout-tasks.md`
+## Acceptance Criteria
+- [ ] All 6 consumer repos have verify labels created
+- [ ] Updated workflow synced to all consumer repos
+- [x] WORKFLOW_GUIDE.md includes:
+- [x] - How to trigger verification
+- [x] - What each mode does
+- [x] - Expected outputs
+- [x] - When to use each mode
+- [x] Troubleshooting guide covers common issues

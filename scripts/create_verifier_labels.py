@@ -70,6 +70,19 @@ def _normalize_repo_list(repos: list[str]) -> list[str]:
     return ordered
 
 
+def _filter_labels(labels: tuple[dict[str, str], ...], names: list[str]) -> list[dict[str, str]]:
+    if not names:
+        return list(labels)
+
+    name_set = {name.strip() for name in names if name.strip()}
+    filtered = [label for label in labels if label["name"] in name_set]
+    missing = name_set.difference({label["name"] for label in filtered})
+    if missing:
+        missing_list = ", ".join(sorted(missing))
+        raise SystemExit(f"Unknown label name(s): {missing_list}")
+    return filtered
+
+
 def _build_command(repo: str, label: dict[str, str]) -> list[str]:
     return [
         "gh",
@@ -108,6 +121,10 @@ def main() -> int:
         help="Repo to exclude (repeatable).",
     )
     parser.add_argument(
+        "--labels",
+        help="Comma-separated list of label names to create (default: all).",
+    )
+    parser.add_argument(
         "--only",
         action="append",
         default=[],
@@ -126,6 +143,7 @@ def main() -> int:
         repos = _parse_repos_from_workflow(Path(args.repos_file))
 
     repos = _normalize_repo_list(repos)
+    labels = _filter_labels(LABELS, _split_csv(args.labels))
     if args.only:
         allowlist = {repo.strip() for repo in args.only if repo.strip()}
         repos = [repo for repo in repos if repo in allowlist]
@@ -138,7 +156,7 @@ def main() -> int:
         raise SystemExit("No repos found to process.")
 
     for repo in repos:
-        for label in LABELS:
+        for label in labels:
             cmd = _build_command(repo, label)
             if args.execute:
                 subprocess.run(cmd, check=True)

@@ -113,6 +113,29 @@ The following workflows were decommissioned during the CI consolidation effort. 
 - Optional flags beyond the standard inputs belong in the `params_json` payload; the orchestrator parses it with `fromJson()` and forwards toggles to `reusable-16-agents.yml`. Include an `options_json` string inside the payload for nested keepalive or cleanup settings when required.
 - Provide a PAT when bootstrap needs to push branches. The orchestrator honours PAT priority (`OWNER_PR_PAT` → `SERVICE_BOT_PAT` → `GITHUB_TOKEN`) via the reusable composite.
 
+## Verifier Workflow
+The verifier validates merged PRs against tasks and acceptance criteria using label-triggered modes.
+
+### How to trigger verification
+1. Apply one of the `verify:*` labels to the PR before merging.
+2. Merge the PR; `agents-verifier.yml` runs in the default branch.
+
+### Modes and outputs
+- **Checkbox (`verify:checkbox`)** — Confirms acceptance criteria checkboxes match actual implementation; posts a verdict summary and opens a follow-up issue on failure.
+- **Evaluate (`verify:evaluate`)** — Runs LLM-based evaluation for correctness/quality; posts a structured report and may open a follow-up issue on failure.
+- **Compare (`verify:compare`)** — Runs evaluation across multiple models and posts a comparison report to help choose a baseline.
+
+### When to use each mode
+- **Checkbox** — Lightweight audit of acceptance criteria after merge.
+- **Evaluate** — Higher-confidence validation when requirements are complex or subjective.
+- **Compare** — Benchmarking or model selection when evaluation quality is under review.
+
+## Verifier Troubleshooting
+- **No verifier run** — Ensure the PR was merged, the `verify:*` label was applied before merge, and the repository includes `agents-verifier.yml`.
+- **Verifier skipped** — Confirm the PR body includes Tasks and Acceptance Criteria sections with checkboxes.
+- **Follow-up issue missing** — Check the run summary for a PASS verdict; failures open issues only when the verifier is enabled and has permissions.
+- **Auth or API errors** — Confirm `SERVICE_BOT_PAT` is configured and has repo/issue permissions.
+
 
 ### Manual dispatch quick steps
 1. Open **Actions → Agents 70 Orchestrator → Run workflow**.
