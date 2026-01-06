@@ -186,6 +186,4 @@ jobs:
       intake_mode: "chatgpt_sync"
       source: ${{ inputs.topic_files }}
       apply_langchain_formatting: ${{ inputs.apply_langchain_formatting && 'true' || 'false' }}
-    secrets:
-      service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
-      owner_pr_pat: ${{ secrets.OWNER_PR_PAT }}
+    secrets: inherit
