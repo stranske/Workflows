@@ -40,6 +40,7 @@ const buildGithubStub = ({
   graphqlError = null,
   runsByWorkflow = {},
   listWorkflowRunsHook = null,
+  diffText = '',
 } = {}) => ({
   rest: {
     actions: {
@@ -54,7 +55,10 @@ const buildGithubStub = ({
       },
     },
     pulls: {
-      async get() {
+      async get(params = {}) {
+        if (params?.mediaType?.format === 'diff') {
+          return { data: diffText };
+        }
         return { data: prDetails };
       },
     },
@@ -408,6 +412,67 @@ test('buildVerifierContext writes verifier context with linked issues', async ()
   assert.ok(markdown.includes('| PR 11 - Minimal invariant CI | success | [run](https://ci/pr11) |'));
 
   fs.rmSync(contextPath, { force: true });
+});
+
+test('buildVerifierContext writes diff summary for LLM context', async () => {
+  const core = buildCore();
+  const prDetails = {
+    number: 555,
+    title: 'Summarize diff',
+    body: prBodyFixture,
+    html_url: 'https://example.com/pr/555',
+    merge_commit_sha: 'merge-sha-555',
+    base: { ref: 'main' },
+    head: { sha: 'head-sha-555' },
+  };
+  const context = {
+    eventName: 'pull_request',
+    repo: { owner: 'octo', repo: 'workflows' },
+    payload: {
+      repository: { default_branch: 'main' },
+      pull_request: {
+        merged: true,
+        number: 555,
+        base: { ref: 'main' },
+        html_url: 'https://example.com/pr/555',
+      },
+    },
+    sha: 'sha-555',
+  };
+  const diffText = [
+    'diff --git a/src/app.py b/src/app.py',
+    'index 111..222 100644',
+    '--- a/src/app.py',
+    '+++ b/src/app.py',
+    '+print("hello")',
+    '-print("bye")',
+    'diff --git a/docs/readme.md b/docs/readme.md',
+    'deleted file mode 100644',
+    '--- a/docs/readme.md',
+    '+++ /dev/null',
+    '-Old content',
+  ].join('\n');
+  const github = buildGithubStub({
+    prDetails,
+    closingIssues: [],
+    diffText,
+  });
+
+  const result = await buildVerifierContext({ github, context, core });
+  const contextPath = result.contextPath || path.join(process.cwd(), 'verifier-context.md');
+  const diffSummaryPath = core.outputs.diff_summary_path;
+  const markdown = fs.readFileSync(contextPath, 'utf8');
+  const diffSummary = fs.readFileSync(diffSummaryPath, 'utf8');
+
+  assert.equal(result.shouldRun, true);
+  assert.ok(diffSummaryPath.endsWith('verifier-diff-summary.md'));
+  assert.ok(markdown.includes('## PR Diff Summary'));
+  assert.ok(markdown.includes('src/app.py'));
+  assert.ok(diffSummary.includes('Files changed: 2'));
+  assert.ok(diffSummary.includes('docs/readme.md (deleted)'));
+
+  fs.rmSync(contextPath, { force: true });
+  fs.rmSync(diffSummaryPath, { force: true });
 });
 
 test('buildVerifierContext queries CI runs for merge and head SHAs', async () => {

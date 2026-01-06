@@ -26,6 +26,7 @@ the centralized CI and automation workflows from stranske/Workflows.
 | File | Purpose | Required Secrets |
 |------|---------|-----------------|
 | `agents-issue-intake.yml` | Creates PRs from labeled issues | `SERVICE_BOT_PAT`, `OWNER_PR_PAT` |
+| `agents-issue-optimizer.yml` | Formats issues using LangChain | `OPENAI_API_KEY` (optional) |
 | `agents-keepalive-loop.yml` | Runs Codex CLI after Gate passes | `CODEX_AUTH_JSON` or `WORKFLOWS_APP_*` |
 | `agents-pr-meta.yml` | Updates PR status summaries | `SERVICE_BOT_PAT` |
 | `agents-orchestrator.yml` | (Legacy) Scheduled keepalive sweeps | `SERVICE_BOT_PAT`, `ACTIONS_BOT_PAT` |

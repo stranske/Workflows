@@ -39,6 +39,7 @@ CANONICAL_PATTERNS: list[str] = [
     "codex-prompt-*.md",
     "codex-output-*.md",
     "verifier-context.md",
+    "verifier-diff-summary.md",
     # Autofix status files (HIGH conflict risk)
     "autofix_report_enriched.json",
     ".cosmetic-repair-summary.json",
