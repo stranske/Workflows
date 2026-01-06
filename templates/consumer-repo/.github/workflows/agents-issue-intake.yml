@@ -106,7 +106,11 @@ jobs:
   # Gate for agent_bridge mode: only proceed if issue has agent:* or agents:* label
   check_labels:
     needs: route
-    if: needs.route.outputs.should_run_bridge == 'true' && (github.event_name != 'issues' || contains(toJson(github.event.issue.labels.*.name), 'agent:') || contains(toJson(github.event.issue.labels.*.name), 'agents:'))
+    if: |
+      needs.route.outputs.should_run_bridge == 'true' &&
+      (github.event_name != 'issues' ||
+       contains(toJson(github.event.issue.labels.*.name), 'agent:') ||
+       contains(toJson(github.event.issue.labels.*.name), 'agents:'))
     runs-on: ubuntu-latest
     outputs:
       should_run: ${{ steps.check.outputs.should_run }}
