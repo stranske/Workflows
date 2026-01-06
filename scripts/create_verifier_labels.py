@@ -83,6 +83,13 @@ def _filter_labels(labels: tuple[dict[str, str], ...], names: list[str]) -> list
     return filtered
 
 
+def _validate_repo_count(repos: list[str], expected: int | None) -> None:
+    if expected is None:
+        return
+    if len(repos) != expected:
+        raise SystemExit(f"Expected {expected} repos, found {len(repos)}.")
+
+
 def _build_command(repo: str, label: dict[str, str]) -> list[str]:
     return [
         "gh",
@@ -131,6 +138,11 @@ def main() -> int:
         help="Only run for these repos (repeatable).",
     )
     parser.add_argument(
+        "--expect-count",
+        type=int,
+        help="Require a specific number of repos before proceeding.",
+    )
+    parser.add_argument(
         "--execute",
         action="store_true",
         help="Run gh commands (default: dry run).",
@@ -151,6 +163,8 @@ def main() -> int:
     if args.exclude:
         blocklist = {repo.strip() for repo in args.exclude if repo.strip()}
         repos = [repo for repo in repos if repo not in blocklist]
+
+    _validate_repo_count(repos, args.expect_count)
 
     if not repos:
         raise SystemExit("No repos found to process.")
