@@ -40,18 +40,18 @@ Rules:
 - If there's only ONE issue in the input, return an array with one item
 
 Output format - respond with ONLY valid JSON, no other text:
-{
+{{
   "issues": [
-    {
+    {{
       "title": "First issue title",
       "body": "Full body content of first issue..."
-    },
-    {
+    }},
+    {{
       "title": "Second issue title",
       "body": "Full body content of second issue..."
-    }
+    }}
   ]
-}
+}}
 
 Input text to split:
 {input_text}
