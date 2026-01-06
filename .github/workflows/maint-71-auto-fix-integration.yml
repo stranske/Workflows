@@ -103,11 +103,23 @@ jobs:
         run: |
           cd integration-tests
           
-          echo "Running black formatter..."
-          black scripts/ tests/ src/ 2>&1 || true
+          # Collect existing target directories for formatting
+          TARGET_DIRS=""
+          for d in scripts tests src; do
+            if [ -d "$d" ]; then
+              TARGET_DIRS="$TARGET_DIRS $d"
+            fi
+          done
           
-          echo "Running ruff auto-fixes..."
-          ruff check --fix scripts/ tests/ src/ 2>&1 || true
+          if [ -n "$TARGET_DIRS" ]; then
+            echo "Running black formatter on:$TARGET_DIRS"
+            black $TARGET_DIRS 2>&1 || true
+            
+            echo "Running ruff auto-fixes on:$TARGET_DIRS"
+            ruff check --fix $TARGET_DIRS 2>&1 || true
+          else
+            echo "No target directories (scripts, tests, src) exist; skipping formatters."
+          fi
           
           # Check if there are changes
           if git diff --quiet; then
