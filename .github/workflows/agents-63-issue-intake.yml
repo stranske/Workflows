@@ -240,6 +240,7 @@ jobs:
     permissions:
       contents: read
       issues: write # Only elevated when a sync actually mutates issues; early exits remain read-only.
+      models: read # Required for LLM-based topic splitting
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
