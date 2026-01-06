@@ -1,13 +1,9 @@
 name: Agents Verifier
 
 on:
-  pull_request:
+  pull_request_target:
     types:
-      - closed
-  # NOTE: We intentionally do NOT trigger on push to main.
-  # The pull_request:closed event already covers merged PRs and provides
-  # better context (PR number, linked issues). Push events would duplicate
-  # runs and often fail to resolve the associated PR.
+      - labeled
 
 permissions:
   contents: read
@@ -16,8 +12,50 @@ permissions:
   actions: read
 
 jobs:
+  # Gate: only proceed if PR is merged AND has verify:* label
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      should_run: ${{ steps.check.outputs.should_run }}
+      mode: ${{ steps.check.outputs.mode }}
+    steps:
+      - name: Check trigger conditions
+        id: check
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const labelName = context.payload.label?.name || '';
+            
+            // Only proceed if PR is merged
+            if (!pr.merged) {
+              core.info('PR not merged yet; skipping verification');
+              core.setOutput('should_run', 'false');
+              return;
+            }
+            
+            // Determine mode from label
+            let mode = '';
+            if (labelName === 'verify:checkbox') {
+              mode = 'checkbox';
+            } else if (labelName === 'verify:evaluate') {
+              mode = 'evaluate';
+            } else if (labelName === 'verify:compare') {
+              mode = 'compare';
+            } else {
+              core.info(`Not a verify label (got: ${labelName}); skipping`);
+              core.setOutput('should_run', 'false');
+              return;
+            }
+            
+            core.info(`Merged PR with ${labelName} label; proceeding with ${mode} mode`);
+            core.setOutput('should_run', 'true');
+            core.setOutput('mode', mode);
+
   verifier:
     name: Run post-merge verifier
+    needs: check
+    if: needs.check.outputs.should_run == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
