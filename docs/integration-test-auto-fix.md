@@ -102,12 +102,12 @@ Create `.pre-commit-config.yaml`:
 ```yaml
 repos:
   - repo: https://github.com/psf/black
-    rev: 25.12.0
+    rev: 25.12.0  # Check for latest: https://github.com/psf/black/releases
     hooks:
       - id: black
         language_version: python3.12
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.14.10
+    rev: v0.14.10  # Check for latest: https://github.com/astral-sh/ruff-pre-commit/releases
     hooks:
       - id: ruff
         args: [--fix]

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Script to trigger the integration tests formatting fix workflow
 # Usage: ./scripts/trigger-integration-fix.sh [commit_message]
 

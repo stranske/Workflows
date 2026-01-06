@@ -91,7 +91,7 @@ After applying the fix:
    - Check that the latest run is green ✅
 
 3. **Close this issue**:
-   - Once verified, close issue #[NUMBER]
+   - Once verified, close the issue for this integration test failure
 
 ## Prevention for Future
 
