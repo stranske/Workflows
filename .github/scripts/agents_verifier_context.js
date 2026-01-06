@@ -11,6 +11,12 @@ const {
 const { queryVerifierCiResults } = require('./verifier_ci_query.js');
 
 const DEFAULT_BRANCH = process.env.DEFAULT_BRANCH || 'main';
+const DEFAULT_DIFF_SUMMARY_PATH = 'verifier-diff-summary.md';
+
+const DIFF_SUMMARY_LIMITS = {
+  maxFiles: 50,
+  maxLines: 20000,
+};
 
 function uniqueNumbers(values) {
   return Array.from(
@@ -68,6 +74,141 @@ function formatSections({ heading, url, body }) {
     lines.push('', '_No scope/tasks/acceptance criteria found in this source._');
   }
   return lines.join('\n');
+}
+
+function summarizeDiff(diffText, { maxFiles, maxLines } = {}) {
+  const summaryLines = ['## PR Diff Summary', ''];
+  const diff = String(diffText || '').trim();
+  if (!diff) {
+    summaryLines.push('_Diff unavailable or empty._');
+    return summaryLines.join('\n');
+  }
+
+  const fileSummaries = [];
+  let current = null;
+  let truncated = false;
+  const lines = diff.split('\n');
+  const lineLimit = Number.isFinite(maxLines) ? maxLines : DIFF_SUMMARY_LIMITS.maxLines;
+
+  const pushCurrent = () => {
+    if (current) {
+      fileSummaries.push(current);
+      current = null;
+    }
+  };
+
+  for (let index = 0; index < lines.length; index += 1) {
+    if (index >= lineLimit) {
+      truncated = true;
+      break;
+    }
+    const line = lines[index];
+    if (line.startsWith('diff --git ')) {
+      pushCurrent();
+      const match = line.match(/^diff --git a\/(.+?) b\/(.+)$/);
+      const fromPath = match ? match[1] : '';
+      const toPath = match ? match[2] : '';
+      current = {
+        fromPath,
+        toPath,
+        status: 'modified',
+        added: 0,
+        removed: 0,
+        binary: false,
+      };
+      continue;
+    }
+    if (!current) {
+      continue;
+    }
+    if (line.startsWith('new file mode')) {
+      current.status = 'added';
+      continue;
+    }
+    if (line.startsWith('deleted file mode')) {
+      current.status = 'deleted';
+      continue;
+    }
+    if (line.startsWith('rename from ')) {
+      current.status = 'renamed';
+      current.fromPath = line.replace('rename from ', '').trim();
+      continue;
+    }
+    if (line.startsWith('rename to ')) {
+      current.status = 'renamed';
+      current.toPath = line.replace('rename to ', '').trim();
+      continue;
+    }
+    if (line.startsWith('Binary files ') || line.startsWith('GIT binary patch')) {
+      current.binary = true;
+      continue;
+    }
+    if (line.startsWith('+++') || line.startsWith('---')) {
+      continue;
+    }
+    if (line.startsWith('+')) {
+      current.added += 1;
+    } else if (line.startsWith('-')) {
+      current.removed += 1;
+    }
+  }
+  pushCurrent();
+
+  if (!fileSummaries.length) {
+    summaryLines.push('_No file changes detected in diff._');
+    return summaryLines.join('\n');
+  }
+
+  const totalAdded = fileSummaries.reduce((sum, file) => sum + file.added, 0);
+  const totalRemoved = fileSummaries.reduce((sum, file) => sum + file.removed, 0);
+  summaryLines.push(`- Files changed: ${fileSummaries.length}`);
+  summaryLines.push(`- Total additions: ${totalAdded}`);
+  summaryLines.push(`- Total deletions: ${totalRemoved}`);
+  if (truncated) {
+    summaryLines.push(`- Diff parsing truncated after ${lineLimit} lines.`);
+  }
+  summaryLines.push('', '### File changes');
+
+  const fileLimit = Number.isFinite(maxFiles) ? maxFiles : DIFF_SUMMARY_LIMITS.maxFiles;
+  const visible = fileSummaries.slice(0, fileLimit);
+  for (const file of visible) {
+    let label = file.toPath || file.fromPath || '(unknown file)';
+    if (file.status === 'renamed' && file.fromPath) {
+      label = `${file.fromPath} -> ${file.toPath || '(unknown)'}`;
+    } else if (file.status === 'added') {
+      label = `${label} (added)`;
+    } else if (file.status === 'deleted') {
+      label = `${label} (deleted)`;
+    }
+    const delta = file.binary ? 'binary' : `+${file.added}/-${file.removed}`;
+    summaryLines.push(`- ${label} (${delta})`);
+  }
+  if (fileSummaries.length > visible.length) {
+    summaryLines.push(`- ...and ${fileSummaries.length - visible.length} more files`);
+  }
+
+  return summaryLines.join('\n');
+}
+
+async function fetchPullRequestDiff({ github, core, owner, repo, pullNumber }) {
+  if (!github?.rest?.pulls?.get) {
+    return '';
+  }
+  try {
+    const response = await github.rest.pulls.get({
+      owner,
+      repo,
+      pull_number: pullNumber,
+      mediaType: { format: 'diff' },
+    });
+    if (typeof response?.data === 'string') {
+      return response.data;
+    }
+    return '';
+  } catch (error) {
+    core?.warning?.(`Failed to fetch PR diff: ${error.message}`);
+    return '';
+  }
 }
 
 async function resolvePullRequest({ github, context, core }) {
@@ -154,6 +295,7 @@ async function buildVerifierContext({ github, context, core, ciWorkflows }) {
     core?.setOutput?.('context_path', '');
     core?.setOutput?.('acceptance_count', '0');
     core?.setOutput?.('ci_results', '[]');
+    core?.setOutput?.('diff_summary_path', '');
     return {
       shouldRun: false,
       reason: resolveReason || 'No pull request detected.',
@@ -175,6 +317,7 @@ async function buildVerifierContext({ github, context, core, ciWorkflows }) {
     core?.setOutput?.('context_path', '');
     core?.setOutput?.('acceptance_count', '0');
     core?.setOutput?.('ci_results', '[]');
+    core?.setOutput?.('diff_summary_path', '');
     return { shouldRun: false, reason: skipReason, ciResults: [] };
   }
 
@@ -193,6 +336,7 @@ async function buildVerifierContext({ github, context, core, ciWorkflows }) {
     core?.setOutput?.('context_path', '');
     core?.setOutput?.('acceptance_count', '0');
     core?.setOutput?.('ci_results', '[]');
+    core?.setOutput?.('diff_summary_path', '');
     return { shouldRun: false, reason: skipReason, ciResults: [] };
   }
 
@@ -343,12 +487,26 @@ async function buildVerifierContext({ github, context, core, ciWorkflows }) {
     core?.setOutput?.('context_path', '');
     core?.setOutput?.('acceptance_count', '0');
     core?.setOutput?.('ci_results', JSON.stringify(ciResults));
+    core?.setOutput?.('diff_summary_path', '');
     return { shouldRun: false, reason: skipReason, ciResults };
   }
+
+  const diffText = await fetchPullRequestDiff({
+    github,
+    core,
+    owner,
+    repo,
+    pullNumber: pull.number,
+  });
+  const diffSummary = summarizeDiff(diffText, DIFF_SUMMARY_LIMITS);
+  content.push('');
+  content.push(diffSummary);
 
   const markdown = content.join('\n').trimEnd() + '\n';
   const contextPath = path.join(process.cwd(), 'verifier-context.md');
   fs.writeFileSync(contextPath, markdown, 'utf8');
+  const diffSummaryPath = path.join(process.cwd(), DEFAULT_DIFF_SUMMARY_PATH);
+  fs.writeFileSync(diffSummaryPath, diffSummary + '\n', 'utf8');
 
   core?.setOutput?.('should_run', 'true');
   core?.setOutput?.('skip_reason', '');
@@ -359,11 +517,14 @@ async function buildVerifierContext({ github, context, core, ciWorkflows }) {
   core?.setOutput?.('context_path', contextPath);
   core?.setOutput?.('acceptance_count', String(acceptanceCount));
   core?.setOutput?.('ci_results', JSON.stringify(ciResults));
+  core?.setOutput?.('diff_summary_path', diffSummaryPath);
 
   return {
     shouldRun: true,
     markdown,
     contextPath,
+    diffSummary,
+    diffSummaryPath,
     issueNumbers,
     targetSha,
     acceptanceCount,

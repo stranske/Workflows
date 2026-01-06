@@ -1,10 +1,5 @@
 # Reusable Agents Verifier workflow
-# Verifies acceptance criteria were met on merged PRs
-#
-# Modes:
-# - checkbox: Verify acceptance criteria checkboxes are accurately marked (current)
-# - evaluate: Independent LLM evaluation of implementation (future)
-# - compare: Multi-model comparison evaluation (future)
+# Runs post-merge to verify acceptance criteria were met
 #
 # This workflow:
 # 1. Builds context from merged PR and linked issues
@@ -26,7 +21,7 @@ on:
         type: number
         default: 300000
       mode:
-        description: 'Verification mode: checkbox, evaluate, or compare'
+        description: 'Verification mode: checkbox (default), evaluate (LLM-based), or compare (multi-provider)'
         required: false
         type: string
         default: 'checkbox'
@@ -34,10 +29,13 @@ on:
       CODEX_AUTH_JSON:
         required: true
         description: 'Codex authentication JSON from codex login'
+      OPENAI_API_KEY:
+        required: false
+        description: 'OpenAI API key for compare mode (multi-provider evaluation)'
 
 permissions:
   contents: read
-  pull-requests: read
+  pull-requests: write
   issues: write
   actions: read
 
@@ -133,18 +131,9 @@ jobs:
         uses: actions/github-script@v8
         env:
           CI_WORKFLOWS: ${{ inputs.ci_workflows }}
-          VERIFIER_MODE: ${{ inputs.mode }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const mode = process.env.VERIFIER_MODE || 'checkbox';
-            core.info(`Verifier mode: ${mode}`);
-
-            // For now, only checkbox mode is implemented
-            if (mode !== 'checkbox') {
-              core.warning(`Mode '${mode}' is not yet implemented. Falling back to checkbox mode.`);
-            }
-
             const { buildVerifierContext } = require('./.workflows-lib/.github/scripts/agents_verifier_context.js');
             const ciWorkflows = process.env.CI_WORKFLOWS || '[]';
             await buildVerifierContext({ github, context, core, ciWorkflows });
@@ -181,7 +170,7 @@ jobs:
           echo "prompt_file=$combined" >> "$GITHUB_OUTPUT"
 
       - name: Setup Codex auth
-        if: steps.context.outputs.should_run == 'true'
+        if: steps.context.outputs.should_run == 'true' && inputs.mode != 'evaluate'
         env:
           CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
           CODEX_HOME: ${{ runner.temp }}/.codex-verifier
@@ -195,12 +184,12 @@ jobs:
           echo "Codex auth configured"
 
       - name: Install Codex CLI
-        if: steps.context.outputs.should_run == 'true'
+        if: steps.context.outputs.should_run == 'true' && inputs.mode != 'evaluate'
         run: npm install -g @openai/codex
 
-      - name: Run verifier
+      - name: Run verifier (checkbox mode)
         id: codex
-        if: steps.context.outputs.should_run == 'true'
+        if: steps.context.outputs.should_run == 'true' && inputs.mode != 'evaluate'
         continue-on-error: true
         env:
           CODEX_HOME: ${{ runner.temp }}/.codex-verifier
@@ -224,9 +213,9 @@ jobs:
           fi
           exit "${codex_exit_code}"
 
-      - name: Parse verifier verdict
+      - name: Parse verifier verdict (checkbox mode)
         id: verdict
-        if: steps.context.outputs.should_run == 'true'
+        if: steps.context.outputs.should_run == 'true' && inputs.mode != 'evaluate'
         run: |
           set -euo pipefail
           verdict="unknown"
@@ -245,9 +234,191 @@ jobs:
           fi
           echo "verdict=$verdict" >> "$GITHUB_OUTPUT"
 
+      # === LLM Evaluation Mode (when mode=evaluate) ===
+      - name: Setup Python for LLM evaluation
+        if: steps.context.outputs.should_run == 'true' && inputs.mode == 'evaluate'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install LLM evaluation dependencies
+        if: steps.context.outputs.should_run == 'true' && inputs.mode == 'evaluate'
+        run: |
+          pip install pydantic langchain-openai
+
+      - name: Run LLM evaluation
+        id: llm_evaluate
+        if: steps.context.outputs.should_run == 'true' && inputs.mode == 'evaluate'
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PYTHONPATH: .workflows-lib
+        run: |
+          set -euo pipefail
+          context_file="${{ steps.context.outputs.context_path }}"
+          diff_file="${{ steps.context.outputs.diff_summary_path }}"
+          
+          # Build args
+          args="--context-file $context_file --json"
+          if [ -n "$diff_file" ] && [ -f "$diff_file" ]; then
+            args="$args --diff-file $diff_file"
+          fi
+          args="$args --create-issue --issue-label agent:codex --issue-label verify:evaluate"
+          
+          # Run evaluator
+          python .workflows-lib/scripts/langchain/pr_verifier.py "$args" > evaluation.json 2>&1 || true
+          
+          # Parse result
+          if [ -f evaluation.json ]; then
+            verdict=$(python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('verdict','CONCERNS'))" < evaluation.json 2>/dev/null || echo "CONCERNS")
+            echo "verdict=$verdict" >> "$GITHUB_OUTPUT"
+            
+            # Format output for comment
+            python3 - <<'PYFORMAT'
+          import json
+          import sys
+          
+          try:
+              with open('evaluation.json') as f:
+                  data = json.load(f)
+              
+              lines = ["## LLM Evaluation Report", ""]
+              lines.append(f"**Verdict:** {data.get('verdict', 'UNKNOWN')}")
+              lines.append("")
+              
+              if data.get('summary'):
+                  lines.append(f"**Summary:** {data['summary']}")
+                  lines.append("")
+              
+              scores = data.get('scores')
+              if scores:
+                  lines.append("### Scores")
+                  lines.append("| Criterion | Score |")
+                  lines.append("|-----------|-------|")
+                  for key in ['correctness', 'completeness', 'quality', 'testing', 'risks']:
+                      score = scores.get(key, 'N/A')
+                      lines.append(f"| {key.capitalize()} | {score}/10 |")
+                  lines.append("")
+              
+              concerns = data.get('concerns', [])
+              if concerns:
+                  lines.append("### Concerns")
+                  for c in concerns:
+                      if c:
+                          lines.append(f"- {c}")
+                  lines.append("")
+              
+              if data.get('error'):
+                  lines.append(f"**Note:** {data['error']}")
+              
+              with open('evaluation-comment.md', 'w') as f:
+                  f.write('\n'.join(lines))
+          except Exception as e:
+              with open('evaluation-comment.md', 'w') as f:
+                  f.write(f"## LLM Evaluation\n\nEvaluation encountered an error: {e}")
+          PYFORMAT
+            
+            cat evaluation-comment.md
+          else
+            echo "verdict=CONCERNS" >> "$GITHUB_OUTPUT"
+            printf "%s\n" "## LLM Evaluation" "" "Evaluation could not run (missing output)." > evaluation-comment.md
+          fi
+
+      - name: Post LLM evaluation comment
+        if: steps.context.outputs.should_run == 'true' && inputs.mode == 'evaluate' && steps.llm_evaluate.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          pr_number="${{ steps.context.outputs.pr_number }}"
+          if [ -n "$pr_number" ] && [ -f "evaluation-comment.md" ]; then
+            gh pr comment "$pr_number" --body-file evaluation-comment.md || echo "Warning: Could not post comment"
+          fi
+
+
+      # === Multi-Provider Comparison Mode (when mode=compare) ===
+      - name: Setup Python for comparison
+        if: steps.context.outputs.should_run == 'true' && inputs.mode == 'compare'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install comparison dependencies
+        if: steps.context.outputs.should_run == 'true' && inputs.mode == 'compare'
+        run: |
+          pip install pydantic langchain-openai
+
+      - name: Run multi-provider comparison
+        id: llm_compare
+        if: steps.context.outputs.should_run == 'true' && inputs.mode == 'compare'
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          PYTHONPATH: .workflows-lib
+        run: |
+          set -euo pipefail
+          context_file="${{ steps.context.outputs.context_path }}"
+          diff_file="${{ steps.context.outputs.diff_summary_path }}"
+          
+          # Build args array
+          args=(--context-file "$context_file" --compare --json)
+          if [ -n "$diff_file" ] && [ -f "$diff_file" ]; then
+            args+=(--diff-file "$diff_file")
+          fi
+          
+          # Run comparison and capture output
+          python .workflows-lib/scripts/langchain/pr_verifier.py "${args[@]}" > comparison.json 2>&1 || true
+          
+          # Parse result
+          if [ -f comparison.json ]; then
+            # Extract consensus verdict from results
+            verdict=$(python3 -c "import sys,json; d=json.load(sys.stdin); results=d.get('results',[]); verdicts=[r.get('verdict','CONCERNS') for r in results]; print('PASS' if all(v=='PASS' for v in verdicts) else 'CONCERNS')" < comparison.json 2>/dev/null || echo "CONCERNS")
+            echo "verdict=$verdict" >> "$GITHUB_OUTPUT"
+            
+            # Extract the formatted report
+            python3 -c "import json; d=json.load(open('comparison.json')); print(d.get('report', '## Comparison Report\n\nNo report generated.'))" > comparison-comment.md
+            
+            cat comparison-comment.md
+          else
+            echo "verdict=CONCERNS" >> "$GITHUB_OUTPUT"
+            printf "%s\n" "## Multi-Provider Comparison" "" "Comparison could not run (missing output)." > comparison-comment.md
+          fi
+
+      - name: Post comparison report comment
+        if: steps.context.outputs.should_run == 'true' && inputs.mode == 'compare' && steps.llm_compare.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          pr_number="${{ steps.context.outputs.pr_number }}"
+          if [ -n "$pr_number" ] && [ -f "comparison-comment.md" ]; then
+            gh pr comment "$pr_number" --body-file comparison-comment.md || echo "Warning: Could not post comment"
+          fi
+
+      - name: Set unified verdict
+        id: unified_verdict
+        if: steps.context.outputs.should_run == 'true'
+        run: |
+          # Combine verdicts from all modes
+          checkbox_verdict="${{ steps.verdict.outputs.verdict }}"
+          llm_verdict="${{ steps.llm_evaluate.outputs.verdict }}"
+          compare_verdict="${{ steps.llm_compare.outputs.verdict }}"
+          
+          if [ "${{ inputs.mode }}" = "evaluate" ]; then
+            final_verdict="${llm_verdict:-unknown}"
+          elif [ "${{ inputs.mode }}" = "compare" ]; then
+            final_verdict="${compare_verdict:-unknown}"
+          else
+            final_verdict="${checkbox_verdict:-unknown}"
+          fi
+          
+          echo "verdict=$final_verdict" >> "$GITHUB_OUTPUT"
+          echo "Final verdict: $final_verdict"
+
       - name: Open follow-up issue on verifier failure
         id: failure_issue
-        if: steps.context.outputs.should_run == 'true' && (steps.verdict.outputs.verdict == 'fail' || steps.verdict.outputs.verdict == 'error')
+        if: steps.context.outputs.should_run == 'true' && (steps.unified_verdict.outputs.verdict == 'fail' || steps.unified_verdict.outputs.verdict == 'error' || steps.unified_verdict.outputs.verdict == 'FAIL' || steps.unified_verdict.outputs.verdict == 'CONCERNS')
         uses: actions/github-script@v8
         env:
           PR_URL: ${{ steps.context.outputs.pr_html_url }}

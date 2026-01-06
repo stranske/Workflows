@@ -26,6 +26,7 @@ the centralized CI and automation workflows from stranske/Workflows.
 | File | Purpose | Required Secrets |
 |------|---------|-----------------|
 | `agents-issue-intake.yml` | Creates PRs from labeled issues | `SERVICE_BOT_PAT`, `OWNER_PR_PAT` |
+| `agents-issue-optimizer.yml` | Formats issues using LangChain | `OPENAI_API_KEY` (optional) |
 | `agents-keepalive-loop.yml` | Runs Codex CLI after Gate passes | `CODEX_AUTH_JSON` or `WORKFLOWS_APP_*` |
 | `agents-pr-meta.yml` | Updates PR status summaries | `SERVICE_BOT_PAT` |
 | `agents-orchestrator.yml` | (Legacy) Scheduled keepalive sweeps | `SERVICE_BOT_PAT`, `ACTIONS_BOT_PAT` |
@@ -189,6 +190,15 @@ The keepalive system uses PR labels for routing and control:
 | `agents:pause` | Halts all agent activity on PR |
 | `agents:max-parallel:N` | Overrides concurrent run limit (default: 1) |
 | `needs-human` | Auto-added after repeated failures, blocks keepalive |
+
+### Verifier Labels
+These labels trigger the post-merge verifier workflow on a merged PR.
+
+| Label | Effect |
+|-------|--------|
+| `verify:checkbox` | Verifies acceptance criteria checkboxes after merge |
+| `verify:evaluate` | Runs LLM-based evaluation and posts a report |
+| `verify:compare` | Compares multiple models and posts a report |
 
 ## Keepalive Behavior
 

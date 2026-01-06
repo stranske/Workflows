@@ -13,10 +13,10 @@ This document describes all labels that trigger automated workflows or affect CI
 | `agent:needs-attention` | Auto-applied | Indicates agent needs human intervention |
 | `agents:format` | Issue labeled | Formats raw issue into AGENT_ISSUE_TEMPLATE |
 | `agents:formatted` | Auto-applied | Issue has been formatted by LangChain |
-| `verify:checkbox` | Merged PR labeled | Verifies acceptance criteria checkboxes |
-| `verify:compare` | Merged PR labeled | Compares implementation against expected behavior/spec |
-| `verify:evaluate` | Merged PR labeled | LLM evaluation of implementation (future) |
 | `status:ready` | Issue labeled | Marks issue as ready for agent processing |
+| `verify:checkbox` | PR labeled | Runs verifier checkbox mode after merge |
+| `verify:evaluate` | PR labeled | Runs verifier evaluation mode after merge |
+| `verify:compare` | PR labeled | Runs verifier comparison mode after merge |
 
 ---
 
@@ -106,6 +106,77 @@ This document describes all labels that trigger automated workflows or affect CI
 
 ---
 
+### `agents:format`
+
+**Applies to:** Issues
+
+**Trigger:** When applied to an issue with unstructured content
+
+**Effect:**
+1. Triggers the LangChain Issue Formatter workflow (`agents-issue-optimizer.yml`)
+2. Parses the raw issue body using LLM (with regex fallback)
+3. Rewrites the issue into the structured AGENT_ISSUE_TEMPLATE format:
+   - **Why** - Purpose/motivation
+   - **Scope** - Boundaries of work
+   - **Non-Goals** - Explicitly out of scope
+   - **Tasks** - Actionable checkboxes
+   - **Acceptance Criteria** - Testable success conditions
+   - **Implementation Notes** - Technical hints (if any)
+4. Preserves the original issue body in a collapsed `<details>` block
+5. Removes `agents:format` and applies `agents:formatted` on success
+
+**Prerequisites:**
+- Issue must have non-empty body text
+- Repository must have `OPENAI_API_KEY` secret for LLM mode (optional)
+
+**Workflow:** `agents-issue-optimizer.yml` (LangChain Issue Optimizer)
+
+**Example:**
+
+Before (raw issue):
+```
+The TripPlan contract in models.py is confusing - it has different shapes in
+different places. Let's pick one canonical form and update all the converters.
+```
+
+After (formatted):
+```markdown
+## Why
+To establish a single canonical TripPlan contract and eliminate inconsistencies...
+
+## Scope
+- Review all TripPlan definitions in models.py
+- Choose canonical form
+- Update converters
+
+## Non-Goals
+- Changing the underlying data model
+- Modifying external API contracts
+
+## Tasks
+- [ ] Audit all TripPlan shapes in codebase
+- [ ] Select canonical form
+- [ ] Update converters to use canonical form
+...
+```
+
+---
+
+### `agents:formatted`
+
+**Applies to:** Issues
+
+**Trigger:** Automatically applied by `agents-issue-optimizer.yml`
+
+**Effect:**
+1. Indicates the issue has been processed by the LangChain formatter
+2. Replaces the `agents:format` label
+3. No additional workflow triggers (safe terminal state)
+
+**Note:** This is a status label, not a trigger label. Do not apply manually.
+
+---
+
 ### `agent:needs-attention`
 
 **Applies to:** Issues and Pull Requests
@@ -143,60 +214,41 @@ This document describes all labels that trigger automated workflows or affect CI
 
 ## Verifier Labels
 
+These labels trigger the post-merge verifier workflow on a merged PR.
+
 ### `verify:checkbox`
 
-**Applies to:** Merged Pull Requests
+**Applies to:** Pull Requests
 
 **Trigger:** When applied to a merged PR
 
-**Effect:**
-1. Triggers the Agent Verifier workflow
-2. Builds context from PR body and linked issues
-3. Uses Codex to verify each acceptance criteria checkbox
-4. Opens a follow-up issue if criteria weren't accurately marked
-5. Posts verification results
+**Effect:** Verifies acceptance criteria checkbox completion and opens follow-up issues if gaps are detected.
 
-**Prerequisites:**
-- PR must be merged (not just closed)
-- Repository must have `CODEX_AUTH_JSON` secret configured
-
-**Workflow:** `agents-verifier.yml` (Agents Verifier)
+**Workflow:** `agents-verifier.yml`
 
 ---
 
 ### `verify:evaluate`
 
-**Applies to:** Merged Pull Requests
+**Applies to:** Pull Requests
 
 **Trigger:** When applied to a merged PR
 
-**Effect:**
-1. *(Future)* Triggers LLM-powered independent evaluation
-2. Evaluates implementation against original requirements
-3. Checks correctness, completeness, code quality, testing, risks
-4. Posts detailed evaluation report
+**Effect:** Runs an LLM evaluation of the work and posts a report with optional follow-up issues.
 
-**Status:** Not yet implemented - falls back to checkbox mode
-
-**Workflow:** `agents-verifier.yml` (Agents Verifier)
+**Workflow:** `agents-verifier.yml`
 
 ---
 
 ### `verify:compare`
 
-**Applies to:** Merged Pull Requests
+**Applies to:** Pull Requests
 
 **Trigger:** When applied to a merged PR
 
-**Effect:**
-1. *(Future)* Runs evaluation with multiple LLM providers
-2. Compares results across models
-3. Highlights agreements and disagreements
-4. Posts comparison report
+**Effect:** Runs the verifier across multiple models and posts a comparison report.
 
-**Status:** Not yet implemented - falls back to checkbox mode
-
-**Workflow:** `agents-verifier.yml` (Agents Verifier)
+**Workflow:** `agents-verifier.yml`
 
 ---
 
@@ -223,9 +275,6 @@ This document describes all labels that trigger automated workflows or affect CI
 | (none) | `agents:format` | Triggers LangChain formatter |
 | `agents:format` | (auto-removed) | Label replaced by `agents:formatted` |
 | `agents:formatted` | `agent:codex` | Ready for agent assignment |
-| (merged PR) | `verify:checkbox` | Triggers checkbox verification |
-| (merged PR) | `verify:compare` | Triggers comparison verification |
-| (merged PR) | `verify:evaluate` | Triggers LLM evaluation (future) |
 
 ---
 
