@@ -138,20 +138,20 @@ jobs:
         if: steps.check_status.outputs.should_fix == 'true' && steps.format.outputs.has_changes == 'true' && github.event.issue.number
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COMMENT_BODY: |
+            ✅ **Auto-fix Applied**
+
+            I've automatically applied formatting fixes to the Integration-Tests repository.
+
+            **Changes made:**
+            - Formatted Python files with Black
+            - Applied Ruff auto-fixes
+
+            The integration tests should pass on the next run. Please verify at:
+            https://github.com/stranske/Workflows-Integration-Tests/actions
+
+            This issue can be closed once the tests pass.
         run: |
-          COMMENT_BODY="✅ **Auto-fix Applied**
-
-          I've automatically applied formatting fixes to the Integration-Tests repository.
-
-          **Changes made:**
-          - Formatted Python files with Black
-          - Applied Ruff auto-fixes
-
-          The integration tests should pass on the next run. Please verify at:
-          https://github.com/stranske/Workflows-Integration-Tests/actions
-
-          This issue can be closed once the tests pass."
-          
           gh issue comment ${{ github.event.issue.number }} \
             --repo stranske/Workflows \
             --body "$COMMENT_BODY"
