@@ -56,7 +56,15 @@ permissions:
   contents: read
 
 env:
-  CONSUMER_REPOS: "Travel-Plan-Permission,Manager-Database,Template,trip-planner"
+  # Pull from same source as sync workflow - keep in sync!
+  REGISTERED_CONSUMER_REPOS: |
+    stranske/Travel-Plan-Permission
+    stranske/Template
+    stranske/trip-planner
+    stranske/Manager-Database
+    stranske/Portable-Alpha-Extension-Model
+    stranske/Trend_Model_Project
+    stranske/Collab-Admin
 
 jobs:
   merge_sync_prs:
@@ -75,10 +83,19 @@ jobs:
             const autoMerge = ${{ inputs.auto_merge }};
             const dryRun = ${{ inputs.dry_run }};
 
-            // Determine which repos to process
-            const allRepos = process.env.CONSUMER_REPOS.split(',');
-            const targetRepos = inputRepos === 'all' ? allRepos : inputRepos.split(',').map(r => r.trim());
+            // Parse multiline REGISTERED_CONSUMER_REPOS into array
+            const registeredRepos = process.env.REGISTERED_CONSUMER_REPOS
+              .split('\n')
+              .map(line => line.trim())
+              .filter(line => line && !line.startsWith('#'))
+              .map(repo => repo.replace(/^stranske\//, ''));
 
+            // Determine which repos to process
+            const targetRepos = inputRepos === 'all'
+              ? registeredRepos
+              : inputRepos.split(',').map(r => r.trim());
+
+            console.log(`Registered consumer repos: ${registeredRepos.join(', ')}`);
             console.log(`Processing repos: ${targetRepos.join(', ')}`);
             console.log(`Auto-merge: ${autoMerge}, Dry run: ${dryRun}\n`);
 
@@ -93,7 +110,7 @@ jobs:
                   owner,
                   repo,
                   state: 'open',
-                  per_page: 10
+                  per_page: 20
                 });
 
                 const syncPRs = prs.filter(pr => pr.head.ref.startsWith('sync/workflows-'));
@@ -104,101 +121,140 @@ jobs:
                   continue;
                 }
 
-                for (const pr of syncPRs) {
-                  console.log(`\nPR #${pr.number}: ${pr.title}`);
-                  console.log(`Branch: ${pr.head.ref}`);
-                  console.log(`Created: ${pr.created_at}`);
+                // Sort by created date, oldest first (for stale cleanup)
+                syncPRs.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
 
-                  // Check PR status
-                  const { data: combinedStatus } = await github.rest.repos.getCombinedStatusForRef({
-                    owner,
-                    repo,
-                    ref: pr.head.sha
-                  });
+                // If multiple sync PRs exist, close older ones as stale
+                if (syncPRs.length > 1) {
+                  console.log(`Found ${syncPRs.length} sync PRs - closing ${syncPRs.length - 1} stale PRs`);
 
-                  // Check check runs
-                  const { data: checkRuns } = await github.rest.checks.listForRef({
-                    owner,
-                    repo,
-                    ref: pr.head.sha
-                  });
+                  for (let i = 0; i < syncPRs.length - 1; i++) {
+                    const stalePR = syncPRs[i];
+                    console.log(`\nClosing stale PR #${stalePR.number}: ${stalePR.title}`);
+                    console.log(`Branch: ${stalePR.head.ref}, Created: ${stalePR.created_at}`);
 
-                  const allChecks = checkRuns.check_runs || [];
-                  const requiredChecks = allChecks.filter(c =>
-                    !c.name.includes('Detect keepalive') &&
-                    !c.name.includes('pr_meta') &&
-                    !c.name.includes('resolve_pr') &&
-                    !c.name.includes('Cleanup') &&
-                    c.conclusion !== 'skipped' &&
-                    c.conclusion !== 'neutral'
-                  );
-
-                  const failedChecks = requiredChecks.filter(c =>
-                    c.conclusion !== 'success' && c.conclusion !== null
-                  );
-
-                  const pendingChecks = requiredChecks.filter(c =>
-                    c.status !== 'completed'
-                  );
-
-                  console.log(`Checks: ${requiredChecks.length} total, ${failedChecks.length} failed, ${pendingChecks.length} pending`);
-
-                  if (failedChecks.length > 0) {
-                    console.log('Failed checks:');
-                    failedChecks.forEach(c => console.log(`  - ${c.name}: ${c.conclusion}`));
-                    results.push({ repo, pr: pr.number, status: 'checks_failed' });
-                    continue;
-                  }
-
-                  if (pendingChecks.length > 0) {
-                    console.log('Waiting for checks to complete');
-                    results.push({ repo, pr: pr.number, status: 'checks_pending' });
-                    continue;
-                  }
-
-                  // All checks passed
-                  if (!autoMerge) {
-                    console.log('✓ Ready to merge (auto-merge disabled)');
-                    results.push({ repo, pr: pr.number, status: 'ready' });
-                    continue;
-                  }
-
-                  if (dryRun) {
-                    console.log('✓ Would merge (dry run)');
-                    results.push({ repo, pr: pr.number, status: 'dry_run_merge' });
-                    continue;
-                  }
-
-                  // Merge the PR
-                  try {
-                    await github.rest.pulls.merge({
-                      owner,
-                      repo,
-                      pull_number: pr.number,
-                      merge_method: 'merge',
-                      commit_title: pr.title,
-                      commit_message: `Automated merge of sync PR\n\nSync hash: ${pr.head.ref.split('-').pop()}`
-                    });
-
-                    console.log('✓ Merged successfully');
-
-                    // Delete the branch
-                    try {
-                      await github.rest.git.deleteRef({
+                    if (!dryRun) {
+                      // Close PR
+                      await github.rest.pulls.update({
                         owner,
                         repo,
-                        ref: `heads/${pr.head.ref}`
+                        pull_number: stalePR.number,
+                        state: 'closed'
                       });
-                      console.log('✓ Branch deleted');
-                    } catch (e) {
-                      console.log(`⚠ Could not delete branch: ${e.message}`);
-                    }
+                      console.log('✓ Closed');
 
-                    results.push({ repo, pr: pr.number, status: 'merged' });
-                  } catch (e) {
-                    console.log(`✗ Merge failed: ${e.message}`);
-                    results.push({ repo, pr: pr.number, status: 'merge_failed', error: e.message });
+                      // Delete branch
+                      try {
+                        await github.rest.git.deleteRef({
+                          owner,
+                          repo,
+                          ref: `heads/${stalePR.head.ref}`
+                        });
+                        console.log('✓ Branch deleted');
+                      } catch (delErr) {
+                        console.log(`⚠ Branch delete failed: ${delErr.message}`);
+                      }
+                    } else {
+                      console.log('[DRY RUN] Would close and delete branch');
+                    }
                   }
+                }
+
+                // Process the most recent PR
+                const pr = syncPRs[syncPRs.length - 1];
+                console.log(`\nProcessing most recent PR #${pr.number}: ${pr.title}`);
+                console.log(`Branch: ${pr.head.ref}`);
+                console.log(`Created: ${pr.created_at}`);
+
+                // Check PR status
+                const { data: combinedStatus } = await github.rest.repos.getCombinedStatusForRef({
+                  owner,
+                  repo,
+                  ref: pr.head.sha
+                });
+
+                // Check check runs
+                const { data: checkRuns } = await github.rest.checks.listForRef({
+                  owner,
+                  repo,
+                  ref: pr.head.sha
+                });
+
+                const allChecks = checkRuns.check_runs || [];
+                const requiredChecks = allChecks.filter(c =>
+                  !c.name.includes('Detect keepalive') &&
+                  !c.name.includes('pr_meta') &&
+                  !c.name.includes('resolve_pr') &&
+                  !c.name.includes('Cleanup') &&
+                  c.conclusion !== 'skipped' &&
+                  c.conclusion !== 'neutral'
+                );
+
+                const failedChecks = requiredChecks.filter(c =>
+                  c.conclusion !== 'success' && c.conclusion !== null
+                );
+
+                const pendingChecks = requiredChecks.filter(c =>
+                  c.status !== 'completed'
+                );
+
+                console.log(`Checks: ${requiredChecks.length} total, ${failedChecks.length} failed, ${pendingChecks.length} pending`);
+
+                if (failedChecks.length > 0) {
+                  console.log('Failed checks:');
+                  failedChecks.forEach(c => console.log(`  - ${c.name}: ${c.conclusion}`));
+                  results.push({ repo, pr: pr.number, status: 'checks_failed' });
+                  continue;
+                }
+
+                if (pendingChecks.length > 0) {
+                  console.log('Waiting for checks to complete');
+                  results.push({ repo, pr: pr.number, status: 'checks_pending' });
+                  continue;
+                }
+
+                // All checks passed
+                if (!autoMerge) {
+                  console.log('✓ Ready to merge (auto-merge disabled)');
+                  results.push({ repo, pr: pr.number, status: 'ready' });
+                  continue;
+                }
+
+                if (dryRun) {
+                  console.log('✓ Would merge (dry run)');
+                  results.push({ repo, pr: pr.number, status: 'dry_run_merge' });
+                  continue;
+                }
+
+                // Merge the PR
+                try {
+                  await github.rest.pulls.merge({
+                    owner,
+                    repo,
+                    pull_number: pr.number,
+                    merge_method: 'merge',
+                    commit_title: pr.title,
+                    commit_message: `Automated merge of sync PR\n\nSync hash: ${pr.head.ref.split('-').pop()}`
+                  });
+
+                  console.log('✓ Merged successfully');
+
+                  // Delete the branch
+                  try {
+                    await github.rest.git.deleteRef({
+                      owner,
+                      repo,
+                      ref: `heads/${pr.head.ref}`
+                    });
+                    console.log('✓ Branch deleted');
+                  } catch (e) {
+                    console.log(`⚠ Could not delete branch: ${e.message}`);
+                  }
+
+                  results.push({ repo, pr: pr.number, status: 'merged' });
+                } catch (e) {
+                  console.log(`✗ Merge failed: ${e.message}`);
+                  results.push({ repo, pr: pr.number, status: 'merge_failed', error: e.message });
                 }
               } catch (e) {
                 console.log(`✗ Error processing ${repo}: ${e.message}`);
@@ -211,11 +267,13 @@ jobs:
             console.log(JSON.stringify(results, null, 2));
 
             const merged = results.filter(r => r.status === 'merged').length;
+            const stale = results.filter(r => r.status === 'stale_closed').length;
             const failed = results.filter(r => r.status === 'checks_failed' || r.status === 'merge_failed').length;
             const pending = results.filter(r => r.status === 'checks_pending').length;
             const ready = results.filter(r => r.status === 'ready').length;
 
             console.log(`\nMerged: ${merged}`);
+            console.log(`Stale closed: ${stale}`);
             console.log(`Failed: ${failed}`);
             console.log(`Pending: ${pending}`);
             console.log(`Ready (not auto-merged): ${ready}`);
