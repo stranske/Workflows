@@ -53,6 +53,11 @@ on:
         required: false
         type: boolean
         default: false
+      source_url:
+        description: "[chatgpt_sync] URL to raw text file with topics to import"
+        required: false
+        type: string
+        default: ""
       topic_files:
         description: "[chatgpt_sync] Topic files to sync (e.g., topics.json, agents/*.md)"
         required: false
@@ -185,5 +190,6 @@ jobs:
     with:
       intake_mode: "chatgpt_sync"
       source: ${{ inputs.topic_files }}
+      source_url: ${{ inputs.source_url }}
       apply_langchain_formatting: ${{ inputs.apply_langchain_formatting && 'true' || 'false' }}
     secrets: inherit
