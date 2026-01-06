@@ -87,7 +87,7 @@ jobs:
         if: steps.check_status.outputs.should_fix == 'true'
         uses: actions/setup-python@v6
         with:
-          python-version: '3.12'
+          python-version: '3.11'
 
       - name: Install formatting tools
         if: steps.check_status.outputs.should_fix == 'true'
