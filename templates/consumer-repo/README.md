@@ -191,6 +191,15 @@ The keepalive system uses PR labels for routing and control:
 | `agents:max-parallel:N` | Overrides concurrent run limit (default: 1) |
 | `needs-human` | Auto-added after repeated failures, blocks keepalive |
 
+### Verifier Labels
+These labels trigger the post-merge verifier workflow on a merged PR.
+
+| Label | Effect |
+|-------|--------|
+| `verify:checkbox` | Verifies acceptance criteria checkboxes after merge |
+| `verify:evaluate` | Runs LLM-based evaluation and posts a report |
+| `verify:compare` | Compares multiple models and posts a report |
+
 ## Keepalive Behavior
 
 ### Activation Requirements

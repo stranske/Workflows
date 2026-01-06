@@ -7,7 +7,7 @@
 # POLICY: Any file intended for consumer repos MUST be listed here.
 # Files not listed will NOT be synced, even if they exist in templates/consumer-repo/.
 #
-# Last sync trigger: 2026-01-05T19:35:00Z - ARG002 fix for llm_provider.py unused params
+# Last sync trigger: 2026-01-06T04:10:48Z - trigger agents-verifier sync to consumers
 #
 # Categories:
 #   workflows: Thin caller workflows that consumers run directly

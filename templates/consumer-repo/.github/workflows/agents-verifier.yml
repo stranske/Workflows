@@ -1,8 +1,11 @@
 # Thin caller for Agents Verifier - delegates to Workflows repo reusable workflow
-# Runs post-merge to verify acceptance criteria were met and opens follow-up issues
+# Verifies acceptance criteria were met and opens follow-up issues if not
 #
 # Triggers:
-# - PR merged (pull_request_target closed with merged=true)
+# - Label 'verify:checkbox' added to merged PR (opt-in checkbox verification)
+# - Label 'verify:evaluate' added to merged PR (future: LLM evaluation)
+# - Label 'verify:compare' added to merged PR (compare-based verification)
+# Note: No longer runs automatically on every merge. Add a verify:* label to trigger.
 #
 # Required secrets (via secrets: inherit):
 # - CODEX_AUTH_JSON: Authentication for Codex API
@@ -15,7 +18,7 @@ name: Agents Verifier
 on:
   pull_request_target:
     types:
-      - closed
+      - labeled
 
 permissions:
   contents: read
@@ -24,11 +27,54 @@ permissions:
   actions: read
 
 jobs:
+  # Gate: only proceed if PR is merged AND has verify:* label
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      should_run: ${{ steps.check.outputs.should_run }}
+      mode: ${{ steps.check.outputs.mode }}
+    steps:
+      - name: Check trigger conditions
+        id: check
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const label = context.payload.label;
+
+            // Must be a merged PR
+            if (!pr || !pr.merged) {
+              core.info('PR not merged; skipping verifier.');
+              core.setOutput('should_run', 'false');
+              return;
+            }
+
+            // Must be a verify:* label
+            const labelName = label?.name || '';
+            const verifyModes = {
+              'verify:checkbox': 'checkbox',
+              'verify:evaluate': 'evaluate',
+              'verify:compare': 'compare',
+            };
+
+            const mode = verifyModes[labelName];
+            if (!mode) {
+              core.info(`Label '${labelName}' is not a verify trigger; skipping.`);
+              core.setOutput('should_run', 'false');
+              return;
+            }
+
+            core.info(`Verifier triggered with mode: ${mode}`);
+            core.setOutput('should_run', 'true');
+            core.setOutput('mode', mode);
+
   verifier:
-    # Only run on merged PRs
-    if: github.event.pull_request.merged == true
+    needs: check
+    if: needs.check.outputs.should_run == 'true'
     uses: stranske/Workflows/.github/workflows/reusable-agents-verifier.yml@main
     with:
       # CI workflows to wait for before running verifier
       ci_workflows: '["ci.yml", "pr-00-gate.yml"]'
+      # Verification mode from label
+      mode: ${{ needs.check.outputs.mode }}
     secrets: inherit
