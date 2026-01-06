@@ -330,6 +330,16 @@ jobs:
           python -m pip install --upgrade pip
           pip install langchain langchain-core langchain-openai langchain-community
 
+      - name: Checkout topic splitter from Workflows repo
+        if: needs.normalize_inputs.outputs.apply_langchain_formatting == 'true'
+        uses: actions/checkout@v6
+        with:
+          repository: stranske/Workflows
+          sparse-checkout: |
+            scripts/langchain/topic_splitter.py
+          sparse-checkout-cone-mode: false
+          path: .workflows-lib
+
       - name: Parse topics
         env:
           ALLOW_SINGLE_TOPIC: '1'
@@ -344,7 +354,7 @@ jobs:
           # Use LLM-based splitting when LangChain formatting is enabled
           if [ "$APPLY_LANGCHAIN" = "true" ]; then
             echo '--- Using LLM-based topic splitter ---'
-            if python scripts/langchain/topic_splitter.py --input-file input.txt --output-file topics.json; then
+            if python .workflows-lib/scripts/langchain/topic_splitter.py --input-file input.txt --output-file topics.json; then
               echo 'LLM splitter succeeded.'
             else
               echo '::warning::LLM splitter failed, falling back to regex parser'
