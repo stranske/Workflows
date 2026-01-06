@@ -53,6 +53,11 @@ on:
         required: false
         type: boolean
         default: false
+      apply_langchain_formatting:
+        description: "Auto-format issues with LangChain after creation"
+        required: false
+        type: boolean
+        default: false
   workflow_call:
     inputs:
       intake_mode:
@@ -91,6 +96,10 @@ on:
         description: "Open Codex bootstrap PRs as draft (true/false)"
         required: false
         type: string
+      apply_langchain_formatting:
+        description: "Auto-format issues with LangChain after creation"
+        required: false
+        type: string
     secrets:
       service_bot_pat:
         required: false
@@ -120,6 +129,7 @@ jobs:
       post_codex_comment: ${{ steps.normalize.outputs.post_codex_comment }}
       bridge_agent: ${{ steps.normalize.outputs.bridge_agent }}
       bridge_draft_pr: ${{ steps.normalize.outputs.bridge_draft_pr }}
+      apply_langchain_formatting: ${{ steps.normalize.outputs.apply_langchain_formatting }}
     steps:
       - name: Normalize inputs
         id: normalize
@@ -133,6 +143,7 @@ jobs:
           INPUT_POST_CODEX_COMMENT: ${{ inputs.post_codex_comment }}
           INPUT_BRIDGE_AGENT: ${{ inputs.bridge_agent }}
           INPUT_BRIDGE_DRAFT_PR: ${{ inputs.bridge_draft_pr }}
+          INPUT_APPLY_LANGCHAIN_FORMATTING: ${{ inputs.apply_langchain_formatting }}
         run: |
           # Handle boolean inputs from workflow_dispatch vs workflow_call
           normalize_bool() {
@@ -155,6 +166,7 @@ jobs:
           post_codex_input="${INPUT_POST_CODEX_COMMENT:-}"
           bridge_agent="${INPUT_BRIDGE_AGENT:-}"
           draft_pr=$(normalize_bool "${INPUT_BRIDGE_DRAFT_PR:-}")
+          apply_formatting=$(normalize_bool "${INPUT_APPLY_LANGCHAIN_FORMATTING:-}")
 
           payload_issue=""
           if command -v jq >/dev/null 2>&1; then
@@ -210,6 +222,7 @@ jobs:
             echo "post_codex_comment=$post_codex"
             echo "bridge_agent=$bridge_agent"
             echo "bridge_draft_pr=$draft_pr"
+            echo "apply_langchain_formatting=$apply_formatting"
           } >> "$GITHUB_OUTPUT"
 
   chatgpt_sync:
@@ -217,6 +230,8 @@ jobs:
     if: needs.normalize_inputs.outputs.intake_mode == 'chatgpt_sync'
     name: Normalize ChatGPT topics into GitHub issues
     runs-on: ubuntu-latest
+    outputs:
+      created_issue_numbers: ${{ steps.sync.outputs.created_issue_numbers }}
     concurrency:
       # Queue overlapping runs on the same ref so a prior sync can finish cleanly.
       group: agent-sync-${{ github.ref }}
@@ -841,6 +856,7 @@ jobs:
             let skippedCount = 0;
             let invalidTopicCount = 0;
             let assignedElsewhereCount = 0;
+            const createdIssueNumbers = [];
             for (const topic of deduped) {
               try {
                 const rawTitle = typeof topic.title === 'string' ? topic.title : '';
@@ -1036,6 +1052,7 @@ jobs:
                     labels: labelsForCreation,
                   });
                   core.info(`Created issue #${created.data.number} for ${title}.`);
+                  createdIssueNumbers.push(created.data.number);
                   createdCount += 1;
                 }
               } catch (e) {
@@ -1072,6 +1089,7 @@ jobs:
               reopened_issues: reopenedCount,
               skipped_issues: skippedCount,
             });
+            core.setOutput('created_issue_numbers', JSON.stringify(createdIssueNumbers));
             await publishSummary({
               createdCount,
               updatedCount,
@@ -1165,6 +1183,108 @@ jobs:
             }
             core.setOutput('issue_number', String(num));
             core.setOutput('agent_key', agentKey);
+
+  format_created_issues:
+    needs: [normalize_inputs, chatgpt_sync]
+    if: |
+      needs.normalize_inputs.outputs.intake_mode == 'chatgpt_sync' &&
+      needs.normalize_inputs.outputs.apply_langchain_formatting == 'true' &&
+      needs.chatgpt_sync.outputs.created_issue_numbers != '[]'
+    name: Format created issues with LangChain
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      models: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          pip install langchain langchain-core langchain-openai langchain-community
+
+      - name: Format issues
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          CREATED_ISSUES: ${{ needs.chatgpt_sync.outputs.created_issue_numbers }}
+        run: |
+          set -euo pipefail
+
+          echo "Created issue numbers: $CREATED_ISSUES"
+
+          # Parse JSON array of issue numbers
+          issue_count=$(echo "$CREATED_ISSUES" | jq 'length')
+          echo "Formatting $issue_count issues..."
+
+          success=0
+          failed=0
+
+          echo "$CREATED_ISSUES" | jq -r '.[]' | while read -r issue_num; do
+            echo ""
+            echo "=== Formatting issue #$issue_num ==="
+
+            # Get issue body
+            if ! gh api "repos/${{ github.repository }}/issues/${issue_num}" > /tmp/issue_${issue_num}.json; then
+              echo "  ❌ Failed to fetch issue #$issue_num"
+              failed=$((failed + 1))
+              continue
+            fi
+
+            body=$(jq -r '.body // ""' /tmp/issue_${issue_num}.json)
+
+            if [ -z "$body" ] || [ "$body" = "null" ]; then
+              echo "  ⚠️  Issue #$issue_num has no body, skipping"
+              continue
+            fi
+
+            # Save body to temp file
+            echo "$body" > /tmp/issue_body_${issue_num}.md
+
+            # Format with LangChain
+            echo "  📝 Calling LangChain formatter..."
+            if ! python scripts/langchain/issue_formatter.py \
+                --input-file /tmp/issue_body_${issue_num}.md \
+                --output-file /tmp/formatted_${issue_num}.md; then
+              echo "  ❌ Formatting failed for issue #$issue_num"
+              failed=$((failed + 1))
+              continue
+            fi
+
+            # Update issue
+            echo "  💾 Updating issue body..."
+            if ! gh api --method PATCH "repos/${{ github.repository }}/issues/${issue_num}" \
+                -f body=@/tmp/formatted_${issue_num}.md > /dev/null; then
+              echo "  ❌ Failed to update issue #$issue_num"
+              failed=$((failed + 1))
+              continue
+            fi
+
+            # Add formatted label
+            echo "  🏷️  Adding 'agents:formatted' label..."
+            if ! gh issue edit "$issue_num" --add-label "agents:formatted" --repo "${{ github.repository }}"; then
+              echo "  ⚠️  Failed to add label (non-fatal)"
+            fi
+
+            echo "  ✅ Successfully formatted issue #$issue_num"
+            success=$((success + 1))
+
+            # Rate limit protection
+            sleep 2
+          done
+
+          echo ""
+          echo "========================================="
+          echo "Formatting complete: $success succeeded, $failed failed"
 
   agent_bridge:
     needs: [normalize_inputs, bridge_preflight]
