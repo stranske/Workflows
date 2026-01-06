@@ -90,3 +90,4 @@ keepalive-metrics.ndjson
 # OS
 .DS_Store
 Thumbs.db
+autofix_report_enriched.json
