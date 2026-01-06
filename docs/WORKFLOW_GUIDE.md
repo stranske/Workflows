@@ -117,13 +117,14 @@ The following workflows were decommissioned during the CI consolidation effort. 
 The verifier validates merged PRs against tasks and acceptance criteria using label-triggered modes.
 
 ### How to trigger verification
-1. Apply one of the `verify:*` labels to the PR before merging.
-2. Merge the PR; `agents-verifier.yml` runs in the default branch.
+1. Ensure the PR body includes Tasks and Acceptance Criteria sections with checkboxes.
+2. Apply one of the `verify:*` labels to the PR before merging.
+3. Merge the PR; `agents-verifier.yml` runs in the default branch and reads the label to pick a mode.
 
 ### What each mode does
-- **Checkbox (`verify:checkbox`)** — Validates acceptance-criteria checkboxes against implementation evidence.
-- **Evaluate (`verify:evaluate`)** — Runs LLM-based evaluation for correctness, quality, and completeness.
-- **Compare (`verify:compare`)** — Runs evaluation with multiple models to compare verdicts and coverage.
+- **Checkbox (`verify:checkbox`)** — Validates acceptance-criteria checkboxes against implementation evidence in the merged PR.
+- **Evaluate (`verify:evaluate`)** — Runs LLM-based evaluation for correctness, quality, and completeness using the merged PR context.
+- **Compare (`verify:compare`)** — Runs evaluation with multiple models to compare verdicts, rubric scores, and coverage.
 
 ### Expected outputs
 - **Run summary** — Verdict (PASS/FAIL), highlights, and links to the acceptance/task context.
@@ -132,7 +133,7 @@ The verifier validates merged PRs against tasks and acceptance criteria using la
 These outputs land in the Actions run summary, with any follow-up issue filed in the same repository.
 
 ### When to use each mode
-- **Checkbox** — Lightweight audit of acceptance criteria after merge.
+- **Checkbox** — Lightweight audit of acceptance criteria after merge when you only need evidence checks.
 - **Evaluate** — Higher-confidence validation when requirements are complex or subjective.
 - **Compare** — Benchmarking or model selection when evaluation quality is under review.
 

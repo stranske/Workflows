@@ -16,6 +16,13 @@ def test_workflow_guide_verifier_sections_present() -> None:
     for label in ("verify:checkbox", "verify:evaluate", "verify:compare"):
         assert label in content, f"Missing verifier label in WORKFLOW_GUIDE.md: {label}"
 
+    expected_trigger_markers = (
+        "Tasks and Acceptance Criteria",
+        "default branch",
+    )
+    for marker in expected_trigger_markers:
+        assert marker in content, f"Missing verifier trigger detail in WORKFLOW_GUIDE.md: {marker}"
+
     expected_output_markers = (
         "Run summary",
         "PASS/FAIL",
