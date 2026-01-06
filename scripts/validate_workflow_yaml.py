@@ -17,10 +17,10 @@ except ImportError:
     sys.exit(1)
 
 
-def check_line_length(file_path: Path, max_length: int = 150) -> list[tuple[int, str]]:
+def check_line_length(file_path: Path, max_length: int = 100) -> list[tuple[int, str]]:
     """Check for lines that exceed maximum length (may cause wrapping issues)."""
     issues = []
-    with open(file_path) as f:
+    with open(file_path, encoding="utf-8") as f:
         for line_num, line in enumerate(f, 1):
             if len(line.rstrip()) > max_length:
                 issues.append((line_num, f"Line exceeds {max_length} characters"))
@@ -30,7 +30,7 @@ def check_line_length(file_path: Path, max_length: int = 150) -> list[tuple[int,
 def check_runs_on_placement(file_path: Path) -> list[tuple[int, str]]:
     """Check that 'runs-on' is properly placed on its own line."""
     issues = []
-    with open(file_path) as f:
+    with open(file_path, encoding="utf-8") as f:
         for line_num, line in enumerate(f, 1):
             stripped = line.strip()
             if "runs-on:" in stripped:
@@ -50,7 +50,7 @@ def check_yaml_syntax(file_path: Path) -> list[tuple[int, str]]:
     """Validate basic YAML syntax."""
     issues = []
     try:
-        with open(file_path) as f:
+        with open(file_path, encoding="utf-8") as f:
             yaml.safe_load(f)
     except yaml.YAMLError as e:
         line_num = getattr(e, "problem_mark", None)
@@ -64,7 +64,7 @@ def check_yaml_syntax(file_path: Path) -> list[tuple[int, str]]:
 def check_multiline_conditions(file_path: Path) -> list[tuple[int, str]]:
     """Check for complex conditions that should use multiline format."""
     issues = []
-    with open(file_path) as f:
+    with open(file_path, encoding="utf-8") as f:
         lines = f.readlines()
         for line_num, line in enumerate(lines, 1):
             stripped = line.strip()
@@ -80,7 +80,7 @@ def check_multiline_conditions(file_path: Path) -> list[tuple[int, str]]:
                     )
             # Check if next line looks like continuation without proper multiline syntax
             elif stripped.startswith("if:") and line_num < len(lines):
-                next_line = lines[line_num].strip() if line_num < len(lines) else ""
+                next_line = lines[line_num].strip()
                 # Check if 'runs-on:' appears mid-line (indicates malformed wrapping)
                 if next_line and "runs-on:" in next_line and not next_line.startswith("runs-on:"):
                     issues.append(
