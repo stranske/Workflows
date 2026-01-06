@@ -68,7 +68,7 @@ jobs:
       - name: Check and merge sync PRs
         uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.CODESPACES_WORKFLOWS || secrets.GITHUB_TOKEN }}
           script: |
             const owner = context.repo.owner;
             const inputRepos = '${{ inputs.repos }}' || 'all';
