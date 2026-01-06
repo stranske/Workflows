@@ -129,6 +129,7 @@ The verifier validates merged PRs against tasks and acceptance criteria using la
 - **Run summary** — Verdict (PASS/FAIL), highlights, and links to the acceptance/task context.
 - **Issue on failure** — A follow-up issue is opened when the verdict is FAIL.
 - **Mode-specific report** — Checkbox mode posts criteria coverage, Evaluate posts a structured rubric report, Compare posts a model comparison table.
+These outputs land in the Actions run summary, with any follow-up issue filed in the same repository.
 
 ### When to use each mode
 - **Checkbox** — Lightweight audit of acceptance criteria after merge.
