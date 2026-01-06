@@ -15,8 +15,9 @@ on:
         required: false
 
 permissions:
-  contents: read
-  issues: write
+  contents: read  # For reading Workflows repository
+  issues: write   # For commenting on issues
+  # Note: SERVICE_BOT_PAT is used for write access to Integration-Tests repository
 
 jobs:
   detect-and-fix:
