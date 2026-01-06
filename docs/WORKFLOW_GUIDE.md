@@ -113,6 +113,36 @@ The following workflows were decommissioned during the CI consolidation effort. 
 - Optional flags beyond the standard inputs belong in the `params_json` payload; the orchestrator parses it with `fromJson()` and forwards toggles to `reusable-16-agents.yml`. Include an `options_json` string inside the payload for nested keepalive or cleanup settings when required.
 - Provide a PAT when bootstrap needs to push branches. The orchestrator honours PAT priority (`OWNER_PR_PAT` → `SERVICE_BOT_PAT` → `GITHUB_TOKEN`) via the reusable composite.
 
+## Verifier Workflow
+The verifier validates merged PRs against tasks and acceptance criteria using label-triggered modes.
+
+### How to trigger verification
+1. Ensure the PR body includes Tasks and Acceptance Criteria sections with checkboxes.
+2. Apply one of the `verify:*` labels to the PR before merging.
+3. Merge the PR; `agents-verifier.yml` runs in the default branch and reads the label to pick a mode.
+
+### What each mode does
+- **Checkbox (`verify:checkbox`)** — Validates acceptance-criteria checkboxes against implementation evidence in the merged PR.
+- **Evaluate (`verify:evaluate`)** — Runs LLM-based evaluation for correctness, quality, and completeness using the merged PR context.
+- **Compare (`verify:compare`)** — Runs evaluation with multiple models to compare verdicts, rubric scores, and coverage.
+
+### Expected outputs
+- **Run summary** — Verdict (PASS/FAIL), highlights, and links to the acceptance/task context.
+- **Issue on failure** — A follow-up issue is opened when the verdict is FAIL.
+- **Mode-specific report** — Checkbox mode posts criteria coverage, Evaluate posts a structured rubric report, Compare posts a model comparison table.
+These outputs land in the Actions run summary, with any follow-up issue filed in the same repository.
+
+### When to use each mode
+- **Checkbox** — Lightweight audit of acceptance criteria after merge when you only need evidence checks.
+- **Evaluate** — Higher-confidence validation when requirements are complex or subjective.
+- **Compare** — Benchmarking or model selection when evaluation quality is under review.
+
+## Verifier Troubleshooting
+- **No verifier run** — Ensure the PR was merged, the `verify:*` label was applied before merge, and the repository includes `agents-verifier.yml`.
+- **Verifier skipped** — Confirm the PR body includes Tasks and Acceptance Criteria sections with checkboxes.
+- **Follow-up issue missing** — Check the run summary for a PASS verdict; failures open issues only when the verifier is enabled and has permissions.
+- **Auth or API errors** — Confirm `SERVICE_BOT_PAT` is configured and has repo/issue permissions.
+
 
 ### Manual dispatch quick steps
 1. Open **Actions → Agents 70 Orchestrator → Run workflow**.

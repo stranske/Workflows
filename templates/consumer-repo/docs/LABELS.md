@@ -14,6 +14,9 @@ This document describes all labels that trigger automated workflows or affect CI
 | `agents:format` | Issue labeled | Formats raw issue into AGENT_ISSUE_TEMPLATE |
 | `agents:formatted` | Auto-applied | Issue has been formatted by LangChain |
 | `status:ready` | Issue labeled | Marks issue as ready for agent processing |
+| `verify:checkbox` | PR labeled | Runs verifier checkbox mode after merge |
+| `verify:evaluate` | PR labeled | Runs verifier evaluation mode after merge |
+| `verify:compare` | PR labeled | Runs verifier comparison mode after merge |
 
 ---
 
@@ -206,6 +209,46 @@ To establish a single canonical TripPlan contract and eliminate inconsistencies.
 3. May trigger the next step in the agent automation pipeline
 
 **Workflow:** `agents-70-orchestrator.yml` (Agents 70 Orchestrator)
+
+---
+
+## Verifier Labels
+
+These labels trigger the post-merge verifier workflow on a merged PR.
+
+### `verify:checkbox`
+
+**Applies to:** Pull Requests
+
+**Trigger:** When applied to a merged PR
+
+**Effect:** Verifies acceptance criteria checkbox completion and opens follow-up issues if gaps are detected.
+
+**Workflow:** `agents-verifier.yml`
+
+---
+
+### `verify:evaluate`
+
+**Applies to:** Pull Requests
+
+**Trigger:** When applied to a merged PR
+
+**Effect:** Runs an LLM evaluation of the work and posts a report with optional follow-up issues.
+
+**Workflow:** `agents-verifier.yml`
+
+---
+
+### `verify:compare`
+
+**Applies to:** Pull Requests
+
+**Trigger:** When applied to a merged PR
+
+**Effect:** Runs the verifier across multiple models and posts a comparison report.
+
+**Workflow:** `agents-verifier.yml`
 
 ---
 

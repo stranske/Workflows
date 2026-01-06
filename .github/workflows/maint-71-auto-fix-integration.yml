@@ -1,0 +1,192 @@
+name: Auto-Fix Integration Test Failures
+
+# Automatically fixes formatting issues in Integration-Tests repository
+# when integration CI failures are detected
+
+on:
+  issues:
+    types: [opened, reopened]
+  issue_comment:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: 'Integration test run ID (optional)'
+        required: false
+
+permissions:
+  contents: read  # For reading Workflows repository
+  issues: write   # For commenting on issues
+  # Note: SERVICE_BOT_PAT is used for write access to Integration-Tests repository
+
+jobs:
+  detect-and-fix:
+    name: Detect and fix integration test failures
+    runs-on: ubuntu-latest
+    # Only run on issues with specific titles
+    if: |
+      (github.event_name == 'issues' && contains(github.event.issue.title, 'Integration CI failed')) ||
+      (github.event_name == 'issue_comment' && contains(github.event.issue.title, 'Integration CI failed')) ||
+      github.event_name == 'workflow_dispatch'
+    
+    steps:
+      - name: Extract run information
+        id: extract
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "run_id=${{ inputs.run_id }}" >> "$GITHUB_OUTPUT"
+          else
+            # Extract run ID from issue or comment body using jq on the event payload
+            RUN_ID=$(jq -r '
+              (.issue.body // .comment.body // "") 
+              | capture("runs/(?<id>[0-9]+)")?.id // empty
+            ' "$GITHUB_EVENT_PATH")
+            echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check Integration Test Status
+        id: check_status
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          RUN_ID="${{ steps.extract.outputs.run_id }}"
+          
+          if [ -z "$RUN_ID" ]; then
+            echo "No run ID found, skipping"
+            echo "should_fix=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          
+          # Get the workflow run details
+          RUN_DATA=$(gh api /repos/stranske/Workflows-Integration-Tests/actions/runs/$RUN_ID || echo "")
+          
+          if [ -z "$RUN_DATA" ]; then
+            echo "Could not fetch run data"
+            echo "should_fix=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          
+          # Check if run failed
+          CONCLUSION=$(echo "$RUN_DATA" | jq -r '.conclusion')
+          
+          if [ "$CONCLUSION" = "failure" ]; then
+            echo "Integration tests failed, will attempt fix"
+            echo "should_fix=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Integration tests did not fail (status: $CONCLUSION)"
+            echo "should_fix=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout Integration-Tests repo
+        if: steps.check_status.outputs.should_fix == 'true'
+        uses: actions/checkout@v6
+        with:
+          repository: stranske/Workflows-Integration-Tests
+          ref: main
+          token: ${{ secrets.SERVICE_BOT_PAT || secrets.CODESPACES_WORKFLOWS }}
+          path: integration-tests
+
+      - name: Set up Python
+        if: steps.check_status.outputs.should_fix == 'true'
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install formatting tools
+        if: steps.check_status.outputs.should_fix == 'true'
+        run: |
+          python3 -m pip install black ruff
+
+      - name: Apply formatting fixes
+        if: steps.check_status.outputs.should_fix == 'true'
+        id: format
+        run: |
+          cd integration-tests
+          
+          # Collect existing target directories for formatting
+          TARGET_DIRS=""
+          for d in scripts tests src; do
+            if [ -d "$d" ]; then
+              TARGET_DIRS="$TARGET_DIRS $d"
+            fi
+          done
+          
+          if [ -n "$TARGET_DIRS" ]; then
+            echo "Running black formatter on:$TARGET_DIRS"
+            black "$TARGET_DIRS" 2>&1 || true
+            
+            echo "Running ruff auto-fixes on:$TARGET_DIRS"
+            ruff check --fix "$TARGET_DIRS" 2>&1 || true
+          else
+            echo "No target directories (scripts, tests, src) exist; skipping formatters."
+          fi
+          
+          # Check if there are changes
+          if git diff --quiet; then
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            echo "No formatting changes needed"
+          else
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+            echo "Formatting changes detected"
+            git --no-pager diff --stat
+          fi
+
+      - name: Commit and push changes
+        if: steps.check_status.outputs.should_fix == 'true' && steps.format.outputs.has_changes == 'true'
+        run: |
+          cd integration-tests
+          
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          
+          git add -A
+          git commit -m "fix: Auto-format files to meet lint standards" \
+            -m "" \
+            -m "Auto-fixed by: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            -m "Triggered by: ${{ github.event_name }}" \
+            -m "Issue: #${{ github.event.issue.number || 'N/A' }}"
+          
+          git push
+
+      - name: Comment on issue
+        if: steps.check_status.outputs.should_fix == 'true' && steps.format.outputs.has_changes == 'true' && github.event.issue.number
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COMMENT_BODY: |
+            ✅ **Auto-fix Applied**
+
+            I've automatically applied formatting fixes to the Integration-Tests repository.
+
+            **Changes made:**
+            - Formatted Python files with Black
+            - Applied Ruff auto-fixes
+
+            The integration tests should pass on the next run. Please verify at:
+            https://github.com/stranske/Workflows-Integration-Tests/actions
+
+            This issue can be closed once the tests pass.
+        run: |
+          gh issue comment ${{ github.event.issue.number }} \
+            --repo stranske/Workflows \
+            --body "$COMMENT_BODY"
+
+      - name: Summary
+        if: steps.check_status.outputs.should_fix == 'true'
+        run: |
+          {
+            echo "## Integration Tests Auto-Fix"
+            echo ""
+            if [ "${{ steps.format.outputs.has_changes }}" = "true" ]; then
+              echo "✅ Formatting fixes applied and pushed to Integration-Tests repository"
+              echo ""
+              echo "### Next Steps"
+              echo "- Integration tests will re-run automatically"
+              echo "- Verify tests pass: https://github.com/stranske/Workflows-Integration-Tests/actions"
+              echo "- Close issue #${{ github.event.issue.number || 'N/A' }} once verified"
+            else
+              echo "ℹ️ No formatting changes were needed"
+              echo ""
+              echo "The integration test failure may be due to a different issue."
+              echo "Please investigate the logs manually."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
