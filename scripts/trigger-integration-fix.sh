@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Script to trigger the integration tests formatting fix workflow
 # Usage: ./scripts/trigger-integration-fix.sh [commit_message]
+# Ensure this script is executable (if needed) with:
+#   chmod +x scripts/trigger-integration-fix.sh
 
 set -euo pipefail
 
