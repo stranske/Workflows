@@ -121,6 +121,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       intake_mode: ${{ steps.normalize.outputs.intake_mode }}
+      target_repo: ${{ steps.normalize.outputs.target_repo }}
       source: ${{ steps.normalize.outputs.source }}
       raw_input: ${{ steps.normalize.outputs.raw_input }}
       source_url: ${{ steps.normalize.outputs.source_url }}
@@ -377,6 +378,7 @@ jobs:
           fi
 
       - name: Sync issues
+        id: sync
         uses: actions/github-script@v8
         env:
           RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -1195,6 +1197,7 @@ jobs:
     permissions:
       contents: read
       issues: write
+      id-token: write
       models: read
     steps:
       - name: Checkout repository
@@ -1214,8 +1217,7 @@ jobs:
       - name: Format issues
         env:
           GH_TOKEN: ${{ github.token }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GITHUB_TOKEN: ${{ github.token }}
           CREATED_ISSUES: ${{ needs.chatgpt_sync.outputs.created_issue_numbers }}
         run: |
           set -euo pipefail
