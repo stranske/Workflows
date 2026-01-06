@@ -211,6 +211,7 @@ EXPECTED_NAMES = {
     "maint-60-release.yml": "Maint 60 Release",
     "maint-70-fix-integration-formatting.yml": "Fix Integration Tests Formatting",
     "maint-71-auto-fix-integration.yml": "Auto-Fix Integration Test Failures",
+    "maint-71-merge-sync-prs.yml": "Merge Sync PRs",
     "maint-61-create-floating-v1-tag.yml": "Maint 61 Create Floating v1 Tag",
     "maint-coverage-guard.yml": "Maint Coverage Guard",
     "pr-00-gate.yml": "Gate",
