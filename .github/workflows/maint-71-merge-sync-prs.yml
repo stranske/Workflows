@@ -55,23 +55,22 @@ on:
 permissions:
   contents: read
 
-env:
-  # Pull from same source as sync workflow - keep in sync!
-  REGISTERED_CONSUMER_REPOS: |
-    stranske/Travel-Plan-Permission
-    stranske/Template
-    stranske/trip-planner
-    stranske/Manager-Database
-    stranske/Portable-Alpha-Extension-Model
-    stranske/Trend_Model_Project
-    stranske/Collab-Admin
-
 jobs:
   merge_sync_prs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Extract consumer repos from sync workflow
+        id: repos
+        run: |
+          # Read REGISTERED_CONSUMER_REPOS from maint-68-sync-consumer-repos.yml
+          repos=$(yq eval '.env.REGISTERED_CONSUMER_REPOS' \
+            .github/workflows/maint-68-sync-consumer-repos.yml | \
+            grep -v '^#' | grep -v '^$' | sed 's/stranske\///' | tr '\n' ',' | sed 's/,$//')
+          echo "list=$repos" >> $GITHUB_OUTPUT
+          echo "Extracted repos: $repos"
 
       - name: Check and merge sync PRs
         uses: actions/github-script@v7
@@ -83,12 +82,8 @@ jobs:
             const autoMerge = ${{ inputs.auto_merge }};
             const dryRun = ${{ inputs.dry_run }};
 
-            // Parse multiline REGISTERED_CONSUMER_REPOS into array
-            const registeredRepos = process.env.REGISTERED_CONSUMER_REPOS
-              .split('\n')
-              .map(line => line.trim())
-              .filter(line => line && !line.startsWith('#'))
-              .map(repo => repo.replace(/^stranske\//, ''));
+            // Parse repos from previous step
+            const registeredRepos = '${{ steps.repos.outputs.list }}'.split(',').map(r => r.trim());
 
             // Determine which repos to process
             const targetRepos = inputRepos === 'all'
