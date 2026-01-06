@@ -117,6 +117,37 @@ Secrets use **lowercase** in `workflow_call` definitions but reference org secre
 
 ## Common Debugging Patterns
 
+### startup_failure - Invalid Workflow File
+
+**CRITICAL: When a workflow shows `startup_failure`, the error message is ONLY visible in the Annotations section of the GitHub UI.**
+
+Startup failures mean the workflow YAML is invalid. There are NO job logs because the workflow never started. The gh CLI cannot retrieve these error messages via API.
+
+**How to get the error message:**
+
+```bash
+# 1. Get the run URL
+gh run view RUN_ID --repo owner/repo --json html_url --jq '.html_url'
+
+# 2. Open in browser - ERROR IS AT THE TOP IN ANNOTATIONS SECTION
+"$BROWSER" "URL"
+```
+
+**Common startup_failure causes:**
+- **Permission conflicts**: Nested jobs in reusable workflows requesting more permissions than caller grants
+- Invalid YAML syntax
+- Referencing non-existent reusable workflows
+- Invalid job/step references
+- Type mismatches in inputs
+
+**Example error:**
+```
+Error calling workflow 'stranske/Workflows/.github/workflows/reusable.yml@main'. 
+The nested job 'job_name' is requesting 'contents: write', but is only allowed 'contents: read'.
+```
+
+**Solution:** When calling reusable workflows with explicit permissions, those become the MAXIMUM permissions any nested job can have. Grant sufficient permissions in the caller workflow.
+
 ### "Workflow file issue" with no logs
 - Usually means a reusable workflow is missing
 - Check that `uses: ./.github/workflows/reusable-*.yml` files exist in the repo
