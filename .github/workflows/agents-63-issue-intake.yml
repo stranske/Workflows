@@ -1231,7 +1231,7 @@ jobs:
           success=0
           failed=0
 
-          echo "$CREATED_ISSUES" | jq -r '.[]' | while read -r issue_num; do
+          while read -r issue_num; do
             echo ""
             echo "=== Formatting issue #$issue_num ==="
 
@@ -1282,7 +1282,7 @@ jobs:
 
             # Rate limit protection
             sleep 2
-          done
+          done < <(echo "$CREATED_ISSUES" | jq -r '.[]')
 
           echo ""
           echo "========================================="

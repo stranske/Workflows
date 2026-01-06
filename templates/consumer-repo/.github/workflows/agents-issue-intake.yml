@@ -98,6 +98,9 @@ jobs:
           elif [[ "${mode}" == "chatgpt_sync" ]]; then
             echo "should_run_bridge=false" >> $GITHUB_OUTPUT
             echo "should_run_sync=true" >> $GITHUB_OUTPUT
+          else
+            echo "should_run_bridge=false" >> $GITHUB_OUTPUT
+            echo "should_run_sync=false" >> $GITHUB_OUTPUT
           fi
 
   # Gate for agent_bridge mode: only proceed if issue has agent:* or agents:* label
@@ -164,9 +167,9 @@ jobs:
     if: needs.route.outputs.should_run_sync == 'true'
     uses: stranske/Workflows/.github/workflows/agents-63-issue-intake.yml@main
     with:
-      mode: "chatgpt_sync"
-      topic_files: ${{ inputs.topic_files }}
-      apply_langchain_formatting: ${{ inputs.apply_langchain_formatting }}
+      intake_mode: "chatgpt_sync"
+      source: ${{ inputs.topic_files }}
+      apply_langchain_formatting: ${{ inputs.apply_langchain_formatting && 'true' || 'false' }}
     secrets:
       service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
       owner_pr_pat: ${{ secrets.OWNER_PR_PAT }}
