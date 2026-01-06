@@ -177,6 +177,36 @@ Repo standards (from pyproject.toml):
 - Format: black, ruff, isort
 - All templates must pass validation before commit
 
+## ⚠️ CRITICAL: New Workflow Artifact Check
+
+**BEFORE adding any new workflow, check if it creates files that should be in .gitignore:**
+
+```bash
+# 1. Review workflow for file creation
+grep -E "write|create|output|artifact" .github/workflows/your-workflow.yml
+
+# 2. Check if workflow writes to working directory
+# Look for: >, >>, tee, echo >>, python open(), write_file, etc.
+
+# 3. Common artifacts that MUST be in .gitignore:
+# - Status files: *-status.json, *-report.json, *-summary.json
+# - Temp files: *.tmp, *.temp, .cache/, tmp/
+# - Agent files: codex-output.md, verifier-context.md
+# - Build artifacts: dist/, build/, .artifacts/
+
+# 4. Test the workflow and check git status
+gh workflow run your-workflow.yml
+# Wait for completion, then:
+git status --ignored
+
+# 5. Add any new artifacts to .gitignore BEFORE syncing templates
+```
+
+**Why this matters:**
+- Workflows that create tracked files → merge conflicts in consumer repos
+- Auto-generated files in git → hours of debugging conflict resolution
+- One forgotten artifact file → 7+ repos with conflicts
+
 ## Quick Commands
 
 ```bash
