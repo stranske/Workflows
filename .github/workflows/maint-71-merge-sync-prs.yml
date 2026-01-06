@@ -1,0 +1,234 @@
+# Automate merging sync PRs in consumer repos
+#
+# This workflow handles the common cycle of:
+# 1. Check sync PR status in all consumer repos
+# 2. Merge PRs that pass validation
+# 3. Clean up stale branches
+#
+# Triggers:
+# - Manual dispatch (default)
+# - Can be called from sync workflow
+#
+# Safety:
+# - Only merges PRs with sync/workflows-* branch names
+# - Requires all checks to pass
+# - Uses merge commit (not squash) to preserve sync history
+
+name: Merge Sync PRs
+
+on:
+  workflow_dispatch:
+    inputs:
+      repos:
+        description: "Repos to check (comma-separated, or 'all')"
+        required: false
+        type: string
+        default: "all"
+      auto_merge:
+        description: "Auto-merge if checks pass"
+        required: false
+        type: boolean
+        default: true
+      dry_run:
+        description: "Dry run (report only, no merge)"
+        required: false
+        type: boolean
+        default: false
+  workflow_call:
+    inputs:
+      repos:
+        description: "Repos to check (comma-separated, or 'all')"
+        required: false
+        type: string
+        default: "all"
+      auto_merge:
+        description: "Auto-merge if checks pass"
+        required: false
+        type: boolean
+        default: true
+      dry_run:
+        description: "Dry run (report only, no merge)"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+env:
+  CONSUMER_REPOS: "Travel-Plan-Permission,Manager-Database,Template,trip-planner"
+
+jobs:
+  merge_sync_prs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check and merge sync PRs
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const owner = context.repo.owner;
+            const inputRepos = '${{ inputs.repos }}' || 'all';
+            const autoMerge = ${{ inputs.auto_merge }};
+            const dryRun = ${{ inputs.dry_run }};
+
+            // Determine which repos to process
+            const allRepos = process.env.CONSUMER_REPOS.split(',');
+            const targetRepos = inputRepos === 'all' ? allRepos : inputRepos.split(',').map(r => r.trim());
+
+            console.log(`Processing repos: ${targetRepos.join(', ')}`);
+            console.log(`Auto-merge: ${autoMerge}, Dry run: ${dryRun}\n`);
+
+            const results = [];
+
+            for (const repo of targetRepos) {
+              console.log(`\n=== ${repo} ===`);
+
+              try {
+                // Find open sync PRs
+                const { data: prs } = await github.rest.pulls.list({
+                  owner,
+                  repo,
+                  state: 'open',
+                  per_page: 10
+                });
+
+                const syncPRs = prs.filter(pr => pr.head.ref.startsWith('sync/workflows-'));
+
+                if (syncPRs.length === 0) {
+                  console.log('No sync PRs found');
+                  results.push({ repo, status: 'no_prs' });
+                  continue;
+                }
+
+                for (const pr of syncPRs) {
+                  console.log(`\nPR #${pr.number}: ${pr.title}`);
+                  console.log(`Branch: ${pr.head.ref}`);
+                  console.log(`Created: ${pr.created_at}`);
+
+                  // Check PR status
+                  const { data: combinedStatus } = await github.rest.repos.getCombinedStatusForRef({
+                    owner,
+                    repo,
+                    ref: pr.head.sha
+                  });
+
+                  // Check check runs
+                  const { data: checkRuns } = await github.rest.checks.listForRef({
+                    owner,
+                    repo,
+                    ref: pr.head.sha
+                  });
+
+                  const allChecks = checkRuns.check_runs || [];
+                  const requiredChecks = allChecks.filter(c =>
+                    !c.name.includes('Detect keepalive') &&
+                    !c.name.includes('pr_meta') &&
+                    !c.name.includes('resolve_pr') &&
+                    !c.name.includes('Cleanup') &&
+                    c.conclusion !== 'skipped' &&
+                    c.conclusion !== 'neutral'
+                  );
+
+                  const failedChecks = requiredChecks.filter(c =>
+                    c.conclusion !== 'success' && c.conclusion !== null
+                  );
+
+                  const pendingChecks = requiredChecks.filter(c =>
+                    c.status !== 'completed'
+                  );
+
+                  console.log(`Checks: ${requiredChecks.length} total, ${failedChecks.length} failed, ${pendingChecks.length} pending`);
+
+                  if (failedChecks.length > 0) {
+                    console.log('Failed checks:');
+                    failedChecks.forEach(c => console.log(`  - ${c.name}: ${c.conclusion}`));
+                    results.push({ repo, pr: pr.number, status: 'checks_failed' });
+                    continue;
+                  }
+
+                  if (pendingChecks.length > 0) {
+                    console.log('Waiting for checks to complete');
+                    results.push({ repo, pr: pr.number, status: 'checks_pending' });
+                    continue;
+                  }
+
+                  // All checks passed
+                  if (!autoMerge) {
+                    console.log('✓ Ready to merge (auto-merge disabled)');
+                    results.push({ repo, pr: pr.number, status: 'ready' });
+                    continue;
+                  }
+
+                  if (dryRun) {
+                    console.log('✓ Would merge (dry run)');
+                    results.push({ repo, pr: pr.number, status: 'dry_run_merge' });
+                    continue;
+                  }
+
+                  // Merge the PR
+                  try {
+                    await github.rest.pulls.merge({
+                      owner,
+                      repo,
+                      pull_number: pr.number,
+                      merge_method: 'merge',
+                      commit_title: pr.title,
+                      commit_message: `Automated merge of sync PR\n\nSync hash: ${pr.head.ref.split('-').pop()}`
+                    });
+
+                    console.log('✓ Merged successfully');
+
+                    // Delete the branch
+                    try {
+                      await github.rest.git.deleteRef({
+                        owner,
+                        repo,
+                        ref: `heads/${pr.head.ref}`
+                      });
+                      console.log('✓ Branch deleted');
+                    } catch (e) {
+                      console.log(`⚠ Could not delete branch: ${e.message}`);
+                    }
+
+                    results.push({ repo, pr: pr.number, status: 'merged' });
+                  } catch (e) {
+                    console.log(`✗ Merge failed: ${e.message}`);
+                    results.push({ repo, pr: pr.number, status: 'merge_failed', error: e.message });
+                  }
+                }
+              } catch (e) {
+                console.log(`✗ Error processing ${repo}: ${e.message}`);
+                results.push({ repo, status: 'error', error: e.message });
+              }
+            }
+
+            // Summary
+            console.log('\n=== Summary ===');
+            console.log(JSON.stringify(results, null, 2));
+
+            const merged = results.filter(r => r.status === 'merged').length;
+            const failed = results.filter(r => r.status === 'checks_failed' || r.status === 'merge_failed').length;
+            const pending = results.filter(r => r.status === 'checks_pending').length;
+            const ready = results.filter(r => r.status === 'ready').length;
+
+            console.log(`\nMerged: ${merged}`);
+            console.log(`Failed: ${failed}`);
+            console.log(`Pending: ${pending}`);
+            console.log(`Ready (not auto-merged): ${ready}`);
+
+            if (failed > 0) {
+              core.setFailed(`${failed} PRs failed to merge`);
+            }
+
+      - name: Post summary
+        if: always()
+        run: |
+          echo "### Sync PR Merge Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Processed repos: ${{ inputs.repos || 'all' }}" >> $GITHUB_STEP_SUMMARY
+          echo "Auto-merge: ${{ inputs.auto_merge }}" >> $GITHUB_STEP_SUMMARY
+          echo "Dry run: ${{ inputs.dry_run }}" >> $GITHUB_STEP_SUMMARY
