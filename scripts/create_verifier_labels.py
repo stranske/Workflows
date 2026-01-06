@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import shlex
 import subprocess
 from pathlib import Path
@@ -90,6 +91,25 @@ def _validate_repo_count(repos: list[str], expected: int | None) -> None:
         raise SystemExit(f"Expected {expected} repos, found {len(repos)}.")
 
 
+def _extract_label_names(payload: str) -> set[str]:
+    try:
+        data = json.loads(payload)
+    except json.JSONDecodeError as exc:
+        raise SystemExit(f"Unable to parse label list JSON: {exc}") from exc
+    if not isinstance(data, list):
+        raise SystemExit("Unexpected label list payload (expected a list).")
+    names = {
+        item.get("name", "").strip()
+        for item in data
+        if isinstance(item, dict) and isinstance(item.get("name"), str)
+    }
+    return {name for name in names if name}
+
+
+def _find_missing_labels(existing: set[str], labels: list[dict[str, str]]) -> list[str]:
+    return [label["name"] for label in labels if label["name"] not in existing]
+
+
 def _build_command(repo: str, label: dict[str, str]) -> list[str]:
     return [
         "gh",
@@ -103,6 +123,20 @@ def _build_command(repo: str, label: dict[str, str]) -> list[str]:
         "--description",
         label["description"],
         "--force",
+    ]
+
+
+def _build_list_command(repo: str) -> list[str]:
+    return [
+        "gh",
+        "label",
+        "list",
+        "--repo",
+        repo,
+        "--json",
+        "name",
+        "--limit",
+        "500",
     ]
 
 
@@ -145,10 +179,18 @@ def main() -> int:
     parser.add_argument(
         "--execute",
         action="store_true",
-        help="Run gh commands (default: dry run).",
+        help="Run gh label create commands (default: dry run).",
+    )
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="List missing labels per repo and exit nonzero if any are missing.",
     )
 
     args = parser.parse_args()
+
+    if args.execute and args.check:
+        raise SystemExit("Choose either --execute or --check, not both.")
 
     repos = _split_csv(args.repos)
     if not repos:
@@ -168,6 +210,20 @@ def main() -> int:
 
     if not repos:
         raise SystemExit("No repos found to process.")
+
+    if args.check:
+        missing_any = False
+        for repo in repos:
+            cmd = _build_list_command(repo)
+            result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+            existing = _extract_label_names(result.stdout)
+            missing = _find_missing_labels(existing, labels)
+            if missing:
+                missing_any = True
+                print(f"{repo}: missing {', '.join(missing)}")
+            else:
+                print(f"{repo}: ok")
+        return 1 if missing_any else 0
 
     for repo in repos:
         for label in labels:

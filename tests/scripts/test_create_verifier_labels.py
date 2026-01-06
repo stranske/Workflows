@@ -51,3 +51,26 @@ def test_normalize_repo_list_dedupes_in_order() -> None:
 def test_validate_repo_count_mismatch_raises() -> None:
     with pytest.raises(SystemExit, match="Expected 2 repos"):
         cvl._validate_repo_count(["one"], 2)
+
+
+def test_extract_label_names_parses_valid_payload() -> None:
+    payload = """
+    [
+      {"name": "verify:checkbox"},
+      {"name": "verify:evaluate"},
+      {"name": "verify:compare"},
+      {"name": ""},
+      {"foo": "bar"}
+    ]
+    """
+    assert cvl._extract_label_names(payload) == {
+        "verify:checkbox",
+        "verify:evaluate",
+        "verify:compare",
+    }
+
+
+def test_find_missing_labels_returns_ordered_names() -> None:
+    existing = {"verify:checkbox"}
+    missing = cvl._find_missing_labels(existing, list(cvl.LABELS))
+    assert missing == ["verify:evaluate", "verify:compare"]
