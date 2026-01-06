@@ -1233,31 +1233,31 @@ jobs:
 
           while read -r issue_num; do
             echo ""
-            echo "=== Formatting issue #$issue_num ==="
+            echo "=== Formatting issue #${issue_num} ==="
 
             # Get issue body
-            if ! gh api "repos/${{ github.repository }}/issues/${issue_num}" > /tmp/issue_${issue_num}.json; then
-              echo "  ❌ Failed to fetch issue #$issue_num"
+            if ! gh api "repos/${{ github.repository }}/issues/${issue_num}" > "/tmp/issue_${issue_num}.json"; then
+              echo "  ❌ Failed to fetch issue #${issue_num}"
               failed=$((failed + 1))
               continue
             fi
 
-            body=$(jq -r '.body // ""' /tmp/issue_${issue_num}.json)
+            body=$(jq -r '.body // ""' "/tmp/issue_${issue_num}.json")
 
             if [ -z "$body" ] || [ "$body" = "null" ]; then
-              echo "  ⚠️  Issue #$issue_num has no body, skipping"
+              echo "  ⚠️  Issue #${issue_num} has no body, skipping"
               continue
             fi
 
             # Save body to temp file
-            echo "$body" > /tmp/issue_body_${issue_num}.md
+            echo "$body" > "/tmp/issue_body_${issue_num}.md"
 
             # Format with LangChain
             echo "  📝 Calling LangChain formatter..."
             if ! python scripts/langchain/issue_formatter.py \
-                --input-file /tmp/issue_body_${issue_num}.md \
-                --output-file /tmp/formatted_${issue_num}.md; then
-              echo "  ❌ Formatting failed for issue #$issue_num"
+                --input-file "/tmp/issue_body_${issue_num}.md" \
+                --output-file "/tmp/formatted_${issue_num}.md"; then
+              echo "  ❌ Formatting failed for issue #${issue_num}"
               failed=$((failed + 1))
               continue
             fi
@@ -1265,19 +1265,19 @@ jobs:
             # Update issue
             echo "  💾 Updating issue body..."
             if ! gh api --method PATCH "repos/${{ github.repository }}/issues/${issue_num}" \
-                -f body=@/tmp/formatted_${issue_num}.md > /dev/null; then
-              echo "  ❌ Failed to update issue #$issue_num"
+                -f body="@/tmp/formatted_${issue_num}.md" > /dev/null; then
+              echo "  ❌ Failed to update issue #${issue_num}"
               failed=$((failed + 1))
               continue
             fi
 
             # Add formatted label
             echo "  🏷️  Adding 'agents:formatted' label..."
-            if ! gh issue edit "$issue_num" --add-label "agents:formatted" --repo "${{ github.repository }}"; then
+            if ! gh issue edit "${issue_num}" --add-label "agents:formatted" --repo "${{ github.repository }}"; then
               echo "  ⚠️  Failed to add label (non-fatal)"
             fi
 
-            echo "  ✅ Successfully formatted issue #$issue_num"
+            echo "  ✅ Successfully formatted issue #${issue_num}"
             success=$((success + 1))
 
             # Rate limit protection
