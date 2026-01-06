@@ -20,6 +20,7 @@ import logging
 import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import cast
 
 logger = logging.getLogger(__name__)
 
@@ -546,7 +547,7 @@ def get_llm_provider(force_provider: str | None = None) -> LLMProvider:
     """
     # Force a specific provider for testing
     if force_provider:
-        provider_map = {
+        provider_map: dict[str, type[LLMProvider]] = {
             "github-models": GitHubModelsProvider,
             "openai": OpenAIProvider,
             "regex-fallback": RegexFallbackProvider,
@@ -555,7 +556,8 @@ def get_llm_provider(force_provider: str | None = None) -> LLMProvider:
             raise ValueError(
                 f"Unknown provider: {force_provider}. " f"Options: {list(provider_map.keys())}"
             )
-        provider = provider_map[force_provider]()
+        provider_class = cast(type[LLMProvider], provider_map[force_provider])
+        provider = provider_class()
         if not provider.is_available():
             raise RuntimeError(
                 f"Forced provider '{force_provider}' is not available. "
