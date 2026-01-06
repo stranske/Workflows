@@ -69,8 +69,8 @@ jobs:
           repos=$(yq eval '.env.REGISTERED_CONSUMER_REPOS' \
             .github/workflows/maint-68-sync-consumer-repos.yml | \
             grep -v '^#' | grep -v '^$' | sed 's/stranske\///' | tr '\n' ',' | sed 's/,$//')
-          echo "list=$repos" >> $GITHUB_OUTPUT
-          echo "Extracted repos: $repos"
+          echo "list=${repos}" >> "$GITHUB_OUTPUT"
+          echo "Extracted repos: ${repos}"
 
       - name: Check and merge sync PRs
         uses: actions/github-script@v7
@@ -280,8 +280,8 @@ jobs:
       - name: Post summary
         if: always()
         run: |
-          echo "### Sync PR Merge Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Processed repos: ${{ inputs.repos || 'all' }}" >> $GITHUB_STEP_SUMMARY
-          echo "Auto-merge: ${{ inputs.auto_merge }}" >> $GITHUB_STEP_SUMMARY
-          echo "Dry run: ${{ inputs.dry_run }}" >> $GITHUB_STEP_SUMMARY
+          echo "### Sync PR Merge Summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Processed repos: ${{ inputs.repos || 'all' }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Auto-merge: ${{ inputs.auto_merge }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Dry run: ${{ inputs.dry_run }}" >> "$GITHUB_STEP_SUMMARY"
