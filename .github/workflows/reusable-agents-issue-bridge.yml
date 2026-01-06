@@ -36,6 +36,11 @@ on:
         required: false
         type: string
         default: "invite"
+      force_mode:
+        description: "Force mode override (ignore issue event defaults)"
+        required: false
+        type: boolean
+        default: false
       post_agent_comment:
         description: "Auto-post '@<agent> start' command (true/false)"
         required: false
@@ -251,10 +256,14 @@ jobs:
               return;
             }
             const ev = context.eventName;
+            const forceMode = '${{ inputs.force_mode }}' === 'true';
             let mode = '${{ inputs.mode }}' || 'invite';
             let reason = 'input-default';
 
-            if (ev === 'issues') {
+            // If force_mode is enabled, respect the input mode regardless of event type
+            if (forceMode) {
+              reason = 'force-mode-override';
+            } else if (ev === 'issues') {
               const labels = (context.payload.issue && Array.isArray(context.payload.issue.labels)) ? context.payload.issue.labels : [];
               const hasInvite = labels.some((lbl) => String(lbl.name || '').toLowerCase() === `agent:${agent}-invite`);
               const hasBase = labels.some((lbl) => String(lbl.name || '').toLowerCase() === `agent:${agent}`);
