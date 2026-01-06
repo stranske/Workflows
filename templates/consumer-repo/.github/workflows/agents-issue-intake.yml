@@ -74,9 +74,8 @@ permissions:
   issues: write
   pull-requests: write
 
-concurrency:
-  group: issue-intake-${{ github.event.issue.number || github.run_id }}
-  cancel-in-progress: true
+# Note: No concurrency block here - the reusable workflow handles concurrency
+# to avoid deadlock between caller and callee with the same group
 
 jobs:
   # Determine which mode to run
