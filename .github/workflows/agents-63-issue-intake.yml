@@ -1265,7 +1265,7 @@ jobs:
             # Update issue
             echo "  💾 Updating issue body..."
             if ! gh api --method PATCH "repos/${{ github.repository }}/issues/${issue_num}" \
-                -f body="@/tmp/formatted_${issue_num}.md" > /dev/null; then
+                -F body="@/tmp/formatted_${issue_num}.md" > /dev/null; then
               echo "  ❌ Failed to update issue #${issue_num}"
               failed=$((failed + 1))
               continue
