@@ -113,10 +113,10 @@ jobs:
           
           if [ -n "$TARGET_DIRS" ]; then
             echo "Running black formatter on:$TARGET_DIRS"
-            black $TARGET_DIRS 2>&1 || true
+            black "$TARGET_DIRS" 2>&1 || true
             
             echo "Running ruff auto-fixes on:$TARGET_DIRS"
-            ruff check --fix $TARGET_DIRS 2>&1 || true
+            ruff check --fix "$TARGET_DIRS" 2>&1 || true
           else
             echo "No target directories (scripts, tests, src) exist; skipping formatters."
           fi

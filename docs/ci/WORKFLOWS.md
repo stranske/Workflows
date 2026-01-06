@@ -163,6 +163,7 @@ Scheduled health jobs keep the automation ecosystem aligned:
 * [`maint-68-sync-consumer-repos.yml`](../../.github/workflows/maint-68-sync-consumer-repos.yml) pushes workflow template updates to registered consumer repos (release, template push, manual dispatch).
 * [`maint-69-sync-integration-repo.yml`](../../.github/workflows/maint-69-sync-integration-repo.yml) syncs integration-repo templates to Workflows-Integration-Tests repository (template push, manual dispatch with dry-run support).
 * [`maint-70-fix-integration-formatting.yml`](../../.github/workflows/maint-70-fix-integration-formatting.yml) applies Black and Ruff formatting fixes to Integration-Tests repository files (manual dispatch for CI formatting failures).
+* [`maint-71-auto-fix-integration.yml`](../../.github/workflows/maint-71-auto-fix-integration.yml) automatically applies formatting fixes to Integration-Tests when triggered by issue comments or workflow failures.
 
 Together these workflows define the CI surface area referenced by Gate and the Gate summary job, keeping the automation stack observable, testable, and easier to evolve.
 
