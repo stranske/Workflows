@@ -1,10 +1,8 @@
 # Thin caller for issue intake - delegates to Workflows repo reusable workflow
 #
 # Two modes:
-# 1. Label-based (agent_bridge): Assigns agents to issues when labeled
-#    with agent:* labels
-# 2. ChatGPT sync (chatgpt_sync): Bulk creates issues from topic files
-#    with optional LangChain formatting
+# 1. Label-based (agent_bridge): Assigns agents to issues when labeled with agent:*
+# 2. ChatGPT sync (chatgpt_sync): Bulk creates issues from topic files with LangChain
 #
 # Triggers:
 # - Issue opened/reopened/labeled with agent:* labels
@@ -53,11 +51,6 @@ on:
         required: false
         type: boolean
         default: false
-      source_url:
-        description: "[chatgpt_sync] URL to raw text file with topics to import"
-        required: false
-        type: string
-        default: ""
       topic_files:
         description: "[chatgpt_sync] Topic files to sync (e.g., topics.json, agents/*.md)"
         required: false
@@ -74,8 +67,9 @@ permissions:
   issues: write
   pull-requests: write
 
-# Note: No concurrency block here - the reusable workflow handles concurrency
-# to avoid deadlock between caller and callee with the same group
+concurrency:
+  group: issue-intake-${{ github.event.issue.number || github.run_id }}
+  cancel-in-progress: true
 
 jobs:
   # Determine which mode to run
@@ -138,8 +132,10 @@ jobs:
 
               // Extract agent from labels (agent:codex, agents:codex, etc.)
               const labels = issue.labels.map(l => l.name);
+              // Match agent labels but skip keepalive ones
+              const agentPattern = /^agents?:[a-z]+$/i;
               const agentLabel = labels.find(
-                l => /^agents?:[a-z]+$/i.test(l) && !l.includes('keepalive')
+                l => agentPattern.test(l) && !l.includes('keepalive')
               );
               if (agentLabel) {
                 agent = agentLabel.replace(/^agents?:/, '').toLowerCase();
@@ -168,8 +164,7 @@ jobs:
     with:
       agent: ${{ needs.check_labels.outputs.agent }}
       issue_number: ${{ needs.check_labels.outputs.issue_number }}
-      mode: "create"
-      force_mode: true
+      mode: "invite"
       post_agent_comment: ${{ inputs.post_codex_comment && 'true' || 'false' }}
       agent_pr_draft: ${{ inputs.bridge_draft_pr && 'true' || 'false' }}
     secrets:
@@ -180,16 +175,11 @@ jobs:
   sync:
     needs: route
     if: needs.route.outputs.should_run_sync == 'true'
-    permissions:
-      contents: write
-      issues: write
-      id-token: write
-      models: read
-      pull-requests: write
     uses: stranske/Workflows/.github/workflows/agents-63-issue-intake.yml@main
     with:
       intake_mode: "chatgpt_sync"
       source: ${{ inputs.topic_files }}
-      source_url: ${{ inputs.source_url }}
       apply_langchain_formatting: ${{ inputs.apply_langchain_formatting && 'true' || 'false' }}
-    secrets: inherit
+    secrets:
+      service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
+      owner_pr_pat: ${{ secrets.OWNER_PR_PAT }}

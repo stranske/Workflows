@@ -275,18 +275,18 @@ jobs:
           diff_file="${{ steps.context.outputs.diff_summary_path }}"
           model="${{ inputs.model }}"
 
-          # Build args
-          args="--context-file $context_file --json"
+          # Build args array
+          args=(--context-file "$context_file" --json)
           if [ -n "$diff_file" ] && [ -f "$diff_file" ]; then
-            args="$args --diff-file $diff_file"
+            args+=(--diff-file "$diff_file")
           fi
           if [ -n "$model" ]; then
-            args="$args --model $model"
+            args+=(--model "$model")
           fi
-          args="$args --create-issue --issue-label agent:codex --issue-label verify:evaluate"
+          args+=(--create-issue --issue-label agent:codex --issue-label verify:evaluate)
 
           # Run evaluator
-          python .workflows-lib/scripts/langchain/pr_verifier.py $args > evaluation.json 2>&1 || true
+          python .workflows-lib/scripts/langchain/pr_verifier.py "${args[@]}" > evaluation.json 2>&1 || true
 
           # Parse result
           if [ -f evaluation.json ]; then
