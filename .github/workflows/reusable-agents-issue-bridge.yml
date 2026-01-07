@@ -40,7 +40,7 @@ on:
         description: "Force mode override (ignore issue event defaults)"
         required: false
         type: boolean
-        default: false
+        default: true
       post_agent_comment:
         description: "Auto-post '@<agent> start' command (true/false)"
         required: false
