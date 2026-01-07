@@ -214,7 +214,8 @@ async function fetchPullRequestDiff({ github, core, owner, repo, pullNumber }) {
 async function resolvePullRequest({ github, context, core }) {
   const { owner, repo } = context.repo;
 
-  if (context.eventName === 'pull_request') {
+  // Handle pull_request and pull_request_target events (both have PR in payload)
+  if (context.eventName === 'pull_request' || context.eventName === 'pull_request_target') {
     const pr = context.payload?.pull_request;
     if (!pr || pr.merged !== true) {
       return { pr: null, reason: 'Pull request is not merged; skipping verifier.' };
