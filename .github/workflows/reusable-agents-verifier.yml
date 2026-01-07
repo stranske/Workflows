@@ -277,6 +277,19 @@ jobs:
           diff_file="${{ steps.context.outputs.diff_summary_path }}"
           model="${{ inputs.model }}"
 
+          # Debug: Verify script exists and show environment
+          echo "=== DEBUG: Pre-execution verification ==="
+          echo "PYTHONPATH=$PYTHONPATH"
+          echo "Script location:"
+          ls -la .workflows-lib/scripts/langchain/pr_verifier.py 2>&1 || echo "Script NOT FOUND!"
+          echo "Tools directory:"
+          ls -la .workflows-lib/tools/ 2>&1 || echo "Tools dir NOT FOUND!"
+          echo "Python version:"
+          python --version
+          echo "Checking imports..."
+          python -c "import sys; print('sys.path:', sys.path)"
+          python -c "from tools.llm_provider import get_llm_client; print('Import OK')" 2>&1 || echo "Import FAILED!"
+
           # Build args array
           args=(--context-file "$context_file" --json)
           if [ -n "$diff_file" ] && [ -f "$diff_file" ]; then
@@ -287,8 +300,20 @@ jobs:
           fi
           args+=(--create-issue --issue-label agent:codex --issue-label verify:evaluate)
 
+          echo "=== DEBUG: Running command ==="
+          echo "python .workflows-lib/scripts/langchain/pr_verifier.py ${args[*]}"
+
           # Run evaluator (stderr to separate file to avoid corrupting JSON)
-          python .workflows-lib/scripts/langchain/pr_verifier.py "${args[@]}" > evaluation.json 2> evaluation-stderr.log || true
+          python .workflows-lib/scripts/langchain/pr_verifier.py "${args[@]}" > evaluation.json 2> evaluation-stderr.log
+          exit_code=$?
+          echo "Exit code: $exit_code"
+
+          # Debug: Show outputs
+          echo "=== DEBUG: evaluation-stderr.log ==="
+          cat evaluation-stderr.log 2>/dev/null || echo "(empty or missing)"
+          echo "=== DEBUG: evaluation.json (first 500 chars) ==="
+          head -c 500 evaluation.json 2>/dev/null || echo "(empty or missing)"
+          echo ""
 
           # Parse result
           if [ -f evaluation.json ]; then
