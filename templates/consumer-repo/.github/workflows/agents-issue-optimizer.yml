@@ -212,11 +212,11 @@ jobs:
           ISSUE_NUMBER: ${{ steps.check.outputs.issue_number }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          echo \"Extracting suggestions from comments on issue #${ISSUE_NUMBER}\"
+          echo "Extracting suggestions from comments on issue #${ISSUE_NUMBER}"
 
           # Get all comments and find the one with suggestions JSON
           gh api \
-            \"repos/${{ github.repository }}/issues/${ISSUE_NUMBER}/comments\" \
+            "repos/${{ github.repository }}/issues/${ISSUE_NUMBER}/comments" \
             --paginate > /tmp/comments.json
 
           # Extract suggestions JSON from comment
