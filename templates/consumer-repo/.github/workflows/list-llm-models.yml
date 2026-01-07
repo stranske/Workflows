@@ -1,0 +1,159 @@
+# List available LLM models from GitHub Models and OpenAI
+# Run this workflow to see what models are currently available for use with
+# the Agents Verifier workflow.
+#
+# Usage:
+# 1. Go to Actions tab
+# 2. Select "List LLM Models"
+# 3. Click "Run workflow"
+# 4. Check the workflow output for available models
+# 5. Use a model name when running Agents Verifier
+name: List LLM Models
+
+on:
+  workflow_dispatch:
+    inputs:
+      provider:
+        description: 'Which provider to query'
+        required: true
+        type: choice
+        options:
+          - both
+          - github-models
+          - openai
+        default: 'both'
+
+permissions:
+  contents: read
+
+jobs:
+  list-models:
+    runs-on: ubuntu-latest
+    steps:
+      - name: List GitHub Models
+        if: inputs.provider == 'both' || inputs.provider == 'github-models'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "## GitHub Models (via GITHUB_TOKEN)"
+          echo ""
+          echo "Fetching available models from GitHub Models API..."
+          echo ""
+
+          # Query GitHub Models API
+          response=$(curl -s -H "Authorization: Bearer $GITHUB_TOKEN" \
+            "https://models.inference.ai.azure.com/models" 2>/dev/null || \
+            echo '{"error": "Failed to fetch"}')
+
+          if echo "$response" | jq -e '.error' > /dev/null 2>&1; then
+            echo "⚠️  Could not fetch GitHub Models list. Common models include:"
+            echo ""
+            echo "| Model | Description |"
+            echo "|-------|-------------|"
+            echo "| gpt-4o | GPT-4o - fast, multimodal |"
+            echo "| gpt-4o-mini | GPT-4o Mini - fast, cost-effective |"
+            echo "| o1 | O1 - advanced reasoning |"
+            echo "| o1-mini | O1 Mini - efficient reasoning |"
+            echo "| o3-mini | O3 Mini - latest reasoning |"
+            echo ""
+          else
+            echo "### Available Models"
+            echo ""
+            echo "| Model ID | Owned By |"
+            echo "|----------|----------|"
+            echo "$response" | jq -r '.data[]? | "| \(.id) | \(.owned_by // "N/A") |"' \
+              2>/dev/null || \
+              echo "$response" | jq -r '.[]? | "| \(.id // .name) | N/A |"' \
+              2>/dev/null || echo "| (Could not parse response) | |"
+            echo ""
+          fi
+
+          echo "---"
+          echo ""
+
+      - name: List OpenAI Models
+        if: inputs.provider == 'both' || inputs.provider == 'openai'
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          echo "## OpenAI Models (via OPENAI_API_KEY)"
+          echo ""
+
+          if [ -z "$OPENAI_API_KEY" ]; then
+            echo "⚠️  OPENAI_API_KEY secret not configured. Add it to use OpenAI models."
+            echo ""
+            echo "Common OpenAI models:"
+            echo ""
+            echo "| Model | Description |"
+            echo "|-------|-------------|"
+            echo "| gpt-4o | GPT-4o - flagship multimodal |"
+            echo "| gpt-4o-mini | GPT-4o Mini - affordable |"
+            echo "| gpt-4-turbo | GPT-4 Turbo - 128k context |"
+            echo "| gpt-5.2 | GPT-5.2 - latest generation |"
+            echo "| o1 | O1 - reasoning model |"
+            echo "| o1-mini | O1 Mini - fast reasoning |"
+            echo "| o3-mini | O3 Mini - efficient reasoning |"
+            exit 0
+          fi
+
+          echo "Fetching available models from OpenAI API..."
+          echo ""
+
+          response=$(curl -s -H "Authorization: Bearer $OPENAI_API_KEY" \
+            "https://api.openai.com/v1/models" 2>/dev/null || \
+            echo '{"error": "Failed to fetch"}')
+
+          if echo "$response" | jq -e '.error' > /dev/null 2>&1; then
+            error_msg=$(echo "$response" | \
+              jq -r '.error.message // .error // "Unknown error"')
+            echo "❌ Error fetching models: $error_msg"
+            exit 1
+          fi
+
+          echo "### Chat/Completion Models (recommended for verifier)"
+          echo ""
+          echo "| Model ID | Created |"
+          echo "|----------|---------|"
+          # Filter for GPT and O-series models, sorted by creation date (newest first)
+          echo "$response" | jq -r '
+            .data
+            | map(select(.id | test("^(gpt-|o1|o3|chatgpt)"; "i")))
+            | sort_by(.created) | reverse
+            | .[]
+            | "| \(.id) | \(.created | strftime("%Y-%m-%d")) |"
+          ' 2>/dev/null | head -30
+
+          echo ""
+          echo "### All Available Models"
+          echo ""
+          echo "<details>"
+          echo "<summary>Click to expand full model list</summary>"
+          echo ""
+          echo "| Model ID | Owned By |"
+          echo "|----------|----------|"
+          echo "$response" | jq -r \
+            '.data | sort_by(.id) | .[] | "| \(.id) | \(.owned_by) |"' 2>/dev/null
+          echo ""
+          echo "</details>"
+
+      - name: Usage Instructions
+        run: |
+          echo ""
+          echo "---"
+          echo ""
+          echo "## How to Use"
+          echo ""
+          echo "1. Copy a model ID from the lists above"
+          echo "2. Go to **Actions** → **Agents Verifier**"
+          echo "3. Click **Run workflow**"
+          echo "4. Enter the PR number, select mode, paste the model ID, and choose provider"
+          echo "5. Click **Run workflow**"
+          echo ""
+          echo "### Example"
+          echo ""
+          echo '```'
+          echo "PR number: 123"
+          echo "Mode: evaluate"
+          echo "Model: gpt-4o"
+          echo "Provider: openai"
+          echo '```'

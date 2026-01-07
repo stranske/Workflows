@@ -26,10 +26,15 @@ on:
         type: string
         default: 'checkbox'
       model:
-        description: 'LLM model to use for evaluation (e.g., gpt-4o, gpt-4o-mini, o1-mini). Defaults to gpt-4o-mini.'
+        description: 'LLM model to use for evaluation (e.g., gpt-4o, gpt-4o-mini, gpt-5.2, o1-mini)'
         required: false
         type: string
-        default: 'gpt-5.2'
+        default: 'gpt-4o-mini'
+      provider:
+        description: 'LLM provider: github-models (default) or openai'
+        required: false
+        type: string
+        default: 'github-models'
     secrets:
       CODEX_AUTH_JSON:
         required: false
@@ -276,6 +281,7 @@ jobs:
           context_file="${{ steps.context.outputs.context_path }}"
           diff_file="${{ steps.context.outputs.diff_summary_path }}"
           model="${{ inputs.model }}"
+          provider="${{ inputs.provider }}"
 
           # Build args array
           args=(--context-file "$context_file" --json)
@@ -284,6 +290,9 @@ jobs:
           fi
           if [ -n "$model" ]; then
             args+=(--model "$model")
+          fi
+          if [ -n "$provider" ] && [ "$provider" != "github-models" ]; then
+            args+=(--provider "$provider")
           fi
           args+=(--create-issue --issue-label agent:codex --issue-label verify:evaluate)
 

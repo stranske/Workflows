@@ -107,12 +107,16 @@ def _load_prompt() -> str:
     return _ensure_prompt_rubric(PR_EVALUATION_PROMPT)
 
 
-def _get_llm_client(model: str | None = None) -> tuple[object, str] | None:
+def _get_llm_client(
+    model: str | None = None, provider: str | None = None
+) -> tuple[object, str] | None:
     """Get an LLM client for evaluation.
 
     Args:
-        model: Optional model name override. If provided with OPENAI_API_KEY,
-               uses OpenAI directly. Otherwise uses GitHub Models with GITHUB_TOKEN.
+        model: Optional model name override.
+        provider: Optional provider override ('openai' or 'github-models').
+                  If not specified, uses OpenAI if OPENAI_API_KEY is set and model
+                  is specified, otherwise falls back to GitHub Models.
 
     Returns:
         Tuple of (client, provider_name) or None if no credentials available.
@@ -132,7 +136,33 @@ def _get_llm_client(model: str | None = None) -> tuple[object, str] | None:
     # Use the provided model or fall back to default
     selected_model = model or DEFAULT_MODEL
 
-    # If OPENAI_API_KEY is available and either a custom model is requested
+    # Explicit provider selection
+    if provider == "openai":
+        if not openai_token:
+            return None
+        return (
+            ChatOpenAI(
+                model=selected_model,
+                api_key=openai_token,
+                temperature=0.1,
+            ),
+            f"openai/{selected_model}",
+        )
+
+    if provider == "github-models":
+        if not github_token:
+            return None
+        return (
+            ChatOpenAI(
+                model=selected_model,
+                base_url=GITHUB_MODELS_BASE_URL,
+                api_key=github_token,
+                temperature=0.1,
+            ),
+            f"github-models/{selected_model}",
+        )
+
+    # Auto-select: If OPENAI_API_KEY is available and either a custom model is requested
     # OR GITHUB_TOKEN is not available, prefer OpenAI for better model availability
     if openai_token and (model or not github_token):
         return (
@@ -411,23 +441,27 @@ def _parse_llm_response(content: str, provider: str) -> EvaluationResult:
 
 
 def evaluate_pr(
-    context: str, diff: str | None = None, model: str | None = None
+    context: str,
+    diff: str | None = None,
+    model: str | None = None,
+    provider: str | None = None,
 ) -> EvaluationResult:
     """Evaluate a PR against its acceptance criteria.
 
     Args:
         context: The PR context markdown (issue body, PR description, etc.)
         diff: Optional PR diff or summary
-        model: Optional model name (e.g., 'gpt-4o', 'o1-mini'). Uses default if not specified.
+        model: Optional model name (e.g., 'gpt-4o', 'gpt-5.2', 'o1-mini'). Uses default if not specified.
+        provider: Optional provider ('openai' or 'github-models'). Auto-selects if not specified.
 
     Returns:
         EvaluationResult with verdict, scores, and concerns.
     """
-    resolved = _get_llm_client(model=model)
+    resolved = _get_llm_client(model=model, provider=provider)
     if resolved is None:
         return _fallback_evaluation("LLM client unavailable (missing credentials or dependency).")
 
-    client, provider = resolved
+    client, provider_name = resolved
     prompt = _prepare_prompt(context, diff)
     try:
         response = client.invoke(prompt)
@@ -435,7 +469,7 @@ def evaluate_pr(
         return _fallback_evaluation(f"LLM invocation failed: {exc}")
 
     content = getattr(response, "content", None) or str(response)
-    return _parse_llm_response(content, provider)
+    return _parse_llm_response(content, provider_name)
 
 
 def evaluate_pr_multiple(context: str, diff: str | None = None) -> list[EvaluationResult]:
@@ -616,7 +650,12 @@ def main() -> None:
     parser.add_argument("--output-file", help="Path to write evaluation output.")
     parser.add_argument(
         "--model",
-        help="LLM model to use (e.g., gpt-4o, gpt-4o-mini, o1-mini). Uses OPENAI_API_KEY if set.",
+        help="LLM model to use (e.g., gpt-4o, gpt-4o-mini, gpt-5.2, o1-mini).",
+    )
+    parser.add_argument(
+        "--provider",
+        choices=["openai", "github-models"],
+        help="LLM provider: 'openai' (requires OPENAI_API_KEY) or 'github-models' (uses GITHUB_TOKEN).",
     )
     parser.add_argument(
         "--create-issue",
@@ -654,7 +693,7 @@ def main() -> None:
             print(report)
         return
 
-    result = evaluate_pr(context, diff=diff, model=args.model)
+    result = evaluate_pr(context, diff=diff, model=args.model, provider=args.provider)
     issue_labels = args.issue_label or ["agent:codex"]
     run_url = None
     if (

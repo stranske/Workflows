@@ -3,12 +3,14 @@
 #
 # Triggers:
 # - Label 'verify:checkbox' added to merged PR (opt-in checkbox verification)
-# - Label 'verify:evaluate' added to merged PR (future: LLM evaluation)
+# - Label 'verify:evaluate' added to merged PR (LLM-based evaluation)
 # - Label 'verify:compare' added to merged PR (compare-based verification)
+# - Manual dispatch from Actions tab (allows model/provider selection)
 # Note: No longer runs automatically on every merge. Add a verify:* label to trigger.
 #
 # Required secrets (via secrets: inherit):
 # - CODEX_AUTH_JSON: Authentication for Codex API
+# - OPENAI_API_KEY: For OpenAI provider (optional, falls back to GitHub Models)
 # - Ensure repository/org secrets are configured for verification to work
 #
 # Note: Uses pull_request_target instead of pull_request to ensure secrets
@@ -19,6 +21,34 @@ on:
   pull_request_target:
     types:
       - labeled
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to verify (must be merged)'
+        required: true
+        type: number
+      mode:
+        description: 'Verification mode'
+        required: true
+        type: choice
+        options:
+          - evaluate
+          - checkbox
+          - compare
+        default: 'evaluate'
+      model:
+        description: 'LLM model (e.g., gpt-4o-mini, gpt-4o, o1). Run List LLM Models first'
+        required: false
+        type: string
+        default: 'gpt-4o-mini'
+      provider:
+        description: 'LLM provider (OpenAI requires OPENAI_API_KEY secret)'
+        required: true
+        type: choice
+        options:
+          - github-models
+          - openai
+        default: 'github-models'
 
 permissions:
   contents: read
@@ -27,18 +57,59 @@ permissions:
   actions: read
 
 jobs:
-  # Gate: only proceed if PR is merged AND has verify:* label
+  # Gate: only proceed if PR is merged AND has verify:* label (for label trigger)
+  # Or if triggered manually via workflow_dispatch
   check:
     runs-on: ubuntu-latest
     outputs:
       should_run: ${{ steps.check.outputs.should_run }}
       mode: ${{ steps.check.outputs.mode }}
+      model: ${{ steps.check.outputs.model }}
+      provider: ${{ steps.check.outputs.provider }}
+      pr_number: ${{ steps.check.outputs.pr_number }}
     steps:
       - name: Check trigger conditions
         id: check
         uses: actions/github-script@v8
         with:
           script: |
+            // Handle workflow_dispatch trigger
+            if (context.eventName === 'workflow_dispatch') {
+              const prNumber = context.payload.inputs.pr_number;
+              const mode = context.payload.inputs.mode;
+              const model = context.payload.inputs.model;
+              const provider = context.payload.inputs.provider;
+
+              // Verify PR exists and is merged
+              try {
+                const { data: pr } = await github.rest.pulls.get({
+                  ...context.repo,
+                  pull_number: parseInt(prNumber),
+                });
+
+                if (!pr.merged) {
+                  const msg = `PR #${prNumber} is not merged. Verifier only runs on merged PRs.`;
+                  core.setFailed(msg);
+                  core.setOutput('should_run', 'false');
+                  return;
+                }
+
+                const logMsg = `Manual dispatch: PR #${prNumber}, mode=${mode}`;
+                core.info(`${logMsg}, model=${model}, provider=${provider}`);
+                core.setOutput('should_run', 'true');
+                core.setOutput('mode', mode);
+                core.setOutput('model', model);
+                core.setOutput('provider', provider);
+                core.setOutput('pr_number', prNumber);
+                return;
+              } catch (err) {
+                core.setFailed(`Failed to get PR #${prNumber}: ${err.message}`);
+                core.setOutput('should_run', 'false');
+                return;
+              }
+            }
+
+            // Handle pull_request_target trigger (label added)
             const pr = context.payload.pull_request;
             const label = context.payload.label;
 
@@ -67,6 +138,9 @@ jobs:
             core.info(`Verifier triggered with mode: ${mode}`);
             core.setOutput('should_run', 'true');
             core.setOutput('mode', mode);
+            core.setOutput('model', '');  // Use default
+            core.setOutput('provider', '');  // Use default
+            core.setOutput('pr_number', pr.number.toString());
 
   verifier:
     needs: check
@@ -75,6 +149,10 @@ jobs:
     with:
       # CI workflows to wait for before running verifier
       ci_workflows: '["ci.yml", "pr-00-gate.yml"]'
-      # Verification mode from label
+      # Verification mode from label or manual input
       mode: ${{ needs.check.outputs.mode }}
+      # Model selection (empty string uses default)
+      model: ${{ needs.check.outputs.model }}
+      # Provider selection (empty string uses default)
+      provider: ${{ needs.check.outputs.provider }}
     secrets: inherit
