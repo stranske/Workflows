@@ -341,7 +341,8 @@ def _format_followup_issue_body(
 
 
 def _should_create_issue(result: EvaluationResult) -> bool:
-    return result.verdict in {"CONCERNS", "FAIL"}
+    # Disabled: automatic issue creation is no longer desired
+    return False
 
 
 def _create_followup_issue(

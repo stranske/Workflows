@@ -1,5 +1,3 @@
-import json
-
 import scripts.langchain.pr_verifier as pr_verifier
 
 
@@ -51,31 +49,11 @@ def test_create_followup_issue_skips_without_token(monkeypatch) -> None:
 
 
 def test_create_followup_issue_posts(monkeypatch) -> None:
+    # Since automatic issue creation is disabled, this test verifies
+    # that _create_followup_issue returns None without creating an issue
     result = pr_verifier.EvaluationResult(verdict="FAIL", concerns=["Issue found."])
     monkeypatch.setenv("GITHUB_TOKEN", "token")
     monkeypatch.setenv("GITHUB_REPOSITORY", "org/repo")
-
-    captured = {}
-
-    class FakeResponse:
-        def __init__(self):
-            self._data = json.dumps({"number": 99}).encode("utf-8")
-
-        def read(self):
-            return self._data
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, exc_type, exc, tb):
-            return False
-
-    def fake_urlopen(request):
-        captured["url"] = request.full_url
-        captured["body"] = request.data
-        return FakeResponse()
-
-    monkeypatch.setattr(pr_verifier.urllib.request, "urlopen", fake_urlopen)
 
     issue_number = pr_verifier._create_followup_issue(
         result,
@@ -84,8 +62,5 @@ def test_create_followup_issue_posts(monkeypatch) -> None:
         run_url="https://example.com/run/99",
     )
 
-    assert issue_number == 99
-    assert captured["url"] == "https://api.github.com/repos/org/repo/issues"
-    payload = json.loads(captured["body"].decode("utf-8"))
-    assert payload["title"] == "LLM evaluation concerns for PR #99"
-    assert payload["labels"] == ["agent:codex"]
+    # Automatic issue creation is disabled, so this should return None
+    assert issue_number is None
