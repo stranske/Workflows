@@ -62,6 +62,8 @@ jobs:
           sparse-checkout: |
             .github/scripts
             .github/codex/prompts
+            scripts/langchain
+            tools
           sparse-checkout-cone-mode: false
           path: .workflows-lib
           fetch-depth: 1
