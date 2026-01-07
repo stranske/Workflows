@@ -164,7 +164,8 @@ jobs:
     with:
       agent: ${{ needs.check_labels.outputs.agent }}
       issue_number: ${{ needs.check_labels.outputs.issue_number }}
-      mode: "invite"
+      mode: "create"
+      force_mode: true
       post_agent_comment: ${{ inputs.post_codex_comment && 'true' || 'false' }}
       agent_pr_draft: ${{ inputs.bridge_draft_pr && 'true' || 'false' }}
     secrets:
