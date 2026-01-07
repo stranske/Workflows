@@ -851,17 +851,24 @@ jobs:
             const buildBody = (topic) => {
               const lines = [];
               const guidText = topic.guid && String(topic.guid).trim() ? String(topic.guid).trim() : '_Not provided._';
-              lines.push(`Topic GUID: ${guidText}`, '', '## Why');
-              const why =
-                (topic.sections?.why && topic.sections.why.trim()) ||
-                topic.extras?.trim() ||
-                '_Not provided._';
-              lines.push(why, '', '## Tasks', formatTasks(topic.sections?.tasks || ''));
-              lines.push('', '## Acceptance criteria', ensureContent(topic.sections?.acceptance_criteria || ''));
-              lines.push('', '## Implementation notes', ensureContent(topic.sections?.implementation_notes || ''));
+              lines.push(`Topic GUID: ${guidText}`, '');
+              lines.push('## Why', ensureContent(topic.sections?.why || ''), '');
+              if (topic.sections?.scope && topic.sections.scope.trim()) {
+                lines.push('## Scope', ensureContent(topic.sections.scope), '');
+              }
+              if (topic.sections?.non_goals && topic.sections.non_goals.trim()) {
+                lines.push('## Non-Goals', ensureContent(topic.sections.non_goals), '');
+              }
+              lines.push('## Tasks', formatTasks(topic.sections?.tasks || ''), '');
+              lines.push('## Acceptance Criteria', ensureContent(topic.sections?.acceptance_criteria || ''), '');
+              lines.push('## Implementation Notes', ensureContent(topic.sections?.implementation_notes || ''));
+              if (topic.extras && topic.extras.trim()) {
+                lines.push('', '## Additional Context', ensureContent(topic.extras));
+              }
               lines.push('', '---', `Synced by [workflow run](${process.env.RUN_URL}).`);
               return lines.join('\n');
             };
+
             const normalizeSyncFooter = (text) => {
               if (!text) return '';
               return text

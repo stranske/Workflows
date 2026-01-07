@@ -113,7 +113,9 @@ def _parse_sections(
     raw_lines: list[str],
 ) -> tuple[list[str], dict[str, list[str]], list[str]]:
     section_aliases: dict[str, set[str]] = {
-        "why": {"why"},
+        "why": {"why", "context", "background"},
+        "scope": {"scope"},
+        "non_goals": {"non-goals", "non goals", "nongoe", "out of scope"},
         "tasks": {"tasks"},
         "acceptance_criteria": {"acceptance criteria", "acceptance criteria."},
         "implementation_notes": {
