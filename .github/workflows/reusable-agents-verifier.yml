@@ -285,8 +285,8 @@ jobs:
           fi
           args+=(--create-issue --issue-label agent:codex --issue-label verify:evaluate)
 
-          # Run evaluator
-          python .workflows-lib/scripts/langchain/pr_verifier.py "${args[@]}" > evaluation.json 2>&1 || true
+          # Run evaluator (stderr to separate file to avoid corrupting JSON)
+          python .workflows-lib/scripts/langchain/pr_verifier.py "${args[@]}" > evaluation.json 2> evaluation-stderr.log || true
 
           # Parse result
           if [ -f evaluation.json ]; then
@@ -387,8 +387,8 @@ jobs:
             args+=(--diff-file "$diff_file")
           fi
 
-          # Run comparison and capture output
-          python .workflows-lib/scripts/langchain/pr_verifier.py "${args[@]}" > comparison.json 2>&1 || true
+          # Run comparison (stderr to separate file to avoid corrupting JSON)
+          python .workflows-lib/scripts/langchain/pr_verifier.py "${args[@]}" > comparison.json 2> comparison-stderr.log || true
 
           # Parse result
           if [ -f comparison.json ]; then
