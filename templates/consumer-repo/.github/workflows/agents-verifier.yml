@@ -69,6 +69,7 @@ permissions:
   pull-requests: write
   issues: write
   actions: read
+  models: read  # Required for GitHub Models API access
 
 jobs:
   # Gate: only proceed if PR is merged AND has verify:* label (for label trigger)
