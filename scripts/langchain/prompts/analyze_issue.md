@@ -14,11 +14,11 @@ AGENT_LIMITATIONS:
 {agent_limitations}
 
 Output JSON with this shape:
-{
-  "task_splitting": [{"task": "...", "reason": "...", "split_suggestions": ["..."]}],
-  "blocked_tasks": [{"task": "...", "reason": "...", "suggested_action": "..."}],
-  "objective_criteria": [{"criterion": "...", "issue": "...", "suggestion": "..."}],
+{{
+  "task_splitting": [{{"task": "...", "reason": "...", "split_suggestions": ["..."]}}],
+  "blocked_tasks": [{{"task": "...", "reason": "...", "suggested_action": "..."}}],
+  "objective_criteria": [{{"criterion": "...", "issue": "...", "suggestion": "..."}}],
   "missing_sections": ["Scope", "Implementation Notes"],
   "formatting_issues": ["..."],
   "overall_notes": "..."
-}
+}}
