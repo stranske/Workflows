@@ -162,6 +162,7 @@ def test_workflow_display_names_are_unique():
 
 EXPECTED_NAMES = {
     "agents-autofix-loop.yml": "Agents Autofix Loop",
+    "agents-auto-label.yml": "Auto-Label Issues",
     "agents-bot-comment-handler.yml": "Agents Bot Comment Handler",
     "agents-guard.yml": "Health 45 Agents Guard",
     "maint-dependabot-auto-label.yml": "Auto-label Dependabot PRs",
@@ -170,6 +171,7 @@ EXPECTED_NAMES = {
     "agents-64-verify-agent-assignment.yml": "Agents 64 Verify Agent Assignment",
     "agents-issue-optimizer.yml": "Agents Issue Optimizer",
     "agents-verifier.yml": "Agents Verifier",
+    "agents-verify-to-issue.yml": "Create Issue from Verification",
     "agents-weekly-metrics.yml": "agents-weekly-metrics",
     "agents-70-orchestrator.yml": "Agents 70 Orchestrator",
     "agents-moderate-connector.yml": "Agents Moderate Connector Comments",

@@ -16,6 +16,12 @@ def _run(cmd: list[str], cwd: Path, env: dict[str, str] | None = None) -> None:
     subprocess.run(cmd, cwd=cwd, check=True, env=env)
 
 
+def _in_virtualenv() -> bool:
+    """Check if running inside a virtualenv where --user installs are not supported."""
+    # sys.base_prefix != sys.prefix indicates a virtualenv
+    return sys.base_prefix != sys.prefix
+
+
 def test_integration_template_installs_and_tests(tmp_path: Path) -> None:
     destination = tmp_path / "consumer"
     workflow_ref = "owner/repo/.github/workflows/reusable-10-ci-python.yml@ref"
@@ -28,9 +34,14 @@ def test_integration_template_installs_and_tests(tmp_path: Path) -> None:
     assert WORKFLOW_PLACEHOLDER not in workflow_contents
     assert workflow_ref in workflow_contents
 
-    user_base = tmp_path / "userbase"
     env = os.environ.copy()
-    env["PYTHONUSERBASE"] = str(user_base)
+
+    # Only use --user flag when NOT in a virtualenv (virtualenvs don't support --user)
+    user_install_args = []
+    if not _in_virtualenv():
+        user_base = tmp_path / "userbase"
+        env["PYTHONUSERBASE"] = str(user_base)
+        user_install_args = ["--user"]
 
     if importlib.util.find_spec("wheel") is None:
         pytest.skip("wheel is unavailable in the test environment")
@@ -41,7 +52,7 @@ def test_integration_template_installs_and_tests(tmp_path: Path) -> None:
 
     # Install setuptools first (required for --no-build-isolation with pyproject.toml builds)
     _run(
-        [sys.executable, "-m", "pip", "install", "setuptools>=64", "wheel", "--user"],
+        [sys.executable, "-m", "pip", "install", "setuptools>=64", "wheel", *user_install_args],
         cwd=destination,
         env=env,
     )
@@ -55,7 +66,7 @@ def test_integration_template_installs_and_tests(tmp_path: Path) -> None:
             "-e",
             ".[test]",
             "--no-build-isolation",
-            "--user",
+            *user_install_args,
         ],
         cwd=destination,
         env=env,
