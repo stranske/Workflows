@@ -246,8 +246,8 @@ jobs:
           with open('/tmp/issue_body.md') as f:
               issue_body = f.read()
 
-          # Apply suggestions
-          result = apply_suggestions(issue_body, suggestions, use_llm=False)
+          # Apply suggestions with LLM to populate sections intelligently
+          result = apply_suggestions(issue_body, suggestions, use_llm=True)
 
           with open('/tmp/updated_body.md', 'w') as f:
               f.write(result['formatted_body'])
