@@ -211,6 +211,9 @@ jobs:
         env:
           ISSUE_NUMBER: ${{ steps.check.outputs.issue_number }}
           GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          PYTHONPATH: ${{ github.workspace }}
         run: |
           echo "Extracting suggestions from comments on issue #${ISSUE_NUMBER}"
 
