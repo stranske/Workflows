@@ -156,9 +156,6 @@ def _get_llm_client(model: str | None = None) -> tuple[object, str] | None:
             f"github-models/{selected_model}",
         )
 
-    return None
-
-
 def _get_llm_clients() -> list[tuple[object, str]]:
     try:
         from langchain_openai import ChatOpenAI
