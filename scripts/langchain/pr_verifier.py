@@ -208,28 +208,29 @@ def _get_llm_clients(
 
     clients: list[tuple[object, str]] = []
     if github_token:
-        clients.append(
-            (
-                ChatOpenAI(
-                    model=first_model,
-                    base_url=GITHUB_MODELS_BASE_URL,
-                    api_key=github_token,
-                    temperature=0.1,
-                ),
-                "github-models",
+        try:
+            client = ChatOpenAI(
+                model=first_model,
+                base_url=GITHUB_MODELS_BASE_URL,
+                api_key=github_token,
+                temperature=0.1,
             )
-        )
+            clients.append((client, "github-models"))
+        except Exception:
+            # GitHub Models client initialization failed (likely credential/permission issue)
+            # Skip this provider and continue with others
+            pass
     if openai_token:
-        clients.append(
-            (
-                ChatOpenAI(
-                    model=second_model,
-                    api_key=openai_token,
-                    temperature=0.1,
-                ),
-                "openai",
+        try:
+            client = ChatOpenAI(
+                model=second_model,
+                api_key=openai_token,
+                temperature=0.1,
             )
-        )
+            clients.append((client, "openai"))
+        except Exception:
+            # OpenAI client initialization failed
+            pass
     return clients
 
 
@@ -567,10 +568,37 @@ def format_comparison_report(results: list[EvaluationResult]) -> str:
     lines.append("| --- | --- | --- | --- |")
     for index, result in enumerate(results):
         summary_source = result.summary or result.raw_content or ""
-        summary = _compact_text(summary_source) if summary_source else "N/A"
+        summary = _compact_text(summary_source, limit=200) if summary_source else "N/A"
         lines.append(
             f"| {labels[index]} | {result.verdict} | {_format_confidence(result.confidence)} | {summary} |"
         )
+    lines.append("")
+
+    # Add expandable full details for each provider
+    lines.append("<details>")
+    lines.append("<summary>📋 Full Provider Details (click to expand)</summary>")
+    lines.append("")
+    for index, result in enumerate(results):
+        lines.append(f"#### {labels[index]}")
+        lines.append(f"- **Verdict:** {result.verdict}")
+        lines.append(f"- **Confidence:** {_format_confidence(result.confidence)}")
+        if result.scores:
+            lines.append("- **Scores:**")
+            lines.append(f"  - Correctness: {result.scores.correctness}/10")
+            lines.append(f"  - Completeness: {result.scores.completeness}/10")
+            lines.append(f"  - Quality: {result.scores.quality}/10")
+            lines.append(f"  - Testing: {result.scores.testing}/10")
+            lines.append(f"  - Risks: {result.scores.risks}/10")
+        if result.summary:
+            lines.append(f"- **Summary:** {result.summary}")
+        if result.concerns:
+            lines.append("- **Concerns:**")
+            for concern in result.concerns:
+                lines.append(f"  - {concern}")
+        if result.error:
+            lines.append(f"- **Error:** {result.error}")
+        lines.append("")
+    lines.append("</details>")
     lines.append("")
 
     lines.append("### Agreement")
@@ -638,7 +666,7 @@ def format_comparison_report(results: list[EvaluationResult]) -> str:
         if not insights:
             summary = result.summary or ""
             if summary:
-                insights = [_compact_text(summary)]
+                insights = [_compact_text(summary, limit=300)]
         if not insights:
             insights = ["No unique insights reported."]
         lines.append(f"- {labels[index]}: {'; '.join(insights)}")
