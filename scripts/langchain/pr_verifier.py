@@ -107,7 +107,16 @@ def _load_prompt() -> str:
     return _ensure_prompt_rubric(PR_EVALUATION_PROMPT)
 
 
-def _get_llm_client() -> tuple[object, str] | None:
+def _get_llm_client(model: str | None = None) -> tuple[object, str] | None:
+    """Get an LLM client for evaluation.
+
+    Args:
+        model: Optional model name override. If provided with OPENAI_API_KEY,
+               uses OpenAI directly. Otherwise uses GitHub Models with GITHUB_TOKEN.
+
+    Returns:
+        Tuple of (client, provider_name) or None if no credentials available.
+    """
     try:
         from langchain_openai import ChatOpenAI
     except ImportError:
@@ -120,24 +129,34 @@ def _get_llm_client() -> tuple[object, str] | None:
 
     from tools.llm_provider import DEFAULT_MODEL, GITHUB_MODELS_BASE_URL
 
+    # Use the provided model or fall back to default
+    selected_model = model or DEFAULT_MODEL
+
+    # If OPENAI_API_KEY is available and a non-default model is requested,
+    # prefer OpenAI for better model availability (e.g., gpt-4o, o1-mini)
+    if openai_token and (model or not github_token):
+        return (
+            ChatOpenAI(
+                model=selected_model,
+                api_key=openai_token,
+                temperature=0.1,
+            ),
+            f"openai/{selected_model}",
+        )
+
+    # Default: use GitHub Models with GITHUB_TOKEN
     if github_token:
         return (
             ChatOpenAI(
-                model=DEFAULT_MODEL,
+                model=selected_model,
                 base_url=GITHUB_MODELS_BASE_URL,
                 api_key=github_token,
                 temperature=0.1,
             ),
-            "github-models",
+            f"github-models/{selected_model}",
         )
-    return (
-        ChatOpenAI(
-            model=DEFAULT_MODEL,
-            api_key=openai_token,
-            temperature=0.1,
-        ),
-        "openai",
-    )
+
+    return None
 
 
 def _get_llm_clients() -> list[tuple[object, str]]:
@@ -393,8 +412,20 @@ def _parse_llm_response(content: str, provider: str) -> EvaluationResult:
     )
 
 
-def evaluate_pr(context: str, diff: str | None = None) -> EvaluationResult:
-    resolved = _get_llm_client()
+def evaluate_pr(
+    context: str, diff: str | None = None, model: str | None = None
+) -> EvaluationResult:
+    """Evaluate a PR against its acceptance criteria.
+
+    Args:
+        context: The PR context markdown (issue body, PR description, etc.)
+        diff: Optional PR diff or summary
+        model: Optional model name (e.g., 'gpt-4o', 'o1-mini'). Uses default if not specified.
+
+    Returns:
+        EvaluationResult with verdict, scores, and concerns.
+    """
+    resolved = _get_llm_client(model=model)
     if resolved is None:
         return _fallback_evaluation("LLM client unavailable (missing credentials or dependency).")
 
@@ -586,6 +617,10 @@ def main() -> None:
     parser.add_argument("--diff-file", help="Path to PR diff or summary.")
     parser.add_argument("--output-file", help="Path to write evaluation output.")
     parser.add_argument(
+        "--model",
+        help="LLM model to use (e.g., gpt-4o, gpt-4o-mini, o1-mini). Uses OPENAI_API_KEY if set.",
+    )
+    parser.add_argument(
         "--create-issue",
         action="store_true",
         help="Create a follow-up issue on CONCERNS/FAIL verdicts when running in GitHub Actions.",
@@ -621,7 +656,7 @@ def main() -> None:
             print(report)
         return
 
-    result = evaluate_pr(context, diff=diff)
+    result = evaluate_pr(context, diff=diff, model=args.model)
     issue_labels = args.issue_label or ["agent:codex"]
     run_url = None
     if (

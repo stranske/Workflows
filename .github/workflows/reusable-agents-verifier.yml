@@ -25,13 +25,18 @@ on:
         required: false
         type: string
         default: 'checkbox'
+      model:
+        description: 'LLM model to use for evaluation (e.g., gpt-4o, gpt-4o-mini, o1-mini). Defaults to gpt-4o-mini.'
+        required: false
+        type: string
+        default: 'gpt-4o-mini'
     secrets:
       CODEX_AUTH_JSON:
         required: false
         description: 'Codex authentication JSON from codex login (required for checkbox/compare modes)'
       OPENAI_API_KEY:
         required: false
-        description: 'OpenAI API key for compare mode (multi-provider evaluation)'
+        description: 'OpenAI API key for evaluate/compare modes (enables model selection beyond GitHub Models)'
 
 permissions:
   contents: read
@@ -262,21 +267,26 @@ jobs:
         continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           PYTHONPATH: .workflows-lib
         run: |
           set -euo pipefail
           context_file="${{ steps.context.outputs.context_path }}"
           diff_file="${{ steps.context.outputs.diff_summary_path }}"
+          model="${{ inputs.model }}"
 
           # Build args
           args="--context-file $context_file --json"
           if [ -n "$diff_file" ] && [ -f "$diff_file" ]; then
             args="$args --diff-file $diff_file"
           fi
+          if [ -n "$model" ]; then
+            args="$args --model $model"
+          fi
           args="$args --create-issue --issue-label agent:codex --issue-label verify:evaluate"
 
           # Run evaluator
-          python .workflows-lib/scripts/langchain/pr_verifier.py "$args" > evaluation.json 2>&1 || true
+          python .workflows-lib/scripts/langchain/pr_verifier.py $args > evaluation.json 2>&1 || true
 
           # Parse result
           if [ -f evaluation.json ]; then
