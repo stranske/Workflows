@@ -37,12 +37,17 @@ on:
           - compare
         default: 'evaluate'
       model:
-        description: 'LLM model (e.g., gpt-4o-mini, gpt-4o, o1). Run List LLM Models first'
+        description: >-
+          GitHub Models: gpt-4o, gpt-4o-mini, gpt-5, gpt-4.1, o1, o1-mini, o3-mini,
+          Meta-Llama-3.1-405B | OpenAI: gpt-4o, gpt-4o-mini, gpt-4-turbo, o1,
+          o1-mini, o3-mini
         required: false
         type: string
         default: 'gpt-4o-mini'
       model2:
-        description: 'Second model for compare mode (e.g., gpt-5, gpt-4.1)'
+        description: >-
+          Second model for compare (GitHub: gpt-5, gpt-4.1, o1 |
+          OpenAI: o1-mini, gpt-4o, gpt-4-turbo)
         required: false
         type: string
         default: ''
@@ -146,7 +151,14 @@ jobs:
             core.info(`Verifier triggered with mode: ${mode}`);
             core.setOutput('should_run', 'true');
             core.setOutput('mode', mode);
-            core.setOutput('model', '');  // Use default
+            // For compare mode, use high-quality models from different providers
+            if (mode === 'compare') {
+              core.setOutput('model', 'gpt-4o');  // GitHub Models flagship
+              core.setOutput('model2', 'o1-mini');  // OpenAI reasoning model
+            } else {
+              core.setOutput('model', '');  // Use default
+              core.setOutput('model2', '');
+            }
             core.setOutput('provider', '');  // Use default
             core.setOutput('pr_number', pr.number.toString());
 
