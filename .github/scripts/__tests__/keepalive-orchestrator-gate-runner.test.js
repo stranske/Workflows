@@ -231,7 +231,7 @@ test('runKeepaliveGate skips when keepalive is paused by label', async () => {
   const { runKeepaliveGate, restore } = loadRunnerWithGate(gateStub);
 
   const pr = makePullRequest({
-    labels: ['agents:pause', 'agents:keepalive', 'agent:codex'],
+    labels: ['agents:paused', 'agents:keepalive', 'agent:codex'],
   });
 
   await runKeepaliveGate({

@@ -187,7 +187,7 @@ The keepalive system uses PR labels for routing and control:
 ### Control Labels
 | Label | Effect |
 |-------|--------|
-| `agents:pause` | Halts all agent activity on PR |
+| `agents:paused` | Halts all agent activity on PR |
 | `agents:max-parallel:N` | Overrides concurrent run limit (default: 1) |
 | `needs-human` | Auto-added after repeated failures, blocks keepalive |
 
@@ -208,7 +208,7 @@ Keepalive dispatches an agent only when **ALL** conditions are met:
 2. Gate workflow completed successfully
 3. PR body contains unchecked tasks in Automated Status Summary
 4. Not at concurrency limit (default: 1 concurrent run per PR)
-5. No `agents:pause` or `needs-human` labels present
+5. No `agents:paused` or `needs-human` labels present
 
 ### Progress Tracking
 - Agent updates checkboxes in PR body after completing tasks
@@ -222,8 +222,8 @@ After 3 consecutive failures:
 3. Fix issues, then remove `needs-human` label to resume
 
 ### Manual Control
-- **Pause**: Add `agents:pause` label
-- **Resume**: Remove `agents:pause` or `needs-human` label
+- **Pause**: Add `agents:paused` label
+- **Resume**: Remove `agents:paused` or `needs-human` label
 - **Restart**: Remove and re-add the `agent:*` label
 - **Force retry**: Use workflow_dispatch with PR number
 
@@ -302,7 +302,7 @@ When using agent workflows, the recommended flow is:
 - Check PR has `agent:*` label
 - Verify Gate workflow passed
 - Ensure PR body has Automated Status Summary with unchecked tasks
-- Check for `agents:pause` or `needs-human` labels
+- Check for `agents:paused` or `needs-human` labels
 - Review keepalive summary comment for skip reasons
 
 **2. No Automated Status Summary**

@@ -466,7 +466,19 @@
 
 ### 4A. Label Cleanup & Standardization
 
-**Problem:** Consumer repos have accumulated label bloat (30+ labels in some repos) with many unused/redundant labels like `stage 0`, `codex`, `from:codex`, `agents:activated`, `agents:pause`, etc.
+**Problem:** Consumer repos have accumulated label bloat (30+ labels in some repos) with many unused/redundant labels like `stage 0`, `codex`, `ai:agent`, etc.
+
+**Idiosyncratic Repo Bloat Strategy:**
+Each consumer repo has accumulated repo-specific labels (e.g., `architecture`, `backend`, `cli`, `config`, `data`, `engine`, `app`) that aren't synced and aren't used by automation. These create visual clutter and confusion about which labels have functional effects.
+
+**Cleanup approach:**
+1. **Audit each repo** - List all labels not in canonical set
+2. **Classify** - Determine if repo-specific label is:
+   - Used in repo-specific workflows (keep)
+   - Used for human categorization (optional keep - user choice)
+   - Unused/obsolete (remove)
+3. **Create per-repo cleanup PR** - With list of labels to remove and justification
+4. **Human approval required** - Repo maintainer reviews and approves before execution
 
 **Functional Labels (Keep - Have Workflow Effects):**
 
@@ -484,8 +496,7 @@
 | `agents:allow-change` | Override agents-guard | PRs | `agents-guard.yml` |
 | `agents:keepalive` | Enable keepalive loop | PRs | `agents-keepalive-loop.yml` |
 | `agents:activated` | Track first human activation | PRs | `agents_pr_meta_keepalive.js` |
-| `agents:pause` | Pause keepalive | PRs | `keepalive_gate.js`, `keepalive_orchestrator_gate_runner.js` |
-| `agents:paused` | Keepalive paused state | PRs | `keepalive-runner.js` |
+| `agents:paused` | Pause/paused keepalive | PRs | `keepalive_gate.js`, `keepalive-runner.js` |
 | `autofix` | Trigger autofix | PRs | `autofix.yml` |
 | `autofix:clean` | Aggressive autofix | PRs | `autofix.yml` |
 | `autofix:bot-comments` | Address bot comments | PRs | `agents-bot-comment-handler.yml` |
@@ -519,26 +530,29 @@
 | Label | Reason | Searched | Result |
 |-------|--------|----------|--------|
 | `codex` (bare) | Redundant with `agent:codex` | ✅ | No workflow triggers on this |
+| `agents:pause` | Redundant with `agents:paused` | ✅ | Consolidated to `agents:paused` |
 | `ai:agent` | Redundant | ✅ | Zero matches in codebase |
 | `auto-merge-audit` | Unused | ✅ | Zero matches in codebase |
 | `automerge:ok` | Unused variant | ✅ | Zero matches in codebase |
-| `architecture`, `backend`, `cli`, `config`, `data`, `docs`, `engine`, `app` | Repo-specific, not synced | ✅ | Not referenced in workflows |
 
 **⚠️ CORRECTED from initial analysis:** The following labels ARE functional and should NOT be removed:
 - `agents` (bare) - Used by issue templates
 - `agents:activated` - Tracks human activation state
-- `agents:pause` / `agents:paused` - Controls keepalive pausing
+- `agents:paused` - Controls keepalive pausing (consolidated from agents:pause)
 - `automerge` - Enables auto-merge in merge_manager.js
 - `from:codex` / `from:copilot` - Used by merge_manager.js for origin tracking
 - `risk:low` / `ci:green` / `codex-ready` - Used by merge_manager and issue templates
 
 **Implementation:**
 - [ ] Create `scripts/cleanup_labels.py` to remove ONLY verified bloat labels
+- [ ] Audit each consumer repo for idiosyncratic labels
+- [ ] Create per-repo cleanup PR with human approval gate
 - [ ] Update `docs/LABELS.md` with canonical label list
 - [ ] Add label validation to sync workflow
-- [ ] Run cleanup across all 7 consumer repos (only 5-6 labels to remove per repo)
 
 ### 4B. Workflow User Guide Document
+
+> **Status:** Deferred until Phases 4A, 4C-4E complete
 
 **Problem:** Users don't know how to use the label system effectively.
 
@@ -549,6 +563,7 @@
 3. **PR Automation Flow** - How labels progress a PR to merge
 4. **Label Decision Tree** - "What label should I add?"
 5. **Troubleshooting** - Common issues and solutions
+6. **Optional: Issue Creation from Doc** - Command/workflow to create issue from guide sections
 
 **Sections:**
 
@@ -572,11 +587,22 @@
 - Add `verify:compare` for multi-model comparison
 ```
 
+**Optional Issue Creation Feature:**
+```markdown
+## Quick Issue from Guide
+
+At end of each workflow section, include:
+- "Create issue to implement this" link
+- Pre-populated with section content as template
+- Links back to guide for context
+```
+
 **Implementation:**
 - [ ] Create `docs/WORKFLOW_USER_GUIDE.md`
 - [ ] Add to sync-manifest.yml
 - [ ] Add prominent link in each repo's README
 - [ ] Consider GitHub wiki integration
+- [ ] **Optional:** Add issue creation links per section
 
 ### 4C. Master Automation Label (`agents:auto-pilot`)
 
@@ -638,30 +664,94 @@ Step 8: verify:evaluate on merged PR
 - Keepalive detects "Gate failed" but doesn't distinguish conflict from test failure
 - Agent eventually addresses conflicts but wastes cycles
 
-**Proposed Enhancement:**
+**Full Implementation Plan:**
 
-```
-Gate fails on PR
-          ↓
-Conflict detector runs:
-  - Check git status for merge conflicts
-  - Parse CI logs for conflict indicators
-          ↓
-If conflict detected:
-  - Post specific comment: "Merge conflict detected in [files]"
-  - Use targeted prompt: fix_merge_conflicts.md
-  - Skip regular keepalive cycle (more efficient)
-          ↓
-If not conflict:
-  - Continue normal keepalive flow
+**Step 1: Conflict Detection Module**
+Create `scripts/conflict_detector.js`:
+```javascript
+// Detect merge conflicts via git status and CI logs
+async function detectConflicts(github, context, prNumber) {
+  // Method 1: Check GitHub's mergeable_state
+  const pr = await github.rest.pulls.get({
+    owner: context.repo.owner,
+    repo: context.repo.repo,
+    pull_number: prNumber
+  });
+  
+  if (pr.data.mergeable_state === 'dirty') {
+    return { hasConflict: true, source: 'github-api' };
+  }
+  
+  // Method 2: Parse CI logs for conflict markers
+  const runs = await github.rest.actions.listWorkflowRunsForRepo({...});
+  // Look for: "CONFLICT", "merge conflict", "Automatic merge failed"
+  
+  return { hasConflict: false };
+}
 ```
 
-**Implementation:**
-- [ ] Add conflict detection to `keepalive_loop.js`
-- [ ] Create `fix_merge_conflicts.md` prompt template
-- [ ] Update `error_classifier.js` to identify conflict errors
-- [ ] Add conflict-specific metrics tracking
-- [ ] Test with intentionally conflicted branches
+**Step 2: Update Keepalive Gate**
+Modify `keepalive_gate.js`:
+```javascript
+// After gate failure, check if conflict
+const conflictResult = await detectConflicts(github, context, prNumber);
+if (conflictResult.hasConflict) {
+  core.setOutput('skip_reason', 'merge-conflict');
+  core.setOutput('conflict_files', conflictResult.files.join(', '));
+  // Trigger conflict-specific prompt
+  return;
+}
+```
+
+**Step 3: Conflict Resolution Prompt**
+Create `.github/codex/prompts/fix_merge_conflicts.md`:
+```markdown
+# Task: Resolve Merge Conflicts
+
+This PR has merge conflicts that need to be resolved.
+
+## Conflict Files
+{{conflict_files}}
+
+## Instructions
+1. Fetch the latest changes from main/master branch
+2. Identify and resolve each conflict, keeping the intent of both changes
+3. Run tests to ensure resolution doesn't break functionality
+4. Commit with message: "fix: resolve merge conflicts with main"
+
+## Priority
+- Prefer the PR's changes when semantically equivalent
+- If main has breaking changes, adapt PR code to new API
+- When in doubt, keep both changes if they're additive
+```
+
+**Step 4: Integration with Keepalive Loop**
+Add to `agents-keepalive-loop.yml`:
+```yaml
+- name: Check for conflicts
+  id: conflict-check
+  uses: ./.github/actions/conflict-detector
+  with:
+    pr_number: ${{ inputs.pr_number }}
+
+- name: Use conflict prompt if needed
+  if: steps.conflict-check.outputs.has_conflict == 'true'
+  run: |
+    echo "prompt_override=fix_merge_conflicts.md" >> $GITHUB_OUTPUT
+```
+
+**Step 5: Metrics & Logging**
+- Track: conflicts detected, conflicts resolved, resolution time
+- Log: conflict files, resolution commits, manual escalations
+
+**Implementation Checklist:**
+- [ ] Create `scripts/conflict_detector.js`
+- [ ] Add conflict detection to `keepalive_gate.js`
+- [ ] Create `.github/codex/prompts/fix_merge_conflicts.md`
+- [ ] Update `agents-keepalive-loop.yml` to use conflict prompt
+- [ ] Add conflict metrics to keepalive summary
+- [ ] Create `error_classifier.js` enhancements for conflict patterns
+- [ ] Test with intentionally conflicted branches on Manager-Database
 
 ### 4E. Verification-to-Issue Workflow
 
@@ -691,12 +781,108 @@ Creates new issue:
 Posts comment on PR linking to new issue
 ```
 
-**Implementation:**
+**Full Implementation:**
+
+**Create `agents-verify-to-issue.yml`:**
+```yaml
+name: Create Issue from Verification
+
+on:
+  pull_request:
+    types: [labeled]
+
+jobs:
+  create-issue:
+    if: github.event.label.name == 'verify:create-issue'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Find verification comment
+        id: find-comment
+        uses: peter-evans/find-comment@v3
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          body-includes: "## PR Verification Report"
+      
+      - name: Extract concerns
+        id: extract
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const comment = `${{ steps.find-comment.outputs.comment-body }}`;
+            // Parse CONCERNS section
+            const concernsMatch = comment.match(/### Concerns\n([\s\S]*?)(?=###|$)/);
+            const concerns = concernsMatch ? concernsMatch[1].trim() : 'No specific concerns found';
+            
+            // Parse low scores
+            const scoreMatches = [...comment.matchAll(/(\w+):\s*(\d+)\/10/g)];
+            const lowScores = scoreMatches
+              .filter(m => parseInt(m[2]) < 7)
+              .map(m => `${m[1]}: ${m[2]}/10`);
+            
+            core.setOutput('concerns', concerns);
+            core.setOutput('low_scores', lowScores.join(', ') || 'None below 7/10');
+      
+      - name: Create follow-up issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = context.payload.pull_request.number;
+            const prTitle = context.payload.pull_request.title;
+            const concerns = `${{ steps.extract.outputs.concerns }}`;
+            const lowScores = `${{ steps.extract.outputs.low_scores }}`;
+            
+            const issueBody = `## Follow-up from PR #${prNumber}
+            
+**Original PR:** #${prNumber} - ${prTitle}
+
+## Concerns Identified
+
+${concerns}
+
+## Scores Below Threshold
+
+${lowScores}
+
+## Suggested Tasks
+
+- [ ] Address the concerns listed above
+- [ ] Update tests if needed
+- [ ] Re-verify after changes
+
+---
+*This issue was automatically created from verification feedback. Add \`agents:optimize\` to refine.*`;
+
+            const issue = await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `[Follow-up] Address verification concerns from PR #${prNumber}`,
+              body: issueBody,
+              labels: ['agents:optimize', 'follow-up']
+            });
+            
+            // Comment on original PR
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              body: `📋 Follow-up issue created: #${issue.data.number}`
+            });
+            
+            // Remove the trigger label
+            await github.rest.issues.removeLabel({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              name: 'verify:create-issue'
+            });
+```
+
+**Implementation Checklist:**
 - [ ] Create `agents-verify-to-issue.yml` workflow
-- [ ] Add `verify:create-issue` label to sync
-- [ ] Design issue template for verification follow-ups
-- [ ] Link back to original PR for context
+- [ ] Add `verify:create-issue` label to sync config
+- [ ] Add `follow-up` label to sync config
 - [ ] Test on Travel-Plan-Permission or Manager-Database
+- [ ] Add to sync manifest for consumer repos
 
 ---
 
@@ -811,57 +997,61 @@ Posts comment on PR linking to new issue
   - Add `needs-formatting` label
   - Do NOT close or block the issue
 
-### 5F. Cross-Repo Issue Linking
+### 5F. Cross-Repo Issue Linking ❌ SKIPPED
 
-**Implementation approach:**
+**Decision:** Not implementing. Complexity outweighs benefit for current repo scale.
 
-1. **Nightly scan workflow** in Workflows repo:
-   - Fetch open issues from all 7 consumer repos
-   - Build semantic embeddings of issue titles + bodies
-   - Detect pairs with >80% similarity across repos
+### 5G. Agent Performance Dashboard (LangSmith + Custom)
 
-2. **Post linking comments:**
-   - On each matched issue: "Related issue in {other-repo}: #{number}"
-   - Add `related:{repo}` label for tracking
+**Strategy:** Use LangSmith for LLM operations, custom GitHub metrics for workflow stats.
 
-3. **Deduplication support:**
-   - If same issue exists in multiple repos, suggest consolidation
-   - Human decides which to keep
+**LangSmith Integration (Recommended for LLM Metrics):**
+
+LangSmith provides out-of-the-box tracking for:
+- Token usage per operation (prompt + completion)
+- Latency by provider/model
+- Success/failure rate by prompt
+- Cost tracking per provider
+- Trace visualization for debugging
 
 **Implementation:**
-- [ ] Create `maint-cross-repo-issue-scan.yml` workflow
-- [ ] Reuse `issue_dedup.py` / `semantic_matcher.py` across repos
-- [ ] Store embeddings in temporary cache (GitHub Actions artifacts)
-- [ ] Run weekly to avoid API rate limits
+```python
+# In llm_provider.py - add LangSmith tracing
+import os
+os.environ["LANGCHAIN_TRACING_V2"] = "true"
+os.environ["LANGCHAIN_API_KEY"] = os.getenv("LANGSMITH_API_KEY")
+os.environ["LANGCHAIN_PROJECT"] = "workflows-agents"
 
-### 5G. Agent Performance Dashboard
+# Traces automatically captured for:
+# - pr_verifier.py evaluations
+# - issue_optimizer.py analysis
+# - issue_formatter.py LLM calls
+# - Any future LangChain operations
+```
 
-**Options:**
+**Custom Workflow Metrics (GitHub-based):**
 
-1. **LangSmith integration** (recommended for LLM-specific metrics):
-   - Token usage per operation
-   - Latency by provider/model
-   - Success/failure rate by prompt
-   - Already supported by LangChain framework
-   - **Recommendation:** Use for LLM operations in `pr_verifier.py`, `issue_optimizer.py`, etc.
+| Metric | Source | Collection Method |
+|--------|--------|-------------------|
+| Issues created → PR merged time | Issue/PR timestamps | GitHub API query |
+| Keepalive cycles per PR | Workflow run count | Count runs per PR |
+| Agent success rate | PR merge status | Merged vs closed without merge |
+| Autofix effectiveness | Commits per PR | Count autofix commits |
+| CI pass rate first try | Gate workflow | First run success % |
+| Conflict resolution time | Conflict detect → resolve | Timestamp diff |
 
-2. **Custom GitHub-based dashboard** (for workflow metrics):
-   - Track via workflow outputs and GitHub API
-   - Metrics to capture:
+**Implementation Checklist:**
+- [ ] Add `LANGSMITH_API_KEY` secret to Workflows repo
+- [ ] Update `tools/llm_provider.py` with tracing env vars
+- [ ] Create LangSmith project "workflows-agents"
+- [ ] Create `scripts/agent_metrics.py` for GitHub API stats
+- [ ] Add `maint-agent-metrics.yml` weekly workflow
+- [ ] Output: Post summary to wiki or store in repo
 
-   | Metric | Source | Collection Method |
-   |--------|--------|-------------------|
-   | Issues created → PR merged time | Issue/PR timestamps | GitHub API query |
-   | Keepalive cycles per PR | Workflow run count | Count runs per PR |
-   | Agent success rate | PR merge status | Merged vs closed without merge |
-   | Autofix effectiveness | Commits per PR | Count autofix commits |
-   | CI pass rate first try | Gate workflow | First run success % |
-
-**Implementation plan (hybrid approach):**
-- [ ] Enable LangSmith tracing in LangChain scripts (environment variable)
-- [ ] Create `scripts/agent_metrics.py` to query GitHub API for workflow stats
-- [ ] Add `maint-agent-metrics.yml` weekly workflow to collect and store metrics
-- [ ] Output: Markdown summary posted to wiki or README
+**Dashboard Views:**
+1. **LangSmith Dashboard:** Token usage, latency, errors by model/prompt
+2. **GitHub Actions Insights:** Workflow run times, success rates
+3. **Custom Metrics Report:** Weekly summary posted to wiki/README
 
 ---
 
@@ -869,17 +1059,17 @@ Posts comment on PR linking to new issue
 
 | Initiative | Effort | Value | Priority | Notes |
 |------------|--------|-------|----------|-------|
-| 4A. Label Cleanup | Low | Medium | ✅ Ready | Only 5-6 labels to remove |
+| 4A. Label Cleanup | Low | Medium | ✅ Ready | 5 bloat labels + per-repo audit |
 | 4B. User Guide | Medium | High | Defer | After other features stable |
 | 4C. Auto-Pilot | High | High | Test carefully | Most complex |
-| 4D. Conflict Resolution | Medium | High | ✅ Ready | Clear improvement |
-| 4E. Verify-to-Issue | Low | Medium | ✅ Ready | Simple workflow |
+| 4D. Conflict Resolution | Medium | High | ✅ Ready | Full implementation planned |
+| 4E. Verify-to-Issue | Low | Medium | ✅ Ready | Full workflow designed |
 | 5A. Auto-labeling | Low | Medium | ✅ Ready | Script exists |
 | 5B. Coverage PR Check | Low | Medium | ✅ Ready | Soft warning only |
 | 5D. Dependabot Auto-merge | Low | Medium | ✅ Ready | Extend existing |
 | 5E. Issue Lint | Low | Low | Later | Nice to have |
-| 5F. Cross-Repo Linking | Medium | Low | Later | Complex, limited value |
-| 5G. Metrics Dashboard | Medium | Medium | Later | LangSmith for LLM, custom for workflow |
+| 5F. Cross-Repo Linking | - | - | ❌ Skipped | Not needed |
+| 5G. Metrics Dashboard | Medium | Medium | ✅ Ready | LangSmith + custom |
 
 ### Test Results Documentation
 Full substantive analysis available at `/tmp/substantive_test_analysis.md`:

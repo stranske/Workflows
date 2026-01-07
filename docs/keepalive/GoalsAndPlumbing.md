@@ -75,7 +75,7 @@ If any requirement fails, keepalive stays silent—no PR comments. Operators may
 ## 4. Pause & Stop Controls
 
 - Removing the `agent:*` label halts new dispatches until a label is re-applied and all guardrails pass again.
-- Respect the stronger `agents:pause` label, which blocks *all* keepalive activity.
+- Respect the `agents:paused` label, which blocks *all* keepalive activity.
 - After repeated failures (default: 3), the loop pauses and adds `needs-human` label.
 
 **To resume after failure:**

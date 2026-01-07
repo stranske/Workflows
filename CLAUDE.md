@@ -162,7 +162,7 @@ The nested job 'job_name' is requesting 'contents: write', but is only allowed '
 - Check PR has `agent:codex` label
 - Check Gate workflow passed
 - Check PR body has unchecked tasks in Automated Status Summary
-- Check `agents:pause` label is NOT present
+- Check `agents:paused` label is NOT present
 
 ## Documentation Index
 

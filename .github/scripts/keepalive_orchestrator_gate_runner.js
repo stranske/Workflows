@@ -162,9 +162,9 @@ async function runKeepaliveGate({ core, github, context, env }) {
         .filter(Boolean)
     );
 
-    if (currentLabels.has('agents:pause')) {
+    if (currentLabels.has('agents:paused')) {
       addReason('keepalive-paused');
-      summary.addRaw('Keepalive paused by agents:pause label.').addEOL();
+      summary.addRaw('Keepalive paused by agents:paused label.').addEOL();
     }
 
     const requiredLabels = ['agents:keepalive'];
