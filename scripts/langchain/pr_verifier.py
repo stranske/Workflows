@@ -132,8 +132,8 @@ def _get_llm_client(model: str | None = None) -> tuple[object, str] | None:
     # Use the provided model or fall back to default
     selected_model = model or DEFAULT_MODEL
 
-    # If OPENAI_API_KEY is available and a non-default model is requested,
-    # prefer OpenAI for better model availability (e.g., gpt-4o, o1-mini)
+    # If OPENAI_API_KEY is available and either a custom model is requested
+    # OR GITHUB_TOKEN is not available, prefer OpenAI for better model availability
     if openai_token and (model or not github_token):
         return (
             ChatOpenAI(
