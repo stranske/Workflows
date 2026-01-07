@@ -1,0 +1,363 @@
+'use strict';
+
+/**
+ * Conflict detector module for keepalive pipeline.
+ * Detects merge conflicts on PRs to trigger conflict-specific prompts.
+ */
+
+const CONFLICT_PATTERNS = [
+  /merge conflict/i,
+  /CONFLICT \(content\)/i,
+  /Automatic merge failed/i,
+  /fix conflicts and then commit/i,
+  /Merge branch .* into .* failed/i,
+  /<<<<<<< HEAD/,
+  /=======\n/,
+  />>>>>>> /,
+];
+
+/**
+ * Check if a PR has merge conflicts via GitHub API.
+ * @param {object} github - Octokit instance
+ * @param {object} context - GitHub Actions context
+ * @param {number} prNumber - PR number to check
+ * @returns {Promise<{hasConflict: boolean, source: string, files: string[]}>}
+ */
+async function checkGitHubMergeability(github, context, prNumber) {
+  try {
+    const { data: pr } = await github.rest.pulls.get({
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+      pull_number: prNumber,
+    });
+
+    // mergeable_state can be: 'clean', 'dirty', 'unstable', 'blocked', 'behind', 'unknown'
+    // 'dirty' indicates merge conflicts
+    if (pr.mergeable_state === 'dirty' || pr.mergeable === false) {
+      // Try to get conflict files from the PR
+      const files = await getConflictFiles(github, context, prNumber);
+      return {
+        hasConflict: true,
+        source: 'github-api',
+        mergeableState: pr.mergeable_state,
+        files,
+      };
+    }
+
+    return {
+      hasConflict: false,
+      source: 'github-api',
+      mergeableState: pr.mergeable_state,
+      files: [],
+    };
+  } catch (error) {
+    console.error(`Error checking PR mergeability: ${error.message}`);
+    return {
+      hasConflict: false,
+      source: 'error',
+      error: error.message,
+      files: [],
+    };
+  }
+}
+
+/**
+ * Get list of files that might have conflicts.
+ * Note: GitHub doesn't directly expose conflict files, so we check changed files.
+ * @param {object} github - Octokit instance
+ * @param {object} context - GitHub Actions context
+ * @param {number} prNumber - PR number
+ * @returns {Promise<string[]>}
+ */
+async function getConflictFiles(github, context, prNumber) {
+  try {
+    const { data: files } = await github.rest.pulls.listFiles({
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+      pull_number: prNumber,
+      per_page: 100,
+    });
+
+    // Return all changed files - actual conflicts will be subset
+    return files.map((f) => f.filename);
+  } catch (error) {
+    console.error(`Error getting PR files: ${error.message}`);
+    return [];
+  }
+}
+
+/**
+ * Check CI logs for conflict indicators.
+ * @param {object} github - Octokit instance
+ * @param {object} context - GitHub Actions context
+ * @param {number} prNumber - PR number
+ * @param {string} headSha - Head commit SHA
+ * @returns {Promise<{hasConflict: boolean, source: string, matchedPatterns: string[]}>}
+ */
+async function checkCILogsForConflicts(github, context, prNumber, headSha) {
+  try {
+    // Get recent workflow runs for this PR's head SHA
+    const { data: runs } = await github.rest.actions.listWorkflowRunsForRepo({
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+      head_sha: headSha,
+      per_page: 10,
+    });
+
+    const failedRuns = runs.workflow_runs.filter(
+      (run) => run.conclusion === 'failure'
+    );
+
+    if (failedRuns.length === 0) {
+      return { hasConflict: false, source: 'ci-logs', matchedPatterns: [] };
+    }
+
+    // Check job logs for conflict patterns
+    for (const run of failedRuns.slice(0, 3)) {
+      // Limit to 3 most recent
+      try {
+        const { data: jobs } = await github.rest.actions.listJobsForWorkflowRun(
+          {
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            run_id: run.id,
+          }
+        );
+
+        for (const job of jobs.jobs.filter((j) => j.conclusion === 'failure')) {
+          // Get job logs
+          try {
+            const { data: logs } =
+              await github.rest.actions.downloadJobLogsForWorkflowRun({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                job_id: job.id,
+              });
+
+            const logText = typeof logs === 'string' ? logs : String(logs);
+            const matchedPatterns = [];
+
+            for (const pattern of CONFLICT_PATTERNS) {
+              if (pattern.test(logText)) {
+                matchedPatterns.push(pattern.source || pattern.toString());
+              }
+            }
+
+            if (matchedPatterns.length > 0) {
+              return {
+                hasConflict: true,
+                source: 'ci-logs',
+                workflowRun: run.name,
+                job: job.name,
+                matchedPatterns,
+              };
+            }
+          } catch {
+            // Log download might fail for old runs, continue
+            continue;
+          }
+        }
+      } catch {
+        continue;
+      }
+    }
+
+    return { hasConflict: false, source: 'ci-logs', matchedPatterns: [] };
+  } catch (error) {
+    console.error(`Error checking CI logs: ${error.message}`);
+    return { hasConflict: false, source: 'error', error: error.message };
+  }
+}
+
+/**
+ * Check PR comments for conflict mentions.
+ * @param {object} github - Octokit instance
+ * @param {object} context - GitHub Actions context
+ * @param {number} prNumber - PR number
+ * @returns {Promise<{hasConflict: boolean, source: string}>}
+ */
+async function checkCommentsForConflicts(github, context, prNumber) {
+  try {
+    const { data: comments } = await github.rest.issues.listComments({
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+      issue_number: prNumber,
+      per_page: 20,
+    });
+
+    // Check recent comments (last 10)
+    const recentComments = comments.slice(-10);
+
+    for (const comment of recentComments) {
+      for (const pattern of CONFLICT_PATTERNS) {
+        if (pattern.test(comment.body)) {
+          return {
+            hasConflict: true,
+            source: 'pr-comments',
+            commentId: comment.id,
+            commentAuthor: comment.user.login,
+          };
+        }
+      }
+    }
+
+    return { hasConflict: false, source: 'pr-comments' };
+  } catch (error) {
+    console.error(`Error checking PR comments: ${error.message}`);
+    return { hasConflict: false, source: 'error', error: error.message };
+  }
+}
+
+/**
+ * Main conflict detection function.
+ * Checks multiple sources for merge conflict indicators.
+ * @param {object} github - Octokit instance
+ * @param {object} context - GitHub Actions context
+ * @param {number} prNumber - PR number to check
+ * @param {string} [headSha] - Optional head SHA for CI log check
+ * @returns {Promise<object>} Conflict detection result
+ */
+async function detectConflicts(github, context, prNumber, headSha) {
+  const results = {
+    hasConflict: false,
+    detectionSources: [],
+    files: [],
+    details: {},
+  };
+
+  // Method 1: Check GitHub mergeability (most reliable)
+  const githubResult = await checkGitHubMergeability(
+    github,
+    context,
+    prNumber
+  );
+  results.detectionSources.push({
+    source: 'github-api',
+    result: githubResult,
+  });
+
+  if (githubResult.hasConflict) {
+    results.hasConflict = true;
+    results.files = githubResult.files;
+    results.primarySource = 'github-api';
+    results.details.mergeableState = githubResult.mergeableState;
+  }
+
+  // Method 2: Check CI logs (if head SHA provided)
+  if (headSha) {
+    const ciResult = await checkCILogsForConflicts(
+      github,
+      context,
+      prNumber,
+      headSha
+    );
+    results.detectionSources.push({
+      source: 'ci-logs',
+      result: ciResult,
+    });
+
+    if (ciResult.hasConflict && !results.hasConflict) {
+      results.hasConflict = true;
+      results.primarySource = 'ci-logs';
+      results.details.matchedPatterns = ciResult.matchedPatterns;
+    }
+  }
+
+  // Method 3: Check PR comments
+  const commentResult = await checkCommentsForConflicts(
+    github,
+    context,
+    prNumber
+  );
+  results.detectionSources.push({
+    source: 'pr-comments',
+    result: commentResult,
+  });
+
+  if (commentResult.hasConflict && !results.hasConflict) {
+    results.hasConflict = true;
+    results.primarySource = 'pr-comments';
+  }
+
+  return results;
+}
+
+/**
+ * Post a conflict detection comment on the PR.
+ * @param {object} github - Octokit instance
+ * @param {object} context - GitHub Actions context
+ * @param {number} prNumber - PR number
+ * @param {object} conflictResult - Result from detectConflicts
+ * @returns {Promise<void>}
+ */
+async function postConflictComment(github, context, prNumber, conflictResult) {
+  if (!conflictResult.hasConflict) {
+    return;
+  }
+
+  const files = conflictResult.files.slice(0, 10); // Limit to 10 files
+  const fileList =
+    files.length > 0
+      ? `\n\n**Potentially affected files:**\n${files.map((f) => `- \`${f}\``).join('\n')}`
+      : '';
+
+  const body = `### ⚠️ Merge Conflict Detected
+
+This PR has merge conflicts that need to be resolved before it can be merged.
+
+**Detection source:** ${conflictResult.primarySource}${fileList}
+
+<details>
+<summary>How to resolve</summary>
+
+1. Fetch the latest changes from the base branch
+2. Merge or rebase your branch
+3. Resolve any conflicts in affected files
+4. Commit and push the resolved changes
+
+Or wait for the agent to attempt automatic resolution.
+</details>
+
+---
+*Auto-detected by conflict detector*`;
+
+  // Check for existing conflict comment
+  const { data: comments } = await github.rest.issues.listComments({
+    owner: context.repo.owner,
+    repo: context.repo.repo,
+    issue_number: prNumber,
+    per_page: 30,
+  });
+
+  const existingComment = comments.find(
+    (c) =>
+      c.body.includes('### ⚠️ Merge Conflict Detected') && c.user.type === 'Bot'
+  );
+
+  if (existingComment) {
+    // Update existing comment
+    await github.rest.issues.updateComment({
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+      comment_id: existingComment.id,
+      body,
+    });
+  } else {
+    // Create new comment
+    await github.rest.issues.createComment({
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+      issue_number: prNumber,
+      body,
+    });
+  }
+}
+
+module.exports = {
+  detectConflicts,
+  checkGitHubMergeability,
+  checkCILogsForConflicts,
+  checkCommentsForConflicts,
+  postConflictComment,
+  CONFLICT_PATTERNS,
+};

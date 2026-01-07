@@ -66,6 +66,12 @@ workflows:
   - source: .github/workflows/agents-issue-optimizer.yml
     description: "Issue optimizer - LangChain-based issue formatting and optimization (Phase 1)"
 
+  - source: .github/workflows/agents-verify-to-issue.yml
+    description: "Verify to issue - creates follow-up issues from verification feedback (Phase 4E)"
+
+  - source: .github/workflows/agents-auto-label.yml
+    description: "Auto-label - suggests/applies labels based on semantic matching (Phase 5A)"
+
   - source: .github/workflows/agents-guard.yml
     description: "Agents guard - enforces agents workflow protections (Health 45)"
 
@@ -98,6 +104,9 @@ prompts:
 
   - source: .github/codex/prompts/verifier_acceptance_check.md
     description: "Verifier prompt - acceptance criteria validation"
+
+  - source: .github/codex/prompts/fix_merge_conflicts.md
+    description: "Conflict resolution prompt - instructs Codex to resolve merge conflicts"
 
 # Codex configuration
 codex_config:
@@ -178,6 +187,9 @@ scripts:
 
   - source: .github/scripts/failure_comment_formatter.js
     description: "Formats failure comments for PR status updates"
+
+  - source: .github/scripts/conflict_detector.js
+    description: "Conflict detector - identifies merge conflicts for targeted resolution"
 
   # LangChain issue formatting (Phase 1 rollout - see docs/plans/langchain-rollout-tasks.md)
   - source: scripts/langchain/issue_formatter.py

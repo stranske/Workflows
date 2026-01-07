@@ -11,6 +11,12 @@ Usage:
 
     provider = get_llm_provider()
     result = provider.analyze_completion(session_text, tasks)
+
+LangSmith Tracing:
+    Set these environment variables to enable LangSmith tracing:
+    - LANGSMITH_API_KEY: Your LangSmith API key
+    - LANGCHAIN_TRACING_V2: Set to "true" to enable tracing
+    - LANGCHAIN_PROJECT: Project name (default: "workflows-agents")
 """
 
 from __future__ import annotations
@@ -26,6 +32,29 @@ logger = logging.getLogger(__name__)
 # GitHub Models API endpoint (OpenAI-compatible)
 GITHUB_MODELS_BASE_URL = "https://models.inference.ai.azure.com"
 DEFAULT_MODEL = "gpt-4o-mini"
+
+
+def _setup_langsmith_tracing() -> bool:
+    """
+    Configure LangSmith tracing if API key is available.
+
+    Returns True if tracing is enabled, False otherwise.
+    """
+    api_key = os.environ.get("LANGSMITH_API_KEY")
+    if not api_key:
+        return False
+
+    # Enable LangChain tracing v2
+    os.environ.setdefault("LANGCHAIN_TRACING_V2", "true")
+    os.environ.setdefault("LANGCHAIN_PROJECT", "workflows-agents")
+    os.environ.setdefault("LANGCHAIN_API_KEY", api_key)
+
+    logger.info(f"LangSmith tracing enabled for project: " f"{os.environ.get('LANGCHAIN_PROJECT')}")
+    return True
+
+
+# Initialize tracing on module load
+LANGSMITH_ENABLED = _setup_langsmith_tracing()
 
 
 @dataclass

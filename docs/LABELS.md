@@ -16,9 +16,12 @@ This document describes all labels that trigger automated workflows or affect CI
 | `agents:formatted` | Auto-applied | Indicates issue has been formatted |
 | `agents:optimize` | Issue labeled | Analyzes issue and posts suggestions |
 | `agents:apply-suggestions` | Issue labeled | Applies optimization suggestions |
+| `agents:paused` | PR labeled | Pauses keepalive loop on PR |
+| `agents:keepalive` | PR labeled | Enables keepalive loop on PR |
 | `verify:checkbox` | PR labeled | Runs verifier checkbox mode after merge |
 | `verify:evaluate` | PR labeled | Runs verifier evaluation mode after merge |
 | `verify:compare` | PR labeled | Runs verifier comparison mode after merge |
+| `verify:create-issue` | PR labeled | Creates follow-up issue from verification |
 
 ---
 
@@ -264,6 +267,95 @@ These labels trigger the post-merge verifier workflow on a merged PR.
 **Effect:** Runs the verifier across multiple models and posts a comparison report.
 
 **Workflow:** `agents-verifier.yml`
+
+---
+
+### `verify:create-issue`
+
+**Applies to:** Pull Requests
+
+**Trigger:** When applied to a merged PR that has verification feedback
+
+**Prerequisites:**
+- PR must be merged
+- PR must have a verification comment (from `verify:evaluate` or `verify:compare`)
+
+**Effect:**
+1. Extracts concerns and low scores from verification feedback
+2. Creates a new follow-up issue with:
+   - Link to original PR
+   - Extracted concerns from verification
+   - Scores below 7/10
+   - Suggested tasks for addressing issues
+3. Posts comment on original PR linking to new issue
+4. Removes the `verify:create-issue` label after completion
+5. Adds `agents:optimize` label to new issue for agent formatting
+
+**Use Case:** User-triggered creation of follow-up work from verification feedback. Replaces automatic issue creation which was too aggressive.
+
+**Workflow:** `agents-verify-to-issue.yml`
+
+---
+
+## Keepalive Control Labels
+
+### `agents:paused`
+
+**Applies to:** Pull Requests
+
+**Trigger:** When applied to a PR with active keepalive
+
+**Effect:**
+1. Pauses all keepalive activity on the PR
+2. Agent will not be dispatched until label is removed
+3. Useful for manual intervention or debugging
+
+**To Resume:** Remove the `agents:paused` label.
+
+**Workflow:** `agents-keepalive-loop.yml`
+
+---
+
+### `agents:keepalive`
+
+**Applies to:** Pull Requests
+
+**Trigger:** When applied to a PR
+
+**Effect:**
+1. Enables the keepalive loop for the PR
+2. Agent continues working until all tasks are complete
+3. Tracks progress and updates PR status
+
+**Prerequisites:**
+- PR must have an `agent:*` label
+- Gate workflow must pass
+
+**Workflow:** `agents-keepalive-loop.yml`
+
+---
+
+## Informational Labels
+
+These labels are used for categorization but do not trigger workflows.
+
+### `follow-up`
+
+**Applies to:** Issues
+
+**Effect:** Indicates this issue was created as follow-up to another issue or PR.
+
+**Applied by:** `agents-verify-to-issue.yml` workflow
+
+---
+
+### `needs-formatting`
+
+**Applies to:** Issues  
+
+**Effect:** Indicates the issue needs formatting to AGENT_ISSUE_TEMPLATE structure.
+
+**Applied by:** Issue lint workflow (when enabled)
 
 ---
 
