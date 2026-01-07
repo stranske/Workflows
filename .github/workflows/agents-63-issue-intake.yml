@@ -860,7 +860,7 @@ jobs:
                 lines.push('## Non-Goals', ensureContent(topic.sections.non_goals), '');
               }
               lines.push('## Tasks', formatTasks(topic.sections?.tasks || ''), '');
-              lines.push('## Acceptance Criteria', ensureContent(topic.sections?.acceptance_criteria || ''), '');
+              lines.push('## Acceptance Criteria', formatTasks(topic.sections?.acceptance_criteria || ''), '');
               lines.push('## Implementation Notes', ensureContent(topic.sections?.implementation_notes || ''));
               if (topic.extras && topic.extras.trim()) {
                 lines.push('', '## Additional Context', ensureContent(topic.extras));
