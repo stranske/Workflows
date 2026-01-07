@@ -31,7 +31,7 @@ repos:
 
   # Python code formatting
   - repo: https://github.com/psf/black
-    rev: 25.11.0  # Synced with autofix-versions.env
+    rev: 25.12.0  # Synced with autofix-versions.env
     hooks:
       - id: black
         language_version: python3
@@ -39,7 +39,7 @@ repos:
 
   # Python linting and formatting
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.14.7  # Synced with autofix-versions.env
+    rev: v0.14.10  # Synced with autofix-versions.env
     hooks:
       - id: ruff
         args: ["--fix"]

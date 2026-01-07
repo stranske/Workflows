@@ -27,8 +27,8 @@ on:
         default: 'checkbox'
     secrets:
       CODEX_AUTH_JSON:
-        required: true
-        description: 'Codex authentication JSON from codex login'
+        required: false
+        description: 'Codex authentication JSON from codex login (required for checkbox/compare modes)'
       OPENAI_API_KEY:
         required: false
         description: 'OpenAI API key for compare mode (multi-provider evaluation)'
@@ -169,6 +169,16 @@ jobs:
           } > "$combined"
           echo "prompt_file=$combined" >> "$GITHUB_OUTPUT"
 
+      - name: Validate Codex auth for checkbox/compare modes
+        if: steps.context.outputs.should_run == 'true' && inputs.mode != 'evaluate'
+        env:
+          CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
+        run: |
+          if [ -z "$CODEX_AUTH_JSON" ]; then
+            echo "::error::CODEX_AUTH_JSON secret is required for ${{ inputs.mode }} mode but not provided"
+            exit 1
+          fi
+
       - name: Setup Codex auth
         if: steps.context.outputs.should_run == 'true' && inputs.mode != 'evaluate'
         env:
@@ -257,39 +267,39 @@ jobs:
           set -euo pipefail
           context_file="${{ steps.context.outputs.context_path }}"
           diff_file="${{ steps.context.outputs.diff_summary_path }}"
-          
+
           # Build args
           args="--context-file $context_file --json"
           if [ -n "$diff_file" ] && [ -f "$diff_file" ]; then
             args="$args --diff-file $diff_file"
           fi
           args="$args --create-issue --issue-label agent:codex --issue-label verify:evaluate"
-          
+
           # Run evaluator
           python .workflows-lib/scripts/langchain/pr_verifier.py "$args" > evaluation.json 2>&1 || true
-          
+
           # Parse result
           if [ -f evaluation.json ]; then
             verdict=$(python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('verdict','CONCERNS'))" < evaluation.json 2>/dev/null || echo "CONCERNS")
             echo "verdict=$verdict" >> "$GITHUB_OUTPUT"
-            
+
             # Format output for comment
             python3 - <<'PYFORMAT'
           import json
           import sys
-          
+
           try:
               with open('evaluation.json') as f:
                   data = json.load(f)
-              
+
               lines = ["## LLM Evaluation Report", ""]
               lines.append(f"**Verdict:** {data.get('verdict', 'UNKNOWN')}")
               lines.append("")
-              
+
               if data.get('summary'):
                   lines.append(f"**Summary:** {data['summary']}")
                   lines.append("")
-              
+
               scores = data.get('scores')
               if scores:
                   lines.append("### Scores")
@@ -299,7 +309,7 @@ jobs:
                       score = scores.get(key, 'N/A')
                       lines.append(f"| {key.capitalize()} | {score}/10 |")
                   lines.append("")
-              
+
               concerns = data.get('concerns', [])
               if concerns:
                   lines.append("### Concerns")
@@ -307,17 +317,17 @@ jobs:
                       if c:
                           lines.append(f"- {c}")
                   lines.append("")
-              
+
               if data.get('error'):
                   lines.append(f"**Note:** {data['error']}")
-              
+
               with open('evaluation-comment.md', 'w') as f:
                   f.write('\n'.join(lines))
           except Exception as e:
               with open('evaluation-comment.md', 'w') as f:
                   f.write(f"## LLM Evaluation\n\nEvaluation encountered an error: {e}")
           PYFORMAT
-            
+
             cat evaluation-comment.md
           else
             echo "verdict=CONCERNS" >> "$GITHUB_OUTPUT"
@@ -360,25 +370,25 @@ jobs:
           set -euo pipefail
           context_file="${{ steps.context.outputs.context_path }}"
           diff_file="${{ steps.context.outputs.diff_summary_path }}"
-          
+
           # Build args array
           args=(--context-file "$context_file" --compare --json)
           if [ -n "$diff_file" ] && [ -f "$diff_file" ]; then
             args+=(--diff-file "$diff_file")
           fi
-          
+
           # Run comparison and capture output
           python .workflows-lib/scripts/langchain/pr_verifier.py "${args[@]}" > comparison.json 2>&1 || true
-          
+
           # Parse result
           if [ -f comparison.json ]; then
             # Extract consensus verdict from results
             verdict=$(python3 -c "import sys,json; d=json.load(sys.stdin); results=d.get('results',[]); verdicts=[r.get('verdict','CONCERNS') for r in results]; print('PASS' if all(v=='PASS' for v in verdicts) else 'CONCERNS')" < comparison.json 2>/dev/null || echo "CONCERNS")
             echo "verdict=$verdict" >> "$GITHUB_OUTPUT"
-            
+
             # Extract the formatted report
             python3 -c "import json; d=json.load(open('comparison.json')); print(d.get('report', '## Comparison Report\n\nNo report generated.'))" > comparison-comment.md
-            
+
             cat comparison-comment.md
           else
             echo "verdict=CONCERNS" >> "$GITHUB_OUTPUT"
@@ -404,7 +414,7 @@ jobs:
           checkbox_verdict="${{ steps.verdict.outputs.verdict }}"
           llm_verdict="${{ steps.llm_evaluate.outputs.verdict }}"
           compare_verdict="${{ steps.llm_compare.outputs.verdict }}"
-          
+
           if [ "${{ inputs.mode }}" = "evaluate" ]; then
             final_verdict="${llm_verdict:-unknown}"
           elif [ "${{ inputs.mode }}" = "compare" ]; then
@@ -412,7 +422,7 @@ jobs:
           else
             final_verdict="${checkbox_verdict:-unknown}"
           fi
-          
+
           echo "verdict=$final_verdict" >> "$GITHUB_OUTPUT"
           echo "Final verdict: $final_verdict"
 

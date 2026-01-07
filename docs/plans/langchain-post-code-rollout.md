@@ -1,7 +1,8 @@
 # LangChain Post-Code Production Capabilities - Evaluation & Rollout Plan
 
 > **Date:** January 6, 2026  
-> **Status:** Assessment Complete  
+> **Status:** Phase 1 Complete, Phase 2 Ready  
+> **Last Validation:** 2026-01-06  
 
 ---
 
@@ -123,60 +124,74 @@
 ### Phase 1: PR Verification (2 Steps)
 
 **Step 1A: Prepare Workflows Repo**
-- [ ] Verify `reusable-agents-verifier.yml` is correct (done)
-- [ ] Verify `agents-verifier.yml` template calls reusable correctly (done)
-- [ ] Add `.gitignore` to sync manifest if missing
-- [ ] Commit any fixes to main
+- [x] Verify `reusable-agents-verifier.yml` is correct (done)
+- [x] Verify `agents-verifier.yml` template calls reusable correctly (done)
+- [x] `.gitignore` template has all workflow status entries (not synced by design)
+- [x] Commit any fixes to main
 
 **Step 1B: Deploy to Consumer Repos**
-1. Run `python scripts/create_verifier_labels.py --all` to create labels in all consumer repos
-2. Trigger sync workflow to push updated templates
-3. Wait for sync PRs, merge via `Merge Sync PRs` workflow
+1. ✅ All consumer repos have verifier labels (`verify:checkbox`, `verify:evaluate`, `verify:compare`)
+2. ✅ Sync workflow runs automatically on template changes (last run: ~3h ago)
+3. ✅ Sync PRs merged (no open sync PRs pending)
 4. Test on Manager-Database (pilot):
-   - Find a recently merged PR
-   - Add `verify:evaluate` label
+   - Find a recently merged agent PR
+   - Add `verify:evaluate` label  
    - Verify workflow runs and posts evaluation comment
+   - **Note:** Requires repo write access to add labels
 
 **Validation Criteria:**
-- [ ] Workflow runs without errors
-- [ ] LLM evaluation produces scores and verdict
-- [ ] Comment posted on PR with evaluation results
-- [ ] Follow-up issue created if verdict is CONCERNS/FAIL
+- [x] Verifier labels exist in all 7 consumer repos (verified via `--check`)
+- [x] `agents-verifier.yml` deployed to consumer repos
+- [ ] Live test: Workflow runs without errors
+- [ ] Live test: LLM evaluation produces scores and verdict
+- [ ] Live test: Comment posted on PR with evaluation results
+- [ ] Live test: Follow-up issue created if verdict is CONCERNS/FAIL
 
 ### Phase 2: Issue Formatting & Cleanup (1 Step)
 
 **Step 2A: Labels & Sync**
-1. Run label creation script for `agents:format`, `agents:formatted` across all repos
-2. Verify `agents-issue-optimizer.yml` is in sync manifest
-3. Trigger sync and merge PRs
+1. ✅ Labels created via sync workflow (`agents:format`, `agents:formatted`, `agents:optimize`, `agents:apply-suggestions`)
+2. ✅ `agents-issue-optimizer.yml` is in sync manifest
+3. ✅ Sync PRs merged automatically
 4. Test on Manager-Database:
    - Create test issue with unformatted content
    - Add `agents:format` label
    - Verify issue is reformatted and `agents:formatted` label added
+   - **Note:** Requires repo write access to add labels
 
 **Validation Criteria:**
-- [ ] `agents:format` triggers workflow
-- [ ] Issue body updated to AGENT_ISSUE_TEMPLATE
-- [ ] `agents:formatted` label added
-- [ ] Original content preserved in hidden section
+- [x] Format labels exist in consumer repos (created by sync workflow)
+- [x] `agents-issue-optimizer.yml` in sync manifest
+- [x] `issue_formatter.py` tests passing (14 tests, fixed env var isolation)
+- [ ] Live test: `agents:format` triggers workflow
+- [ ] Live test: Issue body updated to AGENT_ISSUE_TEMPLATE
+- [ ] Live test: `agents:formatted` label added
+- [ ] Live test: Original content preserved in hidden section
 
 ### Phase 3: Archive Unused Scripts (1 Step)
 
-After Phases 1-2 validated:
-1. Review `capability_check.py`, `task_decomposer.py`, `issue_dedup.py`, `label_matcher.py`, `semantic_matcher.py`
-2. Decision for each:
-   - **Keep & Document**: If planned for future integration
-   - **Archive**: Move to `scripts/langchain/experimental/` with README
-3. Update sync manifest to only include production scripts
+**Status: Decision Deferred**
+
+These scripts are fully tested (145 tests passing) but not yet integrated:
+- `capability_check.py` - Pre-flight check for agent capability on tasks
+- `task_decomposer.py` - Break large tasks into smaller actionable items  
+- `issue_dedup.py` - Detect duplicate issues via embeddings
+- `label_matcher.py` - Semantic label matching
+- `semantic_matcher.py` - Shared embedding utilities
+
+**Recommendation:** Keep & Document for future Phase 3+ integration
+- All scripts have full test coverage
+- Semantic matching could enhance issue triage
+- Capability check could prevent failed agent attempts
 
 ---
 
 ## Summary
 
-| Phase | Scope | Steps | Test Repo |
-|-------|-------|-------|-----------|
-| 1 | PR Verification | 2 | Manager-Database |
-| 2 | Issue Formatting | 1 | Manager-Database |
-| 3 | Cleanup/Archive | 1 | N/A |
+| Phase | Scope | Steps | Test Repo | Status |
+|-------|-------|-------|-----------|--------|
+| 1 | PR Verification | 2 | Manager-Database | ✅ Deployed, pending live test |
+| 2 | Issue Formatting | 1 | Manager-Database | ✅ Deployed, pending live test |
+| 3 | Cleanup/Archive | 1 | N/A | Deferred (scripts retained) |
 
-**Total: 4 deployment actions** instead of many one-offs.
+**Total: 4 deployment actions** - All infrastructure deployed. Live testing requires repo write access.

@@ -120,7 +120,11 @@ def test_load_prompt_appends_feedback(tmp_path, monkeypatch) -> None:
     assert "Feedback notes." in prompt
 
 
-def test_format_issue_body_falls_back_without_llm_tokens() -> None:
+def test_format_issue_body_falls_back_without_llm_tokens(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Clear LLM tokens to force fallback behavior
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
     raw = "Just a note without tokens."
     result = issue_formatter.format_issue_body(raw, use_llm=True)
 
