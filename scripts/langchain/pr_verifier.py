@@ -78,6 +78,7 @@ class EvaluationResult(BaseModel):
     concerns: list[str] = Field(default_factory=list)
     summary: str | None = None
     provider_used: str | None = None
+    model: str | None = None
     used_llm: bool = False
     raw_content: str | None = None
     error: str | None = None
@@ -189,7 +190,7 @@ def _get_llm_client(
 
 def _get_llm_clients(
     model1: str | None = None, model2: str | None = None
-) -> list[tuple[object, str]]:
+) -> list[tuple[object, str, str]]:
     try:
         from langchain_openai import ChatOpenAI
     except ImportError:
@@ -206,7 +207,7 @@ def _get_llm_clients(
     first_model = model1 or DEFAULT_MODEL
     second_model = model2 or model1 or DEFAULT_MODEL
 
-    clients: list[tuple[object, str]] = []
+    clients: list[tuple[object, str, str]] = []
     if github_token:
         try:
             client = ChatOpenAI(
@@ -215,7 +216,7 @@ def _get_llm_clients(
                 api_key=github_token,
                 temperature=0.1,
             )
-            clients.append((client, "github-models"))
+            clients.append((client, "github-models", first_model))
         except Exception:
             # GitHub Models client initialization failed (likely credential/permission issue)
             # Skip this provider and continue with others
@@ -227,7 +228,7 @@ def _get_llm_clients(
                 api_key=openai_token,
                 temperature=0.1,
             )
-            clients.append((client, "openai"))
+            clients.append((client, "openai", second_model))
         except Exception:
             # OpenAI client initialization failed
             pass
@@ -239,7 +240,7 @@ class ComparisonRunner:
     context: str
     diff: str | None
     prompt: str
-    clients: list[tuple[object, str]]
+    clients: list[tuple[object, str, str]]  # (client, provider, model)
 
     @classmethod
     def from_environment(
@@ -252,14 +253,18 @@ class ComparisonRunner:
             clients=_get_llm_clients(model1, model2),
         )
 
-    def run_single(self, client: object, provider: str) -> EvaluationResult:
+    def run_single(self, client: object, provider: str, model: str) -> EvaluationResult:
         try:
             response = client.invoke(self.prompt)
         except Exception as exc:  # pragma: no cover - exercised in integration
-            return _fallback_evaluation(f"LLM invocation failed: {exc}", provider=provider)
+            return _fallback_evaluation(
+                f"LLM invocation failed: {exc}", provider=provider, model=model
+            )
 
         content = getattr(response, "content", None) or str(response)
-        return _parse_llm_response(content, provider)
+        result = _parse_llm_response(content, provider)
+        result.model = model
+        return result
 
 
 def _prepare_prompt(context: str, diff: str | None) -> str:
@@ -384,13 +389,16 @@ def _create_followup_issue(
     return None
 
 
-def _fallback_evaluation(message: str, provider: str | None = None) -> EvaluationResult:
+def _fallback_evaluation(
+    message: str, provider: str | None = None, model: str | None = None
+) -> EvaluationResult:
     return EvaluationResult(
         verdict="CONCERNS",
         scores=None,
         concerns=["LLM evaluation could not run."],
         summary="Review the PR manually or re-run once LLM credentials are available.",
         provider_used=provider,
+        model=model,
         used_llm=False,
         error=message,
     )
@@ -488,8 +496,8 @@ def evaluate_pr_multiple(
     if not runner.clients:
         return [_fallback_evaluation("LLM client unavailable (missing credentials or dependency).")]
     results: list[EvaluationResult] = []
-    for client, provider in runner.clients:
-        results.append(runner.run_single(client, provider))
+    for client, provider, model in runner.clients:
+        results.append(runner.run_single(client, provider, model))
     return results
 
 
@@ -564,13 +572,14 @@ def format_comparison_report(results: list[EvaluationResult]) -> str:
     labels = [_provider_label(result, index) for index, result in enumerate(results)]
 
     lines.append("### Provider Summary")
-    lines.append("| Provider | Verdict | Confidence | Summary |")
-    lines.append("| --- | --- | --- | --- |")
+    lines.append("| Provider | Model | Verdict | Confidence | Summary |")
+    lines.append("| --- | --- | --- | --- | --- |")
     for index, result in enumerate(results):
         summary_source = result.summary or result.raw_content or ""
         summary = _compact_text(summary_source, limit=200) if summary_source else "N/A"
+        model_name = result.model or "N/A"
         lines.append(
-            f"| {labels[index]} | {result.verdict} | {_format_confidence(result.confidence)} | {summary} |"
+            f"| {labels[index]} | {model_name} | {result.verdict} | {_format_confidence(result.confidence)} | {summary} |"
         )
     lines.append("")
 
@@ -580,6 +589,8 @@ def format_comparison_report(results: list[EvaluationResult]) -> str:
     lines.append("")
     for index, result in enumerate(results):
         lines.append(f"#### {labels[index]}")
+        if result.model:
+            lines.append(f"- **Model:** {result.model}")
         lines.append(f"- **Verdict:** {result.verdict}")
         lines.append(f"- **Confidence:** {_format_confidence(result.confidence)}")
         if result.scores:
