@@ -14,16 +14,16 @@ Evaluate the change against the acceptance criteria and code quality. Explicitly
 - risks (security, performance, compatibility)
 
 Respond in JSON with:
-{
+{{
   "verdict": "PASS | CONCERNS | FAIL",
   "confidence": 0.0-1.0,
-  "scores": {
+  "scores": {{
     "correctness": 0-10,
     "completeness": 0-10,
     "quality": 0-10,
     "testing": 0-10,
     "risks": 0-10
-  },
+  }},
   "concerns": ["..."],
   "summary": "concise report"
-}
+}}

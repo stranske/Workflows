@@ -37,19 +37,19 @@ Provide an evaluation that covers:
 - risks
 
 Respond in JSON with:
-{
+{{
   "verdict": "PASS | CONCERNS | FAIL",
   "confidence": 0.0-1.0,
-  "scores": {
+  "scores": {{
     "correctness": 0-10,
     "completeness": 0-10,
     "quality": 0-10,
     "testing": 0-10,
     "risks": 0-10
-  },
+  }},
   "concerns": ["..."],
   "summary": "concise report"
-}
+}}
 """.strip()
 
 PROMPT_PATH = Path(__file__).resolve().parent / "prompts" / "pr_evaluation.md"
