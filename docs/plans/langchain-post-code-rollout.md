@@ -370,16 +370,24 @@
 - Verify label suggestions match expected labels
 - Track suggestion accuracy
 
+### Test Issues Created (Manager-Database)
+
+| Issue | Purpose | Expected Result |
+|-------|---------|-----------------|
+| #193 | Capability Check - External service (Stripe) | ❌ SHOULD FAIL - requires Stripe API credentials, webhook endpoint |
+| #194 | Task Decomposition - Large issue (10 tasks) | ✅ SHOULD DECOMPOSE - into 3-5 sub-issues or checklist |
+| #196 | Duplicate Detection - Similar to #133 | ⚠️ SHOULD DETECT - ~85%+ similarity to "Add GET Endpoint for Managers List" |
+
 ### Testing Metrics Dashboard
 
 | Script | Test Issues | True Positives | False Positives | Accuracy | Status |
 |--------|-------------|----------------|-----------------|----------|--------|
-| capability_check.py | 0/3 | - | - | - | ⏳ Pending |
-| task_decomposer.py | 0/2 | - | - | - | ⏳ Pending |
-| issue_dedup.py | 0/3 | - | - | <5% target | ⏳ Pending |
+| capability_check.py | #193 (1/3) | - | - | - | 🔄 Testing |
+| task_decomposer.py | #194 (1/2) | - | - | - | 🔄 Testing |
+| issue_dedup.py | #196 (1/3) | - | - | <5% target | 🔄 Testing |
 | label_matcher.py | 0/3 | - | - | - | ⏳ Pending |
 
-**Total test issues needed:** ~11 issues on Manager-Database
+**Total test issues created:** 3/11 on Manager-Database
 
 ---
 
