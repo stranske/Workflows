@@ -470,28 +470,39 @@
 
 **Functional Labels (Keep - Have Workflow Effects):**
 
-| Label | Trigger | Applies To |
-|-------|---------|------------|
-| `agent:codex` | Issue intake, keepalive | Issues, PRs |
-| `agent:claude` | Issue intake (future) | Issues, PRs |
-| `agent:copilot` | Issue intake (future) | Issues, PRs |
-| `agent:needs-attention` | Auto-applied when stuck | Issues, PRs |
-| `agents:format` | Direct formatting | Issues |
-| `agents:formatted` | Auto-applied after format | Issues |
-| `agents:optimize` | Analyze + suggest | Issues |
-| `agents:apply-suggestions` | Apply suggestions | Issues |
-| `agents:allow-change` | Override agents-guard | PRs |
-| `agents:keepalive` | Enable keepalive loop | PRs |
-| `autofix` | Trigger autofix | PRs |
-| `autofix:clean` | Aggressive autofix | PRs |
-| `autofix:bot-comments` | Address bot comments | PRs |
-| `autofix:applied` | Auto-applied | PRs |
-| `verify:checkbox` | Checkbox verification | PRs (merged) |
-| `verify:evaluate` | LLM evaluation | PRs (merged) |
-| `verify:compare` | Multi-model comparison | PRs (merged) |
-| `needs-human` | Human intervention needed | Issues, PRs |
-| `sync` | From sync workflow | PRs |
-| `automated` | Bot-created | Issues, PRs |
+| Label | Trigger | Applies To | Used By |
+|-------|---------|------------|---------|
+| `agent:codex` | Issue intake, keepalive | Issues, PRs | `agents-issue-intake.yml`, `agents-keepalive-loop.yml` |
+| `agent:claude` | Issue intake (future) | Issues, PRs | `agents-issue-intake.yml` |
+| `agent:copilot` | Issue intake (future) | Issues, PRs | `agents-issue-intake.yml` |
+| `agent:needs-attention` | Auto-applied when stuck | Issues, PRs | Multiple workflows |
+| `agents` (bare) | Issue template auto-label | Issues | `agent_task.yml` template |
+| `agents:format` | Direct formatting | Issues | `agents-issue-optimizer.yml` |
+| `agents:formatted` | Auto-applied after format | Issues | `agents-issue-optimizer.yml` |
+| `agents:optimize` | Analyze + suggest | Issues | `agents-issue-optimizer.yml` |
+| `agents:apply-suggestions` | Apply suggestions | Issues | `agents-issue-optimizer.yml` |
+| `agents:allow-change` | Override agents-guard | PRs | `agents-guard.yml` |
+| `agents:keepalive` | Enable keepalive loop | PRs | `agents-keepalive-loop.yml` |
+| `agents:activated` | Track first human activation | PRs | `agents_pr_meta_keepalive.js` |
+| `agents:pause` | Pause keepalive | PRs | `keepalive_gate.js`, `keepalive_orchestrator_gate_runner.js` |
+| `agents:paused` | Keepalive paused state | PRs | `keepalive-runner.js` |
+| `autofix` | Trigger autofix | PRs | `autofix.yml` |
+| `autofix:clean` | Aggressive autofix | PRs | `autofix.yml` |
+| `autofix:bot-comments` | Address bot comments | PRs | `agents-bot-comment-handler.yml` |
+| `autofix:applied` | Auto-applied | PRs | Autofix workflows |
+| `automerge` | Enable auto-merge | PRs | `merge_manager.js`, `agents_belt_scan.js` |
+| `from:codex` | Track PR origin | PRs | `merge_manager.js` |
+| `from:copilot` | Track PR origin | PRs | `merge_manager.js` |
+| `risk:low` | Low-risk for auto-approve | PRs | `merge_manager.js` |
+| `ci:green` | CI status tracking | PRs | `merge_manager.js` |
+| `codex-ready` | Ready for Codex | Issues | Issue templates |
+| `verify:checkbox` | Checkbox verification | PRs (merged) | `agents-verifier.yml` |
+| `verify:evaluate` | LLM evaluation | PRs (merged) | `agents-verifier.yml` |
+| `verify:compare` | Multi-model comparison | PRs (merged) | `agents-verifier.yml` |
+| `needs-human` | Human intervention needed | Issues, PRs | Multiple workflows |
+| `sync` | From sync workflow | PRs | Sync workflows |
+| `automated` | Bot-created | Issues, PRs | Multiple workflows |
+| `coverage` | Coverage issue tracking | Issues | `maint-coverage-guard.yml` |
 
 **Informational Labels (Keep - Useful Categorization):**
 
@@ -503,26 +514,29 @@
 | `duplicate` | Duplicate tracking |
 | `wontfix` | Won't address |
 
-**Labels to Remove (No Functional Effect):**
+**Labels to Remove (Verified No Functional Effect):**
 
-| Label | Reason |
-|-------|--------|
-| `stage 0`, `stage 1`, etc. | Unused staging system |
-| `codex` | Redundant with `agent:codex` |
-| `from:codex`, `from:copilot` | Not used by workflows |
-| `agents:activated` | Redundant state tracking |
-| `agents:pause`, `agents:paused` | Not implemented |
-| `agents` (bare) | Ambiguous |
-| `ai:agent` | Redundant |
-| `automerge`, `automerge:ok` | Not implemented yet |
-| `auto-merge-audit` | Unused |
-| `architecture`, `backend`, `cli`, etc. | Repo-specific, not synced |
+| Label | Reason | Searched | Result |
+|-------|--------|----------|--------|
+| `codex` (bare) | Redundant with `agent:codex` | ✅ | No workflow triggers on this |
+| `ai:agent` | Redundant | ✅ | Zero matches in codebase |
+| `auto-merge-audit` | Unused | ✅ | Zero matches in codebase |
+| `automerge:ok` | Unused variant | ✅ | Zero matches in codebase |
+| `architecture`, `backend`, `cli`, `config`, `data`, `docs`, `engine`, `app` | Repo-specific, not synced | ✅ | Not referenced in workflows |
+
+**⚠️ CORRECTED from initial analysis:** The following labels ARE functional and should NOT be removed:
+- `agents` (bare) - Used by issue templates
+- `agents:activated` - Tracks human activation state
+- `agents:pause` / `agents:paused` - Controls keepalive pausing
+- `automerge` - Enables auto-merge in merge_manager.js
+- `from:codex` / `from:copilot` - Used by merge_manager.js for origin tracking
+- `risk:low` / `ci:green` / `codex-ready` - Used by merge_manager and issue templates
 
 **Implementation:**
-- [ ] Create `scripts/cleanup_labels.py` to remove bloat labels across repos
+- [ ] Create `scripts/cleanup_labels.py` to remove ONLY verified bloat labels
 - [ ] Update `docs/LABELS.md` with canonical label list
 - [ ] Add label validation to sync workflow
-- [ ] Run cleanup across all 7 consumer repos
+- [ ] Run cleanup across all 7 consumer repos (only 5-6 labels to remove per repo)
 
 ### 4B. Workflow User Guide Document
 
@@ -733,17 +747,139 @@ Posts comment on PR linking to new issue
 
 ---
 
-## Additional Automation Opportunities Identified
+## Additional Automation Opportunities (Phase 5+)
 
-Beyond Phase 4, consider:
+### 5A. Auto-labeling on PR Creation ✅ READY
 
-1. **Auto-labeling on PR creation** - Based on files changed, auto-apply relevant labels
-2. **Coverage regression auto-issue** - When coverage drops, create issue automatically
-3. **Stale PR cleanup** - Auto-close PRs with no activity after 30 days
-4. **Dependency update automation** - Auto-merge dependabot PRs that pass CI
-5. **Issue template enforcement** - Block issues that don't match AGENT_ISSUE_TEMPLATE
-6. **Cross-repo issue linking** - Detect related issues across consumer repos
-7. **Agent performance dashboard** - Track success rate, cycle count, time-to-merge
+**Status:** Script exists (`label_matcher.py`), workflow integration needed.
+
+**Script location:** `scripts/langchain/label_matcher.py`
+- Uses semantic embeddings to match issue/PR content to labels
+- Configurable confidence threshold (default 80%)
+- Already has tests in place
+
+**Implementation plan:**
+- [ ] Create `agents-auto-label.yml` workflow
+- [ ] Trigger on PR opened
+- [ ] Call `label_matcher.py` with PR title + body + changed files
+- [ ] Apply labels at >90% confidence OR post comment with suggestions
+
+### 5B. Coverage Regression Auto-Issue ✅ EXISTS
+
+**Status:** Already implemented in `maint-coverage-guard.yml`!
+
+**Current behavior:**
+- Runs daily on schedule
+- Compares current coverage to `config/coverage-baseline.json`
+- Creates/updates issue titled "[coverage] baseline breach" when below threshold
+- Labels with `coverage`
+
+**Suggested enhancement:** Add soft check to PRs (warn, don't fail)
+- [ ] Add optional PR check that posts coverage delta as comment
+- [ ] Warning only - does not block merge or automation
+- [ ] Shows trend: "Coverage changed: 82% → 79% (-3%)"
+
+### 5C. Stale PR Cleanup ❌ NOT NEEDED
+
+**Decision:** Not an issue in these repos currently. Skip.
+
+### 5D. Dependency Update Automation ⚠️ PARTIAL
+
+**Current state:**
+- `maint-dependabot-auto-label.yml` - Adds `agents:allow-change` label to dependabot PRs
+- `maint-dependabot-auto-lock.yml` - Regenerates requirements.lock for pyproject.toml changes
+
+**Missing:**
+- Auto-merge when CI passes
+- Currently dependabot PRs require manual merge
+
+**Implementation plan:**
+- [ ] Add auto-merge step to dependabot workflow
+- [ ] Condition: CI green + no security alerts + minor/patch version only
+- [ ] Skip for major version bumps (require human review)
+
+### 5E. Issue Template Enforcement (Soft Warning)
+
+**Approach:** Warn, don't block.
+
+**Implementation plan:**
+- [ ] Create `agents-issue-lint.yml` workflow
+- [ ] Trigger on issue opened/edited
+- [ ] Check for AGENT_ISSUE_TEMPLATE sections (Why, Scope, Tasks, Acceptance)
+- [ ] If missing sections:
+  - Post friendly comment suggesting `agents:format` label
+  - Add `needs-formatting` label
+  - Do NOT close or block the issue
+
+### 5F. Cross-Repo Issue Linking
+
+**Implementation approach:**
+
+1. **Nightly scan workflow** in Workflows repo:
+   - Fetch open issues from all 7 consumer repos
+   - Build semantic embeddings of issue titles + bodies
+   - Detect pairs with >80% similarity across repos
+
+2. **Post linking comments:**
+   - On each matched issue: "Related issue in {other-repo}: #{number}"
+   - Add `related:{repo}` label for tracking
+
+3. **Deduplication support:**
+   - If same issue exists in multiple repos, suggest consolidation
+   - Human decides which to keep
+
+**Implementation:**
+- [ ] Create `maint-cross-repo-issue-scan.yml` workflow
+- [ ] Reuse `issue_dedup.py` / `semantic_matcher.py` across repos
+- [ ] Store embeddings in temporary cache (GitHub Actions artifacts)
+- [ ] Run weekly to avoid API rate limits
+
+### 5G. Agent Performance Dashboard
+
+**Options:**
+
+1. **LangSmith integration** (recommended for LLM-specific metrics):
+   - Token usage per operation
+   - Latency by provider/model
+   - Success/failure rate by prompt
+   - Already supported by LangChain framework
+   - **Recommendation:** Use for LLM operations in `pr_verifier.py`, `issue_optimizer.py`, etc.
+
+2. **Custom GitHub-based dashboard** (for workflow metrics):
+   - Track via workflow outputs and GitHub API
+   - Metrics to capture:
+
+   | Metric | Source | Collection Method |
+   |--------|--------|-------------------|
+   | Issues created → PR merged time | Issue/PR timestamps | GitHub API query |
+   | Keepalive cycles per PR | Workflow run count | Count runs per PR |
+   | Agent success rate | PR merge status | Merged vs closed without merge |
+   | Autofix effectiveness | Commits per PR | Count autofix commits |
+   | CI pass rate first try | Gate workflow | First run success % |
+
+**Implementation plan (hybrid approach):**
+- [ ] Enable LangSmith tracing in LangChain scripts (environment variable)
+- [ ] Create `scripts/agent_metrics.py` to query GitHub API for workflow stats
+- [ ] Add `maint-agent-metrics.yml` weekly workflow to collect and store metrics
+- [ ] Output: Markdown summary posted to wiki or README
+
+---
+
+## Implementation Priority
+
+| Initiative | Effort | Value | Priority | Notes |
+|------------|--------|-------|----------|-------|
+| 4A. Label Cleanup | Low | Medium | ✅ Ready | Only 5-6 labels to remove |
+| 4B. User Guide | Medium | High | Defer | After other features stable |
+| 4C. Auto-Pilot | High | High | Test carefully | Most complex |
+| 4D. Conflict Resolution | Medium | High | ✅ Ready | Clear improvement |
+| 4E. Verify-to-Issue | Low | Medium | ✅ Ready | Simple workflow |
+| 5A. Auto-labeling | Low | Medium | ✅ Ready | Script exists |
+| 5B. Coverage PR Check | Low | Medium | ✅ Ready | Soft warning only |
+| 5D. Dependabot Auto-merge | Low | Medium | ✅ Ready | Extend existing |
+| 5E. Issue Lint | Low | Low | Later | Nice to have |
+| 5F. Cross-Repo Linking | Medium | Low | Later | Complex, limited value |
+| 5G. Metrics Dashboard | Medium | Medium | Later | LangSmith for LLM, custom for workflow |
 
 ### Test Results Documentation
 Full substantive analysis available at `/tmp/substantive_test_analysis.md`:
