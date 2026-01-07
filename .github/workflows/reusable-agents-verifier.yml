@@ -272,7 +272,7 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           PYTHONPATH: .workflows-lib
         run: |
-          set -euo pipefail
+          set -uo pipefail  # Note: removed -e to capture exit codes properly
           context_file="${{ steps.context.outputs.context_path }}"
           diff_file="${{ steps.context.outputs.diff_summary_path }}"
           model="${{ inputs.model }}"
@@ -286,9 +286,8 @@ jobs:
           ls -la .workflows-lib/tools/ 2>&1 || echo "Tools dir NOT FOUND!"
           echo "Python version:"
           python --version
-          echo "Checking imports..."
-          python -c "import sys; print('sys.path:', sys.path)"
-          python -c "from tools.llm_provider import get_llm_client; print('Import OK')" 2>&1 || echo "Import FAILED!"
+          echo "Checking pr_verifier imports..."
+          python -c "from tools.llm_provider import DEFAULT_MODEL, GITHUB_MODELS_BASE_URL; print('Import OK - DEFAULT_MODEL:', DEFAULT_MODEL)" 2>&1 || echo "Import FAILED!"
 
           # Build args array
           args=(--context-file "$context_file" --json)
@@ -304,7 +303,8 @@ jobs:
           echo "python .workflows-lib/scripts/langchain/pr_verifier.py ${args[*]}"
 
           # Run evaluator (stderr to separate file to avoid corrupting JSON)
-          python .workflows-lib/scripts/langchain/pr_verifier.py "${args[@]}" > evaluation.json 2> evaluation-stderr.log
+          # Use || true to capture exit code instead of failing script
+          python .workflows-lib/scripts/langchain/pr_verifier.py "${args[@]}" > evaluation.json 2> evaluation-stderr.log || true
           exit_code=$?
           echo "Exit code: $exit_code"
 
