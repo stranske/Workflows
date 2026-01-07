@@ -1,8 +1,8 @@
 # LangChain Post-Code Production Capabilities - Evaluation & Rollout Plan
 
 > **Date:** January 7, 2026  
-> **Status:** Phase 3 Planning - Testing Cycle Defined  
-> **Last Validation:** 2026-01-07 (Phase 3 Test Plan Added)  
+> **Status:** Phase 4 Planning - Full Automation Design  
+> **Last Validation:** 2026-01-07 (Phase 4 Planning Added)  
 
 ---
 
@@ -395,9 +395,10 @@
 
 | Phase | Scope | Steps | Test Repo | Status |
 |-------|-------|-------|-----------|--------|
-| 1 | PR Verification | 2 | Manager-Database | ✅ Deployed, 6/7 repos synced |
+| 1 | PR Verification | 2 | Manager-Database | ✅ Deployed, 7/7 repos synced |
 | 2 | Issue Formatting | 1 | Manager-Database | ✅ Deployed & tested - Quality: 7.5/10 |
-| 3 | Pre-Agent Intelligence | 4 | Manager-Database | 🔄 Planning - Testing cycle defined |
+| 3 | Pre-Agent Intelligence | 4 | Manager-Database | 🔄 Testing - 3/11 test issues created |
+| 4 | Full Automation & Cleanup | 5 | Manager-Database | 📋 Planning |
 
 **Phase 3 Components:**
 - **3A:** Capability Check - Pre-agent feasibility gate (supplements agents:optimize)
@@ -405,7 +406,14 @@
 - **3C:** Duplicate Detection - Comment-only mode, track false positives
 - **3D:** Semantic Labeling - Auto-suggest/apply labels
 
-**Total: 7 deployment actions** - Phases 1-2 deployed. Phase 3 testing plan defined for Manager-Database (~11 test issues).
+**Phase 4 Components:**
+- **4A:** Label Cleanup - Remove bloat, standardize across repos
+- **4B:** User Guide - Operational documentation for label system
+- **4C:** Auto-Pilot Label - End-to-end issue-to-merge automation
+- **4D:** Conflict Resolution - Automated merge conflict handling in keepalive
+- **4E:** Verify-to-Issue - Create follow-up issues from verification feedback
+
+**Total: 12 deployment actions** - Phases 1-2 deployed. Phases 3-4 in planning/testing.
 
 **Substantive Quality Assessment:**
 - **agents:optimize:** 8.6/10 - Provides valuable, actionable analysis
@@ -448,6 +456,294 @@
 1. **Compare mode refinement** - Currently uses gpt-4o (GitHub) vs gpt-5.2 (OpenAI)
 2. **Model auto-update** - Use `scripts/update_model_list.sh` periodically
 3. **Domain-specific guidance** - Add prompts for retry patterns, health check endpoints
+
+---
+
+## Phase 4: Full Automation & Cleanup (5 Initiatives)
+
+> **Status:** Planning  
+> **Goal:** Streamline end-to-end automation from issue to merged PR
+
+### 4A. Label Cleanup & Standardization
+
+**Problem:** Consumer repos have accumulated label bloat (30+ labels in some repos) with many unused/redundant labels like `stage 0`, `codex`, `from:codex`, `agents:activated`, `agents:pause`, etc.
+
+**Functional Labels (Keep - Have Workflow Effects):**
+
+| Label | Trigger | Applies To |
+|-------|---------|------------|
+| `agent:codex` | Issue intake, keepalive | Issues, PRs |
+| `agent:claude` | Issue intake (future) | Issues, PRs |
+| `agent:copilot` | Issue intake (future) | Issues, PRs |
+| `agent:needs-attention` | Auto-applied when stuck | Issues, PRs |
+| `agents:format` | Direct formatting | Issues |
+| `agents:formatted` | Auto-applied after format | Issues |
+| `agents:optimize` | Analyze + suggest | Issues |
+| `agents:apply-suggestions` | Apply suggestions | Issues |
+| `agents:allow-change` | Override agents-guard | PRs |
+| `agents:keepalive` | Enable keepalive loop | PRs |
+| `autofix` | Trigger autofix | PRs |
+| `autofix:clean` | Aggressive autofix | PRs |
+| `autofix:bot-comments` | Address bot comments | PRs |
+| `autofix:applied` | Auto-applied | PRs |
+| `verify:checkbox` | Checkbox verification | PRs (merged) |
+| `verify:evaluate` | LLM evaluation | PRs (merged) |
+| `verify:compare` | Multi-model comparison | PRs (merged) |
+| `needs-human` | Human intervention needed | Issues, PRs |
+| `sync` | From sync workflow | PRs |
+| `automated` | Bot-created | Issues, PRs |
+
+**Informational Labels (Keep - Useful Categorization):**
+
+| Label | Purpose |
+|-------|---------|
+| `bug` | Bug reports |
+| `enhancement` | Feature requests |
+| `documentation` | Doc changes |
+| `duplicate` | Duplicate tracking |
+| `wontfix` | Won't address |
+
+**Labels to Remove (No Functional Effect):**
+
+| Label | Reason |
+|-------|--------|
+| `stage 0`, `stage 1`, etc. | Unused staging system |
+| `codex` | Redundant with `agent:codex` |
+| `from:codex`, `from:copilot` | Not used by workflows |
+| `agents:activated` | Redundant state tracking |
+| `agents:pause`, `agents:paused` | Not implemented |
+| `agents` (bare) | Ambiguous |
+| `ai:agent` | Redundant |
+| `automerge`, `automerge:ok` | Not implemented yet |
+| `auto-merge-audit` | Unused |
+| `architecture`, `backend`, `cli`, etc. | Repo-specific, not synced |
+
+**Implementation:**
+- [ ] Create `scripts/cleanup_labels.py` to remove bloat labels across repos
+- [ ] Update `docs/LABELS.md` with canonical label list
+- [ ] Add label validation to sync workflow
+- [ ] Run cleanup across all 7 consumer repos
+
+### 4B. Workflow User Guide Document
+
+**Problem:** Users don't know how to use the label system effectively.
+
+**Solution:** Create `docs/WORKFLOW_USER_GUIDE.md` with:
+
+1. **Quick Start** - Most common workflows with copy-paste examples
+2. **Issue Creation Flow** - Step-by-step from idea to formatted issue
+3. **PR Automation Flow** - How labels progress a PR to merge
+4. **Label Decision Tree** - "What label should I add?"
+5. **Troubleshooting** - Common issues and solutions
+
+**Sections:**
+
+```markdown
+## Creating an Agent-Ready Issue
+
+1. Create issue with rough description
+2. Add `agents:optimize` label → Review suggestions
+3. Add `agents:apply-suggestions` label → Issue formatted
+4. Add `agent:codex` label → Agent starts work
+
+## Monitoring Agent Progress
+
+- Check PR for `agent:needs-attention` label
+- Review keepalive comments for status
+- Add `autofix` if CI failing on simple issues
+
+## Post-Merge Verification
+
+- Add `verify:evaluate` after merge for LLM review
+- Add `verify:compare` for multi-model comparison
+```
+
+**Implementation:**
+- [ ] Create `docs/WORKFLOW_USER_GUIDE.md`
+- [ ] Add to sync-manifest.yml
+- [ ] Add prominent link in each repo's README
+- [ ] Consider GitHub wiki integration
+
+### 4C. Master Automation Label (`agents:auto-pilot`)
+
+**Goal:** Single label for complete issue-to-merged-PR automation.
+
+**Proposed Flow:**
+
+```
+User adds `agents:auto-pilot` to issue
+          ↓
+Step 1: agents:format (initial structure)
+          ↓
+Step 2: agents:optimize → agents:apply-suggestions
+          ↓
+Step 3: capability_check.py runs
+          ↓ (if capable)
+Step 4: agent:codex applied → PR created
+          ↓
+Step 5: autofix + agents:keepalive applied to PR
+          ↓
+Step 6: Gate passes + acceptance criteria met
+          ↓
+Step 7: Auto-merge (if enabled + all checks pass)
+          ↓
+Step 8: verify:evaluate on merged PR
+```
+
+**Feasibility Analysis:**
+
+| Step | Challenge | Mitigation |
+|------|-----------|------------|
+| Sequential labels | GitHub doesn't support chained label triggers | Use workflow_dispatch between steps |
+| Race conditions | Multiple workflows competing | Concurrency groups + state tracking |
+| Error handling | What if step fails? | Add `agents:auto-pilot-failed` + comment explaining failure |
+| User expectations | Users expect instant completion | Post progress comments at each step |
+| Rollback | What if we need to stop? | `agents:auto-pilot-pause` label |
+
+**Major Risks:**
+1. **Runaway automation** - Agent creates bad PR, auto-merges, creates more issues
+   - Mitigation: Max iterations, human approval gates for auto-merge
+2. **CI instability** - Flaky tests block automation indefinitely
+   - Mitigation: Timeout after N keepalive cycles, escalate to `needs-human`
+3. **Token exhaustion** - Long sessions burn through LLM quota
+   - Mitigation: Per-issue token budget tracking
+
+**Implementation:**
+- [ ] Design state machine for auto-pilot flow
+- [ ] Create `agents-auto-pilot.yml` orchestrator workflow
+- [ ] Add progress tracking comments
+- [ ] Implement failure handling and rollback
+- [ ] Add `agents:auto-pilot-pause` for manual intervention
+- [ ] Test on Manager-Database with controlled issues
+
+### 4D. Conflict Resolution in Keepalive
+
+**Problem:** Most common reason keepalive stalls is merge conflicts. Agents handle conflicts well when prompted, but current pipeline doesn't automatically detect/respond.
+
+**Current State:**
+- Keepalive detects "Gate failed" but doesn't distinguish conflict from test failure
+- Agent eventually addresses conflicts but wastes cycles
+
+**Proposed Enhancement:**
+
+```
+Gate fails on PR
+          ↓
+Conflict detector runs:
+  - Check git status for merge conflicts
+  - Parse CI logs for conflict indicators
+          ↓
+If conflict detected:
+  - Post specific comment: "Merge conflict detected in [files]"
+  - Use targeted prompt: fix_merge_conflicts.md
+  - Skip regular keepalive cycle (more efficient)
+          ↓
+If not conflict:
+  - Continue normal keepalive flow
+```
+
+**Implementation:**
+- [ ] Add conflict detection to `keepalive_loop.js`
+- [ ] Create `fix_merge_conflicts.md` prompt template
+- [ ] Update `error_classifier.js` to identify conflict errors
+- [ ] Add conflict-specific metrics tracking
+- [ ] Test with intentionally conflicted branches
+
+### 4E. Verification-to-Issue Workflow
+
+**Problem:** When `verify:evaluate` or `verify:compare` identifies issues, there's no automated way to create follow-up work.
+
+**Note:** We previously disabled automatic issue creation because it was too aggressive. This is a **user-triggered** alternative.
+
+**Proposed Label:** `verify:create-issue`
+
+**Flow:**
+
+```
+User reviews verify comment on merged PR
+          ↓
+User adds `verify:create-issue` label
+          ↓
+Workflow extracts:
+  - CONCERNS from evaluation report
+  - Specific scores <7/10
+  - Unique insights from comparison
+          ↓
+Creates new issue:
+  - Title: "[Follow-up] {concern summary} from PR #{number}"
+  - Body: Structured with original PR link, specific concerns, suggested tasks
+  - Labels: `agents:optimize` (ready for agent formatting)
+          ↓
+Posts comment on PR linking to new issue
+```
+
+**Implementation:**
+- [ ] Create `agents-verify-to-issue.yml` workflow
+- [ ] Add `verify:create-issue` label to sync
+- [ ] Design issue template for verification follow-ups
+- [ ] Link back to original PR for context
+- [ ] Test on Travel-Plan-Permission or Manager-Database
+
+---
+
+## Phase 4 Testing Plan
+
+**Test Repository:** Manager-Database  
+**Test Duration:** 2 weeks
+
+### Test 4A: Label Cleanup
+
+1. Count labels before cleanup
+2. Run cleanup script
+3. Verify functional labels still work
+4. Confirm bloat labels removed
+
+### Test 4B: User Guide
+
+1. Create guide document
+2. Test each documented flow
+3. Gather feedback on clarity
+
+### Test 4C: Auto-Pilot (High Risk - Careful Testing)
+
+**Test Issue Ideas:**
+- Simple refactoring task (low risk)
+- Bug fix with clear acceptance criteria
+- NOT: Large features or infrastructure changes
+
+**Success Criteria:**
+- Issue → Merged PR in <2 hours (for simple tasks)
+- No runaway automation
+- Clear progress visibility
+- Graceful failure handling
+
+### Test 4D: Conflict Resolution
+
+1. Create PR with intentional conflict
+2. Verify conflict detection triggers
+3. Confirm agent resolves conflict
+4. Measure cycle efficiency improvement
+
+### Test 4E: Verify-to-Issue
+
+1. Use existing verify:evaluate results
+2. Add verify:create-issue label
+3. Confirm issue created with proper context
+4. Verify issue is agent-ready
+
+---
+
+## Additional Automation Opportunities Identified
+
+Beyond Phase 4, consider:
+
+1. **Auto-labeling on PR creation** - Based on files changed, auto-apply relevant labels
+2. **Coverage regression auto-issue** - When coverage drops, create issue automatically
+3. **Stale PR cleanup** - Auto-close PRs with no activity after 30 days
+4. **Dependency update automation** - Auto-merge dependabot PRs that pass CI
+5. **Issue template enforcement** - Block issues that don't match AGENT_ISSUE_TEMPLATE
+6. **Cross-repo issue linking** - Detect related issues across consumer repos
+7. **Agent performance dashboard** - Track success rate, cycle count, time-to-merge
 
 ### Test Results Documentation
 Full substantive analysis available at `/tmp/substantive_test_analysis.md`:
