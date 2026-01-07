@@ -36,7 +36,7 @@ def test_format_comparison_report_includes_sections() -> None:
     report = pr_verifier.format_comparison_report([result_a, result_b])
 
     assert "## Provider Comparison Report" in report
-    assert "| Provider | Verdict | Confidence | Summary |" in report
+    assert "| Provider | Model | Verdict | Confidence | Summary |" in report
     assert "### Agreement" in report
     assert "Concern: Missing tests" in report
     assert "### Disagreement" in report

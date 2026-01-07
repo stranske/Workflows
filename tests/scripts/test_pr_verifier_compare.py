@@ -22,8 +22,8 @@ class FakeClient:
 def test_evaluate_pr_multiple_runs_sequentially(monkeypatch) -> None:
     calls: list[str] = []
     clients = [
-        (FakeClient("first", calls), "provider-a"),
-        (FakeClient("second", calls), "provider-b"),
+        (FakeClient("first", calls), "provider-a", "model-a"),
+        (FakeClient("second", calls), "provider-b", "model-b"),
     ]
     runner = pr_verifier.ComparisonRunner(
         context="context",
