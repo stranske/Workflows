@@ -41,6 +41,11 @@ on:
         required: false
         type: string
         default: 'gpt-4o-mini'
+      model2:
+        description: 'Second model for compare mode (e.g., gpt-5, gpt-4.1)'
+        required: false
+        type: string
+        default: ''
       provider:
         description: 'LLM provider (OpenAI requires OPENAI_API_KEY secret)'
         required: true
@@ -65,6 +70,7 @@ jobs:
       should_run: ${{ steps.check.outputs.should_run }}
       mode: ${{ steps.check.outputs.mode }}
       model: ${{ steps.check.outputs.model }}
+      model2: ${{ steps.check.outputs.model2 }}
       provider: ${{ steps.check.outputs.provider }}
       pr_number: ${{ steps.check.outputs.pr_number }}
     steps:
@@ -78,6 +84,7 @@ jobs:
               const prNumber = context.payload.inputs.pr_number;
               const mode = context.payload.inputs.mode;
               const model = context.payload.inputs.model;
+              const model2 = context.payload.inputs.model2 || '';
               const provider = context.payload.inputs.provider;
 
               // Verify PR exists and is merged
@@ -95,10 +102,11 @@ jobs:
                 }
 
                 const logMsg = `Manual dispatch: PR #${prNumber}, mode=${mode}`;
-                core.info(`${logMsg}, model=${model}, provider=${provider}`);
+                core.info(`${logMsg}, model=${model}, model2=${model2}, provider=${provider}`);
                 core.setOutput('should_run', 'true');
                 core.setOutput('mode', mode);
                 core.setOutput('model', model);
+                core.setOutput('model2', model2);
                 core.setOutput('provider', provider);
                 core.setOutput('pr_number', prNumber);
                 return;
@@ -155,4 +163,6 @@ jobs:
       model: ${{ needs.check.outputs.model }}
       # Provider selection (empty string uses default)
       provider: ${{ needs.check.outputs.provider }}
+      # Second model for compare mode (empty string uses default)
+      model2: ${{ needs.check.outputs.model2 }}
     secrets: inherit

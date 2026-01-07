@@ -34,7 +34,7 @@ def test_evaluate_pr_multiple_runs_sequentially(monkeypatch) -> None:
     monkeypatch.setattr(
         pr_verifier.ComparisonRunner,
         "from_environment",
-        lambda context, diff: runner,
+        lambda context, diff, model1=None, model2=None: runner,
     )
 
     results = pr_verifier.evaluate_pr_multiple("context")
@@ -53,7 +53,7 @@ def test_evaluate_pr_multiple_falls_back_when_no_clients(monkeypatch) -> None:
     monkeypatch.setattr(
         pr_verifier.ComparisonRunner,
         "from_environment",
-        lambda context, diff: runner,
+        lambda context, diff, model1=None, model2=None: runner,
     )
 
     results = pr_verifier.evaluate_pr_multiple("context")

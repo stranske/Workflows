@@ -35,6 +35,11 @@ on:
         required: false
         type: string
         default: 'github-models'
+      model2:
+        description: 'Second model for compare mode (defaults to model if not specified)'
+        required: false
+        type: string
+        default: ''
     secrets:
       CODEX_AUTH_JSON:
         required: false
@@ -396,6 +401,14 @@ jobs:
           args=(--context-file "$context_file" --compare --json)
           if [ -n "$diff_file" ] && [ -f "$diff_file" ]; then
             args+=(--diff-file "$diff_file")
+          fi
+
+          # Add model parameters if provided
+          if [ -n "${{ inputs.model }}" ]; then
+            args+=(--model "${{ inputs.model }}")
+          fi
+          if [ -n "${{ inputs.model2 }}" ]; then
+            args+=(--model2 "${{ inputs.model2 }}")
           fi
 
           # Run comparison (stderr to separate file to avoid corrupting JSON)
