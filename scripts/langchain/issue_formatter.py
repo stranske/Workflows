@@ -94,7 +94,6 @@ def _load_prompt() -> str:
 def _get_llm_client() -> tuple[object, str] | None:
     try:
         from langchain_openai import ChatOpenAI
-
         from tools.llm_provider import DEFAULT_MODEL, GITHUB_MODELS_BASE_URL
     except ImportError:
         return None

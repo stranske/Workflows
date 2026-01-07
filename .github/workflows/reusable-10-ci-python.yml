@@ -559,7 +559,8 @@ jobs:
         continue-on-error: true
         run: |
           set -euo pipefail
-          black --check --line-length 100 .
+          # Exclude .workflows-lib since it's synced from source repo with different config
+          black --check --line-length 100 --exclude '\.workflows-lib' .
 
       - name: Finalize format check
         id: finalize
@@ -839,7 +840,8 @@ jobs:
         continue-on-error: true
         run: |
           set -euo pipefail
-          ruff check --output-format github .
+          # Exclude .workflows-lib since it's synced from source repo with different ruff config
+          ruff check --output-format github --exclude .workflows-lib .
 
       - name: Finalize lint
         id: finalize
@@ -1141,6 +1143,8 @@ jobs:
           if [ -f pyproject.toml ]; then
             args+=("--config-file" "pyproject.toml")
           fi
+          # Exclude .workflows-lib (synced from source repo with different config)
+          args+=("--exclude" ".workflows-lib")
           target="src"
           if [ ! -d "$target" ]; then
             target="."
