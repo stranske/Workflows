@@ -74,6 +74,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           LABELS_JSON: ${{ steps.get-labels.outputs.labels_json }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
         run: |
           cd workflows-repo
           python3 << 'PYTHON_SCRIPT'
@@ -147,9 +149,6 @@ jobs:
               f.write(f'suggested_labels={json.dumps([{"name": m.label.name, "score": f"{m.score:.0%}"} for m in suggestions])}\n')
 
           PYTHON_SCRIPT
-        env:
-          ISSUE_TITLE: ${{ github.event.issue.title }}
-          ISSUE_BODY: ${{ github.event.issue.body }}
 
       - name: Apply high-confidence labels
         if: steps.match.outputs.has_suggestions == 'true' && steps.match.outputs.auto_apply_labels != '[]'
