@@ -10,6 +10,7 @@ permissions:
   pull-requests: read
   issues: write
   actions: read
+  models: read  # Required for GitHub Models API access
 
 jobs:
   # Gate: only proceed if PR is merged AND has verify:* label
@@ -26,14 +27,14 @@ jobs:
           script: |
             const pr = context.payload.pull_request;
             const labelName = context.payload.label?.name || '';
-            
+
             // Only proceed if PR is merged
             if (!pr.merged) {
               core.info('PR not merged yet; skipping verification');
               core.setOutput('should_run', 'false');
               return;
             }
-            
+
             // Determine mode from label
             let mode = '';
             if (labelName === 'verify:checkbox') {
@@ -47,7 +48,7 @@ jobs:
               core.setOutput('should_run', 'false');
               return;
             }
-            
+
             core.info(`Merged PR with ${labelName} label; proceeding with ${mode} mode`);
             core.setOutput('should_run', 'true');
             core.setOutput('mode', mode);
