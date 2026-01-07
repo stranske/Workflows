@@ -187,7 +187,9 @@ def _get_llm_client(
         )
 
 
-def _get_llm_clients() -> list[tuple[object, str]]:
+def _get_llm_clients(
+    model1: str | None = None, model2: str | None = None
+) -> list[tuple[object, str]]:
     try:
         from langchain_openai import ChatOpenAI
     except ImportError:
@@ -200,12 +202,16 @@ def _get_llm_clients() -> list[tuple[object, str]]:
 
     from tools.llm_provider import DEFAULT_MODEL, GITHUB_MODELS_BASE_URL
 
+    # Use provided models or fall back to DEFAULT_MODEL
+    first_model = model1 or DEFAULT_MODEL
+    second_model = model2 or model1 or DEFAULT_MODEL
+
     clients: list[tuple[object, str]] = []
     if github_token:
         clients.append(
             (
                 ChatOpenAI(
-                    model=DEFAULT_MODEL,
+                    model=first_model,
                     base_url=GITHUB_MODELS_BASE_URL,
                     api_key=github_token,
                     temperature=0.1,
@@ -217,7 +223,7 @@ def _get_llm_clients() -> list[tuple[object, str]]:
         clients.append(
             (
                 ChatOpenAI(
-                    model=DEFAULT_MODEL,
+                    model=second_model,
                     api_key=openai_token,
                     temperature=0.1,
                 ),
@@ -235,12 +241,14 @@ class ComparisonRunner:
     clients: list[tuple[object, str]]
 
     @classmethod
-    def from_environment(cls, context: str, diff: str | None) -> ComparisonRunner:
+    def from_environment(
+        cls, context: str, diff: str | None, model1: str | None = None, model2: str | None = None
+    ) -> ComparisonRunner:
         return cls(
             context=context,
             diff=diff,
             prompt=_prepare_prompt(context, diff),
-            clients=_get_llm_clients(),
+            clients=_get_llm_clients(model1, model2),
         )
 
     def run_single(self, client: object, provider: str) -> EvaluationResult:
@@ -472,8 +480,10 @@ def evaluate_pr(
     return _parse_llm_response(content, provider_name)
 
 
-def evaluate_pr_multiple(context: str, diff: str | None = None) -> list[EvaluationResult]:
-    runner = ComparisonRunner.from_environment(context, diff)
+def evaluate_pr_multiple(
+    context: str, diff: str | None = None, model1: str | None = None, model2: str | None = None
+) -> list[EvaluationResult]:
+    runner = ComparisonRunner.from_environment(context, diff, model1, model2)
     if not runner.clients:
         return [_fallback_evaluation("LLM client unavailable (missing credentials or dependency).")]
     results: list[EvaluationResult] = []
@@ -658,6 +668,10 @@ def main() -> None:
         help="LLM provider: 'openai' (requires OPENAI_API_KEY) or 'github-models' (uses GITHUB_TOKEN).",
     )
     parser.add_argument(
+        "--model2",
+        help="Second LLM model for compare mode (defaults to --model if not specified).",
+    )
+    parser.add_argument(
         "--create-issue",
         action="store_true",
         help="Create a follow-up issue on CONCERNS/FAIL verdicts when running in GitHub Actions.",
@@ -679,7 +693,7 @@ def main() -> None:
     context = _load_text(args.context_file)
     diff = _load_text(args.diff_file) if args.diff_file else None
     if args.compare:
-        results = evaluate_pr_multiple(context, diff=diff)
+        results = evaluate_pr_multiple(context, diff=diff, model1=args.model, model2=args.model2)
         report = format_comparison_report(results)
         if args.output_file:
             Path(args.output_file).write_text(report, encoding="utf-8")
