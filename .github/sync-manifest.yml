@@ -57,6 +57,9 @@ workflows:
   - source: .github/workflows/agents-verifier.yml
     description: "Verifier - validates agent work meets acceptance criteria"
 
+  - source: .github/workflows/list-llm-models.yml
+    description: "List LLM Models - helper to show available models for verifier"
+
   - source: .github/workflows/agents-bot-comment-handler.yml
     description: "Bot comment handler - dispatches agents to address bot review comments"
 
