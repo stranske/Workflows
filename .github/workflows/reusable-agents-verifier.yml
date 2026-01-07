@@ -29,7 +29,7 @@ on:
         description: 'LLM model to use for evaluation (e.g., gpt-4o, gpt-4o-mini, o1-mini). Defaults to gpt-4o-mini.'
         required: false
         type: string
-        default: 'gpt-4o-mini'
+        default: 'gpt-5.2'
     secrets:
       CODEX_AUTH_JSON:
         required: false
