@@ -47,13 +47,16 @@ def _setup_langsmith_tracing() -> bool:
     # Enable LangChain tracing v2
     os.environ.setdefault("LANGCHAIN_TRACING_V2", "true")
     os.environ.setdefault("LANGCHAIN_PROJECT", "workflows-agents")
-    os.environ.setdefault("LANGCHAIN_API_KEY", api_key)
+    # LangSmith uses LANGSMITH_API_KEY directly, but LangChain expects LANGCHAIN_API_KEY
+    os.environ.setdefault("LANGSMITH_API_KEY", api_key)
 
-    logger.info(f"LangSmith tracing enabled for project: " f"{os.environ.get('LANGCHAIN_PROJECT')}")
+    project = os.environ.get("LANGCHAIN_PROJECT")
+    logger.info(f"LangSmith tracing enabled for project: {project}")
     return True
 
 
-# Initialize tracing on module load
+# Initialize tracing on module load.
+# This flag can be used to conditionally enable LangSmith-specific features.
 LANGSMITH_ENABLED = _setup_langsmith_tracing()
 
 

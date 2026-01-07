@@ -152,12 +152,14 @@ async function checkCILogsForConflicts(github, context, prNumber, headSha) {
                 matchedPatterns,
               };
             }
-          } catch {
+          } catch (logError) {
             // Log download might fail for old runs, continue
+            console.debug(`Could not download logs for job ${job.id}: ${logError.message}`);
             continue;
           }
         }
-      } catch {
+      } catch (jobError) {
+        console.debug(`Could not list jobs for run ${run.id}: ${jobError.message}`);
         continue;
       }
     }

@@ -21,12 +21,13 @@ Check `git status` to identify files with conflicts.
 
 1. **Fetch latest base branch:**
    ```bash
-   git fetch origin main
+   git fetch origin {{base_branch}}
    ```
+   > Note: Replace `{{base_branch}}` with the actual base branch name (e.g., `main` or `master`)
 
 2. **Attempt merge:**
    ```bash
-   git merge origin/main
+   git merge origin/{{base_branch}}
    ```
 
 3. **For each conflicting file:**
@@ -43,17 +44,16 @@ Check `git status` to identify files with conflicts.
    # Check no conflict markers remain
    git diff --check
    
-   # Run tests
-   pytest
-   
-   # Run type checks
-   mypy .
+   # Run the project's test suite (language-specific)
+   # For Python: pytest
+   # For JavaScript: npm test
+   # For other: check the project's README or CI config
    ```
 
 5. **Commit the resolution:**
    ```bash
    git add .
-   git commit -m "fix: resolve merge conflicts with main"
+   git commit -m "fix: resolve merge conflicts with {{base_branch}}"
    ```
 
 ## Resolution Guidelines
@@ -64,9 +64,9 @@ Check `git status` to identify files with conflicts.
 - PR has more complete implementation
 
 ### When to prefer main changes:
-- Main has breaking API changes PR must adapt to
-- Main has bug fixes PR should incorporate
-- Main renamed/moved files PR still references
+- Base branch has breaking API changes PR must adapt to
+- Base branch has bug fixes PR should incorporate
+- Base branch renamed/moved files PR still references
 
 ### When to combine:
 - Both sides add different functions/methods
@@ -75,13 +75,13 @@ Check `git status` to identify files with conflicts.
 
 ## Common Conflict Patterns
 
-### Import conflicts:
+### Import conflicts (Python example):
 ```python
 <<<<<<< HEAD
 from module import foo, bar
 =======
 from module import foo, baz
->>>>>>> origin/main
+>>>>>>> origin/{{base_branch}}
 ```
 **Resolution:** Combine imports: `from module import foo, bar, baz`
 

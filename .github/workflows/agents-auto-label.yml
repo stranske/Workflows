@@ -30,7 +30,9 @@ jobs:
       - name: Checkout Workflows repo
         uses: actions/checkout@v6
         with:
-          repository: stranske/Workflows
+          # Use the repository containing the label_matcher.py script
+          # For consumer repos, this fetches from the central Workflows repo
+          repository: ${{ github.repository == 'stranske/Workflows' && github.repository || 'stranske/Workflows' }}
           path: workflows-repo
 
       - name: Set up Python
@@ -48,11 +50,15 @@ jobs:
         uses: actions/github-script@v8
         with:
           script: |
-            const { data: labels } = await github.rest.issues.listLabelsForRepo({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              per_page: 100
-            });
+            // Paginate to get all labels (handles repos with >100 labels)
+            const labels = await github.paginate(
+              github.rest.issues.listLabelsForRepo,
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                per_page: 100
+              }
+            );
 
             const labelData = labels.map(l => ({
               name: l.name,

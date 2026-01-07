@@ -29,8 +29,8 @@ jobs:
             }
             core.setOutput('merged', 'true');
 
-      - name: Find verification comment
-        id: find-comment
+      - name: Find and extract verification feedback
+        id: extract
         if: steps.check-merged.outputs.merged == 'true'
         uses: actions/github-script@v8
         with:
@@ -55,19 +55,8 @@ jobs:
               return;
             }
 
-            // Store in environment file for next step
-            const fs = require('fs');
-            fs.writeFileSync('/tmp/verify_comment.txt', verifyComment.body);
-            core.info('Found verification comment, saved to /tmp/verify_comment.txt');
-
-      - name: Extract concerns and scores
-        id: extract
-        if: steps.check-merged.outputs.merged == 'true'
-        uses: actions/github-script@v8
-        with:
-          script: |
-            const fs = require('fs');
-            const comment = fs.readFileSync('/tmp/verify_comment.txt', 'utf8');
+            const comment = verifyComment.body;
+            core.info('Found verification comment');
 
             // Extract CONCERNS section
             const concernsMatch = comment.match(/### Concerns\s*\n([\s\S]*?)(?=###|##|$)/i);
@@ -101,8 +90,14 @@ jobs:
               summary = 'No specific concerns extracted from verification report.\n\nPlease review the original verification comment for details.';
             }
 
-            // Save outputs
-            fs.writeFileSync('/tmp/concerns_summary.txt', summary);
+            // Set outputs using environment file (handles multi-line content)
+            const fs = require('fs');
+            const envFile = process.env.GITHUB_OUTPUT;
+
+            // Use delimiter for multi-line output
+            const delimiter = 'EOF_' + Math.random().toString(36).substring(2);
+            fs.appendFileSync(envFile, `concerns_summary<<${delimiter}\n${summary}\n${delimiter}\n`);
+
             core.setOutput('verdict', verdict);
             core.setOutput('has_concerns', (concerns || lowScores.length > 0) ? 'true' : 'false');
 
@@ -112,13 +107,13 @@ jobs:
         uses: actions/github-script@v8
         env:
           VERDICT: ${{ steps.extract.outputs.verdict }}
+          CONCERNS_SUMMARY: ${{ steps.extract.outputs.concerns_summary }}
         with:
           script: |
-            const fs = require('fs');
             const prNumber = context.payload.pull_request.number;
             const prTitle = context.payload.pull_request.title;
             const prUrl = context.payload.pull_request.html_url;
-            const concernsSummary = fs.readFileSync('/tmp/concerns_summary.txt', 'utf8');
+            const concernsSummary = process.env.CONCERNS_SUMMARY || 'No concerns extracted.';
             const verdict = process.env.VERDICT || 'Unknown';
 
             const issueBody = [
