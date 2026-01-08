@@ -6,6 +6,7 @@
 # Expected labels:
 # - agent:<agent_name> or agents:<agent_name> - triggers bridge for specified agent
 # - agent:<agent_name>-invite - overrides PR mode to 'invite' (human opens PR)
+# - agent:<agent_name>-create - overrides PR mode to 'create' (auto-create PR)
 # - agents:keepalive - enables keepalive monitoring for the agent workflow
 #
 # Inputs:
@@ -156,10 +157,15 @@ jobs:
               }
               let base = suffix;
               let invite = false;
+              let create = false;
               if (base.endsWith(inviteSuffix)) {
                 base = base.slice(0, -inviteSuffix.length).trim();
                 if (!base) continue;
                 invite = true;
+              } else if (base.endsWith('-create')) {
+                base = base.slice(0, -7).trim();  // Remove '-create' suffix
+                if (!base) continue;
+                create = true;
               }
               const canonical = `agent:${base}`;
               if (!candidates.has(canonical)) {
@@ -167,11 +173,14 @@ jobs:
                   base,
                   labels: new Set(),
                   inviteLabels: new Set(),
+                  createLabels: new Set(),
                 });
               }
               const entry = candidates.get(canonical);
               if (invite) {
                 entry.inviteLabels.add(name);
+              } else if (create) {
+                entry.createLabels.add(name);
               } else {
                 entry.labels.add(name);
               }
@@ -280,9 +289,14 @@ jobs:
             } else if (ev === 'issues') {
               const labels = (context.payload.issue && Array.isArray(context.payload.issue.labels)) ? context.payload.issue.labels : [];
               const hasInvite = labels.some((lbl) => String(lbl.name || '').toLowerCase() === `agent:${agent}-invite`);
+              const hasCreate = labels.some((lbl) => String(lbl.name || '').toLowerCase() === `agent:${agent}-create`);
               const hasBase = labels.some((lbl) => String(lbl.name || '').toLowerCase() === `agent:${agent}`);
 
-              if (hasInvite) {
+              if (hasCreate) {
+                // agent:codex-create label forces auto-create mode
+                mode = 'create';
+                reason = 'issue-label-create';
+              } else if (hasInvite) {
                 mode = 'invite';
                 reason = 'issue-label-override';
               } else if (hasBase) {
