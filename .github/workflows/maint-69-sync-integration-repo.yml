@@ -72,6 +72,7 @@ jobs:
       - name: Install uv
         if: steps.token.outputs.token_available == 'true'
         run: |
+          set -euo pipefail
           curl -LsSf https://astral.sh/uv/install.sh | sh
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
