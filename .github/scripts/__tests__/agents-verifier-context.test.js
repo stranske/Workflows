@@ -404,8 +404,8 @@ test('buildVerifierContext writes verifier context with linked issues', async ()
   assert.ok(markdown.includes('Pull request #321'));
   assert.ok(markdown.includes('Issue #456'));
   assert.ok(markdown.includes('Issue #789'));
-  assert.ok(markdown.includes('## CI Verification'));
-  assert.ok(markdown.includes('Use these CI results to verify test-related criteria'));
+  assert.ok(markdown.includes('## CI Information (Reference Only)'));
+  assert.ok(markdown.includes('CI status is irrelevant - focus on evaluating the code changes'));
   assert.ok(markdown.includes('| Workflow | Conclusion | Run |'));
   assert.ok(markdown.includes('| Gate | success | [run](https://ci/gate) |'));
   assert.ok(markdown.includes('| Selftest CI | success | [run](https://ci/selftest) |'));

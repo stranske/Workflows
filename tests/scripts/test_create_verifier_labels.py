@@ -73,4 +73,4 @@ def test_extract_label_names_parses_valid_payload() -> None:
 def test_find_missing_labels_returns_ordered_names() -> None:
     existing = {"verify:checkbox"}
     missing = cvl._find_missing_labels(existing, list(cvl.LABELS))
-    assert missing == ["verify:evaluate", "verify:compare"]
+    assert missing == ["verify:evaluate", "verify:compare", "verify:create-issue"]
