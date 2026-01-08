@@ -126,21 +126,36 @@ jobs:
             let issueNumber = '${{ inputs.issue_number }}' || '';
             let agent = '${{ inputs.bridge_agent }}' || 'codex';
 
+            // Metadata labels that aren't actual agent assignments
+            const metadataLabels = new Set([
+              'keepalive', 'formatted', 'optimize', 'allow-change',
+              'apply-suggestions', 'debug', 'format', 'sync-failed', 'sync-required'
+            ]);
+
             if (eventName === 'issues') {
               const issue = context.payload.issue;
               issueNumber = String(issue.number);
 
               // Extract agent from labels (agent:codex, agents:codex, etc.)
+              // Skip metadata labels that aren't actual agent assignments
               const labels = issue.labels.map(l => l.name);
-              const agentLabel = labels.find(
-                l => /^agents?:[a-z]+$/i.test(l) && !l.includes('keepalive')
-              );
+              const agentLabel = labels.find(l => {
+                const match = l.match(/^agents?:([a-z-]+)$/i);
+                if (!match) return false;
+                const suffix = match[1].toLowerCase();
+                return !metadataLabels.has(suffix);
+              });
               if (agentLabel) {
                 agent = agentLabel.replace(/^agents?:/, '').toLowerCase();
               }
 
-              // Check if any agent label exists
-              const hasAgentLabel = labels.some(l => /^agents?:/.test(l));
+              // Check if any actual agent assignment label exists (not metadata)
+              const hasAgentLabel = labels.some(l => {
+                const match = l.match(/^agents?:([a-z-]+)$/i);
+                if (!match) return false;
+                const suffix = match[1].toLowerCase();
+                return !metadataLabels.has(suffix);
+              });
               if (!hasAgentLabel) {
                 core.setOutput('should_run', 'false');
                 return;

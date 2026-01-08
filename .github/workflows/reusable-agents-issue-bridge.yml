@@ -130,6 +130,19 @@ jobs:
             const inviteSuffix = '-invite';
             const candidates = new Map();
 
+            // Metadata labels that aren't actual agent assignments
+            const metadataLabels = new Set([
+              'keepalive',
+              'formatted',
+              'optimize',
+              'allow-change',
+              'apply-suggestions',
+              'debug',
+              'format',
+              'sync-failed',
+              'sync-required',
+            ]);
+
             for (const label of rawLabels) {
               const name = (typeof label === 'string' ? label : label?.name || '').trim();
               if (!name) continue;
@@ -138,7 +151,7 @@ jobs:
               if (!prefix) continue;
               let suffix = lower.slice(prefix.length).trim();
               // Skip metadata labels that aren't actual agent assignments
-              if (!suffix || suffix === 'keepalive' || suffix === 'formatted') {
+              if (!suffix || metadataLabels.has(suffix)) {
                 continue;
               }
               let base = suffix;

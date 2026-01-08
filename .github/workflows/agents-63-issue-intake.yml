@@ -516,6 +516,11 @@ jobs:
             const normalizeLabel = (label) => label.trim().toLowerCase();
             const agentPrefixes = ['agent:', 'agents:'];
             const inviteSuffix = '-invite';
+            // Metadata labels that aren't actual agent assignments
+            const metadataLabels = new Set([
+              'keepalive', 'formatted', 'optimize', 'allow-change',
+              'apply-suggestions', 'debug', 'format', 'sync-failed', 'sync-required'
+            ]);
             const analyzeAgentLabels = (rawLabels) => {
               const entries = new Map();
               for (const raw of rawLabels || []) {
@@ -526,7 +531,7 @@ jobs:
                 const prefix = agentPrefixes.find((candidate) => lower.startsWith(candidate));
                 if (!prefix) continue;
                 let suffix = lower.slice(prefix.length).trim();
-                if (!suffix || suffix === 'keepalive') continue;
+                if (!suffix || metadataLabels.has(suffix)) continue;
                 let base = suffix;
                 let invite = false;
                 if (base.endsWith(inviteSuffix)) {
@@ -1206,7 +1211,10 @@ jobs:
                 .map(name => name.toLowerCase());
             }
             // Control labels that should not be counted as agent assignments
-            const controlLabelSuffixes = ['keepalive'];
+            const controlLabelSuffixes = [
+              'keepalive', 'formatted', 'optimize', 'allow-change',
+              'apply-suggestions', 'debug', 'format', 'sync-failed', 'sync-required'
+            ];
             const codexGuardLabels = ['agent:codex', 'agents:codex'];
             const agentLabels = labels
               .filter(name => /^agents?:[a-z0-9-]+$/.test(name))
