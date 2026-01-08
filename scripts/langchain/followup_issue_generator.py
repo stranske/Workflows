@@ -548,12 +548,17 @@ def generate_followup_issue(
     3. Generate testable acceptance criteria
     4. Format the final issue
     """
-    # Get reasoning model for analysis (o3-mini)
-    reasoning_client_info = _get_llm_client(reasoning=True) if use_llm else None
-    # Get standard model for formatting (gpt-4o)
-    standard_client_info = _get_llm_client(reasoning=False) if use_llm else None
+    if not use_llm:
+        return _generate_without_llm(verification_data, original_issue, pr_number)
 
-    if reasoning_client_info and standard_client_info and use_llm:
+    # Get reasoning model for analysis (o3-mini)
+    reasoning_client_info = _get_llm_client(reasoning=True)
+    # Get standard model for formatting (gpt-4o)
+    standard_client_info = _get_llm_client(reasoning=False)
+
+    # Handle partial availability: use whatever client(s) we have
+    if reasoning_client_info and standard_client_info:
+        # Best case: both clients available
         return _generate_with_llm(
             verification_data,
             original_issue,
@@ -564,7 +569,32 @@ def generate_followup_issue(
             standard_client=standard_client_info[0],
             standard_model=standard_client_info[1],
         )
+    elif reasoning_client_info:
+        # Only reasoning client available - use it for all steps
+        return _generate_with_llm(
+            verification_data,
+            original_issue,
+            pr_number,
+            codex_log,
+            reasoning_client=reasoning_client_info[0],
+            reasoning_model=reasoning_client_info[1],
+            standard_client=reasoning_client_info[0],
+            standard_model=reasoning_client_info[1],
+        )
+    elif standard_client_info:
+        # Only standard client available - use it for all steps
+        return _generate_with_llm(
+            verification_data,
+            original_issue,
+            pr_number,
+            codex_log,
+            reasoning_client=standard_client_info[0],
+            reasoning_model=standard_client_info[1],
+            standard_client=standard_client_info[0],
+            standard_model=standard_client_info[1],
+        )
     else:
+        # No LLM clients available
         return _generate_without_llm(verification_data, original_issue, pr_number)
 
 
