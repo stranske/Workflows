@@ -40,7 +40,7 @@ on:
         description: "Force mode override (ignore issue event defaults)"
         required: false
         type: boolean
-        default: false
+        default: true
       post_agent_comment:
         description: "Auto-post '@<agent> start' command (true/false)"
         required: false
@@ -958,6 +958,18 @@ jobs:
                 core.warning(`Failed to locate PR for branch ${branch}: ${error.message}`);
               }
             }
+
+            // Fetch PR data if we have a PR number
+            let prData = null;
+            if (prNumber) {
+              try {
+                const { data } = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+                prData = data;
+              } catch (error) {
+                core.warning(`Failed to fetch PR #${prNumber}: ${error.message}`);
+              }
+            }
+
             if (summaryNeedsWarning && missingSections.length) {
               core.warning(`Issue template missing sections: ${missingSections.join(', ')}`);
             } else if (summaryNeedsWarning && warningDetails.length) {
