@@ -84,6 +84,23 @@ These get **synced** to consumer repos via `maint-68-sync-consumer-repos.yml`:
 
 **Before syncing**, ensure files pass consumer-repo lint rules (ruff with UP, SIM).
 
+### ⚠️ IMPORTANT: After Syncing, Use the Merge Workflow
+
+**ALWAYS** use `Merge Sync PRs` workflow (maint-71-merge-sync-prs.yml) to:
+- Auto-merge sync PRs that pass CI checks
+- Close stale/duplicate sync PRs
+- Report which repos have failing checks
+
+```bash
+# After triggering a sync, run this to merge the resulting PRs:
+gh workflow run "Merge Sync PRs" --repo stranske/Workflows --ref main
+
+# Check status:
+gh run list --workflow="maint-71-merge-sync-prs.yml" --limit 1
+```
+
+**DO NOT** manually merge sync PRs with `gh pr merge --admin` - use the workflow.
+
 ## Keepalive System
 
 The keepalive loop keeps Codex working on a PR until all tasks are complete:
