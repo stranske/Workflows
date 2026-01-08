@@ -237,6 +237,121 @@ jobs:
             });
             if (!result.ok) core.setFailed(result.reason);
 
+  # Resume keepalive after Gate completes - handles race where comment arrives before Gate finishes
+  keepalive_from_gate:
+    name: Resume keepalive after Gate
+    runs-on: ubuntu-latest
+    if: inputs.event_name == 'workflow_run' && inputs.allow_replay == true
+    outputs:
+      dispatch: ${{ steps.detect.outputs.dispatch }}
+      reason: ${{ steps.gate.outputs.reason }}
+    steps:
+      - name: Checkout Workflows scripts
+        uses: actions/checkout@v6
+        with:
+          repository: stranske/Workflows
+          ref: main
+          sparse-checkout: |
+            .github/scripts
+          sparse-checkout-cone-mode: false
+          path: workflows-lib
+          fetch-depth: 1
+
+      - name: Set scripts path
+        run: |
+          echo "WORKFLOWS_SCRIPTS_PATH=${GITHUB_WORKSPACE}/workflows-lib" >> "$GITHUB_ENV"
+
+      - name: Evaluate keepalive gate
+        id: gate
+        uses: actions/github-script@v8
+        env:
+          PR_NUMBER: ${{ inputs.pr_number }}
+        with:
+          script: |
+            const scriptsPath = process.env.WORKFLOWS_SCRIPTS_PATH;
+            const { evaluateKeepaliveGate } = require(`${scriptsPath}/.github/scripts/keepalive_gate.js`);
+            const result = await evaluateKeepaliveGate({
+              core, github, context,
+              options: {
+                prNumber: Number(process.env.PR_NUMBER || 0),
+                requireHumanActivation: true,
+                requireGateSuccess: true,
+              },
+            });
+            const bool = (v) => (v ? 'true' : 'false');
+            core.setOutput('ok', bool(result.ok));
+            core.setOutput('reason', result.reason || '');
+            core.setOutput('agent_alias', result.primaryAgent || '');
+            core.setOutput('pr_number', result.prNumber || process.env.PR_NUMBER);
+            core.setOutput('activation_comment', result.activationComment ? JSON.stringify(result.activationComment) : '');
+
+      - name: Detect keepalive from activation
+        id: detect
+        if: steps.gate.outputs.ok == 'true' && steps.gate.outputs.activation_comment != ''
+        uses: actions/github-script@v8
+        env:
+          ALLOWED_LOGINS: ${{ inputs.allowed_keepalive_logins }}
+          KEEPALIVE_MARKER: ${{ inputs.keepalive_marker }}
+          ACTIVATION_COMMENT: ${{ steps.gate.outputs.activation_comment }}
+          PR_NUMBER: ${{ steps.gate.outputs.pr_number }}
+          GATE_OK: ${{ steps.gate.outputs.ok }}
+          ALLOW_REPLAY: 'true'
+        with:
+          script: |
+            const scriptsPath = process.env.WORKFLOWS_SCRIPTS_PATH;
+            const { detectKeepalive } = require(`${scriptsPath}/.github/scripts/agents_pr_meta_keepalive.js`);
+            const comment = JSON.parse(process.env.ACTIVATION_COMMENT || '{}');
+            // Synthesize context payload to match issue_comment structure
+            const detectionContext = {
+              ...context,
+              payload: { comment, issue: { number: Number(process.env.PR_NUMBER) } },
+            };
+            await detectKeepalive({ core, github, context: detectionContext, env: process.env });
+
+      - name: Mint GitHub App token for gate orchestrator
+        id: app_token_gate
+        if: steps.gate.outputs.ok == 'true' && steps.detect.outputs.dispatch == 'true'
+        continue-on-error: true
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.WORKFLOWS_APP_ID }}
+          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+
+      - name: Run orchestrator from gate
+        if: steps.gate.outputs.ok == 'true' && steps.detect.outputs.dispatch == 'true'
+        uses: actions/github-script@v8
+        env:
+          SERVICE_BOT_PAT: ${{ secrets.service_bot_pat || '' }}
+          ACTIONS_BOT_PAT: ${{ secrets.ACTIONS_BOT_PAT || '' }}
+          AGENTS_AUTOMATION_PAT: ${{ secrets.AGENTS_AUTOMATION_PAT || '' }}
+          INSTRUCTION_BODY: ${{ steps.detect.outputs.instruction_body }}
+        with:
+          github-token: ${{ steps.app_token_gate.outputs.token || secrets.ACTIONS_BOT_PAT || secrets.service_bot_pat || secrets.AGENTS_AUTOMATION_PAT || github.token }}
+          script: |
+            const scriptsPath = process.env.WORKFLOWS_SCRIPTS_PATH;
+            const { runKeepaliveOrchestrator } = require(`${scriptsPath}/.github/scripts/agents_pr_meta_orchestrator.js`);
+            const result = await runKeepaliveOrchestrator({
+              github, context, core,
+              inputs: {
+                commentId: '${{ steps.detect.outputs.comment_id }}',
+                prNumber: '${{ steps.detect.outputs.pr || steps.gate.outputs.pr_number }}',
+                issue: '${{ steps.detect.outputs.issue }}',
+                branch: '${{ steps.detect.outputs.branch }}',
+                base: '${{ steps.detect.outputs.base }}',
+                round: '${{ steps.detect.outputs.round }}',
+                trace: '${{ steps.detect.outputs.trace }}',
+                agentAlias: '${{ steps.gate.outputs.agent_alias }}',
+                instructionBody: process.env.INSTRUCTION_BODY,
+                commentUrl: '${{ steps.detect.outputs.comment_url }}',
+              },
+              secrets: {
+                AGENTS_AUTOMATION_PAT: process.env.AGENTS_AUTOMATION_PAT ? true : false,
+                ACTIONS_BOT_PAT: process.env.ACTIONS_BOT_PAT ? true : false,
+                SERVICE_BOT_PAT: process.env.SERVICE_BOT_PAT ? true : false,
+              },
+            });
+            if (!result.ok) core.setFailed(result.reason);
+
   pr_body_update:
     name: Update PR body sections
     runs-on: ubuntu-latest
