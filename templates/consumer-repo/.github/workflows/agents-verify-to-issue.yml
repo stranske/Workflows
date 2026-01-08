@@ -373,14 +373,14 @@ jobs:
             let structuralAnalysis = '';
             if (structuralProblems.length > 0) {
               structuralAnalysis =
-                '### \u26a0\ufe0f Issues Detected in Original Issue Structure\\n\\n';
+                '### ⚠️ Issues Detected in Original Issue Structure\n\n';
               for (const prob of structuralProblems) {
-                structuralAnalysis += '**Problem:** ' + prob.problem + '\\n';
-                structuralAnalysis += '- **Cause:** ' + prob.cause + '\\n';
-                structuralAnalysis += '- **Fix:** ' + prob.fix + '\\n';
+                structuralAnalysis += '**Problem:** ' + prob.problem + '\n';
+                structuralAnalysis += '- **Cause:** ' + prob.cause + '\n';
+                structuralAnalysis += '- **Fix:** ' + prob.fix + '\n';
                 if (prob.examples && prob.examples.length > 0) {
                   structuralAnalysis +=
-                    '- **Examples:** `' + prob.examples.join('`, `') + '`\\n';
+                    '- **Examples:** `' + prob.examples.join('`, `') + '`\n';
                 }
                 structuralAnalysis += '\n';
               }
