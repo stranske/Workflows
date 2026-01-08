@@ -70,7 +70,7 @@ workflows:
     description: "Verify to issue - creates follow-up issues from verification feedback (Phase 4E)"
 
   - source: .github/workflows/agents-auto-label.yml
-    description: "Auto-label - suggests/applies labels based on semantic matching (Phase 3D)"
+    description: "Auto-label - suggests/applies labels based on semantic matching (Phase 5A)"
 
   - source: .github/workflows/agents-capability-check.yml
     description: "Capability check - pre-flight agent feasibility gate (Phase 3A)"
