@@ -139,6 +139,7 @@ The agent workflows coordinate Codex and chat orchestration across topics:
 * [`agents-guard.yml`](../../.github/workflows/agents-guard.yml) applies repository-level guardrails before agent workflows run.
 * [`agents-auto-label.yml`](../../.github/workflows/agents-auto-label.yml) automatically applies semantic labels to new issues based on content analysis using label_matcher.py.
 * [`agents-verify-to-issue.yml`](../../.github/workflows/agents-verify-to-issue.yml) creates follow-up issues from verification feedback when PRs receive CONCERNS or FAIL verdicts.
+* [`agents-verify-to-issue-v2.yml`](../../.github/workflows/agents-verify-to-issue-v2.yml) enhanced follow-up issue creation using LangChain LLM for multi-round analysis (deployed as `agents-verify-to-issue.yml` to consumers).
 * [`maint-dependabot-auto-label.yml`](../../.github/workflows/maint-dependabot-auto-label.yml) automatically applies the `agents:allow-change` label to Dependabot PRs.
 * [`maint-dependabot-auto-lock.yml`](../../.github/workflows/maint-dependabot-auto-lock.yml) automatically regenerates requirements.lock when dependabot updates pyproject.toml.
 * [`agents-verifier.yml`](../../.github/workflows/agents-verifier.yml) runs on merged PRs (or pushes to the default branch) to assemble acceptance/task context, execute Codex in verifier mode, and open a follow-up issue when the verdict is FAIL.
