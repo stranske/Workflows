@@ -152,7 +152,7 @@ Generate SPECIFIC, TESTABLE acceptance criteria for the follow-up issue.
 - "The `calculateTax()` function returns correct values for all test cases in `test_tax.py`"
 - "All Python files pass `ruff check` with no errors"
 - "The README.md contains installation instructions with at least 3 steps"
-- "API endpoint `/users/{id}` returns 404 status code when user doesn't exist"
+- "API endpoint `/users/{{id}}` returns 404 status code when user doesn't exist"
 
 **BAD acceptance criteria (NEVER write these):**
 - "All verification concerns are addressed" (not specific)
