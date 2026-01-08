@@ -275,5 +275,9 @@ def main() -> int:
     return 0
 
 
+# Alias for backward compatibility with workflow
+check_capability = classify_capabilities
+
+
 if __name__ == "__main__":
     raise SystemExit(main())
