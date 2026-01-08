@@ -39,7 +39,7 @@ repos:
 
   # Python linting and formatting
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.14.10  # Synced with autofix-versions.env
+    rev: v0.14.11  # Synced with autofix-versions.env
     hooks:
       - id: ruff
         args: ["--fix"]
