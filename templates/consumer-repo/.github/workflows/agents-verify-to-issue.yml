@@ -1,7 +1,13 @@
 name: Create Issue from Verification
 
-# Creates a follow-up issue from verification feedback when user adds verify:create-issue label
-# This is a user-triggered workflow (not automatic) to avoid aggressive issue creation
+# Creates a well-structured follow-up issue from verification feedback
+# Extracts data from:
+# - Provider comparison reports (multi-model analysis)
+# - Keepalive state (attempted tasks, failure reasons)
+# - Completion checkpoints (what was done vs what remains)
+# - PR body (unchecked acceptance criteria)
+#
+# This is user-triggered (verify:create-issue label) to avoid aggressive issue creation
 
 on:
   pull_request_target:
@@ -29,140 +35,494 @@ jobs:
             }
             core.setOutput('merged', 'true');
 
-      - name: Find and extract verification feedback
+      - name: Extract all available data
         id: extract
         if: steps.check-merged.outputs.merged == 'true'
         uses: actions/github-script@v8
         with:
           script: |
+            const fs = require('fs');
+            const prNumber = context.payload.pull_request.number;
+            const prBody = context.payload.pull_request.body || '';
+
+            // Fetch all comments
             const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: context.payload.pull_request.number,
+              issue_number: prNumber,
               per_page: 100
             });
 
-            // Look for verification report comment
-            const verifyComment = comments.find(c =>
-              c.body.includes('## PR Verification Report') ||
-              c.body.includes('## PR Verification Comparison') ||
-              c.body.includes('### Concerns') ||
-              c.body.includes('Verdict:')
+            const allComments = comments.map(c => c.body).join('\n---COMMENT_SEPARATOR---\n');
+
+            // ========================================
+            // 1. EXTRACT PROVIDER COMPARISON DATA
+            // ========================================
+            const providerData = { providers: [], agreement: null, uniqueInsights: [] };
+
+            // Look for Provider Comparison Report
+            const comparisonComment = comments.find(c =>
+              c.body.includes('## Provider Comparison Report') ||
+              c.body.includes('Provider Summary')
             );
 
-            if (!verifyComment) {
-              const msg = 'No verification comment found on this PR. ';
-              core.setFailed(msg + 'Add verify:evaluate or verify:compare label first.');
-              return;
+            if (comparisonComment) {
+              const body = comparisonComment.body;
+
+              // Extract individual provider details from expandable section
+              const providerMatches = [...body.matchAll(
+                /#### (\w+(?:-\w+)?)\n/g
+              )];
+
+              // For each provider header found, extract their details
+              for (const headerMatch of providerMatches) {
+                const providerName = headerMatch[1];
+                // Build pattern to extract this provider's section
+                const detailPattern = '#### ' + providerName +
+                  '\\n- \\*\\*Model:\\*\\* ([^\\n]+)' +
+                  '\\n- \\*\\*Verdict:\\*\\* (\\w+)' +
+                  '\\n- \\*\\*Confidence:\\*\\* (\\d+)%';
+                const detailMatch = body.match(new RegExp(detailPattern));
+                if (!detailMatch) continue;
+
+                const provider = {
+                  name: providerName,
+                  model: detailMatch[1],
+                  verdict: detailMatch[2],
+                  confidence: parseInt(detailMatch[3]),
+                  concerns: []
+                };
+
+                // Extract concerns for this provider
+                const concernsPattern = '#### ' + providerName +
+                  '[\\s\\S]*?- \\*\\*Concerns:\\*\\*' +
+                  '([\\s\\S]*?)(?=####|### |$)';
+                const providerSection = body.match(new RegExp(concernsPattern));
+                if (providerSection) {
+                  const concernRegex = /^\s*-\s+(.+)$/gm;
+                  const concernLines = providerSection[1].match(concernRegex) || [];
+                  provider.concerns = concernLines.map(
+                    l => l.replace(/^\s*-\s+/, '').trim()
+                  );
+                }
+
+                // Extract scores
+                const scoresPattern = '#### ' + providerName +
+                  '[\\s\\S]*?- \\*\\*Scores:\\*\\*' +
+                  '([\\s\\S]*?)(?=- \\*\\*Summary|####|$)';
+                const scoresMatch = body.match(new RegExp(scoresPattern));
+                if (scoresMatch) {
+                  provider.scores = {};
+                  const scoreLines = scoresMatch[1].match(/(\w+):\s*([\d.]+)\/10/g) || [];
+                  for (const s of scoreLines) {
+                    const [, name, val] = s.match(/(\w+):\s*([\d.]+)/) || [];
+                    if (name) provider.scores[name] = parseFloat(val);
+                  }
+                }
+
+                providerData.providers.push(provider);
+              }
+
+              // Extract agreement section
+              const agreeRegex = /### Agreement\n([\s\S]*?)(?=### |$)/;
+              const agreementMatch = body.match(agreeRegex);
+              if (agreementMatch) {
+                providerData.agreement = agreementMatch[1].trim();
+              }
+
+              // Extract unique insights
+              const insightsMatch = body.match(/### Unique Insights\n([\s\S]*?)(?=###|$)/);
+              if (insightsMatch) {
+                providerData.uniqueInsights = insightsMatch[1].trim();
+              }
             }
 
-            const comment = verifyComment.body;
-            core.info('Found verification comment');
+            // ========================================
+            // 2. EXTRACT KEEPALIVE STATE & ANALYZE PATTERNS
+            // ========================================
+            const keepaliveData = {
+              iteration: 0,
+              attemptedTasks: [],
+              failureReason: '',
+              uncheckedCount: 0,
+              totalTasks: 0
+            };
 
-            // Extract CONCERNS section
-            const concernsMatch = comment.match(/### Concerns\s*\n([\s\S]*?)(?=###|##|$)/i);
-            let concerns = concernsMatch ? concernsMatch[1].trim() : '';
+            // Patterns that indicate non-actionable "tasks" (code snippets, type hints, etc.)
+            const nonActionablePatterns = [
+              /^```\w*$/,                           // Code fence markers
+              /^class\s+\w+/,                       // Class definitions
+              /^def\s+\w+/,                         // Function definitions
+              /^\w+:\s*(str|int|float|bool|Any|list|dict|None)/i,  // Type annotations
+              /^\w+\s*=\s*.+$/,                     // Assignments
+              /^#\s/,                               // Comments
+              /^['"].*['"]$/,                       // String literals
+              /^\s*$/,                              // Empty lines
+              /^[A-Z_]+\s*=/,                       // Constants
+              /^\|\s*\w+/,                          // Table rows
+            ];
 
-            // Also try alternate formats
-            if (!concerns) {
-              const altMatch = comment.match(/\*\*Concerns:\*\*\s*([\s\S]*?)(?=\*\*|##|$)/i);
-              concerns = altMatch ? altMatch[1].trim() : '';
+            const isNonActionable = (task) => {
+              return nonActionablePatterns.some(p => p.test(task.trim())) ||
+                     task.length < 10 ||
+                     task.length > 150;
+            };
+
+            const keepaliveMatch = allComments.match(/keepalive-state:v1\s*(\{[\s\S]*?\})\s*-->/);
+            if (keepaliveMatch) {
+              try {
+                const state = JSON.parse(keepaliveMatch[1]);
+                keepaliveData.iteration = state.iteration || 0;
+                keepaliveData.failureReason = state.last_reason || '';
+                keepaliveData.uncheckedCount = state.tasks?.unchecked || 0;
+                keepaliveData.totalTasks = state.tasks?.total || 0;
+
+                // Analyze attempted tasks for non-actionable patterns
+                if (state.attempted_tasks) {
+                  keepaliveData.attemptedTasks = state.attempted_tasks.map(t => ({
+                    task: t.task,
+                    iteration: t.iteration,
+                    isNonActionable: isNonActionable(t.task)
+                  }));
+                }
+              } catch (e) {
+                core.warning('Failed to parse keepalive state: ' + e.message);
+              }
             }
 
-            // Extract low scores (anything < 7/10)
-            const scoreMatches = [...comment.matchAll(/(\w+):\s*(\d+)\/10/gi)];
-            const lowScores = scoreMatches
-              .filter(m => parseInt(m[2]) < 7)
-              .map(m => `- ${m[1]}: ${m[2]}/10`);
+            // ========================================
+            // 2b. ANALYZE ISSUE STRUCTURE PROBLEMS
+            // ========================================
+            const structuralProblems = [];
 
-            // Extract verdict
-            const verdictMatch = comment.match(/Verdict:\s*\*?\*?(\w+)\*?\*?/i);
-            const verdict = verdictMatch ? verdictMatch[1] : 'Unknown';
-
-            // Build summary
-            let summary = '';
-            if (concerns) {
-              summary += '### Concerns from Verification\n\n' + concerns + '\n\n';
-            }
-            if (lowScores.length > 0) {
-              summary += '### Scores Below 7/10\n\n' + lowScores.join('\n') + '\n\n';
-            }
-            if (!summary) {
-              summary = 'No specific concerns extracted from verification report.';
-              summary += '\n\nPlease review the original verification comment for details.';
+            // Check for high task count (often indicates code snippets parsed as tasks)
+            if (keepaliveData.totalTasks > 20) {
+              structuralProblems.push({
+                problem: 'Excessive task count (' + keepaliveData.totalTasks + ' items)',
+                cause: 'Code snippets or examples in the issue were likely ' +
+                  'parsed as individual tasks',
+                fix: 'Use fenced code blocks (```) for code examples; ' +
+                  'keep tasks as actionable work items'
+              });
             }
 
-            // Set outputs using environment file (handles multi-line content)
-            const fs = require('fs');
+            // Check for non-actionable attempted tasks
+            const nonActionableTasks = keepaliveData.attemptedTasks.filter(t => t.isNonActionable);
+            if (nonActionableTasks.length > 0) {
+              structuralProblems.push({
+                problem: 'Agent attempted ' + nonActionableTasks.length +
+                  ' non-actionable items',
+                cause: 'Type annotations, code snippets, or fragments were ' +
+                  'listed as tasks',
+                fix: 'Ensure each task checkbox describes a concrete action ' +
+                  '(e.g., "Implement X" not "field: type")',
+                examples: nonActionableTasks.slice(0, 3).map(t => t.task)
+              });
+            }
+
+            // Check for unproductive iterations
+            if (keepaliveData.failureReason === 'max-iterations-unproductive') {
+              structuralProblems.push({
+                problem: 'Agent hit max unproductive iterations',
+                cause: 'Tasks may have been unclear, blocked, or not ' +
+                  'achievable in isolation',
+                fix: 'Break complex tasks into smaller, independently ' +
+                  'verifiable steps'
+              });
+            }
+
+            // Check for high unchecked ratio
+            const uncheckedRatio = keepaliveData.totalTasks > 0
+              ? keepaliveData.uncheckedCount / keepaliveData.totalTasks : 0;
+            if (uncheckedRatio > 0.5) {
+              structuralProblems.push({
+                problem: 'Over 50% of tasks remain unchecked after ' +
+                  keepaliveData.iteration + ' iterations',
+                cause: 'Tasks may be too broad, ambiguous, or have ' +
+                  'hidden dependencies',
+                fix: 'Prioritize the 3-5 most critical tasks; defer ' +
+                  'others to follow-up issues'
+              });
+            }
+
+            // ========================================
+            // 3. EXTRACT UNCHECKED TASKS FROM PR BODY
+            // ========================================
+            const uncheckedTasks = [];
+            const taskMatches = [...prBody.matchAll(/^- \[ \]\s+(.+)$/gm)];
+            for (const m of taskMatches) {
+              const task = m[1].trim();
+              // Filter out code snippets that aren't real tasks
+              if (!task.match(/^```|^class |^def |^\w+:\s*\w+\s*$|^#|^\s*$/) &&
+                  task.length > 10 && task.length < 200) {
+                uncheckedTasks.push(task);
+              }
+            }
+
+            // ========================================
+            // 4. EXTRACT LINKED ISSUE INFO
+            // ========================================
+            let linkedIssueNumber = null;
+            const issueMatch = prBody.match(/Issue #(\d+)|meta:issue:(\d+)/);
+            if (issueMatch) {
+              linkedIssueNumber = issueMatch[1] || issueMatch[2];
+            }
+
+            // ========================================
+            // 5. BUILD CONSOLIDATED CONCERNS LIST
+            // ========================================
+            const allConcerns = new Map(); // Use map to dedupe
+
+            // Add concerns from all providers
+            for (const provider of providerData.providers) {
+              for (const concern of provider.concerns) {
+                // Normalize for deduplication
+                const key = concern.toLowerCase().replace(/[^a-z0-9]/g, '').substring(0, 50);
+                if (!allConcerns.has(key)) {
+                  allConcerns.set(key, {
+                    text: concern,
+                    sources: [provider.name],
+                    priority: provider.concerns.indexOf(concern) === 0 ? 'high' : 'normal'
+                  });
+                } else {
+                  allConcerns.get(key).sources.push(provider.name);
+                  allConcerns.get(key).priority = 'high'; // Multiple providers = high priority
+                }
+              }
+            }
+
+            // ========================================
+            // OUTPUT RESULTS
+            // ========================================
             const envFile = process.env.GITHUB_OUTPUT;
+            const writeMultiline = (name, value) => {
+              const delim = 'EOF_' + Math.random().toString(36).substring(2);
+              fs.appendFileSync(envFile, name + '<<' + delim + '\n' + value + '\n' + delim + '\n');
+            };
 
-            // Use delimiter for multi-line output
-            const delim = 'EOF_' + Math.random().toString(36).substring(2);
-            const outLine = `concerns_summary<<${delim}\n${summary}\n${delim}\n`;
-            fs.appendFileSync(envFile, outLine);
+            // Provider summary
+            const providerSummary = providerData.providers.map(p =>
+              '- **' + p.name + '** (' + p.model + '): ' +
+                p.verdict + ' @ ' + p.confidence + '%'
+            ).join('\n') || 'No provider comparison found.';
+            writeMultiline('provider_summary', providerSummary);
 
-            core.setOutput('verdict', verdict);
-            core.setOutput('has_concerns', (concerns || lowScores.length > 0) ? 'true' : 'false');
+            // Consolidated concerns as tasks
+            const concernTasks = [...allConcerns.values()]
+              .sort((a, b) => (b.sources.length - a.sources.length))
+              .map(c => {
+                const sourceTag = c.sources.length > 1
+                  ? ' *(agreed by both providers)*' : '';
+                return '- [ ] ' + c.text + sourceTag;
+              })
+              .join('\n');
+            writeMultiline('concern_tasks',
+              concernTasks || 'No specific concerns identified.');
+
+            // Unchecked tasks from PR
+            const uncheckedTasksStr = uncheckedTasks
+              .map(t => '- [ ] ' + t).join('\n');
+            writeMultiline('unchecked_tasks',
+              uncheckedTasksStr || 'All tasks appear complete.');
+
+            // Keepalive analysis with structural problem detection
+            let keepaliveAnalysis = '';
+            if (keepaliveData.iteration > 0) {
+              keepaliveAnalysis = '**Agent ran ' + keepaliveData.iteration +
+                ' iterations**\n';
+              if (keepaliveData.failureReason) {
+                keepaliveAnalysis += '- Stop reason: `' +
+                  keepaliveData.failureReason + '`\n';
+              }
+              if (keepaliveData.uncheckedCount > 0) {
+                keepaliveAnalysis += '- Remaining unchecked items: ' +
+                  keepaliveData.uncheckedCount + ' of ' +
+                  keepaliveData.totalTasks + '\n';
+              }
+
+              // Show non-actionable tasks the agent tried
+              const nonActionable = keepaliveData.attemptedTasks
+                .filter(t => t.isNonActionable);
+              if (nonActionable.length > 0) {
+                keepaliveAnalysis +=
+                  '\n**⚠️ Non-actionable items agent attempted:**\n';
+                for (const t of nonActionable.slice(0, 5)) {
+                  keepaliveAnalysis +=
+                    '- `' + t.task + '` (iteration ' + t.iteration + ')\n';
+                }
+                keepaliveAnalysis +=
+                  '\n*These look like code snippets or type hints.*\n';
+              }
+
+              // Show actionable tasks that weren't completed
+              const actionable = keepaliveData.attemptedTasks
+                .filter(t => !t.isNonActionable);
+              if (actionable.length > 0) {
+                keepaliveAnalysis +=
+                  '\n**Actionable tasks attempted but not completed:**\n';
+                for (const t of actionable.slice(-5)) {
+                  keepaliveAnalysis +=
+                    '- Iteration ' + t.iteration + ': ' + t.task + '\n';
+                }
+              }
+            }
+            writeMultiline('keepalive_analysis',
+              keepaliveAnalysis || 'No agent history available.');
+
+            // Structural problems analysis
+            let structuralAnalysis = '';
+            if (structuralProblems.length > 0) {
+              structuralAnalysis =
+                '### \u26a0\ufe0f Issues Detected in Original Issue Structure\\n\\n';
+              for (const prob of structuralProblems) {
+                structuralAnalysis += '**Problem:** ' + prob.problem + '\\n';
+                structuralAnalysis += '- **Cause:** ' + prob.cause + '\\n';
+                structuralAnalysis += '- **Fix:** ' + prob.fix + '\\n';
+                if (prob.examples && prob.examples.length > 0) {
+                  structuralAnalysis +=
+                    '- **Examples:** `' + prob.examples.join('`, `') + '`\\n';
+                }
+                structuralAnalysis += '\n';
+              }
+            }
+            writeMultiline('structural_analysis', structuralAnalysis);
+
+            // Metadata
+            core.setOutput('linked_issue', linkedIssueNumber || '');
+            core.setOutput('provider_count',
+              String(providerData.providers.length));
+            core.setOutput('concern_count', String(allConcerns.size));
+            core.setOutput('unchecked_count', String(uncheckedTasks.length));
+            core.setOutput('agent_iterations',
+              String(keepaliveData.iteration));
+            core.setOutput('has_structural_problems',
+              structuralProblems.length > 0 ? 'true' : 'false');
 
       - name: Create follow-up issue
         id: create-issue
         if: steps.check-merged.outputs.merged == 'true'
         uses: actions/github-script@v8
         env:
-          VERDICT: ${{ steps.extract.outputs.verdict }}
-          CONCERNS_SUMMARY: ${{ steps.extract.outputs.concerns_summary }}
+          PROVIDER_SUMMARY: ${{ steps.extract.outputs.provider_summary }}
+          CONCERN_TASKS: ${{ steps.extract.outputs.concern_tasks }}
+          UNCHECKED_TASKS: ${{ steps.extract.outputs.unchecked_tasks }}
+          KEEPALIVE_ANALYSIS: ${{ steps.extract.outputs.keepalive_analysis }}
+          STRUCTURAL_ANALYSIS: ${{ steps.extract.outputs.structural_analysis }}
+          LINKED_ISSUE: ${{ steps.extract.outputs.linked_issue }}
+          PROVIDER_COUNT: ${{ steps.extract.outputs.provider_count }}
+          CONCERN_COUNT: ${{ steps.extract.outputs.concern_count }}
+          UNCHECKED_COUNT: ${{ steps.extract.outputs.unchecked_count }}
+          AGENT_ITERATIONS: ${{ steps.extract.outputs.agent_iterations }}
+          HAS_STRUCTURAL_PROBLEMS: ${{ steps.extract.outputs.has_structural_problems }}
         with:
           script: |
             const prNumber = context.payload.pull_request.number;
             const prTitle = context.payload.pull_request.title;
             const prUrl = context.payload.pull_request.html_url;
-            const concernsSummary = process.env.CONCERNS_SUMMARY || 'No concerns extracted.';
-            const verdict = process.env.VERDICT || 'Unknown';
 
-            const issueBody = [
-              '## Follow-up from PR #' + prNumber,
-              '',
-              'Original PR: [#' + prNumber + ' - ' + prTitle + '](' + prUrl + ')',
-              'Verification Verdict: ' + verdict,
-              '',
-              '---',
-              '',
-              concernsSummary,
-              '',
-              '## Suggested Tasks',
-              '',
-              '- [ ] Review the concerns identified above',
-              '- [ ] Address each issue or document why it is not applicable',
-              '- [ ] Update tests if needed',
-              '- [ ] Consider re-verification after changes',
-              '',
-              '---',
-              '',
-              '## Context',
-              '',
-              'This issue was created from verification feedback on a merged PR.',
-              '',
-              '<details>',
-              '<summary>How to use this issue</summary>',
-              '',
-              '1. Add `agents:optimize` label to get AI-suggested improvements',
-              '2. Add `agents:apply-suggestions` to format for agent work',
-              '3. Add `agent:codex` to assign to an agent',
-              '',
-              'Or work on it manually - the choice is yours!',
-              '',
-              '</details>',
-              '',
-              '---',
-              '*Auto-generated by verify-to-issue workflow*'
-            ].join('\n');
+            const providerSummary = process.env.PROVIDER_SUMMARY || '';
+            const concernTasks = process.env.CONCERN_TASKS || '';
+            const uncheckedTasks = process.env.UNCHECKED_TASKS || '';
+            const keepaliveAnalysis = process.env.KEEPALIVE_ANALYSIS || '';
+            const structuralAnalysis = process.env.STRUCTURAL_ANALYSIS || '';
+            const linkedIssue = process.env.LINKED_ISSUE || '';
+            const providerCount = parseInt(process.env.PROVIDER_COUNT) || 0;
+            const concernCount = parseInt(process.env.CONCERN_COUNT) || 0;
+            const uncheckedCount = parseInt(process.env.UNCHECKED_COUNT) || 0;
+            const agentIterations = parseInt(process.env.AGENT_ITERATIONS) || 0;
+            const hasStructuralProblems = process.env.HAS_STRUCTURAL_PROBLEMS === 'true';
 
-            const issue = await github.rest.issues.create({
+            // Build structured issue body
+            const sections = [];
+
+            // Header with context
+            sections.push('## Background');
+            sections.push('');
+            sections.push('This issue captures unmet criteria from ' +
+              '[PR #' + prNumber + '](' + prUrl + ').');
+            if (linkedIssue) {
+              sections.push('Original issue: #' + linkedIssue);
+            }
+            sections.push('');
+
+            // Structural problems section (FIRST if present - most important)
+            if (hasStructuralProblems && structuralAnalysis) {
+              sections.push('## 🔧 Issue Structure Analysis');
+              sections.push('');
+              sections.push('The previous attempt had structural problems ' +
+                'that may have caused unproductive agent work.');
+              sections.push(
+                '**Review these before re-assigning to an agent:**');
+              sections.push('');
+              sections.push(structuralAnalysis);
+            }
+
+            // Provider analysis section (if available)
+            if (providerCount > 0) {
+              sections.push('## Verification Analysis');
+              sections.push('');
+              sections.push(providerSummary);
+              sections.push('');
+            }
+
+            // Agent history section (if available)
+            if (agentIterations > 0) {
+              sections.push('## Previous Agent Attempts');
+              sections.push('');
+              sections.push(keepaliveAnalysis);
+              sections.push('');
+              if (!hasStructuralProblems) {
+                sections.push('> **Note:** Review what was attempted ' +
+                  'before re-assigning to an agent.');
+                sections.push('');
+              }
+            }
+
+            // Tasks section - the main actionable content
+            sections.push('## Tasks');
+            sections.push('');
+
+            if (concernCount > 0) {
+              sections.push('### Verification Concerns');
+              sections.push('');
+              sections.push(concernTasks);
+              sections.push('');
+            }
+
+            if (uncheckedCount > 0) {
+              sections.push('### Remaining Unchecked Items');
+              sections.push('');
+              sections.push(uncheckedTasks);
+              sections.push('');
+            }
+
+            if (concernCount === 0 && uncheckedCount === 0) {
+              sections.push('No specific tasks extracted. ' +
+                'Review the original PR for context.');
+              sections.push('');
+            }
+
+            // Acceptance criteria (always include)
+            sections.push('## Acceptance Criteria');
+            sections.push('');
+            sections.push('- [ ] All verification concerns addressed');
+            sections.push('- [ ] Tests added/updated for fixed issues');
+            sections.push('- [ ] Re-verification passes (if applicable)');
+            sections.push('');
+
+            // Footer
+            sections.push('---');
+            sections.push('*Generated from PR #' + prNumber + ' verification feedback*');
+
+            const issueBody = sections.join('\n');
+
+            // Create the issue with agents:formatted label so it's ready for agent work
+            const { data: issue } = await github.rest.issues.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              title: '[Follow-up] Address verification concerns from PR #' + prNumber,
+              title: '[Follow-up] Complete unmet criteria from PR #' + prNumber,
               body: issueBody,
-              labels: ['follow-up', 'agents:optimize']
+              labels: ['follow-up', 'agents:formatted']
             });
 
             core.info('Created issue #' + issue.data.number);
@@ -174,11 +534,19 @@ jobs:
         uses: actions/github-script@v8
         env:
           ISSUE_NUMBER: ${{ steps.create-issue.outputs.issue_number }}
+          CONCERN_COUNT: ${{ steps.extract.outputs.concern_count }}
+          UNCHECKED_COUNT: ${{ steps.extract.outputs.unchecked_count }}
         with:
           script: |
             const issueNumber = process.env.ISSUE_NUMBER;
-            let body = '📋 Follow-up issue created: #' + issueNumber + '\n\n';
-            body += 'Verification concerns have been captured in the new issue for tracking.';
+            const concernCount = parseInt(process.env.CONCERN_COUNT) || 0;
+            const uncheckedCount = parseInt(process.env.UNCHECKED_COUNT) || 0;
+
+            let body = '📋 **Follow-up issue created:** #' + issueNumber + '\n\n';
+            body += 'Captured:\n';
+            if (concernCount > 0) body += '- ' + concernCount + ' verification concern(s)\n';
+            if (uncheckedCount > 0) body += '- ' + uncheckedCount + ' unchecked task(s)\n';
+            body += '\nThe issue is labeled `agents:formatted` and ready for agent assignment.';
 
             await github.rest.issues.createComment({
               owner: context.repo.owner,
