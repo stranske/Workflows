@@ -25,6 +25,11 @@ LABELS = (
         "color": "1D76DB",
         "description": "Runs verifier comparison mode after merge",
     },
+    {
+        "name": "verify:create-issue",
+        "color": "D93F0B",
+        "description": "Creates follow-up issue from verification feedback",
+    },
 )
 
 
