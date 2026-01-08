@@ -293,26 +293,77 @@ def extract_verification_data(comment_body: str) -> VerificationData:
             "confidence": int(single_verdict.group(2)) if single_verdict.group(2) else 0,
         }
 
-    # Extract concerns
-    concerns_match = re.search(
+    # Extract concerns - handle multiple formats
+    # Format 1: ### Concerns heading (old format)
+    # Format 2: - **Concerns:** bullet list (Provider Comparison Report format)
+    all_concerns: list[str] = []
+
+    # Try heading format first
+    concerns_heading_match = re.search(
         r"### Concerns\s*\n([\s\S]*?)(?=###|##|$)", comment_body, re.IGNORECASE
     )
-    if concerns_match:
-        concerns_text = concerns_match.group(1).strip()
-        # Split into individual concerns
-        data.concerns = [
+    if concerns_heading_match:
+        concerns_text = concerns_heading_match.group(1).strip()
+        all_concerns.extend(
             c.strip().lstrip("- ").lstrip("* ")
             for c in concerns_text.split("\n")
             if c.strip() and not c.strip().startswith("#")
-        ]
+        )
 
-    # Extract low scores
-    score_pattern = re.compile(r"(\w+):\s*(\d+)/10", re.IGNORECASE)
+    # Try Provider Comparison Report format: "- **Concerns:**\n  - concern1\n  - concern2"
+    concerns_bullet_matches = re.findall(
+        r"- \*\*Concerns:\*\*\s*\n((?:\s+-\s+[^\n]+\n?)+)", comment_body
+    )
+    for match in concerns_bullet_matches:
+        # Extract individual concerns from the indented list
+        for line in match.split("\n"):
+            line = line.strip()
+            if line.startswith("-"):
+                concern = line.lstrip("- ").strip()
+                if concern and len(concern) > 10:  # Skip tiny fragments
+                    all_concerns.append(concern)
+
+    # Also extract from "Unique Insights" section which often has good concerns
+    unique_insights_match = re.search(
+        r"### Unique Insights\s*\n([\s\S]*?)(?=\n##|\n---|\Z)", comment_body
+    )
+    if unique_insights_match:
+        insights_text = unique_insights_match.group(1)
+        # Format: "- provider: concern1; concern2; concern3"
+        for line in insights_text.split("\n"):
+            if line.strip().startswith("-"):
+                # Remove provider prefix like "- github-models: "
+                content = re.sub(r"^-\s*\w+(?:-\w+)?:\s*", "", line.strip())
+                # Split on semicolons
+                for concern in content.split(";"):
+                    concern = concern.strip()
+                    if concern and len(concern) > 15:
+                        all_concerns.append(concern)
+
+    # Deduplicate while preserving order, and filter out spurious entries
+    seen: set[str] = set()
+    data.concerns = []
+    spurious_patterns = [
+        r"^\d+\s+verification concern",  # "10 verification concerns"
+        r"^\d+\s+unchecked task",  # "5 unchecked tasks"
+        r"^-\s*\d+\s",  # "- 10 ..."
+    ]
+    for c in all_concerns:
+        c_lower = c.lower()
+        # Skip spurious entries
+        if any(re.match(p, c_lower) for p in spurious_patterns):
+            continue
+        if c_lower not in seen:
+            seen.add(c_lower)
+            data.concerns.append(c)
+
+    # Extract low scores (handle decimal scores like 6.0/10)
+    score_pattern = re.compile(r"(\w+):\s*(\d+(?:\.\d+)?)/10", re.IGNORECASE)
     for match in score_pattern.finditer(comment_body):
         category, score = match.groups()
-        score_int = int(score)
-        if score_int < 7:
-            data.low_scores[category] = score_int
+        score_float = float(score)
+        if score_float < 7:
+            data.low_scores[category] = int(score_float)
 
     # Extract iteration/task data from structural analysis
     iter_match = re.search(r"Agent ran (\d+) iterations?", comment_body)
@@ -410,10 +461,13 @@ def _get_llm_client(reasoning: bool = False) -> tuple[Any, str] | None:
     """
     try:
         from langchain_openai import ChatOpenAI
-
-        from tools.llm_provider import DEFAULT_MODEL, GITHUB_MODELS_BASE_URL
-    except ImportError:
+    except ImportError as e:
+        print(f"Warning: langchain_openai not available: {e}", file=sys.stderr)
         return None
+
+    # GitHub Models constants (inline to avoid import dependency)
+    GITHUB_MODELS_BASE_URL = "https://models.inference.ai.azure.com"
+    GITHUB_DEFAULT_MODEL = "gpt-4o"
 
     # Select model based on task type
     # Reasoning models (o3-mini) are better for deep analysis and understanding
@@ -428,6 +482,7 @@ def _get_llm_client(reasoning: bool = False) -> tuple[Any, str] | None:
     # Prefer OpenAI for complex multi-turn generation
     if os.environ.get("OPENAI_API_KEY"):
         model = os.environ.get(env_var, default_model)
+        print(f"Using OpenAI with model: {model}", file=sys.stderr)
         # Reasoning models don't support temperature parameter
         if model.startswith(("o1", "o3")):
             return ChatOpenAI(model=model, timeout=60), model
@@ -435,17 +490,19 @@ def _get_llm_client(reasoning: bool = False) -> tuple[Any, str] | None:
 
     # Fall back to GitHub Models
     if os.environ.get("GITHUB_TOKEN"):
+        print(f"Using GitHub Models with model: {GITHUB_DEFAULT_MODEL}", file=sys.stderr)
         return (
             ChatOpenAI(
-                model=DEFAULT_MODEL,
+                model=GITHUB_DEFAULT_MODEL,
                 base_url=GITHUB_MODELS_BASE_URL,
                 api_key=os.environ["GITHUB_TOKEN"],
                 temperature=0.3,
                 timeout=30,
             ),
-            DEFAULT_MODEL,
+            GITHUB_DEFAULT_MODEL,
         )
 
+    print("Warning: No LLM API keys found (OPENAI_API_KEY or GITHUB_TOKEN)", file=sys.stderr)
     return None
 
 
@@ -936,6 +993,20 @@ def main() -> int:
         issue_number=args.original_issue_number,
         title=args.original_issue_title,
     )
+
+    # Debug: show extracted data
+    print(f"Extracted {len(verification_data.concerns)} concerns", file=sys.stderr)
+    print(
+        f"Extracted {len(verification_data.provider_verdicts)} provider verdicts", file=sys.stderr
+    )
+    print(
+        f"Extracted {len(original_issue.acceptance_criteria)} acceptance criteria", file=sys.stderr
+    )
+    print(f"Extracted {len(original_issue.tasks)} tasks", file=sys.stderr)
+    if verification_data.concerns:
+        print("Sample concerns:", file=sys.stderr)
+        for c in verification_data.concerns[:3]:
+            print(f"  - {c[:80]}...", file=sys.stderr)
 
     # Generate follow-up
     followup = generate_followup_issue(
