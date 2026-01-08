@@ -172,6 +172,7 @@ EXPECTED_NAMES = {
     "agents-issue-optimizer.yml": "Agents Issue Optimizer",
     "agents-verifier.yml": "Agents Verifier",
     "agents-verify-to-issue.yml": "Create Issue from Verification",
+    "agents-verify-to-issue-v2.yml": "Create Issue from Verification (Enhanced)",
     "agents-weekly-metrics.yml": "agents-weekly-metrics",
     "agents-70-orchestrator.yml": "Agents 70 Orchestrator",
     "agents-moderate-connector.yml": "Agents Moderate Connector Comments",
