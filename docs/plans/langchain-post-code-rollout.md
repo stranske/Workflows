@@ -325,12 +325,25 @@
 > **Status:** Ready to Execute  
 > **Prerequisite:** PR merged to main, sync workflow completed  
 
-### Known Issue to Investigate
+### Known Issue - RESOLVED ✅
 
-**`verify:compare` failure on Trend_Model_Project PR #4249**
-- ✅ Works: Travel-Plan-Permission (PR #301, #318)
-- ❌ Fails: Trend_Model_Project (PR #4249)
-- **Next Step:** Check workflow logs, compare repo configs, identify difference
+**`verify:compare` on Trend_Model_Project PR #4249**
+- **Status:** ✅ NOT A BUG - Working as designed
+- **Root Cause:** PR #4249 is **not merged** (state: OPEN)
+- **Expected Behavior:** Verifier workflow only runs on merged PRs
+
+**Investigation (2026-01-08):**
+1. Checked workflow run logs for `Agents Verifier` run #20803754012
+2. Found: "PR not merged; skipping verifier" - correct behavior
+3. Confirmed via `gh pr view 4249`: `mergedAt: null, state: OPEN`
+4. The `verify:compare` label was applied but PR wasn't merged yet
+
+**Additional findings:**
+- `verify:*` labels exist in Travel-Plan-Permission ✅
+- `verify:*` labels do NOT exist in Trend_Model_Project repo label list
+  - But GitHub allows ad-hoc label creation on PRs
+  - To properly trigger workflows, labels should be pre-created
+- **Action:** Run `scripts/create_verifier_labels.py` on Trend_Model_Project
 
 ---
 
@@ -343,9 +356,9 @@ After merging to main, verify sync creates PRs in all consumer repos.
 | Manager-Database | - | ⏳ | - | Primary test repo |
 | Template | - | ⏳ | - | |
 | trip-planner | - | ⏳ | - | |
-| Travel-Plan-Permission | - | ⏳ | - | Verify workflows working |
+| Travel-Plan-Permission | - | ⏳ | - | Verify workflows working, has labels ✅ |
 | Portable-Alpha-Extension-Model | - | ⏳ | - | |
-| Trend_Model_Project | - | ⏳ | - | **Investigate verify:compare failure** |
+| Trend_Model_Project | - | ⏳ | - | Needs verify labels created |
 | Collab-Admin | - | ⏳ | - | |
 
 **Checklist:**
@@ -360,24 +373,41 @@ After merging to main, verify sync creates PRs in all consumer repos.
   - `agents-verify-to-issue.yml`
 - [ ] Review bot comments on sync PRs for code issues
 - [ ] Merge sync PRs to each consumer repo
+- [ ] Create `verify:*` labels in repos that need them:
+  - Run: `python scripts/create_verifier_labels.py --execute`
 
 ---
 
 ### Phase 2: Existing Workflow Verification (Cross-Repo)
 
-Verify already-deployed workflows work across repos. Start with known failure.
+Verify already-deployed workflows work across repos.
 
-#### 2A. Investigate Trend_Model_Project Failure
+#### 2A. Verify Label Prerequisites
 
-**Steps:**
-1. [ ] Check Trend_Model_Project Actions tab for `verify:compare` workflow run on PR #4249
-2. [ ] If workflow ran: Read logs, identify error
-3. [ ] If workflow didn't run: Check if workflow file exists, check trigger conditions
-4. [ ] Compare with Travel-Plan-Permission successful run (PR #301)
-5. [ ] Document difference and fix
+**Required labels for verifier:**
+| Repo | `verify:checkbox` | `verify:evaluate` | `verify:compare` | Action |
+|------|-------------------|-------------------|------------------|--------|
+| Travel-Plan-Permission | ✅ | ✅ | ✅ | None |
+| Trend_Model_Project | ❌ | ❌ | ❌ | Create labels |
+| Manager-Database | ❓ | ❓ | ❓ | Check & create |
+| Template | ❓ | ❓ | ❓ | Check & create |
+| trip-planner | ❓ | ❓ | ❓ | Check & create |
+| Portable-Alpha-Extension-Model | ❓ | ❓ | ❓ | Check & create |
+| Collab-Admin | ❓ | ❓ | ❓ | Check & create |
 
-**Possible causes:**
-- Missing workflow file (sync didn't complete)
+**Script to check all repos:**
+```bash
+for repo in Travel-Plan-Permission Trend_Model_Project Manager-Database Template \
+            trip-planner Portable-Alpha-Extension-Model Collab-Admin; do
+  echo "=== stranske/$repo ==="
+  gh api "repos/stranske/$repo/labels?per_page=100" \
+    --jq '[.[] | select(.name | startswith("verify:")) | .name] | join(", ") | if . == "" then "NONE" else . end'
+done
+```
+
+#### 2B. Verify `verify:evaluate` on Merged PRs
+
+Test on a **merged** PR in each repo (verifier only works post-merge):
 - Missing labels (`verify:compare` not in repo)
 - Missing secrets (`OPENAI_API_KEY` not configured)
 - Workflow file syntax error
@@ -528,14 +558,19 @@ If workflow works in Repo A but not Repo B:
 
 | Workflow | Repos Tested | Repos Passing | Status |
 |----------|--------------|---------------|--------|
-| `verify:evaluate` | 1/7 | 1 | 🔍 Investigating Trend_Model_Project |
-| `verify:compare` | 2/7 | 1 | ❌ Trend_Model_Project failing |
+| `verify:evaluate` | 1/7 | 1 | ✅ Travel-Plan-Permission working |
+| `verify:compare` | 1/7 | 1 | ✅ NOT A BUG - PR #4249 not merged (expected skip) |
 | `agents:optimize` | 1/7 | 1 | ✅ Manager-Database working |
 | `agents-capability-check` | 0/7 | - | ⏳ Pending sync |
 | `agents-decompose` | 0/7 | - | ⏳ Pending sync |
 | `agents-dedup` | 0/7 | - | ⏳ Pending sync |
 | `agents-auto-label` | 0/7 | - | ⏳ Pending sync |
 | `agents-verify-to-issue` | 0/7 | - | ⏳ Pending sync |
+
+**Investigation completed (2026-01-08):**
+- Trend_Model_Project PR #4249 is OPEN, not merged
+- Verifier correctly skipped (designed for merged PRs only)
+- Labels need to be created in repos (only Travel-Plan-Permission has them)
 
 **Minimum for Phase 3 Completion:** Each workflow tested in ≥2 repos, passing in ≥2 repos
 
