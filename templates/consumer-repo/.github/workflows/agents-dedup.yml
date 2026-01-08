@@ -1,0 +1,198 @@
+name: Duplicate Detection
+
+# Detects potential duplicate issues using semantic similarity
+# Uses issue_dedup.py for embedding-based matching
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write
+  models: read
+
+env:
+  # Similarity threshold for flagging duplicates (0.0-1.0)
+  # 0.85 = very similar, reduces false positives
+  SIMILARITY_THRESHOLD: "0.85"
+
+jobs:
+  dedup:
+    runs-on: ubuntu-latest
+    # Skip issues created by bots to avoid noise
+    if: github.event.issue.user.type != 'Bot'
+
+    steps:
+      - name: Checkout Workflows repo
+        uses: actions/checkout@v6
+        with:
+          repository: stranske/Workflows
+          path: workflows-repo
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          cd workflows-repo
+          pip install -e ".[langchain]" --quiet
+
+      - name: Get open issues
+        id: get-issues
+        uses: actions/github-script@v8
+        with:
+          script: |
+            // Get all open issues (excluding this one)
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              per_page: 100
+            });
+
+            // Filter out the current issue and PRs
+            const otherIssues = issues.filter(i =>
+              i.number !== context.issue.number &&
+              !i.pull_request
+            );
+
+            // Simplify for Python
+            const issueData = otherIssues.map(i => ({
+              number: i.number,
+              title: i.title,
+              body: i.body || '',
+              html_url: i.html_url
+            }));
+
+            const fs = require('fs');
+            fs.writeFileSync('open_issues.json', JSON.stringify(issueData, null, 2));
+
+            core.setOutput('issue_count', issueData.length);
+            core.info(`Found ${issueData.length} other open issues to compare against`);
+
+      - name: Check for duplicates
+        id: check
+        if: steps.get-issues.outputs.issue_count > 0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          PYTHONPATH: ${{ github.workspace }}/workflows-repo
+          NEW_ISSUE_TITLE: ${{ github.event.issue.title }}
+          NEW_ISSUE_BODY: ${{ github.event.issue.body }}
+        run: |
+          cd workflows-repo
+          python -c "
+          import json
+          import os
+          import sys
+          sys.path.insert(0, '.')
+
+          from scripts.langchain.issue_dedup import (
+              build_issue_vector_store,
+              find_similar_issues,
+              IssueRecord,
+          )
+
+          # Load open issues
+          with open('../open_issues.json') as f:
+              issues_data = json.load(f)
+
+          if not issues_data:
+              print('No issues to compare against')
+              with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+                  f.write('has_duplicates=false\n')
+              sys.exit(0)
+
+          # Build vector store
+          issues = [IssueRecord(
+              number=i['number'],
+              title=i['title'],
+              body=i['body'],
+              url=i['html_url']
+          ) for i in issues_data]
+
+          store = build_issue_vector_store(issues)
+
+          if store is None:
+              print('::warning::Could not build vector store (embeddings unavailable)')
+              with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+                  f.write('has_duplicates=false\n')
+              sys.exit(0)
+
+          # Check new issue against existing
+          new_title = os.environ.get('NEW_ISSUE_TITLE', '')
+          new_body = os.environ.get('NEW_ISSUE_BODY', '')
+          query = f'{new_title}\n\n{new_body}'
+
+          threshold = float(os.environ.get('SIMILARITY_THRESHOLD', '0.85'))
+          matches = find_similar_issues(store, query, threshold=threshold, k=3)
+
+          if not matches:
+              print('No duplicates found above threshold')
+              with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+                  f.write('has_duplicates=false\n')
+              sys.exit(0)
+
+          # Output results
+          duplicates = [{
+              'number': m.issue.number,
+              'title': m.issue.title,
+              'url': m.issue.url,
+              'score': f'{m.score:.0%}'
+          } for m in matches]
+
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write('has_duplicates=true\n')
+              f.write(f'duplicate_count={len(duplicates)}\n')
+
+          # Write to file for GitHub script
+          with open('../duplicates.json', 'w') as f:
+              json.dump(duplicates, f)
+
+          print(f'Found {len(duplicates)} potential duplicates:')
+          for d in duplicates:
+              print(f'  - #{d[\"number\"]}: {d[\"title\"]} ({d[\"score\"]})')
+          "
+
+      - name: Post duplicate warning
+        if: steps.check.outputs.has_duplicates == 'true'
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const fs = require('fs');
+            const duplicates = JSON.parse(fs.readFileSync('duplicates.json', 'utf8'));
+
+            if (duplicates.length === 0) {
+              return;
+            }
+
+            let body = `### ⚠️ Potential Duplicate Detected\n\n`;
+            body += `This issue appears similar to existing open issues:\n\n`;
+
+            duplicates.forEach(d => {
+              body += `- **#${d.number}** - [${d.title}](${d.url}) (${d.score} similarity)\n`;
+            });
+
+            body += `\n<details>\n<summary>What should I do?</summary>\n\n`;
+            body += `1. **Review the linked issues** `;
+            body += `to see if they address the same problem\n`;
+            body += `2. **If duplicate:** Close this issue `;
+            body += `and add your context to the existing one\n`;
+            body += `3. **If different:** Add a comment `;
+            body += `explaining how this issue is distinct\n`;
+            body += `4. **If related:** Link the issues and keep both open\n`;
+            body += `</details>\n\n`;
+            body += `---\n*Auto-generated by duplicate detection • `;
+            body += `False positive? Just ignore this comment.*`;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: body
+            });
+
+            core.info(`Posted duplicate warning for ${duplicates.length} potential matches`);

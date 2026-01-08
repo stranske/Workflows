@@ -1,0 +1,206 @@
+name: Create Issue from Verification
+
+# Creates a follow-up issue from verification feedback when user adds verify:create-issue label
+# This is a user-triggered workflow (not automatic) to avoid aggressive issue creation
+
+on:
+  pull_request_target:
+    types: [labeled]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  create-issue:
+    if: github.event.label.name == 'verify:create-issue'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check PR is merged
+        id: check-merged
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            if (!pr.merged) {
+              core.setFailed('PR must be merged before creating follow-up issue');
+              return;
+            }
+            core.setOutput('merged', 'true');
+
+      - name: Find and extract verification feedback
+        id: extract
+        if: steps.check-merged.outputs.merged == 'true'
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              per_page: 100
+            });
+
+            // Look for verification report comment
+            const verifyComment = comments.find(c =>
+              c.body.includes('## PR Verification Report') ||
+              c.body.includes('## PR Verification Comparison') ||
+              c.body.includes('### Concerns') ||
+              c.body.includes('Verdict:')
+            );
+
+            if (!verifyComment) {
+              const msg = 'No verification comment found on this PR. ';
+              core.setFailed(msg + 'Add verify:evaluate or verify:compare label first.');
+              return;
+            }
+
+            const comment = verifyComment.body;
+            core.info('Found verification comment');
+
+            // Extract CONCERNS section
+            const concernsMatch = comment.match(/### Concerns\s*\n([\s\S]*?)(?=###|##|$)/i);
+            let concerns = concernsMatch ? concernsMatch[1].trim() : '';
+
+            // Also try alternate formats
+            if (!concerns) {
+              const altMatch = comment.match(/\*\*Concerns:\*\*\s*([\s\S]*?)(?=\*\*|##|$)/i);
+              concerns = altMatch ? altMatch[1].trim() : '';
+            }
+
+            // Extract low scores (anything < 7/10)
+            const scoreMatches = [...comment.matchAll(/(\w+):\s*(\d+)\/10/gi)];
+            const lowScores = scoreMatches
+              .filter(m => parseInt(m[2]) < 7)
+              .map(m => `- ${m[1]}: ${m[2]}/10`);
+
+            // Extract verdict
+            const verdictMatch = comment.match(/Verdict:\s*\*?\*?(\w+)\*?\*?/i);
+            const verdict = verdictMatch ? verdictMatch[1] : 'Unknown';
+
+            // Build summary
+            let summary = '';
+            if (concerns) {
+              summary += '### Concerns from Verification\n\n' + concerns + '\n\n';
+            }
+            if (lowScores.length > 0) {
+              summary += '### Scores Below 7/10\n\n' + lowScores.join('\n') + '\n\n';
+            }
+            if (!summary) {
+              summary = 'No specific concerns extracted from verification report.';
+              summary += '\n\nPlease review the original verification comment for details.';
+            }
+
+            // Set outputs using environment file (handles multi-line content)
+            const fs = require('fs');
+            const envFile = process.env.GITHUB_OUTPUT;
+
+            // Use delimiter for multi-line output
+            const delim = 'EOF_' + Math.random().toString(36).substring(2);
+            const outLine = `concerns_summary<<${delim}\n${summary}\n${delim}\n`;
+            fs.appendFileSync(envFile, outLine);
+
+            core.setOutput('verdict', verdict);
+            core.setOutput('has_concerns', (concerns || lowScores.length > 0) ? 'true' : 'false');
+
+      - name: Create follow-up issue
+        id: create-issue
+        if: steps.check-merged.outputs.merged == 'true'
+        uses: actions/github-script@v8
+        env:
+          VERDICT: ${{ steps.extract.outputs.verdict }}
+          CONCERNS_SUMMARY: ${{ steps.extract.outputs.concerns_summary }}
+        with:
+          script: |
+            const prNumber = context.payload.pull_request.number;
+            const prTitle = context.payload.pull_request.title;
+            const prUrl = context.payload.pull_request.html_url;
+            const concernsSummary = process.env.CONCERNS_SUMMARY || 'No concerns extracted.';
+            const verdict = process.env.VERDICT || 'Unknown';
+
+            const issueBody = [
+              '## Follow-up from PR #' + prNumber,
+              '',
+              'Original PR: [#' + prNumber + ' - ' + prTitle + '](' + prUrl + ')',
+              'Verification Verdict: ' + verdict,
+              '',
+              '---',
+              '',
+              concernsSummary,
+              '',
+              '## Suggested Tasks',
+              '',
+              '- [ ] Review the concerns identified above',
+              '- [ ] Address each issue or document why it is not applicable',
+              '- [ ] Update tests if needed',
+              '- [ ] Consider re-verification after changes',
+              '',
+              '---',
+              '',
+              '## Context',
+              '',
+              'This issue was created from verification feedback on a merged PR.',
+              '',
+              '<details>',
+              '<summary>How to use this issue</summary>',
+              '',
+              '1. Add `agents:optimize` label to get AI-suggested improvements',
+              '2. Add `agents:apply-suggestions` to format for agent work',
+              '3. Add `agent:codex` to assign to an agent',
+              '',
+              'Or work on it manually - the choice is yours!',
+              '',
+              '</details>',
+              '',
+              '---',
+              '*Auto-generated by verify-to-issue workflow*'
+            ].join('\n');
+
+            const issue = await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '[Follow-up] Address verification concerns from PR #' + prNumber,
+              body: issueBody,
+              labels: ['follow-up', 'agents:optimize']
+            });
+
+            core.info('Created issue #' + issue.data.number);
+            core.setOutput('issue_number', issue.data.number);
+            core.setOutput('issue_url', issue.data.html_url);
+
+      - name: Comment on original PR
+        if: steps.check-merged.outputs.merged == 'true'
+        uses: actions/github-script@v8
+        env:
+          ISSUE_NUMBER: ${{ steps.create-issue.outputs.issue_number }}
+        with:
+          script: |
+            const issueNumber = process.env.ISSUE_NUMBER;
+            let body = '📋 Follow-up issue created: #' + issueNumber + '\n\n';
+            body += 'Verification concerns have been captured in the new issue for tracking.';
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              body: body
+            });
+
+      - name: Remove trigger label
+        if: steps.check-merged.outputs.merged == 'true'
+        uses: actions/github-script@v8
+        continue-on-error: true
+        with:
+          script: |
+            try {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number,
+                name: 'verify:create-issue'
+              });
+              core.info('Removed verify:create-issue label');
+            } catch (error) {
+              core.warning('Could not remove label: ' + error.message);
+            }

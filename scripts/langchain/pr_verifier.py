@@ -458,6 +458,14 @@ def _parse_llm_response(content: str, provider: str) -> EvaluationResult:
     )
 
 
+def _is_auth_error(exc: Exception) -> bool:
+    """Check if an exception is an authentication/authorization error."""
+    exc_str = str(exc).lower()
+    # Common auth error patterns from various LLM APIs
+    auth_patterns = ["401", "unauthorized", "forbidden", "403", "permission", "authentication"]
+    return any(pattern in exc_str for pattern in auth_patterns)
+
+
 def evaluate_pr(
     context: str,
     diff: str | None = None,
@@ -484,6 +492,34 @@ def evaluate_pr(
     try:
         response = client.invoke(prompt)
     except Exception as exc:  # pragma: no cover - exercised in integration
+        # If auth error and not explicitly requesting a provider, try fallback
+        if _is_auth_error(exc) and provider is None:
+            fallback_provider = "openai" if "github-models" in provider_name else "github-models"
+            fallback_resolved = _get_llm_client(model=model, provider=fallback_provider)
+            if fallback_resolved is not None:
+                fallback_client, fallback_provider_name = fallback_resolved
+                try:
+                    response = fallback_client.invoke(prompt)
+                    content = getattr(response, "content", None) or str(response)
+                    result = _parse_llm_response(content, fallback_provider_name)
+                    # Add note about fallback
+                    if result.summary:
+                        result = EvaluationResult(
+                            verdict=result.verdict,
+                            scores=result.scores,
+                            concerns=result.concerns,
+                            summary=result.summary,
+                            provider_used=fallback_provider_name,
+                            model=result.model,
+                            used_llm=result.used_llm,
+                            error=f"Primary provider ({provider_name}) failed, used fallback",
+                            raw_content=result.raw_content,
+                        )
+                    return result
+                except Exception as fallback_exc:
+                    return _fallback_evaluation(
+                        f"Primary ({provider_name}): {exc}; Fallback ({fallback_provider_name}): {fallback_exc}"
+                    )
         return _fallback_evaluation(f"LLM invocation failed: {exc}")
 
     content = getattr(response, "content", None) or str(response)

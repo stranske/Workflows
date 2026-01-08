@@ -70,7 +70,16 @@ workflows:
     description: "Verify to issue - creates follow-up issues from verification feedback (Phase 4E)"
 
   - source: .github/workflows/agents-auto-label.yml
-    description: "Auto-label - suggests/applies labels based on semantic matching (Phase 5A)"
+    description: "Auto-label - suggests/applies labels based on semantic matching (Phase 3D)"
+
+  - source: .github/workflows/agents-capability-check.yml
+    description: "Capability check - pre-flight agent feasibility gate (Phase 3A)"
+
+  - source: .github/workflows/agents-decompose.yml
+    description: "Task decomposition - breaks large issues into sub-tasks (Phase 3B)"
+
+  - source: .github/workflows/agents-dedup.yml
+    description: "Duplicate detection - flags similar open issues (Phase 3C)"
 
   - source: .github/workflows/agents-guard.yml
     description: "Agents guard - enforces agents workflow protections (Health 45)"

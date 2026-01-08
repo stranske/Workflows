@@ -1,0 +1,195 @@
+name: Task Decomposition
+
+# Decomposes large issues into smaller, actionable sub-tasks
+# Uses task_decomposer.py for intelligent task splitting
+
+on:
+  issues:
+    types: [labeled]
+
+permissions:
+  contents: read
+  issues: write
+  models: read
+
+jobs:
+  decompose:
+    runs-on: ubuntu-latest
+    # Trigger when agents:decompose label is added
+    if: github.event.label.name == 'agents:decompose'
+
+    steps:
+      - name: Checkout Workflows repo
+        uses: actions/checkout@v6
+        with:
+          repository: stranske/Workflows
+          path: workflows-repo
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          cd workflows-repo
+          pip install -e ".[langchain]" --quiet
+
+      - name: Extract issue content
+        id: extract
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const body = issue.body || '';
+            const title = issue.title || '';
+
+            // Extract Tasks section
+            const tasksMatch = body.match(/## Tasks\s*\n([\s\S]*?)(?=##|$)/i);
+            const tasks = tasksMatch ? tasksMatch[1].trim() : '';
+
+            // Extract Scope section
+            const scopeMatch = body.match(/## Scope\s*\n([\s\S]*?)(?=##|$)/i);
+            const scope = scopeMatch ? scopeMatch[1].trim() : '';
+
+            // Build context for decomposition
+            const context_text = [
+              `# ${title}`,
+              '',
+              scope ? `## Scope\n${scope}` : '',
+              '',
+              tasks ? `## Current Tasks\n${tasks}` : 'No tasks defined'
+            ].filter(Boolean).join('\n');
+
+            const fs = require('fs');
+            fs.writeFileSync('issue_context.md', context_text);
+
+            core.setOutput('issue_title', title);
+            core.setOutput('has_tasks', tasks ? 'true' : 'false');
+
+      - name: Decompose tasks
+        id: decompose
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          PYTHONPATH: ${{ github.workspace }}/workflows-repo
+        run: |
+          cd workflows-repo
+          python -c "
+          import json
+          import os
+          import sys
+          sys.path.insert(0, '.')
+
+          from scripts.langchain.task_decomposer import decompose_task
+
+          # Read issue context
+          context = open('../issue_context.md').read()
+
+          # Decompose the task
+          result = decompose_task(context)
+
+          if result is None:
+              print('::warning::Could not decompose task (LLM unavailable)')
+              with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+                  f.write('decompose_failed=true\n')
+              sys.exit(0)
+
+          # Output results
+          subtasks = result.get('subtasks', [])
+
+          # Build markdown list
+          subtask_md = '\n'.join([f'- [ ] {t}' for t in subtasks])
+
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write('decompose_failed=false\n')
+              f.write(f'subtask_count={len(subtasks)}\n')
+
+          # Write subtasks to file for multiline handling
+          with open('../subtasks.md', 'w') as f:
+              f.write(subtask_md)
+
+          print(f'Generated {len(subtasks)} subtasks')
+          for t in subtasks:
+              print(f'  - {t}')
+          "
+
+      - name: Post decomposition comment
+        if: steps.decompose.outputs.decompose_failed != 'true'
+        uses: actions/github-script@v8
+        env:
+          SUBTASK_COUNT: ${{ steps.decompose.outputs.subtask_count }}
+        with:
+          script: |
+            const fs = require('fs');
+            const subtasks = fs.readFileSync('subtasks.md', 'utf8');
+            const count = parseInt(process.env.SUBTASK_COUNT || '0');
+
+            if (count === 0) {
+              core.info('No subtasks generated');
+              return;
+            }
+
+            let body = `### 📋 Task Decomposition\n\n`;
+            body += `This issue has been analyzed and broken down into **${count} sub-tasks**.\n\n`;
+            body += `**Suggested Sub-Tasks:**\n\n`;
+            body += subtasks + '\n\n';
+            body += `<details>\n<summary>How to use these sub-tasks</summary>\n\n`;
+            body += `**Option 1: Update this issue**\n`;
+            body += `Copy the sub-tasks above and `;
+            body += `replace the Tasks section in the issue body.\n\n`;
+            body += `**Option 2: Create child issues**\n`;
+            body += `For larger efforts, create a separate issue `;
+            body += `for each sub-task and link them here.\n\n`;
+            body += `**Option 3: Use as-is**\n`;
+            body += `Work through the sub-tasks sequentially, `;
+            body += `checking off as you complete each one.\n`;
+            body += `</details>\n\n`;
+            body += `---\n*Auto-generated by task decomposer*`;
+
+            // Check for existing comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              per_page: 50
+            });
+
+            const existingComment = comments.find(c =>
+              c.body.includes('### 📋 Task Decomposition')
+            );
+
+            if (existingComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existingComment.id,
+                body: body
+              });
+              core.info('Updated existing decomposition comment');
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body
+              });
+              core.info('Posted decomposition comment');
+            }
+
+      - name: Remove trigger label
+        uses: actions/github-script@v8
+        continue-on-error: true
+        with:
+          script: |
+            try {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                name: 'agents:decompose'
+              });
+              core.info('Removed agents:decompose label');
+            } catch (error) {
+              core.warning('Could not remove label: ' + error.message);
+            }

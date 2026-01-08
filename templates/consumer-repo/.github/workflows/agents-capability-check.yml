@@ -1,0 +1,215 @@
+name: Capability Check
+
+# Pre-flight check before agent assignment to identify blockers
+# Uses capability_check.py to detect issues agents cannot complete
+
+on:
+  issues:
+    types: [labeled]
+
+permissions:
+  contents: read
+  issues: write
+  models: read
+
+jobs:
+  capability-check:
+    runs-on: ubuntu-latest
+    # Trigger when agent:codex is added (pre-agent gate)
+    if: github.event.label.name == 'agent:codex'
+
+    steps:
+      - name: Checkout Workflows repo
+        uses: actions/checkout@v6
+        with:
+          repository: stranske/Workflows
+          path: workflows-repo
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          cd workflows-repo
+          pip install -e ".[langchain]" --quiet
+
+      - name: Extract issue content
+        id: extract
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const body = issue.body || '';
+
+            // Extract Tasks section
+            const tasksMatch = body.match(/## Tasks\s*\n([\s\S]*?)(?=##|$)/i);
+            const tasks = tasksMatch ? tasksMatch[1].trim() : '';
+
+            // Extract Acceptance Criteria section
+            const acceptanceMatch = body.match(/## Acceptance [Cc]riteria\s*\n([\s\S]*?)(?=##|$)/i);
+            const acceptance = acceptanceMatch ? acceptanceMatch[1].trim() : '';
+
+            // Write to files for Python script
+            const fs = require('fs');
+            fs.writeFileSync('tasks.md', tasks || 'No tasks defined');
+            fs.writeFileSync('acceptance.md', acceptance || 'No acceptance criteria defined');
+
+            core.setOutput('has_tasks', tasks ? 'true' : 'false');
+            core.setOutput('has_acceptance', acceptance ? 'true' : 'false');
+
+      - name: Run capability check
+        id: check
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          PYTHONPATH: ${{ github.workspace }}/workflows-repo
+        run: |
+          cd workflows-repo
+          python -c "
+          import json
+          import os
+          import sys
+          sys.path.insert(0, '.')
+
+          from scripts.langchain.capability_check import check_capability
+
+          # Read extracted content
+          tasks = open('../tasks.md').read()
+          acceptance = open('../acceptance.md').read()
+
+          # Run capability check
+          result = check_capability(tasks, acceptance)
+
+          if result is None:
+              print('::warning::Could not run capability check (LLM unavailable)')
+              with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+                  f.write('check_failed=true\n')
+              sys.exit(0)
+
+          # Output results
+          result_dict = result.to_dict()
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write('check_failed=false\n')
+              f.write(f'recommendation={result.recommendation}\n')
+              f.write(f'blocked_count={len(result.blocked_tasks)}\n')
+              f.write(f'partial_count={len(result.partial_tasks)}\n')
+              f.write(f'result_json={json.dumps(result_dict)}\n')
+
+          print(f'Recommendation: {result.recommendation}')
+          print(f'Blocked tasks: {len(result.blocked_tasks)}')
+          print(f'Partial tasks: {len(result.partial_tasks)}')
+          print(f'Actionable tasks: {len(result.actionable_tasks)}')
+          "
+
+      - name: Add needs-human label if blocked
+        if: steps.check.outputs.recommendation == 'BLOCKED'
+        uses: actions/github-script@v8
+        with:
+          script: |
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              labels: ['needs-human']
+            });
+
+            // Remove agent:codex since agent can't complete this
+            try {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                name: 'agent:codex'
+              });
+            } catch (e) {
+              core.warning('Could not remove agent:codex label');
+            }
+
+      - name: Post capability report
+        if: steps.check.outputs.check_failed != 'true'
+        uses: actions/github-script@v8
+        env:
+          RESULT_JSON: ${{ steps.check.outputs.result_json }}
+          RECOMMENDATION: ${{ steps.check.outputs.recommendation }}
+        with:
+          script: |
+            const result = JSON.parse(process.env.RESULT_JSON || '{}');
+            const recommendation = process.env.RECOMMENDATION || 'UNKNOWN';
+
+            let emoji = '✅';
+            let status = 'Agent can proceed';
+            if (recommendation === 'BLOCKED') {
+              emoji = '🚫';
+              status = 'Agent cannot complete this issue';
+            } else if (recommendation === 'REVIEW_NEEDED') {
+              emoji = '⚠️';
+              status = 'Some tasks may need human assistance';
+            }
+
+            let body = `### ${emoji} Capability Check: ${status}\n\n`;
+            body += `**Recommendation:** ${recommendation}\n\n`;
+
+            if (result.actionable_tasks && result.actionable_tasks.length > 0) {
+              body += `**✅ Actionable Tasks (${result.actionable_tasks.length}):**\n`;
+              result.actionable_tasks.forEach(t => { body += `- ${t}\n`; });
+              body += '\n';
+            }
+
+            if (result.partial_tasks && result.partial_tasks.length > 0) {
+              body += `**⚠️ Partial Tasks (${result.partial_tasks.length}):**\n`;
+              result.partial_tasks.forEach(t => {
+                body += `- ${t.task}\n  - *Limitation:* ${t.limitation}\n`;
+              });
+              body += '\n';
+            }
+
+            if (result.blocked_tasks && result.blocked_tasks.length > 0) {
+              body += `**🚫 Blocked Tasks (${result.blocked_tasks.length}):**\n`;
+              result.blocked_tasks.forEach(t => {
+                body += `- ${t.task}\n  - *Reason:* ${t.reason}\n`;
+                if (t.suggested_action) {
+                  body += `  - *Suggested Action:* ${t.suggested_action}\n`;
+                }
+              });
+              body += '\n';
+            }
+
+            if (result.human_actions_needed && result.human_actions_needed.length > 0) {
+              body += `**👤 Human Actions Needed:**\n`;
+              result.human_actions_needed.forEach(a => { body += `- ${a}\n`; });
+              body += '\n';
+            }
+
+            body += `---\n*Auto-generated by capability check*`;
+
+            // Check for existing comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              per_page: 50
+            });
+
+            const existingComment = comments.find(c =>
+              c.body.includes('### ✅ Capability Check') ||
+              c.body.includes('### ⚠️ Capability Check') ||
+              c.body.includes('### 🚫 Capability Check')
+            );
+
+            if (existingComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existingComment.id,
+                body: body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body
+              });
+            }

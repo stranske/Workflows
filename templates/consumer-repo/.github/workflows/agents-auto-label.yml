@@ -1,0 +1,265 @@
+name: Auto-Label Issues
+
+# Suggests or applies labels to new issues based on semantic matching
+# Uses label_matcher.py for embedding-based similarity
+
+on:
+  issues:
+    types: [opened, edited]
+
+permissions:
+  contents: read
+  issues: write
+
+env:
+  # Threshold for auto-applying labels (very high confidence)
+  AUTO_APPLY_THRESHOLD: "0.90"
+  # Threshold for suggesting labels (lower, for comments)
+  SUGGEST_THRESHOLD: "0.75"
+
+jobs:
+  auto-label:
+    runs-on: ubuntu-latest
+    # Skip if issue already has agent-related labels
+    if: |
+      !contains(github.event.issue.labels.*.name, 'agents:formatted') &&
+      !contains(github.event.issue.labels.*.name, 'agent:codex') &&
+      !contains(github.event.issue.labels.*.name, 'automated')
+
+    steps:
+      - name: Checkout Workflows repo
+        uses: actions/checkout@v6
+        with:
+          repository: stranske/Workflows
+          path: workflows-repo
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          cd workflows-repo
+          pip install -e ".[langchain]" --quiet
+
+      - name: Get repo labels
+        id: get-labels
+        uses: actions/github-script@v8
+        with:
+          script: |
+            // Paginate to get all labels (handles repos with >100 labels)
+            const labels = await github.paginate(
+              github.rest.issues.listLabelsForRepo,
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                per_page: 100
+              }
+            );
+
+            const labelData = labels.map(l => ({
+              name: l.name,
+              description: l.description || ''
+            }));
+
+            core.setOutput('labels_json', JSON.stringify(labelData));
+            core.info(`Found ${labels.length} labels in repo`);
+
+      - name: Match labels
+        id: match
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          LABELS_JSON: ${{ steps.get-labels.outputs.labels_json }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: |
+          cd workflows-repo
+          python3 << 'PYTHON_SCRIPT'
+          import json
+          import os
+          import sys
+
+          # Add scripts to path
+          sys.path.insert(0, '.')
+
+          from scripts.langchain.label_matcher import (
+              build_label_vector_store,
+              find_similar_labels,
+              LabelRecord,
+          )
+
+          # Get issue content
+          issue_title = os.environ.get('ISSUE_TITLE', '')
+          issue_body = os.environ.get('ISSUE_BODY', '')
+          query = f"{issue_title}\n\n{issue_body}"
+
+          # Get thresholds
+          auto_threshold = float(os.environ.get('AUTO_APPLY_THRESHOLD', '0.90'))
+          suggest_threshold = float(os.environ.get('SUGGEST_THRESHOLD', '0.75'))
+
+          # Parse labels
+          labels_json = os.environ.get('LABELS_JSON', '[]')
+          labels = json.loads(labels_json)
+
+          if not labels:
+              print("No labels found in repo")
+              with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+                  f.write('has_suggestions=false\n')
+              sys.exit(0)
+
+          # Build vector store
+          label_records = [
+              LabelRecord(name=l['name'], description=l['description'])
+              for l in labels
+          ]
+          store = build_label_vector_store(label_records)
+
+          if store is None:
+              print("Could not build label vector store (missing embeddings)")
+              with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+                  f.write('has_suggestions=false\n')
+              sys.exit(0)
+
+          # Find matches
+          matches = find_similar_labels(store, query, threshold=suggest_threshold, k=5)
+
+          if not matches:
+              print("No label matches found above threshold")
+              with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+                  f.write('has_suggestions=false\n')
+              sys.exit(0)
+
+          # Separate auto-apply from suggestions
+          auto_apply = [m for m in matches if m.score >= auto_threshold]
+          suggestions = [m for m in matches if suggest_threshold <= m.score < auto_threshold]
+
+          print(f"Auto-apply labels ({auto_threshold}+ confidence):")
+          for m in auto_apply:
+              print(f"  - {m.label.name}: {m.score:.2%}")
+
+          print(f"Suggested labels ({suggest_threshold}-{auto_threshold} confidence):")
+          for m in suggestions:
+              print(f"  - {m.label.name}: {m.score:.2%}")
+
+          # Output results
+          auto_labels = json.dumps([m.label.name for m in auto_apply])
+          suggest_json = json.dumps([
+              {'name': m.label.name, 'score': f'{m.score:.0%}'}
+              for m in suggestions
+          ])
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write('has_suggestions=true\n')
+              f.write(f'auto_apply_labels={auto_labels}\n')
+              f.write(f'suggested_labels={suggest_json}\n')
+
+          PYTHON_SCRIPT
+
+      - name: Apply high-confidence labels
+        if: |
+          steps.match.outputs.has_suggestions == 'true' &&
+          steps.match.outputs.auto_apply_labels != '[]'
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const autoApplyLabels = JSON.parse('${{ steps.match.outputs.auto_apply_labels }}');
+
+            if (autoApplyLabels.length === 0) {
+              core.info('No labels to auto-apply');
+              return;
+            }
+
+            // Get current labels
+            const { data: issue } = await github.rest.issues.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number
+            });
+
+            const currentLabels = issue.labels.map(l => l.name);
+            const newLabels = autoApplyLabels.filter(l => !currentLabels.includes(l));
+
+            if (newLabels.length === 0) {
+              core.info('All suggested labels already present');
+              return;
+            }
+
+            // Add labels
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              labels: newLabels
+            });
+
+            core.info(`Applied labels: ${newLabels.join(', ')}`);
+
+      - name: Post suggestion comment
+        if: |
+          steps.match.outputs.has_suggestions == 'true' &&
+          steps.match.outputs.suggested_labels != '[]'
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const suggestedLabels = JSON.parse('${{ steps.match.outputs.suggested_labels }}');
+            const autoApplied = JSON.parse('${{ steps.match.outputs.auto_apply_labels }}');
+
+            if (suggestedLabels.length === 0) {
+              core.info('No suggestions to post');
+              return;
+            }
+
+            // Build suggestion list
+            const suggestions = suggestedLabels
+              .map(l => `- \`${l.name}\` (${l.score} confidence)`)
+              .join('\n');
+
+            let body = `### 🏷️ Label Suggestions\n\n`;
+            body += `Based on the issue content, these labels might be relevant:\n\n`;
+            body += `${suggestions}\n\n`;
+
+            if (autoApplied.length > 0) {
+              const appliedStr = autoApplied.map(l => `\`${l}\``).join(', ');
+              body += `**Auto-applied:** ${appliedStr}\n\n`;
+            }
+
+            body += `<details>\n<summary>How to use these suggestions</summary>\n\n`;
+            body += `- Click the label name in the sidebar to add it\n`;
+            const ghCmd = `gh issue edit ${context.issue.number} --add-label "label-name"`;
+            body += `- Or use the GitHub CLI: \`${ghCmd}\`\n`;
+            body += `</details>\n\n`;
+            body += `---\n*Auto-generated by label matcher*`;
+
+            // Check for existing suggestion comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              per_page: 30
+            });
+
+            const existingComment = comments.find(c =>
+              c.body.includes('### 🏷️ Label Suggestions') &&
+              c.user.type === 'Bot'
+            );
+
+            if (existingComment) {
+              // Update existing comment
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existingComment.id,
+                body: body
+              });
+              core.info('Updated existing suggestion comment');
+            } else {
+              // Create new comment
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body
+              });
+              core.info('Posted label suggestions');
+            }
