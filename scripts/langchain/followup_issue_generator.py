@@ -32,111 +32,198 @@ from pathlib import Path
 from typing import Any
 
 # Prompts for multi-round LLM interaction
+# NOTE: We use a reasoning model (o1/o3-mini) for ANALYZE_VERIFICATION_PROMPT
+# because this step requires deep analysis to produce useful follow-up tasks.
+
 ANALYZE_VERIFICATION_PROMPT = """
-You are analyzing verification feedback from a code review to understand what went wrong.
+You are a senior engineer analyzing why a coding agent's work didn't fully meet acceptance criteria.
+Your analysis will be used to create a follow-up issue for another agent attempt.
 
-## Verification Data
-Provider verdicts: {provider_verdicts}
-Concerns raised: {concerns}
-Low scores: {low_scores}
+## Critical Distinction
+Your analysis should separate:
+1. **Actionable tasks** - concrete code changes an agent can make
+2. **Planning artifacts** - insights useful for you to reason but NOT included in the final issue
 
-## Original Issue Acceptance Criteria
+## Verification Feedback
+{provider_verdicts}
+
+## Specific Concerns Raised by Verifiers
+{concerns}
+
+## Low Scores (areas needing improvement)
+{low_scores}
+
+## Original Acceptance Criteria (from the issue the agent worked on)
 {original_acceptance_criteria}
 
-## Agent Execution Summary
-Iterations: {iteration_count}
-Tasks attempted: {tasks_attempted}
-Tasks completed: {tasks_completed}
-Non-actionable items encountered: {non_actionable_items}
+## Agent Execution History
+- Iterations run: {iteration_count}
+- Tasks attempted: {tasks_attempted}
+- Tasks completed: {tasks_completed}
+- Items the agent couldn't make progress on: {non_actionable_items}
 
-Analyze and output JSON:
+## Previous Iteration Details (if useful)
+{iteration_details}
+
+## Your Task
+Analyze what went wrong and what SPECIFICALLY needs to change. Focus on:
+
+1. **Which original acceptance criteria are actually still unmet?**
+   - Don't assume all criteria need rework. Only include criteria that the verification shows are genuinely incomplete.
+   - Rewrite criteria that were unclear or unmeasurable as clear, testable statements.
+
+2. **What concrete code changes are needed?**
+   - Convert verification concerns into specific tasks (add test X, fix function Y, update config Z)
+   - Verification concerns are NOT tasks themselves - they describe problems, not solutions
+   - Each task must be something a coding agent can complete in code
+
+3. **Did previous iterations reveal blockers the next agent should avoid?**
+   - Only include if there's specific, detailed information about what didn't work and why
+   - "Iteration 3 failed" is NOT useful. "Iteration 3 attempted X approach but failed because Y, so try Z instead" IS useful
+
+Output JSON:
 {{
-  "unmet_criteria": [
-    {{"criterion": "...", "status": "achievable|impossible|problematic", "reason": "...", "fix_suggestion": "..."}}
+  "rewritten_acceptance_criteria": [
+    {{"original": "...", "rewritten": "...", "why_changed": "..."}}
   ],
-  "key_concerns": [
-    {{"concern": "...", "root_cause": "...", "actionable_fix": "..."}}
+  "concrete_tasks": [
+    {{"task": "...", "why_needed": "...", "estimated_complexity": "small|medium|large"}}
   ],
-  "structural_issues": [
-    {{"issue": "...", "impact": "...", "prevention": "..."}}
+  "blockers_to_avoid": [
+    {{"what_failed": "...", "why_it_failed": "...", "what_to_try_instead": "..."}}
   ],
-  "recommended_focus": ["Top 3-5 items to address first"],
-  "should_defer": ["Items to defer to separate issue"]
+  "items_requiring_human_action": [
+    {{"item": "...", "why_human_needed": "..."}}
+  ]
 }}
 """.strip()
 
 GENERATE_TASKS_PROMPT = """
-Based on this analysis, generate specific, actionable tasks for a follow-up issue.
+Convert the analysis into a final task list for the follow-up issue.
 
 ## Analysis Results
 {analysis_json}
 
-## Original Tasks (for reference)
+## Original Tasks (for context only - do NOT copy these directly)
 {original_tasks}
 
-## Guidelines
-- Each task must be completable by an automated coding agent
-- Size tasks for agent work: specific enough to complete in one iteration (not "fix everything")
-- Use action verbs: "Add", "Implement", "Fix", "Update"
-- Include file paths when known
-- Do NOT include tasks that require external credentials, manual UI testing, or infrastructure changes
+## Critical Guidelines
+
+**Tasks MUST be:**
+- Concrete code changes: "Add test for X", "Implement Y in file Z", "Fix bug where A happens"
+- Completable by an automated coding agent (no manual steps, no external services, no UI testing)
+- Sized appropriately: not too big ("fix everything") or too small ("add a comma")
+
+**Tasks MUST NOT be:**
+- Verification concerns restated as tasks (e.g., "The safety rules section is incomplete" is NOT a task)
+- Original acceptance criteria restated as tasks
+- Vague actions like "improve", "ensure", "address concerns about"
+
+**Deferred items:** Anything requiring credentials, external APIs, manual testing, or human decisions
 
 Output JSON:
 {{
   "tasks": [
-    {{"task": "...", "priority": "high|medium|low", "estimated_minutes": 15, "files_likely_affected": ["..."]}}
+    {{"task": "...", "why": "...", "files_affected": ["..."]}}
   ],
-  "deferred_tasks": [
-    {{"task": "...", "reason": "...", "suggested_approach": "..."}}
+  "deferred": [
+    {{"item": "...", "reason_deferred": "..."}}
   ]
 }}
 """.strip()
 
 GENERATE_ACCEPTANCE_CRITERIA_PROMPT = """
-Generate testable acceptance criteria for the follow-up issue.
+Generate SPECIFIC, TESTABLE acceptance criteria for the follow-up issue.
 
-## Tasks to Complete
+## Tasks That Will Be Completed
 {tasks_json}
 
-## Original Unmet Acceptance Criteria
+## Original Acceptance Criteria (rewritten/refined)
 {unmet_criteria}
 
-## Guidelines
-- Each criterion must be objectively verifiable
-- Include specific values, file paths, or behaviors where possible
-- Avoid subjective terms like "clean", "fast", "intuitive"
-- Format: "- [ ] [Specific testable condition]"
+## Critical Requirements
+
+**Each criterion MUST be:**
+- Objectively verifiable by an automated system or code review
+- Specific enough to pass/fail without subjective judgment
+- Tied to a concrete task or original requirement
+
+**GOOD acceptance criteria examples:**
+- "The `calculateTax()` function returns correct values for all test cases in `test_tax.py`"
+- "All Python files pass `ruff check` with no errors"
+- "The README.md contains installation instructions with at least 3 steps"
+- "API endpoint `/users/{id}` returns 404 status code when user doesn't exist"
+
+**BAD acceptance criteria (NEVER write these):**
+- "All verification concerns are addressed" (not specific)
+- "Code quality is improved" (subjective)
+- "Tests pass" (too vague - which tests?)
+- "Documentation is updated" (not testable - updated how?)
 
 Output JSON:
 {{
   "acceptance_criteria": [
-    {{"criterion": "...", "verification_method": "..."}}
+    {{
+      "criterion": "[Specific testable condition]",
+      "verification_method": "[How to verify: run command X, check file Y, etc.]",
+      "related_task": "[Which task this validates]"
+    }}
   ]
 }}
 """.strip()
 
 FORMAT_FOLLOWUP_ISSUE_PROMPT = """
-Format the final follow-up issue in AGENT_ISSUE_TEMPLATE format.
+Format the final follow-up issue for a coding agent to work on.
 
 ## Context
 Original PR: #{pr_number}
 Original Issue: #{original_issue_number}
 Verification Verdict: {verdict}
 
-## Generated Content
-Why: {why_section}
+## Content to Include
+Why Section: {why_section}
 Tasks: {tasks_json}
 Acceptance Criteria: {acceptance_criteria_json}
-Deferred Tasks: {deferred_tasks_json}
-Background Analysis: {background_analysis}
+Deferred Items: {deferred_tasks_json}
+Background (failures to avoid): {background_analysis}
 
-## Guidelines
-- Put background/historical context in a collapsible <details> section at the end
-- Lead with the actionable content (Why, Tasks, Acceptance Criteria)
-- Keep the main body focused on what the agent needs to do
-- Include Implementation Notes if specific files/approaches are known
+## Issue Structure
 
-Output the complete markdown issue body (not JSON).
+Use this exact structure:
+
+```markdown
+## Why
+[Brief explanation of what needs to happen and why]
+
+## Tasks
+- [ ] Task 1
+- [ ] Task 2
+...
+
+## Acceptance Criteria
+- [ ] Criterion 1
+- [ ] Criterion 2
+...
+
+## Implementation Notes
+[Specific guidance about files, approaches, or patterns to use]
+
+<details>
+<summary>Background (previous attempt context)</summary>
+
+[Only include if there are specific failures to avoid. Do NOT include generic iteration summaries.]
+
+</details>
+```
+
+## Critical Rules
+1. Do NOT include "Remaining Unchecked Items" or "Iteration Details" sections unless they contain specific, useful failure context
+2. Tasks should be concrete actions, not verification concerns restated
+3. Acceptance criteria must be testable (not "all concerns addressed")
+4. Keep the main body focused - hide background/history in the collapsible section
+5. Do NOT include the entire analysis object - only include specific failure contexts from `blockers_to_avoid`
+
+Output the complete markdown issue body.
 """.strip()
 
 
@@ -314,8 +401,13 @@ def extract_original_issue_data(
     return data
 
 
-def _get_llm_client() -> tuple[Any, str] | None:
-    """Get LLM client with fallback."""
+def _get_llm_client(reasoning: bool = False) -> tuple[Any, str] | None:
+    """Get LLM client with fallback.
+
+    Args:
+        reasoning: If True, use a reasoning model (o3-mini) for complex analysis.
+                   If False, use standard model (gpt-4o) for formatting tasks.
+    """
     try:
         from langchain_openai import ChatOpenAI
 
@@ -323,9 +415,22 @@ def _get_llm_client() -> tuple[Any, str] | None:
     except ImportError:
         return None
 
+    # Select model based on task type
+    # Reasoning models (o3-mini) are better for deep analysis and understanding
+    # Standard models (gpt-4o) are better for formatting and generation
+    if reasoning:
+        default_model = "o3-mini"
+        env_var = "FOLLOWUP_REASONING_MODEL"
+    else:
+        default_model = "gpt-4o"
+        env_var = "FOLLOWUP_MODEL"
+
     # Prefer OpenAI for complex multi-turn generation
     if os.environ.get("OPENAI_API_KEY"):
-        model = os.environ.get("FOLLOWUP_MODEL", "gpt-4o")
+        model = os.environ.get(env_var, default_model)
+        # Reasoning models don't support temperature parameter
+        if model.startswith(("o1", "o3")):
+            return ChatOpenAI(model=model, timeout=60), model
         return ChatOpenAI(model=model, temperature=0.3, timeout=30), model
 
     # Fall back to GitHub Models
@@ -342,6 +447,60 @@ def _get_llm_client() -> tuple[Any, str] | None:
         )
 
     return None
+
+
+def _prepare_iteration_details(codex_log: str) -> str:
+    """Filter iteration details to only include useful failure information.
+
+    We only want to include information that helps the next agent avoid mistakes.
+    Information about successful iterations is not useful - we don't need to know
+    what worked, only what failed and why.
+
+    Returns filtered iteration details or a message indicating no useful details.
+    """
+    if not codex_log:
+        return "No previous iteration details available."
+
+    # Look for failure patterns in the log
+    useful_patterns = [
+        "error",
+        "failed",
+        "exception",
+        "timeout",
+        "could not",
+        "unable to",
+        "blocked by",
+        "missing",
+        "not found",
+        "rejected",
+        "invalid",
+    ]
+
+    lines = codex_log.split("\n")
+    useful_lines = []
+
+    for i, line in enumerate(lines):
+        line_lower = line.lower()
+        # Include lines with failure indicators and some context
+        if any(pattern in line_lower for pattern in useful_patterns):
+            # Include 2 lines before and after for context
+            start = max(0, i - 2)
+            end = min(len(lines), i + 3)
+            context_block = "\n".join(lines[start:end])
+            if context_block not in useful_lines:
+                useful_lines.append(context_block)
+
+    if not useful_lines:
+        return "Previous iterations completed without recorded failures. No specific blockers to avoid."
+
+    # Deduplicate and limit length
+    unique_blocks = list(dict.fromkeys(useful_lines))[:5]  # Max 5 failure contexts
+
+    result = "**Relevant failure contexts from previous iterations:**\n\n"
+    for block in unique_blocks:
+        result += f"```\n{block.strip()}\n```\n\n"
+
+    return result.strip()
 
 
 def _invoke_llm(prompt: str, client: Any) -> str:
@@ -384,17 +543,26 @@ def generate_followup_issue(
     Generate a properly structured follow-up issue.
 
     This uses multiple LLM rounds:
-    1. Analyze verification feedback + original issue to understand gaps
+    1. Analyze verification feedback + original issue to understand gaps (reasoning model)
     2. Generate specific, actionable tasks
     3. Generate testable acceptance criteria
     4. Format the final issue
     """
-    client_info = _get_llm_client() if use_llm else None
+    # Get reasoning model for analysis (o3-mini)
+    reasoning_client_info = _get_llm_client(reasoning=True) if use_llm else None
+    # Get standard model for formatting (gpt-4o)
+    standard_client_info = _get_llm_client(reasoning=False) if use_llm else None
 
-    if client_info and use_llm:
-        client, model = client_info
+    if reasoning_client_info and standard_client_info and use_llm:
         return _generate_with_llm(
-            verification_data, original_issue, pr_number, codex_log, client, model
+            verification_data,
+            original_issue,
+            pr_number,
+            codex_log,
+            reasoning_client=reasoning_client_info[0],
+            reasoning_model=reasoning_client_info[1],
+            standard_client=standard_client_info[0],
+            standard_model=standard_client_info[1],
         )
     else:
         return _generate_without_llm(verification_data, original_issue, pr_number)
@@ -405,12 +573,24 @@ def _generate_with_llm(
     original_issue: OriginalIssueData,
     pr_number: int,
     codex_log: str | None,
-    client: Any,
-    model: str,
+    reasoning_client: Any,
+    reasoning_model: str,
+    standard_client: Any,
+    standard_model: str,
 ) -> FollowupIssue:
-    """Generate follow-up issue using multi-round LLM interaction."""
+    """Generate follow-up issue using multi-round LLM interaction.
 
-    # Round 1: Analyze verification feedback
+    Uses reasoning model (o3-mini) for analysis, standard model (gpt-4o) for formatting.
+    """
+
+    # Prepare iteration details - only include if there's useful failure information
+    iteration_details = (
+        _prepare_iteration_details(codex_log)
+        if codex_log
+        else "No previous iteration details available."
+    )
+
+    # Round 1: Analyze verification feedback (use REASONING model for deep analysis)
     analyze_prompt = ANALYZE_VERIFICATION_PROMPT.format(
         provider_verdicts=json.dumps(verification_data.provider_verdicts, indent=2),
         concerns="\n".join(f"- {c}" for c in verification_data.concerns),
@@ -424,12 +604,13 @@ def _generate_with_llm(
         non_actionable_items="\n".join(
             f"- {item}" for item in verification_data.non_actionable_items
         ),
+        iteration_details=iteration_details,
     )
 
-    analysis_response = _invoke_llm(analyze_prompt, client)
+    analysis_response = _invoke_llm(analyze_prompt, reasoning_client)
     analysis = _extract_json(analysis_response)
 
-    # Round 2: Generate tasks
+    # Round 2: Generate tasks (use standard model - straightforward task)
     tasks_prompt = GENERATE_TASKS_PROMPT.format(
         analysis_json=json.dumps(analysis, indent=2),
         original_tasks="\n".join(
@@ -437,19 +618,19 @@ def _generate_with_llm(
         ),  # Limit for token budget
     )
 
-    tasks_response = _invoke_llm(tasks_prompt, client)
+    tasks_response = _invoke_llm(tasks_prompt, standard_client)
     tasks_data = _extract_json(tasks_response)
 
-    # Round 3: Generate acceptance criteria
+    # Round 3: Generate acceptance criteria (use standard model)
     ac_prompt = GENERATE_ACCEPTANCE_CRITERIA_PROMPT.format(
         tasks_json=json.dumps(tasks_data.get("tasks", []), indent=2),
-        unmet_criteria=json.dumps(analysis.get("unmet_criteria", []), indent=2),
+        unmet_criteria=json.dumps(analysis.get("rewritten_acceptance_criteria", []), indent=2),
     )
 
-    ac_response = _invoke_llm(ac_prompt, client)
+    ac_response = _invoke_llm(ac_prompt, standard_client)
     ac_data = _extract_json(ac_response)
 
-    # Round 4: Format final issue
+    # Round 4: Format final issue (use standard model)
     why_section = _build_why_section(verification_data, original_issue, pr_number)
 
     format_prompt = FORMAT_FOLLOWUP_ISSUE_PROMPT.format(
@@ -459,22 +640,25 @@ def _generate_with_llm(
         why_section=why_section,
         tasks_json=json.dumps(tasks_data.get("tasks", []), indent=2),
         acceptance_criteria_json=json.dumps(ac_data.get("acceptance_criteria", []), indent=2),
-        deferred_tasks_json=json.dumps(tasks_data.get("deferred_tasks", []), indent=2),
+        deferred_tasks_json=json.dumps(tasks_data.get("deferred", []), indent=2),
         background_analysis=json.dumps(
             {
                 "structural_issues": verification_data.structural_issues,
-                "analysis": analysis,
+                "blockers_to_avoid": analysis.get("blockers_to_avoid", []),
             },
             indent=2,
         ),
     )
 
-    issue_body = _invoke_llm(format_prompt, client)
+    issue_body = _invoke_llm(format_prompt, standard_client)
 
-    # Generate title
-    focus_items = analysis.get("recommended_focus", [])
-    title_focus = focus_items[0] if focus_items else "verification concerns"
-    title = f"[Follow-up] {title_focus[:60]} (PR #{pr_number})"
+    # Generate title from concrete tasks
+    concrete_tasks = analysis.get("concrete_tasks", [])
+    if concrete_tasks:
+        title_focus = concrete_tasks[0].get("task", "verification concerns")[:50]
+    else:
+        title_focus = "verification concerns"
+    title = f"[Follow-up] {title_focus} (PR #{pr_number})"
 
     return FollowupIssue(
         title=title,
