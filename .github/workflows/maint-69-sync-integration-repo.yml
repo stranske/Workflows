@@ -110,8 +110,8 @@ jobs:
           # Regenerate requirements.lock to match updated autofix-versions.env
           if [ -f "pyproject.toml" ]; then
             echo "🔄 Regenerating requirements.lock with updated tool versions..."
-            uv pip compile pyproject.toml \
-              --extra test --extra dev --universal --upgrade \
+            uv pip compile --upgrade pyproject.toml \
+              --extra test --extra dev --universal \
               --output-file requirements.lock
             echo "✅ Updated requirements.lock"
           fi
