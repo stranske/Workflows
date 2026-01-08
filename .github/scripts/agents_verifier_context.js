@@ -446,9 +446,10 @@ async function buildVerifierContext({ github, context, core, ciWorkflows }) {
     targetShas: ciTargetShas,
     workflows,
   });
-  content.push('## CI Verification');
+  content.push('## CI Information (Reference Only)');
   content.push('');
-  content.push('Use these CI results to verify test-related criteria; do not rerun test suites locally.');
+  content.push('**Note:** This verification runs post-merge. CI status is irrelevant - focus on evaluating the code changes against acceptance criteria.');
+  content.push('The CI results below are provided only to confirm which test suites ran, not for status evaluation.');
   content.push('');
   if (ciResults.length) {
     content.push('| Workflow | Conclusion | Run |');

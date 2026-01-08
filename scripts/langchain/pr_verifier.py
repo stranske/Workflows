@@ -21,7 +21,12 @@ from typing import Literal
 from pydantic import BaseModel, Field, ValidationError
 
 PR_EVALUATION_PROMPT = """
-You are reviewing a pull request to ensure it meets the documented acceptance criteria.
+You are reviewing a **merged** pull request to evaluate whether the code changes meet the documented acceptance criteria.
+
+**IMPORTANT: This verification runs AFTER the PR has been merged.** Therefore:
+- Do NOT evaluate CI status, workflow runs, or pending checks - these are irrelevant post-merge
+- Do NOT raise concerns about CI workflows being "in progress" or "queued"
+- Focus ONLY on the actual code changes and whether they fulfill the requirements
 
 PR Context:
 {context}
@@ -29,12 +34,14 @@ PR Context:
 PR Diff (summary or full):
 {diff}
 
-Provide an evaluation that covers:
-- correctness
-- completeness
-- quality
-- testing
-- risks
+Evaluate the **code changes** against the acceptance criteria:
+- correctness (does the implementation behave as intended based on the code)
+- completeness (are all requirements addressed in the code changes)
+- quality (code readability, maintainability, style)
+- testing (are tests present and adequate for the acceptance criteria)
+- risks (security, performance, compatibility concerns in the code)
+
+Ignore CI workflow status - focus on code quality and acceptance criteria fulfillment.
 
 Respond in JSON with:
 {{
