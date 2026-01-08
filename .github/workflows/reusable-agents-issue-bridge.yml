@@ -611,6 +611,18 @@ jobs:
 
               if (bodyIsEmpty || (!hasMetaMarker && !hasStatusSummary)) {
                 // Build a proper PR body with issue content
+                // When we have a status summary, wrap full issue body in collapsible details
+                // to avoid duplicate content (summary already extracts Tasks/Acceptance Criteria)
+                const issueDetailsSection = statusSummaryBlock && issueBody
+                  ? [
+                      '<details>',
+                      '<summary>Full Issue Text</summary>',
+                      '',
+                      issueBody,
+                      '',
+                      '</details>',
+                    ].join('\n')
+                  : issueBody || '_(No issue body)_';
                 const prBodySections = [
                   keepaliveHeader,
                   metaMarker,
@@ -624,9 +636,7 @@ jobs:
                   '',
                   `Source: ${issueUrl}`,
                   '',
-                  '### Issue Details',
-                  '',
-                  issueBody || '_(No issue body)_',
+                  issueDetailsSection,
                 ];
 
                 const newPrBody = prBodySections.join('\n').trim();
@@ -781,9 +791,20 @@ jobs:
                 if (statusSummaryBlock) {
                   sections.push(statusSummaryBlock);
                 }
+                // When we have a status summary, wrap full issue body in collapsible details
+                // to avoid duplicate content (summary already extracts Tasks/Acceptance Criteria)
                 if (issueBody && issueBody.trim()) {
-                  sections.push('### Issue Details');
-                  sections.push(issueBody.trim());
+                  if (statusSummaryBlock) {
+                    sections.push('<details>');
+                    sections.push('<summary>Full Issue Text</summary>');
+                    sections.push('');
+                    sections.push(issueBody.trim());
+                    sections.push('');
+                    sections.push('</details>');
+                  } else {
+                    sections.push('### Issue Details');
+                    sections.push(issueBody.trim());
+                  }
                 }
                 return sections.join('\n\n');
               })();
@@ -1021,8 +1042,14 @@ jobs:
             if (summaryNeedsWarning && warningLines.length) {
               parts.push('', ...warningLines);
             }
+            // When we have a status summary, wrap full issue body in collapsible details
+            // to avoid duplicate content (summary already extracts Tasks/Acceptance Criteria)
             if (issueBody) {
-              parts.push('', '#### Full Issue Text', '', issueBody.trim());
+              if (statusSummaryBlock) {
+                parts.push('', '<details>', '<summary>Full Issue Text</summary>', '', issueBody.trim(), '', '</details>');
+              } else {
+                parts.push('', '#### Full Issue Text', '', issueBody.trim());
+              }
             }
 
             const body = parts.join('\n').trim();
