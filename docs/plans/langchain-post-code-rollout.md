@@ -277,28 +277,30 @@
    ```
 
 3. **Implementation tasks:**
-   - [ ] Create `agents-capability-check.yml` workflow
-   - [ ] Add `needs-human` label to consumer repos via sync
-   - [ ] Trigger on `agent:codex` label added OR new workflow label
-   - [ ] Post comment explaining blockers when agent cannot proceed
+   - [x] Create `agents-capability-check.yml` workflow ✅ **DONE 2026-01-08**
+   - [x] Trigger on `agent:codex` label added
+   - [x] Post capability report comment with blockers
+   - [x] Add `needs-human` label + remove `agent:codex` when BLOCKED
+   - [ ] Add `needs-human` label to consumer repos via label sync (pending)
 
 **Step 3B: Task Decomposition**
 
 1. **Implementation tasks:**
-   - [ ] Create `agents-decompose.yml` workflow
-   - [ ] Add `agents:decompose` label to label sync config
-   - [ ] Call `task_decomposer.py` when label applied
-   - [ ] Output: Either create sub-issues OR add checklist to parent
+   - [x] Create `agents-decompose.yml` workflow ✅ **DONE 2026-01-08**
+   - [x] Trigger on `agents:decompose` label added
+   - [x] Posts sub-task checklist as comment
+   - [x] Removes trigger label after posting
+   - [ ] Add `agents:decompose` label to consumer repos via label sync (pending)
 
 **Step 3C: Duplicate Detection (Testing Focus)**
 
 1. **Critical concern:** False positives - we don't want to close valid issues
 2. **Approach:** Comment-only mode first, no auto-close
 3. **Implementation tasks:**
-   - [ ] Create `agents-dedup.yml` workflow
-   - [ ] Trigger on issue opened
-   - [ ] Compare against open issues using embeddings
-   - [ ] Post comment if >85% similarity detected (link to potential duplicate)
+   - [x] Create `agents-dedup.yml` workflow ✅ **DONE 2026-01-08**
+   - [x] Trigger on issue opened (skips bot-created issues)
+   - [x] Compare against open issues using embeddings (0.85 threshold)
+   - [x] Post warning comment if duplicate detected with links
    - [ ] Track false positive rate over testing period
 
 4. **Testing metrics to track:**
@@ -309,85 +311,199 @@
 **Step 3D: Semantic Label Matching**
 
 1. **Implementation tasks:**
-   - [ ] Create `agents-auto-label.yml` workflow OR integrate into existing
-   - [ ] Use `label_matcher.py` for semantic similarity
-   - [ ] Post comment with suggestions OR auto-apply at >90% confidence
+   - [x] Create `agents-auto-label.yml` workflow ✅ **DONE 2026-01-08**
+   - [x] Trigger on issue opened/edited (skips already-labeled)
+   - [x] Auto-apply labels at ≥90% confidence
+   - [x] Post suggestion comment for 75%-90% matches
+   - [x] Uses `label_matcher.py` + `semantic_matcher.py`
 
 ---
 
 ## Phase 3 Testing Plan (Manager-Database)
 
-**Test Repository:** Manager-Database
-**Test Duration:** 2 weeks (7 issues minimum)
-**Start Date:** Ready to begin (all consumer repos synced)
+> **Status:** Ready to Execute  
+> **Prerequisites:** PR merged to main, sync workflow triggered  
+> **Test Repository:** Manager-Database  
+> **Test Duration:** 1 week minimum (12 test issues)  
+> **Start Date:** After sync PRs merged to consumer repos  
 
-### Test Issue #1: Capability Check Validation
+---
 
-**Purpose:** Validate capability_check.py correctly identifies agent blockers
+### Pre-Testing Checklist
 
-**Test Scenarios:**
-1. **Issue requiring external API** - Should flag "needs credentials/external dependency"
-2. **Issue requiring database migration** - Should flag "needs infrastructure/manual step"
-3. **Normal code-only issue** - Should pass capability check
+- [ ] **Step 1:** Merge PR to main branch in Workflows repo
+- [ ] **Step 2:** Verify sync workflow triggered (check Actions tab)
+- [ ] **Step 3:** Wait for sync PRs in consumer repos
+- [ ] **Step 4:** Review bot comments on sync PRs for code quality issues
+- [ ] **Step 5:** Merge sync PRs to consumer repos (Manager-Database first)
+- [ ] **Step 6:** Create required labels in Manager-Database:
+  - `agents:decompose` (if not exists)
+  - `needs-human` (if not exists)
+- [ ] **Step 7:** Begin test issue creation
 
-**Test Issue Ideas for Manager-Database:**
-- "Integrate with external payment API" (should fail - external dep)
-- "Add database migration for new schema" (should fail - infra)
-- "Refactor logging module" (should pass - code only)
+---
 
-### Test Issue #2: Task Decomposition Validation
+### Test Suite A: Capability Check (3 issues)
 
-**Purpose:** Validate task_decomposer.py produces useful sub-tasks
+**Workflow:** `agents-capability-check.yml`  
+**Trigger:** Add `agent:codex` label to issue  
+**Expected:** Posts capability report, adds `needs-human` if BLOCKED  
 
-**Test Scenario:**
-- Create large issue with 5+ implied tasks
-- Apply `agents:decompose` label
-- Verify sub-tasks are actionable and correctly scoped
+| Test | Issue Title | Tasks Description | Expected Result | Pass Criteria |
+|------|-------------|-------------------|-----------------|---------------|
+| A1 | "Integrate Stripe Payment Processing" | External API, webhooks, credentials | 🚫 BLOCKED | `needs-human` added, `agent:codex` removed, blocker explanation posted |
+| A2 | "Add database migration for user roles" | Schema changes, migration scripts | 🚫 BLOCKED or ⚠️ REVIEW | Flags infrastructure/manual requirement |
+| A3 | "Refactor logging to use structured format" | Code-only changes | ✅ PROCEED | No `needs-human`, agent proceeds normally |
 
-**Test Issue Idea:**
-- "Implement comprehensive health check endpoint with retry logic, circuit breaker, metrics, and alerting integration"
+**Test A1 Issue Body:**
+```markdown
+## Why
+We need to accept credit card payments.
 
-### Test Issue #3: Duplicate Detection Validation
+## Tasks
+- [ ] Set up Stripe account and get API keys
+- [ ] Implement payment intent creation
+- [ ] Handle webhook events for payment confirmation
+- [ ] Store transaction records
 
-**Purpose:** Measure false positive rate for issue_dedup.py
+## Acceptance Criteria
+- [ ] Payments process successfully in test mode
+- [ ] Webhooks update order status
+```
 
-**Test Scenarios:**
-1. **True duplicate** - Create issue very similar to existing (should detect)
-2. **Related but different** - Create issue in same area but different ask (should NOT flag)
-3. **Unrelated** - Create issue in different area (should NOT flag)
+**Test A3 Issue Body:**
+```markdown
+## Why
+Current logging is unstructured and hard to parse.
 
-**Success Criteria:**
-- True positives detected: 100%
-- False positive rate: <5%
-- Clear explanation in comment linking to potential duplicate
+## Tasks
+- [ ] Replace print statements with structured logger
+- [ ] Add log levels (INFO, WARNING, ERROR)
+- [ ] Include timestamp and context in log output
 
-### Test Issue #4: Label Matching Validation
+## Acceptance Criteria
+- [ ] All log output is JSON formatted
+- [ ] Log level can be configured via environment variable
+```
 
-**Purpose:** Validate label_matcher.py suggests correct labels
+---
 
-**Test Scenario:**
-- Create unlabeled issues in different categories
-- Verify label suggestions match expected labels
-- Track suggestion accuracy
+### Test Suite B: Task Decomposition (3 issues)
 
-### Test Issues Created (Manager-Database)
+**Workflow:** `agents-decompose.yml`  
+**Trigger:** Add `agents:decompose` label to issue  
+**Expected:** Posts sub-task checklist comment, removes trigger label  
 
-| Issue | Purpose | Expected Result |
-|-------|---------|-----------------|
-| #193 | Capability Check - External service (Stripe) | ❌ SHOULD FAIL - requires Stripe API credentials, webhook endpoint |
-| #194 | Task Decomposition - Large issue (10 tasks) | ✅ SHOULD DECOMPOSE - into 3-5 sub-issues or checklist |
-| #196 | Duplicate Detection - Similar to #133 | ⚠️ SHOULD DETECT - ~85%+ similarity to "Add GET Endpoint for Managers List" |
+| Test | Issue Title | Complexity | Expected Result | Pass Criteria |
+|------|-------------|------------|-----------------|---------------|
+| B1 | "Implement health check with circuit breaker" | 5+ tasks | 4-6 sub-tasks | Clear, actionable sub-tasks posted |
+| B2 | "Add comprehensive API documentation" | Many implied tasks | 5-8 sub-tasks | Covers all doc types (endpoints, examples, errors) |
+| B3 | "Simple: Add version endpoint" | 1-2 tasks | 1-2 sub-tasks or "already small" | Doesn't over-decompose simple issues |
+
+**Test B1 Issue Body:**
+```markdown
+## Why
+We need robust health checks with failure isolation.
+
+## Tasks
+- [ ] Implement health check endpoint with retry logic, circuit breaker pattern, 
+      metrics collection, alerting integration, and dependency health aggregation
+
+## Acceptance Criteria
+- [ ] Health check returns status of all dependencies
+- [ ] Circuit breaker opens after 3 consecutive failures
+- [ ] Metrics exported to monitoring system
+```
+
+---
+
+### Test Suite C: Duplicate Detection (4 issues)
+
+**Workflow:** `agents-dedup.yml`  
+**Trigger:** Automatic on issue creation (not bot-created)  
+**Expected:** Warning comment if >85% similar to existing open issue  
+
+| Test | Issue Title | Similarity To | Expected Result | Pass Criteria |
+|------|-------------|---------------|-----------------|---------------|
+| C1 | "Add GET endpoint for all managers" | Existing #133 | ⚠️ DUPLICATE | Warning posted, links to #133 |
+| C2 | "Add PUT endpoint to update manager" | Related area | ✅ NO FLAG | Different operation, no warning |
+| C3 | "Implement caching layer" | Unrelated | ✅ NO FLAG | Different domain, no warning |
+| C4 | "Get list of all managers from database" | Phrased differently | ⚠️ DUPLICATE | Semantic match despite different words |
+
+**Success Metrics:**
+- True positive rate: ≥90% (C1, C4 correctly flagged)
+- False positive rate: <10% (C2, C3 not flagged)
+- Link accuracy: 100% (correct issue linked)
+
+---
+
+### Test Suite D: Auto-Label (2 issues)
+
+**Workflow:** `agents-auto-label.yml`  
+**Trigger:** Automatic on issue creation/edit (skips labeled issues)  
+**Expected:** Suggests or applies labels based on content  
+
+| Test | Issue Title | Content Theme | Expected Labels | Pass Criteria |
+|------|-------------|---------------|-----------------|---------------|
+| D1 | "Fix crash when database connection fails" | Bug, database | `bug` suggested/applied | Correct category identified |
+| D2 | "Add support for bulk manager import" | Feature, enhancement | `enhancement` suggested | Feature vs bug distinction correct |
+
+**Note:** Label matching depends on repo having well-described labels. Manager-Database has: `bug`, `enhancement`, `documentation`, `agent:codex`, etc.
+
+---
+
+### Test Execution Tracking
+
+| Suite | Test | Issue # | Created | Workflow Ran | Result | Notes |
+|-------|------|---------|---------|--------------|--------|-------|
+| A | A1 | - | ⏳ | - | - | |
+| A | A2 | - | ⏳ | - | - | |
+| A | A3 | - | ⏳ | - | - | |
+| B | B1 | - | ⏳ | - | - | |
+| B | B2 | - | ⏳ | - | - | |
+| B | B3 | - | ⏳ | - | - | |
+| C | C1 | - | ⏳ | - | - | |
+| C | C2 | - | ⏳ | - | - | |
+| C | C3 | - | ⏳ | - | - | |
+| C | C4 | - | ⏳ | - | - | |
+| D | D1 | - | ⏳ | - | - | |
+| D | D2 | - | ⏳ | - | - | |
+
+**Total:** 0/12 tests executed
+
+---
 
 ### Testing Metrics Dashboard
 
-| Script | Test Issues | True Positives | False Positives | Accuracy | Status |
-|--------|-------------|----------------|-----------------|----------|--------|
-| capability_check.py | #193 (1/3) | - | - | - | 🔄 Testing |
-| task_decomposer.py | #194 (1/2) | - | - | - | 🔄 Testing |
-| issue_dedup.py | #196 (1/3) | - | - | <5% target | 🔄 Testing |
-| label_matcher.py | 0/3 | - | - | - | ⏳ Pending |
+| Workflow | Tests | Passed | Failed | Accuracy | Status |
+|----------|-------|--------|--------|----------|--------|
+| `agents-capability-check.yml` | 0/3 | - | - | - | ⏳ Pending |
+| `agents-decompose.yml` | 0/3 | - | - | - | ⏳ Pending |
+| `agents-dedup.yml` | 0/4 | - | - | - | ⏳ Pending |
+| `agents-auto-label.yml` | 0/2 | - | - | - | ⏳ Pending |
 
-**Total test issues created:** 3/11 on Manager-Database
+**Overall Phase 3 Test Status:** 0/12 complete
+
+---
+
+### Rollback Plan
+
+If any workflow causes issues in consumer repos:
+
+1. **Immediate:** Remove workflow file from consumer repo manually
+2. **Short-term:** Update sync-manifest.yml to exclude problematic workflow
+3. **Fix:** Debug in Workflows repo, create fix PR
+4. **Re-deploy:** Re-run sync after fix merged
+
+### Success Criteria for Phase 3 Completion
+
+- [ ] All 12 test issues created and workflows triggered
+- [ ] Capability check: ≥2/3 tests pass (correctly identifies blockers)
+- [ ] Task decomposition: ≥2/3 tests pass (produces useful sub-tasks)
+- [ ] Duplicate detection: ≥3/4 tests pass (low false positive rate)
+- [ ] Auto-label: ≥1/2 tests pass (suggests relevant labels)
+- [ ] No workflow errors or crashes
+- [ ] User feedback: workflows provide value (not just noise)
 
 ---
 
