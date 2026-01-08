@@ -66,8 +66,9 @@ workflows:
   - source: .github/workflows/agents-issue-optimizer.yml
     description: "Issue optimizer - LangChain-based issue formatting and optimization (Phase 1)"
 
-  - source: .github/workflows/agents-verify-to-issue.yml
-    description: "Verify to issue - creates follow-up issues from verification feedback (Phase 4E)"
+  - source: .github/workflows/agents-verify-to-issue-v2.yml
+    dest: .github/workflows/agents-verify-to-issue.yml
+    description: "Verify to issue - creates follow-up issues from verification feedback with LLM curation (Phase 4E)"
 
   - source: .github/workflows/agents-auto-label.yml
     description: "Auto-label - suggests/applies labels based on semantic matching (Phase 5A)"
