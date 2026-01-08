@@ -59,7 +59,21 @@ jobs:
         env:
           SYNC_TOKEN: ${{ secrets.CODESPACES_WORKFLOWS || secrets.SERVICE_BOT_PAT }}
         run: |
-          git clone --depth 1 "https://x-access-token:${SYNC_TOKEN}@github.com/${INTEGRATION_REPO}.git" integration-tests
+          git clone --depth 1 \
+            "https://x-access-token:${SYNC_TOKEN}@github.com/${INTEGRATION_REPO}.git" \
+            integration-tests
+
+      - name: Set up Python
+        if: steps.token.outputs.token_available == 'true'
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install uv
+        if: steps.token.outputs.token_available == 'true'
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - name: Apply template updates
         if: steps.token.outputs.token_available == 'true'
@@ -84,10 +98,22 @@ jobs:
           fi
 
           # Sync notify-workflows.yml (handles bidirectional sync)
-          if [ -f "../workflows/templates/integration-repo/.github/workflows/notify-workflows.yml" ]; then
-            cp "../workflows/templates/integration-repo/.github/workflows/notify-workflows.yml" \
+          if [ -f \
+            "../workflows/templates/integration-repo/.github/workflows/notify-workflows.yml" \
+          ]; then
+            cp \
+              "../workflows/templates/integration-repo/.github/workflows/notify-workflows.yml" \
               .github/workflows/notify-workflows.yml
             echo "✅ Updated notify-workflows.yml"
+          fi
+
+          # Regenerate requirements.lock to match updated autofix-versions.env
+          if [ -f "pyproject.toml" ]; then
+            echo "🔄 Regenerating requirements.lock with updated tool versions..."
+            uv pip compile pyproject.toml \
+              --extra test --extra dev --universal \
+              --output-file requirements.lock
+            echo "✅ Updated requirements.lock"
           fi
 
       - name: Check for changes
@@ -106,7 +132,10 @@ jobs:
           fi
 
       - name: Show diff in dry run
-        if: steps.token.outputs.token_available == 'true' && steps.changes.outputs.has_changes == 'true' && inputs.dry_run == true
+        if: |
+          steps.token.outputs.token_available == 'true' &&
+          steps.changes.outputs.has_changes == 'true' &&
+          inputs.dry_run == true
         run: |
           cd integration-tests
           echo "## Dry Run - Changes Preview" >> "$GITHUB_STEP_SUMMARY"
@@ -115,25 +144,32 @@ jobs:
           echo "\`\`\`" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Commit and push changes
-        if: steps.token.outputs.token_available == 'true' && steps.changes.outputs.has_changes == 'true' && inputs.dry_run != true
+        if: |
+          steps.token.outputs.token_available == 'true' &&
+          steps.changes.outputs.has_changes == 'true' &&
+          inputs.dry_run != true
         run: |
           cd integration-tests
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git add .github/workflows/
-          git commit -m "sync: Update workflow templates from stranske/Workflows" \
+          git add .github/workflows/ requirements.lock
+          git commit \
+            -m "sync: Update workflow templates from stranske/Workflows" \
             -m "" \
-            -m "This sync updates integration-repo templates to match the source of truth" \
-            -m "in the Workflows repository." \
+            -m "This sync updates integration-repo templates to match the source" \
+            -m "of truth in the Workflows repository." \
             -m "" \
             -m "Updated files:" \
             -m "- ci.yml (with workflow reference)" \
             -m "- autofix-versions.env (version pins)" \
             -m "- notify-workflows.yml (bidirectional sync trigger)" \
+            -m "- requirements.lock (regenerated with updated tool versions)" \
             -m "" \
-            -m "Auto-synced by: https://github.com/stranske/Workflows/actions/workflows/maint-69-sync-integration-repo.yml"
+            -m "Auto-synced by:" \
+            -m "https://github.com/stranske/Workflows/actions/workflows/" \
+            -m "maint-69-sync-integration-repo.yml"
 
           if git push; then
             echo "✅ Successfully pushed changes to ${INTEGRATION_REPO}"
