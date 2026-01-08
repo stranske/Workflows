@@ -525,9 +525,9 @@ jobs:
               labels: ['follow-up', 'agents:formatted']
             });
 
-            core.info('Created issue #' + issue.data.number);
-            core.setOutput('issue_number', issue.data.number);
-            core.setOutput('issue_url', issue.data.html_url);
+            core.info('Created issue #' + issue.number);
+            core.setOutput('issue_number', issue.number);
+            core.setOutput('issue_url', issue.html_url);
 
       - name: Comment on original PR
         if: steps.check-merged.outputs.merged == 'true'
