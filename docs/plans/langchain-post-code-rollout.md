@@ -319,29 +319,233 @@
 
 ---
 
-## Phase 3 Testing Plan (Manager-Database)
+## Deployment Verification Plan
 
+> **Purpose:** Verify all workflows function correctly across ALL consumer repos  
 > **Status:** Ready to Execute  
-> **Prerequisites:** PR merged to main, sync workflow triggered  
-> **Test Repository:** Manager-Database  
-> **Test Duration:** 1 week minimum (12 test issues)  
-> **Start Date:** After sync PRs merged to consumer repos  
+> **Prerequisite:** PR merged to main, sync workflow completed  
+
+### Known Issue to Investigate
+
+**`verify:compare` failure on Trend_Model_Project PR #4249**
+- ✅ Works: Travel-Plan-Permission (PR #301, #318)
+- ❌ Fails: Trend_Model_Project (PR #4249)
+- **Next Step:** Check workflow logs, compare repo configs, identify difference
 
 ---
 
-### Pre-Testing Checklist
+### Phase 1: Sync Deployment (All 7 Repos)
 
-- [ ] **Step 1:** Merge PR to main branch in Workflows repo
-- [ ] **Step 2:** Verify sync workflow triggered (check Actions tab)
-- [ ] **Step 3:** Wait for sync PRs in consumer repos
-- [ ] **Step 4:** Review bot comments on sync PRs for code quality issues
-- [ ] **Step 5:** Merge sync PRs to consumer repos (Manager-Database first)
-- [ ] **Step 6:** Create required labels in Manager-Database:
-  - `agents:decompose` (if not exists)
-  - `needs-human` (if not exists)
-- [ ] **Step 7:** Begin test issue creation
+After merging to main, verify sync creates PRs in all consumer repos.
+
+| Repo | Sync PR # | Sync PR Status | New Workflows Present | Notes |
+|------|-----------|----------------|----------------------|-------|
+| Manager-Database | - | ⏳ | - | Primary test repo |
+| Template | - | ⏳ | - | |
+| trip-planner | - | ⏳ | - | |
+| Travel-Plan-Permission | - | ⏳ | - | Verify workflows working |
+| Portable-Alpha-Extension-Model | - | ⏳ | - | |
+| Trend_Model_Project | - | ⏳ | - | **Investigate verify:compare failure** |
+| Collab-Admin | - | ⏳ | - | |
+
+**Checklist:**
+- [ ] Merge Phase 3 PR to main in Workflows repo
+- [ ] Verify sync workflow triggered (Actions tab)
+- [ ] Check each consumer repo for sync PR
+- [ ] Review sync PR for correct workflow files:
+  - `agents-capability-check.yml`
+  - `agents-decompose.yml`
+  - `agents-dedup.yml`
+  - `agents-auto-label.yml`
+  - `agents-verify-to-issue.yml`
+- [ ] Review bot comments on sync PRs for code issues
+- [ ] Merge sync PRs to each consumer repo
 
 ---
+
+### Phase 2: Existing Workflow Verification (Cross-Repo)
+
+Verify already-deployed workflows work across repos. Start with known failure.
+
+#### 2A. Investigate Trend_Model_Project Failure
+
+**Steps:**
+1. [ ] Check Trend_Model_Project Actions tab for `verify:compare` workflow run on PR #4249
+2. [ ] If workflow ran: Read logs, identify error
+3. [ ] If workflow didn't run: Check if workflow file exists, check trigger conditions
+4. [ ] Compare with Travel-Plan-Permission successful run (PR #301)
+5. [ ] Document difference and fix
+
+**Possible causes:**
+- Missing workflow file (sync didn't complete)
+- Missing labels (`verify:compare` not in repo)
+- Missing secrets (`OPENAI_API_KEY` not configured)
+- Workflow file syntax error
+- Permissions issue
+
+#### 2B. Verify `verify:evaluate` Across Repos
+
+Test on a merged PR in each repo:
+
+| Repo | Test PR # | Label Added | Workflow Ran | Comment Posted | Result |
+|------|-----------|-------------|--------------|----------------|--------|
+| Manager-Database | - | ⏳ | - | - | - |
+| Travel-Plan-Permission | #301 | ✅ | ✅ | ✅ | ✅ Known working |
+| Trend_Model_Project | #4249 | ✅ | ❓ | ❓ | 🔍 Investigating |
+| trip-planner | - | ⏳ | - | - | - |
+
+#### 2C. Verify `agents:optimize` Across Repos
+
+Test on an issue in each repo:
+
+| Repo | Test Issue # | Label Added | Workflow Ran | Comment Posted | Result |
+|------|--------------|-------------|--------------|----------------|--------|
+| Manager-Database | #184 | ✅ | ✅ | ✅ | ✅ Known working |
+| Travel-Plan-Permission | - | ⏳ | - | - | - |
+| Trend_Model_Project | - | ⏳ | - | - | - |
+
+---
+
+### Phase 3: New Workflow Verification (Cross-Repo)
+
+After sync PRs merged, verify each new Phase 3 workflow in multiple repos.
+
+#### 3A. `agents-capability-check.yml`
+
+**Trigger:** Add `agent:codex` label to issue  
+**Test:** Create issue with external dependency, verify BLOCKED response
+
+| Repo | Test Issue # | Label Added | Workflow Ran | Report Posted | Correct Verdict | Notes |
+|------|--------------|-------------|--------------|---------------|-----------------|-------|
+| Manager-Database | - | ⏳ | - | - | - | Primary test |
+| Travel-Plan-Permission | - | ⏳ | - | - | - | Secondary test |
+
+**Test Issue Content:**
+```markdown
+## Why
+We need to integrate with external payment service.
+
+## Tasks
+- [ ] Set up Stripe API credentials
+- [ ] Implement payment webhook handler
+
+## Acceptance Criteria
+- [ ] Payments process successfully
+```
+
+**Expected:** `needs-human` label added, `agent:codex` removed, blocker comment posted
+
+#### 3B. `agents-decompose.yml`
+
+**Trigger:** Add `agents:decompose` label to issue  
+**Test:** Create large issue, verify sub-task breakdown
+
+| Repo | Test Issue # | Label Added | Workflow Ran | Sub-tasks Posted | Label Removed | Notes |
+|------|--------------|-------------|--------------|------------------|---------------|-------|
+| Manager-Database | - | ⏳ | - | - | - | Primary test |
+| Travel-Plan-Permission | - | ⏳ | - | - | - | Secondary test |
+
+**Test Issue Content:**
+```markdown
+## Why
+Need comprehensive health check system.
+
+## Tasks
+- [ ] Implement health check with retry logic, circuit breaker, 
+      metrics collection, alerting, and dependency aggregation
+```
+
+**Expected:** Comment with 4-6 specific sub-tasks, `agents:decompose` label removed
+
+#### 3C. `agents-dedup.yml`
+
+**Trigger:** Automatic on issue creation  
+**Test:** Create issue similar to existing open issue
+
+| Repo | Existing Issue # | New Test Issue # | Workflow Ran | Duplicate Warning | Correct Link | Notes |
+|------|------------------|------------------|--------------|-------------------|--------------|-------|
+| Manager-Database | #133 | - | ⏳ | - | - | Similar to "GET managers" |
+| Travel-Plan-Permission | - | - | ⏳ | - | - | Find existing issue first |
+
+**Expected:** Warning comment posted linking to similar issue
+
+#### 3D. `agents-auto-label.yml`
+
+**Trigger:** Automatic on issue creation (no existing labels)  
+**Test:** Create unlabeled issue with clear category
+
+| Repo | Test Issue # | Workflow Ran | Labels Suggested | Labels Applied | Accuracy | Notes |
+|------|--------------|--------------|------------------|----------------|----------|-------|
+| Manager-Database | - | ⏳ | - | - | - | |
+| Travel-Plan-Permission | - | ⏳ | - | - | - | |
+
+**Test Issue:** "Fix crash when database connection times out" (expect `bug` label)
+
+#### 3E. `agents-verify-to-issue.yml`
+
+**Trigger:** Add `verify:create-issue` label to merged PR with verification comment  
+**Test:** Use PR that has `verify:evaluate` comment
+
+| Repo | Test PR # | Has Verify Comment | Label Added | Issue Created | Linked Correctly | Notes |
+|------|-----------|-------------------|-------------|---------------|------------------|-------|
+| Travel-Plan-Permission | #301 | ✅ | ⏳ | - | - | Has existing verification |
+| Manager-Database | - | ⏳ | - | - | - | Need PR with verification first |
+
+---
+
+### Phase 4: Troubleshooting Guide
+
+#### Workflow Not Running
+
+1. **Check workflow file exists** in repo under `.github/workflows/`
+2. **Check trigger conditions** match (label name, event type)
+3. **Check Actions tab** - may be disabled or erroring silently
+4. **Check permissions** in workflow file vs repo settings
+
+#### Workflow Runs But No Comment Posted
+
+1. **Check logs** for Python/LLM errors
+2. **Check secrets** - `GITHUB_TOKEN`, `OPENAI_API_KEY` configured
+3. **Check permissions** in workflow - needs `issues: write` or `pull-requests: write`
+
+#### LLM Errors (401, timeout, etc.)
+
+1. **GitHub Models 401:** Token lacks `models` permission - falls back to OpenAI
+2. **OpenAI 401:** Check `OPENAI_API_KEY` secret in repo
+3. **Timeout:** LLM call taking too long - check input size
+
+#### Cross-Repo Differences
+
+If workflow works in Repo A but not Repo B:
+1. Compare workflow file contents (may be out of sync)
+2. Compare repo secrets configuration
+3. Compare repo Actions permissions
+4. Check for repo-specific branch protection rules
+
+---
+
+### Verification Summary
+
+| Workflow | Repos Tested | Repos Passing | Status |
+|----------|--------------|---------------|--------|
+| `verify:evaluate` | 1/7 | 1 | 🔍 Investigating Trend_Model_Project |
+| `verify:compare` | 2/7 | 1 | ❌ Trend_Model_Project failing |
+| `agents:optimize` | 1/7 | 1 | ✅ Manager-Database working |
+| `agents-capability-check` | 0/7 | - | ⏳ Pending sync |
+| `agents-decompose` | 0/7 | - | ⏳ Pending sync |
+| `agents-dedup` | 0/7 | - | ⏳ Pending sync |
+| `agents-auto-label` | 0/7 | - | ⏳ Pending sync |
+| `agents-verify-to-issue` | 0/7 | - | ⏳ Pending sync |
+
+**Minimum for Phase 3 Completion:** Each workflow tested in ≥2 repos, passing in ≥2 repos
+
+---
+
+## Phase 3 Functional Testing (Manager-Database)
+
+> **Purpose:** Validate workflows produce correct results (after deployment verified)  
+> **Status:** Blocked on deployment verification  
+> **Test Repository:** Manager-Database (primary), Travel-Plan-Permission (secondary)  
 
 ### Test Suite A: Capability Check (3 issues)
 
