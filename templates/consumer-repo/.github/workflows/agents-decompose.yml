@@ -96,7 +96,7 @@ jobs:
               sys.exit(0)
 
           # Output results
-          subtasks = result.get('subtasks', [])
+          subtasks = result.get('sub_tasks', [])
 
           # Build markdown list
           subtask_md = '\n'.join([f'- [ ] {t}' for t in subtasks])
