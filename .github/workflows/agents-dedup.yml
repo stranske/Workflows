@@ -92,7 +92,7 @@ jobs:
           )
 
           # Load open issues
-          with open('../open_issues.json') as f:
+          with open('open_issues.json') as f:
               issues_data = json.load(f)
 
           if not issues_data:
@@ -144,7 +144,7 @@ jobs:
               f.write(f'duplicate_count={len(duplicates)}\n')
 
           # Write to file for GitHub script
-          with open('../duplicates.json', 'w') as f:
+          with open('duplicates.json', 'w') as f:
               json.dump(duplicates, f)
 
           print(f'Found {len(duplicates)} potential duplicates:')

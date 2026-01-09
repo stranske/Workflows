@@ -79,7 +79,7 @@ jobs:
           from scripts.langchain.task_decomposer import decompose_task
 
           # Read issue context
-          context = open('../issue_context.md').read()
+          context = open('issue_context.md').read()
 
           # Decompose the task
           result = decompose_task(context)
@@ -101,7 +101,7 @@ jobs:
               f.write(f'subtask_count={len(subtasks)}\n')
 
           # Write subtasks to file for multiline handling
-          with open('../subtasks.md', 'w') as f:
+          with open('subtasks.md', 'w') as f:
               f.write(subtask_md)
 
           print(f'Generated {len(subtasks)} subtasks')
