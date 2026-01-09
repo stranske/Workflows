@@ -178,7 +178,12 @@ jobs:
       agent: ${{ needs.check_labels.outputs.agent }}
       issue_number: ${{ needs.check_labels.outputs.issue_number }}
       mode: "create"
-      post_agent_comment: ${{ github.event_name == 'workflow_dispatch' && (inputs.post_codex_comment && 'true' || 'false') || 'true' }}
+      # Skip post_agent_comment for codex - CLI keepalive loop handles it,
+      # posting @codex would trigger UI agent alongside CLI causing conflicts
+      post_agent_comment: >-
+        ${{ github.event_name == 'workflow_dispatch'
+            && (inputs.post_codex_comment && 'true' || 'false')
+            || (needs.check_labels.outputs.agent != 'codex' && 'true' || 'false') }}
       agent_pr_draft: ${{ inputs.bridge_draft_pr && 'true' || 'false' }}
     secrets:
       service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
