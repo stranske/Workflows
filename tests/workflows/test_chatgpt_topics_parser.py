@@ -320,6 +320,24 @@ def test_parse_sections_supports_label_separators() -> None:
     assert extras == []
 
 
+def test_parse_sections_supports_dependencies_and_admin_access() -> None:
+    labels, sections, extras = parse_module._parse_sections(
+        [
+            "Dependencies",
+            "- Stripe API access required",
+            "Admin Access",
+            "- Rotate GitHub secrets",
+            "Why",
+            "Because billing is blocked",
+        ]
+    )
+    assert labels == []
+    assert any("Stripe API access required" in line for line in sections["implementation_notes"])
+    assert any("Rotate GitHub secrets" in line for line in sections["implementation_notes"])
+    assert sections["why"] == ["Because billing is blocked"]
+    assert extras == []
+
+
 def test_parse_text_single_topic_empty_raises_system_exit() -> None:
     with pytest.raises(SystemExit) as exc:
         parse_module.parse_text("   \n", allow_single_fallback=True)

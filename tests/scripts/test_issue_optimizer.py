@@ -255,6 +255,20 @@ def test_detect_task_splitting_uses_decomposer(monkeypatch: pytest.MonkeyPatch) 
     assert result[0]["split_suggestions"] == ["Split A", "Split B"]
 
 
+def test_detect_task_splitting_flags_plus_separated(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_decompose(task: str, *, use_llm: bool) -> dict[str, list[str]]:
+        assert task == "Refactor auth + add tests + update docs"
+        return {"sub_tasks": ["Refactor auth", "Add tests", "Update docs"]}
+
+    monkeypatch.setattr(
+        "scripts.langchain.task_decomposer.decompose_task",
+        fake_decompose,
+    )
+    tasks = ["Refactor auth + add tests + update docs"]
+    result = issue_optimizer._detect_task_splitting(tasks, use_llm=False)
+    assert result[0]["split_suggestions"] == ["Refactor auth", "Add tests", "Update docs"]
+
+
 def test_ensure_task_decomposition_fills_missing_suggestions(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

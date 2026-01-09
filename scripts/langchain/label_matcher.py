@@ -39,10 +39,62 @@ class LabelMatch:
 DEFAULT_LABEL_SIMILARITY_THRESHOLD = 0.8
 DEFAULT_LABEL_SIMILARITY_K = 5
 SHORT_LABEL_LENGTH = 4
+KEYWORD_BUG_SCORE = 0.91
+KEYWORD_FEATURE_SCORE = 0.9
+KEYWORD_DOCS_SCORE = 0.9
+_IGNORED_LABEL_TOKENS = {"type", "kind"}
+_BUG_KEYWORDS = {
+    "bug",
+    "bugs",
+    "buggy",
+    "crash",
+    "crashes",
+    "crashed",
+    "error",
+    "errors",
+    "failure",
+    "failures",
+    "broken",
+    "regression",
+    "defect",
+}
+_FEATURE_KEYWORDS = {
+    "feature",
+    "features",
+    "enhancement",
+    "enhancements",
+    "request",
+    "requests",
+    "improvement",
+    "improvements",
+    "support",
+    "add",
+    "enable",
+}
+_FEATURE_PHRASES = {
+    "dark mode",
+    "light mode",
+}
+_DOCS_KEYWORDS = {
+    "doc",
+    "docs",
+    "documentation",
+    "readme",
+    "guide",
+    "guides",
+    "example",
+    "examples",
+    "tutorial",
+    "tutorials",
+}
 
 
 def _normalize_label(name: str) -> str:
     return re.sub(r"[^a-z0-9]+", "", name.lower())
+
+
+def _tokenize(text: str) -> set[str]:
+    return set(re.findall(r"[a-z0-9]+", text.lower()))
 
 
 def _coerce_label(item: Any) -> LabelRecord | None:
@@ -152,6 +204,72 @@ def _exact_short_label_match(label_store: LabelVectorStore, query: str) -> Label
     return None
 
 
+def _token_matches_keyword(token: str, keyword: str) -> bool:
+    if token == keyword:
+        return True
+    if len(token) >= 4 and token.startswith(keyword):
+        return True
+    return bool(len(keyword) >= 4 and keyword.startswith(token))
+
+
+def _keyword_match_score(label: LabelRecord, query: str) -> float | None:
+    tokens = _tokenize(query)
+    if not tokens:
+        return None
+
+    query_lower = query.lower()
+    label_text = " ".join(part for part in (label.name, label.description) if part)
+    label_tokens = _tokenize(label_text) - _IGNORED_LABEL_TOKENS
+    if label_tokens and label_tokens.intersection(tokens):
+        return 0.95
+
+    normalized = _normalize_label(label_text)
+    score = 0.0
+
+    if "bug" in normalized and any(
+        _token_matches_keyword(token, keyword) for token in tokens for keyword in _BUG_KEYWORDS
+    ):
+        score = max(score, KEYWORD_BUG_SCORE)
+    if any(tag in normalized for tag in ("feature", "enhancement", "request")) and (
+        any(
+            _token_matches_keyword(token, keyword)
+            for token in tokens
+            for keyword in _FEATURE_KEYWORDS
+        )
+        or any(phrase in query_lower for phrase in _FEATURE_PHRASES)
+    ):
+        score = max(score, KEYWORD_FEATURE_SCORE)
+    if "doc" in normalized and any(
+        _token_matches_keyword(token, keyword) for token in tokens for keyword in _DOCS_KEYWORDS
+    ):
+        score = max(score, KEYWORD_DOCS_SCORE)
+
+    return score or None
+
+
+def _keyword_matches(
+    labels: Iterable[LabelRecord],
+    query: str,
+    *,
+    threshold: float | None = None,
+) -> list[LabelMatch]:
+    min_score = _resolve_threshold(threshold)
+    matches: list[LabelMatch] = []
+    for label in labels:
+        score = _keyword_match_score(label, query)
+        if score is None or score < min_score:
+            continue
+        matches.append(
+            LabelMatch(
+                label=label,
+                score=score,
+                raw_score=score,
+                score_type="keyword",
+            )
+        )
+    return matches
+
+
 def find_similar_labels(
     label_store: LabelVectorStore,
     query: str,
@@ -170,7 +288,9 @@ def find_similar_labels(
         search_fn = store.similarity_search_with_score
         score_type = "distance"
     else:
-        return []
+        matches = _keyword_matches(label_store.labels, query, threshold=threshold)
+        matches.sort(key=lambda match: match.score, reverse=True)
+        return matches
 
     limit = k or DEFAULT_LABEL_SIMILARITY_K
     try:
@@ -194,6 +314,15 @@ def find_similar_labels(
                     score_type=score_type,
                 )
             )
+
+    keyword_matches = _keyword_matches(label_store.labels, query, threshold=threshold)
+    if keyword_matches:
+        seen = {_normalize_label(match.label.name) for match in matches}
+        for match in keyword_matches:
+            normalized = _normalize_label(match.label.name)
+            if normalized and normalized not in seen:
+                matches.append(match)
+                seen.add(normalized)
 
     matches.sort(key=lambda match: match.score, reverse=True)
     return matches

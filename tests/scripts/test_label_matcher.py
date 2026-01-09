@@ -123,3 +123,163 @@ def test_resolve_label_match_uses_semantic_search():
     assert match is not None
     assert match.label.name == "bug"
     assert match.score == 0.93
+
+
+def test_find_similar_labels_keyword_bug_match():
+    labels = [
+        label_matcher.LabelRecord(name="type:bug"),
+        label_matcher.LabelRecord(name="type:feature"),
+    ]
+    vector_store = label_matcher.LabelVectorStore(
+        store=object(), provider="unit-test", model="unit-test-model", labels=labels
+    )
+
+    matches = label_matcher.find_similar_labels(vector_store, "App crashes on login", threshold=0.8)
+
+    names = [match.label.name for match in matches]
+    assert "type:bug" in names
+    assert "type:feature" not in names
+    bug_match = next(match for match in matches if match.label.name == "type:bug")
+    assert bug_match.score >= label_matcher.KEYWORD_BUG_SCORE
+
+
+def test_find_similar_labels_keyword_feature_match():
+    labels = [
+        label_matcher.LabelRecord(name="type:bug"),
+        label_matcher.LabelRecord(name="type:feature"),
+    ]
+    vector_store = label_matcher.LabelVectorStore(
+        store=object(), provider="unit-test", model="unit-test-model", labels=labels
+    )
+
+    matches = label_matcher.find_similar_labels(
+        vector_store, "Add dark mode support", threshold=0.8
+    )
+
+    names = [match.label.name for match in matches]
+    assert "type:feature" in names
+    assert "type:bug" not in names
+
+
+def test_find_similar_labels_keyword_feature_phrase_match():
+    labels = [
+        label_matcher.LabelRecord(name="type:bug"),
+        label_matcher.LabelRecord(name="type:feature"),
+    ]
+    vector_store = label_matcher.LabelVectorStore(
+        store=object(), provider="unit-test", model="unit-test-model", labels=labels
+    )
+
+    matches = label_matcher.find_similar_labels(vector_store, "Dark mode", threshold=0.8)
+
+    names = [match.label.name for match in matches]
+    assert "type:feature" in names
+    assert "type:bug" not in names
+
+
+def test_find_similar_labels_keyword_multicategory_match():
+    labels = [
+        label_matcher.LabelRecord(name="type:bug"),
+        label_matcher.LabelRecord(name="documentation"),
+    ]
+    vector_store = label_matcher.LabelVectorStore(
+        store=object(), provider="unit-test", model="unit-test-model", labels=labels
+    )
+
+    matches = label_matcher.find_similar_labels(vector_store, "Bug in docs examples", threshold=0.8)
+
+    names = {match.label.name for match in matches}
+    assert "type:bug" in names
+    assert "documentation" in names
+    doc_match = next(match for match in matches if match.label.name == "documentation")
+    assert doc_match.score >= label_matcher.KEYWORD_DOCS_SCORE
+
+
+def test_find_similar_labels_keyword_docs_description_match():
+    labels = [
+        label_matcher.LabelRecord(name="type:bug"),
+        label_matcher.LabelRecord(name="quality", description="Documentation updates"),
+    ]
+    vector_store = label_matcher.LabelVectorStore(
+        store=object(), provider="unit-test", model="unit-test-model", labels=labels
+    )
+
+    matches = label_matcher.find_similar_labels(vector_store, "Bug in docs examples", threshold=0.8)
+
+    names = {match.label.name for match in matches}
+    assert "type:bug" in names
+    assert "quality" in names
+    doc_match = next(match for match in matches if match.label.name == "quality")
+    assert doc_match.score >= label_matcher.KEYWORD_DOCS_SCORE
+
+
+def test_find_similar_labels_appends_keyword_matches_after_semantic():
+    labels = [
+        label_matcher.LabelRecord(name="type:bug"),
+        label_matcher.LabelRecord(name="documentation"),
+    ]
+    store = types.SimpleNamespace(
+        similarity_search_with_relevance_scores=lambda query, k=5: [
+            (DummyDoc("type:bug", {"name": "type:bug"}), 0.92),
+        ]
+    )
+    vector_store = label_matcher.LabelVectorStore(
+        store=store, provider="unit-test", model="unit-test-model", labels=labels
+    )
+
+    matches = label_matcher.find_similar_labels(vector_store, "Bug in docs examples", threshold=0.8)
+
+    names = {match.label.name for match in matches}
+    assert "type:bug" in names
+    assert "documentation" in names
+    doc_match = next(match for match in matches if match.label.name == "documentation")
+    assert doc_match.score >= label_matcher.KEYWORD_DOCS_SCORE
+
+
+def test_find_similar_labels_dedupes_normalized_keyword_matches():
+    labels = [label_matcher.LabelRecord(name="documentation")]
+    store = types.SimpleNamespace(
+        similarity_search_with_relevance_scores=lambda query, k=5: [
+            (DummyDoc("Documentation", {"name": "Documentation"}), 0.92),
+        ]
+    )
+    vector_store = label_matcher.LabelVectorStore(
+        store=store, provider="unit-test", model="unit-test-model", labels=labels
+    )
+
+    matches = label_matcher.find_similar_labels(vector_store, "Bug in docs examples", threshold=0.8)
+
+    assert len(matches) == 1
+    assert matches[0].label.name == "Documentation"
+
+
+def test_resolve_label_match_keyword_bug_match():
+    labels = [
+        label_matcher.LabelRecord(name="type:bug"),
+        label_matcher.LabelRecord(name="type:feature"),
+    ]
+    vector_store = label_matcher.LabelVectorStore(
+        store=object(), provider="unit-test", model="unit-test-model", labels=labels
+    )
+
+    match = label_matcher.resolve_label_match(vector_store, "App crashes on login", threshold=0.8)
+
+    assert match is not None
+    assert match.label.name == "type:bug"
+    assert match.score_type == "keyword"
+
+
+def test_resolve_label_match_keyword_feature_match():
+    labels = [
+        label_matcher.LabelRecord(name="type:bug"),
+        label_matcher.LabelRecord(name="type:feature"),
+    ]
+    vector_store = label_matcher.LabelVectorStore(
+        store=object(), provider="unit-test", model="unit-test-model", labels=labels
+    )
+
+    match = label_matcher.resolve_label_match(vector_store, "Add dark mode support", threshold=0.8)
+
+    assert match is not None
+    assert match.label.name == "type:feature"
+    assert match.score_type == "keyword"
