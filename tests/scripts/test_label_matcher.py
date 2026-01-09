@@ -123,3 +123,55 @@ def test_resolve_label_match_uses_semantic_search():
     assert match is not None
     assert match.label.name == "bug"
     assert match.score == 0.93
+
+
+def test_find_similar_labels_keyword_bug_match():
+    labels = [
+        label_matcher.LabelRecord(name="type:bug"),
+        label_matcher.LabelRecord(name="type:feature"),
+    ]
+    vector_store = label_matcher.LabelVectorStore(
+        store=object(), provider="unit-test", model="unit-test-model", labels=labels
+    )
+
+    matches = label_matcher.find_similar_labels(vector_store, "App crashes on login", threshold=0.8)
+
+    names = [match.label.name for match in matches]
+    assert "type:bug" in names
+    assert "type:feature" not in names
+
+
+def test_find_similar_labels_keyword_feature_match():
+    labels = [
+        label_matcher.LabelRecord(name="type:bug"),
+        label_matcher.LabelRecord(name="type:feature"),
+    ]
+    vector_store = label_matcher.LabelVectorStore(
+        store=object(), provider="unit-test", model="unit-test-model", labels=labels
+    )
+
+    matches = label_matcher.find_similar_labels(
+        vector_store, "Add dark mode support", threshold=0.8
+    )
+
+    names = [match.label.name for match in matches]
+    assert "type:feature" in names
+    assert "type:bug" not in names
+
+
+def test_find_similar_labels_keyword_multicategory_match():
+    labels = [
+        label_matcher.LabelRecord(name="type:bug"),
+        label_matcher.LabelRecord(name="documentation"),
+    ]
+    vector_store = label_matcher.LabelVectorStore(
+        store=object(), provider="unit-test", model="unit-test-model", labels=labels
+    )
+
+    matches = label_matcher.find_similar_labels(
+        vector_store, "Bug in docs examples", threshold=0.8
+    )
+
+    names = {match.label.name for match in matches}
+    assert "type:bug" in names
+    assert "documentation" in names

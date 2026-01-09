@@ -114,3 +114,71 @@ Manual testing is slowing down releases. An automated testing pipeline will incr
 - All PRs require passing tests
 - Code coverage is above 80%
 - E2E tests cover login, dashboard, and checkout flows
+
+---
+
+Issue 6 — App crashes on login
+
+## Why
+Users report the app terminates when submitting valid credentials, blocking access to core features.
+
+## Scope
+- Capture crash logs on login failure
+- Identify the regression window
+- Implement and verify the fix
+
+## Tasks
+- [ ] Reproduce crash on the login flow
+- [ ] Inspect recent auth/session changes for regressions
+- [ ] Add guardrails around null session handling
+- [ ] Verify fix across supported platforms
+
+## Acceptance Criteria
+- Login no longer crashes on valid credentials
+- Crash logs show no login-related stack traces
+- Regression tests cover the login flow
+
+---
+
+Issue 7 — Add dark mode support
+
+## Why
+Users in low-light environments want a darker UI to reduce eye strain.
+
+## Scope
+- Provide a dark theme for core screens
+- Respect OS-level theme preferences
+- Add a manual toggle in settings
+
+## Tasks
+- [ ] Design dark theme color palette
+- [ ] Implement theme switcher logic
+- [ ] Update core screens for dark mode
+- [ ] Add settings toggle with persistence
+
+## Acceptance Criteria
+- Users can enable dark mode from settings
+- OS theme preference is respected by default
+- Core screens render correctly in dark mode
+
+---
+
+Issue 8 — Bug in docs examples
+
+## Why
+Documentation examples currently fail when copied, leading to user confusion and support requests.
+
+## Scope
+- Identify broken examples in docs
+- Fix example code and outputs
+- Add validation for docs snippets
+
+## Tasks
+- [ ] Audit docs examples for correctness
+- [ ] Update broken examples and expected output
+- [ ] Add a quick docs validation check
+
+## Acceptance Criteria
+- Docs examples run without errors
+- Updated snippets match current API behavior
+- Validation covers the critical docs examples
