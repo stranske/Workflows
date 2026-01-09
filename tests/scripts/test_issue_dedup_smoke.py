@@ -89,6 +89,4 @@ def test_request_json_returns_payload(monkeypatch) -> None:
 
     monkeypatch.setattr(issue_dedup_smoke.requests, "request", _fake_request)
 
-    assert issue_dedup_smoke._request_json("GET", "http://example", "token", None) == {
-        "ok": True
-    }
+    assert issue_dedup_smoke._request_json("GET", "http://example", "token", None) == {"ok": True}
