@@ -245,6 +245,25 @@ def check_issue_for_duplicate(
     return None
 
 
+def check_issue_for_no_duplicate(
+    repo: str,
+    issue_number: int,
+    token: str,
+    *,
+    attempts: int,
+    interval: float,
+) -> bool:
+    remaining = max(attempts, 1)
+    while remaining > 0:
+        comments = fetch_issue_comments(repo, issue_number, token)
+        if find_dedup_comment(comments) is not None:
+            return False
+        remaining -= 1
+        if remaining > 0 and interval > 0:
+            time.sleep(interval)
+    return True
+
+
 def _parse_labels(value: str | None) -> list[str] | None:
     if not value:
         return None
@@ -304,6 +323,11 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Issue number to check for a duplicate-detection comment.",
     )
     parser.add_argument(
+        "--check-unique",
+        type=int,
+        help="Issue number to confirm no duplicate-detection comment is present.",
+    )
+    parser.add_argument(
         "--check-attempts",
         type=int,
         default=1,
@@ -345,6 +369,10 @@ def main(argv: list[str]) -> int:
     labels = _parse_labels(args.labels)
     find_labels = _parse_labels(args.find_labels)
 
+    if args.check_issue is not None and args.check_unique is not None:
+        print("Choose only one of --check-issue or --check-unique.", file=sys.stderr)
+        return 1
+
     if args.check_issue is not None:
         comment = check_issue_for_duplicate(
             args.repo,
@@ -358,6 +386,19 @@ def main(argv: list[str]) -> int:
             return 1
         comment_url = comment.get("html_url") or comment.get("url") or "unknown"
         print(f"Duplicate detection comment found: {comment_url}")
+        return 0
+    if args.check_unique is not None:
+        is_unique = check_issue_for_no_duplicate(
+            args.repo,
+            args.check_unique,
+            token,
+            attempts=args.check_attempts,
+            interval=args.check_interval,
+        )
+        if not is_unique:
+            print("Duplicate detection comment found (unique check failed).")
+            return 1
+        print("No duplicate detection comment found.")
         return 0
 
     if args.list_issues:

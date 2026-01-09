@@ -206,3 +206,59 @@ def test_check_issue_for_duplicate_retries_until_found(monkeypatch) -> None:
     assert comment is not None
     assert comment["html_url"] == "link"
     assert sleep_calls == [0.5]
+
+
+def test_check_issue_for_no_duplicate_returns_true(monkeypatch) -> None:
+    responses = [
+        [{"body": "No marker yet"}],
+        [{"body": "Still nothing"}],
+    ]
+
+    def _fake_fetch(repo, issue_number, token):
+        return responses.pop(0)
+
+    sleep_calls: list[float] = []
+
+    monkeypatch.setattr(issue_dedup_smoke, "fetch_issue_comments", _fake_fetch)
+    monkeypatch.setattr(
+        issue_dedup_smoke.time, "sleep", lambda seconds: sleep_calls.append(seconds)
+    )
+
+    result = issue_dedup_smoke.check_issue_for_no_duplicate(
+        "owner/repo",
+        12,
+        "token",
+        attempts=2,
+        interval=0.25,
+    )
+
+    assert result is True
+    assert sleep_calls == [0.25]
+
+
+def test_check_issue_for_no_duplicate_returns_false_on_match(monkeypatch) -> None:
+    responses = [
+        [{"body": "No marker yet"}],
+        [{"body": f"{issue_dedup.SIMILAR_ISSUES_MARKER} found"}],
+    ]
+
+    def _fake_fetch(repo, issue_number, token):
+        return responses.pop(0)
+
+    sleep_calls: list[float] = []
+
+    monkeypatch.setattr(issue_dedup_smoke, "fetch_issue_comments", _fake_fetch)
+    monkeypatch.setattr(
+        issue_dedup_smoke.time, "sleep", lambda seconds: sleep_calls.append(seconds)
+    )
+
+    result = issue_dedup_smoke.check_issue_for_no_duplicate(
+        "owner/repo",
+        12,
+        "token",
+        attempts=2,
+        interval=0.25,
+    )
+
+    assert result is False
+    assert sleep_calls == [0.25]
