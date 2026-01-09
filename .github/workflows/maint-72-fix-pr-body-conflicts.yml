@@ -64,6 +64,12 @@ jobs:
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Extract repo name
+        if: steps.check.outputs.skip != 'true'
+        id: repo-info
+        run: |
+          echo "repo_name=$(echo '${{ matrix.repo }}' | cut -d'/' -f2)" >> "$GITHUB_OUTPUT"
+
       - name: Generate GitHub App token
         if: steps.check.outputs.skip != 'true'
         id: app-token
@@ -72,7 +78,7 @@ jobs:
           app-id: ${{ secrets.WORKFLOWS_APP_ID }}
           private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
           owner: stranske
-          repositories: ${{ matrix.repo }}
+          repositories: ${{ steps.repo-info.outputs.repo_name }}
 
       - name: Check and fix pr_body.md
         if: steps.check.outputs.skip != 'true'
