@@ -275,7 +275,8 @@ class TestClassifyCapabilities:
     def test_returns_fallback_when_no_llm_client(self) -> None:
         with mock.patch("scripts.langchain.capability_check._get_llm_client", return_value=None):
             result = classify_capabilities(["task1"], "criteria")
-            assert result.recommendation == "REVIEW_NEEDED"
+            assert result.recommendation == "PROCEED"
+            assert result.actionable_tasks == ["task1"]
             assert "LLM provider unavailable" in result.human_actions_needed
             assert result.provider_used is None
 
@@ -297,7 +298,8 @@ class TestClassifyCapabilities:
 
             with mock.patch.object(builtins, "__import__", mock_import):
                 result = classify_capabilities(["task1"], "criteria")
-                assert result.recommendation == "REVIEW_NEEDED"
+                assert result.recommendation == "PROCEED"
+                assert result.actionable_tasks == ["task1"]
                 assert result.provider_used == "github-models"
                 assert "langchain-core not installed" in result.human_actions_needed
 
@@ -345,7 +347,8 @@ class TestClassifyCapabilities:
         ):
             result = classify_capabilities(["task1"], "criteria")
 
-        assert result.recommendation == "REVIEW_NEEDED"
+        assert result.recommendation == "PROCEED"
+        assert result.actionable_tasks == ["task1"]
         assert "LLM response missing JSON payload" in result.human_actions_needed
         assert result.provider_used == "github-models"
 
@@ -365,9 +368,31 @@ class TestClassifyCapabilities:
         ):
             result = classify_capabilities(["task1"], "criteria")
 
-        assert result.recommendation == "REVIEW_NEEDED"
+        assert result.recommendation == "PROCEED"
+        assert result.actionable_tasks == ["task1"]
         assert "LLM response JSON parse failed" in result.human_actions_needed
         assert result.provider_used == "github-models"
+
+    def test_fallback_flags_external_dependency(self) -> None:
+        with mock.patch("scripts.langchain.capability_check._get_llm_client", return_value=None):
+            result = classify_capabilities(["Integrate Stripe payments"], "")
+            assert result.recommendation == "BLOCKED"
+            assert result.blocked_tasks[0]["task"] == "Integrate Stripe payments"
+            assert "external service" in result.blocked_tasks[0]["reason"].lower()
+
+    def test_fallback_flags_admin_requirement(self) -> None:
+        with mock.patch("scripts.langchain.capability_check._get_llm_client", return_value=None):
+            result = classify_capabilities(["Update GitHub secrets"], "")
+            assert result.recommendation == "BLOCKED"
+            assert result.blocked_tasks[0]["task"] == "Update GitHub secrets"
+            assert "admin" in result.blocked_tasks[0]["reason"].lower()
+
+    def test_fallback_suggests_decomposition(self) -> None:
+        with mock.patch("scripts.langchain.capability_check._get_llm_client", return_value=None):
+            result = classify_capabilities(["Refactor auth + add tests + update docs"], "")
+            assert result.recommendation == "REVIEW_NEEDED"
+            assert result.partial_tasks[0]["task"] == "Refactor auth + add tests + update docs"
+            assert "split" in result.partial_tasks[0]["limitation"].lower()
 
 
 # The following tests require langchain_core to be installed
@@ -407,7 +432,8 @@ class TestClassifyCapabilitiesWithLangchain:
             mock_cpt.from_template.return_value = mock_template
 
             result = classify_capabilities(["task1"], "criteria")
-            assert result.recommendation == "REVIEW_NEEDED"
+            assert result.recommendation == "PROCEED"
+            assert result.actionable_tasks == ["task1"]
             assert "LLM response missing JSON payload" in result.human_actions_needed
 
     def test_returns_fallback_when_json_parse_fails(self) -> None:
@@ -431,7 +457,8 @@ class TestClassifyCapabilitiesWithLangchain:
             mock_cpt.from_template.return_value = mock_template
 
             result = classify_capabilities(["task1"], "criteria")
-            assert result.recommendation == "REVIEW_NEEDED"
+            assert result.recommendation == "PROCEED"
+            assert result.actionable_tasks == ["task1"]
             assert "LLM response JSON parse failed" in result.human_actions_needed
 
     def test_normalizes_valid_llm_response(self) -> None:

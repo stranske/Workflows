@@ -119,6 +119,11 @@ def _parse_sections(
         "tasks": {"tasks"},
         "acceptance_criteria": {"acceptance criteria", "acceptance criteria."},
         "implementation_notes": {
+            "admin access",
+            "admin requirement",
+            "admin requirements",
+            "dependencies",
+            "dependency",
             "implementation notes",
             "implementation note",
             "notes",
