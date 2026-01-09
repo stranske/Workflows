@@ -567,7 +567,7 @@ If workflow works in Repo A but not Repo B:
 **Current Conflicting PRs (as of 2026-01-09):**
 - Manager-Database: 2 PRs (#134, #135) - real code conflicts, need Codex
 - Portable-Alpha-Extension-Model: 1 PR (#1049) - real code conflict, needs Codex
-- All other repos: No conflicts
+- All other repos (besides Manager-Database and Portable-Alpha-Extension-Model): No conflicts
 
 **Minimum for Phase 3 Completion:** Each workflow tested in ≥2 repos, passing in ≥2 repos
 
