@@ -149,6 +149,18 @@ def _parse_subtasks(text: str) -> list[str]:
 
 
 def _split_task_parts(task: str) -> list[str]:
+    for marker in (" with ", " including "):
+        if marker in task:
+            base, suffix = task.split(marker, 1)
+            base = base.strip()
+            items = [
+                item.strip()
+                for item in re.split(r"\s*,\s*|\s+and\s+", suffix)
+                if item.strip()
+            ]
+            if base and len(items) > 1:
+                keyword = marker.strip()
+                return [f"{base} {keyword} {item}" for item in items]
     if " and " in task:
         parts = re.split(r"\s+and\s+", task)
     elif " then " in task:

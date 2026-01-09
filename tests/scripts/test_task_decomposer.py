@@ -110,6 +110,15 @@ def test_split_task_parts_with_comma() -> None:
     assert len(parts) == 3
 
 
+def test_split_task_parts_with_with_list() -> None:
+    """_split_task_parts expands list items after 'with'."""
+    parts = task_decomposer._split_task_parts(
+        "Build user dashboard with auth, profile, settings, notifications, themes, export, import, admin"
+    )
+    assert len(parts) == 8
+    assert all(part.startswith("Build user dashboard with") for part in parts)
+
+
 def test_split_task_parts_with_slash() -> None:
     """_split_task_parts splits on slashes."""
     parts = task_decomposer._split_task_parts("config/settings")
