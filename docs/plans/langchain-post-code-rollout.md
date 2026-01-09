@@ -765,7 +765,7 @@ If any workflow causes issues in consumer repos:
 - **4A:** Label Cleanup - ✅ Script created (`scripts/cleanup_labels.py`)
 - **4B:** User Guide - Operational documentation for label system - 📋 Deferred
 - **4C:** Auto-Pilot Label - End-to-end issue-to-merge automation - 📋 Planning
-- **4D:** Conflict Resolution - ✅ Script created (`conflict_detector.js`), in sync manifest
+- **4D:** Conflict Resolution - ✅ **FULLY INTEGRATED** - `conflict_detector.js` + `keepalive_loop.js` + `keepalive_prompt_routing.js` wired together
 - **4E:** Verify-to-Issue - ✅ Workflow created (`agents-verify-to-issue.yml`), in sync manifest
 
 **Total: 12 deployment actions** - Phases 1-2 deployed. Phase 3 scripts ready. Phase 4 partially implemented.
@@ -819,7 +819,7 @@ If any workflow causes issues in consumer repos:
 
 **Completed:**
 1. ✅ **4A: Label Cleanup** - `scripts/cleanup_labels.py` created (296 lines)
-2. ✅ **4D: Conflict Resolution** - `conflict_detector.js` created (365 lines), in sync manifest
+2. ✅ **4D: Conflict Resolution** - Fully integrated! `conflict_detector.js` synced, `keepalive_loop.js` calls it, `keepalive_prompt_routing.js` routes to conflict prompt
 3. ✅ **4E: Verify-to-Issue** - `agents-verify-to-issue.yml` created (203 lines), in sync manifest
 
 **Pending:**
@@ -1032,23 +1032,33 @@ Step 8: verify:evaluate on merged PR
 
 ### 4D. Conflict Resolution in Keepalive
 
-> **Status:** ✅ Script Implemented - Integration Pending
+> **Status:** ✅ Fully Implemented - Ready for Testing
 
 **Problem:** Most common reason keepalive stalls is merge conflicts. Agents handle conflicts well when prompted, but current pipeline doesn't automatically detect/respond.
 
 **Current State:**
 - ✅ `conflict_detector.js` created (366 lines) with full conflict detection logic
 - ✅ In sync manifest for consumer repos
-- ❌ Integration with `keepalive_gate.js` pending
-- ❌ Integration with `agents-keepalive-loop.yml` pending
+- ✅ Integration with `keepalive_loop.js` complete (imports and calls `detectConflicts`)
+- ✅ Integration with `keepalive_prompt_routing.js` complete (supports `conflict` mode)
+- ✅ `fix_merge_conflicts.md` prompt synced to consumer repos
 
 **Implementation Checklist:**
 - [x] Create `.github/scripts/conflict_detector.js`
-- [ ] Add conflict detection to `keepalive_gate.js`
+- [x] Add conflict detection to `keepalive_loop.js` (calls `detectConflicts` before action decision)
+- [x] Add conflict mode to `keepalive_prompt_routing.js` (CONFLICT_SCENARIOS, CONFLICT_MODES)
 - [x] Create `.github/codex/prompts/fix_merge_conflicts.md` (in sync manifest)
-- [ ] Update `agents-keepalive-loop.yml` to use conflict prompt
+- [x] Return `hasConflict`, `conflictSource`, `conflictFiles` in keepalive loop result
 - [ ] Add conflict metrics to keepalive summary
 - [ ] Test with intentionally conflicted branches on Manager-Database
+
+**How It Works:**
+1. When keepalive evaluates a PR, it calls `detectConflicts()` after fetching PR data
+2. If `hasConflict` is true and the PR has an agent label + keepalive enabled:
+   - `action` is set to `'conflict'`
+   - `reason` is set to `'merge-conflict-{source}'` (e.g., `merge-conflict-github-api`)
+3. `resolvePromptRouting()` sees the action/reason and returns `PROMPT_ROUTES.conflict`
+4. The agent receives `fix_merge_conflicts.md` prompt and resolves conflicts
 
 **Full Implementation Plan (Reference):**
 
