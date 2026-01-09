@@ -27,22 +27,16 @@ jobs:
       !contains(github.event.issue.labels.*.name, 'automated')
 
     steps:
-      - name: Checkout Workflows repo
-        uses: actions/checkout@v6
-        with:
-          # Use the repository containing the label_matcher.py script
-          # For consumer repos, this fetches from the central Workflows repo
-          repository: ${{ github.repository == 'stranske/Workflows' && github.repository || 'stranske/Workflows' }}
-          path: workflows-repo
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.11"
 
       - name: Install dependencies
         run: |
-          cd workflows-repo
           pip install -e ".[langchain]" --quiet
 
       - name: Get repo labels
@@ -76,8 +70,8 @@ jobs:
           LABELS_JSON: ${{ steps.get-labels.outputs.labels_json }}
           ISSUE_TITLE: ${{ github.event.issue.title }}
           ISSUE_BODY: ${{ github.event.issue.body }}
+          PYTHONPATH: ${{ github.workspace }}
         run: |
-          cd workflows-repo
           python3 << 'PYTHON_SCRIPT'
           import json
           import os
