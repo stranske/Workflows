@@ -53,6 +53,33 @@ def test_normalize_subtasks_scopes_large_tasks() -> None:
     assert all("verify" in task.lower() for task in sub_tasks)
 
 
+def test_build_child_issues_skips_atomic_task() -> None:
+    child_issues = task_decomposer.build_child_issues(["update docs"], parent_title="Parent Issue")
+    assert child_issues == []
+
+
+def test_build_child_issues_preserves_metadata() -> None:
+    child_issues = task_decomposer.build_child_issues(
+        ["update docs", "add tests"],
+        parent_title="Parent Issue",
+        parent_number=123,
+        parent_url="https://github.com/example/repo/issues/123",
+        labels=["agent:codex", "status:ready"],
+        assignees=["octo-user"],
+        milestone=7,
+    )
+    assert len(child_issues) == 2
+    for child in child_issues:
+        assert child["labels"] == ["agent:codex", "status:ready"]
+        assert child["assignees"] == ["octo-user"]
+        assert child["milestone"] == 7
+        assert child["title"].startswith("Parent Issue:")
+        assert "Parent issue: [#123](" in child["body"]
+        assert "- [ ] " in child["body"]
+    assert child_issues[0]["labels"] is not child_issues[1]["labels"]
+    assert child_issues[0]["assignees"] is not child_issues[1]["assignees"]
+
+
 def test_decompose_task_empty_input() -> None:
     """decompose_task returns empty sub_tasks for empty input."""
     result = task_decomposer.decompose_task("")
@@ -64,6 +91,12 @@ def test_decompose_task_empty_input() -> None:
 def test_decompose_task_whitespace_only() -> None:
     """decompose_task returns empty sub_tasks for whitespace-only input."""
     result = task_decomposer.decompose_task("   \n\t  ")
+    assert result["sub_tasks"] == []
+
+
+def test_decompose_task_skips_atomic_task() -> None:
+    """decompose_task returns empty sub_tasks for atomic tasks."""
+    result = task_decomposer.decompose_task("Fix null check in parser", use_llm=False)
     assert result["sub_tasks"] == []
 
 
@@ -85,6 +118,15 @@ def test_split_task_parts_with_comma() -> None:
     """_split_task_parts splits on commas."""
     parts = task_decomposer._split_task_parts("lint, format, typecheck")
     assert len(parts) == 3
+
+
+def test_split_task_parts_with_with_list() -> None:
+    """_split_task_parts expands list items after 'with'."""
+    parts = task_decomposer._split_task_parts(
+        "Build user dashboard with auth, profile, settings, notifications, themes, export, import, admin"
+    )
+    assert len(parts) == 8
+    assert all(part.startswith("Build user dashboard with") for part in parts)
 
 
 def test_split_task_parts_with_slash() -> None:
@@ -404,7 +446,7 @@ def test_decompose_task_llm_path(monkeypatch) -> None:
     fake_prompts.ChatPromptTemplate = FakeChatPromptTemplate
     monkeypatch.setitem(sys.modules, "langchain_core.prompts", fake_prompts)
 
-    result = task_decomposer.decompose_task("large task", use_llm=True)
+    result = task_decomposer.decompose_task("full migration of database", use_llm=True)
     assert result["used_llm"] is True
     assert result["provider_used"] == "github-models"
     assert any("add tests" in task.lower() for task in result["sub_tasks"])
@@ -439,7 +481,7 @@ def test_decompose_task_llm_prompt_used(monkeypatch, tmp_path) -> None:
     fake_prompts.ChatPromptTemplate = FakeChatPromptTemplate
     monkeypatch.setitem(sys.modules, "langchain_core.prompts", fake_prompts)
 
-    result = task_decomposer.decompose_task("large task", use_llm=True)
+    result = task_decomposer.decompose_task("full migration of database", use_llm=True)
     assert result["used_llm"] is True
     assert captured["template"] == "Prompt for {large_task}"
 
@@ -467,7 +509,7 @@ def test_decompose_task_llm_response_without_content(monkeypatch) -> None:
     fake_prompts.ChatPromptTemplate = FakeChatPromptTemplate
     monkeypatch.setitem(sys.modules, "langchain_core.prompts", fake_prompts)
 
-    result = task_decomposer.decompose_task("large task", use_llm=True)
+    result = task_decomposer.decompose_task("full migration of database", use_llm=True)
     assert result["used_llm"] is True
     assert result["provider_used"] == "github-models"
     assert any("update docs" in task.lower() for task in result["sub_tasks"])
@@ -488,7 +530,7 @@ def test_decompose_task_llm_import_error(monkeypatch) -> None:
         return original_import(name, globals, locals, fromlist, level)
 
     monkeypatch.setattr("builtins.__import__", fake_import)
-    result = task_decomposer.decompose_task("task", use_llm=True)
+    result = task_decomposer.decompose_task("full migration of database", use_llm=True)
     assert result["used_llm"] is False
     assert result["provider_used"] is None
 
@@ -516,7 +558,7 @@ def test_decompose_task_llm_empty_result(monkeypatch) -> None:
     fake_prompts.ChatPromptTemplate = FakeChatPromptTemplate
     monkeypatch.setitem(sys.modules, "langchain_core.prompts", fake_prompts)
 
-    result = task_decomposer.decompose_task("task", use_llm=True)
+    result = task_decomposer.decompose_task("full migration of database", use_llm=True)
     assert result["used_llm"] is False
     assert result["provider_used"] is None
 
@@ -526,7 +568,7 @@ def test_decompose_task_no_llm_client(monkeypatch) -> None:
     monkeypatch.delenv("GITHUB_TOKEN", raising=False)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.delitem(sys.modules, "langchain_openai", raising=False)
-    result = task_decomposer.decompose_task("task", use_llm=True)
+    result = task_decomposer.decompose_task("full migration of database", use_llm=True)
     assert result["used_llm"] is False
     assert result["provider_used"] is None
 
@@ -534,7 +576,9 @@ def test_decompose_task_no_llm_client(monkeypatch) -> None:
 def test_main_json_output(monkeypatch) -> None:
     """main outputs JSON when --json flag is provided."""
     monkeypatch.setattr(
-        sys, "argv", ["task_decomposer.py", "--task", "simple task", "--json", "--no-llm"]
+        sys,
+        "argv",
+        ["task_decomposer.py", "--task", "Update docs and add tests", "--json", "--no-llm"],
     )
     captured = io.StringIO()
     with patch("sys.stdout", captured):
@@ -546,7 +590,9 @@ def test_main_json_output(monkeypatch) -> None:
 
 def test_main_plain_output(monkeypatch) -> None:
     """main outputs plain text without --json flag."""
-    monkeypatch.setattr(sys, "argv", ["task_decomposer.py", "--task", "simple task", "--no-llm"])
+    monkeypatch.setattr(
+        sys, "argv", ["task_decomposer.py", "--task", "Update docs and add tests", "--no-llm"]
+    )
     captured = io.StringIO()
     with patch("sys.stdout", captured):
         task_decomposer.main()
@@ -641,7 +687,9 @@ def test_normalize_subtasks_skips_empty_cleaned(monkeypatch) -> None:
 def test_main_module_invocation(monkeypatch) -> None:
     """__main__ execution runs the CLI entrypoint."""
     monkeypatch.setenv("PYTHONHASHSEED", "0")
-    monkeypatch.setattr(sys, "argv", ["task_decomposer.py", "--task", "simple task", "--no-llm"])
+    monkeypatch.setattr(
+        sys, "argv", ["task_decomposer.py", "--task", "Update docs and add tests", "--no-llm"]
+    )
     captured = io.StringIO()
     with patch("sys.stdout", captured):
         runpy.run_path(task_decomposer.__file__, run_name="__main__")
