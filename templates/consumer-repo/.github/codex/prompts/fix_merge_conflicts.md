@@ -6,6 +6,16 @@ This PR has **merge conflicts** that must be resolved before CI can run or the P
 
 Resolve all merge conflicts by integrating changes from the base branch with this PR's changes.
 
+## IMPORTANT: Pre-Flight Check
+
+Before starting, verify the conflict state:
+```bash
+git status
+```
+
+If you see "nothing to commit, working tree clean" - conflicts may have been auto-resolved. 
+Check if there are actually merge conflicts before proceeding.
+
 ## Conflict Detection
 
 {{#if conflict_files}}
@@ -29,6 +39,8 @@ Check `git status` to identify files with conflicts.
    ```bash
    git merge origin/{{base_branch}}
    ```
+   
+   If this succeeds without conflicts, you're done - just push the merge commit.
 
 3. **For each conflicting file:**
    - Look for conflict markers: `<<<<<<<`, `=======`, `>>>>>>>`
@@ -103,11 +115,28 @@ from module import foo, baz
 ```
 **Resolution:** Combine imports: `from module import foo, bar, baz`
 
+### Type annotation conflicts (Python):
+```python
+<<<<<<< HEAD
+def process(data: dict[str, Any]) -> Result:
+=======
+def process(data: dict[str, Any], config: Config) -> Result:
+>>>>>>> origin/{{base_branch}}
+```
+**Resolution:** Keep the signature with more parameters (main's version) and ensure caller sites are updated.
+
+### Dependency conflicts (pyproject.toml / package.json):
+Keep both dependencies unless they're duplicate versions of the same package.
+For version conflicts, prefer the newer/higher version.
+
 ### Function modification conflicts:
 Keep the more complete/correct version, or merge logic if both changes are needed.
 
 ### Test file conflicts:
-Usually keep both sets of tests unless they're duplicates.
+Usually keep both sets of tests unless they're duplicates. Ensure test names don't collide.
+
+### Documentation conflicts:
+Combine content from both sides, ensuring accurate and up-to-date information.
 
 ## Exit Criteria
 
@@ -115,6 +144,20 @@ Usually keep both sets of tests unless they're duplicates.
 - Code compiles/parses without syntax errors
 - Tests pass (at least the ones that were passing before)
 - Changes committed with descriptive message
+
+## Verification Commands
+
+After resolving conflicts, verify:
+```bash
+# Ensure no conflict markers remain
+grep -rn "<<<<<<< HEAD\|=======\|>>>>>>>" . --include="*.py" --include="*.js" --include="*.ts" || echo "No conflict markers found"
+
+# For Python projects
+python -m py_compile $(find . -name "*.py" -not -path "./.venv/*") 2>&1 | head -20
+
+# Run tests
+pytest -x -q 2>&1 | tail -20 || npm test 2>&1 | tail -20
+```
 
 ---
 
