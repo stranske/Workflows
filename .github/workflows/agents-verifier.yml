@@ -343,20 +343,23 @@ jobs:
             }
 
             const emoji = verdict === 'pass' ? '✅' : verdict === 'fail' ? '❌' : '⚠️';
-            const body = `## PR Verification Report ${emoji}
 
-**Verdict: ${verdict.toUpperCase()}**
-
-<details>
-<summary>Verification Details</summary>
-
-${verifierOutput}
-
-</details>
-
----
-[View workflow run](${runUrl})
-`;
+            // Build comment body with proper formatting
+            const body = [
+              `## PR Verification Report ${emoji}`,
+              '',
+              `**Verdict: ${verdict.toUpperCase()}**`,
+              '',
+              '<details>',
+              '<summary>Verification Details</summary>',
+              '',
+              verifierOutput,
+              '',
+              '</details>',
+              '',
+              '---',
+              `[View workflow run](${runUrl})`
+            ].join('\n');
 
             await github.rest.issues.createComment({
               owner: context.repo.owner,
