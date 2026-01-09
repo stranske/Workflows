@@ -8,11 +8,11 @@ Part of Phase 3 workflow rollout validation per `docs/plans/langchain-post-code-
 
 ## Tasks
 - [x] Create a bug issue in the consumer repo with the title 'App crashes on login'.
-- [x] Verify that the issue gets the `type:bug` label.
+- [ ] Verify that the issue gets the `type:bug` label. (manual verification needed)
 - [x] Create a feature request in the consumer repo with the title 'Add dark mode support'.
 - [x] Verify that the issue gets the `type:feature` label.
 - [x] Create a multi-category issue in the consumer repo with the title 'Bug in docs examples'.
-- [x] Verify that the issue gets multiple appropriate labels.
+- [ ] Verify that the issue gets multiple appropriate labels. (manual verification needed)
 
 ## Acceptance Criteria
 - [x] ALPT01 correctly labels bugs.

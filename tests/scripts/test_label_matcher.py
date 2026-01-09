@@ -195,6 +195,24 @@ def test_find_similar_labels_keyword_multicategory_match():
     assert doc_match.score >= label_matcher.KEYWORD_DOCS_SCORE
 
 
+def test_find_similar_labels_keyword_docs_description_match():
+    labels = [
+        label_matcher.LabelRecord(name="type:bug"),
+        label_matcher.LabelRecord(name="quality", description="Documentation updates"),
+    ]
+    vector_store = label_matcher.LabelVectorStore(
+        store=object(), provider="unit-test", model="unit-test-model", labels=labels
+    )
+
+    matches = label_matcher.find_similar_labels(vector_store, "Bug in docs examples", threshold=0.8)
+
+    names = {match.label.name for match in matches}
+    assert "type:bug" in names
+    assert "quality" in names
+    doc_match = next(match for match in matches if match.label.name == "quality")
+    assert doc_match.score >= label_matcher.KEYWORD_DOCS_SCORE
+
+
 def test_find_similar_labels_appends_keyword_matches_after_semantic():
     labels = [
         label_matcher.LabelRecord(name="type:bug"),

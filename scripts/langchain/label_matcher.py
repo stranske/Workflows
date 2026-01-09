@@ -218,11 +218,12 @@ def _keyword_match_score(label: LabelRecord, query: str) -> float | None:
         return None
 
     query_lower = query.lower()
-    label_tokens = _tokenize(label.name) - _IGNORED_LABEL_TOKENS
+    label_text = " ".join(part for part in (label.name, label.description) if part)
+    label_tokens = _tokenize(label_text) - _IGNORED_LABEL_TOKENS
     if label_tokens and label_tokens.intersection(tokens):
         return 0.95
 
-    normalized = _normalize_label(label.name)
+    normalized = _normalize_label(label_text)
     score = 0.0
 
     if "bug" in normalized and any(
