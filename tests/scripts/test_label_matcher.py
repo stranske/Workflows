@@ -173,3 +173,35 @@ def test_find_similar_labels_keyword_multicategory_match():
     names = {match.label.name for match in matches}
     assert "type:bug" in names
     assert "documentation" in names
+
+
+def test_resolve_label_match_keyword_bug_match():
+    labels = [
+        label_matcher.LabelRecord(name="type:bug"),
+        label_matcher.LabelRecord(name="type:feature"),
+    ]
+    vector_store = label_matcher.LabelVectorStore(
+        store=object(), provider="unit-test", model="unit-test-model", labels=labels
+    )
+
+    match = label_matcher.resolve_label_match(vector_store, "App crashes on login", threshold=0.8)
+
+    assert match is not None
+    assert match.label.name == "type:bug"
+    assert match.score_type == "keyword"
+
+
+def test_resolve_label_match_keyword_feature_match():
+    labels = [
+        label_matcher.LabelRecord(name="type:bug"),
+        label_matcher.LabelRecord(name="type:feature"),
+    ]
+    vector_store = label_matcher.LabelVectorStore(
+        store=object(), provider="unit-test", model="unit-test-model", labels=labels
+    )
+
+    match = label_matcher.resolve_label_match(vector_store, "Add dark mode support", threshold=0.8)
+
+    assert match is not None
+    assert match.label.name == "type:feature"
+    assert match.score_type == "keyword"
