@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from pathlib import Path
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -47,9 +47,7 @@ def test_main_skip_render_missing_destination(
 ) -> None:
     destination = tmp_path / "missing"
 
-    result = run_consumer_repo_tests.main(
-        ["--skip-render", "--destination", str(destination)]
-    )
+    result = run_consumer_repo_tests.main(["--skip-render", "--destination", str(destination)])
 
     captured = capsys.readouterr()
     assert result == 1

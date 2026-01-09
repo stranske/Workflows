@@ -5,8 +5,8 @@ import os
 import shutil
 import subprocess
 import sys
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Sequence
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -34,9 +34,7 @@ def build_pytest_env(destination: Path) -> dict[str, str]:
     env = os.environ.copy()
     src_path = str(destination.resolve() / "src")
     existing = env.get("PYTHONPATH")
-    env["PYTHONPATH"] = (
-        f"{src_path}{os.pathsep}{existing}" if existing else src_path
-    )
+    env["PYTHONPATH"] = f"{src_path}{os.pathsep}{existing}" if existing else src_path
     return env
 
 
