@@ -316,11 +316,12 @@ def find_similar_labels(
 
     keyword_matches = _keyword_matches(label_store.labels, query, threshold=threshold)
     if keyword_matches:
-        seen = {match.label.name for match in matches}
+        seen = {_normalize_label(match.label.name) for match in matches}
         for match in keyword_matches:
-            if match.label.name not in seen:
+            normalized = _normalize_label(match.label.name)
+            if normalized and normalized not in seen:
                 matches.append(match)
-                seen.add(match.label.name)
+                seen.add(normalized)
 
     matches.sort(key=lambda match: match.score, reverse=True)
     return matches
