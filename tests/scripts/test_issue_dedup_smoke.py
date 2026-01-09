@@ -87,6 +87,18 @@ def test_select_issue_by_query_skips_prs_and_matches_body() -> None:
     assert match.number == 3
 
 
+def test_filter_issues_by_query_handles_empty_query() -> None:
+    issues = [
+        {"number": 1, "title": "Open issue", "body": ""},
+        {"number": 2, "title": "PR", "body": "", "pull_request": {}},
+        {"number": "bad", "title": "Missing numeric"},
+    ]
+
+    matches = issue_dedup_smoke.filter_issues_by_query(issues, None)
+
+    assert [match.number for match in matches] == [1]
+
+
 def test_find_source_issue_scans_pages(monkeypatch) -> None:
     responses = [
         [{"number": 1, "title": "Nope", "body": ""}],
@@ -108,6 +120,32 @@ def test_find_source_issue_scans_pages(monkeypatch) -> None:
 
     assert match is not None
     assert match.number == 2
+
+
+def test_collect_matching_issues_respects_limit(monkeypatch) -> None:
+    responses = [
+        [
+            {"number": 1, "title": "Needle", "body": ""},
+            {"number": 2, "title": "Needle again", "body": ""},
+        ],
+        [{"number": 3, "title": "Needle later", "body": ""}],
+    ]
+
+    def _fake_fetch(repo, token, *, labels, page, per_page=100):
+        return responses.pop(0)
+
+    monkeypatch.setattr(issue_dedup_smoke, "fetch_issues", _fake_fetch)
+
+    matches = issue_dedup_smoke.collect_matching_issues(
+        "owner/repo",
+        "token",
+        query="needle",
+        labels=None,
+        pages=2,
+        limit=2,
+    )
+
+    assert [match.number for match in matches] == [1, 2]
 
 
 def test_request_json_raises_on_error(monkeypatch) -> None:

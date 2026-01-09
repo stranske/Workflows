@@ -149,23 +149,32 @@ def build_duplicate_payload(
     return build_issue_payload(title, body, labels)
 
 
-def select_issue_by_query(
+def filter_issues_by_query(
     issues: list[dict[str, Any]],
-    query: str,
-) -> SourceIssue | None:
-    query_lower = query.lower()
+    query: str | None,
+) -> list[SourceIssue]:
+    matches: list[SourceIssue] = []
+    query_lower = query.lower() if query else None
     for entry in issues:
         if "pull_request" in entry:
             continue
         title = str(entry.get("title") or "")
         body = str(entry.get("body") or "")
-        if query_lower not in title.lower() and query_lower not in body.lower():
+        if query_lower and query_lower not in title.lower() and query_lower not in body.lower():
             continue
         try:
-            return parse_source_issue(entry)
+            matches.append(parse_source_issue(entry))
         except ValueError:
             continue
-    return None
+    return matches
+
+
+def select_issue_by_query(
+    issues: list[dict[str, Any]],
+    query: str,
+) -> SourceIssue | None:
+    matches = filter_issues_by_query(issues, query)
+    return matches[0] if matches else None
 
 
 def find_source_issue(
@@ -185,6 +194,27 @@ def find_source_issue(
         if not issues:
             break
     return None
+
+
+def collect_matching_issues(
+    repo: str,
+    token: str,
+    *,
+    query: str | None,
+    labels: list[str] | None,
+    pages: int,
+    limit: int | None = None,
+) -> list[SourceIssue]:
+    max_pages = max(pages, 1)
+    matches: list[SourceIssue] = []
+    for page in range(1, max_pages + 1):
+        issues = fetch_issues(repo, token, labels=labels, page=page)
+        matches.extend(filter_issues_by_query(issues, query))
+        if limit is not None and len(matches) >= limit:
+            return matches[:limit]
+        if not issues:
+            break
+    return matches
 
 
 def find_dedup_comment(comments: list[dict[str, Any]]) -> dict[str, Any] | None:
@@ -252,6 +282,11 @@ def _build_parser() -> argparse.ArgumentParser:
         default=1,
         help="Number of issue pages to scan when searching.",
     )
+    parser.add_argument(
+        "--find-limit",
+        type=int,
+        help="Maximum number of matching issues to list.",
+    )
     parser.add_argument("--title", help="Title for a new issue (required if no source).")
     parser.add_argument("--body", help="Body for a new issue (optional).")
     parser.add_argument(
@@ -290,6 +325,11 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Print the source issue selection and exit.",
     )
+    parser.add_argument(
+        "--list-issues",
+        action="store_true",
+        help="List matching source issues and exit.",
+    )
     return parser
 
 
@@ -318,6 +358,23 @@ def main(argv: list[str]) -> int:
             return 1
         comment_url = comment.get("html_url") or comment.get("url") or "unknown"
         print(f"Duplicate detection comment found: {comment_url}")
+        return 0
+
+    if args.list_issues:
+        matches = collect_matching_issues(
+            args.repo,
+            token,
+            query=args.find_issue,
+            labels=find_labels,
+            pages=args.find_pages,
+            limit=args.find_limit,
+        )
+        if not matches:
+            print("No matching source issue found.", file=sys.stderr)
+            return 1
+        for match in matches:
+            issue_url = match.url or "unknown"
+            print(f"#{match.number} {match.title} ({issue_url})")
         return 0
 
     source_issue = None
