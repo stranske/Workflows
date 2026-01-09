@@ -68,6 +68,10 @@ _FEATURE_KEYWORDS = {
     "add",
     "enable",
 }
+_FEATURE_PHRASES = {
+    "dark mode",
+    "light mode",
+}
 _DOCS_KEYWORDS = {
     "doc",
     "docs",
@@ -210,6 +214,7 @@ def _keyword_match_score(label: LabelRecord, query: str) -> float | None:
     if not tokens:
         return None
 
+    query_lower = query.lower()
     label_tokens = _tokenize(label.name) - _IGNORED_LABEL_TOKENS
     if label_tokens and label_tokens.intersection(tokens):
         return 0.95
@@ -221,8 +226,9 @@ def _keyword_match_score(label: LabelRecord, query: str) -> float | None:
         _token_matches_keyword(token, keyword) for token in tokens for keyword in _BUG_KEYWORDS
     ):
         score = max(score, 0.9)
-    if any(tag in normalized for tag in ("feature", "enhancement", "request")) and any(
-        _token_matches_keyword(token, keyword) for token in tokens for keyword in _FEATURE_KEYWORDS
+    if any(tag in normalized for tag in ("feature", "enhancement", "request")) and (
+        any(_token_matches_keyword(token, keyword) for token in tokens for keyword in _FEATURE_KEYWORDS)
+        or any(phrase in query_lower for phrase in _FEATURE_PHRASES)
     ):
         score = max(score, 0.88)
     if "doc" in normalized and any(

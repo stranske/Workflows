@@ -159,6 +159,22 @@ def test_find_similar_labels_keyword_feature_match():
     assert "type:bug" not in names
 
 
+def test_find_similar_labels_keyword_feature_phrase_match():
+    labels = [
+        label_matcher.LabelRecord(name="type:bug"),
+        label_matcher.LabelRecord(name="type:feature"),
+    ]
+    vector_store = label_matcher.LabelVectorStore(
+        store=object(), provider="unit-test", model="unit-test-model", labels=labels
+    )
+
+    matches = label_matcher.find_similar_labels(vector_store, "Dark mode", threshold=0.8)
+
+    names = [match.label.name for match in matches]
+    assert "type:feature" in names
+    assert "type:bug" not in names
+
+
 def test_find_similar_labels_keyword_multicategory_match():
     labels = [
         label_matcher.LabelRecord(name="type:bug"),
