@@ -319,7 +319,8 @@ jobs:
           echo "verdict=$verdict" >> "$GITHUB_OUTPUT"
 
       - name: Post verification results comment
-        if: steps.context.outputs.should_run == 'true'
+        if: always() && steps.context.outputs.should_run == 'true'
+        continue-on-error: true
         uses: actions/github-script@v8
         env:
           PR_NUMBER: ${{ steps.context.outputs.pr_number }}
@@ -344,24 +345,24 @@ jobs:
             const emoji = verdict === 'pass' ? '✅' : verdict === 'fail' ? '❌' : '⚠️';
             const body = `## PR Verification Report ${emoji}
 
-            **Verdict: ${verdict.toUpperCase()}**
+**Verdict: ${verdict.toUpperCase()}**
 
-            <details>
-            <summary>Verification Details</summary>
+<details>
+<summary>Verification Details</summary>
 
-            ${verifierOutput}
+${verifierOutput}
 
-            </details>
+</details>
 
-            ---
-            [View workflow run](${runUrl})
-            `;
+---
+[View workflow run](${runUrl})
+`;
 
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: prNumber,
-              body: body.split('\n').map(l => l.trim()).join('\n')
+              body: body
             });
 
             core.info(`Posted verification comment to PR #${prNumber}`);
