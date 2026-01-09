@@ -154,9 +154,7 @@ def _split_task_parts(task: str) -> list[str]:
             base, suffix = task.split(marker, 1)
             base = base.strip()
             items = [
-                item.strip()
-                for item in re.split(r"\s*,\s*|\s+and\s+", suffix)
-                if item.strip()
+                item.strip() for item in re.split(r"\s*,\s*|\s+and\s+", suffix) if item.strip()
             ]
             if base and len(items) > 1:
                 keyword = marker.strip()
