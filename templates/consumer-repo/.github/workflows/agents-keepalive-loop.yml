@@ -414,6 +414,10 @@ jobs:
       - mark-running
       - resolve-trivial-conflicts
     if: |
+      always() &&
+      needs.evaluate.result == 'success' &&
+      needs.preflight.result == 'success' &&
+      needs.mark-running.result == 'success' &&
       needs.evaluate.outputs.agent_type == 'codex' &&
       (needs.resolve-trivial-conflicts.result == 'skipped' ||
        needs.resolve-trivial-conflicts.outputs.remaining_conflicts != '0')

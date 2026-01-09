@@ -1129,8 +1129,13 @@ async function evaluateKeepaliveLoop({ github, context, core, payload: overrideP
         runId: gateRun.runId,
         core,
       });
-      // forceRetry bypasses defer/wait for cancelled gates
-      if (forceRetry && tasksRemaining) {
+      // Rate limits are infrastructure noise, not code quality issues
+      // Proceed with work if Gate only failed due to rate limits
+      if (gateRateLimit && tasksRemaining) {
+        action = 'run';
+        reason = 'bypass-rate-limit-gate';
+        if (core) core.info('Gate cancelled due to rate limits only - proceeding with work');
+      } else if (forceRetry && tasksRemaining) {
         action = 'run';
         reason = 'force-retry-cancelled';
         if (core) core.info(`Force retry enabled: bypassing cancelled gate (rate_limit=${gateRateLimit})`);
@@ -1139,7 +1144,7 @@ async function evaluateKeepaliveLoop({ github, context, core, payload: overrideP
         reason = gateRateLimit ? 'gate-cancelled-rate-limit' : 'gate-cancelled';
       }
     } else {
-      // Gate failed - check if we should route to fix mode or wait
+      // Gate failed - check if failure is rate-limit related vs code quality
       const gateFailure = await classifyGateFailure({ github, context, pr, core });
       if (gateFailure.shouldFixMode && gateNormalized === 'failure') {
         action = 'fix';
