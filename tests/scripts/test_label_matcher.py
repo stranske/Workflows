@@ -168,9 +168,7 @@ def test_find_similar_labels_keyword_multicategory_match():
         store=object(), provider="unit-test", model="unit-test-model", labels=labels
     )
 
-    matches = label_matcher.find_similar_labels(
-        vector_store, "Bug in docs examples", threshold=0.8
-    )
+    matches = label_matcher.find_similar_labels(vector_store, "Bug in docs examples", threshold=0.8)
 
     names = {match.label.name for match in matches}
     assert "type:bug" in names
