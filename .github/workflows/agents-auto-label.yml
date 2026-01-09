@@ -70,6 +70,7 @@ jobs:
           LABELS_JSON: ${{ steps.get-labels.outputs.labels_json }}
           ISSUE_TITLE: ${{ github.event.issue.title }}
           ISSUE_BODY: ${{ github.event.issue.body }}
+          PYTHONPATH: ${{ github.workspace }}
         run: |
           python3 << 'PYTHON_SCRIPT'
           import json
