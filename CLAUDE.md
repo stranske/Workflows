@@ -103,24 +103,56 @@ gh run list --workflow="maint-71-merge-sync-prs.yml" --limit 1
 
 ## Keepalive System
 
-The keepalive loop keeps Codex working on a PR until all tasks are complete:
+⚠️ **CRITICAL**: Before working on keepalive, read [`docs/keepalive/Agents.md`](docs/keepalive/Agents.md) which points to the canonical contracts.
+
+### Two Ways to Run Codex
+
+**1. CLI Agent (Primary - Workflow-Based)**
+- Triggered by `agents-keepalive-loop.yml` workflow after Gate completes
+- Used for PRs with `agent:codex` label
+- Runs directly via `reusable-codex-run.yml`
+- Does NOT require `@codex` comments
+- This is the MAIN keepalive system
+
+**2. UI Agent (Backup - Comment-Based)**
+- Triggered by `@codex` comments on PRs
+- Uses `chatgpt-codex-connector` bot
+- Only for manual interventions or when CLI agent is unavailable
+- Should NOT be triggered by automation
+
+### Flow Diagram
 
 ```
 Issue labeled → agents-63-issue-intake.yml → Creates PR with agent:codex label
                                                     ↓
-                                        agents-keepalive-loop.yml
+                                        agents-keepalive-loop.yml (CLI workflow)
                                                     ↓
                                         (evaluates: gate passed? tasks remain?)
                                                     ↓
-                                        reusable-codex-run.yml (runs Codex)
+                                        reusable-codex-run.yml (runs Codex CLI)
                                                     ↓
                                         Codex pushes → Gate runs → Loop continues
 ```
+
+### Why the Orchestrator Skips CLI Agent Labels
+
+The orchestrator (`agents-70-orchestrator.yml`) contains a "Codex keepalive sweep" that posts `@codex` instruction comments to idle PRs. However, it **intentionally skips** PRs with `agent:*` labels because:
+
+1. CLI agents (like `agent:codex`) are triggered by the **keepalive loop workflow**, not comments
+2. Posting `@codex` comments would trigger the UI backup agent
+3. Having both CLI and UI agents work on the same PR would cause conflicts
+
+**Code location**: `scripts/keepalive-runner.js` → `hasCliAgentLabel()` function
+
+This is **working as designed**. If a PR with `agent:codex` isn't progressing, the issue is in the keepalive loop workflow, NOT the orchestrator.
 
 **Key files for keepalive:**
 - `.github/codex/prompts/keepalive_next_task.md` - Normal work prompt
 - `.github/codex/prompts/fix_ci_failures.md` - CI fix prompt
 - `.github/scripts/keepalive_instruction_template.js` - Prompt generation
+- `docs/keepalive/GoalsAndPlumbing.md` - **Canonical contract** (READ THIS FIRST)
+- `docs/keepalive/MULTI_AGENT_ROUTING.md` - Agent routing architecture
+- `docs/keepalive/Agents.md` - Required reading before keepalive changes
 
 ## Secrets
 
