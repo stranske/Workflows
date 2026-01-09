@@ -267,6 +267,16 @@ def extract_similar_issue_refs(comment_body: str) -> list[SimilarIssueRef]:
     return refs
 
 
+def format_source_issue_line(source_issue: SourceIssue) -> str:
+    issue_url = source_issue.url or "unknown"
+    return f"Source issue: #{source_issue.number} {source_issue.title} ({issue_url})"
+
+
+def format_source_confirmation(source_issue: SourceIssue) -> str:
+    issue_url = source_issue.url or "unknown"
+    return f"Source issue confirmed: #{source_issue.number} {source_issue.title} ({issue_url})"
+
+
 def format_duplicate_confirmation(refs: list[SimilarIssueRef]) -> str:
     if refs:
         first = refs[0]
@@ -402,6 +412,11 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Print the source issue selection and exit.",
     )
     parser.add_argument(
+        "--confirm-source",
+        action="store_true",
+        help="Confirm the source issue selection and exit.",
+    )
+    parser.add_argument(
         "--list-issues",
         action="store_true",
         help="List matching source issues and exit.",
@@ -423,6 +438,9 @@ def main(argv: list[str]) -> int:
 
     if args.check_issue is not None and args.check_unique is not None:
         print("Choose only one of --check-issue or --check-unique.", file=sys.stderr)
+        return 1
+    if args.show_source and args.confirm_source:
+        print("Choose only one of --show-source or --confirm-source.", file=sys.stderr)
         return 1
 
     if args.check_issue is not None:
@@ -491,8 +509,10 @@ def main(argv: list[str]) -> int:
 
     if source_issue is not None:
         if args.show_source:
-            issue_url = source_issue.url or "unknown"
-            print(f"Source issue: #{source_issue.number} {source_issue.title} ({issue_url})")
+            print(format_source_issue_line(source_issue))
+            return 0
+        if args.confirm_source:
+            print(format_source_confirmation(source_issue))
             return 0
         payload = build_duplicate_payload(
             source_issue,
@@ -501,6 +521,9 @@ def main(argv: list[str]) -> int:
             labels=labels,
         )
     else:
+        if args.show_source or args.confirm_source:
+            print("Source issue details are required to confirm selection.", file=sys.stderr)
+            return 1
         if not args.title:
             print("Either --source-issue/--find-issue or --title is required.", file=sys.stderr)
             return 1
