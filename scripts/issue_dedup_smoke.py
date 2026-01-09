@@ -287,6 +287,23 @@ def format_duplicate_confirmation(refs: list[SimilarIssueRef]) -> str:
     return "Duplicate detected and linked to similar issue(s)."
 
 
+def matches_expected_duplicate(
+    refs: list[SimilarIssueRef],
+    *,
+    expected_number: int | None,
+    expected_url: str | None,
+) -> bool:
+    if expected_number is None and not expected_url:
+        return True
+    normalized_url = expected_url.rstrip("/") if expected_url else None
+    for ref in refs:
+        if expected_number is not None and ref.number == expected_number:
+            return True
+        if normalized_url and ref.url and ref.url.rstrip("/") == normalized_url:
+            return True
+    return False
+
+
 def check_issue_for_duplicate(
     repo: str,
     issue_number: int,
@@ -390,6 +407,15 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Issue number to confirm no duplicate-detection comment is present.",
     )
     parser.add_argument(
+        "--expected-issue-number",
+        type=int,
+        help="Expected duplicate issue number to confirm is linked.",
+    )
+    parser.add_argument(
+        "--expected-issue-url",
+        help="Expected duplicate issue URL to confirm is linked.",
+    )
+    parser.add_argument(
         "--check-attempts",
         type=int,
         default=1,
@@ -439,6 +465,9 @@ def main(argv: list[str]) -> int:
     if args.check_issue is not None and args.check_unique is not None:
         print("Choose only one of --check-issue or --check-unique.", file=sys.stderr)
         return 1
+    if args.check_issue is None and (args.expected_issue_number or args.expected_issue_url):
+        print("Expected issue match requires --check-issue.", file=sys.stderr)
+        return 1
     if args.show_source and args.confirm_source:
         print("Choose only one of --show-source or --confirm-source.", file=sys.stderr)
         return 1
@@ -456,6 +485,13 @@ def main(argv: list[str]) -> int:
             return 1
         comment_body = str(comment.get("body") or "")
         refs = extract_similar_issue_refs(comment_body)
+        if not matches_expected_duplicate(
+            refs,
+            expected_number=args.expected_issue_number,
+            expected_url=args.expected_issue_url,
+        ):
+            print("Expected duplicate link not found.", file=sys.stderr)
+            return 1
         print(format_duplicate_confirmation(refs))
         comment_url = comment.get("html_url") or comment.get("url") or "unknown"
         print(f"Duplicate detection comment found: {comment_url}")

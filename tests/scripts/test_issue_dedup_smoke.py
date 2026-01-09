@@ -269,6 +269,86 @@ def test_format_duplicate_confirmation_falls_back_to_generic_message() -> None:
     )
 
 
+def test_matches_expected_duplicate_number() -> None:
+    refs = [
+        issue_dedup_smoke.SimilarIssueRef(number=12, url="http://example/12", title=None)
+    ]
+
+    assert issue_dedup_smoke.matches_expected_duplicate(
+        refs,
+        expected_number=12,
+        expected_url=None,
+    )
+    assert not issue_dedup_smoke.matches_expected_duplicate(
+        refs,
+        expected_number=99,
+        expected_url=None,
+    )
+
+
+def test_matches_expected_duplicate_url_normalizes_trailing_slash() -> None:
+    refs = [
+        issue_dedup_smoke.SimilarIssueRef(number=None, url="http://example/12/", title=None)
+    ]
+
+    assert issue_dedup_smoke.matches_expected_duplicate(
+        refs,
+        expected_number=None,
+        expected_url="http://example/12",
+    )
+
+
+def test_main_check_issue_requires_expected_link(monkeypatch, capsys) -> None:
+    comment_body = "\n".join(
+        [
+            issue_dedup.SIMILAR_ISSUES_MARKER,
+            "- [#12](http://example/12) - Title one (90% similar)",
+        ]
+    )
+
+    def _fake_check(repo, issue_number, token, *, attempts, interval):
+        return {"body": comment_body, "html_url": "http://example/comment"}
+
+    monkeypatch.setattr(issue_dedup_smoke, "check_issue_for_duplicate", _fake_check)
+    monkeypatch.setenv("TEST_TOKEN", "token")
+
+    result = issue_dedup_smoke.main(
+        [
+            "--repo",
+            "owner/repo",
+            "--check-issue",
+            "55",
+            "--expected-issue-number",
+            "99",
+            "--token-env",
+            "TEST_TOKEN",
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert result == 1
+    assert "Expected duplicate link not found." in captured.err
+
+
+def test_main_expected_link_requires_check_issue(monkeypatch, capsys) -> None:
+    monkeypatch.setenv("TEST_TOKEN", "token")
+
+    result = issue_dedup_smoke.main(
+        [
+            "--repo",
+            "owner/repo",
+            "--expected-issue-number",
+            "99",
+            "--token-env",
+            "TEST_TOKEN",
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert result == 1
+    assert "Expected issue match requires --check-issue." in captured.err
+
+
 def test_check_issue_for_duplicate_retries_until_found(monkeypatch) -> None:
     responses = [
         [{"body": "No marker yet"}],
