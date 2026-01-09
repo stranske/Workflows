@@ -77,6 +77,8 @@ codex-output.md
 codex-prompt-*.md
 codex-output-*.md
 verifier-context.md
+pr_body.md
+Issues.txt
 
 # --- Autofix Status Files (HIGH conflict risk) ---
 # Updated by autofix workflow on every PR

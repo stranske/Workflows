@@ -1,0 +1,11 @@
+# Git attributes for Workflows repo
+#
+# Merge strategies to prevent recurring conflicts on PR-specific files:
+# These files contain branch-specific content that differs between PRs.
+# Using merge=ours keeps each branch's version during merges.
+
+pr_body.md merge=ours
+Issues.txt merge=ours
+
+# CI autofix history is append-only and branch-specific
+ci/autofix/history.json merge=ours linguist-generated
