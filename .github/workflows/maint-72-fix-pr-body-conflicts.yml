@@ -65,6 +65,7 @@ jobs:
           fi
 
       - name: Extract repo name
+        if: steps.check.outputs.skip != 'true'
         id: repo-info
         run: |
           echo "repo_name=$(echo '${{ matrix.repo }}' | cut -d'/' -f2)" >> "$GITHUB_OUTPUT"
