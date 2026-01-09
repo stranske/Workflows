@@ -318,6 +318,54 @@ jobs:
           fi
           echo "verdict=$verdict" >> "$GITHUB_OUTPUT"
 
+      - name: Post verification results comment
+        if: steps.context.outputs.should_run == 'true'
+        uses: actions/github-script@v8
+        env:
+          PR_NUMBER: ${{ steps.context.outputs.pr_number }}
+          VERDICT: ${{ steps.verdict.outputs.verdict }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const prNumber = parseInt(process.env.PR_NUMBER);
+            const verdict = process.env.VERDICT || 'unknown';
+            const runUrl = process.env.RUN_URL;
+
+            let verifierOutput = '';
+            try {
+              verifierOutput = fs.readFileSync('codex-output.md', 'utf8');
+            } catch (e) {
+              core.warning('Could not read codex-output.md');
+              verifierOutput = 'No verifier output available.';
+            }
+
+            const emoji = verdict === 'pass' ? '✅' : verdict === 'fail' ? '❌' : '⚠️';
+            const body = `## PR Verification Report ${emoji}
+
+            **Verdict: ${verdict.toUpperCase()}**
+
+            <details>
+            <summary>Verification Details</summary>
+
+            ${verifierOutput}
+
+            </details>
+
+            ---
+            [View workflow run](${runUrl})
+            `;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              body: body.split('\n').map(l => l.trim()).join('\n')
+            });
+
+            core.info(`Posted verification comment to PR #${prNumber}`);
+
       # DISABLED: Automatic follow-up issue creation
       # Use verify:create-issue label on PRs with CONCERNS to manually create follow-up issues
       - name: Open follow-up issue on verifier failure
