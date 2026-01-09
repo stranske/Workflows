@@ -302,9 +302,9 @@ def build_child_issues(
             "body": "\n".join(body_lines),
         }
         if preserved_labels:
-            payload["labels"] = preserved_labels
+            payload["labels"] = list(preserved_labels)
         if preserved_assignees:
-            payload["assignees"] = preserved_assignees
+            payload["assignees"] = list(preserved_assignees)
         if milestone is not None:
             payload["milestone"] = milestone
         child_issues.append(payload)

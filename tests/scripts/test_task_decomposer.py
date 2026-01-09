@@ -76,6 +76,8 @@ def test_build_child_issues_preserves_metadata() -> None:
         assert child["title"].startswith("Parent Issue:")
         assert "Parent issue: [#123](" in child["body"]
         assert "- [ ] " in child["body"]
+    assert child_issues[0]["labels"] is not child_issues[1]["labels"]
+    assert child_issues[0]["assignees"] is not child_issues[1]["assignees"]
 
 
 def test_decompose_task_empty_input() -> None:
