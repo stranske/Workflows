@@ -67,6 +67,8 @@ jobs:
       agent_type: ${{ steps.evaluate.outputs.agent_type }}
       task_appendix: ${{ steps.evaluate.outputs.task_appendix }}
       trace: ${{ steps.evaluate.outputs.trace }}
+      prompt_file: ${{ steps.evaluate.outputs.prompt_file }}
+      prompt_mode: ${{ steps.evaluate.outputs.prompt_mode }}
       start_ts: ${{ steps.timestamps.outputs.start_ts }}
       security_blocked: ${{ steps.security_gate.outputs.blocked }}
       security_reason: ${{ steps.security_gate.outputs.reason }}
@@ -239,6 +241,8 @@ jobs:
               has_agent_label: String(result.hasAgentLabel || false),
               agent_type: String(result.agentType || ''),
               trace: String(result.config?.trace || ''),
+              prompt_file: result.promptFile || '',
+              prompt_mode: result.promptMode || 'normal',
             };
             for (const [key, value] of Object.entries(output)) {
               core.setOutput(key, value);
@@ -249,7 +253,7 @@ jobs:
   preflight:
     name: Verify secrets available
     needs: evaluate
-    if: needs.evaluate.outputs.action == 'run'
+    if: contains(fromJSON('["run", "fix", "conflict"]'), needs.evaluate.outputs.action)
     runs-on: ubuntu-latest
     environment: agent-standard
     outputs:
@@ -279,7 +283,7 @@ jobs:
     needs:
       - evaluate
       - preflight
-    if: needs.evaluate.outputs.action == 'run'
+    if: contains(fromJSON('["run", "fix", "conflict"]'), needs.evaluate.outputs.action)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Workflows scripts
@@ -310,6 +314,97 @@ jobs:
             };
             await markAgentRunning({ github, context, core, inputs });
 
+  # Auto-resolve trivial conflicts (pr_body.md, etc.) before running Codex
+  resolve-trivial-conflicts:
+    name: Auto-resolve PR-specific files
+    needs:
+      - evaluate
+      - preflight
+    if: needs.evaluate.outputs.action == 'conflict'
+    runs-on: ubuntu-latest
+    outputs:
+      resolved: ${{ steps.resolve.outputs.resolved }}
+      remaining_conflicts: ${{ steps.resolve.outputs.remaining_conflicts }}
+    steps:
+      - name: Generate GitHub App token
+        id: app-token
+        if: ${{ vars.WORKFLOWS_APP_ID != '' }}
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.WORKFLOWS_APP_ID }}
+          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Checkout PR branch
+        uses: actions/checkout@v6
+        with:
+          token: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
+          ref: ${{ needs.evaluate.outputs.pr_ref }}
+          fetch-depth: 0
+
+      - name: Auto-resolve trivial conflicts
+        id: resolve
+        run: |
+          PR_NUM="${{ needs.evaluate.outputs.pr_number }}"
+          BASE_BRANCH=$(gh pr view "$PR_NUM" --json baseRefName --jq '.baseRefName')
+          echo "Base branch: $BASE_BRANCH"
+
+          # Configure git
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Fetch base branch
+          git fetch origin "$BASE_BRANCH"
+
+          # Try merge
+          echo "Attempting merge from origin/$BASE_BRANCH..."
+          if git merge "origin/$BASE_BRANCH" --no-edit 2>/dev/null; then
+            echo "✓ Merge completed without conflicts"
+            echo "resolved=true" >> "$GITHUB_OUTPUT"
+            echo "remaining_conflicts=0" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Files that should always keep the PR branch version
+          IGNORED_FILES=("pr_body.md" "ci/autofix/history.json" "keepalive-metrics.ndjson")
+          RESOLVED=0
+          REMAINING=0
+
+          # Get unmerged files
+          while IFS= read -r conflict_file; do
+            [ -z "$conflict_file" ] && continue
+            SHOULD_AUTO=false
+            for ignored in "${IGNORED_FILES[@]}"; do
+              if [[ "$conflict_file" == "$ignored" || "$conflict_file" == *"/$ignored" ]]; then
+                SHOULD_AUTO=true
+                break
+              fi
+            done
+
+            if $SHOULD_AUTO; then
+              echo "Auto-resolving: $conflict_file (keeping ours)"
+              git checkout --ours "$conflict_file" 2>/dev/null || true
+              git add "$conflict_file" 2>/dev/null || true
+              ((RESOLVED++))
+            else
+              ((REMAINING++))
+            fi
+          done < <(git diff --name-only --diff-filter=U 2>/dev/null)
+
+          echo "resolved=$RESOLVED" >> "$GITHUB_OUTPUT"
+          echo "remaining_conflicts=$REMAINING" >> "$GITHUB_OUTPUT"
+
+          if [ "$REMAINING" -eq 0 ] && [ "$RESOLVED" -gt 0 ]; then
+            git commit -m "fix: auto-resolve PR-specific file conflicts with base branch"
+            git push
+            echo "✓ Conflict resolution committed and pushed"
+          elif [ "$REMAINING" -gt 0 ]; then
+            echo "⚠ $REMAINING file(s) still have conflicts - Codex will handle these"
+            git merge --abort || true
+          fi
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
+
   # Run Codex CLI for agent:codex PRs
   run-codex:
     name: Keepalive next task (Codex)
@@ -317,16 +412,20 @@ jobs:
       - evaluate
       - preflight
       - mark-running
-    if: needs.evaluate.outputs.agent_type == 'codex'
+      - resolve-trivial-conflicts
+    if: |
+      needs.evaluate.outputs.agent_type == 'codex' &&
+      (needs.resolve-trivial-conflicts.result == 'skipped' ||
+       needs.resolve-trivial-conflicts.outputs.remaining_conflicts != '0')
     uses: stranske/Workflows/.github/workflows/reusable-codex-run.yml@main
     secrets:
       CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
       WORKFLOWS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID }}
       WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
     with:
-      skip: ${{ needs.evaluate.outputs.action != 'run' }}
-      prompt_file: .github/codex/prompts/keepalive_next_task.md
-      mode: keepalive
+      skip: ${{ !contains(fromJSON('["run", "fix", "conflict"]'), needs.evaluate.outputs.action) }}
+      prompt_file: ${{ needs.evaluate.outputs.prompt_file }}
+      mode: ${{ needs.evaluate.outputs.prompt_mode }}
       pr_number: ${{ needs.evaluate.outputs.pr_number }}
       pr_ref: ${{ needs.evaluate.outputs.pr_ref }}
       appendix: ${{ needs.evaluate.outputs.task_appendix }}
@@ -337,6 +436,7 @@ jobs:
     needs:
       - evaluate
       - preflight
+      - resolve-trivial-conflicts
       - run-codex
     if: always() && needs.evaluate.outputs.pr_number != '' && needs.evaluate.outputs.pr_number != '0'
     runs-on: ubuntu-latest

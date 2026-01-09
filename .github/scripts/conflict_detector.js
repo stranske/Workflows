@@ -5,6 +5,32 @@
  * Detects merge conflicts on PRs to trigger conflict-specific prompts.
  */
 
+/**
+ * Files to exclude from conflict detection.
+ * These files have special merge strategies (e.g., merge=ours in .gitattributes)
+ * or are .gitignored and should not block PR mergeability.
+ */
+const IGNORED_CONFLICT_FILES = [
+  'pr_body.md',
+  'ci/autofix/history.json',
+  'keepalive-metrics.ndjson',
+  'coverage-trend-history.ndjson',
+  'metrics-history.ndjson',
+  'residual-trend-history.ndjson',
+];
+
+/**
+ * Check if a file should be excluded from conflict detection.
+ * @param {string} filename - File path to check
+ * @returns {boolean} True if file should be ignored
+ */
+function shouldIgnoreConflictFile(filename) {
+  return IGNORED_CONFLICT_FILES.some((ignored) => {
+    // Exact match or ends with the ignored pattern
+    return filename === ignored || filename.endsWith(`/${ignored}`);
+  });
+}
+
 const CONFLICT_PATTERNS = [
   /merge conflict/i,
   /CONFLICT \(content\)/i,
@@ -64,6 +90,7 @@ async function checkGitHubMergeability(github, context, prNumber) {
 /**
  * Get list of files that might have conflicts.
  * Note: GitHub doesn't directly expose conflict files, so we check changed files.
+ * Filters out files with special merge strategies that should not block mergeability.
  * @param {object} github - Octokit instance
  * @param {object} context - GitHub Actions context
  * @param {number} prNumber - PR number
@@ -78,8 +105,17 @@ async function getConflictFiles(github, context, prNumber) {
       per_page: 100,
     });
 
-    // Return all changed files - actual conflicts will be subset
-    return files.map((f) => f.filename);
+    // Filter out files that have special merge strategies or should be ignored
+    const relevantFiles = files
+      .map((f) => f.filename)
+      .filter((filename) => !shouldIgnoreConflictFile(filename));
+
+    if (relevantFiles.length < files.length) {
+      const ignored = files.length - relevantFiles.length;
+      console.log(`Filtered ${ignored} file(s) from conflict detection (special merge strategy)`);
+    }
+
+    return relevantFiles;
   } catch (error) {
     console.error(`Error getting PR files: ${error.message}`);
     return [];
@@ -361,5 +397,7 @@ module.exports = {
   checkCILogsForConflicts,
   checkCommentsForConflicts,
   postConflictComment,
+  shouldIgnoreConflictFile,
   CONFLICT_PATTERNS,
+  IGNORED_CONFLICT_FILES,
 };

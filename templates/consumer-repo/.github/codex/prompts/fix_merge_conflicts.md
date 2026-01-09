@@ -75,6 +75,24 @@ Check `git status` to identify files with conflicts.
 
 ## Common Conflict Patterns
 
+### Special Files - Auto-Resolve with "Ours"
+
+These files have `.gitattributes` merge=ours strategy and should keep the PR branch version:
+
+- **`pr_body.md`** - PR-specific content, always keep ours:
+  ```bash
+  git checkout --ours pr_body.md
+  git add pr_body.md
+  ```
+
+- **`ci/autofix/history.json`** - Branch-specific history:
+  ```bash
+  git checkout --ours ci/autofix/history.json
+  git add ci/autofix/history.json
+  ```
+
+These files are .gitignored and should be resolved by keeping the current branch's version.
+
 ### Import conflicts (Python example):
 ```python
 <<<<<<< HEAD

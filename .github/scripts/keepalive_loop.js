@@ -8,6 +8,7 @@ const { loadKeepaliveState, formatStateComment } = require('./keepalive_state');
 const { resolvePromptMode } = require('./keepalive_prompt_routing');
 const { classifyError, ERROR_CATEGORIES } = require('./error_classifier');
 const { formatFailureComment } = require('./failure_comment_formatter');
+const { detectConflicts } = require('./conflict_detector');
 
 const ATTEMPT_HISTORY_LIMIT = 5;
 const ATTEMPTED_TASK_LIMIT = 6;
@@ -16,6 +17,10 @@ const PROMPT_ROUTES = {
   fix_ci: {
     mode: 'fix_ci',
     file: '.github/codex/prompts/fix_ci_failures.md',
+  },
+  conflict: {
+    mode: 'conflict',
+    file: '.github/codex/prompts/fix_merge_conflicts.md',
   },
   verify: {
     mode: 'verify',
@@ -1086,13 +1091,28 @@ async function evaluateKeepaliveLoop({ github, context, core, payload: overrideP
   // Build task appendix for the agent prompt (after state load for reconciliation info)
   const taskAppendix = buildTaskAppendix(normalisedSections, checkboxCounts, state, { prBody: pr.body });
 
+  // Check for merge conflicts - this takes priority over other work
+  let conflictResult = { hasConflict: false };
+  try {
+    conflictResult = await detectConflicts(github, context, prNumber, pr.head.sha);
+    if (conflictResult.hasConflict && core) {
+      core.info(`Merge conflict detected via ${conflictResult.primarySource}. Files: ${conflictResult.files?.join(', ') || 'unknown'}`);
+    }
+  } catch (conflictError) {
+    if (core) core.warning(`Conflict detection failed: ${conflictError.message}`);
+  }
+
   let action = 'wait';
   let reason = 'pending';
   const verificationStatus = normalise(state?.verification?.status)?.toLowerCase();
   const verificationDone = ['done', 'verified', 'complete'].includes(verificationStatus);
   const needsVerification = allComplete && !verificationDone;
 
-  if (!hasAgentLabel) {
+  // Conflict resolution takes highest priority - conflicts block all other work
+  if (conflictResult.hasConflict && hasAgentLabel && keepaliveEnabled) {
+    action = 'conflict';
+    reason = `merge-conflict-${conflictResult.primarySource || 'detected'}`;
+  } else if (!hasAgentLabel) {
     action = 'wait';
     reason = 'missing-agent-label';
   } else if (!keepaliveEnabled) {
@@ -1187,6 +1207,9 @@ async function evaluateKeepaliveLoop({ github, context, core, payload: overrideP
     stateCommentId: stateResult.commentId || 0,
     state,
     forceRetry: Boolean(forceRetry),
+    hasConflict: conflictResult.hasConflict,
+    conflictSource: conflictResult.primarySource || null,
+    conflictFiles: conflictResult.files || [],
   };
 }
 
