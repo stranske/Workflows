@@ -39,6 +39,9 @@ class LabelMatch:
 DEFAULT_LABEL_SIMILARITY_THRESHOLD = 0.8
 DEFAULT_LABEL_SIMILARITY_K = 5
 SHORT_LABEL_LENGTH = 4
+KEYWORD_BUG_SCORE = 0.91
+KEYWORD_FEATURE_SCORE = 0.9
+KEYWORD_DOCS_SCORE = 0.9
 _IGNORED_LABEL_TOKENS = {"type", "kind"}
 _BUG_KEYWORDS = {
     "bug",
@@ -225,7 +228,7 @@ def _keyword_match_score(label: LabelRecord, query: str) -> float | None:
     if "bug" in normalized and any(
         _token_matches_keyword(token, keyword) for token in tokens for keyword in _BUG_KEYWORDS
     ):
-        score = max(score, 0.9)
+        score = max(score, KEYWORD_BUG_SCORE)
     if any(tag in normalized for tag in ("feature", "enhancement", "request")) and (
         any(
             _token_matches_keyword(token, keyword)
@@ -234,11 +237,11 @@ def _keyword_match_score(label: LabelRecord, query: str) -> float | None:
         )
         or any(phrase in query_lower for phrase in _FEATURE_PHRASES)
     ):
-        score = max(score, 0.88)
+        score = max(score, KEYWORD_FEATURE_SCORE)
     if "doc" in normalized and any(
         _token_matches_keyword(token, keyword) for token in tokens for keyword in _DOCS_KEYWORDS
     ):
-        score = max(score, 0.88)
+        score = max(score, KEYWORD_DOCS_SCORE)
 
     return score or None
 

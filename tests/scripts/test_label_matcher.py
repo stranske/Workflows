@@ -139,6 +139,8 @@ def test_find_similar_labels_keyword_bug_match():
     names = [match.label.name for match in matches]
     assert "type:bug" in names
     assert "type:feature" not in names
+    bug_match = next(match for match in matches if match.label.name == "type:bug")
+    assert bug_match.score >= label_matcher.KEYWORD_BUG_SCORE
 
 
 def test_find_similar_labels_keyword_feature_match():
@@ -189,6 +191,8 @@ def test_find_similar_labels_keyword_multicategory_match():
     names = {match.label.name for match in matches}
     assert "type:bug" in names
     assert "documentation" in names
+    doc_match = next(match for match in matches if match.label.name == "documentation")
+    assert doc_match.score >= label_matcher.KEYWORD_DOCS_SCORE
 
 
 def test_resolve_label_match_keyword_bug_match():
