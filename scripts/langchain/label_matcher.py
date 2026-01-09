@@ -202,9 +202,7 @@ def _token_matches_keyword(token: str, keyword: str) -> bool:
         return True
     if len(token) >= 4 and token.startswith(keyword):
         return True
-    if len(keyword) >= 4 and keyword.startswith(token):
-        return True
-    return False
+    return bool(len(keyword) >= 4 and keyword.startswith(token))
 
 
 def _keyword_match_score(label: LabelRecord, query: str) -> float | None:
