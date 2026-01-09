@@ -57,7 +57,10 @@
 - [ ] 12/12 Phase 3 functional tests executed
 - [ ] Test results documented in rollout plan
 - [ ] agents:apply-suggestions with LLM retested (expected 8.5/10 quality)
-- [ ] 3 conflicted PRs resolved
+- [x] 3 conflicted PRs resolved ✅ **(2026-01-09)**
+  - Manager-Database #134 - Rebased, now mergeable
+  - Manager-Database #135 - Rebased, now mergeable
+  - Portable-Alpha-Extension-Model #1049 - Already merged
 
 ### Should Complete (High Value)
 - [ ] Verify-to-issue workflow tested

@@ -1,0 +1,130 @@
+name: Agents Keepalive Retry Deferred
+
+# Automatically retries PRs that are deferred due to rate limits
+# after a reasonable delay period
+
+on:
+  schedule:
+    # Run every 10 minutes
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+  actions: write
+
+jobs:
+  find-and-retry:
+    name: Find and retry deferred PRs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Find and retry deferred PRs
+        uses: actions/github-script@v8
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const RETRY_AFTER_MINUTES = 5;
+            const MAX_RETRIES_PER_RUN = 3;
+
+            // Find open PRs with agent labels
+            const { data: pulls } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              per_page: 100,
+            });
+
+            const agentPRs = pulls.filter(pr =>
+              pr.labels.some(label =>
+                label.name.startsWith('agents:') ||
+                label.name.startsWith('codex:')
+              )
+            );
+
+            core.info(`Found ${agentPRs.length} PRs with agent labels`);
+
+            const deferredPRs = [];
+
+            // Check each PR for deferred state
+            for (const pr of agentPRs) {
+              try {
+                const { data: comments } = await github.rest.issues.listComments({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: pr.number,
+                  per_page: 100,
+                });
+
+                // Find the most recent keepalive state comment
+                const stateComment = comments
+                  .filter(c => c.body.includes('keepalive-state:v1'))
+                  .pop();
+
+                if (!stateComment) continue;
+
+                const stateMatch = stateComment.body.match(/keepalive-state:v1 ({.*?}) -->/);
+                if (!stateMatch) continue;
+
+                const state = JSON.parse(stateMatch[1]);
+
+                // Check if deferred due to rate limit
+                if (state.last_action === 'defer' &&
+                    state.last_reason?.includes('rate-limit')) {
+
+                  const lastDeferTime = state.last_defer_timestamp || 0;
+                  const now = Date.now();
+                  const minutesSinceDefer = (now - lastDeferTime) / (60 * 1000);
+
+                  if (minutesSinceDefer >= RETRY_AFTER_MINUTES) {
+                    deferredPRs.push({
+                      number: pr.number,
+                      minutesSinceDefer: Math.floor(minutesSinceDefer),
+                      reason: state.last_reason,
+                    });
+                  }
+                }
+              } catch (error) {
+                core.warning(`Error checking PR #${pr.number}: ${error.message}`);
+              }
+            }
+
+            if (deferredPRs.length === 0) {
+              core.info('No deferred PRs ready for retry');
+              return;
+            }
+
+            core.info(`Found ${deferredPRs.length} deferred PRs ready for retry`);
+
+            // Sort by defer time (oldest first) and limit retries
+            deferredPRs.sort((a, b) => b.minutesSinceDefer - a.minutesSinceDefer);
+            const toRetry = deferredPRs.slice(0, MAX_RETRIES_PER_RUN);
+
+            for (const pr of toRetry) {
+              core.info(`Triggering retry for PR #${pr.number} (deferred ${pr.minutesSinceDefer}min ago: ${pr.reason})`);
+
+              try {
+                // Trigger keepalive workflow with force_retry
+                await github.rest.actions.createWorkflowDispatch({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  workflow_id: 'agents-keepalive-loop.yml',
+                  ref: 'main',
+                  inputs: {
+                    pr_number: String(pr.number),
+                    force_retry: 'true',
+                  },
+                });
+
+                core.info(`✓ Dispatched keepalive retry for PR #${pr.number}`);
+              } catch (error) {
+                core.warning(`Failed to dispatch retry for PR #${pr.number}: ${error.message}`);
+              }
+            }
+
+            if (deferredPRs.length > MAX_RETRIES_PER_RUN) {
+              core.info(`${deferredPRs.length - MAX_RETRIES_PER_RUN} more PRs will be retried in next run`);
+            }

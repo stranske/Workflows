@@ -1134,9 +1134,26 @@ async function evaluateKeepaliveLoop({ github, context, core, payload: overrideP
         action = 'run';
         reason = 'force-retry-cancelled';
         if (core) core.info(`Force retry enabled: bypassing cancelled gate (rate_limit=${gateRateLimit})`);
+      } else if (gateRateLimit) {
+        // Rate limit situation: check if we should retry or keep deferring
+        const now = Date.now();
+        const lastDeferTime = previousState?.last_defer_timestamp || 0;
+        const timeSinceLastDefer = now - lastDeferTime;
+        const RATE_LIMIT_RETRY_INTERVAL = 5 * 60 * 1000; // 5 minutes
+        
+        if (timeSinceLastDefer >= RATE_LIMIT_RETRY_INTERVAL) {
+          // Enough time has passed, retry with reduced API usage
+          action = 'run';
+          reason = 'retry-after-rate-limit';
+          if (core) core.info(`Rate limit defer timeout reached (${Math.floor(timeSinceLastDefer / 60000)}min since last defer), retrying with reduced API calls`);
+        } else {
+          action = 'defer';
+          reason = 'gate-cancelled-rate-limit-transient';
+          if (core) core.info(`Rate limit detected, deferring. Will retry in ${Math.floor((RATE_LIMIT_RETRY_INTERVAL - timeSinceLastDefer) / 60000)}min`);
+        }
       } else {
-        action = gateRateLimit ? 'defer' : 'wait';
-        reason = gateRateLimit ? 'gate-cancelled-rate-limit' : 'gate-cancelled';
+        action = 'wait';
+        reason = 'gate-cancelled';
       }
     } else {
       // Gate failed - check if we should route to fix mode or wait
@@ -1715,6 +1732,8 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
     attempted_tasks: attemptedTasks,
     last_focus: focusTask || '',
     verification,
+    // Rate limit defer tracking
+    last_defer_timestamp: action === 'defer' && reason.includes('rate-limit') ? Date.now() : (previousState?.last_defer_timestamp || 0),
   };
   const attemptEntry = buildAttemptEntry({
     iteration: metricsIteration,
