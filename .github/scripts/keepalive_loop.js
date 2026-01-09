@@ -1134,7 +1134,7 @@ async function evaluateKeepaliveLoop({ github, context, core, payload: overrideP
       if (gateRateLimit && tasksRemaining) {
         action = 'run';
         reason = 'bypass-rate-limit-gate';
-        if (core) core.info('Gate cancelled due to rate limits only - proceeding with work (rate limits are not code quality issues)');
+        if (core) core.info('Gate cancelled due to rate limits only - proceeding with work');
       } else if (forceRetry && tasksRemaining) {
         action = 'run';
         reason = 'force-retry-cancelled';
