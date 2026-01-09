@@ -455,7 +455,15 @@ def _coerce_split_suggestions(entry: dict[str, Any]) -> list[str]:
 
 def _is_large_task(task: str) -> bool:
     lowered = task.lower()
-    return len(task.split()) >= 14 or " and " in lowered or ", " in task or "/" in task
+    if len(task.split()) >= 14:
+        return True
+    if any(sep in lowered for sep in (" and ", " + ", " & ", " then ", "; ")):
+        return True
+    if re.search(r"\s\+\s", lowered):
+        return True
+    if ", " in task or "/" in task:
+        return True
+    return False
 
 
 def _detect_task_splitting(tasks: list[str], *, use_llm: bool = False) -> list[dict[str, Any]]:

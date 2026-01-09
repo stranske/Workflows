@@ -166,30 +166,132 @@ def _normalize_result(payload: dict[str, Any], provider_used: str | None) -> Cap
     )
 
 
+def _matches_any(patterns: list[str], text: str) -> bool:
+    return any(re.search(pattern, text, flags=re.IGNORECASE) for pattern in patterns)
+
+
+def _is_multi_action_task(task: str) -> bool:
+    lowered = task.lower()
+    if len(task.split()) >= 14:
+        return True
+    if any(sep in lowered for sep in (" and ", " + ", " & ", " then ", "; ")):
+        return True
+    if "," in task or "/" in task:
+        return True
+    if re.search(r"\s\+\s", lowered):
+        return True
+    return False
+
+
+def _requires_admin_access(task: str) -> bool:
+    patterns = [
+        r"\bgithub\s+secrets?\b",
+        r"\bsecrets?\b",
+        r"\brepository\s+settings\b",
+        r"\brepo\s+settings\b",
+        r"\bbranch\s+protection\b",
+        r"\badmin\s+access\b",
+        r"\badmin\b.*\bpermission\b",
+        r"\borganization\s+settings\b",
+        r"\borg\s+settings\b",
+        r"\bbilling\b",
+        r"\baccess\s+control\b",
+    ]
+    return _matches_any(patterns, task)
+
+
+def _requires_external_dependency(task: str) -> bool:
+    patterns = [
+        r"\bstripe\b",
+        r"\bpaypal\b",
+        r"\bbraintree\b",
+        r"\btwilio\b",
+        r"\bslack\b",
+        r"\bsentry\b",
+        r"\bwebhook\b",
+        r"\boauth\b",
+        r"\bapi\s+key\b",
+        r"\bclient\s+secret\b",
+        r"\bclient\s+id\b",
+        r"\bexternal\s+api\b",
+        r"\bthird-?party\b",
+        r"\bintegrat(e|ion)\b.*\bapi\b",
+    ]
+    return _matches_any(patterns, task)
+
+
+def _fallback_classify(
+    tasks: list[str], acceptance: str, reason: str | None
+) -> CapabilityCheckResult:
+    actionable: list[str] = []
+    partial: list[dict[str, str]] = []
+    blocked: list[dict[str, str]] = []
+    human_actions: list[str] = []
+
+    for task in tasks:
+        if _requires_admin_access(task):
+            blocked.append(
+                {
+                    "task": task,
+                    "reason": "Requires admin or repository settings access",
+                    "suggested_action": "Have a repo admin apply the change or grant access.",
+                }
+            )
+            human_actions.append(f"Admin access needed: {task}")
+            continue
+        if _requires_external_dependency(task):
+            blocked.append(
+                {
+                    "task": task,
+                    "reason": "Requires external service credentials or configuration",
+                    "suggested_action": "Provide credentials or have a human set up the external service.",
+                }
+            )
+            human_actions.append(f"External dependency setup required: {task}")
+            continue
+        if _is_multi_action_task(task):
+            partial.append(
+                {
+                    "task": task,
+                    "limitation": "Task bundles multiple actions; split into smaller tasks.",
+                }
+            )
+            human_actions.append(f"Split task into smaller steps: {task}")
+            continue
+        actionable.append(task)
+
+    if reason:
+        human_actions.append(reason)
+
+    if blocked:
+        recommendation = "BLOCKED"
+    elif partial or not tasks:
+        recommendation = "REVIEW_NEEDED"
+    else:
+        recommendation = "PROCEED"
+
+    return CapabilityCheckResult(
+        actionable_tasks=actionable,
+        partial_tasks=partial,
+        blocked_tasks=blocked,
+        recommendation=recommendation,
+        human_actions_needed=human_actions,
+        provider_used=None,
+    )
+
+
 def classify_capabilities(tasks: list[str], acceptance: str) -> CapabilityCheckResult:
     client_info = _get_llm_client()
     if not client_info:
-        return CapabilityCheckResult(
-            actionable_tasks=[],
-            partial_tasks=[],
-            blocked_tasks=[],
-            recommendation="REVIEW_NEEDED",
-            human_actions_needed=["LLM provider unavailable"],
-            provider_used=None,
-        )
+        return _fallback_classify(tasks, acceptance, "LLM provider unavailable")
 
     client, provider_name = client_info
     try:
         from langchain_core.prompts import ChatPromptTemplate
     except ImportError:
-        return CapabilityCheckResult(
-            actionable_tasks=[],
-            partial_tasks=[],
-            blocked_tasks=[],
-            recommendation="REVIEW_NEEDED",
-            human_actions_needed=["langchain-core not installed"],
-            provider_used=provider_name,
-        )
+        result = _fallback_classify(tasks, acceptance, "langchain-core not installed")
+        result.provider_used = provider_name
+        return result
 
     template = ChatPromptTemplate.from_template(AGENT_CAPABILITY_CHECK_PROMPT)
     chain = template | client
@@ -197,25 +299,15 @@ def classify_capabilities(tasks: list[str], acceptance: str) -> CapabilityCheckR
     content = getattr(response, "content", None) or str(response)
     payload = _extract_json_payload(content)
     if not payload:
-        return CapabilityCheckResult(
-            actionable_tasks=[],
-            partial_tasks=[],
-            blocked_tasks=[],
-            recommendation="REVIEW_NEEDED",
-            human_actions_needed=["LLM response missing JSON payload"],
-            provider_used=provider_name,
-        )
+        result = _fallback_classify(tasks, acceptance, "LLM response missing JSON payload")
+        result.provider_used = provider_name
+        return result
     try:
         data = json.loads(payload)
     except json.JSONDecodeError:
-        return CapabilityCheckResult(
-            actionable_tasks=[],
-            partial_tasks=[],
-            blocked_tasks=[],
-            recommendation="REVIEW_NEEDED",
-            human_actions_needed=["LLM response JSON parse failed"],
-            provider_used=provider_name,
-        )
+        result = _fallback_classify(tasks, acceptance, "LLM response JSON parse failed")
+        result.provider_used = provider_name
+        return result
 
     return _normalize_result(data, provider_name)
 
