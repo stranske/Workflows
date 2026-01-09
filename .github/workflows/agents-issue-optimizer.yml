@@ -98,6 +98,7 @@ jobs:
           ISSUE_NUMBER: ${{ steps.check.outputs.issue_number }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          PYTHONPATH: ${{ github.workspace }}
         run: |
           echo "Running analysis on issue #${ISSUE_NUMBER}"
           python scripts/langchain/issue_optimizer.py \
@@ -144,6 +145,7 @@ jobs:
           ISSUE_NUMBER: ${{ steps.check.outputs.issue_number }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          PYTHONPATH: ${{ github.workspace }}
         run: |
           echo "Checking for potential duplicate issues (advisory)"
           gh api "repos/${{ github.repository }}/issues?state=open&per_page=100" --paginate > /tmp/open_issues.json
@@ -197,6 +199,7 @@ jobs:
         env:
           ISSUE_NUMBER: ${{ steps.check.outputs.issue_number }}
           GH_TOKEN: ${{ github.token }}
+          PYTHONPATH: ${{ github.workspace }}
         run: |
           echo "Extracting suggestions from comments on issue #${ISSUE_NUMBER}"
 
