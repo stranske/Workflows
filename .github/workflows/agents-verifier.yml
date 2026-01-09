@@ -327,7 +327,7 @@ jobs:
           VERDICT: ${{ steps.verdict.outputs.verdict }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.CODESPACES_WORKFLOWS || secrets.GITHUB_TOKEN }}
           script: |
             const fs = require('fs');
             const prNumber = parseInt(process.env.PR_NUMBER);
