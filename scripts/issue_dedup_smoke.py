@@ -1,0 +1,203 @@
+#!/usr/bin/env python3
+"""Create GitHub issues for agents-dedup smoke testing."""
+
+from __future__ import annotations
+
+import argparse
+import os
+import sys
+from dataclasses import dataclass
+from typing import Any
+
+import requests
+
+GITHUB_API = "https://api.github.com"
+DEFAULT_TIMEOUT = 30
+
+
+@dataclass(frozen=True)
+class SourceIssue:
+    number: int
+    title: str
+    body: str | None
+    url: str | None
+
+
+def build_issue_payload(title: str, body: str | None, labels: list[str] | None) -> dict[str, Any]:
+    payload: dict[str, Any] = {"title": title}
+    if body is not None:
+        payload["body"] = body
+    if labels:
+        payload["labels"] = labels
+    return payload
+
+
+def format_body_with_note(body: str | None, note: str | None) -> str | None:
+    if not note:
+        return body
+    if body:
+        return f"{body}\n\n{note}"
+    return note
+
+
+def parse_source_issue(data: dict[str, Any]) -> SourceIssue:
+    try:
+        number = int(data["number"])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ValueError("Source issue is missing a numeric 'number'.") from exc
+    title = str(data.get("title") or "").strip()
+    if not title:
+        raise ValueError("Source issue is missing a title.")
+    return SourceIssue(
+        number=number,
+        title=title,
+        body=data.get("body"),
+        url=data.get("html_url") or data.get("url"),
+    )
+
+
+def _request_json(method: str, url: str, token: str, payload: dict[str, Any] | None) -> Any:
+    response = requests.request(
+        method,
+        url,
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/vnd.github+json",
+        },
+        json=payload,
+        timeout=DEFAULT_TIMEOUT,
+    )
+    if response.status_code >= 400:
+        try:
+            detail = response.json()
+        except ValueError:
+            detail = response.text
+        raise RuntimeError(f"GitHub API error {response.status_code}: {detail}")
+    if response.status_code == 204:
+        return None
+    return response.json()
+
+
+def fetch_issue(repo: str, issue_number: int, token: str) -> SourceIssue:
+    url = f"{GITHUB_API}/repos/{repo}/issues/{issue_number}"
+    data = _request_json("GET", url, token, payload=None)
+    if not isinstance(data, dict):
+        raise RuntimeError("GitHub API did not return a JSON object for the issue.")
+    return parse_source_issue(data)
+
+
+def create_issue(
+    repo: str,
+    token: str,
+    title: str,
+    body: str | None,
+    labels: list[str] | None,
+) -> dict[str, Any]:
+    url = f"{GITHUB_API}/repos/{repo}/issues"
+    payload = build_issue_payload(title, body, labels)
+    data = _request_json("POST", url, token, payload=payload)
+    if not isinstance(data, dict):
+        raise RuntimeError("GitHub API did not return a JSON object for the issue.")
+    return data
+
+
+def build_duplicate_payload(
+    source_issue: SourceIssue,
+    *,
+    title_suffix: str,
+    note: str | None,
+    labels: list[str] | None,
+) -> dict[str, Any]:
+    body = format_body_with_note(source_issue.body, note)
+    title = f"{source_issue.title}{title_suffix}"
+    return build_issue_payload(title, body, labels)
+
+
+def _parse_labels(value: str | None) -> list[str] | None:
+    if not value:
+        return None
+    labels = [label.strip() for label in value.split(",") if label.strip()]
+    return labels or None
+
+
+def _build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        description="Create GitHub issues for agents-dedup smoke testing."
+    )
+    parser.add_argument("--repo", required=True, help="Repository in owner/name form.")
+    parser.add_argument(
+        "--token-env",
+        default="GITHUB_TOKEN",
+        help="Environment variable containing the GitHub token.",
+    )
+    parser.add_argument("--labels", help="Comma-separated labels to add to the issue.")
+    parser.add_argument(
+        "--source-issue",
+        type=int,
+        help="Issue number to duplicate (uses its title/body).",
+    )
+    parser.add_argument("--title", help="Title for a new issue (required if no source).")
+    parser.add_argument("--body", help="Body for a new issue (optional).")
+    parser.add_argument(
+        "--title-suffix",
+        default="",
+        help="Suffix to append to the source issue title when duplicating.",
+    )
+    parser.add_argument(
+        "--note",
+        help="Optional note appended to the duplicated issue body.",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print the payload instead of creating an issue.",
+    )
+    return parser
+
+
+def main(argv: list[str]) -> int:
+    parser = _build_parser()
+    args = parser.parse_args(argv)
+
+    token = os.environ.get(args.token_env)
+    if not token:
+        print(f"Missing GitHub token in ${args.token_env}.", file=sys.stderr)
+        return 1
+
+    labels = _parse_labels(args.labels)
+
+    if args.source_issue is not None:
+        source_issue = fetch_issue(args.repo, args.source_issue, token)
+        payload = build_duplicate_payload(
+            source_issue,
+            title_suffix=args.title_suffix,
+            note=args.note,
+            labels=labels,
+        )
+    else:
+        if not args.title:
+            print("Either --source-issue or --title is required.", file=sys.stderr)
+            return 1
+        payload = build_issue_payload(args.title, args.body, labels)
+
+    if args.dry_run:
+        print(payload)
+        return 0
+
+    created = _request_json(
+        "POST",
+        f"{GITHUB_API}/repos/{args.repo}/issues",
+        token,
+        payload=payload,
+    )
+    if not isinstance(created, dict):
+        print("GitHub API did not return a JSON object for the new issue.", file=sys.stderr)
+        return 1
+
+    issue_url = created.get("html_url") or created.get("url") or "unknown"
+    print(f"Issue created: {issue_url}")
+    return 0
+
+
+if __name__ == "__main__":  # pragma: no cover - CLI entry point
+    raise SystemExit(main(sys.argv[1:]))
