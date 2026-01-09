@@ -6,10 +6,13 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+import time
 from dataclasses import dataclass
 from typing import Any
 
 import requests
+
+from scripts.langchain import issue_dedup
 
 GITHUB_API = "https://api.github.com"
 DEFAULT_TIMEOUT = 30
@@ -86,6 +89,14 @@ def fetch_issue(repo: str, issue_number: int, token: str) -> SourceIssue:
     return parse_source_issue(data)
 
 
+def fetch_issue_comments(repo: str, issue_number: int, token: str) -> list[dict[str, Any]]:
+    url = f"{GITHUB_API}/repos/{repo}/issues/{issue_number}/comments?per_page=100"
+    data = _request_json("GET", url, token, payload=None)
+    if not isinstance(data, list):
+        raise RuntimeError("GitHub API did not return a JSON array for issue comments.")
+    return data
+
+
 def create_issue(
     repo: str,
     token: str,
@@ -111,6 +122,34 @@ def build_duplicate_payload(
     body = format_body_with_note(source_issue.body, note)
     title = f"{source_issue.title}{title_suffix}"
     return build_issue_payload(title, body, labels)
+
+
+def find_dedup_comment(comments: list[dict[str, Any]]) -> dict[str, Any] | None:
+    for comment in comments:
+        body = str(comment.get("body") or "")
+        if issue_dedup.SIMILAR_ISSUES_MARKER in body:
+            return comment
+    return None
+
+
+def check_issue_for_duplicate(
+    repo: str,
+    issue_number: int,
+    token: str,
+    *,
+    attempts: int,
+    interval: float,
+) -> dict[str, Any] | None:
+    remaining = max(attempts, 1)
+    while remaining > 0:
+        comments = fetch_issue_comments(repo, issue_number, token)
+        match = find_dedup_comment(comments)
+        if match is not None:
+            return match
+        remaining -= 1
+        if remaining > 0 and interval > 0:
+            time.sleep(interval)
+    return None
 
 
 def _parse_labels(value: str | None) -> list[str] | None:
@@ -148,6 +187,23 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Optional note appended to the duplicated issue body.",
     )
     parser.add_argument(
+        "--check-issue",
+        type=int,
+        help="Issue number to check for a duplicate-detection comment.",
+    )
+    parser.add_argument(
+        "--check-attempts",
+        type=int,
+        default=1,
+        help="Number of attempts to check for a duplicate comment.",
+    )
+    parser.add_argument(
+        "--check-interval",
+        type=float,
+        default=0.0,
+        help="Seconds to wait between duplicate-check attempts.",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Print the payload instead of creating an issue.",
@@ -165,6 +221,21 @@ def main(argv: list[str]) -> int:
         return 1
 
     labels = _parse_labels(args.labels)
+
+    if args.check_issue is not None:
+        comment = check_issue_for_duplicate(
+            args.repo,
+            args.check_issue,
+            token,
+            attempts=args.check_attempts,
+            interval=args.check_interval,
+        )
+        if comment is None:
+            print("Duplicate detection comment not found.")
+            return 1
+        comment_url = comment.get("html_url") or comment.get("url") or "unknown"
+        print(f"Duplicate detection comment found: {comment_url}")
+        return 0
 
     if args.source_issue is not None:
         source_issue = fetch_issue(args.repo, args.source_issue, token)

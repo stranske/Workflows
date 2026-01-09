@@ -8,6 +8,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from scripts import issue_dedup_smoke
+from scripts.langchain import issue_dedup
 
 
 class DummyResponse:
@@ -90,3 +91,42 @@ def test_request_json_returns_payload(monkeypatch) -> None:
     monkeypatch.setattr(issue_dedup_smoke.requests, "request", _fake_request)
 
     assert issue_dedup_smoke._request_json("GET", "http://example", "token", None) == {"ok": True}
+
+
+def test_find_dedup_comment_returns_match() -> None:
+    comments = [
+        {"body": "Nothing here"},
+        {"body": f"{issue_dedup.SIMILAR_ISSUES_MARKER}\n- entry"},
+    ]
+
+    match = issue_dedup_smoke.find_dedup_comment(comments)
+
+    assert match is not None
+    assert issue_dedup.SIMILAR_ISSUES_MARKER in match["body"]
+
+
+def test_check_issue_for_duplicate_retries_until_found(monkeypatch) -> None:
+    responses = [
+        [{"body": "No marker yet"}],
+        [{"body": f"Notice {issue_dedup.SIMILAR_ISSUES_MARKER} done", "html_url": "link"}],
+    ]
+
+    def _fake_fetch(repo, issue_number, token):
+        return responses.pop(0)
+
+    sleep_calls: list[float] = []
+
+    monkeypatch.setattr(issue_dedup_smoke, "fetch_issue_comments", _fake_fetch)
+    monkeypatch.setattr(issue_dedup_smoke.time, "sleep", lambda seconds: sleep_calls.append(seconds))
+
+    comment = issue_dedup_smoke.check_issue_for_duplicate(
+        "owner/repo",
+        10,
+        "token",
+        attempts=2,
+        interval=0.5,
+    )
+
+    assert comment is not None
+    assert comment["html_url"] == "link"
+    assert sleep_calls == [0.5]
