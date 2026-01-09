@@ -188,6 +188,13 @@ def _is_large_task(task: str) -> bool:
     return has_large_keyword
 
 
+def _should_decompose(task: str) -> bool:
+    parts = _split_task_parts(task)
+    if len(parts) > 1:
+        return True
+    return _is_large_task(task)
+
+
 def _expand_large_task(task: str) -> list[str]:
     return [
         f"Define scope for: {task}",
@@ -262,6 +269,7 @@ def build_child_issues(
     parent_number: int | None = None,
     parent_url: str | None = None,
     labels: list[str] | None = None,
+    assignees: list[str] | None = None,
     milestone: str | int | None = None,
     max_children: int | None = None,
 ) -> list[dict[str, Any]]:
@@ -276,6 +284,7 @@ def build_child_issues(
     )
     child_issues: list[dict[str, Any]] = []
     preserved_labels = list(labels) if labels else []
+    preserved_assignees = list(assignees) if assignees else []
     for task in normalized:
         title = (
             _truncate_title(f"{parent_title}: {task}") if parent_title else _truncate_title(task)
@@ -294,6 +303,8 @@ def build_child_issues(
         }
         if preserved_labels:
             payload["labels"] = preserved_labels
+        if preserved_assignees:
+            payload["assignees"] = preserved_assignees
         if milestone is not None:
             payload["milestone"] = milestone
         child_issues.append(payload)
@@ -316,6 +327,8 @@ def _fallback_decompose(task: str) -> list[str]:
 
 def decompose_task(task: str, *, use_llm: bool = True) -> dict[str, Any]:
     if not task or not task.strip():
+        return {"sub_tasks": [], "provider_used": None, "used_llm": False}
+    if not _should_decompose(task):
         return {"sub_tasks": [], "provider_used": None, "used_llm": False}
 
     if use_llm:
