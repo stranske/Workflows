@@ -67,6 +67,8 @@ jobs:
       agent_type: ${{ steps.evaluate.outputs.agent_type }}
       task_appendix: ${{ steps.evaluate.outputs.task_appendix }}
       trace: ${{ steps.evaluate.outputs.trace }}
+      prompt_file: ${{ steps.evaluate.outputs.prompt_file }}
+      prompt_mode: ${{ steps.evaluate.outputs.prompt_mode }}
       start_ts: ${{ steps.timestamps.outputs.start_ts }}
       security_blocked: ${{ steps.security_gate.outputs.blocked }}
       security_reason: ${{ steps.security_gate.outputs.reason }}
@@ -239,6 +241,8 @@ jobs:
               has_agent_label: String(result.hasAgentLabel || false),
               agent_type: String(result.agentType || ''),
               trace: String(result.config?.trace || ''),
+              prompt_file: result.promptFile || '',
+              prompt_mode: result.promptMode || 'normal',
             };
             for (const [key, value] of Object.entries(output)) {
               core.setOutput(key, value);
@@ -249,7 +253,7 @@ jobs:
   preflight:
     name: Verify secrets available
     needs: evaluate
-    if: needs.evaluate.outputs.action == 'run'
+    if: contains(fromJSON('["run", "fix", "conflict"]'), needs.evaluate.outputs.action)
     runs-on: ubuntu-latest
     environment: agent-standard
     outputs:
@@ -279,7 +283,7 @@ jobs:
     needs:
       - evaluate
       - preflight
-    if: needs.evaluate.outputs.action == 'run'
+    if: contains(fromJSON('["run", "fix", "conflict"]'), needs.evaluate.outputs.action)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Workflows scripts
@@ -324,9 +328,9 @@ jobs:
       WORKFLOWS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID }}
       WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
     with:
-      skip: ${{ needs.evaluate.outputs.action != 'run' }}
-      prompt_file: .github/codex/prompts/keepalive_next_task.md
-      mode: keepalive
+      skip: ${{ !contains(fromJSON('["run", "fix", "conflict"]'), needs.evaluate.outputs.action) }}
+      prompt_file: ${{ needs.evaluate.outputs.prompt_file }}
+      mode: ${{ needs.evaluate.outputs.prompt_mode }}
       pr_number: ${{ needs.evaluate.outputs.pr_number }}
       pr_ref: ${{ needs.evaluate.outputs.pr_ref }}
       appendix: ${{ needs.evaluate.outputs.task_appendix }}
