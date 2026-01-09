@@ -9,6 +9,7 @@ import sys
 import time
 from dataclasses import dataclass
 from typing import Any
+from urllib.parse import urlencode
 
 import requests
 
@@ -81,12 +82,36 @@ def _request_json(method: str, url: str, token: str, payload: dict[str, Any] | N
     return response.json()
 
 
+def _build_url(base_url: str, params: dict[str, Any] | None) -> str:
+    if not params:
+        return base_url
+    return f"{base_url}?{urlencode(params)}"
+
+
 def fetch_issue(repo: str, issue_number: int, token: str) -> SourceIssue:
     url = f"{GITHUB_API}/repos/{repo}/issues/{issue_number}"
     data = _request_json("GET", url, token, payload=None)
     if not isinstance(data, dict):
         raise RuntimeError("GitHub API did not return a JSON object for the issue.")
     return parse_source_issue(data)
+
+
+def fetch_issues(
+    repo: str,
+    token: str,
+    *,
+    labels: list[str] | None,
+    page: int,
+    per_page: int = 100,
+) -> list[dict[str, Any]]:
+    params: dict[str, Any] = {"state": "open", "page": page, "per_page": per_page}
+    if labels:
+        params["labels"] = ",".join(labels)
+    url = _build_url(f"{GITHUB_API}/repos/{repo}/issues", params)
+    data = _request_json("GET", url, token, payload=None)
+    if not isinstance(data, list):
+        raise RuntimeError("GitHub API did not return a JSON array for issues.")
+    return data
 
 
 def fetch_issue_comments(repo: str, issue_number: int, token: str) -> list[dict[str, Any]]:
@@ -122,6 +147,44 @@ def build_duplicate_payload(
     body = format_body_with_note(source_issue.body, note)
     title = f"{source_issue.title}{title_suffix}"
     return build_issue_payload(title, body, labels)
+
+
+def select_issue_by_query(
+    issues: list[dict[str, Any]],
+    query: str,
+) -> SourceIssue | None:
+    query_lower = query.lower()
+    for entry in issues:
+        if "pull_request" in entry:
+            continue
+        title = str(entry.get("title") or "")
+        body = str(entry.get("body") or "")
+        if query_lower not in title.lower() and query_lower not in body.lower():
+            continue
+        try:
+            return parse_source_issue(entry)
+        except ValueError:
+            continue
+    return None
+
+
+def find_source_issue(
+    repo: str,
+    token: str,
+    *,
+    query: str,
+    labels: list[str] | None,
+    pages: int,
+) -> SourceIssue | None:
+    max_pages = max(pages, 1)
+    for page in range(1, max_pages + 1):
+        issues = fetch_issues(repo, token, labels=labels, page=page)
+        match = select_issue_by_query(issues, query)
+        if match is not None:
+            return match
+        if not issues:
+            break
+    return None
 
 
 def find_dedup_comment(comments: list[dict[str, Any]]) -> dict[str, Any] | None:
@@ -175,6 +238,20 @@ def _build_parser() -> argparse.ArgumentParser:
         type=int,
         help="Issue number to duplicate (uses its title/body).",
     )
+    parser.add_argument(
+        "--find-issue",
+        help="Substring to search for in open issue titles/bodies.",
+    )
+    parser.add_argument(
+        "--find-labels",
+        help="Comma-separated labels to filter source issues.",
+    )
+    parser.add_argument(
+        "--find-pages",
+        type=int,
+        default=1,
+        help="Number of issue pages to scan when searching.",
+    )
     parser.add_argument("--title", help="Title for a new issue (required if no source).")
     parser.add_argument("--body", help="Body for a new issue (optional).")
     parser.add_argument(
@@ -208,6 +285,11 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Print the payload instead of creating an issue.",
     )
+    parser.add_argument(
+        "--show-source",
+        action="store_true",
+        help="Print the source issue selection and exit.",
+    )
     return parser
 
 
@@ -221,6 +303,7 @@ def main(argv: list[str]) -> int:
         return 1
 
     labels = _parse_labels(args.labels)
+    find_labels = _parse_labels(args.find_labels)
 
     if args.check_issue is not None:
         comment = check_issue_for_duplicate(
@@ -237,8 +320,26 @@ def main(argv: list[str]) -> int:
         print(f"Duplicate detection comment found: {comment_url}")
         return 0
 
+    source_issue = None
     if args.source_issue is not None:
         source_issue = fetch_issue(args.repo, args.source_issue, token)
+    elif args.find_issue:
+        source_issue = find_source_issue(
+            args.repo,
+            token,
+            query=args.find_issue,
+            labels=find_labels,
+            pages=args.find_pages,
+        )
+        if source_issue is None:
+            print("No matching source issue found.", file=sys.stderr)
+            return 1
+
+    if source_issue is not None:
+        if args.show_source:
+            issue_url = source_issue.url or "unknown"
+            print(f"Source issue: #{source_issue.number} {source_issue.title} ({issue_url})")
+            return 0
         payload = build_duplicate_payload(
             source_issue,
             title_suffix=args.title_suffix,
@@ -247,7 +348,7 @@ def main(argv: list[str]) -> int:
         )
     else:
         if not args.title:
-            print("Either --source-issue or --title is required.", file=sys.stderr)
+            print("Either --source-issue/--find-issue or --title is required.", file=sys.stderr)
             return 1
         payload = build_issue_payload(args.title, args.body, labels)
 

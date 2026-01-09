@@ -74,6 +74,42 @@ def test_build_duplicate_payload_uses_suffix_and_note() -> None:
     assert payload["labels"] == ["agents:dedup"]
 
 
+def test_select_issue_by_query_skips_prs_and_matches_body() -> None:
+    issues = [
+        {"number": 1, "title": "Other", "body": "Nope", "pull_request": {}},
+        {"number": 2, "title": "", "body": "Target"},
+        {"number": 3, "title": "Unrelated", "body": "Includes Target text"},
+    ]
+
+    match = issue_dedup_smoke.select_issue_by_query(issues, "target")
+
+    assert match is not None
+    assert match.number == 3
+
+
+def test_find_source_issue_scans_pages(monkeypatch) -> None:
+    responses = [
+        [{"number": 1, "title": "Nope", "body": ""}],
+        [{"number": 2, "title": "Needle here", "body": ""}],
+    ]
+
+    def _fake_fetch(repo, token, *, labels, page, per_page=100):
+        return responses.pop(0)
+
+    monkeypatch.setattr(issue_dedup_smoke, "fetch_issues", _fake_fetch)
+
+    match = issue_dedup_smoke.find_source_issue(
+        "owner/repo",
+        "token",
+        query="needle",
+        labels=None,
+        pages=2,
+    )
+
+    assert match is not None
+    assert match.number == 2
+
+
 def test_request_json_raises_on_error(monkeypatch) -> None:
     def _fake_request(method, url, headers=None, json=None, timeout=None):
         return DummyResponse(400, json_data={"message": "bad"})
