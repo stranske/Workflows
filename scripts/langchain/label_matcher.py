@@ -227,7 +227,11 @@ def _keyword_match_score(label: LabelRecord, query: str) -> float | None:
     ):
         score = max(score, 0.9)
     if any(tag in normalized for tag in ("feature", "enhancement", "request")) and (
-        any(_token_matches_keyword(token, keyword) for token in tokens for keyword in _FEATURE_KEYWORDS)
+        any(
+            _token_matches_keyword(token, keyword)
+            for token in tokens
+            for keyword in _FEATURE_KEYWORDS
+        )
         or any(phrase in query_lower for phrase in _FEATURE_PHRASES)
     ):
         score = max(score, 0.88)
