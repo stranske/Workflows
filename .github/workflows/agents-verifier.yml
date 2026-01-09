@@ -1,578 +1,185 @@
+# Thin caller for Agents Verifier - delegates to Workflows repo reusable workflow
+# Verifies acceptance criteria were met and opens follow-up issues if not
+#
+# Triggers:
+# - Label 'verify:checkbox' added to merged PR (opt-in checkbox verification)
+# - Label 'verify:evaluate' added to merged PR (LLM-based evaluation)
+# - Label 'verify:compare' added to merged PR (compare-based verification)
+# - Manual dispatch from Actions tab (allows model/provider selection)
+# Note: No longer runs automatically on every merge. Add a verify:* label to trigger.
+#
+# Required secrets (via secrets: inherit):
+# - CODEX_AUTH_JSON: Authentication for Codex API
+# - OPENAI_API_KEY: For OpenAI provider (optional, falls back to GitHub Models)
+# - Ensure repository/org secrets are configured for verification to work
+#
+# Note: Uses pull_request_target instead of pull_request to ensure secrets
+# are available for PRs from forks after merge.
 name: Agents Verifier
 
 on:
   pull_request_target:
     types:
       - labeled
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to verify (must be merged)'
+        required: true
+        type: number
+      mode:
+        description: 'Verification mode'
+        required: true
+        type: choice
+        options:
+          - evaluate
+          - checkbox
+          - compare
+        default: 'evaluate'
+      model:
+        description: >-
+          Model for evaluation. GitHub Models: gpt-4o, gpt-4o-mini,
+          text-embedding-3-large, text-embedding-3-small, Meta-Llama-3.1-405B-Instruct,
+          Meta-Llama-3.1-70B-Instruct, Meta-Llama-3-70B-Instruct |
+          OpenAI: gpt-5.2, o1, o1-preview, o1-mini, o3-mini (if available), gpt-4o, gpt-4o-mini,
+          gpt-4-turbo, gpt-4, gpt-3.5-turbo. Use script scripts/update_model_list.sh
+          to check current availability.
+        required: false
+        type: string
+        default: 'gpt-4o-mini'
+      model2:
+        description: >-
+          Second model for compare mode. High quality options:
+          GitHub Models: gpt-4o, Meta-Llama-3.1-405B-Instruct |
+          OpenAI: gpt-5.2, o1, gpt-4o, gpt-4-turbo. Efficient: gpt-4o-mini, o1-mini
+        required: false
+        type: string
+        default: ''
+      provider:
+        description: 'LLM provider (OpenAI requires OPENAI_API_KEY secret)'
+        required: true
+        type: choice
+        options:
+          - github-models
+          - openai
+        default: 'github-models'
 
 permissions:
   contents: read
-  pull-requests: read
+  pull-requests: write
   issues: write
   actions: read
   models: read  # Required for GitHub Models API access
 
 jobs:
-  # Gate: only proceed if PR is merged AND has verify:* label
+  # Gate: only proceed if PR is merged AND has verify:* label (for label trigger)
+  # Or if triggered manually via workflow_dispatch
   check:
     runs-on: ubuntu-latest
     outputs:
       should_run: ${{ steps.check.outputs.should_run }}
       mode: ${{ steps.check.outputs.mode }}
+      model: ${{ steps.check.outputs.model }}
+      model2: ${{ steps.check.outputs.model2 }}
+      provider: ${{ steps.check.outputs.provider }}
+      pr_number: ${{ steps.check.outputs.pr_number }}
     steps:
       - name: Check trigger conditions
         id: check
         uses: actions/github-script@v8
         with:
           script: |
-            const pr = context.payload.pull_request;
-            const labelName = context.payload.label?.name || '';
+            // Handle workflow_dispatch trigger
+            if (context.eventName === 'workflow_dispatch') {
+              const prNumber = context.payload.inputs.pr_number;
+              const mode = context.payload.inputs.mode;
+              const model = context.payload.inputs.model;
+              const model2 = context.payload.inputs.model2 || '';
+              const provider = context.payload.inputs.provider;
 
-            // Only proceed if PR is merged
-            if (!pr.merged) {
-              core.info('PR not merged yet; skipping verification');
-              core.setOutput('should_run', 'false');
-              return;
-            }
-
-            // Determine mode from label
-            let mode = '';
-            if (labelName === 'verify:checkbox') {
-              mode = 'checkbox';
-            } else if (labelName === 'verify:evaluate') {
-              mode = 'evaluate';
-            } else if (labelName === 'verify:compare') {
-              mode = 'compare';
-            } else {
-              core.info(`Not a verify label (got: ${labelName}); skipping`);
-              core.setOutput('should_run', 'false');
-              return;
-            }
-
-            core.info(`Merged PR with ${labelName} label; proceeding with ${mode} mode`);
-            core.setOutput('should_run', 'true');
-            core.setOutput('mode', mode);
-
-  verifier:
-    name: Run post-merge verifier
-    needs: check
-    if: needs.check.outputs.should_run == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-
-      - name: Wait for CI workflows to complete
-        id: wait_ci
-        uses: actions/github-script@v8
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            // Wait for CI workflows to complete before running the verifier.
-            // This prevents race conditions where the verifier runs before CI finishes.
-            const pr = context.payload.pull_request;
-            if (!pr || !pr.merged) {
-              core.info('PR not merged; skipping CI wait.');
-              return;
-            }
-
-            const targetSha = pr.merge_commit_sha;
-            if (!targetSha) {
-              core.setFailed('Merged PR is missing merge_commit_sha; cannot determine CI target SHA.');
-              return;
-            }
-
-            const ciWorkflows = [
-              'selftest-ci.yml',
-              'pr-11-selftest-invariant.yml',
-            ];
-
-            const maxWaitMs = 5 * 60 * 1000; // 5 minutes max wait
-            const pollIntervalMs = 15 * 1000; // Poll every 15 seconds
-            const startTime = Date.now();
-
-            core.info(`Waiting for CI workflows to complete for SHA ${targetSha}...`);
-
-            while (Date.now() - startTime < maxWaitMs) {
-              let allComplete = true;
-              let anyFound = false;
-
-              for (const workflowFile of ciWorkflows) {
-                try {
-                  const { data: runs } = await github.rest.actions.listWorkflowRuns({
-                    ...context.repo,
-                    workflow_id: workflowFile,
-                    head_sha: targetSha,
-                    per_page: 1,
-                  });
-
-                  if (runs.workflow_runs.length > 0) {
-                    anyFound = true;
-                    const run = runs.workflow_runs[0];
-                    core.info(`${workflowFile}: status=${run.status}, conclusion=${run.conclusion || 'pending'}`);
-
-                    if (run.status !== 'completed') {
-                      allComplete = false;
-                    }
-                  }
-                } catch (err) {
-                  core.warning(`Failed to check ${workflowFile}: ${err.message}`);
-                }
-              }
-
-              if (anyFound && allComplete) {
-                core.info('All CI workflows have completed.');
-                return;
-              }
-
-              if (!anyFound) {
-                core.info('No CI workflow runs found yet; waiting...');
-              }
-
-              core.info(`Waiting ${pollIntervalMs / 1000}s for CI to complete...`);
-              await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
-            }
-
-            core.warning(`CI wait timed out after ${maxWaitMs / 1000}s. Proceeding with available results.`);
-
-      - name: Build verifier context
-        id: context
-        uses: actions/github-script@v8
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const { buildVerifierContext } = require('./.github/scripts/agents_verifier_context.js');
-            await buildVerifierContext({ github, context, core });
-
-      - name: Stop when verifier is skipped
-        if: steps.context.outputs.should_run != 'true'
-        run: |
-          echo "Verifier skipped: ${{ steps.context.outputs.skip_reason || 'no reason provided' }}"
-
-      - name: Prepare verifier prompt
-        if: steps.context.outputs.should_run == 'true'
-        id: prepare
-        run: |
-          set -euo pipefail
-          base_prompt=".github/codex/prompts/verifier_acceptance_check.md"
-          context_file="${{ steps.context.outputs.context_path }}"
-          combined="verifier-prompt.md"
-          if [ ! -f "$base_prompt" ]; then
-            echo "::error::Base prompt file missing: $base_prompt"
-            exit 1
-          fi
-          if [ ! -f "$context_file" ]; then
-            echo "::error::Context file missing: $context_file"
-            exit 1
-          fi
-          {
-            cat "$base_prompt"
-            printf '\n\n---\n\n'
-            cat "$context_file"
-          } > "$combined"
-          echo "prompt_file=$combined" >> "$GITHUB_OUTPUT"
-
-      - name: Setup Codex auth
-        id: codex_auth
-        if: steps.context.outputs.should_run == 'true'
-        env:
-          CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
-          CODEX_HOME: ${{ runner.temp }}/.codex-verifier
-        run: |
-          set -euo pipefail
-
-          # Setup auth in default location
-          mkdir -p ~/.codex
-          echo "$CODEX_AUTH_JSON" > ~/.codex/auth.json
-          chmod 600 ~/.codex/auth.json
-
-          # Also setup in CODEX_HOME for the action
-          mkdir -p "$CODEX_HOME"
-          cp ~/.codex/auth.json "$CODEX_HOME/auth.json"
-          chmod 600 "$CODEX_HOME/auth.json"
-
-          echo "Codex auth configured from CODEX_AUTH_JSON secret"
-          echo "Auth files created at ~/.codex/auth.json and $CODEX_HOME/auth.json"
-
-          # Check token expiration
-          python3 << 'PYEOF'
-          import json, base64, datetime, sys, os
-
-          auth_path = os.path.expanduser("~/.codex/auth.json")
-          try:
-              with open(auth_path) as f:
-                  auth = json.load(f)
-              token = auth.get("tokens", {}).get("access_token", "")
-              if not token:
-                  print("::warning::No access token found in auth.json")
-                  sys.exit(0)
-
-              parts = token.split(".")
-              if len(parts) != 3:
-                  print("::warning::Invalid JWT format in access token")
-                  sys.exit(0)
-
-              payload = parts[1] + "=" * (4 - len(parts[1]) % 4)
-              data = json.loads(base64.urlsafe_b64decode(payload))
-              exp_time = datetime.datetime.fromtimestamp(data["exp"], tz=datetime.timezone.utc)
-              now = datetime.datetime.now(tz=datetime.timezone.utc)
-              diff = exp_time - now
-              days_left = diff.days
-              hours_left = diff.total_seconds() / 3600
-
-              print(f"Token expires: {exp_time.isoformat()}")
-              print(f"Days until expiration: {days_left}")
-
-              if days_left < 0:
-                  print("::error::CODEX_AUTH_JSON has expired! Run 'codex login --device-auth' and update the secret. See docs/ci/CHATGPT_SUBSCRIPTION_CI.md for instructions.")
-                  sys.exit(1)
-              elif days_left < 2:
-                  print(f"::warning::CODEX_AUTH_JSON expires in {hours_left:.0f} hours! Consider refreshing soon.")
-                  print("Run 'codex login --device-auth' and update the CODEX_AUTH_JSON secret.")
-              elif days_left < 5:
-                  print(f"::notice::CODEX_AUTH_JSON expires in {days_left} days. Plan to refresh before expiration.")
-
-              # Expose token expiration details for downstream GitHub Actions steps
-              try:
-                  # Prefer the existing days_left calculation, but recompute from exp/now if needed
-                  days_until_expiry = days_left
-              except NameError:
-                  try:
-                      days_until_expiry = (exp - now).days
-                  except Exception:
-                      days_until_expiry = None
-
-              token_expires_value = None
-              try:
-                  # If exp is a datetime, serialize as ISO 8601; otherwise fall back to str()
-                  if isinstance(exp, datetime.datetime):
-                      token_expires_value = exp.isoformat()
-                  else:
-                      token_expires_value = str(exp)
-              except Exception:
-                  token_expires_value = None
-
-              github_output = os.environ.get("GITHUB_OUTPUT")
-              if github_output and (token_expires_value is not None or days_until_expiry is not None):
-                  try:
-                      with open(github_output, "a", encoding="utf-8") as fh:
-                          if token_expires_value is not None:
-                              fh.write(f"token_expires={token_expires_value}\n")
-                          if days_until_expiry is not None:
-                              fh.write(f"days_until_expiry={days_until_expiry}\n")
-                  except Exception as e:
-                      # Do not fail the job if we cannot write outputs; just emit a warning
-                      print(f"::warning::Failed to write token expiration outputs: {e}")
-          except Exception as e:
-              print(f"::warning::Could not check token expiration: {e}")
-          PYEOF
-
-      - name: Install Codex CLI
-        if: steps.context.outputs.should_run == 'true'
-        run: npm install -g @openai/codex
-
-      - name: Run verifier
-        id: codex
-        if: steps.context.outputs.should_run == 'true'
-        env:
-          CODEX_HOME: ${{ runner.temp }}/.codex-verifier
-        run: |
-          set -euo pipefail
-          PROMPT_FILE="${{ steps.prepare.outputs.prompt_file }}"
-
-          # Run codex exec directly with the pre-configured auth.json
-          # Use read-only sandbox for safety
-          # Pass prompt as positional argument (codex exec expects this, not stdin)
-          # Capture the exit code so we can still process outputs before exiting.
-          set +e
-          codex exec \
-            --sandbox read-only \
-            --skip-git-repo-check \
-            --output-last-message codex-output.md \
-            "$(cat "$PROMPT_FILE")"
-          codex_exit_code=$?
-          set -euo pipefail
-
-          echo "Codex verifier completed (exit code: ${codex_exit_code})"
-          if [ -f codex-output.md ]; then
-            echo "=== Verifier Output ==="
-            cat codex-output.md
-          fi
-
-          exit "${codex_exit_code}"
-      - name: Parse verifier verdict
-        id: verdict
-        if: steps.context.outputs.should_run == 'true'
-        run: |
-          set -euo pipefail
-          verdict="unknown"
-          output_file="codex-output.md"
-          if [ -f "$output_file" ]; then
-            if grep -qiE 'verdict:[[:space:]]*fail' "$output_file"; then
-              verdict="fail"
-            elif grep -qiE 'verdict:[[:space:]]*pass' "$output_file"; then
-              verdict="pass"
-            fi
-          fi
-          echo "verdict=$verdict" >> "$GITHUB_OUTPUT"
-
-      - name: Post verification results comment
-        if: always() && steps.context.outputs.should_run == 'true'
-        continue-on-error: true
-        uses: actions/github-script@v8
-        env:
-          PR_NUMBER: ${{ steps.context.outputs.pr_number }}
-          VERDICT: ${{ steps.verdict.outputs.verdict }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        with:
-          github-token: ${{ secrets.CODESPACES_WORKFLOWS || secrets.GITHUB_TOKEN }}
-          script: |
-            const fs = require('fs');
-            const prNumber = parseInt(process.env.PR_NUMBER);
-            const verdict = process.env.VERDICT || 'unknown';
-            const runUrl = process.env.RUN_URL;
-
-            let verifierOutput = '';
-            try {
-              verifierOutput = fs.readFileSync('codex-output.md', 'utf8');
-            } catch (e) {
-              core.warning('Could not read codex-output.md');
-              verifierOutput = 'No verifier output available.';
-            }
-
-            const emoji = verdict === 'pass' ? '✅' : verdict === 'fail' ? '❌' : '⚠️';
-
-            // Build comment body with proper formatting
-            const body = [
-              `## PR Verification Report ${emoji}`,
-              '',
-              `**Verdict: ${verdict.toUpperCase()}**`,
-              '',
-              '<details>',
-              '<summary>Verification Details</summary>',
-              '',
-              verifierOutput,
-              '',
-              '</details>',
-              '',
-              '---',
-              `[View workflow run](${runUrl})`
-            ].join('\n');
-
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: prNumber,
-              body: body
-            });
-
-            core.info(`Posted verification comment to PR #${prNumber}`);
-
-      # DISABLED: Automatic follow-up issue creation
-      # Use verify:create-issue label on PRs with CONCERNS to manually create follow-up issues
-      - name: Open follow-up issue on verifier failure
-        id: failure_issue
-        if: false  # Disabled - use agents-verify-to-issue.yml with verify:create-issue label instead
-        uses: actions/github-script@v8
-        env:
-          PR_URL: ${{ steps.context.outputs.pr_html_url }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const fs = require('fs');
-            const { formatFollowUpIssue, formatSimpleFollowUpIssue } = require('./.github/scripts/verifier_issue_formatter.js');
-
-            const rawPrNumber = Number('${{ steps.context.outputs.pr_number }}');
-            const prNumber = !Number.isNaN(rawPrNumber) && rawPrNumber > 0 ? rawPrNumber : null;
-            const issueNumbers = JSON.parse('${{ steps.context.outputs.issue_numbers || '[]' }}');
-            const verifierOutput = fs.readFileSync('codex-output.md', 'utf8');
-            const prUrl = process.env.PR_URL || '';
-            const runUrl = process.env.RUN_URL || '';
-
-            // Fetch PR body if we have a PR number
-            let prBody = '';
-            if (prNumber) {
+              // Verify PR exists and is merged
               try {
                 const { data: pr } = await github.rest.pulls.get({
                   ...context.repo,
-                  pull_number: prNumber,
+                  pull_number: parseInt(prNumber),
                 });
-                prBody = pr.body || '';
+
+                if (!pr.merged) {
+                  const msg = `PR #${prNumber} is not merged. Verifier only runs on merged PRs.`;
+                  core.setFailed(msg);
+                  core.setOutput('should_run', 'false');
+                  return;
+                }
+
+                const logMsg = `Manual dispatch: PR #${prNumber}, mode=${mode}`;
+                core.info(`${logMsg}, model=${model}, model2=${model2}, provider=${provider}`);
+                core.setOutput('should_run', 'true');
+                core.setOutput('mode', mode);
+                core.setOutput('model', model);
+                core.setOutput('model2', model2);
+                core.setOutput('provider', provider);
+                core.setOutput('pr_number', prNumber);
+                return;
               } catch (err) {
-                core.warning(`Failed to fetch PR body: ${err.message}`);
+                core.setFailed(`Failed to get PR #${prNumber}: ${err.message}`);
+                core.setOutput('should_run', 'false');
+                return;
               }
             }
 
-            // Fetch linked issue bodies
-            const issues = [];
-            for (const issueNum of issueNumbers) {
-              try {
-                const { data: issue } = await github.rest.issues.get({
-                  ...context.repo,
-                  issue_number: issueNum,
-                });
-                issues.push({
-                  number: issue.number,
-                  title: issue.title || '',
-                  body: issue.body || '',
-                });
-              } catch (err) {
-                core.warning(`Failed to fetch issue #${issueNum}: ${err.message}`);
-              }
-            }
+            // Handle pull_request_target trigger (label added)
+            const pr = context.payload.pull_request;
+            const label = context.payload.label;
 
-            // Format the follow-up issue using the template structure
-            // Use the full formatter if we have PR/issue content, otherwise use simple format
-            let result;
-            if (prBody || issues.length > 0) {
-              result = formatFollowUpIssue({
-                verifierOutput,
-                prBody,
-                issues,
-                prNumber,
-                prUrl,
-                runUrl,
-              });
-            } else {
-              result = formatSimpleFollowUpIssue({
-                verifierOutput,
-                prNumber,
-                prUrl,
-                issueNumbers,
-                runUrl,
-              });
-            }
-
-            // Skip issue creation if there's no substantive content
-            // (e.g., all sections are placeholder text or empty)
-            if (!result.hasSubstantiveContent) {
-              core.info('Skipping issue creation: no substantive content to act on (all placeholder sections)');
-              core.setOutput('issue_number', '');
-              core.setOutput('skipped', 'true');
+            // Must be a merged PR
+            if (!pr || !pr.merged) {
+              core.info('PR not merged; skipping verifier.');
+              core.setOutput('should_run', 'false');
               return;
             }
 
-            const { data: issue } = await github.rest.issues.create({
-              ...context.repo,
-              title: result.title,
-              body: result.body,
-              labels: ['agent:codex'],
-            });
-            core.setOutput('issue_number', issue?.number ? String(issue.number) : '');
-            core.setOutput('skipped', 'false');
-            core.info(`Created follow-up issue #${issue.number}: ${result.title}`);
+            // Must be a verify:* label
+            const labelName = label?.name || '';
+            const verifyModes = {
+              'verify:checkbox': 'checkbox',
+              'verify:evaluate': 'evaluate',
+              'verify:compare': 'compare',
+            };
 
-      - name: Collect verifier metrics
-        if: always()
-        id: collect_metrics
-        env:
-          SHOULD_RUN: ${{ steps.context.outputs.should_run }}
-          PR_NUMBER: ${{ steps.context.outputs.pr_number }}
-          VERDICT: ${{ steps.verdict.outputs.verdict }}
-          CONTEXT_PATH: ${{ steps.context.outputs.context_path }}
-          CODEX_OUTPUT: codex-output.md
-          ISSUE_NUMBER: ${{ steps.failure_issue.outputs.issue_number }}
-          SKIP_REASON: ${{ steps.context.outputs.skip_reason }}
-        run: |
-          set -euo pipefail
-          python - <<'PY'
-          import json
-          import os
-          import re
-          from pathlib import Path
-          from datetime import datetime, timezone
+            const mode = verifyModes[labelName];
+            if (!mode) {
+              core.info(`Label '${labelName}' is not a verify trigger; skipping.`);
+              core.setOutput('should_run', 'false');
+              return;
+            }
 
-          def count_checkboxes(text: str) -> int:
-              return sum(1 for line in text.splitlines() if re.match(r"^- \[[ xX]\]", line.strip()))
+            core.info(`Verifier triggered with mode: ${mode}`);
+            core.setOutput('should_run', 'true');
+            core.setOutput('mode', mode);
+            // For compare mode, use high-quality models from different providers
+            if (mode === 'compare') {
+              core.setOutput('model', 'gpt-4o');   // GitHub Models - current flagship
+              core.setOutput('model2', 'gpt-5.2'); // OpenAI - GPT-5.2
+            } else {
+              core.setOutput('model', '');  // Use default
+              core.setOutput('model2', '');
+            }
+            core.setOutput('provider', '');  // Use default
+            core.setOutput('pr_number', pr.number.toString());
 
-          should_run = (os.environ.get("SHOULD_RUN") or "").lower() == "true"
-          pr_number = int(os.environ.get("PR_NUMBER") or 0)
-          verdict = os.environ.get("VERDICT") or "unknown"
-          context_path = Path(os.environ.get("CONTEXT_PATH") or "")
-          skip_reason = os.environ.get("SKIP_REASON") or ""
-          issue_number = os.environ.get("ISSUE_NUMBER") or ""
-
-          if not should_run:
-              verdict = "skipped"
-
-          issues_created = 1 if issue_number else 0
-          issue_numbers = [issue_number] if issue_number else []
-
-          acceptance_criteria_count = 0
-          if context_path.is_file():
-              acceptance_criteria_count = count_checkboxes(context_path.read_text(encoding="utf-8"))
-
-          checks_run = 0
-          codex_output_path = Path(os.environ.get("CODEX_OUTPUT") or "")
-          if codex_output_path.is_file():
-              content = codex_output_path.read_text(encoding="utf-8")
-              checks_run = sum(1 for line in content.splitlines()[1:] if line.lstrip().startswith("- "))
-
-          metrics = {
-              "pr_number": pr_number,
-              "verdict": verdict,
-              "issues_created": issues_created,
-              "issue_numbers": issue_numbers,
-              "acceptance_criteria_count": acceptance_criteria_count,
-              "checks_run": checks_run,
-              "skip_reason": skip_reason,
-              "recorded_at": datetime.now(timezone.utc).isoformat(),
-          }
-
-          print(json.dumps(metrics, indent=2))
-          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fp:
-              fp.write(f"metrics_json={json.dumps(metrics)}\n")
-          PY
-
-      - name: Write verifier summary
-        if: always()
-        env:
-          METRICS_JSON: ${{ steps.collect_metrics.outputs.metrics_json }}
-        run: |
-          set -euo pipefail
-          if [ -z "${METRICS_JSON:-}" ]; then
-            echo "No verifier metrics captured; skipping summary."
-            exit 0
-          fi
-          python - <<'PY'
-          import json
-          import os
-
-          metrics = json.loads(os.environ["METRICS_JSON"])
-          order = [
-              "pr_number",
-              "verdict",
-              "issues_created",
-              "issue_numbers",
-              "acceptance_criteria_count",
-              "checks_run",
-              "skip_reason",
-              "recorded_at",
-          ]
-
-          lines = ["## Verifier metrics", ""] + ["| Field | Value |", "| --- | --- |"]
-          for key in order:
-              value = metrics.get(key, "")
-              lines.append(f"| {key} | `{value}` |")
-
-          summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
-          if summary_path:
-              with open(summary_path, "a", encoding="utf-8") as fp:
-                  fp.write("\n".join(lines) + "\n")
-
-          out_path = "verifier-metrics.ndjson"
-          with open(out_path, "a", encoding="utf-8") as fp:
-              fp.write(json.dumps(metrics) + "\n")
-          print(f"Wrote metrics to {out_path}")
-          PY
-
-      - name: Upload verifier metrics
-        if: always()
-        uses: actions/upload-artifact@v6
-        with:
-          name: agents-verifier-metrics
-          path: verifier-metrics.ndjson
-          retention-days: 30
+  verifier:
+    needs: check
+    if: needs.check.outputs.should_run == 'true'
+    uses: stranske/Workflows/.github/workflows/reusable-agents-verifier.yml@main
+    with:
+      # CI workflows to wait for before running verifier (Gate workflow for Workflows repo)
+      ci_workflows: '["pr-00-gate.yml", "Gate"]'
+      # Verification mode from label or manual input
+      mode: ${{ needs.check.outputs.mode }}
+      # Model selection (empty string uses default)
+      model: ${{ needs.check.outputs.model }}
+      # Provider selection (empty string uses default)
+      provider: ${{ needs.check.outputs.provider }}
+      # Second model for compare mode (empty string uses default)
+      model2: ${{ needs.check.outputs.model2 }}
+    secrets: inherit
