@@ -114,3 +114,70 @@ Manual testing is slowing down releases. An automated testing pipeline will incr
 - All PRs require passing tests
 - Code coverage is above 80%
 - E2E tests cover login, dashboard, and checkout flows
+
+---
+
+Issue 6 — Fix README typo in onboarding section
+
+## Why
+The onboarding instructions include a misspelled command that confuses new contributors.
+
+## Scope
+- Correct the typo in the onboarding README section
+- Verify the command matches the repo's actual script name
+
+## Tasks
+- [ ] Locate the onboarding command in README
+- [ ] Fix the typo and ensure formatting stays intact
+
+## Acceptance Criteria
+- Onboarding command is spelled correctly
+- README formatting remains unchanged elsewhere
+
+---
+
+Issue 7 — Integrate Stripe payments for subscriptions
+
+## Why
+Recurring subscriptions are blocked until Stripe billing is integrated.
+
+## Scope
+- Add Stripe checkout flow for subscription tiers
+- Store Stripe customer IDs for existing users
+
+## Dependencies
+- Stripe API access and test keys
+- Webhook endpoint configuration in Stripe
+
+## Tasks
+- [ ] Create Stripe customer records for new signups
+- [ ] Implement subscription checkout session
+- [ ] Handle Stripe webhook events for subscription status
+
+## Acceptance Criteria
+- Users can start a subscription via Stripe checkout
+- Subscription status syncs via webhooks
+- Billing events are recorded in the database
+
+---
+
+Issue 8 — Rotate GitHub secrets for CI
+
+## Why
+Security policy requires rotating CI secrets every 90 days.
+
+## Scope
+- Rotate CI service account token
+- Update secrets referenced by workflows
+
+## Admin Access
+- Requires org admin to update repository secrets
+
+## Tasks
+- [ ] Rotate service account token in secret manager
+- [ ] Update GitHub repository secrets with new token
+- [ ] Confirm CI runs use updated secrets
+
+## Acceptance Criteria
+- New token is active in GitHub secrets
+- CI pipelines succeed with rotated credentials
