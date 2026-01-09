@@ -179,6 +179,40 @@ def test_find_dedup_comment_returns_match() -> None:
     assert issue_dedup.SIMILAR_ISSUES_MARKER in match["body"]
 
 
+def test_extract_similar_issue_refs_parses_links_and_numbers() -> None:
+    body = "\n".join(
+        [
+            issue_dedup.SIMILAR_ISSUES_MARKER,
+            "- [#12](http://example/12) - Title one (90% similar)",
+            "- #34 - Another issue (82% similar)",
+        ]
+    )
+
+    refs = issue_dedup_smoke.extract_similar_issue_refs(body)
+
+    assert [(ref.number, ref.url, ref.title) for ref in refs] == [
+        (12, "http://example/12", "Title one"),
+        (34, None, "Another issue"),
+    ]
+
+
+def test_format_duplicate_confirmation_prefers_issue_number() -> None:
+    refs = [
+        issue_dedup_smoke.SimilarIssueRef(number=12, url="http://example/12", title=None)
+    ]
+
+    assert issue_dedup_smoke.format_duplicate_confirmation(refs) == (
+        "Duplicate detected and linked to #12."
+    )
+
+
+def test_format_duplicate_confirmation_falls_back_to_generic_message() -> None:
+    assert (
+        issue_dedup_smoke.format_duplicate_confirmation([])
+        == "Duplicate detected and linked to similar issue(s)."
+    )
+
+
 def test_check_issue_for_duplicate_retries_until_found(monkeypatch) -> None:
     responses = [
         [{"body": "No marker yet"}],

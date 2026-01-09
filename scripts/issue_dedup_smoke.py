@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import sys
 import time
 from dataclasses import dataclass
@@ -25,6 +26,13 @@ class SourceIssue:
     title: str
     body: str | None
     url: str | None
+
+
+@dataclass(frozen=True)
+class SimilarIssueRef:
+    number: int | None
+    url: str | None
+    title: str | None
 
 
 def build_issue_payload(title: str, body: str | None, labels: list[str] | None) -> dict[str, Any]:
@@ -225,6 +233,50 @@ def find_dedup_comment(comments: list[dict[str, Any]]) -> dict[str, Any] | None:
     return None
 
 
+def extract_similar_issue_refs(comment_body: str) -> list[SimilarIssueRef]:
+    refs: list[SimilarIssueRef] = []
+    link_pattern = re.compile(r"\[(?P<label>[^\]]+)\]\((?P<url>[^)]+)\)")
+    number_pattern = re.compile(r"#(?P<number>\d+)")
+    for line in comment_body.splitlines():
+        stripped = line.strip()
+        if not stripped.startswith("- "):
+            continue
+        content = stripped[2:]
+        title: str | None = None
+        if " - " in content:
+            ref_part, rest = content.split(" - ", 1)
+            title = rest.rsplit(" (", 1)[0].strip() if " (" in rest else rest.strip()
+        else:
+            ref_part = content
+        url = None
+        number = None
+        link_match = link_pattern.search(ref_part)
+        if link_match:
+            url = link_match.group("url").strip()
+            label = link_match.group("label")
+            number_match = number_pattern.search(label)
+            if number_match:
+                number = int(number_match.group("number"))
+        else:
+            number_match = number_pattern.search(ref_part)
+            if number_match:
+                number = int(number_match.group("number"))
+        if number is None and url is None:
+            continue
+        refs.append(SimilarIssueRef(number=number, url=url, title=title or None))
+    return refs
+
+
+def format_duplicate_confirmation(refs: list[SimilarIssueRef]) -> str:
+    if refs:
+        first = refs[0]
+        if first.number is not None:
+            return f"Duplicate detected and linked to #{first.number}."
+        if first.url:
+            return f"Duplicate detected and linked to {first.url}."
+    return "Duplicate detected and linked to similar issue(s)."
+
+
 def check_issue_for_duplicate(
     repo: str,
     issue_number: int,
@@ -384,6 +436,9 @@ def main(argv: list[str]) -> int:
         if comment is None:
             print("Duplicate detection comment not found.")
             return 1
+        comment_body = str(comment.get("body") or "")
+        refs = extract_similar_issue_refs(comment_body)
+        print(format_duplicate_confirmation(refs))
         comment_url = comment.get("html_url") or comment.get("url") or "unknown"
         print(f"Duplicate detection comment found: {comment_url}")
         return 0
@@ -398,6 +453,7 @@ def main(argv: list[str]) -> int:
         if not is_unique:
             print("Duplicate detection comment found (unique check failed).")
             return 1
+        print("Unique issue accepted without duplicate flags.")
         print("No duplicate detection comment found.")
         return 0
 
