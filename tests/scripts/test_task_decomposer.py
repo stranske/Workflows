@@ -54,9 +54,7 @@ def test_normalize_subtasks_scopes_large_tasks() -> None:
 
 
 def test_build_child_issues_skips_atomic_task() -> None:
-    child_issues = task_decomposer.build_child_issues(
-        ["update docs"], parent_title="Parent Issue"
-    )
+    child_issues = task_decomposer.build_child_issues(["update docs"], parent_title="Parent Issue")
     assert child_issues == []
 
 

@@ -267,7 +267,9 @@ def build_child_issues(
     child_issues: list[dict[str, Any]] = []
     preserved_labels = list(labels) if labels else []
     for task in normalized:
-        title = _truncate_title(f"{parent_title}: {task}") if parent_title else _truncate_title(task)
+        title = (
+            _truncate_title(f"{parent_title}: {task}") if parent_title else _truncate_title(task)
+        )
         body_lines = [
             f"Parent issue: {parent_ref}",
             "",
