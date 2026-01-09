@@ -197,9 +197,7 @@ def test_extract_similar_issue_refs_parses_links_and_numbers() -> None:
 
 
 def test_format_duplicate_confirmation_prefers_issue_number() -> None:
-    refs = [
-        issue_dedup_smoke.SimilarIssueRef(number=12, url="http://example/12", title=None)
-    ]
+    refs = [issue_dedup_smoke.SimilarIssueRef(number=12, url="http://example/12", title=None)]
 
     assert issue_dedup_smoke.format_duplicate_confirmation(refs) == (
         "Duplicate detected and linked to #12."
