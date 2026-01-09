@@ -332,9 +332,7 @@ def test_parse_sections_supports_dependencies_and_admin_access() -> None:
         ]
     )
     assert labels == []
-    assert any(
-        "Stripe API access required" in line for line in sections["implementation_notes"]
-    )
+    assert any("Stripe API access required" in line for line in sections["implementation_notes"])
     assert any("Rotate GitHub secrets" in line for line in sections["implementation_notes"])
     assert sections["why"] == ["Because billing is blocked"]
     assert extras == []
