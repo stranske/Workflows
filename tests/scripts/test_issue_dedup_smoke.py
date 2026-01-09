@@ -117,7 +117,9 @@ def test_check_issue_for_duplicate_retries_until_found(monkeypatch) -> None:
     sleep_calls: list[float] = []
 
     monkeypatch.setattr(issue_dedup_smoke, "fetch_issue_comments", _fake_fetch)
-    monkeypatch.setattr(issue_dedup_smoke.time, "sleep", lambda seconds: sleep_calls.append(seconds))
+    monkeypatch.setattr(
+        issue_dedup_smoke.time, "sleep", lambda seconds: sleep_calls.append(seconds)
+    )
 
     comment = issue_dedup_smoke.check_issue_for_duplicate(
         "owner/repo",
