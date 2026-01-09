@@ -148,6 +148,35 @@ def test_collect_matching_issues_respects_limit(monkeypatch) -> None:
     assert [match.number for match in matches] == [1, 2]
 
 
+def test_main_show_source_prints_issue(monkeypatch, capsys) -> None:
+    def _fake_find(repo, token, *, query, labels, pages):
+        return issue_dedup_smoke.SourceIssue(
+            number=7,
+            title="Needle",
+            body="Details",
+            url="http://example/7",
+        )
+
+    monkeypatch.setattr(issue_dedup_smoke, "find_source_issue", _fake_find)
+    monkeypatch.setenv("TEST_TOKEN", "token")
+
+    result = issue_dedup_smoke.main(
+        [
+            "--repo",
+            "owner/repo",
+            "--find-issue",
+            "needle",
+            "--show-source",
+            "--token-env",
+            "TEST_TOKEN",
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert result == 0
+    assert "Source issue: #7 Needle (http://example/7)" in captured.out
+
+
 def test_request_json_raises_on_error(monkeypatch) -> None:
     def _fake_request(method, url, headers=None, json=None, timeout=None):
         return DummyResponse(400, json_data={"message": "bad"})
