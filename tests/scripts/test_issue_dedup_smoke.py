@@ -270,9 +270,7 @@ def test_format_duplicate_confirmation_falls_back_to_generic_message() -> None:
 
 
 def test_matches_expected_duplicate_number() -> None:
-    refs = [
-        issue_dedup_smoke.SimilarIssueRef(number=12, url="http://example/12", title=None)
-    ]
+    refs = [issue_dedup_smoke.SimilarIssueRef(number=12, url="http://example/12", title=None)]
 
     assert issue_dedup_smoke.matches_expected_duplicate(
         refs,
@@ -287,9 +285,7 @@ def test_matches_expected_duplicate_number() -> None:
 
 
 def test_matches_expected_duplicate_url_normalizes_trailing_slash() -> None:
-    refs = [
-        issue_dedup_smoke.SimilarIssueRef(number=None, url="http://example/12/", title=None)
-    ]
+    refs = [issue_dedup_smoke.SimilarIssueRef(number=None, url="http://example/12/", title=None)]
 
     assert issue_dedup_smoke.matches_expected_duplicate(
         refs,
