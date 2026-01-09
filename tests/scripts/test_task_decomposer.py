@@ -53,6 +53,31 @@ def test_normalize_subtasks_scopes_large_tasks() -> None:
     assert all("verify" in task.lower() for task in sub_tasks)
 
 
+def test_build_child_issues_skips_atomic_task() -> None:
+    child_issues = task_decomposer.build_child_issues(
+        ["update docs"], parent_title="Parent Issue"
+    )
+    assert child_issues == []
+
+
+def test_build_child_issues_preserves_metadata() -> None:
+    child_issues = task_decomposer.build_child_issues(
+        ["update docs", "add tests"],
+        parent_title="Parent Issue",
+        parent_number=123,
+        parent_url="https://github.com/example/repo/issues/123",
+        labels=["agent:codex", "status:ready"],
+        milestone=7,
+    )
+    assert len(child_issues) == 2
+    for child in child_issues:
+        assert child["labels"] == ["agent:codex", "status:ready"]
+        assert child["milestone"] == 7
+        assert child["title"].startswith("Parent Issue:")
+        assert "Parent issue: [#123](" in child["body"]
+        assert "- [ ] " in child["body"]
+
+
 def test_decompose_task_empty_input() -> None:
     """decompose_task returns empty sub_tasks for empty input."""
     result = task_decomposer.decompose_task("")
