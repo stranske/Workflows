@@ -489,57 +489,41 @@ jobs:
             echo "Warning: autofix-versions.env not found, installing latest tool versions" >&2
           fi
 
-          if [ "$has_lock_file" = "false" ]; then
-            if [ "$format_enabled" = "true" ]; then
-              add_tool "$black_spec" "black"
-              add_tool "$docformatter_spec" "docformatter"
-              add_tool "$isort_spec" "isort"
+          # Always install dev tools - lock files only contain runtime deps, not dev tools
+          if [ "$format_enabled" = "true" ]; then
+            add_tool "$black_spec" "black"
+            add_tool "$docformatter_spec" "docformatter"
+            add_tool "$isort_spec" "isort"
           else
-              skip_tool "black (format_check disabled)"
-              skip_tool "docformatter (format_check disabled)"
-              skip_tool "isort (format_check disabled)"
-            fi
+            skip_tool "black (format_check disabled)"
+            skip_tool "docformatter (format_check disabled)"
+            skip_tool "isort (format_check disabled)"
+          fi
 
-            if [ "$lint_enabled" = "true" ]; then
-              add_tool "$ruff_spec" "ruff"
-            else
-              skip_tool "ruff (lint disabled)"
-            fi
-
-            if [ "$mypy_enabled" = "true" ]; then
-              add_tool "$mypy_spec" "mypy"
-            else
-              skip_tool "mypy (typecheck disabled)"
-            fi
-
-            add_tool "$pytest_spec" "pytest"
-            add_tool "$pytest_xdist_spec" "pytest-xdist"
-            for spec in "${base_test_specs[@]}"; do
-              add_tool "$spec" "$spec"
-            done
-
-            if [ "$coverage_enabled" = "true" ]; then
-              add_tool "$pytest_cov_spec" "pytest-cov"
-              add_tool "$coverage_spec" "coverage"
-            else
-              skip_tool "pytest-cov (coverage disabled)"
-              skip_tool "coverage (coverage disabled)"
-            fi
+          if [ "$lint_enabled" = "true" ]; then
+            add_tool "$ruff_spec" "ruff"
           else
-            # When lock file exists, mark tools as coming from lock file for reporting
-            if [ "$format_enabled" = "true" ]; then
-              tools_installed+=("black (from lock)" "docformatter (from lock)" "isort (from lock)")
-            fi
-            if [ "$lint_enabled" = "true" ]; then
-              tools_installed+=("ruff (from lock)")
-            fi
-            if [ "$mypy_enabled" = "true" ]; then
-              tools_installed+=("mypy (from lock)")
-            fi
-            tools_installed+=("pytest (from lock)" "pytest-xdist (from lock)")
-            if [ "$coverage_enabled" = "true" ]; then
-              tools_installed+=("pytest-cov (from lock)" "coverage (from lock)")
-            fi
+            skip_tool "ruff (lint disabled)"
+          fi
+
+          if [ "$mypy_enabled" = "true" ]; then
+            add_tool "$mypy_spec" "mypy"
+          else
+            skip_tool "mypy (typecheck disabled)"
+          fi
+
+          add_tool "$pytest_spec" "pytest"
+          add_tool "$pytest_xdist_spec" "pytest-xdist"
+          for spec in "${base_test_specs[@]}"; do
+            add_tool "$spec" "$spec"
+          done
+
+          if [ "$coverage_enabled" = "true" ]; then
+            add_tool "$pytest_cov_spec" "pytest-cov"
+            add_tool "$coverage_spec" "coverage"
+          else
+            skip_tool "pytest-cov (coverage disabled)"
+            skip_tool "coverage (coverage disabled)"
           fi
 
           if [ ${#specs[@]} -eq 0 ]; then
@@ -789,57 +773,41 @@ jobs:
             echo "Warning: autofix-versions.env not found, installing latest tool versions" >&2
           fi
 
-          if [ "$has_lock_file" = "false" ]; then
-            if [ "$format_enabled" = "true" ]; then
-              add_tool "$black_spec" "black"
-              add_tool "$docformatter_spec" "docformatter"
-              add_tool "$isort_spec" "isort"
+          # Always install dev tools - lock files only contain runtime deps, not dev tools
+          if [ "$format_enabled" = "true" ]; then
+            add_tool "$black_spec" "black"
+            add_tool "$docformatter_spec" "docformatter"
+            add_tool "$isort_spec" "isort"
           else
-              skip_tool "black (format_check disabled)"
-              skip_tool "docformatter (format_check disabled)"
-              skip_tool "isort (format_check disabled)"
-            fi
+            skip_tool "black (format_check disabled)"
+            skip_tool "docformatter (format_check disabled)"
+            skip_tool "isort (format_check disabled)"
+          fi
 
-            if [ "$lint_enabled" = "true" ]; then
-              add_tool "$ruff_spec" "ruff"
-            else
-              skip_tool "ruff (lint disabled)"
-            fi
-
-            if [ "$mypy_enabled" = "true" ]; then
-              add_tool "$mypy_spec" "mypy"
-            else
-              skip_tool "mypy (typecheck disabled)"
-            fi
-
-            add_tool "$pytest_spec" "pytest"
-            add_tool "$pytest_xdist_spec" "pytest-xdist"
-            for spec in "${base_test_specs[@]}"; do
-              add_tool "$spec" "$spec"
-            done
-
-            if [ "$coverage_enabled" = "true" ]; then
-              add_tool "$pytest_cov_spec" "pytest-cov"
-              add_tool "$coverage_spec" "coverage"
-            else
-              skip_tool "pytest-cov (coverage disabled)"
-              skip_tool "coverage (coverage disabled)"
-            fi
+          if [ "$lint_enabled" = "true" ]; then
+            add_tool "$ruff_spec" "ruff"
           else
-            # When lock file exists, mark tools as coming from lock file for reporting
-            if [ "$format_enabled" = "true" ]; then
-              tools_installed+=("black (from lock)" "docformatter (from lock)" "isort (from lock)")
-            fi
-            if [ "$lint_enabled" = "true" ]; then
-              tools_installed+=("ruff (from lock)")
-            fi
-            if [ "$mypy_enabled" = "true" ]; then
-              tools_installed+=("mypy (from lock)")
-            fi
-            tools_installed+=("pytest (from lock)" "pytest-xdist (from lock)")
-            if [ "$coverage_enabled" = "true" ]; then
-              tools_installed+=("pytest-cov (from lock)" "coverage (from lock)")
-            fi
+            skip_tool "ruff (lint disabled)"
+          fi
+
+          if [ "$mypy_enabled" = "true" ]; then
+            add_tool "$mypy_spec" "mypy"
+          else
+            skip_tool "mypy (typecheck disabled)"
+          fi
+
+          add_tool "$pytest_spec" "pytest"
+          add_tool "$pytest_xdist_spec" "pytest-xdist"
+          for spec in "${base_test_specs[@]}"; do
+            add_tool "$spec" "$spec"
+          done
+
+          if [ "$coverage_enabled" = "true" ]; then
+            add_tool "$pytest_cov_spec" "pytest-cov"
+            add_tool "$coverage_spec" "coverage"
+          else
+            skip_tool "pytest-cov (coverage disabled)"
+            skip_tool "coverage (coverage disabled)"
           fi
 
           if [ ${#specs[@]} -eq 0 ]; then
@@ -1098,57 +1066,41 @@ jobs:
             echo "Warning: autofix-versions.env not found, installing latest tool versions" >&2
           fi
 
-          if [ "$has_lock_file" = "false" ]; then
-            if [ "$format_enabled" = "true" ]; then
-              add_tool "$black_spec" "black"
-              add_tool "$docformatter_spec" "docformatter"
-              add_tool "$isort_spec" "isort"
+          # Always install dev tools - lock files only contain runtime deps, not dev tools
+          if [ "$format_enabled" = "true" ]; then
+            add_tool "$black_spec" "black"
+            add_tool "$docformatter_spec" "docformatter"
+            add_tool "$isort_spec" "isort"
           else
-              skip_tool "black (format_check disabled)"
-              skip_tool "docformatter (format_check disabled)"
-              skip_tool "isort (format_check disabled)"
-            fi
+            skip_tool "black (format_check disabled)"
+            skip_tool "docformatter (format_check disabled)"
+            skip_tool "isort (format_check disabled)"
+          fi
 
-            if [ "$lint_enabled" = "true" ]; then
-              add_tool "$ruff_spec" "ruff"
-            else
-              skip_tool "ruff (lint disabled)"
-            fi
-
-            if [ "$mypy_enabled" = "true" ]; then
-              add_tool "$mypy_spec" "mypy"
-            else
-              skip_tool "mypy (typecheck disabled)"
-            fi
-
-            add_tool "$pytest_spec" "pytest"
-            add_tool "$pytest_xdist_spec" "pytest-xdist"
-            for spec in "${base_test_specs[@]}"; do
-              add_tool "$spec" "$spec"
-            done
-
-            if [ "$coverage_enabled" = "true" ]; then
-              add_tool "$pytest_cov_spec" "pytest-cov"
-              add_tool "$coverage_spec" "coverage"
-            else
-              skip_tool "pytest-cov (coverage disabled)"
-              skip_tool "coverage (coverage disabled)"
-            fi
+          if [ "$lint_enabled" = "true" ]; then
+            add_tool "$ruff_spec" "ruff"
           else
-            # When lock file exists, mark tools as coming from lock file for reporting
-            if [ "$format_enabled" = "true" ]; then
-              tools_installed+=("black (from lock)" "docformatter (from lock)" "isort (from lock)")
-            fi
-            if [ "$lint_enabled" = "true" ]; then
-              tools_installed+=("ruff (from lock)")
-            fi
-            if [ "$mypy_enabled" = "true" ]; then
-              tools_installed+=("mypy (from lock)")
-            fi
-            tools_installed+=("pytest (from lock)" "pytest-xdist (from lock)")
-            if [ "$coverage_enabled" = "true" ]; then
-              tools_installed+=("pytest-cov (from lock)" "coverage (from lock)")
-            fi
+            skip_tool "ruff (lint disabled)"
+          fi
+
+          if [ "$mypy_enabled" = "true" ]; then
+            add_tool "$mypy_spec" "mypy"
+          else
+            skip_tool "mypy (typecheck disabled)"
+          fi
+
+          add_tool "$pytest_spec" "pytest"
+          add_tool "$pytest_xdist_spec" "pytest-xdist"
+          for spec in "${base_test_specs[@]}"; do
+            add_tool "$spec" "$spec"
+          done
+
+          if [ "$coverage_enabled" = "true" ]; then
+            add_tool "$pytest_cov_spec" "pytest-cov"
+            add_tool "$coverage_spec" "coverage"
+          else
+            skip_tool "pytest-cov (coverage disabled)"
+            skip_tool "coverage (coverage disabled)"
           fi
 
           if [ ${#specs[@]} -eq 0 ]; then
@@ -1450,57 +1402,41 @@ jobs:
             echo "Warning: autofix-versions.env not found, installing latest tool versions" >&2
           fi
 
-          if [ "$has_lock_file" = "false" ]; then
-            if [ "$format_enabled" = "true" ]; then
-              add_tool "$black_spec" "black"
-              add_tool "$docformatter_spec" "docformatter"
-              add_tool "$isort_spec" "isort"
+          # Always install dev tools - lock files only contain runtime deps, not dev tools
+          if [ "$format_enabled" = "true" ]; then
+            add_tool "$black_spec" "black"
+            add_tool "$docformatter_spec" "docformatter"
+            add_tool "$isort_spec" "isort"
           else
-              skip_tool "black (format_check disabled)"
-              skip_tool "docformatter (format_check disabled)"
-              skip_tool "isort (format_check disabled)"
-            fi
+            skip_tool "black (format_check disabled)"
+            skip_tool "docformatter (format_check disabled)"
+            skip_tool "isort (format_check disabled)"
+          fi
 
-            if [ "$lint_enabled" = "true" ]; then
-              add_tool "$ruff_spec" "ruff"
-            else
-              skip_tool "ruff (lint disabled)"
-            fi
-
-            if [ "$mypy_enabled" = "true" ]; then
-              add_tool "$mypy_spec" "mypy"
-            else
-              skip_tool "mypy (typecheck disabled)"
-            fi
-
-            add_tool "$pytest_spec" "pytest"
-            add_tool "$pytest_xdist_spec" "pytest-xdist"
-            for spec in "${base_test_specs[@]}"; do
-              add_tool "$spec" "$spec"
-            done
-
-            if [ "$coverage_enabled" = "true" ]; then
-              add_tool "$pytest_cov_spec" "pytest-cov"
-              add_tool "$coverage_spec" "coverage"
-            else
-              skip_tool "pytest-cov (coverage disabled)"
-              skip_tool "coverage (coverage disabled)"
-            fi
+          if [ "$lint_enabled" = "true" ]; then
+            add_tool "$ruff_spec" "ruff"
           else
-            # When lock file exists, mark tools as coming from lock file for reporting
-            if [ "$format_enabled" = "true" ]; then
-              tools_installed+=("black (from lock)" "docformatter (from lock)" "isort (from lock)")
-            fi
-            if [ "$lint_enabled" = "true" ]; then
-              tools_installed+=("ruff (from lock)")
-            fi
-            if [ "$mypy_enabled" = "true" ]; then
-              tools_installed+=("mypy (from lock)")
-            fi
-            tools_installed+=("pytest (from lock)" "pytest-xdist (from lock)")
-            if [ "$coverage_enabled" = "true" ]; then
-              tools_installed+=("pytest-cov (from lock)" "coverage (from lock)")
-            fi
+            skip_tool "ruff (lint disabled)"
+          fi
+
+          if [ "$mypy_enabled" = "true" ]; then
+            add_tool "$mypy_spec" "mypy"
+          else
+            skip_tool "mypy (typecheck disabled)"
+          fi
+
+          add_tool "$pytest_spec" "pytest"
+          add_tool "$pytest_xdist_spec" "pytest-xdist"
+          for spec in "${base_test_specs[@]}"; do
+            add_tool "$spec" "$spec"
+          done
+
+          if [ "$coverage_enabled" = "true" ]; then
+            add_tool "$pytest_cov_spec" "pytest-cov"
+            add_tool "$coverage_spec" "coverage"
+          else
+            skip_tool "pytest-cov (coverage disabled)"
+            skip_tool "coverage (coverage disabled)"
           fi
 
           if [ ${#specs[@]} -eq 0 ]; then

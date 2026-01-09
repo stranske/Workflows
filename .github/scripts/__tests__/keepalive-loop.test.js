@@ -420,7 +420,7 @@ test('evaluateKeepaliveLoop treats cancelled gate as transient wait', async () =
   assert.equal(result.reason, 'gate-cancelled');
 });
 
-test('evaluateKeepaliveLoop detects rate limit cancelled gate', async () => {
+test('evaluateKeepaliveLoop bypasses rate limit cancelled gate', async () => {
   const pr = {
     number: 509,
     head: { ref: 'feature/cancelled-rate', sha: 'sha-cancelled-rate' },
@@ -440,11 +440,12 @@ test('evaluateKeepaliveLoop detects rate limit cancelled gate', async () => {
     context: buildContext(pr.number),
     core: buildCore(),
   });
-  assert.equal(result.action, 'defer');
-  assert.equal(result.reason, 'gate-cancelled-rate-limit');
+  // Rate limits are infrastructure noise - work should proceed
+  assert.equal(result.action, 'run');
+  assert.equal(result.reason, 'bypass-rate-limit-gate');
 });
 
-test('evaluateKeepaliveLoop detects rate limit cancelled gate from logs', async () => {
+test('evaluateKeepaliveLoop bypasses rate limit cancelled gate from logs', async () => {
   const pr = {
     number: 510,
     head: { ref: 'feature/cancelled-rate-logs', sha: 'sha-cancelled-rate-logs' },
@@ -464,8 +465,9 @@ test('evaluateKeepaliveLoop detects rate limit cancelled gate from logs', async 
     context: buildContext(pr.number),
     core: buildCore(),
   });
-  assert.equal(result.action, 'defer');
-  assert.equal(result.reason, 'gate-cancelled-rate-limit');
+  // Rate limits are infrastructure noise - work should proceed
+  assert.equal(result.action, 'run');
+  assert.equal(result.reason, 'bypass-rate-limit-gate');
 });
 
 test('evaluateKeepaliveLoop force_retry bypasses cancelled gate', async () => {
@@ -490,7 +492,7 @@ test('evaluateKeepaliveLoop force_retry bypasses cancelled gate', async () => {
   assert.equal(result.forceRetry, true);
 });
 
-test('evaluateKeepaliveLoop force_retry bypasses rate limit deferred gate', async () => {
+test('evaluateKeepaliveLoop rate limit bypass takes precedence over force_retry', async () => {
   const pr = {
     number: 512,
     head: { ref: 'feature/force-retry-rate', sha: 'sha-force-retry-rate' },
@@ -511,9 +513,10 @@ test('evaluateKeepaliveLoop force_retry bypasses rate limit deferred gate', asyn
     core: buildCore(),
     forceRetry: true,
   });
-  // Even rate-limited cancellations should be bypassed with forceRetry
+  // Rate limit bypass is automatic infrastructure handling - takes precedence
+  // forceRetry is still honored for non-rate-limit cases
   assert.equal(result.action, 'run');
-  assert.equal(result.reason, 'force-retry-cancelled');
+  assert.equal(result.reason, 'bypass-rate-limit-gate');
 });
 
 test('evaluateKeepaliveLoop force_retry bypasses failed gate', async () => {

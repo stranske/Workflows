@@ -10,6 +10,79 @@ The keepalive system enables automated agent (Codex) continuation on pull reques
 3. Dispatches the orchestrator to continue agent work
 4. Repeats until all tasks are complete
 
+## Understanding CLI vs UI Agents
+
+⚠️ **CRITICAL**: Codex has TWO execution modes. Understanding the distinction prevents common troubleshooting mistakes.
+
+### CLI Agent (Primary - Workflow-Based)
+
+**How it works:**
+- Triggered by `agents-keepalive-loop.yml` workflow after Gate completes
+- Runs the Codex CLI directly via `reusable-codex-run.yml`
+- Used for PRs with `agent:codex` label
+- Does NOT require or use `@codex` comments
+- This is the MAIN keepalive system
+
+**Activation:**
+1. PR is created with `agent:codex` label (via `agents-63-issue-intake.yml`)
+2. Gate CI passes on the PR
+3. `agents-keepalive-loop.yml` triggers automatically
+4. Codex CLI runs with task context from PR body
+5. Loop continues until all tasks complete
+
+### UI Agent (Backup - Comment-Based)
+
+**How it works:**
+- Triggered by `@codex` comments posted on PRs
+- Uses `chatgpt-codex-connector` bot account
+- Only for manual interventions or when CLI agent unavailable
+- Should NOT be triggered by automation
+
+**When to use:**
+- Manual debugging when CLI agent isn't working
+- One-off requests outside the keepalive loop
+- Testing Codex responses
+
+### Why the Orchestrator Skips `agent:*` Labels
+
+The orchestrator (`agents-70-orchestrator.yml`) has a "Codex keepalive sweep" that posts `@codex` instruction comments to idle PRs. However, it **intentionally skips** PRs with `agent:*` labels.
+
+**Reason:** 
+- CLI agents are triggered by workflows, not comments
+- Posting `@codex` would trigger the UI agent
+- Running both CLI and UI agents on the same PR causes conflicts
+
+**Code location:** `scripts/keepalive-runner.js` → `hasCliAgentLabel()` function
+
+**Common mistake:**
+```
+❌ "The orchestrator is skipping my PR because it has agent:codex - this is a bug!"
+✅ "The orchestrator correctly skips CLI agent PRs. If the PR isn't progressing,
+   check the keepalive loop workflow, NOT the orchestrator."
+```
+
+### Debugging Decision Tree
+
+```
+PR with agent:codex not progressing
+    ↓
+Is Gate passing? → NO → Fix Gate failures first
+    ↓ YES
+Does PR have unchecked tasks? → NO → Add tasks or remove agent:codex
+    ↓ YES
+Check agents-keepalive-loop.yml runs → NONE → Workflow not triggering
+    ↓ RUNS EXIST
+Check run jobs → All skipped → Check evaluate step outputs
+    ↓ Run-codex skipped
+Check if condition → agent_type != 'codex' → Label extraction issue
+    ↓ agent_type == 'codex'
+Check remaining_conflicts → != '0' → Conflicts need resolution
+    ↓ No conflicts
+Check mark-running job → Skipped → Secrets or permissions issue
+```
+
+**Key point:** If keepalive loop workflow IS running but skipping Codex execution, the issue is in the workflow conditions, NOT in the orchestrator.
+
 ## Critical Components
 
 ### Required Workflows (in consumer repo)
