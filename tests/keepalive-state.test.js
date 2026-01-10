@@ -58,6 +58,18 @@ test('calculateElapsedTime accepts now as a numeric string', () => {
   assert.equal(calculateElapsedTime(start, String(now)), '12s');
 });
 
+test('calculateElapsedTime falls back to Date.now when now is invalid', () => {
+  const realNow = Date.now;
+  const now = 1700000000000;
+  Date.now = () => now;
+  try {
+    const start = new Date(now - 7 * 1000).toISOString();
+    assert.equal(calculateElapsedTime(start, 'invalid'), '7s');
+  } finally {
+    Date.now = realNow;
+  }
+});
+
 test('calculateElapsedTime formats whole minutes', () => {
   const realNow = Date.now;
   const now = 1700000000000;
