@@ -3,6 +3,11 @@
 const STATE_MARKER = 'keepalive-state';
 const STATE_VERSION = 'v1';
 const STATE_REGEX = /<!--\s*keepalive-state(?::([\w.-]+))?\s+(.*?)\s*-->/s;
+const LOG_PREFIX = '[keepalive_state]';
+
+function logInfo(message) {
+  console.info(`${LOG_PREFIX} ${message}`);
+}
 
 function normalise(value) {
   return String(value ?? '').trim();
@@ -244,10 +249,93 @@ async function loadKeepaliveState({ github, context, prNumber, trace }) {
   };
 }
 
+async function resetState({ github, context, prNumber, trace, round }) {
+  const startTime = Date.now();
+  const timestamp = new Date(startTime).toISOString();
+  const issueNumber = Number.isFinite(prNumber) ? String(prNumber) : normalise(prNumber);
+  logInfo(`resetState starting: ts=${timestamp} issue=${issueNumber || 'unknown'}`);
+
+  let success = false;
+  try {
+    const owner = context?.repo?.owner;
+    const repo = context?.repo?.repo;
+    if (
+      !owner ||
+      !repo ||
+      !Number.isFinite(prNumber) ||
+      prNumber <= 0 ||
+      !github?.rest?.issues?.createComment ||
+      !github?.rest?.issues?.updateComment
+    ) {
+      return { state: {}, commentId: 0, commentUrl: '' };
+    }
+
+    const existing = await findStateComment({ github, owner, repo, prNumber, trace });
+    const state = {};
+    if (trace) {
+      state.trace = trace;
+    }
+    if (round) {
+      state.round = normalise(round);
+    }
+    state.pr_number = Number(prNumber);
+    state.version = STATE_VERSION;
+    const body = formatStateComment(state);
+
+    if (existing?.comment?.id) {
+      let latestBody = existing.comment.body || '';
+      if (github?.rest?.issues?.getComment) {
+        try {
+          const response = await github.rest.issues.getComment({
+            owner,
+            repo,
+            comment_id: existing.comment.id,
+          });
+          if (response?.data?.body) {
+            latestBody = response.data.body;
+          }
+        } catch (error) {
+          // fall back to cached body if lookup fails
+        }
+      }
+      const updatedBody = upsertStateCommentBody(latestBody, body);
+      await github.rest.issues.updateComment({
+        owner,
+        repo,
+        comment_id: existing.comment.id,
+        body: updatedBody,
+      });
+      success = true;
+      return {
+        state: { ...state },
+        commentId: Number(existing.comment.id),
+        commentUrl: existing.comment.html_url || '',
+      };
+    }
+
+    const { data } = await github.rest.issues.createComment({
+      owner,
+      repo,
+      issue_number: prNumber,
+      body,
+    });
+    success = true;
+    return {
+      state: { ...state },
+      commentId: data?.id ? Number(data.id) : 0,
+      commentUrl: data?.html_url || '',
+    };
+  } finally {
+    const durationMs = Date.now() - startTime;
+    logInfo(`resetState finished: status=${success ? 'success' : 'failure'} duration_ms=${durationMs}`);
+  }
+}
+
 module.exports = {
   createKeepaliveStateManager,
   saveKeepaliveState,
   loadKeepaliveState,
+  resetState,
   parseStateComment,
   formatStateComment,
   upsertStateCommentBody,
