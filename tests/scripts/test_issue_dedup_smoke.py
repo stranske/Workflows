@@ -7,7 +7,9 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from scripts import issue_dedup_smoke
+from scripts import api_client
+from scripts import cli_handler
+from scripts import duplicate_detection
 from scripts.langchain import issue_dedup
 
 
@@ -24,7 +26,7 @@ class DummyResponse:
 
 
 def test_build_issue_payload_includes_optional_fields() -> None:
-    payload = issue_dedup_smoke.build_issue_payload(
+    payload = duplicate_detection.build_issue_payload(
         "Title",
         "Body",
         ["agents:dedup", "triage"],
@@ -38,31 +40,31 @@ def test_build_issue_payload_includes_optional_fields() -> None:
 
 
 def test_format_body_with_note_handles_empty_body() -> None:
-    assert issue_dedup_smoke.format_body_with_note(None, "Note") == "Note"
-    assert issue_dedup_smoke.format_body_with_note("", "Note") == "Note"
+    assert duplicate_detection.format_body_with_note(None, "Note") == "Note"
+    assert duplicate_detection.format_body_with_note("", "Note") == "Note"
 
 
 def test_format_body_with_note_appends_to_body() -> None:
-    assert issue_dedup_smoke.format_body_with_note("Body", "Note") == "Body\n\nNote"
+    assert duplicate_detection.format_body_with_note("Body", "Note") == "Body\n\nNote"
 
 
 def test_parse_source_issue_requires_number_and_title() -> None:
     with pytest.raises(ValueError):
-        issue_dedup_smoke.parse_source_issue({"title": "Missing number"})
+        duplicate_detection.parse_source_issue({"title": "Missing number"})
 
     with pytest.raises(ValueError):
-        issue_dedup_smoke.parse_source_issue({"number": 3})
+        duplicate_detection.parse_source_issue({"number": 3})
 
 
 def test_build_duplicate_payload_uses_suffix_and_note() -> None:
-    source = issue_dedup_smoke.SourceIssue(
+    source = duplicate_detection.SourceIssue(
         number=42,
         title="Original",
         body="Details",
         url="http://example",
     )
 
-    payload = issue_dedup_smoke.build_duplicate_payload(
+    payload = duplicate_detection.build_duplicate_payload(
         source,
         title_suffix=" (dup)",
         note="Extra",
@@ -81,7 +83,7 @@ def test_select_issue_by_query_skips_prs_and_matches_body() -> None:
         {"number": 3, "title": "Unrelated", "body": "Includes Target text"},
     ]
 
-    match = issue_dedup_smoke.select_issue_by_query(issues, "target")
+    match = duplicate_detection.select_issue_by_query(issues, "target")
 
     assert match is not None
     assert match.number == 3
@@ -94,7 +96,7 @@ def test_filter_issues_by_query_handles_empty_query() -> None:
         {"number": "bad", "title": "Missing numeric"},
     ]
 
-    matches = issue_dedup_smoke.filter_issues_by_query(issues, None)
+    matches = duplicate_detection.filter_issues_by_query(issues, None)
 
     assert [match.number for match in matches] == [1]
 
@@ -108,9 +110,9 @@ def test_find_source_issue_scans_pages(monkeypatch) -> None:
     def _fake_fetch(repo, token, *, labels, page, per_page=100):
         return responses.pop(0)
 
-    monkeypatch.setattr(issue_dedup_smoke, "fetch_issues", _fake_fetch)
+    monkeypatch.setattr(duplicate_detection.api_client, "fetch_issues", _fake_fetch)
 
-    match = issue_dedup_smoke.find_source_issue(
+    match = duplicate_detection.find_source_issue(
         "owner/repo",
         "token",
         query="needle",
@@ -134,9 +136,9 @@ def test_collect_matching_issues_respects_limit(monkeypatch) -> None:
     def _fake_fetch(repo, token, *, labels, page, per_page=100):
         return responses.pop(0)
 
-    monkeypatch.setattr(issue_dedup_smoke, "fetch_issues", _fake_fetch)
+    monkeypatch.setattr(duplicate_detection.api_client, "fetch_issues", _fake_fetch)
 
-    matches = issue_dedup_smoke.collect_matching_issues(
+    matches = duplicate_detection.collect_matching_issues(
         "owner/repo",
         "token",
         query="needle",
@@ -150,17 +152,17 @@ def test_collect_matching_issues_respects_limit(monkeypatch) -> None:
 
 def test_main_show_source_prints_issue(monkeypatch, capsys) -> None:
     def _fake_find(repo, token, *, query, labels, pages):
-        return issue_dedup_smoke.SourceIssue(
+        return duplicate_detection.SourceIssue(
             number=7,
             title="Needle",
             body="Details",
             url="http://example/7",
         )
 
-    monkeypatch.setattr(issue_dedup_smoke, "find_source_issue", _fake_find)
+    monkeypatch.setattr(cli_handler, "find_source_issue", _fake_find)
     monkeypatch.setenv("TEST_TOKEN", "token")
 
-    result = issue_dedup_smoke.main(
+    result = cli_handler.main(
         [
             "--repo",
             "owner/repo",
@@ -179,17 +181,17 @@ def test_main_show_source_prints_issue(monkeypatch, capsys) -> None:
 
 def test_main_confirm_source_prints_confirmation(monkeypatch, capsys) -> None:
     def _fake_find(repo, token, *, query, labels, pages):
-        return issue_dedup_smoke.SourceIssue(
+        return duplicate_detection.SourceIssue(
             number=8,
             title="Needle",
             body="Details",
             url="http://example/8",
         )
 
-    monkeypatch.setattr(issue_dedup_smoke, "find_source_issue", _fake_find)
+    monkeypatch.setattr(cli_handler, "find_source_issue", _fake_find)
     monkeypatch.setenv("TEST_TOKEN", "token")
 
-    result = issue_dedup_smoke.main(
+    result = cli_handler.main(
         [
             "--repo",
             "owner/repo",
@@ -210,19 +212,19 @@ def test_request_json_raises_on_error(monkeypatch) -> None:
     def _fake_request(method, url, headers=None, json=None, timeout=None):
         return DummyResponse(400, json_data={"message": "bad"})
 
-    monkeypatch.setattr(issue_dedup_smoke.requests, "request", _fake_request)
+    monkeypatch.setattr(api_client.requests, "request", _fake_request)
 
     with pytest.raises(RuntimeError, match="GitHub API error 400"):
-        issue_dedup_smoke._request_json("GET", "http://example", "token", payload=None)
+        api_client._request_json("GET", "http://example", "token", payload=None)
 
 
 def test_request_json_returns_payload(monkeypatch) -> None:
     def _fake_request(method, url, headers=None, json=None, timeout=None):
         return DummyResponse(200, json_data={"ok": True})
 
-    monkeypatch.setattr(issue_dedup_smoke.requests, "request", _fake_request)
+    monkeypatch.setattr(api_client.requests, "request", _fake_request)
 
-    assert issue_dedup_smoke._request_json("GET", "http://example", "token", None) == {"ok": True}
+    assert api_client._request_json("GET", "http://example", "token", None) == {"ok": True}
 
 
 def test_find_dedup_comment_returns_match() -> None:
@@ -231,7 +233,7 @@ def test_find_dedup_comment_returns_match() -> None:
         {"body": f"{issue_dedup.SIMILAR_ISSUES_MARKER}\n- entry"},
     ]
 
-    match = issue_dedup_smoke.find_dedup_comment(comments)
+    match = duplicate_detection.find_dedup_comment(comments)
 
     assert match is not None
     assert issue_dedup.SIMILAR_ISSUES_MARKER in match["body"]
@@ -246,7 +248,7 @@ def test_extract_similar_issue_refs_parses_links_and_numbers() -> None:
         ]
     )
 
-    refs = issue_dedup_smoke.extract_similar_issue_refs(body)
+    refs = duplicate_detection.extract_similar_issue_refs(body)
 
     assert [(ref.number, ref.url, ref.title) for ref in refs] == [
         (12, "http://example/12", "Title one"),
@@ -255,29 +257,29 @@ def test_extract_similar_issue_refs_parses_links_and_numbers() -> None:
 
 
 def test_format_duplicate_confirmation_prefers_issue_number() -> None:
-    refs = [issue_dedup_smoke.SimilarIssueRef(number=12, url="http://example/12", title=None)]
+    refs = [duplicate_detection.SimilarIssueRef(number=12, url="http://example/12", title=None)]
 
-    assert issue_dedup_smoke.format_duplicate_confirmation(refs) == (
+    assert duplicate_detection.format_duplicate_confirmation(refs) == (
         "Duplicate detected and linked to #12."
     )
 
 
 def test_format_duplicate_confirmation_falls_back_to_generic_message() -> None:
     assert (
-        issue_dedup_smoke.format_duplicate_confirmation([])
+        duplicate_detection.format_duplicate_confirmation([])
         == "Duplicate detected and linked to similar issue(s)."
     )
 
 
 def test_matches_expected_duplicate_number() -> None:
-    refs = [issue_dedup_smoke.SimilarIssueRef(number=12, url="http://example/12", title=None)]
+    refs = [duplicate_detection.SimilarIssueRef(number=12, url="http://example/12", title=None)]
 
-    assert issue_dedup_smoke.matches_expected_duplicate(
+    assert duplicate_detection.matches_expected_duplicate(
         refs,
         expected_number=12,
         expected_url=None,
     )
-    assert not issue_dedup_smoke.matches_expected_duplicate(
+    assert not duplicate_detection.matches_expected_duplicate(
         refs,
         expected_number=99,
         expected_url=None,
@@ -285,9 +287,9 @@ def test_matches_expected_duplicate_number() -> None:
 
 
 def test_matches_expected_duplicate_url_normalizes_trailing_slash() -> None:
-    refs = [issue_dedup_smoke.SimilarIssueRef(number=None, url="http://example/12/", title=None)]
+    refs = [duplicate_detection.SimilarIssueRef(number=None, url="http://example/12/", title=None)]
 
-    assert issue_dedup_smoke.matches_expected_duplicate(
+    assert duplicate_detection.matches_expected_duplicate(
         refs,
         expected_number=None,
         expected_url="http://example/12",
@@ -305,10 +307,10 @@ def test_main_check_issue_requires_expected_link(monkeypatch, capsys) -> None:
     def _fake_check(repo, issue_number, token, *, attempts, interval):
         return {"body": comment_body, "html_url": "http://example/comment"}
 
-    monkeypatch.setattr(issue_dedup_smoke, "check_issue_for_duplicate", _fake_check)
+    monkeypatch.setattr(cli_handler, "check_issue_for_duplicate", _fake_check)
     monkeypatch.setenv("TEST_TOKEN", "token")
 
-    result = issue_dedup_smoke.main(
+    result = cli_handler.main(
         [
             "--repo",
             "owner/repo",
@@ -329,7 +331,7 @@ def test_main_check_issue_requires_expected_link(monkeypatch, capsys) -> None:
 def test_main_expected_link_requires_check_issue(monkeypatch, capsys) -> None:
     monkeypatch.setenv("TEST_TOKEN", "token")
 
-    result = issue_dedup_smoke.main(
+    result = cli_handler.main(
         [
             "--repo",
             "owner/repo",
@@ -356,12 +358,12 @@ def test_check_issue_for_duplicate_retries_until_found(monkeypatch) -> None:
 
     sleep_calls: list[float] = []
 
-    monkeypatch.setattr(issue_dedup_smoke, "fetch_issue_comments", _fake_fetch)
+    monkeypatch.setattr(duplicate_detection.api_client, "fetch_issue_comments", _fake_fetch)
     monkeypatch.setattr(
-        issue_dedup_smoke.time, "sleep", lambda seconds: sleep_calls.append(seconds)
+        duplicate_detection.time, "sleep", lambda seconds: sleep_calls.append(seconds)
     )
 
-    comment = issue_dedup_smoke.check_issue_for_duplicate(
+    comment = duplicate_detection.check_issue_for_duplicate(
         "owner/repo",
         10,
         "token",
@@ -385,12 +387,12 @@ def test_check_issue_for_no_duplicate_returns_true(monkeypatch) -> None:
 
     sleep_calls: list[float] = []
 
-    monkeypatch.setattr(issue_dedup_smoke, "fetch_issue_comments", _fake_fetch)
+    monkeypatch.setattr(duplicate_detection.api_client, "fetch_issue_comments", _fake_fetch)
     monkeypatch.setattr(
-        issue_dedup_smoke.time, "sleep", lambda seconds: sleep_calls.append(seconds)
+        duplicate_detection.time, "sleep", lambda seconds: sleep_calls.append(seconds)
     )
 
-    result = issue_dedup_smoke.check_issue_for_no_duplicate(
+    result = duplicate_detection.check_issue_for_no_duplicate(
         "owner/repo",
         12,
         "token",
@@ -413,12 +415,12 @@ def test_check_issue_for_no_duplicate_returns_false_on_match(monkeypatch) -> Non
 
     sleep_calls: list[float] = []
 
-    monkeypatch.setattr(issue_dedup_smoke, "fetch_issue_comments", _fake_fetch)
+    monkeypatch.setattr(duplicate_detection.api_client, "fetch_issue_comments", _fake_fetch)
     monkeypatch.setattr(
-        issue_dedup_smoke.time, "sleep", lambda seconds: sleep_calls.append(seconds)
+        duplicate_detection.time, "sleep", lambda seconds: sleep_calls.append(seconds)
     )
 
-    result = issue_dedup_smoke.check_issue_for_no_duplicate(
+    result = duplicate_detection.check_issue_for_no_duplicate(
         "owner/repo",
         12,
         "token",
