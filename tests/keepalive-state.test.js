@@ -3,7 +3,11 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { calculateElapsedTime, loadKeepaliveState } = require('../.github/scripts/keepalive_state.js');
+const {
+  calculateElapsedTime,
+  createKeepaliveStateManager,
+  loadKeepaliveState,
+} = require('../.github/scripts/keepalive_state.js');
 
 test('calculateElapsedTime returns 0s for null input', () => {
   assert.equal(calculateElapsedTime(null), '0s');
@@ -85,6 +89,41 @@ test('loadKeepaliveState records current iteration timestamp', async () => {
     assert.equal(result.state.current_iteration_at, new Date(now).toISOString());
     assert.equal(result.state.iteration, 2);
     assert.equal(result.commentId, 123);
+  } finally {
+    Date.now = realNow;
+  }
+});
+
+test('save computes iteration duration from current_iteration_at', async () => {
+  const realNow = Date.now;
+  const startNow = 1700000000000;
+  const endNow = startNow + 2 * 60 * 1000 + 5 * 1000;
+  Date.now = () => startNow;
+  try {
+    const github = {
+      paginate: async () => [],
+      rest: {
+        issues: {
+          listComments() {},
+          createComment: async () => ({
+            data: { id: 321, html_url: 'https://example.com/comment/321' },
+          }),
+          updateComment: async () => ({}),
+        },
+      },
+    };
+    const context = { repo: { owner: 'octo', repo: 'keepalive' } };
+    const manager = await createKeepaliveStateManager({
+      github,
+      context,
+      prNumber: 101,
+      trace: 'trace-123',
+      round: '1',
+    });
+    Date.now = () => endNow;
+    const result = await manager.save({ iteration: 2 });
+    assert.equal(result.state.iteration_duration, '2m 5s');
+    assert.equal(result.state.current_iteration_at, new Date(startNow).toISOString());
   } finally {
     Date.now = realNow;
   }
