@@ -180,6 +180,76 @@ test('loadKeepaliveState records current iteration timestamp', async () => {
   }
 });
 
+test('loadKeepaliveState sets first_iteration_at for the first iteration', async () => {
+  const realNow = Date.now;
+  const now = 1700000000000;
+  Date.now = () => now;
+  try {
+    const commentBody = '<!-- keepalive-state:v1 {"iteration":1} -->';
+    const github = {
+      paginate: async () => [
+        {
+          body: commentBody,
+          id: 124,
+          html_url: 'https://example.com/comment/124',
+        },
+      ],
+      rest: {
+        issues: {
+          listComments() {},
+        },
+      },
+    };
+    const context = { repo: { owner: 'octo', repo: 'keepalive' } };
+    const result = await loadKeepaliveState({
+      github,
+      context,
+      prNumber: 102,
+      trace: '',
+    });
+    const expectedTimestamp = new Date(now).toISOString();
+    assert.equal(result.state.first_iteration_at, expectedTimestamp);
+    assert.equal(result.state.current_iteration_at, expectedTimestamp);
+  } finally {
+    Date.now = realNow;
+  }
+});
+
+test('loadKeepaliveState preserves first_iteration_at for later iterations', async () => {
+  const realNow = Date.now;
+  const now = 1700000000000;
+  Date.now = () => now;
+  try {
+    const firstIterationAt = '2025-01-01T00:00:00.000Z';
+    const commentBody = `<!-- keepalive-state:v1 {"iteration":2,"first_iteration_at":"${firstIterationAt}"} -->`;
+    const github = {
+      paginate: async () => [
+        {
+          body: commentBody,
+          id: 125,
+          html_url: 'https://example.com/comment/125',
+        },
+      ],
+      rest: {
+        issues: {
+          listComments() {},
+        },
+      },
+    };
+    const context = { repo: { owner: 'octo', repo: 'keepalive' } };
+    const result = await loadKeepaliveState({
+      github,
+      context,
+      prNumber: 103,
+      trace: '',
+    });
+    assert.equal(result.state.first_iteration_at, firstIterationAt);
+    assert.equal(result.state.current_iteration_at, new Date(now).toISOString());
+  } finally {
+    Date.now = realNow;
+  }
+});
+
 test('save computes iteration duration from current_iteration_at', async () => {
   const realNow = Date.now;
   const startNow = 1700000000000;
