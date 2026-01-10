@@ -27,6 +27,29 @@ def _parse_labels(value: str | None) -> list[str] | None:
     return labels or None
 
 
+def _parse_allowlist(value: str | None) -> set[str]:
+    if not value:
+        return set()
+    return {entry.strip() for entry in value.split(",") if entry.strip()}
+
+
+def _load_allowlist(allowlist_value: str | None, allowlist_env: str) -> set[str]:
+    allowlist = _parse_allowlist(allowlist_value)
+    if allowlist:
+        return allowlist
+    return _parse_allowlist(os.environ.get(allowlist_env))
+
+
+def _confirm_issue_creation(repo: str, title: str, *, assume_yes: bool) -> bool:
+    if assume_yes:
+        return True
+    if not sys.stdin.isatty():
+        print("Confirmation required; re-run with --yes to proceed.", file=sys.stderr)
+        return False
+    response = input(f"Create issue in {repo} titled '{title}'? [y/N]: ").strip().lower()
+    return response in {"y", "yes"}
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Create GitHub issues for agents-dedup smoke testing."
@@ -61,6 +84,15 @@ def _build_parser() -> argparse.ArgumentParser:
         "--find-limit",
         type=int,
         help="Maximum number of matching issues to list.",
+    )
+    parser.add_argument(
+        "--allowlist",
+        help="Comma-separated list of allowed repositories (owner/name).",
+    )
+    parser.add_argument(
+        "--allowlist-env",
+        default="ISSUE_DEDUP_SMOKE_ALLOWLIST",
+        help="Environment variable containing the repository allowlist.",
     )
     parser.add_argument("--title", help="Title for a new issue (required if no source).")
     parser.add_argument("--body", help="Body for a new issue (optional).")
@@ -110,6 +142,11 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Print the payload instead of creating an issue.",
     )
     parser.add_argument(
+        "--yes",
+        action="store_true",
+        help="Skip the confirmation prompt before creating an issue.",
+    )
+    parser.add_argument(
         "--show-source",
         action="store_true",
         help="Print the source issue selection and exit.",
@@ -130,6 +167,18 @@ def _build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str]) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
+
+    allowlist = _load_allowlist(args.allowlist, args.allowlist_env)
+    if not allowlist:
+        print(
+            "Repository allowlist is empty. Set --allowlist or $"
+            f"{args.allowlist_env}.",
+            file=sys.stderr,
+        )
+        return 1
+    if args.repo not in allowlist:
+        print(f"Repository {args.repo} is not in the allowlist.", file=sys.stderr)
+        return 1
 
     token = os.environ.get(args.token_env)
     if not token:
@@ -245,6 +294,10 @@ def main(argv: list[str]) -> int:
     if args.dry_run:
         print(payload)
         return 0
+
+    if not _confirm_issue_creation(args.repo, payload["title"], assume_yes=args.yes):
+        print("Issue creation cancelled.", file=sys.stderr)
+        return 1
 
     created = api_client.create_issue(
         args.repo, token, payload["title"], payload.get("body"), labels

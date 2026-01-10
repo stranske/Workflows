@@ -158,6 +158,7 @@ def test_main_show_source_prints_issue(monkeypatch, capsys) -> None:
         )
 
     monkeypatch.setattr(cli_handler, "find_source_issue", _fake_find)
+    monkeypatch.setenv("ISSUE_DEDUP_SMOKE_ALLOWLIST", "owner/repo")
     monkeypatch.setenv("TEST_TOKEN", "token")
 
     result = cli_handler.main(
@@ -187,6 +188,7 @@ def test_main_confirm_source_prints_confirmation(monkeypatch, capsys) -> None:
         )
 
     monkeypatch.setattr(cli_handler, "find_source_issue", _fake_find)
+    monkeypatch.setenv("ISSUE_DEDUP_SMOKE_ALLOWLIST", "owner/repo")
     monkeypatch.setenv("TEST_TOKEN", "token")
 
     result = cli_handler.main(
@@ -306,6 +308,7 @@ def test_main_check_issue_requires_expected_link(monkeypatch, capsys) -> None:
         return {"body": comment_body, "html_url": "http://example/comment"}
 
     monkeypatch.setattr(cli_handler, "check_issue_for_duplicate", _fake_check)
+    monkeypatch.setenv("ISSUE_DEDUP_SMOKE_ALLOWLIST", "owner/repo")
     monkeypatch.setenv("TEST_TOKEN", "token")
 
     result = cli_handler.main(
@@ -327,6 +330,7 @@ def test_main_check_issue_requires_expected_link(monkeypatch, capsys) -> None:
 
 
 def test_main_expected_link_requires_check_issue(monkeypatch, capsys) -> None:
+    monkeypatch.setenv("ISSUE_DEDUP_SMOKE_ALLOWLIST", "owner/repo")
     monkeypatch.setenv("TEST_TOKEN", "token")
 
     result = cli_handler.main(
@@ -343,6 +347,95 @@ def test_main_expected_link_requires_check_issue(monkeypatch, capsys) -> None:
     captured = capsys.readouterr()
     assert result == 1
     assert "Expected issue match requires --check-issue." in captured.err
+
+
+def test_main_requires_allowlist(monkeypatch, capsys) -> None:
+    monkeypatch.delenv("ISSUE_DEDUP_SMOKE_ALLOWLIST", raising=False)
+    monkeypatch.setenv("TEST_TOKEN", "token")
+
+    result = cli_handler.main(
+        [
+            "--repo",
+            "owner/repo",
+            "--title",
+            "Test",
+            "--token-env",
+            "TEST_TOKEN",
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert result == 1
+    assert "Repository allowlist is empty" in captured.err
+
+
+def test_main_rejects_repo_not_in_allowlist(monkeypatch, capsys) -> None:
+    monkeypatch.setenv("ISSUE_DEDUP_SMOKE_ALLOWLIST", "owner/repo")
+    monkeypatch.setenv("TEST_TOKEN", "token")
+
+    result = cli_handler.main(
+        [
+            "--repo",
+            "other/repo",
+            "--title",
+            "Test",
+            "--token-env",
+            "TEST_TOKEN",
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert result == 1
+    assert "Repository other/repo is not in the allowlist." in captured.err
+
+
+def test_main_prompts_before_creating_issue(monkeypatch, capsys) -> None:
+    def _fake_create(repo, token, title, body, labels):
+        raise AssertionError("create_issue should not be called when prompt declined")
+
+    monkeypatch.setattr(api_client, "create_issue", _fake_create)
+    monkeypatch.setenv("ISSUE_DEDUP_SMOKE_ALLOWLIST", "owner/repo")
+    monkeypatch.setenv("TEST_TOKEN", "token")
+    monkeypatch.setattr(cli_handler.sys.stdin, "isatty", lambda: True)
+    monkeypatch.setattr("builtins.input", lambda _: "n")
+
+    result = cli_handler.main(
+        [
+            "--repo",
+            "owner/repo",
+            "--title",
+            "Test",
+            "--token-env",
+            "TEST_TOKEN",
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert result == 1
+    assert "Issue creation cancelled." in captured.err
+
+
+def test_main_yes_skips_confirmation(monkeypatch) -> None:
+    def _fake_create(repo, token, title, body, labels):
+        return {"html_url": "http://example/created"}
+
+    monkeypatch.setattr(api_client, "create_issue", _fake_create)
+    monkeypatch.setenv("ISSUE_DEDUP_SMOKE_ALLOWLIST", "owner/repo")
+    monkeypatch.setenv("TEST_TOKEN", "token")
+
+    result = cli_handler.main(
+        [
+            "--repo",
+            "owner/repo",
+            "--title",
+            "Test",
+            "--token-env",
+            "TEST_TOKEN",
+            "--yes",
+        ]
+    )
+
+    assert result == 0
 
 
 def test_check_issue_for_duplicate_retries_until_found(monkeypatch) -> None:
