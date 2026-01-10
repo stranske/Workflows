@@ -26,6 +26,10 @@ test('calculateElapsedTime returns 0s for invalid Date objects', () => {
   assert.equal(calculateElapsedTime(invalidDate), '0s');
 });
 
+test('calculateElapsedTime returns 0s for NaN inputs', () => {
+  assert.equal(calculateElapsedTime(Number.NaN), '0s');
+});
+
 test('calculateElapsedTime formats minutes and seconds', () => {
   const realNow = Date.now;
   const now = 1700000000000;
