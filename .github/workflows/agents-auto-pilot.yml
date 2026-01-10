@@ -31,7 +31,7 @@ on:
 permissions:
   contents: read
   issues: write
-  pull-requests: read
+  pull-requests: write  # Needed to create PRs automatically
 
 env:
   # Safety limits
@@ -135,6 +135,7 @@ jobs:
             }
 
             core.setOutput('issue_number', issueNumber);
+            core.setOutput('issue_title', issue.title);
             core.setOutput('issue_state', issue.state);
             core.setOutput('should_continue', 'true');
             core.setOutput('has_format', hasFormat.toString());
@@ -268,8 +269,8 @@ jobs:
           # No PR yet - need to go through issue prep pipeline
           if [[ -z "$LINKED_PR" ]]; then
             if [[ "$HAS_AGENT" == "true" ]]; then
-              echo "next_step=wait-for-pr" >> "$GITHUB_OUTPUT"
-              echo "Agent assigned, waiting for PR creation"
+              echo "next_step=create-pr" >> "$GITHUB_OUTPUT"
+              echo "Agent assigned, checking for branch to create PR"
             elif [[ "$HAS_FORMAT" != "true" ]]; then
               echo "next_step=format" >> "$GITHUB_OUTPUT"
               echo "Step 1: Format issue"
@@ -428,12 +429,112 @@ jobs:
               labels: ['verify:evaluate']
             });
 
-      - name: Report - Waiting for PR
-        if: steps.next.outputs.next_step == 'wait-for-pr'
+      - name: Execute step - Create PR
+        if: steps.next.outputs.next_step == 'create-pr'
         uses: actions/github-script@v7
+        env:
+          ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
+          ISSUE_TITLE: ${{ steps.context.outputs.issue_title }}
+          STEP_COUNT: ${{ steps.cycles.outputs.count }}
         with:
           script: |
-            core.info('Agent assigned, waiting for PR creation. Keepalive will monitor.');
+            const issueNumber = parseInt(process.env.ISSUE_NUMBER);
+            const issueTitle = process.env.ISSUE_TITLE || `Issue #${issueNumber}`;
+            const stepCount = parseInt(process.env.STEP_COUNT || '0') + 1;
+            const branchName = `codex/issue-${issueNumber}`;
+
+            // Check if branch exists
+            let branchExists = false;
+            try {
+              await github.rest.repos.getBranch({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                branch: branchName
+              });
+              branchExists = true;
+              core.info(`Branch ${branchName} exists`);
+            } catch (e) {
+              if (e.status === 404) {
+                core.info(`Branch ${branchName} does not exist yet`);
+              } else {
+                throw e;
+              }
+            }
+
+            if (!branchExists) {
+              // Branch not created yet - agent still working
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                body: `🤖 **Auto-pilot step ${stepCount}**: Waiting for agent to create branch...
+
+            The agent has been assigned but hasn't created the branch yet.
+            Branch expected: \`${branchName}\`
+
+            ⏳ Auto-pilot will check again on next trigger.`
+              });
+              return;
+            }
+
+            // Branch exists - create PR
+            core.info(`Creating PR from ${branchName}`);
+
+            const prTitle = `[Auto-pilot] ${issueTitle}`;
+            const prBody = `<!-- meta:issue:${issueNumber} -->
+
+            ## Auto-pilot PR
+
+            This PR was automatically created by the auto-pilot workflow.
+
+            Closes #${issueNumber}
+
+            ---
+            *Created by \`agents:auto-pilot\` workflow*`;
+
+            try {
+              const { data: pr } = await github.rest.pulls.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: prTitle,
+                head: branchName,
+                base: 'main',
+                body: prBody
+              });
+
+              core.info(`Created PR #${pr.number}`);
+
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                body: `🤖 **Auto-pilot step ${stepCount}**: PR created!
+
+            ✅ Created PR #${pr.number} from branch \`${branchName}\`
+
+            The PR will now go through CI checks. Auto-pilot will continue monitoring.`
+              });
+
+            } catch (e) {
+              if (e.status === 422 && e.message?.includes('already exists')) {
+                core.info('PR already exists - this is fine');
+              } else {
+                // PR creation failed - report but don't fail workflow
+                core.warning(`Failed to create PR: ${e.message}`);
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNumber,
+                  body: `🤖 **Auto-pilot step ${stepCount}**: Could not create PR
+
+            ⚠️ Branch \`${branchName}\` exists but PR creation failed.
+
+            Error: ${e.message}
+
+            Please create the PR manually or check permissions.`
+                });
+              }
+            }
 
       - name: Report - Monitoring PR
         if: steps.next.outputs.next_step == 'monitor-pr'
