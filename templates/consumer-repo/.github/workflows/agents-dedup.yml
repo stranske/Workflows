@@ -14,8 +14,9 @@ permissions:
 
 env:
   # Similarity threshold for flagging duplicates (0.0-1.0)
-  # 0.85 = very similar, reduces false positives
-  SIMILARITY_THRESHOLD: "0.85"
+  # 0.92 = very high similarity required, reduces false positives from
+  # issues in the same domain/feature area that share vocabulary
+  SIMILARITY_THRESHOLD: "0.92"
 
 jobs:
   dedup:
@@ -24,20 +25,16 @@ jobs:
     if: github.event.issue.user.type != 'Bot'
 
     steps:
-      - name: Checkout Workflows repo
-        uses: actions/checkout@v6
-        with:
-          repository: stranske/Workflows
-          path: workflows-repo
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.11"
 
       - name: Install dependencies
         run: |
-          cd workflows-repo
           pip install -e ".[langchain]" --quiet
 
       - name: Get open issues
@@ -79,11 +76,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          PYTHONPATH: ${{ github.workspace }}/workflows-repo
+          PYTHONPATH: ${{ github.workspace }}
           NEW_ISSUE_TITLE: ${{ github.event.issue.title }}
           NEW_ISSUE_BODY: ${{ github.event.issue.body }}
         run: |
-          cd workflows-repo
           python -c "
           import json
           import os
@@ -97,7 +93,7 @@ jobs:
           )
 
           # Load open issues
-          with open('../open_issues.json') as f:
+          with open('open_issues.json') as f:
               issues_data = json.load(f)
 
           if not issues_data:
@@ -127,8 +123,30 @@ jobs:
           new_body = os.environ.get('NEW_ISSUE_BODY', '')
           query = f'{new_title}\n\n{new_body}'
 
-          threshold = float(os.environ.get('SIMILARITY_THRESHOLD', '0.85'))
+          threshold = float(os.environ.get('SIMILARITY_THRESHOLD', '0.92'))
           matches = find_similar_issues(store, query, threshold=threshold, k=3)
+
+          # Additional filter: require title similarity for true duplicates
+          # This reduces false positives from issues in the same domain/feature area
+          # that share vocabulary but are different tasks
+          filtered_matches = []
+          new_title_lower = new_title.lower().strip()
+          for m in matches:
+              match_title_lower = m.issue.title.lower().strip()
+              # Check for significant title overlap
+              title_words_new = set(new_title_lower.split())
+              title_words_match = set(match_title_lower.split())
+              shared_words = title_words_new.intersection(title_words_match)
+              # Require at least 40% of words to overlap for a duplicate flag
+              max_words = max(len(title_words_new), len(title_words_match), 1)
+              overlap_ratio = len(shared_words) / max_words
+              if m.score >= 0.95 or overlap_ratio >= 0.4:
+                  filtered_matches.append(m)
+                  print(f'  Match #{m.issue.number}: {m.score:.0%}, overlap={overlap_ratio:.0%}')
+              else:
+                  print(f'  Skip #{m.issue.number}: {m.score:.0%}, overlap={overlap_ratio:.0%}')
+
+          matches = filtered_matches
 
           if not matches:
               print('No duplicates found above threshold')
@@ -149,7 +167,7 @@ jobs:
               f.write(f'duplicate_count={len(duplicates)}\n')
 
           # Write to file for GitHub script
-          with open('../duplicates.json', 'w') as f:
+          with open('duplicates.json', 'w') as f:
               json.dump(duplicates, f)
 
           print(f'Found {len(duplicates)} potential duplicates:')
