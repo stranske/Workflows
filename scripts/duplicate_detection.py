@@ -8,6 +8,8 @@ from typing import Any
 from scripts import api_client
 from scripts.langchain import issue_dedup
 
+MAX_BACKOFF_SECONDS = 60.0
+
 
 @dataclass(frozen=True)
 class SourceIssue:
@@ -216,6 +218,13 @@ def matches_expected_duplicate(
     return False
 
 
+def _backoff_delay(base_interval: float, attempt_index: int) -> float:
+    if base_interval <= 0:
+        return 0.0
+    delay = base_interval * (2**attempt_index)
+    return min(delay, MAX_BACKOFF_SECONDS)
+
+
 def check_issue_for_duplicate(
     repo: str,
     issue_number: int,
@@ -224,15 +233,16 @@ def check_issue_for_duplicate(
     attempts: int,
     interval: float,
 ) -> dict[str, Any] | None:
-    remaining = max(attempts, 1)
-    while remaining > 0:
+    max_attempts = max(attempts, 1)
+    for attempt in range(max_attempts):
         comments = api_client.fetch_issue_comments(repo, issue_number, token)
         match = find_dedup_comment(comments)
         if match is not None:
             return match
-        remaining -= 1
-        if remaining > 0 and interval > 0:
-            time.sleep(interval)
+        if attempt < max_attempts - 1:
+            delay = _backoff_delay(interval, attempt)
+            if delay:
+                time.sleep(delay)
     return None
 
 
@@ -244,12 +254,13 @@ def check_issue_for_no_duplicate(
     attempts: int,
     interval: float,
 ) -> bool:
-    remaining = max(attempts, 1)
-    while remaining > 0:
+    max_attempts = max(attempts, 1)
+    for attempt in range(max_attempts):
         comments = api_client.fetch_issue_comments(repo, issue_number, token)
         if find_dedup_comment(comments) is not None:
             return False
-        remaining -= 1
-        if remaining > 0 and interval > 0:
-            time.sleep(interval)
+        if attempt < max_attempts - 1:
+            delay = _backoff_delay(interval, attempt)
+            if delay:
+                time.sleep(delay)
     return True
