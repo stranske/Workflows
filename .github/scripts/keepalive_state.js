@@ -87,7 +87,7 @@ function applyIterationTracking(state) {
   const nowIso = new Date(nowMs).toISOString();
   state.current_iteration_at = nowIso;
   const iteration = toNumber(state.iteration, 0);
-  if (!state.first_iteration_at && iteration <= 1) {
+  if (!state.first_iteration_at && iteration === 1) {
     state.first_iteration_at = nowIso;
   }
 }

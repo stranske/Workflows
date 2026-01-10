@@ -208,6 +208,19 @@ test('loadKeepaliveState does not set first_iteration_at after first iteration',
   assert.equal(result.state.first_iteration_at, undefined);
 });
 
+test('loadKeepaliveState does not set first_iteration_at before first iteration', async () => {
+  const storedBody = formatStateComment({ trace: 'trace-x', iteration: 0, version: 'v1' });
+  const github = buildGithubStub({ comments: [{ id: 13, body: storedBody, html_url: 'https://example.com/13' }] });
+  const result = await loadKeepaliveState({
+    github,
+    context: { repo: { owner: 'o', repo: 'r' } },
+    prNumber: 13,
+    trace: 'trace-x',
+  });
+  assert.ok(Number.isFinite(Date.parse(result.state.current_iteration_at)));
+  assert.equal(result.state.first_iteration_at, undefined);
+});
+
 test('createKeepaliveStateManager stores iteration_duration on save', async () => {
   const realNow = Date.now;
   let now = 1700000000000;
