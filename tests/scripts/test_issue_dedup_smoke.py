@@ -241,17 +241,14 @@ def test_request_json_retries_on_server_error(monkeypatch) -> None:
         issue_dedup_smoke.time, "sleep", lambda seconds: sleep_calls.append(seconds)
     )
 
-    assert (
-        issue_dedup_smoke._request_json(
-            "GET",
-            "http://example",
-            "token",
-            None,
-            max_attempts=2,
-            backoff=0.5,
-        )
-        == {"ok": True}
-    )
+    assert issue_dedup_smoke._request_json(
+        "GET",
+        "http://example",
+        "token",
+        None,
+        max_attempts=2,
+        backoff=0.5,
+    ) == {"ok": True}
     assert sleep_calls == [0.5]
 
 
@@ -274,17 +271,14 @@ def test_request_json_retries_on_request_exception(monkeypatch) -> None:
         issue_dedup_smoke.time, "sleep", lambda seconds: sleep_calls.append(seconds)
     )
 
-    assert (
-        issue_dedup_smoke._request_json(
-            "GET",
-            "http://example",
-            "token",
-            None,
-            max_attempts=2,
-            backoff=0.25,
-        )
-        == {"ok": True}
-    )
+    assert issue_dedup_smoke._request_json(
+        "GET",
+        "http://example",
+        "token",
+        None,
+        max_attempts=2,
+        backoff=0.25,
+    ) == {"ok": True}
     assert sleep_calls == [0.25]
 
 
