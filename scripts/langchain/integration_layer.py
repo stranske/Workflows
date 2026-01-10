@@ -105,6 +105,12 @@ def _collect_label_records(labels: Iterable[Any]) -> list[label_matcher.LabelRec
 def _coerce_label_record(item: Any) -> label_matcher.LabelRecord | None:
     if isinstance(item, label_matcher.LabelRecord):
         return item
+    if isinstance(item, (str, bytes)):
+        name = item.decode("utf-8", errors="replace") if isinstance(item, bytes) else item
+        name = name.strip()
+        if not name:
+            return None
+        return label_matcher.LabelRecord(name=name)
     if isinstance(item, Mapping):
         name = str(item.get("name") or item.get("label") or "").strip()
         if not name:
@@ -131,9 +137,17 @@ def _select_label_names(
 ) -> list[str]:
     if not matches:
         return []
-    ordered = sorted(matches, key=lambda match: (-match.score, _normalize_label(match.label.name)))
-    names = [match.label.name for match in ordered]
-    return names if max_labels is None else names[:max_labels]
+    names: list[str] = []
+    seen: set[str] = set()
+    for match in matches:
+        normalized = _normalize_label(match.label.name)
+        if not normalized or normalized in seen:
+            continue
+        seen.add(normalized)
+        names.append(match.label.name)
+        if max_labels is not None and len(names) >= max_labels:
+            break
+    return names
 
 
 def _normalize_label(label: str) -> str:
