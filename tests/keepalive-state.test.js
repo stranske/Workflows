@@ -82,6 +82,18 @@ test('calculateElapsedTime matches the documented example', () => {
   assert.equal(calculateElapsedTime(start, now), '5m 23s');
 });
 
+test('calculateElapsedTime matches documented example with Date.now', () => {
+  const realNow = Date.now;
+  const now = Date.parse('2026-01-10T20:05:23Z');
+  Date.now = () => now;
+  try {
+    const start = '2026-01-10T20:00:00Z';
+    assert.equal(calculateElapsedTime(start), '5m 23s');
+  } finally {
+    Date.now = realNow;
+  }
+});
+
 test('calculateElapsedTime truncates fractional seconds', () => {
   const realNow = Date.now;
   const now = 1700000000000;
