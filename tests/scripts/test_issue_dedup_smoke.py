@@ -105,7 +105,7 @@ def test_find_source_issue_scans_pages(monkeypatch) -> None:
         [{"number": 2, "title": "Needle here", "body": ""}],
     ]
 
-    def _fake_fetch(repo, token, *, labels, page, per_page=100):
+    def _fake_fetch(repo, token, *, labels, page, per_page=100, **kwargs):
         return responses.pop(0)
 
     monkeypatch.setattr(duplicate_detection.api_client, "fetch_issues", _fake_fetch)
@@ -131,7 +131,7 @@ def test_collect_matching_issues_respects_limit(monkeypatch) -> None:
         [{"number": 3, "title": "Needle later", "body": ""}],
     ]
 
-    def _fake_fetch(repo, token, *, labels, page, per_page=100):
+    def _fake_fetch(repo, token, *, labels, page, per_page=100, **kwargs):
         return responses.pop(0)
 
     monkeypatch.setattr(duplicate_detection.api_client, "fetch_issues", _fake_fetch)
@@ -149,7 +149,7 @@ def test_collect_matching_issues_respects_limit(monkeypatch) -> None:
 
 
 def test_main_show_source_prints_issue(monkeypatch, capsys) -> None:
-    def _fake_find(repo, token, *, query, labels, pages):
+    def _fake_find(repo, token, *, query, labels, pages, **kwargs):
         return duplicate_detection.SourceIssue(
             number=7,
             title="Needle",
@@ -179,7 +179,7 @@ def test_main_show_source_prints_issue(monkeypatch, capsys) -> None:
 
 
 def test_main_confirm_source_prints_confirmation(monkeypatch, capsys) -> None:
-    def _fake_find(repo, token, *, query, labels, pages):
+    def _fake_find(repo, token, *, query, labels, pages, **kwargs):
         return duplicate_detection.SourceIssue(
             number=8,
             title="Needle",
@@ -357,7 +357,7 @@ def test_main_check_issue_requires_expected_link(monkeypatch, capsys) -> None:
         ]
     )
 
-    def _fake_check(repo, issue_number, token, *, attempts, interval):
+    def _fake_check(repo, issue_number, token, *, attempts, interval, **kwargs):
         return {"body": comment_body, "html_url": "http://example/comment"}
 
     monkeypatch.setattr(cli_handler, "check_issue_for_duplicate", _fake_check)
@@ -443,7 +443,7 @@ def test_main_rejects_repo_not_in_allowlist(monkeypatch, capsys) -> None:
 
 
 def test_main_prompts_before_creating_issue(monkeypatch, capsys) -> None:
-    def _fake_create(repo, token, title, body, labels):
+    def _fake_create(repo, token, title, body, labels, **kwargs):
         raise AssertionError("create_issue should not be called when prompt declined")
 
     monkeypatch.setattr(api_client, "create_issue", _fake_create)
@@ -469,7 +469,7 @@ def test_main_prompts_before_creating_issue(monkeypatch, capsys) -> None:
 
 
 def test_main_yes_skips_confirmation(monkeypatch) -> None:
-    def _fake_create(repo, token, title, body, labels):
+    def _fake_create(repo, token, title, body, labels, **kwargs):
         return {"html_url": "http://example/created"}
 
     monkeypatch.setattr(api_client, "create_issue", _fake_create)
@@ -489,6 +489,38 @@ def test_main_yes_skips_confirmation(monkeypatch) -> None:
     )
 
     assert result == 0
+
+
+def test_main_passes_retry_settings_to_create_issue(monkeypatch) -> None:
+    captured: dict[str, float | int | None] = {}
+
+    def _fake_create(repo, token, title, body, labels, **kwargs):
+        captured["retry_attempts"] = kwargs.get("retry_attempts")
+        captured["retry_backoff"] = kwargs.get("retry_backoff")
+        return {"html_url": "http://example/created"}
+
+    monkeypatch.setattr(api_client, "create_issue", _fake_create)
+    monkeypatch.setenv("ISSUE_DEDUP_SMOKE_ALLOWLIST", "owner/repo")
+    monkeypatch.setenv("TEST_TOKEN", "token")
+
+    result = cli_handler.main(
+        [
+            "--repo",
+            "owner/repo",
+            "--title",
+            "Test",
+            "--token-env",
+            "TEST_TOKEN",
+            "--retry-attempts",
+            "5",
+            "--retry-backoff",
+            "2.5",
+            "--yes",
+        ]
+    )
+
+    assert result == 0
+    assert captured == {"retry_attempts": 5, "retry_backoff": 2.5}
 
 
 def test_check_issue_for_duplicate_retries_until_found(monkeypatch) -> None:

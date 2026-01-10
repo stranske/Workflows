@@ -137,6 +137,18 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Seconds to wait between duplicate-check attempts.",
     )
     parser.add_argument(
+        "--retry-attempts",
+        type=int,
+        default=api_client.DEFAULT_RETRY_ATTEMPTS,
+        help="Number of attempts for GitHub API requests.",
+    )
+    parser.add_argument(
+        "--retry-backoff",
+        type=float,
+        default=api_client.DEFAULT_RETRY_BACKOFF,
+        help="Base seconds for exponential backoff between API retries.",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Print the payload instead of creating an issue.",
@@ -204,6 +216,8 @@ def main(argv: list[str]) -> int:
             token,
             attempts=args.check_attempts,
             interval=args.check_interval,
+            retry_attempts=args.retry_attempts,
+            retry_backoff=args.retry_backoff,
         )
         if comment is None:
             print("Duplicate detection comment not found.")
@@ -228,6 +242,8 @@ def main(argv: list[str]) -> int:
             token,
             attempts=args.check_attempts,
             interval=args.check_interval,
+            retry_attempts=args.retry_attempts,
+            retry_backoff=args.retry_backoff,
         )
         if not is_unique:
             print("Duplicate detection comment found (unique check failed).")
@@ -244,6 +260,8 @@ def main(argv: list[str]) -> int:
             labels=find_labels,
             pages=args.find_pages,
             limit=args.find_limit,
+            retry_attempts=args.retry_attempts,
+            retry_backoff=args.retry_backoff,
         )
         if not matches:
             print("No matching source issue found.", file=sys.stderr)
@@ -255,7 +273,13 @@ def main(argv: list[str]) -> int:
 
     source_issue = None
     if args.source_issue is not None:
-        source_issue = api_client.fetch_issue(args.repo, args.source_issue, token)
+        source_issue = api_client.fetch_issue(
+            args.repo,
+            args.source_issue,
+            token,
+            retry_attempts=args.retry_attempts,
+            retry_backoff=args.retry_backoff,
+        )
     elif args.find_issue:
         source_issue = find_source_issue(
             args.repo,
@@ -263,6 +287,8 @@ def main(argv: list[str]) -> int:
             query=args.find_issue,
             labels=find_labels,
             pages=args.find_pages,
+            retry_attempts=args.retry_attempts,
+            retry_backoff=args.retry_backoff,
         )
         if source_issue is None:
             print("No matching source issue found.", file=sys.stderr)
@@ -299,7 +325,13 @@ def main(argv: list[str]) -> int:
         return 1
 
     created = api_client.create_issue(
-        args.repo, token, payload["title"], payload.get("body"), labels
+        args.repo,
+        token,
+        payload["title"],
+        payload.get("body"),
+        labels,
+        retry_attempts=args.retry_attempts,
+        retry_backoff=args.retry_backoff,
     )
     issue_url = created.get("html_url") or created.get("url") or "unknown"
     print(f"Issue created: {issue_url}")
