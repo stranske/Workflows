@@ -262,6 +262,64 @@ def _format_parent_reference(
     return parent_title or "parent issue"
 
 
+def _coerce_label_names(labels: list[Any] | None) -> list[str]:
+    if not labels:
+        return []
+    names: list[str] = []
+    for label in labels:
+        if isinstance(label, str):
+            name = label
+        elif isinstance(label, dict):
+            name = label.get("name")
+        else:
+            name = getattr(label, "name", None)
+        if name:
+            cleaned = str(name).strip()
+            if cleaned:
+                names.append(cleaned)
+    return names
+
+
+def _coerce_assignee_logins(assignees: list[Any] | None) -> list[str]:
+    if not assignees:
+        return []
+    logins: list[str] = []
+    for assignee in assignees:
+        if isinstance(assignee, str):
+            login = assignee
+        elif isinstance(assignee, dict):
+            login = assignee.get("login")
+        else:
+            login = getattr(assignee, "login", None)
+        if login:
+            cleaned = str(login).strip()
+            if cleaned:
+                logins.append(cleaned)
+    return logins
+
+
+def _coerce_milestone_value(milestone: Any) -> str | int | None:
+    if milestone is None:
+        return None
+    if isinstance(milestone, (str, int)):
+        return milestone
+    if isinstance(milestone, dict):
+        number = milestone.get("number")
+        if isinstance(number, int):
+            return number
+        title = milestone.get("title")
+        if title:
+            return str(title)
+        return None
+    number = getattr(milestone, "number", None)
+    if isinstance(number, int):
+        return number
+    title = getattr(milestone, "title", None)
+    if title:
+        return str(title)
+    return None
+
+
 def build_child_issues(
     sub_tasks: list[str],
     *,
@@ -283,8 +341,9 @@ def build_child_issues(
         parent_title=parent_title, parent_number=parent_number, parent_url=parent_url
     )
     child_issues: list[dict[str, Any]] = []
-    preserved_labels = list(labels) if labels else []
-    preserved_assignees = list(assignees) if assignees else []
+    preserved_labels = _coerce_label_names(labels)
+    preserved_assignees = _coerce_assignee_logins(assignees)
+    preserved_milestone = _coerce_milestone_value(milestone)
     for task in normalized:
         title = (
             _truncate_title(f"{parent_title}: {task}") if parent_title else _truncate_title(task)
@@ -305,10 +364,77 @@ def build_child_issues(
             payload["labels"] = list(preserved_labels)
         if preserved_assignees:
             payload["assignees"] = list(preserved_assignees)
-        if milestone is not None:
-            payload["milestone"] = milestone
+        if preserved_milestone is not None:
+            payload["milestone"] = preserved_milestone
         child_issues.append(payload)
     return child_issues
+
+
+def build_child_issues_from_parent(
+    sub_tasks: list[str],
+    *,
+    parent_issue: dict[str, Any],
+    max_children: int | None = None,
+) -> list[dict[str, Any]]:
+    return build_child_issues(
+        sub_tasks,
+        parent_title=str(parent_issue.get("title") or "").strip(),
+        parent_number=parent_issue.get("number"),
+        parent_url=parent_issue.get("html_url") or parent_issue.get("url"),
+        labels=parent_issue.get("labels"),
+        assignees=parent_issue.get("assignees"),
+        milestone=parent_issue.get("milestone"),
+        max_children=max_children,
+    )
+
+
+def _format_child_reference(child_issue: dict[str, Any]) -> str | None:
+    number = child_issue.get("number") or child_issue.get("issue_number")
+    url = child_issue.get("html_url") or child_issue.get("url")
+    if number is None and not url:
+        return None
+    ref = f"[#{number}]({url})" if number is not None else str(url)
+    title = child_issue.get("title")
+    return f"{ref} - {title}" if title else ref
+
+
+def build_parent_issue_update(parent_body: str, child_issues: list[dict[str, Any]]) -> str:
+    child_refs: list[str] = []
+    seen: set[str] = set()
+    for child in child_issues:
+        if not isinstance(child, dict):
+            continue
+        ref = _format_child_reference(child)
+        if not ref or ref in seen:
+            continue
+        seen.add(ref)
+        child_refs.append(ref)
+    if not child_refs:
+        return parent_body
+
+    list_lines = [f"- {ref}" for ref in child_refs]
+    header = "## Child Issues"
+    lines = parent_body.splitlines() if parent_body else []
+    if header in lines:
+        header_idx = lines.index(header)
+        end_idx = next(
+            (
+                i
+                for i in range(header_idx + 1, len(lines))
+                if lines[i].startswith("## ") and lines[i].strip() != header
+            ),
+            len(lines),
+        )
+        updated = []
+        updated.extend(lines[:header_idx])
+        updated.append(header)
+        updated.append("")
+        updated.extend(list_lines)
+        updated.extend(lines[end_idx:])
+        return "\n".join(updated).strip()
+
+    parts = [parent_body.rstrip(), "", header, "", "\n".join(list_lines)]
+    return "\n".join(part for part in parts if part).strip()
 
 
 def _fallback_decompose(task: str) -> list[str]:

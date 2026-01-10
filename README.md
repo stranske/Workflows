@@ -53,6 +53,14 @@ A reusable GitHub Actions workflow system for Python projects with integrated ag
 - `ci_coverage_delta.py` - Coverage delta calculation
 - `ledger_validate.py` - Ledger validation
 
+### Issue Intake Task Decomposition
+
+The GitHub issue creation workflow (`agents-63-issue-intake.yml`) formats newly
+created issues by running `scripts/langchain/issue_formatter.py`. The formatter
+now integrates `scripts/langchain/task_decomposer.py` to split multi-action
+Tasks into smaller, verifiable sub-tasks and inserts them under each original
+task in the formatted issue body.
+
 ### Documentation (`docs/`)
 
 62 documentation files organized by topic:
