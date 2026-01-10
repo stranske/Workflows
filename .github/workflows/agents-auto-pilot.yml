@@ -16,11 +16,11 @@ on:
         required: true
         type: number
       force_step:
-        description: "Force a specific step (optional)"
+        description: "Force a specific step (optional, leave as 'auto' for normal flow)"
         required: false
         type: choice
         options:
-          - ""
+          - auto
           - format
           - optimize
           - apply
@@ -233,8 +233,8 @@ jobs:
           LINKED_PR="${{ steps.context.outputs.linked_pr }}"
           HAS_VERIFY="${{ steps.context.outputs.has_verify }}"
 
-          # Force step if specified
-          if [[ -n "$FORCE_STEP" ]]; then
+          # Force step if specified (not 'auto')
+          if [[ -n "$FORCE_STEP" && "$FORCE_STEP" != "auto" ]]; then
             echo "next_step=$FORCE_STEP" >> "$GITHUB_OUTPUT"
             echo "Forced step: $FORCE_STEP"
             exit 0
