@@ -12,6 +12,9 @@ permissions:
   pull-requests: write
   actions: write
 
+env:
+  WRITE_TOKEN: ${{ secrets.AGENTS_AUTOMATION_PAT || secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT || github.token }}
+
 concurrency:
   group: agents-autofix-loop-${{ github.event.workflow_run.pull_requests[0].number || github.run_id }}
   cancel-in-progress: false
@@ -49,7 +52,7 @@ jobs:
         id: security_gate
         uses: actions/github-script@v8
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ env.WRITE_TOKEN }}
           script: |
             const fs = require('fs');
             const guardPath = './.github/scripts/prompt_injection_guard.js';
@@ -104,6 +107,7 @@ jobs:
         id: evaluate
         uses: actions/github-script@v8
         with:
+          github-token: ${{ env.WRITE_TOKEN }}
           script: |
             const run = context.payload.workflow_run;
             const outputs = {
@@ -352,6 +356,7 @@ jobs:
       - name: Add needs-human label and comment
         uses: actions/github-script@v8
         with:
+          github-token: ${{ env.WRITE_TOKEN }}
           script: |
             const prNumber = Number('${{ needs.prepare.outputs.pr_number }}');
             if (!prNumber) {
@@ -406,7 +411,7 @@ jobs:
         id: collect
         uses: actions/github-script@v8
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ env.WRITE_TOKEN }}
           script: |
             const prNumber = Number('${{ needs.prepare.outputs.pr_number || 0 }}') || 0;
             const attemptNumber = Number('${{ needs.prepare.outputs.attempts || 0 }}') || 0;
