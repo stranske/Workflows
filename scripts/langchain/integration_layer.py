@@ -133,7 +133,7 @@ def _select_label_names(
         return []
     ordered = sorted(matches, key=lambda match: (-match.score, _normalize_label(match.label.name)))
     names = [match.label.name for match in ordered]
-    return names if max_labels is None else names[: max_labels]
+    return names if max_labels is None else names[:max_labels]
 
 
 def _normalize_label(label: str) -> str:
