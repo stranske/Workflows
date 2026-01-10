@@ -76,12 +76,14 @@ function formatDuration(seconds) {
   return parts.join(' ');
 }
 
-function calculateElapsedTime(startTime) {
+function calculateElapsedTime(startTime, now) {
   const startMs = resolveTimestampMs(startTime);
   if (!Number.isFinite(startMs)) {
     return '0s';
   }
-  const deltaMs = Date.now() - startMs;
+  const nowMs = resolveTimestampMs(now);
+  const resolvedNow = Number.isFinite(nowMs) ? nowMs : Date.now();
+  const deltaMs = resolvedNow - startMs;
   if (!Number.isFinite(deltaMs) || deltaMs <= 0) {
     return '0s';
   }

@@ -47,15 +47,9 @@ test('calculateElapsedTime trims date string inputs', () => {
 });
 
 test('calculateElapsedTime formats minutes and seconds', () => {
-  const realNow = Date.now;
   const now = 1700000000000;
-  Date.now = () => now;
-  try {
-    const start = new Date(now - (5 * 60 * 1000 + 23 * 1000)).toISOString();
-    assert.equal(calculateElapsedTime(start), '5m 23s');
-  } finally {
-    Date.now = realNow;
-  }
+  const start = new Date(now - (5 * 60 * 1000 + 23 * 1000)).toISOString();
+  assert.equal(calculateElapsedTime(start, now), '5m 23s');
 });
 
 test('calculateElapsedTime formats whole minutes', () => {
@@ -83,15 +77,9 @@ test('calculateElapsedTime returns 0s for zero duration', () => {
 });
 
 test('calculateElapsedTime matches the documented example', () => {
-  const realNow = Date.now;
   const start = '2026-01-10T20:00:00Z';
   const now = Date.parse('2026-01-10T20:05:23Z');
-  Date.now = () => now;
-  try {
-    assert.equal(calculateElapsedTime(start), '5m 23s');
-  } finally {
-    Date.now = realNow;
-  }
+  assert.equal(calculateElapsedTime(start, now), '5m 23s');
 });
 
 test('calculateElapsedTime truncates fractional seconds', () => {
