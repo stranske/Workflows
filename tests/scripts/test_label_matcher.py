@@ -249,9 +249,10 @@ def test_find_similar_labels_keyword_multicategory_match():
 
 
 def test_find_similar_labels_keyword_docs_description_match():
+    """Test that labels with 'doc' in their NAME match docs keywords."""
     labels = [
         label_matcher.LabelRecord(name="type:bug"),
-        label_matcher.LabelRecord(name="quality", description="Documentation updates"),
+        label_matcher.LabelRecord(name="type:documentation", description="Documentation updates"),
     ]
     vector_store = label_matcher.LabelVectorStore(
         store=object(), provider="unit-test", model="unit-test-model", labels=labels
@@ -261,8 +262,8 @@ def test_find_similar_labels_keyword_docs_description_match():
 
     names = {match.label.name for match in matches}
     assert "type:bug" in names
-    assert "quality" in names
-    doc_match = next(match for match in matches if match.label.name == "quality")
+    assert "type:documentation" in names
+    doc_match = next(match for match in matches if match.label.name == "type:documentation")
     assert doc_match.score >= label_matcher.KEYWORD_DOCS_SCORE
 
 
