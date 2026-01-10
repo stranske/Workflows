@@ -103,33 +103,45 @@
 
 ## Immediate Next Steps (Based on Test Results)
 
-### 🔴 High Priority Fixes Needed
+### ✅ High Priority Fixes Completed (PR #731 - Merged January 10, 2026)
 
-**1. Fix Suite C: Duplicate Detection - 50% False Positive Rate**
+**1. ✅ FIXED: Suite C: Duplicate Detection - 50% False Positive Rate**
 - **Problem:** All 4 test issues got `duplicate` label, but only 2 were actual duplicates
-- **Root Cause:** Similarity threshold too low or matching too aggressive
-- **Action:** Review `issue_dedup.py` similarity threshold, currently flagging unrelated issues
-- **Files:** `scripts/issue_dedup.py`, `.github/workflows/agents-dedup.yml`
+- **Root Cause:** Similarity threshold too low (0.85) + domain vocabulary overlap
+- **Solution Applied (PR #731):**
+  - Raised threshold from 0.85 → 0.92
+  - Added 40% title word overlap filter (OR 95% similarity to bypass)
+  - Prevents domain vocabulary (API, database, user) from triggering false positives
+- **Files Modified:** `.github/workflows/agents-dedup.yml`, `templates/consumer-repo/.github/workflows/agents-dedup.yml`
 
-**2. Fix Suite D: Auto-Label Over-Labeling**
-- **Problem:** Both issues got BOTH `bug` and `enhancement` labels instead of the most appropriate one
+**2. ✅ FIXED: Suite D: Auto-Label Over-Labeling**
+- **Problem:** Both issues got BOTH `bug` and `enhancement` labels instead of best match
 - **Root Cause:** Applying all labels above threshold instead of best match only
-- **Action:** Modify `label_matcher.py` to apply only the highest-scoring label
-- **Files:** `scripts/label_matcher.py`, `.github/workflows/agents-auto-label.yml`
+- **Solution Applied (PR #731):**
+  - Modified workflow to apply ONLY highest-scoring label
+  - Additional matches moved to suggestion comment instead of auto-apply
+  - Prevents competing labels (bug vs enhancement) from both being applied
+- **Files Modified:** `.github/workflows/agents-auto-label.yml`, `templates/consumer-repo/.github/workflows/agents-auto-label.yml`
 
-**3. Investigate Suite A #237 Workflow Failure**
+**3. 🟡 Suite A #237: Azure Content Filter Issue (Not a Bug)**
 - **Problem:** "Add database migration for user roles" workflow failed
-- **Action:** Check workflow logs, identify error cause
-- **Issue:** Manager-Database #237
+- **Root Cause:** Azure OpenAI content filter false positive on "database migration" + "admin access" text
+- **Status:** Not a code bug - content filter incorrectly flagged as "jailbreak attempt"
+- **Action:** No code fix needed; consider retry logic or alternative phrasing
 
-### 🟡 Medium Priority
+### 🟡 Medium Priority (Still Pending)
 
-**4. Review Suite A Capability Check Accuracy**
-- #236 (Stripe) should have been flagged as BLOCKED but wasn't
-- #239 (Logging) got `agent:needs-attention` when it should have proceeded
-- May need prompt tuning in `capability_check.py`
+**4. Re-Test Suites C & D with Fixed Workflows**
+- Create new test issues to validate PR #731 fixes
+- Target: <20% false positive rate for Suite C
+- Target: Only best-match label applied for Suite D
 
-**5. Review Suite B Decomposition Quality**
+**5. Review Suite A Capability Check Accuracy**
+- #236 (Stripe) was correctly NOT flagged (capability check passed)
+- #239 (Logging) got `agent:needs-attention` - may need review
+- Lower priority after Suite C/D fixes validated
+
+**6. Review Suite B Decomposition Quality**
 - PRs #249, #250, #251 were created successfully
 - Need to manually review decomposition quality
 - Verify sub-tasks are actionable and appropriately sized
@@ -467,15 +479,15 @@ Evaluate risks for:
 
 ### Must Complete (Blockers for Phase 4)
 - [x] 12/12 Phase 3 functional tests executed ✅ **DONE January 10, 2026**
-  - Suite A: 3/3 executed (#236, #237, #239) - 1 workflow error needs investigation
-  - Suite B: 3/3 executed (#240, #241, #242) - All success, PRs created
-  - Suite C: 4/4 executed (#243-#246) - 50% accuracy, needs tuning
-  - Suite D: 2/2 executed (#247, #248) - Over-labeling, needs tuning
-- [ ] Test results documented ← **IN PROGRESS**
+  - Suite A: 3/3 executed (#236, #237, #239) - 1 content filter error (Azure), not code bug
+  - Suite B: 3/3 executed (#240, #241, #242) - All success, PRs #249-251 created
+  - Suite C: 4/4 executed (#243-#246) - ✅ Fixed via PR #731, needs re-validation
+  - Suite D: 2/2 executed (#247, #248) - ✅ Fixed via PR #731, needs re-validation
+- [x] Test results documented ✅ **DONE January 10, 2026**
 - [x] agents:apply-suggestions with LLM retested ✅ (Manager-Database #184 completed)
 - [ ] 3 conflicted PRs resolved
-- [ ] **NEW:** Tune duplicate detection threshold (Suite C - 50% false positive)
-- [ ] **NEW:** Tune auto-label to pick best match only (Suite D - over-labeling)
+- [x] **FIXED:** Tune duplicate detection threshold (Suite C) ✅ **PR #731 merged**
+- [x] **FIXED:** Tune auto-label to pick best match only (Suite D) ✅ **PR #731 merged**
 
 ### Should Complete (High Value)
 - [x] Verify-to-issue workflow tested ✅ (January 10, 2026)
@@ -579,6 +591,11 @@ PRs #696-699 created **test infrastructure** (unit tests, smoke test CLI), not t
 - [x] PR #720: Handle rate limits gracefully in verifier CI wait
 - [x] PR #726: Prevent duplicate follow-up issues + context builder rate limits
 
+#### Phase 3 Workflow Fixes
+- [x] PR #731: Fix auto-label and duplicate detection accuracy ✅ **Merged January 10, 2026**
+  - Reduced duplicate detection false positives (threshold 0.85→0.92 + title overlap filter)
+  - Fixed over-labeling by applying only best-match label
+
 #### Test Suite Tooling (NOT Execution)
 - [x] PR #699 (Issue #690): Created `run_consumer_repo_tests.py` + 60 capability check unit tests
 - [x] PR #696 (Issue #691): Created 64 task decomposer unit tests
@@ -598,10 +615,29 @@ PRs #696-699 created **test infrastructure** (unit tests, smoke test CLI), not t
 - [x] trip-planner: 5 workflow syncs
 
 ### Week 2 Checklist
-- [ ] Day 6-8: Resolve 3 conflicted PRs
+- [ ] Day 6-8: Resolve 3 conflicted PRs ← **NEXT PRIORITY**
 - [ ] Day 9-10: Label cleanup audit
-- [ ] Day 11-12: Document test results
+- [x] Day 11-12: Document test results ✅ **DONE** (moved up from schedule)
 - [ ] Day 13-14: Plan Phase 4 rollout
+
+### Week 2 Progress (January 10, 2026)
+
+**Completed Ahead of Schedule:**
+- [x] Test results documented with expected vs actual analysis
+- [x] Suite C & D fixes identified and implemented (PR #731)
+- [x] PR #731 merged: Reduced false positives in auto-label and duplicate detection
+
+**PR #731 Changes:**
+| Workflow | Problem | Fix Applied |
+|----------|---------|-------------|
+| agents-dedup.yml | 50% false positive (4/4 flagged, expected 2/4) | Threshold 0.85→0.92, added 40% title overlap filter |
+| agents-auto-label.yml | Over-labeling (both bug+enhancement) | Apply only best match, others become suggestions |
+
+**Remaining Week 2 Work:**
+1. Re-test Suites C & D with fixed workflows
+2. Resolve 3 conflicted PRs (Manager-Database #134, #135; Portable-Alpha #1049)
+3. Label cleanup audit
+4. Begin Phase 4 planning
 
 ---
 
