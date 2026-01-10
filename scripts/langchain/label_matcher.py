@@ -164,9 +164,7 @@ def build_label_vector_store(
                 raise ValueError(f"Label entry at index {index} is missing a name.")
             if getattr(item, "name", None) is not None or getattr(item, "label", None) is not None:
                 raise ValueError(f"Label entry at index {index} has an empty name.")
-            raise ValueError(
-                f"Unsupported label entry at index {index}: {type(item).__name__}."
-            )
+            raise ValueError(f"Unsupported label entry at index {index}: {type(item).__name__}.")
 
     if not label_records:
         return None
