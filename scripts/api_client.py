@@ -191,3 +191,26 @@ def create_issue(
     if not isinstance(data, dict):
         raise RuntimeError("GitHub API did not return a JSON object for the issue.")
     return data
+
+
+def fetch_oauth_scopes(token: str) -> set[str] | None:
+    response = requests.request(
+        "GET",
+        GITHUB_API,
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/vnd.github+json",
+        },
+        timeout=DEFAULT_TIMEOUT,
+    )
+    if response.status_code >= 400:
+        try:
+            detail = response.json()
+        except ValueError:
+            detail = response.text
+        raise RuntimeError(f"GitHub API error {response.status_code}: {detail}")
+    scopes_header = response.headers.get("X-OAuth-Scopes")
+    if scopes_header is None:
+        return None
+    scopes = {scope.strip() for scope in scopes_header.split(",") if scope.strip()}
+    return scopes

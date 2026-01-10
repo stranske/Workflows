@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -12,10 +13,17 @@ from scripts.langchain import issue_dedup
 
 
 class DummyResponse:
-    def __init__(self, status_code: int, json_data=None, text: str = "") -> None:
+    def __init__(
+        self,
+        status_code: int,
+        json_data=None,
+        text: str = "",
+        headers: dict[str, str] | None = None,
+    ) -> None:
         self.status_code = status_code
         self._json_data = json_data
         self.text = text
+        self.headers = headers or {}
 
     def json(self):
         if self._json_data is None:
@@ -280,6 +288,28 @@ def test_request_json_retries_on_request_exception(monkeypatch) -> None:
     assert sleep_calls == [0.25]
 
 
+def test_fetch_oauth_scopes_parses_header(monkeypatch) -> None:
+    def _fake_request(method, url, headers=None, json=None, timeout=None):
+        return DummyResponse(
+            200,
+            json_data={"ok": True},
+            headers={"X-OAuth-Scopes": "public_repo, repo"},
+        )
+
+    monkeypatch.setattr(api_client.requests, "request", _fake_request)
+
+    assert api_client.fetch_oauth_scopes("token") == {"public_repo", "repo"}
+
+
+def test_fetch_oauth_scopes_returns_none_without_header(monkeypatch) -> None:
+    def _fake_request(method, url, headers=None, json=None, timeout=None):
+        return DummyResponse(200, json_data={"ok": True})
+
+    monkeypatch.setattr(api_client.requests, "request", _fake_request)
+
+    assert api_client.fetch_oauth_scopes("token") is None
+
+
 def test_find_dedup_comment_returns_match() -> None:
     comments = [
         {"body": "Nothing here"},
@@ -440,6 +470,110 @@ def test_main_rejects_repo_not_in_allowlist(monkeypatch, capsys) -> None:
     captured = capsys.readouterr()
     assert result == 1
     assert "Repository other/repo is not in the allowlist." in captured.err
+
+
+def test_main_reads_allowlist_from_config(monkeypatch, capsys, tmp_path) -> None:
+    config_path = tmp_path / "config.json"
+    config_path.write_text(json.dumps({"allowlist": ["owner/repo"]}), encoding="utf-8")
+    monkeypatch.delenv("ISSUE_DEDUP_SMOKE_ALLOWLIST", raising=False)
+    monkeypatch.setenv("TEST_TOKEN", "token")
+
+    result = cli_handler.main(
+        [
+            "--repo",
+            "owner/repo",
+            "--title",
+            "Config Title",
+            "--token-env",
+            "TEST_TOKEN",
+            "--config",
+            str(config_path),
+            "--dry-run",
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert result == 0
+    assert "Config Title" in captured.out
+
+
+def test_main_rejects_token_with_extra_scopes(monkeypatch, capsys, tmp_path) -> None:
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps({"allowlist": ["owner/repo"], "allowed_scopes": ["public_repo"]}),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("TEST_TOKEN", "token")
+    monkeypatch.setattr(api_client, "fetch_oauth_scopes", lambda _: {"admin:org"})
+
+    result = cli_handler.main(
+        [
+            "--repo",
+            "owner/repo",
+            "--title",
+            "Scoped Title",
+            "--token-env",
+            "TEST_TOKEN",
+            "--config",
+            str(config_path),
+            "--dry-run",
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert result == 1
+    assert "Token scopes exceed allowed scopes." in captured.err
+
+
+def test_main_accepts_token_with_allowed_scopes(monkeypatch, tmp_path) -> None:
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps({"allowlist": ["owner/repo"], "allowed_scopes": ["public_repo"]}),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("TEST_TOKEN", "token")
+    monkeypatch.setattr(api_client, "fetch_oauth_scopes", lambda _: {"public_repo"})
+
+    result = cli_handler.main(
+        [
+            "--repo",
+            "owner/repo",
+            "--title",
+            "Scoped Title",
+            "--token-env",
+            "TEST_TOKEN",
+            "--config",
+            str(config_path),
+            "--dry-run",
+        ]
+    )
+
+    assert result == 0
+
+
+def test_main_dry_run_skips_issue_creation(monkeypatch, capsys) -> None:
+    def _fake_create(repo, token, title, body, labels, **kwargs):
+        raise AssertionError("create_issue should not be called in dry-run mode")
+
+    monkeypatch.setattr(api_client, "create_issue", _fake_create)
+    monkeypatch.setenv("ISSUE_DEDUP_SMOKE_ALLOWLIST", "owner/repo")
+    monkeypatch.setenv("TEST_TOKEN", "token")
+
+    result = cli_handler.main(
+        [
+            "--repo",
+            "owner/repo",
+            "--title",
+            "Dry Run",
+            "--token-env",
+            "TEST_TOKEN",
+            "--dry-run",
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert result == 0
+    assert "Dry Run" in captured.out
 
 
 def test_main_prompts_before_creating_issue(monkeypatch, capsys) -> None:

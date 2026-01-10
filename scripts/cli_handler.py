@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import sys
+from pathlib import Path
 
 from scripts import api_client
 from scripts.duplicate_detection import (
@@ -33,11 +35,64 @@ def _parse_allowlist(value: str | None) -> set[str]:
     return {entry.strip() for entry in value.split(",") if entry.strip()}
 
 
-def _load_allowlist(allowlist_value: str | None, allowlist_env: str) -> set[str]:
+def _parse_scopes(value: str | None) -> set[str]:
+    if not value:
+        return set()
+    return {scope.strip() for scope in value.split(",") if scope.strip()}
+
+
+def _load_config(config_path: str | None, config_env: str) -> dict[str, object]:
+    path_value = config_path or os.environ.get(config_env)
+    if not path_value:
+        return {}
+    config_file = Path(path_value)
+
+    if not config_file.exists():
+        print(f"Config file not found: {config_file}", file=sys.stderr)
+        return {}
+    try:
+        payload = json.loads(config_file.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        print(f"Invalid config JSON in {config_file}: {exc}", file=sys.stderr)
+        return {}
+    if not isinstance(payload, dict):
+        print(f"Config must be a JSON object: {config_file}", file=sys.stderr)
+        return {}
+    return payload
+
+
+def _load_allowlist(
+    allowlist_value: str | None, allowlist_env: str, config: dict[str, object]
+) -> set[str]:
     allowlist = _parse_allowlist(allowlist_value)
     if allowlist:
         return allowlist
-    return _parse_allowlist(os.environ.get(allowlist_env))
+    allowlist = _parse_allowlist(os.environ.get(allowlist_env))
+    if allowlist:
+        return allowlist
+    config_value = config.get("allowlist")
+    if isinstance(config_value, list):
+        return {str(entry).strip() for entry in config_value if str(entry).strip()}
+    if isinstance(config_value, str):
+        return _parse_allowlist(config_value)
+    return set()
+
+
+def _load_allowed_scopes(
+    scopes_value: str | None, scopes_env: str, config: dict[str, object]
+) -> set[str]:
+    scopes = _parse_scopes(scopes_value)
+    if scopes:
+        return scopes
+    scopes = _parse_scopes(os.environ.get(scopes_env))
+    if scopes:
+        return scopes
+    config_value = config.get("allowed_scopes")
+    if isinstance(config_value, list):
+        return {str(entry).strip() for entry in config_value if str(entry).strip()}
+    if isinstance(config_value, str):
+        return _parse_scopes(config_value)
+    return set()
 
 
 def _confirm_issue_creation(repo: str, title: str, *, assume_yes: bool) -> bool:
@@ -90,9 +145,27 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Comma-separated list of allowed repositories (owner/name).",
     )
     parser.add_argument(
+        "--config",
+        help="Path to a JSON config file containing allowlist/scopes.",
+    )
+    parser.add_argument(
+        "--config-env",
+        default="ISSUE_DEDUP_SMOKE_CONFIG",
+        help="Environment variable containing the config file path.",
+    )
+    parser.add_argument(
         "--allowlist-env",
         default="ISSUE_DEDUP_SMOKE_ALLOWLIST",
         help="Environment variable containing the repository allowlist.",
+    )
+    parser.add_argument(
+        "--allowed-scopes",
+        help="Comma-separated OAuth scopes allowed for the token.",
+    )
+    parser.add_argument(
+        "--allowed-scopes-env",
+        default="ISSUE_DEDUP_SMOKE_ALLOWED_SCOPES",
+        help="Environment variable containing allowed OAuth scopes.",
     )
     parser.add_argument("--title", help="Title for a new issue (required if no source).")
     parser.add_argument("--body", help="Body for a new issue (optional).")
@@ -180,10 +253,12 @@ def main(argv: list[str]) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
 
-    allowlist = _load_allowlist(args.allowlist, args.allowlist_env)
+    config = _load_config(args.config, args.config_env)
+    allowlist = _load_allowlist(args.allowlist, args.allowlist_env, config)
     if not allowlist:
         print(
-            "Repository allowlist is empty. Set --allowlist or $" f"{args.allowlist_env}.",
+            "Repository allowlist is empty. Set --allowlist, "
+            f"${args.allowlist_env}, or --config.",
             file=sys.stderr,
         )
         return 1
@@ -195,6 +270,23 @@ def main(argv: list[str]) -> int:
     if not token:
         print(f"Missing GitHub token in ${args.token_env}.", file=sys.stderr)
         return 1
+
+    allowed_scopes = _load_allowed_scopes(args.allowed_scopes, args.allowed_scopes_env, config)
+    if allowed_scopes:
+        scopes = api_client.fetch_oauth_scopes(token)
+        if scopes is None:
+            print("Unable to determine token scopes; skipping scope check.", file=sys.stderr)
+        else:
+            extra_scopes = scopes - allowed_scopes
+            if extra_scopes:
+                extras = ", ".join(sorted(extra_scopes))
+                allowed = ", ".join(sorted(allowed_scopes))
+                print(
+                    "Token scopes exceed allowed scopes. "
+                    f"Extras: {extras}. Allowed: {allowed}.",
+                    file=sys.stderr,
+                )
+                return 1
 
     labels = _parse_labels(args.labels)
     find_labels = _parse_labels(args.find_labels)
