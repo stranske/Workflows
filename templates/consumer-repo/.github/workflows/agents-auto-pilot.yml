@@ -485,17 +485,17 @@ jobs:
             // Branch exists - create PR
             core.info(`Creating PR from ${branchName}`);
 
+            // Fetch issue body to include in PR
+            const { data: issue } = await github.rest.issues.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber
+            });
+
             const prTitle = `[Auto-pilot] ${issueTitle}`;
             const prBody = `<!-- meta:issue:${issueNumber} -->
 
-            ## Auto-pilot PR
-
-            This PR was automatically created by the auto-pilot workflow.
-
-            Closes #${issueNumber}
-
-            ---
-            *Created by \`agents:auto-pilot\` workflow*`;
+            ${issue.body || ''}`;
 
             try {
               const { data: pr } = await github.rest.pulls.create({
