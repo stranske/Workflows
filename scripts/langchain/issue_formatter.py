@@ -309,6 +309,62 @@ def _append_raw_issue_section(formatted: str, issue_body: str) -> str:
     return f"{formatted.rstrip()}{details}\n"
 
 
+def _extract_tasks_from_formatted(body: str) -> list[str]:
+    lines = body.splitlines()
+    header = "## Tasks"
+    try:
+        header_idx = next(i for i, line in enumerate(lines) if line.strip() == header)
+    except StopIteration:
+        return []
+    end_idx = next(
+        (
+            i
+            for i in range(header_idx + 1, len(lines))
+            if lines[i].startswith("## ") and lines[i].strip() != header
+        ),
+        len(lines),
+    )
+    tasks: list[str] = []
+    for line in lines[header_idx + 1 : end_idx]:
+        if not line.strip():
+            continue
+        match = LIST_ITEM_REGEX.match(line)
+        if not match:
+            continue
+        indent, _, remainder = match.groups()
+        if indent.strip():
+            continue
+        text = remainder.strip()
+        checkbox = CHECKBOX_REGEX.match(text)
+        if checkbox:
+            text = checkbox.group(2).strip()
+        if not text or text == "_Not provided._":
+            continue
+        tasks.append(text)
+    return tasks
+
+
+def _apply_task_decomposition(formatted: str, *, use_llm: bool) -> str:
+    tasks = _extract_tasks_from_formatted(formatted)
+    if not tasks:
+        return formatted
+
+    from scripts.langchain import task_decomposer
+
+    suggestions: list[dict[str, Any]] = []
+    for task in tasks:
+        decomposition = task_decomposer.decompose_task(task, use_llm=use_llm)
+        sub_tasks = decomposition.get("sub_tasks") or []
+        if sub_tasks:
+            suggestions.append({"task": task, "split_suggestions": sub_tasks})
+    if not suggestions:
+        return formatted
+
+    from scripts.langchain import issue_optimizer
+
+    return issue_optimizer._apply_task_decomposition(formatted, {"task_splitting": suggestions})
+
+
 def format_issue_body(issue_body: str, *, use_llm: bool = True) -> dict[str, Any]:
     if not issue_body:
         issue_body = ""
@@ -327,6 +383,7 @@ def format_issue_body(issue_body: str, *, use_llm: bool = True) -> dict[str, Any
                 content = getattr(response, "content", None) or str(response)
                 formatted = content.strip()
                 if _formatted_output_valid(formatted):
+                    formatted = _apply_task_decomposition(formatted, use_llm=use_llm)
                     formatted = _append_raw_issue_section(formatted, issue_body)
                     return {
                         "formatted_body": formatted,
@@ -337,7 +394,9 @@ def format_issue_body(issue_body: str, *, use_llm: bool = True) -> dict[str, Any
                 # Fall through to fallback if LLM fails (import, auth, API errors)
                 pass
 
-    formatted = _append_raw_issue_section(_format_issue_fallback(issue_body), issue_body)
+    formatted = _format_issue_fallback(issue_body)
+    formatted = _apply_task_decomposition(formatted, use_llm=use_llm)
+    formatted = _append_raw_issue_section(formatted, issue_body)
     return {
         "formatted_body": formatted,
         "provider_used": None,
