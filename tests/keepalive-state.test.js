@@ -21,6 +21,11 @@ test('calculateElapsedTime returns 0s for invalid date strings', () => {
   assert.equal(calculateElapsedTime('invalid'), '0s');
 });
 
+test('calculateElapsedTime returns 0s for invalid Date objects', () => {
+  const invalidDate = new Date('invalid');
+  assert.equal(calculateElapsedTime(invalidDate), '0s');
+});
+
 test('calculateElapsedTime formats minutes and seconds', () => {
   const realNow = Date.now;
   const now = 1700000000000;
