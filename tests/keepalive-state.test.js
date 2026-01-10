@@ -58,6 +58,18 @@ test('calculateElapsedTime matches the documented example', () => {
   }
 });
 
+test('calculateElapsedTime truncates fractional seconds', () => {
+  const realNow = Date.now;
+  const now = 1700000000000;
+  Date.now = () => now;
+  try {
+    const start = new Date(now - 1999).toISOString();
+    assert.equal(calculateElapsedTime(start), '1s');
+  } finally {
+    Date.now = realNow;
+  }
+});
+
 test('calculateElapsedTime handles edge cases', () => {
   const realNow = Date.now;
   const now = 1700000000000;
