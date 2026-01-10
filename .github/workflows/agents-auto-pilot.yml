@@ -3,6 +3,7 @@ name: Agents Auto-Pilot
 
 # End-to-end automation: Issue → Optimize → Agent → Keepalive → Merge
 # Triggered by agents:auto-pilot label, orchestrates the full pipeline
+# Auto-continues when prep workflow labels are added (format, optimize, apply-suggestions)
 
 on:
   issues:
@@ -32,6 +33,7 @@ permissions:
   contents: read
   issues: write
   pull-requests: write  # Needed to create PRs automatically
+  actions: write  # Needed for workflow re-dispatch
 
 env:
   # Safety limits
@@ -42,17 +44,59 @@ jobs:
   auto-pilot:
     runs-on: ubuntu-latest
     timeout-minutes: 240  # 4 hours = MAX_WALL_TIME_HOURS
-    # Trigger on agents:auto-pilot label or workflow_dispatch
+    # Trigger on:
+    # 1. agents:auto-pilot label added (initial trigger)
+    # 2. Prep workflow labels added (auto-continue after each step)
+    # 3. Issue closed (verification trigger)
+    # 4. workflow_dispatch (manual trigger)
     if: |
       github.event_name == 'workflow_dispatch' ||
-      (github.event.action == 'labeled' && github.event.label.name == 'agents:auto-pilot') ||
-      (github.event.action == 'closed' && contains(github.event.issue.labels.*.name, 'agents:auto-pilot'))
+      (github.event.action == 'labeled' && (
+        github.event.label.name == 'agents:auto-pilot' ||
+        github.event.label.name == 'agents:format' ||
+        github.event.label.name == 'agents:optimize' ||
+        github.event.label.name == 'agents:apply-suggestions' ||
+        github.event.label.name == 'agent:codex'
+      )) ||
+      (github.event.action == 'closed' &&
+       contains(github.event.issue.labels.*.name, 'agents:auto-pilot'))
 
     steps:
+      - name: Check if auto-pilot is enabled
+        id: check_enabled
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // For label events other than agents:auto-pilot, verify auto-pilot is enabled
+            const labelName = context.payload.label?.name || '';
+            if (context.eventName === 'workflow_dispatch') {
+              core.setOutput('enabled', 'true');
+              return;
+            }
+
+            // Get issue/PR to check for agents:auto-pilot label
+            let labels = [];
+            if (context.payload.issue) {
+              labels = context.payload.issue.labels.map(l => l.name);
+            } else if (context.payload.pull_request) {
+              labels = context.payload.pull_request.labels.map(l => l.name);
+            }
+
+            const hasAutoPilot = labels.includes('agents:auto-pilot');
+            if (!hasAutoPilot && labelName !== 'agents:auto-pilot') {
+              core.info(`Skipping: auto-pilot not enabled (trigger: ${labelName})`);
+              core.setOutput('enabled', 'false');
+              return;
+            }
+
+            core.setOutput('enabled', 'true');
+
       - name: Checkout repository
+        if: steps.check_enabled.outputs.enabled == 'true'
         uses: actions/checkout@v4
 
       - name: Determine context
+        if: steps.check_enabled.outputs.enabled == 'true'
         id: context
         uses: actions/github-script@v7
         with:
