@@ -44,6 +44,8 @@ FUNCTIONAL_LABELS = {
     "agent:claude",
     "agent:copilot",
     "agent:needs-attention",
+    "agent:decompose",
+    "agent:optimize",
     "agents",
     # Issue formatting
     "agents:format",
@@ -57,13 +59,19 @@ FUNCTIONAL_LABELS = {
     # PR control
     "agents:allow-change",
     "agents:keepalive",
+    "agents:keepalive-nudge",
     "agents:activated",
     "agents:paused",
-    # Autofix
+    # Autofix - all variants used by reusable-18-autofix.yml
     "autofix",
     "autofix:clean",
+    "autofix:clean-only",
     "autofix:bot-comments",
     "autofix:applied",
+    "autofix:patch",
+    "autofix:escalated",
+    "autofix:debt",
+    "needs-autofix-review",
     # Merge control
     "automerge",
     "from:codex",
@@ -86,6 +94,13 @@ FUNCTIONAL_LABELS = {
     # Phase 3 labels
     "agents:decompose",
     "needs-formatting",
+    # CI/Integration markers
+    "ci-failure",
+    "integration-failure",
+    "integration-sync",
+    "integration-test",
+    # Allow guard bypass
+    "allow-agents-guard",
 }
 
 # Standard informational labels - keep for categorization
@@ -99,6 +114,78 @@ INFORMATIONAL_LABELS = {
     "help wanted",
     "invalid",
     "question",
+    # Common categorization labels (useful for human triage)
+    "security",
+    "performance",
+    "dependencies",
+    "testing",
+    "refactor",
+    "cleanup",
+    "maintenance",
+    "feature",
+    # Area/component labels
+    "ci",
+    "devops",
+    "infra",
+    "config",
+    "docs",
+    "automation",
+    "workflows",
+    "langchain",
+    "pipeline",
+    "logging",
+    "data",
+    "exports",
+    # Priority labels (various formats)
+    "priority: high",
+    "priority: low",
+    "priority: medium",
+    "priority:high",
+    # Risk labels
+    "risk:medium",
+    "risk:high",
+    "risk:major",
+    "risk:minor",
+    # Status labels
+    "status: ready",
+    "status: in-progress",
+    "status:ready",
+    "status:in-progress",
+    # Health labels
+    "health:coverage",
+    "health:repo",
+    # Other useful markers
+    "guardrail",
+    "reliability",
+    "usability",
+    "versioning",
+    "reminder",
+    "auth-expiring",
+    "phase-1",
+    "test",
+    "validation",
+    # GitHub/Actions related
+    "github:actions",
+    # Component/area labels (common patterns)
+    "app",
+    "engine",
+    "ui",
+    "backend",
+    "cli",
+    "frontend",
+    # Tech/language labels
+    "javascript",
+    "python",
+    "typescript",
+    # Domain-specific but common
+    "metrics",
+    "modeling",
+    "schema",
+    "build",
+    "lint",
+    "observability",
+    "llm",
+    "research",
 }
 
 # Labels verified as bloat - safe to remove
