@@ -9,6 +9,10 @@ test('calculateElapsedTime returns 0s for null input', () => {
   assert.equal(calculateElapsedTime(null), '0s');
 });
 
+test('calculateElapsedTime returns 0s for undefined input', () => {
+  assert.equal(calculateElapsedTime(undefined), '0s');
+});
+
 test('calculateElapsedTime returns 0s for invalid date strings', () => {
   assert.equal(calculateElapsedTime('invalid'), '0s');
 });
