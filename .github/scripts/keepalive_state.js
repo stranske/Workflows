@@ -244,7 +244,7 @@ async function resetState({ github, context, prNumber, trace, round }) {
   const startTime = Date.now();
   const timestamp = new Date(startTime).toISOString();
   const issueNumber = Number.isFinite(prNumber) ? String(prNumber) : normalise(prNumber);
-  logInfo(`resetState start: ts=${timestamp} issue=${issueNumber || 'unknown'}`);
+  logInfo(`resetState starting: ts=${timestamp} issue=${issueNumber || 'unknown'}`);
 
   let success = false;
   try {
@@ -318,7 +318,7 @@ async function resetState({ github, context, prNumber, trace, round }) {
     };
   } finally {
     const durationMs = Date.now() - startTime;
-    logInfo(`resetState complete: status=${success ? 'success' : 'failure'} duration_ms=${durationMs}`);
+    logInfo(`resetState finished: status=${success ? 'success' : 'failure'} duration_ms=${durationMs}`);
   }
 }
 
