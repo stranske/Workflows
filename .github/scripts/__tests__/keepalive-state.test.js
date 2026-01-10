@@ -70,12 +70,12 @@ test('formatTimestamp omits milliseconds by default', () => {
 
 test('formatTimestamp omits milliseconds when debug is false', () => {
   const date = new Date('2024-01-02T03:04:05.678Z');
-  assert.equal(formatTimestamp(date, false), '2024-01-02T03:04:05Z');
+  assert.equal(formatTimestamp(date, { debug: false }), '2024-01-02T03:04:05Z');
 });
 
 test('formatTimestamp includes milliseconds in debug mode', () => {
   const date = new Date('2024-01-02T03:04:05.678Z');
-  assert.equal(formatTimestamp(date, true), '2024-01-02T03:04:05.678Z');
+  assert.equal(formatTimestamp(date, { debug: true }), '2024-01-02T03:04:05.678Z');
 });
 
 test('createKeepaliveStateManager creates hidden comment when missing', async () => {
