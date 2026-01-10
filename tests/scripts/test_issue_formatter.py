@@ -64,6 +64,21 @@ Acceptance Criteria:
     assert "- [ ] label transition works" in formatted
 
 
+def test_format_issue_fallback_decomposes_large_tasks() -> None:
+    raw = """## Tasks
+- update docs and add tests
+
+## Acceptance Criteria
+- documentation updated
+"""
+    result = issue_formatter.format_issue_body(raw, use_llm=False)
+    tasks = _extract_section(result["formatted_body"], "Tasks")
+
+    assert "- [ ] update docs and add tests" in tasks
+    assert "update docs (verify: docs updated)" in tasks
+    assert "add tests (verify: tests pass)" in tasks
+
+
 def test_format_issue_fallback_strips_bullets_from_scope() -> None:
     raw = """## Scope
 - keep API stable

@@ -80,6 +80,60 @@ def test_build_child_issues_preserves_metadata() -> None:
     assert child_issues[0]["assignees"] is not child_issues[1]["assignees"]
 
 
+def test_build_child_issues_from_parent_copies_metadata() -> None:
+    parent_issue = {
+        "title": "Parent Issue",
+        "number": 456,
+        "html_url": "https://github.com/example/repo/issues/456",
+        "labels": [{"name": "agent:codex"}, {"name": "status:ready"}],
+        "assignees": [{"login": "octo-user"}],
+        "milestone": {"number": 9, "title": "Milestone 9"},
+    }
+    child_issues = task_decomposer.build_child_issues_from_parent(
+        ["update docs", "add tests"],
+        parent_issue=parent_issue,
+    )
+    assert len(child_issues) == 2
+    for child in child_issues:
+        assert child["labels"] == ["agent:codex", "status:ready"]
+        assert child["assignees"] == ["octo-user"]
+        assert child["milestone"] == 9
+        assert child["title"].startswith("Parent Issue:")
+        assert "Parent issue: [#456](" in child["body"]
+
+
+def test_parent_child_linking_bidirectional() -> None:
+    parent_issue = {
+        "title": "Parent Issue",
+        "number": 789,
+        "html_url": "https://github.com/example/repo/issues/789",
+    }
+    child_payloads = task_decomposer.build_child_issues_from_parent(
+        ["update docs", "add tests"],
+        parent_issue=parent_issue,
+    )
+    assert child_payloads
+    for child in child_payloads:
+        assert "Parent issue: [#789](" in child["body"]
+
+    created_children = []
+    for idx, child in enumerate(child_payloads, start=1):
+        created_children.append(
+            {
+                **child,
+                "number": 900 + idx,
+                "html_url": f"https://github.com/example/repo/issues/{900 + idx}",
+            }
+        )
+
+    parent_body = "## Tasks\n- [ ] Parent task"
+    updated = task_decomposer.build_parent_issue_update(parent_body, created_children)
+    assert "## Child Issues" in updated
+    assert "- [#901](" in updated
+    assert "- [#902](" in updated
+    assert "## Tasks" in updated
+
+
 def test_decompose_task_empty_input() -> None:
     """decompose_task returns empty sub_tasks for empty input."""
     result = task_decomposer.decompose_task("")
