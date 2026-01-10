@@ -42,11 +42,15 @@ curl https://api.openai.com/v1/models \
 
 ### Verification Mode Defaults
 - **verify:evaluate**: gpt-4o (best GitHub Models option, no extra key needed)
-- **verify:compare**: gpt-5.2 (OpenAI) + Mistral-large-2407 (GitHub Models)
+- **verify:compare**: Mistral-large-2407 (GitHub Models) + gpt-5.2 (OpenAI)
 
 Note: gpt-4o-mini was found to be too lenient, passing obvious deficiencies.
 verify:compare requires OPENAI_API_KEY for gpt-5.2 but provides stricter
 cross-provider evaluation with diverse perspectives.
+
+**Important**: In compare mode, `model` (first) goes to GitHub Models, 
+`model2` goes to OpenAI. This is determined by `_get_llm_clients()` in
+`scripts/langchain/pr_verifier.py`.
 
 ### GitHub Models vs OpenAI
 
