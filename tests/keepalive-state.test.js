@@ -21,6 +21,10 @@ test('calculateElapsedTime returns 0s for invalid date strings', () => {
   assert.equal(calculateElapsedTime('invalid'), '0s');
 });
 
+test('calculateElapsedTime returns 0s for empty strings', () => {
+  assert.equal(calculateElapsedTime('  '), '0s');
+});
+
 test('calculateElapsedTime returns 0s for invalid Date objects', () => {
   const invalidDate = new Date('invalid');
   assert.equal(calculateElapsedTime(invalidDate), '0s');
