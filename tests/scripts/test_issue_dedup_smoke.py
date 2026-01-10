@@ -225,6 +225,69 @@ def test_request_json_returns_payload(monkeypatch) -> None:
     assert issue_dedup_smoke._request_json("GET", "http://example", "token", None) == {"ok": True}
 
 
+def test_request_json_retries_on_server_error(monkeypatch) -> None:
+    responses = [
+        DummyResponse(500, json_data={"message": "oops"}),
+        DummyResponse(200, json_data={"ok": True}),
+    ]
+
+    def _fake_request(method, url, headers=None, json=None, timeout=None):
+        return responses.pop(0)
+
+    sleep_calls: list[float] = []
+
+    monkeypatch.setattr(issue_dedup_smoke.requests, "request", _fake_request)
+    monkeypatch.setattr(
+        issue_dedup_smoke.time, "sleep", lambda seconds: sleep_calls.append(seconds)
+    )
+
+    assert (
+        issue_dedup_smoke._request_json(
+            "GET",
+            "http://example",
+            "token",
+            None,
+            max_attempts=2,
+            backoff=0.5,
+        )
+        == {"ok": True}
+    )
+    assert sleep_calls == [0.5]
+
+
+def test_request_json_retries_on_request_exception(monkeypatch) -> None:
+    responses = [
+        issue_dedup_smoke.requests.RequestException("boom"),
+        DummyResponse(200, json_data={"ok": True}),
+    ]
+
+    def _fake_request(method, url, headers=None, json=None, timeout=None):
+        result = responses.pop(0)
+        if isinstance(result, Exception):
+            raise result
+        return result
+
+    sleep_calls: list[float] = []
+
+    monkeypatch.setattr(issue_dedup_smoke.requests, "request", _fake_request)
+    monkeypatch.setattr(
+        issue_dedup_smoke.time, "sleep", lambda seconds: sleep_calls.append(seconds)
+    )
+
+    assert (
+        issue_dedup_smoke._request_json(
+            "GET",
+            "http://example",
+            "token",
+            None,
+            max_attempts=2,
+            backoff=0.25,
+        )
+        == {"ok": True}
+    )
+    assert sleep_calls == [0.25]
+
+
 def test_find_dedup_comment_returns_match() -> None:
     comments = [
         {"body": "Nothing here"},

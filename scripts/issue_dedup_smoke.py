@@ -18,6 +18,9 @@ from scripts.langchain import issue_dedup
 
 GITHUB_API = "https://api.github.com"
 DEFAULT_TIMEOUT = 30
+DEFAULT_RETRY_ATTEMPTS = 3
+DEFAULT_RETRY_BACKOFF = 1.0
+RETRY_STATUS_CODES = {429, 500, 502, 503, 504}
 
 
 @dataclass(frozen=True)
@@ -68,26 +71,67 @@ def parse_source_issue(data: dict[str, Any]) -> SourceIssue:
     )
 
 
-def _request_json(method: str, url: str, token: str, payload: dict[str, Any] | None) -> Any:
-    response = requests.request(
-        method,
-        url,
-        headers={
-            "Authorization": f"Bearer {token}",
-            "Accept": "application/vnd.github+json",
-        },
-        json=payload,
-        timeout=DEFAULT_TIMEOUT,
-    )
-    if response.status_code >= 400:
+def _should_retry(status_code: int, detail: Any) -> bool:
+    if status_code in RETRY_STATUS_CODES:
+        return True
+    if status_code == 403:
+        message = ""
+        if isinstance(detail, dict):
+            message = str(detail.get("message") or "")
+        else:
+            message = str(detail or "")
+        if "rate limit" in message.lower():
+            return True
+    return False
+
+
+def _sleep_with_backoff(backoff: float, attempt: int) -> None:
+    if backoff <= 0:
+        return
+    delay = backoff * (2 ** (attempt - 1))
+    time.sleep(delay)
+
+
+def _request_json(
+    method: str,
+    url: str,
+    token: str,
+    payload: dict[str, Any] | None,
+    *,
+    max_attempts: int = DEFAULT_RETRY_ATTEMPTS,
+    backoff: float = DEFAULT_RETRY_BACKOFF,
+) -> Any:
+    attempts = max(1, max_attempts)
+    for attempt in range(1, attempts + 1):
         try:
-            detail = response.json()
-        except ValueError:
-            detail = response.text
-        raise RuntimeError(f"GitHub API error {response.status_code}: {detail}")
-    if response.status_code == 204:
-        return None
-    return response.json()
+            response = requests.request(
+                method,
+                url,
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Accept": "application/vnd.github+json",
+                },
+                json=payload,
+                timeout=DEFAULT_TIMEOUT,
+            )
+        except requests.RequestException as exc:
+            if attempt >= attempts:
+                raise RuntimeError("GitHub API request failed.") from exc
+            _sleep_with_backoff(backoff, attempt)
+            continue
+        if response.status_code >= 400:
+            try:
+                detail = response.json()
+            except ValueError:
+                detail = response.text
+            if _should_retry(response.status_code, detail) and attempt < attempts:
+                _sleep_with_backoff(backoff, attempt)
+                continue
+            raise RuntimeError(f"GitHub API error {response.status_code}: {detail}")
+        if response.status_code == 204:
+            return None
+        return response.json()
+    raise RuntimeError("GitHub API request failed after retries.")
 
 
 def _build_url(base_url: str, params: dict[str, Any] | None) -> str:
