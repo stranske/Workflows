@@ -393,14 +393,9 @@ def _format_child_reference(child_issue: dict[str, Any]) -> str | None:
     url = child_issue.get("html_url") or child_issue.get("url")
     if number is None and not url:
         return None
-    if number is not None:
-        ref = f"[#{number}]({url})" if url else f"#{number}"
-    else:
-        ref = str(url)
+    ref = f"[#{number}]({url})" if number is not None else str(url)
     title = child_issue.get("title")
-    if title:
-        return f"{ref} - {title}"
-    return ref
+    return f"{ref} - {title}" if title else ref
 
 
 def build_parent_issue_update(parent_body: str, child_issues: list[dict[str, Any]]) -> str:
