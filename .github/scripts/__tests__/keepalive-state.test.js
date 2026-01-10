@@ -258,3 +258,15 @@ test('calculateElapsedTime formats elapsed time', () => {
     Date.now = realNow;
   }
 });
+
+test('calculateElapsedTime matches the documented example with Date.now', () => {
+  const realNow = Date.now;
+  const now = Date.parse('2026-01-10T20:05:23Z');
+  Date.now = () => now;
+  try {
+    const start = '2026-01-10T20:00:00Z';
+    assert.equal(calculateElapsedTime(start), '5m 23s');
+  } finally {
+    Date.now = realNow;
+  }
+});
