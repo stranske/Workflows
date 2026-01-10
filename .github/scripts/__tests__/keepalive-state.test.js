@@ -68,6 +68,11 @@ test('formatTimestamp omits milliseconds by default', () => {
   assert.equal(formatTimestamp(date), '2024-01-02T03:04:05Z');
 });
 
+test('formatTimestamp omits milliseconds when debug is false', () => {
+  const date = new Date('2024-01-02T03:04:05.678Z');
+  assert.equal(formatTimestamp(date, false), '2024-01-02T03:04:05Z');
+});
+
 test('formatTimestamp includes milliseconds in debug mode', () => {
   const date = new Date('2024-01-02T03:04:05.678Z');
   assert.equal(formatTimestamp(date, true), '2024-01-02T03:04:05.678Z');
