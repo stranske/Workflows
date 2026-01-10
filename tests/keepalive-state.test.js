@@ -52,6 +52,12 @@ test('calculateElapsedTime formats minutes and seconds', () => {
   assert.equal(calculateElapsedTime(start, now), '5m 23s');
 });
 
+test('calculateElapsedTime accepts now as a numeric string', () => {
+  const now = 1700000000000;
+  const start = new Date(now - 12 * 1000).toISOString();
+  assert.equal(calculateElapsedTime(start, String(now)), '12s');
+});
+
 test('calculateElapsedTime formats whole minutes', () => {
   const realNow = Date.now;
   const now = 1700000000000;
