@@ -504,6 +504,16 @@ jobs:
 
               core.info(`Created PR #${pr.number}`);
 
+              // Add standard agent labels to the PR
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr.number,
+                labels: ['agent:codex', 'agents:keepalive', 'autofix']
+              });
+
+              core.info(`Added agent labels to PR #${pr.number}`);
+
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
@@ -511,6 +521,7 @@ jobs:
                 body: `🤖 **Auto-pilot step ${stepCount}**: PR created!
 
             ✅ Created PR #${pr.number} from branch \`${branchName}\`
+            ✅ Added labels: \`agent:codex\`, \`agents:keepalive\`, \`autofix\`
 
             The PR will now go through CI checks. Auto-pilot will continue monitoring.`
               });
