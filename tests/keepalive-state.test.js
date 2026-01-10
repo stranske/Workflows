@@ -133,6 +133,18 @@ test('calculateElapsedTime supports numeric timestamp strings', () => {
   }
 });
 
+test('calculateElapsedTime trims numeric timestamp strings', () => {
+  const realNow = Date.now;
+  const now = 1700000000000;
+  Date.now = () => now;
+  try {
+    const start = `  ${now - 8 * 1000}  `;
+    assert.equal(calculateElapsedTime(start), '8s');
+  } finally {
+    Date.now = realNow;
+  }
+});
+
 test('calculateElapsedTime supports decimal numeric timestamp strings', () => {
   const realNow = Date.now;
   const now = 1700000000000;
