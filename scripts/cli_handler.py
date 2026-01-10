@@ -273,7 +273,11 @@ def main(argv: list[str]) -> int:
 
     allowed_scopes = _load_allowed_scopes(args.allowed_scopes, args.allowed_scopes_env, config)
     if allowed_scopes:
-        scopes = api_client.fetch_oauth_scopes(token)
+        scopes = api_client.fetch_oauth_scopes(
+            token,
+            retry_attempts=args.retry_attempts,
+            retry_backoff=args.retry_backoff,
+        )
         if scopes is None:
             print("Unable to determine token scopes; skipping scope check.", file=sys.stderr)
         else:

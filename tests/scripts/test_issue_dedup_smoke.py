@@ -310,6 +310,28 @@ def test_fetch_oauth_scopes_returns_none_without_header(monkeypatch) -> None:
     assert api_client.fetch_oauth_scopes("token") is None
 
 
+def test_fetch_oauth_scopes_retries_on_server_error(monkeypatch) -> None:
+    responses = [
+        DummyResponse(503, text="oops"),
+        DummyResponse(200, json_data={"ok": True}, headers={"X-OAuth-Scopes": "repo"}),
+    ]
+
+    def _fake_request(method, url, headers=None, json=None, timeout=None):
+        return responses.pop(0)
+
+    sleep_calls: list[float] = []
+
+    monkeypatch.setattr(api_client.requests, "request", _fake_request)
+    monkeypatch.setattr(api_client.time, "sleep", lambda seconds: sleep_calls.append(seconds))
+
+    assert api_client.fetch_oauth_scopes(
+        "token",
+        retry_attempts=2,
+        retry_backoff=0.5,
+    ) == {"repo"}
+    assert sleep_calls == [0.5]
+
+
 def test_find_dedup_comment_returns_match() -> None:
     comments = [
         {"body": "Nothing here"},
@@ -504,7 +526,7 @@ def test_main_rejects_token_with_extra_scopes(monkeypatch, capsys, tmp_path) -> 
         encoding="utf-8",
     )
     monkeypatch.setenv("TEST_TOKEN", "token")
-    monkeypatch.setattr(api_client, "fetch_oauth_scopes", lambda _: {"admin:org"})
+    monkeypatch.setattr(api_client, "fetch_oauth_scopes", lambda *_args, **_kwargs: {"admin:org"})
 
     result = cli_handler.main(
         [
@@ -532,7 +554,11 @@ def test_main_accepts_token_with_allowed_scopes(monkeypatch, tmp_path) -> None:
         encoding="utf-8",
     )
     monkeypatch.setenv("TEST_TOKEN", "token")
-    monkeypatch.setattr(api_client, "fetch_oauth_scopes", lambda _: {"public_repo"})
+    monkeypatch.setattr(
+        api_client,
+        "fetch_oauth_scopes",
+        lambda *_args, **_kwargs: {"public_repo"},
+    )
 
     result = cli_handler.main(
         [

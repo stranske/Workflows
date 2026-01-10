@@ -43,6 +43,28 @@ def _request_json(
     max_attempts: int = DEFAULT_RETRY_ATTEMPTS,
     backoff: float = DEFAULT_RETRY_BACKOFF,
 ) -> Any:
+    response = _request_response(
+        method,
+        url,
+        token,
+        payload,
+        max_attempts=max_attempts,
+        backoff=backoff,
+    )
+    if response.status_code == 204:
+        return None
+    return response.json()
+
+
+def _request_response(
+    method: str,
+    url: str,
+    token: str,
+    payload: dict[str, Any] | None,
+    *,
+    max_attempts: int = DEFAULT_RETRY_ATTEMPTS,
+    backoff: float = DEFAULT_RETRY_BACKOFF,
+) -> requests.Response:
     attempts = max(1, max_attempts)
     for attempt in range(1, attempts + 1):
         try:
@@ -72,9 +94,7 @@ def _request_json(
                 continue
             raise RuntimeError(f"GitHub API error {response.status_code}: {detail}")
 
-        if response.status_code == 204:
-            return None
-        return response.json()
+        return response
 
     raise RuntimeError("GitHub API request failed after retries.")
 
@@ -193,22 +213,19 @@ def create_issue(
     return data
 
 
-def fetch_oauth_scopes(token: str) -> set[str] | None:
-    response = requests.request(
+def fetch_oauth_scopes(
+    token: str,
+    *,
+    retry_attempts: int | None = None,
+    retry_backoff: float | None = None,
+) -> set[str] | None:
+    response = _request_response(
         "GET",
         GITHUB_API,
-        headers={
-            "Authorization": f"Bearer {token}",
-            "Accept": "application/vnd.github+json",
-        },
-        timeout=DEFAULT_TIMEOUT,
+        token,
+        payload=None,
+        **_retry_kwargs(retry_attempts, retry_backoff),
     )
-    if response.status_code >= 400:
-        try:
-            detail = response.json()
-        except ValueError:
-            detail = response.text
-        raise RuntimeError(f"GitHub API error {response.status_code}: {detail}")
     scopes_header = response.headers.get("X-OAuth-Scopes")
     if scopes_header is None:
         return None
