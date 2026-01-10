@@ -171,8 +171,7 @@ def main(argv: list[str]) -> int:
     allowlist = _load_allowlist(args.allowlist, args.allowlist_env)
     if not allowlist:
         print(
-            "Repository allowlist is empty. Set --allowlist or $"
-            f"{args.allowlist_env}.",
+            "Repository allowlist is empty. Set --allowlist or $" f"{args.allowlist_env}.",
             file=sys.stderr,
         )
         return 1
