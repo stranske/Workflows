@@ -46,6 +46,18 @@ test('calculateElapsedTime formats minutes and seconds', () => {
   }
 });
 
+test('calculateElapsedTime returns 0s for zero duration', () => {
+  const realNow = Date.now;
+  const now = 1700000000000;
+  Date.now = () => now;
+  try {
+    const start = new Date(now).toISOString();
+    assert.equal(calculateElapsedTime(start), '0s');
+  } finally {
+    Date.now = realNow;
+  }
+});
+
 test('calculateElapsedTime matches the documented example', () => {
   const realNow = Date.now;
   const start = '2026-01-10T20:00:00Z';
