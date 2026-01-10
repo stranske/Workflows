@@ -30,6 +30,15 @@ function deepMerge(target, source) {
   return result;
 }
 
+function formatTimestamp(value = new Date(), debug = false) {
+  const date = value instanceof Date ? value : new Date(value);
+  const iso = date.toISOString();
+  if (debug) {
+    return iso;
+  }
+  return iso.replace(/\.\d{3}Z$/, 'Z');
+}
+
 function parseStateComment(body) {
   if (typeof body !== 'string' || !body.includes(STATE_MARKER)) {
     return null;
@@ -243,4 +252,5 @@ module.exports = {
   formatStateComment,
   upsertStateCommentBody,
   deepMerge,
+  formatTimestamp,
 };

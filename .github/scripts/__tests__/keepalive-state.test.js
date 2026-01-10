@@ -7,6 +7,7 @@ const {
   parseStateComment,
   formatStateComment,
   deepMerge,
+  formatTimestamp,
   createKeepaliveStateManager,
   loadKeepaliveState,
 } = require('../keepalive_state.js');
@@ -60,6 +61,16 @@ test('parseStateComment extracts JSON payload', () => {
 test('deepMerge performs shallow + nested merge', () => {
   const merged = deepMerge({ a: 1, nested: { x: 1, y: 2 } }, { b: 2, nested: { y: 3, z: 4 } });
   assert.deepEqual(merged, { a: 1, b: 2, nested: { x: 1, y: 3, z: 4 } });
+});
+
+test('formatTimestamp omits milliseconds by default', () => {
+  const date = new Date('2024-01-02T03:04:05.678Z');
+  assert.equal(formatTimestamp(date), '2024-01-02T03:04:05Z');
+});
+
+test('formatTimestamp includes milliseconds in debug mode', () => {
+  const date = new Date('2024-01-02T03:04:05.678Z');
+  assert.equal(formatTimestamp(date, true), '2024-01-02T03:04:05.678Z');
 });
 
 test('createKeepaliveStateManager creates hidden comment when missing', async () => {
