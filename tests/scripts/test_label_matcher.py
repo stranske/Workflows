@@ -2,6 +2,8 @@ import sys
 import types
 from dataclasses import dataclass
 
+import pytest
+
 from scripts.langchain import label_matcher, semantic_matcher
 
 
@@ -56,6 +58,30 @@ def test_build_label_vector_store_returns_none_without_client(monkeypatch):
     assert result is None
 
 
+def test_build_label_vector_store_rejects_invalid_label_iterables():
+    with pytest.raises(ValueError, match="labels must be an iterable of label records, not None."):
+        label_matcher.build_label_vector_store(None)
+    with pytest.raises(
+        ValueError,
+        match="labels must be an iterable of label records, not a string.",
+    ):
+        label_matcher.build_label_vector_store("bug")
+    with pytest.raises(ValueError, match="labels must be an iterable of label records."):
+        label_matcher.build_label_vector_store(123)
+
+
+def test_build_label_vector_store_rejects_invalid_label_entries():
+    with pytest.raises(ValueError, match="Label entry at index 0 is missing a name."):
+        label_matcher.build_label_vector_store([{"description": "missing name"}])
+    with pytest.raises(ValueError, match="Label entry at index 0 has an empty name."):
+        label_matcher.build_label_vector_store([types.SimpleNamespace(name=" ")])
+    with pytest.raises(
+        ValueError,
+        match="Unsupported label entry at index 0: int.",
+    ):
+        label_matcher.build_label_vector_store([123])
+
+
 def test_find_similar_labels_filters_by_relevance_score():
     store = types.SimpleNamespace(
         similarity_search_with_relevance_scores=lambda query, k=5: [
@@ -92,6 +118,33 @@ def test_find_similar_labels_converts_distance_scores():
     assert matches[0].label.name == "bug"
     assert matches[0].raw_score == 0.1
     assert matches[0].score_type == "distance"
+
+
+def test_find_similar_labels_rejects_invalid_inputs():
+    vector_store = label_matcher.LabelVectorStore(
+        store=object(), provider="unit-test", model="unit-test-model", labels=[]
+    )
+
+    with pytest.raises(ValueError, match="label_store must be a LabelVectorStore instance."):
+        label_matcher.find_similar_labels(object(), "bug")
+    with pytest.raises(ValueError, match="query must be a string."):
+        label_matcher.find_similar_labels(vector_store, None)
+
+
+def test_find_similar_labels_handles_missing_metadata_name():
+    store = types.SimpleNamespace(
+        similarity_search_with_relevance_scores=lambda query, k=5: [
+            (DummyDoc("type:bug", None), 0.92),
+        ]
+    )
+    vector_store = label_matcher.LabelVectorStore(
+        store=store, provider="unit-test", model="unit-test-model", labels=[]
+    )
+
+    matches = label_matcher.find_similar_labels(vector_store, "bug", threshold=0.8)
+
+    assert len(matches) == 1
+    assert matches[0].label.name == "type:bug"
 
 
 def test_resolve_label_match_prefers_exact_for_short_labels():
