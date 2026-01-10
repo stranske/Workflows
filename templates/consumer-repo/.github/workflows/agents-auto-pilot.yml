@@ -485,17 +485,17 @@ jobs:
             // Branch exists - create PR
             core.info(`Creating PR from ${branchName}`);
 
-            // Fetch issue body to include in PR
-            const { data: issue } = await github.rest.issues.get({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: issueNumber
-            });
-
             const prTitle = `[Auto-pilot] ${issueTitle}`;
             const prBody = `<!-- meta:issue:${issueNumber} -->
 
-            ${issue.body || ''}`;
+            ## Auto-pilot PR
+
+            This PR was automatically created by the auto-pilot workflow.
+
+            Closes #${issueNumber}
+
+            ---
+            *Created by \`agents:auto-pilot\` workflow*`;
 
             try {
               const { data: pr } = await github.rest.pulls.create({
@@ -509,28 +509,15 @@ jobs:
 
               core.info(`Created PR #${pr.number}`);
 
-              // Add standard agent labels to the PR (separate try-catch to not fail PR creation)
-              let labelsAdded = false;
-              try {
-                await github.rest.issues.addLabels({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: pr.number,
-                  labels: ['agent:codex', 'agents:keepalive', 'autofix']
-                });
-                labelsAdded = true;
-                core.info(`Added agent labels to PR #${pr.number}`);
-              } catch (labelError) {
-                core.warning(
-                  `Failed to add labels to PR #${pr.number}: ${
-                    labelError && labelError.message ? labelError.message : labelError
-                  }`
-                );
-              }
+              // Add standard agent labels to the PR
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr.number,
+                labels: ['agent:codex', 'agents:keepalive', 'autofix']
+              });
 
-              const labelStatus = labelsAdded
-                ? '✅ Added labels: `agent:codex`, `agents:keepalive`, `autofix`'
-                : '⚠️ Could not add labels (add manually)';
+              core.info(`Added agent labels to PR #${pr.number}`);
 
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
@@ -539,7 +526,7 @@ jobs:
                 body: `🤖 **Auto-pilot step ${stepCount}**: PR created!
 
             ✅ Created PR #${pr.number} from branch \`${branchName}\`
-            ${labelStatus}
+            ✅ Added labels: \`agent:codex\`, \`agents:keepalive\`, \`autofix\`
 
             The PR will now go through CI checks. Auto-pilot will continue monitoring.`
               });
