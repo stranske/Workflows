@@ -637,6 +637,23 @@ jobs:
                 ? '✅ Added labels: `agent:codex`, `agents:keepalive`, `autofix`'
                 : '⚠️ Could not add labels (add manually)';
 
+              // Dispatch keepalive workflow since GITHUB_TOKEN labels don't trigger it
+              try {
+                await github.rest.actions.createWorkflowDispatch({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  workflow_id: 'agents-keepalive-loop.yml',
+                  ref: 'main',
+                  inputs: {
+                    pr_number: pr.number.toString(),
+                    force_retry: 'true'
+                  }
+                });
+                core.info(`Dispatched keepalive for PR #${pr.number}`);
+              } catch (dispatchError) {
+                core.warning(`Could not dispatch keepalive: ${dispatchError?.message}`);
+              }
+
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
