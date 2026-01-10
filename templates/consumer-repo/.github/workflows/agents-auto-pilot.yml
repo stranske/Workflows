@@ -418,15 +418,70 @@ jobs:
           script: |
             const issueNumber = parseInt(process.env.ISSUE_NUMBER);
 
+            // Find the merged PR for this issue
+            // Look for PRs with the meta marker or issue reference
+            const { data: prs } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'closed',
+              sort: 'updated',
+              direction: 'desc',
+              per_page: 20
+            });
+
+            // Find PR that references this issue
+            const linkedPr = prs.find(pr =>
+              pr.merged_at && (
+                pr.body?.includes(`meta:issue:${issueNumber}`) ||
+                pr.body?.includes(`#${issueNumber}`) ||
+                pr.title?.includes(`#${issueNumber}`)
+              )
+            );
+
+            if (!linkedPr) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                body: `🤖 **Auto-pilot**: Issue closed but couldn't find linked merged PR.
+
+            Adding \`verify:evaluate\` label to issue for tracking.`
+              });
+
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                labels: ['verify:evaluate']
+              });
+              return;
+            }
+
+            core.info(`Found merged PR #${linkedPr.number} for issue #${issueNumber}`);
+
+            const verifyMsg = [
+              `🤖 **Auto-pilot**: Issue closed.`,
+              `Triggering verification on PR #${linkedPr.number}...`,
+              '',
+              'Adding `verify:evaluate` label to PR.'
+            ].join('\n');
+
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: issueNumber,
-              body: `🤖 **Auto-pilot**: Issue closed. Triggering verification...
-
-            Adding \`verify:evaluate\` label.`
+              body: verifyMsg
             });
 
+            // Add verify label to the merged PR (this triggers agents-verifier.yml)
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: linkedPr.number,
+              labels: ['verify:evaluate']
+            });
+
+            // Also add to issue for tracking
             await github.rest.issues.addLabels({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -485,17 +540,21 @@ jobs:
             // Branch exists - create PR
             core.info(`Creating PR from ${branchName}`);
 
+            // Fetch issue body to include in PR
+            const { data: issue } = await github.rest.issues.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber
+            });
+
             const prTitle = `[Auto-pilot] ${issueTitle}`;
-            const prBody = `<!-- meta:issue:${issueNumber} -->
-
-            ## Auto-pilot PR
-
-            This PR was automatically created by the auto-pilot workflow.
-
-            Closes #${issueNumber}
-
-            ---
-            *Created by \`agents:auto-pilot\` workflow*`;
+            const prBody = [
+              `<!-- meta:issue:${issueNumber} -->`,
+              '',
+              `Closes #${issueNumber}`,
+              '',
+              issue.body || ''
+            ].join('\n');
 
             try {
               const { data: pr } = await github.rest.pulls.create({
