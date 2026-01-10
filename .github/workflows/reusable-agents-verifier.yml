@@ -104,12 +104,15 @@ jobs:
             const maxWaitMs = Number(process.env.CI_WAIT_TIMEOUT_MS) || 300000;
             const pollIntervalMs = 15000;
             const startTime = Date.now();
+            let rateLimitHits = 0;
+            const maxRateLimitHits = 3;  // Give up after 3 consecutive rate limits
 
             core.info(`Waiting for CI workflows to complete for SHA ${targetSha}...`);
 
             while (Date.now() - startTime < maxWaitMs) {
               let allComplete = true;
               let anyFound = false;
+              let hitRateLimit = false;
 
               for (const workflowFile of ciWorkflows) {
                 try {
@@ -128,8 +131,24 @@ jobs:
                       allComplete = false;
                     }
                   }
+                  rateLimitHits = 0;  // Reset on success
                 } catch (err) {
-                  core.warning(`Failed to check ${workflowFile}: ${err.message}`);
+                  // Check for rate limit error
+                  if (err.message && err.message.includes('rate limit')) {
+                    hitRateLimit = true;
+                    core.warning(`Rate limited checking ${workflowFile}, will skip CI wait`);
+                  } else {
+                    core.warning(`Failed to check ${workflowFile}: ${err.message}`);
+                  }
+                }
+              }
+
+              // If rate limited, skip CI wait - verifier runs on merged PRs, CI is already done
+              if (hitRateLimit) {
+                rateLimitHits++;
+                if (rateLimitHits >= maxRateLimitHits) {
+                  core.info(`Rate limited ${rateLimitHits} times, skipping CI wait (PR is already merged, CI is done)`);
+                  return;
                 }
               }
 
