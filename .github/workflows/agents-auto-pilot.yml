@@ -504,6 +504,29 @@ jobs:
 
               core.info(`Created PR #${pr.number}`);
 
+              // Add standard agent labels to the PR (separate try-catch to not fail PR creation)
+              let labelsAdded = false;
+              try {
+                await github.rest.issues.addLabels({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: pr.number,
+                  labels: ['agent:codex', 'agents:keepalive', 'autofix']
+                });
+                labelsAdded = true;
+                core.info(`Added agent labels to PR #${pr.number}`);
+              } catch (labelError) {
+                core.warning(
+                  `Failed to add labels to PR #${pr.number}: ${
+                    labelError && labelError.message ? labelError.message : labelError
+                  }`
+                );
+              }
+
+              const labelStatus = labelsAdded
+                ? '✅ Added labels: `agent:codex`, `agents:keepalive`, `autofix`'
+                : '⚠️ Could not add labels (add manually)';
+
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
@@ -511,6 +534,7 @@ jobs:
                 body: `🤖 **Auto-pilot step ${stepCount}**: PR created!
 
             ✅ Created PR #${pr.number} from branch \`${branchName}\`
+            ${labelStatus}
 
             The PR will now go through CI checks. Auto-pilot will continue monitoring.`
               });
