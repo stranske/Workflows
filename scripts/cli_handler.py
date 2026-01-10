@@ -282,8 +282,7 @@ def main(argv: list[str]) -> int:
                 extras = ", ".join(sorted(extra_scopes))
                 allowed = ", ".join(sorted(allowed_scopes))
                 print(
-                    "Token scopes exceed allowed scopes. "
-                    f"Extras: {extras}. Allowed: {allowed}.",
+                    "Token scopes exceed allowed scopes. " f"Extras: {extras}. Allowed: {allowed}.",
                     file=sys.stderr,
                 )
                 return 1
