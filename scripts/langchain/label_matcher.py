@@ -324,9 +324,12 @@ def _exact_short_label_match(label_store: LabelVectorStore, query: str) -> Label
 def _token_matches_keyword(token: str, keyword: str) -> bool:
     if token == keyword:
         return True
+    # Only allow prefix matching for tokens >= 4 chars to avoid false positives
+    # from short tokens like "d" matching "defect" or "a" matching "add"
     if len(token) >= 4 and token.startswith(keyword):
         return True
-    return bool(len(keyword) >= 4 and keyword.startswith(token))
+    # Check if keyword starts with token (both must be >= 4 chars)
+    return len(token) >= 4 and len(keyword) >= 4 and keyword.startswith(token)
 
 
 def _keyword_match_score(label: LabelRecord, query: str) -> float | None:
