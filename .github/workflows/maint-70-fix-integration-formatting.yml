@@ -39,11 +39,12 @@ jobs:
       - name: Apply formatting fixes
         run: |
           cd integration-tests
-          echo "Running black on Python files..."
-          black scripts/ tests/ src/ || true
+          echo "Running black on Python files (using pyproject.toml config)..."
+          # Black will use line-length=100 from pyproject.toml
+          black --exclude '\.workflows-lib' . || true
           
           echo "Running ruff fixes..."
-          ruff check --fix scripts/ tests/ src/ || true
+          ruff check --fix --exclude '.workflows-lib' . || true
 
       - name: Check for changes
         id: changes
