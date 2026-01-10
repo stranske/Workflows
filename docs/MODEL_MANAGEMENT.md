@@ -27,16 +27,26 @@ curl https://api.openai.com/v1/models \
 
 ## Model Selection Guidelines
 
-### High Quality Models (for critical evaluation)
-- **o1**: Latest reasoning model from OpenAI
-- **gpt-4o**: Current flagship multimodal model
-- **gpt-4-turbo**: Fast, capable GPT-4 variant
+### GitHub Models (no extra API key required)
+- **gpt-4o**: Default for verify:evaluate - best available on GitHub Models
+- **Mistral-large-2407**: Mistral flagship, used for cross-family comparison
+- **Meta-Llama-3.1-405B-Instruct**: Meta's largest model
+
+### OpenAI Models (requires OPENAI_API_KEY)
+- **o1 / o1-preview**: Reasoning models - best for critical evaluation
+- **gpt-5.2**: High-quality strict evaluation
 
 ### Efficient Models (for rapid iteration)
-- **o3-mini**: Small reasoning model
-- **o1-mini**: Smaller reasoning model  
-- **gpt-4o-mini**: Fast, cost-effective GPT-4o
-- **gpt-3.5-turbo**: Budget-friendly option
+- **gpt-4o-mini**: Fast, cost-effective (but too lenient for verification)
+- **Mistral-Nemo**: Smaller Mistral model
+
+### Verification Mode Defaults
+- **verify:evaluate**: gpt-4o (best GitHub Models option, no extra key needed)
+- **verify:compare**: gpt-5.2 (OpenAI) + Mistral-large-2407 (GitHub Models)
+
+Note: gpt-4o-mini was found to be too lenient, passing obvious deficiencies.
+verify:compare requires OPENAI_API_KEY for gpt-5.2 but provides stricter
+cross-provider evaluation with diverse perspectives.
 
 ### GitHub Models vs OpenAI
 

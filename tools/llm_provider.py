@@ -31,7 +31,9 @@ logger = logging.getLogger(__name__)
 
 # GitHub Models API endpoint (OpenAI-compatible)
 GITHUB_MODELS_BASE_URL = "https://models.inference.ai.azure.com"
-DEFAULT_MODEL = "gpt-4o-mini"
+# Use gpt-4o for evaluation - best available on GitHub Models
+# gpt-4o-mini was too lenient and passed obvious deficiencies
+DEFAULT_MODEL = "gpt-4o"
 
 
 def _setup_langsmith_tracing() -> bool:
