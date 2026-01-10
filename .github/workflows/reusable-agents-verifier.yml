@@ -173,7 +173,17 @@ jobs:
           script: |
             const { buildVerifierContext } = require('./.workflows-lib/.github/scripts/agents_verifier_context.js');
             const ciWorkflows = process.env.CI_WORKFLOWS || '[]';
-            await buildVerifierContext({ github, context, core, ciWorkflows });
+            try {
+              await buildVerifierContext({ github, context, core, ciWorkflows });
+            } catch (err) {
+              if (err.message && err.message.includes('rate limit')) {
+                core.warning(`Rate limited while building context: ${err.message}`);
+                core.setOutput('should_run', 'false');
+                core.setOutput('skip_reason', 'Rate limited - please retry later');
+              } else {
+                throw err;
+              }
+            }
 
       - name: Stop when verifier is skipped
         if: steps.context.outputs.should_run != 'true'
