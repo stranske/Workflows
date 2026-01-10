@@ -7,9 +7,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from scripts import api_client
-from scripts import cli_handler
-from scripts import duplicate_detection
+from scripts import api_client, cli_handler, duplicate_detection
 from scripts.langchain import issue_dedup
 
 

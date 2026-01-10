@@ -246,7 +246,9 @@ def main(argv: list[str]) -> int:
         print(payload)
         return 0
 
-    created = api_client.create_issue(args.repo, token, payload["title"], payload.get("body"), labels)
+    created = api_client.create_issue(
+        args.repo, token, payload["title"], payload.get("body"), labels
+    )
     issue_url = created.get("html_url") or created.get("url") or "unknown"
     print(f"Issue created: {issue_url}")
     return 0
