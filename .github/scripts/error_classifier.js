@@ -188,6 +188,8 @@ function classifyByMessage(message) {
 
 function classifyError(error) {
   const message = normaliseMessage(error);
+  const preview = message ? message.slice(0, 50) : 'unknown';
+  console.log(`[error_classifier] Classifying error: ${preview}`);
   const status = getStatusCode(error);
 
   const statusCategory = status ? classifyByStatus(status, message) : null;
