@@ -14,8 +14,9 @@ permissions:
 
 env:
   # Similarity threshold for flagging duplicates (0.0-1.0)
-  # 0.85 = very similar, reduces false positives
-  SIMILARITY_THRESHOLD: "0.85"
+  # 0.92 = very high similarity required, reduces false positives from
+  # issues in the same domain/feature area that share vocabulary
+  SIMILARITY_THRESHOLD: "0.92"
 
 jobs:
   dedup:
@@ -122,8 +123,30 @@ jobs:
           new_body = os.environ.get('NEW_ISSUE_BODY', '')
           query = f'{new_title}\n\n{new_body}'
 
-          threshold = float(os.environ.get('SIMILARITY_THRESHOLD', '0.85'))
+          threshold = float(os.environ.get('SIMILARITY_THRESHOLD', '0.92'))
           matches = find_similar_issues(store, query, threshold=threshold, k=3)
+
+          # Additional filter: require title similarity for true duplicates
+          # This reduces false positives from issues in the same domain/feature area
+          # that share vocabulary but are different tasks
+          filtered_matches = []
+          new_title_lower = new_title.lower().strip()
+          for m in matches:
+              match_title_lower = m.issue.title.lower().strip()
+              # Check for significant title overlap
+              title_words_new = set(new_title_lower.split())
+              title_words_match = set(match_title_lower.split())
+              shared_words = title_words_new.intersection(title_words_match)
+              # Require at least 40% of words to overlap for a duplicate flag
+              max_words = max(len(title_words_new), len(title_words_match), 1)
+              overlap_ratio = len(shared_words) / max_words
+              if m.score >= 0.95 or overlap_ratio >= 0.4:
+                  filtered_matches.append(m)
+                  print(f'  Match #{m.issue.number}: {m.score:.0%}, overlap={overlap_ratio:.0%}')
+              else:
+                  print(f'  Skip #{m.issue.number}: {m.score:.0%}, overlap={overlap_ratio:.0%}')
+
+          matches = filtered_matches
 
           if not matches:
               print('No duplicates found above threshold')
