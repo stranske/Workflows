@@ -121,6 +121,18 @@ test('calculateElapsedTime supports Date and number inputs', () => {
   }
 });
 
+test('calculateElapsedTime supports numeric timestamp strings', () => {
+  const realNow = Date.now;
+  const now = 1700000000000;
+  Date.now = () => now;
+  try {
+    const start = String(now - 15 * 1000);
+    assert.equal(calculateElapsedTime(start), '15s');
+  } finally {
+    Date.now = realNow;
+  }
+});
+
 test('loadKeepaliveState records current iteration timestamp', async () => {
   const realNow = Date.now;
   const now = 1700000000000;

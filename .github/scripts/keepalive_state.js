@@ -52,6 +52,10 @@ function resolveTimestampMs(value) {
   if (!text) {
     return null;
   }
+  if (/^\d+(\.\d+)?$/.test(text)) {
+    const parsedNumber = Number(text);
+    return Number.isFinite(parsedNumber) ? parsedNumber : null;
+  }
   const parsed = Date.parse(text);
   return Number.isFinite(parsed) ? parsed : null;
 }
