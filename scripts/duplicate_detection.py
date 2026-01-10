@@ -106,10 +106,18 @@ def find_source_issue(
     query: str,
     labels: list[str] | None,
     pages: int,
+    retry_attempts: int | None = None,
+    retry_backoff: float | None = None,
 ) -> SourceIssue | None:
     max_pages = max(pages, 1)
     for page in range(1, max_pages + 1):
-        issues = api_client.fetch_issues(repo, token, labels=labels, page=page)
+        issues = api_client.fetch_issues(
+            repo,
+            token,
+            labels=labels,
+            page=page,
+            **_api_retry_kwargs(retry_attempts, retry_backoff),
+        )
         match = select_issue_by_query(issues, query)
         if match is not None:
             return match
@@ -126,11 +134,19 @@ def collect_matching_issues(
     labels: list[str] | None,
     pages: int,
     limit: int | None = None,
+    retry_attempts: int | None = None,
+    retry_backoff: float | None = None,
 ) -> list[SourceIssue]:
     max_pages = max(pages, 1)
     matches: list[SourceIssue] = []
     for page in range(1, max_pages + 1):
-        issues = api_client.fetch_issues(repo, token, labels=labels, page=page)
+        issues = api_client.fetch_issues(
+            repo,
+            token,
+            labels=labels,
+            page=page,
+            **_api_retry_kwargs(retry_attempts, retry_backoff),
+        )
         matches.extend(filter_issues_by_query(issues, query))
         if limit is not None and len(matches) >= limit:
             return matches[:limit]
@@ -225,6 +241,18 @@ def _backoff_delay(base_interval: float, attempt_index: int) -> float:
     return min(delay, MAX_BACKOFF_SECONDS)
 
 
+def _api_retry_kwargs(
+    retry_attempts: int | None,
+    retry_backoff: float | None,
+) -> dict[str, Any]:
+    kwargs: dict[str, Any] = {}
+    if retry_attempts is not None:
+        kwargs["retry_attempts"] = retry_attempts
+    if retry_backoff is not None:
+        kwargs["retry_backoff"] = retry_backoff
+    return kwargs
+
+
 def check_issue_for_duplicate(
     repo: str,
     issue_number: int,
@@ -232,10 +260,17 @@ def check_issue_for_duplicate(
     *,
     attempts: int,
     interval: float,
+    retry_attempts: int | None = None,
+    retry_backoff: float | None = None,
 ) -> dict[str, Any] | None:
     max_attempts = max(attempts, 1)
     for attempt in range(max_attempts):
-        comments = api_client.fetch_issue_comments(repo, issue_number, token)
+        comments = api_client.fetch_issue_comments(
+            repo,
+            issue_number,
+            token,
+            **_api_retry_kwargs(retry_attempts, retry_backoff),
+        )
         match = find_dedup_comment(comments)
         if match is not None:
             return match
@@ -253,10 +288,17 @@ def check_issue_for_no_duplicate(
     *,
     attempts: int,
     interval: float,
+    retry_attempts: int | None = None,
+    retry_backoff: float | None = None,
 ) -> bool:
     max_attempts = max(attempts, 1)
     for attempt in range(max_attempts):
-        comments = api_client.fetch_issue_comments(repo, issue_number, token)
+        comments = api_client.fetch_issue_comments(
+            repo,
+            issue_number,
+            token,
+            **_api_retry_kwargs(retry_attempts, retry_backoff),
+        )
         if find_dedup_comment(comments) is not None:
             return False
         if attempt < max_attempts - 1:
