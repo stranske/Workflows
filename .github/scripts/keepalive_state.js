@@ -236,8 +236,7 @@ async function loadKeepaliveState({ github, context, prNumber, trace }) {
 }
 
 function reset() {
-  const timestamp = new Date().toISOString();
-  console.log(`[keepalive_state] Reset at ${timestamp}`);
+  console.log(`[keepalive_state] Reset at ${new Date().toISOString()}`);
   return { state: {}, commentId: 0, commentUrl: '' };
 }
 
