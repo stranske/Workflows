@@ -74,7 +74,9 @@ def _simulate_agents_dedup_workflow(
             )
         )
     results = list(zip(docs, scores, strict=False))
-    store = issue_dedup.IssueVectorStore(store=_FakeStore(results), provider="fake", model="fake", issues=open_issues)
+    store = issue_dedup.IssueVectorStore(
+        store=_FakeStore(results), provider="fake", model="fake", issues=open_issues
+    )
     query = f"{new_title}\n\n{new_body}"
     matches = issue_dedup.find_similar_issues(store, query, threshold=threshold, k=3)
     if not matches:
