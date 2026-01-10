@@ -119,6 +119,28 @@ def _coerce_label(item: Any) -> LabelRecord | None:
     )
 
 
+def _ensure_label_iterable(labels: Iterable[Any]) -> Iterable[Any]:
+    if labels is None:
+        raise ValueError("labels must be an iterable of label records, not None.")
+    if isinstance(labels, (str, bytes)):
+        raise ValueError("labels must be an iterable of label records, not a string.")
+    if not isinstance(labels, Iterable):
+        raise ValueError("labels must be an iterable of label records.")
+    return labels
+
+
+def _ensure_label_store(label_store: LabelVectorStore) -> LabelVectorStore:
+    if not isinstance(label_store, LabelVectorStore):
+        raise ValueError("label_store must be a LabelVectorStore instance.")
+    return label_store
+
+
+def _ensure_query_text(query: Any) -> str:
+    if query is None or not isinstance(query, str):
+        raise ValueError("query must be a string.")
+    return query
+
+
 def _label_text(label: LabelRecord) -> str:
     description = (label.description or "").strip()
     if description:
@@ -133,10 +155,18 @@ def build_label_vector_store(
     model: str | None = None,
 ) -> LabelVectorStore | None:
     label_records: list[LabelRecord] = []
-    for item in labels:
+    for index, item in enumerate(_ensure_label_iterable(labels)):
         record = _coerce_label(item)
         if record is not None:
             label_records.append(record)
+        else:
+            if isinstance(item, Mapping):
+                raise ValueError(f"Label entry at index {index} is missing a name.")
+            if getattr(item, "name", None) is not None or getattr(item, "label", None) is not None:
+                raise ValueError(f"Label entry at index {index} has an empty name.")
+            raise ValueError(
+                f"Unsupported label entry at index {index}: {type(item).__name__}."
+            )
 
     if not label_records:
         return None
@@ -277,7 +307,9 @@ def find_similar_labels(
     threshold: float | None = None,
     k: int | None = None,
 ) -> list[LabelMatch]:
-    if not query or not query.strip():
+    label_store = _ensure_label_store(label_store)
+    query = _ensure_query_text(query)
+    if not query.strip():
         return []
 
     store = label_store.store
@@ -335,6 +367,8 @@ def resolve_label_match(
     threshold: float | None = None,
     k: int | None = None,
 ) -> LabelMatch | None:
+    label_store = _ensure_label_store(label_store)
+    query = _ensure_query_text(query)
     exact = _exact_short_label_match(label_store, query)
     if exact is not None:
         return exact
