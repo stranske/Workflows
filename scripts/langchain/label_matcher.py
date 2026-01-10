@@ -43,6 +43,95 @@ KEYWORD_BUG_SCORE = 0.91
 KEYWORD_FEATURE_SCORE = 0.9
 KEYWORD_DOCS_SCORE = 0.9
 _IGNORED_LABEL_TOKENS = {"type", "kind"}
+# Common words that appear in label descriptions but shouldn't trigger keyword matching
+_COMMON_STOPWORDS = {
+    "this",
+    "that",
+    "the",
+    "a",
+    "an",
+    "is",
+    "are",
+    "or",
+    "and",
+    "for",
+    "to",
+    "of",
+    "in",
+    "on",
+    "with",
+    "be",
+    "it",
+    "not",
+    "if",
+    "by",
+    "as",
+    "at",
+    "from",
+    "has",
+    "have",
+    "can",
+    "will",
+    "would",
+    "should",
+    "may",
+    "might",
+    "must",
+    "need",
+    "issue",
+    "issues",
+    "pull",
+    "request",
+    "requests",
+    "information",
+    "further",
+    "already",
+    "exists",
+    "changes",
+    "additions",
+    "improvements",
+    "triggers",
+    "analysis",
+    "suggestions",
+    "formatted",
+    "template",
+    "format",
+    "optimize",
+    "optimization",
+    "new",
+    "code",
+    "clean",
+    "only",
+    "create",
+    "follow",
+    "up",
+    "verification",
+    "acceptance",
+    "criteria",
+    "checkbox",
+    "evaluate",
+    "evaluation",
+    "compare",
+    "comparison",
+    "multiple",
+    "models",
+    "providers",
+    "decompose",
+    "break",
+    "down",
+    "large",
+    "tasks",
+    "smaller",
+    "maintainable",
+    "requires",
+    "human",
+    "intervention",
+    "attention",
+    "help",
+    "wanted",
+    "good",
+    "first",
+}
 _BUG_KEYWORDS = {
     "bug",
     "bugs",
@@ -246,19 +335,25 @@ def _keyword_match_score(label: LabelRecord, query: str) -> float | None:
         return None
 
     query_lower = query.lower()
-    label_text = " ".join(part for part in (label.name, label.description) if part)
-    label_tokens = _tokenize(label_text) - _IGNORED_LABEL_TOKENS
-    if label_tokens and label_tokens.intersection(tokens):
+    # Only match on significant tokens, excluding common stopwords
+    significant_tokens = tokens - _COMMON_STOPWORDS
+
+    # Require label NAME to appear in query for high-confidence keyword match
+    # (not just overlapping description tokens)
+    label_name_tokens = _tokenize(label.name) - _IGNORED_LABEL_TOKENS
+    if label_name_tokens and label_name_tokens.intersection(significant_tokens):
         return 0.95
 
-    normalized = _normalize_label(label_text)
+    # Use label NAME only (not description) for category matching to avoid false positives
+    # e.g., "duplicate" description contains "request" but shouldn't match feature keywords
+    label_name_normalized = _normalize_label(label.name)
     score = 0.0
 
-    if "bug" in normalized and any(
+    if "bug" in label_name_normalized and any(
         _token_matches_keyword(token, keyword) for token in tokens for keyword in _BUG_KEYWORDS
     ):
         score = max(score, KEYWORD_BUG_SCORE)
-    if any(tag in normalized for tag in ("feature", "enhancement", "request")) and (
+    if any(tag in label_name_normalized for tag in ("feature", "enhancement", "request")) and (
         any(
             _token_matches_keyword(token, keyword)
             for token in tokens
@@ -267,7 +362,7 @@ def _keyword_match_score(label: LabelRecord, query: str) -> float | None:
         or any(phrase in query_lower for phrase in _FEATURE_PHRASES)
     ):
         score = max(score, KEYWORD_FEATURE_SCORE)
-    if "doc" in normalized and any(
+    if "doc" in label_name_normalized and any(
         _token_matches_keyword(token, keyword) for token in tokens for keyword in _DOCS_KEYWORDS
     ):
         score = max(score, KEYWORD_DOCS_SCORE)
