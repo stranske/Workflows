@@ -19,6 +19,34 @@ const IGNORED_CONFLICT_FILES = [
   'residual-trend-history.ndjson',
 ];
 
+// Comments from automation often mention "conflict" but should not block execution.
+const IGNORED_COMMENT_AUTHORS = new Set([
+  'github-actions[bot]',
+  'github-merge-queue[bot]',
+  'dependabot[bot]',
+  'github',
+]);
+
+const IGNORED_COMMENT_MARKERS = [
+  '<!-- keepalive-state',
+  'keepalive-loop-summary',
+  'auto-status-summary',
+];
+
+function isIgnoredComment(comment) {
+  if (!comment) {
+    return false;
+  }
+
+  const author = comment.user?.login || '';
+  if (comment.user?.type === 'Bot' || IGNORED_COMMENT_AUTHORS.has(author)) {
+    return true;
+  }
+
+  const body = comment.body || '';
+  return IGNORED_COMMENT_MARKERS.some((marker) => body.includes(marker));
+}
+
 /**
  * Check if a file should be excluded from conflict detection.
  * @param {string} filename - File path to check
@@ -223,8 +251,10 @@ async function checkCommentsForConflicts(github, context, prNumber) {
       per_page: 20,
     });
 
-    // Check recent comments (last 10)
-    const recentComments = comments.slice(-10);
+    // Check recent comments (last 10) and ignore bot/system noise
+    const recentComments = comments
+      .filter((comment) => !isIgnoredComment(comment))
+      .slice(-10);
 
     for (const comment of recentComments) {
       for (const pattern of CONFLICT_PATTERNS) {
