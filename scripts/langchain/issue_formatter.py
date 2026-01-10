@@ -362,9 +362,7 @@ def _apply_task_decomposition(formatted: str, *, use_llm: bool) -> str:
 
     from scripts.langchain import issue_optimizer
 
-    return issue_optimizer._apply_task_decomposition(
-        formatted, {"task_splitting": suggestions}
-    )
+    return issue_optimizer._apply_task_decomposition(formatted, {"task_splitting": suggestions})
 
 
 def format_issue_body(issue_body: str, *, use_llm: bool = True) -> dict[str, Any]:

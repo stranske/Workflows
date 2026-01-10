@@ -403,9 +403,7 @@ def _format_child_reference(child_issue: dict[str, Any]) -> str | None:
     return ref
 
 
-def build_parent_issue_update(
-    parent_body: str, child_issues: list[dict[str, Any]]
-) -> str:
+def build_parent_issue_update(parent_body: str, child_issues: list[dict[str, Any]]) -> str:
     child_refs: list[str] = []
     seen: set[str] = set()
     for child in child_issues:
