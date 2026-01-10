@@ -35,8 +35,9 @@ function deepMerge(target, source) {
   return result;
 }
 
-function formatTimestamp(value = new Date(), { debug = false } = {}) {
+function formatTimestamp(value = new Date(), options = {}) {
   const date = value instanceof Date ? value : new Date(value);
+  const debug = typeof options === 'boolean' ? options : options?.debug === true;
   const iso = date.toISOString();
   if (debug) {
     return iso;
