@@ -235,6 +235,12 @@ async function loadKeepaliveState({ github, context, prNumber, trace }) {
   };
 }
 
+function reset() {
+  const timestamp = new Date().toISOString();
+  console.log(`[keepalive_state] Reset at ${timestamp}`);
+  return { state: {}, commentId: 0, commentUrl: '' };
+}
+
 module.exports = {
   createKeepaliveStateManager,
   saveKeepaliveState,
@@ -243,4 +249,5 @@ module.exports = {
   formatStateComment,
   upsertStateCommentBody,
   deepMerge,
+  reset,
 };
