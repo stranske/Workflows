@@ -59,6 +59,19 @@ test('calculateElapsedTime handles edge cases', () => {
   }
 });
 
+test('calculateElapsedTime supports Date and number inputs', () => {
+  const realNow = Date.now;
+  const now = 1700000000000;
+  Date.now = () => now;
+  try {
+    const startDate = new Date(now - 9 * 1000);
+    assert.equal(calculateElapsedTime(startDate), '9s');
+    assert.equal(calculateElapsedTime(now - 12 * 1000), '12s');
+  } finally {
+    Date.now = realNow;
+  }
+});
+
 test('loadKeepaliveState records current iteration timestamp', async () => {
   const realNow = Date.now;
   const now = 1700000000000;
