@@ -34,6 +34,7 @@ the centralized CI and automation workflows from stranske/Workflows.
 | `agents-guard.yml` | Security gate for agent workflows | None |
 | `agents-verifier.yml` | Validates agent completions | `SERVICE_BOT_PAT` |
 | `agents-autofix-loop.yml` | Autofix integration with keepalive | `SERVICE_BOT_PAT` |
+| `agents-auto-pilot.yml` | End-to-end automation orchestrator | None |
 
 **Note:** `agents-orchestrator.yml` is legacy. New setups should use `agents-keepalive-loop.yml` which integrates with the Gate workflow for more reliable triggering.
 
@@ -85,6 +86,7 @@ Key components:
 - **agents-keepalive-loop.yml**: Triggered by Gate completion, PR labels
 - **agents-pr-meta.yml**: Updates PR status summary with task progress
 - **agents-guard.yml**: Security checks before agent execution
+- **agents-auto-pilot.yml**: End-to-end orchestrator (format → optimize → agent → verify)
 - **.github/codex/prompts/**: Agent instruction templates
 - **.github/codex/AGENT_INSTRUCTIONS.md**: Agent-specific guidelines
 

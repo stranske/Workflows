@@ -84,6 +84,9 @@ workflows:
   - source: .github/workflows/agents-guard.yml
     description: "Agents guard - enforces agents workflow protections (Health 45)"
 
+  - source: .github/workflows/agents-auto-pilot.yml
+    description: "Auto-pilot - end-to-end automation orchestrator (format → optimize → agent → verify)"
+
   # Maintenance workflows
   - source: .github/workflows/maint-coverage-guard.yml
     description: "Coverage guard - daily baseline monitoring with automatic issue creation"
