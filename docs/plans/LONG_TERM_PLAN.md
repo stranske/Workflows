@@ -111,93 +111,38 @@ With Phase 3 complete (capability check, task decomposition, duplicate detection
 
 ---
 
-### 4C. Auto-Pilot Workflow (`agents:auto-pilot`)
+### 4C. Auto-Pilot Workflow (`agents:auto-pilot`) ✅ IMPLEMENTED
 
-**Priority:** MEDIUM - High impact, high risk
-**Effort:** 2-3 days implementation + 1 week testing
-
-**Concept:** Single label triggers complete issue-to-merged-PR flow
-
-**State Machine:**
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                    agents:auto-pilot                                │
-└─────────────────────────────────────────────────────────────────────┘
-         │
-         ▼
-┌─────────────────┐     ┌─────────────────┐
-│ Step 1: Format  │────▶│ Step 2: Optimize│
-│ agents:format   │     │ agents:optimize │
-└─────────────────┘     └─────────────────┘
-                               │
-                               ▼
-                        ┌─────────────────┐
-                        │ Step 3: Apply   │
-                        │ apply-suggestions│
-                        └─────────────────┘
-                               │
-                               ▼
-                        ┌─────────────────┐
-                        │ Step 4: Check   │──▶ FAIL: needs-human
-                        │ capability_check│
-                        └─────────────────┘
-                               │ PASS
-                               ▼
-                        ┌─────────────────┐
-                        │ Step 5: Agent   │
-                        │ agent:codex     │
-                        └─────────────────┘
-                               │
-                               ▼ (PR created)
-                        ┌─────────────────┐
-                        │ Step 6: Keepalive│
-                        │ + Autofix       │
-                        └─────────────────┘
-                               │
-                               ▼ (CI green)
-                        ┌─────────────────┐
-                        │ Step 7: Merge   │
-                        │ automerge       │
-                        └─────────────────┘
-                               │
-                               ▼ (merged)
-                        ┌─────────────────┐
-                        │ Step 8: Verify  │
-                        │ verify:evaluate │
-                        └─────────────────┘
-```
-
-**Safety Controls:**
-| Control | Limit | Action on Breach |
-|---------|-------|------------------|
-| Max keepalive cycles | 10 | Add `needs-human`, pause |
-| Max wall time | 4 hours | Add `needs-human`, pause |
-| Token budget | 100K per issue | Add `needs-human`, pause |
-| Consecutive failures | 3 | Escalate to human |
-
-**Pause/Resume:**
-- `agents:auto-pilot-pause` stops at current step
-- Re-adding `agents:auto-pilot` resumes from last step
-
-**Testing Plan:**
-1. Start with simple issues (rename, refactor)
-2. Graduate to bug fixes
-3. Eventually simple features
-4. NEVER: Infrastructure, breaking changes, security
+**Status:** Initial implementation complete (2026-01-10)
 
 **Implementation:**
-- [ ] Design state persistence (issue comments or labels)
-- [ ] Create `agents-auto-pilot.yml` orchestrator
-- [ ] Add progress comments at each step
-- [ ] Implement failure handling
-- [ ] Add budget tracking
-- [ ] Test on Manager-Database (low-risk issues only)
+- ✅ `agents-auto-pilot.yml` workflow created (380 lines)
+- ✅ State machine via label detection
+- ✅ Progress comments at each step (cycle tracking)
+- ✅ Safety controls: 10 cycle max, pause/failed labels
+- ✅ Labels created: `agents:auto-pilot`, `agents:auto-pilot-pause`, `agents:auto-pilot-failed`
+
+**Flow:**
+1. User adds `agents:auto-pilot` to issue
+2. Workflow checks state → adds `agents:format`
+3. Format completes → workflow adds `agents:optimize`
+4. Optimize completes → workflow adds `agents:apply-suggestions`
+5. Apply completes → workflow adds `agent:codex`
+6. Agent creates PR → keepalive/autofix monitor
+7. PR merged → issue closed → workflow adds `verify:evaluate`
+8. Verification complete → auto-pilot removes itself
+
+**Testing Needed:**
+- [ ] Create test issue with `agents:auto-pilot`
+- [ ] Verify each step transition
+- [ ] Test pause/resume functionality
+- [ ] Test failure handling (exceed cycle limit)
 
 ---
 
 ### 4D. Conflict Resolution ✅ IMPLEMENTED
 
-**Status:** Code complete, needs testing
+**Status:** Code complete, deployed to all 7 repos
 
 **Implementation:**
 - ✅ `conflict_detector.js` (366 lines)

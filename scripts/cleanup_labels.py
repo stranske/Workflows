@@ -50,6 +50,10 @@ FUNCTIONAL_LABELS = {
     "agents:formatted",
     "agents:optimize",
     "agents:apply-suggestions",
+    # Auto-pilot (end-to-end automation)
+    "agents:auto-pilot",
+    "agents:auto-pilot-pause",
+    "agents:auto-pilot-failed",
     # PR control
     "agents:allow-change",
     "agents:keepalive",
