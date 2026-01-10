@@ -116,11 +116,13 @@ With Phase 3 complete (capability check, task decomposition, duplicate detection
 **Status:** Initial implementation complete (2026-01-10)
 
 **Implementation:**
-- ✅ `agents-auto-pilot.yml` workflow created (380 lines)
+- ✅ `agents-auto-pilot.yml` workflow created (~490 lines)
 - ✅ State machine via label detection
-- ✅ Progress comments at each step (cycle tracking)
-- ✅ Safety controls: 10 cycle max, pause/failed labels
+- ✅ Progress comments at each step (step tracking)
+- ✅ Safety controls: 10 step max, 4hr timeout, pause/failed labels
 - ✅ Labels created: `agents:auto-pilot`, `agents:auto-pilot-pause`, `agents:auto-pilot-failed`
+- ✅ Pagination for timeline/comment APIs
+- ✅ Secure env variable passing (no direct interpolation)
 
 **Flow:**
 1. User adds `agents:auto-pilot` to issue

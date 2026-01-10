@@ -31,7 +31,7 @@ on:
 permissions:
   contents: read
   issues: write
-  pull-requests: write
+  pull-requests: read
 
 env:
   # Safety limits
@@ -41,6 +41,7 @@ env:
 jobs:
   auto-pilot:
     runs-on: ubuntu-latest
+    timeout-minutes: 240  # 4 hours = MAX_WALL_TIME_HOURS
     # Trigger on agents:auto-pilot label or workflow_dispatch
     if: |
       github.event_name == 'workflow_dispatch' ||
@@ -113,17 +114,22 @@ jobs:
             const hasAutomerge = labels.includes('automerge');
             const hasVerify = labels.includes('verify:evaluate');
 
-            // Check for linked PR
-            const timeline = await github.rest.issues.listEventsForTimeline({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: issueNumber,
-              per_page: 100
-            });
+            // Check for linked PR (with pagination and multiple event types)
+            const timelineEvents = await github.paginate(
+              github.rest.issues.listEventsForTimeline,
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                per_page: 100
+              }
+            );
 
             let linkedPR = null;
-            for (const event of timeline.data) {
-              if (event.event === 'cross-referenced' && event.source?.issue?.pull_request) {
+            for (const event of timelineEvents) {
+              // Handle both cross-referenced and connected events
+              if ((event.event === 'cross-referenced' || event.event === 'connected') &&
+                  event.source?.issue?.pull_request) {
                 linkedPR = event.source.issue.number;
               }
             }
@@ -145,44 +151,51 @@ jobs:
             console.log(`  Labels: ${labels.join(', ')}`);
             console.log(`  Linked PR: ${linkedPR || 'none'}`);
 
-      - name: Check cycle count
+      - name: Check step count
         if: steps.context.outputs.should_continue == 'true'
         id: cycles
         uses: actions/github-script@v7
+        env:
+          ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
         with:
           script: |
-            const issueNumber = ${{ steps.context.outputs.issue_number }};
+            const issueNumber = parseInt(process.env.ISSUE_NUMBER);
 
-            // Get comments to count auto-pilot cycles
-            const comments = await github.rest.issues.listComments({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: issueNumber,
-              per_page: 100
-            });
-
-            const cycleComments = comments.data.filter(c =>
-              c.body.includes('🤖 Auto-pilot cycle')
+            // Get all comments to count auto-pilot steps (with pagination)
+            const allComments = await github.paginate(
+              github.rest.issues.listComments,
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                per_page: 100
+              }
             );
 
-            const cycleCount = cycleComments.length;
+            const stepComments = allComments.filter(c =>
+              typeof c.body === 'string' && c.body.includes('🤖 Auto-pilot step')
+            );
+
+            const stepCount = stepComments.length;
             const maxCycles = parseInt('${{ env.MAX_CYCLES }}');
 
-            if (cycleCount >= maxCycles) {
-              core.warning(`Auto-pilot exceeded max cycles (${cycleCount}/${maxCycles})`);
+            if (stepCount >= maxCycles) {
+              core.warning(`Auto-pilot exceeded max steps (${stepCount}/${maxCycles})`);
               core.setOutput('exceeded', 'true');
               return;
             }
 
             core.setOutput('exceeded', 'false');
-            core.setOutput('count', cycleCount.toString());
+            core.setOutput('count', stepCount.toString());
 
       - name: Stop if exceeded
         if: steps.cycles.outputs.exceeded == 'true'
         uses: actions/github-script@v7
+        env:
+          ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
         with:
           script: |
-            const issueNumber = ${{ steps.context.outputs.issue_number }};
+            const issueNumber = parseInt(process.env.ISSUE_NUMBER);
 
             // Add failure label and comment
             await github.rest.issues.addLabels({
@@ -280,17 +293,20 @@ jobs:
       - name: Execute step - Format
         if: steps.next.outputs.next_step == 'format'
         uses: actions/github-script@v7
+        env:
+          ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
+          STEP_COUNT: ${{ steps.cycles.outputs.count }}
         with:
           script: |
-            const issueNumber = ${{ steps.context.outputs.issue_number }};
-            const cycleCount = parseInt('${{ steps.cycles.outputs.count }}') + 1;
+            const issueNumber = parseInt(process.env.ISSUE_NUMBER);
+            const stepCount = parseInt(process.env.STEP_COUNT || '0') + 1;
 
             // Add progress comment
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: issueNumber,
-              body: `🤖 **Auto-pilot cycle ${cycleCount}**: Starting issue formatting...
+              body: `🤖 **Auto-pilot step ${stepCount}**: Starting issue formatting...
 
             Adding \`agents:format\` label to trigger LangChain formatting.`
             });
@@ -306,16 +322,19 @@ jobs:
       - name: Execute step - Optimize
         if: steps.next.outputs.next_step == 'optimize'
         uses: actions/github-script@v7
+        env:
+          ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
+          STEP_COUNT: ${{ steps.cycles.outputs.count }}
         with:
           script: |
-            const issueNumber = ${{ steps.context.outputs.issue_number }};
-            const cycleCount = parseInt('${{ steps.cycles.outputs.count }}') + 1;
+            const issueNumber = parseInt(process.env.ISSUE_NUMBER);
+            const stepCount = parseInt(process.env.STEP_COUNT || '0') + 1;
 
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: issueNumber,
-              body: `🤖 **Auto-pilot cycle ${cycleCount}**: Analyzing issue for improvements...
+              body: `🤖 **Auto-pilot step ${stepCount}**: Analyzing issue for improvements...
 
             Adding \`agents:optimize\` label to trigger analysis.`
             });
@@ -330,16 +349,19 @@ jobs:
       - name: Execute step - Apply suggestions
         if: steps.next.outputs.next_step == 'apply'
         uses: actions/github-script@v7
+        env:
+          ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
+          STEP_COUNT: ${{ steps.cycles.outputs.count }}
         with:
           script: |
-            const issueNumber = ${{ steps.context.outputs.issue_number }};
-            const cycleCount = parseInt('${{ steps.cycles.outputs.count }}') + 1;
+            const issueNumber = parseInt(process.env.ISSUE_NUMBER);
+            const stepCount = parseInt(process.env.STEP_COUNT || '0') + 1;
 
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: issueNumber,
-              body: `🤖 **Auto-pilot cycle ${cycleCount}**: Applying optimization suggestions...
+              body: `🤖 **Auto-pilot step ${stepCount}**: Applying optimization suggestions...
 
             Adding \`agents:apply-suggestions\` label.`
             });
@@ -354,16 +376,19 @@ jobs:
       - name: Execute step - Capability check & Agent
         if: steps.next.outputs.next_step == 'capability-check'
         uses: actions/github-script@v7
+        env:
+          ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
+          STEP_COUNT: ${{ steps.cycles.outputs.count }}
         with:
           script: |
-            const issueNumber = ${{ steps.context.outputs.issue_number }};
-            const cycleCount = parseInt('${{ steps.cycles.outputs.count }}') + 1;
+            const issueNumber = parseInt(process.env.ISSUE_NUMBER);
+            const stepCount = parseInt(process.env.STEP_COUNT || '0') + 1;
 
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: issueNumber,
-              body: `🤖 **Auto-pilot cycle ${cycleCount}**: Issue prepared! Assigning to agent...
+              body: `🤖 **Auto-pilot step ${stepCount}**: Issue prepared! Assigning to agent...
 
             Adding \`agent:codex\` label. The capability check will run automatically.
 
@@ -381,9 +406,11 @@ jobs:
       - name: Execute step - Verify
         if: steps.next.outputs.next_step == 'verify'
         uses: actions/github-script@v7
+        env:
+          ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
         with:
           script: |
-            const issueNumber = ${{ steps.context.outputs.issue_number }};
+            const issueNumber = parseInt(process.env.ISSUE_NUMBER);
 
             await github.rest.issues.createComment({
               owner: context.repo.owner,
@@ -419,9 +446,11 @@ jobs:
       - name: Report - Done
         if: steps.next.outputs.next_step == 'done'
         uses: actions/github-script@v7
+        env:
+          ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
         with:
           script: |
-            const issueNumber = ${{ steps.context.outputs.issue_number }};
+            const issueNumber = parseInt(process.env.ISSUE_NUMBER);
 
             // Remove auto-pilot label since we're done
             try {
@@ -432,7 +461,12 @@ jobs:
                 name: 'agents:auto-pilot'
               });
             } catch (e) {
-              // Label might already be removed
+              // Label might already be removed (404) - that's OK
+              if (e && e.status === 404) {
+                core.info('Auto-pilot label already removed or not found');
+              } else {
+                core.warning(`Unexpected error removing auto-pilot label: ${e?.message || e}`);
+              }
             }
 
             await github.rest.issues.createComment({
