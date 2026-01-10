@@ -419,22 +419,32 @@ jobs:
             const issueNumber = parseInt(process.env.ISSUE_NUMBER);
 
             // Find the merged PR for this issue
-            // Look for PRs with the meta marker or issue reference
+            // Look for PRs with the meta marker or explicit closing reference
             const { data: prs } = await github.rest.pulls.list({
               owner: context.repo.owner,
               repo: context.repo.repo,
               state: 'closed',
               sort: 'updated',
               direction: 'desc',
-              per_page: 20
+              per_page: 100
             });
+
+            // Helper to detect explicit closing/fixing references to this issue
+            function matchesIssueReference(text, num) {
+              if (!text) return false;
+              // Match: closes #123, fixes #123, resolves #123 (and variations)
+              const pattern = new RegExp(
+                `\\b(close[sd]?|fixe?[sd]?|resolve[sd]?)\\s+#${num}\\b`, 'i'
+              );
+              return pattern.test(text);
+            }
 
             // Find PR that references this issue
             const linkedPr = prs.find(pr =>
               pr.merged_at && (
                 pr.body?.includes(`meta:issue:${issueNumber}`) ||
-                pr.body?.includes(`#${issueNumber}`) ||
-                pr.title?.includes(`#${issueNumber}`)
+                matchesIssueReference(pr.body, issueNumber) ||
+                matchesIssueReference(pr.title, issueNumber)
               )
             );
 
@@ -580,11 +590,8 @@ jobs:
                 labelsAdded = true;
                 core.info(`Added agent labels to PR #${pr.number}`);
               } catch (labelError) {
-                core.warning(
-                  `Failed to add labels to PR #${pr.number}: ${
-                    labelError && labelError.message ? labelError.message : labelError
-                  }`
-                );
+                const errMsg = labelError?.message || String(labelError);
+                core.warning(`Failed to add labels to PR #${pr.number}: ${errMsg}`);
               }
 
               const labelStatus = labelsAdded
