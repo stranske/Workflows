@@ -1107,7 +1107,6 @@ async function evaluateKeepaliveLoop({ github, context, core, payload: overrideP
   const verificationStatus = normalise(state?.verification?.status)?.toLowerCase();
   const verificationDone = ['done', 'verified', 'complete'].includes(verificationStatus);
   const verificationAttempted = Boolean(state?.verification?.iteration);
-  const verificationFailed = verificationAttempted && verificationStatus !== 'done';
   // Only try verification once - if it fails, that's OK, tasks are still complete
   const needsVerification = allComplete && !verificationDone && !verificationAttempted;
 

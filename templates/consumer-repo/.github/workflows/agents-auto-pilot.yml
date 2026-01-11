@@ -263,16 +263,13 @@ jobs:
             - Conflicting requirements
             - External dependencies
 
-            **To resume:** Remove \`agents:auto-pilot-failed\` and \`needs-human\`
-            labels, then re-add \`agents:auto-pilot\`.`
+            **To resume:** Remove \`agents:auto-pilot-failed\` and \`needs-human\` labels, then re-add \`agents:auto-pilot\`.`
             });
 
             core.setFailed('Auto-pilot exceeded max cycles');
 
       - name: Determine next step
-        if: |
-          steps.context.outputs.should_continue == 'true' &&
-          steps.cycles.outputs.exceeded != 'true'
+        if: steps.context.outputs.should_continue == 'true' && steps.cycles.outputs.exceeded != 'true'
         id: next
         env:
           FORCE_STEP: ${{ inputs.force_step }}
@@ -315,10 +312,7 @@ jobs:
 
           # No PR yet - need to go through issue prep pipeline
           if [[ -z "$LINKED_PR" ]]; then
-            if [[ "$HAS_AGENT" == "true" ]]; then
-              echo "next_step=create-pr" >> "$GITHUB_OUTPUT"
-              echo "Agent assigned, checking for branch to create PR"
-            elif [[ "$HAS_FORMAT" != "true" ]]; then
+            if [[ "$HAS_FORMAT" != "true" ]]; then
               echo "next_step=format" >> "$GITHUB_OUTPUT"
               echo "Step 1: Format issue"
             elif [[ "$HAS_OPTIMIZE" != "true" ]]; then
@@ -327,16 +321,42 @@ jobs:
             elif [[ "$HAS_APPLY" != "true" ]]; then
               echo "next_step=apply" >> "$GITHUB_OUTPUT"
               echo "Step 3: Apply suggestions"
-            else
+            elif [[ "$HAS_AGENT" != "true" ]]; then
               echo "next_step=capability-check" >> "$GITHUB_OUTPUT"
-              echo "Step 4: Run capability check before agent"
+              echo "Step 4: Run capability check and assign agent"
+            else
+              echo "next_step=create-pr" >> "$GITHUB_OUTPUT"
+              echo "Step 5: All prep complete, checking for branch to create PR"
             fi
             exit 0
           fi
 
-          # Has PR - let keepalive/autofix handle it
-          echo "next_step=monitor-pr" >> "$GITHUB_OUTPUT"
-          echo "PR #$LINKED_PR exists - monitoring via keepalive"
+          # Has PR - check if it's complete and ready to merge
+          # Get PR state to see if keepalive has finished
+          if ! PR_STATE=$(gh api "/repos/${{ github.repository }}/issues/$LINKED_PR/comments" \
+            --jq '.[] | select(.body | contains("keepalive-state:")) | .body' 2>&1 | tail -1); then
+            echo "⚠️ Failed to fetch PR state, defaulting to monitor-pr"
+            echo "next_step=monitor-pr" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Check if we got any state data
+          if [ -z "$PR_STATE" ]; then
+            echo "No keepalive state found, defaulting to monitor-pr"
+            echo "next_step=monitor-pr" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Check if keepalive marked tasks as complete
+          if echo "$PR_STATE" | grep -q '"last_action":"stop"' && \
+             echo "$PR_STATE" | grep -q '"last_reason":"tasks-complete"'; then
+            echo "next_step=check-completion" >> "$GITHUB_OUTPUT"
+            echo "Step 6.5: PR tasks complete - checking for merge"
+          else
+            echo "next_step=monitor-pr" >> "$GITHUB_OUTPUT"
+            echo "PR #$LINKED_PR exists - monitoring via keepalive"
+          fi
+          exit 0
 
       - name: Execute step - Format
         if: steps.next.outputs.next_step == 'format'
@@ -698,13 +718,111 @@ jobs:
             const prNumber = '${{ steps.context.outputs.linked_pr }}';
             core.info(`PR #${prNumber} exists. Keepalive and autofix will handle CI.`);
 
+      - name: Execute step - Check Completion & Trigger Merge
+        if: steps.next.outputs.next_step == 'check-completion'
+        uses: actions/github-script@v7
+        env:
+          ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
+          PR_NUMBER: ${{ steps.context.outputs.linked_pr }}
+          STEP_COUNT: ${{ steps.cycles.outputs.count }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          script: |
+            const issueNumber = parseInt(process.env.ISSUE_NUMBER);
+            const prNumber = parseInt(process.env.PR_NUMBER);
+            const stepCount = parseInt(process.env.STEP_COUNT || '0') + 1;
+
+            // Get PR details to check CI status
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber
+            });
+
+            // Check if PR is mergeable
+            if (pr.mergeable !== true) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                body: `🤖 **Auto-pilot step ${stepCount}**: PR completion check
+
+            ⚠️ PR #${prNumber} is not mergeable or its mergeability is still being computed.
+
+            Auto-pilot cannot proceed with merge. Manual intervention may be required.`
+              });
+              return;
+            }
+
+            // Check CI status
+            let checksPass = true;
+            try {
+              const { data: checks } = await github.rest.checks.listForRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: pr.head.sha
+              });
+
+              const pendingChecks = checks.check_runs.filter(check =>
+                check.status !== 'completed'
+              );
+
+              const failedChecks = checks.check_runs.filter(check =>
+                check.status === 'completed' && check.conclusion !== 'success' &&
+                check.conclusion !== 'neutral' && check.conclusion !== 'skipped'
+              );
+
+              if (failedChecks.length > 0 || pendingChecks.length > 0) {
+                checksPass = false;
+              }
+            } catch (e) {
+              core.warning(`Could not check CI status: ${e.message}`);
+            }
+
+            if (!checksPass) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                body: `🤖 **Auto-pilot step ${stepCount}**: PR completion check
+
+            ⚠️ PR #${prNumber} has failing CI checks.
+
+            Auto-pilot will wait for checks to pass before merging.`
+              });
+              return;
+            }
+
+            // All checks pass - add automerge label
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              labels: ['automerge']
+            });
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: `🤖 **Auto-pilot step ${stepCount}**: PR ready for merge!
+
+            ✅ All tasks completed
+            ✅ CI checks passing
+            ✅ No merge conflicts
+
+            Added \`automerge\` label to PR #${prNumber}. The orchestrator will merge it shortly.`
+            });
+
+            core.info(`PR #${prNumber} ready for automerge - added label`);
+
       # Re-dispatch workflow to continue pipeline after prep steps
       # GitHub prevents recursive triggers on labels added by GITHUB_TOKEN
       - name: Re-dispatch for next step
         if: |
           steps.context.outputs.should_continue == 'true' &&
           steps.cycles.outputs.exceeded != 'true' &&
-          contains(fromJSON('["format","optimize","apply","capability-check"]'),
+          contains(fromJSON('["format","optimize","apply","capability-check","monitor-pr","check-completion"]'),
           steps.next.outputs.next_step)
         uses: actions/github-script@v7
         env:
@@ -715,9 +833,10 @@ jobs:
             const issueNumber = parseInt(process.env.ISSUE_NUMBER);
             const currentStep = process.env.CURRENT_STEP;
 
-            // Wait for the prep workflow to process the label we just added
+            // Wait for the workflow to process
             // Format/Optimize/Apply workflows complete in 30-60 seconds
-            const waitTime = 45000; // 45 seconds
+            // Monitor-pr checks need longer for keepalive to run
+            const waitTime = currentStep === 'monitor-pr' ? 120000 : 45000;
             core.info(`Waiting ${waitTime/1000}s for ${currentStep} to complete...`);
             await new Promise(resolve => setTimeout(resolve, waitTime));
 

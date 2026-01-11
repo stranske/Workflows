@@ -450,40 +450,62 @@ function upsertBlock(body, marker, replacement) {
  * @returns {Promise<any>} Result of the function call
  */
 async function withRetries(fn, options = {}) {
-  const attempts = Number(options.attempts) || 3;
+  const baseAttempts = Number(options.attempts) || 3;
   const baseDelay = Number(options.delayMs) || 1000;
   const label = options.description || 'operation';
   const core = options.core;
   let lastError;
+  let rateLimitDetected = false;
   
-  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+  // Rate limits get more attempts and longer delays
+  const maxAttempts = baseAttempts;
+  
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
       return await fn();
     } catch (error) {
       lastError = error;
       const status = error && typeof error.status === 'number' ? error.status : null;
       const message = error instanceof Error ? error.message : String(error);
+      const messageLower = message.toLowerCase();
       const headers = error?.response?.headers || {};
       const remainingRaw = headers['x-ratelimit-remaining'] ?? headers['X-RateLimit-Remaining'];
       const resetRaw = headers['x-ratelimit-reset'] ?? headers['X-RateLimit-Reset'];
       const remaining = Number(remainingRaw);
       const reset = Number(resetRaw);
-      const isRateLimit = status === 403 && Number.isFinite(remaining) && remaining <= 0;
-      const retryable = !status || status >= 500 || status === 429 || isRateLimit;
       
-      if (!retryable || attempt === attempts) {
+      // Detect rate limits by headers OR message content
+      const isRateLimitByHeader = status === 403 && Number.isFinite(remaining) && remaining <= 0;
+      const isRateLimitByMessage = (status === 403 || status === 429) && 
+        (messageLower.includes('rate limit') || messageLower.includes('abuse detection'));
+      const isRateLimit = isRateLimitByHeader || isRateLimitByMessage || status === 429;
+      
+      if (isRateLimit && !rateLimitDetected) {
+        rateLimitDetected = true;
+        if (core) core.warning(`Rate limit detected for ${label}. Will retry with extended delays.`);
+      }
+      
+      const retryable = !status || status >= 500 || isRateLimit;
+      
+      if (!retryable || attempt === maxAttempts) {
         if (core) core.error(`Failed ${label}: ${message}`);
         throw error;
       }
       
       let delay = baseDelay * attempt;
-      if (isRateLimit && Number.isFinite(reset)) {
-        const nowSeconds = Math.floor(Date.now() / 1000);
-        const waitMs = Math.max((reset - nowSeconds) * 1000 + 500, delay);
-        delay = Math.min(waitMs, 60000);
-        if (core) core.warning(`Rate limit hit for ${label}; waiting ${delay}ms before retrying (attempt ${attempt + 1}/${attempts}).`);
+      if (isRateLimit) {
+        // For rate limits, use exponential backoff with longer max delay
+        if (Number.isFinite(reset)) {
+          const nowSeconds = Math.floor(Date.now() / 1000);
+          const waitMs = Math.max((reset - nowSeconds) * 1000 + 500, delay);
+          delay = Math.min(waitMs, 120000); // Up to 2 minutes for rate limits
+        } else {
+          // No reset header - use exponential backoff
+          delay = Math.min(baseDelay * Math.pow(2, attempt - 1), 60000);
+        }
+        if (core) core.warning(`Rate limit hit for ${label}; waiting ${delay}ms before retrying (attempt ${attempt + 1}/${maxAttempts}).`);
       } else {
-        if (core) core.warning(`Retrying ${label} after ${delay}ms (attempt ${attempt + 1}/${attempts}) due to ${status || 'error'}`);
+        if (core) core.warning(`Retrying ${label} after ${delay}ms (attempt ${attempt + 1}/${maxAttempts}) due to ${status || 'error'}`);
       }
       await sleep(delay);
     }

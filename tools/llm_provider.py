@@ -33,6 +33,7 @@ logger = logging.getLogger(__name__)
 GITHUB_MODELS_BASE_URL = "https://models.inference.ai.azure.com"
 # Use gpt-4o for evaluation - best available on GitHub Models
 # gpt-4o-mini was too lenient and passed obvious deficiencies
+# Also avoids token-limit failures on large issues (8k limit in gpt-4o-mini)
 DEFAULT_MODEL = "gpt-4o"
 
 
@@ -60,6 +61,15 @@ def _setup_langsmith_tracing() -> bool:
 # Initialize tracing on module load.
 # This flag can be used to conditionally enable LangSmith-specific features.
 LANGSMITH_ENABLED = _setup_langsmith_tracing()
+
+
+def _is_token_limit_error(error: Exception) -> bool:
+    """Check if error is a token limit (413) error from GitHub Models."""
+    error_str = str(error).lower()
+    # Check for 413 status code (both with and without colon separators)
+    has_413 = "413" in error_str and ("error code" in error_str or "status code" in error_str)
+    has_token_message = "tokens_limit_reached" in error_str or "request body too large" in error_str
+    return has_413 and has_token_message
 
 
 @dataclass

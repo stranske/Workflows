@@ -229,7 +229,7 @@ def _load_apply_prompt() -> str:
     return APPLY_SUGGESTIONS_PROMPT
 
 
-def _get_llm_client() -> tuple[object, str] | None:
+def _get_llm_client(force_openai: bool = False) -> tuple[object, str] | None:
     try:
         from langchain_openai import ChatOpenAI
     except ImportError:
@@ -241,6 +241,17 @@ def _get_llm_client() -> tuple[object, str] | None:
         return None
 
     from tools.llm_provider import DEFAULT_MODEL, GITHUB_MODELS_BASE_URL
+
+    # If force_openai is True, skip GitHub Models and use OpenAI directly
+    if force_openai and openai_token:
+        return (
+            ChatOpenAI(
+                model=DEFAULT_MODEL,
+                api_key=openai_token,
+                temperature=0.1,
+            ),
+            "openai",
+        )
 
     if github_token:
         return (
@@ -538,11 +549,33 @@ def _normalize_result(
     )
 
 
+def _process_llm_response(
+    response: Any, provider: str, use_llm: bool
+) -> IssueOptimizationResult | None:
+    """Process LLM response and return normalized result, or None if processing fails."""
+    content = getattr(response, "content", None) or str(response)
+    payload = _extract_json_payload(content)
+    if payload:
+        try:
+            data = json.loads(payload)
+        except json.JSONDecodeError:
+            return None
+        if isinstance(data, dict):
+            result = _normalize_result(data, provider)
+            result.task_splitting = _ensure_task_decomposition(
+                result.task_splitting, use_llm=use_llm
+            )
+            return result
+    return None
+
+
 def analyze_issue(issue_body: str, *, use_llm: bool = True) -> IssueOptimizationResult:
     if not issue_body:
         issue_body = ""
 
     if use_llm:
+        from tools.llm_provider import _is_token_limit_error
+
         client_info = _get_llm_client()
         if client_info:
             client, provider = client_info
@@ -554,25 +587,63 @@ def analyze_issue(issue_body: str, *, use_llm: bool = True) -> IssueOptimization
                 prompt = _load_prompt()
                 template = ChatPromptTemplate.from_template(prompt)
                 chain = template | client
-                response = chain.invoke(
-                    {
-                        "issue_body": issue_body,
-                        "agent_limitations": "\n".join(f"- {item}" for item in AGENT_LIMITATIONS),
-                    }
-                )
-                content = getattr(response, "content", None) or str(response)
-                payload = _extract_json_payload(content)
-                if payload:
-                    try:
-                        data = json.loads(payload)
-                    except json.JSONDecodeError:
-                        data = None
-                    if isinstance(data, dict):
-                        result = _normalize_result(data, provider)
-                        result.task_splitting = _ensure_task_decomposition(
-                            result.task_splitting, use_llm=use_llm
-                        )
+                try:
+                    response = chain.invoke(
+                        {
+                            "issue_body": issue_body,
+                            "agent_limitations": "\n".join(
+                                f"- {item}" for item in AGENT_LIMITATIONS
+                            ),
+                        }
+                    )
+                    result = _process_llm_response(response, provider, use_llm)
+                    if result:
                         return result
+                except Exception as e:
+                    # If GitHub Models hit token limit, retry with OpenAI API
+                    if _is_token_limit_error(e) and provider == "github-models":
+                        print(
+                            "GitHub Models token limit hit, retrying with OpenAI API...",
+                            file=sys.stderr,
+                        )
+                        openai_client_info = _get_llm_client(force_openai=True)
+                        if openai_client_info:
+                            openai_client, openai_provider = openai_client_info
+                            openai_chain = template | openai_client
+                            try:
+                                response = openai_chain.invoke(
+                                    {
+                                        "issue_body": issue_body,
+                                        "agent_limitations": "\n".join(
+                                            f"- {item}" for item in AGENT_LIMITATIONS
+                                        ),
+                                    }
+                                )
+                                result = _process_llm_response(
+                                    response, openai_provider, use_llm=use_llm
+                                )
+                                if result is not None:
+                                    print(
+                                        "Successfully analyzed with OpenAI API",
+                                        file=sys.stderr,
+                                    )
+                                    return result
+                            except Exception as openai_error:
+                                print(
+                                    f"OpenAI API also failed ({type(openai_error).__name__}: {openai_error}), using fallback",
+                                    file=sys.stderr,
+                                )
+                        else:
+                            print(
+                                "OPENAI_API_KEY not available, using fallback",
+                                file=sys.stderr,
+                            )
+                    else:
+                        # Other error types - fall back immediately
+                        print(
+                            f"LLM analysis failed ({type(e).__name__}: {e}), using fallback",
+                            file=sys.stderr,
+                        )
 
     result = _fallback_analysis(issue_body)
     result.task_splitting = _ensure_task_decomposition(result.task_splitting, use_llm=False)
@@ -685,6 +756,8 @@ def apply_suggestions(
         issue_body = ""
 
     if use_llm:
+        from tools.llm_provider import _is_token_limit_error
+
         client_info = _get_llm_client()
         if client_info:
             client, provider = client_info
@@ -696,20 +769,71 @@ def apply_suggestions(
                 prompt = _load_apply_prompt()
                 template = ChatPromptTemplate.from_template(prompt)
                 chain = template | client
-                response = chain.invoke(
-                    {
-                        "original_body": issue_body,
-                        "suggestions_json": json.dumps(suggestions, ensure_ascii=True, indent=2),
-                    }
-                )
-                content = getattr(response, "content", None) or str(response)
-                formatted = content.strip()
-                if _formatted_output_valid(formatted):
-                    return {
-                        "formatted_body": formatted,
-                        "provider_used": provider,
-                        "used_llm": True,
-                    }
+                try:
+                    response = chain.invoke(
+                        {
+                            "original_body": issue_body,
+                            "suggestions_json": json.dumps(
+                                suggestions, ensure_ascii=True, indent=2
+                            ),
+                        }
+                    )
+                    content = getattr(response, "content", None) or str(response)
+                    formatted = content.strip()
+                    if _formatted_output_valid(formatted):
+                        return {
+                            "formatted_body": formatted,
+                            "provider_used": provider,
+                            "used_llm": True,
+                        }
+                except Exception as e:
+                    # If GitHub Models hit token limit, retry with OpenAI API
+                    if _is_token_limit_error(e) and provider == "github-models":
+                        print(
+                            "GitHub Models token limit hit in apply_suggestions, retrying with OpenAI API...",
+                            file=sys.stderr,
+                        )
+                        openai_client_info = _get_llm_client(force_openai=True)
+                        if openai_client_info:
+                            openai_client, openai_provider = openai_client_info
+                            openai_chain = template | openai_client
+                            try:
+                                response = openai_chain.invoke(
+                                    {
+                                        "original_body": issue_body,
+                                        "suggestions_json": json.dumps(
+                                            suggestions, ensure_ascii=True, indent=2
+                                        ),
+                                    }
+                                )
+                                content = getattr(response, "content", None) or str(response)
+                                formatted = content.strip()
+                                if _formatted_output_valid(formatted):
+                                    print(
+                                        "Successfully applied suggestions with OpenAI API",
+                                        file=sys.stderr,
+                                    )
+                                    return {
+                                        "formatted_body": formatted,
+                                        "provider_used": openai_provider,
+                                        "used_llm": True,
+                                    }
+                            except Exception as openai_error:
+                                print(
+                                    f"OpenAI API also failed ({type(openai_error).__name__}: {openai_error}), using fallback",
+                                    file=sys.stderr,
+                                )
+                        else:
+                            print(
+                                "OPENAI_API_KEY not available, using fallback",
+                                file=sys.stderr,
+                            )
+                    else:
+                        # Other error types - fall back immediately
+                        print(
+                            f"LLM apply failed ({type(e).__name__}: {e}), using fallback",
+                            file=sys.stderr,
+                        )
 
     from scripts.langchain import issue_formatter
 

@@ -333,8 +333,19 @@ jobs:
 
           # Has PR - check if it's complete and ready to merge
           # Get PR state to see if keepalive has finished
-          PR_STATE=$(gh api "/repos/${{ github.repository }}/issues/$LINKED_PR/comments" \
-            --jq '.[] | select(.body | contains("keepalive:state:")) | .body' | tail -1)
+          if ! PR_STATE=$(gh api "/repos/${{ github.repository }}/issues/$LINKED_PR/comments" \
+            --jq '.[] | select(.body | contains("keepalive-state:")) | .body' 2>&1 | tail -1); then
+            echo "⚠️ Failed to fetch PR state, defaulting to monitor-pr"
+            echo "next_step=monitor-pr" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Check if we got any state data
+          if [ -z "$PR_STATE" ]; then
+            echo "No keepalive state found, defaulting to monitor-pr"
+            echo "next_step=monitor-pr" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
 
           # Check if keepalive marked tasks as complete
           if echo "$PR_STATE" | grep -q '"last_action":"stop"' && \
@@ -728,16 +739,16 @@ jobs:
             });
 
             // Check if PR is mergeable
-            if (pr.mergeable === false) {
+            if (pr.mergeable !== true) {
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issueNumber,
                 body: `🤖 **Auto-pilot step ${stepCount}**: PR completion check
 
-            ⚠️ PR #${prNumber} has conflicts or is not mergeable.
+            ⚠️ PR #${prNumber} is not mergeable or its mergeability is still being computed.
 
-            Auto-pilot cannot proceed with merge. Manual intervention required.`
+            Auto-pilot cannot proceed with merge. Manual intervention may be required.`
               });
               return;
             }
@@ -751,12 +762,15 @@ jobs:
                 ref: pr.head.sha
               });
 
+              const pendingChecks = checks.check_runs.filter(check =>
+                check.status !== 'completed'
+              );
               const failedChecks = checks.check_runs.filter(check =>
                 check.status === 'completed' && check.conclusion !== 'success' &&
                 check.conclusion !== 'neutral' && check.conclusion !== 'skipped'
               );
 
-              if (failedChecks.length > 0) {
+              if (failedChecks.length > 0 || pendingChecks.length > 0) {
                 checksPass = false;
               }
             } catch (e) {
