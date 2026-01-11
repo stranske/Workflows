@@ -99,6 +99,19 @@ test('calculateElapsedTime falls back to Date.now when now is invalid', () => {
   }
 });
 
+test('calculateElapsedTime falls back to Date.now when now is an invalid Date', () => {
+  const realNow = Date.now;
+  const now = 1700000000000;
+  Date.now = () => now;
+  try {
+    const start = new Date(now - 11 * 1000).toISOString();
+    const invalidNow = new Date('invalid');
+    assert.equal(calculateElapsedTime(start, invalidNow), '11s');
+  } finally {
+    Date.now = realNow;
+  }
+});
+
 test('calculateElapsedTime formats whole minutes', () => {
   const realNow = Date.now;
   const now = 1700000000000;
