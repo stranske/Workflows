@@ -240,7 +240,7 @@ def _get_llm_client(force_openai: bool = False) -> tuple[object, str] | None:
     if not github_token and not openai_token:
         return None
 
-    from tools.llm_provider import DEFAULT_MODEL, GITHUB_MODELS_BASE_URL, _is_token_limit_error
+    from tools.llm_provider import DEFAULT_MODEL, GITHUB_MODELS_BASE_URL
 
     # If force_openai is True, skip GitHub Models and use OpenAI directly
     if force_openai and openai_token:
@@ -569,7 +569,9 @@ def analyze_issue(issue_body: str, *, use_llm: bool = True) -> IssueOptimization
                     response = chain.invoke(
                         {
                             "issue_body": issue_body,
-                            "agent_limitations": "\n".join(f"- {item}" for item in AGENT_LIMITATIONS),
+                            "agent_limitations": "\n".join(
+                                f"- {item}" for item in AGENT_LIMITATIONS
+                            ),
                         }
                     )
                     content = getattr(response, "content", None) or str(response)
@@ -589,8 +591,9 @@ def analyze_issue(issue_body: str, *, use_llm: bool = True) -> IssueOptimization
                     # If GitHub Models hit token limit, retry with OpenAI API
                     if _is_token_limit_error(e) and provider == "github_models":
                         import sys
+
                         print(
-                            f"GitHub Models token limit hit, retrying with OpenAI API...",
+                            "GitHub Models token limit hit, retrying with OpenAI API...",
                             file=sys.stderr,
                         )
                         openai_client_info = _get_llm_client(force_openai=True)
@@ -619,7 +622,7 @@ def analyze_issue(issue_body: str, *, use_llm: bool = True) -> IssueOptimization
                                             result.task_splitting, use_llm=use_llm
                                         )
                                         print(
-                                            f"Successfully analyzed with OpenAI API",
+                                            "Successfully analyzed with OpenAI API",
                                             file=sys.stderr,
                                         )
                                         return result
@@ -630,12 +633,13 @@ def analyze_issue(issue_body: str, *, use_llm: bool = True) -> IssueOptimization
                                 )
                         else:
                             print(
-                                f"OPENAI_API_KEY not available, using fallback",
+                                "OPENAI_API_KEY not available, using fallback",
                                 file=sys.stderr,
                             )
                     else:
                         # Other error types - fall back immediately
                         import sys
+
                         print(
                             f"LLM analysis failed ({type(e).__name__}: {e}), using fallback",
                             file=sys.stderr,
