@@ -63,6 +63,15 @@ def _setup_langsmith_tracing() -> bool:
 LANGSMITH_ENABLED = _setup_langsmith_tracing()
 
 
+def _is_token_limit_error(error: Exception) -> bool:
+    """Check if error is a token limit (413) error from GitHub Models."""
+    error_str = str(error)
+    return (
+        "413" in error_str
+        and ("tokens_limit_reached" in error_str or "Request body too large" in error_str)
+    )
+
+
 @dataclass
 class CompletionAnalysis:
     """Result of task completion analysis."""

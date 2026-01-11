@@ -229,7 +229,7 @@ def _load_apply_prompt() -> str:
     return APPLY_SUGGESTIONS_PROMPT
 
 
-def _get_llm_client() -> tuple[object, str] | None:
+def _get_llm_client(force_openai: bool = False) -> tuple[object, str] | None:
     try:
         from langchain_openai import ChatOpenAI
     except ImportError:
@@ -240,7 +240,18 @@ def _get_llm_client() -> tuple[object, str] | None:
     if not github_token and not openai_token:
         return None
 
-    from tools.llm_provider import DEFAULT_MODEL, GITHUB_MODELS_BASE_URL
+    from tools.llm_provider import DEFAULT_MODEL, GITHUB_MODELS_BASE_URL, _is_token_limit_error
+
+    # If force_openai is True, skip GitHub Models and use OpenAI directly
+    if force_openai and openai_token:
+        return (
+            ChatOpenAI(
+                model=DEFAULT_MODEL,
+                api_key=openai_token,
+                temperature=0.1,
+            ),
+            "openai",
+        )
 
     if github_token:
         return (
@@ -250,7 +261,7 @@ def _get_llm_client() -> tuple[object, str] | None:
                 api_key=github_token,
                 temperature=0.1,
             ),
-            "github-models",
+            "github_models",
         )
     return (
         ChatOpenAI(
@@ -554,25 +565,88 @@ def analyze_issue(issue_body: str, *, use_llm: bool = True) -> IssueOptimization
                 prompt = _load_prompt()
                 template = ChatPromptTemplate.from_template(prompt)
                 chain = template | client
-                response = chain.invoke(
-                    {
-                        "issue_body": issue_body,
-                        "agent_limitations": "\n".join(f"- {item}" for item in AGENT_LIMITATIONS),
-                    }
-                )
-                content = getattr(response, "content", None) or str(response)
-                payload = _extract_json_payload(content)
-                if payload:
-                    try:
-                        data = json.loads(payload)
-                    except json.JSONDecodeError:
-                        data = None
-                    if isinstance(data, dict):
-                        result = _normalize_result(data, provider)
-                        result.task_splitting = _ensure_task_decomposition(
-                            result.task_splitting, use_llm=use_llm
+                try:
+                    response = chain.invoke(
+                        {
+                            "issue_body": issue_body,
+                            "agent_limitations": "\n".join(f"- {item}" for item in AGENT_LIMITATIONS),
+                        }
+                    )
+                    content = getattr(response, "content", None) or str(response)
+                    payload = _extract_json_payload(content)
+                    if payload:
+                        try:
+                            data = json.loads(payload)
+                        except json.JSONDecodeError:
+                            data = None
+                        if isinstance(data, dict):
+                            result = _normalize_result(data, provider)
+                            result.task_splitting = _ensure_task_decomposition(
+                                result.task_splitting, use_llm=use_llm
+                            )
+                            return result
+                except Exception as e:
+                    # If GitHub Models hit token limit, retry with OpenAI API
+                    if _is_token_limit_error(e) and provider == "github_models":
+                        import sys
+                        print(
+                            f"GitHub Models token limit hit, retrying with OpenAI API...",
+                            file=sys.stderr,
                         )
-                        return result
+                        openai_client_info = _get_llm_client(force_openai=True)
+                        if openai_client_info:
+                            openai_client, openai_provider = openai_client_info
+                            openai_chain = template | openai_client
+                            try:
+                                response = openai_chain.invoke(
+                                    {
+                                        "issue_body": issue_body,
+                                        "agent_limitations": "\n".join(
+                                            f"- {item}" for item in AGENT_LIMITATIONS
+                                        ),
+                                    }
+                                )
+                                content = getattr(response, "content", None) or str(response)
+                                payload = _extract_json_payload(content)
+                                if payload:
+                                    try:
+                                        data = json.loads(payload)
+                                    except json.JSONDecodeError:
+                                        data = None
+                                    if isinstance(data, dict):
+                                        result = _normalize_result(data, openai_provider)
+                                        result.task_splitting = _ensure_task_decomposition(
+                                            result.task_splitting, use_llm=use_llm
+                                        )
+                                        print(
+                                            f"Successfully analyzed with OpenAI API",
+                                            file=sys.stderr,
+                                        )
+                                        return result
+                            except Exception as openai_error:
+                                print(
+                                    f"OpenAI API also failed ({type(openai_error).__name__}: {openai_error}), using fallback",
+                                    file=sys.stderr,
+                                )
+                        else:
+                            print(
+                                f"OPENAI_API_KEY not available, using fallback",
+                                file=sys.stderr,
+                            )
+                    else:
+                        # Other error types - fall back immediately
+                        import sys
+                        print(
+                            f"LLM analysis failed ({type(e).__name__}: {e}), using fallback",
+                            file=sys.stderr,
+                        )
+                    pass
+                except Exception as exc:
+                    # Fall back on any API error (including 413 token limit)
+                    if "tokens_limit_reached" in str(exc) or "413" in str(exc):
+                        pass  # Expected, fall through to non-LLM analysis
+                    else:
+                        raise
 
     result = _fallback_analysis(issue_body)
     result.task_splitting = _ensure_task_decomposition(result.task_splitting, use_llm=False)
