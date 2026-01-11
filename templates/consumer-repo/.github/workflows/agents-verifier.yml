@@ -154,10 +154,11 @@ jobs:
             core.setOutput('should_run', 'true');
             core.setOutput('mode', mode);
             // For compare mode, use models from different families/providers
+            // model1 goes to GitHub Models, model2 goes to OpenAI
             if (mode === 'compare') {
-              // gpt-5.2 (OpenAI) + Mistral-large (GitHub Models) for cross-provider comparison
-              core.setOutput('model', 'gpt-5.2');
-              core.setOutput('model2', 'Mistral-large-2407');
+              // Mistral-large (GitHub Models) + gpt-5.2 (OpenAI) for cross-provider comparison
+              core.setOutput('model', 'Mistral-large-2407');
+              core.setOutput('model2', 'gpt-5.2');
             } else {
               core.setOutput('model', '');  // Use default (gpt-4o)
               core.setOutput('model2', '');
