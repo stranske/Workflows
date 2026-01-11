@@ -454,10 +454,10 @@ jobs:
 
 **Fix:** Validate your workflow:
 ```bash
-# Install actionlint
-brew install actionlint
+# In the Workflows repo, this runs actionlint as part of the fast checks.
+./scripts/dev_check.sh
 
-# Check workflow
+# Or, if you already have actionlint installed in your environment:
 actionlint .github/workflows/your-workflow.yml
 ```
 
