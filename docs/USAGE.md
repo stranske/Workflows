@@ -16,7 +16,7 @@ on:
 
 jobs:
   python-ci:
-    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
+    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@v1
     with:
       python-version: "3.11"
 ```
@@ -27,10 +27,10 @@ jobs:
 
 | Workflow | Description | Usage |
 |----------|-------------|-------|
-| `reusable-10-ci-python.yml` | Python CI (test, lint, type check) | `uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main` |
-| `reusable-12-ci-docker.yml` | Docker build and smoke test | `uses: stranske/Workflows/.github/workflows/reusable-12-ci-docker.yml@main` |
-| `reusable-18-autofix.yml` | Automated code formatting | `uses: stranske/Workflows/.github/workflows/reusable-18-autofix.yml@main` |
-| `reusable-16-agents.yml` | Agent orchestration | `uses: stranske/Workflows/.github/workflows/reusable-16-agents.yml@main` |
+| `reusable-10-ci-python.yml` | Python CI (test, lint, type check) | `uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@v1` |
+| `reusable-12-ci-docker.yml` | Docker build and smoke test | `uses: stranske/Workflows/.github/workflows/reusable-12-ci-docker.yml@v1` |
+| `reusable-18-autofix.yml` | Automated code formatting | `uses: stranske/Workflows/.github/workflows/reusable-18-autofix.yml@v1` |
+| `reusable-16-agents.yml` | Agent orchestration | `uses: stranske/Workflows/.github/workflows/reusable-16-agents.yml@v1` |
 
 ### Composite Actions
 
@@ -38,11 +38,11 @@ Use actions directly in your workflow steps:
 
 ```yaml
 steps:
-  - uses: stranske/Workflows/.github/actions/autofix@main
+  - uses: stranske/Workflows/.github/actions/autofix@v1
     with:
       token: ${{ secrets.GITHUB_TOKEN }}
       
-  - uses: stranske/Workflows/.github/actions/python-setup@main
+  - uses: stranske/Workflows/.github/actions/python-ci-setup@v1
     with:
       python-version: "3.11"
 ```
@@ -73,20 +73,21 @@ Some workflows require secrets to be passed:
 ```yaml
 jobs:
   ci:
-    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
+    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@v1
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 ```
 
 ## Versioning
 
-- Use `@main` for latest stable version
-- Use `@v1.0.0` (when released) for specific versions
+- Use `@v1` for the current stable major line
+- Use `@v1.0.0` (or newer) for fully pinned releases
 - Use `@<commit-sha>` for specific commits
+- Use `@main` only when you intentionally need unreleased changes
 
 ## Examples
 
-See the [examples directory](docs/examples/) for complete working configurations:
+See the [examples directory](examples/) for complete working configurations:
 
 - Python project CI
 - Multi-language projects
@@ -109,6 +110,7 @@ See the [examples directory](docs/examples/) for complete working configurations
 
 ## Further Reading
 
-- [Workflow System Documentation](docs/ci/WORKFLOWS.md)
-- [Autofix Logic](docs/ci/AUTOFIX.md)
-- [Configuration Reference](CONFIGURATION.md)
+- [Workflow System Documentation](ci/WORKFLOW_SYSTEM.md)
+- [Reusable CI & Automation Workflows](ci_reuse.md)
+- [Integration Guide](INTEGRATION_GUIDE.md)
+- [Validation Overview](validation/overview.md)

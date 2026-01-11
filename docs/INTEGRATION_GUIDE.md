@@ -349,7 +349,7 @@ Enable coverage tracking with automatic issue creation when coverage drops:
 ```yaml
 jobs:
   python-ci:
-    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
+    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@v1
     with:
       coverage-min: "80"           # Minimum threshold
       enable-soft-gate: true       # Enable trend tracking & hotspot reporting
@@ -478,7 +478,7 @@ permissions:
 
 **Fix:** Use full path with `@ref`:
 ```yaml
-uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
+uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@v1
 ```
 
 ### Jobs Not Running
@@ -525,12 +525,12 @@ permissions:
 
 jobs:
   ci:
-    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
+    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@v1
 
 # CORRECT - let the reusable workflow handle permissions
 jobs:
   ci:
-    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
+    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@v1
 ```
 
 ---
@@ -546,12 +546,14 @@ Copy all workflow templates from `/templates/consumer-repo/.github/workflows/` t
 ```bash
 # Clone templates
 mkdir -p .github/workflows
-curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/consumer-repo/.github/workflows/ci.yml -o .github/workflows/ci.yml
-curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/consumer-repo/.github/workflows/autofix-versions.env -o .github/workflows/autofix-versions.env
-curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/consumer-repo/.github/workflows/agents-issue-intake.yml -o .github/workflows/agents-issue-intake.yml
-curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/consumer-repo/.github/workflows/agents-orchestrator.yml -o .github/workflows/agents-orchestrator.yml
-curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/consumer-repo/.github/workflows/agents-pr-meta.yml -o .github/workflows/agents-pr-meta.yml
-curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/consumer-repo/.github/workflows/autofix.yml -o .github/workflows/autofix.yml
+curl -sL https://raw.githubusercontent.com/stranske/Workflows/v1/templates/consumer-repo/.github/workflows/ci.yml -o .github/workflows/ci.yml
+curl -sL https://raw.githubusercontent.com/stranske/Workflows/v1/templates/consumer-repo/.github/workflows/autofix-versions.env -o .github/workflows/autofix-versions.env
+curl -sL https://raw.githubusercontent.com/stranske/Workflows/v1/templates/consumer-repo/.github/workflows/agents-issue-intake.yml -o .github/workflows/agents-issue-intake.yml
+curl -sL https://raw.githubusercontent.com/stranske/Workflows/v1/templates/consumer-repo/.github/workflows/agents-orchestrator.yml -o .github/workflows/agents-orchestrator.yml
+curl -sL https://raw.githubusercontent.com/stranske/Workflows/v1/templates/consumer-repo/.github/workflows/agents-pr-meta.yml -o .github/workflows/agents-pr-meta.yml
+curl -sL https://raw.githubusercontent.com/stranske/Workflows/v1/templates/consumer-repo/.github/workflows/autofix.yml -o .github/workflows/autofix.yml
+
+# Use /main/ only when intentionally testing unreleased changes.
 ```
 
 ### Workflow Summary
