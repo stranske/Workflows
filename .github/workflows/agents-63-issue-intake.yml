@@ -243,7 +243,7 @@ jobs:
       models: read # Required for LLM-based topic splitting
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Echo received inputs
         run: |
@@ -333,7 +333,7 @@ jobs:
 
       - name: Checkout topic splitter from Workflows repo
         if: needs.normalize_inputs.outputs.apply_langchain_formatting == 'true'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: stranske/Workflows
           sparse-checkout: |
@@ -1250,7 +1250,7 @@ jobs:
       models: read
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Python
         uses: actions/setup-python@v5
