@@ -19,20 +19,16 @@ jobs:
     if: github.event.label.name == 'agents:decompose'
 
     steps:
-      - name: Checkout Workflows repo
-        uses: actions/checkout@v6
-        with:
-          repository: stranske/Workflows
-          path: workflows-repo
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.11"
 
       - name: Install dependencies
         run: |
-          cd workflows-repo
           pip install -e ".[langchain]" --quiet
 
       - name: Extract issue content
@@ -72,9 +68,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          PYTHONPATH: ${{ github.workspace }}/workflows-repo
+          PYTHONPATH: ${{ github.workspace }}
         run: |
-          cd workflows-repo
           python -c "
           import json
           import os
@@ -84,7 +79,7 @@ jobs:
           from scripts.langchain.task_decomposer import decompose_task
 
           # Read issue context
-          context = open('../issue_context.md').read()
+          context = open('issue_context.md').read()
 
           # Decompose the task
           result = decompose_task(context)
@@ -106,7 +101,7 @@ jobs:
               f.write(f'subtask_count={len(subtasks)}\n')
 
           # Write subtasks to file for multiline handling
-          with open('../subtasks.md', 'w') as f:
+          with open('subtasks.md', 'w') as f:
               f.write(subtask_md)
 
           print(f'Generated {len(subtasks)} subtasks')
