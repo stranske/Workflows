@@ -362,12 +362,18 @@ function buildTimeoutStatus({
     usageRatio = Math.min(1, elapsedSafe / timeoutMs);
     const remainingMinutes = Math.ceil(remainingMs / 60000);
     const usagePercent = Math.round(usageRatio * 100);
+    const thresholdPercent = Number.isFinite(warningRatio) ? Math.round(warningRatio * 100) : null;
+    const thresholdRemainingMinutes = Number.isFinite(warningRemainingMs)
+      ? Math.ceil(warningRemainingMs / 60000)
+      : null;
     const warnByRatio = usageRatio >= warningRatio;
     const warnByRemaining = remainingMs <= warningRemainingMs;
     if (warnByRatio || warnByRemaining) {
       warning = {
         percent: usagePercent,
         remaining_minutes: remainingMinutes,
+        threshold_percent: thresholdPercent,
+        threshold_remaining_minutes: thresholdRemainingMinutes,
         reason: warnByRemaining ? 'remaining' : 'usage',
       };
     }
@@ -1792,7 +1798,17 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
     const percent = timeoutStatus.warning.percent ?? 0;
     const remaining = timeoutStatus.warning.remaining_minutes ?? 0;
     const reason = timeoutStatus.warning.reason === 'remaining' ? 'remaining threshold' : 'usage threshold';
-    core.warning(`Timeout warning (${reason}): ${percent}% consumed, ${remaining}m remaining.`);
+    const thresholdParts = [];
+    const thresholdPercent = timeoutStatus.warning.threshold_percent;
+    const thresholdRemaining = timeoutStatus.warning.threshold_remaining_minutes;
+    if (Number.isFinite(thresholdPercent)) {
+      thresholdParts.push(`${thresholdPercent}% threshold`);
+    }
+    if (Number.isFinite(thresholdRemaining)) {
+      thresholdParts.push(`${thresholdRemaining}m threshold`);
+    }
+    const thresholdSuffix = thresholdParts.length ? ` (thresholds: ${thresholdParts.join(', ')})` : '';
+    core.warning(`Timeout warning (${reason}): ${percent}% consumed, ${remaining}m remaining${thresholdSuffix}.`);
   }
 
   // Add agent run details if we ran an agent
