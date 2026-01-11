@@ -549,7 +549,9 @@ def _normalize_result(
     )
 
 
-def _process_llm_response(response: Any, provider: str, use_llm: bool) -> IssueOptimizationResult | None:
+def _process_llm_response(
+    response: Any, provider: str, use_llm: bool
+) -> IssueOptimizationResult | None:
     """Process LLM response and return normalized result, or None if processing fails."""
     content = getattr(response, "content", None) or str(response)
     payload = _extract_json_payload(content)

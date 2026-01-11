@@ -73,9 +73,7 @@ def _is_token_limit_error(error: Exception) -> bool:
         or "error code 413" in error_str
         or "status code 413" in error_str
     )
-    has_token_message = (
-        "tokens_limit_reached" in error_str or "request body too large" in error_str
-    )
+    has_token_message = "tokens_limit_reached" in error_str or "request body too large" in error_str
     return has_413 and has_token_message
 
 

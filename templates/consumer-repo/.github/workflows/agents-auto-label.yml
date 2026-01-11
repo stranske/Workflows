@@ -22,6 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     # Skip if issue already has agent-related labels
     if: |
+      !contains(github.event.issue.labels.*.name, 'agents:auto-pilot') &&
       !contains(github.event.issue.labels.*.name, 'agents:formatted') &&
       !contains(github.event.issue.labels.*.name, 'agent:codex') &&
       !contains(github.event.issue.labels.*.name, 'automated')
