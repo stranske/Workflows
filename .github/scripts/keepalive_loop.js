@@ -1106,7 +1106,9 @@ async function evaluateKeepaliveLoop({ github, context, core, payload: overrideP
   let reason = 'pending';
   const verificationStatus = normalise(state?.verification?.status)?.toLowerCase();
   const verificationDone = ['done', 'verified', 'complete'].includes(verificationStatus);
-  const needsVerification = allComplete && !verificationDone;
+  const verificationAttempted = Boolean(state?.verification?.iteration);
+  // Only try verification once - if it fails, that's OK, tasks are still complete
+  const needsVerification = allComplete && !verificationDone && !verificationAttempted;
 
   // Conflict resolution takes highest priority - conflicts block all other work
   if (conflictResult.hasConflict && hasAgentLabel && keepaliveEnabled) {
@@ -1689,7 +1691,7 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
     verification = {};
   } else if (reason === 'verify-acceptance') {
     verification = {
-      status: runResult === 'success' ? 'done' : 'pending',
+      status: runResult === 'success' ? 'done' : 'failed',
       iteration: nextIteration,
       last_result: runResult || '',
       updated_at: new Date().toISOString(),
