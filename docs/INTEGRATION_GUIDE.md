@@ -97,7 +97,7 @@ Copy templates from `/templates/` and customize for your project.
 
 ```bash
 # Copy template to your repo
-curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/ci-basic.yml \
+curl -sL https://raw.githubusercontent.com/stranske/Workflows/v1/templates/ci-basic.yml \
   -o .github/workflows/ci.yml
 ```
 

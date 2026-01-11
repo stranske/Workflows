@@ -79,7 +79,7 @@ The agent is instructed to:
 Copy `agents-bot-comment-handler.yml` to `.github/workflows/`:
 
 ```bash
-curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/consumer-repo/.github/workflows/agents-bot-comment-handler.yml \
+curl -sL https://raw.githubusercontent.com/stranske/Workflows/v1/templates/consumer-repo/.github/workflows/agents-bot-comment-handler.yml \
   -o .github/workflows/agents-bot-comment-handler.yml
 ```
 
@@ -87,7 +87,7 @@ curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/con
 
 ```bash
 mkdir -p .github/codex/prompts
-curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/consumer-repo/.github/codex/prompts/fix_bot_comments.md \
+curl -sL https://raw.githubusercontent.com/stranske/Workflows/v1/templates/consumer-repo/.github/codex/prompts/fix_bot_comments.md \
   -o .github/codex/prompts/fix_bot_comments.md
 ```
 
