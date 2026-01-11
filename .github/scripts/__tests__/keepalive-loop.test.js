@@ -762,6 +762,63 @@ test('updateKeepaliveLoopSummary logs timeout warning at 80 percent usage', asyn
   }
 });
 
+test('updateKeepaliveLoopSummary does not warn before 80 percent usage', async () => {
+  const warnings = [];
+  const existingState = formatStateComment({
+    trace: 'trace-timeout-prewarn',
+    iteration: 1,
+    max_iterations: 5,
+  });
+  const pr = {
+    number: 561,
+    head: { ref: 'feature/timeout-prewarn', sha: 'sha-61' },
+    labels: [{ name: 'agent:codex' }],
+    body: prBodyFixture,
+  };
+  const github = buildGithubStub({
+    pr,
+    comments: [{ id: 83, body: existingState, html_url: 'https://example.com/83' }],
+  });
+  const core = {
+    info() {},
+    setOutput() {},
+    warning(message) {
+      warnings.push(message);
+    },
+  };
+  await updateKeepaliveLoopSummary({
+    github,
+    context: buildContext(561),
+    core,
+    inputs: {
+      prNumber: 561,
+      action: 'run',
+      runResult: 'success',
+      gateConclusion: 'success',
+      tasksTotal: 3,
+      tasksUnchecked: 1,
+      keepaliveEnabled: true,
+      autofixEnabled: false,
+      iteration: 1,
+      maxIterations: 5,
+      failureThreshold: 3,
+      trace: 'trace-timeout-prewarn',
+      elapsed_ms: 35 * 60 * 1000,
+      codex_changes_made: 'true',
+      codex_files_changed: 1,
+      codex_commit_sha: 'abcd2100',
+      codex_summary: 'Pre-warning timeout check.',
+    },
+  });
+
+  const body = github.actions[0].body;
+  assert.doesNotMatch(body, /Timeout warning/);
+
+  const parsed = parseStateComment(body);
+  assert.equal(parsed.data.timeout.warning, null);
+  assert.equal(warnings.length, 0);
+});
+
 test('updateKeepaliveLoopSummary treats percent warning ratio inputs as percentages', async () => {
   const warnings = [];
   const existingState = formatStateComment({
