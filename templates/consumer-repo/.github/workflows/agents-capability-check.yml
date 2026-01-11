@@ -19,20 +19,16 @@ jobs:
     if: github.event.label.name == 'agent:codex'
 
     steps:
-      - name: Checkout Workflows repo
-        uses: actions/checkout@v6
-        with:
-          repository: stranske/Workflows
-          path: workflows-repo
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.11"
 
       - name: Install dependencies
         run: |
-          cd workflows-repo
           pip install -e ".[langchain]" --quiet
 
       - name: Extract issue content
@@ -64,9 +60,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          PYTHONPATH: ${{ github.workspace }}/workflows-repo
+          PYTHONPATH: ${{ github.workspace }}
         run: |
-          cd workflows-repo
           python -c "
           import json
           import os
@@ -76,8 +71,8 @@ jobs:
           from scripts.langchain.capability_check import check_capability
 
           # Read extracted content
-          tasks = open('../tasks.md').read()
-          acceptance = open('../acceptance.md').read()
+          tasks = open('tasks.md').read()
+          acceptance = open('acceptance.md').read()
 
           # Run capability check
           result = check_capability(tasks, acceptance)
