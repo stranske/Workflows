@@ -81,6 +81,12 @@ test('calculateElapsedTime trims numeric now input', () => {
   assert.equal(calculateElapsedTime(start, `  ${now}  `), '45s');
 });
 
+test('calculateElapsedTime supports Date start with numeric string now', () => {
+  const now = 1700000000000;
+  const start = new Date(now - 30 * 1000);
+  assert.equal(calculateElapsedTime(start, String(now)), '30s');
+});
+
 test('calculateElapsedTime falls back to Date.now when now is invalid', () => {
   const realNow = Date.now;
   const now = 1700000000000;
