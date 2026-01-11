@@ -73,7 +73,7 @@ Output the formatted issue in Markdown.
 """
 
 llm = ChatOpenAI(
-    model="gpt-4o-mini",
+  model="gpt-4o",
     base_url="https://models.inference.ai.azure.com",
     api_key=os.environ["GITHUB_TOKEN"],
 )

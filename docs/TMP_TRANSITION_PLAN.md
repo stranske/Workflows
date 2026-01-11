@@ -443,7 +443,9 @@ Example from `agents-keepalive-loop.yml`:
   uses: actions/checkout@v4
   with:
     repository: stranske/Workflows
-    ref: main
+    # Keep this aligned with the ref you use in `uses: stranske/Workflows/...@<ref>`.
+    # Prefer stable tags (`v1`) for most consumers.
+    ref: v1
     sparse-checkout: |
       scripts
       .github/scripts

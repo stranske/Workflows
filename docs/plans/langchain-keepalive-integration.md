@@ -103,7 +103,7 @@ CODEX_TUI_RECORD_SESSION=1 codex ...
 curl -s "https://models.inference.ai.azure.com/chat/completions" \
   -H "Authorization: Bearer $GITHUB_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"messages":[{"role":"user","content":"test"}],"model":"gpt-4o-mini"}'
+  -d '{"messages":[{"role":"user","content":"test"}],"model":"gpt-4o"}'
 ```
 
 **Integration approach**: Use LangChain's OpenAI integration with custom base URL:
@@ -111,7 +111,7 @@ curl -s "https://models.inference.ai.azure.com/chat/completions" \
 from langchain_openai import ChatOpenAI
 
 llm = ChatOpenAI(
-    model="gpt-4o-mini",
+  model="gpt-4o",
     base_url="https://models.inference.ai.azure.com",
     api_key=os.environ["GITHUB_TOKEN"],  # GitHub token works!
 )
@@ -171,11 +171,11 @@ This pattern maps well to Codex JSONL events!
 
 ```
 ┌─────────────────────────────────────────┐
-│  1. GitHub Models API (gpt-4o-mini)     │
+│  1. GitHub Models API (gpt-4o)          │
 │     - Uses existing GITHUB_TOKEN        │
 │     - Free with Copilot subscription    │
 ├─────────────────────────────────────────┤
-│  2. OpenAI API (gpt-4o-mini)            │
+│  2. OpenAI API (gpt-4o)                 │
 │     - Uses OPENAI_API_KEY secret        │
 │     - ~$0.0006 per analysis             │
 ├─────────────────────────────────────────┤

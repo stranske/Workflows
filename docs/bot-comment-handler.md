@@ -34,11 +34,11 @@ The workflow reads the PR's labels to determine which agent to use:
 | Label | Agent | Workflow |
 |-------|-------|----------|
 | `agent:codex` | Codex CLI | `reusable-codex-run.yml` |
-| `agent:claude` | Claude | `reusable-claude-run.yml` |
-| `agent:gemini` | Gemini | `reusable-gemini-run.yml` |
 | (none) | Codex (default) | `reusable-codex-run.yml` |
 
 **To switch agents:** Change the PR label. No workflow changes needed.
+
+Only `agent:codex` is currently implemented in this repository. Other `agent:*` labels may be reserved for future expansion.
 
 ## Bot Authors
 

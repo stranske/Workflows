@@ -5,7 +5,7 @@
 ## Repository Purpose
 
 This is the **central workflow library** for the stranske organization. It provides:
-1. **Reusable workflows** - Called by consumer repos via `uses: stranske/Workflows/.github/workflows/reusable-*.yml@main`
+1. **Reusable workflows** - Called by consumer repos via `uses: stranske/Workflows/.github/workflows/reusable-*.yml@v1` (use `@main` only for unreleased testing)
 2. **Consumer repo templates** - Thin caller workflows synced to consumer repos
 3. **Shared scripts** - JS/Python utilities used by workflows
 
@@ -191,7 +191,7 @@ gh run view RUN_ID --repo owner/repo --json html_url --jq '.html_url'
 
 **Example error:**
 ```
-Error calling workflow 'stranske/Workflows/.github/workflows/reusable.yml@main'. 
+Error calling workflow 'stranske/Workflows/.github/workflows/reusable.yml@v1'. 
 The nested job 'job_name' is requesting 'contents: write', but is only allowed 'contents: read'.
 ```
 
