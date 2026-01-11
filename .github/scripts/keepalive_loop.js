@@ -314,7 +314,12 @@ async function resolveWorkflowRunStartMs({ github, context, core }) {
 
 async function resolveElapsedMs({ github, context, inputs, core }) {
   const durationMs = resolveDurationMs({
-    durationMs: toOptionalNumber(inputs?.duration_ms ?? inputs?.durationMs),
+    durationMs: toOptionalNumber(
+      inputs?.elapsed_ms ??
+        inputs?.elapsedMs ??
+        inputs?.duration_ms ??
+        inputs?.durationMs
+    ),
     startTs: toOptionalNumber(inputs?.start_ts ?? inputs?.startTs),
   });
   if (durationMs > 0) {

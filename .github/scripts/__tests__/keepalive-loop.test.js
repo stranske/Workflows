@@ -760,6 +760,65 @@ test('updateKeepaliveLoopSummary logs timeout warning at 80 percent usage', asyn
   }
 });
 
+test('updateKeepaliveLoopSummary logs timeout warning when elapsed_ms crosses 80 percent', async () => {
+  const warnings = [];
+  const existingState = formatStateComment({
+    trace: 'trace-timeout-elapsed',
+    iteration: 1,
+    max_iterations: 5,
+  });
+  const pr = {
+    number: 559,
+    head: { ref: 'feature/timeout-elapsed', sha: 'sha-59' },
+    labels: [{ name: 'agent:codex' }],
+    body: prBodyFixture,
+  };
+  const github = buildGithubStub({
+    pr,
+    comments: [{ id: 81, body: existingState, html_url: 'https://example.com/81' }],
+  });
+  const core = {
+    info() {},
+    setOutput() {},
+    warning(message) {
+      warnings.push(message);
+    },
+  };
+  await updateKeepaliveLoopSummary({
+    github,
+    context: buildContext(559),
+    core,
+    inputs: {
+      prNumber: 559,
+      action: 'run',
+      runResult: 'success',
+      gateConclusion: 'success',
+      tasksTotal: 3,
+      tasksUnchecked: 1,
+      keepaliveEnabled: true,
+      autofixEnabled: false,
+      iteration: 1,
+      maxIterations: 5,
+      failureThreshold: 3,
+      trace: 'trace-timeout-elapsed',
+      elapsed_ms: 36 * 60 * 1000,
+      codex_changes_made: 'true',
+      codex_files_changed: 2,
+      codex_commit_sha: 'abcd2222',
+      codex_summary: 'Elapsed override timeout check.',
+    },
+  });
+
+  const body = github.actions[0].body;
+  assert.match(body, /Timeout warning/);
+
+  const parsed = parseStateComment(body);
+  assert.equal(parsed.data.timeout.warning.reason, 'usage');
+  assert.equal(parsed.data.timeout.warning.percent, 80);
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0], /80% consumed/);
+});
+
 test('updateKeepaliveLoopSummary reads timeout override from workflow inputs payload', async () => {
   const nowMs = Date.parse('2026-04-01T00:00:00Z');
   const realNow = Date.now;
