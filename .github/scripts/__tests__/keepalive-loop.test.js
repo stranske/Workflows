@@ -749,6 +749,8 @@ test('updateKeepaliveLoopSummary logs timeout warning at 80 percent usage', asyn
 
     const body = github.actions[0].body;
     assert.match(body, /Timeout warning/);
+    assert.match(body, /80% consumed/);
+    assert.match(body, /usage threshold/);
 
     const parsed = parseStateComment(body);
     assert.equal(parsed.data.timeout.warning.reason, 'usage');

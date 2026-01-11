@@ -125,6 +125,18 @@ Navigate to **Settings** → **Secrets and variables** → **Actions** → **Var
 - `WORKFLOW_TIMEOUT_EXTENDED` applies when a PR has the `timeout:extended` label.
 - `WORKFLOW_TIMEOUT_WARNING_RATIO` triggers a warning when the elapsed ratio is met.
 - `WORKFLOW_TIMEOUT_WARNING_MINUTES` triggers a warning when remaining minutes are low.
+- Manual runs can override values with workflow inputs:
+  - `timeout_minutes` to set the full timeout for the run.
+  - `timeout_warning_ratio` to change the usage warning threshold.
+  - `timeout_warning_minutes` to change the remaining-minutes warning threshold.
+
+Example override payload:
+
+```yaml
+timeout_minutes: 75
+timeout_warning_ratio: 0.8
+timeout_warning_minutes: 10
+```
 
 ---
 

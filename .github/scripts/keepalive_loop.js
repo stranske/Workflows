@@ -435,6 +435,26 @@ function formatTimeoutUsage({ elapsedMs, usageRatio, remainingMs }) {
   return `${elapsedMinutes}m elapsed (${usagePercent}%, ${remainingMinutes}m remaining)`;
 }
 
+function formatTimeoutWarning(warning) {
+  if (!warning || typeof warning !== 'object') {
+    return '';
+  }
+  const percent = Number.isFinite(warning.percent) ? warning.percent : null;
+  const remaining = Number.isFinite(warning.remaining_minutes) ? warning.remaining_minutes : null;
+  const reason = warning.reason === 'remaining' ? 'remaining threshold' : 'usage threshold';
+  const parts = [];
+  if (percent !== null) {
+    parts.push(`${percent}% consumed`);
+  }
+  if (remaining !== null) {
+    parts.push(`${remaining}m remaining`);
+  }
+  if (!parts.length) {
+    return '';
+  }
+  return `${parts.join(', ')} (${reason})`;
+}
+
 function buildMetricsRecord({
   prNumber,
   iteration,
@@ -1748,10 +1768,12 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
     summaryLines.splice(summaryLines.length - 2, 0, `| Timeout usage | ${timeoutUsage} |`);
   }
   if (timeoutStatus.warning) {
+    const timeoutWarning = formatTimeoutWarning(timeoutStatus.warning);
+    const warningValue = timeoutWarning ? `⚠️ ${timeoutWarning}` : `⚠️ ${timeoutStatus.warning.remaining_minutes}m remaining`;
     summaryLines.splice(
       summaryLines.length - 2,
       0,
-      `| Timeout warning | ⚠️ ${timeoutStatus.warning.remaining_minutes}m remaining |`,
+      `| Timeout warning | ${warningValue} |`,
     );
   }
 
