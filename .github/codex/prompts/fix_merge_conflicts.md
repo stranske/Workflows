@@ -6,15 +6,11 @@ This PR has **merge conflicts** that must be resolved before CI can run or the P
 
 Resolve all merge conflicts by integrating changes from the base branch with this PR's changes.
 
-## IMPORTANT: Pre-Flight Check
+## CRITICAL: You MUST attempt the merge
 
-Before starting, verify the conflict state:
-```bash
-git status
-```
+**Do NOT check `git status` first and exit if clean!** The conflicts only appear DURING the merge operation.
 
-If you see "nothing to commit, working tree clean" - conflicts may have been auto-resolved. 
-Check if there are actually merge conflicts before proceeding.
+You must ALWAYS run `git merge origin/{{base_branch}}` to surface the conflicts, even if the working tree appears clean initially.
 
 ## Conflict Detection
 
