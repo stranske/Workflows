@@ -762,6 +762,8 @@ def apply_suggestions(
         issue_body = ""
 
     if use_llm:
+        from tools.llm_provider import _is_token_limit_error
+
         client_info = _get_llm_client()
         if client_info:
             client, provider = client_info
@@ -773,20 +775,67 @@ def apply_suggestions(
                 prompt = _load_apply_prompt()
                 template = ChatPromptTemplate.from_template(prompt)
                 chain = template | client
-                response = chain.invoke(
-                    {
-                        "original_body": issue_body,
-                        "suggestions_json": json.dumps(suggestions, ensure_ascii=True, indent=2),
-                    }
-                )
-                content = getattr(response, "content", None) or str(response)
-                formatted = content.strip()
-                if _formatted_output_valid(formatted):
-                    return {
-                        "formatted_body": formatted,
-                        "provider_used": provider,
-                        "used_llm": True,
-                    }
+                try:
+                    response = chain.invoke(
+                        {
+                            "original_body": issue_body,
+                            "suggestions_json": json.dumps(suggestions, ensure_ascii=True, indent=2),
+                        }
+                    )
+                    content = getattr(response, "content", None) or str(response)
+                    formatted = content.strip()
+                    if _formatted_output_valid(formatted):
+                        return {
+                            "formatted_body": formatted,
+                            "provider_used": provider,
+                            "used_llm": True,
+                        }
+                except Exception as e:
+                    # If GitHub Models hit token limit, retry with OpenAI API
+                    if _is_token_limit_error(e) and provider == "github-models":
+                        print(
+                            "GitHub Models token limit hit in apply_suggestions, retrying with OpenAI API...",
+                            file=sys.stderr,
+                        )
+                        openai_client_info = _get_llm_client(force_openai=True)
+                        if openai_client_info:
+                            openai_client, openai_provider = openai_client_info
+                            openai_chain = template | openai_client
+                            try:
+                                response = openai_chain.invoke(
+                                    {
+                                        "original_body": issue_body,
+                                        "suggestions_json": json.dumps(suggestions, ensure_ascii=True, indent=2),
+                                    }
+                                )
+                                content = getattr(response, "content", None) or str(response)
+                                formatted = content.strip()
+                                if _formatted_output_valid(formatted):
+                                    print(
+                                        "Successfully applied suggestions with OpenAI API",
+                                        file=sys.stderr,
+                                    )
+                                    return {
+                                        "formatted_body": formatted,
+                                        "provider_used": openai_provider,
+                                        "used_llm": True,
+                                    }
+                            except Exception as openai_error:
+                                print(
+                                    f"OpenAI API also failed ({type(openai_error).__name__}: {openai_error}), using fallback",
+                                    file=sys.stderr,
+                                )
+                        else:
+                            print(
+                                "OPENAI_API_KEY not available, using fallback",
+                                file=sys.stderr,
+                            )
+                    else:
+                        # Other error types - fall back immediately
+                        print(
+                            f"LLM apply failed ({type(e).__name__}: {e}), using fallback",
+                            file=sys.stderr,
+                        )
 
     from scripts.langchain import issue_formatter
 
