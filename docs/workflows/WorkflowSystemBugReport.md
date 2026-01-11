@@ -1,14 +1,17 @@
 # Workflow System Bug Report & Improvement Plan
 
-> **Status**: Active evaluation document  
-> **Last Updated**: 2025-01-XX  
-> **Primary Focus Areas**: API Rate Limiting, Keepalive Iteration Failures, Branch Sync Issues
+> **Status**: Reference / improvement backlog
+> **Last reviewed**: 2026-01-11
+> **Primary focus areas**: API rate limiting, keepalive iteration reliability, branch sync resilience
+>
+> If you’re looking for the *current* workflow topology and entry points, start with `docs/ci/WORKFLOW_SYSTEM.md`.
+> For local validation (including actionlint), see `docs/validation/overview.md`.
 
 ---
 
 ## Executive Summary
 
-This document provides a comprehensive bug analysis of the GitHub Actions workflow system, with particular focus on two critical operational issues:
+This document captures a bug analysis of the GitHub Actions workflow system, focusing on two operational failure classes that historically caused the most churn:
 
 1. **GitHub API Rate Limiting**: The orchestrator and supporting workflows make excessive API calls, frequently hitting GitHub's rate limits during scheduled runs.
 
@@ -40,7 +43,7 @@ This document provides a comprehensive bug analysis of the GitHub Actions workfl
 - Comment deduplication logic silently skips operations
 - Orchestrator runs abort before completing all steps
 
-**Root Cause**: The 20-minute scheduled orchestrator (`*/20 * * * *`) makes numerous paginated API calls without rate limit awareness or backoff strategies.
+**Root Cause**: The orchestrator and supporting scripts can make numerous paginated API calls without consistent rate-limit awareness/backoff. (See the workflow schedule in the workflow file itself; schedules drift over time.)
 
 ### Issue #2: Branch Sync Failures Abort Keepalive
 
