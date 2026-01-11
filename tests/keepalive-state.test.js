@@ -21,6 +21,11 @@ test('calculateElapsedTime returns 0s for invalid date strings', () => {
   assert.equal(calculateElapsedTime('invalid'), '0s');
 });
 
+test('calculateElapsedTime returns 0s for invalid date strings with a valid now', () => {
+  const now = 1700000000000;
+  assert.equal(calculateElapsedTime('invalid', now), '0s');
+});
+
 test('calculateElapsedTime returns 0s for empty strings', () => {
   assert.equal(calculateElapsedTime('  '), '0s');
 });
