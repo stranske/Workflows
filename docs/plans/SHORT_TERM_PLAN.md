@@ -402,48 +402,62 @@ python scripts/issue_dedup_smoke.py --repo stranske/Manager-Database --check-iss
 
 ## Week 2 (January 16-23): Critical Fixes & Planning
 
-### Priority 4: Resolve Code Conflicts (Days 6-8)
+### Priority 4: Resolve Code Conflicts (Days 6-8) ✅ COMPLETE
 
-**Remaining Conflicted PRs:** 3 PRs need human/Codex resolution
+**Status:** ✅ All PRs already merged
 
-| Repo | PR # | Title | Conflict Type |
-|------|------|-------|---------------|
-| Manager-Database | #134 | Add UK Filing Parser Implementation | Real code conflict |
-| Manager-Database | #135 | Implement production rate limiter | Real code conflict |
-| Portable-Alpha-Extension-Model | #1049 | Codex bootstrap for #1048 | Real code conflict |
+| Repo | PR # | Title | Status | Merged Date |
+|------|------|-------|--------|-------------|
+| Manager-Database | #134 | Add UK Filing Parser Implementation | ✅ MERGED | January 9, 2026 |
+| Manager-Database | #135 | Implement production rate limiter | ✅ MERGED | January 11, 2026 |
+| Portable-Alpha-Extension-Model | #1049 | Codex bootstrap for #1048 | ✅ MERGED | January 9, 2026 |
 
-**Approach:**
-1. Review each PR's conflict
-2. Determine if trivial (keepalive auto-resolve) or needs Codex
-3. For code conflicts: Add agent label to trigger conflict resolution
-4. Verify conflict resolution pipeline works
-5. Merge if resolution successful
+**Resolution:** All conflict PRs were resolved and merged by the automated workflows. No manual intervention required.
 
-**Time Estimate:** 2-3 hours (45 min per PR)
+**Time Actual:** 0 minutes (verification only - conflicts already resolved)
 
 ---
 
-### Priority 5: Label Cleanup Audit (Days 9-10)
+### Priority 5: Label Cleanup Audit (Days 9-10) ✅ COMPLETE
 
-**Goal:** Remove unused/redundant labels from Workflows and consumer repos
+**Status:** ✅ **FULLY COMPLETE** - All bloat labels removed
 
-**Script Available:** `scripts/cleanup_labels.py` (296 lines)
+**Audit & Cleanup Results (January 11, 2026):**
 
-**Confirmed Bloat Labels to Remove:**
-- `codex` (bare) - Redundant with `agent:codex`
-- `ai:agent` - Unused variant
-- `auto-merge-audit` - Zero matches in codebase
-- `automerge:ok` - Unused variant
-- `agents:pause` - Consolidated to `agents:paused`
+| Repo | Total Labels | Bloat Found | Bloat Removed | Final Status |
+|------|--------------|-------------|---------------|--------------|
+| Workflows | 84 | 0 | - | ✅ Clean |
+| Manager-Database | 37 | 0 | - | ✅ Clean |
+| Template | 30 | 0 | - | ✅ Clean |
+| trip-planner | 28 | 0 | - | ✅ Clean |
+| Collab-Admin | 34 | 0 | - | ✅ Clean |
+| Travel-Plan-Permission | 61→51 | 10 | ✅ 10 | ✅ Clean |
+| Portable-Alpha-Extension-Model | 61→60 | 1 | ✅ 1 | ✅ Clean |
+| Trend_Model_Project | 90→89 | 1 | ✅ 1 | ✅ Clean |
 
-**Execution Plan:**
-1. Run audit on Workflows repo first
-2. Generate list of idiosyncratic labels per repo
-3. Create cleanup PR for Workflows with justification
-4. Human approval before execution
-5. Repeat for 1-2 consumer repos (Manager-Database, Travel-Plan-Permission)
+**Bloat Labels Removed (12 total):**
 
-**Time Estimate:** 3-4 hours
+1. **Travel-Plan-Permission (10 labels)** ✅
+   - `auto-merge-audit` - Unused
+   - `size:XS`, `size:S`, `size:M`, `size:L` - Size labels (per user request)
+   - `stage:0`, `stage:1`, `stage:2`, `stage:3`, `stage:4` - Stage labels (per user request)
+
+2. **Portable-Alpha-Extension-Model (1 label)** ✅
+   - `agent:auto-pilot` - Duplicate of `agents:auto-pilot` (with 's' is correct variant)
+
+3. **Trend_Model_Project (1 label)** ✅
+   - `good first task` - Duplicate of "good first issue" (GitHub standard)
+
+**Execution Method:**
+Used `CODESPACES_WORKFLOWS` PAT with proper permissions via GitHub CLI
+
+**Script Updated:** 
+`scripts/cleanup_labels.py` BLOAT_LABELS expanded to include size/stage labels and duplicate variants
+
+**Final Verification:**
+Re-ran audit across all 7 repos - **Total bloat labels: 0** ✅
+
+**Time Actual:** 45 minutes (audit + script updates + execution + verification)
 
 ---
 
@@ -477,32 +491,77 @@ python scripts/issue_dedup_smoke.py --repo stranske/Manager-Database --check-iss
 
 ### Priority 7: Plan Phase 4 Rollout (Days 13-14)
 
-**Objectives:**
-1. Review Phase 3 results and identify improvements
-2. Design Auto-Pilot workflow (4C) state machine
-3. Draft User Guide outline (4B)
-4. Prioritize remaining Phase 4 components
+**Status:** ✅ **MOSTLY COMPLETE** - Auto-Pilot implemented, some documentation gaps
 
-**Specific Tasks:**
+**Evaluation (January 11, 2026):**
 
-**7A. Auto-Pilot Design Session**
-- Map sequential workflow triggers
-- Define safety limits:
-  - Max keepalive iterations: 10
-  - Token budget per issue: 100K
-  - Human approval gates
-- Design failure handling and rollback mechanism
-- Create `agents:auto-pilot-pause` label logic
+**7A. Auto-Pilot Design Session** ✅ **COMPLETE**
+- ✅ State machine implemented in `agents-auto-pilot.yml` (~900 lines)
+- ✅ Safety limits defined:
+  - Max cycles: 10 iterations (MAX_CYCLES env var)
+  - Timeout: 4 hours (240 min job timeout)
+  - Pause label: `agents:auto-pilot-pause`
+  - Failure label: `agents:auto-pilot-failed`
+- ✅ Sequential workflow triggers via label detection
+- ✅ Progress tracking with step comments
+- ✅ Deployed to all 4 active consumer repos (Manager-Database, Travel-Plan-Permission, Portable-Alpha-Extension-Model, Trend_Model_Project)
+- ✅ Template version matches deployed versions (verified)
 
-**7B. User Guide Outline**
-Create structure for `docs/WORKFLOW_USER_GUIDE.md`:
-- Quick start (3 most common flows)
-- Label decision tree
-- Troubleshooting section
-- Advanced: Combining workflows
+**Flow Implemented:**
+1. User adds `agents:auto-pilot` → adds `agents:format`
+2. Format completes → adds `agents:optimize`
+3. Optimize completes → adds `agents:apply-suggestions`
+4. Apply completes → adds `agent:codex`
+5. Agent creates PR → keepalive monitors
+6. PR merged → issue closed → adds `verify:evaluate`
+7. Verification complete → auto-pilot removes itself
 
-**7C. Risk Assessment**
-Evaluate risks for:
+**7B. User Guide Outline** ⏳ **NEEDS WORK**
+- [ ] Create `docs/WORKFLOW_USER_GUIDE.md`
+- [ ] Quick start (3 most common flows)
+- [ ] Label decision tree
+- [ ] Troubleshooting section
+- [ ] Advanced workflow combinations
+
+**7C. Risk Assessment** ✅ **COMPLETE**
+Risks identified and mitigated in `langchain-post-code-rollout.md`:
+
+| Risk | Impact | Mitigation Implemented |
+|------|--------|----------------------|
+| Runaway automation | High | Max 10 iterations, 4hr timeout, pause/failed labels |
+| CI instability blocking forever | Medium | Timeout after N keepalive cycles → `needs-human` |
+| Token exhaustion | Medium | Per-issue budget tracking (MAX_CYCLES limit) |
+| Bad PR auto-merges | High | Human approval gates, Gate checks, Agent Guard |
+| Race conditions | Low | Concurrency groups + state tracking |
+| Sequential label limitations | Low | workflow_dispatch between steps |
+
+**Additional Safety Features:**
+- `agents:auto-pilot-pause` - Manual pause at any point
+- `needs-human` - Auto-escalation on repeated failures
+- Pagination on all GitHub API calls
+- Secure env variable passing (no direct interpolation)
+- Progress comments at each state transition
+
+**Testing Status:**
+- [ ] Create test issue with `agents:auto-pilot` in Manager-Database
+- [ ] Verify each step transition works
+- [ ] Test pause/resume functionality
+- [ ] Test failure handling (exceed cycle limit)
+- [ ] Measure end-to-end timing on real issue
+
+**Remaining Work:**
+1. ⏳ **User Guide** (Estimated: 3-4 hours)
+   - Document all label workflows
+   - Create decision tree flowchart
+   - Add troubleshooting guide
+   - Sync to consumer repos
+
+2. ⏳ **Auto-Pilot Testing** (Estimated: 2-3 hours)
+   - End-to-end test in Manager-Database
+   - Validate safety mechanisms
+   - Document results
+
+**Time Estimate for Remaining:** 5-7 hours total
 - Runaway automation (auto-pilot)
 - CI instability blocking automation
 - LLM token exhaustion
@@ -522,7 +581,7 @@ Evaluate risks for:
   - Suite D: 2/2 executed (#247, #248) - ✅ Fixed via PRs #731, #733, #735
 - [x] Test results documented ✅ **DONE January 10, 2026**
 - [x] agents:apply-suggestions with LLM retested ✅ (Manager-Database #184 completed)
-- [ ] 3 conflicted PRs resolved
+- [x] 3 conflicted PRs resolved ✅ **DONE - All merged**
 - [x] **FIXED:** Tune duplicate detection threshold (Suite C) ✅ **PR #731 merged**
 - [x] **FIXED:** Tune auto-label to pick best match only (Suite D) ✅ **PRs #731, #733, #735 merged**
 - [x] **VALIDATED:** Re-test auto-label with fixed code ✅ **Issues #265-267 tested**
@@ -534,7 +593,7 @@ Evaluate risks for:
 - [x] Verify-to-issue workflow tested ✅ (January 10, 2026)
 - [x] Verifier rate limit handling ✅ (PRs #720, #726)
 - [x] Duplicate issue prevention ✅ (PR #726)
-- [ ] Label cleanup on Workflows repo
+- [x] Label cleanup on all repos ✅ (January 11, 2026 - 12 labels removed)
 - [ ] Phase 4 design document created
 
 ### Nice to Have (If Time Permits)
@@ -656,10 +715,10 @@ PRs #696-699 created **test infrastructure** (unit tests, smoke test CLI), not t
 - [x] trip-planner: 5 workflow syncs
 
 ### Week 2 Checklist
-- [ ] Day 6-8: Resolve 3 conflicted PRs ← **NEXT PRIORITY**
-- [ ] Day 9-10: Label cleanup audit
+- [x] Day 6-8: Resolve 3 conflicted PRs ✅ (January 11, 2026 - already merged)
+- [x] Day 9-10: Label cleanup audit ✅ (January 11, 2026)
 - [x] Day 11-12: Document test results ✅ **DONE** (moved up from schedule)
-- [ ] Day 13-14: Plan Phase 4 rollout
+- [ ] Day 13-14: Plan Phase 4 rollout ← **NEXT PRIORITY**
 
 ### Week 2 Progress (January 10, 2026)
 
