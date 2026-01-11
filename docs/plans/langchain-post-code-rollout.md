@@ -841,12 +841,13 @@ If any workflow causes issues in consumer repos:
 
 **Completed:**
 1. ✅ **4A: Label Cleanup** - `scripts/cleanup_labels.py` created (296 lines)
-2. ✅ **4D: Conflict Resolution** - Fully integrated! `conflict_detector.js` synced, `keepalive_loop.js` calls it, `keepalive_prompt_routing.js` routes to conflict prompt
-3. ✅ **4E: Verify-to-Issue** - `agents-verify-to-issue.yml` created (203 lines), in sync manifest
+2. ✅ **4C: Auto-Pilot** - `agents-auto-pilot.yml` created (898 lines), full state machine implemented
+3. ✅ **4D: Conflict Resolution** - Fully integrated! `conflict_detector.js` synced, `keepalive_loop.js` calls it, `keepalive_prompt_routing.js` routes to conflict prompt
+4. ✅ **4E: Verify-to-Issue** - `agents-verify-to-issue.yml` created (203 lines), in sync manifest
 
 **Pending:**
-4. **4B: User Guide** - Create `docs/WORKFLOW_USER_GUIDE.md` - 📋 Deferred
-5. **4C: Auto-Pilot** - Create `agents-auto-pilot.yml` - ❌ NOT STARTED
+5. **4B: User Guide** - Create `docs/WORKFLOW_USER_GUIDE.md` - 📋 Deferred until testing complete
+6. **Auto-Pilot Testing** - Test all 7 steps on controlled issues before broader rollout
 
 ### Future Enhancements
 1. **Compare mode refinement** - Currently uses gpt-4o (GitHub) vs gpt-5.2 (OpenAI)
@@ -1002,7 +1003,11 @@ At end of each workflow section, include:
 
 ### 4C. Master Automation Label (`agents:auto-pilot`)
 
+> **Status:** ✅ IMPLEMENTED - Ready for Testing
+
 **Goal:** Single label for complete issue-to-merged-PR automation.
+
+**Implementation:** `agents-auto-pilot.yml` (898 lines)
 
 **Proposed Flow:**
 
@@ -1026,6 +1031,27 @@ Step 7: Auto-merge (if enabled + all checks pass)
 Step 8: verify:evaluate on merged PR
 ```
 
+**Safety Mechanisms Implemented:**
+
+| Mechanism | Config | Purpose |
+|-----------|--------|---------|
+| Max cycles | `MAX_CYCLES=10` | Prevent infinite loops |
+| Wall time limit | `MAX_WALL_TIME_HOURS=4` | Timeout for stuck automation |
+| Pause label | `agents:auto-pilot-pause` | Manual intervention gate |
+| Failure label | `agents:auto-pilot-failed` | Mark failed automation |
+| Step comments | `🤖 Auto-pilot step N` | Track progress in issue |
+
+**Test Plan (Before Broader Rollout):**
+
+| Test # | Scope | Issue Type | Expected Outcome |
+|--------|-------|------------|------------------|
+| AP-1 | Format only | Unformatted issue | Issue gets formatted |
+| AP-2 | Full pipeline | Simple bug fix | PR created, merged |
+| AP-3 | Capability block | External API issue | Stops at capability check |
+| AP-4 | Conflict handling | PR with conflicts | Conflict resolved by agent |
+| AP-5 | Max cycles | Issue that loops | Stops at 10 cycles with `needs-human` |
+| AP-6 | Pause/resume | Any issue | Stops on pause, resumes on unpause |
+
 **Feasibility Analysis:**
 
 | Step | Challenge | Mitigation |
@@ -1044,13 +1070,16 @@ Step 8: verify:evaluate on merged PR
 3. **Token exhaustion** - Long sessions burn through LLM quota
    - Mitigation: Per-issue token budget tracking
 
-**Implementation:**
-- [ ] Design state machine for auto-pilot flow
-- [ ] Create `agents-auto-pilot.yml` orchestrator workflow
-- [ ] Add progress tracking comments
-- [ ] Implement failure handling and rollback
-- [ ] Add `agents:auto-pilot-pause` for manual intervention
-- [ ] Test on Manager-Database with controlled issues
+**Implementation Checklist:**
+- [x] Design state machine for auto-pilot flow
+- [x] Create `agents-auto-pilot.yml` orchestrator workflow (898 lines)
+- [x] Add progress tracking comments (🤖 Auto-pilot step N)
+- [x] Implement failure handling and rollback
+- [x] Add `agents:auto-pilot-pause` for manual intervention
+- [x] Add `agents:auto-pilot-failed` for failure tracking
+- [x] Add safety limits (MAX_CYCLES=10, MAX_WALL_TIME_HOURS=4)
+- [ ] Test on Manager-Database with controlled issues (AP-1 through AP-6)
+- [ ] Add to sync manifest for consumer repos
 
 ### 4D. Conflict Resolution in Keepalive
 

@@ -672,29 +672,291 @@ PRs #696-699 created **test infrastructure** (unit tests, smoke test CLI). The f
 
 ---
 
-## Post-Plan: Phase 4 Preview
+## Phase 4: Full Automation & Operational Excellence
 
-**After 2-week plan completion, focus shifts to:**
+> **Status:** Planning - January 11, 2026
+> **Target Start:** January 13, 2026
+> **Target Completion:** February 7, 2026 (4 weeks)
+> **Priority:** Auto-pilot testing → Rate limit resilience → User guide → Metrics
 
-1. **Auto-Pilot Implementation** (High risk, careful testing)
-   - Create `agents-auto-pilot.yml` orchestrator
-   - Test on simple issues only
-   - Add safety mechanisms
+### Phase 4 Overview
 
-2. **User Guide** (Documentation)
-   - Full WORKFLOW_USER_GUIDE.md
-   - Add to all consumer repos
+Phase 3 delivered functional workflows. Phase 4 focuses on:
+1. **4A: Auto-Pilot Testing** - Validate end-to-end automation is reliable
+2. **4B: Rate Limit Resilience** - Harden against GitHub API throttling
+3. **4C: Label Cleanup** - Remove accumulated bloat from repos
+4. **4D: User Guide** - Document workflows for end users
+5. **4E: Metrics & Observability** - Track automation health
 
-3. **Metrics Dashboard** (Visibility)
-   - LangSmith integration for LLM metrics
-   - Custom GitHub metrics collection
-   - Weekly summary reports
+### Current State Assessment
 
-**Timeline:** Phase 4 estimated 3-4 weeks after Phase 3 completion
+**What's Working (Phase 3 Complete):**
+- ✅ Issue formatting pipeline (`agents:format` → `agents:optimize` → `agents:apply-suggestions`)
+- ✅ Keepalive loop with conflict detection
+- ✅ Verifier workflows (`verify:evaluate`, `verify:compare`, `verify:create-issue`)
+- ✅ Duplicate detection (tuned to 50% → 92% threshold)
+- ✅ Auto-labeling (fixed over-labeling, now applies best match only)
+- ✅ Autofix + Gate pipeline
+
+**What Exists but Needs Testing:**
+- ⚠️ `agents-auto-pilot.yml` - 898 lines, full state machine implemented
+- ⚠️ `conflict_detector.js` - 366 lines, integrated with keepalive
+- ⚠️ `cleanup_labels.py` - 296 lines, ready for audit
+
+**Known Issues to Address:**
+- 🔴 GitHub App installation rate limits causing PR Meta/Autofix failures
+- 🔴 Broken submodule entries in some consumer repos (Trend_Model_Project)
+- 🟡 No metrics collection for automation health
+- 🟡 User guide not created
+
+---
+
+### 4A. Auto-Pilot Testing (Week 1-2)
+
+> **Risk Level:** HIGH - End-to-end automation can go wrong in many ways
+> **Approach:** Careful testing on controlled issues before enabling broadly
+
+**Auto-Pilot State Machine (Current Implementation):**
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    agents:auto-pilot                         │
+│                         added                                │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│ Step 1: Format Issue                                        │
+│   → Add agents:format label                                 │
+│   → Wait for formatting workflow                            │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│ Step 2: Optimize Issue                                      │
+│   → Add agents:optimize label                               │
+│   → Wait for optimization suggestions                       │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│ Step 3: Apply Suggestions                                   │
+│   → Add agents:apply-suggestions label                      │
+│   → Wait for suggestions to be applied                      │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│ Step 4: Capability Check                                    │
+│   → Run capability_check.py                                 │
+│   → If blocked → Add needs-human, stop                      │
+│   → If capable → Continue                                   │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│ Step 5: Assign Agent                                        │
+│   → Add agent:codex label                                   │
+│   → Wait for PR creation                                    │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│ Step 6: PR Monitoring                                       │
+│   → Enable agents:keepalive                                 │
+│   → Enable autofix                                          │
+│   → Monitor for Gate pass + task completion                 │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│ Step 7: Merge / Verify                                      │
+│   → If automerge enabled: auto-merge                        │
+│   → Add verify:evaluate label                               │
+│   → Complete                                                │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Safety Mechanisms (Already Implemented):**
+| Mechanism | Config | Purpose |
+|-----------|--------|---------|
+| Max cycles | `MAX_CYCLES=10` | Prevent infinite loops |
+| Wall time limit | `MAX_WALL_TIME_HOURS=4` | Timeout for stuck automation |
+| Pause label | `agents:auto-pilot-pause` | Manual intervention gate |
+| Failure label | `agents:auto-pilot-failed` | Mark failed automation |
+| Step comments | `🤖 Auto-pilot step N` | Track progress |
+
+**Test Plan:**
+
+| Test # | Scope | Issue Type | Expected Outcome |
+|--------|-------|------------|------------------|
+| AP-1 | Format only | Unformatted issue | Issue gets formatted |
+| AP-2 | Full pipeline | Simple bug fix | PR created, merged |
+| AP-3 | Capability block | External API issue | Stops at capability check |
+| AP-4 | Conflict handling | PR with conflicts | Conflict resolved by agent |
+| AP-5 | Max cycles | Issue that loops | Stops at 10 cycles with `needs-human` |
+| AP-6 | Pause/resume | Any issue | Stops on pause, resumes on unpause |
+
+**Test Repository:** Manager-Database (primary), trip-planner (secondary)
+
+**Execution Checklist:**
+- [ ] Create test issue for AP-1 (format only)
+- [ ] Create test issue for AP-2 (simple fix - e.g., typo in README)
+- [ ] Create test issue for AP-3 (requires external API key)
+- [ ] Create intentional conflict for AP-4
+- [ ] Verify max cycles behavior with AP-5
+- [ ] Test pause/resume with AP-6
+- [ ] Document any failures and fix before broader rollout
+
+---
+
+### 4B. Rate Limit Resilience (Week 1)
+
+> **Status:** Partially addressed in PR #794 (Workflows repo)
+> **Impact:** High - Rate limits cause spurious CI failures
+
+**Problem Analysis:**
+
+GitHub App installation tokens have lower rate limits than user tokens. When multiple PRs trigger automation simultaneously, the rate limit exhausts and causes:
+- PR Meta workflow failures (can't fetch PR data)
+- Autofix failures (can't determine default branch)
+- Checkout action failures (API call for default branch)
+
+**Fixes Applied (January 11, 2026):**
+
+| Fix | File | Description |
+|-----|------|-------------|
+| Fail-soft PR Meta | `agents_pr_meta_update_body.js` | Warn instead of fail on rate limit |
+| Explicit ref in checkout | `reusable-18-autofix.yml` | Avoid default-branch API lookup |
+
+**Remaining Work:**
+
+| Task | Priority | Approach |
+|------|----------|----------|
+| Add retry with backoff to more API calls | High | Extend `withRetries` pattern |
+| Cache default branch name | Medium | Store in workflow env after first lookup |
+| Rate limit monitoring | Medium | Log when rate limits hit for metrics |
+| Token pooling (future) | Low | Multiple app tokens with round-robin |
+
+**Testing Approach:**
+- Monitor Trend_Model_Project PRs #4339, #4345 for success after fixes
+- Check for rate limit warnings in logs (should see warnings, not failures)
+
+---
+
+### 4C. Label Cleanup (Week 2)
+
+> **Status:** Script created (`scripts/cleanup_labels.py`), needs execution
+> **Impact:** Medium - Reduces confusion, improves label UX
+
+**Confirmed Labels to Remove:**
+
+| Label | Reason |
+|-------|--------|
+| `codex` (bare) | Redundant with `agent:codex` |
+| `agents:pause` | Consolidated to `agents:paused` |
+| `ai:agent` | Zero workflow references |
+| `auto-merge-audit` | Zero workflow references |
+| `automerge:ok` | Zero workflow references |
+
+**Execution Plan:**
+1. Run audit on Workflows repo: `python scripts/cleanup_labels.py --repo stranske/Workflows --audit`
+2. Review idiosyncratic labels per repo
+3. Create cleanup PR with justification
+4. Human approval before execution
+5. Repeat for consumer repos (Manager-Database, Travel-Plan-Permission, trip-planner)
+
+---
+
+### 4D. User Guide (Week 3)
+
+> **Status:** Not started
+> **Deliverable:** `docs/WORKFLOW_USER_GUIDE.md`
+
+**Outline:**
+
+```markdown
+# Workflow User Guide
+
+## Quick Start: 3 Most Common Flows
+
+### 1. Create Agent-Ready Issue
+Add labels in sequence: agents:optimize → agents:apply-suggestions → agent:codex
+
+### 2. Fix Failing PR
+Add labels: autofix (for lint/format) or agents:keepalive (for agent help)
+
+### 3. Verify Merged PR
+Add label: verify:evaluate (single model) or verify:compare (multi-model)
+
+## Label Decision Tree
+[Flowchart: What label should I add?]
+
+## Complete Label Reference
+[Table of all functional labels with descriptions]
+
+## Troubleshooting
+- Issue: Agent not responding → Check for needs-human label
+- Issue: PR failing Gate → Check autofix or conflict status
+- Issue: Keepalive stuck → Check agents:paused label
+
+## Advanced: Auto-Pilot Mode
+[Description of agents:auto-pilot for full automation]
+```
+
+---
+
+### 4E. Metrics & Observability (Week 4)
+
+> **Status:** Partial - LangSmith integration exists, no dashboard
+> **Goal:** Track automation health over time
+
+**Metrics to Collect:**
+
+| Metric | Source | Purpose |
+|--------|--------|---------|
+| Keepalive iterations per PR | Workflow logs | Efficiency tracking |
+| Auto-pilot completion rate | Issue labels | Success tracking |
+| Rate limit hits per day | Workflow warnings | Capacity planning |
+| Gate pass rate | Workflow conclusions | CI health |
+| Verifier verdicts | PR comments | Quality tracking |
+
+**Implementation Options:**
+1. **GitHub Actions Summary** - Already partially implemented
+2. **LangSmith Dashboard** - For LLM-specific metrics
+3. **Custom JSON artifacts** - For aggregation and reporting
+4. **Weekly email summary** - Scheduled workflow with report
+
+---
+
+### Phase 4 Success Criteria
+
+**Must Complete:**
+- [ ] Auto-pilot tested on 6 controlled scenarios
+- [ ] Rate limit resilience verified (no hard failures on throttling)
+- [ ] Label cleanup executed on Workflows repo
+
+**Should Complete:**
+- [ ] User guide draft created
+- [ ] Label cleanup on 2+ consumer repos
+- [ ] Auto-pilot documentation updated
+
+**Nice to Have:**
+- [ ] Metrics dashboard prototype
+- [ ] Weekly automation summary workflow
+- [ ] Auto-pilot enabled on Manager-Database by default
+
+---
+
+### Phase 4 Risks & Mitigations
+
+| Risk | Impact | Mitigation |
+|------|--------|------------|
+| Auto-pilot creates bad PR and auto-merges | High | Test with automerge disabled first |
+| Rate limits cause cascading failures | Medium | Fail-soft patterns already added |
+| Label cleanup removes needed label | Low | Human approval gate before execution |
+| User guide becomes stale | Low | Add "last updated" and review schedule |
 
 ---
 
 ## Related Documents
+
+- Full rollout plan: [langchain-post-code-rollout.md](langchain-post-code-rollout.md)
+- Test plan details: langchain-post-code-rollout.md sections "Phase 3 Functional Testing"
+- Label documentation: [LABELS.md](../LABELS.md)
 
 - Full rollout plan: [langchain-post-code-rollout.md](langchain-post-code-rollout.md)
 - Test plan details: langchain-post-code-rollout.md sections "Phase 3 Functional Testing"
