@@ -400,6 +400,14 @@ function resolveTimeoutWarningConfig({ inputs = {}, env = process.env, variables
   return config;
 }
 
+function resolveTimeoutInputs({ inputs = {}, context } = {}) {
+  const payloadInputs = context?.payload?.inputs;
+  if (!payloadInputs || typeof payloadInputs !== 'object') {
+    return inputs;
+  }
+  return { ...payloadInputs, ...inputs };
+}
+
 function formatTimeoutMinutes(minutes) {
   if (!Number.isFinite(minutes)) {
     return '0';
@@ -1493,15 +1501,16 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
     core,
     names: TIMEOUT_VARIABLE_NAMES,
   });
+  const timeoutInputs = resolveTimeoutInputs({ inputs, context });
   const timeoutConfig = parseTimeoutConfig({
     env: process.env,
-    inputs,
+    inputs: timeoutInputs,
     labels,
     variables: timeoutRepoVariables,
   });
   const elapsedMs = await resolveElapsedMs({ github, context, inputs, core });
   const timeoutWarningConfig = resolveTimeoutWarningConfig({
-    inputs,
+    inputs: timeoutInputs,
     env: process.env,
     variables: timeoutRepoVariables,
   });

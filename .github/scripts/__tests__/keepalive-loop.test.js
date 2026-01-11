@@ -84,10 +84,10 @@ const buildGithubStub = ({
   };
 };
 
-const buildContext = (prNumber = 101, runId = 9001) => ({
-  eventName: 'pull_request',
+const buildContext = (prNumber = 101, runId = 9001, overrides = {}) => ({
+  eventName: overrides.eventName ?? 'pull_request',
   repo: { owner: 'octo', repo: 'workflows' },
-  payload: { pull_request: { number: prNumber } },
+  payload: overrides.payload ?? { pull_request: { number: prNumber } },
   runId,
 });
 
@@ -755,6 +755,65 @@ test('updateKeepaliveLoopSummary logs timeout warning at 80 percent usage', asyn
     assert.equal(parsed.data.timeout.warning.percent, 80);
     assert.equal(warnings.length, 1);
     assert.match(warnings[0], /80% consumed, 9m remaining/);
+  } finally {
+    Date.now = realNow;
+  }
+});
+
+test('updateKeepaliveLoopSummary reads timeout override from workflow inputs payload', async () => {
+  const nowMs = Date.parse('2026-04-01T00:00:00Z');
+  const realNow = Date.now;
+  Date.now = () => nowMs;
+  try {
+    const existingState = formatStateComment({
+      trace: 'trace-timeout-input',
+      iteration: 1,
+      max_iterations: 5,
+    });
+    const pr = {
+      number: 558,
+      head: { ref: 'feature/timeout-input', sha: 'sha-58' },
+      labels: [{ name: 'agent:codex' }],
+      body: prBodyFixture,
+    };
+    const github = buildGithubStub({
+      pr,
+      comments: [{ id: 80, body: existingState, html_url: 'https://example.com/80' }],
+      workflowRun: { run_started_at: new Date(nowMs - 10 * 60 * 1000).toISOString() },
+    });
+    await updateKeepaliveLoopSummary({
+      github,
+      context: buildContext(558, 9001, {
+        eventName: 'workflow_dispatch',
+        payload: { inputs: { timeout_minutes: '75' } },
+      }),
+      core: buildCore(),
+      inputs: {
+        prNumber: 558,
+        action: 'run',
+        runResult: 'success',
+        gateConclusion: 'success',
+        tasksTotal: 3,
+        tasksUnchecked: 1,
+        keepaliveEnabled: true,
+        autofixEnabled: false,
+        iteration: 1,
+        maxIterations: 5,
+        failureThreshold: 3,
+        trace: 'trace-timeout-input',
+        codex_changes_made: 'true',
+        codex_files_changed: 1,
+        codex_commit_sha: 'abcd3000',
+        codex_summary: 'Workflow input override.',
+      },
+    });
+
+    const body = github.actions[0].body;
+    assert.match(body, /Timeout \| 75 min \(override\)/);
+
+    const parsed = parseStateComment(body);
+    assert.equal(parsed.data.timeout.resolved_minutes, 75);
+    assert.equal(parsed.data.timeout.source, 'override');
   } finally {
     Date.now = realNow;
   }
