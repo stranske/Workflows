@@ -38,20 +38,20 @@ on:
         default: 'evaluate'
       model:
         description: >-
-          Model for evaluation. GitHub Models: gpt-4o (default), Mistral-large-2407,
-          Meta-Llama-3.1-405B-Instruct | OpenAI (requires key): o1, gpt-5.2.
-          For stricter evaluation, use compare mode with different model families.
+          Model for evaluation. GitHub Models: gpt-4o (default).
+          OpenAI (requires key): o1, gpt-5.2.
+          For stricter evaluation, use compare mode with different providers.
         required: false
         type: string
         default: 'gpt-4o'
       model2:
         description: >-
           Second model for compare mode (cross-provider verification).
-          Default: Mistral-large-2407 (GitHub Models) paired with gpt-5.2 (OpenAI).
+          Default: gpt-4o (GitHub Models) paired with gpt-5.2 (OpenAI).
           Using different providers ensures diverse evaluation perspectives.
         required: false
         type: string
-        default: 'Mistral-large-2407'
+        default: 'gpt-4o'
       provider:
         description: 'LLM provider (OpenAI requires OPENAI_API_KEY secret)'
         required: true
@@ -156,8 +156,8 @@ jobs:
             // For compare mode, use models from different families/providers
             // model1 goes to GitHub Models, model2 goes to OpenAI
             if (mode === 'compare') {
-              // Mistral-large (GitHub Models) + gpt-5.2 (OpenAI) for cross-provider comparison
-              core.setOutput('model', 'Mistral-large-2407');
+              // gpt-4o (GitHub Models) + gpt-5.2 (OpenAI) for cross-provider comparison
+              core.setOutput('model', 'gpt-4o');
               core.setOutput('model2', 'gpt-5.2');
             } else {
               core.setOutput('model', '');  // Use default (gpt-4o)
