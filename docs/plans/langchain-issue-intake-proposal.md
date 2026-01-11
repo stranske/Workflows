@@ -5,6 +5,9 @@
 > **Related**: [langchain-keepalive-integration.md](./langchain-keepalive-integration.md)
 > **Target Workflows**: `agents-63-issue-intake.yml`, `reusable-agents-issue-bridge.yml`
 
+> **Last reviewed:** 2026-01-11
+> **Canonical references:** `docs/ci/WORKFLOW_SYSTEM.md` and the workflow files under `.github/workflows/`.
+
 ---
 
 ## Executive Summary

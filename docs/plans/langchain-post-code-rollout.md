@@ -4,6 +4,9 @@
 > **Status:** Phase 3 Deployed to All Consumer Repos + Conflict Resolution Active  
 > **Last Validation:** 2026-01-09 (Full sync verified, conflict resolution working)  
 
+> **Last reviewed:** 2026-01-11
+> **Note:** This is a snapshot rollout log. For current workflow inventory and entry points, prefer `docs/ci/WORKFLOW_SYSTEM.md`.
+
 ---
 
 ## 1. Full Set of Capabilities

@@ -5,6 +5,10 @@
 > **Priority:** Complete Phase 3 functional testing and critical fixes  
 > **Last Updated:** January 10, 2026 (late night - label matcher fixes)
 
+> **Last reviewed:** 2026-01-11
+> **Status:** Historical execution log + planning notes. Treat this as a snapshot.
+> **Canonical references:** `docs/ci/WORKFLOW_SYSTEM.md` (workflow inventory) and `docs/validation/overview.md` (how to validate locally).
+
 ---
 
 ## January 10, 2026 - Day 2 Progress Summary (FINAL UPDATE)

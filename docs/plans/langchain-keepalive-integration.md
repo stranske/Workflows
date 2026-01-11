@@ -5,6 +5,9 @@
 > **Target Branch**: `feature/langchain-analysis`
 > **Test Consumer**: `stranske/Portable-Alpha-Extension-Model`
 
+> **Last reviewed:** 2026-01-11
+> **Note:** Treat this as exploratory design context. The current keepalive and provider framework may differ; check `docs/ci/WORKFLOW_SYSTEM.md` and `docs/keepalive/`.
+
 ---
 
 ## Summary of Findings
