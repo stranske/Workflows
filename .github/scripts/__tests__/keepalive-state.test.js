@@ -7,8 +7,10 @@ const {
   parseStateComment,
   formatStateComment,
   deepMerge,
+  formatTimestamp,
   createKeepaliveStateManager,
   loadKeepaliveState,
+  calculateElapsedTime,
 } = require('../keepalive_state.js');
 
 const buildGithubStub = ({ comments = [] } = {}) => {
@@ -60,6 +62,26 @@ test('parseStateComment extracts JSON payload', () => {
 test('deepMerge performs shallow + nested merge', () => {
   const merged = deepMerge({ a: 1, nested: { x: 1, y: 2 } }, { b: 2, nested: { y: 3, z: 4 } });
   assert.deepEqual(merged, { a: 1, b: 2, nested: { x: 1, y: 3, z: 4 } });
+});
+
+test('formatTimestamp omits milliseconds by default', () => {
+  const date = new Date('2024-01-02T03:04:05.678Z');
+  assert.equal(formatTimestamp(date), '2024-01-02T03:04:05Z');
+});
+
+test('formatTimestamp omits milliseconds when debug is false', () => {
+  const date = new Date('2024-01-02T03:04:05.678Z');
+  assert.equal(formatTimestamp(date, { debug: false }), '2024-01-02T03:04:05Z');
+});
+
+test('formatTimestamp includes milliseconds in debug mode', () => {
+  const date = new Date('2024-01-02T03:04:05.678Z');
+  assert.equal(formatTimestamp(date, { debug: true }), '2024-01-02T03:04:05.678Z');
+});
+
+test('formatTimestamp includes milliseconds for string input in debug mode', () => {
+  const timestamp = '2024-01-02T03:04:05.678Z';
+  assert.equal(formatTimestamp(timestamp, { debug: true }), '2024-01-02T03:04:05.678Z');
 });
 
 test('createKeepaliveStateManager creates hidden comment when missing', async () => {
@@ -137,6 +159,7 @@ test('loadKeepaliveState returns stored payload when present', async () => {
   assert.equal(result.commentId, 99);
   assert.equal(result.commentUrl, 'https://example.com/99');
   assert.equal(result.state.head_sha, 'def');
+  assert.ok(Number.isFinite(Date.parse(result.state.current_iteration_at)));
 });
 
 test('parseStateComment returns empty data for malformed payload', () => {
@@ -178,4 +201,93 @@ test('createKeepaliveStateManager returns inert manager with invalid input', asy
 test('deepMerge ignores undefined values', () => {
   const merged = deepMerge({ a: 1, nested: { x: 1 } }, { a: undefined, nested: { x: undefined, y: 2 } });
   assert.deepEqual(merged, { a: 1, nested: { x: 1, y: 2 } });
+});
+
+test('loadKeepaliveState sets first_iteration_at on first iteration', async () => {
+  const storedBody = formatStateComment({ trace: 'trace-x', iteration: 1, version: 'v1' });
+  const github = buildGithubStub({ comments: [{ id: 11, body: storedBody, html_url: 'https://example.com/11' }] });
+  const result = await loadKeepaliveState({
+    github,
+    context: { repo: { owner: 'o', repo: 'r' } },
+    prNumber: 11,
+    trace: 'trace-x',
+  });
+  assert.ok(Number.isFinite(Date.parse(result.state.current_iteration_at)));
+  assert.ok(Number.isFinite(Date.parse(result.state.first_iteration_at)));
+});
+
+test('loadKeepaliveState does not set first_iteration_at after first iteration', async () => {
+  const storedBody = formatStateComment({ trace: 'trace-x', iteration: 3, version: 'v1' });
+  const github = buildGithubStub({ comments: [{ id: 12, body: storedBody, html_url: 'https://example.com/12' }] });
+  const result = await loadKeepaliveState({
+    github,
+    context: { repo: { owner: 'o', repo: 'r' } },
+    prNumber: 12,
+    trace: 'trace-x',
+  });
+  assert.ok(Number.isFinite(Date.parse(result.state.current_iteration_at)));
+  assert.equal(result.state.first_iteration_at, undefined);
+});
+
+test('loadKeepaliveState does not set first_iteration_at before first iteration', async () => {
+  const storedBody = formatStateComment({ trace: 'trace-x', iteration: 0, version: 'v1' });
+  const github = buildGithubStub({ comments: [{ id: 13, body: storedBody, html_url: 'https://example.com/13' }] });
+  const result = await loadKeepaliveState({
+    github,
+    context: { repo: { owner: 'o', repo: 'r' } },
+    prNumber: 13,
+    trace: 'trace-x',
+  });
+  assert.ok(Number.isFinite(Date.parse(result.state.current_iteration_at)));
+  assert.equal(result.state.first_iteration_at, undefined);
+});
+
+test('createKeepaliveStateManager stores iteration_duration on save', async () => {
+  const realNow = Date.now;
+  let now = 1700000000000;
+  Date.now = () => now;
+  try {
+    const github = buildGithubStub();
+    const manager = await createKeepaliveStateManager({
+      github,
+      context: { repo: { owner: 'o', repo: 'r' } },
+      prNumber: 42,
+      trace: 'trace-1',
+      round: '3',
+    });
+    now += 65_000;
+    const saved = await manager.save({});
+    assert.equal(saved.state.iteration_duration, '1m 5s');
+  } finally {
+    Date.now = realNow;
+  }
+});
+
+test('calculateElapsedTime returns 0s for null and invalid values', () => {
+  assert.equal(calculateElapsedTime(null), '0s');
+  assert.equal(calculateElapsedTime('invalid'), '0s');
+});
+
+test('calculateElapsedTime formats elapsed time', () => {
+  const realNow = Date.now;
+  const now = 1700000000000;
+  Date.now = () => now;
+  try {
+    const start = new Date(now - (5 * 60 * 1000 + 23 * 1000)).toISOString();
+    assert.equal(calculateElapsedTime(start), '5m 23s');
+  } finally {
+    Date.now = realNow;
+  }
+});
+
+test('calculateElapsedTime matches the documented example with Date.now', () => {
+  const realNow = Date.now;
+  const now = Date.parse('2026-01-10T20:05:23Z');
+  Date.now = () => now;
+  try {
+    const start = '2026-01-10T20:00:00Z';
+    assert.equal(calculateElapsedTime(start), '5m 23s');
+  } finally {
+    Date.now = realNow;
+  }
 });

@@ -26,10 +26,10 @@ on:
         type: string
         default: 'checkbox'
       model:
-        description: 'LLM model to use for evaluation (e.g., gpt-4o, gpt-4o-mini, gpt-5.2, o1-mini)'
+        description: 'LLM model to use for evaluation (e.g., gpt-4o, Mistral-large-2407, gpt-5.2)'
         required: false
         type: string
-        default: 'gpt-4o-mini'
+        default: 'gpt-4o'
       provider:
         description: 'LLM provider: github-models (default) or openai'
         required: false

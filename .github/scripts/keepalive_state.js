@@ -3,6 +3,11 @@
 const STATE_MARKER = 'keepalive-state';
 const STATE_VERSION = 'v1';
 const STATE_REGEX = /<!--\s*keepalive-state(?::([\w.-]+))?\s+(.*?)\s*-->/s;
+const LOG_PREFIX = '[keepalive_state]';
+
+function logInfo(message) {
+  console.info(`${LOG_PREFIX} ${message}`);
+}
 
 function normalise(value) {
   return String(value ?? '').trim();
@@ -28,6 +33,83 @@ function deepMerge(target, source) {
   }
 
   return result;
+}
+
+function toNumber(value, fallback = 0) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function resolveTimestampMs(value) {
+  if (value instanceof Date) {
+    const parsed = value.getTime();
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : null;
+  }
+  const text = normalise(value);
+  if (!text) {
+    return null;
+  }
+  if (/^\d+(\.\d+)?$/.test(text)) {
+    const parsedNumber = Number(text);
+    return Number.isFinite(parsedNumber) ? parsedNumber : null;
+  }
+  const parsed = Date.parse(text);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function formatDuration(seconds) {
+  const totalSeconds = Math.max(0, Math.floor(seconds));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const remainingSeconds = totalSeconds % 60;
+  const parts = [];
+  if (hours > 0) {
+    parts.push(`${hours}h`);
+  }
+  if (hours > 0 || minutes > 0) {
+    parts.push(`${minutes}m`);
+  }
+  parts.push(`${remainingSeconds}s`);
+  return parts.join(' ');
+}
+
+function calculateElapsedTime(startTime, now) {
+  const startMs = resolveTimestampMs(startTime);
+  if (!Number.isFinite(startMs)) {
+    return '0s';
+  }
+  const nowMs = resolveTimestampMs(now);
+  const resolvedNow = Number.isFinite(nowMs) ? nowMs : Date.now();
+  const deltaMs = resolvedNow - startMs;
+  if (!Number.isFinite(deltaMs) || deltaMs <= 0) {
+    return '0s';
+  }
+  return formatDuration(deltaMs / 1000);
+}
+
+function applyIterationTracking(state) {
+  if (!state || typeof state !== 'object') {
+    return;
+  }
+  const nowMs = Date.now();
+  const nowIso = new Date(nowMs).toISOString();
+  state.current_iteration_at = nowIso;
+  const iteration = toNumber(state.iteration, 0);
+  if (!state.first_iteration_at && iteration === 1) {
+    state.first_iteration_at = nowIso;
+  }
+}
+
+function formatTimestamp(value = new Date(), { debug = false } = {}) {
+  const date = value instanceof Date ? value : new Date(value);
+  const iso = date.toISOString();
+  if (debug) {
+    return iso;
+  }
+  return iso.replace(/\.\d{3}Z$/, 'Z');
 }
 
 function parseStateComment(body) {
@@ -160,10 +242,12 @@ async function createKeepaliveStateManager({ github, context, prNumber, trace, r
   };
 
   ensureDefaults();
+  applyIterationTracking(state);
 
   const save = async (updates = {}) => {
     state = deepMerge(state, updates);
     ensureDefaults();
+    state.iteration_duration = calculateElapsedTime(state.current_iteration_at);
     const body = formatStateComment(state);
 
     if (commentId) {
@@ -228,19 +312,106 @@ async function loadKeepaliveState({ github, context, prNumber, trace }) {
   if (!existing) {
     return { state: {}, commentId: 0, commentUrl: '' };
   }
+  const loadedState = existing.state && typeof existing.state === 'object' ? { ...existing.state } : {};
+  applyIterationTracking(loadedState);
   return {
-    state: existing.state && typeof existing.state === 'object' ? { ...existing.state } : {},
+    state: loadedState,
     commentId: existing.comment?.id ? Number(existing.comment.id) : 0,
     commentUrl: existing.comment?.html_url || '',
   };
+}
+
+async function resetState({ github, context, prNumber, trace, round }) {
+  const startTime = Date.now();
+  const timestamp = new Date(startTime).toISOString();
+  const issueNumber = Number.isFinite(prNumber) ? String(prNumber) : normalise(prNumber);
+  logInfo(`resetState starting: ts=${timestamp} issue=${issueNumber || 'unknown'}`);
+
+  let success = false;
+  try {
+    const owner = context?.repo?.owner;
+    const repo = context?.repo?.repo;
+    if (
+      !owner ||
+      !repo ||
+      !Number.isFinite(prNumber) ||
+      prNumber <= 0 ||
+      !github?.rest?.issues?.createComment ||
+      !github?.rest?.issues?.updateComment
+    ) {
+      return { state: {}, commentId: 0, commentUrl: '' };
+    }
+
+    const existing = await findStateComment({ github, owner, repo, prNumber, trace });
+    const state = {};
+    if (trace) {
+      state.trace = trace;
+    }
+    if (round) {
+      state.round = normalise(round);
+    }
+    state.pr_number = Number(prNumber);
+    state.version = STATE_VERSION;
+    const body = formatStateComment(state);
+
+    if (existing?.comment?.id) {
+      let latestBody = existing.comment.body || '';
+      if (github?.rest?.issues?.getComment) {
+        try {
+          const response = await github.rest.issues.getComment({
+            owner,
+            repo,
+            comment_id: existing.comment.id,
+          });
+          if (response?.data?.body) {
+            latestBody = response.data.body;
+          }
+        } catch (error) {
+          // fall back to cached body if lookup fails
+        }
+      }
+      const updatedBody = upsertStateCommentBody(latestBody, body);
+      await github.rest.issues.updateComment({
+        owner,
+        repo,
+        comment_id: existing.comment.id,
+        body: updatedBody,
+      });
+      success = true;
+      return {
+        state: { ...state },
+        commentId: Number(existing.comment.id),
+        commentUrl: existing.comment.html_url || '',
+      };
+    }
+
+    const { data } = await github.rest.issues.createComment({
+      owner,
+      repo,
+      issue_number: prNumber,
+      body,
+    });
+    success = true;
+    return {
+      state: { ...state },
+      commentId: data?.id ? Number(data.id) : 0,
+      commentUrl: data?.html_url || '',
+    };
+  } finally {
+    const durationMs = Date.now() - startTime;
+    logInfo(`resetState finished: status=${success ? 'success' : 'failure'} duration_ms=${durationMs}`);
+  }
 }
 
 module.exports = {
   createKeepaliveStateManager,
   saveKeepaliveState,
   loadKeepaliveState,
+  calculateElapsedTime,
+  resetState,
   parseStateComment,
   formatStateComment,
   upsertStateCommentBody,
   deepMerge,
+  formatTimestamp,
 };

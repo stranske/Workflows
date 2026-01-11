@@ -38,23 +38,20 @@ on:
         default: 'evaluate'
       model:
         description: >-
-          Model for evaluation. GitHub Models: gpt-4o, gpt-4o-mini,
-          text-embedding-3-large, text-embedding-3-small, Meta-Llama-3.1-405B-Instruct,
-          Meta-Llama-3.1-70B-Instruct, Meta-Llama-3-70B-Instruct |
-          OpenAI: gpt-5.2, o1, o1-preview, o1-mini, o3-mini (if available), gpt-4o, gpt-4o-mini,
-          gpt-4-turbo, gpt-4, gpt-3.5-turbo. Use script scripts/update_model_list.sh
-          to check current availability.
+          Model for evaluation. GitHub Models: gpt-4o (default), Mistral-large-2407,
+          Meta-Llama-3.1-405B-Instruct | OpenAI (requires key): o1, gpt-5.2.
+          For stricter evaluation, use compare mode with different model families.
         required: false
         type: string
-        default: 'gpt-4o-mini'
+        default: 'gpt-4o'
       model2:
         description: >-
-          Second model for compare mode. High quality options:
-          GitHub Models: gpt-4o, Meta-Llama-3.1-405B-Instruct |
-          OpenAI: gpt-5.2, o1, gpt-4o, gpt-4-turbo. Efficient: gpt-4o-mini, o1-mini
+          Second model for compare mode (cross-provider verification).
+          Default: Mistral-large-2407 (GitHub Models) paired with gpt-5.2 (OpenAI).
+          Using different providers ensures diverse evaluation perspectives.
         required: false
         type: string
-        default: ''
+        default: 'Mistral-large-2407'
       provider:
         description: 'LLM provider (OpenAI requires OPENAI_API_KEY secret)'
         required: true
@@ -156,12 +153,13 @@ jobs:
             core.info(`Verifier triggered with mode: ${mode}`);
             core.setOutput('should_run', 'true');
             core.setOutput('mode', mode);
-            // For compare mode, use high-quality models from different providers
+            // For compare mode, use models from different families/providers
             if (mode === 'compare') {
-              core.setOutput('model', 'gpt-4o');   // GitHub Models - current flagship
-              core.setOutput('model2', 'gpt-5.2'); // OpenAI - GPT-5.2
+              // gpt-5.2 (OpenAI) + Mistral-large (GitHub Models) for cross-provider comparison
+              core.setOutput('model', 'gpt-5.2');
+              core.setOutput('model2', 'Mistral-large-2407');
             } else {
-              core.setOutput('model', '');  // Use default
+              core.setOutput('model', '');  // Use default (gpt-4o)
               core.setOutput('model2', '');
             }
             core.setOutput('provider', '');  // Use default

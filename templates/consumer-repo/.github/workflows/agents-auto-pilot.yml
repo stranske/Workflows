@@ -1,0 +1,780 @@
+# See docs/ci/AGENTS_POLICY.md for guardrails and override process.
+name: Agents Auto-Pilot
+
+# End-to-end automation: Issue → Optimize → Agent → Keepalive → Merge
+# Triggered by agents:auto-pilot label, orchestrates the full pipeline
+# Auto-continues when prep workflow labels are added (format, optimize, apply-suggestions)
+
+on:
+  issues:
+    types: [labeled, closed]
+  pull_request:
+    types: [labeled, closed]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: "Issue number to auto-pilot"
+        required: true
+        type: number
+      force_step:
+        description: "Force a specific step (optional, leave as 'auto' for normal flow)"
+        required: false
+        type: choice
+        options:
+          - auto
+          - format
+          - optimize
+          - apply
+          - capability-check
+          - agent
+          - verify
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write  # Needed to create PRs automatically
+  actions: write  # Needed for workflow re-dispatch
+
+env:
+  # Safety limits
+  MAX_CYCLES: 10
+  MAX_WALL_TIME_HOURS: 4
+
+jobs:
+  auto-pilot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240  # 4 hours = MAX_WALL_TIME_HOURS
+    # Trigger on:
+    # 1. agents:auto-pilot label added (initial trigger)
+    # 2. Prep workflow labels added (auto-continue after each step)
+    # 3. Issue closed (verification trigger)
+    # 4. workflow_dispatch (manual trigger)
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.action == 'labeled' && (
+        github.event.label.name == 'agents:auto-pilot' ||
+        github.event.label.name == 'agents:format' ||
+        github.event.label.name == 'agents:optimize' ||
+        github.event.label.name == 'agents:apply-suggestions' ||
+        github.event.label.name == 'agent:codex'
+      )) ||
+      (github.event.action == 'closed' &&
+       contains(github.event.issue.labels.*.name, 'agents:auto-pilot'))
+
+    steps:
+      - name: Check if auto-pilot is enabled
+        id: check_enabled
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // For label events other than agents:auto-pilot, verify auto-pilot is enabled
+            const labelName = context.payload.label?.name || '';
+            if (context.eventName === 'workflow_dispatch') {
+              core.setOutput('enabled', 'true');
+              return;
+            }
+
+            // Get issue/PR to check for agents:auto-pilot label
+            let labels = [];
+            if (context.payload.issue) {
+              labels = context.payload.issue.labels.map(l => l.name);
+            } else if (context.payload.pull_request) {
+              labels = context.payload.pull_request.labels.map(l => l.name);
+            }
+
+            const hasAutoPilot = labels.includes('agents:auto-pilot');
+            if (!hasAutoPilot && labelName !== 'agents:auto-pilot') {
+              core.info(`Skipping: auto-pilot not enabled (trigger: ${labelName})`);
+              core.setOutput('enabled', 'false');
+              return;
+            }
+
+            core.setOutput('enabled', 'true');
+
+      - name: Checkout repository
+        if: steps.check_enabled.outputs.enabled == 'true'
+        uses: actions/checkout@v4
+
+      - name: Determine context
+        if: steps.check_enabled.outputs.enabled == 'true'
+        id: context
+        uses: actions/github-script@v7
+        with:
+          script: |
+            let issueNumber, issue, pr;
+
+            // Get issue number from various sources
+            if (context.eventName === 'workflow_dispatch') {
+              issueNumber = parseInt('${{ inputs.issue_number }}');
+            } else if (context.payload.issue) {
+              issueNumber = context.payload.issue.number;
+              issue = context.payload.issue;
+            } else if (context.payload.pull_request) {
+              // For PR events, find linked issue
+              pr = context.payload.pull_request;
+              const bodyMatch = pr.body?.match(/#(\d+)/);
+              issueNumber = bodyMatch ? parseInt(bodyMatch[1]) : null;
+            }
+
+            if (!issueNumber) {
+              core.setFailed('Could not determine issue number');
+              return;
+            }
+
+            // Fetch issue if not in payload
+            if (!issue) {
+              const { data } = await github.rest.issues.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber
+              });
+              issue = data;
+            }
+
+            const labels = issue.labels.map(l => l.name);
+
+            // Check for pause label
+            if (labels.includes('agents:auto-pilot-pause')) {
+              core.info('Auto-pilot paused by agents:auto-pilot-pause label');
+              core.setOutput('should_continue', 'false');
+              core.setOutput('reason', 'paused');
+              return;
+            }
+
+            // Check for failure/needs-human
+            if (labels.includes('needs-human') || labels.includes('agents:auto-pilot-failed')) {
+              core.info('Auto-pilot stopped: requires human intervention');
+              core.setOutput('should_continue', 'false');
+              core.setOutput('reason', 'needs-human');
+              return;
+            }
+
+            // Determine current state
+            const hasFormat = labels.includes('agents:format');
+            const hasOptimize = labels.includes('agents:optimize');
+            const hasApplySuggestions = labels.includes('agents:apply-suggestions');
+            const hasAgentCodex = labels.includes('agent:codex');
+            const hasAutofix = labels.includes('autofix');
+            const hasAutomerge = labels.includes('automerge');
+            const hasVerify = labels.includes('verify:evaluate');
+
+            // Check for linked PR (with pagination and multiple event types)
+            const timelineEvents = await github.paginate(
+              github.rest.issues.listEventsForTimeline,
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                per_page: 100
+              }
+            );
+
+            let linkedPR = null;
+            for (const event of timelineEvents) {
+              // Handle both cross-referenced and connected events
+              if ((event.event === 'cross-referenced' || event.event === 'connected') &&
+                  event.source?.issue?.pull_request) {
+                linkedPR = event.source.issue.number;
+              }
+            }
+
+            core.setOutput('issue_number', issueNumber);
+            core.setOutput('issue_title', issue.title);
+            core.setOutput('issue_state', issue.state);
+            core.setOutput('should_continue', 'true');
+            core.setOutput('has_format', hasFormat.toString());
+            core.setOutput('has_optimize', hasOptimize.toString());
+            core.setOutput('has_apply', hasApplySuggestions.toString());
+            core.setOutput('has_agent', hasAgentCodex.toString());
+            core.setOutput('has_autofix', hasAutofix.toString());
+            core.setOutput('has_automerge', hasAutomerge.toString());
+            core.setOutput('has_verify', hasVerify.toString());
+            core.setOutput('linked_pr', linkedPR || '');
+
+            console.log(`Issue #${issueNumber} state:`);
+            console.log(`  State: ${issue.state}`);
+            console.log(`  Labels: ${labels.join(', ')}`);
+            console.log(`  Linked PR: ${linkedPR || 'none'}`);
+
+      - name: Check step count
+        if: steps.context.outputs.should_continue == 'true'
+        id: cycles
+        uses: actions/github-script@v7
+        env:
+          ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
+        with:
+          script: |
+            const issueNumber = parseInt(process.env.ISSUE_NUMBER);
+
+            // Get all comments to count auto-pilot steps (with pagination)
+            const allComments = await github.paginate(
+              github.rest.issues.listComments,
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                per_page: 100
+              }
+            );
+
+            const stepComments = allComments.filter(c =>
+              typeof c.body === 'string' && c.body.includes('🤖 Auto-pilot step')
+            );
+
+            const stepCount = stepComments.length;
+            const maxCycles = parseInt('${{ env.MAX_CYCLES }}');
+
+            if (stepCount >= maxCycles) {
+              core.warning(`Auto-pilot exceeded max steps (${stepCount}/${maxCycles})`);
+              core.setOutput('exceeded', 'true');
+              return;
+            }
+
+            core.setOutput('exceeded', 'false');
+            core.setOutput('count', stepCount.toString());
+
+      - name: Stop if exceeded
+        if: steps.cycles.outputs.exceeded == 'true'
+        uses: actions/github-script@v7
+        env:
+          ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
+        with:
+          script: |
+            const issueNumber = parseInt(process.env.ISSUE_NUMBER);
+
+            // Add failure label and comment
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              labels: ['needs-human', 'agents:auto-pilot-failed']
+            });
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: `## ⚠️ Auto-Pilot Stopped
+
+            **Reason:** Exceeded maximum cycle limit (${{ env.MAX_CYCLES }} cycles)
+
+            This issue requires human review. Possible causes:
+            - Repeated CI failures
+            - Conflicting requirements
+            - External dependencies
+
+            **To resume:** Remove \`agents:auto-pilot-failed\` and \`needs-human\`
+            labels, then re-add \`agents:auto-pilot\`.`
+            });
+
+            core.setFailed('Auto-pilot exceeded max cycles');
+
+      - name: Determine next step
+        if: |
+          steps.context.outputs.should_continue == 'true' &&
+          steps.cycles.outputs.exceeded != 'true'
+        id: next
+        env:
+          FORCE_STEP: ${{ inputs.force_step }}
+        run: |
+          # Priority order of steps
+          # 1. If issue closed and has verify label → done
+          # 2. If issue closed without verify → add verify
+          # 3. If no PR → need agent assignment
+          # 4. If has PR → check PR state
+          # 5. If no format → format first
+          # 6. If no optimize → optimize
+          # 7. If no apply → apply suggestions
+
+          ISSUE_STATE="${{ steps.context.outputs.issue_state }}"
+          HAS_FORMAT="${{ steps.context.outputs.has_format }}"
+          HAS_OPTIMIZE="${{ steps.context.outputs.has_optimize }}"
+          HAS_APPLY="${{ steps.context.outputs.has_apply }}"
+          HAS_AGENT="${{ steps.context.outputs.has_agent }}"
+          LINKED_PR="${{ steps.context.outputs.linked_pr }}"
+          HAS_VERIFY="${{ steps.context.outputs.has_verify }}"
+
+          # Force step if specified (not 'auto')
+          if [[ -n "$FORCE_STEP" && "$FORCE_STEP" != "auto" ]]; then
+            echo "next_step=$FORCE_STEP" >> "$GITHUB_OUTPUT"
+            echo "Forced step: $FORCE_STEP"
+            exit 0
+          fi
+
+          # Issue closed = done or verify
+          if [[ "$ISSUE_STATE" == "closed" ]]; then
+            if [[ "$HAS_VERIFY" == "true" ]]; then
+              echo "next_step=done" >> "$GITHUB_OUTPUT"
+              echo "Issue closed with verification - auto-pilot complete"
+            else
+              echo "next_step=verify" >> "$GITHUB_OUTPUT"
+              echo "Issue closed - triggering verification"
+            fi
+            exit 0
+          fi
+
+          # No PR yet - need to go through issue prep pipeline
+          if [[ -z "$LINKED_PR" ]]; then
+            if [[ "$HAS_AGENT" == "true" ]]; then
+              echo "next_step=create-pr" >> "$GITHUB_OUTPUT"
+              echo "Agent assigned, checking for branch to create PR"
+            elif [[ "$HAS_FORMAT" != "true" ]]; then
+              echo "next_step=format" >> "$GITHUB_OUTPUT"
+              echo "Step 1: Format issue"
+            elif [[ "$HAS_OPTIMIZE" != "true" ]]; then
+              echo "next_step=optimize" >> "$GITHUB_OUTPUT"
+              echo "Step 2: Optimize issue"
+            elif [[ "$HAS_APPLY" != "true" ]]; then
+              echo "next_step=apply" >> "$GITHUB_OUTPUT"
+              echo "Step 3: Apply suggestions"
+            else
+              echo "next_step=capability-check" >> "$GITHUB_OUTPUT"
+              echo "Step 4: Run capability check before agent"
+            fi
+            exit 0
+          fi
+
+          # Has PR - let keepalive/autofix handle it
+          echo "next_step=monitor-pr" >> "$GITHUB_OUTPUT"
+          echo "PR #$LINKED_PR exists - monitoring via keepalive"
+
+      - name: Execute step - Format
+        if: steps.next.outputs.next_step == 'format'
+        uses: actions/github-script@v7
+        env:
+          ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
+          STEP_COUNT: ${{ steps.cycles.outputs.count }}
+        with:
+          script: |
+            const issueNumber = parseInt(process.env.ISSUE_NUMBER);
+            const stepCount = parseInt(process.env.STEP_COUNT || '0') + 1;
+
+            // Add progress comment
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: `🤖 **Auto-pilot step ${stepCount}**: Starting issue formatting...
+
+            Adding \`agents:format\` label to trigger LangChain formatting.`
+            });
+
+            // Add format label to trigger the formatter
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              labels: ['agents:format']
+            });
+
+      - name: Execute step - Optimize
+        if: steps.next.outputs.next_step == 'optimize'
+        uses: actions/github-script@v7
+        env:
+          ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
+          STEP_COUNT: ${{ steps.cycles.outputs.count }}
+        with:
+          script: |
+            const issueNumber = parseInt(process.env.ISSUE_NUMBER);
+            const stepCount = parseInt(process.env.STEP_COUNT || '0') + 1;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: `🤖 **Auto-pilot step ${stepCount}**: Analyzing issue for improvements...
+
+            Adding \`agents:optimize\` label to trigger analysis.`
+            });
+
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              labels: ['agents:optimize']
+            });
+
+      - name: Execute step - Apply suggestions
+        if: steps.next.outputs.next_step == 'apply'
+        uses: actions/github-script@v7
+        env:
+          ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
+          STEP_COUNT: ${{ steps.cycles.outputs.count }}
+        with:
+          script: |
+            const issueNumber = parseInt(process.env.ISSUE_NUMBER);
+            const stepCount = parseInt(process.env.STEP_COUNT || '0') + 1;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: `🤖 **Auto-pilot step ${stepCount}**: Applying optimization suggestions...
+
+            Adding \`agents:apply-suggestions\` label.`
+            });
+
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              labels: ['agents:apply-suggestions']
+            });
+
+      - name: Execute step - Capability check & Agent
+        if: steps.next.outputs.next_step == 'capability-check'
+        uses: actions/github-script@v7
+        env:
+          ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
+          STEP_COUNT: ${{ steps.cycles.outputs.count }}
+        with:
+          script: |
+            const issueNumber = parseInt(process.env.ISSUE_NUMBER);
+            const stepCount = parseInt(process.env.STEP_COUNT || '0') + 1;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: `🤖 **Auto-pilot step ${stepCount}**: Issue prepared! Assigning to agent...
+
+            Adding \`agent:codex\` label. The capability check will run automatically.
+
+            ⏳ Agent will create a PR shortly.`
+            });
+
+            // Add agent label - capability check triggers on this
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              labels: ['agent:codex']
+            });
+
+      - name: Execute step - Verify
+        if: steps.next.outputs.next_step == 'verify'
+        uses: actions/github-script@v7
+        env:
+          ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
+        with:
+          script: |
+            const issueNumber = parseInt(process.env.ISSUE_NUMBER);
+
+            // Find the merged PR for this issue
+            // Look for PRs with the meta marker or explicit closing reference
+            const { data: prs } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'closed',
+              sort: 'updated',
+              direction: 'desc',
+              per_page: 100
+            });
+
+            // Helper to detect explicit closing/fixing references to this issue
+            function matchesIssueReference(text, num) {
+              if (!text) return false;
+              // Match: closes #123, fixes #123, resolves #123 (and variations)
+              const pattern = new RegExp(
+                `\\b(close[sd]?|fixe?[sd]?|resolve[sd]?)\\s+#${num}\\b`, 'i'
+              );
+              return pattern.test(text);
+            }
+
+            // Find PR that references this issue
+            const linkedPr = prs.find(pr =>
+              pr.merged_at && (
+                pr.body?.includes(`meta:issue:${issueNumber}`) ||
+                matchesIssueReference(pr.body, issueNumber) ||
+                matchesIssueReference(pr.title, issueNumber)
+              )
+            );
+
+            if (!linkedPr) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                body: `🤖 **Auto-pilot**: Issue closed but couldn't find linked merged PR.
+
+            Adding \`verify:evaluate\` label to issue for tracking.`
+              });
+
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                labels: ['verify:evaluate']
+              });
+              return;
+            }
+
+            core.info(`Found merged PR #${linkedPr.number} for issue #${issueNumber}`);
+
+            const verifyMsg = [
+              `🤖 **Auto-pilot**: Issue closed.`,
+              `Triggering verification on PR #${linkedPr.number}...`,
+              '',
+              'Adding `verify:evaluate` label to PR.'
+            ].join('\n');
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: verifyMsg
+            });
+
+            // Add verify label to the merged PR (this triggers agents-verifier.yml)
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: linkedPr.number,
+              labels: ['verify:evaluate']
+            });
+
+            // Also add to issue for tracking
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              labels: ['verify:evaluate']
+            });
+
+      - name: Execute step - Create PR
+        if: steps.next.outputs.next_step == 'create-pr'
+        uses: actions/github-script@v7
+        env:
+          ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
+          ISSUE_TITLE: ${{ steps.context.outputs.issue_title }}
+          STEP_COUNT: ${{ steps.cycles.outputs.count }}
+        with:
+          script: |
+            const issueNumber = parseInt(process.env.ISSUE_NUMBER);
+            const issueTitle = process.env.ISSUE_TITLE || `Issue #${issueNumber}`;
+            const stepCount = parseInt(process.env.STEP_COUNT || '0') + 1;
+            const branchName = `codex/issue-${issueNumber}`;
+
+            // Check if branch exists
+            let branchExists = false;
+            try {
+              await github.rest.repos.getBranch({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                branch: branchName
+              });
+              branchExists = true;
+              core.info(`Branch ${branchName} exists`);
+            } catch (e) {
+              if (e.status === 404) {
+                core.info(`Branch ${branchName} does not exist yet`);
+              } else {
+                throw e;
+              }
+            }
+
+            if (!branchExists) {
+              // Branch not created yet - agent still working
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                body: `🤖 **Auto-pilot step ${stepCount}**: Waiting for agent to create branch...
+
+            The agent has been assigned but hasn't created the branch yet.
+            Branch expected: \`${branchName}\`
+
+            ⏳ Auto-pilot will check again on next trigger.`
+              });
+              return;
+            }
+
+            // Branch exists - create PR
+            core.info(`Creating PR from ${branchName}`);
+
+            // Fetch issue body to include in PR
+            const { data: issue } = await github.rest.issues.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber
+            });
+
+            const prTitle = `[Auto-pilot] ${issueTitle}`;
+            const prBody = [
+              `<!-- meta:issue:${issueNumber} -->`,
+              '',
+              `Closes #${issueNumber}`,
+              '',
+              issue.body || ''
+            ].join('\n');
+
+            try {
+              const { data: pr } = await github.rest.pulls.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: prTitle,
+                head: branchName,
+                base: 'main',
+                body: prBody
+              });
+
+              core.info(`Created PR #${pr.number}`);
+
+              // Add standard agent labels to the PR (separate try-catch to not fail PR creation)
+              let labelsAdded = false;
+              try {
+                await github.rest.issues.addLabels({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: pr.number,
+                  labels: ['agent:codex', 'agents:keepalive', 'autofix']
+                });
+                labelsAdded = true;
+                core.info(`Added agent labels to PR #${pr.number}`);
+              } catch (labelError) {
+                const errMsg = labelError?.message || String(labelError);
+                core.warning(`Failed to add labels to PR #${pr.number}: ${errMsg}`);
+              }
+
+              const labelStatus = labelsAdded
+                ? '✅ Added labels: `agent:codex`, `agents:keepalive`, `autofix`'
+                : '⚠️ Could not add labels (add manually)';
+
+              // Dispatch keepalive workflow since GITHUB_TOKEN labels don't trigger it
+              try {
+                await github.rest.actions.createWorkflowDispatch({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  workflow_id: 'agents-keepalive-loop.yml',
+                  ref: 'main',
+                  inputs: {
+                    pr_number: pr.number.toString(),
+                    force_retry: 'true'
+                  }
+                });
+                core.info(`Dispatched keepalive for PR #${pr.number}`);
+              } catch (dispatchError) {
+                core.warning(`Could not dispatch keepalive: ${dispatchError?.message}`);
+              }
+
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                body: `🤖 **Auto-pilot step ${stepCount}**: PR created!
+
+            ✅ Created PR #${pr.number} from branch \`${branchName}\`
+            ${labelStatus}
+
+            The PR will now go through CI checks. Auto-pilot will continue monitoring.`
+              });
+
+            } catch (e) {
+              if (e.status === 422 && e.message?.includes('already exists')) {
+                core.info('PR already exists - this is fine');
+              } else {
+                // PR creation failed - report but don't fail workflow
+                core.warning(`Failed to create PR: ${e.message}`);
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNumber,
+                  body: `🤖 **Auto-pilot step ${stepCount}**: Could not create PR
+
+            ⚠️ Branch \`${branchName}\` exists but PR creation failed.
+
+            Error: ${e.message}
+
+            Please create the PR manually or check permissions.`
+                });
+              }
+            }
+
+      - name: Report - Monitoring PR
+        if: steps.next.outputs.next_step == 'monitor-pr'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = '${{ steps.context.outputs.linked_pr }}';
+            core.info(`PR #${prNumber} exists. Keepalive and autofix will handle CI.`);
+
+      # Re-dispatch workflow to continue pipeline after prep steps
+      # GitHub prevents recursive triggers on labels added by GITHUB_TOKEN
+      - name: Re-dispatch for next step
+        if: |
+          steps.context.outputs.should_continue == 'true' &&
+          steps.cycles.outputs.exceeded != 'true' &&
+          contains(fromJSON('["format","optimize","apply","capability-check"]'),
+          steps.next.outputs.next_step)
+        uses: actions/github-script@v7
+        env:
+          ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
+          CURRENT_STEP: ${{ steps.next.outputs.next_step }}
+        with:
+          script: |
+            const issueNumber = parseInt(process.env.ISSUE_NUMBER);
+            const currentStep = process.env.CURRENT_STEP;
+
+            // Wait for the prep workflow to process the label we just added
+            // Format/Optimize/Apply workflows complete in 30-60 seconds
+            const waitTime = 45000; // 45 seconds
+            core.info(`Waiting ${waitTime/1000}s for ${currentStep} to complete...`);
+            await new Promise(resolve => setTimeout(resolve, waitTime));
+
+            // Re-dispatch workflow_dispatch to continue
+            core.info('Re-dispatching auto-pilot to continue pipeline...');
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'agents-auto-pilot.yml',
+              ref: 'main',
+              inputs: {
+                issue_number: issueNumber.toString(),
+                force_step: 'auto'
+              }
+            });
+
+            core.info(`Re-dispatched for issue #${issueNumber} after ${currentStep} step`);
+
+      - name: Report - Done
+        if: steps.next.outputs.next_step == 'done'
+        uses: actions/github-script@v7
+        env:
+          ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
+        with:
+          script: |
+            const issueNumber = parseInt(process.env.ISSUE_NUMBER);
+
+            // Remove auto-pilot label since we're done
+            try {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                name: 'agents:auto-pilot'
+              });
+            } catch (e) {
+              // Label might already be removed (404) - that's OK
+              if (e && e.status === 404) {
+                core.info('Auto-pilot label already removed or not found');
+              } else {
+                core.warning(`Unexpected error removing auto-pilot label: ${e?.message || e}`);
+              }
+            }
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: `## ✅ Auto-Pilot Complete
+
+            This issue has been fully processed:
+            - ✅ Issue formatted and optimized
+            - ✅ Agent assigned and PR created
+            - ✅ PR merged
+            - ✅ Verification triggered
+
+            Thank you for using auto-pilot! 🚀`
+            });
+
+            core.info('Auto-pilot complete!');

@@ -33,6 +33,11 @@ on:
         description: 'PR number to run keepalive on'
         required: true
         type: number
+      force_retry:
+        description: 'Force retry even if gate is cancelled/deferred'
+        required: false
+        default: true
+        type: boolean
 
 permissions:
   contents: write
@@ -186,6 +191,7 @@ jobs:
         uses: actions/github-script@v8
         env:
           INPUT_PR_NUMBER: ${{ inputs.pr_number || '' }}
+          INPUT_FORCE_RETRY: ${{ inputs.force_retry || 'false' }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -194,6 +200,7 @@ jobs:
 
             // For workflow_dispatch, inject PR number into payload structure
             let payload = context.payload;
+            const forceRetry = process.env.INPUT_FORCE_RETRY === 'true';
             if (context.eventName === 'workflow_dispatch' && process.env.INPUT_PR_NUMBER) {
               const prNumber = Number(process.env.INPUT_PR_NUMBER);
               if (prNumber > 0) {
@@ -220,6 +227,7 @@ jobs:
               context,
               core,
               payload,
+              forceRetry,
             });
 
             // Map flat result properties to outputs (evaluateKeepaliveLoop returns

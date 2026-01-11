@@ -138,6 +138,7 @@ The agent workflows coordinate Codex and chat orchestration across topics:
 * [`agents-moderate-connector.yml`](../../.github/workflows/agents-moderate-connector.yml) moderates connector-authored PR comments, enforcing repository allow/deny lists and applying the debugging label when deletions occur.
 * [`agents-guard.yml`](../../.github/workflows/agents-guard.yml) applies repository-level guardrails before agent workflows run.
 * [`agents-auto-label.yml`](../../.github/workflows/agents-auto-label.yml) automatically applies semantic labels to new issues based on content analysis using label_matcher.py.
+* [`agents-auto-pilot.yml`](../../.github/workflows/agents-auto-pilot.yml) end-to-end automation orchestrator that chains format → optimize → agent → verify when `agents:auto-pilot` label is applied.
 * [`agents-capability-check.yml`](../../.github/workflows/agents-capability-check.yml) performs pre-flight checks before agent assignment to identify blockers like ambiguous scope or missing context.
 * [`agents-decompose.yml`](../../.github/workflows/agents-decompose.yml) decomposes large issues into actionable sub-tasks using LLM analysis.
 * [`agents-dedup.yml`](../../.github/workflows/agents-dedup.yml) detects duplicate issues using semantic similarity analysis and posts findings as a comment.
