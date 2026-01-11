@@ -64,6 +64,12 @@ test('calculateElapsedTime accepts now as a Date object', () => {
   assert.equal(calculateElapsedTime(start, new Date(now)), '18s');
 });
 
+test('calculateElapsedTime trims ISO string now input', () => {
+  const start = '2026-01-10T20:00:00Z';
+  const nowIso = '2026-01-10T20:05:23Z';
+  assert.equal(calculateElapsedTime(start, `  ${nowIso}  `), '5m 23s');
+});
+
 test('calculateElapsedTime falls back to Date.now when now is invalid', () => {
   const realNow = Date.now;
   const now = 1700000000000;
