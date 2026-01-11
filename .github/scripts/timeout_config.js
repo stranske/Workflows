@@ -54,31 +54,54 @@ function resolveOverrideInput(inputs = {}, env = {}) {
   );
 }
 
+function resolveEnvValue(env, variables, key) {
+  const envValue = normalise(env?.[key]);
+  if (envValue) {
+    return envValue;
+  }
+  const variableValue = normalise(variables?.[key]);
+  if (variableValue) {
+    return variableValue;
+  }
+  return '';
+}
+
 function parseTimeoutConfig({
   env = process.env,
   inputs = {},
   labels,
+  variables = {},
   defaultMinutes = 45,
   extendedMultiplier = 2,
   minMinutes = 1,
   maxMinutes = 24 * 60,
 } = {}) {
-  const defaultValue = parseNumber(env.WORKFLOW_TIMEOUT_DEFAULT, defaultMinutes, {
-    min: minMinutes,
-    max: maxMinutes,
-  });
+  const defaultValue = parseNumber(
+    resolveEnvValue(env, variables, 'WORKFLOW_TIMEOUT_DEFAULT'),
+    defaultMinutes,
+    {
+      min: minMinutes,
+      max: maxMinutes,
+    }
+  );
   const extendedFallback = defaultValue * extendedMultiplier;
-  const extendedValue = parseNumber(env.WORKFLOW_TIMEOUT_EXTENDED, extendedFallback, {
-    min: minMinutes,
-    max: maxMinutes,
-  });
+  const extendedValue = parseNumber(
+    resolveEnvValue(env, variables, 'WORKFLOW_TIMEOUT_EXTENDED'),
+    extendedFallback,
+    {
+      min: minMinutes,
+      max: maxMinutes,
+    }
+  );
   const resolvedLabels = normaliseLabels(
     labels ??
       inputs.timeout_labels ??
       inputs.timeoutLabels ??
       inputs.labels ??
       env.WORKFLOW_TIMEOUT_LABELS ??
-      env.WORKFLOW_LABELS
+      env.WORKFLOW_LABELS ??
+      variables.WORKFLOW_TIMEOUT_LABELS ??
+      variables.WORKFLOW_LABELS
   );
   const extendedLabel = 'timeout:extended';
   const hasExtendedLabel = resolvedLabels.includes(extendedLabel);

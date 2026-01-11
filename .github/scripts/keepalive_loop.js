@@ -14,6 +14,13 @@ const { parseTimeoutConfig } = require('./timeout_config');
 const ATTEMPT_HISTORY_LIMIT = 5;
 const ATTEMPTED_TASK_LIMIT = 6;
 
+const TIMEOUT_VARIABLE_NAMES = [
+  'WORKFLOW_TIMEOUT_DEFAULT',
+  'WORKFLOW_TIMEOUT_EXTENDED',
+  'WORKFLOW_TIMEOUT_WARNING_RATIO',
+  'WORKFLOW_TIMEOUT_WARNING_MINUTES',
+];
+
 const PROMPT_ROUTES = {
   fix_ci: {
     mode: 'fix_ci',
@@ -233,6 +240,50 @@ async function fetchPrLabels({ github, context, prNumber, core }) {
   }
 }
 
+async function fetchRepoVariables({ github, context, core, names = [] }) {
+  if (!github?.rest?.actions?.listRepoVariables || !context?.repo?.owner || !context?.repo?.repo) {
+    return {};
+  }
+
+  const wanted = new Set((names || []).map((name) => normalise(name)).filter(Boolean));
+  if (!wanted.size) {
+    return {};
+  }
+
+  const results = {};
+  let page = 1;
+  const perPage = 100;
+
+  try {
+    while (true) {
+      const { data } = await github.rest.actions.listRepoVariables({
+        owner: context.repo.owner,
+        repo: context.repo.repo,
+        per_page: perPage,
+        page,
+      });
+      const variables = Array.isArray(data?.variables) ? data.variables : [];
+      for (const variable of variables) {
+        const name = normalise(variable?.name);
+        if (!wanted.has(name)) {
+          continue;
+        }
+        results[name] = normalise(variable?.value);
+      }
+      if (variables.length < perPage || Object.keys(results).length === wanted.size) {
+        break;
+      }
+      page += 1;
+    }
+  } catch (error) {
+    if (core) {
+      core.info(`Failed to fetch repository variables for timeout config: ${error.message}`);
+    }
+  }
+
+  return results;
+}
+
 async function resolveWorkflowRunStartMs({ github, context, core }) {
   if (!github?.rest?.actions?.getWorkflowRun) {
     return null;
@@ -322,18 +373,22 @@ function buildTimeoutStatus({
   };
 }
 
-function resolveTimeoutWarningConfig({ inputs = {}, env = process.env } = {}) {
+function resolveTimeoutWarningConfig({ inputs = {}, env = process.env, variables = {} } = {}) {
   const warningMinutes = toOptionalNumber(
     inputs.timeout_warning_minutes ??
       inputs.timeoutWarningMinutes ??
       env.WORKFLOW_TIMEOUT_WARNING_MINUTES ??
-      env.TIMEOUT_WARNING_MINUTES
+      variables.WORKFLOW_TIMEOUT_WARNING_MINUTES ??
+      env.TIMEOUT_WARNING_MINUTES ??
+      variables.TIMEOUT_WARNING_MINUTES
   );
   const warningRatio = toOptionalNumber(
     inputs.timeout_warning_ratio ??
       inputs.timeoutWarningRatio ??
       env.WORKFLOW_TIMEOUT_WARNING_RATIO ??
-      env.TIMEOUT_WARNING_RATIO
+      variables.WORKFLOW_TIMEOUT_WARNING_RATIO ??
+      env.TIMEOUT_WARNING_RATIO ??
+      variables.TIMEOUT_WARNING_RATIO
   );
   const config = {};
   if (Number.isFinite(warningMinutes) && warningMinutes > 0) {
@@ -1432,13 +1487,24 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
   const analysisTextLength = toNumber(inputs.analysis_text_length ?? inputs.analysisTextLength, 0);
 
   const labels = await fetchPrLabels({ github, context, prNumber, core });
+  const timeoutRepoVariables = await fetchRepoVariables({
+    github,
+    context,
+    core,
+    names: TIMEOUT_VARIABLE_NAMES,
+  });
   const timeoutConfig = parseTimeoutConfig({
     env: process.env,
     inputs,
     labels,
+    variables: timeoutRepoVariables,
   });
   const elapsedMs = await resolveElapsedMs({ github, context, inputs, core });
-  const timeoutWarningConfig = resolveTimeoutWarningConfig({ inputs, env: process.env });
+  const timeoutWarningConfig = resolveTimeoutWarningConfig({
+    inputs,
+    env: process.env,
+    variables: timeoutRepoVariables,
+  });
   const timeoutStatus = buildTimeoutStatus({
     timeoutConfig,
     elapsedMs,

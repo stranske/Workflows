@@ -26,6 +26,18 @@ test('parseTimeoutConfig reads repository defaults from env', () => {
   assert.equal(config.resolvedMinutes, 60);
 });
 
+test('parseTimeoutConfig reads repository defaults from variables', () => {
+  const variables = {
+    WORKFLOW_TIMEOUT_DEFAULT: '55',
+    WORKFLOW_TIMEOUT_EXTENDED: '110',
+  };
+  const config = parseTimeoutConfig({ env: {}, inputs: {}, variables });
+  assert.equal(config.defaultMinutes, 55);
+  assert.equal(config.extendedMinutes, 110);
+  assert.equal(config.overrideMinutes, null);
+  assert.equal(config.resolvedMinutes, 55);
+});
+
 test('parseTimeoutConfig accepts explicit override input', () => {
   const inputs = { timeout_minutes: '120' };
   const config = parseTimeoutConfig({ env: {}, inputs, defaultMinutes: 45 });
