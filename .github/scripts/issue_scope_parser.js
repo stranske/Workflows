@@ -141,6 +141,17 @@ function extractHeadingLabel(rawLine) {
   return cleaned;
 }
 
+function isExplicitHeadingLine(rawLine) {
+  const line = String(rawLine || '').trim();
+  if (!line) {
+    return false;
+  }
+  if (/^#{1,6}\s+\S/.test(line)) {
+    return true;
+  }
+  return /^(?:\*\*|__)(.+?)(?:\*\*|__)\s*:?\s*$/.test(line);
+}
+
 function extractListBlocks(lines) {
   const blocks = [];
   let current = [];
@@ -362,6 +373,7 @@ function collectSections(source) {
   }, {});
 
   const headings = [];
+  const allHeadings = [];
   const lines = segment.split('\n');
   const listBlocks = extractListBlocksWithOffsets(lines);
   let offset = 0;
@@ -380,7 +392,18 @@ function collectSections(source) {
         });
       }
     }
+    if (isExplicitHeadingLine(line)) {
+      allHeadings.push({ index: offset, length: line.length });
+    }
     offset += line.length + 1;
+  }
+
+  const headingIndexSet = new Set(allHeadings.map((heading) => heading.index));
+  for (const header of headings) {
+    if (!headingIndexSet.has(header.index)) {
+      allHeadings.push({ index: header.index, length: header.length });
+      headingIndexSet.add(header.index);
+    }
   }
 
   const extracted = SECTION_DEFS.reduce((acc, section) => {
@@ -413,7 +436,7 @@ function collectSections(source) {
     if (!header) {
       continue; // Skip missing sections instead of failing
     }
-    const nextHeader = headings
+    const nextHeader = allHeadings
       .filter((entry) => entry.index > header.index)
       .sort((a, b) => a.index - b.index)[0];
     const contentStart = (() => {

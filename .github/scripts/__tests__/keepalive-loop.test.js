@@ -25,6 +25,7 @@ const buildGithubStub = ({
   comments = [],
   workflowRuns = [],
   workflowJobs = [],
+  workflowRun = null,
   annotationsByCheckRunId = {},
   jobLogsByJobId = {},
 } = {}) => {
@@ -40,6 +41,9 @@ const buildGithubStub = ({
       actions: {
         async listWorkflowRuns() {
           return { data: { workflow_runs: workflowRuns } };
+        },
+        async getWorkflowRun() {
+          return { data: workflowRun || {} };
         },
         async listJobsForWorkflowRun() {
           return { data: { jobs: workflowJobs } };
@@ -80,10 +84,11 @@ const buildGithubStub = ({
   };
 };
 
-const buildContext = (prNumber = 101) => ({
-  eventName: 'pull_request',
+const buildContext = (prNumber = 101, runId = 9001, overrides = {}) => ({
+  eventName: overrides.eventName ?? 'pull_request',
   repo: { owner: 'octo', repo: 'workflows' },
-  payload: { pull_request: { number: prNumber } },
+  payload: overrides.payload ?? { pull_request: { number: prNumber } },
+  runId,
 });
 
 const buildCore = () => ({
@@ -629,6 +634,496 @@ test('updateKeepaliveLoopSummary increments iteration and clears failures on suc
   assert.match(github.actions[0].body, /✅ Success/);
   assert.match(github.actions[0].body, /"iteration":3/);
   assert.match(github.actions[0].body, /"failure":\{\}/);
+});
+
+test('updateKeepaliveLoopSummary logs timeout warning near expiration', async () => {
+  const nowMs = Date.parse('2026-01-01T00:00:00Z');
+  const realNow = Date.now;
+  Date.now = () => nowMs;
+  try {
+    const existingState = formatStateComment({
+      trace: 'trace-timeout',
+      iteration: 1,
+      max_iterations: 5,
+    });
+    const pr = {
+      number: 555,
+      head: { ref: 'feature/timeout', sha: 'sha-55' },
+      labels: [{ name: 'agent:codex' }],
+      body: prBodyFixture,
+    };
+    const github = buildGithubStub({
+      pr,
+      comments: [{ id: 77, body: existingState, html_url: 'https://example.com/77' }],
+      workflowRun: { run_started_at: new Date(nowMs - 41 * 60 * 1000).toISOString() },
+    });
+    await updateKeepaliveLoopSummary({
+      github,
+      context: buildContext(555),
+      core: buildCore(),
+      inputs: {
+        prNumber: 555,
+        action: 'run',
+        runResult: 'success',
+        gateConclusion: 'success',
+        tasksTotal: 3,
+        tasksUnchecked: 1,
+        keepaliveEnabled: true,
+        autofixEnabled: false,
+        iteration: 1,
+        maxIterations: 5,
+        failureThreshold: 3,
+        trace: 'trace-timeout',
+        codex_changes_made: 'true',
+        codex_files_changed: 2,
+        codex_commit_sha: 'abcd9999',
+        codex_summary: 'Near timeout check.',
+      },
+    });
+
+    const body = github.actions[0].body;
+    assert.match(body, /Timeout \| 45 min \(default\)/);
+    assert.match(body, /Timeout warning/);
+
+    const parsed = parseStateComment(body);
+    assert.equal(parsed.data.timeout.resolved_minutes, 45);
+    assert.equal(parsed.data.timeout.source, 'default');
+    assert.ok(parsed.data.timeout.warning);
+  } finally {
+    Date.now = realNow;
+  }
+});
+
+test('updateKeepaliveLoopSummary logs timeout warning at 80 percent usage', async () => {
+  const nowMs = Date.parse('2026-03-01T00:00:00Z');
+  const realNow = Date.now;
+  const warnings = [];
+  Date.now = () => nowMs;
+  try {
+    const existingState = formatStateComment({
+      trace: 'trace-timeout-usage',
+      iteration: 1,
+      max_iterations: 5,
+    });
+    const pr = {
+      number: 557,
+      head: { ref: 'feature/timeout-usage', sha: 'sha-57' },
+      labels: [{ name: 'agent:codex' }],
+      body: prBodyFixture,
+    };
+    const github = buildGithubStub({
+      pr,
+      comments: [{ id: 79, body: existingState, html_url: 'https://example.com/79' }],
+      workflowRun: { run_started_at: new Date(nowMs - 36 * 60 * 1000).toISOString() },
+    });
+    const core = {
+      info() {},
+      setOutput() {},
+      warning(message) {
+        warnings.push(message);
+      },
+    };
+    await updateKeepaliveLoopSummary({
+      github,
+      context: buildContext(557),
+      core,
+      inputs: {
+        prNumber: 557,
+        action: 'run',
+        runResult: 'success',
+        gateConclusion: 'success',
+        tasksTotal: 3,
+        tasksUnchecked: 1,
+        keepaliveEnabled: true,
+        autofixEnabled: false,
+        iteration: 1,
+        maxIterations: 5,
+        failureThreshold: 3,
+        trace: 'trace-timeout-usage',
+        codex_changes_made: 'true',
+        codex_files_changed: 2,
+        codex_commit_sha: 'abcd2000',
+        codex_summary: 'Usage ratio timeout check.',
+      },
+    });
+
+    const body = github.actions[0].body;
+    assert.match(body, /Timeout warning/);
+    assert.match(body, /80% consumed/);
+    assert.match(body, /usage threshold/);
+
+    const parsed = parseStateComment(body);
+    assert.equal(parsed.data.timeout.warning.reason, 'usage');
+    assert.equal(parsed.data.timeout.warning.percent, 80);
+    assert.equal(warnings.length, 1);
+    assert.match(warnings[0], /80% consumed, 9m remaining/);
+  } finally {
+    Date.now = realNow;
+  }
+});
+
+test('updateKeepaliveLoopSummary uses workflow_run payload start time for warnings', async () => {
+  const nowMs = Date.parse('2026-04-01T00:00:00Z');
+  const realNow = Date.now;
+  const warnings = [];
+  Date.now = () => nowMs;
+  try {
+    const existingState = formatStateComment({
+      trace: 'trace-timeout-payload',
+      iteration: 1,
+      max_iterations: 5,
+    });
+    const pr = {
+      number: 562,
+      head: { ref: 'feature/timeout-payload', sha: 'sha-62' },
+      labels: [{ name: 'agent:codex' }],
+      body: prBodyFixture,
+    };
+    const github = buildGithubStub({
+      pr,
+      comments: [{ id: 84, body: existingState, html_url: 'https://example.com/84' }],
+      workflowRun: {},
+    });
+    const core = {
+      info() {},
+      setOutput() {},
+      warning(message) {
+        warnings.push(message);
+      },
+    };
+    await updateKeepaliveLoopSummary({
+      github,
+      context: buildContext(562, 9001, {
+        eventName: 'workflow_run',
+        payload: {
+          workflow_run: {
+            run_started_at: new Date(nowMs - 36 * 60 * 1000).toISOString(),
+          },
+        },
+      }),
+      core,
+      inputs: {
+        prNumber: 562,
+        action: 'run',
+        runResult: 'success',
+        gateConclusion: 'success',
+        tasksTotal: 3,
+        tasksUnchecked: 1,
+        keepaliveEnabled: true,
+        autofixEnabled: false,
+        iteration: 1,
+        maxIterations: 5,
+        failureThreshold: 3,
+        trace: 'trace-timeout-payload',
+        codex_changes_made: 'true',
+        codex_files_changed: 2,
+        codex_commit_sha: 'abcd2200',
+        codex_summary: 'Payload timeout warning check.',
+      },
+    });
+
+    const body = github.actions[0].body;
+    assert.match(body, /Timeout warning/);
+    assert.equal(warnings.length, 1);
+  } finally {
+    Date.now = realNow;
+  }
+});
+
+test('updateKeepaliveLoopSummary does not warn before 80 percent usage', async () => {
+  const warnings = [];
+  const existingState = formatStateComment({
+    trace: 'trace-timeout-prewarn',
+    iteration: 1,
+    max_iterations: 5,
+  });
+  const pr = {
+    number: 561,
+    head: { ref: 'feature/timeout-prewarn', sha: 'sha-61' },
+    labels: [{ name: 'agent:codex' }],
+    body: prBodyFixture,
+  };
+  const github = buildGithubStub({
+    pr,
+    comments: [{ id: 83, body: existingState, html_url: 'https://example.com/83' }],
+  });
+  const core = {
+    info() {},
+    setOutput() {},
+    warning(message) {
+      warnings.push(message);
+    },
+  };
+  await updateKeepaliveLoopSummary({
+    github,
+    context: buildContext(561),
+    core,
+    inputs: {
+      prNumber: 561,
+      action: 'run',
+      runResult: 'success',
+      gateConclusion: 'success',
+      tasksTotal: 3,
+      tasksUnchecked: 1,
+      keepaliveEnabled: true,
+      autofixEnabled: false,
+      iteration: 1,
+      maxIterations: 5,
+      failureThreshold: 3,
+      trace: 'trace-timeout-prewarn',
+      elapsed_ms: 35 * 60 * 1000,
+      codex_changes_made: 'true',
+      codex_files_changed: 1,
+      codex_commit_sha: 'abcd2100',
+      codex_summary: 'Pre-warning timeout check.',
+    },
+  });
+
+  const body = github.actions[0].body;
+  assert.doesNotMatch(body, /Timeout warning/);
+
+  const parsed = parseStateComment(body);
+  assert.equal(parsed.data.timeout.warning, null);
+  assert.equal(warnings.length, 0);
+});
+
+test('updateKeepaliveLoopSummary treats percent warning ratio inputs as percentages', async () => {
+  const warnings = [];
+  const existingState = formatStateComment({
+    trace: 'trace-timeout-percent',
+    iteration: 1,
+    max_iterations: 5,
+  });
+  const pr = {
+    number: 560,
+    head: { ref: 'feature/timeout-percent', sha: 'sha-60' },
+    labels: [{ name: 'agent:codex' }],
+    body: prBodyFixture,
+  };
+  const github = buildGithubStub({
+    pr,
+    comments: [{ id: 82, body: existingState, html_url: 'https://example.com/82' }],
+  });
+  const core = {
+    info() {},
+    setOutput() {},
+    warning(message) {
+      warnings.push(message);
+    },
+  };
+
+  await updateKeepaliveLoopSummary({
+    github,
+    context: buildContext(560),
+    core,
+    inputs: {
+      prNumber: 560,
+      action: 'run',
+      runResult: 'success',
+      gateConclusion: 'success',
+      tasksTotal: 3,
+      tasksUnchecked: 1,
+      keepaliveEnabled: true,
+      autofixEnabled: false,
+      iteration: 1,
+      maxIterations: 5,
+      failureThreshold: 3,
+      trace: 'trace-timeout-percent',
+      elapsed_ms: 39 * 60 * 1000,
+      timeout_warning_ratio: 90,
+      timeout_warning_minutes: 1,
+      codex_changes_made: 'true',
+      codex_files_changed: 1,
+      codex_commit_sha: 'abcd4000',
+      codex_summary: 'Percent warning ratio check.',
+    },
+  });
+
+  const body = github.actions[0].body;
+  assert.doesNotMatch(body, /Timeout warning/);
+
+  const parsed = parseStateComment(body);
+  assert.equal(parsed.data.timeout.warning, null);
+  assert.equal(warnings.length, 0);
+});
+
+test('updateKeepaliveLoopSummary logs timeout warning when elapsed_ms crosses 80 percent', async () => {
+  const warnings = [];
+  const existingState = formatStateComment({
+    trace: 'trace-timeout-elapsed',
+    iteration: 1,
+    max_iterations: 5,
+  });
+  const pr = {
+    number: 559,
+    head: { ref: 'feature/timeout-elapsed', sha: 'sha-59' },
+    labels: [{ name: 'agent:codex' }],
+    body: prBodyFixture,
+  };
+  const github = buildGithubStub({
+    pr,
+    comments: [{ id: 81, body: existingState, html_url: 'https://example.com/81' }],
+  });
+  const core = {
+    info() {},
+    setOutput() {},
+    warning(message) {
+      warnings.push(message);
+    },
+  };
+  await updateKeepaliveLoopSummary({
+    github,
+    context: buildContext(559),
+    core,
+    inputs: {
+      prNumber: 559,
+      action: 'run',
+      runResult: 'success',
+      gateConclusion: 'success',
+      tasksTotal: 3,
+      tasksUnchecked: 1,
+      keepaliveEnabled: true,
+      autofixEnabled: false,
+      iteration: 1,
+      maxIterations: 5,
+      failureThreshold: 3,
+      trace: 'trace-timeout-elapsed',
+      elapsed_ms: 36 * 60 * 1000,
+      codex_changes_made: 'true',
+      codex_files_changed: 2,
+      codex_commit_sha: 'abcd2222',
+      codex_summary: 'Elapsed override timeout check.',
+    },
+  });
+
+  const body = github.actions[0].body;
+  assert.match(body, /Timeout warning/);
+
+  const parsed = parseStateComment(body);
+  assert.equal(parsed.data.timeout.warning.reason, 'usage');
+  assert.equal(parsed.data.timeout.warning.percent, 80);
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0], /80% consumed/);
+});
+
+test('updateKeepaliveLoopSummary reads timeout override from workflow inputs payload', async () => {
+  const nowMs = Date.parse('2026-04-01T00:00:00Z');
+  const realNow = Date.now;
+  Date.now = () => nowMs;
+  try {
+    const existingState = formatStateComment({
+      trace: 'trace-timeout-input',
+      iteration: 1,
+      max_iterations: 5,
+    });
+    const pr = {
+      number: 558,
+      head: { ref: 'feature/timeout-input', sha: 'sha-58' },
+      labels: [{ name: 'agent:codex' }],
+      body: prBodyFixture,
+    };
+    const github = buildGithubStub({
+      pr,
+      comments: [{ id: 80, body: existingState, html_url: 'https://example.com/80' }],
+      workflowRun: { run_started_at: new Date(nowMs - 10 * 60 * 1000).toISOString() },
+    });
+    await updateKeepaliveLoopSummary({
+      github,
+      context: buildContext(558, 9001, {
+        eventName: 'workflow_dispatch',
+        payload: { inputs: { timeout_minutes: '75' } },
+      }),
+      core: buildCore(),
+      inputs: {
+        prNumber: 558,
+        action: 'run',
+        runResult: 'success',
+        gateConclusion: 'success',
+        tasksTotal: 3,
+        tasksUnchecked: 1,
+        keepaliveEnabled: true,
+        autofixEnabled: false,
+        iteration: 1,
+        maxIterations: 5,
+        failureThreshold: 3,
+        trace: 'trace-timeout-input',
+        codex_changes_made: 'true',
+        codex_files_changed: 1,
+        codex_commit_sha: 'abcd3000',
+        codex_summary: 'Workflow input override.',
+      },
+    });
+
+    const body = github.actions[0].body;
+    assert.match(body, /Timeout \| 75 min \(override\)/);
+
+    const parsed = parseStateComment(body);
+    assert.equal(parsed.data.timeout.resolved_minutes, 75);
+    assert.equal(parsed.data.timeout.source, 'override');
+  } finally {
+    Date.now = realNow;
+  }
+});
+
+test('updateKeepaliveLoopSummary honors timeout warning overrides', async () => {
+  const nowMs = Date.parse('2026-02-01T00:00:00Z');
+  const realNow = Date.now;
+  Date.now = () => nowMs;
+  try {
+    const existingState = formatStateComment({
+      trace: 'trace-warning-hint',
+      iteration: 1,
+      max_iterations: 5,
+    });
+    const pr = {
+      number: 556,
+      head: { ref: 'feature/timeout-warning', sha: 'sha-56' },
+      labels: [{ name: 'agent:codex' }],
+      body: prBodyFixture,
+    };
+    const github = buildGithubStub({
+      pr,
+      comments: [{ id: 78, body: existingState, html_url: 'https://example.com/78' }],
+      workflowRun: { run_started_at: new Date(nowMs - 12 * 60 * 1000).toISOString() },
+    });
+    await updateKeepaliveLoopSummary({
+      github,
+      context: buildContext(556),
+      core: buildCore(),
+      inputs: {
+        prNumber: 556,
+        action: 'run',
+        runResult: 'success',
+        gateConclusion: 'success',
+        tasksTotal: 3,
+        tasksUnchecked: 1,
+        keepaliveEnabled: true,
+        autofixEnabled: false,
+        iteration: 1,
+        maxIterations: 5,
+        failureThreshold: 3,
+        trace: 'trace-warning-hint',
+        codex_changes_made: 'true',
+        codex_files_changed: 1,
+        codex_commit_sha: 'abcd1000',
+        codex_summary: 'Override timeout warning threshold.',
+        timeout_minutes: 20,
+        timeout_warning_minutes: 10,
+        timeout_warning_ratio: 0.9,
+      },
+    });
+
+    const body = github.actions[0].body;
+    assert.match(body, /Timeout \| 20 min \(override\)/);
+    assert.match(body, /Timeout warning/);
+
+    const parsed = parseStateComment(body);
+    assert.equal(parsed.data.timeout.resolved_minutes, 20);
+    assert.equal(parsed.data.timeout.source, 'override');
+    assert.equal(parsed.data.timeout.warning.reason, 'remaining');
+  } finally {
+    Date.now = realNow;
+  }
 });
 
 test('updateKeepaliveLoopSummary tracks attempt history across rounds', async () => {
