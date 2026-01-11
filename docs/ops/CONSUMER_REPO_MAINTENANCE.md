@@ -6,20 +6,18 @@ This document outlines the process for maintaining workflow system consistency a
 
 ## Registered Consumer Repos
 
-The following repos are automatically synced via `maint-68-sync-consumer-repos.yml`:
+Consumer repositories are synced by the workflow
+`.github/workflows/maint-68-sync-consumer-repos.yml`.
 
-| Repository | Status | Notes |
-|------------|--------|-------|
-| `stranske/Template` | ✅ Registered | Source template for new repos |
-| `stranske/Travel-Plan-Permission` | ✅ Registered | Primary test consumer |
-| `stranske/trip-planner` | ⏳ Pending | Needs custom Gate (no pyproject.toml) |
-| `stranske/Manager-Database` | ⏳ Pending | Needs custom Gate (docker compose, pre-commit) |
+The list of registered repos lives in that workflow (env var
+`REGISTERED_CONSUMER_REPOS`). Avoid duplicating the list here; it changes over time and
+the workflow is the source of truth.
 
 ### Adding a New Consumer Repo
 
-1. Add repo to `REGISTERED_CONSUMER_REPOS` in `maint-68-sync-consumer-repos.yml`
+1. Add the repo to `REGISTERED_CONSUMER_REPOS` in `maint-68-sync-consumer-repos.yml`.
 2. Ensure bot collaborator access (see [Bot Access](#bot-collaborator-access))
-3. Run sync workflow manually to verify
+3. Run the sync workflow manually to verify.
 
 ### Repos with Custom Configurations
 
@@ -28,9 +26,12 @@ Some repos cannot use the template `pr-00-gate.yml` because:
 - **Manager-Database**: Uses `docker compose`, `pre-commit`, custom test setup
 
 For these repos:
-- Gate workflow is maintained locally (not synced)
-- Other agent workflows ARE synced from templates
-- Document customizations in repo's `.github/README.md`
+- The Gate workflow (`pr-00-gate.yml`) is maintained locally and excluded from sync.
+- Other files listed in the sync manifest continue to sync normally.
+
+Maint 68 currently implements this by keeping an internal `custom_gate_repos` list in
+its sync script and skipping any manifest entry whose `source` contains
+`pr-00-gate` for those repos.
 
 ---
 
@@ -104,6 +105,13 @@ For bugs affecting multiple repos, create a tracking issue with:
 
 **Fix**: Use variables or empty defaults with clear documentation
 
+### Workflow input typing mismatches
+
+**Pattern**: passing a string into a reusable workflow input declared as `number`.
+
+**Fix**: pass an actual number expression (often via `fromJSON(...)`) so the workflow
+template validator and runtime typing agree.
+
 ### Action Version Inconsistencies
 
 **Pattern**: Mixed versions of same action across workflows  
@@ -144,13 +152,14 @@ curl -s -X PUT \
 
 ### What Gets Synced
 
-| File Type | Source | Synced? |
-|-----------|--------|---------|
-| Thin caller workflows | `templates/consumer-repo/.github/workflows/` | ✅ Yes |
-| Codex prompts | `templates/consumer-repo/.github/codex/` | ✅ Yes |
-| Issue templates | `templates/consumer-repo/.github/ISSUE_TEMPLATE/` | ✅ Yes |
-| `autofix-versions.env` | N/A | ❌ No (repo-specific) |
-| Custom Gate workflows | N/A | ❌ No (repo-specific) |
+Maint 68 is manifest-driven:
+
+- **What** gets synced is declared in `.github/sync-manifest.yml`.
+- **Where** files come from is either `templates/consumer-repo/` (most items) or
+  repository-level directories like `.github/scripts/` (for shared scripts).
+- **Which repos** receive updates are listed in `REGISTERED_CONSUMER_REPOS`.
+
+Custom Gate repos are a special-case skip: their `pr-00-gate.yml` stays local.
 
 ### Manual Sync Trigger
 
