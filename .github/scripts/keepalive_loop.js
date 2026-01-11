@@ -1758,7 +1758,8 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
   if (timeoutStatus.warning && core && typeof core.warning === 'function') {
     const percent = timeoutStatus.warning.percent ?? 0;
     const remaining = timeoutStatus.warning.remaining_minutes ?? 0;
-    core.warning(`Timeout warning: ${percent}% consumed, ${remaining}m remaining.`);
+    const reason = timeoutStatus.warning.reason === 'remaining' ? 'remaining threshold' : 'usage threshold';
+    core.warning(`Timeout warning (${reason}): ${percent}% consumed, ${remaining}m remaining.`);
   }
 
   // Add agent run details if we ran an agent
