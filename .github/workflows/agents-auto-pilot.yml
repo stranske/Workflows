@@ -725,7 +725,6 @@ jobs:
           ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
           PR_NUMBER: ${{ steps.context.outputs.linked_pr }}
           STEP_COUNT: ${{ steps.cycles.outputs.count }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           script: |
             const issueNumber = parseInt(process.env.ISSUE_NUMBER);
@@ -766,7 +765,6 @@ jobs:
               const pendingChecks = checks.check_runs.filter(check =>
                 check.status !== 'completed'
               );
-
               const failedChecks = checks.check_runs.filter(check =>
                 check.status === 'completed' && check.conclusion !== 'success' &&
                 check.conclusion !== 'neutral' && check.conclusion !== 'skipped'
@@ -822,7 +820,7 @@ jobs:
         if: |
           steps.context.outputs.should_continue == 'true' &&
           steps.cycles.outputs.exceeded != 'true' &&
-          contains(fromJSON('["format","optimize","apply","capability-check","monitor-pr","check-completion"]'),
+          contains(fromJSON('["format","optimize","apply","capability-check","monitor-pr"]'),
           steps.next.outputs.next_step)
         uses: actions/github-script@v7
         env:

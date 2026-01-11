@@ -103,7 +103,7 @@ to the centralized stranske/Workflows consumer pattern.
 
 If needed, these files can be restored from this archive or git history.
 The new consumer pattern uses thin caller workflows that reference
-`stranske/Workflows/.github/workflows/reusable-*.yml@main`.
+`stranske/Workflows/.github/workflows/reusable-*.yml@v1`.
 ```
 
 ---
@@ -263,12 +263,12 @@ The source file has a LOCAL reference that must be changed to REMOTE:
 uses: ./.github/workflows/reusable-agents-issue-bridge.yml
 
 # ✅ CORRECT (remote reference)
-uses: stranske/Workflows/.github/workflows/reusable-agents-issue-bridge.yml@main
+uses: stranske/Workflows/.github/workflows/reusable-agents-issue-bridge.yml@v1
 ```
 
 **Find and replace** (approximately line 1171):
 ```bash
-sed -i 's|uses: ./.github/workflows/reusable-agents-issue-bridge.yml|uses: stranske/Workflows/.github/workflows/reusable-agents-issue-bridge.yml@main|g' \
+sed -i 's|uses: ./.github/workflows/reusable-agents-issue-bridge.yml|uses: stranske/Workflows/.github/workflows/reusable-agents-issue-bridge.yml@v1|g' \
   "$DEST/agents-63-issue-intake.yml"
 ```
 
@@ -288,14 +288,14 @@ ISORT_VERSION=5.13.2
 
 ### 3.5 Validation Checklist
 
-- [ ] `pr-00-gate.yml` copied (uses `stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main`)
-- [ ] `agents-keepalive-loop.yml` copied (uses `stranske/Workflows/.github/workflows/reusable-codex-run.yml@main`)
+- [ ] `pr-00-gate.yml` copied (uses `stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@v1`)
+- [ ] `agents-keepalive-loop.yml` copied (uses `stranske/Workflows/.github/workflows/reusable-codex-run.yml@v1`)
 - [ ] `agents-orchestrator.yml` copied
 - [ ] `agents-pr-meta.yml` copied
 - [ ] `agents-bot-comment-handler.yml` copied
 - [ ] `agents-63-issue-intake.yml` copied AND fixed (remote reference)
 - [ ] `autofix-versions.env` created with correct versions
-- [ ] All workflows reference `stranske/Workflows/...@main`
+- [ ] All workflows reference `stranske/Workflows/...@v1`
 
 ---
 
@@ -443,7 +443,9 @@ Example from `agents-keepalive-loop.yml`:
   uses: actions/checkout@v4
   with:
     repository: stranske/Workflows
-    ref: main
+    # Keep this aligned with the ref you use in `uses: stranske/Workflows/...@<ref>`.
+    # Prefer stable tags (`v1`) for most consumers.
+    ref: v1
     sparse-checkout: |
       scripts
       .github/scripts
@@ -489,7 +491,7 @@ The preferred authentication uses GitHub App tokens:
 
 - Consumer workflows call into `stranske/Workflows/.github/workflows/`
 - Verify the reusable workflow exists in the Workflows repo
-- Check the `@main` reference is correct
+- Check the `@v1` (or pinned tag/SHA) reference is correct
 
 ### Gate doesn't post commit status
 

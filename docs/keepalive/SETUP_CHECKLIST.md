@@ -281,17 +281,12 @@ on:
 jobs:
   python-ci:
     if: github.event_name == 'pull_request'
-    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
+    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@v1
     with:
-      python_versions: '["3.11", "3.12", "3.13"]'
-      primary_version: "3.13"
-      min_coverage: 80
-      fail_under_coverage: true
-      ruff_check: true
-      mypy_check: true
-      strict_mypy: true
-    secrets:
-      token: ${{ secrets.SERVICE_BOT_PAT }}
+      python-versions: '["3.11", "3.12", "3.13"]'
+      primary-python-version: "3.13"
+      coverage-min: "80"
+    secrets: inherit
 
   gate-summary:
     needs: [python-ci]
@@ -316,17 +311,16 @@ name: CI
 on:
   push:
     branches: [main]
-  workflow_dispatch:
+  pull_request:
 
 jobs:
   ci:
-    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
+    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@v1
     with:
-      python_versions: '["3.11", "3.12", "3.13"]'
-      primary_version: "3.13"
-      min_coverage: 80
-    secrets:
-      token: ${{ secrets.SERVICE_BOT_PAT }}
+      python-versions: '["3.11", "3.12", "3.13"]'
+      primary-python-version: "3.13"
+      coverage-min: "80"
+    secrets: inherit
 ```
 
 #### C. Agent Workflows (if using keepalive)

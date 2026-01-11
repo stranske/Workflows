@@ -1,10 +1,19 @@
 # System Evaluation: Workflow Architecture
 
+> **Status**: Reference / architecture review
+> **Last reviewed**: 2026-01-11
+> **Canonical topology**: See `docs/ci/WORKFLOW_SYSTEM.md` for the current workflow inventory and links.
+
 ## Executive Summary
 
 This document evaluates the current GitHub Actions workflow architecture against four key operational goals: **Repo Health**, **Efficient PRs**, **Autofix Automation**, and **Keepalive Operations**.
 
-**Overall Status**: The system is functional but suffers from **logic duplication** (specifically in Autofix) and **high complexity** in the Orchestrator. The "Gate" workflow is effectively optimizing PR checks, but its coupling with Autofix labeling creates maintenance overhead.
+**Overall Status**: The system is functional but has two recurring sources of maintenance cost:
+
+- **Logic duplication** (especially around “autofix”/labeling decisions)
+- **High orchestration complexity** in the keepalive/orchestrator workflows
+
+The “Gate” workflow provides good PR feedback and change-aware skipping, but its coupling with autofix labeling increases surface area and makes evolution harder.
 
 ---
 
@@ -19,8 +28,8 @@ This document evaluates the current GitHub Actions workflow architecture against
     *   **Scope Limitation**: It does not currently check for stale branches, dependency freshness (outside of Dependabot), or other "repo health" metrics like TODO tracking or code complexity trends.
     *   **Naming**: The name `health-40-sweep` implies a broader scope than just workflow linting.
 *   **Recommendations**:
-    *   **Rename** to `health-workflows.yml` to reflect its actual scope.
-    *   **Expand** "Health" concept to include a separate `health-codebase.yml` that might run deeper static analysis (e.g., complexity checks, dead code detection) that is too slow for PR gates.
+    * Consider renaming if/when the scope becomes stable enough that the name creates confusion.
+    * If broader “repo health” checks are desired, prefer a separate workflow rather than overloading a single sweep job.
 
 ## 2. Efficient PRs (`pr-00-gate.yml`)
 
@@ -34,7 +43,7 @@ This document evaluates the current GitHub Actions workflow architecture against
     *   **Coupling**: The Gate workflow contains significant inline logic for **Autofix Labeling** (detecting cosmetic failures and applying labels). This mixes "Testing" concerns with "Fixing" concerns.
     *   **Complexity**: The `summary` job is complex, handling artifact aggregation and comment posting.
 *   **Recommendations**:
-    *   **Decouple Autofix**: Move the "Auto-labeling" logic into a separate workflow or a dedicated step in the reusable CI workflow that outputs a "recommendation" rather than having the Gate apply labels directly.
+    *   **Decouple Autofix**: Move auto-labeling into a dedicated workflow or have reusable CI output a “recommendation” rather than having Gate directly apply labels.
 
 ## 3. Autofix (`autofix.yml` vs `reusable-18-autofix.yml`)
 
@@ -96,6 +105,8 @@ This document evaluates the current GitHub Actions workflow architecture against
 ---
 
 ## Summary of Action Items
+
+This table is intentionally high level. Verify current state in `docs/ci/WORKFLOW_SYSTEM.md` and in the workflow files under `.github/workflows/`.
 
 | Priority | Task | Status | Notes |
 | :--- | :--- | :--- | :--- |

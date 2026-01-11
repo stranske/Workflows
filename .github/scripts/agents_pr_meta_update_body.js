@@ -15,6 +15,17 @@ const fs = require('fs');
 const os = require('os');
 const childProcess = require('child_process');
 
+class RateLimitError extends Error {
+  constructor(message, options = {}) {
+    super(message);
+    this.name = 'RateLimitError';
+    this.isRateLimit = true;
+    this.status = options.status ?? null;
+    this.remaining = options.remaining ?? null;
+    this.reset = options.reset ?? null;
+  }
+}
+
 // ========== Utility Functions ==========
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -488,6 +499,9 @@ async function withRetries(fn, options = {}) {
       const retryable = !status || status >= 500 || isRateLimit;
       
       if (!retryable || attempt === maxAttempts) {
+        if (isRateLimit) {
+          throw new RateLimitError(message, { status, remaining, reset });
+        }
         if (core) core.error(`Failed ${label}: ${message}`);
         throw error;
       }
@@ -511,6 +525,31 @@ async function withRetries(fn, options = {}) {
     }
   }
   throw lastError;
+}
+
+function isRateLimitError(error) {
+  if (!error) {
+    return false;
+  }
+  if (error instanceof RateLimitError) {
+    return true;
+  }
+  const status = typeof error.status === 'number' ? error.status : null;
+  const message = error instanceof Error ? error.message : String(error);
+  const messageLower = message.toLowerCase();
+  if (status === 429) {
+    return true;
+  }
+  if (status !== 403) {
+    return false;
+  }
+  if (messageLower.includes('rate limit')) {
+    return true;
+  }
+  const headers = error?.response?.headers || {};
+  const remainingRaw = headers['x-ratelimit-remaining'] ?? headers['X-RateLimit-Remaining'];
+  const remaining = Number(remainingRaw);
+  return Number.isFinite(remaining) && remaining <= 0;
 }
 
 // ========== Status Block Functions ==========
@@ -792,7 +831,8 @@ async function discoverPr({github, context, core, inputs}) {
 // ========== Main Entry Point ==========
 
 async function run({github, context, core, inputs}) {
-  const {owner, repo} = context.repo;
+  try {
+    const {owner, repo} = context.repo;
   // Support dual-checkout pattern: WORKFLOWS_SCRIPTS_PATH points to where the
   // Workflows repo scripts are, or fall back to the workspace root
   const scriptsBase = process.env.WORKFLOWS_SCRIPTS_PATH || process.env.GITHUB_WORKSPACE || process.cwd();
@@ -826,17 +866,17 @@ async function run({github, context, core, inputs}) {
     return;
   }
 
-  const prInfo = await discoverPr({github, context, core, inputs});
-  if (!prInfo) {
-    core.info('No pull request context detected; skipping update.');
-    return;
-  }
+    const prInfo = await discoverPr({github, context, core, inputs});
+    if (!prInfo) {
+      core.info('No pull request context detected; skipping update.');
+      return;
+    }
 
-  const prResponse = await withRetries(
-    () => github.rest.pulls.get({owner, repo, pull_number: prInfo.number}),
-    {description: `pulls.get #${prInfo.number}`, core},
-  );
-  const pr = prResponse.data;
+    const prResponse = await withRetries(
+      () => github.rest.pulls.get({owner, repo, pull_number: prInfo.number}),
+      {description: `pulls.get #${prInfo.number}`, core},
+    );
+    const pr = prResponse.data;
   
   if (pr.state === 'closed') {
     core.info(`Pull request #${pr.number} is closed; skipping update.`);
@@ -1015,7 +1055,16 @@ async function run({github, context, core, inputs}) {
     return;
   }
 
-  core.info('PR body already up to date; no changes required.');
+    core.info('PR body already up to date; no changes required.');
+  } catch (error) {
+    if (isRateLimitError(error)) {
+      const message = error instanceof Error ? error.message : String(error);
+      core.warning(`PR Meta update skipped due to GitHub API rate limiting: ${message}`);
+      return;
+    }
+    const message = error instanceof Error ? error.message : String(error);
+    core.setFailed(`PR Meta update failed: ${message}`);
+  }
 }
 
 module.exports = {
@@ -1037,6 +1086,8 @@ module.exports = {
   buildPreamble,
   buildStatusBlock,
   withRetries,
+  RateLimitError,
+  isRateLimitError,
   resolveAgentType,
   discoverPr,
 };

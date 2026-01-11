@@ -35,7 +35,7 @@ Instead of copying templates, you can call workflows directly from this repo:
 ```yaml
 jobs:
   ci:
-    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
+    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@v1
     with:
       python-version: '3.11'
     secrets: inherit
@@ -132,13 +132,13 @@ When a CI workflow has multiple jobs calling `reusable-10-ci-python.yml`, **each
 ```yaml
 jobs:
   basic:
-    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
+    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@v1
     with:
       artifact-prefix: basic-  # Unique prefix!
       # ...
 
   full:
-    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
+    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@v1
     with:
       artifact-prefix: full-  # Different prefix!
       # ...

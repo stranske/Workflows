@@ -1,6 +1,6 @@
 # Multi-Agent Routing Architecture
 
-**Status:** Adopted  
+**Status:** Partially adopted (Codex only)  
 **Related:** `GoalsAndPlumbing.md`, `Observability_Contract.md`
 
 This document describes the multi-agent routing architecture that enables different AI agents (Codex CLI, Claude, etc.) to work on PRs through a unified keepalive loop.
@@ -14,8 +14,8 @@ The keepalive system routes work to different agents based on the `agent:*` labe
 | Label | Agent | Workflow |
 |-------|-------|----------|
 | `agent:codex` | Codex CLI (gpt-5.2-codex) | `reusable-codex-run.yml` |
-| `agent:claude` | Claude (future) | `reusable-claude-run.yml` |
-| `agent:gemini` | Gemini (future) | `reusable-gemini-run.yml` |
+| `agent:claude` | Claude (future) | *(not implemented in this repo)* |
+| `agent:gemini` | Gemini (future) | *(not implemented in this repo)* |
 
 ---
 
@@ -85,14 +85,12 @@ The appendix is injected directly into the agent prompt so tasks are explicit, n
 run-codex:
   name: Keepalive next task (Codex)
   if: needs.evaluate.outputs.agent_type == 'codex'
-  uses: stranske/Workflows/.github/workflows/reusable-codex-run.yml@main
+  uses: stranske/Workflows/.github/workflows/reusable-codex-run.yml@v1
   with:
     appendix: ${{ needs.evaluate.outputs.task_appendix }}
     ...
 
-# Future: run-claude:
-#   if: needs.evaluate.outputs.agent_type == 'claude'
-#   uses: stranske/Workflows/.github/workflows/reusable-claude-run.yml@main
+# Note: Only `agent:codex` routing is currently implemented.
 ```
 
 ### 4. Agent-Agnostic Prompt (`keepalive_next_task.md`)
@@ -117,52 +115,16 @@ No `@codex` or agent-specific mentions—the routing determines which agent rece
 
 ---
 
-## Adding a New Agent
+## Future Expansion (Not Implemented)
 
-To add support for a new agent (e.g., Claude):
+This repository currently supports Codex-only routing (`agent:codex`).
 
-### 1. Create the reusable workflow
+If multi-agent support is added later, the high-level work is:
 
-Create `.github/workflows/reusable-claude-run.yml` following the pattern of `reusable-codex-run.yml`:
-- Accept same inputs (prompt_file, appendix, pr_number, pr_ref)
-- Emit same outputs (final-message, exit-code, changes-made, commit-sha, files-changed)
-
-### 2. Add conditional job in keepalive loop
-
-```yaml
-run-claude:
-  name: Keepalive next task (Claude)
-  needs:
-    - evaluate
-    - preflight
-  if: needs.evaluate.outputs.agent_type == 'claude'
-  uses: stranske/Workflows/.github/workflows/reusable-claude-run.yml@main
-  secrets:
-    CLAUDE_API_KEY: ${{ secrets.CLAUDE_API_KEY }}
-  with:
-    skip: ${{ needs.evaluate.outputs.action != 'run' }}
-    prompt_file: .github/codex/prompts/keepalive_next_task.md
-    pr_number: ${{ needs.evaluate.outputs.pr_number }}
-    pr_ref: ${{ needs.evaluate.outputs.pr_ref }}
-    appendix: ${{ needs.evaluate.outputs.task_appendix }}
-```
-
-### 3. Update summary job
-
-Add the new agent's outputs to the summary job's needs and pass through to `updateKeepaliveLoopSummary`:
-
-```yaml
-summary:
-  needs:
-    - evaluate
-    - preflight
-    - run-codex
-    - run-claude  # Add new agent
-```
-
-### 4. Create GitHub label
-
-Create `agent:claude` label in the repository.
+1. Add a new reusable runner workflow (parallel to `reusable-codex-run.yml`).
+2. Add a conditional job in `agents-keepalive-loop.yml` to call it.
+3. Wire the new outputs through the keepalive summary step.
+4. Document the new label and required secrets.
 
 ---
 

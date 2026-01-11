@@ -5,6 +5,9 @@
 > **Scope:** 4-8 weeks post Phase 3  
 > **Dependencies:** Phase 3 functional testing complete ✅
 
+> **Last reviewed:** 2026-01-11
+> **Note:** This is planning context, not a runbook. Validate the current state in `docs/ci/WORKFLOW_SYSTEM.md`.
+
 ---
 
 ## Executive Summary

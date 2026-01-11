@@ -109,7 +109,7 @@ on:
         default: "3.12"
 jobs:
   ci:
-    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
+    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@v1
     with:
       marker: ${{ inputs.marker }}
       python-version: ${{ inputs["python-version"] }}
@@ -130,14 +130,14 @@ on:
   workflow_dispatch:
 jobs:
   call:
-    uses: stranske/Workflows/.github/workflows/reusable-16-agents.yml@main
+    uses: stranske/Workflows/.github/workflows/reusable-16-agents.yml@v1
     with:
       enable_readiness: true
       enable_preflight: true
       enable_watchdog: true
       enable_diagnostic: false
 ```
-Use a tagged ref when versioned.
+Prefer a tagged ref (`@v1`) in consumer repos; reserve `@main` for intentional unreleased testing.
 
 ### Agents Orchestration (Issue #2615)
 Issue #2615 finishes the topology cleanup: **Agents 70 Orchestrator is now the

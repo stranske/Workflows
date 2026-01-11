@@ -5,13 +5,13 @@
 ## Findings
 
 1. **Instruction markers now match the contract (with legacy tolerance)**
-   - The canonical marker format remains `<!-- codex-keepalive-marker --> <!-- codex-keepalive-round: N --> <!-- codex-keepalive-trace: TRACE -->`.【F:docs/keepalive/Observability_Contract.md†L43-L71】
-   - `renderInstruction` now emits the canonical `codex-` prefixed `round` and `trace` markers in addition to the sentinel marker, so posted comments satisfy the documented contract.【F:.github/scripts/keepalive_contract.js†L42-L60】
-   - PR-meta detection now accepts both canonical and legacy marker names during the rollout window, so historical comments still register while new instructions use the documented tags.【F:.github/scripts/agents_pr_meta_keepalive.js†L58-L92】
+   - The canonical marker format remains `<!-- codex-keepalive-marker --> <!-- codex-keepalive-round: N --> <!-- codex-keepalive-trace: TRACE -->`.
+   - `renderInstruction` emits the canonical `codex-` prefixed `round` and `trace` markers in addition to the sentinel marker.
+   - PR-meta detection accepts both canonical and legacy marker names during the rollout window, so historical comments still register while new instructions use the documented tags.
 
 2. **Run-cap checks scope to orchestrator runs by default**
-   - The contract defines the dispatch-edge cap as "queued + in_progress orchestrator runs for this PR" only.【F:docs/keepalive/Observability_Contract.md†L63-L73】
-   - `countActive` and `evaluateRunCapForPr` now default to orchestrator-only accounting, keeping worker runs out of the quota unless explicitly requested by a caller.【F:.github/scripts/keepalive_gate.js†L476-L860】
+   - The contract defines the dispatch-edge cap as "queued + in_progress orchestrator runs for this PR" only.
+   - `countActive` and `evaluateRunCapForPr` default to orchestrator-only accounting, keeping worker runs out of the quota unless explicitly requested by a caller.
 
 ## Suggested fixes
 

@@ -21,8 +21,7 @@ python -m pytest tests/ -x
 ### 2. Check for Existing Sync Issues
 ```bash
 # Check open sync PRs across all consumer repos
-for repo in "Travel-Plan-Permission" "Trend_Model_Project" "Manager-Database" \
-            "Portable-Alpha-Extension-Model" "Template" "trip-planner"; do
+for repo in "consumer-repo-1" "consumer-repo-2" "consumer-repo-3"; do
     echo "=== $repo ==="
     gh pr list --repo "stranske/$repo" --search "sync" --state open \
         --json number,title,createdAt | jq -c '.[] | {num: .number, created: .createdAt}'
@@ -32,7 +31,7 @@ done
 ### 3. Review Bot Comments on Latest Sync PRs
 ```bash
 # For each repo with open sync PRs, check bot comments on the LATEST one
-for repo in "Manager-Database" "Portable-Alpha-Extension-Model" "Template" "trip-planner"; do
+for repo in "consumer-repo-1" "consumer-repo-2" "consumer-repo-3"; do
     latest=$(gh pr list --repo "stranske/$repo" --search "sync" --state open \
         --json number --jq '.[0].number')
     if [ -n "$latest" ]; then
@@ -63,7 +62,7 @@ done
 ### Close Duplicates (Keep Latest)
 ```bash
 # For repos with multiple sync PRs, close all but the newest
-for repo in "Manager-Database" "Portable-Alpha-Extension-Model" "Template" "trip-planner"; do
+for repo in "consumer-repo-1" "consumer-repo-2" "consumer-repo-3"; do
     prs=$(gh pr list --repo "stranske/$repo" --search "sync" --state open \
         --json number --jq '.[].number' | sort -n)
     count=$(echo "$prs" | wc -l)
@@ -93,7 +92,7 @@ gh pr view "$pr" --repo "stranske/$repo" --json mergeable,statusCheckRollup \
 ### Batch Merge
 ```bash
 # Only merge PRs that pass all checks and have no bot issues
-for repo in "Manager-Database" "Portable-Alpha-Extension-Model" "Template" "trip-planner"; do
+for repo in "consumer-repo-1" "consumer-repo-2" "consumer-repo-3"; do
     latest=$(gh pr list --repo "stranske/$repo" --search "sync" --state open \
         --json number --jq '.[0].number')
     if [ -n "$latest" ]; then

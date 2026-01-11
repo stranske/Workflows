@@ -4,6 +4,8 @@ Technical reference and API documentation.
 
 ## Contents
 
+- [coverage-gap-analysis.md](coverage-gap-analysis.md) - Notes and analysis around coverage gaps and baselines
+
 ### Configuration Reference
 
 _(To be created)_
@@ -81,7 +83,7 @@ When adding reference documentation:
 
 ## Status
 
-Currently empty - reference documentation will be created as the system stabilizes.
+Reference documentation is expected to grow over time; this directory currently contains a small set of analysis/reference notes.
 
 ## See Also
 

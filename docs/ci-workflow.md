@@ -113,7 +113,7 @@ name: Project CI
 on: [push, pull_request]
 jobs:
   ci:
-    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
+    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@v1
     with:
       python-versions: '["3.11", "3.12"]'
       coverage-min: '72'
@@ -124,6 +124,8 @@ jobs:
       baseline-coverage: '75.5'
       coverage-alert-drop: '1.0'
       fail-on-coverage-drop: 'true'
+
+```
 
 ### Monorepo Usage
 
@@ -136,7 +138,7 @@ name: Package CI
 on: [push, pull_request]
 jobs:
   ci:
-    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
+    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@v1
     with:
       working-directory: packages/my-package
       python-versions: '["3.11"]'
@@ -168,24 +170,13 @@ For the broader CI topology (gate aggregation job, temporary wrapper, Codex kick
 
 ### Local Style Checks Mirror
 
-To ensure your branch will pass the CI style job (Black + Ruff with pinned versions), run:
+To ensure your branch will pass the CI style/lint checks (with pinned versions), run:
 
 ```bash
-./scripts/style_gate_local.sh
+./scripts/dev_check.sh
 ```
 
-This script loads version pins from `.github/workflows/autofix-versions.env`, installs them in the active (or ad-hoc) environment, and performs:
-
-- `black --check .`
-- `ruff check .`
-- `mypy --config-file pyproject.toml src/trend_analysis src/trend_portfolio_app`
-
-If either fails, apply fixes:
-```bash
-black .
-ruff check --fix .
-# address any mypy findings the script surfaced
-```
+If you need a faster subset (or want to run individual checks), see [docs/validation/overview.md](validation/overview.md).
 
 ### Optional Pre-Push Hook
 
@@ -206,4 +197,4 @@ chmod +x .git/hooks/pre-push
 
 Add this to your personal workflow; we do not version-control the hook file itself to avoid surprising contributors. For team-wide enforcement, a wrapper installer can be added to `scripts/git_hooks.sh` (future enhancement).
 
-Last updated: 2026-11-11 (update when modifying workflow inputs or scripts).
+Last updated: 2026-01-11 (update when modifying workflow inputs or scripts).
