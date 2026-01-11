@@ -26,6 +26,20 @@ function parseOptionalNumber(value, { min = Number.NEGATIVE_INFINITY, max = Numb
   return candidate;
 }
 
+function normaliseLabels(value) {
+  if (Array.isArray(value)) {
+    return value.map((label) => normalise(label).toLowerCase()).filter(Boolean);
+  }
+  if (value === undefined || value === null) {
+    return [];
+  }
+  return normalise(value)
+    .toLowerCase()
+    .split(',')
+    .map((label) => label.trim())
+    .filter(Boolean);
+}
+
 function resolveOverrideInput(inputs = {}, env = {}) {
   return (
     inputs.timeout_minutes ??
@@ -43,6 +57,7 @@ function resolveOverrideInput(inputs = {}, env = {}) {
 function parseTimeoutConfig({
   env = process.env,
   inputs = {},
+  labels,
   defaultMinutes = 45,
   extendedMultiplier = 2,
   minMinutes = 1,
@@ -57,17 +72,30 @@ function parseTimeoutConfig({
     min: minMinutes,
     max: maxMinutes,
   });
+  const resolvedLabels = normaliseLabels(
+    labels ??
+      inputs.timeout_labels ??
+      inputs.timeoutLabels ??
+      inputs.labels ??
+      env.WORKFLOW_TIMEOUT_LABELS ??
+      env.WORKFLOW_LABELS
+  );
+  const extendedLabel = 'timeout:extended';
+  const hasExtendedLabel = resolvedLabels.includes(extendedLabel);
+  const labelMinutes = hasExtendedLabel ? extendedValue : null;
   const overrideValue = parseOptionalNumber(resolveOverrideInput(inputs, env), {
     min: minMinutes,
     max: maxMinutes,
   });
-  const resolvedMinutes = overrideValue ?? defaultValue;
-  const source = overrideValue !== null ? 'override' : 'default';
+  const resolvedMinutes = overrideValue ?? labelMinutes ?? defaultValue;
+  const source = overrideValue !== null ? 'override' : labelMinutes !== null ? 'label' : 'default';
 
   return {
     defaultMinutes: defaultValue,
     extendedMinutes: extendedValue,
     overrideMinutes: overrideValue,
+    label: hasExtendedLabel ? extendedLabel : null,
+    labelMinutes,
     resolvedMinutes,
     source,
   };
