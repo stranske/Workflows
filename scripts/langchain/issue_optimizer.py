@@ -261,7 +261,7 @@ def _get_llm_client(force_openai: bool = False) -> tuple[object, str] | None:
                 api_key=github_token,
                 temperature=0.1,
             ),
-            "github_models",
+            "github-models",
         )
     return (
         ChatOpenAI(
@@ -549,11 +549,31 @@ def _normalize_result(
     )
 
 
+def _process_llm_response(response: Any, provider: str, use_llm: bool) -> IssueOptimizationResult | None:
+    """Process LLM response and return normalized result, or None if processing fails."""
+    content = getattr(response, "content", None) or str(response)
+    payload = _extract_json_payload(content)
+    if payload:
+        try:
+            data = json.loads(payload)
+        except json.JSONDecodeError:
+            return None
+        if isinstance(data, dict):
+            result = _normalize_result(data, provider)
+            result.task_splitting = _ensure_task_decomposition(
+                result.task_splitting, use_llm=use_llm
+            )
+            return result
+    return None
+
+
 def analyze_issue(issue_body: str, *, use_llm: bool = True) -> IssueOptimizationResult:
     if not issue_body:
         issue_body = ""
 
     if use_llm:
+        from tools.llm_provider import _is_token_limit_error
+
         client_info = _get_llm_client()
         if client_info:
             client, provider = client_info
@@ -574,24 +594,12 @@ def analyze_issue(issue_body: str, *, use_llm: bool = True) -> IssueOptimization
                             ),
                         }
                     )
-                    content = getattr(response, "content", None) or str(response)
-                    payload = _extract_json_payload(content)
-                    if payload:
-                        try:
-                            data = json.loads(payload)
-                        except json.JSONDecodeError:
-                            data = None
-                        if isinstance(data, dict):
-                            result = _normalize_result(data, provider)
-                            result.task_splitting = _ensure_task_decomposition(
-                                result.task_splitting, use_llm=use_llm
-                            )
-                            return result
+                    result = _process_llm_response(response, provider, use_llm)
+                    if result:
+                        return result
                 except Exception as e:
                     # If GitHub Models hit token limit, retry with OpenAI API
-                    if _is_token_limit_error(e) and provider == "github_models":
-                        import sys
-
+                    if _is_token_limit_error(e) and provider == "github-models":
                         print(
                             "GitHub Models token limit hit, retrying with OpenAI API...",
                             file=sys.stderr,
@@ -638,19 +646,10 @@ def analyze_issue(issue_body: str, *, use_llm: bool = True) -> IssueOptimization
                             )
                     else:
                         # Other error types - fall back immediately
-                        import sys
-
                         print(
                             f"LLM analysis failed ({type(e).__name__}: {e}), using fallback",
                             file=sys.stderr,
                         )
-                    pass
-                except Exception as exc:
-                    # Fall back on any API error (including 413 token limit)
-                    if "tokens_limit_reached" in str(exc) or "413" in str(exc):
-                        pass  # Expected, fall through to non-LLM analysis
-                    else:
-                        raise
 
     result = _fallback_analysis(issue_body)
     result.task_splitting = _ensure_task_decomposition(result.task_splitting, use_llm=False)
