@@ -91,6 +91,16 @@ function toOptionalNumber(value) {
   return null;
 }
 
+function normaliseWarningRatio(value) {
+  if (!Number.isFinite(value)) {
+    return null;
+  }
+  if (value > 1 && value <= 100) {
+    return value / 100;
+  }
+  return value;
+}
+
 function buildAttemptEntry({
   iteration,
   action,
@@ -387,7 +397,7 @@ function resolveTimeoutWarningConfig({ inputs = {}, env = process.env, variables
       env.TIMEOUT_WARNING_MINUTES ??
       variables.TIMEOUT_WARNING_MINUTES
   );
-  const warningRatio = toOptionalNumber(
+  const warningRatioRaw = toOptionalNumber(
     inputs.timeout_warning_ratio ??
       inputs.timeoutWarningRatio ??
       env.WORKFLOW_TIMEOUT_WARNING_RATIO ??
@@ -395,6 +405,7 @@ function resolveTimeoutWarningConfig({ inputs = {}, env = process.env, variables
       env.TIMEOUT_WARNING_RATIO ??
       variables.TIMEOUT_WARNING_RATIO
   );
+  const warningRatio = normaliseWarningRatio(warningRatioRaw);
   const config = {};
   if (Number.isFinite(warningMinutes) && warningMinutes > 0) {
     config.warningRemainingMs = warningMinutes * 60 * 1000;
