@@ -33,6 +33,7 @@ logger = logging.getLogger(__name__)
 GITHUB_MODELS_BASE_URL = "https://models.inference.ai.azure.com"
 # Use gpt-4o for evaluation - best available on GitHub Models
 # gpt-4o-mini was too lenient and passed obvious deficiencies
+# Also avoids token-limit failures on large issues (8k limit in gpt-4o-mini)
 DEFAULT_MODEL = "gpt-4o"
 
 

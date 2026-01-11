@@ -728,6 +728,8 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 | **Reusable Autofix** (`reusable-18-autofix.yml`, error-checking bucket) | `workflow_call` | Centralise formatter + fixer execution. | ✅ When invoked | [Reusable Autofix runs](https://github.com/stranske/Trend_Model_Project/actions/workflows/reusable-18-autofix.yml) |
 | **Selftest: Reusables** (`selftest-reusable-ci.yml`, error-checking bucket) | `schedule` (06:30 UTC), `workflow_dispatch` | Rehearse the reusable CI scenarios nightly and publish manual summaries or PR comments on demand. | ⚪ Scheduled/manual | [Self-test workflow history](https://github.com/stranske/Trend_Model_Project/actions/workflows/selftest-reusable-ci.yml) |
 
+**PR body conflict guard.** `pr_body.md` is PR-specific. It must stay out of `main` and be ignored in consumer repos (`.gitignore` + `merge=ours` in `.gitattributes`). The Codex runner already `git reset`s `pr_body.md` before committing; if the file ever lands in `main`, rerun `maint-72-fix-pr-body-conflicts.yml` to delete it and reapply the ignore rule.
+
 ## Policy
 
 - **Required checks.** Gate is mandatory on every PR (`gate` context). Agents Guard
