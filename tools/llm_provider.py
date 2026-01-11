@@ -66,13 +66,8 @@ LANGSMITH_ENABLED = _setup_langsmith_tracing()
 def _is_token_limit_error(error: Exception) -> bool:
     """Check if error is a token limit (413) error from GitHub Models."""
     error_str = str(error).lower()
-    # Check for 413 status code in common formats: "413", "code: 413", "status code 413"
-    has_413 = (
-        "error code: 413" in error_str
-        or "status code: 413" in error_str
-        or "error code 413" in error_str
-        or "status code 413" in error_str
-    )
+    # Check for 413 status code (both with and without colon separators)
+    has_413 = "413" in error_str and ("error code" in error_str or "status code" in error_str)
     has_token_message = "tokens_limit_reached" in error_str or "request body too large" in error_str
     return has_413 and has_token_message
 

@@ -619,23 +619,15 @@ def analyze_issue(issue_body: str, *, use_llm: bool = True) -> IssueOptimization
                                         ),
                                     }
                                 )
-                                content = getattr(response, "content", None) or str(response)
-                                payload = _extract_json_payload(content)
-                                if payload:
-                                    try:
-                                        data = json.loads(payload)
-                                    except json.JSONDecodeError:
-                                        data = None
-                                    if isinstance(data, dict):
-                                        result = _normalize_result(data, openai_provider)
-                                        result.task_splitting = _ensure_task_decomposition(
-                                            result.task_splitting, use_llm=use_llm
-                                        )
-                                        print(
-                                            "Successfully analyzed with OpenAI API",
-                                            file=sys.stderr,
-                                        )
-                                        return result
+                                result = _process_llm_response(
+                                    response, openai_provider, use_llm=use_llm
+                                )
+                                if result is not None:
+                                    print(
+                                        "Successfully analyzed with OpenAI API",
+                                        file=sys.stderr,
+                                    )
+                                    return result
                             except Exception as openai_error:
                                 print(
                                     f"OpenAI API also failed ({type(openai_error).__name__}: {openai_error}), using fallback",
