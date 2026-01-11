@@ -114,6 +114,17 @@ Navigate to **Settings** → **Secrets and variables** → **Actions** → **Var
 |--------------|---------|---------------|
 | `PRIMARY_PYTHON` | Default Python version | `3.13` |
 | `COVERAGE_THRESHOLD` | Minimum coverage % | `80` |
+| `WORKFLOW_TIMEOUT_DEFAULT` | Default keepalive timeout (minutes) | `45` |
+| `WORKFLOW_TIMEOUT_EXTENDED` | Extended keepalive timeout (minutes) | `90` |
+| `WORKFLOW_TIMEOUT_WARNING_RATIO` | Timeout warning threshold (0-1) | `0.8` |
+| `WORKFLOW_TIMEOUT_WARNING_MINUTES` | Timeout warning minimum minutes remaining | `5` |
+
+#### Keepalive Timeout Configuration
+
+- `WORKFLOW_TIMEOUT_DEFAULT` controls the base timeout used by keepalive runs.
+- `WORKFLOW_TIMEOUT_EXTENDED` applies when a PR has the `timeout:extended` label.
+- `WORKFLOW_TIMEOUT_WARNING_RATIO` triggers a warning when the elapsed ratio is met.
+- `WORKFLOW_TIMEOUT_WARNING_MINUTES` triggers a warning when remaining minutes are low.
 
 ---
 
