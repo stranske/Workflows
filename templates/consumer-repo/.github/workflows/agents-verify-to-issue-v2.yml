@@ -1,0 +1,342 @@
+name: Create Issue from Verification (Enhanced)
+
+# Creates a well-structured follow-up issue from verification feedback
+# Uses multi-round LLM analysis to produce agent-ready issues with:
+# - Clear Why section explaining the context
+# - Specific, actionable tasks derived from verification concerns
+# - Testable acceptance criteria from original issue
+# - Background context in collapsible sections
+#
+# Trigger: Add `verify:create-issue` label to a merged PR
+
+on:
+  pull_request_target:
+    types: [labeled]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+env:
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  create-issue:
+    if: github.event.label.name == 'verify:create-issue'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check PR is merged
+        id: check-merged
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            if (!pr.merged) {
+              core.setFailed('PR must be merged before creating follow-up issue');
+              return;
+            }
+            core.setOutput('merged', 'true');
+            core.setOutput('pr_number', pr.number);
+            core.setOutput('pr_title', pr.title);
+
+      - name: Checkout repository
+        if: steps.check-merged.outputs.merged == 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: stranske/Workflows
+          token: ${{ secrets.CODESPACES_WORKFLOWS || github.token }}
+          sparse-checkout: |
+            scripts/langchain
+            tools
+
+      - name: Set up Python
+        if: steps.check-merged.outputs.merged == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        if: steps.check-merged.outputs.merged == 'true'
+        run: |
+          pip install langchain langchain-openai requests
+
+      - name: Collect verification and original issue data
+        id: collect
+        if: steps.check-merged.outputs.merged == 'true'
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const fs = require('fs');
+            const prNumber = context.payload.pull_request.number;
+
+            // Get all PR comments
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              per_page: 100
+            });
+
+            // Find verification comment(s) - both evaluate and compare
+            const verifyComments = comments.filter(c =>
+              c.body.includes('## PR Verification Report') ||
+              c.body.includes('## PR Verification Comparison') ||
+              c.body.includes('### Concerns') ||
+              c.body.includes('Verdict:') ||
+              c.body.includes('### ⚠️ Issues Detected')
+            );
+
+            if (verifyComments.length === 0) {
+              core.setFailed(
+                'No verification comment found. ' +
+                'Add verify:evaluate or verify:compare label first.'
+              );
+              return;
+            }
+
+            // Combine all verification comments
+            const verificationText = verifyComments.map(c => c.body).join('\n\n---\n\n');
+            fs.writeFileSync('verification_data.txt', verificationText);
+            core.info(`Found ${verifyComments.length} verification comment(s)`);
+
+            // Extract linked issue from PR body
+            const prBody = context.payload.pull_request.body || '';
+            const issueMatches = prBody.match(/(close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s*#(\d+)/gi);
+            let linkedIssueNumber = null;
+
+            if (issueMatches) {
+              const match = issueMatches[0].match(/#(\d+)/);
+              if (match) {
+                linkedIssueNumber = parseInt(match[1]);
+              }
+            }
+
+            // Also check PR title for issue reference
+            if (!linkedIssueNumber) {
+              const titleMatch = context.payload.pull_request.title.match(/#(\d+)/);
+              if (titleMatch) {
+                linkedIssueNumber = parseInt(titleMatch[1]);
+              }
+            }
+
+            let originalIssueBody = '';
+            let originalIssueTitle = '';
+
+            if (linkedIssueNumber) {
+              core.info(`Found linked issue #${linkedIssueNumber}`);
+              try {
+                const { data: issue } = await github.rest.issues.get({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: linkedIssueNumber
+                });
+                originalIssueBody = issue.body || '';
+                originalIssueTitle = issue.title || '';
+                core.setOutput('original_issue_number', linkedIssueNumber);
+                core.setOutput('original_issue_title', originalIssueTitle);
+              } catch (error) {
+                core.warning(`Could not fetch issue #${linkedIssueNumber}: ${error.message}`);
+              }
+            } else {
+              core.warning('No linked issue found in PR body or title');
+            }
+
+            fs.writeFileSync('original_issue.txt', originalIssueBody);
+
+            // Set outputs
+            core.setOutput('has_original_issue', linkedIssueNumber ? 'true' : 'false');
+
+      - name: Generate follow-up issue
+        id: generate
+        if: steps.check-merged.outputs.merged == 'true'
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ORIGINAL_ISSUE_NUMBER: ${{ steps.collect.outputs.original_issue_number }}
+          ORIGINAL_ISSUE_TITLE: ${{ steps.collect.outputs.original_issue_title }}
+          PR_NUMBER: ${{ steps.check-merged.outputs.pr_number }}
+        run: |
+          # Generate using Python script
+          python scripts/langchain/followup_issue_generator.py \
+            --verification-comment verification_data.txt \
+            --original-issue original_issue.txt \
+            --original-issue-number "${ORIGINAL_ISSUE_NUMBER:-0}" \
+            --original-issue-title "${ORIGINAL_ISSUE_TITLE:-}" \
+            --pr-number "${PR_NUMBER}" \
+            --json \
+            --output followup_issue.json
+
+          # Extract title and body for GitHub Actions
+          echo "issue_title=$(jq -r '.title' followup_issue.json)" >> "$GITHUB_OUTPUT"
+
+          # Use delimiter for multi-line body
+          {
+            echo 'issue_body<<EOF_ISSUE_BODY'
+            jq -r '.body' followup_issue.json
+            echo 'EOF_ISSUE_BODY'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Fallback to simple extraction
+        id: fallback
+        if: steps.generate.outcome == 'failure' && steps.check-merged.outputs.merged == 'true'
+        uses: actions/github-script@v8
+        with:
+          script: |
+            // Fallback to original simple extraction if Python script fails
+            const fs = require('fs');
+            const prNumber = context.payload.pull_request.number;
+            const prTitle = context.payload.pull_request.title;
+            const prUrl = context.payload.pull_request.html_url;
+
+            let verificationText = '';
+            try {
+              verificationText = fs.readFileSync('verification_data.txt', 'utf8');
+            } catch (error) {
+              core.warning('Could not read verification data');
+            }
+
+            // Extract concerns using regex
+            const concernsRegex = /### Concerns\s*\n([\s\S]*?)(?=###|##|$)/i;
+            const concernsMatch = verificationText.match(concernsRegex);
+            let concerns = concernsMatch
+              ? concernsMatch[1].trim()
+              : 'No specific concerns extracted.';
+
+            // Extract low scores
+            const scoreMatches = [...verificationText.matchAll(/(\w+):\s*(\d+)\/10/gi)];
+            const lowScores = scoreMatches
+              .filter(m => parseInt(m[2]) < 7)
+              .map(m => `- ${m[1]}: ${m[2]}/10`);
+
+            // Extract verdict
+            const verdictMatch = verificationText.match(/Verdict:\s*\*?\*?(\w+)\*?\*?/i);
+            const verdict = verdictMatch ? verdictMatch[1] : 'Unknown';
+
+            // Build issue body with proper indentation for YAML compatibility
+            const taskItems = concerns.split('\n')
+              .filter(l => l.trim())
+              .map(c => `- [ ] ${c.replace(/^[-*]\s*/, '')}`)
+              .join('\n');
+
+            const lowScoreSection = lowScores.length > 0
+              ? '\n## Implementation Notes\n\nLow scores to address:\n' +
+                lowScores.join('\n')
+              : '';
+
+            const issueBody = [
+              '## Why',
+              '',
+              `PR #${prNumber} was verified with verdict **${verdict}**. ` +
+              'This follow-up issue tracks the remaining concerns.',
+              '',
+              '## Scope',
+              '',
+              `Address verification concerns from [PR #${prNumber}](${prUrl}).`,
+              '',
+              '## Tasks',
+              '',
+              taskItems,
+              '',
+              '## Acceptance Criteria',
+              '',
+              '- [ ] All verification concerns addressed or documented',
+              '- [ ] Tests updated if needed',
+              '- [ ] Re-verification passes',
+              lowScoreSection,
+              '',
+              '---',
+              '*Auto-generated by verify-to-issue workflow (fallback mode)*'
+            ].join('\n');
+
+            core.setOutput(
+              'issue_title',
+              `[Follow-up] Address verification concerns from PR #${prNumber}`
+            );
+
+            // Use environment file for multi-line output
+            const envFile = process.env.GITHUB_OUTPUT;
+            const delimiter = 'EOF_BODY';
+            fs.appendFileSync(envFile, `issue_body<<${delimiter}\n${issueBody}\n${delimiter}\n`);
+
+      - name: Create follow-up issue
+        id: create-issue
+        if: steps.check-merged.outputs.merged == 'true'
+        uses: actions/github-script@v8
+        env:
+          ISSUE_TITLE: >-
+            ${{ steps.generate.outputs.issue_title ||
+            steps.fallback.outputs.issue_title }}
+          ISSUE_BODY: >-
+            ${{ steps.generate.outputs.issue_body ||
+            steps.fallback.outputs.issue_body }}
+        with:
+          script: |
+            const title = process.env.ISSUE_TITLE;
+            const body = process.env.ISSUE_BODY;
+
+            if (!title || !body) {
+              core.setFailed('Failed to generate issue title or body');
+              return;
+            }
+
+            const issue = await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: title,
+              body: body,
+              labels: ['follow-up', 'agents:optimize']
+            });
+
+            core.info(`Created issue #${issue.data.number}`);
+            core.setOutput('issue_number', issue.data.number);
+            core.setOutput('issue_url', issue.data.html_url);
+
+      - name: Comment on original PR
+        if: steps.check-merged.outputs.merged == 'true'
+        uses: actions/github-script@v8
+        env:
+          ISSUE_NUMBER: ${{ steps.create-issue.outputs.issue_number }}
+          ISSUE_URL: ${{ steps.create-issue.outputs.issue_url }}
+        with:
+          script: |
+            const issueNumber = process.env.ISSUE_NUMBER;
+            const issueUrl = process.env.ISSUE_URL;
+
+            const body = [
+              '📋 **Follow-up issue created:** #' + issueNumber,
+              '',
+              'Verification concerns have been analyzed and structured into a follow-up issue.',
+              '',
+              '**Next steps:**',
+              '1. Review the generated issue',
+              '2. Add `agents:apply-suggestions` label to format for agent work',
+              '3. Add `agent:codex` label to assign to an agent',
+              '',
+              '> Or work on it manually - the choice is yours!'
+            ].join('\n');
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              body: body
+            });
+
+      - name: Remove trigger label
+        if: steps.check-merged.outputs.merged == 'true'
+        uses: actions/github-script@v8
+        continue-on-error: true
+        with:
+          script: |
+            try {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number,
+                name: 'verify:create-issue'
+              });
+              core.info('Removed verify:create-issue label');
+            } catch (error) {
+              core.warning('Could not remove label: ' + error.message);
+            }
