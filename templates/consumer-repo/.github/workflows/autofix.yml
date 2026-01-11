@@ -59,8 +59,12 @@ jobs:
             }
 
             // Event validation
-            const isLabeled = context.eventName === 'pull_request_target' && context.payload.action === 'labeled';
-            const isPush = context.eventName === 'pull_request' && ['synchronize', 'opened', 'reopened'].includes(context.payload.action);
+              const isLabeled =
+                context.eventName === 'pull_request_target' &&
+                context.payload.action === 'labeled';
+              const isPush =
+                context.eventName === 'pull_request' &&
+                ['synchronize', 'opened', 'reopened'].includes(context.payload.action);
 
             if (!isLabeled && !isPush) {
               core.info(`Unsupported event: ${context.eventName}/${context.payload.action}`);
@@ -79,7 +83,9 @@ jobs:
             }
 
             // Explicitly check for null repo (deleted fork case)
-            const sameRepo = pr.head.repo !== null && pr.head.repo.full_name === pr.base.repo?.full_name;
+              const sameRepo =
+                pr.head.repo !== null &&
+                pr.head.repo.full_name === pr.base.repo?.full_name;
             const labels = (pr.labels || []).map(l => l.name);
 
             core.setOutput('should_run', 'true');

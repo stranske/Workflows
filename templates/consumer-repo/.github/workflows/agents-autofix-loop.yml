@@ -13,10 +13,15 @@ permissions:
   actions: write
 
 env:
-  WRITE_TOKEN: ${{ secrets.AGENTS_AUTOMATION_PAT || secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT || github.token }}
+  WRITE_TOKEN: >-
+    ${{ secrets.AGENTS_AUTOMATION_PAT ||
+        secrets.ACTIONS_BOT_PAT ||
+        secrets.SERVICE_BOT_PAT ||
+        github.token }}
 
 concurrency:
-  group: agents-autofix-loop-${{ github.event.workflow_run.pull_requests[0].number || github.run_id }}
+  group: >-
+    agents-autofix-loop-${{ github.event.workflow_run.pull_requests[0].number || github.run_id }}
   cancel-in-progress: false
 
 jobs:
@@ -194,7 +199,8 @@ jobs:
             // Note: We do NOT add agent:codex label here because that triggers external Codex UI
             // which would conflict with our internal Codex CLI run. Only add autofix:escalated.
             if (!autofixEnabled && !configMatch) {
-              const hasAutofixLabel = labels.includes('autofix:applied') || labels.includes('autofix');
+                const hasAutofixLabel =
+                  labels.includes('autofix:applied') || labels.includes('autofix');
               const hasEscalatedLabel = labels.includes('autofix:escalated');
               const gateConclusion = (run.conclusion || '').toLowerCase();
               const gateFailed = gateConclusion === 'failure';
@@ -212,7 +218,9 @@ jobs:
                     issue_number: prNumber,
                     labels: ['autofix:escalated'],
                   });
-                  core.info('✅ Added autofix:escalated label - Codex CLI will run in this workflow');
+                    core.info(
+                      '✅ Added autofix:escalated label - Codex CLI will run in this workflow'
+                    );
                   autofixEnabled = true;
                 } catch (error) {
                   core.warning(`Failed to add escalation labels: ${error.message}`);
@@ -233,7 +241,9 @@ jobs:
             const workflowFile = 'agents-autofix-loop.yml';
             // Reduce attempts for auto-escalated PRs (they weren't agent-initiated)
             const isEscalated = labels.includes('autofix:escalated');
-            const maxAttempts = isEscalated ? Math.min(2, Number(outputs.max_attempts)) : Number(outputs.max_attempts);
+              const maxAttempts = isEscalated
+                ? Math.min(2, Number(outputs.max_attempts))
+                : Number(outputs.max_attempts);
             const previousRuns = await github.paginate(github.rest.actions.listWorkflowRuns, {
               owner,
               repo,
@@ -263,7 +273,9 @@ jobs:
                         const stepConclusion = (step.conclusion || step.status || '').toLowerCase();
                         return stepConclusion && !['success', 'skipped'].includes(stepConclusion);
                       })
-                      .map((step) => `${step.name} (${step.conclusion || step.status || 'unknown'})`)
+                        .map((step) =>
+                          `${step.name} (${step.conclusion || step.status || 'unknown'})`
+                        )
                   : [];
 
               const detailLines = [`- ${job.name} (${job.conclusion || job.status || 'unknown'})`];
@@ -292,7 +304,13 @@ jobs:
 
               if (!text) return 'unknown';
               if (text.includes('mypy')) return 'mypy';
-              if (text.includes('lint') || text.includes('flake8') || text.includes('ruff')) return 'lint';
+                if (
+                  text.includes('lint') ||
+                  text.includes('flake8') ||
+                  text.includes('ruff')
+                ) {
+                  return 'lint';
+                }
               if (text.includes('pytest') || text.includes('test')) return 'pytest';
               return 'unknown';
             };
@@ -319,7 +337,10 @@ jobs:
             outputs.appendix = appendixLines.join('\n');
 
             if (attemptCount > maxAttempts) {
-              return stop(`autofix attempt limit reached (${attemptCount} > ${maxAttempts})`, 'max_attempts');
+                return stop(
+                  `autofix attempt limit reached (${attemptCount} > ${maxAttempts})`,
+                  'max_attempts'
+                );
             }
 
             outputs.should_run = 'true';
@@ -417,8 +438,12 @@ jobs:
             const attemptNumber = Number('${{ needs.prepare.outputs.attempts || 0 }}') || 0;
             const attemptLimit = Number('${{ needs.prepare.outputs.max_attempts || 0 }}') || 0;
             const headShaBefore = '${{ needs.prepare.outputs.head_sha }}';
-            const gateConclusionBefore = '${{ needs.prepare.outputs.gate_conclusion }}' || (context.payload.workflow_run?.conclusion || '');
-            const gateRunId = '${{ needs.prepare.outputs.gate_run_id }}' || String(context.payload.workflow_run?.id || '');
+            const gateConclusionBefore =
+              '${{ needs.prepare.outputs.gate_conclusion }}' ||
+              (context.payload.workflow_run?.conclusion || '');
+            const gateRunId =
+              '${{ needs.prepare.outputs.gate_run_id }}' ||
+              String(context.payload.workflow_run?.id || '');
             const triggerReason = '${{ needs.prepare.outputs.trigger_reason || 'unknown' }}';
             const triggerJob = '${{ needs.prepare.outputs.trigger_job }}';
             const triggerStep = '${{ needs.prepare.outputs.trigger_step }}';
@@ -438,7 +463,9 @@ jobs:
                   pull_number: prNumber,
                 });
                 headShaAfter = pr.head?.sha || headShaAfter;
-                fixApplied = Boolean(headShaBefore && headShaAfter && headShaBefore !== headShaAfter);
+                  fixApplied = Boolean(
+                    headShaBefore && headShaAfter && headShaBefore !== headShaAfter
+                  );
 
                 // Remove autofix:escalated label when fixes are applied
                 // This allows re-escalation to Codex if Gate fails again
@@ -452,9 +479,14 @@ jobs:
                         issue_number: prNumber,
                         name: 'autofix:escalated',
                       });
-                      core.info('✅ Removed autofix:escalated label - allows re-escalation if Gate fails again');
+                      core.info(
+                        '✅ Removed autofix:escalated label - allows re-escalation ' +
+                          'if Gate fails again'
+                      );
                     } catch (labelError) {
-                      core.warning(`Failed to remove autofix:escalated label: ${labelError.message}`);
+                      core.warning(
+                        `Failed to remove autofix:escalated label: ${labelError.message}`
+                      );
                     }
                   }
                 }

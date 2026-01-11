@@ -53,7 +53,10 @@ jobs:
             );
 
             if (!verifyComment) {
-              core.setFailed('No verification comment found on this PR. Add verify:evaluate or verify:compare label first.');
+              core.setFailed(
+                'No verification comment found on this PR. ' +
+                  'Add verify:evaluate or verify:compare label first.'
+              );
               return;
             }
 
@@ -89,7 +92,9 @@ jobs:
               summary += '### Scores Below 7/10\n\n' + lowScores.join('\n') + '\n\n';
             }
             if (!summary) {
-              summary = 'No specific concerns extracted from verification report.\n\nPlease review the original verification comment for details.';
+              summary =
+                'No specific concerns extracted from verification report.\n\n' +
+                'Please review the original verification comment for details.';
             }
 
             // Set outputs using environment file (handles multi-line content)
@@ -98,7 +103,10 @@ jobs:
 
             // Use delimiter for multi-line output
             const delimiter = 'EOF_' + Math.random().toString(36).substring(2);
-            fs.appendFileSync(envFile, `concerns_summary<<${delimiter}\n${summary}\n${delimiter}\n`);
+            fs.appendFileSync(
+              envFile,
+              `concerns_summary<<${delimiter}\n${summary}\n${delimiter}\n`
+            );
 
             core.setOutput('verdict', verdict);
             core.setOutput('has_concerns', (concerns || lowScores.length > 0) ? 'true' : 'false');
@@ -176,7 +184,10 @@ jobs:
         with:
           script: |
             const issueNumber = process.env.ISSUE_NUMBER;
-            const body = '📋 Follow-up issue created: #' + issueNumber + '\n\nVerification concerns have been captured in the new issue for tracking.';
+            const body =
+              '📋 Follow-up issue created: #' +
+              issueNumber +
+              '\n\nVerification concerns have been captured in the new issue for tracking.';
 
             await github.rest.issues.createComment({
               owner: context.repo.owner,

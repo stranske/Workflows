@@ -26,7 +26,11 @@ permissions:
   models: read
 
 concurrency:
-  group: keepalive-${{ github.event.workflow_run.pull_requests[0].number || github.event.pull_request.number || github.event.inputs.pr_number || github.run_id }}
+  group: >-
+    keepalive-${{ github.event.workflow_run.pull_requests[0].number ||
+      github.event.pull_request.number ||
+      github.event.inputs.pr_number ||
+      github.run_id }}
   cancel-in-progress: false
 
 jobs:
@@ -70,7 +74,9 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const { evaluatePromptInjectionGuard } = require('./.github/scripts/prompt_injection_guard.js');
+            const { evaluatePromptInjectionGuard } = require(
+              './.github/scripts/prompt_injection_guard.js'
+            );
 
             // Resolve PR from event context
             const payload = context.payload || {};
@@ -154,7 +160,9 @@ jobs:
               agent_type: String(result.agentType || ''),
               trace: String(result.config?.trace || result.state?.trace || ''),
               prompt_mode: String(result.promptMode || 'normal'),
-              prompt_file: String(result.promptFile || '.github/codex/prompts/keepalive_next_task.md'),
+                prompt_file: String(
+                  result.promptFile || '.github/codex/prompts/keepalive_next_task.md'
+                ),
             };
             for (const [key, value] of Object.entries(output)) {
               core.setOutput(key, value);
@@ -165,7 +173,10 @@ jobs:
   preflight:
     name: Verify secrets available
     needs: evaluate
-    if: needs.evaluate.outputs.action == 'run' || needs.evaluate.outputs.action == 'fix' || needs.evaluate.outputs.action == 'conflict'
+    if: |
+      needs.evaluate.outputs.action == 'run' ||
+      needs.evaluate.outputs.action == 'fix' ||
+      needs.evaluate.outputs.action == 'conflict'
     runs-on: ubuntu-latest
     environment: agent-standard
     outputs:
@@ -194,7 +205,10 @@ jobs:
     needs: evaluate
     runs-on: ubuntu-latest
     steps:
-      - run: echo "Test job ran! Action was ${{ needs.evaluate.outputs.action }}, agent=${{ needs.evaluate.outputs.agent_type }}"
+      - run: |
+          echo "Test job ran!"
+            echo "Action was ${{ needs.evaluate.outputs.action }}"
+            echo "Agent was ${{ needs.evaluate.outputs.agent_type }}"
 
   # Mark agent as running before starting the actual work
   # This provides real-time visibility that the agent is actively engaged
@@ -203,7 +217,10 @@ jobs:
     needs:
       - evaluate
       - preflight
-    if: needs.evaluate.outputs.action == 'run' || needs.evaluate.outputs.action == 'fix' || needs.evaluate.outputs.action == 'conflict'
+    if: |
+      needs.evaluate.outputs.action == 'run' ||
+      needs.evaluate.outputs.action == 'fix' ||
+      needs.evaluate.outputs.action == 'conflict'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -215,6 +232,9 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const { markAgentRunning } = require('./.github/scripts/keepalive_loop.js');
+              const runUrl =
+                `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}` +
+                `/actions/runs/${context.runId}`;
             const inputs = {
               pr_number: '${{ needs.evaluate.outputs.pr_number }}',
               agent_type: '${{ needs.evaluate.outputs.agent_type }}',
@@ -223,7 +243,7 @@ jobs:
               tasks_total: '${{ needs.evaluate.outputs.tasks_total }}',
               tasks_unchecked: '${{ needs.evaluate.outputs.tasks_unchecked }}',
               trace: '${{ needs.evaluate.outputs.trace }}',
-              run_url: '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}',
+              run_url: runUrl,
             };
             await markAgentRunning({ github, context, core, inputs });
 
@@ -244,7 +264,10 @@ jobs:
       WORKFLOWS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID }}
       WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
     with:
-      skip: ${{ needs.evaluate.outputs.action != 'run' && needs.evaluate.outputs.action != 'fix' && needs.evaluate.outputs.action != 'conflict' }}
+      skip: >-
+        ${{ needs.evaluate.outputs.action != 'run' &&
+            needs.evaluate.outputs.action != 'fix' &&
+            needs.evaluate.outputs.action != 'conflict' }}
       prompt_file: ${{ needs.evaluate.outputs.prompt_file }}
       mode: keepalive
       pr_number: ${{ needs.evaluate.outputs.pr_number }}
@@ -269,7 +292,10 @@ jobs:
       - preflight
       - run-codex
     # Run always if PR exists, handle skipped agent jobs gracefully
-    if: always() && needs.evaluate.outputs.pr_number != '' && needs.evaluate.outputs.pr_number != '0'
+    if: |
+      always() &&
+      needs.evaluate.outputs.pr_number != '' &&
+      needs.evaluate.outputs.pr_number != '0'
     runs-on: ubuntu-latest
     environment: agent-standard
     steps:
@@ -370,7 +396,8 @@ jobs:
             const llmConfidence = '${{ needs.run-codex.outputs.llm-confidence || '' }}';
             const llmAnalysisRun = '${{ needs.run-codex.outputs.llm-analysis-run }}' === 'true';
 
-            // Parse LLM completed tasks if available (use env var to avoid JS string escaping issues)
+              // Parse LLM completed tasks if available
+              // Use env var to avoid JS string escaping issues
             let llmCompletedTasks = [];
             const llmTasksJson = process.env.LLM_COMPLETED_TASKS || '[]';
             try {

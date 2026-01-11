@@ -68,8 +68,12 @@ jobs:
       # Watchdog/keepalive default to true for schedule, respect input for dispatch
       # When triggered by schedule, inputs.* is null, so we default to 'true'
       # When triggered by workflow_dispatch, we use the actual input value
-      enable_watchdog: ${{ github.event_name == 'schedule' && 'true' || (inputs.enable_watchdog && 'true' || 'false') }}
-      enable_keepalive: ${{ github.event_name == 'schedule' && 'true' || (inputs.enable_keepalive && 'true' || 'false') }}
+      enable_watchdog: >-
+        ${{ github.event_name == 'schedule' && 'true' ||
+        (inputs.enable_watchdog && 'true' || 'false') }}
+      enable_keepalive: >-
+        ${{ github.event_name == 'schedule' && 'true' ||
+        (inputs.enable_keepalive && 'true' || 'false') }}
       enable_bootstrap: ${{ inputs.enable_bootstrap && 'true' || 'false' }}
       bootstrap_issues_label: "agent:codex"
       draft_pr: "false"

@@ -263,13 +263,16 @@ jobs:
             - Conflicting requirements
             - External dependencies
 
-            **To resume:** Remove \`agents:auto-pilot-failed\` and \`needs-human\` labels, then re-add \`agents:auto-pilot\`.`
+              **To resume:** Remove \`agents:auto-pilot-failed\` and \`needs-human\` labels,
+              then re-add \`agents:auto-pilot\`.`
             });
 
             core.setFailed('Auto-pilot exceeded max cycles');
 
       - name: Determine next step
-        if: steps.context.outputs.should_continue == 'true' && steps.cycles.outputs.exceeded != 'true'
+        if: |
+          steps.context.outputs.should_continue == 'true' &&
+          steps.cycles.outputs.exceeded != 'true'
         id: next
         env:
           FORCE_STEP: ${{ inputs.force_step }}
@@ -822,8 +825,13 @@ jobs:
         if: |
           steps.context.outputs.should_continue == 'true' &&
           steps.cycles.outputs.exceeded != 'true' &&
-          contains(fromJSON('["format","optimize","apply","capability-check","monitor-pr","check-completion"]'),
-          steps.next.outputs.next_step)
+            (
+              steps.next.outputs.next_step == 'format' ||
+              steps.next.outputs.next_step == 'optimize' ||
+              steps.next.outputs.next_step == 'apply' ||
+              steps.next.outputs.next_step == 'capability-check' ||
+              steps.next.outputs.next_step == 'monitor-pr'
+            )
         uses: actions/github-script@v7
         env:
           ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}

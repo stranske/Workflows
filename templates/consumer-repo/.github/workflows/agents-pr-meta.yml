@@ -44,7 +44,10 @@ permissions:
   pull-requests: write
 
 concurrency:
-  group: ${{ github.event_name == 'issue_comment' && format('agents-pr-meta-comment-{0}', github.event.comment.id) || format('agents-pr-meta-run-{0}', github.run_id) }}
+  group: >-
+    ${{ github.event_name == 'issue_comment' &&
+        format('agents-pr-meta-comment-{0}', github.event.comment.id) ||
+        format('agents-pr-meta-run-{0}', github.run_id) }}
   cancel-in-progress: false
 
 jobs:
@@ -122,7 +125,9 @@ jobs:
   # Call reusable PR meta workflow for workflow_run events
   pr_meta_workflow_run:
     needs: resolve_pr_from_workflow_run
-    if: github.event_name == 'workflow_run' && needs.resolve_pr_from_workflow_run.outputs.should_run == 'true'
+    if: |
+      github.event_name == 'workflow_run' &&
+      needs.resolve_pr_from_workflow_run.outputs.should_run == 'true'
     uses: stranske/Workflows/.github/workflows/reusable-20-pr-meta.yml@main
     with:
       pr_number: ${{ fromJSON(needs.resolve_pr_from_workflow_run.outputs.pr_number) }}
