@@ -62,12 +62,9 @@ jobs:
             echo "should_run=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Checkout Workflows repository
+      - name: Checkout repository
         if: steps.check.outputs.should_run == 'true'
         uses: actions/checkout@v4
-        with:
-          repository: stranske/Workflows
-          ref: main
 
       - name: Set up Python
         if: steps.check.outputs.should_run == 'true'
@@ -136,13 +133,10 @@ jobs:
             cat /tmp/suggestions.json > /tmp/comment.md
           }
 
-          # Post comment to the consumer repo (not Workflows repo)
-          gh issue comment "${ISSUE_NUMBER}" \
-            --repo "${{ github.repository }}" \
-            --body-file /tmp/comment.md
+          # Post comment
+          gh issue comment "${ISSUE_NUMBER}" --body-file /tmp/comment.md
 
-          echo "Analysis complete. Review suggestions and add"
-          echo "'agents:apply-suggestions' label to apply."
+          echo "Analysis complete. Review suggestions and add 'agents:apply-suggestions' label to apply."
 
       - name: Advisory issue dedup check
         if: steps.check.outputs.should_run == 'true' && steps.check.outputs.phase == 'analyze'
@@ -154,12 +148,8 @@ jobs:
           PYTHONPATH: ${{ github.workspace }}
         run: |
           echo "Checking for potential duplicate issues (advisory)"
-          gh api \
-            "repos/${{ github.repository }}/issues?state=open&per_page=100" \
-            --paginate > /tmp/open_issues.json
-          gh api \
-            "repos/${{ github.repository }}/issues/${ISSUE_NUMBER}/comments" \
-            --paginate > /tmp/dedup_comments.json
+          gh api "repos/${{ github.repository }}/issues?state=open&per_page=100" --paginate > /tmp/open_issues.json
+          gh api "repos/${{ github.repository }}/issues/${ISSUE_NUMBER}/comments" --paginate > /tmp/dedup_comments.json
 
           python - <<'PY' || true
           import json
@@ -198,9 +188,7 @@ jobs:
           PY
 
           if [[ -f /tmp/dedup_comment.md ]]; then
-            gh issue comment "${ISSUE_NUMBER}" \
-              --repo "${{ github.repository }}" \
-              --body-file /tmp/dedup_comment.md || true
+            gh issue comment "${ISSUE_NUMBER}" --body-file /tmp/dedup_comment.md || true
           else
             echo "No likely duplicates detected."
           fi
@@ -211,16 +199,12 @@ jobs:
         env:
           ISSUE_NUMBER: ${{ steps.check.outputs.issue_number }}
           GH_TOKEN: ${{ github.token }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           PYTHONPATH: ${{ github.workspace }}
         run: |
           echo "Extracting suggestions from comments on issue #${ISSUE_NUMBER}"
 
           # Get all comments and find the one with suggestions JSON
-          gh api \
-            "repos/${{ github.repository }}/issues/${ISSUE_NUMBER}/comments" \
-            --paginate > /tmp/comments.json
+          gh api "repos/${{ github.repository }}/issues/${ISSUE_NUMBER}/comments" --paginate > /tmp/comments.json
 
           # Extract suggestions JSON from comment
           python -c "
@@ -249,8 +233,8 @@ jobs:
           with open('/tmp/issue_body.md') as f:
               issue_body = f.read()
 
-          # Apply suggestions with LLM to populate sections intelligently
-          result = apply_suggestions(issue_body, suggestions, use_llm=True)
+          # Apply suggestions
+          result = apply_suggestions(issue_body, suggestions, use_llm=False)
 
           with open('/tmp/updated_body.md', 'w') as f:
               f.write(result['formatted_body'])
@@ -259,9 +243,7 @@ jobs:
           " || exit 1
 
           # Update issue body
-          gh issue edit "${ISSUE_NUMBER}" \
-            --repo "${{ github.repository }}" \
-            --body-file /tmp/updated_body.md
+          gh issue edit "${ISSUE_NUMBER}" --body-file /tmp/updated_body.md
 
           echo "Issue body updated with applied suggestions"
 
@@ -298,9 +280,7 @@ jobs:
           " || exit 1
 
           # Update issue body with formatted version
-          gh issue edit "${ISSUE_NUMBER}" \
-            --repo "${{ github.repository }}" \
-            --body-file /tmp/formatted_body.md
+          gh issue edit "${ISSUE_NUMBER}" --body-file /tmp/formatted_body.md
 
           echo "Issue body updated with formatted structure"
 
@@ -310,22 +290,16 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           ISSUE_NUMBER: ${{ steps.check.outputs.issue_number }}
           PHASE: ${{ steps.check.outputs.phase }}
-          REPO: ${{ github.repository }}
         run: |
           if [[ "$PHASE" == "apply" ]]; then
             # Remove both optimization labels and add formatted label
-            gh issue edit "${ISSUE_NUMBER}" --repo "${REPO}" \
-              --remove-label "agents:optimize" || true
-            gh issue edit "${ISSUE_NUMBER}" --repo "${REPO}" \
-              --remove-label "agents:apply-suggestions"
-            gh issue edit "${ISSUE_NUMBER}" --repo "${REPO}" \
-              --add-label "agents:formatted"
+            gh issue edit "${ISSUE_NUMBER}" --remove-label "agents:optimize" || true
+            gh issue edit "${ISSUE_NUMBER}" --remove-label "agents:apply-suggestions"
+            gh issue edit "${ISSUE_NUMBER}" --add-label "agents:formatted"
             echo "Labels updated: removed optimize/apply-suggestions, added formatted"
           elif [[ "$PHASE" == "format" ]]; then
             # Remove format trigger label and add formatted result label
-            gh issue edit "${ISSUE_NUMBER}" --repo "${REPO}" \
-              --remove-label "agents:format"
-            gh issue edit "${ISSUE_NUMBER}" --repo "${REPO}" \
-              --add-label "agents:formatted"
+            gh issue edit "${ISSUE_NUMBER}" --remove-label "agents:format"
+            gh issue edit "${ISSUE_NUMBER}" --add-label "agents:formatted"
             echo "Labels updated: removed format, added formatted"
           fi
