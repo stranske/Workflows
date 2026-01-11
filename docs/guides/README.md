@@ -1,10 +1,18 @@
 # User Guides
 
-How-to guides and tutorials for using the workflow system.
+How-to guides and tutorials for using this workflow system.
+
+This folder is intentionally small right now; most “getting started” and integration material lives at the docs root.
+
+## Start Here (Docs Root)
+
+- [../USAGE.md](../USAGE.md)
+- [../INTEGRATION_GUIDE.md](../INTEGRATION_GUIDE.md)
+- [../ci-workflow.md](../ci-workflow.md)
 
 ## Available Guides
 
-_(To be added as content is created)_
+_(None yet in this folder.)_
 
 ## Planned Guides
 

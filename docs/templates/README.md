@@ -4,6 +4,14 @@ Templates for creating consistent documentation across the repository.
 
 ## Available Templates
 
+### [SETUP_CHECKLIST.md](SETUP_CHECKLIST.md)
+
+Consumer-facing setup checklist for adopting these workflows (preferred pins, required secrets, common wiring).
+
+### [AGENT_ISSUE_TEMPLATE.md](AGENT_ISSUE_TEMPLATE.md)
+
+Template for filing agent-related issues with enough context for debugging.
+
 ### [WORKFLOW_TEMPLATE.md](WORKFLOW_TEMPLATE.md)
 
 Template for documenting individual workflows. Use this when adding documentation for a new workflow.
@@ -25,7 +33,7 @@ Template for documenting individual workflows. Use this when adding documentatio
 2. Rename to match your workflow file (e.g., `reusable-10-ci-python.md`)
 3. Fill in all sections
 4. Save to `docs/workflows/`
-5. Update workflow README
+5. Update the index in `docs/workflows/README.md`
 
 ## Planned Templates
 
