@@ -762,6 +762,74 @@ test('updateKeepaliveLoopSummary logs timeout warning at 80 percent usage', asyn
   }
 });
 
+test('updateKeepaliveLoopSummary uses workflow_run payload start time for warnings', async () => {
+  const nowMs = Date.parse('2026-04-01T00:00:00Z');
+  const realNow = Date.now;
+  const warnings = [];
+  Date.now = () => nowMs;
+  try {
+    const existingState = formatStateComment({
+      trace: 'trace-timeout-payload',
+      iteration: 1,
+      max_iterations: 5,
+    });
+    const pr = {
+      number: 562,
+      head: { ref: 'feature/timeout-payload', sha: 'sha-62' },
+      labels: [{ name: 'agent:codex' }],
+      body: prBodyFixture,
+    };
+    const github = buildGithubStub({
+      pr,
+      comments: [{ id: 84, body: existingState, html_url: 'https://example.com/84' }],
+      workflowRun: {},
+    });
+    const core = {
+      info() {},
+      setOutput() {},
+      warning(message) {
+        warnings.push(message);
+      },
+    };
+    await updateKeepaliveLoopSummary({
+      github,
+      context: buildContext(562, 9001, {
+        eventName: 'workflow_run',
+        payload: {
+          workflow_run: {
+            run_started_at: new Date(nowMs - 36 * 60 * 1000).toISOString(),
+          },
+        },
+      }),
+      core,
+      inputs: {
+        prNumber: 562,
+        action: 'run',
+        runResult: 'success',
+        gateConclusion: 'success',
+        tasksTotal: 3,
+        tasksUnchecked: 1,
+        keepaliveEnabled: true,
+        autofixEnabled: false,
+        iteration: 1,
+        maxIterations: 5,
+        failureThreshold: 3,
+        trace: 'trace-timeout-payload',
+        codex_changes_made: 'true',
+        codex_files_changed: 2,
+        codex_commit_sha: 'abcd2200',
+        codex_summary: 'Payload timeout warning check.',
+      },
+    });
+
+    const body = github.actions[0].body;
+    assert.match(body, /Timeout warning/);
+    assert.equal(warnings.length, 1);
+  } finally {
+    Date.now = realNow;
+  }
+});
+
 test('updateKeepaliveLoopSummary does not warn before 80 percent usage', async () => {
   const warnings = [];
   const existingState = formatStateComment({

@@ -295,6 +295,16 @@ async function fetchRepoVariables({ github, context, core, names = [] }) {
 }
 
 async function resolveWorkflowRunStartMs({ github, context, core }) {
+  const payloadStartedAt =
+    context?.payload?.workflow_run?.run_started_at ??
+    context?.payload?.workflow_run?.created_at;
+  if (payloadStartedAt) {
+    const parsed = Date.parse(payloadStartedAt);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+
   if (!github?.rest?.actions?.getWorkflowRun) {
     return null;
   }
