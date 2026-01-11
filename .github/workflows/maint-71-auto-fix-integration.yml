@@ -38,8 +38,8 @@ jobs:
           else
             # Extract run ID from issue or comment body using jq on the event payload
             RUN_ID=$(jq -r '
-              (.issue.body // .comment.body // "") 
-              | capture("runs/(?<id>[0-9]+)")?.id // empty
+              (.issue.body // .comment.body // "")
+              | capture("runs/(?<id>[0-9]+)") | .id // empty
             ' "$GITHUB_EVENT_PATH")
             echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
           fi
