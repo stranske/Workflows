@@ -781,7 +781,9 @@ def apply_suggestions(
                     response = chain.invoke(
                         {
                             "original_body": issue_body,
-                            "suggestions_json": json.dumps(suggestions, ensure_ascii=True, indent=2),
+                            "suggestions_json": json.dumps(
+                                suggestions, ensure_ascii=True, indent=2
+                            ),
                         }
                     )
                     content = getattr(response, "content", None) or str(response)
@@ -807,7 +809,9 @@ def apply_suggestions(
                                 response = openai_chain.invoke(
                                     {
                                         "original_body": issue_body,
-                                        "suggestions_json": json.dumps(suggestions, ensure_ascii=True, indent=2),
+                                        "suggestions_json": json.dumps(
+                                            suggestions, ensure_ascii=True, indent=2
+                                        ),
                                     }
                                 )
                                 content = getattr(response, "content", None) or str(response)
