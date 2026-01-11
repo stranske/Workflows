@@ -326,7 +326,7 @@ codex exec --json --output-last-message "$OUTPUT_FILE" "$PROMPT" 2>&1 | tee "$SE
 ### Step 6: Tune and finalize
 - Decide on timing option (A/B/C/D)
 - Merge to main
-- Revert consumer to `@main`
+- Revert consumer to `@v1`
 
 ---
 
@@ -423,7 +423,7 @@ Based on [exec.md](https://github.com/openai/codex/blob/main/docs/exec.md) and s
 ## Rollback Plan
 
 If LangChain integration causes issues:
-1. Consumer repos: Change `@feature/langchain-analysis` back to `@main`
+1. Consumer repos: Change `@feature/langchain-analysis` back to `@v1` (or a pinned release tag/SHA)
 2. No code changes needed in consumer
 3. Feature branch remains available for debugging
 

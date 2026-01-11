@@ -1,6 +1,6 @@
 # Multi-Agent Routing Architecture
 
-**Status:** Adopted  
+**Status:** Partially adopted (Codex only)  
 **Related:** `GoalsAndPlumbing.md`, `Observability_Contract.md`
 
 This document describes the multi-agent routing architecture that enables different AI agents (Codex CLI, Claude, etc.) to work on PRs through a unified keepalive loop.
@@ -14,8 +14,8 @@ The keepalive system routes work to different agents based on the `agent:*` labe
 | Label | Agent | Workflow |
 |-------|-------|----------|
 | `agent:codex` | Codex CLI (gpt-5.2-codex) | `reusable-codex-run.yml` |
-| `agent:claude` | Claude (future) | `reusable-claude-run.yml` |
-| `agent:gemini` | Gemini (future) | `reusable-gemini-run.yml` |
+| `agent:claude` | Claude (future) | *(not implemented in this repo)* |
+| `agent:gemini` | Gemini (future) | *(not implemented in this repo)* |
 
 ---
 
@@ -85,14 +85,14 @@ The appendix is injected directly into the agent prompt so tasks are explicit, n
 run-codex:
   name: Keepalive next task (Codex)
   if: needs.evaluate.outputs.agent_type == 'codex'
-  uses: stranske/Workflows/.github/workflows/reusable-codex-run.yml@main
+  uses: stranske/Workflows/.github/workflows/reusable-codex-run.yml@v1
   with:
     appendix: ${{ needs.evaluate.outputs.task_appendix }}
     ...
 
 # Future: run-claude:
 #   if: needs.evaluate.outputs.agent_type == 'claude'
-#   uses: stranske/Workflows/.github/workflows/reusable-claude-run.yml@main
+#   uses: stranske/Workflows/.github/workflows/reusable-claude-run.yml@v1
 ```
 
 ### 4. Agent-Agnostic Prompt (`keepalive_next_task.md`)
@@ -136,7 +136,7 @@ run-claude:
     - evaluate
     - preflight
   if: needs.evaluate.outputs.agent_type == 'claude'
-  uses: stranske/Workflows/.github/workflows/reusable-claude-run.yml@main
+  uses: stranske/Workflows/.github/workflows/reusable-claude-run.yml@v1
   secrets:
     CLAUDE_API_KEY: ${{ secrets.CLAUDE_API_KEY }}
   with:

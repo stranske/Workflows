@@ -265,7 +265,7 @@ Since subscription auth tokens expire, implement expiration detection:
 [@activadee's fork](https://github.com/activadee/codex-action) adds subscription auth to codex-action:
 
 ```yaml
-- uses: activadee/codex-action@main
+- uses: activadee/codex-action@<tag-or-sha>  # Pin; avoid @main in CI
   with:
     codex-auth-json-b64: ${{ secrets.CODEX_AUTH_JSON_B64 }}
     prompt: "Your prompt here"

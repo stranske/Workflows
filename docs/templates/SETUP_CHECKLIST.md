@@ -299,7 +299,7 @@ Check that these workflows exist in `.github/workflows/`:
 | `maint-sync-workflows.yml` | Local sync check (weekly) | Recommended |
 
 - [ ] All workflow files present
-- [ ] Workflow files reference `stranske/Workflows@main`
+- [ ] Workflow files reference `stranske/Workflows@v1` (or a pinned tag/SHA)
 
 
 ### 4.1b Validate Workflow File Naming
@@ -334,15 +334,16 @@ rm .github/workflows/agents-issue-intake.yml
 
 # Copy full workflow from Workflows repo
 curl -o .github/workflows/agents-63-issue-intake.yml \
-  https://raw.githubusercontent.com/stranske/Workflows/main/.github/workflows/agents-63-issue-intake.yml
+  https://raw.githubusercontent.com/stranske/Workflows/v1/.github/workflows/agents-63-issue-intake.yml
 
 # Copy orchestrator with numbered naming  
 curl -o .github/workflows/agents-70-orchestrator.yml \
-  https://raw.githubusercontent.com/stranske/Workflows/main/templates/consumer-repo/.github/workflows/agents-orchestrator.yml
+  https://raw.githubusercontent.com/stranske/Workflows/v1/templates/consumer-repo/.github/workflows/agents-orchestrator.yml
 
-# Copy local sync check workflow
-curl -o .github/workflows/maint-sync-workflows.yml \
-  https://raw.githubusercontent.com/stranske/Travel-Plan-Permission/main/.github/workflows/maint-sync-workflows.yml
+# Optional: add a local sync-check workflow if your org maintains one.
+# If you already have a maintained local sync workflow in another repo, adapt this pattern:
+# curl -o .github/workflows/maint-sync-workflows.yml \
+#   https://raw.githubusercontent.com/<owner>/<repo>/<ref>/.github/workflows/maint-sync-workflows.yml
 ```
 
 > **Lesson learned**: When writing workflow sync scripts that use `curl` to download

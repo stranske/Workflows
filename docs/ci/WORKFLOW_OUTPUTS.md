@@ -89,7 +89,7 @@ The workflows below do not expose `workflow_call` outputs. They publish artifact
 ```yaml
 jobs:
   pr_meta:
-    uses: stranske/Workflows/.github/workflows/reusable-20-pr-meta.yml@main
+    uses: stranske/Workflows/.github/workflows/reusable-20-pr-meta.yml@v1
     with:
       pr_number: ${{ github.event.pull_request.number }}
       event_name: issue_comment
@@ -108,12 +108,12 @@ jobs:
 ```yaml
 jobs:
   init:
-    uses: stranske/Workflows/.github/workflows/reusable-70-orchestrator-init.yml@main
+    uses: stranske/Workflows/.github/workflows/reusable-70-orchestrator-init.yml@v1
 
   main:
     needs: init
     if: needs.init.outputs.rate_limit_safe == 'true' && needs.init.outputs.has_work == 'true'
-    uses: stranske/Workflows/.github/workflows/reusable-70-orchestrator-main.yml@main
+    uses: stranske/Workflows/.github/workflows/reusable-70-orchestrator-main.yml@v1
     with:
       init_success: ${{ needs.init.result }}
       enable_readiness: ${{ needs.init.outputs.enable_readiness }}
@@ -126,7 +126,7 @@ jobs:
 ```yaml
 jobs:
   codex:
-    uses: stranske/Workflows/.github/workflows/reusable-codex-run.yml@main
+    uses: stranske/Workflows/.github/workflows/reusable-codex-run.yml@v1
     with:
       prompt_file: .github/codex/prompts/keepalive.md
 
