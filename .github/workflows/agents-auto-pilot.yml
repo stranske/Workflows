@@ -312,10 +312,7 @@ jobs:
 
           # No PR yet - need to go through issue prep pipeline
           if [[ -z "$LINKED_PR" ]]; then
-            if [[ "$HAS_AGENT" == "true" ]]; then
-              echo "next_step=create-pr" >> "$GITHUB_OUTPUT"
-              echo "Agent assigned, checking for branch to create PR"
-            elif [[ "$HAS_FORMAT" != "true" ]]; then
+            if [[ "$HAS_FORMAT" != "true" ]]; then
               echo "next_step=format" >> "$GITHUB_OUTPUT"
               echo "Step 1: Format issue"
             elif [[ "$HAS_OPTIMIZE" != "true" ]]; then
@@ -324,9 +321,12 @@ jobs:
             elif [[ "$HAS_APPLY" != "true" ]]; then
               echo "next_step=apply" >> "$GITHUB_OUTPUT"
               echo "Step 3: Apply suggestions"
-            else
+            elif [[ "$HAS_AGENT" != "true" ]]; then
               echo "next_step=capability-check" >> "$GITHUB_OUTPUT"
-              echo "Step 4: Run capability check before agent"
+              echo "Step 4: Run capability check and assign agent"
+            else
+              echo "next_step=create-pr" >> "$GITHUB_OUTPUT"
+              echo "Step 5: All prep complete, checking for branch to create PR"
             fi
             exit 0
           fi
