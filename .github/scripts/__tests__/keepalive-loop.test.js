@@ -25,6 +25,7 @@ const buildGithubStub = ({
   comments = [],
   workflowRuns = [],
   workflowJobs = [],
+  workflowRun = null,
   annotationsByCheckRunId = {},
   jobLogsByJobId = {},
 } = {}) => {
@@ -40,6 +41,9 @@ const buildGithubStub = ({
       actions: {
         async listWorkflowRuns() {
           return { data: { workflow_runs: workflowRuns } };
+        },
+        async getWorkflowRun() {
+          return { data: workflowRun || {} };
         },
         async listJobsForWorkflowRun() {
           return { data: { jobs: workflowJobs } };
@@ -80,10 +84,11 @@ const buildGithubStub = ({
   };
 };
 
-const buildContext = (prNumber = 101) => ({
+const buildContext = (prNumber = 101, runId = 9001) => ({
   eventName: 'pull_request',
   repo: { owner: 'octo', repo: 'workflows' },
   payload: { pull_request: { number: prNumber } },
+  runId,
 });
 
 const buildCore = () => ({
@@ -629,6 +634,64 @@ test('updateKeepaliveLoopSummary increments iteration and clears failures on suc
   assert.match(github.actions[0].body, /✅ Success/);
   assert.match(github.actions[0].body, /"iteration":3/);
   assert.match(github.actions[0].body, /"failure":\{\}/);
+});
+
+test('updateKeepaliveLoopSummary logs timeout warning near expiration', async () => {
+  const nowMs = Date.parse('2026-01-01T00:00:00Z');
+  const realNow = Date.now;
+  Date.now = () => nowMs;
+  try {
+    const existingState = formatStateComment({
+      trace: 'trace-timeout',
+      iteration: 1,
+      max_iterations: 5,
+    });
+    const pr = {
+      number: 555,
+      head: { ref: 'feature/timeout', sha: 'sha-55' },
+      labels: [{ name: 'agent:codex' }],
+      body: prBodyFixture,
+    };
+    const github = buildGithubStub({
+      pr,
+      comments: [{ id: 77, body: existingState, html_url: 'https://example.com/77' }],
+      workflowRun: { run_started_at: new Date(nowMs - 41 * 60 * 1000).toISOString() },
+    });
+    await updateKeepaliveLoopSummary({
+      github,
+      context: buildContext(555),
+      core: buildCore(),
+      inputs: {
+        prNumber: 555,
+        action: 'run',
+        runResult: 'success',
+        gateConclusion: 'success',
+        tasksTotal: 3,
+        tasksUnchecked: 1,
+        keepaliveEnabled: true,
+        autofixEnabled: false,
+        iteration: 1,
+        maxIterations: 5,
+        failureThreshold: 3,
+        trace: 'trace-timeout',
+        codex_changes_made: 'true',
+        codex_files_changed: 2,
+        codex_commit_sha: 'abcd9999',
+        codex_summary: 'Near timeout check.',
+      },
+    });
+
+    const body = github.actions[0].body;
+    assert.match(body, /Timeout \| 45 min \(default\)/);
+    assert.match(body, /Timeout warning/);
+
+    const parsed = parseStateComment(body);
+    assert.equal(parsed.data.timeout.resolved_minutes, 45);
+    assert.equal(parsed.data.timeout.source, 'default');
+    assert.ok(parsed.data.timeout.warning);
+  } finally {
+    Date.now = realNow;
+  }
 });
 
 test('updateKeepaliveLoopSummary tracks attempt history across rounds', async () => {
