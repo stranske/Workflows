@@ -86,6 +86,11 @@ These get **synced** to consumer repos via `maint-68-sync-consumer-repos.yml`:
 
 ### ⚠️ IMPORTANT: After Syncing, Use the Merge Workflow
 
+> **🚨 CRITICAL**: Before updating any files in `.github/`, read [**Dual-Location Sync Gotcha Guide**](docs/guides/dual-location-sync-gotcha.md) to prevent consumers from receiving outdated versions!
+
+
+
+
 **ALWAYS** use `Merge Sync PRs` workflow (maint-71-merge-sync-prs.yml) to:
 - Auto-merge sync PRs that pass CI checks
 - Close stale/duplicate sync PRs

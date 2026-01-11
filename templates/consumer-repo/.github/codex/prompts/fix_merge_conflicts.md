@@ -6,15 +6,12 @@ This PR has **merge conflicts** that must be resolved before CI can run or the P
 
 Resolve all merge conflicts by integrating changes from the base branch with this PR's changes.
 
-## IMPORTANT: Pre-Flight Check
+## CRITICAL: You MUST attempt the merge
 
-Before starting, verify the conflict state:
-```bash
-git status
-```
+**Do NOT check `git status` first and exit if clean!** The conflicts only appear DURING the merge operation.
 
-If you see "nothing to commit, working tree clean" - conflicts may have been auto-resolved. 
-Check if there are actually merge conflicts before proceeding.
+You must ALWAYS run `git merge origin/{{base_branch}}` to surface the conflicts, even if the working tree appears clean initially.
+After the merge attempt, you can use `git status` to confirm the conflict state.
 
 ## Conflict Detection
 
@@ -107,21 +104,15 @@ These files are .gitignored and should be resolved by keeping the current branch
 
 ### Import conflicts (Python example):
 ```python
-<<<<<<< HEAD
 from module import foo, bar
-=======
 from module import foo, baz
->>>>>>> origin/{{base_branch}}
 ```
 **Resolution:** Combine imports: `from module import foo, bar, baz`
 
 ### Type annotation conflicts (Python):
 ```python
-<<<<<<< HEAD
 def process(data: dict[str, Any]) -> Result:
-=======
 def process(data: dict[str, Any], config: Config) -> Result:
->>>>>>> origin/{{base_branch}}
 ```
 **Resolution:** Keep the signature with more parameters (main's version) and ensure caller sites are updated.
 
