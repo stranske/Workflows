@@ -322,6 +322,29 @@ function buildTimeoutStatus({
   };
 }
 
+function resolveTimeoutWarningConfig({ inputs = {}, env = process.env } = {}) {
+  const warningMinutes = toOptionalNumber(
+    inputs.timeout_warning_minutes ??
+      inputs.timeoutWarningMinutes ??
+      env.WORKFLOW_TIMEOUT_WARNING_MINUTES ??
+      env.TIMEOUT_WARNING_MINUTES
+  );
+  const warningRatio = toOptionalNumber(
+    inputs.timeout_warning_ratio ??
+      inputs.timeoutWarningRatio ??
+      env.WORKFLOW_TIMEOUT_WARNING_RATIO ??
+      env.TIMEOUT_WARNING_RATIO
+  );
+  const config = {};
+  if (Number.isFinite(warningMinutes) && warningMinutes > 0) {
+    config.warningRemainingMs = warningMinutes * 60 * 1000;
+  }
+  if (Number.isFinite(warningRatio) && warningRatio > 0 && warningRatio <= 1) {
+    config.warningRatio = warningRatio;
+  }
+  return config;
+}
+
 function formatTimeoutMinutes(minutes) {
   if (!Number.isFinite(minutes)) {
     return '0';
@@ -1415,7 +1438,12 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
     labels,
   });
   const elapsedMs = await resolveElapsedMs({ github, context, inputs, core });
-  const timeoutStatus = buildTimeoutStatus({ timeoutConfig, elapsedMs });
+  const timeoutWarningConfig = resolveTimeoutWarningConfig({ inputs, env: process.env });
+  const timeoutStatus = buildTimeoutStatus({
+    timeoutConfig,
+    elapsedMs,
+    ...timeoutWarningConfig,
+  });
 
   const { state: previousState, commentId } = await loadKeepaliveState({
     github,

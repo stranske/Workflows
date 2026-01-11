@@ -694,6 +694,67 @@ test('updateKeepaliveLoopSummary logs timeout warning near expiration', async ()
   }
 });
 
+test('updateKeepaliveLoopSummary honors timeout warning overrides', async () => {
+  const nowMs = Date.parse('2026-02-01T00:00:00Z');
+  const realNow = Date.now;
+  Date.now = () => nowMs;
+  try {
+    const existingState = formatStateComment({
+      trace: 'trace-warning-hint',
+      iteration: 1,
+      max_iterations: 5,
+    });
+    const pr = {
+      number: 556,
+      head: { ref: 'feature/timeout-warning', sha: 'sha-56' },
+      labels: [{ name: 'agent:codex' }],
+      body: prBodyFixture,
+    };
+    const github = buildGithubStub({
+      pr,
+      comments: [{ id: 78, body: existingState, html_url: 'https://example.com/78' }],
+      workflowRun: { run_started_at: new Date(nowMs - 12 * 60 * 1000).toISOString() },
+    });
+    await updateKeepaliveLoopSummary({
+      github,
+      context: buildContext(556),
+      core: buildCore(),
+      inputs: {
+        prNumber: 556,
+        action: 'run',
+        runResult: 'success',
+        gateConclusion: 'success',
+        tasksTotal: 3,
+        tasksUnchecked: 1,
+        keepaliveEnabled: true,
+        autofixEnabled: false,
+        iteration: 1,
+        maxIterations: 5,
+        failureThreshold: 3,
+        trace: 'trace-warning-hint',
+        codex_changes_made: 'true',
+        codex_files_changed: 1,
+        codex_commit_sha: 'abcd1000',
+        codex_summary: 'Override timeout warning threshold.',
+        timeout_minutes: 20,
+        timeout_warning_minutes: 10,
+        timeout_warning_ratio: 0.9,
+      },
+    });
+
+    const body = github.actions[0].body;
+    assert.match(body, /Timeout \| 20 min \(override\)/);
+    assert.match(body, /Timeout warning/);
+
+    const parsed = parseStateComment(body);
+    assert.equal(parsed.data.timeout.resolved_minutes, 20);
+    assert.equal(parsed.data.timeout.source, 'override');
+    assert.equal(parsed.data.timeout.warning.reason, 'remaining');
+  } finally {
+    Date.now = realNow;
+  }
+});
+
 test('updateKeepaliveLoopSummary tracks attempt history across rounds', async () => {
   const existingState = formatStateComment({
     trace: 'trace-history',
