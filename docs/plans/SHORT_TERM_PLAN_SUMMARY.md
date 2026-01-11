@@ -60,8 +60,8 @@
 
 These were the intended success criteria at the time. For the final state and evidence, see `SHORT_TERM_PLAN.md`.
 
-- [ ] Phase 3 functional tests executed and documented
-- [ ] agents:apply-suggestions with LLM retested
+- [x] Phase 3 functional tests executed and documented
+- [x] agents:apply-suggestions with LLM retested
 - [ ] Conflicted PRs resolved
 
 ### Should Complete (High Value)
@@ -103,6 +103,8 @@ These were the intended success criteria at the time. For the final state and ev
 ## Next Actions (Immediate)
 
 This section is kept for historical context. Follow the current runbooks and workflow docs instead of treating it as a live checklist.
+
+As of 2026-01-11, the remaining work from this plan is primarily operational (resolve conflicted PRs) plus optional cleanup/planning.
 
 ---
 

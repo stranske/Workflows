@@ -3,11 +3,17 @@
 > **Created:** January 9, 2026  
 > **Target Completion:** January 23, 2026 (2 weeks)  
 > **Priority:** Complete Phase 3 functional testing and critical fixes  
-> **Last Updated:** January 10, 2026 (late night - label matcher fixes)
+> **Last Updated:** January 11, 2026
 
 > **Last reviewed:** 2026-01-11
 > **Status:** Historical execution log + planning notes. Treat this as a snapshot.
 > **Canonical references:** `docs/ci/WORKFLOW_SYSTEM.md` (workflow inventory) and `docs/validation/overview.md` (how to validate locally).
+
+## Current Status (as of 2026-01-11)
+
+- Phase 3 functional testing was executed (Manager-Database suites A–D) and the major accuracy regressions in Suites C/D were fixed and re-validated (PRs #731, #733, #735; re-test issues #265–267).
+- Verifier workflows are functional and rate-limit tolerant (PRs #715, #720, #726).
+- Remaining items from this plan are primarily operational: resolve the few conflicted PRs listed below, and decide whether to do label cleanup + Phase 4 planning.
 
 ---
 
@@ -378,29 +384,15 @@ python scripts/issue_dedup_smoke.py --repo stranske/Manager-Database --check-iss
 
 ---
 
-### Priority 3: Retest agents:apply-suggestions with LLM (Day 5)
+### Priority 3: Retest agents:apply-suggestions with LLM (Day 5) ✅ COMPLETE
 
-**Context:** Configuration changed to `use_llm=True` on January 8, 2026
+**Context:** Configuration changed to `use_llm=True` on January 8, 2026.
 
 **Previous Test:** Manager-Database #184
 - Quality with `use_llm=False`: 6/10 (structure only, no content)
 - Expected with `use_llm=True`: 8.5/10 (intelligent content population)
 
-**Test Plan:**
-1. Create new unstructured issue in Manager-Database
-2. Add `agents:optimize` label → Review analysis
-3. Add `agents:apply-suggestions` label → Check formatted result
-4. Compare to previous test:
-   - Does it populate Tasks section with analyzed sub-tasks?
-   - Does it extract Why/Scope/Non-Goals from context?
-   - Are acceptance criteria objective and measurable?
-
-**Success Criteria:**
-- Quality score ≥8/10
-- All sections populated with intelligent content
-- Original content preserved in collapsible
-
-**Time Estimate:** 1 hour
+**Result:** Manager-Database #184 was completed with LLM-enabled suggestions applied.
 
 ---
 
@@ -598,20 +590,15 @@ Evaluate risks for:
 ### Week 1 Checklist
 - [x] Day 1 (Jan 9): Infrastructure fixes - PYTHONPATH, CI tools, Gate bypass, agent conflicts
 - [x] Day 2 (Jan 10): Verifier workflow fixes - rate limits, duplicates, reusable pattern
-- [ ] Day 3: **EXECUTE** Test Suite A (Capability Check) in Manager-Database ← TOOLING READY
-- [ ] Day 4: **EXECUTE** Test Suite B (Task Decomposition) in Manager-Database ← TOOLING READY
-- [ ] Day 5: **EXECUTE** Test Suite C + D (Dedup + Auto-Label) in Manager-Database ← TOOLING READY
+- [x] Day 3: Execute Test Suite A (Capability Check) in Manager-Database ✅
+- [x] Day 4: Execute Test Suite B (Task Decomposition) in Manager-Database ✅
+- [x] Day 5: Execute Test Suite C + D (Dedup + Auto-Label) in Manager-Database ✅
 
 ### What "Tooling Ready" Means
 
-PRs #696-699 created **test infrastructure** (unit tests, smoke test CLI), not the actual functional tests.
+PRs #696-699 created **test infrastructure** (unit tests, smoke test CLI). The functional tests were executed on January 10, 2026.
 
-**Remaining work to complete test suites:**
-1. Create 3 test issues in Manager-Database for Suite A (capability check)
-2. Create 3 test issues in Manager-Database for Suite B (decomposition)
-3. Create 4 test issues in Manager-Database for Suite C (duplicate detection)
-4. Create 2 test issues in Manager-Database for Suite D (auto-label)
-5. Trigger workflows via labels and document results
+**Historical notes:** The “remaining work” checklist below is preserved for context, but these steps have already been completed.
 
 **Tools available:**
 - `scripts/issue_dedup_smoke.py` - Automates Suite C issue creation and verification
@@ -678,11 +665,10 @@ PRs #696-699 created **test infrastructure** (unit tests, smoke test CLI), not t
 | agents-dedup.yml | 50% false positive (4/4 flagged, expected 2/4) | Threshold 0.85→0.92, added 40% title overlap filter |
 | agents-auto-label.yml | Over-labeling (both bug+enhancement) | Apply only best match, others become suggestions |
 
-**Remaining Week 2 Work:**
-1. Re-test Suites C & D with fixed workflows
-2. Resolve 3 conflicted PRs (Manager-Database #134, #135; Portable-Alpha #1049)
-3. Label cleanup audit
-4. Begin Phase 4 planning
+**Remaining Week 2 Work (as of 2026-01-11):**
+1. Resolve 3 conflicted PRs (Manager-Database #134, #135; Portable-Alpha #1049)
+2. Optional: label cleanup audit
+3. Optional: Phase 4 planning
 
 ---
 
