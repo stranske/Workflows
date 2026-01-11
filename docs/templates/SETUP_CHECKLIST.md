@@ -31,7 +31,9 @@ Before starting, ensure you have:
 > **For existing repos**: Skip to [Phase 1.3](#13-existing-repository-setup) if 
 > you're adding workflow system to an existing repository.
 
-- [ ] Go to [stranske/Template](https://github.com/stranske/Template)
+- [ ] Create the consumer repo from your chosen template source:
+  - [ ] Preferred: start from the consumer repo template under `stranske/Workflows/templates/consumer-repo/` (copied into a new repo)
+  - [ ] Alternative: use a dedicated template repo (for example [stranske/Template](https://github.com/stranske/Template)) if your org maintains one
 - [ ] Click **Use this template** → **Create a new repository**
 - [ ] Choose owner: `stranske` (or your organization)
 - [ ] Enter repository name
@@ -362,24 +364,25 @@ curl -o .github/workflows/maint-sync-workflows.yml \
 > This pattern was added to consumer repo `maint-sync-workflows.yml` files after
 > silent failures masked sync issues.
 > **⚠️ CRITICAL: Fix reusable workflow references after copying!**
-> 
-> The `agents-63-issue-intake.yml` file in the Workflows repo contains a LOCAL 
-> reference to `reusable-agents-issue-bridge.yml`. This works in Workflows but
-> **will break in consumer repos** because the file doesn't exist locally.
-> 
-> After copying, you MUST change line ~1171 from:
+>
+> When copying workflow files, watch for local reusable-workflow references like:
+>
 > ```yaml
 > uses: ./.github/workflows/reusable-agents-issue-bridge.yml
 > ```
-> To the remote reference:
+>
+> This works in the Workflows repo but can break in consumer repos if the reusable workflow
+> is not present locally. Prefer a remote reference instead:
+>
 > ```yaml
-> uses: stranske/Workflows/.github/workflows/reusable-agents-issue-bridge.yml@main
+> uses: stranske/Workflows/.github/workflows/reusable-agents-issue-bridge.yml@v1
 > ```
-> 
-> **Alternative**: Copy from Template repo instead (already has correct reference):
+>
+> **Preferred**: copy from the consumer template in this repo (already wired for consumer usage):
+>
 > ```bash
-> curl -o .github/workflows/agents-63-issue-intake.yml \
->   https://raw.githubusercontent.com/stranske/Template/main/.github/workflows/agents-63-issue-intake.yml
+> curl -o .github/workflows/agents-issue-intake.yml \
+>   https://raw.githubusercontent.com/stranske/Workflows/v1/templates/consumer-repo/.github/workflows/agents-issue-intake.yml
 > ```
 
 ### 4.2 Autofix Versions Configuration

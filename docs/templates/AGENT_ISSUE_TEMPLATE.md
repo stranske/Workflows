@@ -4,7 +4,9 @@ This template defines the canonical structure for issues that feed into the Code
 
 ## ⚠️ Critical Rule: Checkbox Conversion
 
-**ALL bullet points (`-`) in Tasks and Acceptance Criteria sections are automatically converted to checkboxes.**
+**In markdown-based issues**, ALL bullet points (`-`) in Tasks and Acceptance Criteria sections are automatically converted to checkboxes.
+
+If you are using GitHub Issue Forms (YAML templates), this conversion rule does not apply in the same way.
 
 - ✅ **DO:** Use bullets only for actual tasks/criteria to check off
 - ❌ **DON'T:** Use bullets for instructions, notes, or explanations
