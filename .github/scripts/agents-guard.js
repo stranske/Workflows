@@ -27,6 +27,9 @@ const ALLOW_REMOVED_PATHS = new Set(
     '.github/workflows/agents-pr-meta.yml',
     '.github/workflows/agents-pr-meta-v2.yml',
     '.github/workflows/agents-pr-meta-v3.yml',
+    // v1 verify-to-issue workflow deprecated; v2 is the active version.
+    // Archived to archives/deprecated-workflows/
+    '.github/workflows/agents-verify-to-issue.yml',
   ].map((entry) => entry.toLowerCase()),
 );
 
