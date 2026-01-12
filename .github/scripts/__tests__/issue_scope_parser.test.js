@@ -710,64 +710,68 @@ test('handles nested bullets', () => {
   );
 });
 
-test('ignores checkbox patterns inside fenced code blocks', () => {
+test('preserves code blocks but does not add checkboxes inside them', () => {
   const issue = [
     '## Tasks',
-    '- [ ] Implement the feature',
-    '- [ ] Add documentation',
-    '',
-    '## Implementation Notes',
+    '- Implement the feature',
+    '- Add documentation',
     '',
     '```python',
     'def example():',
-    '    # Task list in code should NOT become tasks',
-    '    tasks = [',
-    '        "- [ ] This is NOT a real task",',
-    '        "- [ ] Neither is this",',
-    '    ]',
+    '    # Code example with bullet that should NOT get checkbox',
+    '    tasks = ["- item one", "- item two"]',
     '```',
     '',
     '## Acceptance Criteria',
-    '- [ ] Feature works correctly',
+    '- Feature works correctly',
   ].join('\n');
 
   const result = extractScopeTasksAcceptanceSections(issue);
   
-  // Should only have the real tasks, not the code examples
+  // Real tasks should get checkboxes
   assert.ok(result.includes('- [ ] Implement the feature'));
   assert.ok(result.includes('- [ ] Add documentation'));
   assert.ok(result.includes('- [ ] Feature works correctly'));
   
-  // Should NOT include the code block content as tasks
-  assert.ok(!result.includes('This is NOT a real task'));
-  assert.ok(!result.includes('Neither is this'));
+  // Code block should be preserved but items inside should NOT have checkboxes
+  assert.ok(result.includes('```python'));
+  assert.ok(result.includes('def example():'));
+  // The bullet inside the code should NOT have [ ] added
+  assert.ok(!result.includes('- [ ] item one'));
 });
 
-test('handles multiple code blocks with checkbox patterns', () => {
+test('handles multiple code blocks - preserves content without adding checkboxes', () => {
   const issue = [
     '## Tasks',
-    '- [ ] Real task one',
+    '- Real task one',
     '',
     '```yaml',
     'tasks:',
-    '  - [ ] YAML example task',
+    '  - YAML example task',
     '```',
     '',
-    '- [ ] Real task two',
+    '- Real task two',
     '',
     '~~~markdown',
-    '- [ ] Markdown example in tilde fence',
+    '- Markdown example in tilde fence',
     '~~~',
     '',
     '## Acceptance Criteria',
-    '- [ ] Done',
+    '- Done',
   ].join('\n');
 
   const result = extractScopeTasksAcceptanceSections(issue);
   
+  // Real tasks outside code blocks get checkboxes
   assert.ok(result.includes('- [ ] Real task one'));
   assert.ok(result.includes('- [ ] Real task two'));
   assert.ok(result.includes('- [ ] Done'));
-  assert.ok(!result.includes('YAML example task'));
-  assert.ok(!result.includes('Markdown example in tilde fence'));
+  
+  // Code blocks are preserved
+  assert.ok(result.includes('```yaml'));
+  assert.ok(result.includes('~~~markdown'));
+  
+  // But items inside code blocks do NOT get checkboxes added
+  assert.ok(result.includes('  - YAML example task'));  // preserved as-is
+  assert.ok(!result.includes('- [ ] YAML example task'));  // no checkbox added
 });

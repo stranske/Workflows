@@ -5,16 +5,10 @@ const stripBlockquotePrefixes = (value) =>
   String(value || '').replace(/^[ \t]*>+[ \t]?/gm, '');
 
 /**
- * Strip fenced code blocks from content to prevent code examples
- * containing checkbox patterns (- [ ]) from being parsed as tasks.
- * Preserves the structure by replacing code blocks with empty lines.
+ * Check if a line is a code fence delimiter (``` or ~~~).
+ * Used to track code block boundaries when processing content.
  */
-const stripCodeBlocks = (value) => {
-  const text = String(value || '');
-  // Match fenced code blocks: ``` or ~~~ with optional language identifier
-  // Use non-greedy matching to handle multiple code blocks
-  return text.replace(/^(`{3,}|~{3,})[^\n]*\n[\s\S]*?^\1\s*$/gm, '');
-};
+const isCodeFenceLine = (line) => /^(`{3,}|~{3,})/.test(line.trim());
 
 const LIST_ITEM_REGEX = /^(\s*)([-*+]|\d+[.)])\s+(.*)$/;
 
@@ -97,7 +91,20 @@ function normaliseChecklist(content) {
 
   const lines = raw.split('\n');
   let mutated = false;
+  let insideCodeBlock = false;
+  
   const updated = lines.map((line) => {
+    // Track code fence boundaries - don't add checkboxes inside code blocks
+    if (isCodeFenceLine(line)) {
+      insideCodeBlock = !insideCodeBlock;
+      return line;
+    }
+    
+    // Skip checkbox normalization for lines inside code blocks
+    if (insideCodeBlock) {
+      return line;
+    }
+    
     const match = line.match(LIST_ITEM_REGEX);
     if (!match) {
       return line;
@@ -168,6 +175,7 @@ function isExplicitHeadingLine(rawLine) {
 function extractListBlocks(lines) {
   const blocks = [];
   let current = [];
+  let insideCodeBlock = false;
 
   const flush = () => {
     if (current.length) {
@@ -180,6 +188,24 @@ function extractListBlocks(lines) {
   };
 
   for (const line of lines) {
+    // Track code fence boundaries
+    if (isCodeFenceLine(line)) {
+      insideCodeBlock = !insideCodeBlock;
+      // Include code fence lines in current block if we're building one
+      if (current.length) {
+        current.push(line);
+      }
+      continue;
+    }
+    
+    // Lines inside code blocks are treated as continuation (don't break the block)
+    if (insideCodeBlock) {
+      if (current.length) {
+        current.push(line);
+      }
+      continue;
+    }
+    
     if (LIST_ITEM_REGEX.test(line)) {
       current.push(line);
       continue;
@@ -203,6 +229,7 @@ function extractListBlocksWithOffsets(lines) {
   let blockStart = null;
   let blockEnd = null;
   let offset = 0;
+  let insideCodeBlock = false;
 
   const flush = () => {
     if (!current.length) {
@@ -218,6 +245,27 @@ function extractListBlocksWithOffsets(lines) {
   };
 
   for (const line of lines) {
+    // Track code fence boundaries
+    if (isCodeFenceLine(line)) {
+      insideCodeBlock = !insideCodeBlock;
+      if (current.length) {
+        current.push(line);
+        blockEnd = offset + line.length;
+      }
+      offset += line.length + 1;
+      continue;
+    }
+    
+    // Lines inside code blocks continue the current block
+    if (insideCodeBlock) {
+      if (current.length) {
+        current.push(line);
+        blockEnd = offset + line.length;
+      }
+      offset += line.length + 1;
+      continue;
+    }
+    
     const isList = LIST_ITEM_REGEX.test(line);
     if (isList) {
       if (!current.length) {
@@ -363,10 +411,7 @@ function applyListFallbacks({ segment, sections, listBlocks, ranges }) {
 }
 
 function collectSections(source) {
-  // Strip code blocks FIRST to prevent code examples with checkbox patterns
-  // (like "- [ ] example task") from being parsed as actual tasks
-  const withoutCode = stripCodeBlocks(normalizeNewlines(source));
-  const normalized = stripBlockquotePrefixes(withoutCode);
+  const normalized = stripBlockquotePrefixes(normalizeNewlines(source));
   if (!normalized.trim()) {
     return { segment: '', sections: {}, labels: {} };
   }
@@ -393,23 +438,33 @@ function collectSections(source) {
   const lines = segment.split('\n');
   const listBlocks = extractListBlocksWithOffsets(lines);
   let offset = 0;
+  let insideCodeBlock = false;
   for (const line of lines) {
-    const matchedLabel = extractHeadingLabel(line);
-    if (matchedLabel) {
-      const title = matchedLabel.toLowerCase();
-      if (aliasLookup[title]) {
-        const section = aliasLookup[title];
-        headings.push({
-          title: section.key,
-          label: section.label,
-          index: offset,
-          length: line.length,
-          matchedLabel,
-        });
-      }
+    // Track code fence boundaries - skip heading detection inside code blocks
+    if (isCodeFenceLine(line)) {
+      insideCodeBlock = !insideCodeBlock;
+      offset += line.length + 1;
+      continue;
     }
-    if (isExplicitHeadingLine(line)) {
-      allHeadings.push({ index: offset, length: line.length });
+    
+    if (!insideCodeBlock) {
+      const matchedLabel = extractHeadingLabel(line);
+      if (matchedLabel) {
+        const title = matchedLabel.toLowerCase();
+        if (aliasLookup[title]) {
+          const section = aliasLookup[title];
+          headings.push({
+            title: section.key,
+            label: section.label,
+            index: offset,
+            length: line.length,
+            matchedLabel,
+          });
+        }
+      }
+      if (isExplicitHeadingLine(line)) {
+        allHeadings.push({ index: offset, length: line.length });
+      }
     }
     offset += line.length + 1;
   }
