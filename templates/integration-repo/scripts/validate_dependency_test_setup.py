@@ -69,13 +69,12 @@ def check_for_hardcoded_versions() -> tuple[bool, list[str]]:
         ):
             continue
 
+        lines = content.split("\n")
         for pattern in version_patterns:
-            if re.search(pattern, content):
-                # Check if it's in a comment
-                lines = content.split("\n")
-                for i, line in enumerate(lines):
-                    if re.search(pattern, line) and not line.strip().startswith("#"):
-                        problematic_files.append((test_file, i + 1, line.strip()))
+            # Check if it's in a comment
+            for i, line in enumerate(lines):
+                if re.search(pattern, line) and not line.strip().startswith("#"):
+                    problematic_files.append((test_file, i + 1, line.strip()))
 
     if problematic_files:
         issues.append("Found potential hardcoded versions in tests:")
