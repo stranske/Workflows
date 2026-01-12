@@ -11,7 +11,10 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
-import semantic_matcher
+try:
+    import semantic_matcher
+except ModuleNotFoundError:
+    from scripts.langchain import semantic_matcher
 
 
 @dataclass(frozen=True)

@@ -10,7 +10,10 @@ from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
-import label_matcher
+try:
+    import label_matcher
+except ModuleNotFoundError:
+    from scripts.langchain import label_matcher
 
 
 @dataclass
