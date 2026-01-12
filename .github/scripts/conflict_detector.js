@@ -59,15 +59,19 @@ function shouldIgnoreConflictFile(filename) {
   });
 }
 
+// Only match definitive merge conflict markers, not general text mentioning conflicts.
+// The phrase "merge conflict" can appear in commit messages, comments, and other text
+// without indicating an actual active conflict. We require git-generated markers.
 const CONFLICT_PATTERNS = [
-  /merge conflict/i,
-  /CONFLICT \(content\)/i,
-  /Automatic merge failed/i,
-  /fix conflicts and then commit/i,
-  /Merge branch .* into .* failed/i,
+  // Git conflict markers (highly reliable)
   /<<<<<<< HEAD/,
-  /=======\n/,
-  />>>>>>> /,
+  />>>>>>> [a-f0-9]{7,40}/,  // Conflict marker with SHA
+  />>>>>>> origin\//,         // Conflict marker with remote branch
+  // Git merge failure messages (from actual merge operations, not log text)
+  /CONFLICT \(content\):/,    // Note: requires colon to be more specific
+  /CONFLICT \(add\/add\):/,
+  /CONFLICT \(modify\/delete\):/,
+  /Automatic merge failed; fix conflicts and then commit/,  // Full message
 ];
 
 /**

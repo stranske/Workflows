@@ -1383,8 +1383,14 @@ async function evaluateKeepaliveLoop({ github, context, core, payload: overrideP
   // Only try verification once - if it fails, that's OK, tasks are still complete
   const needsVerification = allComplete && !verificationDone && !verificationAttempted;
 
-  // Conflict resolution takes highest priority - conflicts block all other work
-  if (conflictResult.hasConflict && hasAgentLabel && keepaliveEnabled) {
+  // Only treat GitHub API conflicts as definitive (mergeable_state === 'dirty')
+  // CI-log based conflict detection has too many false positives from commit messages
+  // and should not block fix_ci mode when Gate fails with actual code errors
+  const hasDefinitiveConflict = conflictResult.hasConflict && 
+    conflictResult.primarySource === 'github-api';
+
+  // Conflict resolution takes highest priority ONLY for definitive conflicts
+  if (hasDefinitiveConflict && hasAgentLabel && keepaliveEnabled) {
     action = 'conflict';
     reason = `merge-conflict-${conflictResult.primarySource || 'detected'}`;
   } else if (!hasAgentLabel) {
