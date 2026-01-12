@@ -143,13 +143,13 @@ Check mark-running job → Skipped → Secrets or permissions issue
 ```yaml
 # WRONG - pr_number is a string "123", but workflow expects number
 pr_meta_comment:
-  uses: stranske/Workflows/.github/workflows/reusable-20-pr-meta.yml@main
+  uses: stranske/Workflows/.github/workflows/reusable-20-pr-meta.yml@v1
   with:
     pr_number: ${{ needs.resolve_pr.outputs.pr_number }}  # String!
 
 # CORRECT - Convert to number
 pr_meta_comment:
-  uses: stranske/Workflows/.github/workflows/reusable-20-pr-meta.yml@main
+  uses: stranske/Workflows/.github/workflows/reusable-20-pr-meta.yml@v1
   with:
     pr_number: ${{ fromJSON(needs.resolve_pr.outputs.pr_number) }}  # Number!
 ```
@@ -230,7 +230,7 @@ jobs:
   pr_meta_gate:
     needs: resolve_gate_pr
     if: github.event_name == 'workflow_run' && needs.resolve_gate_pr.outputs.should_process == 'true'
-    uses: stranske/Workflows/.github/workflows/reusable-20-pr-meta.yml@main
+    uses: stranske/Workflows/.github/workflows/reusable-20-pr-meta.yml@v1
     with:
       pr_number: ${{ fromJSON(needs.resolve_gate_pr.outputs.pr_number) }}
       event_name: 'workflow_run'

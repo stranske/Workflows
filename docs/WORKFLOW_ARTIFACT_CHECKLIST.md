@@ -189,8 +189,7 @@ git commit -m "chore: untrack auto-generated artifact files"
 gh workflow run maint-68-sync-consumer-repos.yml
 
 # 5. In each consumer repo, remove from tracking
-for repo in Travel-Plan-Permission Template trip-planner Manager-Database \
-            Portable-Alpha-Extension-Model Trend_Model_Project Collab-Admin; do
+for repo in consumer-repo-1 consumer-repo-2 consumer-repo-3; do
   git clone "git@github.com:stranske/${repo}.git" "/tmp/${repo}"
   cd "/tmp/${repo}"
   git rm --cached pattern-*.json || true

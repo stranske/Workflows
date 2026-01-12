@@ -1,36 +1,36 @@
 # Documentation
 
-Permanent documentation for the Workflows repository.
+This folder contains the source-of-truth documentation for this repository.
 
-## Quick Links
+## Start Here
 
 | Document | Description |
 |----------|-------------|
-| [LABELS.md](LABELS.md) | Label reference for PR/issue triggers |
-| [WORKFLOW_GUIDE.md](WORKFLOW_GUIDE.md) | Complete workflow usage guide |
+| [USAGE.md](USAGE.md) | Quick start and common setup patterns |
+| [INTEGRATION_GUIDE.md](INTEGRATION_GUIDE.md) | Full integration guide for consumers |
+| [ci-workflow.md](ci-workflow.md) | CI workflow wiring and local validation |
+| [STRUCTURE.md](STRUCTURE.md) | How the repository is organized |
 | [AGENTS_POLICY.md](AGENTS_POLICY.md) | Agent automation policies |
-| [USAGE.md](USAGE.md) | Getting started guide |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | Contribution guidelines |
-| [COMPATIBILITY.md](COMPATIBILITY.md) | Version compatibility |
-| [WORKFLOW_AUDIT_2025-12-25.md](WORKFLOW_AUDIT_2025-12-25.md) | Latest workflow audit |
 
 ## Structure
 
 ### For Users
 
-- **[guides/](guides/)** - How-to guides and tutorials for using the workflows
-- **[workflows/](workflows/)** - Individual workflow documentation (one file per workflow)
-- **[examples/](examples/)** - Example configurations for different project types
-- **[reference/](reference/)** - Reference documentation and API details
+- **[guides/](guides/)** - How-to guides and tutorials (currently minimal)
+- **[ci/](ci/)** - CI reference docs and troubleshooting
+- **[keepalive/](keepalive/)** - Keepalive/Codex automation documentation
+- **[reference/](reference/)** - Reference docs and analysis notes
+- **[workflows/](workflows/)** - Workflow system notes (evaluation, bug reports)
+- **[examples/](examples/)** - Runnable examples (placeholder)
 
 ### For Contributors
 
-- **[templates/](templates/)** - Templates for creating new documentation
+- **[templates/](templates/)** - Templates and checklists
 - **[CONTRIBUTING.md](CONTRIBUTING.md)** - Contribution guidelines
 
 ### Archive
 
-- **[archive/](archive/)** - Working files and historical documents
+- **[archive/](archive/)** - Historical documents and snapshots
 
 ## Documentation Guidelines
 
@@ -64,26 +64,13 @@ Examples in `examples/` should:
 
 ## Adding Documentation
 
-1. Use the appropriate template from `templates/`
-2. Follow the existing structure and style
-3. Test all examples before committing
-4. Update this README if adding new categories
-5. Cross-reference related documentation
+1. Use the appropriate template from [templates/](templates/)
+2. Keep examples runnable and aligned with the current workflow interfaces
+3. Prefer stable references (`@v1`) in consumer-facing examples; reserve `@main` for intentional unreleased testing
+4. Cross-link related docs and update this README if you add a new top-level category
 
-## Documentation Status
+## See Also
 
-- ✅ Templates created
-- ⬜ User guides (to be added as workflows are extracted)
-- ⬜ Workflow documentation (to be added per workflow)
-- ⬜ Examples (to be created for common use cases)
-- ⬜ Reference documentation (to be added)
-
-## Quick Links
-
-- **Main README**: [../README.md](../README.md)
-- **Workflow Template**: [templates/WORKFLOW_TEMPLATE.md](templates/WORKFLOW_TEMPLATE.md)
-- **Extraction Planning**: [../.extraction/README.md](../.extraction/README.md) (temporary)
-
----
-
-**Note**: For extraction-phase documentation, see [.extraction/](.extraction/) (temporary directory).
+- Main README: [../README.md](../README.md)
+- Templates and checklists: [templates/](templates/)
+- Latest workflow audit: [WORKFLOW_AUDIT_2025-12-25.md](WORKFLOW_AUDIT_2025-12-25.md)

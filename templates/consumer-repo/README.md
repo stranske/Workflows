@@ -59,7 +59,9 @@ steps:
     uses: actions/checkout@v6
     with:
       repository: stranske/Workflows
-      ref: main
+         # Keep this aligned with the ref you use in `uses: stranske/Workflows/...@<ref>`.
+         # Prefer stable tags (`v1`) for most consumers.
+         ref: v1
       sparse-checkout: .github/scripts
       path: workflows-lib
 ```
@@ -126,9 +128,8 @@ Agent workflows require additional configuration files:
 
 ## Security & Workflow Pinning
 
-These templates use `@main` for workflow references (e.g., `stranske/Workflows/.github/workflows/...@main`).
-This is intentional for first-party consumer repos owned by the same account, allowing
-automatic updates without PR churn.
+These templates should prefer stable version tags for workflow references (for example, `@v1`).
+Use `@main` only when intentionally testing unreleased changes.
 
 **For third-party or security-sensitive deployments:**
 - Pin to a specific commit SHA: `@abc123def456...`
@@ -184,7 +185,8 @@ The keepalive system uses PR labels for routing and control:
 | Label | Agent | Workflow |
 |-------|-------|----------|
 | `agent:codex` | Codex CLI (gpt-5.2-codex) | `reusable-codex-run.yml` |
-| `agent:claude` | Claude (future) | `reusable-claude-run.yml` |
+
+Other `agent:*` labels may be reserved for future expansion, but only `agent:codex` is currently supported by the templates.
 
 ### Control Labels
 | Label | Effect |

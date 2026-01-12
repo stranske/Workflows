@@ -1,7 +1,7 @@
-# Codex OAuth Token Refresh Guide
+# Codex Auth Token Refresh Guide
 
-This document explains the Codex CLI OAuth token lifecycle and how to refresh tokens
-before they expire.
+This document explains the Codex CLI authentication token lifecycle in CI and how to
+refresh `CODEX_AUTH_JSON` before it expires.
 
 ---
 
@@ -9,16 +9,15 @@ before they expire.
 
 | Component | Lifespan | Notes |
 |-----------|----------|-------|
-| Access Token | ~10 days | JWT with `exp` claim; checked by workflow |
-| Refresh Token | Single-use | Consumed when access token is refreshed |
+| Access Token | ~10 days | JWT with `exp` claim; checked by workflows |
+| Refresh Token | Rotates | New refresh token is issued after refresh |
 
 ### How It Works
 
-1. **Initial Login**: `codex auth login` creates both tokens, stored in `~/.codex/auth.json`
-2. **CI Usage**: The `CODEX_AUTH_JSON` secret contains a snapshot of `auth.json`
-3. **Auto-refresh**: When access token nears expiration (~1-2 days), Codex CLI automatically uses the refresh token
-4. **Token Rotation**: A successful refresh generates NEW access AND refresh tokens
-5. **CI Problem**: The new tokens are written to the ephemeral CI runner, not back to GitHub Secrets
+1. **Initial login**: `codex login --device-auth` writes credentials to `~/.codex/auth.json`.
+2. **CI usage**: the `CODEX_AUTH_JSON` secret is a snapshot of `~/.codex/auth.json`.
+3. **Rotation**: when the CLI refreshes, it writes updated tokens back to `~/.codex/auth.json`.
+4. **CI limitation**: runners are ephemeral, so refreshed tokens are not persisted back to GitHub Secrets.
 
 ### Why CI Refresh Fails
 
@@ -28,39 +27,36 @@ token was already used. Please log out and sign in again.
 ```
 
 This error occurs when:
-- A prior run successfully refreshed (consuming the refresh token)
-- The new refresh token was lost (CI runner is ephemeral)
-- Subsequent runs try to use the old (now-invalid) refresh token
+- A prior run refreshed and rotated the token set
+- The rotated token set was only written on the runner
+- Subsequent runs keep using the stale secret value
 
 ---
 
 ## Warning System
 
-The `reusable-codex-run.yml` workflow checks token expiration before running:
+The `reusable-codex-run.yml` workflow checks token expiration before running, and emits
+log annotations based on the access token's `exp` claim:
 
 | Time Remaining | Level | Action |
 |----------------|-------|--------|
-| > 2 days | ✅ OK | Proceeds normally |
-| 1-2 days | ⚠️ Notice | Warning in logs; **refresh soon** |
-| < 1 day | 🔴 Warning | Urgent; may fail if CLI auto-refreshes |
-| Expired | ❌ Error | Will not proceed |
+| ≥ 5 days | ✅ OK | Proceeds normally |
+| 2–4 days | ℹ️ Notice | Plan a refresh soon |
+| < 2 days | ⚠️ Warning | Refresh ASAP to avoid agent downtime |
+| Expired | ❌ Error | Workflow fails fast until refreshed |
 
-**Important**: When you see the warning, refresh tokens **immediately**. Don't wait—
-the Codex CLI may attempt auto-refresh at any time once under 2 days, which will
-consume your refresh token.
+**Important**: when the warning appears, refresh the secret that day. Any automatic
+refresh that happens on a runner does not update GitHub Secrets.
 
 ---
 
 ## How to Refresh Tokens
 
-### Step 1: Log Out and Log In Locally
+### Step 1: Re-authenticate locally (device flow)
 
 ```bash
-# Clear existing tokens
-codex auth logout
-
-# Re-authenticate (opens browser for OAuth)
-codex auth login
+# Run device authentication flow
+codex login --device-auth
 ```
 
 ### Step 2: Copy the New Auth JSON
@@ -117,13 +113,13 @@ If multiple CI runs happen simultaneously near token expiration, one may succeed
 
 ### 4. Verify After Refresh
 
-After updating the secret, trigger a test run:
+After updating the secret, trigger a fast test run:
 
 ```bash
-gh workflow run agents-keepalive-loop.yml --repo stranske/YOUR_REPO
+gh workflow run "Health 46 Codex Auth Check" --repo stranske/YOUR_REPO
 ```
 
-Check the logs confirm the new token expiration date.
+Check the job summary confirms the new expiration date.
 
 ---
 
@@ -133,7 +129,7 @@ Check the logs confirm the new token expiration date.
 
 **Cause**: The refresh token in your secret has been consumed.
 
-**Fix**: Follow the refresh steps above. You must do a full `logout` + `login`.
+**Fix**: Follow the refresh steps above.
 
 ### "token expired"
 
@@ -184,5 +180,6 @@ cat ~/.codex/auth.json | jq -r '.tokens.access_token' | \
 
 ## See Also
 
-- [SETUP_CHECKLIST.md](../templates/SETUP_CHECKLIST.md) - Initial repository setup
-- [CONSUMER_REPO_MAINTENANCE.md](./CONSUMER_REPO_MAINTENANCE.md) - Multi-repo management
+- [docs/ci/CHATGPT_SUBSCRIPTION_CI.md](../ci/CHATGPT_SUBSCRIPTION_CI.md) - CI authentication background
+- [docs/keepalive/SETUP_CHECKLIST.md](../keepalive/SETUP_CHECKLIST.md) - Consumer setup checklist
+- [docs/ops/CONSUMER_REPO_MAINTENANCE.md](./CONSUMER_REPO_MAINTENANCE.md) - Multi-repo maintenance

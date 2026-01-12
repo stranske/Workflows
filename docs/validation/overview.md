@@ -23,11 +23,12 @@ Provide **fast, adaptive validation** for code quality checks across the workflo
 **Purpose:** Catch critical issues before commit without breaking flow
 
 **Checks Performed:**
-- ✅ Code formatting (black on scripts/ .github/)
-- ✅ Critical lint errors only (E9, F codes)
-- ⏳ Workflow validation (deferred to Phase 4)
-- ⏳ Type checking (deferred to Phase 4)
-- ⏳ Keepalive tests (deferred to Phase 5)
+- ✅ Syntax check (fast compile)
+- ✅ Workflow YAML validation (actionlint)
+- ✅ Formatting (black)
+- ✅ Critical linting (ruff + flake8 critical codes)
+- ✅ Type check (mypy, pinned to CI where possible)
+- ✅ Keepalive harness tests
 
 **Usage:**
 ```bash
@@ -48,7 +49,7 @@ Provide **fast, adaptive validation** for code quality checks across the workflo
 - Before every commit
 - During active development
 - After making small changes
-- As pre-commit hook (planned Phase 2)
+- As a pre-commit hook
 
 **Exit Codes:**
 - `0`: All checks passed
@@ -70,9 +71,14 @@ Provide **fast, adaptive validation** for code quality checks across the workflo
 - ✅ Code formatting (black on scripts/ .github/)
 - ✅ Syntax validation per-file
 - ✅ Adaptive linting based on changes
-- ⏳ Import validation (deferred to Phase 4)
-- ⏳ Type checking (deferred to Phase 4)
+- ✅ Type checking (mypy for relevant scopes)
 - ✅ Pytest on tests/ (for workflow tests)
+- ✅ Workflow linting (actionlint) when workflow files change
+
+Notes:
+
+- `validate_fast.sh` is optimized for catching issues introduced by changes to Python, config, and workflow files.
+    Pure doc-only edits may short-circuit quickly.
 
 **Usage:**
 ```bash
@@ -109,13 +115,14 @@ Provide **fast, adaptive validation** for code quality checks across the workflo
 **Checks Performed:**
 - ✅ Code formatting (black on scripts/ .github/)
 - ✅ Full linting (flake8 scripts/)
-- ⏳ Type checking (deferred to Phase 4)
-- ⏳ Package installation (deferred to Phase 4 - N/A for workflows)
-- ⏳ Import validation (deferred to Phase 4)
 - ✅ Full test suite (pytest tests/)
-- ⏳ Test coverage (deferred to Phase 4 - Python-specific)
 - ✅ Git status check (uncommitted changes)
 - ✅ Branch tracking info
+
+Notes:
+
+- `check_branch.sh` is the older “full sweep” entry point and may intentionally skip some workflow-specific validations.
+    If you need the fastest signal that matches current CI expectations, prefer `dev_check.sh` for tight loops.
 
 **Usage:**
 ```bash
@@ -144,22 +151,13 @@ Provide **fast, adaptive validation** for code quality checks across the workflo
 
 ### Tool Version Synchronization
 
-All scripts enforce tool version alignment with CI using:
+Validation scripts aim to stay aligned with CI by reading pinned tool versions from:
 
-**PIN_FILE:** `.github/workflows/autofix-versions.env`
-```bash
-BLACK_VERSION=25.11.0
-RUFF_VERSION=0.14.7
-ISORT_VERSION=7.0.0
-DOCFORMATTER_VERSION=1.7.7
-MYPY_VERSION=1.19.0
-PYTEST_VERSION=9.0.1
-PYTEST_COV_VERSION=7.0.0
-PYTEST_XDIST_VERSION=3.8.0
-COVERAGE_VERSION=7.12.0
-```
+- `.github/workflows/autofix-versions.env`
 
-**Sync Script:** `scripts/sync_tool_versions.py`
+And using the repo’s pin sync helper:
+
+- `scripts/sync_tool_versions.py`
 ```bash
 # Check alignment with pyproject.toml
 python -m scripts.sync_tool_versions --check
@@ -170,37 +168,6 @@ python -m scripts.sync_tool_versions --apply
 
 This ensures local validation matches CI exactly, preventing "works on my machine" issues.
 
-## Current Status (Phase 1)
-
-### ✅ Completed
-
-- All three validation scripts extracted and adapted
-- Tool version synchronization infrastructure
-- Virtual environment setup
-- Dev dependencies installation
-- Basic validation passing (dev_check.sh)
-
-### ⏳ Deferred Work
-
-**Phase 4 (Week 7-9): Workflow Validation System**
-- Replace Python import validation with workflow YAML validation
-- Add actionlint or workflow-specific validation
-- Update type checking for workflow context
-- Remove Python package-specific checks (coverage, pip install)
-- **Estimated time:** 6 hours
-
-**Phase 5 (Week 10-12): Keepalive System Integration**
-- Extract keepalive harness infrastructure
-- Update keepalive test paths
-- Integrate with validation scripts
-- **Estimated time:** 2 hours
-
-**Phase 1 Completion (Week 2-3):**
-- Complete this documentation
-- **Estimated time:** 15 minutes remaining
-
-**Total deferred work:** ~9 hours across 3 phases
-
 ## Quick Reference
 
 ### Comparison Matrix
@@ -210,10 +177,10 @@ This ensures local validation matches CI exactly, preventing "works on my machin
 | **Speed** | 2-5s | 5-30s | 30-120s |
 | **Formatting** | ✅ | ✅ | ✅ |
 | **Critical Linting** | ✅ | ✅ (adaptive) | ✅ (full) |
-| **Type Checking** | ⏳ Phase 4 | ⏳ Phase 4 | ⏳ Phase 4 |
+| **Type Checking** | ✅ | ✅ | ⏳ (partial) |
 | **Tests** | ❌ | ✅ (changed) | ✅ (full) |
 | **Coverage** | ❌ | ❌ | ⏳ Phase 4 |
-| **Workflow Validation** | ⏳ Phase 4 | ⏳ Phase 4 | ⏳ Phase 4 |
+| **Workflow Validation** | ✅ | ✅ (when workflows change) | ⏳ (partial) |
 | **Auto-fix** | ✅ | ✅ | ✅ |
 | **Changed Files** | ✅ | ✅ | ❌ |
 

@@ -7,39 +7,36 @@ A reusable GitHub Actions workflow system for Python projects with integrated ag
 
 ## Project Status
 
-✅ **Production Ready** - Actively used across multiple consumer repositories
+✅ **Production Ready** - Actively used and maintained.
 
-### Consumer Repositories
-- [Travel-Plan-Permission](https://github.com/stranske/Travel-Plan-Permission)
-- [Template](https://github.com/stranske/Template)
-- [trip-planner](https://github.com/stranske/trip-planner)
-- [Manager-Database](https://github.com/stranske/Manager-Database)
-- [Portable-Alpha-Extension-Model](https://github.com/stranske/Portable-Alpha-Extension-Model)
+### First-party Consumers
+
+- Travel-Plan-Permission
+- Template
+- trip-planner
+- Manager-Database
+- Portable-Alpha-Extension-Model
 
 ## What's Included
 
-### GitHub Actions Workflows (`.github/workflows/`)
+### Reusable Workflows (.github/workflows)
 
-**Core CI/CD:**
-- `ci-python.yaml` - Python testing, linting, type checking
-- `ci-cosmetic.yaml` - Automated cosmetic repairs
-- `ci-gate.yaml` - Branch protection gates
+- CI: `reusable-10-ci-python.yml`, `reusable-11-ci-node.yml`, `reusable-12-ci-docker.yml`
+- Agent automation: `reusable-16-agents.yml`, `reusable-codex-run.yml`, `reusable-20-pr-meta.yml`
+- Orchestration: `reusable-70-orchestrator-init.yml`, `reusable-70-orchestrator-main.yml`
 
-**Health & Monitoring:**
-- `health-*` - Repository health checks
-- `maint-*` - Maintenance workflows
-- `repo-selfcheck.yaml` - Self-validation
+### First-party Orchestration Workflows (.github/workflows)
 
-**Agent Orchestration:**
-- `agents-*.yaml` - Copilot agent automation
-- `issues-*.yaml` - Issue tracking and sync
+- Gate: `pr-00-gate.yml` (single PR-required check)
+- Maintenance & health: `maint-*`, `health-*`
+- Agents: `agents-*`
 
-### Reusable Actions (`.github/actions/`)
+### Composite Actions (.github/actions)
 
-- `autofix/` - Automated code formatting
-- `python-setup/` - Python environment setup
-- `coverage-delta/` - Coverage tracking
-- `keepalive-gate/` - Keepalive validation
+- `autofix/` - Formatting and hygiene automation
+- `python-ci-setup/` - Python environment setup for CI
+- `signature-verify/` - Signature/manifest verification helpers
+- `codex-bootstrap-lite/` - Lightweight bootstrap utilities for agent runs
 
 ### Scripts
 
@@ -61,13 +58,13 @@ now integrates `scripts/langchain/task_decomposer.py` to split multi-action
 Tasks into smaller, verifiable sub-tasks and inserts them under each original
 task in the formatted issue body.
 
-### Documentation (`docs/`)
+### Documentation (docs)
 
-62 documentation files organized by topic:
-- **CI System** - Workflows, autofix, ledger, merge queue
-- **Keepalive** - Agent coordination, gap assessment
-- **Guides** - User guides and reference docs
-- **Archive** - Historical planning docs
+Start with:
+- `docs/USAGE.md`
+- `docs/INTEGRATION_GUIDE.md`
+- `docs/ci-workflow.md`
+- `docs/keepalive/SETUP_CHECKLIST.md`
 
 ## Getting Started
 
@@ -113,10 +110,10 @@ jobs:
 ### Running Tests
 
 ```bash
-# Run all tests
-node --test .github/scripts/__tests__/*.test.js
+# Fast local validation (syntax, workflows, lint, typecheck, keepalive JS tests)
+./scripts/dev_check.sh
 
-# Run validation
+# Comprehensive validation
 ./scripts/check_branch.sh
 ```
 
@@ -124,34 +121,15 @@ node --test .github/scripts/__tests__/*.test.js
 
 ```
 .github/
-  workflows/          # 37 reusable workflows
-  actions/            # 12 composite actions
-  scripts/            # 49 helper scripts + tests
+  workflows/          # Workflows (reusable + first-party orchestration)
+  actions/            # Composite actions
+  scripts/            # JS helpers used by workflows (includes tests)
 
-docs/                 # 62 documentation files
-  ci/                 # CI system docs
-  keepalive/          # Keepalive system docs
-  guides/             # User guides
-  archive/            # Historical docs
-
-scripts/              # 19 standalone tools
-  check_branch.sh     # Main validation script
-  validate_yaml.py    # YAML validation
-
-.devcontainer/        # VS Code devcontainer config
-.pre-commit-config.yaml  # Pre-commit hooks
+docs/                 # Documentation
+scripts/              # Standalone tooling and validation scripts
+templates/            # Consumer templates and examples
+tests/                # Python tests
 ```
-
-## Metrics
-
-| Category | Count |
-|----------|-------|
-| Workflows | 37 |
-| Composite Actions | 12 |
-| Scripts | 68 |
-| Documentation Files | 62 |
-| Test Cases | 128 |
-| Total Lines of Code | ~47,000 |
 
 ## Contributing
 
@@ -174,12 +152,12 @@ MIT License - See [LICENSE](LICENSE) for details.
 ---
 
 **Links:**
-- 📚 [Documentation](docs/README.md)
-- 🔧 [Workflow Guide](docs/WORKFLOW_GUIDE.md)
-- 🤖 [Agent Policy](docs/AGENTS_POLICY.md)
-- ⚡ [Fast Validation](docs/fast-validation-ecosystem.md)
-- 🏷️ [Label Reference](docs/LABELS.md)
-- 📊 [Latest Audit](docs/WORKFLOW_AUDIT_2025-12-25.md)
-- 📋 [Usage Guide](docs/USAGE.md)
-- 🔄 [Compatibility](docs/COMPATIBILITY.md)
-- 🤝 [Contributing](docs/CONTRIBUTING.md)
+- Documentation: docs/README.md
+- Usage: docs/USAGE.md
+- Integration guide: docs/INTEGRATION_GUIDE.md
+- CI wiring: docs/ci-workflow.md
+- Keepalive setup: docs/keepalive/SETUP_CHECKLIST.md
+- Workflow guide: docs/WORKFLOW_GUIDE.md
+- Agent policy: docs/AGENTS_POLICY.md
+- Compatibility: docs/COMPATIBILITY.md
+- Contributing: docs/CONTRIBUTING.md

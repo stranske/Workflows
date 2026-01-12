@@ -493,6 +493,36 @@ test('extracts "To Do" as Tasks alias', () => {
   assert.ok(result.includes('#### Tasks'));
 });
 
+test('does not include non-scope sections after acceptance criteria', () => {
+  const issue = [
+    '## Scope',
+    'Some scope.',
+    '',
+    '## Tasks',
+    '- [ ] task item',
+    '',
+    '## Acceptance Criteria',
+    '- [ ] done',
+    '',
+    '## Priority',
+    '- [ ] Low',
+    '',
+    '## Additional Context',
+    '- [ ] Useful detail',
+    '',
+    '## Labels',
+    '- [ ] enhancement',
+  ].join('\n');
+
+  const result = extractScopeTasksAcceptanceSections(issue);
+  assert.ok(result.includes('task item'));
+  assert.ok(result.includes('done'));
+  assert.ok(!result.includes('Priority'));
+  assert.ok(!result.includes('Additional Context'));
+  assert.ok(!result.includes('Labels'));
+  assert.ok(!result.includes('Useful detail'));
+});
+
 test('hasNonPlaceholderScopeTasksAcceptanceContent detects PR meta fallback placeholders', () => {
   // Content with only PR meta manager fallback placeholders should return false
   // Note: scope uses italicized text (not checkbox) since it's informational

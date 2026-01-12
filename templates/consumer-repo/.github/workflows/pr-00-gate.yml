@@ -115,7 +115,8 @@ jobs:
         env:
           STATE: ${{ steps.summarize.outputs.state || 'pending' }}
           DESCRIPTION: ${{ steps.summarize.outputs.description || 'Gate status pending' }}
-          TARGET_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          TARGET_URL: >-
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         with:
           script: |
             const owner = context.repo.owner;
@@ -125,7 +126,10 @@ jobs:
             const allowed = new Set(['error', 'failure', 'pending', 'success']);
             const state = allowed.has(rawState) ? rawState : 'pending';
             const rawDescription = process.env.DESCRIPTION || 'Gate status update';
-            const description = rawDescription.length > 140 ? `${rawDescription.slice(0, 137)}...` : rawDescription;
+            const description =
+              rawDescription.length > 140
+                ? `${rawDescription.slice(0, 137)}...`
+                : rawDescription;
             const targetUrl = process.env.TARGET_URL;
 
             try {
@@ -140,7 +144,9 @@ jobs:
               });
               console.log(`Created commit status: ${state} - ${description}`);
             } catch (error) {
-              const hitRateLimit = error?.status === 403 && /rate limit/i.test(error?.message || '');
+              const hitRateLimit =
+                error?.status === 403 &&
+                /rate limit/i.test(error?.message || '');
               if (hitRateLimit) {
                 core.warning('Rate limit prevented Gate from updating the commit status.');
               } else {

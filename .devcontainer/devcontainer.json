@@ -1,7 +1,7 @@
 {
   "name": "workflows-env",
   "image": "mcr.microsoft.com/devcontainers/python:3.11",
-  "onCreateCommand": "sudo apt-get update && sudo apt-get install -y python3-venv",
+  "onCreateCommand": "sudo apt-get update && sudo apt-get install -y python3-venv curl tar && sudo mkdir -p /usr/local/bin && curl -sSL 'https://github.com/rhysd/actionlint/releases/download/v1.7.3/actionlint_1.7.3_linux_amd64.tar.gz' | sudo tar -xz -C /usr/local/bin actionlint && sudo chmod +x /usr/local/bin/actionlint",
   "postCreateCommand": "pip install -e '.[dev]' && pre-commit install --install-hooks --hook-type pre-commit --hook-type pre-push",
   "postStartCommand": "pre-commit install --install-hooks --hook-type pre-commit --hook-type pre-push",
   "features": {

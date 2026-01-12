@@ -195,6 +195,20 @@ BLOAT_LABELS = {
     "ai:agent",  # Unused
     "auto-merge-audit",  # Unused
     "automerge:ok",  # Unused variant
+    # Size labels - unused bloat
+    "size:XS",
+    "size:S",
+    "size:M",
+    "size:L",
+    # Stage labels - unused bloat
+    "stage:0",
+    "stage:1",
+    "stage:2",
+    "stage:3",
+    "stage:4",
+    # Duplicate/variant labels to consolidate
+    "agent:auto-pilot",  # Use agents:auto-pilot (with 's') instead
+    "good first task",  # Use "good first issue" (GitHub standard) instead
 }
 
 # Consumer repos to audit

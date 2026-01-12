@@ -1,6 +1,13 @@
 # Workflow Documentation
 
-Individual documentation files for each extracted workflow.
+Workflow-system notes and documentation.
+
+This folder currently contains higher-level workflow system documents rather than one file per reusable workflow.
+
+## Documents
+
+- [SystemEvaluation.md](SystemEvaluation.md)
+- [WorkflowSystemBugReport.md](WorkflowSystemBugReport.md)
 
 ## Structure
 
@@ -41,7 +48,7 @@ File names should match the workflow file names (without the `.yml` extension):
 
 ## Status
 
-Currently empty - workflow documentation will be added as workflows are extracted.
+As individual workflow docs are added, they should follow the naming convention described below.
 
 ## See Also
 

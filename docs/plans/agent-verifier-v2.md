@@ -1,5 +1,9 @@
 # Agent Verifier v2 - LLM-Powered Evaluation
 
+> **Status:** Design note (historical)
+> **Last reviewed:** 2026-01-11
+> **Canonical references:** `docs/ci/WORKFLOW_SYSTEM.md` and the verifier workflow(s) under `.github/workflows/`
+
 ## Overview
 
 Redesign the Agent Verifier workflow to provide more meaningful post-merge evaluation with:

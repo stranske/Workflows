@@ -75,7 +75,9 @@ jobs:
             const guardRelativePath = '.github/scripts/agents-guard.js';
             const guardPath = path.resolve(workspace, guardRelativePath);
             const prNumber = context.payload.pull_request.number;
-            const authorLogin = context.payload.pull_request.user && context.payload.pull_request.user.login;
+              const authorLogin =
+                context.payload.pull_request.user &&
+                context.payload.pull_request.user.login;
             const { owner, repo } = context.repo;
             const baseRef = context.payload.pull_request.base.sha;
             const labelName = 'agents:allow-change';
@@ -83,27 +85,37 @@ jobs:
               '.github/workflows/agents-*.yml',
             ];
             const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-            async function withApiRetry(fn, { label = 'operation', maxAttempts = 5, baseDelay = 1000 } = {}) {
+              async function withApiRetry(
+                fn,
+                { label = 'operation', maxAttempts = 5, baseDelay = 1000 } = {},
+              ) {
               for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
                 try {
                   return await fn();
                 } catch (error) {
                   const status = error?.status || error?.response?.status;
                   const headers = error?.response?.headers || {};
-                  const remainingRaw = headers['x-ratelimit-remaining'] ?? headers['X-RateLimit-Remaining'];
-                  const resetRaw = headers['x-ratelimit-reset'] ?? headers['X-RateLimit-Reset'];
+                    const remainingRaw =
+                      headers['x-ratelimit-remaining'] ?? headers['X-RateLimit-Remaining'];
+                    const resetRaw =
+                      headers['x-ratelimit-reset'] ?? headers['X-RateLimit-Reset'];
                   const remaining = Number(remainingRaw);
                   const reset = Number(resetRaw);
                   const hasRemainingValue = Number.isFinite(remaining);
                   const hasResetValue = Number.isFinite(reset);
                   const isRateLimit = status === 403 && hasRemainingValue && remaining <= 0;
-                  const retryable = isRateLimit || status === 429 || !status || (status >= 500 && status < 600);
+                    const retryable =
+                      isRateLimit ||
+                      status === 429 ||
+                      !status ||
+                      (status >= 500 && status < 600);
                   if (!retryable || attempt === maxAttempts) {
                     core.error(`Failed ${label}: ${error.message}`);
                     throw error;
                   }
                   let delay = baseDelay * attempt;
-                  const retryAfterRaw = headers['retry-after'] ?? headers['Retry-After'];
+                  const retryAfterRaw =
+                    headers['retry-after'] ?? headers['Retry-After'];
                   const retryAfterSeconds = Number(retryAfterRaw);
                   if (Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0) {
                     delay = Math.max(delay, retryAfterSeconds * 1000);
@@ -118,7 +130,10 @@ jobs:
                   const humanDelay = delay >= 60000
                     ? `${(delay / 60000).toFixed(2)}m`
                     : `${Math.round(delay)}ms`;
-                  core.warning(`Retrying ${label} after ${humanDelay} (attempt ${attempt + 1}/${maxAttempts}).`);
+                  core.warning(
+                    `Retrying ${label} after ${humanDelay} ` +
+                      `(attempt ${attempt + 1}/${maxAttempts}).`
+                  );
                   await sleep(delay);
                 }
               }
@@ -135,7 +150,9 @@ jobs:
                 return true;
               }
               if (status === 403) {
-                const message = String(error.message || error?.response?.data?.message || '').toLowerCase();
+                const message = String(
+                  error.message || error?.response?.data?.message || ''
+                ).toLowerCase();
                 return message.includes('rate limit');
               }
               return false;
@@ -152,7 +169,9 @@ jobs:
                 return require(guardPath);
               }
 
-              core.info(`Guard script missing locally; fetching ${guardRelativePath} at ${baseRef}`);
+                core.info(
+                  `Guard script missing locally; fetching ${guardRelativePath} at ${baseRef}`,
+                );
               try {
                 const response = await withApiRetry(
                   () => github.rest.repos.getContent({
@@ -176,7 +195,10 @@ jobs:
                 return require(guardPath);
               } catch (error) {
                 if (isRateLimitError(error)) {
-                  warnRateLimit('loading the guard script from the default branch', 'using the checkout copy instead');
+                    warnRateLimit(
+                      'loading the guard script from the default branch',
+                      'using the checkout copy instead',
+                    );
                   if (fs.existsSync(guardPath)) {
                     return require(guardPath);
                   }
@@ -204,26 +226,38 @@ jobs:
               }
             }
 
-            const files = await safePaginate('listing pull request files', github.rest.pulls.listFiles, {
-              owner,
-              repo,
-              pull_number: prNumber,
-              per_page: 100,
-            });
+              const files = await safePaginate(
+                'listing pull request files',
+                github.rest.pulls.listFiles,
+                {
+                  owner,
+                  repo,
+                  pull_number: prNumber,
+                  per_page: 100,
+                },
+              );
 
-            const labels = await safePaginate('enumerating labels on the pull request', github.rest.issues.listLabelsOnIssue, {
-              owner,
-              repo,
-              issue_number: prNumber,
-              per_page: 100,
-            });
+              const labels = await safePaginate(
+                'enumerating labels on the pull request',
+                github.rest.issues.listLabelsOnIssue,
+                {
+                  owner,
+                  repo,
+                  issue_number: prNumber,
+                  per_page: 100,
+                },
+              );
 
-            const reviews = await safePaginate('enumerating reviews', github.rest.pulls.listReviews, {
-              owner,
-              repo,
-              pull_number: prNumber,
-              per_page: 100,
-            });
+              const reviews = await safePaginate(
+                'enumerating reviews',
+                github.rest.pulls.listReviews,
+                {
+                  owner,
+                  repo,
+                  pull_number: prNumber,
+                  per_page: 100,
+                },
+              );
 
             let codeownersContent = '';
             try {
@@ -265,14 +299,19 @@ jobs:
             let summary = result.summary;
             if (rateLimitNotes.length) {
               const noteBlock = `\n\nRate limit notices:\n${rateLimitNotes.join('\n')}`;
-              summary = summary ? `${summary}${noteBlock}` : `Rate limit notices:\n${rateLimitNotes.join('\n')}`;
+                if (summary) {
+                  summary = `${summary}${noteBlock}`;
+                } else {
+                  summary = `Rate limit notices:\n${rateLimitNotes.join('\n')}`;
+                }
             }
 
             core.setOutput('summary', summary);
             core.setOutput('marker', marker);
 
             if (result.commentBody) {
-              core.setOutput('comment_body_b64', Buffer.from(result.commentBody).toString('base64'));
+                const commentBodyB64 = Buffer.from(result.commentBody).toString('base64');
+                core.setOutput('comment_body_b64', commentBodyB64);
             }
 
             for (const warning of result.warnings || []) {
@@ -294,7 +333,11 @@ jobs:
             let defaultMarker = '<!-- agents-guard-marker -->';
             try {
               const loaded = require(guardPath);
-              if (loaded && typeof loaded.DEFAULT_MARKER === 'string' && loaded.DEFAULT_MARKER.trim()) {
+                if (
+                  loaded &&
+                  typeof loaded.DEFAULT_MARKER === 'string' &&
+                  loaded.DEFAULT_MARKER.trim()
+                ) {
                 defaultMarker = loaded.DEFAULT_MARKER.trim();
               }
             } catch (error) {
@@ -302,25 +345,36 @@ jobs:
             }
 
             const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-            async function withApiRetry(fn, { label = 'operation', maxAttempts = 5, baseDelay = 1000 } = {}) {
+              async function withApiRetry(
+                fn,
+                { label = 'operation', maxAttempts = 5, baseDelay = 1000 } = {},
+              ) {
               for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
                 try {
                   return await fn();
                 } catch (error) {
                   const status = error?.status || error?.response?.status;
                   const headers = error?.response?.headers || {};
-                  const remainingRaw = headers['x-ratelimit-remaining'] ?? headers['X-RateLimit-Remaining'];
-                  const resetRaw = headers['x-ratelimit-reset'] ?? headers['X-RateLimit-Reset'];
+                    const remainingRaw =
+                      headers['x-ratelimit-remaining'] ?? headers['X-RateLimit-Remaining'];
+                    const resetRaw =
+                      headers['x-ratelimit-reset'] ?? headers['X-RateLimit-Reset'];
                   const remaining = Number(remainingRaw);
                   const reset = Number(resetRaw);
-                  const isRateLimit = status === 403 && Number.isFinite(remaining) && remaining <= 0;
-                  const retryable = isRateLimit || status === 429 || !status || (status >= 500 && status < 600);
+                    const isRateLimit =
+                      status === 403 && Number.isFinite(remaining) && remaining <= 0;
+                    const retryable =
+                      isRateLimit ||
+                      status === 429 ||
+                      !status ||
+                      (status >= 500 && status < 600);
                   if (!retryable || attempt === maxAttempts) {
                     core.error(`Failed ${label}: ${error.message}`);
                     throw error;
                   }
                   let delay = baseDelay * attempt;
-                  const retryAfterRaw = headers['retry-after'] ?? headers['Retry-After'];
+                  const retryAfterRaw =
+                    headers['retry-after'] ?? headers['Retry-After'];
                   const retryAfterSeconds = Number(retryAfterRaw);
                   if (Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0) {
                     delay = Math.max(delay, retryAfterSeconds * 1000);
@@ -335,7 +389,10 @@ jobs:
                   const humanDelay = delay >= 60000
                     ? `${(delay / 60000).toFixed(2)}m`
                     : `${Math.round(delay)}ms`;
-                  core.warning(`Retrying ${label} after ${humanDelay} (attempt ${attempt + 1}/${maxAttempts}).`);
+                  core.warning(
+                    `Retrying ${label} after ${humanDelay} ` +
+                      `(attempt ${attempt + 1}/${maxAttempts}).`
+                  );
                   await sleep(delay);
                 }
               }
@@ -346,7 +403,10 @@ jobs:
             if (!marker) {
               core.warning('Resolved guard marker is empty; comment updates may duplicate.');
             }
-            const body = Buffer.from(process.env.COMMENT_BODY_B64 || '', 'base64').toString('utf-8');
+            const body = Buffer.from(
+              process.env.COMMENT_BODY_B64 || '',
+              'base64'
+            ).toString('utf-8');
             if (!body) {
               core.warning('No comment body was provided.');
               return;
@@ -403,7 +463,8 @@ jobs:
         env:
           BLOCKED: ${{ steps.evaluate.outputs.blocked || 'false' }}
           SUMMARY: ${{ steps.evaluate.outputs.summary }}
-          TARGET_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          TARGET_URL: >-
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         with:
           script: |
             const owner = context.repo.owner;
@@ -427,22 +488,34 @@ jobs:
               description = `${description.slice(0, 137)}...`;
             }
 
-            const targetUrl = process.env.TARGET_URL || `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+            const targetUrl =
+              process.env.TARGET_URL ||
+              `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
 
             const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-            async function withApiRetry(fn, { label = 'operation', maxAttempts = 5, baseDelay = 1000 } = {}) {
+              async function withApiRetry(
+                fn,
+                { label = 'operation', maxAttempts = 5, baseDelay = 1000 } = {},
+              ) {
               for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
                 try {
                   return await fn();
                 } catch (error) {
                   const status = error?.status || error?.response?.status;
                   const headers = error?.response?.headers || {};
-                  const remainingRaw = headers['x-ratelimit-remaining'] ?? headers['X-RateLimit-Remaining'];
-                  const resetRaw = headers['x-ratelimit-reset'] ?? headers['X-RateLimit-Reset'];
+                    const remainingRaw =
+                      headers['x-ratelimit-remaining'] ?? headers['X-RateLimit-Remaining'];
+                    const resetRaw =
+                      headers['x-ratelimit-reset'] ?? headers['X-RateLimit-Reset'];
                   const remaining = Number(remainingRaw);
                   const reset = Number(resetRaw);
-                  const isRateLimit = status === 403 && Number.isFinite(remaining) && remaining <= 0;
-                  const retryable = isRateLimit || status === 429 || !status || (status >= 500 && status < 600);
+                    const isRateLimit =
+                      status === 403 && Number.isFinite(remaining) && remaining <= 0;
+                    const retryable =
+                      isRateLimit ||
+                      status === 429 ||
+                      !status ||
+                      (status >= 500 && status < 600);
                   if (!retryable || attempt === maxAttempts) {
                     core.error(`Failed ${label}: ${error.message}`);
                     throw error;
@@ -463,12 +536,18 @@ jobs:
                   const humanDelay = delay >= 60000
                     ? `${(delay / 60000).toFixed(2)}m`
                     : `${Math.round(delay)}ms`;
-                  core.warning(`Retrying ${label} after ${humanDelay} (attempt ${attempt + 1}/${maxAttempts}).`);
+                  core.warning(
+                    `Retrying ${label} after ${humanDelay} ` +
+                      `(attempt ${attempt + 1}/${maxAttempts}).`
+                  );
                   await sleep(delay);
                 }
               }
               throw new Error(`Failed ${label} after ${maxAttempts} attempts.`);
             }
+
+            const statusContext =
+              'Health 45 Agents Guard / Enforce agents workflow protections';
 
             try {
               await withApiRetry(
@@ -477,7 +556,7 @@ jobs:
                   repo,
                   sha,
                   state,
-                  context: 'Health 45 Agents Guard / Enforce agents workflow protections',
+                  context: statusContext,
                   description,
                   target_url: targetUrl,
                 }),
@@ -485,7 +564,9 @@ jobs:
               );
               core.info(`Updated Health 45 Agents Guard commit status to ${state}.`);
             } catch (error) {
-              core.warning(`Failed to update Health 45 Agents Guard commit status: ${error.message}`);
+                core.warning(
+                  `Failed to update Health 45 Agents Guard commit status: ${error.message}`,
+                );
             }
 
       - name: Fail when guard blocks the pull request

@@ -2,6 +2,14 @@
 
 Complete, runnable examples demonstrating how to use the workflows in different scenarios.
 
+This directory is currently a placeholder; until runnable examples land here, use the templates and checklists to bootstrap.
+
+## Start Here
+
+- [../templates/SETUP_CHECKLIST.md](../templates/SETUP_CHECKLIST.md)
+- [../USAGE.md](../USAGE.md)
+- [../INTEGRATION_GUIDE.md](../INTEGRATION_GUIDE.md)
+
 ## Structure
 
 Examples organized by project type and use case:
@@ -127,7 +135,7 @@ How to modify this example for different needs...
 
 ## Status
 
-Currently empty - examples will be added as workflows are extracted and validated.
+Currently empty - examples will be added as common setups are validated.
 
 ## Planned Examples
 

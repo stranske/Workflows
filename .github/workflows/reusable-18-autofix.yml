@@ -1113,10 +1113,12 @@ jobs:
         uses: actions/checkout@v6
         with:
           repository: stranske/Workflows
+          ref: main
           sparse-checkout: |
             .github/actions/build-pr-comment
             scripts/build_autofix_pr_comment.py
           path: workflows-lib
+          fetch-depth: 1
 
       - name: Build consolidated PR comment
         if: steps.guard.outputs.skip != 'true'

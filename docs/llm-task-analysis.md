@@ -17,13 +17,13 @@ The system uses a **fallback chain** of LLM providers:
 ```
 ┌─────────────────────┐
 │   GitHub Models     │  ← Primary (uses GITHUB_TOKEN)
-│   (gpt-4o-mini)     │
+│     (gpt-4o)        │
 └─────────┬───────────┘
           │ on failure
           ▼
 ┌─────────────────────┐
 │      OpenAI         │  ← Secondary (uses OPENAI_API_KEY)
-│   (gpt-4o-mini)     │
+│     (gpt-4o)        │
 └─────────┬───────────┘
           │ on failure
           ▼
@@ -75,14 +75,14 @@ outputs:
 The keepalive loop script (`keepalive_loop.js`) displays analysis results in PR comments:
 
 ```markdown
-## 🧠 Task Analysis
+### 🧠 Task Analysis
 
 | Metric | Value |
 |--------|-------|
-| Provider | `github-models` |
-| Confidence | `high` |
-| Events | 42 |
-| Todos | 5 |
+| Provider | ✅ GitHub Models (primary) |
+| Confidence | 87% |
+| Data Quality | 🟢 high |
+| Effort Score | 62/100 |
 ```
 
 ## Configuration
@@ -111,9 +111,9 @@ permissions:
 Consumer workflows can specify which Workflows branch to use:
 
 ```yaml
-uses: stranske/Workflows/.github/workflows/reusable-codex-run.yml@main
+uses: stranske/Workflows/.github/workflows/reusable-codex-run.yml@v1
 with:
-  workflows_ref: 'main'  # Or a specific branch/tag
+  workflows_ref: 'v1'  # Or 'main' when intentionally testing unreleased changes
 ```
 
 ## Usage
@@ -143,14 +143,14 @@ python scripts/analyze_codex_session.py \
 
 ### GitHub Models (Primary)
 
-- **Model**: `gpt-4o-mini`
+- **Model**: `gpt-4o`
 - **Endpoint**: `https://models.inference.ai.azure.com`
 - **Auth**: `GITHUB_TOKEN` with `models: read` permission
 - **Fallback trigger**: 401/403 errors, network failures
 
 ### OpenAI (Secondary)
 
-- **Model**: `gpt-4o-mini`
+- **Model**: `gpt-4o`
 - **Auth**: `OPENAI_API_KEY` environment variable
 - **Fallback trigger**: API errors, missing key
 

@@ -102,10 +102,8 @@ Create the app.
 - From the app page: “Install App”
 - Install to the repos you want automated:
   - Workflows
-  - Workflows-Integration-Tests
-  - Travel-Plan-Permission
-  - Portable-Alpha-Extension-Model
-  - Trend_Model_Project
+  - Workflows-Integration-Tests (optional)
+  - Your consumer repos (any repos where agents / autofix / sync should run)
 
 ### Store the App credentials as GitHub secrets (no CLI required)
 In Workflows repo:

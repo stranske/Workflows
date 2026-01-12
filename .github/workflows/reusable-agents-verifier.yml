@@ -294,7 +294,7 @@ jobs:
       # === LLM Evaluation Mode (when mode=evaluate) ===
       - name: Setup Python for LLM evaluation
         if: steps.context.outputs.should_run == 'true' && inputs.mode == 'evaluate'
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.12'
 
@@ -405,7 +405,7 @@ jobs:
       # === Multi-Provider Comparison Mode (when mode=compare) ===
       - name: Setup Python for comparison
         if: steps.context.outputs.should_run == 'true' && inputs.mode == 'compare'
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.12'
 

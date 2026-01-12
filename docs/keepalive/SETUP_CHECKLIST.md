@@ -114,6 +114,29 @@ Navigate to **Settings** → **Secrets and variables** → **Actions** → **Var
 |--------------|---------|---------------|
 | `PRIMARY_PYTHON` | Default Python version | `3.13` |
 | `COVERAGE_THRESHOLD` | Minimum coverage % | `80` |
+| `WORKFLOW_TIMEOUT_DEFAULT` | Default keepalive timeout (minutes) | `45` |
+| `WORKFLOW_TIMEOUT_EXTENDED` | Extended keepalive timeout (minutes) | `90` |
+| `WORKFLOW_TIMEOUT_WARNING_RATIO` | Timeout warning threshold (0-1) | `0.8` |
+| `WORKFLOW_TIMEOUT_WARNING_MINUTES` | Timeout warning minimum minutes remaining | `5` |
+
+#### Keepalive Timeout Configuration
+
+- `WORKFLOW_TIMEOUT_DEFAULT` controls the base timeout used by keepalive runs.
+- `WORKFLOW_TIMEOUT_EXTENDED` applies when a PR has the `timeout:extended` label.
+- `WORKFLOW_TIMEOUT_WARNING_RATIO` triggers a warning when the elapsed ratio is met.
+- `WORKFLOW_TIMEOUT_WARNING_MINUTES` triggers a warning when remaining minutes are low.
+- Manual runs can override values with workflow inputs:
+  - `timeout_minutes` to set the full timeout for the run.
+  - `timeout_warning_ratio` to change the usage warning threshold.
+  - `timeout_warning_minutes` to change the remaining-minutes warning threshold.
+
+Example override payload:
+
+```yaml
+timeout_minutes: 75
+timeout_warning_ratio: 0.8
+timeout_warning_minutes: 10
+```
 
 ---
 
@@ -258,17 +281,12 @@ on:
 jobs:
   python-ci:
     if: github.event_name == 'pull_request'
-    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
+    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@v1
     with:
-      python_versions: '["3.11", "3.12", "3.13"]'
-      primary_version: "3.13"
-      min_coverage: 80
-      fail_under_coverage: true
-      ruff_check: true
-      mypy_check: true
-      strict_mypy: true
-    secrets:
-      token: ${{ secrets.SERVICE_BOT_PAT }}
+      python-versions: '["3.11", "3.12", "3.13"]'
+      primary-python-version: "3.13"
+      coverage-min: "80"
+    secrets: inherit
 
   gate-summary:
     needs: [python-ci]
@@ -293,17 +311,16 @@ name: CI
 on:
   push:
     branches: [main]
-  workflow_dispatch:
+  pull_request:
 
 jobs:
   ci:
-    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
+    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@v1
     with:
-      python_versions: '["3.11", "3.12", "3.13"]'
-      primary_version: "3.13"
-      min_coverage: 80
-    secrets:
-      token: ${{ secrets.SERVICE_BOT_PAT }}
+      python-versions: '["3.11", "3.12", "3.13"]'
+      primary-python-version: "3.13"
+      coverage-min: "80"
+    secrets: inherit
 ```
 
 #### C. Agent Workflows (if using keepalive)
