@@ -293,7 +293,7 @@ async function evaluateKeepaliveWorkerGate({ core, github, context, env = proces
   const lastProcessed = extractLastProcessedState(stateInfo?.state);
 
   let action = 'execute';
-  let reason = 'missing-history';
+  let reason;
 
   if (!latestInstruction) {
     reason = 'missing-instruction';

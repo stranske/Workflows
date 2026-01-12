@@ -378,7 +378,7 @@ async function fetchConnectorCheckboxStates(github, owner, repo, prNumber, core)
     // Later comments override earlier ones (most recent state wins)
     for (const comment of connectorComments) {
       const commentStates = parseCheckboxStates(comment.body);
-      for (const [key, value] of commentStates) {
+      for (const [key] of commentStates) {
         states.set(key, true);
       }
     }
@@ -866,18 +866,18 @@ async function run({github, context, core, inputs}) {
     return;
   }
 
-    const prInfo = await discoverPr({github, context, core, inputs});
-    if (!prInfo) {
-      core.info('No pull request context detected; skipping update.');
-      return;
-    }
+  const prInfo = await discoverPr({github, context, core, inputs});
+  if (!prInfo) {
+    core.info('No pull request context detected; skipping update.');
+    return;
+  }
 
-    const prResponse = await withRetries(
-      () => github.rest.pulls.get({owner, repo, pull_number: prInfo.number}),
-      {description: `pulls.get #${prInfo.number}`, core},
-    );
-    const pr = prResponse.data;
-  
+  const prResponse = await withRetries(
+    () => github.rest.pulls.get({owner, repo, pull_number: prInfo.number}),
+    {description: `pulls.get #${prInfo.number}`, core},
+  );
+  const pr = prResponse.data;
+
   if (pr.state === 'closed') {
     core.info(`Pull request #${pr.number} is closed; skipping update.`);
     return;
