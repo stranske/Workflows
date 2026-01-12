@@ -131,3 +131,36 @@ def test_main_counts_invalid_records(tmp_path: Path) -> None:
     assert result == 1
     contents = output_ndjson.read_text(encoding="utf-8").splitlines()
     assert len(contents) == 1
+
+
+def test_main_uses_env_for_repos_and_dir(tmp_path: Path, monkeypatch) -> None:
+    metrics_dir = tmp_path / "metrics"
+    _write_log(
+        metrics_dir / "stranske-workflows" / "keepalive-metrics.ndjson",
+        [
+            (
+                '{"pr_number":3,"iteration":1,"timestamp":"2025-01-03T00:00:00Z",'
+                '"action":"run","error_category":"none","duration_ms":15,'
+                '"tasks_total":3,"tasks_complete":2}'
+            )
+        ],
+    )
+
+    output_ndjson = tmp_path / "out" / "combined.ndjson"
+    output_dashboard = tmp_path / "out" / "dashboard.md"
+
+    monkeypatch.setenv("KEEPALIVE_METRICS_DIR", str(metrics_dir))
+    monkeypatch.setenv("KEEPALIVE_METRICS_REPOS", "stranske/workflows")
+
+    result = report.main(
+        [
+            "--output-ndjson",
+            str(output_ndjson),
+            "--output-dashboard",
+            str(output_dashboard),
+        ]
+    )
+
+    assert result == 0
+    assert output_ndjson.exists()
+    assert output_dashboard.exists()

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -16,6 +17,8 @@ DEFAULT_METRICS_DIR = "keepalive-metrics"
 DEFAULT_FILENAME = "keepalive-metrics.ndjson"
 DEFAULT_OUTPUT_NDJSON = "keepalive-metrics.ndjson"
 DEFAULT_OUTPUT_DASHBOARD = "keepalive-metrics-dashboard.md"
+ENV_METRICS_DIR = "KEEPALIVE_METRICS_DIR"
+ENV_REPOS = "KEEPALIVE_METRICS_REPOS"
 
 
 def _parse_repo_list(raw: str | None) -> list[str]:
@@ -148,8 +151,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--metrics-dir",
-        default=DEFAULT_METRICS_DIR,
-        help="Directory containing downloaded metrics logs",
+        default=None,
+        help=(
+            "Directory containing downloaded metrics logs "
+            f"(default: {DEFAULT_METRICS_DIR} or ${ENV_METRICS_DIR})"
+        ),
     )
     parser.add_argument(
         "--metrics-path",
@@ -164,7 +170,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--repos",
-        help="Comma-separated or JSON list of expected repos (enforced if provided)",
+        help=(
+            "Comma-separated or JSON list of expected repos (enforced if provided; "
+            f"default: ${ENV_REPOS})"
+        ),
     )
     parser.add_argument(
         "--output-ndjson",
@@ -183,8 +192,10 @@ def main(argv: list[str]) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
 
-    repos = _parse_repo_list(args.repos)
-    metrics_dir = Path(args.metrics_dir)
+    raw_repos = args.repos or os.getenv(ENV_REPOS)
+    repos = _parse_repo_list(raw_repos)
+    metrics_dir_raw = args.metrics_dir or os.getenv(ENV_METRICS_DIR) or DEFAULT_METRICS_DIR
+    metrics_dir = Path(metrics_dir_raw)
     files = _resolve_metrics_files(args.metrics_path, metrics_dir, args.filename)
     if not files:
         print("keepalive_metrics_report: no metrics files found", file=sys.stderr)
