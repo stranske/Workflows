@@ -472,8 +472,8 @@ def _get_llm_client(reasoning: bool = False) -> tuple[Any, str] | None:
         return None
 
     # GitHub Models constants (inline to avoid import dependency)
-    GITHUB_MODELS_BASE_URL = "https://models.inference.ai.azure.com"
-    GITHUB_DEFAULT_MODEL = "gpt-4o"
+    github_models_base_url = "https://models.inference.ai.azure.com"
+    github_default_model = "gpt-4o"
 
     # Select model based on task type
     # Reasoning models (o3-mini) are better for deep analysis and understanding
@@ -496,16 +496,16 @@ def _get_llm_client(reasoning: bool = False) -> tuple[Any, str] | None:
 
     # Fall back to GitHub Models
     if os.environ.get("GITHUB_TOKEN"):
-        print(f"Using GitHub Models with model: {GITHUB_DEFAULT_MODEL}", file=sys.stderr)
+        print(f"Using GitHub Models with model: {github_default_model}", file=sys.stderr)
         return (
             ChatOpenAI(
-                model=GITHUB_DEFAULT_MODEL,
-                base_url=GITHUB_MODELS_BASE_URL,
+                model=github_default_model,
+                base_url=github_models_base_url,
                 api_key=os.environ["GITHUB_TOKEN"],
                 temperature=0.3,
                 timeout=30,
             ),
-            GITHUB_DEFAULT_MODEL,
+            github_default_model,
         )
 
     print("Warning: No LLM API keys found (OPENAI_API_KEY or GITHUB_TOKEN)", file=sys.stderr)
