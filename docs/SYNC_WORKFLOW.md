@@ -5,6 +5,29 @@ Prevent propagating bugs to consumer repos by validating changes in the source (
 
 ## Before Any Sync
 
+### 0. Verify Template Sync (CRITICAL)
+
+**If you modified `.github/scripts/`, ensure templates are synced:**
+
+```bash
+# Check for out-of-sync templates
+python scripts/validate_template_sync.py
+
+# If validation fails:
+./scripts/sync_templates.sh
+
+# Verify fixed:
+python scripts/validate_template_sync.py
+
+# Commit template changes:
+git add templates/consumer-repo/.github/scripts/
+git commit -m "sync: update templates with latest script changes"
+```
+
+**Why?** Consumer repos sync from `templates/consumer-repo/`. If source scripts are changed but templates aren't updated, no sync PRs will be created.
+
+The CI workflow `validate-template-sync.yml` enforces this, but check manually before triggering sync.
+
 ### 1. Validate in Workflows Repo
 ```bash
 # In /workspaces/Workflows

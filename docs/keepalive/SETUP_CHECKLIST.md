@@ -310,6 +310,43 @@ Copy from:
 
 ---
 
+
+---
+
+## 📌 Important: Template Sync Process
+
+Before configuring workflows, understand how this consumer repo receives updates:
+
+### How Workflow Updates Work
+
+1. **Source**: Workflow scripts live in `stranske/Workflows/templates/consumer-repo/`
+2. **Sync**: The Workflows repo has a sync process that creates PRs to update consumer repos
+3. **Trigger**: Sync happens when template files change or on manual trigger
+
+### Template Sync Validation (For Workflows Repo Contributors)
+
+If you're contributing to the Workflows repo and modifying `.github/scripts/`:
+
+```bash
+# After editing workflow scripts
+./scripts/sync_templates.sh
+
+# Verify templates are in sync
+python scripts/validate_template_sync.py
+```
+
+**Why this matters**: Consumer repos only get updates when template files change. If you modify `.github/scripts/` but forget to update `templates/consumer-repo/.github/scripts/`, no sync PRs are created.
+
+The CI enforces this with `.github/workflows/validate-template-sync.yml`.
+
+### As a Consumer Repo User
+
+- Watch for sync PRs from the Workflows repo
+- Review and merge them to get the latest workflow improvements
+- Don't manually edit workflow files in `.github/workflows/` or `.github/scripts/` - changes will be overwritten on next sync
+
+---
+
 ## Workflow Configuration
 
 ### Step 12: Configure Workflow Files
