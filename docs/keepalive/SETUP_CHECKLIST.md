@@ -337,7 +337,7 @@ python scripts/validate_template_sync.py
 
 **Why this matters**: Consumer repos only get updates when template files change. If you modify `.github/scripts/` but forget to update `templates/consumer-repo/.github/scripts/`, no sync PRs are created.
 
-The CI enforces this with `.github/workflows/validate-template-sync.yml`.
+The CI enforces this with `.github/workflows/health-72-template-sync.yml`.
 
 ### As a Consumer Repo User
 

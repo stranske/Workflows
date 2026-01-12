@@ -26,7 +26,7 @@ git commit -m "sync: update templates with latest script changes"
 
 **Why?** Consumer repos sync from `templates/consumer-repo/`. If source scripts are changed but templates aren't updated, no sync PRs will be created.
 
-The CI workflow `validate-template-sync.yml` enforces this, but check manually before triggering sync.
+The CI workflow `health-72-template-sync.yml` enforces this, but check manually before triggering sync.
 
 ### 1. Validate in Workflows Repo
 ```bash
