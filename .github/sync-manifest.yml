@@ -175,6 +175,22 @@ scripts:
   - source: .github/scripts/fallback_split.py
     description: "Fallback topic splitting when parsing fails"
 
+  # JavaScript scripts for CI/Gate operations
+  - source: .github/scripts/detect-changes.js
+    description: "Detects changed files for CI path-based filtering"
+
+  - source: .github/scripts/coverage-normalize.js
+    description: "Normalizes coverage data across different report formats"
+
+  - source: .github/scripts/maint-post-ci.js
+    description: "Post-CI maintenance tasks and cleanup"
+
+  - source: .github/scripts/gate-docs-only.js
+    description: "Gate check for docs-only changes to skip full CI"
+
+  - source: .github/scripts/checkout_source.js
+    description: "Source checkout utilities for CI workflows"
+
   # JavaScript scripts for issue/PR handling
   - source: .github/scripts/issue_pr_locator.js
     description: "Locates PRs associated with issues"
