@@ -42,7 +42,7 @@ jobs:
 
       - name: Checkout repository
         if: steps.check-merged.outputs.merged == 'true'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: stranske/Workflows
           token: ${{ secrets.CODESPACES_WORKFLOWS || github.token }}
