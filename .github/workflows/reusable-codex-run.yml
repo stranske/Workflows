@@ -227,6 +227,7 @@ jobs:
           path: .workflows-lib
           token: ${{ steps.auth_token.outputs.checkout_token }}
 
+
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
@@ -460,6 +461,51 @@ jobs:
             git status --short
           else
             echo "Workspace is clean for Codex."
+          fi
+
+
+      # Surface merge conflicts before Codex runs
+      # When action='conflict', we need to attempt the merge BEFORE invoking Codex
+      # so that conflicts are visible in the workspace. Otherwise Codex checks
+      # git status, sees no conflicts (because merge hasn't been attempted yet),
+      # and exits early despite prompt instructions to run the merge.
+      # IMPORTANT: This runs AFTER dependency installation to avoid breaking
+      # pip install if requirements files contain conflict markers.
+      - name: Surface merge conflicts
+        if: inputs.prompt_file == '.github/codex/prompts/fix_merge_conflicts.md'
+        env:
+          WORKFLOW_BASE_REF: ${{ github.event.pull_request.base.ref || '' }}
+        run: |
+          set -euo pipefail
+          
+          # Determine the base branch to merge from:
+          # 1. Use GITHUB_BASE_REF if set (PR workflows).
+          # 2. Use WORKFLOW_BASE_REF from the workflow_call context if provided.
+          # 3. Derive the default branch from origin/HEAD.
+          # 4. Fall back to 'main' for backward compatibility.
+          base_branch="${GITHUB_BASE_REF:-}"
+          if [ -z "$base_branch" ] && [ -n "${WORKFLOW_BASE_REF:-}" ]; then
+            base_branch="$WORKFLOW_BASE_REF"
+          fi
+          if [ -z "$base_branch" ]; then
+            base_branch="$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@' || true)"
+          fi
+          if [ -z "$base_branch" ]; then
+            echo "Warning: could not determine base branch automatically; defaulting to 'main'."
+            base_branch="main"
+          fi
+
+          echo "Using base branch '$base_branch' to surface merge conflicts."
+          git fetch origin "$base_branch"
+          
+          # Attempt merge but do not fail the job on expected conflicts
+          merge_exit=0
+          git merge --no-commit --no-ff "origin/$base_branch" || merge_exit=$?
+          if [ $merge_exit -ne 0 ]; then
+            echo "Merge conflicts detected (expected for conflict resolution)"
+            git status
+          else
+            echo "No merge conflicts - merge succeeded automatically"
           fi
 
       - name: Run Codex
