@@ -340,7 +340,6 @@ jobs:
 
           ISSUE_STATE="${{ steps.context.outputs.issue_state }}"
           HAS_FORMAT="${{ steps.context.outputs.has_format }}"
-          HAS_OPTIMIZE="${{ steps.context.outputs.has_optimize }}"
           HAS_OPTIMIZER_OUTPUT="${{ steps.context.outputs.has_optimizer_output }}"
           HAS_APPLY="${{ steps.context.outputs.has_apply }}"
           HAS_AGENT="${{ steps.context.outputs.has_agent }}"
@@ -424,8 +423,6 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           PYTHONPATH: ${{ github.workspace }}
         run: |
-          ISSUE_NUMBER="$ISSUE_NUMBER"
-          STEP_COUNT="$STEP_COUNT"
 
           # Post progress comment
           gh issue comment "${ISSUE_NUMBER}" --body \
@@ -475,8 +472,6 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           PYTHONPATH: ${{ github.workspace }}
         run: |
-          ISSUE_NUMBER="$ISSUE_NUMBER"
-          STEP_COUNT="$STEP_COUNT"
 
           # Post progress comment
           gh issue comment "${ISSUE_NUMBER}" --body \
@@ -600,8 +595,6 @@ jobs:
           STEP_COUNT: ${{ steps.cycles.outputs.count }}
           PYTHONPATH: ${{ github.workspace }}
         run: |
-          ISSUE_NUMBER="$ISSUE_NUMBER"
-          STEP_COUNT="$STEP_COUNT"
 
           # Post progress comment
           gh issue comment "${ISSUE_NUMBER}" --body \
