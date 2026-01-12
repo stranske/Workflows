@@ -7,7 +7,7 @@
 # POLICY: Any file intended for consumer repos MUST be listed here.
 # Files not listed will NOT be synced, even if they exist in templates/consumer-repo/.
 #
-# Last sync trigger: 2026-01-09T07:45:00Z - pr_body.md conflict fix (conflict_detector.js, fix_merge_conflicts.md)
+# Last sync trigger: 2026-01-12T03:15:00Z - force sync after lint fix (PR #824)
 #
 # Categories:
 #   workflows: Thin caller workflows that consumers run directly

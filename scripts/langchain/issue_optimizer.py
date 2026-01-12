@@ -801,7 +801,8 @@ def apply_suggestions(
                     # If GitHub Models hit token limit, retry with OpenAI API
                     if _is_token_limit_error(e) and provider == "github-models":
                         print(
-                            "GitHub Models token limit hit in apply_suggestions, retrying with OpenAI API...",
+                            "GitHub Models token limit hit in apply_suggestions, "
+                            "retrying with OpenAI API...",
                             file=sys.stderr,
                         )
                         openai_client_info = _get_llm_client(force_openai=True)

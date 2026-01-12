@@ -69,7 +69,8 @@ Your analysis should separate:
 Analyze what went wrong and what SPECIFICALLY needs to change. Focus on:
 
 1. **Which original acceptance criteria are actually still unmet?**
-   - Don't assume all criteria need rework. Only include criteria that the verification shows are genuinely incomplete.
+   - Don't assume all criteria need rework. Only include criteria that the
+     verification shows are genuinely incomplete.
    - Rewrite criteria that were unclear or unmeasurable as clear, testable statements.
 
 2. **What concrete code changes are needed?**
@@ -79,7 +80,8 @@ Analyze what went wrong and what SPECIFICALLY needs to change. Focus on:
 
 3. **Did previous iterations reveal blockers the next agent should avoid?**
    - Only include if there's specific, detailed information about what didn't work and why
-   - "Iteration 3 failed" is NOT useful. "Iteration 3 attempted X approach but failed because Y, so try Z instead" IS useful
+   - "Iteration 3 failed" is NOT useful. "Iteration 3 attempted X approach but
+     failed because Y, so try Z instead" IS useful
 
 Output JSON:
 {{
@@ -115,11 +117,13 @@ Convert the analysis into a final task list for the follow-up issue.
 - Sized appropriately: not too big ("fix everything") or too small ("add a comma")
 
 **Tasks MUST NOT be:**
-- Verification concerns restated as tasks (e.g., "The safety rules section is incomplete" is NOT a task)
+- Verification concerns restated as tasks (e.g., "The safety rules section
+  is incomplete" is NOT a task)
 - Original acceptance criteria restated as tasks
 - Vague actions like "improve", "ensure", "address concerns about"
 
-**Deferred items:** Anything requiring credentials, external APIs, manual testing, or human decisions
+**Deferred items:** Anything requiring credentials, external APIs, manual
+testing, or human decisions
 
 Output JSON:
 {{
@@ -217,11 +221,13 @@ Use this exact structure:
 ```
 
 ## Critical Rules
-1. Do NOT include "Remaining Unchecked Items" or "Iteration Details" sections unless they contain specific, useful failure context
+1. Do NOT include "Remaining Unchecked Items" or "Iteration Details" sections
+   unless they contain specific, useful failure context
 2. Tasks should be concrete actions, not verification concerns restated
 3. Acceptance criteria must be testable (not "all concerns addressed")
 4. Keep the main body focused - hide background/history in the collapsible section
-5. Do NOT include the entire analysis object - only include specific failure contexts from `blockers_to_avoid`
+5. Do NOT include the entire analysis object - only include specific failure
+   contexts from `blockers_to_avoid`
 
 Output the complete markdown issue body.
 """.strip()
@@ -548,7 +554,10 @@ def _prepare_iteration_details(codex_log: str) -> str:
                 useful_lines.append(context_block)
 
     if not useful_lines:
-        return "Previous iterations completed without recorded failures. No specific blockers to avoid."
+        return (
+            "Previous iterations completed without recorded failures. "
+            "No specific blockers to avoid."
+        )
 
     # Deduplicate and limit length
     unique_blocks = list(dict.fromkeys(useful_lines))[:5]  # Max 5 failure contexts
