@@ -111,7 +111,7 @@ jobs:
           # Sync scripts directory (if exists in templates)
           if [ -d "../workflows/templates/integration-repo/scripts" ]; then
             mkdir -p scripts
-            cp -r "../workflows/templates/integration-repo/scripts/"* scripts/
+            cp -r "../workflows/templates/integration-repo/scripts/." scripts/
             echo "✅ Synced scripts directory from templates"
           fi
 
