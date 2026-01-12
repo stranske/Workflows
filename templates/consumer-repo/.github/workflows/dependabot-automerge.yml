@@ -6,7 +6,6 @@ on:
       - opened
       - synchronize
       - reopened
-      - labeled
 
 permissions:
   contents: write
@@ -15,7 +14,11 @@ permissions:
 jobs:
   automerge:
     runs-on: ubuntu-latest
-    if: github.actor == 'dependabot[bot]'
+    # Security: pull_request_target requires extra validation
+    # Verify this is genuinely from dependabot before proceeding
+    if: |
+      github.actor == 'dependabot[bot]' &&
+      github.event.pull_request.user.login == 'dependabot[bot]'
     steps:
       - name: Get PR metadata
         id: metadata
@@ -33,6 +36,16 @@ jobs:
 
             console.log(`Waiting for checks on PR #${pr.number}`);
 
+            // These checks are excluded because they are internal/non-blocking
+            // and should not prevent Dependabot PRs from being auto-merged.
+            const EXCLUDED_CHECK_NAMES = [
+              'Detect keepalive',
+              'pr_meta',
+              'resolve_pr',
+              'Cleanup',
+              'Dependabot Auto-merge',
+            ];
+
             // Wait up to 10 minutes for checks to complete
             const maxWaitTime = 10 * 60 * 1000; // 10 minutes
             const startTime = Date.now();
@@ -46,15 +59,14 @@ jobs:
               });
 
               const allChecks = checkRuns.check_runs || [];
-              const requiredChecks = allChecks.filter(c =>
-                !c.name.includes('Detect keepalive') &&
-                !c.name.includes('pr_meta') &&
-                !c.name.includes('resolve_pr') &&
-                !c.name.includes('Cleanup') &&
-                !c.name.includes('Dependabot Auto-merge') &&
-                c.conclusion !== 'skipped' &&
-                c.conclusion !== 'neutral'
-              );
+              const requiredChecks = allChecks.filter(c => {
+                const isExcludedByName = EXCLUDED_CHECK_NAMES.some(
+                  name => c.name.includes(name)
+                );
+                const isNonBlockingConclusion =
+                  c.conclusion === 'skipped' || c.conclusion === 'neutral';
+                return !isExcludedByName && !isNonBlockingConclusion;
+              });
 
               const pendingChecks = requiredChecks.filter(c =>
                 c.status !== 'completed'
@@ -69,31 +81,54 @@ jobs:
                 `${failedChecks.length} failed`
               );
 
+              // Fail fast if any checks have failed
               if (failedChecks.length > 0) {
                 console.log('Some checks failed:');
-                failedChecks.forEach(c => console.log(`  - ${c.name}: ${c.conclusion}`));
-                core.setFailed('Checks failed - will not auto-merge');
+                failedChecks.forEach(c => {
+                  console.log(`  - ${c.name}: ${c.conclusion}`);
+                });
+                core.setFailed(
+                  `${failedChecks.length} check(s) failed - ` +
+                  'will not auto-merge'
+                );
                 return;
               }
 
-              if (pendingChecks.length === 0) {
-                console.log('All checks passed!');
+              // All checks passed - success!
+              if (pendingChecks.length === 0 && requiredChecks.length > 0) {
+                console.log(
+                  'All required checks have completed successfully.'
+                );
                 return;
               }
 
-              console.log(`Waiting ${pollInterval/1000}s for pending checks...`);
+              // Still waiting for checks
+              console.log(
+                `Waiting ${pollInterval/1000}s for pending checks...`
+              );
               await new Promise(resolve => setTimeout(resolve, pollInterval));
             }
 
-            core.setFailed('Timeout waiting for checks');
+            core.setFailed('Timeout waiting for checks to complete');
 
       - name: Enable auto-merge
         if: success()
         uses: actions/github-script@v7
+        env:
+          CODESPACES_WORKFLOWS_PAT: ${{ secrets.CODESPACES_WORKFLOWS }}
         with:
           github-token: ${{ secrets.CODESPACES_WORKFLOWS || secrets.GITHUB_TOKEN }}
           script: |
             const pr = context.payload.pull_request;
+            const hasCrossRepoToken = !!process.env.CODESPACES_WORKFLOWS_PAT;
+
+            if (!hasCrossRepoToken) {
+              core.warning(
+                'CODESPACES_WORKFLOWS secret is not configured; ' +
+                'falling back to GITHUB_TOKEN. Cross-repo auto-merge ' +
+                'may fail due to insufficient permissions.'
+              );
+            }
 
             try {
               await github.graphql(`
@@ -125,20 +160,11 @@ jobs:
               });
             } catch (error) {
               console.error('Failed to enable auto-merge:', error);
-              console.log('Falling back to direct merge...');
-
-              // Fallback: try to merge directly
-              try {
-                await github.rest.pulls.merge({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  pull_number: pr.number,
-                  merge_method: 'merge'
-                });
-
-                console.log(`✓ PR #${pr.number} merged successfully`);
-              } catch (mergeError) {
-                console.error('Failed to merge:', mergeError);
-                throw mergeError;
-              }
+              // Do not attempt direct merge - rely on branch protections
+              // and auto-merge only. This ensures branch protection rules
+              // are not bypassed. A maintainer can merge manually if needed.
+              core.setFailed(
+                'Failed to enable auto-merge. Branch protections or ' +
+                'permissions may prevent automatic merging.'
+              );
             }
