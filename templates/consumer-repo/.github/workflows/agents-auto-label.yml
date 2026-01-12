@@ -24,6 +24,7 @@ jobs:
     if: |
       !contains(github.event.issue.labels.*.name, 'agents:auto-pilot') &&
       !contains(github.event.issue.labels.*.name, 'agents:formatted') &&
+      !contains(github.event.issue.labels.*.name, 'agents:autofix') &&
       !contains(github.event.issue.labels.*.name, 'agent:codex') &&
       !contains(github.event.issue.labels.*.name, 'automated')
 
