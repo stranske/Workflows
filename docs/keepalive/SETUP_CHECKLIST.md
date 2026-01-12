@@ -74,7 +74,38 @@ Before beginning, ensure you have:
 
 ## Secrets Configuration
 
-### Step 5: Create Required Secrets
+### Step 5: Install Workflows GitHub App (Recommended)
+
+The Workflows GitHub App provides secure, scoped authentication without personal tokens.
+
+#### Install the App:
+
+1. [ ] Contact repository owner for Workflows App installation link
+2. [ ] Or create your own GitHub App with these permissions:
+   - **Contents**: Read and write
+   - **Issues**: Read and write  
+   - **Pull requests**: Read and write
+   - **Workflows**: Read and write
+   - **Metadata**: Read (auto-selected)
+3. [ ] Install App on your consumer repository
+
+#### Configure App Secrets:
+
+Navigate to **Settings** → **Secrets and variables** → **Actions** → **Secrets** tab
+
+1. [ ] Get **App ID** from App settings page (numeric ID)
+2. [ ] **Generate Private Key** from App settings (downloads `.pem` file)
+3. [ ] Add secrets:
+   - Name: `WORKFLOWS_APP_ID`
+   - Value: The numeric App ID
+   - Name: `WORKFLOWS_APP_PRIVATE_KEY`  
+   - Value: Contents of the `.pem` file (entire file, including `-----BEGIN/END-----` lines)
+
+> **Why use GitHub App?** Apps have repository-scoped permissions, don't count against user API limits, and don't expire like PATs. Workflows automatically fall back to PAT if App secrets aren't configured.
+
+### Step 6: Create PAT Secrets (Fallback)
+
+If not using GitHub App, create Personal Access Token secrets:
 
 Navigate to **Settings** → **Secrets and variables** → **Actions** → **Secrets** tab
 
@@ -86,7 +117,7 @@ Navigate to **Settings** → **Secrets and variables** → **Actions** → **Sec
 | `ACTIONS_BOT_PAT` | Alternative bot PAT (if using separate bot) | Same scopes as SERVICE_BOT_PAT |
 | `OWNER_PR_PAT` | Owner PAT for PR operations | Create from your account with `repo` scope |
 
-#### Creating SERVICE_BOT_PAT (Critical):
+#### Creating SERVICE_BOT_PAT:
 
 1. [ ] Log into bot account (e.g., `stranske-bot`)
 2. [ ] Go to **Settings** → **Developer settings** → **Personal access tokens** → **Fine-grained tokens**
@@ -106,7 +137,7 @@ Navigate to **Settings** → **Secrets and variables** → **Actions** → **Sec
     - Name: `SERVICE_BOT_PAT`
     - Value: (paste token)
 
-### Step 6: Create Repository Variables (Optional)
+### Step 7: Create Repository Variables (Optional)
 
 Navigate to **Settings** → **Secrets and variables** → **Actions** → **Variables** tab
 
@@ -142,7 +173,7 @@ timeout_warning_minutes: 10
 
 ## Branch Protection Rules
 
-### Step 7: Protect Main Branch
+### Step 8: Protect Main Branch
 
 1. [ ] Go to **Settings** → **Branches**
 2. [ ] Click **Add branch protection rule**
@@ -204,7 +235,7 @@ python scripts/sync_status_file_ignores.py --print-block
 > or use the validation script. The canonical list is maintained in one place
 > and consumer repos stay in sync.
 
-### Step 9: Create Directory Structure
+### Step 10: Create Directory Structure
 
 Create the following directory structure:
 
@@ -244,7 +275,7 @@ pyproject.toml                  # Python project configuration
 README.md
 ```
 
-### Step 10: Copy Essential Files
+### Step 11: Copy Essential Files
 
 #### JavaScript Agent Scripts (`.github/scripts/`)
 
@@ -281,7 +312,7 @@ Copy from:
 
 ## Workflow Configuration
 
-### Step 11: Configure Workflow Files
+### Step 12: Configure Workflow Files
 
 #### A. Gate Workflow (`pr-00-gate.yml`)
 
@@ -370,7 +401,7 @@ jobs:
 pr_number: ${{ fromJSON(needs.detect.outputs.pr_number) }}
 ```
 
-### Step 12: Configure pyproject.toml
+### Step 13: Configure pyproject.toml
 
 ```toml
 [build-system]
@@ -412,7 +443,7 @@ warn_return_any = true
 warn_unused_configs = true
 ```
 
-### Step 13: Configure Issue Sources (For Agent Automation)
+### Step 14: Configure Issue Sources (For Agent Automation)
 
 If using `agents-issue-intake.yml` workflow, create these files:
 
@@ -452,7 +483,7 @@ category: features
 
 > **Note**: Both files are optional. You can also create issues manually and apply the `agent:codex` or `agent:copilot` labels.
 
-### Step 14: Configure Agent Labels
+### Step 15: Configure Agent Labels
 
 Create these labels in **Settings** → **Labels**:
 
@@ -467,7 +498,7 @@ Create these labels in **Settings** → **Labels**:
 
 > The `agents-auto-label.yml` workflow can suggest additional labels based on issue content using semantic matching.
 
-### Step 15: Understand the Sync System
+### Step 16: Understand the Sync System
 
 Consumer repos receive automatic updates from Workflows via `maint-68-sync-consumer-repos.yml`.
 
@@ -509,13 +540,13 @@ If a sync PR has conflicts:
 
 ## Verification Steps
 
-### Step 16: Verify Workflow Access
+### Step 17: Verify Workflow Access
 
 1. [ ] Go to **Actions** tab
 2. [ ] Confirm "I understand my workflows, go ahead and enable them" if prompted
 3. [ ] Verify no workflow errors in the list
 
-### Step 17: Create Test PR
+### Step 18: Create Test PR
 
 1. [ ] Create a new branch: `git checkout -b test/initial-setup`
 2. [ ] Make a small change (e.g., update README)
@@ -525,7 +556,7 @@ If a sync PR has conflicts:
 6. [ ] Verify Autofix workflow triggers if there are linting issues
 7. [ ] Verify status checks appear on PR
 
-### Step 18: Verify Agent Automation (if using keepalive)
+### Step 19: Verify Agent Automation (if using keepalive)
 
 1. [ ] Ensure Issues.txt has at least one issue
 2. [ ] Manually trigger `agents-63-issue-intake.yml` via Actions tab
@@ -604,8 +635,10 @@ Need keepalive automation? Also copy:
 
 | Setup Type | Required Secrets |
 |------------|------------------|
-| Basic CI | `SERVICE_BOT_PAT` |
-| Full Agents | `SERVICE_BOT_PAT`, `ACTIONS_BOT_PAT` (optional), `OWNER_PR_PAT` (optional) |
+| Basic CI | `WORKFLOWS_APP_ID` + `WORKFLOWS_APP_PRIVATE_KEY` (recommended) OR `SERVICE_BOT_PAT` (fallback) |
+| Full Agents | GitHub App (recommended) OR `SERVICE_BOT_PAT`, `ACTIONS_BOT_PAT` (optional), `OWNER_PR_PAT` (optional) |
+
+> **Recommendation**: Use GitHub App authentication (Step 5) for better security, scoped permissions, and no API rate limits. PATs are supported as fallback.
 
 ---
 
