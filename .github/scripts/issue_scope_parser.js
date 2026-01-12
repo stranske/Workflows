@@ -3,6 +3,19 @@
 const normalizeNewlines = (value) => String(value || '').replace(/\r\n/g, '\n');
 const stripBlockquotePrefixes = (value) =>
   String(value || '').replace(/^[ \t]*>+[ \t]?/gm, '');
+
+/**
+ * Strip fenced code blocks from content to prevent code examples
+ * containing checkbox patterns (- [ ]) from being parsed as tasks.
+ * Preserves the structure by replacing code blocks with empty lines.
+ */
+const stripCodeBlocks = (value) => {
+  const text = String(value || '');
+  // Match fenced code blocks: ``` or ~~~ with optional language identifier
+  // Use non-greedy matching to handle multiple code blocks
+  return text.replace(/^(`{3,}|~{3,})[^\n]*\n[\s\S]*?^\1\s*$/gm, '');
+};
+
 const LIST_ITEM_REGEX = /^(\s*)([-*+]|\d+[.)])\s+(.*)$/;
 
 const SECTION_DEFS = [
@@ -350,7 +363,10 @@ function applyListFallbacks({ segment, sections, listBlocks, ranges }) {
 }
 
 function collectSections(source) {
-  const normalized = stripBlockquotePrefixes(normalizeNewlines(source));
+  // Strip code blocks FIRST to prevent code examples with checkbox patterns
+  // (like "- [ ] example task") from being parsed as actual tasks
+  const withoutCode = stripCodeBlocks(normalizeNewlines(source));
+  const normalized = stripBlockquotePrefixes(withoutCode);
   if (!normalized.trim()) {
     return { segment: '', sections: {}, labels: {} };
   }
