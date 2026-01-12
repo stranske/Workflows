@@ -5,6 +5,9 @@
 > **Related**: [langchain-keepalive-integration.md](./langchain-keepalive-integration.md)
 > **Target Workflows**: `agents-63-issue-intake.yml`, `reusable-agents-issue-bridge.yml`
 
+> **Last reviewed:** 2026-01-11
+> **Canonical references:** `docs/ci/WORKFLOW_SYSTEM.md` and the workflow files under `.github/workflows/`.
+
 ---
 
 ## Executive Summary
@@ -70,7 +73,7 @@ Output the formatted issue in Markdown.
 """
 
 llm = ChatOpenAI(
-    model="gpt-4o-mini",
+  model="gpt-4o",
     base_url="https://models.inference.ai.azure.com",
     api_key=os.environ["GITHUB_TOKEN"],
 )

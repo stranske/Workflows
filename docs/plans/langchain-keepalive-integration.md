@@ -5,6 +5,9 @@
 > **Target Branch**: `feature/langchain-analysis`
 > **Test Consumer**: `stranske/Portable-Alpha-Extension-Model`
 
+> **Last reviewed:** 2026-01-11
+> **Note:** Treat this as exploratory design context. The current keepalive and provider framework may differ; check `docs/ci/WORKFLOW_SYSTEM.md` and `docs/keepalive/`.
+
 ---
 
 ## Summary of Findings
@@ -100,7 +103,7 @@ CODEX_TUI_RECORD_SESSION=1 codex ...
 curl -s "https://models.inference.ai.azure.com/chat/completions" \
   -H "Authorization: Bearer $GITHUB_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"messages":[{"role":"user","content":"test"}],"model":"gpt-4o-mini"}'
+  -d '{"messages":[{"role":"user","content":"test"}],"model":"gpt-4o"}'
 ```
 
 **Integration approach**: Use LangChain's OpenAI integration with custom base URL:
@@ -108,7 +111,7 @@ curl -s "https://models.inference.ai.azure.com/chat/completions" \
 from langchain_openai import ChatOpenAI
 
 llm = ChatOpenAI(
-    model="gpt-4o-mini",
+  model="gpt-4o",
     base_url="https://models.inference.ai.azure.com",
     api_key=os.environ["GITHUB_TOKEN"],  # GitHub token works!
 )
@@ -168,11 +171,11 @@ This pattern maps well to Codex JSONL events!
 
 ```
 ┌─────────────────────────────────────────┐
-│  1. GitHub Models API (gpt-4o-mini)     │
+│  1. GitHub Models API (gpt-4o)          │
 │     - Uses existing GITHUB_TOKEN        │
 │     - Free with Copilot subscription    │
 ├─────────────────────────────────────────┤
-│  2. OpenAI API (gpt-4o-mini)            │
+│  2. OpenAI API (gpt-4o)                 │
 │     - Uses OPENAI_API_KEY secret        │
 │     - ~$0.0006 per analysis             │
 ├─────────────────────────────────────────┤
@@ -323,7 +326,7 @@ codex exec --json --output-last-message "$OUTPUT_FILE" "$PROMPT" 2>&1 | tee "$SE
 ### Step 6: Tune and finalize
 - Decide on timing option (A/B/C/D)
 - Merge to main
-- Revert consumer to `@main`
+- Revert consumer to `@v1`
 
 ---
 
@@ -420,7 +423,7 @@ Based on [exec.md](https://github.com/openai/codex/blob/main/docs/exec.md) and s
 ## Rollback Plan
 
 If LangChain integration causes issues:
-1. Consumer repos: Change `@feature/langchain-analysis` back to `@main`
+1. Consumer repos: Change `@feature/langchain-analysis` back to `@v1` (or a pinned release tag/SHA)
 2. No code changes needed in consumer
 3. Feature branch remains available for debugging
 

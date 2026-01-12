@@ -31,7 +31,7 @@
 
 ## Lifecycle Overview
 
-1. **PR labeled:** A PR receives an `agent:*` label (e.g., `agent:codex`, `agent:claude`).
+1. **PR labeled:** A PR receives an `agent:*` label (for example, `agent:codex`).
 2. **Guarded check:** Orchestrator guardrails confirm the label, Gate success, and run-cap capacity before running the agent.
 3. **Agent execution:** The appropriate agent workflow runs with explicit task context injected into the prompt.
 4. **Timed repeats:** Subsequent Gate completions trigger re-evaluation and continue if tasks remain.
@@ -44,7 +44,7 @@
 
 Keepalive **must not** dispatch an agent unless *all* conditions hold:
 
-1. **PR opt-in:** The PR carries an `agent:*` label (e.g., `agent:codex`, `agent:claude`).
+1. **PR opt-in:** The PR carries an `agent:*` label (for example, `agent:codex`).
 2. **Gate green:** The Gate workflow for the current head SHA completed successfully.
 3. **Tasks present:** The PR body contains unchecked tasks in the Automated Status Summary.
 
@@ -137,8 +137,8 @@ The keepalive loop routes to different agent workflows based on the `agent:*` la
 | Label | Agent | Workflow |
 |-------|-------|----------|
 | `agent:codex` | Codex CLI (gpt-5.2-codex) | `reusable-codex-run.yml` |
-| `agent:claude` | Claude (future) | `reusable-claude-run.yml` |
-| `agent:gemini` | Gemini (future) | `reusable-gemini-run.yml` |
+
+Only `agent:codex` is currently implemented in this repository. Other `agent:*` labels may be reserved for future expansion.
 
 See [`MULTI_AGENT_ROUTING.md`](MULTI_AGENT_ROUTING.md) for implementation details and how to add new agents.
 

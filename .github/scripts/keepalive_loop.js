@@ -9,9 +9,17 @@ const { resolvePromptMode } = require('./keepalive_prompt_routing');
 const { classifyError, ERROR_CATEGORIES } = require('./error_classifier');
 const { formatFailureComment } = require('./failure_comment_formatter');
 const { detectConflicts } = require('./conflict_detector');
+const { parseTimeoutConfig } = require('./timeout_config');
 
 const ATTEMPT_HISTORY_LIMIT = 5;
 const ATTEMPTED_TASK_LIMIT = 6;
+
+const TIMEOUT_VARIABLE_NAMES = [
+  'WORKFLOW_TIMEOUT_DEFAULT',
+  'WORKFLOW_TIMEOUT_EXTENDED',
+  'WORKFLOW_TIMEOUT_WARNING_RATIO',
+  'WORKFLOW_TIMEOUT_WARNING_MINUTES',
+];
 
 const PROMPT_ROUTES = {
   fix_ci: {
@@ -81,6 +89,16 @@ function toOptionalNumber(value) {
     return int;
   }
   return null;
+}
+
+function normaliseWarningRatio(value) {
+  if (!Number.isFinite(value)) {
+    return null;
+  }
+  if (value > 1 && value <= 100) {
+    return value / 100;
+  }
+  return value;
 }
 
 function buildAttemptEntry({
@@ -207,6 +225,261 @@ function resolveDurationMs({ durationMs, startTs }) {
   const startMs = startTs > 1e12 ? startTs : startTs * 1000;
   const delta = Date.now() - startMs;
   return Math.max(0, Math.floor(delta));
+}
+
+async function fetchPrLabels({ github, context, prNumber, core }) {
+  if (!github?.rest?.pulls?.get || !context?.repo?.owner || !context?.repo?.repo) {
+    return [];
+  }
+  if (!Number.isFinite(prNumber) || prNumber <= 0) {
+    return [];
+  }
+  try {
+    const { data } = await github.rest.pulls.get({
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+      pull_number: prNumber,
+    });
+    const rawLabels = Array.isArray(data?.labels) ? data.labels : [];
+    return rawLabels.map((label) => normalise(label?.name).toLowerCase()).filter(Boolean);
+  } catch (error) {
+    if (core) {
+      core.info(`Failed to fetch PR labels for timeout config: ${error.message}`);
+    }
+    return [];
+  }
+}
+
+async function fetchRepoVariables({ github, context, core, names = [] }) {
+  if (!github?.rest?.actions?.listRepoVariables || !context?.repo?.owner || !context?.repo?.repo) {
+    return {};
+  }
+
+  const wanted = new Set((names || []).map((name) => normalise(name)).filter(Boolean));
+  if (!wanted.size) {
+    return {};
+  }
+
+  const results = {};
+  let page = 1;
+  const perPage = 100;
+
+  try {
+    while (true) {
+      const { data } = await github.rest.actions.listRepoVariables({
+        owner: context.repo.owner,
+        repo: context.repo.repo,
+        per_page: perPage,
+        page,
+      });
+      const variables = Array.isArray(data?.variables) ? data.variables : [];
+      for (const variable of variables) {
+        const name = normalise(variable?.name);
+        if (!wanted.has(name)) {
+          continue;
+        }
+        results[name] = normalise(variable?.value);
+      }
+      if (variables.length < perPage || Object.keys(results).length === wanted.size) {
+        break;
+      }
+      page += 1;
+    }
+  } catch (error) {
+    if (core) {
+      core.info(`Failed to fetch repository variables for timeout config: ${error.message}`);
+    }
+  }
+
+  return results;
+}
+
+async function resolveWorkflowRunStartMs({ github, context, core }) {
+  const payloadStartedAt =
+    context?.payload?.workflow_run?.run_started_at ??
+    context?.payload?.workflow_run?.created_at;
+  if (payloadStartedAt) {
+    const parsed = Date.parse(payloadStartedAt);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+
+  if (!github?.rest?.actions?.getWorkflowRun) {
+    return null;
+  }
+  const runId = context?.runId || context?.run_id;
+  if (!runId || !context?.repo?.owner || !context?.repo?.repo) {
+    return null;
+  }
+  try {
+    const { data } = await github.rest.actions.getWorkflowRun({
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+      run_id: runId,
+    });
+    const startedAt = data?.run_started_at;
+    if (!startedAt) {
+      return null;
+    }
+    const parsed = Date.parse(startedAt);
+    return Number.isFinite(parsed) ? parsed : null;
+  } catch (error) {
+    if (core) {
+      core.info(`Failed to fetch workflow run start time: ${error.message}`);
+    }
+    return null;
+  }
+}
+
+async function resolveElapsedMs({ github, context, inputs, core }) {
+  const durationMs = resolveDurationMs({
+    durationMs: toOptionalNumber(
+      inputs?.elapsed_ms ??
+        inputs?.elapsedMs ??
+        inputs?.duration_ms ??
+        inputs?.durationMs
+    ),
+    startTs: toOptionalNumber(inputs?.start_ts ?? inputs?.startTs),
+  });
+  if (durationMs > 0) {
+    return durationMs;
+  }
+  const runStartMs = await resolveWorkflowRunStartMs({ github, context, core });
+  if (!Number.isFinite(runStartMs)) {
+    return 0;
+  }
+  return Math.max(0, Date.now() - runStartMs);
+}
+
+function buildTimeoutStatus({
+  timeoutConfig,
+  elapsedMs,
+  warningRatio = 0.8,
+  warningRemainingMs = 5 * 60 * 1000,
+} = {}) {
+  const resolvedMinutes = Number.isFinite(timeoutConfig?.resolvedMinutes)
+    ? timeoutConfig.resolvedMinutes
+    : null;
+  const timeoutMs = Number.isFinite(resolvedMinutes) ? resolvedMinutes * 60 * 1000 : null;
+  const elapsedSafe = Number.isFinite(elapsedMs) && elapsedMs > 0 ? elapsedMs : null;
+  let remainingMs = null;
+  let usageRatio = null;
+  let warning = null;
+
+  if (timeoutMs && elapsedSafe !== null) {
+    remainingMs = Math.max(0, timeoutMs - elapsedSafe);
+    usageRatio = Math.min(1, elapsedSafe / timeoutMs);
+    const remainingMinutes = Math.ceil(remainingMs / 60000);
+    const usagePercent = Math.round(usageRatio * 100);
+    const thresholdPercent = Number.isFinite(warningRatio) ? Math.round(warningRatio * 100) : null;
+    const thresholdRemainingMinutes = Number.isFinite(warningRemainingMs)
+      ? Math.ceil(warningRemainingMs / 60000)
+      : null;
+    const warnByRatio = usageRatio >= warningRatio;
+    const warnByRemaining = remainingMs <= warningRemainingMs;
+    if (warnByRatio || warnByRemaining) {
+      warning = {
+        percent: usagePercent,
+        remaining_minutes: remainingMinutes,
+        threshold_percent: thresholdPercent,
+        threshold_remaining_minutes: thresholdRemainingMinutes,
+        reason: warnByRemaining ? 'remaining' : 'usage',
+      };
+    }
+  }
+
+  return {
+    defaultMinutes: timeoutConfig?.defaultMinutes ?? null,
+    extendedMinutes: timeoutConfig?.extendedMinutes ?? null,
+    overrideMinutes: timeoutConfig?.overrideMinutes ?? null,
+    resolvedMinutes,
+    source: timeoutConfig?.source ?? '',
+    label: timeoutConfig?.label ?? null,
+    timeoutMs,
+    elapsedMs: elapsedSafe,
+    remainingMs,
+    usageRatio,
+    warning,
+  };
+}
+
+function resolveTimeoutWarningConfig({ inputs = {}, env = process.env, variables = {} } = {}) {
+  const warningMinutes = toOptionalNumber(
+    inputs.timeout_warning_minutes ??
+      inputs.timeoutWarningMinutes ??
+      env.WORKFLOW_TIMEOUT_WARNING_MINUTES ??
+      variables.WORKFLOW_TIMEOUT_WARNING_MINUTES ??
+      env.TIMEOUT_WARNING_MINUTES ??
+      variables.TIMEOUT_WARNING_MINUTES
+  );
+  const warningRatioRaw = toOptionalNumber(
+    inputs.timeout_warning_ratio ??
+      inputs.timeoutWarningRatio ??
+      env.WORKFLOW_TIMEOUT_WARNING_RATIO ??
+      variables.WORKFLOW_TIMEOUT_WARNING_RATIO ??
+      env.TIMEOUT_WARNING_RATIO ??
+      variables.TIMEOUT_WARNING_RATIO
+  );
+  const warningRatio = normaliseWarningRatio(warningRatioRaw);
+  const config = {};
+  if (Number.isFinite(warningMinutes) && warningMinutes > 0) {
+    config.warningRemainingMs = warningMinutes * 60 * 1000;
+  }
+  if (Number.isFinite(warningRatio) && warningRatio > 0 && warningRatio <= 1) {
+    config.warningRatio = warningRatio;
+  }
+  return config;
+}
+
+function resolveTimeoutInputs({ inputs = {}, context } = {}) {
+  const payloadInputs = context?.payload?.inputs;
+  if (!payloadInputs || typeof payloadInputs !== 'object') {
+    return inputs;
+  }
+  return { ...payloadInputs, ...inputs };
+}
+
+function formatTimeoutMinutes(minutes) {
+  if (!Number.isFinite(minutes)) {
+    return '0';
+  }
+  return String(Math.max(0, Math.round(minutes)));
+}
+
+function formatTimeoutUsage({ elapsedMs, usageRatio, remainingMs }) {
+  if (!Number.isFinite(elapsedMs) || !Number.isFinite(usageRatio)) {
+    return '';
+  }
+  const elapsedMinutes = Math.floor(elapsedMs / 60000);
+  const usagePercent = Math.round(usageRatio * 100);
+  const remainingMinutes = Number.isFinite(remainingMs)
+    ? Math.ceil(Math.max(0, remainingMs) / 60000)
+    : null;
+  if (remainingMinutes === null) {
+    return `${elapsedMinutes}m elapsed (${usagePercent}%)`;
+  }
+  return `${elapsedMinutes}m elapsed (${usagePercent}%, ${remainingMinutes}m remaining)`;
+}
+
+function formatTimeoutWarning(warning) {
+  if (!warning || typeof warning !== 'object') {
+    return '';
+  }
+  const percent = Number.isFinite(warning.percent) ? warning.percent : null;
+  const remaining = Number.isFinite(warning.remaining_minutes) ? warning.remaining_minutes : null;
+  const reason = warning.reason === 'remaining' ? 'remaining threshold' : 'usage threshold';
+  const parts = [];
+  if (percent !== null) {
+    parts.push(`${percent}% consumed`);
+  }
+  if (remaining !== null) {
+    parts.push(`${remaining}m remaining`);
+  }
+  if (!parts.length) {
+    return '';
+  }
+  return `${parts.join(', ')} (${reason})`;
 }
 
 function buildMetricsRecord({
@@ -1273,6 +1546,32 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
   const sessionEffortScore = toNumber(inputs.session_effort_score ?? inputs.sessionEffortScore, 0);
   const analysisTextLength = toNumber(inputs.analysis_text_length ?? inputs.analysisTextLength, 0);
 
+  const labels = await fetchPrLabels({ github, context, prNumber, core });
+  const timeoutRepoVariables = await fetchRepoVariables({
+    github,
+    context,
+    core,
+    names: TIMEOUT_VARIABLE_NAMES,
+  });
+  const timeoutInputs = resolveTimeoutInputs({ inputs, context });
+  const timeoutConfig = parseTimeoutConfig({
+    env: process.env,
+    inputs: timeoutInputs,
+    labels,
+    variables: timeoutRepoVariables,
+  });
+  const elapsedMs = await resolveElapsedMs({ github, context, inputs, core });
+  const timeoutWarningConfig = resolveTimeoutWarningConfig({
+    inputs: timeoutInputs,
+    env: process.env,
+    variables: timeoutRepoVariables,
+  });
+  const timeoutStatus = buildTimeoutStatus({
+    timeoutConfig,
+    elapsedMs,
+    ...timeoutWarningConfig,
+  });
+
   const { state: previousState, commentId } = await loadKeepaliveState({
     github,
     context,
@@ -1482,9 +1781,45 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
     ...(runFailed ? [`| Agent status | ❌ AGENT FAILED |`] : []),
     `| Gate | ${gateConclusion || 'unknown'} |`,
     `| Tasks | ${tasksComplete}/${tasksTotal} complete |`,
+    `| Timeout | ${formatTimeoutMinutes(timeoutStatus.resolvedMinutes)} min (${timeoutStatus.source || 'default'}) |`,
     `| Keepalive | ${keepaliveEnabled ? '✅ enabled' : '❌ disabled'} |`,
     `| Autofix | ${autofixEnabled ? '✅ enabled' : '❌ disabled'} |`,
   ];
+
+  const timeoutUsage = formatTimeoutUsage({
+    elapsedMs: timeoutStatus.elapsedMs,
+    usageRatio: timeoutStatus.usageRatio,
+    remainingMs: timeoutStatus.remainingMs,
+  });
+  if (timeoutUsage) {
+    summaryLines.splice(summaryLines.length - 2, 0, `| Timeout usage | ${timeoutUsage} |`);
+  }
+  if (timeoutStatus.warning) {
+    const timeoutWarning = formatTimeoutWarning(timeoutStatus.warning);
+    const warningValue = timeoutWarning ? `⚠️ ${timeoutWarning}` : `⚠️ ${timeoutStatus.warning.remaining_minutes}m remaining`;
+    summaryLines.splice(
+      summaryLines.length - 2,
+      0,
+      `| Timeout warning | ${warningValue} |`,
+    );
+  }
+
+  if (timeoutStatus.warning && core && typeof core.warning === 'function') {
+    const percent = timeoutStatus.warning.percent ?? 0;
+    const remaining = timeoutStatus.warning.remaining_minutes ?? 0;
+    const reason = timeoutStatus.warning.reason === 'remaining' ? 'remaining threshold' : 'usage threshold';
+    const thresholdParts = [];
+    const thresholdPercent = timeoutStatus.warning.threshold_percent;
+    const thresholdRemaining = timeoutStatus.warning.threshold_remaining_minutes;
+    if (Number.isFinite(thresholdPercent)) {
+      thresholdParts.push(`${thresholdPercent}% threshold`);
+    }
+    if (Number.isFinite(thresholdRemaining)) {
+      thresholdParts.push(`${thresholdRemaining}m threshold`);
+    }
+    const thresholdSuffix = thresholdParts.length ? ` (thresholds: ${thresholdParts.join(', ')})` : '';
+    core.warning(`Timeout warning (${reason}): ${percent}% consumed, ${remaining}m remaining${thresholdSuffix}.`);
+  }
 
   // Add agent run details if we ran an agent
   if (action === 'run' && runResult) {
@@ -1722,6 +2057,18 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
     attempted_tasks: attemptedTasks,
     last_focus: focusTask || '',
     verification,
+    timeout: {
+      resolved_minutes: timeoutStatus.resolvedMinutes,
+      default_minutes: timeoutStatus.defaultMinutes,
+      extended_minutes: timeoutStatus.extendedMinutes,
+      override_minutes: timeoutStatus.overrideMinutes,
+      source: timeoutStatus.source,
+      label: timeoutStatus.label,
+      elapsed_minutes: timeoutStatus.elapsedMs ? Math.floor(timeoutStatus.elapsedMs / 60000) : null,
+      remaining_minutes: timeoutStatus.remainingMs ? Math.ceil(timeoutStatus.remainingMs / 60000) : null,
+      usage_ratio: timeoutStatus.usageRatio,
+      warning: timeoutStatus.warning || null,
+    },
   };
   const attemptEntry = buildAttemptEntry({
     iteration: metricsIteration,

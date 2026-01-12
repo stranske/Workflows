@@ -14,7 +14,7 @@ This repository uses the **stranske/Workflows** workflow library. Most workflow 
 stranske/Workflows (central library)
     │
     │ reusable workflows called via:
-    │ uses: stranske/Workflows/.github/workflows/reusable-*.yml@main
+     │ uses: stranske/Workflows/.github/workflows/reusable-*.yml@v1
     │
     ▼
 This Repo (consumer)

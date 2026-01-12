@@ -1,7 +1,10 @@
 # Short-Term Plan Summary
 
-**Status:** ✅ Plan Created + Critical Fix Applied  
-**Date:** January 9, 2026  
+> **Status:** Historical snapshot (plan + early execution notes)
+> **Created:** 2026-01-09
+> **Last reviewed:** 2026-01-11
+> **Canonical references:** `docs/ci/WORKFLOW_SYSTEM.md` (workflow inventory), `docs/validation/overview.md` (local validation)
+
 **Timeline:** 2 weeks (January 9-23, 2026)
 
 ---
@@ -29,7 +32,7 @@
 ## 2-Week Plan Overview
 
 ### Week 1: Phase 3 Functional Testing
-**Focus:** Execute 14 functional tests across 4 new workflows
+**Focus:** Execute functional tests across new workflows
 
 | Day | Activity | Deliverable |
 |-----|----------|-------------|
@@ -54,10 +57,12 @@
 ## Success Criteria
 
 ### Must Complete (Blockers)
-- [ ] 12/12 Phase 3 functional tests executed
-- [ ] Test results documented in rollout plan
-- [ ] agents:apply-suggestions with LLM retested (expected 8.5/10 quality)
-- [ ] 3 conflicted PRs resolved
+
+These were the intended success criteria at the time. For the final state and evidence, see `SHORT_TERM_PLAN.md`.
+
+- [x] Phase 3 functional tests executed and documented
+- [x] agents:apply-suggestions with LLM retested
+- [ ] Conflicted PRs resolved
 
 ### Should Complete (High Value)
 - [ ] Verify-to-issue workflow tested
@@ -77,11 +82,11 @@
 
 | Workflow | Tests | Test Issues Created | Status |
 |----------|-------|---------------------|--------|
-| `agents-capability-check.yml` | 3 | Manager-Database #227 | ⏳ Pending |
-| `agents-decompose.yml` | 3 | Manager-Database #228 | ⏳ Pending |
-| `agents-dedup.yml` | 4 | Manager-Database #229 | ⏳ Pending |
-| `agents-auto-label.yml` | 2 | Manager-Database #230 | ⏳ Pending |
-| `agents-verify-to-issue.yml` | 1 | Travel-Plan-Permission PR | ⏳ Pending |
+| `agents-capability-check.yml` | 3 | Manager-Database #227 | See `SHORT_TERM_PLAN.md` |
+| `agents-decompose.yml` | 3 | Manager-Database #228 | See `SHORT_TERM_PLAN.md` |
+| `agents-dedup.yml` | 4 | Manager-Database #229 | See `SHORT_TERM_PLAN.md` |
+| `agents-auto-label.yml` | 2 | Manager-Database #230 | See `SHORT_TERM_PLAN.md` |
+| `agents-verify-to-issue.yml` | 1 | Travel-Plan-Permission PR | See `SHORT_TERM_PLAN.md` |
 
 **Total Tests:** 13 functional tests (12 Phase 3 + 1 Phase 4E)
 
@@ -97,9 +102,9 @@
 
 ## Next Actions (Immediate)
 
-1. **Start Test Suite A** - Create 3 test issues in Manager-Database (#227)
-2. **Monitor Workflow Execution** - Verify agents-capability-check.yml runs correctly
-3. **Document Results** - Record outcomes for each test case
+This section is kept for historical context. Follow the current runbooks and workflow docs instead of treating it as a live checklist.
+
+As of 2026-01-11, the remaining work from this plan is primarily operational (resolve conflicted PRs) plus optional cleanup/planning.
 
 ---
 

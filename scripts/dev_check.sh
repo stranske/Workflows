@@ -237,6 +237,36 @@ quick_check() {
     fi
 }
 
+ACTIONLINT_BIN=""
+ensure_actionlint() {
+    if command -v actionlint >/dev/null 2>&1; then
+        ACTIONLINT_BIN=$(command -v actionlint)
+        return 0
+    fi
+
+    local cache_dir=".cache/tools"
+    mkdir -p "$cache_dir"
+    if [[ -x "$cache_dir/actionlint" ]]; then
+        ACTIONLINT_BIN="$cache_dir/actionlint"
+        return 0
+    fi
+
+    echo -e "${YELLOW}Downloading actionlint for workflow validation...${NC}"
+    local downloader="$cache_dir/download-actionlint.bash"
+    if ! curl -sSfL "https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash" -o "$downloader"; then
+        echo -e "${YELLOW}⚠ Unable to fetch actionlint downloader; skipping workflow linting${NC}"
+        return 1
+    fi
+
+    if bash "$downloader" 1.7.3 "$cache_dir" >/tmp/actionlint-download.log 2>&1 && [[ -x "$cache_dir/actionlint" ]]; then
+        ACTIONLINT_BIN="$cache_dir/actionlint"
+        return 0
+    fi
+
+    echo -e "${YELLOW}⚠ Failed to download actionlint; skipping workflow linting${NC}"
+    return 1
+}
+
 # Quick syntax check first (fastest)
 echo -e "${BLUE}1. Syntax check...${NC}"
 if [[ "$CHANGED_ONLY" == true && -n "$ALL_FILES" ]]; then
@@ -258,8 +288,8 @@ else
 fi
 
 echo -e "${BLUE}2. Workflow validation...${NC}"
-if command -v actionlint >/dev/null 2>&1; then
-    quick_check "Workflow YAML validation" "actionlint -ignore 'unknown permission scope \"models\"' $(find .github/workflows -maxdepth 1 -type f \( -name '*.yml' -o -name '*.yaml' \) -print | tr '\n' ' ') && actionlint -ignore 'unknown permission scope \"models\"' templates/consumer-repo/.github/workflows/*.yml" ""
+if ensure_actionlint; then
+    quick_check "Workflow YAML validation" "$ACTIONLINT_BIN -ignore 'unknown permission scope \"models\"' $(find .github/workflows -maxdepth 1 -type f \( -name '*.yml' -o -name '*.yaml' \) -print | tr '\n' ' ') && $ACTIONLINT_BIN -ignore 'unknown permission scope \"models\"' templates/consumer-repo/.github/workflows/*.yml" ""
 else
     echo -e "${YELLOW}⚠ actionlint not installed; skipping workflow validation${NC}"
 fi

@@ -2,6 +2,14 @@
 
 Use this template when documenting extracted workflows in `docs/workflows/`.
 
+## Version pinning guidance
+
+When referencing reusable workflows, prefer a stable ref:
+
+- Use `@v1` for the current major version line.
+- Use `@v1.x.y` (for example `@v1.0.0`) or a commit SHA for maximum reproducibility.
+- Use `@main` only for experimentation (expect breaking changes).
+
 ---
 
 # [Workflow Name]

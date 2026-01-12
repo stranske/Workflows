@@ -62,6 +62,8 @@ bundles have not been published yet.
 * Update required-check labelling or job patterns by editing the
   `DEFAULT_REQUIRED_JOB_GROUPS` declaration inside `tools/post_ci_summary.py`,
   or by supplying a `REQUIRED_JOB_GROUPS_JSON` workflow environment override.
+  The Gate workflow can also consult `.github/config/required-contexts.json` for
+  required contexts that should be highlighted.
 * Additional artifacts can be surfaced by extending the artifact download steps
   in `pr-00-gate.yml` and updating the Markdown rendering helpers inside
   `tools/post_ci_summary.py`.

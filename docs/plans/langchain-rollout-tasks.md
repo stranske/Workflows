@@ -1,8 +1,11 @@
 # LangChain Issue Intake - Rollout Task List
 
 > **Created:** January 5, 2026  
-> **Status:** In Progress  
+> **Status:** Historical task tracker (may be partially superseded)  
 > **Tracking Issue:** #484
+
+> **Last reviewed:** 2026-01-11
+> **Canonical references:** `docs/ci/WORKFLOW_SYSTEM.md` and `templates/consumer-repo/` for the current consumer wiring.
 
 ---
 

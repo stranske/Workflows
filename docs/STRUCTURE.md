@@ -10,10 +10,10 @@ Workflows/
 │   │   ├── agents-*.yaml           # Agent orchestration
 │   │   └── issues-*.yaml           # Issue management
 │   ├── actions/                    # 12 composite actions
-│   │   ├── autofix/                # Automated formatting
-│   │   ├── python-setup/           # Python environment
-│   │   ├── coverage-delta/         # Coverage tracking
-│   │   └── keepalive-gate/         # Keepalive validation
+│   │   ├── autofix/                # Automated formatting + lint fixes
+│   │   ├── python-ci-setup/        # Python environment + dependency install
+│   │   ├── build-pr-comment/       # PR comment builder helpers
+│   │   └── signature-verify/       # CI signature verification
 │   └── scripts/                    # 49 workflow helper scripts
 │       ├── __tests__/              # 128 test cases
 │       └── *.js                    # JavaScript helpers
@@ -61,13 +61,13 @@ Workflows/
 ### `.github/workflows/`
 Reusable GitHub Actions workflows. Reference from other repos:
 ```yaml
-uses: stranske/Workflows/.github/workflows/ci-python.yaml@main
+uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@v1
 ```
 
 ### `.github/actions/`
 Composite actions for common tasks. Use in workflow steps:
 ```yaml
-- uses: stranske/Workflows/.github/actions/autofix@main
+- uses: stranske/Workflows/.github/actions/autofix@v1
 ```
 
 ### `scripts/`

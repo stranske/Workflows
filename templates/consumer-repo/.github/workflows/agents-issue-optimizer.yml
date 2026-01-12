@@ -136,7 +136,8 @@ jobs:
           # Post comment
           gh issue comment "${ISSUE_NUMBER}" --body-file /tmp/comment.md
 
-          echo "Analysis complete. Review suggestions and add 'agents:apply-suggestions' label to apply."
+            echo "Analysis complete."
+            echo "Review suggestions and add 'agents:apply-suggestions' label to apply."
 
       - name: Advisory issue dedup check
         if: steps.check.outputs.should_run == 'true' && steps.check.outputs.phase == 'analyze'
@@ -148,8 +149,12 @@ jobs:
           PYTHONPATH: ${{ github.workspace }}
         run: |
           echo "Checking for potential duplicate issues (advisory)"
-          gh api "repos/${{ github.repository }}/issues?state=open&per_page=100" --paginate > /tmp/open_issues.json
-          gh api "repos/${{ github.repository }}/issues/${ISSUE_NUMBER}/comments" --paginate > /tmp/dedup_comments.json
+            gh api \
+              "repos/${{ github.repository }}/issues?state=open&per_page=100" \
+              --paginate > /tmp/open_issues.json
+            gh api \
+              "repos/${{ github.repository }}/issues/${ISSUE_NUMBER}/comments" \
+              --paginate > /tmp/dedup_comments.json
 
           python - <<'PY' || true
           import json
@@ -160,31 +165,31 @@ jobs:
           with open('/tmp/open_issues.json', encoding='utf-8') as f:
               open_issues = json.load(f)
             with open('/tmp/dedup_comments.json', encoding='utf-8') as f:
-              comments = json.load(f)
+                comments = json.load(f)
 
             marker = issue_dedup.SIMILAR_ISSUES_MARKER
             for comment in comments or []:
-              body = (comment or {}).get('body') or ''
-              if marker in body:
-                raise SystemExit(0)
+                body = (comment or {}).get('body') or ''
+                if marker in body:
+                    raise SystemExit(0)
 
           # Conservative defaults; can be tuned later.
           threshold = 0.82
             store = issue_dedup.build_issue_vector_store(open_issues)
             if store is None:
-              raise SystemExit(0)
+                raise SystemExit(0)
 
             title = (issue.get('title') or '').strip()
             body = (issue.get('body') or '').strip()
             query = f"{title}\n{body}".strip() if body else title
             if not query:
-              raise SystemExit(0)
+                raise SystemExit(0)
 
             matches = issue_dedup.find_similar_issues(store, query, threshold=threshold, k=5)
             comment = issue_dedup.format_similar_issues_comment(matches, max_items=5)
             if comment:
-              with open('/tmp/dedup_comment.md', 'w', encoding='utf-8') as out:
-                out.write(comment)
+                with open('/tmp/dedup_comment.md', 'w', encoding='utf-8') as out:
+                    out.write(comment)
           PY
 
           if [[ -f /tmp/dedup_comment.md ]]; then
@@ -204,7 +209,9 @@ jobs:
           echo "Extracting suggestions from comments on issue #${ISSUE_NUMBER}"
 
           # Get all comments and find the one with suggestions JSON
-          gh api "repos/${{ github.repository }}/issues/${ISSUE_NUMBER}/comments" --paginate > /tmp/comments.json
+            gh api \
+              "repos/${{ github.repository }}/issues/${ISSUE_NUMBER}/comments" \
+              --paginate > /tmp/comments.json
 
           # Extract suggestions JSON from comment
           python -c "
