@@ -349,7 +349,7 @@ def _apply_task_decomposition(formatted: str, *, use_llm: bool) -> str:
     if not tasks:
         return formatted
 
-    from . import task_decomposer
+    import task_decomposer
 
     suggestions: list[dict[str, Any]] = []
     for task in tasks:
@@ -360,7 +360,7 @@ def _apply_task_decomposition(formatted: str, *, use_llm: bool) -> str:
     if not suggestions:
         return formatted
 
-    from . import issue_optimizer
+    import issue_optimizer
 
     return issue_optimizer._apply_task_decomposition(formatted, {"task_splitting": suggestions})
 
