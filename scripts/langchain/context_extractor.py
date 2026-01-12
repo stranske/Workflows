@@ -75,6 +75,11 @@ def _load_prompt() -> str:
 
 
 def _get_llm_client() -> tuple[object, str] | None:
+    """Get LLM client with fallback from GitHub Models to OpenAI.
+
+    Tries GitHub Models first (cheaper), falls back to OpenAI if unavailable.
+    Note: GITHUB_TOKEN in Actions may lack 'models' permission - that's why fallback exists.
+    """
     try:
         from langchain_openai import ChatOpenAI
     except ImportError:
@@ -87,24 +92,37 @@ def _get_llm_client() -> tuple[object, str] | None:
 
     from tools.llm_provider import DEFAULT_MODEL, GITHUB_MODELS_BASE_URL
 
+    # Try GitHub Models first (cheaper)
     if github_token:
-        return (
-            ChatOpenAI(
+        try:
+            client = ChatOpenAI(
                 model=DEFAULT_MODEL,
                 base_url=GITHUB_MODELS_BASE_URL,
                 api_key=github_token,
                 temperature=0.1,
+            )
+            # Test the connection with a minimal call
+            client.invoke("test")
+            return (client, "github-models")
+        except Exception:
+            # GitHub Models failed (likely 401 - missing 'models' permission)
+            # Fall through to OpenAI
+            if openai_token:
+                pass  # Will try OpenAI below
+            else:
+                raise  # No fallback available
+
+    # Fallback to OpenAI
+    if openai_token:
+        return (
+            ChatOpenAI(
+                model=DEFAULT_MODEL,
+                api_key=openai_token,
+                temperature=0.1,
             ),
-            "github-models",
+            "openai",
         )
-    return (
-        ChatOpenAI(
-            model=DEFAULT_MODEL,
-            api_key=openai_token,
-            temperature=0.1,
-        ),
-        "openai",
-    )
+    return None
 
 
 def _strip_code_fences(lines: Iterable[str]) -> list[str]:

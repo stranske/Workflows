@@ -125,7 +125,7 @@ jobs:
           workflows_dir = '.github/workflows'
           known_prefixes = ('reusable-', 'maint-', 'health-', 'selftest-')
           workflows_only_patterns = ('maint-', 'health-', 'selftest-')
-          
+
           if os.path.isdir(workflows_dir):
               for f in os.listdir(workflows_dir):
                   if not (f.endswith('.yml') or f.endswith('.yaml')):
@@ -148,6 +148,25 @@ jobs:
                       if not os.path.exists(template_path) and f not in declared_prompts:
                           warnings.append(f"Prompt '{f}' exists in .github/codex/prompts/ but not in template - should it be synced?")
 
+          # Check .github/scripts/ against manifest (CRITICAL - missing scripts break workflows)
+          scripts_dir = '.github/scripts'
+          if os.path.isdir(scripts_dir):
+              for f in os.listdir(scripts_dir):
+                  if f.endswith('.js') or f.endswith('.py') or f.endswith('.sh'):
+                      template_path = f'templates/consumer-repo/.github/scripts/{f}'
+                      if not os.path.exists(template_path) and f not in declared_scripts:
+                          errors.append(f"Script '{f}' exists in .github/scripts/ but not in manifest or template - this WILL break consumer repos!")
+
+          # Check scripts/langchain/ against manifest (required for agent workflows)
+          langchain_dir = 'scripts/langchain'
+          if os.path.isdir(langchain_dir):
+              for f in os.listdir(langchain_dir):
+                  if f.endswith('.py') and not f.startswith('__'):
+                      # These scripts must be in templates/consumer-repo/scripts/langchain/
+                      template_path = f'templates/consumer-repo/scripts/langchain/{f}'
+                      if not os.path.exists(template_path):
+                          warnings.append(f"Langchain script '{f}' not in template - verify consumer repos have it")
+
           # Validate manifest entries have descriptions
           for category in ['workflows', 'prompts', 'scripts', 'codex_config', 'docs']:
               for item in manifest.get(category, []):
@@ -158,13 +177,13 @@ jobs:
           print("=" * 60)
           print("SYNC MANIFEST VALIDATION REPORT")
           print("=" * 60)
-          
+
           if errors:
               print(f"\n❌ ERRORS ({len(errors)}):")
               for e in errors:
                   print(f"  - {e}")
                   print(f"::error::{e}")
-          
+
           if warnings:
               print(f"\n⚠️ WARNINGS ({len(warnings)}):")
               for w in warnings:
