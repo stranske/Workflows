@@ -33,6 +33,7 @@ on:
 
 permissions:
   contents: read
+  issues: write  # Required to create failure notification issues
 
 env:
   # Consumer repos registered for automatic sync
@@ -610,7 +611,7 @@ jobs:
   # ============================================================================
   summary:
     name: Generate summary
-    needs: [prepare, sync]
+    needs: [prepare, validate, sync]
     runs-on: ubuntu-latest
     if: always()
     steps:
@@ -630,3 +631,136 @@ jobs:
             echo "---"
             echo "*Sync driven by [sync-manifest.yml](https://github.com/stranske/Workflows/blob/main/.github/sync-manifest.yml)*"
           } >> "$GITHUB_STEP_SUMMARY"
+
+  # ============================================================================
+  # FAILURE NOTIFICATION: Create issue when sync fails
+  # ============================================================================
+  notify-failure:
+    name: Create failure issue
+    needs: [prepare, validate, sync]
+    runs-on: ubuntu-latest
+    if: failure()
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          sparse-checkout: |
+            .github
+          sparse-checkout-cone-mode: false
+
+      - name: Determine failure details
+        id: failure
+        env:
+          PREPARE_RESULT: ${{ needs.prepare.result }}
+          VALIDATE_RESULT: ${{ needs.validate.result }}
+          SYNC_RESULT: ${{ needs.sync.result }}
+        run: |
+          failed_jobs=""
+          if [ "$PREPARE_RESULT" = "failure" ]; then
+            failed_jobs="prepare (manifest loading)"
+          fi
+          if [ "$VALIDATE_RESULT" = "failure" ]; then
+            failed_jobs="${failed_jobs:+$failed_jobs, }validate (lint/syntax check)"
+          fi
+          if [ "$SYNC_RESULT" = "failure" ]; then
+            failed_jobs="${failed_jobs:+$failed_jobs, }sync (consumer repo updates)"
+          fi
+          echo "failed_jobs=${failed_jobs:-unknown}" >> "$GITHUB_OUTPUT"
+
+      - name: Check for existing open issue
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Look for existing open sync failure issues
+          existing=$(gh issue list \
+            --label "sync-failure,automated" \
+            --state open \
+            --json number \
+            --jq '.[0].number // empty')
+
+          if [ -n "$existing" ]; then
+            echo "existing_issue=$existing" >> "$GITHUB_OUTPUT"
+            echo "Found existing sync failure issue: #$existing"
+          else
+            echo "existing_issue=" >> "$GITHUB_OUTPUT"
+            echo "No existing sync failure issue found"
+          fi
+
+      - name: Ensure labels exist
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh label create "sync-failure" \
+            --description "Consumer repo sync workflow failed" \
+            --color "B60205" --force || true
+          gh label create "automated" \
+            --description "Automatically created issue" \
+            --color "0e8a16" --force || true
+
+      - name: Create or update failure issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EXISTING_ISSUE: ${{ steps.check.outputs.existing_issue }}
+          FAILED_JOBS: ${{ steps.failure.outputs.failed_jobs }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          TRIGGER_SHA: ${{ github.sha }}
+          TRIGGER_REF: ${{ github.ref_name }}
+        run: |
+          issue_body="## 🚨 Consumer Repo Sync Failed
+
+          The sync workflow failed to push updates to consumer repositories.
+
+          ### Failure Details
+          - **Failed Jobs:** ${FAILED_JOBS}
+          - **Trigger:** Push to \`${TRIGGER_REF}\` (${TRIGGER_SHA:0:7})
+          - **Run:** [View workflow run](${RUN_URL})
+          - **Time:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')
+
+          ### Impact
+          Consumer repos are NOT receiving the latest workflow templates, scripts, and prompts.
+          This means new features and bug fixes are not being deployed to:
+          - stranske/Template
+          - stranske/trip-planner
+          - stranske/Manager-Database
+          - stranske/Travel-Plan-Permission
+          - stranske/Portable-Alpha-Extension-Model
+          - stranske/Trend_Model_Project
+          - stranske/Collab-Admin
+
+          ### Common Causes
+          1. **Lint errors** in Python scripts listed in \`sync-manifest.yml\`
+          2. **YAML syntax errors** in workflow templates
+          3. **Missing files** referenced in the manifest
+          4. **API/auth failures** when pushing to consumer repos
+
+          ### Resolution Steps
+          1. Check the [failed workflow run](${RUN_URL}) for specific error messages
+          2. Fix the underlying issue (lint errors, syntax errors, etc.)
+          3. The sync will automatically retry on next push to \`templates/consumer-repo/\` or \`sync-manifest.yml\`
+          4. Or manually trigger: \`gh workflow run 'Maint 68 Sync Consumer Repos'\`
+
+          ### Prevention
+          Run \`ruff check --select='E,W,F,I,B' scripts/\` locally before pushing changes to synced scripts.
+
+          ---
+          *This issue was automatically created by the sync workflow failure handler.*"
+
+          if [ -n "$EXISTING_ISSUE" ]; then
+            # Add comment to existing issue
+            gh issue comment "$EXISTING_ISSUE" --body "### 🔄 Sync failed again
+
+          - **Run:** [View workflow run](${RUN_URL})
+          - **Failed Jobs:** ${FAILED_JOBS}
+          - **Time:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')
+
+          The sync workflow continues to fail. Please investigate."
+            echo "::warning::Added comment to existing issue #$EXISTING_ISSUE"
+          else
+            # Create new issue
+            gh issue create \
+              --title "🚨 Consumer Repo Sync Failed - Action Required" \
+              --body "$issue_body" \
+              --label "sync-failure,automated,bug"
+            echo "::warning::Created new sync failure issue"
+          fi
