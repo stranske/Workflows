@@ -318,7 +318,7 @@ def test_is_large_task_ignores_compound_slashes() -> None:
     # Compound words should NOT be flagged as large
     assert not issue_optimizer._is_large_task("Color-coded additions/removals")
     assert not issue_optimizer._is_large_task("Update src/utils module")
-    
+
     # But spaced slashes still indicate alternatives (large task)
     assert issue_optimizer._is_large_task("Option A / Option B")
     assert issue_optimizer._is_large_task("Run lint / format / typecheck")
