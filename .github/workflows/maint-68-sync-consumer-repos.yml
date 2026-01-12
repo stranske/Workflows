@@ -707,6 +707,9 @@ jobs:
           TRIGGER_SHA: ${{ github.sha }}
           TRIGGER_REF: ${{ github.ref_name }}
         run: |
+          # Format consumer repos as markdown list
+          affected_repos=$(echo "$REGISTERED_CONSUMER_REPOS" | sed '/^$/d' | sed 's/^/          - /')
+
           issue_body="## 🚨 Consumer Repo Sync Failed
 
           The sync workflow failed to push updates to consumer repositories.
@@ -720,13 +723,7 @@ jobs:
           ### Impact
           Consumer repos are NOT receiving the latest workflow templates, scripts, and prompts.
           This means new features and bug fixes are not being deployed to:
-          - stranske/Template
-          - stranske/trip-planner
-          - stranske/Manager-Database
-          - stranske/Travel-Plan-Permission
-          - stranske/Portable-Alpha-Extension-Model
-          - stranske/Trend_Model_Project
-          - stranske/Collab-Admin
+          ${affected_repos}
 
           ### Common Causes
           1. **Lint errors** in Python scripts listed in \`sync-manifest.yml\`

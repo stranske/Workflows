@@ -29,6 +29,18 @@ permissions:
   issues: write
   actions: read
 
+# Consumer repos registered for automatic sync (single source of truth)
+# Keep in sync with maint-68-sync-consumer-repos.yml
+env:
+  CONSUMER_REPOS: |
+    stranske/Template
+    stranske/trip-planner
+    stranske/Manager-Database
+    stranske/Travel-Plan-Permission
+    stranske/Portable-Alpha-Extension-Model
+    stranske/Trend_Model_Project
+    stranske/Collab-Admin
+
 jobs:
   check-sync-health:
     name: Check sync workflow health
@@ -54,16 +66,18 @@ jobs:
 
           if [ "$total_runs" -eq 0 ]; then
             echo "status=no_runs" >> "$GITHUB_OUTPUT"
+            echo "message=No sync workflow runs found in the lookback window" >> "$GITHUB_OUTPUT"
             echo "::warning::No sync workflow runs found!"
             exit 0
           fi
 
-          # Count failures and find last success
+          # Count failures, successes, and other states (cancelled, skipped, timed_out, in_progress)
           failed_count=$(echo "$runs" | jq '[.[] | select(.conclusion == "failure")] | length')
           success_runs=$(echo "$runs" | jq '[.[] | select(.conclusion == "success")]')
           success_count=$(echo "$success_runs" | jq 'length')
+          other_count=$((total_runs - failed_count - success_count))
 
-          echo "Results: $success_count success, $failed_count failure out of $total_runs runs"
+          echo "Results: $success_count success, $failed_count failure, $other_count other out of $total_runs runs"
 
           # Check if ALL recent runs failed
           if [ "$failed_count" -eq "$total_runs" ]; then
@@ -73,25 +87,32 @@ jobs:
             exit 0
           fi
 
+          # Check if there are NO successful runs (could be cancelled, skipped, in-progress)
+          if [ "$success_count" -eq 0 ]; then
+            echo "status=no_success" >> "$GITHUB_OUTPUT"
+            echo "message=No successful sync runs in the last $total_runs runs ($failed_count failed, $other_count other states)" >> "$GITHUB_OUTPUT"
+            echo "::warning::No successful sync runs found!"
+            exit 0
+          fi
+
           # Check time since last success
-          if [ "$success_count" -gt 0 ]; then
-            last_success_time=$(echo "$success_runs" | jq -r '.[0].created_at')
-            last_success_epoch=$(date -d "$last_success_time" +%s)
-            now_epoch=$(date +%s)
-            hours_since=$((($now_epoch - $last_success_epoch) / 3600))
+          last_success_time=$(echo "$success_runs" | jq -r '.[0].created_at')
+          last_success_epoch=$(date -d "$last_success_time" +%s)
+          now_epoch=$(date +%s)
+          hours_since=$(((now_epoch - last_success_epoch) / 3600))
 
-            echo "Last successful sync: $last_success_time ($hours_since hours ago)"
-            echo "hours_since_success=$hours_since" >> "$GITHUB_OUTPUT"
+          echo "Last successful sync: $last_success_time ($hours_since hours ago)"
+          echo "hours_since_success=$hours_since" >> "$GITHUB_OUTPUT"
 
-            if [ "$hours_since" -gt "$MAX_AGE_HOURS" ]; then
-              echo "status=stale" >> "$GITHUB_OUTPUT"
-              echo "message=Last successful sync was $hours_since hours ago (threshold: $MAX_AGE_HOURS hours)" >> "$GITHUB_OUTPUT"
-              echo "::warning::Sync is stale - last success was $hours_since hours ago"
-              exit 0
-            fi
+          if [ "$hours_since" -gt "$MAX_AGE_HOURS" ]; then
+            echo "status=stale" >> "$GITHUB_OUTPUT"
+            echo "message=Last successful sync was $hours_since hours ago (threshold: $MAX_AGE_HOURS hours)" >> "$GITHUB_OUTPUT"
+            echo "::warning::Sync is stale - last success was $hours_since hours ago"
+            exit 0
           fi
 
           echo "status=healthy" >> "$GITHUB_OUTPUT"
+          echo "message=Sync is healthy - last success $hours_since hours ago" >> "$GITHUB_OUTPUT"
           echo "✓ Sync workflow is healthy"
 
       - name: Check for existing issue
@@ -135,6 +156,10 @@ jobs:
               title="🚨 Consumer Repo Sync Completely Broken - All Recent Runs Failed"
               severity="CRITICAL"
               ;;
+            no_success)
+              title="⚠️ Consumer Repo Sync Unhealthy - No Successful Runs"
+              severity="WARNING"
+              ;;
             stale)
               title="⚠️ Consumer Repo Sync Stale - No Success in ${HOURS_SINCE}+ Hours"
               severity="WARNING"
@@ -149,6 +174,9 @@ jobs:
               ;;
           esac
 
+          # Format consumer repos as markdown list
+          affected_repos=$(echo "$CONSUMER_REPOS" | sed '/^$/d' | sed 's/^/          - /')
+
           body="## Consumer Repo Sync Health Alert
 
           **Severity:** ${severity}
@@ -160,13 +188,7 @@ jobs:
           New features, bug fixes, and security patches are NOT being deployed.
 
           ### Affected Repos
-          - stranske/Template
-          - stranske/trip-planner
-          - stranske/Manager-Database
-          - stranske/Travel-Plan-Permission
-          - stranske/Portable-Alpha-Extension-Model
-          - stranske/Trend_Model_Project
-          - stranske/Collab-Admin
+          ${affected_repos}
 
           ### Actions Required
           1. [View sync workflow runs](${sync_url})

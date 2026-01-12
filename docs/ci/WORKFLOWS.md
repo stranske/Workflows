@@ -167,6 +167,7 @@ Scheduled health jobs keep the automation ecosystem aligned:
 * [`health-50-security-scan.yml`](../../.github/workflows/health-50-security-scan.yml) runs CodeQL security analysis on Python code (push, PR, weekly schedule).
 * [`health-67-integration-sync-check.yml`](../../.github/workflows/health-67-integration-sync-check.yml) validates that Workflows-Integration-Tests repo stays in sync with templates (push, `repository_dispatch`, daily schedule).
 * [`health-70-validate-sync-manifest.yml`](../../.github/workflows/health-70-validate-sync-manifest.yml) validates that sync-manifest.yml is complete - ensures all sync-able files are declared (PR, push).
+* [`health-71-sync-health-check.yml`](../../.github/workflows/health-71-sync-health-check.yml) monitors sync workflow health daily - creates issues if all recent runs failed or sync is stale (daily schedule, manual dispatch).
 * [`maint-68-sync-consumer-repos.yml`](../../.github/workflows/maint-68-sync-consumer-repos.yml) pushes workflow template updates to registered consumer repos (release, template push, manual dispatch).
 * [`maint-69-sync-integration-repo.yml`](../../.github/workflows/maint-69-sync-integration-repo.yml) syncs integration-repo templates to Workflows-Integration-Tests repository (template push, manual dispatch with dry-run support).
 * [`maint-70-fix-integration-formatting.yml`](../../.github/workflows/maint-70-fix-integration-formatting.yml) applies Black and Ruff formatting fixes to Integration-Tests repository files (manual dispatch for CI formatting failures).
