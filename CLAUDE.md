@@ -232,6 +232,66 @@ The nested job 'job_name' is requesting 'contents: write', but is only allowed '
 
 ## Before Making Changes
 
+### Systematic Discovery Protocol
+
+**BEFORE making documentation changes or answering "what's missing":**
+
+1. **Read ALL related documentation first** - Don't skip:
+   ```bash
+   # For keepalive/workflow questions:
+   find docs/keepalive -name "*.md" -exec cat {} \;
+   
+   # For setup questions:
+   cat docs/keepalive/SETUP_CHECKLIST.md docs/TMP_TRANSITION_PLAN.md
+   
+   # For any domain:
+   grep -r "keyword1\|keyword2\|keyword3" docs/ --include="*.md"
+   ```
+
+2. **Check what EXISTS in practice** - Compare docs to reality:
+   ```bash
+   # Check reference consumer repo:
+   gh api repos/stranske/Travel-Plan-Permission/contents/.github
+   
+   # Check template vs docs:
+   cat templates/consumer-repo/.gitignore
+   
+   # Find validation scripts:
+   ls scripts/*.py | xargs grep -l "sync\|validate\|check"
+   ```
+
+3. **Search for existing automation** - Don't recreate:
+   ```bash
+   # Look for canonical sources:
+   grep -rn "canonical\|template\|source of truth" .
+   
+   # Look for validation tools:
+   find scripts/ -name "*sync*" -o -name "*validate*"
+   ```
+
+4. **Always check for authentication methods**:
+   ```bash
+   # GitHub App configuration often missed:
+   grep -rn "GitHub App\|WORKFLOWS_APP\|APP_ID\|PRIVATE_KEY" docs/
+   grep -rn "authentication\|secrets" docs/keepalive/SETUP_CHECKLIST.md
+   ```
+
+5. **Reference, don't duplicate**:
+   - ❌ Copy patterns from template into docs → maintenance burden
+   - ✅ Reference template path + provide validation command
+   - ❌ Recreate what exists in scripts
+   - ✅ Use existing scripts and document them
+
+**Triggers**: Use this protocol when:
+- User asks "what's missing from X"
+- Making documentation changes
+- Adding to setup guides
+- Comparing template vs docs
+
+**Why**: Prevents missing critical info (GitHub App), prevents duplication (gitignore patterns), ensures maintainability (reference canonical sources).
+
+### Change Checklist
+
 1. **Read the relevant doc** from the index above
 2. **Check Travel-Plan-Permission** as the reference implementation
 3. **Test in Workflows repo first** before syncing to consumers
