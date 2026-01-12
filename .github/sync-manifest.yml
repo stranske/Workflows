@@ -7,7 +7,7 @@
 # POLICY: Any file intended for consumer repos MUST be listed here.
 # Files not listed will NOT be synced, even if they exist in templates/consumer-repo/.
 #
-# Last sync trigger: 2026-01-12T03:15:00Z - force sync after lint fix (PR #824)
+# Last sync trigger: 2026-01-12T03:45:00Z - force sync after all lint fixes merged (PR #828)
 #
 # Categories:
 #   workflows: Thin caller workflows that consumers run directly
