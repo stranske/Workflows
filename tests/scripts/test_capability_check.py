@@ -626,3 +626,35 @@ class TestPromptContent:
         assert "partial_tasks" in AGENT_CAPABILITY_CHECK_PROMPT
         assert "blocked_tasks" in AGENT_CAPABILITY_CHECK_PROMPT
         assert "recommendation" in AGENT_CAPABILITY_CHECK_PROMPT
+
+
+class TestIsMultiActionTask:
+    """Tests for _is_multi_action_task function."""
+
+    def test_spaced_slashes_detected_as_multi_action(self) -> None:
+        """Spaced slashes (alternatives) should be detected as multi-action."""
+        from scripts.langchain.capability_check import _is_multi_action_task
+
+        assert _is_multi_action_task("Option A / Option B")
+        assert _is_multi_action_task("Run lint / format / typecheck")
+        assert _is_multi_action_task("Create issue / PR for changes")
+
+    def test_compound_slashes_not_detected_as_multi_action(self) -> None:
+        """Compound words with unspaced slashes should NOT be flagged."""
+        from scripts.langchain.capability_check import _is_multi_action_task
+
+        # Compound words - NOT multi-action just due to slash
+        assert not _is_multi_action_task("Color-coded additions/removals")
+        assert not _is_multi_action_task("Update src/utils module")
+        assert not _is_multi_action_task("Fix path/to/file.py")
+        assert not _is_multi_action_task("Handle read/write operations")
+
+    def test_other_separators_detected(self) -> None:
+        """Other separators should still be detected."""
+        from scripts.langchain.capability_check import _is_multi_action_task
+
+        assert _is_multi_action_task("Do this and do that")
+        assert _is_multi_action_task("Task A, Task B")
+        assert _is_multi_action_task("First + Second")
+        assert _is_multi_action_task("Step 1; Step 2")
+        assert _is_multi_action_task("Do X then Y")
