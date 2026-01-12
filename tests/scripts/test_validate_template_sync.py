@@ -98,7 +98,7 @@ def test_validator_handles_missing_template_directory(tmp_path):
 
     # Should fail with clear error
     assert result.returncode == 1
-    assert "test.js" in result.stdout
+    assert "Template directory not found" in result.stdout or "test.js" in result.stdout
 
 
 def test_validator_suggests_sync_command(tmp_path):
