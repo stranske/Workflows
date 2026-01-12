@@ -27,6 +27,9 @@ const ALLOW_REMOVED_PATHS = new Set(
     '.github/workflows/agents-pr-meta.yml',
     '.github/workflows/agents-pr-meta-v2.yml',
     '.github/workflows/agents-pr-meta-v3.yml',
+    // v1 verify-to-issue workflow deprecated; v2 is the active version.
+    // Archived to archives/deprecated-workflows/
+    '.github/workflows/agents-verify-to-issue.yml',
   ].map((entry) => entry.toLowerCase()),
 );
 
@@ -447,7 +450,11 @@ function evaluateGuard({
   const hasCodeownerApproval = hasExternalApproval || authorIsCodeowner;
 
   const hasProtectedChanges = modifiedProtectedPaths.size > 0;
-  const needsApproval = hasProtectedChanges && !hasCodeownerApproval;
+  // Security note: Allow `agents:allow-change` label to bypass CODEOWNER approval
+  // ONLY for automated dependency PRs from known bots (dependabot, renovate).
+  // Human PRs or other bot PRs still require CODEOWNER approval even with label.
+  const isAutomatedPR = normalizedAuthor && (normalizedAuthor === 'dependabot[bot]' || normalizedAuthor === 'renovate[bot]');
+  const needsApproval = hasProtectedChanges && !hasCodeownerApproval && !(hasAllowLabel && isAutomatedPR);
   const needsLabel = hasProtectedChanges && !hasAllowLabel && !hasCodeownerApproval;
 
   const failureReasons = [];

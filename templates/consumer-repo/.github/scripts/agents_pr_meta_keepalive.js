@@ -264,9 +264,7 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
   if (!owner || !repo) {
     outputs.reason = 'missing-repo';
     core.info('Keepalive dispatch skipped: unable to resolve repository owner/name for PR lookup.');
-    if (typeof finalise === 'function') {
-      return finalise(false);
-    }
+    // Early exit before finalise is defined - just return false
     return false;
   }
   const body = comment?.body || '';

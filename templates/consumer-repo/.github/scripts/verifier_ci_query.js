@@ -67,7 +67,8 @@ async function withRetry(apiCall, options = {}) {
     ? delays
     : buildRetryDelays(maxRetries, baseDelayMs);
   let lastError = null;
-  for (let attempt = 0; attempt <= retryDelays.length; attempt += 1) {
+  // Loop allows retryDelays.length retries (attempt 0 = first try, then retries)
+  for (let attempt = 0; attempt < retryDelays.length + 1; attempt += 1) {
     try {
       return await apiCall();
     } catch (error) {

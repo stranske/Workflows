@@ -75,7 +75,26 @@ Before submitting changes, run the validation scripts:
 
 # Comprehensive check (30-120 seconds)
 ./scripts/check_branch.sh
+
+# Template sync validation (if you modified .github/scripts/)
+python scripts/validate_template_sync.py
 ```
+
+### ⚠️ CRITICAL: Template Sync Guard
+
+**If you modify any file in `.github/scripts/`, you MUST also update the template:**
+
+```bash
+# After editing .github/scripts/*.js, run:
+./scripts/sync_templates.sh
+
+# Verify sync:
+python scripts/validate_template_sync.py
+```
+
+**Why?** Consumer repos get workflow updates via `templates/consumer-repo/`. If you only update `.github/scripts/` but not the template, your changes won't sync to consumer repos and no sync PRs will be created.
+
+The CI will fail if templates are out of sync with source files.
 
 ## Code Style
 

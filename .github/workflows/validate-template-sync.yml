@@ -1,0 +1,38 @@
+name: Validate Template Sync
+
+on:
+  pull_request:
+    paths:
+      - '.github/scripts/**/*.js'
+      - 'templates/consumer-repo/.github/scripts/**/*.js'
+  push:
+    branches: [main]
+    paths:
+      - '.github/scripts/**/*.js'
+      - 'templates/consumer-repo/.github/scripts/**/*.js'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Validate template sync
+        run: |
+          python scripts/validate_template_sync.py
+          if [ $? -ne 0 ]; then
+            echo ""
+            echo "❌ FAILED: Template files are out of sync!"
+            echo ""
+            echo "To fix this error:"
+            echo "  1. Run: ./scripts/sync_templates.sh"
+            echo "  2. Commit the changes to templates/consumer-repo/"
+            echo "  3. Push to your branch"
+            echo ""
+            exit 1
+          fi

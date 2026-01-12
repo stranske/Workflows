@@ -3,11 +3,23 @@
 const normalizeNewlines = (value) => String(value || '').replace(/\r\n/g, '\n');
 const stripBlockquotePrefixes = (value) =>
   String(value || '').replace(/^[ \t]*>+[ \t]?/gm, '');
-const escapeRegExp = (value) => String(value ?? '').replace(/[\\^$.*+?()[\]{}|]/g, '\\$&');
+
+/**
+ * Check if a line is a code fence delimiter (``` or ~~~).
+ * Used to track code block boundaries when processing content.
+ */
+const isCodeFenceLine = (line) => /^(`{3,}|~{3,})/.test(line.trim());
+
+const LIST_ITEM_REGEX = /^(\s*)([-*+]|\d+[.)])\s+(.*)$/;
 
 const SECTION_DEFS = [
   { key: 'scope', label: 'Scope', aliases: ['Scope', 'Issue Scope', 'Why', 'Background', 'Context', 'Overview'], optional: true },
-  { key: 'tasks', label: 'Tasks', aliases: ['Tasks', 'Task List', 'Implementation', 'Implementation notes'], optional: false },
+  {
+    key: 'tasks',
+    label: 'Tasks',
+    aliases: ['Tasks', 'Task', 'Task List', 'Implementation', 'Implementation notes', 'To Do', 'Todo', 'To-Do'],
+    optional: false,
+  },
   {
     key: 'acceptance',
     label: 'Acceptance Criteria',
@@ -31,6 +43,7 @@ const PR_META_FALLBACK_PLACEHOLDERS = {
 };
 
 const CHECKBOX_SECTIONS = new Set(['tasks', 'acceptance']);
+const ACCEPTANCE_CUE_REGEX = /(acceptance|definition of done|done criteria)/i;
 
 function normaliseSectionContent(sectionKey, content) {
   const trimmed = String(content || '').trim();
@@ -78,8 +91,21 @@ function normaliseChecklist(content) {
 
   const lines = raw.split('\n');
   let mutated = false;
+  let insideCodeBlock = false;
+  
   const updated = lines.map((line) => {
-    const match = line.match(/^(\s*)([-*])\s+(.*)$/);
+    // Track code fence boundaries - don't add checkboxes inside code blocks
+    if (isCodeFenceLine(line)) {
+      insideCodeBlock = !insideCodeBlock;
+      return line;
+    }
+    
+    // Skip checkbox normalization for lines inside code blocks
+    if (insideCodeBlock) {
+      return line;
+    }
+    
+    const match = line.match(LIST_ITEM_REGEX);
     if (!match) {
       return line;
     }
@@ -99,6 +125,291 @@ function normaliseChecklist(content) {
   return mutated ? updated.join('\n') : raw;
 }
 
+function stripHeadingMarkers(rawLine) {
+  if (!rawLine) {
+    return '';
+  }
+  let text = String(rawLine).trim();
+  if (!text) {
+    return '';
+  }
+  text = text.replace(/^#{1,6}\s+/, '');
+  text = text.replace(/\s*:\s*$/, '');
+
+  const boldMatch = text.match(/^(?:\*\*|__)(.+)(?:\*\*|__)$/);
+  if (boldMatch) {
+    text = boldMatch[1].trim();
+  }
+
+  text = text.replace(/\s*:\s*$/, '');
+  return text.trim();
+}
+
+function extractHeadingLabel(rawLine) {
+  const cleaned = stripHeadingMarkers(rawLine);
+  if (!cleaned) {
+    const listMatch = String(rawLine || '').match(LIST_ITEM_REGEX);
+    if (!listMatch) {
+      return '';
+    }
+    const remainder = listMatch[3]?.trim() || '';
+    if (!remainder || /^\[[ xX]\]/.test(remainder)) {
+      return '';
+    }
+    return stripHeadingMarkers(remainder);
+  }
+  return cleaned;
+}
+
+function isExplicitHeadingLine(rawLine) {
+  const line = String(rawLine || '').trim();
+  if (!line) {
+    return false;
+  }
+  if (/^#{1,6}\s+\S/.test(line)) {
+    return true;
+  }
+  return /^(?:\*\*|__)(.+?)(?:\*\*|__)\s*:?\s*$/.test(line);
+}
+
+function extractListBlocks(lines) {
+  const blocks = [];
+  let current = [];
+  let insideCodeBlock = false;
+
+  const flush = () => {
+    if (current.length) {
+      const block = current.join('\n').trim();
+      if (block) {
+        blocks.push(block);
+      }
+      current = [];
+    }
+  };
+
+  for (const line of lines) {
+    // Track code fence boundaries
+    if (isCodeFenceLine(line)) {
+      insideCodeBlock = !insideCodeBlock;
+      // Include code fence lines in current block if we're building one
+      if (current.length) {
+        current.push(line);
+      }
+      continue;
+    }
+    
+    // Lines inside code blocks are treated as continuation (don't break the block)
+    if (insideCodeBlock) {
+      if (current.length) {
+        current.push(line);
+      }
+      continue;
+    }
+    
+    if (LIST_ITEM_REGEX.test(line)) {
+      current.push(line);
+      continue;
+    }
+    if (current.length) {
+      if (!line.trim()) {
+        current.push(line);
+        continue;
+      }
+      flush();
+    }
+  }
+  flush();
+
+  return blocks;
+}
+
+function extractListBlocksWithOffsets(lines) {
+  const blocks = [];
+  let current = [];
+  let blockStart = null;
+  let blockEnd = null;
+  let offset = 0;
+  let insideCodeBlock = false;
+
+  const flush = () => {
+    if (!current.length) {
+      return;
+    }
+    const content = current.join('\n').trim();
+    if (content) {
+      blocks.push({ start: blockStart, end: blockEnd, content });
+    }
+    current = [];
+    blockStart = null;
+    blockEnd = null;
+  };
+
+  for (const line of lines) {
+    // Track code fence boundaries
+    if (isCodeFenceLine(line)) {
+      insideCodeBlock = !insideCodeBlock;
+      if (current.length) {
+        current.push(line);
+        blockEnd = offset + line.length;
+      }
+      offset += line.length + 1;
+      continue;
+    }
+    
+    // Lines inside code blocks continue the current block
+    if (insideCodeBlock) {
+      if (current.length) {
+        current.push(line);
+        blockEnd = offset + line.length;
+      }
+      offset += line.length + 1;
+      continue;
+    }
+    
+    const isList = LIST_ITEM_REGEX.test(line);
+    if (isList) {
+      if (!current.length) {
+        blockStart = offset;
+      }
+      current.push(line);
+      blockEnd = offset + line.length;
+    } else if (current.length) {
+      if (!line.trim()) {
+        current.push(line);
+        blockEnd = offset + line.length;
+      } else {
+        flush();
+      }
+    }
+    offset += line.length + 1;
+  }
+  flush();
+
+  return blocks;
+}
+
+function removeTrailingBlock(content, block) {
+  const trimmedContent = String(content || '').trim();
+  const trimmedBlock = String(block || '').trim();
+  if (!trimmedContent || !trimmedBlock) {
+    return content;
+  }
+  if (!trimmedContent.endsWith(trimmedBlock)) {
+    return content;
+  }
+  const index = trimmedContent.lastIndexOf(trimmedBlock);
+  if (index === -1) {
+    return content;
+  }
+  return trimmedContent.slice(0, index).trimEnd();
+}
+
+function blockInsideRange(block, range) {
+  if (!range) {
+    return false;
+  }
+  return block.start >= range.start && block.end <= range.end;
+}
+
+function hasAcceptanceCue(content) {
+  const lines = String(content || '').split('\n');
+  return lines.some((line) => {
+    if (LIST_ITEM_REGEX.test(line)) {
+      return false;
+    }
+    const cleaned = stripHeadingMarkers(line);
+    if (!cleaned) {
+      return false;
+    }
+    return ACCEPTANCE_CUE_REGEX.test(cleaned);
+  });
+}
+
+function inferSectionsFromLists(segment) {
+  const sections = { scope: '', tasks: '', acceptance: '' };
+  const lines = String(segment || '').split('\n');
+  const firstListIndex = lines.findIndex((line) => LIST_ITEM_REGEX.test(line));
+  if (firstListIndex === -1) {
+    return sections;
+  }
+
+  const preListText = lines.slice(0, firstListIndex).join('\n').trim();
+  if (preListText) {
+    sections.scope = preListText;
+  }
+
+  const listBlocks = extractListBlocks(lines.slice(firstListIndex));
+  if (listBlocks.length > 0) {
+    sections.tasks = listBlocks[0];
+  }
+  if (listBlocks.length > 1) {
+    sections.acceptance = listBlocks[1];
+  }
+
+  return sections;
+}
+
+function applyListFallbacks({ segment, sections, listBlocks, ranges }) {
+  const updated = { ...sections };
+  const tasksMissing = !String(updated.tasks || '').trim();
+  const acceptanceMissing = !String(updated.acceptance || '').trim();
+
+  if (!tasksMissing && !acceptanceMissing) {
+    return updated;
+  }
+
+  if (tasksMissing && String(updated.scope || '').trim()) {
+    const inferred = inferSectionsFromLists(updated.scope);
+    if (inferred.tasks) {
+      updated.tasks = inferred.tasks;
+      updated.scope = inferred.scope || '';
+      if (acceptanceMissing && inferred.acceptance) {
+        updated.acceptance = inferred.acceptance;
+      }
+    }
+  }
+
+  const acceptanceStillMissing = !String(updated.acceptance || '').trim();
+  if (acceptanceStillMissing && String(updated.tasks || '').trim()) {
+    const taskBlocks = extractListBlocks(String(updated.tasks || '').split('\n'));
+    if (taskBlocks.length > 1 && hasAcceptanceCue(updated.tasks)) {
+      const acceptanceBlock = taskBlocks[taskBlocks.length - 1];
+      updated.acceptance = acceptanceBlock;
+      updated.tasks = removeTrailingBlock(updated.tasks, acceptanceBlock);
+    }
+  }
+
+  const tasksStillMissing = !String(updated.tasks || '').trim();
+  if (tasksStillMissing && listBlocks.length) {
+    const acceptanceRange = ranges.acceptance;
+    const candidates = listBlocks.filter((block) => !blockInsideRange(block, acceptanceRange));
+    if (candidates.length) {
+      if (acceptanceRange) {
+        const before = candidates.filter((block) => block.end <= acceptanceRange.start);
+        updated.tasks = (before.length ? before[before.length - 1] : candidates[0]).content;
+      } else {
+        updated.tasks = candidates[0].content;
+      }
+    }
+  }
+
+  const acceptanceStillMissingAfter = !String(updated.acceptance || '').trim();
+  if (acceptanceStillMissingAfter && listBlocks.length) {
+    const tasksRange = ranges.tasks;
+    const candidates = listBlocks.filter((block) => !blockInsideRange(block, tasksRange));
+    if (candidates.length) {
+      if (tasksRange) {
+        const after = candidates.filter((block) => block.start >= tasksRange.end);
+        updated.acceptance = (after.length ? after[0] : candidates[candidates.length - 1]).content;
+      } else {
+        updated.acceptance = candidates[candidates.length - 1].content;
+      }
+    }
+  }
+
+  return updated;
+}
+
 function collectSections(source) {
   const normalized = stripBlockquotePrefixes(normalizeNewlines(source));
   if (!normalized.trim()) {
@@ -115,17 +426,6 @@ function collectSections(source) {
     segment = normalized.slice(startIndex + startMarker.length, endIndex);
   }
 
-  const headingLabelPattern = SECTION_DEFS
-    .flatMap((section) => section.aliases)
-    .map((title) => escapeRegExp(title))
-    .join('|');
-
-  // Match headings that may be markdown headers (# H), bold (**H**), or plain text (with optional colon).
-  const headingRegex = new RegExp(
-    `^\\s*(?:#{1,6}\\s+|\\*\\*)?(${headingLabelPattern})(?:\\*\\*|:)?\\s*$`,
-    'gim'
-  );
-
   const aliasLookup = SECTION_DEFS.reduce((acc, section) => {
     section.aliases.forEach((alias) => {
       acc[alias.toLowerCase()] = section;
@@ -134,21 +434,47 @@ function collectSections(source) {
   }, {});
 
   const headings = [];
-  let match;
-  while ((match = headingRegex.exec(segment)) !== null) {
-    const matchedLabel = (match[1] || '').trim();
-    const title = matchedLabel.toLowerCase();
-    if (!title || !aliasLookup[title]) {
+  const allHeadings = [];
+  const lines = segment.split('\n');
+  const listBlocks = extractListBlocksWithOffsets(lines);
+  let offset = 0;
+  let insideCodeBlock = false;
+  for (const line of lines) {
+    // Track code fence boundaries - skip heading detection inside code blocks
+    if (isCodeFenceLine(line)) {
+      insideCodeBlock = !insideCodeBlock;
+      offset += line.length + 1;
       continue;
     }
-    const section = aliasLookup[title];
-    headings.push({
-      title: section.key,
-      label: section.label,
-      index: match.index,
-      length: match[0].length,
-      matchedLabel,
-    });
+    
+    if (!insideCodeBlock) {
+      const matchedLabel = extractHeadingLabel(line);
+      if (matchedLabel) {
+        const title = matchedLabel.toLowerCase();
+        if (aliasLookup[title]) {
+          const section = aliasLookup[title];
+          headings.push({
+            title: section.key,
+            label: section.label,
+            index: offset,
+            length: line.length,
+            matchedLabel,
+          });
+        }
+      }
+      if (isExplicitHeadingLine(line)) {
+        allHeadings.push({ index: offset, length: line.length });
+      }
+    }
+    offset += line.length + 1;
+  }
+
+  const headingIndexSet = new Set(allHeadings.map((heading) => heading.index));
+  for (const header of headings) {
+    if (!headingIndexSet.has(header.index)) {
+      allHeadings.push({ index: header.index, length: header.length });
+      headingIndexSet.add(header.index);
+    }
   }
 
   const extracted = SECTION_DEFS.reduce((acc, section) => {
@@ -159,9 +485,20 @@ function collectSections(source) {
     acc[section.key] = section.label;
     return acc;
   }, {});
+  const ranges = SECTION_DEFS.reduce((acc, section) => {
+    acc[section.key] = null;
+    return acc;
+  }, {});
 
   if (headings.length === 0) {
-    return { segment, sections: extracted, labels };
+    const inferred = inferSectionsFromLists(segment);
+    const merged = {
+      ...extracted,
+      ...Object.fromEntries(
+        Object.entries(inferred).filter(([, value]) => String(value || '').trim())
+      ),
+    };
+    return { segment, sections: merged, labels };
   }
 
   for (const section of SECTION_DEFS) {
@@ -170,7 +507,7 @@ function collectSections(source) {
     if (!header) {
       continue; // Skip missing sections instead of failing
     }
-    const nextHeader = headings
+    const nextHeader = allHeadings
       .filter((entry) => entry.index > header.index)
       .sort((a, b) => a.index - b.index)[0];
     const contentStart = (() => {
@@ -184,9 +521,11 @@ function collectSections(source) {
     const content = normalizeNewlines(segment.slice(contentStart, contentEnd)).trim();
     extracted[section.key] = content;
     labels[section.key] = header.matchedLabel?.trim() || canonicalTitle;
+    ranges[section.key] = { start: contentStart, end: contentEnd };
   }
 
-  return { segment, sections: extracted, labels };
+  const sections = applyListFallbacks({ segment, sections: extracted, listBlocks, ranges });
+  return { segment, sections, labels };
 }
 
 /**
