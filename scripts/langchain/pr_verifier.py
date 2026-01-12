@@ -348,7 +348,7 @@ def _format_followup_issue_body(
     return "\n".join(lines).strip() + "\n"
 
 
-def _should_create_issue(result: EvaluationResult) -> bool:
+def _should_create_issue(_result: EvaluationResult) -> bool:
     # Disabled: automatic issue creation is no longer desired
     return False
 

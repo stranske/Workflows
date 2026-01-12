@@ -670,9 +670,9 @@ def _generate_with_llm(
     pr_number: int,
     codex_log: str | None,
     reasoning_client: Any,
-    reasoning_model: str,
+    _reasoning_model: str,
     standard_client: Any,
-    standard_model: str,
+    _standard_model: str,
 ) -> FollowupIssue:
     """Generate follow-up issue using multi-round LLM interaction.
 

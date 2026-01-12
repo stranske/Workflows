@@ -218,7 +218,7 @@ def _requires_external_dependency(task: str) -> bool:
 
 
 def _fallback_classify(
-    tasks: list[str], acceptance: str, reason: str | None
+    tasks: list[str], _acceptance: str, reason: str | None
 ) -> CapabilityCheckResult:
     actionable: list[str] = []
     partial: list[dict[str, str]] = []
