@@ -1,0 +1,134 @@
+name: Dependabot Auto-merge
+
+on:
+  pull_request_target:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - labeled
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  automerge:
+    runs-on: ubuntu-latest
+    if: github.actor == 'dependabot[bot]'
+    steps:
+      - name: Get PR metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@v2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Wait for checks
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            console.log(`Waiting for checks on PR #${pr.number}`);
+
+            // Wait up to 10 minutes for checks to complete
+            const maxWaitTime = 10 * 60 * 1000; // 10 minutes
+            const startTime = Date.now();
+            const pollInterval = 30000; // 30 seconds
+
+            while (Date.now() - startTime < maxWaitTime) {
+              const { data: checkRuns } = await github.rest.checks.listForRef({
+                owner,
+                repo,
+                ref: pr.head.sha
+              });
+
+              const allChecks = checkRuns.check_runs || [];
+              const requiredChecks = allChecks.filter(c =>
+                !c.name.includes('Detect keepalive') &&
+                !c.name.includes('pr_meta') &&
+                !c.name.includes('resolve_pr') &&
+                !c.name.includes('Cleanup') &&
+                !c.name.includes('Dependabot Auto-merge') &&
+                c.conclusion !== 'skipped' &&
+                c.conclusion !== 'neutral'
+              );
+
+              const pendingChecks = requiredChecks.filter(c =>
+                c.status !== 'completed'
+              );
+              const failedChecks = requiredChecks.filter(c =>
+                c.conclusion !== 'success' && c.conclusion !== null
+              );
+
+              console.log(
+                `Checks: ${requiredChecks.length} total, ` +
+                `${pendingChecks.length} pending, ` +
+                `${failedChecks.length} failed`
+              );
+                return;
+              }
+
+              console.log(`Waiting ${pollInterval/1000}s for pending checks...`);
+              await new Promise(resolve => setTimeout(resolve, pollInterval));
+            }
+
+            core.setFailed('Timeout waiting for checks');
+
+      - name: Enable auto-merge
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.CODESPACES_WORKFLOWS || secrets.GITHUB_TOKEN }}
+          script: |
+            const pr = context.payload.pull_request;
+
+            try {
+              await github.graphql(`
+                mutation {
+                  enablePullRequestAutoMerge(input: {
+                    pullRequestId: "${pr.node_id}",
+                    mergeMethod: MERGE
+                  }) {
+                    pullRequest {
+                      number
+                      autoMergeRequest {
+                        enabledAt
+                      }
+                    }
+                  }
+                }
+              `);
+
+              console.log(`✓ Auto-merge enabled for PR #${pr.number}`);
+
+              // Add a comment
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr.number,
+                body:
+                  '🤖 Auto-merge enabled - this PR will be ' +
+                  'automatically merged when all checks pass.'
+              });
+            } catch (error) {
+              console.error('Failed to enable auto-merge:', error);
+              console.log('Falling back to direct merge...');
+
+              // Fallback: try to merge directly
+              try {
+                await github.rest.pulls.merge({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  pull_number: pr.number,
+                  merge_method: 'merge'
+                });
+
+                console.log(`✓ PR #${pr.number} merged successfully`);
+              } catch (mergeError) {
+                console.error('Failed to merge:', mergeError);
+                throw mergeError;
+              }
+            }
