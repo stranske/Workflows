@@ -74,6 +74,7 @@ jobs:
           path: workflows-scripts
           sparse-checkout: |
             scripts/langchain
+            tools
           sparse-checkout-cone-mode: false
 
       - name: Set up Python

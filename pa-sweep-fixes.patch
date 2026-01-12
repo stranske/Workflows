@@ -1,0 +1,105 @@
+From b30b7bf42cdc0fde67eedd8b6a2c3b3a653d9f46 Mon Sep 17 00:00:00 2001
+From: stranske <stranske@gmail.com>
+Date: Mon, 12 Jan 2026 01:34:44 +0000
+Subject: [PATCH] Fix mypy errors and test failures in sweep module
+
+- Add type assertions for Optional float fields (param.min, param.max, param.step)
+- Fix base_sigma None check in financing_series calculation
+- Make sweep_results_to_dataframe handle missing 'parameters' key gracefully
+- Regenerate parameter dictionary and templates after adding SweepConfig field
+---
+ docs/guides/PARAMETER_DICTIONARY.md | 1 +
+ pa_core/sweep.py                    | 9 +++++++--
+ templates/parameters_template.csv   | 1 +
+ templates/params_template.yaml      | 1 +
+ 4 files changed, 10 insertions(+), 2 deletions(-)
+
+diff --git a/docs/guides/PARAMETER_DICTIONARY.md b/docs/guides/PARAMETER_DICTIONARY.md
+index 30645e5..a0f4dfe 100644
+--- a/docs/guides/PARAMETER_DICTIONARY.md
++++ b/docs/guides/PARAMETER_DICTIONARY.md
+@@ -70,6 +70,7 @@ This reference lists canonical field names, accepted aliases, and defaults for s
+ | `act_ext_spike_factor` | `Active Ext spike multiplier` | `<class 'float'>` | no | `0.0` |  |
+ | `financing_mode` | `financing_mode` | `Literal['broadcast', 'per_path']` | yes |  | Financing draw mode. broadcast reuses one financing vector across all simulations; per_path draws independent financing paths per scenario. |
+ | `analysis_mode` | `Analysis mode` | `<class 'str'>` | no | `returns` |  |
++| `sweep` | `sweep` | `Optional[pa_core.config.SweepConfig]` | no | `None` | Optional sweep configuration for custom parameter sampling. |
+ | `max_external_combined_pct` | `max_external_combined_pct` | `<class 'float'>` | no | `30.0` |  |
+ | `external_step_size_pct` | `external_step_size_pct` | `<class 'float'>` | no | `5.0` |  |
+ | `in_house_return_min_pct` | `in_house_return_min_pct` | `<class 'float'>` | no | `2.0` |  |
+diff --git a/pa_core/sweep.py b/pa_core/sweep.py
+index f640929..9cd3064 100644
+--- a/pa_core/sweep.py
++++ b/pa_core/sweep.py
+@@ -64,6 +64,7 @@ def _estimate_total_combinations(cfg: ModelConfig) -> int:
+             if param.values is not None:
+                 count = len(param.values)
+             else:
++                assert param.min is not None and param.max is not None and param.step is not None
+                 count = _count_range(float(param.min), float(param.max), float(param.step))
+             total *= count
+         return int(total)
+@@ -137,6 +138,7 @@ def _iter_sweep_grid(sweep: SweepConfig) -> Iterator[Dict[str, Any]]:
+         if param.values is not None:
+             param_values = list(param.values)
+         else:
++            assert param.min is not None and param.max is not None and param.step is not None
+             param_values = list(np.arange(param.min, param.max + param.step, param.step))
+         names.append(name)
+         values.append(param_values)
+@@ -149,8 +151,10 @@ def _sample_sweep_value(param: SweepParameter, rng: np.random.Generator) -> floa
+     if param.values is not None:
+         return float(rng.choice(param.values))
+     if param.step is not None:
++        assert param.min is not None and param.max is not None
+         grid = np.arange(param.min, param.max + param.step, param.step)
+         return float(rng.choice(grid))
++    assert param.min is not None and param.max is not None
+     return float(rng.uniform(param.min, param.max))
+ 
+ 
+@@ -498,7 +502,7 @@ def run_parameter_sweep(
+ 
+     financing_series = None
+     if reuse_financing_series:
+-        idx_sigma_fin = float(base_sigma[0]) if reuse_return_shocks else float(idx_sigma)
++        idx_sigma_fin = float(base_sigma[0]) if base_sigma is not None else float(idx_sigma)
+         financing_params = build_params(cfg, mu_idx=mu_idx, idx_sigma=idx_sigma_fin)
+         fin_rngs_base: Dict[str, GeneratorLike] = {}
+         for name in fin_rngs.keys():
+@@ -672,7 +676,8 @@ def sweep_results_to_dataframe(results: List[SweepResult]) -> pd.DataFrame:
+     frames: List[pd.DataFrame] = []
+     for res in results:
+         summary = res["summary"].copy()
+-        for key, val in res["parameters"].items():
++        parameters = res.get("parameters", {})
++        for key, val in parameters.items():
+             summary[key] = val
+         summary["combination_id"] = res["combination_id"]
+         frames.append(summary)
+diff --git a/templates/parameters_template.csv b/templates/parameters_template.csv
+index 6c31ea2..edfa6d8 100644
+--- a/templates/parameters_template.csv
++++ b/templates/parameters_template.csv
+@@ -51,6 +51,7 @@ Active Ext monthly spike prob,0.0
+ Active Ext spike multiplier,0.0
+ financing_mode,broadcast
+ Analysis mode,returns
++sweep,
+ max_external_combined_pct,30.0
+ external_step_size_pct,5.0
+ in_house_return_min_pct,2.0
+diff --git a/templates/params_template.yaml b/templates/params_template.yaml
+index fbee951..479268d 100644
+--- a/templates/params_template.yaml
++++ b/templates/params_template.yaml
+@@ -50,6 +50,7 @@ Active Ext monthly spike prob: 0.0
+ Active Ext spike multiplier: 0.0
+ financing_mode: broadcast
+ Analysis mode: returns
++sweep: null
+ max_external_combined_pct: 30.0
+ external_step_size_pct: 5.0
+ in_house_return_min_pct: 2.0
+-- 
+2.52.0
+

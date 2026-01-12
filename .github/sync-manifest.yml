@@ -194,11 +194,47 @@ scripts:
   - source: .github/scripts/keepalive_state.js
     description: "Keepalive state management"
 
+  - source: .github/scripts/timeout_config.js
+    description: "Timeout configuration parser for keepalive - required by keepalive_loop.js"
+
+  - source: .github/scripts/keepalive_guard_utils.js
+    description: "Guard utilities for keepalive state protection"
+
+  - source: .github/scripts/keepalive_contract.js
+    description: "Keepalive contract definitions and validation"
+
+  - source: .github/scripts/keepalive_gate.js
+    description: "Gate evaluation logic for keepalive workflow"
+
+  - source: .github/scripts/keepalive_worker_gate.js
+    description: "Worker gate logic for keepalive workflow"
+
+  - source: .github/scripts/keepalive_orchestrator_gate_runner.js
+    description: "Orchestrator gate runner for keepalive"
+
+  - source: .github/scripts/keepalive_post_work.js
+    description: "Post-work handling for keepalive rounds"
+
+  - source: .github/scripts/keepalive_prompt_composer.js
+    description: "Composes prompts for keepalive Codex calls"
+
+  - source: .github/scripts/api-helpers.js
+    description: "GitHub API helper utilities"
+
+  - source: .github/scripts/github_api_retry.js
+    description: "Retry logic for GitHub API calls"
+
   - source: .github/scripts/prompt_injection_guard.js
     description: "Security guard against prompt injection attacks"
 
+  - source: .github/scripts/prompt_integrity_guard.js
+    description: "Integrity validation for prompts"
+
   - source: .github/scripts/error_classifier.js
     description: "Classifies CI errors for agent handling"
+
+  - source: .github/scripts/error_diagnostics.js
+    description: "Diagnostic utilities for error analysis"
 
   - source: .github/scripts/failure_comment_formatter.js
     description: "Formats failure comments for PR status updates"
@@ -206,12 +242,102 @@ scripts:
   - source: .github/scripts/conflict_detector.js
     description: "Conflict detector - identifies merge conflicts for targeted resolution"
 
-  # LangChain issue formatting (Phase 1 rollout - see docs/plans/langchain-rollout-tasks.md)
+  - source: .github/scripts/merge_manager.js
+    description: "Manages PR merge operations"
+
+  - source: .github/scripts/comment-dedupe.js
+    description: "Deduplicates bot comments on issues/PRs"
+
+  - source: .github/scripts/post_completion_comment.js
+    description: "Posts completion comments on PRs"
+
+  - source: .github/scripts/verifier_ci_query.js
+    description: "Queries CI status for verifier workflow"
+
+  - source: .github/scripts/verifier_issue_formatter.js
+    description: "Formats issues for verifier output"
+
+  - source: .github/scripts/agents_orchestrator_resolve.js
+    description: "Resolves agent orchestrator state"
+
+  - source: .github/scripts/agents_pr_meta_keepalive.js
+    description: "PR metadata handling for keepalive"
+
+  - source: .github/scripts/agents_pr_meta_orchestrator.js
+    description: "PR metadata orchestrator logic"
+
+  - source: .github/scripts/agents_pr_meta_update_body.js
+    description: "Updates PR body with agent metadata"
+
+  - source: .github/scripts/agents_verifier_context.js
+    description: "Context gathering for agent verifier"
+
+  - source: .github/scripts/agents_dispatch_summary.js
+    description: "Summarizes agent dispatch operations"
+
+  - source: .github/scripts/agents_belt_scan.js
+    description: "Scans agent belt for available tools"
+
+  # LangChain scripts for agent workflows
+  # Issue optimization (Phase 1) - agents-issue-optimizer.yml
+  - source: scripts/langchain/issue_optimizer.py
+    description: "Issue optimizer - analyzes issues and suggests improvements"
+
   - source: scripts/langchain/issue_formatter.py
     description: "Issue formatter - converts raw text to AGENT_ISSUE_TEMPLATE format"
 
+  - source: scripts/langchain/issue_dedup.py
+    description: "Issue deduplication - finds similar open issues"
+
+  # Context and semantic analysis
+  - source: scripts/langchain/context_extractor.py
+    description: "Context extractor - extracts relevant context from issues/PRs"
+
+  - source: scripts/langchain/semantic_matcher.py
+    description: "Semantic matcher - vector similarity for issues/labels"
+
+  # Agent capability and task management
+  - source: scripts/langchain/capability_check.py
+    description: "Capability check - pre-flight agent feasibility assessment"
+
+  - source: scripts/langchain/task_decomposer.py
+    description: "Task decomposer - breaks large issues into sub-tasks"
+
+  - source: scripts/langchain/label_matcher.py
+    description: "Label matcher - suggests labels based on semantic matching"
+
+  # PR verification and follow-up
+  - source: scripts/langchain/pr_verifier.py
+    description: "PR verifier - validates PR changes against acceptance criteria"
+
+  - source: scripts/langchain/followup_issue_generator.py
+    description: "Follow-up issue generator - creates issues from verification feedback"
+
+  # Integration layer for LangChain components
+  - source: scripts/langchain/integration_layer.py
+    description: "Integration layer - coordinates LangChain components"
+
+  - source: scripts/langchain/topic_splitter.py
+    description: "Topic splitter - splits conversations into discrete issues"
+
+  # LangChain prompt templates
   - source: scripts/langchain/prompts/format_issue.md
     description: "Prompt template for LLM-based issue formatting"
+
+  - source: scripts/langchain/prompts/analyze_issue.md
+    description: "Prompt template for issue analysis/optimization"
+
+  - source: scripts/langchain/prompts/apply_suggestions.md
+    description: "Prompt template for applying optimization suggestions"
+
+  - source: scripts/langchain/prompts/context_extract.md
+    description: "Prompt template for context extraction"
+
+  - source: scripts/langchain/prompts/decompose_task.md
+    description: "Prompt template for task decomposition"
+
+  - source: scripts/langchain/prompts/pr_evaluation.md
+    description: "Prompt template for PR evaluation/verification"
 
   - source: tools/llm_provider.py
     description: "LLM provider configuration - GitHub Models and OpenAI client setup"

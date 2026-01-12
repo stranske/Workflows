@@ -2,14 +2,22 @@
 name: Agents Auto-Pilot
 
 # End-to-end automation: Issue → Optimize → Agent → Keepalive → Merge
-# Triggered by agents:auto-pilot label, orchestrates the full pipeline
-# Auto-continues when prep workflow labels are added (format, optimize, apply-suggestions)
+# Triggered by:
+# 1. agents:auto-pilot label (initial trigger)
+# 2. workflow_run when child workflows complete (eliminates race conditions)
+# 3. Issue/PR closed events
+# 4. Manual dispatch
 
 on:
   issues:
     types: [labeled, closed]
   pull_request:
     types: [labeled, closed]
+  # Continue when child workflows complete - eliminates race conditions
+  workflow_run:
+    workflows:
+      - "Agents Issue Optimizer"  # Continues after optimize/apply/format phases
+    types: [completed]
   workflow_dispatch:
     inputs:
       issue_number:
@@ -45,17 +53,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 240  # 4 hours = MAX_WALL_TIME_HOURS
     # Trigger on:
-    # 1. agents:auto-pilot label added (initial trigger)
-    # 2. Prep workflow labels added (auto-continue after each step)
-    # 3. Issue closed (verification trigger)
+    # 1. agents:auto-pilot label added (initial trigger only)
+    # 2. workflow_run when child workflows complete (continue after format/optimize/apply)
+    # 3. Issue/PR closed (verification trigger)
     # 4. workflow_dispatch (manual trigger)
+    # NOTE: We do NOT trigger on agents:format/optimize/apply-suggestions labels
+    # because those trigger child workflows - we wait for workflow_run instead
     if: |
       github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'workflow_run' ||
       (github.event.action == 'labeled' && (
         github.event.label.name == 'agents:auto-pilot' ||
-        github.event.label.name == 'agents:format' ||
-        github.event.label.name == 'agents:optimize' ||
-        github.event.label.name == 'agents:apply-suggestions' ||
         github.event.label.name == 'agent:codex'
       )) ||
       (github.event.action == 'closed' &&
@@ -67,12 +75,49 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            // For label events other than agents:auto-pilot, verify auto-pilot is enabled
-            const labelName = context.payload.label?.name || '';
+            // Handle different event types
             if (context.eventName === 'workflow_dispatch') {
               core.setOutput('enabled', 'true');
+              core.setOutput('issue_from_workflow_run', '');
               return;
             }
+
+            // For workflow_run events, extract issue number from triggering workflow
+            if (context.eventName === 'workflow_run') {
+              const workflowRun = context.payload.workflow_run;
+              // Only continue if the child workflow succeeded
+              if (workflowRun.conclusion !== 'success') {
+                const name = workflowRun.name;
+                core.info(`Child workflow ${name} did not succeed, skipping`);
+                core.setOutput('enabled', 'false');
+                return;
+              }
+
+              // Extract issue number from the triggering workflow's title
+              // Titles include issue references like "[Title] #123"
+              const titleMatch = workflowRun.display_title?.match(/#(\d+)/);
+              if (titleMatch) {
+                core.setOutput('enabled', 'true');
+                core.setOutput('issue_from_workflow_run', titleMatch[1]);
+                core.info(`Continuing for issue #${titleMatch[1]}`);
+                return;
+              }
+
+              // Try to get issue from the head commit message
+              const commitMatch = workflowRun.head_commit?.message?.match(/#(\d+)/);
+              if (commitMatch) {
+                core.setOutput('enabled', 'true');
+                core.setOutput('issue_from_workflow_run', commitMatch[1]);
+                return;
+              }
+
+              core.info(`Could not extract issue number from workflow_run, skipping`);
+              core.setOutput('enabled', 'false');
+              return;
+            }
+
+            // For label events, verify auto-pilot is enabled
+            const labelName = context.payload.label?.name || '';
 
             // Get issue/PR to check for agents:auto-pilot label
             let labels = [];
@@ -90,6 +135,7 @@ jobs:
             }
 
             core.setOutput('enabled', 'true');
+            core.setOutput('issue_from_workflow_run', '');
 
       - name: Checkout repository
         if: steps.check_enabled.outputs.enabled == 'true'
@@ -98,14 +144,20 @@ jobs:
       - name: Determine context
         if: steps.check_enabled.outputs.enabled == 'true'
         id: context
+        env:
+          ISSUE_FROM_WORKFLOW_RUN: ${{ steps.check_enabled.outputs.issue_from_workflow_run }}
         uses: actions/github-script@v7
         with:
           script: |
             let issueNumber, issue, pr;
 
-            // Get issue number from various sources
+            // Get issue number from various sources (in priority order)
             if (context.eventName === 'workflow_dispatch') {
               issueNumber = parseInt('${{ inputs.issue_number }}');
+            } else if (process.env.ISSUE_FROM_WORKFLOW_RUN) {
+              // workflow_run event - issue extracted from child workflow
+              issueNumber = parseInt(process.env.ISSUE_FROM_WORKFLOW_RUN);
+              core.info(`Got issue #${issueNumber} from workflow_run event`);
             } else if (context.payload.issue) {
               issueNumber = context.payload.issue.number;
               issue = context.payload.issue;
@@ -149,7 +201,7 @@ jobs:
               return;
             }
 
-            // Determine current state
+            // Determine current state based on labels
             const hasFormat = labels.includes('agents:format');
             const hasOptimize = labels.includes('agents:optimize');
             const hasApplySuggestions = labels.includes('agents:apply-suggestions');
@@ -157,6 +209,26 @@ jobs:
             const hasAutofix = labels.includes('autofix');
             const hasAutomerge = labels.includes('automerge');
             const hasVerify = labels.includes('verify:evaluate');
+
+            // Check for actual optimizer output (not just label)
+            // This is critical to avoid race conditions - we need to verify
+            // the optimizer workflow actually completed its work
+            const comments = await github.paginate(
+              github.rest.issues.listComments,
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                per_page: 100
+              }
+            );
+
+            const hasOptimizerOutput = comments.some(c => {
+              const body = c.body || '';
+              return body.includes('Issue Optimization Suggestions') ||
+                     body.includes('ISSUE_OPTIMIZER_SUGGESTIONS') ||
+                     body.includes('## 📋 Optimization Suggestions');
+            });
 
             // Check for linked PR (with pagination and multiple event types)
             const timelineEvents = await github.paginate(
@@ -184,6 +256,7 @@ jobs:
             core.setOutput('should_continue', 'true');
             core.setOutput('has_format', hasFormat.toString());
             core.setOutput('has_optimize', hasOptimize.toString());
+            core.setOutput('has_optimizer_output', hasOptimizerOutput.toString());
             core.setOutput('has_apply', hasApplySuggestions.toString());
             core.setOutput('has_agent', hasAgentCodex.toString());
             core.setOutput('has_autofix', hasAutofix.toString());
@@ -194,6 +267,7 @@ jobs:
             console.log(`Issue #${issueNumber} state:`);
             console.log(`  State: ${issue.state}`);
             console.log(`  Labels: ${labels.join(', ')}`);
+            console.log(`  Optimizer output: ${hasOptimizerOutput}`);
             console.log(`  Linked PR: ${linkedPR || 'none'}`);
 
       - name: Check step count
@@ -283,12 +357,14 @@ jobs:
           # 3. If no PR → need agent assignment
           # 4. If has PR → check PR state
           # 5. If no format → format first
-          # 6. If no optimize → optimize
-          # 7. If no apply → apply suggestions
+          # 6. If no optimize label → trigger optimize
+          # 7. If optimize label but no output → wait (optimizer still running)
+          # 8. If has optimizer output but no apply → apply suggestions
 
           ISSUE_STATE="${{ steps.context.outputs.issue_state }}"
           HAS_FORMAT="${{ steps.context.outputs.has_format }}"
           HAS_OPTIMIZE="${{ steps.context.outputs.has_optimize }}"
+          HAS_OPTIMIZER_OUTPUT="${{ steps.context.outputs.has_optimizer_output }}"
           HAS_APPLY="${{ steps.context.outputs.has_apply }}"
           HAS_AGENT="${{ steps.context.outputs.has_agent }}"
           LINKED_PR="${{ steps.context.outputs.linked_pr }}"
@@ -320,7 +396,12 @@ jobs:
               echo "Step 1: Format issue"
             elif [[ "$HAS_OPTIMIZE" != "true" ]]; then
               echo "next_step=optimize" >> "$GITHUB_OUTPUT"
-              echo "Step 2: Optimize issue"
+              echo "Step 2: Trigger optimizer"
+            elif [[ "$HAS_OPTIMIZER_OUTPUT" != "true" ]]; then
+              # Optimize label exists but no output yet - optimizer is still running
+              # We'll be re-triggered via workflow_run when it completes
+              echo "next_step=wait-for-optimizer" >> "$GITHUB_OUTPUT"
+              echo "Step 2b: Waiting for optimizer to complete (will continue via workflow_run)"
             elif [[ "$HAS_APPLY" != "true" ]]; then
               echo "next_step=apply" >> "$GITHUB_OUTPUT"
               echo "Step 3: Apply suggestions"
@@ -407,7 +488,9 @@ jobs:
               issue_number: issueNumber,
               body: `🤖 **Auto-pilot step ${stepCount}**: Analyzing issue for improvements...
 
-            Adding \`agents:optimize\` label to trigger analysis.`
+            Adding \`agents:optimize\` label to trigger analysis.
+
+            ⏳ Auto-pilot will continue automatically when optimizer completes.`
             });
 
             await github.rest.issues.addLabels({
@@ -416,6 +499,12 @@ jobs:
               issue_number: issueNumber,
               labels: ['agents:optimize']
             });
+
+      - name: Wait for optimizer
+        if: steps.next.outputs.next_step == 'wait-for-optimizer'
+        run: |
+          echo "✅ Optimizer running. Auto-pilot will continue via workflow_run."
+          echo "This run ends; a new run starts when optimizer completes."
 
       - name: Guard - Require optimizer output before apply
         if: steps.next.outputs.next_step == 'apply'
