@@ -629,8 +629,10 @@ def analyze_issue(issue_body: str, *, use_llm: bool = True) -> IssueOptimization
                                     )
                                     return result
                             except Exception as openai_error:
+                                err_type = type(openai_error).__name__
                                 print(
-                                    f"OpenAI API also failed ({type(openai_error).__name__}: {openai_error}), using fallback",
+                                    f"OpenAI API also failed "
+                                    f"({err_type}: {openai_error}), using fallback",
                                     file=sys.stderr,
                                 )
                         else:
@@ -819,8 +821,10 @@ def apply_suggestions(
                                         "used_llm": True,
                                     }
                             except Exception as openai_error:
+                                err_type = type(openai_error).__name__
                                 print(
-                                    f"OpenAI API also failed ({type(openai_error).__name__}: {openai_error}), using fallback",
+                                    f"OpenAI API also failed "
+                                    f"({err_type}: {openai_error}), using fallback",
                                     file=sys.stderr,
                                 )
                         else:
