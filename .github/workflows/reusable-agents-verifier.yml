@@ -494,7 +494,7 @@ jobs:
       # Use verify:create-issue label on PRs with CONCERNS to manually create follow-up issues
       - name: Open follow-up issue on verifier failure
         id: failure_issue
-        if: false  # Disabled - use agents-verify-to-issue.yml with verify:create-issue label instead
+        if: false  # Disabled - use agents-verify-to-issue-v2.yml with verify:create-issue label instead
         uses: actions/github-script@v8
         env:
           PR_URL: ${{ steps.context.outputs.pr_html_url }}
