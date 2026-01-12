@@ -176,3 +176,11 @@ coverage.xml
 # Wrong package manager artifacts (defense-in-depth)
 Pipfile.lock
 poetry.lock
+
+# =============================================================================
+# Langchain Scripts Exclusion
+# =============================================================================
+# These scripts should ONLY exist in stranske/Workflows repo.
+# Consumer repos use them via sparse checkout to workflows-scripts/.
+# Having them in consumer repos causes import conflicts in CI.
+scripts/langchain/
