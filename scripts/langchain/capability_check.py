@@ -3,7 +3,8 @@
 Capability classification for agent issue intake.
 
 Run with:
-    python scripts/langchain/capability_check.py --tasks-file tasks.md --acceptance-file acceptance.md
+    python scripts/langchain/capability_check.py \
+        --tasks-file tasks.md --acceptance-file acceptance.md
 """
 
 from __future__ import annotations
@@ -240,7 +241,9 @@ def _fallback_classify(
                 {
                     "task": task,
                     "reason": "Requires external service credentials or configuration",
-                    "suggested_action": "Provide credentials or have a human set up the external service.",
+                    "suggested_action": (
+                        "Provide credentials or have a human set up " "the external service."
+                    ),
                 }
             )
             human_actions.append(f"External dependency setup required: {task}")
