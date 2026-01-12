@@ -18,7 +18,11 @@ def check_lock_file_completeness() -> tuple[bool, list[str]]:
     issues = []
 
     # Read pyproject.toml to get all optional groups
-    pyproject = Path("pyproject.toml").read_text()
+    pyproject_path = Path("pyproject.toml")
+    if not pyproject_path.exists():
+        issues.append("pyproject.toml not found; cannot verify optional dependencies")
+        return False, issues
+    pyproject = pyproject_path.read_text()
 
     # Extract optional dependency groups
     optional_section = re.search(
