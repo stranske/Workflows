@@ -227,6 +227,9 @@ scripts:
   - source: .github/scripts/github_api_retry.js
     description: "Retry logic for GitHub API calls"
 
+  - source: .github/scripts/github-api-with-retry.js
+    description: "GitHub API retry wrapper with exponential backoff and pagination support - required by agents-auto-pilot.yml"
+
   - source: .github/scripts/prompt_injection_guard.js
     description: "Security guard against prompt injection attacks"
 
