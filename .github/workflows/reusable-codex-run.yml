@@ -478,6 +478,10 @@ jobs:
         run: |
           set -euo pipefail
           
+          # Configure git identity for merge operations
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
           # Determine the base branch to merge from:
           # 1. Use GITHUB_BASE_REF if set (PR workflows).
           # 2. Use WORKFLOW_BASE_REF from the workflow_call context if provided.
