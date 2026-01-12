@@ -10,7 +10,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
-from scripts.langchain import label_matcher
+from . import label_matcher
 
 
 @dataclass
