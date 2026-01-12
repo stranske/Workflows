@@ -105,6 +105,7 @@ jobs:
 
   # Gate for agent_bridge mode: only proceed if issue has agent:* or agents:* label
   # Skip when agents:auto-pilot is present - auto-pilot handles the full pipeline
+  # Use exact array match (not substring) to avoid matching agents:auto-pilot-failed/pause
   check_labels:
     needs: route
     if: |
@@ -112,7 +113,7 @@ jobs:
       (github.event_name != 'issues' ||
        contains(toJson(github.event.issue.labels.*.name), 'agent:') ||
        contains(toJson(github.event.issue.labels.*.name), 'agents:')) &&
-      !contains(toJson(github.event.issue.labels.*.name), 'agents:auto-pilot')
+      !contains(github.event.issue.labels.*.name, 'agents:auto-pilot')
     runs-on: ubuntu-latest
     outputs:
       should_run: ${{ steps.check.outputs.should_run }}

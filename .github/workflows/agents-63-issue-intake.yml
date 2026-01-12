@@ -114,6 +114,7 @@ jobs:
   normalize_inputs:
     # Skip when agents:auto-pilot is present - auto-pilot handles the full pipeline
     # and will add agent:codex at the right time after format/optimize/apply steps
+    # Use exact array match (not substring) to avoid matching agents:auto-pilot-failed/pause
     if: >
       (
         github.event_name != 'issues' ||
@@ -121,7 +122,7 @@ jobs:
         contains(toJson(github.event.issue.labels.*.name), 'agents:') ||
         (github.event.action == 'unlabeled' && (startsWith(github.event.label.name, 'agent:') || startsWith(github.event.label.name, 'agents:')))
       ) &&
-      !contains(toJson(github.event.issue.labels.*.name), 'agents:auto-pilot')
+      !contains(github.event.issue.labels.*.name, 'agents:auto-pilot')
     name: Normalize workflow inputs
     runs-on: ubuntu-latest
     outputs:
