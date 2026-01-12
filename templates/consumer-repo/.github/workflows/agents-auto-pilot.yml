@@ -72,7 +72,7 @@ jobs:
     steps:
       - name: Check if auto-pilot is enabled
         id: check_enabled
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             // Handle different event types
@@ -139,14 +139,14 @@ jobs:
 
       - name: Checkout repository
         if: steps.check_enabled.outputs.enabled == 'true'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Determine context
         if: steps.check_enabled.outputs.enabled == 'true'
         id: context
         env:
           ISSUE_FROM_WORKFLOW_RUN: ${{ steps.check_enabled.outputs.issue_from_workflow_run }}
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             let issueNumber, issue, pr;
@@ -273,7 +273,7 @@ jobs:
       - name: Check step count
         if: steps.context.outputs.should_continue == 'true'
         id: cycles
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
         with:
@@ -309,7 +309,7 @@ jobs:
 
       - name: Stop if exceeded
         if: steps.cycles.outputs.exceeded == 'true'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
         with:
@@ -444,7 +444,7 @@ jobs:
 
       - name: Execute step - Format
         if: steps.next.outputs.next_step == 'format'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
           STEP_COUNT: ${{ steps.cycles.outputs.count }}
@@ -473,7 +473,7 @@ jobs:
 
       - name: Execute step - Optimize
         if: steps.next.outputs.next_step == 'optimize'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
           STEP_COUNT: ${{ steps.cycles.outputs.count }}
@@ -508,7 +508,7 @@ jobs:
 
       - name: Guard - Require optimizer output before apply
         if: steps.next.outputs.next_step == 'apply'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
         with:
@@ -571,7 +571,7 @@ jobs:
 
       - name: Execute step - Apply suggestions
         if: steps.next.outputs.next_step == 'apply'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
           STEP_COUNT: ${{ steps.cycles.outputs.count }}
@@ -598,7 +598,7 @@ jobs:
 
       - name: Execute step - Capability check & Agent
         if: steps.next.outputs.next_step == 'capability-check'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
           STEP_COUNT: ${{ steps.cycles.outputs.count }}
@@ -628,7 +628,7 @@ jobs:
 
       - name: Execute step - Verify
         if: steps.next.outputs.next_step == 'verify'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
         with:
@@ -718,7 +718,7 @@ jobs:
 
       - name: Execute step - Create PR
         if: steps.next.outputs.next_step == 'create-pr'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
           ISSUE_TITLE: ${{ steps.context.outputs.issue_title }}
@@ -867,7 +867,7 @@ jobs:
 
       - name: Report - Monitoring PR
         if: steps.next.outputs.next_step == 'monitor-pr'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const prNumber = '${{ steps.context.outputs.linked_pr }}';
@@ -875,7 +875,7 @@ jobs:
 
       - name: Execute step - Check Completion & Trigger Merge
         if: steps.next.outputs.next_step == 'check-completion'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
           PR_NUMBER: ${{ steps.context.outputs.linked_pr }}
@@ -984,7 +984,7 @@ jobs:
               steps.next.outputs.next_step == 'capability-check' ||
               steps.next.outputs.next_step == 'monitor-pr'
             )
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
           CURRENT_STEP: ${{ steps.next.outputs.next_step }}
@@ -1017,7 +1017,7 @@ jobs:
 
       - name: Report - Done
         if: steps.next.outputs.next_step == 'done'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
         with:
