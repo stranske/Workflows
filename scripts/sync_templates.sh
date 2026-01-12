@@ -18,12 +18,17 @@ for file in $FILES; do
     source_file="$SOURCE_DIR/$file"
     template_file="$TEMPLATE_DIR/$file"
     
-    if [ -f "$template_file" ]; then
-        if ! cmp -s "$source_file" "$template_file"; then
-            echo "  ✓ Syncing $file"
-            cp "$source_file" "$template_file"
-            ((synced++))
-        fi
+    # Create parent directory if it doesn't exist
+    mkdir -p "$(dirname "$template_file")"
+    
+    if [ ! -f "$template_file" ]; then
+        echo "  ✓ Creating $file (new file)"
+        cp "$source_file" "$template_file"
+        synced=$((synced + 1)) || true
+    elif ! cmp -s "$source_file" "$template_file"; then
+        echo "  ✓ Syncing $file"
+        cp "$source_file" "$template_file"
+        synced=$((synced + 1)) || true
     fi
 done
 

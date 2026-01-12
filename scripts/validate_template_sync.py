@@ -44,7 +44,7 @@ def main() -> int:
         template_file = template_dir / relative_path
 
         if not template_file.exists():
-            print(f"⚠️  Template missing: {relative_path}")
+            mismatches.append(relative_path)
             continue
 
         source_hash = hash_file(source_file)
@@ -56,11 +56,13 @@ def main() -> int:
     if mismatches:
         print("❌ Template files out of sync with source files:\n")
         for path in mismatches:
-            print(f"  • {path}")
-        print(
-            "\n💡 To fix: cp .github/scripts/{file} templates/consumer-repo/.github/scripts/{file}"
-        )
-        print("   Or run: ./scripts/sync_templates.sh")
+            template_file = template_dir / path
+            if not template_file.exists():
+                print(f"  • {path} (MISSING - needs to be created)")
+            else:
+                print(f"  • {path} (out of sync)")
+        print("\n💡 To fix: ./scripts/sync_templates.sh")
+        print("   Then: git add templates/consumer-repo/.github/scripts/")
         return 1
 
     print("✅ All template files in sync")

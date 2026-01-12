@@ -1,4 +1,4 @@
-name: Validate Template Sync
+name: Health 71 Template Sync
 
 on:
   pull_request:
@@ -24,8 +24,7 @@ jobs:
       
       - name: Validate template sync
         run: |
-          python scripts/validate_template_sync.py
-          if [ $? -ne 0 ]; then
+          if ! python scripts/validate_template_sync.py; then
             echo ""
             echo "❌ FAILED: Template files are out of sync!"
             echo ""
