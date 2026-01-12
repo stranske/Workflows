@@ -159,6 +159,8 @@ ci/autofix/history.json
 ci/autofix/diagnostics.json
 
 # Metrics/history files (MEDIUM conflict risk)
+keepalive_status.md
+docs/keepalive/status/
 keepalive-metrics.ndjson
 coverage-trend-history.ndjson
 metrics-history.ndjson
