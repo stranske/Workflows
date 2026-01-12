@@ -1719,6 +1719,7 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
   const errorType = failureDetails.type;
   const errorRecovery = failureDetails.recovery;
   const tasksComplete = Math.max(0, tasksTotal - tasksUnchecked);
+  const allTasksComplete = tasksUnchecked === 0 && tasksTotal > 0;
   const metricsIteration = action === 'run' ? currentIteration + 1 : currentIteration;
   const durationMs = resolveDurationMs({
     durationMs: toOptionalNumber(inputs.duration_ms ?? inputs.durationMs),
@@ -1784,7 +1785,7 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
     } |`,
     `| Action | ${action || 'unknown'} (${actionReason || 'n/a'}) |`,
     ...(dispositionLabel ? [`| Disposition | ${dispositionLabel} |`] : []),
-    ...(runFailed ? [`| Agent status | ❌ AGENT FAILED |`] : []),
+    ...(allTasksComplete ? [`| Agent status | ✅ ALL TASKS COMPLETE |`] : runFailed ? [`| Agent status | ❌ AGENT FAILED |`] : []),
     `| Gate | ${gateConclusion || 'unknown'} |`,
     `| Tasks | ${tasksComplete}/${tasksTotal} complete |`,
     `| Timeout | ${formatTimeoutMinutes(timeoutStatus.resolvedMinutes)} min (${timeoutStatus.source || 'default'}) |`,
