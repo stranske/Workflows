@@ -21,7 +21,8 @@ from typing import Literal
 from pydantic import BaseModel, Field, ValidationError
 
 PR_EVALUATION_PROMPT = """
-You are reviewing a **merged** pull request to evaluate whether the code changes meet the documented acceptance criteria.
+You are reviewing a **merged** pull request to evaluate whether the code
+changes meet the documented acceptance criteria.
 
 **IMPORTANT: This verification runs AFTER the PR has been merged.** Therefore:
 - Do NOT evaluate CI status, workflow runs, or pending checks - these are irrelevant post-merge
@@ -484,8 +485,10 @@ def evaluate_pr(
     Args:
         context: The PR context markdown (issue body, PR description, etc.)
         diff: Optional PR diff or summary
-        model: Optional model name (e.g., 'gpt-4o', 'gpt-5.2', 'o1-mini'). Uses default if not specified.
-        provider: Optional provider ('openai' or 'github-models'). Auto-selects if not specified.
+        model: Optional model name (e.g., 'gpt-4o', 'gpt-5.2', 'o1-mini').
+            Uses default if not specified.
+        provider: Optional provider ('openai' or 'github-models').
+            Auto-selects if not specified.
 
     Returns:
         EvaluationResult with verdict, scores, and concerns.
@@ -525,7 +528,8 @@ def evaluate_pr(
                     return result
                 except Exception as fallback_exc:
                     return _fallback_evaluation(
-                        f"Primary ({provider_name}): {exc}; Fallback ({fallback_provider_name}): {fallback_exc}"
+                        f"Primary ({provider_name}): {exc}; "
+                        f"Fallback ({fallback_provider_name}): {fallback_exc}"
                     )
         return _fallback_evaluation(f"LLM invocation failed: {exc}")
 
@@ -622,9 +626,8 @@ def format_comparison_report(results: list[EvaluationResult]) -> str:
         summary_source = result.summary or result.raw_content or ""
         summary = _compact_text(summary_source, limit=200) if summary_source else "N/A"
         model_name = result.model or "N/A"
-        lines.append(
-            f"| {labels[index]} | {model_name} | {result.verdict} | {_format_confidence(result.confidence)} | {summary} |"
-        )
+        conf = _format_confidence(result.confidence)
+        lines.append(f"| {labels[index]} | {model_name} | {result.verdict} | {conf} | {summary} |")
     lines.append("")
 
     # Add expandable full details for each provider
@@ -748,7 +751,10 @@ def main() -> None:
     parser.add_argument(
         "--provider",
         choices=["openai", "github-models"],
-        help="LLM provider: 'openai' (requires OPENAI_API_KEY) or 'github-models' (uses GITHUB_TOKEN).",
+        help=(
+            "LLM provider: 'openai' (requires OPENAI_API_KEY) or "
+            "'github-models' (uses GITHUB_TOKEN)."
+        ),
     )
     parser.add_argument(
         "--model2",
