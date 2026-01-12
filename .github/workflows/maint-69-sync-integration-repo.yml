@@ -108,6 +108,13 @@ jobs:
             echo "✅ Updated notify-workflows.yml"
           fi
 
+          # Sync scripts directory (if exists in templates)
+          if [ -d "../workflows/templates/integration-repo/scripts" ]; then
+            mkdir -p scripts
+            cp -r "../workflows/templates/integration-repo/scripts/"* scripts/
+            echo "✅ Synced scripts directory from templates"
+          fi
+
           # Regenerate requirements.lock to match updated autofix-versions.env
           if [ -f "pyproject.toml" ]; then
             echo "🔄 Regenerating requirements.lock with updated tool versions..."
@@ -155,7 +162,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git add .github/workflows/ requirements.lock
+          git add .github/workflows/ requirements.lock scripts/
           git commit \
             -m "sync: Update workflow templates from stranske/Workflows" \
             -m "" \
@@ -166,6 +173,7 @@ jobs:
             -m "- ci.yml (with workflow reference)" \
             -m "- autofix-versions.env (version pins)" \
             -m "- notify-workflows.yml (bidirectional sync trigger)" \
+            -m "- scripts/ (synced from templates)" \
             -m "- requirements.lock (regenerated with updated tool versions)" \
             -m "" \
             -m "Auto-synced by:" \
