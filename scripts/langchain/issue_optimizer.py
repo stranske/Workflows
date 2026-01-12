@@ -474,7 +474,7 @@ def _is_large_task(task: str) -> bool:
 
 
 def _detect_task_splitting(tasks: list[str], *, use_llm: bool = False) -> list[dict[str, Any]]:
-    from scripts.langchain import task_decomposer
+    from . import task_decomposer
 
     results: list[dict[str, Any]] = []
     for task in tasks:
@@ -500,7 +500,7 @@ def _ensure_task_decomposition(
     if not task_splitting:
         return task_splitting
 
-    from scripts.langchain import task_decomposer
+    from . import task_decomposer
 
     updated: list[dict[str, Any]] = []
     for entry in task_splitting:
@@ -691,7 +691,7 @@ def _apply_task_decomposition(formatted_body: str, suggestions: dict[str, Any]) 
     if not isinstance(raw_entries, list) or not raw_entries:
         return formatted_body
 
-    from scripts.langchain import task_decomposer
+    from . import task_decomposer
 
     decomposition_map: dict[str, list[str]] = {}
     for entry in raw_entries:
@@ -835,7 +835,7 @@ def apply_suggestions(
                             file=sys.stderr,
                         )
 
-    from scripts.langchain import issue_formatter
+    from . import issue_formatter
 
     fallback = issue_formatter.format_issue_body(issue_body, use_llm=False)
     formatted = _apply_task_decomposition(fallback["formatted_body"], suggestions)
