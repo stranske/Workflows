@@ -74,11 +74,12 @@ def _load_prompt() -> str:
     return CONTEXT_EXTRACTOR_PROMPT
 
 
-def _get_llm_client() -> tuple[object, str] | None:
-    """Get LLM client with fallback from GitHub Models to OpenAI.
+def _get_llm_client(force_openai: bool = False) -> tuple[object, str] | None:
+    """Get LLM client, trying GitHub Models first (cheaper), then OpenAI.
 
-    Tries GitHub Models first (cheaper), falls back to OpenAI if unavailable.
-    Note: GITHUB_TOKEN in Actions may lack 'models' permission - that's why fallback exists.
+    Args:
+        force_openai: If True, skip GitHub Models and use OpenAI directly.
+                      Use this for retry after GitHub Models 401 error.
     """
     try:
         from langchain_openai import ChatOpenAI
@@ -92,27 +93,17 @@ def _get_llm_client() -> tuple[object, str] | None:
 
     from tools.llm_provider import DEFAULT_MODEL, GITHUB_MODELS_BASE_URL
 
-    # Try GitHub Models first (cheaper)
-    if github_token:
-        try:
-            client = ChatOpenAI(
+    # Try GitHub Models first (cheaper) unless forced to use OpenAI
+    if github_token and not force_openai:
+        return (
+            ChatOpenAI(
                 model=DEFAULT_MODEL,
                 base_url=GITHUB_MODELS_BASE_URL,
                 api_key=github_token,
                 temperature=0.1,
-            )
-            # Test the connection with a minimal call
-            client.invoke("test")
-            return (client, "github-models")
-        except Exception:
-            # GitHub Models failed (likely 401 - missing 'models' permission)
-            # Fall through to OpenAI
-            if openai_token:
-                pass  # Will try OpenAI below
-            else:
-                raise  # No fallback available
-
-    # Fallback to OpenAI
+            ),
+            "github-models",
+        )
     if openai_token:
         return (
             ChatOpenAI(
@@ -237,6 +228,12 @@ def _fallback_extract(issue_body: str, comments: list[str] | None) -> str:
     )
 
 
+def _is_github_models_auth_error(exc: Exception) -> bool:
+    """Check if exception is a GitHub Models authentication error (401)."""
+    exc_str = str(exc).lower()
+    return "401" in exc_str and "models" in exc_str
+
+
 def extract_context(
     issue_body: str,
     comments: list[str] | None = None,
@@ -260,12 +257,30 @@ def extract_context(
                 prompt = _load_prompt()
                 template = ChatPromptTemplate.from_template(prompt)
                 chain = template | client
-                response = chain.invoke(
-                    {
-                        "issue_body": issue_body,
-                        "comments": "\n\n".join(comments) if comments else "_None._",
-                    }
-                )
+                try:
+                    response = chain.invoke(
+                        {
+                            "issue_body": issue_body,
+                            "comments": "\n\n".join(comments) if comments else "_None._",
+                        }
+                    )
+                except Exception as e:
+                    # If GitHub Models fails with 401, retry with OpenAI
+                    if provider == "github-models" and _is_github_models_auth_error(e):
+                        fallback_info = _get_llm_client(force_openai=True)
+                        if fallback_info:
+                            client, provider = fallback_info
+                            chain = template | client
+                            response = chain.invoke(
+                                {
+                                    "issue_body": issue_body,
+                                    "comments": "\n\n".join(comments) if comments else "_None._",
+                                }
+                            )
+                        else:
+                            raise
+                    else:
+                        raise
                 content = (getattr(response, "content", None) or str(response)).strip()
                 return {
                     "context_section": content,
