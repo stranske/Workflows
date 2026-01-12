@@ -167,8 +167,10 @@ def _split_task_parts(task: str) -> list[str]:
         parts = [part.strip() for part in task.split(";") if part.strip()]
     elif ", " in task:
         parts = [part.strip() for part in task.split(",") if part.strip()]
-    elif " / " in task or "/" in task:
-        parts = [part.strip() for part in re.split(r"\s*/\s*", task) if part.strip()]
+    elif " / " in task:
+        # Only split on spaced slashes to avoid splitting compound words
+        # like "additions/removals" or paths like "src/utils"
+        parts = [part.strip() for part in task.split(" / ") if part.strip()]
     else:
         parts = [task]
     return [part for part in parts if part]

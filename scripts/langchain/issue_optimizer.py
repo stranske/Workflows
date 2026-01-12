@@ -470,7 +470,7 @@ def _is_large_task(task: str) -> bool:
         return True
     if any(sep in lowered for sep in (" and ", " + ", " & ", " then ", "; ")):
         return True
-    return bool(re.search(r"\s\+\s", lowered) or ", " in task or "/" in task)
+    return bool(re.search(r"\s\+\s", lowered) or ", " in task or " / " in task)
 
 
 def _detect_task_splitting(tasks: list[str], *, use_llm: bool = False) -> list[dict[str, Any]]:

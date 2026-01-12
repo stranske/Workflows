@@ -311,3 +311,22 @@ def test_extract_json_payload_with_wrapped_text() -> None:
 def test_formatted_output_validates_sections() -> None:
     assert issue_optimizer._formatted_output_valid("## Tasks\n- x\n## Acceptance Criteria\n- y")
     assert not issue_optimizer._formatted_output_valid("## Tasks only")
+
+
+def test_is_large_task_ignores_compound_slashes() -> None:
+    """_is_large_task should NOT flag compound words with unspaced slashes."""
+    # Compound words should NOT be flagged as large
+    assert not issue_optimizer._is_large_task("Color-coded additions/removals")
+    assert not issue_optimizer._is_large_task("Update src/utils module")
+    
+    # But spaced slashes still indicate alternatives (large task)
+    assert issue_optimizer._is_large_task("Option A / Option B")
+    assert issue_optimizer._is_large_task("Run lint / format / typecheck")
+
+
+def test_is_large_task_detects_other_separators() -> None:
+    """_is_large_task should still detect other multi-action patterns."""
+    assert issue_optimizer._is_large_task("Update docs and add tests")
+    assert issue_optimizer._is_large_task("Lint, format, typecheck")
+    assert issue_optimizer._is_large_task("Fix bug; write tests")
+    assert issue_optimizer._is_large_task("Run A + B")

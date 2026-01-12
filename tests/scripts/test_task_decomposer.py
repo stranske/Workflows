@@ -183,10 +183,26 @@ def test_split_task_parts_with_with_list() -> None:
     assert all(part.startswith("Build user dashboard with") for part in parts)
 
 
-def test_split_task_parts_with_slash() -> None:
-    """_split_task_parts splits on slashes."""
-    parts = task_decomposer._split_task_parts("config/settings")
+def test_split_task_parts_with_spaced_slash() -> None:
+    """_split_task_parts splits on spaced slashes ' / '."""
+    parts = task_decomposer._split_task_parts("option A / option B")
     assert len(parts) == 2
+    assert "option A" in parts
+    assert "option B" in parts
+
+
+def test_split_task_parts_preserves_compound_words() -> None:
+    """_split_task_parts does NOT split compound words with unspaced slashes."""
+    # Compound words like "additions/removals" should NOT be split
+    parts = task_decomposer._split_task_parts("config/settings")
+    assert parts == ["config/settings"]
+
+    parts = task_decomposer._split_task_parts("additions/removals")
+    assert parts == ["additions/removals"]
+
+    # Paths like "src/utils/helpers" should NOT be split
+    parts = task_decomposer._split_task_parts("Update src/utils/helpers module")
+    assert parts == ["Update src/utils/helpers module"]
 
 
 def test_split_task_parts_single_task() -> None:
