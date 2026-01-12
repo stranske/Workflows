@@ -68,7 +68,7 @@ def _assert_no_dispatch(data: dict) -> None:
     assert _dispatch_events(data) == []
 
 
-# First line of the keepalive instruction from .github/templates/keepalive-instruction.md
+# First line of the keepalive instruction from .github/codex/prompts/keepalive_next_task.md
 # The full instruction is multi-line; tests check that the instruction starts correctly.
 DEFAULT_COMMAND_PREFIX = (
     "@codex Your objective is to satisfy the **Acceptance Criteria** by completing each "
@@ -157,6 +157,7 @@ def test_keepalive_idle_threshold_logic() -> None:
     assert body_lines[2] == "<!-- codex-keepalive-marker -->"
     assert "<!-- keepalive-trace:" in created[0]["body"]
     assert body_lines[4].startswith(DEFAULT_COMMAND_PREFIX)
+    assert "## Keepalive Next Task" in created[0]["body"]
     _assert_scope_block(created[0]["body"])
     assert "**Keepalive Round" not in created[0]["body"]
     assert "<!-- keepalive-round: 1 -->" in created[0]["body"]
