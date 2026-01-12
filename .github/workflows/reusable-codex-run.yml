@@ -227,6 +227,26 @@ jobs:
           path: .workflows-lib
           token: ${{ steps.auth_token.outputs.checkout_token }}
 
+
+      # Surface merge conflicts before Codex runs
+      # When action='conflict', we need to attempt the merge BEFORE invoking Codex
+      # so that conflicts are visible in the workspace. Otherwise Codex checks
+      # git status, sees no conflicts (because merge hasn't been attempted yet),
+      # and exits early despite prompt instructions to run the merge.
+      - name: Surface merge conflicts
+        if: inputs.prompt_file == '.github/codex/prompts/fix_merge_conflicts.md'
+        run: |
+          set +e  # Don't exit on merge failure - conflicts are expected
+          git fetch origin main
+          git merge --no-commit --no-ff origin/main
+          merge_exit=$?
+          if [ $merge_exit -ne 0 ]; then
+            echo "Merge conflicts detected (expected for conflict resolution)"
+            git status
+          else
+            echo "No merge conflicts - merge succeeded automatically"
+          fi
+          set -e
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
