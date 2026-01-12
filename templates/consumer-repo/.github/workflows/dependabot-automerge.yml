@@ -68,6 +68,16 @@ jobs:
                 `${pendingChecks.length} pending, ` +
                 `${failedChecks.length} failed`
               );
+
+              if (failedChecks.length > 0) {
+                console.log('Some checks failed:');
+                failedChecks.forEach(c => console.log(`  - ${c.name}: ${c.conclusion}`));
+                core.setFailed('Checks failed - will not auto-merge');
+                return;
+              }
+
+              if (pendingChecks.length === 0) {
+                console.log('All checks passed!');
                 return;
               }
 
