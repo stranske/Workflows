@@ -61,8 +61,7 @@ def _select_artifacts(
     filtered = [
         artifact
         for artifact in artifacts
-        if not artifact.get("expired")
-        and str(artifact.get("name") or "") == artifact_name
+        if not artifact.get("expired") and str(artifact.get("name") or "") == artifact_name
     ]
     filtered.sort(key=_artifact_sort_key, reverse=True)
     return filtered[:max_per_repo]
