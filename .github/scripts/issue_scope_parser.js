@@ -464,6 +464,12 @@ function collectSections(source) {
             matchedLabel,
             level,
           });
+          // Also add recognized section headings to allHeadings so they act as boundaries
+          // Only add if not already present (avoid duplicates with isExplicitHeadingLine)
+          const alreadyAdded = allHeadings.some(h => h.index === offset);
+          if (!alreadyAdded) {
+            allHeadings.push({ index: offset, length: line.length, level });
+          }
         }
       }
       if (isExplicitHeadingLine(line)) {
