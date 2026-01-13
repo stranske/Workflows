@@ -453,17 +453,30 @@ function collectSections(source) {
         const title = matchedLabel.toLowerCase();
         if (aliasLookup[title]) {
           const section = aliasLookup[title];
+          // Detect heading level (number of # characters)
+          const headingMatch = line.match(/^(#{1,6})\s+/);
+          const level = headingMatch ? headingMatch[1].length : 2; // Default to level 2 for non-# headings
           headings.push({
             title: section.key,
             label: section.label,
             index: offset,
             length: line.length,
             matchedLabel,
+            level,
           });
+          // Also add recognized section headings to allHeadings so they act as boundaries
+          // Only add if not already present (avoid duplicates with isExplicitHeadingLine)
+          const alreadyAdded = allHeadings.some(h => h.index === offset);
+          if (!alreadyAdded && level <= 2) {
+            allHeadings.push({ index: offset, length: line.length, level });
+          }
         }
       }
       if (isExplicitHeadingLine(line)) {
-        allHeadings.push({ index: offset, length: line.length });
+        // Detect heading level for all headings
+        const headingMatch = line.match(/^(#{1,6})\s+/);
+        const level = headingMatch ? headingMatch[1].length : 2; // Default to level 2 for non-# headings
+        allHeadings.push({ index: offset, length: line.length, level });
       }
     }
     offset += line.length + 1;
@@ -507,9 +520,24 @@ function collectSections(source) {
     if (!header) {
       continue; // Skip missing sections instead of failing
     }
-    const nextHeader = allHeadings
-      .filter((entry) => entry.index > header.index)
+    // Find the boundary for this section's content:
+    // 1. Next heading at SAME LEVEL or HIGHER (allows subsections to be included)
+    // 2. OR next recognized section heading (even if it's a subsection level)
+    //    Example: ## Scope followed by ### Tasks should stop at ### Tasks
+    const headingIndexSet = new Set(headings.map(h => h.index));
+    const nextSameLevelOrHigher = allHeadings
+      .filter((entry) => entry.index > header.index && entry.level <= header.level)
       .sort((a, b) => a.index - b.index)[0];
+    const nextRecognizedSection = headings
+      .filter((entry) => entry.index > header.index && entry.title !== header.title)
+      .sort((a, b) => a.index - b.index)[0];
+    
+    // Use whichever boundary comes first
+    const boundaries = [nextSameLevelOrHigher, nextRecognizedSection].filter(Boolean);
+    const nextHeader = boundaries.length > 0 
+      ? boundaries.sort((a, b) => a.index - b.index)[0]
+      : null;
+    
     const contentStart = (() => {
       const start = header.index + header.length;
       if (segment[start] === '\n') {
