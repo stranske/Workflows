@@ -244,6 +244,9 @@ scripts:
   - source: .github/scripts/api-helpers.js
     description: "GitHub API helper utilities"
 
+  - source: .github/scripts/autopilot_metrics.js
+    description: "AutoPilot metrics collection and reporting"
+
   - source: .github/scripts/github_api_retry.js
     description: "Retry logic for GitHub API calls"
 
@@ -426,4 +429,3 @@ copilot_config:
   - source: .github/copilot-skills/
     is_directory: true
     description: "Copilot skill definitions - patterns for CI, GitHub ops, etc."
-
