@@ -51,11 +51,22 @@ that only emit artifacts, see the "Workflows without workflow_call outputs" sect
 | `reusable-pr-context.yml` | `pr_title` | string | PR title. | `needs.context.outputs.pr_title` |
 | `reusable-pr-context.yml` | `pr_body` | string | PR body (truncated at 60KB). | `needs.context.outputs.pr_body` |
 | `reusable-pr-context.yml` | `pr_state` | string | PR state (OPEN, CLOSED, MERGED). | `needs.context.outputs.pr_state` |
+| `reusable-pr-context.yml` | `pr_is_draft` | string (boolean-like) | Whether PR is a draft. | `needs.context.outputs.pr_is_draft` |
+| `reusable-pr-context.yml` | `pr_merged` | string (boolean-like) | Whether PR is merged. | `needs.context.outputs.pr_merged` |
+| `reusable-pr-context.yml` | `pr_author` | string | PR author login. | `needs.context.outputs.pr_author` |
+| `reusable-pr-context.yml` | `head_ref` | string | Head branch name. | `needs.context.outputs.head_ref` |
+| `reusable-pr-context.yml` | `base_ref` | string | Base branch name. | `needs.context.outputs.base_ref` |
+| `reusable-pr-context.yml` | `head_sha` | string | Head commit SHA. | `needs.context.outputs.head_sha` |
 | `reusable-pr-context.yml` | `labels_json` | string (JSON array) | JSON array of label names. | `needs.context.outputs.labels_json` |
 | `reusable-pr-context.yml` | `has_agent_label` | string (boolean-like) | `true` when PR has agent:* label. | `needs.context.outputs.has_agent_label` |
+| `reusable-pr-context.yml` | `has_keepalive_label` | string (boolean-like) | `true` when PR has agents:keepalive label. | `needs.context.outputs.has_keepalive_label` |
 | `reusable-pr-context.yml` | `files_count` | string (number-like) | Number of changed files. | `needs.context.outputs.files_count` |
 | `reusable-pr-context.yml` | `files_json` | string (JSON array) | JSON array of file paths. | `needs.context.outputs.files_json` |
+| `reusable-pr-context.yml` | `has_src_changes` | string (boolean-like) | `true` when PR has src/ changes. | `needs.context.outputs.has_src_changes` |
+| `reusable-pr-context.yml` | `has_test_changes` | string (boolean-like) | `true` when PR has test changes. | `needs.context.outputs.has_test_changes` |
+| `reusable-pr-context.yml` | `has_workflow_changes` | string (boolean-like) | `true` when PR has workflow changes. | `needs.context.outputs.has_workflow_changes` |
 | `reusable-pr-context.yml` | `ci_status` | string | CI status (SUCCESS, FAILURE, PENDING). | `needs.context.outputs.ci_status` |
+| `reusable-pr-context.yml` | `checks_json` | string (JSON array) | JSON array of check results. | `needs.context.outputs.checks_json` |
 | `reusable-pr-context.yml` | `full_context_json` | string (JSON) | Full PR context as serialized JSON. | `needs.context.outputs.full_context_json` |
 | `reusable-codex-run.yml` | `final-message` | string (base64) | Base64-encoded full Codex output. | `needs.codex.outputs.final-message` |
 | `reusable-codex-run.yml` | `final-message-summary` | string | First 500 chars of Codex output, safe for comments. | `needs.codex.outputs.final-message-summary` |
