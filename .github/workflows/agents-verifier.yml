@@ -69,7 +69,7 @@ permissions:
   models: read  # Required for GitHub Models API access
 
 concurrency:
-  group: agents-verifier-${{ github.repository }}-${{ github.event.issue.number || github.run_id }}
+  group: agents-verifier-${{ github.repository }}-${{ github.event.pull_request.number || inputs.pr_number || github.run_id }}
   cancel-in-progress: false
 
 jobs:

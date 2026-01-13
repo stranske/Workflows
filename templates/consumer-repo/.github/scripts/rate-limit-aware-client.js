@@ -10,7 +10,7 @@
  * and switch tokens when approaching limits.
  */
 
-const { checkRateLimitStatus, sleep } = require('./api-helpers');
+const { checkRateLimitStatus } = require('./api-helpers');
 
 // Default threshold: switch tokens when < 100 requests remaining
 const LOW_RATE_LIMIT_THRESHOLD = 100;
@@ -49,7 +49,7 @@ function shouldSwitchToken(remaining, threshold = LOW_RATE_LIMIT_THRESHOLD) {
   if (remaining === null || remaining === undefined) {
     return false;
   }
-  return remaining < threshold;
+  return remaining <= threshold;
 }
 
 /**
