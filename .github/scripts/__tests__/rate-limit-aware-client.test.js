@@ -52,7 +52,7 @@ describe('shouldSwitchToken', () => {
   });
   
   it('returns false when remaining is above threshold', () => {
-    assert.strictEqual(shouldSwitchToken(100, 100), false);
+    assert.strictEqual(shouldSwitchToken(100, 100), true); // Now uses <= for more conservative switching
     assert.strictEqual(shouldSwitchToken(500, 100), false);
   });
   
