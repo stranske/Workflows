@@ -1050,11 +1050,15 @@ jobs:
             const issueNumber = parseInt(process.env.ISSUE_NUMBER);
             const currentStep = process.env.CURRENT_STEP;
 
-            // Wait for the workflow to process
+            // Wait for the workflow to process AND for GitHub API cache to update
             // Format/Optimize/Apply workflows complete in 30-60 seconds
+            // BUT GitHub API can take 60-90s to reflect label changes
             // Monitor-pr checks need longer for keepalive to run
-            const waitTime = currentStep === 'monitor-pr' ? 120000 : 45000;
-            core.info(`Waiting ${waitTime/1000}s for ${currentStep} to complete...`);
+            const waitTime = currentStep === 'monitor-pr' ? 120000 : 75000;
+            const waitSec = waitTime/1000;
+            core.info(
+              `Waiting ${waitSec}s for ${currentStep} step and API cache update...`
+            );
             await new Promise(resolve => setTimeout(resolve, waitTime));
 
             // Re-dispatch workflow_dispatch to continue
