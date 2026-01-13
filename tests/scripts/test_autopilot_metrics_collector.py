@@ -115,6 +115,8 @@ def test_build_record_from_args_defaults_timestamp(monkeypatch: pytest.MonkeyPat
         timestamp=None,
         step_name="format-issue",
         duration_ms="1200",
+        started_at=None,
+        ended_at=None,
         success="true",
         failure_reason=None,
         max_cycles=None,
@@ -138,6 +140,8 @@ def test_build_record_from_args_escalation_requires_reason() -> None:
         timestamp="2025-05-06T07:08:09Z",
         step_name=None,
         duration_ms=None,
+        started_at=None,
+        ended_at=None,
         success=None,
         failure_reason=None,
         max_cycles=None,
@@ -158,6 +162,8 @@ def test_build_record_from_args_escalation_rejects_blank_reason() -> None:
         timestamp="2025-05-06T07:08:09Z",
         step_name=None,
         duration_ms=None,
+        started_at=None,
+        ended_at=None,
         success=None,
         failure_reason=None,
         max_cycles=None,
@@ -178,6 +184,8 @@ def test_build_record_from_args_requires_failure_reason_on_failure() -> None:
         timestamp="2025-04-05T06:07:08Z",
         step_name="format-issue",
         duration_ms="1200",
+        started_at=None,
+        ended_at=None,
         success="false",
         failure_reason=None,
         max_cycles=None,
@@ -187,6 +195,73 @@ def test_build_record_from_args_requires_failure_reason_on_failure() -> None:
     )
 
     with pytest.raises(collector.ValidationError, match="failure_reason is required"):
+        collector.build_record_from_args(args)
+
+
+def test_build_record_from_args_computes_duration_from_bounds() -> None:
+    args = collector.argparse.Namespace(
+        metric_type="step",
+        issue_number="12",
+        cycle_count="3",
+        timestamp="2025-04-05T06:07:08Z",
+        step_name="format-issue",
+        duration_ms=None,
+        started_at="2025-04-05T06:07:00Z",
+        ended_at="2025-04-05T06:07:01Z",
+        success="true",
+        failure_reason=None,
+        max_cycles=None,
+        steps_attempted=None,
+        steps_completed=None,
+        escalation_reason=None,
+    )
+
+    record = collector.build_record_from_args(args)
+
+    assert record["duration_ms"] == 1000
+
+
+def test_build_record_from_args_rejects_missing_bounds() -> None:
+    args = collector.argparse.Namespace(
+        metric_type="step",
+        issue_number="12",
+        cycle_count="3",
+        timestamp="2025-04-05T06:07:08Z",
+        step_name="format-issue",
+        duration_ms=None,
+        started_at=None,
+        ended_at=None,
+        success="true",
+        failure_reason=None,
+        max_cycles=None,
+        steps_attempted=None,
+        steps_completed=None,
+        escalation_reason=None,
+    )
+
+    with pytest.raises(collector.ValidationError, match="duration_ms is required unless"):
+        collector.build_record_from_args(args)
+
+
+def test_build_record_from_args_rejects_negative_bounds() -> None:
+    args = collector.argparse.Namespace(
+        metric_type="step",
+        issue_number="12",
+        cycle_count="3",
+        timestamp="2025-04-05T06:07:08Z",
+        step_name="format-issue",
+        duration_ms=None,
+        started_at="2025-04-05T06:07:02Z",
+        ended_at="2025-04-05T06:07:01Z",
+        success="true",
+        failure_reason=None,
+        max_cycles=None,
+        steps_attempted=None,
+        steps_completed=None,
+        escalation_reason=None,
+    )
+
+    with pytest.raises(collector.ValidationError, match="ended_at must be after started_at"):
         collector.build_record_from_args(args)
 
 

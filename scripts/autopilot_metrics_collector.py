@@ -22,6 +22,9 @@ Schema (version 1):
   // escalation records
   "escalation_reason": str
 }
+
+NOTE: agents-auto-pilot workflow updates are required to emit step metrics per step
+(needs-human label) because workflow files are protected in agent-standard runs.
 """
 
 from __future__ import annotations
@@ -100,6 +103,15 @@ def _parse_timestamp(value: str) -> datetime:
     if parsed.tzinfo is None:
         raise ValidationError("timestamp must include timezone")
     return parsed
+
+
+def _duration_ms_from_bounds(started_at: str, ended_at: str) -> int:
+    start = _parse_timestamp(started_at)
+    end = _parse_timestamp(ended_at)
+    delta_ms = int((end - start).total_seconds() * 1000)
+    if delta_ms < 0:
+        raise ValidationError("ended_at must be after started_at")
+    return delta_ms
 
 
 def _validate_step(record: dict[str, Any]) -> None:
@@ -226,15 +238,18 @@ def build_record_from_args(args: argparse.Namespace) -> dict[str, Any]:
     if metric_type == "step":
         if args.step_name is None:
             raise ValidationError("step_name is required")
-        if args.duration_ms is None:
-            raise ValidationError("duration_ms is required")
+        duration_ms = args.duration_ms
+        if duration_ms is None:
+            if not args.started_at or not args.ended_at:
+                raise ValidationError("duration_ms is required unless started_at and ended_at are set")
+            duration_ms = _duration_ms_from_bounds(str(args.started_at), str(args.ended_at))
         if args.success is None:
             raise ValidationError("success is required")
         success = _coerce_bool(args.success, "success")
         record.update(
             {
                 "step_name": args.step_name,
-                "duration_ms": _coerce_int(args.duration_ms, "duration_ms"),
+                "duration_ms": _coerce_int(duration_ms, "duration_ms"),
                 "success": success,
                 "failure_reason": _normalize_failure_reason(success, args.failure_reason),
             }
@@ -290,6 +305,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--timestamp", help="ISO 8601 timestamp (defaults to now)")
     parser.add_argument("--step-name", help="Step name for step records")
     parser.add_argument("--duration-ms", help="Step duration in milliseconds")
+    parser.add_argument("--started-at", help="ISO 8601 step start timestamp (optional)")
+    parser.add_argument("--ended-at", help="ISO 8601 step end timestamp (optional)")
     parser.add_argument("--success", help="Step success flag (true/false)")
     parser.add_argument("--failure-reason", help="Failure reason for step records")
     parser.add_argument("--max-cycles", help="Max cycles for cycle records")
