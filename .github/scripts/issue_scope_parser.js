@@ -453,17 +453,24 @@ function collectSections(source) {
         const title = matchedLabel.toLowerCase();
         if (aliasLookup[title]) {
           const section = aliasLookup[title];
+          // Detect heading level (number of # characters)
+          const headingMatch = line.match(/^(#{1,6})\s+/);
+          const level = headingMatch ? headingMatch[1].length : 2; // Default to level 2 for non-# headings
           headings.push({
             title: section.key,
             label: section.label,
             index: offset,
             length: line.length,
             matchedLabel,
+            level,
           });
         }
       }
       if (isExplicitHeadingLine(line)) {
-        allHeadings.push({ index: offset, length: line.length });
+        // Detect heading level for all headings
+        const headingMatch = line.match(/^(#{1,6})\s+/);
+        const level = headingMatch ? headingMatch[1].length : 2; // Default to level 2 for non-# headings
+        allHeadings.push({ index: offset, length: line.length, level });
       }
     }
     offset += line.length + 1;
@@ -507,8 +514,10 @@ function collectSections(source) {
     if (!header) {
       continue; // Skip missing sections instead of failing
     }
+    // Find the next heading at the SAME LEVEL or HIGHER (fewer #'s = higher level)
+    // This allows subsections (###) to be included within main sections (##)
     const nextHeader = allHeadings
-      .filter((entry) => entry.index > header.index)
+      .filter((entry) => entry.index > header.index && entry.level <= header.level)
       .sort((a, b) => a.index - b.index)[0];
     const contentStart = (() => {
       const start = header.index + header.length;
