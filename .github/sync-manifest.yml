@@ -106,6 +106,10 @@ workflows:
   - source: .github/workflows/dependabot-automerge.yml
     description: "Dependabot auto-merge - automatically merges dependabot PRs when checks pass"
 
+
+  # Reusable PR context workflow (medium-effort rate limit optimization)
+  - source: .github/workflows/reusable-pr-context.yml
+    description: "Reusable PR context workflow - centralized PR data fetching via GraphQL"
 # Codex prompts for agent operations
 prompts:
   - source: .github/codex/prompts/keepalive_next_task.md
@@ -370,6 +374,10 @@ scripts:
   - source: .github/scripts/agents-guard.js
     description: "Guards against unauthorized agent workflow file changes"
 
+
+  # GraphQL-based PR context fetcher (medium-effort rate limit optimization)
+  - source: .github/scripts/pr-context-graphql.js
+    description: "GraphQL PR context fetcher - reduces 4+ REST calls to 1 GraphQL call"
 # Templates required by keepalive system
 templates:
   - source: .github/templates/keepalive-instruction.md
@@ -418,3 +426,4 @@ copilot_config:
   - source: .github/copilot-skills/
     is_directory: true
     description: "Copilot skill definitions - patterns for CI, GitHub ops, etc."
+

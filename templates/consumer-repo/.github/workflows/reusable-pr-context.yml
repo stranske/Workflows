@@ -1,0 +1,236 @@
+name: Reusable PR Context Fetcher
+
+# This reusable workflow fetches comprehensive PR context using a single GraphQL
+# query and passes it to downstream jobs via outputs.
+#
+# MEDIUM EFFORT OPTIMIZATION: Replaces multiple REST calls with one GraphQL call
+# - Before: 4-6 REST calls per job needing PR data
+# - After: 1 GraphQL call, data passed via outputs
+# - Savings: 60-80% API call reduction for multi-job workflows
+
+on:
+  workflow_call:
+    inputs:
+      pr_number:
+        description: 'PR number to fetch context for'
+        required: true
+        type: number
+      include_files:
+        description: 'Include file change data (larger response)'
+        required: false
+        default: true
+        type: boolean
+      include_reviews:
+        description: 'Include review data'
+        required: false
+        default: true
+        type: boolean
+      include_comments:
+        description: 'Include comment data'
+        required: false
+        default: true
+        type: boolean
+      include_checks:
+        description: 'Include CI check status'
+        required: false
+        default: true
+        type: boolean
+
+    outputs:
+      # Core PR info
+      pr_number:
+        description: 'PR number'
+        value: ${{ jobs.fetch.outputs.pr_number }}
+      pr_title:
+        description: 'PR title'
+        value: ${{ jobs.fetch.outputs.pr_title }}
+      pr_body:
+        description: 'PR body (may be truncated for very long bodies)'
+        value: ${{ jobs.fetch.outputs.pr_body }}
+      pr_state:
+        description: 'PR state (OPEN, CLOSED, MERGED)'
+        value: ${{ jobs.fetch.outputs.pr_state }}
+      pr_is_draft:
+        description: 'Whether PR is a draft'
+        value: ${{ jobs.fetch.outputs.pr_is_draft }}
+      pr_merged:
+        description: 'Whether PR is merged'
+        value: ${{ jobs.fetch.outputs.pr_merged }}
+      pr_author:
+        description: 'PR author login'
+        value: ${{ jobs.fetch.outputs.pr_author }}
+      head_ref:
+        description: 'Head branch name'
+        value: ${{ jobs.fetch.outputs.head_ref }}
+      base_ref:
+        description: 'Base branch name'
+        value: ${{ jobs.fetch.outputs.base_ref }}
+      head_sha:
+        description: 'Head commit SHA'
+        value: ${{ jobs.fetch.outputs.head_sha }}
+
+      # Labels
+      labels_json:
+        description: 'JSON array of label names'
+        value: ${{ jobs.fetch.outputs.labels_json }}
+      has_agent_label:
+        description: 'Whether PR has any agent:* label'
+        value: ${{ jobs.fetch.outputs.has_agent_label }}
+      has_keepalive_label:
+        description: 'Whether PR has agents:keepalive label'
+        value: ${{ jobs.fetch.outputs.has_keepalive_label }}
+
+      # Files (if included)
+      files_count:
+        description: 'Number of changed files'
+        value: ${{ jobs.fetch.outputs.files_count }}
+      files_json:
+        description: 'JSON array of changed file paths'
+        value: ${{ jobs.fetch.outputs.files_json }}
+      has_src_changes:
+        description: 'Whether changes include src/ files'
+        value: ${{ jobs.fetch.outputs.has_src_changes }}
+      has_test_changes:
+        description: 'Whether changes include test files'
+        value: ${{ jobs.fetch.outputs.has_test_changes }}
+      has_workflow_changes:
+        description: 'Whether changes include .github/workflows/'
+        value: ${{ jobs.fetch.outputs.has_workflow_changes }}
+
+      # CI Status (if included)
+      ci_status:
+        description: 'Overall CI status (SUCCESS, FAILURE, PENDING, etc.)'
+        value: ${{ jobs.fetch.outputs.ci_status }}
+      checks_json:
+        description: 'JSON array of check results'
+        value: ${{ jobs.fetch.outputs.checks_json }}
+
+      # Full context (for complex downstream processing)
+      full_context_json:
+        description: 'Full PR context as JSON (use sparingly - large)'
+        value: ${{ jobs.fetch.outputs.full_context_json }}
+
+    secrets:
+      WORKFLOWS_APP_ID:
+        required: false
+      WORKFLOWS_APP_PRIVATE_KEY:
+        required: false
+      OWNER_PR_PAT:
+        required: false
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  fetch:
+    name: Fetch PR Context
+    runs-on: ubuntu-latest
+    outputs:
+      pr_number: ${{ steps.context.outputs.pr_number }}
+      pr_title: ${{ steps.context.outputs.pr_title }}
+      pr_body: ${{ steps.context.outputs.pr_body }}
+      pr_state: ${{ steps.context.outputs.pr_state }}
+      pr_is_draft: ${{ steps.context.outputs.pr_is_draft }}
+      pr_merged: ${{ steps.context.outputs.pr_merged }}
+      pr_author: ${{ steps.context.outputs.pr_author }}
+      head_ref: ${{ steps.context.outputs.head_ref }}
+      base_ref: ${{ steps.context.outputs.base_ref }}
+      head_sha: ${{ steps.context.outputs.head_sha }}
+      labels_json: ${{ steps.context.outputs.labels_json }}
+      has_agent_label: ${{ steps.context.outputs.has_agent_label }}
+      has_keepalive_label: ${{ steps.context.outputs.has_keepalive_label }}
+      files_count: ${{ steps.context.outputs.files_count }}
+      files_json: ${{ steps.context.outputs.files_json }}
+      has_src_changes: ${{ steps.context.outputs.has_src_changes }}
+      has_test_changes: ${{ steps.context.outputs.has_test_changes }}
+      has_workflow_changes: ${{ steps.context.outputs.has_workflow_changes }}
+      ci_status: ${{ steps.context.outputs.ci_status }}
+      checks_json: ${{ steps.context.outputs.checks_json }}
+      full_context_json: ${{ steps.context.outputs.full_context_json }}
+
+    steps:
+      - name: Checkout (for scripts)
+        uses: actions/checkout@v6
+        with:
+          sparse-checkout: |
+            .github/scripts
+          sparse-checkout-cone-mode: false
+
+      - name: Generate App Token
+        id: app_token
+        if: ${{ secrets.WORKFLOWS_APP_ID != '' && secrets.WORKFLOWS_APP_PRIVATE_KEY != '' }}
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.WORKFLOWS_APP_ID }}
+          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+
+      - name: Select Token
+        id: token
+        run: |
+          if [ -n "${{ steps.app_token.outputs.token }}" ]; then
+            echo "token=${{ steps.app_token.outputs.token }}" >> "$GITHUB_OUTPUT"
+            echo "source=app" >> "$GITHUB_OUTPUT"
+          elif [ -n "${{ secrets.OWNER_PR_PAT }}" ]; then
+            echo "token=${{ secrets.OWNER_PR_PAT }}" >> "$GITHUB_OUTPUT"
+            echo "source=owner-pat" >> "$GITHUB_OUTPUT"
+          else
+            echo "token=${{ github.token }}" >> "$GITHUB_OUTPUT"
+            echo "source=github-token" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Fetch PR Context via GraphQL
+        id: context
+        uses: actions/github-script@v8
+        with:
+          github-token: ${{ steps.token.outputs.token }}
+          script: |
+            const { fetchPRContext, serializeForOutput } = require('./.github/scripts/pr-context-graphql.js');
+            
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const prNumber = ${{ inputs.pr_number }};
+            
+            console.log(`Fetching PR context for ${owner}/${repo}#${prNumber}`);
+            console.log(`Token source: ${{ steps.token.outputs.source }}`);
+            
+            try {
+              const pr = await fetchPRContext(github, owner, repo, prNumber);
+              
+              // Core outputs
+              core.setOutput('pr_number', pr.number);
+              core.setOutput('pr_title', pr.title);
+              // Truncate body to avoid output size limits (65KB max)
+              core.setOutput('pr_body', pr.body.slice(0, 60000));
+              core.setOutput('pr_state', pr.state);
+              core.setOutput('pr_is_draft', pr.isDraft);
+              core.setOutput('pr_merged', pr.merged);
+              core.setOutput('pr_author', pr.author);
+              core.setOutput('head_ref', pr.headRef);
+              core.setOutput('base_ref', pr.baseRef);
+              core.setOutput('head_sha', pr.headSha);
+              
+              // Labels
+              core.setOutput('labels_json', JSON.stringify(pr.labels));
+              core.setOutput('has_agent_label', pr.hasAnyLabel(['agent:codex', 'agent:copilot', 'agents:keepalive']));
+              core.setOutput('has_keepalive_label', pr.hasLabel('agents:keepalive'));
+              
+              // Files
+              core.setOutput('files_count', pr.files.total);
+              core.setOutput('files_json', JSON.stringify(pr.files.paths));
+              core.setOutput('has_src_changes', pr.files.paths.some(f => f.startsWith('src/')));
+              core.setOutput('has_test_changes', pr.files.paths.some(f => f.includes('test') || f.includes('spec')));
+              core.setOutput('has_workflow_changes', pr.files.paths.some(f => f.startsWith('.github/workflows/')));
+              
+              // CI Status
+              core.setOutput('ci_status', pr.lastCommit?.status || 'UNKNOWN');
+              core.setOutput('checks_json', JSON.stringify(pr.lastCommit?.checks || []));
+              
+              // Full context (for complex processing)
+              core.setOutput('full_context_json', serializeForOutput(pr));
+              
+              console.log(`✅ Fetched context: ${pr.labels.length} labels, ${pr.files.total} files`);
+              
+            } catch (error) {
+              core.setFailed(`Failed to fetch PR context: ${error.message}`);
+            }

@@ -270,9 +270,9 @@ query PRContext($owner: String!, $repo: String!, $number: Int!) {
 | Path filters on workflows | 20-40% runs | 1-2 hrs | 📋 Backlog |
 | Tighter concurrency groups | 10-30% runs | 1 hr | 📋 Backlog |
 | **Medium Effort (Days)** |
-| Pass PR data via outputs | 30-50% | 1-2 days | 📋 Backlog |
+| Pass PR data via outputs | 30-50% | 1-2 days | ✅ Implemented (pr-context-graphql.js) |
 | Proactive rate limit switching | Prevents failures | 2-3 days | 📋 Backlog |
-| GraphQL batching | 60-80% | 2-3 days | 📋 Backlog |
+| GraphQL batching | 60-80% | 2-3 days | ✅ Implemented (pr-context-graphql.js) |
 | **High Effort (Weeks)** |
 | Central API caching layer | 50-70% | 1-2 weeks | 📋 [Issue #868](https://github.com/stranske/Workflows/issues/868) |
 | Workflow consolidation | 30-50% runs | 1-2 weeks | 📋 [Issue #869](https://github.com/stranske/Workflows/issues/869) |
