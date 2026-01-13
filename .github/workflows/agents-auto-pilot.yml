@@ -46,8 +46,8 @@ env:
   MAX_WALL_TIME_HOURS: 4
 
 concurrency:
-  group: agents-auto-pilot-${{ github.repository }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: agents-auto-pilot-${{ github.repository }}-${{ github.event.issue.number || github.run_id }}
+  cancel-in-progress: false
 
 jobs:
   auto-pilot:

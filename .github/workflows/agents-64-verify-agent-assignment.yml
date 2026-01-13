@@ -45,8 +45,8 @@ permissions:
   issues: read
 
 concurrency:
-  group: agents-verify-assignment-${{ github.repository }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: agents-verify-assignment-${{ github.repository }}-${{ github.event.issue.number || github.run_id }}
+  cancel-in-progress: false
 
 jobs:
   verify:

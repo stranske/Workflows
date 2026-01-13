@@ -19,8 +19,8 @@ on:
           - format
 
 concurrency:
-  group: agents-issue-optimizer-${{ github.repository }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: agents-issue-optimizer-${{ github.repository }}-${{ github.event.issue.number || github.run_id }}
+  cancel-in-progress: false
 
 jobs:
   optimize_issue:

@@ -18,8 +18,8 @@ env:
   SUGGEST_THRESHOLD: "0.75"
 
 concurrency:
-  group: agents-auto-label-${{ github.repository }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: agents-auto-label-${{ github.repository }}-${{ github.event.issue.number || github.run_id }}
+  cancel-in-progress: false
 
 jobs:
   auto-label:
