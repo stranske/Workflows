@@ -91,12 +91,11 @@ def _load_prompt() -> str:
     return base_prompt
 
 
-def _get_llm_client(force_openai: bool = False) -> tuple[object, str] | None:
-    """Get LLM client, trying GitHub Models first (cheaper), then OpenAI.
+def _get_llm_client() -> tuple[object, str] | None:
+    """Get LLM client with fallback from GitHub Models to OpenAI.
 
-    Args:
-        force_openai: If True, skip GitHub Models and use OpenAI directly.
-                      Use this for retry after GitHub Models 401 error.
+    Tries GitHub Models first (cheaper), falls back to OpenAI if unavailable.
+    Note: GITHUB_TOKEN in Actions may lack 'models' permission - that's why fallback exists.
     """
     try:
         # Keep imports contiguous; consumer repos treat both as third-party
@@ -110,17 +109,27 @@ def _get_llm_client(force_openai: bool = False) -> tuple[object, str] | None:
     if not github_token and not openai_token:
         return None
 
-    # Try GitHub Models first (cheaper) unless forced to use OpenAI
-    if github_token and not force_openai:
-        return (
-            ChatOpenAI(
+    # Try GitHub Models first (cheaper)
+    if github_token:
+        try:
+            client = ChatOpenAI(
                 model=DEFAULT_MODEL,
                 base_url=GITHUB_MODELS_BASE_URL,
                 api_key=github_token,
                 temperature=0.1,
-            ),
-            "github-models",
-        )
+            )
+            # Test the connection with a minimal call
+            client.invoke("test")
+            return (client, "github-models")
+        except Exception:
+            # GitHub Models failed (likely 401 - missing 'models' permission)
+            # Fall through to OpenAI
+            if openai_token:
+                pass  # Will try OpenAI below
+            else:
+                raise  # No fallback available
+
+    # Fallback to OpenAI
     if openai_token:
         return (
             ChatOpenAI(
@@ -380,15 +389,23 @@ def _apply_task_decomposition(formatted: str, *, use_llm: bool) -> str:
     return issue_optimizer._apply_task_decomposition(formatted, {"task_splitting": suggestions})
 
 
-def _is_github_models_auth_error(exc: Exception) -> bool:
-    """Check if exception is a GitHub Models authentication error (401)."""
-    exc_str = str(exc).lower()
-    return "401" in exc_str and "models" in exc_str
-
-
 def format_issue_body(issue_body: str, *, use_llm: bool = True) -> dict[str, Any]:
+    # Maximum issue body size to prevent OpenAI rate limit errors (30k TPM limit)
+    # ~4 chars per token, so 50k chars ≈ 12.5k tokens, leaving headroom for prompt + output
+    MAX_ISSUE_BODY_SIZE = 50000
+
     if not issue_body:
         issue_body = ""
+
+    # Check size before processing to avoid rate limit errors
+    if len(issue_body) > MAX_ISSUE_BODY_SIZE:
+        return {
+            "error": f"Issue body too large ({len(issue_body):,} chars). Max is {MAX_ISSUE_BODY_SIZE:,}. "
+            "The issue body may contain recursive task decomposition spam and needs manual cleanup.",
+            "formatted_body": None,
+            "provider_used": None,
+            "used_llm": False,
+        }
 
     if use_llm:
         client_info = _get_llm_client()
@@ -400,20 +417,7 @@ def format_issue_body(issue_body: str, *, use_llm: bool = True) -> dict[str, Any
                 prompt = _load_prompt()
                 template = ChatPromptTemplate.from_template(prompt)
                 chain = template | client
-                try:
-                    response = chain.invoke({"issue_body": issue_body})
-                except Exception as e:
-                    # If GitHub Models fails with 401, retry with OpenAI
-                    if provider == "github-models" and _is_github_models_auth_error(e):
-                        fallback_info = _get_llm_client(force_openai=True)
-                        if fallback_info:
-                            client, provider = fallback_info
-                            chain = template | client
-                            response = chain.invoke({"issue_body": issue_body})
-                        else:
-                            raise
-                    else:
-                        raise
+                response = chain.invoke({"issue_body": issue_body})
                 content = getattr(response, "content", None) or str(response)
                 formatted = content.strip()
                 if _formatted_output_valid(formatted):
@@ -424,8 +428,8 @@ def format_issue_body(issue_body: str, *, use_llm: bool = True) -> dict[str, Any
                         "provider_used": provider,
                         "used_llm": True,
                     }
-            except ImportError:
-                # Fall through to fallback if imports fail
+            except (ImportError, Exception):
+                # Fall through to fallback if LLM fails (import, auth, API errors)
                 pass
 
     formatted = _format_issue_fallback(issue_body)

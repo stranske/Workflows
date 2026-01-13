@@ -286,3 +286,22 @@ def test_main_reads_stdin_when_no_input_options(monkeypatch, capsys) -> None:
 
     stdout = capsys.readouterr().out
     assert "## Why" in stdout
+
+
+def test_format_issue_body_rejects_oversized_input() -> None:
+    """Issue #862 root cause: 135K char issue body exceeded 30K TPM limit.
+
+    The formatter should reject oversized inputs early with a clear error
+    instead of letting them hit OpenAI rate limits.
+    """
+    # Create oversized input (>50K chars)
+    oversized_body = "x" * 60000
+
+    result = issue_formatter.format_issue_body(oversized_body, use_llm=False)
+
+    assert result["formatted_body"] is None
+    assert result["used_llm"] is False
+    assert "error" in result
+    assert "too large" in result["error"]
+    assert "60,000" in result["error"]  # Should show actual size
+    assert "50,000" in result["error"]  # Should show limit
