@@ -474,7 +474,10 @@ function collectSections(source) {
       }
       if (isExplicitHeadingLine(line)) {
         // Detect heading level for all headings
-        const headingMatch = line.match(/^(#{1,6})\s+/);
+        // NOTE: Trim line before matching to handle indented headings consistently
+        // isExplicitHeadingLine already trims, so we should too
+        const trimmedLine = line.trim();
+        const headingMatch = trimmedLine.match(/^(#{1,6})\s+/);
         const level = headingMatch ? headingMatch[1].length : 2; // Default to level 2 for non-# headings
         allHeadings.push({ index: offset, length: line.length, level });
       }
