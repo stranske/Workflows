@@ -246,6 +246,9 @@ scripts:
   - source: .github/scripts/github-api-with-retry.js
     description: "GitHub API retry wrapper with exponential backoff and pagination support - required by agents-auto-pilot.yml"
 
+  - source: .github/scripts/rate-limit-aware-client.js
+    description: "Rate limit aware client - proactively checks API limits before operations"
+
   - source: .github/scripts/prompt_injection_guard.js
     description: "Security guard against prompt injection attacks"
 
