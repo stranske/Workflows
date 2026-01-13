@@ -13,6 +13,10 @@ permissions:
   pull-requests: write
   checks: write
 
+concurrency:
+  group: actionlint-${{ github.repository }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   lint:
     name: workflow lint (maint-36)

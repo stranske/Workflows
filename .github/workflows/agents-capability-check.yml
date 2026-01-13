@@ -12,6 +12,10 @@ permissions:
   issues: write
   models: read
 
+concurrency:
+  group: agents-capability-check-${{ github.repository }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   capability-check:
     runs-on: ubuntu-latest

@@ -27,6 +27,10 @@ permissions:
 env:
   INTEGRATION_REPO: stranske/Workflows-Integration-Tests
 
+concurrency:
+  group: integration-sync-check-${{ github.repository }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   check-sync:
     name: Validate Integration-Tests sync

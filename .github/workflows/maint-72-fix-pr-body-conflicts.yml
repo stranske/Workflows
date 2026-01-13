@@ -37,6 +37,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: fix-pr-body-conflicts-${{ github.repository }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   fix-repos:
     runs-on: ubuntu-latest

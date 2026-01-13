@@ -68,6 +68,10 @@ permissions:
   actions: read
   models: read  # Required for GitHub Models API access
 
+concurrency:
+  group: agents-verifier-${{ github.repository }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   # Gate: only proceed if PR is merged AND has verify:* label (for label trigger)
   # Or if triggered manually via workflow_dispatch

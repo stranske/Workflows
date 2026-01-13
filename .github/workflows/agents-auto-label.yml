@@ -17,6 +17,10 @@ env:
   # Threshold for suggesting labels (lower, for comments)
   SUGGEST_THRESHOLD: "0.75"
 
+concurrency:
+  group: agents-auto-label-${{ github.repository }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   auto-label:
     runs-on: ubuntu-latest

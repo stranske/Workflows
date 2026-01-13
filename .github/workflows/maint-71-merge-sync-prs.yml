@@ -55,6 +55,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: merge-sync-prs-${{ github.repository }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   merge_sync_prs:
     runs-on: ubuntu-latest

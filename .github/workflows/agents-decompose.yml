@@ -12,6 +12,10 @@ permissions:
   issues: write
   models: read
 
+concurrency:
+  group: agents-decompose-${{ github.repository }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   decompose:
     runs-on: ubuntu-latest

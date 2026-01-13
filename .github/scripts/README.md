@@ -46,3 +46,46 @@ Minimal Node and Python unit tests live alongside the scripts under
 `.github/scripts/__tests__` and `tests/github_scripts/`.  The CI pipeline runs
 these tests through a dedicated "github scripts" job to ensure that the helper
 logic keeps working as workflows evolve.
+
+## Proactive Rate Limit Management
+
+For workflows making many API calls, use `rate-limit-aware-client.js` to proactively monitor and switch tokens before hitting limits:
+
+```javascript
+const { createProactiveRateLimitClient, fetchPRDataBatched } = require('./rate-limit-aware-client');
+const { Octokit } = require('@octokit/rest');
+
+// Create clients for primary and fallback tokens
+const primaryOctokit = new Octokit({ auth: process.env.PRIMARY_TOKEN });
+const fallbackOctokit = new Octokit({ auth: process.env.FALLBACK_TOKEN });
+
+// Create proactive client that switches when rate limit < 100
+const client = createProactiveRateLimitClient(primaryOctokit, {
+  fallbackOctokit,
+  threshold: 100,
+  core,  // GitHub Actions core for logging
+});
+
+// Pre-flight check before batch operations
+const safe = await client.preflight(50);  // Need ~50 API calls
+if (!safe) {
+  core.warning('Insufficient rate limit, consider waiting');
+}
+
+// Use withRateLimitTracking for automatic switching on 403/429
+const result = await client.withRateLimitTracking(
+  (octokit) => octokit.rest.pulls.get({ owner, repo, pull_number: 123 }),
+  'fetch PR'
+);
+```
+
+### GraphQL Batching
+
+Reduce API calls by using GraphQL to fetch multiple fields at once:
+
+```javascript
+// Instead of 4+ REST calls (PR, labels, files, reviews)
+// Use one GraphQL call:
+const prData = await fetchPRDataBatched(octokit, owner, repo, prNumber);
+// Returns: { number, title, body, labels, files, reviews, commits }
+```

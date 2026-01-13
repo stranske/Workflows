@@ -46,6 +46,10 @@ env:
     stranske/Trend_Model_Project
     stranske/Collab-Admin
 
+concurrency:
+  group: sync-consumer-repos-${{ github.repository }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   # ============================================================================
   # PREPARE: Load manifest and build repo matrix

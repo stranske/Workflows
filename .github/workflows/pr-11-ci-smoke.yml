@@ -12,6 +12,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: pr-ci-smoke-${{ github.repository }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   smoke:
     name: YAML syntax + script imports

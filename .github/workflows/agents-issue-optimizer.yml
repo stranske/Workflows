@@ -18,6 +18,10 @@ on:
           - apply
           - format
 
+concurrency:
+  group: agents-issue-optimizer-${{ github.repository }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   optimize_issue:
     runs-on: ubuntu-latest

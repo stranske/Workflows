@@ -45,6 +45,10 @@ env:
   MAX_CYCLES: 10
   MAX_WALL_TIME_HOURS: 4
 
+concurrency:
+  group: agents-auto-pilot-${{ github.repository }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   auto-pilot:
     runs-on: ubuntu-latest

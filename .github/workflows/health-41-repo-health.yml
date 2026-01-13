@@ -10,6 +10,10 @@ permissions:
   contents: read
   issues: read
 
+concurrency:
+  group: repo-health-${{ github.repository }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   # Rate limit gate: skip non-critical health checks when API quota is low
   # This ensures keepalive and core workflows get priority (threshold: 2000)

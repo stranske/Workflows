@@ -21,6 +21,10 @@ permissions:
 env:
   PYTHON_VERSION: "3.12"
 
+concurrency:
+  group: agents-verify-to-issue-${{ github.repository }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   create-issue:
     if: github.event.label.name == 'verify:create-issue'

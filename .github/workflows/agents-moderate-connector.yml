@@ -14,6 +14,10 @@ env:
   MODERATION_ALLOW_LIST: ${{ vars.AGENTS_CONNECTOR_ALLOW_LIST || 'stranske,stranske-automation-bot,maintainers' }}
   MODERATION_DEBUG_LABEL: agents:debug
 
+concurrency:
+  group: agents-moderate-connector-${{ github.repository }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   moderate:
     if: >-
