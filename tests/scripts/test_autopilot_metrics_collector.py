@@ -221,6 +221,30 @@ def test_build_record_from_args_computes_duration_from_bounds() -> None:
     assert record["duration_ms"] == 1000
 
 
+def test_build_record_from_args_uses_now_for_missing_end(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(collector, "_utc_now_iso", lambda: "2025-04-05T06:07:01Z")
+    args = collector.argparse.Namespace(
+        metric_type="step",
+        issue_number="12",
+        cycle_count="3",
+        timestamp="2025-04-05T06:07:08Z",
+        step_name="format-issue",
+        duration_ms=None,
+        started_at="2025-04-05T06:07:00Z",
+        ended_at=None,
+        success="true",
+        failure_reason=None,
+        max_cycles=None,
+        steps_attempted=None,
+        steps_completed=None,
+        escalation_reason=None,
+    )
+
+    record = collector.build_record_from_args(args)
+
+    assert record["duration_ms"] == 1000
+
+
 def test_build_record_from_args_rejects_missing_bounds() -> None:
     args = collector.argparse.Namespace(
         metric_type="step",
@@ -239,7 +263,7 @@ def test_build_record_from_args_rejects_missing_bounds() -> None:
         escalation_reason=None,
     )
 
-    with pytest.raises(collector.ValidationError, match="duration_ms is required unless"):
+    with pytest.raises(collector.ValidationError, match="duration_ms is required unless started_at"):
         collector.build_record_from_args(args)
 
 

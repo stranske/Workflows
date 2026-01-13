@@ -240,11 +240,10 @@ def build_record_from_args(args: argparse.Namespace) -> dict[str, Any]:
             raise ValidationError("step_name is required")
         duration_ms = args.duration_ms
         if duration_ms is None:
-            if not args.started_at or not args.ended_at:
-                raise ValidationError(
-                    "duration_ms is required unless started_at and ended_at are set"
-                )
-            duration_ms = _duration_ms_from_bounds(str(args.started_at), str(args.ended_at))
+            if not args.started_at:
+                raise ValidationError("duration_ms is required unless started_at is set")
+            ended_at = args.ended_at or _utc_now_iso()
+            duration_ms = _duration_ms_from_bounds(str(args.started_at), str(ended_at))
         if args.success is None:
             raise ValidationError("success is required")
         success = _coerce_bool(args.success, "success")
