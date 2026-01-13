@@ -396,9 +396,13 @@ def format_issue_body(issue_body: str, *, use_llm: bool = True) -> dict[str, Any
 
     # Check size before processing to avoid rate limit errors
     if len(issue_body) > MAX_ISSUE_BODY_SIZE:
+        err_msg = (
+            f"Issue body too large ({len(issue_body):,} chars). "
+            f"Max is {MAX_ISSUE_BODY_SIZE:,}. "
+            "Recursive task decomposition spam suspected; needs manual cleanup."
+        )
         return {
-            "error": f"Issue body too large ({len(issue_body):,} chars). Max is {MAX_ISSUE_BODY_SIZE:,}. "
-            "The issue body may contain recursive task decomposition spam and needs manual cleanup.",
+            "error": err_msg,
             "formatted_body": None,
             "provider_used": None,
             "used_llm": False,
