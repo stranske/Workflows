@@ -263,7 +263,9 @@ def test_build_record_from_args_rejects_missing_bounds() -> None:
         escalation_reason=None,
     )
 
-    with pytest.raises(collector.ValidationError, match="duration_ms is required unless started_at"):
+    with pytest.raises(
+        collector.ValidationError, match="duration_ms is required unless started_at"
+    ):
         collector.build_record_from_args(args)
 
 
