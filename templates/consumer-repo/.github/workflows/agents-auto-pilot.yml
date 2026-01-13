@@ -542,18 +542,23 @@ jobs:
             // This prevents silent failures when optimizer runs but produces no output
             const issueNumber = parseInt(process.env.ISSUE_NUMBER);
 
-            // Fetch all comments on the issue
-            const comments = await github.rest.issues.listComments({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: issueNumber,
-              per_page: 100
-            });
+            // Fetch all comments on the issue (with pagination and retry)
+            const { paginateWithRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const comments = await paginateWithRetry(
+              github,
+              github.rest.issues.listComments,
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                per_page: 100
+              }
+            );
 
             // Look for optimizer suggestions marker
             // The optimizer workflow posts a comment containing "Issue Optimization Suggestions"
             // or the hidden marker "ISSUE_OPTIMIZER_SUGGESTIONS"
-            const hasOptimizerOutput = comments.data.some(comment => {
+            const hasOptimizerOutput = comments.some(comment => {
               const body = comment.body || '';
               return body.includes('Issue Optimization Suggestions') ||
                      body.includes('ISSUE_OPTIMIZER_SUGGESTIONS') ||
