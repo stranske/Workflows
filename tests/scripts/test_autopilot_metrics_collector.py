@@ -330,6 +330,60 @@ def test_build_record_from_args_computes_duration_from_epoch_bounds() -> None:
     assert record["duration_ms"] == 3000
 
 
+def test_build_record_from_args_uses_epoch_env_bounds(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("AUTOPILOT_STEP_STARTED_AT_MS", "1000")
+    monkeypatch.setenv("AUTOPILOT_STEP_ENDED_AT_MS", "4500")
+    args = collector.argparse.Namespace(
+        metric_type="step",
+        issue_number="12",
+        cycle_count="3",
+        timestamp="2025-04-05T06:07:08Z",
+        step_name="format-issue",
+        duration_ms=None,
+        started_at=None,
+        ended_at=None,
+        started_at_ms=None,
+        ended_at_ms=None,
+        success="true",
+        failure_reason=None,
+        max_cycles=None,
+        steps_attempted=None,
+        steps_completed=None,
+        escalation_reason=None,
+    )
+
+    record = collector.build_record_from_args(args)
+
+    assert record["duration_ms"] == 3500
+
+
+def test_build_record_from_args_uses_iso_env_bounds(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("AUTOPILOT_STEP_STARTED_AT", "2025-04-05T06:07:00Z")
+    monkeypatch.setenv("AUTOPILOT_STEP_ENDED_AT", "2025-04-05T06:07:02Z")
+    args = collector.argparse.Namespace(
+        metric_type="step",
+        issue_number="12",
+        cycle_count="3",
+        timestamp="2025-04-05T06:07:08Z",
+        step_name="format-issue",
+        duration_ms=None,
+        started_at=None,
+        ended_at=None,
+        started_at_ms=None,
+        ended_at_ms=None,
+        success="true",
+        failure_reason=None,
+        max_cycles=None,
+        steps_attempted=None,
+        steps_completed=None,
+        escalation_reason=None,
+    )
+
+    record = collector.build_record_from_args(args)
+
+    assert record["duration_ms"] == 2000
+
+
 def test_append_record_appends_lines(tmp_path: Path) -> None:
     record = _step_record()
     path = tmp_path / "metrics.ndjson"

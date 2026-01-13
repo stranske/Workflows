@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -222,6 +223,16 @@ def _coerce_bool(value: str | bool | None, field: str) -> bool:
     raise ValidationError(f"{field} must be a boolean")
 
 
+def _env_or_value(value: str | None, env_name: str) -> str | None:
+    if value is not None:
+        return value
+    env_value = os.environ.get(env_name)
+    if env_value is None:
+        return None
+    env_value = env_value.strip()
+    return env_value or None
+
+
 def _normalize_failure_reason(success: bool, failure_reason: str | None) -> str:
     if failure_reason is None:
         if success:
@@ -250,31 +261,34 @@ def build_record_from_args(args: argparse.Namespace) -> dict[str, Any]:
     if metric_type == "step":
         if args.step_name is None:
             raise ValidationError("step_name is required")
-        if args.started_at and args.started_at_ms:
+        started_at = _env_or_value(args.started_at, "AUTOPILOT_STEP_STARTED_AT")
+        ended_at = _env_or_value(args.ended_at, "AUTOPILOT_STEP_ENDED_AT")
+        started_at_ms = _env_or_value(args.started_at_ms, "AUTOPILOT_STEP_STARTED_AT_MS")
+        ended_at_ms = _env_or_value(args.ended_at_ms, "AUTOPILOT_STEP_ENDED_AT_MS")
+        if started_at and started_at_ms:
             raise ValidationError("use only one of started_at or started_at_ms")
-        if args.ended_at and args.ended_at_ms:
+        if ended_at and ended_at_ms:
             raise ValidationError("use only one of ended_at or ended_at_ms")
-        if args.started_at_ms and args.ended_at:
+        if started_at_ms and ended_at:
             raise ValidationError("ended_at cannot be used with started_at_ms")
-        if args.started_at and args.ended_at_ms:
+        if started_at and ended_at_ms:
             raise ValidationError("ended_at_ms cannot be used with started_at")
         duration_ms = args.duration_ms
         if duration_ms is None:
-            if not args.started_at and args.started_at_ms is None:
+            if not started_at and started_at_ms is None:
                 raise ValidationError(
                     "duration_ms is required unless started_at or started_at_ms is set"
                 )
-            if args.started_at_ms is not None:
-                ended_at_ms = args.ended_at_ms
+            if started_at_ms is not None:
                 if ended_at_ms is None:
                     ended_at_ms = _utc_now_epoch_ms()
                 duration_ms = _duration_ms_from_epoch_bounds(
-                    _coerce_int(args.started_at_ms, "started_at_ms"),
+                    _coerce_int(started_at_ms, "started_at_ms"),
                     _coerce_int(ended_at_ms, "ended_at_ms"),
                 )
             else:
-                ended_at = args.ended_at or _utc_now_iso()
-                duration_ms = _duration_ms_from_bounds(str(args.started_at), str(ended_at))
+                ended_at = ended_at or _utc_now_iso()
+                duration_ms = _duration_ms_from_bounds(str(started_at), str(ended_at))
         if args.success is None:
             raise ValidationError("success is required")
         success = _coerce_bool(args.success, "success")
