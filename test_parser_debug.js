@@ -27,8 +27,10 @@ Implement comprehensive security guardrails for the NL layer.
 - [ ] Path traversal is blocked
 `;
 
-const result = parser.parseScopeTasksAcceptanceSections(testIssue);
-console.log('=== PARSED SECTIONS ===');
-console.log('Scope:', result.scope);
-console.log('\nTasks:', result.tasks);
-console.log('\nAcceptance:', result.acceptance);
+if (require.main === module) {
+  const result = parser.parseScopeTasksAcceptanceSections(testIssue);
+  console.log('=== PARSED SECTIONS ===');
+  console.log('Scope:', result.scope);
+  console.log('\nTasks:', result.tasks);
+  console.log('\nAcceptance:', result.acceptance);
+}
