@@ -222,7 +222,9 @@ def build_record_from_args(args: argparse.Namespace) -> dict[str, Any]:
                 "step_name": args.step_name,
                 "duration_ms": _coerce_int(args.duration_ms, "duration_ms"),
                 "success": _coerce_bool(args.success, "success"),
-                "failure_reason": args.failure_reason if args.failure_reason is not None else "none",
+                "failure_reason": (
+                    args.failure_reason if args.failure_reason is not None else "none"
+                ),
             }
         )
         return record
@@ -268,7 +270,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Append auto-pilot metrics record to NDJSON log.")
     parser.add_argument("--path", default="autopilot-metrics.ndjson", help="NDJSON output path")
     parser.add_argument("--record-json", help="JSON object payload for the record")
-    parser.add_argument("--metric-type", choices=["step", "cycle", "escalation"], help="Record type")
+    parser.add_argument(
+        "--metric-type", choices=["step", "cycle", "escalation"], help="Record type"
+    )
     parser.add_argument("--issue-number", help="Issue number")
     parser.add_argument("--cycle-count", help="Auto-pilot cycle count")
     parser.add_argument("--timestamp", help="ISO 8601 timestamp (defaults to now)")
