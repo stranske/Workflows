@@ -175,7 +175,8 @@ jobs:
             }
 
             // Determine current state based on labels
-            const hasFormat = labels.includes('agents:format');
+            // NOTE: Use 'agents:formatted' (completion marker) not 'agents:format' (old trigger)
+            const hasFormat = labels.includes('agents:formatted');
             const hasOptimize = labels.includes('agents:optimize');
             const hasApplySuggestions = labels.includes('agents:apply-suggestions');
             const hasAgentCodex = labels.includes('agent:codex');

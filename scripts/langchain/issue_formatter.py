@@ -310,7 +310,8 @@ def _append_raw_issue_section(formatted: str, issue_body: str) -> str:
     if not raw:
         return formatted
     marker = "<summary>Original Issue</summary>"
-    if marker in formatted:
+    # Check INPUT body, not output - if input already has Original Issue, don't nest another
+    if marker in raw:
         return formatted
     fence = _select_code_fence(raw)
     details = (
@@ -355,33 +356,6 @@ def _extract_tasks_from_formatted(body: str) -> list[str]:
             continue
         tasks.append(text)
     return tasks
-
-
-def _apply_task_decomposition(formatted: str, *, use_llm: bool) -> str:
-    tasks = _extract_tasks_from_formatted(formatted)
-    if not tasks:
-        return formatted
-
-    try:
-        import task_decomposer
-    except ModuleNotFoundError:
-        from . import task_decomposer
-
-    suggestions: list[dict[str, Any]] = []
-    for task in tasks:
-        decomposition = task_decomposer.decompose_task(task, use_llm=use_llm)
-        sub_tasks = decomposition.get("sub_tasks") or []
-        if sub_tasks:
-            suggestions.append({"task": task, "split_suggestions": sub_tasks})
-    if not suggestions:
-        return formatted
-
-    try:
-        import issue_optimizer
-    except ModuleNotFoundError:
-        from . import issue_optimizer
-
-    return issue_optimizer._apply_task_decomposition(formatted, {"task_splitting": suggestions})
 
 
 def _validate_and_refine_tasks(formatted: str, *, use_llm: bool) -> tuple[str, str | None]:
@@ -494,7 +468,9 @@ def format_issue_body(issue_body: str, *, use_llm: bool = True) -> dict[str, Any
                 content = getattr(response, "content", None) or str(response)
                 formatted = content.strip()
                 if _formatted_output_valid(formatted):
-                    formatted = _apply_task_decomposition(formatted, use_llm=use_llm)
+                    # NOTE: Task decomposition is now handled by agents:optimize step
+                    # which uses LLM for intelligent splitting. Don't do heuristic
+                    # splitting here - it causes task explosion (issue #805, #1143).
                     formatted, audit = _validate_and_refine_tasks(formatted, use_llm=use_llm)
                     formatted = _append_raw_issue_section(formatted, issue_body)
                     return {
@@ -508,7 +484,9 @@ def format_issue_body(issue_body: str, *, use_llm: bool = True) -> dict[str, Any
                 pass
 
     formatted = _format_issue_fallback(issue_body)
-    formatted = _apply_task_decomposition(formatted, use_llm=use_llm)
+    # NOTE: Task decomposition is now handled by agents:optimize step
+    # which uses LLM for intelligent splitting. Don't do heuristic
+    # splitting here - it causes task explosion (issue #805, #1143).
     formatted, audit = _validate_and_refine_tasks(formatted, use_llm=use_llm)
     formatted = _append_raw_issue_section(formatted, issue_body)
     return {

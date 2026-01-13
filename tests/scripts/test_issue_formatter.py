@@ -64,7 +64,13 @@ Acceptance Criteria:
     assert "- [ ] label transition works" in formatted
 
 
-def test_format_issue_fallback_decomposes_large_tasks() -> None:
+def test_format_issue_fallback_preserves_tasks_without_decomposition() -> None:
+    """Formatter preserves tasks as-is; decomposition is done by agents:optimize step.
+
+    Task decomposition was moved from formatter to the optimize step (which uses
+    LLM for intelligent splitting) to avoid heuristic-based task explosion that
+    caused issues #805 and #1143.
+    """
     raw = """## Tasks
 - update docs and add tests
 
@@ -74,9 +80,8 @@ def test_format_issue_fallback_decomposes_large_tasks() -> None:
     result = issue_formatter.format_issue_body(raw, use_llm=False)
     tasks = _extract_section(result["formatted_body"], "Tasks")
 
+    # Task is preserved as-is - decomposition happens in optimize step
     assert "- [ ] update docs and add tests" in tasks
-    assert "update docs (verify: docs updated)" in tasks
-    assert "add tests (verify: tests pass)" in tasks
 
 
 def test_format_issue_fallback_strips_bullets_from_scope() -> None:
@@ -118,6 +123,35 @@ def test_format_issue_fallback_preserves_raw_issue() -> None:
     assert "<details>" in formatted
     assert "<summary>Original Issue</summary>" in formatted
     assert raw in formatted
+
+
+def test_format_issue_skips_append_when_input_has_original_issue() -> None:
+    """Prevent nested Original Issue sections when re-formatting already-formatted issues."""
+    already_formatted = """## Tasks
+
+- [ ] Task 1
+
+## Acceptance Criteria
+
+- [ ] Done
+
+## Implementation Notes
+
+_Not provided._
+
+<details>
+<summary>Original Issue</summary>
+
+```text
+Original raw content
+```
+</details>"""
+    result = issue_formatter.format_issue_body(already_formatted, use_llm=False)
+    formatted = result["formatted_body"]
+
+    # Should NOT nest another Original Issue section - count should remain 1
+    # (the original, not a newly appended one)
+    assert formatted.count("<summary>Original Issue</summary>") == 1
 
 
 def test_load_prompt_appends_feedback(tmp_path, monkeypatch) -> None:

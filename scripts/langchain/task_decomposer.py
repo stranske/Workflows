@@ -166,6 +166,24 @@ def _parse_subtasks(text: str) -> list[str]:
 
 
 def _split_task_parts(task: str) -> list[str]:
+    # Handle parenthesized lists intelligently: "Add stats (mean, p50, p90)" becomes
+    # ["Add stats for mean", "Add stats for p50", "Add stats for p90"]
+    # NOT garbage like ["Add stats (mean", "p50", "p90)"]
+    paren_match = re.match(r"^(.+?)\s*\(([^)]+)\)\s*$", task)
+    if paren_match:
+        base = paren_match.group(1).strip()
+        paren_content = paren_match.group(2).strip()
+        # Check if parentheses contain a comma-separated list
+        if ", " in paren_content or " and " in paren_content:
+            items = [
+                item.strip()
+                for item in re.split(r"\s*,\s*|\s+and\s+", paren_content)
+                if item.strip()
+            ]
+            if len(items) > 1:
+                # Create meaningful sub-tasks: "Add stats for mean", "Add stats for p50", etc.
+                return [f"{base} for {item}" for item in items]
+
     for marker in (" with ", " including "):
         if marker in task:
             base, suffix = task.split(marker, 1)

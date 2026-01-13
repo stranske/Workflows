@@ -174,6 +174,36 @@ def test_split_task_parts_with_comma() -> None:
     assert len(parts) == 3
 
 
+def test_split_task_parts_expands_parenthesized_lists() -> None:
+    """_split_task_parts intelligently expands parenthesized lists.
+
+    This prevents tasks like "Add stats (mean, p50, p90)" from becoming
+    garbage fragments like "Add stats (mean", "p50", "p90)".
+    Instead, it expands to clean individual tasks.
+    """
+    # Parenthesized list should be expanded intelligently
+    parts = task_decomposer._split_task_parts("Add statistical aggregation (mean, p50, p90, p99)")
+    assert len(parts) == 4
+    assert parts[0] == "Add statistical aggregation for mean"
+    assert parts[1] == "Add statistical aggregation for p50"
+    assert parts[2] == "Add statistical aggregation for p90"
+    assert parts[3] == "Add statistical aggregation for p99"
+
+    # Function signatures (no commas) should stay intact
+    parts = task_decomposer._split_task_parts("Create calculate_stats(data)")
+    assert len(parts) == 1
+
+    # Multiple parenthesized groups - expand intelligently
+    parts = task_decomposer._split_task_parts("Add metrics (latency, throughput)")
+    assert len(parts) == 2
+    assert "latency" in parts[0]
+    assert "throughput" in parts[1]
+
+    # Single item in parens - keep intact (no expansion needed)
+    parts = task_decomposer._split_task_parts("Create file (test.py)")
+    assert len(parts) == 1
+
+
 def test_split_task_parts_with_with_list() -> None:
     """_split_task_parts expands list items after 'with'."""
     parts = task_decomposer._split_task_parts(
