@@ -117,6 +117,8 @@ def test_build_record_from_args_defaults_timestamp(monkeypatch: pytest.MonkeyPat
         duration_ms="1200",
         started_at=None,
         ended_at=None,
+        started_at_ms=None,
+        ended_at_ms=None,
         success="true",
         failure_reason=None,
         max_cycles=None,
@@ -142,6 +144,8 @@ def test_build_record_from_args_escalation_requires_reason() -> None:
         duration_ms=None,
         started_at=None,
         ended_at=None,
+        started_at_ms=None,
+        ended_at_ms=None,
         success=None,
         failure_reason=None,
         max_cycles=None,
@@ -164,6 +168,8 @@ def test_build_record_from_args_escalation_rejects_blank_reason() -> None:
         duration_ms=None,
         started_at=None,
         ended_at=None,
+        started_at_ms=None,
+        ended_at_ms=None,
         success=None,
         failure_reason=None,
         max_cycles=None,
@@ -186,6 +192,8 @@ def test_build_record_from_args_requires_failure_reason_on_failure() -> None:
         duration_ms="1200",
         started_at=None,
         ended_at=None,
+        started_at_ms=None,
+        ended_at_ms=None,
         success="false",
         failure_reason=None,
         max_cycles=None,
@@ -208,6 +216,8 @@ def test_build_record_from_args_computes_duration_from_bounds() -> None:
         duration_ms=None,
         started_at="2025-04-05T06:07:00Z",
         ended_at="2025-04-05T06:07:01Z",
+        started_at_ms=None,
+        ended_at_ms=None,
         success="true",
         failure_reason=None,
         max_cycles=None,
@@ -232,6 +242,8 @@ def test_build_record_from_args_uses_now_for_missing_end(monkeypatch: pytest.Mon
         duration_ms=None,
         started_at="2025-04-05T06:07:00Z",
         ended_at=None,
+        started_at_ms=None,
+        ended_at_ms=None,
         success="true",
         failure_reason=None,
         max_cycles=None,
@@ -255,6 +267,8 @@ def test_build_record_from_args_rejects_missing_bounds() -> None:
         duration_ms=None,
         started_at=None,
         ended_at=None,
+        started_at_ms=None,
+        ended_at_ms=None,
         success="true",
         failure_reason=None,
         max_cycles=None,
@@ -263,9 +277,7 @@ def test_build_record_from_args_rejects_missing_bounds() -> None:
         escalation_reason=None,
     )
 
-    with pytest.raises(
-        collector.ValidationError, match="duration_ms is required unless started_at"
-    ):
+    with pytest.raises(collector.ValidationError, match="duration_ms is required unless"):
         collector.build_record_from_args(args)
 
 
@@ -279,6 +291,8 @@ def test_build_record_from_args_rejects_negative_bounds() -> None:
         duration_ms=None,
         started_at="2025-04-05T06:07:02Z",
         ended_at="2025-04-05T06:07:01Z",
+        started_at_ms=None,
+        ended_at_ms=None,
         success="true",
         failure_reason=None,
         max_cycles=None,
@@ -289,6 +303,31 @@ def test_build_record_from_args_rejects_negative_bounds() -> None:
 
     with pytest.raises(collector.ValidationError, match="ended_at must be after started_at"):
         collector.build_record_from_args(args)
+
+
+def test_build_record_from_args_computes_duration_from_epoch_bounds() -> None:
+    args = collector.argparse.Namespace(
+        metric_type="step",
+        issue_number="12",
+        cycle_count="3",
+        timestamp="2025-04-05T06:07:08Z",
+        step_name="format-issue",
+        duration_ms=None,
+        started_at=None,
+        ended_at=None,
+        started_at_ms="1000",
+        ended_at_ms="4000",
+        success="true",
+        failure_reason=None,
+        max_cycles=None,
+        steps_attempted=None,
+        steps_completed=None,
+        escalation_reason=None,
+    )
+
+    record = collector.build_record_from_args(args)
+
+    assert record["duration_ms"] == 3000
 
 
 def test_append_record_appends_lines(tmp_path: Path) -> None:

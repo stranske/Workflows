@@ -24,7 +24,8 @@ Schema (version 1):
 }
 
 NOTE: agents-auto-pilot workflow updates are required to emit step metrics per step
-(needs-human label) because workflow files are protected in agent-standard runs.
+(needs-human label) because workflow files are protected in agent-standard runs. Use
+start/end timestamps (e.g., epoch milliseconds) and pass them via --started-at-ms/--ended-at-ms.
 """
 
 from __future__ import annotations
@@ -111,6 +112,17 @@ def _duration_ms_from_bounds(started_at: str, ended_at: str) -> int:
     delta_ms = int((end - start).total_seconds() * 1000)
     if delta_ms < 0:
         raise ValidationError("ended_at must be after started_at")
+    return delta_ms
+
+
+def _utc_now_epoch_ms() -> int:
+    return int(datetime.now(UTC).timestamp() * 1000)
+
+
+def _duration_ms_from_epoch_bounds(started_at_ms: int, ended_at_ms: int) -> int:
+    delta_ms = ended_at_ms - started_at_ms
+    if delta_ms < 0:
+        raise ValidationError("ended_at_ms must be after started_at_ms")
     return delta_ms
 
 
@@ -238,12 +250,31 @@ def build_record_from_args(args: argparse.Namespace) -> dict[str, Any]:
     if metric_type == "step":
         if args.step_name is None:
             raise ValidationError("step_name is required")
+        if args.started_at and args.started_at_ms:
+            raise ValidationError("use only one of started_at or started_at_ms")
+        if args.ended_at and args.ended_at_ms:
+            raise ValidationError("use only one of ended_at or ended_at_ms")
+        if args.started_at_ms and args.ended_at:
+            raise ValidationError("ended_at cannot be used with started_at_ms")
+        if args.started_at and args.ended_at_ms:
+            raise ValidationError("ended_at_ms cannot be used with started_at")
         duration_ms = args.duration_ms
         if duration_ms is None:
-            if not args.started_at:
-                raise ValidationError("duration_ms is required unless started_at is set")
-            ended_at = args.ended_at or _utc_now_iso()
-            duration_ms = _duration_ms_from_bounds(str(args.started_at), str(ended_at))
+            if not args.started_at and args.started_at_ms is None:
+                raise ValidationError(
+                    "duration_ms is required unless started_at or started_at_ms is set"
+                )
+            if args.started_at_ms is not None:
+                ended_at_ms = args.ended_at_ms
+                if ended_at_ms is None:
+                    ended_at_ms = _utc_now_epoch_ms()
+                duration_ms = _duration_ms_from_epoch_bounds(
+                    _coerce_int(args.started_at_ms, "started_at_ms"),
+                    _coerce_int(ended_at_ms, "ended_at_ms"),
+                )
+            else:
+                ended_at = args.ended_at or _utc_now_iso()
+                duration_ms = _duration_ms_from_bounds(str(args.started_at), str(ended_at))
         if args.success is None:
             raise ValidationError("success is required")
         success = _coerce_bool(args.success, "success")
@@ -308,6 +339,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--duration-ms", help="Step duration in milliseconds")
     parser.add_argument("--started-at", help="ISO 8601 step start timestamp (optional)")
     parser.add_argument("--ended-at", help="ISO 8601 step end timestamp (optional)")
+    parser.add_argument("--started-at-ms", help="Epoch milliseconds for step start (optional)")
+    parser.add_argument("--ended-at-ms", help="Epoch milliseconds for step end (optional)")
     parser.add_argument("--success", help="Step success flag (true/false)")
     parser.add_argument("--failure-reason", help="Failure reason for step records")
     parser.add_argument("--max-cycles", help="Max cycles for cycle records")
