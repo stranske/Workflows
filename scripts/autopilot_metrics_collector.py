@@ -198,6 +198,19 @@ def _coerce_bool(value: str | bool | None, field: str) -> bool:
     raise ValidationError(f"{field} must be a boolean")
 
 
+def _normalize_failure_reason(success: bool, failure_reason: str | None) -> str:
+    if failure_reason is None:
+        if success:
+            return "none"
+        raise ValidationError("failure_reason is required when success is false")
+    reason = str(failure_reason).strip()
+    if not reason:
+        if success:
+            return "none"
+        raise ValidationError("failure_reason is required when success is false")
+    return reason
+
+
 def build_record_from_args(args: argparse.Namespace) -> dict[str, Any]:
     metric_type = str(args.metric_type or "").strip().lower()
     if not metric_type:
@@ -217,14 +230,13 @@ def build_record_from_args(args: argparse.Namespace) -> dict[str, Any]:
             raise ValidationError("duration_ms is required")
         if args.success is None:
             raise ValidationError("success is required")
+        success = _coerce_bool(args.success, "success")
         record.update(
             {
                 "step_name": args.step_name,
                 "duration_ms": _coerce_int(args.duration_ms, "duration_ms"),
-                "success": _coerce_bool(args.success, "success"),
-                "failure_reason": (
-                    args.failure_reason if args.failure_reason is not None else "none"
-                ),
+                "success": success,
+                "failure_reason": _normalize_failure_reason(success, args.failure_reason),
             }
         )
         return record
@@ -239,9 +251,9 @@ def build_record_from_args(args: argparse.Namespace) -> dict[str, Any]:
         return record
 
     if metric_type == "escalation":
-        if args.escalation_reason is None:
-            raise ValidationError("escalation_reason is required")
-        record["escalation_reason"] = args.escalation_reason
+        if args.escalation_reason is None or not str(args.escalation_reason).strip():
+            raise ValidationError("escalation_reason must be a non-empty string")
+        record["escalation_reason"] = args.escalation_reason.strip()
         return record
 
     raise ValidationError("metric_type must be 'step', 'cycle', or 'escalation'")

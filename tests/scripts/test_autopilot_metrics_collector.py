@@ -146,7 +146,47 @@ def test_build_record_from_args_escalation_requires_reason() -> None:
         escalation_reason=None,
     )
 
-    with pytest.raises(collector.ValidationError, match="escalation_reason is required"):
+    with pytest.raises(collector.ValidationError, match="escalation_reason must be"):
+        collector.build_record_from_args(args)
+
+
+def test_build_record_from_args_escalation_rejects_blank_reason() -> None:
+    args = collector.argparse.Namespace(
+        metric_type="escalation",
+        issue_number="12",
+        cycle_count="3",
+        timestamp="2025-05-06T07:08:09Z",
+        step_name=None,
+        duration_ms=None,
+        success=None,
+        failure_reason=None,
+        max_cycles=None,
+        steps_attempted=None,
+        steps_completed=None,
+        escalation_reason="   ",
+    )
+
+    with pytest.raises(collector.ValidationError, match="escalation_reason must be"):
+        collector.build_record_from_args(args)
+
+
+def test_build_record_from_args_requires_failure_reason_on_failure() -> None:
+    args = collector.argparse.Namespace(
+        metric_type="step",
+        issue_number="12",
+        cycle_count="3",
+        timestamp="2025-04-05T06:07:08Z",
+        step_name="format-issue",
+        duration_ms="1200",
+        success="false",
+        failure_reason=None,
+        max_cycles=None,
+        steps_attempted=None,
+        steps_completed=None,
+        escalation_reason=None,
+    )
+
+    with pytest.raises(collector.ValidationError, match="failure_reason is required"):
         collector.build_record_from_args(args)
 
 
