@@ -17,6 +17,10 @@ import sys
 from pathlib import Path
 from typing import Any
 
+# Maximum issue body size to prevent OpenAI rate limit errors (30k TPM limit)
+# ~4 chars per token, so 50k chars ≈ 12.5k tokens, leaving headroom for prompt + output
+MAX_ISSUE_BODY_SIZE = 50000
+
 ISSUE_FORMATTER_PROMPT = """
 You are a formatting assistant. Convert the raw GitHub issue body into the
 AGENT_ISSUE_TEMPLATE format with the exact section headers in order:
@@ -387,10 +391,6 @@ def _is_github_models_auth_error(exc: Exception) -> bool:
 
 
 def format_issue_body(issue_body: str, *, use_llm: bool = True) -> dict[str, Any]:
-    # Maximum issue body size to prevent OpenAI rate limit errors (30k TPM limit)
-    # ~4 chars per token, so 50k chars ≈ 12.5k tokens, leaving headroom for prompt + output
-    MAX_ISSUE_BODY_SIZE = 50000
-
     if not issue_body:
         issue_body = ""
 
