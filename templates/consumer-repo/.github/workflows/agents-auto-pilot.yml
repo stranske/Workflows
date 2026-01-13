@@ -1061,9 +1061,17 @@ jobs:
             };
             const nextStep = nextStepMap[currentStep] || 'auto';
 
-            // Re-dispatch immediately with explicit next step
-            // No wait needed - workflow_dispatch is async queue operation
-            // Explicit force_step eliminates label dependency
+            // For monitor-pr, add delay to avoid tight polling loop
+            // Keepalive updates arrive slowly while CI runs; without delay
+            // we'd spam Actions with rapid re-dispatches
+            if (currentStep === 'monitor-pr') {
+              const waitTime = 120000;  // 2 minutes between monitor checks
+              core.info(`Waiting ${waitTime/1000}s for keepalive update...`);
+              await new Promise(resolve => setTimeout(resolve, waitTime));
+            }
+            // Other steps dispatch immediately - explicit force_step
+            // eliminates label dependency, no wait needed
+
             core.info(
               `Re-dispatching auto-pilot: issue #${issueNumber}, ` +
               `next_step=${nextStep}`
