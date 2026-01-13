@@ -384,6 +384,65 @@ def _apply_task_decomposition(formatted: str, *, use_llm: bool) -> str:
     return issue_optimizer._apply_task_decomposition(formatted, {"task_splitting": suggestions})
 
 
+def _validate_and_refine_tasks(formatted: str, *, use_llm: bool) -> tuple[str, str | None]:
+    """
+    Validate tasks using two-pass heuristic + LLM refinement.
+
+    Returns:
+        Tuple of (updated_formatted_body, audit_summary)
+    """
+    tasks = _extract_tasks_from_formatted(formatted)
+    if not tasks:
+        return formatted, None
+
+    try:
+        from . import task_validator
+    except ImportError:
+        try:
+            import task_validator
+        except ImportError:
+            return formatted, None
+
+    # Run validation
+    result = task_validator.validate_tasks(tasks, context=formatted, use_llm=use_llm)
+
+    # If no changes, return original
+    if set(result.tasks) == set(tasks) and len(result.tasks) == len(tasks):
+        return formatted, result.audit_summary
+
+    # Replace tasks section with validated tasks
+    lines = formatted.splitlines()
+    header = "## Tasks"
+    try:
+        header_idx = next(i for i, line in enumerate(lines) if line.strip() == header)
+    except StopIteration:
+        return formatted, result.audit_summary
+
+    # Find end of Tasks section
+    end_idx = next(
+        (
+            i
+            for i in range(header_idx + 1, len(lines))
+            if lines[i].startswith("## ") and lines[i].strip() != header
+        ),
+        len(lines),
+    )
+
+    # Build new tasks section
+    new_task_lines = [f"- [ ] {task}" for task in result.tasks]
+    if not new_task_lines:
+        new_task_lines = ["- [ ] _Not provided._"]
+
+    # Reconstruct formatted body
+    new_lines = lines[: header_idx + 1]
+    new_lines.append("")  # blank line after header
+    new_lines.extend(new_task_lines)
+    new_lines.append("")  # blank line before next section
+    new_lines.extend(lines[end_idx:])
+
+    return "\n".join(new_lines).strip(), result.audit_summary
+
+
 def _is_github_models_auth_error(exc: Exception) -> bool:
     """Check if exception is a GitHub Models authentication error (401)."""
     exc_str = str(exc).lower()
@@ -436,11 +495,13 @@ def format_issue_body(issue_body: str, *, use_llm: bool = True) -> dict[str, Any
                 formatted = content.strip()
                 if _formatted_output_valid(formatted):
                     formatted = _apply_task_decomposition(formatted, use_llm=use_llm)
+                    formatted, audit = _validate_and_refine_tasks(formatted, use_llm=use_llm)
                     formatted = _append_raw_issue_section(formatted, issue_body)
                     return {
                         "formatted_body": formatted,
                         "provider_used": provider,
                         "used_llm": True,
+                        "validation_audit": audit,
                     }
             except ImportError:
                 # Fall through to fallback if imports fail
@@ -448,11 +509,13 @@ def format_issue_body(issue_body: str, *, use_llm: bool = True) -> dict[str, Any
 
     formatted = _format_issue_fallback(issue_body)
     formatted = _apply_task_decomposition(formatted, use_llm=use_llm)
+    formatted, audit = _validate_and_refine_tasks(formatted, use_llm=use_llm)
     formatted = _append_raw_issue_section(formatted, issue_body)
     return {
         "formatted_body": formatted,
         "provider_used": None,
         "used_llm": False,
+        "validation_audit": audit,
     }
 
 

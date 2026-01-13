@@ -64,6 +64,14 @@ LARGE_TASK_PREFIXES = (
     "outline ",
     "plan ",
 )
+
+# Prefixes that indicate already-expanded tasks (never re-expand these)
+EXPANSION_PREFIXES = (
+    "define scope for:",
+    "implement focused slice for:",
+    "validate focused slice for:",
+    "define approach for:",
+)
 MAX_CHILD_TITLE_LEN = 96
 
 
@@ -191,6 +199,9 @@ def _word_count(text: str) -> int:
 
 def _is_large_task(task: str) -> bool:
     lowered = task.lower().strip()
+    # Never re-expand already-expanded tasks (prevents recursive explosion)
+    if _is_already_expanded(task):
+        return False
     has_large_keyword = any(keyword in lowered for keyword in LARGE_TASK_KEYWORDS)
     if lowered.startswith(LARGE_TASK_PREFIXES):
         return has_large_keyword or _word_count(task) > MAX_SUBTASK_WORDS
@@ -206,7 +217,21 @@ def _should_decompose(task: str) -> bool:
     return _is_large_task(task)
 
 
+def _is_already_expanded(task: str) -> bool:
+    """Check if task already has expansion prefix (prevent recursion)."""
+    lowered = task.lower().strip()
+    return any(lowered.startswith(prefix) for prefix in EXPANSION_PREFIXES)
+
+
 def _expand_large_task(task: str) -> list[str]:
+    """Expand a large task into scope/implement/validate sub-tasks.
+
+    Returns the original task unchanged if it already has expansion prefix
+    to prevent recursive expansion (which caused issue #873, #4191).
+    """
+    # Guard against recursive expansion
+    if _is_already_expanded(task):
+        return [task]
     return [
         f"Define scope for: {task}",
         f"Implement focused slice for: {task}",
