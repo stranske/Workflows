@@ -67,12 +67,16 @@ Recent workflow failures (run 20941728300 and others) were caused by:
 
 ┌─────────────────────────────────────────────────────────────────┐
 │                   SERVICE_BOT_PAT Pool (5000/hr)                │
-│  Universal fallback for ALL workflows                           │
+│  PRIMARY: Bot-attributed comments (unique identity requirement) │
+│  SECONDARY: Fallback when app tokens fail to mint               │
+│  ⚠️ Reserve capacity - don't use as universal fallback          │
 └─────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────┐
 │                    OWNER_PR_PAT Pool (5000/hr)                  │
-│  PR creation with human attribution                             │
+│  PRIMARY: PR creation with human attribution                    │
+│  SECONDARY: Universal fallback for rate limit exhaustion        │
+│  ✅ Better fallback choice - higher capacity, less critical role│
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -81,8 +85,10 @@ Recent workflow failures (run 20941728300 and others) were caused by:
 Every workflow should implement:
 
 ```
-Primary App Token → SERVICE_BOT_PAT → GITHUB_TOKEN (last resort)
+Primary App Token → OWNER_PR_PAT (fallback) → GITHUB_TOKEN (last resort)
 ```
+
+**Important:** SERVICE_BOT_PAT should NOT be the universal fallback. It has a unique role (posting comments as the automation account) that requires its pool to remain available.
 
 Example implementation:
 
@@ -91,21 +97,43 @@ Example implementation:
   id: token
   env:
     APP_TOKEN: ${{ steps.app_token.outputs.token }}
-    SERVICE_BOT_PAT: ${{ secrets.SERVICE_BOT_PAT }}
+    OWNER_PAT: ${{ secrets.OWNER_PR_PAT }}
     GITHUB_TOKEN_FALLBACK: ${{ secrets.GITHUB_TOKEN }}
   run: |
     if [ -n "$APP_TOKEN" ]; then
       echo "token=$APP_TOKEN" >> "$GITHUB_OUTPUT"
       echo "source=app" >> "$GITHUB_OUTPUT"
-    elif [ -n "$SERVICE_BOT_PAT" ]; then
-      echo "::warning::App token unavailable, using SERVICE_BOT_PAT"
-      echo "token=$SERVICE_BOT_PAT" >> "$GITHUB_OUTPUT"
-      echo "source=pat" >> "$GITHUB_OUTPUT"
+    elif [ -n "$OWNER_PAT" ]; then
+      echo "::warning::App token unavailable, using OWNER_PR_PAT fallback"
+      echo "token=$OWNER_PAT" >> "$GITHUB_OUTPUT"
+      echo "source=owner-pat" >> "$GITHUB_OUTPUT"
     else
       echo "token=$GITHUB_TOKEN_FALLBACK" >> "$GITHUB_OUTPUT"
       echo "source=github-token" >> "$GITHUB_OUTPUT"
     fi
 ```
+
+### Proactive Rate Limit Switching
+
+Don't wait for exhaustion - switch when approaching limits:
+
+```javascript
+async function apiCallWithProactiveSwitch(github, fallbackGithub, apiCall) {
+  const response = await apiCall(github);
+  
+  // Check remaining quota from response headers
+  const remaining = parseInt(response.headers['x-ratelimit-remaining'], 10);
+  
+  if (remaining < 100) {
+    core.warning(`Rate limit low (${remaining} remaining), switching to fallback for subsequent calls`);
+    return { response, switchToFallback: true };
+  }
+  
+  return { response, switchToFallback: false };
+}
+```
+
+This allows mid-execution switching rather than waiting for failure.
 
 ### Required Secrets
 
@@ -117,10 +145,12 @@ Example implementation:
 | `WORKFLOWS_APP_PRIVATE_KEY` | Yes | Autofix workflows |
 | `GH_APP_ID` | Recommended | Issue/comment handling |
 | `GH_APP_PRIVATE_KEY` | Recommended | Issue/comment handling |
-| `SERVICE_BOT_PAT` | **Critical** | Universal fallback (separate account) |
-| `OWNER_PR_PAT` | Optional | Human-attributed PR creation |
+| `SERVICE_BOT_PAT` | **Critical** | Bot-identity comments (reserve capacity!) |
+| `OWNER_PR_PAT` | **Critical** | Human attribution + universal fallback |
 
 ## Optimization Recommendations
+
+> **Note:** These are documented recommendations. Implementation requires changes to workflow files and scripts - not yet done.
 
 ### 1. Pass Data Between Jobs (Don't Re-fetch)
 
@@ -185,6 +215,69 @@ concurrency:
   cancel-in-progress: true
 ```
 
+### 5. Proactive Rate Limit Switching (Medium Effort)
+
+Check `x-ratelimit-remaining` header and switch tokens before exhaustion:
+
+```javascript
+async function withRateLimitAwareness(primaryClient, fallbackClient, apiCall) {
+  let client = primaryClient;
+  
+  const response = await apiCall(client);
+  const remaining = parseInt(response.headers['x-ratelimit-remaining'], 10);
+  
+  if (remaining < 100 && fallbackClient) {
+    console.log(`Switching to fallback (${remaining} remaining)`);
+    client = fallbackClient;
+  }
+  
+  return { response, client };
+}
+```
+
+**Effort:** 2-3 days | **Files:** `github-api-with-retry.js`, all scripts using it
+
+### 6. GraphQL Batching (Medium Effort)
+
+Replace multiple REST calls with single GraphQL query:
+
+```graphql
+# Before: 4 REST calls
+# GET /pulls/{number}, /pulls/{number}/files, /issues/{number}/labels, /issues/{number}/comments
+
+# After: 1 GraphQL call
+query PRContext($owner: String!, $repo: String!, $number: Int!) {
+  repository(owner: $owner, name: $repo) {
+    pullRequest(number: $number) {
+      body
+      title
+      files(first: 100) { nodes { path } }
+      labels(first: 20) { nodes { name } }
+      comments(last: 10) { nodes { body author { login } } }
+    }
+  }
+}
+```
+
+**Effort:** 2-3 days | **Reduction:** 60-80% for multi-fetch operations
+
+## Optimization Effort Summary
+
+| Optimization | API Reduction | Effort | Status |
+|-------------|---------------|--------|--------|
+| **Low Effort (Hours)** |
+| Batch label operations | 50-70% for labels | 1-2 hrs | 📋 Backlog |
+| Path filters on workflows | 20-40% runs | 1-2 hrs | 📋 Backlog |
+| Tighter concurrency groups | 10-30% runs | 1 hr | 📋 Backlog |
+| **Medium Effort (Days)** |
+| Pass PR data via outputs | 30-50% | 1-2 days | 📋 Backlog |
+| Proactive rate limit switching | Prevents failures | 2-3 days | 📋 Backlog |
+| GraphQL batching | 60-80% | 2-3 days | 📋 Backlog |
+| **High Effort (Weeks)** |
+| Central API caching layer | 50-70% | 1-2 weeks | 📋 [Issue #868](https://github.com/stranske/Workflows/issues/868) |
+| Workflow consolidation | 30-50% runs | 1-2 weeks | 📋 [Issue #869](https://github.com/stranske/Workflows/issues/869) |
+| Event debouncing | 40-60% runs | 1 week | 📋 [Issue #870](https://github.com/stranske/Workflows/issues/870) |
+
 ## Monitoring & Troubleshooting
 
 ### Check Rate Limits
@@ -229,13 +322,15 @@ Remove `agents:keepalive` label to halt keepalive operations.
 **Solution:** Multi-token architecture with:
 - 3 GitHub Apps (15,000/hr)
 - 2 PATs from different accounts (10,000/hr)
-- Automatic fallback chain
+- Automatic fallback chain with proactive switching
 
 **Key Action Items:**
 1. ✅ KEEPALIVE_APP already implemented on main
-2. ⚠️ Ensure SERVICE_BOT_PAT is from a **different account** than OWNER_PR_PAT
-3. ⚠️ Verify all workflow jobs use minted app tokens, not raw GITHUB_TOKEN
-4. 📋 Consider API call reduction optimizations for sustained high volume
+2. ✅ SERVICE_BOT_PAT reserved for bot-identity comments (not universal fallback)
+3. ⚠️ Use OWNER_PR_PAT as universal fallback instead
+4. ⚠️ Verify all workflow jobs use minted app tokens, not raw GITHUB_TOKEN
+5. 📋 Implement proactive rate limit switching (check `x-ratelimit-remaining`)
+6. 📋 Consider API call reduction optimizations for sustained high volume
 
 ---
 
