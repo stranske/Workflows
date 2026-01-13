@@ -178,6 +178,73 @@ def _utc_now_iso() -> str:
     return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
+def _coerce_int(value: str | int | None, field: str) -> int:
+    try:
+        return int(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError) as exc:
+        raise ValidationError(f"{field} must be an integer") from exc
+
+
+def _coerce_bool(value: str | bool | None, field: str) -> bool:
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        raise ValidationError(f"{field} must be a boolean")
+    normalized = str(value).strip().lower()
+    if normalized in {"true", "1", "yes"}:
+        return True
+    if normalized in {"false", "0", "no"}:
+        return False
+    raise ValidationError(f"{field} must be a boolean")
+
+
+def build_record_from_args(args: argparse.Namespace) -> dict[str, Any]:
+    metric_type = str(args.metric_type or "").strip().lower()
+    if not metric_type:
+        raise ValidationError("metric_type must be set")
+
+    record: dict[str, Any] = {
+        "metric_type": metric_type,
+        "issue_number": _coerce_int(args.issue_number, "issue_number"),
+        "timestamp": args.timestamp or _utc_now_iso(),
+        "cycle_count": _coerce_int(args.cycle_count, "cycle_count"),
+    }
+
+    if metric_type == "step":
+        if args.step_name is None:
+            raise ValidationError("step_name is required")
+        if args.duration_ms is None:
+            raise ValidationError("duration_ms is required")
+        if args.success is None:
+            raise ValidationError("success is required")
+        record.update(
+            {
+                "step_name": args.step_name,
+                "duration_ms": _coerce_int(args.duration_ms, "duration_ms"),
+                "success": _coerce_bool(args.success, "success"),
+                "failure_reason": args.failure_reason if args.failure_reason is not None else "none",
+            }
+        )
+        return record
+
+    if metric_type == "cycle":
+        if args.max_cycles is not None:
+            record["max_cycles"] = _coerce_int(args.max_cycles, "max_cycles")
+        if args.steps_attempted is not None:
+            record["steps_attempted"] = _coerce_int(args.steps_attempted, "steps_attempted")
+        if args.steps_completed is not None:
+            record["steps_completed"] = _coerce_int(args.steps_completed, "steps_completed")
+        return record
+
+    if metric_type == "escalation":
+        if args.escalation_reason is None:
+            raise ValidationError("escalation_reason is required")
+        record["escalation_reason"] = args.escalation_reason
+        return record
+
+    raise ValidationError("metric_type must be 'step', 'cycle', or 'escalation'")
+
+
 def load_record_from_json(payload: str) -> dict[str, Any]:
     try:
         record = json.loads(payload)
@@ -200,7 +267,19 @@ def append_record(path: Path, record: dict[str, Any]) -> None:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Append auto-pilot metrics record to NDJSON log.")
     parser.add_argument("--path", default="autopilot-metrics.ndjson", help="NDJSON output path")
-    parser.add_argument("--record-json", required=True, help="JSON object payload for the record")
+    parser.add_argument("--record-json", help="JSON object payload for the record")
+    parser.add_argument("--metric-type", choices=["step", "cycle", "escalation"], help="Record type")
+    parser.add_argument("--issue-number", help="Issue number")
+    parser.add_argument("--cycle-count", help="Auto-pilot cycle count")
+    parser.add_argument("--timestamp", help="ISO 8601 timestamp (defaults to now)")
+    parser.add_argument("--step-name", help="Step name for step records")
+    parser.add_argument("--duration-ms", help="Step duration in milliseconds")
+    parser.add_argument("--success", help="Step success flag (true/false)")
+    parser.add_argument("--failure-reason", help="Failure reason for step records")
+    parser.add_argument("--max-cycles", help="Max cycles for cycle records")
+    parser.add_argument("--steps-attempted", help="Steps attempted for cycle records")
+    parser.add_argument("--steps-completed", help="Steps completed for cycle records")
+    parser.add_argument("--escalation-reason", help="Escalation reason for escalation records")
     return parser
 
 
@@ -209,7 +288,10 @@ def main(argv: list[str]) -> int:
     args = parser.parse_args(argv)
 
     try:
-        record = load_record_from_json(args.record_json)
+        if args.record_json:
+            record = load_record_from_json(args.record_json)
+        else:
+            record = build_record_from_args(args)
         validate_record(record)
         append_record(Path(args.path), record)
     except Exception as exc:

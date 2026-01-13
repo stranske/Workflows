@@ -101,6 +101,55 @@ def test_validate_cycle_rejects_invalid_optional_fields() -> None:
         collector.validate_record(record)
 
 
+def test_coerce_bool_rejects_invalid_value() -> None:
+    with pytest.raises(collector.ValidationError, match="success must be a boolean"):
+        collector._coerce_bool("maybe", "success")
+
+
+def test_build_record_from_args_defaults_timestamp(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(collector, "_utc_now_iso", lambda: "2025-04-05T06:07:08Z")
+    args = collector.argparse.Namespace(
+        metric_type="step",
+        issue_number="12",
+        cycle_count="3",
+        timestamp=None,
+        step_name="format-issue",
+        duration_ms="1200",
+        success="true",
+        failure_reason=None,
+        max_cycles=None,
+        steps_attempted=None,
+        steps_completed=None,
+        escalation_reason=None,
+    )
+
+    record = collector.build_record_from_args(args)
+
+    assert record["timestamp"] == "2025-04-05T06:07:08Z"
+    assert record["issue_number"] == 12
+    assert record["failure_reason"] == "none"
+
+
+def test_build_record_from_args_escalation_requires_reason() -> None:
+    args = collector.argparse.Namespace(
+        metric_type="escalation",
+        issue_number="12",
+        cycle_count="3",
+        timestamp="2025-05-06T07:08:09Z",
+        step_name=None,
+        duration_ms=None,
+        success=None,
+        failure_reason=None,
+        max_cycles=None,
+        steps_attempted=None,
+        steps_completed=None,
+        escalation_reason=None,
+    )
+
+    with pytest.raises(collector.ValidationError, match="escalation_reason is required"):
+        collector.build_record_from_args(args)
+
+
 def test_append_record_appends_lines(tmp_path: Path) -> None:
     record = _step_record()
     path = tmp_path / "metrics.ndjson"
