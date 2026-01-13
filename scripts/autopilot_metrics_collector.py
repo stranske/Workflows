@@ -34,7 +34,6 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-
 AUTOPILOT_METRICS_SCHEMA_VERSION = 1
 
 AUTOPILOT_METRICS_SCHEMA: dict[str, Any] = {

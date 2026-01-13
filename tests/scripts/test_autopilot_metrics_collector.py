@@ -117,7 +117,9 @@ def test_append_record_appends_lines(tmp_path: Path) -> None:
 def test_load_record_from_json_adds_timestamp(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(collector, "_utc_now_iso", lambda: "2025-06-07T08:09:10Z")
 
-    record = collector.load_record_from_json('{"metric_type": "cycle", "issue_number": 1, "cycle_count": 1}')
+    record = collector.load_record_from_json(
+        '{"metric_type": "cycle", "issue_number": 1, "cycle_count": 1}'
+    )
 
     assert record["timestamp"] == "2025-06-07T08:09:10Z"
 
