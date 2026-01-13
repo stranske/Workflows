@@ -47,6 +47,16 @@ that only emit artifacts, see the "Workflows without workflow_call outputs" sect
 | `reusable-bot-comment-handler.yml` | `comments_found` | string (boolean-like) | `true` when unresolved bot comments were found. | `needs.bot_comments.outputs.comments_found` |
 | `reusable-bot-comment-handler.yml` | `comments_count` | string (number-like) | Number of unresolved bot comments. | `needs.bot_comments.outputs.comments_count` |
 | `reusable-bot-comment-handler.yml` | `agent_triggered` | string (boolean-like) | `true` when the agent workflow was dispatched. | `needs.bot_comments.outputs.agent_triggered` |
+| `reusable-pr-context.yml` | `pr_number` | string (number-like) | PR number. | `needs.context.outputs.pr_number` |
+| `reusable-pr-context.yml` | `pr_title` | string | PR title. | `needs.context.outputs.pr_title` |
+| `reusable-pr-context.yml` | `pr_body` | string | PR body (truncated at 60KB). | `needs.context.outputs.pr_body` |
+| `reusable-pr-context.yml` | `pr_state` | string | PR state (OPEN, CLOSED, MERGED). | `needs.context.outputs.pr_state` |
+| `reusable-pr-context.yml` | `labels_json` | string (JSON array) | JSON array of label names. | `needs.context.outputs.labels_json` |
+| `reusable-pr-context.yml` | `has_agent_label` | string (boolean-like) | `true` when PR has agent:* label. | `needs.context.outputs.has_agent_label` |
+| `reusable-pr-context.yml` | `files_count` | string (number-like) | Number of changed files. | `needs.context.outputs.files_count` |
+| `reusable-pr-context.yml` | `files_json` | string (JSON array) | JSON array of file paths. | `needs.context.outputs.files_json` |
+| `reusable-pr-context.yml` | `ci_status` | string | CI status (SUCCESS, FAILURE, PENDING). | `needs.context.outputs.ci_status` |
+| `reusable-pr-context.yml` | `full_context_json` | string (JSON) | Full PR context as serialized JSON. | `needs.context.outputs.full_context_json` |
 | `reusable-codex-run.yml` | `final-message` | string (base64) | Base64-encoded full Codex output. | `needs.codex.outputs.final-message` |
 | `reusable-codex-run.yml` | `final-message-summary` | string | First 500 chars of Codex output, safe for comments. | `needs.codex.outputs.final-message-summary` |
 | `reusable-codex-run.yml` | `exit-code` | string (number-like) | Codex CLI exit code (`0` success). | `needs.codex.outputs.exit-code` |

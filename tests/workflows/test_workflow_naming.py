@@ -237,6 +237,7 @@ EXPECTED_NAMES = {
     "reusable-agents-issue-bridge.yml": "Reusable Agents Issue Bridge",
     "reusable-agents-verifier.yml": "Reusable Agents Verifier",
     "reusable-bot-comment-handler.yml": "Reusable Bot Comment Handler",
+    "reusable-pr-context.yml": "Reusable PR Context Fetcher",
     "selftest-reusable-ci.yml": "Selftest: Reusables",
     "selftest-ci.yml": "Selftest CI",
     "health-keepalive-e2e.yml": "Keepalive E2E",

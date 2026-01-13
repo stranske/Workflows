@@ -1,6 +1,6 @@
 'use strict';
 
-const { describe, it, mock, beforeEach } = require('node:test');
+const { describe, it, mock } = require('node:test');
 const assert = require('node:assert');
 
 const {
@@ -242,6 +242,32 @@ describe('fetchPRBasic', () => {
     assert.strictEqual(pr.title, 'Test PR');
     assert.deepStrictEqual(pr.labels, ['bug', 'priority:high']);
     assert.strictEqual(pr.hasLabel('bug'), true);
+  });
+
+  it('throws enhanced error when PR not found', async () => {
+    const mockGithub = {
+      graphql: mock.fn(async () => ({
+        repository: { pullRequest: null }
+      }))
+    };
+    
+    await assert.rejects(
+      async () => fetchPRBasic(mockGithub, 'owner', 'repo', 9999),
+      { message: /PR #9999 not found in owner\/repo/ }
+    );
+  });
+
+  it('throws on GraphQL error', async () => {
+    const mockGithub = {
+      graphql: mock.fn(async () => {
+        throw new Error('GraphQL error');
+      })
+    };
+    
+    await assert.rejects(
+      async () => fetchPRBasic(mockGithub, 'owner', 'repo', 42),
+      { message: /GraphQL error/ }
+    );
   });
 });
 

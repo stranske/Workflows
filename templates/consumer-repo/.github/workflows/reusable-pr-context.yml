@@ -15,26 +15,10 @@ on:
         description: 'PR number to fetch context for'
         required: true
         type: number
-      include_files:
-        description: 'Include file change data (larger response)'
-        required: false
-        default: true
-        type: boolean
-      include_reviews:
-        description: 'Include review data'
-        required: false
-        default: true
-        type: boolean
-      include_comments:
-        description: 'Include comment data'
-        required: false
-        default: true
-        type: boolean
-      include_checks:
-        description: 'Include CI check status'
-        required: false
-        default: true
-        type: boolean
+      # NOTE: The GraphQL query fetches all data in a single call for efficiency.
+      # Selective fetching would require separate queries, negating the optimization.
+      # Files are limited to 100, labels to 50, reviews to 10, comments to 20.
+      # For PRs exceeding these limits, check filesCount vs files length.
 
     outputs:
       # Core PR info
@@ -159,7 +143,8 @@ jobs:
 
       - name: Generate App Token
         id: app_token
-        if: ${{ secrets.WORKFLOWS_APP_ID != '' && secrets.WORKFLOWS_APP_PRIVATE_KEY != '' }}
+        # Use continue-on-error to handle missing secrets gracefully
+        continue-on-error: true
         uses: actions/create-github-app-token@v2
         with:
           app-id: ${{ secrets.WORKFLOWS_APP_ID }}
@@ -167,15 +152,19 @@ jobs:
 
       - name: Select Token
         id: token
+        env:
+          APP_TOKEN: ${{ steps.app_token.outputs.token }}
+          OWNER_PAT: ${{ secrets.OWNER_PR_PAT }}
+          GITHUB_TOKEN_FALLBACK: ${{ github.token }}
         run: |
-          if [ -n "${{ steps.app_token.outputs.token }}" ]; then
-            echo "token=${{ steps.app_token.outputs.token }}" >> "$GITHUB_OUTPUT"
+          if [ -n "$APP_TOKEN" ]; then
+            echo "token=$APP_TOKEN" >> "$GITHUB_OUTPUT"
             echo "source=app" >> "$GITHUB_OUTPUT"
-          elif [ -n "${{ secrets.OWNER_PR_PAT }}" ]; then
-            echo "token=${{ secrets.OWNER_PR_PAT }}" >> "$GITHUB_OUTPUT"
+          elif [ -n "$OWNER_PAT" ]; then
+            echo "token=$OWNER_PAT" >> "$GITHUB_OUTPUT"
             echo "source=owner-pat" >> "$GITHUB_OUTPUT"
           else
-            echo "token=${{ github.token }}" >> "$GITHUB_OUTPUT"
+            echo "token=$GITHUB_TOKEN_FALLBACK" >> "$GITHUB_OUTPUT"
             echo "source=github-token" >> "$GITHUB_OUTPUT"
           fi
 

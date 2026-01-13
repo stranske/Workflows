@@ -133,19 +133,17 @@ query PRBasic($owner: String!, $repo: String!, $number: Int!) {
 `;
 
 /**
- * Query to fetch multiple PRs at once (for batch operations)
+ * PAGINATION LIMITS:
+ * The GraphQL queries above use fixed pagination limits:
+ * - labels: 50 (most PRs have <10 labels)
+ * - files: 100 (large PRs may exceed this - check filesCount vs files.length)
+ * - reviews: 10 (last 10 reviews, most recent first)
+ * - comments: 20 (last 20 comments, filtering minimized)
+ * - contexts (CI checks): 50 (sufficient for most repos)
+ *
+ * For PRs exceeding these limits, the data will be truncated.
+ * The filesCount field indicates total files; compare with files.length to detect truncation.
  */
-const MULTI_PR_QUERY = `
-query MultiPR($owner: String!, $repo: String!, $numbers: [Int!]!) {
-  repository(owner: $owner, name: $repo) {
-    pullRequests: nodes {
-      ... on Repository {
-        __typename
-      }
-    }
-  }
-}
-`;
 
 /**
  * Fetch comprehensive PR context using GraphQL
@@ -283,19 +281,26 @@ async function fetchPRBasic(github, owner, repo, number) {
  */
 function serializeForOutput(prContext) {
   // Create a serializable version without functions
+  // Includes all fields returned by fetchPRContext for full round-trip support
   const serializable = {
+    id: prContext.id,
     number: prContext.number,
     title: prContext.title,
     body: prContext.body,
     state: prContext.state,
     isDraft: prContext.isDraft,
+    mergeable: prContext.mergeable,
     merged: prContext.merged,
+    mergedAt: prContext.mergedAt,
     headRef: prContext.headRef,
     baseRef: prContext.baseRef,
     headSha: prContext.headSha,
     author: prContext.author,
     labels: prContext.labels,
+    labelsDetailed: prContext.labelsDetailed,
+    filesCount: prContext.filesCount,
     files: prContext.files,
+    reviews: prContext.reviews,
     comments: prContext.comments,
     lastCommit: prContext.lastCommit
   };
