@@ -604,6 +604,7 @@ jobs:
         env:
           ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
           STEP_COUNT: ${{ steps.cycles.outputs.count }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PYTHONPATH: ${{ github.workspace }}
         run: |
           ISSUE_NUMBER="$ISSUE_NUMBER"
