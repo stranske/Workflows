@@ -221,6 +221,44 @@ def test_build_record_from_args_normalizes_blank_failure_reason_on_success() -> 
     assert record["failure_reason"] == "none"
 
 
+def test_load_record_from_json_normalizes_failure_reason_on_success() -> None:
+    payload = json.dumps(
+        {
+            "schema_version": collector.AUTOPILOT_METRICS_SCHEMA_VERSION,
+            "metric_type": "STEP",
+            "issue_number": 101,
+            "timestamp": "2025-04-05T06:07:08Z",
+            "cycle_count": 1,
+            "step_name": "format-issue",
+            "duration_ms": 1200,
+            "success": "true",
+            "failure_reason": "infra flake",
+        }
+    )
+
+    record = collector.load_record_from_json(payload)
+
+    assert record["failure_reason"] == "none"
+
+
+def test_load_record_from_json_rejects_missing_failure_reason_on_failure() -> None:
+    payload = json.dumps(
+        {
+            "schema_version": collector.AUTOPILOT_METRICS_SCHEMA_VERSION,
+            "metric_type": "step",
+            "issue_number": 101,
+            "timestamp": "2025-04-05T06:07:08Z",
+            "cycle_count": 1,
+            "step_name": "format-issue",
+            "duration_ms": 1200,
+            "success": False,
+        }
+    )
+
+    with pytest.raises(collector.ValidationError, match="failure_reason is required"):
+        collector.load_record_from_json(payload)
+
+
 def test_schema_payload_contains_record_types() -> None:
     payload = json.loads(collector.schema_payload())
 
