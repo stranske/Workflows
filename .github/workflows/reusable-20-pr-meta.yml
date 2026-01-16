@@ -178,7 +178,7 @@ jobs:
       - name: Write keepalive dispatch summary (comment lane)
         if: always()
         run: |
-          bash ${GITHUB_WORKSPACE}/workflows-lib/.github/scripts/write_dispatch_summary.sh
+          bash "${GITHUB_WORKSPACE}/workflows-lib/.github/scripts/write_dispatch_summary.sh"
         env:
           PATH_LABEL: comment
           DISPATCH: ${{ steps.detect.outputs.dispatch || 'false' }}
@@ -378,7 +378,7 @@ jobs:
       - name: Write keepalive dispatch summary (gate lane)
         if: always()
         run: |
-          bash ${GITHUB_WORKSPACE}/workflows-lib/.github/scripts/write_dispatch_summary.sh
+          bash "${GITHUB_WORKSPACE}/workflows-lib/.github/scripts/write_dispatch_summary.sh"
         env:
           PATH_LABEL: gate
           DISPATCH: ${{ steps.detect.outputs.dispatch || 'false' }}
