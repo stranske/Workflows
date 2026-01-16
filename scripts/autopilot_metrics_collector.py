@@ -262,16 +262,12 @@ def _env_or_value(value: str | None, env_name: str) -> str | None:
 
 
 def _normalize_failure_reason(success: bool, failure_reason: str | None) -> str:
-    if failure_reason is None:
-        if success:
-            return "none"
-        raise ValidationError("failure_reason is required when success is false")
-    reason = str(failure_reason).strip()
-    if not reason:
-        if success:
-            return "none"
-        raise ValidationError("failure_reason is required when success is false")
-    return reason
+    reason = None if failure_reason is None else str(failure_reason).strip()
+    if success:
+        return "none"
+    if reason:
+        return reason
+    raise ValidationError("failure_reason is required when success is false")
 
 
 def build_record_from_args(args: argparse.Namespace) -> dict[str, Any]:
