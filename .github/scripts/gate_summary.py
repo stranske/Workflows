@@ -314,13 +314,19 @@ def summarize(context: SummaryContext) -> SummaryResult:
     format_failure = False
 
     # Python CI skipped is OK if run_core is false (doc/workflow-only changes)
-    if python_result not in ("success", "skipped") or (
+    if python_result == "cancelled":
+        state = "pending"
+        description = "Python CI cancelled; waiting for rerun."
+    elif python_result not in ("success", "skipped") or (
         python_result == "skipped" and context.run_core
     ):
         state = "failure"
         description = f"Python CI result: {python_result}."
         cosmetic_failure, failure_checks = _detect_cosmetic_failure(records)
         format_failure = "format" in failure_checks
+    elif context.docker_changed and docker_result_norm == "cancelled":
+        state = "pending"
+        description = "Docker smoke cancelled; waiting for rerun."
     elif context.docker_changed and docker_result_norm != "success":
         state = "failure"
         description = f"Docker smoke result: {docker_result_norm}."
