@@ -563,7 +563,7 @@ def test_load_record_from_json_normalizes_blank_failure_reason_on_success() -> N
     collector.validate_record(record)
 
 
-def test_load_record_from_json_normalizes_failure_reason_on_success() -> None:
+def test_load_record_from_json_coerces_and_normalizes_failure_reason_on_success() -> None:
     payload = json.dumps(
         {
             "schema_version": "1",
