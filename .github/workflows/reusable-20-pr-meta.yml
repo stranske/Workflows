@@ -154,6 +154,8 @@ jobs:
             core.setOutput('reason', result.reason || '');
             core.setOutput('agent_alias', result.primaryAgent || '');
             core.setOutput('head_sha', result.headSha || '');
+            core.setOutput('run_cap', String(result.runCap ?? ''));
+            core.setOutput('active_runs', String(result.activeRuns ?? ''));
 
       - name: Evaluate keepalive comment
         id: detect
@@ -172,6 +174,23 @@ jobs:
             const scriptsPath = process.env.WORKFLOWS_SCRIPTS_PATH;
             const { detectKeepalive } = require(`${scriptsPath}/.github/scripts/agents_pr_meta_keepalive.js`);
             await detectKeepalive({ core, github, context, env: process.env });
+
+      - name: Write keepalive dispatch summary (comment lane)
+        if: always()
+        run: |
+          bash "${GITHUB_WORKSPACE}/workflows-lib/.github/scripts/write_dispatch_summary.sh"
+        env:
+          PATH_LABEL: comment
+          DISPATCH: ${{ steps.detect.outputs.dispatch || 'false' }}
+          DISPATCH_REASON: ${{ steps.detect.outputs.reason || steps.pre_gate.outputs.reason || '' }}
+          PR_NUMBER: ${{ steps.detect.outputs.pr || inputs.pr_number || '' }}
+          FALLBACK_PR: ${{ inputs.pr_number || '' }}
+          ACTIVATION_ID: ${{ steps.detect.outputs.comment_id || inputs.comment_id || '' }}
+          DISPATCH_AGENT: ${{ steps.pre_gate.outputs.agent_alias || '' }}
+          HEAD_SHA: ${{ steps.pre_gate.outputs.head_sha || '' }}
+          RUN_CAP: ${{ steps.pre_gate.outputs.run_cap || '' }}
+          ACTIVE_RUNS: ${{ steps.pre_gate.outputs.active_runs || '' }}
+          TRACE: ${{ steps.detect.outputs.trace || '' }}
 
   keepalive_orchestrator:
     needs: keepalive_dispatch
@@ -282,8 +301,12 @@ jobs:
             core.setOutput('ok', bool(result.ok));
             core.setOutput('reason', result.reason || '');
             core.setOutput('agent_alias', result.primaryAgent || '');
+            core.setOutput('head_sha', result.headSha || '');
+            core.setOutput('run_cap', String(result.runCap ?? ''));
+            core.setOutput('active_runs', String(result.activeRuns ?? ''));
             core.setOutput('pr_number', result.prNumber || process.env.PR_NUMBER);
             core.setOutput('activation_comment', result.activationComment ? JSON.stringify(result.activationComment) : '');
+            core.setOutput('activation_comment_id', result.activationComment?.id ? String(result.activationComment.id) : '');
 
       - name: Detect keepalive from activation
         id: detect
@@ -351,6 +374,24 @@ jobs:
               },
             });
             if (!result.ok) core.setFailed(result.reason);
+
+      - name: Write keepalive dispatch summary (gate lane)
+        if: always()
+        run: |
+          bash "${GITHUB_WORKSPACE}/workflows-lib/.github/scripts/write_dispatch_summary.sh"
+        env:
+          PATH_LABEL: gate
+          DISPATCH: ${{ steps.detect.outputs.dispatch || 'false' }}
+          DISPATCH_REASON: ${{ steps.detect.outputs.reason || steps.gate.outputs.reason || '' }}
+          PR_NUMBER: ${{ steps.detect.outputs.pr || steps.gate.outputs.pr_number || '' }}
+          FALLBACK_PR: ${{ steps.gate.outputs.pr_number || inputs.pr_number || '' }}
+          ACTIVATION_ID: ${{ steps.detect.outputs.comment_id || '' }}
+          ACTIVATION_FALLBACK: ${{ steps.gate.outputs.activation_comment_id || '' }}
+          DISPATCH_AGENT: ${{ steps.gate.outputs.agent_alias || '' }}
+          HEAD_SHA: ${{ steps.gate.outputs.head_sha || '' }}
+          RUN_CAP: ${{ steps.gate.outputs.run_cap || '' }}
+          ACTIVE_RUNS: ${{ steps.gate.outputs.active_runs || '' }}
+          TRACE: ${{ steps.detect.outputs.trace || '' }}
 
   pr_body_update:
     name: Update PR body sections

@@ -46,6 +46,7 @@ AUTOPILOT_METRICS_SCHEMA: dict[str, Any] = {
     "record_types": {
         "step": {
             "required": (
+                "schema_version",
                 "metric_type",
                 "issue_number",
                 "timestamp",
@@ -57,11 +58,18 @@ AUTOPILOT_METRICS_SCHEMA: dict[str, Any] = {
             ),
         },
         "cycle": {
-            "required": ("metric_type", "issue_number", "timestamp", "cycle_count"),
+            "required": (
+                "schema_version",
+                "metric_type",
+                "issue_number",
+                "timestamp",
+                "cycle_count",
+            ),
             "optional": ("max_cycles", "steps_attempted", "steps_completed"),
         },
         "escalation": {
             "required": (
+                "schema_version",
                 "metric_type",
                 "issue_number",
                 "timestamp",
@@ -76,6 +84,11 @@ STEP_REQUIRED_FIELDS = AUTOPILOT_METRICS_SCHEMA["record_types"]["step"]["require
 CYCLE_REQUIRED_FIELDS = AUTOPILOT_METRICS_SCHEMA["record_types"]["cycle"]["required"]
 ESCALATION_REQUIRED_FIELDS = AUTOPILOT_METRICS_SCHEMA["record_types"]["escalation"]["required"]
 _CYCLE_OPTIONAL_FIELDS = AUTOPILOT_METRICS_SCHEMA["record_types"]["cycle"]["optional"]
+
+
+def schema_payload() -> str:
+    """Return the JSON schema payload for documentation or tooling."""
+    return json.dumps(AUTOPILOT_METRICS_SCHEMA, sort_keys=True, indent=2)
 
 
 @dataclass(frozen=True)
@@ -132,6 +145,10 @@ def _validate_step(record: dict[str, Any]) -> None:
     if missing:
         raise ValidationError(f"missing fields: {', '.join(missing)}")
 
+    if not _is_int(record["schema_version"]):
+        raise ValidationError("schema_version must be an integer")
+    if record["schema_version"] != AUTOPILOT_METRICS_SCHEMA_VERSION:
+        raise ValidationError(f"schema_version must be {AUTOPILOT_METRICS_SCHEMA_VERSION}")
     if not _is_int(record["issue_number"]):
         raise ValidationError("issue_number must be an integer")
     if not _is_int(record["cycle_count"]):
@@ -146,6 +163,8 @@ def _validate_step(record: dict[str, Any]) -> None:
         raise ValidationError("failure_reason must be a string")
     if record["success"] is False and not record["failure_reason"].strip():
         raise ValidationError("failure_reason must be set when success is false")
+    if record["success"] is True and record["failure_reason"].strip().lower() != "none":
+        raise ValidationError("failure_reason must be 'none' when success is true")
 
     _parse_timestamp(str(record["timestamp"]))
 
@@ -155,6 +174,10 @@ def _validate_cycle(record: dict[str, Any]) -> None:
     if missing:
         raise ValidationError(f"missing fields: {', '.join(missing)}")
 
+    if not _is_int(record["schema_version"]):
+        raise ValidationError("schema_version must be an integer")
+    if record["schema_version"] != AUTOPILOT_METRICS_SCHEMA_VERSION:
+        raise ValidationError(f"schema_version must be {AUTOPILOT_METRICS_SCHEMA_VERSION}")
     if not _is_int(record["issue_number"]):
         raise ValidationError("issue_number must be an integer")
     if not _is_int(record["cycle_count"]):
@@ -172,6 +195,10 @@ def _validate_escalation(record: dict[str, Any]) -> None:
     if missing:
         raise ValidationError(f"missing fields: {', '.join(missing)}")
 
+    if not _is_int(record["schema_version"]):
+        raise ValidationError("schema_version must be an integer")
+    if record["schema_version"] != AUTOPILOT_METRICS_SCHEMA_VERSION:
+        raise ValidationError(f"schema_version must be {AUTOPILOT_METRICS_SCHEMA_VERSION}")
     if not _is_int(record["issue_number"]):
         raise ValidationError("issue_number must be an integer")
     if not _is_int(record["cycle_count"]):
@@ -184,7 +211,10 @@ def _validate_escalation(record: dict[str, Any]) -> None:
 
 def validate_record(record: dict[str, Any]) -> None:
     """Validate required fields and types for a metrics record."""
-    metric_type = str(record.get("metric_type", "")).strip().lower()
+    raw_metric_type = record.get("metric_type")
+    if raw_metric_type is None:
+        raise ValidationError("metric_type must be set")
+    metric_type = str(raw_metric_type).strip().lower()
     if not metric_type:
         raise ValidationError("metric_type must be set")
     if metric_type == "step":
@@ -234,16 +264,12 @@ def _env_or_value(value: str | None, env_name: str) -> str | None:
 
 
 def _normalize_failure_reason(success: bool, failure_reason: str | None) -> str:
-    if failure_reason is None:
-        if success:
-            return "none"
-        raise ValidationError("failure_reason is required when success is false")
-    reason = str(failure_reason).strip()
-    if not reason:
-        if success:
-            return "none"
-        raise ValidationError("failure_reason is required when success is false")
-    return reason
+    reason = None if failure_reason is None else str(failure_reason).strip()
+    if success:
+        return "none"
+    if reason:
+        return reason
+    raise ValidationError("failure_reason is required when success is false")
 
 
 def build_record_from_args(args: argparse.Namespace) -> dict[str, Any]:
@@ -252,6 +278,7 @@ def build_record_from_args(args: argparse.Namespace) -> dict[str, Any]:
         raise ValidationError("metric_type must be set")
 
     record: dict[str, Any] = {
+        "schema_version": AUTOPILOT_METRICS_SCHEMA_VERSION,
         "metric_type": metric_type,
         "issue_number": _coerce_int(args.issue_number, "issue_number"),
         "timestamp": args.timestamp or _utc_now_iso(),
@@ -292,12 +319,13 @@ def build_record_from_args(args: argparse.Namespace) -> dict[str, Any]:
         if args.success is None:
             raise ValidationError("success is required")
         success = _coerce_bool(args.success, "success")
+        failure_reason = _env_or_value(args.failure_reason, "AUTOPILOT_FAILURE_REASON")
         record.update(
             {
                 "step_name": args.step_name,
                 "duration_ms": _coerce_int(duration_ms, "duration_ms"),
                 "success": success,
-                "failure_reason": _normalize_failure_reason(success, args.failure_reason),
+                "failure_reason": _normalize_failure_reason(success, failure_reason),
             }
         )
         return record
@@ -312,9 +340,10 @@ def build_record_from_args(args: argparse.Namespace) -> dict[str, Any]:
         return record
 
     if metric_type == "escalation":
-        if args.escalation_reason is None or not str(args.escalation_reason).strip():
+        escalation_reason = _env_or_value(args.escalation_reason, "AUTOPILOT_ESCALATION_REASON")
+        if escalation_reason is None or not str(escalation_reason).strip():
             raise ValidationError("escalation_reason must be a non-empty string")
-        record["escalation_reason"] = args.escalation_reason.strip()
+        record["escalation_reason"] = str(escalation_reason).strip()
         return record
 
     raise ValidationError("metric_type must be 'step', 'cycle', or 'escalation'")
@@ -327,8 +356,32 @@ def load_record_from_json(payload: str) -> dict[str, Any]:
         raise ValidationError("record_json must be valid JSON") from exc
     if not isinstance(record, dict):
         raise ValidationError("record_json must decode to an object")
-    if "timestamp" not in record:
+    if "metric_type" in record and record["metric_type"] is not None:
+        record["metric_type"] = str(record["metric_type"]).strip().lower()
+    schema_version = record.get("schema_version")
+    if schema_version is None or (isinstance(schema_version, str) and not schema_version.strip()):
+        record["schema_version"] = AUTOPILOT_METRICS_SCHEMA_VERSION
+    timestamp = record.get("timestamp")
+    if timestamp is None or (isinstance(timestamp, str) and not timestamp.strip()):
         record["timestamp"] = _utc_now_iso()
+    for field in (
+        "schema_version",
+        "issue_number",
+        "cycle_count",
+        "duration_ms",
+        "max_cycles",
+        "steps_attempted",
+        "steps_completed",
+    ):
+        value = record.get(field)
+        if isinstance(value, str) and value.strip():
+            record[field] = _coerce_int(value, field)
+    if "success" in record and not isinstance(record["success"], bool):
+        record["success"] = _coerce_bool(record["success"], "success")
+    if record.get("metric_type") == "step" and "success" in record:
+        record["failure_reason"] = _normalize_failure_reason(
+            record["success"], record.get("failure_reason")
+        )
     return record
 
 
@@ -343,6 +396,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Append auto-pilot metrics record to NDJSON log.")
     parser.add_argument("--path", default="autopilot-metrics.ndjson", help="NDJSON output path")
     parser.add_argument("--record-json", help="JSON object payload for the record")
+    parser.add_argument(
+        "--print-schema",
+        action="store_true",
+        help="Print JSON schema for auto-pilot metrics and exit",
+    )
     parser.add_argument(
         "--metric-type", choices=["step", "cycle", "escalation"], help="Record type"
     )
@@ -369,6 +427,9 @@ def main(argv: list[str]) -> int:
     args = parser.parse_args(argv)
 
     try:
+        if args.print_schema:
+            print(schema_payload())
+            return 0
         if args.record_json:
             record = load_record_from_json(args.record_json)
         else:

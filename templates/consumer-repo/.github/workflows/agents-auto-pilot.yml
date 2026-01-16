@@ -462,8 +462,9 @@ jobs:
           # Update issue body
           gh issue edit "${ISSUE_NUMBER}" --body-file /tmp/formatted_body.md
 
-          # Add marker label (but don't trigger workflow)
+          # Add marker labels (but don't trigger workflow)
           gh issue edit "${ISSUE_NUMBER}" --add-label "agents:formatted" || true
+          gh issue edit "${ISSUE_NUMBER}" --add-label "agents:apply-suggestions" || true
 
           echo "✅ Formatting complete - continuing to next step"
 
@@ -526,8 +527,9 @@ jobs:
           # Post suggestions comment
           gh issue comment "${ISSUE_NUMBER}" --body-file /tmp/comment.md
 
-          # Add marker label (but don't trigger workflow)
+          # Add marker labels (but don't trigger workflow)
           gh issue edit "${ISSUE_NUMBER}" --add-label "agents:formatted" || true
+          gh issue edit "${ISSUE_NUMBER}" --add-label "agents:apply-suggestions" || true
 
           echo "✅ Optimization complete - continuing to next step"
 
@@ -695,6 +697,23 @@ jobs:
               issue_number: issueNumber,
               labels: ['agent:codex']
             });
+
+            // Force-dispatch Codex belt dispatcher to create the branch
+            try {
+              await github.rest.actions.createWorkflowDispatch({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                workflow_id: 'agents-71-codex-belt-dispatcher.yml',
+                ref: 'main',
+                inputs: {
+                  force_issue: issueNumber.toString(),
+                  dry_run: 'false'
+                }
+              });
+              core.info(`Dispatched codex belt dispatcher for issue #${issueNumber}`);
+            } catch (dispatchError) {
+              core.warning(`Could not dispatch codex belt dispatcher: ${dispatchError?.message}`);
+            }
 
       - name: Execute step - Verify
         if: steps.next.outputs.next_step == 'verify'
@@ -884,6 +903,24 @@ jobs:
               const labelStatus = labelsAdded
                 ? '✅ Added labels: `agent:codex`, `agents:keepalive`, `autofix`'
                 : '⚠️ Could not add labels (add manually)';
+
+              // Dispatch PR meta workflow to build Automated Status Summary
+              // (GITHUB_TOKEN actions do not trigger workflow runs automatically)
+              try {
+                await github.rest.actions.createWorkflowDispatch({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  workflow_id: 'agents-pr-meta-v4.yml',
+                  ref: 'main',
+                  inputs: {
+                    pr_number: pr.number.toString(),
+                    debug: 'false'
+                  }
+                });
+                core.info(`Dispatched PR meta update for PR #${pr.number}`);
+              } catch (dispatchError) {
+                core.warning(`Could not dispatch PR meta update: ${dispatchError?.message}`);
+              }
 
               // Dispatch keepalive workflow since GITHUB_TOKEN labels don't trigger it
               try {

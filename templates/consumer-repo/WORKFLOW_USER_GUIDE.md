@@ -155,7 +155,7 @@ Issue: "Add user authentication"
 | Label added: `agents:format` | Issue optimizer |
 | Label added: `agents:optimize` | Issue optimizer |
 | Label added: `agents:apply-suggestions` | Issue optimizer |
-| Label added: `agent:codex` | Issue intake, Capability check, Orchestrator |
+| Label added: `agent:codex` | Issue intake, Capability check |
 | Label added: `agents:decompose` | Task decomposer |
 | Label added: `agents:capability-check` | Capability checker |
 | Label added: `agents:auto-pilot` | Auto-pilot orchestrator |
@@ -166,7 +166,7 @@ Issue: "Add user authentication"
 |-------|----------------------|
 | PR opened | Gate (CI), PR Meta, Agents Guard |
 | Label added: `autofix` | Autofix loop |
-| Label added: `agents:keepalive` | Keepalive loop |
+| Label added: `agents:keepalive` | Enables keepalive loop (runs on Gate workflow_run) |
 | Label removed: `agents:paused` | Keepalive resumes |
 | PR merged | Verifier (if verify labels present) |
 | Label added: `verify:*` (after merge) | Verifier workflows |
@@ -175,7 +175,7 @@ Issue: "Add user authentication"
 
 | Workflow | Runs |
 |----------|------|
-| Keepalive loop | Every 5 minutes for active PRs |
+| Keepalive loop | Gate workflow_run for eligible PRs (and manual dispatch) |
 | Auto-pilot | On label changes for active issues |
 | Bot comment handler | On every issue/PR comment |
 

@@ -3,6 +3,8 @@
 This guide covers the keepalive configuration knobs that control timeouts and warning behavior.
 Use it alongside `docs/keepalive/SETUP_CHECKLIST.md` for full setup steps.
 
+For an overview of the **legacy UI** versus **Codex CLI** keepalive approaches and their differences, see [`Keepalive_Approaches.md`](Keepalive_Approaches.md).
+
 ## Repository Configuration
 
 Set these repository variables to control default timeouts and warnings:

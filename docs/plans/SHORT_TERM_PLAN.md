@@ -498,19 +498,19 @@ Re-ran audit across all 7 repos - **Total bloat labels: 0** ✅
   - Timeout: 4 hours (240 min job timeout)
   - Pause label: `agents:auto-pilot-pause`
   - Failure label: `agents:auto-pilot-failed`
-- ✅ Sequential workflow triggers via label detection
+- ✅ Inline issue prep with self re-dispatch (no label chaining)
 - ✅ Progress tracking with step comments
 - ✅ Deployed to all 4 active consumer repos (Manager-Database, Travel-Plan-Permission, Portable-Alpha-Extension-Model, Trend_Model_Project)
 - ✅ Template version matches deployed versions (verified)
 
 **Flow Implemented:**
-1. User adds `agents:auto-pilot` → adds `agents:format`
-2. Format completes → adds `agents:optimize`
-3. Optimize completes → adds `agents:apply-suggestions`
-4. Apply completes → adds `agent:codex`
-5. Agent creates PR → keepalive monitors
-6. PR merged → issue closed → adds `verify:evaluate`
-7. Verification complete → auto-pilot removes itself
+1. User adds `agents:auto-pilot` → auto-pilot formats issue inline
+2. Auto-pilot optimizes issue inline → posts suggestions
+3. Auto-pilot applies suggestions inline → marks `agents:apply-suggestions`
+4. Auto-pilot adds `agent:codex` → agent creates branch
+5. Auto-pilot creates PR → dispatches PR meta update
+6. Gate workflow_run triggers keepalive loop until tasks complete
+7. Auto-pilot adds `automerge`, then `verify:evaluate`, then removes itself
 
 **7B. User Guide Outline** ⏳ **NEEDS WORK**
 - [ ] Create `docs/WORKFLOW_USER_GUIDE.md`
@@ -784,50 +784,51 @@ Phase 3 delivered functional workflows. Phase 4 focuses on:
 └─────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────┐
-│ Step 1: Format Issue                                        │
-│   → Add agents:format label                                 │
-│   → Wait for formatting workflow                            │
+│ Step 1: Format Issue (inline)                               │
+│   → Run issue_formatter.py                                  │
+│   → Mark agents:formatted                                   │
 └─────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────┐
-│ Step 2: Optimize Issue                                      │
-│   → Add agents:optimize label                               │
-│   → Wait for optimization suggestions                       │
+│ Step 2: Optimize Issue (inline)                             │
+│   → Run issue_optimizer.py                                  │
+│   → Post suggestions comment                                │
 └─────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────┐
-│ Step 3: Apply Suggestions                                   │
-│   → Add agents:apply-suggestions label                      │
-│   → Wait for suggestions to be applied                      │
+│ Step 3: Apply Suggestions (inline)                          │
+│   → Apply suggestions to issue body                         │
+│   → Mark agents:apply-suggestions                           │
 └─────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────┐
-│ Step 4: Capability Check                                    │
-│   → Run capability_check.py                                 │
-│   → If blocked → Add needs-human, stop                      │
-│   → If capable → Continue                                   │
+│ Step 4: Capability Check / Agent Assignment                 │
+│   → Add agent:codex label (capability gate)                 │
+│   → Agent intake creates branch                             │
 └─────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────┐
-│ Step 5: Assign Agent                                        │
-│   → Add agent:codex label                                   │
-│   → Wait for PR creation                                    │
+│ Step 5: Create PR                                            │
+│   → Auto-pilot creates PR from agent branch                 │
+│   → Dispatch PR meta update (status summary)                │
 └─────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────┐
-│ Step 6: PR Monitoring                                       │
-│   → Enable agents:keepalive                                 │
-│   → Enable autofix                                          │
-│   → Monitor for Gate pass + task completion                 │
+│ Step 6: Keepalive Loop (workflow_run on Gate)               │
+│   → Gate completes → agents-keepalive-loop evaluates        │
+│   → If tasks remain + agent label → run Codex               │
+│   → Gate reruns until tasks complete                        │
 └─────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────┐
 │ Step 7: Merge / Verify                                      │
-│   → If automerge enabled: auto-merge                        │
-│   → Add verify:evaluate label                               │
+│   → Add automerge label when ready                          │
+│   → Add verify:evaluate after merge                         │
 │   → Complete                                                │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+**Note:** Keepalive is Gate `workflow_run` driven; it does not rely on label-triggered child workflows.
 
 **Safety Mechanisms (Already Implemented):**
 | Mechanism | Config | Purpose |
