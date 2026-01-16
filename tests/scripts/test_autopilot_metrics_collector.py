@@ -602,6 +602,25 @@ def test_load_record_from_json_requires_failure_reason_on_failure() -> None:
         collector.load_record_from_json(payload)
 
 
+def test_load_record_from_json_rejects_blank_failure_reason_on_failure() -> None:
+    payload = json.dumps(
+        {
+            "schema_version": "1",
+            "metric_type": "step",
+            "issue_number": "101",
+            "timestamp": "2025-01-01T00:00:00Z",
+            "cycle_count": "2",
+            "step_name": "format-issue",
+            "duration_ms": "1200",
+            "success": "false",
+            "failure_reason": "   ",
+        }
+    )
+
+    with pytest.raises(collector.ValidationError, match="failure_reason is required"):
+        collector.load_record_from_json(payload)
+
+
 def test_build_record_from_args_computes_duration_from_bounds() -> None:
     args = collector.argparse.Namespace(
         metric_type="step",
