@@ -278,6 +278,23 @@ def test_load_record_from_json_defaults_null_schema_version() -> None:
     collector.validate_record(record)
 
 
+def test_load_record_from_json_defaults_blank_schema_version() -> None:
+    payload = json.dumps(
+        {
+            "schema_version": "  ",
+            "metric_type": "cycle",
+            "issue_number": 101,
+            "timestamp": "2025-01-01T00:00:00Z",
+            "cycle_count": 2,
+        }
+    )
+
+    record = collector.load_record_from_json(payload)
+
+    assert record["schema_version"] == collector.AUTOPILOT_METRICS_SCHEMA_VERSION
+    collector.validate_record(record)
+
+
 def test_load_record_from_json_defaults_null_timestamp(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -288,6 +305,26 @@ def test_load_record_from_json_defaults_null_timestamp(
             "metric_type": "cycle",
             "issue_number": 101,
             "timestamp": None,
+            "cycle_count": 2,
+        }
+    )
+
+    record = collector.load_record_from_json(payload)
+
+    assert record["timestamp"] == "2025-02-03T04:05:06Z"
+    collector.validate_record(record)
+
+
+def test_load_record_from_json_defaults_blank_timestamp(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(collector, "_utc_now_iso", lambda: "2025-02-03T04:05:06Z")
+    payload = json.dumps(
+        {
+            "schema_version": collector.AUTOPILOT_METRICS_SCHEMA_VERSION,
+            "metric_type": "cycle",
+            "issue_number": 101,
+            "timestamp": "   ",
             "cycle_count": 2,
         }
     )

@@ -360,9 +360,11 @@ def load_record_from_json(payload: str) -> dict[str, Any]:
         raise ValidationError("record_json must decode to an object")
     if "metric_type" in record and record["metric_type"] is not None:
         record["metric_type"] = str(record["metric_type"]).strip().lower()
-    if record.get("schema_version") is None:
+    schema_version = record.get("schema_version")
+    if schema_version is None or (isinstance(schema_version, str) and not schema_version.strip()):
         record["schema_version"] = AUTOPILOT_METRICS_SCHEMA_VERSION
-    if record.get("timestamp") is None:
+    timestamp = record.get("timestamp")
+    if timestamp is None or (isinstance(timestamp, str) and not timestamp.strip()):
         record["timestamp"] = _utc_now_iso()
     return record
 
