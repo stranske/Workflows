@@ -163,6 +163,8 @@ def _validate_step(record: dict[str, Any]) -> None:
         raise ValidationError("failure_reason must be a string")
     if record["success"] is False and not record["failure_reason"].strip():
         raise ValidationError("failure_reason must be set when success is false")
+    if record["success"] is True and record["failure_reason"].strip().lower() != "none":
+        raise ValidationError("failure_reason must be 'none' when success is true")
 
     _parse_timestamp(str(record["timestamp"]))
 

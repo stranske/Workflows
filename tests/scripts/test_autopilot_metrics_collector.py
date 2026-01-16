@@ -121,6 +121,14 @@ def test_validate_record_requires_failure_reason_on_failure() -> None:
         collector.validate_record(record)
 
 
+def test_validate_record_requires_none_failure_reason_on_success() -> None:
+    record = _step_record(success=True)
+    record["failure_reason"] = "timeout"
+
+    with pytest.raises(collector.ValidationError, match="failure_reason must be 'none'"):
+        collector.validate_record(record)
+
+
 def test_validate_cycle_rejects_invalid_optional_fields() -> None:
     record = _cycle_record()
     record["steps_completed"] = "one"
