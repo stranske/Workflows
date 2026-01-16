@@ -742,6 +742,34 @@ def test_build_record_from_args_uses_iso_env_bounds(monkeypatch: pytest.MonkeyPa
     assert record["duration_ms"] == 2000
 
 
+def test_build_record_from_args_normalizes_failure_reason_env_on_success(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("AUTOPILOT_FAILURE_REASON", "pipeline error")
+    args = collector.argparse.Namespace(
+        metric_type="step",
+        issue_number="12",
+        cycle_count="3",
+        timestamp="2025-04-05T06:07:08Z",
+        step_name="format-issue",
+        duration_ms="1200",
+        started_at=None,
+        ended_at=None,
+        started_at_ms=None,
+        ended_at_ms=None,
+        success="true",
+        failure_reason=None,
+        max_cycles=None,
+        steps_attempted=None,
+        steps_completed=None,
+        escalation_reason=None,
+    )
+
+    record = collector.build_record_from_args(args)
+
+    assert record["failure_reason"] == "none"
+
+
 def test_build_record_from_args_uses_failure_reason_env(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
