@@ -378,6 +378,8 @@ def load_record_from_json(payload: str) -> dict[str, Any]:
         value = record.get(field)
         if isinstance(value, str) and value.strip():
             record[field] = _coerce_int(value, field)
+    if "success" in record and not isinstance(record["success"], bool):
+        record["success"] = _coerce_bool(record["success"], "success")
     return record
 
 
