@@ -355,6 +355,8 @@ def load_record_from_json(payload: str) -> dict[str, Any]:
         raise ValidationError("record_json must be valid JSON") from exc
     if not isinstance(record, dict):
         raise ValidationError("record_json must decode to an object")
+    if "metric_type" in record and record["metric_type"] is not None:
+        record["metric_type"] = str(record["metric_type"]).strip().lower()
     if "schema_version" not in record:
         record["schema_version"] = AUTOPILOT_METRICS_SCHEMA_VERSION
     if "timestamp" not in record:
