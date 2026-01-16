@@ -356,6 +356,36 @@ def test_load_record_from_json_normalizes_metric_type() -> None:
     collector.validate_record(record)
 
 
+def test_load_record_from_json_coerces_int_fields() -> None:
+    payload = json.dumps(
+        {
+            "schema_version": "1",
+            "metric_type": "step",
+            "issue_number": "101",
+            "timestamp": "2025-01-01T00:00:00Z",
+            "cycle_count": "2",
+            "step_name": "format-issue",
+            "duration_ms": "1200",
+            "success": True,
+            "failure_reason": "none",
+            "max_cycles": "6",
+            "steps_attempted": "4",
+            "steps_completed": "3",
+        }
+    )
+
+    record = collector.load_record_from_json(payload)
+
+    assert record["schema_version"] == 1
+    assert record["issue_number"] == 101
+    assert record["cycle_count"] == 2
+    assert record["duration_ms"] == 1200
+    assert record["max_cycles"] == 6
+    assert record["steps_attempted"] == 4
+    assert record["steps_completed"] == 3
+    collector.validate_record(record)
+
+
 def test_build_record_from_args_computes_duration_from_bounds() -> None:
     args = collector.argparse.Namespace(
         metric_type="step",

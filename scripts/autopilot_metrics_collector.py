@@ -366,6 +366,18 @@ def load_record_from_json(payload: str) -> dict[str, Any]:
     timestamp = record.get("timestamp")
     if timestamp is None or (isinstance(timestamp, str) and not timestamp.strip()):
         record["timestamp"] = _utc_now_iso()
+    for field in (
+        "schema_version",
+        "issue_number",
+        "cycle_count",
+        "duration_ms",
+        "max_cycles",
+        "steps_attempted",
+        "steps_completed",
+    ):
+        value = record.get(field)
+        if isinstance(value, str) and value.strip():
+            record[field] = _coerce_int(value, field)
     return record
 
 
