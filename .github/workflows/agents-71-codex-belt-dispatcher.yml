@@ -38,6 +38,18 @@ on:
       dry_run:
         description: 'Dispatcher dry-run mode flag'
         value: ${{ jobs.dispatch.outputs.dry_run }}
+  workflow_dispatch:
+    inputs:
+      force_issue:
+        description: 'Optional issue number to dispatch immediately'
+        required: false
+        default: ''
+        type: string
+      dry_run:
+        description: 'Preview dispatcher actions without writes'
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
