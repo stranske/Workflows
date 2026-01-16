@@ -1,3 +1,4 @@
+import json
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -132,6 +133,13 @@ def test_build_record_from_args_defaults_timestamp(monkeypatch: pytest.MonkeyPat
     assert record["timestamp"] == "2025-04-05T06:07:08Z"
     assert record["issue_number"] == 12
     assert record["failure_reason"] == "none"
+
+
+def test_schema_payload_contains_record_types() -> None:
+    payload = json.loads(collector.schema_payload())
+
+    assert payload["version"] == collector.AUTOPILOT_METRICS_SCHEMA_VERSION
+    assert set(payload["record_types"].keys()) == {"cycle", "escalation", "step"}
 
 
 def test_build_record_from_args_escalation_requires_reason() -> None:
@@ -382,6 +390,62 @@ def test_build_record_from_args_uses_iso_env_bounds(monkeypatch: pytest.MonkeyPa
     record = collector.build_record_from_args(args)
 
     assert record["duration_ms"] == 2000
+
+
+def test_build_record_from_args_uses_failure_reason_env(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("AUTOPILOT_FAILURE_REASON", "pipeline error")
+    args = collector.argparse.Namespace(
+        metric_type="step",
+        issue_number="12",
+        cycle_count="3",
+        timestamp="2025-04-05T06:07:08Z",
+        step_name="format-issue",
+        duration_ms="1200",
+        started_at=None,
+        ended_at=None,
+        started_at_ms=None,
+        ended_at_ms=None,
+        success="false",
+        failure_reason=None,
+        max_cycles=None,
+        steps_attempted=None,
+        steps_completed=None,
+        escalation_reason=None,
+    )
+
+    record = collector.build_record_from_args(args)
+
+    assert record["failure_reason"] == "pipeline error"
+
+
+def test_build_record_from_args_uses_escalation_reason_env(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("AUTOPILOT_ESCALATION_REASON", "manual review required")
+    args = collector.argparse.Namespace(
+        metric_type="escalation",
+        issue_number="12",
+        cycle_count="3",
+        timestamp="2025-05-06T07:08:09Z",
+        step_name=None,
+        duration_ms=None,
+        started_at=None,
+        ended_at=None,
+        started_at_ms=None,
+        ended_at_ms=None,
+        success=None,
+        failure_reason=None,
+        max_cycles=None,
+        steps_attempted=None,
+        steps_completed=None,
+        escalation_reason=None,
+    )
+
+    record = collector.build_record_from_args(args)
+
+    assert record["escalation_reason"] == "manual review required"
 
 
 def test_append_record_appends_lines(tmp_path: Path) -> None:

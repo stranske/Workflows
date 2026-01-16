@@ -78,6 +78,11 @@ ESCALATION_REQUIRED_FIELDS = AUTOPILOT_METRICS_SCHEMA["record_types"]["escalatio
 _CYCLE_OPTIONAL_FIELDS = AUTOPILOT_METRICS_SCHEMA["record_types"]["cycle"]["optional"]
 
 
+def schema_payload() -> str:
+    """Return the JSON schema payload for documentation or tooling."""
+    return json.dumps(AUTOPILOT_METRICS_SCHEMA, sort_keys=True, indent=2)
+
+
 @dataclass(frozen=True)
 class ValidationError(Exception):
     """Raised when a record fails schema validation."""
@@ -292,12 +297,13 @@ def build_record_from_args(args: argparse.Namespace) -> dict[str, Any]:
         if args.success is None:
             raise ValidationError("success is required")
         success = _coerce_bool(args.success, "success")
+        failure_reason = _env_or_value(args.failure_reason, "AUTOPILOT_FAILURE_REASON")
         record.update(
             {
                 "step_name": args.step_name,
                 "duration_ms": _coerce_int(duration_ms, "duration_ms"),
                 "success": success,
-                "failure_reason": _normalize_failure_reason(success, args.failure_reason),
+                "failure_reason": _normalize_failure_reason(success, failure_reason),
             }
         )
         return record
@@ -312,9 +318,10 @@ def build_record_from_args(args: argparse.Namespace) -> dict[str, Any]:
         return record
 
     if metric_type == "escalation":
-        if args.escalation_reason is None or not str(args.escalation_reason).strip():
+        escalation_reason = _env_or_value(args.escalation_reason, "AUTOPILOT_ESCALATION_REASON")
+        if escalation_reason is None or not str(escalation_reason).strip():
             raise ValidationError("escalation_reason must be a non-empty string")
-        record["escalation_reason"] = args.escalation_reason.strip()
+        record["escalation_reason"] = str(escalation_reason).strip()
         return record
 
     raise ValidationError("metric_type must be 'step', 'cycle', or 'escalation'")
@@ -344,6 +351,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--path", default="autopilot-metrics.ndjson", help="NDJSON output path")
     parser.add_argument("--record-json", help="JSON object payload for the record")
     parser.add_argument(
+        "--print-schema",
+        action="store_true",
+        help="Print JSON schema for auto-pilot metrics and exit",
+    )
+    parser.add_argument(
         "--metric-type", choices=["step", "cycle", "escalation"], help="Record type"
     )
     parser.add_argument("--issue-number", help="Issue number")
@@ -369,6 +381,9 @@ def main(argv: list[str]) -> int:
     args = parser.parse_args(argv)
 
     try:
+        if args.print_schema:
+            print(schema_payload())
+            return 0
         if args.record_json:
             record = load_record_from_json(args.record_json)
         else:
