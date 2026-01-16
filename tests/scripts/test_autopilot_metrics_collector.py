@@ -196,6 +196,31 @@ def test_build_record_from_args_normalizes_failure_reason_on_success() -> None:
     assert record["failure_reason"] == "none"
 
 
+def test_build_record_from_args_normalizes_blank_failure_reason_on_success() -> None:
+    args = collector.argparse.Namespace(
+        metric_type="step",
+        issue_number="42",
+        cycle_count="5",
+        timestamp="2025-04-05T06:07:08Z",
+        step_name="format-issue",
+        duration_ms="1200",
+        started_at=None,
+        ended_at=None,
+        started_at_ms=None,
+        ended_at_ms=None,
+        success="true",
+        failure_reason="   ",
+        max_cycles=None,
+        steps_attempted=None,
+        steps_completed=None,
+        escalation_reason=None,
+    )
+
+    record = collector.build_record_from_args(args)
+
+    assert record["failure_reason"] == "none"
+
+
 def test_schema_payload_contains_record_types() -> None:
     payload = json.loads(collector.schema_payload())
 
@@ -470,6 +495,27 @@ def test_load_record_from_json_defaults_failure_reason_for_success() -> None:
             "step_name": "format-issue",
             "duration_ms": "1200",
             "success": "true",
+        }
+    )
+
+    record = collector.load_record_from_json(payload)
+
+    assert record["failure_reason"] == "none"
+    collector.validate_record(record)
+
+
+def test_load_record_from_json_normalizes_blank_failure_reason_on_success() -> None:
+    payload = json.dumps(
+        {
+            "schema_version": "1",
+            "metric_type": "step",
+            "issue_number": "101",
+            "timestamp": "2025-01-01T00:00:00Z",
+            "cycle_count": "2",
+            "step_name": "format-issue",
+            "duration_ms": "1200",
+            "success": "true",
+            "failure_reason": "   ",
         }
     )
 
