@@ -218,6 +218,25 @@ def test_build_record_from_args_requires_failure_reason_on_failure() -> None:
         collector.build_record_from_args(args)
 
 
+def test_load_record_from_json_defaults_schema_and_timestamp(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(collector, "_utc_now_iso", lambda: "2025-01-01T00:00:00Z")
+    payload = json.dumps(
+        {
+            "metric_type": "cycle",
+            "issue_number": 101,
+            "cycle_count": 2,
+        }
+    )
+
+    record = collector.load_record_from_json(payload)
+
+    assert record["schema_version"] == collector.AUTOPILOT_METRICS_SCHEMA_VERSION
+    assert record["timestamp"] == "2025-01-01T00:00:00Z"
+    collector.validate_record(record)
+
+
 def test_build_record_from_args_computes_duration_from_bounds() -> None:
     args = collector.argparse.Namespace(
         metric_type="step",
