@@ -633,13 +633,26 @@ function buildTraceToken({ seed, prNumber, round }) {
   return parts.join('-');
 }
 
-function resolveAutomationToken(env = {}) {
+function resolveInstructionToken(env = {}) {
+  return (
+    String(
+      env.SERVICE_BOT_PAT ||
+        env.service_bot_pat ||
+        env.ACTIONS_BOT_PAT ||
+        env.actions_bot_pat ||
+        env.GH_TOKEN ||
+        env.gh_token ||
+        ''
+    )
+      .trim() || ''
+  );
+}
+
+function resolveDispatchToken(env = {}) {
   return (
     String(
       env.ACTIONS_BOT_PAT ||
-        env.SERVICE_BOT_PAT ||
         env.actions_bot_pat ||
-        env.service_bot_pat ||
         env.GH_TOKEN ||
         env.gh_token ||
         ''
@@ -675,10 +688,11 @@ async function runKeepalive({ core, github, context, env = process.env }) {
     return;
   }
 
-  const instructionAuthorToken = resolveAutomationToken(env);
+  const instructionAuthorToken = resolveInstructionToken(env);
   if (!instructionAuthorToken) {
     throw new Error('GitHub token is required to author keepalive instructions (app token or PAT).');
   }
+  const dispatchToken = resolveDispatchToken(env);
 
   const instructionAuthorOctokit = buildOctokitInstance({
     core,
@@ -1157,7 +1171,7 @@ async function runKeepalive({ core, github, context, env = process.env }) {
                 github,
                 owner,
                 repo,
-                token: instructionAuthorToken,
+                token: dispatchToken,
                 payload: {
                   issue: prNumber,
                   agent: agentAlias,
