@@ -32,4 +32,10 @@ Automation agents touching **any** keepalive code path must consult the followin
 
 4. **Verify Before Marking Complete**: Only mark task checkboxes complete after verifying the implementation works.
 
+## Keepalive Implementations
+
+The repository supports two keepalive implementations. The **Codex CLI keepalive** is the current, canonical flow. The **legacy UI connector-bot** flow is retained for historical context and compatibility.
+
+See [`Keepalive_Approaches.md`](Keepalive_Approaches.md) for a full comparison and the rationale for preferring the CLI approach.
+
 Do not mark checklist items complete or dispatch new keepalive rounds until the acceptance criteria in the canonical guide are satisfied. Update all relevant documents together if the contract evolves.

@@ -1014,17 +1014,17 @@ At end of each workflow section, include:
 ```
 User adds `agents:auto-pilot` to issue
           ↓
-Step 1: agents:format (initial structure)
+Step 1: Format issue inline → mark agents:formatted
           ↓
-Step 2: agents:optimize → agents:apply-suggestions
+Step 2: Optimize issue inline → post suggestions
           ↓
-Step 3: capability_check.py runs
-          ↓ (if capable)
-Step 4: agent:codex applied → PR created
+Step 3: Apply suggestions inline → mark agents:apply-suggestions
           ↓
-Step 5: autofix + agents:keepalive applied to PR
+Step 4: agent:codex applied → agent branch created
           ↓
-Step 6: Gate passes + acceptance criteria met
+Step 5: Auto-pilot creates PR → dispatch PR meta update
+          ↓
+Step 6: Gate workflow_run drives keepalive loop until tasks complete
           ↓
 Step 7: Auto-merge (if enabled + all checks pass)
           ↓
@@ -1056,7 +1056,7 @@ Step 8: verify:evaluate on merged PR
 
 | Step | Challenge | Mitigation |
 |------|-----------|------------|
-| Sequential labels | GitHub doesn't support chained label triggers | Use workflow_dispatch between steps |
+| Sequential steps | GitHub doesn't support chained label triggers | Inline prep + workflow_dispatch between steps |
 | Race conditions | Multiple workflows competing | Concurrency groups + state tracking |
 | Error handling | What if step fails? | Add `agents:auto-pilot-failed` + comment explaining failure |
 | User expectations | Users expect instant completion | Post progress comments at each step |

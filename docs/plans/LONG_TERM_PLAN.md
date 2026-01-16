@@ -120,7 +120,7 @@ With Phase 3 complete (capability check, task decomposition, duplicate detection
 
 **Implementation:**
 - ✅ `agents-auto-pilot.yml` workflow created (~490 lines)
-- ✅ State machine via label detection
+- ✅ Inline issue prep (format/optimize/apply) with self re-dispatch
 - ✅ Progress comments at each step (step tracking)
 - ✅ Safety controls: 10 step max, 4hr timeout, pause/failed labels
 - ✅ Labels created: `agents:auto-pilot`, `agents:auto-pilot-pause`, `agents:auto-pilot-failed`
@@ -129,13 +129,13 @@ With Phase 3 complete (capability check, task decomposition, duplicate detection
 
 **Flow:**
 1. User adds `agents:auto-pilot` to issue
-2. Workflow checks state → adds `agents:format`
-3. Format completes → workflow adds `agents:optimize`
-4. Optimize completes → workflow adds `agents:apply-suggestions`
-5. Apply completes → workflow adds `agent:codex`
-6. Agent creates PR → keepalive/autofix monitor
-7. PR merged → issue closed → workflow adds `verify:evaluate`
-8. Verification complete → auto-pilot removes itself
+2. Auto-pilot formats issue inline and marks `agents:formatted`
+3. Auto-pilot optimizes issue inline and posts suggestions
+4. Auto-pilot applies suggestions inline and marks `agents:apply-suggestions`
+5. Auto-pilot assigns `agent:codex` and waits for agent branch
+6. Auto-pilot creates PR and dispatches PR meta update
+7. Gate workflow_run triggers keepalive loop until tasks complete
+8. Auto-pilot adds `automerge`, then `verify:evaluate`, then removes itself
 
 **Testing Needed:**
 - [ ] Create test issue with `agents:auto-pilot`

@@ -2,9 +2,9 @@
 
 _Last updated: 2026-01-12_
 
-This document captures the trimmed agent automation surface that remains after Issue #2190. The GitHub Actions footprint now
-consists of a single orchestrator workflow plus the reusable composite it consumes. Everything else that previously handled
-label forwarding, watchdog wrappers, or Codex bootstrap fallbacks has been removed.
+This document captures the trimmed agent automation surface after Issue #2190. The GitHub Actions footprint centers on the
+Agents 70 Orchestrator plus the keepalive loop that is driven by Gate `workflow_run` events. Legacy label-forwarding wrappers
+remain retired, but the keepalive loop is an active path for PR progression.
 
 ## High-Level Flow
 
@@ -15,13 +15,19 @@ Manual dispatch / 20-minute schedule ──▶ agents-70-orchestrator.yml
                                         ├─ Optional Codex preflight diagnostics
                                         ├─ Optional issue verification (label + assignment parity)
                                         ├─ Watchdog sweep for Codex bootstrap health
-                                        └─ Codex keepalive sweep (checklist nudge)
+                                        └─ Optional keepalive sweep (checklist nudge)
+
+Gate workflow_run (PRs) ───────────────▶ agents-keepalive-loop.yml
+                                        │
+                                        ├─ Evaluate PR keepalive guardrails
+                                        ├─ Run Codex CLI via reusable-codex-run.yml
+                                        └─ Loop on subsequent Gate completions
 ```
 
 - No automatic label forwarding remains. Maintainers trigger the orchestrator directly from the Actions tab (manual
   `workflow_dispatch`) or allow the 20-minute schedule to run readiness + watchdog checks.
-- Codex keepalive now runs as part of the orchestrator invocation. Configure thresholds or disable it entirely via the
-  `params_json` payload (e.g. `{ "enable_keepalive": false }`).
+- Codex keepalive on PRs is driven by the Gate `workflow_run` loop. The orchestrator sweep is optional and can be
+  disabled via `params_json` (e.g. `{ "enable_keepalive": false }`).
 - Keepalive contract guidance lives in [`docs/keepalive/GoalsAndPlumbing.md`](keepalive/GoalsAndPlumbing.md); review it before
   adjusting any keepalive workflows or recovery logic. Follow the recovery playbook in
   [`docs/keepalive/SyncChecklist.md`](keepalive/SyncChecklist.md) when branch-sync intervention is required.
