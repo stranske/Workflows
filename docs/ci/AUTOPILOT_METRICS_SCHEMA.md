@@ -13,6 +13,7 @@ listed here for reference.
 
 All record types include the following fields:
 
+- `schema_version`: Integer schema version (currently `1`).
 - `metric_type`: `"step"`, `"cycle"`, or `"escalation"`.
 - `issue_number`: Integer issue number.
 - `timestamp`: ISO 8601 UTC timestamp for the record.
@@ -31,6 +32,7 @@ Example:
 
 ```json
 {
+  "schema_version": 1,
   "metric_type": "step",
   "issue_number": 120,
   "timestamp": "2026-02-01T12:34:56Z",
@@ -54,6 +56,7 @@ Example:
 
 ```json
 {
+  "schema_version": 1,
   "metric_type": "cycle",
   "issue_number": 120,
   "timestamp": "2026-02-01T12:40:10Z",
@@ -74,6 +77,7 @@ Example:
 
 ```json
 {
+  "schema_version": 1,
   "metric_type": "escalation",
   "issue_number": 120,
   "timestamp": "2026-02-01T12:45:01Z",

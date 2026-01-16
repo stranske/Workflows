@@ -9,6 +9,7 @@ from scripts import autopilot_metrics_collector as collector
 
 def _step_record(success: bool = True) -> dict:
     return {
+        "schema_version": collector.AUTOPILOT_METRICS_SCHEMA_VERSION,
         "metric_type": "step",
         "issue_number": 101,
         "timestamp": datetime(2025, 1, 1, tzinfo=UTC).isoformat().replace("+00:00", "Z"),
@@ -22,6 +23,7 @@ def _step_record(success: bool = True) -> dict:
 
 def _cycle_record() -> dict:
     return {
+        "schema_version": collector.AUTOPILOT_METRICS_SCHEMA_VERSION,
         "metric_type": "cycle",
         "issue_number": 101,
         "timestamp": datetime(2025, 1, 2, tzinfo=UTC).isoformat().replace("+00:00", "Z"),
@@ -34,6 +36,7 @@ def _cycle_record() -> dict:
 
 def _escalation_record() -> dict:
     return {
+        "schema_version": collector.AUTOPILOT_METRICS_SCHEMA_VERSION,
         "metric_type": "escalation",
         "issue_number": 101,
         "timestamp": datetime(2025, 1, 3, tzinfo=UTC).isoformat().replace("+00:00", "Z"),
@@ -131,6 +134,7 @@ def test_build_record_from_args_defaults_timestamp(monkeypatch: pytest.MonkeyPat
     record = collector.build_record_from_args(args)
 
     assert record["timestamp"] == "2025-04-05T06:07:08Z"
+    assert record["schema_version"] == collector.AUTOPILOT_METRICS_SCHEMA_VERSION
     assert record["issue_number"] == 12
     assert record["failure_reason"] == "none"
 
@@ -468,6 +472,7 @@ def test_load_record_from_json_adds_timestamp(monkeypatch: pytest.MonkeyPatch) -
         '{"metric_type": "cycle", "issue_number": 1, "cycle_count": 1}'
     )
 
+    assert record["schema_version"] == collector.AUTOPILOT_METRICS_SCHEMA_VERSION
     assert record["timestamp"] == "2025-06-07T08:09:10Z"
 
 

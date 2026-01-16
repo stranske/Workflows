@@ -46,6 +46,7 @@ AUTOPILOT_METRICS_SCHEMA: dict[str, Any] = {
     "record_types": {
         "step": {
             "required": (
+                "schema_version",
                 "metric_type",
                 "issue_number",
                 "timestamp",
@@ -57,11 +58,18 @@ AUTOPILOT_METRICS_SCHEMA: dict[str, Any] = {
             ),
         },
         "cycle": {
-            "required": ("metric_type", "issue_number", "timestamp", "cycle_count"),
+            "required": (
+                "schema_version",
+                "metric_type",
+                "issue_number",
+                "timestamp",
+                "cycle_count",
+            ),
             "optional": ("max_cycles", "steps_attempted", "steps_completed"),
         },
         "escalation": {
             "required": (
+                "schema_version",
                 "metric_type",
                 "issue_number",
                 "timestamp",
@@ -137,6 +145,10 @@ def _validate_step(record: dict[str, Any]) -> None:
     if missing:
         raise ValidationError(f"missing fields: {', '.join(missing)}")
 
+    if not _is_int(record["schema_version"]):
+        raise ValidationError("schema_version must be an integer")
+    if record["schema_version"] != AUTOPILOT_METRICS_SCHEMA_VERSION:
+        raise ValidationError(f"schema_version must be {AUTOPILOT_METRICS_SCHEMA_VERSION}")
     if not _is_int(record["issue_number"]):
         raise ValidationError("issue_number must be an integer")
     if not _is_int(record["cycle_count"]):
@@ -160,6 +172,10 @@ def _validate_cycle(record: dict[str, Any]) -> None:
     if missing:
         raise ValidationError(f"missing fields: {', '.join(missing)}")
 
+    if not _is_int(record["schema_version"]):
+        raise ValidationError("schema_version must be an integer")
+    if record["schema_version"] != AUTOPILOT_METRICS_SCHEMA_VERSION:
+        raise ValidationError(f"schema_version must be {AUTOPILOT_METRICS_SCHEMA_VERSION}")
     if not _is_int(record["issue_number"]):
         raise ValidationError("issue_number must be an integer")
     if not _is_int(record["cycle_count"]):
@@ -177,6 +193,10 @@ def _validate_escalation(record: dict[str, Any]) -> None:
     if missing:
         raise ValidationError(f"missing fields: {', '.join(missing)}")
 
+    if not _is_int(record["schema_version"]):
+        raise ValidationError("schema_version must be an integer")
+    if record["schema_version"] != AUTOPILOT_METRICS_SCHEMA_VERSION:
+        raise ValidationError(f"schema_version must be {AUTOPILOT_METRICS_SCHEMA_VERSION}")
     if not _is_int(record["issue_number"]):
         raise ValidationError("issue_number must be an integer")
     if not _is_int(record["cycle_count"]):
@@ -257,6 +277,7 @@ def build_record_from_args(args: argparse.Namespace) -> dict[str, Any]:
         raise ValidationError("metric_type must be set")
 
     record: dict[str, Any] = {
+        "schema_version": AUTOPILOT_METRICS_SCHEMA_VERSION,
         "metric_type": metric_type,
         "issue_number": _coerce_int(args.issue_number, "issue_number"),
         "timestamp": args.timestamp or _utc_now_iso(),
@@ -334,6 +355,8 @@ def load_record_from_json(payload: str) -> dict[str, Any]:
         raise ValidationError("record_json must be valid JSON") from exc
     if not isinstance(record, dict):
         raise ValidationError("record_json must decode to an object")
+    if "schema_version" not in record:
+        record["schema_version"] = AUTOPILOT_METRICS_SCHEMA_VERSION
     if "timestamp" not in record:
         record["timestamp"] = _utc_now_iso()
     return record
