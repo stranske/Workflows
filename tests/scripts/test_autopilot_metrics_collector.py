@@ -73,6 +73,14 @@ def test_validate_record_rejects_invalid_metric_type() -> None:
         collector.validate_record(record)
 
 
+def test_validate_record_rejects_missing_metric_type() -> None:
+    record = _step_record()
+    record["metric_type"] = None
+
+    with pytest.raises(collector.ValidationError, match="metric_type must be set"):
+        collector.validate_record(record)
+
+
 def test_validate_record_rejects_invalid_timestamp() -> None:
     record = _step_record()
     record["timestamp"] = "not-a-timestamp"

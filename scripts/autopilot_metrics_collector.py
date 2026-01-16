@@ -209,7 +209,10 @@ def _validate_escalation(record: dict[str, Any]) -> None:
 
 def validate_record(record: dict[str, Any]) -> None:
     """Validate required fields and types for a metrics record."""
-    metric_type = str(record.get("metric_type", "")).strip().lower()
+    raw_metric_type = record.get("metric_type")
+    if raw_metric_type is None:
+        raise ValidationError("metric_type must be set")
+    metric_type = str(raw_metric_type).strip().lower()
     if not metric_type:
         raise ValidationError("metric_type must be set")
     if metric_type == "step":
