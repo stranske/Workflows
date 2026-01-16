@@ -50,10 +50,11 @@ def _step_runs_command(step: dict[str, Any], needle: str) -> bool:
     return needle in script
 
 
-def test_dispatcher_is_reusable_only_and_exposes_worker_context():
+def test_dispatcher_is_reusable_and_exposes_worker_context():
     workflow = _load_workflow("agents-71-codex-belt-dispatcher.yml")
     triggers = workflow.get("on") or {}
-    assert set(triggers) == {"workflow_call"}
+    assert "workflow_call" in triggers
+    assert "workflow_dispatch" in triggers
 
     workflow_call = triggers.get("workflow_call") or {}
     inputs = workflow_call.get("inputs") or {}
