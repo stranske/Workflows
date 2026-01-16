@@ -81,6 +81,22 @@ def test_validate_record_rejects_missing_metric_type() -> None:
         collector.validate_record(record)
 
 
+def test_validate_record_rejects_non_int_schema_version() -> None:
+    record = _step_record()
+    record["schema_version"] = "1"
+
+    with pytest.raises(collector.ValidationError, match="schema_version must be an integer"):
+        collector.validate_record(record)
+
+
+def test_validate_record_rejects_unknown_schema_version() -> None:
+    record = _step_record()
+    record["schema_version"] = collector.AUTOPILOT_METRICS_SCHEMA_VERSION + 1
+
+    with pytest.raises(collector.ValidationError, match="schema_version must be"):
+        collector.validate_record(record)
+
+
 def test_validate_record_rejects_invalid_timestamp() -> None:
     record = _step_record()
     record["timestamp"] = "not-a-timestamp"
