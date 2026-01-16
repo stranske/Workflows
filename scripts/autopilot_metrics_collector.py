@@ -380,6 +380,10 @@ def load_record_from_json(payload: str) -> dict[str, Any]:
             record[field] = _coerce_int(value, field)
     if "success" in record and not isinstance(record["success"], bool):
         record["success"] = _coerce_bool(record["success"], "success")
+    if record.get("metric_type") == "step" and "success" in record:
+        record["failure_reason"] = _normalize_failure_reason(
+            record["success"], record.get("failure_reason")
+        )
     return record
 
 
