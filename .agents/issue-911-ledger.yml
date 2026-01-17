@@ -6,8 +6,8 @@ tasks:
   - id: task-01
     title: Update `docs/ci/WORKFLOW_SYSTEM.md` with a short note under the keepalive
       entries clarifying the auto-pilot keepalive dispatch behavior.
-    status: todo
-    started_at: null
+    status: doing
+    started_at: '2026-01-17T08:58:20Z'
     finished_at: null
     commit: ''
     notes:
