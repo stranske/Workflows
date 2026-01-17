@@ -239,7 +239,8 @@ jobs:
           git config user.name "stranske-automation-bot"
           git config user.email "stranske-automation-bot@users.noreply.github.com"
 
-          if git ls-remote --heads origin "$branch" >/dev/null 2>&1; then
+          existing_ref=$(git ls-remote --heads origin "$branch" || true)
+          if [ -n "$existing_ref" ]; then
             echo "Branch $branch already exists on origin; leaving as-is."
           else
             git checkout -b "$branch"
