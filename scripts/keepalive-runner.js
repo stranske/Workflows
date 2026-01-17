@@ -693,7 +693,7 @@ async function runKeepalive({ core, github, context, env = process.env }) {
     throw new Error('GitHub token is required to author keepalive instructions (app token or PAT).');
   }
   const resolvedDispatchToken = resolveDispatchToken(env);
-  const dispatchToken = resolvedDispatchToken || instructionAuthorToken;
+  const dispatchToken = resolvedDispatchToken;
 
   const instructionAuthorOctokit = buildOctokitInstance({
     core,
