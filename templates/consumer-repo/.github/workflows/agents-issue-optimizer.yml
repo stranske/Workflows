@@ -358,11 +358,16 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           if [ -n "${ISSUE_NUMBER}" ]; then
-            gh issue comment "${ISSUE_NUMBER}" --body "⚠️ **Workflow failed**
+            body=$(cat <<'COMMENT'
+          ⚠️ **Workflow failed**
 
-The agents-issue-optimizer workflow encountered an error.
+          The agents-issue-optimizer workflow encountered an error.
 
-**Details**: [View workflow run](${RUN_URL})
+          **Details**: [View workflow run](RUN_URL_PLACEHOLDER)
 
-Please check the logs and retry if needed." || true
+          Please check the logs and retry if needed.
+          COMMENT
+          )
+            body="${body//RUN_URL_PLACEHOLDER/${RUN_URL}}"
+            gh issue comment "${ISSUE_NUMBER}" --body "$body" || true
           fi
