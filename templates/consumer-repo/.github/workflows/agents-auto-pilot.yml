@@ -1082,8 +1082,10 @@ jobs:
         if: |
           steps.context.outputs.should_continue == 'true' &&
           steps.cycles.outputs.exceeded != 'true' &&
-          contains(fromJSON('["format","optimize","apply","capability-check","monitor-pr"]'),
-          steps.next.outputs.next_step)
+          contains(
+            fromJSON('["format","optimize","apply","capability-check","create-pr","monitor-pr"]'),
+            steps.next.outputs.next_step
+          )
         uses: actions/github-script@v8
         env:
           ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
@@ -1100,16 +1102,17 @@ jobs:
               'optimize': 'apply',
               'apply': 'capability-check',
               'capability-check': 'auto',  // Let it detect agent/PR state
+              'create-pr': 'auto',  // Re-evaluate after branch/PR creation
               'monitor-pr': 'auto'  // Let it check PR completion
             };
             const nextStep = nextStepMap[currentStep] || 'auto';
 
-            // For monitor-pr, add delay to avoid tight polling loop
-            // Keepalive updates arrive slowly while CI runs; without delay
+            // For monitor-pr or create-pr, add delay to avoid tight polling loops
+            // Keepalive updates and branch creation can take time; without delay
             // we'd spam Actions with rapid re-dispatches
-            if (currentStep === 'monitor-pr') {
-              const waitTime = 120000;  // 2 minutes between monitor checks
-              core.info(`Waiting ${waitTime/1000}s for keepalive update...`);
+            if (currentStep === 'monitor-pr' || currentStep === 'create-pr') {
+              const waitTime = currentStep === 'monitor-pr' ? 120000 : 60000;
+              core.info(`Waiting ${waitTime/1000}s before re-dispatch...`);
               await new Promise(resolve => setTimeout(resolve, waitTime));
             }
             // Other steps dispatch immediately - explicit force_step
