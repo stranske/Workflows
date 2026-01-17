@@ -605,6 +605,8 @@ Keep this table handy when you are triaging automation: it confirms which workfl
   `repository_dispatch` payloads and replays them through the reusable agents
   topology so keepalive actions stay aligned with
   `agents-keepalive-branch-sync.yml`.
+  Auto-pilot only dispatches keepalive after it has created a PR; the inline
+  issue-formatting phase does not use keepalive dispatches.
 - **Keepalive pause/resume control.** Toggle the repository-level
   `keepalive:paused` label to halt keepalive runs globally, or set the
   `keepalive_enabled` workflow input / params override to disable a single
