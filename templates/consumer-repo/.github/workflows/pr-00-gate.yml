@@ -109,13 +109,9 @@ jobs:
           echo "description=${description}" >> "$GITHUB_OUTPUT"
           echo "[Gate] State: ${state}, Description: ${description}"
 
-      - name: Generate App Token for commit status
-        id: app_token
-        continue-on-error: true
-        uses: actions/create-github-app-token@v2
-        with:
-          app-id: ${{ secrets.WORKFLOWS_APP_ID }}
-          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+      # Note: We use GITHUB_TOKEN directly for commit status creation.
+      # This is just one API call per CI run, so it doesn't contribute significantly to rate limits.
+      # App tokens would require statuses:write permission which may not be configured.
 
       - name: Report Gate commit status
         if: ${{ always() }}
@@ -124,12 +120,9 @@ jobs:
           STATE: ${{ steps.summarize.outputs.state || 'pending' }}
           DESCRIPTION: ${{ steps.summarize.outputs.description || 'Gate status pending' }}
           TARGET_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          # Pass both tokens so script can fallback if App lacks permission
-          APP_TOKEN: ${{ steps.app_token.outputs.token || '' }}
-          GITHUB_TOKEN_FALLBACK: ${{ github.token }}
         with:
-          # Use app token if available (5000/hr pool) to avoid rate limits
-          github-token: ${{ steps.app_token.outputs.token || github.token }}
+          # Use GITHUB_TOKEN directly - commit status is one call per run, not rate limit sensitive
+          github-token: ${{ github.token }}
           script: |
             const owner = context.repo.owner;
             const repo = context.repo.repo;
@@ -144,9 +137,8 @@ jobs:
                 : rawDescription;
             const targetUrl = process.env.TARGET_URL;
 
-            // Helper to create commit status
-            async function createStatus(octokit, tokenName) {
-              await octokit.rest.repos.createCommitStatus({
+            try {
+              await github.rest.repos.createCommitStatus({
                 owner,
                 repo,
                 sha,
@@ -155,33 +147,12 @@ jobs:
                 description,
                 target_url: targetUrl,
               });
-              console.log(`Created commit status with ${tokenName}: ${state} - ${description}`);
-            }
-
-            // Try with primary token first (App token or GITHUB_TOKEN based on with.github-token)
-            try {
-              await createStatus(github, 'primary token');
+              console.log(`Created commit status: ${state} - ${description}`);
             } catch (error) {
-              const isPermissionError =
-                error?.status === 403 &&
-                /resource not accessible/i.test(error?.message || '');
               const isRateLimitError =
                 error?.status === 403 &&
                 /rate limit/i.test(error?.message || '');
-
-              if (isPermissionError && process.env.APP_TOKEN) {
-                // App token lacks statuses:write permission, try GITHUB_TOKEN
-                core.warning('App token lacks statuses permission, falling back to GITHUB_TOKEN');
-                const { getOctokit } = require('@actions/github');
-                const fallbackOctokit = getOctokit(process.env.GITHUB_TOKEN_FALLBACK);
-                
-                try {
-                  await createStatus(fallbackOctokit, 'GITHUB_TOKEN');
-                } catch (fallbackError) {
-                  core.error(`Fallback also failed: ${fallbackError.message}`);
-                  throw fallbackError;
-                }
-              } else if (isRateLimitError) {
+              if (isRateLimitError) {
                 core.warning('Rate limit prevented Gate from updating the commit status.');
               } else {
                 throw error;
