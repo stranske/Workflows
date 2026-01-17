@@ -94,6 +94,26 @@ def test_build_summary_groups_by_repo() -> None:
     assert summary["repos"]["beta"]["count"] == 1
 
 
+def test_build_summary_comparisons_group_by_field() -> None:
+    entries = [
+        {"repo": "alpha", "duration_ms": 10, "size": 5},
+        {"repo": "alpha", "duration_ms": 20},
+        {"repo": "beta", "duration_ms": 30, "size": "ignored"},
+        {"repo": "beta", "size": 15},
+    ]
+
+    summary = aggregator.build_summary(entries, errors=0, numeric_fields=["duration_ms", "size"])
+
+    duration = summary["comparisons"]["duration_ms"]
+    assert duration["overall"]["mean"] == pytest.approx(20.0)
+    assert duration["repos"]["alpha"]["count"] == 2
+    assert duration["repos"]["beta"]["summary"]["mean"] == pytest.approx(30.0)
+
+    size = summary["comparisons"]["size"]
+    assert size["repos"]["alpha"]["summary"]["mean"] == pytest.approx(5.0)
+    assert size["repos"]["beta"]["count"] == 1
+
+
 def test_write_combined_ndjson(tmp_path: Path) -> None:
     entries = [
         {"repo": "alpha", "duration_ms": 10},

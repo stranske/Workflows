@@ -189,6 +189,7 @@ def build_summary(
 ) -> dict[str, Any]:
     fields = numeric_fields or _infer_numeric_fields(entries)
     overall = aggregate_numeric_fields(entries, fields)
+    comparisons = build_comparison_groups(entries, fields)
     repos_summary: dict[str, Any] = {}
     for repo, repo_entries in _group_by_repo(entries).items():
         repos_summary[repo] = {
@@ -200,8 +201,36 @@ def build_summary(
         "parse_errors": errors,
         "numeric_fields": fields,
         "overall": {"count": len(entries), "aggregates": overall},
+        "comparisons": comparisons,
         "repos": repos_summary,
     }
+
+
+def build_comparison_groups(
+    entries: list[dict[str, Any]],
+    fields: list[str],
+) -> dict[str, Any]:
+    grouped = _group_by_repo(entries)
+    comparisons: dict[str, Any] = {}
+    for field in fields:
+        overall_values: list[float] = []
+        per_repo: dict[str, Any] = {}
+        for repo, repo_entries in grouped.items():
+            values: list[float] = []
+            for entry in repo_entries:
+                value = _as_number(entry.get(field))
+                if value is not None:
+                    values.append(value)
+            overall_values.extend(values)
+            per_repo[repo] = {
+                "count": len(values),
+                "summary": summarize_values(values),
+            }
+        comparisons[field] = {
+            "overall": summarize_values(overall_values),
+            "repos": per_repo,
+        }
+    return comparisons
 
 
 def write_combined_ndjson(path: Path, entries: Iterable[dict[str, Any]]) -> None:
