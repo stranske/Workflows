@@ -35,8 +35,8 @@ on:
       max_parallel:
         description: 'Maximum concurrent worker runs permitted'
         required: false
-        default: 1
-        type: number
+        default: '1'
+        type: string
       keepalive:
         description: 'True when invocation originates from a keepalive sweep'
         required: false
@@ -60,7 +60,7 @@ jobs:
       source: ${{ inputs.source }}
       dry_run: ${{ inputs.dry_run }}
       use_step_branch: ${{ inputs.use_step_branch }}
-      max_parallel: ${{ inputs.max_parallel }}
+      max_parallel: ${{ fromJSON(inputs.max_parallel) }}
       keepalive: ${{ inputs.keepalive }}
     secrets:
       WORKFLOWS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID }}
