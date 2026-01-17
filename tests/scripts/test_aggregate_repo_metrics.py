@@ -68,6 +68,19 @@ def test_read_repo_metrics_tags_repo(tmp_path: Path) -> None:
     assert entries == [{"summary": {"tests": 10}, "repo": "owner/repo"}]
 
 
+def test_read_repo_metrics_files_accumulates_errors(tmp_path: Path) -> None:
+    metrics = tmp_path / "metrics.ndjson"
+    metrics.write_text('{"duration_ms": 10}\n', encoding="utf-8")
+    missing = tmp_path / "missing.ndjson"
+
+    entries, errors = aggregator.read_repo_metrics_files(
+        [("alpha/one", metrics), ("beta/two", missing)]
+    )
+
+    assert errors == 1
+    assert entries == [{"duration_ms": 10, "repo": "alpha/one"}]
+
+
 def test_infer_numeric_fields_ignores_repo_and_non_numeric() -> None:
     entries = [
         {"repo": "alpha", "duration_ms": "10", "note": "ok", "flag": True},
@@ -200,3 +213,11 @@ def test_main_writes_outputs_for_repo_list(tmp_path: Path) -> None:
     assert summary["parse_errors"] == 1
     assert summary["overall"]["aggregates"]["duration_ms"]["mean"] == pytest.approx(15.0)
     assert summary["repos"]["alpha/one"]["count"] == 1
+
+
+def test_main_reports_missing_repos(capsys: pytest.CaptureFixture[str]) -> None:
+    result = aggregator.main([])
+
+    assert result == 1
+    captured = capsys.readouterr()
+    assert "aggregate_repo_metrics: no repos specified." in captured.err
