@@ -137,6 +137,15 @@ def test_workflow_docs_highlight_comment_consolidation() -> None:
         ), f"Docs should mention the retirement of {wrapper}."
 
 
+def test_workflow_system_keepalive_autopilot_note() -> None:
+    """Workflow system guide should note the auto-pilot keepalive dispatch path."""
+
+    system_text = _normalize(WORKFLOW_SYSTEM_DOC.read_text())
+    assert (
+        "Auto-pilot keepalive dispatch" in system_text
+    ), "Workflow system guide should call out auto-pilot keepalive dispatch behavior."
+
+
 def test_selftest_runner_plan_status_highlights_completion() -> None:
     """Runner plan should mark consolidation completion and spotlight the single workflow."""
 

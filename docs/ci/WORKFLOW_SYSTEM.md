@@ -600,6 +600,10 @@ Keep this table handy when you are triaging automation: it confirms which workfl
   and repeats on subsequent Gate completions until tasks are done. The
   orchestrator keepalive sweep remains optional and can be disabled via
   `enable_keepalive` in `reusable-16-agents.yml`.
+- **Auto-pilot keepalive dispatch.** When auto-pilot creates a PR, it triggers a
+  one-time `workflow_dispatch` of `agents-keepalive-loop.yml` because label
+  changes made via `GITHUB_TOKEN` do not fire the Gate `workflow_run` hook;
+  subsequent rounds still rely on Gate completions.
 - **Keepalive dispatch handler.** The workflow
   `agents-keepalive-dispatch-handler.yml` listens for orchestrator
   `repository_dispatch` payloads and replays them through the reusable agents

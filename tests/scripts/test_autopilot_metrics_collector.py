@@ -913,3 +913,68 @@ def test_load_record_from_json_rejects_invalid_payloads() -> None:
 
     with pytest.raises(collector.ValidationError, match="record_json must decode to an object"):
         collector.load_record_from_json('["list"]')
+
+
+def test_main_writes_record_to_stdout_and_log(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    log_path = tmp_path / "metrics.ndjson"
+    exit_code = collector.main(
+        [
+            "--path",
+            str(log_path),
+            "--metric-type",
+            "step",
+            "--issue-number",
+            "12",
+            "--cycle-count",
+            "1",
+            "--step-name",
+            "format",
+            "--duration-ms",
+            "1200",
+            "--success",
+            "true",
+        ]
+    )
+
+    assert exit_code == 0
+    stdout = capsys.readouterr().out.strip()
+    assert stdout
+    log_contents = log_path.read_text(encoding="utf-8").strip()
+    assert log_contents == stdout
+    record = json.loads(stdout)
+    collector.validate_record(record)
+
+
+def test_main_writes_failure_summary(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    summary_path = tmp_path / "summary.ndjson"
+    monkeypatch.setenv("AUTOPILOT_METRICS_SUMMARY_PATH", str(summary_path))
+    monkeypatch.setenv("AUTOPILOT_STEP_NAME", "format")
+    monkeypatch.setenv("GITHUB_RUN_ID", "12345")
+
+    exit_code = collector.main(
+        [
+            "--metric-type",
+            "step",
+            "--issue-number",
+            "12",
+            "--cycle-count",
+            "1",
+            "--step-name",
+            "format",
+            "--success",
+            "true",
+        ]
+    )
+
+    assert exit_code == 1
+    summary_lines = summary_path.read_text(encoding="utf-8").splitlines()
+    assert len(summary_lines) == 1
+    summary = json.loads(summary_lines[0])
+    assert summary["summary_type"] == "autopilot-metrics-error"
+    assert summary["component"] == "autopilot_metrics_collector"
+    assert summary["step_name"] == "format"
+    assert summary["error_category"] == "validation_error"
+    assert summary["exit_code"] == 1
+    assert summary["environment"]["github_run_id"] == "12345"

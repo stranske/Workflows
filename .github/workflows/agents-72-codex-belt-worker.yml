@@ -493,6 +493,15 @@ jobs:
           token: ${{ env.GH_BELT_TOKEN }}
           fetch-depth: 0
 
+      - name: Checkout belt tooling
+        if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.keepalive_gate.outputs.action != 'skip') }}
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.ref }}
+          token: ${{ env.GH_BELT_TOKEN }}
+          fetch-depth: 1
+          path: .belt-tools
+
       - name: Validate ledger base branch
         if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.keepalive_gate.outputs.action != 'skip') }}
         env:
@@ -794,7 +803,7 @@ jobs:
       - name: Validate ledger schema (pre-flight)
         if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.keepalive_gate.outputs.action != 'skip') && steps.ledger_start.outputs.ledger_changed == 'true' }}
         run: |
-          python scripts/ledger_validate.py ".agents/issue-${{ steps.ctx.outputs.issue }}-ledger.yml"
+          python .belt-tools/scripts/ledger_validate.py ".agents/issue-${{ steps.ctx.outputs.issue }}-ledger.yml"
 
       - name: Commit ledger in-progress state
         if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.keepalive_gate.outputs.action != 'skip') && steps.mode.outputs.dry_run != 'true' && steps.ledger_start.outputs.ledger_changed == 'true' }}
@@ -1284,7 +1293,7 @@ jobs:
       - name: Validate ledger schema (final)
         if: ${{ always() && steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.keepalive_gate.outputs.action != 'skip') && steps.ledger_finalize.outputs.ledger_path != '' }}
         run: |
-          python scripts/ledger_validate.py "${{ steps.ledger_finalize.outputs.ledger_path }}"
+          python .belt-tools/scripts/ledger_validate.py "${{ steps.ledger_finalize.outputs.ledger_path }}"
 
       - name: Commit ledger completion state
         if: ${{ always() && steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.keepalive_gate.outputs.action != 'skip') && steps.mode.outputs.dry_run != 'true' && steps.ledger_finalize.outputs.ledger_changed == 'true' }}
