@@ -1,0 +1,68 @@
+# Wrapper workflow to allow workflow_dispatch for the Codex belt worker.
+name: Agents 72 Codex Belt Worker Dispatch
+
+on:
+  workflow_dispatch:
+    inputs:
+      issue:
+        description: 'Issue number'
+        required: true
+        type: string
+      branch:
+        description: 'Branch to prepare (codex/issue-<n>)'
+        required: true
+        type: string
+      base:
+        description: 'Base branch (defaults to repository default)'
+        required: false
+        default: ''
+        type: string
+      source:
+        description: 'Source of the worker invocation'
+        required: false
+        default: 'manual-dispatch'
+        type: string
+      dry_run:
+        description: 'Preview worker actions without writes'
+        required: false
+        default: false
+        type: boolean
+      use_step_branch:
+        description: 'Allow fallback step branch when issue branch is stale'
+        required: false
+        default: false
+        type: boolean
+      max_parallel:
+        description: 'Maximum concurrent worker runs permitted'
+        required: false
+        default: 1
+        type: number
+      keepalive:
+        description: 'True when invocation originates from a keepalive sweep'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  actions: write
+
+jobs:
+  run-worker:
+    name: Run Codex belt worker
+    uses: ./.github/workflows/agents-72-codex-belt-worker.yml
+    with:
+      issue: ${{ inputs.issue }}
+      branch: ${{ inputs.branch }}
+      base: ${{ inputs.base }}
+      source: ${{ inputs.source }}
+      dry_run: ${{ inputs.dry_run }}
+      use_step_branch: ${{ inputs.use_step_branch }}
+      max_parallel: ${{ inputs.max_parallel }}
+      keepalive: ${{ inputs.keepalive }}
+    secrets:
+      WORKFLOWS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID }}
+      WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+      ACTIONS_BOT_PAT: ${{ secrets.ACTIONS_BOT_PAT }}
