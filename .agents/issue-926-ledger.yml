@@ -5,10 +5,10 @@ branch: codex/issue-926
 tasks:
   - id: task-01
     title: Implement ASCII chart generation for trends
-    status: doing
+    status: done
     started_at: '2026-01-17T17:15:49Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-01-17T17:15:57Z'
+    commit: 43339341783f56561d87589e3a2eb78d046795bb
     notes: []
   - id: task-02
     title: Create markdown table formatters
