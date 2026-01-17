@@ -32,3 +32,25 @@ def truncate_string(text: str, max_length: int = 50) -> str:
     if len(text) <= max_length:
         return text
     return text[: max_length - 3] + "..."
+
+
+def ascii_sparkline(series: list[float], steps: str = " .:-=+*#%@") -> str:
+    """Render a compact ASCII trend chart for a numeric series."""
+    if not series:
+        return ""
+    min_value = min(series)
+    max_value = max(series)
+    if max_value == min_value:
+        return steps[0] * len(series)
+    span = max_value - min_value
+    max_index = len(steps) - 1
+    chars: list[str] = []
+    for value in series:
+        normalized = (value - min_value) / span
+        index = int(normalized * max_index)
+        if index < 0:
+            index = 0
+        elif index > max_index:
+            index = max_index
+        chars.append(steps[index])
+    return "".join(chars)
