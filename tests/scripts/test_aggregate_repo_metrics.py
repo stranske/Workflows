@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import pytest
@@ -65,3 +66,44 @@ def test_read_repo_metrics_tags_repo(tmp_path: Path) -> None:
 
     assert errors == 0
     assert entries == [{"summary": {"tests": 10}, "repo": "owner/repo"}]
+
+
+def test_infer_numeric_fields_ignores_repo_and_non_numeric() -> None:
+    entries = [
+        {"repo": "alpha", "duration_ms": "10", "note": "ok", "flag": True},
+        {"repo": "beta", "duration_ms": None, "count": 2, "size": 1.5},
+    ]
+
+    fields = aggregator._infer_numeric_fields(entries)
+
+    assert fields == ["count", "duration_ms", "size"]
+
+
+def test_build_summary_groups_by_repo() -> None:
+    entries = [
+        {"repo": "alpha", "duration_ms": 10},
+        {"repo": "alpha", "duration_ms": 20},
+        {"repo": "beta", "duration_ms": 30},
+    ]
+
+    summary = aggregator.build_summary(entries, errors=1, numeric_fields=["duration_ms"])
+
+    assert summary["parse_errors"] == 1
+    assert summary["overall"]["aggregates"]["duration_ms"]["mean"] == pytest.approx(20.0)
+    assert summary["repos"]["alpha"]["aggregates"]["duration_ms"]["mean"] == pytest.approx(15.0)
+    assert summary["repos"]["beta"]["count"] == 1
+
+
+def test_write_combined_ndjson(tmp_path: Path) -> None:
+    entries = [
+        {"repo": "alpha", "duration_ms": 10},
+        {"repo": "beta", "duration_ms": 20},
+    ]
+    output = tmp_path / "combined.ndjson"
+
+    aggregator.write_combined_ndjson(output, entries)
+
+    lines = output.read_text(encoding="utf-8").splitlines()
+    assert len(lines) == 2
+    assert json.loads(lines[0]) == entries[0]
+    assert json.loads(lines[1]) == entries[1]
