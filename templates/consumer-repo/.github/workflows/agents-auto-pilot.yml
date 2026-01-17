@@ -853,7 +853,60 @@ jobs:
               return;
             }
 
-            // Branch exists - create PR
+            const { data: repoInfo } = await github.rest.repos.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo
+            });
+            const baseBranch = repoInfo.default_branch || 'main';
+
+            // If branch has no commits ahead of base, dispatch the belt worker
+            try {
+              const { data: comparison } = await github.rest.repos.compareCommits({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                base: baseBranch,
+                head: branchName
+              });
+
+              if ((comparison.ahead_by || 0) === 0) {
+                core.info(`Branch ${branchName} has no commits ahead of ${baseBranch}`);
+                try {
+                  await github.rest.actions.createWorkflowDispatch({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    workflow_id: 'agents-72-codex-belt-worker.yml',
+                    ref: 'main',
+                    inputs: {
+                      issue: issueNumber.toString(),
+                      branch: branchName,
+                      base: baseBranch,
+                      source: 'auto-pilot'
+                    }
+                  });
+                  core.info(`Dispatched codex belt worker for issue #${issueNumber}`);
+                } catch (dispatchError) {
+                  core.warning(`Could not dispatch codex belt worker: ${dispatchError?.message}`);
+                }
+
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNumber,
+                  body: `🤖 **Auto-pilot step ${stepCount}**: Branch ready, waiting for commits
+
+            Branch \`${branchName}\` exists but has no commits yet.
+            Dispatched the Codex belt worker to generate changes.
+
+            ⏳ Auto-pilot will check again on next trigger.`
+                });
+                return;
+              }
+            } catch (compareError) {
+              const message = compareError?.message || String(compareError);
+              core.warning(`Could not compare ${branchName} to ${baseBranch}: ${message}`);
+            }
+
+            // Branch has commits - create PR
             core.info(`Creating PR from ${branchName}`);
 
             // Fetch issue body to include in PR
@@ -878,7 +931,7 @@ jobs:
                 repo: context.repo.repo,
                 title: prTitle,
                 head: branchName,
-                base: 'main',
+                base: baseBranch,
                 body: prBody
               });
 
