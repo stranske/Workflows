@@ -146,3 +146,57 @@ def test_write_combined_ndjson(tmp_path: Path) -> None:
     assert len(lines) == 2
     assert json.loads(lines[0]) == entries[0]
     assert json.loads(lines[1]) == entries[1]
+
+
+def test_parse_repo_specs_supports_csv_and_file(tmp_path: Path) -> None:
+    repos_file = tmp_path / "repos.txt"
+    repos_file.write_text("alpha/one\n# comment\nbeta/two\n", encoding="utf-8")
+    metrics_dir = tmp_path / "metrics"
+
+    specs = aggregator._parse_repo_specs(
+        repo_specs=["gamma/three=custom.ndjson"],
+        repos_csv="delta/four",
+        repos_file=repos_file,
+        metrics_dir=metrics_dir,
+    )
+
+    spec_map = dict(specs)
+    assert spec_map["alpha/one"] == metrics_dir / "alpha__one.ndjson"
+    assert spec_map["beta/two"] == metrics_dir / "beta__two.ndjson"
+    assert spec_map["delta/four"] == metrics_dir / "delta__four.ndjson"
+    assert spec_map["gamma/three"] == Path("custom.ndjson")
+
+
+def test_main_writes_outputs_for_repo_list(tmp_path: Path) -> None:
+    metrics_dir = tmp_path / "metrics"
+    metrics_dir.mkdir()
+    (metrics_dir / "alpha__one.ndjson").write_text('{"duration_ms": 10}\n', encoding="utf-8")
+    (metrics_dir / "beta__two.ndjson").write_text(
+        '{"duration_ms": 20}\nnot-json\n', encoding="utf-8"
+    )
+    output = tmp_path / "out" / "combined.ndjson"
+    summary_output = tmp_path / "out" / "summary.json"
+
+    result = aggregator.main(
+        [
+            "--repos",
+            "alpha/one,beta/two",
+            "--metrics-dir",
+            str(metrics_dir),
+            "--output",
+            str(output),
+            "--summary-output",
+            str(summary_output),
+        ]
+    )
+
+    assert result == 0
+    combined_entries = [
+        json.loads(line) for line in output.read_text(encoding="utf-8").splitlines()
+    ]
+    assert {entry["repo"] for entry in combined_entries} == {"alpha/one", "beta/two"}
+
+    summary = json.loads(summary_output.read_text(encoding="utf-8"))
+    assert summary["parse_errors"] == 1
+    assert summary["overall"]["aggregates"]["duration_ms"]["mean"] == pytest.approx(15.0)
+    assert summary["repos"]["alpha/one"]["count"] == 1
