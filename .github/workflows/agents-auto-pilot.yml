@@ -876,7 +876,7 @@ jobs:
                     owner: context.repo.owner,
                     repo: context.repo.repo,
                     workflow_id: 'agents-72-codex-belt-worker-dispatch.yml',
-                    ref: 'main',
+                    ref: baseBranch,
                     inputs: {
                       issue: issueNumber.toString(),
                       branch: branchName,
