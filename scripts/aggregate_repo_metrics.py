@@ -158,7 +158,7 @@ def _parse_repo_specs(
             if repo and not repo.startswith("#"):
                 repo_map.setdefault(repo, metrics_dir / f"{_repo_slug(repo)}.ndjson")
 
-    return [(repo, path) for repo, path in repo_map.items()]
+    return list(repo_map.items())
 
 
 def read_repo_metrics_files(
