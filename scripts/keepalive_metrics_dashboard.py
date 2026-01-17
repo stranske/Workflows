@@ -13,6 +13,7 @@ from typing import Any
 
 from scripts.metrics_format_utils import format_markdown_table
 
+
 def _safe_int(value: Any) -> int | None:
     if value is None or value == "":
         return None
