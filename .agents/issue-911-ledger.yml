@@ -1,0 +1,108 @@
+version: 1
+issue: 911
+base: main
+branch: codex/issue-911
+tasks:
+  - id: task-01
+    title: Update `docs/ci/WORKFLOW_SYSTEM.md` with a short note under the keepalive
+      entries clarifying the auto-pilot keepalive dispatch behavior.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes:
+      - '2026-01-17T08:35:49Z failure (run 21091510424): status=failure'
+  - id: task-02
+    title: 'Define approach for: Update `docs/ci/WORKFLOW_SYSTEM.md` with a short
+      note under the keepalive entries clarifying the auto-pilot keepalive dispatch
+      behavior. (verify: docs updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: 'Define scope for: Implement: Update `docs/ci/WORKFLOW_SYSTEM.md` with
+      a short note under the keepalive entries clarifying the auto-pilot keepalive
+      dispatch behavior. (verify: docs updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: 'Implement focused slice for: Implement: Update `docs/ci/WORKFLOW_SYSTEM.md`
+      with a short note under the keepalive entries clarifying the auto-pilot keepalive
+      dispatch behavior. (verify: docs updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: 'Validate focused slice for: Implement: Update `docs/ci/WORKFLOW_SYSTEM.md`
+      with a short note under the keepalive entries clarifying the auto-pilot keepalive
+      dispatch behavior. (verify: docs updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: 'Define scope for: Validate: Update `docs/ci/WORKFLOW_SYSTEM.md` with a
+      short note under the keepalive entries clarifying the auto-pilot keepalive dispatch
+      behavior. (verify: docs updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: 'Implement focused slice for: Validate: Update `docs/ci/WORKFLOW_SYSTEM.md`
+      with a short note under the keepalive entries clarifying the auto-pilot keepalive
+      dispatch behavior. (verify: docs updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: 'Validate focused slice for: Validate: Update `docs/ci/WORKFLOW_SYSTEM.md`
+      with a short note under the keepalive entries clarifying the auto-pilot keepalive
+      dispatch behavior. (verify: docs updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: '`docs/ci/WORKFLOW_SYSTEM.md` includes the note and renders cleanly.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: Update `docs/ci/WORKFLOW_SYSTEM.md` with a short note under the keepalive
+      entries clarifying the auto-pilot keepalive dispatch behavior.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: '`docs/ci/WORKFLOW_SYSTEM.md` includes the note and renders cleanly.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: Update `docs/ci/WORKFLOW_SYSTEM.md` with a short note under the keepalive
+      entries clarifying the auto-pilot keepalive dispatch behavior. (Requires workflow
+      changes, which are protected | Request a human to apply workflow updates)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
