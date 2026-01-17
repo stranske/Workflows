@@ -11,6 +11,7 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
+from scripts.metrics_format_utils import format_markdown_table
 
 def _safe_int(value: Any) -> int | None:
     if value is None or value == "":
@@ -105,17 +106,22 @@ def build_dashboard(records: list[dict[str, Any]], errors: int) -> str:
     avg_iterations = summary["avg_iterations"]
     avg_iterations_text = "n/a" if avg_iterations is None else f"{avg_iterations:.1f}"
 
+    table = format_markdown_table(
+        ["Metric", "Value"],
+        [
+            ["Total records", summary["total"]],
+            ["Success rate", _format_rate(summary["successes"], summary["total"])],
+            ["Avg iterations per PR", avg_iterations_text],
+            ["Iteration distribution", _format_counter(summary["iteration_counts"])],
+            ["Error breakdown", _format_counter(summary["error_breakdown"])],
+            ["Parse errors", errors],
+        ],
+    )
+
     lines = [
         "# Keepalive Metrics Dashboard",
         "",
-        "| Metric | Value |",
-        "| --- | --- |",
-        f"| Total records | {summary['total']} |",
-        f"| Success rate | {_format_rate(summary['successes'], summary['total'])} |",
-        f"| Avg iterations per PR | {avg_iterations_text} |",
-        f"| Iteration distribution | {_format_counter(summary['iteration_counts'])} |",
-        f"| Error breakdown | {_format_counter(summary['error_breakdown'])} |",
-        f"| Parse errors | {errors} |",
+        table,
         "",
     ]
     return "\n".join(lines)

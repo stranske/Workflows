@@ -34,6 +34,59 @@ def truncate_string(text: str, max_length: int = 50) -> str:
     return text[: max_length - 3] + "..."
 
 
+def _normalize_markdown_cell(value: object) -> str:
+    """Prepare a value for safe Markdown table rendering."""
+    text = "" if value is None else str(value)
+    if "|" in text:
+        text = text.replace("|", r"\|")
+    if "\n" in text:
+        text = text.replace("\n", "<br>")
+    return text
+
+
+def _alignment_marker(alignment: str) -> str:
+    """Convert alignment keywords into Markdown table markers."""
+    alignment_key = alignment.strip().lower()
+    if alignment_key in {"left", "l"}:
+        return "---"
+    if alignment_key in {"center", "c"}:
+        return ":---:"
+    if alignment_key in {"right", "r"}:
+        return "---:"
+    raise ValueError(f"Unsupported alignment: {alignment}")
+
+
+def format_markdown_table(
+    headers: list[str],
+    rows: list[list[object]],
+    alignments: list[str] | None = None,
+) -> str:
+    """Format a Markdown table with optional alignment hints."""
+    if not headers:
+        return ""
+    column_count = len(headers)
+    if alignments is None:
+        alignments = ["left"] * column_count
+    if len(alignments) != column_count:
+        raise ValueError("Alignment list must match header length.")
+
+    header_cells = [_normalize_markdown_cell(header) for header in headers]
+    alignment_cells = [_alignment_marker(alignment) for alignment in alignments]
+
+    lines = [
+        f"| {' | '.join(header_cells)} |",
+        f"| {' | '.join(alignment_cells)} |",
+    ]
+
+    for row in rows:
+        if len(row) != column_count:
+            raise ValueError("Row length must match header length.")
+        row_cells = [_normalize_markdown_cell(cell) for cell in row]
+        lines.append(f"| {' | '.join(row_cells)} |")
+
+    return "\n".join(lines)
+
+
 def ascii_sparkline(series: list[float], steps: str = " .:-=+*#%@") -> str:
     """Render a compact ASCII trend chart for a numeric series."""
     if not series:
