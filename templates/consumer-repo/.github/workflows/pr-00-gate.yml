@@ -172,11 +172,9 @@ jobs:
               if (isPermissionError && process.env.APP_TOKEN) {
                 // App token lacks statuses:write permission, try GITHUB_TOKEN
                 core.warning('App token lacks statuses permission, falling back to GITHUB_TOKEN');
-                const { Octokit } = require('@octokit/rest');
-                const fallbackOctokit = new Octokit({
-                  auth: process.env.GITHUB_TOKEN_FALLBACK,
-                  baseUrl: 'https://api.github.com',
-                });
+                const { getOctokit } = require('@actions/github');
+                const fallbackOctokit = getOctokit(process.env.GITHUB_TOKEN_FALLBACK);
+                
                 try {
                   await createStatus(fallbackOctokit, 'GITHUB_TOKEN');
                 } catch (fallbackError) {
