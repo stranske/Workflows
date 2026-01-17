@@ -135,11 +135,17 @@ def _parse_repo_specs(
     for spec in repo_specs:
         if not spec:
             continue
-        if "=" in spec:
-            repo, path_text = spec.split("=", 1)
+        trimmed = spec.strip()
+        if not trimmed:
+            continue
+        if "=" in trimmed:
+            repo, path_text = trimmed.split("=", 1)
+            repo = repo.strip()
+            path_text = path_text.strip()
             if repo and path_text:
                 repo_map.setdefault(repo, Path(path_text))
         else:
+            repo = trimmed
             repo_map.setdefault(repo, metrics_dir / f"{_repo_slug(repo)}.ndjson")
 
     if repos_csv:
@@ -154,7 +160,7 @@ def _parse_repo_specs(
         except OSError:
             lines = []
         for line in lines:
-            repo = line.strip()
+            repo = line.partition("#")[0].strip()
             if repo and not repo.startswith("#"):
                 repo_map.setdefault(repo, metrics_dir / f"{_repo_slug(repo)}.ndjson")
 

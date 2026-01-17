@@ -163,11 +163,11 @@ def test_write_combined_ndjson(tmp_path: Path) -> None:
 
 def test_parse_repo_specs_supports_csv_and_file(tmp_path: Path) -> None:
     repos_file = tmp_path / "repos.txt"
-    repos_file.write_text("alpha/one\n# comment\nbeta/two\n", encoding="utf-8")
+    repos_file.write_text("alpha/one # note\n# comment\nbeta/two\n", encoding="utf-8")
     metrics_dir = tmp_path / "metrics"
 
     specs = aggregator._parse_repo_specs(
-        repo_specs=["gamma/three=custom.ndjson"],
+        repo_specs=[" gamma/three = custom.ndjson "],
         repos_csv="delta/four",
         repos_file=repos_file,
         metrics_dir=metrics_dir,
