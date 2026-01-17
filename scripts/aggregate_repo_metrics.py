@@ -40,7 +40,7 @@ def read_repo_metrics(path: Path, repo: str) -> tuple[list[dict[str, Any]], int]
     tagged: list[dict[str, Any]] = []
     for entry in entries:
         tagged_entry = dict(entry)
-        tagged_entry.setdefault("repo", repo)
+        tagged_entry["repo"] = repo
         tagged.append(tagged_entry)
     return tagged, errors
 

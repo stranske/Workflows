@@ -60,7 +60,7 @@ def test_read_ndjson_missing_file(tmp_path: Path) -> None:
 
 def test_read_repo_metrics_tags_repo(tmp_path: Path) -> None:
     path = tmp_path / "metrics.ndjson"
-    path.write_text('{"summary": {"tests": 10}}\n', encoding="utf-8")
+    path.write_text('{"summary": {"tests": 10}, "repo": "wrong/repo"}\n', encoding="utf-8")
 
     entries, errors = aggregator.read_repo_metrics(path, "owner/repo")
 
