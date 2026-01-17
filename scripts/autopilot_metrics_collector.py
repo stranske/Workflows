@@ -392,6 +392,62 @@ def append_record(path: Path, record: dict[str, Any]) -> None:
         handle.write(payload + "\n")
 
 
+def _summary_env_details() -> dict[str, str]:
+    keys = (
+        "GITHUB_RUN_ID",
+        "GITHUB_WORKFLOW",
+        "GITHUB_JOB",
+        "GITHUB_RUN_ATTEMPT",
+        "GITHUB_REF",
+        "GITHUB_SHA",
+        "RUNNER_OS",
+    )
+    details: dict[str, str] = {}
+    for key in keys:
+        value = os.environ.get(key)
+        if value:
+            details[key.lower()] = value
+    return details
+
+
+def _write_failure_summary(
+    *,
+    error: Exception,
+    exit_code: int,
+    args: argparse.Namespace | None,
+) -> None:
+    summary_path = os.environ.get("AUTOPILOT_METRICS_SUMMARY_PATH")
+    if not summary_path:
+        return
+    path = Path(summary_path)
+    step_name = os.environ.get("AUTOPILOT_STEP_NAME")
+    if not step_name and args is not None:
+        step_name = args.step_name
+    metric_type = None
+    if args is not None:
+        metric_type = args.metric_type
+    error_category = "validation_error" if isinstance(error, ValidationError) else "exception"
+    override_category = os.environ.get("AUTOPILOT_ERROR_CATEGORY")
+    if override_category:
+        error_category = override_category.strip()
+
+    record = {
+        "summary_type": "autopilot-metrics-error",
+        "component": "autopilot_metrics_collector",
+        "timestamp": _utc_now_iso(),
+        "step_name": step_name or "",
+        "metric_type": str(metric_type).strip().lower() if metric_type else "",
+        "error_category": error_category,
+        "exit_code": exit_code,
+        "message": str(error),
+        "environment": _summary_env_details(),
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = json.dumps(record, separators=(",", ":"), sort_keys=True)
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(payload + "\n")
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Append auto-pilot metrics record to NDJSON log.")
     parser.add_argument("--path", default="autopilot-metrics.ndjson", help="NDJSON output path")
@@ -424,7 +480,18 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str]) -> int:
     parser = build_parser()
-    args = parser.parse_args(argv)
+    try:
+        args = parser.parse_args(argv)
+    except SystemExit as exc:
+        code = 0 if exc.code is None else int(exc.code)
+        if code != 0:
+            _write_failure_summary(error=exc, exit_code=code, args=None)
+        return code
+
+    log_path = Path(args.path)
+    env_log_path = os.environ.get("AUTOPILOT_METRICS_LOG_PATH")
+    if env_log_path and args.path == "autopilot-metrics.ndjson":
+        log_path = Path(env_log_path)
 
     try:
         if args.print_schema:
@@ -435,8 +502,10 @@ def main(argv: list[str]) -> int:
         else:
             record = build_record_from_args(args)
         validate_record(record)
-        append_record(Path(args.path), record)
+        append_record(log_path, record)
+        print(json.dumps(record, separators=(",", ":"), sort_keys=True))
     except Exception as exc:
+        _write_failure_summary(error=exc, exit_code=1, args=args)
         print(f"autopilot_metrics_collector: {exc}", file=sys.stderr)
         return 1
 

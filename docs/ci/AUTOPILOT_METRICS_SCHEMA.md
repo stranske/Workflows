@@ -19,6 +19,16 @@ All record types include the following fields:
 - `timestamp`: ISO 8601 UTC timestamp for the record.
 - `cycle_count`: Integer cycle counter for the auto-pilot run.
 
+The metrics collector always writes NDJSON records to the configured log file **and**
+prints the JSON record to stdout for CI visibility.
+
+## Log Output Paths
+
+- `--path`: Explicit NDJSON output path (default: `autopilot-metrics.ndjson`).
+- `AUTOPILOT_METRICS_LOG_PATH`: Environment override for the default output path.
+- `AUTOPILOT_METRICS_SUMMARY_PATH`: Optional NDJSON summary output for failures
+  emitted by the metrics collector and step timer utilities.
+
 ## Step Record (`metric_type: "step"`)
 
 Required fields:
@@ -27,6 +37,13 @@ Required fields:
 - `duration_ms`: Integer duration in milliseconds.
 - `success`: Boolean success flag.
 - `failure_reason`: String failure reason; use `"none"` when `success` is true.
+
+Edge cases:
+
+- When `success` is `false`, `failure_reason` must be a non-empty string.
+- When `success` is `true`, `failure_reason` is normalized to `"none"`.
+- If `duration_ms` is omitted, provide `started_at`/`ended_at` or
+  `started_at_ms`/`ended_at_ms` to derive duration.
 
 Example:
 
@@ -101,6 +118,54 @@ to call `scripts/autopilot_step_timer.py` at the start/end of each step and pass
 timestamps to `scripts/autopilot_metrics_collector.py` (for example via `--started-at-ms`
 and `--ended-at-ms`). Workflow files are protected in agent-standard runs, so a
 maintainer must apply the timing-step additions and label the PR `needs-human`.
+
+## Failure Summary Records
+
+When `AUTOPILOT_METRICS_SUMMARY_PATH` is set, failures in the metrics collector or
+step timer append a summary record describing the error. These records are **not**
+validated by the main schema, but provide observability in CI logs.
+
+Fields:
+
+- `summary_type`: `"autopilot-metrics-error"`.
+- `component`: `"autopilot_metrics_collector"` or `"autopilot_step_timer"`.
+- `timestamp`: ISO 8601 UTC timestamp of the failure.
+- `step_name`: Step identifier (from `AUTOPILOT_STEP_NAME` when available).
+- `metric_type`: The metric type being emitted (when available).
+- `error_category`: Error classification (defaults to `validation_error` or `timer_error`,
+  override with `AUTOPILOT_ERROR_CATEGORY`).
+- `exit_code`: Process exit code.
+- `message`: Failure message.
+- `environment`: Selected CI environment details (run ID, workflow, job, ref, SHA).
+
+Example:
+
+```json
+{
+  "summary_type": "autopilot-metrics-error",
+  "component": "autopilot_metrics_collector",
+  "timestamp": "2026-02-01T12:46:02Z",
+  "step_name": "format",
+  "metric_type": "step",
+  "error_category": "validation_error",
+  "exit_code": 1,
+  "message": "duration_ms is required unless started_at or started_at_ms is set",
+  "environment": {
+    "github_run_id": "123456",
+    "github_workflow": "Agents Auto-Pilot",
+    "github_job": "auto-pilot",
+    "github_ref": "refs/heads/main",
+    "github_sha": "..."
+  }
+}
+```
+
+## Keepalive Dispatch Token Handling
+
+Keepalive dispatch uses the same token priority as the main keepalive instruction
+author. If no dedicated dispatch token is provided, the runner falls back to the
+instruction author token to avoid silent dispatch failures. This behavior is
+validated in the keepalive runner unit tests.
 
 ## Interpreting Metrics
 

@@ -44,6 +44,8 @@ env:
   # Safety limits
   MAX_CYCLES: 10
   MAX_WALL_TIME_HOURS: 4
+  AUTOPILOT_METRICS_LOG_PATH: .agents/autopilot-metrics.ndjson
+  AUTOPILOT_METRICS_SUMMARY_PATH: .agents/autopilot-metrics-summary.ndjson
 
 jobs:
   auto-pilot:
@@ -113,6 +115,11 @@ jobs:
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
           # Install langchain dependencies for inline optimizer
           pip install langchain langchain-core langchain-openai langchain-community
+
+      - name: Initialize auto-pilot metrics logs
+        if: steps.check_enabled.outputs.enabled == 'true'
+        run: |
+          mkdir -p .agents
 
       - name: Determine context
         if: steps.check_enabled.outputs.enabled == 'true'
@@ -416,8 +423,17 @@ jobs:
           fi
           exit 0
 
+      - name: Metrics - Start format timer
+        if: steps.next.outputs.next_step == 'format'
+        env:
+          AUTOPILOT_STEP_NAME: format
+          AUTOPILOT_ERROR_CATEGORY: timer-start
+        run: |
+          python scripts/autopilot_step_timer.py --event start --format epoch-ms --github-env
+
       - name: Execute step - Format (inline)
         if: steps.next.outputs.next_step == 'format'
+        id: format_step
         env:
           ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
           STEP_COUNT: ${{ steps.cycles.outputs.count }}
@@ -468,8 +484,46 @@ jobs:
 
           echo "✅ Formatting complete - continuing to next step"
 
+      - name: Metrics - End format timer
+        if: always() && steps.next.outputs.next_step == 'format'
+        env:
+          AUTOPILOT_STEP_NAME: format
+          AUTOPILOT_ERROR_CATEGORY: timer-end
+        run: |
+          python scripts/autopilot_step_timer.py --event end --format epoch-ms --github-env
+
+      - name: Metrics - Record format step
+        if: always() && steps.next.outputs.next_step == 'format'
+        env:
+          AUTOPILOT_STEP_NAME: format
+          AUTOPILOT_ERROR_CATEGORY: metrics-collector
+          AUTOPILOT_METRICS_LOG_PATH: ${{ env.AUTOPILOT_METRICS_LOG_PATH }}
+        run: |
+          success="${{ steps.format_step.outcome == 'success' }}"
+          failure_reason="none"
+          if [ "$success" != "true" ]; then
+            failure_reason="step-failed"
+          fi
+          python scripts/autopilot_metrics_collector.py \
+            --path "$AUTOPILOT_METRICS_LOG_PATH" \
+            --metric-type step \
+            --issue-number "${{ steps.context.outputs.issue_number }}" \
+            --cycle-count "${{ steps.cycles.outputs.count }}" \
+            --step-name "format" \
+            --success "$success" \
+            --failure-reason "$failure_reason"
+
+      - name: Metrics - Start optimize timer
+        if: steps.next.outputs.next_step == 'optimize'
+        env:
+          AUTOPILOT_STEP_NAME: optimize
+          AUTOPILOT_ERROR_CATEGORY: timer-start
+        run: |
+          python scripts/autopilot_step_timer.py --event start --format epoch-ms --github-env
+
       - name: Execute step - Optimize (inline)
         if: steps.next.outputs.next_step == 'optimize'
+        id: optimize_step
         env:
           ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
           STEP_COUNT: ${{ steps.cycles.outputs.count }}
@@ -532,6 +586,35 @@ jobs:
           gh issue edit "${ISSUE_NUMBER}" --add-label "agents:apply-suggestions" || true
 
           echo "✅ Optimization complete - continuing to next step"
+
+      - name: Metrics - End optimize timer
+        if: always() && steps.next.outputs.next_step == 'optimize'
+        env:
+          AUTOPILOT_STEP_NAME: optimize
+          AUTOPILOT_ERROR_CATEGORY: timer-end
+        run: |
+          python scripts/autopilot_step_timer.py --event end --format epoch-ms --github-env
+
+      - name: Metrics - Record optimize step
+        if: always() && steps.next.outputs.next_step == 'optimize'
+        env:
+          AUTOPILOT_STEP_NAME: optimize
+          AUTOPILOT_ERROR_CATEGORY: metrics-collector
+          AUTOPILOT_METRICS_LOG_PATH: ${{ env.AUTOPILOT_METRICS_LOG_PATH }}
+        run: |
+          success="${{ steps.optimize_step.outcome == 'success' }}"
+          failure_reason="none"
+          if [ "$success" != "true" ]; then
+            failure_reason="step-failed"
+          fi
+          python scripts/autopilot_metrics_collector.py \
+            --path "$AUTOPILOT_METRICS_LOG_PATH" \
+            --metric-type step \
+            --issue-number "${{ steps.context.outputs.issue_number }}" \
+            --cycle-count "${{ steps.cycles.outputs.count }}" \
+            --step-name "optimize" \
+            --success "$success" \
+            --failure-reason "$failure_reason"
 
       - name: Guard - Require optimizer output before apply
         if: steps.next.outputs.next_step == 'apply'
@@ -601,8 +684,17 @@ jobs:
               core.info('✅ Optimizer output found - proceeding with apply step');
             }
 
+      - name: Metrics - Start apply timer
+        if: steps.next.outputs.next_step == 'apply'
+        env:
+          AUTOPILOT_STEP_NAME: apply
+          AUTOPILOT_ERROR_CATEGORY: timer-start
+        run: |
+          python scripts/autopilot_step_timer.py --event start --format epoch-ms --github-env
+
       - name: Execute step - Apply suggestions (inline)
         if: steps.next.outputs.next_step == 'apply'
+        id: apply_step
         env:
           ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
           STEP_COUNT: ${{ steps.cycles.outputs.count }}
@@ -668,8 +760,46 @@ jobs:
 
           echo "✅ Apply complete - continuing to next step"
 
+      - name: Metrics - End apply timer
+        if: always() && steps.next.outputs.next_step == 'apply'
+        env:
+          AUTOPILOT_STEP_NAME: apply
+          AUTOPILOT_ERROR_CATEGORY: timer-end
+        run: |
+          python scripts/autopilot_step_timer.py --event end --format epoch-ms --github-env
+
+      - name: Metrics - Record apply step
+        if: always() && steps.next.outputs.next_step == 'apply'
+        env:
+          AUTOPILOT_STEP_NAME: apply
+          AUTOPILOT_ERROR_CATEGORY: metrics-collector
+          AUTOPILOT_METRICS_LOG_PATH: ${{ env.AUTOPILOT_METRICS_LOG_PATH }}
+        run: |
+          success="${{ steps.apply_step.outcome == 'success' }}"
+          failure_reason="none"
+          if [ "$success" != "true" ]; then
+            failure_reason="step-failed"
+          fi
+          python scripts/autopilot_metrics_collector.py \
+            --path "$AUTOPILOT_METRICS_LOG_PATH" \
+            --metric-type step \
+            --issue-number "${{ steps.context.outputs.issue_number }}" \
+            --cycle-count "${{ steps.cycles.outputs.count }}" \
+            --step-name "apply" \
+            --success "$success" \
+            --failure-reason "$failure_reason"
+
+      - name: Metrics - Start capability check timer
+        if: steps.next.outputs.next_step == 'capability-check'
+        env:
+          AUTOPILOT_STEP_NAME: capability-check
+          AUTOPILOT_ERROR_CATEGORY: timer-start
+        run: |
+          python scripts/autopilot_step_timer.py --event start --format epoch-ms --github-env
+
       - name: Execute step - Capability check & Agent
         if: steps.next.outputs.next_step == 'capability-check'
+        id: capability_step
         uses: actions/github-script@v8
         env:
           ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
@@ -715,8 +845,45 @@ jobs:
               core.warning(`Could not dispatch codex belt dispatcher: ${dispatchError?.message}`);
             }
 
+      - name: Metrics - End capability check timer
+        if: always() && steps.next.outputs.next_step == 'capability-check'
+        env:
+          AUTOPILOT_STEP_NAME: capability-check
+          AUTOPILOT_ERROR_CATEGORY: timer-end
+        run: |
+          python scripts/autopilot_step_timer.py --event end --format epoch-ms --github-env
+
+      - name: Metrics - Record capability check step
+        if: always() && steps.next.outputs.next_step == 'capability-check'
+        env:
+          AUTOPILOT_STEP_NAME: capability-check
+          AUTOPILOT_ERROR_CATEGORY: metrics-collector
+          AUTOPILOT_METRICS_LOG_PATH: ${{ env.AUTOPILOT_METRICS_LOG_PATH }}
+        run: |
+          success="${{ steps.capability_step.outcome == 'success' }}"
+          failure_reason="none"
+          if [ "$success" != "true" ]; then
+            failure_reason="step-failed"
+          fi
+          python scripts/autopilot_metrics_collector.py \
+            --path "$AUTOPILOT_METRICS_LOG_PATH" \
+            --metric-type step \
+            --issue-number "${{ steps.context.outputs.issue_number }}" \
+            --cycle-count "${{ steps.cycles.outputs.count }}" \
+            --step-name "capability-check" \
+            --success "$success" \
+            --failure-reason "$failure_reason"
+      - name: Metrics - Start verify timer
+        if: steps.next.outputs.next_step == 'verify'
+        env:
+          AUTOPILOT_STEP_NAME: verify
+          AUTOPILOT_ERROR_CATEGORY: timer-start
+        run: |
+          python scripts/autopilot_step_timer.py --event start --format epoch-ms --github-env
+
       - name: Execute step - Verify
         if: steps.next.outputs.next_step == 'verify'
+        id: verify_step
         uses: actions/github-script@v8
         env:
           ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
@@ -805,8 +972,46 @@ jobs:
               labels: ['verify:evaluate']
             });
 
+      - name: Metrics - End verify timer
+        if: always() && steps.next.outputs.next_step == 'verify'
+        env:
+          AUTOPILOT_STEP_NAME: verify
+          AUTOPILOT_ERROR_CATEGORY: timer-end
+        run: |
+          python scripts/autopilot_step_timer.py --event end --format epoch-ms --github-env
+
+      - name: Metrics - Record verify step
+        if: always() && steps.next.outputs.next_step == 'verify'
+        env:
+          AUTOPILOT_STEP_NAME: verify
+          AUTOPILOT_ERROR_CATEGORY: metrics-collector
+          AUTOPILOT_METRICS_LOG_PATH: ${{ env.AUTOPILOT_METRICS_LOG_PATH }}
+        run: |
+          success="${{ steps.verify_step.outcome == 'success' }}"
+          failure_reason="none"
+          if [ "$success" != "true" ]; then
+            failure_reason="step-failed"
+          fi
+          python scripts/autopilot_metrics_collector.py \
+            --path "$AUTOPILOT_METRICS_LOG_PATH" \
+            --metric-type step \
+            --issue-number "${{ steps.context.outputs.issue_number }}" \
+            --cycle-count "${{ steps.cycles.outputs.count }}" \
+            --step-name "verify" \
+            --success "$success" \
+            --failure-reason "$failure_reason"
+
+      - name: Metrics - Start create-pr timer
+        if: steps.next.outputs.next_step == 'create-pr'
+        env:
+          AUTOPILOT_STEP_NAME: create-pr
+          AUTOPILOT_ERROR_CATEGORY: timer-start
+        run: |
+          python scripts/autopilot_step_timer.py --event start --format epoch-ms --github-env
+
       - name: Execute step - Create PR
         if: steps.next.outputs.next_step == 'create-pr'
+        id: create_pr_step
         uses: actions/github-script@v8
         env:
           ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
@@ -1041,16 +1246,92 @@ jobs:
               }
             }
 
+      - name: Metrics - End create-pr timer
+        if: always() && steps.next.outputs.next_step == 'create-pr'
+        env:
+          AUTOPILOT_STEP_NAME: create-pr
+          AUTOPILOT_ERROR_CATEGORY: timer-end
+        run: |
+          python scripts/autopilot_step_timer.py --event end --format epoch-ms --github-env
+
+      - name: Metrics - Record create-pr step
+        if: always() && steps.next.outputs.next_step == 'create-pr'
+        env:
+          AUTOPILOT_STEP_NAME: create-pr
+          AUTOPILOT_ERROR_CATEGORY: metrics-collector
+          AUTOPILOT_METRICS_LOG_PATH: ${{ env.AUTOPILOT_METRICS_LOG_PATH }}
+        run: |
+          success="${{ steps.create_pr_step.outcome == 'success' }}"
+          failure_reason="none"
+          if [ "$success" != "true" ]; then
+            failure_reason="step-failed"
+          fi
+          python scripts/autopilot_metrics_collector.py \
+            --path "$AUTOPILOT_METRICS_LOG_PATH" \
+            --metric-type step \
+            --issue-number "${{ steps.context.outputs.issue_number }}" \
+            --cycle-count "${{ steps.cycles.outputs.count }}" \
+            --step-name "create-pr" \
+            --success "$success" \
+            --failure-reason "$failure_reason"
+
+      - name: Metrics - Start monitor-pr timer
+        if: steps.next.outputs.next_step == 'monitor-pr'
+        env:
+          AUTOPILOT_STEP_NAME: monitor-pr
+          AUTOPILOT_ERROR_CATEGORY: timer-start
+        run: |
+          python scripts/autopilot_step_timer.py --event start --format epoch-ms --github-env
+
       - name: Report - Monitoring PR
         if: steps.next.outputs.next_step == 'monitor-pr'
+        id: monitor_pr_step
         uses: actions/github-script@v8
         with:
           script: |
             const prNumber = '${{ steps.context.outputs.linked_pr }}';
             core.info(`PR #${prNumber} exists. Keepalive and autofix will handle CI.`);
 
+      - name: Metrics - End monitor-pr timer
+        if: always() && steps.next.outputs.next_step == 'monitor-pr'
+        env:
+          AUTOPILOT_STEP_NAME: monitor-pr
+          AUTOPILOT_ERROR_CATEGORY: timer-end
+        run: |
+          python scripts/autopilot_step_timer.py --event end --format epoch-ms --github-env
+
+      - name: Metrics - Record monitor-pr step
+        if: always() && steps.next.outputs.next_step == 'monitor-pr'
+        env:
+          AUTOPILOT_STEP_NAME: monitor-pr
+          AUTOPILOT_ERROR_CATEGORY: metrics-collector
+          AUTOPILOT_METRICS_LOG_PATH: ${{ env.AUTOPILOT_METRICS_LOG_PATH }}
+        run: |
+          success="${{ steps.monitor_pr_step.outcome == 'success' }}"
+          failure_reason="none"
+          if [ "$success" != "true" ]; then
+            failure_reason="step-failed"
+          fi
+          python scripts/autopilot_metrics_collector.py \
+            --path "$AUTOPILOT_METRICS_LOG_PATH" \
+            --metric-type step \
+            --issue-number "${{ steps.context.outputs.issue_number }}" \
+            --cycle-count "${{ steps.cycles.outputs.count }}" \
+            --step-name "monitor-pr" \
+            --success "$success" \
+            --failure-reason "$failure_reason"
+
+      - name: Metrics - Start check-completion timer
+        if: steps.next.outputs.next_step == 'check-completion'
+        env:
+          AUTOPILOT_STEP_NAME: check-completion
+          AUTOPILOT_ERROR_CATEGORY: timer-start
+        run: |
+          python scripts/autopilot_step_timer.py --event start --format epoch-ms --github-env
+
       - name: Execute step - Check Completion & Trigger Merge
         if: steps.next.outputs.next_step == 'check-completion'
+        id: completion_step
         uses: actions/github-script@v8
         env:
           ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
@@ -1144,6 +1425,35 @@ jobs:
             });
 
             core.info(`PR #${prNumber} ready for automerge - added label`);
+
+      - name: Metrics - End check-completion timer
+        if: always() && steps.next.outputs.next_step == 'check-completion'
+        env:
+          AUTOPILOT_STEP_NAME: check-completion
+          AUTOPILOT_ERROR_CATEGORY: timer-end
+        run: |
+          python scripts/autopilot_step_timer.py --event end --format epoch-ms --github-env
+
+      - name: Metrics - Record check-completion step
+        if: always() && steps.next.outputs.next_step == 'check-completion'
+        env:
+          AUTOPILOT_STEP_NAME: check-completion
+          AUTOPILOT_ERROR_CATEGORY: metrics-collector
+          AUTOPILOT_METRICS_LOG_PATH: ${{ env.AUTOPILOT_METRICS_LOG_PATH }}
+        run: |
+          success="${{ steps.completion_step.outcome == 'success' }}"
+          failure_reason="none"
+          if [ "$success" != "true" ]; then
+            failure_reason="step-failed"
+          fi
+          python scripts/autopilot_metrics_collector.py \
+            --path "$AUTOPILOT_METRICS_LOG_PATH" \
+            --metric-type step \
+            --issue-number "${{ steps.context.outputs.issue_number }}" \
+            --cycle-count "${{ steps.cycles.outputs.count }}" \
+            --step-name "check-completion" \
+            --success "$success" \
+            --failure-reason "$failure_reason"
 
       # Re-dispatch workflow to continue pipeline after prep steps
       # GitHub prevents recursive triggers on labels added by GITHUB_TOKEN
