@@ -173,8 +173,14 @@ def read_repo_metrics_files(
     return all_entries, errors
 
 
-def _group_by_repo(entries: Iterable[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+def _group_by_repo(
+    entries: Iterable[dict[str, Any]],
+    repo_names: Iterable[str] | None = None,
+) -> dict[str, list[dict[str, Any]]]:
     grouped: dict[str, list[dict[str, Any]]] = {}
+    if repo_names:
+        for repo in repo_names:
+            grouped[str(repo)] = []
     for entry in entries:
         repo = entry.get("repo") or "unknown"
         repo_key = str(repo)
@@ -186,12 +192,13 @@ def build_summary(
     entries: list[dict[str, Any]],
     errors: int,
     numeric_fields: list[str] | None = None,
+    repo_names: Iterable[str] | None = None,
 ) -> dict[str, Any]:
     fields = numeric_fields or _infer_numeric_fields(entries)
     overall = aggregate_numeric_fields(entries, fields)
-    comparisons = build_comparison_groups(entries, fields)
+    comparisons = build_comparison_groups(entries, fields, repo_names=repo_names)
     repos_summary: dict[str, Any] = {}
-    for repo, repo_entries in _group_by_repo(entries).items():
+    for repo, repo_entries in _group_by_repo(entries, repo_names=repo_names).items():
         repos_summary[repo] = {
             "count": len(repo_entries),
             "aggregates": aggregate_numeric_fields(repo_entries, fields),
@@ -209,8 +216,9 @@ def build_summary(
 def build_comparison_groups(
     entries: list[dict[str, Any]],
     fields: list[str],
+    repo_names: Iterable[str] | None = None,
 ) -> dict[str, Any]:
-    grouped = _group_by_repo(entries)
+    grouped = _group_by_repo(entries, repo_names=repo_names)
     comparisons: dict[str, Any] = {}
     for field in fields:
         overall_values: list[float] = []
@@ -300,7 +308,8 @@ def main(argv: list[str] | None = None) -> int:
     write_combined_ndjson(args.output, entries)
 
     numeric_fields = args.numeric_field or _infer_numeric_fields(entries)
-    summary = build_summary(entries, errors, numeric_fields)
+    repo_names = [repo for repo, _ in repo_specs]
+    summary = build_summary(entries, errors, numeric_fields, repo_names=repo_names)
     args.summary_output.parent.mkdir(parents=True, exist_ok=True)
     args.summary_output.write_text(
         json.dumps(summary, indent=2, sort_keys=True) + "\n",

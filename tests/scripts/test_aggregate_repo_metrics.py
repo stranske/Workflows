@@ -114,6 +114,25 @@ def test_build_summary_comparisons_group_by_field() -> None:
     assert size["repos"]["beta"]["count"] == 1
 
 
+def test_build_summary_includes_missing_repo_names() -> None:
+    entries = [
+        {"repo": "alpha", "duration_ms": 10},
+        {"repo": "alpha", "duration_ms": 20},
+    ]
+
+    summary = aggregator.build_summary(
+        entries,
+        errors=0,
+        numeric_fields=["duration_ms"],
+        repo_names=["alpha", "beta"],
+    )
+
+    assert summary["repos"]["beta"]["count"] == 0
+    assert summary["repos"]["beta"]["aggregates"]["duration_ms"]["mean"] is None
+    assert summary["comparisons"]["duration_ms"]["repos"]["beta"]["count"] == 0
+    assert summary["comparisons"]["duration_ms"]["repos"]["beta"]["summary"]["mean"] is None
+
+
 def test_write_combined_ndjson(tmp_path: Path) -> None:
     entries = [
         {"repo": "alpha", "duration_ms": 10},
