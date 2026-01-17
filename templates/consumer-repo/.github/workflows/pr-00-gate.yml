@@ -109,15 +109,25 @@ jobs:
           echo "description=${description}" >> "$GITHUB_OUTPUT"
           echo "[Gate] State: ${state}, Description: ${description}"
 
+      - name: Generate App Token for commit status
+        id: app_token
+        continue-on-error: true
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.WORKFLOWS_APP_ID }}
+          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+
       - name: Report Gate commit status
         if: ${{ always() }}
         uses: actions/github-script@v8
         env:
           STATE: ${{ steps.summarize.outputs.state || 'pending' }}
           DESCRIPTION: ${{ steps.summarize.outputs.description || 'Gate status pending' }}
-          TARGET_URL: >-
-            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          TARGET_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          APP_TOKEN: ${{ steps.app_token.outputs.token }}
         with:
+          # Use app token if available (5000/hr pool) to avoid rate limits
+          github-token: ${{ steps.app_token.outputs.token || github.token }}
           script: |
             const owner = context.repo.owner;
             const repo = context.repo.repo;

@@ -62,6 +62,32 @@ jobs:
             echo "should_run=false" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Generate App Token
+        id: app_token
+        if: steps.check.outputs.should_run == 'true'
+        continue-on-error: true
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.WORKFLOWS_APP_ID }}
+          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+
+      - name: Select Token
+        id: token
+        if: steps.check.outputs.should_run == 'true'
+        env:
+          APP_TOKEN: ${{ steps.app_token.outputs.token }}
+          GITHUB_TOKEN_FALLBACK: ${{ github.token }}
+        run: |
+          if [ -n "$APP_TOKEN" ]; then
+            echo "Using GitHub App token (5000/hr pool)"
+            echo "token=$APP_TOKEN" >> "$GITHUB_OUTPUT"
+            echo "source=app" >> "$GITHUB_OUTPUT"
+          else
+            echo "Falling back to GITHUB_TOKEN (1000/hr shared pool)"
+            echo "token=$GITHUB_TOKEN_FALLBACK" >> "$GITHUB_OUTPUT"
+            echo "source=github_token" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Checkout repository
         if: steps.check.outputs.should_run == 'true'
         uses: actions/checkout@v6
@@ -95,7 +121,7 @@ jobs:
         if: steps.check.outputs.should_run == 'true'
         id: get_issue
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.token.outputs.token }}
           ISSUE_NUMBER: ${{ steps.check.outputs.issue_number }}
         run: |
           gh api "repos/${{ github.repository }}/issues/${ISSUE_NUMBER}" > /tmp/issue.json
@@ -153,7 +179,7 @@ jobs:
       - name: Advisory issue dedup check
         if: steps.check.outputs.should_run == 'true' && steps.check.outputs.phase == 'analyze'
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.token.outputs.token }}
           ISSUE_NUMBER: ${{ steps.check.outputs.issue_number }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -216,7 +242,7 @@ jobs:
         id: apply
         env:
           ISSUE_NUMBER: ${{ steps.check.outputs.issue_number }}
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.token.outputs.token }}
           PYTHONPATH: ${{ github.workspace }}/workflows-scripts
         run: |
           echo "Extracting suggestions from comments on issue #${ISSUE_NUMBER}"
@@ -272,7 +298,7 @@ jobs:
         id: format
         env:
           ISSUE_NUMBER: ${{ steps.check.outputs.issue_number }}
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.token.outputs.token }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           PYTHONPATH: ${{ github.workspace }}/workflows-scripts
@@ -307,7 +333,7 @@ jobs:
       - name: Manage labels
         if: steps.check.outputs.should_run == 'true'
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.token.outputs.token || github.token }}
           ISSUE_NUMBER: ${{ steps.check.outputs.issue_number }}
           PHASE: ${{ steps.check.outputs.phase }}
         run: |
@@ -322,4 +348,21 @@ jobs:
             gh issue edit "${ISSUE_NUMBER}" --remove-label "agents:format"
             gh issue edit "${ISSUE_NUMBER}" --add-label "agents:formatted"
             echo "Labels updated: removed format, added formatted"
+          fi
+
+      - name: Report workflow failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token || github.token }}
+          ISSUE_NUMBER: ${{ steps.check.outputs.issue_number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ -n "${ISSUE_NUMBER}" ]; then
+            gh issue comment "${ISSUE_NUMBER}" --body "⚠️ **Workflow failed**
+
+The agents-issue-optimizer workflow encountered an error.
+
+**Details**: [View workflow run](${RUN_URL})
+
+Please check the logs and retry if needed." || true
           fi
