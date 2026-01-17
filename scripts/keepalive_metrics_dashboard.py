@@ -59,6 +59,41 @@ def _format_rate(numerator: int, denominator: int) -> str:
     return f"{rate:.1f}% ({numerator}/{denominator})"
 
 
+def _status_from_threshold(
+    value: float | int | None,
+    ok_threshold: float,
+    warn_threshold: float,
+    *,
+    higher_is_better: bool = True,
+) -> str:
+    if value is None:
+        return "n/a"
+    if higher_is_better:
+        if value >= ok_threshold:
+            return "OK"
+        if value >= warn_threshold:
+            return "WARN"
+        return "FAIL"
+    if value <= ok_threshold:
+        return "OK"
+    if value <= warn_threshold:
+        return "WARN"
+    return "FAIL"
+
+
+def _overall_status(statuses: Iterable[str]) -> str:
+    severity = {"n/a": -1, "OK": 0, "WARN": 1, "FAIL": 2}
+    worst = -1
+    for status in statuses:
+        worst = max(worst, severity.get(status, -1))
+    if worst == -1:
+        return "n/a"
+    for label, value in severity.items():
+        if value == worst:
+            return label
+    return "n/a"
+
+
 def _summarise(records: Iterable[dict[str, Any]]) -> dict[str, Any]:
     total = 0
     successes = 0
@@ -106,16 +141,35 @@ def build_dashboard(records: list[dict[str, Any]], errors: int) -> str:
     summary = _summarise(records)
     avg_iterations = summary["avg_iterations"]
     avg_iterations_text = "n/a" if avg_iterations is None else f"{avg_iterations:.1f}"
+    success_rate = None
+    if summary["total"] > 0:
+        success_rate = (summary["successes"] / summary["total"]) * 100
+
+    success_status = _status_from_threshold(success_rate, 95.0, 85.0, higher_is_better=True)
+    avg_iterations_status = _status_from_threshold(
+        avg_iterations, 1.5, 2.5, higher_is_better=False
+    )
+    parse_error_status = _status_from_threshold(errors, 0, 2, higher_is_better=False)
+    if summary["total"] == 0 and errors == 0:
+        parse_error_status = "n/a"
+    overall_status = _overall_status(
+        [success_status, avg_iterations_status, parse_error_status]
+    )
 
     table = format_markdown_table(
-        ["Metric", "Value"],
+        ["Metric", "Value", "Status"],
         [
-            ["Total records", summary["total"]],
-            ["Success rate", _format_rate(summary["successes"], summary["total"])],
-            ["Avg iterations per PR", avg_iterations_text],
-            ["Iteration distribution", _format_counter(summary["iteration_counts"])],
-            ["Error breakdown", _format_counter(summary["error_breakdown"])],
-            ["Parse errors", errors],
+            ["Overall status", overall_status, overall_status],
+            ["Total records", summary["total"], "n/a"],
+            [
+                "Success rate",
+                _format_rate(summary["successes"], summary["total"]),
+                success_status,
+            ],
+            ["Avg iterations per PR", avg_iterations_text, avg_iterations_status],
+            ["Iteration distribution", _format_counter(summary["iteration_counts"]), "n/a"],
+            ["Error breakdown", _format_counter(summary["error_breakdown"]), "n/a"],
+            ["Parse errors", errors, parse_error_status],
         ],
     )
 
