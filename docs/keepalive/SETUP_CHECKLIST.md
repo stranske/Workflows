@@ -86,6 +86,7 @@ The Workflows GitHub App provides secure, scoped authentication without personal
    - **Issues**: Read and write  
    - **Pull requests**: Read and write
    - **Workflows**: Read and write
+   - **Commit statuses**: Read and write
    - **Metadata**: Read (auto-selected)
 3. [ ] Install App on your consumer repository
 
