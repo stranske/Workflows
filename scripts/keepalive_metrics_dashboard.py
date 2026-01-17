@@ -146,15 +146,11 @@ def build_dashboard(records: list[dict[str, Any]], errors: int) -> str:
         success_rate = (summary["successes"] / summary["total"]) * 100
 
     success_status = _status_from_threshold(success_rate, 95.0, 85.0, higher_is_better=True)
-    avg_iterations_status = _status_from_threshold(
-        avg_iterations, 1.5, 2.5, higher_is_better=False
-    )
+    avg_iterations_status = _status_from_threshold(avg_iterations, 1.5, 2.5, higher_is_better=False)
     parse_error_status = _status_from_threshold(errors, 0, 2, higher_is_better=False)
     if summary["total"] == 0 and errors == 0:
         parse_error_status = "n/a"
-    overall_status = _overall_status(
-        [success_status, avg_iterations_status, parse_error_status]
-    )
+    overall_status = _overall_status([success_status, avg_iterations_status, parse_error_status])
 
     table = format_markdown_table(
         ["Metric", "Value", "Status"],
