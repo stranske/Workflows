@@ -51,6 +51,9 @@ workflows:
   - source: .github/workflows/agents-keepalive-loop.yml
     description: "Keepalive loop - continues agent work until tasks complete"
 
+  - source: .github/workflows/agents-72-codex-belt-worker-dispatch.yml
+    description: "Codex belt worker dispatch wrapper - allows workflow_dispatch for the worker"
+
   - source: .github/workflows/agents-autofix-loop.yml
     description: "Autofix loop - dispatches Codex when autofix can't fix Gate failures"
 
