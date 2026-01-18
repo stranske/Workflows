@@ -133,9 +133,8 @@ jobs:
                 reset: $reset_time
               }')
 
-            echo "rate_json<<EOF" >> "$GITHUB_OUTPUT"
-            echo "$rate_json" >> "$GITHUB_OUTPUT"
-            echo "EOF" >> "$GITHUB_OUTPUT"
+            # Use single-line format to avoid heredoc parsing issues
+            printf 'rate_json=%s\n' "$rate_json" >> "$GITHUB_OUTPUT"
           else
             echo "Failed to retrieve GITHUB_TOKEN rate limits"
             echo 'rate_json={}' >> "$GITHUB_OUTPUT"
@@ -216,9 +215,8 @@ jobs:
                 reset: $reset_time
               }')
 
-            echo "rate_json<<EOF" >> "$GITHUB_OUTPUT"
-            echo "$rate_json" >> "$GITHUB_OUTPUT"
-            echo "EOF" >> "$GITHUB_OUTPUT"
+            # Use single-line format to avoid heredoc parsing issues
+            printf 'rate_json=%s\n' "$rate_json" >> "$GITHUB_OUTPUT"
           else
             echo "Failed to retrieve PAT rate limits"
             echo 'rate_json={}' >> "$GITHUB_OUTPUT"
@@ -308,9 +306,8 @@ jobs:
                 reset: $reset_time
               }')
 
-            echo "rate_json<<EOF" >> "$GITHUB_OUTPUT"
-            echo "$rate_json" >> "$GITHUB_OUTPUT"
-            echo "EOF" >> "$GITHUB_OUTPUT"
+            # Use single-line format to avoid heredoc parsing issues
+            printf 'rate_json=%s\n' "$rate_json" >> "$GITHUB_OUTPUT"
           else
             echo "Failed to retrieve GitHub App rate limits"
             echo 'rate_json={}' >> "$GITHUB_OUTPUT"
@@ -328,58 +325,40 @@ jobs:
 
           echo "::group::Rate data aggregation"
 
-          # Strip any trailing whitespace/newlines that GitHub Actions heredoc might add
-          # and extract just the JSON object (from first { to last })
-          gt_raw="${GITHUB_TOKEN_RATE:-{}}"
-          pat_raw="${PAT_RATE:-{}}"
-          app_raw="${APP_RATE:-{}}"
+          # Debug: show raw values (lengths and first 100 chars)
+          echo "Raw env var lengths: gt=${#GITHUB_TOKEN_RATE}, pat=${#PAT_RATE}, app=${#APP_RATE}"
+          echo "GITHUB_TOKEN_RATE first 100: ${GITHUB_TOKEN_RATE:0:100}"
+          echo "PAT_RATE first 100: ${PAT_RATE:0:100}"
+          echo "APP_RATE first 100: ${APP_RATE:0:100}"
 
-          # Debug: show raw values
-          echo "Raw env var lengths: gt=${#gt_raw}, pat=${#pat_raw}, app=${#app_raw}"
-
-          # Extract JSON object - find first { and last } to handle any extra chars
-          extract_json() {
+          # Use jq to safely extract and re-emit valid JSON
+          # The -R flag reads raw input, and we use try-catch to handle invalid JSON
+          safe_json() {
             local input="$1"
-            local start
-            # Find first { and last }
-            start="${input%%\{*}"
-            if [[ "$input" == *"{"* ]] && [[ "$input" == *"}"* ]]; then
-              # Get substring from first { to end, then trim after last }
-              local from_start="${input:${#start}}"
-              echo "${from_start%\}*}}"
+            local default="${2:-{}}"
+            # Try to parse with jq, fall back to default
+            if [ -z "$input" ]; then
+              echo "$default"
+            elif result=$(echo "$input" | jq -c '.' 2>/dev/null) && [ -n "$result" ]; then
+              echo "$result"
             else
-              echo "{}"
+              echo "$default"
             fi
           }
 
-          gt_json=$(extract_json "$gt_raw")
-          pat_json=$(extract_json "$pat_raw")
-          app_json=$(extract_json "$app_raw")
+          gt_json=$(safe_json "$GITHUB_TOKEN_RATE" "{}")
+          pat_json=$(safe_json "$PAT_RATE" "{}")
+          app_json=$(safe_json "$APP_RATE" "{}")
 
-          echo "Extracted JSON lengths: gt=${#gt_json}, pat=${#pat_json}, app=${#app_json}"
+          echo "Parsed JSON lengths: gt=${#gt_json}, pat=${#pat_json}, app=${#app_json}"
+          echo "gt_json: $gt_json"
+          echo "pat_json: $pat_json"
+          echo "app_json: $app_json"
 
-          # Write clean JSON to temp files
-          printf '%s\n' "$gt_json" > /tmp/gt_rate.json
-          printf '%s\n' "$pat_json" > /tmp/pat_rate.json
-          printf '%s\n' "$app_json" > /tmp/app_rate.json
-
-          # Validate JSON with jq
-          validate_json() {
-            local file="$1"
-            local name="$2"
-            if ! jq -e '.' "$file" > /dev/null 2>&1; then
-              echo "Warning: $name is not valid JSON, using empty object"
-              echo "Content: $(cat "$file")"
-              echo '{}' > "$file"
-            fi
-          }
-
-          validate_json /tmp/gt_rate.json "GITHUB_TOKEN_RATE"
-          validate_json /tmp/pat_rate.json "PAT_RATE"
-          validate_json /tmp/app_rate.json "APP_RATE"
-
-          echo "Validated JSON sizes:"
-          wc -c /tmp/gt_rate.json /tmp/pat_rate.json /tmp/app_rate.json
+          # Write to temp files
+          echo "$gt_json" > /tmp/gt_rate.json
+          echo "$pat_json" > /tmp/pat_rate.json
+          echo "$app_json" > /tmp/app_rate.json
 
           # Create summary JSON using file slurp (avoids shell quoting entirely)
           summary=$(jq -cn \
@@ -393,6 +372,15 @@ jobs:
                 github_token: $gt[0],
                 pat: $pat[0],
                 app: $app[0]
+              }
+            }')
+
+          echo "Summary: $summary"
+          echo "::endgroup::"
+
+          echo "summary<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$summary" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
               }
             }')
 
