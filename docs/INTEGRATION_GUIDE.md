@@ -588,6 +588,13 @@ This means:
 - ✅ **No sync required** when Workflows scripts change
 - ✅ Only **thin caller workflows** (~50-100 lines each) in your repo
 
+### Drift Guardrails
+
+Workflows runs a daily **Health 68 Consumer Sync Drift Check** to compare the
+consumer repos against the templates/manifest. This guard excludes files marked
+with `sync_mode: create_only`. The integration repo is validated separately via
+Health 67.
+
 ### What Each Workflow Does
 
 #### `agents-pr-meta.yml` (Critical for Keepalive)

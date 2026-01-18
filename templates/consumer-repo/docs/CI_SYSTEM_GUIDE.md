@@ -172,7 +172,11 @@ unexpected behavior:
 
 1. **Check sync status**: Look at recent "Sync Consumer Repos" workflow runs
 2. **Compare versions**: Check if your workflows match the templates
-3. **Report issues**: File an issue in stranske/Workflows
+3. **Check drift guard**: Review "Health 68 Consumer Sync Drift Check" results
+4. **Report issues**: File an issue in stranske/Workflows
+
+**Note:** Workflows-Integration-Tests uses its own template set and is validated
+by a separate integration sync check in the Workflows repo.
 
 ---
 

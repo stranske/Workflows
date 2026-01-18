@@ -1,0 +1,115 @@
+name: Health 68 Consumer Sync Drift Check
+
+# Validates that registered consumer repos stay in sync with templates and manifest entries.
+# Skips files marked with sync_mode: create_only.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'templates/consumer-repo/**'
+      - '.github/sync-manifest.yml'
+      - '.github/scripts/**'
+      - 'scripts/**'
+      - 'tools/**'
+  schedule:
+    - cron: '10 5 * * *'  # Daily at 5:10 UTC
+  workflow_dispatch:
+    inputs:
+      repos:
+        description: 'Comma-separated repos to check (empty for registered list)'
+        type: string
+        required: false
+
+permissions:
+  contents: read
+  issues: write
+
+env:
+  REGISTERED_CONSUMER_REPOS: |
+    stranske/Travel-Plan-Permission
+    stranske/Template
+    stranske/trip-planner
+    stranske/Manager-Database
+    stranske/Portable-Alpha-Extension-Model
+    stranske/Trend_Model_Project
+    stranske/Collab-Admin
+
+concurrency:
+  group: consumer-sync-drift-${{ github.repository }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check-drift:
+    name: Validate consumer repo drift
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Workflows repo
+        uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install pyyaml requests
+
+      - name: Compare consumer repos to templates
+        id: compare
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 scripts/check_consumer_sync_drift.py --repos "${INPUT_REPOS:-}"
+
+      - name: Create drift issue
+        if: ${{ failure() }}
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const title = '🔄 Consumer repo drift detected';
+            const label = 'consumer-sync';
+            const runUrl = `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`;
+
+            const body = `## Consumer Repo Drift Detected
+
+            One or more consumer repos have drifted from the Workflows templates or manifest entries.
+
+            **Check Details:** [Run #${process.env.GITHUB_RUN_NUMBER}](${runUrl})
+
+            ### Required Actions
+            1. Review the drift in the workflow run summary
+            2. Run Maint 68 Sync Consumer Repos to restore parity
+            3. Close this issue when resolved
+
+            ### Notes
+            - Files marked with sync_mode: create_only are excluded from this check.
+            - Workflows-Integration-Tests is validated separately by Health 67.
+            `;
+
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: label,
+              per_page: 5
+            });
+
+            if (issues.length > 0) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issues[0].number,
+                body: `Drift still detected. See [run #${process.env.GITHUB_RUN_NUMBER}](${runUrl})`
+              });
+              console.log(`Added comment to existing issue #${issues[0].number}`);
+            } else {
+              const { data: issue } = await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+                labels: [label, 'automation']
+              });
+              console.log(`Created issue #${issue.number}`);
+            }
