@@ -333,24 +333,30 @@ jobs:
           echo "PAT_RATE (first 100): ${PAT_RATE:0:100}..."
           echo "APP_RATE (first 100): ${APP_RATE:0:100}..."
 
-          # Write to temp files to avoid shell quoting issues with complex JSON
-          echo "${GITHUB_TOKEN_RATE:-{}}" > /tmp/gt_rate.json
-          echo "${PAT_RATE:-{}}" > /tmp/pat_rate.json
-          echo "${APP_RATE:-{}}" > /tmp/app_rate.json
+          # Write to temp files using printf to avoid echo interpretation issues
+          printf '%s\n' "${GITHUB_TOKEN_RATE:-{}}" > /tmp/gt_rate.json
+          printf '%s\n' "${PAT_RATE:-{}}" > /tmp/pat_rate.json
+          printf '%s\n' "${APP_RATE:-{}}" > /tmp/app_rate.json
 
-          # Validate and compact JSON (more robust with files)
-          if ! jq -c '.' /tmp/gt_rate.json > /tmp/gt_rate_compact.json 2>/dev/null; then
-            echo "Warning: GITHUB_TOKEN_RATE invalid, using empty object"
+          # Show raw file contents (first line) and byte counts for debugging
+          echo "Raw files written:"
+          echo "  gt_rate.json: $(wc -c < /tmp/gt_rate.json) bytes, first line: $(head -c 100 /tmp/gt_rate.json)..."
+          echo "  pat_rate.json: $(wc -c < /tmp/pat_rate.json) bytes, first line: $(head -c 100 /tmp/pat_rate.json)..."
+          echo "  app_rate.json: $(wc -c < /tmp/app_rate.json) bytes, first line: $(head -c 100 /tmp/app_rate.json)..."
+
+          # Validate and compact JSON (capture errors for debugging)
+          if ! jq -c '.' /tmp/gt_rate.json > /tmp/gt_rate_compact.json 2>&1; then
+            echo "Warning: GITHUB_TOKEN_RATE jq error: $(cat /tmp/gt_rate_compact.json)"
             echo '{}' > /tmp/gt_rate_compact.json
           fi
 
-          if ! jq -c '.' /tmp/pat_rate.json > /tmp/pat_rate_compact.json 2>/dev/null; then
-            echo "Warning: PAT_RATE invalid, using empty object"
+          if ! jq -c '.' /tmp/pat_rate.json > /tmp/pat_rate_compact.json 2>&1; then
+            echo "Warning: PAT_RATE jq error: $(cat /tmp/pat_rate_compact.json)"
             echo '{}' > /tmp/pat_rate_compact.json
           fi
 
-          if ! jq -c '.' /tmp/app_rate.json > /tmp/app_rate_compact.json 2>/dev/null; then
-            echo "Warning: APP_RATE invalid, using empty object"
+          if ! jq -c '.' /tmp/app_rate.json > /tmp/app_rate_compact.json 2>&1; then
+            echo "Warning: APP_RATE jq error: $(cat /tmp/app_rate_compact.json)"
             echo '{}' > /tmp/app_rate_compact.json
           fi
 
