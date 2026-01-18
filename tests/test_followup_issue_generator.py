@@ -202,6 +202,26 @@ Use the `redis-py` library version 4.x.
         assert "Task with dash" in data.tasks
         assert "Task with asterisk" in data.tasks
 
+    def test_extract_tasks_without_list_marker(self):
+        """Extract tasks and acceptance criteria without list markers."""
+        issue_body = """
+## Tasks
+
+[ ] Task without dash
+[x] Completed task without dash
+
+## Acceptance Criteria
+
+[ ] Acceptance without dash
+"""
+        data = extract_original_issue_data(issue_body)
+
+        assert len(data.tasks) == 2
+        assert "Task without dash" in data.tasks
+        assert "Completed task without dash" in data.tasks
+        assert len(data.acceptance_criteria) == 1
+        assert "Acceptance without dash" in data.acceptance_criteria
+
     def test_extract_tasks_from_task_list_heading(self):
         """Extract tasks from Task List heading with plain bullets."""
         issue_body = """

@@ -554,9 +554,16 @@ def _strip_checkbox(line: str) -> str:
 def _parse_checklist(lines: list[str]) -> list[str]:
     items: list[str] = []
     for line in lines:
-        if not line.strip():
+        stripped = line.strip()
+        if not stripped:
             continue
-        if LIST_ITEM_REGEX.match(line.strip()):
+        checkbox_match = CHECKBOX_REGEX.match(stripped)
+        if checkbox_match:
+            value = checkbox_match.group(2).strip()
+            if value and len(value) > 3:
+                items.append(value)
+            continue
+        if LIST_ITEM_REGEX.match(stripped):
             value = _strip_checkbox(line)
             if value and len(value) > 3:
                 items.append(value)
