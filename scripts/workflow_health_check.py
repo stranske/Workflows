@@ -65,6 +65,8 @@ def get_recent_runs(runs: list[dict], days: int = 7) -> list[dict]:
         if recorded:
             try:
                 dt = datetime.fromisoformat(recorded.replace("Z", "+00:00"))
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=UTC)
                 if dt.timestamp() >= cutoff:
                     recent.append(run)
             except ValueError:

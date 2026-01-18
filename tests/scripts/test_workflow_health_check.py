@@ -32,6 +32,16 @@ def test_get_recent_runs_skips_invalid_timestamp() -> None:
     assert recent == [{"verdict": "pass", "recorded_at": recent_time}]
 
 
+def test_get_recent_runs_accepts_naive_timestamp() -> None:
+    """Naive timestamps should be treated as UTC."""
+    naive_time = datetime.now(UTC).replace(tzinfo=None).isoformat()
+    runs = [{"verdict": "pass", "recorded_at": naive_time}]
+
+    recent = workflow_health_check.get_recent_runs(runs, days=7)
+
+    assert recent == runs
+
+
 def test_generate_report_writes_output(tmp_path: Path) -> None:
     """Output file should be written when output_path is provided."""
     metrics_file = tmp_path / "metrics.ndjson"
