@@ -236,6 +236,28 @@ Use the `redis-py` library version 4.x.
         assert "Draft integration plan" in data.tasks
         assert "Update parser for edge cases" in data.tasks
 
+    def test_extract_alpha_enumerated_tasks_and_acceptance(self):
+        """Extract tasks and acceptance criteria from alpha-enumerated lists."""
+        issue_body = """
+## Tasks
+
+a) First task
+b) Second task
+
+## Acceptance Criteria
+
+A) Criteria one
+B) Criteria two
+"""
+        data = extract_original_issue_data(issue_body)
+
+        assert len(data.tasks) == 2
+        assert "First task" in data.tasks
+        assert "Second task" in data.tasks
+        assert len(data.acceptance_criteria) == 2
+        assert "Criteria one" in data.acceptance_criteria
+        assert "Criteria two" in data.acceptance_criteria
+
     def test_extract_acceptance_from_definition_of_done(self):
         """Extract acceptance criteria from Definition of Done heading."""
         issue_body = """

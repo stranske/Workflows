@@ -221,6 +221,13 @@ def test_split_task_parts_with_spaced_slash() -> None:
     assert "option B" in parts
 
 
+def test_parse_subtasks_accepts_alpha_items() -> None:
+    """_parse_subtasks accepts alpha-enumerated list items."""
+    text = "a) First task\nb) Second task\nc) Third task"
+    parsed = task_decomposer._parse_subtasks(text)
+    assert parsed == ["First task", "Second task", "Third task"]
+
+
 def test_split_task_parts_preserves_compound_words() -> None:
     """_split_task_parts does NOT split compound words with unspaced slashes."""
     # Compound words like "additions/removals" should NOT be split

@@ -31,7 +31,7 @@ Return the sub-tasks as a markdown bullet list.
 
 PROMPT_PATH = Path(__file__).resolve().parent / "prompts" / "decompose_task.md"
 
-LIST_ITEM_REGEX = re.compile(r"^\s*(?:[-*+]|\d+[.)])\s+(.*)$")
+LIST_ITEM_REGEX = re.compile(r"^\s*(?:[-*+]|\d+[.)]|[A-Za-z][.)])\s+(.*)$")
 DEPENDENCY_PHRASE_REGEX = re.compile(
     r"\b(depends on|blocked by|waiting for|post-merge|"
     r"(?:after|once|when)\b[^,]*\bmerge\b|requires\b[^.]*\bmerge\b)\b",
