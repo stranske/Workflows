@@ -202,6 +202,34 @@ Use the `redis-py` library version 4.x.
         assert "Task with dash" in data.tasks
         assert "Task with asterisk" in data.tasks
 
+    def test_extract_tasks_from_task_list_heading(self):
+        """Extract tasks from Task List heading with plain bullets."""
+        issue_body = """
+## Task List
+
+- Draft integration plan
+- Update parser for edge cases
+"""
+        data = extract_original_issue_data(issue_body)
+
+        assert len(data.tasks) == 2
+        assert "Draft integration plan" in data.tasks
+        assert "Update parser for edge cases" in data.tasks
+
+    def test_extract_acceptance_from_definition_of_done(self):
+        """Extract acceptance criteria from Definition of Done heading."""
+        issue_body = """
+## Definition of Done
+
+- All lint checks pass
+- Coverage stays above 90%
+"""
+        data = extract_original_issue_data(issue_body)
+
+        assert len(data.acceptance_criteria) == 2
+        assert "All lint checks pass" in data.acceptance_criteria
+        assert "Coverage stays above 90%" in data.acceptance_criteria
+
     def test_handles_missing_sections(self):
         """Handle issues with missing standard sections."""
         issue_body = """
@@ -211,7 +239,7 @@ Just a basic description without standard sections.
 """
         data = extract_original_issue_data(issue_body)
 
-        assert data.why == ""
+        assert "basic description" in data.why
         assert data.tasks == []
         assert data.acceptance_criteria == []
 

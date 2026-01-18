@@ -31,6 +31,38 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+# Section alias handling aligned with issue_formatter/issue_optimizer.
+SECTION_ALIASES = {
+    "why": ["why", "motivation", "summary", "goals"],
+    "scope": ["scope", "context", "background", "overview"],
+    "tasks": ["tasks", "task list", "tasklist", "todo", "to do", "implementation"],
+    "acceptance": [
+        "acceptance criteria",
+        "acceptance",
+        "definition of done",
+        "done criteria",
+        "success criteria",
+    ],
+    "implementation": [
+        "implementation notes",
+        "implementation note",
+        "notes",
+        "details",
+        "technical notes",
+    ],
+}
+
+SECTION_TITLES = {
+    "why": "Why",
+    "scope": "Scope",
+    "tasks": "Tasks",
+    "acceptance": "Acceptance Criteria",
+    "implementation": "Implementation Notes",
+}
+
+LIST_ITEM_REGEX = re.compile(r"^\s*([-*+]|\d+[.)])\s+(.*)$")
+CHECKBOX_REGEX = re.compile(r"^\[([ xX])\]\s*(.*)$")
+
 # Prompts for multi-round LLM interaction
 # NOTE: We use a reasoning model (o1/o3-mini) for ANALYZE_VERIFICATION_PROMPT
 # because this step requires deep analysis to produce useful follow-up tasks.
@@ -464,49 +496,71 @@ def extract_original_issue_data(
     """Extract structured data from the original issue."""
     data = OriginalIssueData(number=issue_number, title=title)
 
-    # Extract sections
-    section_pattern = re.compile(r"^##\s+(.+)$", re.MULTILINE)
-    sections: dict[str, str] = {}
+    sections = _parse_sections(issue_body)
 
-    matches = list(section_pattern.finditer(issue_body))
-    for i, match in enumerate(matches):
-        section_name = match.group(1).strip().lower()
-        start = match.end()
-        end = matches[i + 1].start() if i + 1 < len(matches) else len(issue_body)
-        sections[section_name] = issue_body[start:end].strip()
+    data.why = "\n".join(sections["why"]).strip()
+    data.scope = "\n".join(sections["scope"]).strip()
+    data.implementation_notes = "\n".join(sections["implementation"]).strip()
 
-    # Map to structured fields
-    for key in ("why", "motivation", "summary"):
-        if key in sections:
-            data.why = sections[key]
-            break
-
-    for key in ("scope", "context", "background"):
-        if key in sections:
-            data.scope = sections[key]
-            break
-
-    for key in ("implementation notes", "notes", "implementation"):
-        if key in sections:
-            data.implementation_notes = sections[key]
-            break
-
-    # Extract tasks (checkboxes)
-    task_section = sections.get("tasks", "")
-    checkbox_pattern = re.compile(r"^\s*[-*+]\s*\[([ xX])\]\s*(.+)$", re.MULTILINE)
-    for match in checkbox_pattern.finditer(task_section):
-        task_text = match.group(2).strip()
-        if task_text and len(task_text) > 3:  # Skip tiny fragments
-            data.tasks.append(task_text)
-
-    # Extract acceptance criteria
-    ac_section = sections.get("acceptance criteria", sections.get("acceptance", ""))
-    for match in checkbox_pattern.finditer(ac_section):
-        criterion = match.group(2).strip()
-        if criterion and len(criterion) > 3:
-            data.acceptance_criteria.append(criterion)
+    # Extract tasks and acceptance criteria from checklist/bulleted items.
+    data.tasks = _parse_checklist(sections["tasks"])
+    data.acceptance_criteria = _parse_checklist(sections["acceptance"])
 
     return data
+
+
+def _normalize_heading(text: str) -> str:
+    cleaned = re.sub(r"[#*_:]+", " ", text).strip().lower()
+    cleaned = re.sub(r"\s+", " ", cleaned)
+    return cleaned
+
+
+def _resolve_section(label: str) -> str | None:
+    normalized = _normalize_heading(label)
+    for key, aliases in SECTION_ALIASES.items():
+        for alias in aliases:
+            if normalized == _normalize_heading(alias):
+                return key
+    return None
+
+
+def _parse_sections(body: str) -> dict[str, list[str]]:
+    sections: dict[str, list[str]] = {key: [] for key in SECTION_TITLES}
+    current: str | None = None
+    for line in body.splitlines():
+        heading_match = re.match(r"^\s*#{1,6}\s+(.*)$", line)
+        if heading_match:
+            section_key = _resolve_section(heading_match.group(1))
+            if section_key:
+                current = section_key
+                continue
+        if current:
+            sections[current].append(line)
+    return sections
+
+
+def _strip_checkbox(line: str) -> str:
+    stripped = line.strip()
+    match = LIST_ITEM_REGEX.match(stripped)
+    if not match:
+        return stripped
+    content = match.group(2).strip()
+    checkbox = CHECKBOX_REGEX.match(content)
+    if checkbox:
+        return checkbox.group(2).strip()
+    return content
+
+
+def _parse_checklist(lines: list[str]) -> list[str]:
+    items: list[str] = []
+    for line in lines:
+        if not line.strip():
+            continue
+        if LIST_ITEM_REGEX.match(line.strip()):
+            value = _strip_checkbox(line)
+            if value and len(value) > 3:
+                items.append(value)
+    return items
 
 
 def _get_llm_client(reasoning: bool = False) -> tuple[Any, str] | None:
