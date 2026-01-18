@@ -247,6 +247,7 @@ jobs:
             for (const event of timelineEvents) {
               // Handle both cross-referenced and connected events
               if ((event.event === 'cross-referenced' || event.event === 'connected') &&
+                  event.source?.issue?.repository?.full_name === `${context.repo.owner}/${context.repo.repo}` &&
                   event.source?.issue?.pull_request) {
                 linkedPR = event.source.issue.number;
               }
