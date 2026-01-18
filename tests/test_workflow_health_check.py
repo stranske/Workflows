@@ -4,12 +4,16 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 from scripts.workflow_health_check import (
     analyze_failure_patterns,
     calculate_success_rate,
+    format_duration,
     generate_report,
     get_recent_runs,
     load_workflow_runs,
+    main,
 )
 
 
@@ -143,3 +147,71 @@ class TestGenerateReport:
         assert "total_runs" in report
         assert "overall_success_rate" in report
         assert report["total_runs"] == 1
+
+    def test_generates_report_with_output(self, tmp_path: Path) -> None:
+        """Test that report writes to output when requested."""
+        metrics_file = tmp_path / "metrics.ndjson"
+        metrics_file.write_text('{"verdict": "pass"}\n')
+        output_path = tmp_path / "report.json"
+
+        report = generate_report(str(metrics_file), str(output_path))
+
+        assert output_path.exists()
+        assert output_path.read_text(encoding="utf-8")
+        assert report["total_runs"] == 1
+
+
+class TestFormatDuration:
+    """Tests for format_duration helper."""
+
+    def test_format_duration_seconds(self) -> None:
+        assert format_duration(42) == "42s"
+
+    def test_format_duration_minutes(self) -> None:
+        assert format_duration(75) == "1m 15s"
+
+    def test_format_duration_hours(self) -> None:
+        assert format_duration(3661) == "1h 1m"
+
+
+class TestMain:
+    """Tests for main CLI behavior."""
+
+    def test_main_success(self, tmp_path: Path, capsys: Any, monkeypatch: Any) -> None:
+        metrics_file = tmp_path / "metrics.ndjson"
+        now = datetime.now(UTC).isoformat()
+        metrics_file.write_text(f'{{"verdict": "pass", "recorded_at": "{now}"}}\n')
+        output_path = tmp_path / "report.json"
+
+        monkeypatch.setenv("METRICS_PATH", str(metrics_file))
+        monkeypatch.setenv("OUTPUT_PATH", str(output_path))
+        monkeypatch.setenv("SUCCESS_THRESHOLD", "50")
+
+        main()
+
+        captured = capsys.readouterr()
+        assert "Workflow Health Report" in captured.out
+        assert output_path.exists()
+
+    def test_main_failure_threshold(self, tmp_path: Path, capsys: Any, monkeypatch: Any) -> None:
+        metrics_file = tmp_path / "metrics.ndjson"
+        now = datetime.now(UTC).isoformat()
+        metrics_file.write_text(
+            "\n".join(
+                [
+                    f'{{"verdict": "pass", "recorded_at": "{now}"}}',
+                    f'{{"verdict": "fail", "recorded_at": "{now}"}}',
+                ]
+            )
+            + "\n"
+        )
+
+        monkeypatch.setenv("METRICS_PATH", str(metrics_file))
+        monkeypatch.setenv("SUCCESS_THRESHOLD", "90")
+
+        with pytest.raises(SystemExit) as excinfo:
+            main()
+
+        assert excinfo.value.code == 1
+        captured = capsys.readouterr()
+        assert "Warning: Recent success rate below" in captured.out
