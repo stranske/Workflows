@@ -264,6 +264,23 @@ def test_parse_checklist_handles_numbered_items() -> None:
     assert acceptance == ["Must pass tests"]
 
 
+def test_parse_checklist_handles_alpha_items() -> None:
+    body = "\n".join(
+        [
+            "## Tasks",
+            "a) [ ] First task",
+            "b) Second task",
+            "## Acceptance Criteria",
+            "A) Must pass tests",
+        ]
+    )
+    sections = issue_optimizer._parse_sections(body)
+    tasks = issue_optimizer._parse_checklist(sections["tasks"])
+    acceptance = issue_optimizer._parse_checklist(sections["acceptance"])
+    assert tasks == ["First task", "Second task"]
+    assert acceptance == ["Must pass tests"]
+
+
 def test_detect_blocked_and_subjective_criteria() -> None:
     blocked = issue_optimizer._detect_blocked_tasks(
         ["Edit .github/workflows/ci.yml", "Raise coverage to 80%"]

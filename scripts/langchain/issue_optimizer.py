@@ -87,7 +87,7 @@ SECTION_TITLES = {
     "implementation": "Implementation Notes",
 }
 
-LIST_ITEM_REGEX = re.compile(r"^\s*([-*+]|\d+[.)])\s+(.*)$")
+LIST_ITEM_REGEX = re.compile(r"^\s*([-*+]|\d+[.)]|[A-Za-z][.)])\s+(.*)$")
 CHECKBOX_REGEX = re.compile(r"^\[[ xX]\]\s*(.*)$")
 
 SUBJECTIVE_CRITERIA = ("clean", "nice", "good", "fast", "better", "intuitive", "polished")

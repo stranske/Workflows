@@ -249,6 +249,25 @@ Definition of Done:
     assert "- [ ] formatted body" in acceptance
 
 
+def test_format_issue_fallback_accepts_alpha_lists() -> None:
+    raw = """Tasks:
+a) add formatter
+B) add tests
+
+Acceptance Criteria:
+a) formatter runs
+"""
+    result = issue_formatter.format_issue_body(raw, use_llm=False)
+    formatted = result["formatted_body"]
+
+    tasks = _extract_section(formatted, "Tasks")
+    acceptance = _extract_section(formatted, "Acceptance Criteria")
+
+    assert "- [ ] add formatter" in tasks
+    assert "- [ ] add tests" in tasks
+    assert "- [ ] formatter runs" in acceptance
+
+
 def test_format_issue_fallback_preserves_code_fences_in_tasks() -> None:
     raw = """## Tasks
 - add formatter
