@@ -87,7 +87,7 @@ SECTION_TITLES = {
     "implementation": "Implementation Notes",
 }
 
-LIST_ITEM_REGEX = re.compile(r"^\s*[-*+]\s+(.*)$")
+LIST_ITEM_REGEX = re.compile(r"^\s*([-*+]|\d+[.)])\s+(.*)$")
 CHECKBOX_REGEX = re.compile(r"^\[[ xX]\]\s*(.*)$")
 
 SUBJECTIVE_CRITERIA = ("clean", "nice", "good", "fast", "better", "intuitive", "polished")
@@ -320,7 +320,7 @@ def _strip_checkbox(line: str) -> str:
     match = LIST_ITEM_REGEX.match(stripped)
     if not match:
         return stripped
-    content = match.group(1).strip()
+    content = match.group(match.lastindex).strip()
     checkbox = CHECKBOX_REGEX.match(content)
     if checkbox:
         return checkbox.group(1).strip()
@@ -461,7 +461,7 @@ def _formatted_output_valid(text: str) -> bool:
 
 
 def _strip_task_marker(text: str) -> str:
-    cleaned = re.sub(r"^\s*[-*+]\s*", "", text)
+    cleaned = re.sub(r"^\s*([-*+]|\d+[.)])\s*", "", text)
     cleaned = re.sub(r"^\s*\[[ xX]\]\s*", "", cleaned)
     return cleaned.strip()
 
