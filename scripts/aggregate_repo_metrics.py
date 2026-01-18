@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 """Aggregate per-repo metrics NDJSON into org-level data."""
+
 from __future__ import annotations
 
 import argparse

@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 """Aggregate agent metrics NDJSON into a markdown summary."""
+
 from __future__ import annotations
 
 import datetime as _dt

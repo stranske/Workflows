@@ -5,6 +5,7 @@ Used when the structured parser fails with exit code 3 but enumerators
 were detected during decoding. Produces a minimal topics.json so the
 workflow can still sync issues instead of hard-failing.
 """
+
 from __future__ import annotations
 
 import json

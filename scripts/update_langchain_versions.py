@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Update langchain dependencies to latest stable versions across repos."""
+
 import json
 import re
 import subprocess

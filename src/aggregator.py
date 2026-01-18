@@ -80,11 +80,11 @@ def build_grouped_aggregates(
     for group_values, group_entries_list in grouped.items():
         group_map = dict(zip(keys_list, group_values, strict=False))
         for field in numeric_fields:
-            values = [
-                as_number(entry.get(field))
-                for entry in group_entries_list
-                if as_number(entry.get(field)) is not None
-            ]
+            values: list[float] = []
+            for entry in group_entries_list:
+                value = as_number(entry.get(field))
+                if value is not None:
+                    values.append(value)
             summary = percentile_calculator.summarize_values(values)
             aggregates.append(
                 {
