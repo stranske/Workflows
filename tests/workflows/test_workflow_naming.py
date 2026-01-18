@@ -216,6 +216,7 @@ EXPECTED_NAMES = {
     "health-70-validate-sync-manifest.yml": "Validate Sync Manifest",
     "health-71-sync-health-check.yml": "Health 71 Sync Health Check",
     "health-72-template-sync.yml": "Health 72 Template Sync",
+    "health-75-api-rate-diagnostic.yml": "Health 75 API Rate Diagnostic",
     "maint-68-sync-consumer-repos.yml": "Maint 68 Sync Consumer Repos",
     "maint-69-sync-integration-repo.yml": "Maint 69 Sync Integration Repo",
     "maint-60-release.yml": "Maint 60 Release",
