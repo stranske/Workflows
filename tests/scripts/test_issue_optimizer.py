@@ -45,7 +45,7 @@ def test_extract_suggestions_json_from_comment() -> None:
     payload = issue_optimizer._extract_suggestions_json(comment)
     assert payload is not None
     assert payload["blocked_tasks"][0]["task"] == "Update workflow"
-    assert "Updated WORKFLOW_OUTPUTS.md suggestions-json:" in comment
+    assert "suggestions-json:" in comment
 
 
 def test_format_suggestions_comment_includes_key_sections() -> None:
@@ -80,7 +80,7 @@ def test_format_suggestions_comment_includes_key_sections() -> None:
     assert "### Task splitting" in comment
     assert "### Blocked tasks" in comment
     assert "### Objective acceptance criteria" in comment
-    assert "<!-- Updated WORKFLOW_OUTPUTS.md suggestions-json:" in comment
+    assert "<!-- suggestions-json:" in comment
 
 
 def test_apply_suggestions_fallback_adds_deferred_tasks() -> None:

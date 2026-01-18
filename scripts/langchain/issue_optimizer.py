@@ -91,7 +91,7 @@ LIST_ITEM_REGEX = re.compile(r"^\s*[-*+]\s+(.*)$")
 CHECKBOX_REGEX = re.compile(r"^\[[ xX]\]\s*(.*)$")
 
 SUBJECTIVE_CRITERIA = ("clean", "nice", "good", "fast", "better", "intuitive", "polished")
-SUGGESTIONS_MARKER_PREFIX = "Updated WORKFLOW_OUTPUTS.md suggestions-json:"
+SUGGESTIONS_MARKER_PREFIX = "suggestions-json:"
 
 
 @dataclass
