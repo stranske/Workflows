@@ -340,11 +340,11 @@ jobs:
           app_rate=$(echo "$app_rate" | jq -c '.' 2>/dev/null || echo '{}')
 
           # Create summary JSON (compact for safe passing between jobs)
-          summary=$(jq -cn \\
-            --arg timestamp "$(date -u +\"%Y-%m-%dT%H:%M:%SZ\")" \\
-            --argjson github_token "$gt_rate" \\
-            --argjson pat "$pat_rate" \\
-            --argjson app "$app_rate" \\
+          summary=$(jq -cn \
+            --arg timestamp "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+            --argjson github_token "$gt_rate" \
+            --argjson pat "$pat_rate" \
+            --argjson app "$app_rate" \
             '{
               timestamp: $timestamp,
               tokens: {
