@@ -3,13 +3,18 @@
 
 from __future__ import annotations
 
+import argparse
 import datetime as _dt
 import json
+import sys
 from pathlib import Path
 from typing import Any
 
 from scripts.aggregate_repo_metrics import summarize_values
 from scripts.metrics_format_utils import ascii_sparkline, format_markdown_table
+
+_DEFAULT_METRICS_PATH = "metrics-history.ndjson"
+_DEFAULT_OUTPUT_PATH = "docs/metrics/WEEKLY_DASHBOARD.md"
 
 
 def _read_ndjson(path: Path) -> tuple[list[dict[str, Any]], int]:
@@ -271,3 +276,115 @@ def build_dashboard_from_path(
 ) -> tuple[str, int]:
     entries, errors = _read_ndjson(metrics_path)
     return build_dashboard(entries, errors, numeric_fields), errors
+
+
+def _parse_field_list(values: list[str] | None) -> list[str] | None:
+    if not values:
+        return None
+    fields: list[str] = []
+    for value in values:
+        for item in value.split(","):
+            field = item.strip()
+            if field:
+                fields.append(field)
+    return fields or None
+
+
+def _load_config(config_path: Path | None) -> dict[str, Any]:
+    if config_path is None:
+        return {}
+    if not config_path.exists():
+        raise FileNotFoundError(f"Config file not found: {config_path}")
+    payload = json.loads(config_path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"Config must be a JSON object: {config_path}")
+    return payload
+
+
+def _validate_config(config: dict[str, Any]) -> dict[str, Any]:
+    validated: dict[str, Any] = {}
+    allowed = {"metrics_path", "output_path", "numeric_fields"}
+    extra_keys = set(config) - allowed
+    if extra_keys:
+        extras = ", ".join(sorted(extra_keys))
+        raise ValueError(f"Unsupported config keys: {extras}")
+
+    metrics_path = config.get("metrics_path")
+    if metrics_path is not None:
+        if not isinstance(metrics_path, str) or not metrics_path.strip():
+            raise ValueError("metrics_path must be a non-empty string")
+        validated["metrics_path"] = metrics_path.strip()
+
+    output_path = config.get("output_path")
+    if output_path is not None:
+        if not isinstance(output_path, str) or not output_path.strip():
+            raise ValueError("output_path must be a non-empty string")
+        validated["output_path"] = output_path.strip()
+
+    numeric_fields = config.get("numeric_fields")
+    if numeric_fields is not None:
+        if isinstance(numeric_fields, str):
+            numeric_fields = _parse_field_list([numeric_fields])
+        elif isinstance(numeric_fields, list):
+            numeric_fields = [str(item).strip() for item in numeric_fields if str(item).strip()]
+        else:
+            raise ValueError("numeric_fields must be a list of strings or a string")
+        validated["numeric_fields"] = numeric_fields or []
+
+    return validated
+
+
+def _build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        description="Generate a weekly metrics dashboard from NDJSON logs."
+    )
+    parser.add_argument("--path", help="NDJSON metrics path")
+    parser.add_argument("--output", help="Markdown output path")
+    parser.add_argument(
+        "--fields",
+        nargs="*",
+        help="Optional list of numeric fields to include (comma-separated or space-delimited).",
+    )
+    parser.add_argument("--config", help="Path to JSON config with defaults.")
+    return parser
+
+
+def main(argv: list[str]) -> int:
+    parser = _build_parser()
+    args = parser.parse_args(argv)
+
+    config: dict[str, Any] = {}
+    if args.config:
+        try:
+            config = _validate_config(_load_config(Path(args.config)))
+        except (OSError, ValueError) as exc:
+            print(f"metrics_dashboard_generator: {exc}", file=sys.stderr)
+            return 1
+
+    metrics_path_value = args.path or config.get("metrics_path") or _DEFAULT_METRICS_PATH
+    output_path_value = args.output or config.get("output_path") or _DEFAULT_OUTPUT_PATH
+    fields = _parse_field_list(args.fields)
+    if fields is None:
+        fields = config.get("numeric_fields")
+
+    metrics_path = Path(metrics_path_value)
+    if not metrics_path.exists():
+        print(
+            f"metrics_dashboard_generator: metrics file not found: {metrics_path}",
+            file=sys.stderr,
+        )
+        return 1
+
+    dashboard, errors = build_dashboard_from_path(metrics_path, numeric_fields=fields)
+    if errors:
+        print(f"metrics_dashboard_generator: parse errors: {errors}", file=sys.stderr)
+
+    output_path = Path(output_path_value)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(dashboard, encoding="utf-8")
+    print(f"Wrote metrics dashboard to {output_path}")
+    return 0
+
+
+if __name__ == "__main__":  # pragma: no cover - CLI entry point
+    raise SystemExit(main(sys.argv[1:]))

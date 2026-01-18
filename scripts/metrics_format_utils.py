@@ -87,7 +87,7 @@ def format_markdown_table(
     return "\n".join(lines)
 
 
-def ascii_sparkline(series: list[float], steps: str = " .:-=+*#%@") -> str:
+def ascii_sparkline(series: list[float], steps: str = ".:-=+*#%@") -> str:
     """Render a compact ASCII trend chart for a numeric series."""
     if not series:
         return ""

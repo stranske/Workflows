@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from scripts import metrics_dashboard_generator as generator
 
 
@@ -40,3 +42,46 @@ def test_build_dashboard_handles_missing_fields() -> None:
     output = generator.build_dashboard([], errors=0)
 
     assert "No repo metrics found." in output
+
+
+def test_parse_field_list_splits_commas() -> None:
+    fields = generator._parse_field_list(["duration_ms,coverage", "failures"])
+
+    assert fields == ["duration_ms", "coverage", "failures"]
+
+
+def test_load_config_validates_fields(tmp_path: Path) -> None:
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        '{"metrics_path": "metrics.ndjson", "output_path": "out.md", "numeric_fields": ["a", "b"]}',
+        encoding="utf-8",
+    )
+
+    config = generator._validate_config(generator._load_config(config_path))
+
+    assert config["metrics_path"] == "metrics.ndjson"
+    assert config["output_path"] == "out.md"
+    assert config["numeric_fields"] == ["a", "b"]
+
+
+def test_main_writes_output(tmp_path: Path) -> None:
+    metrics_path = tmp_path / "metrics.ndjson"
+    metrics_path.write_text(
+        "\n".join(
+            [
+                '{"repo": "octo/alpha", "duration_ms": 10, "timestamp": "2024-01-01T00:00:00Z"}',
+                '{"repo": "octo/alpha", "duration_ms": 20, "timestamp": "2024-01-02T00:00:00Z"}',
+            ]
+        ),
+        encoding="utf-8",
+    )
+    output_path = tmp_path / "dashboard.md"
+
+    exit_code = generator.main(
+        ["--path", str(metrics_path), "--output", str(output_path), "--fields", "duration_ms"]
+    )
+
+    assert exit_code == 0
+    assert output_path.exists()
+    content = output_path.read_text(encoding="utf-8")
+    assert "# Weekly Metrics Dashboard" in content
