@@ -212,6 +212,7 @@ EXPECTED_NAMES = {
     "maint-65-sync-label-docs.yml": "Maint 65 Sync Label Docs",
     "maint-66-monthly-audit.yml": "Maint 66 Monthly Audit",
     "health-67-integration-sync-check.yml": "Health 67 Integration Sync Check",
+    "health-68-consumer-sync-drift.yml": "Health 68 Consumer Sync Drift Check",
     "health-70-validate-sync-manifest.yml": "Validate Sync Manifest",
     "health-71-sync-health-check.yml": "Health 71 Sync Health Check",
     "health-72-template-sync.yml": "Health 72 Template Sync",
