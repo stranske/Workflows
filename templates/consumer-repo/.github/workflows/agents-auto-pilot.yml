@@ -102,6 +102,23 @@ jobs:
         if: steps.check_enabled.outputs.enabled == 'true'
         uses: actions/checkout@v6
 
+      - name: Checkout Workflows scripts
+        if: steps.check_enabled.outputs.enabled == 'true'
+        uses: actions/checkout@v6
+        with:
+          repository: stranske/Workflows
+          ref: main
+          sparse-checkout: |
+            .github/scripts
+          sparse-checkout-cone-mode: false
+          path: workflows-lib
+          fetch-depth: 1
+
+      - name: Set scripts path
+        if: steps.check_enabled.outputs.enabled == 'true'
+        run: |
+          echo "WORKFLOWS_SCRIPTS_PATH=${GITHUB_WORKSPACE}/workflows-lib" >> "$GITHUB_ENV"
+
       - name: Set up Python
         if: steps.check_enabled.outputs.enabled == 'true'
         uses: actions/setup-python@v6
@@ -127,8 +144,9 @@ jobs:
         uses: actions/github-script@v8
         with:
           script: |
+            const scriptsPath = process.env.WORKFLOWS_SCRIPTS_PATH || process.env.GITHUB_WORKSPACE;
             const { withRetry, paginateWithRetry } = require(
-              './.github/scripts/github-api-with-retry.js'
+              `${scriptsPath}/.github/scripts/github-api-with-retry.js`
             );
 
             let issueNumber, issue, pr;
@@ -261,7 +279,10 @@ jobs:
           ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
         with:
           script: |
-            const { paginateWithRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const scriptsPath = process.env.WORKFLOWS_SCRIPTS_PATH || process.env.GITHUB_WORKSPACE;
+            const { paginateWithRetry } = require(
+              `${scriptsPath}/.github/scripts/github-api-with-retry.js`
+            );
             const issueNumber = parseInt(process.env.ISSUE_NUMBER);
 
             // Get all comments to count auto-pilot steps (with pagination and retry)
@@ -628,7 +649,10 @@ jobs:
             const issueNumber = parseInt(process.env.ISSUE_NUMBER);
 
             // Fetch all comments on the issue (with pagination and retry)
-            const { paginateWithRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const scriptsPath = process.env.WORKFLOWS_SCRIPTS_PATH || process.env.GITHUB_WORKSPACE;
+            const { paginateWithRetry } = require(
+              `${scriptsPath}/.github/scripts/github-api-with-retry.js`
+            );
             const comments = await paginateWithRetry(
               github,
               github.rest.issues.listComments,
