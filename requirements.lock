@@ -17,7 +17,7 @@ attrs==25.4.0
     #   aiohttp
     #   jsonschema
     #   referencing
-black==25.12.0
+black==26.1.0
     # via workflows (pyproject.toml)
 certifi==2026.1.4
     # via
@@ -277,22 +277,17 @@ tenacity==9.1.2
     #   langchain-core
 tiktoken==0.12.0
     # via langchain-openai
-tomli==2.4.0 ; python_full_version <= '3.11'
-    # via coverage
 tomlkit==0.14.0
     # via workflows (pyproject.toml)
 tqdm==4.67.1
     # via openai
 typing-extensions==4.15.0
     # via
-    #   aiosignal
-    #   anyio
     #   langchain-core
     #   mypy
     #   openai
     #   pydantic
     #   pydantic-core
-    #   referencing
     #   sqlalchemy
     #   typing-inspect
     #   typing-inspection
