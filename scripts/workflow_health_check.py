@@ -23,7 +23,11 @@ def load_workflow_runs(metrics_path: str) -> list[dict]:
         for line in f:
             line = line.strip()
             if line:
-                runs.append(json.loads(line))
+                try:
+                    runs.append(json.loads(line))
+                except json.JSONDecodeError:
+                    # Skip malformed lines so a single bad entry doesn't crash the report.
+                    continue
     return runs
 
 

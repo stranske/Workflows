@@ -80,6 +80,7 @@ def test_load_workflow_runs_reads_nonempty_lines(tmp_path: Path) -> None:
             [
                 json.dumps({"verdict": "pass"}),
                 "",
+                "{not json}",
                 json.dumps({"status": "failure"}),
             ]
         )
