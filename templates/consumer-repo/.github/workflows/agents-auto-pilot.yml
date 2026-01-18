@@ -110,6 +110,7 @@ jobs:
           ref: main
           sparse-checkout: |
             .github/scripts
+            scripts
           sparse-checkout-cone-mode: false
           path: workflows-lib
           fetch-depth: 1
@@ -450,7 +451,7 @@ jobs:
           AUTOPILOT_STEP_NAME: format
           AUTOPILOT_ERROR_CATEGORY: timer-start
         run: |
-          python scripts/autopilot_step_timer.py --event start --format epoch-ms --github-env
+          python "$WORKFLOWS_SCRIPTS_PATH/scripts/autopilot_step_timer.py" --event start --format epoch-ms --github-env
 
       - name: Execute step - Format (inline)
         if: steps.next.outputs.next_step == 'format'
@@ -477,7 +478,7 @@ jobs:
 
           # Format the issue
           echo "Formatting issue into AGENT_ISSUE_TEMPLATE structure..."
-          python scripts/langchain/issue_formatter.py \
+          python "$WORKFLOWS_SCRIPTS_PATH/scripts/langchain/issue_formatter.py" \
             --input-file /tmp/issue_body.md \
             --json > /tmp/format_result.json
 
@@ -511,7 +512,7 @@ jobs:
           AUTOPILOT_STEP_NAME: format
           AUTOPILOT_ERROR_CATEGORY: timer-end
         run: |
-          python scripts/autopilot_step_timer.py --event end --format epoch-ms --github-env
+          python "$WORKFLOWS_SCRIPTS_PATH/scripts/autopilot_step_timer.py" --event end --format epoch-ms --github-env
 
       - name: Metrics - Record format step
         if: always() && steps.next.outputs.next_step == 'format'
@@ -525,7 +526,7 @@ jobs:
           if [ "$success" != "true" ]; then
             failure_reason="step-failed"
           fi
-          python scripts/autopilot_metrics_collector.py \
+          python "$WORKFLOWS_SCRIPTS_PATH/scripts/autopilot_metrics_collector.py" \
             --path "$AUTOPILOT_METRICS_LOG_PATH" \
             --metric-type step \
             --issue-number "${{ steps.context.outputs.issue_number }}" \
@@ -540,7 +541,7 @@ jobs:
           AUTOPILOT_STEP_NAME: optimize
           AUTOPILOT_ERROR_CATEGORY: timer-start
         run: |
-          python scripts/autopilot_step_timer.py --event start --format epoch-ms --github-env
+          python "$WORKFLOWS_SCRIPTS_PATH/scripts/autopilot_step_timer.py" --event start --format epoch-ms --github-env
 
       - name: Execute step - Optimize (inline)
         if: steps.next.outputs.next_step == 'optimize'
@@ -567,7 +568,7 @@ jobs:
 
           # Run optimizer analysis
           echo "Running optimization analysis..."
-          python scripts/langchain/issue_optimizer.py \
+          python "$WORKFLOWS_SCRIPTS_PATH/scripts/langchain/issue_optimizer.py" \
             --input-file /tmp/issue_body.md \
             --json > /tmp/suggestions.json
 
@@ -614,7 +615,7 @@ jobs:
           AUTOPILOT_STEP_NAME: optimize
           AUTOPILOT_ERROR_CATEGORY: timer-end
         run: |
-          python scripts/autopilot_step_timer.py --event end --format epoch-ms --github-env
+          python "$WORKFLOWS_SCRIPTS_PATH/scripts/autopilot_step_timer.py" --event end --format epoch-ms --github-env
 
       - name: Metrics - Record optimize step
         if: always() && steps.next.outputs.next_step == 'optimize'
@@ -628,7 +629,7 @@ jobs:
           if [ "$success" != "true" ]; then
             failure_reason="step-failed"
           fi
-          python scripts/autopilot_metrics_collector.py \
+          python "$WORKFLOWS_SCRIPTS_PATH/scripts/autopilot_metrics_collector.py" \
             --path "$AUTOPILOT_METRICS_LOG_PATH" \
             --metric-type step \
             --issue-number "${{ steps.context.outputs.issue_number }}" \
@@ -714,7 +715,7 @@ jobs:
           AUTOPILOT_STEP_NAME: apply
           AUTOPILOT_ERROR_CATEGORY: timer-start
         run: |
-          python scripts/autopilot_step_timer.py --event start --format epoch-ms --github-env
+          python "$WORKFLOWS_SCRIPTS_PATH/scripts/autopilot_step_timer.py" --event start --format epoch-ms --github-env
 
       - name: Execute step - Apply suggestions (inline)
         if: steps.next.outputs.next_step == 'apply'
@@ -790,7 +791,7 @@ jobs:
           AUTOPILOT_STEP_NAME: apply
           AUTOPILOT_ERROR_CATEGORY: timer-end
         run: |
-          python scripts/autopilot_step_timer.py --event end --format epoch-ms --github-env
+          python "$WORKFLOWS_SCRIPTS_PATH/scripts/autopilot_step_timer.py" --event end --format epoch-ms --github-env
 
       - name: Metrics - Record apply step
         if: always() && steps.next.outputs.next_step == 'apply'
@@ -804,7 +805,7 @@ jobs:
           if [ "$success" != "true" ]; then
             failure_reason="step-failed"
           fi
-          python scripts/autopilot_metrics_collector.py \
+          python "$WORKFLOWS_SCRIPTS_PATH/scripts/autopilot_metrics_collector.py" \
             --path "$AUTOPILOT_METRICS_LOG_PATH" \
             --metric-type step \
             --issue-number "${{ steps.context.outputs.issue_number }}" \
@@ -819,7 +820,7 @@ jobs:
           AUTOPILOT_STEP_NAME: capability-check
           AUTOPILOT_ERROR_CATEGORY: timer-start
         run: |
-          python scripts/autopilot_step_timer.py --event start --format epoch-ms --github-env
+          python "$WORKFLOWS_SCRIPTS_PATH/scripts/autopilot_step_timer.py" --event start --format epoch-ms --github-env
 
       - name: Execute step - Capability check & Agent
         if: steps.next.outputs.next_step == 'capability-check'
@@ -875,7 +876,7 @@ jobs:
           AUTOPILOT_STEP_NAME: capability-check
           AUTOPILOT_ERROR_CATEGORY: timer-end
         run: |
-          python scripts/autopilot_step_timer.py --event end --format epoch-ms --github-env
+          python "$WORKFLOWS_SCRIPTS_PATH/scripts/autopilot_step_timer.py" --event end --format epoch-ms --github-env
 
       - name: Metrics - Record capability check step
         if: always() && steps.next.outputs.next_step == 'capability-check'
@@ -889,7 +890,7 @@ jobs:
           if [ "$success" != "true" ]; then
             failure_reason="step-failed"
           fi
-          python scripts/autopilot_metrics_collector.py \
+          python "$WORKFLOWS_SCRIPTS_PATH/scripts/autopilot_metrics_collector.py" \
             --path "$AUTOPILOT_METRICS_LOG_PATH" \
             --metric-type step \
             --issue-number "${{ steps.context.outputs.issue_number }}" \
@@ -903,7 +904,7 @@ jobs:
           AUTOPILOT_STEP_NAME: verify
           AUTOPILOT_ERROR_CATEGORY: timer-start
         run: |
-          python scripts/autopilot_step_timer.py --event start --format epoch-ms --github-env
+          python "$WORKFLOWS_SCRIPTS_PATH/scripts/autopilot_step_timer.py" --event start --format epoch-ms --github-env
 
       - name: Execute step - Verify
         if: steps.next.outputs.next_step == 'verify'
@@ -1002,7 +1003,7 @@ jobs:
           AUTOPILOT_STEP_NAME: verify
           AUTOPILOT_ERROR_CATEGORY: timer-end
         run: |
-          python scripts/autopilot_step_timer.py --event end --format epoch-ms --github-env
+          python "$WORKFLOWS_SCRIPTS_PATH/scripts/autopilot_step_timer.py" --event end --format epoch-ms --github-env
 
       - name: Metrics - Record verify step
         if: always() && steps.next.outputs.next_step == 'verify'
@@ -1016,7 +1017,7 @@ jobs:
           if [ "$success" != "true" ]; then
             failure_reason="step-failed"
           fi
-          python scripts/autopilot_metrics_collector.py \
+          python "$WORKFLOWS_SCRIPTS_PATH/scripts/autopilot_metrics_collector.py" \
             --path "$AUTOPILOT_METRICS_LOG_PATH" \
             --metric-type step \
             --issue-number "${{ steps.context.outputs.issue_number }}" \
@@ -1031,7 +1032,7 @@ jobs:
           AUTOPILOT_STEP_NAME: create-pr
           AUTOPILOT_ERROR_CATEGORY: timer-start
         run: |
-          python scripts/autopilot_step_timer.py --event start --format epoch-ms --github-env
+          python "$WORKFLOWS_SCRIPTS_PATH/scripts/autopilot_step_timer.py" --event start --format epoch-ms --github-env
 
       - name: Execute step - Create PR
         if: steps.next.outputs.next_step == 'create-pr'
@@ -1276,7 +1277,7 @@ jobs:
           AUTOPILOT_STEP_NAME: create-pr
           AUTOPILOT_ERROR_CATEGORY: timer-end
         run: |
-          python scripts/autopilot_step_timer.py --event end --format epoch-ms --github-env
+          python "$WORKFLOWS_SCRIPTS_PATH/scripts/autopilot_step_timer.py" --event end --format epoch-ms --github-env
 
       - name: Metrics - Record create-pr step
         if: always() && steps.next.outputs.next_step == 'create-pr'
@@ -1290,7 +1291,7 @@ jobs:
           if [ "$success" != "true" ]; then
             failure_reason="step-failed"
           fi
-          python scripts/autopilot_metrics_collector.py \
+          python "$WORKFLOWS_SCRIPTS_PATH/scripts/autopilot_metrics_collector.py" \
             --path "$AUTOPILOT_METRICS_LOG_PATH" \
             --metric-type step \
             --issue-number "${{ steps.context.outputs.issue_number }}" \
@@ -1305,7 +1306,7 @@ jobs:
           AUTOPILOT_STEP_NAME: monitor-pr
           AUTOPILOT_ERROR_CATEGORY: timer-start
         run: |
-          python scripts/autopilot_step_timer.py --event start --format epoch-ms --github-env
+          python "$WORKFLOWS_SCRIPTS_PATH/scripts/autopilot_step_timer.py" --event start --format epoch-ms --github-env
 
       - name: Report - Monitoring PR
         if: steps.next.outputs.next_step == 'monitor-pr'
@@ -1322,7 +1323,7 @@ jobs:
           AUTOPILOT_STEP_NAME: monitor-pr
           AUTOPILOT_ERROR_CATEGORY: timer-end
         run: |
-          python scripts/autopilot_step_timer.py --event end --format epoch-ms --github-env
+          python "$WORKFLOWS_SCRIPTS_PATH/scripts/autopilot_step_timer.py" --event end --format epoch-ms --github-env
 
       - name: Metrics - Record monitor-pr step
         if: always() && steps.next.outputs.next_step == 'monitor-pr'
@@ -1336,7 +1337,7 @@ jobs:
           if [ "$success" != "true" ]; then
             failure_reason="step-failed"
           fi
-          python scripts/autopilot_metrics_collector.py \
+          python "$WORKFLOWS_SCRIPTS_PATH/scripts/autopilot_metrics_collector.py" \
             --path "$AUTOPILOT_METRICS_LOG_PATH" \
             --metric-type step \
             --issue-number "${{ steps.context.outputs.issue_number }}" \
@@ -1351,7 +1352,7 @@ jobs:
           AUTOPILOT_STEP_NAME: check-completion
           AUTOPILOT_ERROR_CATEGORY: timer-start
         run: |
-          python scripts/autopilot_step_timer.py --event start --format epoch-ms --github-env
+          python "$WORKFLOWS_SCRIPTS_PATH/scripts/autopilot_step_timer.py" --event start --format epoch-ms --github-env
 
       - name: Execute step - Check Completion & Trigger Merge
         if: steps.next.outputs.next_step == 'check-completion'
@@ -1456,7 +1457,7 @@ jobs:
           AUTOPILOT_STEP_NAME: check-completion
           AUTOPILOT_ERROR_CATEGORY: timer-end
         run: |
-          python scripts/autopilot_step_timer.py --event end --format epoch-ms --github-env
+          python "$WORKFLOWS_SCRIPTS_PATH/scripts/autopilot_step_timer.py" --event end --format epoch-ms --github-env
 
       - name: Metrics - Record check-completion step
         if: always() && steps.next.outputs.next_step == 'check-completion'
@@ -1470,7 +1471,7 @@ jobs:
           if [ "$success" != "true" ]; then
             failure_reason="step-failed"
           fi
-          python scripts/autopilot_metrics_collector.py \
+          python "$WORKFLOWS_SCRIPTS_PATH/scripts/autopilot_metrics_collector.py" \
             --path "$AUTOPILOT_METRICS_LOG_PATH" \
             --metric-type step \
             --issue-number "${{ steps.context.outputs.issue_number }}" \
