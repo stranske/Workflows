@@ -54,12 +54,12 @@ def test_load_config_validates_fields(tmp_path: Path) -> None:
     config_path = tmp_path / "config.json"
     config_path.write_text(
         (
-            '{'
+            "{"
             '"metrics_path": "metrics.ndjson", '
             '"output_path": "out.md", '
             '"numeric_fields": ["a", "b"], '
             '"thresholds": {"duration_ms": {"ok": 10, "warn": 20, "higher_is_better": false}}'
-            '}'
+            "}"
         ),
         encoding="utf-8",
     )
