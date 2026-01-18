@@ -324,35 +324,56 @@ jobs:
           PAT_RATE: ${{ steps.pat.outputs.rate_json }}
           APP_RATE: ${{ steps.app.outputs.rate_json }}
         run: |
-          set -euo pipefail
+          set -uo pipefail  # Note: removed -e to handle errors manually
 
-          # Debug: show what we received
-          echo "Received rate data from previous steps"
+          echo "::group::Rate data aggregation"
 
-          # Handle potentially empty or multiline JSON - read from env vars safely
-          gt_rate="${GITHUB_TOKEN_RATE:-{}}"
-          pat_rate="${PAT_RATE:-{}}"
-          app_rate="${APP_RATE:-{}}"
+          # Debug: show raw env var values (first 100 chars)
+          echo "GITHUB_TOKEN_RATE (first 100): ${GITHUB_TOKEN_RATE:0:100}..."
+          echo "PAT_RATE (first 100): ${PAT_RATE:0:100}..."
+          echo "APP_RATE (first 100): ${APP_RATE:0:100}..."
 
-          # Validate and compact JSON (handles multiline input)
-          gt_rate=$(echo "$gt_rate" | jq -c '.' 2>/dev/null || echo '{}')
-          pat_rate=$(echo "$pat_rate" | jq -c '.' 2>/dev/null || echo '{}')
-          app_rate=$(echo "$app_rate" | jq -c '.' 2>/dev/null || echo '{}')
+          # Write to temp files to avoid shell quoting issues with complex JSON
+          echo "${GITHUB_TOKEN_RATE:-{}}" > /tmp/gt_rate.json
+          echo "${PAT_RATE:-{}}" > /tmp/pat_rate.json
+          echo "${APP_RATE:-{}}" > /tmp/app_rate.json
 
-          # Create summary JSON (compact for safe passing between jobs)
+          # Validate and compact JSON (more robust with files)
+          if ! jq -c '.' /tmp/gt_rate.json > /tmp/gt_rate_compact.json 2>/dev/null; then
+            echo "Warning: GITHUB_TOKEN_RATE invalid, using empty object"
+            echo '{}' > /tmp/gt_rate_compact.json
+          fi
+
+          if ! jq -c '.' /tmp/pat_rate.json > /tmp/pat_rate_compact.json 2>/dev/null; then
+            echo "Warning: PAT_RATE invalid, using empty object"
+            echo '{}' > /tmp/pat_rate_compact.json
+          fi
+
+          if ! jq -c '.' /tmp/app_rate.json > /tmp/app_rate_compact.json 2>/dev/null; then
+            echo "Warning: APP_RATE invalid, using empty object"
+            echo '{}' > /tmp/app_rate_compact.json
+          fi
+
+          echo "Compacted JSON sizes:"
+          wc -c /tmp/*_compact.json
+
+          # Create summary JSON using file slurp (avoids shell quoting entirely)
           summary=$(jq -cn \
             --arg timestamp "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
-            --argjson github_token "$gt_rate" \
-            --argjson pat "$pat_rate" \
-            --argjson app "$app_rate" \
+            --slurpfile gt /tmp/gt_rate_compact.json \
+            --slurpfile pat /tmp/pat_rate_compact.json \
+            --slurpfile app /tmp/app_rate_compact.json \
             '{
               timestamp: $timestamp,
               tokens: {
-                github_token: $github_token,
-                pat: $pat,
-                app: $app
+                github_token: $gt[0],
+                pat: $pat[0],
+                app: $app[0]
               }
             }')
+
+          echo "Summary created successfully"
+          echo "::endgroup::"
 
           echo "summary<<EOF" >> "$GITHUB_OUTPUT"
           echo "$summary" >> "$GITHUB_OUTPUT"
