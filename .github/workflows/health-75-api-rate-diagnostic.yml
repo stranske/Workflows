@@ -344,19 +344,23 @@ jobs:
           echo "  pat_rate.json: $(wc -c < /tmp/pat_rate.json) bytes, first line: $(head -c 100 /tmp/pat_rate.json)..."
           echo "  app_rate.json: $(wc -c < /tmp/app_rate.json) bytes, first line: $(head -c 100 /tmp/app_rate.json)..."
 
-          # Validate and compact JSON (capture errors for debugging)
-          if ! jq -c '.' /tmp/gt_rate.json > /tmp/gt_rate_compact.json 2>&1; then
-            echo "Warning: GITHUB_TOKEN_RATE jq error: $(cat /tmp/gt_rate_compact.json)"
+          # Validate and compact JSON (capture errors separately from output)
+          jq_err=""
+          if ! jq_err=$(jq -c '.' /tmp/gt_rate.json 2>&1 > /tmp/gt_rate_compact.json); then
+            echo "Warning: GITHUB_TOKEN_RATE jq error: $jq_err"
+            echo "Raw content (hex): $(xxd /tmp/gt_rate.json | head -5)"
             echo '{}' > /tmp/gt_rate_compact.json
           fi
 
-          if ! jq -c '.' /tmp/pat_rate.json > /tmp/pat_rate_compact.json 2>&1; then
-            echo "Warning: PAT_RATE jq error: $(cat /tmp/pat_rate_compact.json)"
+          if ! jq_err=$(jq -c '.' /tmp/pat_rate.json 2>&1 > /tmp/pat_rate_compact.json); then
+            echo "Warning: PAT_RATE jq error: $jq_err"
+            echo "Raw content (hex): $(xxd /tmp/pat_rate.json | head -5)"
             echo '{}' > /tmp/pat_rate_compact.json
           fi
 
-          if ! jq -c '.' /tmp/app_rate.json > /tmp/app_rate_compact.json 2>&1; then
-            echo "Warning: APP_RATE jq error: $(cat /tmp/app_rate_compact.json)"
+          if ! jq_err=$(jq -c '.' /tmp/app_rate.json 2>&1 > /tmp/app_rate_compact.json); then
+            echo "Warning: APP_RATE jq error: $jq_err"
+            echo "Raw content (hex): $(xxd /tmp/app_rate.json | head -5)"
             echo '{}' > /tmp/app_rate_compact.json
           fi
 
