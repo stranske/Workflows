@@ -58,9 +58,10 @@ jobs:
       - name: Compare consumer repos to templates
         id: compare
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DRIFT_TOKEN: ${{ secrets.OWNER_PR_PAT || secrets.SERVICE_BOT_PAT || secrets.GITHUB_TOKEN }}
+          INPUT_REPOS: ${{ inputs.repos }}
         run: |
-          python3 scripts/check_consumer_sync_drift.py --repos "${INPUT_REPOS:-}"
+          python3 scripts/check_consumer_sync_drift.py --repos "${{ inputs.repos }}"
 
       - name: Create drift issue
         if: ${{ failure() }}
@@ -71,21 +72,22 @@ jobs:
             const label = 'consumer-sync';
             const runUrl = `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`;
 
-            const body = `## Consumer Repo Drift Detected
-
-            One or more consumer repos have drifted from the Workflows templates or manifest entries.
-
-            **Check Details:** [Run #${process.env.GITHUB_RUN_NUMBER}](${runUrl})
-
-            ### Required Actions
-            1. Review the drift in the workflow run summary
-            2. Run Maint 68 Sync Consumer Repos to restore parity
-            3. Close this issue when resolved
-
-            ### Notes
-            - Files marked with sync_mode: create_only are excluded from this check.
-            - Workflows-Integration-Tests is validated separately by Health 67.
-            `;
+            const body = [
+              '## Consumer Repo Drift Detected',
+              '',
+              'One or more consumer repos have drifted from the Workflows templates or manifest entries.',
+              '',
+              `**Check Details:** [Run #${process.env.GITHUB_RUN_NUMBER}](${runUrl})`,
+              '',
+              '### Required Actions',
+              '1. Review the drift in the workflow run summary',
+              '2. Run Maint 68 Sync Consumer Repos to restore parity',
+              '3. Close this issue when resolved',
+              '',
+              '### Notes',
+              '- Files marked with sync_mode: create_only are excluded from this check.',
+              '- Workflows-Integration-Tests is validated separately by Health 67.',
+            ].join('\n');
 
             const { data: issues } = await github.rest.issues.listForRepo({
               owner: context.repo.owner,

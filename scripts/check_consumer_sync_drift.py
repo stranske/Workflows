@@ -43,12 +43,12 @@ def resolve_repos(raw: str | None) -> list[str]:
 
 
 def local_path_for(source: str) -> Path | None:
-    root_candidate = Path(source)
-    if root_candidate.exists():
-        return root_candidate
     template_candidate = Path("templates/consumer-repo") / source
     if template_candidate.exists():
         return template_candidate
+    root_candidate = Path(source)
+    if root_candidate.exists():
+        return root_candidate
     return None
 
 
@@ -68,9 +68,9 @@ def main() -> int:
         print("::error::sync-manifest.yml not found")
         return 1
 
-    token = os.environ.get("GITHUB_TOKEN", "")
+    token = os.environ.get("DRIFT_TOKEN") or os.environ.get("GITHUB_TOKEN", "")
     if not token:
-        print("::error::GITHUB_TOKEN not available")
+        print("::error::No GitHub token available for cross-repo reads")
         return 1
 
     manifest = yaml.safe_load(manifest_path.read_text(encoding="utf-8")) or {}
@@ -84,9 +84,9 @@ def main() -> int:
         }
     )
 
-    drift: list[str] = []
-    missing: list[str] = []
-    errors: list[str] = []
+    drift: set[str] = set()
+    missing: set[str] = set()
+    errors: set[str] = set()
 
     for section in sections:
         for entry in manifest.get(section, []) or []:
@@ -107,18 +107,18 @@ def main() -> int:
                 url = f"https://api.github.com/repos/{repo}/contents/{target}"
                 response = session.get(url)
                 if response.status_code == 404:
-                    missing.append(f"{repo}: {target}")
+                    missing.add(f"{repo}: {target}")
                     continue
                 if response.status_code >= 400:
-                    errors.append(f"{repo}: {target} (HTTP {response.status_code})")
+                    errors.add(f"{repo}: {target} (HTTP {response.status_code})")
                     continue
                 data = response.json()
                 if data.get("encoding") != "base64" or "content" not in data:
-                    errors.append(f"{repo}: {target} (unexpected content encoding)")
+                    errors.add(f"{repo}: {target} (unexpected content encoding)")
                     continue
                 remote_content = base64.b64decode(data["content"])
                 if file_hash(remote_content) != local_digest:
-                    drift.append(f"{repo}: {target}")
+                    drift.add(f"{repo}: {target}")
 
     if args.summary:
         summary_path = Path(args.summary)
@@ -128,17 +128,17 @@ def main() -> int:
             handle.write(f"Checked repos: {', '.join(repos)}\n\n")
             if drift:
                 handle.write("❌ Drift detected for:\n")
-                handle.write("\n".join(f"- {item}" for item in drift))
+                handle.write("\n".join(f"- {item}" for item in sorted(drift)))
                 handle.write("\n\n")
             else:
                 handle.write("✅ No drift detected.\n\n")
             if missing:
                 handle.write("⚠️ Missing files:\n")
-                handle.write("\n".join(f"- {item}" for item in missing))
+                handle.write("\n".join(f"- {item}" for item in sorted(missing)))
                 handle.write("\n\n")
             if errors:
                 handle.write("⚠️ Errors:\n")
-                handle.write("\n".join(f"- {item}" for item in errors))
+                handle.write("\n".join(f"- {item}" for item in sorted(errors)))
                 handle.write("\n\n")
 
     if drift or missing or errors:
