@@ -109,8 +109,8 @@ jobs:
             echo "  Search:   ${search_used}/${search_limit} (${search_pct}% used)"
             echo "  Reset at: ${reset_time}"
 
-            # Output JSON for aggregation
-            rate_json=$(jq -n \
+            # Output JSON for aggregation (compact single-line for safe passing)
+            rate_json=$(jq -cn \
               --arg source "GITHUB_TOKEN" \
               --argjson core_limit "$core_limit" \
               --argjson core_remaining "$core_remaining" \
@@ -193,7 +193,7 @@ jobs:
             echo "  Search:   ${search_used}/${search_limit} (${search_pct}% used)"
             echo "  Reset at: ${reset_time}"
 
-            rate_json=$(jq -n \
+            rate_json=$(jq -cn \
               --arg source "CODESPACES_WORKFLOWS_PAT" \
               --argjson core_limit "$core_limit" \
               --argjson core_remaining "$core_remaining" \
@@ -285,7 +285,7 @@ jobs:
             echo "  Search:   ${search_used}/${search_limit} (${search_pct}% used)"
             echo "  Reset at: ${reset_time}"
 
-            rate_json=$(jq -n \
+            rate_json=$(jq -cn \
               --arg source "WORKFLOWS_APP" \
               --argjson core_limit "$core_limit" \
               --argjson core_remaining "$core_remaining" \
@@ -326,12 +326,25 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Create summary JSON
-          summary=$(jq -n \
-            --arg timestamp "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
-            --argjson github_token "${GITHUB_TOKEN_RATE:-{}}" \
-            --argjson pat "${PAT_RATE:-{}}" \
-            --argjson app "${APP_RATE:-{}}" \
+          # Debug: show what we received
+          echo "Received rate data from previous steps"
+
+          # Handle potentially empty or multiline JSON - read from env vars safely
+          gt_rate="${GITHUB_TOKEN_RATE:-{}}"
+          pat_rate="${PAT_RATE:-{}}"
+          app_rate="${APP_RATE:-{}}"
+
+          # Validate and compact JSON (handles multiline input)
+          gt_rate=$(echo "$gt_rate" | jq -c '.' 2>/dev/null || echo '{}')
+          pat_rate=$(echo "$pat_rate" | jq -c '.' 2>/dev/null || echo '{}')
+          app_rate=$(echo "$app_rate" | jq -c '.' 2>/dev/null || echo '{}')
+
+          # Create summary JSON (compact for safe passing between jobs)
+          summary=$(jq -cn \\
+            --arg timestamp "$(date -u +\"%Y-%m-%dT%H:%M:%SZ\")" \\
+            --argjson github_token "$gt_rate" \\
+            --argjson pat "$pat_rate" \\
+            --argjson app "$app_rate" \\
             '{
               timestamp: $timestamp,
               tokens: {
