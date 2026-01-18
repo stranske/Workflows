@@ -420,7 +420,7 @@ def _extract_json_payload(text: str) -> str | None:
 def _extract_suggestions_json(comment_body: str) -> dict[str, Any] | None:
     if not comment_body:
         return None
-    marker = "suggestions-json:"
+    marker = SUGGESTIONS_MARKER_PREFIX
     start = comment_body.find(marker)
     if start == -1:
         return None
