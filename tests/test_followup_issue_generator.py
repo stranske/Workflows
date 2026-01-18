@@ -34,6 +34,42 @@ class TestExtractVerificationData:
         assert "anthropic" in data.provider_verdicts
         assert data.provider_verdicts["anthropic"]["verdict"] == "Needs Work"
 
+    def test_extract_provider_verdicts_comparison_report_summary(self):
+        """Extract verdicts from Provider Comparison Report format."""
+        comment = """
+## Provider Comparison Report
+
+### Provider Summary
+| Provider | Model | Verdict | Confidence | Summary |
+| --- | --- | --- | --- | --- |
+| github-models | gpt-4o | PASS | 80% | Looks good overall. |
+| openai | gpt-4o-mini | Needs Work | N/A | Missing tests. |
+
+<details>
+<summary>Full Provider Details (click to expand)</summary>
+
+#### github-models
+- **Model:** gpt-4o
+- **Verdict:** PASS
+- **Confidence:** 80%
+
+#### openai
+- **Model:** gpt-4o-mini
+- **Verdict:** Needs Work
+- **Confidence:** 60%
+
+</details>
+"""
+        data = extract_verification_data(comment)
+
+        assert "github-models" in data.provider_verdicts
+        assert data.provider_verdicts["github-models"]["verdict"] == "PASS"
+        assert data.provider_verdicts["github-models"]["confidence"] == 80
+
+        assert "openai" in data.provider_verdicts
+        assert data.provider_verdicts["openai"]["verdict"] == "Needs Work"
+        assert data.provider_verdicts["openai"]["confidence"] == 60
+
     def test_extract_single_verdict(self):
         """Extract verdict from single provider format."""
         comment = """
@@ -44,7 +80,7 @@ Verdict: **Not Ready** @75%
         data = extract_verification_data(comment)
 
         assert "default" in data.provider_verdicts
-        assert data.provider_verdicts["default"]["verdict"] == "Not"  # Note: matches first word
+        assert data.provider_verdicts["default"]["verdict"] == "Not Ready"
 
     def test_extract_concerns(self):
         """Extract concerns list."""

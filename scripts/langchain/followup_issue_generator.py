@@ -274,29 +274,80 @@ def extract_verification_data(comment_body: str) -> VerificationData:
     data = VerificationData()
 
     # Extract provider verdicts (from comparison reports)
-    # Pattern: | provider | model | verdict | confidence |
-    # Handle various table formats with optional leading/trailing pipes
-    verdict_pattern = re.compile(
-        r"^\|\s*(\w+[-\w]*)\s*\|\s*([\w.-]+)\s*\|\s*(\w+(?:\s+\w+)?)\s*\|\s*(\d+)%\s*\|?\s*$",
-        re.IGNORECASE | re.MULTILINE,
-    )
-    for match in verdict_pattern.finditer(comment_body):
-        provider, model, verdict, confidence = match.groups()
-        # Skip header separator rows
-        if provider.startswith("-"):
+    lines = comment_body.splitlines()
+    in_provider_table = False
+    for line in lines:
+        if re.search(
+            r"\|\s*Provider\s*\|\s*Model\s*\|\s*Verdict\s*\|\s*Confidence",
+            line,
+            re.IGNORECASE,
+        ):
+            in_provider_table = True
             continue
+        if not in_provider_table:
+            continue
+        if not line.strip().startswith("|"):
+            in_provider_table = False
+            continue
+        if re.match(r"^\|\s*-", line):
+            continue
+        cols = [col.strip() for col in line.strip().strip("|").split("|")]
+        if len(cols) < 4:
+            continue
+        provider = cols[0]
+        if provider.lower() == "provider":
+            continue
+        model = cols[1]
+        verdict = cols[2]
+        confidence_text = cols[3]
+        confidence_match = re.search(r"\d+", confidence_text)
+        confidence = int(confidence_match.group(0)) if confidence_match else 0
         data.provider_verdicts[provider] = {
             "model": model,
             "verdict": verdict.strip(),
-            "confidence": int(confidence),
+            "confidence": confidence,
         }
 
+    # Extract verdicts from provider detail sections as a fallback.
+    current_provider = None
+    for line in lines:
+        header_match = re.match(r"^####\s+(.+)$", line.strip())
+        if header_match:
+            current_provider = header_match.group(1).strip()
+            continue
+        if not current_provider:
+            continue
+        verdict_match = re.search(r"-\s*\*\*Verdict:\*\*\s*([^\n]+)", line)
+        if verdict_match:
+            verdict = verdict_match.group(1).strip()
+            entry = data.provider_verdicts.setdefault(
+                current_provider, {"model": "", "verdict": verdict, "confidence": 0}
+            )
+            entry["verdict"] = verdict
+            continue
+        confidence_match = re.search(r"-\s*\*\*Confidence:\*\*\s*([^\n]+)", line)
+        if confidence_match:
+            confidence_text = confidence_match.group(1)
+            conf_digits = re.search(r"\d+", confidence_text)
+            confidence = int(conf_digits.group(0)) if conf_digits else 0
+            entry = data.provider_verdicts.setdefault(
+                current_provider, {"model": "", "verdict": "", "confidence": 0}
+            )
+            entry["confidence"] = confidence
+
     # Also try single-provider format
-    single_verdict = re.search(r"Verdict:\s*\*?\*?(\w+)\*?\*?\s*@?\s*(\d+)?%?", comment_body)
+    single_verdict = re.search(
+        r"Verdict:\s*(?:\*\*(.+?)\*\*|([^\n@]+?))(?:\s*@|\s*$)",
+        comment_body,
+        re.IGNORECASE,
+    )
     if single_verdict and not data.provider_verdicts:
+        verdict = (single_verdict.group(1) or single_verdict.group(2) or "").strip()
+        confidence_match = re.search(r"Verdict:.*?@?\s*(\d+)%", comment_body, re.IGNORECASE)
+        confidence = int(confidence_match.group(1)) if confidence_match else 0
         data.provider_verdicts["default"] = {
-            "verdict": single_verdict.group(1),
-            "confidence": int(single_verdict.group(2)) if single_verdict.group(2) else 0,
+            "verdict": verdict,
+            "confidence": confidence,
         }
 
     # Extract concerns - handle multiple formats
