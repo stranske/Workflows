@@ -42,8 +42,7 @@ def test_autofix_pipeline_resolves_lint_and_typing(
 
     sample = src_dir / "autofix_target.py"
     sample.write_text(
-        dedent(
-            '''
+        dedent('''
             import yaml
             import os
 
@@ -60,9 +59,7 @@ def test_autofix_pipeline_resolves_lint_and_typing(
                 if value is None:
                     return 0
                 return value
-            '''
-        ).lstrip()
-        + "\n",
+            ''').lstrip() + "\n",
         encoding="utf-8",
     )
 

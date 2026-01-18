@@ -8,6 +8,7 @@ Run this script to verify:
 3. Tests don't have hardcoded version numbers
 4. Metadata serialization is handled correctly throughout codebase
 """
+
 import re
 import sys
 from pathlib import Path

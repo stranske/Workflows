@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Utility to compare compiled requirements against the committed lockfile."""
+
 from __future__ import annotations
 
 import argparse

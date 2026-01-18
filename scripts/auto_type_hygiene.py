@@ -21,6 +21,7 @@ Config via environment variables:
 
 This script intentionally uses only the standard library.
 """
+
 from __future__ import annotations
 
 import importlib.util

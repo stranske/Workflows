@@ -6,6 +6,7 @@ This prevents the common mistake of updating .github/scripts/ without
 updating templates/consumer-repo/.github/scripts/, which causes sync
 PRs to consumer repos to not be triggered.
 """
+
 import hashlib
 import sys
 from pathlib import Path

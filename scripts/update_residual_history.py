@@ -5,6 +5,7 @@ Inputs:
 Outputs:
   - ci/autofix/history.json (list of snapshots)
 """
+
 from __future__ import annotations
 
 import json

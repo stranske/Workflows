@@ -8,6 +8,7 @@ Prints a one-line summary for workflow consumption.
 
 Sparkline chars chosen for good monotonic density distribution.
 """
+
 from __future__ import annotations
 
 import collections

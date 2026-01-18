@@ -249,12 +249,10 @@ def test_main_check_reports_mismatches(monkeypatch, capsys, tmp_path) -> None:
     agents_dir.mkdir()
     ledger_path = agents_dir / "issue-9-ledger.yml"
     ledger_path.write_text(
-        textwrap.dedent(
-            """\
+        textwrap.dedent("""\
         base: develop
         items: []
-        """
-        ),
+        """),
         encoding="utf-8",
     )
 

@@ -4,6 +4,7 @@
 Reads raw_input.json (single JSON string) -> writes decoded text to input.txt if non-empty.
 Falls back to treating file contents as plain text if JSON parse fails.
 """
+
 from __future__ import annotations
 
 import argparse

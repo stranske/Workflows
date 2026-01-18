@@ -14,6 +14,7 @@ Environment variables (all optional):
 The resulting JSON structure intentionally mirrors the data consumed by the
 Phase-2 CI dashboards (see ``docs/ci-workflow.md``).
 """
+
 from __future__ import annotations
 
 import datetime as _dt

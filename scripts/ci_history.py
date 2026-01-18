@@ -6,6 +6,7 @@ It records a single NDJSON line containing aggregate test statistics and, when
 available, the richer metrics payload.  When classification is enabled it also
 emits a companion ``classification.json`` summarising failing / erroring tests.
 """
+
 from __future__ import annotations
 
 import datetime as _dt

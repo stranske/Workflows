@@ -377,8 +377,7 @@ def test_unprotected_file_is_ignored():
 
 @skip_if_no_node
 def test_detect_no_violations_for_clean_workflow():
-    source = dedent(
-        """
+    source = dedent("""
         jobs:
           guard:
             steps:
@@ -386,24 +385,21 @@ def test_detect_no_violations_for_clean_workflow():
                 with:
                   ref: main
               - run: echo "safe"
-        """
-    )
+        """)
 
     assert detect_pull_request_target_violations(source) == []
 
 
 @skip_if_no_node
 def test_detect_flags_head_sha_checkout():
-    source = dedent(
-        """
+    source = dedent("""
         jobs:
           guard:
             steps:
               - uses: actions/checkout@v6
                 with:
                   ref: ${{ github.event.pull_request.head.sha }}
-        """
-    )
+        """)
 
     violations = detect_pull_request_target_violations(source)
     assert any(item.get("type") == "checkout-head-sha" for item in violations)
@@ -411,15 +407,13 @@ def test_detect_flags_head_sha_checkout():
 
 @skip_if_no_node
 def test_detect_flags_secrets_in_run_block():
-    source = dedent(
-        """
+    source = dedent("""
         jobs:
           guard:
             steps:
               - run: |
                   echo "${{ secrets.DEPLOY_TOKEN }}"
-        """
-    )
+        """)
 
     violations = detect_pull_request_target_violations(source)
     assert any(item.get("type") == "secrets-run" for item in violations)
@@ -427,15 +421,13 @@ def test_detect_flags_secrets_in_run_block():
 
 @skip_if_no_node
 def test_detect_ignores_secrets_in_comments():
-    source = dedent(
-        """
+    source = dedent("""
         # run: echo "${{ secrets.IGNORED }}"
         jobs:
           guard:
             steps:
               - run: echo "safe"
-        """
-    )
+        """)
 
     assert detect_pull_request_target_violations(source) == []
 
@@ -455,8 +447,7 @@ def test_validate_skips_non_target_event(tmp_path):
 
 @skip_if_no_node
 def test_validate_accepts_clean_workflow(tmp_path):
-    workflow = dedent(
-        """
+    workflow = dedent("""
         jobs:
           guard:
             steps:
@@ -464,8 +455,7 @@ def test_validate_accepts_clean_workflow(tmp_path):
                 with:
                   ref: main
               - run: echo "safe"
-        """
-    )
+        """)
     workflow_path = tmp_path / "workflow.yml"
     workflow_path.write_text(workflow)
 
@@ -482,16 +472,14 @@ def test_validate_accepts_clean_workflow(tmp_path):
 
 @skip_if_no_node
 def test_validate_blocks_unsafe_workflow(tmp_path):
-    workflow = dedent(
-        """
+    workflow = dedent("""
         jobs:
           guard:
             steps:
               - uses: actions/checkout@v6
                 with:
                   ref: ${{ github.event.pull_request.head.sha }}
-        """
-    )
+        """)
     workflow_path = tmp_path / "workflow.yml"
     workflow_path.write_text(workflow)
 
