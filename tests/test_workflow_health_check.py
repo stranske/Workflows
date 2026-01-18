@@ -42,6 +42,14 @@ class TestLoadWorkflowRuns:
         assert len(runs) == 2
         assert runs[0]["verdict"] == "pass"
 
+    def test_load_skips_malformed_lines(self, tmp_path: Path) -> None:
+        """Test malformed lines are skipped without crashing."""
+        metrics_file = tmp_path / "metrics.ndjson"
+        metrics_file.write_text('{"verdict": "pass"}\n{not-json}\n{"verdict": "fail"}\n')
+
+        runs = load_workflow_runs(str(metrics_file))
+        assert len(runs) == 2
+
     def test_load_with_path_object(self, tmp_path: Path) -> None:
         """Test loading with Path object instead of string - TYPE ERROR."""
         metrics_file = tmp_path / "metrics.ndjson"
