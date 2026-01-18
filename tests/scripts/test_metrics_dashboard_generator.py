@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from scripts import metrics_dashboard_generator as generator
 
 
@@ -85,6 +87,40 @@ def test_build_dashboard_includes_status_thresholds() -> None:
 
     assert "| duration_ms |" in output
     assert "| WARN |" in output
+
+
+def test_load_config_rejects_thresholds_with_bad_order(tmp_path: Path) -> None:
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        (
+            "{"
+            '"metrics_path": "metrics.ndjson", '
+            '"output_path": "out.md", '
+            '"thresholds": {"duration_ms": {"ok": 10, "warn": 20, "higher_is_better": true}}'
+            "}"
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="ok >= warn"):
+        generator._validate_config(generator._load_config(config_path))
+
+
+def test_load_config_rejects_lower_is_better_order(tmp_path: Path) -> None:
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        (
+            "{"
+            '"metrics_path": "metrics.ndjson", '
+            '"output_path": "out.md", '
+            '"thresholds": {"duration_ms": {"ok": 30, "warn": 20, "higher_is_better": false}}'
+            "}"
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="ok <= warn"):
+        generator._validate_config(generator._load_config(config_path))
 
 
 def test_main_writes_output(tmp_path: Path) -> None:

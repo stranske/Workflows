@@ -410,6 +410,14 @@ def _validate_config(config: dict[str, Any]) -> dict[str, Any]:
             higher_is_better = raw.get("higher_is_better", True)
             if not isinstance(higher_is_better, bool):
                 raise ValueError(f"thresholds for {field} higher_is_better must be boolean")
+            if higher_is_better and ok_threshold < warn_threshold:
+                raise ValueError(
+                    f"thresholds for {field} must have ok >= warn when higher_is_better is true"
+                )
+            if not higher_is_better and ok_threshold > warn_threshold:
+                raise ValueError(
+                    f"thresholds for {field} must have ok <= warn when higher_is_better is false"
+                )
             validated_thresholds[field.strip()] = {
                 "ok": float(ok_threshold),
                 "warn": float(warn_threshold),
