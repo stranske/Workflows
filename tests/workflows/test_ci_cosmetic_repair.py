@@ -34,9 +34,7 @@ def _write_junit(tmp_path: Path, message: str) -> Path:
             </failure>
           </testcase>
         </testsuite>
-    """.strip().format(
-        message=escape(message, {'"': "&quot;"})
-    )
+    """.strip().format(message=escape(message, {'"': "&quot;"}))
     path = tmp_path / "report.xml"
     path.write_text(junit, encoding="utf-8")
     return path

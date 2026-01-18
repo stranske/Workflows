@@ -27,18 +27,14 @@ def test_is_list_of_str_variants() -> None:
 
 
 def test_collect_string_vars_tracks_assignments() -> None:
-    module = ast.parse(
-        textwrap.dedent(
-            """\
+    module = ast.parse(textwrap.dedent("""\
             def sample():
                 greeting = "hi"
                 alias = greeting
                 names = ["a", f"{greeting}"]
                 nums = [1]
                 first, second = ["x", "y"]
-            """
-        )
-    )
+            """))
     func = module.body[0]
     string_vars, list_vars = mypy_return_autofix._collect_string_vars(func.body)
 
@@ -47,13 +43,11 @@ def test_collect_string_vars_tracks_assignments() -> None:
 
 
 def test_process_function_updates_list_annotation() -> None:
-    source = textwrap.dedent(
-        """\
+    source = textwrap.dedent("""\
         def names() -> list[int]:
             items = ["a"]
             return items
-        """
-    )
+        """)
     module = ast.parse(source)
     lines = source.splitlines()
     func = module.body[0]
@@ -65,12 +59,10 @@ def test_process_function_updates_list_annotation() -> None:
 
 
 def test_process_function_no_annotation_no_change() -> None:
-    source = textwrap.dedent(
-        """\
+    source = textwrap.dedent("""\
         def value():
             return "hi"
-        """
-    )
+        """)
     module = ast.parse(source)
     lines = source.splitlines()
     func = module.body[0]
@@ -81,12 +73,10 @@ def test_process_function_no_annotation_no_change() -> None:
 
 
 def test_process_function_skips_bare_return() -> None:
-    source = textwrap.dedent(
-        """\
+    source = textwrap.dedent("""\
         def value() -> int:
             return
-        """
-    )
+        """)
     module = ast.parse(source)
     lines = source.splitlines()
     func = module.body[0]
@@ -99,12 +89,10 @@ def test_process_function_skips_bare_return() -> None:
 def test_process_file_rewrites_annotation(tmp_path: Path) -> None:
     path = tmp_path / "sample.py"
     path.write_text(
-        textwrap.dedent(
-            """\
+        textwrap.dedent("""\
             def value() -> int:
                 return "hello"
-            """
-        ),
+            """),
         encoding="utf-8",
     )
 
