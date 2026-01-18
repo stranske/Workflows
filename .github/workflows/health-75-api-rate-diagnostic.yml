@@ -340,7 +340,7 @@ jobs:
           # Extract JSON object - find first { and last } to handle any extra chars
           extract_json() {
             local input="$1"
-            local start end
+            local start
             # Find first { and last }
             start="${input%%\{*}"
             if [[ "$input" == *"{"* ]] && [[ "$input" == *"}"* ]]; then
