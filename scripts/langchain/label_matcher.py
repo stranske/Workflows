@@ -12,9 +12,9 @@ from dataclasses import dataclass
 from typing import Any
 
 try:
-    import semantic_matcher
+    from scripts.langchain import semantic_matcher
 except ModuleNotFoundError:
-    from . import semantic_matcher
+    import semantic_matcher
 
 
 @dataclass(frozen=True)

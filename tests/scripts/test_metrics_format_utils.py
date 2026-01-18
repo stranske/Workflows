@@ -38,3 +38,49 @@ def test_truncate_string_handles_limits() -> None:
     assert metrics_format_utils.truncate_string("abcdefghij", max_length=10) == "abcdefghij"
     assert metrics_format_utils.truncate_string("abcdefghijk", max_length=10) == "abcdefg..."
     assert metrics_format_utils.truncate_string("longer", max_length=3) == "..."
+
+
+def test_format_markdown_table_basic() -> None:
+    table = metrics_format_utils.format_markdown_table(
+        ["Metric", "Value"],
+        [
+            ["Total", 3],
+            ["Success", "2/3"],
+        ],
+    )
+
+    assert table == "\n".join(
+        [
+            "| Metric | Value |",
+            "| --- | --- |",
+            "| Total | 3 |",
+            "| Success | 2/3 |",
+        ]
+    )
+
+
+def test_format_markdown_table_alignment_and_escaping() -> None:
+    table = metrics_format_utils.format_markdown_table(
+        ["Name", "Notes"],
+        [
+            ["alpha|beta", "line1\nline2"],
+        ],
+        alignments=["left", "center"],
+    )
+
+    assert table == "\n".join(
+        [
+            "| Name | Notes |",
+            "| --- | :---: |",
+            r"| alpha\|beta | line1<br>line2 |",
+        ]
+    )
+
+
+def test_format_markdown_table_rejects_bad_rows() -> None:
+    try:
+        metrics_format_utils.format_markdown_table(["A", "B"], [["only-one"]])
+    except ValueError as exc:
+        assert "Row length" in str(exc)
+    else:
+        raise AssertionError("Expected ValueError for mismatched row length")

@@ -11,9 +11,9 @@ from dataclasses import dataclass, field
 from typing import Any
 
 try:
-    import label_matcher
+    from scripts.langchain import label_matcher
 except ModuleNotFoundError:
-    from . import label_matcher
+    import label_matcher
 
 
 @dataclass

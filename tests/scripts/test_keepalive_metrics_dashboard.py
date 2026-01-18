@@ -41,6 +41,19 @@ def test_format_rate_handles_zero_denominator() -> None:
     assert dashboard._format_rate(2, 4) == "50.0% (2/4)"
 
 
+def test_status_thresholds_and_overall() -> None:
+    assert dashboard._status_from_threshold(None, 1.0, 0.5) == "n/a"
+    assert dashboard._status_from_threshold(96.0, 95.0, 85.0) == "OK"
+    assert dashboard._status_from_threshold(90.0, 95.0, 85.0) == "WARN"
+    assert dashboard._status_from_threshold(70.0, 95.0, 85.0) == "FAIL"
+    assert dashboard._status_from_threshold(1.0, 1.5, 2.5, higher_is_better=False) == "OK"
+    assert dashboard._status_from_threshold(2.0, 1.5, 2.5, higher_is_better=False) == "WARN"
+    assert dashboard._status_from_threshold(3.0, 1.5, 2.5, higher_is_better=False) == "FAIL"
+    assert dashboard._overall_status(["n/a", "OK"]) == "OK"
+    assert dashboard._overall_status(["OK", "WARN"]) == "WARN"
+    assert dashboard._overall_status(["OK", "FAIL"]) == "FAIL"
+
+
 def test_summarise_normalizes_categories_and_iterations() -> None:
     summary = dashboard._summarise(
         [
@@ -112,11 +125,12 @@ def test_main_writes_output(tmp_path, capsys) -> None:
 def test_build_dashboard_handles_empty_records() -> None:
     output = dashboard.build_dashboard([], errors=0)
 
-    assert "| Total records | 0 |" in output
-    assert "| Success rate | n/a |" in output
-    assert "| Avg iterations per PR | n/a |" in output
-    assert "| Iteration distribution | n/a |" in output
-    assert "| Error breakdown | n/a |" in output
+    assert "| Overall status | n/a | n/a |" in output
+    assert "| Total records | 0 | n/a |" in output
+    assert "| Success rate | n/a | n/a |" in output
+    assert "| Avg iterations per PR | n/a | n/a |" in output
+    assert "| Iteration distribution | n/a | n/a |" in output
+    assert "| Error breakdown | n/a | n/a |" in output
 
 
 def test_build_dashboard_single_record() -> None:
@@ -130,11 +144,12 @@ def test_build_dashboard_single_record() -> None:
 
     output = dashboard.build_dashboard(records, errors=0)
 
-    assert "| Total records | 1 |" in output
-    assert "| Success rate | 100.0% (1/1) |" in output
-    assert "| Avg iterations per PR | 1.0 |" in output
-    assert "| Iteration distribution | 1 (1) |" in output
-    assert "| Error breakdown | none (1) |" in output
+    assert "| Overall status | OK | OK |" in output
+    assert "| Total records | 1 | n/a |" in output
+    assert "| Success rate | 100.0% (1/1) | OK |" in output
+    assert "| Avg iterations per PR | 1.0 | OK |" in output
+    assert "| Iteration distribution | 1 (1) | n/a |" in output
+    assert "| Error breakdown | none (1) | n/a |" in output
 
 
 def test_build_dashboard_multiple_records() -> None:
@@ -158,9 +173,10 @@ def test_build_dashboard_multiple_records() -> None:
 
     output = dashboard.build_dashboard(records, errors=2)
 
-    assert "| Total records | 3 |" in output
-    assert "| Success rate | 66.7% (2/3) |" in output
-    assert "| Avg iterations per PR | 1.5 |" in output
-    assert "| Iteration distribution | 1 (2), 2 (1) |" in output
-    assert "| Error breakdown | none (2), timeout (1) |" in output
-    assert "| Parse errors | 2 |" in output
+    assert "| Overall status | FAIL | FAIL |" in output
+    assert "| Total records | 3 | n/a |" in output
+    assert "| Success rate | 66.7% (2/3) | FAIL |" in output
+    assert "| Avg iterations per PR | 1.5 | OK |" in output
+    assert "| Iteration distribution | 1 (2), 2 (1) | n/a |" in output
+    assert "| Error breakdown | none (2), timeout (1) | n/a |" in output
+    assert "| Parse errors | 2 | WARN |" in output
