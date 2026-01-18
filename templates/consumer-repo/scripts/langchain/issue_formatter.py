@@ -359,9 +359,9 @@ def _apply_task_decomposition(formatted: str, *, use_llm: bool) -> str:
         return formatted
 
     try:
-        import task_decomposer
+        from scripts.langchain import task_decomposer
     except ModuleNotFoundError:
-        from . import task_decomposer
+        import task_decomposer
 
     suggestions: list[dict[str, Any]] = []
     for task in tasks:
@@ -373,9 +373,9 @@ def _apply_task_decomposition(formatted: str, *, use_llm: bool) -> str:
         return formatted
 
     try:
-        import issue_optimizer
+        from scripts.langchain import issue_optimizer
     except ModuleNotFoundError:
-        from . import issue_optimizer
+        import issue_optimizer
 
     return issue_optimizer._apply_task_decomposition(formatted, {"task_splitting": suggestions})
 
