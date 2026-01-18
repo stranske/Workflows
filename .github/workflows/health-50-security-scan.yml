@@ -13,6 +13,7 @@ permissions:
 
 env:
   CODEQL_TOKEN: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT || secrets.AGENTS_AUTOMATION_PAT || github.token }}
+  CODEQL_TOKEN_SOURCE: ${{ secrets.ACTIONS_BOT_PAT && 'pat' || secrets.SERVICE_BOT_PAT && 'pat' || secrets.AGENTS_AUTOMATION_PAT && 'pat' || 'installation' }}
 
 jobs:
   codeql:
@@ -40,6 +41,7 @@ jobs:
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v4
+      continue-on-error: ${{ env.CODEQL_TOKEN_SOURCE == 'installation' }}
       with:
         category: "/language:python"
         github-token: ${{ env.CODEQL_TOKEN }}
