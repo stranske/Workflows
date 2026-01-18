@@ -291,13 +291,25 @@ def _resolve_section(label: str) -> str | None:
 def _parse_sections(body: str) -> dict[str, list[str]]:
     sections: dict[str, list[str]] = {key: [] for key in SECTION_TITLES}
     current: str | None = None
+    in_code_block = False
     for line in body.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("```"):
+            in_code_block = not in_code_block
+        if in_code_block:
+            if current:
+                sections[current].append(line)
+            continue
         heading_match = re.match(r"^\s*#{1,6}\s+(.*)$", line)
         if heading_match:
             section_key = _resolve_section(heading_match.group(1))
             if section_key:
                 current = section_key
                 continue
+        section_key = _resolve_section(stripped)
+        if section_key and stripped:
+            current = section_key
+            continue
         if current:
             sections[current].append(line)
     return sections
@@ -317,10 +329,17 @@ def _strip_checkbox(line: str) -> str:
 
 def _parse_checklist(lines: list[str]) -> list[str]:
     items: list[str] = []
+    in_code_block = False
     for line in lines:
-        if not line.strip():
+        stripped = line.strip()
+        if stripped.startswith("```"):
+            in_code_block = not in_code_block
             continue
-        if LIST_ITEM_REGEX.match(line.strip()):
+        if in_code_block:
+            continue
+        if not stripped:
+            continue
+        if LIST_ITEM_REGEX.match(stripped):
             value = _strip_checkbox(line)
             if value:
                 items.append(value)

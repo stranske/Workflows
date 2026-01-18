@@ -222,6 +222,31 @@ def test_parse_sections_and_checklist_extracts_tasks() -> None:
     assert acceptance == ["Must pass tests"]
 
 
+def test_parse_sections_accepts_plain_headings() -> None:
+    body = "\n".join(
+        [
+            "Why",
+            "Because.",
+            "**Scope**",
+            "Only the issue optimizer.",
+            "Tasks:",
+            "- [ ] First task",
+            "Acceptance criteria",
+            "- Must pass tests",
+            "```",
+            "Tasks",
+            "- [ ] Not a heading inside code block",
+            "```",
+        ]
+    )
+    sections = issue_optimizer._parse_sections(body)
+    tasks = issue_optimizer._parse_checklist(sections["tasks"])
+    acceptance = issue_optimizer._parse_checklist(sections["acceptance"])
+    assert "Only the issue optimizer." in sections["scope"]
+    assert tasks == ["First task"]
+    assert acceptance == ["Must pass tests"]
+
+
 def test_detect_blocked_and_subjective_criteria() -> None:
     blocked = issue_optimizer._detect_blocked_tasks(
         ["Edit .github/workflows/ci.yml", "Raise coverage to 80%"]
