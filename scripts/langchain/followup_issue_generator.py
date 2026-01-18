@@ -31,6 +31,38 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+# Section alias handling aligned with issue_formatter/issue_optimizer.
+SECTION_ALIASES = {
+    "why": ["why", "motivation", "summary", "goals"],
+    "scope": ["scope", "context", "background", "overview"],
+    "tasks": ["tasks", "task list", "tasklist", "todo", "to do", "implementation"],
+    "acceptance": [
+        "acceptance criteria",
+        "acceptance",
+        "definition of done",
+        "done criteria",
+        "success criteria",
+    ],
+    "implementation": [
+        "implementation notes",
+        "implementation note",
+        "notes",
+        "details",
+        "technical notes",
+    ],
+}
+
+SECTION_TITLES = {
+    "why": "Why",
+    "scope": "Scope",
+    "tasks": "Tasks",
+    "acceptance": "Acceptance Criteria",
+    "implementation": "Implementation Notes",
+}
+
+LIST_ITEM_REGEX = re.compile(r"^\s*([-*+]|\d+[.)])\s+(.*)$")
+CHECKBOX_REGEX = re.compile(r"^\[([ xX])\]\s*(.*)$")
+
 # Prompts for multi-round LLM interaction
 # NOTE: We use a reasoning model (o1/o3-mini) for ANALYZE_VERIFICATION_PROMPT
 # because this step requires deep analysis to produce useful follow-up tasks.
@@ -274,29 +306,80 @@ def extract_verification_data(comment_body: str) -> VerificationData:
     data = VerificationData()
 
     # Extract provider verdicts (from comparison reports)
-    # Pattern: | provider | model | verdict | confidence |
-    # Handle various table formats with optional leading/trailing pipes
-    verdict_pattern = re.compile(
-        r"^\|\s*(\w+[-\w]*)\s*\|\s*([\w.-]+)\s*\|\s*(\w+(?:\s+\w+)?)\s*\|\s*(\d+)%\s*\|?\s*$",
-        re.IGNORECASE | re.MULTILINE,
-    )
-    for match in verdict_pattern.finditer(comment_body):
-        provider, model, verdict, confidence = match.groups()
-        # Skip header separator rows
-        if provider.startswith("-"):
+    lines = comment_body.splitlines()
+    in_provider_table = False
+    for line in lines:
+        if re.search(
+            r"\|\s*Provider\s*\|\s*Model\s*\|\s*Verdict\s*\|\s*Confidence",
+            line,
+            re.IGNORECASE,
+        ):
+            in_provider_table = True
             continue
+        if not in_provider_table:
+            continue
+        if not line.strip().startswith("|"):
+            in_provider_table = False
+            continue
+        if re.match(r"^\|\s*-", line):
+            continue
+        cols = [col.strip() for col in line.strip().strip("|").split("|")]
+        if len(cols) < 4:
+            continue
+        provider = cols[0]
+        if provider.lower() == "provider":
+            continue
+        model = cols[1]
+        verdict = cols[2]
+        confidence_text = cols[3]
+        confidence_match = re.search(r"\d+", confidence_text)
+        confidence = int(confidence_match.group(0)) if confidence_match else 0
         data.provider_verdicts[provider] = {
             "model": model,
             "verdict": verdict.strip(),
-            "confidence": int(confidence),
+            "confidence": confidence,
         }
 
+    # Extract verdicts from provider detail sections as a fallback.
+    current_provider = None
+    for line in lines:
+        header_match = re.match(r"^####\s+(.+)$", line.strip())
+        if header_match:
+            current_provider = header_match.group(1).strip()
+            continue
+        if not current_provider:
+            continue
+        verdict_match = re.search(r"-\s*\*\*Verdict:\*\*\s*([^\n]+)", line)
+        if verdict_match:
+            verdict = verdict_match.group(1).strip()
+            entry = data.provider_verdicts.setdefault(
+                current_provider, {"model": "", "verdict": verdict, "confidence": 0}
+            )
+            entry["verdict"] = verdict
+            continue
+        confidence_match = re.search(r"-\s*\*\*Confidence:\*\*\s*([^\n]+)", line)
+        if confidence_match:
+            confidence_text = confidence_match.group(1)
+            conf_digits = re.search(r"\d+", confidence_text)
+            confidence = int(conf_digits.group(0)) if conf_digits else 0
+            entry = data.provider_verdicts.setdefault(
+                current_provider, {"model": "", "verdict": "", "confidence": 0}
+            )
+            entry["confidence"] = confidence
+
     # Also try single-provider format
-    single_verdict = re.search(r"Verdict:\s*\*?\*?(\w+)\*?\*?\s*@?\s*(\d+)?%?", comment_body)
+    single_verdict = re.search(
+        r"Verdict:\s*(?:\*\*(.+?)\*\*|([^\n@]+?))(?:\s*@|\s*$)",
+        comment_body,
+        re.IGNORECASE,
+    )
     if single_verdict and not data.provider_verdicts:
+        verdict = (single_verdict.group(1) or single_verdict.group(2) or "").strip()
+        confidence_match = re.search(r"Verdict:.*?@?\s*(\d+)%", comment_body, re.IGNORECASE)
+        confidence = int(confidence_match.group(1)) if confidence_match else 0
         data.provider_verdicts["default"] = {
-            "verdict": single_verdict.group(1),
-            "confidence": int(single_verdict.group(2)) if single_verdict.group(2) else 0,
+            "verdict": verdict,
+            "confidence": confidence,
         }
 
     # Extract concerns - handle multiple formats
@@ -413,49 +496,78 @@ def extract_original_issue_data(
     """Extract structured data from the original issue."""
     data = OriginalIssueData(number=issue_number, title=title)
 
-    # Extract sections
-    section_pattern = re.compile(r"^##\s+(.+)$", re.MULTILINE)
-    sections: dict[str, str] = {}
+    sections = _parse_sections(issue_body)
 
-    matches = list(section_pattern.finditer(issue_body))
-    for i, match in enumerate(matches):
-        section_name = match.group(1).strip().lower()
-        start = match.end()
-        end = matches[i + 1].start() if i + 1 < len(matches) else len(issue_body)
-        sections[section_name] = issue_body[start:end].strip()
+    data.why = "\n".join(sections["why"]).strip()
+    data.scope = "\n".join(sections["scope"]).strip()
+    data.implementation_notes = "\n".join(sections["implementation"]).strip()
 
-    # Map to structured fields
-    for key in ("why", "motivation", "summary"):
-        if key in sections:
-            data.why = sections[key]
-            break
-
-    for key in ("scope", "context", "background"):
-        if key in sections:
-            data.scope = sections[key]
-            break
-
-    for key in ("implementation notes", "notes", "implementation"):
-        if key in sections:
-            data.implementation_notes = sections[key]
-            break
-
-    # Extract tasks (checkboxes)
-    task_section = sections.get("tasks", "")
-    checkbox_pattern = re.compile(r"^\s*[-*+]\s*\[([ xX])\]\s*(.+)$", re.MULTILINE)
-    for match in checkbox_pattern.finditer(task_section):
-        task_text = match.group(2).strip()
-        if task_text and len(task_text) > 3:  # Skip tiny fragments
-            data.tasks.append(task_text)
-
-    # Extract acceptance criteria
-    ac_section = sections.get("acceptance criteria", sections.get("acceptance", ""))
-    for match in checkbox_pattern.finditer(ac_section):
-        criterion = match.group(2).strip()
-        if criterion and len(criterion) > 3:
-            data.acceptance_criteria.append(criterion)
+    # Extract tasks and acceptance criteria from checklist/bulleted items.
+    data.tasks = _parse_checklist(sections["tasks"])
+    data.acceptance_criteria = _parse_checklist(sections["acceptance"])
 
     return data
+
+
+def _normalize_heading(text: str) -> str:
+    cleaned = re.sub(r"[#*_:]+", " ", text).strip().lower()
+    cleaned = re.sub(r"\s+", " ", cleaned)
+    return cleaned
+
+
+def _resolve_section(label: str) -> str | None:
+    normalized = _normalize_heading(label)
+    for key, aliases in SECTION_ALIASES.items():
+        for alias in aliases:
+            if normalized == _normalize_heading(alias):
+                return key
+    return None
+
+
+def _parse_sections(body: str) -> dict[str, list[str]]:
+    sections: dict[str, list[str]] = {key: [] for key in SECTION_TITLES}
+    current: str | None = None
+    for line in body.splitlines():
+        heading_match = re.match(r"^\s*#{1,6}\s+(.*)$", line)
+        if heading_match:
+            section_key = _resolve_section(heading_match.group(1))
+            if section_key:
+                current = section_key
+                continue
+        if current:
+            sections[current].append(line)
+    return sections
+
+
+def _strip_checkbox(line: str) -> str:
+    stripped = line.strip()
+    match = LIST_ITEM_REGEX.match(stripped)
+    if not match:
+        return stripped
+    content = match.group(2).strip()
+    checkbox = CHECKBOX_REGEX.match(content)
+    if checkbox:
+        return checkbox.group(2).strip()
+    return content
+
+
+def _parse_checklist(lines: list[str]) -> list[str]:
+    items: list[str] = []
+    for line in lines:
+        stripped = line.strip()
+        if not stripped:
+            continue
+        checkbox_match = CHECKBOX_REGEX.match(stripped)
+        if checkbox_match:
+            value = checkbox_match.group(2).strip()
+            if value and len(value) > 3:
+                items.append(value)
+            continue
+        if LIST_ITEM_REGEX.match(stripped):
+            value = _strip_checkbox(line)
+            if value and len(value) > 3:
+                items.append(value)
+    return items
 
 
 def _get_llm_client(reasoning: bool = False) -> tuple[Any, str] | None:

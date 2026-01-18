@@ -34,6 +34,42 @@ class TestExtractVerificationData:
         assert "anthropic" in data.provider_verdicts
         assert data.provider_verdicts["anthropic"]["verdict"] == "Needs Work"
 
+    def test_extract_provider_verdicts_comparison_report_summary(self):
+        """Extract verdicts from Provider Comparison Report format."""
+        comment = """
+## Provider Comparison Report
+
+### Provider Summary
+| Provider | Model | Verdict | Confidence | Summary |
+| --- | --- | --- | --- | --- |
+| github-models | gpt-4o | PASS | 80% | Looks good overall. |
+| openai | gpt-4o-mini | Needs Work | N/A | Missing tests. |
+
+<details>
+<summary>Full Provider Details (click to expand)</summary>
+
+#### github-models
+- **Model:** gpt-4o
+- **Verdict:** PASS
+- **Confidence:** 80%
+
+#### openai
+- **Model:** gpt-4o-mini
+- **Verdict:** Needs Work
+- **Confidence:** 60%
+
+</details>
+"""
+        data = extract_verification_data(comment)
+
+        assert "github-models" in data.provider_verdicts
+        assert data.provider_verdicts["github-models"]["verdict"] == "PASS"
+        assert data.provider_verdicts["github-models"]["confidence"] == 80
+
+        assert "openai" in data.provider_verdicts
+        assert data.provider_verdicts["openai"]["verdict"] == "Needs Work"
+        assert data.provider_verdicts["openai"]["confidence"] == 60
+
     def test_extract_single_verdict(self):
         """Extract verdict from single provider format."""
         comment = """
@@ -44,7 +80,7 @@ Verdict: **Not Ready** @75%
         data = extract_verification_data(comment)
 
         assert "default" in data.provider_verdicts
-        assert data.provider_verdicts["default"]["verdict"] == "Not"  # Note: matches first word
+        assert data.provider_verdicts["default"]["verdict"] == "Not Ready"
 
     def test_extract_concerns(self):
         """Extract concerns list."""
@@ -166,6 +202,54 @@ Use the `redis-py` library version 4.x.
         assert "Task with dash" in data.tasks
         assert "Task with asterisk" in data.tasks
 
+    def test_extract_tasks_without_list_marker(self):
+        """Extract tasks and acceptance criteria without list markers."""
+        issue_body = """
+## Tasks
+
+[ ] Task without dash
+[x] Completed task without dash
+
+## Acceptance Criteria
+
+[ ] Acceptance without dash
+"""
+        data = extract_original_issue_data(issue_body)
+
+        assert len(data.tasks) == 2
+        assert "Task without dash" in data.tasks
+        assert "Completed task without dash" in data.tasks
+        assert len(data.acceptance_criteria) == 1
+        assert "Acceptance without dash" in data.acceptance_criteria
+
+    def test_extract_tasks_from_task_list_heading(self):
+        """Extract tasks from Task List heading with plain bullets."""
+        issue_body = """
+## Task List
+
+- Draft integration plan
+- Update parser for edge cases
+"""
+        data = extract_original_issue_data(issue_body)
+
+        assert len(data.tasks) == 2
+        assert "Draft integration plan" in data.tasks
+        assert "Update parser for edge cases" in data.tasks
+
+    def test_extract_acceptance_from_definition_of_done(self):
+        """Extract acceptance criteria from Definition of Done heading."""
+        issue_body = """
+## Definition of Done
+
+- All lint checks pass
+- Coverage stays above 90%
+"""
+        data = extract_original_issue_data(issue_body)
+
+        assert len(data.acceptance_criteria) == 2
+        assert "All lint checks pass" in data.acceptance_criteria
+        assert "Coverage stays above 90%" in data.acceptance_criteria
+
     def test_handles_missing_sections(self):
         """Handle issues with missing standard sections."""
         issue_body = """
@@ -175,7 +259,7 @@ Just a basic description without standard sections.
 """
         data = extract_original_issue_data(issue_body)
 
-        assert data.why == ""
+        assert "basic description" in data.why
         assert data.tasks == []
         assert data.acceptance_criteria == []
 
