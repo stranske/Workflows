@@ -23,6 +23,10 @@ def test_build_dashboard_includes_repo_sections() -> None:
     output = generator.build_dashboard(entries, errors=1)
 
     assert "## Per-Repo Summary" in output
+    assert "| Repo | Entries | Metrics tracked | Last update |" in output
+    assert "| octo/alpha | 2 | 1 | 2024-01-02T00:00:00Z |" in output
+    assert "| octo/beta | 1 | 1 | 2024-01-01T00:00:00Z |" in output
+    assert "## Repo Details" in output
     assert "### octo/alpha" in output
     assert "### octo/beta" in output
     assert "| Metric | Mean | P50 | P90 | P99 | Trend |" in output

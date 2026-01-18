@@ -126,6 +126,47 @@ def _format_trend(series: list[float]) -> str:
     return f"`{ascii_sparkline(series)}`"
 
 
+def _format_timestamp(timestamp: float | None) -> str:
+    if timestamp is None:
+        return "n/a"
+    return _dt.datetime.fromtimestamp(timestamp, tz=_dt.UTC).isoformat().replace("+00:00", "Z")
+
+
+def _latest_timestamp(entries: list[dict[str, Any]]) -> float | None:
+    timestamps = [_extract_timestamp(entry) for entry in entries]
+    values = [timestamp for timestamp in timestamps if timestamp is not None]
+    if not values:
+        return None
+    return max(values)
+
+
+def _count_numeric_fields(entries: list[dict[str, Any]], fields: list[str]) -> int:
+    count = 0
+    for field in fields:
+        if any(_as_number(entry.get(field)) is not None for entry in entries):
+            count += 1
+    return count
+
+
+def _repo_overview_table(grouped: dict[str, list[dict[str, Any]]], fields: list[str]) -> str:
+    rows: list[list[object]] = []
+    for repo in sorted(grouped):
+        entries = grouped[repo]
+        rows.append(
+            [
+                repo,
+                len(entries),
+                _count_numeric_fields(entries, fields),
+                _format_timestamp(_latest_timestamp(entries)),
+            ]
+        )
+    return format_markdown_table(
+        ["Repo", "Entries", "Metrics tracked", "Last update"],
+        rows,
+        alignments=["left", "right", "right", "left"],
+    )
+
+
 def _repo_section(repo: str, entries: list[dict[str, Any]], fields: list[str]) -> str:
     rows: list[list[object]] = []
     for field in fields:
@@ -187,6 +228,11 @@ def build_dashboard(
         lines.append("No numeric metrics found.")
         lines.append("")
         return "\n".join(lines)
+
+    lines.append(_repo_overview_table(grouped, fields))
+    lines.append("")
+    lines.append("## Repo Details")
+    lines.append("")
 
     for repo in sorted(grouped):
         lines.append(_repo_section(repo, grouped[repo], fields))
