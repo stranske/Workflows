@@ -4,34 +4,17 @@ from __future__ import annotations
 
 import argparse
 import json
-import math
 import sys
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
+from src import aggregator, cli_parser, ndjson_parser, percentile_calculator
+
 
 def _read_ndjson(path: Path) -> tuple[list[dict[str, Any]], int]:
-    entries: list[dict[str, Any]] = []
-    errors = 0
-    try:
-        content = path.read_text(encoding="utf-8")
-    except OSError:
-        return entries, 1
-    for line in content.splitlines():
-        raw = line.strip()
-        if not raw:
-            continue
-        try:
-            parsed = json.loads(raw)
-        except json.JSONDecodeError:
-            errors += 1
-            continue
-        if isinstance(parsed, dict):
-            entries.append(parsed)
-        else:
-            errors += 1
-    return entries, errors
+    entries, errors = ndjson_parser.read_ndjson_file(path)
+    return entries, len(errors)
 
 
 def read_repo_metrics(path: Path, repo: str) -> tuple[list[dict[str, Any]], int]:
@@ -46,78 +29,26 @@ def read_repo_metrics(path: Path, repo: str) -> tuple[list[dict[str, Any]], int]
 
 
 def _as_number(value: Any) -> float | None:
-    if value is None or isinstance(value, bool):
-        return None
-    if isinstance(value, (int, float)):
-        return float(value)
-    if isinstance(value, str):
-        raw = value.strip()
-        if not raw:
-            return None
-        try:
-            return float(raw)
-        except ValueError:
-            return None
-    return None
+    return aggregator.as_number(value)
 
 
 def _percentile(sorted_values: list[float], percentile: float) -> float | None:
-    if not sorted_values:
-        return None
-    if percentile <= 0:
-        return sorted_values[0]
-    if percentile >= 100:
-        return sorted_values[-1]
-    if len(sorted_values) == 1:
-        return sorted_values[0]
-    rank = (percentile / 100) * (len(sorted_values) - 1)
-    lower_index = int(math.floor(rank))
-    upper_index = int(math.ceil(rank))
-    if lower_index == upper_index:
-        return sorted_values[lower_index]
-    lower_value = sorted_values[lower_index]
-    upper_value = sorted_values[upper_index]
-    weight = rank - lower_index
-    return lower_value + (upper_value - lower_value) * weight
+    return percentile_calculator.percentile(sorted_values, percentile)
 
 
 def summarize_values(values: list[float]) -> dict[str, float | None]:
-    if not values:
-        return {"mean": None, "p50": None, "p90": None, "p99": None}
-    sorted_values = sorted(values)
-    mean_value = sum(sorted_values) / len(sorted_values)
-    return {
-        "mean": mean_value,
-        "p50": _percentile(sorted_values, 50),
-        "p90": _percentile(sorted_values, 90),
-        "p99": _percentile(sorted_values, 99),
-    }
+    return percentile_calculator.summarize_values(values)
 
 
 def aggregate_numeric_fields(
     entries: list[dict[str, Any]],
     fields: list[str],
 ) -> dict[str, dict[str, float | None]]:
-    aggregates: dict[str, dict[str, float | None]] = {}
-    for field in fields:
-        values: list[float] = []
-        for entry in entries:
-            value = _as_number(entry.get(field))
-            if value is not None:
-                values.append(value)
-        aggregates[field] = summarize_values(values)
-    return aggregates
+    return aggregator.aggregate_numeric_fields(entries, fields)
 
 
 def _infer_numeric_fields(entries: Iterable[dict[str, Any]]) -> list[str]:
-    fields: set[str] = set()
-    for entry in entries:
-        for key, value in entry.items():
-            if key == "repo":
-                continue
-            if _as_number(value) is not None:
-                fields.add(key)
-    return sorted(fields)
+    return aggregator.infer_numeric_fields(entries)
 
 
 def _repo_slug(repo: str) -> str:
@@ -254,51 +185,14 @@ def write_combined_ndjson(path: Path, entries: Iterable[dict[str, Any]]) -> None
 
 
 def _build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        description="Aggregate per-repo metrics NDJSON into org-level data."
-    )
-    parser.add_argument(
-        "--repo",
-        action="append",
-        default=[],
-        help="Repo spec owner/name=path or owner/name (uses --metrics-dir).",
-    )
-    parser.add_argument("--repos", help="Comma-separated list of repos (owner/name).")
-    parser.add_argument(
-        "--repos-file",
-        type=Path,
-        help="Path to a file listing repos (one per line, # comments allowed).",
-    )
-    parser.add_argument(
-        "--metrics-dir",
-        type=Path,
-        default=Path("repo-metrics"),
-        help="Directory containing per-repo NDJSON named owner__repo.ndjson.",
-    )
-    parser.add_argument(
-        "--output",
-        type=Path,
-        default=Path("combined-repo-metrics.ndjson"),
-        help="Combined NDJSON output path.",
-    )
-    parser.add_argument(
-        "--summary-output",
-        type=Path,
-        default=Path("repo-metrics-summary.json"),
-        help="Summary JSON output path.",
-    )
-    parser.add_argument(
-        "--numeric-field",
-        action="append",
-        default=[],
-        help="Numeric field to aggregate (repeatable).",
-    )
-    return parser
+    return cli_parser.build_parser()
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = _build_parser()
-    args = parser.parse_args(argv)
+    try:
+        args = cli_parser.parse_args(argv)
+    except SystemExit as exc:
+        return int(exc.code) if isinstance(exc.code, int) else 2
 
     repo_specs = _parse_repo_specs(
         args.repo,
@@ -311,9 +205,13 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     entries, errors = read_repo_metrics_files(repo_specs)
-    write_combined_ndjson(args.output, entries)
-
     numeric_fields = args.numeric_field or _infer_numeric_fields(entries)
+    aggregated_entries = aggregator.build_grouped_aggregates(
+        entries,
+        numeric_fields,
+        args.group_key,
+    )
+    write_combined_ndjson(args.output, [*entries, *aggregated_entries])
     repo_names = [repo for repo, _ in repo_specs]
     summary = build_summary(entries, errors, numeric_fields, repo_names=repo_names)
     args.summary_output.parent.mkdir(parents=True, exist_ok=True)

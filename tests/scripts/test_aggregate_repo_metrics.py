@@ -183,9 +183,13 @@ def test_parse_repo_specs_supports_csv_and_file(tmp_path: Path) -> None:
 def test_main_writes_outputs_for_repo_list(tmp_path: Path) -> None:
     metrics_dir = tmp_path / "metrics"
     metrics_dir.mkdir()
-    (metrics_dir / "alpha__one.ndjson").write_text('{"duration_ms": 10}\n', encoding="utf-8")
+    (metrics_dir / "alpha__one.ndjson").write_text(
+        '{"duration_ms": 10, "metric_name": "latency", "workflow": "build"}\n',
+        encoding="utf-8",
+    )
     (metrics_dir / "beta__two.ndjson").write_text(
-        '{"duration_ms": 20}\nnot-json\n', encoding="utf-8"
+        '{"duration_ms": 20, "metric_name": "latency", "workflow": "build"}\nnot-json\n',
+        encoding="utf-8",
     )
     output = tmp_path / "out" / "combined.ndjson"
     summary_output = tmp_path / "out" / "summary.json"
@@ -207,7 +211,12 @@ def test_main_writes_outputs_for_repo_list(tmp_path: Path) -> None:
     combined_entries = [
         json.loads(line) for line in output.read_text(encoding="utf-8").splitlines()
     ]
-    assert {entry["repo"] for entry in combined_entries} == {"alpha/one", "beta/two"}
+    raw_entries = [entry for entry in combined_entries if entry.get("entry_type") != "aggregate"]
+    aggregate_entries = [
+        entry for entry in combined_entries if entry.get("entry_type") == "aggregate"
+    ]
+    assert {entry["repo"] for entry in raw_entries} == {"alpha/one", "beta/two"}
+    assert aggregate_entries
 
     summary = json.loads(summary_output.read_text(encoding="utf-8"))
     assert summary["parse_errors"] == 1
@@ -218,6 +227,6 @@ def test_main_writes_outputs_for_repo_list(tmp_path: Path) -> None:
 def test_main_reports_missing_repos(capsys: pytest.CaptureFixture[str]) -> None:
     result = aggregator.main([])
 
-    assert result == 1
+    assert result == 2
     captured = capsys.readouterr()
-    assert "aggregate_repo_metrics: no repos specified." in captured.err
+    assert "At least one of --repo, --repos, or --repos-file is required." in captured.err
