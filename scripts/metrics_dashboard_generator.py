@@ -167,6 +167,27 @@ def _repo_overview_table(grouped: dict[str, list[dict[str, Any]]], fields: list[
     )
 
 
+def _org_summary_table(entries: list[dict[str, Any]], fields: list[str]) -> str:
+    rows: list[list[object]] = []
+    for field in fields:
+        series = _collect_series(entries, field)
+        summary = summarize_values(series)
+        rows.append(
+            [
+                field,
+                _format_metric_value(summary["mean"]),
+                _format_metric_value(summary["p50"]),
+                _format_metric_value(summary["p90"]),
+                _format_metric_value(summary["p99"]),
+                _format_trend(series),
+            ]
+        )
+    return format_markdown_table(
+        ["Metric", "Mean", "P50", "P90", "P99", "Trend"],
+        rows,
+    )
+
+
 def _repo_section(repo: str, entries: list[dict[str, Any]], fields: list[str]) -> str:
     rows: list[list[object]] = []
     for field in fields:
@@ -215,6 +236,8 @@ def build_dashboard(
         f"Total entries: {len(entries)}",
         f"Parse errors: {errors}",
         "",
+        "## Org Summary",
+        "",
         "## Per-Repo Summary",
         "",
     ]
@@ -229,6 +252,8 @@ def build_dashboard(
         lines.append("")
         return "\n".join(lines)
 
+    lines.append(_org_summary_table(entries, fields))
+    lines.append("")
     lines.append(_repo_overview_table(grouped, fields))
     lines.append("")
     lines.append("## Repo Details")
