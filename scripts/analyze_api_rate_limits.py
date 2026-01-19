@@ -209,8 +209,9 @@ def _clean_repo(repo: str) -> str:
     if "@" in repo:
         repo = repo.split("@", 1)[0]
     parts = [part for part in repo.split("/") if part]
-    if len(parts) >= 2:
-        repo = "/".join(parts[:2])
+    if len(parts) < 2:
+        return ""
+    repo = "/".join(parts[:2])
     if repo.endswith(".git"):
         repo = repo[:-4]
     return repo
