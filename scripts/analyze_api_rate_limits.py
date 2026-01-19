@@ -13,7 +13,7 @@ import os
 import subprocess
 import sys
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 
@@ -102,7 +102,7 @@ def get_rate_limits(token: str | None = None) -> dict[str, Any] | None:
         return None
 
 
-def get_workflow_runs(repo: str, token: str | None = None, hours: int = 1) -> dict[str, Any]:
+def get_workflow_runs(repo: str, token: str | None = None) -> dict[str, Any]:
     """Get recent workflow runs for a repository."""
     env = os.environ.copy()
     if token:
@@ -126,6 +126,51 @@ def get_workflow_runs(repo: str, token: str | None = None, hours: int = 1) -> di
     except (subprocess.CalledProcessError, json.JSONDecodeError) as e:
         print(f"Warning: Failed to get workflow runs for {repo}: {e}", file=sys.stderr)
         return {"workflow_runs": [], "total_count": 0}
+
+
+def _parse_github_timestamp(value: str) -> datetime | None:
+    """Parse GitHub timestamp strings into timezone-aware datetimes."""
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def summarize_workflow_activity(
+    repos: list[str],
+    *,
+    token: str | None = None,
+    hours: int = 1,
+    now: datetime | None = None,
+) -> list[dict[str, Any]]:
+    """Summarize recent workflow activity for the requested repositories."""
+    if not repos:
+        return []
+
+    window_start = (now or datetime.now(tz=UTC)) - timedelta(hours=hours)
+    summaries: list[dict[str, Any]] = []
+
+    for repo in repos:
+        data = get_workflow_runs(repo, token=token)
+        runs = data.get("workflow_runs", [])
+        recent_runs = []
+        for run in runs:
+            created_at = run.get("created_at")
+            if not created_at:
+                continue
+            created_dt = _parse_github_timestamp(created_at)
+            if created_dt and created_dt >= window_start:
+                recent_runs.append(run)
+        summaries.append(
+            {
+                "repo": repo,
+                "window_hours": hours,
+                "recent_runs": len(recent_runs),
+                "total_runs": data.get("total_count", len(runs)),
+            }
+        )
+
+    return summaries
 
 
 def analyze_rate_limits(tokens: dict[str, str | None]) -> list[TokenRateLimits]:
@@ -234,6 +279,20 @@ def print_recommendations() -> None:
         print(f"  {rec}")
 
 
+def print_workflow_activity(summaries: list[dict[str, Any]]) -> None:
+    """Print workflow activity summary."""
+    if not summaries:
+        return
+    print("\n📊 WORKFLOW ACTIVITY")
+    print("-" * 40)
+    for summary in summaries:
+        repo = summary.get("repo", "unknown")
+        window = summary.get("window_hours", "?")
+        recent = summary.get("recent_runs", 0)
+        total = summary.get("total_runs", 0)
+        print(f"{repo}: {recent} run(s) in last {window}h (total reported: {total})")
+
+
 def main() -> int:
     """Main entry point."""
     parser = argparse.ArgumentParser(
@@ -249,6 +308,12 @@ def main() -> int:
         nargs="*",
         metavar="REPO",
         help="Also check workflow activity in specified repos (owner/repo format)",
+    )
+    parser.add_argument(
+        "--workflow-hours",
+        type=int,
+        default=1,
+        help="Time window (hours) for workflow activity checks (default: 1)",
     )
     parser.add_argument(
         "--pat-env",
@@ -276,12 +341,23 @@ def main() -> int:
         print("Error: Could not retrieve rate limits for any token", file=sys.stderr)
         return 1
 
+    workflow_summaries: list[dict[str, Any]] = []
+    if args.check_repos:
+        token_for_workflows = next((value for value in tokens.values() if value), None)
+        workflow_summaries = summarize_workflow_activity(
+            args.check_repos,
+            token=token_for_workflows,
+            hours=args.workflow_hours,
+        )
+
     if args.json:
         # JSON output for programmatic use
         output = {
             "timestamp": datetime.now(tz=UTC).isoformat(),
             "tokens": {},
         }
+        if workflow_summaries:
+            output["workflow_activity"] = workflow_summaries
         for trl in limits:
             output["tokens"][trl.source] = {
                 "core": {
@@ -314,6 +390,7 @@ def main() -> int:
     warnings = print_warnings(limits)
     print_load_balance_analysis(limits)
     print_recommendations()
+    print_workflow_activity(workflow_summaries)
 
     # Return non-zero if critical warnings
     critical = any("CRITICAL" in w for w in warnings)
