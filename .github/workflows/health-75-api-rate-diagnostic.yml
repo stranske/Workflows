@@ -949,7 +949,7 @@ jobs:
             echo "" >> "$GITHUB_STEP_SUMMARY"
 
             # List recent runs with links
-            cat /tmp/runs.json | jq -r '.[:10][] | "- [\(.created_at | split("T")[0])] Run #\(.run_number) - [View Details]('"$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"'/actions/runs/\(.id))"' >> "$GITHUB_STEP_SUMMARY"
+            jq -r '.[:10][] | "- [\(.created_at | split("T")[0])] Run #\(.run_number) - [View Details]('"$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"'/actions/runs/\(.id))"' /tmp/runs.json >> "$GITHUB_STEP_SUMMARY"
 
             if [ "$RUN_COUNT" -gt 10 ]; then
               echo "" >> "$GITHUB_STEP_SUMMARY"
