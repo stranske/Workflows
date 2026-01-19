@@ -508,7 +508,7 @@ jobs:
           DEFAULT_BRANCH: ${{ steps.base.outputs.branch }}
         run: |
           set -euo pipefail
-          python scripts/ledger_migrate_base.py --check --default "${DEFAULT_BRANCH}"
+          python .belt-tools/scripts/ledger_migrate_base.py --check --default "${DEFAULT_BRANCH}"
 
       - name: Preflight branch freshness
         if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.keepalive_gate.outputs.action != 'skip') }}
