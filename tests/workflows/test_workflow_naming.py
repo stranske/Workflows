@@ -171,6 +171,7 @@ EXPECTED_NAMES = {
     "agents-guard.yml": "Health 45 Agents Guard",
     "maint-dependabot-auto-label.yml": "Auto-label Dependabot PRs",
     "maint-dependabot-auto-lock.yml": "Dependabot Auto-Lock",
+    "maint-dependabot-weekly-sweep.yml": "Dependabot Weekly Sweep (Consumers)",
     "agents-63-issue-intake.yml": "Agents 63 Issue Intake",
     "agents-64-verify-agent-assignment.yml": "Agents 64 Verify Agent Assignment",
     "agents-issue-optimizer.yml": "Agents Issue Optimizer",
