@@ -378,9 +378,8 @@ jobs:
           echo "Summary: $summary"
           echo "::endgroup::"
 
-          echo "summary<<EOF" >> "$GITHUB_OUTPUT"
-          echo "$summary" >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
+          # Use single-line format to avoid heredoc parsing issues
+          printf 'summary=%s\n' "$summary" >> "$GITHUB_OUTPUT"
 
   check-consumer-repos:
     name: Check Consumer Repo Activity
@@ -453,9 +452,8 @@ jobs:
 
           done <<< "$REGISTERED_CONSUMER_REPOS"
 
-          echo "activity_json<<EOF" >> "$GITHUB_OUTPUT"
-          echo "$activity_json" >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
+          # Use single-line format to avoid heredoc parsing issues
+          printf 'activity_json=%s\n' "$activity_json" >> "$GITHUB_OUTPUT"
 
           echo "::endgroup::"
 
