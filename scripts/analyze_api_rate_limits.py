@@ -164,7 +164,8 @@ def summarize_workflow_activity(
 
     for repo in repos:
         data = get_workflow_runs(repo, token=token)
-        runs = data.get("workflow_runs", [])
+        runs_raw = data.get("workflow_runs", [])
+        runs = runs_raw if isinstance(runs_raw, list) else []
         recent_runs = []
         for run in runs:
             created_dt = _extract_run_timestamp(run)
