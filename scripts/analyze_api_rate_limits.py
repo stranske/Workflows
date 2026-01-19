@@ -321,6 +321,17 @@ def print_workflow_activity(summaries: list[dict[str, Any]]) -> None:
         print(f"{repo}: {recent} run(s) in last {window}h (total reported: {total})")
 
 
+def _rate_limit_payload(info: RateLimitInfo) -> dict[str, Any]:
+    """Serialize rate limit info for JSON output."""
+    return {
+        "limit": info.limit,
+        "remaining": info.remaining,
+        "used": info.used,
+        "utilization_pct": round(info.utilization_pct, 2),
+        "reset": info.reset_time,
+    }
+
+
 def main() -> int:
     """Main entry point."""
     parser = argparse.ArgumentParser(
@@ -387,29 +398,18 @@ def main() -> int:
         if workflow_summaries:
             output["workflow_activity"] = workflow_summaries
         for trl in limits:
-            output["tokens"][trl.source] = {
-                "core": {
-                    "limit": trl.core.limit,
-                    "remaining": trl.core.remaining,
-                    "used": trl.core.used,
-                    "utilization_pct": round(trl.core.utilization_pct, 2),
-                    "reset": trl.core.reset_time,
-                },
-                "graphql": {
-                    "limit": trl.graphql.limit,
-                    "remaining": trl.graphql.remaining,
-                    "used": trl.graphql.used,
-                    "utilization_pct": round(trl.graphql.utilization_pct, 2),
-                    "reset": trl.graphql.reset_time,
-                },
-                "search": {
-                    "limit": trl.search.limit,
-                    "remaining": trl.search.remaining,
-                    "used": trl.search.used,
-                    "utilization_pct": round(trl.search.utilization_pct, 2),
-                    "reset": trl.search.reset_time,
-                },
+            token_payload = {
+                "core": _rate_limit_payload(trl.core),
+                "graphql": _rate_limit_payload(trl.graphql),
+                "search": _rate_limit_payload(trl.search),
             }
+            if trl.code_search is not None:
+                token_payload["code_search"] = _rate_limit_payload(trl.code_search)
+            if trl.actions_runner is not None:
+                token_payload["actions_runner_registration"] = _rate_limit_payload(
+                    trl.actions_runner
+                )
+            output["tokens"][trl.source] = token_payload
         print(json.dumps(output, indent=2))
         return 0
 

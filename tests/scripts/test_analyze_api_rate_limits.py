@@ -74,6 +74,12 @@ def test_main_json_includes_workflow_activity(monkeypatch, capsys) -> None:
         search=analyze_api_rate_limits.RateLimitInfo(
             limit=5000, remaining=4500, used=500, reset_timestamp=0
         ),
+        code_search=analyze_api_rate_limits.RateLimitInfo(
+            limit=20, remaining=15, used=5, reset_timestamp=0
+        ),
+        actions_runner=analyze_api_rate_limits.RateLimitInfo(
+            limit=10, remaining=9, used=1, reset_timestamp=0
+        ),
     )
 
     def fake_analyze_rate_limits(
@@ -121,6 +127,13 @@ def test_main_json_includes_workflow_activity(monkeypatch, capsys) -> None:
             "total_runs": 0,
         }
     ]
+    token_payload = payload["tokens"]["GITHUB_TOKEN"]
+    assert token_payload["code_search"] == analyze_api_rate_limits._rate_limit_payload(
+        token_limits.code_search
+    )
+    assert token_payload[
+        "actions_runner_registration"
+    ] == analyze_api_rate_limits._rate_limit_payload(token_limits.actions_runner)
 
 
 def test_summarize_workflow_activity_filters_window(monkeypatch) -> None:
