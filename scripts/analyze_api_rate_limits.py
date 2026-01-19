@@ -136,6 +136,15 @@ def _parse_github_timestamp(value: str) -> datetime | None:
         return None
 
 
+def _normalize_now(now: datetime | None) -> datetime:
+    """Ensure a timezone-aware timestamp for comparison."""
+    if now is None:
+        return datetime.now(tz=UTC)
+    if now.tzinfo is None:
+        return now.replace(tzinfo=UTC)
+    return now
+
+
 def _extract_run_timestamp(run: dict[str, Any]) -> datetime | None:
     """Select the best available timestamp for a workflow run."""
     for key in ("created_at", "run_started_at", "updated_at"):
@@ -159,7 +168,7 @@ def summarize_workflow_activity(
     if not repos:
         return []
 
-    window_start = (now or datetime.now(tz=UTC)) - timedelta(hours=hours)
+    window_start = _normalize_now(now) - timedelta(hours=hours)
     summaries: list[dict[str, Any]] = []
 
     for repo in repos:

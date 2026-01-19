@@ -15,6 +15,26 @@ def test_parse_github_timestamp() -> None:
     assert analyze_api_rate_limits._parse_github_timestamp("not-a-time") is None
 
 
+def test_summarize_workflow_activity_handles_naive_now(monkeypatch) -> None:
+    runs = [
+        {"created_at": "2025-01-01T10:30:00Z"},
+        {"created_at": "2025-01-01T08:59:59Z"},
+    ]
+
+    def fake_get_workflow_runs(_repo: str, token: str | None = None) -> dict[str, object]:
+        return {"workflow_runs": runs, "total_count": 2}
+
+    monkeypatch.setattr(analyze_api_rate_limits, "get_workflow_runs", fake_get_workflow_runs)
+    now = datetime(2025, 1, 1, 11, 0, 0)
+    summaries = analyze_api_rate_limits.summarize_workflow_activity(
+        ["owner/repo"],
+        token="token",
+        hours=1,
+        now=now,
+    )
+    assert summaries[0]["recent_runs"] == 1
+
+
 def test_summarize_workflow_activity_filters_window(monkeypatch) -> None:
     runs = [
         {"created_at": "2025-01-01T10:00:00Z"},
