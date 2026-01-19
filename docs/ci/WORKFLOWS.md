@@ -147,6 +147,7 @@ The agent workflows coordinate Codex and chat orchestration across topics:
 * [`agents-verify-to-issue-v2.yml`](../../.github/workflows/agents-verify-to-issue-v2.yml) enhanced follow-up issue creation using LangChain LLM for multi-round analysis (deployed as `agents-verify-to-issue.yml` to consumers).
 * [`maint-dependabot-auto-label.yml`](../../.github/workflows/maint-dependabot-auto-label.yml) automatically applies the `agents:allow-change` label to Dependabot PRs.
 * [`maint-dependabot-auto-lock.yml`](../../.github/workflows/maint-dependabot-auto-lock.yml) automatically regenerates requirements.lock when dependabot updates pyproject.toml.
+* [`maint-dependabot-weekly-sweep.yml`](../../.github/workflows/maint-dependabot-weekly-sweep.yml) sweeps registered consumer repos weekly to enable Dependabot auto-merge and merge eligible PRs when checks are green.
 * [`agents-verifier.yml`](../../.github/workflows/agents-verifier.yml) runs on merged PRs (or pushes to the default branch) to assemble acceptance/task context, execute Codex in verifier mode, and open a follow-up issue when the verdict is FAIL.
 * [`agents-weekly-metrics.yml`](../../.github/workflows/agents-weekly-metrics.yml) aggregates agent metrics (keepalive, autofix, verifier) on a weekly schedule and generates a markdown summary.
 * [`agents-debug-issue-event.yml`](../../.github/workflows/agents-debug-issue-event.yml) dumps the GitHub event context for debugging issue triggers.
