@@ -35,6 +35,7 @@ from typing import Any
 SECTION_ALIASES = {
     "why": ["why", "motivation", "summary", "goals"],
     "scope": ["scope", "context", "background", "overview"],
+    "non_goals": ["non-goals", "nongoals", "out of scope", "constraints", "exclusions"],
     "tasks": ["tasks", "task list", "tasklist", "todo", "to do", "implementation"],
     "acceptance": [
         "acceptance criteria",
@@ -55,6 +56,7 @@ SECTION_ALIASES = {
 SECTION_TITLES = {
     "why": "Why",
     "scope": "Scope",
+    "non_goals": "Non-Goals",
     "tasks": "Tasks",
     "acceptance": "Acceptance Criteria",
     "implementation": "Implementation Notes",
@@ -510,12 +512,14 @@ def extract_original_issue_data(
 
 
 def _normalize_heading(text: str) -> str:
+    """Normalize heading text for comparison (lowercase, stripped of markdown)."""
     cleaned = re.sub(r"[#*_:]+", " ", text).strip().lower()
     cleaned = re.sub(r"\s+", " ", cleaned)
     return cleaned
 
 
 def _resolve_section(label: str) -> str | None:
+    """Map a heading label to a known section key, or None if unrecognized."""
     normalized = _normalize_heading(label)
     for key, aliases in SECTION_ALIASES.items():
         for alias in aliases:
@@ -525,23 +529,36 @@ def _resolve_section(label: str) -> str | None:
 
 
 def _parse_sections(body: str) -> dict[str, list[str]]:
+    """Parse issue body into recognized sections.
+
+    Splits the body by headings and maps content to known section keys.
+    Unrecognized headings terminate the current section (content is discarded).
+    """
     sections: dict[str, list[str]] = {key: [] for key in SECTION_TITLES}
     current: str | None = None
     for line in body.splitlines():
         heading_match = re.match(r"^\s*#{1,6}\s+(.*)$", line)
         if heading_match:
             section_key = _resolve_section(heading_match.group(1))
-            if section_key:
-                current = section_key
-                continue
+            # Always update current - set to None for unrecognized headings
+            # This prevents content under "## Out of scope" etc. from being
+            # appended to the previous recognized section
+            current = section_key
+            continue
         if current:
             sections[current].append(line)
     return sections
 
 
-def _strip_checkbox(line: str) -> str:
+def _strip_checkbox(line: str, list_match: re.Match[str] | None = None) -> str:
+    """Extract text content from a list item, stripping bullet and checkbox markers.
+
+    Args:
+        line: The line to process.
+        list_match: Optional pre-computed LIST_ITEM_REGEX match to avoid re-matching.
+    """
     stripped = line.strip()
-    match = LIST_ITEM_REGEX.match(stripped)
+    match = list_match or LIST_ITEM_REGEX.match(stripped)
     if not match:
         return stripped
     content = match.group(2).strip()
@@ -552,19 +569,24 @@ def _strip_checkbox(line: str) -> str:
 
 
 def _parse_checklist(lines: list[str]) -> list[str]:
+    """Extract checklist items from lines, handling both checkbox and plain list formats."""
     items: list[str] = []
     for line in lines:
         stripped = line.strip()
         if not stripped:
             continue
+        # First try direct checkbox at start of line (rare but possible)
         checkbox_match = CHECKBOX_REGEX.match(stripped)
         if checkbox_match:
             value = checkbox_match.group(2).strip()
             if value and len(value) > 3:
                 items.append(value)
             continue
-        if LIST_ITEM_REGEX.match(stripped):
-            value = _strip_checkbox(line)
+        # Then try list item (with optional checkbox inside)
+        list_match = LIST_ITEM_REGEX.match(stripped)
+        if list_match:
+            # Pass the match to avoid re-matching in _strip_checkbox
+            value = _strip_checkbox(line, list_match)
             if value and len(value) > 3:
                 items.append(value)
     return items
