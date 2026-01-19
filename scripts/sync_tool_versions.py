@@ -14,6 +14,7 @@ from re import Pattern
 
 PIN_FILE = Path(".github/workflows/autofix-versions.env")
 PYPROJECT_FILE = Path("pyproject.toml")
+TEMPLATE_FILE = Path("templates/consumer-repo/.github/workflows/autofix-versions.env")
 
 
 @dataclasses.dataclass(frozen=True)
@@ -167,18 +168,34 @@ def main(argv: Iterable[str]) -> int:
         pyproject_content, TOOL_CONFIGS, env_values, apply_changes
     )
 
-    if project_mismatches and not apply_changes:
-        for package, message in project_mismatches.items():
+    # Check template file is in sync with source
+    template_mismatches: dict[str, str] = {}
+    if TEMPLATE_FILE.exists():
+        template_content = TEMPLATE_FILE.read_text(encoding="utf-8")
+        source_content = PIN_FILE.read_text(encoding="utf-8")
+        if template_content != source_content:
+            template_mismatches["template"] = (
+                "templates/consumer-repo autofix-versions.env differs from source"
+            )
+            if apply_changes:
+                TEMPLATE_FILE.write_text(source_content, encoding="utf-8")
+
+    all_mismatches = {**project_mismatches, **template_mismatches}
+    if all_mismatches and not apply_changes:
+        for package, message in all_mismatches.items():
             print(f"✗ {package}: {message}", file=sys.stderr)
         print(
-            "Use --apply to rewrite pyproject.toml with the pinned versions.",
+            "Use --apply to sync tool versions to pyproject.toml and template.",
             file=sys.stderr,
         )
         return 1
 
-    if apply_changes and pyproject_updated != pyproject_content:
-        PYPROJECT_FILE.write_text(pyproject_updated, encoding="utf-8")
-        print("✓ tool pins synced to pyproject.toml")
+    if apply_changes:
+        if pyproject_updated != pyproject_content:
+            PYPROJECT_FILE.write_text(pyproject_updated, encoding="utf-8")
+            print("✓ tool pins synced to pyproject.toml")
+        if template_mismatches:
+            print("✓ template autofix-versions.env synced from source")
 
     return 0
 
