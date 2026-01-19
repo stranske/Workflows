@@ -35,7 +35,6 @@ from typing import Any
 SECTION_ALIASES = {
     "why": ["why", "motivation", "summary", "goals"],
     "scope": ["scope", "context", "background", "overview"],
-    "non_goals": ["non-goals", "nongoals", "out of scope", "constraints", "exclusions"],
     "tasks": ["tasks", "task list", "tasklist", "todo", "to do", "implementation"],
     "acceptance": [
         "acceptance criteria",
@@ -56,7 +55,6 @@ SECTION_ALIASES = {
 SECTION_TITLES = {
     "why": "Why",
     "scope": "Scope",
-    "non_goals": "Non-Goals",
     "tasks": "Tasks",
     "acceptance": "Acceptance Criteria",
     "implementation": "Implementation Notes",
@@ -531,19 +529,19 @@ def _resolve_section(label: str) -> str | None:
 def _parse_sections(body: str) -> dict[str, list[str]]:
     """Parse issue body into recognized sections.
 
-    Splits the body by top-level headings (# or ##) and maps content to known section keys.
-    Unrecognized top-level headings terminate the current section.
-    Subheadings (###, ####, etc.) within a section are preserved as content.
+    Splits the body by headings (#, ##, ###) and maps content to known section keys.
+    Unrecognized headings terminate the current section.
+    Deeper subheadings (####, #####, etc.) within a section are preserved as content.
     """
     sections: dict[str, list[str]] = {key: [] for key in SECTION_TITLES}
     current: str | None = None
     for line in body.splitlines():
-        # Only match top-level section headings (# or ## but not ### or deeper)
-        # Subheadings (###, ####) are kept as content within the current section
-        heading_match = re.match(r"^\s*#{1,2}\s+(.*)$", line)
+        # Match section headings (#, ##, ###) - GitHub issue forms use ### for fields
+        # Deeper headings (####, #####) are kept as content within the current section
+        heading_match = re.match(r"^\s*#{1,3}\s+(.*)$", line)
         if heading_match:
             section_key = _resolve_section(heading_match.group(1))
-            # Update current - set to None for unrecognized top-level headings
+            # Update current - set to None for unrecognized headings
             # This prevents content under "## Random Notes" etc. from being
             # appended to the previous recognized section
             current = section_key
