@@ -1,0 +1,289 @@
+# Automates selection of ready Codex issues and primes a codex/issue-<n> branch
+# before handing control to the Codex belt worker.
+name: Agents 71 Codex Belt Dispatcher
+
+on:
+  workflow_call:
+    inputs:
+      force_issue:
+        description: 'Optional issue number to dispatch immediately'
+        required: false
+        default: ''
+        type: string
+      dry_run:
+        description: 'Preview dispatcher actions without writes'
+        required: false
+        default: false
+        type: boolean
+    secrets:
+      ACTIONS_BOT_PAT:
+        required: false
+      WORKFLOWS_APP_ID:
+        required: false
+      WORKFLOWS_APP_PRIVATE_KEY:
+        required: false
+    outputs:
+      issue:
+        description: 'Issue selected for dispatch'
+        value: ${{ jobs.dispatch.outputs.issue }}
+      branch:
+        description: 'Codex branch tied to the selected issue'
+        value: ${{ jobs.dispatch.outputs.branch }}
+      base:
+        description: 'Base branch used for the automation PR'
+        value: ${{ jobs.dispatch.outputs.base }}
+      reason:
+        description: 'Reason the dispatcher selected the issue'
+        value: ${{ jobs.dispatch.outputs.reason }}
+      dry_run:
+        description: 'Dispatcher dry-run mode flag'
+        value: ${{ jobs.dispatch.outputs.dry_run }}
+  workflow_dispatch:
+    inputs:
+      force_issue:
+        description: 'Optional issue number to dispatch immediately'
+        required: false
+        default: ''
+        type: string
+      dry_run:
+        description: 'Preview dispatcher actions without writes'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+  issues: write
+  actions: write
+
+concurrency:
+  group: codex-belt-dispatcher
+  cancel-in-progress: false
+
+jobs:
+  dispatch:
+    name: Select next Codex issue
+    runs-on: ubuntu-latest
+    outputs:
+      issue: ${{ steps.pick.outputs.issue || '' }}
+      branch: ${{ steps.pick.outputs.branch || '' }}
+      base: ${{ steps.pick.outputs.base || '' }}
+      reason: ${{ steps.pick.outputs.reason || '' }}
+      dry_run: ${{ steps.mode.outputs.dry_run || 'false' }}
+    env:
+      ACTIONS_BOT_PAT: ${{ secrets.ACTIONS_BOT_PAT || '' }}
+      WORKFLOWS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID || '' }}
+      WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || '' }}
+    steps:
+      - name: Mint GitHub App token (preferred)
+        id: app_token
+        if: ${{ env.WORKFLOWS_APP_ID != '' && env.WORKFLOWS_APP_PRIVATE_KEY != '' }}
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ env.WORKFLOWS_APP_ID }}
+          private-key: ${{ env.WORKFLOWS_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Select authentication token (app > PAT > GITHUB_TOKEN)
+        id: select_token
+        env:
+          APP_TOKEN: ${{ steps.app_token.outputs.token || '' }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          token_value=""
+          token_source=""
+
+          if [ -n "${APP_TOKEN:-}" ]; then
+            token_value="${APP_TOKEN}"
+            token_source="WORKFLOWS_APP"
+          elif [ -n "${ACTIONS_BOT_PAT:-}" ]; then
+            token_value="${ACTIONS_BOT_PAT}"
+            token_source="ACTIONS_BOT_PAT"
+          elif [ -n "${GITHUB_TOKEN:-}" ]; then
+            token_value="${GITHUB_TOKEN}"
+            token_source="GITHUB_TOKEN"
+          fi
+
+          if [ -z "${token_value}" ]; then
+            echo '::error::No authentication token available (App token, ACTIONS_BOT_PAT, or GITHUB_TOKEN).' >&2
+            exit 1
+          fi
+
+          {
+            echo "GH_DISPATCH_TOKEN=${token_value}"
+            echo "GH_TOKEN=${token_value}"
+            echo "TOKEN_SOURCE=${token_source}"
+          } >>"$GITHUB_ENV"
+          printf 'token=%s\n' "${token_source}" >>"$GITHUB_OUTPUT"
+
+      - name: Record token source
+        env:
+          TOKEN_SOURCE: ${{ steps.select_token.outputs.token || 'unknown' }}
+          TOKEN_LOGIN: ${{ steps.app_token.outputs.app-slug || 'app-token' }}
+        run: |
+          cat <<'EOF' >>"$GITHUB_STEP_SUMMARY"
+          Authentication
+          ---------------
+          EOF
+          case "${TOKEN_SOURCE:-unknown}" in
+            'WORKFLOWS_APP')
+              cat <<'EOF' >>"$GITHUB_STEP_SUMMARY"
+          Using GitHub App token (WORKFLOWS_APP); write operations will use the app installation token instead of a PAT.
+          EOF
+              ;;
+            'ACTIONS_BOT_PAT')
+              cat <<'EOF' >>"$GITHUB_STEP_SUMMARY"
+          Using ACTIONS_BOT_PAT fallback. Configure WORKFLOWS_APP_ID and WORKFLOWS_APP_PRIVATE_KEY to enable the GitHub App path.
+          EOF
+              ;;
+            'GITHUB_TOKEN')
+              cat <<'EOF' >>"$GITHUB_STEP_SUMMARY"
+          Falling back to the default GITHUB_TOKEN. Writes may not trigger downstream workflows.
+          EOF
+              ;;
+            *)
+              echo "Unknown token source ${TOKEN_SOURCE:-unknown}" >>"$GITHUB_STEP_SUMMARY"
+              ;;
+          esac
+
+      - name: Determine dispatcher mode
+        id: mode
+        run: |
+          echo "dry_run=${{ inputs.dry_run }}" >>"$GITHUB_OUTPUT"
+
+      - name: Resolve candidate issue
+        id: pick
+        uses: actions/github-script@v8
+        with:
+          github-token: ${{ env.GH_DISPATCH_TOKEN }}
+          script: |
+            const forced = '${{ inputs.force_issue }}';
+            const { owner, repo } = context.repo;
+
+            const summary = core.summary;
+            summary.addHeading('Codex Belt Dispatcher');
+
+            let issueNumber = null;
+            let reason = '';
+
+            if (forced && String(forced).trim()) {
+              issueNumber = Number(String(forced).trim());
+              reason = 'manual-dispatch';
+            }
+
+            if (!issueNumber) {
+              const { data: issues } = await github.rest.issues.listForRepo({
+                owner,
+                repo,
+                state: 'open',
+                labels: 'agent:codex,status:ready',
+                sort: 'created',
+                direction: 'asc',
+                per_page: 30,
+              });
+              const match = issues.find((issue) => !issue.pull_request);
+              if (match) {
+                issueNumber = match.number;
+                reason = 'queue-selection';
+              }
+            }
+
+            if (!issueNumber) {
+              summary.addRaw('No open issues with labels `agent:codex` and `status:ready` were found.').write();
+              core.setOutput('issue', '');
+              core.setOutput('reason', 'empty');
+              return;
+            }
+
+            summary.addTable([
+              [
+                { data: 'Issue', header: true },
+                { data: 'Reason', header: true }
+              ],
+              [
+                `#${issueNumber}`,
+                reason || '(unspecified)'
+              ]
+            ]);
+
+            const { data: repoInfo } = await github.rest.repos.get({ owner, repo });
+            const base = repoInfo.default_branch || 'main';
+            const branch = `codex/issue-${issueNumber}`;
+
+            core.setOutput('issue', String(issueNumber));
+            core.setOutput('branch', branch);
+            core.setOutput('base', base);
+            core.setOutput('reason', reason || '');
+            summary.addRaw(`Selected issue #${issueNumber} → branch \`${branch}\` on base \`${base}\`.`).write();
+
+      - name: Stop when queue is empty
+        if: ${{ steps.pick.outputs.issue == '' }}
+        run: echo 'No work queued.'
+
+      - name: Checkout default branch
+        if: ${{ steps.pick.outputs.issue != '' && steps.mode.outputs.dry_run != 'true' }}
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ steps.pick.outputs.base }}
+          token: ${{ env.GH_DISPATCH_TOKEN }}
+          fetch-depth: 0
+
+      - name: Create codex branch if missing
+        if: ${{ steps.pick.outputs.issue != '' && steps.mode.outputs.dry_run != 'true' }}
+        run: |
+          set -euo pipefail
+          branch="${{ steps.pick.outputs.branch }}"
+          default_ref="${{ steps.pick.outputs.base }}"
+
+          git config user.name "stranske-automation-bot"
+          git config user.email "stranske-automation-bot@users.noreply.github.com"
+
+          existing_ref=$(git ls-remote --heads origin "$branch" || true)
+          if [ -n "$existing_ref" ]; then
+            echo "Branch $branch already exists on origin; leaving as-is."
+          else
+            git checkout -b "$branch"
+            git push origin "$branch"
+            echo "Created branch $branch from $default_ref."
+          fi
+
+      - name: Transition issue to in-progress
+        if: ${{ steps.pick.outputs.issue != '' && steps.mode.outputs.dry_run != 'true' }}
+        uses: actions/github-script@v8
+        with:
+          github-token: ${{ env.GH_DISPATCH_TOKEN }}
+          script: |
+            const issue = Number('${{ steps.pick.outputs.issue }}');
+            if (!issue) { return; }
+            const { owner, repo } = context.repo;
+            const branch = '${{ steps.pick.outputs.branch }}';
+            try {
+              await github.rest.issues.removeLabel({ owner, repo, issue_number: issue, name: 'status:ready' });
+            } catch (error) {
+              if (error.status !== 404) {
+                core.warning(`Failed to remove status:ready: ${error.message}`);
+              }
+            }
+            try {
+              await github.rest.issues.addLabels({ owner, repo, issue_number: issue, labels: ['status:in-progress'] });
+            } catch (error) {
+              core.warning(`Failed to add status:in-progress: ${error.message}`);
+            }
+            try {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: issue,
+                body: `Codex belt dispatcher queued this issue and created branch \`${branch}\`.`
+              });
+            } catch (error) {
+              core.warning(`Failed to comment on issue #${issue}: ${error.message}`);
+            }
+
+      - name: Summarise dispatcher mode
+        if: ${{ steps.pick.outputs.issue != '' && steps.mode.outputs.dry_run == 'true' }}
+        run: |
+          cat <<'EOF' >>"$GITHUB_STEP_SUMMARY"
+          Dispatcher executed in dry-run mode. No branches, labels, or comments were changed.
+          EOF
