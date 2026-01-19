@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -166,12 +167,31 @@ def _normalize_repos(repos: list[str]) -> list[str]:
     seen: set[str] = set()
     for raw_repo in repos:
         for line in str(raw_repo).splitlines():
-            for repo in line.split(","):
+            for repo in _split_repo_entries(line):
                 repo = _clean_repo(repo)
                 if repo and repo not in seen:
                     normalized.append(repo)
                     seen.add(repo)
     return normalized
+
+
+_REPO_ENTRY = re.compile(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(?:\\.git)?(?:@\\S+)?")
+
+
+def _split_repo_entries(raw: str) -> list[str]:
+    """Split raw input into repo-like entries."""
+    raw = raw.strip()
+    if not raw:
+        return []
+    if "," in raw:
+        return [entry for entry in raw.split(",") if entry.strip()]
+
+    matches = _REPO_ENTRY.findall(raw)
+    if len(matches) > 1:
+        remainder = _REPO_ENTRY.sub("", raw)
+        if remainder.strip().strip(",") == "":
+            return matches
+    return [raw]
 
 
 def _clean_repo(repo: str) -> str:
