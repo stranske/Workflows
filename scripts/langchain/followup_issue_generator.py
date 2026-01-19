@@ -65,6 +65,20 @@ SECTION_TITLES = {
 LIST_ITEM_REGEX = re.compile(r"^\s*([-*+]|\d+[.)])\s+(.*)$")
 CHECKBOX_REGEX = re.compile(r"^\[([ xX])\]\s*(.*)$")
 
+
+def _normalize_heading(text: str) -> str:
+    """Normalize heading text for comparison (lowercase, stripped of markdown)."""
+    cleaned = re.sub(r"[#*_:]+", " ", text).strip().lower()
+    cleaned = re.sub(r"\s+", " ", cleaned)
+    return cleaned
+
+
+# Pre-computed normalized aliases for efficient section resolution.
+# Maps normalized alias string -> section key
+_NORMALIZED_ALIAS_MAP: dict[str, str] = {
+    _normalize_heading(alias): key for key, aliases in SECTION_ALIASES.items() for alias in aliases
+}
+
 # Prompts for multi-round LLM interaction
 # NOTE: We use a reasoning model (o1/o3-mini) for ANALYZE_VERIFICATION_PROMPT
 # because this step requires deep analysis to produce useful follow-up tasks.
@@ -511,21 +525,13 @@ def extract_original_issue_data(
     return data
 
 
-def _normalize_heading(text: str) -> str:
-    """Normalize heading text for comparison (lowercase, stripped of markdown)."""
-    cleaned = re.sub(r"[#*_:]+", " ", text).strip().lower()
-    cleaned = re.sub(r"\s+", " ", cleaned)
-    return cleaned
-
-
 def _resolve_section(label: str) -> str | None:
-    """Map a heading label to a known section key, or None if unrecognized."""
+    """Map a heading label to a known section key, or None if unrecognized.
+
+    Uses pre-computed _NORMALIZED_ALIAS_MAP for efficient O(1) lookup.
+    """
     normalized = _normalize_heading(label)
-    for key, aliases in SECTION_ALIASES.items():
-        for alias in aliases:
-            if normalized == _normalize_heading(alias):
-                return key
-    return None
+    return _NORMALIZED_ALIAS_MAP.get(normalized)
 
 
 def _parse_sections(body: str) -> dict[str, list[str]]:
