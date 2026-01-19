@@ -194,9 +194,19 @@ def _split_repo_entries(raw: str) -> list[str]:
     return [raw]
 
 
+def _strip_wrapping_repo(value: str) -> str:
+    """Strip wrapping punctuation from a repo-like string."""
+    repo = value.strip().strip("`'\"")
+    for left, right in (("<", ">"), ("[", "]"), ("(", ")")):
+        if repo.startswith(left) and repo.endswith(right):
+            repo = repo[1:-1].strip()
+            break
+    return repo.strip(" ,.;:")
+
+
 def _clean_repo(repo: str) -> str:
     """Normalize repo string from common URL or git formats."""
-    repo = repo.strip()
+    repo = _strip_wrapping_repo(repo)
     if not repo:
         return ""
     if repo.endswith(")") and " (" in repo:
@@ -210,6 +220,7 @@ def _clean_repo(repo: str) -> str:
                 None,
             )
         repo = candidate or tokens[-1]
+        repo = _strip_wrapping_repo(repo)
     if repo.startswith("ssh://"):
         repo = repo[len("ssh://") :]
     for host in ("github.com", "www.github.com"):
