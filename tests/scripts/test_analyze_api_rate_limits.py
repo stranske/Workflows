@@ -143,6 +143,8 @@ def test_summarize_workflow_activity_trims_repo_paths(monkeypatch) -> None:
             "https://github.com/owner/repo/tree/main",
             "owner/repo/blob/main/README.md",
             "owner/repo.git/extra/path",
+            "https://github.com/owner/repo?tab=readme",
+            "owner/repo#readme",
         ],
         token="token",
         hours=1,

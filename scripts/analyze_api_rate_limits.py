@@ -194,6 +194,7 @@ def _clean_repo(repo: str) -> str:
         repo = repo.split(":", 1)[1]
     elif repo.startswith("git@github.com/"):
         repo = repo.split("/", 1)[1]
+    repo = repo.split("?", 1)[0].split("#", 1)[0]
     repo = repo.rstrip("/")
     parts = [part for part in repo.split("/") if part]
     if len(parts) >= 2:
