@@ -116,3 +116,21 @@ def test_summarize_workflow_activity_handles_non_list_runs(monkeypatch) -> None:
     )
     assert summaries[0]["recent_runs"] == 0
     assert summaries[0]["total_runs"] == 0
+
+
+def test_summarize_workflow_activity_ignores_non_dict_runs(monkeypatch) -> None:
+    runs = [{"created_at": "2025-01-01T10:00:00Z"}, "oops", 123]
+
+    def fake_get_workflow_runs(_repo: str, token: str | None = None) -> dict[str, object]:
+        return {"workflow_runs": runs, "total_count": None}
+
+    monkeypatch.setattr(analyze_api_rate_limits, "get_workflow_runs", fake_get_workflow_runs)
+    now = datetime(2025, 1, 1, 11, 0, 0, tzinfo=UTC)
+    summaries = analyze_api_rate_limits.summarize_workflow_activity(
+        ["owner/repo"],
+        token="token",
+        hours=2,
+        now=now,
+    )
+    assert summaries[0]["recent_runs"] == 1
+    assert summaries[0]["total_runs"] == 1
