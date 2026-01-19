@@ -176,7 +176,9 @@ def summarize_workflow_activity(
                 "window_hours": hours,
                 "recent_runs": len(recent_runs),
                 "total_runs": (
-                    data.get("total_count") if isinstance(data.get("total_count"), int) else len(runs)
+                    data.get("total_count")
+                    if isinstance(data.get("total_count"), int)
+                    else len(runs)
                 ),
             }
         )
