@@ -477,8 +477,9 @@ jobs:
           echo "**Generated:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
 
-          # Parse summary data
-          summary="${SUMMARY_JSON:-{}}"
+          # Sanitize JSON by re-parsing with jq to remove any trailing chars
+          raw_json="${SUMMARY_JSON:-{}}"
+          summary=$(echo "$raw_json" | jq -c '.' 2>/dev/null || echo '{}')
 
           echo "## 🔑 Authentication Token Rate Limits" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
@@ -556,8 +557,9 @@ jobs:
 
           echo "" >> "$GITHUB_STEP_SUMMARY"
 
-          # Consumer repo activity
-          activity="${CONSUMER_ACTIVITY:-[]}"
+          # Consumer repo activity - sanitize JSON first
+          raw_activity="${CONSUMER_ACTIVITY:-[]}"
+          activity=$(echo "$raw_activity" | jq -c '.' 2>/dev/null || echo '[]')
           if [ "$activity" != "[]" ] && [ "$activity" != "null" ]; then
             echo "## 📦 Consumer Repository Activity (Last Hour)" >> "$GITHUB_STEP_SUMMARY"
             echo "" >> "$GITHUB_STEP_SUMMARY"
@@ -639,8 +641,9 @@ jobs:
         env:
           SUMMARY_JSON: ${{ needs.collect-rate-limits.outputs.summary_json }}
         run: |
-          # Check if any token is at critical utilization
-          summary="${SUMMARY_JSON:-{}}"
+          # Sanitize JSON by re-parsing with jq to remove any trailing chars
+          raw_json="${SUMMARY_JSON:-{}}"
+          summary=$(echo "$raw_json" | jq -c '.' 2>/dev/null || echo '{}')
 
           for token_path in ".tokens.github_token" ".tokens.pat" ".tokens.app"; do
             token_data=$(echo "$summary" | jq "$token_path // {}")
@@ -664,7 +667,9 @@ jobs:
       - name: Check for critical utilization
         id: check
         run: |
-          summary="${SUMMARY_JSON:-{}}"
+          # Sanitize JSON by re-parsing with jq to remove any trailing chars
+          raw_json="${SUMMARY_JSON:-{}}"
+          summary=$(echo "$raw_json" | jq -c '.' 2>/dev/null || echo '{}')
           alert_needed=false
 
           for token_path in ".tokens.github_token" ".tokens.pat" ".tokens.app"; do
