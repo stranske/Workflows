@@ -195,7 +195,7 @@ def _split_repo_entries(raw: str) -> list[str]:
     matches = _REPO_ENTRY.findall(raw)
     if len(matches) > 1:
         remainder = _REPO_ENTRY.sub("", raw)
-        if remainder.strip().strip(",") == "":
+        if re.fullmatch(r"[\s,;|]*", remainder):
             return matches
     return [raw]
 
