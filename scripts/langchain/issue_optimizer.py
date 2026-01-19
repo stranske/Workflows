@@ -461,7 +461,7 @@ def _formatted_output_valid(text: str) -> bool:
 
 
 def _strip_task_marker(text: str) -> str:
-    cleaned = re.sub(r"^\s*([-*+]|\d+[.)])\s*", "", text)
+    cleaned = re.sub(r"^\s*([-*+]|\d+[.)]|[A-Za-z][.)])\s*", "", text)
     cleaned = re.sub(r"^\s*\[[ xX]\]\s*", "", cleaned)
     return cleaned.strip()
 

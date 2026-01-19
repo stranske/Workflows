@@ -362,6 +362,26 @@ def test_apply_task_decomposition_skips_when_missing_header() -> None:
     assert updated == formatted
 
 
+def test_apply_task_decomposition_handles_alpha_items() -> None:
+    formatted = "\n".join(
+        [
+            "## Tasks",
+            "a) First task",
+            "b) Second task",
+            "## Acceptance Criteria",
+            "- Works",
+        ]
+    )
+    suggestions = {
+        "task_splitting": [
+            {"task": "First task", "split_suggestions": ["Step one", "Step two"]}
+        ]
+    }
+    updated = issue_optimizer._apply_task_decomposition(formatted, suggestions)
+    assert "a) First task\n  - [ ] Step one" in updated
+    assert "  - [ ] Step two" in updated
+
+
 def test_extract_json_payload_with_wrapped_text() -> None:
     payload = issue_optimizer._extract_json_payload('Result:\n{"ok": true}\nThanks')
     assert payload == '{"ok": true}'
