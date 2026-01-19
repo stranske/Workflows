@@ -178,6 +178,8 @@ def _clean_repo(repo: str) -> str:
     repo = repo.strip()
     if not repo:
         return ""
+    if repo.startswith("ssh://"):
+        repo = repo[len("ssh://") :]
     for prefix in (
         "https://github.com/",
         "http://github.com/",
@@ -188,8 +190,6 @@ def _clean_repo(repo: str) -> str:
         if repo.startswith(prefix):
             repo = repo[len(prefix) :]
             break
-    if repo.startswith("ssh://"):
-        repo = repo[len("ssh://") :]
     if repo.startswith("git@github.com:"):
         repo = repo.split(":", 1)[1]
     elif repo.startswith("git@github.com/"):

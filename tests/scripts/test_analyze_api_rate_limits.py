@@ -117,6 +117,8 @@ def test_summarize_workflow_activity_normalizes_repo_urls(monkeypatch) -> None:
             "github.com/owner/repo",
             "git@github.com:owner/repo.git",
             "ssh://git@github.com/owner/repo.git",
+            "ssh://github.com/owner/repo",
+            "ssh://github.com/owner/repo.git",
             "git://github.com/owner/repo.git",
             "owner/repo/",
         ],
