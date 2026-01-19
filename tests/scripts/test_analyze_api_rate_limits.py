@@ -235,3 +235,32 @@ def test_summarize_workflow_activity_ignores_non_dict_runs(monkeypatch) -> None:
     )
     assert summaries[0]["recent_runs"] == 1
     assert summaries[0]["total_runs"] == 1
+
+
+def test_print_warnings_includes_optional_resources(capsys) -> None:
+    limits = [
+        analyze_api_rate_limits.TokenRateLimits(
+            source="GITHUB_TOKEN",
+            core=analyze_api_rate_limits.RateLimitInfo(
+                limit=5000, remaining=4500, used=500, reset_timestamp=0
+            ),
+            graphql=analyze_api_rate_limits.RateLimitInfo(
+                limit=5000, remaining=4500, used=500, reset_timestamp=0
+            ),
+            search=analyze_api_rate_limits.RateLimitInfo(
+                limit=30, remaining=30, used=0, reset_timestamp=0
+            ),
+            code_search=analyze_api_rate_limits.RateLimitInfo(
+                limit=10, remaining=1, used=9, reset_timestamp=0
+            ),
+            actions_runner=analyze_api_rate_limits.RateLimitInfo(
+                limit=10, remaining=1, used=9, reset_timestamp=0
+            ),
+        )
+    ]
+
+    warnings = analyze_api_rate_limits.print_warnings(limits)
+    _ = capsys.readouterr()
+
+    assert any("Code Search" in warning for warning in warnings)
+    assert any("Actions Runner Registration" in warning for warning in warnings)

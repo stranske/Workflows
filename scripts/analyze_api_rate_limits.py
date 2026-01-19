@@ -243,11 +243,17 @@ def print_warnings(limits: list[TokenRateLimits]) -> list[str]:
 
     has_warnings = False
     for trl in limits:
-        for resource_name, resource in [
+        resources = [
             ("Core", trl.core),
             ("GraphQL", trl.graphql),
             ("Search", trl.search),
-        ]:
+        ]
+        if trl.code_search is not None:
+            resources.append(("Code Search", trl.code_search))
+        if trl.actions_runner is not None:
+            resources.append(("Actions Runner Registration", trl.actions_runner))
+
+        for resource_name, resource in resources:
             pct = resource.utilization_pct
             if pct > 80:
                 msg = f"🔴 CRITICAL: {trl.source} {resource_name} at {pct:.1f}%"
