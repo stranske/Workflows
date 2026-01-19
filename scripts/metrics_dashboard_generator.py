@@ -172,11 +172,63 @@ def _repo_overview_table(grouped: dict[str, list[dict[str, Any]]], fields: list[
     )
 
 
-def _org_summary_table(entries: list[dict[str, Any]], fields: list[str]) -> str:
+def _status_from_threshold(
+    value: float | None,
+    ok_threshold: float,
+    warn_threshold: float,
+    *,
+    higher_is_better: bool = True,
+) -> str:
+    if value is None:
+        return "n/a"
+    if higher_is_better:
+        if value >= ok_threshold:
+            return "OK"
+        if value >= warn_threshold:
+            return "WARN"
+        return "FAIL"
+    if value <= ok_threshold:
+        return "OK"
+    if value <= warn_threshold:
+        return "WARN"
+    return "FAIL"
+
+
+def _status_for_field(
+    field: str,
+    latest_value: float | None,
+    thresholds: dict[str, dict[str, Any]] | None,
+) -> str:
+    if not thresholds:
+        return "n/a"
+    rules = thresholds.get(field)
+    if not rules:
+        return "n/a"
+    ok_threshold = _as_number(rules.get("ok"))
+    warn_threshold = _as_number(rules.get("warn"))
+    if ok_threshold is None or warn_threshold is None:
+        return "n/a"
+    higher_is_better = rules.get("higher_is_better", True)
+    if not isinstance(higher_is_better, bool):
+        higher_is_better = True
+    return _status_from_threshold(
+        latest_value,
+        float(ok_threshold),
+        float(warn_threshold),
+        higher_is_better=higher_is_better,
+    )
+
+
+def _org_summary_table(
+    entries: list[dict[str, Any]],
+    fields: list[str],
+    thresholds: dict[str, dict[str, Any]] | None,
+) -> str:
     rows: list[list[object]] = []
     for field in fields:
         series = _collect_series(entries, field)
         summary = summarize_values(series)
+        latest_value = series[-1] if series else None
         rows.append(
             [
                 field,
@@ -185,19 +237,26 @@ def _org_summary_table(entries: list[dict[str, Any]], fields: list[str]) -> str:
                 _format_metric_value(summary["p90"]),
                 _format_metric_value(summary["p99"]),
                 _format_trend(series),
+                _status_for_field(field, latest_value, thresholds),
             ]
         )
     return format_markdown_table(
-        ["Metric", "Mean", "P50", "P90", "P99", "Trend"],
+        ["Metric", "Mean", "P50", "P90", "P99", "Trend", "Status"],
         rows,
     )
 
 
-def _repo_section(repo: str, entries: list[dict[str, Any]], fields: list[str]) -> str:
+def _repo_section(
+    repo: str,
+    entries: list[dict[str, Any]],
+    fields: list[str],
+    thresholds: dict[str, dict[str, Any]] | None,
+) -> str:
     rows: list[list[object]] = []
     for field in fields:
         series = _collect_series(entries, field)
         summary = summarize_values(series)
+        latest_value = series[-1] if series else None
         rows.append(
             [
                 field,
@@ -206,11 +265,12 @@ def _repo_section(repo: str, entries: list[dict[str, Any]], fields: list[str]) -
                 _format_metric_value(summary["p90"]),
                 _format_metric_value(summary["p99"]),
                 _format_trend(series),
+                _status_for_field(field, latest_value, thresholds),
             ]
         )
 
     table = format_markdown_table(
-        ["Metric", "Mean", "P50", "P90", "P99", "Trend"],
+        ["Metric", "Mean", "P50", "P90", "P99", "Trend", "Status"],
         rows,
     )
     return "\n".join(
@@ -229,6 +289,7 @@ def build_dashboard(
     entries: list[dict[str, Any]],
     errors: int,
     numeric_fields: list[str] | None = None,
+    thresholds: dict[str, dict[str, Any]] | None = None,
 ) -> str:
     fields = numeric_fields or _infer_numeric_fields(entries)
     grouped = _group_by_repo(entries)
@@ -257,7 +318,7 @@ def build_dashboard(
         lines.append("")
         return "\n".join(lines)
 
-    lines.append(_org_summary_table(entries, fields))
+    lines.append(_org_summary_table(entries, fields, thresholds))
     lines.append("")
     lines.append(_repo_overview_table(grouped, fields))
     lines.append("")
@@ -265,7 +326,7 @@ def build_dashboard(
     lines.append("")
 
     for repo in sorted(grouped):
-        lines.append(_repo_section(repo, grouped[repo], fields))
+        lines.append(_repo_section(repo, grouped[repo], fields, thresholds))
 
     return "\n".join(lines)
 
@@ -273,9 +334,10 @@ def build_dashboard(
 def build_dashboard_from_path(
     metrics_path: Path,
     numeric_fields: list[str] | None = None,
+    thresholds: dict[str, dict[str, Any]] | None = None,
 ) -> tuple[str, int]:
     entries, errors = _read_ndjson(metrics_path)
-    return build_dashboard(entries, errors, numeric_fields), errors
+    return build_dashboard(entries, errors, numeric_fields, thresholds), errors
 
 
 def _parse_field_list(values: list[str] | None) -> list[str] | None:
@@ -303,7 +365,7 @@ def _load_config(config_path: Path | None) -> dict[str, Any]:
 
 def _validate_config(config: dict[str, Any]) -> dict[str, Any]:
     validated: dict[str, Any] = {}
-    allowed = {"metrics_path", "output_path", "numeric_fields"}
+    allowed = {"metrics_path", "output_path", "numeric_fields", "thresholds"}
     extra_keys = set(config) - allowed
     if extra_keys:
         extras = ", ".join(sorted(extra_keys))
@@ -330,6 +392,38 @@ def _validate_config(config: dict[str, Any]) -> dict[str, Any]:
         else:
             raise ValueError("numeric_fields must be a list of strings or a string")
         validated["numeric_fields"] = numeric_fields or []
+
+    thresholds = config.get("thresholds")
+    if thresholds is not None:
+        if not isinstance(thresholds, dict):
+            raise ValueError("thresholds must be an object mapping metric names to thresholds")
+        validated_thresholds: dict[str, dict[str, Any]] = {}
+        for field, raw in thresholds.items():
+            if not isinstance(field, str) or not field.strip():
+                raise ValueError("thresholds keys must be non-empty strings")
+            if not isinstance(raw, dict):
+                raise ValueError(f"thresholds for {field} must be an object")
+            ok_threshold = _as_number(raw.get("ok"))
+            warn_threshold = _as_number(raw.get("warn"))
+            if ok_threshold is None or warn_threshold is None:
+                raise ValueError(f"thresholds for {field} must include ok and warn values")
+            higher_is_better = raw.get("higher_is_better", True)
+            if not isinstance(higher_is_better, bool):
+                raise ValueError(f"thresholds for {field} higher_is_better must be boolean")
+            if higher_is_better and ok_threshold < warn_threshold:
+                raise ValueError(
+                    f"thresholds for {field} must have ok >= warn when higher_is_better is true"
+                )
+            if not higher_is_better and ok_threshold > warn_threshold:
+                raise ValueError(
+                    f"thresholds for {field} must have ok <= warn when higher_is_better is false"
+                )
+            validated_thresholds[field.strip()] = {
+                "ok": float(ok_threshold),
+                "warn": float(warn_threshold),
+                "higher_is_better": higher_is_better,
+            }
+        validated["thresholds"] = validated_thresholds
 
     return validated
 
@@ -366,6 +460,7 @@ def main(argv: list[str]) -> int:
     fields = _parse_field_list(args.fields)
     if fields is None:
         fields = config.get("numeric_fields")
+    thresholds = config.get("thresholds")
 
     metrics_path = Path(metrics_path_value)
     if not metrics_path.exists():
@@ -375,7 +470,9 @@ def main(argv: list[str]) -> int:
         )
         return 1
 
-    dashboard, errors = build_dashboard_from_path(metrics_path, numeric_fields=fields)
+    dashboard, errors = build_dashboard_from_path(
+        metrics_path, numeric_fields=fields, thresholds=thresholds
+    )
     if errors:
         print(f"metrics_dashboard_generator: parse errors: {errors}", file=sys.stderr)
 

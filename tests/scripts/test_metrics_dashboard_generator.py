@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from scripts import metrics_dashboard_generator as generator
 
 
@@ -25,7 +27,7 @@ def test_build_dashboard_includes_repo_sections() -> None:
     output = generator.build_dashboard(entries, errors=1)
 
     assert "## Org Summary" in output
-    assert "| Metric | Mean | P50 | P90 | P99 | Trend |" in output
+    assert "| Metric | Mean | P50 | P90 | P99 | Trend | Status |" in output
     assert "## Per-Repo Summary" in output
     assert "| Repo | Entries | Metrics tracked | Last update |" in output
     assert "| octo/alpha | 2 | 1 | 2024-01-02T00:00:00Z |" in output
@@ -33,7 +35,7 @@ def test_build_dashboard_includes_repo_sections() -> None:
     assert "## Repo Details" in output
     assert "### octo/alpha" in output
     assert "### octo/beta" in output
-    assert "| Metric | Mean | P50 | P90 | P99 | Trend |" in output
+    assert "| Metric | Mean | P50 | P90 | P99 | Trend | Status |" in output
     assert "Entries: 2" in output
     assert "Entries: 1" in output
 
@@ -53,7 +55,14 @@ def test_parse_field_list_splits_commas() -> None:
 def test_load_config_validates_fields(tmp_path: Path) -> None:
     config_path = tmp_path / "config.json"
     config_path.write_text(
-        '{"metrics_path": "metrics.ndjson", "output_path": "out.md", "numeric_fields": ["a", "b"]}',
+        (
+            "{"
+            '"metrics_path": "metrics.ndjson", '
+            '"output_path": "out.md", '
+            '"numeric_fields": ["a", "b"], '
+            '"thresholds": {"duration_ms": {"ok": 10, "warn": 20, "higher_is_better": false}}'
+            "}"
+        ),
         encoding="utf-8",
     )
 
@@ -62,6 +71,56 @@ def test_load_config_validates_fields(tmp_path: Path) -> None:
     assert config["metrics_path"] == "metrics.ndjson"
     assert config["output_path"] == "out.md"
     assert config["numeric_fields"] == ["a", "b"]
+    assert config["thresholds"]["duration_ms"]["ok"] == 10.0
+    assert config["thresholds"]["duration_ms"]["warn"] == 20.0
+    assert config["thresholds"]["duration_ms"]["higher_is_better"] is False
+
+
+def test_build_dashboard_includes_status_thresholds() -> None:
+    entries = [
+        {"repo": "octo/alpha", "duration_ms": 10, "timestamp": "2024-01-01T00:00:00Z"},
+        {"repo": "octo/alpha", "duration_ms": 20, "timestamp": "2024-01-02T00:00:00Z"},
+    ]
+    thresholds = {"duration_ms": {"ok": 15, "warn": 25, "higher_is_better": False}}
+
+    output = generator.build_dashboard(entries, errors=0, thresholds=thresholds)
+
+    assert "| duration_ms |" in output
+    assert "| WARN |" in output
+
+
+def test_load_config_rejects_thresholds_with_bad_order(tmp_path: Path) -> None:
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        (
+            "{"
+            '"metrics_path": "metrics.ndjson", '
+            '"output_path": "out.md", '
+            '"thresholds": {"duration_ms": {"ok": 10, "warn": 20, "higher_is_better": true}}'
+            "}"
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="ok >= warn"):
+        generator._validate_config(generator._load_config(config_path))
+
+
+def test_load_config_rejects_lower_is_better_order(tmp_path: Path) -> None:
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        (
+            "{"
+            '"metrics_path": "metrics.ndjson", '
+            '"output_path": "out.md", '
+            '"thresholds": {"duration_ms": {"ok": 30, "warn": 20, "higher_is_better": false}}'
+            "}"
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="ok <= warn"):
+        generator._validate_config(generator._load_config(config_path))
 
 
 def test_main_writes_output(tmp_path: Path) -> None:

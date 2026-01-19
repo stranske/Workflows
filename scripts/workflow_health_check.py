@@ -23,7 +23,11 @@ def load_workflow_runs(metrics_path: str) -> list[dict]:
         for line in f:
             line = line.strip()
             if line:
-                runs.append(json.loads(line))
+                try:
+                    runs.append(json.loads(line))
+                except json.JSONDecodeError:
+                    # Skip malformed lines so a single bad entry doesn't crash the report.
+                    continue
     return runs
 
 
@@ -61,6 +65,8 @@ def get_recent_runs(runs: list[dict], days: int = 7) -> list[dict]:
         if recorded:
             try:
                 dt = datetime.fromisoformat(recorded.replace("Z", "+00:00"))
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=UTC)
                 if dt.timestamp() >= cutoff:
                     recent.append(run)
             except ValueError:
