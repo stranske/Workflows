@@ -427,10 +427,10 @@ jobs:
             queued=$(echo "$runs_data" | jq '[.workflow_runs[] | select(.status == "queued")] | length')
             completed=$(echo "$runs_data" | jq '[.workflow_runs[] | select(.status == "completed")] | length')
 
-            # Get most common workflows
-            workflow_counts=$(echo "$runs_data" | jq -r '[.workflow_runs[].name] | group_by(.) | map({name: .[0], count: length}) | sort_by(-.count) | .[0:5]')
+            # Get most common workflows (use -c for compact output)
+            workflow_counts=$(echo "$runs_data" | jq -c '[.workflow_runs[].name] | group_by(.) | map({name: .[0], count: length}) | sort_by(-.count) | .[0:5]')
 
-            repo_json=$(jq -n \
+            repo_json=$(jq -cn \
               --arg repo "$repo" \
               --argjson total_runs "$total_runs" \
               --argjson in_progress "$in_progress" \
@@ -446,13 +446,14 @@ jobs:
                 top_workflows: $workflows
               }')
 
-            activity_json=$(echo "$activity_json" | jq --argjson repo "$repo_json" '. + [$repo]')
+            activity_json=$(echo "$activity_json" | jq -c --argjson repo "$repo_json" '. + [$repo]')
 
             echo "  Runs (last hour): $total_runs (in_progress: $in_progress, queued: $queued)"
 
           done <<< "$REGISTERED_CONSUMER_REPOS"
 
-          # Use single-line format to avoid heredoc parsing issues
+          # Compact the final JSON and output
+          activity_json=$(echo "$activity_json" | jq -c '.')
           printf 'activity_json=%s\n' "$activity_json" >> "$GITHUB_OUTPUT"
 
           echo "::endgroup::"
