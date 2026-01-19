@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 
 from scripts import analyze_api_rate_limits
@@ -13,6 +14,12 @@ def test_parse_github_timestamp() -> None:
     assert parsed.day == 2
     assert parsed.tzinfo == UTC
     assert analyze_api_rate_limits._parse_github_timestamp("not-a-time") is None
+
+
+def test_parse_github_timestamp_assumes_utc_for_naive() -> None:
+    parsed = analyze_api_rate_limits._parse_github_timestamp("2025-01-02T03:04:05")
+    assert parsed is not None
+    assert parsed.tzinfo == UTC
 
 
 def test_summarize_workflow_activity_handles_naive_now(monkeypatch) -> None:
@@ -33,6 +40,87 @@ def test_summarize_workflow_activity_handles_naive_now(monkeypatch) -> None:
         now=now,
     )
     assert summaries[0]["recent_runs"] == 1
+
+
+def test_summarize_workflow_activity_handles_naive_run_timestamps(monkeypatch) -> None:
+    runs = [
+        {"created_at": "2025-01-01T10:30:00"},
+        {"created_at": "2025-01-01T08:59:59"},
+    ]
+
+    def fake_get_workflow_runs(_repo: str, token: str | None = None) -> dict[str, object]:
+        return {"workflow_runs": runs, "total_count": 2}
+
+    monkeypatch.setattr(analyze_api_rate_limits, "get_workflow_runs", fake_get_workflow_runs)
+    now = datetime(2025, 1, 1, 11, 0, 0, tzinfo=UTC)
+    summaries = analyze_api_rate_limits.summarize_workflow_activity(
+        ["owner/repo"],
+        token="token",
+        hours=1,
+        now=now,
+    )
+    assert summaries[0]["recent_runs"] == 1
+
+
+def test_main_json_includes_workflow_activity(monkeypatch, capsys) -> None:
+    token_limits = analyze_api_rate_limits.TokenRateLimits(
+        source="GITHUB_TOKEN",
+        core=analyze_api_rate_limits.RateLimitInfo(
+            limit=5000, remaining=4500, used=500, reset_timestamp=0
+        ),
+        graphql=analyze_api_rate_limits.RateLimitInfo(
+            limit=5000, remaining=4500, used=500, reset_timestamp=0
+        ),
+        search=analyze_api_rate_limits.RateLimitInfo(
+            limit=5000, remaining=4500, used=500, reset_timestamp=0
+        ),
+    )
+
+    def fake_analyze_rate_limits(
+        _tokens: dict[str, str | None],
+    ) -> list[analyze_api_rate_limits.TokenRateLimits]:
+        return [token_limits]
+
+    def fake_summarize_workflow_activity(
+        repos: list[str],
+        *,
+        token: str | None = None,
+        hours: int = 1,
+        now: datetime | None = None,
+    ) -> list[dict[str, object]]:
+        assert repos == ["owner/repo"]
+        assert token == "token"
+        assert hours == 2
+        return [
+            {
+                "repo": "owner/repo",
+                "window_hours": 2,
+                "recent_runs": 0,
+                "total_runs": 0,
+            }
+        ]
+
+    monkeypatch.setenv("GITHUB_TOKEN", "token")
+    monkeypatch.setattr(analyze_api_rate_limits, "analyze_rate_limits", fake_analyze_rate_limits)
+    monkeypatch.setattr(
+        analyze_api_rate_limits, "summarize_workflow_activity", fake_summarize_workflow_activity
+    )
+    monkeypatch.setattr(
+        analyze_api_rate_limits.sys,
+        "argv",
+        ["script", "--json", "--check-repos", "owner/repo", "--workflow-hours", "2"],
+    )
+
+    assert analyze_api_rate_limits.main() == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["workflow_activity"] == [
+        {
+            "repo": "owner/repo",
+            "window_hours": 2,
+            "recent_runs": 0,
+            "total_runs": 0,
+        }
+    ]
 
 
 def test_summarize_workflow_activity_filters_window(monkeypatch) -> None:

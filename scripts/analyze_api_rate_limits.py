@@ -131,9 +131,12 @@ def get_workflow_runs(repo: str, token: str | None = None) -> dict[str, Any]:
 def _parse_github_timestamp(value: str) -> datetime | None:
     """Parse GitHub timestamp strings into timezone-aware datetimes."""
     try:
-        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError:
         return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=UTC)
+    return parsed
 
 
 def _normalize_now(now: datetime | None) -> datetime:
