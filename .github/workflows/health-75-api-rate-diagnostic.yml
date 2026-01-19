@@ -381,15 +381,6 @@ jobs:
           echo "summary<<EOF" >> "$GITHUB_OUTPUT"
           echo "$summary" >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"
-              }
-            }')
-
-          echo "Summary created successfully"
-          echo "::endgroup::"
-
-          echo "summary<<EOF" >> "$GITHUB_OUTPUT"
-          echo "$summary" >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
 
   check-consumer-repos:
     name: Check Consumer Repo Activity
