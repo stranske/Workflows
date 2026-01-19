@@ -196,6 +196,8 @@ def _clean_repo(repo: str) -> str:
         repo = repo.split("/", 1)[1]
     repo = repo.split("?", 1)[0].split("#", 1)[0]
     repo = repo.rstrip("/")
+    if "@" in repo:
+        repo = repo.split("@", 1)[0]
     parts = [part for part in repo.split("/") if part]
     if len(parts) >= 2:
         repo = "/".join(parts[:2])
