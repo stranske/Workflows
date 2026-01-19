@@ -165,11 +165,12 @@ def _normalize_repos(repos: list[str]) -> list[str]:
     normalized: list[str] = []
     seen: set[str] = set()
     for raw_repo in repos:
-        for repo in str(raw_repo).split(","):
-            repo = _clean_repo(repo)
-            if repo and repo not in seen:
-                normalized.append(repo)
-                seen.add(repo)
+        for line in str(raw_repo).splitlines():
+            for repo in line.split(","):
+                repo = _clean_repo(repo)
+                if repo and repo not in seen:
+                    normalized.append(repo)
+                    seen.add(repo)
     return normalized
 
 
