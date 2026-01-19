@@ -184,7 +184,13 @@ def _split_repo_entries(raw: str) -> list[str]:
     if not raw:
         return []
     if "," in raw:
-        return [entry for entry in raw.split(",") if entry.strip()]
+        entries: list[str] = []
+        for chunk in raw.split(","):
+            chunk = chunk.strip()
+            if not chunk:
+                continue
+            entries.extend(_split_repo_entries(chunk))
+        return entries
 
     matches = _REPO_ENTRY.findall(raw)
     if len(matches) > 1:
