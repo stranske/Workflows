@@ -134,6 +134,30 @@ def test_summarize_workflow_activity_normalizes_repo_urls(monkeypatch) -> None:
     assert [summary["repo"] for summary in summaries] == calls
 
 
+def test_summarize_workflow_activity_normalizes_git_remote_outputs(monkeypatch) -> None:
+    calls: list[str] = []
+
+    def fake_get_workflow_runs(repo: str, token: str | None = None) -> dict[str, object]:
+        calls.append(repo)
+        return {"workflow_runs": [], "total_count": 0}
+
+    monkeypatch.setattr(analyze_api_rate_limits, "get_workflow_runs", fake_get_workflow_runs)
+    now = datetime(2025, 1, 1, 11, 0, 0, tzinfo=UTC)
+    summaries = analyze_api_rate_limits.summarize_workflow_activity(
+        [
+            "git@github.com:owner/repo.git (fetch)",
+            "https://github.com/owner/repo.git (push)",
+            "ssh://git@github.com/owner/repo.git (fetch)",
+        ],
+        token="token",
+        hours=1,
+        now=now,
+    )
+
+    assert calls == ["owner/repo"]
+    assert [summary["repo"] for summary in summaries] == calls
+
+
 def test_summarize_workflow_activity_ignores_incomplete_repos(monkeypatch) -> None:
     calls: list[str] = []
 
