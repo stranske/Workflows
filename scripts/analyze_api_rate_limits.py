@@ -166,11 +166,28 @@ def _normalize_repos(repos: list[str]) -> list[str]:
     seen: set[str] = set()
     for raw_repo in repos:
         for repo in str(raw_repo).split(","):
-            repo = repo.strip()
+            repo = _clean_repo(repo)
             if repo and repo not in seen:
                 normalized.append(repo)
                 seen.add(repo)
     return normalized
+
+
+def _clean_repo(repo: str) -> str:
+    """Normalize repo string from common URL or git formats."""
+    repo = repo.strip()
+    if not repo:
+        return ""
+    for prefix in ("https://github.com/", "http://github.com/"):
+        if repo.startswith(prefix):
+            repo = repo[len(prefix) :]
+            break
+    if repo.startswith("git@github.com:"):
+        repo = repo.split(":", 1)[1]
+    repo = repo.rstrip("/")
+    if repo.endswith(".git"):
+        repo = repo[:-4]
+    return repo
 
 
 def summarize_workflow_activity(
