@@ -62,6 +62,8 @@ jobs:
   collect-rate-limits:
     name: Collect API Rate Limits
     runs-on: ubuntu-latest
+    # Only run for current mode or scheduled triggers (not historical reports)
+    if: ${{ inputs.report_mode != 'historical' }}
     outputs:
       github_token_rate: ${{ steps.github_token.outputs.rate_json }}
       pat_rate: ${{ steps.pat.outputs.rate_json }}
@@ -403,7 +405,8 @@ jobs:
   check-consumer-repos:
     name: Check Consumer Repo Activity
     runs-on: ubuntu-latest
-    if: ${{ inputs.include_consumer_repos != false }}
+    # Only run for current mode with consumer repos enabled
+    if: ${{ inputs.report_mode != 'historical' && inputs.include_consumer_repos != false }}
     needs: collect-rate-limits
     outputs:
       consumer_activity: ${{ steps.activity.outputs.activity_json }}
@@ -481,7 +484,8 @@ jobs:
     name: Generate Diagnostic Report
     runs-on: ubuntu-latest
     needs: [collect-rate-limits, check-consumer-repos]
-    if: always()
+    # Only run for current mode (not historical reports)
+    if: ${{ always() && inputs.report_mode != 'historical' }}
     env:
       SUMMARY_JSON: ${{ needs.collect-rate-limits.outputs.summary_json }}
       CONSUMER_ACTIVITY: ${{ needs.check-consumer-repos.outputs.consumer_activity }}
@@ -679,7 +683,8 @@ jobs:
     name: Alert on High Usage
     runs-on: ubuntu-latest
     needs: [collect-rate-limits]
-    if: always()
+    # Only run for current mode (not historical reports)
+    if: ${{ always() && inputs.report_mode != 'historical' }}
     env:
       SUMMARY_JSON: ${{ needs.collect-rate-limits.outputs.summary_json }}
 
@@ -792,6 +797,38 @@ jobs:
           esac
 
           echo "Resolved date range: $START_DATE to $END_DATE"
+
+          # Validate resolved dates: format YYYY-MM-DD, real dates, and ordering
+          date_regex='^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+
+          if ! [[ "$START_DATE" =~ $date_regex ]]; then
+            echo "::error::Invalid START_DATE format: '$START_DATE'. Expected YYYY-MM-DD or a supported relative value (e.g., 7d, 1w, 1m)."
+            exit 1
+          fi
+
+          if ! [[ "$END_DATE" =~ $date_regex ]]; then
+            echo "::error::Invalid END_DATE format: '$END_DATE'. Expected YYYY-MM-DD or 'now'."
+            exit 1
+          fi
+
+          if ! date -u -d "$START_DATE" >/dev/null 2>&1; then
+            echo "::error::START_DATE is not a valid calendar date: '$START_DATE'."
+            exit 1
+          fi
+
+          if ! date -u -d "$END_DATE" >/dev/null 2>&1; then
+            echo "::error::END_DATE is not a valid calendar date: '$END_DATE'."
+            exit 1
+          fi
+
+          start_epoch=$(date -u -d "$START_DATE" +%s)
+          end_epoch=$(date -u -d "$END_DATE" +%s)
+
+          if [ "$start_epoch" -gt "$end_epoch" ]; then
+            echo "::error::START_DATE ('$START_DATE') must not be after END_DATE ('$END_DATE')."
+            exit 1
+          fi
+
           echo "start_date=$START_DATE" >> "$GITHUB_OUTPUT"
           echo "end_date=$END_DATE" >> "$GITHUB_OUTPUT"
 
@@ -828,8 +865,15 @@ jobs:
               run_number: .run_number
             }]')
 
-          # Filter to end date
-          runs=$(echo "$runs" | jq --arg end "$END_DATE" '[.[] | select(.created_at <= ($end + "T23:59:59Z"))]')
+          # Normalize END_DATE to an ISO 8601 end-of-day timestamp
+          if [[ "$END_DATE" == *T* ]]; then
+            END_BOUND="$END_DATE"
+          else
+            END_BOUND="${END_DATE}T23:59:59Z"
+          fi
+
+          # Filter to end date (inclusive)
+          runs=$(echo "$runs" | jq --arg end "$END_BOUND" '[.[] | select(.created_at <= $end)]')
 
           run_count=$(echo "$runs" | jq 'length')
           echo "Found $run_count successful runs in date range"
@@ -837,49 +881,29 @@ jobs:
           echo "$runs" > /tmp/runs.json
           echo "run_count=$run_count" >> "$GITHUB_OUTPUT"
 
-      - name: Extract rate data from run logs
-        id: extract
+      - name: List historical workflow runs
+        id: list_runs
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
 
-          # Read runs
+          # Read runs from previous step
           runs=$(cat /tmp/runs.json)
           run_count=$(echo "$runs" | jq 'length')
 
-          echo "Extracting rate data from $run_count runs..."
+          echo "Found $run_count successful runs in date range"
 
-          # Initialize arrays for data collection
-          all_data="[]"
-
-          # Process each run (limit to 50 for performance)
+          # Limit to 50 runs for display (avoid excessive output)
           max_runs=50
-          processed=0
+          if [ "$run_count" -gt "$max_runs" ]; then
+            echo "Limiting display to $max_runs most recent runs"
+            jq ".[:$max_runs]" /tmp/runs.json > /tmp/runs_limited.json
+            mv /tmp/runs_limited.json /tmp/runs.json
+          fi
 
-          echo "$runs" | jq -c '.[]' | while read -r run && [ "$processed" -lt "$max_runs" ]; do
-            run_id=$(echo "$run" | jq -r '.id')
-            created_at=$(echo "$run" | jq -r '.created_at')
-
-            echo "Processing run $run_id from $created_at"
-
-            # Get jobs for this run
-            jobs=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/jobs" \
-              --jq '.jobs[] | select(.name == "Collect API Rate Limits") | .id' 2>/dev/null || echo "")
-
-            if [ -n "$jobs" ]; then
-              for job_id in $jobs; do
-                # Try to extract rate data from job logs (annotation/step summary)
-                # Note: Full log parsing would require more API calls
-                # For now, extract from step summary if available
-                echo "  Job ID: $job_id"
-              done
-            fi
-
-            processed=$((processed + 1))
-          done
-
-          echo "Processed $processed runs"
+          # Output run count for summary step
+          echo "processed_count=$(jq 'length' /tmp/runs.json)" >> "$GITHUB_OUTPUT"
 
       - name: Generate historical summary report
         env:
@@ -906,11 +930,17 @@ jobs:
           else
             echo "## 📈 Summary Statistics" >> "$GITHUB_STEP_SUMMARY"
             echo "" >> "$GITHUB_STEP_SUMMARY"
+            # Calculate period duration safely
+            PERIOD_DAYS="unknown"
+            if start_epoch=$(date -d "$START_DATE" +%s 2>/dev/null) && end_epoch=$(date -d "$END_DATE" +%s 2>/dev/null); then
+              PERIOD_DAYS=$(( (end_epoch - start_epoch) / 86400 ))
+            fi
+
             echo "| Metric | Value |" >> "$GITHUB_STEP_SUMMARY"
             echo "|--------|-------|" >> "$GITHUB_STEP_SUMMARY"
             echo "| Total Data Points | $RUN_COUNT |" >> "$GITHUB_STEP_SUMMARY"
             echo "| Collection Frequency | Every 4 hours |" >> "$GITHUB_STEP_SUMMARY"
-            echo "| Period Duration | $(( ($(date -d "$END_DATE" +%s) - $(date -d "$START_DATE" +%s)) / 86400 )) days |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| Period Duration | $PERIOD_DAYS days |" >> "$GITHUB_STEP_SUMMARY"
             echo "" >> "$GITHUB_STEP_SUMMARY"
 
             echo "## 📋 Available Run History" >> "$GITHUB_STEP_SUMMARY"
