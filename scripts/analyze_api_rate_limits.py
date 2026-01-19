@@ -181,8 +181,15 @@ def _clean_repo(repo: str) -> str:
         return ""
     if repo.endswith(")") and " (" in repo:
         repo = repo.rsplit(" (", 1)[0].strip()
-    if len(repo.split()) > 1:
-        repo = repo.split()[-1]
+    tokens = repo.split()
+    if len(tokens) > 1:
+        candidate = next((token for token in tokens if "github.com" in token), None)
+        if candidate is None:
+            candidate = next(
+                (token for token in tokens if "/" in token and not token.startswith("(")),
+                None,
+            )
+        repo = candidate or tokens[-1]
     if repo.startswith("ssh://"):
         repo = repo[len("ssh://") :]
     for host in ("github.com", "www.github.com"):
