@@ -1079,7 +1079,7 @@ jobs:
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issueNumber,
-                per_page: 20
+                per_page: 100
               });
 
               // Look at comments in reverse order (newest first)
@@ -1382,9 +1382,11 @@ jobs:
               }
 
               // Add PR link comment to the issue with full URL for visibility
-              const baseUrl = `https://github.com/${context.repo.owner}`;
-              const prUrl = `${baseUrl}/${context.repo.repo}/pull/${pr.number}`;
-              const branchUrl = `${baseUrl}/${context.repo.repo}/tree/${branchName}`;
+              // Use GITHUB_SERVER_URL for GHES/AE compatibility instead of hardcoding github.com
+              const serverUrl = process.env.GITHUB_SERVER_URL || 'https://github.com';
+              const { owner, repo } = context.repo;
+              const prUrl = `${serverUrl}/${owner}/${repo}/pull/${pr.number}`;
+              const branchUrl = `${serverUrl}/${owner}/${repo}/tree/${branchName}`;
 
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
