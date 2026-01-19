@@ -1137,6 +1137,29 @@ jobs:
                 const stallCount = await countConsecutiveStalls();
                 core.info(`Consecutive stall count: ${stallCount}/${maxStallRetries}`);
 
+                // EXPONENTIAL BACKOFF: Wait longer between each retry
+                // Delays: 1min, 2min, 4min, 8min, 16min (2^stallCount minutes)
+                if (stallCount > 0) {
+                  const backoffMinutes = Math.pow(2, stallCount);
+                  const backoffMs = backoffMinutes * 60 * 1000;
+                  const maxBackoffMs = 16 * 60 * 1000; // Cap at 16 minutes
+                  const actualBackoffMs = Math.min(backoffMs, maxBackoffMs);
+                  const actualMinutes = Math.round(actualBackoffMs / 60000);
+
+                  core.info(`Applying backoff: waiting ${actualMinutes} minutes`);
+                  await github.rest.issues.createComment({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: issueNumber,
+                    body: `🤖 **Auto-pilot**: Backoff delay (${actualMinutes}m)
+
+            Attempt ${stallCount + 1}/${maxStallRetries}. Waiting before retry...`
+                  });
+
+                  // Sleep with exponential backoff
+                  await new Promise(resolve => setTimeout(resolve, actualBackoffMs));
+                }
+
                 if (stallCount >= maxStallRetries) {
                   // Worker failed to produce commits - pause for human review
                   const warnMsg = `Stall: ${stallCount} attempts without commits`;
