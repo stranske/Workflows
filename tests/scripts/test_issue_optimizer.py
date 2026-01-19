@@ -373,9 +373,7 @@ def test_apply_task_decomposition_handles_alpha_items() -> None:
         ]
     )
     suggestions = {
-        "task_splitting": [
-            {"task": "First task", "split_suggestions": ["Step one", "Step two"]}
-        ]
+        "task_splitting": [{"task": "First task", "split_suggestions": ["Step one", "Step two"]}]
     }
     updated = issue_optimizer._apply_task_decomposition(formatted, suggestions)
     assert "a) First task\n  - [ ] Step one" in updated
