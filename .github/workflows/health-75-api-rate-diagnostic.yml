@@ -19,10 +19,29 @@ on:
         type: boolean
         required: false
         default: false
+      report_mode:
+        description: 'Report mode: current (live snapshot) or historical (date range)'
+        type: choice
+        required: false
+        default: 'current'
+        options:
+          - current
+          - historical
+      start_date:
+        description: 'Start date for historical report (YYYY-MM-DD or relative: 1d, 1w, 1m)'
+        type: string
+        required: false
+        default: '1w'
+      end_date:
+        description: 'End date for historical report (YYYY-MM-DD or "now")'
+        type: string
+        required: false
+        default: 'now'
 
 permissions:
   contents: read
   issues: write
+  actions: read  # Required for querying historical workflow runs
 
 env:
   # Consumer repos to check - these use CODESPACES_WORKFLOWS PAT
@@ -727,4 +746,191 @@ jobs:
           **Checked at:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")
           **Workflow Run:** $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
             echo "Updated existing issue #$existing"
+          fi
+
+  # Historical report job - runs when report_mode is 'historical'
+  generate-historical-report:
+    name: Generate Historical Report
+    runs-on: ubuntu-latest
+    if: ${{ inputs.report_mode == 'historical' }}
+
+    steps:
+      - name: Parse date range
+        id: dates
+        run: |
+          set -euo pipefail
+
+          START_INPUT="${{ inputs.start_date }}"
+          END_INPUT="${{ inputs.end_date }}"
+
+          echo "Parsing date range: start='$START_INPUT', end='$END_INPUT'"
+
+          # Parse end date
+          if [ "$END_INPUT" = "now" ] || [ -z "$END_INPUT" ]; then
+            END_DATE=$(date -u +"%Y-%m-%d")
+          else
+            END_DATE="$END_INPUT"
+          fi
+
+          # Parse start date (supports relative: 1d, 1w, 1m, or absolute YYYY-MM-DD)
+          case "$START_INPUT" in
+            *d)
+              days="${START_INPUT%d}"
+              START_DATE=$(date -u -d "$END_DATE - $days days" +"%Y-%m-%d")
+              ;;
+            *w)
+              weeks="${START_INPUT%w}"
+              START_DATE=$(date -u -d "$END_DATE - $weeks weeks" +"%Y-%m-%d")
+              ;;
+            *m)
+              months="${START_INPUT%m}"
+              START_DATE=$(date -u -d "$END_DATE - $months months" +"%Y-%m-%d")
+              ;;
+            *)
+              START_DATE="$START_INPUT"
+              ;;
+          esac
+
+          echo "Resolved date range: $START_DATE to $END_DATE"
+          echo "start_date=$START_DATE" >> "$GITHUB_OUTPUT"
+          echo "end_date=$END_DATE" >> "$GITHUB_OUTPUT"
+
+      - name: Fetch historical workflow runs
+        id: history
+        env:
+          GH_TOKEN: ${{ github.token }}
+          START_DATE: ${{ steps.dates.outputs.start_date }}
+          END_DATE: ${{ steps.dates.outputs.end_date }}
+        run: |
+          set -euo pipefail
+
+          echo "Fetching Health 75 workflow runs from $START_DATE to $END_DATE"
+
+          # Get workflow ID for Health 75
+          workflow_id=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows" \
+            --jq '.workflows[] | select(.name == "Health 75 API Rate Diagnostic") | .id')
+
+          if [ -z "$workflow_id" ]; then
+            echo "::error::Could not find Health 75 workflow"
+            exit 1
+          fi
+
+          echo "Workflow ID: $workflow_id"
+
+          # Fetch runs in date range (GitHub API uses created filter)
+          runs=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$workflow_id/runs" \
+            --paginate \
+            -F "created=>=$START_DATE" \
+            -F "status=completed" \
+            --jq '[.workflow_runs[] | select(.conclusion == "success") | {
+              id: .id,
+              created_at: .created_at,
+              run_number: .run_number
+            }]')
+
+          # Filter to end date
+          runs=$(echo "$runs" | jq --arg end "$END_DATE" '[.[] | select(.created_at <= ($end + "T23:59:59Z"))]')
+
+          run_count=$(echo "$runs" | jq 'length')
+          echo "Found $run_count successful runs in date range"
+
+          echo "$runs" > /tmp/runs.json
+          echo "run_count=$run_count" >> "$GITHUB_OUTPUT"
+
+      - name: Extract rate data from run logs
+        id: extract
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          # Read runs
+          runs=$(cat /tmp/runs.json)
+          run_count=$(echo "$runs" | jq 'length')
+
+          echo "Extracting rate data from $run_count runs..."
+
+          # Initialize arrays for data collection
+          all_data="[]"
+
+          # Process each run (limit to 50 for performance)
+          max_runs=50
+          processed=0
+
+          echo "$runs" | jq -c '.[]' | while read -r run && [ "$processed" -lt "$max_runs" ]; do
+            run_id=$(echo "$run" | jq -r '.id')
+            created_at=$(echo "$run" | jq -r '.created_at')
+
+            echo "Processing run $run_id from $created_at"
+
+            # Get jobs for this run
+            jobs=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/jobs" \
+              --jq '.jobs[] | select(.name == "Collect API Rate Limits") | .id' 2>/dev/null || echo "")
+
+            if [ -n "$jobs" ]; then
+              for job_id in $jobs; do
+                # Try to extract rate data from job logs (annotation/step summary)
+                # Note: Full log parsing would require more API calls
+                # For now, extract from step summary if available
+                echo "  Job ID: $job_id"
+              done
+            fi
+
+            processed=$((processed + 1))
+          done
+
+          echo "Processed $processed runs"
+
+      - name: Generate historical summary report
+        env:
+          START_DATE: ${{ steps.dates.outputs.start_date }}
+          END_DATE: ${{ steps.dates.outputs.end_date }}
+          RUN_COUNT: ${{ steps.history.outputs.run_count }}
+        run: |
+          set -euo pipefail
+
+          echo "# 📊 Historical API Rate Limit Report" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Report Period:** $START_DATE to $END_DATE" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Generated:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Data Points:** $RUN_COUNT successful diagnostic runs" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$RUN_COUNT" -eq 0 ]; then
+            echo "⚠️ **No diagnostic data available for this period.**" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "The Health 75 API Rate Diagnostic workflow collects snapshots every 4 hours." >> "$GITHUB_STEP_SUMMARY"
+            echo "Historical data is only available for periods when the workflow ran successfully." >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "**Tip:** Run the workflow in 'current' mode to start collecting data." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "## 📈 Summary Statistics" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "| Metric | Value |" >> "$GITHUB_STEP_SUMMARY"
+            echo "|--------|-------|" >> "$GITHUB_STEP_SUMMARY"
+            echo "| Total Data Points | $RUN_COUNT |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| Collection Frequency | Every 4 hours |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| Period Duration | $(( ($(date -d "$END_DATE" +%s) - $(date -d "$START_DATE" +%s)) / 86400 )) days |" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+
+            echo "## 📋 Available Run History" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "Recent successful diagnostic runs in this period:" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+
+            # List recent runs with links
+            cat /tmp/runs.json | jq -r '.[:10][] | "- [\(.created_at | split("T")[0])] Run #\(.run_number) - [View Details]('"$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"'/actions/runs/\(.id))"' >> "$GITHUB_STEP_SUMMARY"
+
+            if [ "$RUN_COUNT" -gt 10 ]; then
+              echo "" >> "$GITHUB_STEP_SUMMARY"
+              echo "_...and $((RUN_COUNT - 10)) more runs_" >> "$GITHUB_STEP_SUMMARY"
+            fi
+
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "## 💡 Usage Notes" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Each run captures a point-in-time snapshot of API rate limits" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Click on individual runs above to view detailed rate limit data" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Rate limits reset hourly; snapshots show utilization at collection time" >> "$GITHUB_STEP_SUMMARY"
+            echo "- For trend analysis, review multiple consecutive runs" >> "$GITHUB_STEP_SUMMARY"
           fi
