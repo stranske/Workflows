@@ -194,7 +194,7 @@ def test_summarize_workflow_activity_strips_wrapping_punctuation(monkeypatch) ->
             "<owner/repo>",
             "[owner2/repo2]",
             "`owner3/repo3`",
-            "\"owner4/repo4\"",
+            '"owner4/repo4"',
             "owner5/repo5,",
             "owner6/repo6;",
         ],
