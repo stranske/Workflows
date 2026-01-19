@@ -541,7 +541,7 @@ def _parse_sections(body: str) -> dict[str, list[str]]:
         if heading_match:
             section_key = _resolve_section(heading_match.group(1))
             # Always update current - set to None for unrecognized headings
-            # This prevents content under "## Out of scope" etc. from being
+            # This prevents content under "## Random Notes" etc. from being
             # appended to the previous recognized section
             current = section_key
             continue
