@@ -35,6 +35,7 @@ from typing import Any
 SECTION_ALIASES = {
     "why": ["why", "motivation", "summary", "goals"],
     "scope": ["scope", "context", "background", "overview"],
+    "non_goals": ["non-goals", "nongoals", "out of scope", "constraints", "exclusions"],
     "tasks": ["tasks", "task list", "tasklist", "todo", "to do", "implementation"],
     "acceptance": [
         "acceptance criteria",
@@ -55,6 +56,7 @@ SECTION_ALIASES = {
 SECTION_TITLES = {
     "why": "Why",
     "scope": "Scope",
+    "non_goals": "Non-Goals",
     "tasks": "Tasks",
     "acceptance": "Acceptance Criteria",
     "implementation": "Implementation Notes",
