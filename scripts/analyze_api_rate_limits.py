@@ -239,9 +239,7 @@ def print_utilization_table(limits: list[TokenRateLimits]) -> None:
         if trl.code_search is not None:
             optional_entries.append((trl.source, "Code Search", trl.code_search))
         if trl.actions_runner is not None:
-            optional_entries.append(
-                (trl.source, "Actions Runner Registration", trl.actions_runner)
-            )
+            optional_entries.append((trl.source, "Actions Runner Registration", trl.actions_runner))
 
     if optional_entries:
         print("\nOPTIONAL RESOURCE UTILIZATION")
