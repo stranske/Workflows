@@ -163,11 +163,13 @@ def _extract_run_timestamp(run: dict[str, Any]) -> datetime | None:
 def _normalize_repos(repos: list[str]) -> list[str]:
     """Normalize repo inputs into clean owner/repo strings."""
     normalized: list[str] = []
+    seen: set[str] = set()
     for raw_repo in repos:
         for repo in str(raw_repo).split(","):
             repo = repo.strip()
-            if repo:
+            if repo and repo not in seen:
                 normalized.append(repo)
+                seen.add(repo)
     return normalized
 
 
