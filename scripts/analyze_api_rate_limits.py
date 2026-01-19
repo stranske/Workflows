@@ -192,8 +192,14 @@ def _clean_repo(repo: str) -> str:
             break
     if repo.startswith("git@github.com:"):
         repo = repo.split(":", 1)[1]
+        if repo.split("/", 1)[0].isdigit():
+            repo = repo.split("/", 1)[1] if "/" in repo else repo
     elif repo.startswith("git@github.com/"):
         repo = repo.split("/", 1)[1]
+    elif repo.startswith("github.com:"):
+        repo = repo.split(":", 1)[1]
+        if repo.split("/", 1)[0].isdigit():
+            repo = repo.split("/", 1)[1] if "/" in repo else repo
     repo = repo.split("?", 1)[0].split("#", 1)[0]
     repo = repo.rstrip("/")
     if "@" in repo:
