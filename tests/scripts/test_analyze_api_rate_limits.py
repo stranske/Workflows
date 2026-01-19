@@ -264,3 +264,55 @@ def test_print_warnings_includes_optional_resources(capsys) -> None:
 
     assert any("Code Search" in warning for warning in warnings)
     assert any("Actions Runner Registration" in warning for warning in warnings)
+
+
+def test_print_utilization_table_includes_optional_resources(capsys) -> None:
+    limits = [
+        analyze_api_rate_limits.TokenRateLimits(
+            source="GITHUB_TOKEN",
+            core=analyze_api_rate_limits.RateLimitInfo(
+                limit=5000, remaining=4500, used=500, reset_timestamp=0
+            ),
+            graphql=analyze_api_rate_limits.RateLimitInfo(
+                limit=5000, remaining=4500, used=500, reset_timestamp=0
+            ),
+            search=analyze_api_rate_limits.RateLimitInfo(
+                limit=30, remaining=30, used=0, reset_timestamp=0
+            ),
+            code_search=analyze_api_rate_limits.RateLimitInfo(
+                limit=10, remaining=1, used=9, reset_timestamp=0
+            ),
+            actions_runner=analyze_api_rate_limits.RateLimitInfo(
+                limit=10, remaining=1, used=9, reset_timestamp=0
+            ),
+        )
+    ]
+
+    analyze_api_rate_limits.print_utilization_table(limits)
+    output = capsys.readouterr().out
+
+    assert "OPTIONAL RESOURCE UTILIZATION" in output
+    assert "Code Search" in output
+    assert "Actions Runner Registration" in output
+
+
+def test_print_utilization_table_skips_optional_section_without_resources(capsys) -> None:
+    limits = [
+        analyze_api_rate_limits.TokenRateLimits(
+            source="GITHUB_TOKEN",
+            core=analyze_api_rate_limits.RateLimitInfo(
+                limit=5000, remaining=4500, used=500, reset_timestamp=0
+            ),
+            graphql=analyze_api_rate_limits.RateLimitInfo(
+                limit=5000, remaining=4500, used=500, reset_timestamp=0
+            ),
+            search=analyze_api_rate_limits.RateLimitInfo(
+                limit=30, remaining=30, used=0, reset_timestamp=0
+            ),
+        )
+    ]
+
+    analyze_api_rate_limits.print_utilization_table(limits)
+    output = capsys.readouterr().out
+
+    assert "OPTIONAL RESOURCE UTILIZATION" not in output

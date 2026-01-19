@@ -234,6 +234,25 @@ def print_utilization_table(limits: list[TokenRateLimits]) -> None:
 
     print("-" * 80)
 
+    optional_entries: list[tuple[str, str, RateLimitInfo]] = []
+    for trl in limits:
+        if trl.code_search is not None:
+            optional_entries.append((trl.source, "Code Search", trl.code_search))
+        if trl.actions_runner is not None:
+            optional_entries.append(
+                (trl.source, "Actions Runner Registration", trl.actions_runner)
+            )
+
+    if optional_entries:
+        print("\nOPTIONAL RESOURCE UTILIZATION")
+        print("-" * 80)
+        print(f"{'Token':<25} {'Resource':<30} {'Used/Limit (%)':<20}")
+        print("-" * 80)
+        for source, name, info in optional_entries:
+            info_str = f"{info.used}/{info.limit} ({info.utilization_pct:.1f}%)"
+            print(f"{source:<25} {name:<30} {info_str:<20}")
+        print("-" * 80)
+
 
 def print_warnings(limits: list[TokenRateLimits]) -> list[str]:
     """Print warnings for high utilization and return list of warnings."""
