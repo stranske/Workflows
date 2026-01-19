@@ -116,6 +116,9 @@ def test_summarize_workflow_activity_normalizes_repo_urls(monkeypatch) -> None:
             "https://github.com/owner/repo",
             "github.com/owner/repo",
             "git@github.com:owner/repo.git",
+            "ssh://user@github.com/owner/repo",
+            "user@github.com/owner/repo",
+            "user@www.github.com/owner/repo",
             "ssh://git@github.com/owner/repo.git",
             "ssh://github.com/owner/repo",
             "ssh://github.com/owner/repo.git",
@@ -144,6 +147,7 @@ def test_summarize_workflow_activity_normalizes_ssh_ports(monkeypatch) -> None:
         [
             "ssh://git@github.com:22/owner/repo.git",
             "git@github.com:22/owner/repo",
+            "ssh://user@github.com:2222/owner/repo",
             "ssh://github.com:2222/owner/repo",
             "github.com:owner/repo",
         ],
