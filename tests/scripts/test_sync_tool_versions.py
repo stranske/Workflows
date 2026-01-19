@@ -7,6 +7,14 @@ import pytest
 from scripts import sync_tool_versions
 
 
+@pytest.fixture(autouse=True)
+def _disable_template_sync(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Disable template sync in tests by pointing to non-existent path."""
+    monkeypatch.setattr(
+        sync_tool_versions, "TEMPLATE_FILE", tmp_path / "nonexistent" / "template.env"
+    )
+
+
 def _write_env_file(path: Path, versions: dict[str, str]) -> None:
     lines = []
     for cfg in sync_tool_versions.TOOL_CONFIGS:
@@ -252,3 +260,57 @@ def test_main_default_ok(
 def test_main_rejects_check_and_apply_together() -> None:
     with pytest.raises(SystemExit):
         sync_tool_versions.main(["--check", "--apply"])
+
+
+def test_template_sync_detects_mismatch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Test that template file mismatch is detected."""
+    env_path = tmp_path / "pins.env"
+    pyproject_path = tmp_path / "pyproject.toml"
+    template_path = tmp_path / "templates" / "autofix-versions.env"
+    template_path.parent.mkdir(parents=True)
+
+    env_versions = {cfg.env_key: "12.0" for cfg in sync_tool_versions.TOOL_CONFIGS}
+    _write_env_file(env_path, env_versions)
+    pyproject_path.write_text(_make_pyproject_content(env_versions), encoding="utf-8")
+    # Template has different content
+    template_path.write_text("BLACK_VERSION=11.0\n", encoding="utf-8")
+
+    monkeypatch.setattr(sync_tool_versions, "PIN_FILE", env_path)
+    monkeypatch.setattr(sync_tool_versions, "PYPROJECT_FILE", pyproject_path)
+    monkeypatch.setattr(sync_tool_versions, "TEMPLATE_FILE", template_path)
+
+    exit_code = sync_tool_versions.main(["--check"])
+    captured = capsys.readouterr()
+
+    assert exit_code == 1
+    assert "template" in captured.err
+
+
+def test_template_sync_apply_updates_template(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Test that --apply syncs template from source."""
+    env_path = tmp_path / "pins.env"
+    pyproject_path = tmp_path / "pyproject.toml"
+    template_path = tmp_path / "templates" / "autofix-versions.env"
+    template_path.parent.mkdir(parents=True)
+
+    env_versions = {cfg.env_key: "13.0" for cfg in sync_tool_versions.TOOL_CONFIGS}
+    _write_env_file(env_path, env_versions)
+    pyproject_path.write_text(_make_pyproject_content(env_versions), encoding="utf-8")
+    # Template has different content
+    template_path.write_text("OLD_CONTENT\n", encoding="utf-8")
+
+    monkeypatch.setattr(sync_tool_versions, "PIN_FILE", env_path)
+    monkeypatch.setattr(sync_tool_versions, "PYPROJECT_FILE", pyproject_path)
+    monkeypatch.setattr(sync_tool_versions, "TEMPLATE_FILE", template_path)
+
+    exit_code = sync_tool_versions.main(["--apply"])
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert "template" in captured.out
+    # Template should now match source
+    assert template_path.read_text() == env_path.read_text()
