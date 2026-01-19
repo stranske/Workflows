@@ -160,6 +160,17 @@ def _extract_run_timestamp(run: dict[str, Any]) -> datetime | None:
     return None
 
 
+def _normalize_repos(repos: list[str]) -> list[str]:
+    """Normalize repo inputs into clean owner/repo strings."""
+    normalized: list[str] = []
+    for raw_repo in repos:
+        for repo in str(raw_repo).split(","):
+            repo = repo.strip()
+            if repo:
+                normalized.append(repo)
+    return normalized
+
+
 def summarize_workflow_activity(
     repos: list[str],
     *,
@@ -168,13 +179,14 @@ def summarize_workflow_activity(
     now: datetime | None = None,
 ) -> list[dict[str, Any]]:
     """Summarize recent workflow activity for the requested repositories."""
-    if not repos:
+    normalized_repos = _normalize_repos(repos)
+    if not normalized_repos:
         return []
 
     window_start = _normalize_now(now) - timedelta(hours=hours)
     summaries: list[dict[str, Any]] = []
 
-    for repo in repos:
+    for repo in normalized_repos:
         data = get_workflow_runs(repo, token=token)
         runs_raw = data.get("workflow_runs", [])
         runs = []
