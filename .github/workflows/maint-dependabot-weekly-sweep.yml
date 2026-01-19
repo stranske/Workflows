@@ -1,0 +1,80 @@
+name: Dependabot Weekly Sweep (Consumers)
+
+on:
+  schedule:
+    # Mondays after Dependabot weekly updates (UTC)
+    - cron: "0 9 * * 1"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  pull-requests: write
+
+env:
+  # Consumer repos registered for automatic sync
+  REGISTERED_CONSUMER_REPOS: |
+    stranske/Travel-Plan-Permission
+    stranske/Template
+    stranske/trip-planner
+    stranske/Manager-Database
+    stranske/Portable-Alpha-Extension-Model
+    stranske/Trend_Model_Project
+    stranske/Collab-Admin
+
+jobs:
+  sweep:
+    name: Enable Dependabot auto-merge
+    runs-on: ubuntu-latest
+    env:
+      REPO_TOKEN: ${{ secrets.OWNER_PR_PAT || secrets.SERVICE_BOT_PAT }}
+    steps:
+      - name: Validate token
+        run: |
+          if [ -z "${REPO_TOKEN:-}" ]; then
+            echo "::error::OWNER_PR_PAT or SERVICE_BOT_PAT is required for cross-repo merges."
+            exit 1
+          fi
+
+      - name: Sweep consumer repos
+        env:
+          GH_TOKEN: ${{ env.REPO_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          repos=$(echo "$REGISTERED_CONSUMER_REPOS" | sed '/^$/d')
+
+          while read -r repo; do
+            echo "=== ${repo} ==="
+            prs=$(gh pr list --repo "$repo" --author app/dependabot --state open --json number --jq '.[].number' || true)
+
+            if [ -z "$prs" ]; then
+              echo "No Dependabot PRs."
+              continue
+            fi
+
+            for pr in $prs; do
+              echo "Processing ${repo}#${pr}"
+
+              auto_out=$(gh pr merge "$pr" --repo "$repo" --auto --merge 2>&1) || true
+              echo "$auto_out"
+
+              if echo "$auto_out" | grep -qi "Protected branch rules not configured"; then
+                checks_json=$(gh pr view "$pr" --repo "$repo" --json statusCheckRollup,mergeable,mergeStateStatus)
+                mergeable=$(echo "$checks_json" | jq -r '.mergeable')
+
+                if [ "$mergeable" != "MERGEABLE" ]; then
+                  echo "PR not mergeable; skipping."
+                  continue
+                fi
+
+                failed=$(echo "$checks_json" | jq -r '[.statusCheckRollup[] | select(.status=="COMPLETED" and (.conclusion != "SUCCESS" and .conclusion != "SKIPPED" and .conclusion != "NEUTRAL"))] | length')
+                pending=$(echo "$checks_json" | jq -r '[.statusCheckRollup[] | select(.status != "COMPLETED")] | length')
+
+                if [ "$failed" -eq 0 ] && [ "$pending" -eq 0 ]; then
+                  gh pr merge "$pr" --repo "$repo" --merge
+                else
+                  echo "Checks pending or failing; leaving open."
+                fi
+              fi
+            done
+          done <<< "$repos"
