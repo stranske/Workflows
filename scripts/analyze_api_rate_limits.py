@@ -136,6 +136,18 @@ def _parse_github_timestamp(value: str) -> datetime | None:
         return None
 
 
+def _extract_run_timestamp(run: dict[str, Any]) -> datetime | None:
+    """Select the best available timestamp for a workflow run."""
+    for key in ("created_at", "run_started_at", "updated_at"):
+        value = run.get(key)
+        if not value:
+            continue
+        parsed = _parse_github_timestamp(str(value))
+        if parsed:
+            return parsed
+    return None
+
+
 def summarize_workflow_activity(
     repos: list[str],
     *,
@@ -155,10 +167,7 @@ def summarize_workflow_activity(
         runs = data.get("workflow_runs", [])
         recent_runs = []
         for run in runs:
-            created_at = run.get("created_at")
-            if not created_at:
-                continue
-            created_dt = _parse_github_timestamp(created_at)
+            created_dt = _extract_run_timestamp(run)
             if created_dt and created_dt >= window_start:
                 recent_runs.append(run)
         summaries.append(
