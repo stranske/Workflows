@@ -1057,14 +1057,14 @@ jobs:
           ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
           ISSUE_TITLE: ${{ steps.context.outputs.issue_title }}
           STEP_COUNT: ${{ steps.cycles.outputs.count }}
-          MAX_STALL_RETRIES: '3'
+          MAX_STALL_RETRIES: '5'
         with:
           script: |
             const issueNumber = parseInt(process.env.ISSUE_NUMBER);
             const issueTitle = process.env.ISSUE_TITLE || `Issue #${issueNumber}`;
             const stepCount = parseInt(process.env.STEP_COUNT || '0') + 1;
             const branchName = `codex/issue-${issueNumber}`;
-            const maxStallRetries = parseInt(process.env.MAX_STALL_RETRIES || '3');
+            const maxStallRetries = parseInt(process.env.MAX_STALL_RETRIES || '5');
 
             // Helper: count consecutive "waiting for commits" comments (stall detection)
             async function countConsecutiveStalls() {
