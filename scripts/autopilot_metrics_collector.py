@@ -95,6 +95,7 @@ CYCLE_REQUIRED_FIELDS = AUTOPILOT_METRICS_SCHEMA["record_types"]["cycle"]["requi
 ESCALATION_REQUIRED_FIELDS = AUTOPILOT_METRICS_SCHEMA["record_types"]["escalation"]["required"]
 _CYCLE_OPTIONAL_FIELDS = ("max_cycles", "steps_attempted", "steps_completed")
 _TRACE_FIELDS = ("langsmith_trace_id", "langsmith_trace_url")
+LANGSMITH_TRACE_URL_BASE = "https://smith.langchain.com/r/"
 
 
 def schema_payload() -> str:
@@ -298,6 +299,12 @@ def _normalize_failure_reason(success: bool, failure_reason: str | None) -> str:
     raise ValidationError("failure_reason is required when success is false")
 
 
+def _derive_trace_url(trace_id: str | None) -> str | None:
+    if not trace_id:
+        return None
+    return f"{LANGSMITH_TRACE_URL_BASE}{trace_id}"
+
+
 def build_record_from_args(args: argparse.Namespace) -> dict[str, Any]:
     metric_type = str(args.metric_type or "").strip().lower()
     if not metric_type:
@@ -305,6 +312,8 @@ def build_record_from_args(args: argparse.Namespace) -> dict[str, Any]:
 
     trace_id = _env_or_value(getattr(args, "langsmith_trace_id", None), "LANGSMITH_TRACE_ID")
     trace_url = _env_or_value(getattr(args, "langsmith_trace_url", None), "LANGSMITH_TRACE_URL")
+    if trace_url is None:
+        trace_url = _derive_trace_url(trace_id)
     record: dict[str, Any] = {
         "schema_version": AUTOPILOT_METRICS_SCHEMA_VERSION,
         "metric_type": metric_type,
@@ -414,6 +423,10 @@ def load_record_from_json(payload: str) -> dict[str, Any]:
         record["failure_reason"] = _normalize_failure_reason(
             record["success"], record.get("failure_reason")
         )
+    if "langsmith_trace_id" in record and "langsmith_trace_url" not in record:
+        trace_url = _derive_trace_url(record.get("langsmith_trace_id"))
+        if trace_url:
+            record["langsmith_trace_url"] = trace_url
     return record
 
 

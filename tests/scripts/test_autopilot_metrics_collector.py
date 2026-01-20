@@ -215,6 +215,34 @@ def test_build_record_from_args_includes_trace_fields(monkeypatch: pytest.Monkey
     assert record["langsmith_trace_url"] == "https://smith.langchain.com/r/trace-456"
 
 
+def test_build_record_from_args_derives_trace_url(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("LANGSMITH_TRACE_ID", "trace-789")
+    monkeypatch.delenv("LANGSMITH_TRACE_URL", raising=False)
+    args = collector.argparse.Namespace(
+        metric_type="cycle",
+        issue_number="12",
+        cycle_count="3",
+        timestamp="2025-04-05T06:07:08Z",
+        step_name=None,
+        duration_ms=None,
+        started_at=None,
+        ended_at=None,
+        started_at_ms=None,
+        ended_at_ms=None,
+        success=None,
+        failure_reason=None,
+        max_cycles="5",
+        steps_attempted=None,
+        steps_completed=None,
+        escalation_reason=None,
+    )
+
+    record = collector.build_record_from_args(args)
+
+    assert record["langsmith_trace_id"] == "trace-789"
+    assert record["langsmith_trace_url"] == "https://smith.langchain.com/r/trace-789"
+
+
 def test_build_record_from_args_normalizes_failure_reason_on_success() -> None:
     args = collector.argparse.Namespace(
         metric_type="step",
@@ -583,6 +611,25 @@ def test_load_record_from_json_defaults_failure_reason_for_success() -> None:
     record = collector.load_record_from_json(payload)
 
     assert record["failure_reason"] == "none"
+    collector.validate_record(record)
+
+
+def test_load_record_from_json_derives_trace_url() -> None:
+    payload = json.dumps(
+        {
+            "schema_version": "1",
+            "metric_type": "cycle",
+            "issue_number": "101",
+            "timestamp": "2025-01-01T00:00:00Z",
+            "cycle_count": "2",
+            "langsmith_trace_id": "trace-999",
+        }
+    )
+
+    record = collector.load_record_from_json(payload)
+
+    assert record["langsmith_trace_id"] == "trace-999"
+    assert record["langsmith_trace_url"] == "https://smith.langchain.com/r/trace-999"
     collector.validate_record(record)
 
 
