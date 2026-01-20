@@ -330,14 +330,15 @@ function deserializeFromOutput(json) {
  * Useful when multiple scripts need the same PR data
  */
 function createPRContextCache() {
-  const cache = new Map();
+  const { createInMemoryCache, buildPrCacheKey } = require('./github-api-cache');
+  const cache = createInMemoryCache({ namespace: 'pr-context' });
   
   return {
     async get(github, owner, repo, number) {
-      const key = `${owner}/${repo}#${number}`;
-      
-      if (cache.has(key)) {
-        return cache.get(key);
+      const key = buildPrCacheKey({ owner, repo, number, resource: 'context' });
+      const cached = cache.get(key);
+      if (cached.hit) {
+        return cached.value;
       }
       
       const context = await fetchPRContext(github, owner, repo, number);
@@ -346,12 +347,12 @@ function createPRContextCache() {
     },
     
     set(owner, repo, number, context) {
-      const key = `${owner}/${repo}#${number}`;
+      const key = buildPrCacheKey({ owner, repo, number, resource: 'context' });
       cache.set(key, context);
     },
     
     has(owner, repo, number) {
-      const key = `${owner}/${repo}#${number}`;
+      const key = buildPrCacheKey({ owner, repo, number, resource: 'context' });
       return cache.has(key);
     },
     
