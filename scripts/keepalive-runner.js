@@ -633,13 +633,13 @@ function buildTraceToken({ seed, prNumber, round }) {
   return parts.join('-');
 }
 
-function resolveInstructionToken(env = {}) {
+function resolveWriteToken(env = {}) {
   return (
     String(
-      env.SERVICE_BOT_PAT ||
-        env.service_bot_pat ||
-        env.ACTIONS_BOT_PAT ||
+      env.ACTIONS_BOT_PAT ||
         env.actions_bot_pat ||
+        env.SERVICE_BOT_PAT ||
+        env.service_bot_pat ||
         env.GH_TOKEN ||
         env.gh_token ||
         ''
@@ -648,17 +648,12 @@ function resolveInstructionToken(env = {}) {
   );
 }
 
+function resolveInstructionToken(env = {}) {
+  return resolveWriteToken(env);
+}
+
 function resolveDispatchToken(env = {}) {
-  return (
-    String(
-      env.ACTIONS_BOT_PAT ||
-        env.actions_bot_pat ||
-        env.GH_TOKEN ||
-        env.gh_token ||
-        ''
-    )
-      .trim() || ''
-  );
+  return resolveWriteToken(env);
 }
 
 async function runKeepalive({ core, github, context, env = process.env }) {

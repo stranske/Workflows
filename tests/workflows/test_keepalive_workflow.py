@@ -523,4 +523,10 @@ def test_keepalive_requires_dispatch_token() -> None:
     result = subprocess.run(command, capture_output=True, text=True)
     assert result.returncode != 0, "Expected harness to fail without dispatch token"
     combined_output = (result.stderr or "") + (result.stdout or "")
-    assert "GitHub token is required for keepalive dispatch" in combined_output
+    assert "GitHub token is required to author keepalive instructions" in combined_output
+
+
+def test_keepalive_dispatches_with_service_bot_pat() -> None:
+    data = _run_scenario("service_bot_only")
+    payload = _assert_single_dispatch(data, 909, round_expected=2)
+    assert payload.get("issue") == 909
