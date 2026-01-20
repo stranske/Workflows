@@ -170,6 +170,12 @@ def test_keepalive_idle_threshold_logic() -> None:
     reactions = data.get("instruction_reactions", [])
     assert reactions == [{"comment_id": created[0]["id"], "content": "hooray"}]
 
+    comment_tokens = data.get("comment_tokens", [])
+    dispatch_tokens = data.get("dispatch_tokens", [])
+    assert "service-token" in comment_tokens
+    assert "dummy-token" not in comment_tokens
+    assert "dummy-token" in dispatch_tokens
+
     details = _details(summary, "Triggered keepalive comments")
     assert details is not None and len(details["items"]) == 1
 
@@ -530,6 +536,10 @@ def test_keepalive_dispatches_with_service_bot_pat() -> None:
     data = _run_scenario("service_bot_only")
     payload = _assert_single_dispatch(data, 909, round_expected=2)
     assert payload.get("issue") == 909
+    comment_tokens = data.get("comment_tokens", [])
+    dispatch_tokens = data.get("dispatch_tokens", [])
+    assert "service-token" in comment_tokens
+    assert "service-token" in dispatch_tokens
 
 
 def test_keepalive_dispatches_with_whitespace_action_token() -> None:

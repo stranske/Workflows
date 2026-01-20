@@ -207,6 +207,8 @@ async function runScenario(scenario) {
   const createdComments = [];
   const instructionReactions = [];
   const updatedComments = [];
+  const commentTokens = [];
+  const dispatchTokens = [];
 
   const listPulls = async ({ per_page = 50, page = 1 }) => {
     const start = (page - 1) * per_page;
@@ -317,16 +319,24 @@ async function runScenario(scenario) {
       if (!token) {
         throw new Error('GitHub token is required');
       }
+      const tokenValue = String(token);
       return {
         rest: {
           repos: {
-            createDispatchEvent: dispatchEvent,
+            createDispatchEvent: async (payload) => {
+              dispatchTokens.push(tokenValue);
+              return dispatchEvent(payload);
+            },
           },
           issues: {
-            createComment,
+            createComment: async (payload) => {
+              commentTokens.push(tokenValue);
+              return createComment(payload);
+            },
           },
           reactions: {
             createForIssueComment: async ({ comment_id, content }) => {
+              commentTokens.push(tokenValue);
               instructionReactions.push({ comment_id, content });
               return { data: { content } };
             },
@@ -386,6 +396,8 @@ async function runScenario(scenario) {
     updated_comments: updatedComments,
     dispatch_events: dispatchEvents,
     instruction_reactions: instructionReactions,
+    comment_tokens: commentTokens,
+    dispatch_tokens: dispatchTokens,
   };
 }
 

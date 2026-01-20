@@ -633,18 +633,9 @@ function buildTraceToken({ seed, prNumber, round }) {
   return parts.join('-');
 }
 
-function resolveWriteToken(env = {}) {
-  const candidates = [
-    env.ACTIONS_BOT_PAT,
-    env.actions_bot_pat,
-    env.SERVICE_BOT_PAT,
-    env.service_bot_pat,
-    env.GH_TOKEN,
-    env.gh_token,
-    env.GITHUB_TOKEN,
-    env.github_token,
-  ];
-  for (const candidate of candidates) {
+function resolveTokenFromKeys(env = {}, keys = []) {
+  for (const key of keys) {
+    const candidate = env?.[key];
     if (candidate === null || candidate === undefined) {
       continue;
     }
@@ -656,12 +647,42 @@ function resolveWriteToken(env = {}) {
   return '';
 }
 
+const INSTRUCTION_TOKEN_KEYS = [
+  'SERVICE_BOT_PAT',
+  'service_bot_pat',
+  'GITHUB_TOKEN',
+  'github_token',
+  'GH_TOKEN',
+  'gh_token',
+  'ACTIONS_BOT_PAT',
+  'actions_bot_pat',
+];
+
+const DISPATCH_TOKEN_KEYS = [
+  'KEEPALIVE_DISPATCH_TOKEN',
+  'keepalive_dispatch_token',
+  'KEEPALIVE_DISPATCH_PAT',
+  'keepalive_dispatch_pat',
+  'GH_DISPATCH_TOKEN',
+  'gh_dispatch_token',
+  'ACTIONS_BOT_PAT',
+  'actions_bot_pat',
+];
+
 function resolveInstructionToken(env = {}) {
-  return resolveWriteToken(env);
+  return resolveTokenFromKeys(env, INSTRUCTION_TOKEN_KEYS);
 }
 
-function resolveDispatchToken(env = {}) {
-  return resolveWriteToken(env);
+function resolveDispatchToken(env = {}, instructionToken = '') {
+  const dedicated = resolveTokenFromKeys(env, DISPATCH_TOKEN_KEYS);
+  if (dedicated) {
+    return dedicated;
+  }
+  const fallback = String(instructionToken || '').trim();
+  if (fallback) {
+    return fallback;
+  }
+  return '';
 }
 
 async function runKeepalive({ core, github, context, env = process.env }) {
@@ -697,8 +718,7 @@ async function runKeepalive({ core, github, context, env = process.env }) {
       'GitHub token is required to author keepalive instructions (app token, PAT, or GITHUB_TOKEN).'
     );
   }
-  const resolvedDispatchToken = resolveDispatchToken(env);
-  const dispatchToken = resolvedDispatchToken;
+  const dispatchToken = resolveDispatchToken(env, instructionAuthorToken);
 
   const instructionAuthorOctokit = buildOctokitInstance({
     core,
