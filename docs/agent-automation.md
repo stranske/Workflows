@@ -158,6 +158,21 @@ After each major step, the workflow re-dispatches itself to continue the pipelin
 3. Review the run summary for readiness tables, watchdog escalation indicators, and Codex bootstrap status.
 4. Repeat manual dispatches as needed; scheduled runs provide 20-minute coverage for stale bootstrap detection.
 
+## Alerting Threshold Tuning
+
+Metrics alerting thresholds live in `config/alerting-thresholds.json` and should be tuned with both baseline behavior and
+alert fatigue in mind.
+
+- Start from a recent 30 to 60 day baseline for success rate, duration, and token usage. Use medians or p95s rather than
+  single-day outliers.
+- Prefer incremental adjustments (5 to 10 percent) instead of large jumps so you can attribute changes to real shifts.
+- Separate short-lived spikes from sustained drift. For example, only lower success rate thresholds after several runs show
+  the same regression.
+- Revisit thresholds after major workflow or model changes. Each new model or large prompt update can shift token usage and
+  duration distributions.
+- Keep alert volume manageable: if the same threshold fires repeatedly without action, relax it or add a higher-severity
+  tier so only actionable alerts page maintainers.
+
 ## Security Considerations
 
 - All sensitive operations continue to rely on `SERVICE_BOT_PAT` when available. The workflows gracefully fall back to

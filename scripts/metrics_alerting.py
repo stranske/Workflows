@@ -425,6 +425,7 @@ def _issue_body(alert: Alert, now: datetime) -> str:
         f"Observed value: {_format_alert_value(alert)}",
         f"Threshold: {_format_threshold(alert)}",
         f"Detected at: {now.isoformat().replace('+00:00', 'Z')}",
+        "Tuning guide: docs/agent-automation.md#alerting-threshold-tuning",
         "",
         "Thresholds:",
         "```json",
