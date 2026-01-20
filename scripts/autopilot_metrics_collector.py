@@ -36,6 +36,7 @@ import argparse
 import json
 import os
 import sys
+import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -96,6 +97,7 @@ ESCALATION_REQUIRED_FIELDS = AUTOPILOT_METRICS_SCHEMA["record_types"]["escalatio
 _CYCLE_OPTIONAL_FIELDS = ("max_cycles", "steps_attempted", "steps_completed")
 _TRACE_FIELDS = ("langsmith_trace_id", "langsmith_trace_url")
 LANGSMITH_TRACE_URL_BASE = "https://smith.langchain.com/r/"
+RUNTIME_WARNING_THRESHOLD_MS = 5000
 
 
 def schema_payload() -> str:
@@ -506,6 +508,36 @@ def _write_failure_summary(
         handle.write(payload + "\n")
 
 
+def _write_runtime_summary(*, elapsed_ms: int, args: argparse.Namespace | None) -> None:
+    if elapsed_ms <= RUNTIME_WARNING_THRESHOLD_MS:
+        return
+    summary_path = os.environ.get("AUTOPILOT_METRICS_SUMMARY_PATH")
+    if not summary_path:
+        return
+    path = Path(summary_path)
+    step_name = os.environ.get("AUTOPILOT_STEP_NAME")
+    if not step_name and args is not None:
+        step_name = args.step_name
+    metric_type = None
+    if args is not None:
+        metric_type = args.metric_type
+
+    record = {
+        "summary_type": "autopilot-metrics-runtime",
+        "component": "autopilot_metrics_collector",
+        "timestamp": _utc_now_iso(),
+        "elapsed_ms": elapsed_ms,
+        "threshold_ms": RUNTIME_WARNING_THRESHOLD_MS,
+        "step_name": step_name or "",
+        "metric_type": str(metric_type).strip().lower() if metric_type else "",
+        "environment": _summary_env_details(),
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = json.dumps(record, separators=(",", ":"), sort_keys=True)
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(payload + "\n")
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Append auto-pilot metrics record to NDJSON log.")
     parser.add_argument("--path", default="autopilot-metrics.ndjson", help="NDJSON output path")
@@ -539,37 +571,43 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str]) -> int:
+    start_time = time.monotonic()
+    args: argparse.Namespace | None = None
     parser = build_parser()
     try:
-        args = parser.parse_args(argv)
-    except SystemExit as exc:
-        code = 0 if exc.code is None else int(exc.code)
-        if code != 0:
-            _write_failure_summary(error=exc, exit_code=code, args=None)
-        return code
+        try:
+            args = parser.parse_args(argv)
+        except SystemExit as exc:
+            code = 0 if exc.code is None else int(exc.code)
+            if code != 0:
+                _write_failure_summary(error=exc, exit_code=code, args=None)
+            return code
 
-    log_path = Path(args.path)
-    env_log_path = os.environ.get("AUTOPILOT_METRICS_LOG_PATH")
-    if env_log_path and args.path == "autopilot-metrics.ndjson":
-        log_path = Path(env_log_path)
+        log_path = Path(args.path)
+        env_log_path = os.environ.get("AUTOPILOT_METRICS_LOG_PATH")
+        if env_log_path and args.path == "autopilot-metrics.ndjson":
+            log_path = Path(env_log_path)
 
-    try:
-        if args.print_schema:
-            print(schema_payload())
-            return 0
-        if args.record_json:
-            record = load_record_from_json(args.record_json)
-        else:
-            record = build_record_from_args(args)
-        validate_record(record)
-        append_record(log_path, record)
-        print(json.dumps(record, separators=(",", ":"), sort_keys=True))
-    except Exception as exc:
-        _write_failure_summary(error=exc, exit_code=1, args=args)
-        print(f"autopilot_metrics_collector: {exc}", file=sys.stderr)
-        return 1
+        try:
+            if args.print_schema:
+                print(schema_payload())
+                return 0
+            if args.record_json:
+                record = load_record_from_json(args.record_json)
+            else:
+                record = build_record_from_args(args)
+            validate_record(record)
+            append_record(log_path, record)
+            print(json.dumps(record, separators=(",", ":"), sort_keys=True))
+        except Exception as exc:
+            _write_failure_summary(error=exc, exit_code=1, args=args)
+            print(f"autopilot_metrics_collector: {exc}", file=sys.stderr)
+            return 1
 
-    return 0
+        return 0
+    finally:
+        elapsed_ms = int((time.monotonic() - start_time) * 1000)
+        _write_runtime_summary(elapsed_ms=elapsed_ms, args=args)
 
 
 if __name__ == "__main__":  # pragma: no cover - CLI entry point
