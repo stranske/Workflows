@@ -247,6 +247,10 @@ Use this exact structure:
 ## Why
 [Brief explanation of what needs to happen and why]
 
+## Source
+- Original PR: #{pr_number}
+- Parent issue: #{original_issue_number}
+
 ## Tasks
 - [ ] Task 1
 - [ ] Task 2
@@ -932,6 +936,11 @@ def _generate_without_llm(
         "## Why",
         "",
         why_section,
+        "",
+        "## Source",
+        "",
+        f"- Original PR: #{pr_number}",
+        f"- Parent issue: #{original_issue.number}",
         "",
         "## Scope",
         "",

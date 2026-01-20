@@ -315,6 +315,9 @@ class TestGenerateFollowupIssue:
 
         assert "Follow-up" in followup.title
         assert "200" in followup.title
+        assert "## Source" in followup.body
+        assert "- Original PR: #200" in followup.body
+        assert "- Parent issue: #100" in followup.body
         assert "Missing test coverage" in followup.body
         assert "Response time < 100ms" in followup.body
         assert "Not Ready" in followup.body
