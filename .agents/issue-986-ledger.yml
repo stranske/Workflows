@@ -1,0 +1,161 @@
+version: 1
+issue: 986
+base: main
+branch: codex/issue-986
+tasks:
+  - id: task-01
+    title: Implement a cache wrapper for GitHub API calls with configurable TTL.
+    status: doing
+    started_at: '2026-01-20T08:20:32Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: Integrate caching into the workflows that fetch PR body, labels, and files.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: Add cache invalidation hooks tied to relevant webhook events.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: Emit cache hit/miss metrics for visibility.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: Update documentation to describe cache behavior and configuration.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: Implement a cache backend using either in-memory storage or Redis, suitable
+      for workflow usage.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: Select an initial cache backend (in-memory or Redis) appropriate for workflow
+      usage.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: Implement a cache wrapper for GitHub API calls with configurable TTL.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: Integrate caching into the workflows that fetch PR body, labels, and files.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: Add cache invalidation hooks tied to relevant webhook events.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: Emit cache hit/miss metrics for visibility.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: Update documentation to describe cache behavior and configuration.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: Cache layer is implemented with a configurable TTL.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: PR data is cached for at least 60 seconds by default.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: Cache invalidation occurs on relevant webhook events.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: Cache hit/miss metrics are recorded.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: Documentation reflects the new caching behavior.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: Cache layer is implemented with a configurable TTL.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: PR data is cached for at least 60 seconds by default.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: Cache invalidation occurs on relevant webhook events.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: Cache hit/miss metrics are recorded.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: Documentation reflects the new caching behavior.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
