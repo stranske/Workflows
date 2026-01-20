@@ -36,6 +36,14 @@ test('resolveInstructionToken falls back to gh token', () => {
   assert.equal(token, 'gh-token');
 });
 
+test('resolveInstructionToken falls back to github token', () => {
+  const token = resolveInstructionToken({
+    GITHUB_TOKEN: 'github-token',
+  });
+
+  assert.equal(token, 'github-token');
+});
+
 test('resolveDispatchToken prefers actions bot token', () => {
   const token = resolveDispatchToken({
     ACTIONS_BOT_PAT: 'actions-token',
@@ -51,6 +59,14 @@ test('resolveDispatchToken falls back to gh token', () => {
   });
 
   assert.equal(token, 'gh-token');
+});
+
+test('resolveDispatchToken falls back to github token', () => {
+  const token = resolveDispatchToken({
+    GITHUB_TOKEN: 'github-token',
+  });
+
+  assert.equal(token, 'github-token');
 });
 
 test('resolveDispatchToken returns empty string when unset', () => {
