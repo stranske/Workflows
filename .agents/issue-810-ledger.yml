@@ -5,10 +5,10 @@ branch: codex/issue-810
 tasks:
   - id: task-01
     title: 'Define badge types: success rate, avg duration, last run status'
-    status: doing
+    status: done
     started_at: '2026-01-20T07:35:16Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-01-20T07:35:25Z'
+    commit: 5217c5731f298b8bc45ca547dcd6254b895a2a17
     notes: []
   - id: task-02
     title: Implement shields.io endpoint JSON generation
