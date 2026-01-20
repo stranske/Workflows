@@ -648,10 +648,10 @@ function resolveTokenFromKeys(env = {}, keys = []) {
 }
 
 const INSTRUCTION_TOKEN_KEYS = [
-  'ACTIONS_BOT_PAT',
-  'actions_bot_pat',
   'SERVICE_BOT_PAT',
   'service_bot_pat',
+  'ACTIONS_BOT_PAT',
+  'actions_bot_pat',
   'GH_TOKEN',
   'gh_token',
   'GITHUB_TOKEN',
