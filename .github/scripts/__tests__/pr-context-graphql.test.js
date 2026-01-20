@@ -354,4 +354,39 @@ describe('createPRContextCache', () => {
     cache.clear();
     assert.strictEqual(cache.has('owner', 'repo', 42), false);
   });
+
+  it('invalidates cached entries for webhook payloads', async () => {
+    const mockGithub = {
+      graphql: mock.fn(async () => mockPRContextResponse)
+    };
+
+    const cache = createPRContextCache();
+
+    await cache.get(mockGithub, 'owner', 'repo', 42);
+    assert.strictEqual(cache.has('owner', 'repo', 42), true);
+
+    cache.invalidateForWebhook({
+      eventName: 'pull_request',
+      payload: { pull_request: { number: 42 } },
+      owner: 'owner',
+      repo: 'repo'
+    });
+
+    assert.strictEqual(cache.has('owner', 'repo', 42), false);
+  });
+
+  it('emits cache metrics for hits and misses', async () => {
+    const mockGithub = {
+      graphql: mock.fn(async () => mockPRContextResponse)
+    };
+
+    const cache = createPRContextCache({ core: { info: mock.fn() } });
+
+    await cache.get(mockGithub, 'owner', 'repo', 42);
+    await cache.get(mockGithub, 'owner', 'repo', 42);
+
+    const metrics = cache.emitMetrics('pr-context');
+    assert.strictEqual(metrics.hits, 1);
+    assert.strictEqual(metrics.misses, 1);
+  });
 });

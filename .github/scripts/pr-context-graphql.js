@@ -329,36 +329,48 @@ function deserializeFromOutput(json) {
  * Create a caching wrapper for PR context
  * Useful when multiple scripts need the same PR data
  */
-function createPRContextCache() {
-  const { createInMemoryCache, buildPrCacheKey } = require('./github-api-cache');
-  const cache = createInMemoryCache({ namespace: 'pr-context' });
-  
+function createPRContextCache(options = {}) {
+  const { createGithubApiCache } = require('./github-api-cache-client');
+  const { namespace = 'pr-context', core = null, env = process.env, ttlMs, backend } = options;
+  const apiCache = createGithubApiCache({ namespace, core, env, ttlMs, backend });
+
+  const buildKey = (owner, repo, number) => apiCache.buildPrCacheKey({
+    owner,
+    repo,
+    number,
+    resource: 'context',
+  });
+
   return {
     async get(github, owner, repo, number) {
-      const key = buildPrCacheKey({ owner, repo, number, resource: 'context' });
-      const cached = cache.get(key);
-      if (cached.hit) {
-        return cached.value;
-      }
-      
-      const context = await fetchPRContext(github, owner, repo, number);
-      cache.set(key, context);
-      return context;
+      const key = buildKey(owner, repo, number);
+      return apiCache.getOrSet({
+        key,
+        fetcher: async () => fetchPRContext(github, owner, repo, number),
+      });
     },
-    
+
     set(owner, repo, number, context) {
-      const key = buildPrCacheKey({ owner, repo, number, resource: 'context' });
-      cache.set(key, context);
+      const key = buildKey(owner, repo, number);
+      apiCache.cache.set(key, context);
     },
-    
+
     has(owner, repo, number) {
-      const key = buildPrCacheKey({ owner, repo, number, resource: 'context' });
-      return cache.has(key);
+      const key = buildKey(owner, repo, number);
+      return apiCache.cache.has(key);
     },
-    
+
     clear() {
-      cache.clear();
-    }
+      apiCache.cache.clear();
+    },
+
+    invalidateForWebhook({ eventName, payload, owner, repo } = {}) {
+      return apiCache.invalidateForWebhook({ eventName, payload, owner, repo });
+    },
+
+    emitMetrics(label = 'PR context cache') {
+      return apiCache.emitMetrics(label);
+    },
   };
 }
 
