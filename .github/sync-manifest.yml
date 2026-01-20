@@ -393,6 +393,9 @@ scripts:
   # GraphQL-based PR context fetcher (medium-effort rate limit optimization)
   - source: .github/scripts/pr-context-graphql.js
     description: "GraphQL PR context fetcher - reduces 4+ REST calls to 1 GraphQL call"
+
+  - source: .github/scripts/github-api-cache.js
+    description: "Shared cache utilities for GitHub API requests used by PR context scripts"
 # Templates required by keepalive system
 templates:
   - source: .github/templates/keepalive-instruction.md
