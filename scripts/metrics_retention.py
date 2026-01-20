@@ -403,6 +403,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--archive-dir", help="Override archive storage directory")
     parser.add_argument("--log-path", default=str(DEFAULT_RETENTION_LOG), help="Retention log path")
     parser.add_argument("--dry-run", action="store_true", help="Report changes without writing")
+    parser.add_argument(
+        "--min-reduction-percent",
+        type=float,
+        help="Fail if storage reduction is below this percentage (non-dry-run only).",
+    )
     parser.add_argument("--restore", action="store_true", help="Restore from archived NDJSON")
     parser.add_argument("--archive-path", help="Archive file or directory to restore from")
     parser.add_argument("--output-path", help="Output NDJSON path for restore")
@@ -488,6 +493,10 @@ def main(argv: list[str]) -> int:
     reduction_percent = (
         (reduced / summary["bytes_before"] * 100.0) if summary["bytes_before"] else 0.0
     )
+    min_reduction_percent = args.min_reduction_percent
+    met_reduction_target = None
+    if min_reduction_percent is not None and not args.dry_run:
+        met_reduction_target = reduction_percent >= min_reduction_percent
     summary_payload = {
         "timestamp": now.isoformat().replace("+00:00", "Z"),
         "schema_version": 1,
@@ -495,6 +504,8 @@ def main(argv: list[str]) -> int:
         "record_type": "retention_summary",
         "dry_run": args.dry_run,
         "reduction_percent": round(reduction_percent, 2),
+        "min_reduction_percent": min_reduction_percent,
+        "met_reduction_target": met_reduction_target,
         **summary,
     }
     _append_log(log_path, summary_payload, dry_run=args.dry_run)
@@ -505,6 +516,14 @@ def main(argv: list[str]) -> int:
         "files; reduction",
         f"{summary_payload['reduction_percent']}%",
     )
+    if min_reduction_percent is not None and not args.dry_run:
+        if summary["bytes_before"] > 0 and reduction_percent < min_reduction_percent:
+            print(
+                "metrics_retention: reduction below threshold",
+                f"{summary_payload['reduction_percent']}% < {min_reduction_percent}%",
+                file=sys.stderr,
+            )
+            return 2
     return 0
 
 

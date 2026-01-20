@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -15,7 +16,7 @@ def _load_lines(path: Path) -> list[str]:
 
 
 def test_apply_retention_archives_and_purges(tmp_path: Path) -> None:
-    now = datetime(2025, 1, 15, tzinfo=UTC)
+    now = metrics_retention._now_utc()
     metrics_path = tmp_path / "metrics-history.ndjson"
     archive_root = tmp_path / "archives"
     policy = metrics_retention.RetentionPolicy(
@@ -91,3 +92,66 @@ def test_restore_archive_dedupes(tmp_path: Path) -> None:
     assert result["records_skipped"] == 1
     restored = _load_lines(output_path)
     assert len(restored) == 1
+
+
+def test_main_enforces_min_reduction_percent(tmp_path: Path) -> None:
+    now = metrics_retention._now_utc()
+    metrics_path = tmp_path / "metrics-history.ndjson"
+    log_path = tmp_path / "metrics-retention.ndjson"
+    config_path = tmp_path / "retention-policy.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "retention": {
+                    "daily": {"keep_days": 1},
+                    "weekly": {"keep_weeks": 1},
+                    "monthly": {"keep_months": 1},
+                },
+                "archive": {"enabled": True, "storage_dir": str(tmp_path / "archives")},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    recent = now - timedelta(hours=1)
+    older = now - timedelta(days=10)
+    lines = [f'{{"timestamp":"{recent.isoformat().replace("+00:00","Z")}","value":1}}\n']
+    lines += [
+        f'{{"timestamp":"{older.isoformat().replace("+00:00","Z")}","value":{idx}}}\n'
+        for idx in range(2, 12)
+    ]
+    _write_lines(metrics_path, lines)
+
+    exit_code = metrics_retention.main(
+        [
+            "--config",
+            str(config_path),
+            "--metrics-paths",
+            str(metrics_path),
+            "--log-path",
+            str(log_path),
+            "--min-reduction-percent",
+            "50",
+        ]
+    )
+    assert exit_code == 0
+
+    metrics_path.write_text(
+        f'{{"timestamp":"{recent.isoformat().replace("+00:00","Z")}","value":1}}\n'
+        f'{{"timestamp":"{recent.isoformat().replace("+00:00","Z")}","value":2}}\n',
+        encoding="utf-8",
+    )
+    exit_code = metrics_retention.main(
+        [
+            "--config",
+            str(config_path),
+            "--metrics-paths",
+            str(metrics_path),
+            "--log-path",
+            str(log_path),
+            "--min-reduction-percent",
+            "50",
+        ]
+    )
+    assert exit_code == 2
