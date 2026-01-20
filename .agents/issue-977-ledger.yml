@@ -1,0 +1,160 @@
+version: 1
+issue: 977
+base: main
+branch: codex/issue-977
+tasks:
+  - id: task-01
+    title: Define alerting threshold schema in `config/alerting-thresholds.json`
+    status: doing
+    started_at: '2026-01-20T06:17:28Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: Create `scripts/metrics_alerting.py` for threshold checks
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: Implement GitHub Issue creation for alerts in `scripts/metrics_alerting.py`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: Add optional Slack webhook notification in `scripts/metrics_alerting.py`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: Create scheduled workflow in `.github/workflows/metrics-alerting.yml` for
+      alerting checks
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: Document alerting configuration in `docs/agent-automation.md`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: Define alerting threshold schema in config/
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: Create scripts/metrics_alerting.py for threshold checks
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: Implement GitHub Issue creation for alerts
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: Add optional Slack webhook notification
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: Create scheduled workflow for alerting checks
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: Document alerting configuration in docs/
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: 'Configurable thresholds for: success rate, duration, token usage'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: Alerts create GitHub Issues with appropriate labels
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: Duplicate alerts are deduplicated (same issue not created twice)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: Alert history tracked in metrics data
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: Documentation covers threshold tuning guidelines
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: 'Configurable thresholds for: success rate, duration, token usage'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: Alerts create GitHub Issues with appropriate labels
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: Duplicate alerts are deduplicated (same issue not created twice)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: Alert history tracked in metrics data
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: Documentation covers threshold tuning guidelines
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
