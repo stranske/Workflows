@@ -21,7 +21,11 @@ _AVG_DURATION_CRITICAL_SECONDS = 900.0
 
 _NUMERIC_RE = re.compile(r"^\s*(-?\d+(?:\.\d+)?)\s*%?\s*$")
 _DURATION_RE = re.compile(
-    r"^\s*(-?\d+(?:\.\d+)?)\s*(ms|millisecond|milliseconds|s|sec|secs|seconds)?\s*$",
+    r"^\s*(-?\d+(?:\.\d+)?)\s*(ms|millisecond|milliseconds|s|sec|secs|seconds|m|min|mins|minute|minutes|h|hr|hrs|hour|hours)?\s*$",
+    re.IGNORECASE,
+)
+_DURATION_SEGMENT_RE = re.compile(
+    r"(-?\d+(?:\.\d+)?)\s*(ms|millisecond|milliseconds|s|sec|secs|seconds|m|min|mins|minute|minutes|h|hr|hrs|hour|hours)",
     re.IGNORECASE,
 )
 
@@ -171,10 +175,57 @@ def _build_last_run_status(metrics: Mapping[str, Any], badge: BadgeType) -> Badg
     )
 
 
+def _parse_duration_segments(value: str) -> float | None:
+    matches = list(_DURATION_SEGMENT_RE.finditer(value))
+    if not matches:
+        return None
+    remainder = _DURATION_SEGMENT_RE.sub("", value)
+    if remainder.strip():
+        return None
+    total_seconds = 0.0
+    for match in matches:
+        magnitude = float(match.group(1))
+        unit = match.group(2).lower()
+        if unit.startswith("ms"):
+            total_seconds += magnitude / 1000.0
+        elif unit in {"s", "sec", "secs", "second", "seconds"}:
+            total_seconds += magnitude
+        elif unit in {"m", "min", "mins", "minute", "minutes"}:
+            total_seconds += magnitude * 60.0
+        else:
+            total_seconds += magnitude * 3600.0
+    return total_seconds
+
+
+def _parse_colon_duration(value: str) -> float | None:
+    parts = value.split(":")
+    if len(parts) not in {2, 3}:
+        return None
+    try:
+        if len(parts) == 2:
+            minutes = float(parts[0])
+            seconds = float(parts[1])
+            return minutes * 60.0 + seconds
+        hours = float(parts[0])
+        minutes = float(parts[1])
+        seconds = float(parts[2])
+    except ValueError:
+        return None
+    return hours * 3600.0 + minutes * 60.0 + seconds
+
+
 def _coerce_duration_seconds(value: Any, *, unit: str = "s") -> float | None:
     if value is None or value == "":
         return None
     if isinstance(value, str):
+        value = value.strip()
+        if ":" in value:
+            parsed = _parse_colon_duration(value)
+            if parsed is not None:
+                return parsed
+        parsed = _parse_duration_segments(value)
+        if parsed is not None:
+            return parsed
         match = _DURATION_RE.match(value)
         if not match:
             return None

@@ -109,3 +109,30 @@ def test_build_endpoint_payloads_accepts_string_metrics() -> None:
     status = payloads["last_run_status"]
     assert status["message"] == "cancelled"
     assert status["color"] == "red"
+
+
+def test_build_endpoint_payloads_parses_compound_durations() -> None:
+    metrics = {
+        "success_rate": 0.99,
+        "avg_duration_seconds": "1m 30s",
+        "last_run_status": "success",
+    }
+
+    payloads = generate_metrics_badges.build_endpoint_payloads(metrics)
+
+    duration = payloads["avg_duration"]
+    assert duration["message"] == "1m 30s"
+    assert duration["color"] == "brightgreen"
+
+
+def test_build_endpoint_payloads_parses_colon_durations() -> None:
+    metrics = {
+        "success_rate": 0.99,
+        "avg_duration_seconds": "1:02:03",
+        "last_run_status": "success",
+    }
+
+    payloads = generate_metrics_badges.build_endpoint_payloads(metrics)
+
+    duration = payloads["avg_duration"]
+    assert duration["message"] == "1h 2m 3s"
