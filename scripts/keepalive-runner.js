@@ -517,7 +517,7 @@ async function dispatchKeepaliveCommand({
 }) {
   const trimmedToken = String(token ?? '').trim();
   if (!trimmedToken) {
-    throw new Error('GitHub token is required for keepalive dispatch (app token or PAT).');
+    throw new Error('GitHub token is required for keepalive dispatch (app token, PAT, or GITHUB_TOKEN).');
   }
 
   const octokit = buildOctokitInstance({ core, github, token: trimmedToken });
@@ -693,7 +693,9 @@ async function runKeepalive({ core, github, context, env = process.env }) {
 
   const instructionAuthorToken = resolveInstructionToken(env);
   if (!instructionAuthorToken) {
-    throw new Error('GitHub token is required to author keepalive instructions (app token or PAT).');
+    throw new Error(
+      'GitHub token is required to author keepalive instructions (app token, PAT, or GITHUB_TOKEN).'
+    );
   }
   const resolvedDispatchToken = resolveDispatchToken(env);
   const dispatchToken = resolvedDispatchToken;
@@ -1100,7 +1102,7 @@ async function runKeepalive({ core, github, context, env = process.env }) {
         );
       } else {
         if (!dispatchToken) {
-          const message = 'GitHub token is required for keepalive dispatch (app token or PAT).';
+          const message = 'GitHub token is required for keepalive dispatch (app token, PAT, or GITHUB_TOKEN).';
           core.setFailed(`#${prNumber}: failed to emit keepalive dispatch: ${message}`);
           throw new Error(message);
         }
