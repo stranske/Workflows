@@ -6,12 +6,12 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 from scripts.metrics_badges_config import BADGE_TYPES, BadgeType
-
 
 _SUCCESS_RATE_OK = 95.0
 _SUCCESS_RATE_WARN = 85.0
