@@ -542,6 +542,16 @@ def test_keepalive_dispatches_with_service_bot_pat() -> None:
     assert "service-token" in dispatch_tokens
 
 
+def test_keepalive_prefers_dedicated_dispatch_token() -> None:
+    data = _run_scenario("dispatch_token_override")
+    _assert_single_dispatch(data, 909, round_expected=2)
+    comment_tokens = data.get("comment_tokens", [])
+    dispatch_tokens = data.get("dispatch_tokens", [])
+    assert "service-token" in comment_tokens
+    assert "dispatch-token" in dispatch_tokens
+    assert "service-token" not in dispatch_tokens
+
+
 def test_keepalive_dispatches_with_whitespace_action_token() -> None:
     data = _run_scenario("whitespace_action_token")
     payload = _assert_single_dispatch(data, 909, round_expected=2)
