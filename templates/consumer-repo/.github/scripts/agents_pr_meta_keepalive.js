@@ -1,5 +1,6 @@
 'use strict';
 
+const { createGithubApiCache } = require('./github-api-cache-client');
 const { makeTrace } = require('./keepalive_contract.js');
 
 const DEFAULT_INSTRUCTION_SIGNATURE =
@@ -11,6 +12,74 @@ const DEFAULT_INSTRUCTION_SIGNATURE =
  * @returns {Promise<void>}
  */
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function getGithubApiCache({ github, core }) {
+  if (!github) {
+    return createGithubApiCache({ core });
+  }
+  if (github.__agentsPrMetaApiCache) {
+    return github.__agentsPrMetaApiCache;
+  }
+  const cache = createGithubApiCache({ core });
+  Object.defineProperty(github, '__agentsPrMetaApiCache', {
+    value: cache,
+    enumerable: false,
+    configurable: false,
+    writable: false,
+  });
+  return cache;
+}
+
+async function fetchPullRequestCached({ github, owner, repo, prNumber, core, maxRetries = 3 }) {
+  if (!github?.rest?.pulls?.get || !owner || !repo) {
+    return null;
+  }
+  const number = Number(prNumber);
+  if (!Number.isFinite(number) || number <= 0) {
+    return null;
+  }
+  const cache = getGithubApiCache({ github, core });
+  const key = cache.buildPrCacheKey({ owner, repo, number, resource: 'pulls.get' });
+  return cache.getOrSet({
+    key,
+    fetcher: async () => {
+      let lastError;
+      for (let attempt = 1; attempt <= maxRetries; attempt += 1) {
+        try {
+          const response = await github.rest.pulls.get({ owner, repo, pull_number: number });
+          const data = response?.data;
+          if (!data) {
+            const dataError = new Error('pull request data unavailable');
+            if (response && typeof response === 'object') {
+              dataError.status = response.status;
+            }
+            throw dataError;
+          }
+          return data;
+        } catch (error) {
+          lastError = error;
+          const message = error instanceof Error ? error.message : String(error);
+          if (isTransientError(error) && attempt < maxRetries) {
+            const delayMs = 1000 * Math.pow(2, attempt - 1);
+            if (core?.warning) {
+              core.warning(`PR fetch attempt ${attempt}/${maxRetries} failed (${message}), retrying in ${delayMs}ms...`);
+            }
+            await sleep(delayMs);
+            continue;
+          }
+          if (error && typeof error === 'object') {
+            error.attempts = attempt;
+          }
+          throw error;
+        }
+      }
+      if (lastError && typeof lastError === 'object') {
+        lastError.attempts = maxRetries;
+      }
+      throw lastError || new Error('pull request fetch failed');
+    },
+  });
+}
 
 /**
  * Check if an error is transient and retryable
@@ -480,33 +549,18 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
 
   instructionSeen = true;
 
-  // Fetch PR with retry for transient errors (rate limits, server errors)
   let pull;
   const maxRetries = 3;
-  let lastError;
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      const response = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
-      pull = response.data;
-      break;
-    } catch (error) {
-      lastError = error;
-      const message = error instanceof Error ? error.message : String(error);
-      if (isTransientError(error) && attempt < maxRetries) {
-        const delayMs = 1000 * Math.pow(2, attempt - 1); // Exponential backoff: 1s, 2s, 4s
-        core.warning(`PR fetch attempt ${attempt}/${maxRetries} failed (${message}), retrying in ${delayMs}ms...`);
-        await sleep(delayMs);
-        continue;
-      }
-      outputs.reason = 'pull-fetch-failed';
-      core.warning(`Keepalive dispatch skipped: unable to load PR #${prNumber} after ${attempt} attempts (${message}).`);
-      return finalise();
+  try {
+    pull = await fetchPullRequestCached({ github, owner, repo, prNumber, core, maxRetries });
+    if (!pull) {
+      throw new Error('pull request data unavailable');
     }
-  }
-  if (!pull) {
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const attempts = error?.attempts || maxRetries;
     outputs.reason = 'pull-fetch-failed';
-    const message = lastError instanceof Error ? lastError.message : String(lastError || 'unknown error');
-    core.warning(`Keepalive dispatch skipped: unable to load PR #${prNumber} after ${maxRetries} attempts (${message}).`);
+    core.warning(`Keepalive dispatch skipped: unable to load PR #${prNumber} after ${attempts} attempts (${message}).`);
     return finalise();
   }
 

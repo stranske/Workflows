@@ -1,6 +1,7 @@
 'use strict';
 
 const { paginateWithBackoff, withBackoff } = require('./api-helpers.js');
+const { createGithubApiCache } = require('./github-api-cache-client');
 
 const KEEPALIVE_LABEL = 'agents:keepalive';
 const AGENT_LABEL_PREFIX = 'agent:';
@@ -19,6 +20,53 @@ const RECENT_COMPLETED_LOOKBACK_SECONDS = 300; // 5 minutes
 // Rate limit retry configuration - now handled by api-helpers
 const RATE_LIMIT_MAX_RETRIES = 3;
 const RATE_LIMIT_BASE_DELAY_MS = 2000;
+
+function getGithubApiCache({ github, core }) {
+  if (!github) {
+    return createGithubApiCache({ core });
+  }
+  if (github.__keepaliveGateApiCache) {
+    return github.__keepaliveGateApiCache;
+  }
+  const cache = createGithubApiCache({ core });
+  Object.defineProperty(github, '__keepaliveGateApiCache', {
+    value: cache,
+    enumerable: false,
+    configurable: false,
+    writable: false,
+  });
+  return cache;
+}
+
+async function fetchPullRequestCached({ github, owner, repo, prNumber, core }) {
+  if (!github?.rest?.pulls?.get || !owner || !repo) {
+    return null;
+  }
+  const number = Number(prNumber);
+  if (!Number.isFinite(number) || number <= 0) {
+    return null;
+  }
+  const cache = getGithubApiCache({ github, core });
+  const key = cache.buildPrCacheKey({ owner, repo, number, resource: 'pulls.get' });
+  return cache.getOrSet({
+    key,
+    fetcher: async () => {
+      const response = await withBackoff(
+        () => github.rest.pulls.get({ owner, repo, pull_number: number }),
+        { core, maxRetries: RATE_LIMIT_MAX_RETRIES, baseDelay: RATE_LIMIT_BASE_DELAY_MS }
+      );
+      const data = response?.data;
+      if (!data) {
+        const error = new Error('pull request data unavailable');
+        if (response && typeof response === 'object') {
+          error.status = response.status;
+        }
+        throw error;
+      }
+      return data;
+    },
+  });
+}
 
 /**
  * Sleep for a given number of milliseconds.
@@ -780,11 +828,10 @@ async function evaluateRunCapForPr({
 
   let pull;
   try {
-    const response = await withBackoff(
-      () => github.rest.pulls.get({ owner, repo, pull_number: number }),
-      { core, maxRetries: RATE_LIMIT_MAX_RETRIES, baseDelay: RATE_LIMIT_BASE_DELAY_MS }
-    );
-    pull = response.data;
+    pull = await fetchPullRequestCached({ github, owner, repo, prNumber: number, core });
+    if (!pull) {
+      throw new Error('pull request data unavailable');
+    }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (core?.warning) {
@@ -893,11 +940,10 @@ async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
   let pr = pullRequest || null;
   if (!pr) {
     try {
-      const response = await withBackoff(
-        () => github.rest.pulls.get({ owner, repo, pull_number: prNumber }),
-        { core, maxRetries: RATE_LIMIT_MAX_RETRIES, baseDelay: RATE_LIMIT_BASE_DELAY_MS }
-      );
-      pr = response.data;
+      pr = await fetchPullRequestCached({ github, owner, repo, prNumber, core });
+      if (!pr) {
+        throw new Error('pull request data unavailable');
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       return {

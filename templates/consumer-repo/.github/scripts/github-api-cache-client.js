@@ -82,6 +82,9 @@ function createGithubApiCache(options = {}) {
       return cached.value;
     }
     const value = await fetcher();
+    if (value == null) {
+      return value;
+    }
     store.set(key, value, { ttlMs: ttlOverride });
     return value;
   }
