@@ -1321,6 +1321,7 @@ async function evaluateKeepaliveLoop({ github, context, core, payload: overrideP
   const iteration = configHasExplicitIteration ? config.iteration : toNumber(state.iteration, 0);
   const maxIterations = toNumber(config.max_iterations ?? state.max_iterations, 5);
   const failureThreshold = toNumber(config.failure_threshold ?? state.failure_threshold, 3);
+  const progressReviewThreshold = toNumber(config.progress_review_threshold ?? state.progress_review_threshold, 4);
 
   // Evidence-based productivity tracking
   // Uses multiple signals to determine if work is being done:
@@ -1344,8 +1345,8 @@ async function evaluateKeepaliveLoop({ github, context, core, payload: overrideP
   
   // Progress review threshold: trigger after N rounds of activity without task completion
   // This catches "productive but unfocused" patterns where agent makes changes but doesn't advance criteria
-  const PROGRESS_REVIEW_THRESHOLD = 8;
-  const needsProgressReview = roundsWithoutTaskCompletion >= PROGRESS_REVIEW_THRESHOLD 
+  // Default is 4 rounds - enough leeway for prep work but early enough for course correction
+  const needsProgressReview = roundsWithoutTaskCompletion >= progressReviewThreshold 
     && lastFilesChanged > 0  // Only review if there's actual activity
     && !allComplete;         // Don't review if all tasks are done
   
