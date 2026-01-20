@@ -1,0 +1,147 @@
+version: 1
+issue: 974
+base: main
+branch: codex/issue-974
+tasks:
+  - id: task-01
+    title: Add LangSmith trace ID extraction to `.github/workflows/agents-auto-pilot.yml`
+    status: doing
+    started_at: '2026-01-20T01:49:04Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: Extend `scripts/aggregate_metrics.py` to include `langsmith_trace_id` field
+      in metrics JSON
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: Update metrics collection in `scripts/aggregate_metrics.py` to capture
+      trace URLs
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: Add trace ID to PR comments for visibility in `.github/workflows/agents-auto-pilot.yml`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: Document LangSmith integration in `docs/agent-automation.md`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: Add LangSmith trace ID extraction to auto-pilot workflow
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: Extend metrics JSON schema to include `langsmith_trace_id` field
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: Update metrics collection to capture trace URLs
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: Add trace ID to PR comments for visibility
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: Document LangSmith integration in agent automation docs
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: Auto-pilot runs include LangSmith trace ID in metrics
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: Trace IDs are clickable URLs to LangSmith dashboard
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: Metrics JSON schema documented with trace fields
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: Integration does not increase workflow runtime by >5 seconds
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: Existing workflows continue working if LangSmith unavailable
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: Auto-pilot runs include LangSmith trace ID in metrics
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: Trace IDs are clickable URLs to LangSmith dashboard
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: Metrics JSON schema documented with trace fields
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: Integration does not increase workflow runtime by >5 seconds
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: Existing workflows continue working if LangSmith unavailable
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
