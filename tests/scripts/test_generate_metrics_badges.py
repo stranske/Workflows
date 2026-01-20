@@ -29,6 +29,22 @@ def test_build_endpoint_payloads_formats_metrics() -> None:
     assert status["color"] == "brightgreen"
 
 
+def test_build_endpoint_payloads_uses_success_rate_fallbacks() -> None:
+    metrics = {
+        "summary": {
+            "recent_success_rate": 92.5,
+        },
+        "avg_duration_seconds": 300,
+        "last_run_status": "success",
+    }
+
+    payloads = generate_metrics_badges.build_endpoint_payloads(metrics)
+
+    success = payloads["success_rate"]
+    assert success["message"] == "92.5%"
+    assert success["color"] == "yellow"
+
+
 def test_main_writes_badge_files(tmp_path: Path) -> None:
     metrics_path = tmp_path / "metrics.json"
     metrics_path.write_text(

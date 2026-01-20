@@ -111,6 +111,11 @@ def _avg_duration_color(seconds: float | None) -> str:
 
 def _build_success_rate(metrics: Mapping[str, Any], badge: BadgeType) -> BadgePayload:
     value = _coerce_float(_extract_metric(metrics, badge.metric_key))
+    if value is None:
+        for alt_key in ("recent_success_rate", "overall_success_rate", "success_rate_percent"):
+            value = _coerce_float(_extract_metric(metrics, alt_key))
+            if value is not None:
+                break
     return BadgePayload(
         label=badge.label,
         message=_format_percent(value),

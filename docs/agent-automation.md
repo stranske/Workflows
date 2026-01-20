@@ -80,6 +80,26 @@ While the agent wrappers were removed, maintenance automation still supports the
 
 - The Gate summary job writes consolidated run summaries, applies low-risk fixes, uploads patches when automation cannot push directly after `pr-00-gate.yml` finishes, and now owns the CI failure tracker end to end.
 
+## Metrics Badges
+
+To embed the metrics badges in a consuming repo README:
+
+1. Publish the badge endpoint JSON files using `scripts/generate_metrics_badges.py` and your metrics summary JSON.
+2. Host the JSON endpoints somewhere stable (for example, a repository `raw` URL or a static site).
+3. Add the badge markers to the README where the block should appear:
+   ```markdown
+   <!-- METRICS_BADGES_START -->
+   <!-- METRICS_BADGES_END -->
+   ```
+4. Run `scripts/update_readme_badges.py` with the badge endpoint base URL:
+   ```bash
+   python scripts/update_readme_badges.py \
+     --readme-path README.md \
+     --badge-endpoint-base https://example.com/metrics/badges
+   ```
+
+The update script injects the badge markdown (success rate, average duration, last run status) between the markers.
+
 ## Auto-Pilot Workflow Architecture
 
 The `agents-auto-pilot.yml` workflow implements a complete end-to-end automation pipeline from issue creation to PR merge.
