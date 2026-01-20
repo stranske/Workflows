@@ -1346,8 +1346,7 @@ async function evaluateKeepaliveLoop({ github, context, core, payload: overrideP
   // Progress review threshold: trigger after N rounds of activity without task completion
   // This catches "productive but unfocused" patterns where agent makes changes but doesn't advance criteria
   // Default is 4 rounds - enough leeway for prep work but early enough for course correction
-  const needsProgressReview = roundsWithoutTaskCompletion >= progressReviewThreshold 
-    && lastFilesChanged > 0  // Only review if there's actual activity
+  const needsProgressReview = roundsWithoutTaskCompletion >= progressReviewThreshold
     && !allComplete;         // Don't review if all tasks are done
   
   // Calculate productivity score (0-100)
