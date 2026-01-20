@@ -5,10 +5,10 @@ branch: codex/issue-974
 tasks:
   - id: task-01
     title: Add LangSmith trace ID extraction to `.github/workflows/agents-auto-pilot.yml`
-    status: doing
+    status: done
     started_at: '2026-01-20T01:49:04Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-01-20T01:49:11Z'
+    commit: de0b9b9019f801e71c72ceadc134460a903bbaee
     notes: []
   - id: task-02
     title: Extend `scripts/aggregate_metrics.py` to include `langsmith_trace_id` field
