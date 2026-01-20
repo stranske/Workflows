@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 
 const { parseScopeTasksAcceptanceSections } = require('./issue_scope_parser');
+const { createGithubApiCache } = require('./github-api-cache-client');
 const { loadKeepaliveState, formatStateComment } = require('./keepalive_state');
 const { resolvePromptMode } = require('./keepalive_prompt_routing');
 const { classifyError, ERROR_CATEGORIES } = require('./error_classifier');
@@ -227,6 +228,71 @@ function resolveDurationMs({ durationMs, startTs }) {
   return Math.max(0, Math.floor(delta));
 }
 
+function getGithubApiCache({ github, core }) {
+  if (github && github.__keepaliveApiCache) {
+    return github.__keepaliveApiCache;
+  }
+  const cache = createGithubApiCache({ core });
+  if (github) {
+    Object.defineProperty(github, '__keepaliveApiCache', {
+      value: cache,
+      enumerable: false,
+      configurable: false,
+      writable: false,
+    });
+  }
+  return cache;
+}
+
+async function fetchPullRequestCached({ github, context, prNumber, core }) {
+  if (!github?.rest?.pulls?.get || !context?.repo?.owner || !context?.repo?.repo) {
+    return null;
+  }
+  if (!Number.isFinite(prNumber) || prNumber <= 0) {
+    return null;
+  }
+  const owner = context.repo.owner;
+  const repo = context.repo.repo;
+  const cache = getGithubApiCache({ github, core });
+  const key = cache.buildPrCacheKey({ owner, repo, number: prNumber, resource: 'pulls.get' });
+  return cache.getOrSet({
+    key,
+    fetcher: async () => {
+      const { data } = await github.rest.pulls.get({
+        owner,
+        repo,
+        pull_number: prNumber,
+      });
+      return data;
+    },
+  });
+}
+
+async function fetchPrFilesCached({ github, context, prNumber, core }) {
+  if (!github?.rest?.pulls?.listFiles || !context?.repo?.owner || !context?.repo?.repo) {
+    return [];
+  }
+  if (!Number.isFinite(prNumber) || prNumber <= 0) {
+    return [];
+  }
+  const owner = context.repo.owner;
+  const repo = context.repo.repo;
+  const cache = getGithubApiCache({ github, core });
+  const key = cache.buildPrCacheKey({ owner, repo, number: prNumber, resource: 'pulls.listFiles' });
+  return cache.getOrSet({
+    key,
+    fetcher: async () => {
+      const { data } = await github.rest.pulls.listFiles({
+        owner,
+        repo,
+        pull_number: prNumber,
+        per_page: 100,
+      });
+      return Array.isArray(data) ? data : [];
+    },
+  });
+}
+
 async function fetchPrLabels({ github, context, prNumber, core }) {
   if (!github?.rest?.pulls?.get || !context?.repo?.owner || !context?.repo?.repo) {
     return [];
@@ -235,12 +301,8 @@ async function fetchPrLabels({ github, context, prNumber, core }) {
     return [];
   }
   try {
-    const { data } = await github.rest.pulls.get({
-      owner: context.repo.owner,
-      repo: context.repo.repo,
-      pull_number: prNumber,
-    });
-    const rawLabels = Array.isArray(data?.labels) ? data.labels : [];
+    const pr = await fetchPullRequestCached({ github, context, prNumber, core });
+    const rawLabels = Array.isArray(pr?.labels) ? pr.labels : [];
     return rawLabels.map((label) => normalise(label?.name).toLowerCase()).filter(Boolean);
   } catch (error) {
     if (core) {
@@ -832,12 +894,8 @@ async function fetchPrBody({ github, context, prNumber, core }) {
     return '';
   }
   try {
-    const { data } = await github.rest.pulls.get({
-      owner: context.repo.owner,
-      repo: context.repo.repo,
-      pull_number: prNumber,
-    });
-    return String(data?.body || '');
+    const pr = await fetchPullRequestCached({ github, context, prNumber, core });
+    return String(pr?.body || '');
   } catch (error) {
     if (core) {
       core.info(`Failed to fetch PR body for task focus: ${error.message}`);
@@ -1263,6 +1321,16 @@ async function detectRateLimitCancellation({ github, context, runId, core }) {
 
 async function evaluateKeepaliveLoop({ github, context, core, payload: overridePayload, overridePrNumber, forceRetry }) {
   const payload = overridePayload || context.payload || {};
+  const cache = getGithubApiCache({ github, core });
+  if (cache?.invalidateForWebhook) {
+    cache.invalidateForWebhook({
+      eventName: context?.eventName,
+      payload,
+      owner: context?.repo?.owner,
+      repo: context?.repo?.repo,
+    });
+  }
+  try {
   let prNumber = overridePrNumber || await resolvePrNumber({ github, context, core, payload });
   if (!prNumber) {
     return {
@@ -1272,11 +1340,10 @@ async function evaluateKeepaliveLoop({ github, context, core, payload: overrideP
     };
   }
 
-  const { data: pr } = await github.rest.pulls.get({
-    owner: context.repo.owner,
-    repo: context.repo.repo,
-    pull_number: prNumber,
-  });
+  const pr = await fetchPullRequestCached({ github, context, prNumber, core });
+  if (!pr) {
+    throw new Error(`Failed to fetch PR #${prNumber} for keepalive loop`);
+  }
 
   const gateRun = await resolveGateRun({
     github,
@@ -1510,9 +1577,22 @@ async function evaluateKeepaliveLoop({ github, context, core, payload: overrideP
     needsProgressReview,
     roundsWithoutTaskCompletion,
   };
+  } finally {
+    cache?.emitMetrics?.();
+  }
 }
 
 async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
+  const cache = getGithubApiCache({ github, core });
+  if (cache?.invalidateForWebhook) {
+    cache.invalidateForWebhook({
+      eventName: context?.eventName,
+      payload: context?.payload,
+      owner: context?.repo?.owner,
+      repo: context?.repo?.repo,
+    });
+  }
+  try {
   const prNumber = Number(inputs.prNumber || inputs.pr_number || 0);
   if (!Number.isFinite(prNumber) || prNumber <= 0) {
     if (core) core.info('No PR number available for summary update.');
@@ -2189,6 +2269,9 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
       if (core) core.warning(`Failed to add needs-human label: ${error.message}`);
     }
   }
+  } finally {
+    cache?.emitMetrics?.();
+  }
 }
 
 /**
@@ -2337,13 +2420,8 @@ async function analyzeTaskCompletion({ github, context, prNumber, baseSha, headS
   // Get files changed
   let filesChanged = [];
   try {
-    const { data } = await github.rest.pulls.listFiles({
-      owner: context.repo.owner,
-      repo: context.repo.repo,
-      pull_number: prNumber,
-      per_page: 100,
-    });
-    filesChanged = data.map(f => f.filename);
+    const files = await fetchPrFilesCached({ github, context, prNumber, core });
+    filesChanged = files.map(f => f.filename);
   } catch (error) {
     log(`Failed to get files: ${error.message}`);
   }
@@ -2556,12 +2634,10 @@ async function autoReconcileTasks({ github, context, prNumber, baseSha, headSha,
   // Get current PR body
   let pr;
   try {
-    const { data } = await github.rest.pulls.get({
-      owner: context.repo.owner,
-      repo: context.repo.repo,
-      pull_number: prNumber,
-    });
-    pr = data;
+    pr = await fetchPullRequestCached({ github, context, prNumber, core });
+    if (!pr) {
+      throw new Error('PR data unavailable');
+    }
   } catch (error) {
     log(`Failed to get PR: ${error.message}`);
     return { updated: false, tasksChecked: 0, details: `Failed to get PR: ${error.message}` };
