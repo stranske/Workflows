@@ -18,6 +18,8 @@ All record types include the following fields:
 - `issue_number`: Integer issue number.
 - `timestamp`: ISO 8601 UTC timestamp for the record.
 - `cycle_count`: Integer cycle counter for the auto-pilot run.
+- `langsmith_trace_id` (optional): LangSmith trace identifier when tracing is enabled.
+- `langsmith_trace_url` (optional): Clickable LangSmith trace URL for the run.
 
 The metrics collector always writes NDJSON records to the configured log file **and**
 prints the JSON record to stdout for CI visibility.
@@ -54,6 +56,8 @@ Example:
   "issue_number": 120,
   "timestamp": "2026-02-01T12:34:56Z",
   "cycle_count": 2,
+  "langsmith_trace_id": "trace_abc123",
+  "langsmith_trace_url": "https://smith.langchain.com/r/trace_abc123",
   "step_name": "format-issue",
   "duration_ms": 3142,
   "success": true,

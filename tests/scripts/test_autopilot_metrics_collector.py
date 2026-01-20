@@ -49,6 +49,22 @@ def test_validate_record_accepts_step_payload() -> None:
     collector.validate_record(_step_record())
 
 
+def test_validate_record_accepts_trace_fields() -> None:
+    record = _step_record()
+    record["langsmith_trace_id"] = "trace-123"
+    record["langsmith_trace_url"] = "https://smith.langchain.com/r/trace-123"
+
+    collector.validate_record(record)
+
+
+def test_validate_record_rejects_blank_trace_fields() -> None:
+    record = _step_record()
+    record["langsmith_trace_id"] = "   "
+
+    with pytest.raises(collector.ValidationError, match="langsmith_trace_id must be"):
+        collector.validate_record(record)
+
+
 def test_validate_record_accepts_cycle_payload() -> None:
     collector.validate_record(_cycle_record())
 
@@ -169,6 +185,34 @@ def test_build_record_from_args_defaults_timestamp(monkeypatch: pytest.MonkeyPat
     assert record["schema_version"] == collector.AUTOPILOT_METRICS_SCHEMA_VERSION
     assert record["issue_number"] == 12
     assert record["failure_reason"] == "none"
+
+
+def test_build_record_from_args_includes_trace_fields(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("LANGSMITH_TRACE_ID", "trace-456")
+    monkeypatch.setenv("LANGSMITH_TRACE_URL", "https://smith.langchain.com/r/trace-456")
+    args = collector.argparse.Namespace(
+        metric_type="cycle",
+        issue_number="12",
+        cycle_count="3",
+        timestamp="2025-04-05T06:07:08Z",
+        step_name=None,
+        duration_ms=None,
+        started_at=None,
+        ended_at=None,
+        started_at_ms=None,
+        ended_at_ms=None,
+        success=None,
+        failure_reason=None,
+        max_cycles="5",
+        steps_attempted=None,
+        steps_completed=None,
+        escalation_reason=None,
+    )
+
+    record = collector.build_record_from_args(args)
+
+    assert record["langsmith_trace_id"] == "trace-456"
+    assert record["langsmith_trace_url"] == "https://smith.langchain.com/r/trace-456"
 
 
 def test_build_record_from_args_normalizes_failure_reason_on_success() -> None:

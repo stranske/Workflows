@@ -7,6 +7,8 @@ Schema (version 1):
   "issue_number": int,
   "timestamp": "YYYY-MM-DDTHH:MM:SSZ",
   "cycle_count": int,
+  "langsmith_trace_id": str?,
+  "langsmith_trace_url": str?,
 
   // step records
   "step_name": str,
@@ -56,6 +58,7 @@ AUTOPILOT_METRICS_SCHEMA: dict[str, Any] = {
                 "success",
                 "failure_reason",
             ),
+            "optional": ("langsmith_trace_id", "langsmith_trace_url"),
         },
         "cycle": {
             "required": (
@@ -65,7 +68,13 @@ AUTOPILOT_METRICS_SCHEMA: dict[str, Any] = {
                 "timestamp",
                 "cycle_count",
             ),
-            "optional": ("max_cycles", "steps_attempted", "steps_completed"),
+            "optional": (
+                "max_cycles",
+                "steps_attempted",
+                "steps_completed",
+                "langsmith_trace_id",
+                "langsmith_trace_url",
+            ),
         },
         "escalation": {
             "required": (
@@ -76,6 +85,7 @@ AUTOPILOT_METRICS_SCHEMA: dict[str, Any] = {
                 "cycle_count",
                 "escalation_reason",
             ),
+            "optional": ("langsmith_trace_id", "langsmith_trace_url"),
         },
     },
 }
@@ -83,7 +93,8 @@ AUTOPILOT_METRICS_SCHEMA: dict[str, Any] = {
 STEP_REQUIRED_FIELDS = AUTOPILOT_METRICS_SCHEMA["record_types"]["step"]["required"]
 CYCLE_REQUIRED_FIELDS = AUTOPILOT_METRICS_SCHEMA["record_types"]["cycle"]["required"]
 ESCALATION_REQUIRED_FIELDS = AUTOPILOT_METRICS_SCHEMA["record_types"]["escalation"]["required"]
-_CYCLE_OPTIONAL_FIELDS = AUTOPILOT_METRICS_SCHEMA["record_types"]["cycle"]["optional"]
+_CYCLE_OPTIONAL_FIELDS = ("max_cycles", "steps_attempted", "steps_completed")
+_TRACE_FIELDS = ("langsmith_trace_id", "langsmith_trace_url")
 
 
 def schema_payload() -> str:
@@ -120,6 +131,15 @@ def _parse_timestamp(value: str) -> datetime:
     return parsed
 
 
+def _validate_trace_fields(record: dict[str, Any]) -> None:
+    for field in _TRACE_FIELDS:
+        if field not in record:
+            continue
+        value = record[field]
+        if not isinstance(value, str) or not value.strip():
+            raise ValidationError(f"{field} must be a non-empty string")
+
+
 def _duration_ms_from_bounds(started_at: str, ended_at: str) -> int:
     start = _parse_timestamp(started_at)
     end = _parse_timestamp(ended_at)
@@ -144,6 +164,8 @@ def _validate_step(record: dict[str, Any]) -> None:
     missing = [field for field in STEP_REQUIRED_FIELDS if field not in record]
     if missing:
         raise ValidationError(f"missing fields: {', '.join(missing)}")
+
+    _validate_trace_fields(record)
 
     if not _is_int(record["schema_version"]):
         raise ValidationError("schema_version must be an integer")
@@ -174,6 +196,8 @@ def _validate_cycle(record: dict[str, Any]) -> None:
     if missing:
         raise ValidationError(f"missing fields: {', '.join(missing)}")
 
+    _validate_trace_fields(record)
+
     if not _is_int(record["schema_version"]):
         raise ValidationError("schema_version must be an integer")
     if record["schema_version"] != AUTOPILOT_METRICS_SCHEMA_VERSION:
@@ -194,6 +218,8 @@ def _validate_escalation(record: dict[str, Any]) -> None:
     missing = [field for field in ESCALATION_REQUIRED_FIELDS if field not in record]
     if missing:
         raise ValidationError(f"missing fields: {', '.join(missing)}")
+
+    _validate_trace_fields(record)
 
     if not _is_int(record["schema_version"]):
         raise ValidationError("schema_version must be an integer")
@@ -277,6 +303,8 @@ def build_record_from_args(args: argparse.Namespace) -> dict[str, Any]:
     if not metric_type:
         raise ValidationError("metric_type must be set")
 
+    trace_id = _env_or_value(getattr(args, "langsmith_trace_id", None), "LANGSMITH_TRACE_ID")
+    trace_url = _env_or_value(getattr(args, "langsmith_trace_url", None), "LANGSMITH_TRACE_URL")
     record: dict[str, Any] = {
         "schema_version": AUTOPILOT_METRICS_SCHEMA_VERSION,
         "metric_type": metric_type,
@@ -284,6 +312,10 @@ def build_record_from_args(args: argparse.Namespace) -> dict[str, Any]:
         "timestamp": args.timestamp or _utc_now_iso(),
         "cycle_count": _coerce_int(args.cycle_count, "cycle_count"),
     }
+    if trace_id:
+        record["langsmith_trace_id"] = trace_id
+    if trace_url:
+        record["langsmith_trace_url"] = trace_url
 
     if metric_type == "step":
         if args.step_name is None:
@@ -475,6 +507,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--steps-attempted", help="Steps attempted for cycle records")
     parser.add_argument("--steps-completed", help="Steps completed for cycle records")
     parser.add_argument("--escalation-reason", help="Escalation reason for escalation records")
+    parser.add_argument("--langsmith-trace-id", help="LangSmith trace identifier (optional)")
+    parser.add_argument("--langsmith-trace-url", help="LangSmith trace URL (optional)")
     return parser
 
 

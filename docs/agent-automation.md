@@ -123,6 +123,15 @@ The workflow tracks state by:
 - Monitoring linked PRs
 - Counting auto-pilot step comments
 
+### LangSmith Tracing
+
+When LangSmith tracing is enabled for auto-pilot runs, the metrics records may include:
+
+- `langsmith_trace_id` for the LangSmith trace identifier.
+- `langsmith_trace_url` with a direct, clickable link to the trace in the LangSmith UI.
+
+These fields are optional and should be omitted when LangSmith is unavailable.
+
 ### Re-dispatch Pattern
 
 After each major step, the workflow re-dispatches itself to continue the pipeline. This allows:
