@@ -173,6 +173,25 @@ alert fatigue in mind.
 - Keep alert volume manageable: if the same threshold fires repeatedly without action, relax it or add a higher-severity
   tier so only actionable alerts page maintainers.
 
+## Metrics Retention
+
+Metrics logs are append-only NDJSON files (for example `metrics-history.ndjson` and `keepalive-metrics.ndjson`). Retention
+policy is defined in `config/retention-policy.json`, with daily, weekly, and monthly windows to keep recent data hot while
+archiving older entries under `archives/metrics/`.
+
+Run retention manually:
+- `python scripts/metrics_retention.py` (uses defaults + `agent-metrics/` discovery)
+- `python scripts/metrics_retention.py --dry-run` to preview without writing
+
+Archived data can be restored when needed:
+- `python scripts/metrics_retention.py --restore --archive-path archives/metrics/metrics-history/weekly --output-path metrics-history.ndjson`
+
+Retention operations are tracked in `metrics-retention.ndjson`, including record counts, archive destinations, and storage
+reduction percentages.
+
+Needs-human: add a scheduled workflow (e.g. nightly) to run `scripts/metrics_retention.py` so the policy executes
+automatically.
+
 ## Security Considerations
 
 - All sensitive operations continue to rely on `SERVICE_BOT_PAT` when available. The workflows gracefully fall back to

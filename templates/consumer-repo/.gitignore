@@ -165,7 +165,9 @@ docs/keepalive/status/
 keepalive-metrics.ndjson
 coverage-trend-history.ndjson
 metrics-history.ndjson
+metrics-retention.ndjson
 residual-trend-history.ndjson
+archives/metrics/
 
 # Build artifacts
 .autofix-venv/

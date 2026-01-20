@@ -49,7 +49,9 @@ CANONICAL_PATTERNS: list[str] = [
     "keepalive-metrics.ndjson",
     "coverage-trend-history.ndjson",
     "metrics-history.ndjson",
+    "metrics-retention.ndjson",
     "residual-trend-history.ndjson",
+    "archives/metrics/",
     # Build artifacts
     ".autofix-venv/",
     # PR automation generated files (MEDIUM conflict risk)
