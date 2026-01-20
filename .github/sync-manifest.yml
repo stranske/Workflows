@@ -396,6 +396,9 @@ scripts:
 
   - source: .github/scripts/github-api-cache.js
     description: "Shared cache utilities for GitHub API requests used by PR context scripts"
+
+  - source: .github/scripts/github-api-cache-client.js
+    description: "Client wrapper for cached GitHub API requests"
 # Templates required by keepalive system
 templates:
   - source: .github/templates/keepalive-instruction.md
