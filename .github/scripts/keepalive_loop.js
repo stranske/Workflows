@@ -1453,6 +1453,10 @@ async function evaluateKeepaliveLoop({ github, context, core, payload: overrideP
       action = 'stop';
       reason = 'tasks-complete';
     }
+  } else if (shouldStopForMaxIterations && forceRetry && tasksRemaining) {
+    action = 'run';
+    reason = 'force-retry-max-iterations';
+    if (core) core.info('Force retry enabled: bypassing max-iterations stop');
   } else if (shouldStopForMaxIterations) {
     action = 'stop';
     reason = isProductive ? 'max-iterations' : 'max-iterations-unproductive';
