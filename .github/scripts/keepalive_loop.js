@@ -1541,6 +1541,10 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
   const failureThreshold = Math.max(1, toNumber(inputs.failureThreshold ?? inputs.failure_threshold, 3));
   const runResult = normalise(inputs.runResult || inputs.run_result);
   const stateTrace = normalise(inputs.trace || inputs.keepalive_trace || '');
+  const roundsWithoutTaskCompletion = toNumber(
+    inputs.roundsWithoutTaskCompletion ?? inputs.rounds_without_task_completion,
+    0,
+  );
 
   // Agent output details (agent-agnostic, with fallback to old codex_ names)
   const agentExitCode = normalise(inputs.agent_exit_code ?? inputs.agentExitCode ?? inputs.codex_exit_code ?? inputs.codexExitCode);
