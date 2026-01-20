@@ -516,14 +516,18 @@ def main(argv: list[str]) -> int:
         "files; reduction",
         f"{summary_payload['reduction_percent']}%",
     )
-    if min_reduction_percent is not None and not args.dry_run:
-        if summary["bytes_before"] > 0 and reduction_percent < min_reduction_percent:
-            print(
-                "metrics_retention: reduction below threshold",
-                f"{summary_payload['reduction_percent']}% < {min_reduction_percent}%",
-                file=sys.stderr,
-            )
-            return 2
+    if (
+        min_reduction_percent is not None
+        and not args.dry_run
+        and summary["bytes_before"] > 0
+        and reduction_percent < min_reduction_percent
+    ):
+        print(
+            "metrics_retention: reduction below threshold",
+            f"{summary_payload['reduction_percent']}% < {min_reduction_percent}%",
+            file=sys.stderr,
+        )
+        return 2
     return 0
 
 
