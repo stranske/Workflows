@@ -1,0 +1,161 @@
+version: 1
+issue: 810
+base: main
+branch: codex/issue-810
+tasks:
+  - id: task-01
+    title: 'Define badge types: success rate, avg duration, last run status'
+    status: doing
+    started_at: '2026-01-20T07:35:16Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: Implement shields.io endpoint JSON generation
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: Create workflow in `.github/workflows/update-readme-badges.yml` to update
+      consuming repo READMEs
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: Add badge markdown snippets to `docs/agent-automation.md`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: Test badge generation with sample metrics
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: Create `scripts/generate_metrics_badges.py` to generate badge SVGs or markdown
+      from metrics data
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: Create scripts/generate_metrics_badges.py
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: 'Define badge types: success rate, avg duration, last run status'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: Implement shields.io endpoint JSON generation
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: Create workflow to update consuming repo READMEs
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: Add badge markdown snippets to documentation
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: Test badge generation with sample metrics
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: Badges display current success rate percentage
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: Badges update automatically on schedule (daily)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: Badge format compatible with shields.io
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: README update workflow is non-destructive
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: Documentation includes badge embedding instructions
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: Badges display current success rate percentage
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: Badges update automatically on schedule (daily)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: Badge format compatible with shields.io
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: README update workflow is non-destructive
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: Documentation includes badge embedding instructions
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
