@@ -471,3 +471,75 @@ test('detectKeepalive caches pull request lookups across invocations', async () 
   assert.equal(outputsFirst.dispatch, 'true');
   assert.equal(outputsSecond.dispatch, 'true');
 });
+
+test('detectKeepalive does not cache empty pull responses', async () => {
+  const outputsFirst = {};
+  const outputsSecond = {};
+  let getCalls = 0;
+
+  const github = {
+    rest: {
+      pulls: {
+        async get() {
+          getCalls += 1;
+          return { data: null };
+        },
+      },
+      reactions: {
+        async listForIssueComment() {
+          return { data: [] };
+        },
+        async createForIssueComment({ content }) {
+          return { status: 201, data: { content } };
+        },
+      },
+      issues: {
+        async addLabels() {
+          return {};
+        },
+      },
+    },
+    async paginate(method) {
+      if (method === this.rest.reactions.listForIssueComment) {
+        return [];
+      }
+      return [];
+    },
+  };
+
+  const context = {
+    repo: { owner: 'stranske', repo: 'Workflows' },
+    payload: {
+      comment: {
+        id: 202,
+        html_url: 'https://example.test/comment/202',
+        body: '@codex please proceed',
+        user: { login: 'stranske' },
+      },
+      issue: { number: 77 },
+    },
+  };
+
+  const env = {
+    ALLOWED_LOGINS: 'stranske',
+    GATE_OK: 'true',
+  };
+
+  await detectKeepalive({
+    core: createCore(outputsFirst),
+    github,
+    context,
+    env,
+  });
+
+  await detectKeepalive({
+    core: createCore(outputsSecond),
+    github,
+    context,
+    env,
+  });
+
+  assert.equal(getCalls, 2);
+  assert.equal(outputsFirst.reason, 'pull-fetch-failed');
+  assert.equal(outputsSecond.reason, 'pull-fetch-failed');
+});

@@ -47,7 +47,15 @@ async function fetchPullRequestCached({ github, owner, repo, prNumber, core, max
       for (let attempt = 1; attempt <= maxRetries; attempt += 1) {
         try {
           const response = await github.rest.pulls.get({ owner, repo, pull_number: number });
-          return response.data;
+          const data = response?.data;
+          if (!data) {
+            const dataError = new Error('pull request data unavailable');
+            if (response && typeof response === 'object') {
+              dataError.status = response.status;
+            }
+            throw dataError;
+          }
+          return data;
         } catch (error) {
           lastError = error;
           const message = error instanceof Error ? error.message : String(error);

@@ -55,7 +55,15 @@ async function fetchPullRequestCached({ github, owner, repo, prNumber, core }) {
         () => github.rest.pulls.get({ owner, repo, pull_number: number }),
         { core, maxRetries: RATE_LIMIT_MAX_RETRIES, baseDelay: RATE_LIMIT_BASE_DELAY_MS }
       );
-      return response.data;
+      const data = response?.data;
+      if (!data) {
+        const error = new Error('pull request data unavailable');
+        if (response && typeof response === 'object') {
+          error.status = response.status;
+        }
+        throw error;
+      }
+      return data;
     },
   });
 }

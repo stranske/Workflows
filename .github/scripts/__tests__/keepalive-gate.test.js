@@ -278,6 +278,45 @@ test('evaluateRunCapForPr caches pull request fetches', async () => {
   assert.equal(pullCalls, 1);
 });
 
+test('evaluateRunCapForPr does not cache empty pull responses', async () => {
+  let pullCalls = 0;
+  const github = {
+    rest: {
+      actions: {
+        listWorkflowRuns: Symbol('listWorkflowRuns'),
+        async getWorkflowRun() {
+          const error = new Error('not found');
+          error.status = 404;
+          throw error;
+        },
+      },
+      pulls: {
+        async get() {
+          pullCalls += 1;
+          return { data: null };
+        },
+      },
+    },
+    async paginate() {
+      return [];
+    },
+  };
+
+  const args = {
+    github,
+    owner: 'stranske',
+    repo: 'Workflows',
+    prNumber: 77,
+  };
+
+  const first = await evaluateRunCapForPr(args);
+  const second = await evaluateRunCapForPr(args);
+
+  assert.equal(pullCalls, 2);
+  assert.equal(first.reason, 'pr-fetch-failed');
+  assert.equal(second.reason, 'pr-fetch-failed');
+});
+
 test('evaluateRunCapForPr returns ok when active runs are below cap', async () => {
   const registry = {
     'agents-70-orchestrator.yml|queued': [
