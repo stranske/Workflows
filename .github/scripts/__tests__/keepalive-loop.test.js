@@ -670,6 +670,42 @@ test('updateKeepaliveLoopSummary increments iteration and clears failures on suc
   assert.match(github.actions[0].body, /"failure":\{\}/);
 });
 
+test('updateKeepaliveLoopSummary reuses cached PR data for labels and body', async () => {
+  const pr = {
+    number: 321,
+    labels: [{ name: 'agent:codex' }],
+    body: prBodyFixture,
+  };
+  const github = buildGithubStub({ pr });
+  let prCalls = 0;
+  const originalGet = github.rest.pulls.get;
+  github.rest.pulls.get = async (...args) => {
+    prCalls += 1;
+    return originalGet(...args);
+  };
+
+  await updateKeepaliveLoopSummary({
+    github,
+    context: buildContext(pr.number),
+    core: buildCore(),
+    inputs: {
+      prNumber: pr.number,
+      action: 'run',
+      runResult: 'success',
+      gateConclusion: 'success',
+      tasksTotal: 2,
+      tasksUnchecked: 2,
+      keepaliveEnabled: true,
+      autofixEnabled: false,
+      iteration: 1,
+      maxIterations: 5,
+      failureThreshold: 3,
+    },
+  });
+
+  assert.equal(prCalls, 1);
+});
+
 test('updateKeepaliveLoopSummary logs timeout warning near expiration', async () => {
   const nowMs = Date.parse('2026-01-01T00:00:00Z');
   const realNow = Date.now;
