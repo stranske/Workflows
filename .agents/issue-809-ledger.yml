@@ -1,0 +1,162 @@
+version: 1
+issue: 809
+base: main
+branch: codex/issue-809
+tasks:
+  - id: task-01
+    title: Define retention policy configuration schema in `config/retention-policy.json`
+    status: doing
+    started_at: '2026-01-20T07:09:22Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: Implement archive functionality for old metrics in `scripts/metrics_retention.py`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: Add scheduled workflow in `.github/workflows/metrics-retention.yml` for
+      retention maintenance
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: Create documentation for retention policy in `docs/agent-automation.md`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: Add metrics about retention operations themselves in `scripts/metrics_retention.py`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: Create `scripts/metrics_retention.py` to automate the cleanup of old metrics
+      data.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: Define retention policy configuration schema
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: Create scripts/metrics_retention.py for cleanup
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: Implement archive functionality for old metrics
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: Add scheduled workflow for retention maintenance
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: Create documentation for retention policy
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: Add metrics about retention operations themselves
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: Configurable retention periods (daily, weekly, monthly) are defined in
+      `config/retention-policy.json`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: Archived data can be restored if needed from `scripts/metrics_retention.py`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: Retention script in `scripts/metrics_retention.py` is idempotent and safe
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: Storage usage reduced by >50% after initial cleanup
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: Retention operations logged and tracked in `scripts/metrics_retention.py`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: Configurable retention periods (daily, weekly, monthly)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: Archived data can be restored if needed
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: Retention script is idempotent and safe
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: Storage usage reduced by >50% after initial cleanup
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: Retention operations logged and tracked
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
