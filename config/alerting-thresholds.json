@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "updated": "2025-01-01",
+  "thresholds": {
+    "success_rate": {
+      "warning": 0.95,
+      "critical": 0.9,
+      "window_days": 7,
+      "min_runs": 20
+    },
+    "duration_ms": {
+      "p95_warning": 600000,
+      "p95_critical": 900000,
+      "window_days": 7,
+      "min_runs": 20
+    },
+    "token_usage": {
+      "p95_warning": 120000,
+      "p95_critical": 160000,
+      "window_days": 7,
+      "min_runs": 20
+    }
+  },
+  "issue_labels": [
+    "metrics",
+    "alert"
+  ],
+  "notes": "Thresholds apply to rolling windows for alerting checks."
+}
