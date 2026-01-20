@@ -648,14 +648,14 @@ function resolveTokenFromKeys(env = {}, keys = []) {
 }
 
 const INSTRUCTION_TOKEN_KEYS = [
-  'SERVICE_BOT_PAT',
-  'service_bot_pat',
-  'GITHUB_TOKEN',
-  'github_token',
-  'GH_TOKEN',
-  'gh_token',
   'ACTIONS_BOT_PAT',
   'actions_bot_pat',
+  'SERVICE_BOT_PAT',
+  'service_bot_pat',
+  'GH_TOKEN',
+  'gh_token',
+  'GITHUB_TOKEN',
+  'github_token',
 ];
 
 const DISPATCH_TOKEN_KEYS = [
@@ -667,6 +667,10 @@ const DISPATCH_TOKEN_KEYS = [
   'gh_dispatch_token',
   'ACTIONS_BOT_PAT',
   'actions_bot_pat',
+  'GH_TOKEN',
+  'gh_token',
+  'GITHUB_TOKEN',
+  'github_token',
 ];
 
 function resolveInstructionToken(env = {}) {
