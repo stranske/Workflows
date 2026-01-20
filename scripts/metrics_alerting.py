@@ -489,7 +489,7 @@ def _append_alert_history(
 
 def _send_slack_notification(webhook: str, alerts: list[Alert], issue_urls: list[str]) -> None:
     lines = ["Metrics alerting summary:"]
-    for alert, issue_url in zip(alerts, issue_urls):
+    for alert, issue_url in zip(alerts, issue_urls, strict=False):
         issue_text = issue_url or "no issue"
         lines.append(
             f"- {alert.metric} ({alert.severity}): {_format_alert_value(alert)} -> {issue_text}"
