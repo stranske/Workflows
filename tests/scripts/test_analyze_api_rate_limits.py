@@ -134,6 +134,60 @@ def test_summarize_workflow_activity_normalizes_repo_urls(monkeypatch) -> None:
     assert [summary["repo"] for summary in summaries] == calls
 
 
+def test_summarize_workflow_activity_rejects_lookalike_github_domains(monkeypatch) -> None:
+    """Regression test for CodeQL security alert: incomplete URL substring sanitization.
+
+    Ensures that lookalike domains (e.g., evil-github.com, github.com.evil.org)
+    are not mistakenly matched as valid GitHub URLs when selecting candidates
+    from whitespace-separated input tokens.
+    """
+    calls: list[str] = []
+
+    def fake_get_workflow_runs(repo: str, token: str | None = None) -> dict[str, object]:
+        calls.append(repo)
+        return {"workflow_runs": [], "total_count": 0}
+
+    monkeypatch.setattr(analyze_api_rate_limits, "get_workflow_runs", fake_get_workflow_runs)
+    now = datetime(2025, 1, 1, 11, 0, 0, tzinfo=UTC)
+
+    # When given space-separated input with a lookalike domain and a valid repo,
+    # the function should select the simple owner/repo format, not the lookalike URL
+    summaries = analyze_api_rate_limits.summarize_workflow_activity(
+        [
+            "origin https://evil-github.com/attacker/repo owner/repo",
+            "upstream https://github.com.evil.org/attacker/repo2 owner2/repo2",
+        ],
+        token="token",
+        hours=1,
+        now=now,
+    )
+
+    # Should extract the simple owner/repo, not the malicious URLs
+    assert calls == ["owner/repo", "owner2/repo2"]
+    assert [summary["repo"] for summary in summaries] == calls
+
+
+def test_is_github_url_validates_host_correctly() -> None:
+    """Test that _is_github_url properly validates GitHub URLs."""
+    # Valid GitHub URLs
+    assert analyze_api_rate_limits._is_github_url("https://github.com/owner/repo")
+    assert analyze_api_rate_limits._is_github_url("http://github.com/owner/repo")
+    assert analyze_api_rate_limits._is_github_url("git://github.com/owner/repo")
+    assert analyze_api_rate_limits._is_github_url("ssh://github.com/owner/repo")
+    assert analyze_api_rate_limits._is_github_url("github.com/owner/repo")
+    assert analyze_api_rate_limits._is_github_url("git@github.com:owner/repo")
+    assert analyze_api_rate_limits._is_github_url("https://www.github.com/owner/repo")
+    assert analyze_api_rate_limits._is_github_url("git@www.github.com:owner/repo")
+
+    # Invalid lookalike domains (these should NOT match)
+    assert not analyze_api_rate_limits._is_github_url("https://evil-github.com/owner/repo")
+    assert not analyze_api_rate_limits._is_github_url("https://github.com.evil.org/owner/repo")
+    assert not analyze_api_rate_limits._is_github_url("https://fakegithub.com/owner/repo")
+    assert not analyze_api_rate_limits._is_github_url("https://my-github.com/owner/repo")
+    assert not analyze_api_rate_limits._is_github_url("evil-github.com/owner/repo")
+    assert not analyze_api_rate_limits._is_github_url("github.com.evil.org/owner/repo")
+
+
 def test_summarize_workflow_activity_splits_space_delimited_repos(monkeypatch) -> None:
     calls: list[str] = []
 

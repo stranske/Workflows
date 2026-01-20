@@ -200,6 +200,16 @@ def _split_repo_entries(raw: str) -> list[str]:
     return [raw]
 
 
+# Pattern to identify tokens that are valid GitHub URLs
+# Matches URLs where github.com is the actual host, not a substring of another domain
+_GITHUB_URL_PATTERN = re.compile(r"^(?:https?://|git://|ssh://)?(?:git@)?(?:www\.)?github\.com[/:]")
+
+
+def _is_github_url(token: str) -> bool:
+    """Check if a token is a valid GitHub URL (not a lookalike domain)."""
+    return bool(_GITHUB_URL_PATTERN.match(token))
+
+
 def _strip_wrapping_repo(value: str) -> str:
     """Strip wrapping punctuation from a repo-like string."""
     repo = value.strip().strip("`'\"")
@@ -219,8 +229,25 @@ def _clean_repo(repo: str) -> str:
         repo = repo.rsplit(" (", 1)[0].strip()
     tokens = repo.split()
     if len(tokens) > 1:
-        candidate = next((token for token in tokens if "github.com" in token), None)
+        # Use proper URL validation instead of substring check to avoid
+        # matching lookalike domains (e.g., evil-github.com, github.com.evil.org)
+        candidate = next((token for token in tokens if _is_github_url(token)), None)
         if candidate is None:
+            # Prefer simple owner/repo format over URLs with "/" that might be
+            # from malicious domains. Skip anything that looks like a URL scheme.
+            candidate = next(
+                (
+                    token
+                    for token in tokens
+                    if "/" in token
+                    and not token.startswith("(")
+                    and "://" not in token
+                    and not token.startswith("git@")
+                ),
+                None,
+            )
+        if candidate is None:
+            # Last resort: pick any token with "/" but not a known malicious URL pattern
             candidate = next(
                 (token for token in tokens if "/" in token and not token.startswith("(")),
                 None,
