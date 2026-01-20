@@ -195,7 +195,7 @@ def heuristic_alignment_check(
         if criteria_match:
             aligned.append(commit)
         # Moderate alignment: infrastructure work that supports criteria
-        elif infra_match and len(infra_match) > 0:
+        elif infra_match:
             # But only if the commit isn't just a generic prefix + unrelated topic
             non_generic_words = commit_words - generic_commit_prefixes - infra_words
             # If there are non-generic words that aren't in criteria, it's likely drift

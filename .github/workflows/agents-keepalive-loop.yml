@@ -331,7 +331,7 @@ jobs:
             if (acMatch) {
               const lines = acMatch[0].split('\n');
               for (const line of lines) {
-                const match = line.match(/^\s*-\s*\[[ x]\]\s*(.+)/i);
+                const match = line.match(/^\s*[-*+]\s*(?:\[[ xX]\]\s*)?(.+)/i);
                 if (match) {
                   criteria.push(match[1].trim());
                 }
@@ -348,12 +348,27 @@ jobs:
           FILES: ${{ steps.commits.outputs.files }}
           ROUNDS: ${{ needs.evaluate.outputs.rounds_without_task_completion }}
         run: |
-          python scripts/langchain/progress_reviewer.py \
-            --acceptance-criteria $(echo "$CRITERIA" | jq -r '.[]' | while read -r c; do echo "--acceptance-criteria \"$c\""; done) \
-            --recent-commits $(echo "$COMMITS" | jq -r '.[]' | while read -r c; do echo "--recent-commits \"$c\""; done) \
-            --files-changed $(echo "$FILES" | jq -r '.[]' | while read -r f; do echo "--files-changed \"$f\""; done) \
-            --rounds-without-completion "$ROUNDS" \
-            --json > review_result.json || true
+          mapfile -t criteria_array < <(printf '%s\n' "$CRITERIA" | jq -r '.[]')
+          mapfile -t commits_array < <(printf '%s\n' "$COMMITS" | jq -r '.[]')
+          mapfile -t files_array < <(printf '%s\n' "$FILES" | jq -r '.[]')
+
+          args=("scripts/langchain/progress_reviewer.py")
+
+          for c in "${criteria_array[@]}"; do
+            args+=("--acceptance-criteria" "$c")
+          done
+
+          for c in "${commits_array[@]}"; do
+            args+=("--recent-commits" "$c")
+          done
+
+          for f in "${files_array[@]}"; do
+            args+=("--files-changed" "$f")
+          done
+
+          args+=("--rounds-without-completion" "$ROUNDS" "--json")
+
+          python "${args[@]}" > review_result.json || true
 
           # Parse results
           if [ -f review_result.json ]; then
@@ -431,7 +446,6 @@ jobs:
       - evaluate
       - preflight
       - run-codex
-      - progress-review
     # Run always if PR exists, handle skipped agent jobs gracefully
     if: always() && needs.evaluate.outputs.pr_number != '' && needs.evaluate.outputs.pr_number != '0'
     runs-on: ubuntu-latest

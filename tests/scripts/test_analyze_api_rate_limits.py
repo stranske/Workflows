@@ -344,7 +344,7 @@ def test_summarize_workflow_activity_handles_multiline_repo_inputs(monkeypatch) 
     summaries = analyze_api_rate_limits.summarize_workflow_activity(
         [
             "origin https://github.com/owner/repo.git (fetch)\n"
-            "origin https://github.com/owner/repo.git (push)",
+            + "origin https://github.com/owner/repo.git (push)",
             "upstream git@github.com:owner2/repo2.git (fetch)\n",
         ],
         token="token",

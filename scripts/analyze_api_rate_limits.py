@@ -175,7 +175,7 @@ def _normalize_repos(repos: list[str]) -> list[str]:
     return normalized
 
 
-_REPO_ENTRY = re.compile(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(?:\\.git)?(?:@\\S+)?")
+_REPO_ENTRY = re.compile(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(?:\.git)?(?:@\S+)?")
 
 
 def _split_repo_entries(raw: str) -> list[str]:
