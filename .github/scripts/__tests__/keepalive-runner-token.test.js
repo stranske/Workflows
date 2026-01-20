@@ -9,23 +9,23 @@ const {
   resolveDispatchToken,
 } = require(path.join(__dirname, '../../../scripts/keepalive-runner.js'));
 
-test('resolveInstructionToken prefers service bot token', () => {
+test('resolveInstructionToken prefers actions bot token', () => {
   const token = resolveInstructionToken({
+    ACTIONS_BOT_PAT: 'actions-token',
     SERVICE_BOT_PAT: 'service-token',
-    ACTIONS_BOT_PAT: 'actions-token',
-    GH_TOKEN: 'gh-token',
-  });
-
-  assert.equal(token, 'service-token');
-});
-
-test('resolveInstructionToken falls back to actions bot token', () => {
-  const token = resolveInstructionToken({
-    ACTIONS_BOT_PAT: 'actions-token',
     GH_TOKEN: 'gh-token',
   });
 
   assert.equal(token, 'actions-token');
+});
+
+test('resolveInstructionToken falls back to service bot token', () => {
+  const token = resolveInstructionToken({
+    SERVICE_BOT_PAT: 'service-token',
+    GH_TOKEN: 'gh-token',
+  });
+
+  assert.equal(token, 'service-token');
 });
 
 test('resolveInstructionToken falls back to gh token', () => {

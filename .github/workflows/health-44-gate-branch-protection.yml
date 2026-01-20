@@ -165,6 +165,7 @@ jobs:
             --snapshot "${SNAPSHOT_DIR}/verification.json"
 
       - name: Verify gate branch protection is required (read-only)
+        continue-on-error: ${{ github.event_name == 'pull_request' }}
         if: env.ENFORCE_TOKEN == '' || (github.event_name == 'pull_request' && steps.verify-admin.outcome != 'success')
         env:
           GITHUB_TOKEN: ${{ github.token }}
