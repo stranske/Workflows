@@ -1321,6 +1321,16 @@ async function detectRateLimitCancellation({ github, context, runId, core }) {
 
 async function evaluateKeepaliveLoop({ github, context, core, payload: overridePayload, overridePrNumber, forceRetry }) {
   const payload = overridePayload || context.payload || {};
+  const cache = getGithubApiCache({ github, core });
+  if (cache?.invalidateForWebhook) {
+    cache.invalidateForWebhook({
+      eventName: context?.eventName,
+      payload,
+      owner: context?.repo?.owner,
+      repo: context?.repo?.repo,
+    });
+  }
+  try {
   let prNumber = overridePrNumber || await resolvePrNumber({ github, context, core, payload });
   if (!prNumber) {
     return {
@@ -1567,9 +1577,22 @@ async function evaluateKeepaliveLoop({ github, context, core, payload: overrideP
     needsProgressReview,
     roundsWithoutTaskCompletion,
   };
+  } finally {
+    cache?.emitMetrics?.();
+  }
 }
 
 async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
+  const cache = getGithubApiCache({ github, core });
+  if (cache?.invalidateForWebhook) {
+    cache.invalidateForWebhook({
+      eventName: context?.eventName,
+      payload: context?.payload,
+      owner: context?.repo?.owner,
+      repo: context?.repo?.repo,
+    });
+  }
+  try {
   const prNumber = Number(inputs.prNumber || inputs.pr_number || 0);
   if (!Number.isFinite(prNumber) || prNumber <= 0) {
     if (core) core.info('No PR number available for summary update.');
@@ -2245,6 +2268,9 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
     } catch (error) {
       if (core) core.warning(`Failed to add needs-human label: ${error.message}`);
     }
+  }
+  } finally {
+    cache?.emitMetrics?.();
   }
 }
 

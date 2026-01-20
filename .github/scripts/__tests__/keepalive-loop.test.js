@@ -706,6 +706,47 @@ test('updateKeepaliveLoopSummary reuses cached PR data for labels and body', asy
   assert.equal(prCalls, 1);
 });
 
+test('evaluateKeepaliveLoop invalidates cache and emits cache metrics', async () => {
+  const pr = {
+    number: 808,
+    head: { ref: 'feature/cache', sha: 'sha-808' },
+    labels: [],
+    body: prBodyFixture,
+  };
+  const github = buildGithubStub({
+    pr,
+    workflowRuns: [{ head_sha: pr.head.sha, conclusion: 'success' }],
+  });
+  const cacheCalls = { invalidations: [], metrics: 0 };
+  github.__keepaliveApiCache = {
+    buildPrCacheKey() {
+      return 'pr-key';
+    },
+    async getOrSet({ fetcher }) {
+      return fetcher();
+    },
+    invalidateForWebhook(args) {
+      cacheCalls.invalidations.push(args);
+      return { invalidated: 1, prNumbers: [pr.number] };
+    },
+    emitMetrics() {
+      cacheCalls.metrics += 1;
+    },
+  };
+
+  await evaluateKeepaliveLoop({
+    github,
+    context: buildContext(pr.number),
+    core: buildCore(),
+  });
+
+  assert.equal(cacheCalls.invalidations.length, 1);
+  assert.equal(cacheCalls.invalidations[0].eventName, 'pull_request');
+  assert.equal(cacheCalls.invalidations[0].owner, 'octo');
+  assert.equal(cacheCalls.invalidations[0].repo, 'workflows');
+  assert.equal(cacheCalls.metrics, 1);
+});
+
 test('updateKeepaliveLoopSummary logs timeout warning near expiration', async () => {
   const nowMs = Date.parse('2026-01-01T00:00:00Z');
   const realNow = Date.now;
