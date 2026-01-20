@@ -305,6 +305,17 @@ def _derive_trace_url(trace_id: str | None) -> str | None:
     return f"{LANGSMITH_TRACE_URL_BASE}{trace_id}"
 
 
+def _normalize_trace_url(trace_id: str | None, trace_url: str | None) -> str | None:
+    if trace_url is None:
+        return _derive_trace_url(trace_id)
+    normalized = trace_url.strip()
+    if not normalized:
+        return None
+    if normalized.startswith(("http://", "https://")):
+        return normalized
+    return _derive_trace_url(normalized)
+
+
 def build_record_from_args(args: argparse.Namespace) -> dict[str, Any]:
     metric_type = str(args.metric_type or "").strip().lower()
     if not metric_type:
@@ -312,8 +323,7 @@ def build_record_from_args(args: argparse.Namespace) -> dict[str, Any]:
 
     trace_id = _env_or_value(getattr(args, "langsmith_trace_id", None), "LANGSMITH_TRACE_ID")
     trace_url = _env_or_value(getattr(args, "langsmith_trace_url", None), "LANGSMITH_TRACE_URL")
-    if trace_url is None:
-        trace_url = _derive_trace_url(trace_id)
+    trace_url = _normalize_trace_url(trace_id, trace_url)
     record: dict[str, Any] = {
         "schema_version": AUTOPILOT_METRICS_SCHEMA_VERSION,
         "metric_type": metric_type,
@@ -423,8 +433,11 @@ def load_record_from_json(payload: str) -> dict[str, Any]:
         record["failure_reason"] = _normalize_failure_reason(
             record["success"], record.get("failure_reason")
         )
-    if "langsmith_trace_id" in record and "langsmith_trace_url" not in record:
-        trace_url = _derive_trace_url(record.get("langsmith_trace_id"))
+    if "langsmith_trace_id" in record or "langsmith_trace_url" in record:
+        trace_url = _normalize_trace_url(
+            record.get("langsmith_trace_id"),
+            record.get("langsmith_trace_url"),
+        )
         if trace_url:
             record["langsmith_trace_url"] = trace_url
     return record
