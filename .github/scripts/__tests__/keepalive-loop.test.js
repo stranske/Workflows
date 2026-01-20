@@ -287,6 +287,40 @@ test('evaluateKeepaliveLoop continues past max iterations when productive', asyn
   assert.equal(result.reason, 'ready-extended', 'Should show extended mode');
 });
 
+test('evaluateKeepaliveLoop triggers progress review without file changes', async () => {
+  const pr = {
+    number: 406,
+    head: { ref: 'feature/progress-review', sha: 'sha-progress' },
+    labels: [{ name: 'agent:codex' }],
+    body: '## Tasks\n- [ ] one\n## Acceptance Criteria\n- [ ] a',
+  };
+  const stateComment = formatStateComment({
+    trace: '',
+    iteration: 2,
+    max_iterations: 6,
+    progress_review_threshold: 2,
+    rounds_without_task_completion: 1,
+    last_files_changed: 0,
+    prev_files_changed: 0,
+    tasks: { unchecked: 2 },
+  });
+  const comments = [
+    { id: 24, body: stateComment, html_url: 'https://example.com/24' },
+  ];
+  const github = buildGithubStub({
+    pr,
+    comments,
+    workflowRuns: [{ head_sha: 'sha-progress', conclusion: 'success' }],
+  });
+  const result = await evaluateKeepaliveLoop({
+    github,
+    context: buildContext(pr.number),
+    core: buildCore(),
+  });
+  assert.equal(result.action, 'review');
+  assert.equal(result.reason, 'progress-review-2');
+});
+
 test('evaluateKeepaliveLoop triggers fix mode when gate fails with test failures', async () => {
   const pr = {
     number: 505,
