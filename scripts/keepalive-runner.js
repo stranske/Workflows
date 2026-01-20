@@ -641,6 +641,8 @@ function resolveWriteToken(env = {}) {
     env.service_bot_pat,
     env.GH_TOKEN,
     env.gh_token,
+    env.GITHUB_TOKEN,
+    env.github_token,
   ];
   for (const candidate of candidates) {
     if (candidate === null || candidate === undefined) {
