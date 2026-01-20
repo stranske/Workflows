@@ -220,7 +220,7 @@ def format_similar_issues_comment(
 
     lines = [
         SIMILAR_ISSUES_MARKER,
-        "### Potential Duplicate Detected",
+        "### ⚠️ Potential Duplicate Detected",
         "",
         "This issue appears similar to existing open issues:",
         "",
