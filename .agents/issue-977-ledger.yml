@@ -5,10 +5,10 @@ branch: codex/issue-977
 tasks:
   - id: task-01
     title: Define alerting threshold schema in `config/alerting-thresholds.json`
-    status: doing
+    status: done
     started_at: '2026-01-20T06:17:28Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-01-20T06:17:37Z'
+    commit: fecc10aaeee9ba00d26ead35cb03111e5e51e188
     notes: []
   - id: task-02
     title: Create `scripts/metrics_alerting.py` for threshold checks
