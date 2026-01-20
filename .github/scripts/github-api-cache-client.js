@@ -8,6 +8,20 @@ const {
 } = require('./github-api-cache');
 
 const DEFAULT_NAMESPACE = 'github-api';
+const DEFAULT_BACKEND = 'memory';
+
+function normaliseBackend(value) {
+  return String(value ?? '').trim().toLowerCase();
+}
+
+function resolveCacheBackend({ backend, env = process.env } = {}) {
+  const envValue = env?.GITHUB_API_CACHE_BACKEND;
+  const candidate = normaliseBackend(backend) || normaliseBackend(envValue) || DEFAULT_BACKEND;
+  if (['memory', 'in-memory', 'inmemory'].includes(candidate)) {
+    return { name: 'memory', requested: candidate, unknown: false };
+  }
+  return { name: 'memory', requested: candidate, unknown: true };
+}
 
 function emitCacheMetrics(cache, core, label = 'GitHub API cache') {
   if (!cache || typeof cache.metrics !== 'function') {
@@ -38,9 +52,23 @@ function createGithubApiCache(options = {}) {
     ttlMs,
     namespace = DEFAULT_NAMESPACE,
     core = null,
+    backend,
+    env = process.env,
   } = options;
-  const store = cache || createInMemoryCache({ ttlMs, namespace });
-  const defaultTtlMs = resolveCacheTtlMs({ ttlMs });
+  const resolvedBackend = resolveCacheBackend({ backend, env });
+  const defaultTtlMs = resolveCacheTtlMs({ ttlMs, env });
+  let store = cache;
+  if (!store) {
+    if (resolvedBackend.unknown) {
+      const warning = `Unknown GitHub API cache backend "${resolvedBackend.requested}". Falling back to in-memory cache.`;
+      if (core?.warning) {
+        core.warning(warning);
+      } else {
+        console.warn(warning);
+      }
+    }
+    store = createInMemoryCache({ ttlMs: defaultTtlMs, namespace });
+  }
 
   async function getOrSet({ key, fetcher, ttlMs: ttlOverride } = {}) {
     if (!key) {

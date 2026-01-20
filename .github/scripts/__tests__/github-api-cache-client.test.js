@@ -70,4 +70,17 @@ describe('github-api-cache-client', () => {
     assert.strictEqual(metrics.hits, 1);
     assert.strictEqual(metrics.sets, 1);
   });
+
+  it('falls back to in-memory cache for unknown backend', () => {
+    const warnings = [];
+    const apiCache = createGithubApiCache({
+      env: { GITHUB_API_CACHE_BACKEND: 'redis' },
+      core: { warning: (message) => warnings.push(message) },
+    });
+
+    assert.ok(apiCache.cache);
+    assert.strictEqual(apiCache.cache.metrics().namespace, 'github-api');
+    assert.strictEqual(warnings.length, 1);
+    assert.ok(warnings[0].includes('redis'));
+  });
 });
