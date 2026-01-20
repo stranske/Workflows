@@ -32,8 +32,11 @@ const REDACT_KEYS_PATTERN = /(secret|token|credential)/i;
 function pickEnv(keys, env) {
   return keys.reduce((acc, key) => {
     const value = env[key];
-    if (value !== undefined && value !== null && value !== '') {
-      acc[key] = String(value);
+    if (value !== undefined && value !== null) {
+      const normalized = String(value).trim();
+      if (normalized !== '') {
+        acc[key] = normalized;
+      }
     }
     return acc;
   }, {});

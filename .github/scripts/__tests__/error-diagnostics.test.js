@@ -58,3 +58,16 @@ test('sanitizeObject removes secret-like keys from payloads', () => {
 
   assert.deepEqual(sanitized, { safe: true, inner: { ok: 'keep' } });
 });
+
+test('collectErrorDiagnostics trims env values and drops whitespace-only entries', () => {
+  const env = {
+    GITHUB_REPOSITORY: '  octo/workflows  ',
+    ERROR_MESSAGE: '   ',
+    ERROR_CATEGORY: ' auth ',
+  };
+  const diagnostics = collectErrorDiagnostics({ env });
+
+  assert.equal(diagnostics.run.GITHUB_REPOSITORY, 'octo/workflows');
+  assert.equal(diagnostics.error.ERROR_CATEGORY, 'auth');
+  assert.equal(diagnostics.error.ERROR_MESSAGE, undefined);
+});
