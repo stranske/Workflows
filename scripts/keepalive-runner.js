@@ -1096,6 +1096,11 @@ async function runKeepalive({ core, github, context, env = process.env }) {
           `#${prNumber}: dry run – keepalive comment not posted (remaining tasks: ${outstanding}, round ${nextRound}, trace ${traceToken}).`
         );
       } else {
+        if (!dispatchToken) {
+          const message = 'GitHub token is required for keepalive dispatch (app token or PAT).';
+          core.setFailed(`#${prNumber}: failed to emit keepalive dispatch: ${message}`);
+          throw new Error(message);
+        }
         const response = await instructionAuthorOctokit.rest.issues.createComment({
           owner,
           repo,
