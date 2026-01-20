@@ -384,3 +384,90 @@ test('keepalive detection captures instruction body without status bundle', asyn
   assert.ok(!outputs.instruction_body.includes('Workflow / Job'));
   assert.ok(reactionCalls.includes('hooray'));
 });
+
+test('detectKeepalive caches pull request lookups across invocations', async () => {
+  const outputsFirst = {};
+  const outputsSecond = {};
+  let getCalls = 0;
+
+  const github = {
+    rest: {
+      pulls: {
+        async get({ pull_number: pullNumber }) {
+          getCalls += 1;
+          return {
+            data: {
+              number: pullNumber,
+              head: {
+                ref: 'codex/issue-42',
+                sha: 'abc123',
+                repo: { fork: false, owner: { login: 'stranske' } },
+              },
+              base: {
+                ref: 'main',
+                repo: { owner: { login: 'stranske' } },
+              },
+              title: 'Fixes #42',
+              labels: [],
+            },
+          };
+        },
+      },
+      reactions: {
+        async listForIssueComment() {
+          return { data: [] };
+        },
+        async createForIssueComment({ content }) {
+          return { status: 201, data: { content } };
+        },
+      },
+      issues: {
+        async addLabels() {
+          return {};
+        },
+      },
+    },
+    async paginate(method) {
+      if (method === this.rest.reactions.listForIssueComment) {
+        return [];
+      }
+      return [];
+    },
+  };
+
+  const context = {
+    repo: { owner: 'stranske', repo: 'Workflows' },
+    payload: {
+      comment: {
+        id: 101,
+        html_url: 'https://example.test/comment/101',
+        body: '@codex please proceed',
+        user: { login: 'stranske' },
+      },
+      issue: { number: 42 },
+    },
+  };
+
+  const env = {
+    ALLOWED_LOGINS: 'stranske',
+    GATE_OK: 'true',
+  };
+
+  await detectKeepalive({
+    core: createCore(outputsFirst),
+    github,
+    context,
+    env,
+  });
+
+  await detectKeepalive({
+    core: createCore(outputsSecond),
+    github,
+    context,
+    env,
+  });
+
+  assert.equal(getCalls, 1);
+  assert.equal(outputsFirst.dispatch, 'true');
+  assert.equal(outputsSecond.dispatch, 'true');
+});
