@@ -118,7 +118,8 @@ def test_format_similar_issues_comment_formats_links():
     assert "[Alpha](http://a)" in comment
     assert "Alpha" in comment
     assert "92% similarity" in comment
-    assert "<summary>What should I do?</summary>" in comment
+    assert "<summary>Next steps for maintainers</summary>" in comment
+    assert "1. **Review the linked issues**" not in comment
 
 
 def test_format_similar_issues_comment_returns_none_for_empty():
