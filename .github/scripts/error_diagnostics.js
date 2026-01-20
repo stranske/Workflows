@@ -81,12 +81,20 @@ function sanitizeObject(value) {
 }
 
 function parseExtraJson({ json, file }) {
-  if (json) {
-    return JSON.parse(json);
+  if (json !== undefined && json !== null) {
+    const trimmed = String(json).trim();
+    if (trimmed === '') {
+      return null;
+    }
+    return JSON.parse(trimmed);
   }
   if (file) {
     const raw = fs.readFileSync(file, 'utf8');
-    return JSON.parse(raw);
+    const trimmed = raw.trim();
+    if (trimmed === '') {
+      return null;
+    }
+    return JSON.parse(trimmed);
   }
   return null;
 }

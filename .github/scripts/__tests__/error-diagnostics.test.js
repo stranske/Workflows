@@ -2,9 +2,13 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 
 const {
   collectErrorDiagnostics,
+  parseExtraJson,
   sanitizeObject,
 } = require('../error_diagnostics');
 
@@ -70,4 +74,18 @@ test('collectErrorDiagnostics trims env values and drops whitespace-only entries
   assert.equal(diagnostics.run.GITHUB_REPOSITORY, 'octo/workflows');
   assert.equal(diagnostics.error.ERROR_CATEGORY, 'auth');
   assert.equal(diagnostics.error.ERROR_MESSAGE, undefined);
+});
+
+test('parseExtraJson ignores blank payloads', () => {
+  assert.equal(parseExtraJson({ json: '   ' }), null);
+
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'error-diagnostics-'));
+  const tempFile = path.join(tempDir, 'extra.json');
+
+  try {
+    fs.writeFileSync(tempFile, '\n  \n', 'utf8');
+    assert.equal(parseExtraJson({ file: tempFile }), null);
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
 });
