@@ -234,6 +234,50 @@ test('countActive ignores completed runs outside the lookback window', async () 
   }
 });
 
+test('evaluateRunCapForPr caches pull request fetches', async () => {
+  let pullCalls = 0;
+  const github = {
+    rest: {
+      actions: {
+        listWorkflowRuns: Symbol('listWorkflowRuns'),
+        async getWorkflowRun() {
+          const error = new Error('not found');
+          error.status = 404;
+          throw error;
+        },
+      },
+      pulls: {
+        async get() {
+          pullCalls += 1;
+          return {
+            data: {
+              labels: [],
+              head: { sha: 'abc123', ref: 'feature/cache-test' },
+            },
+          };
+        },
+      },
+    },
+    async paginate() {
+      return [];
+    },
+  };
+
+  const args = {
+    github,
+    owner: 'stranske',
+    repo: 'Workflows',
+    prNumber: 12,
+    headSha: 'abc123',
+    headRef: 'feature/cache-test',
+  };
+
+  await evaluateRunCapForPr(args);
+  await evaluateRunCapForPr(args);
+
+  assert.equal(pullCalls, 1);
+});
+
 test('evaluateRunCapForPr returns ok when active runs are below cap', async () => {
   const registry = {
     'agents-70-orchestrator.yml|queued': [
