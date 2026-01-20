@@ -634,18 +634,24 @@ function buildTraceToken({ seed, prNumber, round }) {
 }
 
 function resolveWriteToken(env = {}) {
-  return (
-    String(
-      env.ACTIONS_BOT_PAT ||
-        env.actions_bot_pat ||
-        env.SERVICE_BOT_PAT ||
-        env.service_bot_pat ||
-        env.GH_TOKEN ||
-        env.gh_token ||
-        ''
-    )
-      .trim() || ''
-  );
+  const candidates = [
+    env.ACTIONS_BOT_PAT,
+    env.actions_bot_pat,
+    env.SERVICE_BOT_PAT,
+    env.service_bot_pat,
+    env.GH_TOKEN,
+    env.gh_token,
+  ];
+  for (const candidate of candidates) {
+    if (candidate === null || candidate === undefined) {
+      continue;
+    }
+    const trimmed = String(candidate).trim();
+    if (trimmed) {
+      return trimmed;
+    }
+  }
+  return '';
 }
 
 function resolveInstructionToken(env = {}) {

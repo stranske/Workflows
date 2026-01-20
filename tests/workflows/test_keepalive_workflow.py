@@ -530,3 +530,9 @@ def test_keepalive_dispatches_with_service_bot_pat() -> None:
     data = _run_scenario("service_bot_only")
     payload = _assert_single_dispatch(data, 909, round_expected=2)
     assert payload.get("issue") == 909
+
+
+def test_keepalive_dispatches_with_whitespace_action_token() -> None:
+    data = _run_scenario("whitespace_action_token")
+    payload = _assert_single_dispatch(data, 909, round_expected=2)
+    assert payload.get("issue") == 909
