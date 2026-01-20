@@ -252,7 +252,11 @@ jobs:
             let linkedPR = null;
             for (const event of timelineEvents) {
               // Handle both cross-referenced and connected events
-              if ((event.event === 'cross-referenced' || event.event === 'connected') &&
+              const isCrossRef = event.event === 'cross-referenced';
+              const isConnected = event.event === 'connected';
+              const repoMatch = event.source?.issue?.repository?.full_name ===
+                `${context.repo.owner}/${context.repo.repo}`;
+              if ((isCrossRef || isConnected) && repoMatch &&
                   event.source?.issue?.pull_request) {
                 linkedPR = event.source.issue.number;
               }
@@ -1041,12 +1045,41 @@ jobs:
           ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
           ISSUE_TITLE: ${{ steps.context.outputs.issue_title }}
           STEP_COUNT: ${{ steps.cycles.outputs.count }}
+          MAX_STALL_RETRIES: '5'
         with:
           script: |
             const issueNumber = parseInt(process.env.ISSUE_NUMBER);
             const issueTitle = process.env.ISSUE_TITLE || `Issue #${issueNumber}`;
             const stepCount = parseInt(process.env.STEP_COUNT || '0') + 1;
             const branchName = `codex/issue-${issueNumber}`;
+            const maxStallRetries = parseInt(process.env.MAX_STALL_RETRIES || '5');
+
+            // Helper: count consecutive "waiting for commits" comments (stall detection)
+            async function countConsecutiveStalls() {
+              const { data: comments } = await github.rest.issues.listComments({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                per_page: 100
+              });
+
+              // Look at comments in reverse order (newest first)
+              const reversed = [...comments].reverse();
+              let stallCount = 0;
+
+              for (const comment of reversed) {
+                const body = comment.body || '';
+                const isStallComment = body.includes('Auto-pilot step') &&
+                  body.includes('Branch ready, waiting for commits');
+                if (isStallComment) {
+                  stallCount++;
+                } else if (body.includes('Auto-pilot step')) {
+                  // Different auto-pilot step - stop counting
+                  break;
+                }
+              }
+              return stallCount;
+            }
 
             // Check if branch exists
             let branchExists = false;
@@ -1099,7 +1132,77 @@ jobs:
 
               if ((comparison.ahead_by || 0) === 0) {
                 core.info(`Branch ${branchName} has no commits ahead of ${baseBranch}`);
+
+                // STALL DETECTION: Check how many consecutive "waiting for commits" we've had
+                const stallCount = await countConsecutiveStalls();
+                core.info(`Consecutive stall count: ${stallCount}/${maxStallRetries}`);
+
+                // EXPONENTIAL BACKOFF: Wait longer between each retry
+                // Delays: 1min, 2min, 4min, 8min, 16min (2^stallCount minutes)
+                if (stallCount > 0) {
+                  const backoffMinutes = Math.pow(2, stallCount);
+                  const backoffMs = backoffMinutes * 60 * 1000;
+                  const maxBackoffMs = 16 * 60 * 1000; // Cap at 16 minutes
+                  const actualBackoffMs = Math.min(backoffMs, maxBackoffMs);
+                  const actualMinutes = Math.round(actualBackoffMs / 60000);
+
+                  core.info(`Applying backoff: waiting ${actualMinutes} minutes`);
+                  await github.rest.issues.createComment({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: issueNumber,
+                    body: `🤖 **Auto-pilot**: Backoff delay (${actualMinutes}m)
+
+            Attempt ${stallCount + 1}/${maxStallRetries}. Waiting before retry...`
+                  });
+
+                  // Sleep with exponential backoff
+                  await new Promise(resolve => setTimeout(resolve, actualBackoffMs));
+                }
+
+                if (stallCount >= maxStallRetries) {
+                  // Worker failed to produce commits - pause for human review
+                  const warnMsg = `Stall: ${stallCount} attempts without commits`;
+                  core.warning(warnMsg);
+
+                  await github.rest.issues.addLabels({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: issueNumber,
+                    labels: ['agents:auto-pilot-pause', 'needs-human']
+                  });
+
+                  await github.rest.issues.createComment({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: issueNumber,
+                    body: `## ⚠️ Auto-Pilot Stalled
+
+            **Reason:** Codex belt worker failed to generate commits after ${stallCount} attempts.
+
+            Branch \`${branchName}\` exists but the agent has not produced any changes.
+
+            **Possible causes:**
+            - Issue requirements are unclear or too complex
+            - Agent encountered an error during execution
+            - Belt worker workflow failed silently
+
+            **To investigate:**
+            1. Check recent workflow runs for \`agents-72-codex-belt-worker\` failures
+            2. Review the issue requirements for clarity
+            3. Check the Codex session logs if available
+
+            **To resume:** Remove \`agents:auto-pilot-pause\` and \`needs-human\` labels,
+            then re-add \`agents:auto-pilot\`.`
+                  });
+
+                  const failMsg = `Auto-pilot stalled: ${stallCount} failed dispatches`;
+                  core.setFailed(failMsg);
+                  return;
+                }
+
                 let workerDispatched = false;
+                let dispatchError = null;
                 try {
                   await github.rest.actions.createWorkflowDispatch({
                     owner: context.repo.owner,
@@ -1115,13 +1218,35 @@ jobs:
                   });
                   workerDispatched = true;
                   core.info(`Dispatched codex belt worker for issue #${issueNumber}`);
-                } catch (dispatchError) {
-                  core.warning(`Could not dispatch codex belt worker: ${dispatchError?.message}`);
+                } catch (err) {
+                  dispatchError = err;
+                  core.warning(`Could not dispatch codex belt worker: ${err?.message}`);
                 }
 
-                const dispatchLine = workerDispatched
-                  ? 'Dispatched the Codex belt worker to generate changes.'
-                  : 'Failed to dispatch the Codex belt worker. Please check workflow permissions.';
+                // Build detailed status message
+                let dispatchLine;
+                if (workerDispatched) {
+                  const stallMsg = `${stallCount + 1}/${maxStallRetries}`;
+                  dispatchLine = [
+                    '✅ Dispatched the Codex belt worker to generate changes.',
+                    '',
+                    `📊 Stall count: ${stallMsg} (pauses after ${maxStallRetries})`
+                  ].join('\n');
+                } else {
+                  const errorDetail = dispatchError?.message || 'Unknown error';
+                  const errorStatus = dispatchError?.status
+                    ? ` (HTTP ${dispatchError.status})` : '';
+                  dispatchLine = [
+                    `❌ **Failed to dispatch Codex belt worker**${errorStatus}`,
+                    '',
+                    `Error: \`${errorDetail}\``,
+                    '',
+                    '**Troubleshooting:**',
+                    '- Check if `agents-72-codex-belt-worker-dispatch.yml` exists',
+                    '- Verify workflow permissions allow `actions: write`',
+                    '- Check workflow runs in the Actions tab for errors'
+                  ].join('\n');
+                }
 
                 await github.rest.issues.createComment({
                   owner: context.repo.owner,
@@ -1237,14 +1362,25 @@ jobs:
                 core.warning(`Could not dispatch keepalive: ${dispatchError?.message}`);
               }
 
+              // Add PR link comment to the issue with full URL for visibility
+              // Use GITHUB_SERVER_URL for GHES/AE compatibility instead of hardcoding github.com
+              const serverUrl = process.env.GITHUB_SERVER_URL || 'https://github.com';
+              const { owner, repo } = context.repo;
+              const prUrl = `${serverUrl}/${owner}/${repo}/pull/${pr.number}`;
+              const branchUrl = `${serverUrl}/${owner}/${repo}/tree/${branchName}`;
+
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issueNumber,
                 body: `🤖 **Auto-pilot step ${stepCount}**: PR created!
 
-            ✅ Created PR #${pr.number} from branch \`${branchName}\`
+            ✅ Created **[PR #${pr.number}](${prUrl})** from branch [\`${branchName}\`](${branchUrl})
             ${labelStatus}
+
+            🔗 **Links:**
+            - Pull Request: ${prUrl}
+            - Branch: ${branchUrl}
 
             The PR will now go through CI checks. Auto-pilot will continue monitoring.`
               });

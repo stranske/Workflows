@@ -2,6 +2,53 @@
 
 > **READ THIS FIRST** before making any changes to the workflow system.
 
+## 🚨 NON-NEGOTIABLE: Code Quality Standards
+
+**DO NOT work around, ignore, or rationalize away code quality issues just because they "predate your changes" or "were already there."**
+
+This is unacceptable behavior. When you encounter lint errors, test failures, or validation issues:
+
+1. **FIX THEM.** Not "note them for later." Not "check if they're pre-existing." FIX THEM.
+2. **Pre-existing issues are usually YOUR recent mistakes anyway.** The validation ran clean before - if it's failing now, you broke it.
+3. **"It was already broken" is NEVER an excuse.** Quality code requires fixing problems, not stepping over them.
+4. **Running `git stash` to check "baseline" issues is a waste of time.** Just fix the damn code.
+
+If pre-commit hooks, CI, or validation scripts fail:
+- Read the error message
+- Fix every issue listed
+- Do not proceed until checks pass
+
+**Leaving a mess because "you didn't make it" does not produce quality code. Clean up after yourself AND others.**
+
+### ⚠️ FAILURE TRIGGERS - Read This When You See Failures
+
+**WHEN YOU SEE:** CI failure, lint error, test failure, merge blocked, workflow failed, checks failing
+
+**STOP. DO NOT:**
+- Report it as "needs separate attention"
+- Say "this is a pre-existing issue"  
+- Categorize it as "someone else's problem"
+- Move on to the next task
+- Summarize status and wait for instructions
+
+**INSTEAD, IMMEDIATELY:**
+- Investigate the failure
+- Find the root cause
+- Fix it
+- Verify the fix works
+- THEN continue
+
+**If you report a failure without fixing it, you have failed at your job.**
+
+### ✅ END-OF-TASK CHECKLIST - Run This Before Declaring Done
+
+Before saying "done", "complete", "finished", or summarizing results:
+
+1. **Are there any failures I saw during this task?** If yes, go fix them.
+2. **Did I categorize anything as "pre-existing" or "unrelated"?** That's a cop-out. Go fix it.
+3. **Are all CI checks passing?** If not, why am I stopping?
+4. **Would I be proud to show this work?** If there are known issues I'm ignoring, the answer is no.
+
 ## Repository Purpose
 
 This is the **central workflow library** for the stranske organization. It provides:

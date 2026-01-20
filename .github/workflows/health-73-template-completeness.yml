@@ -1,0 +1,43 @@
+name: Health 73 Template Completeness
+
+# Validates that workflows intended for consumer repos are in the template and manifest.
+# This catches the case where a workflow is added to Workflows but not synced.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/*.yml'
+      - 'templates/consumer-repo/.github/workflows/*.yml'
+      - '.github/sync-manifest.yml'
+      - 'scripts/validate_template_completeness.py'
+  pull_request:
+    paths:
+      - '.github/workflows/*.yml'
+      - 'templates/consumer-repo/.github/workflows/*.yml'
+      - '.github/sync-manifest.yml'
+      - 'scripts/validate_template_completeness.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Check template completeness
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install pyyaml
+
+      - name: Validate template completeness
+        run: |
+          python scripts/validate_template_completeness.py --strict
