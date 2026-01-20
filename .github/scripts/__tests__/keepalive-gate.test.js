@@ -336,3 +336,53 @@ test('evaluateRunCapForPr respects labelled cap across successive attempts', asy
   assert.equal(result.reason, 'run-cap-reached');
   assert.equal(result.activeRuns, 2);
 });
+
+test('evaluateRunCapForPr reuses cached pull request data across calls', async () => {
+  const pulls = {
+    88: {
+      number: 88,
+      head: { ref: 'feature/cache', sha: 'abc888' },
+      labels: [],
+    },
+  };
+  let getCalls = 0;
+  const github = {
+    rest: {
+      actions: {
+        listWorkflowRuns: Symbol('listWorkflowRuns'),
+        async getWorkflowRun() {
+          const error = new Error('not found');
+          error.status = 404;
+          throw error;
+        },
+      },
+      pulls: {
+        async get({ pull_number: pullNumber }) {
+          getCalls += 1;
+          if (Object.prototype.hasOwnProperty.call(pulls, pullNumber)) {
+            return { data: pulls[pullNumber] };
+          }
+          const error = new Error('pull not found');
+          error.status = 404;
+          throw error;
+        },
+      },
+    },
+    async paginate() {
+      return [];
+    },
+  };
+
+  const baseArgs = {
+    core: { warning: () => {} },
+    github,
+    owner: 'stranske',
+    repo: 'Workflows',
+    prNumber: 88,
+  };
+
+  await evaluateRunCapForPr(baseArgs);
+  await evaluateRunCapForPr(baseArgs);
+
+  assert.equal(getCalls, 1);
+});
