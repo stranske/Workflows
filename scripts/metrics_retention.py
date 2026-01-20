@@ -7,10 +7,11 @@ import argparse
 import calendar
 import json
 import sys
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 DEFAULT_CONFIG_PATH = Path("config/retention-policy.json")
 DEFAULT_RETENTION_LOG = Path("metrics-retention.ndjson")
@@ -484,7 +485,9 @@ def main(argv: list[str]) -> int:
         _append_log(log_path, payload, dry_run=args.dry_run)
 
     reduced = max(summary["bytes_before"] - summary["bytes_after"], 0)
-    reduction_percent = (reduced / summary["bytes_before"] * 100.0) if summary["bytes_before"] else 0.0
+    reduction_percent = (
+        (reduced / summary["bytes_before"] * 100.0) if summary["bytes_before"] else 0.0
+    )
     summary_payload = {
         "timestamp": now.isoformat().replace("+00:00", "Z"),
         "schema_version": 1,
