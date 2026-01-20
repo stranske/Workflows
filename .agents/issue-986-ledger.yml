@@ -5,10 +5,10 @@ branch: codex/issue-986
 tasks:
   - id: task-01
     title: Implement a cache wrapper for GitHub API calls with configurable TTL.
-    status: doing
+    status: done
     started_at: '2026-01-20T08:20:32Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-01-20T08:20:41Z'
+    commit: 9d8fdc1258e817486271b1b63979688ae69da1a8
     notes: []
   - id: task-02
     title: Integrate caching into the workflows that fetch PR body, labels, and files.
