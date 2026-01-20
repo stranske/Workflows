@@ -55,6 +55,31 @@ describe('github-api-cache-client', () => {
     assert.strictEqual(cache.has(key), false);
   });
 
+  it('does not cache nullish values', async () => {
+    const cache = createInMemoryCache({ ttlMs: 1000, namespace: 'test' });
+    const apiCache = createGithubApiCache({ cache });
+    let calls = 0;
+    const key = buildPrCacheKey({
+      owner: 'octo',
+      repo: 'repo',
+      number: 13,
+      resource: 'pulls.get',
+    });
+
+    const fetcher = async () => {
+      calls += 1;
+      return null;
+    };
+
+    const first = await apiCache.getOrSet({ key, fetcher });
+    const second = await apiCache.getOrSet({ key, fetcher });
+
+    assert.strictEqual(first, null);
+    assert.strictEqual(second, null);
+    assert.strictEqual(cache.has(key), false);
+    assert.strictEqual(calls, 2);
+  });
+
   it('returns cache metrics when emitting', () => {
     const cache = createInMemoryCache({ ttlMs: 1000, namespace: 'test' });
     const apiCache = createGithubApiCache({
