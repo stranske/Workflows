@@ -114,9 +114,11 @@ def test_format_similar_issues_comment_formats_links():
 
     assert comment is not None
     assert issue_dedup.SIMILAR_ISSUES_MARKER in comment
-    assert "[#12](http://a)" in comment
+    assert "**#12**" in comment
+    assert "[Alpha](http://a)" in comment
     assert "Alpha" in comment
-    assert "92% similar" in comment
+    assert "92% similarity" in comment
+    assert "<summary>What should I do?</summary>" in comment
 
 
 def test_format_similar_issues_comment_returns_none_for_empty():

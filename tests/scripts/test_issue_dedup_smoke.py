@@ -350,6 +350,7 @@ def test_extract_similar_issue_refs_parses_links_and_numbers() -> None:
             issue_dedup.SIMILAR_ISSUES_MARKER,
             "- [#12](http://example/12) - Title one (90% similar)",
             "- #34 - Another issue (82% similar)",
+            "- **#56** - [Third issue](http://example/56) (88% similarity)",
         ]
     )
 
@@ -358,6 +359,7 @@ def test_extract_similar_issue_refs_parses_links_and_numbers() -> None:
     assert [(ref.number, ref.url, ref.title) for ref in refs] == [
         (12, "http://example/12", "Title one"),
         (34, None, "Another issue"),
+        (56, "http://example/56", "Third issue"),
     ]
 
 

@@ -175,22 +175,25 @@ def extract_similar_issue_refs(comment_body: str) -> list[SimilarIssueRef]:
         title: str | None = None
         if " - " in content:
             ref_part, rest = content.split(" - ", 1)
-            title = rest.rsplit(" (", 1)[0].strip() if " (" in rest else rest.strip()
+            title_part = rest.rsplit(" (", 1)[0].strip() if " (" in rest else rest.strip()
+            title_match = link_pattern.search(title_part)
+            title = title_match.group("label").strip() if title_match else title_part
         else:
             ref_part = content
         url = None
         number = None
         link_match = link_pattern.search(ref_part)
+        if not link_match and " - " in content:
+            link_match = link_pattern.search(rest)
         if link_match:
             url = link_match.group("url").strip()
             label = link_match.group("label")
             number_match = number_pattern.search(label)
             if number_match:
                 number = int(number_match.group("number"))
-        else:
-            number_match = number_pattern.search(ref_part)
-            if number_match:
-                number = int(number_match.group("number"))
+        number_match = number_pattern.search(ref_part)
+        if number_match and number is None:
+            number = int(number_match.group("number"))
         if number is None and url is None:
             continue
         refs.append(SimilarIssueRef(number=number, url=url, title=title or None))
