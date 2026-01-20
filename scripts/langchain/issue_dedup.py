@@ -230,10 +230,7 @@ def format_similar_issues_comment(
         issue = match.issue
         title = issue.title.strip() or "Untitled"
         score = _format_similarity(match.score)
-        if issue.number is not None:
-            reference = f"#{issue.number}"
-        else:
-            reference = "Issue"
+        reference = f"#{issue.number}" if issue.number is not None else "Issue"
         if issue.url:
             title = f"[{title}]({issue.url})"
         lines.append(f"- **{reference}** - {title} ({score} similarity)")
