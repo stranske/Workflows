@@ -172,9 +172,7 @@ def test_main_creates_issue_and_records_history(
     assert history_entries
 
 
-def test_main_dedup_skips_issue_create(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_main_dedup_skips_issue_create(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     thresholds = _build_thresholds()
     thresholds_path = tmp_path / "thresholds.json"
     thresholds_path.write_text(json.dumps(thresholds), encoding="utf-8")
@@ -235,9 +233,7 @@ def test_main_dedup_skips_issue_create(
     assert history_entries
 
 
-def test_main_sends_slack_notification(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_main_sends_slack_notification(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     thresholds = _build_thresholds()
     thresholds_path = tmp_path / "thresholds.json"
     thresholds_path.write_text(json.dumps(thresholds), encoding="utf-8")

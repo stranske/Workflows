@@ -312,7 +312,10 @@ def _evaluate_higher_is_bad(
         min_runs=int(threshold["min_runs"]),
         sample_count=sample_count,
         alert_key=alert_key,
-        details={"thresholds": {"p95_warning": warning, "p95_critical": critical}, "value_label": value_label},
+        details={
+            "thresholds": {"p95_warning": warning, "p95_critical": critical},
+            "value_label": value_label,
+        },
     )
 
 
@@ -487,7 +490,9 @@ def _send_slack_notification(webhook: str, alerts: list[Alert], issue_urls: list
     lines = ["Metrics alerting summary:"]
     for alert, issue_url in zip(alerts, issue_urls):
         issue_text = issue_url or "no issue"
-        lines.append(f"- {alert.metric} ({alert.severity}): {_format_alert_value(alert)} -> {issue_text}")
+        lines.append(
+            f"- {alert.metric} ({alert.severity}): {_format_alert_value(alert)} -> {issue_text}"
+        )
     payload = {"text": "\n".join(lines)}
     response = requests.post(webhook, json=payload, timeout=10)
     if response.status_code >= 400:
