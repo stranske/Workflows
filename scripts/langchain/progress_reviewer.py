@@ -1,0 +1,541 @@
+#!/usr/bin/env python3
+"""
+LLM-based progress review for agent work alignment.
+
+This module evaluates whether an agent's recent work is meaningfully advancing
+toward acceptance criteria, even if task checkboxes haven't been completed yet.
+
+The key insight is distinguishing between:
+- Legitimate prep work (refactoring, utilities, dependencies) that enables tasks
+- Scope drift (working on tangential improvements not in acceptance criteria)
+- Stalled work (spinning without meaningful progress)
+
+Run with:
+    python scripts/langchain/progress_reviewer.py \
+        --acceptance-criteria "criterion 1" "criterion 2" \
+        --recent-commits "commit1 msg" "commit2 msg" \
+        --files-changed "file1.py" "file2.py" \
+        --rounds-without-completion 8 \
+        --json
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import sys
+from typing import Literal
+
+from pydantic import BaseModel, Field, ValidationError
+
+# ---------------------------------------------------------------------------
+# Prompt template for progress review
+# ---------------------------------------------------------------------------
+
+PROGRESS_REVIEW_PROMPT = """
+You are evaluating whether an automated coding agent is making meaningful progress
+toward its assigned acceptance criteria.
+
+## Context
+The agent has been working for {rounds_without_completion} consecutive rounds without
+completing any task checkboxes. However, file changes indicate ongoing activity.
+
+Your job is to determine if:
+1. The agent is doing **legitimate prep work** (building utilities, refactoring,
+   adding dependencies) that will enable task completion soon
+2. The agent has **drifted off scope** - working on tangential improvements not
+   required by the acceptance criteria
+3. The agent is **stalled** - making changes but not advancing toward any criteria
+
+## Acceptance Criteria (What the agent SHOULD be working toward)
+{acceptance_criteria}
+
+## Recent Commit Messages (What the agent HAS been doing)
+{recent_commits}
+
+## Files Changed Recently
+{files_changed}
+
+## Analysis Instructions
+
+1. **Alignment Check**: Do the recent commits relate to the acceptance criteria?
+   - Direct work on criteria = HIGH alignment
+   - Enabling infrastructure (tests, utils, deps) = MEDIUM alignment
+   - Unrelated improvements or refactoring = LOW alignment
+
+2. **Progress Trajectory**: Is there a clear path from recent work to criteria completion?
+   - Clear dependency chain = making progress
+   - No visible connection = likely drifted
+
+3. **Efficiency Assessment**: Given {rounds_without_completion} rounds of work:
+   - Is this reasonable prep time for the scope?
+   - Are commits getting closer to criteria or diverging?
+
+## Response Format
+Respond with a JSON object:
+{{
+  "recommendation": "CONTINUE | REDIRECT | STOP",
+  "confidence": 0.0-1.0,
+  "alignment_score": 0-10,
+  "trajectory": "advancing | plateau | diverging",
+  "analysis": {{
+    "prep_work_identified": ["list of legitimate prep work items"],
+    "scope_drift_identified": ["list of off-scope work items"],
+    "estimated_rounds_to_completion": null or integer,
+    "blocking_issues": ["any issues preventing progress"]
+  }},
+  "feedback_for_agent": "Specific guidance to redirect the agent if needed",
+  "summary": "Brief explanation of recommendation"
+}}
+
+## Recommendation Guidelines
+- **CONTINUE**: Alignment >= 6, clear trajectory toward criteria, reasonable prep time
+- **REDIRECT**: Alignment 3-6, some work is relevant but agent needs course correction
+- **STOP**: Alignment < 3, no visible path to criteria, or excessive time spent
+""".strip()
+
+
+class ProgressAnalysis(BaseModel):
+    prep_work_identified: list[str] = Field(default_factory=list)
+    scope_drift_identified: list[str] = Field(default_factory=list)
+    estimated_rounds_to_completion: int | None = None
+    blocking_issues: list[str] = Field(default_factory=list)
+
+
+class ProgressReviewResult(BaseModel):
+    recommendation: Literal["CONTINUE", "REDIRECT", "STOP"]
+    confidence: float = Field(ge=0, le=1)
+    alignment_score: float = Field(ge=0, le=10)
+    trajectory: Literal["advancing", "plateau", "diverging"]
+    analysis: ProgressAnalysis
+    feedback_for_agent: str
+    summary: str
+    provider_used: str | None = None
+    model: str | None = None
+    used_llm: bool = False
+    error: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# Heuristic pre-check (fast path)
+# ---------------------------------------------------------------------------
+
+
+def heuristic_alignment_check(
+    acceptance_criteria: list[str],
+    recent_commits: list[str],
+    files_changed: list[str],
+) -> tuple[float, list[str], list[str]]:
+    """
+    Quick heuristic check for alignment before invoking LLM.
+
+    Returns:
+        (alignment_score, aligned_commits, unaligned_commits)
+    """
+    criteria_keywords = set()
+    for criterion in acceptance_criteria:
+        # Extract meaningful words from criteria (longer words are more specific)
+        words = re.findall(r"\b[a-z_]{4,}\b", criterion.lower())
+        criteria_keywords.update(words)
+
+    # Infrastructure words that indicate supporting work
+    # These alone don't count as alignment, but combined with criteria keywords they help
+    infra_words = {
+        "test",
+        "tests",
+        "testing",
+        "fixture",
+        "mock",
+        "stub",
+        "util",
+        "utils",
+        "utility",
+        "helper",
+        "helpers",
+        "config",
+        "configuration",
+        "setup",
+        "init",
+        "dependency",
+        "dependencies",
+        "requirements",
+        "refactor",
+        "cleanup",
+        "lint",
+        "format",
+        "formatting",
+        "type",
+        "types",
+        "typing",
+        "annotation",
+        "annotations",
+        "doc",
+        "docs",
+        "documentation",
+        "docstring",
+    }
+
+    # Words that indicate potential scope drift when used alone
+    generic_commit_prefixes = {"fix", "feat", "chore", "refactor", "style", "perf"}
+
+    aligned = []
+    unaligned = []
+
+    for commit in recent_commits:
+        commit_lower = commit.lower()
+        commit_words = set(re.findall(r"\b[a-z_]{3,}\b", commit_lower))
+
+        # Check for direct criteria match (strong signal)
+        criteria_match = criteria_keywords & commit_words
+        infra_match = infra_words & commit_words
+
+        # Strong alignment: directly mentions criteria keywords
+        if criteria_match:
+            aligned.append(commit)
+        # Moderate alignment: infrastructure work that supports criteria
+        elif infra_match and len(infra_match) > 0:
+            # But only if the commit isn't just a generic prefix + unrelated topic
+            non_generic_words = commit_words - generic_commit_prefixes - infra_words
+            # If there are non-generic words that aren't in criteria, it's likely drift
+            if len(non_generic_words) <= 2:  # Allow some noise
+                aligned.append(commit)
+            else:
+                unaligned.append(commit)
+        else:
+            unaligned.append(commit)
+
+    if not recent_commits:
+        return 0.0, [], []
+
+    alignment_ratio = len(aligned) / len(recent_commits)
+    # Scale to 0-10
+    alignment_score = alignment_ratio * 10
+
+    return alignment_score, aligned, unaligned
+
+
+# ---------------------------------------------------------------------------
+# LLM-based review
+# ---------------------------------------------------------------------------
+
+
+def build_review_prompt(
+    acceptance_criteria: list[str],
+    recent_commits: list[str],
+    files_changed: list[str],
+    rounds_without_completion: int,
+) -> str:
+    """Build the prompt for LLM review."""
+    criteria_text = "\n".join(f"- {c}" for c in acceptance_criteria) or "No criteria provided"
+    commits_text = "\n".join(f"- {c}" for c in recent_commits[-20:]) or "No commits"  # Last 20
+    files_text = "\n".join(f"- {f}" for f in files_changed[-30:]) or "No files"  # Last 30
+
+    return PROGRESS_REVIEW_PROMPT.format(
+        rounds_without_completion=rounds_without_completion,
+        acceptance_criteria=criteria_text,
+        recent_commits=commits_text,
+        files_changed=files_text,
+    )
+
+
+def parse_llm_response(content: str) -> ProgressReviewResult | None:
+    """Parse LLM response into structured result."""
+    # Try to extract JSON from response
+    json_match = re.search(r"\{[\s\S]*\}", content)
+    if not json_match:
+        return None
+
+    try:
+        data = json.loads(json_match.group())
+        # Normalize recommendation
+        rec = data.get("recommendation", "").upper()
+        if rec not in ("CONTINUE", "REDIRECT", "STOP"):
+            rec = "REDIRECT"  # Default to safe middle ground
+        data["recommendation"] = rec
+
+        # Normalize trajectory
+        traj = data.get("trajectory", "").lower()
+        if traj not in ("advancing", "plateau", "diverging"):
+            traj = "plateau"
+        data["trajectory"] = traj
+
+        return ProgressReviewResult(**data)
+    except (json.JSONDecodeError, ValidationError):
+        return None
+
+
+def review_progress_with_llm(
+    acceptance_criteria: list[str],
+    recent_commits: list[str],
+    files_changed: list[str],
+    rounds_without_completion: int,
+    model: str = "gpt-4o-mini",
+) -> ProgressReviewResult:
+    """
+    Use LLM to review agent progress and provide recommendation.
+    """
+    prompt = build_review_prompt(
+        acceptance_criteria,
+        recent_commits,
+        files_changed,
+        rounds_without_completion,
+    )
+
+    # Check for API key
+    api_key = os.environ.get("OPENAI_API_KEY")
+    if not api_key:
+        # Fall back to heuristic-only
+        score, aligned, unaligned = heuristic_alignment_check(
+            acceptance_criteria, recent_commits, files_changed
+        )
+
+        if score >= 6:
+            rec = "CONTINUE"
+            traj = "advancing"
+        elif score >= 3:
+            rec = "REDIRECT"
+            traj = "plateau"
+        else:
+            rec = "STOP"
+            traj = "diverging"
+
+        return ProgressReviewResult(
+            recommendation=rec,
+            confidence=0.5,  # Lower confidence without LLM
+            alignment_score=score,
+            trajectory=traj,
+            analysis=ProgressAnalysis(
+                prep_work_identified=aligned[:5],
+                scope_drift_identified=unaligned[:5],
+            ),
+            feedback_for_agent="Review your recent work against the acceptance criteria.",
+            summary=f"Heuristic review: {len(aligned)}/{len(recent_commits)} commits appear aligned",
+            used_llm=False,
+            error="OPENAI_API_KEY not set, using heuristic fallback",
+        )
+
+    try:
+        from langchain_openai import ChatOpenAI
+
+        llm = ChatOpenAI(
+            model=model,
+            temperature=0.1,  # Low temperature for consistent analysis
+            api_key=api_key,
+        )
+
+        response = llm.invoke(prompt)
+        content = response.content if hasattr(response, "content") else str(response)
+
+        result = parse_llm_response(content)
+        if result:
+            result.used_llm = True
+            result.provider_used = "openai"
+            result.model = model
+            return result
+
+        # Failed to parse, return error result
+        return ProgressReviewResult(
+            recommendation="REDIRECT",
+            confidence=0.3,
+            alignment_score=5.0,
+            trajectory="plateau",
+            analysis=ProgressAnalysis(),
+            feedback_for_agent="Unable to analyze progress. Please review acceptance criteria.",
+            summary="LLM response parsing failed",
+            used_llm=True,
+            provider_used="openai",
+            model=model,
+            error="Failed to parse LLM response",
+        )
+
+    except Exception as e:
+        # Fall back to heuristic on any error
+        score, aligned, unaligned = heuristic_alignment_check(
+            acceptance_criteria, recent_commits, files_changed
+        )
+
+        return ProgressReviewResult(
+            recommendation="REDIRECT",
+            confidence=0.4,
+            alignment_score=score,
+            trajectory="plateau",
+            analysis=ProgressAnalysis(
+                prep_work_identified=aligned[:5],
+                scope_drift_identified=unaligned[:5],
+            ),
+            feedback_for_agent="Review your recent work against the acceptance criteria.",
+            summary=f"LLM error, heuristic fallback: {len(aligned)}/{len(recent_commits)} aligned",
+            used_llm=False,
+            error=str(e),
+        )
+
+
+# ---------------------------------------------------------------------------
+# Main entry point
+# ---------------------------------------------------------------------------
+
+
+def review_progress(
+    acceptance_criteria: list[str],
+    recent_commits: list[str],
+    files_changed: list[str],
+    rounds_without_completion: int,
+    use_llm: bool = True,
+    model: str = "gpt-4o-mini",
+) -> ProgressReviewResult:
+    """
+    Main entry point for progress review.
+
+    Args:
+        acceptance_criteria: List of acceptance criteria from the PR
+        recent_commits: List of recent commit messages
+        files_changed: List of files changed in recent commits
+        rounds_without_completion: Number of rounds without task completion
+        use_llm: Whether to use LLM for review
+        model: LLM model to use
+
+    Returns:
+        ProgressReviewResult with recommendation and analysis
+    """
+    # Quick heuristic check first
+    heuristic_score, aligned, unaligned = heuristic_alignment_check(
+        acceptance_criteria, recent_commits, files_changed
+    )
+
+    # If clearly aligned or clearly not, skip LLM
+    if heuristic_score >= 8 and rounds_without_completion < 12:
+        return ProgressReviewResult(
+            recommendation="CONTINUE",
+            confidence=0.7,
+            alignment_score=heuristic_score,
+            trajectory="advancing",
+            analysis=ProgressAnalysis(
+                prep_work_identified=aligned[:5],
+                scope_drift_identified=unaligned[:3],
+            ),
+            feedback_for_agent="Work appears aligned. Continue toward task completion.",
+            summary=f"Heuristic: {len(aligned)}/{len(recent_commits)} commits aligned with criteria",
+            used_llm=False,
+        )
+
+    if heuristic_score <= 2 and rounds_without_completion >= 10:
+        return ProgressReviewResult(
+            recommendation="STOP",
+            confidence=0.7,
+            alignment_score=heuristic_score,
+            trajectory="diverging",
+            analysis=ProgressAnalysis(
+                prep_work_identified=aligned[:3],
+                scope_drift_identified=unaligned[:5],
+            ),
+            feedback_for_agent="Work appears unrelated to acceptance criteria. Please stop.",
+            summary=f"Heuristic: Only {len(aligned)}/{len(recent_commits)} commits aligned",
+            used_llm=False,
+        )
+
+    # Ambiguous case - use LLM if available
+    if use_llm:
+        return review_progress_with_llm(
+            acceptance_criteria,
+            recent_commits,
+            files_changed,
+            rounds_without_completion,
+            model,
+        )
+
+    # No LLM, return heuristic result with REDIRECT
+    rec = "CONTINUE" if heuristic_score >= 5 else "REDIRECT"
+    return ProgressReviewResult(
+        recommendation=rec,
+        confidence=0.5,
+        alignment_score=heuristic_score,
+        trajectory="plateau",
+        analysis=ProgressAnalysis(
+            prep_work_identified=aligned[:5],
+            scope_drift_identified=unaligned[:5],
+        ),
+        feedback_for_agent="Please verify your work aligns with acceptance criteria.",
+        summary=f"Heuristic only: {len(aligned)}/{len(recent_commits)} commits appear aligned",
+        used_llm=False,
+    )
+
+
+def main() -> int:
+    """CLI entry point."""
+    parser = argparse.ArgumentParser(
+        description="Review agent progress against acceptance criteria"
+    )
+    parser.add_argument(
+        "--acceptance-criteria",
+        nargs="+",
+        default=[],
+        help="List of acceptance criteria",
+    )
+    parser.add_argument(
+        "--recent-commits",
+        nargs="+",
+        default=[],
+        help="List of recent commit messages",
+    )
+    parser.add_argument(
+        "--files-changed",
+        nargs="+",
+        default=[],
+        help="List of files changed",
+    )
+    parser.add_argument(
+        "--rounds-without-completion",
+        type=int,
+        default=0,
+        help="Number of rounds without task completion",
+    )
+    parser.add_argument(
+        "--no-llm",
+        action="store_true",
+        help="Disable LLM, use heuristics only",
+    )
+    parser.add_argument(
+        "--model",
+        default="gpt-4o-mini",
+        help="LLM model to use",
+    )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Output as JSON",
+    )
+
+    args = parser.parse_args()
+
+    result = review_progress(
+        acceptance_criteria=args.acceptance_criteria,
+        recent_commits=args.recent_commits,
+        files_changed=args.files_changed,
+        rounds_without_completion=args.rounds_without_completion,
+        use_llm=not args.no_llm,
+        model=args.model,
+    )
+
+    if args.json:
+        print(json.dumps(result.model_dump(), indent=2))
+    else:
+        print(f"Recommendation: {result.recommendation}")
+        print(f"Confidence: {result.confidence:.1%}")
+        print(f"Alignment Score: {result.alignment_score:.1f}/10")
+        print(f"Trajectory: {result.trajectory}")
+        print(f"Summary: {result.summary}")
+        if result.feedback_for_agent:
+            print(f"\nFeedback for Agent:\n{result.feedback_for_agent}")
+
+    # Exit code based on recommendation
+    if result.recommendation == "STOP":
+        return 2
+    elif result.recommendation == "REDIRECT":
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

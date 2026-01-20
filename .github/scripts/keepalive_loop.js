@@ -1336,6 +1336,19 @@ async function evaluateKeepaliveLoop({ github, context, core, payload: overrideP
   const prevUnchecked = toNumber(previousTasks.unchecked, checkboxCounts.unchecked);
   const tasksCompletedSinceLastRound = prevUnchecked - checkboxCounts.unchecked;
   
+  // Track consecutive rounds without task completion (for progress review trigger)
+  const prevRoundsWithoutCompletion = toNumber(state.rounds_without_task_completion, 0);
+  const roundsWithoutTaskCompletion = tasksCompletedSinceLastRound > 0 
+    ? 0 
+    : prevRoundsWithoutCompletion + (iteration > 0 ? 1 : 0);
+  
+  // Progress review threshold: trigger after N rounds of activity without task completion
+  // This catches "productive but unfocused" patterns where agent makes changes but doesn't advance criteria
+  const PROGRESS_REVIEW_THRESHOLD = 8;
+  const needsProgressReview = roundsWithoutTaskCompletion >= PROGRESS_REVIEW_THRESHOLD 
+    && lastFilesChanged > 0  // Only review if there's actual activity
+    && !allComplete;         // Don't review if all tasks are done
+  
   // Calculate productivity score (0-100)
   // This is evidence-based: higher score = more confidence work is happening
   let productivityScore = 0;
@@ -1455,6 +1468,11 @@ async function evaluateKeepaliveLoop({ github, context, core, payload: overrideP
   } else if (shouldStopForMaxIterations) {
     action = 'stop';
     reason = isProductive ? 'max-iterations' : 'max-iterations-unproductive';
+  } else if (needsProgressReview) {
+    // Trigger LLM-based progress review when agent is active but not completing tasks
+    // This allows legitimate prep work while catching scope drift early
+    action = 'review';
+    reason = `progress-review-${roundsWithoutTaskCompletion}`;
   } else if (tasksRemaining) {
     action = 'run';
     reason = iteration >= maxIterations ? 'ready-extended' : 'ready';
@@ -1496,6 +1514,9 @@ async function evaluateKeepaliveLoop({ github, context, core, payload: overrideP
     hasConflict: conflictResult.hasConflict,
     conflictSource: conflictResult.primarySource || null,
     conflictFiles: conflictResult.files || [],
+    // Progress review data for LLM-based alignment check
+    needsProgressReview,
+    roundsWithoutTaskCompletion,
   };
 }
 
@@ -2058,6 +2079,8 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
     // Productivity tracking for evidence-based decisions
     last_files_changed: agentFilesChanged,
     prev_files_changed: toNumber(previousState?.last_files_changed, 0),
+    // Track consecutive rounds without task completion for progress review
+    rounds_without_task_completion: roundsWithoutTaskCompletion,
     // Quality metrics for analysis validation
     last_effort_score: sessionEffortScore,
     last_data_quality: sessionDataQuality,
