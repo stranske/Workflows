@@ -104,6 +104,26 @@ def test_audit_workflows_handles_unreadable_paths(tmp_path: Path) -> None:
     assert by_name["bad.yml"].valid is False
     assert by_name["bad.yml"].triggers == ()
     assert by_name["bad.yml"].pr_context_markers == ()
+    assert by_name["bad.yml"].error == "unreadable"
+
+
+def test_audit_workflows_reports_invalid_yaml(tmp_path: Path) -> None:
+    workflows_dir = tmp_path / "workflows"
+    workflows_dir.mkdir()
+
+    _write(
+        workflows_dir / "invalid.yml",
+        """
+name: Invalid
+on: [
+""",
+    )
+
+    results = audit_workflows(workflows_dir)
+    by_name = {item.path.name: item for item in results}
+
+    assert by_name["invalid.yml"].valid is False
+    assert by_name["invalid.yml"].error == "invalid-yaml"
 
 
 def test_summarize_by_triggers_groups_workflows(tmp_path: Path) -> None:

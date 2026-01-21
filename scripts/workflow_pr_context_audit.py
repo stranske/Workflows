@@ -28,6 +28,7 @@ class WorkflowAudit:
     triggers: tuple[str, ...]
     pr_context_markers: tuple[str, ...]
     valid: bool
+    error: str | None
 
 
 @dataclass(frozen=True)
@@ -83,6 +84,7 @@ def audit_workflows(workflows_dir: Path) -> list[WorkflowAudit]:
                     triggers=(),
                     pr_context_markers=(),
                     valid=False,
+                    error="unreadable",
                 )
             )
             continue
@@ -90,12 +92,14 @@ def audit_workflows(workflows_dir: Path) -> list[WorkflowAudit]:
         if data is None:
             triggers: tuple[str, ...] = ()
             valid = False
+            error = "invalid-yaml"
         else:
             on_field = data.get("on")
             if on_field is None and True in data:
                 on_field = data.get(True)
             triggers = tuple(sorted(normalize_triggers(on_field)))
             valid = True
+            error = None
         markers = detect_pr_context_markers(text)
         results.append(
             WorkflowAudit(
@@ -103,6 +107,7 @@ def audit_workflows(workflows_dir: Path) -> list[WorkflowAudit]:
                 triggers=triggers,
                 pr_context_markers=markers,
                 valid=valid,
+                error=error,
             )
         )
     return results
@@ -110,7 +115,7 @@ def audit_workflows(workflows_dir: Path) -> list[WorkflowAudit]:
 
 def format_table(results: list[WorkflowAudit]) -> str:
     """Render a tab-delimited report for easy copy/paste."""
-    lines = ["path\ttriggers\tpr_context_markers\tvalid"]
+    lines = ["path\ttriggers\tpr_context_markers\tvalid\terror"]
     for item in results:
         lines.append(
             "\t".join(
@@ -119,6 +124,7 @@ def format_table(results: list[WorkflowAudit]) -> str:
                     ",".join(item.triggers),
                     ",".join(item.pr_context_markers),
                     "true" if item.valid else "false",
+                    item.error or "",
                 ]
             )
         )
@@ -179,6 +185,7 @@ def main() -> int:
                 "triggers": list(item.triggers),
                 "pr_context_markers": list(item.pr_context_markers),
                 "valid": item.valid,
+                "error": item.error,
             }
             for item in results
         ]
