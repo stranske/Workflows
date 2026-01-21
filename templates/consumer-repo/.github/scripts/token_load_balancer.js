@@ -601,6 +601,14 @@ function getRegistrySummary() {
 }
 
 /**
+ * Check if the token registry has been initialized
+ * @returns {boolean} True if registry contains tokens
+ */
+function isInitialized() {
+  return tokenRegistry.tokens.size > 0;
+}
+
+/**
  * Get status label for a token based on remaining capacity
  */
 function getTokenStatus(tokenInfo) {
@@ -689,6 +697,7 @@ module.exports = {
   refreshAllRateLimits,
   checkTokenRateLimit,
   getOptimalToken,
+  isInitialized,
   updateTokenUsage,
   updateFromHeaders,
   getRegistrySummary,
