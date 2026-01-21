@@ -5,10 +5,10 @@ branch: codex/issue-1010
 tasks:
   - id: task-01
     title: Add concurrency groups with cancel-in-progress to high-frequency workflows.
-    status: doing
+    status: done
     started_at: '2026-01-21T14:31:36Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-01-21T14:31:45Z'
+    commit: e2c2c43e2cc7072db0a537445fabca44c1e640f7
     notes: []
   - id: task-02
     title: Document debounce patterns for consumer repos.
