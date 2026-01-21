@@ -2605,6 +2605,49 @@ test('analyzeTaskCompletion parses numbered checklist items', async () => {
   assert.equal(numberedMatch.confidence, 'high', 'Should be high confidence');
 });
 
+test('analyzeTaskCompletion matches issue link tasks using PR metadata', async () => {
+  const commits = [
+    { sha: 'abc123', commit: { message: 'chore: update keepalive loop' } },
+  ];
+  const files = [
+    { filename: '.github/scripts/keepalive_loop.js' },
+  ];
+
+  const github = {
+    rest: {
+      repos: {
+        async compareCommits() {
+          return { data: { commits } };
+        },
+      },
+      pulls: {
+        async listFiles() {
+          return { data: files };
+        },
+      },
+    },
+  };
+
+  const taskText = `
+- [ ] [#1001](https://github.com/org/repo/issues/1001)
+`;
+
+  const result = await analyzeTaskCompletion({
+    github,
+    context: { repo: { owner: 'test', repo: 'repo' } },
+    prNumber: 1,
+    baseSha: 'base123',
+    headSha: 'head456',
+    taskText,
+    core: buildCore(),
+    pr: { title: 'codex/issue-1001', head: { ref: 'codex/issue-1001' } },
+  });
+
+  assert.equal(result.matches.length, 1, 'Should match issue link task');
+  assert.equal(result.matches[0].confidence, 'high', 'Should be high confidence');
+  assert.ok(result.matches[0].reason.includes('Issue 1001'), 'Reason should include issue number');
+});
+
 test('analyzeTaskCompletion matches explicit file creation tasks', async () => {
   const commits = [
     { sha: 'abc123', commit: { message: 'test: add agents-guard tests' } },

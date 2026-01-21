@@ -2464,7 +2464,7 @@ async function markAgentRunning({ github, context, core, inputs }) {
  * @param {object} [params.core] - Optional core for logging
  * @returns {Promise<{matches: Array<{task: string, reason: string, confidence: string}>, summary: string}>}
  */
-async function analyzeTaskCompletion({ github, context, prNumber, baseSha, headSha, taskText, core }) {
+async function analyzeTaskCompletion({ github, context, prNumber, baseSha, headSha, taskText, core, pr }) {
   const matches = [];
   const log = (msg) => core?.info?.(msg) || console.log(msg);
 
@@ -2588,11 +2588,43 @@ async function analyzeTaskCompletion({ github, context, prNumber, baseSha, headS
     }
   });
 
+  function extractIssueNumber(task) {
+    const match = task.match(/#(\d+)|issues\/(\d+)|pull\/(\d+)/i);
+    return match ? (match[1] || match[2] || match[3]) : null;
+  }
+
+  const issuePatternCache = new Map();
+  const buildIssuePattern = (issueNumber) => {
+    if (!issueNumber) {
+      return null;
+    }
+    if (!issuePatternCache.has(issueNumber)) {
+      issuePatternCache.set(issueNumber, new RegExp(`(^|\\D)${issueNumber}(\\D|$)`));
+    }
+    return issuePatternCache.get(issueNumber);
+  };
+
+  const issueMatchesText = (pattern, value) => {
+    if (!pattern) {
+      return false;
+    }
+    return pattern.test(String(value || ''));
+  };
+
   // Match tasks to commits/files
   for (const task of taskLines) {
     const taskLower = task.toLowerCase();
     const taskWords = taskLower.match(/\b[a-z_-]{3,}\b/g) || [];
     const isTestTask = /\b(test|tests|unit\s*test|coverage)\b/i.test(task);
+    const issueNumber = extractIssueNumber(task);
+    const issuePattern = buildIssuePattern(issueNumber);
+    const strippedIssueTask = task
+      .replace(/\[[^\]]*\]\(([^)]+)\)/g, '$1')
+      .replace(/https?:\/\/\S+/gi, '')
+      .replace(/[#\d]/g, '')
+      .replace(/[\[\]().]/g, '')
+      .trim();
+    const isIssueOnlyTask = Boolean(issuePattern) && strippedIssueTask === '';
     
     // Calculate overlap score using expanded keywords (with synonyms)
     const matchingWords = taskWords.filter(w => expandedKeywords.has(w));
@@ -2645,6 +2677,29 @@ async function analyzeTaskCompletion({ github, context, prNumber, baseSha, headS
     let reason = '';
 
     // Exact file match is very high confidence
+    if (isIssueOnlyTask) {
+      const prTitle = pr?.title;
+      const prRef = pr?.head?.ref;
+      const prMatch = issueMatchesText(issuePattern, prTitle) || issueMatchesText(issuePattern, prRef);
+      const commitIssueMatch = commits.some(c => issueMatchesText(issuePattern, c.commit?.message));
+      const fileIssueMatch = filesChanged.some(f => issueMatchesText(issuePattern, f));
+      if (prMatch || commitIssueMatch || fileIssueMatch) {
+        const reasonParts = [];
+        if (prMatch) {
+          reasonParts.push('PR title/branch');
+        }
+        if (commitIssueMatch) {
+          reasonParts.push('commit message');
+        }
+        if (fileIssueMatch) {
+          reasonParts.push('file path');
+        }
+        reason = `Issue ${issueNumber} matched ${reasonParts.join(', ')}`;
+        matches.push({ task, reason, confidence: 'high' });
+        continue;
+      }
+    }
+
     if (exactFileMatch) {
       confidence = 'high';
       const matchedFile = cleanFileRefs.find(ref => filesChanged.some(f => f.toLowerCase().includes(ref)));
@@ -2745,7 +2800,7 @@ async function autoReconcileTasks({ github, context, prNumber, baseSha, headSha,
 
   // Source 2: Commit/file analysis (fallback or supplementary)
   const analysis = await analyzeTaskCompletion({
-    github, context, prNumber, baseSha, headSha, taskText, core
+    github, context, prNumber, baseSha, headSha, taskText, core, pr,
   });
 
   // Add commit-based matches that aren't already covered by LLM
