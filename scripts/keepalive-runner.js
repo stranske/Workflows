@@ -85,10 +85,23 @@ function hasCliAgentLabel(labels) {
 
 function countCheckboxes(markdown) {
   const result = { total: 0, checked: 0, unchecked: 0 };
-  const regex = /(?:^|\n)\s*(?:[-*+]|\d+[.)])\s*\[( |x|X)\]/g;
   const content = String(markdown || '');
-  let match;
-  while ((match = regex.exec(content)) !== null) {
+  const fencePattern = /^\s*(```|~~~)/;
+  const checkboxPattern = /^\s*(?:[-*+]|\d+[.)])\s*\[( |x|X)\]/;
+  let inCodeBlock = false;
+
+  for (const line of content.split('\n')) {
+    if (fencePattern.test(line)) {
+      inCodeBlock = !inCodeBlock;
+      continue;
+    }
+    if (inCodeBlock) {
+      continue;
+    }
+    const match = line.match(checkboxPattern);
+    if (!match) {
+      continue;
+    }
     result.total += 1;
     if ((match[1] || '').toLowerCase() === 'x') {
       result.checked += 1;
