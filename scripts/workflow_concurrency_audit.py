@@ -142,9 +142,9 @@ def audit_workflows(
                     high_frequency=high_frequency,
                     concurrency=concurrency,
                     has_canceling_concurrency=_has_canceling_concurrency(concurrency),
-                    recommended_group=suggest_concurrency_group(triggers)
-                    if high_frequency
-                    else None,
+                    recommended_group=(
+                        suggest_concurrency_group(triggers) if high_frequency else None
+                    ),
                 )
             )
     return results
