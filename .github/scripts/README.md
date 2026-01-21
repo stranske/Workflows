@@ -40,6 +40,32 @@ const items = await paginateWithBackoff(
 
 These helpers automatically retry transient errors (503, 504, rate limits, timeouts) with exponential backoff and jitter.
 
+## Token-Aware Retry (Load Balanced)
+
+For workflows that hit API rate limits, use the token-aware retry wrapper. It
+initializes the token load balancer from environment secrets and switches to a
+fresh token on rate limit errors:
+
+```javascript
+const { createTokenAwareRetry } = require('./github-api-with-retry');
+
+module.exports = async ({ github, core }) => {
+  const { withRetry } = await createTokenAwareRetry({ github, core });
+
+  const response = await withRetry((client) =>
+    client.rest.issues.get({ owner, repo, issue_number: 123 })
+  );
+
+  core.info(`Fetched issue: ${response.data.title}`);
+};
+```
+
+Ensure the workflow passes the available tokens as environment variables (for
+example: `GITHUB_TOKEN`, `SERVICE_BOT_PAT`, `ACTIONS_BOT_PAT`, `OWNER_PR_PAT`,
+`WORKFLOWS_APP_ID`/`WORKFLOWS_APP_PRIVATE_KEY`, `KEEPALIVE_APP_ID`/
+`KEEPALIVE_APP_PRIVATE_KEY`, `GH_APP_ID`/`GH_APP_PRIVATE_KEY`). The wrapper
+handles selecting and switching between them when rate limits are exhausted.
+
 ## Tests
 
 Minimal Node and Python unit tests live alongside the scripts under
