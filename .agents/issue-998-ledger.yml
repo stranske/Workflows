@@ -5,10 +5,10 @@ branch: codex/issue-998
 tasks:
   - id: task-01
     title: Audit current workflows for consolidation opportunities.
-    status: doing
+    status: done
     started_at: '2026-01-21T03:48:32Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-01-21T03:48:38Z'
+    commit: a63212f321dca7397773486535dddeb502f59514
     notes: []
   - id: task-02
     title: Define merged workflow designs for the selected candidates.
