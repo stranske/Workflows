@@ -4,6 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const {
+  buildOctokitInstance,
   resolveInstructionToken,
   resolveDispatchToken,
 } = require('../scripts/keepalive-runner.js');
@@ -62,4 +63,16 @@ test('resolveDispatchToken accepts lower-case github_token', () => {
     github_token: 'github-token',
   };
   assert.equal(resolveDispatchToken(env), 'github-token');
+});
+
+test('buildOctokitInstance ignores plain object constructor fallbacks', () => {
+  const core = { debug: () => {} };
+  const github = {
+    getOctokit: () => {
+      throw new Error('missing token');
+    },
+  };
+
+  const instance = buildOctokitInstance({ core, github, token: '' });
+  assert.equal(instance, null);
 });

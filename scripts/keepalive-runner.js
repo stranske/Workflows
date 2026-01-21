@@ -259,7 +259,12 @@ function buildOctokitInstance({ core, github, token }) {
     }
   }
 
-  if (github && typeof github.constructor === 'function') {
+  if (
+    github &&
+    typeof github.constructor === 'function' &&
+    github.constructor !== Object &&
+    github.constructor !== Function
+  ) {
     try {
       return new github.constructor({ auth: token });
     } catch (error) {
