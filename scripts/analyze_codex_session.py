@@ -42,11 +42,17 @@ logger = logging.getLogger(__name__)
 
 SUMMARY_TAG_PATTERN = re.compile(r"^<summary\b[^>]*>.*</summary>\s*$", re.IGNORECASE)
 DETAILS_TAG_PATTERN = re.compile(r"^</?(summary|details)\b", re.IGNORECASE)
+CODE_FENCE_PATTERN = re.compile(r"^\s*(```|~~~)")
 
 
 def is_details_or_summary_tag(task_text: str) -> bool:
     """Return True when the task line is a details/summary HTML tag."""
     return bool(SUMMARY_TAG_PATTERN.match(task_text) or DETAILS_TAG_PATTERN.match(task_text))
+
+
+def is_code_fence_line(line: str) -> bool:
+    """Return True when the line starts a fenced code block."""
+    return bool(CODE_FENCE_PATTERN.match(line))
 
 
 def extract_tasks_from_pr_body(pr_body: str) -> list[str]:
@@ -63,9 +69,19 @@ def extract_tasks_from_pr_body(pr_body: str) -> list[str]:
 
     # Match both checked and unchecked boxes to get all tasks
     # Pattern: - [ ] or - [x] followed by task text
-    checkbox_pattern = re.compile(r"^[\s]*-\s*\[([ xX])\]\s*(.+)$", re.MULTILINE)
+    checkbox_pattern = re.compile(r"^[\s]*-\s*\[([ xX])\]\s*(.+)$")
+    in_code_block = False
 
-    for match in checkbox_pattern.finditer(pr_body):
+    for line in str(pr_body or "").splitlines():
+        if is_code_fence_line(line):
+            in_code_block = not in_code_block
+            continue
+        if in_code_block:
+            continue
+
+        match = checkbox_pattern.match(line)
+        if not match:
+            continue
         checked = match.group(1).lower() == "x"
         task_text = match.group(2).strip()
 
@@ -87,9 +103,19 @@ def extract_all_tasks_from_pr_body(pr_body: str) -> dict[str, bool]:
         Dict mapping task text to checked status
     """
     tasks = {}
-    checkbox_pattern = re.compile(r"^[\s]*-\s*\[([ xX])\]\s*(.+)$", re.MULTILINE)
+    checkbox_pattern = re.compile(r"^[\s]*-\s*\[([ xX])\]\s*(.+)$")
+    in_code_block = False
 
-    for match in checkbox_pattern.finditer(pr_body):
+    for line in str(pr_body or "").splitlines():
+        if is_code_fence_line(line):
+            in_code_block = not in_code_block
+            continue
+        if in_code_block:
+            continue
+
+        match = checkbox_pattern.match(line)
+        if not match:
+            continue
         checked = match.group(1).lower() == "x"
         task_text = match.group(2).strip()
         if is_details_or_summary_tag(task_text):
@@ -111,24 +137,33 @@ def update_pr_body_checkboxes(pr_body: str, completed_tasks: list[str]) -> str:
     Returns:
         Updated PR body with checkboxes updated
     """
-    updated_body = pr_body
+    updated_lines = []
+    in_code_block = False
+    patterns = []
 
     for task in completed_tasks:
         if not task or is_details_or_summary_tag(task):
             continue
-        # Escape special regex characters in task
         escaped_task = re.escape(task)
+        patterns.append((task, re.compile(rf"^([\s]*-\s*)\[ \](\s*){escaped_task}")))
 
-        # Pattern to match unchecked checkbox with this task
-        pattern = re.compile(
-            rf"^([\s]*-\s*)\[ \](\s*){escaped_task}",
-            re.MULTILINE,
-        )
+    for line in str(pr_body or "").splitlines():
+        if is_code_fence_line(line):
+            in_code_block = not in_code_block
+            updated_lines.append(line)
+            continue
+        if in_code_block:
+            updated_lines.append(line)
+            continue
 
-        # Replace with checked version
-        updated_body = pattern.sub(rf"\1[x]\2{task}", updated_body)
+        updated_line = line
+        for task, pattern in patterns:
+            updated_line = pattern.sub(rf"\1[x]\2{task}", updated_line)
+            if updated_line != line:
+                break
+        updated_lines.append(updated_line)
 
-    return updated_body
+    return "\n".join(updated_lines)
 
 
 def output_github_actions(result: AnalysisResult) -> None:

@@ -16,6 +16,10 @@ const path = require('path');
 
 const COMPLETION_COMMENT_MARKER = '<!-- codex-completion-checkpoint -->';
 
+function isCodeFenceLine(line) {
+  return /^\s*(```|~~~)/.test(String(line || ''));
+}
+
 /**
  * Extract checked checkboxes from markdown content.
  * @param {string} content - Markdown content
@@ -24,8 +28,16 @@ const COMPLETION_COMMENT_MARKER = '<!-- codex-completion-checkpoint -->';
 function extractCheckedItems(content) {
   const items = [];
   const lines = String(content || '').split(/\r?\n/);
+  let inCodeBlock = false;
   
   for (const line of lines) {
+    if (isCodeFenceLine(line)) {
+      inCodeBlock = !inCodeBlock;
+      continue;
+    }
+    if (inCodeBlock) {
+      continue;
+    }
     // Match checked checkboxes: - [x] or - [X] or * [x] etc.
     const match = line.match(/^\s*[-*+]\s*\[[xX]\]\s*(.+)$/);
     if (match && match[1]) {

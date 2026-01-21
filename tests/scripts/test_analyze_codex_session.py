@@ -92,6 +92,18 @@ This PR fixes a bug.
         tasks = extract_tasks_from_pr_body(pr_body)
         assert tasks == ["Actual task"]
 
+    def test_ignores_fenced_code_blocks(self) -> None:
+        pr_body = """
+## Tasks
+- [ ] Real task
+```md
+- [ ] Not a task
+```
+- [ ] Another task
+"""
+        tasks = extract_tasks_from_pr_body(pr_body)
+        assert tasks == ["Real task", "Another task"]
+
 
 class TestExtractAllTasksFromPRBody:
     """Tests for extracting all tasks with status."""
@@ -117,6 +129,17 @@ class TestExtractAllTasksFromPRBody:
 """
         tasks = extract_all_tasks_from_pr_body(pr_body)
         assert tasks == {"Real task": True}
+
+    def test_ignores_fenced_code_blocks(self) -> None:
+        pr_body = """
+- [ ] Outside task
+~~~md
+- [x] Not real
+~~~
+- [x] Also outside
+"""
+        tasks = extract_all_tasks_from_pr_body(pr_body)
+        assert tasks == {"Outside task": False, "Also outside": True}
 
 
 class TestUpdatePRBodyCheckboxes:
@@ -153,6 +176,11 @@ class TestUpdatePRBodyCheckboxes:
         pr_body = "- [ ] <summary>What should I do?</summary>\n- [ ] Real task"
         updated = update_pr_body_checkboxes(pr_body, ["<summary>What should I do?</summary>"])
         assert updated == pr_body
+
+    def test_ignores_fenced_code_blocks(self) -> None:
+        pr_body = "- [ ] Real task\n```md\n- [ ] Not real\n```\n- [ ] Another task"
+        updated = update_pr_body_checkboxes(pr_body, ["Not real", "Another task"])
+        assert updated == "- [ ] Real task\n```md\n- [ ] Not real\n```\n- [x] Another task"
 
 
 class TestCLIScript:
