@@ -49,6 +49,22 @@ describe('extractCheckedItems', () => {
     assert.ok(items.includes('Child task'));
     assert.ok(items.includes('Grandchild task'));
   });
+
+  test('ignores fenced code blocks', () => {
+    const content = `
+- [x] Real task
+\`\`\`md
+- [x] Not a task
+\`\`\`
+- [x] Another task
+~~~md
+- [x] Tilde task
+~~~
+- [x] Final task
+`;
+    const items = extractCheckedItems(content);
+    assert.deepStrictEqual(items, ['Real task', 'Another task', 'Final task']);
+  });
 });
 
 describe('extractSection', () => {
