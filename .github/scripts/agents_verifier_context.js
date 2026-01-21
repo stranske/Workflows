@@ -2,6 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { execSync } = require('child_process');
 
 const {
   extractScopeTasksAcceptanceSections,
@@ -12,6 +13,9 @@ const { queryVerifierCiResults } = require('./verifier_ci_query.js');
 
 const DEFAULT_BRANCH = process.env.DEFAULT_BRANCH || 'main';
 const DEFAULT_DIFF_SUMMARY_PATH = 'verifier-diff-summary.md';
+const DEFAULT_DIFF_PATH = 'verifier-pr-diff.patch';
+const DEFAULT_DIFF_MAX_BYTES = 8 * 1024 * 1024;
+const DEFAULT_DIFF_MAX_CHARS = 300000;
 
 const DIFF_SUMMARY_LIMITS = {
   maxFiles: 50,
@@ -190,6 +194,33 @@ function summarizeDiff(diffText, { maxFiles, maxLines } = {}) {
   return summaryLines.join('\n');
 }
 
+function formatDiffForContext(diffText, maxChars) {
+  const diff = String(diffText || '').trim();
+  if (!diff) {
+    return '_Diff unavailable or empty._';
+  }
+  const limit = Number.isFinite(maxChars) ? maxChars : DEFAULT_DIFF_MAX_CHARS;
+  if (diff.length <= limit) {
+    return diff;
+  }
+  return `${diff.slice(0, limit)}\n\n...diff truncated after ${limit} characters.`;
+}
+
+function fetchLocalGitDiff({ baseSha, headSha, maxBytes, core }) {
+  if (!baseSha || !headSha) {
+    return '';
+  }
+  try {
+    const buffer = execSync(`git diff --no-color ${baseSha}...${headSha}`, {
+      maxBuffer: Number.isFinite(maxBytes) ? maxBytes : DEFAULT_DIFF_MAX_BYTES,
+    });
+    return buffer.toString('utf8');
+  } catch (error) {
+    core?.warning?.(`Failed to generate git diff locally: ${error.message}`);
+    return '';
+  }
+}
+
 async function fetchPullRequestDiff({ github, core, owner, repo, pullNumber }) {
   if (!github?.rest?.pulls?.get) {
     return '';
@@ -297,6 +328,7 @@ async function buildVerifierContext({ github, context, core, ciWorkflows }) {
     core?.setOutput?.('acceptance_count', '0');
     core?.setOutput?.('ci_results', '[]');
     core?.setOutput?.('diff_summary_path', '');
+    core?.setOutput?.('diff_path', '');
     return {
       shouldRun: false,
       reason: resolveReason || 'No pull request detected.',
@@ -319,6 +351,7 @@ async function buildVerifierContext({ github, context, core, ciWorkflows }) {
     core?.setOutput?.('acceptance_count', '0');
     core?.setOutput?.('ci_results', '[]');
     core?.setOutput?.('diff_summary_path', '');
+    core?.setOutput?.('diff_path', '');
     return { shouldRun: false, reason: skipReason, ciResults: [] };
   }
 
@@ -338,6 +371,7 @@ async function buildVerifierContext({ github, context, core, ciWorkflows }) {
     core?.setOutput?.('acceptance_count', '0');
     core?.setOutput?.('ci_results', '[]');
     core?.setOutput?.('diff_summary_path', '');
+    core?.setOutput?.('diff_path', '');
     return { shouldRun: false, reason: skipReason, ciResults: [] };
   }
 
@@ -490,25 +524,50 @@ async function buildVerifierContext({ github, context, core, ciWorkflows }) {
     core?.setOutput?.('acceptance_count', '0');
     core?.setOutput?.('ci_results', JSON.stringify(ciResults));
     core?.setOutput?.('diff_summary_path', '');
+    core?.setOutput?.('diff_path', '');
     return { shouldRun: false, reason: skipReason, ciResults };
   }
 
-  const diffText = await fetchPullRequestDiff({
-    github,
+  const diffMaxBytes = Number.parseInt(process.env.VERIFIER_DIFF_MAX_BYTES || '', 10);
+  const diffMaxChars = Number.parseInt(process.env.VERIFIER_DIFF_MAX_CHARS || '', 10);
+  const baseSha = pull.base?.sha;
+  const headSha = pull.merge_commit_sha || pull.head?.sha || targetSha;
+  let diffText = fetchLocalGitDiff({
+    baseSha,
+    headSha,
+    maxBytes: Number.isFinite(diffMaxBytes) ? diffMaxBytes : DEFAULT_DIFF_MAX_BYTES,
     core,
-    owner,
-    repo,
-    pullNumber: pull.number,
   });
+  if (!diffText) {
+    diffText = await fetchPullRequestDiff({
+      github,
+      core,
+      owner,
+      repo,
+      pullNumber: pull.number,
+    });
+  }
   const diffSummary = summarizeDiff(diffText, DIFF_SUMMARY_LIMITS);
   content.push('');
   content.push(diffSummary);
+  if (diffText) {
+    content.push('');
+    content.push('## PR Diff (full)');
+    content.push('');
+    content.push('```diff');
+    content.push(formatDiffForContext(diffText, Number.isFinite(diffMaxChars) ? diffMaxChars : DEFAULT_DIFF_MAX_CHARS));
+    content.push('```');
+  }
 
   const markdown = content.join('\n').trimEnd() + '\n';
   const contextPath = path.join(process.cwd(), 'verifier-context.md');
   fs.writeFileSync(contextPath, markdown, 'utf8');
   const diffSummaryPath = path.join(process.cwd(), DEFAULT_DIFF_SUMMARY_PATH);
   fs.writeFileSync(diffSummaryPath, diffSummary + '\n', 'utf8');
+  const diffPath = path.join(process.cwd(), DEFAULT_DIFF_PATH);
+  if (diffText) {
+    fs.writeFileSync(diffPath, diffText + '\n', 'utf8');
+  }
 
   core?.setOutput?.('should_run', 'true');
   core?.setOutput?.('skip_reason', '');
@@ -520,6 +579,7 @@ async function buildVerifierContext({ github, context, core, ciWorkflows }) {
   core?.setOutput?.('acceptance_count', String(acceptanceCount));
   core?.setOutput?.('ci_results', JSON.stringify(ciResults));
   core?.setOutput?.('diff_summary_path', diffSummaryPath);
+  core?.setOutput?.('diff_path', diffText ? diffPath : '');
 
   return {
     shouldRun: true,
@@ -527,6 +587,7 @@ async function buildVerifierContext({ github, context, core, ciWorkflows }) {
     contextPath,
     diffSummary,
     diffSummaryPath,
+    diffPath: diffText ? diffPath : '',
     issueNumbers,
     targetSha,
     acceptanceCount,

@@ -314,7 +314,10 @@ jobs:
         run: |
           set -euo pipefail
           context_file="${{ steps.context.outputs.context_path }}"
-          diff_file="${{ steps.context.outputs.diff_summary_path }}"
+          diff_file="${{ steps.context.outputs.diff_path }}"
+          if [ -z "$diff_file" ] || [ ! -f "$diff_file" ]; then
+            diff_file="${{ steps.context.outputs.diff_summary_path }}"
+          fi
           model="${{ inputs.model }}"
           provider="${{ inputs.provider }}"
 
