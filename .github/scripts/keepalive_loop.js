@@ -2304,46 +2304,60 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
   summaryLines.push('', formatStateComment(newState));
   const body = summaryLines.join('\n');
 
-  if (commentId) {
-    await github.rest.issues.updateComment({
-      owner: context.repo.owner,
-      repo: context.repo.repo,
-      comment_id: commentId,
-      body,
-    });
-  } else {
-    await github.rest.issues.createComment({
-      owner: context.repo.owner,
-      repo: context.repo.repo,
-      issue_number: prNumber,
-      body,
-    });
-  }
-
-  if (shouldEscalate) {
-    try {
-      await github.rest.issues.addLabels({
+  try {
+    if (commentId) {
+      await github.rest.issues.updateComment({
+        owner: context.repo.owner,
+        repo: context.repo.repo,
+        comment_id: commentId,
+        body,
+      });
+    } else {
+      await github.rest.issues.createComment({
         owner: context.repo.owner,
         repo: context.repo.repo,
         issue_number: prNumber,
-        labels: ['agent:needs-attention'],
+        body,
       });
-    } catch (error) {
-      if (core) core.warning(`Failed to add agent:needs-attention label: ${error.message}`);
     }
-  }
 
-  if (stop) {
-    try {
-      await github.rest.issues.addLabels({
-        owner: context.repo.owner,
-        repo: context.repo.repo,
-        issue_number: prNumber,
-        labels: ['needs-human'],
-      });
-    } catch (error) {
-      if (core) core.warning(`Failed to add needs-human label: ${error.message}`);
+    if (shouldEscalate) {
+      try {
+        await github.rest.issues.addLabels({
+          owner: context.repo.owner,
+          repo: context.repo.repo,
+          issue_number: prNumber,
+          labels: ['agent:needs-attention'],
+        });
+      } catch (error) {
+        if (core) core.warning(`Failed to add agent:needs-attention label: ${error.message}`);
+      }
     }
+
+    if (stop) {
+      try {
+        await github.rest.issues.addLabels({
+          owner: context.repo.owner,
+          repo: context.repo.repo,
+          issue_number: prNumber,
+          labels: ['needs-human'],
+        });
+      } catch (error) {
+        if (core) core.warning(`Failed to add needs-human label: ${error.message}`);
+      }
+    }
+  } catch (error) {
+    const rateLimitMessage = [error?.message, error?.response?.data?.message]
+      .filter(Boolean)
+      .join(' ');
+    const rateLimitRemaining = toNumber(error?.response?.headers?.['x-ratelimit-remaining'], NaN);
+    const rateLimitHit = hasRateLimitSignal(rateLimitMessage)
+      || (error?.status === 403 && rateLimitRemaining === 0);
+    if (rateLimitHit) {
+      if (core) core.warning('Keepalive summary update hit GitHub API rate limit; deferring.');
+      return;
+    }
+    throw error;
   }
   } finally {
     cache?.emitMetrics?.();
