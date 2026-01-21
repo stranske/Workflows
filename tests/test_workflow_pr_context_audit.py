@@ -27,7 +27,7 @@ def test_normalize_triggers_handles_common_shapes() -> None:
 
 def test_detect_pr_context_markers_from_text() -> None:
     text = """
-    if (context.payload.pull_request) {
+    if (context.payload?.pull_request) {
       console.log(github.event.pull_request.number);
     }
     """
@@ -38,13 +38,13 @@ def test_detect_pr_context_markers_from_text() -> None:
 
 def test_detect_pr_context_markers_from_issue_payload() -> None:
     text = """
-    if (context.payload.issue.pull_request) {
+    if (context.payload?.issue?.pull_request) {
       console.log("PR comment");
     }
-    if (github.event.issue.number) {
+    if (github.event.issue?.number) {
       console.log("Issue number");
     }
-    if (context.payload.issue.number) {
+    if (context.payload.issue?.number) {
       console.log("Issue number payload");
     }
     """

@@ -13,11 +13,13 @@ import yaml
 
 PR_CONTEXT_PATTERNS = {
     "github.event.pull_request": re.compile(r"github\.event\.pull_request"),
-    "github.event.issue.pull_request": re.compile(r"github\.event\.issue\.pull_request"),
-    "github.event.issue.number": re.compile(r"github\.event\.issue\.number"),
-    "context.payload.issue.pull_request": re.compile(r"context\.payload\.issue\.pull_request"),
-    "context.payload.issue.number": re.compile(r"context\.payload\.issue\.number"),
-    "context.payload.pull_request": re.compile(r"context\.payload\.pull_request"),
+    "github.event.issue.pull_request": re.compile(r"github\.event\.issue\??\.pull_request"),
+    "github.event.issue.number": re.compile(r"github\.event\.issue\??\.number"),
+    "context.payload.issue.pull_request": re.compile(
+        r"context\.payload\??\.issue\??\.pull_request"
+    ),
+    "context.payload.issue.number": re.compile(r"context\.payload\??\.issue\??\.number"),
+    "context.payload.pull_request": re.compile(r"context\.payload\??\.pull_request"),
     "workflow_run.pull_requests": re.compile(r"workflow_run\.pull_requests"),
     "pull_request_number": re.compile(r"\bpull_request_number\b"),
 }
