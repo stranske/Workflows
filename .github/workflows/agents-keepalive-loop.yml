@@ -74,11 +74,78 @@ jobs:
           github.event.action == 'labeled' &&
           github.event.label.name == 'agent:retry'
         uses: actions/github-script@v8
+        env:
+          FALLBACK_TOKEN: ${{ secrets.CODESPACES_WORKFLOWS || secrets.SERVICE_BOT_PAT || '' }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const prNumber = context.payload.pull_request.number;
             core.info(`agent:retry label detected on PR #${prNumber} - cleaning up labels`);
+
+            // Check rate limit status before attempting label operations
+            let rateLimit;
+            try {
+              const { data } = await github.rest.rateLimit.get();
+              rateLimit = data.resources.core;
+              core.info(`Rate limit status: ${rateLimit.remaining}/${rateLimit.limit} remaining`);
+
+              if (rateLimit.remaining < 10) {
+                const resetTime = new Date(rateLimit.reset * 1000).toISOString();
+                core.warning(`Rate limit critically low (${rateLimit.remaining} remaining). Reset at ${resetTime}`);
+
+                // Try fallback token if available
+                if (process.env.FALLBACK_TOKEN) {
+                  core.info('Attempting to use fallback token for label operations...');
+                  const { Octokit } = require('@octokit/rest');
+                  const fallbackOctokit = new Octokit({ auth: process.env.FALLBACK_TOKEN });
+
+                  // Check fallback token rate limit
+                  const fallbackRate = await fallbackOctokit.rateLimit.get();
+                  const fallbackRemaining = fallbackRate.data.resources.core.remaining;
+                  core.info(`Fallback token rate limit: ${fallbackRemaining} remaining`);
+
+                  if (fallbackRemaining > 10) {
+                    // Use fallback for label operations
+                    try {
+                      await fallbackOctokit.issues.removeLabel({
+                        owner: context.repo.owner,
+                        repo: context.repo.repo,
+                        issue_number: prNumber,
+                        name: 'agent:retry',
+                      });
+                      core.info('Removed agent:retry label (via fallback token)');
+                    } catch (e) {
+                      core.warning(`Could not remove agent:retry via fallback: ${e.message}`);
+                    }
+
+                    try {
+                      await fallbackOctokit.issues.removeLabel({
+                        owner: context.repo.owner,
+                        repo: context.repo.repo,
+                        issue_number: prNumber,
+                        name: 'agent:rate-limited',
+                      });
+                      core.info('Removed agent:rate-limited label (via fallback token)');
+                    } catch (e) {
+                      if (!e.message.includes('Label does not exist')) {
+                        core.warning(`Could not remove agent:rate-limited via fallback: ${e.message}`);
+                      }
+                    }
+                    core.info('Label cleanup complete via fallback token');
+                    return;
+                  } else {
+                    core.warning('Fallback token also rate limited');
+                  }
+                }
+
+                // Both tokens rate limited - log clearly and continue
+                core.warning('⚠️ Cannot remove labels due to rate limits - labels will remain until manual cleanup');
+                core.notice(`Please manually remove agent:retry and agent:rate-limited labels from PR #${prNumber}`);
+                return;
+              }
+            } catch (e) {
+              core.warning(`Could not check rate limits: ${e.message}`);
+            }
 
             // Remove agent:retry label (so it can be used again later)
             try {
@@ -90,8 +157,11 @@ jobs:
               });
               core.info('Removed agent:retry label');
             } catch (error) {
-              // Label might already be removed
-              core.debug(`Could not remove agent:retry: ${error.message}`);
+              if (error.message.includes('rate limit') || error.status === 403) {
+                core.warning(`⚠️ Rate limited - could not remove agent:retry label: ${error.message}`);
+              } else if (!error.message.includes('Label does not exist')) {
+                core.warning(`Could not remove agent:retry: ${error.message}`);
+              }
             }
 
             // Remove agent:rate-limited label if present
@@ -104,8 +174,12 @@ jobs:
               });
               core.info('Removed agent:rate-limited label');
             } catch (error) {
-              // Label might not be present
-              core.debug(`Could not remove agent:rate-limited: ${error.message}`);
+              if (error.message.includes('rate limit') || error.status === 403) {
+                core.warning(`⚠️ Rate limited - could not remove agent:rate-limited label: ${error.message}`);
+              } else if (!error.message.includes('Label does not exist')) {
+                // Only warn if it's not just "label doesn't exist"
+                core.warning(`Could not remove agent:rate-limited: ${error.message}`);
+              }
             }
 
             core.info('Label cleanup complete - proceeding with keepalive evaluation');
