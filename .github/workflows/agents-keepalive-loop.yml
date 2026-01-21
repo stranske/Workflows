@@ -333,8 +333,8 @@ jobs:
     steps:
       - run: |
           echo "Test job ran!"
-            echo "Action was ${{ needs.evaluate.outputs.action }}"
-            echo "Agent was ${{ needs.evaluate.outputs.agent_type }}"
+          echo "Action was ${{ needs.evaluate.outputs.action }}"
+          echo "Agent was ${{ needs.evaluate.outputs.agent_type }}"
 
   # Mark agent as running before starting the actual work
   # This provides real-time visibility that the agent is actively engaged
@@ -358,9 +358,9 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const { markAgentRunning } = require('./.github/scripts/keepalive_loop.js');
-              const runUrl =
-                `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}` +
-                `/actions/runs/${context.runId}`;
+            const runUrl =
+              `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}` +
+              `/actions/runs/${context.runId}`;
             const inputs = {
               pr_number: '${{ needs.evaluate.outputs.pr_number }}',
               agent_type: '${{ needs.evaluate.outputs.agent_type }}',
@@ -609,13 +609,35 @@ jobs:
             };
             await updateKeepaliveLoopSummary({ github, context, core, inputs });
 
-      # Handle rate limit failures by notifying the PR with a different token
-      # This step uses the WORKFLOWS_APP token which has a separate rate limit pool
+      # Mint KEEPALIVE_APP token for rate limit notification
+      # This has a separate rate limit pool from GITHUB_TOKEN
+      - name: Mint KEEPALIVE_APP token
+        id: keepalive_app_token
+        if: |
+          failure() &&
+          steps.update-summary.outputs.rate_limit_hit == 'true' &&
+          env.KEEPALIVE_APP_ID != '' &&
+          env.KEEPALIVE_APP_PRIVATE_KEY != ''
+        uses: actions/create-github-app-token@v2
+        continue-on-error: true
+        env:
+          KEEPALIVE_APP_ID: ${{ secrets.KEEPALIVE_APP_ID }}
+          KEEPALIVE_APP_PRIVATE_KEY: ${{ secrets.KEEPALIVE_APP_PRIVATE_KEY }}
+        with:
+          app-id: ${{ secrets.KEEPALIVE_APP_ID }}
+          private-key: ${{ secrets.KEEPALIVE_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      # Handle rate limit failures by notifying the PR with KEEPALIVE_APP token
+      # This token has a separate rate limit pool (5000/hr) from the exhausted GITHUB_TOKEN
       - name: Notify PR of rate limit failure
-        if: failure() && steps.update-summary.outputs.rate_limit_hit == 'true'
+        if: |
+          failure() &&
+          steps.update-summary.outputs.rate_limit_hit == 'true' &&
+          steps.keepalive_app_token.outputs.token != ''
         uses: actions/github-script@v8
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ steps.keepalive_app_token.outputs.token }}
           script: |
             const {
               postRateLimitNotification
