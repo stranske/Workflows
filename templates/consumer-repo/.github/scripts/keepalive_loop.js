@@ -1322,6 +1322,7 @@ async function detectRateLimitCancellation({ github, context, runId, core }) {
 async function evaluateKeepaliveLoop({ github, context, core, payload: overridePayload, overridePrNumber, forceRetry }) {
   const payload = overridePayload || context.payload || {};
   const cache = getGithubApiCache({ github, core });
+  let prNumber = overridePrNumber || 0;
   if (cache?.invalidateForWebhook) {
     cache.invalidateForWebhook({
       eventName: context?.eventName,
@@ -1331,7 +1332,7 @@ async function evaluateKeepaliveLoop({ github, context, core, payload: overrideP
     });
   }
   try {
-  let prNumber = overridePrNumber || await resolvePrNumber({ github, context, core, payload });
+  prNumber = overridePrNumber || await resolvePrNumber({ github, context, core, payload });
   if (!prNumber) {
     return {
       prNumber: 0,
@@ -1582,6 +1583,44 @@ async function evaluateKeepaliveLoop({ github, context, core, payload: overrideP
     needsProgressReview,
     roundsWithoutTaskCompletion,
   };
+  } catch (error) {
+    const rateLimitMessage = [error?.message, error?.response?.data?.message]
+      .filter(Boolean)
+      .join(' ');
+    const rateLimitRemaining = toNumber(error?.response?.headers?.['x-ratelimit-remaining'], NaN);
+    const rateLimitHit = hasRateLimitSignal(rateLimitMessage)
+      || (error?.status === 403 && rateLimitRemaining === 0);
+    if (rateLimitHit) {
+      if (core) core.warning('Keepalive loop hit GitHub API rate limit; deferring.');
+      return {
+        prNumber,
+        prRef: '',
+        headSha: '',
+        action: 'defer',
+        reason: 'api-rate-limit',
+        promptMode: 'normal',
+        promptFile: '.github/codex/prompts/keepalive_next_task.md',
+        gateConclusion: '',
+        config: {},
+        iteration: 0,
+        maxIterations: 0,
+        failureThreshold: 0,
+        checkboxCounts: { total: 0, unchecked: 0 },
+        hasAgentLabel: false,
+        agentType: '',
+        taskAppendix: '',
+        keepaliveEnabled: false,
+        stateCommentId: 0,
+        state: {},
+        forceRetry: Boolean(forceRetry),
+        hasConflict: false,
+        conflictSource: null,
+        conflictFiles: [],
+        needsProgressReview: false,
+        roundsWithoutTaskCompletion: 0,
+      };
+    }
+    throw error;
   } finally {
     cache?.emitMetrics?.();
   }
