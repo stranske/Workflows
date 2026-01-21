@@ -46,6 +46,17 @@ def test_build_dashboard_handles_missing_fields() -> None:
     assert "No repo metrics found." in output
 
 
+def test_build_dashboard_reports_no_numeric_metrics() -> None:
+    entries = [
+        {"repo": "octo/alpha", "status": "ok", "timestamp": "2024-01-01T00:00:00Z"},
+        {"repo": "octo/alpha", "status": "warn", "timestamp": "2024-01-02T00:00:00Z"},
+    ]
+
+    output = generator.build_dashboard(entries, errors=0)
+
+    assert "No numeric metrics found." in output
+
+
 def test_parse_field_list_splits_commas() -> None:
     fields = generator._parse_field_list(["duration_ms,coverage", "failures"])
 

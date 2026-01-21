@@ -12,13 +12,22 @@ The dashboard is a single markdown file with these sections:
   fresh and that no data failed to parse.
 - **Org Summary:** Aggregated stats across all repos for each metric field.
   Columns:
+  - `Metric`: Numeric field name reported by the collector.
   - `Mean`, `P50`, `P90`, `P99`: summary distribution percentiles.
   - `Trend`: sparkline showing the metric's recent direction.
   - `Status`: threshold evaluation (OK/WARN/FAIL) when thresholds are configured.
 - **Per-Repo Summary:** A repo overview table with entry counts, number of
-  metric fields tracked, and the most recent update per repo.
+  metric fields tracked, and the most recent update per repo. Columns:
+  - `Repo`: owner/repo identifier.
+  - `Entries`: total rows available for the repo.
+  - `Metrics tracked`: numeric fields present for the repo.
+  - `Last update`: latest timestamp seen in the repo entries.
 - **Repo Details:** One section per repo. Each repo block includes entry count
   and a metrics table that mirrors the Org Summary columns for that repo only.
+  The metrics table includes the same `Metric`, percentile, `Trend`, and
+  `Status` columns as the org summary.
+- **Empty states:** If no repos or numeric fields are available, the dashboard
+  includes an explanatory line after the summary headings.
 
 ## Reading key fields
 
