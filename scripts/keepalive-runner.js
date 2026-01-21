@@ -718,25 +718,30 @@ async function runKeepalive({ core, github, context, env = process.env }) {
     return;
   }
 
-  const instructionAuthorToken = resolveInstructionToken(env);
-  if (!instructionAuthorToken) {
-    throw new Error(
-      'GitHub token is required to author keepalive instructions (app token, PAT, or GITHUB_TOKEN).'
-    );
-  }
-  const dispatchToken = resolveDispatchToken(env, instructionAuthorToken);
+  let instructionAuthorToken = '';
+  let dispatchToken = '';
+  let instructionAuthorOctokit = null;
+  if (!dryRun) {
+    instructionAuthorToken = resolveInstructionToken(env);
+    if (!instructionAuthorToken) {
+      throw new Error(
+        'GitHub token is required to author keepalive instructions (app token, PAT, or GITHUB_TOKEN).'
+      );
+    }
+    dispatchToken = resolveDispatchToken(env, instructionAuthorToken);
 
-  const instructionAuthorOctokit = buildOctokitInstance({
-    core,
-    github,
-    token: instructionAuthorToken,
-  });
+    instructionAuthorOctokit = buildOctokitInstance({
+      core,
+      github,
+      token: instructionAuthorToken,
+    });
 
-  if (
-    !instructionAuthorOctokit?.rest?.issues?.createComment ||
-    !instructionAuthorOctokit?.rest?.reactions?.createForIssueComment
-  ) {
-    throw new Error('Unable to initialise Octokit client for keepalive instruction author.');
+    if (
+      !instructionAuthorOctokit?.rest?.issues?.createComment ||
+      !instructionAuthorOctokit?.rest?.reactions?.createForIssueComment
+    ) {
+      throw new Error('Unable to initialise Octokit client for keepalive instruction author.');
+    }
   }
 
   const idleMinutes = coerceNumber(options.keepalive_idle_minutes, 10, { min: 0 });
