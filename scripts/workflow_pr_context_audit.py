@@ -7,6 +7,7 @@ import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Iterable
 
 import yaml
 
@@ -27,6 +28,15 @@ class WorkflowAudit:
     triggers: tuple[str, ...]
     pr_context_markers: tuple[str, ...]
     valid: bool
+
+
+@dataclass(frozen=True)
+class TriggerSummary:
+    """Group workflows by trigger set for consolidation planning."""
+
+    triggers: tuple[str, ...]
+    workflows: tuple[str, ...]
+    pr_context_markers: tuple[str, ...]
 
 
 def load_workflow(path: Path) -> dict | None:
@@ -100,6 +110,26 @@ def format_table(results: list[WorkflowAudit]) -> str:
     return "\n".join(lines)
 
 
+def summarize_by_triggers(results: Iterable[WorkflowAudit]) -> list[TriggerSummary]:
+    """Group workflows by trigger set with aggregated PR markers."""
+    groups: dict[tuple[str, ...], list[WorkflowAudit]] = {}
+    for item in results:
+        groups.setdefault(item.triggers, []).append(item)
+
+    summaries: list[TriggerSummary] = []
+    for triggers, items in sorted(groups.items(), key=lambda pair: pair[0]):
+        markers = sorted({marker for item in items for marker in item.pr_context_markers})
+        workflows = sorted(str(item.path) for item in items)
+        summaries.append(
+            TriggerSummary(
+                triggers=triggers,
+                workflows=tuple(workflows),
+                pr_context_markers=tuple(markers),
+            )
+        )
+    return summaries
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Audit workflows that read PR context for consolidation planning."
@@ -117,7 +147,7 @@ def main() -> int:
     )
     parser.add_argument(
         "--format",
-        choices=("table", "json"),
+        choices=("table", "json", "summary"),
         default="table",
         help="Output format.",
     )
@@ -136,6 +166,16 @@ def main() -> int:
                 "valid": item.valid,
             }
             for item in results
+        ]
+        print(json.dumps(payload, indent=2))
+    elif args.format == "summary":
+        payload = [
+            {
+                "triggers": list(item.triggers),
+                "workflows": list(item.workflows),
+                "pr_context_markers": list(item.pr_context_markers),
+            }
+            for item in summarize_by_triggers(results)
         ]
         print(json.dumps(payload, indent=2))
     else:

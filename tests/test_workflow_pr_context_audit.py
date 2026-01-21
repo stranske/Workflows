@@ -4,6 +4,7 @@ from scripts.workflow_pr_context_audit import (
     audit_workflows,
     detect_pr_context_markers,
     normalize_triggers,
+    summarize_by_triggers,
 )
 
 
@@ -73,3 +74,47 @@ jobs:
 
     assert by_name["without-pr.yml"].valid is True
     assert by_name["without-pr.yml"].pr_context_markers == ()
+
+
+def test_summarize_by_triggers_groups_workflows(tmp_path: Path) -> None:
+    workflows_dir = tmp_path / "workflows"
+    workflows_dir.mkdir()
+
+    _write(
+        workflows_dir / "alpha.yml",
+        """
+name: Alpha
+on:
+  pull_request:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "${{ github.event.pull_request.number }}"
+""",
+    )
+    _write(
+        workflows_dir / "beta.yml",
+        """
+name: Beta
+on:
+  pull_request:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "${{ github.event.pull_request.title }}"
+""",
+    )
+
+    results = audit_workflows(workflows_dir)
+    summaries = summarize_by_triggers(results)
+
+    assert len(summaries) == 1
+    summary = summaries[0]
+    assert summary.triggers == ("pull_request",)
+    assert summary.workflows == (
+        str(workflows_dir / "alpha.yml"),
+        str(workflows_dir / "beta.yml"),
+    )
+    assert "github.event.pull_request" in summary.pr_context_markers
