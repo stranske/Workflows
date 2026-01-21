@@ -1567,10 +1567,12 @@ async function checkRateLimitStatus({ github, core, minRequired = 50 }) {
   let primaryReset = null;
 
   try {
-    const { data } = await github.rest.rateLimit.get();
-    primaryRemaining = data.resources.core.remaining;
-    primaryLimit = data.resources.core.limit;
-    primaryReset = data.resources.core.reset * 1000;
+    if (github?.rest?.rateLimit?.get) {
+      const { data } = await github.rest.rateLimit.get();
+      primaryRemaining = data.resources.core.remaining;
+      primaryLimit = data.resources.core.limit;
+      primaryReset = data.resources.core.reset * 1000;
+    }
   } catch (error) {
     core?.warning?.(`Failed to check primary rate limit: ${error.message}`);
   }
