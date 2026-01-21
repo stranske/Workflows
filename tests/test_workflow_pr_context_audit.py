@@ -41,9 +41,17 @@ def test_detect_pr_context_markers_from_issue_payload() -> None:
     if (context.payload.issue.pull_request) {
       console.log("PR comment");
     }
+    if (github.event.issue.number) {
+      console.log("Issue number");
+    }
+    if (context.payload.issue.number) {
+      console.log("Issue number payload");
+    }
     """
     markers = detect_pr_context_markers(text)
     assert "context.payload.issue.pull_request" in markers
+    assert "github.event.issue.number" in markers
+    assert "context.payload.issue.number" in markers
 
 
 def test_load_workflow_accepts_inline_text(tmp_path: Path) -> None:
