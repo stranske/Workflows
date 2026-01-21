@@ -426,8 +426,11 @@ jobs:
       - run-codex
     # Run always if PR exists, handle skipped agent jobs gracefully
     # run-codex will be skipped when action != run/fix/conflict, which is expected
+    # Using !cancelled() instead of always() to work around GitHub Actions skipping behavior
     if: |
-      always() &&
+      !cancelled() &&
+      needs.evaluate.result != 'failure' &&
+      needs.evaluate.result != 'cancelled' &&
       needs.evaluate.outputs.pr_number != '' &&
       needs.evaluate.outputs.pr_number != '0'
     runs-on: ubuntu-latest
