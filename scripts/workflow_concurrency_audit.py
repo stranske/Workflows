@@ -101,10 +101,7 @@ def collect_concurrency(data: dict) -> tuple[ConcurrencySetting, ...]:
 
 
 def _has_canceling_concurrency(settings: tuple[ConcurrencySetting, ...]) -> bool:
-    return any(
-        setting.cancel_in_progress is True and bool(setting.group)
-        for setting in settings
-    )
+    return any(setting.cancel_in_progress is True and bool(setting.group) for setting in settings)
 
 
 def _action_required(
