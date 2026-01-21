@@ -149,6 +149,11 @@ class TestUpdatePRBodyCheckboxes:
         updated = update_pr_body_checkboxes(pr_body, ["Indented task"])
         assert "  - [x] Indented task" in updated
 
+    def test_ignores_details_summary_tasks(self) -> None:
+        pr_body = "- [ ] <summary>What should I do?</summary>\n- [ ] Real task"
+        updated = update_pr_body_checkboxes(pr_body, ["<summary>What should I do?</summary>"])
+        assert updated == pr_body
+
 
 class TestCLIScript:
     """Integration tests for the CLI script."""
