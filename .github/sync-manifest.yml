@@ -223,6 +223,9 @@ scripts:
   - source: .github/scripts/keepalive_loop.js
     description: "Core keepalive loop logic"
 
+  - source: .github/scripts/token_load_balancer.js
+    description: "Dynamic token load balancer for API rate limit management"
+
   - source: .github/scripts/keepalive_prompt_routing.js
     description: "Prompt routing logic for keepalive - determines which prompt template to use"
 

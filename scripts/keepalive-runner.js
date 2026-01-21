@@ -667,6 +667,8 @@ const DISPATCH_TOKEN_KEYS = [
   'gh_dispatch_token',
   'ACTIONS_BOT_PAT',
   'actions_bot_pat',
+  'SERVICE_BOT_PAT',
+  'service_bot_pat',
   'GH_TOKEN',
   'gh_token',
   'GITHUB_TOKEN',
