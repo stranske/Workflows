@@ -297,6 +297,26 @@ test('normalises numbered list items into checkboxes', () => {
   );
 });
 
+test('drops details/summary wrapper lines from tasks content', () => {
+  const issue = [
+    '## Tasks',
+    '<details>',
+    '<summary>What should I do?</summary>',
+    '',
+    '- [ ] real task',
+    '- <summary>Not a task</summary>',
+    '</details>',
+    '',
+    '## Acceptance Criteria',
+    '- [ ] done',
+  ].join('\n');
+
+  const result = extractScopeTasksAcceptanceSections(issue);
+  assert.ok(result.includes('- [ ] real task'));
+  assert.ok(!result.includes('<summary>'));
+  assert.ok(!result.includes('<details>'));
+});
+
 test('analyzeSectionPresence flags missing sections', () => {
   const issue = [
     '## Scope',
