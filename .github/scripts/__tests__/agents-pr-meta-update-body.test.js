@@ -90,6 +90,24 @@ test('parseCheckboxStates handles case-insensitive matching', () => {
   assert.strictEqual(states.get('lowercase checked'), true);
 });
 
+test('parseCheckboxStates ignores fenced code blocks', () => {
+  const block = `
+- [x] Real task
+\`\`\`md
+- [x] Not real
+- [ ] Also not real
+\`\`\`
+- [x] Another task
+  `.trim();
+
+  const states = parseCheckboxStates(block);
+
+  assert.strictEqual(states.size, 2);
+  assert.strictEqual(states.get('real task'), true);
+  assert.strictEqual(states.get('another task'), true);
+  assert.strictEqual(states.has('not real'), false);
+});
+
 test('parseCheckboxStates returns empty map for empty input', () => {
   assert.deepStrictEqual(parseCheckboxStates(''), new Map());
   assert.deepStrictEqual(parseCheckboxStates(null), new Map());
@@ -147,6 +165,27 @@ test('mergeCheckboxStates handles items with leading dashes in text', () => {
 
   assert.ok(result.includes('- [x] - Tests fail if bounds violated'));
   assert.ok(result.includes('- [ ] - Functionality remains unchanged'));
+});
+
+test('mergeCheckboxStates ignores fenced code blocks', () => {
+  const newContent = `
+- [ ] Task one
+\`\`\`md
+- [ ] Code task
+\`\`\`
+- [ ] Task two
+  `.trim();
+
+  const existingStates = new Map([
+    ['task one', true],
+    ['code task', true],
+  ]);
+
+  const result = mergeCheckboxStates(newContent, existingStates);
+
+  assert.ok(result.includes('- [x] Task one'));
+  assert.ok(result.includes('- [ ] Code task'));
+  assert.ok(result.includes('- [ ] Task two'));
 });
 
 test('mergeCheckboxStates returns original content if no existing states', () => {
