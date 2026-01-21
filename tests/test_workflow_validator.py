@@ -369,6 +369,43 @@ class TestCheckUnsafeStringInterpolation:
         assert len(issues) == 1
         assert "needs.run.outputs.tasks" in issues[0][2]
 
+    def test_env_interpolation_with_static_value_is_safe(self) -> None:
+        """Test that static env values can be interpolated safely."""
+        workflow = {
+            "env": {"STATIC_VALUE": "fixed"},
+            "jobs": {
+                "build": {
+                    "steps": [
+                        {
+                            "name": "Static env",
+                            "run": "const x = '${{ env.STATIC_VALUE }}';",
+                        }
+                    ]
+                }
+            },
+        }
+        issues = check_unsafe_string_interpolation(workflow)
+        assert len(issues) == 0
+
+    def test_env_interpolation_with_expression_value_is_unsafe(self) -> None:
+        """Test that env values sourced from expressions remain unsafe."""
+        workflow = {
+            "env": {"DYNAMIC_VALUE": "${{ steps.fetch.outputs.data }}"},
+            "jobs": {
+                "build": {
+                    "steps": [
+                        {
+                            "name": "Dynamic env",
+                            "run": "const x = '${{ env.DYNAMIC_VALUE }}';",
+                        }
+                    ]
+                }
+            },
+        }
+        issues = check_unsafe_string_interpolation(workflow)
+        assert len(issues) == 1
+        assert "env.DYNAMIC_VALUE" in issues[0][2]
+
     def test_safe_condition_pattern(self) -> None:
         """Test that if: conditions are not flagged."""
         workflow = {

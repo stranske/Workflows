@@ -147,17 +147,35 @@ def check_unsafe_string_interpolation(workflow: dict) -> list[tuple[str, str, st
     # Only patterns that are truly controlled should be listed here.
     safe_expression_patterns = [
         r"^\s*secrets\.[A-Za-z0-9_]+\s*$",  # Secret references are controlled (never user-visible)
-        r"^\s*env\.[A-Za-z0-9_]+\s*$",  # Environment variables set in workflow are controlled
         r"^\s*matrix\.[A-Za-z0-9_]+\s*$",  # Matrix values are defined in workflow YAML
         r"^\s*runner\.[A-Za-z0-9_]+\s*$",  # Runner context is controlled (os, arch, etc.)
     ]
 
+    def is_static_env_value(value: object) -> bool:
+        """Return True when env values are literal and do not interpolate expressions."""
+        return isinstance(value, str) and "${{" not in value
+
+    def collect_static_env(*env_dicts: dict) -> set[str]:
+        """Collect env keys with static literal values from given env dicts."""
+        static_keys: set[str] = set()
+        for env_dict in env_dicts:
+            if not isinstance(env_dict, dict):
+                continue
+            for key, value in env_dict.items():
+                if is_static_env_value(value):
+                    static_keys.add(key)
+        return static_keys
+
+    workflow_env = workflow.get("env", {})
     jobs = workflow.get("jobs", {})
     for job_name, job in jobs.items():
         steps = job.get("steps", [])
+        job_env = job.get("env", {})
         for i, step in enumerate(steps):
             step_name = step.get("name", f"step-{i}")
             script = step.get("run") or step.get("script", "")
+            step_env = step.get("env", {})
+            static_env_keys = collect_static_env(workflow_env, job_env, step_env)
 
             if not script:
                 continue
@@ -174,6 +192,10 @@ def check_unsafe_string_interpolation(workflow: dict) -> list[tuple[str, str, st
                     is_safe = any(
                         re.search(safe_pat, expr) for safe_pat in safe_expression_patterns
                     )
+                    if not is_safe:
+                        env_match = re.match(r"^\s*env\.([A-Za-z0-9_]+)\s*$", expr)
+                        if env_match and env_match.group(1) in static_env_keys:
+                            is_safe = True
 
                     if not is_safe:
                         issues.append(
