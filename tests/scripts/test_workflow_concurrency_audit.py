@@ -160,3 +160,29 @@ jobs:
     assert len(results) == 1
     assert results[0].high_frequency is False
     assert results[0].action_required == "none"
+
+
+def test_audit_ignores_cancel_without_group(tmp_path: Path) -> None:
+    workflow_dir = tmp_path / "workflows"
+    workflow_dir.mkdir()
+    _write_workflow(
+        workflow_dir / "bad.yml",
+        """
+name: Broken
+on: pull_request
+concurrency:
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo hi
+""",
+    )
+
+    results = workflow_concurrency_audit.audit_workflows(workflow_dir)
+    assert len(results) == 1
+    item = results[0]
+    assert item.high_frequency is True
+    assert item.has_canceling_concurrency is False
+    assert item.action_required == "add_concurrency"
