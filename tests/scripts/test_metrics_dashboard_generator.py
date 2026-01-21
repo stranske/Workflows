@@ -119,7 +119,9 @@ def test_main_uses_config_defaults(tmp_path: Path) -> None:
     assert "| duration_ms |" in content
 
 
-def test_main_resolves_relative_config_paths(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_main_resolves_relative_config_paths(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     config_dir = tmp_path / "config"
     config_dir.mkdir()
     metrics_path = config_dir / "metrics.ndjson"
