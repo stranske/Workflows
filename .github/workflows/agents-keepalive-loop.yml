@@ -380,10 +380,13 @@ jobs:
     name: Keepalive next task (Codex)
     needs:
       - evaluate
-      - preflight
       - mark-running
-    # Only run for agent:codex label
-    if: needs.evaluate.outputs.agent_type == 'codex'
+    # Only run for agent:codex label when action is run/fix/conflict
+    if: |
+      needs.evaluate.outputs.agent_type == 'codex' &&
+      (needs.evaluate.outputs.action == 'run' ||
+       needs.evaluate.outputs.action == 'fix' ||
+       needs.evaluate.outputs.action == 'conflict')
     uses: stranske/Workflows/.github/workflows/reusable-codex-run.yml@main
     secrets:
       CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
@@ -422,7 +425,7 @@ jobs:
       - evaluate
       - run-codex
     # Run always if PR exists, handle skipped agent jobs gracefully
-    # Note: preflight intentionally excluded to ensure summary runs even when action != 'run'
+    # run-codex will be skipped when action != run/fix/conflict, which is expected
     if: |
       always() &&
       needs.evaluate.outputs.pr_number != '' &&
