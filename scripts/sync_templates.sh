@@ -7,11 +7,32 @@ TEMPLATE_DIR="templates/consumer-repo/.github/scripts"
 
 echo "🔄 Syncing scripts to template directory..."
 
-# Get list of files to sync (exclude tests)
-FILES=$(find "$SOURCE_DIR" -name "*.js" -type f \
-    | grep -v "__tests__" \
-    | grep -v ".test.js" \
-    | sed "s|^$SOURCE_DIR/||")
+# Get list of files to sync from sync-manifest.yml
+FILES=$(python - <<'PY'
+from pathlib import Path
+import sys
+
+try:
+    import yaml
+except Exception as exc:  # pragma: no cover - runtime environment only
+    print("❌ PyYAML is required to sync templates. Install with: pip install pyyaml", file=sys.stderr)
+    sys.exit(1)
+
+manifest_path = Path(".github/sync-manifest.yml")
+if not manifest_path.exists():
+    print("❌ sync-manifest.yml not found", file=sys.stderr)
+    sys.exit(1)
+
+manifest = yaml.safe_load(manifest_path.read_text(encoding="utf-8")) or {}
+scripts = []
+for entry in manifest.get("scripts", []) or []:
+    source = entry.get("source", "")
+    if source.startswith(".github/scripts/"):
+        scripts.append(source.replace(".github/scripts/", "", 1))
+
+print("\n".join(sorted(set(scripts))))
+PY
+)
 
 synced=0
 for file in $FILES; do

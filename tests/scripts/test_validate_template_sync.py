@@ -21,6 +21,17 @@ def create_test_structure(tmp_path: Path) -> tuple[Path, Path]:
     return source, template
 
 
+def write_manifest(tmp_path: Path, script_names: list[str]) -> None:
+    manifest_dir = tmp_path / ".github"
+    manifest_dir.mkdir(parents=True, exist_ok=True)
+    entries = "\n".join(
+        f"  - source: .github/scripts/{name}\n    description: test"
+        for name in script_names
+    )
+    manifest = f"version: 1\n\nscripts:\n{entries}\n" if script_names else "version: 1\nscripts: []\n"
+    (manifest_dir / "sync-manifest.yml").write_text(manifest, encoding="utf-8")
+
+
 def test_validator_passes_when_files_match(tmp_path):
     """Validator should exit 0 when source and template files match."""
     source, template = create_test_structure(tmp_path)
@@ -28,6 +39,7 @@ def test_validator_passes_when_files_match(tmp_path):
     # Create matching files
     (source / "test.js").write_text("console.log('test');")
     (template / "test.js").write_text("console.log('test');")
+    write_manifest(tmp_path, ["test.js"])
 
     result = subprocess.run(
         [sys.executable, "scripts/validate_template_sync.py"],
@@ -47,6 +59,7 @@ def test_validator_fails_on_hash_mismatch(tmp_path):
     # Create mismatched files
     (source / "test.js").write_text("console.log('source');")
     (template / "test.js").write_text("console.log('template');")
+    write_manifest(tmp_path, ["test.js"])
 
     result = subprocess.run(
         [sys.executable, "scripts/validate_template_sync.py"],
@@ -66,6 +79,7 @@ def test_validator_fails_on_missing_template(tmp_path):
 
     # Create source file without template counterpart
     (source / "new_file.js").write_text("console.log('new');")
+    write_manifest(tmp_path, ["new_file.js"])
 
     result = subprocess.run(
         [sys.executable, "scripts/validate_template_sync.py"],
@@ -88,6 +102,7 @@ def test_validator_handles_missing_template_directory(tmp_path):
     shutil.rmtree(tmp_path / "templates")
 
     (source / "test.js").write_text("console.log('test');")
+    write_manifest(tmp_path, ["test.js"])
 
     result = subprocess.run(
         [sys.executable, "scripts/validate_template_sync.py"],
@@ -107,6 +122,7 @@ def test_validator_suggests_sync_command(tmp_path):
 
     (source / "test.js").write_text("console.log('source');")
     (template / "test.js").write_text("console.log('template');")
+    write_manifest(tmp_path, ["test.js"])
 
     result = subprocess.run(
         [sys.executable, "scripts/validate_template_sync.py"],
@@ -131,6 +147,7 @@ def test_validator_handles_multiple_mismatches(tmp_path):
     (template / "file2.js").write_text("console.log('old2');")
 
     (source / "file3.js").write_text("console.log('3');")  # Missing in template
+    write_manifest(tmp_path, ["file1.js", "file2.js", "file3.js"])
 
     result = subprocess.run(
         [sys.executable, "scripts/validate_template_sync.py"],
@@ -153,6 +170,8 @@ def test_validator_ignores_non_js_files(tmp_path):
     # Create .js file that matches
     (source / "test.js").write_text("console.log('test');")
     (template / "test.js").write_text("console.log('test');")
+
+    write_manifest(tmp_path, ["test.js"])
 
     # Create non-.js files that don't match (should be ignored)
     (source / "README.md").write_text("# Source")

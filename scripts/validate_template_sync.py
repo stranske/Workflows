@@ -11,6 +11,8 @@ import hashlib
 import sys
 from pathlib import Path
 
+import yaml
+
 
 def hash_file(path: Path) -> str:
     """Compute SHA256 hash of a file."""
@@ -30,19 +32,28 @@ def main() -> int:
         print(f"❌ Template directory not found: {template_dir}")
         return 1
 
-    # Files that should be synced (exclude test files and some specific scripts)
-    exclude_patterns = ["__tests__", ".test.js", "deploy", "release"]
+    manifest_path = repo_root / ".github" / "sync-manifest.yml"
+    if not manifest_path.exists():
+        print(f"❌ sync-manifest.yml not found: {manifest_path}")
+        return 1
+
+    manifest = yaml.safe_load(manifest_path.read_text(encoding="utf-8")) or {}
+    manifest_scripts = []
+    for entry in manifest.get("scripts", []) or []:
+        source = entry.get("source", "")
+        if source.startswith(".github/scripts/"):
+            manifest_scripts.append(source.replace(".github/scripts/", "", 1))
 
     mismatches = []
-    source_files = [
-        f
-        for f in source_dir.rglob("*.js")
-        if not any(pattern in str(f) for pattern in exclude_patterns)
-    ]
+    source_files = [source_dir / rel_path for rel_path in manifest_scripts]
 
     for source_file in source_files:
         relative_path = source_file.relative_to(source_dir)
         template_file = template_dir / relative_path
+
+        if not source_file.exists():
+            mismatches.append(relative_path)
+            continue
 
         if not template_file.exists():
             mismatches.append(relative_path)
