@@ -72,6 +72,17 @@ def test_detect_pr_context_markers_from_workflow_run_payload() -> None:
     assert "workflow_run.pull_requests" in markers
 
 
+def test_detect_pr_context_markers_from_event_source_issue() -> None:
+    text = """
+    if (event.source?.issue?.pull_request) {
+      linkedPR = event.source.issue.number;
+    }
+    """
+    markers = detect_pr_context_markers(text)
+    assert "event.source.issue.pull_request" in markers
+    assert "event.source.issue.number" in markers
+
+
 def test_load_workflow_accepts_inline_text(tmp_path: Path) -> None:
     path = tmp_path / "missing.yml"
     data = load_workflow(
