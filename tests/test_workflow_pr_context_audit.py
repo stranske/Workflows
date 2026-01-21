@@ -83,6 +83,36 @@ def test_detect_pr_context_markers_from_event_source_issue() -> None:
     assert "event.source.issue.number" in markers
 
 
+def test_detect_pr_context_markers_from_bracket_notation() -> None:
+    text = """
+    if (github.event["pull_request"]) {
+      console.log("PR event");
+    }
+    if (github?.event?.['issue']?.["pull_request"]) {
+      console.log("Issue PR link");
+    }
+    if (context.payload["issue"]["number"]) {
+      console.log("Issue number");
+    }
+    if (context?.payload?.["pull_request"]) {
+      console.log("PR payload");
+    }
+    if (event?.source?.["issue"]?.['number']) {
+      console.log("Event source issue number");
+    }
+    if (context.payload?.workflow_run?.["pull_requests"]) {
+      console.log("Workflow run PRs");
+    }
+    """
+    markers = detect_pr_context_markers(text)
+    assert "github.event.pull_request" in markers
+    assert "github.event.issue.pull_request" in markers
+    assert "context.payload.issue.number" in markers
+    assert "context.payload.pull_request" in markers
+    assert "event.source.issue.number" in markers
+    assert "workflow_run.pull_requests" in markers
+
+
 def test_load_workflow_accepts_inline_text(tmp_path: Path) -> None:
     path = tmp_path / "missing.yml"
     data = load_workflow(

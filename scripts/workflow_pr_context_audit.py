@@ -11,20 +11,33 @@ from pathlib import Path
 
 import yaml
 
-PR_CONTEXT_PATTERNS = {
-    "github.event.pull_request": re.compile(r"github\??\.event\??\.pull_request"),
-    "github.event.issue.pull_request": re.compile(r"github\??\.event\??\.issue\??\.pull_request"),
-    "github.event.issue.number": re.compile(r"github\??\.event\??\.issue\??\.number"),
-    "context.payload.issue.pull_request": re.compile(
-        r"context\??\.payload\??\.issue\??\.pull_request"
-    ),
-    "context.payload.issue.number": re.compile(r"context\??\.payload\??\.issue\??\.number"),
-    "context.payload.pull_request": re.compile(r"context\??\.payload\??\.pull_request"),
-    "event.source.issue.pull_request": re.compile(r"event\??\.source\??\.issue\??\.pull_request"),
-    "event.source.issue.number": re.compile(r"event\??\.source\??\.issue\??\.number"),
-    "workflow_run.pull_requests": re.compile(r"workflow_run\??\.pull_requests"),
-    "pull_request_number": re.compile(r"\bpull_request_number\b"),
-}
+PR_CONTEXT_PATHS = (
+    "github.event.pull_request",
+    "github.event.issue.pull_request",
+    "github.event.issue.number",
+    "context.payload.issue.pull_request",
+    "context.payload.issue.number",
+    "context.payload.pull_request",
+    "event.source.issue.pull_request",
+    "event.source.issue.number",
+    "workflow_run.pull_requests",
+)
+
+
+def build_path_pattern(path: str) -> re.Pattern[str]:
+    """Build a regex that matches dotted or bracketed access paths."""
+    segments = path.split(".")
+    if not segments:
+        return re.compile("")
+    pattern = re.escape(segments[0])
+    for segment in segments[1:]:
+        escaped = re.escape(segment)
+        pattern += rf"(?:\??\.(?:{escaped})|(?:\??\.)?\[['\"]{escaped}['\"]\])"
+    return re.compile(pattern)
+
+
+PR_CONTEXT_PATTERNS = {path: build_path_pattern(path) for path in PR_CONTEXT_PATHS}
+PR_CONTEXT_PATTERNS["pull_request_number"] = re.compile(r"\bpull_request_number\b")
 
 
 @dataclass(frozen=True)
