@@ -56,7 +56,7 @@ def normalize_triggers(on_field: object) -> tuple[str, ...]:
     if isinstance(on_field, list):
         return tuple(str(item) for item in on_field)
     if isinstance(on_field, dict):
-        return tuple(str(key) for key in on_field.keys())
+        return tuple(str(key) for key in on_field)
     return ()
 
 
