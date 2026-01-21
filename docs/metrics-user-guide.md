@@ -41,6 +41,8 @@ Checks:
 - Re-run aggregation with the expected `--repos` list.
 - Ensure the source workflow emits numeric fields and timestamps; entries
   without numeric fields are skipped in tables.
+- Validate that the collector wrote recent rows by inspecting the most recent
+  lines in the NDJSON file for the repo.
 
 ### Stale metrics
 
@@ -51,6 +53,8 @@ Checks:
 - Verify the metrics collection job is still running on schedule.
 - Inspect the summary JSON (`repo-metrics-summary.json`) for recent timestamps.
 - Confirm the dashboard generator is reading the newest combined NDJSON file.
+- Check that the aggregation output directory matches the dashboard config if a
+  custom `--output-dir` is used.
 
 ### Badge failures
 
@@ -62,3 +66,5 @@ Checks:
 - Ensure the badge endpoint JSON files are published at the configured URL.
 - Re-run `scripts/update_readme_badges.py` so README badge links point at the
   correct endpoint base.
+- Validate the badge JSON files contain numeric fields that match the expected
+  schema for the badge service.
