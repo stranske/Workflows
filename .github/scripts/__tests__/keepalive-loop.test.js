@@ -2319,6 +2319,20 @@ Unrelated content`;
   assert.ok(!source.includes('Unrelated content'));
 });
 
+test('extractSourceSection handles indented headings', () => {
+  const { extractSourceSection } = require('../keepalive_loop.js');
+
+  const prBody = `  ## Source
+  - https://github.com/org/repo/issues/456
+
+  ## Next Section
+Unrelated content`;
+
+  const source = extractSourceSection(prBody);
+  assert.ok(source.includes('github.com/org/repo/issues/456'));
+  assert.ok(!source.includes('Unrelated content'));
+});
+
 test('buildTaskAppendix includes Source Context when prBody has source links', () => {
   const { buildTaskAppendix } = require('../keepalive_loop.js');
   const sections = {

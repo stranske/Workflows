@@ -766,7 +766,7 @@ function isCodeFenceLine(line) {
 }
 
 function parseHeading(line) {
-  const match = String(line || '').match(/^(#{1,6})\s+(.*)$/);
+  const match = String(line || '').match(/^\s*(#{1,6})\s+(.*)$/);
   if (!match) {
     return null;
   }
