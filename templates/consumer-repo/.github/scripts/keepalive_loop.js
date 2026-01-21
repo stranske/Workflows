@@ -1402,7 +1402,12 @@ async function evaluateKeepaliveLoop({ github, context, core, payload: overrideP
   // Track task completion trend
   const previousTasks = state.tasks || {};
   const prevUnchecked = toNumber(previousTasks.unchecked, checkboxCounts.unchecked);
-  const tasksCompletedSinceLastRound = prevUnchecked - checkboxCounts.unchecked;
+  const prevTotal = toNumber(previousTasks.total, checkboxCounts.total);
+  const totalsStable = prevTotal === checkboxCounts.total;
+  const rawCompletionDelta = prevUnchecked - checkboxCounts.unchecked;
+  const tasksCompletedSinceLastRound = totalsStable && rawCompletionDelta > 0
+    ? rawCompletionDelta
+    : 0;
   
   // Track consecutive rounds without task completion (for progress review trigger)
   const prevRoundsWithoutCompletion = toNumber(state.rounds_without_task_completion, 0);
