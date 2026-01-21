@@ -41,6 +41,14 @@ SYNONYMS = {
     "doc": ["docs", "documentation", "document"],
 }
 
+SUMMARY_TAG_PATTERN = re.compile(r"^<summary\b[^>]*>.*</summary>\s*$", re.IGNORECASE)
+DETAILS_TAG_PATTERN = re.compile(r"^</?(summary|details)\b", re.IGNORECASE)
+
+
+def _is_details_or_summary_tag(task_text: str) -> bool:
+    """Return True when the task line is a details/summary HTML tag."""
+    return bool(SUMMARY_TAG_PATTERN.match(task_text) or DETAILS_TAG_PATTERN.match(task_text))
+
 
 def analyze_codex_log(
     content: str,
@@ -80,6 +88,8 @@ def _extract_tasks_from_markdown(markdown: str, *, include_checked: bool) -> lis
         checked = match.group(1).lower() == "x"
         task_text = match.group(2).strip()
         if not task_text:
+            continue
+        if _is_details_or_summary_tag(task_text):
             continue
         if include_checked or not checked:
             tasks.append(task_text)
