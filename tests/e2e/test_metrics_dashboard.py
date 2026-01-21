@@ -81,3 +81,67 @@ def test_metrics_dashboard_pipeline(tmp_path: Path) -> None:
     assert "## Repo Details" in content
     assert "### octo/alpha" in content
     assert "### octo/beta" in content
+
+
+def test_metrics_dashboard_pipeline_with_config(tmp_path: Path) -> None:
+    fixture_path = Path(__file__).resolve().parents[1] / "fixtures" / "sample_metrics.json"
+    metrics_dir = tmp_path / "repo-metrics"
+    repos = _write_repo_metrics(metrics_dir, fixture_path)
+
+    combined_path = tmp_path / "combined-repo-metrics.ndjson"
+    summary_path = tmp_path / "repo-metrics-summary.json"
+
+    exit_code = aggregate_repo_metrics.main(
+        [
+            "--repos",
+            ",".join(repos),
+            "--metrics-dir",
+            str(metrics_dir),
+            "--output",
+            str(combined_path),
+            "--summary-output",
+            str(summary_path),
+            "--numeric-field",
+            "duration_ms",
+            "--numeric-field",
+            "success_rate",
+            "--numeric-field",
+            "failed_jobs",
+        ]
+    )
+
+    assert exit_code == 0
+    assert combined_path.exists()
+    assert summary_path.exists()
+
+    config_path = tmp_path / "dashboard-config.json"
+    dashboard_path = tmp_path / "dashboard.md"
+    config_path.write_text(
+        json.dumps(
+            {
+                "metrics_path": str(combined_path),
+                "output_path": str(dashboard_path),
+                "numeric_fields": ["duration_ms", "success_rate", "failed_jobs"],
+                "thresholds": {
+                    "duration_ms": {"ok": 120000, "warn": 150000, "higher_is_better": False},
+                    "success_rate": {"ok": 98, "warn": 95, "higher_is_better": True},
+                    "failed_jobs": {"ok": 0, "warn": 2, "higher_is_better": False},
+                },
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    dashboard_exit = metrics_dashboard_generator.main(["--config", str(config_path)])
+
+    assert dashboard_exit == 0
+    content = dashboard_path.read_text(encoding="utf-8")
+    assert "# Weekly Metrics Dashboard" in content
+    assert "Parse errors: 0" in content
+    assert "| Metric | Mean | P50 | P90 | P99 | Trend | Status |" in content
+    assert "| duration_ms |" in content
+    assert "| success_rate |" in content
+    assert "| failed_jobs |" in content
