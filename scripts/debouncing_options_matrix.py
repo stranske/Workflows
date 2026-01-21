@@ -18,6 +18,7 @@ class DebounceOption:
     solves: str
     requirements: tuple[str, ...]
     risks: tuple[str, ...]
+    decision_signals: tuple[str, ...]
     next_steps: tuple[str, ...]
 
 
@@ -40,6 +41,10 @@ OPTIONS: tuple[DebounceOption, ...] = (
             "Introduces a new critical dependency in the automation chain.",
             "Operational overhead (hosting, scaling, on-call support).",
         ),
+        decision_signals=(
+            "Need to debounce across multiple repos or workflow families.",
+            "Willing to run and support a 24/7 service with on-call coverage.",
+        ),
         next_steps=(
             "Draft an RFC covering ownership, on-call support, and MVP scope.",
             "Scope MVP to a single repo and single workflow family.",
@@ -61,6 +66,10 @@ OPTIONS: tuple[DebounceOption, ...] = (
         risks=(
             "App rate limits and deployment complexity.",
             "Requires webhook hosting and storage lifecycle management.",
+        ),
+        decision_signals=(
+            "Need per-event filtering before Actions runners are allocated.",
+            "Have a reliable webhook host and datastore available.",
         ),
         next_steps=(
             "Prototype an event filter for one workflow type.",
@@ -86,6 +95,8 @@ def render_markdown(options: Iterable[DebounceOption]) -> str:
         lines.extend([f"- {item}" for item in option.requirements])
         lines.extend(["", "**Risks:**"])
         lines.extend([f"- {item}" for item in option.risks])
+        lines.extend(["", "**Decision signals:**"])
+        lines.extend([f"- {item}" for item in option.decision_signals])
         lines.extend(["", "**Next steps:**"])
         lines.extend([f"- {item}" for item in option.next_steps])
         lines.append("")
@@ -101,6 +112,7 @@ def render_json(options: Iterable[DebounceOption]) -> str:
             "solves": option.solves,
             "requirements": list(option.requirements),
             "risks": list(option.risks),
+            "decision_signals": list(option.decision_signals),
             "next_steps": list(option.next_steps),
         }
         for option in options
