@@ -119,6 +119,44 @@ def test_main_uses_config_defaults(tmp_path: Path) -> None:
     assert "| duration_ms |" in content
 
 
+def test_main_resolves_relative_config_paths(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    metrics_path = config_dir / "metrics.ndjson"
+    metrics_path.write_text(
+        "\n".join(
+            [
+                '{"repo": "octo/alpha", "duration_ms": 10, "timestamp": "2024-01-01T00:00:00Z"}',
+                '{"repo": "octo/alpha", "duration_ms": 20, "timestamp": "2024-01-02T00:00:00Z"}',
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    config_path = config_dir / "config.json"
+    config_path.write_text(
+        (
+            "{"
+            '"metrics_path": "metrics.ndjson", '
+            '"output_path": "dashboard.md", '
+            '"numeric_fields": ["duration_ms"]'
+            "}"
+        ),
+        encoding="utf-8",
+    )
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    monkeypatch.chdir(run_dir)
+
+    exit_code = generator.main(["--config", str(config_path)])
+
+    assert exit_code == 0
+    output_path = config_dir / "dashboard.md"
+    assert output_path.exists()
+    content = output_path.read_text(encoding="utf-8")
+    assert "| duration_ms |" in content
+
+
 def test_build_dashboard_includes_status_thresholds() -> None:
     entries = [
         {"repo": "octo/alpha", "duration_ms": 10, "timestamp": "2024-01-01T00:00:00Z"},

@@ -428,6 +428,18 @@ def _validate_config(config: dict[str, Any]) -> dict[str, Any]:
     return validated
 
 
+def _resolve_config_paths(config: dict[str, Any], config_path: Path) -> dict[str, Any]:
+    resolved = dict(config)
+    for key in ("metrics_path", "output_path"):
+        value = resolved.get(key)
+        if not value:
+            continue
+        path = Path(value)
+        if not path.is_absolute():
+            resolved[key] = str((config_path.parent / path).resolve())
+    return resolved
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Generate a weekly metrics dashboard from NDJSON logs."
@@ -450,7 +462,11 @@ def main(argv: list[str]) -> int:
     config: dict[str, Any] = {}
     if args.config:
         try:
-            config = _validate_config(_load_config(Path(args.config)))
+            config_path = Path(args.config)
+            config = _resolve_config_paths(
+                _validate_config(_load_config(config_path)),
+                config_path,
+            )
         except (OSError, ValueError) as exc:
             print(f"metrics_dashboard_generator: {exc}", file=sys.stderr)
             return 1
