@@ -1,0 +1,161 @@
+version: 1
+issue: 1023
+base: main
+branch: codex/issue-1023
+tasks:
+  - id: task-01
+    title: Modify `github-api-with-retry.js` to accept a token registry and switch
+      tokens on rate limit errors
+    status: doing
+    started_at: '2026-01-21T20:28:05Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: Create a wrapper that initializes the load balancer with available tokens
+      from secrets/env
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: Update `withRetry()` to call `getOptimalToken()` and create a new Octokit
+      instance when current token is exhausted
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: Add workflow-level initialization that passes all available tokens to the
+      retry wrapper
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: Test with actual rate limit scenarios across autopilot, keepalive, and
+      other heavy workflows
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: Document usage pattern for workflow authors
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: When a token hits rate limit, the next API call automatically uses a different
+      token with capacity
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: All 6+ token sources (GITHUB_TOKEN, SERVICE_BOT_PAT, ACTIONS_BOT_PAT, OWNER_PR_PAT,
+      WORKFLOWS_APP, KEEPALIVE_APP, GH_APP) are available for rotation
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: Workflows that currently fail on rate limits (like autopilot) succeed by
+      switching tokens
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: Token usage is tracked and reported in logs for debugging
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: Modify `github-api-with-retry.js` to accept a token registry and switch
+      tokens on rate limit errors
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: Create a wrapper that initializes the load balancer with available tokens
+      from secrets/env
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: Update `withRetry()` to call `getOptimalToken()` and create a new Octokit
+      instance when current token is exhausted
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: Add workflow-level initialization that passes all available tokens to the
+      retry wrapper
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: Test with actual rate limit scenarios across autopilot, keepalive, and
+      other heavy workflows
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: Document usage pattern for workflow authors
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: When a token hits rate limit, the next API call automatically uses a different
+      token with capacity
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: All 6+ token sources (GITHUB_TOKEN, SERVICE_BOT_PAT, ACTIONS_BOT_PAT, OWNER_PR_PAT,
+      WORKFLOWS_APP, KEEPALIVE_APP, GH_APP) are available for rotation
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: Workflows that currently fail on rate limits (like autopilot) succeed by
+      switching tokens
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: Token usage is tracked and reported in logs for debugging
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
