@@ -312,6 +312,9 @@ Remove `agents:keepalive` label to halt keepalive operations.
 
 ## Debounce Options Evaluation
 
+For the full matrix and next steps, see
+`docs/ops/debouncing-advanced-options.md`.
+
 **Option A: External Debouncer Service**
 - **What it solves:** Cancels duplicate dispatches across repos or workflow types
   before GitHub Actions starts a run.
