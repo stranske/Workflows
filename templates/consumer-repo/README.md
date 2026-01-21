@@ -27,6 +27,8 @@ the centralized CI and automation workflows from stranske/Workflows.
 |------|---------|-----------------|
 | `agents-issue-intake.yml` | Creates PRs from labeled issues | `SERVICE_BOT_PAT`, `OWNER_PR_PAT` |
 | `agents-issue-optimizer.yml` | Formats issues using LangChain | `OPENAI_API_KEY` (optional) |
+| `agents-80-pr-event-hub.yml` | Consolidated PR event handling (pr-meta, bot comments, verify-to-issue) | `SERVICE_BOT_PAT`, `ACTIONS_BOT_PAT` |
+| `agents-81-gate-followups.yml` | Consolidated Gate follow-ups (keepalive, autofix, post-CI) | `SERVICE_BOT_PAT`, `ACTIONS_BOT_PAT` |
 | `agents-keepalive-loop.yml` | Runs Codex CLI after Gate passes | `CODEX_AUTH_JSON` or `WORKFLOWS_APP_*` |
 | `agents-pr-meta.yml` | Updates PR status summaries | `SERVICE_BOT_PAT` |
 | `agents-orchestrator.yml` | (Legacy) Scheduled keepalive sweeps | `SERVICE_BOT_PAT`, `ACTIONS_BOT_PAT` |
@@ -36,7 +38,14 @@ the centralized CI and automation workflows from stranske/Workflows.
 | `agents-autofix-loop.yml` | Autofix integration with keepalive | `SERVICE_BOT_PAT` |
 | `agents-auto-pilot.yml` | End-to-end automation orchestrator | None |
 
-**Note:** `agents-orchestrator.yml` is legacy. New setups should use `agents-keepalive-loop.yml` which integrates with the Gate workflow for more reliable triggering.
+**Deprecation notice (consumer repos):** `agents-pr-meta.yml`, `agents-bot-comment-handler.yml`,
+`agents-verify-to-issue-v2.yml`, `agents-keepalive-loop.yml`, and `agents-autofix-loop.yml` are
+deprecated in favor of `agents-80-pr-event-hub.yml` and `agents-81-gate-followups.yml`. Legacy
+workflows remain supported through **2026-02-15** to allow migration.
+
+**Note:** `agents-orchestrator.yml` is legacy. New setups should use `agents-81-gate-followups.yml`
+or `agents-keepalive-loop.yml` (during the notice window) which integrates with the Gate workflow
+for more reliable triggering.
 
 ## Architecture
 

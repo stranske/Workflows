@@ -88,6 +88,19 @@ handler: [keepalive, autofix, post-ci]
 - Notice period and deprecation flow must be documented before disabling legacy
   workflows (target: 2-4 weeks with clear README/WORKFLOW_GUIDE updates).
 
+## Deprecation window (consumer repos)
+
+**Deprecated (notice published):** 2026-01-15  
+**Removal no earlier than:** 2026-02-15
+
+Legacy workflows remain supported during the window while consumer repos migrate:
+
+- `agents-pr-meta.yml` → `agents-80-pr-event-hub.yml`
+- `agents-bot-comment-handler.yml` → `agents-80-pr-event-hub.yml`
+- `agents-verify-to-issue-v2.yml` → `agents-80-pr-event-hub.yml`
+- `agents-keepalive-loop.yml` → `agents-81-gate-followups.yml`
+- `agents-autofix-loop.yml` → `agents-81-gate-followups.yml`
+
 ## Open questions
 
 - Should bot-comment handling remain separate due to permission context or can it

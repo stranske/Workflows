@@ -567,6 +567,19 @@ curl -sL https://raw.githubusercontent.com/stranske/Workflows/v1/templates/consu
 | `autofix.yml` | Auto-fixes lint/format issues | PR sync, `autofix` label |
 | `autofix-versions.env` | Pins tool versions | N/A |
 
+### Consolidated Workflow Migration (Notice Period)
+
+To reduce duplicate PR context fetches, consumer repos should move to the consolidated
+event hubs. Legacy workflows remain supported through **2026-02-15**.
+
+| Legacy Workflow | Replacement |
+|-----------------|-------------|
+| `agents-pr-meta.yml` | `agents-80-pr-event-hub.yml` |
+| `agents-bot-comment-handler.yml` | `agents-80-pr-event-hub.yml` |
+| `agents-verify-to-issue-v2.yml` | `agents-80-pr-event-hub.yml` |
+| `agents-keepalive-loop.yml` | `agents-81-gate-followups.yml` |
+| `agents-autofix-loop.yml` | `agents-81-gate-followups.yml` |
+
 ### Required Secrets
 
 | Secret | Purpose | Required For |
