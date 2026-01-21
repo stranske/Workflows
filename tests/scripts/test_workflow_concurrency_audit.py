@@ -66,6 +66,37 @@ jobs:
     assert any(setting.location == "job:test" for setting in item.concurrency)
 
 
+def test_audit_accepts_job_level_overrides(tmp_path: Path) -> None:
+    workflow_dir = tmp_path / "workflows"
+    workflow_dir.mkdir()
+    _write_workflow(
+        workflow_dir / "pr.yml",
+        """
+name: PR
+on: pull_request
+concurrency:
+  group: pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: pr-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    steps:
+      - run: echo ok
+""",
+    )
+
+    results = workflow_concurrency_audit.audit_workflows(workflow_dir)
+    assert len(results) == 1
+    item = results[0]
+    assert item.high_frequency is True
+    assert item.has_canceling_concurrency is True
+    assert item.action_required == "none"
+    assert len(item.concurrency) == 2
+
+
 def test_audit_recommends_issue_comment_group(tmp_path: Path) -> None:
     workflow_dir = tmp_path / "workflows"
     workflow_dir.mkdir()
