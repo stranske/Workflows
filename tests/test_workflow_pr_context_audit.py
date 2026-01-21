@@ -3,6 +3,7 @@ from pathlib import Path
 from scripts.workflow_pr_context_audit import (
     audit_workflows,
     detect_pr_context_markers,
+    load_workflow,
     normalize_triggers,
     summarize_by_triggers,
 )
@@ -33,6 +34,20 @@ def test_detect_pr_context_markers_from_text() -> None:
     markers = detect_pr_context_markers(text)
     assert "context.payload.pull_request" in markers
     assert "github.event.pull_request" in markers
+
+
+def test_load_workflow_accepts_inline_text(tmp_path: Path) -> None:
+    path = tmp_path / "missing.yml"
+    data = load_workflow(
+        path,
+        text="""
+name: Inline
+on: workflow_dispatch
+""",
+    )
+
+    assert data is not None
+    assert data["name"] == "Inline"
 
 
 def test_audit_workflows_reports_pr_context(tmp_path: Path) -> None:

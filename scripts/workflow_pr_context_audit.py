@@ -39,11 +39,15 @@ class TriggerSummary:
     pr_context_markers: tuple[str, ...]
 
 
-def load_workflow(path: Path) -> dict | None:
+def load_workflow(path: Path, text: str | None = None) -> dict | None:
     """Load a workflow YAML file and return the parsed content."""
     try:
-        return yaml.safe_load(path.read_text(encoding="utf-8"))
-    except (OSError, yaml.YAMLError):
+        content = text if text is not None else path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    try:
+        return yaml.safe_load(content)
+    except yaml.YAMLError:
         return None
 
 
@@ -82,7 +86,7 @@ def audit_workflows(workflows_dir: Path) -> list[WorkflowAudit]:
                 )
             )
             continue
-        data = load_workflow(path)
+        data = load_workflow(path, text=text)
         if data is None:
             triggers: tuple[str, ...] = ()
             valid = False
