@@ -2882,6 +2882,9 @@ async function analyzeTaskCompletion({ github, context, prNumber, baseSha, headS
       return taskWords.some(w => w.length > 4 && msg.includes(w));
     });
 
+    let confidence = 'low';
+    let reason = '';
+
     // Exact file match is very high confidence
     if (isIssueOnlyTask) {
       if (!pr) {
