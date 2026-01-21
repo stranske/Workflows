@@ -305,6 +305,7 @@ test('drops details/summary wrapper lines from tasks content', () => {
     '',
     '- [ ] real task',
     '- <summary>Not a task</summary>',
+    '- [ ] <summary>Also not a task</summary>',
     '</details>',
     '',
     '## Acceptance Criteria',

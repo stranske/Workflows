@@ -157,22 +157,23 @@ function stripDetailsTags(content) {
     const trimmed = line.trim();
     const listMatch = trimmed ? line.match(LIST_ITEM_REGEX) : null;
     const candidate = listMatch ? listMatch[3].trim() : trimmed;
+    const summaryCandidate = candidate.replace(/^\[[ xX]\]\s*/, '').trim();
 
     if (insideSummary) {
-      if (SUMMARY_CLOSE_REGEX.test(candidate)) {
+      if (SUMMARY_CLOSE_REGEX.test(summaryCandidate) || SUMMARY_CLOSE_REGEX.test(candidate)) {
         insideSummary = false;
       }
       continue;
     }
 
-    if (SUMMARY_INLINE_REGEX.test(candidate)) {
+    if (SUMMARY_INLINE_REGEX.test(summaryCandidate) || SUMMARY_INLINE_REGEX.test(candidate)) {
       continue;
     }
-    if (SUMMARY_OPEN_REGEX.test(candidate)) {
+    if (SUMMARY_OPEN_REGEX.test(summaryCandidate) || SUMMARY_OPEN_REGEX.test(candidate)) {
       insideSummary = true;
       continue;
     }
-    if (SUMMARY_CLOSE_REGEX.test(candidate)) {
+    if (SUMMARY_CLOSE_REGEX.test(summaryCandidate) || SUMMARY_CLOSE_REGEX.test(candidate)) {
       continue;
     }
     if (DETAILS_OPEN_REGEX.test(candidate) || DETAILS_CLOSE_REGEX.test(candidate)) {
