@@ -76,5 +76,8 @@ def test_metrics_dashboard_pipeline(tmp_path: Path) -> None:
     assert dashboard_exit == 0
     content = dashboard_path.read_text(encoding="utf-8")
     assert "# Weekly Metrics Dashboard" in content
+    assert "## Org Summary" in content
+    assert "## Per-Repo Summary" in content
+    assert "## Repo Details" in content
     assert "### octo/alpha" in content
     assert "### octo/beta" in content
