@@ -271,10 +271,22 @@ function buildContextBlock(contextText, { owner, repo } = {}) {
   ].join('\n');
 }
 
+function isCodeFenceLine(line) {
+  return /^\s*(```|~~~)/.test(String(line || ''));
+}
+
 function parseCheckboxStates(block) {
   const states = new Map();
   const lines = String(block || '').split(/\r?\n/);
+  let inCodeBlock = false;
   for (const line of lines) {
+    if (isCodeFenceLine(line)) {
+      inCodeBlock = !inCodeBlock;
+      continue;
+    }
+    if (inCodeBlock) {
+      continue;
+    }
     const match = line.match(/^- \[(x| )\]\s*(.+)$/i);
     if (match) {
       const checked = match[1].toLowerCase() === 'x';
@@ -320,17 +332,30 @@ function mergeCheckboxStates(newContent, existingStates) {
   }
   const lines = String(newContent || '').split(/\r?\n/);
   // Only match unchecked `- [ ]` items - checked items preserve their state
-  return lines.map((line) => {
+  const updated = [];
+  let inCodeBlock = false;
+  for (const line of lines) {
+    if (isCodeFenceLine(line)) {
+      inCodeBlock = !inCodeBlock;
+      updated.push(line);
+      continue;
+    }
+    if (inCodeBlock) {
+      updated.push(line);
+      continue;
+    }
     const match = line.match(/^- \[( )\]\s*(.+)$/);
     if (match) {
       const text = match[2].trim();
       const normalized = text.replace(/^-\s*/, '').trim().toLowerCase();
       if (existingStates.has(normalized)) {
-        return `- [x] ${text}`;
+        updated.push(`- [x] ${text}`);
+        continue;
       }
     }
-    return line;
-  }).join('\n');
+    updated.push(line);
+  }
+  return updated.join('\n');
 }
 
 /**
