@@ -26,12 +26,17 @@ permissions:
   models: read
 
 concurrency:
-  group: keepalive-${{ github.event.workflow_run.pull_requests[0].number || github.event.pull_request.number || github.event.inputs.pr_number || github.run_id }}
+  group: >-
+    keepalive-${{ github.event.workflow_run.pull_requests[0].number ||
+      github.event.pull_request.number ||
+      github.event.inputs.pr_number ||
+      github.run_id }}
   cancel-in-progress: false
 
 jobs:
   evaluate:
     name: Evaluate keepalive loop
+    if: vars.USE_CONSOLIDATED_WORKFLOWS != 'true'
     runs-on: ubuntu-latest
     environment: agent-standard
     outputs:
@@ -57,13 +62,53 @@ jobs:
       start_ts: ${{ steps.timestamps.outputs.start_ts }}
       security_blocked: ${{ steps.security_gate.outputs.blocked }}
       security_reason: ${{ steps.security_gate.outputs.reason }}
-      rounds_without_task_completion: ${{ steps.evaluate.outputs.rounds_without_task_completion }}
-      needs_progress_review: ${{ steps.evaluate.outputs.needs_progress_review }}
       rate_limit_remaining: ${{ steps.evaluate.outputs.rate_limit_remaining }}
       rate_limit_recommendation: ${{ steps.evaluate.outputs.rate_limit_recommendation }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+
+      - name: Handle agent:retry label
+        if: >-
+          github.event_name == 'pull_request' &&
+          github.event.action == 'labeled' &&
+          github.event.label.name == 'agent:retry'
+        uses: actions/github-script@v8
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const prNumber = context.payload.pull_request.number;
+            core.info(`agent:retry label detected on PR #${prNumber} - cleaning up labels`);
+
+            // Remove agent:retry label (so it can be used again later)
+            try {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                name: 'agent:retry',
+              });
+              core.info('Removed agent:retry label');
+            } catch (error) {
+              // Label might already be removed
+              core.debug(`Could not remove agent:retry: ${error.message}`);
+            }
+
+            // Remove agent:rate-limited label if present
+            try {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                name: 'agent:rate-limited',
+              });
+              core.info('Removed agent:rate-limited label');
+            } catch (error) {
+              // Label might not be present
+              core.debug(`Could not remove agent:rate-limited: ${error.message}`);
+            }
+
+            core.info('Label cleanup complete - proceeding with keepalive evaluation');
 
       - name: Capture timestamps
         id: timestamps
@@ -74,7 +119,9 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const { evaluatePromptInjectionGuard } = require('./.github/scripts/prompt_injection_guard.js');
+            const { evaluatePromptInjectionGuard } = require(
+              './.github/scripts/prompt_injection_guard.js'
+            );
 
             // Resolve PR from event context
             const payload = context.payload || {};
@@ -158,10 +205,9 @@ jobs:
               agent_type: String(result.agentType || ''),
               trace: String(result.config?.trace || result.state?.trace || ''),
               prompt_mode: String(result.promptMode || 'normal'),
-              prompt_file: String(result.promptFile || '.github/codex/prompts/keepalive_next_task.md'),
-              // Progress review tracking
-              rounds_without_task_completion: String(result.roundsWithoutTaskCompletion ?? 0),
-              needs_progress_review: String(result.needsProgressReview ?? false),
+                prompt_file: String(
+                  result.promptFile || '.github/codex/prompts/keepalive_next_task.md'
+                ),
               // Rate limit status
               rate_limit_remaining: String(result.rateLimitStatus?.totalRemaining ?? ''),
               rate_limit_recommendation: String(result.rateLimitStatus?.recommendation ?? ''),
@@ -175,7 +221,10 @@ jobs:
   preflight:
     name: Verify secrets available
     needs: evaluate
-    if: needs.evaluate.outputs.action == 'run' || needs.evaluate.outputs.action == 'fix' || needs.evaluate.outputs.action == 'conflict'
+    if: |
+      needs.evaluate.outputs.action == 'run' ||
+      needs.evaluate.outputs.action == 'fix' ||
+      needs.evaluate.outputs.action == 'conflict'
     runs-on: ubuntu-latest
     environment: agent-standard
     outputs:
@@ -185,16 +234,20 @@ jobs:
         id: check
         env:
           HAS_CODEX_AUTH: ${{ secrets.CODEX_AUTH_JSON != '' }}
-          HAS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID != '' }}
-          HAS_APP_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY != '' }}
+          HAS_APP_ID: >-
+            ${{ secrets.KEEPALIVE_APP_ID != '' ||
+                secrets.WORKFLOWS_APP_ID != '' }}
+          HAS_APP_KEY: >-
+            ${{ secrets.KEEPALIVE_APP_PRIVATE_KEY != '' ||
+                secrets.WORKFLOWS_APP_PRIVATE_KEY != '' }}
         run: |
           echo "CODEX_AUTH_JSON present: $HAS_CODEX_AUTH"
-          echo "WORKFLOWS_APP_ID present: $HAS_APP_ID"
+          echo "KEEPALIVE_APP or WORKFLOWS_APP present: $HAS_APP_ID"
           echo "WORKFLOWS_APP_PRIVATE_KEY present: $HAS_APP_KEY"
           if [ "$HAS_CODEX_AUTH" = "true" ] || [ "$HAS_APP_ID" = "true" ]; then
             echo "secrets_ok=true" >> "$GITHUB_OUTPUT"
           else
-            echo "::error::Neither CODEX_AUTH_JSON nor WORKFLOWS_APP_ID is set. Cannot run Codex."
+            echo "::error::CODEX_AUTH_JSON or KEEPALIVE/WORKFLOWS_APP required."
             echo "secrets_ok=false" >> "$GITHUB_OUTPUT"
             exit 1
           fi
@@ -204,7 +257,10 @@ jobs:
     needs: evaluate
     runs-on: ubuntu-latest
     steps:
-      - run: echo "Test job ran! Action was ${{ needs.evaluate.outputs.action }}, agent=${{ needs.evaluate.outputs.agent_type }}"
+      - run: |
+          echo "Test job ran!"
+            echo "Action was ${{ needs.evaluate.outputs.action }}"
+            echo "Agent was ${{ needs.evaluate.outputs.agent_type }}"
 
   # Mark agent as running before starting the actual work
   # This provides real-time visibility that the agent is actively engaged
@@ -213,7 +269,10 @@ jobs:
     needs:
       - evaluate
       - preflight
-    if: needs.evaluate.outputs.action == 'run' || needs.evaluate.outputs.action == 'fix' || needs.evaluate.outputs.action == 'conflict'
+    if: |
+      needs.evaluate.outputs.action == 'run' ||
+      needs.evaluate.outputs.action == 'fix' ||
+      needs.evaluate.outputs.action == 'conflict'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -225,6 +284,9 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const { markAgentRunning } = require('./.github/scripts/keepalive_loop.js');
+              const runUrl =
+                `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}` +
+                `/actions/runs/${context.runId}`;
             const inputs = {
               pr_number: '${{ needs.evaluate.outputs.pr_number }}',
               agent_type: '${{ needs.evaluate.outputs.agent_type }}',
@@ -233,7 +295,7 @@ jobs:
               tasks_total: '${{ needs.evaluate.outputs.tasks_total }}',
               tasks_unchecked: '${{ needs.evaluate.outputs.tasks_unchecked }}',
               trace: '${{ needs.evaluate.outputs.trace }}',
-              run_url: '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}',
+              run_url: runUrl,
             };
             await markAgentRunning({ github, context, core, inputs });
 
@@ -251,10 +313,18 @@ jobs:
     uses: stranske/Workflows/.github/workflows/reusable-codex-run.yml@main
     secrets:
       CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
-      WORKFLOWS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID }}
-      WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+      # Use KEEPALIVE_APP for isolated rate limit pool (5000/hr)
+      # Falls back to WORKFLOWS_APP if not configured
+      WORKFLOWS_APP_ID: >-
+        ${{ secrets.KEEPALIVE_APP_ID || secrets.WORKFLOWS_APP_ID }}
+      WORKFLOWS_APP_PRIVATE_KEY: >-
+        ${{ secrets.KEEPALIVE_APP_PRIVATE_KEY ||
+            secrets.WORKFLOWS_APP_PRIVATE_KEY }}
     with:
-      skip: ${{ needs.evaluate.outputs.action != 'run' && needs.evaluate.outputs.action != 'fix' && needs.evaluate.outputs.action != 'conflict' }}
+      skip: >-
+        ${{ needs.evaluate.outputs.action != 'run' &&
+            needs.evaluate.outputs.action != 'fix' &&
+            needs.evaluate.outputs.action != 'conflict' }}
       prompt_file: ${{ needs.evaluate.outputs.prompt_file }}
       mode: keepalive
       pr_number: ${{ needs.evaluate.outputs.pr_number }}
@@ -272,179 +342,6 @@ jobs:
   #   uses: stranske/Workflows/.github/workflows/reusable-claude-run.yml@main
   #   ...
 
-  # Progress review: LLM-based check when agent is active but not completing tasks
-  # This catches "productive but unfocused" patterns where agent works on tangential items
-  progress-review:
-    name: Review agent progress alignment
-    needs: evaluate
-    if: needs.evaluate.outputs.action == 'review'
-    runs-on: ubuntu-latest
-    environment: agent-standard
-    outputs:
-      recommendation: ${{ steps.review.outputs.recommendation }}
-      alignment_score: ${{ steps.review.outputs.alignment_score }}
-      feedback: ${{ steps.review.outputs.feedback }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Setup Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: '3.11'
-
-      - name: Install dependencies
-        run: pip install pydantic langchain-openai
-
-      - name: Get recent commits
-        id: commits
-        uses: actions/github-script@v8
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const prNumber = Number('${{ needs.evaluate.outputs.pr_number }}');
-            const { data: commits } = await github.rest.pulls.listCommits({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: prNumber,
-              per_page: 30,
-            });
-            const messages = commits.map(c => c.commit.message.split('\n')[0]);
-            const files = [...new Set(commits.flatMap(c =>
-              (c.files || []).map(f => f.filename)
-            ))];
-            core.setOutput('messages', JSON.stringify(messages));
-            core.setOutput('files', JSON.stringify(files.slice(0, 50)));
-
-      - name: Extract acceptance criteria
-        id: criteria
-        uses: actions/github-script@v8
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const prNumber = Number('${{ needs.evaluate.outputs.pr_number }}');
-            const { data: pr } = await github.rest.pulls.get({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: prNumber,
-            });
-            // Extract acceptance criteria from PR body
-            const body = pr.body || '';
-            const criteria = [];
-            // Look for acceptance criteria section
-            const acMatch = body.match(/## Acceptance Criteria[\s\S]*?(?=##|$)/i);
-            if (acMatch) {
-              const lines = acMatch[0].split('\n');
-              for (const line of lines) {
-                const match = line.match(/^\s*[-*+]\s*(?:\[[ xX]\]\s*)?(.+)/i);
-                if (match) {
-                  criteria.push(match[1].trim());
-                }
-              }
-            }
-            core.setOutput('criteria', JSON.stringify(criteria));
-
-      - name: Run progress review
-        id: review
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          CRITERIA: ${{ steps.criteria.outputs.criteria }}
-          COMMITS: ${{ steps.commits.outputs.messages }}
-          FILES: ${{ steps.commits.outputs.files }}
-          ROUNDS: ${{ needs.evaluate.outputs.rounds_without_task_completion }}
-        run: |
-          mapfile -t criteria_array < <(printf '%s\n' "$CRITERIA" | jq -r '.[]')
-          mapfile -t commits_array < <(printf '%s\n' "$COMMITS" | jq -r '.[]')
-          mapfile -t files_array < <(printf '%s\n' "$FILES" | jq -r '.[]')
-
-          args=("scripts/langchain/progress_reviewer.py")
-
-          for c in "${criteria_array[@]}"; do
-            args+=("--acceptance-criteria" "$c")
-          done
-
-          for c in "${commits_array[@]}"; do
-            args+=("--recent-commits" "$c")
-          done
-
-          for f in "${files_array[@]}"; do
-            args+=("--files-changed" "$f")
-          done
-
-          args+=("--rounds-without-completion" "$ROUNDS" "--json")
-
-          python "${args[@]}" > review_result.json || true
-
-          # Parse results
-          if [ -f review_result.json ]; then
-            echo "recommendation=$(jq -r '.recommendation // "REDIRECT"' review_result.json)" >> "$GITHUB_OUTPUT"
-            echo "alignment_score=$(jq -r '.alignment_score // 5' review_result.json)" >> "$GITHUB_OUTPUT"
-            echo "feedback=$(jq -r '.feedback_for_agent // ""' review_result.json)" >> "$GITHUB_OUTPUT"
-            echo "summary=$(jq -r '.summary // ""' review_result.json)" >> "$GITHUB_OUTPUT"
-
-            cat review_result.json >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "recommendation=REDIRECT" >> "$GITHUB_OUTPUT"
-            echo "alignment_score=5" >> "$GITHUB_OUTPUT"
-            echo "feedback=Unable to analyze progress. Please review acceptance criteria." >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Post review feedback to PR
-        uses: actions/github-script@v8
-        env:
-          REVIEW_FEEDBACK: ${{ steps.review.outputs.feedback }}
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const prNumber = Number('${{ needs.evaluate.outputs.pr_number }}');
-            const recommendation = '${{ steps.review.outputs.recommendation }}';
-            const alignmentScore = '${{ steps.review.outputs.alignment_score }}';
-            const rounds = '${{ needs.evaluate.outputs.rounds_without_task_completion }}';
-            const feedback = process.env.REVIEW_FEEDBACK || '';
-
-            const emojiMap = {
-              'CONTINUE': '✅',
-              'REDIRECT': '⚠️',
-              'STOP': '🛑'
-            };
-            const emoji = emojiMap[recommendation] || '❓';
-
-            const body = [
-              `## ${emoji} Progress Review (Round ${rounds})`,
-              '',
-              `**Recommendation:** ${recommendation}`,
-              `**Alignment Score:** ${alignmentScore}/10`,
-              '',
-              '### Feedback',
-              feedback || 'No specific feedback.',
-              '',
-              '---',
-              `_This review was triggered because the agent has been working for ${rounds} rounds without completing any task checkboxes._`,
-              '_The review evaluates whether recent work is advancing toward the acceptance criteria._',
-            ].join('\n');
-
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: prNumber,
-              body,
-            });
-
-            // If STOP recommended, remove agent label to prevent further runs
-            if (recommendation === 'STOP') {
-              core.warning('Progress review recommends STOP - agent work appears unaligned');
-              try {
-                await github.rest.issues.removeLabel({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: prNumber,
-                  name: 'agent:codex',
-                });
-              } catch (e) {
-                core.info(`Could not remove label: ${e.message}`);
-              }
-            }
-
   summary:
     name: Update keepalive summary
     needs:
@@ -452,7 +349,10 @@ jobs:
       - preflight
       - run-codex
     # Run always if PR exists, handle skipped agent jobs gracefully
-    if: always() && needs.evaluate.outputs.pr_number != '' && needs.evaluate.outputs.pr_number != '0'
+    if: |
+      always() &&
+      needs.evaluate.outputs.pr_number != '' &&
+      needs.evaluate.outputs.pr_number != '0'
     runs-on: ubuntu-latest
     environment: agent-standard
     steps:
@@ -553,7 +453,8 @@ jobs:
             const llmConfidence = '${{ needs.run-codex.outputs.llm-confidence || '' }}';
             const llmAnalysisRun = '${{ needs.run-codex.outputs.llm-analysis-run }}' === 'true';
 
-            // Parse LLM completed tasks if available (use env var to avoid JS string escaping issues)
+              // Parse LLM completed tasks if available
+              // Use env var to avoid JS string escaping issues
             let llmCompletedTasks = [];
             const llmTasksJson = process.env.LLM_COMPLETED_TASKS || '[]';
             try {
@@ -597,6 +498,7 @@ jobs:
             core.setOutput('commit_tasks_count', result.sources?.commit || 0);
 
       - name: Update summary comment
+        id: update-summary
         uses: actions/github-script@v8
         env:
           CODEX_SUMMARY: ${{ needs.run-codex.outputs.final-message-summary || '' }}
@@ -632,3 +534,49 @@ jobs:
               llm_analysis_run: '${{ needs.run-codex.outputs.llm-analysis-run }}' === 'true',
             };
             await updateKeepaliveLoopSummary({ github, context, core, inputs });
+
+      # Handle rate limit failures by notifying the PR with a different token
+      # This step uses the WORKFLOWS_APP token which has a separate rate limit pool
+      - name: Notify PR of rate limit failure
+        if: failure() && steps.update-summary.outputs.rate_limit_hit == 'true'
+        uses: actions/github-script@v8
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const {
+              postRateLimitNotification
+            } = require('./.github/scripts/keepalive_loop.js');
+
+            const prNumber = Number('${{ steps.update-summary.outputs.pr_number }}') || 0;
+            const errorMessage = '${{ steps.update-summary.outputs.rate_limit_error }}';
+            const resetTime = '${{ steps.update-summary.outputs.rate_limit_reset }}';
+            const remaining = Number('${{ steps.update-summary.outputs.rate_limit_remaining }}') || 0;
+            const action = '${{ steps.update-summary.outputs.action }}' || '${{ needs.evaluate.outputs.action }}';
+            const reason = '${{ steps.update-summary.outputs.reason }}' || '${{ needs.evaluate.outputs.reason }}';
+
+            if (!prNumber) {
+              core.warning('No PR number available for rate limit notification');
+              return;
+            }
+
+            core.info(`Attempting to notify PR #${prNumber} about rate limit`);
+
+            const result = await postRateLimitNotification({
+              github,
+              context,
+              core,
+              prNumber,
+              errorMessage,
+              resetTime,
+              remaining,
+              action,
+              reason,
+            });
+
+            if (result.skipped) {
+              core.info('Rate limit notification skipped (recent notification exists)');
+            } else if (result.posted || result.labeled) {
+              core.info(`Rate limit notification: posted=${result.posted}, labeled=${result.labeled}`);
+            } else {
+              core.warning(`Failed to notify PR: ${result.error}`);
+            }

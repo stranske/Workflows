@@ -1,0 +1,175 @@
+# .github/workflows/maint-sync-labels.yml
+# Syncs core functional labels to consumer repos.
+# Only labels in labels-core.yml are synced - these are required for the
+# workflow system to function. Repo-specific informational labels are NOT synced.
+name: Maint 69 Sync Labels
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/labels-core.yml"
+  workflow_dispatch:
+    inputs:
+      repos:
+        description: "Comma-separated list of repos (owner/repo) or 'all' for all consumer repos"
+        required: false
+        default: "all"
+      dry_run:
+        description: "Dry run - show what would be synced without making changes"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  sync-labels:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Parse labels-core.yml
+        id: parse
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const yaml = require('js-yaml');
+
+            const labelsFile = fs.readFileSync('.github/labels-core.yml', 'utf8');
+            const labels = yaml.load(labelsFile);
+
+            core.info(`Parsed ${labels.length} core labels from labels-core.yml`);
+            core.setOutput('labels', JSON.stringify(labels));
+
+      - name: Determine target repos
+        id: repos
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const input = '${{ inputs.repos }}' || 'all';
+
+            // List of consumer repos that use the Workflows system
+            const allConsumerRepos = [
+              'stranske/Portable-Alpha-Extension-Model',
+              'stranske/Manager-Database',
+              'stranske/Trend_Model_Project',
+              'stranske/Travel-Plan-Permission',
+              'stranske/Template',
+              'stranske/trip-planner',
+              'stranske/Collab-Admin'
+            ];
+
+            let repos;
+            if (input === 'all') {
+              repos = allConsumerRepos;
+            } else {
+              repos = input.split(',').map(r => r.trim());
+            }
+
+            core.info(`Target repos: ${repos.join(', ')}`);
+            core.setOutput('repos', JSON.stringify(repos));
+
+      - name: Sync labels to repos
+        uses: actions/github-script@v7
+        env:
+          LABELS_JSON: ${{ steps.parse.outputs.labels }}
+          REPOS_JSON: ${{ steps.repos.outputs.repos }}
+          DRY_RUN: ${{ inputs.dry_run || 'false' }}
+        with:
+          github-token: ${{ secrets.WORKFLOW_SYNC_TOKEN }}
+          script: |
+            const labels = JSON.parse(process.env.LABELS_JSON);
+            const repos = JSON.parse(process.env.REPOS_JSON);
+            const dryRun = process.env.DRY_RUN === 'true';
+
+            const summary = [];
+            summary.push('# Label Sync Results\n');
+            summary.push(`Mode: ${dryRun ? '🔍 Dry Run' : '✅ Live'}\n`);
+            summary.push(`Labels: ${labels.length} core labels\n`);
+            summary.push(`Repos: ${repos.length}\n\n`);
+
+            for (const repoFullName of repos) {
+              const [owner, repo] = repoFullName.split('/');
+              summary.push(`## ${repoFullName}\n`);
+
+              let created = 0, updated = 0, unchanged = 0, errors = 0;
+
+              // Get existing labels
+              let existingLabels = [];
+              try {
+                const { data } = await github.rest.issues.listLabelsForRepo({
+                  owner,
+                  repo,
+                  per_page: 100
+                });
+                existingLabels = data;
+              } catch (e) {
+                summary.push(`❌ Failed to fetch labels: ${e.message}\n\n`);
+                continue;
+              }
+
+              const existingMap = new Map(existingLabels.map(l => [l.name, l]));
+
+              for (const label of labels) {
+                const existing = existingMap.get(label.name);
+
+                if (!existing) {
+                  // Create new label
+                  if (dryRun) {
+                    summary.push(`  🆕 Would create: \`${label.name}\`\n`);
+                    created++;
+                  } else {
+                    try {
+                      await github.rest.issues.createLabel({
+                        owner,
+                        repo,
+                        name: label.name,
+                        color: label.color,
+                        description: label.description
+                      });
+                      summary.push(`  ✅ Created: \`${label.name}\`\n`);
+                      created++;
+                    } catch (e) {
+                      summary.push(`  ❌ Failed to create \`${label.name}\`: ${e.message}\n`);
+                      errors++;
+                    }
+                  }
+                } else if (
+                  existing.color !== label.color ||
+                  existing.description !== label.description
+                ) {
+                  // Update existing label
+                  if (dryRun) {
+                    summary.push(`  🔄 Would update: \`${label.name}\`\n`);
+                    updated++;
+                  } else {
+                    try {
+                      await github.rest.issues.updateLabel({
+                        owner,
+                        repo,
+                        name: label.name,
+                        color: label.color,
+                        description: label.description
+                      });
+                      summary.push(`  🔄 Updated: \`${label.name}\`\n`);
+                      updated++;
+                    } catch (e) {
+                      summary.push(`  ❌ Failed to update \`${label.name}\`: ${e.message}\n`);
+                      errors++;
+                    }
+                  }
+                } else {
+                  unchanged++;
+                }
+              }
+
+              summary.push(`\n📊 Summary: ${created} created, ${updated} updated, ${unchanged} unchanged, ${errors} errors\n\n`);
+            }
+
+            // Write summary
+            await core.summary.addRaw(summary.join('')).write();
+
+            core.info(summary.join(''));

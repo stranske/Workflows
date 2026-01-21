@@ -1,0 +1,74 @@
+# .github/labels-core.yml
+# Core functional labels required for the workflow system to operate.
+# These labels MUST exist in all consumer repos for agent automation to work.
+# Synced via maint-sync-labels.yml workflow.
+#
+# NOTE: This is separate from labels.yml which contains ALL labels (including
+# repo-specific informational labels). Only labels in THIS file are synced
+# to consumer repos.
+
+# Agent assignment labels
+- name: agent:codex
+  color: 0e8a16
+  description: Assign to Codex agent
+- name: agent:copilot
+  color: 1d76db
+  description: Assign to Copilot
+
+# Agent status labels (for human visibility and retry mechanism)
+- name: agent:rate-limited
+  color: d93f0b
+  description: Agent paused due to API rate limits
+- name: agent:retry
+  color: 0e8a16
+  description: Add to trigger agent retry after rate limit or pause
+- name: agent:needs-attention
+  color: fbca04
+  description: Agent needs human review or intervention
+
+# Agent workflow control labels
+- name: agents
+  color: fbca04
+  description: Agent automation
+- name: agents:activated
+  color: ededed
+  description: Agent has been activated
+- name: agents:keepalive
+  color: 1d76db
+  description: Enable keepalive monitoring on PR
+- name: agents:pause
+  color: b60205
+  description: Pause agent work
+- name: agents:paused
+  color: c2e0c6
+  description: Pause keepalive for this PR
+- name: agents:allow-change
+  color: ededed
+  description: Permit workflow edits when justification provided
+
+# PR origin labels (used by agent workflows)
+- name: from:codex
+  color: 0e8a16
+  description: PR was created by or for Codex
+- name: from:copilot
+  color: 0366d6
+  description: PR was created by or for Copilot
+
+# Autofix labels (required for autofix workflow)
+- name: autofix
+  color: 0366d6
+  description: Let bots format/lint automatically
+- name: autofix:applied
+  color: 7057ff
+  description: Autofix was applied
+- name: autofix:clean
+  color: 0e8a16
+  description: Autofix passed - no changes needed
+- name: autofix:patch
+  color: ededed
+  description: Autofix patch available
+
+# Automerge label (required for automerge workflow)
+- name: automerge
+  color: 0052cc
+  description: Eligible for auto-merge when checks pass
