@@ -195,8 +195,12 @@ jobs:
         id: check
         env:
           HAS_CODEX_AUTH: ${{ secrets.CODEX_AUTH_JSON != '' }}
-          HAS_APP_ID: ${{ secrets.KEEPALIVE_APP_ID != '' || secrets.WORKFLOWS_APP_ID != '' }}
-          HAS_APP_KEY: ${{ secrets.KEEPALIVE_APP_PRIVATE_KEY != '' || secrets.WORKFLOWS_APP_PRIVATE_KEY != '' }}
+          HAS_APP_ID: >-
+            ${{ secrets.KEEPALIVE_APP_ID != '' ||
+                secrets.WORKFLOWS_APP_ID != '' }}
+          HAS_APP_KEY: >-
+            ${{ secrets.KEEPALIVE_APP_PRIVATE_KEY != '' ||
+                secrets.WORKFLOWS_APP_PRIVATE_KEY != '' }}
         run: |
           echo "CODEX_AUTH_JSON present: $HAS_CODEX_AUTH"
           echo "KEEPALIVE_APP or WORKFLOWS_APP present: $HAS_APP_ID"
@@ -204,7 +208,8 @@ jobs:
           if [ "$HAS_CODEX_AUTH" = "true" ] || [ "$HAS_APP_ID" = "true" ]; then
             echo "secrets_ok=true" >> "$GITHUB_OUTPUT"
           else
-            echo "::error::Neither CODEX_AUTH_JSON nor KEEPALIVE_APP_ID/WORKFLOWS_APP_ID is set. Cannot run Codex."
+            echo "::error::Neither CODEX_AUTH_JSON nor KEEPALIVE_APP_ID/" \
+              "WORKFLOWS_APP_ID is set. Cannot run Codex."
             echo "secrets_ok=false" >> "$GITHUB_OUTPUT"
             exit 1
           fi
@@ -272,8 +277,11 @@ jobs:
       CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
       # Use dedicated KEEPALIVE_APP for isolated rate limit pool (5000/hr)
       # Falls back to WORKFLOWS_APP if KEEPALIVE_APP not configured
-      WORKFLOWS_APP_ID: ${{ secrets.KEEPALIVE_APP_ID || secrets.WORKFLOWS_APP_ID }}
-      WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.KEEPALIVE_APP_PRIVATE_KEY || secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+      WORKFLOWS_APP_ID: >-
+        ${{ secrets.KEEPALIVE_APP_ID || secrets.WORKFLOWS_APP_ID }}
+      WORKFLOWS_APP_PRIVATE_KEY: >-
+        ${{ secrets.KEEPALIVE_APP_PRIVATE_KEY ||
+            secrets.WORKFLOWS_APP_PRIVATE_KEY }}
     with:
       skip: >-
         ${{ needs.evaluate.outputs.action != 'run' &&

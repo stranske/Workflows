@@ -159,7 +159,8 @@ jobs:
     needs: resolve
     if: |
       needs.resolve.outputs.pr_number != '' &&
-      (needs.resolve.outputs.run_pr_meta == 'true' || needs.resolve.outputs.run_bot_comments == 'true')
+      (needs.resolve.outputs.run_pr_meta == 'true' ||
+       needs.resolve.outputs.run_bot_comments == 'true')
     uses: stranske/Workflows/.github/workflows/reusable-pr-context.yml@main
     with:
       pr_number: ${{ fromJSON(needs.resolve.outputs.pr_number) }}
@@ -170,7 +171,8 @@ jobs:
     needs: [resolve, pr_context]
     if: |
       needs.resolve.outputs.pr_number != '' &&
-      (needs.resolve.outputs.run_pr_meta == 'true' || needs.resolve.outputs.run_bot_comments == 'true')
+      (needs.resolve.outputs.run_pr_meta == 'true' ||
+       needs.resolve.outputs.run_bot_comments == 'true')
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -196,7 +198,8 @@ jobs:
           needs.resolve.outputs.run_bot_comments == 'true' &&
           (
             needs.resolve.outputs.event_name != 'workflow_run' ||
-            (needs.resolve.outputs.gate_conclusion == 'success' && needs.pr_context.outputs.has_agent_label == 'true')
+            (needs.resolve.outputs.gate_conclusion == 'success' &&
+             needs.pr_context.outputs.has_agent_label == 'true')
           )
         uses: stranske/Workflows/.github/workflows/reusable-bot-comment-handler.yml@main
         with:
@@ -409,7 +412,8 @@ jobs:
             const issueBody = `## Summary\n\nFollow-up work from PR #${prNumber}\n\n` +
               `PR: ${prUrl}\n\n` +
               `## Concerns\n\n${concernsText}\n\n` +
-              `## Next Steps\n\n- [ ] Review verification feedback\n- [ ] Address the concerns listed above\n`;
+              `## Next Steps\n\n- [ ] Review verification feedback\n` +
+              `- [ ] Address the concerns listed above\n`;
 
             core.setOutput('issue_title', issueTitle);
             core.setOutput('issue_body', issueBody);
