@@ -8,29 +8,29 @@ const {
   resolveDispatchToken,
 } = require('../scripts/keepalive-runner.js');
 
-test('resolveInstructionToken prefers actions bot PAT over service bot PAT', () => {
+test('resolveInstructionToken prefers service bot PAT over actions bot PAT', () => {
   const env = {
     ACTIONS_BOT_PAT: 'actions-token',
-    SERVICE_BOT_PAT: 'service-token',
-    GH_TOKEN: 'gh-token',
-  };
-  assert.equal(resolveInstructionToken(env), 'actions-token');
-});
-
-test('resolveInstructionToken falls back to service bot PAT when actions token missing', () => {
-  const env = {
-    ACTIONS_BOT_PAT: '',
     SERVICE_BOT_PAT: 'service-token',
     GH_TOKEN: 'gh-token',
   };
   assert.equal(resolveInstructionToken(env), 'service-token');
 });
 
-test('resolveInstructionToken accepts lower-case env keys', () => {
+test('resolveInstructionToken falls back to actions bot PAT when service token missing', () => {
   const env = {
-    actions_bot_pat: 'actions-token',
+    ACTIONS_BOT_PAT: 'actions-token',
+    SERVICE_BOT_PAT: '',
+    GH_TOKEN: 'gh-token',
   };
   assert.equal(resolveInstructionToken(env), 'actions-token');
+});
+
+test('resolveInstructionToken accepts lower-case service_bot_pat', () => {
+  const env = {
+    service_bot_pat: 'service-token',
+  };
+  assert.equal(resolveInstructionToken(env), 'service-token');
 });
 
 test('resolveInstructionToken falls back to GITHUB_TOKEN', () => {
@@ -40,7 +40,16 @@ test('resolveInstructionToken falls back to GITHUB_TOKEN', () => {
   assert.equal(resolveInstructionToken(env), 'github-token');
 });
 
-test('resolveDispatchToken mirrors instruction token precedence', () => {
+test('resolveDispatchToken prefers actions bot PAT over instruction tokens', () => {
+  const env = {
+    ACTIONS_BOT_PAT: 'actions-token',
+    SERVICE_BOT_PAT: 'service-token',
+    GH_TOKEN: 'gh-token',
+  };
+  assert.equal(resolveDispatchToken(env), 'actions-token');
+});
+
+test('resolveDispatchToken falls back to instruction token when actions token missing', () => {
   const env = {
     SERVICE_BOT_PAT: 'service-token',
     GH_TOKEN: 'gh-token',

@@ -633,17 +633,7 @@ function buildTraceToken({ seed, prNumber, round }) {
   return parts.join('-');
 }
 
-function resolveWriteToken(env = {}) {
-  const candidates = [
-    env.ACTIONS_BOT_PAT,
-    env.actions_bot_pat,
-    env.SERVICE_BOT_PAT,
-    env.service_bot_pat,
-    env.GH_TOKEN,
-    env.gh_token,
-    env.GITHUB_TOKEN,
-    env.github_token,
-  ];
+function resolveTokenFromCandidates(candidates) {
   for (const candidate of candidates) {
     if (candidate === null || candidate === undefined) {
       continue;
@@ -657,11 +647,27 @@ function resolveWriteToken(env = {}) {
 }
 
 function resolveInstructionToken(env = {}) {
-  return resolveWriteToken(env);
+  return resolveTokenFromCandidates([
+    env.SERVICE_BOT_PAT,
+    env.service_bot_pat,
+    env.ACTIONS_BOT_PAT,
+    env.actions_bot_pat,
+    env.GH_TOKEN,
+    env.gh_token,
+    env.GITHUB_TOKEN,
+    env.github_token,
+  ]);
 }
 
 function resolveDispatchToken(env = {}) {
-  return resolveWriteToken(env);
+  const dedicated = resolveTokenFromCandidates([
+    env.ACTIONS_BOT_PAT,
+    env.actions_bot_pat,
+  ]);
+  if (dedicated) {
+    return dedicated;
+  }
+  return resolveInstructionToken(env);
 }
 
 async function runKeepalive({ core, github, context, env = process.env }) {
