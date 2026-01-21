@@ -406,9 +406,9 @@ async function resolveElapsedMs({ github, context, inputs, core }) {
   const durationMs = resolveDurationMs({
     durationMs: toOptionalNumber(
       inputs?.elapsed_ms ??
-        inputs?.elapsedMs ??
-        inputs?.duration_ms ??
-        inputs?.durationMs
+      inputs?.elapsedMs ??
+      inputs?.duration_ms ??
+      inputs?.durationMs
     ),
     startTs: toOptionalNumber(inputs?.start_ts ?? inputs?.startTs),
   });
@@ -477,19 +477,19 @@ function buildTimeoutStatus({
 function resolveTimeoutWarningConfig({ inputs = {}, env = process.env, variables = {} } = {}) {
   const warningMinutes = toOptionalNumber(
     inputs.timeout_warning_minutes ??
-      inputs.timeoutWarningMinutes ??
-      env.WORKFLOW_TIMEOUT_WARNING_MINUTES ??
-      variables.WORKFLOW_TIMEOUT_WARNING_MINUTES ??
-      env.TIMEOUT_WARNING_MINUTES ??
-      variables.TIMEOUT_WARNING_MINUTES
+    inputs.timeoutWarningMinutes ??
+    env.WORKFLOW_TIMEOUT_WARNING_MINUTES ??
+    variables.WORKFLOW_TIMEOUT_WARNING_MINUTES ??
+    env.TIMEOUT_WARNING_MINUTES ??
+    variables.TIMEOUT_WARNING_MINUTES
   );
   const warningRatioRaw = toOptionalNumber(
     inputs.timeout_warning_ratio ??
-      inputs.timeoutWarningRatio ??
-      env.WORKFLOW_TIMEOUT_WARNING_RATIO ??
-      variables.WORKFLOW_TIMEOUT_WARNING_RATIO ??
-      env.TIMEOUT_WARNING_RATIO ??
-      variables.TIMEOUT_WARNING_RATIO
+    inputs.timeoutWarningRatio ??
+    env.WORKFLOW_TIMEOUT_WARNING_RATIO ??
+    variables.WORKFLOW_TIMEOUT_WARNING_RATIO ??
+    env.TIMEOUT_WARNING_RATIO ??
+    variables.TIMEOUT_WARNING_RATIO
   );
   const warningRatio = normaliseWarningRatio(warningRatioRaw);
   const config = {};
@@ -582,9 +582,9 @@ function emitMetricsRecord({ core, record }) {
 function resolveMetricsPath(inputs) {
   const explicitPath = normalise(
     inputs.metrics_path ??
-      inputs.metricsPath ??
-      process.env.KEEPALIVE_METRICS_PATH ??
-      process.env.keepalive_metrics_path
+    inputs.metricsPath ??
+    process.env.KEEPALIVE_METRICS_PATH ??
+    process.env.keepalive_metrics_path
   );
   if (explicitPath) {
     return explicitPath;
@@ -674,7 +674,7 @@ function normaliseChecklistSection(content) {
   }
   const lines = raw.split('\n');
   let mutated = false;
-  
+
   const updated = lines.map((line) => {
     // Match bullet points (-, *, +) or numbered lists, for example: 1., 2., 3. or 1), 2), 3).
     const match = line.match(/^(\s*)([-*+]|\d+[.)])\s+(.*)$/);
@@ -883,7 +883,7 @@ function extractChecklistItems(markdown) {
  */
 function buildTaskAppendix(sections, checkboxCounts, state = {}, options = {}) {
   const lines = [];
-  
+
   lines.push('---');
   lines.push('## PR Tasks and Acceptance Criteria');
   lines.push('');
@@ -905,13 +905,13 @@ function buildTaskAppendix(sections, checkboxCounts, state = {}, options = {}) {
     lines.push('_Failure to update checkboxes means progress is not being tracked properly._');
     lines.push('');
   }
-  
+
   if (sections?.scope) {
     lines.push('### Scope');
     lines.push(sections.scope);
     lines.push('');
   }
-  
+
   if (sections?.tasks) {
     lines.push('### Tasks');
     lines.push('Complete these in order. Mark checkbox done ONLY after implementation is verified:');
@@ -919,7 +919,7 @@ function buildTaskAppendix(sections, checkboxCounts, state = {}, options = {}) {
     lines.push(sections.tasks);
     lines.push('');
   }
-  
+
   if (sections?.acceptance) {
     lines.push('### Acceptance Criteria');
     lines.push('The PR is complete when ALL of these are satisfied:');
@@ -950,7 +950,7 @@ function buildTaskAppendix(sections, checkboxCounts, state = {}, options = {}) {
     lines.push(`- ${suggested.text}`);
     lines.push('');
   }
-  
+
   // Add Source section if PR body contains links to parent issues/PRs
   if (options.prBody) {
     const sourceSection = extractSourceSection(options.prBody);
@@ -962,9 +962,9 @@ function buildTaskAppendix(sections, checkboxCounts, state = {}, options = {}) {
       lines.push('');
     }
   }
-  
+
   lines.push('---');
-  
+
   return lines.join('\n');
 }
 
@@ -1176,13 +1176,13 @@ async function classifyGateFailure({ github, context, pr, core }) {
     }
 
     // Classify failure type based on job names
-    const hasTestFailure = failedJobs.some((name) => 
+    const hasTestFailure = failedJobs.some((name) =>
       name.includes('test') || name.includes('pytest') || name.includes('unittest')
     );
-    const hasMypyFailure = failedJobs.some((name) => 
+    const hasMypyFailure = failedJobs.some((name) =>
       name.includes('mypy') || name.includes('type') || name.includes('typecheck')
     );
-    const hasLintFailure = failedJobs.some((name) => 
+    const hasLintFailure = failedJobs.some((name) =>
       name.includes('lint') || name.includes('ruff') || name.includes('black') || name.includes('format')
     );
 
@@ -1293,6 +1293,158 @@ function hasRateLimitSignal(text) {
   return RATE_LIMIT_PATTERNS.some((pattern) => pattern.test(candidate));
 }
 
+// Comment marker for rate limit notifications to prevent spam
+const RATE_LIMIT_COMMENT_MARKER = '<!-- rate-limit-notification -->';
+// Minimum time between rate limit notifications (1 hour in ms)
+const RATE_LIMIT_NOTIFICATION_COOLDOWN_MS = 60 * 60 * 1000;
+
+/**
+ * Check if a rate limit notification was recently posted to avoid spam.
+ * Looks for comments with the rate limit marker within the cooldown period.
+ */
+async function hasRecentRateLimitNotification({ github, context, prNumber, core }) {
+  try {
+    const { data: comments } = await github.rest.issues.listComments({
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+      issue_number: prNumber,
+      per_page: 20,
+      sort: 'created',
+      direction: 'desc',
+    });
+
+    const now = Date.now();
+    for (const comment of comments) {
+      if (comment.body && comment.body.includes(RATE_LIMIT_COMMENT_MARKER)) {
+        const commentTime = new Date(comment.created_at).getTime();
+        if (now - commentTime < RATE_LIMIT_NOTIFICATION_COOLDOWN_MS) {
+          if (core) core.info(`Recent rate limit notification found (${Math.round((now - commentTime) / 60000)}m ago), skipping duplicate`);
+          return true;
+        }
+      }
+    }
+    return false;
+  } catch (error) {
+    // If we can't check comments, assume no recent notification to be safe
+    if (core) core.debug(`Failed to check for recent rate limit notifications: ${error.message}`);
+    return false;
+  }
+}
+
+/**
+ * Post a rate limit notification to a PR and add the agent:rate-limited label.
+ * This is called when rate limits prevent the agent from working.
+ *
+ * @param {Object} options
+ * @param {Object} options.github - GitHub API client (should use a different token pool if possible)
+ * @param {Object} options.context - GitHub Actions context
+ * @param {Object} options.core - GitHub Actions core
+ * @param {number} options.prNumber - PR number
+ * @param {string} options.errorMessage - The rate limit error message
+ * @param {string} options.resetTime - When the rate limit resets (ISO string)
+ * @param {number} options.remaining - Remaining API calls
+ * @param {string} options.action - The action that was being performed
+ * @param {string} options.reason - The reason for the action
+ * @returns {Object} { posted: boolean, labeled: boolean, skipped: boolean, error: string|null }
+ */
+async function postRateLimitNotification({
+  github,
+  context,
+  core,
+  prNumber,
+  errorMessage,
+  resetTime,
+  remaining,
+  action,
+  reason,
+}) {
+  const result = { posted: false, labeled: false, skipped: false, error: null };
+
+  if (!prNumber || !github?.rest?.issues) {
+    result.error = 'Missing required parameters';
+    return result;
+  }
+
+  try {
+    // Check for recent notification to avoid spam
+    const hasRecent = await hasRecentRateLimitNotification({ github, context, prNumber, core });
+    if (hasRecent) {
+      result.skipped = true;
+      if (core) core.info('Skipping rate limit notification - recent notification exists');
+      return result;
+    }
+  } catch (error) {
+    // Continue even if check fails - better to potentially duplicate than to miss notification
+    if (core) core.debug(`Rate limit notification check failed: ${error.message}`);
+  }
+
+  // Build the notification comment
+  const resetTimeFormatted = resetTime || 'unknown';
+  const commentBody = `${RATE_LIMIT_COMMENT_MARKER}
+## ⚠️ Agent Paused - Rate Limit Reached
+
+The keepalive loop has been **paused** because GitHub API rate limits have been exceeded.
+
+| Field | Value |
+|-------|-------|
+| PR | #${prNumber} |
+| Action | ${action || 'unknown'} |
+| Reason | ${reason || 'rate-limit'} |
+| Rate Limit Remaining | ${remaining ?? 'unknown'} |
+| Rate Limit Reset | ${resetTimeFormatted} |
+| Error | ${errorMessage || 'API rate limit exceeded'} |
+
+### What this means
+- The agent cannot make progress until rate limits reset
+- The PR status comment may show as "running" but no work is being done
+- This notification will not repeat for at least 1 hour
+
+### To restart the agent
+1. **Wait** for the rate limit to reset (see time above)
+2. **Add** the \`agent:retry\` label to this PR
+   - This will trigger the keepalive loop to retry
+   - The \`agent:rate-limited\` label will be automatically removed
+
+_If this happens frequently, consider adjusting workflow concurrency or rate limit capacity._
+`;
+
+  // Try to post the comment
+  try {
+    await github.rest.issues.createComment({
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+      issue_number: prNumber,
+      body: commentBody,
+    });
+    result.posted = true;
+    if (core) core.info(`Posted rate limit notification to PR #${prNumber}`);
+  } catch (error) {
+    result.error = `Failed to post comment: ${error.message}`;
+    if (core) core.warning(result.error);
+  }
+
+  // Try to add the label
+  try {
+    await github.rest.issues.addLabels({
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+      issue_number: prNumber,
+      labels: ['agent:rate-limited'],
+    });
+    result.labeled = true;
+    if (core) core.info(`Added agent:rate-limited label to PR #${prNumber}`);
+  } catch (error) {
+    // Don't overwrite previous error
+    const labelError = `Failed to add label: ${error.message}`;
+    if (core) core.warning(labelError);
+    if (!result.error) {
+      result.error = labelError;
+    }
+  }
+
+  return result;
+}
+
 function annotationsContainRateLimit(annotations = []) {
   for (const annotation of annotations) {
     const combined = [
@@ -1401,7 +1553,7 @@ async function detectRateLimitCancellation({ github, context, runId, core }) {
 /**
  * Check API rate limit status before starting operations.
  * Returns summary of available capacity across all tokens.
- * 
+ *
  * @param {Object} options
  * @param {Object} options.github - GitHub API client
  * @param {Object} options.core - GitHub Actions core
@@ -1413,7 +1565,7 @@ async function checkRateLimitStatus({ github, core, minRequired = 50 }) {
   let primaryRemaining = 5000;
   let primaryLimit = 5000;
   let primaryReset = null;
-  
+
   try {
     const { data } = await github.rest.rateLimit.get();
     primaryRemaining = data.resources.core.remaining;
@@ -1422,11 +1574,11 @@ async function checkRateLimitStatus({ github, core, minRequired = 50 }) {
   } catch (error) {
     core?.warning?.(`Failed to check primary rate limit: ${error.message}`);
   }
-  
-  const primaryPercentUsed = primaryLimit > 0 
+
+  const primaryPercentUsed = primaryLimit > 0
     ? ((primaryLimit - primaryRemaining) / primaryLimit * 100).toFixed(1)
     : 0;
-  
+
   const result = {
     primary: {
       remaining: primaryRemaining,
@@ -1441,50 +1593,50 @@ async function checkRateLimitStatus({ github, core, minRequired = 50 }) {
     shouldDefer: false,
     recommendation: 'proceed',
   };
-  
+
   // If load balancer is available, check all tokens
   if (tokenLoadBalancer) {
     try {
       const summary = tokenLoadBalancer.getRegistrySummary();
       result.tokens = summary;
-      
+
       // Calculate totals across all token pools
       let totalRemaining = 0;
       let totalLimit = 0;
       let healthyCount = 0;
       let criticalCount = 0;
-      
+
       for (const token of summary) {
-        const remaining = typeof token.rateLimit?.remaining === 'number' 
-          ? token.rateLimit.remaining 
+        const remaining = typeof token.rateLimit?.remaining === 'number'
+          ? token.rateLimit.remaining
           : 0;
         const limit = typeof token.rateLimit?.limit === 'number'
           ? token.rateLimit.limit
           : 5000;
-        
+
         totalRemaining += remaining;
         totalLimit += limit;
-        
+
         if (token.status === 'healthy' || token.status === 'moderate') {
           healthyCount++;
         } else if (token.status === 'critical') {
           criticalCount++;
         }
       }
-      
+
       result.totalRemaining = totalRemaining || primaryRemaining;
       result.totalLimit = totalLimit || primaryLimit;
       result.healthyTokens = healthyCount;
       result.criticalTokens = criticalCount;
-      
+
       // Determine if we should defer
       result.shouldDefer = tokenLoadBalancer.shouldDefer(minRequired);
       result.canProceed = !result.shouldDefer && result.totalRemaining >= minRequired;
-      
+
       // Calculate recommendation
       if (result.shouldDefer) {
         const minutesUntilReset = tokenLoadBalancer.getTimeUntilReset();
-        result.recommendation = minutesUntilReset 
+        result.recommendation = minutesUntilReset
           ? `defer-${minutesUntilReset}m`
           : 'defer-unknown';
       } else if (result.totalRemaining < minRequired * 3) {
@@ -1499,9 +1651,9 @@ async function checkRateLimitStatus({ github, core, minRequired = 50 }) {
     // Fallback: just use primary token status
     result.shouldDefer = primaryRemaining < minRequired;
     result.canProceed = primaryRemaining >= minRequired;
-    
+
     if (result.shouldDefer) {
-      const minutesUntilReset = primaryReset 
+      const minutesUntilReset = primaryReset
         ? Math.max(0, Math.ceil((primaryReset - Date.now()) / 1000 / 60))
         : null;
       result.recommendation = minutesUntilReset
@@ -1509,11 +1661,11 @@ async function checkRateLimitStatus({ github, core, minRequired = 50 }) {
         : 'defer-unknown';
     }
   }
-  
+
   // Log summary
   core?.info?.(`Rate limit status: ${result.totalRemaining}/${result.totalLimit} remaining, ` +
     `can proceed: ${result.canProceed}, recommendation: ${result.recommendation}`);
-  
+
   return result;
 }
 
@@ -1529,12 +1681,12 @@ async function evaluateKeepaliveLoop({ github, context, core, payload: overrideP
       repo: context?.repo?.repo,
     });
   }
-  
+
   // Check rate limit status early
   let rateLimitStatus = null;
   try {
     rateLimitStatus = await checkRateLimitStatus({ github, core, minRequired: 50 });
-    
+
     // If all tokens are exhausted and we're not forcing retry, defer immediately
     if (rateLimitStatus.shouldDefer && !forceRetry) {
       core?.info?.(`Rate limits exhausted - deferring. Recommendation: ${rateLimitStatus.recommendation}`);
@@ -1548,261 +1700,261 @@ async function evaluateKeepaliveLoop({ github, context, core, payload: overrideP
   } catch (error) {
     core?.warning?.(`Rate limit check failed: ${error.message} - continuing anyway`);
   }
-  
+
   try {
-  prNumber = overridePrNumber || await resolvePrNumber({ github, context, core, payload });
-  if (!prNumber) {
-    return {
-      prNumber: 0,
-      action: 'skip',
-      reason: 'pr-not-found',
-    };
-  }
-
-  const pr = await fetchPullRequestCached({ github, context, prNumber, core });
-  if (!pr) {
-    throw new Error(`Failed to fetch PR #${prNumber} for keepalive loop`);
-  }
-
-  const gateRun = await resolveGateRun({
-    github,
-    context,
-    pr,
-    eventName: context.eventName,
-    payload,
-    core,
-  });
-  const gateConclusion = gateRun.conclusion;
-  const gateNormalized = normalise(gateConclusion).toLowerCase();
-  let gateRateLimit = false;
-
-  const config = parseConfig(pr.body || '');
-  const labels = Array.isArray(pr.labels) ? pr.labels.map((label) => normalise(label.name).toLowerCase()) : [];
-  
-  // Extract agent type from agent:* labels (supports agent:codex, agent:claude, etc.)
-  const agentLabel = labels.find((label) => label.startsWith('agent:'));
-  const agentType = agentLabel ? agentLabel.replace('agent:', '') : '';
-  const hasAgentLabel = Boolean(agentType);
-  const keepaliveEnabled = config.keepalive_enabled && hasAgentLabel;
-
-  const sections = parseScopeTasksAcceptanceSections(pr.body || '');
-  const normalisedSections = normaliseChecklistSections(sections);
-  const combinedChecklist = [normalisedSections?.tasks, normalisedSections?.acceptance]
-    .filter(Boolean)
-    .join('\n');
-  const checkboxCounts = countCheckboxes(combinedChecklist);
-  const tasksPresent = checkboxCounts.total > 0;
-  const tasksRemaining = checkboxCounts.unchecked > 0;
-  const allComplete = tasksPresent && !tasksRemaining;
-
-  const stateResult = await loadKeepaliveState({
-    github,
-    context,
-    prNumber,
-    trace: config.trace,
-  });
-  const state = stateResult.state || {};
-  // Prefer state iteration unless config explicitly sets it (0 from config is default, not explicit)
-  const configHasExplicitIteration = config.iteration > 0;
-  const iteration = configHasExplicitIteration ? config.iteration : toNumber(state.iteration, 0);
-  const maxIterations = toNumber(config.max_iterations ?? state.max_iterations, 5);
-  const failureThreshold = toNumber(config.failure_threshold ?? state.failure_threshold, 3);
-  const progressReviewThreshold = toNumber(config.progress_review_threshold ?? state.progress_review_threshold, 4);
-
-  // Evidence-based productivity tracking
-  // Uses multiple signals to determine if work is being done:
-  // 1. File changes (primary signal)
-  // 2. Task completion progress
-  // 3. Historical productivity trend
-  const lastFilesChanged = toNumber(state.last_files_changed, 0);
-  const prevFilesChanged = toNumber(state.prev_files_changed, 0);
-  const hasRecentFailures = Boolean(state.failure?.count > 0);
-  
-  // Track task completion trend
-  const previousTasks = state.tasks || {};
-  const prevUnchecked = toNumber(previousTasks.unchecked, checkboxCounts.unchecked);
-  const prevTotal = toNumber(previousTasks.total, checkboxCounts.total);
-  const totalsStable = prevTotal === checkboxCounts.total;
-  const rawCompletionDelta = prevUnchecked - checkboxCounts.unchecked;
-  const tasksCompletedSinceLastRound = totalsStable && rawCompletionDelta > 0
-    ? rawCompletionDelta
-    : 0;
-  
-  // Track consecutive rounds without task completion (for progress review trigger)
-  const prevRoundsWithoutCompletion = toNumber(state.rounds_without_task_completion, 0);
-  const roundsWithoutTaskCompletion = tasksCompletedSinceLastRound > 0 
-    ? 0 
-    : prevRoundsWithoutCompletion + (iteration > 0 ? 1 : 0);
-  
-  // Progress review threshold: trigger after N rounds of activity without task completion
-  // This catches "productive but unfocused" patterns where agent makes changes but doesn't advance criteria
-  // Default is 4 rounds - enough leeway for prep work but early enough for course correction
-  const needsProgressReview = roundsWithoutTaskCompletion >= progressReviewThreshold
-    && !allComplete;         // Don't review if all tasks are done
-  
-  // Calculate productivity score (0-100)
-  // This is evidence-based: higher score = more confidence work is happening
-  let productivityScore = 0;
-  if (lastFilesChanged > 0) productivityScore += Math.min(40, lastFilesChanged * 10);
-  if (tasksCompletedSinceLastRound > 0) productivityScore += Math.min(40, tasksCompletedSinceLastRound * 20);
-  if (prevFilesChanged > 0 && iteration > 1) productivityScore += 10; // Recent historical activity
-  if (!hasRecentFailures) productivityScore += 10; // No failures is a positive signal
-  
-  // An iteration is productive if it has a reasonable productivity score
-  const isProductive = productivityScore >= 20 && !hasRecentFailures;
-  
-  // Early detection: Check for diminishing returns pattern
-  // If we had activity before but now have none, might be naturally completing
-  // max_iterations is a "stuck detection" threshold, not a hard cap
-  // Continue past max if productive work is happening
-  const shouldStopForMaxIterations = iteration >= maxIterations && !isProductive;
-
-  // Build task appendix for the agent prompt (after state load for reconciliation info)
-  const taskAppendix = buildTaskAppendix(normalisedSections, checkboxCounts, state, { prBody: pr.body });
-
-  // Check for merge conflicts - this takes priority over other work
-  let conflictResult = { hasConflict: false };
-  try {
-    conflictResult = await detectConflicts(github, context, prNumber, pr.head.sha);
-    if (conflictResult.hasConflict && core) {
-      core.info(`Merge conflict detected via ${conflictResult.primarySource}. Files: ${conflictResult.files?.join(', ') || 'unknown'}`);
+    prNumber = overridePrNumber || await resolvePrNumber({ github, context, core, payload });
+    if (!prNumber) {
+      return {
+        prNumber: 0,
+        action: 'skip',
+        reason: 'pr-not-found',
+      };
     }
-  } catch (conflictError) {
-    if (core) core.warning(`Conflict detection failed: ${conflictError.message}`);
-  }
 
-  let action = 'wait';
-  let reason = 'pending';
-  const verificationStatus = normalise(state?.verification?.status)?.toLowerCase();
-  const verificationDone = ['done', 'verified', 'complete'].includes(verificationStatus);
-  const verificationAttempted = Boolean(state?.verification?.iteration);
-  // Only try verification once - if it fails, that's OK, tasks are still complete
-  const needsVerification = allComplete && !verificationDone && !verificationAttempted;
-
-  // Only treat GitHub API conflicts as definitive (mergeable_state === 'dirty')
-  // CI-log based conflict detection has too many false positives from commit messages
-  // and should not block fix_ci mode when Gate fails with actual code errors
-  const hasDefinitiveConflict = conflictResult.hasConflict && 
-    conflictResult.primarySource === 'github-api';
-
-  // Conflict resolution takes highest priority ONLY for definitive conflicts
-  if (hasDefinitiveConflict && hasAgentLabel && keepaliveEnabled) {
-    action = 'conflict';
-    reason = `merge-conflict-${conflictResult.primarySource || 'detected'}`;
-  } else if (!hasAgentLabel) {
-    action = 'wait';
-    reason = 'missing-agent-label';
-  } else if (!keepaliveEnabled) {
-    action = 'skip';
-    reason = 'keepalive-disabled';
-  } else if (!tasksPresent) {
-    action = 'stop';
-    reason = 'no-checklists';
-  } else if (gateNormalized !== 'success') {
-    if (gateNormalized === 'cancelled') {
-      gateRateLimit = await detectRateLimitCancellation({
-        github,
-        context,
-        runId: gateRun.runId,
-        core,
-      });
-      // Rate limits are infrastructure noise, not code quality issues
-      // Proceed with work if Gate only failed due to rate limits
-      if (gateRateLimit && tasksRemaining) {
-        action = 'run';
-        reason = 'bypass-rate-limit-gate';
-        if (core) core.info('Gate cancelled due to rate limits only - proceeding with work');
-      } else if (forceRetry && tasksRemaining) {
-        action = 'run';
-        reason = 'force-retry-cancelled';
-        if (core) core.info(`Force retry enabled: bypassing cancelled gate (rate_limit=${gateRateLimit})`);
-      } else {
-        action = gateRateLimit ? 'defer' : 'wait';
-        reason = gateRateLimit ? 'gate-cancelled-rate-limit' : 'gate-cancelled';
-      }
-    } else {
-      // Gate failed - check if failure is rate-limit related vs code quality
-      const gateFailure = await classifyGateFailure({ github, context, pr, core });
-      if (gateFailure.shouldFixMode && gateNormalized === 'failure') {
-        action = 'fix';
-        reason = `fix-${gateFailure.failureType}`;
-      } else if (forceRetry && tasksRemaining) {
-        // forceRetry can also bypass non-success gates (user explicitly wants to retry)
-        action = 'run';
-        reason = 'force-retry-gate';
-        if (core) core.info(`Force retry enabled: bypassing gate conclusion '${gateNormalized}'`);
-      } else {
-        action = 'wait';
-        reason = gateNormalized ? 'gate-not-success' : 'gate-pending';
-      }
+    const pr = await fetchPullRequestCached({ github, context, prNumber, core });
+    if (!pr) {
+      throw new Error(`Failed to fetch PR #${prNumber} for keepalive loop`);
     }
-  } else if (allComplete) {
-    if (needsVerification) {
-      action = 'run';
-      reason = 'verify-acceptance';
-    } else {
+
+    const gateRun = await resolveGateRun({
+      github,
+      context,
+      pr,
+      eventName: context.eventName,
+      payload,
+      core,
+    });
+    const gateConclusion = gateRun.conclusion;
+    const gateNormalized = normalise(gateConclusion).toLowerCase();
+    let gateRateLimit = false;
+
+    const config = parseConfig(pr.body || '');
+    const labels = Array.isArray(pr.labels) ? pr.labels.map((label) => normalise(label.name).toLowerCase()) : [];
+
+    // Extract agent type from agent:* labels (supports agent:codex, agent:claude, etc.)
+    const agentLabel = labels.find((label) => label.startsWith('agent:'));
+    const agentType = agentLabel ? agentLabel.replace('agent:', '') : '';
+    const hasAgentLabel = Boolean(agentType);
+    const keepaliveEnabled = config.keepalive_enabled && hasAgentLabel;
+
+    const sections = parseScopeTasksAcceptanceSections(pr.body || '');
+    const normalisedSections = normaliseChecklistSections(sections);
+    const combinedChecklist = [normalisedSections?.tasks, normalisedSections?.acceptance]
+      .filter(Boolean)
+      .join('\n');
+    const checkboxCounts = countCheckboxes(combinedChecklist);
+    const tasksPresent = checkboxCounts.total > 0;
+    const tasksRemaining = checkboxCounts.unchecked > 0;
+    const allComplete = tasksPresent && !tasksRemaining;
+
+    const stateResult = await loadKeepaliveState({
+      github,
+      context,
+      prNumber,
+      trace: config.trace,
+    });
+    const state = stateResult.state || {};
+    // Prefer state iteration unless config explicitly sets it (0 from config is default, not explicit)
+    const configHasExplicitIteration = config.iteration > 0;
+    const iteration = configHasExplicitIteration ? config.iteration : toNumber(state.iteration, 0);
+    const maxIterations = toNumber(config.max_iterations ?? state.max_iterations, 5);
+    const failureThreshold = toNumber(config.failure_threshold ?? state.failure_threshold, 3);
+    const progressReviewThreshold = toNumber(config.progress_review_threshold ?? state.progress_review_threshold, 4);
+
+    // Evidence-based productivity tracking
+    // Uses multiple signals to determine if work is being done:
+    // 1. File changes (primary signal)
+    // 2. Task completion progress
+    // 3. Historical productivity trend
+    const lastFilesChanged = toNumber(state.last_files_changed, 0);
+    const prevFilesChanged = toNumber(state.prev_files_changed, 0);
+    const hasRecentFailures = Boolean(state.failure?.count > 0);
+
+    // Track task completion trend
+    const previousTasks = state.tasks || {};
+    const prevUnchecked = toNumber(previousTasks.unchecked, checkboxCounts.unchecked);
+    const prevTotal = toNumber(previousTasks.total, checkboxCounts.total);
+    const totalsStable = prevTotal === checkboxCounts.total;
+    const rawCompletionDelta = prevUnchecked - checkboxCounts.unchecked;
+    const tasksCompletedSinceLastRound = totalsStable && rawCompletionDelta > 0
+      ? rawCompletionDelta
+      : 0;
+
+    // Track consecutive rounds without task completion (for progress review trigger)
+    const prevRoundsWithoutCompletion = toNumber(state.rounds_without_task_completion, 0);
+    const roundsWithoutTaskCompletion = tasksCompletedSinceLastRound > 0
+      ? 0
+      : prevRoundsWithoutCompletion + (iteration > 0 ? 1 : 0);
+
+    // Progress review threshold: trigger after N rounds of activity without task completion
+    // This catches "productive but unfocused" patterns where agent makes changes but doesn't advance criteria
+    // Default is 4 rounds - enough leeway for prep work but early enough for course correction
+    const needsProgressReview = roundsWithoutTaskCompletion >= progressReviewThreshold
+      && !allComplete;         // Don't review if all tasks are done
+
+    // Calculate productivity score (0-100)
+    // This is evidence-based: higher score = more confidence work is happening
+    let productivityScore = 0;
+    if (lastFilesChanged > 0) productivityScore += Math.min(40, lastFilesChanged * 10);
+    if (tasksCompletedSinceLastRound > 0) productivityScore += Math.min(40, tasksCompletedSinceLastRound * 20);
+    if (prevFilesChanged > 0 && iteration > 1) productivityScore += 10; // Recent historical activity
+    if (!hasRecentFailures) productivityScore += 10; // No failures is a positive signal
+
+    // An iteration is productive if it has a reasonable productivity score
+    const isProductive = productivityScore >= 20 && !hasRecentFailures;
+
+    // Early detection: Check for diminishing returns pattern
+    // If we had activity before but now have none, might be naturally completing
+    // max_iterations is a "stuck detection" threshold, not a hard cap
+    // Continue past max if productive work is happening
+    const shouldStopForMaxIterations = iteration >= maxIterations && !isProductive;
+
+    // Build task appendix for the agent prompt (after state load for reconciliation info)
+    const taskAppendix = buildTaskAppendix(normalisedSections, checkboxCounts, state, { prBody: pr.body });
+
+    // Check for merge conflicts - this takes priority over other work
+    let conflictResult = { hasConflict: false };
+    try {
+      conflictResult = await detectConflicts(github, context, prNumber, pr.head.sha);
+      if (conflictResult.hasConflict && core) {
+        core.info(`Merge conflict detected via ${conflictResult.primarySource}. Files: ${conflictResult.files?.join(', ') || 'unknown'}`);
+      }
+    } catch (conflictError) {
+      if (core) core.warning(`Conflict detection failed: ${conflictError.message}`);
+    }
+
+    let action = 'wait';
+    let reason = 'pending';
+    const verificationStatus = normalise(state?.verification?.status)?.toLowerCase();
+    const verificationDone = ['done', 'verified', 'complete'].includes(verificationStatus);
+    const verificationAttempted = Boolean(state?.verification?.iteration);
+    // Only try verification once - if it fails, that's OK, tasks are still complete
+    const needsVerification = allComplete && !verificationDone && !verificationAttempted;
+
+    // Only treat GitHub API conflicts as definitive (mergeable_state === 'dirty')
+    // CI-log based conflict detection has too many false positives from commit messages
+    // and should not block fix_ci mode when Gate fails with actual code errors
+    const hasDefinitiveConflict = conflictResult.hasConflict &&
+      conflictResult.primarySource === 'github-api';
+
+    // Conflict resolution takes highest priority ONLY for definitive conflicts
+    if (hasDefinitiveConflict && hasAgentLabel && keepaliveEnabled) {
+      action = 'conflict';
+      reason = `merge-conflict-${conflictResult.primarySource || 'detected'}`;
+    } else if (!hasAgentLabel) {
+      action = 'wait';
+      reason = 'missing-agent-label';
+    } else if (!keepaliveEnabled) {
+      action = 'skip';
+      reason = 'keepalive-disabled';
+    } else if (!tasksPresent) {
       action = 'stop';
-      reason = 'tasks-complete';
+      reason = 'no-checklists';
+    } else if (gateNormalized !== 'success') {
+      if (gateNormalized === 'cancelled') {
+        gateRateLimit = await detectRateLimitCancellation({
+          github,
+          context,
+          runId: gateRun.runId,
+          core,
+        });
+        // Rate limits are infrastructure noise, not code quality issues
+        // Proceed with work if Gate only failed due to rate limits
+        if (gateRateLimit && tasksRemaining) {
+          action = 'run';
+          reason = 'bypass-rate-limit-gate';
+          if (core) core.info('Gate cancelled due to rate limits only - proceeding with work');
+        } else if (forceRetry && tasksRemaining) {
+          action = 'run';
+          reason = 'force-retry-cancelled';
+          if (core) core.info(`Force retry enabled: bypassing cancelled gate (rate_limit=${gateRateLimit})`);
+        } else {
+          action = gateRateLimit ? 'defer' : 'wait';
+          reason = gateRateLimit ? 'gate-cancelled-rate-limit' : 'gate-cancelled';
+        }
+      } else {
+        // Gate failed - check if failure is rate-limit related vs code quality
+        const gateFailure = await classifyGateFailure({ github, context, pr, core });
+        if (gateFailure.shouldFixMode && gateNormalized === 'failure') {
+          action = 'fix';
+          reason = `fix-${gateFailure.failureType}`;
+        } else if (forceRetry && tasksRemaining) {
+          // forceRetry can also bypass non-success gates (user explicitly wants to retry)
+          action = 'run';
+          reason = 'force-retry-gate';
+          if (core) core.info(`Force retry enabled: bypassing gate conclusion '${gateNormalized}'`);
+        } else {
+          action = 'wait';
+          reason = gateNormalized ? 'gate-not-success' : 'gate-pending';
+        }
+      }
+    } else if (allComplete) {
+      if (needsVerification) {
+        action = 'run';
+        reason = 'verify-acceptance';
+      } else {
+        action = 'stop';
+        reason = 'tasks-complete';
+      }
+    } else if (shouldStopForMaxIterations && forceRetry && tasksRemaining) {
+      action = 'run';
+      reason = 'force-retry-max-iterations';
+      if (core) core.info('Force retry enabled: bypassing max-iterations stop');
+    } else if (shouldStopForMaxIterations) {
+      action = 'stop';
+      reason = isProductive ? 'max-iterations' : 'max-iterations-unproductive';
+    } else if (needsProgressReview) {
+      // Trigger LLM-based progress review when agent is active but not completing tasks
+      // This allows legitimate prep work while catching scope drift early
+      action = 'review';
+      reason = `progress-review-${roundsWithoutTaskCompletion}`;
+    } else if (tasksRemaining) {
+      action = 'run';
+      reason = iteration >= maxIterations ? 'ready-extended' : 'ready';
     }
-  } else if (shouldStopForMaxIterations && forceRetry && tasksRemaining) {
-    action = 'run';
-    reason = 'force-retry-max-iterations';
-    if (core) core.info('Force retry enabled: bypassing max-iterations stop');
-  } else if (shouldStopForMaxIterations) {
-    action = 'stop';
-    reason = isProductive ? 'max-iterations' : 'max-iterations-unproductive';
-  } else if (needsProgressReview) {
-    // Trigger LLM-based progress review when agent is active but not completing tasks
-    // This allows legitimate prep work while catching scope drift early
-    action = 'review';
-    reason = `progress-review-${roundsWithoutTaskCompletion}`;
-  } else if (tasksRemaining) {
-    action = 'run';
-    reason = iteration >= maxIterations ? 'ready-extended' : 'ready';
-  }
 
-  const promptScenario = normalise(config.prompt_scenario);
-  const promptModeOverride = normalise(config.prompt_mode);
-  const promptFileOverride = normalise(config.prompt_file);
-  const promptRoute = resolvePromptRouting({
-    scenario: promptScenario,
-    mode: promptModeOverride,
-    action,
-    reason,
-  });
-  const promptMode = promptModeOverride || promptRoute.mode;
-  const promptFile = promptFileOverride || promptRoute.file;
+    const promptScenario = normalise(config.prompt_scenario);
+    const promptModeOverride = normalise(config.prompt_mode);
+    const promptFileOverride = normalise(config.prompt_file);
+    const promptRoute = resolvePromptRouting({
+      scenario: promptScenario,
+      mode: promptModeOverride,
+      action,
+      reason,
+    });
+    const promptMode = promptModeOverride || promptRoute.mode;
+    const promptFile = promptFileOverride || promptRoute.file;
 
-  return {
-    prNumber,
-    prRef: pr.head.ref || '',
-    headSha: pr.head.sha || '',
-    action,
-    reason,
-    promptMode,
-    promptFile,
-    gateConclusion,
-    config,
-    iteration,
-    maxIterations,
-    failureThreshold,
-    checkboxCounts,
-    hasAgentLabel,
-    agentType,
-    taskAppendix,
-    keepaliveEnabled,
-    stateCommentId: stateResult.commentId || 0,
-    state,
-    forceRetry: Boolean(forceRetry),
-    hasConflict: conflictResult.hasConflict,
-    conflictSource: conflictResult.primarySource || null,
-    conflictFiles: conflictResult.files || [],
-    // Progress review data for LLM-based alignment check
-    needsProgressReview,
-    roundsWithoutTaskCompletion,
-    // Rate limit status for monitoring
-    rateLimitStatus,
-  };
+    return {
+      prNumber,
+      prRef: pr.head.ref || '',
+      headSha: pr.head.sha || '',
+      action,
+      reason,
+      promptMode,
+      promptFile,
+      gateConclusion,
+      config,
+      iteration,
+      maxIterations,
+      failureThreshold,
+      checkboxCounts,
+      hasAgentLabel,
+      agentType,
+      taskAppendix,
+      keepaliveEnabled,
+      stateCommentId: stateResult.commentId || 0,
+      state,
+      forceRetry: Boolean(forceRetry),
+      hasConflict: conflictResult.hasConflict,
+      conflictSource: conflictResult.primarySource || null,
+      conflictFiles: conflictResult.files || [],
+      // Progress review data for LLM-based alignment check
+      needsProgressReview,
+      roundsWithoutTaskCompletion,
+      // Rate limit status for monitoring
+      rateLimitStatus,
+    };
   } catch (error) {
     const rateLimitMessage = [error?.message, error?.response?.data?.message]
       .filter(Boolean)
@@ -1857,696 +2009,741 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
     });
   }
   try {
-  const prNumber = Number(inputs.prNumber || inputs.pr_number || 0);
-  if (!Number.isFinite(prNumber) || prNumber <= 0) {
-    if (core) core.info('No PR number available for summary update.');
-    return;
-  }
+    const prNumber = Number(inputs.prNumber || inputs.pr_number || 0);
+    if (!Number.isFinite(prNumber) || prNumber <= 0) {
+      if (core) core.info('No PR number available for summary update.');
+      return;
+    }
 
-  const gateConclusion = normalise(inputs.gateConclusion || inputs.gate_conclusion);
-  const action = normalise(inputs.action);
-  const reason = normalise(inputs.reason);
-  const tasksTotal = toNumber(inputs.tasksTotal ?? inputs.tasks_total, 0);
-  const tasksUnchecked = toNumber(inputs.tasksUnchecked ?? inputs.tasks_unchecked, 0);
-  const keepaliveEnabled = toBool(inputs.keepaliveEnabled ?? inputs.keepalive_enabled, false);
-  const autofixEnabled = toBool(inputs.autofixEnabled ?? inputs.autofix_enabled, false);
-  const agentType = normalise(inputs.agent_type ?? inputs.agentType) || 'codex';
-  const iteration = toNumber(inputs.iteration, 0);
-  const maxIterations = toNumber(inputs.maxIterations ?? inputs.max_iterations, 0);
-  const failureThreshold = Math.max(1, toNumber(inputs.failureThreshold ?? inputs.failure_threshold, 3));
-  const runResult = normalise(inputs.runResult || inputs.run_result);
-  const stateTrace = normalise(inputs.trace || inputs.keepalive_trace || '');
-  const roundsWithoutTaskCompletion = toNumber(
-    inputs.roundsWithoutTaskCompletion ?? inputs.rounds_without_task_completion,
-    0,
-  );
+    const gateConclusion = normalise(inputs.gateConclusion || inputs.gate_conclusion);
+    const action = normalise(inputs.action);
+    const reason = normalise(inputs.reason);
+    const tasksTotal = toNumber(inputs.tasksTotal ?? inputs.tasks_total, 0);
+    const tasksUnchecked = toNumber(inputs.tasksUnchecked ?? inputs.tasks_unchecked, 0);
+    const keepaliveEnabled = toBool(inputs.keepaliveEnabled ?? inputs.keepalive_enabled, false);
+    const autofixEnabled = toBool(inputs.autofixEnabled ?? inputs.autofix_enabled, false);
+    const agentType = normalise(inputs.agent_type ?? inputs.agentType) || 'codex';
+    const iteration = toNumber(inputs.iteration, 0);
+    const maxIterations = toNumber(inputs.maxIterations ?? inputs.max_iterations, 0);
+    const failureThreshold = Math.max(1, toNumber(inputs.failureThreshold ?? inputs.failure_threshold, 3));
+    const runResult = normalise(inputs.runResult || inputs.run_result);
+    const stateTrace = normalise(inputs.trace || inputs.keepalive_trace || '');
+    const roundsWithoutTaskCompletion = toNumber(
+      inputs.roundsWithoutTaskCompletion ?? inputs.rounds_without_task_completion,
+      0,
+    );
 
-  // Agent output details (agent-agnostic, with fallback to old codex_ names)
-  const agentExitCode = normalise(inputs.agent_exit_code ?? inputs.agentExitCode ?? inputs.codex_exit_code ?? inputs.codexExitCode);
-  const agentChangesMade = normalise(inputs.agent_changes_made ?? inputs.agentChangesMade ?? inputs.codex_changes_made ?? inputs.codexChangesMade);
-  const agentCommitSha = normalise(inputs.agent_commit_sha ?? inputs.agentCommitSha ?? inputs.codex_commit_sha ?? inputs.codexCommitSha);
-  const agentFilesChanged = toNumber(inputs.agent_files_changed ?? inputs.agentFilesChanged ?? inputs.codex_files_changed ?? inputs.codexFilesChanged, 0);
-  const agentSummary = normalise(inputs.agent_summary ?? inputs.agentSummary ?? inputs.codex_summary ?? inputs.codexSummary);
-  const runUrl = normalise(inputs.run_url ?? inputs.runUrl);
-  const promptModeInput = normalise(inputs.prompt_mode ?? inputs.promptMode);
-  const promptFileInput = normalise(inputs.prompt_file ?? inputs.promptFile);
-  const promptScenarioInput = normalise(inputs.prompt_scenario ?? inputs.promptScenario);
-  const promptRoute = resolvePromptRouting({
-    scenario: promptScenarioInput,
-    mode: promptModeInput,
-    action,
-    reason,
-  });
-  const promptMode = promptModeInput || promptRoute.mode;
-  const promptFile = promptFileInput || promptRoute.file;
+    // Agent output details (agent-agnostic, with fallback to old codex_ names)
+    const agentExitCode = normalise(inputs.agent_exit_code ?? inputs.agentExitCode ?? inputs.codex_exit_code ?? inputs.codexExitCode);
+    const agentChangesMade = normalise(inputs.agent_changes_made ?? inputs.agentChangesMade ?? inputs.codex_changes_made ?? inputs.codexChangesMade);
+    const agentCommitSha = normalise(inputs.agent_commit_sha ?? inputs.agentCommitSha ?? inputs.codex_commit_sha ?? inputs.codexCommitSha);
+    const agentFilesChanged = toNumber(inputs.agent_files_changed ?? inputs.agentFilesChanged ?? inputs.codex_files_changed ?? inputs.codexFilesChanged, 0);
+    const agentSummary = normalise(inputs.agent_summary ?? inputs.agentSummary ?? inputs.codex_summary ?? inputs.codexSummary);
+    const runUrl = normalise(inputs.run_url ?? inputs.runUrl);
+    const promptModeInput = normalise(inputs.prompt_mode ?? inputs.promptMode);
+    const promptFileInput = normalise(inputs.prompt_file ?? inputs.promptFile);
+    const promptScenarioInput = normalise(inputs.prompt_scenario ?? inputs.promptScenario);
+    const promptRoute = resolvePromptRouting({
+      scenario: promptScenarioInput,
+      mode: promptModeInput,
+      action,
+      reason,
+    });
+    const promptMode = promptModeInput || promptRoute.mode;
+    const promptFile = promptFileInput || promptRoute.file;
 
-  // LLM task analysis details
-  const llmProvider = normalise(inputs.llm_provider ?? inputs.llmProvider);
-  const llmConfidence = toNumber(inputs.llm_confidence ?? inputs.llmConfidence, 0);
-  const llmAnalysisRun = toBool(inputs.llm_analysis_run ?? inputs.llmAnalysisRun, false);
-  
-  // Quality metrics for BS detection and evidence-based decisions
-  const llmRawConfidence = toNumber(inputs.llm_raw_confidence ?? inputs.llmRawConfidence, llmConfidence);
-  const llmConfidenceAdjusted = toBool(inputs.llm_confidence_adjusted ?? inputs.llmConfidenceAdjusted, false);
-  const llmQualityWarnings = normalise(inputs.llm_quality_warnings ?? inputs.llmQualityWarnings);
-  const sessionDataQuality = normalise(inputs.session_data_quality ?? inputs.sessionDataQuality);
-  const sessionEffortScore = toNumber(inputs.session_effort_score ?? inputs.sessionEffortScore, 0);
-  const analysisTextLength = toNumber(inputs.analysis_text_length ?? inputs.analysisTextLength, 0);
+    // LLM task analysis details
+    const llmProvider = normalise(inputs.llm_provider ?? inputs.llmProvider);
+    const llmConfidence = toNumber(inputs.llm_confidence ?? inputs.llmConfidence, 0);
+    const llmAnalysisRun = toBool(inputs.llm_analysis_run ?? inputs.llmAnalysisRun, false);
 
-  const labels = await fetchPrLabels({ github, context, prNumber, core });
-  const timeoutRepoVariables = await fetchRepoVariables({
-    github,
-    context,
-    core,
-    names: TIMEOUT_VARIABLE_NAMES,
-  });
-  const timeoutInputs = resolveTimeoutInputs({ inputs, context });
-  const timeoutConfig = parseTimeoutConfig({
-    env: process.env,
-    inputs: timeoutInputs,
-    labels,
-    variables: timeoutRepoVariables,
-  });
-  const elapsedMs = await resolveElapsedMs({ github, context, inputs, core });
-  const timeoutWarningConfig = resolveTimeoutWarningConfig({
-    inputs: timeoutInputs,
-    env: process.env,
-    variables: timeoutRepoVariables,
-  });
-  const timeoutStatus = buildTimeoutStatus({
-    timeoutConfig,
-    elapsedMs,
-    ...timeoutWarningConfig,
-  });
+    // Quality metrics for BS detection and evidence-based decisions
+    const llmRawConfidence = toNumber(inputs.llm_raw_confidence ?? inputs.llmRawConfidence, llmConfidence);
+    const llmConfidenceAdjusted = toBool(inputs.llm_confidence_adjusted ?? inputs.llmConfidenceAdjusted, false);
+    const llmQualityWarnings = normalise(inputs.llm_quality_warnings ?? inputs.llmQualityWarnings);
+    const sessionDataQuality = normalise(inputs.session_data_quality ?? inputs.sessionDataQuality);
+    const sessionEffortScore = toNumber(inputs.session_effort_score ?? inputs.sessionEffortScore, 0);
+    const analysisTextLength = toNumber(inputs.analysis_text_length ?? inputs.analysisTextLength, 0);
 
-  const { state: previousState, commentId } = await loadKeepaliveState({
-    github,
-    context,
-    prNumber,
-    trace: stateTrace,
-  });
-  const previousFailure = previousState?.failure || {};
-  const prBody = await fetchPrBody({ github, context, prNumber, core });
-  const focusSections = prBody ? normaliseChecklistSections(parseScopeTasksAcceptanceSections(prBody)) : {};
-  const focusItems = extractChecklistItems(focusSections.tasks || focusSections.acceptance || '');
-  const focusUnchecked = focusItems.filter((item) => !item.checked);
-  const currentFocus = normaliseTaskText(previousState?.current_focus || '');
-  const fallbackFocus = focusUnchecked[0]?.text || '';
+    const labels = await fetchPrLabels({ github, context, prNumber, core });
+    const timeoutRepoVariables = await fetchRepoVariables({
+      github,
+      context,
+      core,
+      names: TIMEOUT_VARIABLE_NAMES,
+    });
+    const timeoutInputs = resolveTimeoutInputs({ inputs, context });
+    const timeoutConfig = parseTimeoutConfig({
+      env: process.env,
+      inputs: timeoutInputs,
+      labels,
+      variables: timeoutRepoVariables,
+    });
+    const elapsedMs = await resolveElapsedMs({ github, context, inputs, core });
+    const timeoutWarningConfig = resolveTimeoutWarningConfig({
+      inputs: timeoutInputs,
+      env: process.env,
+      variables: timeoutRepoVariables,
+    });
+    const timeoutStatus = buildTimeoutStatus({
+      timeoutConfig,
+      elapsedMs,
+      ...timeoutWarningConfig,
+    });
 
-  // Use the iteration from the CURRENT persisted state, not the stale value from evaluate.
-  // This prevents race conditions where another run updated state between evaluate and summary.
-  const currentIteration = toNumber(previousState?.iteration ?? iteration, 0);
-  let nextIteration = currentIteration;
-  let failure = { ...previousFailure };
-  // Stop conditions:
-  // - tasks-complete: SUCCESS, don't need needs-human label
-  // - no-checklists: neutral, agent has nothing to do
-  // - max-iterations: possible issue, MAY need attention
-  // - agent-run-failed-repeat: definite issue, needs attention
-  const isSuccessStop = reason === 'tasks-complete';
-  const isNeutralStop = reason === 'no-checklists' || reason === 'keepalive-disabled';
-  let stop = action === 'stop' && !isSuccessStop && !isNeutralStop;
-  let summaryReason = reason || action || 'unknown';
-  const baseReason = summaryReason;
-  const transientDetails = classifyFailureDetails({
-    action,
-    runResult,
-    summaryReason,
-    agentExitCode,
-    agentSummary,
-  });
-  const runFailed =
-    action === 'run' &&
-    runResult &&
-    !['success', 'skipped', 'cancelled'].includes(runResult);
-  const isTransientFailure =
-    runFailed && transientDetails.category === ERROR_CATEGORIES.transient;
-  const waitLikeAction = action === 'wait' || action === 'defer';
-  const waitIsTransientReason = [
-    'gate-pending',
-    'missing-agent-label',
-    'gate-cancelled',
-    'gate-cancelled-rate-limit',
-  ].includes(baseReason);
-  const isTransientWait =
-    waitLikeAction &&
-    (transientDetails.category === ERROR_CATEGORIES.transient || waitIsTransientReason);
+    const { state: previousState, commentId } = await loadKeepaliveState({
+      github,
+      context,
+      prNumber,
+      trace: stateTrace,
+    });
+    const previousFailure = previousState?.failure || {};
+    const prBody = await fetchPrBody({ github, context, prNumber, core });
+    const focusSections = prBody ? normaliseChecklistSections(parseScopeTasksAcceptanceSections(prBody)) : {};
+    const focusItems = extractChecklistItems(focusSections.tasks || focusSections.acceptance || '');
+    const focusUnchecked = focusItems.filter((item) => !item.checked);
+    const currentFocus = normaliseTaskText(previousState?.current_focus || '');
+    const fallbackFocus = focusUnchecked[0]?.text || '';
 
-  // Task reconciliation: detect when agent made changes but didn't update checkboxes
-  const previousTasks = previousState?.tasks || {};
-  const previousUnchecked = toNumber(previousTasks.unchecked, tasksUnchecked);
-  const tasksCompletedThisRound = previousUnchecked - tasksUnchecked;
-  const madeChangesButNoTasksChecked = 
-    action === 'run' && 
-    runResult === 'success' && 
-    agentChangesMade === 'true' && 
-    agentFilesChanged > 0 && 
-    tasksCompletedThisRound <= 0;
+    // Use the iteration from the CURRENT persisted state, not the stale value from evaluate.
+    // This prevents race conditions where another run updated state between evaluate and summary.
+    const currentIteration = toNumber(previousState?.iteration ?? iteration, 0);
+    let nextIteration = currentIteration;
+    let failure = { ...previousFailure };
+    // Stop conditions:
+    // - tasks-complete: SUCCESS, don't need needs-human label
+    // - no-checklists: neutral, agent has nothing to do
+    // - max-iterations: possible issue, MAY need attention
+    // - agent-run-failed-repeat: definite issue, needs attention
+    const isSuccessStop = reason === 'tasks-complete';
+    const isNeutralStop = reason === 'no-checklists' || reason === 'keepalive-disabled';
+    let stop = action === 'stop' && !isSuccessStop && !isNeutralStop;
+    let summaryReason = reason || action || 'unknown';
+    const baseReason = summaryReason;
+    const transientDetails = classifyFailureDetails({
+      action,
+      runResult,
+      summaryReason,
+      agentExitCode,
+      agentSummary,
+    });
+    const runFailed =
+      action === 'run' &&
+      runResult &&
+      !['success', 'skipped', 'cancelled'].includes(runResult);
+    const isTransientFailure =
+      runFailed && transientDetails.category === ERROR_CATEGORIES.transient;
+    const waitLikeAction = action === 'wait' || action === 'defer';
+    const waitIsTransientReason = [
+      'gate-pending',
+      'missing-agent-label',
+      'gate-cancelled',
+      'gate-cancelled-rate-limit',
+    ].includes(baseReason);
+    const isTransientWait =
+      waitLikeAction &&
+      (transientDetails.category === ERROR_CATEGORIES.transient || waitIsTransientReason);
 
-  if (action === 'run') {
-    if (runResult === 'success') {
-      nextIteration = currentIteration + 1;
-      failure = {};
-    } else if (runResult) {
-      // If the job was skipped/cancelled, it usually means the workflow condition
-      // prevented execution (e.g. gate not ready, label missing, concurrency).
-      // Don't treat this as an agent failure.
-      if (runResult === 'skipped') {
+    // Task reconciliation: detect when agent made changes but didn't update checkboxes
+    const previousTasks = previousState?.tasks || {};
+    const previousUnchecked = toNumber(previousTasks.unchecked, tasksUnchecked);
+    const tasksCompletedThisRound = previousUnchecked - tasksUnchecked;
+    const madeChangesButNoTasksChecked =
+      action === 'run' &&
+      runResult === 'success' &&
+      agentChangesMade === 'true' &&
+      agentFilesChanged > 0 &&
+      tasksCompletedThisRound <= 0;
+
+    if (action === 'run') {
+      if (runResult === 'success') {
+        nextIteration = currentIteration + 1;
         failure = {};
-        summaryReason = 'agent-run-skipped';
-      } else if (runResult === 'cancelled') {
-        failure = {};
-        summaryReason = 'agent-run-cancelled';
-      } else if (isTransientFailure) {
-        failure = {};
-        summaryReason = 'agent-run-transient';
-      } else {
-        const same = failure.reason === 'agent-run-failed';
-        const count = same ? toNumber(failure.count, 0) + 1 : 1;
-        failure = { reason: 'agent-run-failed', count };
-        if (count >= failureThreshold) {
-          stop = true;
-          summaryReason = 'agent-run-failed-repeat';
+      } else if (runResult) {
+        // If the job was skipped/cancelled, it usually means the workflow condition
+        // prevented execution (e.g. gate not ready, label missing, concurrency).
+        // Don't treat this as an agent failure.
+        if (runResult === 'skipped') {
+          failure = {};
+          summaryReason = 'agent-run-skipped';
+        } else if (runResult === 'cancelled') {
+          failure = {};
+          summaryReason = 'agent-run-cancelled';
+        } else if (isTransientFailure) {
+          failure = {};
+          summaryReason = 'agent-run-transient';
         } else {
-          summaryReason = 'agent-run-failed';
+          const same = failure.reason === 'agent-run-failed';
+          const count = same ? toNumber(failure.count, 0) + 1 : 1;
+          failure = { reason: 'agent-run-failed', count };
+          if (count >= failureThreshold) {
+            stop = true;
+            summaryReason = 'agent-run-failed-repeat';
+          } else {
+            summaryReason = 'agent-run-failed';
+          }
         }
       }
-    }
-  } else if (action === 'stop') {
-    // Differentiate between terminal states:
-    // - tasks-complete: Success! Clear failure state
-    // - no-checklists / keepalive-disabled: Neutral, nothing to do
-    // - max-iterations: Could be a problem, count as failure
-    if (isSuccessStop) {
-      // Tasks complete is success, clear any failure state
-      failure = {};
-    } else if (isNeutralStop) {
-      // Neutral states don't need failure tracking
-      failure = {};
-    } else {
-      // max-iterations type stops should count as potential issues
-      const sameReason = failure.reason && failure.reason === summaryReason;
-      const count = sameReason ? toNumber(failure.count, 0) + 1 : 1;
-      failure = { reason: summaryReason, count };
-      if (count >= failureThreshold) {
-        summaryReason = `${summaryReason}-repeat`;
+    } else if (action === 'stop') {
+      // Differentiate between terminal states:
+      // - tasks-complete: Success! Clear failure state
+      // - no-checklists / keepalive-disabled: Neutral, nothing to do
+      // - max-iterations: Could be a problem, count as failure
+      if (isSuccessStop) {
+        // Tasks complete is success, clear any failure state
+        failure = {};
+      } else if (isNeutralStop) {
+        // Neutral states don't need failure tracking
+        failure = {};
+      } else {
+        // max-iterations type stops should count as potential issues
+        const sameReason = failure.reason && failure.reason === summaryReason;
+        const count = sameReason ? toNumber(failure.count, 0) + 1 : 1;
+        failure = { reason: summaryReason, count };
+        if (count >= failureThreshold) {
+          summaryReason = `${summaryReason}-repeat`;
+        }
+      }
+    } else if (waitLikeAction) {
+      // Wait states are NOT failures - they're transient conditions
+      // Don't increment failure counter for: gate-pending, gate-not-success, missing-agent-label
+      // These are expected states that will resolve on their own
+      // Check if this is a transient error (from error classification)
+      if (isTransientWait) {
+        failure = {};
+        summaryReason = `${summaryReason}-transient`;
+      } else if (failure.reason && !failure.reason.startsWith('gate-') && failure.reason !== 'missing-agent-label') {
+        // Keep the failure from a previous real failure (like agent-run-failed)
+        // but don't increment for wait states
+      } else {
+        // Clear failure state for transient wait conditions
+        failure = {};
       }
     }
-  } else if (waitLikeAction) {
-    // Wait states are NOT failures - they're transient conditions
-    // Don't increment failure counter for: gate-pending, gate-not-success, missing-agent-label
-    // These are expected states that will resolve on their own
-    // Check if this is a transient error (from error classification)
-    if (isTransientWait) {
-      failure = {};
-      summaryReason = `${summaryReason}-transient`;
-    } else if (failure.reason && !failure.reason.startsWith('gate-') && failure.reason !== 'missing-agent-label') {
-      // Keep the failure from a previous real failure (like agent-run-failed)
-      // but don't increment for wait states
-    } else {
-      // Clear failure state for transient wait conditions
-      failure = {};
-    }
-  }
 
-  const failureDetails = classifyFailureDetails({
-    action,
-    runResult,
-    summaryReason,
-    agentExitCode,
-    agentSummary,
-  });
-  const errorCategory = failureDetails.category;
-  const errorType = failureDetails.type;
-  const errorRecovery = failureDetails.recovery;
-  const tasksComplete = Math.max(0, tasksTotal - tasksUnchecked);
-  const allTasksComplete = tasksUnchecked === 0 && tasksTotal > 0;
-  const metricsIteration = action === 'run' ? currentIteration + 1 : currentIteration;
-  const durationMs = resolveDurationMs({
-    durationMs: toOptionalNumber(inputs.duration_ms ?? inputs.durationMs),
-    startTs: toOptionalNumber(inputs.start_ts ?? inputs.startTs),
-  });
-  const metricsRecord = buildMetricsRecord({
-    prNumber,
-    iteration: metricsIteration,
-    action,
-    errorCategory,
-    durationMs,
-    tasksTotal,
-    tasksComplete,
-  });
-  emitMetricsRecord({ core, record: metricsRecord });
-  await appendMetricsRecord({
-    core,
-    record: metricsRecord,
-    metricsPath: resolveMetricsPath(inputs),
-  });
+    const failureDetails = classifyFailureDetails({
+      action,
+      runResult,
+      summaryReason,
+      agentExitCode,
+      agentSummary,
+    });
+    const errorCategory = failureDetails.category;
+    const errorType = failureDetails.type;
+    const errorRecovery = failureDetails.recovery;
+    const tasksComplete = Math.max(0, tasksTotal - tasksUnchecked);
+    const allTasksComplete = tasksUnchecked === 0 && tasksTotal > 0;
+    const metricsIteration = action === 'run' ? currentIteration + 1 : currentIteration;
+    const durationMs = resolveDurationMs({
+      durationMs: toOptionalNumber(inputs.duration_ms ?? inputs.durationMs),
+      startTs: toOptionalNumber(inputs.start_ts ?? inputs.startTs),
+    });
+    const metricsRecord = buildMetricsRecord({
+      prNumber,
+      iteration: metricsIteration,
+      action,
+      errorCategory,
+      durationMs,
+      tasksTotal,
+      tasksComplete,
+    });
+    emitMetricsRecord({ core, record: metricsRecord });
+    await appendMetricsRecord({
+      core,
+      record: metricsRecord,
+      metricsPath: resolveMetricsPath(inputs),
+    });
 
-  // Capitalize agent name for display
-  const agentDisplayName = agentType.charAt(0).toUpperCase() + agentType.slice(1);
-  
-  // Determine if we're in extended mode (past max_iterations but still productive)
-  const inExtendedMode = nextIteration > maxIterations && maxIterations > 0;
-  const extendedCount = inExtendedMode ? nextIteration - maxIterations : 0;
-  const iterationDisplay = inExtendedMode 
-    ? `**${maxIterations}+${extendedCount}** 🚀 extended`
-    : `${nextIteration}/${maxIterations || '∞'}`;
+    // Capitalize agent name for display
+    const agentDisplayName = agentType.charAt(0).toUpperCase() + agentType.slice(1);
 
-  const dispositionLabel = (() => {
-    if (action === 'defer') {
-      return 'deferred (transient)';
-    }
-    if (action === 'wait') {
-      return isTransientWait ? 'skipped (transient)' : 'skipped (failure)';
-    }
-    if (action === 'skip') {
-      return 'skipped';
-    }
-    return '';
-  })();
-  const actionReason = waitLikeAction
-    ? (baseReason || summaryReason)
-    : (summaryReason || baseReason);
+    // Determine if we're in extended mode (past max_iterations but still productive)
+    const inExtendedMode = nextIteration > maxIterations && maxIterations > 0;
+    const extendedCount = inExtendedMode ? nextIteration - maxIterations : 0;
+    const iterationDisplay = inExtendedMode
+      ? `**${maxIterations}+${extendedCount}** 🚀 extended`
+      : `${nextIteration}/${maxIterations || '∞'}`;
 
-  const summaryLines = [
-    '<!-- keepalive-loop-summary -->',
-    `## 🤖 Keepalive Loop Status`,
-    '',
-    `**PR #${prNumber}** | Agent: **${agentDisplayName}** | Iteration ${iterationDisplay}`,
-    '',
-    '### Current State',
-    `| Metric | Value |`,
-    `|--------|-------|`,
-    `| Iteration progress | ${
-      maxIterations > 0
-        ? inExtendedMode 
+    const dispositionLabel = (() => {
+      if (action === 'defer') {
+        return 'deferred (transient)';
+      }
+      if (action === 'wait') {
+        return isTransientWait ? 'skipped (transient)' : 'skipped (failure)';
+      }
+      if (action === 'skip') {
+        return 'skipped';
+      }
+      return '';
+    })();
+    const actionReason = waitLikeAction
+      ? (baseReason || summaryReason)
+      : (summaryReason || baseReason);
+
+    const summaryLines = [
+      '<!-- keepalive-loop-summary -->',
+      `## 🤖 Keepalive Loop Status`,
+      '',
+      `**PR #${prNumber}** | Agent: **${agentDisplayName}** | Iteration ${iterationDisplay}`,
+      '',
+      '### Current State',
+      `| Metric | Value |`,
+      `|--------|-------|`,
+      `| Iteration progress | ${maxIterations > 0
+        ? inExtendedMode
           ? `${formatProgressBar(maxIterations, maxIterations)} ${maxIterations} base + ${extendedCount} extended = **${nextIteration}** total`
           : formatProgressBar(nextIteration, maxIterations)
         : 'n/a (unbounded)'
-    } |`,
-    `| Action | ${action || 'unknown'} (${actionReason || 'n/a'}) |`,
-    ...(dispositionLabel ? [`| Disposition | ${dispositionLabel} |`] : []),
-    ...(allTasksComplete ? [`| Agent status | ✅ ALL TASKS COMPLETE |`] : runFailed ? [`| Agent status | ❌ AGENT FAILED |`] : []),
-    `| Gate | ${gateConclusion || 'unknown'} |`,
-    `| Tasks | ${tasksComplete}/${tasksTotal} complete |`,
-    `| Timeout | ${formatTimeoutMinutes(timeoutStatus.resolvedMinutes)} min (${timeoutStatus.source || 'default'}) |`,
-    `| Keepalive | ${keepaliveEnabled ? '✅ enabled' : '❌ disabled'} |`,
-    `| Autofix | ${autofixEnabled ? '✅ enabled' : '❌ disabled'} |`,
-  ];
+      } |`,
+      `| Action | ${action || 'unknown'} (${actionReason || 'n/a'}) |`,
+      ...(dispositionLabel ? [`| Disposition | ${dispositionLabel} |`] : []),
+      ...(allTasksComplete ? [`| Agent status | ✅ ALL TASKS COMPLETE |`] : runFailed ? [`| Agent status | ❌ AGENT FAILED |`] : []),
+      `| Gate | ${gateConclusion || 'unknown'} |`,
+      `| Tasks | ${tasksComplete}/${tasksTotal} complete |`,
+      `| Timeout | ${formatTimeoutMinutes(timeoutStatus.resolvedMinutes)} min (${timeoutStatus.source || 'default'}) |`,
+      `| Keepalive | ${keepaliveEnabled ? '✅ enabled' : '❌ disabled'} |`,
+      `| Autofix | ${autofixEnabled ? '✅ enabled' : '❌ disabled'} |`,
+    ];
 
-  const timeoutUsage = formatTimeoutUsage({
-    elapsedMs: timeoutStatus.elapsedMs,
-    usageRatio: timeoutStatus.usageRatio,
-    remainingMs: timeoutStatus.remainingMs,
-  });
-  if (timeoutUsage) {
-    summaryLines.splice(summaryLines.length - 2, 0, `| Timeout usage | ${timeoutUsage} |`);
-  }
-  if (timeoutStatus.warning) {
-    const timeoutWarning = formatTimeoutWarning(timeoutStatus.warning);
-    const warningValue = timeoutWarning ? `⚠️ ${timeoutWarning}` : `⚠️ ${timeoutStatus.warning.remaining_minutes}m remaining`;
-    summaryLines.splice(
-      summaryLines.length - 2,
-      0,
-      `| Timeout warning | ${warningValue} |`,
-    );
-  }
-
-  if (timeoutStatus.warning && core && typeof core.warning === 'function') {
-    const percent = timeoutStatus.warning.percent ?? 0;
-    const remaining = timeoutStatus.warning.remaining_minutes ?? 0;
-    const reason = timeoutStatus.warning.reason === 'remaining' ? 'remaining threshold' : 'usage threshold';
-    const thresholdParts = [];
-    const thresholdPercent = timeoutStatus.warning.threshold_percent;
-    const thresholdRemaining = timeoutStatus.warning.threshold_remaining_minutes;
-    if (Number.isFinite(thresholdPercent)) {
-      thresholdParts.push(`${thresholdPercent}% threshold`);
-    }
-    if (Number.isFinite(thresholdRemaining)) {
-      thresholdParts.push(`${thresholdRemaining}m threshold`);
-    }
-    const thresholdSuffix = thresholdParts.length ? ` (thresholds: ${thresholdParts.join(', ')})` : '';
-    core.warning(`Timeout warning (${reason}): ${percent}% consumed, ${remaining}m remaining${thresholdSuffix}.`);
-  }
-
-  // Add agent run details if we ran an agent
-  if (action === 'run' && runResult) {
-    const runLinkText = runUrl ? ` ([view logs](${runUrl}))` : '';
-    summaryLines.push('', `### Last ${agentDisplayName} Run${runLinkText}`);
-    
-    if (runResult === 'success') {
-      const changesIcon = agentChangesMade === 'true' ? '✅' : '⚪';
-      summaryLines.push(
-        `| Result | Value |`,
-        `|--------|-------|`,
-        `| Status | ✅ Success |`,
-        `| Changes | ${changesIcon} ${agentChangesMade === 'true' ? `${agentFilesChanged} file(s)` : 'No changes'} |`,
-      );
-      if (agentCommitSha) {
-        summaryLines.push(`| Commit | [\`${agentCommitSha.slice(0, 7)}\`](../commit/${agentCommitSha}) |`);
-      }
-    } else if (runResult === 'skipped') {
-      summaryLines.push(
-        `| Result | Value |`,
-        `|--------|-------|`,
-        `| Status | ⏭️ Skipped |`,
-        `| Reason | ${summaryReason || 'agent-run-skipped'} |`,
-      );
-    } else if (runResult === 'cancelled') {
-      summaryLines.push(
-        `| Result | Value |`,
-        `|--------|-------|`,
-        `| Status | 🚫 Cancelled |`,
-        `| Reason | ${summaryReason || 'agent-run-cancelled'} |`,
-      );
-    } else {
-      summaryLines.push(
-        `| Result | Value |`,
-        `|--------|-------|`,
-        `| Status | ❌ AGENT FAILED |`,
-        `| Reason | ${summaryReason || runResult || 'unknown'} |`,
-        `| Exit code | ${agentExitCode || 'unknown'} |`,
-        `| Failures | ${failure.count || 1}/${failureThreshold} before pause |`,
-      );
-    }
-    
-    // Add agent output summary if available
-    if (agentSummary && agentSummary.length > 10) {
-      const truncatedSummary = agentSummary.length > 300 
-        ? agentSummary.slice(0, 300) + '...' 
-        : agentSummary;
-      summaryLines.push('', `**${agentDisplayName} output:**`, `> ${truncatedSummary}`);
-    }
-
-    // Task reconciliation warning: agent made changes but didn't check off tasks
-    if (madeChangesButNoTasksChecked) {
-      summaryLines.push(
-        '',
-        '### 📋 Task Reconciliation Needed',
-        '',
-        `⚠️ ${agentDisplayName} changed **${agentFilesChanged} file(s)** but didn't check off any tasks.`,
-        '',
-        '**Next iteration should:**',
-        '1. Review the changes made and determine which tasks were addressed',
-        '2. Update the PR body to check off completed task checkboxes',
-        '3. If work was unrelated to tasks, continue with remaining tasks',
-      );
-    }
-  }
-
-  if (errorType || errorCategory) {
-    summaryLines.push(
-      '',
-      '### 🔍 Failure Classification',
-      `| Error type | ${errorType || 'unknown'} |`,
-      `| Error category | ${errorCategory || 'unknown'} |`,
-    );
-    if (errorRecovery) {
-      summaryLines.push(`| Suggested recovery | ${errorRecovery} |`);
-    }
-  }
-
-  // LLM analysis details - show which provider was used for task completion detection
-  if (llmAnalysisRun && llmProvider) {
-    const providerIcon = llmProvider === 'github-models' ? '✅' :
-                         llmProvider === 'openai' ? '⚠️' :
-                         llmProvider === 'regex-fallback' ? '🔶' : 'ℹ️';
-    const providerLabel = llmProvider === 'github-models' ? 'GitHub Models (primary)' :
-                          llmProvider === 'openai' ? 'OpenAI (fallback)' :
-                          llmProvider === 'regex-fallback' ? 'Regex (fallback)' : llmProvider;
-    const confidencePercent = Math.round(llmConfidence * 100);
-    
-    summaryLines.push(
-      '',
-      '### 🧠 Task Analysis',
-      `| Provider | ${providerIcon} ${providerLabel} |`,
-      `| Confidence | ${confidencePercent}% |`,
-    );
-    
-    // Show quality metrics if available
-    if (sessionDataQuality) {
-      const qualityIcon = sessionDataQuality === 'high' ? '🟢' :
-                          sessionDataQuality === 'medium' ? '🟡' :
-                          sessionDataQuality === 'low' ? '🟠' : '🔴';
-      summaryLines.push(`| Data Quality | ${qualityIcon} ${sessionDataQuality} |`);
-    }
-    if (sessionEffortScore > 0) {
-      summaryLines.push(`| Effort Score | ${sessionEffortScore}/100 |`);
-    }
-    
-    // Show BS detection warnings if confidence was adjusted
-    if (llmConfidenceAdjusted && llmRawConfidence !== llmConfidence) {
-      const rawPercent = Math.round(llmRawConfidence * 100);
-      summaryLines.push(
-        '',
-        `> ⚠️ **Confidence adjusted**: Raw confidence was ${rawPercent}%, adjusted to ${confidencePercent}% based on session quality metrics.`
-      );
-    }
-    
-    // Show specific quality warnings if present
-    if (llmQualityWarnings) {
-      summaryLines.push(
-        '',
-        '#### Quality Warnings',
-      );
-      // Parse warnings (could be JSON array or comma-separated)
-      let warnings = [];
-      try {
-        warnings = JSON.parse(llmQualityWarnings);
-      } catch {
-        warnings = llmQualityWarnings.split(';').filter(w => w.trim());
-      }
-      for (const warning of warnings) {
-        summaryLines.push(`- ⚠️ ${warning.trim()}`);
-      }
-    }
-    
-    // Analysis data health check
-    if (analysisTextLength > 0 && analysisTextLength < 200 && agentFilesChanged > 0) {
-      summaryLines.push(
-        '',
-        `> 🔴 **Data Loss Alert**: Analysis text was only ${analysisTextLength} chars despite ${agentFilesChanged} file changes. Task detection may be inaccurate.`
-      );
-    }
-    
-    if (llmProvider !== 'github-models') {
-      summaryLines.push(
-        '',
-        `> ⚠️ Primary provider (GitHub Models) was unavailable; used ${providerLabel} instead.`,
-      );
-    }
-  }
-
-  if (isTransientFailure) {
-    summaryLines.push(
-      '',
-      '### ♻️ Transient Issue Detected',
-      'This run failed due to a transient issue. The failure counter has been reset to avoid pausing the loop.',
-    );
-  }
-
-  if (action === 'defer') {
-    summaryLines.push(
-      '',
-      '### ⏳ Deferred',
-      'Keepalive deferred due to a transient Gate cancellation (likely rate limits). It will retry later.',
-    );
-  }
-
-  // Show failure tracking prominently if there are failures
-  if (failure.count > 0) {
-    summaryLines.push(
-      '',
-      '### ⚠️ Failure Tracking',
-      `| Consecutive failures | ${failure.count}/${failureThreshold} |`,
-      `| Reason | ${failure.reason || 'unknown'} |`,
-    );
-  }
-
-  if (stop) {
-    summaryLines.push(
-      '',
-      '### 🛑 Paused – Human Attention Required',
-      '',
-      'The keepalive loop has paused due to repeated failures.',
-      '',
-      '**To resume:**',
-      '1. Investigate the failure reason above',
-      '2. Fix any issues in the code or prompt',
-      '3. Remove the `needs-human` label from this PR',
-      '4. The next Gate pass will restart the loop',
-      '',
-      '_Or manually edit this comment to reset `failure: {}` in the state below._',
-    );
-  }
-
-  const focusTask = currentFocus || fallbackFocus;
-  const shouldRecordAttempt = action === 'run' && reason !== 'verify-acceptance';
-  let attemptedTasks = normaliseAttemptedTasks(previousState?.attempted_tasks);
-  if (shouldRecordAttempt && focusTask) {
-    attemptedTasks = updateAttemptedTasks(attemptedTasks, focusTask, metricsIteration);
-  }
-
-  let verification = previousState?.verification && typeof previousState.verification === 'object'
-    ? { ...previousState.verification }
-    : {};
-  if (tasksUnchecked > 0) {
-    verification = {};
-  } else if (reason === 'verify-acceptance') {
-    verification = {
-      status: runResult === 'success' ? 'done' : 'failed',
-      iteration: nextIteration,
-      last_result: runResult || '',
-      updated_at: new Date().toISOString(),
-    };
-  }
-
-  const newState = {
-    trace: stateTrace || previousState?.trace || '',
-    pr_number: prNumber,
-    iteration: nextIteration,
-    max_iterations: maxIterations,
-    last_action: action,
-    last_reason: summaryReason,
-    failure,
-    error_type: errorType,
-    error_category: errorCategory,
-    tasks: { total: tasksTotal, unchecked: tasksUnchecked },
-    gate_conclusion: gateConclusion,
-    failure_threshold: failureThreshold,
-    // Track task reconciliation for next iteration
-    needs_task_reconciliation: madeChangesButNoTasksChecked,
-    // Productivity tracking for evidence-based decisions
-    last_files_changed: agentFilesChanged,
-    prev_files_changed: toNumber(previousState?.last_files_changed, 0),
-    // Track consecutive rounds without task completion for progress review
-    rounds_without_task_completion: roundsWithoutTaskCompletion,
-    // Quality metrics for analysis validation
-    last_effort_score: sessionEffortScore,
-    last_data_quality: sessionDataQuality,
-    attempted_tasks: attemptedTasks,
-    last_focus: focusTask || '',
-    verification,
-    timeout: {
-      resolved_minutes: timeoutStatus.resolvedMinutes,
-      default_minutes: timeoutStatus.defaultMinutes,
-      extended_minutes: timeoutStatus.extendedMinutes,
-      override_minutes: timeoutStatus.overrideMinutes,
-      source: timeoutStatus.source,
-      label: timeoutStatus.label,
-      elapsed_minutes: timeoutStatus.elapsedMs ? Math.floor(timeoutStatus.elapsedMs / 60000) : null,
-      remaining_minutes: timeoutStatus.remainingMs ? Math.ceil(timeoutStatus.remainingMs / 60000) : null,
-      usage_ratio: timeoutStatus.usageRatio,
-      warning: timeoutStatus.warning || null,
-    },
-  };
-  const attemptEntry = buildAttemptEntry({
-    iteration: metricsIteration,
-    action,
-    reason: summaryReason,
-    runResult,
-    promptMode,
-    promptFile,
-    gateConclusion,
-    errorCategory,
-    errorType,
-  });
-  newState.attempts = updateAttemptHistory(previousState?.attempts, attemptEntry);
-
-  const summaryOutcome = runResult || summaryReason || action || 'unknown';
-  if (action === 'run' || runResult) {
-    await writeStepSummary({
-      core,
-      iteration: nextIteration,
-      maxIterations,
-      tasksTotal,
-      tasksUnchecked,
-      tasksCompletedDelta: tasksCompletedThisRound,
-      agentFilesChanged,
-      outcome: summaryOutcome,
+    const timeoutUsage = formatTimeoutUsage({
+      elapsedMs: timeoutStatus.elapsedMs,
+      usageRatio: timeoutStatus.usageRatio,
+      remainingMs: timeoutStatus.remainingMs,
     });
-  }
-
-  const previousAttention = previousState?.attention && typeof previousState.attention === 'object'
-    ? previousState.attention
-    : {};
-  if (Object.keys(previousAttention).length > 0) {
-    newState.attention = { ...previousAttention };
-  }
-
-  if (core && typeof core.setOutput === 'function') {
-    core.setOutput('error_type', errorType || '');
-    core.setOutput('error_category', errorCategory || '');
-  }
-
-  const shouldEscalate =
-    (action === 'run' && runResult && runResult !== 'success' && errorCategory !== ERROR_CATEGORIES.transient) ||
-    (action === 'stop' && !isSuccessStop && !isNeutralStop && errorCategory !== ERROR_CATEGORIES.transient);
-
-  const attentionKey = [summaryReason, runResult, errorCategory, errorType, agentExitCode].filter(Boolean).join('|');
-  const priorAttentionKey = normalise(previousAttention.key);
-
-  // NOTE: Failure comment posting removed - handled by reusable-codex-run.yml with proper deduplication
-  // This prevents duplicate failure notifications on PRs
-
-  summaryLines.push('', formatStateComment(newState));
-  const body = summaryLines.join('\n');
-
-  try {
-    if (commentId) {
-      await github.rest.issues.updateComment({
-        owner: context.repo.owner,
-        repo: context.repo.repo,
-        comment_id: commentId,
-        body,
-      });
-    } else {
-      await github.rest.issues.createComment({
-        owner: context.repo.owner,
-        repo: context.repo.repo,
-        issue_number: prNumber,
-        body,
-      });
+    if (timeoutUsage) {
+      summaryLines.splice(summaryLines.length - 2, 0, `| Timeout usage | ${timeoutUsage} |`);
+    }
+    if (timeoutStatus.warning) {
+      const timeoutWarning = formatTimeoutWarning(timeoutStatus.warning);
+      const warningValue = timeoutWarning ? `⚠️ ${timeoutWarning}` : `⚠️ ${timeoutStatus.warning.remaining_minutes}m remaining`;
+      summaryLines.splice(
+        summaryLines.length - 2,
+        0,
+        `| Timeout warning | ${warningValue} |`,
+      );
     }
 
-    if (shouldEscalate) {
-      try {
-        await github.rest.issues.addLabels({
-          owner: context.repo.owner,
-          repo: context.repo.repo,
-          issue_number: prNumber,
-          labels: ['agent:needs-attention'],
-        });
-      } catch (error) {
-        if (core) core.warning(`Failed to add agent:needs-attention label: ${error.message}`);
+    if (timeoutStatus.warning && core && typeof core.warning === 'function') {
+      const percent = timeoutStatus.warning.percent ?? 0;
+      const remaining = timeoutStatus.warning.remaining_minutes ?? 0;
+      const reason = timeoutStatus.warning.reason === 'remaining' ? 'remaining threshold' : 'usage threshold';
+      const thresholdParts = [];
+      const thresholdPercent = timeoutStatus.warning.threshold_percent;
+      const thresholdRemaining = timeoutStatus.warning.threshold_remaining_minutes;
+      if (Number.isFinite(thresholdPercent)) {
+        thresholdParts.push(`${thresholdPercent}% threshold`);
       }
+      if (Number.isFinite(thresholdRemaining)) {
+        thresholdParts.push(`${thresholdRemaining}m threshold`);
+      }
+      const thresholdSuffix = thresholdParts.length ? ` (thresholds: ${thresholdParts.join(', ')})` : '';
+      core.warning(`Timeout warning (${reason}): ${percent}% consumed, ${remaining}m remaining${thresholdSuffix}.`);
+    }
+
+    // Add agent run details if we ran an agent
+    if (action === 'run' && runResult) {
+      const runLinkText = runUrl ? ` ([view logs](${runUrl}))` : '';
+      summaryLines.push('', `### Last ${agentDisplayName} Run${runLinkText}`);
+
+      if (runResult === 'success') {
+        const changesIcon = agentChangesMade === 'true' ? '✅' : '⚪';
+        summaryLines.push(
+          `| Result | Value |`,
+          `|--------|-------|`,
+          `| Status | ✅ Success |`,
+          `| Changes | ${changesIcon} ${agentChangesMade === 'true' ? `${agentFilesChanged} file(s)` : 'No changes'} |`,
+        );
+        if (agentCommitSha) {
+          summaryLines.push(`| Commit | [\`${agentCommitSha.slice(0, 7)}\`](../commit/${agentCommitSha}) |`);
+        }
+      } else if (runResult === 'skipped') {
+        summaryLines.push(
+          `| Result | Value |`,
+          `|--------|-------|`,
+          `| Status | ⏭️ Skipped |`,
+          `| Reason | ${summaryReason || 'agent-run-skipped'} |`,
+        );
+      } else if (runResult === 'cancelled') {
+        summaryLines.push(
+          `| Result | Value |`,
+          `|--------|-------|`,
+          `| Status | 🚫 Cancelled |`,
+          `| Reason | ${summaryReason || 'agent-run-cancelled'} |`,
+        );
+      } else {
+        summaryLines.push(
+          `| Result | Value |`,
+          `|--------|-------|`,
+          `| Status | ❌ AGENT FAILED |`,
+          `| Reason | ${summaryReason || runResult || 'unknown'} |`,
+          `| Exit code | ${agentExitCode || 'unknown'} |`,
+          `| Failures | ${failure.count || 1}/${failureThreshold} before pause |`,
+        );
+      }
+
+      // Add agent output summary if available
+      if (agentSummary && agentSummary.length > 10) {
+        const truncatedSummary = agentSummary.length > 300
+          ? agentSummary.slice(0, 300) + '...'
+          : agentSummary;
+        summaryLines.push('', `**${agentDisplayName} output:**`, `> ${truncatedSummary}`);
+      }
+
+      // Task reconciliation warning: agent made changes but didn't check off tasks
+      if (madeChangesButNoTasksChecked) {
+        summaryLines.push(
+          '',
+          '### 📋 Task Reconciliation Needed',
+          '',
+          `⚠️ ${agentDisplayName} changed **${agentFilesChanged} file(s)** but didn't check off any tasks.`,
+          '',
+          '**Next iteration should:**',
+          '1. Review the changes made and determine which tasks were addressed',
+          '2. Update the PR body to check off completed task checkboxes',
+          '3. If work was unrelated to tasks, continue with remaining tasks',
+        );
+      }
+    }
+
+    if (errorType || errorCategory) {
+      summaryLines.push(
+        '',
+        '### 🔍 Failure Classification',
+        `| Error type | ${errorType || 'unknown'} |`,
+        `| Error category | ${errorCategory || 'unknown'} |`,
+      );
+      if (errorRecovery) {
+        summaryLines.push(`| Suggested recovery | ${errorRecovery} |`);
+      }
+    }
+
+    // LLM analysis details - show which provider was used for task completion detection
+    if (llmAnalysisRun && llmProvider) {
+      const providerIcon = llmProvider === 'github-models' ? '✅' :
+        llmProvider === 'openai' ? '⚠️' :
+          llmProvider === 'regex-fallback' ? '🔶' : 'ℹ️';
+      const providerLabel = llmProvider === 'github-models' ? 'GitHub Models (primary)' :
+        llmProvider === 'openai' ? 'OpenAI (fallback)' :
+          llmProvider === 'regex-fallback' ? 'Regex (fallback)' : llmProvider;
+      const confidencePercent = Math.round(llmConfidence * 100);
+
+      summaryLines.push(
+        '',
+        '### 🧠 Task Analysis',
+        `| Provider | ${providerIcon} ${providerLabel} |`,
+        `| Confidence | ${confidencePercent}% |`,
+      );
+
+      // Show quality metrics if available
+      if (sessionDataQuality) {
+        const qualityIcon = sessionDataQuality === 'high' ? '🟢' :
+          sessionDataQuality === 'medium' ? '🟡' :
+            sessionDataQuality === 'low' ? '🟠' : '🔴';
+        summaryLines.push(`| Data Quality | ${qualityIcon} ${sessionDataQuality} |`);
+      }
+      if (sessionEffortScore > 0) {
+        summaryLines.push(`| Effort Score | ${sessionEffortScore}/100 |`);
+      }
+
+      // Show BS detection warnings if confidence was adjusted
+      if (llmConfidenceAdjusted && llmRawConfidence !== llmConfidence) {
+        const rawPercent = Math.round(llmRawConfidence * 100);
+        summaryLines.push(
+          '',
+          `> ⚠️ **Confidence adjusted**: Raw confidence was ${rawPercent}%, adjusted to ${confidencePercent}% based on session quality metrics.`
+        );
+      }
+
+      // Show specific quality warnings if present
+      if (llmQualityWarnings) {
+        summaryLines.push(
+          '',
+          '#### Quality Warnings',
+        );
+        // Parse warnings (could be JSON array or comma-separated)
+        let warnings = [];
+        try {
+          warnings = JSON.parse(llmQualityWarnings);
+        } catch {
+          warnings = llmQualityWarnings.split(';').filter(w => w.trim());
+        }
+        for (const warning of warnings) {
+          summaryLines.push(`- ⚠️ ${warning.trim()}`);
+        }
+      }
+
+      // Analysis data health check
+      if (analysisTextLength > 0 && analysisTextLength < 200 && agentFilesChanged > 0) {
+        summaryLines.push(
+          '',
+          `> 🔴 **Data Loss Alert**: Analysis text was only ${analysisTextLength} chars despite ${agentFilesChanged} file changes. Task detection may be inaccurate.`
+        );
+      }
+
+      if (llmProvider !== 'github-models') {
+        summaryLines.push(
+          '',
+          `> ⚠️ Primary provider (GitHub Models) was unavailable; used ${providerLabel} instead.`,
+        );
+      }
+    }
+
+    if (isTransientFailure) {
+      summaryLines.push(
+        '',
+        '### ♻️ Transient Issue Detected',
+        'This run failed due to a transient issue. The failure counter has been reset to avoid pausing the loop.',
+      );
+    }
+
+    if (action === 'defer') {
+      summaryLines.push(
+        '',
+        '### ⏳ Deferred',
+        'Keepalive deferred due to a transient Gate cancellation (likely rate limits). It will retry later.',
+      );
+    }
+
+    // Show failure tracking prominently if there are failures
+    if (failure.count > 0) {
+      summaryLines.push(
+        '',
+        '### ⚠️ Failure Tracking',
+        `| Consecutive failures | ${failure.count}/${failureThreshold} |`,
+        `| Reason | ${failure.reason || 'unknown'} |`,
+      );
     }
 
     if (stop) {
-      try {
-        await github.rest.issues.addLabels({
+      summaryLines.push(
+        '',
+        '### 🛑 Paused – Human Attention Required',
+        '',
+        'The keepalive loop has paused due to repeated failures.',
+        '',
+        '**To resume:**',
+        '1. Investigate the failure reason above',
+        '2. Fix any issues in the code or prompt',
+        '3. Remove the `needs-human` label from this PR',
+        '4. The next Gate pass will restart the loop',
+        '',
+        '_Or manually edit this comment to reset `failure: {}` in the state below._',
+      );
+    }
+
+    const focusTask = currentFocus || fallbackFocus;
+    const shouldRecordAttempt = action === 'run' && reason !== 'verify-acceptance';
+    let attemptedTasks = normaliseAttemptedTasks(previousState?.attempted_tasks);
+    if (shouldRecordAttempt && focusTask) {
+      attemptedTasks = updateAttemptedTasks(attemptedTasks, focusTask, metricsIteration);
+    }
+
+    let verification = previousState?.verification && typeof previousState.verification === 'object'
+      ? { ...previousState.verification }
+      : {};
+    if (tasksUnchecked > 0) {
+      verification = {};
+    } else if (reason === 'verify-acceptance') {
+      verification = {
+        status: runResult === 'success' ? 'done' : 'failed',
+        iteration: nextIteration,
+        last_result: runResult || '',
+        updated_at: new Date().toISOString(),
+      };
+    }
+
+    const newState = {
+      trace: stateTrace || previousState?.trace || '',
+      pr_number: prNumber,
+      iteration: nextIteration,
+      max_iterations: maxIterations,
+      last_action: action,
+      last_reason: summaryReason,
+      failure,
+      error_type: errorType,
+      error_category: errorCategory,
+      tasks: { total: tasksTotal, unchecked: tasksUnchecked },
+      gate_conclusion: gateConclusion,
+      failure_threshold: failureThreshold,
+      // Track task reconciliation for next iteration
+      needs_task_reconciliation: madeChangesButNoTasksChecked,
+      // Productivity tracking for evidence-based decisions
+      last_files_changed: agentFilesChanged,
+      prev_files_changed: toNumber(previousState?.last_files_changed, 0),
+      // Track consecutive rounds without task completion for progress review
+      rounds_without_task_completion: roundsWithoutTaskCompletion,
+      // Quality metrics for analysis validation
+      last_effort_score: sessionEffortScore,
+      last_data_quality: sessionDataQuality,
+      attempted_tasks: attemptedTasks,
+      last_focus: focusTask || '',
+      verification,
+      timeout: {
+        resolved_minutes: timeoutStatus.resolvedMinutes,
+        default_minutes: timeoutStatus.defaultMinutes,
+        extended_minutes: timeoutStatus.extendedMinutes,
+        override_minutes: timeoutStatus.overrideMinutes,
+        source: timeoutStatus.source,
+        label: timeoutStatus.label,
+        elapsed_minutes: timeoutStatus.elapsedMs ? Math.floor(timeoutStatus.elapsedMs / 60000) : null,
+        remaining_minutes: timeoutStatus.remainingMs ? Math.ceil(timeoutStatus.remainingMs / 60000) : null,
+        usage_ratio: timeoutStatus.usageRatio,
+        warning: timeoutStatus.warning || null,
+      },
+    };
+    const attemptEntry = buildAttemptEntry({
+      iteration: metricsIteration,
+      action,
+      reason: summaryReason,
+      runResult,
+      promptMode,
+      promptFile,
+      gateConclusion,
+      errorCategory,
+      errorType,
+    });
+    newState.attempts = updateAttemptHistory(previousState?.attempts, attemptEntry);
+
+    const summaryOutcome = runResult || summaryReason || action || 'unknown';
+    if (action === 'run' || runResult) {
+      await writeStepSummary({
+        core,
+        iteration: nextIteration,
+        maxIterations,
+        tasksTotal,
+        tasksUnchecked,
+        tasksCompletedDelta: tasksCompletedThisRound,
+        agentFilesChanged,
+        outcome: summaryOutcome,
+      });
+    }
+
+    const previousAttention = previousState?.attention && typeof previousState.attention === 'object'
+      ? previousState.attention
+      : {};
+    if (Object.keys(previousAttention).length > 0) {
+      newState.attention = { ...previousAttention };
+    }
+
+    if (core && typeof core.setOutput === 'function') {
+      core.setOutput('error_type', errorType || '');
+      core.setOutput('error_category', errorCategory || '');
+    }
+
+    const shouldEscalate =
+      (action === 'run' && runResult && runResult !== 'success' && errorCategory !== ERROR_CATEGORIES.transient) ||
+      (action === 'stop' && !isSuccessStop && !isNeutralStop && errorCategory !== ERROR_CATEGORIES.transient);
+
+    const attentionKey = [summaryReason, runResult, errorCategory, errorType, agentExitCode].filter(Boolean).join('|');
+    const priorAttentionKey = normalise(previousAttention.key);
+
+    // NOTE: Failure comment posting removed - handled by reusable-codex-run.yml with proper deduplication
+    // This prevents duplicate failure notifications on PRs
+
+    summaryLines.push('', formatStateComment(newState));
+    const body = summaryLines.join('\n');
+
+    try {
+      if (commentId) {
+        await github.rest.issues.updateComment({
+          owner: context.repo.owner,
+          repo: context.repo.repo,
+          comment_id: commentId,
+          body,
+        });
+      } else {
+        await github.rest.issues.createComment({
           owner: context.repo.owner,
           repo: context.repo.repo,
           issue_number: prNumber,
-          labels: ['needs-human'],
+          body,
         });
-      } catch (error) {
-        if (core) core.warning(`Failed to add needs-human label: ${error.message}`);
       }
+
+      if (shouldEscalate) {
+        try {
+          await github.rest.issues.addLabels({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: prNumber,
+            labels: ['agent:needs-attention'],
+          });
+        } catch (error) {
+          if (core) core.warning(`Failed to add agent:needs-attention label: ${error.message}`);
+        }
+      }
+
+      if (stop) {
+        try {
+          await github.rest.issues.addLabels({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: prNumber,
+            labels: ['needs-human'],
+          });
+        } catch (error) {
+          if (core) core.warning(`Failed to add needs-human label: ${error.message}`);
+        }
+      }
+    } catch (error) {
+      const rateLimitMessage = [error?.message, error?.response?.data?.message]
+        .filter(Boolean)
+        .join(' ');
+      const rateLimitRemaining = toNumber(error?.response?.headers?.['x-ratelimit-remaining'], NaN);
+      const rateLimitReset = error?.response?.headers?.['x-ratelimit-reset'];
+      const rateLimitHit = hasRateLimitSignal(rateLimitMessage)
+        || (error?.status === 403 && rateLimitRemaining === 0);
+      if (rateLimitHit) {
+        // Rate limit hit - this is a critical failure that needs human attention
+        // We need to:
+        // 1. Mark the step as failed so it's visible in the workflow
+        // 2. Set outputs so a downstream step can notify the PR (with a different token)
+        // 3. Write to step summary (doesn't use API)
+
+        const resetTime = rateLimitReset
+          ? new Date(Number(rateLimitReset) * 1000).toISOString()
+          : 'unknown';
+        const errorSummary = `GitHub API rate limit exceeded. Reset at: ${resetTime}. Remaining: ${rateLimitRemaining}`;
+
+        if (core) {
+          // Set outputs so workflow can use a different token pool to notify PR
+          core.setOutput('rate_limit_hit', 'true');
+          core.setOutput('rate_limit_error', errorSummary);
+          core.setOutput('rate_limit_reset', resetTime);
+          core.setOutput('rate_limit_remaining', String(rateLimitRemaining));
+          core.setOutput('pr_number', String(prNumber));
+          core.setOutput('action', action || '');
+          core.setOutput('reason', summaryReason || reason || '');
+
+          // Write to step summary (no API call needed)
+          core.summary
+            .addHeading('⚠️ Rate Limit Failure - Human Attention Required', 2)
+            .addRaw(`**PR #${prNumber}** could not be updated due to GitHub API rate limits.\n\n`)
+            .addRaw('The keepalive loop status may show as "running" but **no work is being done**.\n\n')
+            .addTable([
+              [{ data: 'Field', header: true }, { data: 'Value', header: true }],
+              ['Error', rateLimitMessage || 'API rate limit exceeded'],
+              ['Action', action || 'unknown'],
+              ['Reason', summaryReason || reason || 'unknown'],
+              ['Rate Limit Remaining', String(rateLimitRemaining)],
+              ['Rate Limit Reset', resetTime],
+              ['PR Number', String(prNumber)],
+            ])
+            .addRaw('\n\n**Action Required:**\n')
+            .addList([
+              'A downstream step will attempt to notify the PR using a different token',
+              'If no notification appears, check the PR manually',
+              'Wait for rate limit reset before retrying',
+            ])
+            .write();
+
+          // Mark as failed so it's visible in the workflow UI
+          core.setFailed(`Rate limit hit while updating PR #${prNumber}: ${errorSummary}`);
+        }
+        return;
+      }
+      throw error;
     }
-  } catch (error) {
-    const rateLimitMessage = [error?.message, error?.response?.data?.message]
-      .filter(Boolean)
-      .join(' ');
-    const rateLimitRemaining = toNumber(error?.response?.headers?.['x-ratelimit-remaining'], NaN);
-    const rateLimitHit = hasRateLimitSignal(rateLimitMessage)
-      || (error?.status === 403 && rateLimitRemaining === 0);
-    if (rateLimitHit) {
-      if (core) core.warning('Keepalive summary update hit GitHub API rate limit; deferring.');
-      return;
-    }
-    throw error;
-  }
   } finally {
     cache?.emitMetrics?.();
   }
@@ -2587,21 +2784,21 @@ async function markAgentRunning({ github, context, core, inputs }) {
 
   // Capitalize agent name for display
   const agentDisplayName = agentType.charAt(0).toUpperCase() + agentType.slice(1);
-  
+
   // Show iteration we're starting (current + 1)
   const displayIteration = iteration + 1;
 
   const runLinkText = runUrl ? ` ([view logs](${runUrl}))` : '';
-  
+
   // Determine if in extended mode for display
   const inExtendedMode = displayIteration > maxIterations && maxIterations > 0;
   const iterationText = inExtendedMode
     ? `${maxIterations}+${displayIteration - maxIterations} (extended)`
     : `${displayIteration} of ${maxIterations || '∞'}`;
-  
+
   const tasksCompleted = Math.max(0, tasksTotal - tasksUnchecked);
   const progressPct = tasksTotal > 0 ? Math.round((tasksCompleted / tasksTotal) * 100) : 0;
-  
+
   const summaryLines = [
     '<!-- keepalive-loop-summary -->',
     `## 🤖 Keepalive Loop Status`,
@@ -2630,7 +2827,7 @@ async function markAgentRunning({ github, context, core, inputs }) {
     preservedState.current_focus = suggestedFocus.text;
     preservedState.current_focus_set_at = new Date().toISOString();
   }
-  
+
   summaryLines.push('', formatStateComment(preservedState));
   const body = summaryLines.join('\n');
 
@@ -2742,11 +2939,11 @@ async function analyzeTaskCompletion({ github, context, prNumber, baseSha, headS
   const commitMessages = commits
     .map(c => c.commit.message.toLowerCase())
     .join(' ');
-  
+
   // Extract meaningful words from commit messages
   const words = commitMessages.match(/\b[a-z_-]{3,}\b/g) || [];
   words.forEach(w => commitKeywords.add(w));
-  
+
   // Also split camelCase words from commit messages
   const camelWords = commits
     .map(c => c.commit.message)
@@ -2762,7 +2959,7 @@ async function analyzeTaskCompletion({ github, context, prNumber, baseSha, headS
     const fileName = f.split('/').pop() || '';
     splitCamelCase(fileName.replace(/\.[^.]+$/, '')).forEach(w => commitKeywords.add(w));
   });
-  
+
   // Add synonyms for all commit keywords
   const expandedKeywords = new Set(commitKeywords);
   for (const keyword of commitKeywords) {
@@ -2823,18 +3020,18 @@ async function analyzeTaskCompletion({ github, context, prNumber, baseSha, headS
     let strippedIssueTask = task
       .replace(/\[[^\]]*\]\(([^)]+)\)/g, '$1')
       .replace(/https?:\/\/\S+/gi, '');
-    
+
     // Remove the specific issue reference if pattern exists
     if (issuePattern) {
       strippedIssueTask = strippedIssueTask.replace(issuePattern, '');
     }
-    
+
     strippedIssueTask = strippedIssueTask
       .replace(/#\d+/g, '') // Remove only #number patterns
       .replace(/[\[\]().]/g, '')
       .trim();
     const isIssueOnlyTask = Boolean(issuePattern) && strippedIssueTask === '';
-    
+
     // Calculate overlap score using expanded keywords (with synonyms)
     const matchingWords = taskWords.filter(w => expandedKeywords.has(w));
     const score = taskWords.length > 0 ? matchingWords.length / taskWords.length : 0;
@@ -2842,7 +3039,7 @@ async function analyzeTaskCompletion({ github, context, prNumber, baseSha, headS
     // Extract explicit file references from task (e.g., `filename.js` or filename.test.js)
     const fileRefs = taskLower.match(/`([^`]+\.[a-z]+)`|([a-z0-9_./-]+(?:\.test)?\.(?:js|ts|py|yml|yaml|md))/g) || [];
     const cleanFileRefs = fileRefs.map(f => f.replace(/`/g, '').toLowerCase());
-    
+
     // Check for explicit file creation (high confidence if exact file was created)
     const exactFileMatch = cleanFileRefs.some(ref => {
       const refBase = ref.split('/').pop(); // Get just filename
@@ -2861,7 +3058,7 @@ async function analyzeTaskCompletion({ github, context, prNumber, baseSha, headS
       const moduleRefs = taskLower.match(/`([a-z_\/]+)`|for\s+([a-z_]+)\s+module/gi) || [];
       const cleanModuleRefs = moduleRefs.map(m => m.replace(/[`\/]/g, '').toLowerCase().trim())
         .flatMap(m => [m, m.replace(/s$/, ''), m + 's']); // singular/plural
-      
+
       for (const [testFile, modules] of testFileModules.entries()) {
         if (cleanModuleRefs.some(ref => modules.some(mod => mod.includes(ref) || ref.includes(mod)))) {
           testModuleMatch = true;
@@ -3028,12 +3225,12 @@ async function autoReconcileTasks({ github, context, prNumber, baseSha, headSha,
       sources.commit += 1;
     }
   }
-  
+
   if (highConfidence.length === 0) {
     log('No high-confidence task matches to auto-check');
-    return { 
-      updated: false, 
-      tasksChecked: 0, 
+    return {
+      updated: false,
+      tasksChecked: 0,
       details: analysis.summary + ' (no high-confidence matches for auto-check)',
       sources,
     };
@@ -3047,7 +3244,7 @@ async function autoReconcileTasks({ github, context, prNumber, baseSha, headSha,
     // Escape special regex characters in task text
     const escaped = match.task.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const pattern = new RegExp(`(^|\\n)(\\s*(?:[-*+]|\\d+[.)])\\s*)\\[\\s*\\](\\s*${escaped})`, 'i');
-    
+
     if (pattern.test(updatedBody)) {
       updatedBody = updatedBody.replace(pattern, '$1$2[x]$3');
       checkedCount++;
@@ -3057,9 +3254,9 @@ async function autoReconcileTasks({ github, context, prNumber, baseSha, headSha,
 
   if (checkedCount === 0) {
     log('Matched tasks but no checkbox patterns found to update.');
-    return { 
-      updated: false, 
-      tasksChecked: 0, 
+    return {
+      updated: false,
+      tasksChecked: 0,
       details: 'Tasks matched but patterns not found in body',
       sources,
     };
@@ -3076,9 +3273,9 @@ async function autoReconcileTasks({ github, context, prNumber, baseSha, headSha,
     log(`Updated PR body, checked ${checkedCount} task(s)`);
   } catch (error) {
     log(`Failed to update PR body: ${error.message}`);
-    return { 
-      updated: false, 
-      tasksChecked: 0, 
+    return {
+      updated: false,
+      tasksChecked: 0,
       details: `Failed to update PR: ${error.message}`,
       sources,
     };
@@ -3110,4 +3307,7 @@ module.exports = {
   autoReconcileTasks,
   normaliseChecklistSection,
   checkRateLimitStatus,
+  postRateLimitNotification,
+  hasRecentRateLimitNotification,
+  RATE_LIMIT_COMMENT_MARKER,
 };
