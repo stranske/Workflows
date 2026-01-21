@@ -6,10 +6,11 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -149,7 +150,9 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Compare workflow run counts between two JSON snapshots."
     )
-    parser.add_argument("--before", required=True, type=Path, help="JSON snapshot before debouncing")
+    parser.add_argument(
+        "--before", required=True, type=Path, help="JSON snapshot before debouncing"
+    )
     parser.add_argument("--after", required=True, type=Path, help="JSON snapshot after debouncing")
     parser.add_argument(
         "--workflow",
