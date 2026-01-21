@@ -61,6 +61,8 @@ jobs:
       start_ts: ${{ steps.timestamps.outputs.start_ts }}
       security_blocked: ${{ steps.security_gate.outputs.blocked }}
       security_reason: ${{ steps.security_gate.outputs.reason }}
+      rate_limit_remaining: ${{ steps.evaluate.outputs.rate_limit_remaining }}
+      rate_limit_recommendation: ${{ steps.evaluate.outputs.rate_limit_recommendation }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -163,6 +165,9 @@ jobs:
                 prompt_file: String(
                   result.promptFile || '.github/codex/prompts/keepalive_next_task.md'
                 ),
+              // Rate limit status
+              rate_limit_remaining: String(result.rateLimitStatus?.totalRemaining ?? ''),
+              rate_limit_recommendation: String(result.rateLimitStatus?.recommendation ?? ''),
             };
             for (const [key, value] of Object.entries(output)) {
               core.setOutput(key, value);
@@ -186,8 +191,12 @@ jobs:
         id: check
         env:
           HAS_CODEX_AUTH: ${{ secrets.CODEX_AUTH_JSON != '' }}
-          HAS_APP_ID: ${{ secrets.KEEPALIVE_APP_ID != '' || secrets.WORKFLOWS_APP_ID != '' }}
-          HAS_APP_KEY: ${{ secrets.KEEPALIVE_APP_PRIVATE_KEY != '' || secrets.WORKFLOWS_APP_PRIVATE_KEY != '' }}
+          HAS_APP_ID: >-
+            ${{ secrets.KEEPALIVE_APP_ID != '' ||
+                secrets.WORKFLOWS_APP_ID != '' }}
+          HAS_APP_KEY: >-
+            ${{ secrets.KEEPALIVE_APP_PRIVATE_KEY != '' ||
+                secrets.WORKFLOWS_APP_PRIVATE_KEY != '' }}
         run: |
           echo "CODEX_AUTH_JSON present: $HAS_CODEX_AUTH"
           echo "KEEPALIVE_APP or WORKFLOWS_APP present: $HAS_APP_ID"
@@ -195,7 +204,7 @@ jobs:
           if [ "$HAS_CODEX_AUTH" = "true" ] || [ "$HAS_APP_ID" = "true" ]; then
             echo "secrets_ok=true" >> "$GITHUB_OUTPUT"
           else
-            echo "::error::Neither CODEX_AUTH_JSON nor KEEPALIVE_APP_ID/WORKFLOWS_APP_ID is set. Cannot run Codex."
+            echo "::error::CODEX_AUTH_JSON or KEEPALIVE/WORKFLOWS_APP required."
             echo "secrets_ok=false" >> "$GITHUB_OUTPUT"
             exit 1
           fi
@@ -261,10 +270,13 @@ jobs:
     uses: stranske/Workflows/.github/workflows/reusable-codex-run.yml@main
     secrets:
       CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
-      # Use dedicated KEEPALIVE_APP for isolated rate limit pool (5000/hr)
-      # Falls back to WORKFLOWS_APP if KEEPALIVE_APP not configured
-      WORKFLOWS_APP_ID: ${{ secrets.KEEPALIVE_APP_ID || secrets.WORKFLOWS_APP_ID }}
-      WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.KEEPALIVE_APP_PRIVATE_KEY || secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+      # Use KEEPALIVE_APP for isolated rate limit pool (5000/hr)
+      # Falls back to WORKFLOWS_APP if not configured
+      WORKFLOWS_APP_ID: >-
+        ${{ secrets.KEEPALIVE_APP_ID || secrets.WORKFLOWS_APP_ID }}
+      WORKFLOWS_APP_PRIVATE_KEY: >-
+        ${{ secrets.KEEPALIVE_APP_PRIVATE_KEY ||
+            secrets.WORKFLOWS_APP_PRIVATE_KEY }}
     with:
       skip: >-
         ${{ needs.evaluate.outputs.action != 'run' &&

@@ -67,12 +67,20 @@ jobs:
     outputs:
       github_token_rate: ${{ steps.github_token.outputs.rate_json }}
       pat_rate: ${{ steps.pat.outputs.rate_json }}
+      service_bot_rate: ${{ steps.service_bot.outputs.rate_json }}
       app_rate: ${{ steps.app.outputs.rate_json }}
+      keepalive_app_rate: ${{ steps.keepalive_app.outputs.rate_json }}
+      gh_app_rate: ${{ steps.gh_app.outputs.rate_json }}
       summary_json: ${{ steps.aggregate.outputs.summary }}
     env:
       CODESPACES_WORKFLOWS: ${{ secrets.CODESPACES_WORKFLOWS || '' }}
+      SERVICE_BOT_PAT: ${{ secrets.SERVICE_BOT_PAT || '' }}
       WORKFLOWS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID || '' }}
       WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || '' }}
+      KEEPALIVE_APP_ID: ${{ secrets.KEEPALIVE_APP_ID || '' }}
+      KEEPALIVE_APP_PRIVATE_KEY: ${{ secrets.KEEPALIVE_APP_PRIVATE_KEY || '' }}
+      GH_APP_ID: ${{ secrets.GH_APP_ID || '' }}
+      GH_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY || '' }}
 
     steps:
       - name: Checkout repository
@@ -244,6 +252,87 @@ jobs:
           fi
           echo "::endgroup::"
 
+      - name: Check SERVICE_BOT_PAT rate limits
+        id: service_bot
+        if: ${{ env.SERVICE_BOT_PAT != '' }}
+        env:
+          GH_TOKEN: ${{ env.SERVICE_BOT_PAT }}
+        run: |
+          set -euo pipefail
+          echo "::group::SERVICE_BOT_PAT Rate Limits"
+
+          rate_data=$(gh api rate_limit 2>/dev/null || echo '{}')
+
+          if [ -n "$rate_data" ] && [ "$rate_data" != "{}" ]; then
+            core_limit=$(echo "$rate_data" | jq -r '.resources.core.limit // 0')
+            core_remaining=$(echo "$rate_data" | jq -r '.resources.core.remaining // 0')
+            core_used=$(echo "$rate_data" | jq -r '.resources.core.used // 0')
+            core_reset=$(echo "$rate_data" | jq -r '.resources.core.reset // 0')
+
+            graphql_limit=$(echo "$rate_data" | jq -r '.resources.graphql.limit // 0')
+            graphql_remaining=$(echo "$rate_data" | jq -r '.resources.graphql.remaining // 0')
+            graphql_used=$(echo "$rate_data" | jq -r '.resources.graphql.used // 0')
+
+            search_limit=$(echo "$rate_data" | jq -r '.resources.search.limit // 0')
+            search_remaining=$(echo "$rate_data" | jq -r '.resources.search.remaining // 0')
+            search_used=$(echo "$rate_data" | jq -r '.resources.search.used // 0')
+
+            if [ "$core_limit" -gt 0 ]; then
+              core_pct=$(echo "scale=1; ($core_used * 100) / $core_limit" | bc)
+            else
+              core_pct="0"
+            fi
+
+            if [ "$graphql_limit" -gt 0 ]; then
+              graphql_pct=$(echo "scale=1; ($graphql_used * 100) / $graphql_limit" | bc)
+            else
+              graphql_pct="0"
+            fi
+
+            if [ "$search_limit" -gt 0 ]; then
+              search_pct=$(echo "scale=1; ($search_used * 100) / $search_limit" | bc)
+            else
+              search_pct="0"
+            fi
+
+            reset_time=$(date -d "@$core_reset" -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || echo "unknown")
+
+            echo "SERVICE_BOT_PAT (stranske-automation-bot)"
+            echo "  Core API: ${core_used}/${core_limit} (${core_pct}% used)"
+            echo "  GraphQL:  ${graphql_used}/${graphql_limit} (${graphql_pct}% used)"
+            echo "  Search:   ${search_used}/${search_limit} (${search_pct}% used)"
+            echo "  Reset at: ${reset_time}"
+
+            rate_json=$(jq -cn \
+              --arg source "SERVICE_BOT_PAT" \
+              --argjson core_limit "$core_limit" \
+              --argjson core_remaining "$core_remaining" \
+              --argjson core_used "$core_used" \
+              --arg core_pct "$core_pct" \
+              --argjson graphql_limit "$graphql_limit" \
+              --argjson graphql_remaining "$graphql_remaining" \
+              --argjson graphql_used "$graphql_used" \
+              --arg graphql_pct "$graphql_pct" \
+              --argjson search_limit "$search_limit" \
+              --argjson search_remaining "$search_remaining" \
+              --argjson search_used "$search_used" \
+              --arg search_pct "$search_pct" \
+              --arg reset_time "$reset_time" \
+              '{
+                source: $source,
+                core: { limit: $core_limit, remaining: $core_remaining, used: $core_used, pct: $core_pct },
+                graphql: { limit: $graphql_limit, remaining: $graphql_remaining, used: $graphql_used, pct: $graphql_pct },
+                search: { limit: $search_limit, remaining: $search_remaining, used: $search_used, pct: $search_pct },
+                reset: $reset_time
+              }')
+
+            printf 'rate_json=%s\n' "$rate_json" >> "$GITHUB_OUTPUT"
+          else
+            echo "Failed to retrieve SERVICE_BOT_PAT rate limits"
+            echo 'rate_json={}' >> "$GITHUB_OUTPUT"
+          fi
+          echo "::endgroup::"
+
       - name: Mint GitHub App token
         id: app_token
         if: ${{ env.WORKFLOWS_APP_ID != '' && env.WORKFLOWS_APP_PRIVATE_KEY != '' }}
@@ -335,22 +424,212 @@ jobs:
           fi
           echo "::endgroup::"
 
+      # Check KEEPALIVE_APP (separate App for keepalive isolation)
+      - name: Mint KEEPALIVE_APP token
+        id: keepalive_app_token
+        if: ${{ env.KEEPALIVE_APP_ID != '' && env.KEEPALIVE_APP_PRIVATE_KEY != '' }}
+        uses: actions/create-github-app-token@v2
+        continue-on-error: true
+        with:
+          app-id: ${{ env.KEEPALIVE_APP_ID }}
+          private-key: ${{ env.KEEPALIVE_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Check KEEPALIVE_APP rate limits
+        id: keepalive_app
+        if: ${{ steps.keepalive_app_token.outputs.token != '' }}
+        env:
+          GH_TOKEN: ${{ steps.keepalive_app_token.outputs.token }}
+        run: |
+          set -euo pipefail
+          echo "::group::KEEPALIVE_APP Rate Limits"
+
+          rate_data=$(gh api rate_limit 2>/dev/null || echo '{}')
+
+          if [ -n "$rate_data" ] && [ "$rate_data" != "{}" ]; then
+            core_limit=$(echo "$rate_data" | jq -r '.resources.core.limit // 0')
+            core_remaining=$(echo "$rate_data" | jq -r '.resources.core.remaining // 0')
+            core_used=$(echo "$rate_data" | jq -r '.resources.core.used // 0')
+            core_reset=$(echo "$rate_data" | jq -r '.resources.core.reset // 0')
+
+            graphql_limit=$(echo "$rate_data" | jq -r '.resources.graphql.limit // 0')
+            graphql_remaining=$(echo "$rate_data" | jq -r '.resources.graphql.remaining // 0')
+            graphql_used=$(echo "$rate_data" | jq -r '.resources.graphql.used // 0')
+
+            search_limit=$(echo "$rate_data" | jq -r '.resources.search.limit // 0')
+            search_remaining=$(echo "$rate_data" | jq -r '.resources.search.remaining // 0')
+            search_used=$(echo "$rate_data" | jq -r '.resources.search.used // 0')
+
+            if [ "$core_limit" -gt 0 ]; then
+              core_pct=$(echo "scale=1; ($core_used * 100) / $core_limit" | bc)
+            else
+              core_pct="0"
+            fi
+
+            if [ "$graphql_limit" -gt 0 ]; then
+              graphql_pct=$(echo "scale=1; ($graphql_used * 100) / $graphql_limit" | bc)
+            else
+              graphql_pct="0"
+            fi
+
+            if [ "$search_limit" -gt 0 ]; then
+              search_pct=$(echo "scale=1; ($search_used * 100) / $search_limit" | bc)
+            else
+              search_pct="0"
+            fi
+
+            reset_time=$(date -d "@$core_reset" -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || echo "unknown")
+
+            echo "KEEPALIVE_APP (GitHub App - Dedicated for Keepalive)"
+            echo "  Core API: ${core_used}/${core_limit} (${core_pct}% used)"
+            echo "  GraphQL:  ${graphql_used}/${graphql_limit} (${graphql_pct}% used)"
+            echo "  Search:   ${search_used}/${search_limit} (${search_pct}% used)"
+            echo "  Reset at: ${reset_time}"
+
+            rate_json=$(jq -cn \
+              --arg source "KEEPALIVE_APP" \
+              --argjson core_limit "$core_limit" \
+              --argjson core_remaining "$core_remaining" \
+              --argjson core_used "$core_used" \
+              --arg core_pct "$core_pct" \
+              --argjson graphql_limit "$graphql_limit" \
+              --argjson graphql_remaining "$graphql_remaining" \
+              --argjson graphql_used "$graphql_used" \
+              --arg graphql_pct "$graphql_pct" \
+              --argjson search_limit "$search_limit" \
+              --argjson search_remaining "$search_remaining" \
+              --argjson search_used "$search_used" \
+              --arg search_pct "$search_pct" \
+              --arg reset_time "$reset_time" \
+              '{
+                source: $source,
+                core: { limit: $core_limit, remaining: $core_remaining, used: $core_used, pct: $core_pct },
+                graphql: { limit: $graphql_limit, remaining: $graphql_remaining, used: $graphql_used, pct: $graphql_pct },
+                search: { limit: $search_limit, remaining: $search_remaining, used: $search_used, pct: $search_pct },
+                reset: $reset_time
+              }')
+
+            printf 'rate_json=%s\n' "$rate_json" >> "$GITHUB_OUTPUT"
+          else
+            echo "KEEPALIVE_APP not configured or failed"
+            echo 'rate_json={}' >> "$GITHUB_OUTPUT"
+          fi
+          echo "::endgroup::"
+
+      # Check GH_APP (general purpose app used by some workflows)
+      - name: Mint GH_APP token
+        id: gh_app_token
+        if: ${{ env.GH_APP_ID != '' && env.GH_APP_PRIVATE_KEY != '' }}
+        uses: actions/create-github-app-token@v2
+        continue-on-error: true
+        with:
+          app-id: ${{ env.GH_APP_ID }}
+          private-key: ${{ env.GH_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Check GH_APP rate limits
+        id: gh_app
+        if: ${{ steps.gh_app_token.outputs.token != '' }}
+        env:
+          GH_TOKEN: ${{ steps.gh_app_token.outputs.token }}
+        run: |
+          set -euo pipefail
+          echo "::group::GH_APP Rate Limits"
+
+          rate_data=$(gh api rate_limit 2>/dev/null || echo '{}')
+
+          if [ -n "$rate_data" ] && [ "$rate_data" != "{}" ]; then
+            core_limit=$(echo "$rate_data" | jq -r '.resources.core.limit // 0')
+            core_remaining=$(echo "$rate_data" | jq -r '.resources.core.remaining // 0')
+            core_used=$(echo "$rate_data" | jq -r '.resources.core.used // 0')
+            core_reset=$(echo "$rate_data" | jq -r '.resources.core.reset // 0')
+
+            graphql_limit=$(echo "$rate_data" | jq -r '.resources.graphql.limit // 0')
+            graphql_remaining=$(echo "$rate_data" | jq -r '.resources.graphql.remaining // 0')
+            graphql_used=$(echo "$rate_data" | jq -r '.resources.graphql.used // 0')
+
+            search_limit=$(echo "$rate_data" | jq -r '.resources.search.limit // 0')
+            search_remaining=$(echo "$rate_data" | jq -r '.resources.search.remaining // 0')
+            search_used=$(echo "$rate_data" | jq -r '.resources.search.used // 0')
+
+            if [ "$core_limit" -gt 0 ]; then
+              core_pct=$(echo "scale=1; ($core_used * 100) / $core_limit" | bc)
+            else
+              core_pct="0"
+            fi
+
+            if [ "$graphql_limit" -gt 0 ]; then
+              graphql_pct=$(echo "scale=1; ($graphql_used * 100) / $graphql_limit" | bc)
+            else
+              graphql_pct="0"
+            fi
+
+            if [ "$search_limit" -gt 0 ]; then
+              search_pct=$(echo "scale=1; ($search_used * 100) / $search_limit" | bc)
+            else
+              search_pct="0"
+            fi
+
+            reset_time=$(date -d "@$core_reset" -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || echo "unknown")
+
+            echo "GH_APP (GitHub App - General Purpose)"
+            echo "  Core API: ${core_used}/${core_limit} (${core_pct}% used)"
+            echo "  GraphQL:  ${graphql_used}/${graphql_limit} (${graphql_pct}% used)"
+            echo "  Search:   ${search_used}/${search_limit} (${search_pct}% used)"
+            echo "  Reset at: ${reset_time}"
+
+            rate_json=$(jq -cn \
+              --arg source "GH_APP" \
+              --argjson core_limit "$core_limit" \
+              --argjson core_remaining "$core_remaining" \
+              --argjson core_used "$core_used" \
+              --arg core_pct "$core_pct" \
+              --argjson graphql_limit "$graphql_limit" \
+              --argjson graphql_remaining "$graphql_remaining" \
+              --argjson graphql_used "$graphql_used" \
+              --arg graphql_pct "$graphql_pct" \
+              --argjson search_limit "$search_limit" \
+              --argjson search_remaining "$search_remaining" \
+              --argjson search_used "$search_used" \
+              --arg search_pct "$search_pct" \
+              --arg reset_time "$reset_time" \
+              '{
+                source: $source,
+                core: { limit: $core_limit, remaining: $core_remaining, used: $core_used, pct: $core_pct },
+                graphql: { limit: $graphql_limit, remaining: $graphql_remaining, used: $graphql_used, pct: $graphql_pct },
+                search: { limit: $search_limit, remaining: $search_remaining, used: $search_used, pct: $search_pct },
+                reset: $reset_time
+              }')
+
+            printf 'rate_json=%s\n' "$rate_json" >> "$GITHUB_OUTPUT"
+          else
+            echo "GH_APP not configured or failed"
+            echo 'rate_json={}' >> "$GITHUB_OUTPUT"
+          fi
+          echo "::endgroup::"
+
       - name: Aggregate and analyze results
         id: aggregate
         env:
           GITHUB_TOKEN_RATE: ${{ steps.github_token.outputs.rate_json }}
           PAT_RATE: ${{ steps.pat.outputs.rate_json }}
+          SERVICE_BOT_RATE: ${{ steps.service_bot.outputs.rate_json || '{}' }}
           APP_RATE: ${{ steps.app.outputs.rate_json }}
+          KEEPALIVE_APP_RATE: ${{ steps.keepalive_app.outputs.rate_json || '{}' }}
+          GH_APP_RATE: ${{ steps.gh_app.outputs.rate_json || '{}' }}
         run: |
           set -uo pipefail  # Note: removed -e to handle errors manually
 
           echo "::group::Rate data aggregation"
 
           # Debug: show raw values (lengths and first 100 chars)
-          echo "Raw env var lengths: gt=${#GITHUB_TOKEN_RATE}, pat=${#PAT_RATE}, app=${#APP_RATE}"
+          echo "Raw env var lengths: gt=${#GITHUB_TOKEN_RATE}, pat=${#PAT_RATE}, svc=${#SERVICE_BOT_RATE:-0}, app=${#APP_RATE}, ka=${#KEEPALIVE_APP_RATE:-0}, gh=${#GH_APP_RATE:-0}"
           echo "GITHUB_TOKEN_RATE first 100: ${GITHUB_TOKEN_RATE:0:100}"
           echo "PAT_RATE first 100: ${PAT_RATE:0:100}"
+          echo "SERVICE_BOT_RATE first 100: ${SERVICE_BOT_RATE:0:100}"
           echo "APP_RATE first 100: ${APP_RATE:0:100}"
+          echo "KEEPALIVE_APP_RATE first 100: ${KEEPALIVE_APP_RATE:0:100}"
+          echo "GH_APP_RATE first 100: ${GH_APP_RATE:0:100}"
 
           # Use jq to safely extract and re-emit valid JSON
           # The -R flag reads raw input, and we use try-catch to handle invalid JSON
@@ -369,31 +648,70 @@ jobs:
 
           gt_json=$(safe_json "$GITHUB_TOKEN_RATE" "{}")
           pat_json=$(safe_json "$PAT_RATE" "{}")
+          svc_json=$(safe_json "${SERVICE_BOT_RATE:-}" "{}")
           app_json=$(safe_json "$APP_RATE" "{}")
+          ka_json=$(safe_json "${KEEPALIVE_APP_RATE:-}" "{}")
+          gh_json=$(safe_json "${GH_APP_RATE:-}" "{}")
 
-          echo "Parsed JSON lengths: gt=${#gt_json}, pat=${#pat_json}, app=${#app_json}"
+          echo "Parsed JSON lengths: gt=${#gt_json}, pat=${#pat_json}, svc=${#svc_json}, app=${#app_json}, ka=${#ka_json}, gh=${#gh_json}"
           echo "gt_json: $gt_json"
           echo "pat_json: $pat_json"
+          echo "svc_json: $svc_json"
           echo "app_json: $app_json"
+          echo "ka_json: $ka_json"
+          echo "gh_json: $gh_json"
 
           # Write to temp files
           echo "$gt_json" > /tmp/gt_rate.json
           echo "$pat_json" > /tmp/pat_rate.json
+          echo "$svc_json" > /tmp/svc_rate.json
           echo "$app_json" > /tmp/app_rate.json
+          echo "$ka_json" > /tmp/ka_rate.json
+          echo "$gh_json" > /tmp/gh_rate.json
 
           # Create summary JSON using file slurp (avoids shell quoting entirely)
           summary=$(jq -cn \
             --arg timestamp "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
             --slurpfile gt /tmp/gt_rate.json \
             --slurpfile pat /tmp/pat_rate.json \
+            --slurpfile svc /tmp/svc_rate.json \
             --slurpfile app /tmp/app_rate.json \
+            --slurpfile ka /tmp/ka_rate.json \
+            --slurpfile gh /tmp/gh_rate.json \
             '{
               timestamp: $timestamp,
               tokens: {
                 github_token: $gt[0],
-                pat: $pat[0],
-                app: $app[0]
-              }
+                codespaces_workflows_pat: $pat[0],
+                service_bot_pat: $svc[0],
+                workflows_app: $app[0],
+                keepalive_app: $ka[0],
+                gh_app: $gh[0]
+              },
+              total_pools: (
+                (if $gt[0].source then 1 else 0 end) +
+                (if $pat[0].source then 1 else 0 end) +
+                (if $svc[0].source then 1 else 0 end) +
+                (if $app[0].source then 1 else 0 end) +
+                (if $ka[0].source then 1 else 0 end) +
+                (if $gh[0].source then 1 else 0 end)
+              ),
+              total_remaining: (
+                ($gt[0].core.remaining // 0) +
+                ($pat[0].core.remaining // 0) +
+                ($svc[0].core.remaining // 0) +
+                ($app[0].core.remaining // 0) +
+                ($ka[0].core.remaining // 0) +
+                ($gh[0].core.remaining // 0)
+              ),
+              total_limit: (
+                ($gt[0].core.limit // 0) +
+                ($pat[0].core.limit // 0) +
+                ($svc[0].core.limit // 0) +
+                ($app[0].core.limit // 0) +
+                ($ka[0].core.limit // 0) +
+                ($gh[0].core.limit // 0)
+              )
             }')
 
           echo "Summary: $summary"

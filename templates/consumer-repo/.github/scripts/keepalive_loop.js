@@ -12,6 +12,14 @@ const { formatFailureComment } = require('./failure_comment_formatter');
 const { detectConflicts } = require('./conflict_detector');
 const { parseTimeoutConfig } = require('./timeout_config');
 
+// Token load balancer for rate limit management
+let tokenLoadBalancer = null;
+try {
+  tokenLoadBalancer = require('./token_load_balancer');
+} catch (error) {
+  // Load balancer not available - will use fallback
+}
+
 const ATTEMPT_HISTORY_LIMIT = 5;
 const ATTEMPTED_TASK_LIMIT = 6;
 
@@ -1390,6 +1398,125 @@ async function detectRateLimitCancellation({ github, context, runId, core }) {
   return false;
 }
 
+/**
+ * Check API rate limit status before starting operations.
+ * Returns summary of available capacity across all tokens.
+ * 
+ * @param {Object} options
+ * @param {Object} options.github - GitHub API client
+ * @param {Object} options.core - GitHub Actions core
+ * @param {number} options.minRequired - Minimum API calls needed (default: 50)
+ * @returns {Object} { canProceed, shouldDefer, totalRemaining, totalLimit, tokens, recommendation }
+ */
+async function checkRateLimitStatus({ github, core, minRequired = 50 }) {
+  // First check the current token's rate limit (always available)
+  let primaryRemaining = 5000;
+  let primaryLimit = 5000;
+  let primaryReset = null;
+  
+  try {
+    const { data } = await github.rest.rateLimit.get();
+    primaryRemaining = data.resources.core.remaining;
+    primaryLimit = data.resources.core.limit;
+    primaryReset = data.resources.core.reset * 1000;
+  } catch (error) {
+    core?.warning?.(`Failed to check primary rate limit: ${error.message}`);
+  }
+  
+  const primaryPercentUsed = primaryLimit > 0 
+    ? ((primaryLimit - primaryRemaining) / primaryLimit * 100).toFixed(1)
+    : 0;
+  
+  const result = {
+    primary: {
+      remaining: primaryRemaining,
+      limit: primaryLimit,
+      percentUsed: parseFloat(primaryPercentUsed),
+      reset: primaryReset ? new Date(primaryReset).toISOString() : null,
+    },
+    tokens: [],
+    totalRemaining: primaryRemaining,
+    totalLimit: primaryLimit,
+    canProceed: primaryRemaining >= minRequired,
+    shouldDefer: false,
+    recommendation: 'proceed',
+  };
+  
+  // If load balancer is available, check all tokens
+  if (tokenLoadBalancer) {
+    try {
+      const summary = tokenLoadBalancer.getRegistrySummary();
+      result.tokens = summary;
+      
+      // Calculate totals across all token pools
+      let totalRemaining = 0;
+      let totalLimit = 0;
+      let healthyCount = 0;
+      let criticalCount = 0;
+      
+      for (const token of summary) {
+        const remaining = typeof token.rateLimit?.remaining === 'number' 
+          ? token.rateLimit.remaining 
+          : 0;
+        const limit = typeof token.rateLimit?.limit === 'number'
+          ? token.rateLimit.limit
+          : 5000;
+        
+        totalRemaining += remaining;
+        totalLimit += limit;
+        
+        if (token.status === 'healthy' || token.status === 'moderate') {
+          healthyCount++;
+        } else if (token.status === 'critical') {
+          criticalCount++;
+        }
+      }
+      
+      result.totalRemaining = totalRemaining || primaryRemaining;
+      result.totalLimit = totalLimit || primaryLimit;
+      result.healthyTokens = healthyCount;
+      result.criticalTokens = criticalCount;
+      
+      // Determine if we should defer
+      result.shouldDefer = tokenLoadBalancer.shouldDefer(minRequired);
+      result.canProceed = !result.shouldDefer && result.totalRemaining >= minRequired;
+      
+      // Calculate recommendation
+      if (result.shouldDefer) {
+        const minutesUntilReset = tokenLoadBalancer.getTimeUntilReset();
+        result.recommendation = minutesUntilReset 
+          ? `defer-${minutesUntilReset}m`
+          : 'defer-unknown';
+      } else if (result.totalRemaining < minRequired * 3) {
+        result.recommendation = 'proceed-with-caution';
+      } else {
+        result.recommendation = 'proceed';
+      }
+    } catch (error) {
+      core?.debug?.(`Load balancer check failed: ${error.message}`);
+    }
+  } else {
+    // Fallback: just use primary token status
+    result.shouldDefer = primaryRemaining < minRequired;
+    result.canProceed = primaryRemaining >= minRequired;
+    
+    if (result.shouldDefer) {
+      const minutesUntilReset = primaryReset 
+        ? Math.max(0, Math.ceil((primaryReset - Date.now()) / 1000 / 60))
+        : null;
+      result.recommendation = minutesUntilReset
+        ? `defer-${minutesUntilReset}m`
+        : 'defer-unknown';
+    }
+  }
+  
+  // Log summary
+  core?.info?.(`Rate limit status: ${result.totalRemaining}/${result.totalLimit} remaining, ` +
+    `can proceed: ${result.canProceed}, recommendation: ${result.recommendation}`);
+  
+  return result;
+}
+
 async function evaluateKeepaliveLoop({ github, context, core, payload: overridePayload, overridePrNumber, forceRetry }) {
   const payload = overridePayload || context.payload || {};
   const cache = getGithubApiCache({ github, core });
@@ -1401,6 +1528,26 @@ async function evaluateKeepaliveLoop({ github, context, core, payload: overrideP
       repo: context?.repo?.repo,
     });
   }
+  
+  // Check rate limit status early
+  let rateLimitStatus = null;
+  try {
+    rateLimitStatus = await checkRateLimitStatus({ github, core, minRequired: 50 });
+    
+    // If all tokens are exhausted and we're not forcing retry, defer immediately
+    if (rateLimitStatus.shouldDefer && !forceRetry) {
+      core?.info?.(`Rate limits exhausted - deferring. Recommendation: ${rateLimitStatus.recommendation}`);
+      return {
+        prNumber: overridePrNumber || 0,
+        action: 'defer',
+        reason: 'rate-limit-exhausted',
+        rateLimitStatus,
+      };
+    }
+  } catch (error) {
+    core?.warning?.(`Rate limit check failed: ${error.message} - continuing anyway`);
+  }
+  
   try {
   let prNumber = overridePrNumber || await resolvePrNumber({ github, context, core, payload });
   if (!prNumber) {
@@ -1652,6 +1799,8 @@ async function evaluateKeepaliveLoop({ github, context, core, payload: overrideP
     // Progress review data for LLM-based alignment check
     needsProgressReview,
     roundsWithoutTaskCompletion,
+    // Rate limit status for monitoring
+    rateLimitStatus,
   };
   } finally {
     cache?.emitMetrics?.();
@@ -2911,4 +3060,5 @@ module.exports = {
   analyzeTaskCompletion,
   autoReconcileTasks,
   normaliseChecklistSection,
+  checkRateLimitStatus,
 };

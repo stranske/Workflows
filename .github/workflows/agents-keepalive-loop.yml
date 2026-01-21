@@ -59,6 +59,8 @@ jobs:
       security_reason: ${{ steps.security_gate.outputs.reason }}
       rounds_without_task_completion: ${{ steps.evaluate.outputs.rounds_without_task_completion }}
       needs_progress_review: ${{ steps.evaluate.outputs.needs_progress_review }}
+      rate_limit_remaining: ${{ steps.evaluate.outputs.rate_limit_remaining }}
+      rate_limit_recommendation: ${{ steps.evaluate.outputs.rate_limit_recommendation }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -160,6 +162,9 @@ jobs:
               // Progress review tracking
               rounds_without_task_completion: String(result.roundsWithoutTaskCompletion ?? 0),
               needs_progress_review: String(result.needsProgressReview ?? false),
+              // Rate limit status
+              rate_limit_remaining: String(result.rateLimitStatus?.totalRemaining ?? ''),
+              rate_limit_recommendation: String(result.rateLimitStatus?.recommendation ?? ''),
             };
             for (const [key, value] of Object.entries(output)) {
               core.setOutput(key, value);
