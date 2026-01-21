@@ -35,6 +35,7 @@ class WorkflowConcurrencyAudit:
     high_frequency: bool
     concurrency: tuple[ConcurrencySetting, ...]
     has_canceling_concurrency: bool
+    action_required: str
     recommended_group: str | None
 
 
@@ -102,6 +103,21 @@ def _has_canceling_concurrency(settings: tuple[ConcurrencySetting, ...]) -> bool
     return any(setting.cancel_in_progress is True for setting in settings)
 
 
+def _action_required(
+    *,
+    high_frequency: bool,
+    settings: tuple[ConcurrencySetting, ...],
+    has_canceling_concurrency: bool,
+) -> str:
+    if not high_frequency:
+        return "none"
+    if has_canceling_concurrency:
+        return "none"
+    if not settings:
+        return "add_concurrency"
+    return "set_cancel_in_progress_true"
+
+
 def suggest_concurrency_group(triggers: tuple[str, ...]) -> str | None:
     """Recommend a concurrency group expression based on workflow triggers."""
     lowered = {trigger.lower() for trigger in triggers}
@@ -135,13 +151,19 @@ def audit_workflows(
             concurrency = collect_concurrency(data)
         high_frequency = any(trigger.lower() in normalized_triggers for trigger in triggers)
         if high_frequency or include_non_high_frequency:
+            has_canceling_concurrency = _has_canceling_concurrency(concurrency)
             results.append(
                 WorkflowConcurrencyAudit(
                     path=path,
                     triggers=triggers,
                     high_frequency=high_frequency,
                     concurrency=concurrency,
-                    has_canceling_concurrency=_has_canceling_concurrency(concurrency),
+                    has_canceling_concurrency=has_canceling_concurrency,
+                    action_required=_action_required(
+                        high_frequency=high_frequency,
+                        settings=concurrency,
+                        has_canceling_concurrency=has_canceling_concurrency,
+                    ),
                     recommended_group=(
                         suggest_concurrency_group(triggers) if high_frequency else None
                     ),
@@ -154,7 +176,7 @@ def format_table(results: list[WorkflowConcurrencyAudit]) -> str:
     """Render a tab-delimited report for easy copy/paste."""
     lines = [
         "path\ttriggers\thigh_frequency\thas_canceling_concurrency"
-        "\trecommended_group\tconcurrency"
+        "\taction_required\trecommended_group\tconcurrency"
     ]
     for item in results:
         concurrency = ";".join(
@@ -169,6 +191,7 @@ def format_table(results: list[WorkflowConcurrencyAudit]) -> str:
                     ",".join(item.triggers),
                     "true" if item.high_frequency else "false",
                     "true" if item.has_canceling_concurrency else "false",
+                    item.action_required,
                     item.recommended_group or "",
                     concurrency,
                 ]
@@ -221,6 +244,7 @@ def main() -> int:
                 "triggers": list(item.triggers),
                 "high_frequency": item.high_frequency,
                 "has_canceling_concurrency": item.has_canceling_concurrency,
+                "action_required": item.action_required,
                 "recommended_group": item.recommended_group,
                 "concurrency": [
                     {

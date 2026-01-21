@@ -29,6 +29,7 @@ jobs:
     item = results[0]
     assert item.high_frequency is True
     assert item.has_canceling_concurrency is False
+    assert item.action_required == "set_cancel_in_progress_true"
     assert item.recommended_group == "${{ github.workflow }}-${{ github.ref }}"
     assert any(setting.group == "ci-${{ github.ref }}" for setting in item.concurrency)
 
@@ -57,6 +58,7 @@ jobs:
     item = results[0]
     assert item.high_frequency is True
     assert item.has_canceling_concurrency is True
+    assert item.action_required == "none"
     assert (
         item.recommended_group
         == "${{ github.workflow }}-pr-${{ github.event.pull_request.number || github.ref }}"
@@ -86,6 +88,7 @@ jobs:
         results[0].recommended_group
         == "${{ github.workflow }}-issue-${{ github.event.issue.number || github.ref }}"
     )
+    assert results[0].action_required == "add_concurrency"
 
 
 def test_audit_skips_non_high_frequency_by_default(tmp_path: Path) -> None:
@@ -129,3 +132,4 @@ jobs:
     )
     assert len(results) == 1
     assert results[0].high_frequency is False
+    assert results[0].action_required == "none"

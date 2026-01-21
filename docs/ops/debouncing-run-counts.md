@@ -17,7 +17,15 @@ Workflow  Before  After  Delta  Change
 Agent-standard cannot edit `.github/workflows`. Apply `cancel-in-progress: true`
 for the high-frequency workflows below (they either lack concurrency or set
 `cancel-in-progress: false`). Run `python scripts/workflow_concurrency_audit.py`
-after updates to confirm all `has_canceling_concurrency` entries are true.
+after updates to confirm all `has_canceling_concurrency` entries are true. The
+audit now emits `action_required` to flag whether a workflow needs a new
+concurrency block or just `cancel-in-progress: true`.
+
+**Needs-human PR comment (template):**
+```
+Blocked by workflow protection: update listed workflows in .github/workflows to add
+concurrency groups and set cancel-in-progress: true (see docs/ops/debouncing-run-counts.md).
+```
 
 | Workflow | Recommended group |
 | --- | --- |
