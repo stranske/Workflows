@@ -36,6 +36,16 @@ def test_detect_pr_context_markers_from_text() -> None:
     assert "github.event.pull_request" in markers
 
 
+def test_detect_pr_context_markers_from_issue_payload() -> None:
+    text = """
+    if (context.payload.issue.pull_request) {
+      console.log("PR comment");
+    }
+    """
+    markers = detect_pr_context_markers(text)
+    assert "context.payload.issue.pull_request" in markers
+
+
 def test_load_workflow_accepts_inline_text(tmp_path: Path) -> None:
     path = tmp_path / "missing.yml"
     data = load_workflow(
