@@ -117,7 +117,7 @@ jobs:
     assert len(results) == 1
     assert (
         results[0].recommended_group
-        == "${{ github.workflow }}-issue-${{ github.event.issue.number || github.event.pull_request.number || github.ref }}"
+        == "${{ github.workflow }}-issue-${{ github.event.issue.number || github.ref }}"
     )
     assert results[0].action_required == "add_concurrency"
 
@@ -172,7 +172,7 @@ jobs:
     assert item.action_required == "add_concurrency"
     assert (
         item.recommended_group
-        == "${{ github.workflow }}-issue-${{ github.event.issue.number || github.event.pull_request.number || github.ref }}"
+        == "${{ github.workflow }}-issue-${{ github.event.issue.number || github.ref }}"
     )
 
 
