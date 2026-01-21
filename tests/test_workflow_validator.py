@@ -20,8 +20,7 @@ class TestLoadWorkflow:
     def test_load_valid_workflow(self, tmp_path: Path) -> None:
         """Test loading a valid workflow file."""
         workflow_file = tmp_path / "test.yml"
-        workflow_file.write_text(
-            """
+        workflow_file.write_text("""
 name: Test
 on: push
 jobs:
@@ -29,8 +28,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-"""
-        )
+""")
 
         result = load_workflow(str(workflow_file))
         assert result is not None
@@ -176,8 +174,7 @@ class TestValidateWorkflow:
     def test_validate_good_workflow(self, tmp_path: Path) -> None:
         """Test validation of a well-formed workflow."""
         workflow_file = tmp_path / "good.yml"
-        workflow_file.write_text(
-            """
+        workflow_file.write_text("""
 name: Good Workflow
 on: push
 permissions:
@@ -188,8 +185,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-"""
-        )
+""")
 
         results = validate_workflow(str(workflow_file))
         assert results["deprecated_actions"] == []
@@ -199,8 +195,7 @@ jobs:
     def test_validate_bad_workflow(self, tmp_path: Path) -> None:
         """Test validation catches multiple issues."""
         workflow_file = tmp_path / "bad.yml"
-        workflow_file.write_text(
-            """
+        workflow_file.write_text("""
 name: Bad Workflow
 on: push
 permissions: write-all
@@ -209,8 +204,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-"""
-        )
+""")
 
         results = validate_workflow(str(workflow_file))
         assert len(results["deprecated_actions"]) >= 1
@@ -232,8 +226,7 @@ class TestValidateAllWorkflows:
     def test_validate_directory(self, tmp_path: Path) -> None:
         """Test validating all workflows in a directory."""
         # Create test workflows
-        (tmp_path / "workflow1.yml").write_text(
-            """
+        (tmp_path / "workflow1.yml").write_text("""
 name: W1
 on: push
 jobs:
@@ -242,10 +235,8 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-"""
-        )
-        (tmp_path / "workflow2.yaml").write_text(
-            """
+""")
+        (tmp_path / "workflow2.yaml").write_text("""
 name: W2
 on: push
 jobs:
@@ -253,8 +244,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-"""
-        )
+""")
 
         results = validate_all_workflows(str(tmp_path))
         assert "workflow1.yml" in results
