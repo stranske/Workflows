@@ -58,6 +58,7 @@ jobs:
   # Resolve PR number from different trigger types
   resolve:
     name: Resolve PR
+    if: vars.USE_CONSOLIDATED_WORKFLOWS != 'true'
     runs-on: ubuntu-latest
     outputs:
       pr_number: ${{ steps.resolve.outputs.pr_number }}
@@ -151,7 +152,7 @@ jobs:
   handle:
     name: Handle bot comments
     needs: resolve
-    if: needs.resolve.outputs.should_run == 'true'
+    if: vars.USE_CONSOLIDATED_WORKFLOWS != 'true' && needs.resolve.outputs.should_run == 'true'
     uses: stranske/Workflows/.github/workflows/reusable-bot-comment-handler.yml@main
     with:
       pr_number: ${{ needs.resolve.outputs.pr_number }}
@@ -167,6 +168,7 @@ jobs:
     needs: [resolve, handle]
     if: |
       always() &&
+      vars.USE_CONSOLIDATED_WORKFLOWS != 'true' &&
       github.event_name == 'pull_request' &&
       github.event.label.name == 'autofix:bot-comments'
     runs-on: ubuntu-latest

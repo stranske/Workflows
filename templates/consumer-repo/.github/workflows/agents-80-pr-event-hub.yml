@@ -1,0 +1,455 @@
+# Consolidated PR event hub for consumer repos.
+# Replaces agents-pr-meta.yml, agents-bot-comment-handler.yml, and agents-verify-to-issue-v2.yml
+# when USE_CONSOLIDATED_WORKFLOWS is enabled.
+
+name: Agents PR Event Hub
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request:
+    types: [opened, synchronize, reopened, edited, labeled]
+  pull_request_target:
+    types: [labeled]
+  workflow_run:
+    workflows: ["Gate"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to process'
+        required: true
+        type: string
+      handler:
+        description: 'Optional handler override (pr-meta or bot-comments)'
+        required: false
+        type: string
+        default: ''
+      dry_run:
+        description: 'Preview without making changes (bot-comments handler)'
+        required: false
+        type: boolean
+        default: false
+      debug:
+        description: 'Enable debug logging (pr-meta handler)'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  actions: write
+  checks: read
+  contents: read
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: >-
+    pr-event-hub-${{ github.event.pull_request.number ||
+      github.event.issue.number ||
+      github.event.workflow_run.pull_requests[0].number ||
+      inputs.pr_number ||
+      github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  resolve:
+    name: Resolve event context
+    if: vars.USE_CONSOLIDATED_WORKFLOWS == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    outputs:
+      pr_number: ${{ steps.resolve.outputs.pr_number }}
+      comment_id: ${{ steps.resolve.outputs.comment_id }}
+      comment_body: ${{ steps.resolve.outputs.comment_body }}
+      event_name: ${{ steps.resolve.outputs.event_name }}
+      event_action: ${{ steps.resolve.outputs.event_action }}
+      label_name: ${{ steps.resolve.outputs.label_name }}
+      run_pr_meta: ${{ steps.resolve.outputs.run_pr_meta }}
+      run_bot_comments: ${{ steps.resolve.outputs.run_bot_comments }}
+      run_verify_to_issue: ${{ steps.resolve.outputs.run_verify_to_issue }}
+      gate_conclusion: ${{ steps.resolve.outputs.gate_conclusion }}
+      dry_run: ${{ steps.resolve.outputs.dry_run }}
+      debug: ${{ steps.resolve.outputs.debug }}
+    steps:
+      - name: Resolve handler inputs
+        id: resolve
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const eventName = context.eventName;
+            const payload = context.payload || {};
+            const outputs = {
+              pr_number: '',
+              comment_id: '',
+              comment_body: '',
+              event_name: eventName,
+              event_action: payload.action || '',
+              label_name: payload.label?.name || '',
+              run_pr_meta: 'false',
+              run_bot_comments: 'false',
+              run_verify_to_issue: 'false',
+              gate_conclusion: '',
+              dry_run: 'false',
+              debug: 'false',
+            };
+
+            if (eventName === 'issue_comment') {
+              const issue = payload.issue;
+              if (issue?.pull_request) {
+                outputs.pr_number = String(issue.number || '');
+                outputs.comment_id = String(payload.comment?.id || '');
+                outputs.comment_body = Buffer.from(payload.comment?.body || '').toString('base64');
+                outputs.run_pr_meta = 'true';
+              }
+            }
+
+            if (eventName === 'pull_request') {
+              outputs.pr_number = String(payload.pull_request?.number || '');
+              outputs.label_name = payload.label?.name || '';
+              const action = payload.action || '';
+              if (['opened', 'synchronize', 'reopened', 'edited'].includes(action)) {
+                outputs.run_pr_meta = 'true';
+              }
+              if (action === 'labeled' && outputs.label_name === 'autofix:bot-comments') {
+                outputs.run_bot_comments = 'true';
+              }
+            }
+
+            if (eventName === 'pull_request_target') {
+              outputs.pr_number = String(payload.pull_request?.number || '');
+              outputs.label_name = payload.label?.name || '';
+              if (payload.action === 'labeled' && outputs.label_name === 'verify:create-issue') {
+                outputs.run_verify_to_issue = 'true';
+              }
+            }
+
+            if (eventName === 'workflow_run') {
+              const run = payload.workflow_run || {};
+              const prs = Array.isArray(run.pull_requests) ? run.pull_requests : [];
+              if (prs[0]?.number) {
+                outputs.pr_number = String(prs[0].number || '');
+                outputs.gate_conclusion = String(run.conclusion || run.status || '');
+                outputs.event_action = outputs.gate_conclusion;
+                outputs.run_pr_meta = 'true';
+                if ((run.conclusion || '').toLowerCase() === 'success') {
+                  outputs.run_bot_comments = 'true';
+                }
+              }
+            }
+
+            if (eventName === 'workflow_dispatch') {
+              const inputs = payload.inputs || {};
+              outputs.pr_number = String(inputs.pr_number || '');
+              outputs.event_action = 'workflow_dispatch';
+              outputs.dry_run = String(inputs.dry_run || 'false');
+              outputs.debug = String(inputs.debug || 'false');
+              const handler = String(inputs.handler || '').trim();
+              if (!handler || handler === 'pr-meta') {
+                outputs.run_pr_meta = 'true';
+              }
+              if (!handler || handler === 'bot-comments') {
+                outputs.run_bot_comments = 'true';
+              }
+            }
+
+            Object.entries(outputs).forEach(([key, value]) => core.setOutput(key, value));
+
+  pr_context:
+    name: Fetch PR context
+    needs: resolve
+    if: |
+      needs.resolve.outputs.pr_number != '' &&
+      (needs.resolve.outputs.run_pr_meta == 'true' || needs.resolve.outputs.run_bot_comments == 'true')
+    uses: stranske/Workflows/.github/workflows/reusable-pr-context.yml@main
+    with:
+      pr_number: ${{ fromJSON(needs.resolve.outputs.pr_number) }}
+    secrets: inherit
+
+  handlers:
+    name: Run PR handlers
+    needs: [resolve, pr_context]
+    if: |
+      needs.resolve.outputs.pr_number != '' &&
+      (needs.resolve.outputs.run_pr_meta == 'true' || needs.resolve.outputs.run_bot_comments == 'true')
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        handler: [pr-meta, bot-comments]
+    steps:
+      - name: PR meta handler
+        if: matrix.handler == 'pr-meta' && needs.resolve.outputs.run_pr_meta == 'true'
+        uses: stranske/Workflows/.github/workflows/reusable-20-pr-meta.yml@main
+        with:
+          pr_number: ${{ fromJSON(needs.resolve.outputs.pr_number) }}
+          comment_id: ${{ needs.resolve.outputs.comment_id }}
+          comment_body: ${{ needs.resolve.outputs.comment_body }}
+          event_name: ${{ needs.resolve.outputs.event_name }}
+          event_action: ${{ needs.resolve.outputs.event_action }}
+          allowed_keepalive_logins: ${{ vars.ALLOWED_KEEPALIVE_LOGINS }}
+          allow_replay: ${{ needs.resolve.outputs.event_name == 'workflow_run' }}
+          dry_run: ${{ needs.resolve.outputs.debug == 'true' }}
+        secrets: inherit
+
+      - name: Bot comment handler
+        if: |
+          matrix.handler == 'bot-comments' &&
+          needs.resolve.outputs.run_bot_comments == 'true' &&
+          (
+            needs.resolve.outputs.event_name != 'workflow_run' ||
+            (needs.resolve.outputs.gate_conclusion == 'success' && needs.pr_context.outputs.has_agent_label == 'true')
+          )
+        uses: stranske/Workflows/.github/workflows/reusable-bot-comment-handler.yml@main
+        with:
+          pr_number: ${{ fromJSON(needs.resolve.outputs.pr_number) }}
+          dry_run: ${{ needs.resolve.outputs.dry_run == 'true' }}
+        secrets:
+          service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
+          gh_app_id: ${{ secrets.GH_APP_ID }}
+          gh_app_private_key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+
+  cleanup_bot_comment_label:
+    name: Cleanup bot comment label
+    needs: [resolve, handlers]
+    if: |
+      always() &&
+      needs.resolve.outputs.run_bot_comments == 'true' &&
+      needs.resolve.outputs.event_name == 'pull_request' &&
+      needs.resolve.outputs.label_name == 'autofix:bot-comments'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Remove trigger label
+        uses: actions/github-script@v8
+        with:
+          script: |
+            try {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number,
+                name: 'autofix:bot-comments'
+              });
+              console.log('Removed autofix:bot-comments label');
+            } catch (error) {
+              console.log(`Could not remove label: ${error.message}`);
+            }
+
+  verify_to_issue:
+    name: Create issue from verification (enhanced)
+    needs: resolve
+    if: needs.resolve.outputs.run_verify_to_issue == 'true'
+    runs-on: ubuntu-latest
+    env:
+      PYTHON_VERSION: "3.12"
+    steps:
+      - name: Check PR is merged
+        id: check-merged
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            if (!pr.merged) {
+              core.setFailed('PR must be merged before creating follow-up issue');
+              return;
+            }
+            core.setOutput('merged', 'true');
+            core.setOutput('pr_number', pr.number);
+            core.setOutput('pr_title', pr.title);
+
+      - name: Checkout repository
+        if: steps.check-merged.outputs.merged == 'true'
+        uses: actions/checkout@v6
+        with:
+          repository: stranske/Workflows
+          token: ${{ secrets.CODESPACES_WORKFLOWS || github.token }}
+          sparse-checkout: |
+            scripts/langchain
+            tools
+
+      - name: Set up Python
+        if: steps.check-merged.outputs.merged == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        if: steps.check-merged.outputs.merged == 'true'
+        run: |
+          pip install langchain langchain-openai requests
+
+      - name: Collect verification and original issue data
+        id: collect
+        if: steps.check-merged.outputs.merged == 'true'
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const fs = require('fs');
+            const prNumber = context.payload.pull_request.number;
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              per_page: 100
+            });
+
+            const verifyComments = comments.filter(c =>
+              c.body.includes('## PR Verification Report') ||
+              c.body.includes('## PR Verification Comparison') ||
+              c.body.includes('### Concerns') ||
+              c.body.includes('Verdict:') ||
+              c.body.includes('### ⚠️ Issues Detected')
+            );
+
+            if (verifyComments.length === 0) {
+              core.setFailed(
+                'No verification comment found. ' +
+                'Add verify:evaluate or verify:compare label first.'
+              );
+              return;
+            }
+
+            const verificationText = verifyComments.map(c => c.body).join('\n\n---\n\n');
+            fs.writeFileSync('verification_data.txt', verificationText);
+            core.info(`Found ${verifyComments.length} verification comment(s)`);
+
+            const prBody = context.payload.pull_request.body || '';
+            const issueMatches = prBody.match(/(close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s*#(\d+)/gi);
+            let linkedIssueNumber = null;
+
+            if (issueMatches) {
+              const match = issueMatches[0].match(/#(\d+)/);
+              if (match) {
+                linkedIssueNumber = parseInt(match[1]);
+              }
+            }
+
+            if (!linkedIssueNumber) {
+              const titleMatch = context.payload.pull_request.title.match(/#(\d+)/);
+              if (titleMatch) {
+                linkedIssueNumber = parseInt(titleMatch[1]);
+              }
+            }
+
+            let originalIssueBody = '';
+            let originalIssueTitle = '';
+
+            if (linkedIssueNumber) {
+              core.info(`Found linked issue #${linkedIssueNumber}`);
+              try {
+                const { data: issue } = await github.rest.issues.get({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: linkedIssueNumber
+                });
+                originalIssueBody = issue.body || '';
+                originalIssueTitle = issue.title || '';
+                core.setOutput('original_issue_number', linkedIssueNumber);
+                core.setOutput('original_issue_title', originalIssueTitle);
+              } catch (error) {
+                core.warning(`Could not fetch issue #${linkedIssueNumber}: ${error.message}`);
+              }
+            } else {
+              core.warning('No linked issue found in PR body or title');
+            }
+
+            fs.writeFileSync('original_issue.txt', originalIssueBody);
+
+            core.setOutput('has_original_issue', linkedIssueNumber ? 'true' : 'false');
+
+      - name: Generate follow-up issue
+        id: generate
+        if: steps.check-merged.outputs.merged == 'true'
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ORIGINAL_ISSUE_NUMBER: ${{ steps.collect.outputs.original_issue_number }}
+          ORIGINAL_ISSUE_TITLE: ${{ steps.collect.outputs.original_issue_title }}
+          PR_NUMBER: ${{ steps.check-merged.outputs.pr_number }}
+        run: |
+          python scripts/langchain/followup_issue_generator.py \
+            --verification-comment verification_data.txt \
+            --original-issue original_issue.txt \
+            --original-issue-number "${ORIGINAL_ISSUE_NUMBER:-0}" \
+            --original-issue-title "${ORIGINAL_ISSUE_TITLE:-}" \
+            --pr-number "${PR_NUMBER}" \
+            --json \
+            --output followup_issue.json
+
+          echo "issue_title=$(jq -r '.title' followup_issue.json)" >> "$GITHUB_OUTPUT"
+
+          {
+            echo 'issue_body<<EOF_ISSUE_BODY'
+            jq -r '.body' followup_issue.json
+            echo 'EOF_ISSUE_BODY'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Fallback to simple extraction
+        id: fallback
+        if: steps.generate.outcome == 'failure' && steps.check-merged.outputs.merged == 'true'
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const fs = require('fs');
+            const prNumber = context.payload.pull_request.number;
+            const prTitle = context.payload.pull_request.title;
+            const prUrl = context.payload.pull_request.html_url;
+
+            let verificationText = '';
+            try {
+              verificationText = fs.readFileSync('verification_data.txt', 'utf8');
+            } catch (error) {
+              core.warning('Could not read verification data');
+            }
+
+            const concernsRegex = /### Concerns\s*\n([\s\S]*?)(?=###|##|$)/i;
+            const match = verificationText.match(concernsRegex);
+            const concernsText = match ? match[1].trim() : verificationText.slice(0, 2000);
+
+            const issueTitle = `Follow-up: ${prTitle}`;
+            const issueBody = `## Summary\n\nFollow-up work from PR #${prNumber}\n\n` +
+              `PR: ${prUrl}\n\n` +
+              `## Concerns\n\n${concernsText}\n\n` +
+              `## Next Steps\n\n- [ ] Review verification feedback\n- [ ] Address the concerns listed above\n`;
+
+            core.setOutput('issue_title', issueTitle);
+            core.setOutput('issue_body', issueBody);
+
+      - name: Create issue
+        if: steps.check-merged.outputs.merged == 'true'
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const issueTitle = '${{ steps.generate.outputs.issue_title || steps.fallback.outputs.issue_title }}';
+            const issueBody = '${{ steps.generate.outputs.issue_body || steps.fallback.outputs.issue_body }}';
+
+            if (!issueTitle || !issueBody) {
+              core.setFailed('Failed to generate issue content');
+              return;
+            }
+
+            const { data: issue } = await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: issueTitle,
+              body: issueBody,
+              labels: ['agents:auto-pilot', 'from:verification']
+            });
+
+            core.info(`Created follow-up issue #${issue.number}`);
+
+      - name: Remove trigger label
+        if: always()
+        uses: actions/github-script@v8
+        with:
+          script: |
+            try {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number,
+                name: 'verify:create-issue'
+              });
+              core.info('Removed verify:create-issue label');
+            } catch (error) {
+              core.warning(`Could not remove label: ${error.message}`);
+            }

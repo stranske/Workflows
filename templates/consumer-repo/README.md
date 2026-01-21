@@ -43,6 +43,9 @@ the centralized CI and automation workflows from stranske/Workflows.
 deprecated in favor of `agents-80-pr-event-hub.yml` and `agents-81-gate-followups.yml`. Legacy
 workflows remain supported through **2026-02-15** to allow migration.
 
+**Migration toggle:** set repository variable `USE_CONSOLIDATED_WORKFLOWS=true` to enable the
+consolidated hubs. Legacy workflows will skip when this flag is set.
+
 **Note:** `agents-orchestrator.yml` is legacy. New setups should use `agents-81-gate-followups.yml`
 or `agents-keepalive-loop.yml` (during the notice window) which integrates with the Gate workflow
 for more reliable triggering.
