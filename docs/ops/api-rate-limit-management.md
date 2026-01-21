@@ -215,6 +215,14 @@ concurrency:
   cancel-in-progress: true
 ```
 
+**Needs-human:** This requires updates to `.github/workflows/*.yml`. Apply to
+high-frequency workflows (push, label, and comment triggers) so superseded runs
+cancel in favor of the most recent event. Proposed group pattern:
+`${{ github.workflow }}-${{ github.ref || github.run_id }}` for push workflows,
+`${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}`
+for pull requests, and `${{ github.workflow }}-issue-${{ github.event.issue.number }}`
+for issue comment workflows.
+
 ### 5. Proactive Rate Limit Switching (Medium Effort)
 
 Check `x-ratelimit-remaining` header and switch tokens before exhaustion:
@@ -302,6 +310,44 @@ gh api rate_limit --jq '.resources | to_entries[] | "\(.key): \(.value.remaining
 
 Remove `agents:keepalive` label to halt keepalive operations.
 
+## Debounce Options Evaluation
+
+**Option A: External Debouncer Service**
+- **What it solves:** Cancels duplicate dispatches across repos or workflow types
+  before GitHub Actions starts a run.
+- **Requirements:** Dedicated service/runtime, signed event ingestion, idempotent
+  queueing, audit log storage, per-repo policy config, and a fallback path when
+  the service is unavailable.
+- **Risks:** Adds operational overhead and a new critical dependency in the
+  automation chain.
+- **Next step:** Draft an RFC covering ownership, on-call support, and a minimal
+  MVP scope (single repo, single workflow family).
+
+**Option B: GitHub App Filtering**
+- **What it solves:** Uses a GitHub App to gate high-frequency events (e.g.,
+  label/comment/push) and dispatch workflows only for the latest state.
+- **Requirements:** App with `actions:write` and `pull_request` scopes, webhook
+  receiver for event ordering, logic to collapse duplicate events, and a
+  persistent store for run locks.
+- **Risks:** App rate limits and deployment complexity; requires webhook hosting.
+- **Next step:** Prototype an event filter for a single workflow type and measure
+  dispatch reductions before expanding.
+
+## Measuring Run Count Impact
+
+Use the run count comparison script to record before/after totals when
+debouncing is deployed:
+
+```bash
+gh api repos/<owner>/<repo>/actions/runs -f per_page=100 --paginate > runs-before.json
+gh api repos/<owner>/<repo>/actions/runs -f per_page=100 --paginate > runs-after.json
+python scripts/workflow_run_counts.py --before runs-before.json --after runs-after.json \
+  --output docs/ops/debouncing-run-counts.txt
+```
+
+**Needs-human:** capturing the before/after snapshots requires API access and
+should be recorded after concurrency updates land.
+
 ## Creating GitHub Apps
 
 1. Go to https://github.com/settings/apps/new
@@ -339,3 +385,4 @@ Remove `agents:keepalive` label to halt keepalive operations.
 - [INTEGRATION_GUIDE.md](../INTEGRATION_GUIDE.md) - Consumer repo setup
 - [SYNC_WORKFLOW.md](../SYNC_WORKFLOW.md) - Template sync process
 - [keepalive/](../keepalive/) - Keepalive workflow details
+- [debouncing-run-counts.md](debouncing-run-counts.md) - Run count measurement log

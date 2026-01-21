@@ -446,6 +446,38 @@ jobs:
 
 ---
 
+## Debouncing High-Frequency Workflows
+
+Consumer repos can reduce redundant runs by adding workflow-level concurrency groups
+with cancellation. Apply this to workflows that trigger on rapid push, label, or
+comment activity.
+
+Example patterns:
+
+```yaml
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+```
+
+```yaml
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+```
+
+```yaml
+concurrency:
+  group: ${{ github.workflow }}-issue-${{ github.event.issue.number }}
+  cancel-in-progress: true
+```
+
+Use `github.ref` for push workflows, PR numbers for pull_request workflows, and
+issue numbers for issue_comment workflows. Avoid cancellation when a workflow
+must run to completion (for example, long-running migrations).
+
+---
+
 ## Troubleshooting
 
 ### "Workflow file issue" Error
