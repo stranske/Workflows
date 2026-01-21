@@ -76,6 +76,38 @@ def test_load_config_validates_fields(tmp_path: Path) -> None:
     assert config["thresholds"]["duration_ms"]["higher_is_better"] is False
 
 
+def test_main_uses_config_defaults(tmp_path: Path) -> None:
+    metrics_path = tmp_path / "metrics.ndjson"
+    metrics_path.write_text(
+        "\n".join(
+            [
+                '{"repo": "octo/alpha", "duration_ms": 10, "timestamp": "2024-01-01T00:00:00Z"}',
+                '{"repo": "octo/alpha", "duration_ms": 20, "timestamp": "2024-01-02T00:00:00Z"}',
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    output_path = tmp_path / "dashboard.md"
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        (
+            "{"
+            f'"metrics_path": "{metrics_path}", '
+            f'"output_path": "{output_path}", '
+            '"numeric_fields": ["duration_ms"]'
+            "}"
+        ),
+        encoding="utf-8",
+    )
+
+    exit_code = generator.main(["--config", str(config_path)])
+
+    assert exit_code == 0
+    content = output_path.read_text(encoding="utf-8")
+    assert "| duration_ms |" in content
+
+
 def test_build_dashboard_includes_status_thresholds() -> None:
     entries = [
         {"repo": "octo/alpha", "duration_ms": 10, "timestamp": "2024-01-01T00:00:00Z"},
