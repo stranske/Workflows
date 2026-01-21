@@ -54,6 +54,19 @@ def test_detect_pr_context_markers_from_issue_payload() -> None:
     assert "context.payload.issue.number" in markers
 
 
+def test_detect_pr_context_markers_from_workflow_run_payload() -> None:
+    text = """
+    if (context.payload?.workflow_run?.pull_requests) {
+      console.log("workflow run PRs");
+    }
+    if (github.event.workflow_run?.pull_requests?.length) {
+      console.log("workflow run PRs count");
+    }
+    """
+    markers = detect_pr_context_markers(text)
+    assert "workflow_run.pull_requests" in markers
+
+
 def test_load_workflow_accepts_inline_text(tmp_path: Path) -> None:
     path = tmp_path / "missing.yml"
     data = load_workflow(

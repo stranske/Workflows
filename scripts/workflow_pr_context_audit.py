@@ -20,7 +20,7 @@ PR_CONTEXT_PATTERNS = {
     ),
     "context.payload.issue.number": re.compile(r"context\??\.payload\??\.issue\??\.number"),
     "context.payload.pull_request": re.compile(r"context\??\.payload\??\.pull_request"),
-    "workflow_run.pull_requests": re.compile(r"workflow_run\.pull_requests"),
+    "workflow_run.pull_requests": re.compile(r"workflow_run\??\.pull_requests"),
     "pull_request_number": re.compile(r"\bpull_request_number\b"),
 }
 
