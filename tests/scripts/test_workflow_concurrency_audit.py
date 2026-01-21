@@ -148,6 +148,33 @@ jobs:
     )
 
 
+def test_audit_marks_merge_group_as_high_frequency(tmp_path: Path) -> None:
+    workflow_dir = tmp_path / "workflows"
+    workflow_dir.mkdir()
+    _write_workflow(
+        workflow_dir / "merge.yml",
+        """
+name: Merge queue
+on: merge_group
+jobs:
+  noop:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo ok
+""",
+    )
+
+    results = workflow_concurrency_audit.audit_workflows(workflow_dir)
+    assert len(results) == 1
+    item = results[0]
+    assert item.high_frequency is True
+    assert item.action_required == "add_concurrency"
+    assert (
+        item.recommended_group
+        == "${{ github.workflow }}-merge-group-${{ github.event.merge_group.head_sha || github.sha }}"
+    )
+
+
 def test_audit_skips_non_high_frequency_by_default(tmp_path: Path) -> None:
     workflow_dir = tmp_path / "workflows"
     workflow_dir.mkdir()

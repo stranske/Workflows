@@ -12,6 +12,7 @@ import yaml
 DEFAULT_HIGH_FREQUENCY_TRIGGERS = (
     "issue_comment",
     "issues",
+    "merge_group",
     "pull_request",
     "pull_request_target",
     "push",
@@ -133,6 +134,11 @@ def suggest_concurrency_group(triggers: tuple[str, ...]) -> str | None:
             "github.event.workflow_run.pull_requests[0].number || "
             "github.event.workflow_run.id || "
             "github.run_id }}"
+        )
+    if "merge_group" in lowered:
+        return (
+            "${{ github.workflow }}-merge-group-${{ "
+            "github.event.merge_group.head_sha || github.sha }}"
         )
     if "push" in lowered:
         return "${{ github.workflow }}-${{ github.ref }}"
