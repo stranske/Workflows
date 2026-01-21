@@ -420,9 +420,9 @@ jobs:
     name: Update keepalive summary
     needs:
       - evaluate
-      - preflight
       - run-codex
     # Run always if PR exists, handle skipped agent jobs gracefully
+    # Note: preflight intentionally excluded to ensure summary runs even when action != 'run'
     if: |
       always() &&
       needs.evaluate.outputs.pr_number != '' &&
