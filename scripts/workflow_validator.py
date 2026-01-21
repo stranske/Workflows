@@ -162,9 +162,6 @@ def check_unsafe_string_interpolation(workflow: dict) -> list[tuple[str, str, st
             if not script:
                 continue
 
-            # Check if step uses env: block for the interpolated values
-            env_block = step.get("env", {})
-
             # Check for unsafe patterns
             for pattern, description in unsafe_patterns:
                 matches = re.findall(pattern, script)
@@ -177,15 +174,6 @@ def check_unsafe_string_interpolation(workflow: dict) -> list[tuple[str, str, st
                     is_safe = any(
                         re.search(safe_pat, expr) for safe_pat in safe_expression_patterns
                     )
-
-                    # Also check if this expression is passed through env block
-                    # and the script uses process.env to access it
-                    if not is_safe and env_block:
-                        # See if this expression appears in any env var value
-                        expr_in_env = any(expr in str(v) for v in env_block.values())
-                        uses_process_env = "process.env" in script
-                        if expr_in_env and uses_process_env:
-                            is_safe = True
 
                     if not is_safe:
                         issues.append(

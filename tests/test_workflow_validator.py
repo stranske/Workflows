@@ -347,6 +347,28 @@ class TestCheckUnsafeStringInterpolation:
         issues = check_unsafe_string_interpolation(workflow)
         assert len(issues) == 0
 
+    def test_env_block_does_not_mask_unsafe_interpolation(self) -> None:
+        """Test that env: block usage does not suppress unsafe interpolation warnings."""
+        workflow = {
+            "jobs": {
+                "build": {
+                    "steps": [
+                        {
+                            "name": "Unsafe with env",
+                            "env": {"TASKS_JSON": "${{ needs.run.outputs.tasks }}"},
+                            "run": (
+                                "const tasks = '${{ needs.run.outputs.tasks }}';"
+                                "console.log(process.env.OTHER);"
+                            ),
+                        }
+                    ]
+                }
+            }
+        }
+        issues = check_unsafe_string_interpolation(workflow)
+        assert len(issues) == 1
+        assert "needs.run.outputs.tasks" in issues[0][2]
+
     def test_safe_condition_pattern(self) -> None:
         """Test that if: conditions are not flagged."""
         workflow = {
