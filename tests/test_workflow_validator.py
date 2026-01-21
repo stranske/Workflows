@@ -405,6 +405,24 @@ class TestCheckUnsafeStringInterpolation:
         # Secrets are controlled, so they're generally safe
         assert len(issues) == 0
 
+    def test_complex_env_expression_is_not_safe(self) -> None:
+        """Test that complex expressions are still flagged as unsafe."""
+        workflow = {
+            "jobs": {
+                "build": {
+                    "steps": [
+                        {
+                            "name": "Complex env",
+                            "run": "const x = '${{ env.TASKS_JSON || steps.fetch.outputs.data }}'",
+                        }
+                    ]
+                }
+            }
+        }
+        issues = check_unsafe_string_interpolation(workflow)
+        assert len(issues) == 1
+        assert "env.TASKS_JSON || steps.fetch.outputs.data" in issues[0][2]
+
     def test_multiple_issues_detected(self) -> None:
         """Test that multiple unsafe patterns in same workflow are all flagged."""
         workflow = {

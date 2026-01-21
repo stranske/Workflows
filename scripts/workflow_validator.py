@@ -146,10 +146,10 @@ def check_unsafe_string_interpolation(workflow: dict) -> list[tuple[str, str, st
     # - toJSON/fromJSON results may contain special characters
     # Only patterns that are truly controlled should be listed here.
     safe_expression_patterns = [
-        r"^\s*secrets\.",  # Secret references are controlled (never user-visible)
-        r"^\s*env\.",  # Environment variables set in workflow are controlled
-        r"^\s*matrix\.",  # Matrix values are defined in workflow YAML
-        r"^\s*runner\.",  # Runner context is controlled (os, arch, etc.)
+        r"^\s*secrets\.[A-Za-z0-9_]+\s*$",  # Secret references are controlled (never user-visible)
+        r"^\s*env\.[A-Za-z0-9_]+\s*$",  # Environment variables set in workflow are controlled
+        r"^\s*matrix\.[A-Za-z0-9_]+\s*$",  # Matrix values are defined in workflow YAML
+        r"^\s*runner\.[A-Za-z0-9_]+\s*$",  # Runner context is controlled (os, arch, etc.)
     ]
 
     jobs = workflow.get("jobs", {})
