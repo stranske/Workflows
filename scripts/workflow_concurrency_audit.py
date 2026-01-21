@@ -131,10 +131,10 @@ def _action_required(
 def suggest_concurrency_group(triggers: tuple[str, ...]) -> str | None:
     """Recommend a concurrency group expression based on workflow triggers."""
     lowered = {trigger.lower() for trigger in triggers}
-    if "pull_request" in lowered or "pull_request_target" in lowered:
-        return "${{ github.workflow }}-pr-${{ github.event.pull_request.number || github.ref }}"
     if "issue_comment" in lowered or "issues" in lowered:
         return "${{ github.workflow }}-issue-${{ github.event.issue.number || github.ref }}"
+    if "pull_request" in lowered or "pull_request_target" in lowered:
+        return "${{ github.workflow }}-pr-${{ github.event.pull_request.number || github.ref }}"
     if "workflow_run" in lowered:
         return (
             "${{ github.workflow }}-workflow-run-${{ "

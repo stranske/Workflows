@@ -122,6 +122,33 @@ jobs:
     assert results[0].action_required == "add_concurrency"
 
 
+def test_audit_prefers_issue_group_when_mixed_with_pull_request(tmp_path: Path) -> None:
+    workflow_dir = tmp_path / "workflows"
+    workflow_dir.mkdir()
+    _write_workflow(
+        workflow_dir / "mixed.yml",
+        """
+name: Mixed
+on: [issues, pull_request]
+jobs:
+  noop:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo hi
+""",
+    )
+
+    results = workflow_concurrency_audit.audit_workflows(workflow_dir)
+    assert len(results) == 1
+    item = results[0]
+    assert item.high_frequency is True
+    assert item.action_required == "add_concurrency"
+    assert (
+        item.recommended_group
+        == "${{ github.workflow }}-issue-${{ github.event.issue.number || github.ref }}"
+    )
+
+
 def test_audit_marks_issues_as_high_frequency(tmp_path: Path) -> None:
     workflow_dir = tmp_path / "workflows"
     workflow_dir.mkdir()
