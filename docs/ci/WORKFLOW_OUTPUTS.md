@@ -9,13 +9,13 @@ that only emit artifacts, see the "Workflows without workflow_call outputs" sect
 <!-- OUTPUT-REFERENCE-START -->
 | Workflow | Output | Type | Description | Example |
 | --- | --- | --- | --- | --- |
-| `reusable-16-agents.yml` | `readiness_report` | string (JSON) | JSON report emitted by the readiness probe when enabled. | `needs.agents.outputs.readiness_report` |
-| `reusable-16-agents.yml` | `readiness_table` | string (Markdown) | Markdown table emitted by the readiness probe when enabled. | `needs.agents.outputs.readiness_table` |
-| `reusable-20-pr-meta.yml` | `keepalive_detected` | string (boolean-like) | `true` when a keepalive comment was detected and dispatch should proceed. | `needs.pr_meta.outputs.keepalive_detected` |
-| `reusable-20-pr-meta.yml` | `keepalive_reason` | string | Reason why the keepalive dispatch was triggered or skipped. | `needs.pr_meta.outputs.keepalive_reason` |
-| `reusable-70-orchestrator-init.yml` | `rate_limit_safe` | string (boolean-like) | Whether the rate limit precheck allows the run to proceed. | `needs.init.outputs.rate_limit_safe` |
-| `reusable-70-orchestrator-init.yml` | `has_work` | string (boolean-like) | Whether the idle precheck found work to do. | `needs.init.outputs.has_work` |
-| `reusable-70-orchestrator-init.yml` | `token_source` | string | Selected token source for keepalive writes. | `needs.init.outputs.token_source` |
+| `reusable-16-agents.yml` | `readiness_report` | string (JSON) | JSON report emitted by the readiness probe when enabled | `needs.agents.outputs.readiness_report` |
+| `reusable-16-agents.yml` | `readiness_table` | string (Markdown) | Markdown table emitted by the readiness probe when enabled | `needs.agents.outputs.readiness_table` |
+| `reusable-20-pr-meta.yml` | `keepalive_detected` | string (boolean-like) | Whether a keepalive comment was detected | `needs.pr_meta.outputs.keepalive_detected` |
+| `reusable-20-pr-meta.yml` | `keepalive_reason` | string | Reason for keepalive dispatch decision | `needs.pr_meta.outputs.keepalive_reason` |
+| `reusable-70-orchestrator-init.yml` | `rate_limit_safe` | string (boolean-like) | Whether rate limit is safe to proceed | `needs.init.outputs.rate_limit_safe` |
+| `reusable-70-orchestrator-init.yml` | `has_work` | string (boolean-like) | Whether there is work to do | `needs.init.outputs.has_work` |
+| `reusable-70-orchestrator-init.yml` | `token_source` | string | Which token to use for keepalive | `needs.init.outputs.token_source` |
 | `reusable-70-orchestrator-init.yml` | `enable_readiness` | string (boolean-like) | Resolved flag for the readiness probe. | `needs.init.outputs.enable_readiness` |
 | `reusable-70-orchestrator-init.yml` | `readiness_agents` | string | Comma-separated agent keys for readiness. | `needs.init.outputs.readiness_agents` |
 | `reusable-70-orchestrator-init.yml` | `readiness_custom_logins` | string | Comma-separated custom logins for readiness. | `needs.init.outputs.readiness_custom_logins` |
@@ -44,49 +44,49 @@ that only emit artifacts, see the "Workflows without workflow_call outputs" sect
 | `reusable-70-orchestrator-init.yml` | `keepalive_trace` | string | Keepalive trace identifier propagated to downstream runs. | `needs.init.outputs.keepalive_trace` |
 | `reusable-70-orchestrator-init.yml` | `keepalive_round` | string | Keepalive round identifier. | `needs.init.outputs.keepalive_round` |
 | `reusable-70-orchestrator-init.yml` | `keepalive_pr` | string (number-like) | Keepalive target PR number, when set. | `needs.init.outputs.keepalive_pr` |
-| `reusable-bot-comment-handler.yml` | `comments_found` | string (boolean-like) | `true` when unresolved bot comments were found. | `needs.bot_comments.outputs.comments_found` |
-| `reusable-bot-comment-handler.yml` | `comments_count` | string (number-like) | Number of unresolved bot comments. | `needs.bot_comments.outputs.comments_count` |
-| `reusable-bot-comment-handler.yml` | `agent_triggered` | string (boolean-like) | `true` when the agent workflow was dispatched. | `needs.bot_comments.outputs.agent_triggered` |
-| `reusable-pr-context.yml` | `pr_number` | string (number-like) | PR number. | `needs.context.outputs.pr_number` |
-| `reusable-pr-context.yml` | `pr_title` | string | PR title. | `needs.context.outputs.pr_title` |
-| `reusable-pr-context.yml` | `pr_body` | string | PR body (truncated at 60KB). | `needs.context.outputs.pr_body` |
-| `reusable-pr-context.yml` | `pr_state` | string | PR state (OPEN, CLOSED, MERGED). | `needs.context.outputs.pr_state` |
-| `reusable-pr-context.yml` | `pr_is_draft` | string (boolean-like) | Whether PR is a draft. | `needs.context.outputs.pr_is_draft` |
-| `reusable-pr-context.yml` | `pr_merged` | string (boolean-like) | Whether PR is merged. | `needs.context.outputs.pr_merged` |
-| `reusable-pr-context.yml` | `pr_author` | string | PR author login. | `needs.context.outputs.pr_author` |
-| `reusable-pr-context.yml` | `head_ref` | string | Head branch name. | `needs.context.outputs.head_ref` |
-| `reusable-pr-context.yml` | `base_ref` | string | Base branch name. | `needs.context.outputs.base_ref` |
-| `reusable-pr-context.yml` | `head_sha` | string | Head commit SHA. | `needs.context.outputs.head_sha` |
-| `reusable-pr-context.yml` | `labels_json` | string (JSON array) | JSON array of label names. | `needs.context.outputs.labels_json` |
-| `reusable-pr-context.yml` | `has_agent_label` | string (boolean-like) | `true` when PR has agent:* label. | `needs.context.outputs.has_agent_label` |
-| `reusable-pr-context.yml` | `has_keepalive_label` | string (boolean-like) | `true` when PR has agents:keepalive label. | `needs.context.outputs.has_keepalive_label` |
-| `reusable-pr-context.yml` | `files_count` | string (number-like) | Number of changed files. | `needs.context.outputs.files_count` |
-| `reusable-pr-context.yml` | `files_json` | string (JSON array) | JSON array of file paths. | `needs.context.outputs.files_json` |
-| `reusable-pr-context.yml` | `has_src_changes` | string (boolean-like) | `true` when PR has src/ changes. | `needs.context.outputs.has_src_changes` |
-| `reusable-pr-context.yml` | `has_test_changes` | string (boolean-like) | `true` when PR has test changes. | `needs.context.outputs.has_test_changes` |
-| `reusable-pr-context.yml` | `has_workflow_changes` | string (boolean-like) | `true` when PR has workflow changes. | `needs.context.outputs.has_workflow_changes` |
-| `reusable-pr-context.yml` | `ci_status` | string | CI status (SUCCESS, FAILURE, PENDING). | `needs.context.outputs.ci_status` |
-| `reusable-pr-context.yml` | `checks_json` | string (JSON array) | JSON array of check results. | `needs.context.outputs.checks_json` |
-| `reusable-pr-context.yml` | `full_context_json` | string (JSON) | Full PR context as serialized JSON. | `needs.context.outputs.full_context_json` |
-| `reusable-codex-run.yml` | `final-message` | string (base64) | Base64-encoded full Codex output. | `needs.codex.outputs.final-message` |
-| `reusable-codex-run.yml` | `final-message-summary` | string | First 500 chars of Codex output, safe for comments. | `needs.codex.outputs.final-message-summary` |
-| `reusable-codex-run.yml` | `exit-code` | string (number-like) | Codex CLI exit code (`0` success). | `needs.codex.outputs.exit-code` |
-| `reusable-codex-run.yml` | `changes-made` | string (boolean-like) | `true` when Codex modified files. | `needs.codex.outputs.changes-made` |
-| `reusable-codex-run.yml` | `commit-sha` | string | Commit SHA when changes were pushed. | `needs.codex.outputs.commit-sha` |
-| `reusable-codex-run.yml` | `files-changed` | string (number-like) | Number of files changed by Codex. | `needs.codex.outputs.files-changed` |
-| `reusable-codex-run.yml` | `error-category` | string | Error category (`transient`, `auth`, `resource`, `logic`, `unknown`). | `needs.codex.outputs.error-category` |
-| `reusable-codex-run.yml` | `error-type` | string | Error type (`codex`, `infrastructure`, `auth`, `unknown`). | `needs.codex.outputs.error-type` |
-| `reusable-codex-run.yml` | `error-recovery` | string | Suggested recovery action if a failure occurred. | `needs.codex.outputs.error-recovery` |
-| `reusable-codex-run.yml` | `llm-analysis-run` | string (boolean-like) | `true` when LLM analysis was performed. | `needs.codex.outputs.llm-analysis-run` |
-| `reusable-codex-run.yml` | `llm-provider` | string | LLM provider used (`github-models`, `openai`, `regex-fallback`). | `needs.codex.outputs.llm-provider` |
-| `reusable-codex-run.yml` | `llm-confidence` | string (number-like) | Analysis confidence level (0-1). | `needs.codex.outputs.llm-confidence` |
-| `reusable-codex-run.yml` | `llm-completed-tasks` | string (JSON) | JSON array of detected task completions. | `needs.codex.outputs.llm-completed-tasks` |
-| `reusable-codex-run.yml` | `llm-has-completions` | string (boolean-like) | `true` when task completions were detected. | `needs.codex.outputs.llm-has-completions` |
-| `reusable-codex-run.yml` | `llm-raw-confidence` | string (number-like) | Raw confidence before BS detection adjustment (0-1). | `needs.codex.outputs.llm-raw-confidence` |
-| `reusable-codex-run.yml` | `llm-effort-score` | string (number-like) | Estimated effort score based on session activity. | `needs.codex.outputs.llm-effort-score` |
-| `reusable-codex-run.yml` | `llm-data-quality` | string | Session data quality level (`high`, `medium`, `low`, `minimal`). | `needs.codex.outputs.llm-data-quality` |
-| `reusable-codex-run.yml` | `llm-analysis-text-length` | string (number-like) | Length of analysis text sent to LLM. | `needs.codex.outputs.llm-analysis-text-length` |
-| `reusable-codex-run.yml` | `llm-quality-warnings` | string (JSON) | JSON array of quality warnings from BS detector. | `needs.codex.outputs.llm-quality-warnings` |
+| `reusable-bot-comment-handler.yml` | `comments_found` | string (boolean-like) | Whether unresolved bot comments were found | `needs.bot_comments.outputs.comments_found` |
+| `reusable-bot-comment-handler.yml` | `comments_count` | string (number-like) | Number of unresolved bot comments found | `needs.bot_comments.outputs.comments_count` |
+| `reusable-bot-comment-handler.yml` | `agent_triggered` | string (boolean-like) | Whether the agent was triggered to address comments | `needs.bot_comments.outputs.agent_triggered` |
+| `reusable-pr-context.yml` | `pr_number` | string (number-like) | PR number | `needs.context.outputs.pr_number` |
+| `reusable-pr-context.yml` | `pr_title` | string | PR title | `needs.context.outputs.pr_title` |
+| `reusable-pr-context.yml` | `pr_body` | string | PR body (may be truncated for very long bodies) | `needs.context.outputs.pr_body` |
+| `reusable-pr-context.yml` | `pr_state` | string | PR state (OPEN, CLOSED, MERGED) | `needs.context.outputs.pr_state` |
+| `reusable-pr-context.yml` | `pr_is_draft` | string (boolean-like) | Whether PR is a draft | `needs.context.outputs.pr_is_draft` |
+| `reusable-pr-context.yml` | `pr_merged` | string (boolean-like) | Whether PR is merged | `needs.context.outputs.pr_merged` |
+| `reusable-pr-context.yml` | `pr_author` | string | PR author login | `needs.context.outputs.pr_author` |
+| `reusable-pr-context.yml` | `head_ref` | string | Head branch name | `needs.context.outputs.head_ref` |
+| `reusable-pr-context.yml` | `base_ref` | string | Base branch name | `needs.context.outputs.base_ref` |
+| `reusable-pr-context.yml` | `head_sha` | string | Head commit SHA | `needs.context.outputs.head_sha` |
+| `reusable-pr-context.yml` | `labels_json` | string (JSON array) | JSON array of label names | `needs.context.outputs.labels_json` |
+| `reusable-pr-context.yml` | `has_agent_label` | string (boolean-like) | Whether PR has any agent:* label | `needs.context.outputs.has_agent_label` |
+| `reusable-pr-context.yml` | `has_keepalive_label` | string (boolean-like) | Whether PR has agents:keepalive label | `needs.context.outputs.has_keepalive_label` |
+| `reusable-pr-context.yml` | `files_count` | string (number-like) | Number of changed files | `needs.context.outputs.files_count` |
+| `reusable-pr-context.yml` | `files_json` | string (JSON array) | JSON array of changed file paths | `needs.context.outputs.files_json` |
+| `reusable-pr-context.yml` | `has_src_changes` | string (boolean-like) | Whether changes include src/ files | `needs.context.outputs.has_src_changes` |
+| `reusable-pr-context.yml` | `has_test_changes` | string (boolean-like) | Whether changes include test files | `needs.context.outputs.has_test_changes` |
+| `reusable-pr-context.yml` | `has_workflow_changes` | string (boolean-like) | Whether changes include .github/workflows/ | `needs.context.outputs.has_workflow_changes` |
+| `reusable-pr-context.yml` | `ci_status` | string | Overall CI status (SUCCESS, FAILURE, PENDING, etc.) | `needs.context.outputs.ci_status` |
+| `reusable-pr-context.yml` | `checks_json` | string (JSON array) | JSON array of check results | `needs.context.outputs.checks_json` |
+| `reusable-pr-context.yml` | `full_context_json` | string (JSON) | Full PR context as JSON (use sparingly - large) | `needs.context.outputs.full_context_json` |
+| `reusable-codex-run.yml` | `final-message` | string (base64) | Full Codex output message (base64 encoded) | `needs.codex.outputs.final-message` |
+| `reusable-codex-run.yml` | `final-message-summary` | string | First 500 chars of Codex output (safe for PR comments) | `needs.codex.outputs.final-message-summary` |
+| `reusable-codex-run.yml` | `exit-code` | string (number-like) | Codex CLI exit code (0=success) | `needs.codex.outputs.exit-code` |
+| `reusable-codex-run.yml` | `changes-made` | string (boolean-like) | Whether Codex made file changes (true/false) | `needs.codex.outputs.changes-made` |
+| `reusable-codex-run.yml` | `commit-sha` | string | SHA of the commit if changes were pushed | `needs.codex.outputs.commit-sha` |
+| `reusable-codex-run.yml` | `files-changed` | string (number-like) | Number of files changed by Codex | `needs.codex.outputs.files-changed` |
+| `reusable-codex-run.yml` | `error-category` | string | Error category if failure occurred (transient/auth/resource/logic/unknown) | `needs.codex.outputs.error-category` |
+| `reusable-codex-run.yml` | `error-type` | string | Error type if failure occurred (codex/infrastructure/auth/unknown) | `needs.codex.outputs.error-type` |
+| `reusable-codex-run.yml` | `error-recovery` | string | Suggested recovery action if failure occurred | `needs.codex.outputs.error-recovery` |
+| `reusable-codex-run.yml` | `llm-analysis-run` | string (boolean-like) | Whether LLM analysis was performed | `needs.codex.outputs.llm-analysis-run` |
+| `reusable-codex-run.yml` | `llm-provider` | string | LLM provider used for analysis (github-models, openai, regex-fallback) | `needs.codex.outputs.llm-provider` |
+| `reusable-codex-run.yml` | `llm-confidence` | string (number-like) | Confidence level of LLM analysis (0-1) | `needs.codex.outputs.llm-confidence` |
+| `reusable-codex-run.yml` | `llm-completed-tasks` | string (JSON) | JSON array of completed task descriptions | `needs.codex.outputs.llm-completed-tasks` |
+| `reusable-codex-run.yml` | `llm-has-completions` | string (boolean-like) | Whether any task completions were detected | `needs.codex.outputs.llm-has-completions` |
+| `reusable-codex-run.yml` | `llm-raw-confidence` | string (number-like) | Raw confidence before BS detection adjustment (0-1) | `needs.codex.outputs.llm-raw-confidence` |
+| `reusable-codex-run.yml` | `llm-effort-score` | string (number-like) | Estimated effort score based on session activity | `needs.codex.outputs.llm-effort-score` |
+| `reusable-codex-run.yml` | `llm-data-quality` | string | Session data quality level (high, medium, low, minimal) | `needs.codex.outputs.llm-data-quality` |
+| `reusable-codex-run.yml` | `llm-analysis-text-length` | string (number-like) | Length of analysis text sent to LLM | `needs.codex.outputs.llm-analysis-text-length` |
+| `reusable-codex-run.yml` | `llm-quality-warnings` | string (JSON) | JSON array of quality warnings from BS detector | `needs.codex.outputs.llm-quality-warnings` |
 <!-- OUTPUT-REFERENCE-END -->
 
 ## Workflows without workflow_call outputs

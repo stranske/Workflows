@@ -30,9 +30,9 @@ def _extract_block(text: str, start: str, end: str) -> str:
     return text.split(start, 1)[1].split(end, 1)[0]
 
 
-def _parse_reference_table(text: str) -> dict[str, set[str]]:
+def _parse_reference_table(text: str) -> dict[str, dict[str, str]]:
     block = _extract_block(text, REFERENCE_START, REFERENCE_END)
-    outputs: dict[str, set[str]] = {}
+    outputs: dict[str, dict[str, str]] = {}
     for line in block.splitlines():
         line = line.strip()
         if not line.startswith("|"):
@@ -55,7 +55,7 @@ def _parse_reference_table(text: str) -> dict[str, set[str]]:
         assert (
             f"outputs.{output_name}" in example_value
         ), f"Example should reference outputs.{output_name} for {workflow}"
-        outputs.setdefault(workflow.strip("`"), set()).add(output_name)
+        outputs.setdefault(workflow.strip("`"), {})[output_name] = description
     return outputs
 
 
@@ -91,7 +91,15 @@ def test_reusable_workflow_outputs_documented() -> None:
         outputs = _workflow_outputs(workflow)
         if outputs:
             assert path.name in documented_outputs, f"{path.name} outputs missing from docs"
-            assert set(outputs.keys()) == documented_outputs[path.name]
+            assert set(outputs.keys()) == set(documented_outputs[path.name])
+            for output_name, output_spec in outputs.items():
+                workflow_description = (output_spec.get("description") or "").strip()
+                if not workflow_description:
+                    continue
+                documented_description = documented_outputs[path.name][output_name]
+                assert (
+                    documented_description == workflow_description
+                ), f"{path.name}.{output_name} description mismatch"
         else:
             assert (
                 path.name in no_output_workflows
