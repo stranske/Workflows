@@ -1,0 +1,119 @@
+version: 1
+issue: 1010
+base: main
+branch: codex/issue-1010
+tasks:
+  - id: task-01
+    title: Add concurrency groups with cancel-in-progress to high-frequency workflows.
+    status: doing
+    started_at: '2026-01-21T14:31:36Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: Document debounce patterns for consumer repos.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: Evaluate advanced options (external debouncer service or GitHub App filtering)
+      and capture requirements.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: Measure workflow run counts before and after debouncing.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: Add concurrency groups with cancel-in-progress to high-frequency workflows.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: Document debounce patterns for consumer repos.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: Evaluate advanced options (external debouncer service or GitHub App filtering)
+      and capture requirements.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: Measure workflow run counts before and after debouncing.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: High-frequency workflows use concurrency groups to cancel superseded runs.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: Debounce patterns are documented for consumers.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: Advanced debouncing options are evaluated with clear next steps.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: Run count impact is measured and recorded.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: High-frequency workflows use concurrency groups to cancel superseded runs.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: Debounce patterns are documented for consumers.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: Advanced debouncing options are evaluated with clear next steps.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: Run count impact is measured and recorded.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
