@@ -113,6 +113,20 @@ def test_detect_pr_context_markers_from_bracket_notation() -> None:
     assert "workflow_run.pull_requests" in markers
 
 
+def test_detect_pr_context_markers_ignores_partial_segment_matches() -> None:
+    text = """
+    if (github.event.pull_requester) {
+      console.log("Not a PR");
+    }
+    if (context.payload.issue_number) {
+      console.log("Not an issue number segment");
+    }
+    """
+    markers = detect_pr_context_markers(text)
+    assert "github.event.pull_request" not in markers
+    assert "github.event.issue.number" not in markers
+
+
 def test_load_workflow_accepts_inline_text(tmp_path: Path) -> None:
     path = tmp_path / "missing.yml"
     data = load_workflow(

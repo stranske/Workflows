@@ -32,7 +32,8 @@ def build_path_pattern(path: str) -> re.Pattern[str]:
     pattern = re.escape(segments[0])
     for segment in segments[1:]:
         escaped = re.escape(segment)
-        pattern += rf"(?:\??\.(?:{escaped})|(?:\??\.)?\[['\"]{escaped}['\"]\])"
+        dot_segment = rf"{escaped}\b"
+        pattern += rf"(?:\??\.(?:{dot_segment})|(?:\??\.)?\[['\"]{escaped}['\"]\])"
     return re.compile(pattern)
 
 
