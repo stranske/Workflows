@@ -3,6 +3,7 @@ from pathlib import Path
 from scripts.workflow_pr_context_audit import (
     audit_workflows,
     detect_pr_context_markers,
+    format_table,
     load_workflow,
     normalize_triggers,
     summarize_by_triggers,
@@ -41,6 +42,9 @@ def test_detect_pr_context_markers_from_issue_payload() -> None:
     if (context.payload?.issue?.pull_request) {
       console.log("PR comment");
     }
+    if (github.event.issue?.pull_request?.url) {
+      console.log("Issue PR link");
+    }
     if (github.event.issue?.number) {
       console.log("Issue number");
     }
@@ -50,6 +54,7 @@ def test_detect_pr_context_markers_from_issue_payload() -> None:
     """
     markers = detect_pr_context_markers(text)
     assert "context.payload.issue.pull_request" in markers
+    assert "github.event.issue.pull_request" in markers
     assert "github.event.issue.number" in markers
     assert "context.payload.issue.number" in markers
 
@@ -155,6 +160,25 @@ on: [
 
     assert by_name["invalid.yml"].valid is False
     assert by_name["invalid.yml"].error == "invalid-yaml"
+
+
+def test_format_table_includes_error_column(tmp_path: Path) -> None:
+    workflows_dir = tmp_path / "workflows"
+    workflows_dir.mkdir()
+
+    _write(
+        workflows_dir / "invalid.yml",
+        """
+name: Invalid
+on: [
+""",
+    )
+
+    table = format_table(audit_workflows(workflows_dir))
+    lines = table.splitlines()
+
+    assert lines[0].endswith("valid\terror")
+    assert any(line.endswith("\tinvalid-yaml") for line in lines[1:])
 
 
 def test_summarize_by_triggers_groups_workflows(tmp_path: Path) -> None:
