@@ -40,6 +40,10 @@ The dashboard is a single markdown file with these sections:
 
 ## Troubleshooting
 
+Use the checks below to isolate whether the issue is in collection, aggregation,
+or dashboard generation. Keep the most recent raw NDJSON and summary JSON
+available when comparing output.
+
 ### Missing data
 
 Symptoms: Repo is absent from the dashboard, or entry counts are zero.
