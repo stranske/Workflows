@@ -206,6 +206,33 @@ jobs:
     )
 
 
+def test_audit_marks_pull_request_target_as_high_frequency(tmp_path: Path) -> None:
+    workflow_dir = tmp_path / "workflows"
+    workflow_dir.mkdir()
+    _write_workflow(
+        workflow_dir / "pr-target.yml",
+        """
+name: PR Target
+on: pull_request_target
+jobs:
+  noop:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo ok
+""",
+    )
+
+    results = workflow_concurrency_audit.audit_workflows(workflow_dir)
+    assert len(results) == 1
+    item = results[0]
+    assert item.high_frequency is True
+    assert item.action_required == "add_concurrency"
+    assert (
+        item.recommended_group
+        == "${{ github.workflow }}-pr-${{ github.event.pull_request.number || github.ref }}"
+    )
+
+
 def test_audit_skips_non_high_frequency_by_default(tmp_path: Path) -> None:
     workflow_dir = tmp_path / "workflows"
     workflow_dir.mkdir()
