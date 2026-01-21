@@ -141,10 +141,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     """CLI entry point."""
     args = parse_args()
-    if args.format == "json":
-        payload = render_json(OPTIONS)
-    else:
-        payload = render_markdown(OPTIONS)
+    payload = render_json(OPTIONS) if args.format == "json" else render_markdown(OPTIONS)
 
     if args.output == "-":
         print(payload, end="")

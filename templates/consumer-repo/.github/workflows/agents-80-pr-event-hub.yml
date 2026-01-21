@@ -423,8 +423,12 @@ jobs:
         uses: actions/github-script@v8
         with:
           script: |
-            const issueTitle = '${{ steps.generate.outputs.issue_title || steps.fallback.outputs.issue_title }}';
-            const issueBody = '${{ steps.generate.outputs.issue_body || steps.fallback.outputs.issue_body }}';
+            const issueTitle = (
+              '${{ steps.generate.outputs.issue_title || steps.fallback.outputs.issue_title }}'
+            );
+            const issueBody = (
+              '${{ steps.generate.outputs.issue_body || steps.fallback.outputs.issue_body }}'
+            );
 
             if (!issueTitle || !issueBody) {
               core.setFailed('Failed to generate issue content');
