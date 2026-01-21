@@ -1,0 +1,160 @@
+version: 1
+issue: 811
+base: main
+branch: codex/issue-811
+tasks:
+  - id: task-01
+    title: Implement fixture data for deterministic testing in `tests/fixtures/sample_metrics.json`
+    status: done
+    started_at: '2026-01-21T03:48:57Z'
+    finished_at: '2026-01-21T03:49:05Z'
+    commit: 783f95f862af626138088e71bdd2b2afd0e7a526
+    notes: []
+  - id: task-02
+    title: Add CI workflow step for dashboard E2E tests in `.github/workflows/ci.yml`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: Write user guide for interpreting dashboard metrics in `docs/metrics-user-guide.md`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: Write developer guide for adding new metrics in `docs/metrics-developer-guide.md`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: Create troubleshooting section for common issues in `docs/metrics-user-guide.md`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: Create `tests/e2e/test_metrics_dashboard.py` to validate the end-to-end
+      metrics pipeline from data collection to dashboard generation.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: Create tests/e2e/test_metrics_dashboard.py
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: Implement fixture data for deterministic testing
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: Add CI workflow step for dashboard E2E tests
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: Write user guide for interpreting dashboard metrics
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: Write developer guide for adding new metrics
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: Create troubleshooting section for common issues
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: "E2E test covers full pipeline: collect \u2192 aggregate \u2192 generate"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: Test uses fixture data for reproducibility
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: CI fails if dashboard generation breaks
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: Documentation explains all dashboard sections
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: 'Troubleshooting covers: missing data, stale metrics, badge failures'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: "E2E test covers full pipeline: collect \u2192 aggregate \u2192 generate"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: Test uses fixture data for reproducibility
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: CI fails if dashboard generation breaks
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: Documentation explains all dashboard sections
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: 'Troubleshooting covers: missing data, stale metrics, badge failures'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []

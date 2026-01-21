@@ -23,7 +23,7 @@ env:
 
 jobs:
   create-issue:
-    if: github.event.label.name == 'verify:create-issue'
+    if: vars.USE_CONSOLIDATED_WORKFLOWS != 'true' && github.event.label.name == 'verify:create-issue'
     runs-on: ubuntu-latest
     steps:
       - name: Check PR is merged

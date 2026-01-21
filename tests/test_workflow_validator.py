@@ -347,6 +347,65 @@ class TestCheckUnsafeStringInterpolation:
         issues = check_unsafe_string_interpolation(workflow)
         assert len(issues) == 0
 
+    def test_env_block_does_not_mask_unsafe_interpolation(self) -> None:
+        """Test that env: block usage does not suppress unsafe interpolation warnings."""
+        workflow = {
+            "jobs": {
+                "build": {
+                    "steps": [
+                        {
+                            "name": "Unsafe with env",
+                            "env": {"TASKS_JSON": "${{ needs.run.outputs.tasks }}"},
+                            "run": (
+                                "const tasks = '${{ needs.run.outputs.tasks }}';"
+                                "console.log(process.env.OTHER);"
+                            ),
+                        }
+                    ]
+                }
+            }
+        }
+        issues = check_unsafe_string_interpolation(workflow)
+        assert len(issues) == 1
+        assert "needs.run.outputs.tasks" in issues[0][2]
+
+    def test_env_interpolation_with_static_value_is_safe(self) -> None:
+        """Test that static env values can be interpolated safely."""
+        workflow = {
+            "env": {"STATIC_VALUE": "fixed"},
+            "jobs": {
+                "build": {
+                    "steps": [
+                        {
+                            "name": "Static env",
+                            "run": "const x = '${{ env.STATIC_VALUE }}';",
+                        }
+                    ]
+                }
+            },
+        }
+        issues = check_unsafe_string_interpolation(workflow)
+        assert len(issues) == 0
+
+    def test_env_interpolation_with_expression_value_is_unsafe(self) -> None:
+        """Test that env values sourced from expressions remain unsafe."""
+        workflow = {
+            "env": {"DYNAMIC_VALUE": "${{ steps.fetch.outputs.data }}"},
+            "jobs": {
+                "build": {
+                    "steps": [
+                        {
+                            "name": "Dynamic env",
+                            "run": "const x = '${{ env.DYNAMIC_VALUE }}';",
+                        }
+                    ]
+                }
+            },
+        }
+        issues = check_unsafe_string_interpolation(workflow)
+        assert len(issues) == 1
+        assert "env.DYNAMIC_VALUE" in issues[0][2]
+
     def test_safe_condition_pattern(self) -> None:
         """Test that if: conditions are not flagged."""
         workflow = {
@@ -382,6 +441,24 @@ class TestCheckUnsafeStringInterpolation:
         issues = check_unsafe_string_interpolation(workflow)
         # Secrets are controlled, so they're generally safe
         assert len(issues) == 0
+
+    def test_complex_env_expression_is_not_safe(self) -> None:
+        """Test that complex expressions are still flagged as unsafe."""
+        workflow = {
+            "jobs": {
+                "build": {
+                    "steps": [
+                        {
+                            "name": "Complex env",
+                            "run": "const x = '${{ env.TASKS_JSON || steps.fetch.outputs.data }}'",
+                        }
+                    ]
+                }
+            }
+        }
+        issues = check_unsafe_string_interpolation(workflow)
+        assert len(issues) == 1
+        assert "env.TASKS_JSON || steps.fetch.outputs.data" in issues[0][2]
 
     def test_multiple_issues_detected(self) -> None:
         """Test that multiple unsafe patterns in same workflow are all flagged."""

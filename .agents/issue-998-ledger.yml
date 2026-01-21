@@ -1,0 +1,131 @@
+version: 1
+issue: 998
+base: main
+branch: codex/issue-998
+tasks:
+  - id: task-01
+    title: Audit current workflows for consolidation opportunities.
+    status: done
+    started_at: '2026-01-21T03:48:32Z'
+    finished_at: '2026-01-21T03:48:38Z'
+    commit: a63212f321dca7397773486535dddeb502f59514
+    notes: []
+  - id: task-02
+    title: Define merged workflow designs for the selected candidates.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: Implement merged workflow(s) using a job matrix where applicable.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: Update consumer repositories to reference the new workflows.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: Deprecate old workflows with a documented notice period.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: Audit current workflows for consolidation opportunities.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: Define merged workflow designs for the selected candidates.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: Implement merged workflow(s) using a job matrix where applicable.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: Update consumer repositories to reference the new workflows.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: Deprecate old workflows with a documented notice period.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: Consolidation targets are documented and reviewed.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: Merged workflow(s) provide the same checks with job-level granularity.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: Consumer repos are updated to use the merged workflow(s).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: Legacy workflows are clearly deprecated with a notice period.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: Consolidation targets are documented and reviewed.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: Merged workflow(s) provide the same checks with job-level granularity.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: Consumer repos are updated to use the merged workflow(s).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: Legacy workflows are clearly deprecated with a notice period.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []

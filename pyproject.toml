@@ -117,6 +117,20 @@ ignore = [
     "E501",  # Line too long (handled by black)
 ]
 
+[tool.flake8]
+max-line-length = 100
+extend-ignore = ["E501", "W503"]
+exclude = [
+    ".git",
+    "__pycache__",
+    ".venv",
+    "venv",
+    "archive",
+    ".extraction",
+    "build",
+    "dist",
+]
+
 [tool.mypy]
 python_version = "3.11"
 warn_return_any = true

@@ -36,6 +36,7 @@ concurrency:
 jobs:
   evaluate:
     name: Evaluate keepalive loop
+    if: vars.USE_CONSOLIDATED_WORKFLOWS != 'true'
     runs-on: ubuntu-latest
     environment: agent-standard
     outputs:

@@ -1,16 +1,38 @@
-name: Agents Autofix Loop
+name: Agents Gate Followups
 
 on:
   workflow_run:
-    workflows:
-      - Gate
+    workflows: ["Gate"]
+    types: [completed]
+  pull_request:
     types:
-      - completed
+      - labeled
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to force retry'
+        required: true
+        type: number
+      force_retry:
+        description: 'Force retry even if gate is cancelled/deferred'
+        required: false
+        default: true
+        type: boolean
 
 permissions:
   contents: write
   pull-requests: write
   actions: write
+  models: read
+
+concurrency:
+  group: >-
+    agents-gate-followups-${{ github.event.workflow_run.pull_requests[0].number ||
+      github.event.pull_request.number ||
+      github.event.inputs.pr_number ||
+      github.run_id }}
+  cancel-in-progress: false
+
 
 env:
   WRITE_TOKEN: >-
@@ -19,15 +41,456 @@ env:
         secrets.SERVICE_BOT_PAT ||
         github.token }}
 
-concurrency:
-  group: >-
-    agents-autofix-loop-${{ github.event.workflow_run.pull_requests[0].number || github.run_id }}
-  cancel-in-progress: false
-
 jobs:
+  evaluate:
+    name: Evaluate keepalive loop
+    if: vars.USE_CONSOLIDATED_WORKFLOWS == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    environment: agent-standard
+    outputs:
+      pr_number: ${{ steps.evaluate.outputs.pr_number }}
+      pr_ref: ${{ steps.evaluate.outputs.pr_ref }}
+      head_sha: ${{ steps.evaluate.outputs.head_sha }}
+      action: ${{ steps.evaluate.outputs.action }}
+      reason: ${{ steps.evaluate.outputs.reason }}
+      gate_conclusion: ${{ steps.evaluate.outputs.gate_conclusion }}
+      iteration: ${{ steps.evaluate.outputs.iteration }}
+      max_iterations: ${{ steps.evaluate.outputs.max_iterations }}
+      failure_threshold: ${{ steps.evaluate.outputs.failure_threshold }}
+      tasks_total: ${{ steps.evaluate.outputs.tasks_total }}
+      tasks_unchecked: ${{ steps.evaluate.outputs.tasks_unchecked }}
+      keepalive_enabled: ${{ steps.evaluate.outputs.keepalive_enabled }}
+      autofix_enabled: ${{ steps.evaluate.outputs.autofix_enabled }}
+      has_agent_label: ${{ steps.evaluate.outputs.has_agent_label }}
+      agent_type: ${{ steps.evaluate.outputs.agent_type }}
+      task_appendix: ${{ steps.evaluate.outputs.task_appendix }}
+      trace: ${{ steps.evaluate.outputs.trace }}
+      prompt_mode: ${{ steps.evaluate.outputs.prompt_mode }}
+      prompt_file: ${{ steps.evaluate.outputs.prompt_file }}
+      start_ts: ${{ steps.timestamps.outputs.start_ts }}
+      security_blocked: ${{ steps.security_gate.outputs.blocked }}
+      security_reason: ${{ steps.security_gate.outputs.reason }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Capture timestamps
+        id: timestamps
+        run: echo "start_ts=$(date -u +%s)" >> "$GITHUB_OUTPUT"
+      - name: Security gate - prompt injection guard
+        id: security_gate
+        uses: actions/github-script@v8
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { evaluatePromptInjectionGuard } = require(
+              './.github/scripts/prompt_injection_guard.js'
+            );
+
+            // Resolve PR from event context
+            const payload = context.payload || {};
+            let prNumber = 0;
+            let pr = null;
+
+            if (context.eventName === 'pull_request' && payload.pull_request) {
+              prNumber = payload.pull_request.number;
+              pr = payload.pull_request;
+            } else if (context.eventName === 'workflow_run' && payload.workflow_run) {
+              const prs = payload.workflow_run.pull_requests || [];
+              if (prs[0]?.number) {
+                prNumber = prs[0].number;
+                const { data } = await github.rest.pulls.get({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  pull_number: prNumber,
+                });
+                pr = data;
+              }
+            }
+
+            if (!pr) {
+              core.setOutput('blocked', 'false');
+              core.setOutput('reason', 'no-pr-context');
+              return;
+            }
+
+            const result = await evaluatePromptInjectionGuard({
+              github,
+              context,
+              pr,
+              actor: context.actor,
+              promptContent: pr.body || '',
+              core,
+            });
+
+            core.setOutput('blocked', String(result.blocked));
+            core.setOutput('reason', result.reason);
+
+            if (result.blocked) {
+              core.setFailed(`Security gate blocked: ${result.reason}`);
+            }
+
+      - name: Evaluate keepalive state
+        id: evaluate
+        uses: actions/github-script@v8
+        env:
+          INPUT_PR_NUMBER: ${{ github.event.inputs.pr_number || '' }}
+          INPUT_FORCE_RETRY: ${{ github.event.inputs.force_retry || 'false' }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { evaluateKeepaliveLoop } = require('./.github/scripts/keepalive_loop.js');
+            const options = { github, context, core };
+            // Pass workflow_dispatch inputs if present
+            const inputPrNumber = process.env.INPUT_PR_NUMBER;
+            const forceRetry = process.env.INPUT_FORCE_RETRY === 'true';
+            if (inputPrNumber) {
+              options.overridePrNumber = parseInt(inputPrNumber, 10);
+            }
+            if (forceRetry) {
+              options.forceRetry = true;
+            }
+            const result = await evaluateKeepaliveLoop(options);
+            const output = {
+              pr_number: String(result.prNumber || ''),
+              pr_ref: String(result.prRef || ''),
+              head_sha: String(result.headSha || ''),
+              action: result.action || '',
+              reason: result.reason || '',
+              gate_conclusion: result.gateConclusion || '',
+              iteration: String(result.iteration ?? ''),
+              max_iterations: String(result.maxIterations ?? ''),
+              failure_threshold: String(result.failureThreshold ?? ''),
+              tasks_total: String(result.checkboxCounts?.total ?? ''),
+              tasks_unchecked: String(result.checkboxCounts?.unchecked ?? ''),
+              keepalive_enabled: String(result.keepaliveEnabled ?? ''),
+              autofix_enabled: String(result.config?.autofix_enabled ?? ''),
+              has_agent_label: String(result.hasAgentLabel ?? ''),
+              agent_type: String(result.agentType || ''),
+              trace: String(result.config?.trace || result.state?.trace || ''),
+              prompt_mode: String(result.promptMode || 'normal'),
+                prompt_file: String(
+                  result.promptFile || '.github/codex/prompts/keepalive_next_task.md'
+                ),
+            };
+            for (const [key, value] of Object.entries(output)) {
+              core.setOutput(key, value);
+            }
+            // Task appendix needs special handling due to multiline content
+            core.setOutput('task_appendix', result.taskAppendix || '');
+
+  preflight:
+    name: Verify secrets available
+    needs: evaluate
+    if: |
+      needs.evaluate.outputs.action == 'run' ||
+      needs.evaluate.outputs.action == 'fix' ||
+      needs.evaluate.outputs.action == 'conflict'
+    runs-on: ubuntu-latest
+    environment: agent-standard
+    outputs:
+      secrets_ok: ${{ steps.check.outputs.secrets_ok }}
+    steps:
+      - name: Check secrets
+        id: check
+        env:
+          HAS_CODEX_AUTH: ${{ secrets.CODEX_AUTH_JSON != '' }}
+          HAS_APP_ID: ${{ secrets.KEEPALIVE_APP_ID != '' || secrets.WORKFLOWS_APP_ID != '' }}
+          HAS_APP_KEY: ${{ secrets.KEEPALIVE_APP_PRIVATE_KEY != '' || secrets.WORKFLOWS_APP_PRIVATE_KEY != '' }}
+        run: |
+          echo "CODEX_AUTH_JSON present: $HAS_CODEX_AUTH"
+          echo "KEEPALIVE_APP or WORKFLOWS_APP present: $HAS_APP_ID"
+          echo "WORKFLOWS_APP_PRIVATE_KEY present: $HAS_APP_KEY"
+          if [ "$HAS_CODEX_AUTH" = "true" ] || [ "$HAS_APP_ID" = "true" ]; then
+            echo "secrets_ok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::Neither CODEX_AUTH_JSON nor KEEPALIVE_APP_ID/WORKFLOWS_APP_ID is set. Cannot run Codex."
+            echo "secrets_ok=false" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+
+  test-job:
+    name: Test job creation
+    needs: evaluate
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "Test job ran!"
+            echo "Action was ${{ needs.evaluate.outputs.action }}"
+            echo "Agent was ${{ needs.evaluate.outputs.agent_type }}"
+
+  # Mark agent as running before starting the actual work
+  # This provides real-time visibility that the agent is actively engaged
+  mark-running:
+    name: Mark agent running
+    needs:
+      - evaluate
+      - preflight
+    if: |
+      needs.evaluate.outputs.action == 'run' ||
+      needs.evaluate.outputs.action == 'fix' ||
+      needs.evaluate.outputs.action == 'conflict'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Update summary with running status
+        uses: actions/github-script@v8
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { markAgentRunning } = require('./.github/scripts/keepalive_loop.js');
+              const runUrl =
+                `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}` +
+                `/actions/runs/${context.runId}`;
+            const inputs = {
+              pr_number: '${{ needs.evaluate.outputs.pr_number }}',
+              agent_type: '${{ needs.evaluate.outputs.agent_type }}',
+              iteration: '${{ needs.evaluate.outputs.iteration }}',
+              max_iterations: '${{ needs.evaluate.outputs.max_iterations }}',
+              tasks_total: '${{ needs.evaluate.outputs.tasks_total }}',
+              tasks_unchecked: '${{ needs.evaluate.outputs.tasks_unchecked }}',
+              trace: '${{ needs.evaluate.outputs.trace }}',
+              run_url: runUrl,
+            };
+            await markAgentRunning({ github, context, core, inputs });
+
+  # Route to appropriate agent based on agent:* label
+  # Currently supports: agent:codex -> CLI Codex
+  # Future: agent:claude, agent:gemini, etc. will have their own jobs
+  run-codex:
+    name: Keepalive next task (Codex)
+    needs:
+      - evaluate
+      - preflight
+      - mark-running
+    # Only run for agent:codex label
+    if: needs.evaluate.outputs.agent_type == 'codex'
+    uses: stranske/Workflows/.github/workflows/reusable-codex-run.yml@main
+    secrets:
+      CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
+      # Use dedicated KEEPALIVE_APP for isolated rate limit pool (5000/hr)
+      # Falls back to WORKFLOWS_APP if KEEPALIVE_APP not configured
+      WORKFLOWS_APP_ID: ${{ secrets.KEEPALIVE_APP_ID || secrets.WORKFLOWS_APP_ID }}
+      WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.KEEPALIVE_APP_PRIVATE_KEY || secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+    with:
+      skip: >-
+        ${{ needs.evaluate.outputs.action != 'run' &&
+            needs.evaluate.outputs.action != 'fix' &&
+            needs.evaluate.outputs.action != 'conflict' }}
+      prompt_file: ${{ needs.evaluate.outputs.prompt_file }}
+      mode: keepalive
+      pr_number: ${{ needs.evaluate.outputs.pr_number }}
+      pr_ref: ${{ needs.evaluate.outputs.pr_ref }}
+      appendix: ${{ needs.evaluate.outputs.task_appendix }}
+      iteration: ${{ needs.evaluate.outputs.iteration }}
+
+  # Placeholder for future Claude agent support
+  # run-claude:
+  #   name: Keepalive next task (Claude)
+  #   needs:
+  #     - evaluate
+  #     - preflight
+  #   if: needs.evaluate.outputs.agent_type == 'claude'
+  #   uses: stranske/Workflows/.github/workflows/reusable-claude-run.yml@main
+  #   ...
+
+  summary:
+    name: Update keepalive summary
+    needs:
+      - evaluate
+      - preflight
+      - run-codex
+    # Run always if PR exists, handle skipped agent jobs gracefully
+    if: |
+      always() &&
+      needs.evaluate.outputs.pr_number != '' &&
+      needs.evaluate.outputs.pr_number != '0'
+    runs-on: ubuntu-latest
+    environment: agent-standard
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Emit keepalive metrics
+        id: keepalive-metrics
+        env:
+          PR_NUMBER: ${{ needs.evaluate.outputs.pr_number }}
+          ACTION: ${{ needs.evaluate.outputs.action }}
+          REASON: ${{ needs.evaluate.outputs.reason }}
+          GATE_CONCLUSION: ${{ needs.evaluate.outputs.gate_conclusion }}
+          ITERATION: ${{ needs.evaluate.outputs.iteration }}
+          MAX_ITERATIONS: ${{ needs.evaluate.outputs.max_iterations }}
+          TASKS_TOTAL: ${{ needs.evaluate.outputs.tasks_total }}
+          TASKS_UNCHECKED: ${{ needs.evaluate.outputs.tasks_unchecked }}
+          START_TS: ${{ needs.evaluate.outputs.start_ts }}
+        run: |
+          set -euo pipefail
+
+          now=$(date -u +%s)
+          if [[ "${START_TS:-}" =~ ^[0-9]+$ ]]; then
+            duration=$(( now - START_TS ))
+            if [ "$duration" -lt 0 ]; then duration=0; fi
+          else
+            duration=0
+          fi
+
+          tasks_total=${TASKS_TOTAL:-0}
+          tasks_unchecked=${TASKS_UNCHECKED:-0}
+          if ! [[ "$tasks_total" =~ ^-?[0-9]+$ ]]; then tasks_total=0; fi
+          if ! [[ "$tasks_unchecked" =~ ^-?[0-9]+$ ]]; then tasks_unchecked=0; fi
+          tasks_completed=$(( tasks_total - tasks_unchecked ))
+          if [ "$tasks_completed" -lt 0 ]; then tasks_completed=0; fi
+
+          metrics_json=$(jq -n \
+            --arg pr "${PR_NUMBER:-0}" \
+            --arg iteration "${ITERATION:-0}" \
+            --arg action "${ACTION:-}" \
+            --arg stop_reason "${REASON:-}" \
+            --arg gate_conclusion "${GATE_CONCLUSION:-}" \
+            --arg tasks_total "$tasks_total" \
+            --arg tasks_completed "$tasks_completed" \
+            --arg duration "$duration" \
+            '{
+              pr_number: ($pr | tonumber? // 0),
+              iteration_count: ($iteration | tonumber? // 0),
+              action: $action,
+              stop_reason: $stop_reason,
+              gate_conclusion: $gate_conclusion,
+              tasks_total: ($tasks_total | tonumber? // 0),
+              tasks_completed: ($tasks_completed | tonumber? // 0),
+              duration_seconds: ($duration | tonumber? // 0)
+            }')
+
+          {
+            echo '### Keepalive metrics'
+            echo ''
+            echo '| Field | Value |'
+            echo '| --- | --- |'
+            echo "| pr_number | $(echo "$metrics_json" | jq -r '.pr_number') |"
+            echo "| iteration_count | $(echo "$metrics_json" | jq -r '.iteration_count') |"
+            echo "| action | $(echo "$metrics_json" | jq -r '.action') |"
+            echo "| stop_reason | $(echo "$metrics_json" | jq -r '.stop_reason') |"
+            echo "| gate_conclusion | $(echo "$metrics_json" | jq -r '.gate_conclusion') |"
+            echo "| tasks_total | $(echo "$metrics_json" | jq -r '.tasks_total') |"
+            echo "| tasks_completed | $(echo "$metrics_json" | jq -r '.tasks_completed') |"
+            echo "| duration_seconds | $(echo "$metrics_json" | jq -r '.duration_seconds') |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          echo "$metrics_json" >> keepalive-metrics.ndjson
+
+      - name: Upload keepalive metrics artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: keepalive-metrics
+          path: keepalive-metrics.ndjson
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Auto-reconcile task checkboxes
+        if: needs.run-codex.outputs.changes-made == 'true'
+        uses: actions/github-script@v8
+        env:
+          LLM_COMPLETED_TASKS: ${{ needs.run-codex.outputs.llm-completed-tasks || '[]' }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { autoReconcileTasks } = require('./.github/scripts/keepalive_loop.js');
+
+            const prNumber = Number('${{ needs.evaluate.outputs.pr_number }}') || 0;
+            const beforeSha = '${{ needs.evaluate.outputs.head_sha }}';  // SHA before agent ran
+            const headSha = '${{ needs.run-codex.outputs.commit-sha }}';  // SHA after agent ran
+
+            // LLM analysis metadata
+            const llmProvider = '${{ needs.run-codex.outputs.llm-provider || '' }}';
+            const llmConfidence = '${{ needs.run-codex.outputs.llm-confidence || '' }}';
+            const llmAnalysisRun = '${{ needs.run-codex.outputs.llm-analysis-run }}' === 'true';
+
+              // Parse LLM completed tasks if available
+              // Use env var to avoid JS string escaping issues
+            let llmCompletedTasks = [];
+            const llmTasksJson = process.env.LLM_COMPLETED_TASKS || '[]';
+            try {
+              llmCompletedTasks = JSON.parse(llmTasksJson);
+              if (llmCompletedTasks.length > 0) {
+                core.info(`LLM analysis found ${llmCompletedTasks.length} completed task(s)`);
+                if (llmProvider) {
+                  core.info(`LLM provider: ${llmProvider} (confidence: ${llmConfidence})`);
+                }
+              }
+            } catch (e) {
+              core.debug(`Failed to parse LLM tasks: ${e.message}`);
+            }
+
+            if (!prNumber || !beforeSha || !headSha) {
+              core.info('Missing required inputs for task reconciliation');
+              return;
+            }
+
+            core.info(`Auto-reconciling tasks for PR #${prNumber}`);
+            core.info(`Comparing ${beforeSha.slice(0, 7)} → ${headSha.slice(0, 7)}`);
+
+            const result = await autoReconcileTasks({
+              github, context, prNumber, baseSha: beforeSha, headSha, llmCompletedTasks, core
+            });
+
+            if (result.updated) {
+              core.info(`✅ ${result.details}`);
+              core.notice(`Auto-checked ${result.tasksChecked} task(s) based on analysis`);
+            } else {
+              core.info(`ℹ️ ${result.details}`);
+            }
+
+            // Output for step summary and downstream reporting
+            core.setOutput('tasks_checked', result.tasksChecked);
+            core.setOutput('reconciliation_details', result.details);
+            core.setOutput('llm_provider', llmProvider);
+            core.setOutput('llm_confidence', llmConfidence);
+            core.setOutput('llm_analysis_run', llmAnalysisRun);
+            core.setOutput('llm_tasks_count', llmCompletedTasks.length);
+            core.setOutput('commit_tasks_count', result.sources?.commit || 0);
+
+      - name: Update summary comment
+        uses: actions/github-script@v8
+        env:
+          CODEX_SUMMARY: ${{ needs.run-codex.outputs.final-message-summary || '' }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { updateKeepaliveLoopSummary } = require('./.github/scripts/keepalive_loop.js');
+            const inputs = {
+              pr_number: Number('${{ needs.evaluate.outputs.pr_number }}') || 0,
+              action: '${{ needs.evaluate.outputs.action }}',
+              reason: '${{ needs.evaluate.outputs.reason }}',
+              gate_conclusion: '${{ needs.evaluate.outputs.gate_conclusion }}',
+              iteration: Number('${{ needs.evaluate.outputs.iteration }}') || 0,
+              max_iterations: Number('${{ needs.evaluate.outputs.max_iterations }}') || 0,
+              failure_threshold: Number('${{ needs.evaluate.outputs.failure_threshold }}') || 3,
+              tasks_total: Number('${{ needs.evaluate.outputs.tasks_total }}') || 0,
+              tasks_unchecked: Number('${{ needs.evaluate.outputs.tasks_unchecked }}') || 0,
+              keepalive_enabled: '${{ needs.evaluate.outputs.keepalive_enabled }}',
+              autofix_enabled: '${{ needs.evaluate.outputs.autofix_enabled }}',
+              agent_type: '${{ needs.evaluate.outputs.agent_type }}',
+              trace: '${{ needs.evaluate.outputs.trace }}',
+              // Agent run result - check which agent ran
+              run_result: '${{ needs.run-codex.result }}',
+              // Agent output details for visibility (Codex for now)
+              agent_exit_code: '${{ needs.run-codex.outputs.exit-code }}',
+              agent_changes_made: '${{ needs.run-codex.outputs.changes-made }}',
+              agent_commit_sha: '${{ needs.run-codex.outputs.commit-sha }}',
+              agent_files_changed: '${{ needs.run-codex.outputs.files-changed }}',
+              agent_summary: process.env.CODEX_SUMMARY || '',
+              // LLM analysis details for task completion reporting
+              llm_provider: '${{ needs.run-codex.outputs.llm-provider || '' }}',
+              llm_confidence: '${{ needs.run-codex.outputs.llm-confidence || '' }}',
+              llm_analysis_run: '${{ needs.run-codex.outputs.llm-analysis-run }}' === 'true',
+            };
+            await updateKeepaliveLoopSummary({ github, context, core, inputs });
+
   prepare:
     name: Prepare autofix context
-    if: vars.USE_CONSOLIDATED_WORKFLOWS != 'true'
+    if: vars.USE_CONSOLIDATED_WORKFLOWS == 'true'
     runs-on: ubuntu-latest
     environment: agent-standard
     outputs:

@@ -146,24 +146,39 @@ def check_unsafe_string_interpolation(workflow: dict) -> list[tuple[str, str, st
     # - toJSON/fromJSON results may contain special characters
     # Only patterns that are truly controlled should be listed here.
     safe_expression_patterns = [
-        r"^\s*secrets\.",  # Secret references are controlled (never user-visible)
-        r"^\s*env\.",  # Environment variables set in workflow are controlled
-        r"^\s*matrix\.",  # Matrix values are defined in workflow YAML
-        r"^\s*runner\.",  # Runner context is controlled (os, arch, etc.)
+        r"^\s*secrets\.[A-Za-z0-9_]+\s*$",  # Secret references are controlled (never user-visible)
+        r"^\s*matrix\.[A-Za-z0-9_]+\s*$",  # Matrix values are defined in workflow YAML
+        r"^\s*runner\.[A-Za-z0-9_]+\s*$",  # Runner context is controlled (os, arch, etc.)
     ]
 
+    def is_static_env_value(value: object) -> bool:
+        """Return True when env values are literal and do not interpolate expressions."""
+        return isinstance(value, str) and "${{" not in value
+
+    def collect_static_env(*env_dicts: dict) -> set[str]:
+        """Collect env keys with static literal values from given env dicts."""
+        static_keys: set[str] = set()
+        for env_dict in env_dicts:
+            if not isinstance(env_dict, dict):
+                continue
+            for key, value in env_dict.items():
+                if is_static_env_value(value):
+                    static_keys.add(key)
+        return static_keys
+
+    workflow_env = workflow.get("env", {})
     jobs = workflow.get("jobs", {})
     for job_name, job in jobs.items():
         steps = job.get("steps", [])
+        job_env = job.get("env", {})
         for i, step in enumerate(steps):
             step_name = step.get("name", f"step-{i}")
             script = step.get("run") or step.get("script", "")
+            step_env = step.get("env", {})
+            static_env_keys = collect_static_env(workflow_env, job_env, step_env)
 
             if not script:
                 continue
-
-            # Check if step uses env: block for the interpolated values
-            env_block = step.get("env", {})
 
             # Check for unsafe patterns
             for pattern, description in unsafe_patterns:
@@ -177,14 +192,9 @@ def check_unsafe_string_interpolation(workflow: dict) -> list[tuple[str, str, st
                     is_safe = any(
                         re.search(safe_pat, expr) for safe_pat in safe_expression_patterns
                     )
-
-                    # Also check if this expression is passed through env block
-                    # and the script uses process.env to access it
-                    if not is_safe and env_block:
-                        # See if this expression appears in any env var value
-                        expr_in_env = any(expr in str(v) for v in env_block.values())
-                        uses_process_env = "process.env" in script
-                        if expr_in_env and uses_process_env:
+                    if not is_safe:
+                        env_match = re.match(r"^\s*env\.([A-Za-z0-9_]+)\s*$", expr)
+                        if env_match and env_match.group(1) in static_env_keys:
                             is_safe = True
 
                     if not is_safe:

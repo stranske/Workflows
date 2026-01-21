@@ -1,0 +1,14 @@
+[flake8]
+max-line-length = 100
+extend-ignore = E501,W503
+exclude =
+    .git,
+    __pycache__,
+    .venv,
+    venv,
+    archive,
+    .extraction,
+    build,
+    dist,
+    Manager-Database,
+    Trend_Model_Project
