@@ -5,7 +5,12 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
 
-const { buildVerifierContext } = require('../agents_verifier_context.js');
+const {
+  buildVerifierContext,
+  formatDiffForContext,
+  fetchLocalGitDiff,
+  isValidSha,
+} = require('../agents_verifier_context.js');
 
 const fixturesDir = path.join(__dirname, 'fixtures');
 const prBodyFixture = fs.readFileSync(path.join(fixturesDir, 'pr-body.md'), 'utf8');
@@ -932,4 +937,47 @@ test('buildVerifierContext skips push events when PR lookup fails', async () => 
   assert.equal(core.outputs.should_run, 'false');
   assert.ok(core.outputs.skip_reason.includes('Unable to resolve pull request'));
   assert.equal(core.warnings.length, 1);
+});
+
+test('formatDiffForContext truncates long diffs', () => {
+  const diff = 'a'.repeat(50);
+  const result = formatDiffForContext(diff, 10);
+  assert.ok(result.startsWith('a'.repeat(10)));
+  assert.ok(result.includes('diff truncated after 10 characters'));
+});
+
+test('formatDiffForContext returns placeholder for empty diff', () => {
+  assert.equal(formatDiffForContext('', 100), '_Diff unavailable or empty._');
+});
+
+test('isValidSha validates hex shas', () => {
+  assert.ok(isValidSha('a1b2c3d'));
+  assert.ok(isValidSha('A1B2C3D4E5F6A7B8C9D0E1F2A3B4C5D6E7F8A9B0'));
+  assert.equal(isValidSha('not-a-sha'), false);
+});
+
+test('fetchLocalGitDiff skips invalid shas', () => {
+  let called = false;
+  const execFile = () => {
+    called = true;
+    return Buffer.from('');
+  };
+  const result = fetchLocalGitDiff({
+    baseSha: 'not-a-sha',
+    headSha: 'deadbeef',
+    execFile,
+  });
+  assert.equal(result, '');
+  assert.equal(called, false);
+});
+
+test('fetchLocalGitDiff returns diff output when exec succeeds', () => {
+  const execFile = () => Buffer.from('diff --git a/x b/x\n+hello\n');
+  const result = fetchLocalGitDiff({
+    baseSha: 'a1b2c3d',
+    headSha: 'deadbeef',
+    execFile,
+  });
+  assert.ok(result.includes('diff --git'));
+  assert.ok(result.includes('+hello'));
 });

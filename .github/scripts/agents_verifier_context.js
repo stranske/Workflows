@@ -2,7 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 
 const {
   extractScopeTasksAcceptanceSections,
@@ -16,6 +16,7 @@ const DEFAULT_DIFF_SUMMARY_PATH = 'verifier-diff-summary.md';
 const DEFAULT_DIFF_PATH = 'verifier-pr-diff.patch';
 const DEFAULT_DIFF_MAX_BYTES = 8 * 1024 * 1024;
 const DEFAULT_DIFF_MAX_CHARS = 300000;
+const SHA_PATTERN = /^[0-9a-f]{7,40}$/i;
 
 const DIFF_SUMMARY_LIMITS = {
   maxFiles: 50,
@@ -194,6 +195,10 @@ function summarizeDiff(diffText, { maxFiles, maxLines } = {}) {
   return summaryLines.join('\n');
 }
 
+function isValidSha(value) {
+  return SHA_PATTERN.test(String(value || ''));
+}
+
 function formatDiffForContext(diffText, maxChars) {
   const diff = String(diffText || '').trim();
   if (!diff) {
@@ -206,12 +211,16 @@ function formatDiffForContext(diffText, maxChars) {
   return `${diff.slice(0, limit)}\n\n...diff truncated after ${limit} characters.`;
 }
 
-function fetchLocalGitDiff({ baseSha, headSha, maxBytes, core }) {
+function fetchLocalGitDiff({ baseSha, headSha, maxBytes, core, execFile = execFileSync }) {
   if (!baseSha || !headSha) {
     return '';
   }
+  if (!isValidSha(baseSha) || !isValidSha(headSha)) {
+    core?.warning?.('Refusing to generate git diff: invalid SHA value.');
+    return '';
+  }
   try {
-    const buffer = execSync(`git diff --no-color ${baseSha}...${headSha}`, {
+    const buffer = execFile('git', ['diff', '--no-color', `${baseSha}...${headSha}`], {
       maxBuffer: Number.isFinite(maxBytes) ? maxBytes : DEFAULT_DIFF_MAX_BYTES,
     });
     return buffer.toString('utf8');
@@ -597,4 +606,7 @@ async function buildVerifierContext({ github, context, core, ciWorkflows }) {
 
 module.exports = {
   buildVerifierContext,
+  formatDiffForContext,
+  fetchLocalGitDiff,
+  isValidSha,
 };

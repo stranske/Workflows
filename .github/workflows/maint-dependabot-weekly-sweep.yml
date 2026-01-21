@@ -61,9 +61,14 @@ jobs:
               if echo "$auto_out" | grep -qi "Protected branch rules not configured"; then
                 checks_json=$(gh pr view "$pr" --repo "$repo" --json statusCheckRollup,mergeable,mergeStateStatus)
                 mergeable=$(echo "$checks_json" | jq -r '.mergeable')
+                merge_state=$(echo "$checks_json" | jq -r '.mergeStateStatus')
 
                 if [ "$mergeable" != "MERGEABLE" ]; then
                   echo "PR not mergeable; skipping."
+                  continue
+                fi
+                if [ "$merge_state" = "BLOCKED" ]; then
+                  echo "PR merge state blocked (reviews or policy required); skipping."
                   continue
                 fi
 
@@ -71,7 +76,10 @@ jobs:
                 pending=$(echo "$checks_json" | jq -r '[.statusCheckRollup[] | select(.status != "COMPLETED")] | length')
 
                 if [ "$failed" -eq 0 ] && [ "$pending" -eq 0 ]; then
-                  gh pr merge "$pr" --repo "$repo" --merge
+                  if ! gh pr merge "$pr" --repo "$repo" --merge; then
+                    echo "Merge failed; continuing to next PR."
+                    continue
+                  fi
                 else
                   echo "Checks pending or failing; leaving open."
                 fi
