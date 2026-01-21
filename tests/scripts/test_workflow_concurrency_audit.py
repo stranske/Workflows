@@ -34,6 +34,13 @@ jobs:
     assert any(setting.group == "ci-${{ github.ref }}" for setting in item.concurrency)
 
 
+def test_normalize_triggers_dedupes_mixed_list() -> None:
+    triggers = workflow_concurrency_audit.normalize_triggers(
+        ["pull_request", {"issues": {"types": ["opened"]}}, {"pull_request": None}]
+    )
+    assert triggers == ("issues", "pull_request")
+
+
 def test_audit_accepts_job_level_cancel(tmp_path: Path) -> None:
     workflow_dir = tmp_path / "workflows"
     workflow_dir.mkdir()

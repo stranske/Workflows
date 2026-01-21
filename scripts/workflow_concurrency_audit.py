@@ -56,17 +56,18 @@ def normalize_triggers(on_field: object) -> tuple[str, ...]:
         return ()
     if isinstance(on_field, str):
         return (on_field,)
+    triggers: list[str] = []
     if isinstance(on_field, list):
-        triggers: list[str] = []
         for item in on_field:
             if isinstance(item, dict):
                 triggers.extend(str(key) for key in item)
             else:
                 triggers.append(str(item))
-        return tuple(triggers)
-    if isinstance(on_field, dict):
-        return tuple(str(key) for key in on_field)
-    return ()
+    elif isinstance(on_field, dict):
+        triggers.extend(str(key) for key in on_field)
+    else:
+        return ()
+    return tuple(sorted(set(triggers)))
 
 
 def _normalize_cancel(value: object) -> bool | None:
