@@ -15,6 +15,7 @@ DEFAULT_HIGH_FREQUENCY_TRIGGERS = (
     "pull_request",
     "pull_request_target",
     "push",
+    "workflow_run",
 )
 
 
@@ -126,6 +127,13 @@ def suggest_concurrency_group(triggers: tuple[str, ...]) -> str | None:
         return "${{ github.workflow }}-pr-${{ github.event.pull_request.number || github.ref }}"
     if "issue_comment" in lowered or "issues" in lowered:
         return "${{ github.workflow }}-issue-${{ github.event.issue.number || github.ref }}"
+    if "workflow_run" in lowered:
+        return (
+            "${{ github.workflow }}-workflow-run-${{ "
+            "github.event.workflow_run.pull_requests[0].number || "
+            "github.event.workflow_run.id || "
+            "github.run_id }}"
+        )
     if "push" in lowered:
         return "${{ github.workflow }}-${{ github.ref }}"
     return None

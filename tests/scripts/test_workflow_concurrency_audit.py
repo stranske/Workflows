@@ -118,6 +118,36 @@ jobs:
     )
 
 
+def test_audit_marks_workflow_run_as_high_frequency(tmp_path: Path) -> None:
+    workflow_dir = tmp_path / "workflows"
+    workflow_dir.mkdir()
+    _write_workflow(
+        workflow_dir / "autofix.yml",
+        """
+name: Autofix
+on:
+  workflow_run:
+    workflows: [Gate]
+    types: [completed]
+jobs:
+  noop:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo ok
+""",
+    )
+
+    results = workflow_concurrency_audit.audit_workflows(workflow_dir)
+    assert len(results) == 1
+    item = results[0]
+    assert item.high_frequency is True
+    assert item.action_required == "add_concurrency"
+    assert (
+        item.recommended_group
+        == "${{ github.workflow }}-workflow-run-${{ github.event.workflow_run.pull_requests[0].number || github.event.workflow_run.id || github.run_id }}"
+    )
+
+
 def test_audit_skips_non_high_frequency_by_default(tmp_path: Path) -> None:
     workflow_dir = tmp_path / "workflows"
     workflow_dir.mkdir()
