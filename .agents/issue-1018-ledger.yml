@@ -5,10 +5,10 @@ branch: codex/issue-1018
 tasks:
   - id: task-01
     title: Add unit tests for Rebalancer consecutive soft strikes (exit path)
-    status: doing
+    status: done
     started_at: '2026-01-21T19:13:43Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-01-21T19:13:52Z'
+    commit: fbd193a1dbb2e5be1a7389186ef1594592142df0
     notes: []
   - id: task-02
     title: Add unit tests for Rebalancer hard exit threshold override
