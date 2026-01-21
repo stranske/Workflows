@@ -12,8 +12,22 @@ permissions:
   contents: read
 
 env:
-  CODEQL_TOKEN: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT || secrets.AGENTS_AUTOMATION_PAT || github.token }}
-  CODEQL_TOKEN_SOURCE: ${{ secrets.ACTIONS_BOT_PAT && 'pat' || secrets.SERVICE_BOT_PAT && 'pat' || secrets.AGENTS_AUTOMATION_PAT && 'pat' || 'installation' }}
+  CODEQL_TOKEN: >-
+    ${{
+      secrets.CODESPACES_WORKFLOWS ||
+      secrets.ACTIONS_BOT_PAT ||
+      secrets.SERVICE_BOT_PAT ||
+      secrets.AGENTS_AUTOMATION_PAT ||
+      github.token
+    }}
+  CODEQL_TOKEN_SOURCE: >-
+    ${{
+      secrets.CODESPACES_WORKFLOWS && 'codespaces-workflows-pat' ||
+      secrets.ACTIONS_BOT_PAT && 'actions-bot-pat' ||
+      secrets.SERVICE_BOT_PAT && 'service-bot-pat' ||
+      secrets.AGENTS_AUTOMATION_PAT && 'agents-automation-pat' ||
+      'installation'
+    }}
 
 jobs:
   codeql:
@@ -53,7 +67,8 @@ jobs:
       if: always()
       run: |
         if [ "${{ steps.codeql_analyze.outcome }}" = "failure" ]; then
-          echo "::warning::CodeQL analysis step failed (likely rate limit). Results may not be uploaded."
+          echo "::warning::CodeQL analysis step failed (likely rate limit)."
+          echo "::warning::Results may not be uploaded."
         else
           echo "CodeQL analysis completed successfully."
         fi
