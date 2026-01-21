@@ -77,11 +77,18 @@ def _parse_concurrency(value: object, location: str) -> ConcurrencySetting | Non
     if value is None:
         return None
     if isinstance(value, str):
-        return ConcurrencySetting(location=location, group=value, cancel_in_progress=None)
+        group = value.strip()
+        return ConcurrencySetting(
+            location=location,
+            group=group or None,
+            cancel_in_progress=None,
+        )
     if isinstance(value, dict):
         group = value.get("group")
         if group is not None:
-            group = str(group)
+            group = str(group).strip()
+            if not group:
+                group = None
         cancel = _normalize_cancel(value.get("cancel-in-progress"))
         return ConcurrencySetting(location=location, group=group, cancel_in_progress=cancel)
     return None

@@ -301,3 +301,30 @@ jobs:
     assert item.high_frequency is True
     assert item.has_canceling_concurrency is False
     assert item.action_required == "add_concurrency"
+
+
+def test_audit_treats_blank_group_as_missing(tmp_path: Path) -> None:
+    workflow_dir = tmp_path / "workflows"
+    workflow_dir.mkdir()
+    _write_workflow(
+        workflow_dir / "blank.yml",
+        """
+name: Blank group
+on: pull_request
+concurrency:
+  group: "   "
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo hi
+""",
+    )
+
+    results = workflow_concurrency_audit.audit_workflows(workflow_dir)
+    assert len(results) == 1
+    item = results[0]
+    assert item.high_frequency is True
+    assert item.has_canceling_concurrency is False
+    assert item.action_required == "add_concurrency"
