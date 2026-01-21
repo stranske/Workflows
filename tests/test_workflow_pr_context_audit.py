@@ -173,6 +173,25 @@ on: [
     assert by_name["invalid.yml"].error == "invalid-yaml"
 
 
+def test_audit_workflows_reports_non_mapping_yaml(tmp_path: Path) -> None:
+    workflows_dir = tmp_path / "workflows"
+    workflows_dir.mkdir()
+
+    _write(
+        workflows_dir / "list.yml",
+        """
+- name: Not a workflow mapping
+  on: workflow_dispatch
+""",
+    )
+
+    results = audit_workflows(workflows_dir)
+    by_name = {item.path.name: item for item in results}
+
+    assert by_name["list.yml"].valid is False
+    assert by_name["list.yml"].error == "invalid-yaml"
+
+
 def test_format_table_includes_error_column(tmp_path: Path) -> None:
     workflows_dir = tmp_path / "workflows"
     workflows_dir.mkdir()

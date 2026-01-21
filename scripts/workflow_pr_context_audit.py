@@ -54,9 +54,10 @@ def load_workflow(path: Path, text: str | None = None) -> dict | None:
     except OSError:
         return None
     try:
-        return yaml.safe_load(content)
+        data = yaml.safe_load(content)
     except yaml.YAMLError:
         return None
+    return data if isinstance(data, dict) else None
 
 
 def normalize_triggers(on_field: object) -> tuple[str, ...]:
