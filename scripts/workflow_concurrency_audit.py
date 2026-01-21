@@ -11,6 +11,7 @@ import yaml
 
 DEFAULT_HIGH_FREQUENCY_TRIGGERS = (
     "issue_comment",
+    "issues",
     "pull_request",
     "pull_request_target",
     "push",
@@ -123,7 +124,7 @@ def suggest_concurrency_group(triggers: tuple[str, ...]) -> str | None:
     lowered = {trigger.lower() for trigger in triggers}
     if "pull_request" in lowered or "pull_request_target" in lowered:
         return "${{ github.workflow }}-pr-${{ github.event.pull_request.number || github.ref }}"
-    if "issue_comment" in lowered:
+    if "issue_comment" in lowered or "issues" in lowered:
         return "${{ github.workflow }}-issue-${{ github.event.issue.number || github.ref }}"
     if "push" in lowered:
         return "${{ github.workflow }}-${{ github.ref }}"
