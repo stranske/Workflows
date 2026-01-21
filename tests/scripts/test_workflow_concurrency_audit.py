@@ -29,6 +29,7 @@ jobs:
     item = results[0]
     assert item.high_frequency is True
     assert item.has_canceling_concurrency is False
+    assert item.recommended_group == "${{ github.workflow }}-${{ github.ref }}"
     assert any(setting.group == "ci-${{ github.ref }}" for setting in item.concurrency)
 
 
@@ -56,7 +57,35 @@ jobs:
     item = results[0]
     assert item.high_frequency is True
     assert item.has_canceling_concurrency is True
+    assert (
+        item.recommended_group
+        == "${{ github.workflow }}-pr-${{ github.event.pull_request.number || github.ref }}"
+    )
     assert any(setting.location == "job:test" for setting in item.concurrency)
+
+
+def test_audit_recommends_issue_comment_group(tmp_path: Path) -> None:
+    workflow_dir = tmp_path / "workflows"
+    workflow_dir.mkdir()
+    _write_workflow(
+        workflow_dir / "comment.yml",
+        """
+name: Comment
+on: issue_comment
+jobs:
+  handle:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo hi
+""",
+    )
+
+    results = workflow_concurrency_audit.audit_workflows(workflow_dir)
+    assert len(results) == 1
+    assert (
+        results[0].recommended_group
+        == "${{ github.workflow }}-issue-${{ github.event.issue.number || github.ref }}"
+    )
 
 
 def test_audit_skips_non_high_frequency_by_default(tmp_path: Path) -> None:

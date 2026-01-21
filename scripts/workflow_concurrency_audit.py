@@ -35,6 +35,7 @@ class WorkflowConcurrencyAudit:
     high_frequency: bool
     concurrency: tuple[ConcurrencySetting, ...]
     has_canceling_concurrency: bool
+    recommended_group: str | None
 
 
 def load_workflow(path: Path) -> dict | None:
@@ -101,6 +102,18 @@ def _has_canceling_concurrency(settings: tuple[ConcurrencySetting, ...]) -> bool
     return any(setting.cancel_in_progress is True for setting in settings)
 
 
+def suggest_concurrency_group(triggers: tuple[str, ...]) -> str | None:
+    """Recommend a concurrency group expression based on workflow triggers."""
+    lowered = {trigger.lower() for trigger in triggers}
+    if "pull_request" in lowered or "pull_request_target" in lowered:
+        return "${{ github.workflow }}-pr-${{ github.event.pull_request.number || github.ref }}"
+    if "issue_comment" in lowered:
+        return "${{ github.workflow }}-issue-${{ github.event.issue.number || github.ref }}"
+    if "push" in lowered:
+        return "${{ github.workflow }}-${{ github.ref }}"
+    return None
+
+
 def audit_workflows(
     workflows_dir: Path,
     high_frequency_triggers: tuple[str, ...] = DEFAULT_HIGH_FREQUENCY_TRIGGERS,
@@ -129,6 +142,9 @@ def audit_workflows(
                     high_frequency=high_frequency,
                     concurrency=concurrency,
                     has_canceling_concurrency=_has_canceling_concurrency(concurrency),
+                    recommended_group=suggest_concurrency_group(triggers)
+                    if high_frequency
+                    else None,
                 )
             )
     return results
@@ -136,7 +152,10 @@ def audit_workflows(
 
 def format_table(results: list[WorkflowConcurrencyAudit]) -> str:
     """Render a tab-delimited report for easy copy/paste."""
-    lines = ["path\ttriggers\thigh_frequency\thas_canceling_concurrency\tconcurrency"]
+    lines = [
+        "path\ttriggers\thigh_frequency\thas_canceling_concurrency"
+        "\trecommended_group\tconcurrency"
+    ]
     for item in results:
         concurrency = ";".join(
             f"{setting.location}:{setting.group or 'none'}:"
@@ -150,6 +169,7 @@ def format_table(results: list[WorkflowConcurrencyAudit]) -> str:
                     ",".join(item.triggers),
                     "true" if item.high_frequency else "false",
                     "true" if item.has_canceling_concurrency else "false",
+                    item.recommended_group or "",
                     concurrency,
                 ]
             )
@@ -201,6 +221,7 @@ def main() -> int:
                 "triggers": list(item.triggers),
                 "high_frequency": item.high_frequency,
                 "has_canceling_concurrency": item.has_canceling_concurrency,
+                "recommended_group": item.recommended_group,
                 "concurrency": [
                     {
                         "location": setting.location,
