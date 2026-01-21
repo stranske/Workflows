@@ -25,10 +25,11 @@ def write_manifest(tmp_path: Path, script_names: list[str]) -> None:
     manifest_dir = tmp_path / ".github"
     manifest_dir.mkdir(parents=True, exist_ok=True)
     entries = "\n".join(
-        f"  - source: .github/scripts/{name}\n    description: test"
-        for name in script_names
+        f"  - source: .github/scripts/{name}\n    description: test" for name in script_names
     )
-    manifest = f"version: 1\n\nscripts:\n{entries}\n" if script_names else "version: 1\nscripts: []\n"
+    manifest = (
+        f"version: 1\n\nscripts:\n{entries}\n" if script_names else "version: 1\nscripts: []\n"
+    )
     (manifest_dir / "sync-manifest.yml").write_text(manifest, encoding="utf-8")
 
 
