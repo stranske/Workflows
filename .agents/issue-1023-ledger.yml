@@ -6,10 +6,10 @@ tasks:
   - id: task-01
     title: Modify `github-api-with-retry.js` to accept a token registry and switch
       tokens on rate limit errors
-    status: doing
+    status: done
     started_at: '2026-01-21T20:28:05Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-01-21T20:28:13Z'
+    commit: 8246385a73a2012f81eb9eeca180e90be8e72c39
     notes: []
   - id: task-02
     title: Create a wrapper that initializes the load balancer with available tokens
