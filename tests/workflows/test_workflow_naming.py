@@ -221,6 +221,7 @@ EXPECTED_NAMES = {
     "health-75-api-rate-diagnostic.yml": "Health 75 API Rate Diagnostic",
     "maint-68-sync-consumer-repos.yml": "Maint 68 Sync Consumer Repos",
     "maint-69-sync-integration-repo.yml": "Maint 69 Sync Integration Repo",
+    "maint-69-sync-labels.yml": "Maint 69 Sync Labels",
     "maint-60-release.yml": "Maint 60 Release",
     "maint-70-fix-integration-formatting.yml": "Fix Integration Tests Formatting",
     "maint-71-auto-fix-integration.yml": "Auto-Fix Integration Test Failures",
