@@ -122,6 +122,11 @@ const TOKEN_SPECIALIZATIONS = {
  * @param {string} options.githubToken - Default GITHUB_TOKEN
  */
 async function initializeTokenRegistry({ secrets, github, core, githubToken }) {
+  // Validate inputs
+  if (!secrets || typeof secrets !== 'object') {
+    throw new Error('initializeTokenRegistry requires a valid secrets object');
+  }
+  
   tokenRegistry.tokens.clear();
   
   // Register GITHUB_TOKEN (always available)
@@ -295,7 +300,7 @@ async function checkTokenRateLimit({ tokenInfo, github, core }) {
   const core_limit = data.resources.core;
   
   const percentUsed = core_limit.limit > 0 
-    ? ((core_limit.used / core_limit.limit) * 100).toFixed(1)
+    ? (core_limit.used / core_limit.limit) * 100
     : 0;
   
   return {
@@ -304,8 +309,8 @@ async function checkTokenRateLimit({ tokenInfo, github, core }) {
     used: core_limit.used,
     reset: core_limit.reset * 1000,
     checked: Date.now(),
-    percentUsed: parseFloat(percentUsed),
-    percentRemaining: 100 - parseFloat(percentUsed),
+    percentUsed,
+    percentRemaining: 100 - percentUsed,
   };
 }
 
@@ -382,6 +387,14 @@ async function getOptimalToken({ github, core, capabilities = [], preferredType 
           let token = tokenInfo.token;
           if (tokenInfo.type === 'APP' && !token) {
             token = await mintAppToken({ tokenInfo, core });
+            if (!token) {
+              // Failed to mint token for exclusive task - don't fall through to general tokens
+              core?.warning?.(
+                `Failed to mint app token for exclusive task '${task}'. ` +
+                  `Token ${id} is required but unavailable.`
+              );
+              return null;
+            }
             tokenInfo.token = token;
           }
           if (token) {
@@ -452,7 +465,40 @@ async function getOptimalToken({ github, core, capabilities = [], preferredType 
   }
   
   // Sort by score (highest first)
-  candidates.sort((a, b) => b.score - a.score);
+  caif (!token) {
+      // Failed to mint - try next candidate
+      core?.warning?.(
+        `Failed to mint app token for ${best.id}, trying next candidate`
+      );
+      // Remove failed candidate and retry
+      candidates.shift();
+      if (candidates.length === 0) {
+        return null;
+      }
+      // Recursively try next candidate (simple retry)
+      const next = candidates[0];
+      let nextToken = next.tokenInfo.token;
+      if (next.tokenInfo.type === 'APP' && !nextToken) {
+        nextToken = await mintAppToken({ tokenInfo: next.tokenInfo, core });
+        if (!nextToken) {
+          core?.warning?.('All app tokens failed to mint');
+          return null;
+        }
+        next.tokenInfo.token = nextToken;
+      }
+      core?.info?.(`Selected token: ${next.id} (${next.remaining} remaining, ${next.percentRemaining.toFixed(1)}% capacity)${next.isPrimary ? ' [primary]' : ''}`);
+      return {
+        token: nextToken || next.tokenInfo.token,
+        source: next.id,
+        type: next.tokenInfo.type,
+        remaining: next.remaining,
+        percentRemaining: next.percentRemaining,
+        percentUsed: next.tokenInfo.rateLimit?.percentUsed ?? 0,
+        isPrimary: next.isPrimary,
+        task,
+      };
+    }
+    ndidates.sort((a, b) => b.score - a.score);
   
   const best = candidates[0];
   
@@ -519,8 +565,8 @@ function updateFromHeaders(tokenId, headers) {
       used: used || (limit - remaining),
       reset: reset ? reset * 1000 : tokenInfo.rateLimit.reset,
       checked: Date.now(),
-      percentUsed: ((limit - remaining) / limit * 100).toFixed(1),
-      percentRemaining: (remaining / limit * 100).toFixed(1),
+      percentUsed: (limit - remaining) / limit * 100,
+      percentRemaining: (remaining / limit) * 100,
     };
   }
 }

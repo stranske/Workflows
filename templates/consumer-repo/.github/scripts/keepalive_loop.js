@@ -2762,7 +2762,7 @@ async function analyzeTaskCompletion({ github, context, prNumber, baseSha, headS
       return null;
     }
     if (!issuePatternCache.has(issueNumber)) {
-      issuePatternCache.set(issueNumber, new RegExp(`(^|\\D)${issueNumber}(\\D|$)`));
+      issuePatternCache.set(issueNumber, new RegExp(`\\b${issueNumber}\\b`));
     }
     return issuePatternCache.get(issueNumber);
   };
@@ -2781,10 +2781,17 @@ async function analyzeTaskCompletion({ github, context, prNumber, baseSha, headS
     const isTestTask = /\b(test|tests|unit\s*test|coverage)\b/i.test(task);
     const issueNumber = extractIssueNumber(task);
     const issuePattern = buildIssuePattern(issueNumber);
-    const strippedIssueTask = task
+    let strippedIssueTask = task
       .replace(/\[[^\]]*\]\(([^)]+)\)/g, '$1')
-      .replace(/https?:\/\/\S+/gi, '')
-      .replace(/[#\d]/g, '')
+      .replace(/https?:\/\/\S+/gi, '');
+    
+    // Remove the specific issue reference if pattern exists
+    if (issuePattern) {
+      strippedIssueTask = strippedIssueTask.replace(issuePattern, '');
+    }
+    
+    strippedIssueTask = strippedIssueTask
+      .replace(/#\d+/g, '') // Remove only #number patterns
       .replace(/[\[\]().]/g, '')
       .trim();
     const isIssueOnlyTask = Boolean(issuePattern) && strippedIssueTask === '';
@@ -2834,7 +2841,10 @@ async function analyzeTaskCompletion({ github, context, prNumber, baseSha, headS
     const commitMatch = commits.some(c => {
       const msg = c.commit.message.toLowerCase();
       return taskWords.some(w => w.length > 4 && msg.includes(w));
-    });
+    })if (!pr) {
+        core.warning('analyzeTaskCompletion: pr parameter is undefined');
+      }
+      ;
 
     let confidence = 'low';
     let reason = '';
