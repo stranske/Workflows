@@ -2287,6 +2287,38 @@ No actual links here, just text`;
   assert.equal(source, null);
 });
 
+test('extractSourceSection captures source context with agent subsections', () => {
+  const { extractSourceSection } = require('../keepalive_loop.js');
+
+  const prBody = `## Source
+<!-- Updated WORKFLOW_OUTPUTS.md context:start -->
+## Context for Agent
+
+### Related Issues/PRs
+
+### Tasks
+- [ ] #1001
+`;
+
+  const source = extractSourceSection(prBody);
+  assert.ok(source.includes('Context for Agent'));
+  assert.ok(source.includes('#1001'));
+});
+
+test('extractSourceSection supports nested heading levels', () => {
+  const { extractSourceSection } = require('../keepalive_loop.js');
+
+  const prBody = `### Source
+- Parent issue: https://github.com/org/repo/issues/123
+
+## Next Section
+Unrelated content`;
+
+  const source = extractSourceSection(prBody);
+  assert.ok(source.includes('github.com'));
+  assert.ok(!source.includes('Unrelated content'));
+});
+
 test('buildTaskAppendix includes Source Context when prBody has source links', () => {
   const { buildTaskAppendix } = require('../keepalive_loop.js');
   const sections = {

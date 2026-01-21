@@ -759,6 +759,33 @@ function classifyFailureDetails({ action, runResult, summaryReason, agentExitCod
   };
 }
 
+const SOURCE_CONTEXT_HEADINGS = new Set(['context for agent']);
+
+function isCodeFenceLine(line) {
+  return /^(`{3,}|~{3,})/.test(String(line || '').trim());
+}
+
+function parseHeading(line) {
+  const match = String(line || '').match(/^(#{1,6})\s+(.*)$/);
+  if (!match) {
+    return null;
+  }
+  const level = match[1].length;
+  const title = match[2].replace(/\s*:\s*$/, '').trim();
+  if (!title) {
+    return null;
+  }
+  return { level, title };
+}
+
+function isSourceHeading(title) {
+  return /^source\b/i.test(title);
+}
+
+function isSourceContinuationHeading(title) {
+  return SOURCE_CONTEXT_HEADINGS.has(String(title || '').toLowerCase());
+}
+
 /**
  * Extract Source section from PR/issue body that contains links to parent issues/PRs.
  * @param {string} body - PR or issue body text
@@ -766,14 +793,58 @@ function classifyFailureDetails({ action, runResult, summaryReason, agentExitCod
  */
 function extractSourceSection(body) {
   const text = String(body || '');
-  // Match "## Source" or "### Source" section
-  const match = text.match(/##?\s*Source\s*\n([\s\S]*?)(?=\n##|\n---|\n\n\n|$)/i);
-  if (match && match[1]) {
-    const content = match[1].trim();
-    // Only return if it has meaningful content (links to issues/PRs)
-    if (/#\d+|github\.com/.test(content)) {
-      return content;
+  if (!text.trim()) {
+    return null;
+  }
+
+  const lines = text.split('\n');
+  let insideCodeBlock = false;
+  let startIndex = -1;
+  let sourceLevel = null;
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i];
+    if (isCodeFenceLine(line)) {
+      insideCodeBlock = !insideCodeBlock;
+      continue;
     }
+    if (insideCodeBlock) {
+      continue;
+    }
+    const heading = parseHeading(line);
+    if (heading && isSourceHeading(heading.title)) {
+      startIndex = i + 1;
+      sourceLevel = heading.level;
+      break;
+    }
+  }
+
+  if (startIndex < 0 || sourceLevel === null) {
+    return null;
+  }
+
+  const captured = [];
+  insideCodeBlock = false;
+
+  for (let i = startIndex; i < lines.length; i += 1) {
+    const line = lines[i];
+    if (isCodeFenceLine(line)) {
+      insideCodeBlock = !insideCodeBlock;
+      captured.push(line);
+      continue;
+    }
+    if (!insideCodeBlock) {
+      const heading = parseHeading(line);
+      if (heading && heading.level <= sourceLevel && !isSourceContinuationHeading(heading.title)) {
+        break;
+      }
+    }
+    captured.push(line);
+  }
+
+  const content = captured.join('\n').trim();
+  if (content && /#\d+|github\.com/i.test(content)) {
+    return content;
   }
   return null;
 }
