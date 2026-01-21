@@ -50,6 +50,11 @@ def load_workflow(path: Path) -> dict | None:
         return None
 
 
+def _normalize_trigger_name(value: object) -> str | None:
+    name = str(value).strip()
+    return name or None
+
+
 def normalize_triggers(on_field: object) -> tuple[str, ...]:
     """Normalize workflow trigger declarations to a sorted tuple."""
     if on_field is None:
@@ -60,11 +65,19 @@ def normalize_triggers(on_field: object) -> tuple[str, ...]:
     if isinstance(on_field, list):
         for item in on_field:
             if isinstance(item, dict):
-                triggers.extend(str(key) for key in item)
+                for key in item:
+                    name = _normalize_trigger_name(key)
+                    if name:
+                        triggers.append(name)
             else:
-                triggers.append(str(item))
+                name = _normalize_trigger_name(item)
+                if name:
+                    triggers.append(name)
     elif isinstance(on_field, dict):
-        triggers.extend(str(key) for key in on_field)
+        for key in on_field:
+            name = _normalize_trigger_name(key)
+            if name:
+                triggers.append(name)
     else:
         return ()
     return tuple(sorted(set(triggers)))

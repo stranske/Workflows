@@ -41,6 +41,13 @@ def test_normalize_triggers_dedupes_mixed_list() -> None:
     assert triggers == ("issues", "pull_request")
 
 
+def test_normalize_triggers_ignores_blank_entries() -> None:
+    triggers = workflow_concurrency_audit.normalize_triggers(
+        [" pull_request ", "", {"issues": None}, "   "]
+    )
+    assert triggers == ("issues", "pull_request")
+
+
 def test_audit_accepts_job_level_cancel(tmp_path: Path) -> None:
     workflow_dir = tmp_path / "workflows"
     workflow_dir.mkdir()
