@@ -76,6 +76,21 @@ jobs:
     assert by_name["without-pr.yml"].pr_context_markers == ()
 
 
+def test_audit_workflows_handles_unreadable_paths(tmp_path: Path) -> None:
+    workflows_dir = tmp_path / "workflows"
+    workflows_dir.mkdir()
+
+    bad_path = workflows_dir / "bad.yml"
+    bad_path.mkdir()
+
+    results = audit_workflows(workflows_dir)
+    by_name = {item.path.name: item for item in results}
+
+    assert by_name["bad.yml"].valid is False
+    assert by_name["bad.yml"].triggers == ()
+    assert by_name["bad.yml"].pr_context_markers == ()
+
+
 def test_summarize_by_triggers_groups_workflows(tmp_path: Path) -> None:
     workflows_dir = tmp_path / "workflows"
     workflows_dir.mkdir()

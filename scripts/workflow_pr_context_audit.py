@@ -70,7 +70,18 @@ def audit_workflows(workflows_dir: Path) -> list[WorkflowAudit]:
     """Audit workflows in a directory for PR context usage."""
     results: list[WorkflowAudit] = []
     for path in sorted(workflows_dir.glob("*.yml")) + sorted(workflows_dir.glob("*.yaml")):
-        text = path.read_text(encoding="utf-8")
+        try:
+            text = path.read_text(encoding="utf-8")
+        except OSError:
+            results.append(
+                WorkflowAudit(
+                    path=path,
+                    triggers=(),
+                    pr_context_markers=(),
+                    valid=False,
+                )
+            )
+            continue
         data = load_workflow(path)
         if data is None:
             triggers: tuple[str, ...] = ()
