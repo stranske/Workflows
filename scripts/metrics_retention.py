@@ -134,6 +134,8 @@ def _iter_metrics_paths(
     metrics_paths: list[str],
     metrics_dirs: Iterable[str],
     log_path: Path,
+    *,
+    include_defaults: bool,
 ) -> list[Path]:
     seen: set[Path] = set()
     candidates: list[Path] = []
@@ -154,11 +156,12 @@ def _iter_metrics_paths(
                 seen.add(entry)
                 candidates.append(entry)
 
-    defaults = [Path(name) for name in DEFAULT_METRICS_PATHS]
-    for entry in defaults:
-        if entry not in seen:
-            seen.add(entry)
-            candidates.append(entry)
+    if include_defaults:
+        defaults = [Path(name) for name in DEFAULT_METRICS_PATHS]
+        for entry in defaults:
+            if entry not in seen:
+                seen.add(entry)
+                candidates.append(entry)
 
     return [path for path in candidates if path.exists() and path != log_path]
 
@@ -453,8 +456,16 @@ def main(argv: list[str]) -> int:
         metrics_paths = [item.strip() for item in args.metrics_paths.split(",") if item.strip()]
 
     policy = load_policy(Path(args.config), archive_override=args.archive_dir)
-    metrics_dirs = list(args.metrics_dir) + list(DEFAULT_METRICS_DIRS)
-    targets = _iter_metrics_paths(metrics_paths, metrics_dirs, log_path)
+    include_defaults = not metrics_paths
+    metrics_dirs = list(args.metrics_dir)
+    if include_defaults:
+        metrics_dirs += list(DEFAULT_METRICS_DIRS)
+    targets = _iter_metrics_paths(
+        metrics_paths,
+        metrics_dirs,
+        log_path,
+        include_defaults=include_defaults,
+    )
     if not targets:
         print("metrics_retention: no metrics files found.", file=sys.stderr)
         return 1
