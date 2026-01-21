@@ -2820,10 +2820,6 @@ async function analyzeTaskCompletion({ github, context, prNumber, baseSha, headS
     const isTestTask = /\b(test|tests|unit\s*test|coverage)\b/i.test(task);
     const issueNumber = extractIssueNumber(task);
     const issuePattern = buildIssuePattern(issueNumber);
-<<<<<<< HEAD
-    let strippedIssueTask = task
-      .replace(/\[[^\]]*\]\(([^)]+)\)/g, '$1')
-      .replace(/https?:\/\/\S+/gi, '');
     let strippedIssueTask = task
       .replace(/\[[^\]]*\]\(([^)]+)\)/g, '$1')
       .replace(/https?:\/\/\S+/gi, '');
@@ -2835,6 +2831,10 @@ async function analyzeTaskCompletion({ github, context, prNumber, baseSha, headS
     
     strippedIssueTask = strippedIssueTask
       .replace(/#\d+/g, '') // Remove only #number patterns
+      .replace(/[\[\]().]/g, '')
+      .trim();
+    const isIssueOnlyTask = Boolean(issuePattern) && strippedIssueTask === '';
+    
     // Calculate overlap score using expanded keywords (with synonyms)
     const matchingWords = taskWords.filter(w => expandedKeywords.has(w));
     const score = taskWords.length > 0 ? matchingWords.length / taskWords.length : 0;
@@ -2880,16 +2880,13 @@ async function analyzeTaskCompletion({ github, context, prNumber, baseSha, headS
     const commitMatch = commits.some(c => {
       const msg = c.commit.message.toLowerCase();
       return taskWords.some(w => w.length > 4 && msg.includes(w));
-    })if (!pr) {
-        core.warning('analyzeTaskCompletion: pr parameter is undefined');
-      }
-      ;
-
-    let confidence = 'low';
-    let reason = '';
+    });
 
     // Exact file match is very high confidence
     if (isIssueOnlyTask) {
+      if (!pr) {
+        core.warning('analyzeTaskCompletion: pr parameter is undefined');
+      }
       const prTitle = pr?.title;
       const prRef = pr?.head?.ref;
       const prMatch = issueMatchesText(issuePattern, prTitle) || issueMatchesText(issuePattern, prRef);
