@@ -2504,9 +2504,8 @@ async function analyzeTaskCompletion({ github, context, prNumber, baseSha, headS
 
   // Parse tasks into individual items
   const taskLines = taskText.split('\n')
-    .filter(line => /^\s*[-*+]\s*\[\s*\]/.test(line))
     .map(line => {
-      const match = line.match(/^\s*[-*+]\s*\[\s*\]\s*(.+)$/);
+      const match = line.match(/^\s*(?:[-*+]|\d+[.)])\s*\[\s*\]\s*(.+)$/);
       return match ? match[1].trim() : null;
     })
     .filter(Boolean);
@@ -2780,10 +2779,10 @@ async function autoReconcileTasks({ github, context, prNumber, baseSha, headSha,
   for (const match of highConfidence) {
     // Escape special regex characters in task text
     const escaped = match.task.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const pattern = new RegExp(`([-*+]\\s*)\\[\\s*\\](\\s*${escaped})`, 'i');
+    const pattern = new RegExp(`(^|\\n)(\\s*(?:[-*+]|\\d+[.)])\\s*)\\[\\s*\\](\\s*${escaped})`, 'i');
     
     if (pattern.test(updatedBody)) {
-      updatedBody = updatedBody.replace(pattern, '$1[x]$2');
+      updatedBody = updatedBody.replace(pattern, '$1$2[x]$3');
       checkedCount++;
       log(`Auto-checked task: ${match.task.slice(0, 50)}... (${match.reason})`);
     }

@@ -2560,6 +2560,51 @@ test('analyzeTaskCompletion identifies high-confidence matches', async () => {
   assert.equal(stepSummaryMatch.confidence, 'high', 'Should be high confidence');
 });
 
+test('analyzeTaskCompletion parses numbered checklist items', async () => {
+  const commits = [
+    { sha: 'abc123', commit: { message: 'feat: add step summary output to keepalive loop' } },
+  ];
+  const files = [
+    { filename: '.github/scripts/keepalive_loop.js' },
+  ];
+
+  const github = {
+    rest: {
+      repos: {
+        async compareCommits() {
+          return { data: { commits } };
+        },
+      },
+      pulls: {
+        async listFiles() {
+          return { data: files };
+        },
+      },
+    },
+  };
+
+  const taskText = `
+1. [ ] Add step summary output to keepalive loop
+2) [ ] Add tests for step summary
+`;
+
+  const result = await analyzeTaskCompletion({
+    github,
+    context: { repo: { owner: 'test', repo: 'repo' } },
+    prNumber: 1,
+    baseSha: 'base123',
+    headSha: 'head456',
+    taskText,
+    core: buildCore(),
+  });
+
+  const numberedMatch = result.matches.find(m =>
+    m.task.toLowerCase().includes('step summary output')
+  );
+  assert.ok(numberedMatch, 'Should match numbered checklist task');
+  assert.equal(numberedMatch.confidence, 'high', 'Should be high confidence');
+});
+
 test('analyzeTaskCompletion matches explicit file creation tasks', async () => {
   const commits = [
     { sha: 'abc123', commit: { message: 'test: add agents-guard tests' } },
@@ -2893,6 +2938,62 @@ test('autoReconcileTasks handles tasks with backticks and special characters', a
       'Should check off task with double quotes');
     assert.ok(updatedBody.includes('[ ] Task with \'single quotes\''),
       'Should leave uncompleted task with single quotes');
+  }
+});
+
+test('autoReconcileTasks checks numbered checklist items', async () => {
+  const prBody = `## Tasks
+1. [ ] Ship first numbered task
+2) [ ] Ship second numbered task
+`;
+
+  const llmCompletedTasks = [
+    'Ship first numbered task',
+    'Ship second numbered task',
+  ];
+
+  let updatedBody = null;
+  const github = {
+    rest: {
+      pulls: {
+        async get() {
+          return { data: { body: prBody } };
+        },
+        async update({ body }) {
+          updatedBody = body;
+          return { data: {} };
+        },
+        async listFiles() {
+          return { data: [] };
+        },
+      },
+      repos: {
+        async compareCommits() {
+          return { data: { commits: [] } };
+        },
+      },
+    },
+  };
+
+  const result = await autoReconcileTasks({
+    github,
+    context: { repo: { owner: 'test', repo: 'repo' } },
+    prNumber: 1,
+    baseSha: 'base123',
+    headSha: 'head456',
+    llmCompletedTasks,
+    core: buildCore(),
+  });
+
+  assert.ok(result.updated, 'Should update PR body for numbered tasks');
+  assert.equal(result.tasksChecked, 2, 'Should check off both numbered tasks');
+  assert.equal(result.sources.llm, 2, 'Should report LLM sources');
+
+  if (updatedBody) {
+    assert.ok(updatedBody.includes('1. [x] Ship first numbered task'),
+      'Should check off first numbered task');
+    assert.ok(updatedBody.includes('2) [x] Ship second numbered task'),
+      'Should check off second numbered task');
   }
 });
 
