@@ -53,6 +53,9 @@ def extract_tasks_from_pr_body(pr_body: str) -> list[str]:
     """
     tasks = []
 
+    summary_tag_pattern = re.compile(r"^<summary\b[^>]*>.*</summary>\s*$", re.IGNORECASE)
+    details_tag_pattern = re.compile(r"^</?(summary|details)\b", re.IGNORECASE)
+
     # Match both checked and unchecked boxes to get all tasks
     # Pattern: - [ ] or - [x] followed by task text
     checkbox_pattern = re.compile(r"^[\s]*-\s*\[([ xX])\]\s*(.+)$", re.MULTILINE)
@@ -60,6 +63,9 @@ def extract_tasks_from_pr_body(pr_body: str) -> list[str]:
     for match in checkbox_pattern.finditer(pr_body):
         checked = match.group(1).lower() == "x"
         task_text = match.group(2).strip()
+
+        if summary_tag_pattern.match(task_text) or details_tag_pattern.match(task_text):
+            continue
 
         # Only track unchecked tasks
         if not checked and task_text:
@@ -76,11 +82,15 @@ def extract_all_tasks_from_pr_body(pr_body: str) -> dict[str, bool]:
         Dict mapping task text to checked status
     """
     tasks = {}
+    summary_tag_pattern = re.compile(r"^<summary\b[^>]*>.*</summary>\s*$", re.IGNORECASE)
+    details_tag_pattern = re.compile(r"^</?(summary|details)\b", re.IGNORECASE)
     checkbox_pattern = re.compile(r"^[\s]*-\s*\[([ xX])\]\s*(.+)$", re.MULTILINE)
 
     for match in checkbox_pattern.finditer(pr_body):
         checked = match.group(1).lower() == "x"
         task_text = match.group(2).strip()
+        if summary_tag_pattern.match(task_text) or details_tag_pattern.match(task_text):
+            continue
         if task_text:
             tasks[task_text] = checked
 

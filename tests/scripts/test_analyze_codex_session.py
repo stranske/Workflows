@@ -81,6 +81,17 @@ This PR fixes a bug.
         assert "Task from tasks section" in tasks
         assert "Criterion 1" in tasks
 
+    def test_ignores_details_summary_tags(self) -> None:
+        pr_body = """
+## Tasks
+- [ ] <details>
+- [ ] <summary>What should I do?</summary>
+- [ ] Actual task
+- [ ] </details>
+"""
+        tasks = extract_tasks_from_pr_body(pr_body)
+        assert tasks == ["Actual task"]
+
 
 class TestExtractAllTasksFromPRBody:
     """Tests for extracting all tasks with status."""
@@ -97,6 +108,15 @@ class TestExtractAllTasksFromPRBody:
             "Checked task": True,
             "Also checked": True,
         }
+
+    def test_ignores_details_summary_tags(self) -> None:
+        pr_body = """
+- [ ] <summary>What should I do?</summary>
+- [x] Real task
+- [ ] </summary>
+"""
+        tasks = extract_all_tasks_from_pr_body(pr_body)
+        assert tasks == {"Real task": True}
 
 
 class TestUpdatePRBodyCheckboxes:
