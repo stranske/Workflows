@@ -1,0 +1,80 @@
+import json
+from pathlib import Path
+
+from scripts import aggregate_repo_metrics, metrics_dashboard_generator
+
+
+def _write_repo_metrics(metrics_dir: Path, fixture_path: Path) -> list[str]:
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+    repos = payload["repos"]
+    metrics_dir.mkdir(parents=True, exist_ok=True)
+    for repo, entries in repos.items():
+        path = metrics_dir / f"{repo.replace('/', '__')}.ndjson"
+        lines = [json.dumps(entry, sort_keys=True) for entry in entries]
+        path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return sorted(repos.keys())
+
+
+def test_metrics_dashboard_pipeline(tmp_path: Path) -> None:
+    fixture_path = Path(__file__).resolve().parents[1] / "fixtures" / "sample_metrics.json"
+    metrics_dir = tmp_path / "repo-metrics"
+    repos = _write_repo_metrics(metrics_dir, fixture_path)
+
+    combined_path = tmp_path / "combined-repo-metrics.ndjson"
+    summary_path = tmp_path / "repo-metrics-summary.json"
+
+    exit_code = aggregate_repo_metrics.main(
+        [
+            "--repos",
+            ",".join(repos),
+            "--metrics-dir",
+            str(metrics_dir),
+            "--output",
+            str(combined_path),
+            "--summary-output",
+            str(summary_path),
+            "--numeric-field",
+            "duration_ms",
+            "--numeric-field",
+            "success_rate",
+            "--numeric-field",
+            "failed_jobs",
+        ]
+    )
+
+    assert exit_code == 0
+    assert combined_path.exists()
+    assert summary_path.exists()
+
+    summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    assert summary["total_entries"] == 4
+    assert set(summary["numeric_fields"]) == {"duration_ms", "success_rate", "failed_jobs"}
+
+    combined_entries = [
+        json.loads(line)
+        for line in combined_path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    raw_entries = [entry for entry in combined_entries if entry.get("repo") in repos]
+    assert len(raw_entries) == 4
+    assert any(entry.get("entry_type") == "aggregate" for entry in combined_entries)
+
+    dashboard_path = tmp_path / "dashboard.md"
+    dashboard_exit = metrics_dashboard_generator.main(
+        [
+            "--path",
+            str(combined_path),
+            "--output",
+            str(dashboard_path),
+            "--fields",
+            "duration_ms",
+            "success_rate",
+            "failed_jobs",
+        ]
+    )
+
+    assert dashboard_exit == 0
+    content = dashboard_path.read_text(encoding="utf-8")
+    assert "# Weekly Metrics Dashboard" in content
+    assert "### octo/alpha" in content
+    assert "### octo/beta" in content

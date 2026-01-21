@@ -1,0 +1,44 @@
+{
+  "repos": {
+    "octo/alpha": [
+      {
+        "timestamp": "2024-01-01T00:00:00Z",
+        "metric_name": "ci_runtime",
+        "workflow": "ci",
+        "dimension": "total",
+        "duration_ms": 120000,
+        "success_rate": 98.5,
+        "failed_jobs": 1
+      },
+      {
+        "timestamp": "2024-01-08T00:00:00Z",
+        "metric_name": "ci_runtime",
+        "workflow": "ci",
+        "dimension": "total",
+        "duration_ms": 110000,
+        "success_rate": 99.2,
+        "failed_jobs": 0
+      }
+    ],
+    "octo/beta": [
+      {
+        "timestamp": "2024-01-02T00:00:00Z",
+        "metric_name": "ci_runtime",
+        "workflow": "ci",
+        "dimension": "total",
+        "duration_ms": 140000,
+        "success_rate": 95.0,
+        "failed_jobs": 2
+      },
+      {
+        "timestamp": "2024-01-09T00:00:00Z",
+        "metric_name": "ci_runtime",
+        "workflow": "ci",
+        "dimension": "total",
+        "duration_ms": 130000,
+        "success_rate": 96.5,
+        "failed_jobs": 1
+      }
+    ]
+  }
+}
