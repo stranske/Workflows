@@ -1,0 +1,351 @@
+version: 1
+issue: 1018
+base: main
+branch: codex/issue-1018
+tasks:
+  - id: task-01
+    title: Add unit tests for Rebalancer consecutive soft strikes (exit path)
+    status: doing
+    started_at: '2026-01-21T19:13:43Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: Add unit tests for Rebalancer hard exit threshold override
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: Add unit tests for hard entry candidates filling capacity first
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: Add unit tests for eligible candidates accumulating strikes
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: Add unit tests for score-proportional weighting behavior
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: Add unit tests for score-proportional fallback to equal weights
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: Add unit tests for empty holdings edge case
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: Sanitize blank/whitespace column names in rank_select_funds before processing
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: Apply placeholder logic to phase1_multi and multi_period exports in empty
+      demo
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: Update requirements.lock with hypothesis 6.138.17 and xlsxwriter 3.2.9
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: Verify all tests pass with ./scripts/run_tests.sh
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: Add a helper function named _ensure_periods_placeholder in scripts/run_multi_demo.py
+      to handle empty period exports by inserting placeholder rows with descriptive
+      messages.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: Add unit tests for Rebalancer consecutive soft strikes (exit path)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: Add unit tests for Rebalancer hard exit threshold override
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: Add unit tests for hard entry candidates filling capacity first
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: Add unit tests for eligible candidates accumulating strikes
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: Add unit tests for score-proportional weighting behavior
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: Add unit tests for score-proportional fallback to equal weights
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: Add unit tests for empty holdings edge case
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: Sanitize blank/whitespace column names in rank_select_funds before processing
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: Add _ensure_periods_placeholder helper for empty period exports
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: Apply placeholder logic to phase1_multi and multi_period exports in empty
+      demo
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-23
+    title: Update requirements.lock with hypothesis 6.138.17 and xlsxwriter 3.2.9
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-24
+    title: Verify all tests pass with ./scripts/run_tests.sh
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-25
+    title: All unit tests in test_multi_period_rebalancer.py pass
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-26
+    title: Rebalancer correctly removes funds after consecutive soft strikes
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-27
+    title: Rebalancer immediately drops funds below hard exit threshold
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-28
+    title: Hard entry candidates consume capacity before auto entries
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-29
+    title: Eligible candidates join after accumulating required strikes
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-30
+    title: Score-proportional weighting produces normalized weights favoring higher
+      scores
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-31
+    title: Score-proportional weighting falls back to equal weights when zscore column
+      is missing
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-32
+    title: Empty holdings return empty Series without errors
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-33
+    title: rank_select_funds strips whitespace from column names and renames blank
+      columns to Unnamed_N
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-34
+    title: Empty multi-period exports include placeholder rows with descriptive messages
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-35
+    title: All existing tests continue to pass after changes
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-36
+    title: Requirements lockfile reflects updated dependency versions
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-37
+    title: All unit tests in test_multi_period_rebalancer.py pass
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-38
+    title: Rebalancer correctly removes funds after consecutive soft strikes
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-39
+    title: Rebalancer immediately drops funds below hard exit threshold
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-40
+    title: Hard entry candidates consume capacity before auto entries
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-41
+    title: Eligible candidates join after accumulating required strikes
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-42
+    title: Score-proportional weighting produces normalized weights favoring higher
+      scores
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-43
+    title: Score-proportional weighting falls back to equal weights when zscore column
+      is missing
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-44
+    title: Empty holdings return empty Series without errors
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-45
+    title: rank_select_funds strips whitespace from column names and renames blank
+      columns to Unnamed_N
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-46
+    title: Empty multi-period exports include placeholder rows with descriptive messages
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-47
+    title: All existing tests continue to pass after changes
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-48
+    title: Requirements lockfile reflects updated dependency versions
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
