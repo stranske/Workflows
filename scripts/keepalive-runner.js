@@ -141,7 +141,6 @@ function resolvePromptCheckboxCounts(scopeCounts, latestChecklist) {
   const total = Number.isFinite(latestChecklist.total) ? latestChecklist.total : 0;
   const unchecked = Number.isFinite(latestChecklist.unchecked) ? latestChecklist.unchecked : 0;
   const scopeHasTasks = safeScope.total > 0;
-  const scopeIncomplete = safeScope.unchecked > 0;
   const latestHasTasks = total > 0;
   if (!latestHasTasks) {
     return safeScope;
@@ -149,7 +148,8 @@ function resolvePromptCheckboxCounts(scopeCounts, latestChecklist) {
   if (!scopeHasTasks) {
     return { total, unchecked };
   }
-  if (unchecked > 0) {
+  const scopeIncomplete = safeScope.unchecked > 0;
+  if (scopeIncomplete && unchecked > 0) {
     return { total, unchecked };
   }
   return safeScope;

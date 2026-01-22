@@ -154,8 +154,8 @@ test('coerceNumber rejects values below min', () => {
   assert.equal(coerceNumber(0, 5, { min: 1 }), 5);
 });
 
-test('resolvePromptCheckboxCounts prefers latest checklist when it has outstanding tasks', () => {
-  const scopeCounts = { total: 3, unchecked: 0 };
+test('resolvePromptCheckboxCounts prefers latest checklist when scope remains incomplete', () => {
+  const scopeCounts = { total: 3, unchecked: 1 };
   const latestChecklist = { total: 3, unchecked: 1 };
   assert.deepEqual(resolvePromptCheckboxCounts(scopeCounts, latestChecklist), {
     total: 3,
