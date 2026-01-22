@@ -1597,7 +1597,7 @@ async function checkRateLimitStatus({ github, core, minRequired = 50 }) {
   };
 
   // If load balancer is available AND initialized, check all tokens
-  if (tokenLoadBalancer && tokenLoadBalancer.isInitialized && tokenLoadBalancer.isInitialized()) {
+  if (tokenLoadBalancer?.isInitialized?.()) {
     try {
       const summary = tokenLoadBalancer.getRegistrySummary();
       result.tokens = summary;
@@ -1737,6 +1737,7 @@ async function evaluateKeepaliveLoop({ github, context, core, payload: overrideP
     const agentLabel = labels.find((label) => label.startsWith('agent:'));
     const agentType = agentLabel ? agentLabel.replace('agent:', '') : '';
     const hasAgentLabel = Boolean(agentType);
+    const hasHighPrivilege = labels.includes('agent-high-privilege');
     const keepaliveEnabled = config.keepalive_enabled && hasAgentLabel;
 
     const sections = parseScopeTasksAcceptanceSections(pr.body || '');
@@ -1942,6 +1943,7 @@ async function evaluateKeepaliveLoop({ github, context, core, payload: overrideP
       failureThreshold,
       checkboxCounts,
       hasAgentLabel,
+      hasHighPrivilege,
       agentType,
       taskAppendix,
       keepaliveEnabled,
@@ -1981,6 +1983,7 @@ async function evaluateKeepaliveLoop({ github, context, core, payload: overrideP
         failureThreshold: 0,
         checkboxCounts: { total: 0, unchecked: 0 },
         hasAgentLabel: false,
+        hasHighPrivilege: false,
         agentType: '',
         taskAppendix: '',
         keepaliveEnabled: false,

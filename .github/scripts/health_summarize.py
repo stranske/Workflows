@@ -14,7 +14,7 @@ from typing import Any
 # Add the root directory to Python path to enable tools import
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from tools.test_failure_signature import build_signature_hash
+from tools.test_failure_signature import build_signature_hash  # noqa: E402
 
 
 def _read_bool(value: str | None) -> bool:
