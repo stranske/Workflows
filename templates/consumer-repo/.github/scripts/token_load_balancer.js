@@ -465,62 +465,42 @@ async function getOptimalToken({ github, core, capabilities = [], preferredType 
   }
   
   // Sort by score (highest first)
-  caif (!token) {
-      // Failed to mint - try next candidate
+  candidates.sort((a, b) => b.score - a.score);
+
+  while (candidates.length > 0) {
+    const best = candidates[0];
+
+    // Ensure token is available (mint if App)
+    let token = best.tokenInfo.token;
+    if (best.tokenInfo.type === 'APP' && !token) {
+      token = await mintAppToken({ tokenInfo: best.tokenInfo, core });
+      best.tokenInfo.token = token;
+    }
+
+    if (!token) {
       core?.warning?.(
         `Failed to mint app token for ${best.id}, trying next candidate`
       );
-      // Remove failed candidate and retry
       candidates.shift();
-      if (candidates.length === 0) {
-        return null;
-      }
-      // Recursively try next candidate (simple retry)
-      const next = candidates[0];
-      let nextToken = next.tokenInfo.token;
-      if (next.tokenInfo.type === 'APP' && !nextToken) {
-        nextToken = await mintAppToken({ tokenInfo: next.tokenInfo, core });
-        if (!nextToken) {
-          core?.warning?.('All app tokens failed to mint');
-          return null;
-        }
-        next.tokenInfo.token = nextToken;
-      }
-      core?.info?.(`Selected token: ${next.id} (${next.remaining} remaining, ${next.percentRemaining.toFixed(1)}% capacity)${next.isPrimary ? ' [primary]' : ''}`);
-      return {
-        token: nextToken || next.tokenInfo.token,
-        source: next.id,
-        type: next.tokenInfo.type,
-        remaining: next.remaining,
-        percentRemaining: next.percentRemaining,
-        percentUsed: next.tokenInfo.rateLimit?.percentUsed ?? 0,
-        isPrimary: next.isPrimary,
-        task,
-      };
+      continue;
     }
-    ndidates.sort((a, b) => b.score - a.score);
-  
-  const best = candidates[0];
-  
-  // Ensure token is available (mint if App)
-  let token = best.tokenInfo.token;
-  if (best.tokenInfo.type === 'APP' && !token) {
-    token = await mintAppToken({ tokenInfo: best.tokenInfo, core });
-    best.tokenInfo.token = token;
+
+    core?.info?.(`Selected token: ${best.id} (${best.remaining} remaining, ${best.percentRemaining.toFixed(1)}% capacity)${best.isPrimary ? ' [primary]' : ''}`);
+
+    return {
+      token,
+      source: best.id,
+      type: best.tokenInfo.type,
+      remaining: best.remaining,
+      percentRemaining: best.percentRemaining,
+      percentUsed: best.tokenInfo.rateLimit?.percentUsed ?? 0,
+      isPrimary: best.isPrimary,
+      task,
+    };
   }
-  
-  core?.info?.(`Selected token: ${best.id} (${best.remaining} remaining, ${best.percentRemaining.toFixed(1)}% capacity)${best.isPrimary ? ' [primary]' : ''}`);
-  
-  return {
-    token,
-    source: best.id,
-    type: best.tokenInfo.type,
-    remaining: best.remaining,
-    percentRemaining: best.percentRemaining,
-    percentUsed: best.tokenInfo.rateLimit?.percentUsed ?? 0,
-    isPrimary: best.isPrimary,
-    task,
-  };
+
+  core?.warning?.('No tokens available after attempting to mint app tokens');
+  return null;
 }
 
 /**

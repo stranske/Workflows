@@ -11,6 +11,83 @@
  *   const data = await withRetry(() => github.rest.issues.get({...}));
  */
 
+function normaliseHeaders(headers) {
+  if (!headers || typeof headers !== 'object') {
+    return {};
+  }
+  return Object.entries(headers).reduce((acc, [key, value]) => {
+    acc[String(key).toLowerCase()] = value;
+    return acc;
+  }, {});
+}
+
+function extractRateLimitInfo(headers) {
+  const remaining = parseInt(headers['x-ratelimit-remaining'], 10);
+  const limit = parseInt(headers['x-ratelimit-limit'], 10);
+  const reset = parseInt(headers['x-ratelimit-reset'], 10);
+  return {
+    remaining: Number.isFinite(remaining) ? remaining : null,
+    limit: Number.isFinite(limit) ? limit : null,
+    reset: Number.isFinite(reset) ? reset : null,
+  };
+}
+
+function isRateLimitError(error) {
+  if (!error) {
+    return false;
+  }
+  const status = error.status || error?.response?.status;
+  if (status === 429) {
+    return true;
+  }
+  const message = String(error.message || error?.response?.data?.message || '').toLowerCase();
+  if (status === 403) {
+    if (message.includes('rate limit') || message.includes('api rate limit exceeded')) {
+      return true;
+    }
+  }
+  const headers = normaliseHeaders(error?.response?.headers || error?.headers);
+  const remaining = parseInt(headers['x-ratelimit-remaining'], 10);
+  return Number.isFinite(remaining) && remaining <= 0;
+}
+
+function isSecondaryRateLimitError(error) {
+  if (!error) {
+    return false;
+  }
+  const status = error.status || error?.response?.status;
+  if (status !== 403) {
+    return false;
+  }
+  const message = String(error.message || error?.response?.data?.message || '').toLowerCase();
+  return message.includes('secondary rate limit') || message.includes('abuse');
+}
+
+function logWithCore(core, level, message) {
+  if (core && typeof core[level] === 'function') {
+    core[level](message);
+    return;
+  }
+  const logFn = level === 'error' ? console.error : level === 'warning' ? console.warn : console.log;
+  logFn(message);
+}
+
+function resolveOctokitFactory({ github, getOctokit, Octokit }) {
+  if (typeof getOctokit === 'function') {
+    return getOctokit;
+  }
+  if (github && typeof github.getOctokit === 'function') {
+    return github.getOctokit.bind(github);
+  }
+  if (github && typeof github.constructor === 'function') {
+    return (token) => new github.constructor({ auth: token });
+  }
+  if (Octokit) {
+    return (token) => new Octokit({ auth: token });
+  }
+  return null;
+}
+
 /**
  * Exponential backoff retry wrapper for GitHub API calls
  * 
@@ -20,6 +97,16 @@
  * @param {number} options.initialDelay - Initial delay in ms (default: 1000)
  * @param {number} options.maxDelay - Maximum delay in ms (default: 60000)
  * @param {Function} options.onRetry - Callback on retry (receives attempt, error, delay)
+ * @param {Object} options.github - Octokit instance
+ * @param {Object} options.core - GitHub Actions core for logging
+ * @param {Object} options.tokenRegistry - Token load balancer registry
+ * @param {Function} options.getOctokit - Factory for new Octokit instances
+ * @param {string} options.tokenSource - Current token registry ID
+ * @param {string[]} options.capabilities - Required token capabilities
+ * @param {string} options.preferredType - Prefer APP or PAT
+ * @param {string} options.task - Task name for specialization matching
+ * @param {number} options.minRemaining - Minimum remaining calls needed
+ * @param {Function} options.onTokenSwitch - Callback on token switch
  * @returns {Promise<any>} - Result of the API call
  */
 async function withRetry(fn, options = {}) {
@@ -27,66 +114,152 @@ async function withRetry(fn, options = {}) {
     maxRetries = 5,
     initialDelay = 1000,
     maxDelay = 60000,
-    onRetry = null
+    onRetry = null,
+    github = null,
+    core = null,
+    tokenRegistry = null,
+    getOctokit = null,
+    Octokit = null,
+    tokenSource = null,
+    capabilities = [],
+    preferredType = null,
+    task = null,
+    minRemaining = 100,
+    onTokenSwitch = null,
   } = options;
 
   let lastError;
-  
+  let currentGithub = github;
+  let currentTokenSource = tokenSource;
+  const octokitFactory = resolveOctokitFactory({ github, getOctokit, Octokit });
+
+  async function switchToken(reason) {
+    if (!tokenRegistry || typeof tokenRegistry.getOptimalToken !== 'function') {
+      return false;
+    }
+    const selection = await tokenRegistry.getOptimalToken({
+      github: currentGithub || github,
+      core,
+      capabilities,
+      preferredType,
+      task,
+      minRemaining,
+    });
+
+    if (!selection || !selection.token) {
+      logWithCore(core, 'warning', 'Token registry returned no available token');
+      return false;
+    }
+
+    if (!octokitFactory) {
+      logWithCore(core, 'warning', 'Cannot switch tokens without an Octokit factory');
+      return false;
+    }
+
+    if (selection.source === currentTokenSource && currentGithub) {
+      return false;
+    }
+
+    currentGithub = octokitFactory(selection.token);
+    currentTokenSource = selection.source;
+
+    logWithCore(
+      core,
+      'info',
+      `Switching to token ${selection.source} due to ${reason} rate limit`
+    );
+
+    if (typeof onTokenSwitch === 'function') {
+      onTokenSwitch({
+        github: currentGithub,
+        tokenSource: currentTokenSource,
+        tokenInfo: selection,
+        reason,
+      });
+    }
+
+    return true;
+  }
+
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      return await fn();
+      const response = currentGithub ? await fn(currentGithub) : await fn();
+
+      if (tokenRegistry && currentTokenSource) {
+        const headers = normaliseHeaders(response?.headers);
+        const info = extractRateLimitInfo(headers);
+
+        if (Object.keys(headers).length > 0 && typeof tokenRegistry.updateFromHeaders === 'function') {
+          tokenRegistry.updateFromHeaders(currentTokenSource, headers);
+        } else if (typeof tokenRegistry.updateTokenUsage === 'function') {
+          tokenRegistry.updateTokenUsage(currentTokenSource, 1);
+        }
+
+        if (info.remaining !== null && info.limit !== null && core?.debug) {
+          core.debug(
+            `Token ${currentTokenSource} remaining: ${info.remaining}/${info.limit}`
+          );
+        }
+      }
+
+      return response;
     } catch (error) {
       lastError = error;
-      
-      // Check if it's a rate limit error
-      const isRateLimit = 
-        error.status === 403 &&
-        (error.message?.includes('rate limit') ||
-         error.message?.includes('API rate limit exceeded'));
-      
-      // Check if it's a secondary rate limit (abuse detection)
-      const isSecondaryRateLimit =
-        error.status === 403 &&
-        error.message?.includes('secondary rate limit');
-      
+
+      const rateLimitError = isRateLimitError(error);
+      const secondaryRateLimit = isSecondaryRateLimitError(error);
+      const headers = normaliseHeaders(error?.response?.headers || error?.headers);
+
+      if (tokenRegistry && currentTokenSource && typeof tokenRegistry.updateFromHeaders === 'function') {
+        tokenRegistry.updateFromHeaders(currentTokenSource, headers);
+      }
+
       // Don't retry on non-rate-limit errors
-      if (!isRateLimit && !isSecondaryRateLimit) {
+      if (!rateLimitError && !secondaryRateLimit) {
         throw error;
       }
-      
+
+      // Switch tokens on primary rate limit exhaustion
+      if (rateLimitError && !secondaryRateLimit) {
+        const switched = await switchToken('primary');
+        if (switched) {
+          continue;
+        }
+      }
+
       // Don't retry if we've exhausted attempts
       if (attempt === maxRetries) {
         console.error(`Max retries (${maxRetries}) reached for rate limit error`);
         throw error;
       }
-      
+
       // Calculate delay with exponential backoff
-      const baseDelay = isSecondaryRateLimit 
+      const baseDelay = secondaryRateLimit
         ? initialDelay * 2  // Secondary rate limits need longer delays
         : initialDelay;
-      
+
       const delay = Math.min(
         baseDelay * Math.pow(2, attempt),
         maxDelay
       );
-      
+
       // Add jitter to prevent thundering herd
       const jitter = Math.random() * 0.3 * delay;
       const actualDelay = delay + jitter;
-      
+
       console.log(
         `Rate limit hit (attempt ${attempt + 1}/${maxRetries + 1}). ` +
         `Retrying in ${Math.round(actualDelay / 1000)}s...`
       );
-      
+
       if (onRetry) {
         onRetry(attempt + 1, error, actualDelay);
       }
-      
+
       await sleep(actualDelay);
     }
   }
-  
+
   throw lastError;
 }
 
@@ -108,13 +281,148 @@ function sleep(ms) {
  */
 async function paginateWithRetry(github, method, params, options = {}) {
   return withRetry(
-    () => github.paginate(method, params),
-    options
+    (client) => client.paginate(method, params),
+    { ...options, github }
   );
+}
+
+function collectTokenSecrets(env = {}) {
+  const keys = [
+    'SERVICE_BOT_PAT',
+    'ACTIONS_BOT_PAT',
+    'CODESPACES_WORKFLOWS',
+    'OWNER_PR_PAT',
+    'AGENTS_AUTOMATION_PAT',
+    'PAT_1',
+    'PAT_2',
+    'PAT_3',
+    'WORKFLOWS_APP_ID',
+    'WORKFLOWS_APP_PRIVATE_KEY',
+    'KEEPALIVE_APP_ID',
+    'KEEPALIVE_APP_PRIVATE_KEY',
+    'GH_APP_ID',
+    'GH_APP_PRIVATE_KEY',
+    'APP_1_ID',
+    'APP_1_PRIVATE_KEY',
+    'APP_2_ID',
+    'APP_2_PRIVATE_KEY',
+  ];
+
+  return keys.reduce((acc, key) => {
+    if (env[key]) {
+      acc[key] = env[key];
+    }
+    return acc;
+  }, {});
+}
+
+/**
+ * Create a token-aware retry wrapper that initializes the load balancer
+ * using secrets from the environment.
+ *
+ * @param {Object} options
+ * @param {Object} options.github - Octokit instance
+ * @param {Object} options.core - GitHub Actions core for logging
+ * @param {Object} options.env - Environment variables (defaults to process.env)
+ * @param {Object} options.tokenRegistry - Optional token registry override
+ * @param {Function} options.getOctokit - Optional Octokit factory
+ * @param {Object} options.Octokit - Optional Octokit constructor
+ * @returns {Promise<Object>} { github, withRetry, paginateWithRetry, tokenRegistry }
+ */
+async function createTokenAwareRetry(options = {}) {
+  const {
+    github,
+    core = null,
+    env = process.env,
+    tokenRegistry = null,
+    getOctokit = null,
+    Octokit = null,
+    capabilities = [],
+    preferredType = null,
+    task = null,
+    minRemaining = 100,
+    githubToken = null,
+  } = options;
+
+  if (!github) {
+    throw new Error('createTokenAwareRetry requires a github client');
+  }
+
+  const registry = tokenRegistry || require('./token_load_balancer');
+  const secrets = collectTokenSecrets(env || {});
+  const resolvedGithubToken = githubToken || env?.GITHUB_TOKEN || env?.GH_TOKEN || '';
+
+  await registry.initializeTokenRegistry({
+    secrets,
+    github,
+    core,
+    githubToken: resolvedGithubToken,
+  });
+
+  let currentGithub = github;
+  let currentTokenSource = null;
+  const octokitFactory = resolveOctokitFactory({ github, getOctokit, Octokit });
+
+  if (octokitFactory && typeof registry.getOptimalToken === 'function') {
+    const selection = await registry.getOptimalToken({
+      github,
+      core,
+      capabilities,
+      preferredType,
+      task,
+      minRemaining,
+    });
+    if (selection?.token) {
+      currentGithub = octokitFactory(selection.token);
+      currentTokenSource = selection.source;
+    }
+  }
+
+  const onTokenSwitch = ({ github: nextGithub, tokenSource: nextSource }) => {
+    currentGithub = nextGithub;
+    currentTokenSource = nextSource;
+  };
+
+  return {
+    github: currentGithub,
+    tokenRegistry: registry,
+    getTokenSource: () => currentTokenSource,
+    withRetry: (fn, overrideOptions = {}) => withRetry(fn, {
+      github: currentGithub,
+      core,
+      tokenRegistry: registry,
+      getOctokit: octokitFactory,
+      capabilities,
+      preferredType,
+      task,
+      minRemaining,
+      tokenSource: currentTokenSource,
+      onTokenSwitch,
+      ...overrideOptions,
+    }),
+    paginateWithRetry: (method, params, overrideOptions = {}) => paginateWithRetry(
+      currentGithub,
+      method,
+      params,
+      {
+        core,
+        tokenRegistry: registry,
+        getOctokit: octokitFactory,
+        capabilities,
+        preferredType,
+        task,
+        minRemaining,
+        tokenSource: currentTokenSource,
+        onTokenSwitch,
+        ...overrideOptions,
+      }
+    ),
+  };
 }
 
 module.exports = {
   withRetry,
   paginateWithRetry,
+  createTokenAwareRetry,
   sleep
 };

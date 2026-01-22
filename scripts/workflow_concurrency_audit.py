@@ -11,9 +11,12 @@ import yaml
 
 DEFAULT_HIGH_FREQUENCY_TRIGGERS = (
     "issue_comment",
+    "issues",
+    "merge_group",
     "pull_request",
     "pull_request_target",
     "push",
+    "workflow_run",
 )
 
 
@@ -47,17 +50,37 @@ def load_workflow(path: Path) -> dict | None:
         return None
 
 
+def _normalize_trigger_name(value: object) -> str | None:
+    name = str(value).strip()
+    return name or None
+
+
 def normalize_triggers(on_field: object) -> tuple[str, ...]:
     """Normalize workflow trigger declarations to a sorted tuple."""
     if on_field is None:
         return ()
     if isinstance(on_field, str):
         return (on_field,)
+    triggers: list[str] = []
     if isinstance(on_field, list):
-        return tuple(str(item) for item in on_field)
-    if isinstance(on_field, dict):
-        return tuple(str(key) for key in on_field)
-    return ()
+        for item in on_field:
+            if isinstance(item, dict):
+                for key in item:
+                    name = _normalize_trigger_name(key)
+                    if name:
+                        triggers.append(name)
+            else:
+                name = _normalize_trigger_name(item)
+                if name:
+                    triggers.append(name)
+    elif isinstance(on_field, dict):
+        for key in on_field:
+            name = _normalize_trigger_name(key)
+            if name:
+                triggers.append(name)
+    else:
+        return ()
+    return tuple(sorted(set(triggers)))
 
 
 def _normalize_cancel(value: object) -> bool | None:
@@ -74,11 +97,18 @@ def _parse_concurrency(value: object, location: str) -> ConcurrencySetting | Non
     if value is None:
         return None
     if isinstance(value, str):
-        return ConcurrencySetting(location=location, group=value, cancel_in_progress=None)
+        group = value.strip()
+        return ConcurrencySetting(
+            location=location,
+            group=group or None,
+            cancel_in_progress=None,
+        )
     if isinstance(value, dict):
         group = value.get("group")
         if group is not None:
-            group = str(group)
+            group = str(group).strip()
+            if not group:
+                group = None
         cancel = _normalize_cancel(value.get("cancel-in-progress"))
         return ConcurrencySetting(location=location, group=group, cancel_in_progress=cancel)
     return None
@@ -100,7 +130,7 @@ def collect_concurrency(data: dict) -> tuple[ConcurrencySetting, ...]:
 
 
 def _has_canceling_concurrency(settings: tuple[ConcurrencySetting, ...]) -> bool:
-    return any(setting.cancel_in_progress is True for setting in settings)
+    return any(setting.cancel_in_progress is True and bool(setting.group) for setting in settings)
 
 
 def _action_required(
@@ -113,7 +143,7 @@ def _action_required(
         return "none"
     if has_canceling_concurrency:
         return "none"
-    if not settings:
+    if not any(setting.group for setting in settings):
         return "add_concurrency"
     return "set_cancel_in_progress_true"
 
@@ -121,10 +151,27 @@ def _action_required(
 def suggest_concurrency_group(triggers: tuple[str, ...]) -> str | None:
     """Recommend a concurrency group expression based on workflow triggers."""
     lowered = {trigger.lower() for trigger in triggers}
+    if "issue_comment" in lowered or "issues" in lowered:
+        if "pull_request" in lowered or "pull_request_target" in lowered:
+            return (
+                "${{ github.workflow }}-issue-${{ github.event.issue.number || "
+                "github.event.pull_request.number || github.ref }}"
+            )
+        return "${{ github.workflow }}-issue-${{ github.event.issue.number || github.ref }}"
     if "pull_request" in lowered or "pull_request_target" in lowered:
         return "${{ github.workflow }}-pr-${{ github.event.pull_request.number || github.ref }}"
-    if "issue_comment" in lowered:
-        return "${{ github.workflow }}-issue-${{ github.event.issue.number || github.ref }}"
+    if "workflow_run" in lowered:
+        return (
+            "${{ github.workflow }}-workflow-run-${{ "
+            "github.event.workflow_run.pull_requests[0].number || "
+            "github.event.workflow_run.id || "
+            "github.run_id }}"
+        )
+    if "merge_group" in lowered:
+        return (
+            "${{ github.workflow }}-merge-group-${{ "
+            "github.event.merge_group.head_sha || github.sha }}"
+        )
     if "push" in lowered:
         return "${{ github.workflow }}-${{ github.ref }}"
     return None
