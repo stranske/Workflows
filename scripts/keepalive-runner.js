@@ -564,7 +564,9 @@ async function dispatchKeepaliveCommand({
 }) {
   const trimmedToken = String(token ?? '').trim();
   if (!trimmedToken) {
-    throw new Error('GitHub token is required for keepalive dispatch (app token, PAT, or GITHUB_TOKEN).');
+    throw new Error(
+      'GitHub token is required for keepalive dispatch (app token or PAT; GITHUB_TOKEN does not trigger workflows).'
+    );
   }
 
   const octokit = buildOctokitInstance({ core, github, token: trimmedToken });
@@ -716,10 +718,13 @@ const DISPATCH_TOKEN_KEYS = [
   'actions_bot_pat',
   'SERVICE_BOT_PAT',
   'service_bot_pat',
-  'GH_TOKEN',
-  'gh_token',
+];
+
+const GITHUB_TOKEN_KEYS = [
   'GITHUB_TOKEN',
   'github_token',
+  'GH_TOKEN',
+  'gh_token',
 ];
 
 function resolveInstructionToken(env = {}) {
@@ -733,6 +738,10 @@ function resolveDispatchToken(env = {}, instructionToken = '') {
   }
   const fallback = String(instructionToken || '').trim();
   if (fallback) {
+    const githubToken = resolveTokenFromKeys(env, GITHUB_TOKEN_KEYS);
+    if (githubToken && githubToken.trim() === fallback) {
+      return '';
+    }
     return fallback;
   }
   return '';
@@ -1170,7 +1179,7 @@ async function runKeepalive({ core, github, context, env = process.env }) {
       } else {
         ensureInstructionAuthor();
         if (!dispatchToken) {
-          const message = 'GitHub token is required for keepalive dispatch (app token, PAT, or GITHUB_TOKEN).';
+          const message = 'GitHub token is required for keepalive dispatch (app token or PAT; GITHUB_TOKEN does not trigger workflows).';
           core.setFailed(`#${prNumber}: failed to emit keepalive dispatch: ${message}`);
           throw new Error(message);
         }

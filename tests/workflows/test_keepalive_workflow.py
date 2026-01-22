@@ -555,6 +555,17 @@ def test_keepalive_requires_dispatch_token() -> None:
     assert "GitHub token is required to author keepalive instructions" in combined_output
 
 
+def test_keepalive_rejects_github_token_dispatch() -> None:
+    _require_node()
+    scenario_path = FIXTURES_DIR / "github_token_only.json"
+    assert scenario_path.exists(), "Scenario fixture missing"
+    command = ["node", str(HARNESS), str(scenario_path)]
+    result = subprocess.run(command, capture_output=True, text=True)
+    assert result.returncode != 0, "Expected harness to fail with GITHUB_TOKEN-only dispatch"
+    combined_output = (result.stderr or "") + (result.stdout or "")
+    assert "GitHub token is required for keepalive dispatch" in combined_output
+
+
 def test_keepalive_allows_missing_tokens_when_no_work() -> None:
     data = _run_scenario("missing_tokens_no_keepalive")
 
