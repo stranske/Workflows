@@ -17,6 +17,9 @@ Schema (version 1):
   "failure_reason": str,
 
   // cycle records (optional extras)
+  "cycle_event": "start" | "end",
+  "summary": bool,
+  "outcome": "completed" | "failed" | "needs-human" | "paused",
   "max_cycles": int?,
   "steps_attempted": int?,
   "steps_completed": int?,
@@ -70,6 +73,9 @@ AUTOPILOT_METRICS_SCHEMA: dict[str, Any] = {
                 "cycle_count",
             ),
             "optional": (
+                "cycle_event",
+                "summary",
+                "outcome",
                 "max_cycles",
                 "steps_attempted",
                 "steps_completed",
@@ -95,6 +101,8 @@ STEP_REQUIRED_FIELDS = AUTOPILOT_METRICS_SCHEMA["record_types"]["step"]["require
 CYCLE_REQUIRED_FIELDS = AUTOPILOT_METRICS_SCHEMA["record_types"]["cycle"]["required"]
 ESCALATION_REQUIRED_FIELDS = AUTOPILOT_METRICS_SCHEMA["record_types"]["escalation"]["required"]
 _CYCLE_OPTIONAL_FIELDS = ("max_cycles", "steps_attempted", "steps_completed")
+_CYCLE_EVENT_VALUES = ("start", "end")
+_CYCLE_OUTCOME_VALUES = ("completed", "failed", "needs-human", "paused")
 _TRACE_FIELDS = ("langsmith_trace_id", "langsmith_trace_url")
 LANGSMITH_TRACE_URL_BASE = "https://smith.langchain.com/r/"
 RUNTIME_WARNING_THRESHOLD_MS = 5000
@@ -213,6 +221,25 @@ def _validate_cycle(record: dict[str, Any]) -> None:
     for field in _CYCLE_OPTIONAL_FIELDS:
         if field in record and not _is_int(record[field]):
             raise ValidationError(f"{field} must be an integer")
+
+    if "cycle_event" in record:
+        value = str(record["cycle_event"]).strip().lower()
+        if not value:
+            raise ValidationError("cycle_event must be a non-empty string")
+        if value not in _CYCLE_EVENT_VALUES:
+            raise ValidationError("cycle_event must be 'start' or 'end'")
+
+    if "summary" in record and not isinstance(record["summary"], bool):
+        raise ValidationError("summary must be a boolean")
+
+    if "outcome" in record:
+        value = str(record["outcome"]).strip().lower()
+        if not value:
+            raise ValidationError("outcome must be a non-empty string")
+        if value not in _CYCLE_OUTCOME_VALUES:
+            raise ValidationError(
+                "outcome must be 'completed', 'failed', 'needs-human', or 'paused'"
+            )
 
     _parse_timestamp(str(record["timestamp"]))
 

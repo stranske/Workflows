@@ -69,6 +69,31 @@ def test_validate_record_accepts_cycle_payload() -> None:
     collector.validate_record(_cycle_record())
 
 
+def test_validate_record_accepts_cycle_event_and_outcome() -> None:
+    record = _cycle_record()
+    record["cycle_event"] = "start"
+    record["summary"] = True
+    record["outcome"] = "completed"
+
+    collector.validate_record(record)
+
+
+def test_validate_record_rejects_invalid_cycle_event() -> None:
+    record = _cycle_record()
+    record["cycle_event"] = "stop"
+
+    with pytest.raises(collector.ValidationError, match="cycle_event must be"):
+        collector.validate_record(record)
+
+
+def test_validate_record_rejects_invalid_cycle_outcome() -> None:
+    record = _cycle_record()
+    record["outcome"] = "maybe"
+
+    with pytest.raises(collector.ValidationError, match="outcome must be"):
+        collector.validate_record(record)
+
+
 def test_validate_record_accepts_escalation_payload() -> None:
     collector.validate_record(_escalation_record())
 
@@ -363,6 +388,8 @@ def test_schema_payload_contains_record_types() -> None:
 
     assert payload["version"] == collector.AUTOPILOT_METRICS_SCHEMA_VERSION
     assert set(payload["record_types"].keys()) == {"cycle", "escalation", "step"}
+    cycle_optional = set(payload["record_types"]["cycle"]["optional"])
+    assert {"cycle_event", "summary", "outcome"}.issubset(cycle_optional)
 
 
 def test_build_record_from_args_escalation_requires_reason() -> None:
