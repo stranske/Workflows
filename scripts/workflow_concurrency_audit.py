@@ -41,6 +41,8 @@ class WorkflowConcurrencyAudit:
     has_canceling_concurrency: bool
     has_workflow_concurrency: bool
     has_workflow_canceling_concurrency: bool
+    has_job_concurrency: bool
+    has_job_canceling_concurrency: bool
     action_required: str
     recommended_group: str | None
     valid: bool
@@ -238,9 +240,14 @@ def audit_workflows(
         high_frequency = any(trigger.lower() in normalized_triggers for trigger in triggers)
         if high_frequency or include_non_high_frequency or not valid:
             workflow_concurrency = _filter_concurrency(concurrency, location="workflow")
+            job_concurrency = tuple(
+                setting for setting in concurrency if setting.location.startswith("job:")
+            )
             has_canceling_concurrency = _has_canceling_concurrency(concurrency)
             has_workflow_concurrency = bool(workflow_concurrency)
             has_workflow_canceling_concurrency = _has_canceling_concurrency(workflow_concurrency)
+            has_job_concurrency = bool(job_concurrency)
+            has_job_canceling_concurrency = _has_canceling_concurrency(job_concurrency)
             results.append(
                 WorkflowConcurrencyAudit(
                     path=path,
@@ -250,6 +257,8 @@ def audit_workflows(
                     has_canceling_concurrency=has_canceling_concurrency,
                     has_workflow_concurrency=has_workflow_concurrency,
                     has_workflow_canceling_concurrency=has_workflow_canceling_concurrency,
+                    has_job_concurrency=has_job_concurrency,
+                    has_job_canceling_concurrency=has_job_canceling_concurrency,
                     action_required=_action_required(
                         high_frequency=high_frequency,
                         settings=concurrency,
@@ -272,6 +281,7 @@ def format_table(results: list[WorkflowConcurrencyAudit]) -> str:
     lines = [
         "path\ttriggers\thigh_frequency\tvalid\terror\thas_canceling_concurrency"
         "\tworkflow_has_concurrency\tworkflow_has_canceling_concurrency"
+        "\tjob_has_concurrency\tjob_has_canceling_concurrency"
         "\taction_required\trecommended_group\tconcurrency"
     ]
     for item in results:
@@ -300,6 +310,8 @@ def format_table(results: list[WorkflowConcurrencyAudit]) -> str:
                     "true" if item.has_canceling_concurrency else "false",
                     "true" if item.has_workflow_concurrency else "false",
                     "true" if item.has_workflow_canceling_concurrency else "false",
+                    "true" if item.has_job_concurrency else "false",
+                    "true" if item.has_job_canceling_concurrency else "false",
                     item.action_required,
                     item.recommended_group or "",
                     concurrency,
@@ -357,6 +369,8 @@ def main() -> int:
                 "has_canceling_concurrency": item.has_canceling_concurrency,
                 "has_workflow_concurrency": item.has_workflow_concurrency,
                 "has_workflow_canceling_concurrency": item.has_workflow_canceling_concurrency,
+                "has_job_concurrency": item.has_job_concurrency,
+                "has_job_canceling_concurrency": item.has_job_canceling_concurrency,
                 "action_required": item.action_required,
                 "recommended_group": item.recommended_group,
                 "concurrency": [

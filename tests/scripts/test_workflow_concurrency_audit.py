@@ -31,6 +31,8 @@ jobs:
     assert item.has_canceling_concurrency is False
     assert item.has_workflow_concurrency is True
     assert item.has_workflow_canceling_concurrency is False
+    assert item.has_job_concurrency is False
+    assert item.has_job_canceling_concurrency is False
     assert item.action_required == "set_cancel_in_progress_true"
     assert item.recommended_group == "${{ github.workflow }}-${{ github.ref }}"
     assert any(setting.group == "ci-${{ github.ref }}" for setting in item.concurrency)
@@ -76,6 +78,8 @@ jobs:
     assert item.has_canceling_concurrency is True
     assert item.has_workflow_concurrency is False
     assert item.has_workflow_canceling_concurrency is False
+    assert item.has_job_concurrency is True
+    assert item.has_job_canceling_concurrency is True
     assert item.action_required == "none"
     assert (
         item.recommended_group
@@ -113,6 +117,8 @@ jobs:
     assert item.has_canceling_concurrency is True
     assert item.has_workflow_concurrency is True
     assert item.has_workflow_canceling_concurrency is False
+    assert item.has_job_concurrency is True
+    assert item.has_job_canceling_concurrency is True
     assert item.action_required == "none"
     assert len(item.concurrency) == 2
 
@@ -141,6 +147,10 @@ jobs:
     item = results[0]
     assert item.high_frequency is True
     assert item.has_canceling_concurrency is True
+    assert item.has_workflow_concurrency is True
+    assert item.has_workflow_canceling_concurrency is True
+    assert item.has_job_concurrency is False
+    assert item.has_job_canceling_concurrency is False
     assert item.action_required == "none"
     setting = item.concurrency[0]
     assert setting.cancel_in_progress is None
@@ -172,6 +182,8 @@ jobs:
     assert item.has_canceling_concurrency is True
     assert item.has_workflow_concurrency is True
     assert item.has_workflow_canceling_concurrency is True
+    assert item.has_job_concurrency is False
+    assert item.has_job_canceling_concurrency is False
 
 
 def test_audit_recommends_issue_comment_group(tmp_path: Path) -> None:
@@ -435,6 +447,8 @@ jobs:
     assert item.high_frequency is True
     assert item.has_canceling_concurrency is False
     assert item.action_required == "add_concurrency"
+    assert item.has_job_concurrency is False
+    assert item.has_job_canceling_concurrency is False
 
 
 def test_audit_treats_blank_group_as_missing(tmp_path: Path) -> None:
@@ -462,6 +476,8 @@ jobs:
     assert item.high_frequency is True
     assert item.has_canceling_concurrency is False
     assert item.action_required == "add_concurrency"
+    assert item.has_job_concurrency is False
+    assert item.has_job_canceling_concurrency is False
 
 
 def test_audit_reports_invalid_yaml(tmp_path: Path) -> None:
@@ -515,6 +531,7 @@ on: [
     header = table.splitlines()[0]
     assert header.endswith(
         "high_frequency\tvalid\terror\thas_canceling_concurrency"
-        "\tworkflow_has_concurrency\tworkflow_has_canceling_concurrency\taction_required"
+        "\tworkflow_has_concurrency\tworkflow_has_canceling_concurrency"
+        "\tjob_has_concurrency\tjob_has_canceling_concurrency\taction_required"
         "\trecommended_group\tconcurrency"
     )
