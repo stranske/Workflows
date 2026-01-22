@@ -65,7 +65,9 @@ def load_workflow(path: Path) -> tuple[dict | None, str | None]:
 
 
 def _normalize_trigger_name(value: object) -> str | None:
-    name = str(value).strip()
+    if not isinstance(value, str):
+        return None
+    name = value.strip()
     return name or None
 
 
