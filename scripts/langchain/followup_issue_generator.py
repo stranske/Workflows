@@ -234,6 +234,8 @@ Verification Verdict: {verdict}
 
 ## Content to Include
 Why Section: {why_section}
+Scope Section: {scope_section}
+Non-Goals Section (optional, omit if empty): {non_goals_section}
 Tasks: {tasks_json}
 Acceptance Criteria: {acceptance_criteria_json}
 Deferred Items: {deferred_tasks_json}
@@ -250,6 +252,12 @@ Use this exact structure:
 ## Source
 - Original PR: #{pr_number}
 - Parent issue: #{original_issue_number}
+
+## Scope
+[Brief scope based on the original issue or verification context]
+
+## Non-Goals
+[Optional: only include when non-goals were provided]
 
 ## Tasks
 - [ ] Task 1
@@ -280,6 +288,7 @@ Use this exact structure:
 4. Keep the main body focused - hide background/history in the collapsible section
 5. Do NOT include the entire analysis object - only include specific failure
    contexts from `blockers_to_avoid`
+6. Only include a Non-Goals section when non-goals are provided (omit otherwise)
 
 Output the complete markdown issue body.
 """.strip()
@@ -307,6 +316,7 @@ class OriginalIssueData:
     number: int = 0
     why: str = ""
     scope: str = ""
+    non_goals: str = ""
     tasks: list[str] = field(default_factory=list)
     acceptance_criteria: list[str] = field(default_factory=list)
     implementation_notes: str = ""
@@ -520,6 +530,7 @@ def extract_original_issue_data(
 
     data.why = "\n".join(sections["why"]).strip()
     data.scope = "\n".join(sections["scope"]).strip()
+    data.non_goals = "\n".join(sections["non_goals"]).strip()
     data.implementation_notes = "\n".join(sections["implementation"]).strip()
 
     # Extract tasks and acceptance criteria from checklist/bulleted items.
@@ -875,12 +886,20 @@ def _generate_with_llm(
 
     # Round 4: Format final issue (use standard model)
     why_section = _build_why_section(verification_data, original_issue, pr_number)
+    scope_section = (
+        original_issue.scope.strip()
+        if original_issue.scope.strip()
+        else f"Address verification concerns from PR #{pr_number} related to {original_issue.title}."
+    )
+    non_goals_section = original_issue.non_goals.strip()
 
     format_prompt = FORMAT_FOLLOWUP_ISSUE_PROMPT.format(
         pr_number=pr_number,
         original_issue_number=original_issue.number,
         verdict=_get_primary_verdict(verification_data),
         why_section=why_section,
+        scope_section=scope_section,
+        non_goals_section=non_goals_section,
         tasks_json=json.dumps(tasks_data.get("tasks", []), indent=2),
         acceptance_criteria_json=json.dumps(ac_data.get("acceptance_criteria", []), indent=2),
         deferred_tasks_json=json.dumps(tasks_data.get("deferred", []), indent=2),
@@ -932,6 +951,12 @@ def _generate_without_llm(
     acceptance_criteria = original_issue.acceptance_criteria[:10]
 
     # Build body
+    scope_text = (
+        original_issue.scope.strip()
+        if original_issue.scope.strip()
+        else f"Address verification concerns from PR #{pr_number} related to {original_issue.title}."
+    )
+
     body_parts = [
         "## Why",
         "",
@@ -944,11 +969,26 @@ def _generate_without_llm(
         "",
         "## Scope",
         "",
-        f"Address verification concerns from PR #{pr_number} related to {original_issue.title}.",
-        "",
-        "## Tasks",
+        scope_text,
         "",
     ]
+
+    if original_issue.non_goals.strip():
+        body_parts.extend(
+            [
+                "## Non-Goals",
+                "",
+                original_issue.non_goals.strip(),
+                "",
+            ]
+        )
+
+    body_parts.extend(
+        [
+            "## Tasks",
+            "",
+        ]
+    )
 
     for task in tasks:
         body_parts.append(f"- [ ] {task}")

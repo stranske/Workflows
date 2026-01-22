@@ -161,6 +161,11 @@ This feature improves user experience by reducing load times.
 
 Update the caching layer to use Redis.
 
+## Non-Goals
+
+- Do not add client-side caching
+- Avoid introducing new dependencies
+
 ## Tasks
 
 - [ ] Install Redis client library
@@ -182,6 +187,7 @@ Use the `redis-py` library version 4.x.
         assert data.title == "Test Issue"
         assert "improves user experience" in data.why
         assert "caching layer" in data.scope
+        assert "client-side caching" in data.non_goals
         assert len(data.tasks) == 3
         assert len(data.acceptance_criteria) == 2
         assert "redis-py" in data.implementation_notes
@@ -304,6 +310,7 @@ class TestGenerateFollowupIssue:
             number=100,
             title="Add caching feature",
             acceptance_criteria=["Response time < 100ms", "Cache hit rate > 90%"],
+            non_goals="- No new storage backends",
         )
 
         followup = generate_followup_issue(
@@ -318,6 +325,8 @@ class TestGenerateFollowupIssue:
         assert "## Source" in followup.body
         assert "- Original PR: #200" in followup.body
         assert "- Parent issue: #100" in followup.body
+        assert "## Non-Goals" in followup.body
+        assert "No new storage backends" in followup.body
         assert "Missing test coverage" in followup.body
         assert "Response time < 100ms" in followup.body
         assert "Not Ready" in followup.body
