@@ -38,6 +38,7 @@ jobs:
       trigger_step: ${{ steps.evaluate.outputs.trigger_step }}
       gate_conclusion: ${{ steps.evaluate.outputs.gate_conclusion }}
       gate_run_id: ${{ steps.evaluate.outputs.gate_run_id }}
+      has_high_privilege: ${{ steps.evaluate.outputs.has_high_privilege }}
       security_blocked: ${{ steps.security_gate.outputs.blocked }}
       security_reason: ${{ steps.security_gate.outputs.reason }}
     steps:
@@ -124,6 +125,7 @@ jobs:
               trigger_step: '',
               gate_conclusion: String(run?.conclusion || run?.status || ''),
               gate_run_id: String(run?.id || ''),
+              has_high_privilege: 'false',
             };
 
             const stop = (reason, stopReason = '') => {
@@ -182,6 +184,8 @@ jobs:
                   .filter(Boolean)
               : [];
             const hasAgentLabel = labels.includes('agent:codex');
+            const hasHighPrivilege = labels.includes('agent-high-privilege');
+            outputs.has_high_privilege = String(hasHighPrivilege);
 
             const body = prData.body || '';
             const configMatch = body.match(/autofix\s*:\s*(true|false)/i);
@@ -351,7 +355,7 @@ jobs:
     if: needs.prepare.outputs.stop_reason == 'max_attempts'
     name: Flag for human follow-up
     runs-on: ubuntu-latest
-    environment: agent-standard
+    environment: ${{ needs.prepare.outputs.has_high_privilege == 'true' && 'agent-high-privilege' || 'agent-standard' }}
     steps:
       - name: Add needs-human label and comment
         uses: actions/github-script@v8
@@ -405,7 +409,7 @@ jobs:
       - autofix
     if: always()
     runs-on: ubuntu-latest
-    environment: agent-standard
+    environment: ${{ needs.prepare.outputs.has_high_privilege == 'true' && 'agent-high-privilege' || 'agent-standard' }}
     steps:
       - name: Collect metrics
         id: collect
