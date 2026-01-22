@@ -69,11 +69,18 @@ Example:
 
 Optional fields:
 
+- `cycle_event`: `"start"` or `"end"` to mark cycle boundaries.
 - `max_cycles`: Integer max cycles configured for auto-pilot.
 - `steps_attempted`: Integer count of steps attempted in the cycle.
 - `steps_completed`: Integer count of steps completed in the cycle.
+- `summary`: Boolean flag indicating this record summarizes the full run.
+- `outcome`: Final outcome for summary records (`completed`, `failed`, `needs-human`, `paused`).
 
-Example:
+Notes:
+
+- When `summary` is `true`, `outcome` is required.
+
+Example (cycle start):
 
 ```json
 {
@@ -82,9 +89,27 @@ Example:
   "issue_number": 120,
   "timestamp": "2026-02-01T12:40:10Z",
   "cycle_count": 2,
+  "cycle_event": "start",
   "max_cycles": 6,
   "steps_attempted": 4,
   "steps_completed": 3
+}
+```
+
+Example (summary):
+
+```json
+{
+  "schema_version": 1,
+  "metric_type": "cycle",
+  "issue_number": 120,
+  "timestamp": "2026-02-01T13:10:00Z",
+  "cycle_count": 4,
+  "summary": true,
+  "outcome": "completed",
+  "max_cycles": 6,
+  "steps_attempted": 10,
+  "steps_completed": 9
 }
 ```
 
