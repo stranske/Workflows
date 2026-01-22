@@ -589,9 +589,7 @@ jobs:
     )
 
     table = workflow_concurrency_audit.format_markdown(
-        workflow_concurrency_audit.audit_workflows(
-            workflow_dir, include_non_high_frequency=True
-        )
+        workflow_concurrency_audit.audit_workflows(workflow_dir, include_non_high_frequency=True)
     )
     lines = table.splitlines()
     assert lines[0].startswith("| path | triggers |")
