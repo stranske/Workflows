@@ -1594,8 +1594,8 @@ async function checkRateLimitStatus({ github, core, minRequired = 50 }) {
     recommendation: 'proceed',
   };
 
-  // If load balancer is available, check all tokens
-  if (tokenLoadBalancer) {
+  // If load balancer is available AND initialized, check all tokens
+  if (tokenLoadBalancer && tokenLoadBalancer.isInitialized && tokenLoadBalancer.isInitialized()) {
     try {
       const summary = tokenLoadBalancer.getRegistrySummary();
       result.tokens = summary;
