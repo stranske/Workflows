@@ -570,3 +570,30 @@ jobs:
     assert row[7] == "false"  # workflow_has_canceling_concurrency
     assert row[8] == "true"  # job_has_concurrency
     assert row[9] == "true"  # job_has_canceling_concurrency
+
+
+def test_format_markdown_outputs_table(tmp_path: Path) -> None:
+    workflow_dir = tmp_path / "workflows"
+    workflow_dir.mkdir()
+    _write_workflow(
+        workflow_dir / "manual.yml",
+        """
+name: Manual
+on: workflow_dispatch
+jobs:
+  noop:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo hi
+""",
+    )
+
+    table = workflow_concurrency_audit.format_markdown(
+        workflow_concurrency_audit.audit_workflows(
+            workflow_dir, include_non_high_frequency=True
+        )
+    )
+    lines = table.splitlines()
+    assert lines[0].startswith("| path | triggers |")
+    assert lines[1].startswith("| --- | --- |")
+    assert lines[2].startswith("|")
