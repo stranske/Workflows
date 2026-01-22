@@ -40,14 +40,23 @@ class WorkflowConcurrencyAudit:
     has_canceling_concurrency: bool
     action_required: str
     recommended_group: str | None
+    valid: bool
+    error: str | None
 
 
-def load_workflow(path: Path) -> dict | None:
-    """Load a workflow YAML file and return the parsed content."""
+def load_workflow(path: Path) -> tuple[dict | None, str | None]:
+    """Load a workflow YAML file and return the parsed content and error."""
     try:
-        return yaml.safe_load(path.read_text(encoding="utf-8"))
-    except (OSError, yaml.YAMLError):
-        return None
+        payload = path.read_text(encoding="utf-8")
+    except OSError:
+        return None, "unreadable"
+    try:
+        data = yaml.safe_load(payload)
+    except yaml.YAMLError:
+        return None, "invalid-yaml"
+    if not isinstance(data, dict):
+        return None, "invalid-yaml"
+    return data, None
 
 
 def _normalize_trigger_name(value: object) -> str | None:
@@ -138,7 +147,11 @@ def _action_required(
     high_frequency: bool,
     settings: tuple[ConcurrencySetting, ...],
     has_canceling_concurrency: bool,
+    valid: bool,
+    error: str | None,
 ) -> str:
+    if not valid:
+        return error or "invalid"
     if not high_frequency:
         return "none"
     if has_canceling_concurrency:
@@ -186,18 +199,21 @@ def audit_workflows(
     normalized_triggers = {trigger.lower() for trigger in high_frequency_triggers}
     results: list[WorkflowConcurrencyAudit] = []
     for path in sorted(workflows_dir.glob("*.yml")) + sorted(workflows_dir.glob("*.yaml")):
-        data = load_workflow(path)
+        data, error = load_workflow(path)
         if data is None:
             triggers: tuple[str, ...] = ()
             concurrency: tuple[ConcurrencySetting, ...] = ()
+            valid = False
         else:
             on_field = data.get("on")
             if on_field is None and True in data:
                 on_field = data.get(True)
             triggers = tuple(sorted(normalize_triggers(on_field)))
             concurrency = collect_concurrency(data)
+            valid = True
+            error = None
         high_frequency = any(trigger.lower() in normalized_triggers for trigger in triggers)
-        if high_frequency or include_non_high_frequency:
+        if high_frequency or include_non_high_frequency or not valid:
             has_canceling_concurrency = _has_canceling_concurrency(concurrency)
             results.append(
                 WorkflowConcurrencyAudit(
@@ -210,10 +226,14 @@ def audit_workflows(
                         high_frequency=high_frequency,
                         settings=concurrency,
                         has_canceling_concurrency=has_canceling_concurrency,
+                        valid=valid,
+                        error=error,
                     ),
                     recommended_group=(
                         suggest_concurrency_group(triggers) if high_frequency else None
                     ),
+                    valid=valid,
+                    error=error,
                 )
             )
     return results
@@ -222,7 +242,7 @@ def audit_workflows(
 def format_table(results: list[WorkflowConcurrencyAudit]) -> str:
     """Render a tab-delimited report for easy copy/paste."""
     lines = [
-        "path\ttriggers\thigh_frequency\thas_canceling_concurrency"
+        "path\ttriggers\thigh_frequency\tvalid\terror\thas_canceling_concurrency"
         "\taction_required\trecommended_group\tconcurrency"
     ]
     for item in results:
@@ -237,6 +257,8 @@ def format_table(results: list[WorkflowConcurrencyAudit]) -> str:
                     str(item.path),
                     ",".join(item.triggers),
                     "true" if item.high_frequency else "false",
+                    "true" if item.valid else "false",
+                    item.error or "",
                     "true" if item.has_canceling_concurrency else "false",
                     item.action_required,
                     item.recommended_group or "",
@@ -290,6 +312,8 @@ def main() -> int:
                 "path": str(item.path),
                 "triggers": list(item.triggers),
                 "high_frequency": item.high_frequency,
+                "valid": item.valid,
+                "error": item.error,
                 "has_canceling_concurrency": item.has_canceling_concurrency,
                 "action_required": item.action_required,
                 "recommended_group": item.recommended_group,

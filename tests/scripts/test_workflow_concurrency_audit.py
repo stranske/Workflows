@@ -399,3 +399,58 @@ jobs:
     assert item.high_frequency is True
     assert item.has_canceling_concurrency is False
     assert item.action_required == "add_concurrency"
+
+
+def test_audit_reports_invalid_yaml(tmp_path: Path) -> None:
+    workflow_dir = tmp_path / "workflows"
+    workflow_dir.mkdir()
+    _write_workflow(
+        workflow_dir / "invalid.yml",
+        """
+name: Invalid
+on: [
+""",
+    )
+
+    results = workflow_concurrency_audit.audit_workflows(workflow_dir)
+    assert len(results) == 1
+    item = results[0]
+    assert item.valid is False
+    assert item.error == "invalid-yaml"
+    assert item.action_required == "invalid-yaml"
+
+
+def test_audit_reports_unreadable_paths(tmp_path: Path) -> None:
+    workflow_dir = tmp_path / "workflows"
+    workflow_dir.mkdir()
+
+    bad_path = workflow_dir / "bad.yml"
+    bad_path.mkdir()
+
+    results = workflow_concurrency_audit.audit_workflows(workflow_dir)
+    assert len(results) == 1
+    item = results[0]
+    assert item.valid is False
+    assert item.error == "unreadable"
+    assert item.action_required == "unreadable"
+
+
+def test_format_table_includes_valid_error_columns(tmp_path: Path) -> None:
+    workflow_dir = tmp_path / "workflows"
+    workflow_dir.mkdir()
+    _write_workflow(
+        workflow_dir / "invalid.yml",
+        """
+name: Invalid
+on: [
+""",
+    )
+
+    table = workflow_concurrency_audit.format_table(
+        workflow_concurrency_audit.audit_workflows(workflow_dir)
+    )
+    header = table.splitlines()[0]
+    assert header.endswith(
+        "high_frequency\tvalid\terror\thas_canceling_concurrency"
+        "\taction_required\trecommended_group\tconcurrency"
+    )
