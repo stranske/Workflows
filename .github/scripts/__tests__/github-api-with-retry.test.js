@@ -97,3 +97,37 @@ test('createTokenAwareRetry initializes registry from env secrets', async () => 
 
   assert.deepEqual(callTokens, ['token-c']);
 });
+
+test('createTokenAwareRetry falls back when registry initialization fails', async () => {
+  const warnings = [];
+  const tokenRegistry = {
+    async initializeTokenRegistry() {
+      throw new Error('boom');
+    },
+    async getOptimalToken() {
+      throw new Error('should not be called');
+    },
+    isInitialized() {
+      return false;
+    },
+  };
+
+  const github = { token: 'fallback' };
+  const core = { warning: (message) => warnings.push(String(message)) };
+
+  const client = await createTokenAwareRetry({
+    github,
+    core,
+    env: {},
+    tokenRegistry,
+  });
+
+  assert.equal(client.github, github);
+  assert.equal(client.getTokenSource(), null);
+  assert.ok(
+    warnings.some((message) => message.includes('Token registry initialization failed: boom'))
+  );
+
+  const result = await client.withRetry(async () => ({ headers: {}, data: { ok: true } }));
+  assert.equal(result.data.ok, true);
+});
