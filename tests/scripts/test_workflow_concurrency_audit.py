@@ -535,3 +535,33 @@ on: [
         "\tjob_has_concurrency\tjob_has_canceling_concurrency\taction_required"
         "\trecommended_group\tconcurrency"
     )
+
+
+def test_format_table_reports_job_concurrency_columns(tmp_path: Path) -> None:
+    workflow_dir = tmp_path / "workflows"
+    workflow_dir.mkdir()
+    _write_workflow(
+        workflow_dir / "job.yml",
+        """
+name: Job
+on: pull_request
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: job-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    steps:
+      - run: echo ok
+""",
+    )
+
+    table = workflow_concurrency_audit.format_table(
+        workflow_concurrency_audit.audit_workflows(workflow_dir)
+    )
+    row = table.splitlines()[1].split("\t")
+    assert row[5] == "true"  # has_canceling_concurrency
+    assert row[6] == "false"  # workflow_has_concurrency
+    assert row[7] == "false"  # workflow_has_canceling_concurrency
+    assert row[8] == "true"  # job_has_concurrency
+    assert row[9] == "true"  # job_has_canceling_concurrency
