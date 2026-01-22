@@ -76,7 +76,8 @@ def normalize_triggers(on_field: object) -> tuple[str, ...]:
     if on_field is None:
         return ()
     if isinstance(on_field, str):
-        return (on_field,)
+        name = _normalize_trigger_name(on_field)
+        return (name,) if name else ()
     triggers: list[str] = []
     if isinstance(on_field, list):
         for item in on_field:

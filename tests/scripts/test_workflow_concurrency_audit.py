@@ -45,6 +45,16 @@ def test_normalize_triggers_dedupes_mixed_list() -> None:
     assert triggers == ("issues", "pull_request")
 
 
+def test_normalize_triggers_strips_string_trigger() -> None:
+    triggers = workflow_concurrency_audit.normalize_triggers("  pull_request  ")
+    assert triggers == ("pull_request",)
+
+
+def test_normalize_triggers_ignores_blank_string_trigger() -> None:
+    triggers = workflow_concurrency_audit.normalize_triggers("   ")
+    assert triggers == ()
+
+
 def test_normalize_triggers_ignores_blank_entries() -> None:
     triggers = workflow_concurrency_audit.normalize_triggers(
         [" pull_request ", "", {"issues": None}, "   "]
