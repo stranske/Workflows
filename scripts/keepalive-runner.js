@@ -1046,11 +1046,12 @@ async function runKeepalive({ core, github, context, env = process.env }) {
 
       const checklistComments = botComments
         .map((comment) => {
-          const body = comment.body || '';
-          const unchecked = (body.match(/- \[ \]/g) || []).length;
-          const checked = (body.match(/- \[x\]/gi) || []).length;
-          const total = unchecked + checked;
-          return { comment, unchecked, total };
+          const body = String(comment.body || '')
+            .replace(/\\r\\n/g, '\n')
+            .replace(/\\n/g, '\n')
+            .replace(/\\r/g, '\n');
+          const counts = countCheckboxes(body);
+          return { comment, unchecked: counts.unchecked, total: counts.total };
         })
         .filter((entry) => entry.total > 0 && entry.unchecked > 0)
         .sort((a, b) => new Date(b.comment.updated_at || b.comment.created_at) - new Date(a.comment.updated_at || a.comment.created_at));
