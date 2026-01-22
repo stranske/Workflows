@@ -172,6 +172,15 @@ test('resolvePromptCheckboxCounts uses latest checklist when scope has no tasks'
   });
 });
 
+test('resolvePromptCheckboxCounts prefers scope when latest checklist is complete', () => {
+  const scopeCounts = { total: 3, unchecked: 2 };
+  const latestChecklist = { total: 3, unchecked: 0 };
+  assert.deepEqual(resolvePromptCheckboxCounts(scopeCounts, latestChecklist), {
+    total: 3,
+    unchecked: 2,
+  });
+});
+
 test('runKeepalive summarizes and fails when instruction token is missing', async () => {
   const summary = {
     lines: [],
