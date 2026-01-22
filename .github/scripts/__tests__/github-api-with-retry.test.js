@@ -131,3 +131,69 @@ test('createTokenAwareRetry falls back when registry initialization fails', asyn
   const result = await client.withRetry(async () => ({ headers: {}, data: { ok: true } }));
   assert.equal(result.data.ok, true);
 });
+
+test('createTokenAwareRetry falls back when token selection fails', async () => {
+  const warnings = [];
+  const tokenRegistry = {
+    isInitialized() {
+      return true;
+    },
+    async getOptimalToken() {
+      throw new Error('select-fail');
+    },
+  };
+
+  const github = { token: 'fallback' };
+  const core = { warning: (message) => warnings.push(String(message)) };
+
+  const client = await createTokenAwareRetry({
+    github,
+    core,
+    env: {},
+    tokenRegistry,
+  });
+
+  assert.equal(client.github, github);
+  assert.equal(client.getTokenSource(), null);
+  assert.ok(
+    warnings.some((message) => message.includes('Token registry selection failed: select-fail'))
+  );
+});
+
+test('withRetry ignores token selection errors', async () => {
+  const warnings = [];
+  const tokenRegistry = {
+    async getOptimalToken() {
+      throw new Error('select-fail');
+    },
+    updateFromHeaders() {},
+  };
+
+  const github = { token: 'token-a' };
+  const getOctokit = (token) => ({ token });
+  const core = { warning: (message) => warnings.push(String(message)) };
+
+  await assert.rejects(
+    async () => withRetry(
+      async () => {
+        const error = new Error('API rate limit exceeded');
+        error.status = 403;
+        error.response = { headers: { 'x-ratelimit-remaining': '0' } };
+        throw error;
+      },
+      {
+        github,
+        tokenRegistry,
+        getOctokit,
+        tokenSource: 'TOKEN_A',
+        core,
+        maxRetries: 0,
+      }
+    ),
+    /API rate limit exceeded/
+  );
+
+  assert.ok(
+    warnings.some((message) => message.includes('Token registry selection failed: select-fail'))
+  );
+});

@@ -137,14 +137,20 @@ async function withRetry(fn, options = {}) {
     if (!tokenRegistry || typeof tokenRegistry.getOptimalToken !== 'function') {
       return false;
     }
-    const selection = await tokenRegistry.getOptimalToken({
-      github: currentGithub || github,
-      core,
-      capabilities,
-      preferredType,
-      task,
-      minRemaining,
-    });
+    let selection;
+    try {
+      selection = await tokenRegistry.getOptimalToken({
+        github: currentGithub || github,
+        core,
+        capabilities,
+        preferredType,
+        task,
+        minRemaining,
+      });
+    } catch (error) {
+      logWithCore(core, 'warning', `Token registry selection failed: ${error.message}`);
+      return false;
+    }
 
     if (!selection || !selection.token) {
       logWithCore(core, 'warning', 'Token registry returned no available token');
@@ -376,17 +382,21 @@ async function createTokenAwareRetry(options = {}) {
   const octokitFactory = resolveOctokitFactory({ github, getOctokit, Octokit });
 
   if (registryInitialized && octokitFactory && typeof registry.getOptimalToken === 'function') {
-    const selection = await registry.getOptimalToken({
-      github,
-      core,
-      capabilities,
-      preferredType,
-      task,
-      minRemaining,
-    });
-    if (selection?.token) {
-      currentGithub = octokitFactory(selection.token);
-      currentTokenSource = selection.source;
+    try {
+      const selection = await registry.getOptimalToken({
+        github,
+        core,
+        capabilities,
+        preferredType,
+        task,
+        minRemaining,
+      });
+      if (selection?.token) {
+        currentGithub = octokitFactory(selection.token);
+        currentTokenSource = selection.source;
+      }
+    } catch (error) {
+      logWithCore(core, 'warning', `Token registry selection failed: ${error.message}`);
     }
   }
 
