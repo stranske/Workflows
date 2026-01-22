@@ -65,6 +65,7 @@ jobs:
       security_reason: ${{ steps.security_gate.outputs.reason }}
       rate_limit_remaining: ${{ steps.evaluate.outputs.rate_limit_remaining }}
       rate_limit_recommendation: ${{ steps.evaluate.outputs.rate_limit_recommendation }}
+      rounds_without_task_completion: ${{ steps.evaluate.outputs.rounds_without_task_completion }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -287,6 +288,8 @@ jobs:
               // Rate limit status
               rate_limit_remaining: String(result.rateLimitStatus?.totalRemaining ?? ''),
               rate_limit_recommendation: String(result.rateLimitStatus?.recommendation ?? ''),
+              // Progress review tracking
+              rounds_without_task_completion: String(result.roundsWithoutTaskCompletion ?? '0'),
             };
             for (const [key, value] of Object.entries(output)) {
               core.setOutput(key, value);
@@ -421,6 +424,179 @@ jobs:
   #   if: needs.evaluate.outputs.agent_type == 'claude'
   #   uses: stranske/Workflows/.github/workflows/reusable-claude-run.yml@main
   #   ...
+
+  # Progress review: LLM-based check when agent is active but not completing tasks
+  # This catches "productive but unfocused" patterns where agent works on tangential items
+  progress-review:
+    name: Review agent progress alignment
+    needs: evaluate
+    if: needs.evaluate.outputs.action == 'review'
+    runs-on: ubuntu-latest
+    environment: ${{ needs.evaluate.outputs.has_high_privilege == 'true' && 'agent-high-privilege' || 'agent-standard' }}
+    outputs:
+      recommendation: ${{ steps.review.outputs.recommendation }}
+      alignment_score: ${{ steps.review.outputs.alignment_score }}
+      feedback: ${{ steps.review.outputs.feedback }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install pydantic langchain-openai
+
+      - name: Get recent commits
+        id: commits
+        uses: actions/github-script@v8
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const prNumber = Number('${{ needs.evaluate.outputs.pr_number }}');
+            const { data: commits } = await github.rest.pulls.listCommits({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber,
+              per_page: 30,
+            });
+            const messages = commits.map(c => c.commit.message.split('\n')[0]);
+            const files = [...new Set(commits.flatMap(c =>
+              (c.files || []).map(f => f.filename)
+            ))];
+            core.setOutput('messages', JSON.stringify(messages));
+            core.setOutput('files', JSON.stringify(files.slice(0, 50)));
+
+      - name: Extract acceptance criteria
+        id: criteria
+        uses: actions/github-script@v8
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const prNumber = Number('${{ needs.evaluate.outputs.pr_number }}');
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber,
+            });
+            // Extract acceptance criteria from PR body
+            const body = pr.body || '';
+            const criteria = [];
+            // Look for acceptance criteria section
+            const acMatch = body.match(/## Acceptance Criteria[\s\S]*?(?=##|$)/i);
+            if (acMatch) {
+              const lines = acMatch[0].split('\n');
+              for (const line of lines) {
+                const match = line.match(/^\s*[-*+]\s*(?:\[[ xX]\]\s*)?(.+)/i);
+                if (match) {
+                  criteria.push(match[1].trim());
+                }
+              }
+            }
+            core.setOutput('criteria', JSON.stringify(criteria));
+
+      - name: Run progress review
+        id: review
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          CRITERIA: ${{ steps.criteria.outputs.criteria }}
+          COMMITS: ${{ steps.commits.outputs.messages }}
+          FILES: ${{ steps.commits.outputs.files }}
+          ROUNDS: ${{ needs.evaluate.outputs.rounds_without_task_completion }}
+        run: |
+          mapfile -t criteria_array < <(printf '%s\n' "$CRITERIA" | jq -r '.[]')
+          mapfile -t commits_array < <(printf '%s\n' "$COMMITS" | jq -r '.[]')
+          mapfile -t files_array < <(printf '%s\n' "$FILES" | jq -r '.[]')
+
+          args=("scripts/langchain/progress_reviewer.py")
+
+          for c in "${criteria_array[@]}"; do
+            args+=("--acceptance-criteria" "$c")
+          done
+
+          for c in "${commits_array[@]}"; do
+            args+=("--recent-commits" "$c")
+          done
+
+          for f in "${files_array[@]}"; do
+            args+=("--files-changed" "$f")
+          done
+
+          args+=("--rounds-without-completion" "$ROUNDS" "--json")
+
+          python "${args[@]}" > review_result.json || true
+
+          # Parse results
+          if [ -f review_result.json ]; then
+            echo "recommendation=$(jq -r '.recommendation // "REDIRECT"' review_result.json)" >> "$GITHUB_OUTPUT"
+            echo "alignment_score=$(jq -r '.alignment_score // 5' review_result.json)" >> "$GITHUB_OUTPUT"
+            echo "feedback=$(jq -r '.feedback_for_agent // ""' review_result.json)" >> "$GITHUB_OUTPUT"
+            echo "summary=$(jq -r '.summary // ""' review_result.json)" >> "$GITHUB_OUTPUT"
+
+            cat review_result.json >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "recommendation=REDIRECT" >> "$GITHUB_OUTPUT"
+            echo "alignment_score=5" >> "$GITHUB_OUTPUT"
+            echo "feedback=Unable to analyze progress. Please review acceptance criteria." >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Post review feedback to PR
+        uses: actions/github-script@v8
+        env:
+          REVIEW_FEEDBACK: ${{ steps.review.outputs.feedback }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const prNumber = Number('${{ needs.evaluate.outputs.pr_number }}');
+            const recommendation = '${{ steps.review.outputs.recommendation }}';
+            const alignmentScore = '${{ steps.review.outputs.alignment_score }}';
+            const rounds = '${{ needs.evaluate.outputs.rounds_without_task_completion }}';
+            const feedback = process.env.REVIEW_FEEDBACK || '';
+
+            const emojiMap = {
+              'CONTINUE': '✅',
+              'REDIRECT': '⚠️',
+              'STOP': '🛑'
+            };
+            const emoji = emojiMap[recommendation] || '❓';
+
+            const body = [
+              `## ${emoji} Progress Review (Round ${rounds})`,
+              '',
+              `**Recommendation:** ${recommendation}`,
+              `**Alignment Score:** ${alignmentScore}/10`,
+              '',
+              '### Feedback',
+              feedback || 'No specific feedback.',
+              '',
+              '---',
+              `_This review was triggered because the agent has been working for ${rounds} rounds without completing any task checkboxes._`,
+              '_The review evaluates whether recent work is advancing toward the acceptance criteria._',
+            ].join('\n');
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              body,
+            });
+
+            // If STOP recommended, remove agent label to prevent further runs
+            if (recommendation === 'STOP') {
+              core.warning('Progress review recommends STOP - agent work appears unaligned');
+              try {
+                await github.rest.issues.removeLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: prNumber,
+                  name: 'agent:codex',
+                });
+              } catch (e) {
+                core.info(`Could not remove label: ${e.message}`);
+              }
+            }
 
   summary:
     name: Update keepalive summary
