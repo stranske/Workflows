@@ -1,0 +1,161 @@
+version: 1
+issue: 1036
+base: main
+branch: codex/issue-1036
+tasks:
+  - id: task-01
+    title: Import `withRetry` and `paginateWithRetry` from `.github/scripts/github-api-with-retry.js`
+      in each script step
+    status: doing
+    started_at: '2026-01-22T06:04:02Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: Wrap all `github.rest.issues.get()` calls with `withRetry()`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: Wrap all `github.rest.issues.createComment()` calls with `withRetry()`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: Wrap all `github.rest.issues.addLabels()` calls with `withRetry()`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: Wrap all `github.rest.issues.removeLabel()` calls with `withRetry()`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: Wrap all `github.rest.pulls.get()` calls with `withRetry()`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: Replace manual pagination with `paginateWithRetry()`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: Import `withRetry` and `paginateWithRetry` from `.github/scripts/github-api-with-retry.js`
+      in each script step
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: Wrap all `github.rest.issues.get()` calls with `withRetry()`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: Wrap all `github.rest.issues.createComment()` calls with `withRetry()`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: Wrap all `github.rest.issues.addLabels()` calls with `withRetry()`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: Wrap all `github.rest.issues.removeLabel()` calls with `withRetry()`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: Wrap all `github.rest.pulls.get()` calls with `withRetry()`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: Replace manual pagination with `paginateWithRetry()`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: All `github.rest.*` calls wrapped with `withRetry()`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: Paginated operations use `paginateWithRetry()`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: No direct unwrapped API calls remain in workflow steps
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: Workflow executes successfully in CI
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: All `github.rest.*` calls wrapped with `withRetry()`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: Paginated operations use `paginateWithRetry()`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: No direct unwrapped API calls remain in workflow steps
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: Workflow executes successfully in CI
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
