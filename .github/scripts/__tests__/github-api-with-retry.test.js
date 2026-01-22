@@ -203,3 +203,37 @@ test('withRetry ignores token selection errors', async () => {
     warnings.some((message) => message.includes('Token registry selection failed: select-fail'))
   );
 });
+
+test('withRetry records token usage on rate limit errors without headers', async () => {
+  const usageCalls = [];
+  const debugMessages = [];
+  const tokenRegistry = {
+    updateTokenUsage: (tokenSource, calls) => usageCalls.push({ tokenSource, calls }),
+  };
+
+  const github = { token: 'token-a' };
+  const core = { debug: (message) => debugMessages.push(String(message)) };
+
+  await assert.rejects(
+    async () => withRetry(
+      async () => {
+        const error = new Error('API rate limit exceeded');
+        error.status = 403;
+        throw error;
+      },
+      {
+        github,
+        tokenRegistry,
+        tokenSource: 'TOKEN_A',
+        core,
+        maxRetries: 0,
+      }
+    ),
+    /API rate limit exceeded/
+  );
+
+  assert.deepEqual(usageCalls, [{ tokenSource: 'TOKEN_A', calls: 1 }]);
+  assert.ok(
+    debugMessages.some((message) => message.includes('Token TOKEN_A error usage recorded'))
+  );
+});

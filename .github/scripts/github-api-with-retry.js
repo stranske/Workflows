@@ -225,8 +225,15 @@ async function withRetry(fn, options = {}) {
       const secondaryRateLimit = isSecondaryRateLimitError(error);
       const headers = normaliseHeaders(error?.response?.headers || error?.headers);
 
-      if (tokenRegistry && currentTokenSource && typeof tokenRegistry.updateFromHeaders === 'function') {
-        tokenRegistry.updateFromHeaders(currentTokenSource, headers);
+      if (tokenRegistry && currentTokenSource) {
+        const info = extractRateLimitInfo(headers);
+        if (Object.keys(headers).length > 0 && typeof tokenRegistry.updateFromHeaders === 'function') {
+          tokenRegistry.updateFromHeaders(currentTokenSource, headers);
+          logTokenUsage(core, currentTokenSource, info, 'error');
+        } else if (typeof tokenRegistry.updateTokenUsage === 'function') {
+          tokenRegistry.updateTokenUsage(currentTokenSource, 1);
+          logTokenUsage(core, currentTokenSource, null, 'error');
+        }
       }
 
       // Don't retry on non-rate-limit errors
