@@ -54,6 +54,7 @@ jobs:
       keepalive_enabled: ${{ steps.evaluate.outputs.keepalive_enabled }}
       autofix_enabled: ${{ steps.evaluate.outputs.autofix_enabled }}
       has_agent_label: ${{ steps.evaluate.outputs.has_agent_label }}
+      has_high_privilege: ${{ steps.evaluate.outputs.has_high_privilege }}
       agent_type: ${{ steps.evaluate.outputs.agent_type }}
       task_appendix: ${{ steps.evaluate.outputs.task_appendix }}
       trace: ${{ steps.evaluate.outputs.trace }}
@@ -276,6 +277,7 @@ jobs:
               keepalive_enabled: String(result.keepaliveEnabled ?? ''),
               autofix_enabled: String(result.config?.autofix_enabled ?? ''),
               has_agent_label: String(result.hasAgentLabel ?? ''),
+              has_high_privilege: String(result.hasHighPrivilege ?? 'false'),
               agent_type: String(result.agentType || ''),
               trace: String(result.config?.trace || result.state?.trace || ''),
               prompt_mode: String(result.promptMode || 'normal'),
@@ -300,7 +302,7 @@ jobs:
       needs.evaluate.outputs.action == 'fix' ||
       needs.evaluate.outputs.action == 'conflict'
     runs-on: ubuntu-latest
-    environment: agent-standard
+    environment: ${{ needs.evaluate.outputs.has_high_privilege == 'true' && 'agent-high-privilege' || 'agent-standard' }}
     outputs:
       secrets_ok: ${{ steps.check.outputs.secrets_ok }}
     steps:
@@ -408,6 +410,7 @@ jobs:
       pr_ref: ${{ needs.evaluate.outputs.pr_ref }}
       appendix: ${{ needs.evaluate.outputs.task_appendix }}
       iteration: ${{ needs.evaluate.outputs.iteration }}
+      environment: ${{ needs.evaluate.outputs.has_high_privilege == 'true' && 'agent-high-privilege' || 'agent-standard' }}
 
   # Placeholder for future Claude agent support
   # run-claude:
@@ -437,7 +440,7 @@ jobs:
       needs.evaluate.outputs.pr_number != '' &&
       needs.evaluate.outputs.pr_number != '0'
     runs-on: ubuntu-latest
-    environment: agent-standard
+    environment: ${{ needs.evaluate.outputs.has_high_privilege == 'true' && 'agent-high-privilege' || 'agent-standard' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
