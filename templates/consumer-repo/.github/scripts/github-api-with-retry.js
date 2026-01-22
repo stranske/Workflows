@@ -352,18 +352,30 @@ async function createTokenAwareRetry(options = {}) {
   const secrets = collectTokenSecrets(env || {});
   const resolvedGithubToken = githubToken || env?.GITHUB_TOKEN || env?.GH_TOKEN || '';
 
-  await registry.initializeTokenRegistry({
-    secrets,
-    github,
-    core,
-    githubToken: resolvedGithubToken,
-  });
+  let registryInitialized = false;
+  if (registry && typeof registry.isInitialized === 'function' && registry.isInitialized()) {
+    registryInitialized = true;
+  }
+
+  if (!registryInitialized && registry && typeof registry.initializeTokenRegistry === 'function') {
+    try {
+      await registry.initializeTokenRegistry({
+        secrets,
+        github,
+        core,
+        githubToken: resolvedGithubToken,
+      });
+      registryInitialized = true;
+    } catch (error) {
+      logWithCore(core, 'warning', `Token registry initialization failed: ${error.message}`);
+    }
+  }
 
   let currentGithub = github;
   let currentTokenSource = null;
   const octokitFactory = resolveOctokitFactory({ github, getOctokit, Octokit });
 
-  if (octokitFactory && typeof registry.getOptimalToken === 'function') {
+  if (registryInitialized && octokitFactory && typeof registry.getOptimalToken === 'function') {
     const selection = await registry.getOptimalToken({
       github,
       core,
@@ -385,12 +397,12 @@ async function createTokenAwareRetry(options = {}) {
 
   return {
     github: currentGithub,
-    tokenRegistry: registry,
+    tokenRegistry: registryInitialized ? registry : null,
     getTokenSource: () => currentTokenSource,
     withRetry: (fn, overrideOptions = {}) => withRetry(fn, {
       github: currentGithub,
       core,
-      tokenRegistry: registry,
+      tokenRegistry: registryInitialized ? registry : null,
       getOctokit: octokitFactory,
       capabilities,
       preferredType,
@@ -406,7 +418,7 @@ async function createTokenAwareRetry(options = {}) {
       params,
       {
         core,
-        tokenRegistry: registry,
+        tokenRegistry: registryInitialized ? registry : null,
         getOctokit: octokitFactory,
         capabilities,
         preferredType,
