@@ -66,6 +66,10 @@ test('isRateLimitError detects primary and secondary rate limits', () => {
   secondary.status = 403;
   assert.equal(isRateLimitError(secondary), true);
 
+  const stringStatus = new Error('API rate limit exceeded');
+  stringStatus.status = '403';
+  assert.equal(isRateLimitError(stringStatus), true);
+
   const tooMany = new Error('Too many requests');
   tooMany.status = 429;
   assert.equal(isRateLimitError(tooMany), true);
