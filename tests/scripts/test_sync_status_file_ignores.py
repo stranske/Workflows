@@ -24,9 +24,7 @@ def _template_block_patterns() -> list[str]:
         for idx, line in enumerate(lines)
         if "Workflows Consumer Repo - Shared Status Files" in line
     )
-    end = next(
-        idx for idx, line in enumerate(lines) if "Langchain Scripts Exclusion" in line
-    )
+    end = next(idx for idx, line in enumerate(lines) if "Langchain Scripts Exclusion" in line)
     patterns: list[str] = []
     for line in lines[start + 1 : end]:
         stripped = line.strip()
