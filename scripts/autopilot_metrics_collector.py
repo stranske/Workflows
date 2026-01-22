@@ -447,6 +447,10 @@ def load_record_from_json(payload: str) -> dict[str, Any]:
         raise ValidationError("record_json must decode to an object")
     if "metric_type" in record and record["metric_type"] is not None:
         record["metric_type"] = str(record["metric_type"]).strip().lower()
+    if "cycle_event" in record and record["cycle_event"] is not None:
+        record["cycle_event"] = str(record["cycle_event"]).strip().lower()
+    if "outcome" in record and record["outcome"] is not None:
+        record["outcome"] = str(record["outcome"]).strip().lower()
     schema_version = record.get("schema_version")
     if schema_version is None or (isinstance(schema_version, str) and not schema_version.strip()):
         record["schema_version"] = AUTOPILOT_METRICS_SCHEMA_VERSION
@@ -467,6 +471,8 @@ def load_record_from_json(payload: str) -> dict[str, Any]:
             record[field] = _coerce_int(value, field)
     if "success" in record and not isinstance(record["success"], bool):
         record["success"] = _coerce_bool(record["success"], "success")
+    if "summary" in record and not isinstance(record["summary"], bool):
+        record["summary"] = _coerce_bool(record["summary"], "summary")
     if record.get("metric_type") == "step" and "success" in record:
         record["failure_reason"] = _normalize_failure_reason(
             record["success"], record.get("failure_reason")

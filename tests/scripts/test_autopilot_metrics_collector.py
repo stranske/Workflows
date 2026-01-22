@@ -608,6 +608,28 @@ def test_load_record_from_json_normalizes_metric_type() -> None:
     collector.validate_record(record)
 
 
+def test_load_record_from_json_normalizes_cycle_fields() -> None:
+    payload = json.dumps(
+        {
+            "schema_version": "1",
+            "metric_type": "cycle",
+            "issue_number": "101",
+            "timestamp": "2025-01-01T00:00:00Z",
+            "cycle_count": "2",
+            "cycle_event": " Start ",
+            "summary": "true",
+            "outcome": "Needs-Human",
+        }
+    )
+
+    record = collector.load_record_from_json(payload)
+
+    assert record["cycle_event"] == "start"
+    assert record["summary"] is True
+    assert record["outcome"] == "needs-human"
+    collector.validate_record(record)
+
+
 def test_load_record_from_json_coerces_int_fields() -> None:
     payload = json.dumps(
         {
