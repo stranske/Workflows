@@ -9,6 +9,7 @@ const {
   resolveInstructionToken,
   resolveDispatchToken,
   coerceNumber,
+  resolvePromptCheckboxCounts,
 } = require('../scripts/keepalive-runner.js');
 
 test('resolveInstructionToken prefers service bot PAT over actions bot PAT', () => {
@@ -117,4 +118,22 @@ test('coerceNumber accepts zero when min is zero', () => {
 
 test('coerceNumber rejects values below min', () => {
   assert.equal(coerceNumber(0, 5, { min: 1 }), 5);
+});
+
+test('resolvePromptCheckboxCounts prefers latest checklist when it has outstanding tasks', () => {
+  const scopeCounts = { total: 3, unchecked: 0 };
+  const latestChecklist = { total: 3, unchecked: 1 };
+  assert.deepEqual(resolvePromptCheckboxCounts(scopeCounts, latestChecklist), {
+    total: 3,
+    unchecked: 1,
+  });
+});
+
+test('resolvePromptCheckboxCounts uses latest checklist when scope has no tasks', () => {
+  const scopeCounts = { total: 0, unchecked: 0 };
+  const latestChecklist = { total: 2, unchecked: 0 };
+  assert.deepEqual(resolvePromptCheckboxCounts(scopeCounts, latestChecklist), {
+    total: 2,
+    unchecked: 0,
+  });
 });

@@ -119,15 +119,19 @@ function resolvePromptCheckboxCounts(scopeCounts, latestChecklist) {
   if (!latestChecklist || typeof latestChecklist !== 'object') {
     return safeScope;
   }
-  if (safeScope.total > 0 && safeScope.unchecked === 0) {
-    return safeScope;
-  }
   const total = Number.isFinite(latestChecklist.total) ? latestChecklist.total : 0;
   const unchecked = Number.isFinite(latestChecklist.unchecked) ? latestChecklist.unchecked : 0;
-  if (total > 0) {
+  const scopeHasTasks = safeScope.total > 0;
+  const latestHasTasks = total > 0;
+  const latestHasOutstanding = latestHasTasks && unchecked > 0;
+
+  if (latestHasOutstanding || (latestHasTasks && !scopeHasTasks)) {
     return { total, unchecked };
   }
-  return safeScope;
+  if (scopeHasTasks && safeScope.unchecked === 0) {
+    return safeScope;
+  }
+  return latestHasTasks ? { total, unchecked } : safeScope;
 }
 
 const CI_FAILURE_LABEL_REGEX = /\bci(?:[-_:\s]+)?fail(?:ed|ing|ure)?\b/;
