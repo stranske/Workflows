@@ -1,6 +1,7 @@
 'use strict';
 
 const fs = require('fs');
+const { withRetry, paginateWithRetry } = require('./github-api-with-retry');
 
 function trim(value) {
   return typeof value === 'string' ? value.trim() : '';
@@ -28,19 +29,27 @@ async function listIssueLabels({ github, owner, repo, issue_number, core }) {
   }
   try {
     if (typeof github.paginate === 'function') {
-      return await github.paginate(github.rest.issues.listLabelsOnIssue, {
+      return await paginateWithRetry(
+        github,
+        github.rest.issues.listLabelsOnIssue,
+        {
+          owner,
+          repo,
+          issue_number,
+          per_page: 100,
+        },
+        { core, task: 'comment-dedupe.listLabelsOnIssue' }
+      );
+    }
+    const response = await withRetry(
+      (client) => client.rest.issues.listLabelsOnIssue({
         owner,
         repo,
         issue_number,
         per_page: 100,
-      });
-    }
-    const response = await github.rest.issues.listLabelsOnIssue({
-      owner,
-      repo,
-      issue_number,
-      per_page: 100,
-    });
+      }),
+      { github, core, task: 'comment-dedupe.listLabelsOnIssue' }
+    );
     return Array.isArray(response?.data) ? response.data : [];
   } catch (error) {
     if (isRateLimitError(error)) {
@@ -132,12 +141,30 @@ async function ensureMarkerComment({ github, context, core, commentBody, marker,
 
   let comments;
   try {
-    comments = await github.paginate(github.rest.issues.listComments, {
-      owner,
-      repo,
-      issue_number,
-      per_page: 100,
-    });
+    if (typeof github.paginate === 'function') {
+      comments = await paginateWithRetry(
+        github,
+        github.rest.issues.listComments,
+        {
+          owner,
+          repo,
+          issue_number,
+          per_page: 100,
+        },
+        { core, task: 'comment-dedupe.listComments' }
+      );
+    } else {
+      const response = await withRetry(
+        (client) => client.rest.issues.listComments({
+          owner,
+          repo,
+          issue_number,
+          per_page: 100,
+        }),
+        { github, core, task: 'comment-dedupe.listComments' }
+      );
+      comments = Array.isArray(response?.data) ? response.data : [];
+    }
   } catch (error) {
     if (isRateLimitError(error)) {
       warn(core, 'Rate limit while fetching existing comments; skipping docs-only comment management.');
@@ -156,7 +183,10 @@ async function ensureMarkerComment({ github, context, core, commentBody, marker,
       info(core, `Existing docs-only comment ${targetId} is up to date.`);
     } else {
       try {
-        await github.rest.issues.updateComment({ owner, repo, comment_id: targetId, body: desired });
+        await withRetry(
+          (client) => client.rest.issues.updateComment({ owner, repo, comment_id: targetId, body: desired }),
+          { github, core, task: 'comment-dedupe.updateComment' }
+        );
         info(core, `Updated docs-only comment ${targetId}.`);
       } catch (error) {
         if (isRateLimitError(error)) {
@@ -168,7 +198,10 @@ async function ensureMarkerComment({ github, context, core, commentBody, marker,
     }
   } else {
     try {
-      const created = await github.rest.issues.createComment({ owner, repo, issue_number, body: desired });
+      const created = await withRetry(
+        (client) => client.rest.issues.createComment({ owner, repo, issue_number, body: desired }),
+        { github, core, task: 'comment-dedupe.createComment' }
+      );
       targetId = created?.data?.id;
       info(core, `Created docs-only comment ${targetId}.`);
     } catch (error) {
@@ -185,7 +218,10 @@ async function ensureMarkerComment({ github, context, core, commentBody, marker,
       continue;
     }
     try {
-      await github.rest.issues.deleteComment({ owner, repo, comment_id: duplicate.id });
+      await withRetry(
+        (client) => client.rest.issues.deleteComment({ owner, repo, comment_id: duplicate.id }),
+        { github, core, task: 'comment-dedupe.deleteComment' }
+      );
       info(core, `Removed duplicate docs-only comment ${duplicate.id}.`);
     } catch (error) {
       if (isRateLimitError(error)) {
@@ -210,12 +246,30 @@ async function removeMarkerComments({ github, context, core, marker, baseMessage
 
   let comments;
   try {
-    comments = await github.paginate(github.rest.issues.listComments, {
-      owner,
-      repo,
-      issue_number,
-      per_page: 100,
-    });
+    if (typeof github.paginate === 'function') {
+      comments = await paginateWithRetry(
+        github,
+        github.rest.issues.listComments,
+        {
+          owner,
+          repo,
+          issue_number,
+          per_page: 100,
+        },
+        { core, task: 'comment-dedupe.listComments' }
+      );
+    } else {
+      const response = await withRetry(
+        (client) => client.rest.issues.listComments({
+          owner,
+          repo,
+          issue_number,
+          per_page: 100,
+        }),
+        { github, core, task: 'comment-dedupe.listComments' }
+      );
+      comments = Array.isArray(response?.data) ? response.data : [];
+    }
   } catch (error) {
     if (isRateLimitError(error)) {
       warn(core, 'Rate limit while fetching comments for cleanup; skipping.');
@@ -252,7 +306,10 @@ async function removeMarkerComments({ github, context, core, marker, baseMessage
 
   for (const comment of targets) {
     try {
-      await github.rest.issues.deleteComment({ owner, repo, comment_id: comment.id });
+      await withRetry(
+        (client) => client.rest.issues.deleteComment({ owner, repo, comment_id: comment.id }),
+        { github, core, task: 'comment-dedupe.deleteComment' }
+      );
       info(core, `Removed docs-only fast-pass comment ${comment.id}.`);
     } catch (error) {
       if (isRateLimitError(error)) {
@@ -366,12 +423,30 @@ async function upsertAnchoredComment({
 
   let comments;
   try {
-    comments = await github.paginate(github.rest.issues.listComments, {
-      owner,
-      repo,
-      issue_number: pr,
-      per_page: 100,
-    });
+    if (typeof github.paginate === 'function') {
+      comments = await paginateWithRetry(
+        github,
+        github.rest.issues.listComments,
+        {
+          owner,
+          repo,
+          issue_number: pr,
+          per_page: 100,
+        },
+        { core, task: 'comment-dedupe.listComments' }
+      );
+    } else {
+      const response = await withRetry(
+        (client) => client.rest.issues.listComments({
+          owner,
+          repo,
+          issue_number: pr,
+          per_page: 100,
+        }),
+        { github, core, task: 'comment-dedupe.listComments' }
+      );
+      comments = Array.isArray(response?.data) ? response.data : [];
+    }
   } catch (error) {
     if (isRateLimitError(error)) {
       warn(core, 'Rate limit while fetching comments for consolidated status; skipping update.');
@@ -385,7 +460,10 @@ async function upsertAnchoredComment({
 
   if (existing) {
     try {
-      await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body: commentBody });
+      await withRetry(
+        (client) => client.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body: commentBody }),
+        { github, core, task: 'comment-dedupe.updateComment' }
+      );
       info(core, 'Updated existing consolidated status comment.');
     } catch (error) {
       if (isRateLimitError(error)) {
@@ -396,7 +474,10 @@ async function upsertAnchoredComment({
     }
   } else {
     try {
-      await github.rest.issues.createComment({ owner, repo, issue_number: pr, body: commentBody });
+      await withRetry(
+        (client) => client.rest.issues.createComment({ owner, repo, issue_number: pr, body: commentBody }),
+        { github, core, task: 'comment-dedupe.createComment' }
+      );
       info(core, 'Created consolidated status comment.');
     } catch (error) {
       if (isRateLimitError(error)) {
