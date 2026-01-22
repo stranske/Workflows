@@ -11,6 +11,7 @@ const {
   resolveDispatchToken,
   coerceNumber,
   resolvePromptCheckboxCounts,
+  runKeepalive,
 } = require('../scripts/keepalive-runner.js');
 
 test('resolveInstructionToken prefers service bot PAT over actions bot PAT', () => {
@@ -169,4 +170,54 @@ test('resolvePromptCheckboxCounts uses latest checklist when scope has no tasks'
     total: 2,
     unchecked: 0,
   });
+});
+
+test('runKeepalive summarizes and fails when instruction token is missing', async () => {
+  const summary = {
+    lines: [],
+    addHeading(value) {
+      this.lines.push(String(value));
+      return this;
+    },
+    addRaw(value) {
+      this.lines.push(String(value));
+      return this;
+    },
+    addEOL() {
+      this.lines.push('\n');
+      return this;
+    },
+    async write() {},
+  };
+  let failedMessage = '';
+  const core = {
+    summary,
+    info() {},
+    setFailed(message) {
+      failedMessage = message;
+    },
+  };
+
+  await assert.rejects(
+    () => runKeepalive({ core, github: {}, context: {}, env: {} }),
+    /GitHub token is required to author keepalive instructions/
+  );
+
+  const output = summary.lines.join('');
+  assert.ok(output.includes('Codex Keepalive'));
+  assert.ok(output.includes('Dry run: **disabled**'));
+  assert.ok(
+    output.includes(
+      'Failure: GitHub token is required to author keepalive instructions (app token, PAT, or GITHUB_TOKEN).'
+    )
+  );
+  assert.ok(output.includes('Triggered keepalive count: 0'));
+  assert.ok(output.includes('Refreshed keepalive count: 0'));
+  assert.ok(output.includes('Skipped keepalive count: 0'));
+  assert.ok(output.includes('Skipped 0 paused PRs.'));
+  assert.ok(output.includes('Evaluated pull requests: 0'));
+  assert.equal(
+    failedMessage,
+    'GitHub token is required to author keepalive instructions (app token, PAT, or GITHUB_TOKEN).'
+  );
 });
