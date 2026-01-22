@@ -78,6 +78,14 @@ def test_validate_record_accepts_cycle_event_and_outcome() -> None:
     collector.validate_record(record)
 
 
+def test_validate_record_rejects_summary_without_outcome() -> None:
+    record = _cycle_record()
+    record["summary"] = True
+
+    with pytest.raises(collector.ValidationError, match="outcome is required when summary is true"):
+        collector.validate_record(record)
+
+
 def test_validate_record_rejects_invalid_cycle_event() -> None:
     record = _cycle_record()
     record["cycle_event"] = "stop"
@@ -1160,6 +1168,25 @@ def test_main_writes_record_to_stdout_and_log(
     assert log_contents == stdout
     record = json.loads(stdout)
     collector.validate_record(record)
+
+
+def test_main_rejects_summary_without_outcome(capsys: pytest.CaptureFixture) -> None:
+    exit_code = collector.main(
+        [
+            "--metric-type",
+            "cycle",
+            "--issue-number",
+            "12",
+            "--cycle-count",
+            "1",
+            "--summary",
+            "true",
+        ]
+    )
+
+    assert exit_code == 1
+    stderr = capsys.readouterr().err
+    assert "outcome is required when summary is true" in stderr
 
 
 def test_main_writes_failure_summary(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

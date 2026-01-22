@@ -241,6 +241,10 @@ def _validate_cycle(record: dict[str, Any]) -> None:
                 "outcome must be 'completed', 'failed', 'needs-human', or 'paused'"
             )
 
+    summary = record.get("summary")
+    if summary is True and "outcome" not in record:
+        raise ValidationError("outcome is required when summary is true")
+
     _parse_timestamp(str(record["timestamp"]))
 
 
