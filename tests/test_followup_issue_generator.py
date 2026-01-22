@@ -6,6 +6,7 @@ import pytest
 from scripts.langchain.followup_issue_generator import (
     OriginalIssueData,
     VerificationData,
+    _generate_with_llm,
     extract_original_issue_data,
     extract_verification_data,
     generate_followup_issue,
@@ -375,6 +376,126 @@ class TestGenerateFollowupIssue:
         assert "#200" in followup.body or "200" in followup.body
         assert "Not Ready" in followup.body
         assert "7" in followup.body and "10" in followup.body  # Completion stats
+
+    def test_llm_inserts_non_goals_when_missing(self, monkeypatch):
+        """Ensure missing Non-Goals section is inserted for LLM output."""
+        verification_data = VerificationData(
+            provider_verdicts={"openai": {"verdict": "Needs Work", "confidence": 60}},
+            concerns=["Test concern"],
+        )
+        original_issue = OriginalIssueData(
+            number=101,
+            title="Test",
+            non_goals="- No manual steps",
+        )
+
+        responses = iter(
+            [
+                """{"rewritten_acceptance_criteria": [], "concrete_tasks": []}""",
+                """{"tasks": [{"task": "Add tests"}], "deferred": []}""",
+                """{"acceptance_criteria": [{"criterion": "Done", "verification_method": "", "related_task": "Add tests"}]}""",
+                """## Why
+
+Because.
+
+## Scope
+
+Some scope.
+
+## Tasks
+
+- [ ] Add tests
+
+## Acceptance Criteria
+
+- [ ] Done
+""",
+            ]
+        )
+
+        def fake_invoke(prompt: str, client: object) -> str:
+            return next(responses)
+
+        monkeypatch.setattr(
+            "scripts.langchain.followup_issue_generator._invoke_llm",
+            fake_invoke,
+        )
+
+        followup = _generate_with_llm(
+            verification_data=verification_data,
+            original_issue=original_issue,
+            pr_number=200,
+            codex_log=None,
+            reasoning_client=object(),
+            reasoning_model="o3-mini",
+            standard_client=object(),
+            standard_model="gpt-4o",
+        )
+
+        assert "## Non-Goals" in followup.body
+        assert "No manual steps" in followup.body
+        assert followup.body.index("## Non-Goals") < followup.body.index("## Tasks")
+
+    def test_llm_fills_empty_non_goals_section(self, monkeypatch):
+        """Ensure empty Non-Goals section is filled for LLM output."""
+        verification_data = VerificationData(
+            provider_verdicts={"openai": {"verdict": "Needs Work", "confidence": 60}},
+            concerns=["Test concern"],
+        )
+        original_issue = OriginalIssueData(
+            number=102,
+            title="Test",
+            non_goals="- Avoid new dependencies",
+        )
+
+        responses = iter(
+            [
+                """{"rewritten_acceptance_criteria": [], "concrete_tasks": []}""",
+                """{"tasks": [{"task": "Add tests"}], "deferred": []}""",
+                """{"acceptance_criteria": [{"criterion": "Done", "verification_method": "", "related_task": "Add tests"}]}""",
+                """## Why
+
+Because.
+
+## Scope
+
+Some scope.
+
+## Non-Goals
+
+## Tasks
+
+- [ ] Add tests
+
+## Acceptance Criteria
+
+- [ ] Done
+""",
+            ]
+        )
+
+        def fake_invoke(prompt: str, client: object) -> str:
+            return next(responses)
+
+        monkeypatch.setattr(
+            "scripts.langchain.followup_issue_generator._invoke_llm",
+            fake_invoke,
+        )
+
+        followup = _generate_with_llm(
+            verification_data=verification_data,
+            original_issue=original_issue,
+            pr_number=201,
+            codex_log=None,
+            reasoning_client=object(),
+            reasoning_model="o3-mini",
+            standard_client=object(),
+            standard_model="gpt-4o",
+        )
+
+        assert "## Non-Goals" in followup.body
+        assert "Avoid new dependencies" in followup.body
+        assert followup.body.index("## Non-Goals") < followup.body.index("## Tasks")
 
 
 class TestRealWorldExample:

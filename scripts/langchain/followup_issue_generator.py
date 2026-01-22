@@ -574,6 +574,38 @@ def _parse_sections(body: str) -> dict[str, list[str]]:
     return sections
 
 
+def _ensure_non_goals_section(issue_body: str, non_goals_text: str) -> str:
+    """Ensure Non-Goals section exists when original issue provided non-goals."""
+    if not non_goals_text or not non_goals_text.strip():
+        return issue_body
+
+    non_goals_text = non_goals_text.strip()
+    sections = _parse_sections(issue_body)
+    if "\n".join(sections["non_goals"]).strip():
+        return issue_body
+
+    heading_match = re.search(
+        r"^#{1,3}\s*(?:Non-Goals|Non Goals|NonGoals|Out of Scope|Constraints|Exclusions)\s*$",
+        issue_body,
+        re.IGNORECASE | re.MULTILINE,
+    )
+    if heading_match:
+        section_start = heading_match.end()
+        next_heading = re.search(r"^#{1,3}\s+.*$", issue_body[section_start:], re.MULTILINE)
+        section_end = section_start + next_heading.start() if next_heading else len(issue_body)
+        if not issue_body[section_start:section_end].strip():
+            insert_text = f"\n\n{non_goals_text}\n"
+            return issue_body[:section_start] + insert_text + issue_body[section_start:]
+        return issue_body
+
+    non_goals_block = f"## Non-Goals\n\n{non_goals_text}\n\n"
+    tasks_match = re.search(r"^#{1,3}\s+Tasks\s*$", issue_body, re.IGNORECASE | re.MULTILINE)
+    if tasks_match:
+        return issue_body[:tasks_match.start()] + non_goals_block + issue_body[tasks_match.start():]
+
+    return issue_body.rstrip() + "\n\n" + non_goals_block.rstrip() + "\n"
+
+
 def _strip_checkbox(line: str, list_match: re.Match[str] | None = None) -> str:
     """Extract text content from a list item, stripping bullet and checkbox markers.
 
@@ -913,6 +945,7 @@ def _generate_with_llm(
     )
 
     issue_body = _invoke_llm(format_prompt, standard_client)
+    issue_body = _ensure_non_goals_section(issue_body, original_issue.non_goals)
 
     # Generate title from concrete tasks
     concrete_tasks = analysis.get("concrete_tasks", [])
