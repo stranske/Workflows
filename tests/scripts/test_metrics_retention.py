@@ -155,3 +155,38 @@ def test_main_enforces_min_reduction_percent(tmp_path: Path) -> None:
         ]
     )
     assert exit_code == 2
+
+
+def test_main_defaults_include_agents_dir(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    config_path = tmp_path / "retention-policy.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "retention": {
+                    "daily": {"keep_days": 1},
+                    "weekly": {"keep_weeks": 1},
+                    "monthly": {"keep_months": 1},
+                },
+                "archive": {"enabled": False, "storage_dir": str(tmp_path / "archives")},
+            }
+        ),
+        encoding="utf-8",
+    )
+    metrics_path = tmp_path / ".agents" / "autopilot-metrics.ndjson"
+    metrics_path.parent.mkdir(parents=True, exist_ok=True)
+    metrics_path.write_text('{"timestamp":"2025-01-01T00:00:00Z","value":1}\n', encoding="utf-8")
+    log_path = tmp_path / "metrics-retention.ndjson"
+
+    exit_code = metrics_retention.main(
+        [
+            "--config",
+            str(config_path),
+            "--log-path",
+            str(log_path),
+            "--dry-run",
+        ]
+    )
+
+    assert exit_code == 0

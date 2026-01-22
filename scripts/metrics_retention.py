@@ -21,7 +21,7 @@ DEFAULT_METRICS_PATHS = (
     "workflow-metrics.ndjson",
     "autopilot-metrics.ndjson",
 )
-DEFAULT_METRICS_DIRS = ("agent-metrics",)
+DEFAULT_METRICS_DIRS = ("agent-metrics", ".agents")
 TIMESTAMP_FIELDS = (
     "timestamp",
     "created_at",
