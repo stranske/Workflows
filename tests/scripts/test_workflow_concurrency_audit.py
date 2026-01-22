@@ -595,3 +595,26 @@ jobs:
     assert lines[0].startswith("| path | triggers |")
     assert lines[1].startswith("| --- | --- |")
     assert lines[2].startswith("|")
+
+
+def test_format_markdown_escapes_pipes(tmp_path: Path) -> None:
+    workflow_dir = tmp_path / "workflows"
+    workflow_dir.mkdir()
+    _write_workflow(
+        workflow_dir / "mixed.yml",
+        """
+name: Mixed
+on: [issues, pull_request]
+jobs:
+  noop:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo hi
+""",
+    )
+
+    table = workflow_concurrency_audit.format_markdown(
+        workflow_concurrency_audit.audit_workflows(workflow_dir)
+    )
+    row = table.splitlines()[2]
+    assert "\\|\\|" in row

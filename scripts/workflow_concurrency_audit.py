@@ -327,6 +327,10 @@ def _table_row(item: WorkflowConcurrencyAudit) -> list[str]:
     ]
 
 
+def _escape_markdown_cell(value: str) -> str:
+    return value.replace("|", "\\|").replace("\n", "<br>")
+
+
 def format_table(results: list[WorkflowConcurrencyAudit]) -> str:
     """Render a tab-delimited report for easy copy/paste."""
     lines = ["\t".join(TABLE_HEADERS)]
@@ -341,7 +345,8 @@ def format_markdown(results: list[WorkflowConcurrencyAudit]) -> str:
         "| " + " | ".join(["---"] * len(TABLE_HEADERS)) + " |",
     ]
     for item in results:
-        lines.append("| " + " | ".join(_table_row(item)) + " |")
+        row = [_escape_markdown_cell(value) for value in _table_row(item)]
+        lines.append("| " + " | ".join(row) + " |")
     return "\n".join(lines)
 
 
