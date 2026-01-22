@@ -10,6 +10,16 @@ def _read_record(path: Path) -> dict:
     return json.loads(lines[0])
 
 
+def test_print_schema_outputs_json(capsys) -> None:
+    exit_code = autopilot_metrics.main(["print-schema"])
+
+    assert exit_code == 0
+    captured = capsys.readouterr().out.strip()
+    schema = json.loads(captured)
+    assert schema["version"] >= 1
+    assert "record_types" in schema
+
+
 def test_emit_step_writes_record(tmp_path: Path) -> None:
     log_path = tmp_path / "metrics.ndjson"
 

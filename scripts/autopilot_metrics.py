@@ -133,6 +133,8 @@ def build_parser() -> argparse.ArgumentParser:
     _add_trace_args(summary)
     _add_path_arg(summary)
 
+    subparsers.add_parser("print-schema", help="Print metrics schema and exit")
+
     return parser
 
 
@@ -145,6 +147,10 @@ def _emit_record(record: dict[str, Any], path: str) -> int:
 def main(argv: list[str]) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    if args.command == "print-schema":
+        print(collector.schema_payload())
+        return 0
+
     path = args.path
 
     if args.command == "emit-cycle-start":
