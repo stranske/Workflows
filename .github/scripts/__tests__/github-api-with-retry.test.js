@@ -11,6 +11,7 @@ const {
 
 test('withRetry switches tokens on primary rate limit errors', async () => {
   const calls = [];
+  const debugMessages = [];
   const tokenRegistry = {
     async getOptimalToken() {
       return {
@@ -25,6 +26,7 @@ test('withRetry switches tokens on primary rate limit errors', async () => {
 
   const getOctokit = (token) => ({ token });
   const github = { token: 'token-a' };
+  const core = { debug: (message) => debugMessages.push(String(message)) };
 
   let attempt = 0;
   const response = await withRetry(
@@ -50,11 +52,15 @@ test('withRetry switches tokens on primary rate limit errors', async () => {
       tokenRegistry,
       getOctokit,
       tokenSource: 'TOKEN_A',
+      core,
     }
   );
 
   assert.equal(response.data.ok, true);
   assert.deepEqual(calls, ['token-a', 'token-b']);
+  assert.ok(
+    debugMessages.some((message) => message.includes('Token TOKEN_B response remaining: 4999/5000'))
+  );
 });
 
 test('createTokenAwareRetry initializes registry from env secrets', async () => {
