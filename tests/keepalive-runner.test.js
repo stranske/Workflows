@@ -221,3 +221,63 @@ test('runKeepalive summarizes and fails when instruction token is missing', asyn
     'GitHub token is required to author keepalive instructions (app token, PAT, or GITHUB_TOKEN).'
   );
 });
+
+test('runKeepalive summarizes and fails when octokit client cannot be initialized', async () => {
+  const summary = {
+    lines: [],
+    addHeading(value) {
+      this.lines.push(String(value));
+      return this;
+    },
+    addRaw(value) {
+      this.lines.push(String(value));
+      return this;
+    },
+    addEOL() {
+      this.lines.push('\n');
+      return this;
+    },
+    async write() {},
+  };
+  let failedMessage = '';
+  const core = {
+    summary,
+    info() {},
+    debug() {},
+    setFailed(message) {
+      failedMessage = message;
+    },
+  };
+  const github = {
+    getOctokit() {
+      return null;
+    },
+  };
+
+  await assert.rejects(
+    () =>
+      runKeepalive({
+        core,
+        github,
+        context: {},
+        env: { SERVICE_BOT_PAT: 'token' },
+      }),
+    /Unable to initialise Octokit client for keepalive instruction author/
+  );
+
+  const output = summary.lines.join('');
+  assert.ok(output.includes('Codex Keepalive'));
+  assert.ok(output.includes('Dry run: **disabled**'));
+  assert.ok(
+    output.includes('Failure: Unable to initialise Octokit client for keepalive instruction author.')
+  );
+  assert.ok(output.includes('Triggered keepalive count: 0'));
+  assert.ok(output.includes('Refreshed keepalive count: 0'));
+  assert.ok(output.includes('Skipped keepalive count: 0'));
+  assert.ok(output.includes('Skipped 0 paused PRs.'));
+  assert.ok(output.includes('Evaluated pull requests: 0'));
+  assert.equal(
+    failedMessage,
+    'Unable to initialise Octokit client for keepalive instruction author.'
+  );
+});

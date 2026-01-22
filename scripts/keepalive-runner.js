@@ -792,7 +792,17 @@ async function runKeepalive({ core, github, context, env = process.env }) {
       !instructionAuthorOctokit?.rest?.issues?.createComment ||
       !instructionAuthorOctokit?.rest?.reactions?.createForIssueComment
     ) {
-      throw new Error('Unable to initialise Octokit client for keepalive instruction author.');
+      const message = 'Unable to initialise Octokit client for keepalive instruction author.';
+      addHeading();
+      summary.addRaw(`Failure: ${message}`).addEOL();
+      summary.addRaw('Triggered keepalive count: 0').addEOL();
+      summary.addRaw('Refreshed keepalive count: 0').addEOL();
+      summary.addRaw('Skipped keepalive count: 0').addEOL();
+      summary.addRaw('Skipped 0 paused PRs.').addEOL();
+      summary.addRaw('Evaluated pull requests: 0').addEOL();
+      await summary.write();
+      core.setFailed(message);
+      throw new Error(message);
     }
   }
 
