@@ -46,12 +46,12 @@ jobs:
       uses: github/codeql-action/init@v4
       with:
         languages: python
-        github-token: ${{ env.CODEQL_TOKEN }}
+        token: ${{ env.CODEQL_TOKEN }}
 
     - name: Autobuild
       uses: github/codeql-action/autobuild@v4
       with:
-        github-token: ${{ env.CODEQL_TOKEN }}
+        token: ${{ env.CODEQL_TOKEN }}
 
     - name: Perform CodeQL Analysis
       id: codeql_analyze
@@ -61,7 +61,7 @@ jobs:
       continue-on-error: true
       with:
         category: "/language:python"
-        github-token: ${{ env.CODEQL_TOKEN }}
+        token: ${{ env.CODEQL_TOKEN }}
 
     - name: Report CodeQL status
       if: always()
