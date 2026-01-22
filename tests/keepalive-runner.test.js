@@ -6,6 +6,7 @@ const assert = require('node:assert/strict');
 const {
   buildOctokitInstance,
   countCheckboxes,
+  extractLatestChecklist,
   resolveInstructionToken,
   resolveDispatchToken,
   coerceNumber,
@@ -110,6 +111,38 @@ test('countCheckboxes ignores tilde-fenced code blocks', () => {
     checked: 0,
     unchecked: 2,
   });
+});
+
+test('extractLatestChecklist returns latest checklist even when all tasks are complete', () => {
+  const botComments = [
+    {
+      body: '- [ ] Task one',
+      updated_at: '2025-01-01T00:00:00Z',
+      created_at: '2025-01-01T00:00:00Z',
+    },
+    {
+      body: '- [x] Task one',
+      updated_at: '2025-01-02T00:00:00Z',
+      created_at: '2025-01-02T00:00:00Z',
+    },
+  ];
+
+  const latest = extractLatestChecklist(botComments);
+  assert.ok(latest);
+  assert.equal(latest.total, 1);
+  assert.equal(latest.unchecked, 0);
+});
+
+test('extractLatestChecklist ignores comments without checkboxes', () => {
+  const botComments = [
+    {
+      body: 'No checklist here',
+      updated_at: '2025-01-03T00:00:00Z',
+      created_at: '2025-01-03T00:00:00Z',
+    },
+  ];
+
+  assert.equal(extractLatestChecklist(botComments), null);
 });
 
 test('coerceNumber accepts zero when min is zero', () => {

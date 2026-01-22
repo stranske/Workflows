@@ -112,6 +112,25 @@ function countCheckboxes(markdown) {
   return result;
 }
 
+function extractLatestChecklist(botComments) {
+  if (!Array.isArray(botComments) || botComments.length === 0) {
+    return null;
+  }
+  const checklistComments = botComments
+    .map((comment) => {
+      const body = String(comment.body || '')
+        .replace(/\\r\\n/g, '\n')
+        .replace(/\\n/g, '\n')
+        .replace(/\\r/g, '\n');
+      const counts = countCheckboxes(body);
+      return { comment, unchecked: counts.unchecked, total: counts.total };
+    })
+    .filter((entry) => entry.total > 0)
+    .sort((a, b) => new Date(b.comment.updated_at || b.comment.created_at) - new Date(a.comment.updated_at || a.comment.created_at));
+
+  return checklistComments[0] || null;
+}
+
 function resolvePromptCheckboxCounts(scopeCounts, latestChecklist) {
   const safeScope = scopeCounts && typeof scopeCounts === 'object'
     ? scopeCounts
@@ -124,6 +143,7 @@ function resolvePromptCheckboxCounts(scopeCounts, latestChecklist) {
   const scopeHasTasks = safeScope.total > 0;
   const scopeComplete = scopeHasTasks && safeScope.unchecked === 0;
   const latestHasTasks = total > 0;
+  const latestIncomplete = unchecked > 0;
   if (!latestHasTasks) {
     return safeScope;
   }
@@ -131,7 +151,7 @@ function resolvePromptCheckboxCounts(scopeCounts, latestChecklist) {
     return { total, unchecked };
   }
   if (scopeComplete) {
-    return safeScope;
+    return latestIncomplete ? { total, unchecked } : safeScope;
   }
   return { total, unchecked };
 }
@@ -1050,19 +1070,7 @@ async function runKeepalive({ core, github, context, env = process.env }) {
         continue;
       }
 
-      const checklistComments = botComments
-        .map((comment) => {
-          const body = String(comment.body || '')
-            .replace(/\\r\\n/g, '\n')
-            .replace(/\\n/g, '\n')
-            .replace(/\\r/g, '\n');
-          const counts = countCheckboxes(body);
-          return { comment, unchecked: counts.unchecked, total: counts.total };
-        })
-        .filter((entry) => entry.total > 0 && entry.unchecked > 0)
-        .sort((a, b) => new Date(b.comment.updated_at || b.comment.created_at) - new Date(a.comment.updated_at || a.comment.created_at));
-
-      const latestChecklist = checklistComments[0];
+      const latestChecklist = extractLatestChecklist(botComments);
       const checkboxCounts = countCheckboxes(scopeBlock);
       const promptCheckboxCounts = resolvePromptCheckboxCounts(checkboxCounts, latestChecklist);
       const promptContext = resolveKeepalivePromptContext({
@@ -1091,8 +1099,8 @@ async function runKeepalive({ core, github, context, env = process.env }) {
         }
       }
 
-  const totalTasks = latestChecklist?.total ?? checkboxCounts.total;
-  const outstanding = latestChecklist?.unchecked ?? checkboxCounts.unchecked;
+  const totalTasks = promptCheckboxCounts.total;
+  const outstanding = promptCheckboxCounts.unchecked;
   const nextRound = computeNextRound(keepaliveCandidates);
   const roundMarker = `<!-- keepalive-round: ${nextRound} -->`;
   const attemptMarker = `<!-- keepalive-attempt: ${nextRound} -->`;
@@ -1334,6 +1342,7 @@ module.exports = {
   extractScopeTasksAcceptanceSections,
   findScopeTasksAcceptanceBlock,
   countCheckboxes,
+  extractLatestChecklist,
   resolvePromptCheckboxCounts,
   resolveKeepalivePromptContext,
 };
