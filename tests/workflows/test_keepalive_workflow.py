@@ -257,7 +257,6 @@ def test_keepalive_dedupes_configuration() -> None:
         "helper-bot",
     ]
 
-
     created = data["created_comments"]
     _assert_keepalive_authors(created)
     assert [item["issue_number"] for item in created] == [505]
