@@ -189,3 +189,49 @@ def test_emit_summary_rejects_non_integer_total_cycles(capsys, tmp_path: Path) -
     assert exit_code == 1
     stderr = capsys.readouterr().err
     assert "total_cycles must be an integer" in stderr
+
+
+def test_emit_cycle_start_rejects_non_integer_max_cycles(capsys, tmp_path: Path) -> None:
+    log_path = tmp_path / "cycle.ndjson"
+
+    exit_code = autopilot_metrics.main(
+        [
+            "emit-cycle-start",
+            "--issue",
+            "21",
+            "--cycle",
+            "2",
+            "--max-cycles",
+            "nope",
+            "--path",
+            str(log_path),
+        ]
+    )
+
+    assert exit_code == 1
+    stderr = capsys.readouterr().err
+    assert "max_cycles must be an integer" in stderr
+
+
+def test_emit_summary_rejects_non_integer_steps_completed(capsys, tmp_path: Path) -> None:
+    log_path = tmp_path / "summary.ndjson"
+
+    exit_code = autopilot_metrics.main(
+        [
+            "emit-summary",
+            "--issue",
+            "44",
+            "--total-cycles",
+            "7",
+            "--outcome",
+            "completed",
+            "--steps-completed",
+            "nope",
+            "--path",
+            str(log_path),
+        ]
+    )
+
+    assert exit_code == 1
+    stderr = capsys.readouterr().err
+    assert "steps_completed must be an integer" in stderr
