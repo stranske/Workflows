@@ -73,6 +73,7 @@ GITIGNORE_BLOCK_HEADER = """# ==================================================
 # =============================================================================
 """
 
+
 def _load_template_patterns() -> list[str]:
     template_path = Path(__file__).parent.parent / "templates/consumer-repo/.gitignore"
     if not template_path.exists():
@@ -80,7 +81,11 @@ def _load_template_patterns() -> list[str]:
     text = template_path.read_text(encoding="utf-8")
     lines = text.splitlines()
     start = next(
-        (idx for idx, line in enumerate(lines) if "Workflows Consumer Repo - Shared Status Files" in line),
+        (
+            idx
+            for idx, line in enumerate(lines)
+            if "Workflows Consumer Repo - Shared Status Files" in line
+        ),
         None,
     )
     end = next(
