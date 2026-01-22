@@ -237,3 +237,37 @@ test('withRetry records token usage on rate limit errors without headers', async
     debugMessages.some((message) => message.includes('Token TOKEN_A error usage recorded'))
   );
 });
+
+test('withRetry records token usage when headers lack rate limit fields', async () => {
+  const usageCalls = [];
+  const headerCalls = [];
+  const debugMessages = [];
+  const tokenRegistry = {
+    updateFromHeaders: (...args) => headerCalls.push(args),
+    updateTokenUsage: (tokenSource, calls) => usageCalls.push({ tokenSource, calls }),
+  };
+
+  const github = { token: 'token-a' };
+  const core = { debug: (message) => debugMessages.push(String(message)) };
+
+  const response = await withRetry(
+    async () => ({
+      headers: { 'content-type': 'application/json' },
+      data: { ok: true },
+    }),
+    {
+      github,
+      tokenRegistry,
+      tokenSource: 'TOKEN_A',
+      core,
+      maxRetries: 0,
+    }
+  );
+
+  assert.equal(response.data.ok, true);
+  assert.equal(headerCalls.length, 0);
+  assert.deepEqual(usageCalls, [{ tokenSource: 'TOKEN_A', calls: 1 }]);
+  assert.ok(
+    debugMessages.some((message) => message.includes('Token TOKEN_A response usage recorded'))
+  );
+});

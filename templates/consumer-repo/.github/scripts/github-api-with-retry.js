@@ -32,6 +32,19 @@ function extractRateLimitInfo(headers) {
   };
 }
 
+function hasRateLimitHeaders(headers) {
+  if (!headers || typeof headers !== 'object') {
+    return false;
+  }
+  const rateLimitKeys = [
+    'x-ratelimit-remaining',
+    'x-ratelimit-limit',
+    'x-ratelimit-used',
+    'x-ratelimit-reset',
+  ];
+  return rateLimitKeys.some((key) => Object.prototype.hasOwnProperty.call(headers, key));
+}
+
 function isRateLimitError(error) {
   if (!error) {
     return false;
@@ -208,7 +221,7 @@ async function withRetry(fn, options = {}) {
         const headers = normaliseHeaders(response?.headers);
         const info = extractRateLimitInfo(headers);
 
-        if (Object.keys(headers).length > 0 && typeof tokenRegistry.updateFromHeaders === 'function') {
+        if (hasRateLimitHeaders(headers) && typeof tokenRegistry.updateFromHeaders === 'function') {
           tokenRegistry.updateFromHeaders(currentTokenSource, headers);
           logTokenUsage(core, currentTokenSource, info, 'response');
         } else if (typeof tokenRegistry.updateTokenUsage === 'function') {
@@ -227,7 +240,7 @@ async function withRetry(fn, options = {}) {
 
       if (tokenRegistry && currentTokenSource) {
         const info = extractRateLimitInfo(headers);
-        if (Object.keys(headers).length > 0 && typeof tokenRegistry.updateFromHeaders === 'function') {
+        if (hasRateLimitHeaders(headers) && typeof tokenRegistry.updateFromHeaders === 'function') {
           tokenRegistry.updateFromHeaders(currentTokenSource, headers);
           logTokenUsage(core, currentTokenSource, info, 'error');
         } else if (typeof tokenRegistry.updateTokenUsage === 'function') {
