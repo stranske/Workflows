@@ -376,6 +376,32 @@ async function runScenario(scenario) {
     env[key] = String(value);
   }
 
+  const tokenEnvKeys = [
+    'ACTIONS_BOT_PAT',
+    'SERVICE_BOT_PAT',
+    'GH_TOKEN',
+    'GITHUB_TOKEN',
+    'KEEPALIVE_DISPATCH_TOKEN',
+    'KEEPALIVE_DISPATCH_PAT',
+    'GH_DISPATCH_TOKEN',
+    'actions_bot_pat',
+    'service_bot_pat',
+    'gh_token',
+    'github_token',
+    'keepalive_dispatch_token',
+    'keepalive_dispatch_pat',
+    'gh_dispatch_token',
+  ];
+  const originalEnv = {};
+  for (const key of tokenEnvKeys) {
+    originalEnv[key] = process.env[key];
+    if (Object.prototype.hasOwnProperty.call(env, key)) {
+      process.env[key] = env[key];
+    } else {
+      delete process.env[key];
+    }
+  }
+
   const originalNow = Date.now;
   if (scenario.now) {
     const fixed = new Date(scenario.now).getTime();
@@ -387,6 +413,14 @@ async function runScenario(scenario) {
     await runKeepalive({ core, github, context, env });
   } finally {
     Date.now = originalNow;
+    for (const key of tokenEnvKeys) {
+      const value = originalEnv[key];
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
   }
 
   return {
