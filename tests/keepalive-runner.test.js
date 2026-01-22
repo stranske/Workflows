@@ -8,6 +8,7 @@ const {
   countCheckboxes,
   resolveInstructionToken,
   resolveDispatchToken,
+  coerceNumber,
 } = require('../scripts/keepalive-runner.js');
 
 test('resolveInstructionToken prefers service bot PAT over actions bot PAT', () => {
@@ -108,4 +109,12 @@ test('countCheckboxes ignores tilde-fenced code blocks', () => {
     checked: 0,
     unchecked: 2,
   });
+});
+
+test('coerceNumber accepts zero when min is zero', () => {
+  assert.equal(coerceNumber(0, 10, { min: 0 }), 0);
+});
+
+test('coerceNumber rejects values below min', () => {
+  assert.equal(coerceNumber(0, 5, { min: 1 }), 5);
 });

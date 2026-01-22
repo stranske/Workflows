@@ -46,7 +46,7 @@ function coerceNumber(value, fallback, { min } = { min: 0 }) {
     return fallback;
   }
   const num = Number(value);
-  if (!Number.isFinite(num) || num <= (min ?? 0)) {
+  if (!Number.isFinite(num) || num < (min ?? 0)) {
     return fallback;
   }
   return num;
@@ -1322,6 +1322,7 @@ module.exports = {
   runKeepalive,
   dispatchKeepaliveCommand,
   buildOctokitInstance,
+  coerceNumber,
   resolveInstructionToken,
   resolveDispatchToken,
   extractScopeTasksAcceptanceSections,
