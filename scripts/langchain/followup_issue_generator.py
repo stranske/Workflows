@@ -601,13 +601,40 @@ def _ensure_non_goals_section(issue_body: str, non_goals_text: str) -> str:
     sections = _parse_sections(issue_body)
     existing_non_goals = "\n".join(sections["non_goals"]).strip()
     if existing_non_goals and not _is_non_goals_placeholder(existing_non_goals):
+        heading_re = re.compile(
+            r"^#{1,3}\s*(?:Non-Goals|Non Goals|NonGoals|Out of Scope|Constraints|Exclusions)\s*$",
+            re.IGNORECASE | re.MULTILINE,
+        )
+        tasks_re = re.compile(r"^#{1,3}\s+Tasks\s*$", re.IGNORECASE | re.MULTILINE)
+        heading_match = heading_re.search(issue_body)
+        tasks_match = tasks_re.search(issue_body)
+        if heading_match and tasks_match and heading_match.start() > tasks_match.start():
+            section_start = heading_match.start()
+            section_body_start = heading_match.end()
+            next_heading = re.search(
+                r"^#{1,3}\s+.*$", issue_body[section_body_start:], re.MULTILINE
+            )
+            section_end = (
+                section_body_start + next_heading.start() if next_heading else len(issue_body)
+            )
+            non_goals_block = issue_body[section_start:section_end].rstrip() + "\n\n"
+            body_without = issue_body[:section_start] + issue_body[section_end:]
+            tasks_match = tasks_re.search(body_without)
+            if tasks_match:
+                prefix = body_without[: tasks_match.start()]
+                suffix = body_without[tasks_match.start() :]
+                if not prefix.endswith("\n\n"):
+                    prefix = prefix.rstrip("\n") + "\n\n"
+                return prefix + non_goals_block + suffix.lstrip("\n")
+            return body_without.rstrip() + "\n\n" + non_goals_block.rstrip() + "\n"
         return issue_body
 
-    heading_match = re.search(
+    heading_re = re.compile(
         r"^#{1,3}\s*(?:Non-Goals|Non Goals|NonGoals|Out of Scope|Constraints|Exclusions)\s*$",
-        issue_body,
         re.IGNORECASE | re.MULTILINE,
     )
+    tasks_re = re.compile(r"^#{1,3}\s+Tasks\s*$", re.IGNORECASE | re.MULTILINE)
+    heading_match = heading_re.search(issue_body)
     if heading_match:
         section_start = heading_match.end()
         next_heading = re.search(r"^#{1,3}\s+.*$", issue_body[section_start:], re.MULTILINE)
@@ -615,11 +642,32 @@ def _ensure_non_goals_section(issue_body: str, non_goals_text: str) -> str:
         section_text = issue_body[section_start:section_end]
         if _is_non_goals_placeholder(section_text):
             insert_text = f"\n\n{non_goals_text}\n\n"
-            return issue_body[:section_start] + insert_text + issue_body[section_end:]
+            issue_body = issue_body[:section_start] + insert_text + issue_body[section_end:]
+        tasks_match = tasks_re.search(issue_body)
+        heading_match = heading_re.search(issue_body)
+        if heading_match and tasks_match and heading_match.start() > tasks_match.start():
+            section_start = heading_match.start()
+            section_body_start = heading_match.end()
+            next_heading = re.search(
+                r"^#{1,3}\s+.*$", issue_body[section_body_start:], re.MULTILINE
+            )
+            section_end = (
+                section_body_start + next_heading.start() if next_heading else len(issue_body)
+            )
+            non_goals_block = issue_body[section_start:section_end].rstrip() + "\n\n"
+            body_without = issue_body[:section_start] + issue_body[section_end:]
+            tasks_match = tasks_re.search(body_without)
+            if tasks_match:
+                prefix = body_without[: tasks_match.start()]
+                suffix = body_without[tasks_match.start() :]
+                if not prefix.endswith("\n\n"):
+                    prefix = prefix.rstrip("\n") + "\n\n"
+                return prefix + non_goals_block + suffix.lstrip("\n")
+            return body_without.rstrip() + "\n\n" + non_goals_block.rstrip() + "\n"
         return issue_body
 
     non_goals_block = f"## Non-Goals\n\n{non_goals_text}\n\n"
-    tasks_match = re.search(r"^#{1,3}\s+Tasks\s*$", issue_body, re.IGNORECASE | re.MULTILINE)
+    tasks_match = tasks_re.search(issue_body)
     if tasks_match:
         return (
             issue_body[: tasks_match.start()] + non_goals_block + issue_body[tasks_match.start() :]

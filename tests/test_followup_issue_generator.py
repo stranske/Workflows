@@ -7,6 +7,7 @@ from scripts.langchain.followup_issue_generator import (
     OriginalIssueData,
     VerificationData,
     _generate_with_llm,
+    _ensure_non_goals_section,
     extract_original_issue_data,
     extract_verification_data,
     generate_followup_issue,
@@ -559,6 +560,59 @@ None
         assert "## Non-Goals" in followup.body
         assert "Avoid new dependencies" in followup.body
         assert "None" not in followup.body.split("## Non-Goals", 1)[1].split("## Tasks", 1)[0]
+
+
+class TestEnsureNonGoalsSection:
+    """Tests for ensuring Non-Goals section placement/content."""
+
+    def test_moves_non_goals_before_tasks_and_fills_placeholder(self):
+        """Move Non-Goals before Tasks and replace placeholder content."""
+        issue_body = """## Why
+
+Because.
+
+## Tasks
+
+- [ ] Add tests
+
+## Non-Goals
+
+None
+
+## Acceptance Criteria
+
+- [ ] Done
+"""
+        result = _ensure_non_goals_section(issue_body, "- Avoid new dependencies")
+
+        assert result.index("## Non-Goals") < result.index("## Tasks")
+        non_goals_block = result.split("## Non-Goals", 1)[1].split("## Tasks", 1)[0]
+        assert "Avoid new dependencies" in non_goals_block
+        assert "None" not in non_goals_block
+
+    def test_moves_existing_non_goals_before_tasks(self):
+        """Move Non-Goals before Tasks while preserving content."""
+        issue_body = """## Why
+
+Because.
+
+## Tasks
+
+- [ ] Add tests
+
+## Non-Goals
+
+- Keep manual QA out of scope
+
+## Acceptance Criteria
+
+- [ ] Done
+"""
+        result = _ensure_non_goals_section(issue_body, "- Avoid new dependencies")
+
+        assert result.index("## Non-Goals") < result.index("## Tasks")
+        non_goals_block = result.split("## Non-Goals", 1)[1].split("## Tasks", 1)[0]
+        assert "Keep manual QA out of scope" in non_goals_block
 
 
 class TestRealWorldExample:
