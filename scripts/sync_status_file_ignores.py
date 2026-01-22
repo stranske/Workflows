@@ -32,7 +32,7 @@ from pathlib import Path
 
 # Canonical status file patterns that should be ignored
 # These are the minimum patterns needed to prevent merge conflicts
-CANONICAL_PATTERNS: list[str] = [
+FALLBACK_PATTERNS: list[str] = [
     # Agent working files (HIGH conflict risk)
     "codex-prompt.md",
     "codex-output.md",
@@ -72,6 +72,33 @@ GITIGNORE_BLOCK_HEADER = """# ==================================================
 # Sync from: stranske/Workflows templates/consumer-repo/.gitignore
 # =============================================================================
 """
+
+def _load_template_patterns() -> list[str]:
+    template_path = Path(__file__).parent.parent / "templates/consumer-repo/.gitignore"
+    if not template_path.exists():
+        return []
+    text = template_path.read_text(encoding="utf-8")
+    lines = text.splitlines()
+    start = next(
+        (idx for idx, line in enumerate(lines) if "Workflows Consumer Repo - Shared Status Files" in line),
+        None,
+    )
+    end = next(
+        (idx for idx, line in enumerate(lines) if "Langchain Scripts Exclusion" in line),
+        None,
+    )
+    if start is None or end is None or end <= start:
+        return []
+    patterns: list[str] = []
+    for line in lines[start + 1 : end]:
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        patterns.append(stripped)
+    return patterns
+
+
+CANONICAL_PATTERNS: list[str] = _load_template_patterns() or FALLBACK_PATTERNS
 
 
 def load_template_gitignore() -> str:

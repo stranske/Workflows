@@ -54,6 +54,13 @@ def test_canonical_patterns_cover_template_block() -> None:
     assert not missing, f"Missing canonical patterns: {missing}"
 
 
+def test_load_template_patterns_matches_canonical() -> None:
+    template_patterns = sync_status_file_ignores._load_template_patterns()
+
+    assert template_patterns
+    assert template_patterns == sync_status_file_ignores.CANONICAL_PATTERNS
+
+
 def test_check_gitignore_content_ignores_comments_and_negation() -> None:
     content = "\n".join(
         [
