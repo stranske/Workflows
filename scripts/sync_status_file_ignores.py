@@ -242,8 +242,9 @@ def decode_repo_gitignore(encoded: str, repo: str) -> str | None:
     if not encoded:
         print(f"Error fetching .gitignore from {repo}: empty response", file=sys.stderr)
         return None
+    sanitized = "".join(encoded.split())
     try:
-        decoded_bytes = base64.b64decode(encoded, validate=True)
+        decoded_bytes = base64.b64decode(sanitized, validate=True)
     except (binascii.Error, ValueError) as exc:
         print(f"Error decoding .gitignore from {repo}: {exc}", file=sys.stderr)
         return None

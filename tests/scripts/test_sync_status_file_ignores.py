@@ -316,6 +316,15 @@ def test_main_repo_invalid_base64(
     assert "Error decoding .gitignore" in captured.err
 
 
+def test_decode_repo_gitignore_strips_whitespace() -> None:
+    encoded = base64.b64encode(_full_gitignore_content().encode("utf-8")).decode("utf-8")
+    encoded = f"{encoded[:10]}\n{encoded[10:40]}\n{encoded[40:]}\n"
+
+    decoded = sync_status_file_ignores.decode_repo_gitignore(encoded, "owner/repo")
+
+    assert decoded == _full_gitignore_content()
+
+
 def test_main_default_print_help(
     capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
