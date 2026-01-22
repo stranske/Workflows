@@ -411,6 +411,15 @@ def build_record_from_args(args: argparse.Namespace) -> dict[str, Any]:
         return record
 
     if metric_type == "cycle":
+        cycle_event = getattr(args, "cycle_event", None)
+        if cycle_event is not None:
+            record["cycle_event"] = str(cycle_event).strip().lower()
+        summary = getattr(args, "summary", None)
+        if summary is not None:
+            record["summary"] = _coerce_bool(summary, "summary")
+        outcome = getattr(args, "outcome", None)
+        if outcome is not None:
+            record["outcome"] = str(outcome).strip().lower()
         if args.max_cycles is not None:
             record["max_cycles"] = _coerce_int(args.max_cycles, "max_cycles")
         if args.steps_attempted is not None:
@@ -588,6 +597,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--ended-at-ms", help="Epoch milliseconds for step end (optional)")
     parser.add_argument("--success", help="Step success flag (true/false)")
     parser.add_argument("--failure-reason", help="Failure reason for step records")
+    parser.add_argument("--cycle-event", help="Cycle event label (start/end)")
+    parser.add_argument("--summary", help="Cycle summary flag (true/false)")
+    parser.add_argument(
+        "--outcome",
+        choices=list(_CYCLE_OUTCOME_VALUES),
+        help="Cycle outcome (completed/failed/needs-human/paused)",
+    )
     parser.add_argument("--max-cycles", help="Max cycles for cycle records")
     parser.add_argument("--steps-attempted", help="Steps attempted for cycle records")
     parser.add_argument("--steps-completed", help="Steps completed for cycle records")

@@ -240,6 +240,36 @@ def test_build_record_from_args_includes_trace_fields(monkeypatch: pytest.Monkey
     assert record["langsmith_trace_url"] == "https://smith.langchain.com/r/trace-456"
 
 
+def test_build_record_from_args_includes_cycle_fields() -> None:
+    args = collector.argparse.Namespace(
+        metric_type="cycle",
+        issue_number="12",
+        cycle_count="3",
+        timestamp="2025-04-05T06:07:08Z",
+        step_name=None,
+        duration_ms=None,
+        started_at=None,
+        ended_at=None,
+        started_at_ms=None,
+        ended_at_ms=None,
+        success=None,
+        failure_reason=None,
+        cycle_event="Start",
+        summary="true",
+        outcome="completed",
+        max_cycles="5",
+        steps_attempted=None,
+        steps_completed=None,
+        escalation_reason=None,
+    )
+
+    record = collector.build_record_from_args(args)
+
+    assert record["cycle_event"] == "start"
+    assert record["summary"] is True
+    assert record["outcome"] == "completed"
+
+
 def test_build_record_from_args_derives_trace_url(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("LANGSMITH_TRACE_ID", "trace-789")
     monkeypatch.delenv("LANGSMITH_TRACE_URL", raising=False)
