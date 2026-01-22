@@ -141,18 +141,18 @@ function resolvePromptCheckboxCounts(scopeCounts, latestChecklist) {
   const total = Number.isFinite(latestChecklist.total) ? latestChecklist.total : 0;
   const unchecked = Number.isFinite(latestChecklist.unchecked) ? latestChecklist.unchecked : 0;
   const scopeHasTasks = safeScope.total > 0;
+  const scopeIncomplete = safeScope.unchecked > 0;
   const latestHasTasks = total > 0;
-  const latestIncomplete = unchecked > 0;
   if (!latestHasTasks) {
     return safeScope;
-  }
-  if (latestIncomplete) {
-    return { total, unchecked };
   }
   if (!scopeHasTasks) {
     return { total, unchecked };
   }
-  return { total, unchecked };
+  if (scopeIncomplete) {
+    return { total, unchecked };
+  }
+  return safeScope;
 }
 
 const CI_FAILURE_LABEL_REGEX = /\bci(?:[-_:\s]+)?fail(?:ed|ing|ure)?\b/;
