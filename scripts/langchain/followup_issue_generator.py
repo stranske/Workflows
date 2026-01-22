@@ -601,7 +601,9 @@ def _ensure_non_goals_section(issue_body: str, non_goals_text: str) -> str:
     non_goals_block = f"## Non-Goals\n\n{non_goals_text}\n\n"
     tasks_match = re.search(r"^#{1,3}\s+Tasks\s*$", issue_body, re.IGNORECASE | re.MULTILINE)
     if tasks_match:
-        return issue_body[:tasks_match.start()] + non_goals_block + issue_body[tasks_match.start():]
+        return (
+            issue_body[: tasks_match.start()] + non_goals_block + issue_body[tasks_match.start() :]
+        )
 
     return issue_body.rstrip() + "\n\n" + non_goals_block.rstrip() + "\n"
 
