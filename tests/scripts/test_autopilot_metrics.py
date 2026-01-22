@@ -147,3 +147,45 @@ def test_emit_summary_writes_record(tmp_path: Path) -> None:
     assert record["cycle_count"] == 7
     assert record["summary"] is True
     assert record["outcome"] == "completed"
+
+
+def test_emit_cycle_start_rejects_non_integer_issue(capsys, tmp_path: Path) -> None:
+    log_path = tmp_path / "cycle.ndjson"
+
+    exit_code = autopilot_metrics.main(
+        [
+            "emit-cycle-start",
+            "--issue",
+            "nope",
+            "--cycle",
+            "2",
+            "--path",
+            str(log_path),
+        ]
+    )
+
+    assert exit_code == 1
+    stderr = capsys.readouterr().err
+    assert "issue must be an integer" in stderr
+
+
+def test_emit_summary_rejects_non_integer_total_cycles(capsys, tmp_path: Path) -> None:
+    log_path = tmp_path / "summary.ndjson"
+
+    exit_code = autopilot_metrics.main(
+        [
+            "emit-summary",
+            "--issue",
+            "44",
+            "--total-cycles",
+            "not-a-number",
+            "--outcome",
+            "completed",
+            "--path",
+            str(log_path),
+        ]
+    )
+
+    assert exit_code == 1
+    stderr = capsys.readouterr().err
+    assert "total_cycles must be an integer" in stderr

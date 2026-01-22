@@ -35,21 +35,28 @@ def _add_cycle_args(parser: argparse.ArgumentParser) -> None:
     _add_path_arg(parser)
 
 
+def _require_int(value: object, field: str) -> int:
+    try:
+        return int(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{field} must be an integer") from exc
+
+
 def _cycle_record(args: argparse.Namespace, *, event: str) -> dict[str, Any]:
     record: dict[str, Any] = {
         "metric_type": "cycle",
-        "issue_number": int(args.issue),
-        "cycle_count": int(args.cycle),
+        "issue_number": _require_int(args.issue, "issue"),
+        "cycle_count": _require_int(args.cycle, "cycle"),
         "cycle_event": event,
     }
     if args.timestamp:
         record["timestamp"] = args.timestamp
     if args.max_cycles is not None:
-        record["max_cycles"] = int(args.max_cycles)
+        record["max_cycles"] = _require_int(args.max_cycles, "max_cycles")
     if args.steps_attempted is not None:
-        record["steps_attempted"] = int(args.steps_attempted)
+        record["steps_attempted"] = _require_int(args.steps_attempted, "steps_attempted")
     if args.steps_completed is not None:
-        record["steps_completed"] = int(args.steps_completed)
+        record["steps_completed"] = _require_int(args.steps_completed, "steps_completed")
     if args.langsmith_trace_id:
         record["langsmith_trace_id"] = args.langsmith_trace_id
     if args.langsmith_trace_url:
@@ -60,19 +67,19 @@ def _cycle_record(args: argparse.Namespace, *, event: str) -> dict[str, Any]:
 def _summary_record(args: argparse.Namespace) -> dict[str, Any]:
     record: dict[str, Any] = {
         "metric_type": "cycle",
-        "issue_number": int(args.issue),
-        "cycle_count": int(args.total_cycles),
+        "issue_number": _require_int(args.issue, "issue"),
+        "cycle_count": _require_int(args.total_cycles, "total_cycles"),
         "summary": True,
         "outcome": args.outcome,
     }
     if args.timestamp:
         record["timestamp"] = args.timestamp
     if args.max_cycles is not None:
-        record["max_cycles"] = int(args.max_cycles)
+        record["max_cycles"] = _require_int(args.max_cycles, "max_cycles")
     if args.steps_attempted is not None:
-        record["steps_attempted"] = int(args.steps_attempted)
+        record["steps_attempted"] = _require_int(args.steps_attempted, "steps_attempted")
     if args.steps_completed is not None:
-        record["steps_completed"] = int(args.steps_completed)
+        record["steps_completed"] = _require_int(args.steps_completed, "steps_completed")
     if args.langsmith_trace_id:
         record["langsmith_trace_id"] = args.langsmith_trace_id
     if args.langsmith_trace_url:
@@ -154,11 +161,23 @@ def main(argv: list[str]) -> int:
     path = args.path
 
     if args.command == "emit-cycle-start":
-        return _emit_record(_cycle_record(args, event="start"), path)
+        try:
+            return _emit_record(_cycle_record(args, event="start"), path)
+        except ValueError as exc:
+            print(f"autopilot_metrics: {exc}", file=sys.stderr)
+            return 1
     if args.command == "emit-cycle-end":
-        return _emit_record(_cycle_record(args, event="end"), path)
+        try:
+            return _emit_record(_cycle_record(args, event="end"), path)
+        except ValueError as exc:
+            print(f"autopilot_metrics: {exc}", file=sys.stderr)
+            return 1
     if args.command == "emit-summary":
-        return _emit_record(_summary_record(args), path)
+        try:
+            return _emit_record(_summary_record(args), path)
+        except ValueError as exc:
+            print(f"autopilot_metrics: {exc}", file=sys.stderr)
+            return 1
     if args.command == "emit-step":
         collector_args = [
             "--metric-type",
