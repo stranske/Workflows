@@ -101,7 +101,7 @@ jobs:
     needs:
       - detect
       - environment-gate
-    if: ${{ needs.detect.outputs.doc_only != 'true' && needs.detect.outputs.run_core == 'true' && fromJSON(needs.detect.outputs.run_core || 'true') }}
+    if: ${{ needs.detect.outputs.doc_only != 'true' && needs.detect.outputs.run_core == 'true' }}
     uses: ./.github/workflows/reusable-10-ci-python.yml
     secrets: inherit
     permissions:
