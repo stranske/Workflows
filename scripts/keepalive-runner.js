@@ -768,9 +768,18 @@ async function runKeepalive({ core, github, context, env = process.env }) {
   if (!dryRun) {
     instructionAuthorToken = resolveInstructionToken(env);
     if (!instructionAuthorToken) {
-      throw new Error(
-        'GitHub token is required to author keepalive instructions (app token, PAT, or GITHUB_TOKEN).'
-      );
+      const message =
+        'GitHub token is required to author keepalive instructions (app token, PAT, or GITHUB_TOKEN).';
+      addHeading();
+      summary.addRaw(`Failure: ${message}`).addEOL();
+      summary.addRaw('Triggered keepalive count: 0').addEOL();
+      summary.addRaw('Refreshed keepalive count: 0').addEOL();
+      summary.addRaw('Skipped keepalive count: 0').addEOL();
+      summary.addRaw('Skipped 0 paused PRs.').addEOL();
+      summary.addRaw('Evaluated pull requests: 0').addEOL();
+      await summary.write();
+      core.setFailed(message);
+      throw new Error(message);
     }
     dispatchToken = resolveDispatchToken(env, instructionAuthorToken);
 
