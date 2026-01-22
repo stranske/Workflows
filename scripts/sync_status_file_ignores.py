@@ -27,6 +27,8 @@ These patterns prevent merge conflicts from:
 from __future__ import annotations
 
 import argparse
+import base64
+import binascii
 import sys
 from pathlib import Path
 
@@ -111,7 +113,7 @@ def load_template_gitignore() -> str:
     """Load the full .gitignore template content."""
     template_path = Path(__file__).parent.parent / "templates/consumer-repo/.gitignore"
     if template_path.exists():
-        return template_path.read_text()
+        return template_path.read_text(encoding="utf-8")
     # Fallback to generating from patterns
     return generate_minimal_block()
 
@@ -235,6 +237,23 @@ def print_check_report(content: str, repo_name: str = "local") -> int:
     return 0
 
 
+def decode_repo_gitignore(encoded: str, repo: str) -> str | None:
+    """Decode base64 gitignore content fetched from the GitHub API."""
+    if not encoded:
+        print(f"Error fetching .gitignore from {repo}: empty response", file=sys.stderr)
+        return None
+    try:
+        decoded_bytes = base64.b64decode(encoded, validate=True)
+    except (binascii.Error, ValueError) as exc:
+        print(f"Error decoding .gitignore from {repo}: {exc}", file=sys.stderr)
+        return None
+    try:
+        return decoded_bytes.decode()
+    except UnicodeDecodeError as exc:
+        print(f"Error decoding .gitignore from {repo}: {exc}", file=sys.stderr)
+        return None
+
+
 def main() -> int:
     """Main entry point."""
     parser = argparse.ArgumentParser(
@@ -314,9 +333,9 @@ def main() -> int:
             print(result.stderr, file=sys.stderr)
             return 1
 
-        import base64
-
-        content = base64.b64decode(result.stdout.strip()).decode()
+        content = decode_repo_gitignore(result.stdout.strip(), args.repo)
+        if content is None:
+            return 1
         return print_check_report(content, args.repo)
 
     # Default: print help

@@ -276,6 +276,46 @@ def test_main_repo_error(
     assert "boom" in captured.err
 
 
+def test_main_repo_empty_response(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class DummyResult:
+        returncode = 0
+        stdout = ""
+        stderr = ""
+
+    import subprocess
+
+    monkeypatch.setattr(subprocess, "run", lambda *args, **kwargs: DummyResult())
+    monkeypatch.setattr(sys, "argv", ["script", "--repo", "owner/repo"])
+
+    exit_code = sync_status_file_ignores.main()
+
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert "empty response" in captured.err
+
+
+def test_main_repo_invalid_base64(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class DummyResult:
+        returncode = 0
+        stdout = "not-base64"
+        stderr = ""
+
+    import subprocess
+
+    monkeypatch.setattr(subprocess, "run", lambda *args, **kwargs: DummyResult())
+    monkeypatch.setattr(sys, "argv", ["script", "--repo", "owner/repo"])
+
+    exit_code = sync_status_file_ignores.main()
+
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert "Error decoding .gitignore" in captured.err
+
+
 def test_main_default_print_help(
     capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
