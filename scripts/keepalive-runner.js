@@ -740,7 +740,7 @@ async function runKeepalive({ core, github, context, env = process.env }) {
   const options = parseJson(rawOptions, {});
   const summary = core.summary;
   const traceSeed = generateTraceSeed(env.KEEPALIVE_TRACE || env.keepalive_trace || '');
-  const pausedLabel = 'agents:paused';
+  const pausedLabels = new Set(['agents:paused', 'agents:auto-pilot-pause']);
 
   const addHeading = () => {
     summary.addHeading('Codex Keepalive');
@@ -962,8 +962,9 @@ async function runKeepalive({ core, github, context, env = process.env }) {
         core.info(`#${prNumber}: skipped – ${reason}`);
       };
 
-      if (labelNames.includes(pausedLabel)) {
-        recordSkip('keepalive paused via agents:paused label', { paused: true });
+      const pausedMatch = labelNames.find((label) => pausedLabels.has(label));
+      if (pausedMatch) {
+        recordSkip(`keepalive paused via ${pausedMatch} label`, { paused: true });
         continue;
       }
 

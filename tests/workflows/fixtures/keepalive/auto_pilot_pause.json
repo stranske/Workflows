@@ -1,0 +1,42 @@
+{
+  "repo": {"owner": "stranske", "repo": "Workflows"},
+  "now": "2024-05-18T12:00:00Z",
+  "env": {
+    "OPTIONS_JSON": "{}",
+    "DRY_RUN": "false"
+  },
+  "pulls": [
+    {
+      "number": 606,
+      "labels": ["agents:keepalive", "agents:auto-pilot-pause"],
+      "comments": [
+        {
+          "user": {"login": "triage-bot"},
+          "body": "@codex plan-and-execute",
+          "created_at": "2024-05-18T06:00:00Z"
+        },
+        {
+          "user": {"login": "chatgpt-codex-connector"},
+          "body": "Checklist\n- [ ] Refresh datasets\n- [x] Stage summary",
+          "created_at": "2024-05-18T07:00:00Z"
+        }
+      ]
+    },
+    {
+      "number": 707,
+      "labels": ["agents:keepalive"],
+      "comments": [
+        {
+          "user": {"login": "triage-bot"},
+          "body": "@codex plan-and-execute",
+          "created_at": "2024-05-18T08:00:00Z"
+        },
+        {
+          "user": {"login": "chatgpt-codex-connector"},
+          "body": "Daily update\n- [ ] Review signal output",
+          "created_at": "2024-05-18T09:00:00Z"
+        }
+      ]
+    }
+  ]
+}

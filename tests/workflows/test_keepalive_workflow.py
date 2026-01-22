@@ -342,6 +342,25 @@ def test_keepalive_respects_paused_label() -> None:
     assert payload.get("meta", {}).get("comment_id") == created[0]["id"]
 
 
+def test_keepalive_respects_auto_pilot_pause_label() -> None:
+    data = _run_scenario("auto_pilot_pause")
+    summary = data["summary"]
+    raw = _raw_entries(summary)
+    assert "Skipped 1 paused PR." in raw
+    details = _details(summary, "Paused pull requests")
+    assert details is not None and any("#606" in item for item in details["items"])
+    created = data["created_comments"]
+    _assert_keepalive_authors(created)
+    assert [item["issue_number"] for item in created] == [707]
+    assert "<!-- codex-keepalive-marker -->" in created[0]["body"]
+    assert "<!-- keepalive-round: 1 -->" in created[0]["body"]
+    assert "<!-- keepalive-attempt: 1 -->" in created[0]["body"]
+    assert "<!-- keepalive-trace:" in created[0]["body"]
+    assert data["updated_comments"] == []
+    payload = _assert_single_dispatch(data, 707, round_expected=1)
+    assert payload.get("meta", {}).get("comment_id") == created[0]["id"]
+
+
 def test_keepalive_skips_unapproved_comment_author() -> None:
     data = _run_scenario("unauthorised_author")
 
