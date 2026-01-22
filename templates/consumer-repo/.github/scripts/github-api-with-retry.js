@@ -32,6 +32,19 @@ function extractRateLimitInfo(headers) {
   };
 }
 
+function hasRateLimitHeaders(headers) {
+  if (!headers || typeof headers !== 'object') {
+    return false;
+  }
+  const rateLimitKeys = [
+    'x-ratelimit-remaining',
+    'x-ratelimit-limit',
+    'x-ratelimit-used',
+    'x-ratelimit-reset',
+  ];
+  return rateLimitKeys.some((key) => Object.prototype.hasOwnProperty.call(headers, key));
+}
+
 function isRateLimitError(error) {
   if (!error) {
     return false;
@@ -70,6 +83,19 @@ function logWithCore(core, level, message) {
   }
   const logFn = level === 'error' ? console.error : level === 'warning' ? console.warn : console.log;
   logFn(message);
+}
+
+function logTokenUsage(core, tokenSource, info, context) {
+  if (!core || typeof core.debug !== 'function') {
+    return;
+  }
+
+  if (info && info.remaining !== null && info.limit !== null) {
+    core.debug(`Token ${tokenSource} ${context} remaining: ${info.remaining}/${info.limit}`);
+    return;
+  }
+
+  core.debug(`Token ${tokenSource} ${context} usage recorded (no rate limit headers)`);
 }
 
 function resolveOctokitFactory({ github, getOctokit, Octokit }) {
@@ -137,14 +163,20 @@ async function withRetry(fn, options = {}) {
     if (!tokenRegistry || typeof tokenRegistry.getOptimalToken !== 'function') {
       return false;
     }
-    const selection = await tokenRegistry.getOptimalToken({
-      github: currentGithub || github,
-      core,
-      capabilities,
-      preferredType,
-      task,
-      minRemaining,
-    });
+    let selection;
+    try {
+      selection = await tokenRegistry.getOptimalToken({
+        github: currentGithub || github,
+        core,
+        capabilities,
+        preferredType,
+        task,
+        minRemaining,
+      });
+    } catch (error) {
+      logWithCore(core, 'warning', `Token registry selection failed: ${error.message}`);
+      return false;
+    }
 
     if (!selection || !selection.token) {
       logWithCore(core, 'warning', 'Token registry returned no available token');
@@ -189,16 +221,12 @@ async function withRetry(fn, options = {}) {
         const headers = normaliseHeaders(response?.headers);
         const info = extractRateLimitInfo(headers);
 
-        if (Object.keys(headers).length > 0 && typeof tokenRegistry.updateFromHeaders === 'function') {
+        if (hasRateLimitHeaders(headers) && typeof tokenRegistry.updateFromHeaders === 'function') {
           tokenRegistry.updateFromHeaders(currentTokenSource, headers);
+          logTokenUsage(core, currentTokenSource, info, 'response');
         } else if (typeof tokenRegistry.updateTokenUsage === 'function') {
           tokenRegistry.updateTokenUsage(currentTokenSource, 1);
-        }
-
-        if (info.remaining !== null && info.limit !== null && core?.debug) {
-          core.debug(
-            `Token ${currentTokenSource} remaining: ${info.remaining}/${info.limit}`
-          );
+          logTokenUsage(core, currentTokenSource, null, 'response');
         }
       }
 
@@ -210,8 +238,15 @@ async function withRetry(fn, options = {}) {
       const secondaryRateLimit = isSecondaryRateLimitError(error);
       const headers = normaliseHeaders(error?.response?.headers || error?.headers);
 
-      if (tokenRegistry && currentTokenSource && typeof tokenRegistry.updateFromHeaders === 'function') {
-        tokenRegistry.updateFromHeaders(currentTokenSource, headers);
+      if (tokenRegistry && currentTokenSource) {
+        const info = extractRateLimitInfo(headers);
+        if (hasRateLimitHeaders(headers) && typeof tokenRegistry.updateFromHeaders === 'function') {
+          tokenRegistry.updateFromHeaders(currentTokenSource, headers);
+          logTokenUsage(core, currentTokenSource, info, 'error');
+        } else if (typeof tokenRegistry.updateTokenUsage === 'function') {
+          tokenRegistry.updateTokenUsage(currentTokenSource, 1);
+          logTokenUsage(core, currentTokenSource, null, 'error');
+        }
       }
 
       // Don't retry on non-rate-limit errors
@@ -352,29 +387,45 @@ async function createTokenAwareRetry(options = {}) {
   const secrets = collectTokenSecrets(env || {});
   const resolvedGithubToken = githubToken || env?.GITHUB_TOKEN || env?.GH_TOKEN || '';
 
-  await registry.initializeTokenRegistry({
-    secrets,
-    github,
-    core,
-    githubToken: resolvedGithubToken,
-  });
+  let registryInitialized = false;
+  if (registry && typeof registry.isInitialized === 'function' && registry.isInitialized()) {
+    registryInitialized = true;
+  }
+
+  if (!registryInitialized && registry && typeof registry.initializeTokenRegistry === 'function') {
+    try {
+      await registry.initializeTokenRegistry({
+        secrets,
+        github,
+        core,
+        githubToken: resolvedGithubToken,
+      });
+      registryInitialized = true;
+    } catch (error) {
+      logWithCore(core, 'warning', `Token registry initialization failed: ${error.message}`);
+    }
+  }
 
   let currentGithub = github;
   let currentTokenSource = null;
   const octokitFactory = resolveOctokitFactory({ github, getOctokit, Octokit });
 
-  if (octokitFactory && typeof registry.getOptimalToken === 'function') {
-    const selection = await registry.getOptimalToken({
-      github,
-      core,
-      capabilities,
-      preferredType,
-      task,
-      minRemaining,
-    });
-    if (selection?.token) {
-      currentGithub = octokitFactory(selection.token);
-      currentTokenSource = selection.source;
+  if (registryInitialized && octokitFactory && typeof registry.getOptimalToken === 'function') {
+    try {
+      const selection = await registry.getOptimalToken({
+        github,
+        core,
+        capabilities,
+        preferredType,
+        task,
+        minRemaining,
+      });
+      if (selection?.token) {
+        currentGithub = octokitFactory(selection.token);
+        currentTokenSource = selection.source;
+      }
+    } catch (error) {
+      logWithCore(core, 'warning', `Token registry selection failed: ${error.message}`);
     }
   }
 
@@ -385,12 +436,12 @@ async function createTokenAwareRetry(options = {}) {
 
   return {
     github: currentGithub,
-    tokenRegistry: registry,
+    tokenRegistry: registryInitialized ? registry : null,
     getTokenSource: () => currentTokenSource,
     withRetry: (fn, overrideOptions = {}) => withRetry(fn, {
       github: currentGithub,
       core,
-      tokenRegistry: registry,
+      tokenRegistry: registryInitialized ? registry : null,
       getOctokit: octokitFactory,
       capabilities,
       preferredType,
@@ -406,7 +457,7 @@ async function createTokenAwareRetry(options = {}) {
       params,
       {
         core,
-        tokenRegistry: registry,
+        tokenRegistry: registryInitialized ? registry : null,
         getOctokit: octokitFactory,
         capabilities,
         preferredType,

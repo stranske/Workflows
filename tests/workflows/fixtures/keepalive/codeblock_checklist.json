@@ -1,0 +1,26 @@
+{
+  "repo": {"owner": "stranske", "repo": "Workflows"},
+  "now": "2024-05-18T12:00:00Z",
+  "env": {
+    "OPTIONS_JSON": "{}",
+    "DRY_RUN": "false"
+  },
+  "pulls": [
+    {
+      "number": 808,
+      "labels": ["agents:keepalive"],
+      "comments": [
+        {
+          "user": {"login": "triage-bot"},
+          "body": "@codex plan-and-execute",
+          "created_at": "2024-05-18T10:00:00Z"
+        },
+        {
+          "user": {"login": "chatgpt-codex-connector"},
+          "body": "Checklist\n```md\n- [ ] Example task\n- [x] Done\n```\nNo tasks outside.",
+          "created_at": "2024-05-18T10:30:00Z"
+        }
+      ]
+    }
+  ]
+}

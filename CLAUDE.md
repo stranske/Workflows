@@ -20,6 +20,13 @@ If pre-commit hooks, CI, or validation scripts fail:
 
 **Leaving a mess because "you didn't make it" does not produce quality code. Clean up after yourself AND others.**
 
+### ⚠️ Known Validation Exceptions
+
+The `dev_check.sh` script ignores certain known issues that are tracked separately:
+
+- **`models: read` permission** - Required for LangChain components. actionlint doesn't recognize this newer GitHub permission scope, but it's valid and necessary.
+- **`unexpected key "secrets" for "step"`** - Pre-existing syntax error in template workflows where reusable workflows are incorrectly called from steps instead of jobs. Tracked for separate fix.
+
 ### ⚠️ FAILURE TRIGGERS - Read This When You See Failures
 
 **WHEN YOU SEE:** CI failure, lint error, test failure, merge blocked, workflow failed, checks failing

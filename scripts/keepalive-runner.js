@@ -85,10 +85,23 @@ function hasCliAgentLabel(labels) {
 
 function countCheckboxes(markdown) {
   const result = { total: 0, checked: 0, unchecked: 0 };
-  const regex = /(?:^|\n)\s*(?:[-*+]|\d+[.)])\s*\[( |x|X)\]/g;
   const content = String(markdown || '');
-  let match;
-  while ((match = regex.exec(content)) !== null) {
+  const fencePattern = /^\s*(```|~~~)/;
+  const checkboxPattern = /^\s*(?:[-*+]|\d+[.)])\s*\[( |x|X)\]/;
+  let inCodeBlock = false;
+
+  for (const line of content.split('\n')) {
+    if (fencePattern.test(line)) {
+      inCodeBlock = !inCodeBlock;
+      continue;
+    }
+    if (inCodeBlock) {
+      continue;
+    }
+    const match = line.match(checkboxPattern);
+    if (!match) {
+      continue;
+    }
     result.total += 1;
     if ((match[1] || '').toLowerCase() === 'x') {
       result.checked += 1;
@@ -1033,11 +1046,12 @@ async function runKeepalive({ core, github, context, env = process.env }) {
 
       const checklistComments = botComments
         .map((comment) => {
-          const body = comment.body || '';
-          const unchecked = (body.match(/- \[ \]/g) || []).length;
-          const checked = (body.match(/- \[x\]/gi) || []).length;
-          const total = unchecked + checked;
-          return { comment, unchecked, total };
+          const body = String(comment.body || '')
+            .replace(/\\r\\n/g, '\n')
+            .replace(/\\n/g, '\n')
+            .replace(/\\r/g, '\n');
+          const counts = countCheckboxes(body);
+          return { comment, unchecked: counts.unchecked, total: counts.total };
         })
         .filter((entry) => entry.total > 0 && entry.unchecked > 0)
         .sort((a, b) => new Date(b.comment.updated_at || b.comment.created_at) - new Date(a.comment.updated_at || a.comment.created_at));

@@ -280,6 +280,20 @@ def test_keepalive_dedupes_configuration() -> None:
     )
 
 
+def test_keepalive_ignores_codeblock_checklists() -> None:
+    data = _run_scenario("codeblock_checklist")
+    summary = data["summary"]
+
+    assert data["created_comments"] == []
+    _assert_no_dispatch(data)
+
+    skipped = _details(summary, "Skipped pull requests")
+    assert skipped is not None
+    assert any(
+        "no Codex checklist with outstanding tasks" in item for item in skipped.get("items", [])
+    )
+
+
 def test_keepalive_waits_for_recent_command() -> None:
     data = _run_scenario("command_pending")
     summary = data["summary"]

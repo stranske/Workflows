@@ -5,6 +5,7 @@ const assert = require('node:assert/strict');
 
 const {
   buildOctokitInstance,
+  countCheckboxes,
   resolveInstructionToken,
   resolveDispatchToken,
 } = require('../scripts/keepalive-runner.js');
@@ -75,4 +76,36 @@ test('buildOctokitInstance ignores plain object constructor fallbacks', () => {
 
   const instance = buildOctokitInstance({ core, github, token: '' });
   assert.equal(instance, null);
+});
+
+test('countCheckboxes ignores fenced code blocks', () => {
+  const markdown = `
+- [ ] Task one
+\`\`\`yaml
+- [ ] Example checkbox
+\`\`\`
+- [x] Task two
+`;
+
+  assert.deepEqual(countCheckboxes(markdown), {
+    total: 2,
+    checked: 1,
+    unchecked: 1,
+  });
+});
+
+test('countCheckboxes ignores tilde-fenced code blocks', () => {
+  const markdown = `
+- [ ] Task one
+~~~bash
+- [x] Not a real task
+~~~
+- [ ] Task two
+`;
+
+  assert.deepEqual(countCheckboxes(markdown), {
+    total: 2,
+    checked: 0,
+    unchecked: 2,
+  });
 });

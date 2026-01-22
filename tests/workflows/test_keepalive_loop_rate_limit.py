@@ -31,7 +31,9 @@ def _run_scenario(name: str) -> dict:
 
 
 def test_keepalive_loop_bypasses_rate_limit_cancellation() -> None:
-    """Rate limits are infrastructure noise, work should proceed."""
+    """Rate limits cause defer to wait for reset."""
     result = _run_scenario("cancelled_rate_limit")
-    assert result["action"] == "run"
-    assert result["reason"] == "bypass-rate-limit-gate"
+    # New behavior: Rate limit detected early, defer immediately
+    # Old behavior was: Check gate, detect rate limit cancellation, bypass and run
+    assert result["action"] == "defer"
+    assert result["reason"] in ["rate-limit-exhausted", "gate-cancelled-rate-limit"]

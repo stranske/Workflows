@@ -76,7 +76,8 @@ def normalize_triggers(on_field: object) -> tuple[str, ...]:
     if on_field is None:
         return ()
     if isinstance(on_field, str):
-        return (on_field,)
+        name = _normalize_trigger_name(on_field)
+        return (name,) if name else ()
     triggers: list[str] = []
     if isinstance(on_field, list):
         for item in on_field:
@@ -278,48 +279,75 @@ def audit_workflows(
     return results
 
 
+TABLE_HEADERS = (
+    "path",
+    "triggers",
+    "high_frequency",
+    "valid",
+    "error",
+    "has_canceling_concurrency",
+    "workflow_has_concurrency",
+    "workflow_has_canceling_concurrency",
+    "job_has_concurrency",
+    "job_has_canceling_concurrency",
+    "action_required",
+    "recommended_group",
+    "concurrency",
+)
+
+
+def _format_cancel(setting: ConcurrencySetting) -> str:
+    if setting.cancel_in_progress is True:
+        return "true"
+    if setting.cancel_in_progress is False:
+        return "false"
+    if setting.cancel_is_expression:
+        return "expr"
+    return "unset"
+
+
+def _table_row(item: WorkflowConcurrencyAudit) -> list[str]:
+    concurrency = ";".join(
+        f"{setting.location}:{setting.group or 'none'}:" f"{_format_cancel(setting)}"
+        for setting in item.concurrency
+    )
+    return [
+        str(item.path),
+        ",".join(item.triggers),
+        "true" if item.high_frequency else "false",
+        "true" if item.valid else "false",
+        item.error or "",
+        "true" if item.has_canceling_concurrency else "false",
+        "true" if item.has_workflow_concurrency else "false",
+        "true" if item.has_workflow_canceling_concurrency else "false",
+        "true" if item.has_job_concurrency else "false",
+        "true" if item.has_job_canceling_concurrency else "false",
+        item.action_required,
+        item.recommended_group or "",
+        concurrency,
+    ]
+
+
+def _escape_markdown_cell(value: str) -> str:
+    return value.replace("|", "\\|").replace("\n", "<br>")
+
+
 def format_table(results: list[WorkflowConcurrencyAudit]) -> str:
     """Render a tab-delimited report for easy copy/paste."""
+    lines = ["\t".join(TABLE_HEADERS)]
+    lines.extend("\t".join(_table_row(item)) for item in results)
+    return "\n".join(lines)
+
+
+def format_markdown(results: list[WorkflowConcurrencyAudit]) -> str:
+    """Render a Markdown table report."""
     lines = [
-        "path\ttriggers\thigh_frequency\tvalid\terror\thas_canceling_concurrency"
-        "\tworkflow_has_concurrency\tworkflow_has_canceling_concurrency"
-        "\tjob_has_concurrency\tjob_has_canceling_concurrency"
-        "\taction_required\trecommended_group\tconcurrency"
+        "| " + " | ".join(TABLE_HEADERS) + " |",
+        "| " + " | ".join(["---"] * len(TABLE_HEADERS)) + " |",
     ]
     for item in results:
-
-        def _format_cancel(setting: ConcurrencySetting) -> str:
-            if setting.cancel_in_progress is True:
-                return "true"
-            if setting.cancel_in_progress is False:
-                return "false"
-            if setting.cancel_is_expression:
-                return "expr"
-            return "unset"
-
-        concurrency = ";".join(
-            f"{setting.location}:{setting.group or 'none'}:" f"{_format_cancel(setting)}"
-            for setting in item.concurrency
-        )
-        lines.append(
-            "\t".join(
-                [
-                    str(item.path),
-                    ",".join(item.triggers),
-                    "true" if item.high_frequency else "false",
-                    "true" if item.valid else "false",
-                    item.error or "",
-                    "true" if item.has_canceling_concurrency else "false",
-                    "true" if item.has_workflow_concurrency else "false",
-                    "true" if item.has_workflow_canceling_concurrency else "false",
-                    "true" if item.has_job_concurrency else "false",
-                    "true" if item.has_job_canceling_concurrency else "false",
-                    item.action_required,
-                    item.recommended_group or "",
-                    concurrency,
-                ]
-            )
-        )
+        row = [_escape_markdown_cell(value) for value in _table_row(item)]
+        lines.append("| " + " | ".join(row) + " |")
     return "\n".join(lines)
 
 
@@ -347,7 +375,7 @@ def main() -> int:
     )
     parser.add_argument(
         "--format",
-        choices=("table", "json"),
+        choices=("table", "markdown", "json"),
         default="table",
         help="Output format.",
     )
@@ -388,6 +416,8 @@ def main() -> int:
             for item in results
         ]
         print(json.dumps(payload, indent=2))
+    elif args.format == "markdown":
+        print(format_markdown(results))
     else:
         print(format_table(results))
     return 0

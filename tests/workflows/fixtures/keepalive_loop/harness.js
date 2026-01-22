@@ -11,7 +11,16 @@ function loadScenario(scenarioPath) {
   return JSON.parse(fs.readFileSync(resolved, 'utf8'));
 }
 
-function buildMockGithub({ pr, gateConclusion, runId, jobs, logs }) {
+function buildMockGithub({ pr, gateConclusion, runId, jobs, logs, rateLimit }) {
+  const now = Math.floor(Date.now() / 1000);
+  const defaultRateLimit = rateLimit || {
+    core: {
+      remaining: 5000,
+      limit: 5000,
+      reset: now + 3600,
+    },
+  };
+  
   return {
     rest: {
       pulls: {
@@ -36,6 +45,13 @@ function buildMockGithub({ pr, gateConclusion, runId, jobs, logs }) {
         }),
         downloadJobLogsForWorkflowRun: async () => ({
           data: logs,
+        }),
+      },
+      rateLimit: {
+        get: async () => ({
+          data: {
+            resources: defaultRateLimit,
+          },
         }),
       },
     },
@@ -83,8 +99,9 @@ async function main() {
     ? scenario.jobs
     : [{ id: 9001 }];
   const logs = scenario.logs || 'Rate limit exceeded while fetching workflow logs.';
+  const rateLimit = scenario.rateLimit || null;
 
-  const github = buildMockGithub({ pr, gateConclusion, runId, jobs, logs });
+  const github = buildMockGithub({ pr, gateConclusion, runId, jobs, logs, rateLimit });
   const context = {
     repo: { owner: 'octo-org', repo: 'octo-repo' },
     eventName: 'pull_request',

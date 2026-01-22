@@ -26,6 +26,17 @@ def test_normalize_triggers_handles_common_shapes() -> None:
     )
 
 
+def test_normalize_triggers_sorts_collection_inputs() -> None:
+    assert normalize_triggers(["workflow_dispatch", "pull_request"]) == (
+        "pull_request",
+        "workflow_dispatch",
+    )
+    assert normalize_triggers({"workflow_run": {}, "pull_request": {}}) == (
+        "pull_request",
+        "workflow_run",
+    )
+
+
 def test_detect_pr_context_markers_from_text() -> None:
     text = """
     if (context?.payload?.pull_request) {

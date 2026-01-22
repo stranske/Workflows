@@ -45,6 +45,16 @@ def test_normalize_triggers_dedupes_mixed_list() -> None:
     assert triggers == ("issues", "pull_request")
 
 
+def test_normalize_triggers_strips_string_trigger() -> None:
+    triggers = workflow_concurrency_audit.normalize_triggers("  pull_request  ")
+    assert triggers == ("pull_request",)
+
+
+def test_normalize_triggers_ignores_blank_string_trigger() -> None:
+    triggers = workflow_concurrency_audit.normalize_triggers("   ")
+    assert triggers == ()
+
+
 def test_normalize_triggers_ignores_blank_entries() -> None:
     triggers = workflow_concurrency_audit.normalize_triggers(
         [" pull_request ", "", {"issues": None}, "   "]
@@ -570,3 +580,51 @@ jobs:
     assert row[7] == "false"  # workflow_has_canceling_concurrency
     assert row[8] == "true"  # job_has_concurrency
     assert row[9] == "true"  # job_has_canceling_concurrency
+
+
+def test_format_markdown_outputs_table(tmp_path: Path) -> None:
+    workflow_dir = tmp_path / "workflows"
+    workflow_dir.mkdir()
+    _write_workflow(
+        workflow_dir / "manual.yml",
+        """
+name: Manual
+on: workflow_dispatch
+jobs:
+  noop:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo hi
+""",
+    )
+
+    table = workflow_concurrency_audit.format_markdown(
+        workflow_concurrency_audit.audit_workflows(workflow_dir, include_non_high_frequency=True)
+    )
+    lines = table.splitlines()
+    assert lines[0].startswith("| path | triggers |")
+    assert lines[1].startswith("| --- | --- |")
+    assert lines[2].startswith("|")
+
+
+def test_format_markdown_escapes_pipes(tmp_path: Path) -> None:
+    workflow_dir = tmp_path / "workflows"
+    workflow_dir.mkdir()
+    _write_workflow(
+        workflow_dir / "mixed.yml",
+        """
+name: Mixed
+on: [issues, pull_request]
+jobs:
+  noop:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo hi
+""",
+    )
+
+    table = workflow_concurrency_audit.format_markdown(
+        workflow_concurrency_audit.audit_workflows(workflow_dir)
+    )
+    row = table.splitlines()[2]
+    assert "\\|\\|" in row

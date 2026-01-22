@@ -62,6 +62,11 @@ on:
         required: false
         default: ''
         type: string
+      environment:
+        description: 'GitHub environment to run in (agent-standard or agent-high-privilege).'
+        required: false
+        default: 'agent-standard'
+        type: string
     secrets:
       CODEX_AUTH_JSON:
         description: 'JSON contents of ~/.codex/auth.json for ChatGPT subscription auth'
@@ -141,7 +146,7 @@ jobs:
   codex:
     name: Codex (${{ inputs.mode }})
     runs-on: ubuntu-latest
-    environment: agent-standard
+    environment: ${{ inputs.environment }}
     timeout-minutes: ${{ inputs.max_runtime_minutes }}
     if: ${{ !inputs.skip }}
     outputs:
@@ -477,7 +482,7 @@ jobs:
           WORKFLOW_BASE_REF: ${{ github.event.pull_request.base.ref || '' }}
         run: |
           set -euo pipefail
-          
+
           # Configure git identity for merge operations
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -501,7 +506,7 @@ jobs:
 
           echo "Using base branch '$base_branch' to surface merge conflicts."
           git fetch origin "$base_branch"
-          
+
           # Attempt merge but do not fail the job on expected conflicts
           merge_exit=0
           git merge --no-commit --no-ff "origin/$base_branch" || merge_exit=$?
