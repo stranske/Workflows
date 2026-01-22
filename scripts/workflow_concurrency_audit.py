@@ -27,6 +27,7 @@ class ConcurrencySetting:
     location: str
     group: str | None
     cancel_in_progress: bool | None
+    cancel_is_expression: bool
 
 
 @dataclass(frozen=True)
@@ -94,14 +95,19 @@ def normalize_triggers(on_field: object) -> tuple[str, ...]:
     return tuple(sorted(set(triggers)))
 
 
-def _normalize_cancel(value: object) -> bool | None:
+def _normalize_cancel(value: object) -> tuple[bool | None, bool]:
     if isinstance(value, bool):
-        return value
+        return value, False
     if isinstance(value, str):
         lowered = value.strip().lower()
         if lowered in {"true", "false"}:
-            return lowered == "true"
-    return None
+            return lowered == "true", False
+        if lowered:
+            return None, True
+        return None, False
+    if value is None:
+        return None, False
+    return None, True
 
 
 def _parse_concurrency(value: object, location: str) -> ConcurrencySetting | None:
@@ -113,6 +119,7 @@ def _parse_concurrency(value: object, location: str) -> ConcurrencySetting | Non
             location=location,
             group=group or None,
             cancel_in_progress=None,
+            cancel_is_expression=False,
         )
     if isinstance(value, dict):
         group = value.get("group")
@@ -120,8 +127,13 @@ def _parse_concurrency(value: object, location: str) -> ConcurrencySetting | Non
             group = str(group).strip()
             if not group:
                 group = None
-        cancel = _normalize_cancel(value.get("cancel-in-progress"))
-        return ConcurrencySetting(location=location, group=group, cancel_in_progress=cancel)
+        cancel, cancel_is_expression = _normalize_cancel(value.get("cancel-in-progress"))
+        return ConcurrencySetting(
+            location=location,
+            group=group,
+            cancel_in_progress=cancel,
+            cancel_is_expression=cancel_is_expression,
+        )
     return None
 
 
@@ -141,7 +153,11 @@ def collect_concurrency(data: dict) -> tuple[ConcurrencySetting, ...]:
 
 
 def _has_canceling_concurrency(settings: tuple[ConcurrencySetting, ...]) -> bool:
-    return any(setting.cancel_in_progress is True and bool(setting.group) for setting in settings)
+    return any(
+        bool(setting.group)
+        and (setting.cancel_in_progress is True or setting.cancel_is_expression)
+        for setting in settings
+    )
 
 
 def _filter_concurrency(
@@ -260,9 +276,18 @@ def format_table(results: list[WorkflowConcurrencyAudit]) -> str:
         "\taction_required\trecommended_group\tconcurrency"
     ]
     for item in results:
+        def _format_cancel(setting: ConcurrencySetting) -> str:
+            if setting.cancel_in_progress is True:
+                return "true"
+            if setting.cancel_in_progress is False:
+                return "false"
+            if setting.cancel_is_expression:
+                return "expr"
+            return "unset"
+
         concurrency = ";".join(
             f"{setting.location}:{setting.group or 'none'}:"
-            f"{setting.cancel_in_progress if setting.cancel_in_progress is not None else 'unset'}"
+            f"{_format_cancel(setting)}"
             for setting in item.concurrency
         )
         lines.append(
@@ -340,6 +365,7 @@ def main() -> int:
                         "location": setting.location,
                         "group": setting.group,
                         "cancel_in_progress": setting.cancel_in_progress,
+                        "cancel_is_expression": setting.cancel_is_expression,
                     }
                     for setting in item.concurrency
                 ],

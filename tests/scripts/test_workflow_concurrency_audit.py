@@ -117,6 +117,36 @@ jobs:
     assert len(item.concurrency) == 2
 
 
+def test_audit_accepts_expression_cancel(tmp_path: Path) -> None:
+    workflow_dir = tmp_path / "workflows"
+    workflow_dir.mkdir()
+    _write_workflow(
+        workflow_dir / "expr.yml",
+        """
+name: Expr
+on: pull_request
+concurrency:
+  group: pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo ok
+""",
+    )
+
+    results = workflow_concurrency_audit.audit_workflows(workflow_dir)
+    assert len(results) == 1
+    item = results[0]
+    assert item.high_frequency is True
+    assert item.has_canceling_concurrency is True
+    assert item.action_required == "none"
+    setting = item.concurrency[0]
+    assert setting.cancel_in_progress is None
+    assert setting.cancel_is_expression is True
+
+
 def test_audit_tracks_workflow_level_cancel(tmp_path: Path) -> None:
     workflow_dir = tmp_path / "workflows"
     workflow_dir.mkdir()
