@@ -29,6 +29,8 @@ jobs:
     item = results[0]
     assert item.high_frequency is True
     assert item.has_canceling_concurrency is False
+    assert item.has_workflow_concurrency is True
+    assert item.has_workflow_canceling_concurrency is False
     assert item.action_required == "set_cancel_in_progress_true"
     assert item.recommended_group == "${{ github.workflow }}-${{ github.ref }}"
     assert any(setting.group == "ci-${{ github.ref }}" for setting in item.concurrency)
@@ -72,6 +74,8 @@ jobs:
     item = results[0]
     assert item.high_frequency is True
     assert item.has_canceling_concurrency is True
+    assert item.has_workflow_concurrency is False
+    assert item.has_workflow_canceling_concurrency is False
     assert item.action_required == "none"
     assert (
         item.recommended_group
@@ -107,8 +111,37 @@ jobs:
     item = results[0]
     assert item.high_frequency is True
     assert item.has_canceling_concurrency is True
+    assert item.has_workflow_concurrency is True
+    assert item.has_workflow_canceling_concurrency is False
     assert item.action_required == "none"
     assert len(item.concurrency) == 2
+
+
+def test_audit_tracks_workflow_level_cancel(tmp_path: Path) -> None:
+    workflow_dir = tmp_path / "workflows"
+    workflow_dir.mkdir()
+    _write_workflow(
+        workflow_dir / "workflow.yml",
+        """
+name: Workflow
+on: pull_request
+concurrency:
+  group: pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo ok
+""",
+    )
+
+    results = workflow_concurrency_audit.audit_workflows(workflow_dir)
+    assert len(results) == 1
+    item = results[0]
+    assert item.has_canceling_concurrency is True
+    assert item.has_workflow_concurrency is True
+    assert item.has_workflow_canceling_concurrency is True
 
 
 def test_audit_recommends_issue_comment_group(tmp_path: Path) -> None:
@@ -452,5 +485,6 @@ on: [
     header = table.splitlines()[0]
     assert header.endswith(
         "high_frequency\tvalid\terror\thas_canceling_concurrency"
-        "\taction_required\trecommended_group\tconcurrency"
+        "\tworkflow_has_canceling_concurrency\taction_required"
+        "\trecommended_group\tconcurrency"
     )
