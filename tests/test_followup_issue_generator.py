@@ -497,6 +497,69 @@ Some scope.
         assert "Avoid new dependencies" in followup.body
         assert followup.body.index("## Non-Goals") < followup.body.index("## Tasks")
 
+    def test_llm_replaces_placeholder_non_goals_section(self, monkeypatch):
+        """Ensure placeholder Non-Goals text is replaced with original content."""
+        verification_data = VerificationData(
+            provider_verdicts={"openai": {"verdict": "Needs Work", "confidence": 60}},
+            concerns=["Test concern"],
+        )
+        original_issue = OriginalIssueData(
+            number=103,
+            title="Test",
+            non_goals="- Avoid new dependencies",
+        )
+
+        responses = iter(
+            [
+                """{"rewritten_acceptance_criteria": [], "concrete_tasks": []}""",
+                """{"tasks": [{"task": "Add tests"}], "deferred": []}""",
+                """{"acceptance_criteria": [{"criterion": "Done", "verification_method": "", "related_task": "Add tests"}]}""",
+                """## Why
+
+Because.
+
+## Scope
+
+Some scope.
+
+## Non-Goals
+
+None
+
+## Tasks
+
+- [ ] Add tests
+
+## Acceptance Criteria
+
+- [ ] Done
+""",
+            ]
+        )
+
+        def fake_invoke(prompt: str, client: object) -> str:
+            return next(responses)
+
+        monkeypatch.setattr(
+            "scripts.langchain.followup_issue_generator._invoke_llm",
+            fake_invoke,
+        )
+
+        followup = _generate_with_llm(
+            verification_data=verification_data,
+            original_issue=original_issue,
+            pr_number=202,
+            codex_log=None,
+            reasoning_client=object(),
+            reasoning_model="o3-mini",
+            standard_client=object(),
+            standard_model="gpt-4o",
+        )
+
+        assert "## Non-Goals" in followup.body
+        assert "Avoid new dependencies" in followup.body
+        assert "None" not in followup.body.split("## Non-Goals", 1)[1].split("## Tasks", 1)[0]
+
 
 class TestRealWorldExample:
     """Test with real-world verification data (like issue #4287)."""

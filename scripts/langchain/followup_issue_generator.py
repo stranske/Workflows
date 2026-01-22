@@ -574,6 +574,24 @@ def _parse_sections(body: str) -> dict[str, list[str]]:
     return sections
 
 
+def _is_non_goals_placeholder(text: str) -> bool:
+    """Return True if the non-goals content is effectively empty or placeholder text."""
+    cleaned = re.sub(r"[\s\-•]+", " ", text).strip().lower()
+    if not cleaned:
+        return True
+    placeholders = {
+        "none",
+        "n/a",
+        "na",
+        "not applicable",
+        "no non goals",
+        "no non-goals",
+        "no non goal",
+        "no non-goal",
+    }
+    return cleaned in placeholders
+
+
 def _ensure_non_goals_section(issue_body: str, non_goals_text: str) -> str:
     """Ensure Non-Goals section exists when original issue provided non-goals."""
     if not non_goals_text or not non_goals_text.strip():
@@ -581,7 +599,8 @@ def _ensure_non_goals_section(issue_body: str, non_goals_text: str) -> str:
 
     non_goals_text = non_goals_text.strip()
     sections = _parse_sections(issue_body)
-    if "\n".join(sections["non_goals"]).strip():
+    existing_non_goals = "\n".join(sections["non_goals"]).strip()
+    if existing_non_goals and not _is_non_goals_placeholder(existing_non_goals):
         return issue_body
 
     heading_match = re.search(
@@ -593,9 +612,10 @@ def _ensure_non_goals_section(issue_body: str, non_goals_text: str) -> str:
         section_start = heading_match.end()
         next_heading = re.search(r"^#{1,3}\s+.*$", issue_body[section_start:], re.MULTILINE)
         section_end = section_start + next_heading.start() if next_heading else len(issue_body)
-        if not issue_body[section_start:section_end].strip():
-            insert_text = f"\n\n{non_goals_text}\n"
-            return issue_body[:section_start] + insert_text + issue_body[section_start:]
+        section_text = issue_body[section_start:section_end]
+        if _is_non_goals_placeholder(section_text):
+            insert_text = f"\n\n{non_goals_text}\n\n"
+            return issue_body[:section_start] + insert_text + issue_body[section_end:]
         return issue_body
 
     non_goals_block = f"## Non-Goals\n\n{non_goals_text}\n\n"
