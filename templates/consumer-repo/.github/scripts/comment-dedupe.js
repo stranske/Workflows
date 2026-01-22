@@ -22,11 +22,14 @@ function isRateLimitError(error) {
     return false;
   }
   const status = error.status || error?.response?.status;
-  if (status === 429) {
+  const statusCode = Number.isFinite(status)
+    ? status
+    : (status === null || status === undefined ? Number.NaN : Number(status));
+  if (statusCode === 429) {
     return true;
   }
   const message = String(error.message || error?.response?.data?.message || '').toLowerCase();
-  if (status === 403) {
+  if (statusCode === 403) {
     if (
       message.includes('rate limit') ||
       message.includes('ratelimit') ||
