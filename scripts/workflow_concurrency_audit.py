@@ -154,8 +154,7 @@ def collect_concurrency(data: dict) -> tuple[ConcurrencySetting, ...]:
 
 def _has_canceling_concurrency(settings: tuple[ConcurrencySetting, ...]) -> bool:
     return any(
-        bool(setting.group)
-        and (setting.cancel_in_progress is True or setting.cancel_is_expression)
+        bool(setting.group) and (setting.cancel_in_progress is True or setting.cancel_is_expression)
         for setting in settings
     )
 
@@ -276,6 +275,7 @@ def format_table(results: list[WorkflowConcurrencyAudit]) -> str:
         "\taction_required\trecommended_group\tconcurrency"
     ]
     for item in results:
+
         def _format_cancel(setting: ConcurrencySetting) -> str:
             if setting.cancel_in_progress is True:
                 return "true"
@@ -286,8 +286,7 @@ def format_table(results: list[WorkflowConcurrencyAudit]) -> str:
             return "unset"
 
         concurrency = ";".join(
-            f"{setting.location}:{setting.group or 'none'}:"
-            f"{_format_cancel(setting)}"
+            f"{setting.location}:{setting.group or 'none'}:" f"{_format_cancel(setting)}"
             for setting in item.concurrency
         )
         lines.append(
