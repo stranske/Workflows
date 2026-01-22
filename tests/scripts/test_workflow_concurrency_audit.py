@@ -485,6 +485,6 @@ on: [
     header = table.splitlines()[0]
     assert header.endswith(
         "high_frequency\tvalid\terror\thas_canceling_concurrency"
-        "\tworkflow_has_canceling_concurrency\taction_required"
+        "\tworkflow_has_concurrency\tworkflow_has_canceling_concurrency\taction_required"
         "\trecommended_group\tconcurrency"
     )

@@ -256,7 +256,7 @@ def format_table(results: list[WorkflowConcurrencyAudit]) -> str:
     """Render a tab-delimited report for easy copy/paste."""
     lines = [
         "path\ttriggers\thigh_frequency\tvalid\terror\thas_canceling_concurrency"
-        "\tworkflow_has_canceling_concurrency"
+        "\tworkflow_has_concurrency\tworkflow_has_canceling_concurrency"
         "\taction_required\trecommended_group\tconcurrency"
     ]
     for item in results:
@@ -274,6 +274,7 @@ def format_table(results: list[WorkflowConcurrencyAudit]) -> str:
                     "true" if item.valid else "false",
                     item.error or "",
                     "true" if item.has_canceling_concurrency else "false",
+                    "true" if item.has_workflow_concurrency else "false",
                     "true" if item.has_workflow_canceling_concurrency else "false",
                     item.action_required,
                     item.recommended_group or "",
