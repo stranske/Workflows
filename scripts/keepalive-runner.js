@@ -1099,17 +1099,16 @@ async function runKeepalive({ core, github, context, env = process.env }) {
         }
       }
 
-  const totalTasks = promptCheckboxCounts.total;
-  const outstanding = promptCheckboxCounts.unchecked;
-  const nextRound = computeNextRound(keepaliveCandidates);
-  const roundMarker = `<!-- keepalive-round: ${nextRound} -->`;
-  const attemptMarker = `<!-- keepalive-attempt: ${nextRound} -->`;
-  const traceToken = buildTraceToken({ seed: traceSeed, prNumber, round: nextRound });
-  const traceMarker = `<!-- keepalive-trace: ${traceToken} -->`;
+      const outstanding = promptCheckboxCounts.unchecked;
+      const nextRound = computeNextRound(keepaliveCandidates);
+      const roundMarker = `<!-- keepalive-round: ${nextRound} -->`;
+      const attemptMarker = `<!-- keepalive-attempt: ${nextRound} -->`;
+      const traceToken = buildTraceToken({ seed: traceSeed, prNumber, round: nextRound });
+      const traceMarker = `<!-- keepalive-trace: ${traceToken} -->`;
       const command =
         commandOverride || getKeepaliveInstructionWithMention('codex', promptContext);
 
-  const bodyParts = [roundMarker, attemptMarker, canonicalMarker, traceMarker, command];
+      const bodyParts = [roundMarker, attemptMarker, canonicalMarker, traceMarker, command];
       bodyParts.push('', scopeBlock);
       if (marker && marker !== canonicalMarker) {
         bodyParts.push('', marker);
@@ -1117,9 +1116,7 @@ async function runKeepalive({ core, github, context, env = process.env }) {
       const body = bodyParts.join('\n');
       const instructionSegment = extractInstructionSegment(body);
       const instructionBytes = instructionSegment ? computeInstructionByteLength(instructionSegment) : 0;
-      
-      // Ensure agent connectors are assigned before posting keepalive
-      // This is critical so the agent actually engages when mentioned
+
       // Ensure agent connectors are assigned before posting keepalive
       try {
         // Get the current assignees from the PR data we already have
@@ -1156,7 +1153,7 @@ async function runKeepalive({ core, github, context, env = process.env }) {
         core.warning(`#${prNumber}: failed to ensure agent assignees: ${error.message}`);
         assignmentSummaries.push(`#${prNumber} – assignee update failed: ${error.message}`);
       }
-      
+
       if (dryRun) {
         previews.push(
           `#${prNumber} – keepalive preview (remaining tasks: ${outstanding}, round ${nextRound}, trace ${traceToken})`
