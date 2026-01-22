@@ -765,7 +765,10 @@ async function runKeepalive({ core, github, context, env = process.env }) {
   let instructionAuthorToken = '';
   let dispatchToken = '';
   let instructionAuthorOctokit = null;
-  if (!dryRun) {
+  const ensureInstructionAuthor = () => {
+    if (instructionAuthorOctokit) {
+      return;
+    }
     instructionAuthorToken = resolveInstructionToken(env);
     if (!instructionAuthorToken) {
       throw new Error(
@@ -786,7 +789,7 @@ async function runKeepalive({ core, github, context, env = process.env }) {
     ) {
       throw new Error('Unable to initialise Octokit client for keepalive instruction author.');
     }
-  }
+  };
 
   const idleMinutes = coerceNumber(options.keepalive_idle_minutes, 10, { min: 0 });
   const repeatMinutes = coerceNumber(options.keepalive_repeat_minutes, 30, { min: 0 });
@@ -1162,6 +1165,7 @@ async function runKeepalive({ core, github, context, env = process.env }) {
           `#${prNumber}: dry run – keepalive comment not posted (remaining tasks: ${outstanding}, round ${nextRound}, trace ${traceToken}).`
         );
       } else {
+        ensureInstructionAuthor();
         if (!dispatchToken) {
           const message = 'GitHub token is required for keepalive dispatch (app token, PAT, or GITHUB_TOKEN).';
           core.setFailed(`#${prNumber}: failed to emit keepalive dispatch: ${message}`);

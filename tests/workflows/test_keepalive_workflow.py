@@ -546,6 +546,18 @@ def test_keepalive_requires_dispatch_token() -> None:
     assert "GitHub token is required to author keepalive instructions" in combined_output
 
 
+def test_keepalive_allows_missing_tokens_when_no_work() -> None:
+    data = _run_scenario("missing_tokens_no_keepalive")
+
+    assert data["created_comments"] == []
+    assert data["dispatch_events"] == []
+    assert data["logs"].get("failedMessage") in (None, "")
+
+    summary = data["summary"]
+    raw = _raw_entries(summary)
+    assert "Skipped keepalive count: 1" in raw
+
+
 def test_keepalive_dispatches_with_service_bot_pat() -> None:
     data = _run_scenario("service_bot_only")
     payload = _assert_single_dispatch(data, 909, round_expected=2)
