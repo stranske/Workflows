@@ -135,7 +135,11 @@ def load_template_block() -> str:
         (
             idx
             for idx in range(header_index, -1, -1)
-            if lines[idx].strip().startswith("# =============================================================================")
+            if lines[idx]
+            .strip()
+            .startswith(
+                "# ============================================================================="
+            )
         ),
         header_index,
     )
@@ -149,7 +153,11 @@ def load_template_block() -> str:
         (
             idx
             for idx in range(end_header_index, -1, -1)
-            if lines[idx].strip().startswith("# =============================================================================")
+            if lines[idx]
+            .strip()
+            .startswith(
+                "# ============================================================================="
+            )
         ),
         end_header_index,
     )
