@@ -134,6 +134,21 @@ def test_load_template_gitignore_falls_back(monkeypatch: pytest.MonkeyPatch) -> 
     assert content == sync_status_file_ignores.generate_minimal_block()
 
 
+def test_load_template_block_falls_back(monkeypatch: pytest.MonkeyPatch) -> None:
+    original_exists = Path.exists
+
+    def fake_exists(self: Path) -> bool:
+        if self.name == ".gitignore" and "templates/consumer-repo" in str(self):
+            return False
+        return original_exists(self)
+
+    monkeypatch.setattr(Path, "exists", fake_exists)
+
+    content = sync_status_file_ignores.load_template_block()
+
+    assert content == sync_status_file_ignores.generate_minimal_block()
+
+
 def test_main_print_block(
     capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -143,7 +158,7 @@ def test_main_print_block(
 
     captured = capsys.readouterr()
     assert exit_code == 0
-    assert captured.out == sync_status_file_ignores.generate_minimal_block()
+    assert captured.out == sync_status_file_ignores.load_template_block()
 
 
 def test_main_print_patterns(

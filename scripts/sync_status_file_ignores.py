@@ -115,6 +115,49 @@ def load_template_gitignore() -> str:
     return generate_minimal_block()
 
 
+def load_template_block() -> str:
+    """Load the shared status file .gitignore block from the template."""
+    template_path = Path(__file__).parent.parent / "templates/consumer-repo/.gitignore"
+    if not template_path.exists():
+        return generate_minimal_block()
+    lines = template_path.read_text(encoding="utf-8").splitlines()
+    header_index = next(
+        (
+            idx
+            for idx, line in enumerate(lines)
+            if "Workflows Consumer Repo - Shared Status Files" in line
+        ),
+        None,
+    )
+    if header_index is None:
+        return generate_minimal_block()
+    start = next(
+        (
+            idx
+            for idx in range(header_index, -1, -1)
+            if lines[idx].strip().startswith("# =============================================================================")
+        ),
+        header_index,
+    )
+    end_header_index = next(
+        (idx for idx, line in enumerate(lines) if "Langchain Scripts Exclusion" in line),
+        None,
+    )
+    if end_header_index is None:
+        return generate_minimal_block()
+    end = next(
+        (
+            idx
+            for idx in range(end_header_index, -1, -1)
+            if lines[idx].strip().startswith("# =============================================================================")
+        ),
+        end_header_index,
+    )
+    if end <= start:
+        return generate_minimal_block()
+    return "\n".join(lines[start:end]).rstrip("\n") + "\n"
+
+
 def generate_minimal_block() -> str:
     """Generate minimal .gitignore block from canonical patterns."""
     lines = [GITIGNORE_BLOCK_HEADER.strip()]
@@ -218,7 +261,7 @@ def main() -> int:
     args = parser.parse_args()
 
     if args.print_block:
-        print(generate_minimal_block(), end="")
+        print(load_template_block(), end="")
         return 0
 
     if args.print_patterns:
