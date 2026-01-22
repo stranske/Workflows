@@ -14,6 +14,28 @@ def _full_gitignore_content() -> str:
     return "\n".join(sync_status_file_ignores.CANONICAL_PATTERNS) + "\n"
 
 
+def _template_block_patterns() -> list[str]:
+    template_path = Path(sync_status_file_ignores.__file__).resolve().parents[1]
+    template_path = template_path / "templates/consumer-repo/.gitignore"
+    text = template_path.read_text(encoding="utf-8")
+    lines = text.splitlines()
+    start = next(
+        idx
+        for idx, line in enumerate(lines)
+        if "Workflows Consumer Repo - Shared Status Files" in line
+    )
+    end = next(
+        idx for idx, line in enumerate(lines) if "Langchain Scripts Exclusion" in line
+    )
+    patterns: list[str] = []
+    for line in lines[start + 1 : end]:
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        patterns.append(stripped)
+    return patterns
+
+
 def test_generate_minimal_block_includes_header_and_patterns() -> None:
     block = sync_status_file_ignores.generate_minimal_block()
 
@@ -21,6 +43,17 @@ def test_generate_minimal_block_includes_header_and_patterns() -> None:
     assert block.endswith("\n")
     for pattern in sync_status_file_ignores.CANONICAL_PATTERNS:
         assert f"\n{pattern}\n" in block or block.endswith(f"{pattern}\n")
+
+
+def test_canonical_patterns_cover_template_block() -> None:
+    template_patterns = _template_block_patterns()
+    missing = [
+        pattern
+        for pattern in template_patterns
+        if pattern not in sync_status_file_ignores.CANONICAL_PATTERNS
+    ]
+
+    assert not missing, f"Missing canonical patterns: {missing}"
 
 
 def test_check_gitignore_content_ignores_comments_and_negation() -> None:

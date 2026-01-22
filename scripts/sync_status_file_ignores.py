@@ -46,6 +46,8 @@ CANONICAL_PATTERNS: list[str] = [
     "ci/autofix/history.json",
     "ci/autofix/diagnostics.json",
     # Metrics/history files (MEDIUM conflict risk)
+    "keepalive_status.md",
+    "docs/keepalive/status/",
     "keepalive-metrics.ndjson",
     "coverage-trend-history.ndjson",
     "metrics-history.ndjson",
@@ -59,6 +61,7 @@ CANONICAL_PATTERNS: list[str] = [
     # Test/coverage artifacts
     "coverage.xml",
     # Wrong package manager artifacts (defense-in-depth)
+    "Pipfile.lock",
     "poetry.lock",
 ]
 
