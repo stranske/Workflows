@@ -38,6 +38,7 @@ def test_generate_minimal_block_includes_header_and_patterns() -> None:
     block = sync_status_file_ignores.generate_minimal_block()
 
     assert block.startswith(sync_status_file_ignores.GITIGNORE_BLOCK_HEADER.strip())
+    assert "Validate: python scripts/sync_status_file_ignores.py --check" in block
     assert block.endswith("\n")
     for pattern in sync_status_file_ignores.CANONICAL_PATTERNS:
         assert f"\n{pattern}\n" in block or block.endswith(f"{pattern}\n")
