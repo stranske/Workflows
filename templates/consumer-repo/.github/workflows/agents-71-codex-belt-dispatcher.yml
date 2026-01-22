@@ -155,6 +155,8 @@ jobs:
       - name: Checkout (for retry helpers)
         uses: actions/checkout@v6
         with:
+          repository: stranske/Workflows
+          ref: main
           sparse-checkout: |
             .github/scripts/github-api-with-retry.js
           sparse-checkout-cone-mode: false
