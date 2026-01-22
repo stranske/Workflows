@@ -32,6 +32,7 @@ function buildCycleMetricsRecord({
   maxCycles,
   stepsAttempted,
   stepsCompleted,
+  cycleEvent,
 }) {
   const record = {
     metric_type: 'cycle',
@@ -40,6 +41,9 @@ function buildCycleMetricsRecord({
     timestamp: normaliseTimestamp(timestamp),
   };
 
+  if (cycleEvent !== undefined && cycleEvent !== null) {
+    record.cycle_event = String(cycleEvent);
+  }
   if (maxCycles !== undefined && maxCycles !== null) {
     record.max_cycles = coerceInt(maxCycles, 'max_cycles');
   }
