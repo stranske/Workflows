@@ -238,6 +238,7 @@ quick_check() {
 }
 
 ACTIONLINT_BIN=""
+ACTIONLINT_IGNORE_ARGS_STR=""
 ensure_actionlint() {
     if command -v actionlint >/dev/null 2>&1; then
         ACTIONLINT_BIN=$(command -v actionlint)
@@ -267,6 +268,27 @@ ensure_actionlint() {
     return 1
 }
 
+build_actionlint_ignore_args() {
+    local allowlist_file=".github/actionlint-allowlist.txt"
+    local -a ignore_args=()
+
+    if [[ -f "$allowlist_file" ]]; then
+        mapfile -t allowlist_lines < <(sed -e 's/[[:space:]]*$//' -e '/^[[:space:]]*#/d' -e '/^[[:space:]]*$/d' "$allowlist_file")
+        for entry in "${allowlist_lines[@]}"; do
+            ignore_args+=("-ignore" "$entry")
+        done
+    fi
+
+    # Template workflows trigger an actionlint parser error; ignore only for local checks.
+    ignore_args+=("-ignore" "unexpected key \"secrets\" for \"step\"")
+
+    if [[ ${#ignore_args[@]} -gt 0 ]]; then
+        printf -v ACTIONLINT_IGNORE_ARGS_STR "%q " "${ignore_args[@]}"
+    else
+        ACTIONLINT_IGNORE_ARGS_STR=""
+    fi
+}
+
 # Quick syntax check first (fastest)
 echo -e "${BLUE}1. Syntax check...${NC}"
 if [[ "$CHANGED_ONLY" == true && -n "$ALL_FILES" ]]; then
@@ -289,10 +311,9 @@ fi
 
 echo -e "${BLUE}2. Workflow validation...${NC}"
 if ensure_actionlint; then
-    # Ignore known issues:
-    # - 'unknown permission scope "models"' - Required for LangChain, not recognized by actionlint
-    # - 'unexpected key "secrets" for "step"' - Pre-existing template issue tracked separately
-    quick_check "Workflow YAML validation" "$ACTIONLINT_BIN -ignore 'unknown permission scope \"models\"' -ignore 'unexpected key \"secrets\" for \"step\"' $(find .github/workflows -maxdepth 1 -type f \( -name '*.yml' -o -name '*.yaml' \) -print | tr '\n' ' ') && $ACTIONLINT_BIN -ignore 'unknown permission scope \"models\"' -ignore 'unexpected key \"secrets\" for \"step\"' templates/consumer-repo/.github/workflows/*.yml" ""
+    # Ignore allowlisted actionlint findings plus template workflow parser issues.
+    build_actionlint_ignore_args
+    quick_check "Workflow YAML validation" "$ACTIONLINT_BIN $ACTIONLINT_IGNORE_ARGS_STR $(find .github/workflows -maxdepth 1 -type f \( -name '*.yml' -o -name '*.yaml' \) -print | tr '\n' ' ') && $ACTIONLINT_BIN $ACTIONLINT_IGNORE_ARGS_STR templates/consumer-repo/.github/workflows/*.yml" ""
 else
     echo -e "${YELLOW}⚠ actionlint not installed; skipping workflow validation${NC}"
 fi

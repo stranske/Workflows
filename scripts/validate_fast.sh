@@ -313,6 +313,7 @@ PY
 }
 
 ACTIONLINT_BIN=""
+ACTIONLINT_IGNORE_ARGS_STR=""
 ensure_actionlint() {
     if command -v actionlint >/dev/null 2>&1; then
         ACTIONLINT_BIN=$(command -v actionlint)
@@ -340,6 +341,24 @@ ensure_actionlint() {
 
     echo -e "${YELLOW}⚠ Failed to download actionlint; skipping workflow linting${NC}"
     return 1
+}
+
+build_actionlint_ignore_args() {
+    local allowlist_file=".github/actionlint-allowlist.txt"
+    local -a ignore_args=()
+
+    if [[ -f "$allowlist_file" ]]; then
+        mapfile -t allowlist_lines < <(sed -e 's/[[:space:]]*$//' -e '/^[[:space:]]*#/d' -e '/^[[:space:]]*$/d' "$allowlist_file")
+        for entry in "${allowlist_lines[@]}"; do
+            ignore_args+=("-ignore" "$entry")
+        done
+    fi
+
+    if [[ ${#ignore_args[@]} -gt 0 ]]; then
+        printf -v ACTIONLINT_IGNORE_ARGS_STR "%q " "${ignore_args[@]}"
+    else
+        ACTIONLINT_IGNORE_ARGS_STR=""
+    fi
 }
 
 # Track validation results
@@ -406,7 +425,8 @@ case "$VALIDATION_STRATEGY" in
 
         if [[ $TOTAL_WORKFLOW -gt 0 ]]; then
             if ensure_actionlint; then
-                if ! run_fast_check "Workflow linting" "$ACTIONLINT_BIN -color {files}" "" "$WORKFLOW_FILES"; then
+                build_actionlint_ignore_args
+                if ! run_fast_check "Workflow linting" "$ACTIONLINT_BIN $ACTIONLINT_IGNORE_ARGS_STR -color {files}" "" "$WORKFLOW_FILES"; then
                     VALIDATION_SUCCESS=false
                     FAILED_CHECKS+=("Workflow linting")
                 fi
@@ -426,11 +446,12 @@ case "$VALIDATION_STRATEGY" in
         fi
 
         if ensure_actionlint; then
+            build_actionlint_ignore_args
             workflow_scope="$WORKFLOW_FILES"
             if [[ -z "$workflow_scope" ]]; then
                 workflow_scope=".github/workflows/*.yml .github/workflows/*.yaml"
             fi
-            if ! run_fast_check "Workflow linting" "$ACTIONLINT_BIN -color {files}" "" "$workflow_scope"; then
+            if ! run_fast_check "Workflow linting" "$ACTIONLINT_BIN $ACTIONLINT_IGNORE_ARGS_STR -color {files}" "" "$workflow_scope"; then
                 VALIDATION_SUCCESS=false
                 FAILED_CHECKS+=("Workflow linting")
             fi
@@ -467,7 +488,8 @@ case "$VALIDATION_STRATEGY" in
 
         workflow_scope=".github/workflows/*.yml .github/workflows/*.yaml"
         if ensure_actionlint; then
-            if ! run_fast_check "Workflow linting" "$ACTIONLINT_BIN -color {files}" "" "$workflow_scope"; then
+            build_actionlint_ignore_args
+            if ! run_fast_check "Workflow linting" "$ACTIONLINT_BIN $ACTIONLINT_IGNORE_ARGS_STR -color {files}" "" "$workflow_scope"; then
                 VALIDATION_SUCCESS=false
                 FAILED_CHECKS+=("Workflow linting")
             fi
