@@ -143,7 +143,7 @@ def test_main_print_block(
 
     captured = capsys.readouterr()
     assert exit_code == 0
-    assert captured.out == sync_status_file_ignores.load_template_gitignore() + "\n"
+    assert captured.out == sync_status_file_ignores.generate_minimal_block()
 
 
 def test_main_print_patterns(

@@ -107,7 +107,7 @@ CANONICAL_PATTERNS: list[str] = _load_template_patterns() or FALLBACK_PATTERNS
 
 
 def load_template_gitignore() -> str:
-    """Load the canonical .gitignore template."""
+    """Load the full .gitignore template content."""
     template_path = Path(__file__).parent.parent / "templates/consumer-repo/.gitignore"
     if template_path.exists():
         return template_path.read_text()
@@ -218,7 +218,7 @@ def main() -> int:
     args = parser.parse_args()
 
     if args.print_block:
-        print(load_template_gitignore())
+        print(generate_minimal_block(), end="")
         return 0
 
     if args.print_patterns:
