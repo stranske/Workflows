@@ -152,12 +152,20 @@ jobs:
         run: |
           echo "dry_run=${{ inputs.dry_run }}" >>"$GITHUB_OUTPUT"
 
+      - name: Checkout (for retry helpers)
+        uses: actions/checkout@v6
+        with:
+          sparse-checkout: |
+            .github/scripts/github-api-with-retry.js
+          sparse-checkout-cone-mode: false
+
       - name: Resolve candidate issue
         id: pick
         uses: actions/github-script@v8
         with:
           github-token: ${{ env.GH_DISPATCH_TOKEN }}
           script: |
+            const { withRetry } = require('./.github/scripts/github-api-with-retry.js');
             const forced = '${{ inputs.force_issue }}';
             const { owner, repo } = context.repo;
 
@@ -173,7 +181,7 @@ jobs:
             }
 
             if (!issueNumber) {
-              const { data: issues } = await github.rest.issues.listForRepo({
+              const { data: issues } = await withRetry(() => github.rest.issues.listForRepo({
                 owner,
                 repo,
                 state: 'open',
@@ -181,7 +189,7 @@ jobs:
                 sort: 'created',
                 direction: 'asc',
                 per_page: 30,
-              });
+              }));
               const match = issues.find((issue) => !issue.pull_request);
               if (match) {
                 issueNumber = match.number;
@@ -207,7 +215,7 @@ jobs:
               ]
             ]);
 
-            const { data: repoInfo } = await github.rest.repos.get({ owner, repo });
+            const { data: repoInfo } = await withRetry(() => github.rest.repos.get({ owner, repo }));
             const base = repoInfo.default_branch || 'main';
             const branch = `codex/issue-${issueNumber}`;
 
@@ -254,29 +262,30 @@ jobs:
         with:
           github-token: ${{ env.GH_DISPATCH_TOKEN }}
           script: |
+            const { withRetry } = require('./.github/scripts/github-api-with-retry.js');
             const issue = Number('${{ steps.pick.outputs.issue }}');
             if (!issue) { return; }
             const { owner, repo } = context.repo;
             const branch = '${{ steps.pick.outputs.branch }}';
             try {
-              await github.rest.issues.removeLabel({ owner, repo, issue_number: issue, name: 'status:ready' });
+              await withRetry(() => github.rest.issues.removeLabel({ owner, repo, issue_number: issue, name: 'status:ready' }));
             } catch (error) {
               if (error.status !== 404) {
                 core.warning(`Failed to remove status:ready: ${error.message}`);
               }
             }
             try {
-              await github.rest.issues.addLabels({ owner, repo, issue_number: issue, labels: ['status:in-progress'] });
+              await withRetry(() => github.rest.issues.addLabels({ owner, repo, issue_number: issue, labels: ['status:in-progress'] }));
             } catch (error) {
               core.warning(`Failed to add status:in-progress: ${error.message}`);
             }
             try {
-              await github.rest.issues.createComment({
+              await withRetry(() => github.rest.issues.createComment({
                 owner,
                 repo,
                 issue_number: issue,
                 body: `Codex belt dispatcher queued this issue and created branch \`${branch}\`.`
-              });
+              }));
             } catch (error) {
               core.warning(`Failed to comment on issue #${issue}: ${error.message}`);
             }
