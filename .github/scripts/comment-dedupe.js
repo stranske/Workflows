@@ -7,16 +7,38 @@ function trim(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+function normaliseHeaders(headers) {
+  if (!headers || typeof headers !== 'object') {
+    return {};
+  }
+  return Object.entries(headers).reduce((acc, [key, value]) => {
+    acc[String(key).toLowerCase()] = value;
+    return acc;
+  }, {});
+}
+
 function isRateLimitError(error) {
   if (!error) {
     return false;
   }
   const status = error.status || error?.response?.status;
-  if (status !== 403) {
-    return false;
+  if (status === 429) {
+    return true;
   }
   const message = String(error.message || error?.response?.data?.message || '').toLowerCase();
-  return message.includes('rate limit') || message.includes('ratelimit');
+  if (status === 403) {
+    if (
+      message.includes('rate limit') ||
+      message.includes('ratelimit') ||
+      message.includes('secondary rate limit') ||
+      message.includes('abuse')
+    ) {
+      return true;
+    }
+  }
+  const headers = normaliseHeaders(error?.response?.headers || error?.headers);
+  const remaining = parseInt(headers['x-ratelimit-remaining'], 10);
+  return Number.isFinite(remaining) && remaining <= 0;
 }
 
 function isPullRequestEvent(context) {
@@ -490,6 +512,7 @@ async function upsertAnchoredComment({
 }
 
 module.exports = {
+  isRateLimitError,
   selectMarkerComment,
   ensureMarkerComment,
   removeMarkerComments,

@@ -7,6 +7,7 @@ const {
   selectMarkerComment,
   extractAnchoredMetadata,
   findAnchoredComment,
+  isRateLimitError,
   ensureMarkerComment,
   removeMarkerComments,
   upsertAnchoredComment,
@@ -54,6 +55,29 @@ test('findAnchoredComment matches anchor metadata first', () => {
     targetAnchor: { pr: '9', head: 'zzz' },
   });
   assert.equal(missingAnchor.id, 1);
+});
+
+test('isRateLimitError detects primary and secondary rate limits', () => {
+  const primary = new Error('API rate limit exceeded');
+  primary.status = 403;
+  assert.equal(isRateLimitError(primary), true);
+
+  const secondary = new Error('Secondary rate limit');
+  secondary.status = 403;
+  assert.equal(isRateLimitError(secondary), true);
+
+  const tooMany = new Error('Too many requests');
+  tooMany.status = 429;
+  assert.equal(isRateLimitError(tooMany), true);
+
+  const remainingZero = new Error('Something else');
+  remainingZero.status = 500;
+  remainingZero.response = { headers: { 'x-ratelimit-remaining': '0' } };
+  assert.equal(isRateLimitError(remainingZero), true);
+
+  const notRateLimited = new Error('Bad gateway');
+  notRateLimited.status = 502;
+  assert.equal(isRateLimitError(notRateLimited), false);
 });
 
 test('ensureMarkerComment updates marker comment and prunes duplicates', async () => {
