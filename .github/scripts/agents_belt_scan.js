@@ -1,5 +1,7 @@
 'use strict';
 
+const { withRetry } = require('./github-api-with-retry');
+
 function isCodexBranch(branch) {
   return /^codex\/issue-\d+$/.test(branch || '');
 }
@@ -10,7 +12,10 @@ async function identifyReadyCodexPRs({ github, context, core, env = process.env 
   const automergeLabel = (env.AUTOMERGE_LABEL || 'automerge').trim().toLowerCase();
   const { owner, repo } = context.repo;
 
-  const { data: pulls } = await github.rest.pulls.list({ owner, repo, state: 'open', per_page: 50 });
+  const { data: pulls } = await withRetry(
+    (client) => client.rest.pulls.list({ owner, repo, state: 'open', per_page: 50 }),
+    { github, core, task: 'agents_belt_scan.list_pulls' }
+  );
   const candidates = [];
   const skipped = [];
 
@@ -47,7 +52,10 @@ async function identifyReadyCodexPRs({ github, context, core, env = process.env 
       skipped.push({ pr: pr.number, reason: 'no head SHA' });
       continue;
     }
-    const { data: status } = await github.rest.repos.getCombinedStatusForRef({ owner, repo, ref: headSha });
+    const { data: status } = await withRetry(
+      (client) => client.rest.repos.getCombinedStatusForRef({ owner, repo, ref: headSha }),
+      { github, core, task: 'agents_belt_scan.get_combined_status' }
+    );
     if (!status || status.state !== 'success') {
       skipped.push({ pr: pr.number, reason: `status: ${status?.state || 'unknown'}` });
       continue;
