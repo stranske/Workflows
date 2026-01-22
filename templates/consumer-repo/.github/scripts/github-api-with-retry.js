@@ -72,6 +72,19 @@ function logWithCore(core, level, message) {
   logFn(message);
 }
 
+function logTokenUsage(core, tokenSource, info, context) {
+  if (!core || typeof core.debug !== 'function') {
+    return;
+  }
+
+  if (info && info.remaining !== null && info.limit !== null) {
+    core.debug(`Token ${tokenSource} ${context} remaining: ${info.remaining}/${info.limit}`);
+    return;
+  }
+
+  core.debug(`Token ${tokenSource} ${context} usage recorded (no rate limit headers)`);
+}
+
 function resolveOctokitFactory({ github, getOctokit, Octokit }) {
   if (typeof getOctokit === 'function') {
     return getOctokit;
@@ -197,14 +210,10 @@ async function withRetry(fn, options = {}) {
 
         if (Object.keys(headers).length > 0 && typeof tokenRegistry.updateFromHeaders === 'function') {
           tokenRegistry.updateFromHeaders(currentTokenSource, headers);
+          logTokenUsage(core, currentTokenSource, info, 'response');
         } else if (typeof tokenRegistry.updateTokenUsage === 'function') {
           tokenRegistry.updateTokenUsage(currentTokenSource, 1);
-        }
-
-        if (info.remaining !== null && info.limit !== null && core?.debug) {
-          core.debug(
-            `Token ${currentTokenSource} remaining: ${info.remaining}/${info.limit}`
-          );
+          logTokenUsage(core, currentTokenSource, null, 'response');
         }
       }
 
