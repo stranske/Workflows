@@ -211,7 +211,7 @@ async function pollForHeadChange({ fetchHead, initialSha, timeoutMs, intervalMs,
   let attempts = 0;
   let lastSha = initialSha;
 
-  while (Date.now() - start <= timeoutMs) {
+  while (true) {
     attempts += 1;
     try {
       const { headSha } = await fetchHead();
