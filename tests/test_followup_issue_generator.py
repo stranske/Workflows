@@ -6,8 +6,8 @@ import pytest
 from scripts.langchain.followup_issue_generator import (
     OriginalIssueData,
     VerificationData,
-    _generate_with_llm,
     _ensure_non_goals_section,
+    _generate_with_llm,
     extract_original_issue_data,
     extract_verification_data,
     generate_followup_issue,
