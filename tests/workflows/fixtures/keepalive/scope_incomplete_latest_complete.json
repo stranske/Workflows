@@ -1,0 +1,23 @@
+{
+  "repo": {"owner": "stranske", "repo": "Workflows"},
+  "now": "2024-05-18T12:00:00Z",
+  "env": {
+    "OPTIONS_JSON": "{}",
+    "DRY_RUN": "false",
+    "ACTIONS_BOT_PAT": "service-token",
+    "SERVICE_BOT_PAT": ""
+  },
+  "pulls": [
+    {
+      "number": 777,
+      "labels": ["agents:keepalive"],
+      "comments": [
+        {
+          "user": {"login": "chatgpt-codex-connector"},
+          "body": "Checklist\n- [x] Validate prompt routing\n- [x] Confirm output format",
+          "created_at": "2024-05-18T08:45:00Z"
+        }
+      ]
+    }
+  ]
+}

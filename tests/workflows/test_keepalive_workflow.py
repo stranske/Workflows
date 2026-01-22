@@ -244,6 +244,15 @@ def test_keepalive_prefers_non_placeholder_sections() -> None:
     assert "_No acceptance criteria defined_" not in body
 
 
+def test_keepalive_prefers_scope_over_completed_checklist() -> None:
+    data = _run_scenario("scope_incomplete_latest_complete")
+    created = data["created_comments"]
+    assert len(created) == 1
+    body = created[0]["body"]
+    assert "## Keepalive Next Task" in body
+    assert "Verifier acceptance check" not in body
+
+
 def test_keepalive_dedupes_configuration() -> None:
     data = _run_scenario("dedupe")
     summary = data["summary"]

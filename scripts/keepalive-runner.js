@@ -153,6 +153,9 @@ function resolvePromptCheckboxCounts(scopeCounts, latestChecklist) {
   if (scopeComplete) {
     return safeScope;
   }
+  if (!latestIncomplete && safeScope.unchecked > 0) {
+    return safeScope;
+  }
   return { total, unchecked };
 }
 
