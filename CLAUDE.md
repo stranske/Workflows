@@ -20,6 +20,20 @@ If pre-commit hooks, CI, or validation scripts fail:
 
 **Leaving a mess because "you didn't make it" does not produce quality code. Clean up after yourself AND others.**
 
+### ⚠️ EXCEPTION: `models: read` Permission
+
+**DO NOT REMOVE `models: read` from workflow permissions**, even though actionlint reports it as invalid.
+
+- This permission is **required for LangChain components** to function correctly
+- actionlint doesn't recognize it because it's a newer GitHub permission scope
+- **Removing this permission WILL BREAK the agent workflows**
+
+If you see actionlint errors about `models: read`, you MUST use `SKIP_ACTIONLINT=1` to bypass the check:
+
+```bash
+SKIP_ACTIONLINT=1 git commit -m "your message"
+```
+
 ### ⚠️ FAILURE TRIGGERS - Read This When You See Failures
 
 **WHEN YOU SEE:** CI failure, lint error, test failure, merge blocked, workflow failed, checks failing

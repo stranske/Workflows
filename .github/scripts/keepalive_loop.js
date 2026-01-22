@@ -2365,12 +2365,27 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
           `| Status | ⏭️ Skipped |`,
           `| Reason | ${summaryReason || 'agent-run-skipped'} |`,
         );
+        
+        // Add restart instructions for skipped runs
+        summaryLines.push(
+          '',
+          '**To retry:**',
+          '- Add the `agent:retry` label, OR',
+          '- Wait for conditions to resolve (e.g., Gate success, labels present)',
+        );
       } else if (runResult === 'cancelled') {
         summaryLines.push(
           `| Result | Value |`,
           `|--------|-------|`,
           `| Status | 🚫 Cancelled |`,
           `| Reason | ${summaryReason || 'agent-run-cancelled'} |`,
+        );
+        
+        // Add restart instructions for cancelled runs
+        summaryLines.push(
+          '',
+          '**To retry:**',
+          '- Add the `agent:retry` label to this PR',
         );
       } else {
         summaryLines.push(
@@ -2380,6 +2395,15 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
           `| Reason | ${summaryReason || runResult || 'unknown'} |`,
           `| Exit code | ${agentExitCode || 'unknown'} |`,
           `| Failures | ${failure.count || 1}/${failureThreshold} before pause |`,
+        );
+        
+        // Add restart instructions for failed runs
+        summaryLines.push(
+          '',
+          '**To retry immediately:**',
+          '- Add the `agent:retry` label to this PR',
+          '',
+          '_Or wait for the next successful Gate run to automatically retry._',
         );
       }
 
@@ -2503,6 +2527,8 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
         '',
         '### ⏳ Deferred',
         'Keepalive deferred due to a transient Gate cancellation (likely rate limits). It will retry later.',
+        '',
+        '**To retry immediately:** Add the `agent:retry` label to this PR',
       );
     }
 
@@ -2567,6 +2593,8 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
       tasks: { total: tasksTotal, unchecked: tasksUnchecked },
       gate_conclusion: gateConclusion,
       failure_threshold: failureThreshold,
+      // Clear running status when summary is updated (agent completed or failed)
+      running: false,
       // Track task reconciliation for next iteration
       needs_task_reconciliation: madeChangesButNoTasksChecked,
       // Productivity tracking for evidence-based decisions
