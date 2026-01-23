@@ -10,7 +10,6 @@ from typing import Any
 
 import yaml
 
-
 WORKFLOW_PATH = pathlib.Path(".github/workflows/agents-72-codex-belt-worker.yml")
 
 
