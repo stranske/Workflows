@@ -259,6 +259,42 @@ def test_load_template_block_requires_end_separator(
     assert block == sync_status_file_ignores.generate_minimal_block()
 
 
+def test_load_template_block_requires_end_marker_after_header(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    template_path = Path(sync_status_file_ignores.__file__).resolve().parents[1]
+    template_path = template_path / "templates/consumer-repo/.gitignore"
+    original_read_text = Path.read_text
+    custom_text = "\n".join(
+        [
+            sync_status_file_ignores.SEPARATOR_LINE,
+            "# Other Section",
+            sync_status_file_ignores.PATTERN_BLOCK_BEGIN,
+            "codex-prompt.md",
+            sync_status_file_ignores.PATTERN_BLOCK_END,
+            sync_status_file_ignores.SEPARATOR_LINE,
+            "# Workflows Consumer Repo - Shared Status Files",
+            sync_status_file_ignores.SEPARATOR_LINE,
+            "# Template-Version: 1",
+            sync_status_file_ignores.PATTERN_BLOCK_BEGIN,
+            "codex-output.md",
+            "# Missing end marker",
+            sync_status_file_ignores.SEPARATOR_LINE,
+        ]
+    )
+
+    def fake_read_text(self: Path, encoding: str = "utf-8") -> str:
+        if self == template_path:
+            return custom_text
+        return original_read_text(self, encoding=encoding)
+
+    monkeypatch.setattr(Path, "read_text", fake_read_text)
+
+    block = sync_status_file_ignores.load_template_block()
+
+    assert block == sync_status_file_ignores.generate_minimal_block()
+
+
 def test_main_print_block(
     capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
