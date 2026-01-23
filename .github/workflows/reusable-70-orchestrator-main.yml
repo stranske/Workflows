@@ -510,6 +510,15 @@ jobs:
         with:
           script: |
             const { makeTrace, renderInstruction } = require('./.github/scripts/keepalive_contract.js');
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry, paginateWithRetry } = retryHelpers;
 
             const normalise = (value) => String(value || '').trim();
             const normaliseNewlines = (value) => normalise(value).replace(/\r\n/g, '\n');
@@ -639,7 +648,7 @@ jobs:
             let scopeSource = 'placeholder';
 
             try {
-              const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+              const { data: pr } = await withRetry(() => github.rest.pulls.get({ owner, repo, pull_number: prNumber }));
               const prBody = pr?.body || '';
               const keepaliveSection = extractKeepaliveChecklist(prBody);
               const fromKeepalive = parseSections(keepaliveSection);
@@ -650,7 +659,7 @@ jobs:
                 const issueNumber = extractIssueNumberFromPull(pr);
                 if (issueNumber) {
                   try {
-                    const issueResponse = await github.rest.issues.get({ owner, repo, issue_number: issueNumber });
+                    const issueResponse = await withRetry(() => github.rest.issues.get({ owner, repo, issue_number: issueNumber }));
                     const issueSections = parseSections(issueResponse.data?.body || '');
                     if (issueSections) {
                       scopeBlock = formatBlock(issueSections);
@@ -664,7 +673,7 @@ jobs:
 
                 if (scopeSource === 'placeholder') {
                   try {
-                    const comments = await github.paginate(github.rest.issues.listComments, {
+                    const comments = await paginateWithRetry(github.rest.issues.listComments, {
                       owner,
                       repo,
                       issue_number: prNumber,
@@ -704,7 +713,7 @@ jobs:
             let latestInstruction = null;
 
             try {
-              const comments = await github.paginate(github.rest.issues.listComments, {
+              const comments = await paginateWithRetry(github.rest.issues.listComments, {
                 owner,
                 repo,
                 issue_number: prNumber,
@@ -768,7 +777,7 @@ jobs:
               const parsedCommentId = Number(latestInstruction.commentId);
               if (Number.isFinite(parsedCommentId)) {
                 try {
-                  const reactions = await github.paginate(github.rest.reactions.listForIssueComment, {
+                  const reactions = await paginateWithRetry(github.rest.reactions.listForIssueComment, {
                     owner,
                     repo,
                     comment_id: parsedCommentId,
