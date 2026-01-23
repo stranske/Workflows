@@ -21,18 +21,18 @@ from tools.disable_legacy_workflows import (
 
 def test_canonical_workflow_files_match_inventory() -> None:
     on_disk = {path.name for path in Path(".github/workflows").glob("*.yml")}
-    assert (
-        on_disk == CANONICAL_WORKFLOW_FILES
-    ), "Canonical workflow file allowlist drifted; update tools/disable_legacy_workflows.py."
+    assert on_disk == CANONICAL_WORKFLOW_FILES, (
+        "Canonical workflow file allowlist drifted; update tools/disable_legacy_workflows.py."
+    )
 
 
 def test_canonical_workflow_names_match_expected_mapping() -> None:
-    assert (
-        set(EXPECTED_NAMES) == CANONICAL_WORKFLOW_FILES
-    ), "Workflow naming expectations drifted; keep EXPECTED_NAMES in sync with the allowlist."
-    assert (
-        set(EXPECTED_NAMES.values()) == CANONICAL_WORKFLOW_NAMES
-    ), "Workflow display-name allowlist drifted; synchronize EXPECTED_NAMES in tests/test_workflow_naming.py."
+    assert set(EXPECTED_NAMES) == CANONICAL_WORKFLOW_FILES, (
+        "Workflow naming expectations drifted; keep EXPECTED_NAMES in sync with the allowlist."
+    )
+    assert set(EXPECTED_NAMES.values()) == CANONICAL_WORKFLOW_NAMES, (
+        "Workflow display-name allowlist drifted; synchronize EXPECTED_NAMES in tests/test_workflow_naming.py."
+    )
 
 
 def test_disable_handles_non_disableable_workflow(
