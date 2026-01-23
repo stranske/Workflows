@@ -270,15 +270,6 @@ Use this exact structure (do NOT wrap in code fences):
 
 </details>
 
-## Critical Rules
-1. Do NOT include "Remaining Unchecked Items" or "Iteration Details" sections
-   unless they contain specific, useful failure context
-2. Tasks should be concrete actions, not verification concerns restated
-3. Acceptance criteria must be testable (not "all concerns addressed")
-4. Keep the main body focused - hide background/history in the collapsible section
-5. Do NOT include the entire analysis object - only include specific failure
-   contexts from `blockers_to_avoid`
-
 Output the complete markdown issue body.
 Never wrap the body in code fences.
 """.strip()

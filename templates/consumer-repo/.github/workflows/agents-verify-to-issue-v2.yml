@@ -313,7 +313,7 @@ jobs:
               repo: context.repo.repo,
               title: title,
               body: body,
-              labels: ['follow-up', 'agents:optimize']
+              labels: ['follow-up', 'agents:optimize', 'agents:apply-suggestions']
             });
 
             core.info(`Created issue #${issue.data.number}`);
@@ -339,8 +339,7 @@ jobs:
               '',
               '**Next steps:**',
               '1. Review the generated issue',
-              '2. Add `agents:apply-suggestions` label to format for agent work',
-              '3. Add `agent:codex` label to assign to an agent',
+              '2. Add `agent:codex` label to assign to an agent',
               '',
               '> Or work on it manually - the choice is yours!'
             ].join('\n');
