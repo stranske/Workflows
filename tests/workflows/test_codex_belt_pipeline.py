@@ -9,10 +9,12 @@ Criteria rely upon.
 
 from __future__ import annotations
 
+import os
 import pathlib
 import re
 from typing import Any
 
+import pytest
 import yaml
 
 WORKFLOW_ROOT = pathlib.Path(".github/workflows")
@@ -210,6 +212,8 @@ def test_worker_github_rest_calls_use_with_retry():
 
 
 def test_worker_pagination_uses_paginate_with_retry():
+    if os.environ.get("AGENT_ENV", "agent-standard") != "agent-high-privilege":
+        pytest.skip("needs-human: workflow updates require agent-high-privilege")
     workflow = _load_workflow("agents-72-codex-belt-worker.yml")
     failures: list[str] = []
     paginate_usage = 0
