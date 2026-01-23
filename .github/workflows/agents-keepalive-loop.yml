@@ -76,87 +76,30 @@ jobs:
           github.event.action == 'labeled' &&
           github.event.label.name == 'agent:retry'
         uses: actions/github-script@v8
-        env:
-          FALLBACK_TOKEN: ${{ secrets.CODESPACES_WORKFLOWS || secrets.SERVICE_BOT_PAT || '' }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const { github: retryGithub, withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'keepalive-loop',
+              capabilities: ['issues:write'],
+            });
             const prNumber = context.payload.pull_request.number;
             core.info(`agent:retry label detected on PR #${prNumber} - cleaning up labels`);
 
-            // Check rate limit status before attempting label operations
-            let rateLimit;
-            try {
-              const { data } = await github.rest.rateLimit.get();
-              rateLimit = data.resources.core;
-              core.info(`Rate limit status: ${rateLimit.remaining}/${rateLimit.limit} remaining`);
-
-              if (rateLimit.remaining < 10) {
-                const resetTime = new Date(rateLimit.reset * 1000).toISOString();
-                core.warning(`Rate limit critically low (${rateLimit.remaining} remaining). Reset at ${resetTime}`);
-
-                // Try fallback token if available
-                if (process.env.FALLBACK_TOKEN) {
-                  core.info('Attempting to use fallback token for label operations...');
-                  const { Octokit } = require('@octokit/rest');
-                  const fallbackOctokit = new Octokit({ auth: process.env.FALLBACK_TOKEN });
-
-                  // Check fallback token rate limit
-                  const fallbackRate = await fallbackOctokit.rateLimit.get();
-                  const fallbackRemaining = fallbackRate.data.resources.core.remaining;
-                  core.info(`Fallback token rate limit: ${fallbackRemaining} remaining`);
-
-                  if (fallbackRemaining > 10) {
-                    // Use fallback for label operations
-                    try {
-                      await fallbackOctokit.issues.removeLabel({
-                        owner: context.repo.owner,
-                        repo: context.repo.repo,
-                        issue_number: prNumber,
-                        name: 'agent:retry',
-                      });
-                      core.info('Removed agent:retry label (via fallback token)');
-                    } catch (e) {
-                      core.warning(`Could not remove agent:retry via fallback: ${e.message}`);
-                    }
-
-                    try {
-                      await fallbackOctokit.issues.removeLabel({
-                        owner: context.repo.owner,
-                        repo: context.repo.repo,
-                        issue_number: prNumber,
-                        name: 'agent:rate-limited',
-                      });
-                      core.info('Removed agent:rate-limited label (via fallback token)');
-                    } catch (e) {
-                      if (!e.message.includes('Label does not exist')) {
-                        core.warning(`Could not remove agent:rate-limited via fallback: ${e.message}`);
-                      }
-                    }
-                    core.info('Label cleanup complete via fallback token');
-                    return;
-                  } else {
-                    core.warning('Fallback token also rate limited');
-                  }
-                }
-
-                // Both tokens rate limited - log clearly and continue
-                core.warning('⚠️ Cannot remove labels due to rate limits - labels will remain until manual cleanup');
-                core.notice(`Please manually remove agent:retry and agent:rate-limited labels from PR #${prNumber}`);
-                return;
-              }
-            } catch (e) {
-              core.warning(`Could not check rate limits: ${e.message}`);
-            }
-
             // Remove agent:retry label (so it can be used again later)
             try {
-              await github.rest.issues.removeLabel({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: prNumber,
-                name: 'agent:retry',
-              });
+              await withRetry(() =>
+                retryGithub.rest.issues.removeLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: prNumber,
+                  name: 'agent:retry',
+                })
+              );
               core.info('Removed agent:retry label');
             } catch (error) {
               if (error.message.includes('rate limit') || error.status === 403) {
@@ -168,12 +111,14 @@ jobs:
 
             // Remove agent:rate-limited label if present
             try {
-              await github.rest.issues.removeLabel({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: prNumber,
-                name: 'agent:rate-limited',
-              });
+              await withRetry(() =>
+                retryGithub.rest.issues.removeLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: prNumber,
+                  name: 'agent:rate-limited',
+                })
+              );
               core.info('Removed agent:rate-limited label');
             } catch (error) {
               if (error.message.includes('rate limit') || error.status === 403) {
@@ -195,6 +140,14 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const { github: retryGithub, withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'keepalive-loop',
+              capabilities: ['pull-requests:read'],
+            });
             const { evaluatePromptInjectionGuard } = require(
               './.github/scripts/prompt_injection_guard.js'
             );
@@ -211,11 +164,13 @@ jobs:
               const prs = payload.workflow_run.pull_requests || [];
               if (prs[0]?.number) {
                 prNumber = prs[0].number;
-                const { data } = await github.rest.pulls.get({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  pull_number: prNumber,
-                });
+                const { data } = await withRetry(() =>
+                  retryGithub.rest.pulls.get({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    pull_number: prNumber,
+                  })
+                );
                 pr = data;
               }
             }
@@ -456,12 +411,22 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const prNumber = Number('${{ needs.evaluate.outputs.pr_number }}');
-            const { data: commits } = await github.rest.pulls.listCommits({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: prNumber,
-              per_page: 30,
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const { github: retryGithub, withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'keepalive-loop',
+              capabilities: ['pull-requests:read'],
             });
+            const { data: commits } = await withRetry(() =>
+              retryGithub.rest.pulls.listCommits({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: prNumber,
+                per_page: 30,
+              })
+            );
             const messages = commits.map(c => c.commit.message.split('\n')[0]);
             const files = [...new Set(commits.flatMap(c =>
               (c.files || []).map(f => f.filename)
@@ -476,11 +441,21 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const prNumber = Number('${{ needs.evaluate.outputs.pr_number }}');
-            const { data: pr } = await github.rest.pulls.get({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: prNumber,
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const { github: retryGithub, withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'keepalive-loop',
+              capabilities: ['pull-requests:read'],
             });
+            const { data: pr } = await withRetry(() =>
+              retryGithub.rest.pulls.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: prNumber,
+              })
+            );
             // Extract acceptance criteria from PR body
             const body = pr.body || '';
             const criteria = [];
@@ -554,6 +529,14 @@ jobs:
             const alignmentScore = '${{ steps.review.outputs.alignment_score }}';
             const rounds = '${{ needs.evaluate.outputs.rounds_without_task_completion }}';
             const feedback = process.env.REVIEW_FEEDBACK || '';
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const { github: retryGithub, withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'keepalive-loop',
+              capabilities: ['issues:write'],
+            });
 
             const emojiMap = {
               'CONTINUE': '✅',
@@ -576,23 +559,27 @@ jobs:
               '_The review evaluates whether recent work is advancing toward the acceptance criteria._',
             ].join('\n');
 
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: prNumber,
-              body,
-            });
+            await withRetry(() =>
+              retryGithub.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body,
+              })
+            );
 
             // If STOP recommended, remove agent label to prevent further runs
             if (recommendation === 'STOP') {
               core.warning('Progress review recommends STOP - agent work appears unaligned');
               try {
-                await github.rest.issues.removeLabel({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: prNumber,
-                  name: 'agent:codex',
-                });
+                await withRetry(() =>
+                  retryGithub.rest.issues.removeLabel({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: prNumber,
+                    name: 'agent:codex',
+                  })
+                );
               } catch (e) {
                 core.info(`Could not remove label: ${e.message}`);
               }
