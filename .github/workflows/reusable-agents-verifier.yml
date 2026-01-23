@@ -92,6 +92,16 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            const fs = require('fs');
+            const retryHelperPath = './.workflows-lib/.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry } = retryHelpers;
+
             const pr = context.payload.pull_request;
             if (!pr || !pr.merged) {
               core.info('PR not merged; skipping CI wait.');
@@ -120,12 +130,12 @@ jobs:
 
               for (const workflowFile of ciWorkflows) {
                 try {
-                  const { data: runs } = await github.rest.actions.listWorkflowRuns({
+                  const { data: runs } = await withRetry(() => github.rest.actions.listWorkflowRuns({
                     ...context.repo,
                     workflow_id: workflowFile,
                     head_sha: targetSha,
                     per_page: 1,
-                  });
+                  }));
 
                   if (runs.workflow_runs.length > 0) {
                     anyFound = true;
@@ -530,6 +540,14 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const fs = require('fs');
+            const retryHelperPath = './.workflows-lib/.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry } = retryHelpers;
             const { formatFollowUpIssue, formatSimpleFollowUpIssue } = require('./.workflows-lib/.github/scripts/verifier_issue_formatter.js');
 
             const rawPrNumber = Number('${{ steps.context.outputs.pr_number }}');
@@ -543,12 +561,12 @@ jobs:
             if (verdict === 'error') {
               const title = prNumber ? `[Verifier Error] PR #${prNumber} verification failed` : '[Verifier Error] Verification failed';
               const body = `## Verifier Error\n\nThe verifier encountered an error while checking acceptance criteria.\n\n**PR:** ${prUrl || `#${prNumber}` || 'unknown'}\n**Run:** ${runUrl}\n\nPlease review the workflow run logs for details.`;
-              const { data: issue } = await github.rest.issues.create({
+              const { data: issue } = await withRetry(() => github.rest.issues.create({
                 ...context.repo,
                 title,
                 body,
                 labels: ['agent:codex', 'bug'],
-              });
+              }));
               core.setOutput('issue_number', issue?.number ? String(issue.number) : '');
               core.info(`Created error follow-up issue #${issue.number}: ${title}`);
               return;
@@ -566,10 +584,10 @@ jobs:
             let prBody = '';
             if (prNumber) {
               try {
-                const { data: pr } = await github.rest.pulls.get({
+                const { data: pr } = await withRetry(() => github.rest.pulls.get({
                   ...context.repo,
                   pull_number: prNumber,
-                });
+                }));
                 prBody = pr.body || '';
               } catch (err) {
                 core.warning(`Failed to fetch PR body: ${err.message}`);
@@ -579,10 +597,10 @@ jobs:
             const issues = [];
             for (const issueNum of issueNumbers) {
               try {
-                const { data: issue } = await github.rest.issues.get({
+                const { data: issue } = await withRetry(() => github.rest.issues.get({
                   ...context.repo,
                   issue_number: issueNum,
-                });
+                }));
                 issues.push({
                   number: issue.number,
                   title: issue.title || '',
@@ -622,12 +640,12 @@ jobs:
               return;
             }
 
-            const { data: issue } = await github.rest.issues.create({
+            const { data: issue } = await withRetry(() => github.rest.issues.create({
               ...context.repo,
               title: result.title,
               body: result.body,
               labels: ['agent:codex'],
-            });
+            }));
             core.setOutput('issue_number', issue?.number ? String(issue.number) : '');
             core.setOutput('skipped', 'false');
             core.info(`Created follow-up issue #${issue.number}: ${result.title}`);

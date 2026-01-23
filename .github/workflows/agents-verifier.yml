@@ -85,11 +85,27 @@ jobs:
       provider: ${{ steps.check.outputs.provider }}
       pr_number: ${{ steps.check.outputs.pr_number }}
     steps:
+      - name: Checkout retry helpers
+        uses: actions/checkout@v6
+        with:
+          sparse-checkout: |
+            .github/scripts/github-api-with-retry.js
+          sparse-checkout-cone-mode: false
       - name: Check trigger conditions
         id: check
         uses: actions/github-script@v8
         with:
           script: |
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry } = retryHelpers;
+
             // Handle workflow_dispatch trigger
             if (context.eventName === 'workflow_dispatch') {
               const prNumber = context.payload.inputs.pr_number;
@@ -100,10 +116,10 @@ jobs:
 
               // Verify PR exists and is merged
               try {
-                const { data: pr } = await github.rest.pulls.get({
+                const { data: pr } = await withRetry(() => github.rest.pulls.get({
                   ...context.repo,
                   pull_number: parseInt(prNumber),
-                });
+                }));
 
                 if (!pr.merged) {
                   const msg = `PR #${prNumber} is not merged. Verifier only runs on merged PRs.`;
