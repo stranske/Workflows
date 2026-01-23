@@ -90,11 +90,7 @@ def _load_template_patterns() -> list[str]:
     text = template_path.read_text(encoding="utf-8")
     lines = text.splitlines()
     version_index = next(
-        (
-            idx
-            for idx, line in enumerate(lines)
-            if line.strip().startswith(TEMPLATE_VERSION_PREFIX)
-        ),
+        (idx for idx, line in enumerate(lines) if line.strip().startswith(TEMPLATE_VERSION_PREFIX)),
         None,
     )
     start = next(
