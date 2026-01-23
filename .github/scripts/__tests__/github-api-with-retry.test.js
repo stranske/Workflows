@@ -6,6 +6,7 @@ const path = require('node:path');
 
 const {
   withRetry,
+  paginateWithRetry,
   createTokenAwareRetry,
 } = require(path.join(__dirname, '../github-api-with-retry'));
 
@@ -61,6 +62,54 @@ test('withRetry switches tokens on primary rate limit errors', async () => {
   assert.ok(
     debugMessages.some((message) => message.includes('Token TOKEN_B response remaining: 4999/5000'))
   );
+});
+
+test('paginateWithRetry switches tokens on primary rate limit errors', async () => {
+  const calls = [];
+  const tokenRegistry = {
+    async getOptimalToken() {
+      return {
+        token: 'token-b',
+        source: 'TOKEN_B',
+        remaining: 4000,
+        percentRemaining: 80,
+      };
+    },
+  };
+
+  const github = {
+    token: 'token-a',
+    async paginate() {
+      calls.push('token-a');
+      const error = new Error('API rate limit exceeded');
+      error.status = 403;
+      error.response = { headers: { 'x-ratelimit-remaining': '0' } };
+      throw error;
+    },
+  };
+
+  const getOctokit = (token) => ({
+    token,
+    async paginate() {
+      calls.push(token);
+      return [{ id: 1 }];
+    },
+  });
+
+  const result = await paginateWithRetry(
+    github,
+    github.paginate,
+    { page: 1 },
+    {
+      tokenRegistry,
+      getOctokit,
+      tokenSource: 'TOKEN_A',
+      maxRetries: 1,
+    }
+  );
+
+  assert.deepEqual(result, [{ id: 1 }]);
+  assert.deepEqual(calls, ['token-a', 'token-b']);
 });
 
 test('createTokenAwareRetry initializes registry from env secrets', async () => {
