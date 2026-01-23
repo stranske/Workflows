@@ -59,11 +59,27 @@ jobs:
       pr_number: ${{ steps.resolve.outputs.pr_number }}
       should_run: ${{ steps.resolve.outputs.should_run }}
     steps:
+      - name: Checkout retry helpers
+        uses: actions/checkout@v6
+        with:
+          sparse-checkout: |
+            .github/scripts/github-api-with-retry.js
+          sparse-checkout-cone-mode: false
       - name: Resolve PR number and check conditions
         id: resolve
         uses: actions/github-script@v8
         with:
           script: |
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry } = retryHelpers;
+
             const eventName = context.eventName;
             let prNumber = null;
             let shouldRun = false;
@@ -114,11 +130,11 @@ jobs:
               // Check if PR has agent label
               let pr;
               try {
-                const response = await github.rest.pulls.get({
+                const response = await withRetry(() => github.rest.pulls.get({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   pull_number: prNumber
-                });
+                }));
                 pr = response.data;
               } catch (error) {
                 console.log(`Failed to fetch PR #${prNumber} details, skipping. Error: ${error.message || error}`);
@@ -161,17 +177,33 @@ jobs:
     if: always() && github.event_name == 'pull_request' && github.event.label.name == 'autofix:bot-comments'
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout retry helpers
+        uses: actions/checkout@v6
+        with:
+          sparse-checkout: |
+            .github/scripts/github-api-with-retry.js
+          sparse-checkout-cone-mode: false
       - name: Remove trigger label
         uses: actions/github-script@v8
         with:
           script: |
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry } = retryHelpers;
+
             try {
-              await github.rest.issues.removeLabel({
+              await withRetry(() => github.rest.issues.removeLabel({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: context.payload.pull_request.number,
                 name: 'autofix:bot-comments'
-              });
+              }));
               console.log('Removed autofix:bot-comments label');
             } catch (error) {
               console.log(`Could not remove label: ${error.message}`);
