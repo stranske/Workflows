@@ -63,7 +63,14 @@ jobs:
           script: |
             const fs = require('fs');
             const guardPath = './.github/scripts/prompt_injection_guard.js';
-            const { withRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry, paginateWithRetry } = retryHelpers;
 
             // Check if guard exists (may not exist on older branches)
             if (!fs.existsSync(guardPath)) {
@@ -117,7 +124,15 @@ jobs:
         with:
           github-token: ${{ env.WRITE_TOKEN }}
           script: |
-            const { withRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry, paginateWithRetry } = retryHelpers;
             const run = context.payload.workflow_run;
             const outputs = {
               should_run: 'false',
@@ -237,13 +252,15 @@ jobs:
               return stop('autofix disabled for this pull request');
             }
 
-            const jobs = await withRetry(() =>
-              github.paginate(github.rest.actions.listJobsForWorkflowRun, {
+            const jobs = await paginateWithRetry(
+              github,
+              github.rest.actions.listJobsForWorkflowRun,
+              {
                 owner,
                 repo,
                 run_id: run.id,
                 per_page: 100,
-              })
+              }
             );
 
             const workflowFile = 'agents-autofix-loop.yml';
@@ -252,15 +269,17 @@ jobs:
               const maxAttempts = isEscalated
                 ? Math.min(2, Number(outputs.max_attempts))
                 : Number(outputs.max_attempts);
-            const previousRuns = await withRetry(() =>
-              github.paginate(github.rest.actions.listWorkflowRuns, {
+            const previousRuns = await paginateWithRetry(
+              github,
+              github.rest.actions.listWorkflowRuns,
+              {
                 owner,
                 repo,
                 workflow_id: workflowFile,
                 head_sha: run.head_sha,
                 per_page: 100,
                 status: 'completed',
-              })
+              }
             );
 
             const attemptCount = previousRuns.length + 1;
@@ -396,7 +415,15 @@ jobs:
         with:
           github-token: ${{ env.WRITE_TOKEN }}
           script: |
-            const { withRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry, paginateWithRetry } = retryHelpers;
             const prNumber = Number('${{ needs.prepare.outputs.pr_number }}');
             if (!prNumber) {
               core.info('No PR number available; skipping comment/label.');
@@ -459,7 +486,15 @@ jobs:
         with:
           github-token: ${{ env.WRITE_TOKEN }}
           script: |
-            const { withRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry, paginateWithRetry } = retryHelpers;
             const prNumber = Number('${{ needs.prepare.outputs.pr_number || 0 }}') || 0;
             const attemptNumber = Number('${{ needs.prepare.outputs.attempts || 0 }}') || 0;
             const attemptLimit = Number('${{ needs.prepare.outputs.max_attempts || 0 }}') || 0;
@@ -518,14 +553,16 @@ jobs:
                 }
 
                 const gateWorkflow = 'pr-00-gate.yml';
-                const runs = await withRetry(() =>
-                  github.paginate(github.rest.actions.listWorkflowRuns, {
+                const runs = await paginateWithRetry(
+                  github,
+                  github.rest.actions.listWorkflowRuns,
+                  {
                     owner,
                     repo,
                     workflow_id: gateWorkflow,
                     head_sha: headShaAfter,
                     per_page: 20,
-                  })
+                  }
                 );
                 const latestGateRun = runs[0];
                 if (latestGateRun) {
