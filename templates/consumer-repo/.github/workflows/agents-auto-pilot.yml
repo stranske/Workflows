@@ -250,16 +250,32 @@ jobs:
               }
             );
 
+            function matchesIssueReference(text, num) {
+              if (!text) return false;
+              const pattern = new RegExp(
+                `\\b(close[sd]?|fixe?[sd]?|resolve[sd]?)\\s+#${num}\\b`,
+                'i'
+              );
+              return pattern.test(text);
+            }
+
             let linkedPR = null;
             for (const event of timelineEvents) {
               // Handle both cross-referenced and connected events
               const isCrossRef = event.event === 'cross-referenced';
               const isConnected = event.event === 'connected';
-              const repoMatch = event.source?.issue?.repository?.full_name ===
+              const sourceIssue = event.source?.issue;
+              const repoMatch = sourceIssue?.repository?.full_name ===
                 `${context.repo.owner}/${context.repo.repo}`;
-              if ((isCrossRef || isConnected) && repoMatch &&
-                  event.source?.issue?.pull_request) {
-                linkedPR = event.source.issue.number;
+              if ((isCrossRef || isConnected) && repoMatch && sourceIssue?.pull_request) {
+                const prBody = sourceIssue.body || '';
+                const prTitle = sourceIssue.title || '';
+                const hasMeta = prBody.includes(`meta:issue:${issueNumber}`);
+                const hasReference = matchesIssueReference(prBody, issueNumber) ||
+                  matchesIssueReference(prTitle, issueNumber);
+                if (hasMeta || hasReference) {
+                  linkedPR = sourceIssue.number;
+                }
               }
             }
 
