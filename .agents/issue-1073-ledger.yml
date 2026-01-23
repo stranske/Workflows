@@ -1,0 +1,782 @@
+version: 1
+issue: 1073
+base: main
+branch: codex/issue-1073
+tasks:
+  - id: task-01
+    title: 'Add a top-level ''concurrency'' definition with ''cancel-in-progress:
+      true'' to all YAML files in ''.github/workflows/''.'
+    status: doing
+    started_at: '2026-01-23T06:22:22Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: 'Define approach for: Add a top-level ''concurrency'' definition with ''cancel-in-progress:
+      true'' to all YAML files in ''.github/workflows/''. (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: 'Define scope for: Implement: Add a top-level ''concurrency'' definition
+      with ''cancel-in-progress: true'' to all YAML files in ''.github/workflows/''.
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: 'Implement focused slice for: Implement: Add a top-level ''concurrency''
+      definition with ''cancel-in-progress: true'' to all YAML files in ''.github/workflows/''.
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: 'Validate focused slice for: Implement: Add a top-level ''concurrency''
+      definition with ''cancel-in-progress: true'' to all YAML files in ''.github/workflows/''.
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: 'Define scope for: Validate: Add a top-level ''concurrency'' definition
+      with ''cancel-in-progress: true'' to all YAML files in ''.github/workflows/''.
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: 'Implement focused slice for: Validate: Add a top-level ''concurrency''
+      definition with ''cancel-in-progress: true'' to all YAML files in ''.github/workflows/''.
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: 'Validate focused slice for: Validate: Add a top-level ''concurrency''
+      definition with ''cancel-in-progress: true'' to all YAML files in ''.github/workflows/''.
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: Enhance 'scripts/workflow_concurrency_audit.py' to scan every workflow
+      for correct 'concurrency' configuration, report any missing or incorrect settings,
+      and log the total number of debounced runs over a defined period.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: 'Define scope for: Enhance ''scripts/workflow_concurrency_audit.py'' to
+      scan every workflow for correct ''concurrency'' configuration (verify: config
+      validated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: 'Implement focused slice for: Enhance ''scripts/workflow_concurrency_audit.py''
+      to scan every workflow for correct ''concurrency'' configuration (verify: config
+      validated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: 'Validate focused slice for: Enhance ''scripts/workflow_concurrency_audit.py''
+      to scan every workflow for correct ''concurrency'' configuration (verify: config
+      validated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: 'report any missing or incorrect settings (verify: confirm completion in
+      repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: '(verify: config validated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: 'Define scope for: log the total number of debounced runs over a defined
+      period. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: 'Implement focused slice for: log the total number of debounced runs over
+      a defined period. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: 'Validate focused slice for: log the total number of debounced runs over
+      a defined period. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: Implement a guard in relevant workflows to check if the OPENAI_API_KEY
+      secret is set before execution. Log an explicit message and skip execution or
+      fail clearly if the key is missing.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: 'Define scope for: Implement a guard in relevant workflows to check if
+      the OPENAI_API_KEY secret is set before execution. Log an explicit message (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: 'Implement focused slice for: Implement a guard in relevant workflows to
+      check if the OPENAI_API_KEY secret is set before execution. Log an explicit
+      message (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: 'Validate focused slice for: Implement a guard in relevant workflows to
+      check if the OPENAI_API_KEY secret is set before execution. Log an explicit
+      message (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: 'Define scope for: skip execution or fail clearly if the key is missing.
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-23
+    title: 'Implement focused slice for: skip execution or fail clearly if the key
+      is missing. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-24
+    title: 'Validate focused slice for: skip execution or fail clearly if the key
+      is missing. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-25
+    title: Refactor the 'Get recent commits' step to use a supported API endpoint
+      that returns file changes for each commit or remove the dependency on 'c.files'.
+      Ensure meaningful file change data is collected.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-26
+    title: 'Define approach for: Refactor the ''Get recent commits'' step to use a
+      supported API endpoint that returns file changes for each commit or remove the
+      dependency on ''c.files''. Ensure meaningful file change data is collected.
+      (verify: dependencies updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-27
+    title: 'Define scope for: Implement: Refactor the ''Get recent commits'' step
+      to use a supported API endpoint that returns file changes for each commit or
+      remove the dependency on ''c.files''. Ensure meaningful file change data is
+      collected. (verify: dependencies updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-28
+    title: 'Implement focused slice for: Implement: Refactor the ''Get recent commits''
+      step to use a supported API endpoint that returns file changes for each commit
+      or remove the dependency on ''c.files''. Ensure meaningful file change data
+      is collected. (verify: dependencies updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-29
+    title: 'Validate focused slice for: Implement: Refactor the ''Get recent commits''
+      step to use a supported API endpoint that returns file changes for each commit
+      or remove the dependency on ''c.files''. Ensure meaningful file change data
+      is collected. (verify: dependencies updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-30
+    title: 'Define scope for: Validate: Refactor the ''Get recent commits'' step to
+      use a supported API endpoint that returns file changes for each commit or remove
+      the dependency on ''c.files''. Ensure meaningful file change data is collected.
+      (verify: dependencies updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-31
+    title: 'Implement focused slice for: Validate: Refactor the ''Get recent commits''
+      step to use a supported API endpoint that returns file changes for each commit
+      or remove the dependency on ''c.files''. Ensure meaningful file change data
+      is collected. (verify: dependencies updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-32
+    title: 'Validate focused slice for: Validate: Refactor the ''Get recent commits''
+      step to use a supported API endpoint that returns file changes for each commit
+      or remove the dependency on ''c.files''. Ensure meaningful file change data
+      is collected. (verify: dependencies updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-33
+    title: Refactor the ledger file '.agents/issue-1036-ledger.yml' to eliminate duplicated
+      task blocks and ensure only tasks relevant to the issue are present.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-34
+    title: 'Define scope for: Refactor the ledger file ''.agents/issue-1036-ledger.yml''
+      to eliminate duplicated task blocks (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-35
+    title: 'Implement focused slice for: Refactor the ledger file ''.agents/issue-1036-ledger.yml''
+      to eliminate duplicated task blocks (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-36
+    title: 'Validate focused slice for: Refactor the ledger file ''.agents/issue-1036-ledger.yml''
+      to eliminate duplicated task blocks (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-37
+    title: 'Define scope for: ensure only tasks relevant to the issue are present.
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-38
+    title: 'Implement focused slice for: ensure only tasks relevant to the issue are
+      present. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-39
+    title: 'Validate focused slice for: ensure only tasks relevant to the issue are
+      present. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-40
+    title: Update the function _load_template_patterns() in sync_status_file_ignores.py
+      to detect template versioning or anchor markers explicitly when extracting canonical
+      patterns. Include unit tests.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-41
+    title: 'Define approach for: Update the function _load_template_patterns() in
+      sync_status_file_ignores.py to detect template versioning or anchor markers
+      explicitly when extracting canonical patterns. Include unit tests. (verify:
+      tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-42
+    title: 'Define scope for: Implement: Update the function _load_template_patterns()
+      in sync_status_file_ignores.py to detect template versioning or anchor markers
+      explicitly when extracting canonical patterns. Include unit tests. (verify:
+      tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-43
+    title: 'Implement focused slice for: Implement: Update the function _load_template_patterns()
+      in sync_status_file_ignores.py to detect template versioning or anchor markers
+      explicitly when extracting canonical patterns. Include unit tests. (verify:
+      tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-44
+    title: 'Validate focused slice for: Implement: Update the function _load_template_patterns()
+      in sync_status_file_ignores.py to detect template versioning or anchor markers
+      explicitly when extracting canonical patterns. Include unit tests. (verify:
+      tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-45
+    title: 'Define scope for: Validate: Update the function _load_template_patterns()
+      in sync_status_file_ignores.py to detect template versioning or anchor markers
+      explicitly when extracting canonical patterns. Include unit tests. (verify:
+      tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-46
+    title: 'Implement focused slice for: Validate: Update the function _load_template_patterns()
+      in sync_status_file_ignores.py to detect template versioning or anchor markers
+      explicitly when extracting canonical patterns. Include unit tests. (verify:
+      tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-47
+    title: 'Validate focused slice for: Validate: Update the function _load_template_patterns()
+      in sync_status_file_ignores.py to detect template versioning or anchor markers
+      explicitly when extracting canonical patterns. Include unit tests. (verify:
+      tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-48
+    title: Refactor load_template_block() to define strict rules for determining boundaries
+      using the '# ============================================================================='
+      separator. Add unit tests to validate correct block selection.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-49
+    title: 'Define approach for: Refactor load_template_block() to define strict rules
+      for determining boundaries using the ''# =============================================================================''
+      separator. Add unit tests to validate correct block selection. (verify: tests
+      pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-50
+    title: 'Define scope for: Implement: Refactor load_template_block() to define
+      strict rules for determining boundaries using the ''# =============================================================================''
+      separator. Add unit tests to validate correct block selection. (verify: tests
+      pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-51
+    title: 'Implement focused slice for: Implement: Refactor load_template_block()
+      to define strict rules for determining boundaries using the ''# =============================================================================''
+      separator. Add unit tests to validate correct block selection. (verify: tests
+      pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-52
+    title: 'Validate focused slice for: Implement: Refactor load_template_block()
+      to define strict rules for determining boundaries using the ''# =============================================================================''
+      separator. Add unit tests to validate correct block selection. (verify: tests
+      pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-53
+    title: 'Define scope for: Validate: Refactor load_template_block() to define strict
+      rules for determining boundaries using the ''# =============================================================================''
+      separator. Add unit tests to validate correct block selection. (verify: tests
+      pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-54
+    title: 'Implement focused slice for: Validate: Refactor load_template_block()
+      to define strict rules for determining boundaries using the ''# =============================================================================''
+      separator. Add unit tests to validate correct block selection. (verify: tests
+      pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-55
+    title: 'Validate focused slice for: Validate: Refactor load_template_block() to
+      define strict rules for determining boundaries using the ''# =============================================================================''
+      separator. Add unit tests to validate correct block selection. (verify: tests
+      pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-56
+    title: 'Implement retry and pagination wrapping logic for API calls as described
+      for issue #1039, including comprehensive unit tests.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-57
+    title: 'Implement retry (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-58
+    title: 'Define scope for: pagination wrapping logic for API calls as described
+      for issue #1039 (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-59
+    title: 'Implement focused slice for: pagination wrapping logic for API calls as
+      described for issue #1039 (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-60
+    title: 'Validate focused slice for: pagination wrapping logic for API calls as
+      described for issue #1039 (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-61
+    title: 'including comprehensive unit tests. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-62
+    title: 'All YAML files in ''.github/workflows/'' contain a top-level ''concurrency''
+      definition with ''cancel-in-progress: true''.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-63
+    title: The script 'workflow_concurrency_audit.py' reports any missing or incorrect
+      'concurrency' settings and logs the total number of debounced runs over a defined
+      period.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-64
+    title: Workflows that require the OPENAI_API_KEY secret must log a clear message
+      and skip execution or fail if the key is missing.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-65
+    title: The 'Get recent commits' step correctly retrieves the list of modified
+      files from commits using a supported API endpoint.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-66
+    title: The ledger file '.agents/issue-1036-ledger.yml' contains no duplicated
+      task blocks and only includes tasks relevant to the issue.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-67
+    title: The function _load_template_patterns() in 'sync_status_file_ignores.py'
+      detects template versioning or anchor markers explicitly and passes all unit
+      tests.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-68
+    title: The function load_template_block() correctly determines block boundaries
+      using the '# ============================================================================='
+      separator and passes all unit tests.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-69
+    title: API calls include retry and pagination logic, verified by unit tests simulating
+      transient failures and pagination handling.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-70
+    title: 'Add a top-level ''concurrency'' definition with ''cancel-in-progress:
+      true'' to all YAML files in ''.github/workflows/''.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-71
+    title: Enhance 'scripts/workflow_concurrency_audit.py' to scan every workflow
+      for correct 'concurrency' configuration, report any missing or incorrect settings,
+      and log the total number of debounced runs over a defined period.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-72
+    title: Implement a guard in relevant workflows to check if the OPENAI_API_KEY
+      secret is set before execution. Log an explicit message and skip execution or
+      fail clearly if the key is missing.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-73
+    title: Refactor the 'Get recent commits' step to use a supported API endpoint
+      that returns file changes for each commit or remove the dependency on 'c.files'.
+      Ensure meaningful file change data is collected.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-74
+    title: Refactor the ledger file '.agents/issue-1036-ledger.yml' to eliminate duplicated
+      task blocks and ensure only tasks relevant to the issue are present.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-75
+    title: Update the function _load_template_patterns() in sync_status_file_ignores.py
+      to detect template versioning or anchor markers explicitly when extracting canonical
+      patterns. Include unit tests.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-76
+    title: Refactor load_template_block() to define strict rules for determining boundaries
+      using the '# ============================================================================='
+      separator. Add unit tests to validate correct block selection.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-77
+    title: 'Implement retry and pagination wrapping logic for API calls as described
+      for issue #1039, including comprehensive unit tests.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-78
+    title: 'All YAML files in ''.github/workflows/'' contain a top-level ''concurrency''
+      definition with ''cancel-in-progress: true''.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-79
+    title: The script 'workflow_concurrency_audit.py' reports any missing or incorrect
+      'concurrency' settings and logs the total number of debounced runs over a defined
+      period.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-80
+    title: Workflows that require the OPENAI_API_KEY secret must log a clear message
+      and skip execution or fail if the key is missing.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-81
+    title: The 'Get recent commits' step correctly retrieves the list of modified
+      files from commits using a supported API endpoint.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-82
+    title: The ledger file '.agents/issue-1036-ledger.yml' contains no duplicated
+      task blocks and only includes tasks relevant to the issue.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-83
+    title: The function _load_template_patterns() in 'sync_status_file_ignores.py'
+      detects template versioning or anchor markers explicitly and passes all unit
+      tests.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-84
+    title: The function load_template_block() correctly determines block boundaries
+      using the '# ============================================================================='
+      separator and passes all unit tests.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-85
+    title: API calls include retry and pagination logic, verified by unit tests simulating
+      transient failures and pagination handling.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-86
+    title: 'Add a top-level ''concurrency'' definition with ''cancel-in-progress:
+      true'' to all YAML files in ''.github/workflows/''. (Requires workflow changes,
+      which are protected | Request a human to apply workflow updates)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-87
+    title: Enhance 'scripts/workflow_concurrency_audit.py' to scan every workflow
+      for correct 'concurrency' configuration, report any missing or incorrect settings,
+      and log the total number of debounced runs over a defined period. (Requires
+      workflow changes, which are protected | Request a human to apply workflow updates)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-88
+    title: Implement a guard in relevant workflows to check if the OPENAI_API_KEY
+      secret is set before execution. Log an explicit message and skip execution or
+      fail clearly if the key is missing. (Requires workflow changes, which are protected
+      | Request a human to apply workflow updates)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
