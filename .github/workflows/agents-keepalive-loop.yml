@@ -430,7 +430,7 @@ jobs:
   progress-review:
     name: Review agent progress alignment
     needs: evaluate
-    if: needs.evaluate.outputs.action == 'review'
+    if: needs.evaluate.outputs.action == 'review' && secrets.OPENAI_API_KEY != ''
     runs-on: ubuntu-latest
     environment: ${{ needs.evaluate.outputs.has_high_privilege == 'true' && 'agent-high-privilege' || 'agent-standard' }}
     outputs:
@@ -456,18 +456,22 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const prNumber = Number('${{ needs.evaluate.outputs.pr_number }}');
-            const { data: commits } = await github.rest.pulls.listCommits({
+            const commits = await github.paginate(github.rest.pulls.listCommits, {
               owner: context.repo.owner,
               repo: context.repo.repo,
               pull_number: prNumber,
-              per_page: 30,
+              per_page: 100,
+            });
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber,
+              per_page: 100,
             });
             const messages = commits.map(c => c.commit.message.split('\n')[0]);
-            const files = [...new Set(commits.flatMap(c =>
-              (c.files || []).map(f => f.filename)
-            ))];
+            const fileNames = [...new Set(files.map(f => f.filename))];
             core.setOutput('messages', JSON.stringify(messages));
-            core.setOutput('files', JSON.stringify(files.slice(0, 50)));
+            core.setOutput('files', JSON.stringify(fileNames.slice(0, 50)));
 
       - name: Extract acceptance criteria
         id: criteria

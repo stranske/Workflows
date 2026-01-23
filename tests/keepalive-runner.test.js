@@ -195,3 +195,38 @@ test('resolvePromptCheckboxCounts uses latest checklist when scope has no tasks'
     unchecked: 0,
   });
 });
+
+test('extractLatestChecklist handles mixed newline sequences', () => {
+  const botComments = [
+    {
+      body: '- [ ] Task one\r\n- [x] Task two\r- [ ] Task three\n',
+      updated_at: '2026-01-01T00:00:00Z',
+      created_at: '2026-01-01T00:00:00Z',
+    },
+    {
+      body: '- [x] Task alpha\n- [ ] Task beta\r\n',
+      updated_at: '2026-01-02T00:00:00Z',
+      created_at: '2026-01-02T00:00:00Z',
+    },
+  ];
+
+  const latest = extractLatestChecklist(botComments);
+  assert.ok(latest);
+  assert.equal(latest.total, 2);
+  assert.equal(latest.unchecked, 1);
+});
+
+test('extractLatestChecklist handles unicode comment bodies', () => {
+  const botComments = [
+    {
+      body: 'Checklist 🧪\n- [ ] Próxima\n- [x] 完了\n',
+      updated_at: '2026-01-03T00:00:00Z',
+      created_at: '2026-01-03T00:00:00Z',
+    },
+  ];
+
+  const latest = extractLatestChecklist(botComments);
+  assert.ok(latest);
+  assert.equal(latest.total, 2);
+  assert.equal(latest.unchecked, 1);
+});

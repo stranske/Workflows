@@ -144,6 +144,8 @@ cython_debug/
 # Sync from: stranske/Workflows templates/consumer-repo/.gitignore
 # Validate: python scripts/sync_status_file_ignores.py --check
 # =============================================================================
+# Template-Version: 1
+# BEGIN WORKFLOWS STATUS FILES
 
 # Agent working files (HIGH conflict risk)
 codex-prompt.md
@@ -181,6 +183,8 @@ coverage.xml
 # Wrong package manager artifacts (defense-in-depth)
 Pipfile.lock
 poetry.lock
+
+# END WORKFLOWS STATUS FILES
 
 # =============================================================================
 # Langchain Scripts Exclusion

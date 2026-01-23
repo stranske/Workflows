@@ -29,6 +29,7 @@ from __future__ import annotations
 import argparse
 import base64
 import binascii
+import logging
 import sys
 from pathlib import Path
 
@@ -74,29 +75,66 @@ GITIGNORE_BLOCK_HEADER = """# ==================================================
 # Sync from: stranske/Workflows templates/consumer-repo/.gitignore
 # Validate: python scripts/sync_status_file_ignores.py --check
 # =============================================================================
+# Template-Version: 1
+# BEGIN WORKFLOWS STATUS FILES
 """
 
+TEMPLATE_VERSION_PREFIX = "# Template-Version:"
+PATTERN_BLOCK_BEGIN = "# BEGIN WORKFLOWS STATUS FILES"
+PATTERN_BLOCK_END = "# END WORKFLOWS STATUS FILES"
+SEPARATOR_LINE = "# ============================================================================="
 
-def _load_template_patterns() -> list[str]:
+LOGGER = logging.getLogger(__name__)
+
+
+class TemplateBlockError(RuntimeError):
+    """Raised when expected template sentinel markers are missing."""
+
+
+def _read_template_lines() -> list[str] | None:
     template_path = Path(__file__).parent.parent / "templates/consumer-repo/.gitignore"
     if not template_path.exists():
-        return []
-    text = template_path.read_text(encoding="utf-8")
-    lines = text.splitlines()
+        return None
+    return template_path.read_text(encoding="utf-8").splitlines()
+
+
+def _raise_template_error(message: str) -> None:
+    LOGGER.critical("Template sentinel validation failed: %s", message)
+    raise TemplateBlockError(message)
+
+
+def _validate_template_markers(lines: list[str]) -> tuple[int, int, int]:
+    version_index = next(
+        (idx for idx, line in enumerate(lines) if line.strip().startswith(TEMPLATE_VERSION_PREFIX)),
+        None,
+    )
     start = next(
-        (
-            idx
-            for idx, line in enumerate(lines)
-            if "Workflows Consumer Repo - Shared Status Files" in line
-        ),
+        (idx for idx, line in enumerate(lines) if line.strip() == PATTERN_BLOCK_BEGIN),
         None,
     )
     end = next(
-        (idx for idx, line in enumerate(lines) if "Langchain Scripts Exclusion" in line),
+        (idx for idx, line in enumerate(lines) if line.strip() == PATTERN_BLOCK_END),
         None,
     )
-    if start is None or end is None or end <= start:
+    missing = []
+    if version_index is None:
+        missing.append("missing template version marker")
+    if start is None:
+        missing.append("missing status block begin marker")
+    if end is None:
+        missing.append("missing status block end marker")
+    if missing:
+        _raise_template_error(", ".join(missing))
+    if end <= start or version_index > start:
+        _raise_template_error("status block markers are out of order")
+    return version_index, start, end
+
+
+def _load_template_patterns() -> list[str]:
+    lines = _read_template_lines()
+    if lines is None:
         return []
+    _, start, end = _validate_template_markers(lines)
     patterns: list[str] = []
     for line in lines[start + 1 : end]:
         stripped = line.strip()
@@ -120,10 +158,10 @@ def load_template_gitignore() -> str:
 
 def load_template_block() -> str:
     """Load the shared status file .gitignore block from the template."""
-    template_path = Path(__file__).parent.parent / "templates/consumer-repo/.gitignore"
-    if not template_path.exists():
+    lines = _read_template_lines()
+    if lines is None:
         return generate_minimal_block()
-    lines = template_path.read_text(encoding="utf-8").splitlines()
+    _validate_template_markers(lines)
     header_index = next(
         (
             idx
@@ -133,39 +171,27 @@ def load_template_block() -> str:
         None,
     )
     if header_index is None:
-        return generate_minimal_block()
+        _raise_template_error("missing shared status files header")
     start = next(
-        (
-            idx
-            for idx in range(header_index, -1, -1)
-            if lines[idx]
-            .strip()
-            .startswith(
-                "# ============================================================================="
-            )
-        ),
+        (idx for idx in range(header_index, -1, -1) if lines[idx].strip() == SEPARATOR_LINE),
         header_index,
     )
-    end_header_index = next(
-        (idx for idx, line in enumerate(lines) if "Langchain Scripts Exclusion" in line),
+    end_marker_index = next(
+        (idx for idx in range(header_index, len(lines)) if lines[idx].strip() == PATTERN_BLOCK_END),
         None,
     )
-    if end_header_index is None:
-        return generate_minimal_block()
+    if end_marker_index is None:
+        _raise_template_error("missing status block end marker")
     end = next(
         (
             idx
-            for idx in range(end_header_index, -1, -1)
-            if lines[idx]
-            .strip()
-            .startswith(
-                "# ============================================================================="
-            )
+            for idx in range(end_marker_index + 1, len(lines))
+            if lines[idx].strip() == SEPARATOR_LINE
         ),
-        end_header_index,
+        None,
     )
-    if end <= start:
-        return generate_minimal_block()
+    if end is None or not (start < header_index < end_marker_index < end):
+        _raise_template_error("invalid status block boundary ordering")
     return "\n".join(lines[start:end]).rstrip("\n") + "\n"
 
 
@@ -174,6 +200,7 @@ def generate_minimal_block() -> str:
     lines = [GITIGNORE_BLOCK_HEADER.strip()]
     for pattern in CANONICAL_PATTERNS:
         lines.append(pattern)
+    lines.append(PATTERN_BLOCK_END)
     return "\n".join(lines) + "\n"
 
 
@@ -290,7 +317,11 @@ def main() -> int:
     args = parser.parse_args()
 
     if args.print_block:
-        print(load_template_block(), end="")
+        try:
+            print(load_template_block(), end="")
+        except TemplateBlockError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            return 1
         return 0
 
     if args.print_patterns:
