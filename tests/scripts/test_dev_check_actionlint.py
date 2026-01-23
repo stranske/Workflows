@@ -82,4 +82,25 @@ def test_dev_check_allows_allowlisted_secrets_key(tmp_path: Path) -> None:
         exit_code=1,
     )
 
+    combined = result.stdout + result.stderr
     assert result.returncode == 0
+    assert 'unexpected key "secrets" for "step"' not in combined
+
+
+def test_dev_check_reports_unexpected_secrets_even_when_actionlint_succeeds(
+    tmp_path: Path,
+) -> None:
+    file_path = "templates/consumer-repo/.github/workflows/bad.yml"
+    output = f'{file_path}:10:1: unexpected key "secrets" for "step"'
+
+    result = _run_dev_check(
+        tmp_path,
+        allowlist=[],
+        files=[file_path],
+        output=output,
+        exit_code=0,
+    )
+
+    combined = result.stdout + result.stderr
+    assert result.returncode != 0
+    assert 'unexpected key "secrets" for "step"' in combined

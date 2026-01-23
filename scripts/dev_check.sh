@@ -285,6 +285,17 @@ build_actionlint_ignore_args() {
     fi
 }
 
+build_actionlint_command() {
+    local -n cmd_ref="$1"
+    local -n files_ref="$2"
+
+    cmd_ref=("$ACTIONLINT_BIN")
+    if [[ ${#ACTIONLINT_IGNORE_ARGS[@]} -gt 0 ]]; then
+        cmd_ref+=("${ACTIONLINT_IGNORE_ARGS[@]}")
+    fi
+    cmd_ref+=("${files_ref[@]}")
+}
+
 load_actionlint_secrets_allowlist() {
     local allowlist_file="${DEV_CHECK_SECRETS_ALLOWLIST:-.github/actionlint-secrets-allowlist.txt}"
     ACTIONLINT_SECRETS_ALLOWLIST=()
@@ -350,9 +361,8 @@ run_actionlint_for_files() {
         echo -e "${BLUE}Running: ${ACTIONLINT_BIN} ${ACTIONLINT_IGNORE_ARGS[*]}${NC}"
     fi
 
-    local -a actionlint_cmd=("$ACTIONLINT_BIN")
-    actionlint_cmd+=("${ACTIONLINT_IGNORE_ARGS[@]}")
-    actionlint_cmd+=("${files_ref[@]}")
+    local -a actionlint_cmd=()
+    build_actionlint_command actionlint_cmd files_ref
 
     local exit_code=0
     if ! timeout "$CHECK_TIMEOUT" "${actionlint_cmd[@]}" > "$output_file" 2>&1; then
