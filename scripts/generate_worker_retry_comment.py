@@ -67,7 +67,7 @@ def _paginate_usages(script: str, step_name: str) -> list[str]:
     return failures
 
 
-def build_comment(workflow_path: pathlib.Path) -> str:
+def build_comment(workflow_path: pathlib.Path, include_label: bool = False) -> str:
     workflow = _load_workflow(workflow_path)
     rest_failures: list[str] = []
     paginate_failures: list[str] = []
@@ -76,6 +76,8 @@ def build_comment(workflow_path: pathlib.Path) -> str:
         paginate_failures.extend(_paginate_usages(script, step_name))
 
     lines: list[str] = []
+    if include_label:
+        lines.append("Label: needs-human")
     lines.append(
         "Blocked by workflow protection: update .github/workflows/agents-72-codex-belt-worker.yml "
         "to wrap github.rest.* calls with withRetry() and replace github.paginate(...) with "
@@ -106,8 +108,13 @@ def main() -> None:
         default=WORKFLOW_PATH,
         help="Path to the worker workflow YAML",
     )
+    parser.add_argument(
+        "--include-label",
+        action="store_true",
+        help="Include needs-human label line in the output",
+    )
     args = parser.parse_args()
-    print(build_comment(args.workflow))
+    print(build_comment(args.workflow, include_label=args.include_label))
 
 
 if __name__ == "__main__":
