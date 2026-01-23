@@ -62,6 +62,12 @@ jobs:
       has_label: ${{ steps.check.outputs.has_label }}
       issue_url: ${{ steps.check.outputs.issue_url }}
     steps:
+      - name: Checkout retry helpers
+        uses: actions/checkout@v6
+        with:
+          sparse-checkout: |
+            .github/scripts/github-api-with-retry.js
+          sparse-checkout-cone-mode: false
       - name: Inspect issue
         id: check
         uses: actions/github-script@v8
@@ -71,6 +77,16 @@ jobs:
           DEFAULT_VALID_ASSIGNEES: ${{ vars.AGENT_VERIFY_DEFAULT_ASSIGNEES || 'copilot,chatgpt-codex-connector,stranske-automation-bot' }}
         with:
           script: |
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry } = retryHelpers;
+
             const rawInput = (process.env.ISSUE_NUMBER || '').trim();
             const issueNumber = Number(rawInput);
             const { owner, repo } = context.repo;
@@ -138,11 +154,11 @@ jobs:
             let fetched = false;
 
             try {
-              const { data: issue } = await github.rest.issues.get({
+              const { data: issue } = await withRetry(() => github.rest.issues.get({
                 owner,
                 repo,
                 issue_number: issueNumber
-              });
+              }));
 
               issueTitle = issue.title ?? '—';
               fetched = true;

@@ -426,6 +426,14 @@ jobs:
           script: |
             const fs = require('fs');
             const crypto = require('crypto');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry, paginateWithRetry } = retryHelpers;
             const defaultOutputs = {
               created_issues: 0,
               updated_issues: 0,
@@ -671,7 +679,7 @@ jobs:
                 }
               return dp[a.length][b.length];
             };
-            const labelsCache = await github.paginate(
+            const labelsCache = await paginateWithRetry(
               github.rest.issues.listLabelsForRepo,
               { owner, repo, per_page: 100 },
             );
@@ -817,13 +825,13 @@ jobs:
                 }
                 const color = generateColor(pending.name);
                 try {
-                  const created = await github.rest.issues.createLabel({
+                  const created = await withRetry(() => github.rest.issues.createLabel({
                     owner,
                     repo,
                     name: pending.name,
                     color,
                     description: `Synthesized from ChatGPT import for ${pending.source}`,
-                  });
+                  }));
                   labelsCache.push(created.data);
                   const resolvedName = created.data.name || pending.name;
                   memoizeLabelResolution([...pending.keys, resolvedName], resolvedName);
@@ -946,17 +954,17 @@ jobs:
                 let issueNumber = null;
                 if (guid) {
                   const escapedGuid = escapeSearch(guid);
-                  const searchOpen = await github.rest.search.issuesAndPullRequests({
+                  const searchOpen = await withRetry(() => github.rest.search.issuesAndPullRequests({
                     q: `repo:${owner}/${repo} "${escapedGuid}" in:body is:issue is:open`,
                     per_page: 1,
-                  });
+                  }));
                   if (searchOpen.data.items.length) {
                     issueNumber = searchOpen.data.items[0].number;
                   } else {
-                    const searchAny = await github.rest.search.issuesAndPullRequests({
+                    const searchAny = await withRetry(() => github.rest.search.issuesAndPullRequests({
                       q: `repo:${owner}/${repo} "${escapedGuid}" in:body is:issue`,
                       per_page: 1,
-                    });
+                    }));
                     if (searchAny.data.items.length) {
                       issueNumber = searchAny.data.items[0].number;
                     }
@@ -964,24 +972,24 @@ jobs:
                 }
                 if (!issueNumber && title && title.trim()) {
                   const quotedTitle = escapeSearch(title.trim());
-                  const searchTitleOpen = await github.rest.search.issuesAndPullRequests({
+                  const searchTitleOpen = await withRetry(() => github.rest.search.issuesAndPullRequests({
                     q: `repo:${owner}/${repo} "${quotedTitle}" in:title is:issue is:open`,
                     per_page: 1,
-                  });
+                  }));
                   if (searchTitleOpen.data.items.length) {
                     issueNumber = searchTitleOpen.data.items[0].number;
                   } else {
-                    const searchTitleAny = await github.rest.search.issuesAndPullRequests({
+                    const searchTitleAny = await withRetry(() => github.rest.search.issuesAndPullRequests({
                       q: `repo:${owner}/${repo} "${quotedTitle}" in:title is:issue`,
                       per_page: 1,
-                    });
+                    }));
                     if (searchTitleAny.data.items.length) {
                       issueNumber = searchTitleAny.data.items[0].number;
                     }
                   }
                 }
                 if (issueNumber) {
-                  const issueData = await github.rest.issues.get({ owner, repo, issue_number: issueNumber });
+                  const issueData = await withRetry(() => github.rest.issues.get({ owner, repo, issue_number: issueNumber }));
                   const current = (issueData.data.labels || [])
                     .map((l) => l.name)
                     .filter(Boolean);
@@ -1063,19 +1071,19 @@ jobs:
                     payload.body = bodyForUpdate;
                   }
                   if (needsStateChange) payload.state = 'open';
-                  await github.rest.issues.update(payload);
+                  await withRetry(() => github.rest.issues.update(payload));
                   updatedCount += 1;
                   if (needsStateChange) {
                     reopenedCount += 1;
                   }
                   if (needsTitle || needsBody || needsLabels || needsStateChange) {
                     try {
-                      await github.rest.issues.createComment({
+                      await withRetry(() => github.rest.issues.createComment({
                         owner,
                         repo,
                         issue_number: issueNumber,
                         body: `Updated by [workflow run](${process.env.RUN_URL}).`,
-                      });
+                      }));
                     } catch (e) {
                       core.warning(`Failed to comment on issue #${issueNumber}: ${e.message}`);
                     }
@@ -1098,13 +1106,13 @@ jobs:
                       ),
                     );
                   }
-                  const created = await github.rest.issues.create({
+                  const created = await withRetry(() => github.rest.issues.create({
                     owner,
                     repo,
                     title,
                     body,
                     labels: labelsForCreation,
-                  });
+                  }));
                   core.info(`Created issue #${created.data.number} for ${title}.`);
                   createdIssueNumbers.push(created.data.number);
                   createdCount += 1;
@@ -1173,6 +1181,12 @@ jobs:
       issue_number: ${{ steps.inspect.outputs.issue_number }}
       agent_key: ${{ steps.inspect.outputs.agent_key }}
     steps:
+      - name: Checkout retry helpers
+        uses: actions/checkout@v6
+        with:
+          sparse-checkout: |
+            .github/scripts/github-api-with-retry.js
+          sparse-checkout-cone-mode: false
       - name: Inspect label contract
         id: inspect
         env:
@@ -1193,6 +1207,15 @@ jobs:
             }
             const { owner, repo } = context.repo;
             const num = Number(issueNumber);
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry } = retryHelpers;
 
             // Use event payload labels if available (avoids API call, prevents rate limiting)
             let labels;
@@ -1210,7 +1233,7 @@ jobs:
             } else {
               // Fallback to API call for manual dispatch or mismatched issue numbers
               core.info('Fetching labels via API (event payload not available or issue mismatch).');
-              const { data: issue } = await github.rest.issues.get({ owner, repo, issue_number: num });
+              const { data: issue } = await withRetry(() => github.rest.issues.get({ owner, repo, issue_number: num }));
               labels = (issue.labels || [])
                 .map(label => typeof label === 'string' ? label : (label.name || ''))
                 .filter(Boolean)
