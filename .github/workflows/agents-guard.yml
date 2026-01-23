@@ -38,6 +38,7 @@ jobs:
           ref: ${{ github.event.pull_request.base.sha }}
           sparse-checkout: |
             .github/scripts/agents-guard.js
+            .github/scripts/github-api-with-retry.js
             .github/workflows/agents-guard.yml
 
       - name: Verify pull_request_target safety invariants
@@ -62,6 +63,7 @@ jobs:
         with:
           sparse-checkout: |
             .github/scripts/agents-guard.js
+            .github/scripts/github-api-with-retry.js
             .github/workflows/agents-guard.yml
 
       - name: Evaluate protected file changes
@@ -71,6 +73,14 @@ jobs:
           script: |
             const fs = require('fs');
             const path = require('path');
+            const retryHelperPath = path.resolve(process.env.GITHUB_WORKSPACE || process.cwd(), '.github/scripts/github-api-with-retry.js');
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry, paginateWithRetry } = retryHelpers;
             const workspace = process.env.GITHUB_WORKSPACE || process.cwd();
             const guardRelativePath = '.github/scripts/agents-guard.js';
             const guardPath = path.resolve(workspace, guardRelativePath);
@@ -86,7 +96,7 @@ jobs:
             async function withApiRetry(fn, { label = 'operation', maxAttempts = 5, baseDelay = 1000 } = {}) {
               for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
                 try {
-                  return await fn();
+                  return await withRetry(() => fn());
                 } catch (error) {
                   const status = error?.status || error?.response?.status;
                   const headers = error?.response?.headers || {};
@@ -192,7 +202,7 @@ jobs:
             async function safePaginate(label, fn, params) {
               try {
                 return await withApiRetry(
-                  () => github.paginate(fn, params),
+                  () => paginateWithRetry(fn, params),
                   { label },
                 );
               } catch (error) {

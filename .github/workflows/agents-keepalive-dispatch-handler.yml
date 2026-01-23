@@ -109,6 +109,15 @@ jobs:
         with:
           github-token: ${{ env.GH_TOKEN }}
           script: |
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry } = retryHelpers;
             const payload = context.payload?.client_payload || {};
             const prNumber = Number(payload.issue);
             if (!Number.isFinite(prNumber) || prNumber <= 0) {
@@ -116,11 +125,11 @@ jobs:
               return;
             }
 
-            const { data: pr } = await github.rest.pulls.get({
+            const { data: pr } = await withRetry(() => github.rest.pulls.get({
               owner: context.repo.owner,
               repo: context.repo.repo,
               pull_number: prNumber,
-            });
+            }));
 
             // Support both legacy flat payload and new nested `meta` structure.
             // New dispatches nest comment info under `meta` to stay within GitHub's

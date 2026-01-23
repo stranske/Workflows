@@ -27,12 +27,27 @@ jobs:
     outputs:
       moderated: ${{ steps.evaluate.outputs.delete || 'false' }}
     steps:
+      - name: Checkout retry helpers
+        uses: actions/checkout@v6
+        with:
+          sparse-checkout: |
+            .github/scripts/github-api-with-retry.js
+          sparse-checkout-cone-mode: false
       - name: Evaluate comment for moderation
         id: evaluate
         uses: actions/github-script@v8
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry } = retryHelpers;
             const normaliseList = (value) =>
               String(value || '')
                 .split(',')
@@ -73,7 +88,7 @@ jobs:
 
             let hasDebugLabel = false;
             try {
-              const response = await github.rest.issues.get({ owner, repo, issue_number: issue.number });
+              const response = await withRetry(() => github.rest.issues.get({ owner, repo, issue_number: issue.number }));
               const labels = Array.isArray(response?.data?.labels) ? response.data.labels : [];
               hasDebugLabel = labels.some((label) => {
                 if (!label) {
@@ -190,6 +205,15 @@ jobs:
         with:
           github-token: ${{ steps.select_token.outputs.token }}
           script: |
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry } = retryHelpers;
             const commentId = Number(process.env.COMMENT_ID || 0);
             if (!Number.isFinite(commentId) || commentId <= 0) {
               core.setFailed('Unable to delete connector comment: invalid comment id.');
@@ -198,11 +222,11 @@ jobs:
 
             const { owner, repo } = context.repo;
 
-            await github.rest.issues.deleteComment({
+            await withRetry(() => github.rest.issues.deleteComment({
               owner,
               repo,
               comment_id: commentId,
-            });
+            }));
             core.info(`Deleted connector comment ${commentId}.`);
 
       - name: Summarise moderation

@@ -18,6 +18,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          sparse-checkout: |
+            .github/scripts/github-api-with-retry.js
+          sparse-checkout-cone-mode: false
 
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -65,12 +69,20 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry, paginateWithRetry } = retryHelpers;
             const { owner, repo } = context.repo;
             const summaryPath = 'agent-weekly-metrics.md';
             const body = fs.existsSync(summaryPath) ? fs.readFileSync(summaryPath, 'utf8') : 'No metrics available.';
             const title = 'Agent metrics weekly summary';
 
-            const issues = await github.paginate(github.rest.issues.listForRepo, {
+            const issues = await paginateWithRetry(github.rest.issues.listForRepo, {
               owner,
               repo,
               state: 'open',
@@ -79,20 +91,20 @@ jobs:
             let target = issues.find((issue) => issue.title === title);
 
             if (!target) {
-              const created = await github.rest.issues.create({
+              const created = await withRetry(() => github.rest.issues.create({
                 owner,
                 repo,
                 title,
                 body: 'Tracking issue for weekly agent workflow metrics.\n\n' + body,
-              });
+              }));
               target = created.data;
             } else {
-              await github.rest.issues.createComment({
+              await withRetry(() => github.rest.issues.createComment({
                 owner,
                 repo,
                 issue_number: target.number,
                 body,
-              });
+              }));
             }
 
             core.setOutput('issue_number', target.number);
