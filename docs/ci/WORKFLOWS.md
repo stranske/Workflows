@@ -146,6 +146,8 @@ The agent workflows coordinate Codex and chat orchestration across topics:
 * [`agents-dedup.yml`](../../.github/workflows/agents-dedup.yml) detects duplicate issues using semantic similarity analysis and posts findings as a comment.
 * [`agents-verify-to-issue.yml`](../../.github/workflows/agents-verify-to-issue.yml) creates follow-up issues from verification feedback when PRs receive CONCERNS or FAIL verdicts.
 * [`agents-verify-to-issue-v2.yml`](../../.github/workflows/agents-verify-to-issue-v2.yml) enhanced follow-up issue creation using LangChain LLM for multi-round analysis (deployed as `agents-verify-to-issue.yml` to consumers).
+* [`agents-verify-to-new-pr.yml`](../../.github/workflows/agents-verify-to-new-pr.yml) creates a follow-up issue from verification feedback and emits metadata to kick off a new PR.
+* [`agents-verify-to-new-pr-autopilot.yml`](../../.github/workflows/agents-verify-to-new-pr-autopilot.yml) bridges the follow-up issue into auto-pilot via `workflow_run` to continue optimize → apply → agent → PR creation.
 * [`maint-dependabot-auto-label.yml`](../../.github/workflows/maint-dependabot-auto-label.yml) automatically applies the `agents:allow-change` label to Dependabot PRs.
 * [`maint-dependabot-auto-lock.yml`](../../.github/workflows/maint-dependabot-auto-lock.yml) automatically regenerates requirements.lock when dependabot updates pyproject.toml.
 * [`maint-dependabot-weekly-sweep.yml`](../../.github/workflows/maint-dependabot-weekly-sweep.yml) sweeps registered consumer repos weekly to enable Dependabot auto-merge and merge eligible PRs when checks are green.

@@ -24,7 +24,7 @@ jobs:
           set -euo pipefail
           repo="${GITHUB_REPOSITORY}"
           artifact_id=$(gh api "repos/${repo}/actions/runs/${RUN_ID}/artifacts" \
-            --jq '.artifacts[] | select(.name=="verify-create-new-pr-output") | .id' | head -n 1)
+            --jq '[.artifacts[] | select(.name=="verify-create-new-pr-output") | .id][0]')
           if [ -z "${artifact_id}" ]; then
             echo "Missing verify-create-new-pr-output artifact for run ${RUN_ID}" >&2
             exit 1
@@ -46,5 +46,5 @@ jobs:
           api_path="repos/${GITHUB_REPOSITORY}/actions/workflows/${workflow}/dispatches"
           gh api -X POST "${api_path}" \
             -f ref=main \
-            -f inputs[issue_number]="${issue_number}" \
-            -f inputs[force_step]=optimize
+            -f "inputs[issue_number]=${issue_number}" \
+            -f "inputs[force_step]=optimize"
