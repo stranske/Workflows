@@ -48,3 +48,10 @@ Respond in JSON with:
   "concerns": ["..."],
   "summary": "concise report focusing on code quality and acceptance criteria fulfillment"
 }}
+
+### Concern requirements
+
+- Each item in `concerns` MUST be actionable and specific.
+- Each concern MUST include a file path and the concrete change needed (e.g., "File: path/to/file.py – add test for X", "File: .github/workflows/foo.yml – wrap github.rest call with withRetry()").
+- If an acceptance criterion is unmet, explicitly tie the concern to that criterion.
+- If there are no actionable concerns, return an empty list.

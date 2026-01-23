@@ -58,6 +58,12 @@ Respond in JSON with:
   "concerns": ["..."],
   "summary": "concise report"
 }}
+
+Concern requirements:
+- Each item in "concerns" MUST be actionable and specific.
+- Each concern MUST include a file path and the concrete change needed.
+- If an acceptance criterion is unmet, tie the concern to that criterion.
+- If there are no actionable concerns, return an empty list.
 """.strip()
 
 PROMPT_PATH = Path(__file__).resolve().parent / "prompts" / "pr_evaluation.md"
