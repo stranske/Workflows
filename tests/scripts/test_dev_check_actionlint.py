@@ -3,7 +3,6 @@ from __future__ import annotations
 import os
 import subprocess
 from pathlib import Path
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -81,7 +80,6 @@ def test_dev_check_allows_allowlisted_secrets_key(tmp_path: Path) -> None:
         output=output,
         exit_code=1,
     )
-
     combined = result.stdout + result.stderr
     assert result.returncode == 0
     assert 'unexpected key "secrets" for "step"' not in combined
