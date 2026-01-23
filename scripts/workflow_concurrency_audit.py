@@ -376,9 +376,7 @@ def _format_missing_summary(results: list[WorkflowConcurrencyAudit]) -> str:
     lines = [f"missing_or_incorrect_total\t{len(missing)}"]
     for item in missing:
         recommended = item.recommended_group or ""
-        lines.append(
-            f"missing_or_incorrect\t{item.path}\t{item.action_required}\t{recommended}"
-        )
+        lines.append(f"missing_or_incorrect\t{item.path}\t{item.action_required}\t{recommended}")
     return "\n".join(lines)
 
 

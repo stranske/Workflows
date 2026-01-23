@@ -700,8 +700,7 @@ jobs:
     lines = output.splitlines()
     assert lines[0] == "missing_or_incorrect_total\t1"
     assert (
-        lines[1]
-        == f"missing_or_incorrect\t{workflow_path}\tadd_concurrency\t"
+        lines[1] == f"missing_or_incorrect\t{workflow_path}\tadd_concurrency\t"
         "${{ github.workflow }}-${{ github.ref }}"
     )
 
