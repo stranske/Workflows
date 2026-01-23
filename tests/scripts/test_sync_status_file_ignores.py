@@ -22,9 +22,13 @@ def _template_block_patterns() -> list[str]:
     start = next(
         idx
         for idx, line in enumerate(lines)
-        if "Workflows Consumer Repo - Shared Status Files" in line
+        if line.strip() == sync_status_file_ignores.PATTERN_BLOCK_BEGIN
     )
-    end = next(idx for idx, line in enumerate(lines) if "Langchain Scripts Exclusion" in line)
+    end = next(
+        idx
+        for idx, line in enumerate(lines)
+        if line.strip() == sync_status_file_ignores.PATTERN_BLOCK_END
+    )
     patterns: list[str] = []
     for line in lines[start + 1 : end]:
         stripped = line.strip()
@@ -39,6 +43,8 @@ def test_generate_minimal_block_includes_header_and_patterns() -> None:
 
     assert block.startswith(sync_status_file_ignores.GITIGNORE_BLOCK_HEADER.strip())
     assert "Validate: python scripts/sync_status_file_ignores.py --check" in block
+    assert sync_status_file_ignores.PATTERN_BLOCK_BEGIN in block
+    assert sync_status_file_ignores.PATTERN_BLOCK_END in block
     assert block.endswith("\n")
     for pattern in sync_status_file_ignores.CANONICAL_PATTERNS:
         assert f"\n{pattern}\n" in block or block.endswith(f"{pattern}\n")
@@ -60,6 +66,35 @@ def test_load_template_patterns_matches_canonical() -> None:
 
     assert template_patterns
     assert template_patterns == sync_status_file_ignores.CANONICAL_PATTERNS
+
+
+def test_template_has_version_and_anchors() -> None:
+    template_path = Path(sync_status_file_ignores.__file__).resolve().parents[1]
+    template_path = template_path / "templates/consumer-repo/.gitignore"
+    text = template_path.read_text(encoding="utf-8")
+
+    assert sync_status_file_ignores.PATTERN_BLOCK_BEGIN in text
+    assert sync_status_file_ignores.PATTERN_BLOCK_END in text
+    assert sync_status_file_ignores.TEMPLATE_VERSION_PREFIX in text
+
+
+def test_load_template_patterns_requires_version_marker(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    template_path = Path(sync_status_file_ignores.__file__).resolve().parents[1]
+    template_path = template_path / "templates/consumer-repo/.gitignore"
+    original_text = template_path.read_text(encoding="utf-8")
+    modified_text = original_text.replace(sync_status_file_ignores.TEMPLATE_VERSION_PREFIX, "# ")
+    original_read_text = Path.read_text
+
+    def fake_read_text(self: Path, encoding: str = "utf-8") -> str:
+        if self == template_path:
+            return modified_text
+        return original_read_text(self, encoding=encoding)
+
+    monkeypatch.setattr(Path, "read_text", fake_read_text)
+
+    assert sync_status_file_ignores._load_template_patterns() == []
 
 
 def test_check_gitignore_content_ignores_comments_and_negation() -> None:

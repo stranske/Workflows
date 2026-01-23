@@ -74,7 +74,13 @@ GITIGNORE_BLOCK_HEADER = """# ==================================================
 # Sync from: stranske/Workflows templates/consumer-repo/.gitignore
 # Validate: python scripts/sync_status_file_ignores.py --check
 # =============================================================================
+# Template-Version: 1
+# BEGIN WORKFLOWS STATUS FILES
 """
+
+TEMPLATE_VERSION_PREFIX = "# Template-Version:"
+PATTERN_BLOCK_BEGIN = "# BEGIN WORKFLOWS STATUS FILES"
+PATTERN_BLOCK_END = "# END WORKFLOWS STATUS FILES"
 
 
 def _load_template_patterns() -> list[str]:
@@ -83,19 +89,29 @@ def _load_template_patterns() -> list[str]:
         return []
     text = template_path.read_text(encoding="utf-8")
     lines = text.splitlines()
-    start = next(
+    version_index = next(
         (
             idx
             for idx, line in enumerate(lines)
-            if "Workflows Consumer Repo - Shared Status Files" in line
+            if line.strip().startswith(TEMPLATE_VERSION_PREFIX)
         ),
         None,
     )
-    end = next(
-        (idx for idx, line in enumerate(lines) if "Langchain Scripts Exclusion" in line),
+    start = next(
+        (idx for idx, line in enumerate(lines) if line.strip() == PATTERN_BLOCK_BEGIN),
         None,
     )
-    if start is None or end is None or end <= start:
+    end = next(
+        (idx for idx, line in enumerate(lines) if line.strip() == PATTERN_BLOCK_END),
+        None,
+    )
+    if (
+        version_index is None
+        or start is None
+        or end is None
+        or end <= start
+        or version_index > start
+    ):
         return []
     patterns: list[str] = []
     for line in lines[start + 1 : end]:
@@ -174,6 +190,7 @@ def generate_minimal_block() -> str:
     lines = [GITIGNORE_BLOCK_HEADER.strip()]
     for pattern in CANONICAL_PATTERNS:
         lines.append(pattern)
+    lines.append(PATTERN_BLOCK_END)
     return "\n".join(lines) + "\n"
 
 
