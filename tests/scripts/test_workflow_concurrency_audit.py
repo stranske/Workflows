@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 
 from scripts import workflow_concurrency_audit
@@ -62,9 +63,18 @@ def test_normalize_triggers_ignores_blank_entries() -> None:
     assert triggers == ("issues", "pull_request")
 
 
-def test_normalize_triggers_ignores_non_string_entries() -> None:
+def test_normalize_triggers_coerces_non_string_entries() -> None:
     triggers = workflow_concurrency_audit.normalize_triggers(["pull_request", None, 123, True])
-    assert triggers == ("pull_request",)
+    assert triggers == ("123", "None", "True", "pull_request")
+
+
+def test_normalize_triggers_logs_warning_for_non_string_entries(caplog) -> None:
+    caplog.set_level(logging.WARNING)
+    triggers = workflow_concurrency_audit.normalize_triggers([123])
+    assert triggers == ("123",)
+    warnings = [record for record in caplog.records if record.levelno == logging.WARNING]
+    assert len(warnings) == 1
+    assert "Non-string trigger value encountered" in warnings[0].message
 
 
 def test_audit_accepts_job_level_cancel(tmp_path: Path) -> None:
