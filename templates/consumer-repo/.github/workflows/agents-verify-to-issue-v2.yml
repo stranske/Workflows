@@ -26,16 +26,12 @@ jobs:
       vars.USE_CONSOLIDATED_WORKFLOWS != 'true' &&
       github.event.label.name == 'verify:create-issue'
     runs-on: ubuntu-latest
-    env:
-      GH_TOKEN: >-
-        ${{ secrets.CODESPACES_WORKFLOWS || secrets.OWNER_PR_PAT ||
-        secrets.SERVICE_BOT_PAT || github.token }}
     steps:
       - name: Check PR is merged
         id: check-merged
         uses: actions/github-script@v8
         with:
-          github-token: ${{ env.GH_TOKEN }}
+          github-token: ${{ github.token }}
           script: |
             const pr = context.payload.pull_request;
             if (!pr.merged) {
@@ -46,12 +42,35 @@ jobs:
             core.setOutput('pr_number', pr.number);
             core.setOutput('pr_title', pr.title);
 
+      - name: Select GitHub token
+        id: select-token
+        if: steps.check-merged.outputs.merged == 'true'
+        env:
+          CODESPACES_WORKFLOWS: ${{ secrets.CODESPACES_WORKFLOWS }}
+          OWNER_PR_PAT: ${{ secrets.OWNER_PR_PAT }}
+          SERVICE_BOT_PAT: ${{ secrets.SERVICE_BOT_PAT }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          if [ -n "$CODESPACES_WORKFLOWS" ]; then
+            echo "token=$CODESPACES_WORKFLOWS" >> "$GITHUB_OUTPUT"
+            echo "source=codespaces" >> "$GITHUB_OUTPUT"
+          elif [ -n "$OWNER_PR_PAT" ]; then
+            echo "token=$OWNER_PR_PAT" >> "$GITHUB_OUTPUT"
+            echo "source=owner-pat" >> "$GITHUB_OUTPUT"
+          elif [ -n "$SERVICE_BOT_PAT" ]; then
+            echo "token=$SERVICE_BOT_PAT" >> "$GITHUB_OUTPUT"
+            echo "source=service-bot" >> "$GITHUB_OUTPUT"
+          else
+            echo "token=$GITHUB_TOKEN" >> "$GITHUB_OUTPUT"
+            echo "source=github-token" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Checkout repository
         if: steps.check-merged.outputs.merged == 'true'
         uses: actions/checkout@v6
         with:
           repository: stranske/Workflows
-          token: ${{ env.GH_TOKEN }}
+          token: ${{ steps.select-token.outputs.token }}
           sparse-checkout: |
             scripts/langchain
             tools
@@ -72,7 +91,7 @@ jobs:
         if: steps.check-merged.outputs.merged == 'true'
         uses: actions/github-script@v8
         with:
-          github-token: ${{ env.GH_TOKEN }}
+          github-token: ${{ steps.select-token.outputs.token }}
           script: |
             const fs = require('fs');
             const prNumber = context.payload.pull_request.number;
@@ -159,7 +178,7 @@ jobs:
         if: steps.check-merged.outputs.merged == 'true'
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          GITHUB_TOKEN: ${{ env.GH_TOKEN }}
+          GITHUB_TOKEN: ${{ steps.select-token.outputs.token }}
           ORIGINAL_ISSUE_NUMBER: ${{ steps.collect.outputs.original_issue_number }}
           ORIGINAL_ISSUE_TITLE: ${{ steps.collect.outputs.original_issue_title }}
           PR_NUMBER: ${{ steps.check-merged.outputs.pr_number }}
@@ -189,7 +208,7 @@ jobs:
         if: steps.generate.outcome == 'failure' && steps.check-merged.outputs.merged == 'true'
         uses: actions/github-script@v8
         with:
-          github-token: ${{ env.GH_TOKEN }}
+          github-token: ${{ steps.select-token.outputs.token }}
           script: |
             // Fallback to original simple extraction if Python script fails
             const fs = require('fs');
@@ -279,7 +298,7 @@ jobs:
             ${{ steps.generate.outputs.issue_body ||
             steps.fallback.outputs.issue_body }}
         with:
-          github-token: ${{ env.GH_TOKEN }}
+          github-token: ${{ steps.select-token.outputs.token }}
           script: |
             const title = process.env.ISSUE_TITLE;
             const body = process.env.ISSUE_BODY;
@@ -308,7 +327,7 @@ jobs:
           ISSUE_NUMBER: ${{ steps.create-issue.outputs.issue_number }}
           ISSUE_URL: ${{ steps.create-issue.outputs.issue_url }}
         with:
-          github-token: ${{ env.GH_TOKEN }}
+          github-token: ${{ steps.select-token.outputs.token }}
           script: |
             const issueNumber = process.env.ISSUE_NUMBER;
             const issueUrl = process.env.ISSUE_URL;
@@ -338,7 +357,7 @@ jobs:
         uses: actions/github-script@v8
         continue-on-error: true
         with:
-          github-token: ${{ env.GH_TOKEN }}
+          github-token: ${{ steps.select-token.outputs.token }}
           script: |
             try {
               await github.rest.issues.removeLabel({
