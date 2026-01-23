@@ -6,10 +6,10 @@ tasks:
   - id: task-01
     title: 'Add a top-level ''concurrency'' definition with ''cancel-in-progress:
       true'' to all YAML files in ''.github/workflows/''.'
-    status: done
-    started_at: '2026-01-23T06:22:22Z'
-    finished_at: '2026-01-23T06:22:31Z'
-    commit: 638c12389e83aa7aa00033cb8c22086d71fbc3af
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
     notes: []
   - id: task-02
     title: 'Define approach for: Add a top-level ''concurrency'' definition with ''cancel-in-progress:
