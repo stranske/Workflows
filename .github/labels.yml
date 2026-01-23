@@ -65,6 +65,11 @@
   color: 0052cc
   description: Eligible for auto-merge when checks pass
 
+# Verification follow-up labels
+- name: verify:create-new-pr
+  color: 5319e7
+  description: Create a follow-up issue and new PR from verification results
+
 # Risk assessment labels
 - name: risk:low
   color: 0e8a16
