@@ -369,6 +369,19 @@ def format_markdown(results: list[WorkflowConcurrencyAudit]) -> str:
     return "\n".join(lines)
 
 
+def _format_missing_summary(results: list[WorkflowConcurrencyAudit]) -> str:
+    missing = [item for item in results if item.missing_or_incorrect]
+    if not missing:
+        return ""
+    lines = [f"missing_or_incorrect_total\t{len(missing)}"]
+    for item in missing:
+        recommended = item.recommended_group or ""
+        lines.append(
+            f"missing_or_incorrect\t{item.path}\t{item.action_required}\t{recommended}"
+        )
+    return "\n".join(lines)
+
+
 def calculate_debounced_runs(
     before_path: Path,
     after_path: Path,
@@ -534,6 +547,10 @@ def main() -> int:
         print(format_markdown(results))
     else:
         print(format_table(results))
+    missing_summary = _format_missing_summary(results)
+    if missing_summary and args.format != "json":
+        print()
+        print(missing_summary)
     if debounced_summary is not None and args.format != "json":
         print()
         print(_format_debounced_summary(debounced_summary))

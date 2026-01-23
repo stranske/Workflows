@@ -654,6 +654,58 @@ jobs:
     assert "\\|\\|" in row
 
 
+def test_format_missing_summary_returns_empty_when_no_issues(tmp_path: Path) -> None:
+    workflow_dir = tmp_path / "workflows"
+    workflow_dir.mkdir()
+    _write_workflow(
+        workflow_dir / "clean.yml",
+        """
+name: Clean
+on: pull_request
+concurrency:
+  group: pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo ok
+""",
+    )
+
+    results = workflow_concurrency_audit.audit_workflows(workflow_dir)
+    output = workflow_concurrency_audit._format_missing_summary(results)
+    assert output == ""
+
+
+def test_format_missing_summary_includes_missing_entries(tmp_path: Path) -> None:
+    workflow_dir = tmp_path / "workflows"
+    workflow_dir.mkdir()
+    workflow_path = workflow_dir / "ci.yml"
+    _write_workflow(
+        workflow_path,
+        """
+name: CI
+on: [push]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo ok
+""",
+    )
+
+    results = workflow_concurrency_audit.audit_workflows(workflow_dir)
+    output = workflow_concurrency_audit._format_missing_summary(results)
+    lines = output.splitlines()
+    assert lines[0] == "missing_or_incorrect_total\t1"
+    assert (
+        lines[1]
+        == f"missing_or_incorrect\t{workflow_path}\tadd_concurrency\t"
+        "${{ github.workflow }}-${{ github.ref }}"
+    )
+
+
 def test_calculate_debounced_runs_summarizes_totals() -> None:
     summary = workflow_concurrency_audit.calculate_debounced_runs(
         _runs_fixture("before.json"),
