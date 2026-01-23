@@ -802,7 +802,7 @@ jobs:
 
             await ensureLabel();
 
-            const issues = await paginateWithRetry(github.rest.issues.listForRepo, {
+            const issues = await paginateWithRetry(github, github.rest.issues.listForRepo, {
               owner,
               repo,
               state: 'all',
@@ -942,7 +942,7 @@ jobs:
 
             await ensureLabel();
 
-            const issues = await paginateWithRetry(github.rest.issues.listForRepo, {
+            const issues = await paginateWithRetry(github, github.rest.issues.listForRepo, {
               owner,
               repo,
               state: 'all',

@@ -1183,7 +1183,7 @@ jobs:
             const { withRetry, paginateWithRetry } = retryHelpers;
             try {
               // Fetch existing comments once (first 100 is ample for typical PRs)
-              const comments = await paginateWithRetry(github.rest.issues.listComments, { owner: context.repo.owner, repo: context.repo.repo, issue_number: prNumber, per_page: 100 });
+              const comments = await paginateWithRetry(github, github.rest.issues.listComments, { owner: context.repo.owner, repo: context.repo.repo, issue_number: prNumber, per_page: 100 });
               const existing = comments.find(c => c.body && c.body.includes(marker));
               if (existing) {
                 await withRetry(() => github.rest.issues.updateComment({ owner: context.repo.owner, repo: context.repo.repo, comment_id: existing.id, body }));
@@ -1235,7 +1235,7 @@ jobs:
             const header = `Clean-mode cosmetic autofix${labelSuffix} updated these files:`;
             const bodyLines = [marker, header, '', ...filesRaw.map((file) => `- \`${file}\``)];
             const body = bodyLines.join('\n');
-            const comments = await paginateWithRetry(github.rest.issues.listComments, { owner: context.repo.owner, repo: context.repo.repo, issue_number: prNumber, per_page: 100 });
+            const comments = await paginateWithRetry(github, github.rest.issues.listComments, { owner: context.repo.owner, repo: context.repo.repo, issue_number: prNumber, per_page: 100 });
             const existing = comments.find((comment) => comment.body && comment.body.includes(marker));
             if (existing) {
               await withRetry(() => github.rest.issues.updateComment({ owner: context.repo.owner, repo: context.repo.repo, comment_id: existing.id, body }));
@@ -1276,7 +1276,7 @@ jobs:
             const header = 'Autofix updated these files:';
             const bodyLines = [marker, header, '', ...filesRaw.map((file) => `- \`${file}\``)];
             const body = bodyLines.join('\n');
-            const comments = await paginateWithRetry(github.rest.issues.listComments, { owner: context.repo.owner, repo: context.repo.repo, issue_number: prNumber, per_page: 100 });
+            const comments = await paginateWithRetry(github, github.rest.issues.listComments, { owner: context.repo.owner, repo: context.repo.repo, issue_number: prNumber, per_page: 100 });
             const existing = comments.find((comment) => comment.body && comment.body.includes(marker));
             if (existing) {
               await withRetry(() => github.rest.issues.updateComment({ owner: context.repo.owner, repo: context.repo.repo, comment_id: existing.id, body }));

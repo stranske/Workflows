@@ -1070,7 +1070,7 @@ jobs:
               if (summaryNeedsWarning && issueNumber) {
                 const warningHeader = `### Template Warning for Issue #${issueNumber}`;
                 const warningBody = [warningHeader, '', ...warningDetails].join('\n').trim();
-                const comments = await paginateWithRetry(github.rest.issues.listComments, {
+                const comments = await paginateWithRetry(github, github.rest.issues.listComments, {
                   owner,
                   repo,
                   issue_number: issueNumber,
@@ -1127,7 +1127,7 @@ jobs:
               return;
             }
 
-            const existing = await paginateWithRetry(github.rest.issues.listComments, {
+            const existing = await paginateWithRetry(github, github.rest.issues.listComments, {
               owner,
               repo,
               issue_number: prNumber,

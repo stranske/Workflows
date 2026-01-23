@@ -401,7 +401,7 @@ jobs:
                 return null;
               }
               try {
-                const labels = await paginateWithRetry(github.rest.issues.listLabelsOnIssue, {
+                const labels = await paginateWithRetry(github, github.rest.issues.listLabelsOnIssue, {
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   issue_number: numeric,
@@ -673,7 +673,7 @@ jobs:
 
                 if (scopeSource === 'placeholder') {
                   try {
-                    const comments = await paginateWithRetry(github.rest.issues.listComments, {
+                    const comments = await paginateWithRetry(github, github.rest.issues.listComments, {
                       owner,
                       repo,
                       issue_number: prNumber,
@@ -713,7 +713,7 @@ jobs:
             let latestInstruction = null;
 
             try {
-              const comments = await paginateWithRetry(github.rest.issues.listComments, {
+              const comments = await paginateWithRetry(github, github.rest.issues.listComments, {
                 owner,
                 repo,
                 issue_number: prNumber,
@@ -777,7 +777,7 @@ jobs:
               const parsedCommentId = Number(latestInstruction.commentId);
               if (Number.isFinite(parsedCommentId)) {
                 try {
-                  const reactions = await paginateWithRetry(github.rest.reactions.listForIssueComment, {
+                  const reactions = await paginateWithRetry(github, github.rest.reactions.listForIssueComment, {
                     owner,
                     repo,
                     comment_id: parsedCommentId,
@@ -958,7 +958,7 @@ jobs:
               return;
             }
 
-            const labels = await paginateWithRetry(github.rest.issues.listLabelsOnIssue, {
+            const labels = await paginateWithRetry(github, github.rest.issues.listLabelsOnIssue, {
               owner,
               repo,
               issue_number: prNumber,
@@ -1343,7 +1343,7 @@ jobs:
             }
 
             while (Date.now() < deadline) {
-              const reactions = await paginateWithRetry(github.rest.reactions.listForIssueComment, {
+              const reactions = await paginateWithRetry(github, github.rest.reactions.listForIssueComment, {
                 owner,
                 repo,
                 comment_id: commentId,
@@ -2095,7 +2095,7 @@ jobs:
             };
 
             while (Date.now() < deadline) {
-              const reactions = await paginateWithRetry(github.rest.reactions.listForIssueComment, {
+              const reactions = await paginateWithRetry(github, github.rest.reactions.listForIssueComment, {
                 owner,
                 repo,
                 comment_id: commentId,

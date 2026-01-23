@@ -104,7 +104,7 @@ jobs:
             core.setOutput('default-branch', defaultBranch);
 
             // --- Stale Branches ---
-            const branches = await paginateWithRetry(github.rest.repos.listBranches, {
+            const branches = await paginateWithRetry(github, github.rest.repos.listBranches, {
               ...context.repo,
               per_page: 100,
             });
@@ -152,7 +152,7 @@ jobs:
             staleBranches.sort((a, b) => b.ageDays - a.ageDays);
 
             // --- Stale PRs ---
-            const openPrs = await paginateWithRetry(github.rest.pulls.list, {
+            const openPrs = await paginateWithRetry(github, github.rest.pulls.list, {
               ...context.repo,
               state: 'open',
               per_page: 100,
@@ -176,7 +176,7 @@ jobs:
             stalePrs.sort((a, b) => b.ageDays - a.ageDays);
 
             // --- Unassigned Issues ---
-            const openItems = await paginateWithRetry(github.rest.issues.listForRepo, {
+            const openItems = await paginateWithRetry(github, github.rest.issues.listForRepo, {
               ...context.repo,
               per_page: 100,
               state: 'open',

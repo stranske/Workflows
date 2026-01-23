@@ -82,7 +82,7 @@ jobs:
             const body = fs.existsSync(summaryPath) ? fs.readFileSync(summaryPath, 'utf8') : 'No metrics available.';
             const title = 'Agent metrics weekly summary';
 
-            const issues = await paginateWithRetry(github.rest.issues.listForRepo, {
+            const issues = await paginateWithRetry(github, github.rest.issues.listForRepo, {
               owner,
               repo,
               state: 'open',

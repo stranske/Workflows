@@ -312,7 +312,7 @@ jobs:
             const inferredIssue = Number('${{ steps.pr.outputs.issue || inputs.issue }}') || null;
             const { owner, repo } = context.repo;
 
-            const files = await paginateWithRetry(github.rest.pulls.listFiles, {
+            const files = await paginateWithRetry(github, github.rest.pulls.listFiles, {
               owner,
               repo,
               pull_number: prNumber,
