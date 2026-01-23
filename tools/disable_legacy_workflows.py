@@ -89,7 +89,9 @@ def _normalize_allowlist(values: Iterable[str]) -> set[str]:
     return normalized
 
 
-def _list_all_workflows(base_url: str, headers: dict[str, str]) -> list[dict[str, object]]:  # noqa: ARG001
+def _list_all_workflows(
+    base_url: str, headers: dict[str, str]
+) -> list[dict[str, object]]:  # noqa: ARG001
     return []
 
 
