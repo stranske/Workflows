@@ -241,9 +241,8 @@ Background (failures to avoid): {background_analysis}
 
 ## Issue Structure
 
-Use this exact structure:
+Use this exact structure (do NOT wrap in code fences):
 
-```markdown
 ## Why
 [Brief explanation of what needs to happen and why]
 
@@ -270,7 +269,6 @@ Use this exact structure:
 [Only include if there are specific failures to avoid. Do NOT include generic iteration summaries.]
 
 </details>
-```
 
 ## Critical Rules
 1. Do NOT include "Remaining Unchecked Items" or "Iteration Details" sections
@@ -282,6 +280,7 @@ Use this exact structure:
    contexts from `blockers_to_avoid`
 
 Output the complete markdown issue body.
+Never wrap the body in code fences.
 """.strip()
 
 
@@ -745,6 +744,14 @@ def _extract_json(text: str) -> dict[str, Any]:
         return {}
 
 
+def _strip_markdown_fence(text: str) -> str:
+    """Remove surrounding markdown code fences from a string if present."""
+    fence_match = re.match(r"^```(?:[a-zA-Z0-9_-]+)?\s*\n([\s\S]*?)\n```\s*$", text.strip())
+    if fence_match:
+        return fence_match.group(1).strip()
+    return text.strip()
+
+
 def generate_followup_issue(
     verification_data: VerificationData,
     original_issue: OriginalIssueData,
@@ -894,6 +901,7 @@ def _generate_with_llm(
     )
 
     issue_body = _invoke_llm(format_prompt, standard_client)
+    issue_body = _strip_markdown_fence(issue_body)
 
     # Generate title from concrete tasks
     concrete_tasks = analysis.get("concrete_tasks", [])
