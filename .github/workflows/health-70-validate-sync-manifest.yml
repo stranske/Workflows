@@ -215,15 +215,15 @@ jobs:
         uses: actions/github-script@v8
         with:
           script: |
-                        const fs = require('fs');
-                        const retryHelperPath = './.github/scripts/github-api-with-retry.js';
-                        const retryHelpers = fs.existsSync(retryHelperPath)
-                            ? require(retryHelperPath)
-                            : {
-                                    withRetry: (fn) => fn(),
-                                    paginateWithRetry: (method, params) => github.paginate(method, params),
-                                };
-                        const { withRetry } = retryHelpers;
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+                ? require(retryHelperPath)
+                : {
+                        withRetry: (fn) => fn(),
+                        paginateWithRetry: (method, params) => github.paginate(method, params),
+                    };
+            const { withRetry } = retryHelpers;
             const body = `## ❌ Sync Manifest Validation Failed
 
             This PR modifies files that should be synced to consumer repos, but the sync manifest is incomplete.
@@ -241,9 +241,9 @@ jobs:
 
             See the workflow logs for specific files that need to be added.`;
 
-                        await withRetry(() => github.rest.issues.createComment({
+            await withRetry(() => github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
               body: body
-                        }));
+            }));
