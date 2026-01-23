@@ -744,7 +744,8 @@ function resolveDispatchToken(env = {}, instructionToken = '') {
     }
     return fallback;
   }
-  return '';
+  const githubFallback = resolveTokenFromKeys(env, GITHUB_TOKEN_KEYS);
+  return githubFallback ? githubFallback.trim() : '';
 }
 
 async function runKeepalive({ core, github, context, env = process.env }) {
