@@ -73,6 +73,66 @@ REFERENCE_TASK_PATTERNS = [
 ]
 
 
+def _parse_pr_files(pr_files: str | None) -> list[str]:
+    if not pr_files:
+        return []
+    files: list[str] = []
+    for line in str(pr_files).splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if stripped.startswith("-"):
+            stripped = stripped.lstrip("- ").strip()
+        if not stripped:
+            continue
+        match = re.match(r"^([^\s].*?)(?:\s*\(|$)", stripped)
+        path = match.group(1).strip() if match else stripped
+        if path and path not in files:
+            files.append(path)
+    return files
+
+
+def _task_has_file_reference(task: str) -> bool:
+    if not task:
+        return False
+    return bool(re.search(r"[\w./-]+\.[A-Za-z0-9]{1,5}", task))
+
+
+def _ensure_tasks_have_file_context(
+    tasks: list[dict[str, Any]], pr_files: str | None
+) -> list[dict[str, Any]]:
+    files = _parse_pr_files(pr_files)
+    if not tasks:
+        return tasks
+    fallback_file = files[0] if files else ""
+
+    updated: list[dict[str, Any]] = []
+    for item in tasks:
+        if not isinstance(item, dict):
+            continue
+        task_text = str(item.get("task", "")).strip()
+        files_affected = item.get("files_affected")
+        if not isinstance(files_affected, list):
+            files_affected = []
+        files_affected = [str(value).strip() for value in files_affected if str(value).strip()]
+
+        if not files_affected and fallback_file:
+            files_affected = [fallback_file]
+
+        if task_text and files_affected and not _task_has_file_reference(task_text):
+            task_text = f"{task_text} (file: {files_affected[0]})"
+
+        updated.append(
+            {
+                **item,
+                "task": task_text,
+                "files_affected": files_affected,
+            }
+        )
+
+    return updated
+
+
 def _normalize_heading(text: str) -> str:
     """Normalize heading text for comparison (lowercase, stripped of markdown)."""
     cleaned = re.sub(r"[#*_:]+", " ", text).strip().lower()
@@ -170,6 +230,15 @@ Convert the analysis into a final task list for the follow-up issue.
 ## Analysis Results
 {analysis_json}
 
+## PR Change Summary
+{pr_diff_summary}
+
+## Changed Files (from PR)
+{pr_files}
+
+## CI Outcomes (from PR)
+{ci_summary}
+
 ## Original Tasks (for context only - do NOT copy these directly)
 {original_tasks}
 
@@ -179,6 +248,7 @@ Convert the analysis into a final task list for the follow-up issue.
 - Concrete code changes: "Add test for X", "Implement Y in file Z", "Fix bug where A happens"
 - Completable by an automated coding agent (no manual steps, no external services, no UI testing)
 - Sized appropriately: not too big ("fix everything") or too small ("add a comma")
+- Explicit about file targets. Each task must name at least one file path.
 
 **Tasks MUST NOT be:**
 - Verification concerns restated as tasks (e.g., "The safety rules section
@@ -215,6 +285,7 @@ Generate SPECIFIC, TESTABLE acceptance criteria for the follow-up issue.
 - Objectively verifiable by an automated system or code review
 - Specific enough to pass/fail without subjective judgment
 - Tied to a concrete task or original requirement
+- Reference a file path or a test command that targets the affected file(s)
 
 **GOOD acceptance criteria examples:**
 - "The `calculateTax()` function returns correct values for all test cases in `test_tax.py`"
@@ -902,6 +973,9 @@ def _generate_with_llm(
     # Round 2: Generate tasks (use standard model - straightforward task)
     tasks_prompt = GENERATE_TASKS_PROMPT.format(
         analysis_json=json.dumps(analysis, indent=2),
+        pr_diff_summary=pr_diff_summary or "_No PR diff summary available._",
+        pr_files=pr_files or "_No PR file list available._",
+        ci_summary=ci_summary or "_No CI summary available._",
         original_tasks="\n".join(
             f"- [ ] {t}" for t in original_issue.tasks[:20]
         ),  # Limit for token budget
@@ -909,6 +983,10 @@ def _generate_with_llm(
 
     tasks_response = _invoke_llm(tasks_prompt, standard_client)
     tasks_data = _extract_json(tasks_response)
+    tasks_data["tasks"] = _ensure_tasks_have_file_context(
+        tasks_data.get("tasks", []),
+        pr_files,
+    )
 
     # Round 3: Generate acceptance criteria (use standard model)
     ac_prompt = GENERATE_ACCEPTANCE_CRITERIA_PROMPT.format(
