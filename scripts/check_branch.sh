@@ -175,7 +175,7 @@ if ! run_validation "Black formatting" "black --check scripts/ .github/" "black 
 fi
 
 echo ""
-if ! run_validation "Flake8 linting" "flake8 scripts/" ""; then
+if ! run_validation "Flake8 linting" "flake8 --jobs 1 scripts/" ""; then
     VALIDATION_SUCCESS=false
     FAILED_CHECKS+=("Flake8 linting")
 fi

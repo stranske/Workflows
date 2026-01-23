@@ -418,7 +418,7 @@ case "$VALIDATION_STRATEGY" in
         echo -e "${CYAN}=== Incremental Validation ===${NC}"
 
         # Only critical linting errors
-        if ! run_fast_check "Critical linting" "flake8 --select=E9,F --statistics" "" "$PYTHON_FILES"; then
+        if ! run_fast_check "Critical linting" "flake8 --jobs 1 --select=E9,F --statistics" "" "$PYTHON_FILES"; then
             VALIDATION_SUCCESS=false
             FAILED_CHECKS+=("Critical linting")
         fi
@@ -440,7 +440,7 @@ case "$VALIDATION_STRATEGY" in
     "comprehensive")
         echo -e "${CYAN}=== Comprehensive Validation ===${NC}"
 
-        if ! run_fast_check "Full linting" "flake8 scripts/ .github/ --statistics" ""; then
+        if ! run_fast_check "Full linting" "flake8 --jobs 1 scripts/ .github/ --statistics" ""; then
             VALIDATION_SUCCESS=false
             FAILED_CHECKS+=("Full linting")
         fi
@@ -481,7 +481,7 @@ case "$VALIDATION_STRATEGY" in
         echo -e "${CYAN}=== Full Validation ===${NC}"
         echo -e "${YELLOW}Running comprehensive validation (may take longer)...${NC}"
 
-        if ! run_fast_check "Full linting" "flake8 scripts/ .github/ --statistics" ""; then
+        if ! run_fast_check "Full linting" "flake8 --jobs 1 scripts/ .github/ --statistics" ""; then
             VALIDATION_SUCCESS=false
             FAILED_CHECKS+=("Full linting")
         fi

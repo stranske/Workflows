@@ -333,9 +333,9 @@ quick_check "Black formatting" "$FMT_CMD" "$FIX_CMD"
 echo -e "${BLUE}4. Critical linting...${NC}"
 if [[ "$CHANGED_ONLY" == true && -n "$ALL_FILES" ]]; then
     # Only check for critical errors (E9**, F***)
-    LINT_CMD="echo '$ALL_FILES' | xargs flake8 --select=E9,F --statistics"
+    LINT_CMD="echo '$ALL_FILES' | xargs flake8 --jobs 1 --select=E9,F --statistics"
 else
-    LINT_CMD="flake8 scripts/ --select=E9,F --statistics"
+    LINT_CMD="flake8 --jobs 1 scripts/ --select=E9,F --statistics"
 fi
 quick_check "Critical lint errors" "$LINT_CMD" ""
 
