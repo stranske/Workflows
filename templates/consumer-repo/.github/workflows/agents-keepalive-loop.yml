@@ -77,6 +77,14 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const { github: retryGithub, withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'keepalive-loop',
+              capabilities: ['pull-requests:read'],
+            });
             const { evaluatePromptInjectionGuard } = require(
               './.github/scripts/prompt_injection_guard.js'
             );
@@ -93,11 +101,13 @@ jobs:
               const prs = payload.workflow_run.pull_requests || [];
               if (prs[0]?.number) {
                 prNumber = prs[0].number;
-                const { data } = await github.rest.pulls.get({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  pull_number: prNumber,
-                });
+                const { data } = await withRetry((client) =>
+                  client.rest.pulls.get({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    pull_number: prNumber,
+                  })
+                );
                 pr = data;
               }
             }

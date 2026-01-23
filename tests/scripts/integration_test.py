@@ -1,4 +1,11 @@
-from scripts.langchain import integration_layer
+import pytest
+
+from scripts.langchain import integration_layer, semantic_matcher
+
+
+@pytest.fixture(autouse=True)
+def _disable_embeddings(monkeypatch):
+    monkeypatch.setattr(semantic_matcher, "get_embedding_client", lambda model=None: None)
 
 
 def test_labeling_integration_applies_expected_labels():

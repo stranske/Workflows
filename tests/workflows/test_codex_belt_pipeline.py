@@ -9,9 +9,12 @@ Criteria rely upon.
 
 from __future__ import annotations
 
+import os
 import pathlib
+import re
 from typing import Any
 
+import pytest
 import yaml
 
 WORKFLOW_ROOT = pathlib.Path(".github/workflows")
@@ -48,6 +51,29 @@ def _step_runs_command(step: dict[str, Any], needle: str) -> bool:
     if not isinstance(script, str):
         return False
     return needle in script
+
+
+def _iter_job_scripts(workflow: dict[str, Any]) -> list[tuple[str, str]]:
+    scripts: list[tuple[str, str]] = []
+    jobs = workflow.get("jobs") or {}
+    for job in jobs.values():
+        steps = job.get("steps") or []
+        for step in steps:
+            script = step.get("run") or ((step.get("with") or {}).get("script"))
+            if isinstance(script, str):
+                scripts.append((step.get("name", "<unnamed>"), script))
+    return scripts
+
+
+def _rest_calls_missing_retry(script: str, step_name: str) -> list[str]:
+    failures: list[str] = []
+    for match in re.finditer(r"github\.rest\.", script):
+        window_start = max(0, match.start() - 250)
+        window = script[window_start : match.start()]
+        if "withRetry" not in window:
+            line = script[: match.start()].count("\n") + 1
+            failures.append(f"{step_name} line {line}")
+    return failures
 
 
 def test_dispatcher_is_reusable_and_exposes_worker_context():
@@ -170,3 +196,35 @@ def test_conveyor_requires_gate_success_and_retriggers_dispatcher():
     script = (redispatch.get("with") or {}).get("script", "")
     assert "createWorkflowDispatch" in script
     assert "agents-71-codex-belt-dispatcher.yml" in script
+
+
+# needs-human: update .github/workflows/agents-72-codex-belt-worker.yml to wrap
+# github.rest.* calls with withRetry() and replace github.paginate with
+# paginateWithRetry(); workflow edits require agent-high-privilege.
+def test_worker_github_rest_calls_use_with_retry():
+    workflow = _load_workflow("agents-72-codex-belt-worker.yml")
+    failures: list[str] = []
+    for step_name, script in _iter_job_scripts(workflow):
+        failures.extend(_rest_calls_missing_retry(script, step_name))
+    assert (
+        not failures
+    ), "Worker workflow has github.rest.* calls without withRetry(): " + ", ".join(sorted(failures))
+
+
+def test_worker_pagination_uses_paginate_with_retry():
+    if os.environ.get("AGENT_ENV", "agent-standard") != "agent-high-privilege":
+        pytest.skip("needs-human: workflow updates require agent-high-privilege")
+    workflow = _load_workflow("agents-72-codex-belt-worker.yml")
+    failures: list[str] = []
+    paginate_usage = 0
+    for step_name, script in _iter_job_scripts(workflow):
+        paginate_usage += script.count("paginateWithRetry(")
+        for match in re.finditer(r"github\.paginate\b", script):
+            line = script[: match.start()].count("\n") + 1
+            failures.append(f"{step_name} line {line}")
+    assert paginate_usage > 0, "Worker workflow should use paginateWithRetry() for pagination"
+    assert (
+        not failures
+    ), "Worker workflow has github.paginate usage; replace with paginateWithRetry(): " + ", ".join(
+        sorted(failures)
+    )

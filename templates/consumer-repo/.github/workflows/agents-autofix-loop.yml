@@ -52,6 +52,7 @@ jobs:
         with:
           sparse-checkout: |
             .github/scripts/prompt_injection_guard.js
+            .github/scripts/github-api-with-retry.js
           sparse-checkout-cone-mode: false
 
       - name: Security gate - prompt injection guard
@@ -62,6 +63,14 @@ jobs:
           script: |
             const fs = require('fs');
             const guardPath = './.github/scripts/prompt_injection_guard.js';
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry, paginateWithRetry } = retryHelpers;
 
             // Check if guard exists (may not exist on older branches)
             if (!fs.existsSync(guardPath)) {
@@ -87,11 +96,11 @@ jobs:
               return;
             }
 
-            const { data: pr } = await github.rest.pulls.get({
+            const { data: pr } = await withRetry(() => github.rest.pulls.get({
               owner: context.repo.owner,
               repo: context.repo.repo,
               pull_number: prInfo.number,
-            });
+            }));
 
             const result = await evaluatePromptInjectionGuard({
               github,
@@ -115,6 +124,15 @@ jobs:
         with:
           github-token: ${{ env.WRITE_TOKEN }}
           script: |
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry, paginateWithRetry } = retryHelpers;
             const run = context.payload.workflow_run;
             const outputs = {
               should_run: 'false',
@@ -161,7 +179,9 @@ jobs:
 
             const { owner, repo } = context.repo;
             const prNumber = Number(prInfo.number);
-            const pr = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+            const pr = await withRetry(() =>
+              github.rest.pulls.get({ owner, repo, pull_number: prNumber })
+            );
             const prData = pr.data;
 
             if (!prData || prData.state !== 'open') {
@@ -213,12 +233,12 @@ jobs:
                   : 'No basic autofix (non-Python PR?) and Gate failing';
                 core.info(`🔄 Auto-escalation: ${reason}. Escalating to Codex CLI...`);
                 try {
-                  await github.rest.issues.addLabels({
+                  await withRetry(() => github.rest.issues.addLabels({
                     owner,
                     repo,
                     issue_number: prNumber,
                     labels: ['autofix:escalated'],
-                  });
+                  }));
                     core.info(
                       '✅ Added autofix:escalated label - Codex CLI will run in this workflow'
                     );
@@ -232,12 +252,16 @@ jobs:
               return stop('autofix disabled for this pull request');
             }
 
-            const jobs = await github.paginate(github.rest.actions.listJobsForWorkflowRun, {
-              owner,
-              repo,
-              run_id: run.id,
-              per_page: 100,
-            });
+            const jobs = await paginateWithRetry(
+              github,
+              github.rest.actions.listJobsForWorkflowRun,
+              {
+                owner,
+                repo,
+                run_id: run.id,
+                per_page: 100,
+              }
+            );
 
             const workflowFile = 'agents-autofix-loop.yml';
             // Reduce attempts for auto-escalated PRs (they weren't agent-initiated)
@@ -245,14 +269,18 @@ jobs:
               const maxAttempts = isEscalated
                 ? Math.min(2, Number(outputs.max_attempts))
                 : Number(outputs.max_attempts);
-            const previousRuns = await github.paginate(github.rest.actions.listWorkflowRuns, {
-              owner,
-              repo,
-              workflow_id: workflowFile,
-              head_sha: run.head_sha,
-              per_page: 100,
-              status: 'completed',
-            });
+            const previousRuns = await paginateWithRetry(
+              github,
+              github.rest.actions.listWorkflowRuns,
+              {
+                owner,
+                repo,
+                workflow_id: workflowFile,
+                head_sha: run.head_sha,
+                per_page: 100,
+                status: 'completed',
+              }
+            );
 
             const attemptCount = previousRuns.length + 1;
             outputs.attempts = String(attemptCount);
@@ -375,11 +403,27 @@ jobs:
     runs-on: ubuntu-latest
     environment: agent-standard
     steps:
+      - name: Checkout (for retry helpers)
+        uses: actions/checkout@v6
+        with:
+          sparse-checkout: |
+            .github/scripts/github-api-with-retry.js
+          sparse-checkout-cone-mode: false
+
       - name: Add needs-human label and comment
         uses: actions/github-script@v8
         with:
           github-token: ${{ env.WRITE_TOKEN }}
           script: |
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry, paginateWithRetry } = retryHelpers;
             const prNumber = Number('${{ needs.prepare.outputs.pr_number }}');
             if (!prNumber) {
               core.info('No PR number available; skipping comment/label.');
@@ -392,12 +436,12 @@ jobs:
 
             const { owner, repo } = context.repo;
 
-            await github.rest.issues.addLabels({
+            await withRetry(() => github.rest.issues.addLabels({
               owner,
               repo,
               issue_number: prNumber,
               labels: ['needs-human'],
-            }).catch((error) => {
+            })).catch((error) => {
               core.warning(`Failed to add label: ${error.message}`);
             });
 
@@ -413,12 +457,12 @@ jobs:
               'Please investigate manually.',
             ].join('\n');
 
-            await github.rest.issues.createComment({
+            await withRetry(() => github.rest.issues.createComment({
               owner,
               repo,
               issue_number: prNumber,
               body,
-            });
+            }));
 
   metrics:
     name: Record autofix metrics
@@ -429,12 +473,28 @@ jobs:
     runs-on: ubuntu-latest
     environment: agent-standard
     steps:
+      - name: Checkout (for retry helpers)
+        uses: actions/checkout@v6
+        with:
+          sparse-checkout: |
+            .github/scripts/github-api-with-retry.js
+          sparse-checkout-cone-mode: false
+
       - name: Collect metrics
         id: collect
         uses: actions/github-script@v8
         with:
           github-token: ${{ env.WRITE_TOKEN }}
           script: |
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry, paginateWithRetry } = retryHelpers;
             const prNumber = Number('${{ needs.prepare.outputs.pr_number || 0 }}') || 0;
             const attemptNumber = Number('${{ needs.prepare.outputs.attempts || 0 }}') || 0;
             const attemptLimit = Number('${{ needs.prepare.outputs.max_attempts || 0 }}') || 0;
@@ -458,11 +518,11 @@ jobs:
 
             if (prNumber) {
               try {
-                const { data: pr } = await github.rest.pulls.get({
+                const { data: pr } = await withRetry(() => github.rest.pulls.get({
                   owner,
                   repo,
                   pull_number: prNumber,
-                });
+                }));
                 headShaAfter = pr.head?.sha || headShaAfter;
                   fixApplied = Boolean(
                     headShaBefore && headShaAfter && headShaBefore !== headShaAfter
@@ -474,12 +534,12 @@ jobs:
                   const prLabels = pr.labels?.map(l => l.name) || [];
                   if (prLabels.includes('autofix:escalated')) {
                     try {
-                      await github.rest.issues.removeLabel({
+                      await withRetry(() => github.rest.issues.removeLabel({
                         owner,
                         repo,
                         issue_number: prNumber,
                         name: 'autofix:escalated',
-                      });
+                      }));
                       core.info(
                         '✅ Removed autofix:escalated label - allows re-escalation ' +
                           'if Gate fails again'
@@ -493,13 +553,17 @@ jobs:
                 }
 
                 const gateWorkflow = 'pr-00-gate.yml';
-                const runs = await github.paginate(github.rest.actions.listWorkflowRuns, {
-                  owner,
-                  repo,
-                  workflow_id: gateWorkflow,
-                  head_sha: headShaAfter,
-                  per_page: 20,
-                });
+                const runs = await paginateWithRetry(
+                  github,
+                  github.rest.actions.listWorkflowRuns,
+                  {
+                    owner,
+                    repo,
+                    workflow_id: gateWorkflow,
+                    head_sha: headShaAfter,
+                    per_page: 20,
+                  }
+                );
                 const latestGateRun = runs[0];
                 if (latestGateRun) {
                   gateResultAfter = latestGateRun.conclusion || latestGateRun.status || 'unknown';
