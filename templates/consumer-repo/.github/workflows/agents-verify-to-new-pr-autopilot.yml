@@ -30,7 +30,9 @@ jobs:
             exit 1
           fi
           gh api "repos/${repo}/actions/artifacts/${artifact_id}/zip" > artifact.zip
-          unzip -p artifact.zip followup_issue_output.json > followup_issue_output.json
+          tmp_output="${RUNNER_TEMP:-/tmp}/followup_issue_output.json"
+          unzip -p artifact.zip followup_issue_output.json > "${tmp_output}"
+          mv "${tmp_output}" followup_issue_output.json
 
       - name: Dispatch auto-pilot from optimize step
         env:
