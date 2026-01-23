@@ -91,6 +91,10 @@ class TemplateBlockError(RuntimeError):
     """Raised when expected template sentinel markers are missing."""
 
 
+class MissingTemplateMarkerError(TemplateBlockError):
+    """Raised when required markers are absent."""
+
+
 def _read_template_lines() -> list[str] | None:
     template_path = Path(__file__).parent.parent / "templates/consumer-repo/.gitignore"
     if not template_path.exists():
@@ -98,8 +102,10 @@ def _read_template_lines() -> list[str] | None:
     return template_path.read_text(encoding="utf-8").splitlines()
 
 
-def _raise_template_error(message: str) -> None:
+def _raise_template_error(message: str, *, missing: bool = False) -> None:
     LOGGER.critical("Template sentinel validation failed: %s", message)
+    if missing:
+        raise MissingTemplateMarkerError(message)
     raise TemplateBlockError(message)
 
 
@@ -124,7 +130,7 @@ def _validate_template_markers(lines: list[str]) -> tuple[int, int, int]:
     if end is None:
         missing.append("missing status block end marker")
     if missing:
-        _raise_template_error(", ".join(missing))
+        _raise_template_error(", ".join(missing), missing=True)
     if end <= start or version_index > start:
         _raise_template_error("status block markers are out of order")
     return version_index, start, end
@@ -166,9 +172,9 @@ def load_template_block() -> str:
         return generate_minimal_block()
     try:
         _validate_template_markers(lines)
-    except TemplateBlockError as exc:
-        if "missing" in str(exc):
-            raise
+    except MissingTemplateMarkerError:
+        raise
+    except TemplateBlockError:
         return generate_minimal_block()
     header_index = next(
         (
@@ -178,27 +184,34 @@ def load_template_block() -> str:
         ),
         None,
     )
-    if header_index is None:
-        _raise_template_error("missing shared status files header")
-    start = next(
-        (idx for idx in range(header_index, -1, -1) if lines[idx].strip() == SEPARATOR_LINE),
-        header_index,
-    )
-    end_marker_index = next(
-        (idx for idx in range(header_index, len(lines)) if lines[idx].strip() == PATTERN_BLOCK_END),
-        None,
-    )
-    if end_marker_index is None:
-        return generate_minimal_block()
-    end = next(
-        (
-            idx
-            for idx in range(end_marker_index + 1, len(lines))
-            if lines[idx].strip() == SEPARATOR_LINE
-        ),
-        None,
-    )
-    if end is None or not (start < header_index < end_marker_index < end):
+    try:
+        if header_index is None:
+            _raise_template_error("missing shared status files header")
+        start = next(
+            (idx for idx in range(header_index, -1, -1) if lines[idx].strip() == SEPARATOR_LINE),
+            header_index,
+        )
+        end_marker_index = next(
+            (
+                idx
+                for idx in range(header_index, len(lines))
+                if lines[idx].strip() == PATTERN_BLOCK_END
+            ),
+            None,
+        )
+        if end_marker_index is None:
+            _raise_template_error("missing status block end marker")
+        end = next(
+            (
+                idx
+                for idx in range(end_marker_index + 1, len(lines))
+                if lines[idx].strip() == SEPARATOR_LINE
+            ),
+            None,
+        )
+        if end is None or not (start < header_index < end_marker_index < end):
+            _raise_template_error("invalid status block boundary ordering")
+    except TemplateBlockError:
         return generate_minimal_block()
     return "\n".join(lines[start:end]).rstrip("\n") + "\n"
 

@@ -20,6 +20,8 @@ def _is_pr_marker_before_hash(prefix: str) -> bool:
         return False
     tail = prefix[-20:]
     return re.search(r"(?:^|\W)pr[\W\s]*$", tail, re.IGNORECASE) is not None
+
+
 def _hash_mentions(text: str) -> set[int]:
     matches = set()
     for match in HASH_PATTERN.finditer(text or ""):

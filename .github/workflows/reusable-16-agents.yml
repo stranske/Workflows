@@ -162,7 +162,6 @@ jobs:
                   withRetry: (fn) => fn(),
                   paginateWithRetry: (method, params) => github.paginate(method, params),
                 };
-            const { withRetry } = retryHelpers;
             const { owner, repo } = context.repo;
             const q = `query($owner:String!, $repo:String!) { repository(owner:$owner, name:$repo) { suggestedActors(capabilities:[CAN_BE_ASSIGNED], first:100) { nodes { login } } } }`;
             const res = await withRetry(() => github.graphql(q, { owner, repo }));
@@ -457,7 +456,7 @@ jobs:
                   withRetry: (fn) => fn(),
                   paginateWithRetry: (method, params) => github.paginate(method, params),
                 };
-            const { paginateWithRetry } = retryHelpers;
+            const { withRetry } = retryHelpers;
 
             const fallbackLabel = 'agent:codex';
             const fallbackMessage = 'bootstrap_issues_label not provided; defaulting to agent:codex.';
@@ -543,7 +542,8 @@ jobs:
             const scanLimit = 100;
             let scanned = 0;
             let truncated = false;
-            const issues = await paginateWithRetry(
+            const issues = [];
+            const issueIterator = github.paginate.iterator(
               github.rest.issues.listForRepo,
               {
                 owner,
@@ -554,12 +554,17 @@ jobs:
               }
             );
 
+            for await (const response of issueIterator) {
+              issues.push(...response.data);
+              if (issues.length >= scanLimit) {
+                truncated = true;
+                core.warning(`Bootstrap issue scan truncated after ${scanLimit} records.`);
+                break;
+              }
+            }
+
             const limitedIssues = issues.slice(0, scanLimit);
             scanned = limitedIssues.length;
-            if (issues.length > scanLimit) {
-              truncated = true;
-              core.warning(`Bootstrap issue scan truncated after ${scanLimit} records.`);
-            }
 
             for (const issue of limitedIssues) {
               if (issue.pull_request) {

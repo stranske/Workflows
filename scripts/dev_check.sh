@@ -320,6 +320,7 @@ filter_actionlint_output() {
     local output_file="$2"
     local secrets_found=false
     local unexpected_found=false
+    local unexpected_message=""
     local skip_context=false
     local path_line_pattern='^[^[:space:]].*:[0-9]+:[0-9]+:'
 
@@ -341,12 +342,15 @@ filter_actionlint_output() {
                 continue
             fi
             unexpected_found=true
+            if [[ -z "$unexpected_message" ]]; then
+                unexpected_message="${line##*: }"
+            fi
         fi
         printf '%s\n' "$line" >> "$output_file"
     done < "$input_file"
 
     if [[ "$unexpected_found" == true ]]; then
-        echo "$ACTIONLINT_SECRETS_MESSAGE" >&2
+        echo "${unexpected_message:-$ACTIONLINT_SECRETS_MESSAGE}" >&2
         return 2
     fi
     if [[ "$secrets_found" == true ]]; then
