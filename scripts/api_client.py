@@ -13,10 +13,13 @@ DEFAULT_RETRY_BACKOFF = 1.0
 RETRY_STATUS_CODES = {429, 500, 502, 503, 504}
 
 
-def _should_retry(status_code: int, detail: Any) -> bool:
+def _should_retry(status_code: int, detail: Any, headers: dict[str, str] | None) -> bool:
     if status_code in RETRY_STATUS_CODES:
         return True
     if status_code == 403:
+        remaining = headers.get("X-RateLimit-Remaining") if headers else None
+        if remaining == "0":
+            return True
         message = ""
         if isinstance(detail, dict):
             message = str(detail.get("message") or "")
@@ -27,10 +30,60 @@ def _should_retry(status_code: int, detail: Any) -> bool:
     return False
 
 
-def _sleep_with_backoff(backoff: float, attempt: int) -> None:
+def _backoff_delay(backoff: float, attempt: int) -> float:
     if backoff <= 0:
+        return 0.0
+    return backoff * (2 ** (attempt - 1))
+
+
+def _retry_after_delay(headers: dict[str, str] | None) -> float | None:
+    if not headers:
+        return None
+    retry_after = headers.get("Retry-After")
+    if not retry_after:
+        return None
+    try:
+        delay = float(retry_after)
+    except ValueError:
+        return None
+    if delay < 0:
+        return None
+    return delay
+
+
+def _rate_limit_reset_delay(headers: dict[str, str] | None) -> float | None:
+    if not headers:
+        return None
+    remaining = headers.get("X-RateLimit-Remaining")
+    if remaining != "0":
+        return None
+    reset = headers.get("X-RateLimit-Reset")
+    if not reset:
+        return None
+    try:
+        reset_epoch = float(reset)
+    except ValueError:
+        return None
+    delay = reset_epoch - time.time()
+    if delay <= 0:
+        return 0.0
+    return delay
+
+
+def _retry_delay(headers: dict[str, str] | None, backoff: float, attempt: int) -> float:
+    retry_after = _retry_after_delay(headers)
+    if retry_after is not None:
+        return retry_after
+    reset_delay = _rate_limit_reset_delay(headers)
+    if reset_delay is not None:
+        return reset_delay
+    return _backoff_delay(backoff, attempt)
+
+
+def _sleep_with_backoff(backoff: float, attempt: int, headers: dict[str, str] | None) -> None:
+    delay = _retry_delay(headers, backoff, attempt)
+    if delay <= 0:
         return
-    delay = backoff * (2 ** (attempt - 1))
     time.sleep(delay)
 
 
@@ -81,7 +134,7 @@ def _request_response(
         except requests.RequestException as exc:
             if attempt >= attempts:
                 raise RuntimeError("GitHub API request failed.") from exc
-            _sleep_with_backoff(backoff, attempt)
+            _sleep_with_backoff(backoff, attempt, None)
             continue
 
         if response.status_code >= 400:
@@ -89,8 +142,8 @@ def _request_response(
                 detail = response.json()
             except ValueError:
                 detail = response.text
-            if _should_retry(response.status_code, detail) and attempt < attempts:
-                _sleep_with_backoff(backoff, attempt)
+            if _should_retry(response.status_code, detail, response.headers) and attempt < attempts:
+                _sleep_with_backoff(backoff, attempt, response.headers)
                 continue
             raise RuntimeError(f"GitHub API error {response.status_code}: {detail}")
 

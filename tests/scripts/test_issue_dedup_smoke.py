@@ -288,6 +288,61 @@ def test_request_json_retries_on_request_exception(monkeypatch) -> None:
     assert sleep_calls == [0.25]
 
 
+def test_request_json_respects_retry_after(monkeypatch) -> None:
+    responses = [
+        DummyResponse(429, json_data={"message": "rate limit"}, headers={"Retry-After": "2"}),
+        DummyResponse(200, json_data={"ok": True}),
+    ]
+
+    def _fake_request(method, url, headers=None, json=None, timeout=None):
+        return responses.pop(0)
+
+    sleep_calls: list[float] = []
+
+    monkeypatch.setattr(api_client.requests, "request", _fake_request)
+    monkeypatch.setattr(api_client.time, "sleep", lambda seconds: sleep_calls.append(seconds))
+
+    assert api_client._request_json(
+        "GET",
+        "http://example",
+        "token",
+        None,
+        max_attempts=2,
+        backoff=0.25,
+    ) == {"ok": True}
+    assert sleep_calls == [2.0]
+
+
+def test_request_json_uses_rate_limit_reset(monkeypatch) -> None:
+    responses = [
+        DummyResponse(
+            403,
+            json_data={"message": "Forbidden"},
+            headers={"X-RateLimit-Remaining": "0", "X-RateLimit-Reset": "1005"},
+        ),
+        DummyResponse(200, json_data={"ok": True}),
+    ]
+
+    def _fake_request(method, url, headers=None, json=None, timeout=None):
+        return responses.pop(0)
+
+    sleep_calls: list[float] = []
+
+    monkeypatch.setattr(api_client.requests, "request", _fake_request)
+    monkeypatch.setattr(api_client.time, "sleep", lambda seconds: sleep_calls.append(seconds))
+    monkeypatch.setattr(api_client.time, "time", lambda: 1000.0)
+
+    assert api_client._request_json(
+        "GET",
+        "http://example",
+        "token",
+        None,
+        max_attempts=2,
+        backoff=0.25,
+    ) == {"ok": True}
+    assert sleep_calls == [5.0]
+
+
 def test_fetch_oauth_scopes_parses_header(monkeypatch) -> None:
     def _fake_request(method, url, headers=None, json=None, timeout=None):
         return DummyResponse(
