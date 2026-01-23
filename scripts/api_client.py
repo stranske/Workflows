@@ -174,17 +174,28 @@ def fetch_issue_comments(
     retry_attempts: int | None = None,
     retry_backoff: float | None = None,
 ) -> list[dict[str, Any]]:
-    url = f"{GITHUB_API}/repos/{repo}/issues/{issue_number}/comments?per_page=100"
-    data = _request_json(
-        "GET",
-        url,
-        token,
-        payload=None,
-        **_retry_kwargs(retry_attempts, retry_backoff),
-    )
-    if not isinstance(data, list):
-        raise RuntimeError("GitHub API did not return a JSON array for issue comments.")
-    return data
+    comments: list[dict[str, Any]] = []
+    per_page = 100
+    page = 1
+    base_url = f"{GITHUB_API}/repos/{repo}/issues/{issue_number}/comments"
+
+    while True:
+        url = _build_url(base_url, {"page": page, "per_page": per_page})
+        data = _request_json(
+            "GET",
+            url,
+            token,
+            payload=None,
+            **_retry_kwargs(retry_attempts, retry_backoff),
+        )
+        if not isinstance(data, list):
+            raise RuntimeError("GitHub API did not return a JSON array for issue comments.")
+        comments.extend(data)
+        if len(data) < per_page:
+            break
+        page += 1
+
+    return comments
 
 
 def create_issue(

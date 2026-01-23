@@ -332,6 +332,28 @@ def test_fetch_oauth_scopes_retries_on_server_error(monkeypatch) -> None:
     assert sleep_calls == [0.5]
 
 
+def test_fetch_issue_comments_paginates(monkeypatch) -> None:
+    responses = [
+        DummyResponse(200, json_data=[{"id": idx} for idx in range(100)]),
+        DummyResponse(200, json_data=[{"id": 101}, {"id": 102}]),
+    ]
+    requested_urls: list[str] = []
+
+    def _fake_request(method, url, headers=None, json=None, timeout=None):
+        requested_urls.append(url)
+        return responses.pop(0)
+
+    monkeypatch.setattr(api_client.requests, "request", _fake_request)
+
+    comments = api_client.fetch_issue_comments("owner/repo", 55, "token")
+
+    assert len(comments) == 102
+    assert "page=1" in requested_urls[0]
+    assert "page=2" in requested_urls[1]
+    assert "per_page=100" in requested_urls[0]
+    assert "per_page=100" in requested_urls[1]
+
+
 def test_find_dedup_comment_returns_match() -> None:
     comments = [
         {"body": "Nothing here"},
