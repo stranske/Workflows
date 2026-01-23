@@ -92,8 +92,8 @@ jobs:
 
             // Remove agent:retry label (so it can be used again later)
             try {
-              await withRetry(() =>
-                retryGithub.rest.issues.removeLabel({
+              await withRetry((client) =>
+                client.rest.issues.removeLabel({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   issue_number: prNumber,
@@ -111,8 +111,8 @@ jobs:
 
             // Remove agent:rate-limited label if present
             try {
-              await withRetry(() =>
-                retryGithub.rest.issues.removeLabel({
+              await withRetry((client) =>
+                client.rest.issues.removeLabel({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   issue_number: prNumber,
@@ -164,8 +164,8 @@ jobs:
               const prs = payload.workflow_run.pull_requests || [];
               if (prs[0]?.number) {
                 prNumber = prs[0].number;
-                const { data } = await withRetry(() =>
-                  retryGithub.rest.pulls.get({
+                const { data } = await withRetry((client) =>
+                  client.rest.pulls.get({
                     owner: context.repo.owner,
                     repo: context.repo.repo,
                     pull_number: prNumber,
@@ -419,8 +419,8 @@ jobs:
               task: 'keepalive-loop',
               capabilities: ['pull-requests:read'],
             });
-            const { data: commits } = await withRetry(() =>
-              retryGithub.rest.pulls.listCommits({
+            const { data: commits } = await withRetry((client) =>
+              client.rest.pulls.listCommits({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 pull_number: prNumber,
@@ -449,8 +449,8 @@ jobs:
               task: 'keepalive-loop',
               capabilities: ['pull-requests:read'],
             });
-            const { data: pr } = await withRetry(() =>
-              retryGithub.rest.pulls.get({
+            const { data: pr } = await withRetry((client) =>
+              client.rest.pulls.get({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 pull_number: prNumber,
@@ -559,8 +559,8 @@ jobs:
               '_The review evaluates whether recent work is advancing toward the acceptance criteria._',
             ].join('\n');
 
-            await withRetry(() =>
-              retryGithub.rest.issues.createComment({
+            await withRetry((client) =>
+              client.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: prNumber,
@@ -572,8 +572,8 @@ jobs:
             if (recommendation === 'STOP') {
               core.warning('Progress review recommends STOP - agent work appears unaligned');
               try {
-                await withRetry(() =>
-                  retryGithub.rest.issues.removeLabel({
+                await withRetry((client) =>
+                  client.rest.issues.removeLabel({
                     owner: context.repo.owner,
                     repo: context.repo.repo,
                     issue_number: prNumber,

@@ -101,8 +101,8 @@ jobs:
               const prs = payload.workflow_run.pull_requests || [];
               if (prs[0]?.number) {
                 prNumber = prs[0].number;
-                const { data } = await withRetry(() =>
-                  retryGithub.rest.pulls.get({
+                const { data } = await withRetry((client) =>
+                  client.rest.pulls.get({
                     owner: context.repo.owner,
                     repo: context.repo.repo,
                     pull_number: prNumber,
