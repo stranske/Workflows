@@ -113,6 +113,16 @@ test('countCheckboxes ignores tilde-fenced code blocks', () => {
   });
 });
 
+test('countCheckboxes normalizes mixed newline characters', () => {
+  const markdown = '- [ ] Task one\r\n- [x] Task two\r- [ ] Task three\u2028- [x] Task four\u2029';
+
+  assert.deepEqual(countCheckboxes(markdown), {
+    total: 4,
+    checked: 2,
+    unchecked: 2,
+  });
+});
+
 test('extractLatestChecklist returns latest checklist even when all tasks are complete', () => {
   const botComments = [
     {
@@ -143,6 +153,21 @@ test('extractLatestChecklist ignores comments without checkboxes', () => {
   ];
 
   assert.equal(extractLatestChecklist(botComments), null);
+});
+
+test('extractLatestChecklist handles mixed newline encodings and unicode', () => {
+  const botComments = [
+    {
+      body: '✅ All good\r\n- [ ] Über task\u2028- [x] Done',
+      updated_at: '2025-01-04T00:00:00Z',
+      created_at: '2025-01-04T00:00:00Z',
+    },
+  ];
+
+  const latest = extractLatestChecklist(botComments);
+  assert.ok(latest);
+  assert.equal(latest.total, 2);
+  assert.equal(latest.unchecked, 1);
 });
 
 test('coerceNumber accepts zero when min is zero', () => {

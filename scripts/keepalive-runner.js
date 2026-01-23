@@ -85,7 +85,10 @@ function hasCliAgentLabel(labels) {
 
 function countCheckboxes(markdown) {
   const result = { total: 0, checked: 0, unchecked: 0 };
-  const content = String(markdown || '');
+  const content = String(markdown || '')
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .replace(/\u2028|\u2029/g, '\n');
   const fencePattern = /^\s*(```|~~~)/;
   const checkboxPattern = /^\s*(?:[-*+]|\d+[.)])\s*\[( |x|X)\]/;
   let inCodeBlock = false;
