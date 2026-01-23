@@ -151,6 +151,13 @@ jobs:
             echo "mode_label=${mode_label}"
           } >>"$GITHUB_OUTPUT"
 
+      - name: Checkout retry helpers
+        uses: actions/checkout@v6
+        with:
+          sparse-checkout: |
+            .github/scripts/github-api-with-retry.js
+          sparse-checkout-cone-mode: false
+
       - name: Summarise invocation
         id: summary
         uses: actions/github-script@v8
@@ -216,12 +223,21 @@ jobs:
         with:
           github-token: ${{ env.GH_CONVEYOR_TOKEN }}
           script: |
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry } = retryHelpers;
             const prNumber = Number('${{ inputs.pr_number }}');
             const branch = '${{ inputs.branch }}'.trim();
             const expectedIssue = Number('${{ inputs.issue }}');
             const { owner, repo } = context.repo;
 
-            const { data } = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+            const { data } = await withRetry(() => github.rest.pulls.get({ owner, repo, pull_number: prNumber }));
             if (data.state !== 'open') {
               core.setFailed(`PR #${prNumber} is not open (state=${data.state}).`);
               return;
@@ -255,13 +271,22 @@ jobs:
         with:
           github-token: ${{ env.GH_CONVEYOR_TOKEN }}
           script: |
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry } = retryHelpers;
             const headSha = '${{ inputs.head_sha }}'.trim() || '${{ steps.pr.outputs.head_sha }}';
             if (!headSha) {
               core.setFailed('Unable to determine head SHA for status inspection.');
               return;
             }
             const { owner, repo } = context.repo;
-            const { data } = await github.rest.repos.getCombinedStatusForRef({ owner, repo, ref: headSha });
+            const { data } = await withRetry(() => github.rest.repos.getCombinedStatusForRef({ owner, repo, ref: headSha }));
             if (!data || data.state !== 'success') {
               const state = data && data.state ? data.state : '(unknown)';
               core.setFailed(`Combined status for ${headSha} is ${state}; conveyor requires success.`);
@@ -274,11 +299,20 @@ jobs:
         with:
           github-token: ${{ env.GH_CONVEYOR_TOKEN }}
           script: |
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { paginateWithRetry } = retryHelpers;
             const prNumber = Number('${{ inputs.pr_number }}');
             const inferredIssue = Number('${{ steps.pr.outputs.issue || inputs.issue }}') || null;
             const { owner, repo } = context.repo;
 
-            const files = await github.paginate(github.rest.pulls.listFiles, {
+            const files = await paginateWithRetry(github.rest.pulls.listFiles, {
               owner,
               repo,
               pull_number: prNumber,
@@ -339,10 +373,19 @@ jobs:
         with:
           github-token: ${{ env.GH_CONVEYOR_TOKEN }}
           script: |
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry } = retryHelpers;
             const prNumber = Number('${{ inputs.pr_number }}');
             const { owner, repo } = context.repo;
             try {
-              await github.rest.pulls.merge({ owner, repo, pull_number: prNumber, merge_method: 'squash' });
+              await withRetry(() => github.rest.pulls.merge({ owner, repo, pull_number: prNumber, merge_method: 'squash' }));
               core.setOutput('merged', 'true');
             } catch (error) {
               core.setFailed(`Failed to merge PR #${prNumber}: ${error.message}`);
@@ -354,10 +397,19 @@ jobs:
         with:
           github-token: ${{ env.GH_CONVEYOR_TOKEN }}
           script: |
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry } = retryHelpers;
             const branch = '${{ inputs.branch }}';
             const { owner, repo } = context.repo;
             try {
-              await github.rest.git.deleteRef({ owner, repo, ref: `heads/${branch}` });
+              await withRetry(() => github.rest.git.deleteRef({ owner, repo, ref: `heads/${branch}` }));
             } catch (error) {
               core.warning(`Failed to delete branch ${branch}: ${error.message}`);
             }
@@ -368,6 +420,15 @@ jobs:
         with:
           github-token: ${{ env.GH_CONVEYOR_TOKEN }}
           script: |
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry } = retryHelpers;
             const issue = Number('${{ inputs.issue }}') || Number('${{ steps.pr.outputs.issue }}');
             const { owner, repo } = context.repo;
             if (!issue) {
@@ -375,19 +436,19 @@ jobs:
               return;
             }
             try {
-              await github.rest.issues.update({ owner, repo, issue_number: issue, state: 'closed' });
+              await withRetry(() => github.rest.issues.update({ owner, repo, issue_number: issue, state: 'closed' }));
             } catch (error) {
               core.warning(`Failed to close issue #${issue}: ${error.message}`);
             }
             try {
-              await github.rest.issues.removeLabel({ owner, repo, issue_number: issue, name: 'status:in-progress' });
+              await withRetry(() => github.rest.issues.removeLabel({ owner, repo, issue_number: issue, name: 'status:in-progress' }));
             } catch (error) {
               if (error.status !== 404) {
                 core.warning(`Failed to remove status:in-progress: ${error.message}`);
               }
             }
             try {
-              await github.rest.issues.createComment({ owner, repo, issue_number: issue, body: 'Merged via Codex Belt Conveyor after Gate success.' });
+              await withRetry(() => github.rest.issues.createComment({ owner, repo, issue_number: issue, body: 'Merged via Codex Belt Conveyor after Gate success.' }));
             } catch (error) {
               core.warning(`Failed to comment on issue #${issue}: ${error.message}`);
             }
@@ -398,11 +459,20 @@ jobs:
         with:
           github-token: ${{ env.GH_CONVEYOR_TOKEN }}
           script: |
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry } = retryHelpers;
             const prNumber = Number('${{ inputs.pr_number }}');
             const issue = Number('${{ inputs.issue }}') || Number('${{ steps.pr.outputs.issue }}');
             const { owner, repo } = context.repo;
             try {
-              await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body: `Gate succeeded; merged automatically and closed issue #${issue || '(unknown)'}.` });
+              await withRetry(() => github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body: `Gate succeeded; merged automatically and closed issue #${issue || '(unknown)'}.` }));
             } catch (error) {
               core.warning(`Failed to comment on PR #${prNumber}: ${error.message}`);
             }
@@ -420,14 +490,23 @@ jobs:
         with:
           github-token: ${{ env.GH_CONVEYOR_TOKEN }}
           script: |
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry } = retryHelpers;
             const { owner, repo } = context.repo;
             try {
-              await github.rest.actions.createWorkflowDispatch({
+              await withRetry(() => github.rest.actions.createWorkflowDispatch({
                 owner,
                 repo,
                 workflow_id: 'agents-71-codex-belt-dispatcher.yml',
                 ref: 'refs/heads/' + (process.env.GITHUB_REF_NAME || context.ref.replace('refs/heads/', ''))
-              });
+              }));
             } catch (error) {
               core.warning(`Failed to re-dispatch dispatcher: ${error.message}`);
             }
