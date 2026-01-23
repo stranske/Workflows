@@ -164,7 +164,12 @@ def load_template_block() -> str:
     lines = _read_template_lines()
     if lines is None:
         return generate_minimal_block()
-    _validate_template_markers(lines)
+    try:
+        _validate_template_markers(lines)
+    except TemplateBlockError as exc:
+        if "missing" in str(exc):
+            raise
+        return generate_minimal_block()
     header_index = next(
         (
             idx
