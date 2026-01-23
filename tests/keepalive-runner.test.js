@@ -45,6 +45,14 @@ test('resolveInstructionToken falls back to GITHUB_TOKEN', () => {
   assert.equal(resolveInstructionToken(env), 'github-token');
 });
 
+test('resolveInstructionToken ignores null placeholder tokens', () => {
+  const env = {
+    SERVICE_BOT_PAT: 'null',
+    ACTIONS_BOT_PAT: 'actions-token',
+  };
+  assert.equal(resolveInstructionToken(env), 'actions-token');
+});
+
 test('resolveDispatchToken prefers actions bot PAT over instruction tokens', () => {
   const env = {
     ACTIONS_BOT_PAT: 'actions-token',
@@ -67,6 +75,14 @@ test('resolveDispatchToken accepts lower-case github_token', () => {
     github_token: 'github-token',
   };
   assert.equal(resolveDispatchToken(env), 'github-token');
+});
+
+test('resolveDispatchToken ignores undefined placeholder tokens', () => {
+  const env = {
+    ACTIONS_BOT_PAT: 'undefined',
+    SERVICE_BOT_PAT: 'null',
+  };
+  assert.equal(resolveDispatchToken(env, 'fallback-token'), 'fallback-token');
 });
 
 test('buildOctokitInstance ignores plain object constructor fallbacks', () => {

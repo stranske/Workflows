@@ -141,7 +141,6 @@ function resolvePromptCheckboxCounts(scopeCounts, latestChecklist) {
   const total = Number.isFinite(latestChecklist.total) ? latestChecklist.total : 0;
   const unchecked = Number.isFinite(latestChecklist.unchecked) ? latestChecklist.unchecked : 0;
   const scopeHasTasks = safeScope.total > 0;
-  const scopeComplete = scopeHasTasks && safeScope.unchecked === 0;
   const latestHasTasks = total > 0;
   const latestIncomplete = unchecked > 0;
   if (!latestHasTasks) {
@@ -150,13 +149,13 @@ function resolvePromptCheckboxCounts(scopeCounts, latestChecklist) {
   if (!scopeHasTasks) {
     return { total, unchecked };
   }
-  if (scopeComplete) {
+  if (latestIncomplete) {
+    return { total, unchecked };
+  }
+  if (safeScope.unchecked > 0) {
     return safeScope;
   }
-  if (!latestIncomplete && safeScope.unchecked > 0) {
-    return safeScope;
-  }
-  return { total, unchecked };
+  return safeScope;
 }
 
 const CI_FAILURE_LABEL_REGEX = /\bci(?:[-_:\s]+)?fail(?:ed|ing|ure)?\b/;
@@ -683,13 +682,14 @@ function buildTraceToken({ seed, prNumber, round }) {
 }
 
 function resolveTokenFromKeys(env = {}, keys = []) {
+  const invalidTokens = new Set(['null', 'undefined']);
   for (const key of keys) {
     const candidate = env?.[key];
     if (candidate === null || candidate === undefined) {
       continue;
     }
     const trimmed = String(candidate).trim();
-    if (trimmed) {
+    if (trimmed && !invalidTokens.has(trimmed.toLowerCase())) {
       return trimmed;
     }
   }
