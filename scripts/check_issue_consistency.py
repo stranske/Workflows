@@ -15,6 +15,17 @@ ISSUE_SLUG_PATTERN = re.compile(r"issue[-_](\d+)", re.IGNORECASE)
 HASH_PATTERN = re.compile(r"#(\d+)")
 
 
+def _hash_mentions(text: str) -> set[int]:
+    matches = set()
+    for match in HASH_PATTERN.finditer(text or ""):
+        start = match.start()
+        prefix = text[max(0, start - 4) : start].lower()
+        if "pr" in prefix:
+            continue
+        matches.add(int(match.group(1)))
+    return matches
+
+
 def extract_issue_numbers(text: str, *, include_hash: bool = True) -> set[int]:
     numbers = set()
     for match in ISSUE_WORD_PATTERN.findall(text or ""):
@@ -22,8 +33,7 @@ def extract_issue_numbers(text: str, *, include_hash: bool = True) -> set[int]:
     for match in ISSUE_SLUG_PATTERN.findall(text or ""):
         numbers.add(int(match))
     if include_hash:
-        for match in HASH_PATTERN.findall(text or ""):
-            numbers.add(int(match))
+        numbers.update(_hash_mentions(text or ""))
     return numbers
 
 
