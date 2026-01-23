@@ -17,10 +17,7 @@ def _normalise_keys(node: Any) -> Any:
     if isinstance(node, dict):
         normalised: dict[str, Any] = {}
         for key, value in node.items():
-            if isinstance(key, bool):
-                key_str = "on" if key else str(key).lower()
-            else:
-                key_str = str(key)
+            key_str = ("on" if key else str(key).lower()) if isinstance(key, bool) else str(key)
             normalised[key_str] = _normalise_keys(value)
         return normalised
     if isinstance(node, list):
