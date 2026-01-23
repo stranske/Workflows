@@ -35,6 +35,7 @@ jobs:
       - name: Dispatch auto-pilot from optimize step
         env:
           GH_TOKEN: ${{ github.token }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
           set -euo pipefail
           issue_number=$(jq -r '.issue_number' followup_issue_output.json)
@@ -45,6 +46,6 @@ jobs:
           workflow="agents-auto-pilot.yml"
           api_path="repos/${GITHUB_REPOSITORY}/actions/workflows/${workflow}/dispatches"
           gh api -X POST "${api_path}" \
-            -f ref=main \
+            -f "ref=${DEFAULT_BRANCH}" \
             -f "inputs[issue_number]=${issue_number}" \
             -f "inputs[force_step]=optimize"
