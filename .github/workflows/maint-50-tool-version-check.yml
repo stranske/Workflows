@@ -29,6 +29,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
+      - name: Checkout retry helpers
+        uses: actions/checkout@v6
+        with:
+          sparse-checkout: |
+            .github/scripts/github-api-with-retry.js
+          sparse-checkout-cone-mode: false
+
       - name: Setup Python
         uses: actions/setup-python@v6
         with:
@@ -164,6 +171,14 @@ jobs:
         with:
           script: |
             const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry } = retryHelpers;
             const report = fs.readFileSync(process.env.GITHUB_OUTPUT, 'utf8')
               .match(/report<<REPORT_EOF\n([\s\S]*?)\nREPORT_EOF/)?.[1] || '';
             const updates = fs.readFileSync(process.env.GITHUB_OUTPUT, 'utf8')
@@ -203,42 +218,42 @@ jobs:
               '*Last checked: ' + timestamp + '*';
 
             // Search for existing open issues with this title
-            const issues = await github.rest.issues.listForRepo({
+            const issues = await withRetry(() => github.rest.issues.listForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,
               state: 'open',
               labels: 'maintenance,dependencies',
               per_page: 100
-            });
+            }));
 
             const existingIssue = issues.data.find(issue => issue.title === title);
 
             if (existingIssue) {
               // Update existing issue
-              await github.rest.issues.update({
+              await withRetry(() => github.rest.issues.update({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: existingIssue.number,
                 body: body
-              });
+              }));
 
-              await github.rest.issues.createComment({
+              await withRetry(() => github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: existingIssue.number,
                 body: `🔄 Updated with latest version check results.`
-              });
+              }));
 
               core.notice(`Updated existing issue #${existingIssue.number}`);
             } else {
               // Create new issue
-              const issue = await github.rest.issues.create({
+              const issue = await withRetry(() => github.rest.issues.create({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 title: title,
                 body: body,
                 labels: ['maintenance', 'dependencies']
-              });
+              }));
 
               core.notice(`Created issue #${issue.data.number}`);
             }

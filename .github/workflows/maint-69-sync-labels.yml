@@ -34,12 +34,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Checkout retry helpers
+        uses: actions/checkout@v6
+        with:
+          sparse-checkout: |
+            .github/scripts/github-api-with-retry.js
+          sparse-checkout-cone-mode: false
+
       - name: Parse labels-core.yml
         id: parse
         uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
             const yaml = require('js-yaml');
 
             const labelsFile = fs.readFileSync('.github/labels-core.yml', 'utf8');
@@ -53,6 +67,14 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
             const input = '${{ inputs.repos }}' || 'all';
 
             // List of consumer repos that use the Workflows system
@@ -88,6 +110,15 @@ jobs:
             const labels = JSON.parse(process.env.LABELS_JSON);
             const repos = JSON.parse(process.env.REPOS_JSON);
             const dryRun = process.env.DRY_RUN === 'true';
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry } = retryHelpers;
 
             const summary = [];
             summary.push('# Label Sync Results\n');
@@ -104,11 +135,11 @@ jobs:
               // Get existing labels
               let existingLabels = [];
               try {
-                const { data } = await github.rest.issues.listLabelsForRepo({
+                const { data } = await withRetry(() => github.rest.issues.listLabelsForRepo({
                   owner,
                   repo,
                   per_page: 100
-                });
+                }));
                 existingLabels = data;
               } catch (e) {
                 summary.push(`❌ Failed to fetch labels: ${e.message}\n\n`);
@@ -127,13 +158,13 @@ jobs:
                     created++;
                   } else {
                     try {
-                      await github.rest.issues.createLabel({
+                      await withRetry(() => github.rest.issues.createLabel({
                         owner,
                         repo,
                         name: label.name,
                         color: label.color,
                         description: label.description
-                      });
+                      }));
                       summary.push(`  ✅ Created: \`${label.name}\`\n`);
                       created++;
                     } catch (e) {
@@ -151,13 +182,13 @@ jobs:
                     updated++;
                   } else {
                     try {
-                      await github.rest.issues.updateLabel({
+                      await withRetry(() => github.rest.issues.updateLabel({
                         owner,
                         repo,
                         name: label.name,
                         color: label.color,
                         description: label.description
-                      });
+                      }));
                       summary.push(`  🔄 Updated: \`${label.name}\`\n`);
                       updated++;
                     } catch (e) {

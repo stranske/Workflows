@@ -26,11 +26,27 @@ jobs:
     env:
       ARTIFACT_ROOT: summary_artifacts
     steps:
+      - name: Checkout retry helpers
+        uses: actions/checkout@v6
+        with:
+          sparse-checkout: |
+            .github/scripts/github-api-with-retry.js
+          sparse-checkout-cone-mode: false
+
       - name: Check Gate summary completion
         id: gate_guard
         uses: actions/github-script@v8
         with:
           script: |
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { paginateWithRetry } = retryHelpers;
             const run = context.payload.workflow_run;
             if (!run) {
               core.warning('No workflow_run payload; assuming recovery mode.');
@@ -48,7 +64,7 @@ jobs:
 
             let summaryJob = null;
             try {
-              const jobs = await github.paginate(
+              const jobs = await paginateWithRetry(
                 github.rest.actions.listJobsForWorkflowRun,
                 {
                   owner,

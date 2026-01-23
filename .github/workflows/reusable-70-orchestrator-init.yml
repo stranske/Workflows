@@ -175,6 +175,13 @@ jobs:
     outputs:
       has_work: ${{ steps.precheck.outputs.has_work || 'false' }}
     steps:
+      - name: Checkout retry helpers
+        uses: actions/checkout@v6
+        with:
+          sparse-checkout: |
+            .github/scripts/github-api-with-retry.js
+          sparse-checkout-cone-mode: false
+
       - name: Count agent issues
         id: precheck
         uses: actions/github-script@v8
@@ -188,6 +195,15 @@ jobs:
             const summary = core.summary;
             const { owner, repo } = context.repo;
             const started = Date.now();
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { paginateWithRetry } = retryHelpers;
 
             const normalise = (value) => String(value ?? '').trim();
             const toBool = (value) => {
@@ -238,24 +254,21 @@ jobs:
             }
 
             let count = 0;
-            await github.paginate(
+            const openIssues = await paginateWithRetry(
               github.rest.issues.listForRepo,
-              { owner, repo, state: 'open', per_page: 100 },
-              (response, done) => {
-                for (const issue of response.data || []) {
-                  if (issue.pull_request) continue;
-                  const labels = Array.isArray(issue.labels) ? issue.labels : [];
-                  if (labels.some((label) => {
-                    const name = typeof label === 'string' ? label : label?.name;
-                    return typeof name === 'string' && name.startsWith('agent:');
-                  })) {
-                    count += 1;
-                    if (count > 0 && !keepaliveRequested) { done(); break; }
-                  }
-                }
-                return [];
-              }
+              { owner, repo, state: 'open', per_page: 100 }
             );
+            for (const issue of openIssues) {
+              if (issue.pull_request) continue;
+              const labels = Array.isArray(issue.labels) ? issue.labels : [];
+              if (labels.some((label) => {
+                const name = typeof label === 'string' ? label : label?.name;
+                return typeof name === 'string' && name.startsWith('agent:');
+              })) {
+                count += 1;
+                if (count > 0 && !keepaliveRequested) break;
+              }
+            }
 
             const hasWork = keepaliveRequested || count > 0;
             const elapsed = Math.round((Date.now() - started) / 100) / 10;
@@ -326,7 +339,16 @@ jobs:
         with:
           github-token: ${{ steps.select.outputs.token == 'ACTIONS_BOT_PAT' && secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
           script: |
-            const { data } = await github.rest.users.getAuthenticated();
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry } = retryHelpers;
+            const { data } = await withRetry(() => github.rest.users.getAuthenticated());
             const login = (data?.login || '').trim();
             if (!login) {
               core.setFailed('Unable to determine identity for keepalive write token.');

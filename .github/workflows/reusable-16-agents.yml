@@ -142,14 +142,30 @@ jobs:
       contents: read
       issues: write
     steps:
+      - name: Checkout retry helpers
+        uses: actions/checkout@v6
+        with:
+          sparse-checkout: |
+            .github/scripts/github-api-with-retry.js
+          sparse-checkout-cone-mode: false
+
       - name: Probe assignable actors
         id: gql
         uses: actions/github-script@v8
         with:
           script: |
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry } = retryHelpers;
             const { owner, repo } = context.repo;
             const q = `query($owner:String!, $repo:String!) { repository(owner:$owner, name:$repo) { suggestedActors(capabilities:[CAN_BE_ASSIGNED], first:100) { nodes { login } } } }`;
-            const res = await github.graphql(q, { owner, repo });
+            const res = await withRetry(() => github.graphql(q, { owner, repo }));
             const actors = (res.repository?.suggestedActors?.nodes || []).map(n => (n.login || '').toLowerCase());
             core.setOutput('actors', JSON.stringify(actors));
       - name: Create temp issue
@@ -157,8 +173,17 @@ jobs:
         uses: actions/github-script@v8
         with:
           script: |
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry } = retryHelpers;
             const { owner, repo } = context.repo;
-            const { data: issue } = await github.rest.issues.create({ owner, repo, title: '[readiness] probe', body: 'temp' });
+            const { data: issue } = await withRetry(() => github.rest.issues.create({ owner, repo, title: '[readiness] probe', body: 'temp' }));
             core.setOutput('num', String(issue.number));
       - name: Try agent assignment
         id: try
@@ -213,7 +238,17 @@ jobs:
         uses: actions/github-script@v8
         with:
           script: |
-            const { owner, repo } = context.repo; await github.rest.issues.update({ owner, repo, issue_number: Number('${{ steps.tmp.outputs.num }}'), state: 'closed' });
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry } = retryHelpers;
+            const { owner, repo } = context.repo;
+            await withRetry(() => github.rest.issues.update({ owner, repo, issue_number: Number('${{ steps.tmp.outputs.num }}'), state: 'closed' }));
       - name: Summary
         if: always()
         run: |
@@ -234,6 +269,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
+      - name: Checkout retry helpers
+        uses: actions/checkout@v6
+        with:
+          sparse-checkout: |
+            .github/scripts/github-api-with-retry.js
+          sparse-checkout-cone-mode: false
+
       - name: Preflight probe
         uses: actions/github-script@v8
         env:
@@ -242,13 +284,22 @@ jobs:
         with:
           script: |
             const { owner, repo } = context.repo;
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry } = retryHelpers;
             const user = process.env.CODEX_USER;
             if (!user) { core.warning('No CODEX_USER provided'); return; }
-            const { data: issue } = await github.rest.issues.create({ owner, repo, title: '[probe] codex-assignability', body: 'temp' });
-            try { await github.rest.issues.addAssignees({ owner, repo, issue_number: issue.number, assignees: [user] }); core.info('Assignable'); }
+            const { data: issue } = await withRetry(() => github.rest.issues.create({ owner, repo, title: '[probe] codex-assignability', body: 'temp' }));
+            try { await withRetry(() => github.rest.issues.addAssignees({ owner, repo, issue_number: issue.number, assignees: [user] })); core.info('Assignable'); }
             catch (e) { core.warning('Not assignable: '+e.message); }
-            if (process.env.CODEX_COMMAND) { await github.rest.issues.createComment({ owner, repo, issue_number: issue.number, body: process.env.CODEX_COMMAND }); }
-            await github.rest.issues.update({ owner, repo, issue_number: issue.number, state: 'closed' });
+            if (process.env.CODEX_COMMAND) { await withRetry(() => github.rest.issues.createComment({ owner, repo, issue_number: issue.number, body: process.env.CODEX_COMMAND })); }
+            await withRetry(() => github.rest.issues.update({ owner, repo, issue_number: issue.number, state: 'closed' }));
 
   diagnostic:
     if: inputs.enable_diagnostic == 'true'
@@ -398,6 +449,16 @@ jobs:
               core.setOutput('first_issue', '');
             };
 
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { paginateWithRetry } = retryHelpers;
+
             const fallbackLabel = 'agent:codex';
             const fallbackMessage = 'bootstrap_issues_label not provided; defaulting to agent:codex.';
             const raw = process.env.LABEL || '';
@@ -482,8 +543,7 @@ jobs:
             const scanLimit = 100;
             let scanned = 0;
             let truncated = false;
-
-            const iterator = github.paginate.iterator(
+            const issues = await paginateWithRetry(
               github.rest.issues.listForRepo,
               {
                 owner,
@@ -494,36 +554,33 @@ jobs:
               }
             );
 
-            outer: for await (const page of iterator) {
-              for (const issue of page.data) {
-                if (scanned >= scanLimit) {
-                  truncated = true;
-                  core.warning(`Bootstrap issue scan truncated after ${scanLimit} records.`);
-                  break outer;
-                }
+            const limitedIssues = issues.slice(0, scanLimit);
+            scanned = limitedIssues.length;
+            if (issues.length > scanLimit) {
+              truncated = true;
+              core.warning(`Bootstrap issue scan truncated after ${scanLimit} records.`);
+            }
 
-                scanned += 1;
-
-                if (issue.pull_request) {
-                  logSkip(issue, 'pull request detected');
-                  continue;
-                }
-
-                const labelNames = (issue.labels || [])
-                  .map((entry) => (typeof entry === 'string' ? entry : entry?.name || '').toLowerCase())
-                  .filter(Boolean);
-                if (!labelNames.includes(labelLower)) {
-                  logSkip(issue, `missing required label ${label}`);
-                  continue;
-                }
-
-                if ((issue.title || '').toLowerCase().includes('wip')) {
-                  logSkip(issue, 'title flagged as work-in-progress');
-                  continue;
-                }
-
-                accepted.push(issue);
+            for (const issue of limitedIssues) {
+              if (issue.pull_request) {
+                logSkip(issue, 'pull request detected');
+                continue;
               }
+
+              const labelNames = (issue.labels || [])
+                .map((entry) => (typeof entry === 'string' ? entry : entry?.name || '').toLowerCase())
+                .filter(Boolean);
+              if (!labelNames.includes(labelLower)) {
+                logSkip(issue, `missing required label ${label}`);
+                continue;
+              }
+
+              if ((issue.title || '').toLowerCase().includes('wip')) {
+                logSkip(issue, 'title flagged as work-in-progress');
+                continue;
+              }
+
+              accepted.push(issue);
             }
 
             if (accepted.length) {
@@ -645,7 +702,16 @@ jobs:
         with:
           github-token: ${{ secrets.service_bot_pat }}
           script: |
-            const { data: me } = await github.rest.users.getAuthenticated();
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry } = retryHelpers;
+            const { data: me } = await withRetry(() => github.rest.users.getAuthenticated());
             const login = (me.login || '').toLowerCase();
             if (login !== 'stranske-automation-bot') {
               core.setFailed(`SERVICE_BOT_PAT must belong to stranske-automation-bot; received ${login || 'unknown'}.`);

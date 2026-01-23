@@ -319,12 +319,28 @@ jobs:
       pr_number: ${{ steps.resolve.outputs.pr_number || '' }}
       agent_alias: ${{ steps.resolve.outputs.agent_alias || '' }}
     steps:
+      - name: Checkout retry helpers
+        uses: actions/checkout@v6
+        with:
+          sparse-checkout: |
+            .github/scripts/github-api-with-retry.js
+          sparse-checkout-cone-mode: false
+
       - name: Resolve PR number and agent alias
         id: resolve
         uses: actions/github-script@v8
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { paginateWithRetry } = retryHelpers;
             const ev = context.payload || {};
 
             const parseMaybeJson = (value) => {
@@ -385,7 +401,7 @@ jobs:
                 return null;
               }
               try {
-                const labels = await github.paginate(github.rest.issues.listLabelsOnIssue, {
+                const labels = await paginateWithRetry(github.rest.issues.listLabelsOnIssue, {
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   issue_number: numeric,

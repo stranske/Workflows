@@ -23,6 +23,13 @@ jobs:
     outputs:
       proceed: ${{ steps.check.outputs.proceed || 'true' }}
     steps:
+      - name: Checkout retry helpers
+        uses: actions/checkout@v6
+        with:
+          sparse-checkout: |
+            .github/scripts/github-api-with-retry.js
+          sparse-checkout-cone-mode: false
+
       - name: Check API quota
         id: check
         uses: actions/github-script@v8
@@ -32,8 +39,17 @@ jobs:
         with:
           script: |
             const threshold = parseInt(process.env.RATE_LIMIT_THRESHOLD || '2000', 10);
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry } = retryHelpers;
             try {
-              const { data } = await github.rest.rateLimit.get();
+              const { data } = await withRetry(() => github.rest.rateLimit.get());
               const remaining = data?.resources?.core?.remaining || 0;
               const limit = data?.resources?.core?.limit || 5000;
               const proceed = remaining >= threshold;
@@ -66,6 +82,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
+      - name: Checkout retry helpers
+        uses: actions/checkout@v6
+        with:
+          sparse-checkout: |
+            .github/scripts/github-api-with-retry.js
+          sparse-checkout-cone-mode: false
+
       - name: Locate latest Gate workflow run
         id: discover
         uses: actions/github-script@v8
@@ -74,8 +97,17 @@ jobs:
           script: |
             const { owner, repo } = context.repo;
             const workflowId = '.github/workflows/pr-00-gate.yml';
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { paginateWithRetry } = retryHelpers;
 
-            const runs = await github.paginate(
+            const runs = await paginateWithRetry(
               github.rest.actions.listWorkflowRuns,
               {
                 owner,

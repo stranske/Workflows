@@ -84,6 +84,14 @@ jobs:
           owner: stranske
           repositories: ${{ steps.repo-info.outputs.repo_name }}
 
+      - name: Checkout retry helpers
+        if: steps.check.outputs.skip != 'true'
+        uses: actions/checkout@v6
+        with:
+          sparse-checkout: |
+            .github/scripts/github-api-with-retry.js
+          sparse-checkout-cone-mode: false
+
       - name: Check and fix pr_body.md
         if: steps.check.outputs.skip != 'true'
         uses: actions/github-script@v8
@@ -95,6 +103,15 @@ jobs:
           script: |
             const [owner, repo] = process.env.REPO_FULL.split('/');
             const dryRun = process.env.DRY_RUN === 'true';
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry } = retryHelpers;
 
             console.log(`\n${'='.repeat(60)}`);
             console.log(`Processing ${owner}/${repo} (dry_run=${dryRun})`);
@@ -107,12 +124,12 @@ jobs:
             let prBodyExists = false;
             let prBodySha = null;
             try {
-              const { data } = await github.rest.repos.getContent({
+              const { data } = await withRetry(() => github.rest.repos.getContent({
                 owner,
                 repo,
                 path: 'pr_body.md',
                 ref: 'main'
-              });
+              }));
               prBodyExists = true;
               prBodySha = data.sha;
               console.log(`⚠️  pr_body.md EXISTS on main (sha: ${prBodySha.substring(0, 8)})`);
@@ -131,12 +148,12 @@ jobs:
             let gitignoreSha = null;
             let prBodyInGitignore = false;
             try {
-              const { data } = await github.rest.repos.getContent({
+              const { data } = await withRetry(() => github.rest.repos.getContent({
                 owner,
                 repo,
                 path: '.gitignore',
                 ref: 'main'
-              });
+              }));
               gitignoreContent = Buffer.from(data.content, 'base64').toString('utf8');
               gitignoreSha = data.sha;
 
@@ -185,14 +202,14 @@ jobs:
             // Delete pr_body.md if it exists
             if (prBodyExists && prBodySha) {
               try {
-                await github.rest.repos.deleteFile({
+                await withRetry(() => github.rest.repos.deleteFile({
                   owner,
                   repo,
                   path: 'pr_body.md',
                   message: 'chore: remove pr_body.md from main\n\nThis file should not be tracked. It is PR-specific and causes merge conflicts.',
                   sha: prBodySha,
                   branch: 'main'
-                });
+                }));
                 console.log(`✅ Deleted pr_body.md from main`);
               } catch (e) {
                 console.log(`❌ Failed to delete pr_body.md: ${e.message}`);
@@ -209,7 +226,7 @@ jobs:
 
               try {
                 if (gitignoreSha) {
-                  await github.rest.repos.createOrUpdateFileContents({
+                  await withRetry(() => github.rest.repos.createOrUpdateFileContents({
                     owner,
                     repo,
                     path: '.gitignore',
@@ -217,16 +234,16 @@ jobs:
                     content: Buffer.from(newContent).toString('base64'),
                     sha: gitignoreSha,
                     branch: 'main'
-                  });
+                  }));
                 } else {
-                  await github.rest.repos.createOrUpdateFileContents({
+                  await withRetry(() => github.rest.repos.createOrUpdateFileContents({
                     owner,
                     repo,
                     path: '.gitignore',
                     message: 'chore: create .gitignore with pr_body.md\n\nPrevent merge conflicts from PR-specific content.',
                     content: Buffer.from(newContent).toString('base64'),
                     branch: 'main'
-                  });
+                  }));
                 }
                 console.log(`✅ Updated .gitignore`);
               } catch (e) {

@@ -2069,11 +2069,20 @@ jobs:
         uses: actions/github-script@v8
         with:
           script: |
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { paginateWithRetry } = retryHelpers;
             const { owner, repo } = context.repo;
             const run_id = context.runId;
             let jobs;
             try {
-              jobs = await github.paginate(
+              jobs = await paginateWithRetry(
                 github.rest.actions.listJobsForWorkflowRun,
                 { owner, repo, run_id, per_page: 100 },
               );

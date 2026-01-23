@@ -308,6 +308,15 @@ jobs:
               core.info('No pull request number available; skipping label application.');
               return;
             }
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry } = retryHelpers;
             const label = process.env.OPT_IN_LABEL;
             const cleanLabel = process.env.CLEAN_LABEL;
             // Don't add the clean mode label here - that should only be added by
@@ -318,12 +327,12 @@ jobs:
               return;
             }
             try {
-              await github.rest.issues.addLabels({
+              await withRetry(() => github.rest.issues.addLabels({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: prNumber,
                 labels: [label],
-              });
+              }));
             } catch (error) {
               core.warning(`Failed to ensure autofix label: ${error.message}`);
             }
@@ -794,16 +803,25 @@ jobs:
               core.info('No pull request number available; skipping patch label.');
               return;
             }
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry } = retryHelpers;
             const baseLabel = process.env.OPT_IN_LABEL;
             const patchLabel = process.env.PATCH_LABEL || 'autofix:patch';
             const labels = [baseLabel, patchLabel];
             try {
-              await github.rest.issues.addLabels({
+              await withRetry(() => github.rest.issues.addLabels({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: prNumber,
                 labels,
-              });
+              }));
             } catch (error) {
               core.warning(`Failed to add autofix patch label: ${error.message}`);
             }
@@ -903,6 +921,15 @@ jobs:
               core.info('No pull request number available; skipping outcome labels.');
               return;
             }
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry } = retryHelpers;
             const changed = (process.env.AUTO_CHANGED || '').toLowerCase() === 'true';
             const sameRepo = (process.env.SAME_REPO || '').toLowerCase() === 'true';
             const authMode = (process.env.AUTH_MODE || '').toLowerCase();
@@ -916,29 +943,29 @@ jobs:
 
             async function addLabel(label) {
               try {
-                await github.rest.issues.addLabels({
+                await withRetry(() => github.rest.issues.addLabels({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   issue_number: prNumber,
                   labels: [label],
-                });
+                }));
               } catch (error) {
                 if (error.status === 404 && label === cleanOnlyLabel) {
                   core.info(`Label ${label} missing; attempting to create it.`);
                   try {
-                    await github.rest.issues.createLabel({
+                    await withRetry(() => github.rest.issues.createLabel({
                       owner: context.repo.owner,
                       repo: context.repo.repo,
                       name: label,
                       color: 'D4C5F9',
                       description: 'Autofix clean cosmetic sweep',
-                    });
-                    await github.rest.issues.addLabels({
+                    }));
+                    await withRetry(() => github.rest.issues.addLabels({
                       owner: context.repo.owner,
                       repo: context.repo.repo,
                       issue_number: prNumber,
                       labels: [label],
-                    });
+                    }));
                     return;
                   } catch (creationError) {
                     core.warning(`Failed to create ${label}: ${creationError.message}`);
@@ -950,12 +977,12 @@ jobs:
 
             async function removeLabel(label) {
               try {
-                await github.rest.issues.removeLabel({
+                await withRetry(() => github.rest.issues.removeLabel({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   issue_number: prNumber,
                   name: label,
-                });
+                }));
               } catch (error) {
                 if (error.status !== 404) {
                   core.warning(`Failed to remove ${label}: ${error.message}`);
@@ -1146,15 +1173,23 @@ jobs:
               core.info('No pull request number available; skipping PR comment update.');
               return;
             }
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry, paginateWithRetry } = retryHelpers;
             try {
               // Fetch existing comments once (first 100 is ample for typical PRs)
-              const comments = await github.paginate(github.rest.issues.listComments, { owner: context.repo.owner, repo: context.repo.repo, issue_number: prNumber, per_page: 100 });
+              const comments = await paginateWithRetry(github.rest.issues.listComments, { owner: context.repo.owner, repo: context.repo.repo, issue_number: prNumber, per_page: 100 });
               const existing = comments.find(c => c.body && c.body.includes(marker));
               if (existing) {
-                await github.rest.issues.updateComment({ owner: context.repo.owner, repo: context.repo.repo, comment_id: existing.id, body });
+                await withRetry(() => github.rest.issues.updateComment({ owner: context.repo.owner, repo: context.repo.repo, comment_id: existing.id, body }));
                 console.log('Updated existing autofix status comment.');
               } else {
-                await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: prNumber, body });
+                await withRetry(() => github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: prNumber, body }));
                 console.log('Created new autofix status comment.');
               }
             } catch (error) {
@@ -1180,6 +1215,15 @@ jobs:
               core.info('No pull request number available; skipping clean-mode summary comment.');
               return;
             }
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry, paginateWithRetry } = retryHelpers;
             const marker = '<!-- autofix-clean-summary -->';
             const filesRaw = (process.env.FILE_LIST || '').split('\n').map((line) => line.trim()).filter(Boolean);
             if (!filesRaw.length) {
@@ -1191,13 +1235,13 @@ jobs:
             const header = `Clean-mode cosmetic autofix${labelSuffix} updated these files:`;
             const bodyLines = [marker, header, '', ...filesRaw.map((file) => `- \`${file}\``)];
             const body = bodyLines.join('\n');
-            const comments = await github.paginate(github.rest.issues.listComments, { owner: context.repo.owner, repo: context.repo.repo, issue_number: prNumber, per_page: 100 });
+            const comments = await paginateWithRetry(github.rest.issues.listComments, { owner: context.repo.owner, repo: context.repo.repo, issue_number: prNumber, per_page: 100 });
             const existing = comments.find((comment) => comment.body && comment.body.includes(marker));
             if (existing) {
-              await github.rest.issues.updateComment({ owner: context.repo.owner, repo: context.repo.repo, comment_id: existing.id, body });
+              await withRetry(() => github.rest.issues.updateComment({ owner: context.repo.owner, repo: context.repo.repo, comment_id: existing.id, body }));
               core.info('Updated existing clean-mode summary comment.');
             } else {
-              await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: prNumber, body });
+              await withRetry(() => github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: prNumber, body }));
               core.info('Created new clean-mode summary comment.');
             }
 
@@ -1214,6 +1258,15 @@ jobs:
               core.info('No pull request number available; skipping safe sweep summary comment.');
               return;
             }
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry, paginateWithRetry } = retryHelpers;
             const marker = '<!-- autofix-file-summary -->';
             const filesRaw = (process.env.FILE_LIST || '').split('\n').map((line) => line.trim()).filter(Boolean);
             if (!filesRaw.length) {
@@ -1223,13 +1276,13 @@ jobs:
             const header = 'Autofix updated these files:';
             const bodyLines = [marker, header, '', ...filesRaw.map((file) => `- \`${file}\``)];
             const body = bodyLines.join('\n');
-            const comments = await github.paginate(github.rest.issues.listComments, { owner: context.repo.owner, repo: context.repo.repo, issue_number: prNumber, per_page: 100 });
+            const comments = await paginateWithRetry(github.rest.issues.listComments, { owner: context.repo.owner, repo: context.repo.repo, issue_number: prNumber, per_page: 100 });
             const existing = comments.find((comment) => comment.body && comment.body.includes(marker));
             if (existing) {
-              await github.rest.issues.updateComment({ owner: context.repo.owner, repo: context.repo.repo, comment_id: existing.id, body });
+              await withRetry(() => github.rest.issues.updateComment({ owner: context.repo.owner, repo: context.repo.repo, comment_id: existing.id, body }));
               core.info('Updated existing safe sweep summary comment.');
             } else {
-              await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: prNumber, body });
+              await withRetry(() => github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: prNumber, body }));
               core.info('Created new safe sweep summary comment.');
             }
 
@@ -1239,6 +1292,14 @@ jobs:
         with:
           script: |
             const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry } = retryHelpers;
             let hist=[]; try { hist = JSON.parse(fs.readFileSync('ci/autofix/history.json','utf8')); } catch(e) {}
             if (!Array.isArray(hist) || hist.length < 5) { return; }
             const last = hist.slice(-1)[0];
@@ -1249,7 +1310,7 @@ jobs:
             if (spike <= THRESH) return;
             const issueTitle = 'lint regression: residual spike';
             // Check for existing open issue
-            const issues = await github.rest.issues.listForRepo({ owner: context.repo.owner, repo: context.repo.repo, state:'open', labels:'autofix:regression' });
+            const issues = await withRetry(() => github.rest.issues.listForRepo({ owner: context.repo.owner, repo: context.repo.repo, state:'open', labels:'autofix:regression' }));
             if (issues.data.some(i => i.title === issueTitle)) return;
             const body = [
               'Detected residual lint spike exceeding threshold.',
@@ -1263,7 +1324,7 @@ jobs:
               '',
               'This issue was auto-generated.'
             ].join('\n');
-            await github.rest.issues.create({ owner: context.repo.owner, repo: context.repo.repo, title: issueTitle, body, labels:['autofix:regression'] });
+            await withRetry(() => github.rest.issues.create({ owner: context.repo.owner, repo: context.repo.repo, title: issueTitle, body, labels:['autofix:regression'] }));
 
       - name: Emit JSON report (same-repo)
         if: steps.guard.outputs.skip != 'true' && steps.same_repo.outputs.same == 'true'
