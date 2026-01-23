@@ -41,18 +41,6 @@ jobs:
         run: |
           pip install -e ".[langchain]" --quiet
 
-      - name: Check OPENAI_API_KEY
-        id: openai_key
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: |
-          if [ -z "${OPENAI_API_KEY:-}" ]; then
-            echo "OPENAI_API_KEY is not set; skipping dedup check." >> "$GITHUB_STEP_SUMMARY"
-            echo "available=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "available=true" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Get open issues
         id: get-issues
         uses: actions/github-script@v8
@@ -88,7 +76,7 @@ jobs:
 
       - name: Check for duplicates
         id: check
-        if: steps.openai_key.outputs.available == 'true' && steps.get-issues.outputs.issue_count > 0
+        if: steps.get-issues.outputs.issue_count > 0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -192,7 +180,7 @@ jobs:
           "
 
       - name: Post duplicate warning
-        if: steps.openai_key.outputs.available == 'true' && steps.check.outputs.has_duplicates == 'true'
+        if: steps.check.outputs.has_duplicates == 'true'
         uses: actions/github-script@v8
         with:
           script: |

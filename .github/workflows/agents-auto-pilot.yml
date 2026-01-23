@@ -478,21 +478,8 @@ jobs:
         run: |
           python scripts/autopilot_step_timer.py --event start --format epoch-ms --github-env
 
-      - name: Check OPENAI_API_KEY
-        id: openai_key
-        if: steps.next.outputs.next_step == 'format' || steps.next.outputs.next_step == 'optimize'
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: |
-          if [ -z "${OPENAI_API_KEY:-}" ]; then
-            echo "OPENAI_API_KEY is not set; skipping auto-pilot LLM step." >> "$GITHUB_STEP_SUMMARY"
-            echo "available=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "available=true" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Execute step - Format (inline)
-        if: steps.next.outputs.next_step == 'format' && steps.openai_key.outputs.available == 'true'
+        if: steps.next.outputs.next_step == 'format'
         id: format_step
         env:
           ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
@@ -580,7 +567,7 @@ jobs:
           python scripts/autopilot_step_timer.py --event start --format epoch-ms --github-env
 
       - name: Execute step - Optimize (inline)
-        if: steps.next.outputs.next_step == 'optimize' && steps.openai_key.outputs.available == 'true'
+        if: steps.next.outputs.next_step == 'optimize'
         id: optimize_step
         env:
           ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}

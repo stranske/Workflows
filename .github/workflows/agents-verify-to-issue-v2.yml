@@ -176,22 +176,9 @@ jobs:
             // Set outputs
             core.setOutput('has_original_issue', linkedIssueNumber ? 'true' : 'false');
 
-      - name: Check OPENAI_API_KEY
-        id: openai_key
-        if: steps.check-merged.outputs.merged == 'true'
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: |
-          if [ -z "${OPENAI_API_KEY:-}" ]; then
-            echo "OPENAI_API_KEY is not set; skipping LLM follow-up generation." >> "$GITHUB_STEP_SUMMARY"
-            echo "available=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "available=true" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Generate follow-up issue
         id: generate
-        if: steps.check-merged.outputs.merged == 'true' && steps.openai_key.outputs.available == 'true'
+        if: steps.check-merged.outputs.merged == 'true'
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           GITHUB_TOKEN: ${{ steps.select-token.outputs.token }}
@@ -221,7 +208,7 @@ jobs:
 
       - name: Fallback to simple extraction
         id: fallback
-        if: steps.check-merged.outputs.merged == 'true' && (steps.generate.outcome == 'failure' || steps.openai_key.outputs.available != 'true')
+        if: steps.generate.outcome == 'failure' && steps.check-merged.outputs.merged == 'true'
         uses: actions/github-script@v8
         with:
           github-token: ${{ steps.select-token.outputs.token }}
