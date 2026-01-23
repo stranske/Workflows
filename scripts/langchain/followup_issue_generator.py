@@ -65,6 +65,13 @@ SECTION_TITLES = {
 LIST_ITEM_REGEX = re.compile(r"^\s*([-*+]|\d+[.)]|[A-Za-z][.)])\s+(.*)$")
 CHECKBOX_REGEX = re.compile(r"^\[([ xX])\]\s*(.*)$")
 
+REFERENCE_TASK_PATTERNS = [
+    re.compile(r"^\s*(original|parent)\s+pr\b", re.IGNORECASE),
+    re.compile(r"^\s*parent\s+issue\b", re.IGNORECASE),
+    re.compile(r"^\s*(pr|issue|pull\s+request)\s*#\d+", re.IGNORECASE),
+    re.compile(r"^\s*https?://github\.com/.+/(pull|issues)/\d+", re.IGNORECASE),
+]
+
 
 def _normalize_heading(text: str) -> str:
     """Normalize heading text for comparison (lowercase, stripped of markdown)."""
@@ -109,6 +116,15 @@ Your analysis should separate:
 - Tasks attempted: {tasks_attempted}
 - Tasks completed: {tasks_completed}
 - Items the agent couldn't make progress on: {non_actionable_items}
+
+## PR Change Summary
+{pr_diff_summary}
+
+## Changed Files (from PR)
+{pr_files}
+
+## CI Outcomes (from PR)
+{ci_summary}
 
 ## Previous Iteration Details (if useful)
 {iteration_details}
@@ -523,7 +539,9 @@ def extract_original_issue_data(
     data.implementation_notes = "\n".join(sections["implementation"]).strip()
 
     # Extract tasks and acceptance criteria from checklist/bulleted items.
-    data.tasks = _parse_checklist(sections["tasks"])
+    data.tasks = [
+        task for task in _parse_checklist(sections["tasks"]) if not _is_reference_task(task)
+    ]
     data.acceptance_criteria = _parse_checklist(sections["acceptance"])
 
     return data
@@ -603,6 +621,16 @@ def _parse_checklist(lines: list[str]) -> list[str]:
             if value and len(value) > 3:
                 items.append(value)
     return items
+
+
+def _is_reference_task(task: str) -> bool:
+    """Return True when a task is just a PR/issue reference or placeholder."""
+    if not task:
+        return True
+    normalized = task.strip()
+    if len(normalized) < 4:
+        return True
+    return any(pattern.search(normalized) for pattern in REFERENCE_TASK_PATTERNS)
 
 
 def _get_llm_client(reasoning: bool = False) -> tuple[Any, str] | None:
@@ -750,6 +778,9 @@ def generate_followup_issue(
     original_issue: OriginalIssueData,
     pr_number: int,
     codex_log: str | None = None,
+    pr_diff_summary: str | None = None,
+    pr_files: str | None = None,
+    ci_summary: str | None = None,
     use_llm: bool = True,
 ) -> FollowupIssue:
     """
@@ -777,6 +808,9 @@ def generate_followup_issue(
             original_issue,
             pr_number,
             codex_log,
+            pr_diff_summary,
+            pr_files,
+            ci_summary,
             reasoning_client=reasoning_client_info[0],
             reasoning_model=reasoning_client_info[1],
             standard_client=standard_client_info[0],
@@ -789,6 +823,9 @@ def generate_followup_issue(
             original_issue,
             pr_number,
             codex_log,
+            pr_diff_summary,
+            pr_files,
+            ci_summary,
             reasoning_client=reasoning_client_info[0],
             reasoning_model=reasoning_client_info[1],
             standard_client=reasoning_client_info[0],
@@ -801,6 +838,9 @@ def generate_followup_issue(
             original_issue,
             pr_number,
             codex_log,
+            pr_diff_summary,
+            pr_files,
+            ci_summary,
             reasoning_client=standard_client_info[0],
             reasoning_model=standard_client_info[1],
             standard_client=standard_client_info[0],
@@ -816,6 +856,9 @@ def _generate_with_llm(
     original_issue: OriginalIssueData,
     pr_number: int,
     codex_log: str | None,
+    pr_diff_summary: str | None,
+    pr_files: str | None,
+    ci_summary: str | None,
     reasoning_client: Any,
     reasoning_model: str,  # noqa: ARG001 - kept for API compatibility
     standard_client: Any,
@@ -847,6 +890,9 @@ def _generate_with_llm(
         non_actionable_items="\n".join(
             f"- {item}" for item in verification_data.non_actionable_items
         ),
+        pr_diff_summary=pr_diff_summary or "_No PR diff summary available._",
+        pr_files=pr_files or "_No PR file list available._",
+        ci_summary=ci_summary or "_No CI summary available._",
         iteration_details=iteration_details,
     )
 
@@ -1108,6 +1154,21 @@ def main() -> int:
         help="Path to Codex JSONL log file",
     )
     parser.add_argument(
+        "--pr-diff-summary",
+        type=str,
+        help="PR diff summary text (or path to file)",
+    )
+    parser.add_argument(
+        "--pr-files",
+        type=str,
+        help="PR file list (or path to file)",
+    )
+    parser.add_argument(
+        "--ci-summary",
+        type=str,
+        help="CI results summary (or path to file)",
+    )
+    parser.add_argument(
         "--no-llm",
         action="store_true",
         help="Generate without LLM (structured extraction only)",
@@ -1147,6 +1208,18 @@ def main() -> int:
     if args.codex_log and Path(args.codex_log).is_file():
         codex_log = Path(args.codex_log).read_text()
 
+    def _load_optional_text(value: str | None) -> str | None:
+        if not value:
+            return None
+        candidate = Path(value)
+        if candidate.is_file():
+            return candidate.read_text()
+        return value
+
+    pr_diff_summary = _load_optional_text(args.pr_diff_summary)
+    pr_files = _load_optional_text(args.pr_files)
+    ci_summary = _load_optional_text(args.ci_summary)
+
     # Parse data
     verification_data = extract_verification_data(verification_text)
     original_issue = extract_original_issue_data(
@@ -1175,6 +1248,9 @@ def main() -> int:
         original_issue=original_issue,
         pr_number=args.pr_number,
         codex_log=codex_log,
+        pr_diff_summary=pr_diff_summary,
+        pr_files=pr_files,
+        ci_summary=ci_summary,
         use_llm=not args.no_llm,
     )
 

@@ -104,6 +104,62 @@ jobs:
             fs.writeFileSync('verification_data.txt', verificationText);
             core.info(`Found ${verifyComments.length} verification comment(s)`);
 
+            // Collect PR file summary for additional context
+            try {
+              const files = await github.paginate(github.rest.pulls.listFiles, {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: prNumber,
+                per_page: 100,
+              });
+
+              const totalAdditions = files.reduce((sum, file) => sum + (file.additions || 0), 0);
+              const totalDeletions = files.reduce((sum, file) => sum + (file.deletions || 0), 0);
+              const summaryLines = [
+                `Files changed: ${files.length}`,
+                `Total additions: ${totalAdditions}`,
+                `Total deletions: ${totalDeletions}`,
+              ];
+              fs.writeFileSync('pr_diff_summary.txt', summaryLines.join('\n'));
+
+              const fileLines = files.map(file =>
+                `- ${file.filename} (${file.status}, +${file.additions}/-${file.deletions})`
+              );
+              fs.writeFileSync('pr_files.txt', fileLines.join('\n'));
+            } catch (error) {
+              core.warning(`Failed to collect PR file summary: ${error.message}`);
+              fs.writeFileSync('pr_diff_summary.txt', 'PR diff summary unavailable.');
+              fs.writeFileSync('pr_files.txt', 'PR file list unavailable.');
+            }
+
+            // Collect CI summary for the merged commit
+            try {
+              const sha = context.payload.pull_request.merge_commit_sha;
+              if (sha) {
+                const { data: checks } = await github.rest.checks.listForRef({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  ref: sha,
+                });
+                const failing = (checks.check_runs || []).filter(run =>
+                  run.conclusion && !['success', 'neutral', 'skipped'].includes(run.conclusion)
+                );
+                if (failing.length > 0) {
+                  const lines = failing.map(run =>
+                    `- ${run.name}: ${run.conclusion}`
+                  );
+                  fs.writeFileSync('ci_summary.txt', lines.join('\n'));
+                } else {
+                  fs.writeFileSync('ci_summary.txt', 'All checks reported success.');
+                }
+              } else {
+                fs.writeFileSync('ci_summary.txt', 'No merge commit SHA available.');
+              }
+            } catch (error) {
+              core.warning(`Failed to collect CI summary: ${error.message}`);
+              fs.writeFileSync('ci_summary.txt', 'CI summary unavailable.');
+            }
+
             // Extract linked issue from PR body
             const prBody = context.payload.pull_request.body || '';
             const issueMatches = prBody.match(/(close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s*#(\d+)/gi);
@@ -168,6 +224,9 @@ jobs:
             --original-issue-number "${ORIGINAL_ISSUE_NUMBER:-0}" \
             --original-issue-title "${ORIGINAL_ISSUE_TITLE:-}" \
             --pr-number "${PR_NUMBER}" \
+            --pr-diff-summary pr_diff_summary.txt \
+            --pr-files pr_files.txt \
+            --ci-summary ci_summary.txt \
             --json \
             --output followup_issue.json
 
