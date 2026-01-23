@@ -25,18 +25,35 @@ jobs:
   check-expiration:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout retry helpers
+        uses: actions/checkout@v6
+        with:
+          sparse-checkout: |
+            .github/scripts/github-api-with-retry.js
+          sparse-checkout-cone-mode: false
+
       - name: Check for existing open issue
         id: existing
         uses: actions/github-script@v8
         with:
           script: |
-            const issues = await github.rest.issues.listForRepo({
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry } = retryHelpers;
+
+            const issues = await withRetry(() => github.rest.issues.listForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,
               state: 'open',
               labels: 'auth-expiring',
               per_page: 1
-            });
+            }));
             const exists = issues.data.length > 0;
             console.log(`Existing auth-expiring issue: ${exists}`);
             if (exists) {
@@ -127,6 +144,15 @@ jobs:
         uses: actions/github-script@v8
         with:
           script: |
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry } = retryHelpers;
             const status = '${{ steps.check.outputs.status }}';
             const expiresAt = '${{ steps.check.outputs.expires_at }}';
             const hoursLeft = '${{ steps.check.outputs.hours_left }}';
@@ -183,13 +209,13 @@ jobs:
             *This issue was automatically created by the \`health-codex-auth-check\` workflow.*
             `;
 
-            await github.rest.issues.create({
+            await withRetry(() => github.rest.issues.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
               title: title,
               body: body,
               labels: ['auth-expiring', 'ci', 'priority:high']
-            });
+            }));
 
             console.log(`Created issue: ${title}`);
 

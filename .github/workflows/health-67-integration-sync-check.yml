@@ -156,6 +156,15 @@ jobs:
         uses: actions/github-script@v8
         with:
           script: |
+            const fs = require('fs');
+            const retryHelperPath = './workflows/.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry } = retryHelpers;
             const title = '🔄 Integration-Tests sync drift detected';
             const label = 'integration-sync';
             const runUrl = `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`;
@@ -179,29 +188,29 @@ jobs:
             `;
 
             // Check for existing open issue
-            const { data: issues } = await github.rest.issues.listForRepo({
+            const { data: issues } = await withRetry(() => github.rest.issues.listForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,
               state: 'open',
               labels: label,
               per_page: 5
-            });
+            }));
 
             if (issues.length > 0) {
-              await github.rest.issues.createComment({
+              await withRetry(() => github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issues[0].number,
                 body: `Drift still detected. See [run #${process.env.GITHUB_RUN_NUMBER}](${runUrl})`
-              });
+              }));
               console.log(`Added comment to existing issue #${issues[0].number}`);
             } else {
-              const { data: issue } = await github.rest.issues.create({
+              const { data: issue } = await withRetry(() => github.rest.issues.create({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 title,
                 body,
                 labels: [label, 'automation']
-              });
+              }));
               console.log(`Created issue #${issue.number}`);
             }

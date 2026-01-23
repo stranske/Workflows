@@ -57,10 +57,20 @@ jobs:
         with:
           github-token: ${{ github.token }}
           script: |
-            const { data } = await github.rest.repos.get({
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry } = retryHelpers;
+
+            const { data } = await withRetry(() => github.rest.repos.get({
               owner: context.repo.owner,
               repo: context.repo.repo,
-            });
+            }));
             core.setOutput('name', data.default_branch || 'main');
 
       - name: Export default branch
@@ -121,6 +131,16 @@ jobs:
           script: |
             // `core` is provided by actions/github-script's execution environment.
             // Avoid re-declaring it (causes "Identifier 'core' has already been declared").
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry } = retryHelpers;
+
             const { owner, repo } = context.repo;
             const requiredLabels = (process.env.REQUIRED_LABELS || '')
               .split(',')
@@ -130,7 +150,7 @@ jobs:
             const timestamp = new Date().toISOString();
             let defaultBranch = context.payload?.repository?.default_branch || '';
             try {
-              const repoInfo = await github.rest.repos.get({ owner, repo });
+              const repoInfo = await withRetry(() => github.rest.repos.get({ owner, repo }));
               defaultBranch = repoInfo.data.default_branch || defaultBranch;
             } catch (error) {
               const message = `Failed to resolve default branch via GitHub API: ${error?.message || error}`;
@@ -144,7 +164,7 @@ jobs:
             const labelErrors = [];
             for (const label of requiredLabels) {
               try {
-                await github.rest.issues.getLabel({ owner, repo, name: label });
+                await withRetry(() => github.rest.issues.getLabel({ owner, repo, name: label }));
               } catch (error) {
                 if (error.status === 404) {
                   missingLabels.push(label);
@@ -170,11 +190,11 @@ jobs:
               : 'default GITHUB_TOKEN';
 
             try {
-              const response = await github.rest.repos.getBranch({
+              const response = await withRetry(() => github.rest.repos.getBranch({
                 owner,
                 repo,
                 branch: defaultBranch,
-              });
+              }));
 
               branchHttpStatus = '200';
 
@@ -739,6 +759,15 @@ jobs:
             const issueTitle = '[health] repository self-check failed';
             const labelName = 'health:repo';
             const body = (process.env.ISSUE_BODY || '').trim();
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry, paginateWithRetry } = retryHelpers;
 
             if (!body) {
               core.info('No issue body provided; skipping tracker update.');
@@ -750,7 +779,7 @@ jobs:
 
             async function ensureLabel() {
               try {
-                await github.rest.issues.getLabel({ owner, repo, name: labelName });
+                await withRetry(() => github.rest.issues.getLabel({ owner, repo, name: labelName }));
               } catch (error) {
                 if (error.status !== 404) {
                   core.warning(`Label lookup failed for ${labelName}: ${error.message || error}`);
@@ -758,12 +787,12 @@ jobs:
                 }
 
                 try {
-                  await github.rest.issues.createLabel({
+                  await withRetry(() => github.rest.issues.createLabel({
                     owner,
                     repo,
                     name: labelName,
                     color: 'ededed',
-                  });
+                  }));
                   core.info(`Created label ${labelName}.`);
                 } catch (createError) {
                   core.warning(`Failed to create label ${labelName}: ${createError.message || createError}`);
@@ -773,7 +802,7 @@ jobs:
 
             await ensureLabel();
 
-            const issues = await github.paginate(github.rest.issues.listForRepo, {
+            const issues = await paginateWithRetry(github.rest.issues.listForRepo, {
               owner,
               repo,
               state: 'all',
@@ -785,13 +814,13 @@ jobs:
             const target = openMatch || matches[0];
 
             if (!target) {
-              const created = await github.rest.issues.create({
+              const created = await withRetry(() => github.rest.issues.create({
                 owner,
                 repo,
                 title: issueTitle,
                 body,
                 labels: [labelName],
-              });
+              }));
               core.info(`Opened tracker issue #${created.data.number}.`);
               return;
             }
@@ -801,14 +830,14 @@ jobs:
             );
             labelSet.add(labelName);
 
-            await github.rest.issues.update({
+            await withRetry(() => github.rest.issues.update({
               owner,
               repo,
               issue_number: target.number,
               body,
               labels: Array.from(labelSet),
               state: 'open',
-            });
+            }));
             core.info(`Updated tracker issue #${target.number}.`);
 
       - name: Close failure tracker issue
@@ -820,13 +849,22 @@ jobs:
             const issueTitle = '[health] repository self-check failed';
             const owner = context.repo.owner;
             const repo = context.repo.repo;
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry } = retryHelpers;
 
-            const { data: openIssues } = await github.rest.issues.listForRepo({
+            const { data: openIssues } = await withRetry(() => github.rest.issues.listForRepo({
               owner,
               repo,
               state: 'open',
               per_page: 100,
-            });
+            }));
 
             const existing = openIssues.find((issue) => issue.title === issueTitle);
 
@@ -835,13 +873,13 @@ jobs:
               return;
             }
 
-            await github.rest.issues.update({
+            await withRetry(() => github.rest.issues.update({
               owner,
               repo,
               issue_number: existing.number,
               state: 'closed',
               state_reason: 'completed',
-            });
+            }));
             core.info(`Closed tracker issue #${existing.number}.`);
 
       - name: Update repo health snapshot issue
@@ -856,6 +894,14 @@ jobs:
             const path = process.env.ISSUE_BODY_PATH || '';
             const issueTitle = '[health] repository self-check';
             const labelName = 'health:repo';
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry, paginateWithRetry } = retryHelpers;
 
             if (!path || !fs.existsSync(path)) {
               core.info('No snapshot body found; skipping pinned issue update.');
@@ -873,7 +919,7 @@ jobs:
 
             async function ensureLabel() {
               try {
-                await github.rest.issues.getLabel({ owner, repo, name: labelName });
+                await withRetry(() => github.rest.issues.getLabel({ owner, repo, name: labelName }));
               } catch (error) {
                 if (error.status !== 404) {
                   core.warning(`Label lookup failed for ${labelName}: ${error.message || error}`);
@@ -881,12 +927,12 @@ jobs:
                 }
 
                 try {
-                  await github.rest.issues.createLabel({
+                  await withRetry(() => github.rest.issues.createLabel({
                     owner,
                     repo,
                     name: labelName,
                     color: 'ededed',
-                  });
+                  }));
                   core.info(`Created label ${labelName}.`);
                 } catch (createError) {
                   core.warning(`Failed to create label ${labelName}: ${createError.message || createError}`);
@@ -896,7 +942,7 @@ jobs:
 
             await ensureLabel();
 
-            const issues = await github.paginate(github.rest.issues.listForRepo, {
+            const issues = await paginateWithRetry(github.rest.issues.listForRepo, {
               owner,
               repo,
               state: 'all',
@@ -910,13 +956,13 @@ jobs:
             }
 
             if (!target) {
-              const created = await github.rest.issues.create({
+              const created = await withRetry(() => github.rest.issues.create({
                 owner,
                 repo,
                 title: issueTitle,
                 body,
                 labels: [labelName],
-              });
+              }));
               target = created.data;
               core.info(`Opened snapshot issue #${target.number}.`);
             } else {
@@ -925,23 +971,23 @@ jobs:
               );
               existingLabels.add(labelName);
 
-              await github.rest.issues.update({
+              await withRetry(() => github.rest.issues.update({
                 owner,
                 repo,
                 issue_number: target.number,
                 body,
                 labels: Array.from(existingLabels),
                 state: 'open',
-              });
+              }));
               core.info(`Updated snapshot issue #${target.number}.`);
             }
 
             try {
-              await github.rest.issues.pin({
+              await withRetry(() => github.rest.issues.pin({
                 owner,
                 repo,
                 issue_number: target.number,
-              });
+              }));
               core.info(`Pinned snapshot issue #${target.number}.`);
             } catch (error) {
               core.warning(`Failed to pin issue #${target.number}: ${error.message || error}`);
@@ -986,31 +1032,40 @@ jobs:
               return;
             }
             const body = `${marker}\n${process.env.COMMENT_BODY.trim()}\n`;
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry } = retryHelpers;
 
-            const { data: existingComments } = await github.rest.issues.listComments({
+            const { data: existingComments } = await withRetry(() => github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: prNumber,
               per_page: 100,
-            });
+            }));
 
             const match = existingComments.find((comment) => comment.body && comment.body.includes(marker));
 
             if (match) {
-              await github.rest.issues.updateComment({
+              await withRetry(() => github.rest.issues.updateComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 comment_id: match.id,
                 body,
-              });
+              }));
               core.info(`Updated existing repo health comment (${match.id}).`);
             } else {
-              await github.rest.issues.createComment({
+              await withRetry(() => github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: prNumber,
                 body,
-              });
+              }));
               core.info(`Posted new repo health comment on PR #${prNumber}.`);
             }
 
