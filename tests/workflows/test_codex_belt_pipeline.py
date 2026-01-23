@@ -67,7 +67,7 @@ def _iter_job_scripts(workflow: dict[str, Any]) -> list[tuple[str, str]]:
 
 def _rest_calls_missing_retry(script: str, step_name: str) -> list[str]:
     failures: list[str] = []
-    for match in re.finditer(r"github\\.rest\\.", script):
+    for match in re.finditer(r"github\.rest\.", script):
         window_start = max(0, match.start() - 250)
         window = script[window_start : match.start()]
         if "withRetry" not in window:
@@ -219,7 +219,7 @@ def test_worker_pagination_uses_paginate_with_retry():
     paginate_usage = 0
     for step_name, script in _iter_job_scripts(workflow):
         paginate_usage += script.count("paginateWithRetry(")
-        for match in re.finditer(r"github\\.paginate\\b", script):
+        for match in re.finditer(r"github\.paginate\b", script):
             line = script[: match.start()].count("\n") + 1
             failures.append(f"{step_name} line {line}")
     assert paginate_usage > 0, "Worker workflow should use paginateWithRetry() for pagination"
