@@ -67,9 +67,9 @@ def _rest_calls_missing_retry(script: str, step_name: str) -> list[str]:
     failures: list[str] = []
     for match in re.finditer(r"github\\.rest\\.", script):
         window_start = max(0, match.start() - 250)
-        window = script[window_start:match.start()]
+        window = script[window_start : match.start()]
         if "withRetry" not in window:
-            line = script[:match.start()].count("\n") + 1
+            line = script[: match.start()].count("\n") + 1
             failures.append(f"{step_name} line {line}")
     return failures
 
@@ -204,10 +204,9 @@ def test_worker_github_rest_calls_use_with_retry():
     failures: list[str] = []
     for step_name, script in _iter_job_scripts(workflow):
         failures.extend(_rest_calls_missing_retry(script, step_name))
-    assert not failures, (
-        "Worker workflow has github.rest.* calls without withRetry(): "
-        + ", ".join(sorted(failures))
-    )
+    assert (
+        not failures
+    ), "Worker workflow has github.rest.* calls without withRetry(): " + ", ".join(sorted(failures))
 
 
 def test_worker_pagination_uses_paginate_with_retry():
@@ -217,10 +216,11 @@ def test_worker_pagination_uses_paginate_with_retry():
     for step_name, script in _iter_job_scripts(workflow):
         paginate_usage += script.count("paginateWithRetry(")
         for match in re.finditer(r"github\\.paginate\\b", script):
-            line = script[:match.start()].count("\n") + 1
+            line = script[: match.start()].count("\n") + 1
             failures.append(f"{step_name} line {line}")
     assert paginate_usage > 0, "Worker workflow should use paginateWithRetry() for pagination"
-    assert not failures, (
-        "Worker workflow has github.paginate usage; replace with paginateWithRetry(): "
-        + ", ".join(sorted(failures))
+    assert (
+        not failures
+    ), "Worker workflow has github.paginate usage; replace with paginateWithRetry(): " + ", ".join(
+        sorted(failures)
     )
