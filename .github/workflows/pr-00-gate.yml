@@ -160,7 +160,11 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
       - name: Fetch base ref
-        run: git fetch origin "${{ github.base_ref }}" --depth=1
+        run: |
+          set -euo pipefail
+          upstream="https://github.com/${{ github.event.pull_request.base.repo.full_name }}.git"
+          git remote add upstream "$upstream"
+          git fetch upstream "${{ github.event.pull_request.base.sha }}" --depth=1
       - uses: actions/setup-python@v6
         with:
           python-version: '3.11'
@@ -169,6 +173,8 @@ jobs:
         env:
           PR_TITLE: ${{ github.event.pull_request.title }}
           BASE_REF: ${{ github.base_ref }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BASE_REMOTE: upstream
 
   docker-smoke:
     name: docker smoke

@@ -97,6 +97,13 @@ jobs:
           app-id: ${{ secrets.WORKFLOWS_APP_ID }}
           private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
 
+      - name: Checkout retry helpers
+        uses: actions/checkout@v6
+        with:
+          sparse-checkout: |
+            .github/scripts/github-api-with-retry.js
+          sparse-checkout-cone-mode: false
+
       - name: Resolve issue number
         id: ctx
         uses: actions/github-script@v8
@@ -116,6 +123,15 @@ jobs:
           script: |
             const issueNumber = Number('${{ steps.ctx.outputs.issue }}');
             const { owner, repo } = context.repo;
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry } = retryHelpers;
 
             const loadLabels = async () => {
               if (!issueNumber) {
@@ -125,7 +141,7 @@ jobs:
               if (issueFromEvent && Number(issueFromEvent.number) === issueNumber) {
                 return issueFromEvent.labels || [];
               }
-              const { data } = await github.rest.issues.get({ owner, repo, issue_number: issueNumber });
+              const { data } = await withRetry(() => github.rest.issues.get({ owner, repo, issue_number: issueNumber }));
               return data.labels || [];
             };
 
@@ -240,7 +256,16 @@ jobs:
         with:
           script: |
             const { owner, repo } = context.repo;
-            const { data } = await github.rest.repos.get({ owner, repo });
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry } = retryHelpers;
+            const { data } = await withRetry(() => github.rest.repos.get({ owner, repo }));
             const base = data.default_branch || 'main';
             const issue = Number('${{ steps.ctx.outputs.issue }}');
             const head = issue ? `codex/issue-${issue}` : '';
@@ -328,6 +353,15 @@ jobs:
             let prNumber = 0;
             const issueNumber = Number('${{ steps.ctx.outputs.issue }}');
             const { owner, repo } = context.repo;
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry, paginateWithRetry } = retryHelpers;
             const sentinel = /\[keepalive\]/i;
             const keepaliveLabel = 'agents:keepalive';
 
@@ -346,7 +380,7 @@ jobs:
             let issue = context.payload.issue;
             if (!issue || Number(issue.number) !== issueNumber) {
               try {
-                const { data } = await github.rest.issues.get({ owner, repo, issue_number: issueNumber });
+                const { data } = await withRetry(() => github.rest.issues.get({ owner, repo, issue_number: issueNumber }));
                 issue = data;
               } catch (error) {
                 core.warning(`Failed to fetch issue #${issueNumber}: ${error.message}`);
@@ -386,7 +420,7 @@ jobs:
 
             if (prNumber && !prData) {
               try {
-                const { data } = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+                const { data } = await withRetry(() => github.rest.pulls.get({ owner, repo, pull_number: prNumber }));
                 prData = data;
               } catch (error) {
                 core.warning(`Unable to fetch PR #${prNumber}: ${error.message}`);
@@ -395,20 +429,15 @@ jobs:
 
             if (!enabled) {
               try {
-                const iterator = github.paginate.iterator(
+                const comments = await paginateWithRetry(
                   github.rest.issues.listComments,
                   { owner, repo, issue_number: issueNumber, per_page: 100 }
                 );
-                for await (const page of iterator) {
-                  for (const comment of page.data) {
-                    if (sentinel.test(comment.body || '')) {
-                      enabled = true;
-                      source = 'comment';
-                      evidence = comment.html_url || `comment ${comment.id}`;
-                      break;
-                    }
-                  }
-                  if (enabled) {
+                for (const comment of comments) {
+                  if (sentinel.test(comment.body || '')) {
+                    enabled = true;
+                    source = 'comment';
+                    evidence = comment.html_url || `comment ${comment.id}`;
                     break;
                   }
                 }
@@ -539,6 +568,15 @@ jobs:
             const base = "${{ steps.refs.outputs.base }}";
             const branch = process.env.BRANCH;
             const agent = (process.env.AGENT || '').trim();
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry, paginateWithRetry } = retryHelpers;
             if (!agent || agent === 'unknown') {
               core.setFailed('Agent resolution failed; ensure exactly one agent:* label is present or provide the agent input.');
               return;
@@ -558,7 +596,7 @@ jobs:
             let issueTitle = '';
             let issueBody = '';
             try {
-              const { data: is } = await github.rest.issues.get({ owner, repo, issue_number });
+              const { data: is } = await withRetry(() => github.rest.issues.get({ owner, repo, issue_number }));
               issueTitle = is.title || '';
               issueBody = is.body || '';
             } catch (err) {
@@ -568,12 +606,12 @@ jobs:
             // Check if a PR already exists for this branch
             let existingPr = null;
             try {
-              const { data: pulls } = await github.rest.pulls.list({
+              const { data: pulls } = await withRetry(() => github.rest.pulls.list({
                 owner,
                 repo,
                 state: 'open',
                 head: `${owner}:${branch}`,
-              });
+              }));
               if (pulls.length > 0) {
                 existingPr = pulls[0];
               }
@@ -645,12 +683,12 @@ jobs:
 
                 const newPrBody = prBodySections.join('\n').trim();
                 try {
-                  await github.rest.pulls.update({
+                  await withRetry(() => github.rest.pulls.update({
                     owner,
                     repo,
                     pull_number: existingPr.number,
                     body: newPrBody,
-                  });
+                  }));
                   core.info(`Updated PR #${existingPr.number} body with issue content and status summary.`);
                   core.setOutput('pr_updated', 'true');
                   core.setOutput('pr_number', String(existingPr.number));
@@ -664,7 +702,7 @@ jobs:
               // Post issue context comment on existing PR if not already present
               try {
                 // Fetch all comments using pagination to avoid missing any
-                const comments = await github.paginate(
+                const comments = await paginateWithRetry(
                   github.rest.issues.listComments,
                   {
                     owner,
@@ -687,12 +725,12 @@ jobs:
                     issueBody.trim(),
                   ].join('\n');
 
-                  await github.rest.issues.createComment({
+                  await withRetry(() => github.rest.issues.createComment({
                     owner,
                     repo,
                     issue_number: existingPr.number,
                     body: contextComment,
-                  });
+                  }));
                   core.info(`Posted issue context comment on PR #${existingPr.number}.`);
                 }
               } catch (err) {
@@ -700,21 +738,21 @@ jobs:
               }
 
               // Still post on the issue for visibility
-              await github.rest.issues.createComment({
+              await withRetry(() => github.rest.issues.createComment({
                 owner,
                 repo,
                 issue_number,
                 body: `PR #${existingPr.number} already exists for branch \`${branch}\`. Updated PR body with issue content.\n\nPR link: ${existingPr.html_url}`
-              });
+              }));
               return;
             }
 
-            await github.rest.issues.createComment({
+            await withRetry(() => github.rest.issues.createComment({
               owner,
               repo,
               issue_number,
               body: `Branch \`${branch}\` created from \`${base}\`.\n\nOption 1 (Invite) is enforced on issue events. PR creation is disabled by design so you are the PR author. ${agentTitle} only engages on human-authored PRs.\n\nPlease open the PR as the author so ${agentTitle} can work on it:\n\n- Compare link: ${compareUrl}\n- Suggested title: \`${agentTitle} bootstrap for #${issue_number}\`\n- Suggested body (copy/paste):\n\n\n${'```markdown'}\n${suggestion}\n${'```'}`
-            });
+            }));
 
       - name: Skip PR creation when inviting
         if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.mode.outputs.mode == 'invite' }}
@@ -742,6 +780,15 @@ jobs:
             const keepaliveMode = process.env.KEEPALIVE_MODE || 'OFF';
             const { buildIssueContext } = require('./.github/scripts/issue_context_utils.js');
             const agent = (process.env.AGENT || '').trim();
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry } = retryHelpers;
             if (!agent || agent === 'unknown') {
               core.setFailed('Agent resolution failed; ensure exactly one agent:* label is present or provide the agent input.');
               return;
@@ -761,13 +808,13 @@ jobs:
               return;
             }
 
-            const existing = await github.rest.pulls.list({ owner, repo, state: 'open', head: `${owner}:${head}` });
+            const existing = await withRetry(() => github.rest.pulls.list({ owner, repo, state: 'open', head: `${owner}:${head}` }));
             let pr = existing.data[0];
 
             let issueTitle = '';
             let issueBody = '';
             try {
-              const { data: is } = await github.rest.issues.get({ owner, repo, issue_number });
+              const { data: is } = await withRetry(() => github.rest.issues.get({ owner, repo, issue_number }));
               issueTitle = is.title || '';
               issueBody = is.body || '';
             } catch (e) {
@@ -830,7 +877,7 @@ jobs:
                 `PR created automatically to engage ${agentTitle}.`
               ].join('\n');
 
-              ({ data: pr } = await github.rest.pulls.create({
+              ({ data: pr } = await withRetry(() => github.rest.pulls.create({
                 owner,
                 repo,
                 head,
@@ -838,7 +885,7 @@ jobs:
                 draft: draftFlag,
                 title: `${agentTitle} bootstrap for #${issue_number}`,
                 body: prBody
-              }));
+              })));
 
               core.setOutput('created', 'true');
             } else {
@@ -856,7 +903,7 @@ jobs:
                 }
                 const mergedBody = segments.join('\n').trim();
                 try {
-                  await github.rest.pulls.update({ owner, repo, pull_number: pr.number, body: mergedBody });
+                  await withRetry(() => github.rest.pulls.update({ owner, repo, pull_number: pr.number, body: mergedBody }));
                   pr.body = mergedBody;
                   core.info(`Inserted auto-status summary into PR #${pr.number} body.`);
                 } catch (error) {
@@ -875,12 +922,12 @@ jobs:
 
             const assignees = ['chatgpt-codex-connector', 'stranske-automation-bot'];
             try {
-              await github.rest.issues.addAssignees({ owner, repo, issue_number: pr.number, assignees });
+              await withRetry(() => github.rest.issues.addAssignees({ owner, repo, issue_number: pr.number, assignees }));
             } catch (e) {
               core.warning(`PR assign failed: ${e.message}`);
             }
             try {
-              await github.rest.issues.addAssignees({ owner, repo, issue_number, assignees });
+              await withRetry(() => github.rest.issues.addAssignees({ owner, repo, issue_number, assignees }));
             } catch (e) {
               core.warning(`Issue assign failed: ${e.message}`);
             }
@@ -896,11 +943,20 @@ jobs:
             const {owner, repo} = context.repo;
             const prNumber = Number(process.env.PR);
             const agent = (process.env.AGENT || '').trim();
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry } = retryHelpers;
             if (!agent || agent === 'unknown') {
               core.setFailed('Agent resolution failed; ensure exactly one agent:* label is present or provide the agent input.');
               return;
             }
-            await github.rest.issues.addLabels({ owner, repo, issue_number: prNumber, labels: [`agent:${agent}`] });
+            await withRetry(() => github.rest.issues.addLabels({ owner, repo, issue_number: prNumber, labels: [`agent:${agent}`] }));
 
       - name: Populate PR body context section
         if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.mode.outputs.mode != 'invite' }}
@@ -954,10 +1010,19 @@ jobs:
             const providedScopeBlock = (process.env.SCOPE_BLOCK || '').trim();
             const providedSummaryBlock = (process.env.STATUS_SUMMARY_BLOCK || '').trim();
             let prNumber = Number('${{ steps.pr.outputs.number }}');
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry, paginateWithRetry } = retryHelpers;
 
             if ((!issueTitle || !issueBody) && issueNumber) {
               try {
-                const { data: issue } = await github.rest.issues.get({ owner, repo, issue_number: issueNumber });
+                const { data: issue } = await withRetry(() => github.rest.issues.get({ owner, repo, issue_number: issueNumber }));
                 issueTitle = issueTitle || issue.title || '';
                 issueBody = issueBody || issue.body || '';
               } catch (error) {
@@ -975,7 +1040,7 @@ jobs:
 
             if (!prNumber && branch) {
               try {
-                const { data: pulls } = await github.rest.pulls.list({ owner, repo, state: 'open', head: `${owner}:${branch}` });
+                const { data: pulls } = await withRetry(() => github.rest.pulls.list({ owner, repo, state: 'open', head: `${owner}:${branch}` }));
                 if (pulls.length > 0) {
                   prNumber = pulls[0].number;
                 }
@@ -988,7 +1053,7 @@ jobs:
             let prData = null;
             if (prNumber) {
               try {
-                const { data } = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+                const { data } = await withRetry(() => github.rest.pulls.get({ owner, repo, pull_number: prNumber }));
                 prData = data;
               } catch (error) {
                 core.warning(`Failed to fetch PR #${prNumber}: ${error.message}`);
@@ -1005,7 +1070,7 @@ jobs:
               if (summaryNeedsWarning && issueNumber) {
                 const warningHeader = `### Template Warning for Issue #${issueNumber}`;
                 const warningBody = [warningHeader, '', ...warningDetails].join('\n').trim();
-                const comments = await github.paginate(github.rest.issues.listComments, {
+                const comments = await paginateWithRetry(github.rest.issues.listComments, {
                   owner,
                   repo,
                   issue_number: issueNumber,
@@ -1013,7 +1078,7 @@ jobs:
                 });
                 const alreadyWarned = comments.some((comment) => comment.body?.startsWith(warningHeader));
                 if (!alreadyWarned) {
-                  await github.rest.issues.createComment({ owner, repo, issue_number: issueNumber, body: warningBody });
+                  await withRetry(() => github.rest.issues.createComment({ owner, repo, issue_number: issueNumber, body: warningBody }));
                 }
               }
               core.warning('PR number is unavailable; skipping issue context comment until a PR is opened.');
@@ -1026,7 +1091,7 @@ jobs:
                 const existingBody = (prData.body || '').trim();
                 const mergedBody = [statusSummaryBlock, existingBody].filter(Boolean).join('\n\n').trim();
                 try {
-                  await github.rest.pulls.update({ owner, repo, pull_number: prNumber, body: mergedBody });
+                  await withRetry(() => github.rest.pulls.update({ owner, repo, pull_number: prNumber, body: mergedBody }));
                   prData.body = mergedBody;
                   core.info(`Inserted auto-status summary into PR #${prNumber} body.`);
                 } catch (error) {
@@ -1062,7 +1127,7 @@ jobs:
               return;
             }
 
-            const existing = await github.paginate(github.rest.issues.listComments, {
+            const existing = await paginateWithRetry(github.rest.issues.listComments, {
               owner,
               repo,
               issue_number: prNumber,
@@ -1075,7 +1140,7 @@ jobs:
               return;
             }
 
-            await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body });
+            await withRetry(() => github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body }));
 
       - name: Post agent command as service user
         if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.mode.outputs.mode != 'invite' && env.SERVICE_BOT_PAT != '' && steps.agent_comment.outputs.post == 'true' }}
@@ -1088,12 +1153,21 @@ jobs:
             const {owner, repo} = context.repo;
             const prNumber = Number("${{ steps.pr.outputs.number }}");
             const agent = (process.env.AGENT || '').trim();
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry } = retryHelpers;
             if (!agent || agent === 'unknown') {
               core.setFailed('Agent resolution failed; ensure exactly one agent:* label is present or provide the agent input.');
               return;
             }
             const cmd = `@${agent} start`;
-            await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body: `${cmd}\n\nPlease create commits on this branch, run tests, and keep the PR updated.` });
+            await withRetry(() => github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body: `${cmd}\n\nPlease create commits on this branch, run tests, and keep the PR updated.` }));
 
       - name: Post agent command (fallback as github-actions)
         if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.mode.outputs.mode != 'invite' && env.SERVICE_BOT_PAT == '' && steps.agent_comment.outputs.post == 'true' }}
@@ -1105,12 +1179,21 @@ jobs:
             const {owner, repo} = context.repo;
             const prNumber = Number("${{ steps.pr.outputs.number }}");
             const agent = (process.env.AGENT || '').trim();
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry } = retryHelpers;
             if (!agent || agent === 'unknown') {
               core.setFailed('Agent resolution failed; ensure exactly one agent:* label is present or provide the agent input.');
               return;
             }
             const cmd = `@${agent} start`;
-            await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body: `${cmd}\n\nPlease create commits on this branch, run tests, and keep the PR updated.` });
+            await withRetry(() => github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body: `${cmd}\n\nPlease create commits on this branch, run tests, and keep the PR updated.` }));
 
       - name: Prompt human to post agent command
         if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.mode.outputs.mode != 'invite' && steps.agent_comment.outputs.post != 'true' }}
@@ -1122,6 +1205,15 @@ jobs:
             const {owner, repo} = context.repo;
             const prNumber = Number("${{ steps.pr.outputs.number }}");
             const agent = (process.env.AGENT || '').trim();
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry } = retryHelpers;
             if (!agent || agent === 'unknown') {
               core.setFailed('Agent resolution failed; ensure exactly one agent:* label is present or provide the agent input.');
               return;
@@ -1137,7 +1229,7 @@ jobs:
               `Tell ${agentTitle} to reuse the scope, acceptance criteria, and task list from the source issue and publish them here with \`- [ ]\` checklists so keepalive keeps watching.`,
               `After ${agentTitle} replies, follow the instructions posted on the source issue to begin execution.`
             ].join(' ');
-            await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body: codexPromptMsg });
+            await withRetry(() => github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body: codexPromptMsg }));
 
       - name: Link PR on original issue (fallback)
         if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.mode.outputs.mode != 'invite' }}
@@ -1151,6 +1243,15 @@ jobs:
           script: |
             const {owner, repo} = context.repo;
             const issue_number = Number('${{ steps.ctx.outputs.issue }}');
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry } = retryHelpers;
             if (!issue_number) {
               core.warning('No issue context available to link PR back.');
               return;
@@ -1159,7 +1260,7 @@ jobs:
             let issueTitle = '';
             let issueBody = '';
             try {
-              const { data: is } = await github.rest.issues.get({ owner, repo, issue_number });
+              const { data: is } = await withRetry(() => github.rest.issues.get({ owner, repo, issue_number }));
               issueTitle = is.title || '';
               issueBody = is.body || '';
             } catch (e) {
@@ -1218,7 +1319,7 @@ jobs:
               '```'
             ].join('\n');
 
-            await github.rest.issues.createComment({ owner, repo, issue_number, body: message });
+            await withRetry(() => github.rest.issues.createComment({ owner, repo, issue_number, body: message }));
 
       # Disabled: keepalive now runs exclusively via the orchestrator sweep to avoid
       # duplicate nudges from workflow dispatches.

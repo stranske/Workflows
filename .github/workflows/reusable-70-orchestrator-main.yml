@@ -858,6 +858,15 @@ jobs:
           script: |
             const normalise = (value) => String(value || '').trim();
             const prNumber = Number.parseInt(normalise(process.env.PR_NUMBER), 10);
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry } = retryHelpers;
             if (!Number.isFinite(prNumber) || prNumber <= 0) {
               core.setOutput('head', '');
               core.setOutput('head_repo', '');
@@ -868,7 +877,7 @@ jobs:
 
             const { owner, repo } = context.repo;
             try {
-              const { data } = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+              const { data } = await withRetry(() => github.rest.pulls.get({ owner, repo, pull_number: prNumber }));
               core.setOutput('head', data?.head?.sha || '');
               core.setOutput('head_repo', data?.head?.repo?.full_name || '');
               core.setOutput('head_ref', data?.head?.ref || '');
@@ -934,13 +943,22 @@ jobs:
           script: |
             const { owner, repo } = context.repo;
             const prNumber = Number(process.env.PR_NUMBER || 0);
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { paginateWithRetry } = retryHelpers;
 
             if (!Number.isFinite(prNumber) || prNumber <= 0) {
               core.setFailed('Unable to determine pull request number for keepalive instruction.');
               return;
             }
 
-            const labels = await github.paginate(github.rest.issues.listLabelsOnIssue, {
+            const labels = await paginateWithRetry(github.rest.issues.listLabelsOnIssue, {
               owner,
               repo,
               issue_number: prNumber,
@@ -1135,16 +1153,25 @@ jobs:
             const branch = '${{ needs.belt-dispatch.outputs.branch }}';
             const summary = core.summary;
             const keepaliveEnabled = (process.env.KEEPALIVE_ENABLED || '').trim().toLowerCase() === 'true';
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry } = retryHelpers;
 
             summary.addHeading('Codex belt PR guard');
 
-            const { data: pulls } = await github.rest.pulls.list({
+            const { data: pulls } = await withRetry(() => github.rest.pulls.list({
               owner,
               repo,
               state: 'open',
               head: `${owner}:${branch}`,
               per_page: 1,
-            });
+            }));
 
             const existing = Array.isArray(pulls) && pulls.length > 0 ? pulls[0] : null;
 
@@ -1160,12 +1187,12 @@ jobs:
             const prUrl = existing.html_url || (prNumber ? `https://github.com/${owner}/${repo}/pull/${prNumber}` : '');
 
             try {
-              await github.rest.reactions.createForIssueComment({
+              await withRetry(() => github.rest.reactions.createForIssueComment({
                 owner,
                 repo,
                 comment_id: commentId,
                 content: 'rocket',
-              });
+              }));
             } catch (error) {
               const message = error instanceof Error ? error.message : String(error);
               core.warning(`Failed to add 🎯 reaction to keepalive comment ${commentId}: ${message}`);
@@ -1275,6 +1302,15 @@ jobs:
           script: |
             const { owner, repo } = context.repo;
             const workflowId = process.env.WORKFLOW_ID || 'agents-keepalive-branch-sync.yml';
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry, paginateWithRetry } = retryHelpers;
             let ref = (process.env.TARGET_REF || '').trim();
             if (!ref) {
               ref = context.payload?.repository?.default_branch || 'main';
@@ -1307,7 +1343,7 @@ jobs:
             }
 
             while (Date.now() < deadline) {
-              const reactions = await github.paginate(github.rest.reactions.listForIssueComment, {
+              const reactions = await paginateWithRetry(github.rest.reactions.listForIssueComment, {
                 owner,
                 repo,
                 comment_id: commentId,
@@ -1329,13 +1365,13 @@ jobs:
                 }
               }
 
-            await github.rest.actions.createWorkflowDispatch({
+            await withRetry(() => github.rest.actions.createWorkflowDispatch({
               owner,
               repo,
               workflow_id: workflowId,
               ref,
               inputs,
-            });
+            }));
 
             const now = new Date().toISOString();
             core.setOutput('ref', ref);
@@ -1356,6 +1392,15 @@ jobs:
           script: |
             const { owner, repo } = context.repo;
             const workflowId = process.env.WORKFLOW_ID || 'agents-keepalive-branch-sync.yml';
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry } = retryHelpers;
             let ref = (process.env.REF || '').trim();
             if (!ref) {
               ref = context.payload?.repository?.default_branch || 'main';
@@ -1370,13 +1415,13 @@ jobs:
 
             while (Date.now() < deadline) {
               if (!runId) {
-                const { data } = await github.rest.actions.listWorkflowRuns({
+                const { data } = await withRetry(() => github.rest.actions.listWorkflowRuns({
                   owner,
                   repo,
                   workflow_id: workflowId,
                   event: 'workflow_dispatch',
                   per_page: 20,
-                });
+                }));
 
                 const candidates = Array.isArray(data.workflow_runs) ? data.workflow_runs : [];
                 const candidate = candidates.find((entry) => {
@@ -1396,11 +1441,11 @@ jobs:
                   run = candidate;
                 }
               } else {
-                const { data } = await github.rest.actions.getWorkflowRun({
+                const { data } = await withRetry(() => github.rest.actions.getWorkflowRun({
                   owner,
                   repo,
                   run_id: runId,
-                });
+                }));
                 run = data;
                 if (run.status === 'completed') {
                   break;
@@ -1445,6 +1490,15 @@ jobs:
             const normalise = (value) => String(value || '').trim();
             const prNumber = Number.parseInt(normalise(process.env.PR_NUMBER), 10);
             const baseline = normalise(process.env.BASELINE_HEAD);
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry } = retryHelpers;
 
             if (!Number.isFinite(prNumber) || prNumber <= 0) {
               core.setOutput('updated', 'false');
@@ -1454,7 +1508,7 @@ jobs:
             }
 
             const { owner, repo } = context.repo;
-            const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+            const { data: pr } = await withRetry(() => github.rest.pulls.get({ owner, repo, pull_number: prNumber }));
             const newHead = normalise(pr?.head?.sha);
             core.setOutput('new_head', newHead);
             core.setOutput('updated', newHead && baseline && newHead !== baseline ? 'true' : 'false');
@@ -1777,6 +1831,15 @@ jobs:
           script: |
             const { owner, repo } = context.repo;
             const issueNumber = Number(process.env.PR_NUMBER || 0);
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry } = retryHelpers;
             if (!Number.isFinite(issueNumber) || issueNumber <= 0) {
               core.setFailed('Keepalive instruction missing pull request number.');
               return;
@@ -1786,12 +1849,12 @@ jobs:
               core.setFailed('Keepalive instruction body is empty.');
               return;
             }
-            const { data: comment } = await github.rest.issues.createComment({
+            const { data: comment } = await withRetry(() => github.rest.issues.createComment({
               owner,
               repo,
               issue_number: issueNumber,
               body,
-            });
+            }));
             core.setOutput('comment-id', comment?.id ? String(comment.id) : '');
             core.setOutput('comment-url', comment?.html_url || '');
             core.setOutput('comment-author', comment?.user?.login || '');
@@ -1808,6 +1871,15 @@ jobs:
           script: |
             const { owner, repo } = context.repo;
             const issueNumber = Number(process.env.PR_NUMBER || 0);
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry } = retryHelpers;
             if (!Number.isFinite(issueNumber) || issueNumber <= 0) {
               core.setFailed('Keepalive instruction missing pull request number.');
               return;
@@ -1817,12 +1889,12 @@ jobs:
               core.setFailed('Keepalive instruction body is empty.');
               return;
             }
-            const { data: comment } = await github.rest.issues.createComment({
+            const { data: comment } = await withRetry(() => github.rest.issues.createComment({
               owner,
               repo,
               issue_number: issueNumber,
               body,
-            });
+            }));
             core.setOutput('comment-id', comment?.id ? String(comment.id) : '');
             core.setOutput('comment-url', comment?.html_url || '');
             core.setOutput('comment-author', comment?.user?.login || '');
@@ -1839,6 +1911,15 @@ jobs:
           script: |
             const { owner, repo } = context.repo;
             const issueNumber = Number(process.env.PR_NUMBER || 0);
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry } = retryHelpers;
             if (!Number.isFinite(issueNumber) || issueNumber <= 0) {
               core.setFailed('Keepalive instruction missing pull request number.');
               return;
@@ -1848,12 +1929,12 @@ jobs:
               core.setFailed('Keepalive instruction body is empty.');
               return;
             }
-            const { data: comment } = await github.rest.issues.createComment({
+            const { data: comment } = await withRetry(() => github.rest.issues.createComment({
               owner,
               repo,
               issue_number: issueNumber,
               body,
-            });
+            }));
             core.setOutput('comment-id', comment?.id ? String(comment.id) : '');
             core.setOutput('comment-url', comment?.html_url || '');
             core.setOutput('comment-author', comment?.user?.login || '');
@@ -1916,6 +1997,15 @@ jobs:
           script: |
             const normalise = (value) => String(value || '').trim();
             const commentId = Number(process.env.COMMENT_ID || 0);
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry, paginateWithRetry } = retryHelpers;
             if (!Number.isFinite(commentId) || commentId <= 0) {
               core.setFailed('Keepalive instruction comment id missing.');
               return;
@@ -1925,24 +2015,24 @@ jobs:
             const expectedAuthor = normalise(process.env.EXPECTED_AUTHOR).toLowerCase();
 
             try {
-              await github.rest.reactions.createForIssueComment({
+              await withRetry(() => github.rest.reactions.createForIssueComment({
                 owner,
                 repo,
                 comment_id: commentId,
                 content: 'hooray',
-              });
+              }));
             } catch (error) {
               const message = error instanceof Error ? error.message : String(error);
               core.warning(`Failed to add 🥳 reaction to keepalive comment ${commentId}: ${message}`);
             }
 
             try {
-              await github.rest.reactions.createForIssueComment({
+              await withRetry(() => github.rest.reactions.createForIssueComment({
                 owner,
                 repo,
                 comment_id: commentId,
                 content: 'eyes',
-              });
+              }));
             } catch (error) {
               const message = error instanceof Error ? error.message : String(error);
               core.warning(`Failed to add 👀 reaction to keepalive comment ${commentId}: ${message}`);
@@ -1951,7 +2041,7 @@ jobs:
             let commentTimestamp = 0;
             let commentAuthor = '';
             try {
-              const { data: commentDetails } = await github.rest.issues.getComment({ owner, repo, comment_id: commentId });
+              const { data: commentDetails } = await withRetry(() => github.rest.issues.getComment({ owner, repo, comment_id: commentId }));
               commentTimestamp = Date.parse(commentDetails?.updated_at || commentDetails?.created_at || '') || 0;
               commentAuthor = normalise(commentDetails?.user?.login);
               if (expectedAuthor && commentAuthor && commentAuthor.toLowerCase() !== expectedAuthor) {
@@ -1978,13 +2068,13 @@ jobs:
 
             const checkWorkflowRuns = async () => {
               try {
-                const response = await github.rest.actions.listWorkflowRuns({
+                const response = await withRetry(() => github.rest.actions.listWorkflowRuns({
                   owner,
                   repo,
                   workflow_id: 'agents-pr-meta.yml',
                   event: 'issue_comment',
                   per_page: 20,
-                });
+                }));
                 const runs = Array.isArray(response?.data?.workflow_runs) ? response.data.workflow_runs : [];
                 for (const run of runs) {
                   const startedAt = Date.parse(run?.run_started_at || run?.created_at || '') || 0;
@@ -2005,7 +2095,7 @@ jobs:
             };
 
             while (Date.now() < deadline) {
-              const reactions = await github.paginate(github.rest.reactions.listForIssueComment, {
+              const reactions = await paginateWithRetry(github.rest.reactions.listForIssueComment, {
                 owner,
                 repo,
                 comment_id: commentId,
@@ -2051,6 +2141,15 @@ jobs:
           script: |
             const prNumber = Number(process.env.PR_NUMBER || 0);
             const commentId = Number(process.env.COMMENT_ID || 0);
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry } = retryHelpers;
             if (!Number.isFinite(prNumber) || prNumber <= 0 || !Number.isFinite(commentId) || commentId <= 0) {
               core.warning('Skipping fallback dispatch: pull request or comment id unavailable.');
               return;
@@ -2063,7 +2162,7 @@ jobs:
             let forked = false;
 
             try {
-              const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+              const { data: pr } = await withRetry(() => github.rest.pulls.get({ owner, repo, pull_number: prNumber }));
               base = pr?.base?.ref || '';
               head = pr?.head?.ref || '';
               const headRepo = pr?.head?.repo?.full_name || '';
@@ -2118,12 +2217,12 @@ jobs:
               reply: 'none',
             };
 
-            await github.rest.repos.createDispatchEvent({
+            await withRetry(() => github.rest.repos.createDispatchEvent({
               owner,
               repo,
               event_type: 'codex-pr-comment-command',
               client_payload: payload,
-            });
+            }));
 
       - name: Post fallback comment
         if: steps.gate.outputs.should_post == 'true' && steps.ack.outputs.acknowledged != 'true'
@@ -2136,6 +2235,15 @@ jobs:
           github-token: ${{ steps.author_token.outputs.token == 'APP_TOKEN' && steps.app_token.outputs.token || (steps.author_token.outputs.token == 'ACTIONS_BOT_PAT' && secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT) }}
           script: |
             const prNumber = Number(process.env.PR_NUMBER || 0);
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry } = retryHelpers;
             if (!Number.isFinite(prNumber) || prNumber <= 0) {
               core.warning('Unable to post fallback comment: missing PR number.');
               return;
@@ -2143,12 +2251,12 @@ jobs:
 
             const { owner, repo } = context.repo;
             const body = `**Keepalive ${process.env.ROUND || '?' }** \`${process.env.TRACE || ''}\` fallback: PR-meta ack not observed in TTL – emitted connector dispatch.`;
-            await github.rest.issues.createComment({
+            await withRetry(() => github.rest.issues.createComment({
               owner,
               repo,
               issue_number: prNumber,
               body,
-            });
+            }));
 
       - name: Record instruction observability line
         if: always()
@@ -2399,6 +2507,15 @@ jobs:
           github-token: ${{ steps.app_token.outputs.token || secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT || github.token }}
           script: |
             const normalise = (value) => String(value || '').trim();
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry } = retryHelpers;
             const trace = normalise(process.env.KEEPALIVE_TRACE);
             const round = normalise(process.env.KEEPALIVE_ROUND);
             const workerResult = normalise(process.env.WORKER_RESULT) || 'unknown';
@@ -2411,7 +2528,7 @@ jobs:
             let headSha = '';
             if (branch) {
               try {
-                const { data } = await github.rest.repos.getBranch({ owner, repo, branch });
+                const { data } = await withRetry(() => github.rest.repos.getBranch({ owner, repo, branch }));
                 headSha = data?.commit?.sha || '';
               } catch (error) {
                 const message = error instanceof Error ? error.message : String(error);
@@ -2491,12 +2608,12 @@ jobs:
             const body = `**Keepalive ${round || '?'}** \`${trace}\` worker: ${details}.`;
 
             try {
-              await github.rest.issues.createComment({
+              await withRetry(() => github.rest.issues.createComment({
                 owner,
                 repo,
                 issue_number: prNumber,
                 body,
-              });
+              }));
             } catch (error) {
               const message = error instanceof Error ? error.message : String(error);
               core.warning(`Failed to post keepalive worker outcome for PR #${prNumber}: ${message}`);
@@ -2591,6 +2708,14 @@ jobs:
     if: needs.keepalive-guard.outputs.proceed != 'false' && inputs.dry_run != 'true'
     runs-on: ubuntu-latest
     steps:
+      # Do not remove checkout; local helper is required.
+      - name: Checkout orchestrator scripts
+        uses: actions/checkout@v6
+        with:
+          sparse-checkout: |
+            .github/scripts
+          sparse-checkout-cone-mode: false
+          fetch-depth: 1
       - name: Merge Codex PRs tagged for automerge
         id: automerge
         uses: actions/github-script@v8
@@ -2602,12 +2727,21 @@ jobs:
           github-token: ${{ secrets.OWNER_PR_PAT || secrets.SERVICE_BOT_PAT || github.token }}
           script: |
             const label = (process.env.AUTOMERGE_LABEL || 'automerge').trim();
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (method, params) => github.paginate(method, params),
+                };
+            const { withRetry, paginateWithRetry } = retryHelpers;
             const summary = core.summary;
             const { owner, repo } = context.repo;
 
             let defaultBranch = (process.env.DEFAULT_BRANCH || '').trim();
             if (!defaultBranch) {
-              const { data: repoInfo } = await github.rest.repos.get({ owner, repo });
+              const { data: repoInfo } = await withRetry(() => github.rest.repos.get({ owner, repo }));
               defaultBranch = repoInfo.default_branch || 'main';
             }
 
@@ -2623,7 +2757,7 @@ jobs:
             async function loadPullRequest(pull_number) {
               let attempt = 0;
               while (true) {
-                const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number });
+                const { data: pr } = await withRetry(() => github.rest.pulls.get({ owner, repo, pull_number }));
                 if (!pr) {
                   return null;
                 }
@@ -2639,7 +2773,7 @@ jobs:
               }
             }
 
-            const issues = await github.paginate(
+            const issues = await paginateWithRetry(
               github.rest.issues.listForRepo,
               { owner, repo, state: 'open', labels: label, per_page: 100 }
             );
@@ -2691,23 +2825,23 @@ jobs:
                       if (!headSha) {
                         note = 'Missing head SHA for pull request.';
                       } else {
-                        const { data: combined } = await github.rest.repos.getCombinedStatusForRef({
+                        const { data: combined } = await withRetry(() => github.rest.repos.getCombinedStatusForRef({
                           owner,
                           repo,
                           ref: headSha
-                        });
+                        }));
                         if (!combined || combined.state !== 'success') {
                           note = 'Required status checks have not all succeeded.';
                         } else {
                           let checksOk = true;
                           let failingCheck = '';
                           try {
-                            const { data: checks } = await github.rest.checks.listForRef({
+                            const { data: checks } = await withRetry(() => github.rest.checks.listForRef({
                               owner,
                               repo,
                               ref: headSha,
                               per_page: 100
-                            });
+                            }));
                             const checkRuns = Array.isArray(checks.check_runs) ? checks.check_runs : [];
                             for (const run of checkRuns) {
                               const conclusion = (run.conclusion || '').toLowerCase();
@@ -2738,7 +2872,7 @@ jobs:
                               merge_method: 'squash'
                             };
                             try {
-                              const response = await github.rest.pulls.merge(mergeParams);
+                              const response = await withRetry(() => github.rest.pulls.merge(mergeParams));
                               if (response && response.data && response.data.merged) {
                                 status = 'merged';
                                 note = `Merged via ${response.data.merge_method || mergeParams.merge_method}.`;
