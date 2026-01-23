@@ -1057,6 +1057,7 @@ jobs:
             const branch = ('${{ steps.ctx.outputs.branch }}' || '').trim() || '(unknown branch)';
             const dryRun = '${{ steps.mode.outputs.dry_run }}' === 'true';
             const { owner, repo } = context.repo;
+            const retryGithub = github;
             const marker = '<!-- codex-activation-marker -->';
             const summary = dryRun
               ? `Codex Worker activated for branch \`${branch}\` (dry run preview).`
@@ -1065,8 +1066,8 @@ jobs:
 
             try {
               const comments = await paginateWithRetry(
-                github,
-                github.rest.issues.listComments,
+                retryGithub,
+                retryGithub.rest.issues.listComments,
                 {
                   owner,
                   repo,
