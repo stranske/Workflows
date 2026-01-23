@@ -57,8 +57,7 @@ def test_doc_url_for_pull_request(monkeypatch: pytest.MonkeyPatch) -> None:
 
     url = summarize._doc_url()
     assert url == (
-        "https://example.com/owner/repo/blob/main/"
-        "docs/ci/WORKFLOWS.md#ci-signature-guard-fixtures"
+        "https://example.com/owner/repo/blob/main/docs/ci/WORKFLOWS.md#ci-signature-guard-fixtures"
     )
 
 

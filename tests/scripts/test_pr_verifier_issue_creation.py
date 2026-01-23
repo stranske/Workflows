@@ -2,9 +2,7 @@ import scripts.langchain.pr_verifier as pr_verifier
 
 
 def test_extract_pr_metadata() -> None:
-    context = (
-        "# Verifier context\n" "- Pull request: [#123](https://github.com/org/repo/pull/123)\n"
-    )
+    context = "# Verifier context\n- Pull request: [#123](https://github.com/org/repo/pull/123)\n"
     pr_number, pr_url = pr_verifier._extract_pr_metadata(context)
     assert pr_number == 123
     assert pr_url == "https://github.com/org/repo/pull/123"

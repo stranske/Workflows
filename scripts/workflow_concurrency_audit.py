@@ -308,7 +308,7 @@ def _format_cancel(setting: ConcurrencySetting) -> str:
 
 def _table_row(item: WorkflowConcurrencyAudit) -> list[str]:
     concurrency = ";".join(
-        f"{setting.location}:{setting.group or 'none'}:" f"{_format_cancel(setting)}"
+        f"{setting.location}:{setting.group or 'none'}:{_format_cancel(setting)}"
         for setting in item.concurrency
     )
     return [

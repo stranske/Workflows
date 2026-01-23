@@ -51,7 +51,7 @@ def main() -> int:
     for package, version in packages.items():
         major, minor = get_major_minor(version)
         # Pin to major.minor range for stability
-        print(f'    "{package}>={major}.{minor},<{major}.{minor+1}",')
+        print(f'    "{package}>={major}.{minor},<{major}.{minor + 1}",')
     print("]")
 
     return 0

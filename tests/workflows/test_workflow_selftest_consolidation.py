@@ -57,9 +57,9 @@ def test_selftest_workflow_inventory() -> None:
 
     selftest_workflows = sorted(path.name for path in WORKFLOW_DIR.glob("*selftest*.yml"))
     expected = ["selftest-ci.yml", "selftest-reusable-ci.yml"]
-    assert (
-        selftest_workflows == expected
-    ), f"Active self-test inventory drifted; expected {expected} but saw {selftest_workflows}."
+    assert selftest_workflows == expected, (
+        f"Active self-test inventory drifted; expected {expected} but saw {selftest_workflows}."
+    )
 
 
 def test_legacy_selftest_pr_comment_wrappers_absent() -> None:
@@ -84,8 +84,7 @@ def test_legacy_selftest_pr_comment_wrappers_absent() -> None:
     )
 
     assert not unexpected_active, (
-        "Legacy self-test comment workflows resurfaced in .github/workflows/: "
-        f"{unexpected_active}"
+        f"Legacy self-test comment workflows resurfaced in .github/workflows/: {unexpected_active}"
     )
     assert not unexpected_archived, (
         "Legacy self-test comment workflows should no longer be tracked in "
@@ -99,22 +98,22 @@ def test_archive_ledgers_comment_wrappers() -> None:
 
     ledger_text = _normalize(ARCHIVE_LEDGER_PATH.read_text())
     for wrapper in LEGACY_COMMENT_WRAPPERS:
-        assert (
-            wrapper in ledger_text
-        ), f"Archive ledger missing entry for retired workflow {wrapper}."
+        assert wrapper in ledger_text, (
+            f"Archive ledger missing entry for retired workflow {wrapper}."
+        )
 
-    assert (
-        "Gate summary job" in ledger_text
-    ), "Archive ledger should point readers to the Gate summary job path."
-    assert (
-        SELFTEST_WORKFLOW_NAME in ledger_text
-    ), "Archive ledger should reference the consolidated self-test workflow."
-    assert (
-        "selftest-reusable-ci.yml" in ledger_text
-    ), "Archive ledger should reference the consolidated Selftest: Reusables workflow."
-    assert (
-        "Issue #2814" in ledger_text or "Issue #2814" in ledger_text
-    ), "Archive ledger should acknowledge the reinstatement tracked by Issue #2814."
+    assert "Gate summary job" in ledger_text, (
+        "Archive ledger should point readers to the Gate summary job path."
+    )
+    assert SELFTEST_WORKFLOW_NAME in ledger_text, (
+        "Archive ledger should reference the consolidated self-test workflow."
+    )
+    assert "selftest-reusable-ci.yml" in ledger_text, (
+        "Archive ledger should reference the consolidated Selftest: Reusables workflow."
+    )
+    assert "Issue #2814" in ledger_text or "Issue #2814" in ledger_text, (
+        "Archive ledger should acknowledge the reinstatement tracked by Issue #2814."
+    )
 
 
 def test_workflow_docs_highlight_comment_consolidation() -> None:
@@ -124,38 +123,38 @@ def test_workflow_docs_highlight_comment_consolidation() -> None:
     catalog_text = _normalize(WORKFLOWS_DOC.read_text())
 
     for doc_text in (system_text, catalog_text):
-        assert (
-            "Gate summary job" in doc_text
-        ), "Docs should explain the Gate summary job as the canonical comment path."
-        assert (
-            SELFTEST_WORKFLOW_NAME in doc_text
-        ), "Docs should reference the canonical self-test workflow."
+        assert "Gate summary job" in doc_text, (
+            "Docs should explain the Gate summary job as the canonical comment path."
+        )
+        assert SELFTEST_WORKFLOW_NAME in doc_text, (
+            "Docs should reference the canonical self-test workflow."
+        )
 
     for wrapper in LEGACY_COMMENT_WRAPPERS:
-        assert (
-            wrapper in system_text or wrapper in catalog_text
-        ), f"Docs should mention the retirement of {wrapper}."
+        assert wrapper in system_text or wrapper in catalog_text, (
+            f"Docs should mention the retirement of {wrapper}."
+        )
 
 
 def test_workflow_system_keepalive_autopilot_note() -> None:
     """Workflow system guide should note the auto-pilot keepalive dispatch path."""
 
     system_text = _normalize(WORKFLOW_SYSTEM_DOC.read_text())
-    assert (
-        "Auto-pilot keepalive dispatch" in system_text
-    ), "Workflow system guide should call out auto-pilot keepalive dispatch behavior."
+    assert "Auto-pilot keepalive dispatch" in system_text, (
+        "Workflow system guide should call out auto-pilot keepalive dispatch behavior."
+    )
 
 
 def test_selftest_runner_plan_status_highlights_completion() -> None:
     """Runner plan should mark consolidation completion and spotlight the single workflow."""
 
     plan_text = _normalize(RUNNER_PLAN_PATH.read_text())
-    assert (
-        "Status (2026-11-15, Issue #2728)" in plan_text
-    ), "Runner plan should flag Issue #2728 completion in the status block."
-    assert (
-        SELFTEST_WORKFLOW_NAME in plan_text
-    ), "Runner plan should point to the consolidated self-test workflow."
+    assert "Status (2026-11-15, Issue #2728)" in plan_text, (
+        "Runner plan should flag Issue #2728 completion in the status block."
+    )
+    assert SELFTEST_WORKFLOW_NAME in plan_text, (
+        "Runner plan should point to the consolidated self-test workflow."
+    )
 
 
 def test_selftest_runner_inputs_cover_variants() -> None:
@@ -171,13 +170,13 @@ def test_selftest_runner_inputs_cover_variants() -> None:
     }, "Runner must expose schedule and workflow_dispatch triggers."
 
     schedule_entries = triggers.get("schedule", [])
-    assert (
-        isinstance(schedule_entries, list) and schedule_entries
-    ), "Runner schedule trigger should declare at least one cron entry."
+    assert isinstance(schedule_entries, list) and schedule_entries, (
+        "Runner schedule trigger should declare at least one cron entry."
+    )
     primary_schedule = schedule_entries[0]
-    assert (
-        primary_schedule.get("cron") == "30 6 * * *"
-    ), "Selftest: Reusables nightly cron drifted; update docs/tests with intentional changes."
+    assert primary_schedule.get("cron") == "30 6 * * *", (
+        "Selftest: Reusables nightly cron drifted; update docs/tests with intentional changes."
+    )
 
     workflow_dispatch = triggers.get("workflow_dispatch") or {}
     inputs = workflow_dispatch.get("inputs", {})
@@ -187,24 +186,24 @@ def test_selftest_runner_inputs_cover_variants() -> None:
     ) -> None:
         field = inputs.get(field_name)
         assert field is not None, f"Missing `{field_name}` input on {SELFTEST_WORKFLOW_NAME}."
-        assert (
-            field.get("type", "choice") == "choice"
-        ), f"`{field_name}` should remain a choice input."
+        assert field.get("type", "choice") == "choice", (
+            f"`{field_name}` should remain a choice input."
+        )
         options_raw = field.get("options", [])
         options_normalized = [str(option).lower() for option in options_raw]
         expected_normalized = [option.lower() for option in expected_options]
-        assert (
-            options_normalized == expected_normalized
-        ), f"Unexpected option set for `{field_name}`: {options_raw!r}."
+        assert options_normalized == expected_normalized, (
+            f"Unexpected option set for `{field_name}`: {options_raw!r}."
+        )
         if default is not None:
             actual_default = field.get("default")
             if isinstance(actual_default, bool):
                 actual_default_normalized = str(actual_default).lower()
             else:
                 actual_default_normalized = str(actual_default)
-            assert (
-                actual_default_normalized == default
-            ), f"`{field_name}` default drifted from {default!r}."
+            assert actual_default_normalized == default, (
+                f"`{field_name}` default drifted from {default!r}."
+            )
 
     _assert_choice("mode", ["summary", "comment", "dual-runtime"], default="summary")
     _assert_choice("post_to", ["pr-number", "none"], default="none")
@@ -221,9 +220,9 @@ def test_selftest_runner_inputs_cover_variants() -> None:
     jobs = data.get("jobs", {})
     scenario_job = jobs.get("scenarios") or {}
     assert scenario_job, f"{SELFTEST_WORKFLOW_NAME} must declare the scenario job."
-    assert (
-        scenario_job.get("uses") == "./.github/workflows/reusable-10-ci-python.yml"
-    ), "Runner should delegate execution to reusable-10-ci-python.yml."
+    assert scenario_job.get("uses") == "./.github/workflows/reusable-10-ci-python.yml", (
+        "Runner should delegate execution to reusable-10-ci-python.yml."
+    )
 
 
 def test_selftest_runner_jobs_contract() -> None:
@@ -232,12 +231,12 @@ def test_selftest_runner_jobs_contract() -> None:
 
     scenario = jobs.get("scenarios") or {}
     assert scenario, "Reusable CI workflow must define the scenario job."
-    assert (
-        scenario.get("uses") == "./.github/workflows/reusable-10-ci-python.yml"
-    ), "Scenario job must fan out to reusable-10-ci-python.yml via jobs.<id>.uses."
-    assert (
-        scenario.get("secrets") == "inherit"
-    ), "Scenario job should inherit caller secrets for repo access."
+    assert scenario.get("uses") == "./.github/workflows/reusable-10-ci-python.yml", (
+        "Scenario job must fan out to reusable-10-ci-python.yml via jobs.<id>.uses."
+    )
+    assert scenario.get("secrets") == "inherit", (
+        "Scenario job should inherit caller secrets for repo access."
+    )
 
     scenario_with = scenario.get("with", {})
     required_with = {
@@ -251,30 +250,30 @@ def test_selftest_runner_jobs_contract() -> None:
         "baseline-coverage",
         "coverage-alert-drop",
     }
-    assert required_with.issubset(
-        scenario_with
-    ), f"Scenario job is missing inputs: {sorted(required_with - set(scenario_with))}."
-    assert (
-        scenario_with["artifact-prefix"] == "sf-${{ matrix.name }}-"
-    ), "Scenario job should namespace artifacts with the matrix name prefix."
+    assert required_with.issubset(scenario_with), (
+        f"Scenario job is missing inputs: {sorted(required_with - set(scenario_with))}."
+    )
+    assert scenario_with["artifact-prefix"] == "sf-${{ matrix.name }}-", (
+        "Scenario job should namespace artifacts with the matrix name prefix."
+    )
     python_versions_expr = scenario_with["python-versions"]
-    assert (
-        "github.event_name == 'workflow_dispatch'" in python_versions_expr
-    ), "Scenario job should branch on workflow_dispatch triggers."
-    assert (
-        "inputs.python_versions != ''" in python_versions_expr
-    ), "Scenario job should respect custom python_versions overrides."
-    assert (
-        "inputs.mode == 'dual-runtime'" in python_versions_expr
-    ), "Scenario job should enable dual-runtime mode when requested."
-    assert (
-        "'[\"3.11\"]'" in python_versions_expr
-    ), "Scenario job should fall back to the default 3.11 matrix."
+    assert "github.event_name == 'workflow_dispatch'" in python_versions_expr, (
+        "Scenario job should branch on workflow_dispatch triggers."
+    )
+    assert "inputs.python_versions != ''" in python_versions_expr, (
+        "Scenario job should respect custom python_versions overrides."
+    )
+    assert "inputs.mode == 'dual-runtime'" in python_versions_expr, (
+        "Scenario job should enable dual-runtime mode when requested."
+    )
+    assert "'[\"3.11\"]'" in python_versions_expr, (
+        "Scenario job should fall back to the default 3.11 matrix."
+    )
 
     strategy = scenario.get("strategy", {})
-    assert (
-        strategy.get("fail-fast") is False
-    ), "Scenario matrix must disable fail-fast to exercise every combination."
+    assert strategy.get("fail-fast") is False, (
+        "Scenario matrix must disable fail-fast to exercise every combination."
+    )
     matrix_include = strategy.get("matrix", {}).get("include", [])
     names = [entry.get("name") for entry in matrix_include]
     expected_names = [
@@ -285,53 +284,53 @@ def test_selftest_runner_jobs_contract() -> None:
         "coverage_delta",
         "full_soft_gate",
     ]
-    assert (
-        names == expected_names
-    ), "Reusable CI scenario matrix drifted; update tests if intentional."
+    assert names == expected_names, (
+        "Reusable CI scenario matrix drifted; update tests if intentional."
+    )
 
     def _entry(name: str) -> dict:
         return next((item for item in matrix_include if item.get("name") == name), {})
 
     coverage_delta = _entry("coverage_delta")
-    assert (
-        coverage_delta.get("baseline-coverage") == "65"
-    ), "coverage_delta scenario baseline-coverage should remain '65'."
-    assert (
-        coverage_delta.get("coverage-alert-drop") == "2"
-    ), "coverage_delta scenario coverage-alert-drop should remain '2'."
+    assert coverage_delta.get("baseline-coverage") == "65", (
+        "coverage_delta scenario baseline-coverage should remain '65'."
+    )
+    assert coverage_delta.get("coverage-alert-drop") == "2", (
+        "coverage_delta scenario coverage-alert-drop should remain '2'."
+    )
 
     full_soft_gate = _entry("full_soft_gate")
-    assert (
-        full_soft_gate.get("baseline-coverage") == "65"
-    ), "full_soft_gate scenario baseline-coverage should remain '65'."
-    assert (
-        full_soft_gate.get("coverage-alert-drop") == "2"
-    ), "full_soft_gate scenario coverage-alert-drop should remain '2'."
+    assert full_soft_gate.get("baseline-coverage") == "65", (
+        "full_soft_gate scenario baseline-coverage should remain '65'."
+    )
+    assert full_soft_gate.get("coverage-alert-drop") == "2", (
+        "full_soft_gate scenario coverage-alert-drop should remain '2'."
+    )
 
     summarize = jobs.get("summarize") or {}
     assert summarize, "Reusable CI workflow must include the aggregate job."
-    assert (
-        summarize.get("needs") == "scenarios"
-    ), "Aggregate job should depend on the matrix execution."
-    assert (
-        summarize.get("if") == "${{ always() }}"
-    ), "Aggregate job must always run to collect results."
-    assert (
-        summarize.get("runs-on") == "ubuntu-latest"
-    ), "Aggregate job should execute on ubuntu-latest."
+    assert summarize.get("needs") == "scenarios", (
+        "Aggregate job should depend on the matrix execution."
+    )
+    assert summarize.get("if") == "${{ always() }}", (
+        "Aggregate job must always run to collect results."
+    )
+    assert summarize.get("runs-on") == "ubuntu-latest", (
+        "Aggregate job should execute on ubuntu-latest."
+    )
 
     permissions = summarize.get("permissions", {})
-    assert (
-        permissions.get("contents") == "read"
-    ), "Aggregate job should only require read access to contents."
-    assert (
-        permissions.get("actions") == "read"
-    ), "Aggregate job should only require read access to actions metadata."
+    assert permissions.get("contents") == "read", (
+        "Aggregate job should only require read access to contents."
+    )
+    assert permissions.get("actions") == "read", (
+        "Aggregate job should only require read access to actions metadata."
+    )
 
     outputs = summarize.get("outputs", {})
-    assert {"summary_table", "failure_count", "run_id"}.issubset(
-        outputs
-    ), "Aggregate job outputs drifted; downstream jobs require table, failures, and run_id."
+    assert {"summary_table", "failure_count", "run_id"}.issubset(outputs), (
+        "Aggregate job outputs drifted; downstream jobs require table, failures, and run_id."
+    )
 
     env = summarize.get("env", {})
     assert (
@@ -339,22 +338,22 @@ def test_selftest_runner_jobs_contract() -> None:
         == "minimal,metrics_only,metrics_history,classification_only,coverage_delta,full_soft_gate"
     ), "Aggregate SCENARIO_LIST should enumerate the scenario matrix."
     aggregate_python = env.get("REQUESTED_PYTHONS", "")
-    assert (
-        "github.event_name == 'workflow_dispatch'" in aggregate_python
-    ), "Aggregate job should branch on workflow_dispatch events."
-    assert (
-        "inputs.python_versions != ''" in aggregate_python
-    ), "Aggregate job should honor manual python_versions overrides."
-    assert (
-        "inputs.mode == 'dual-runtime'" in aggregate_python
-    ), "Aggregate job should forward dual-runtime requests."
-    assert (
-        "'[\"3.11\"]'" in aggregate_python
-    ), "Aggregate job should fall back to the default 3.11 matrix."
+    assert "github.event_name == 'workflow_dispatch'" in aggregate_python, (
+        "Aggregate job should branch on workflow_dispatch events."
+    )
+    assert "inputs.python_versions != ''" in aggregate_python, (
+        "Aggregate job should honor manual python_versions overrides."
+    )
+    assert "inputs.mode == 'dual-runtime'" in aggregate_python, (
+        "Aggregate job should forward dual-runtime requests."
+    )
+    assert "'[\"3.11\"]'" in aggregate_python, (
+        "Aggregate job should fall back to the default 3.11 matrix."
+    )
     assert env.get("RUN_REASON"), "Aggregate job should capture the run reason for summaries."
-    assert (
-        env.get("TRIGGER_EVENT") == "${{ github.event_name }}"
-    ), "Aggregate job should capture the trigger event name."
+    assert env.get("TRIGGER_EVENT") == "${{ github.event_name }}", (
+        "Aggregate job should capture the trigger event name."
+    )
 
     steps = summarize.get("steps", [])
 
@@ -363,35 +362,35 @@ def test_selftest_runner_jobs_contract() -> None:
 
     verify_step = _find_step(lambda step: step.get("id") == "verify")
     assert verify_step, "Aggregate job must include the verification step."
-    assert verify_step.get("uses", "").startswith(
-        "actions/github-script@"
-    ), "Verification step should leverage actions/github-script."
+    assert verify_step.get("uses", "").startswith("actions/github-script@"), (
+        "Verification step should leverage actions/github-script."
+    )
     verify_env = verify_step.get("env", {})
-    assert (
-        verify_env.get("PYTHON_VERSIONS") == "${{ env.REQUESTED_PYTHONS }}"
-    ), "Verification step should read python versions from aggregate env."
-    assert (
-        verify_env.get("SCENARIO_LIST") == "${{ env.SCENARIO_LIST }}"
-    ), "Verification step should read scenario list from aggregate env."
+    assert verify_env.get("PYTHON_VERSIONS") == "${{ env.REQUESTED_PYTHONS }}", (
+        "Verification step should read python versions from aggregate env."
+    )
+    assert verify_env.get("SCENARIO_LIST") == "${{ env.SCENARIO_LIST }}", (
+        "Verification step should read scenario list from aggregate env."
+    )
 
     upload_step = _find_step(lambda step: step.get("name") == "Upload self-test report")
     assert upload_step, "Aggregate job must upload the self-test report artifact."
-    assert upload_step.get("uses", "").startswith(
-        "actions/upload-artifact@"
-    ), "Self-test report upload should use actions/upload-artifact."
+    assert upload_step.get("uses", "").startswith("actions/upload-artifact@"), (
+        "Self-test report upload should use actions/upload-artifact."
+    )
     upload_with = upload_step.get("with", {})
-    assert (
-        upload_with.get("name") == "selftest-report"
-    ), "Self-test report artifact name should remain stable for documentation/tests."
-    assert (
-        upload_with.get("path") == "selftest-report.json"
-    ), "Self-test report upload path drifted; keep JSON summary name stable."
+    assert upload_with.get("name") == "selftest-report", (
+        "Self-test report artifact name should remain stable for documentation/tests."
+    )
+    assert upload_with.get("path") == "selftest-report.json", (
+        "Self-test report upload path drifted; keep JSON summary name stable."
+    )
 
     fail_step = _find_step(lambda step: step.get("name") == "Fail on verification errors")
     assert fail_step, "Aggregate job must fail when verification mismatches occur."
-    assert (
-        fail_step.get("if") == "${{ steps.verify.outputs.failures != '0' }}"
-    ), "Failure guard should inspect verification failure count."
+    assert fail_step.get("if") == "${{ steps.verify.outputs.failures != '0' }}", (
+        "Failure guard should inspect verification failure count."
+    )
 
 
 def test_selftest_runner_publish_job_contract() -> None:
@@ -406,27 +405,27 @@ def test_selftest_runner_publish_job_contract() -> None:
         "scenarios",
         "summarize",
     }, "publish should depend on both the matrix execution and aggregation jobs."
-    assert (
-        publish.get("if") == "${{ always() }}"
-    ), "publish should always execute to surface matrix status."
+    assert publish.get("if") == "${{ always() }}", (
+        "publish should always execute to surface matrix status."
+    )
 
     permissions = publish.get("permissions", {})
     assert permissions, "publish must declare minimal permissions."
-    assert (
-        permissions.get("contents") == "read"
-    ), "publish should only require read access to contents."
-    assert (
-        permissions.get("actions") == "read"
-    ), "publish should only require read access to actions metadata."
-    assert (
-        permissions.get("pull-requests") == "write"
-    ), "publish needs pull request write access for comment mode."
+    assert permissions.get("contents") == "read", (
+        "publish should only require read access to contents."
+    )
+    assert permissions.get("actions") == "read", (
+        "publish should only require read access to actions metadata."
+    )
+    assert permissions.get("pull-requests") == "write", (
+        "publish needs pull request write access for comment mode."
+    )
 
     unexpected_permissions = sorted(
         key for key in permissions if key not in {"contents", "actions", "pull-requests"}
     )
     assert not unexpected_permissions, (
-        "publish should not request extra permissions: " f"{unexpected_permissions}."
+        f"publish should not request extra permissions: {unexpected_permissions}."
     )
 
     required_env = {
@@ -445,7 +444,7 @@ def test_selftest_runner_publish_job_contract() -> None:
     }
     env = publish.get("env", {})
     missing_env = sorted(required_env - set(env))
-    assert not missing_env, "publish env block drifted; missing keys: " f"{missing_env}."
+    assert not missing_env, f"publish env block drifted; missing keys: {missing_env}."
 
     steps = publish.get("steps", [])
 
@@ -454,19 +453,19 @@ def test_selftest_runner_publish_job_contract() -> None:
 
     download_step = _find_step("Download self-test report")
     assert download_step, "Download step missing from publish job."
-    assert download_step.get("uses", "").startswith(
-        "actions/download-artifact@"
-    ), "Download step should use actions/download-artifact."
-    assert (
-        download_step.get("if") == "${{ env.ENABLE_HISTORY == 'true' && env.RUN_ID != '' }}"
-    ), "Download step must guard on enable_history input and aggregate run id."
+    assert download_step.get("uses", "").startswith("actions/download-artifact@"), (
+        "Download step should use actions/download-artifact."
+    )
+    assert download_step.get("if") == "${{ env.ENABLE_HISTORY == 'true' && env.RUN_ID != '' }}", (
+        "Download step must guard on enable_history input and aggregate run id."
+    )
     download_with = download_step.get("with", {})
-    assert (
-        download_with.get("run-id") == "${{ env.RUN_ID }}"
-    ), "Download step should forward the aggregate run id."
-    assert (
-        download_with.get("name") == "selftest-report"
-    ), "Download step must keep artifact name stable for docs/tests."
+    assert download_with.get("run-id") == "${{ env.RUN_ID }}", (
+        "Download step should forward the aggregate run id."
+    )
+    assert download_with.get("name") == "selftest-report", (
+        "Download step must keep artifact name stable for docs/tests."
+    )
 
     surface_failures = _find_step("Surface failures in logs")
     assert surface_failures, "Missing surface failures guard for summary mode."
@@ -477,15 +476,15 @@ def test_selftest_runner_publish_job_contract() -> None:
         "Self-test reported",
         "Self-test matrix completed with status",
     ):
-        assert (
-            expected_snippet in surface_script
-        ), f"Surface failures step should mention '{expected_snippet}'."
+        assert expected_snippet in surface_script, (
+            f"Surface failures step should mention '{expected_snippet}'."
+        )
 
     comment_finalize = _find_step("Finalize status for comment mode")
     assert comment_finalize, "Comment mode finalizer missing."
-    assert (
-        comment_finalize.get("if") == "${{ env.MODE == 'comment' }}"
-    ), "Comment finalizer should only run during comment mode."
+    assert comment_finalize.get("if") == "${{ env.MODE == 'comment' }}", (
+        "Comment finalizer should only run during comment mode."
+    )
     comment_script = comment_finalize.get("run", "")
     for snippet in (
         "Verification table output missing",
@@ -557,9 +556,9 @@ def test_selftest_triggers_are_manual_only() -> None:
             f"{workflow_file.name} should expose a nightly schedule in addition to "
             "workflow_dispatch."
         )
-        assert (
-            trigger_keys <= allowed_triggers
-        ), f"{workflow_file.name} declares unexpected trigger set: {sorted(trigger_keys)}."
+        assert trigger_keys <= allowed_triggers, (
+            f"{workflow_file.name} declares unexpected trigger set: {sorted(trigger_keys)}."
+        )
 
 
 def test_selftest_dispatch_reason_input() -> None:
@@ -585,17 +584,17 @@ def test_selftest_dispatch_reason_input() -> None:
     # Normalize the "required" field to a boolean for consistency.
     required_raw = reason_input.get("required")
     required_bool = required_raw not in (False, "false", None)
-    assert (
-        not required_bool
-    ), "Selftest workflow dispatch reason should be optional for manual launches."
+    assert not required_bool, (
+        "Selftest workflow dispatch reason should be optional for manual launches."
+    )
 
     description = reason_input.get("description", "").strip()
     assert description, "Reason input should document why it is collected."
 
     default_value = reason_input.get("default")
-    assert (
-        default_value == "manual test"
-    ), "Reason input default should remain 'manual test' so callers understand the context."
+    assert default_value == "manual test", (
+        "Reason input default should remain 'manual test' so callers understand the context."
+    )
 
 
 def test_archived_selftest_inventory() -> None:
@@ -606,29 +605,29 @@ def test_archived_selftest_inventory() -> None:
     )
 
     ledger_text = _normalize(ARCHIVE_LEDGER_PATH.read_text())
-    assert (
-        "Historical copies of `maint-90-selftest.yml`" in ledger_text
-    ), "Archive ledger should document where to find the retired self-test wrappers."
-    assert (
-        "Old/workflows" in ledger_text
-    ), "Archive ledger should mention the former archive directory so contributors know it was removed."
-    assert (
-        "#2728" in ledger_text
-    ), "Archive ledger must reference the consolidation issue that removed the residual files."
+    assert "Historical copies of `maint-90-selftest.yml`" in ledger_text, (
+        "Archive ledger should document where to find the retired self-test wrappers."
+    )
+    assert "Old/workflows" in ledger_text, (
+        "Archive ledger should mention the former archive directory so contributors know it was removed."
+    )
+    assert "#2728" in ledger_text, (
+        "Archive ledger must reference the consolidation issue that removed the residual files."
+    )
 
 
 def test_selftest_matrix_and_aggregate_contract() -> None:
-    assert (
-        SELFTEST_WORKFLOW.exists()
-    ), f"{SELFTEST_WORKFLOW_NAME} is missing from .github/workflows/"
+    assert SELFTEST_WORKFLOW.exists(), (
+        f"{SELFTEST_WORKFLOW_NAME} is missing from .github/workflows/"
+    )
 
     data = _read_workflow(SELFTEST_WORKFLOW)
     jobs = data.get("jobs", {})
 
     scenario_job = jobs.get("scenarios") or {}
-    assert (
-        scenario_job.get("uses") == "./.github/workflows/reusable-10-ci-python.yml"
-    ), "Scenario job must invoke reusable-10-ci-python.yml via jobs.<id>.uses"
+    assert scenario_job.get("uses") == "./.github/workflows/reusable-10-ci-python.yml", (
+        "Scenario job must invoke reusable-10-ci-python.yml via jobs.<id>.uses"
+    )
 
     matrix = scenario_job.get("strategy", {}).get("matrix", {}).get("include", [])
     scenario_names = [entry.get("name") for entry in matrix]
@@ -640,17 +639,17 @@ def test_selftest_matrix_and_aggregate_contract() -> None:
         "coverage_delta",
         "full_soft_gate",
     ]
-    assert (
-        scenario_names == expected_names
-    ), "Self-test scenario matrix drifted; update verification docs/tests if intentional."
+    assert scenario_names == expected_names, (
+        "Self-test scenario matrix drifted; update verification docs/tests if intentional."
+    )
 
     aggregate_job = jobs.get("summarize") or {}
-    assert (
-        aggregate_job.get("needs") == "scenarios"
-    ), "Aggregate job must depend on the scenario matrix"
-    assert (
-        aggregate_job.get("if") == "${{ always() }}"
-    ), "Aggregate job should always run to summarise results"
+    assert aggregate_job.get("needs") == "scenarios", (
+        "Aggregate job must depend on the scenario matrix"
+    )
+    assert aggregate_job.get("if") == "${{ always() }}", (
+        "Aggregate job should always run to summarise results"
+    )
 
     permissions = aggregate_job.get("permissions", {})
     assert permissions.get("actions") == "read", "Aggregate job must read workflow artifacts"
@@ -659,22 +658,22 @@ def test_selftest_matrix_and_aggregate_contract() -> None:
     env = aggregate_job.get("env", {})
     aggregate_list = env.get("SCENARIO_LIST", "")
     env_names = [name.strip() for name in aggregate_list.split(",") if name.strip()]
-    assert (
-        env_names == expected_names
-    ), "Aggregate SCENARIO_LIST must stay aligned with the scenario matrix to keep summaries accurate."
+    assert env_names == expected_names, (
+        "Aggregate SCENARIO_LIST must stay aligned with the scenario matrix to keep summaries accurate."
+    )
 
     outputs = aggregate_job.get("outputs", {})
-    assert {"summary_table", "failure_count", "run_id"}.issubset(
-        outputs
-    ), "Aggregate job should surface verification outputs for downstream consumers."
+    assert {"summary_table", "failure_count", "run_id"}.issubset(outputs), (
+        "Aggregate job should surface verification outputs for downstream consumers."
+    )
 
     steps = aggregate_job.get("steps", [])
     verify_step = next((step for step in steps if step.get("id") == "verify"), None)
     assert verify_step is not None, "Aggregate job must include the github-script verification step"
     verify_env = verify_step.get("env", {})
-    assert (
-        verify_env.get("PYTHON_VERSIONS") == "${{ env.REQUESTED_PYTHONS }}"
-    ), "Verification step should read python version overrides from the aggregate env."
+    assert verify_env.get("PYTHON_VERSIONS") == "${{ env.REQUESTED_PYTHONS }}", (
+        "Verification step should read python version overrides from the aggregate env."
+    )
 
 
 def _collect_comment_wrapper_variants(

@@ -379,8 +379,7 @@ def main(argv: list[str]) -> int:
 
     if issue_errors or metric_errors:
         print(
-            "issue_pattern_corpus: parse errors "
-            f"(issues={issue_errors}, metrics={metric_errors})",
+            f"issue_pattern_corpus: parse errors (issues={issue_errors}, metrics={metric_errors})",
             file=sys.stderr,
         )
         return 1

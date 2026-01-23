@@ -32,10 +32,10 @@ def test_apply_retention_archives_and_purges(tmp_path: Path) -> None:
     monthly = now - timedelta(days=40)
     purge = now - timedelta(days=300)
     lines = [
-        f'{{"timestamp":"{recent.isoformat().replace("+00:00","Z")}","value":1}}\n',
-        f'{{"timestamp":"{weekly.isoformat().replace("+00:00","Z")}","value":2}}\n',
-        f'{{"timestamp":"{monthly.isoformat().replace("+00:00","Z")}","value":3}}\n',
-        f'{{"timestamp":"{purge.isoformat().replace("+00:00","Z")}","value":4}}\n',
+        f'{{"timestamp":"{recent.isoformat().replace("+00:00", "Z")}","value":1}}\n',
+        f'{{"timestamp":"{weekly.isoformat().replace("+00:00", "Z")}","value":2}}\n',
+        f'{{"timestamp":"{monthly.isoformat().replace("+00:00", "Z")}","value":3}}\n',
+        f'{{"timestamp":"{purge.isoformat().replace("+00:00", "Z")}","value":4}}\n',
         '{"value":5}\n',
         '{"bad json"\n',
     ]
@@ -116,9 +116,9 @@ def test_main_enforces_min_reduction_percent(tmp_path: Path) -> None:
 
     recent = now - timedelta(hours=1)
     older = now - timedelta(days=10)
-    lines = [f'{{"timestamp":"{recent.isoformat().replace("+00:00","Z")}","value":1}}\n']
+    lines = [f'{{"timestamp":"{recent.isoformat().replace("+00:00", "Z")}","value":1}}\n']
     lines += [
-        f'{{"timestamp":"{older.isoformat().replace("+00:00","Z")}","value":{idx}}}\n'
+        f'{{"timestamp":"{older.isoformat().replace("+00:00", "Z")}","value":{idx}}}\n'
         for idx in range(2, 12)
     ]
     _write_lines(metrics_path, lines)
@@ -138,8 +138,8 @@ def test_main_enforces_min_reduction_percent(tmp_path: Path) -> None:
     assert exit_code == 0
 
     metrics_path.write_text(
-        f'{{"timestamp":"{recent.isoformat().replace("+00:00","Z")}","value":1}}\n'
-        f'{{"timestamp":"{recent.isoformat().replace("+00:00","Z")}","value":2}}\n',
+        f'{{"timestamp":"{recent.isoformat().replace("+00:00", "Z")}","value":1}}\n'
+        f'{{"timestamp":"{recent.isoformat().replace("+00:00", "Z")}","value":2}}\n',
         encoding="utf-8",
     )
     exit_code = metrics_retention.main(

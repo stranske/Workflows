@@ -470,7 +470,6 @@ class RegexFallbackProvider(LLMProvider):
         tasks: list[str],
         _context: str | None = None,
     ) -> CompletionAnalysis:
-
         output_lower = session_output.lower()
         completed = []
         in_progress = []
@@ -597,7 +596,7 @@ def get_llm_provider(force_provider: str | None = None) -> LLMProvider:
         }
         if force_provider not in provider_map:
             raise ValueError(
-                f"Unknown provider: {force_provider}. " f"Options: {list(provider_map.keys())}"
+                f"Unknown provider: {force_provider}. Options: {list(provider_map.keys())}"
             )
         provider_class = provider_map[force_provider]
         provider = provider_class()

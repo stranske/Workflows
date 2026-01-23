@@ -83,9 +83,9 @@ def _assert_scope_block(body: str) -> None:
         in body
     )
     assert "Always include hidden markers at the top of the comment body:" in body
-    assert any(
-        heading in body for heading in ("#### Tasks", "#### Task List")
-    ), "Missing Tasks heading"
+    assert any(heading in body for heading in ("#### Tasks", "#### Task List")), (
+        "Missing Tasks heading"
+    )
     assert "- [ ] Generate a unique KEEPALIVE_TRACE" in body
     assert (
         "- [ ] Use peter-evans/create-issue-comment@v3 (or Octokit issues.createComment) to create a new comment with body:"
