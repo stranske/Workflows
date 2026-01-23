@@ -1,0 +1,50 @@
+name: Verify-to-New-PR Auto-Pilot Continuation
+
+on:
+  workflow_run:
+    workflows: ["Create New PR from Verification"]
+    types: [completed]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+  actions: write
+
+jobs:
+  continue-auto-pilot:
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download follow-up issue metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          set -euo pipefail
+          repo="${GITHUB_REPOSITORY}"
+          artifact_id=$(gh api "repos/${repo}/actions/runs/${RUN_ID}/artifacts" \
+            --jq '.artifacts[] | select(.name=="verify-create-new-pr-output") | .id' | head -n 1)
+          if [ -z "${artifact_id}" ]; then
+            echo "Missing verify-create-new-pr-output artifact for run ${RUN_ID}" >&2
+            exit 1
+          fi
+          gh api "repos/${repo}/actions/artifacts/${artifact_id}/zip" > artifact.zip
+          unzip -p artifact.zip followup_issue_output.json > followup_issue_output.json
+
+      - name: Dispatch auto-pilot from optimize step
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          issue_number=$(jq -r '.issue_number' followup_issue_output.json)
+          if [ -z "${issue_number}" ] || [ "${issue_number}" = "null" ]; then
+            echo "Missing issue_number in followup_issue_output.json" >&2
+            exit 1
+          fi
+          workflow="agents-auto-pilot.yml"
+          api_path="repos/${GITHUB_REPOSITORY}/actions/workflows/${workflow}/dispatches"
+          gh api -X POST "${api_path}" \
+            -f ref=main \
+            -f inputs[issue_number]="${issue_number}" \
+            -f inputs[force_step]=optimize

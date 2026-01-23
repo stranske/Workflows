@@ -324,28 +324,26 @@ jobs:
             core.setOutput('issue_number', issue.data.number);
             core.setOutput('issue_url', issue.data.html_url);
 
-      - name: Dispatch auto-pilot (optimize)
+      - name: Persist follow-up issue metadata
         if: steps.check-merged.outputs.merged == 'true'
-        uses: actions/github-script@v8
+        run: |
+          cat <<'EOF' > followup_issue_output.json
+          {
+            "issue_number": "${{ steps.create-issue.outputs.issue_number }}",
+            "issue_url": "${{ steps.create-issue.outputs.issue_url }}",
+            "pr_number": "${{ steps.check-merged.outputs.pr_number }}",
+            "workflow_run_id": "${{ github.run_id }}"
+          }
+          EOF
+
+      - name: Upload follow-up issue metadata
+        if: steps.check-merged.outputs.merged == 'true'
+        uses: actions/upload-artifact@v4
         with:
-          github-token: ${{ steps.select-token.outputs.token }}
-          script: |
-            const issueNumber = parseInt('${{ steps.create-issue.outputs.issue_number }}', 10);
-            if (!issueNumber) {
-              core.setFailed('Missing follow-up issue number');
-              return;
-            }
-            await github.rest.actions.createWorkflowDispatch({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              workflow_id: 'agents-auto-pilot.yml',
-              ref: 'main',
-              inputs: {
-                issue_number: issueNumber.toString(),
-                force_step: 'optimize'
-              }
-            });
-            core.info(`Dispatched agents-auto-pilot for issue #${issueNumber}`);
+          name: verify-create-new-pr-output
+          path: followup_issue_output.json
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Comment on original PR
         if: steps.check-merged.outputs.merged == 'true'
@@ -366,7 +364,7 @@ jobs:
               '',
               '**Next steps:**',
               '1. Review the generated issue',
-              '2. Auto-pilot has been triggered to prepare a new PR',
+              '2. Auto-pilot will continue preparing a new PR',
               '',
               '> Or work on it manually - the choice is yours!'
             ].join('\n');
