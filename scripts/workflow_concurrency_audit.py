@@ -5,10 +5,13 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
 import yaml
+
+from scripts import workflow_run_counts
 
 DEFAULT_HIGH_FREQUENCY_TRIGGERS = (
     "issue_comment",
@@ -44,10 +47,21 @@ class WorkflowConcurrencyAudit:
     has_workflow_canceling_concurrency: bool
     has_job_concurrency: bool
     has_job_canceling_concurrency: bool
+    missing_or_incorrect: bool
     action_required: str
     recommended_group: str | None
     valid: bool
     error: str | None
+
+
+@dataclass(frozen=True)
+class DebouncedRunSummary:
+    """Aggregate comparison for debounced runs between two snapshots."""
+
+    before_total: int
+    after_total: int
+    debounced_total: int
+    period_label: str | None
 
 
 def load_workflow(path: Path) -> tuple[dict | None, str | None]:
@@ -230,7 +244,7 @@ def suggest_concurrency_group(triggers: tuple[str, ...]) -> str | None:
 def audit_workflows(
     workflows_dir: Path,
     high_frequency_triggers: tuple[str, ...] = DEFAULT_HIGH_FREQUENCY_TRIGGERS,
-    include_non_high_frequency: bool = False,
+    include_non_high_frequency: bool = True,
 ) -> list[WorkflowConcurrencyAudit]:
     """Audit workflows in a directory for concurrency coverage."""
     normalized_triggers = {trigger.lower() for trigger in high_frequency_triggers}
@@ -260,6 +274,13 @@ def audit_workflows(
             has_workflow_canceling_concurrency = _has_canceling_concurrency(workflow_concurrency)
             has_job_concurrency = bool(job_concurrency)
             has_job_canceling_concurrency = _has_canceling_concurrency(job_concurrency)
+            action_required = _action_required(
+                high_frequency=high_frequency,
+                settings=concurrency,
+                has_canceling_concurrency=has_canceling_concurrency,
+                valid=valid,
+                error=error,
+            )
             results.append(
                 WorkflowConcurrencyAudit(
                     path=path,
@@ -271,13 +292,8 @@ def audit_workflows(
                     has_workflow_canceling_concurrency=has_workflow_canceling_concurrency,
                     has_job_concurrency=has_job_concurrency,
                     has_job_canceling_concurrency=has_job_canceling_concurrency,
-                    action_required=_action_required(
-                        high_frequency=high_frequency,
-                        settings=concurrency,
-                        has_canceling_concurrency=has_canceling_concurrency,
-                        valid=valid,
-                        error=error,
-                    ),
+                    missing_or_incorrect=action_required != "none",
+                    action_required=action_required,
                     recommended_group=(
                         suggest_concurrency_group(triggers) if high_frequency else None
                     ),
@@ -294,6 +310,7 @@ TABLE_HEADERS = (
     "high_frequency",
     "valid",
     "error",
+    "missing_or_incorrect",
     "has_canceling_concurrency",
     "workflow_has_concurrency",
     "workflow_has_canceling_concurrency",
@@ -326,6 +343,7 @@ def _table_row(item: WorkflowConcurrencyAudit) -> list[str]:
         "true" if item.high_frequency else "false",
         "true" if item.valid else "false",
         item.error or "",
+        "true" if item.missing_or_incorrect else "false",
         "true" if item.has_canceling_concurrency else "false",
         "true" if item.has_workflow_concurrency else "false",
         "true" if item.has_workflow_canceling_concurrency else "false",
@@ -360,6 +378,51 @@ def format_markdown(results: list[WorkflowConcurrencyAudit]) -> str:
     return "\n".join(lines)
 
 
+def _format_missing_summary(results: list[WorkflowConcurrencyAudit]) -> str:
+    missing = [item for item in results if item.missing_or_incorrect]
+    if not missing:
+        return ""
+    lines = [f"missing_or_incorrect_total\t{len(missing)}"]
+    for item in missing:
+        recommended = item.recommended_group or ""
+        lines.append(f"missing_or_incorrect\t{item.path}\t{item.action_required}\t{recommended}")
+    return "\n".join(lines)
+
+
+def calculate_debounced_runs(
+    before_path: Path,
+    after_path: Path,
+    *,
+    workflow_filters: Iterable[str] = (),
+    period_label: str | None = None,
+) -> DebouncedRunSummary:
+    """Summarize debounced run totals from before/after snapshots."""
+    before_runs = workflow_run_counts.load_runs(before_path)
+    after_runs = workflow_run_counts.load_runs(after_path)
+    before_counts = workflow_run_counts.build_counts(before_runs, workflow_filters=workflow_filters)
+    after_counts = workflow_run_counts.build_counts(after_runs, workflow_filters=workflow_filters)
+    comparison = workflow_run_counts.compare_counts(before_counts, after_counts)
+    before_total = sum(entry.before for entry in comparison)
+    after_total = sum(entry.after for entry in comparison)
+    debounced_total = sum(max(0, entry.before - entry.after) for entry in comparison)
+    return DebouncedRunSummary(
+        before_total=before_total,
+        after_total=after_total,
+        debounced_total=debounced_total,
+        period_label=period_label,
+    )
+
+
+def _format_debounced_summary(summary: DebouncedRunSummary) -> str:
+    period = summary.period_label or "unspecified"
+    return (
+        f"debounced_runs_total\t{summary.debounced_total}\n"
+        f"debounced_runs_before_total\t{summary.before_total}\n"
+        f"debounced_runs_after_total\t{summary.after_total}\n"
+        f"debounced_runs_period\t{period}"
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Audit workflow concurrency settings for high-frequency triggers."
@@ -373,7 +436,13 @@ def main() -> int:
     parser.add_argument(
         "--include-non-high-frequency",
         action="store_true",
-        help="Include workflows that do not match high-frequency triggers.",
+        default=None,
+        help="Include workflows that do not match high-frequency triggers (default).",
+    )
+    parser.add_argument(
+        "--high-frequency-only",
+        action="store_true",
+        help="Only include workflows that match high-frequency triggers.",
     )
     parser.add_argument(
         "--high-frequency-trigger",
@@ -388,23 +457,67 @@ def main() -> int:
         default="table",
         help="Output format.",
     )
+    parser.add_argument(
+        "--before-runs",
+        type=Path,
+        help="JSON snapshot of workflow runs before debouncing.",
+    )
+    parser.add_argument(
+        "--after-runs",
+        type=Path,
+        help="JSON snapshot of workflow runs after debouncing.",
+    )
+    parser.add_argument(
+        "--debounce-workflow",
+        dest="debounce_workflows",
+        action="append",
+        default=[],
+        help="Workflow name or substring filter for debounced run totals (repeatable).",
+    )
+    parser.add_argument(
+        "--debounce-period",
+        help="Optional label describing the debouncing measurement period.",
+    )
     args = parser.parse_args()
+
+    if args.include_non_high_frequency and args.high_frequency_only:
+        parser.error(
+            "--include-non-high-frequency and --high-frequency-only are mutually exclusive"
+        )
+
+    include_non_high_frequency = True
+    if args.high_frequency_only:
+        include_non_high_frequency = False
+    elif args.include_non_high_frequency is True:
+        include_non_high_frequency = True
 
     triggers = tuple(args.high_frequency_triggers) or DEFAULT_HIGH_FREQUENCY_TRIGGERS
     results = audit_workflows(
         args.workflows_dir,
         high_frequency_triggers=triggers,
-        include_non_high_frequency=args.include_non_high_frequency,
+        include_non_high_frequency=include_non_high_frequency,
     )
 
+    debounced_summary = None
+    if args.before_runs or args.after_runs:
+        if not (args.before_runs and args.after_runs):
+            parser.error("--before-runs and --after-runs must be provided together")
+        debounced_summary = calculate_debounced_runs(
+            args.before_runs,
+            args.after_runs,
+            workflow_filters=args.debounce_workflows,
+            period_label=args.debounce_period,
+        )
+
     if args.format == "json":
-        payload = [
+        workflows_payload = [
             {
                 "path": str(item.path),
                 "triggers": list(item.triggers),
                 "high_frequency": item.high_frequency,
                 "valid": item.valid,
                 "error": item.error,
+                "missing_or_incorrect": item.missing_or_incorrect,
                 "has_canceling_concurrency": item.has_canceling_concurrency,
                 "has_workflow_concurrency": item.has_workflow_concurrency,
                 "has_workflow_canceling_concurrency": item.has_workflow_canceling_concurrency,
@@ -424,11 +537,30 @@ def main() -> int:
             }
             for item in results
         ]
-        print(json.dumps(payload, indent=2))
+        if debounced_summary is None:
+            print(json.dumps(workflows_payload, indent=2))
+        else:
+            payload = {
+                "workflows": workflows_payload,
+                "debounced_runs": {
+                    "before_total": debounced_summary.before_total,
+                    "after_total": debounced_summary.after_total,
+                    "debounced_total": debounced_summary.debounced_total,
+                    "period": debounced_summary.period_label,
+                },
+            }
+            print(json.dumps(payload, indent=2))
     elif args.format == "markdown":
         print(format_markdown(results))
     else:
         print(format_table(results))
+    missing_summary = _format_missing_summary(results)
+    if missing_summary and args.format != "json":
+        print()
+        print(missing_summary)
+    if debounced_summary is not None and args.format != "json":
+        print()
+        print(_format_debounced_summary(debounced_summary))
     return 0
 
 

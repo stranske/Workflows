@@ -16,6 +16,10 @@ permissions:
   pull-requests: read
   checks: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   repo-health:
     name: Repository health summary

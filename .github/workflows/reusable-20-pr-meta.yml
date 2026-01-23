@@ -80,6 +80,10 @@ permissions:
   actions: write
   checks: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   keepalive_dispatch:
     name: Detect keepalive comments

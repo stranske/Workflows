@@ -134,7 +134,10 @@ def _load_template_patterns() -> list[str]:
     lines = _read_template_lines()
     if lines is None:
         return []
-    _, start, end = _validate_template_markers(lines)
+    try:
+        _, start, end = _validate_template_markers(lines)
+    except TemplateBlockError:
+        return []
     patterns: list[str] = []
     for line in lines[start + 1 : end]:
         stripped = line.strip()
@@ -181,7 +184,7 @@ def load_template_block() -> str:
         None,
     )
     if end_marker_index is None:
-        _raise_template_error("missing status block end marker")
+        return generate_minimal_block()
     end = next(
         (
             idx
@@ -191,7 +194,7 @@ def load_template_block() -> str:
         None,
     )
     if end is None or not (start < header_index < end_marker_index < end):
-        _raise_template_error("invalid status block boundary ordering")
+        return generate_minimal_block()
     return "\n".join(lines[start:end]).rstrip("\n") + "\n"
 
 

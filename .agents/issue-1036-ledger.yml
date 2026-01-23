@@ -53,56 +53,6 @@ tasks:
     finished_at: null
     commit: ''
     notes: []
-  - id: task-08
-    title: Import `withRetry` and `paginateWithRetry` from `.github/scripts/github-api-with-retry.js`
-      in each script step
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-09
-    title: Wrap all `github.rest.issues.get()` calls with `withRetry()`
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-10
-    title: Wrap all `github.rest.issues.createComment()` calls with `withRetry()`
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-11
-    title: Wrap all `github.rest.issues.addLabels()` calls with `withRetry()`
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-12
-    title: Wrap all `github.rest.issues.removeLabel()` calls with `withRetry()`
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-13
-    title: Wrap all `github.rest.pulls.get()` calls with `withRetry()`
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-14
-    title: Replace manual pagination with `paginateWithRetry()`
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
   - id: task-15
     title: All `github.rest.*` calls wrapped with `withRetry()`
     status: todo
@@ -125,34 +75,6 @@ tasks:
     commit: ''
     notes: []
   - id: task-18
-    title: Workflow executes successfully in CI
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-19
-    title: All `github.rest.*` calls wrapped with `withRetry()`
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-20
-    title: Paginated operations use `paginateWithRetry()`
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-21
-    title: No direct unwrapped API calls remain in workflow steps
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-22
     title: Workflow executes successfully in CI
     status: todo
     started_at: null

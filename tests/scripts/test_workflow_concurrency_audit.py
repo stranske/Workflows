@@ -1,11 +1,17 @@
 import logging
+from io import StringIO
 from pathlib import Path
+from unittest import mock
 
 from scripts import workflow_concurrency_audit
 
 
 def _write_workflow(path: Path, contents: str) -> None:
     path.write_text(contents, encoding="utf-8")
+
+
+def _runs_fixture(name: str) -> Path:
+    return Path(__file__).parent / "fixtures" / "workflow_runs" / name
 
 
 def test_audit_marks_high_frequency_missing_cancel(tmp_path: Path) -> None:
@@ -252,7 +258,9 @@ jobs:
 """,
     )
 
-    results = workflow_concurrency_audit.audit_workflows(workflow_dir)
+    results = workflow_concurrency_audit.audit_workflows(
+        workflow_dir, include_non_high_frequency=False
+    )
     assert len(results) == 1
     item = results[0]
     assert item.high_frequency is True
@@ -282,7 +290,9 @@ jobs:
 """,
     )
 
-    results = workflow_concurrency_audit.audit_workflows(workflow_dir)
+    results = workflow_concurrency_audit.audit_workflows(
+        workflow_dir, include_non_high_frequency=False
+    )
     assert len(results) == 1
     item = results[0]
     assert item.high_frequency is True
@@ -309,7 +319,9 @@ jobs:
 """,
     )
 
-    results = workflow_concurrency_audit.audit_workflows(workflow_dir)
+    results = workflow_concurrency_audit.audit_workflows(
+        workflow_dir, include_non_high_frequency=False
+    )
     assert len(results) == 1
     item = results[0]
     assert item.high_frequency is True
@@ -339,7 +351,9 @@ jobs:
 """,
     )
 
-    results = workflow_concurrency_audit.audit_workflows(workflow_dir)
+    results = workflow_concurrency_audit.audit_workflows(
+        workflow_dir, include_non_high_frequency=False
+    )
     assert len(results) == 1
     item = results[0]
     assert item.high_frequency is True
@@ -366,7 +380,9 @@ jobs:
 """,
     )
 
-    results = workflow_concurrency_audit.audit_workflows(workflow_dir)
+    results = workflow_concurrency_audit.audit_workflows(
+        workflow_dir, include_non_high_frequency=False
+    )
     assert len(results) == 1
     item = results[0]
     assert item.high_frequency is True
@@ -393,7 +409,9 @@ jobs:
 """,
     )
 
-    results = workflow_concurrency_audit.audit_workflows(workflow_dir)
+    results = workflow_concurrency_audit.audit_workflows(
+        workflow_dir, include_non_high_frequency=False
+    )
     assert len(results) == 1
     item = results[0]
     assert item.high_frequency is True
@@ -404,27 +422,7 @@ jobs:
     )
 
 
-def test_audit_skips_non_high_frequency_by_default(tmp_path: Path) -> None:
-    workflow_dir = tmp_path / "workflows"
-    workflow_dir.mkdir()
-    _write_workflow(
-        workflow_dir / "manual.yml",
-        """
-name: Manual
-on: workflow_dispatch
-jobs:
-  noop:
-    runs-on: ubuntu-latest
-    steps:
-      - run: echo hi
-""",
-    )
-
-    results = workflow_concurrency_audit.audit_workflows(workflow_dir)
-    assert results == []
-
-
-def test_audit_includes_non_high_frequency_when_requested(tmp_path: Path) -> None:
+def test_audit_skips_non_high_frequency_when_excluded(tmp_path: Path) -> None:
     workflow_dir = tmp_path / "workflows"
     workflow_dir.mkdir()
     _write_workflow(
@@ -441,8 +439,28 @@ jobs:
     )
 
     results = workflow_concurrency_audit.audit_workflows(
-        workflow_dir, include_non_high_frequency=True
+        workflow_dir, include_non_high_frequency=False
     )
+    assert results == []
+
+
+def test_audit_includes_non_high_frequency_by_default(tmp_path: Path) -> None:
+    workflow_dir = tmp_path / "workflows"
+    workflow_dir.mkdir()
+    _write_workflow(
+        workflow_dir / "manual.yml",
+        """
+name: Manual
+on: workflow_dispatch
+jobs:
+  noop:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo hi
+""",
+    )
+
+    results = workflow_concurrency_audit.audit_workflows(workflow_dir)
     assert len(results) == 1
     assert results[0].high_frequency is False
     assert results[0].action_required == "none"
@@ -466,7 +484,9 @@ jobs:
 """,
     )
 
-    results = workflow_concurrency_audit.audit_workflows(workflow_dir)
+    results = workflow_concurrency_audit.audit_workflows(
+        workflow_dir, include_non_high_frequency=False
+    )
     assert len(results) == 1
     item = results[0]
     assert item.high_frequency is True
@@ -495,7 +515,9 @@ jobs:
 """,
     )
 
-    results = workflow_concurrency_audit.audit_workflows(workflow_dir)
+    results = workflow_concurrency_audit.audit_workflows(
+        workflow_dir, include_non_high_frequency=False
+    )
     assert len(results) == 1
     item = results[0]
     assert item.high_frequency is True
@@ -516,7 +538,9 @@ on: [
 """,
     )
 
-    results = workflow_concurrency_audit.audit_workflows(workflow_dir)
+    results = workflow_concurrency_audit.audit_workflows(
+        workflow_dir, include_non_high_frequency=False
+    )
     assert len(results) == 1
     item = results[0]
     assert item.valid is False
@@ -531,7 +555,9 @@ def test_audit_reports_unreadable_paths(tmp_path: Path) -> None:
     bad_path = workflow_dir / "bad.yml"
     bad_path.mkdir()
 
-    results = workflow_concurrency_audit.audit_workflows(workflow_dir)
+    results = workflow_concurrency_audit.audit_workflows(
+        workflow_dir, include_non_high_frequency=False
+    )
     assert len(results) == 1
     item = results[0]
     assert item.valid is False
@@ -555,7 +581,7 @@ on: [
     )
     header = table.splitlines()[0]
     assert header.endswith(
-        "high_frequency\tvalid\terror\thas_canceling_concurrency"
+        "high_frequency\tvalid\terror\tmissing_or_incorrect\thas_canceling_concurrency"
         "\tworkflow_has_concurrency\tworkflow_has_canceling_concurrency"
         "\tjob_has_concurrency\tjob_has_canceling_concurrency\taction_required"
         "\trecommended_group\tconcurrency"
@@ -582,14 +608,14 @@ jobs:
     )
 
     table = workflow_concurrency_audit.format_table(
-        workflow_concurrency_audit.audit_workflows(workflow_dir)
+        workflow_concurrency_audit.audit_workflows(workflow_dir, include_non_high_frequency=False)
     )
     row = table.splitlines()[1].split("\t")
-    assert row[5] == "true"  # has_canceling_concurrency
-    assert row[6] == "false"  # workflow_has_concurrency
-    assert row[7] == "false"  # workflow_has_canceling_concurrency
-    assert row[8] == "true"  # job_has_concurrency
-    assert row[9] == "true"  # job_has_canceling_concurrency
+    assert row[6] == "true"  # has_canceling_concurrency
+    assert row[7] == "false"  # workflow_has_concurrency
+    assert row[8] == "false"  # workflow_has_canceling_concurrency
+    assert row[9] == "true"  # job_has_concurrency
+    assert row[10] == "true"  # job_has_canceling_concurrency
 
 
 def test_format_markdown_outputs_table(tmp_path: Path) -> None:
@@ -609,7 +635,7 @@ jobs:
     )
 
     table = workflow_concurrency_audit.format_markdown(
-        workflow_concurrency_audit.audit_workflows(workflow_dir, include_non_high_frequency=True)
+        workflow_concurrency_audit.audit_workflows(workflow_dir)
     )
     lines = table.splitlines()
     assert lines[0].startswith("| path | triggers |")
@@ -638,3 +664,123 @@ jobs:
     )
     row = table.splitlines()[2]
     assert "\\|\\|" in row
+
+
+def test_format_missing_summary_returns_empty_when_no_issues(tmp_path: Path) -> None:
+    workflow_dir = tmp_path / "workflows"
+    workflow_dir.mkdir()
+    _write_workflow(
+        workflow_dir / "clean.yml",
+        """
+name: Clean
+on: pull_request
+concurrency:
+  group: pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo ok
+""",
+    )
+
+    results = workflow_concurrency_audit.audit_workflows(workflow_dir)
+    output = workflow_concurrency_audit._format_missing_summary(results)
+    assert output == ""
+
+
+def test_format_missing_summary_includes_missing_entries(tmp_path: Path) -> None:
+    workflow_dir = tmp_path / "workflows"
+    workflow_dir.mkdir()
+    workflow_path = workflow_dir / "ci.yml"
+    _write_workflow(
+        workflow_path,
+        """
+name: CI
+on: [push]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo ok
+""",
+    )
+
+    results = workflow_concurrency_audit.audit_workflows(workflow_dir)
+    output = workflow_concurrency_audit._format_missing_summary(results)
+    lines = output.splitlines()
+    assert lines[0] == "missing_or_incorrect_total\t1"
+    assert (
+        lines[1] == f"missing_or_incorrect\t{workflow_path}\tadd_concurrency\t"
+        "${{ github.workflow }}-${{ github.ref }}"
+    )
+
+
+def test_calculate_debounced_runs_summarizes_totals() -> None:
+    summary = workflow_concurrency_audit.calculate_debounced_runs(
+        _runs_fixture("before.json"),
+        _runs_fixture("after.json"),
+        period_label="2026-01-01..2026-01-10",
+    )
+    assert summary.before_total == 5
+    assert summary.after_total == 4
+    assert summary.debounced_total == 2
+    assert summary.period_label == "2026-01-01..2026-01-10"
+
+
+def test_format_debounced_summary_emits_lines() -> None:
+    summary = workflow_concurrency_audit.calculate_debounced_runs(
+        _runs_fixture("before.json"),
+        _runs_fixture("after.json"),
+        period_label="2026-01-01..2026-01-10",
+    )
+    output = workflow_concurrency_audit._format_debounced_summary(summary)
+    lines = output.splitlines()
+    assert lines[0] == "debounced_runs_total\t2"
+    assert lines[1] == "debounced_runs_before_total\t5"
+    assert lines[2] == "debounced_runs_after_total\t4"
+    assert lines[3] == "debounced_runs_period\t2026-01-01..2026-01-10"
+
+
+def test_main_emits_debounced_summary(tmp_path: Path) -> None:
+    workflow_dir = tmp_path / "workflows"
+    workflow_dir.mkdir()
+    _write_workflow(
+        workflow_dir / "ci.yml",
+        """
+name: CI
+on: [push]
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo ok
+""",
+    )
+
+    with mock.patch(
+        "sys.argv",
+        [
+            "prog",
+            "--workflows-dir",
+            str(workflow_dir),
+            "--before-runs",
+            str(_runs_fixture("before.json")),
+            "--after-runs",
+            str(_runs_fixture("after.json")),
+            "--debounce-period",
+            "2026-01-01..2026-01-10",
+        ],
+    ):
+        captured = StringIO()
+        with mock.patch("sys.stdout", captured):
+            exit_code = workflow_concurrency_audit.main()
+
+    output = captured.getvalue()
+    assert exit_code == 0
+    assert "debounced_runs_total\t2" in output
+    assert "debounced_runs_period\t2026-01-01..2026-01-10" in output
