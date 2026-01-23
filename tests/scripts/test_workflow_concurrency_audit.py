@@ -1,4 +1,6 @@
+from io import StringIO
 from pathlib import Path
+from unittest import mock
 
 from scripts import workflow_concurrency_audit
 
@@ -729,3 +731,46 @@ def test_format_debounced_summary_emits_lines() -> None:
     assert lines[1] == "debounced_runs_before_total\t5"
     assert lines[2] == "debounced_runs_after_total\t4"
     assert lines[3] == "debounced_runs_period\t2026-01-01..2026-01-10"
+
+
+def test_main_emits_debounced_summary(tmp_path: Path) -> None:
+    workflow_dir = tmp_path / "workflows"
+    workflow_dir.mkdir()
+    _write_workflow(
+        workflow_dir / "ci.yml",
+        """
+name: CI
+on: [push]
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo ok
+""",
+    )
+
+    with mock.patch(
+        "sys.argv",
+        [
+            "prog",
+            "--workflows-dir",
+            str(workflow_dir),
+            "--before-runs",
+            str(_runs_fixture("before.json")),
+            "--after-runs",
+            str(_runs_fixture("after.json")),
+            "--debounce-period",
+            "2026-01-01..2026-01-10",
+        ],
+    ):
+        captured = StringIO()
+        with mock.patch("sys.stdout", captured):
+            exit_code = workflow_concurrency_audit.main()
+
+    output = captured.getvalue()
+    assert exit_code == 0
+    assert "debounced_runs_total\t2" in output
+    assert "debounced_runs_period\t2026-01-01..2026-01-10" in output

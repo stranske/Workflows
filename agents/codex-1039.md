@@ -1,2 +1,2 @@
 <!-- bootstrap for codex on issue #1039 -->
-<!-- needs-human: workflow changes required in .github/workflows to add top-level concurrency with cancel-in-progress: true; see docs/ops/debouncing-run-counts.md for the workflow list and recommended groups. -->
+<!-- needs-human: workflow changes required in .github/workflows to add top-level concurrency with cancel-in-progress: true, add OPENAI_API_KEY guards where required, and refactor the "Get recent commits" step in agents-keepalive-loop.yml to use a supported endpoint or avoid c.files; see docs/ops/debouncing-run-counts.md for the workflow list and recommended groups. -->
