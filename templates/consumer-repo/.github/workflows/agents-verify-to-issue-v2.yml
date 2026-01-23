@@ -8,7 +8,6 @@ name: Create Issue from Verification (Enhanced)
 # - Background context in collapsible sections
 #
 # Trigger: Add `verify:create-issue` label to a merged PR
-
 on:
   pull_request_target:
     types: [labeled]
@@ -27,11 +26,16 @@ jobs:
       vars.USE_CONSOLIDATED_WORKFLOWS != 'true' &&
       github.event.label.name == 'verify:create-issue'
     runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: >-
+        ${{ secrets.CODESPACES_WORKFLOWS || secrets.OWNER_PR_PAT ||
+        secrets.SERVICE_BOT_PAT || github.token }}
     steps:
       - name: Check PR is merged
         id: check-merged
         uses: actions/github-script@v8
         with:
+          github-token: ${{ env.GH_TOKEN }}
           script: |
             const pr = context.payload.pull_request;
             if (!pr.merged) {
@@ -47,7 +51,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           repository: stranske/Workflows
-          token: ${{ secrets.CODESPACES_WORKFLOWS || github.token }}
+          token: ${{ env.GH_TOKEN }}
           sparse-checkout: |
             scripts/langchain
             tools
@@ -68,6 +72,7 @@ jobs:
         if: steps.check-merged.outputs.merged == 'true'
         uses: actions/github-script@v8
         with:
+          github-token: ${{ env.GH_TOKEN }}
           script: |
             const fs = require('fs');
             const prNumber = context.payload.pull_request.number;
@@ -210,7 +215,7 @@ jobs:
         if: steps.check-merged.outputs.merged == 'true'
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ env.GH_TOKEN }}
           ORIGINAL_ISSUE_NUMBER: ${{ steps.collect.outputs.original_issue_number }}
           ORIGINAL_ISSUE_TITLE: ${{ steps.collect.outputs.original_issue_title }}
           PR_NUMBER: ${{ steps.check-merged.outputs.pr_number }}
@@ -243,6 +248,7 @@ jobs:
         if: steps.generate.outcome == 'failure' && steps.check-merged.outputs.merged == 'true'
         uses: actions/github-script@v8
         with:
+          github-token: ${{ env.GH_TOKEN }}
           script: |
             // Fallback to original simple extraction if Python script fails
             const fs = require('fs');
@@ -332,6 +338,7 @@ jobs:
             ${{ steps.generate.outputs.issue_body ||
             steps.fallback.outputs.issue_body }}
         with:
+          github-token: ${{ env.GH_TOKEN }}
           script: |
             const title = process.env.ISSUE_TITLE;
             const body = process.env.ISSUE_BODY;
@@ -360,6 +367,7 @@ jobs:
           ISSUE_NUMBER: ${{ steps.create-issue.outputs.issue_number }}
           ISSUE_URL: ${{ steps.create-issue.outputs.issue_url }}
         with:
+          github-token: ${{ env.GH_TOKEN }}
           script: |
             const issueNumber = process.env.ISSUE_NUMBER;
             const issueUrl = process.env.ISSUE_URL;
@@ -389,6 +397,7 @@ jobs:
         uses: actions/github-script@v8
         continue-on-error: true
         with:
+          github-token: ${{ env.GH_TOKEN }}
           script: |
             try {
               await github.rest.issues.removeLabel({
