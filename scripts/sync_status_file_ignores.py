@@ -148,19 +148,11 @@ def load_template_block() -> str:
     if header_index is None:
         return generate_minimal_block()
     start = next(
-        (
-            idx
-            for idx in range(header_index, -1, -1)
-            if lines[idx].strip() == SEPARATOR_LINE
-        ),
+        (idx for idx in range(header_index, -1, -1) if lines[idx].strip() == SEPARATOR_LINE),
         header_index,
     )
     end_marker_index = next(
-        (
-            idx
-            for idx in range(header_index, len(lines))
-            if lines[idx].strip() == PATTERN_BLOCK_END
-        ),
+        (idx for idx in range(header_index, len(lines)) if lines[idx].strip() == PATTERN_BLOCK_END),
         None,
     )
     if end_marker_index is None:
