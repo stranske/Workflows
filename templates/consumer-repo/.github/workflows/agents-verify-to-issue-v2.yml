@@ -313,12 +313,33 @@ jobs:
               repo: context.repo.repo,
               title: title,
               body: body,
-              labels: ['follow-up', 'agents:optimize', 'agents:apply-suggestions']
+              labels: ['follow-up']
             });
 
             core.info(`Created issue #${issue.data.number}`);
             core.setOutput('issue_number', issue.data.number);
             core.setOutput('issue_url', issue.data.html_url);
+
+      - name: Persist follow-up issue metadata
+        if: steps.check-merged.outputs.merged == 'true'
+        run: |
+          cat <<'EOF' > followup_issue_output.json
+          {
+            "issue_number": "${{ steps.create-issue.outputs.issue_number }}",
+            "issue_url": "${{ steps.create-issue.outputs.issue_url }}",
+            "pr_number": "${{ steps.check-merged.outputs.pr_number }}",
+            "workflow_run_id": "${{ github.run_id }}"
+          }
+          EOF
+
+      - name: Upload follow-up issue metadata
+        if: steps.check-merged.outputs.merged == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: verify-create-issue-output
+          path: followup_issue_output.json
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Comment on original PR
         if: steps.check-merged.outputs.merged == 'true'
@@ -339,7 +360,7 @@ jobs:
               '',
               '**Next steps:**',
               '1. Review the generated issue',
-              '2. Add `agent:codex` label to assign to an agent',
+              '2. Auto-pilot will continue preparing a PR',
               '',
               '> Or work on it manually - the choice is yours!'
             ].join('\n');
