@@ -12,6 +12,10 @@ permissions:
   deployments: write
   pull-requests: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   sync-environments:
     name: Sync agent environments

@@ -13,26 +13,30 @@ permissions:
   contents: write
   pull-requests: write
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   regenerate-lock:
     name: Regenerate requirements.lock
     runs-on: ubuntu-latest
     if: github.actor == 'dependabot[bot]'
-    
+
     steps:
       - uses: actions/checkout@v6
         with:
           ref: ${{ github.head_ref }}
           token: ${{ secrets.GITHUB_TOKEN }}
-      
+
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
           python-version: '3.11'
-      
+
       - name: Install uv
         run: pip install uv
-      
+
       - name: Check if lock file needs update
         id: check
         run: |
@@ -41,7 +45,7 @@ jobs:
             cat compile.log
             exit 1
           }
-          
+
           if git diff --exit-code requirements.lock requirements.check > /dev/null 2>&1; then
             echo "needs_update=false" >> "$GITHUB_OUTPUT"
             echo "✓ Lock file is already up to date"
@@ -49,13 +53,13 @@ jobs:
             echo "needs_update=true" >> "$GITHUB_OUTPUT"
             echo "⚠ Lock file needs regeneration"
           fi
-      
+
       - name: Regenerate lock file
         if: steps.check.outputs.needs_update == 'true'
         run: |
           uv pip compile pyproject.toml --extra dev --extra langchain --universal --output-file requirements.lock
           echo "✓ Generated new lock file"
-      
+
       - name: Commit updated lock file
         if: steps.check.outputs.needs_update == 'true'
         run: |

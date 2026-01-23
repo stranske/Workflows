@@ -23,6 +23,10 @@ env:
   INTEGRATION_REPO: stranske/Workflows-Integration-Tests
   WORKFLOW_REF: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   sync:
     name: Sync integration-repo templates

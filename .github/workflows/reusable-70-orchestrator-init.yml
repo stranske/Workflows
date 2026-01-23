@@ -104,6 +104,10 @@ on:
       keepalive_pr:
         value: ${{ jobs.resolve-params.outputs.keepalive_pr }}
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   rate-limit-check:
     name: Rate limit pre-check

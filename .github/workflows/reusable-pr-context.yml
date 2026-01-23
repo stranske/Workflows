@@ -106,6 +106,10 @@ permissions:
   contents: read
   pull-requests: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   fetch:
     name: Fetch PR Context
@@ -175,17 +179,17 @@ jobs:
           github-token: ${{ steps.token.outputs.token }}
           script: |
             const { fetchPRContext, serializeForOutput } = require('./.github/scripts/pr-context-graphql.js');
-            
+
             const owner = context.repo.owner;
             const repo = context.repo.repo;
             const prNumber = ${{ inputs.pr_number }};
-            
+
             console.log(`Fetching PR context for ${owner}/${repo}#${prNumber}`);
             console.log(`Token source: ${{ steps.token.outputs.source }}`);
-            
+
             try {
               const pr = await fetchPRContext(github, owner, repo, prNumber);
-              
+
               // Core outputs
               core.setOutput('pr_number', pr.number);
               core.setOutput('pr_title', pr.title);
@@ -198,28 +202,28 @@ jobs:
               core.setOutput('head_ref', pr.headRef);
               core.setOutput('base_ref', pr.baseRef);
               core.setOutput('head_sha', pr.headSha);
-              
+
               // Labels
               core.setOutput('labels_json', JSON.stringify(pr.labels));
               core.setOutput('has_agent_label', pr.hasAnyLabel(['agent:codex', 'agent:copilot', 'agents:keepalive']));
               core.setOutput('has_keepalive_label', pr.hasLabel('agents:keepalive'));
-              
+
               // Files
               core.setOutput('files_count', pr.files.total);
               core.setOutput('files_json', JSON.stringify(pr.files.paths));
               core.setOutput('has_src_changes', pr.files.paths.some(f => f.startsWith('src/')));
               core.setOutput('has_test_changes', pr.files.paths.some(f => f.includes('test') || f.includes('spec')));
               core.setOutput('has_workflow_changes', pr.files.paths.some(f => f.startsWith('.github/workflows/')));
-              
+
               // CI Status
               core.setOutput('ci_status', pr.lastCommit?.status || 'UNKNOWN');
               core.setOutput('checks_json', JSON.stringify(pr.lastCommit?.checks || []));
-              
+
               // Full context (for complex processing)
               core.setOutput('full_context_json', serializeForOutput(pr));
-              
+
               console.log(`✅ Fetched context: ${pr.labels.length} labels, ${pr.files.total} files`);
-              
+
             } catch (error) {
               core.setFailed(`Failed to fetch PR context: ${error.message}`);
             }

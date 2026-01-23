@@ -35,6 +35,18 @@ jobs:
         run: |
           pip install -e ".[langchain]" --quiet
 
+      - name: Check OPENAI_API_KEY
+        id: openai_key
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          if [ -z "${OPENAI_API_KEY:-}" ]; then
+            echo "OPENAI_API_KEY is not set; skipping capability check." >> "$GITHUB_STEP_SUMMARY"
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Extract issue content
         id: extract
         uses: actions/github-script@v8
@@ -61,6 +73,7 @@ jobs:
 
       - name: Run capability check
         id: check
+        if: steps.openai_key.outputs.available == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -103,7 +116,7 @@ jobs:
           "
 
       - name: Add needs-human label if blocked
-        if: steps.check.outputs.recommendation == 'BLOCKED'
+        if: steps.openai_key.outputs.available == 'true' && steps.check.outputs.recommendation == 'BLOCKED'
         uses: actions/github-script@v8
         with:
           script: |
@@ -127,7 +140,7 @@ jobs:
             }
 
       - name: Post capability report
-        if: steps.check.outputs.check_failed != 'true'
+        if: steps.openai_key.outputs.available == 'true' && steps.check.outputs.check_failed != 'true'
         uses: actions/github-script@v8
         env:
           RESULT_JSON: ${{ steps.check.outputs.result_json }}

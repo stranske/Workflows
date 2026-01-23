@@ -106,6 +106,10 @@ on:
       WORKFLOWS_APP_PRIVATE_KEY:
         required: false
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   keepalive-guard:
     name: Evaluate keepalive gate

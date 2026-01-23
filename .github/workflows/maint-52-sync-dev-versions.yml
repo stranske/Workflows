@@ -45,6 +45,10 @@ env:
     stranske/Trend_Model_Project
     stranske/Collab-Admin
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   # CRITICAL: Verify versions are current BEFORE syncing to consumer repos
   verify-versions-current:

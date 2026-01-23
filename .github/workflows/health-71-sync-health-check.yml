@@ -41,6 +41,10 @@ env:
     stranske/Trend_Model_Project
     stranske/Collab-Admin
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   check-sync-health:
     name: Check sync workflow health

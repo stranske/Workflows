@@ -84,6 +84,7 @@ jobs:
       model2: ${{ steps.check.outputs.model2 }}
       provider: ${{ steps.check.outputs.provider }}
       pr_number: ${{ steps.check.outputs.pr_number }}
+      openai_available: ${{ steps.openai_key.outputs.available }}
     steps:
       - name: Check trigger conditions
         id: check
@@ -170,9 +171,29 @@ jobs:
             core.setOutput('provider', '');  // Use default
             core.setOutput('pr_number', pr.number.toString());
 
+      - name: Check OPENAI_API_KEY
+        id: openai_key
+        if: steps.check.outputs.should_run == 'true'
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          MODE: ${{ steps.check.outputs.mode }}
+          PROVIDER: ${{ steps.check.outputs.provider }}
+        run: |
+          requires_openai=false
+          if [ "${MODE}" = "compare" ] || [ "${PROVIDER}" = "openai" ]; then
+            requires_openai=true
+          fi
+
+          if [ "${requires_openai}" = "true" ] && [ -z "${OPENAI_API_KEY:-}" ]; then
+            echo "OPENAI_API_KEY is not set; skipping verifier run that requires OpenAI." >> "$GITHUB_STEP_SUMMARY"
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          fi
+
   verifier:
     needs: check
-    if: needs.check.outputs.should_run == 'true'
+    if: needs.check.outputs.should_run == 'true' && needs.check.outputs.openai_available != 'false'
     uses: stranske/Workflows/.github/workflows/reusable-agents-verifier.yml@main
     with:
       # CI workflows to wait for before running verifier (Gate workflow for Workflows repo)

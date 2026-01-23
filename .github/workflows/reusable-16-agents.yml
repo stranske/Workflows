@@ -125,6 +125,10 @@ permissions:
   pull-requests: write
   issues: write
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   readiness:
     if: inputs.enable_readiness == 'true'

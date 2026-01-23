@@ -70,6 +70,10 @@ permissions:
   pull-requests: write
   issues: write
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   bridge:
     runs-on: ubuntu-latest

@@ -84,6 +84,19 @@ jobs:
           # Install langchain dependencies
           pip install langchain langchain-core langchain-openai langchain-community
 
+      - name: Check OPENAI_API_KEY
+        id: openai_key
+        if: steps.check.outputs.should_run == 'true'
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          if [ -z "${OPENAI_API_KEY:-}" ]; then
+            echo "OPENAI_API_KEY is not set; skipping issue optimizer phases." >> "$GITHUB_STEP_SUMMARY"
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Get issue body
         if: steps.check.outputs.should_run == 'true'
         id: get_issue
@@ -96,7 +109,7 @@ jobs:
           echo "Issue body saved to /tmp/issue_body.md"
 
       - name: Phase 1 - Analyze Issue
-        if: steps.check.outputs.should_run == 'true' && steps.check.outputs.phase == 'analyze'
+        if: steps.check.outputs.should_run == 'true' && steps.check.outputs.phase == 'analyze' && steps.openai_key.outputs.available == 'true'
         id: analyze
         env:
           ISSUE_NUMBER: ${{ steps.check.outputs.issue_number }}
@@ -143,7 +156,7 @@ jobs:
           echo "Analysis complete. Review suggestions and add 'agents:apply-suggestions' label to apply."
 
       - name: Advisory issue dedup check
-        if: steps.check.outputs.should_run == 'true' && steps.check.outputs.phase == 'analyze'
+        if: steps.check.outputs.should_run == 'true' && steps.check.outputs.phase == 'analyze' && steps.openai_key.outputs.available == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           ISSUE_NUMBER: ${{ steps.check.outputs.issue_number }}
@@ -252,7 +265,7 @@ jobs:
           echo "Issue body updated with applied suggestions"
 
       - name: Phase 3 - Format Issue
-        if: steps.check.outputs.should_run == 'true' && steps.check.outputs.phase == 'format'
+        if: steps.check.outputs.should_run == 'true' && steps.check.outputs.phase == 'format' && steps.openai_key.outputs.available == 'true'
         id: format
         env:
           ISSUE_NUMBER: ${{ steps.check.outputs.issue_number }}

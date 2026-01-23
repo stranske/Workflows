@@ -49,6 +49,10 @@ permissions:
   pull-requests: write
   actions: write
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   run-worker:
     name: Run Codex belt worker

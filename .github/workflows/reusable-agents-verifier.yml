@@ -55,6 +55,10 @@ permissions:
   actions: read
   models: read  # Required for GitHub Models API access
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   verifier:
     name: Run post-merge verifier
@@ -303,9 +307,29 @@ jobs:
         run: |
           pip install pydantic langchain-openai
 
+      - name: Check OPENAI_API_KEY
+        id: openai_key
+        if: steps.context.outputs.should_run == 'true' && (inputs.mode == 'evaluate' || inputs.mode == 'compare')
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          PROVIDER: ${{ inputs.provider }}
+          MODE: ${{ inputs.mode }}
+        run: |
+          requires_openai=false
+          if [ "${MODE}" = "compare" ] || [ "${PROVIDER}" = "openai" ]; then
+            requires_openai=true
+          fi
+
+          if [ "${requires_openai}" = "true" ] && [ -z "${OPENAI_API_KEY:-}" ]; then
+            echo "OPENAI_API_KEY is not set; skipping verifier LLM step that requires OpenAI." >> "$GITHUB_STEP_SUMMARY"
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Run LLM evaluation
         id: llm_evaluate
-        if: steps.context.outputs.should_run == 'true' && inputs.mode == 'evaluate'
+        if: steps.context.outputs.should_run == 'true' && inputs.mode == 'evaluate' && steps.openai_key.outputs.available == 'true'
         continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -419,7 +443,7 @@ jobs:
 
       - name: Run multi-provider comparison
         id: llm_compare
-        if: steps.context.outputs.should_run == 'true' && inputs.mode == 'compare'
+        if: steps.context.outputs.should_run == 'true' && inputs.mode == 'compare' && steps.openai_key.outputs.available == 'true'
         continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

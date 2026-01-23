@@ -15,6 +15,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
 jobs:
   sync-env:
     runs-on: ubuntu-latest
@@ -28,18 +32,18 @@ jobs:
           python3 << 'PYTHON'
           import re
           import sys
-          
+
           with open('pyproject.toml', 'r') as f:
               content = f.read()
-          
+
           # Find the dev dependencies section
           dev_match = re.search(r'\[project\.optional-dependencies\]\s*\ndev\s*=\s*\[(.*?)\]', content, re.DOTALL)
           if not dev_match:
               print("ERROR: Could not find dev dependencies in pyproject.toml", file=sys.stderr)
               sys.exit(1)
-          
+
           dev_section = dev_match.group(1)
-          
+
           # Map package names to env var names
           package_to_env = {
               'black': 'BLACK_VERSION',
@@ -56,16 +60,16 @@ jobs:
               'hypothesis': 'HYPOTHESIS_VERSION',
               'jsonschema': 'JSONSCHEMA_VERSION',
           }
-          
+
           versions = {}
-          
+
           # Extract pinned versions (package==version format)
           for match in re.finditer(r'"([a-zA-Z0-9_-]+)==([^"]+)"', dev_section):
               pkg, ver = match.groups()
               pkg_lower = pkg.lower()
               if pkg_lower in package_to_env:
                   versions[package_to_env[pkg_lower]] = ver
-          
+
           # Output for GitHub Actions
           for env_var, version in sorted(versions.items()):
               print(f"{env_var}={version}")
@@ -74,20 +78,20 @@ jobs:
       - name: Update autofix-versions.env
         run: |
           ENV_FILE=".github/workflows/autofix-versions.env"
-          
+
           # Read current pyproject versions
           declare -A NEW_VERSIONS
           while IFS='=' read -r key value; do
               NEW_VERSIONS[$key]=$value
           done < <(python3 << 'PYTHON'
           import re
-          
+
           with open('pyproject.toml', 'r') as f:
               content = f.read()
-          
+
           dev_match = re.search(r'\[project\.optional-dependencies\]\s*\ndev\s*=\s*\[(.*?)\]', content, re.DOTALL)
           dev_section = dev_match.group(1) if dev_match else ""
-          
+
           package_to_env = {
               'black': 'BLACK_VERSION',
               'ruff': 'RUFF_VERSION',
@@ -103,7 +107,7 @@ jobs:
               'hypothesis': 'HYPOTHESIS_VERSION',
               'jsonschema': 'JSONSCHEMA_VERSION',
           }
-          
+
           for match in re.finditer(r'"([a-zA-Z0-9_-]+)==([^"]+)"', dev_section):
               pkg, ver = match.groups()
               pkg_lower = pkg.lower()
@@ -111,7 +115,7 @@ jobs:
                   print(f"{package_to_env[pkg_lower]}={ver}")
           PYTHON
           )
-          
+
           # Update each version in the .env file
           CHANGES=0
           for key in "${!NEW_VERSIONS[@]}"; do
@@ -125,9 +129,9 @@ jobs:
                   fi
               fi
           done
-          
+
           echo "changes=$CHANGES" >> "$GITHUB_OUTPUT"
-          
+
           if [ $CHANGES -eq 0 ]; then
               echo "No version changes detected"
           else
@@ -138,12 +142,12 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          
+
           if git diff --quiet .github/workflows/autofix-versions.env; then
               echo "No changes to commit"
               exit 0
           fi
-          
+
           git add .github/workflows/autofix-versions.env
           git commit -m "chore: sync autofix-versions.env from pyproject.toml
 

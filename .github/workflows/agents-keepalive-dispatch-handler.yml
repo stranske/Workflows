@@ -5,6 +5,10 @@ on:
     types:
       - codex-pr-comment-command
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   dispatch-handler:
     name: Handle keepalive command dispatch

@@ -17,6 +17,10 @@ permissions:
   contents: write
   pull-requests: write
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   sync-versions:
     name: Sync action versions to templates
@@ -31,10 +35,10 @@ jobs:
         id: extract
         run: |
           set -euo pipefail
-          
+
           # Extract unique action versions from .github/workflows/
           declare -A versions
-          
+
           for file in .github/workflows/*.yml; do
             while IFS= read -r line; do
               # Match 'uses: owner/action@version'
@@ -54,7 +58,7 @@ jobs:
               fi
             done < "$file"
           done
-          
+
           # Output versions for key actions (grouped redirects for SC2129)
           {
             echo "checkout=${versions[actions/checkout]:-v4}"
@@ -63,7 +67,7 @@ jobs:
             echo "download_artifact=${versions[actions/download-artifact]:-v4}"
             echo "cache=${versions[actions/cache]:-v4}"
           } >> "$GITHUB_OUTPUT"
-          
+
           echo "Detected versions:"
           for action in "${!versions[@]}"; do
             echo "  $action: ${versions[$action]}"
@@ -73,18 +77,18 @@ jobs:
         id: update
         run: |
           set -euo pipefail
-          
+
           checkout="${{ steps.extract.outputs.checkout }}"
           github_script="${{ steps.extract.outputs.github_script }}"
           upload_artifact="${{ steps.extract.outputs.upload_artifact }}"
           download_artifact="${{ steps.extract.outputs.download_artifact }}"
           cache="${{ steps.extract.outputs.cache }}"
-          
+
           # Update all YAML files in templates/ (using find -exec for SC2044)
           find templates/ -name "*.yml" -type f -exec sh -c '
             for file do
               orig_hash=$(md5sum "$file" | cut -d" " -f1)
-              
+
               sed -i \
                 -e "s|actions/checkout@v[0-9]\+|actions/checkout@'"${checkout}"'|g" \
                 -e "s|actions/github-script@v[0-9]\+|actions/github-script@'"${github_script}"'|g" \
@@ -92,7 +96,7 @@ jobs:
                 -e "s|actions/download-artifact@v[0-9]\+|actions/download-artifact@'"${download_artifact}"'|g" \
                 -e "s|actions/cache@v[0-9]\+|actions/cache@'"${cache}"'|g" \
                 "$file"
-              
+
               new_hash=$(md5sum "$file" | cut -d" " -f1)
               if [ "$orig_hash" != "$new_hash" ]; then
                 echo "Updated: $file"
@@ -118,33 +122,33 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          
+
           branch="auto/sync-action-versions-$(date +%Y%m%d%H%M%S)"
-          
+
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          
+
           git checkout -b "$branch"
           git add templates/
           git commit -m "ci(deps): sync action versions to templates
 
           Automated sync from .github/workflows/ to templates/
-          
+
           Updated versions:
           - actions/checkout: ${{ steps.extract.outputs.checkout }}
           - actions/github-script: ${{ steps.extract.outputs.github_script }}
           - actions/upload-artifact: ${{ steps.extract.outputs.upload_artifact }}
           - actions/download-artifact: ${{ steps.extract.outputs.download_artifact }}
           - actions/cache: ${{ steps.extract.outputs.cache }}"
-          
+
           git push origin "$branch"
-          
+
           gh pr create \
             --title "ci(deps): sync action versions to templates" \
             --body "Automated PR to sync GitHub Action versions from \`.github/workflows/\` to \`templates/\`.
 
           This ensures templates stay in sync with Dependabot updates.
-          
+
           **Updated versions:**
           - actions/checkout: \`${{ steps.extract.outputs.checkout }}\`
           - actions/github-script: \`${{ steps.extract.outputs.github_script }}\`

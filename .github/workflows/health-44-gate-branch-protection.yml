@@ -19,6 +19,10 @@ env:
   ENFORCE_TOKEN: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
   SNAPSHOT_DIR: gate-branch-protection
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   enforce:
     runs-on: ubuntu-latest
