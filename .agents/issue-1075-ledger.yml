@@ -1,0 +1,785 @@
+version: 1
+issue: 1075
+base: main
+branch: codex/issue-1075
+tasks:
+  - id: task-01
+    title: Update `scripts/dev_check.sh` to use an array for constructing command
+      arguments and add error handling that specifically checks for an unexpected
+      'secrets' key outside of an allowlist, producing the message 'unexpected key
+      "secrets" for "step"'. Include automated tests to validate both successful and
+      failure scenarios.
+    status: doing
+    started_at: '2026-01-23T06:32:05Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: 'Define scope for: Update `scripts/dev_check.sh` to use an array for constructing
+      command arguments (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: 'Implement focused slice for: Update `scripts/dev_check.sh` to use an array
+      for constructing command arguments (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: 'Validate focused slice for: Update `scripts/dev_check.sh` to use an array
+      for constructing command arguments (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: 'Define scope for: add error handling that specifically checks for an unexpected
+      ''secrets'' key outside of an allowlist (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: 'Implement focused slice for: add error handling that specifically checks
+      for an unexpected ''secrets'' key outside of an allowlist (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: 'Validate focused slice for: add error handling that specifically checks
+      for an unexpected ''secrets'' key outside of an allowlist (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: 'Define scope for: producing the message ''unexpected key "secrets" for
+      "step"''. Include automated tests to validate both successful (verify: tests
+      pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: 'Implement focused slice for: producing the message ''unexpected key "secrets"
+      for "step"''. Include automated tests to validate both successful (verify: tests
+      pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: 'Validate focused slice for: producing the message ''unexpected key "secrets"
+      for "step"''. Include automated tests to validate both successful (verify: tests
+      pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: 'failure scenarios. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: Modify the `_normalize_trigger_name` function in `workflow_concurrency_audit.py`
+      to explicitly test trigger value types, converting any non-string to a string
+      and logging a warning. Add unit tests to verify both conversion and logging
+      behavior.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: 'Define scope for: Modify the `_normalize_trigger_name` function in `workflow_concurrency_audit.py`
+      to explicitly test trigger value types (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: 'Implement focused slice for: Modify the `_normalize_trigger_name` function
+      in `workflow_concurrency_audit.py` to explicitly test trigger value types (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: 'Validate focused slice for: Modify the `_normalize_trigger_name` function
+      in `workflow_concurrency_audit.py` to explicitly test trigger value types (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: 'converting any non-string to a string (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: logging a warning. Add unit tests to verify both conversion
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: 'logging behavior. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: Extend the test suite for `scripts/keepalive-runner.js` to include test
+      cases that pass comment bodies with various newline characters and mixed encodings.
+      Ensure the processing function can handle these cases without errors.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: 'Define scope for: Extend the test suite for `scripts/keepalive-runner.js`
+      to include test cases that pass comment bodies with various newline characters
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: 'Implement focused slice for: Extend the test suite for `scripts/keepalive-runner.js`
+      to include test cases that pass comment bodies with various newline characters
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: 'Validate focused slice for: Extend the test suite for `scripts/keepalive-runner.js`
+      to include test cases that pass comment bodies with various newline characters
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-23
+    title: 'Define scope for: Extend the test suite for `scripts/keepalive-runner.js`
+      to include test cases that pass comment bodies with mixed encodings. Ensure
+      the processing function can handle these cases without errors. (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-24
+    title: 'Implement focused slice for: Extend the test suite for `scripts/keepalive-runner.js`
+      to include test cases that pass comment bodies with mixed encodings. Ensure
+      the processing function can handle these cases without errors. (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-25
+    title: 'Validate focused slice for: Extend the test suite for `scripts/keepalive-runner.js`
+      to include test cases that pass comment bodies with mixed encodings. Ensure
+      the processing function can handle these cases without errors. (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-26
+    title: 'Update the `.github/workflows/agents-keepalive-loop.yml` file to add a
+      conditional guard (e.g., ''if: secrets.OPENAI_API_KEY != ""'') to the progress-review
+      job to prevent failures in environments where the secret is missing.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-27
+    title: 'Define scope for: Update the `.github/workflows/agents-keepalive-loop.yml`
+      file to add a conditional guard (e.g. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-28
+    title: 'Implement focused slice for: Update the `.github/workflows/agents-keepalive-loop.yml`
+      file to add a conditional guard (e.g. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-29
+    title: 'Validate focused slice for: Update the `.github/workflows/agents-keepalive-loop.yml`
+      file to add a conditional guard (e.g. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-30
+    title: 'Define scope for: ''if: secrets.OPENAI_API_KEY != ""'') to the progress-review
+      job to prevent failures in environments where the secret is missing. (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-31
+    title: 'Implement focused slice for: ''if: secrets.OPENAI_API_KEY != ""'') to
+      the progress-review job to prevent failures in environments where the secret
+      is missing. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-32
+    title: 'Validate focused slice for: ''if: secrets.OPENAI_API_KEY != ""'') to the
+      progress-review job to prevent failures in environments where the secret is
+      missing. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-33
+    title: Revise the progress-review job within `.github/workflows/agents-keepalive-loop.yml`
+      to replace the use of `pulls.listCommits` with an API call that retrieves changed
+      files, such as `pulls.listFiles`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-34
+    title: 'Define scope for: Revise the progress-review job within `.github/workflows/agents-keepalive-loop.yml`
+      to replace the use of `pulls.listCommits` with an API call that retrieves changed
+      files (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-35
+    title: 'Implement focused slice for: Revise the progress-review job within `.github/workflows/agents-keepalive-loop.yml`
+      to replace the use of `pulls.listCommits` with an API call that retrieves changed
+      files (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-36
+    title: 'Validate focused slice for: Revise the progress-review job within `.github/workflows/agents-keepalive-loop.yml`
+      to replace the use of `pulls.listCommits` with an API call that retrieves changed
+      files (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-37
+    title: 'Define scope for: Revise the progress-review job within `.github/workflows/agents-keepalive-loop.yml`
+      to replace the use of `pulls.listCommits` with such as `pulls.listFiles`. (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-38
+    title: 'Implement focused slice for: Revise the progress-review job within `.github/workflows/agents-keepalive-loop.yml`
+      to replace the use of `pulls.listCommits` with such as `pulls.listFiles`. (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-39
+    title: 'Validate focused slice for: Revise the progress-review job within `.github/workflows/agents-keepalive-loop.yml`
+      to replace the use of `pulls.listCommits` with such as `pulls.listFiles`. (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-40
+    title: Implement explicit error handling in `scripts/sync_status_file_ignores.py`
+      to fail or log a critical error when expected sentinel strings or block boundaries
+      are missing from the template file.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-41
+    title: 'Define approach for: Implement explicit error handling in `scripts/sync_status_file_ignores.py`
+      to fail or log a critical error when expected sentinel strings or block boundaries
+      are missing from the template file. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-42
+    title: 'Define scope for: Implement: Implement explicit error handling in `scripts/sync_status_file_ignores.py`
+      to fail or log a critical error when expected sentinel strings or block boundaries
+      are missing from the template file. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-43
+    title: 'Implement focused slice for: Implement: Implement explicit error handling
+      in `scripts/sync_status_file_ignores.py` to fail or log a critical error when
+      expected sentinel strings or block boundaries are missing from the template
+      file. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-44
+    title: 'Validate focused slice for: Implement: Implement explicit error handling
+      in `scripts/sync_status_file_ignores.py` to fail or log a critical error when
+      expected sentinel strings or block boundaries are missing from the template
+      file. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-45
+    title: 'Define scope for: Validate: Implement explicit error handling in `scripts/sync_status_file_ignores.py`
+      to fail or log a critical error when expected sentinel strings or block boundaries
+      are missing from the template file. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-46
+    title: 'Implement focused slice for: Validate: Implement explicit error handling
+      in `scripts/sync_status_file_ignores.py` to fail or log a critical error when
+      expected sentinel strings or block boundaries are missing from the template
+      file. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-47
+    title: 'Validate focused slice for: Validate: Implement explicit error handling
+      in `scripts/sync_status_file_ignores.py` to fail or log a critical error when
+      expected sentinel strings or block boundaries are missing from the template
+      file. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-48
+    title: Remove the `verifier-pr-diff.patch` file from the main repository or move
+      it to an appropriate testing directory with clear documentation.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-49
+    title: 'Define approach for: Remove the `verifier-pr-diff.patch` file from the
+      main repository or move it to an appropriate testing directory with clear documentation.
+      (verify: docs updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-50
+    title: 'Define scope for: Implement: Remove the `verifier-pr-diff.patch` file
+      from the main repository or move it to an appropriate testing directory with
+      clear documentation. (verify: docs updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-51
+    title: 'Implement focused slice for: Implement: Remove the `verifier-pr-diff.patch`
+      file from the main repository or move it to an appropriate testing directory
+      with clear documentation. (verify: docs updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-52
+    title: 'Validate focused slice for: Implement: Remove the `verifier-pr-diff.patch`
+      file from the main repository or move it to an appropriate testing directory
+      with clear documentation. (verify: docs updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-53
+    title: 'Define scope for: Validate: Remove the `verifier-pr-diff.patch` file from
+      the main repository or move it to an appropriate testing directory with clear
+      documentation. (verify: docs updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-54
+    title: 'Implement focused slice for: Validate: Remove the `verifier-pr-diff.patch`
+      file from the main repository or move it to an appropriate testing directory
+      with clear documentation. (verify: docs updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-55
+    title: 'Validate focused slice for: Validate: Remove the `verifier-pr-diff.patch`
+      file from the main repository or move it to an appropriate testing directory
+      with clear documentation. (verify: docs updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-56
+    title: Add a consistency check or linting rule in the CI pipeline to ensure that
+      PR titles and all file changes consistently reference the same issue number.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-57
+    title: 'Define scope for: Add a consistency check or linting rule in the CI pipeline
+      to ensure that PR titles (verify: lint passes)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-58
+    title: 'Implement focused slice for: Add a consistency check or linting rule in
+      the CI pipeline to ensure that PR titles (verify: lint passes)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-59
+    title: 'Validate focused slice for: Add a consistency check or linting rule in
+      the CI pipeline to ensure that PR titles (verify: lint passes)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-60
+    title: 'Define scope for: all file changes consistently reference the same issue
+      number. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-61
+    title: 'Implement focused slice for: all file changes consistently reference the
+      same issue number. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-62
+    title: 'Validate focused slice for: all file changes consistently reference the
+      same issue number. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-63
+    title: The `dev_check.sh` script constructs command arguments using a shell array
+      and reports the error 'unexpected key "secrets" for "step"' when an unexpected
+      'secrets' key is present outside of an allowlist.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-64
+    title: The `_normalize_trigger_name` function in `workflow_concurrency_audit.py`
+      converts non-string trigger values to strings and logs a warning.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-65
+    title: The `keepalive-runner.js` test suite includes cases with different newline
+      characters and mixed encodings in comment bodies, and the script processes them
+      without errors.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-66
+    title: The progress-review job in `agents-keepalive-loop.yml` includes a conditional
+      guard to prevent execution when the `OPENAI_API_KEY` secret is missing.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-67
+    title: The progress-review job uses an API call that retrieves changed files,
+      such as `pulls.listFiles`, instead of `pulls.listCommits`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-68
+    title: The `sync_status_file_ignores.py` script logs a critical error or fails
+      when expected sentinel strings or block boundaries are missing.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-69
+    title: The `verifier-pr-diff.patch` file is either removed from the main repository
+      or moved to a testing directory with clear documentation.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-70
+    title: All commit messages, PR titles, and modified file headers consistently
+      reference the same issue number.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-71
+    title: Update `scripts/dev_check.sh` to use an array for constructing command
+      arguments and add error handling that specifically checks for an unexpected
+      'secrets' key outside of an allowlist, producing the message 'unexpected key
+      "secrets" for "step"'. Include automated tests to validate both successful and
+      failure scenarios.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-72
+    title: Modify the `_normalize_trigger_name` function in `workflow_concurrency_audit.py`
+      to explicitly test trigger value types, converting any non-string to a string
+      and logging a warning. Add unit tests to verify both conversion and logging
+      behavior.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-73
+    title: Extend the test suite for `scripts/keepalive-runner.js` to include test
+      cases that pass comment bodies with various newline characters and mixed encodings.
+      Ensure the processing function can handle these cases without errors.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-74
+    title: 'Update the `.github/workflows/agents-keepalive-loop.yml` file to add a
+      conditional guard (e.g., ''if: secrets.OPENAI_API_KEY != ""'') to the progress-review
+      job to prevent failures in environments where the secret is missing.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-75
+    title: Revise the progress-review job within `.github/workflows/agents-keepalive-loop.yml`
+      to replace the use of `pulls.listCommits` with an API call that retrieves changed
+      files, such as `pulls.listFiles`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-76
+    title: Implement explicit error handling in `scripts/sync_status_file_ignores.py`
+      to fail or log a critical error when expected sentinel strings or block boundaries
+      are missing from the template file.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-77
+    title: Remove the `verifier-pr-diff.patch` file from the main repository or move
+      it to an appropriate testing directory with clear documentation.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-78
+    title: Add a consistency check or linting rule in the CI pipeline to ensure that
+      PR titles and all file changes consistently reference the same issue number.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-79
+    title: The `dev_check.sh` script constructs command arguments using a shell array
+      and reports the error 'unexpected key "secrets" for "step"' when an unexpected
+      'secrets' key is present outside of an allowlist.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-80
+    title: The `_normalize_trigger_name` function in `workflow_concurrency_audit.py`
+      converts non-string trigger values to strings and logs a warning.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-81
+    title: The `keepalive-runner.js` test suite includes cases with different newline
+      characters and mixed encodings in comment bodies, and the script processes them
+      without errors.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-82
+    title: The progress-review job in `agents-keepalive-loop.yml` includes a conditional
+      guard to prevent execution when the `OPENAI_API_KEY` secret is missing.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-83
+    title: The progress-review job uses an API call that retrieves changed files,
+      such as `pulls.listFiles`, instead of `pulls.listCommits`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-84
+    title: The `sync_status_file_ignores.py` script logs a critical error or fails
+      when expected sentinel strings or block boundaries are missing.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-85
+    title: The `verifier-pr-diff.patch` file is either removed from the main repository
+      or moved to a testing directory with clear documentation.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-86
+    title: All commit messages, PR titles, and modified file headers consistently
+      reference the same issue number.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-87
+    title: Modify the `_normalize_trigger_name` function in `workflow_concurrency_audit.py`
+      to explicitly test trigger value types, converting any non-string to a string
+      and logging a warning. Add unit tests to verify both conversion and logging
+      behavior. (Requires workflow changes, which are protected | Request a human
+      to apply workflow updates)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-88
+    title: 'Update the `.github/workflows/agents-keepalive-loop.yml` file to add a
+      conditional guard (e.g., ''if: secrets.OPENAI_API_KEY != ""'') to the progress-review
+      job to prevent failures in environments where the secret is missing. (Requires
+      workflow changes, which are protected | Request a human to apply workflow updates)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-89
+    title: Revise the progress-review job within `.github/workflows/agents-keepalive-loop.yml`
+      to replace the use of `pulls.listCommits` with an API call that retrieves changed
+      files, such as `pulls.listFiles`. (Requires workflow changes, which are protected
+      | Request a human to apply workflow updates)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
