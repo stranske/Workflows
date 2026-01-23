@@ -276,6 +276,9 @@ Generate SPECIFIC, TESTABLE acceptance criteria for the follow-up issue.
 ## Tasks That Will Be Completed
 {tasks_json}
 
+## Changed Files (from PR)
+{pr_files}
+
 ## Original Acceptance Criteria (rewritten/refined)
 {unmet_criteria}
 
@@ -328,9 +331,7 @@ Background (failures to avoid): {background_analysis}
 
 ## Issue Structure
 
-Use this exact structure:
-
-```markdown
+Use this exact structure (output plain markdown; do NOT wrap in code fences):
 ## Why
 [Brief explanation of what needs to happen and why]
 
@@ -351,13 +352,17 @@ Use this exact structure:
 ## Implementation Notes
 [Specific guidance about files, approaches, or patterns to use]
 
+### Formatting requirements
+
+- Every task MUST include a file path (e.g., "(file: path/to/file.py)" or "File: path/to/file.py").
+- Every acceptance criterion MUST reference a file path or a concrete test command.
+- Do NOT omit file paths from tasks even if they appear in the JSON.
 <details>
 <summary>Background (previous attempt context)</summary>
 
 [Only include if there are specific failures to avoid. Do NOT include generic iteration summaries.]
 
 </details>
-```
 
 ## Critical Rules
 1. Do NOT include "Remaining Unchecked Items" or "Iteration Details" sections
@@ -844,6 +849,17 @@ def _extract_json(text: str) -> dict[str, Any]:
         return {}
 
 
+def _strip_markdown_fence(text: str) -> str:
+    """Remove surrounding markdown code fences if present."""
+    if not text:
+        return text
+    stripped = text.strip()
+    fence_match = re.match(r"^```(?:markdown|md)?\s*\n([\s\S]*?)\n```\s*$", stripped)
+    if fence_match:
+        return fence_match.group(1).strip() + "\n"
+    return text
+
+
 def generate_followup_issue(
     verification_data: VerificationData,
     original_issue: OriginalIssueData,
@@ -991,6 +1007,7 @@ def _generate_with_llm(
     # Round 3: Generate acceptance criteria (use standard model)
     ac_prompt = GENERATE_ACCEPTANCE_CRITERIA_PROMPT.format(
         tasks_json=json.dumps(tasks_data.get("tasks", []), indent=2),
+        pr_files=pr_files or "_No PR file list available._",
         unmet_criteria=json.dumps(analysis.get("rewritten_acceptance_criteria", []), indent=2),
     )
 
@@ -1017,7 +1034,7 @@ def _generate_with_llm(
         ),
     )
 
-    issue_body = _invoke_llm(format_prompt, standard_client)
+    issue_body = _strip_markdown_fence(_invoke_llm(format_prompt, standard_client))
 
     # Generate title from concrete tasks
     concrete_tasks = analysis.get("concrete_tasks", [])
