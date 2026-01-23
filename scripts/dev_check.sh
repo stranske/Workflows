@@ -63,6 +63,7 @@ CHANGED_ONLY=false
 VERBOSE_MODE=false
 CHECK_TIMEOUT=${DEV_CHECK_TIMEOUT:-120}
 BLACK_TARGETS=${DEV_CHECK_BLACK_TARGETS:-"scripts .github"}
+DEV_CHECK_ACTIONLINT_ONLY=${DEV_CHECK_ACTIONLINT_ONLY:-false}
 
 for arg in "$@"; do
     case $arg in
@@ -117,22 +118,24 @@ PY
 }
 
 # Ensure lint tooling (flake8) is also available for critical error checks.
-ensure_python_packages black isort docformatter ruff flake8
-ensure_package_version black "$BLACK_VERSION"
-ensure_package_version ruff "$RUFF_VERSION"
-ensure_package_version isort "$ISORT_VERSION"
-ensure_package_version docformatter "$DOCFORMATTER_VERSION"
-ensure_package_version mypy "$MYPY_VERSION"
+if [[ "$DEV_CHECK_ACTIONLINT_ONLY" != true ]]; then
+    ensure_python_packages black isort docformatter ruff flake8
+    ensure_package_version black "$BLACK_VERSION"
+    ensure_package_version ruff "$RUFF_VERSION"
+    ensure_package_version isort "$ISORT_VERSION"
+    ensure_package_version docformatter "$DOCFORMATTER_VERSION"
+    ensure_package_version mypy "$MYPY_VERSION"
 
-# Ensure repo-wide tool pins stay aligned before running further checks.
-if ! python -m scripts.sync_tool_versions --check >/dev/null 2>&1; then
-    if [[ "$FIX_MODE" == true ]]; then
-        echo -e "${YELLOW}Synchronising tool version pins with --apply${NC}"
-        python -m scripts.sync_tool_versions --apply >/dev/null
-    else
-        echo -e "${RED}✗ Tool version pins are out of sync. Run 'python -m scripts.sync_tool_versions --apply' or re-run with --fix.${NC}" >&2
-        python -m scripts.sync_tool_versions --check
-        exit 1
+    # Ensure repo-wide tool pins stay aligned before running further checks.
+    if ! python -m scripts.sync_tool_versions --check >/dev/null 2>&1; then
+        if [[ "$FIX_MODE" == true ]]; then
+            echo -e "${YELLOW}Synchronising tool version pins with --apply${NC}"
+            python -m scripts.sync_tool_versions --apply >/dev/null
+        else
+            echo -e "${RED}✗ Tool version pins are out of sync. Run 'python -m scripts.sync_tool_versions --apply' or re-run with --fix.${NC}" >&2
+            python -m scripts.sync_tool_versions --check
+            exit 1
+        fi
     fi
 fi
 
@@ -238,7 +241,9 @@ quick_check() {
 }
 
 ACTIONLINT_BIN=""
-ACTIONLINT_IGNORE_ARGS_STR=""
+ACTIONLINT_IGNORE_ARGS=()
+ACTIONLINT_SECRETS_ALLOWLIST=()
+ACTIONLINT_SECRETS_MESSAGE='unexpected key "secrets" for "step"'
 ensure_actionlint() {
     if command -v actionlint >/dev/null 2>&1; then
         ACTIONLINT_BIN=$(command -v actionlint)
@@ -270,26 +275,190 @@ ensure_actionlint() {
 
 build_actionlint_ignore_args() {
     local allowlist_file=".github/actionlint-allowlist.txt"
-    local -a ignore_args=()
+    ACTIONLINT_IGNORE_ARGS=()
 
     if [[ -f "$allowlist_file" ]]; then
         mapfile -t allowlist_lines < <(sed -e 's/[[:space:]]*$//' -e '/^[[:space:]]*#/d' -e '/^[[:space:]]*$/d' "$allowlist_file")
         for entry in "${allowlist_lines[@]}"; do
-            ignore_args+=("-ignore" "$entry")
+            ACTIONLINT_IGNORE_ARGS+=("-ignore" "$entry")
         done
-    fi
-
-    # Template workflows trigger an actionlint parser error; ignore only for local checks.
-    ignore_args+=("-ignore" "unexpected key \"secrets\" for \"step\"")
-
-    if [[ ${#ignore_args[@]} -gt 0 ]]; then
-        printf -v ACTIONLINT_IGNORE_ARGS_STR "%q " "${ignore_args[@]}"
-    else
-        ACTIONLINT_IGNORE_ARGS_STR=""
     fi
 }
 
+load_actionlint_secrets_allowlist() {
+    local allowlist_file="${DEV_CHECK_SECRETS_ALLOWLIST:-.github/actionlint-secrets-allowlist.txt}"
+    ACTIONLINT_SECRETS_ALLOWLIST=()
+    if [[ -f "$allowlist_file" ]]; then
+        mapfile -t ACTIONLINT_SECRETS_ALLOWLIST < <(
+            sed -e 's/[[:space:]]*$//' -e '/^[[:space:]]*#/d' -e '/^[[:space:]]*$/d' "$allowlist_file"
+        )
+    fi
+}
+
+is_actionlint_secrets_allowlisted() {
+    local file="$1"
+    for pattern in "${ACTIONLINT_SECRETS_ALLOWLIST[@]}"; do
+        if [[ "$file" == $pattern ]]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+filter_actionlint_output() {
+    local input_file="$1"
+    local output_file="$2"
+    local secrets_found=false
+    local unexpected_found=false
+
+    : > "$output_file"
+    while IFS= read -r line; do
+        if [[ "$line" == *"$ACTIONLINT_SECRETS_MESSAGE"* ]]; then
+            secrets_found=true
+            local file_path="${line%%:*}"
+            if [[ -n "$file_path" ]] && is_actionlint_secrets_allowlisted "$file_path"; then
+                continue
+            fi
+            unexpected_found=true
+        fi
+        printf '%s\n' "$line" >> "$output_file"
+    done < "$input_file"
+
+    if [[ "$unexpected_found" == true ]]; then
+        echo "$ACTIONLINT_SECRETS_MESSAGE" >&2
+        return 2
+    fi
+    if [[ "$secrets_found" == true ]]; then
+        return 1
+    fi
+    return 0
+}
+
+run_actionlint_for_files() {
+    local name="$1"
+    local -n files_ref="$2"
+    if [[ ${#files_ref[@]} -eq 0 ]]; then
+        return 0
+    fi
+
+    local output_file
+    output_file=$(mktemp -t "devcheck_actionlint.XXXX")
+    local filtered_file
+    filtered_file=$(mktemp -t "devcheck_actionlint_filtered.XXXX")
+
+    if [[ "$VERBOSE_MODE" == true ]]; then
+        echo -e "${BLUE}Running: ${ACTIONLINT_BIN} ${ACTIONLINT_IGNORE_ARGS[*]}${NC}"
+    fi
+
+    local -a actionlint_cmd=("$ACTIONLINT_BIN")
+    actionlint_cmd+=("${ACTIONLINT_IGNORE_ARGS[@]}")
+    actionlint_cmd+=("${files_ref[@]}")
+
+    local exit_code=0
+    if ! timeout "$CHECK_TIMEOUT" "${actionlint_cmd[@]}" > "$output_file" 2>&1; then
+        exit_code=$?
+    fi
+
+    filter_actionlint_output "$output_file" "$filtered_file"
+    local filter_status=$?
+
+    local filtered_empty=true
+    if [[ -s "$filtered_file" ]]; then
+        filtered_empty=false
+    fi
+
+    if [[ $filter_status -eq 1 && $filtered_empty == true ]]; then
+        echo -e "${GREEN}✓ $name${NC}"
+        rm -f "$output_file" "$filtered_file"
+        return 0
+    fi
+
+    if [[ $exit_code -eq 0 && $filter_status -eq 0 ]]; then
+        echo -e "${GREEN}✓ $name${NC}"
+        rm -f "$output_file" "$filtered_file"
+        return 0
+    fi
+
+    if [[ $exit_code -ne 0 && $filter_status -eq 1 && $filtered_empty == true ]]; then
+        echo -e "${GREEN}✓ $name${NC}"
+        rm -f "$output_file" "$filtered_file"
+        return 0
+    fi
+
+    if [[ $exit_code -eq 124 ]]; then
+        echo -e "${RED}✗ $name (timed out after ${CHECK_TIMEOUT}s)${NC}"
+        if [[ "$VERBOSE_MODE" == false ]]; then
+            echo -e "${YELLOW}  Re-run with --verbose or increase DEV_CHECK_TIMEOUT to see details.${NC}"
+        fi
+    else
+        echo -e "${RED}✗ $name${NC}"
+    fi
+
+    if [[ "$VERBOSE_MODE" == true ]]; then
+        echo -e "${YELLOW}Output:${NC}"
+        if [[ -f "$filtered_file" && -s "$filtered_file" ]]; then
+            head -10 "$filtered_file" | sed 's/^/  /'
+        elif [[ -f "$output_file" ]]; then
+            head -10 "$output_file" | sed 's/^/  /'
+        fi
+    fi
+
+    rm -f "$output_file" "$filtered_file"
+    return 1
+}
+
+collect_actionlint_targets() {
+    local -n targets_ref="$1"
+    local override_list="${DEV_CHECK_ACTIONLINT_FILE_LIST:-}"
+    targets_ref=()
+
+    if [[ -n "$override_list" && -f "$override_list" ]]; then
+        mapfile -t targets_ref < "$override_list"
+        return 0
+    fi
+
+    mapfile -t targets_ref < <(
+        find .github/workflows -maxdepth 1 -type f \( -name '*.yml' -o -name '*.yaml' \) -print
+    )
+}
+
+run_actionlint_checks() {
+    build_actionlint_ignore_args
+    load_actionlint_secrets_allowlist
+
+    local -a workflow_files=()
+    collect_actionlint_targets workflow_files
+
+    local status=0
+    if ! run_actionlint_for_files "Workflow YAML validation" workflow_files; then
+        status=1
+    fi
+
+    if [[ -z "${DEV_CHECK_ACTIONLINT_FILE_LIST:-}" ]]; then
+        local -a template_files=()
+        mapfile -t template_files < <(
+            find templates/consumer-repo/.github/workflows -type f -name '*.yml' -print
+        )
+        if ! run_actionlint_for_files "Workflow YAML validation (templates)" template_files; then
+            status=1
+        fi
+    fi
+
+    return $status
+}
+
 # Quick syntax check first (fastest)
+if [[ "$DEV_CHECK_ACTIONLINT_ONLY" == true ]]; then
+    echo -e "${BLUE}2. Workflow validation...${NC}"
+    if ensure_actionlint; then
+        run_actionlint_checks
+        exit $?
+    else
+        echo -e "${YELLOW}⚠ actionlint not installed; skipping workflow validation${NC}"
+        exit 0
+    fi
+fi
+
 echo -e "${BLUE}1. Syntax check...${NC}"
 if [[ "$CHANGED_ONLY" == true && -n "$ALL_FILES" ]]; then
     SYNTAX_OK=true
@@ -311,9 +480,7 @@ fi
 
 echo -e "${BLUE}2. Workflow validation...${NC}"
 if ensure_actionlint; then
-    # Ignore allowlisted actionlint findings plus template workflow parser issues.
-    build_actionlint_ignore_args
-    quick_check "Workflow YAML validation" "$ACTIONLINT_BIN $ACTIONLINT_IGNORE_ARGS_STR $(find .github/workflows -maxdepth 1 -type f \( -name '*.yml' -o -name '*.yaml' \) -print | tr '\n' ' ') && $ACTIONLINT_BIN $ACTIONLINT_IGNORE_ARGS_STR templates/consumer-repo/.github/workflows/*.yml" ""
+    run_actionlint_checks
 else
     echo -e "${YELLOW}⚠ actionlint not installed; skipping workflow validation${NC}"
 fi
