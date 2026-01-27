@@ -346,7 +346,7 @@ jobs:
           MODE: ${{ inputs.mode }}
         run: |
           requires_openai=false
-          if [ "${MODE}" = "compare" ] || [ "${PROVIDER}" = "openai" ]; then
+          if [ "${MODE}" = "evaluate" ] && [ "${PROVIDER}" = "openai" ]; then
             requires_openai=true
           fi
 
@@ -355,6 +355,10 @@ jobs:
             echo "available=false" >> "$GITHUB_OUTPUT"
           else
             echo "available=true" >> "$GITHUB_OUTPUT"
+          fi
+
+          if [ "${MODE}" = "compare" ] && [ -z "${OPENAI_API_KEY:-}" ]; then
+            echo "OPENAI_API_KEY is not set; compare will run with github-models only." >> "$GITHUB_STEP_SUMMARY"
           fi
 
       - name: Run LLM evaluation
@@ -473,7 +477,7 @@ jobs:
 
       - name: Run multi-provider comparison
         id: llm_compare
-        if: steps.context.outputs.should_run == 'true' && inputs.mode == 'compare' && steps.openai_key.outputs.available == 'true'
+        if: steps.context.outputs.should_run == 'true' && inputs.mode == 'compare'
         continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -503,21 +507,57 @@ jobs:
 
           # Parse result
           if [ -f comparison.json ]; then
-            # Extract consensus verdict from results
-            verdict=$(python3 -c "import sys,json; d=json.load(sys.stdin); results=d.get('results',[]); verdicts=[r.get('verdict','CONCERNS') for r in results]; print('PASS' if all(v=='PASS' for v in verdicts) else 'CONCERNS')" < comparison.json 2>/dev/null || echo "CONCERNS")
+            # Extract consensus verdict from available (used_llm) results
+            verdict=$(python3 - <<'PY'
+          import json
+
+          try:
+              data = json.load(open('comparison.json'))
+          except Exception:
+              print('CONCERNS')
+              raise SystemExit
+
+          results = data.get('results', [])
+          usable = [r for r in results if r.get('used_llm') and r.get('verdict')]
+          verdicts = [r.get('verdict') for r in usable] if usable else [r.get('verdict') for r in results if r.get('verdict')]
+          if verdicts and all(v == 'PASS' for v in verdicts):
+              print('PASS')
+          else:
+              print('CONCERNS')
+          PY
+            )
             echo "verdict=$verdict" >> "$GITHUB_OUTPUT"
 
-            # Extract the formatted report
-            python3 -c "import json; d=json.load(open('comparison.json')); print(d.get('report', '## Comparison Report\n\nNo report generated.'))" > comparison-comment.md
+            has_results=$(python3 - <<'PY'
+          import json
+
+          try:
+              data = json.load(open('comparison.json'))
+          except Exception:
+              print('false')
+              raise SystemExit
+
+          results = data.get('results', [])
+          usable = any(r.get('used_llm') for r in results)
+          print('true' if usable else 'false')
+          PY
+            )
+            echo "has_results=$has_results" >> "$GITHUB_OUTPUT"
+
+            # Extract the formatted report if needed
+            if [ ! -f comparison-comment.md ]; then
+              python3 -c "import json; d=json.load(open('comparison.json')); print(d.get('report', '## Comparison Report\n\nNo report generated.'))" > comparison-comment.md
+            fi
 
             cat comparison-comment.md
           else
             echo "verdict=CONCERNS" >> "$GITHUB_OUTPUT"
+            echo "has_results=false" >> "$GITHUB_OUTPUT"
             printf "%s\n" "## Multi-Provider Comparison" "" "Comparison could not run (missing output)." > comparison-comment.md
           fi
 
       - name: Post comparison report comment
-        if: steps.context.outputs.should_run == 'true' && inputs.mode == 'compare' && steps.llm_compare.outcome == 'success'
+        if: steps.context.outputs.should_run == 'true' && inputs.mode == 'compare' && steps.llm_compare.outputs.has_results == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
