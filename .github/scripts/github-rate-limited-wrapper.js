@@ -152,9 +152,13 @@ async function createRateLimitedGithub(options = {}) {
   // Create the proxied github object
   const proxiedGithub = new Proxy(baseClient, {
     get(target, prop) {
-      // Special handling for rest and graphql
+      // For 'rest' namespace, return the original baseClient.rest directly
+      // This is critical because paginate.iterator needs the original endpoint
+      // methods with their internal route.endpoint() bindings intact.
+      // Wrapping rest methods breaks paginate since Octokit expects the
+      // endpoint to be the actual method object, not a wrapped function.
       if (prop === 'rest' && target.rest) {
-        return createNamespaceProxy(target.rest, 'rest');
+        return target.rest;
       }
       
       if (prop === 'graphql' && typeof target.graphql === 'function') {

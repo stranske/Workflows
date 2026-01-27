@@ -200,12 +200,15 @@ test('createTokenAwareRetry falls back when token selection fails', async () => 
 
   const github = { token: 'fallback' };
   const core = { warning: (message) => warnings.push(String(message)) };
+  // Provide getOctokit factory so the token selection code path is exercised
+  const getOctokit = (token) => ({ token });
 
   const client = await createTokenAwareRetry({
     github,
     core,
     env: {},
     tokenRegistry,
+    getOctokit,
   });
 
   assert.equal(client.github, github);
