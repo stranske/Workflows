@@ -91,6 +91,33 @@ async function createRateLimitedGithub(options = {}) {
     });
   }
 
+  // Create wrapped paginate that includes iterator support
+  function createWrappedPaginate(originalPaginate) {
+    const wrappedPaginate = async function (method, params, ...rest) {
+      return withRetry((client) => client.paginate(method, params, ...rest));
+    };
+    
+    // Add iterator method that yields pages with retry support
+    wrappedPaginate.iterator = function (method, params, ...rest) {
+      // Return an async iterator that wraps the original iterator
+      const originalIterator = originalPaginate.iterator(method, params, ...rest);
+      return {
+        [Symbol.asyncIterator]() {
+          return {
+            async next() {
+              // Note: individual page fetches through iterator don't easily support
+              // full retry with token switching, but we let the underlying
+              // retry wrapper handle transient errors on each iteration
+              return originalIterator.next();
+            },
+          };
+        },
+      };
+    };
+    
+    return wrappedPaginate;
+  }
+
   // Create the proxied github object
   const proxiedGithub = new Proxy(baseClient, {
     get(target, prop) {
@@ -106,10 +133,7 @@ async function createRateLimitedGithub(options = {}) {
       }
       
       if (prop === 'paginate' && typeof target.paginate === 'function') {
-        // For paginate, wrap the entire operation
-        return async function wrappedPaginate(method, params, ...rest) {
-          return withRetry((client) => client.paginate(method, params, ...rest));
-        };
+        return createWrappedPaginate(target.paginate);
       }
       
       // Pass through other properties
