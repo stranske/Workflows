@@ -93,26 +93,19 @@ async function createRateLimitedGithub(options = {}) {
 
   // Create wrapped paginate that includes iterator support
   function createWrappedPaginate(originalPaginate) {
+    // Wrap the main paginate function
     const wrappedPaginate = async function (method, params, ...rest) {
+      // The method is an Octokit endpoint like github.rest.issues.listComments
+      // We need to pass it through directly since it's already bound
       return withRetry((client) => client.paginate(method, params, ...rest));
     };
     
-    // Add iterator method that yields pages with retry support
+    // Add iterator method - this needs to use the original paginate's iterator
+    // because the iterator maintains internal state for pagination
     wrappedPaginate.iterator = function (method, params, ...rest) {
-      // Return an async iterator that wraps the original iterator
-      const originalIterator = originalPaginate.iterator(method, params, ...rest);
-      return {
-        [Symbol.asyncIterator]() {
-          return {
-            async next() {
-              // Note: individual page fetches through iterator don't easily support
-              // full retry with token switching, but we let the underlying
-              // retry wrapper handle transient errors on each iteration
-              return originalIterator.next();
-            },
-          };
-        },
-      };
+      // Use the baseClient's paginate.iterator directly since we can't easily
+      // wrap each iteration with retry. The method is already an endpoint function.
+      return baseClient.paginate.iterator(method, params, ...rest);
     };
     
     return wrappedPaginate;

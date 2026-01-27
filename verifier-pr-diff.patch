@@ -1,0 +1,11 @@
+diff --git a/src/app.py b/src/app.py
+index 111..222 100644
+--- a/src/app.py
++++ b/src/app.py
++print("hello")
+-print("bye")
+diff --git a/docs/readme.md b/docs/readme.md
+deleted file mode 100644
+--- a/docs/readme.md
++++ /dev/null
+-Old content
