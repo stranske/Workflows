@@ -89,67 +89,66 @@ jobs:
       coverage-alert-drop: '0'
       artifact-prefix: integration-smoke-
 
-  scenarios:
-    name: Integration - ${{ matrix.name }}
+  scenario-basic:
+    name: Integration - basic
     uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@v1
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: basic
-            python-versions: '["3.11"]'
-            coverage: false
-            format-check: false
-            lint: false
-            typecheck: false
-            enable-soft-gate: false
-            enable-coverage-delta: false
-            enable-metrics: false
-            enable-history: false
-            baseline-coverage: '0'
-            coverage-alert-drop: '0'
-          - name: full
-            python-versions: '["3.11","3.12"]'
-            coverage: true
-            format-check: true
-            lint: true
-            typecheck: true
-            enable-soft-gate: true
-            enable-coverage-delta: true
-            enable-metrics: true
-            enable-history: true
-            baseline-coverage: '80'
-            coverage-alert-drop: '2'
-          - name: monorepo
-            python-versions: '["3.11"]'
-            coverage: true
-            format-check: true
-            lint: true
-            typecheck: true
-            enable-soft-gate: false
-            enable-coverage-delta: false
-            enable-metrics: false
-            enable-history: false
-            baseline-coverage: '70'
-            coverage-alert-drop: '1'
     with:
       working-directory: templates/integration-repo
-      python-versions: ${{ matrix['python-versions'] }}
-      coverage: ${{ matrix.coverage }}
-      format_check: ${{ matrix['format-check'] }}
-      lint: ${{ matrix.lint }}
-      typecheck: ${{ matrix.typecheck }}
-      enable-soft-gate: ${{ matrix['enable-soft-gate'] }}
-      enable-coverage-delta: ${{ matrix['enable-coverage-delta'] }}
-      enable-metrics: ${{ matrix['enable-metrics'] }}
-      enable-history: ${{ matrix['enable-history'] }}
-      baseline-coverage: ${{ matrix['baseline-coverage'] }}
-      coverage-alert-drop: ${{ matrix['coverage-alert-drop'] }}
-      artifact-prefix: integration-${{ matrix.name }}-
+      python-versions: '["3.11"]'
+      coverage: false
+      format_check: false
+      lint: false
+      typecheck: false
+      enable-soft-gate: false
+      enable-coverage-delta: false
+      enable-metrics: false
+      enable-history: false
+      baseline-coverage: '0'
+      coverage-alert-drop: '0'
+      artifact-prefix: integration-basic-
+
+  scenario-full:
+    name: Integration - full
+    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@v1
+    with:
+      working-directory: templates/integration-repo
+      python-versions: '["3.11","3.12"]'
+      coverage: true
+      format_check: true
+      lint: true
+      typecheck: true
+      enable-soft-gate: true
+      enable-coverage-delta: true
+      enable-metrics: true
+      enable-history: true
+      baseline-coverage: '80'
+      coverage-alert-drop: '2'
+      artifact-prefix: integration-full-
+
+  scenario-monorepo:
+    name: Integration - monorepo
+    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@v1
+    with:
+      working-directory: templates/integration-repo
+      python-versions: '["3.11"]'
+      coverage: true
+      format_check: true
+      lint: true
+      typecheck: true
+      enable-soft-gate: false
+      enable-coverage-delta: false
+      enable-metrics: false
+      enable-history: false
+      baseline-coverage: '70'
+      coverage-alert-drop: '1'
+      artifact-prefix: integration-monorepo-
 
   report:
     name: Report integration status
-    needs: scenarios
+    needs:
+      - scenario-basic
+      - scenario-full
+      - scenario-monorepo
     if: ${{ always() }}
     runs-on: ubuntu-latest
     permissions:
