@@ -96,8 +96,12 @@ async function createRateLimitedGithub(options = {}) {
     // Wrap the main paginate function
     const wrappedPaginate = async function (method, params, ...rest) {
       // The method is an Octokit endpoint like github.rest.issues.listComments
-      // We need to pass it through directly since it's already bound
-      return withRetry((client) => client.paginate(method, params, ...rest));
+      // We must use baseClient.paginate directly because:
+      // 1. The method arg may be a proxied endpoint bound to the wrapped client
+      // 2. Octokit's paginate needs the endpoint to be from the same client instance
+      // 3. Using withRetry with (client) => client.paginate would pass a different client
+      //    which breaks the endpoint's internal binding to route.endpoint
+      return withRetry(async () => baseClient.paginate(method, params, ...rest));
     };
     
     // Add iterator method that wraps each page fetch with retry logic
