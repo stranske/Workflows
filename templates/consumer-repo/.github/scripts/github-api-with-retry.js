@@ -105,7 +105,10 @@ function resolveOctokitFactory({ github, getOctokit, Octokit }) {
   if (github && typeof github.getOctokit === 'function') {
     return github.getOctokit.bind(github);
   }
-  if (github && typeof github.constructor === 'function') {
+  // Only use github.constructor if it's a real Octokit-like class,
+  // not just Object (which all plain objects have as constructor)
+  if (github && typeof github.constructor === 'function' && 
+      github.constructor.name !== 'Object' && github.constructor.name !== 'Array') {
     return (token) => new github.constructor({ auth: token });
   }
   if (Octokit) {
