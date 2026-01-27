@@ -176,8 +176,47 @@ async function ensureRateLimitWrapped(options = {}) {
   return createRateLimitedGithub({ github, core, env });
 }
 
+/**
+ * Higher-order function that wraps a function to automatically wrap the github
+ * client with rate-limit protection. This reduces boilerplate in module.exports.
+ * 
+ * @param {Function} fn - The async function to wrap. Must accept { github, ...rest }
+ * @param {Object} options - Options for the wrapper
+ * @param {Object} options.env - Environment variables (defaults to process.env)
+ * @returns {Function} Wrapped function with rate-limit protected github client
+ * 
+ * @example
+ * // Instead of:
+ * module.exports = {
+ *   myFunction: async function({ github: rawGithub, core, ...rest }) {
+ *     const github = await ensureRateLimitWrapped({ github: rawGithub, core, env: process.env });
+ *     return myFunction({ github, core, ...rest });
+ *   },
+ * };
+ * 
+ * // Use:
+ * module.exports = {
+ *   myFunction: wrapWithRateLimitedGithub(myFunction),
+ * };
+ */
+function wrapWithRateLimitedGithub(fn, options = {}) {
+  const { env = process.env } = options;
+  
+  return async function wrappedFunction({ github: rawGithub, core, ...rest }) {
+    let github;
+    try {
+      github = await ensureRateLimitWrapped({ github: rawGithub, core, env });
+    } catch (error) {
+      core?.warning?.(`Failed to wrap GitHub client: ${error.message} - using raw client`);
+      github = rawGithub;
+    }
+    return fn({ github, core, ...rest });
+  };
+}
+
 module.exports = {
   createRateLimitedGithub,
   isRateLimitWrapped,
   ensureRateLimitWrapped,
+  wrapWithRateLimitedGithub,
 };
