@@ -291,6 +291,9 @@ scripts:
   - source: .github/scripts/github-api-with-retry.js
     description: "GitHub API retry wrapper with exponential backoff and pagination support - required by agents-auto-pilot.yml"
 
+  - source: .github/scripts/github-rate-limited-wrapper.js
+    description: "Transparent rate-limit proxy - wraps all github.rest.* calls with automatic retry and token switching"
+
   - source: .github/scripts/rate-limit-aware-client.js
     description: "Rate limit aware client - proactively checks API limits before operations"
 
