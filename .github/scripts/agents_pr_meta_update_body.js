@@ -14,6 +14,7 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const childProcess = require('child_process');
+const { ensureRateLimitWrapped } = require('./github-rate-limited-wrapper.js');
 
 class RateLimitError extends Error {
   constructor(message, options = {}) {
@@ -855,7 +856,16 @@ async function discoverPr({github, context, core, inputs}) {
 
 // ========== Main Entry Point ==========
 
-async function run({github, context, core, inputs}) {
+async function run({github: rawGithub, context, core, inputs}) {
+  // Wrap github client with rate-limit-aware retry
+  let github;
+  try {
+    github = await ensureRateLimitWrapped({ github: rawGithub, core, env: process.env });
+  } catch (error) {
+    core?.warning?.(`Failed to wrap GitHub client: ${error.message} - using raw client`);
+    github = rawGithub;
+  }
+
   try {
     const {owner, repo} = context.repo;
   // Support dual-checkout pattern: WORKFLOWS_SCRIPTS_PATH points to where the

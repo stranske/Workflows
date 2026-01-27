@@ -1,4 +1,5 @@
 const { Buffer } = require('node:buffer');
+const { ensureRateLimitWrapped } = require('./github-rate-limited-wrapper.js');
 
 async function fetchAllowlist(github, owner, repo, path, ref) {
   let found = false;
@@ -139,7 +140,16 @@ async function computeCiStatus({ github, core, owner, repo, sha }) {
   return result;
 }
 
-async function evaluatePullRequest({ github, core, owner, repo, prNumber, config }) {
+async function evaluatePullRequest({ github: rawGithub, core, owner, repo, prNumber, config }) {
+  // Wrap github client with rate-limit-aware retry
+  let github;
+  try {
+    github = await ensureRateLimitWrapped({ github: rawGithub, core, env: process.env });
+  } catch (error) {
+    core?.warning?.(`Failed to wrap GitHub client: ${error.message} - using raw client`);
+    github = rawGithub;
+  }
+
   const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
   const labels = pr.labels.map((label) => label.name);
   const labelSet = new Set(labels);
@@ -236,7 +246,16 @@ async function evaluatePullRequest({ github, core, owner, repo, prNumber, config
   };
 }
 
-async function upsertDecisionComment({ github, owner, repo, prNumber, marker, body }) {
+async function upsertDecisionComment({ github: rawGithub, owner, repo, prNumber, marker, body }) {
+  // Wrap github client with rate-limit-aware retry
+  let github;
+  try {
+    github = await ensureRateLimitWrapped({ github: rawGithub, env: process.env });
+  } catch (error) {
+    console.warn(`Failed to wrap GitHub client: ${error.message} - using raw client`);
+    github = rawGithub;
+  }
+
   const comments = await github.rest.issues.listComments({ owner, repo, issue_number: prNumber, per_page: 100 });
   const existing = comments.data.find((comment) => typeof comment.body === 'string' && comment.body.includes(marker));
 
@@ -260,7 +279,16 @@ async function upsertDecisionComment({ github, owner, repo, prNumber, marker, bo
   return 'created';
 }
 
-async function syncCiStatusLabel({ github, owner, repo, prNumber, labelName, desired, present }) {
+async function syncCiStatusLabel({ github: rawGithub, owner, repo, prNumber, labelName, desired, present }) {
+  // Wrap github client with rate-limit-aware retry
+  let github;
+  try {
+    github = await ensureRateLimitWrapped({ github: rawGithub, env: process.env });
+  } catch (error) {
+    console.warn(`Failed to wrap GitHub client: ${error.message} - using raw client`);
+    github = rawGithub;
+  }
+
   if (!prNumber || !labelName) {
     return 'skipped';
   }

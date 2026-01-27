@@ -5,6 +5,8 @@
  * Detects merge conflicts on PRs to trigger conflict-specific prompts.
  */
 
+const { ensureRateLimitWrapped } = require('./github-rate-limited-wrapper.js');
+
 /**
  * Files to exclude from conflict detection.
  * These files have special merge strategies (e.g., merge=ours in .gitattributes)
@@ -289,7 +291,16 @@ async function checkCommentsForConflicts(github, context, prNumber) {
  * @param {string} [headSha] - Optional head SHA for CI log check
  * @returns {Promise<object>} Conflict detection result
  */
-async function detectConflicts(github, context, prNumber, headSha) {
+async function detectConflicts(rawGithub, context, prNumber, headSha) {
+  // Wrap github client with rate-limit-aware retry
+  let github;
+  try {
+    github = await ensureRateLimitWrapped({ github: rawGithub, env: process.env });
+  } catch (error) {
+    console.warn(`Failed to wrap GitHub client: ${error.message} - using raw client`);
+    github = rawGithub;
+  }
+
   const results = {
     hasConflict: false,
     detectionSources: [],

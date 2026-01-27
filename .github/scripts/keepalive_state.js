@@ -1,5 +1,7 @@
 'use strict';
 
+const { ensureRateLimitWrapped } = require('./github-rate-limited-wrapper.js');
+
 const STATE_MARKER = 'keepalive-state';
 const STATE_VERSION = 'v1';
 const STATE_REGEX = /<!--\s*keepalive-state(?::([\w.-]+))?\s+(.*?)\s*-->/s;
@@ -208,7 +210,16 @@ async function findStateComment({ github, owner, repo, prNumber, trace }) {
   return null;
 }
 
-async function createKeepaliveStateManager({ github, context, prNumber, trace, round }) {
+async function createKeepaliveStateManager({ github: rawGithub, context, prNumber, trace, round }) {
+  // Wrap github client with rate-limit-aware retry
+  let github;
+  try {
+    github = await ensureRateLimitWrapped({ github: rawGithub, env: process.env });
+  } catch (error) {
+    console.warn(`Failed to wrap GitHub client: ${error.message} - using raw client`);
+    github = rawGithub;
+  }
+
   const owner = context?.repo?.owner;
   const repo = context?.repo?.repo;
   if (!owner || !repo || !Number.isFinite(prNumber) || prNumber <= 0) {
@@ -297,12 +308,30 @@ async function createKeepaliveStateManager({ github, context, prNumber, trace, r
   };
 }
 
-async function saveKeepaliveState({ github, context, prNumber, trace, round, updates }) {
+async function saveKeepaliveState({ github: rawGithub, context, prNumber, trace, round, updates }) {
+  // Wrap github client with rate-limit-aware retry
+  let github;
+  try {
+    github = await ensureRateLimitWrapped({ github: rawGithub, env: process.env });
+  } catch (error) {
+    console.warn(`Failed to wrap GitHub client: ${error.message} - using raw client`);
+    github = rawGithub;
+  }
+
   const manager = await createKeepaliveStateManager({ github, context, prNumber, trace, round });
   return manager.save(updates);
 }
 
-async function loadKeepaliveState({ github, context, prNumber, trace }) {
+async function loadKeepaliveState({ github: rawGithub, context, prNumber, trace }) {
+  // Wrap github client with rate-limit-aware retry
+  let github;
+  try {
+    github = await ensureRateLimitWrapped({ github: rawGithub, env: process.env });
+  } catch (error) {
+    console.warn(`Failed to wrap GitHub client: ${error.message} - using raw client`);
+    github = rawGithub;
+  }
+
   const owner = context?.repo?.owner;
   const repo = context?.repo?.repo;
   if (!owner || !repo || !Number.isFinite(prNumber) || prNumber <= 0) {
@@ -321,7 +350,16 @@ async function loadKeepaliveState({ github, context, prNumber, trace }) {
   };
 }
 
-async function resetState({ github, context, prNumber, trace, round }) {
+async function resetState({ github: rawGithub, context, prNumber, trace, round }) {
+  // Wrap github client with rate-limit-aware retry
+  let github;
+  try {
+    github = await ensureRateLimitWrapped({ github: rawGithub, env: process.env });
+  } catch (error) {
+    console.warn(`Failed to wrap GitHub client: ${error.message} - using raw client`);
+    github = rawGithub;
+  }
+
   const startTime = Date.now();
   const timestamp = new Date(startTime).toISOString();
   const issueNumber = Number.isFinite(prNumber) ? String(prNumber) : normalise(prNumber);
