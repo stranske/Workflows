@@ -1230,9 +1230,18 @@ jobs:
           echo "start_date=$START_DATE" >> "$GITHUB_OUTPUT"
           echo "end_date=$END_DATE" >> "$GITHUB_OUTPUT"
 
+      - name: Mint workflows app token
+        id: workflows_app_token
+        if: ${{ secrets.WORKFLOWS_APP_ID != '' && secrets.WORKFLOWS_APP_PRIVATE_KEY != '' }}
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.WORKFLOWS_APP_ID }}
+          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+
       - name: Fetch historical workflow runs
         id: history
         env:
+          APP_GH_TOKEN: ${{ steps.workflows_app_token.outputs.token || '' }}
           PRIMARY_GH_TOKEN: ${{ secrets.CODESPACES_WORKFLOWS || '' }}
           FALLBACK_GH_TOKEN: ${{ github.token }}
           START_DATE: ${{ steps.dates.outputs.start_date }}
@@ -1242,7 +1251,10 @@ jobs:
 
           echo "Fetching Health 75 workflow runs from $START_DATE to $END_DATE"
 
-          primary_token="$PRIMARY_GH_TOKEN"
+          primary_token="$APP_GH_TOKEN"
+          if [ -z "$primary_token" ]; then
+            primary_token="$PRIMARY_GH_TOKEN"
+          fi
           if [ -z "$primary_token" ]; then
             primary_token="$FALLBACK_GH_TOKEN"
           fi
