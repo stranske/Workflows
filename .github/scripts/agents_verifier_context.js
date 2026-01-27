@@ -3,6 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
+const { ensureRateLimitWrapped } = require('./github-rate-limited-wrapper.js');
 
 const {
   extractScopeTasksAcceptanceSections,
@@ -605,7 +606,10 @@ async function buildVerifierContext({ github, context, core, ciWorkflows }) {
 }
 
 module.exports = {
-  buildVerifierContext,
+  buildVerifierContext: async function ({ github: rawGithub, context, core, ciWorkflows }) {
+    const github = ensureRateLimitWrapped({ github: rawGithub, core, env: process.env });
+    return buildVerifierContext({ github, context, core, ciWorkflows });
+  },
   formatDiffForContext,
   fetchLocalGitDiff,
   isValidSha,

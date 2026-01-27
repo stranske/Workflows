@@ -11,6 +11,8 @@
 
 'use strict';
 
+const { ensureRateLimitWrapped } = require('./github-rate-limited-wrapper.js');
+
 // ---------------------------------------------------------------------------
 // Configuration defaults
 // ---------------------------------------------------------------------------
@@ -363,10 +365,16 @@ module.exports = {
   // Core functions
   detectFork,
   validateActorAllowList,
-  checkCollaborator,
+  checkCollaborator: async function ({ github: rawGithub, context, actor }) {
+    const github = ensureRateLimitWrapped({ github: rawGithub, core: null, env: process.env });
+    return checkCollaborator({ github, context, actor });
+  },
   scanForRedFlags,
   sanitizeForDisplay,
-  evaluatePromptInjectionGuard,
+  evaluatePromptInjectionGuard: async function ({ github: rawGithub, context, pr, actor, promptContent = '', config = {}, core }) {
+    const github = ensureRateLimitWrapped({ github: rawGithub, core, env: process.env });
+    return evaluatePromptInjectionGuard({ github, context, pr, actor, promptContent, config, core });
+  },
 
   // Constants for testing/customization
   DEFAULT_ALLOWED_BOTS,

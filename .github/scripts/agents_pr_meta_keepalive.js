@@ -2,6 +2,7 @@
 
 const { createGithubApiCache } = require('./github-api-cache-client');
 const { makeTrace } = require('./keepalive_contract.js');
+const { ensureRateLimitWrapped } = require('./github-rate-limited-wrapper.js');
 
 const DEFAULT_INSTRUCTION_SIGNATURE =
   'keepalive workflow continues nudging until everything is complete';
@@ -727,7 +728,10 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
 }
 
 module.exports = {
-  detectKeepalive,
+  detectKeepalive: async function ({ core, github: rawGithub, context, env = process.env }) {
+    const github = ensureRateLimitWrapped({ github: rawGithub, core, env });
+    return detectKeepalive({ core, github, context, env });
+  },
   normaliseLogin,
   parseAllowedLogins,
   extractIssueNumberFromPull,

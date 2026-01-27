@@ -1,5 +1,7 @@
 'use strict';
 
+const { ensureRateLimitWrapped } = require('./github-rate-limited-wrapper.js');
+
 function isCodexBranch(branch) {
   return /^codex\/issue-\d+$/.test(branch || '');
 }
@@ -96,4 +98,10 @@ async function identifyReadyCodexPRs({ github, context, core, env = process.env 
   return { candidates };
 }
 
-module.exports = { identifyReadyCodexPRs, isCodexBranch };
+module.exports = {
+  identifyReadyCodexPRs: async function ({ github: rawGithub, context, core, env = process.env }) {
+    const github = ensureRateLimitWrapped({ github: rawGithub, core, env });
+    return identifyReadyCodexPRs({ github, context, core, env });
+  },
+  isCodexBranch,
+};

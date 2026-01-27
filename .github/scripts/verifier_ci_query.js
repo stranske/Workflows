@@ -1,6 +1,7 @@
 'use strict';
 
 const { classifyError, ERROR_CATEGORIES } = require('./error_classifier');
+const { ensureRateLimitWrapped } = require('./github-rate-limited-wrapper.js');
 
 const DEFAULT_WORKFLOWS = [
   { workflow_name: 'Gate', workflow_id: 'pr-00-gate.yml' },
@@ -213,5 +214,8 @@ async function queryVerifierCiResults({
 
 module.exports = {
   DEFAULT_WORKFLOWS,
-  queryVerifierCiResults,
+  queryVerifierCiResults: async function ({ github: rawGithub, context, core, targetSha, targetShas, workflows, retryOptions } = {}) {
+    const github = ensureRateLimitWrapped({ github: rawGithub, core, env: process.env });
+    return queryVerifierCiResults({ github, context, core, targetSha, targetShas, workflows, retryOptions });
+  },
 };

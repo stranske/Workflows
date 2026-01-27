@@ -1,5 +1,7 @@
 'use strict';
 
+const { ensureRateLimitWrapped } = require('./github-rate-limited-wrapper.js');
+
 /**
  * agents_pr_meta_orchestrator.js
  * 
@@ -448,10 +450,28 @@ async function runKeepaliveOrchestrator({github, context, core, inputs, secrets}
 }
 
 module.exports = {
-  acquireActivationLock,
-  snapshotOrchestratorRuns,
-  dispatchOrchestrator,
-  confirmDispatch,
-  dispatchKeepaliveCommand,
-  runKeepaliveOrchestrator,
+  acquireActivationLock: async function ({github: rawGithub, context, core, commentId}) {
+    const github = ensureRateLimitWrapped({ github: rawGithub, core, env: process.env });
+    return acquireActivationLock({github, context, core, commentId});
+  },
+  snapshotOrchestratorRuns: async function ({github: rawGithub, context, core, prNumber, trace}) {
+    const github = ensureRateLimitWrapped({ github: rawGithub, core, env: process.env });
+    return snapshotOrchestratorRuns({github, context, core, prNumber, trace});
+  },
+  dispatchOrchestrator: async function ({github: rawGithub, context, core, inputs}) {
+    const github = ensureRateLimitWrapped({ github: rawGithub, core, env: process.env });
+    return dispatchOrchestrator({github, context, core, inputs});
+  },
+  confirmDispatch: async function ({github: rawGithub, context, core, baselineIds, baselineTimestamp, prNumber, trace}) {
+    const github = ensureRateLimitWrapped({ github: rawGithub, core, env: process.env });
+    return confirmDispatch({github, context, core, baselineIds, baselineTimestamp, prNumber, trace});
+  },
+  dispatchKeepaliveCommand: async function ({github: rawGithub, context, core, inputs}) {
+    const github = ensureRateLimitWrapped({ github: rawGithub, core, env: process.env });
+    return dispatchKeepaliveCommand({github, context, core, inputs});
+  },
+  runKeepaliveOrchestrator: async function ({github: rawGithub, context, core, inputs, secrets}) {
+    const github = ensureRateLimitWrapped({ github: rawGithub, core, env: process.env });
+    return runKeepaliveOrchestrator({github, context, core, inputs, secrets});
+  },
 };

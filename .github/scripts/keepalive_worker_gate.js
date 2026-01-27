@@ -2,6 +2,7 @@
 
 const { detectKeepalive } = require('./agents_pr_meta_keepalive.js');
 const { loadKeepaliveState } = require('./keepalive_state.js');
+const { ensureRateLimitWrapped } = require('./github-rate-limited-wrapper.js');
 
 function normalise(value) {
   return String(value ?? '').trim();
@@ -333,5 +334,8 @@ async function evaluateKeepaliveWorkerGate({ core, github, context, env = proces
 }
 
 module.exports = {
-  evaluateKeepaliveWorkerGate,
+  evaluateKeepaliveWorkerGate: async function ({ core, github: rawGithub, context, env = process.env }) {
+    const github = ensureRateLimitWrapped({ github: rawGithub, core, env });
+    return evaluateKeepaliveWorkerGate({ core, github, context, env });
+  },
 };

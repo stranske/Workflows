@@ -2,6 +2,7 @@
 
 const { makeTrace } = require('./keepalive_contract.js');
 const { getKeepaliveInstructionWithMention } = require('./keepalive_instruction_template.js');
+const { ensureRateLimitWrapped } = require('./github-rate-limited-wrapper.js');
 
 const DEFAULT_READINESS_AGENTS = 'copilot,codex';
 const DEFAULT_VERIFY_ISSUE_ASSIGNEES =
@@ -581,7 +582,10 @@ async function resolveOrchestratorParams({ github, context, core, env = process.
 }
 
 module.exports = {
-  resolveOrchestratorParams,
+  resolveOrchestratorParams: async function ({ github: rawGithub, context, core, env = process.env }) {
+    const github = ensureRateLimitWrapped({ github: rawGithub, core, env });
+    return resolveOrchestratorParams({ github, context, core, env });
+  },
   __internals: {
     toString,
     toBoolString,

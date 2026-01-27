@@ -1,5 +1,7 @@
 'use strict';
 
+const { ensureRateLimitWrapped } = require('./github-rate-limited-wrapper.js');
+
 const DOC_EXTENSIONS = [
   '.md',
   '.mdx',
@@ -296,7 +298,10 @@ async function detectChanges({ github, context, core, files, fetchFiles } = {}) 
 }
 
 module.exports = {
-  detectChanges,
+  detectChanges: async function ({ github: rawGithub, context, core, files, fetchFiles } = {}) {
+    const github = ensureRateLimitWrapped({ github: rawGithub, core, env: process.env });
+    return detectChanges({ github, context, core, files, fetchFiles });
+  },
   classifyChanges,
   isDocumentationFile,
   isDockerRelated,

@@ -7,6 +7,7 @@ const {
   isGateReason,
 } = require('./keepalive_guard_utils.js');
 const { evaluateKeepaliveGate } = require('./keepalive_gate.js');
+const { ensureRateLimitWrapped } = require('./github-rate-limited-wrapper.js');
 
 /**
  * Execute keepalive gate evaluation and emit outputs.
@@ -323,4 +324,9 @@ async function runKeepaliveGate({ core, github, context, env }) {
   setOutputs(true, '');
 }
 
-module.exports = { runKeepaliveGate };
+module.exports = {
+  runKeepaliveGate: async function ({ core, github: rawGithub, context, env }) {
+    const github = ensureRateLimitWrapped({ github: rawGithub, core, env });
+    return runKeepaliveGate({ core, github, context, env });
+  },
+};
