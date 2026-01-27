@@ -131,8 +131,8 @@ async function createRateLimitedGithub(options = {}) {
       // Get the original async iterable from the base client
       // Note: paginate.iterator() returns an async iterable (has [Symbol.asyncIterator])
       // not a direct async iterator (with .next). We need to get the iterator from it.
-      const resolvedMethod = resolveMethod(baseClient, method);
-      const originalIterable = baseClient.paginate.iterator(resolvedMethod, params, ...rest);
+  const resolvedMethod = resolveMethod(baseClient, method);
+  const originalIterable = baseClient.paginate.iterator(resolvedMethod, params, ...rest);
       
       // Return a wrapped async iterable that:
       // 1. Applies retry to each next() call for rate limit resilience
@@ -174,9 +174,9 @@ async function createRateLimitedGithub(options = {}) {
   // Create the proxied github object
   const proxiedGithub = new Proxy(baseClient, {
     get(target, prop) {
-      if (prop === 'rest' && target.rest) {
-        return createNamespaceProxy(target.rest, 'rest');
-      }
+  if (prop === 'rest' && target.rest) {
+    return createNamespaceProxy(target.rest, 'rest');
+  }
       
       if (prop === 'graphql' && typeof target.graphql === 'function') {
         return async function wrappedGraphql(...args) {
