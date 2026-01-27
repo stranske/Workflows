@@ -101,24 +101,45 @@ async function createRateLimitedGithub(options = {}) {
     };
     
     // Add iterator method that wraps each page fetch with retry logic
+    // and preserves the full AsyncIterator interface (next/return/throw)
     wrappedPaginate.iterator = function (method, params, ...rest) {
       // Get the original iterator from the base client
       const originalIterator = baseClient.paginate.iterator(method, params, ...rest);
       
-      // Return a wrapped async iterator that applies retry to each next() call
-      return {
+      // Return a wrapped async iterator that:
+      // 1. Applies retry to each next() call for rate limit resilience
+      // 2. Preserves the full AsyncIterator interface for compatibility
+      const wrappedIterator = {
+        async next(...args) {
+          // Wrap each page fetch with retry logic for rate limit resilience
+          // Note: the iterator is already bound to the original client, so we
+          // cannot easily perform full token switching per page, but we still
+          // route each next() call through withRetry for backoff and transient
+          // error handling.
+          return withRetry(async () => {
+            return originalIterator.next(...args);
+          });
+        },
+        async return(value) {
+          // Delegate to original iterator's return() if it exists
+          if (typeof originalIterator.return === 'function') {
+            return originalIterator.return(value);
+          }
+          return { value, done: true };
+        },
+        async throw(error) {
+          // Delegate to original iterator's throw() if it exists
+          if (typeof originalIterator.throw === 'function') {
+            return originalIterator.throw(error);
+          }
+          throw error;
+        },
         [Symbol.asyncIterator]() {
-          const iter = originalIterator[Symbol.asyncIterator]();
-          return {
-            async next() {
-              // Wrap each page fetch with retry logic for rate limit resilience
-              return withRetry(async () => {
-                return iter.next();
-              });
-            },
-          };
+          return this;
         },
       };
+      
+      return wrappedIterator;
     };
     
     return wrappedPaginate;

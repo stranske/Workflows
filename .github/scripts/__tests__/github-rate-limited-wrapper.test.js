@@ -113,3 +113,176 @@ test('createRateLimitedGithub throws with null github client', async () => {
     { message: 'createRateLimitedGithub requires a github client' }
   );
 });
+
+// Test paginate.iterator support
+test('wrapped client preserves paginate.iterator method', async () => {
+  const { createRateLimitedGithub } = require('../github-rate-limited-wrapper.js');
+  
+  // Create a mock that resembles a real Octokit client
+  const mockIterator = {
+    async next() { return { value: [{ id: 1 }], done: false }; },
+    async return(value) { return { value, done: true }; },
+    async throw(error) { throw error; },
+    [Symbol.asyncIterator]() { return this; },
+  };
+  
+  const github = {
+    rest: { issues: { listForRepo: () => {} } },
+    request: function() {},
+    hook: {},
+    paginate: Object.assign(
+      async function() { return []; },
+      { iterator: () => mockIterator }
+    ),
+  };
+  
+  const wrapped = await createRateLimitedGithub({ github });
+  
+  // Verify paginate.iterator exists on wrapped client
+  assert.equal(typeof wrapped.paginate, 'function', 'paginate should be a function');
+  assert.equal(typeof wrapped.paginate.iterator, 'function', 'paginate.iterator should be a function');
+});
+
+test('wrapped paginate.iterator returns async iterable', async () => {
+  const { createRateLimitedGithub } = require('../github-rate-limited-wrapper.js');
+  
+  // Track calls to verify retry wrapping
+  let nextCallCount = 0;
+  const mockIterator = {
+    async next() {
+      nextCallCount++;
+      if (nextCallCount === 1) {
+        return { value: { data: [{ id: 1 }] }, done: false };
+      }
+      return { value: undefined, done: true };
+    },
+    async return(value) { return { value, done: true }; },
+    async throw(error) { throw error; },
+    [Symbol.asyncIterator]() { return this; },
+  };
+  
+  const github = {
+    rest: { issues: { listForRepo: () => {} } },
+    request: function() {},
+    hook: {},
+    paginate: Object.assign(
+      async function() { return []; },
+      { iterator: () => mockIterator }
+    ),
+  };
+  
+  const wrapped = await createRateLimitedGithub({ github });
+  const iter = wrapped.paginate.iterator(github.rest.issues.listForRepo, { owner: 'test', repo: 'test' });
+  
+  // Verify iterator is async-iterable
+  assert.equal(typeof iter[Symbol.asyncIterator], 'function', 'should be async iterable');
+  assert.equal(typeof iter.next, 'function', 'should have next method');
+  
+  // Consume the iterator
+  const results = [];
+  for await (const page of iter) {
+    results.push(page);
+  }
+  
+  assert.equal(results.length, 1, 'should have received one page');
+  assert.equal(nextCallCount, 2, 'next should have been called twice (one page + done)');
+});
+
+test('wrapped paginate.iterator exposes full AsyncIterator interface', async () => {
+  const { createRateLimitedGithub } = require('../github-rate-limited-wrapper.js');
+  
+  const mockIterator = {
+    async next() { return { value: undefined, done: true }; },
+    async return(value) { return { value, done: true }; },
+    async throw(error) { throw error; },
+    [Symbol.asyncIterator]() { return this; },
+  };
+  
+  const github = {
+    rest: { issues: { listForRepo: () => {} } },
+    request: function() {},
+    hook: {},
+    paginate: Object.assign(
+      async function() { return []; },
+      { iterator: () => mockIterator }
+    ),
+  };
+  
+  const wrapped = await createRateLimitedGithub({ github });
+  const iter = wrapped.paginate.iterator(github.rest.issues.listForRepo, { owner: 'test', repo: 'test' });
+  
+  // Verify full AsyncIterator interface is exposed
+  assert.equal(typeof iter.next, 'function', 'should have next method');
+  assert.equal(typeof iter.return, 'function', 'should have return method');
+  assert.equal(typeof iter.throw, 'function', 'should have throw method');
+  assert.equal(typeof iter[Symbol.asyncIterator], 'function', 'should be async iterable');
+  
+  // Verify [Symbol.asyncIterator]() returns self
+  assert.equal(iter[Symbol.asyncIterator](), iter, '[Symbol.asyncIterator]() should return self');
+});
+
+test('wrapped paginate.iterator return() delegates to original', async () => {
+  const { createRateLimitedGithub } = require('../github-rate-limited-wrapper.js');
+  
+  let returnCalled = false;
+  const mockIterator = {
+    async next() { return { value: undefined, done: true }; },
+    async return(value) { 
+      returnCalled = true;
+      return { value, done: true }; 
+    },
+    async throw(error) { throw error; },
+    [Symbol.asyncIterator]() { return this; },
+  };
+  
+  const github = {
+    rest: { issues: { listForRepo: () => {} } },
+    request: function() {},
+    hook: {},
+    paginate: Object.assign(
+      async function() { return []; },
+      { iterator: () => mockIterator }
+    ),
+  };
+  
+  const wrapped = await createRateLimitedGithub({ github });
+  const iter = wrapped.paginate.iterator(github.rest.issues.listForRepo, { owner: 'test', repo: 'test' });
+  
+  await iter.return('cleanup');
+  assert.equal(returnCalled, true, 'should have called original return()');
+});
+
+test('wrapped paginate.iterator throw() delegates to original', async () => {
+  const { createRateLimitedGithub } = require('../github-rate-limited-wrapper.js');
+  
+  let throwCalled = false;
+  const testError = new Error('test error');
+  const mockIterator = {
+    async next() { return { value: undefined, done: true }; },
+    async return(value) { return { value, done: true }; },
+    async throw(error) { 
+      throwCalled = true;
+      throw error; 
+    },
+    [Symbol.asyncIterator]() { return this; },
+  };
+  
+  const github = {
+    rest: { issues: { listForRepo: () => {} } },
+    request: function() {},
+    hook: {},
+    paginate: Object.assign(
+      async function() { return []; },
+      { iterator: () => mockIterator }
+    ),
+  };
+  
+  const wrapped = await createRateLimitedGithub({ github });
+  const iter = wrapped.paginate.iterator(github.rest.issues.listForRepo, { owner: 'test', repo: 'test' });
+  
+  await assert.rejects(
+    iter.throw(testError),
+    testError
+  );
+  assert.equal(throwCalled, true, 'should have called original throw()');
+});
