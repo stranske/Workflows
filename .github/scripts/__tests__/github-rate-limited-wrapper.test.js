@@ -118,12 +118,15 @@ test('createRateLimitedGithub throws with null github client', async () => {
 test('wrapped client preserves paginate.iterator method', async () => {
   const { createRateLimitedGithub } = require('../github-rate-limited-wrapper.js');
   
-  // Create a mock that resembles a real Octokit client
-  const mockIterator = {
-    async next() { return { value: [{ id: 1 }], done: false }; },
-    async return(value) { return { value, done: true }; },
-    async throw(error) { throw error; },
-    [Symbol.asyncIterator]() { return this; },
+  // Mock the async iterable structure that Octokit returns
+  const mockIterable = {
+    [Symbol.asyncIterator]() {
+      return {
+        async next() { return { value: [{ id: 1 }], done: false }; },
+        async return(value) { return { value, done: true }; },
+        async throw(error) { throw error; },
+      };
+    },
   };
   
   const github = {
@@ -132,7 +135,7 @@ test('wrapped client preserves paginate.iterator method', async () => {
     hook: {},
     paginate: Object.assign(
       async function() { return []; },
-      { iterator: () => mockIterator }
+      { iterator: () => mockIterable }
     ),
   };
   
@@ -148,17 +151,21 @@ test('wrapped paginate.iterator returns async iterable', async () => {
   
   // Track calls to verify retry wrapping
   let nextCallCount = 0;
-  const mockIterator = {
-    async next() {
-      nextCallCount++;
-      if (nextCallCount === 1) {
-        return { value: { data: [{ id: 1 }] }, done: false };
-      }
-      return { value: undefined, done: true };
+  // Mock the async iterable structure that Octokit returns
+  const mockIterable = {
+    [Symbol.asyncIterator]() {
+      return {
+        async next() {
+          nextCallCount++;
+          if (nextCallCount === 1) {
+            return { value: { data: [{ id: 1 }] }, done: false };
+          }
+          return { value: undefined, done: true };
+        },
+        async return(value) { return { value, done: true }; },
+        async throw(error) { throw error; },
+      };
     },
-    async return(value) { return { value, done: true }; },
-    async throw(error) { throw error; },
-    [Symbol.asyncIterator]() { return this; },
   };
   
   const github = {
@@ -167,16 +174,19 @@ test('wrapped paginate.iterator returns async iterable', async () => {
     hook: {},
     paginate: Object.assign(
       async function() { return []; },
-      { iterator: () => mockIterator }
+      { iterator: () => mockIterable }
     ),
   };
   
   const wrapped = await createRateLimitedGithub({ github });
   const iter = wrapped.paginate.iterator(github.rest.issues.listForRepo, { owner: 'test', repo: 'test' });
   
-  // Verify iterator is async-iterable
+  // Verify iterable has [Symbol.asyncIterator]
   assert.equal(typeof iter[Symbol.asyncIterator], 'function', 'should be async iterable');
-  assert.equal(typeof iter.next, 'function', 'should have next method');
+  
+  // Get the actual iterator and verify it has next
+  const actualIter = iter[Symbol.asyncIterator]();
+  assert.equal(typeof actualIter.next, 'function', 'iterator should have next method');
   
   // Consume the iterator
   const results = [];
@@ -191,11 +201,15 @@ test('wrapped paginate.iterator returns async iterable', async () => {
 test('wrapped paginate.iterator exposes full AsyncIterator interface', async () => {
   const { createRateLimitedGithub } = require('../github-rate-limited-wrapper.js');
   
-  const mockIterator = {
-    async next() { return { value: undefined, done: true }; },
-    async return(value) { return { value, done: true }; },
-    async throw(error) { throw error; },
-    [Symbol.asyncIterator]() { return this; },
+  // Mock the async iterable structure that Octokit returns
+  const mockIterable = {
+    [Symbol.asyncIterator]() {
+      return {
+        async next() { return { value: undefined, done: true }; },
+        async return(value) { return { value, done: true }; },
+        async throw(error) { throw error; },
+      };
+    },
   };
   
   const github = {
@@ -204,35 +218,39 @@ test('wrapped paginate.iterator exposes full AsyncIterator interface', async () 
     hook: {},
     paginate: Object.assign(
       async function() { return []; },
-      { iterator: () => mockIterator }
+      { iterator: () => mockIterable }
     ),
   };
   
   const wrapped = await createRateLimitedGithub({ github });
-  const iter = wrapped.paginate.iterator(github.rest.issues.listForRepo, { owner: 'test', repo: 'test' });
+  const iterable = wrapped.paginate.iterator(github.rest.issues.listForRepo, { owner: 'test', repo: 'test' });
   
-  // Verify full AsyncIterator interface is exposed
+  // Verify iterable has [Symbol.asyncIterator]
+  assert.equal(typeof iterable[Symbol.asyncIterator], 'function', 'should be async iterable');
+  
+  // Get the actual iterator and verify full interface
+  const iter = iterable[Symbol.asyncIterator]();
   assert.equal(typeof iter.next, 'function', 'should have next method');
   assert.equal(typeof iter.return, 'function', 'should have return method');
   assert.equal(typeof iter.throw, 'function', 'should have throw method');
-  assert.equal(typeof iter[Symbol.asyncIterator], 'function', 'should be async iterable');
-  
-  // Verify [Symbol.asyncIterator]() returns self
-  assert.equal(iter[Symbol.asyncIterator](), iter, '[Symbol.asyncIterator]() should return self');
 });
 
 test('wrapped paginate.iterator return() delegates to original', async () => {
   const { createRateLimitedGithub } = require('../github-rate-limited-wrapper.js');
   
   let returnCalled = false;
-  const mockIterator = {
-    async next() { return { value: undefined, done: true }; },
-    async return(value) { 
-      returnCalled = true;
-      return { value, done: true }; 
+  // Mock the async iterable structure that Octokit returns
+  const mockIterable = {
+    [Symbol.asyncIterator]() {
+      return {
+        async next() { return { value: undefined, done: true }; },
+        async return(value) { 
+          returnCalled = true;
+          return { value, done: true }; 
+        },
+        async throw(error) { throw error; },
+      };
     },
-    async throw(error) { throw error; },
-    [Symbol.asyncIterator]() { return this; },
   };
   
   const github = {
@@ -241,12 +259,13 @@ test('wrapped paginate.iterator return() delegates to original', async () => {
     hook: {},
     paginate: Object.assign(
       async function() { return []; },
-      { iterator: () => mockIterator }
+      { iterator: () => mockIterable }
     ),
   };
   
   const wrapped = await createRateLimitedGithub({ github });
-  const iter = wrapped.paginate.iterator(github.rest.issues.listForRepo, { owner: 'test', repo: 'test' });
+  const iterable = wrapped.paginate.iterator(github.rest.issues.listForRepo, { owner: 'test', repo: 'test' });
+  const iter = iterable[Symbol.asyncIterator]();
   
   await iter.return('cleanup');
   assert.equal(returnCalled, true, 'should have called original return()');
@@ -257,14 +276,18 @@ test('wrapped paginate.iterator throw() delegates to original', async () => {
   
   let throwCalled = false;
   const testError = new Error('test error');
-  const mockIterator = {
-    async next() { return { value: undefined, done: true }; },
-    async return(value) { return { value, done: true }; },
-    async throw(error) { 
-      throwCalled = true;
-      throw error; 
+  // Mock the async iterable structure that Octokit returns
+  const mockIterable = {
+    [Symbol.asyncIterator]() {
+      return {
+        async next() { return { value: undefined, done: true }; },
+        async return(value) { return { value, done: true }; },
+        async throw(error) { 
+          throwCalled = true;
+          throw error; 
+        },
+      };
     },
-    [Symbol.asyncIterator]() { return this; },
   };
   
   const github = {
@@ -273,12 +296,13 @@ test('wrapped paginate.iterator throw() delegates to original', async () => {
     hook: {},
     paginate: Object.assign(
       async function() { return []; },
-      { iterator: () => mockIterator }
+      { iterator: () => mockIterable }
     ),
   };
   
   const wrapped = await createRateLimitedGithub({ github });
-  const iter = wrapped.paginate.iterator(github.rest.issues.listForRepo, { owner: 'test', repo: 'test' });
+  const iterable = wrapped.paginate.iterator(github.rest.issues.listForRepo, { owner: 'test', repo: 'test' });
+  const iter = iterable[Symbol.asyncIterator]();
   
   await assert.rejects(
     iter.throw(testError),

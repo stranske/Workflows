@@ -107,43 +107,43 @@ async function createRateLimitedGithub(options = {}) {
     // Add iterator method that wraps each page fetch with retry logic
     // and preserves the full AsyncIterator interface (next/return/throw)
     wrappedPaginate.iterator = function (method, params, ...rest) {
-      // Get the original iterator from the base client
-      const originalIterator = baseClient.paginate.iterator(method, params, ...rest);
+      // Get the original async iterable from the base client
+      // Note: paginate.iterator() returns an async iterable (has [Symbol.asyncIterator])
+      // not a direct async iterator (with .next). We need to get the iterator from it.
+      const originalIterable = baseClient.paginate.iterator(method, params, ...rest);
       
-      // Return a wrapped async iterator that:
+      // Return a wrapped async iterable that:
       // 1. Applies retry to each next() call for rate limit resilience
       // 2. Preserves the full AsyncIterator interface for compatibility
-      const wrappedIterator = {
-        async next(...args) {
-          // Wrap each page fetch with retry logic for rate limit resilience
-          // Note: the iterator is already bound to the original client, so we
-          // cannot easily perform full token switching per page, but we still
-          // route each next() call through withRetry for backoff and transient
-          // error handling.
-          return withRetry(async () => {
-            return originalIterator.next(...args);
-          });
-        },
-        async return(value) {
-          // Delegate to original iterator's return() if it exists
-          if (typeof originalIterator.return === 'function') {
-            return originalIterator.return(value);
-          }
-          return { value, done: true };
-        },
-        async throw(error) {
-          // Delegate to original iterator's throw() if it exists
-          if (typeof originalIterator.throw === 'function') {
-            return originalIterator.throw(error);
-          }
-          throw error;
-        },
+      return {
         [Symbol.asyncIterator]() {
-          return this;
+          // Get the actual iterator from the iterable
+          const originalIterator = originalIterable[Symbol.asyncIterator]();
+          
+          return {
+            async next(...args) {
+              // Wrap each page fetch with retry logic for rate limit resilience
+              return withRetry(async () => {
+                return originalIterator.next(...args);
+              });
+            },
+            async return(value) {
+              // Delegate to original iterator's return() if it exists
+              if (typeof originalIterator.return === 'function') {
+                return originalIterator.return(value);
+              }
+              return { value, done: true };
+            },
+            async throw(error) {
+              // Delegate to original iterator's throw() if it exists
+              if (typeof originalIterator.throw === 'function') {
+                return originalIterator.throw(error);
+              }
+              throw error;
+            },
+          };
         },
       };
-      
-      return wrappedIterator;
     };
     
     return wrappedPaginate;
