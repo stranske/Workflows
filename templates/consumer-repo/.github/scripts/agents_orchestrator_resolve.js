@@ -583,7 +583,7 @@ async function resolveOrchestratorParams({ github, context, core, env = process.
 
 module.exports = {
   resolveOrchestratorParams: async function ({ github: rawGithub, context, core, env = process.env }) {
-    const github = ensureRateLimitWrapped({ github: rawGithub, core, env });
+    const github = await ensureRateLimitWrapped({ github: rawGithub, core, env });
     return resolveOrchestratorParams({ github, context, core, env });
   },
   __internals: {

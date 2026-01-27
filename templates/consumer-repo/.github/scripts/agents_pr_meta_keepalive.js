@@ -729,7 +729,7 @@ async function detectKeepalive({ core, github, context, env = process.env }) {
 
 module.exports = {
   detectKeepalive: async function ({ core, github: rawGithub, context, env = process.env }) {
-    const github = ensureRateLimitWrapped({ github: rawGithub, core, env });
+    const github = await ensureRateLimitWrapped({ github: rawGithub, core, env });
     return detectKeepalive({ core, github, context, env });
   },
   normaliseLogin,

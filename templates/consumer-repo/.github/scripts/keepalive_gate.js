@@ -1132,15 +1132,15 @@ async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
 
 module.exports = {
   evaluateKeepaliveGate: async function ({ core, github: rawGithub, context, options = {} }) {
-    const github = ensureRateLimitWrapped({ github: rawGithub, core, env: process.env });
+    const github = await ensureRateLimitWrapped({ github: rawGithub, core, env: process.env });
     return evaluateKeepaliveGate({ core, github, context, options });
   },
-  countActive: async function ({ github: rawGithub, owner, repo, headBranch, core }) {
-    const github = ensureRateLimitWrapped({ github: rawGithub, core, env: process.env });
-    return countActive({ github, owner, repo, headBranch, core });
+  countActive: async function ({ github: rawGithub, core, ...rest }) {
+    const github = await ensureRateLimitWrapped({ github: rawGithub, core, env: process.env });
+    return countActive({ github, core, ...rest });
   },
-  evaluateRunCapForPr: async function ({ github: rawGithub, owner, repo, prNumber, core }) {
-    const github = ensureRateLimitWrapped({ github: rawGithub, core, env: process.env });
-    return evaluateRunCapForPr({ github, owner, repo, prNumber, core });
+  evaluateRunCapForPr: async function ({ github: rawGithub, core, ...rest }) {
+    const github = await ensureRateLimitWrapped({ github: rawGithub, core, env: process.env });
+    return evaluateRunCapForPr({ github, core, ...rest });
   },
 };

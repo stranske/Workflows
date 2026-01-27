@@ -266,7 +266,7 @@ module.exports = {
   buildCompletionComment,
   findExistingComment,
   postCompletionComment: async function ({ github: rawGithub, context, core, inputs }) {
-    const github = ensureRateLimitWrapped({ github: rawGithub, core, env: process.env });
+    const github = await ensureRateLimitWrapped({ github: rawGithub, core, env: process.env });
     return postCompletionComment({ github, context, core, inputs });
   },
 };
