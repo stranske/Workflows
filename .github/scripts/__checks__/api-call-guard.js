@@ -6,7 +6,7 @@
  * are wrapped with the token-aware retry pattern for rate limit resilience.
  * 
  * Usage:
- *   node .github/scripts/__checks__/api-call-guard.js [--fix-report]
+ *   node .github/scripts/__checks__/api-call-guard.js
  * 
  * Exit codes:
  *   0 - All API calls are properly wrapped
@@ -30,6 +30,8 @@ const RETRY_WRAPPER_PATTERNS = [
   /withRetry\s*\(/,
   /createTokenAwareRetry/,
   /paginateWithRetry/,
+  /ensureRateLimitWrapped/,
+  /createRateLimitedGithub/,
 ];
 
 // Files that are exempt from this check (the retry wrapper itself, tests, etc.)
@@ -85,7 +87,7 @@ function scanFile(filePath) {
     return { noApiCalls: true, file: filePath };
   }
   
-  // Check if API calls are wrapped in withRetry
+  // Check if API calls are wrapped in withRetry or use wrapped github client
   const unprotectedCalls = apiCalls.filter(call => {
     // Simple heuristic: check if the line or nearby context has withRetry
     const lineContent = call.code;
@@ -99,6 +101,12 @@ function scanFile(filePath) {
     // Check if the call uses a client parameter (indicating it's in a callback)
     if (/\(client\)\s*=>\s*client\./.test(lineContent)) {
       return false; // Using client param pattern
+    }
+    
+    // If file has ensureRateLimitWrapped import and wraps github at entry,
+    // all subsequent API calls are protected via the proxy
+    if (hasRetryImport) {
+      return false; // File imports wrapper, assume calls are protected
     }
     
     return true; // Unprotected

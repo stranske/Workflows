@@ -4,12 +4,30 @@
 
 ## Quick Reference
 
+There are two patterns for protecting API calls:
+
+### Pattern 1: Transparent Proxy (Recommended for most scripts)
+
 ```javascript
 // ❌ WRONG - Unprotected API call
 const { data } = await github.rest.issues.get({ owner, repo, issue_number });
 
-// ✅ CORRECT - Token-aware retry pattern
+// ✅ CORRECT - Wrap github client at entry point, then use normally
+const { ensureRateLimitWrapped } = require('./github-rate-limited-wrapper.js');
+
+async function myFunction({ github: rawGithub, core }) {
+  const github = await ensureRateLimitWrapped({ github: rawGithub, core, env: process.env });
+  
+  // All calls are now automatically protected - no callback needed!
+  const { data } = await github.rest.issues.get({ owner, repo, issue_number });
+}
+```
+
+### Pattern 2: Explicit Callback (For fine-grained control)
+
+```javascript
 const { createTokenAwareRetry } = require('./github-api-with-retry.js');
+
 const { withRetry } = await createTokenAwareRetry({ github, core });
 const { data } = await withRetry((client) => client.rest.issues.get({ owner, repo, issue_number }));
 ```
@@ -26,9 +44,62 @@ With token-aware retry:
 - Exponential backoff prevents hammering the API
 - Transparent to calling code - just wrap and forget
 
-## Full Setup Pattern
+## Full Setup Patterns
 
-### For Scripts (`.github/scripts/*.js`)
+### Pattern 1: Transparent Proxy (Recommended)
+
+This pattern wraps the entire github client once at the entry point. All subsequent 
+`github.rest.*` calls are automatically protected via JavaScript Proxy.
+
+```javascript
+'use strict';
+
+const { ensureRateLimitWrapped } = require('./github-rate-limited-wrapper.js');
+
+async function myFunction({ github: rawGithub, core, context }) {
+  // Wrap the github client once at the entry point
+  const github = await ensureRateLimitWrapped({ 
+    github: rawGithub, 
+    core, 
+    env: process.env 
+  });
+
+  // All API calls are now automatically protected - no callbacks needed!
+  const { data: issue } = await github.rest.issues.get({
+    owner: context.repo.owner,
+    repo: context.repo.repo,
+    issue_number: 123,
+  });
+
+  const { data: pr } = await github.rest.pulls.get({
+    owner: context.repo.owner,
+    repo: context.repo.repo,
+    pull_number: 456,
+  });
+
+  // Paginate works too
+  const allComments = await github.paginate(github.rest.issues.listComments, {
+    owner: context.repo.owner,
+    repo: context.repo.repo,
+    issue_number: 123,
+  });
+
+  return { issue, pr, comments: allComments };
+}
+
+// Wrap exported functions to ensure protection at the module boundary
+module.exports = {
+  myFunction: async function({ github: rawGithub, core, context }) {
+    const github = await ensureRateLimitWrapped({ github: rawGithub, core, env: process.env });
+    return myFunction({ github, core, context });
+  },
+};
+```
+
+### Pattern 2: Explicit Callback
+
+Use this pattern when you need fine-grained control over retries or want to use
+specific token capabilities.
 
 ```javascript
 'use strict';
@@ -43,7 +114,7 @@ async function myFunction({ github, core, context }) {
     env: process.env,
   });
 
-  // All API calls now use withRetry
+  // Wrap each API call explicitly
   const { data: issue } = await withRetry((client) =>
     client.rest.issues.get({
       owner: context.repo.owner,
@@ -58,17 +129,7 @@ async function myFunction({ github, core, context }) {
     { owner: context.repo.owner, repo: context.repo.repo, issue_number: 123 }
   );
 
-  // The `client` in the callback is the current Octokit instance
-  // If a rate limit is hit, it automatically switches to a fresh token
-  const { data: pr } = await withRetry((client) =>
-    client.rest.pulls.get({
-      owner: context.repo.owner,
-      repo: context.repo.repo,
-      pull_number: 456,
-    })
-  );
-
-  return { issue, pr, comments: allComments };
+  return { issue, comments: allComments };
 }
 
 module.exports = { myFunction };
@@ -225,7 +286,9 @@ The `api-call-guard.js` script runs in CI to catch unprotected API calls:
 node .github/scripts/__checks__/api-call-guard.js
 ```
 
-This will fail if any script has `github.rest.*` calls that aren't wrapped with `withRetry`.
+This will fail if any script has `github.rest.*` calls that aren't protected by either:
+- Importing `ensureRateLimitWrapped` (Pattern 1 - proxy approach)
+- Using `withRetry` callbacks (Pattern 2 - explicit approach)
 
 ## Exempt Files
 

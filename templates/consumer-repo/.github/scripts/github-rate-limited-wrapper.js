@@ -51,11 +51,12 @@ async function createRateLimitedGithub(options = {}) {
   // Use the token-aware github client as base
   const baseClient = tokenAwareGithub || github;
 
-  // Create a proxy that wraps API calls
-  function wrapApiMethod(method, path) {
+  // Create a wrapper that retries API calls with token switching
+  // The `path` is used to locate the method on the fresh client during retry
+  function wrapApiMethod(path) {
     return async function wrappedMethod(...args) {
       return withRetry((client) => {
-        // Navigate to the method on the client
+        // Navigate to the method on the (possibly fresh) client
         const pathParts = path.split('.');
         let target = client;
         for (const part of pathParts) {
@@ -76,8 +77,8 @@ async function createRateLimitedGithub(options = {}) {
         const currentPath = pathPrefix ? `${pathPrefix}.${prop}` : prop;
         
         if (typeof value === 'function') {
-          // Wrap the method with retry
-          return wrapApiMethod(value, currentPath);
+          // Wrap the method with retry (path is used to find method on fresh client)
+          return wrapApiMethod(currentPath);
         }
         
         if (value && typeof value === 'object') {
