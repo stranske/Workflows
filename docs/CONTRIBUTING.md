@@ -111,6 +111,7 @@ Pre-commit hooks automatically format and lint Python code.
 - Use modern ES6+ syntax
 - Follow existing code patterns
 - Include tests for new functionality
+- **Wrap all GitHub API calls with token-aware retry** - See [API_CALL_PATTERN.md](../.github/scripts/API_CALL_PATTERN.md)
 
 ### YAML
 
@@ -141,6 +142,8 @@ Pre-commit hooks automatically format and lint Python code.
    - `scripts/` - Standalone tools
 2. Include tests in `__tests__/` or `tests/workflows/`
 3. Make executable if has shebang: `chmod +x script.sh`
+4. **Wrap all GitHub API calls** - See [API_CALL_PATTERN.md](../.github/scripts/API_CALL_PATTERN.md)
+5. Run the API guard: `node .github/scripts/__checks__/api-call-guard.js`
 
 ## Pull Request Process
 
@@ -158,6 +161,7 @@ Pre-commit hooks automatically format and lint Python code.
 - [ ] Pre-commit hooks pass
 - [ ] Validation scripts pass
 - [ ] No old repo references
+- [ ] GitHub API calls use token-aware retry (run `node .github/scripts/__checks__/api-call-guard.js`)
 
 ## Questions?
 

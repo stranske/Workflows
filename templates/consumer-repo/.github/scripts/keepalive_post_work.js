@@ -2,6 +2,7 @@
 
 const { setTimeout: sleep } = require('timers/promises');
 const { createKeepaliveStateManager } = require('./keepalive_state.js');
+const { ensureRateLimitWrapped } = require('./github-rate-limited-wrapper.js');
 
 const AGENT_LABEL_PREFIX = 'agent:';
 const MERGE_METHODS = new Set(['merge', 'squash', 'rebase']);
@@ -783,7 +784,17 @@ async function attemptUpdateBranchViaApi({
   };
 }
 
-async function runKeepalivePostWork({ core, github, context, env = process.env }) {
+async function runKeepalivePostWork({ core, github: rawGithub, context, env = process.env }) {
+  // Wrap github client with rate-limit-aware retry
+  let github;
+  try {
+    github = await ensureRateLimitWrapped({ github: rawGithub, core, env });
+    core?.debug?.('GitHub client wrapped with rate-limit protection');
+  } catch (error) {
+    core?.warning?.(`Failed to wrap GitHub client: ${error.message} - using raw client`);
+    github = rawGithub;
+  }
+
   const summaryHelper = buildSummaryRecorder(core?.summary);
   const record = summaryHelper.record;
   const remediationNotes = [];

@@ -11,6 +11,7 @@ const { classifyError, ERROR_CATEGORIES } = require('./error_classifier');
 const { formatFailureComment } = require('./failure_comment_formatter');
 const { detectConflicts } = require('./conflict_detector');
 const { parseTimeoutConfig } = require('./timeout_config');
+const { ensureRateLimitWrapped } = require('./github-rate-limited-wrapper');
 
 // Token load balancer for rate limit management
 let tokenLoadBalancer = null;
@@ -1318,7 +1319,16 @@ const RATE_LIMIT_NOTIFICATION_COOLDOWN_MS = 60 * 60 * 1000;
  * Check if a rate limit notification was recently posted to avoid spam.
  * Looks for comments with the rate limit marker within the cooldown period.
  */
-async function hasRecentRateLimitNotification({ github, context, prNumber, core }) {
+async function hasRecentRateLimitNotification({ github: rawGithub, context, prNumber, core }) {
+  // Wrap github client with rate-limit-aware retry
+  let github;
+  try {
+    github = await ensureRateLimitWrapped({ github: rawGithub, core, env: process.env });
+  } catch (error) {
+    core?.warning?.(`Failed to wrap GitHub client: ${error.message} - using raw client`);
+    github = rawGithub;
+  }
+
   try {
     const { data: comments } = await github.rest.issues.listComments({
       owner: context.repo.owner,
@@ -1364,7 +1374,7 @@ async function hasRecentRateLimitNotification({ github, context, prNumber, core 
  * @returns {Object} { posted: boolean, labeled: boolean, skipped: boolean, error: string|null }
  */
 async function postRateLimitNotification({
-  github,
+  github: rawGithub,
   context,
   core,
   prNumber,
@@ -1374,6 +1384,15 @@ async function postRateLimitNotification({
   action,
   reason,
 }) {
+  // Wrap github client with rate-limit-aware retry
+  let github;
+  try {
+    github = await ensureRateLimitWrapped({ github: rawGithub, core, env: process.env });
+  } catch (error) {
+    core?.warning?.(`Failed to wrap GitHub client: ${error.message} - using raw client`);
+    github = rawGithub;
+  }
+
   const result = { posted: false, labeled: false, skipped: false, error: null };
 
   if (!prNumber || !github?.rest?.issues) {
@@ -1576,7 +1595,16 @@ async function detectRateLimitCancellation({ github, context, runId, core }) {
  * @param {number} options.minRequired - Minimum API calls needed (default: 50)
  * @returns {Object} { canProceed, shouldDefer, totalRemaining, totalLimit, tokens, recommendation }
  */
-async function checkRateLimitStatus({ github, core, minRequired = 50 }) {
+async function checkRateLimitStatus({ github: rawGithub, core, minRequired = 50 }) {
+  // Wrap github client with rate-limit-aware retry
+  let github;
+  try {
+    github = await ensureRateLimitWrapped({ github: rawGithub, core, env: process.env });
+  } catch (error) {
+    core?.warning?.(`Failed to wrap GitHub client: ${error.message} - using raw client`);
+    github = rawGithub;
+  }
+
   // First check the current token's rate limit (always available)
   let primaryRemaining = 5000;
   let primaryLimit = 5000;
@@ -1687,7 +1715,17 @@ async function checkRateLimitStatus({ github, core, minRequired = 50 }) {
   return result;
 }
 
-async function evaluateKeepaliveLoop({ github, context, core, payload: overridePayload, overridePrNumber, forceRetry }) {
+async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload: overridePayload, overridePrNumber, forceRetry }) {
+  // Wrap github client with rate-limit-aware retry for all API calls
+  let github;
+  try {
+    github = await ensureRateLimitWrapped({ github: rawGithub, core, env: process.env });
+    core?.debug?.('GitHub client wrapped with rate-limit protection');
+  } catch (error) {
+    core?.warning?.(`Failed to wrap GitHub client: ${error.message} - using raw client`);
+    github = rawGithub;
+  }
+
   const payload = overridePayload || context.payload || {};
   const cache = getGithubApiCache({ github, core });
   let prNumber = overridePrNumber || 0;
@@ -2031,7 +2069,16 @@ async function evaluateKeepaliveLoop({ github, context, core, payload: overrideP
   }
 }
 
-async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
+async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, inputs }) {
+  // Wrap github client with rate-limit-aware retry
+  let github;
+  try {
+    github = await ensureRateLimitWrapped({ github: rawGithub, core, env: process.env });
+  } catch (error) {
+    core?.warning?.(`Failed to wrap GitHub client: ${error.message} - using raw client`);
+    github = rawGithub;
+  }
+
   const cache = getGithubApiCache({ github, core });
   if (cache?.invalidateForWebhook) {
     cache.invalidateForWebhook({
@@ -2886,7 +2933,16 @@ async function updateKeepaliveLoopSummary({ github, context, core, inputs }) {
  * Mark that an agent is currently running by updating the summary comment.
  * This provides real-time visibility into the keepalive loop's activity.
  */
-async function markAgentRunning({ github, context, core, inputs }) {
+async function markAgentRunning({ github: rawGithub, context, core, inputs }) {
+  // Wrap github client with rate-limit-aware retry
+  let github;
+  try {
+    github = await ensureRateLimitWrapped({ github: rawGithub, core, env: process.env });
+  } catch (error) {
+    core?.warning?.(`Failed to wrap GitHub client: ${error.message} - using raw client`);
+    github = rawGithub;
+  }
+
   const prNumber = Number(inputs.prNumber || inputs.pr_number || 0);
   if (!Number.isFinite(prNumber) || prNumber <= 0) {
     if (core) core.info('No PR number available for running status update.');
@@ -2996,7 +3052,16 @@ async function markAgentRunning({ github, context, core, inputs }) {
  * @param {object} [params.core] - Optional core for logging
  * @returns {Promise<{matches: Array<{task: string, reason: string, confidence: string}>, summary: string}>}
  */
-async function analyzeTaskCompletion({ github, context, prNumber, baseSha, headSha, taskText, core, pr }) {
+async function analyzeTaskCompletion({ github: rawGithub, context, prNumber, baseSha, headSha, taskText, core, pr }) {
+  // Wrap github client with rate-limit-aware retry
+  let github;
+  try {
+    github = await ensureRateLimitWrapped({ github: rawGithub, core, env: process.env });
+  } catch (error) {
+    core?.warning?.(`Failed to wrap GitHub client: ${error.message} - using raw client`);
+    github = rawGithub;
+  }
+
   const matches = [];
   const log = (msg) => core?.info?.(msg) || console.log(msg);
 
@@ -3289,7 +3354,16 @@ async function analyzeTaskCompletion({ github, context, prNumber, baseSha, headS
  * @param {object} [params.core] - Optional core for logging
  * @returns {Promise<{updated: boolean, tasksChecked: number, details: string}>}
  */
-async function autoReconcileTasks({ github, context, prNumber, baseSha, headSha, llmCompletedTasks, core }) {
+async function autoReconcileTasks({ github: rawGithub, context, prNumber, baseSha, headSha, llmCompletedTasks, core }) {
+  // Wrap github client with rate-limit-aware retry
+  let github;
+  try {
+    github = await ensureRateLimitWrapped({ github: rawGithub, core, env: process.env });
+  } catch (error) {
+    core?.warning?.(`Failed to wrap GitHub client: ${error.message} - using raw client`);
+    github = rawGithub;
+  }
+
   const log = (msg) => core?.info?.(msg) || console.log(msg);
   const sources = { llm: 0, commit: 0 };
 

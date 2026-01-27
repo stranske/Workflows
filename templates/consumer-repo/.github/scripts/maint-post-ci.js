@@ -2,8 +2,17 @@
 
 const fs = require('fs');
 const path = require('path');
+const { ensureRateLimitWrapped } = require('./github-rate-limited-wrapper.js');
 
-async function discoverWorkflowRuns({ github, context, core }) {
+async function discoverWorkflowRuns({ github: rawGithub, context, core }) {
+  // Wrap github client with rate-limit-aware retry
+  let github;
+  try {
+    github = await ensureRateLimitWrapped({ github: rawGithub, core, env: process.env });
+  } catch (error) {
+    core?.warning?.(`Failed to wrap GitHub client: ${error.message} - using raw client`);
+    github = rawGithub;
+  }
   const { owner, repo } = context.repo;
   const workflowRun = context.payload.workflow_run || {};
   const prFromPayload = Array.isArray(workflowRun.pull_requests)
@@ -176,7 +185,16 @@ async function discoverWorkflowRuns({ github, context, core }) {
   core.notice(`Collected ${collected.filter(entry => entry.present).length} Gate workflow runs for head ${headSha}`);
 }
 
-async function propagateGateCommitStatus({ github, context, core }) {
+async function propagateGateCommitStatus({ github: rawGithub, context, core }) {
+  // Wrap github client with rate-limit-aware retry
+  let github;
+  try {
+    github = await ensureRateLimitWrapped({ github: rawGithub, core, env: process.env });
+  } catch (error) {
+    core?.warning?.(`Failed to wrap GitHub client: ${error.message} - using raw client`);
+    github = rawGithub;
+  }
+
   const { owner, repo } = context.repo;
   const sha = process.env.HEAD_SHA || '';
   if (!sha) {
@@ -240,7 +258,16 @@ async function propagateGateCommitStatus({ github, context, core }) {
   }
 }
 
-async function resolveAutofixContext({ github, context, core }) {
+async function resolveAutofixContext({ github: rawGithub, context, core }) {
+  // Wrap github client with rate-limit-aware retry
+  let github;
+  try {
+    github = await ensureRateLimitWrapped({ github: rawGithub, core, env: process.env });
+  } catch (error) {
+    core?.warning?.(`Failed to wrap GitHub client: ${error.message} - using raw client`);
+    github = rawGithub;
+  }
+
   const run = context.payload.workflow_run;
   const owner = context.repo.owner;
   const repo = context.repo.repo;
@@ -443,7 +470,16 @@ async function resolveAutofixContext({ github, context, core }) {
   }
 }
 
-async function inspectFailingJobs({ github, context, core }) {
+async function inspectFailingJobs({ github: rawGithub, context, core }) {
+  // Wrap github client with rate-limit-aware retry
+  let github;
+  try {
+    github = await ensureRateLimitWrapped({ github: rawGithub, core, env: process.env });
+  } catch (error) {
+    core?.warning?.(`Failed to wrap GitHub client: ${error.message} - using raw client`);
+    github = rawGithub;
+  }
+
   const run = context.payload.workflow_run;
   const owner = context.repo.owner;
   const repo = context.repo.repo;
@@ -515,7 +551,16 @@ async function inspectFailingJobs({ github, context, core }) {
   });
 }
 
-async function evaluateAutofixRerunGuard({ github, context, core }) {
+async function evaluateAutofixRerunGuard({ github: rawGithub, context, core }) {
+  // Wrap github client with rate-limit-aware retry
+  let github;
+  try {
+    github = await ensureRateLimitWrapped({ github: rawGithub, core, env: process.env });
+  } catch (error) {
+    core?.warning?.(`Failed to wrap GitHub client: ${error.message} - using raw client`);
+    github = rawGithub;
+  }
+
   const prNumber = Number(process.env.PR_NUMBER || '0');
   const headSha = (process.env.HEAD_SHA || '').toLowerCase();
   const sameRepo = (process.env.SAME_REPO || '').toLowerCase() === 'true';
@@ -564,7 +609,16 @@ async function evaluateAutofixRerunGuard({ github, context, core }) {
   setOutputs(false);
 }
 
-async function updateFailureTracker({ github, context, core }) {
+async function updateFailureTracker({ github: rawGithub, context, core }) {
+  // Wrap github client with rate-limit-aware retry
+  let github;
+  try {
+    github = await ensureRateLimitWrapped({ github: rawGithub, core, env: process.env });
+  } catch (error) {
+    core?.warning?.(`Failed to wrap GitHub client: ${error.message} - using raw client`);
+    github = rawGithub;
+  }
+
   const run = context.payload.workflow_run;
   const { owner, repo } = context.repo;
   const runId = run.id;
@@ -711,7 +765,16 @@ async function updateFailureTracker({ github, context, core }) {
   core.info(`Created new failure issue #${created.data.number}`);
 }
 
-async function resolveFailureIssuesForRecoveredPR({ github, context, core }) {
+async function resolveFailureIssuesForRecoveredPR({ github: rawGithub, context, core }) {
+  // Wrap github client with rate-limit-aware retry
+  let github;
+  try {
+    github = await ensureRateLimitWrapped({ github: rawGithub, core, env: process.env });
+  } catch (error) {
+    core?.warning?.(`Failed to wrap GitHub client: ${error.message} - using raw client`);
+    github = rawGithub;
+  }
+
   const pr = parseInt(process.env.PR_NUMBER || '', 10);
   if (!Number.isFinite(pr) || pr <= 0) {
     core.info('No PR number detected; skipping failure issue resolution.');
@@ -759,7 +822,16 @@ async function resolveFailureIssuesForRecoveredPR({ github, context, core }) {
   }
 }
 
-async function autoHealFailureIssues({ github, context, core }) {
+async function autoHealFailureIssues({ github: rawGithub, context, core }) {
+  // Wrap github client with rate-limit-aware retry
+  let github;
+  try {
+    github = await ensureRateLimitWrapped({ github: rawGithub, core, env: process.env });
+  } catch (error) {
+    core?.warning?.(`Failed to wrap GitHub client: ${error.message} - using raw client`);
+    github = rawGithub;
+  }
+
   const { owner, repo } = context.repo;
   const INACTIVITY_HOURS = parseFloat(process.env.AUTO_HEAL_INACTIVITY_HOURS || '24');
   const now = Date.now();
@@ -786,7 +858,16 @@ async function autoHealFailureIssues({ github, context, core }) {
   await core.summary.write();
 }
 
-async function snapshotFailureIssues({ github, context, core }) {
+async function snapshotFailureIssues({ github: rawGithub, context, core }) {
+  // Wrap github client with rate-limit-aware retry
+  let github;
+  try {
+    github = await ensureRateLimitWrapped({ github: rawGithub, core, env: process.env });
+  } catch (error) {
+    core?.warning?.(`Failed to wrap GitHub client: ${error.message} - using raw client`);
+    github = rawGithub;
+  }
+
   const { owner, repo } = context.repo;
   const q = `repo:${owner}/${repo} is:issue is:open label:ci-failure`;
   const search = await github.rest.search.issuesAndPullRequests({ q, per_page: 100 });
@@ -819,7 +900,15 @@ function parsePullNumber(value) {
   return Number.isFinite(pr) && pr > 0 ? pr : null;
 }
 
-async function applyCiFailureLabel({ github, context, core, prNumber, label }) {
+async function applyCiFailureLabel({ github: rawGithub, context, core, prNumber, label }) {
+  // Wrap github client with rate-limit-aware retry
+  let github;
+  try {
+    github = await ensureRateLimitWrapped({ github: rawGithub, core, env: process.env });
+  } catch (error) {
+    core?.warning?.(`Failed to wrap GitHub client: ${error.message} - using raw client`);
+    github = rawGithub;
+  }
   const pr = parsePullNumber(prNumber ?? process.env.PR_NUMBER);
   if (!pr) {
     core.info('No PR number detected; skipping ci-failure label application.');
@@ -840,7 +929,15 @@ async function applyCiFailureLabel({ github, context, core, prNumber, label }) {
   }
 }
 
-async function removeCiFailureLabel({ github, context, core, prNumber, label }) {
+async function removeCiFailureLabel({ github: rawGithub, context, core, prNumber, label }) {
+  // Wrap github client with rate-limit-aware retry
+  let github;
+  try {
+    github = await ensureRateLimitWrapped({ github: rawGithub, core, env: process.env });
+  } catch (error) {
+    core?.warning?.(`Failed to wrap GitHub client: ${error.message} - using raw client`);
+    github = rawGithub;
+  }
   const pr = parsePullNumber(prNumber ?? process.env.PR_NUMBER);
   if (!pr) {
     core.info('No PR number detected; skipping ci-failure label removal.');
@@ -861,7 +958,16 @@ async function removeCiFailureLabel({ github, context, core, prNumber, label }) 
   }
 }
 
-async function ensureAutofixComment({ github, context, core }) {
+async function ensureAutofixComment({ github: rawGithub, context, core }) {
+  // Wrap github client with rate-limit-aware retry
+  let github;
+  try {
+    github = await ensureRateLimitWrapped({ github: rawGithub, core, env: process.env });
+  } catch (error) {
+    core?.warning?.(`Failed to wrap GitHub client: ${error.message} - using raw client`);
+    github = rawGithub;
+  }
+
   const prNumber = parsePullNumber(process.env.PR_NUMBER);
   const headShaRaw = (process.env.HEAD_SHA || '').trim();
   if (!prNumber || !headShaRaw) {
