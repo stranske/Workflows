@@ -608,6 +608,50 @@ jobs:
           fi
           echo "::endgroup::"
 
+      - name: Verify Actions runs access per token
+        env:
+          GITHUB_TOKEN_VALUE: ${{ github.token }}
+          CODESPACES_WORKFLOWS_TOKEN: ${{ secrets.CODESPACES_WORKFLOWS || '' }}
+          SERVICE_BOT_TOKEN: ${{ secrets.SERVICE_BOT_PAT || '' }}
+          WORKFLOWS_APP_TOKEN: ${{ steps.app_token.outputs.token || '' }}
+          KEEPALIVE_APP_TOKEN: ${{ steps.keepalive_app_token.outputs.token || '' }}
+          GH_APP_TOKEN: ${{ steps.gh_app_token.outputs.token || '' }}
+        run: |
+          set -u
+
+          echo "::group::Actions runs access checks"
+
+          check_token() {
+            local label="$1"
+            local token="$2"
+            if [ -z "$token" ]; then
+              echo "$label: not set"
+              return 0
+            fi
+
+            local output
+            output=$(GH_TOKEN="$token" gh api -i "repos/$GITHUB_REPOSITORY/actions/workflows/health-75-api-rate-diagnostic.yml/runs" -F per_page=1 2>&1 || true)
+            local status
+            status=$(echo "$output" | head -n1)
+            local accepted
+            accepted=$(echo "$output" | awk -F': ' '/^X-Accepted-GitHub-Permissions/ {print $2; exit}')
+
+            if [ -n "$accepted" ]; then
+              echo "$label: $status | perms: $accepted"
+            else
+              echo "$label: $status"
+            fi
+          }
+
+          check_token "GITHUB_TOKEN" "$GITHUB_TOKEN_VALUE"
+          check_token "CODESPACES_WORKFLOWS" "$CODESPACES_WORKFLOWS_TOKEN"
+          check_token "SERVICE_BOT_PAT" "$SERVICE_BOT_TOKEN"
+          check_token "WORKFLOWS_APP" "$WORKFLOWS_APP_TOKEN"
+          check_token "KEEPALIVE_APP" "$KEEPALIVE_APP_TOKEN"
+          check_token "GH_APP" "$GH_APP_TOKEN"
+
+          echo "::endgroup::"
+
       - name: Aggregate and analyze results
         id: aggregate
         env:
