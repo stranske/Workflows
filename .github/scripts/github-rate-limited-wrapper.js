@@ -100,12 +100,25 @@ async function createRateLimitedGithub(options = {}) {
       return withRetry((client) => client.paginate(method, params, ...rest));
     };
     
-    // Add iterator method - this needs to use the original paginate's iterator
-    // because the iterator maintains internal state for pagination
+    // Add iterator method that wraps each page fetch with retry logic
     wrappedPaginate.iterator = function (method, params, ...rest) {
-      // Use the baseClient's paginate.iterator directly since we can't easily
-      // wrap each iteration with retry. The method is already an endpoint function.
-      return baseClient.paginate.iterator(method, params, ...rest);
+      // Get the original iterator from the base client
+      const originalIterator = baseClient.paginate.iterator(method, params, ...rest);
+      
+      // Return a wrapped async iterator that applies retry to each next() call
+      return {
+        [Symbol.asyncIterator]() {
+          const iter = originalIterator[Symbol.asyncIterator]();
+          return {
+            async next() {
+              // Wrap each page fetch with retry logic for rate limit resilience
+              return withRetry(async () => {
+                return iter.next();
+              });
+            },
+          };
+        },
+      };
     };
     
     return wrappedPaginate;
