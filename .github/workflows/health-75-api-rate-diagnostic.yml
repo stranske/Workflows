@@ -1232,11 +1232,14 @@ jobs:
 
       - name: Mint workflows app token
         id: workflows_app_token
-        if: ${{ secrets.WORKFLOWS_APP_ID != '' && secrets.WORKFLOWS_APP_PRIVATE_KEY != '' }}
+        env:
+          WORKFLOWS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID || '' }}
+          WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || '' }}
+        if: ${{ env.WORKFLOWS_APP_ID != '' && env.WORKFLOWS_APP_PRIVATE_KEY != '' }}
         uses: actions/create-github-app-token@v1
         with:
-          app-id: ${{ secrets.WORKFLOWS_APP_ID }}
-          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+          app-id: ${{ env.WORKFLOWS_APP_ID }}
+          private-key: ${{ env.WORKFLOWS_APP_PRIVATE_KEY }}
 
       - name: Fetch historical workflow runs
         id: history
