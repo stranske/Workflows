@@ -607,7 +607,7 @@ async function buildVerifierContext({ github, context, core, ciWorkflows }) {
 
 module.exports = {
   buildVerifierContext: async function ({ github: rawGithub, context, core, ciWorkflows }) {
-    const github = ensureRateLimitWrapped({ github: rawGithub, core, env: process.env });
+    const github = await ensureRateLimitWrapped({ github: rawGithub, core, env: process.env });
     return buildVerifierContext({ github, context, core, ciWorkflows });
   },
   formatDiffForContext,

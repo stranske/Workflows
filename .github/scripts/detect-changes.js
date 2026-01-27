@@ -299,7 +299,7 @@ async function detectChanges({ github, context, core, files, fetchFiles } = {}) 
 
 module.exports = {
   detectChanges: async function ({ github: rawGithub, context, core, files, fetchFiles } = {}) {
-    const github = ensureRateLimitWrapped({ github: rawGithub, core, env: process.env });
+    const github = await ensureRateLimitWrapped({ github: rawGithub, core, env: process.env });
     return detectChanges({ github, context, core, files, fetchFiles });
   },
   classifyChanges,

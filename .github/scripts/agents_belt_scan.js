@@ -100,7 +100,7 @@ async function identifyReadyCodexPRs({ github, context, core, env = process.env 
 
 module.exports = {
   identifyReadyCodexPRs: async function ({ github: rawGithub, context, core, env = process.env }) {
-    const github = ensureRateLimitWrapped({ github: rawGithub, core, env });
+    const github = await ensureRateLimitWrapped({ github: rawGithub, core, env });
     return identifyReadyCodexPRs({ github, context, core, env });
   },
   isCodexBranch,

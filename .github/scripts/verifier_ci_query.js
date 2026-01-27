@@ -215,7 +215,7 @@ async function queryVerifierCiResults({
 module.exports = {
   DEFAULT_WORKFLOWS,
   queryVerifierCiResults: async function ({ github: rawGithub, context, core, targetSha, targetShas, workflows, retryOptions } = {}) {
-    const github = ensureRateLimitWrapped({ github: rawGithub, core, env: process.env });
+    const github = await ensureRateLimitWrapped({ github: rawGithub, core, env: process.env });
     return queryVerifierCiResults({ github, context, core, targetSha, targetShas, workflows, retryOptions });
   },
 };

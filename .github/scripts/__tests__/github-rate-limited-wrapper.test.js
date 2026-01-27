@@ -9,6 +9,7 @@
  * 3. The Proxy correctly handles rest, graphql, and paginate operations
  * 4. Error handling and fallback to raw client works correctly
  * 5. wrapWithRateLimitedGithub higher-order function works correctly
+ * 6. Test mocks are detected and skipped for wrapping
  */
 
 const test = require('node:test');
@@ -20,6 +21,7 @@ const assert = require('node:assert/strict');
 
 const {
   isRateLimitWrapped,
+  isTestMock,
 } = require('../github-rate-limited-wrapper.js');
 
 test('isRateLimitWrapped returns false for plain object', () => {
@@ -45,6 +47,34 @@ test('isRateLimitWrapped returns false for object with __rateLimitWrapped=false'
   assert.equal(isRateLimitWrapped(github), false);
 });
 
+// Test isTestMock detection
+test('isTestMock returns false for null', () => {
+  assert.equal(isTestMock(null), false);
+});
+
+test('isTestMock returns false for undefined', () => {
+  assert.equal(isTestMock(undefined), false);
+});
+
+test('isTestMock returns true for simple mock with only rest property', () => {
+  const github = { rest: { issues: { get: () => {} } } };
+  assert.equal(isTestMock(github), true);
+});
+
+test('isTestMock returns true for object with __testMock marker', () => {
+  const github = { __testMock: true, rest: {} };
+  assert.equal(isTestMock(github), true);
+});
+
+test('isTestMock returns false for Octokit-like object with request and hook', () => {
+  const github = {
+    rest: { issues: { get: () => {} } },
+    request: function() {},
+    hook: {},
+  };
+  assert.equal(isTestMock(github), false);
+});
+
 // Test wrapWithRateLimitedGithub error handling path
 // This can be tested without mocking by passing invalid github object
 test('wrapWithRateLimitedGithub module exports expected functions', () => {
@@ -52,6 +82,7 @@ test('wrapWithRateLimitedGithub module exports expected functions', () => {
   
   assert.equal(typeof wrapper.createRateLimitedGithub, 'function');
   assert.equal(typeof wrapper.isRateLimitWrapped, 'function');
+  assert.equal(typeof wrapper.isTestMock, 'function');
   assert.equal(typeof wrapper.ensureRateLimitWrapped, 'function');
   assert.equal(typeof wrapper.wrapWithRateLimitedGithub, 'function');
 });

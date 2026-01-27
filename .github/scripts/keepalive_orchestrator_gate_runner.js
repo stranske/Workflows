@@ -326,7 +326,7 @@ async function runKeepaliveGate({ core, github, context, env }) {
 
 module.exports = {
   runKeepaliveGate: async function ({ core, github: rawGithub, context, env }) {
-    const github = ensureRateLimitWrapped({ github: rawGithub, core, env });
+    const github = await ensureRateLimitWrapped({ github: rawGithub, core, env });
     return runKeepaliveGate({ core, github, context, env });
   },
 };

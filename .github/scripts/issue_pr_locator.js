@@ -258,7 +258,7 @@ async function findIssuePrCandidate({ github, core, owner, repo, issueNumber, br
 
 module.exports = {
   findIssuePrCandidate: async function ({ github: rawGithub, core, owner, repo, issueNumber, branchCandidates = [], defaultBranch }) {
-    const github = ensureRateLimitWrapped({ github: rawGithub, core, env: process.env });
+    const github = await ensureRateLimitWrapped({ github: rawGithub, core, env: process.env });
     return findIssuePrCandidate({ github, core, owner, repo, issueNumber, branchCandidates, defaultBranch });
   },
   issueMentionPatterns,
