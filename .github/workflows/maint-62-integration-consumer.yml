@@ -91,7 +91,6 @@ jobs:
       baseline-coverage: '0'
       coverage-alert-drop: '0'
       artifact-prefix: integration-smoke-
-    secrets: inherit
 
   scenarios:
     name: Integration - ${{ matrix.name }}
@@ -153,7 +152,6 @@ jobs:
       baseline-coverage: ${{ matrix['baseline-coverage'] }}
       coverage-alert-drop: ${{ matrix['coverage-alert-drop'] }}
       artifact-prefix: integration-${{ matrix.name }}-
-    secrets: inherit
 
   report:
     name: Report integration status
