@@ -187,10 +187,6 @@ on:
         default: false
         type: boolean
 
-concurrency:
-  group: ${{ github.workflow_ref || github.workflow }}-${{ github.ref }}-${{ github.run_id }}
-  cancel-in-progress: true
-
 jobs:
   validate-inputs:
     name: Validate inputs
