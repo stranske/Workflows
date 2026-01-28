@@ -1,6 +1,9 @@
 # Suppress false positives for properties not defined in reusable workflow outputs
 property ".+" is not defined in object type {}
 
+# Allow token load balancer secrets in workflows where actionlint lacks secret typing.
+property "(token_rotation_json|service_bot_pat|actions_bot_pat|codespaces_workflows|owner_pr_pat|agents_automation_pat|workflows_app_id|workflows_app_private_key|keepalive_app_id|keepalive_app_private_key|gh_app_id|gh_app_private_key|app_1_id|app_1_private_key|app_2_id|app_2_private_key)" is not defined in object type .+
+
 # Suppress actionlint false positive for 'models' permission (GitHub Models API)
 # actionlint 1.7.3 doesn't recognize this newer permission scope
 unknown permission scope "models"
