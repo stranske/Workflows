@@ -23,6 +23,15 @@ jobs:
     outputs:
       proceed: ${{ steps.check.outputs.proceed || 'true' }}
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Export load balancer tokens
+        uses: ./.github/actions/export-load-balancer-tokens
+        with:
+          github_token: ${{ github.token }}
+          token_rotation_json: ${{ secrets.TOKEN_ROTATION_JSON }}
+          token_rotation_env_keys: ${{ vars.TOKEN_ROTATION_ENV_KEYS }}
       - name: Check API quota
         id: check
         uses: actions/github-script@v8
@@ -76,6 +85,15 @@ jobs:
       STALE_PR_DAYS: ${{ vars.REPO_HEALTH_STALE_PR_DAYS || '30' }}
       MAX_TABLE_ROWS: '20'
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Export load balancer tokens
+        uses: ./.github/actions/export-load-balancer-tokens
+        with:
+          github_token: ${{ github.token }}
+          token_rotation_json: ${{ secrets.TOKEN_ROTATION_JSON }}
+          token_rotation_env_keys: ${{ vars.TOKEN_ROTATION_ENV_KEYS }}
       - name: Summarise repository health signals
         id: summarise
         uses: actions/github-script@v8

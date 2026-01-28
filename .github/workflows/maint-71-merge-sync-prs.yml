@@ -66,6 +66,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Export load balancer tokens
+        uses: ./.github/actions/export-load-balancer-tokens
+        with:
+          github_token: ${{ github.token }}
+          token_rotation_json: ${{ secrets.TOKEN_ROTATION_JSON }}
+          token_rotation_env_keys: ${{ vars.TOKEN_ROTATION_ENV_KEYS }}
       - name: Extract consumer repos from sync workflow
         id: repos
         run: |

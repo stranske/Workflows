@@ -66,6 +66,28 @@ example: `GITHUB_TOKEN`, `SERVICE_BOT_PAT`, `ACTIONS_BOT_PAT`, `OWNER_PR_PAT`,
 `KEEPALIVE_APP_PRIVATE_KEY`, `GH_APP_ID`/`GH_APP_PRIVATE_KEY`). The wrapper
 handles selecting and switching between them when rate limits are exhausted.
 
+For consistent configuration across workflows, use the composite action:
+
+```yaml
+- name: Export load balancer tokens
+  uses: ./.github/actions/export-load-balancer-tokens
+  with:
+    github_token: ${{ github.token }}
+    actions_bot_pat: ${{ secrets.ACTIONS_BOT_PAT }}
+    workflows_app_id: ${{ secrets.WORKFLOWS_APP_ID }}
+    workflows_app_private_key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+    token_rotation_json: ${{ secrets.TOKEN_ROTATION_JSON }}
+    token_rotation_env_keys: ${{ vars.TOKEN_ROTATION_ENV_KEYS }}
+```
+
+To allow custom tokens/apps without editing workflows, set one secret in the
+repo/org:
+
+- `TOKEN_ROTATION_JSON`: JSON payload with `pats` and `apps` arrays, each entry
+  specifying `id`, `token` (PATs), or `appId`/`privateKey` (apps).
+- `TOKEN_ROTATION_ENV_KEYS`: comma-separated list of additional secret names to
+  load from the environment.
+
 ## Tests
 
 Minimal Node and Python unit tests live alongside the scripts under

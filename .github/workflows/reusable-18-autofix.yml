@@ -253,10 +253,17 @@ jobs:
           ref: ${{ steps.workflows_ref.outputs.ref }}
           sparse-checkout: |
             scripts
+            .github/actions/export-load-balancer-tokens
             .github/scripts
           sparse-checkout-cone-mode: false
           path: workflows-lib
           fetch-depth: 1
+      - name: Export load balancer tokens
+        uses: ./.github/actions/export-load-balancer-tokens
+        with:
+          github_token: ${{ github.token }}
+          token_rotation_json: ${{ secrets.TOKEN_ROTATION_JSON }}
+          token_rotation_env_keys: ${{ vars.TOKEN_ROTATION_ENV_KEYS }}
       - name: Set Workflows scripts path
         run: |
           echo "WORKFLOWS_SCRIPTS_PATH=${GITHUB_WORKSPACE}/workflows-lib" >> "$GITHUB_ENV"

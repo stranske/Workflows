@@ -65,8 +65,15 @@ jobs:
           repository: ${{ github.repository }}
           ref: ${{ github.event.pull_request.base.sha || github.event.pull_request.base.ref || github.event.repository.default_branch || github.ref_name }}
           sparse-checkout: |
+            .github/actions/export-load-balancer-tokens
             .github/scripts/github-api-with-retry.js
           sparse-checkout-cone-mode: false
+      - name: Export load balancer tokens
+        uses: ./.github/actions/export-load-balancer-tokens
+        with:
+          github_token: ${{ github.token }}
+          token_rotation_json: ${{ secrets.TOKEN_ROTATION_JSON }}
+          token_rotation_env_keys: ${{ vars.TOKEN_ROTATION_ENV_KEYS }}
       - name: Resolve PR number and check conditions
         id: resolve
         uses: actions/github-script@v8

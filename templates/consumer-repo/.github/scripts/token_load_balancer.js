@@ -111,6 +111,40 @@ const TOKEN_SPECIALIZATIONS = {
   },
 };
 
+function parseTokenRotationEnvKeys(value) {
+  if (!value || typeof value !== 'string') {
+    return [];
+  }
+  return value
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
+function parseTokenRotationJson(value, core) {
+  if (!value || typeof value !== 'string') {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(value);
+    if (!parsed || typeof parsed !== 'object') {
+      return null;
+    }
+    return parsed;
+  } catch (error) {
+    core?.warning?.(`Failed to parse TOKEN_ROTATION_JSON: ${error.message}`);
+    return null;
+  }
+}
+
+function safeRegisterToken({ core, tokenInfo }) {
+  if (tokenRegistry.tokens.has(tokenInfo.id)) {
+    core?.warning?.(`Token ${tokenInfo.id} already registered; skipping duplicate.`);
+    return;
+  }
+  registerToken(tokenInfo);
+}
+
 /**
  * Initialize the token registry from environment/secrets
  * Call this once at workflow start
@@ -156,14 +190,17 @@ async function initializeTokenRegistry({ secrets, github, core, githubToken }) {
   
   for (const pat of patSources) {
     if (pat.env) {
-      registerToken({
-        id: pat.id,
-        token: pat.env,
-        type: 'PAT',
-        source: pat.id,
-        account: pat.account,
-        capabilities: TOKEN_CAPABILITIES.PAT,
-        priority: 5, // Medium priority
+      safeRegisterToken({
+        core,
+        tokenInfo: {
+          id: pat.id,
+          token: pat.env,
+          type: 'PAT',
+          source: pat.id,
+          account: pat.account,
+          capabilities: TOKEN_CAPABILITIES.PAT,
+          priority: 5, // Medium priority
+        },
       });
     }
   }
@@ -205,16 +242,92 @@ async function initializeTokenRegistry({ secrets, github, core, githubToken }) {
   
   for (const app of appSources) {
     if (app.appId && app.privateKey) {
-      registerToken({
-        id: app.id,
-        token: null, // Will be minted on demand
-        type: 'APP',
-        source: app.id,
-        appId: app.appId,
-        privateKey: app.privateKey,
-        purpose: app.purpose,
-        capabilities: TOKEN_CAPABILITIES.APP,
-        priority: 10, // Highest priority (preferred)
+      safeRegisterToken({
+        core,
+        tokenInfo: {
+          id: app.id,
+          token: null, // Will be minted on demand
+          type: 'APP',
+          source: app.id,
+          appId: app.appId,
+          privateKey: app.privateKey,
+          purpose: app.purpose,
+          capabilities: TOKEN_CAPABILITIES.APP,
+          priority: 10, // Highest priority (preferred)
+        },
+      });
+    }
+  }
+
+  const extraKeys = parseTokenRotationEnvKeys(
+    secrets.TOKEN_ROTATION_ENV_KEYS || secrets.TOKEN_ROTATION_KEYS
+  );
+  for (const key of extraKeys) {
+    const tokenValue = secrets[key];
+    if (!tokenValue) {
+      core?.warning?.(`TOKEN_ROTATION_ENV_KEYS listed ${key} but no value was provided.`);
+      continue;
+    }
+    safeRegisterToken({
+      core,
+      tokenInfo: {
+        id: key,
+        token: tokenValue,
+        type: 'PAT',
+        source: key,
+        account: 'custom',
+        capabilities: TOKEN_CAPABILITIES.PAT,
+        priority: 5,
+      },
+    });
+  }
+
+  const extraConfig = parseTokenRotationJson(secrets.TOKEN_ROTATION_JSON, core);
+  if (extraConfig) {
+    const extraPats = Array.isArray(extraConfig.pats) ? extraConfig.pats : [];
+    const extraApps = Array.isArray(extraConfig.apps) ? extraConfig.apps : [];
+
+    for (const entry of extraPats) {
+      if (!entry || !entry.token || !entry.id) {
+        core?.warning?.('Skipping invalid PAT entry in TOKEN_ROTATION_JSON (needs id + token).');
+        continue;
+      }
+      safeRegisterToken({
+        core,
+        tokenInfo: {
+          id: entry.id,
+          token: entry.token,
+          type: 'PAT',
+          source: entry.id,
+          account: entry.account || 'custom',
+          capabilities: Array.isArray(entry.capabilities)
+            ? entry.capabilities
+            : TOKEN_CAPABILITIES.PAT,
+          priority: Number.isFinite(entry.priority) ? entry.priority : 5,
+        },
+      });
+    }
+
+    for (const entry of extraApps) {
+      if (!entry || !entry.appId || !entry.privateKey || !entry.id) {
+        core?.warning?.('Skipping invalid App entry in TOKEN_ROTATION_JSON (needs id + appId + privateKey).');
+        continue;
+      }
+      safeRegisterToken({
+        core,
+        tokenInfo: {
+          id: entry.id,
+          token: null,
+          type: 'APP',
+          source: entry.id,
+          appId: entry.appId,
+          privateKey: entry.privateKey,
+          purpose: entry.purpose || 'custom',
+          capabilities: Array.isArray(entry.capabilities)
+            ? entry.capabilities
+            : TOKEN_CAPABILITIES.APP,
+          priority: Number.isFinite(entry.priority) ? entry.priority : 10,
+        },
       });
     }
   }

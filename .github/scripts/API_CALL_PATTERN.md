@@ -140,6 +140,16 @@ module.exports = { myFunction };
 When you have inline JavaScript in YAML workflows:
 
 ```yaml
+- name: Export load balancer tokens
+  uses: ./.github/actions/export-load-balancer-tokens
+  with:
+    github_token: ${{ github.token }}
+    actions_bot_pat: ${{ secrets.ACTIONS_BOT_PAT }}
+    workflows_app_id: ${{ secrets.WORKFLOWS_APP_ID }}
+    workflows_app_private_key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+    token_rotation_json: ${{ secrets.TOKEN_ROTATION_JSON }}
+    token_rotation_env_keys: ${{ vars.TOKEN_ROTATION_ENV_KEYS }}
+
 - name: Do API work
   uses: actions/github-script@v7
   with:
@@ -157,6 +167,10 @@ When you have inline JavaScript in YAML workflows:
       );
       console.log(data.title);
 ```
+
+    To add new PATs/apps without editing workflows, populate `TOKEN_ROTATION_JSON`
+    (and optionally `TOKEN_ROTATION_ENV_KEYS`) as documented in
+    [.github/scripts/README.md](.github/scripts/README.md).
 
 ## API Reference
 

@@ -227,6 +227,12 @@ jobs:
       # Checkout Workflows repo scripts for post-completion, error handling, and LLM analysis
       # These scripts are in stranske/Workflows but need to be available when
       # this reusable workflow runs in consumer repos
+      - name: Export load balancer tokens
+        uses: ./.github/actions/export-load-balancer-tokens
+        with:
+          github_token: ${{ github.token }}
+          token_rotation_json: ${{ secrets.TOKEN_ROTATION_JSON }}
+          token_rotation_env_keys: ${{ vars.TOKEN_ROTATION_ENV_KEYS }}
       - name: Checkout Workflows scripts
         uses: actions/checkout@v6
         with:

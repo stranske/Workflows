@@ -1,0 +1,82 @@
+name: Export load balancer tokens
+description: Export token rotation secrets into environment variables for the token load balancer.
+inputs:
+  github_token:
+    description: Primary GitHub token (from github.token or a PAT)
+    required: false
+  service_bot_pat:
+    required: false
+  actions_bot_pat:
+    required: false
+  codespaces_workflows:
+    required: false
+  owner_pr_pat:
+    required: false
+  agents_automation_pat:
+    required: false
+  workflows_app_id:
+    required: false
+  workflows_app_private_key:
+    required: false
+  keepalive_app_id:
+    required: false
+  keepalive_app_private_key:
+    required: false
+  gh_app_id:
+    required: false
+  gh_app_private_key:
+    required: false
+  app_1_id:
+    required: false
+  app_1_private_key:
+    required: false
+  app_2_id:
+    required: false
+  app_2_private_key:
+    required: false
+  token_rotation_json:
+    description: JSON payload describing extra PATs/apps to register
+    required: false
+  token_rotation_env_keys:
+    description: Comma-separated list of env keys containing extra tokens
+    required: false
+runs:
+  using: composite
+  steps:
+    - name: Export tokens
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        export_var() {
+          local name="$1"
+          local value="$2"
+          if [ -n "${value:-}" ]; then
+            echo "${name}=${value}" >>"${GITHUB_ENV}"
+          fi
+        }
+
+        if [ -n "${{ inputs.github_token }}" ]; then
+          export_var "GITHUB_TOKEN" "${{ inputs.github_token }}"
+          export_var "GH_TOKEN" "${{ inputs.github_token }}"
+        fi
+
+        export_var "SERVICE_BOT_PAT" "${{ inputs.service_bot_pat }}"
+        export_var "ACTIONS_BOT_PAT" "${{ inputs.actions_bot_pat }}"
+        export_var "CODESPACES_WORKFLOWS" "${{ inputs.codespaces_workflows }}"
+        export_var "OWNER_PR_PAT" "${{ inputs.owner_pr_pat }}"
+        export_var "AGENTS_AUTOMATION_PAT" "${{ inputs.agents_automation_pat }}"
+
+        export_var "WORKFLOWS_APP_ID" "${{ inputs.workflows_app_id }}"
+        export_var "WORKFLOWS_APP_PRIVATE_KEY" "${{ inputs.workflows_app_private_key }}"
+        export_var "KEEPALIVE_APP_ID" "${{ inputs.keepalive_app_id }}"
+        export_var "KEEPALIVE_APP_PRIVATE_KEY" "${{ inputs.keepalive_app_private_key }}"
+        export_var "GH_APP_ID" "${{ inputs.gh_app_id }}"
+        export_var "GH_APP_PRIVATE_KEY" "${{ inputs.gh_app_private_key }}"
+        export_var "APP_1_ID" "${{ inputs.app_1_id }}"
+        export_var "APP_1_PRIVATE_KEY" "${{ inputs.app_1_private_key }}"
+        export_var "APP_2_ID" "${{ inputs.app_2_id }}"
+        export_var "APP_2_PRIVATE_KEY" "${{ inputs.app_2_private_key }}"
+
+        export_var "TOKEN_ROTATION_JSON" "${{ inputs.token_rotation_json }}"
+        export_var "TOKEN_ROTATION_ENV_KEYS" "${{ inputs.token_rotation_env_keys }}"

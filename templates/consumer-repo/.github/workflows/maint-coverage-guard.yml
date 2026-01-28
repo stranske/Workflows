@@ -36,13 +36,20 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
-
       - name: Checkout retry helpers
         uses: actions/checkout@v6
         with:
           sparse-checkout: |
+            .github/actions/export-load-balancer-tokens
             .github/scripts/github-api-with-retry.js
           sparse-checkout-cone-mode: false
+
+      - name: Export load balancer tokens
+        uses: ./.github/actions/export-load-balancer-tokens
+        with:
+          github_token: ${{ github.token }}
+          token_rotation_json: ${{ secrets.TOKEN_ROTATION_JSON }}
+          token_rotation_env_keys: ${{ vars.TOKEN_ROTATION_ENV_KEYS }}
 
       - name: Locate latest Gate workflow run
         id: discover

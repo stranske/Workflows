@@ -324,6 +324,13 @@ jobs:
         with:
           submodules: false
           fetch-depth: 1
+      - name: Export load balancer tokens
+        if: ${{ inputs['working-directory'] == '' || inputs['working-directory'] == '.' }}
+        uses: ./.github/actions/export-load-balancer-tokens
+        with:
+          github_token: ${{ github.token }}
+          token_rotation_json: ${{ secrets.TOKEN_ROTATION_JSON }}
+          token_rotation_env_keys: ${{ vars.TOKEN_ROTATION_ENV_KEYS }}
       - name: Checkout repository (sparse)
         if: ${{ inputs['working-directory'] != '' && inputs['working-directory'] != '.' }}
         uses: actions/checkout@v6
@@ -331,12 +338,21 @@ jobs:
           submodules: false
           fetch-depth: 1
           sparse-checkout: |
+            .github/actions/export-load-balancer-tokens
             .github/workflows
             scripts
             tools
             config
             ${{ inputs['working-directory'] }}
           sparse-checkout-cone-mode: true
+
+      - name: Export load balancer tokens
+        if: ${{ inputs['working-directory'] != '' && inputs['working-directory'] != '.' }}
+        uses: ./.github/actions/export-load-balancer-tokens
+        with:
+          github_token: ${{ github.token }}
+          token_rotation_json: ${{ secrets.TOKEN_ROTATION_JSON }}
+          token_rotation_env_keys: ${{ vars.TOKEN_ROTATION_ENV_KEYS }}
 
       # Inlined from .github/actions/python-ci-setup for external repo compatibility
       - name: Set up Python
@@ -615,6 +631,7 @@ jobs:
           submodules: false
           fetch-depth: 1
           sparse-checkout: |
+            .github/actions/export-load-balancer-tokens
             .github/workflows
             scripts
             tools
@@ -900,6 +917,7 @@ jobs:
           submodules: false
           fetch-depth: 1
           sparse-checkout: |
+            .github/actions/export-load-balancer-tokens
             .github/workflows
             scripts
             tools

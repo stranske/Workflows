@@ -331,6 +331,9 @@ function collectTokenSecrets(env = {}) {
     'CODESPACES_WORKFLOWS',
     'OWNER_PR_PAT',
     'AGENTS_AUTOMATION_PAT',
+    'TOKEN_ROTATION_JSON',
+    'TOKEN_ROTATION_ENV_KEYS',
+    'TOKEN_ROTATION_KEYS',
     'PAT_1',
     'PAT_2',
     'PAT_3',
@@ -346,7 +349,14 @@ function collectTokenSecrets(env = {}) {
     'APP_2_PRIVATE_KEY',
   ];
 
-  return keys.reduce((acc, key) => {
+  const dynamicKeysRaw = env.TOKEN_ROTATION_ENV_KEYS || env.TOKEN_ROTATION_KEYS || '';
+  const dynamicKeys = dynamicKeysRaw
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+  const allKeys = Array.from(new Set([...keys, ...dynamicKeys]));
+
+  return allKeys.reduce((acc, key) => {
     if (env[key]) {
       acc[key] = env[key];
     }
