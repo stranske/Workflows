@@ -33,8 +33,8 @@ permissions:
   pull-requests: write
 
 concurrency:
-    group: ${{ github.workflow }}-${{ github.ref }}
-    cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   validate-manifest:
@@ -43,21 +43,18 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-
-            - name: Export load balancer tokens
-                uses: ./.github/actions/export-load-balancer-tokens
-                with:
-                    github_token: ${{ github.token }}
-                    token_rotation_json: ${{ secrets.TOKEN_ROTATION_JSON }}
-                    token_rotation_env_keys: ${{ vars.TOKEN_ROTATION_ENV_KEYS }}
+      - name: Export load balancer tokens
+        uses: ./.github/actions/export-load-balancer-tokens
+        with:
+          github_token: ${{ github.token }}
+          token_rotation_json: ${{ secrets.TOKEN_ROTATION_JSON }}
+          token_rotation_env_keys: ${{ vars.TOKEN_ROTATION_ENV_KEYS }}
       - name: Setup Python
         uses: actions/setup-python@v6
         with:
           python-version: '3.12'
-
       - name: Install dependencies
         run: pip install pyyaml
-
       - name: Validate manifest
         id: validate
         run: |
@@ -215,7 +212,6 @@ jobs:
           if errors:
               sys.exit(1)
           VALIDATION_SCRIPT
-
       - name: Comment on PR
         if: failure() && github.event_name == 'pull_request'
         uses: actions/github-script@v8
@@ -235,16 +231,16 @@ jobs:
 
             This PR modifies files that should be synced to consumer repos, but the sync manifest is incomplete.
 
-            **Required action:** Update \`.github/sync-manifest.yml\` to include the new/modified files.
+            **Required action:** Update \.github/sync-manifest.yml\ to include the new/modified files.
 
             ### Why this matters
             Files not declared in the manifest won't be synced to consumer repos (Template, Manager-Database, trip-planner, Travel-Plan-Permission), causing features to silently not work in those repos.
 
             ### How to fix
-            1. Open \`.github/sync-manifest.yml\`
+            1. Open \.github/sync-manifest.yml\
             2. Add your new files to the appropriate section (workflows, prompts, scripts, etc.)
-            3. Include a \`description\` explaining what the file does
-            4. If the file should NOT be synced, add it to \`excluded:\` with a reason
+            3. Include a \description\ explaining what the file does
+            4. If the file should NOT be synced, add it to \excluded:\ with a reason
 
             See the workflow logs for specific files that need to be added.`;
 
