@@ -767,6 +767,192 @@ jobs:
           # Use single-line format to avoid heredoc parsing issues
           printf 'summary=%s\n' "$summary" >> "$GITHUB_OUTPUT"
 
+  verify-load-sharing:
+    name: Verify Load-Sharing (Token Rotation)
+    runs-on: ubuntu-latest
+    if: ${{ inputs.report_mode != 'historical' }}
+    needs: collect-rate-limits
+    env:
+      CODESPACES_WORKFLOWS: ${{ secrets.CODESPACES_WORKFLOWS || '' }}
+      SERVICE_BOT_PAT: ${{ secrets.SERVICE_BOT_PAT || '' }}
+      ACTIONS_BOT_PAT: ${{ secrets.ACTIONS_BOT_PAT || '' }}
+      OWNER_PR_PAT: ${{ secrets.OWNER_PR_PAT || '' }}
+      AGENTS_AUTOMATION_PAT: ${{ secrets.AGENTS_AUTOMATION_PAT || '' }}
+      WORKFLOWS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID || '' }}
+      WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || '' }}
+      KEEPALIVE_APP_ID: ${{ secrets.KEEPALIVE_APP_ID || '' }}
+      KEEPALIVE_APP_PRIVATE_KEY: ${{ secrets.KEEPALIVE_APP_PRIVATE_KEY || '' }}
+      GH_APP_ID: ${{ secrets.GH_APP_ID || '' }}
+      GH_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY || '' }}
+      APP_1_ID: ${{ secrets.APP_1_ID || '' }}
+      APP_1_PRIVATE_KEY: ${{ secrets.APP_1_PRIVATE_KEY || '' }}
+      APP_2_ID: ${{ secrets.APP_2_ID || '' }}
+      APP_2_PRIVATE_KEY: ${{ secrets.APP_2_PRIVATE_KEY || '' }}
+      TOKEN_ROTATION_JSON: ${{ secrets.TOKEN_ROTATION_JSON || '' }}
+      TOKEN_ROTATION_ENV_KEYS: ${{ vars.TOKEN_ROTATION_ENV_KEYS || '' }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Export load balancer tokens
+        uses: ./.github/actions/export-load-balancer-tokens
+        with:
+          github_token: ${{ github.token }}
+          service_bot_pat: ${{ secrets.SERVICE_BOT_PAT || '' }}
+          actions_bot_pat: ${{ secrets.ACTIONS_BOT_PAT || '' }}
+          codespaces_workflows: ${{ secrets.CODESPACES_WORKFLOWS || '' }}
+          owner_pr_pat: ${{ secrets.OWNER_PR_PAT || '' }}
+          agents_automation_pat: ${{ secrets.AGENTS_AUTOMATION_PAT || '' }}
+          workflows_app_id: ${{ secrets.WORKFLOWS_APP_ID || '' }}
+          workflows_app_private_key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || '' }}
+          keepalive_app_id: ${{ secrets.KEEPALIVE_APP_ID || '' }}
+          keepalive_app_private_key: ${{ secrets.KEEPALIVE_APP_PRIVATE_KEY || '' }}
+          gh_app_id: ${{ secrets.GH_APP_ID || '' }}
+          gh_app_private_key: ${{ secrets.GH_APP_PRIVATE_KEY || '' }}
+          app_1_id: ${{ secrets.APP_1_ID || '' }}
+          app_1_private_key: ${{ secrets.APP_1_PRIVATE_KEY || '' }}
+          app_2_id: ${{ secrets.APP_2_ID || '' }}
+          app_2_private_key: ${{ secrets.APP_2_PRIVATE_KEY || '' }}
+          token_rotation_json: ${{ secrets.TOKEN_ROTATION_JSON || '' }}
+          token_rotation_env_keys: ${{ vars.TOKEN_ROTATION_ENV_KEYS || '' }}
+
+      - name: Validate token rotation switching
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          node <<'NODE'
+          const core = {
+            info: (message) => console.log(message),
+            warning: (message) => console.warn(message),
+            debug: () => undefined,
+          };
+
+          const {
+            initializeTokenRegistry,
+            getOptimalToken,
+            updateTokenUsage,
+          } = require('./.github/scripts/token_load_balancer.js');
+
+          const secretKeys = [
+            'SERVICE_BOT_PAT',
+            'ACTIONS_BOT_PAT',
+            'CODESPACES_WORKFLOWS',
+            'OWNER_PR_PAT',
+            'AGENTS_AUTOMATION_PAT',
+            'WORKFLOWS_APP_ID',
+            'WORKFLOWS_APP_PRIVATE_KEY',
+            'KEEPALIVE_APP_ID',
+            'KEEPALIVE_APP_PRIVATE_KEY',
+            'GH_APP_ID',
+            'GH_APP_PRIVATE_KEY',
+            'APP_1_ID',
+            'APP_1_PRIVATE_KEY',
+            'APP_2_ID',
+            'APP_2_PRIVATE_KEY',
+            'TOKEN_ROTATION_JSON',
+            'TOKEN_ROTATION_ENV_KEYS',
+            'TOKEN_ROTATION_KEYS',
+            'PAT_1',
+            'PAT_2',
+            'PAT_3',
+          ];
+
+          const secrets = Object.fromEntries(
+            secretKeys.map((key) => [key, process.env[key] || ''])
+          );
+
+          const githubToken = process.env.GITHUB_TOKEN || '';
+
+          if (!githubToken) {
+            throw new Error('GITHUB_TOKEN is required for load-sharing verification.');
+          }
+
+          const summary = await initializeTokenRegistry({
+            secrets,
+            github: null,
+            core,
+            githubToken,
+          });
+
+          if (!summary || summary.length < 2) {
+            throw new Error('Expected at least two tokens in the registry to verify load sharing.');
+          }
+
+          const hasPat = summary.some((token) => token.type === 'PAT');
+          const hasApp = summary.some((token) => token.type === 'APP');
+
+          if (!hasPat || !hasApp) {
+            throw new Error('Expected both PAT and APP capacity pools for load sharing.');
+          }
+
+          const registryById = new Map(summary.map((token) => [token.id, token]));
+
+          if (registryById.has('KEEPALIVE_APP')) {
+            const keepaliveToken = await getOptimalToken({
+              github: null,
+              core,
+              task: 'keepalive-loop',
+              minRemaining: 100,
+            });
+
+            if (!keepaliveToken || keepaliveToken.source !== 'KEEPALIVE_APP') {
+              throw new Error('KEEPALIVE_APP was expected to handle keepalive-loop tasks.');
+            }
+          }
+
+          if (registryById.has('OWNER_PR_PAT')) {
+            const ownerToken = await getOptimalToken({
+              github: null,
+              core,
+              task: 'pr-creation-as-owner',
+              minRemaining: 100,
+            });
+
+            if (!ownerToken || ownerToken.source !== 'OWNER_PR_PAT') {
+              throw new Error('OWNER_PR_PAT was expected to handle owner PR creation.');
+            }
+          }
+
+          const workflowDispatchCandidates = summary.filter((token) =>
+            Array.isArray(token.capabilities) && token.capabilities.includes('workflow-dispatch')
+          );
+
+          if (workflowDispatchCandidates.length >= 2) {
+            const first = await getOptimalToken({
+              github: null,
+              core,
+              task: 'workflow-dispatch',
+              capabilities: ['workflow-dispatch'],
+              minRemaining: 100,
+            });
+
+            if (!first) {
+              throw new Error('Failed to select a token for workflow-dispatch.');
+            }
+
+            updateTokenUsage(first.source, (first.remaining || 0) + 1);
+
+            const second = await getOptimalToken({
+              github: null,
+              core,
+              task: 'workflow-dispatch',
+              capabilities: ['workflow-dispatch'],
+              minRemaining: 100,
+            });
+
+            if (!second || second.source === first.source) {
+              throw new Error('Expected token rotation to switch to a different source.');
+            }
+
+            core.info(`Load-sharing switch verified: ${first.source} -> ${second.source}`);
+          } else {
+            core.warning('Not enough workflow-dispatch candidates to validate switching.');
+          }
+          NODE
+
   check-consumer-repos:
     name: Check Consumer Repo Activity
     runs-on: ubuntu-latest
