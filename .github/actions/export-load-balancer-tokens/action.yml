@@ -50,9 +50,19 @@ runs:
 
         export_var() {
           local name="$1"
-          local value="$2"
-          if [ -n "${value:-}" ]; then
-            echo "${name}=${value}" >>"${GITHUB_ENV}"
+          local value="${2-}"
+          if [ -z "${value}" ]; then
+            return 0
+          fi
+
+          if [[ "${value}" == *$'\n'* ]]; then
+            {
+              echo "${name}<<EOF"
+              printf '%s\n' "${value}"
+              echo "EOF"
+            } >>"${GITHUB_ENV}"
+          else
+            printf '%s=%s\n' "${name}" "${value}" >>"${GITHUB_ENV}"
           fi
         }
 
