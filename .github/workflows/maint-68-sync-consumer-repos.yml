@@ -120,6 +120,7 @@ jobs:
           print(f"  - {len(manifest.get('prompts', []))} prompts")
           print(f"  - {len(manifest.get('scripts', []))} scripts")
           print(f"  - {len(manifest.get('codex_config', []))} codex configs")
+          print(f"  - {len(manifest.get('actions', []))} actions")
           print(f"  - {len(manifest.get('docs', []))} docs")
           MANIFEST_SCRIPT
 
@@ -458,6 +459,20 @@ jobs:
               template_src = Path('workflows') / source
               consumer_dst = Path('consumer') / source
               sync_file(template_src, consumer_dst, description)
+
+          # Process actions
+          print("Processing actions...")
+          for item in manifest.get('actions', []):
+              source = item.get('source', '')
+              description = item.get('description', 'No description')
+              is_directory = item.get('is_directory', False)
+              template_src = Path('workflows/templates/consumer-repo') / source
+              consumer_dst = Path('consumer') / source
+
+              if is_directory:
+                  sync_directory(template_src, consumer_dst, description)
+              else:
+                  sync_file(template_src, consumer_dst, description)
 
           # Process docs
           print("Processing docs...")
