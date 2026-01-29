@@ -231,16 +231,16 @@ jobs:
 
             This PR modifies files that should be synced to consumer repos, but the sync manifest is incomplete.
 
-            **Required action:** Update \.github/sync-manifest.yml\ to include the new/modified files.
+            **Required action:** Update `.github/sync-manifest.yml` to include the new/modified files.
 
             ### Why this matters
             Files not declared in the manifest won't be synced to consumer repos (Template, Manager-Database, trip-planner, Travel-Plan-Permission), causing features to silently not work in those repos.
 
             ### How to fix
-            1. Open \.github/sync-manifest.yml\
+            1. Open `.github/sync-manifest.yml`
             2. Add your new files to the appropriate section (workflows, prompts, scripts, etc.)
-            3. Include a \description\ explaining what the file does
-            4. If the file should NOT be synced, add it to \excluded:\ with a reason
+            3. Include a `description` explaining what the file does
+            4. If the file should NOT be synced, add it to `excluded:` with a reason
 
             See the workflow logs for specific files that need to be added.`;
 

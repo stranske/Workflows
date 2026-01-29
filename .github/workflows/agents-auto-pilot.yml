@@ -116,6 +116,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Export load balancer tokens
+        if: steps.check_enabled.outputs.enabled == 'true'
         uses: ./.github/actions/export-load-balancer-tokens
         with:
           github_token: ${{ github.token }}
