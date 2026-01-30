@@ -266,7 +266,7 @@ jobs:
           path: workflows-lib
           fetch-depth: 1
       - name: Export load balancer tokens
-        uses: ./.github/actions/export-load-balancer-tokens
+        uses: ./workflows-lib/.github/actions/export-load-balancer-tokens
         with:
           github_token: ${{ github.token }}
           token_rotation_json: ${{ secrets.TOKEN_ROTATION_JSON }}
