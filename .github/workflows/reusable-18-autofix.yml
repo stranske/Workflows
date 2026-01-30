@@ -245,12 +245,12 @@ jobs:
               });
               const ref = data?.default_branch || fallback;
               if (!data?.default_branch) {
-                core.warning('Workflows default branch missing; falling back to main');
+                core.warning(`Workflows default branch missing; falling back to ${fallback}`);
               }
               core.setOutput('ref', ref);
             } catch (error) {
-              const message = error?.message || error;
-              core.warning(`Failed to resolve Workflows default branch; using main. ${message}`);
+              const message = error?.message || String(error);
+              core.warning(`Failed to resolve Workflows default branch; using ${fallback}. ${message}`);
               core.setOutput('ref', fallback);
             }
       - name: Checkout Workflows scripts (for autofix utilities)
