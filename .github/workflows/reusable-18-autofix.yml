@@ -237,15 +237,22 @@ jobs:
         uses: actions/github-script@v8
         with:
           script: |
-            const { data } = await github.rest.repos.get({
-              owner: 'stranske',
-              repo: 'Workflows'
-            });
-            if (!data?.default_branch) {
-              core.setFailed('Could not determine Workflows default branch');
-              return;
+            const fallback = 'main';
+            try {
+              const { data } = await github.rest.repos.get({
+                owner: 'stranske',
+                repo: 'Workflows'
+              });
+              const ref = data?.default_branch || fallback;
+              if (!data?.default_branch) {
+                core.warning(`Workflows default branch missing; falling back to ${fallback}`);
+              }
+              core.setOutput('ref', ref);
+            } catch (error) {
+              const message = error?.message || String(error);
+              core.warning(`Failed to resolve Workflows default branch; using ${fallback}. ${message}`);
+              core.setOutput('ref', fallback);
             }
-            core.setOutput('ref', data.default_branch);
       - name: Checkout Workflows scripts (for autofix utilities)
         uses: actions/checkout@v6
         with:
