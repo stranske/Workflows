@@ -6,7 +6,7 @@ name: Health 75 API Rate Diagnostic
 
 on:
   schedule:
-    - cron: '0 */4 * * *'  # Every 4 hours for continuous monitoring
+    - cron: '*/30 * * * *'  # Every 30 minutes for continuous monitoring
   workflow_dispatch:
     inputs:
       include_consumer_repos:
