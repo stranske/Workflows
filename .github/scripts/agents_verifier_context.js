@@ -255,6 +255,28 @@ async function fetchPullRequestDiff({ github, core, owner, repo, pullNumber }) {
 async function resolvePullRequest({ github, context, core }) {
   const { owner, repo } = context.repo;
 
+  const envPrNumber = process.env.VERIFIER_PR_NUMBER;
+  if (envPrNumber) {
+    const prNumber = Number(envPrNumber);
+    if (Number.isFinite(prNumber) && prNumber > 0) {
+      try {
+        const { data: pr } = await github.rest.pulls.get({
+          owner,
+          repo,
+          pull_number: prNumber,
+        });
+        if (!pr || pr.merged !== true) {
+          return { pr: null, reason: `Pull request #${prNumber} is not merged; skipping verifier.` };
+        }
+        return { pr };
+      } catch (error) {
+        core?.warning?.(`Failed to resolve PR #${envPrNumber}: ${error.message}`);
+        return { pr: null, reason: `Unable to resolve pull request #${envPrNumber}.` };
+      }
+    }
+    core?.warning?.(`Invalid VERIFIER_PR_NUMBER: ${envPrNumber}`);
+  }
+
   // Handle pull_request and pull_request_target events (both have PR in payload)
   if (context.eventName === 'pull_request' || context.eventName === 'pull_request_target') {
     const pr = context.payload?.pull_request;

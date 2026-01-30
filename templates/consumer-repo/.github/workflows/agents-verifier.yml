@@ -199,6 +199,8 @@ jobs:
       ci_workflows: '["ci.yml", "pr-00-gate.yml"]'
       # Verification mode from label or manual input
       mode: ${{ needs.check.outputs.mode }}
+      # PR number from label trigger
+      pr_number: ${{ needs.check.outputs.pr_number }}
       # Model selection (empty string uses default)
       model: ${{ needs.check.outputs.model }}
       # Provider selection (empty string uses default)
