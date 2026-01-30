@@ -17,6 +17,25 @@ const prBodyFixture = fs.readFileSync(path.join(fixturesDir, 'pr-body.md'), 'utf
 const issueBodyOpen = fs.readFileSync(path.join(fixturesDir, 'issue-body-open.md'), 'utf8');
 const issueBodyClosed = fs.readFileSync(path.join(fixturesDir, 'issue-body-closed.md'), 'utf8');
 
+const withEnv = async (key, value, callback) => {
+  const hadKey = Object.prototype.hasOwnProperty.call(process.env, key);
+  const previous = process.env[key];
+  if (value === undefined) {
+    delete process.env[key];
+  } else {
+    process.env[key] = value;
+  }
+  try {
+    return await callback();
+  } finally {
+    if (hadKey) {
+      process.env[key] = previous;
+    } else {
+      delete process.env[key];
+    }
+  }
+};
+
 const buildCore = () => {
   const outputs = {};
   const notices = [];
@@ -109,6 +128,113 @@ test('buildVerifierContext skips when pull request is not merged', async () => {
   assert.deepEqual(result.ciResults, []);
   assert.equal(core.outputs.should_run, 'false');
   assert.ok(core.outputs.skip_reason.includes('not merged'));
+});
+
+test('buildVerifierContext resolves PR from VERIFIER_PR_NUMBER', async () => {
+  await withEnv('VERIFIER_PR_NUMBER', '101', async () => {
+    const core = buildCore();
+    const prDetails = {
+      merged: true,
+      number: 101,
+      title: 'Verifier PR resolution',
+      body: prBodyFixture,
+      html_url: 'https://example.com/pr/101',
+      merge_commit_sha: 'merge-sha-101',
+      base: {
+        ref: 'main',
+        repo: { full_name: 'octo/workflows', owner: { login: 'octo' } },
+      },
+      head: {
+        sha: 'head-sha-101',
+        repo: { full_name: 'octo/workflows', owner: { login: 'octo' }, fork: false },
+      },
+    };
+    const context = {
+      eventName: 'workflow_call',
+      repo: { owner: 'octo', repo: 'workflows' },
+      payload: {
+        repository: { default_branch: 'main' },
+      },
+      sha: 'sha-101',
+    };
+    const result = await buildVerifierContext({
+      github: buildGithubStub({ prDetails }),
+      context,
+      core,
+    });
+    assert.equal(result.shouldRun, true);
+    assert.equal(core.outputs.pr_number, '101');
+  });
+});
+
+test('buildVerifierContext skips when VERIFIER_PR_NUMBER PR is not merged', async () => {
+  await withEnv('VERIFIER_PR_NUMBER', '202', async () => {
+    const core = buildCore();
+    const prDetails = {
+      merged: false,
+      number: 202,
+      title: 'Unmerged PR',
+      body: prBodyFixture,
+      html_url: 'https://example.com/pr/202',
+      merge_commit_sha: 'merge-sha-202',
+      base: { ref: 'main' },
+      head: { sha: 'head-sha-202' },
+    };
+    const context = {
+      eventName: 'workflow_call',
+      repo: { owner: 'octo', repo: 'workflows' },
+      payload: {
+        repository: { default_branch: 'main' },
+      },
+      sha: 'sha-202',
+    };
+    const result = await buildVerifierContext({
+      github: buildGithubStub({ prDetails }),
+      context,
+      core,
+    });
+    assert.equal(result.shouldRun, false);
+    assert.equal(core.outputs.should_run, 'false');
+    assert.ok(core.outputs.skip_reason.includes('not merged'));
+  });
+});
+
+test('buildVerifierContext warns on invalid VERIFIER_PR_NUMBER and falls back', async () => {
+  await withEnv('VERIFIER_PR_NUMBER', 'not-a-number', async () => {
+    const core = buildCore();
+    const prDetails = {
+      merged: true,
+      number: 303,
+      title: 'Fallback PR',
+      body: prBodyFixture,
+      html_url: 'https://example.com/pr/303',
+      merge_commit_sha: 'merge-sha-303',
+      base: { ref: 'main' },
+      head: { sha: 'head-sha-303' },
+    };
+    const context = {
+      eventName: 'pull_request',
+      repo: { owner: 'octo', repo: 'workflows' },
+      payload: {
+        repository: { default_branch: 'main' },
+        pull_request: {
+          merged: true,
+          number: 303,
+          base: { ref: 'main' },
+          html_url: 'https://example.com/pr/303',
+        },
+      },
+      sha: 'sha-303',
+    };
+    const result = await buildVerifierContext({
+      github: buildGithubStub({ prDetails }),
+      context,
+      core,
+    });
+    assert.equal(result.shouldRun, true);
+    assert.equal(core.outputs.pr_number, '303');
+    assert.ok(core.warnings.some((message) => message.includes('Invalid VERIFIER_PR_NUMBER')));
+  });
 });
 
 test('buildVerifierContext skips when base branch mismatches default', async () => {

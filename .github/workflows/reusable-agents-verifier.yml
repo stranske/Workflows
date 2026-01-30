@@ -10,6 +10,10 @@ name: Reusable Agents Verifier
 on:
   workflow_call:
     inputs:
+      pr_number:
+        description: 'Pull request number to verify (required when called from another workflow)'
+        required: false
+        type: string
       ci_workflows:
         description: 'JSON array of CI workflow filenames to wait for'
         required: false
@@ -225,6 +229,7 @@ jobs:
         uses: actions/github-script@v8
         env:
           CI_WORKFLOWS: ${{ inputs.ci_workflows }}
+          VERIFIER_PR_NUMBER: ${{ inputs.pr_number }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
