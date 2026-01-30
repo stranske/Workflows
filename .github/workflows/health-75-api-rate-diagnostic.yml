@@ -803,8 +803,7 @@ jobs:
       - name: Install load balancer dependencies
         run: |
           set -euo pipefail
-          npm install --no-save --no-package-lock --prefix "$RUNNER_TEMP/load-balancer" @octokit/rest @octokit/auth-app
-          echo "NODE_PATH=$RUNNER_TEMP/load-balancer/node_modules" >> "$GITHUB_ENV"
+          npm install --no-save --no-package-lock @octokit/rest @octokit/auth-app
 
       - name: Export load balancer tokens
         uses: ./.github/actions/export-load-balancer-tokens
