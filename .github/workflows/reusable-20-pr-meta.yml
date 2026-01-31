@@ -65,6 +65,9 @@ on:
       WORKFLOWS_APP_PRIVATE_KEY:
         description: 'GitHub App private key for minting installation tokens'
         required: false
+      TOKEN_ROTATION_JSON:
+        description: 'Token rotation JSON payload'
+        required: false
     outputs:
       keepalive_detected:
         description: 'Whether a keepalive comment was detected'
@@ -113,20 +116,66 @@ jobs:
           fetch-depth: 1
           path: consumer
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+
+      - name: Install load balancer dependencies
+        run: |
+          set -euo pipefail
+          npm install --no-save --no-package-lock @octokit/rest @octokit/auth-app
+
+      - name: Export load balancer tokens
+        uses: ./consumer/.github/actions/export-load-balancer-tokens
+        with:
+          github_token: ${{ github.token }}
+          service_bot_pat: ${{ secrets.service_bot_pat }}
+          actions_bot_pat: ${{ secrets.ACTIONS_BOT_PAT }}
+          agents_automation_pat: ${{ secrets.AGENTS_AUTOMATION_PAT }}
+          workflows_app_id: ${{ secrets.WORKFLOWS_APP_ID }}
+          workflows_app_private_key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+          token_rotation_json: ${{ secrets.TOKEN_ROTATION_JSON }}
+          token_rotation_env_keys: ${{ vars.TOKEN_ROTATION_ENV_KEYS }}
+
       - name: Resolve Workflows default branch
         id: workflows_ref
         uses: actions/github-script@v8
         with:
           script: |
-            const { data } = await github.rest.repos.get({
-              owner: 'stranske',
-              repo: 'Workflows'
-            });
-            if (!data?.default_branch) {
-              core.setFailed('Could not determine Workflows default branch');
+            const payloadDefault = context.payload?.repository?.default_branch;
+            if (payloadDefault) {
+              core.setOutput('ref', payloadDefault);
               return;
             }
-            core.setOutput('ref', data.default_branch);
+
+            const { createTokenAwareRetry } = require(
+              './consumer/.github/scripts/github-api-with-retry.js'
+            );
+
+            const { withRetry, github: retryGithub } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'pr-meta-workflows-ref',
+              capabilities: ['read-repo'],
+            });
+
+            const client = retryGithub || github;
+            try {
+              const { data } = await withRetry((octokit) =>
+                octokit.rest.repos.get({ owner: 'stranske', repo: 'Workflows' })
+              );
+              if (data?.default_branch) {
+                core.setOutput('ref', data.default_branch);
+                return;
+              }
+            } catch (error) {
+              core.warning(`Failed to resolve Workflows default branch: ${error.message}`);
+            }
+
+            core.warning('Falling back to Workflows ref "main".');
+            core.setOutput('ref', 'main');
 
       - name: Checkout Workflows scripts
         uses: actions/checkout@v6
