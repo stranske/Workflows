@@ -511,10 +511,22 @@ jobs:
               for s in skipped:
                   print(f"  - {s}")
 
-          # Set outputs
-          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+            repo_dirty = False
+            if not dry_run:
+              status = subprocess.run(
+                ["git", "-C", "consumer", "status", "--porcelain"],
+                check=False,
+                capture_output=True,
+                text=True,
+              )
+              repo_dirty = bool(status.stdout.strip())
+
+            has_changes = bool(changes) if dry_run else repo_dirty
+
+            # Set outputs
+            with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
               f.write(f"changes_count={len(changes)}\n")
-              f.write(f"has_changes={'true' if changes else 'false'}\n")
+              f.write(f"has_changes={'true' if has_changes else 'false'}\n")
 
           # Write change summary for PR body
           with open('sync_summary.md', 'w') as f:
@@ -608,6 +620,12 @@ jobs:
           # Create branch and commit
           git checkout -b "$branch_name"
           git add -A
+
+          if git diff --quiet; then
+            echo "No changes to commit after sync; skipping PR creation."
+            exit 0
+          fi
+
           git commit -m "chore: sync workflow templates from Workflows repo
 
           Automated sync from stranske/Workflows
