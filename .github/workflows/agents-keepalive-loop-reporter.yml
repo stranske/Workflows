@@ -31,6 +31,16 @@ jobs:
           sparse-checkout-cone-mode: false
           fetch-depth: 1
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+
+      - name: Install load balancer dependencies
+        run: |
+          set -euo pipefail
+          npm install --no-save --no-package-lock @octokit/rest @octokit/auth-app
+
       - name: Update summary for cancelled/failed runs
         uses: actions/github-script@v8
         with:
