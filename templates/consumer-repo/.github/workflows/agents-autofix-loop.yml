@@ -55,6 +55,7 @@ jobs:
             .github/scripts/prompt_injection_guard.js
             .github/actions/export-load-balancer-tokens
             .github/scripts/github-api-with-retry.js
+            .github/scripts/github-rate-limited-wrapper.js
           sparse-checkout-cone-mode: false
 
       - name: Export load balancer tokens
