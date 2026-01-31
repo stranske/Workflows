@@ -75,6 +75,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+
+      - name: Install load balancer dependencies
+        run: |
+          set -euo pipefail
+          npm install --no-save --no-package-lock @octokit/rest @octokit/auth-app
+
       - name: Export load balancer tokens
         uses: ./.github/actions/export-load-balancer-tokens
         with:
