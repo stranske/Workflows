@@ -70,6 +70,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+
+      - name: Install load balancer dependencies
+        run: |
+          set -euo pipefail
+          npm install --no-save --no-package-lock @octokit/rest @octokit/auth-app
+
       - name: Export load balancer tokens
         uses: ./.github/actions/export-load-balancer-tokens
         with:
@@ -334,6 +344,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+
+      - name: Install load balancer dependencies
+        run: |
+          set -euo pipefail
+          npm install --no-save --no-package-lock @octokit/rest @octokit/auth-app
+
       - name: Update summary with running status
         uses: actions/github-script@v8
         with:
@@ -417,6 +437,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+
+      - name: Install load balancer dependencies
+        run: |
+          set -euo pipefail
+          npm install --no-save --no-package-lock @octokit/rest @octokit/auth-app
 
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -766,7 +796,7 @@ jobs:
         id: update-summary
         uses: actions/github-script@v8
         env:
-          CODEX_SUMMARY: ${{ needs.run-codex.outputs.final-message-summary || '' }}
+          CODEX_SUMMARY: ${{ needs.run-codex.outputs.final-message-summary || needs.run-codex.outputs.error-summary || '' }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |

@@ -82,6 +82,9 @@ on:
       final-message-summary:
         description: 'First 500 chars of Codex output (safe for PR comments)'
         value: ${{ jobs.codex.outputs.final-message-summary }}
+      error-summary:
+        description: 'Failure summary message (prefers Codex output, falls back to preflight errors)'
+        value: ${{ jobs.codex.outputs.error-summary }}
       exit-code:
         description: 'Codex CLI exit code (0=success)'
         value: ${{ jobs.codex.outputs.exit-code }}
@@ -163,6 +166,7 @@ jobs:
       error-category: ${{ steps.classify_failure.outputs.error_category }}
       error-type: ${{ steps.classify_failure.outputs.error_type }}
       error-recovery: ${{ steps.classify_failure.outputs.error_recovery }}
+      error-summary: ${{ steps.classify_failure.outputs.error_summary }}
       # LLM analysis outputs
       llm-analysis-run: ${{ steps.llm_analysis.outputs.llm-analysis-run }}
       llm-completed-tasks: ${{ steps.llm_analysis.outputs.completed-tasks }}
@@ -303,6 +307,8 @@ jobs:
           if [ -f ".github/scripts/prompt_integrity_guard.js" ]; then
             echo "Checking prompt template for embedded task content..."
             node .github/scripts/prompt_integrity_guard.js "${BASE_PROMPT}" || {
+              echo "CODEX_PREFLIGHT_ERROR=Prompt template integrity check failed. The base prompt contains embedded task content that should be removed." >> "$GITHUB_ENV"
+              echo "CODEX_PREFLIGHT_STAGE=prompt-integrity" >> "$GITHUB_ENV"
               echo "::error::Prompt template integrity check failed. See output above."
               echo "::error::The base prompt contains embedded task content that should be removed."
               exit 1
@@ -944,6 +950,7 @@ jobs:
         env:
           EXIT_CODE: ${{ steps.run_codex.outputs.exit-code }}
           OUTPUT_SUMMARY: ${{ steps.run_codex.outputs.final-message-summary }}
+          PREFLIGHT_ERROR: ${{ env.CODEX_PREFLIGHT_ERROR }}
           MODE: ${{ inputs.mode }}
           PR_NUMBER: ${{ inputs.pr_number }}
         with:
@@ -951,7 +958,9 @@ jobs:
             const { classifyError, ERROR_CATEGORIES, suggestRecoveryAction } = require('./.workflows-lib/.github/scripts/error_classifier.js');
 
             const exitCode = process.env.EXIT_CODE || '';
-            const summary = process.env.OUTPUT_SUMMARY || '';
+            const summary = [process.env.OUTPUT_SUMMARY, process.env.PREFLIGHT_ERROR]
+              .filter(Boolean)
+              .join(' ');
             const mode = process.env.MODE || 'unknown';
             const prNumber = process.env.PR_NUMBER || '';
 
@@ -977,6 +986,7 @@ jobs:
             core.setOutput('error_type', errorType);
             core.setOutput('error_recovery', errorInfo.recovery);
             core.setOutput('is_transient', errorInfo.category === ERROR_CATEGORIES.transient ? 'true' : 'false');
+            core.setOutput('error_summary', summary || '');
 
             console.log(`Error Classification:`);
             console.log(`  Category: ${errorInfo.category}`);
