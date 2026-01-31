@@ -518,11 +518,26 @@ async function buildVerifierContext({ github, context, core, ciWorkflows }) {
   content.push('The CI results below are provided only to confirm which test suites ran, not for status evaluation.');
   content.push('');
   if (ciResults.length) {
-    content.push('| Workflow | Conclusion | Run |');
-    content.push('| --- | --- | --- |');
+    content.push('| Workflow | Conclusion | Run | Jobs (summary) |');
+    content.push('| --- | --- | --- | --- |');
     for (const result of ciResults) {
       const runLink = result.run_url ? `[run](${result.run_url})` : 'n/a';
-      content.push(`| ${result.workflow_name} | ${result.conclusion} | ${runLink} |`);
+      const jobsSummary = result.jobs_summary || {};
+      let jobsText = 'n/a';
+      if (jobsSummary.total) {
+        const counts = jobsSummary.conclusions || {};
+        const countParts = Object.entries(counts)
+          .filter(([, value]) => value)
+          .map(([key, value]) => `${key}: ${value}`);
+        const samples = Array.isArray(jobsSummary.samples)
+          ? jobsSummary.samples.map((job) => `${job.name} (${job.conclusion})`)
+          : [];
+        const sampleText = samples.length
+          ? `samples: ${samples.join('; ')}${jobsSummary.truncated ? '…' : ''}`
+          : '';
+        jobsText = [countParts.join(', '), sampleText].filter(Boolean).join('<br>');
+      }
+      content.push(`| ${result.workflow_name} | ${result.conclusion} | ${runLink} | ${jobsText} |`);
     }
   } else {
     content.push('_No CI workflow runs were found for the target commit._');

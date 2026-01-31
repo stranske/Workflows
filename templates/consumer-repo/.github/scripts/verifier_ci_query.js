@@ -11,6 +11,7 @@ const DEFAULT_WORKFLOWS = [
 
 const DEFAULT_BASE_DELAY_MS = 1000;
 const DEFAULT_MAX_RETRIES = 3;
+const DEFAULT_JOB_SAMPLE_LIMIT = 5;
 
 function normalizeConclusion(run) {
   if (!run) {
@@ -161,6 +162,66 @@ async function fetchWorkflowRun({
   }
 }
 
+async function fetchWorkflowJobs({
+  github,
+  owner,
+  repo,
+  runId,
+  core,
+  retryOptions,
+}) {
+  if (!runId) {
+    return { jobs: [], error: null };
+  }
+
+  try {
+    const response = await withRetry(
+      () =>
+        github.rest.actions.listJobsForWorkflowRun({
+          owner,
+          repo,
+          run_id: runId,
+          per_page: 100,
+        }),
+      { label: `listJobsForWorkflowRun:${runId}`, core, ...retryOptions }
+    );
+    const jobs = response?.data?.jobs || [];
+    return { jobs, error: null };
+  } catch (error) {
+    const category = getErrorCategory(error);
+    const isNotFound = category === ERROR_CATEGORIES.RESOURCE || error.status === 404;
+    const logFn = isNotFound ? core?.info?.bind(core) : core?.warning?.bind(core);
+    logFn?.(`Failed to fetch workflow jobs for ${runId}: ${error.message}; category=${category}`);
+    return { jobs: [], error: { category, message: error.message } };
+  }
+}
+
+function summarizeJobs(jobs, limit = DEFAULT_JOB_SAMPLE_LIMIT) {
+  const summary = {
+    total: jobs.length,
+    conclusions: {},
+    samples: [],
+    truncated: false,
+  };
+
+  if (!jobs.length) {
+    return summary;
+  }
+
+  for (const job of jobs) {
+    const conclusion = job.conclusion || job.status || 'unknown';
+    summary.conclusions[conclusion] = (summary.conclusions[conclusion] || 0) + 1;
+  }
+
+  const samples = jobs.slice(0, Math.max(0, limit)).map((job) => ({
+    name: job.name || 'job',
+    conclusion: job.conclusion || job.status || 'unknown',
+  }));
+  summary.samples = samples;
+  summary.truncated = jobs.length > samples.length;
+  return summary;
+}
+
 async function queryVerifierCiResults({
   github,
   context,
@@ -199,6 +260,15 @@ async function queryVerifierCiResults({
       core,
       retryOptions,
     });
+    const { jobs, error: jobsError } = await fetchWorkflowJobs({
+      github,
+      owner,
+      repo,
+      runId: run?.id,
+      core,
+      retryOptions,
+    });
+    const jobsSummary = summarizeJobs(jobs);
     const conclusion = error ? 'api_error' : normalizeConclusion(run);
     results.push({
       workflow_name: workflowName,
@@ -206,6 +276,9 @@ async function queryVerifierCiResults({
       run_url: run?.html_url || run?.url || '',
       error_category: error?.category || '',
       error_message: error?.message || '',
+      jobs_summary: jobsSummary,
+      jobs_error_category: jobsError?.category || '',
+      jobs_error_message: jobsError?.message || '',
     });
   }
 
