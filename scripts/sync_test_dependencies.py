@@ -96,6 +96,7 @@ STDLIB_MODULES = {
     "weakref",
     "xml",
     "zipfile",
+    "zlib",
     "__future__",
     "dataclasses",
     "enum",
