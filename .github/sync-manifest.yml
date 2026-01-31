@@ -142,6 +142,8 @@ workflows:
 removals:
   - target: .github/workflows/agents-63-issue-intake.yml
     description: "Remove deprecated issue intake workflow (replaced by agents-64/70)"
+  - target: .workflows-lib
+    description: "Remove deprecated workflows lib submodule"
 # Codex prompts for agent operations
 prompts:
   - source: .github/codex/prompts/keepalive_next_task.md
@@ -477,6 +479,10 @@ excluded:
 copilot_config:
   - source: .github/copilot-instructions.md
     description: "Repository-specific instructions for GitHub Copilot"
+
+  - source: .github/actions/export-load-balancer-tokens/
+    is_directory: true
+    description: "Local action for exporting load balancer tokens"
 
   # Skills folder - synced as a directory
   - source: .github/copilot-skills/
