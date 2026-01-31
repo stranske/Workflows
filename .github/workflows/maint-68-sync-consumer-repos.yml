@@ -99,7 +99,7 @@ jobs:
               manifest = yaml.safe_load(f)
 
           # Validate required sections exist
-          required_sections = ['workflows', 'prompts', 'scripts']
+          required_sections = ['workflows', 'prompts', 'scripts', 'actions']
           for section in required_sections:
               if section not in manifest:
                   print(f"::warning::Manifest missing '{section}' section")
