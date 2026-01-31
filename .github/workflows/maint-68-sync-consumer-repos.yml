@@ -511,20 +511,20 @@ jobs:
               for s in skipped:
                   print(f"  - {s}")
 
-            repo_dirty = False
-            if not dry_run:
+          repo_dirty = False
+          if not dry_run:
               status = subprocess.run(
-                ["git", "-C", "consumer", "status", "--porcelain"],
-                check=False,
-                capture_output=True,
-                text=True,
+                  ["git", "-C", "consumer", "status", "--porcelain"],
+                  check=False,
+                  capture_output=True,
+                  text=True,
               )
               repo_dirty = bool(status.stdout.strip())
 
-            has_changes = bool(changes) if dry_run else repo_dirty
+          has_changes = bool(changes) if dry_run else repo_dirty
 
-            # Set outputs
-            with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+          # Set outputs
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
               f.write(f"changes_count={len(changes)}\n")
               f.write(f"has_changes={'true' if has_changes else 'false'}\n")
 
@@ -621,7 +621,7 @@ jobs:
           git checkout -b "$branch_name"
           git add -A
 
-          if git diff --quiet; then
+          if git diff --cached --quiet; then
             echo "No changes to commit after sync; skipping PR creation."
             exit 0
           fi
