@@ -1203,19 +1203,19 @@ jobs:
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   issue_number: issueNumber,
-                  body: `## ⚠️ Auto-Pilot Stalled
+                    body: `## ⚠️ Auto-Pilot Stalled
 
-            **Reason:** Branch was not created after ${stallCount} attempts.
+                    **Reason:** Branch was not created after ${stallCount} attempts.
 
-            Expected branch: \`${branchName}\`
+                    Expected branch: `${branchName}`
 
-            **Possible causes:**
-            - Agent failed before branch creation
-            - Workflow dispatch failed silently
-            - Permissions or token issues
+                    **Possible causes:**
+                    - Agent failed before branch creation
+                    - Workflow dispatch failed silently
+                    - Permissions or token issues
 
-            **To resume:** Remove \`agents:auto-pilot-pause\` and
-            \`needs-human\` labels, then re-add \`agents:auto-pilot\`.`
+                    **To resume:** Remove `agents:auto-pilot-pause` and
+                    `needs-human` labels, then re-add `agents:auto-pilot`.`
                 });
 
                 const failMsg = `Auto-pilot stalled: ${stallCount} branch creation attempts`;
@@ -1237,10 +1237,10 @@ jobs:
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   issue_number: issueNumber,
-                  body: `🤖 **Auto-pilot**: Backoff delay (${actualMinutes}m)
+                    body: `🤖 **Auto-pilot**: Backoff delay (${actualMinutes}m)
 
-            Branch not created yet. Attempt ${stallCount + 1}/${maxStallRetries}.
-            Waiting before retry...`
+                    Branch not created yet. Attempt ${stallCount + 1}/${maxStallRetries}.
+                    Waiting before retry...`
                 });
 
                 // Sleep with exponential backoff
