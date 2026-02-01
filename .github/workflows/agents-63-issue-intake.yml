@@ -1388,7 +1388,7 @@ jobs:
               console.error(error);
               process.exit(1);
             });
-NODE
+            NODE
             then
               echo "  ❌ Failed to fetch issue #${issue_num}"
               failed=$((failed + 1))
@@ -1442,7 +1442,7 @@ NODE
               console.error(error);
               process.exit(1);
             });
-NODE
+            NODE
             then
               echo "  ❌ Failed to update issue #${issue_num}"
               failed=$((failed + 1))
@@ -1476,7 +1476,7 @@ NODE
               console.error(error);
               process.exit(1);
             });
-NODE
+            NODE
             then
               echo "  ⚠️  Failed to add label (non-fatal)"
             fi

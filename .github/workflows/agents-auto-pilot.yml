@@ -521,7 +521,7 @@ jobs:
             console.error(error);
             process.exit(1);
           });
-NODE
+          NODE
           ); then
             echo "⚠️ Failed to fetch PR state, defaulting to monitor-pr"
             echo "next_step=monitor-pr" >> "$GITHUB_OUTPUT"
@@ -598,7 +598,7 @@ NODE
             console.error(error);
             process.exit(1);
           });
-NODE
+          NODE
 
           # Get issue body
           node - <<'NODE'
@@ -628,7 +628,7 @@ NODE
             console.error(error);
             process.exit(1);
           });
-NODE
+          NODE
 
           # Format the issue
           echo "Formatting issue into AGENT_ISSUE_TEMPLATE structure..."
@@ -679,7 +679,7 @@ NODE
             console.error(error);
             process.exit(1);
           });
-NODE
+          NODE
 
           # Add marker labels (but don't trigger workflow)
           node - <<'NODE'
@@ -711,7 +711,7 @@ NODE
             console.error(error);
             process.exit(1);
           });
-NODE
+          NODE
 
           echo "✅ Formatting complete - continuing to next step"
 
@@ -796,7 +796,7 @@ NODE
             console.error(error);
             process.exit(1);
           });
-NODE
+          NODE
 
           # Get issue body
           node - <<'NODE'
@@ -826,7 +826,7 @@ NODE
             console.error(error);
             process.exit(1);
           });
-NODE
+          NODE
 
           # Run optimizer analysis
           echo "Running optimization analysis..."
@@ -890,7 +890,7 @@ NODE
             console.error(error);
             process.exit(1);
           });
-NODE
+          NODE
 
           # Add marker labels (but don't trigger workflow)
           node - <<'NODE'
@@ -922,7 +922,7 @@ NODE
             console.error(error);
             process.exit(1);
           });
-NODE
+          NODE
 
           echo "✅ Optimization complete - continuing to next step"
 
@@ -1077,7 +1077,7 @@ NODE
             console.error(error);
             process.exit(1);
           });
-NODE
+          NODE
 
           # Get issue body and comments
           node - <<'NODE'
@@ -1112,7 +1112,7 @@ NODE
             console.error(error);
             process.exit(1);
           });
-NODE
+          NODE
 
           # Extract and apply suggestions
           python -c "
@@ -1178,7 +1178,7 @@ NODE
             console.error(error);
             process.exit(1);
           });
-NODE
+          NODE
 
           # Add marker label (but don't trigger workflow)
           node - <<'NODE'
@@ -1210,7 +1210,7 @@ NODE
             console.error(error);
             process.exit(1);
           });
-NODE
+          NODE
 
           echo "✅ Apply complete - continuing to next step"
 

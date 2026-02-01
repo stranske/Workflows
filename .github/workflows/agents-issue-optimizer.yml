@@ -154,7 +154,7 @@ jobs:
             console.error(error);
             process.exit(1);
           });
-NODE
+          NODE
 
       - name: Phase 1 - Analyze Issue
         if: steps.check.outputs.should_run == 'true' && steps.check.outputs.phase == 'analyze'
@@ -226,7 +226,7 @@ NODE
             console.error(error);
             process.exit(1);
           });
-NODE
+          NODE
 
           echo "Analysis complete. Review suggestions and add 'agents:apply-suggestions' label to apply."
 
@@ -270,7 +270,7 @@ NODE
             console.error(error);
             process.exit(1);
           });
-NODE
+          NODE
 
           python - <<'PY' || true
           import json
@@ -340,7 +340,7 @@ NODE
               console.error(error);
               process.exit(1);
             });
-NODE
+          NODE
           else
             echo "No likely duplicates detected."
           fi
@@ -381,7 +381,7 @@ NODE
             console.error(error);
             process.exit(1);
           });
-NODE
+          NODE
 
           # Extract suggestions JSON from comment
           python -c "
@@ -447,7 +447,7 @@ NODE
             console.error(error);
             process.exit(1);
           });
-NODE
+          NODE
 
           echo "Issue body updated with applied suggestions"
 
@@ -511,7 +511,7 @@ NODE
             console.error(error);
             process.exit(1);
           });
-NODE
+          NODE
 
           echo "Issue body updated with formatted structure"
 
@@ -568,7 +568,7 @@ NODE
               console.error(error);
               process.exit(1);
             });
-NODE
+          NODE
             echo "Labels updated: removed optimize/apply-suggestions, added formatted"
           elif [[ "$PHASE" == "format" ]]; then
             # Remove format trigger label and add formatted result label
@@ -613,6 +613,6 @@ NODE
               console.error(error);
               process.exit(1);
             });
-NODE
+          NODE
             echo "Labels updated: removed format, added formatted"
           fi
