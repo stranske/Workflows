@@ -214,6 +214,8 @@ def main() -> int:
     )
     args = parser.parse_args()
 
+    base_sha = (args.base_sha or "").strip() or None
+    base_remote = (args.base_remote or "origin").strip() or "origin"
     pr_issue = extract_title_issue_number(args.pr_title)
     if not pr_issue:
         head_numbers = extract_head_ref_issue_numbers(args.head_ref)
@@ -230,11 +232,26 @@ def main() -> int:
             print("Skipping issue consistency check: autofix context with no issue number.")
             return 0
         else:
+            commit_messages = collect_commit_messages(args.base_ref, base_sha, base_remote)
+            commit_issue_numbers: set[int] = set()
+            for message in commit_messages:
+                commit_issue_numbers.update(extract_issue_numbers(message, include_hash=True))
+
+            changed_files = collect_changed_files(args.base_ref, base_sha, base_remote)
+            header_issue_numbers: set[int] = set()
+            for file_path in changed_files:
+                if not file_path.exists() or not file_path.is_file():
+                    continue
+                header_issue_numbers.update(
+                    collect_header_issue_numbers(file_path, args.header_lines)
+                )
+
+            if not (commit_issue_numbers or header_issue_numbers):
+                print("Skipping issue consistency check: no issue references found.")
+                return 0
             print("Error: Unable to determine issue number from PR title.", file=sys.stderr)
             return 1
 
-    base_sha = (args.base_sha or "").strip() or None
-    base_remote = (args.base_remote or "origin").strip() or "origin"
     commit_messages = collect_commit_messages(args.base_ref, base_sha, base_remote)
     commit_issue_numbers: set[int] = set()
     for message in commit_messages:
