@@ -237,12 +237,20 @@ jobs:
         uses: actions/github-script@v8
         with:
           script: |
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'autofix-resolve-workflows-ref',
+              capabilities: ['contents:read']
+            });
             const fallback = 'main';
             try {
-              const { data } = await github.rest.repos.get({
+              const { data } = await withRetry((client) => client.rest.repos.get({
                 owner: 'stranske',
                 repo: 'Workflows'
-              });
+              }));
               const ref = data?.default_branch || fallback;
               if (!data?.default_branch) {
                 core.warning(`Workflows default branch missing; falling back to ${fallback}`);

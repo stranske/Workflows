@@ -709,6 +709,30 @@ jobs:
             echo "- Outcome: ✅ Created fallback branch \`$step_branch\` targeting \`$branch\`."
           } >>"$GITHUB_STEP_SUMMARY"
 
+      - name: Fetch issue body for ledger
+        if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.keepalive_gate.outputs.action != 'skip') }}
+        id: ledger_issue
+        env:
+          ISSUE_NUMBER: ${{ steps.ctx.outputs.issue }}
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'belt-ledger-issue-body',
+              capabilities: ['issues:read', 'contents:read']
+            });
+            const issueNumber = parseInt(process.env.ISSUE_NUMBER, 10);
+            const { data: issue } = await withRetry((client) => client.rest.issues.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber
+            }));
+            core.setOutput('body', issue?.body || '');
+
       - name: Prepare ledger task
         if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.keepalive_gate.outputs.action != 'skip') }}
         id: ledger_start
@@ -716,6 +740,7 @@ jobs:
           ISSUE: ${{ steps.ctx.outputs.issue }}
           BRANCH: ${{ steps.ctx.outputs.branch }}
           BASE_BRANCH: ${{ steps.base.outputs.branch }}
+          ISSUE_BODY: ${{ steps.ledger_issue.outputs.body }}
           GITHUB_TOKEN: ${{ env.GH_BELT_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
@@ -726,7 +751,6 @@ jobs:
           import os
           import re
           import sys
-          import urllib.request
           from pathlib import Path
 
           import yaml
@@ -741,8 +765,7 @@ jobs:
           issue = os.environ["ISSUE"].strip()
           branch = os.environ["BRANCH"].strip()
           base = os.environ["BASE_BRANCH"].strip()
-          repo = os.environ["GITHUB_REPOSITORY"].strip()
-          token = os.environ.get("GITHUB_TOKEN", "").strip()
+          issue_body = os.environ.get("ISSUE_BODY", "")
 
           agents_dir = Path('.agents')
           agents_dir.mkdir(parents=True, exist_ok=True)
@@ -761,16 +784,8 @@ jobs:
               if isinstance(existing_base, str):
                   previous_base = existing_base.strip() or None
               data = loaded
-          else:
-              owner, _, name = repo.partition('/')
-              url = f"https://api.github.com/repos/{owner}/{name}/issues/{issue}"
-              headers = {"Accept": "application/vnd.github+json"}
-              if token:
-                  headers["Authorization"] = f"token {token}"
-              request = urllib.request.Request(url, headers=headers)
-              with urllib.request.urlopen(request, timeout=30) as response:
-                  payload = json.load(response)
-              body = payload.get('body') or ''
+            else:
+              body = issue_body or ''
               pattern = re.compile(r'^\s*[-*]\s+\[(?: |x|X)\]\s+(.*)$', re.MULTILINE)
               tasks = []
               for index, match in enumerate(pattern.finditer(body), start=1):

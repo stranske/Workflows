@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import sys
 import tempfile
+import time
 import zipfile
 from collections.abc import Iterable, Iterator, Sequence
 from dataclasses import dataclass
@@ -22,6 +23,69 @@ class Artifact:
 
 class RestoreError(RuntimeError):
     pass
+
+
+def _should_retry(response: requests.Response) -> bool:
+    if response.status_code in (429, 500, 502, 503, 504):
+        return True
+    if response.status_code != 403:
+        return False
+    remaining = response.headers.get("x-ratelimit-remaining")
+    if remaining is not None:
+        try:
+            return int(remaining) <= 0
+        except ValueError:
+            return False
+    message = ""
+    try:
+        payload = response.json()
+        if isinstance(payload, dict):
+            message = str(payload.get("message", ""))
+    except ValueError:
+        message = response.text or ""
+    return "rate limit" in message.lower()
+
+
+def _retry_delay(response: requests.Response, attempt: int) -> float:
+    reset = response.headers.get("x-ratelimit-reset")
+    if reset:
+        try:
+            reset_epoch = int(reset)
+            delay = max(0, reset_epoch - int(time.time())) + 1
+            return min(delay, 60.0)
+        except ValueError:
+            pass
+    return min(2 ** attempt, 30)
+
+
+def _request_with_retry(
+    session: requests.Session,
+    method: str,
+    url: str,
+    *,
+    headers: dict[str, str],
+    timeout: int,
+    stream: bool = False,
+    max_retries: int = 5,
+) -> requests.Response:
+    last_exc: Exception | None = None
+    for attempt in range(max_retries + 1):
+        try:
+            response = session.request(method, url, headers=headers, timeout=timeout, stream=stream)
+        except requests.RequestException as exc:
+            last_exc = exc
+            if attempt >= max_retries:
+                raise
+            time.sleep(min(2 ** attempt, 30))
+            continue
+        if not _should_retry(response):
+            return response
+        if attempt >= max_retries:
+            return response
+        time.sleep(_retry_delay(response, attempt))
+    if last_exc:
+        raise last_exc
+    raise RestoreError("Failed to send GitHub API request")
 
 
 def _iter_artifacts(response: dict) -> Iterator[Artifact]:
@@ -70,7 +134,7 @@ def _collect_artifacts(session: requests.Session, repo: str, token: str) -> list
     results: list[Artifact] = []
 
     while url:
-        response = session.get(url, headers=headers, timeout=30)
+        response = _request_with_retry(session, "GET", url, headers=headers, timeout=30)
         if response.status_code != 200:
             raise RestoreError(
                 f"Failed to list artifacts (status {response.status_code}): {response.text[:200]}"
@@ -112,7 +176,7 @@ def _download_artifact(
         "User-Agent": "trend-model-scripts",
     }
     url = f"https://api.github.com/repos/{repo}/actions/artifacts/{artifact_id}/zip"
-    response = session.get(url, headers=headers, timeout=60, stream=True)
+    response = _request_with_retry(session, "GET", url, headers=headers, timeout=60, stream=True)
     if response.status_code != 200:
         raise RestoreError(
             f"Failed to download artifact {artifact_id} (status {response.status_code})"

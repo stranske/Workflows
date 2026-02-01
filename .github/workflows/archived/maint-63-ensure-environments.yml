@@ -25,15 +25,23 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'ensure-environments',
+              capabilities: ['deployments:write', 'contents:read']
+            });
             const owner = context.repo.owner;
             const repo = context.repo.repo;
 
             async function resolveMaintainersReviewer() {
               try {
-                const { data } = await github.rest.teams.getByName({
+                const { data } = await withRetry((client) => client.rest.teams.getByName({
                   org: owner,
                   team_slug: 'maintainers',
-                });
+                }));
                 if (data?.id) {
                   return [{ type: 'Team', id: data.id }];
                 }
@@ -46,7 +54,9 @@ jobs:
                 }
               }
 
-              const { data: user } = await github.rest.users.getByUsername({ username: owner });
+              const { data: user } = await withRetry((client) => client.rest.users.getByUsername({
+                username: owner
+              }));
               if (!user?.id) {
                 throw new Error('Unable to resolve fallback reviewer for agent-high-privilege.');
               }
@@ -54,7 +64,7 @@ jobs:
             }
 
             async function upsertEnvironment({ name, reviewers }) {
-              await github.rest.repos.createOrUpdateEnvironment({
+              await withRetry((client) => client.rest.repos.createOrUpdateEnvironment({
                 owner,
                 repo,
                 environment_name: name,
@@ -64,7 +74,7 @@ jobs:
                   protected_branches: false,
                   custom_branch_policies: false,
                 },
-              });
+              }));
               core.info(`Environment ${name} synced (reviewers: ${reviewers.map(r => r.type).join(', ') || 'none'}).`);
             }
 
