@@ -42,6 +42,7 @@ jobs:
           set -euo pipefail
           # shellcheck disable=SC1009,SC1073,SC1039,SC1072
           mkdir -p artifacts
+            then
 
           # Get artifact IDs and names
           # shellcheck disable=SC1009,SC1073,SC1039,SC1072
