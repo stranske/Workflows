@@ -115,6 +115,16 @@ jobs:
         if: steps.check_enabled.outputs.enabled == 'true'
         uses: actions/checkout@v6
 
+      - name: Set up Node
+        if: steps.check_enabled.outputs.enabled == 'true'
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+
+      - name: Install GitHub API dependencies
+        if: steps.check_enabled.outputs.enabled == 'true'
+        run: npm install --no-save --no-package-lock @octokit/rest @octokit/auth-app
+
       - name: Export load balancer tokens
         if: steps.check_enabled.outputs.enabled == 'true'
         uses: ./.github/actions/export-load-balancer-tokens
@@ -128,10 +138,17 @@ jobs:
         uses: actions/github-script@v8
         with:
           script: |
-            const { data } = await github.rest.repos.get({
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              task: 'auto-pilot-resolve-workflows-ref',
+            });
+
+            const { data } = await withRetry((client) => client.rest.repos.get({
               owner: 'stranske',
               repo: 'Workflows'
-            });
+            }));
             if (!data?.default_branch) {
               core.setFailed('Could not determine Workflows default branch');
               return;

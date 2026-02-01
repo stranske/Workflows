@@ -38,8 +38,26 @@ jobs:
       - name: Checkout for API helpers
         uses: actions/checkout@v6
         with:
-          sparse-checkout: .github/scripts
+          sparse-checkout: |
+            .github/actions/export-load-balancer-tokens
+            .github/scripts/github-api-with-retry.js
+            .github/scripts/token_load_balancer.js
           sparse-checkout-cone-mode: false
+
+      - name: Export load balancer tokens
+        uses: ./.github/actions/export-load-balancer-tokens
+        with:
+          github_token: ${{ github.token }}
+          token_rotation_json: ${{ secrets.TOKEN_ROTATION_JSON }}
+          token_rotation_env_keys: ${{ vars.TOKEN_ROTATION_ENV_KEYS }}
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+
+      - name: Install GitHub API dependencies
+        run: npm install --no-save --no-package-lock @octokit/rest @octokit/auth-app
 
       - name: Resolve PR context
         id: context
@@ -47,10 +65,14 @@ jobs:
         with:
           github-token: ${{ secrets.AGENTS_AUTOMATION_PAT || secrets.ACTIONS_BOT_PAT || github.token }}
           script: |
-            const path = require('path');
-            const { paginateWithBackoff } = require(
-              path.join(process.env.GITHUB_WORKSPACE, '.github/scripts/api-helpers.js')
+            const { createTokenAwareRetry } = require(
+              './.github/scripts/github-api-with-retry.js'
             );
+            const { paginateWithRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              task: 'autofix-loop-resolve-context',
+            });
 
             const pr = context.payload.pull_request;
             if (!pr) {
@@ -103,11 +125,10 @@ jobs:
             const { owner, repo } = context.repo;
             let files = [];
             try {
-              files = await paginateWithBackoff(
-                github,
+              files = await paginateWithRetry(
                 github.rest.pulls.listFiles,
                 { owner, repo, pull_number: pr.number, per_page: 100 },
-                { maxRetries: 3, core }
+                { maxRetries: 3 }
               );
             } catch (error) {
               const message = String(error?.message || error || '');
