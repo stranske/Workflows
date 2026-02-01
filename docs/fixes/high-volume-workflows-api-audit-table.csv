@@ -2,7 +2,7 @@ Abbr,API call,LB Export,Retry Wrapper,Rate-Limit Wrapper,Direct CLI/Curl,Verific
 GQL,github.graphql,Mixed,Mixed,Mixed,No,"Wrapped in reusable-16-agents.yml#L175; wrapped in agents-72-codex-belt-worker.yml#L1079."
 PAG,github.paginate(...),Mixed,Mixed,Mixed,No,"Wrapped in reusable-70-orchestrator-main.yml#L414; direct in maint-post-ci.js#L98."
 PAGIT,github.paginate.iterator(...),Mixed,Mixed,Mixed,No,"Direct iterator in issue_pr_locator.js#L134."
-GHCLI,gh api,No,No,No,Yes,"Direct CLI usage in health-75-api-rate-diagnostic.yml#L97."
+GHCLI,gh api,No,Yes,Mixed,No,"No remaining gh api usage in high-volume workflows; replaced with retry-wrapped Octokit calls."
 CURL,api.github.com,No,Mixed,Mixed,No,"Workflow curl removed; retry/backoff now in restore_branch_snapshots.py#L69."
 RATE.GET,github.rest.rateLimit.get,Mixed,Mixed,Mixed,No,"With retry in health-41-repo-health.yml#L55 and selftest-reusable-ci.yml#L79."
 ISS.GET,github.rest.issues.get,Yes,Mixed,Mixed,No,"Wrapped in agents-issue-optimizer.yml#L145; direct in agents-auto-pilot.yml#L229."
