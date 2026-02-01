@@ -18,7 +18,7 @@ def test_extract_title_issue_number_prefers_hash() -> None:
 
 def test_collect_header_issue_numbers_reads_issue_lines(tmp_path: Path) -> None:
     path = tmp_path / "sample.txt"
-    path.write_text("Issue: 1075\n# not an issue reference\n", encoding="utf-8")
+    path.write_text("# Issue: 1075\n# not an issue reference\n", encoding="utf-8")
     numbers = check_issue_consistency.collect_header_issue_numbers(path, max_lines=5)
     assert numbers == {1075}
 

@@ -113,12 +113,40 @@ def collect_changed_files(
 
 def collect_header_issue_numbers(file_path: Path, max_lines: int) -> set[int]:
     numbers: set[int] = set()
+    in_docstring = False
+    docstring_delim = ""
+
+    def is_comment_line(line: str) -> bool:
+        stripped = line.lstrip()
+        return stripped.startswith(("#", "//", "/*", "*", "--", ";", "<!--"))
+
     try:
         with file_path.open("r", encoding="utf-8", errors="ignore") as handle:
             for _ in range(max_lines):
                 line = handle.readline()
                 if not line:
                     break
+                if in_docstring:
+                    if "issue" in line.lower():
+                        numbers.update(extract_issue_numbers(line, include_hash=True))
+                    if docstring_delim and docstring_delim in line:
+                        in_docstring = False
+                        docstring_delim = ""
+                    continue
+
+                stripped = line.lstrip()
+                if stripped.startswith(('"""', "'''")):
+                    docstring_delim = stripped[:3]
+                    in_docstring = True
+                    if "issue" in line.lower():
+                        numbers.update(extract_issue_numbers(line, include_hash=True))
+                    if stripped.count(docstring_delim) >= 2:
+                        in_docstring = False
+                        docstring_delim = ""
+                    continue
+
+                if not is_comment_line(line):
+                    continue
                 if "issue" not in line.lower():
                     continue
                 numbers.update(extract_issue_numbers(line, include_hash=True))
