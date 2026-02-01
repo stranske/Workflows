@@ -26,8 +26,9 @@ jobs:
           RUN_ID: ${{ github.event.workflow_run.id }}
         run: |
           set -euo pipefail
+          # shellcheck disable=SC1009,SC1073,SC1039,SC1072
           repo="${GITHUB_REPOSITORY}"
-          node - <<-'NODE'
+          node - <<'NODE'
           const fs = require('fs');
           const { Octokit } = require('@octokit/rest');
           const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
@@ -70,7 +71,7 @@ jobs:
             console.error(error);
             process.exit(1);
           });
-	NODE
+          NODE
           tmp_output="${RUNNER_TEMP:-/tmp}/followup_issue_output.json"
           unzip -p artifact.zip followup_issue_output.json > "${tmp_output}"
           mv "${tmp_output}" followup_issue_output.json
@@ -86,7 +87,7 @@ jobs:
             echo "Missing issue_number in followup_issue_output.json" >&2
             exit 1
           fi
-            ISSUE_NUMBER="${issue_number}" node - <<-'NODE'
+            ISSUE_NUMBER="${issue_number}" node - <<'NODE'
           const { Octokit } = require('@octokit/rest');
           const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
           const core = { info: () => {}, warning: console.warn, debug: () => {} };
@@ -116,4 +117,4 @@ jobs:
             console.error(error);
             process.exit(1);
           });
-	NODE
+          NODE
