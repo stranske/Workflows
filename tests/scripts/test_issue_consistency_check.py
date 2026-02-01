@@ -39,7 +39,7 @@ def test_extract_head_ref_issue_numbers_from_branch() -> None:
 def test_is_autofix_context_reads_event_labels(tmp_path: Path, monkeypatch) -> None:
     payload = {
         "pull_request": {
-            "labels": [{"name": "autofix"}],
+            "labels": [{"name": "auto-fix"}],
         }
     }
     event_path = tmp_path / "event.json"
@@ -47,3 +47,7 @@ def test_is_autofix_context_reads_event_labels(tmp_path: Path, monkeypatch) -> N
     monkeypatch.setenv("GITHUB_EVENT_PATH", str(event_path))
 
     assert check_issue_consistency.is_autofix_context("", "") is True
+
+
+def test_is_autofix_context_detects_hyphenated_title() -> None:
+    assert check_issue_consistency.is_autofix_context("Auto-fix from CI failure", "") is True
