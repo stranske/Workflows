@@ -8,6 +8,7 @@
  */
 
 const { withGithubApiRetry, calculateBackoffDelay } = require('./github_api_retry');
+const { ensureRateLimitWrapped } = require('./github-rate-limited-wrapper.js');
 
 const DEFAULT_MAX_RETRIES = 3;
 const DEFAULT_BASE_DELAY_MS = 1000;
@@ -143,11 +144,19 @@ async function paginateWithBackoff(github, method, params, options = {}) {
     baseDelay = DEFAULT_BASE_DELAY_MS,
     maxDelay = DEFAULT_MAX_DELAY_MS,
     core = null,
+    env = process.env,
   } = options;
+
+  let client = github;
+  try {
+    client = await ensureRateLimitWrapped({ github, core, env });
+  } catch (error) {
+    client = github;
+  }
 
   // Use withGithubApiRetry for comprehensive transient error handling
   return withGithubApiRetry(
-    () => github.paginate(method, params),
+    () => client.paginate(method, params),
     {
       operation: 'read', // Pagination is typically a read operation
       label: 'GitHub API pagination',
@@ -214,10 +223,17 @@ async function withBackoff(apiCall, options = {}) {
  * @returns {Promise<Object>} Rate limit status
  */
 async function checkRateLimitStatus(github, options = {}) {
-  const { threshold = RATE_LIMIT_THRESHOLD, core = null } = options;
+  const { threshold = RATE_LIMIT_THRESHOLD, core = null, env = process.env } = options;
+
+  let client = github;
+  try {
+    client = await ensureRateLimitWrapped({ github, core, env });
+  } catch (error) {
+    client = github;
+  }
 
   try {
-    const { data: rateLimit } = await github.rest.rateLimit.get();
+    const { data: rateLimit } = await client.rest.rateLimit.get();
     const coreLimit = rateLimit?.resources?.core || {};
     const remaining = coreLimit.remaining || 0;
     const limit = coreLimit.limit || 5000;
