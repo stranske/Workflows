@@ -67,7 +67,7 @@ jobs:
           fi
 
           # Get the workflow run details
-          RUN_DATA=$(RUN_ID="$RUN_ID" node - <<'NODE'
+          RUN_DATA=$(RUN_ID="$RUN_ID" node - <<-'NODE'
           const { Octokit } = require('@octokit/rest');
           const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
           const core = { info: () => {}, warning: console.warn, debug: () => {} };
@@ -91,7 +91,7 @@ jobs:
             console.error(error);
             process.exit(1);
           });
-          NODE
+	NODE
           )
 
           if [ -z "$RUN_DATA" ]; then

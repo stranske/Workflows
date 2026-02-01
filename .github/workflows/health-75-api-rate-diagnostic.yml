@@ -224,11 +224,7 @@ jobs:
             console.error(error);
             process.exit(1);
           });
-<<<<<<< HEAD
           NODE
-=======
-            NODE
->>>>>>> 035d95e (fix: correct workflow heredoc indentation)
           )
 
           if [ -n "$rate_data" ] && [ "$rate_data" != "{}" ]; then
@@ -332,11 +328,7 @@ jobs:
             console.error(error);
             process.exit(1);
           });
-<<<<<<< HEAD
           NODE
-=======
-            NODE
->>>>>>> 035d95e (fix: correct workflow heredoc indentation)
           )
 
           if [ -n "$rate_data" ] && [ "$rate_data" != "{}" ]; then
@@ -448,11 +440,7 @@ jobs:
             console.error(error);
             process.exit(1);
           });
-<<<<<<< HEAD
           NODE
-=======
-            NODE
->>>>>>> 035d95e (fix: correct workflow heredoc indentation)
           )
 
           if [ -n "$rate_data" ] && [ "$rate_data" != "{}" ]; then
@@ -567,11 +555,7 @@ jobs:
             console.error(error);
             process.exit(1);
           });
-<<<<<<< HEAD
           NODE
-=======
-            NODE
->>>>>>> 035d95e (fix: correct workflow heredoc indentation)
           )
 
           if [ -n "$rate_data" ] && [ "$rate_data" != "{}" ]; then
@@ -685,11 +669,7 @@ jobs:
             console.error(error);
             process.exit(1);
           });
-<<<<<<< HEAD
           NODE
-=======
-            NODE
->>>>>>> 035d95e (fix: correct workflow heredoc indentation)
           )
 
           if [ -n "$rate_data" ] && [ "$rate_data" != "{}" ]; then
@@ -837,11 +817,7 @@ jobs:
             console.error(error);
             process.exit(1);
           });
-<<<<<<< HEAD
           NODE
-=======
-            NODE
->>>>>>> 035d95e (fix: correct workflow heredoc indentation)
 
       - name: Aggregate and analyze results
         id: aggregate
@@ -1260,11 +1236,7 @@ jobs:
               console.error(error);
               process.exit(1);
             });
-<<<<<<< HEAD
             NODE
-=======
-              NODE
->>>>>>> 035d95e (fix: correct workflow heredoc indentation)
 
             total_runs=$(echo "$runs_data" | jq '.total_count // 0')
             in_progress=$(echo "$runs_data" | jq '[.workflow_runs[] | select(.status == "in_progress")] | length')
@@ -1614,11 +1586,7 @@ jobs:
             console.error(error);
             process.exit(1);
           });
-<<<<<<< HEAD
           NODE
-=======
-            NODE
->>>>>>> 035d95e (fix: correct workflow heredoc indentation)
 
   alert-on-repeat-failure:
     name: Alert on Repeated Failure
