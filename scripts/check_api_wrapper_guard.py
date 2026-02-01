@@ -44,7 +44,8 @@ WRAPPER_HINTS = (
 LOAD_BALANCER_HINT = "export-load-balancer-tokens"
 
 
-def _run_git(args: list[str]) -> str:
+def _run_git(args: list[str], allow_exit_codes: set[int] | None = None) -> str:
+    allowed = {0} if allow_exit_codes is None else allow_exit_codes
     result = subprocess.run(
         ["git", *args],
         cwd=ROOT,
@@ -52,7 +53,7 @@ def _run_git(args: list[str]) -> str:
         text=True,
         check=False,
     )
-    if result.returncode != 0:
+    if result.returncode not in allowed:
         raise RuntimeError(result.stderr.strip() or "git command failed")
     return result.stdout
 
@@ -87,13 +88,19 @@ def _collect_changed_files(base_ref: str, base_remote: str) -> list[Path]:
         )
     if base:
         try:
-            output = _run_git(["diff", "--name-only", f"{base}...HEAD"])
+            output = _run_git(
+                ["diff", "--name-only", f"{base}...HEAD"],
+                allow_exit_codes={0, 1},
+            )
             return [ROOT / line.strip() for line in output.splitlines() if line.strip()]
         except RuntimeError:
             pass
     if _rev_exists("HEAD~1"):
         try:
-            output = _run_git(["diff", "--name-only", "HEAD~1...HEAD"])
+            output = _run_git(
+                ["diff", "--name-only", "HEAD~1...HEAD"],
+                allow_exit_codes={0, 1},
+            )
             return [ROOT / line.strip() for line in output.splitlines() if line.strip()]
         except RuntimeError:
             pass
