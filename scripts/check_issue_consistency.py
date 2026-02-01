@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import re
 import subprocess
@@ -68,9 +69,35 @@ def extract_head_ref_issue_numbers(head_ref: str) -> set[int]:
     return extract_issue_numbers(head_ref or "", include_hash=False)
 
 
-def is_autofix_context(pr_title: str, head_ref: str) -> bool:
+def _has_autofix_label(event_path: str | None) -> bool:
+    if not event_path:
+        return False
+    try:
+        with open(event_path, "r", encoding="utf-8") as handle:
+            payload = json.load(handle)
+    except (OSError, json.JSONDecodeError):
+        return False
+    pull_request = payload.get("pull_request") or {}
+    labels = pull_request.get("labels") or []
+    for label in labels:
+        if isinstance(label, dict):
+            name = label.get("name", "")
+        else:
+            name = str(label)
+        if "autofix" in name.lower():
+            return True
+    return False
+
+
+def is_autofix_context(
+    pr_title: str, head_ref: str, event_path: str | None = None
+) -> bool:
     combined = f"{pr_title or ''}\n{head_ref or ''}".lower()
-    return "autofix" in combined or (head_ref or "").lower().startswith("autofix/")
+    if "autofix" in combined or (head_ref or "").lower().startswith("autofix/"):
+        return True
+    if event_path is None:
+        event_path = os.environ.get("GITHUB_EVENT_PATH")
+    return _has_autofix_label(event_path)
 
 
 def _run_git(args: list[str]) -> str:

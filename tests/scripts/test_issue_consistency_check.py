@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from scripts import check_issue_consistency
@@ -33,3 +34,16 @@ def test_extract_head_ref_issue_numbers_from_branch() -> None:
     head_ref = "codex/issue-144-keepalive"
     numbers = check_issue_consistency.extract_head_ref_issue_numbers(head_ref)
     assert numbers == {144}
+
+
+def test_is_autofix_context_reads_event_labels(tmp_path: Path, monkeypatch) -> None:
+    payload = {
+        "pull_request": {
+            "labels": [{"name": "autofix"}],
+        }
+    }
+    event_path = tmp_path / "event.json"
+    event_path.write_text(json.dumps(payload), encoding="utf-8")
+    monkeypatch.setenv("GITHUB_EVENT_PATH", str(event_path))
+
+    assert check_issue_consistency.is_autofix_context("", "") is True
