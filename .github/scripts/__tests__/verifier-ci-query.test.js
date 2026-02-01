@@ -242,14 +242,12 @@ test('queryVerifierCiResults falls back to default workflows', async () => {
       error_category: '',
       error_message: '',
     }),
-    }),
     withEmptyJobs({
       workflow_name: 'Selftest CI',
       conclusion: 'failure',
       run_url: 'selftest-default-url',
       error_category: '',
       error_message: '',
-    }),
     }),
     withEmptyJobs({
       workflow_name: 'PR 11 - Minimal invariant CI',
