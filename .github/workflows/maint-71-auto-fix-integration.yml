@@ -90,7 +90,7 @@ jobs:
             console.error(error);
             process.exit(1);
           });
-NODE
+          NODE
           )
 
           if [ -z "$RUN_DATA" ]; then

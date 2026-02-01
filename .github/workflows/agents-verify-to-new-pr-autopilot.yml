@@ -70,7 +70,7 @@ jobs:
             console.error(error);
             process.exit(1);
           });
-NODE
+          NODE
           tmp_output="${RUNNER_TEMP:-/tmp}/followup_issue_output.json"
           unzip -p artifact.zip followup_issue_output.json > "${tmp_output}"
           mv "${tmp_output}" followup_issue_output.json
@@ -116,4 +116,4 @@ NODE
             console.error(error);
             process.exit(1);
           });
-NODE
+          NODE

@@ -115,7 +115,7 @@ jobs:
             console.error(error);
             process.exit(1);
           });
-NODE
+            NODE
           )
 
           if [ -n "$rate_data" ] && [ "$rate_data" != "{}" ]; then
@@ -220,7 +220,7 @@ NODE
             console.error(error);
             process.exit(1);
           });
-NODE
+            NODE
           )
 
           if [ -n "$rate_data" ] && [ "$rate_data" != "{}" ]; then
@@ -322,7 +322,7 @@ NODE
             console.error(error);
             process.exit(1);
           });
-NODE
+            NODE
           )
 
           if [ -n "$rate_data" ] && [ "$rate_data" != "{}" ]; then
@@ -432,7 +432,7 @@ NODE
             console.error(error);
             process.exit(1);
           });
-NODE
+            NODE
           )
 
           if [ -n "$rate_data" ] && [ "$rate_data" != "{}" ]; then
@@ -545,7 +545,7 @@ NODE
             console.error(error);
             process.exit(1);
           });
-NODE
+            NODE
           )
 
           if [ -n "$rate_data" ] && [ "$rate_data" != "{}" ]; then
@@ -657,7 +657,7 @@ NODE
             console.error(error);
             process.exit(1);
           });
-NODE
+            NODE
           )
 
           if [ -n "$rate_data" ] && [ "$rate_data" != "{}" ]; then
@@ -804,7 +804,7 @@ NODE
             console.error(error);
             process.exit(1);
           });
-NODE
+            NODE
 
       - name: Aggregate and analyze results
         id: aggregate
@@ -1125,7 +1125,7 @@ NODE
             console.error(error);
             process.exit(1);
           });
-          NODE
+            NODE
 
   check-consumer-repos:
     name: Check Consumer Repo Activity
@@ -1219,7 +1219,7 @@ NODE
               console.error(error);
               process.exit(1);
             });
-NODE
+              NODE
 
             total_runs=$(echo "$runs_data" | jq '.total_count // 0')
             in_progress=$(echo "$runs_data" | jq '[.workflow_runs[] | select(.status == "in_progress")] | length')
@@ -1567,7 +1567,7 @@ NODE
             console.error(error);
             process.exit(1);
           });
-NODE
+            NODE
 
   alert-on-repeat-failure:
     name: Alert on Repeated Failure
@@ -1690,7 +1690,7 @@ NODE
             console.error(error);
             process.exit(1);
           });
-NODE
+          NODE
 
   # Historical report job - runs when report_mode is 'historical'
   generate-historical-report:
@@ -1856,7 +1856,7 @@ NODE
             console.error(error);
             process.exit(1);
           });
-NODE
+          NODE
           )
           workflow_id=$(echo "$workflow_meta" | jq -r '.workflow_id // empty')
           token_used=$(echo "$workflow_meta" | jq -r '.token_used // "primary"')
@@ -1915,7 +1915,7 @@ NODE
             console.error(error);
             process.exit(1);
           });
-NODE
+          NODE
           )
 
           # Normalize END_DATE to an ISO 8601 end-of-day timestamp
