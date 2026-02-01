@@ -73,7 +73,7 @@ def _has_autofix_label(event_path: str | None) -> bool:
     if not event_path:
         return False
     try:
-        with open(event_path, "r", encoding="utf-8") as handle:
+        with open(event_path, encoding="utf-8") as handle:
             payload = json.load(handle)
     except (OSError, json.JSONDecodeError):
         return False
@@ -89,9 +89,7 @@ def _has_autofix_label(event_path: str | None) -> bool:
     return False
 
 
-def is_autofix_context(
-    pr_title: str, head_ref: str, event_path: str | None = None
-) -> bool:
+def is_autofix_context(pr_title: str, head_ref: str, event_path: str | None = None) -> bool:
     combined = f"{pr_title or ''}\n{head_ref or ''}".lower()
     if "autofix" in combined or (head_ref or "").lower().startswith("autofix/"):
         return True
