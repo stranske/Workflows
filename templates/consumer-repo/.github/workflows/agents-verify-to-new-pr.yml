@@ -370,7 +370,7 @@ jobs:
 
       - name: Upload follow-up issue metadata
         if: steps.check-merged.outputs.merged == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: verify-create-new-pr-output
           path: followup_issue_output.json
