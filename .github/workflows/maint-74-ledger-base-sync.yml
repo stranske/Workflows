@@ -20,6 +20,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+      - name: Export load-balancer tokens
+        uses: ./.github/actions/export-load-balancer-tokens
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -37,10 +39,18 @@ jobs:
         uses: actions/github-script@v8
         with:
           script: |
-            const { data } = await github.rest.repos.get({
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'maint-74-ledger-base-sync',
+              capabilities: ['contents:read']
+            });
+            const { data } = await withRetry((client) => client.rest.repos.get({
               owner: context.repo.owner,
               repo: context.repo.repo
-            });
+            }));
             if (!data?.default_branch) {
               core.setFailed('Repository default branch not available');
               return;

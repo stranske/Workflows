@@ -31,6 +31,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+      - name: Export load-balancer tokens
+        uses: ./.github/actions/export-load-balancer-tokens
 
       - name: Collect workflow statistics
         id: stats
@@ -43,10 +45,42 @@ jobs:
           # Calculate date range
           start_date=$(date -d "-${LOOKBACK_DAYS} days" +%Y-%m-%d)
           echo "Analyzing runs since: ${start_date}"
+          export START_DATE="${start_date}"
 
           # Get all workflow runs
-          runs=$(gh api --paginate "/repos/${{ github.repository }}/actions/runs?created=>=${start_date}" \
-            --jq '.workflow_runs[] | {name: .name, conclusion: .conclusion, created_at: .created_at}')
+          runs=$(node - <<'NODE'
+          const { Octokit } = require('@octokit/rest');
+          const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+          const core = { info: () => {}, warning: console.warn, debug: () => {} };
+          const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
+          const startDate = process.env.START_DATE;
+          (async () => {
+            const github = new Octokit({ auth: process.env.GH_TOKEN || process.env.GITHUB_TOKEN });
+            const { paginateWithRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'maint-66-monthly-audit',
+              capabilities: ['actions:read']
+            });
+            const runs = await paginateWithRetry(github.rest.actions.listWorkflowRunsForRepo, {
+              owner,
+              repo,
+              per_page: 100,
+              created: `>=${startDate}`
+            });
+            const slim = runs.map((run) => ({
+              name: run.name,
+              conclusion: run.conclusion,
+              created_at: run.created_at
+            }));
+            process.stdout.write(JSON.stringify(slim));
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+NODE
+          )
 
           # Generate statistics
           echo "${runs}" | jq -s '

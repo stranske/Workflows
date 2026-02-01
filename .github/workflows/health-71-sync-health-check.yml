@@ -50,6 +50,10 @@ jobs:
     name: Check sync workflow health
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+      - name: Export load-balancer tokens
+        uses: ./.github/actions/export-load-balancer-tokens
       - name: Check recent sync runs
         id: check
         env:
@@ -60,10 +64,34 @@ jobs:
           echo "Checking last $LOOKBACK sync workflow runs..."
 
           # Get recent sync workflow runs
-          runs=$(gh api \
-            -H "Accept: application/vnd.github+json" \
-            "/repos/${{ github.repository }}/actions/workflows/maint-68-sync-consumer-repos.yml/runs?per_page=$LOOKBACK" \
-            --jq '.workflow_runs')
+          runs=$(node - <<'NODE'
+          const { Octokit } = require('@octokit/rest');
+          const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+          const core = { info: () => {}, warning: console.warn, debug: () => {} };
+          const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
+          const lookback = Number(process.env.LOOKBACK) || 5;
+          (async () => {
+            const github = new Octokit({ auth: process.env.GH_TOKEN || process.env.GITHUB_TOKEN });
+            const { paginateWithRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'health-71-sync-health-check',
+              capabilities: ['actions:read']
+            });
+            const runs = await paginateWithRetry(github.rest.actions.listWorkflowRuns, {
+              owner,
+              repo,
+              workflow_id: 'maint-68-sync-consumer-repos.yml',
+              per_page: 100
+            });
+            process.stdout.write(JSON.stringify(runs.slice(0, lookback)));
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+NODE
+          )
 
           total_runs=$(echo "$runs" | jq 'length')
           echo "Found $total_runs runs"

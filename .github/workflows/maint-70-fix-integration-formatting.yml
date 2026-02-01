@@ -23,15 +23,27 @@ jobs:
     name: Apply formatting fixes
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+      - name: Export load-balancer tokens
+        uses: ./.github/actions/export-load-balancer-tokens
       - name: Resolve integration repo default branch
         id: integration_ref
         uses: actions/github-script@v8
         with:
           script: |
-            const { data } = await github.rest.repos.get({
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'maint-70-fix-integration-formatting',
+              capabilities: ['contents:read']
+            });
+            const { data } = await withRetry((client) => client.rest.repos.get({
               owner: 'stranske',
               repo: 'Workflows-Integration-Tests'
-            });
+            }));
             if (!data?.default_branch) {
               core.setFailed('Could not determine integration repo default branch');
               return;

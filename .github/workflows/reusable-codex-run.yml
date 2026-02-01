@@ -790,7 +790,17 @@ jobs:
                 echo "::error::GitHub App token missing; refusing to push without app identity."
                 exit 1
               fi
-              git push "${REMOTE_URL}" "HEAD:${TARGET_BRANCH}"
+              if git rev-parse "FETCH_HEAD" >/dev/null 2>&1; then
+                echo "Rebasing unpushed commits onto ${TARGET_BRANCH} before push."
+                if ! git rebase FETCH_HEAD; then
+                  echo "::warning::Rebase failed; attempting merge strategy before push."
+                  git rebase --abort 2>/dev/null || true
+                  git pull --no-rebase "${REMOTE_URL}" "${TARGET_BRANCH}" --allow-unrelated-histories || true
+                fi
+                COMMIT_SHA=$(git rev-parse HEAD)
+                echo "commit-sha=${COMMIT_SHA}" >> "$GITHUB_OUTPUT"
+              fi
+              git push --force-with-lease "${REMOTE_URL}" "HEAD:${TARGET_BRANCH}"
               echo "::notice::Pushed ${UNPUSHED_COMMITS} commit(s) from Codex (SHA: ${COMMIT_SHA})"
               exit 0
             fi

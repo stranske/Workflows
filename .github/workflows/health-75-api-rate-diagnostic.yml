@@ -85,6 +85,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+      - name: Export load-balancer tokens
+        uses: ./.github/actions/export-load-balancer-tokens
 
       - name: Check GITHUB_TOKEN rate limits
         id: github_token
@@ -94,7 +96,27 @@ jobs:
           set -euo pipefail
           echo "::group::GITHUB_TOKEN Rate Limits"
 
-          rate_data=$(gh api rate_limit 2>/dev/null || echo '{}')
+          rate_data=$(node - <<'NODE'
+          const { Octokit } = require('@octokit/rest');
+          const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+          const core = { info: () => {}, warning: console.warn, debug: () => {} };
+          (async () => {
+            const github = new Octokit({ auth: process.env.GH_TOKEN || process.env.GITHUB_TOKEN });
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'health-75-api-rate-diagnostic',
+              capabilities: ['rate_limit:read']
+            });
+            const response = await withRetry((client) => client.rest.rateLimit.get());
+            process.stdout.write(JSON.stringify(response.data || {}));
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+NODE
+          )
 
           if [ -n "$rate_data" ] && [ "$rate_data" != "{}" ]; then
             # Extract key metrics
@@ -179,7 +201,27 @@ jobs:
           set -euo pipefail
           echo "::group::PAT Rate Limits"
 
-          rate_data=$(gh api rate_limit 2>/dev/null || echo '{}')
+          rate_data=$(node - <<'NODE'
+          const { Octokit } = require('@octokit/rest');
+          const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+          const core = { info: () => {}, warning: console.warn, debug: () => {} };
+          (async () => {
+            const github = new Octokit({ auth: process.env.GH_TOKEN || process.env.GITHUB_TOKEN });
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'health-75-api-rate-diagnostic',
+              capabilities: ['rate_limit:read']
+            });
+            const response = await withRetry((client) => client.rest.rateLimit.get());
+            process.stdout.write(JSON.stringify(response.data || {}));
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+NODE
+          )
 
           if [ -n "$rate_data" ] && [ "$rate_data" != "{}" ]; then
             core_limit=$(echo "$rate_data" | jq -r '.resources.core.limit // 0')
@@ -261,7 +303,27 @@ jobs:
           set -euo pipefail
           echo "::group::SERVICE_BOT_PAT Rate Limits"
 
-          rate_data=$(gh api rate_limit 2>/dev/null || echo '{}')
+          rate_data=$(node - <<'NODE'
+          const { Octokit } = require('@octokit/rest');
+          const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+          const core = { info: () => {}, warning: console.warn, debug: () => {} };
+          (async () => {
+            const github = new Octokit({ auth: process.env.GH_TOKEN || process.env.GITHUB_TOKEN });
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'health-75-api-rate-diagnostic',
+              capabilities: ['rate_limit:read']
+            });
+            const response = await withRetry((client) => client.rest.rateLimit.get());
+            process.stdout.write(JSON.stringify(response.data || {}));
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+NODE
+          )
 
           if [ -n "$rate_data" ] && [ "$rate_data" != "{}" ]; then
             core_limit=$(echo "$rate_data" | jq -r '.resources.core.limit // 0')
@@ -351,7 +413,27 @@ jobs:
           set -euo pipefail
           echo "::group::GitHub App Rate Limits"
 
-          rate_data=$(gh api rate_limit 2>/dev/null || echo '{}')
+          rate_data=$(node - <<'NODE'
+          const { Octokit } = require('@octokit/rest');
+          const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+          const core = { info: () => {}, warning: console.warn, debug: () => {} };
+          (async () => {
+            const github = new Octokit({ auth: process.env.GH_TOKEN || process.env.GITHUB_TOKEN });
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'health-75-api-rate-diagnostic',
+              capabilities: ['rate_limit:read']
+            });
+            const response = await withRetry((client) => client.rest.rateLimit.get());
+            process.stdout.write(JSON.stringify(response.data || {}));
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+NODE
+          )
 
           if [ -n "$rate_data" ] && [ "$rate_data" != "{}" ]; then
             core_limit=$(echo "$rate_data" | jq -r '.resources.core.limit // 0')
@@ -444,7 +526,27 @@ jobs:
           set -euo pipefail
           echo "::group::KEEPALIVE_APP Rate Limits"
 
-          rate_data=$(gh api rate_limit 2>/dev/null || echo '{}')
+          rate_data=$(node - <<'NODE'
+          const { Octokit } = require('@octokit/rest');
+          const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+          const core = { info: () => {}, warning: console.warn, debug: () => {} };
+          (async () => {
+            const github = new Octokit({ auth: process.env.GH_TOKEN || process.env.GITHUB_TOKEN });
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'health-75-api-rate-diagnostic',
+              capabilities: ['rate_limit:read']
+            });
+            const response = await withRetry((client) => client.rest.rateLimit.get());
+            process.stdout.write(JSON.stringify(response.data || {}));
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+NODE
+          )
 
           if [ -n "$rate_data" ] && [ "$rate_data" != "{}" ]; then
             core_limit=$(echo "$rate_data" | jq -r '.resources.core.limit // 0')
@@ -536,7 +638,27 @@ jobs:
           set -euo pipefail
           echo "::group::GH_APP Rate Limits"
 
-          rate_data=$(gh api rate_limit 2>/dev/null || echo '{}')
+          rate_data=$(node - <<'NODE'
+          const { Octokit } = require('@octokit/rest');
+          const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+          const core = { info: () => {}, warning: console.warn, debug: () => {} };
+          (async () => {
+            const github = new Octokit({ auth: process.env.GH_TOKEN || process.env.GITHUB_TOKEN });
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'health-75-api-rate-diagnostic',
+              capabilities: ['rate_limit:read']
+            });
+            const response = await withRetry((client) => client.rest.rateLimit.get());
+            process.stdout.write(JSON.stringify(response.data || {}));
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+NODE
+          )
 
           if [ -n "$rate_data" ] && [ "$rate_data" != "{}" ]; then
             core_limit=$(echo "$rate_data" | jq -r '.resources.core.limit // 0')
@@ -617,40 +739,64 @@ jobs:
           KEEPALIVE_APP_TOKEN: ${{ steps.keepalive_app_token.outputs.token || '' }}
           GH_APP_TOKEN: ${{ steps.gh_app_token.outputs.token || '' }}
         run: |
-          set -u
+          node - <<'NODE'
+          const { Octokit } = require('@octokit/rest');
+          const { withRetry } = require('./.github/scripts/github-api-with-retry.js');
+          const core = { info: console.log, warning: console.warn, debug: () => {} };
+          const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
+          const workflowId = 'health-75-api-rate-diagnostic.yml';
 
-          echo "::group::Actions runs access checks"
+          const tokens = [
+            ['GITHUB_TOKEN', process.env.GITHUB_TOKEN_VALUE],
+            ['CODESPACES_WORKFLOWS', process.env.CODESPACES_WORKFLOWS_TOKEN],
+            ['SERVICE_BOT_PAT', process.env.SERVICE_BOT_TOKEN],
+            ['WORKFLOWS_APP', process.env.WORKFLOWS_APP_TOKEN],
+            ['KEEPALIVE_APP', process.env.KEEPALIVE_APP_TOKEN],
+            ['GH_APP', process.env.GH_APP_TOKEN],
+          ];
 
-          check_token() {
-            local label="$1"
-            local token="$2"
-            if [ -z "$token" ]; then
-              echo "$label: not set"
-              return 0
-            fi
+          const normalizeHeader = (headers, key) => {
+            if (!headers) return '';
+            const lowerKey = key.toLowerCase();
+            return headers[lowerKey] || headers[key] || '';
+          };
 
-            local output
-            output=$(GH_TOKEN="$token" gh api -i "repos/$GITHUB_REPOSITORY/actions/workflows/health-75-api-rate-diagnostic.yml/runs?per_page=1" 2>&1 || true)
-            local status
-            status=$(echo "$output" | head -n1)
-            local accepted
-            accepted=$(echo "$output" | awk -F': ' '/^X-Accepted-GitHub-Permissions/ {print $2; exit}')
-
-            if [ -n "$accepted" ]; then
-              echo "$label: $status | perms: $accepted"
-            else
-              echo "$label: $status"
-            fi
-          }
-
-          check_token "GITHUB_TOKEN" "$GITHUB_TOKEN_VALUE"
-          check_token "CODESPACES_WORKFLOWS" "$CODESPACES_WORKFLOWS_TOKEN"
-          check_token "SERVICE_BOT_PAT" "$SERVICE_BOT_TOKEN"
-          check_token "WORKFLOWS_APP" "$WORKFLOWS_APP_TOKEN"
-          check_token "KEEPALIVE_APP" "$KEEPALIVE_APP_TOKEN"
-          check_token "GH_APP" "$GH_APP_TOKEN"
-
-          echo "::endgroup::"
+          (async () => {
+            console.log('::group::Actions runs access checks');
+            for (const [label, token] of tokens) {
+              if (!token) {
+                console.log(`${label}: not set`);
+                continue;
+              }
+              const github = new Octokit({ auth: token });
+              try {
+                const response = await withRetry(
+                  () => github.request('GET /repos/{owner}/{repo}/actions/workflows/{workflow_id}/runs', {
+                    owner,
+                    repo,
+                    workflow_id: workflowId,
+                    per_page: 1
+                  }),
+                  { github, core, env: process.env, task: 'health-75-api-rate-diagnostic-access-check' }
+                );
+                const accepted = normalizeHeader(response?.headers, 'x-accepted-github-permissions');
+                const statusLine = `HTTP ${response?.status || 'unknown'}`;
+                if (accepted) {
+                  console.log(`${label}: ${statusLine} | perms: ${accepted}`);
+                } else {
+                  console.log(`${label}: ${statusLine}`);
+                }
+              } catch (error) {
+                const status = error?.status || error?.response?.status || 'error';
+                console.log(`${label}: HTTP ${status}`);
+              }
+            }
+            console.log('::endgroup::');
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+NODE
 
       - name: Aggregate and analyze results
         id: aggregate
@@ -1013,7 +1159,33 @@ jobs:
             # Get recent workflow runs (last hour)
             since=$(date -u -d '1 hour ago' +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-            runs_data=$(gh api "repos/${repo}/actions/runs?per_page=100&created=>=${since}" 2>/dev/null || echo '{"workflow_runs":[]}')
+            runs_data=$(REPO="$repo" SINCE="$since" node - <<'NODE' 2>/dev/null || echo '{"workflow_runs":[]}')
+            const { Octokit } = require('@octokit/rest');
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const core = { info: () => {}, warning: console.warn, debug: () => {} };
+            const [owner, repo] = process.env.REPO.split('/');
+            const since = process.env.SINCE;
+            (async () => {
+              const github = new Octokit({ auth: process.env.GH_TOKEN || process.env.GITHUB_TOKEN });
+              const { withRetry } = await createTokenAwareRetry({
+                github,
+                core,
+                env: process.env,
+                task: 'health-75-api-rate-diagnostic-consumer-activity',
+                capabilities: ['actions:read']
+              });
+              const response = await withRetry((client) => client.rest.actions.listWorkflowRunsForRepo({
+                owner,
+                repo,
+                per_page: 100,
+                created: `>=${since}`
+              }));
+              process.stdout.write(JSON.stringify(response.data || { workflow_runs: [] }));
+            })().catch((error) => {
+              console.error(error);
+              process.exit(1);
+            });
+NODE
 
             total_runs=$(echo "$runs_data" | jq '.total_count // 0')
             in_progress=$(echo "$runs_data" | jq '[.workflow_runs[] | select(.status == "in_progress")] | length')
@@ -1260,6 +1432,10 @@ jobs:
       SUMMARY_JSON: ${{ needs.collect-rate-limits.outputs.summary_json }}
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+      - name: Export load-balancer tokens
+        uses: ./.github/actions/export-load-balancer-tokens
       - name: Check for critical utilization
         id: check
         run: |
@@ -1290,39 +1466,74 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          # Check if an open issue already exists
-          existing=$(gh issue list --repo "$GITHUB_REPOSITORY" --label "api-rate-limit" --state open --limit 1 --json number --jq '.[0].number // empty')
+          node - <<'NODE'
+          const { Octokit } = require('@octokit/rest');
+          const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+          const core = { info: console.log, warning: console.warn, debug: () => {} };
+          const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
+          const serverUrl = process.env.GITHUB_SERVER_URL;
+          const runId = process.env.GITHUB_RUN_ID;
 
-          if [ -z "$existing" ]; then
-            gh issue create \
-              --repo "$GITHUB_REPOSITORY" \
-              --title "⚠️ API Rate Limit Alert: High Utilization Detected" \
-              --label "api-rate-limit,automated" \
-              --body "## API Rate Limit Alert
+          (async () => {
+            const github = new Octokit({ auth: process.env.GH_TOKEN || process.env.GITHUB_TOKEN });
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'health-75-api-rate-diagnostic-high-usage',
+              capabilities: ['issues:write']
+            });
 
-          The Health 75 API Rate Diagnostic workflow has detected high API rate limit utilization (>85%).
+            const issuesResp = await withRetry((client) => client.rest.issues.listForRepo({
+              owner,
+              repo,
+              labels: 'api-rate-limit',
+              state: 'open',
+              per_page: 1
+            }));
+            const existing = issuesResp?.data?.[0]?.number;
+            const now = new Date().toISOString().replace('T', ' ').replace(/\.\d+Z$/, ' UTC');
+            const body = [
+              '## API Rate Limit Alert',
+              '',
+              'The Health 75 API Rate Diagnostic workflow has detected high API rate limit utilization (>85%).',
+              '',
+              `**Detected at:** ${now}`,
+              `**Workflow Run:** ${serverUrl}/${process.env.GITHUB_REPOSITORY}/actions/runs/${runId}`,
+              '',
+              '### Recommended Actions',
+              '',
+              '1. Review recent workflow activity for unusual patterns',
+              '2. Check if any workflows are making excessive API calls',
+              '3. Consider implementing caching or reducing polling frequency',
+              '4. Verify load is properly distributed across authentication methods',
+              '',
+              'This issue was automatically created and will be referenced if high usage persists.'
+            ].join('\n');
 
-          **Detected at:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")
-          **Workflow Run:** $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
-
-          ### Recommended Actions
-
-          1. Review recent workflow activity for unusual patterns
-          2. Check if any workflows are making excessive API calls
-          3. Consider implementing caching or reducing polling frequency
-          4. Verify load is properly distributed across authentication methods
-
-          This issue was automatically created and will be referenced if high usage persists."
-            echo "Created new alert issue"
-          else
-            gh issue comment "$existing" \
-              --repo "$GITHUB_REPOSITORY" \
-              --body "🔄 **Update:** High API rate limit utilization continues.
-
-          **Checked at:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")
-          **Workflow Run:** $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
-            echo "Updated existing issue #$existing"
-          fi
+            if (!existing) {
+              await withRetry((client) => client.rest.issues.create({
+                owner,
+                repo,
+                title: '⚠️ API Rate Limit Alert: High Utilization Detected',
+                labels: ['api-rate-limit', 'automated'],
+                body
+              }));
+              console.log('Created new alert issue');
+            } else {
+              await withRetry((client) => client.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: existing,
+                body: `🔄 **Update:** High API rate limit utilization continues.\n\n**Checked at:** ${now}\n**Workflow Run:** ${serverUrl}/${process.env.GITHUB_REPOSITORY}/actions/runs/${runId}`
+              }));
+              console.log(`Updated existing issue #${existing}`);
+            }
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+NODE
 
   alert-on-repeat-failure:
     name: Alert on Repeated Failure
@@ -1333,73 +1544,119 @@ jobs:
       actions: read
       issues: write
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+      - name: Export load-balancer tokens
+        uses: ./.github/actions/export-load-balancer-tokens
       - name: Create issue on repeated failures
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          set -euo pipefail
+          node - <<'NODE'
+          const { Octokit } = require('@octokit/rest');
+          const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+          const core = { info: console.log, warning: console.warn, debug: () => {} };
+          const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
+          const runId = Number(process.env.GITHUB_RUN_ID);
+          const serverUrl = process.env.GITHUB_SERVER_URL;
 
-          conclusion=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" --jq '.conclusion // ""')
-          if [ "$conclusion" != "failure" ]; then
-            echo "Run conclusion is '$conclusion' - no failure alert needed."
-            exit 0
-          fi
+          (async () => {
+            const github = new Octokit({ auth: process.env.GH_TOKEN || process.env.GITHUB_TOKEN });
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'health-75-api-rate-diagnostic-alert',
+              capabilities: ['actions:read', 'issues:write']
+            });
 
-          workflow_id=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/health-75-api-rate-diagnostic.yml" --jq '.id // empty')
-          if [ -z "$workflow_id" ]; then
-            echo "Could not resolve workflow id; skipping repeat failure check."
-            exit 0
-          fi
+            const runResp = await withRetry((client) => client.rest.actions.getWorkflowRun({
+              owner,
+              repo,
+              run_id: runId
+            }));
+            const conclusion = runResp?.data?.conclusion || '';
+            if (conclusion !== 'failure') {
+              console.log(`Run conclusion is '${conclusion}' - no failure alert needed.`);
+              return;
+            }
 
-          runs=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$workflow_id/runs?per_page=2" \
-            --jq '[.workflow_runs[] | {id: .id, conclusion: .conclusion}]')
+            const workflowResp = await withRetry((client) => client.rest.actions.getWorkflow({
+              owner,
+              repo,
+              workflow_id: 'health-75-api-rate-diagnostic.yml'
+            }));
+            const workflowId = workflowResp?.data?.id;
+            if (!workflowId) {
+              console.log('Could not resolve workflow id; skipping repeat failure check.');
+              return;
+            }
 
-          first=$(echo "$runs" | jq -r '.[0].conclusion // ""')
-          second=$(echo "$runs" | jq -r '.[1].conclusion // ""')
+            const runsResp = await withRetry((client) => client.rest.actions.listWorkflowRuns({
+              owner,
+              repo,
+              workflow_id: workflowId,
+              per_page: 2
+            }));
+            const runs = runsResp?.data?.workflow_runs || [];
+            const first = runs[0]?.conclusion || '';
+            const second = runs[1]?.conclusion || '';
+            if (first !== 'failure' || second !== 'failure') {
+              console.log(`No consecutive failures detected (latest: ${first}, previous: ${second}).`);
+              return;
+            }
 
-          if [ "$first" != "failure" ] || [ "$second" != "failure" ]; then
-            echo "No consecutive failures detected (latest: $first, previous: $second)."
-            exit 0
-          fi
+            const issueTitle = '⚠️ Health 75 API Rate Diagnostic failing repeatedly';
+            const labels = ['workflow-failure', 'automated', 'api-rate-limit'];
+            const now = new Date().toISOString().replace('T', ' ').replace(/\.\d+Z$/, ' UTC');
+            const body = [
+              '## Repeated workflow failures detected',
+              '',
+              'The Health 75 API Rate Diagnostic workflow has failed in two consecutive runs.',
+              '',
+              `- **Current run:** ${serverUrl}/${process.env.GITHUB_REPOSITORY}/actions/runs/${runId}`,
+              `- **Detected at:** ${now}`,
+              '',
+              '### Next steps',
+              '1. Review the run logs to identify the failing step(s).',
+              '2. Validate that API credentials and required secrets are configured.',
+              '3. Re-run the workflow after applying fixes.',
+              '',
+              'This issue was created automatically to ensure repeated failures are tracked.'
+            ].join('\n');
 
-          issue_title="⚠️ Health 75 API Rate Diagnostic failing repeatedly"
-          issue_label="workflow-failure,automated,api-rate-limit"
+            const issuesResp = await withRetry((client) => client.rest.issues.listForRepo({
+              owner,
+              repo,
+              labels: 'workflow-failure',
+              state: 'open',
+              per_page: 1
+            }));
+            const existing = issuesResp?.data?.[0]?.number;
 
-          existing=$(gh issue list --repo "$GITHUB_REPOSITORY" \
-            --label "workflow-failure" \
-            --state open \
-            --limit 1 \
-            --json number \
-            --jq '.[0].number // empty')
-
-          body=$(printf '%s\n' \
-            "## Repeated workflow failures detected" \
-            "" \
-            "The Health 75 API Rate Diagnostic workflow has failed in two consecutive runs." \
-            "" \
-            "- **Current run:** $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
-            "- **Detected at:** $(date -u +\"%Y-%m-%d %H:%M:%S UTC\")" \
-            "" \
-            "### Next steps" \
-            "1. Review the run logs to identify the failing step(s)." \
-            "2. Validate that API credentials and required secrets are configured." \
-            "3. Re-run the workflow after applying fixes." \
-            "" \
-            "This issue was created automatically to ensure repeated failures are tracked.")
-
-          if [ -z "$existing" ]; then
-            gh issue create \
-              --repo "$GITHUB_REPOSITORY" \
-              --title "$issue_title" \
-              --label "$issue_label" \
-              --body "$body"
-            echo "Created failure alert issue."
-          else
-            gh issue comment "$existing" \
-              --repo "$GITHUB_REPOSITORY" \
-              --body "Repeated failure detected again. Latest run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
-            echo "Updated existing failure alert issue #$existing."
-          fi
+            if (!existing) {
+              await withRetry((client) => client.rest.issues.create({
+                owner,
+                repo,
+                title: issueTitle,
+                labels,
+                body
+              }));
+              console.log('Created failure alert issue.');
+            } else {
+              await withRetry((client) => client.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: existing,
+                body: `Repeated failure detected again. Latest run: ${serverUrl}/${process.env.GITHUB_REPOSITORY}/actions/runs/${runId}`
+              }));
+              console.log(`Updated existing failure alert issue #${existing}.`);
+            }
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+NODE
 
   # Historical report job - runs when report_mode is 'historical'
   generate-historical-report:
@@ -1408,6 +1665,10 @@ jobs:
     if: ${{ inputs.report_mode == 'historical' }}
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+      - name: Export load-balancer tokens
+        uses: ./.github/actions/export-load-balancer-tokens
       - name: Parse date range
         id: dates
         run: |
@@ -1514,11 +1775,53 @@ jobs:
           fi
 
           # Get workflow ID for Health 75 (direct path lookup avoids pagination limits)
-          if ! workflow_id=$(GH_TOKEN="$primary_token" gh api "repos/$GITHUB_REPOSITORY/actions/workflows/health-75-api-rate-diagnostic.yml" \
-            --jq '.id // empty'); then
-            echo "Primary token could not access workflow metadata. Retrying with GITHUB_TOKEN." >&2
-            workflow_id=$(GH_TOKEN="$FALLBACK_GH_TOKEN" gh api "repos/$GITHUB_REPOSITORY/actions/workflows/health-75-api-rate-diagnostic.yml" \
-              --jq '.id // empty')
+          workflow_meta=$(PRIMARY_TOKEN="$primary_token" FALLBACK_TOKEN="$FALLBACK_GH_TOKEN" node - <<'NODE'
+          const { Octokit } = require('@octokit/rest');
+          const { withRetry } = require('./.github/scripts/github-api-with-retry.js');
+          const core = { info: () => {}, warning: console.warn, debug: () => {} };
+          const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
+          const primaryToken = process.env.PRIMARY_TOKEN;
+          const fallbackToken = process.env.FALLBACK_TOKEN;
+
+          async function fetchWorkflowId(token) {
+            const github = new Octokit({ auth: token });
+            const response = await withRetry(
+              () => github.rest.actions.getWorkflow({
+                owner,
+                repo,
+                workflow_id: 'health-75-api-rate-diagnostic.yml'
+              }),
+              { github, core, env: process.env, task: 'health-75-api-rate-diagnostic-history' }
+            );
+            return response?.data?.id || null;
+          }
+
+          (async () => {
+            let workflowId = null;
+            let tokenUsed = 'primary';
+            try {
+              if (primaryToken) {
+                workflowId = await fetchWorkflowId(primaryToken);
+              }
+            } catch (error) {
+              workflowId = null;
+            }
+            if (!workflowId && fallbackToken) {
+              tokenUsed = 'fallback';
+              workflowId = await fetchWorkflowId(fallbackToken);
+            }
+            process.stdout.write(JSON.stringify({ workflow_id: workflowId, token_used: tokenUsed }));
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+NODE
+          )
+          workflow_id=$(echo "$workflow_meta" | jq -r '.workflow_id // empty')
+          token_used=$(echo "$workflow_meta" | jq -r '.token_used // "primary"')
+          token_to_use="$primary_token"
+          if [ "$token_used" = "fallback" ]; then
+            token_to_use="$FALLBACK_GH_TOKEN"
           fi
 
           if [ -z "$workflow_id" ]; then
@@ -1530,22 +1833,42 @@ jobs:
 
           # Fetch runs in date range (GitHub API uses created filter)
           # Note: Use query params instead of -F flags to keep this a GET request
-          if ! runs=$(GH_TOKEN="$primary_token" gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$workflow_id/runs?created=>=${START_DATE}&status=completed" \
-            --paginate \
-            --jq '[.workflow_runs[] | select(.conclusion == "success") | {
-              id: .id,
-              created_at: .created_at,
-              run_number: .run_number
-            }]'); then
-            echo "Primary token could not access workflow runs. Retrying with GITHUB_TOKEN." >&2
-            runs=$(GH_TOKEN="$FALLBACK_GH_TOKEN" gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$workflow_id/runs?created=>=${START_DATE}&status=completed" \
-              --paginate \
-              --jq '[.workflow_runs[] | select(.conclusion == "success") | {
-                id: .id,
-                created_at: .created_at,
-                run_number: .run_number
-              }]')
-          fi
+          runs=$(TOKEN_TO_USE="$token_to_use" WORKFLOW_ID="$workflow_id" START_DATE="$START_DATE" node - <<'NODE'
+          const { Octokit } = require('@octokit/rest');
+          const { withRetry } = require('./.github/scripts/github-api-with-retry.js');
+          const core = { info: () => {}, warning: console.warn, debug: () => {} };
+          const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
+          const token = process.env.TOKEN_TO_USE;
+          const workflowId = process.env.WORKFLOW_ID;
+          const startDate = process.env.START_DATE;
+
+          (async () => {
+            const github = new Octokit({ auth: token });
+            const runs = await withRetry(
+              () => github.paginate(github.rest.actions.listWorkflowRuns, {
+                owner,
+                repo,
+                workflow_id: workflowId,
+                per_page: 100,
+                status: 'completed',
+                created: `>=${startDate}`
+              }),
+              { github, core, env: process.env, task: 'health-75-api-rate-diagnostic-history-runs' }
+            );
+            const filtered = (runs || [])
+              .filter((run) => run.conclusion === 'success')
+              .map((run) => ({
+                id: run.id,
+                created_at: run.created_at,
+                run_number: run.run_number
+              }));
+            process.stdout.write(JSON.stringify(filtered));
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+NODE
+          )
 
           # Normalize END_DATE to an ISO 8601 end-of-day timestamp
           if [[ "$END_DATE" == *T* ]]; then

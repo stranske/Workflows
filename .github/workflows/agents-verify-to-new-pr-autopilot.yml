@@ -16,6 +16,10 @@ jobs:
     if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+      - name: Export load-balancer tokens
+        uses: ./.github/actions/export-load-balancer-tokens
       - name: Download follow-up issue metadata
         env:
           GH_TOKEN: ${{ github.token }}
@@ -23,13 +27,50 @@ jobs:
         run: |
           set -euo pipefail
           repo="${GITHUB_REPOSITORY}"
-          artifact_id=$(gh api "repos/${repo}/actions/runs/${RUN_ID}/artifacts" \
-            --jq '[.artifacts[] | select(.name=="verify-create-new-pr-output") | .id][0]')
-          if [ -z "${artifact_id}" ]; then
-            echo "Missing verify-create-new-pr-output artifact for run ${RUN_ID}" >&2
-            exit 1
-          fi
-          gh api "repos/${repo}/actions/artifacts/${artifact_id}/zip" > artifact.zip
+          node - <<'NODE'
+          const fs = require('fs');
+          const { Octokit } = require('@octokit/rest');
+          const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+          const core = { info: () => {}, warning: console.warn, debug: () => {} };
+          const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
+          const runId = Number(process.env.RUN_ID);
+          const artifactName = 'verify-create-new-pr-output';
+          (async () => {
+            const github = new Octokit({ auth: process.env.GH_TOKEN || process.env.GITHUB_TOKEN });
+            const { paginateWithRetry, withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'agents-verify-to-new-pr-autopilot',
+              capabilities: ['actions:read']
+            });
+            const artifacts = await paginateWithRetry(github.rest.actions.listWorkflowRunArtifacts, {
+              owner,
+              repo,
+              run_id: runId,
+              per_page: 100
+            });
+            const artifact = artifacts.find((item) => item.name === artifactName);
+            if (!artifact) {
+              console.error(`Missing ${artifactName} artifact for run ${runId}`);
+              process.exit(1);
+            }
+            const response = await withRetry((client) => client.rest.actions.downloadArtifact({
+              owner,
+              repo,
+              artifact_id: artifact.id,
+              archive_format: 'zip'
+            }));
+            const data = response.data;
+            const buffer = Buffer.isBuffer(data)
+              ? data
+              : Buffer.from(data instanceof ArrayBuffer ? new Uint8Array(data) : data);
+            fs.writeFileSync('artifact.zip', buffer);
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+NODE
           tmp_output="${RUNNER_TEMP:-/tmp}/followup_issue_output.json"
           unzip -p artifact.zip followup_issue_output.json > "${tmp_output}"
           mv "${tmp_output}" followup_issue_output.json
@@ -45,9 +86,34 @@ jobs:
             echo "Missing issue_number in followup_issue_output.json" >&2
             exit 1
           fi
-          workflow="agents-auto-pilot.yml"
-          api_path="repos/${GITHUB_REPOSITORY}/actions/workflows/${workflow}/dispatches"
-          gh api -X POST "${api_path}" \
-            -f "ref=${DEFAULT_BRANCH}" \
-            -f "inputs[issue_number]=${issue_number}" \
-            -f "inputs[force_step]=optimize"
+          ISSUE_NUMBER="${issue_number}" node - <<'NODE'
+          const { Octokit } = require('@octokit/rest');
+          const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+          const core = { info: () => {}, warning: console.warn, debug: () => {} };
+          const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
+          const issueNumber = process.env.ISSUE_NUMBER;
+          const defaultBranch = process.env.DEFAULT_BRANCH;
+          (async () => {
+            const github = new Octokit({ auth: process.env.GH_TOKEN || process.env.GITHUB_TOKEN });
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'agents-verify-to-new-pr-autopilot-dispatch',
+              capabilities: ['actions:write']
+            });
+            await withRetry((client) => client.rest.actions.createWorkflowDispatch({
+              owner,
+              repo,
+              workflow_id: 'agents-auto-pilot.yml',
+              ref: defaultBranch,
+              inputs: {
+                issue_number: String(issueNumber),
+                force_step: 'optimize'
+              }
+            }));
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+NODE

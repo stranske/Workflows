@@ -1072,7 +1072,32 @@ jobs:
           artifact_name="autofix-history-pr-${TARGET_PR}"
           echo "[history] Attempting to restore ${artifact_name} from previous runs"
           set +e
-          response=$(gh api "repos/${TARGET_REPO}/actions/artifacts" --paginate)
+          response=$(node - <<'NODE'
+          const { Octokit } = require('@octokit/rest');
+          const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+          const core = { info: () => {}, warning: console.warn, debug: () => {} };
+          const [owner, repo] = process.env.TARGET_REPO.split('/');
+          (async () => {
+            const github = new Octokit({ auth: process.env.GH_TOKEN || process.env.GITHUB_TOKEN });
+            const { paginateWithRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'reusable-18-autofix-history',
+              capabilities: ['actions:read']
+            });
+            const artifacts = await paginateWithRetry(github.rest.actions.listArtifactsForRepo, {
+              owner,
+              repo,
+              per_page: 100
+            });
+            process.stdout.write(JSON.stringify({ artifacts }));
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+NODE
+          )
           status=$?
           set -e
           if [ $status -ne 0 ] || [ -z "$response" ]; then
@@ -1088,7 +1113,40 @@ jobs:
           artifact_id=${latest%%$'\t'*}
           tmpdir=$(mktemp -d)
           echo "[history] Downloading artifact id ${artifact_id}"
-          if ! gh api "repos/${TARGET_REPO}/actions/artifacts/${artifact_id}/zip" >"$tmpdir/artifact.zip"; then
+          if ! TARGET_REPO="${TARGET_REPO}" ARTIFACT_ID="${artifact_id}" TARGET_ZIP="$tmpdir/artifact.zip" node - <<'NODE'; then
+          const fs = require('fs');
+          const { Octokit } = require('@octokit/rest');
+          const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+          const core = { info: () => {}, warning: console.warn, debug: () => {} };
+          const [owner, repo] = process.env.TARGET_REPO.split('/');
+          const artifactId = Number(process.env.ARTIFACT_ID);
+          const targetZip = process.env.TARGET_ZIP;
+          (async () => {
+            const github = new Octokit({ auth: process.env.GH_TOKEN || process.env.GITHUB_TOKEN });
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'reusable-18-autofix-history-download',
+              capabilities: ['actions:read']
+            });
+            const response = await withRetry((client) => client.rest.actions.downloadArtifact({
+              owner,
+              repo,
+              artifact_id: artifactId,
+              archive_format: 'zip'
+            }));
+            const data = response.data;
+            const buffer = Buffer.isBuffer(data)
+              ? data
+              : Buffer.from(data instanceof ArrayBuffer ? new Uint8Array(data) : data);
+            fs.writeFileSync(targetZip, buffer);
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+NODE
+          then
             echo "[history] Failed to download artifact ${artifact_id}"
             exit 0
           fi

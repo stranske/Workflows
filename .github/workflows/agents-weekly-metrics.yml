@@ -43,17 +43,79 @@ jobs:
           mkdir -p artifacts
 
           # Get artifact IDs and names
-          gh api --paginate "/repos/${{ github.repository }}/actions/artifacts" \
-            -q '.artifacts[] | select(.expired==false and (.name=="keepalive-metrics" or .name=="agents-autofix-metrics" or .name=="agents-verifier-metrics")) | "\(.id)\t\(.name)"' |
+          node - <<'NODE' |
+          const { Octokit } = require('@octokit/rest');
+          const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+          const core = { info: () => {}, warning: console.warn, debug: () => {} };
+          const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
+          const target = new Set(['keepalive-metrics', 'agents-autofix-metrics', 'agents-verifier-metrics']);
+
+          (async () => {
+            const github = new Octokit({ auth: process.env.GH_TOKEN || process.env.GITHUB_TOKEN });
+            const { paginateWithRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'agents-weekly-metrics-artifacts',
+              capabilities: ['actions:read']
+            });
+            const artifacts = await paginateWithRetry(github.rest.actions.listArtifactsForRepo, {
+              owner,
+              repo,
+              per_page: 100
+            });
+            const lines = artifacts
+              .filter((artifact) => !artifact.expired && target.has(artifact.name))
+              .map((artifact) => `${artifact.id}\t${artifact.name}`)
+              .join('\n');
+            process.stdout.write(lines);
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+NODE
           while IFS=$'\t' read -r id name; do
             echo "Downloading artifact $id ($name)"
             mkdir -p "artifacts/$name"
-            gh run download --dir "artifacts/$name" --name "$name" 2>/dev/null || {
-              # Fallback: try direct artifact download
-              gh api "/repos/${{ github.repository }}/actions/artifacts/$id/zip" > "artifacts/$name/$id.zip" 2>/dev/null && \
-              unzip -o "artifacts/$name/$id.zip" -d "artifacts/$name" >/dev/null || \
+            if ! ARTIFACT_ID="$id" ARTIFACT_DIR="artifacts/$name" ARTIFACT_ZIP="artifacts/$name/$id.zip" node - <<'NODE'; then
+            const fs = require('fs');
+            const { Octokit } = require('@octokit/rest');
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const core = { info: () => {}, warning: console.warn, debug: () => {} };
+            const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
+            const artifactId = Number(process.env.ARTIFACT_ID);
+            const zipPath = process.env.ARTIFACT_ZIP;
+            (async () => {
+              const github = new Octokit({ auth: process.env.GH_TOKEN || process.env.GITHUB_TOKEN });
+              const { withRetry } = await createTokenAwareRetry({
+                github,
+                core,
+                env: process.env,
+                task: 'agents-weekly-metrics-download',
+                capabilities: ['actions:read']
+              });
+              const response = await withRetry((client) => client.rest.actions.downloadArtifact({
+                owner,
+                repo,
+                artifact_id: artifactId,
+                archive_format: 'zip'
+              }));
+              const data = response.data;
+              const buffer = Buffer.isBuffer(data)
+                ? data
+                : Buffer.from(data instanceof ArrayBuffer ? new Uint8Array(data) : data);
+              fs.writeFileSync(zipPath, buffer);
+            })().catch((error) => {
+              console.error(error);
+              process.exit(1);
+            });
+NODE
+            then
               echo "Warning: Could not download artifact $id ($name)"
-            }
+              continue
+            fi
+            unzip -o "artifacts/$name/$id.zip" -d "artifacts/$name" >/dev/null || \
+              echo "Warning: Could not unzip artifact $id ($name)"
           done || true  # Don't fail if no artifacts found
 
       - name: Aggregate metrics
