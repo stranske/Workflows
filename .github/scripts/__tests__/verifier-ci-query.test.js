@@ -5,6 +5,13 @@ const assert = require('node:assert/strict');
 
 const { queryVerifierCiResults } = require('../verifier_ci_query.js');
 
+const withEmptyJobs = (result) => ({
+  ...result,
+  jobs_summary: { total: 0, conclusions: {}, samples: [], truncated: false },
+  jobs_error_category: '',
+  jobs_error_message: '',
+});
+
 const buildGithubStub = ({
   runsByWorkflow = {},
   errorWorkflow = null,
@@ -57,27 +64,27 @@ test('queryVerifierCiResults selects runs and reports conclusions', async () => 
   });
 
   assert.equal(results.length, 3);
-  assert.deepEqual(results[0], {
+  assert.deepEqual(results[0], withEmptyJobs({
     workflow_name: 'Gate',
     conclusion: 'success',
     run_url: 'gate-url',
     error_category: '',
     error_message: '',
-  });
-  assert.deepEqual(results[1], {
+  }));
+  assert.deepEqual(results[1], withEmptyJobs({
     workflow_name: 'Selftest CI',
     conclusion: 'in_progress',
     run_url: 'selftest-url',
     error_category: '',
     error_message: '',
-  });
-  assert.deepEqual(results[2], {
+  }));
+  assert.deepEqual(results[2], withEmptyJobs({
     workflow_name: 'PR 11',
     conclusion: 'not_found',
     run_url: '',
     error_category: '',
     error_message: '',
-  });
+  }));
 });
 
 test('queryVerifierCiResults supports workflowId/workflowName aliases', async () => {
@@ -101,13 +108,13 @@ test('queryVerifierCiResults supports workflowId/workflowName aliases', async ()
   });
 
   assert.deepEqual(results, [
-    {
+    withEmptyJobs({
       workflow_name: 'Selftest CI',
       conclusion: 'success',
       run_url: 'selftest-alias-url',
       error_category: '',
       error_message: '',
-    },
+    }),
   ]);
 });
 
@@ -124,13 +131,13 @@ test('queryVerifierCiResults treats query errors as api_error', async () => {
   });
 
   assert.deepEqual(results, [
-    {
+    withEmptyJobs({
       workflow_name: 'Gate',
       conclusion: 'api_error',
       run_url: '',
       error_category: 'resource',
       error_message: 'listWorkflowRuns:pr-00-gate.yml failed after 1 attempt(s): boom',
-    },
+    }),
   ]);
 });
 
@@ -153,13 +160,13 @@ test('queryVerifierCiResults uses latest run when no target SHA is provided', as
   });
 
   assert.deepEqual(results, [
-    {
+    withEmptyJobs({
       workflow_name: 'Gate',
       conclusion: 'success',
       run_url: 'gate-latest-url',
       error_category: '',
       error_message: '',
-    },
+    }),
   ]);
 });
 
@@ -194,13 +201,13 @@ test('queryVerifierCiResults falls back to secondary SHA when primary has no run
   });
 
   assert.deepEqual(results, [
-    {
+    withEmptyJobs({
       workflow_name: 'Gate',
       conclusion: 'success',
       run_url: 'head-url',
       error_category: '',
       error_message: '',
-    },
+    }),
   ]);
   assert.deepEqual(headShas, ['merge-sha', 'head-sha']);
 });
@@ -228,27 +235,27 @@ test('queryVerifierCiResults falls back to default workflows', async () => {
   });
 
   assert.deepEqual(results, [
-    {
+    withEmptyJobs({
       workflow_name: 'Gate',
       conclusion: 'success',
       run_url: 'gate-default-url',
       error_category: '',
       error_message: '',
-    },
-    {
+    }),
+    withEmptyJobs({
       workflow_name: 'Selftest CI',
       conclusion: 'failure',
       run_url: 'selftest-default-url',
       error_category: '',
       error_message: '',
-    },
-    {
+    }),
+    withEmptyJobs({
       workflow_name: 'PR 11 - Minimal invariant CI',
       conclusion: 'success',
       run_url: 'pr11-default-url',
       error_category: '',
       error_message: '',
-    },
+    }),
   ]);
 });
 
@@ -269,13 +276,13 @@ test('queryVerifierCiResults uses API url when html_url is missing', async () =>
   });
 
   assert.deepEqual(results, [
-    {
+    withEmptyJobs({
       workflow_name: 'Gate',
       conclusion: 'success',
       run_url: 'api-url',
       error_category: '',
       error_message: '',
-    },
+    }),
   ]);
 });
 
@@ -296,13 +303,13 @@ test('queryVerifierCiResults treats completed runs without conclusion as unknown
   });
 
   assert.deepEqual(results, [
-    {
+    withEmptyJobs({
       workflow_name: 'Gate',
       conclusion: 'unknown',
       run_url: 'gate-url',
       error_category: '',
       error_message: '',
-    },
+    }),
   ]);
 });
 
@@ -341,13 +348,13 @@ test('queryVerifierCiResults retries transient errors and returns success', asyn
   assert.equal(attempts, 3);
   assert.equal(warnings.length, 2);
   assert.deepEqual(results, [
-    {
+    withEmptyJobs({
       workflow_name: 'Gate',
       conclusion: 'success',
       run_url: 'retry-url',
       error_category: '',
       error_message: '',
-    },
+    }),
   ]);
 });
 
@@ -381,13 +388,13 @@ test('queryVerifierCiResults returns api_error after max retries', async (t) => 
       assert.equal(attempts, 4);
       assert.equal(warnings.length, 4);
       assert.deepEqual(results, [
-        {
+        withEmptyJobs({
           workflow_name: 'Gate',
           conclusion: 'api_error',
           run_url: '',
           error_category: 'transient',
           error_message: `listWorkflowRuns:pr-00-gate.yml failed after 4 attempt(s): status-${status}`,
-        },
+        }),
       ]);
     });
   }

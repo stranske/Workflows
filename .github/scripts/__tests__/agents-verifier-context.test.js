@@ -111,6 +111,13 @@ const buildGithubStub = ({
   },
 });
 
+const withEmptyJobs = (result) => ({
+  ...result,
+  jobs_summary: { total: 0, conclusions: {}, samples: [], truncated: false },
+  jobs_error_category: '',
+  jobs_error_message: '',
+});
+
 test('buildVerifierContext skips when pull request is not merged', async () => {
   const core = buildCore();
   const context = {
@@ -768,27 +775,27 @@ test('buildVerifierContext selects CI results for the merge commit SHA', async (
   assert.ok(headShas.length > 0);
   assert.ok(headShas.every((sha) => sha === 'merge-sha-333'));
   assert.deepEqual(result.ciResults, [
-    {
+    withEmptyJobs({
       workflow_name: 'Gate',
       conclusion: 'success',
       run_url: 'https://ci/gate-merge',
       error_category: '',
       error_message: '',
-    },
-    {
+    }),
+    withEmptyJobs({
       workflow_name: 'Selftest CI',
       conclusion: 'success',
       run_url: 'https://ci/selftest-merge',
       error_category: '',
       error_message: '',
-    },
-    {
+    }),
+    withEmptyJobs({
       workflow_name: 'PR 11 - Minimal invariant CI',
       conclusion: 'success',
       run_url: 'https://ci/pr11-merge',
       error_category: '',
       error_message: '',
-    },
+    }),
   ]);
 
   const contextPath = result.contextPath || path.join(process.cwd(), 'verifier-context.md');
@@ -896,27 +903,27 @@ test('buildVerifierContext falls back to head SHA when merge runs are missing', 
 
   assert.equal(result.shouldRun, true);
   assert.deepEqual(result.ciResults, [
-    {
+    withEmptyJobs({
       workflow_name: 'Gate',
       conclusion: 'success',
       run_url: 'https://ci/pr-00-gate.yml',
       error_category: '',
       error_message: '',
-    },
-    {
+    }),
+    withEmptyJobs({
       workflow_name: 'Selftest CI',
       conclusion: 'success',
       run_url: 'https://ci/selftest-ci.yml',
       error_category: '',
       error_message: '',
-    },
-    {
+    }),
+    withEmptyJobs({
       workflow_name: 'PR 11 - Minimal invariant CI',
       conclusion: 'success',
       run_url: 'https://ci/pr-11-ci-smoke.yml',
       error_category: '',
       error_message: '',
-    },
+    }),
   ]);
   for (const workflowId of workflowIds) {
     assert.ok(calls.includes(`${workflowId}:merge-sha-555`));
@@ -983,27 +990,27 @@ test('buildVerifierContext uses merge commit SHA for push events', async () => {
   assert.ok(headShas.length > 0);
   assert.ok(headShas.every((sha) => sha === 'merge-sha-444'));
   assert.deepEqual(result.ciResults, [
-    {
+    withEmptyJobs({
       workflow_name: 'Gate',
       conclusion: 'success',
       run_url: 'https://ci/gate-push',
       error_category: '',
       error_message: '',
-    },
-    {
+    }),
+    withEmptyJobs({
       workflow_name: 'Selftest CI',
       conclusion: 'success',
       run_url: 'https://ci/selftest-push',
       error_category: '',
       error_message: '',
-    },
-    {
+    }),
+    withEmptyJobs({
       workflow_name: 'PR 11 - Minimal invariant CI',
       conclusion: 'success',
       run_url: 'https://ci/pr11-push',
       error_category: '',
       error_message: '',
-    },
+    }),
   ]);
 
   const contextPath = result.contextPath || path.join(process.cwd(), 'verifier-context.md');

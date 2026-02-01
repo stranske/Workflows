@@ -27,3 +27,9 @@ def test_extract_issue_numbers_ignores_pr_hashes() -> None:
     text = "PR #1076 relates to Issue #1075"
     numbers = check_issue_consistency.extract_issue_numbers(text)
     assert numbers == {1075}
+
+
+def test_extract_head_ref_issue_numbers_from_branch() -> None:
+    head_ref = "codex/issue-144-keepalive"
+    numbers = check_issue_consistency.extract_head_ref_issue_numbers(head_ref)
+    assert numbers == {144}
