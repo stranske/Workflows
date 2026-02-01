@@ -35,7 +35,7 @@ class TestLoadFailureLogs:
     def test_load_valid_ndjson(self, tmp_path: Path) -> None:
         """Test loading valid NDJSON data."""
         log_file = tmp_path / "failures.ndjson"
-        log_file.write_text('{"error": "timeout"}\n' '{"error": "assertion failed"}\n')
+        log_file.write_text('{"error": "timeout"}\n{"error": "assertion failed"}\n')
 
         logs = load_failure_logs(str(log_file))
         assert len(logs) == 2
@@ -44,7 +44,7 @@ class TestLoadFailureLogs:
     def test_load_with_invalid_lines(self, tmp_path: Path) -> None:
         """Test loading file with some invalid JSON lines."""
         log_file = tmp_path / "failures.ndjson"
-        log_file.write_text('{"error": "valid"}\n' "not valid json\n" '{"error": "also valid"}\n')
+        log_file.write_text('{"error": "valid"}\nnot valid json\n{"error": "also valid"}\n')
 
         logs = load_failure_logs(str(log_file))
         # Should skip invalid line and load valid ones

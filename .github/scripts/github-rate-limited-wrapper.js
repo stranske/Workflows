@@ -254,6 +254,10 @@ function isTestMock(github) {
   if (github.rest && !github.request && !github.hook) {
     return true;
   }
+  // If it only exposes paginate/graphql without request/hook, treat as a mock
+  if ((github.paginate || github.graphql) && !github.request && !github.hook) {
+    return true;
+  }
   return false;
 }
 

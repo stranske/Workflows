@@ -61,7 +61,7 @@ def _find_pyproject_toml() -> Path:
             break
         current = current.parent
     raise FileNotFoundError(
-        "pyproject.toml not found in any parent directory of " f"{Path(__file__).resolve()}"
+        f"pyproject.toml not found in any parent directory of {Path(__file__).resolve()}"
     )
 
 

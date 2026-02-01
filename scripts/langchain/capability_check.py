@@ -242,7 +242,7 @@ def _fallback_classify(
                     "task": task,
                     "reason": "Requires external service credentials or configuration",
                     "suggested_action": (
-                        "Provide credentials or have a human set up " "the external service."
+                        "Provide credentials or have a human set up the external service."
                     ),
                 }
             )

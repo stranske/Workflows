@@ -257,8 +257,7 @@ def main(argv: list[str]) -> int:
     allowlist = _load_allowlist(args.allowlist, args.allowlist_env, config)
     if not allowlist:
         print(
-            "Repository allowlist is empty. Set --allowlist, "
-            f"${args.allowlist_env}, or --config.",
+            f"Repository allowlist is empty. Set --allowlist, ${args.allowlist_env}, or --config.",
             file=sys.stderr,
         )
         return 1
@@ -286,7 +285,7 @@ def main(argv: list[str]) -> int:
                 extras = ", ".join(sorted(extra_scopes))
                 allowed = ", ".join(sorted(allowed_scopes))
                 print(
-                    "Token scopes exceed allowed scopes. " f"Extras: {extras}. Allowed: {allowed}.",
+                    f"Token scopes exceed allowed scopes. Extras: {extras}. Allowed: {allowed}.",
                     file=sys.stderr,
                 )
                 return 1

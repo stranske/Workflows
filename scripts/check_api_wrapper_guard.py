@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Guardrail check for GitHub API usage in workflows and scripts."""
+
 from __future__ import annotations
 
 import argparse
@@ -82,11 +83,13 @@ def _collect_all_files() -> list[Path]:
 
 
 def _is_target_file(path: Path) -> bool:
-    if path in SKIP_FILES:
-        return False
-    if path.suffix.lower() in {".yml", ".yaml", ".js", ".ts", ".py"}:
-        return True
-    return False
+    return path not in SKIP_FILES and path.suffix.lower() in {
+        ".yml",
+        ".yaml",
+        ".js",
+        ".ts",
+        ".py",
+    }
 
 
 def _scan_file(path: Path) -> list[str]:
@@ -111,11 +114,12 @@ def _scan_file(path: Path) -> list[str]:
                     f"{path.relative_to(ROOT)}:{line_no}: API call without createTokenAwareRetry"
                 )
 
-    if path.suffix.lower() in {".yml", ".yaml"} and has_api_calls:
-        if LOAD_BALANCER_HINT not in content:
-            violations.append(
-                f"{path.relative_to(ROOT)}: missing export-load-balancer-tokens step"
-            )
+    if (
+        path.suffix.lower() in {".yml", ".yaml"}
+        and has_api_calls
+        and LOAD_BALANCER_HINT not in content
+    ):
+        violations.append(f"{path.relative_to(ROOT)}: missing export-load-balancer-tokens step")
 
     return violations
 

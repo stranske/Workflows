@@ -8,7 +8,7 @@ from scripts import classify_test_failures
 def _write_junit(tmp_path: Path, name: str, body: str) -> Path:
     path = tmp_path / name
     path.write_text(
-        '<?xml version="1.0" encoding="utf-8"?>\n<testsuite>\n' f"{body}\n</testsuite>\n",
+        f'<?xml version="1.0" encoding="utf-8"?>\n<testsuite>\n{body}\n</testsuite>\n',
         encoding="utf-8",
     )
     return path
