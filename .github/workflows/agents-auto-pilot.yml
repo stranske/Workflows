@@ -1615,7 +1615,7 @@ jobs:
 
                     **To resume:** Remove \`agents:auto-pilot-pause\` and
                     \`needs-human\` labels, then re-add \`agents:auto-pilot\`.`
-                    }));
+                }));
 
                 const failMsg = `Auto-pilot stalled: ${stallCount} branch creation attempts`;
                 core.setFailed(failMsg);
