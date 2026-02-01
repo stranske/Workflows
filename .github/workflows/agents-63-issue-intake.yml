@@ -1386,7 +1386,7 @@ jobs:
             echo "=== Formatting issue #${issue_num} ==="
 
             # Get issue body
-            if ! ISSUE_NUMBER="$issue_num" node - <<'NODE'
+            if ! ISSUE_NUMBER="$issue_num" node - <<-'NODE'
             const fs = require('fs');
             const { Octokit } = require('@octokit/rest');
             const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
@@ -1422,7 +1422,7 @@ jobs:
               console.error(error);
               process.exit(1);
             });
-            NODE
+	NODE
             then
               echo "  ❌ Failed to fetch issue #${issue_num}"
               failed=$((failed + 1))
@@ -1446,7 +1446,7 @@ jobs:
 
             # Update issue
             echo "  💾 Updating issue body..."
-            if ! ISSUE_NUMBER="$issue_num" node - <<'NODE'
+            if ! ISSUE_NUMBER="$issue_num" node - <<-'NODE'
             const fs = require('fs');
             const { Octokit } = require('@octokit/rest');
             const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
@@ -1479,7 +1479,7 @@ jobs:
               console.error(error);
               process.exit(1);
             });
-            NODE
+	NODE
             then
               echo "  ❌ Failed to update issue #${issue_num}"
               failed=$((failed + 1))
@@ -1488,7 +1488,7 @@ jobs:
 
             # Add formatted label
             echo "  🏷️  Adding 'agents:formatted' label..."
-            if ! ISSUE_NUMBER="$issue_num" node - <<'NODE'
+            if ! ISSUE_NUMBER="$issue_num" node - <<-'NODE'
             const { Octokit } = require('@octokit/rest');
             const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
 
@@ -1518,7 +1518,7 @@ jobs:
               console.error(error);
               process.exit(1);
             });
-            NODE
+	NODE
             then
               echo "  ⚠️  Failed to add label (non-fatal)"
             fi

@@ -96,7 +96,7 @@ jobs:
           set -euo pipefail
           echo "::group::GITHUB_TOKEN Rate Limits"
 
-          rate_data=$(node - <<'NODE'
+          rate_data=$(node - <<-'NODE'
           const { Octokit } = require('@octokit/rest');
           const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
           const core = { info: () => {}, warning: console.warn, debug: () => {} };
@@ -115,7 +115,7 @@ jobs:
             console.error(error);
             process.exit(1);
           });
-            NODE
+	NODE
           )
 
           if [ -n "$rate_data" ] && [ "$rate_data" != "{}" ]; then
@@ -201,7 +201,7 @@ jobs:
           set -euo pipefail
           echo "::group::PAT Rate Limits"
 
-          rate_data=$(node - <<'NODE'
+          rate_data=$(node - <<-'NODE'
           const { Octokit } = require('@octokit/rest');
           const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
           const core = { info: () => {}, warning: console.warn, debug: () => {} };
@@ -220,7 +220,7 @@ jobs:
             console.error(error);
             process.exit(1);
           });
-            NODE
+	NODE
           )
 
           if [ -n "$rate_data" ] && [ "$rate_data" != "{}" ]; then
@@ -303,7 +303,7 @@ jobs:
           set -euo pipefail
           echo "::group::SERVICE_BOT_PAT Rate Limits"
 
-          rate_data=$(node - <<'NODE'
+          rate_data=$(node - <<-'NODE'
           const { Octokit } = require('@octokit/rest');
           const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
           const core = { info: () => {}, warning: console.warn, debug: () => {} };
@@ -322,7 +322,7 @@ jobs:
             console.error(error);
             process.exit(1);
           });
-            NODE
+	NODE
           )
 
           if [ -n "$rate_data" ] && [ "$rate_data" != "{}" ]; then
@@ -413,7 +413,7 @@ jobs:
           set -euo pipefail
           echo "::group::GitHub App Rate Limits"
 
-          rate_data=$(node - <<'NODE'
+          rate_data=$(node - <<-'NODE'
           const { Octokit } = require('@octokit/rest');
           const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
           const core = { info: () => {}, warning: console.warn, debug: () => {} };
@@ -432,7 +432,7 @@ jobs:
             console.error(error);
             process.exit(1);
           });
-            NODE
+	NODE
           )
 
           if [ -n "$rate_data" ] && [ "$rate_data" != "{}" ]; then
@@ -526,7 +526,7 @@ jobs:
           set -euo pipefail
           echo "::group::KEEPALIVE_APP Rate Limits"
 
-          rate_data=$(node - <<'NODE'
+          rate_data=$(node - <<-'NODE'
           const { Octokit } = require('@octokit/rest');
           const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
           const core = { info: () => {}, warning: console.warn, debug: () => {} };
@@ -545,7 +545,7 @@ jobs:
             console.error(error);
             process.exit(1);
           });
-            NODE
+	NODE
           )
 
           if [ -n "$rate_data" ] && [ "$rate_data" != "{}" ]; then
@@ -638,7 +638,7 @@ jobs:
           set -euo pipefail
           echo "::group::GH_APP Rate Limits"
 
-          rate_data=$(node - <<'NODE'
+          rate_data=$(node - <<-'NODE'
           const { Octokit } = require('@octokit/rest');
           const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
           const core = { info: () => {}, warning: console.warn, debug: () => {} };
@@ -657,7 +657,7 @@ jobs:
             console.error(error);
             process.exit(1);
           });
-            NODE
+	NODE
           )
 
           if [ -n "$rate_data" ] && [ "$rate_data" != "{}" ]; then
@@ -739,7 +739,7 @@ jobs:
           KEEPALIVE_APP_TOKEN: ${{ steps.keepalive_app_token.outputs.token || '' }}
           GH_APP_TOKEN: ${{ steps.gh_app_token.outputs.token || '' }}
         run: |
-          node - <<'NODE'
+          node - <<-'NODE'
           const { Octokit } = require('@octokit/rest');
           const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
           const core = { info: console.log, warning: console.warn, debug: () => {} };
@@ -804,7 +804,7 @@ jobs:
             console.error(error);
             process.exit(1);
           });
-            NODE
+	NODE
 
       - name: Aggregate and analyze results
         id: aggregate
@@ -1125,7 +1125,7 @@ jobs:
             console.error(error);
             process.exit(1);
           });
-            NODE
+	NODE
 
   check-consumer-repos:
     name: Check Consumer Repo Activity
@@ -1193,7 +1193,7 @@ jobs:
             # Get recent workflow runs (last hour)
             since=$(date -u -d '1 hour ago' +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-            runs_data=$(REPO="$repo" SINCE="$since" node - <<'NODE' 2>/dev/null || echo '{"workflow_runs":[]}')
+            runs_data=$(REPO="$repo" SINCE="$since" node - <<-'NODE' 2>/dev/null || echo '{"workflow_runs":[]}')
             const { Octokit } = require('@octokit/rest');
             const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
             const core = { info: () => {}, warning: console.warn, debug: () => {} };
@@ -1219,7 +1219,7 @@ jobs:
               console.error(error);
               process.exit(1);
             });
-              NODE
+	NODE
 
             total_runs=$(echo "$runs_data" | jq '.total_count // 0')
             in_progress=$(echo "$runs_data" | jq '[.workflow_runs[] | select(.status == "in_progress")] | length')
@@ -1500,7 +1500,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          node - <<'NODE'
+          node - <<-'NODE'
           const { Octokit } = require('@octokit/rest');
           const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
           const core = { info: console.log, warning: console.warn, debug: () => {} };
@@ -1567,7 +1567,7 @@ jobs:
             console.error(error);
             process.exit(1);
           });
-            NODE
+	NODE
 
   alert-on-repeat-failure:
     name: Alert on Repeated Failure
@@ -1586,7 +1586,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          node - <<'NODE'
+          node - <<-'NODE'
           const { Octokit } = require('@octokit/rest');
           const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
           const core = { info: console.log, warning: console.warn, debug: () => {} };
@@ -1690,7 +1690,7 @@ jobs:
             console.error(error);
             process.exit(1);
           });
-          NODE
+	NODE
 
   # Historical report job - runs when report_mode is 'historical'
   generate-historical-report:
@@ -1809,7 +1809,7 @@ jobs:
           fi
 
           # Get workflow ID for Health 75 (direct path lookup avoids pagination limits)
-          workflow_meta=$(PRIMARY_TOKEN="$primary_token" FALLBACK_TOKEN="$FALLBACK_GH_TOKEN" node - <<'NODE'
+          workflow_meta=$(PRIMARY_TOKEN="$primary_token" FALLBACK_TOKEN="$FALLBACK_GH_TOKEN" node - <<-'NODE'
           const { Octokit } = require('@octokit/rest');
           const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
           const core = { info: () => {}, warning: console.warn, debug: () => {} };
@@ -1856,7 +1856,7 @@ jobs:
             console.error(error);
             process.exit(1);
           });
-          NODE
+	NODE
           )
           workflow_id=$(echo "$workflow_meta" | jq -r '.workflow_id // empty')
           token_used=$(echo "$workflow_meta" | jq -r '.token_used // "primary"')
@@ -1874,7 +1874,7 @@ jobs:
 
           # Fetch runs in date range (GitHub API uses created filter)
           # Note: Use query params instead of -F flags to keep this a GET request
-          runs=$(TOKEN_TO_USE="$token_to_use" WORKFLOW_ID="$workflow_id" START_DATE="$START_DATE" node - <<'NODE'
+          runs=$(TOKEN_TO_USE="$token_to_use" WORKFLOW_ID="$workflow_id" START_DATE="$START_DATE" node - <<-'NODE'
           const { Octokit } = require('@octokit/rest');
           const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
           const core = { info: () => {}, warning: console.warn, debug: () => {} };
@@ -1915,7 +1915,7 @@ jobs:
             console.error(error);
             process.exit(1);
           });
-          NODE
+	NODE
           )
 
           # Normalize END_DATE to an ISO 8601 end-of-day timestamp

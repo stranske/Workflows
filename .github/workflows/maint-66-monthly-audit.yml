@@ -48,7 +48,7 @@ jobs:
           export START_DATE="${start_date}"
 
           # Get all workflow runs
-          runs=$(node - <<'NODE'
+          runs=$(node - <<-'NODE'
           const { Octokit } = require('@octokit/rest');
           const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
           const core = { info: () => {}, warning: console.warn, debug: () => {} };
@@ -79,7 +79,7 @@ jobs:
             console.error(error);
             process.exit(1);
           });
-          NODE
+	NODE
           )
 
           # Generate statistics

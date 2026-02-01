@@ -43,7 +43,7 @@ jobs:
           mkdir -p artifacts
 
           # Get artifact IDs and names
-          node - <<'NODE' |
+          node - <<-'NODE' |
           const { Octokit } = require('@octokit/rest');
           const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
           const core = { info: () => {}, warning: console.warn, debug: () => {} };
@@ -73,11 +73,11 @@ jobs:
             console.error(error);
             process.exit(1);
           });
-          NODE
+	NODE
           while IFS=$'\t' read -r id name; do
             echo "Downloading artifact $id ($name)"
             mkdir -p "artifacts/$name"
-            if ! ARTIFACT_ID="$id" ARTIFACT_DIR="artifacts/$name" ARTIFACT_ZIP="artifacts/$name/$id.zip" node - <<'NODE'; then
+              if ! ARTIFACT_ID="$id" ARTIFACT_DIR="artifacts/$name" ARTIFACT_ZIP="artifacts/$name/$id.zip" node - <<-'NODE'; then
             const fs = require('fs');
             const { Octokit } = require('@octokit/rest');
             const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
@@ -109,7 +109,7 @@ jobs:
               console.error(error);
               process.exit(1);
             });
-            NODE
+	NODE
             then
               echo "Warning: Could not download artifact $id ($name)"
               continue
