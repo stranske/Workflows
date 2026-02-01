@@ -30,51 +30,26 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Export load balancer tokens
+        uses: ./.github/actions/export-load-balancer-tokens
+        with:
+          github_token: ${{ github.token }}
+          token_rotation_json: ${{ secrets.TOKEN_ROTATION_JSON }}
+          token_rotation_env_keys: ${{ vars.TOKEN_ROTATION_ENV_KEYS }}
+
       - name: Determine default branch
         id: default-branch
         uses: actions/github-script@v8
         with:
           script: |
-            const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-            async function withApiRetry(fn, { label = 'operation', maxAttempts = 5, baseDelay = 1000 } = {}) {
-              for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-                try {
-                  return await fn();
-                } catch (error) {
-                  const status = error?.status || error?.response?.status;
-                  const headers = error?.response?.headers || {};
-                  const remainingRaw = headers['x-ratelimit-remaining'] ?? headers['X-RateLimit-Remaining'];
-                  const resetRaw = headers['x-ratelimit-reset'] ?? headers['X-RateLimit-Reset'];
-                  const remaining = Number(remainingRaw);
-                  const reset = Number(resetRaw);
-                  const isRateLimit = status === 403 && Number.isFinite(remaining) && remaining <= 0;
-                  const retryable = isRateLimit || status === 429 || !status || (status >= 500 && status < 600);
-                  if (!retryable || attempt === maxAttempts) {
-                    core.error(`Failed ${label}: ${error.message}`);
-                    throw error;
-                  }
-                  let delay = baseDelay * attempt;
-                  const retryAfterRaw = headers['retry-after'] ?? headers['Retry-After'];
-                  const retryAfterSeconds = Number(retryAfterRaw);
-                  if (Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0) {
-                    delay = Math.max(delay, retryAfterSeconds * 1000);
-                  } else if (isRateLimit && Number.isFinite(reset)) {
-                    const nowSeconds = Math.floor(Date.now() / 1000);
-                    if (reset > nowSeconds) {
-                      const untilReset = (reset - nowSeconds) * 1000 + 500;
-                      delay = Math.max(delay, untilReset);
-                    }
-                  }
-                  delay = Math.max(delay, 1000);
-                  const humanDelay = delay >= 60000
-                    ? `${(delay / 60000).toFixed(2)}m`
-                    : `${Math.round(delay)}ms`;
-                  core.warning(`Retrying ${label} after ${humanDelay} (attempt ${attempt + 1}/${maxAttempts}).`);
-                  await sleep(delay);
-                }
-              }
-              throw new Error(`Failed ${label} after ${maxAttempts} attempts.`);
-            }
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'health-44-default-branch',
+              capabilities: ['contents:read']
+            });
 
             const payload = context.payload || {};
             const eventDefault = payload.repository?.default_branch
@@ -91,13 +66,10 @@ jobs:
             const resolvedFallback = payload.repository?.default_branch || null;
 
             try {
-              const response = await withApiRetry(
-                () => github.rest.repos.get({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                }),
-                { label: 'determine default branch' },
-              );
+              const response = await withRetry((client) => client.rest.repos.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+              }));
               const resolved = response.data.default_branch || resolvedFallback;
               if (!resolved) {
                 core.setFailed('Repository default branch not available');

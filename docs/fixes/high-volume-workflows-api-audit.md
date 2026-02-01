@@ -1154,26 +1154,16 @@ Workflows with load balancer export steps:
 - [maint-62-integration-consumer.yml](_repos/Workflows/.github/workflows/maint-62-integration-consumer.yml#L102)
 
 Workflows without a load balancer export step:
-- [health-71-sync-health-check.yml](_repos/Workflows/.github/workflows/health-71-sync-health-check.yml)
-- [maint-66-monthly-audit.yml](_repos/Workflows/.github/workflows/maint-66-monthly-audit.yml)
-- [maint-70-fix-integration-formatting.yml](_repos/Workflows/.github/workflows/maint-70-fix-integration-formatting.yml)
-- [maint-71-auto-fix-integration.yml](_repos/Workflows/.github/workflows/maint-71-auto-fix-integration.yml)
-- [agents-verify-to-new-pr-autopilot.yml](_repos/Workflows/.github/workflows/agents-verify-to-new-pr-autopilot.yml)
-- [archived/maint-63-ensure-environments.yml](_repos/Workflows/.github/workflows/archived/maint-63-ensure-environments.yml)
-- [selftest-reusable-ci.yml](_repos/Workflows/.github/workflows/selftest-reusable-ci.yml)
-- [health-44-gate-branch-protection.yml](_repos/Workflows/.github/workflows/health-44-gate-branch-protection.yml)
-- [maint-74-ledger-base-sync.yml](_repos/Workflows/.github/workflows/maint-74-ledger-base-sync.yml)
+- None (all audited workflows now export load balancer tokens).
 
 ### Additional Workflows (Retry Coverage)
-- Workflows using `withRetry`/`paginateWithRetry` in their `actions/github-script` steps include: reusable orchestrator init/main, reusable issue bridge, reusable bot comment handler, agents 72 belt worker, agents guard, health 41 repo health, maint coverage guard, pr gate, reusable autofix, agents verify-to-issue v2, agents moderate connector, maint 72 fix PR body conflicts, health 40 repo selfcheck, agents auto label, agents 71 belt dispatcher, agents decompose, reusable agents verifier, agents verify-to-new-pr, maint 69 sync labels, health 68 consumer sync drift, agents dedup, agents 64 verify agent assignment, maint 71 merge sync PRs, maint 50 tool version check, agents verifier, reusable 16 agents, autofix, agents bot comment handler, health 67 integration sync check, agents capability check, maint 62 integration consumer, and reusable 10 CI python.
-- Direct `github.rest.*` calls without `withRetry` are present in [maint-70-fix-integration-formatting.yml](_repos/Workflows/.github/workflows/maint-70-fix-integration-formatting.yml#L31) and [maint-74-ledger-base-sync.yml](_repos/Workflows/.github/workflows/maint-74-ledger-base-sync.yml#L40).
+- All audited workflows now route GitHub API calls through token-aware retry helpers and export load balancer tokens.
 - Shell `gh api` usage has been removed from high-volume workflows in favor of retry-wrapped Octokit calls.
-- Raw `api.github.com` curl usage has been removed from workflows; remaining usage is confined to scripts with retry/backoff.
+- Raw `api.github.com` usage no longer appears in workflows; remaining direct HTTP calls are confined to scripts with retry/backoff.
 
 ### Additional Scripts (Retry Coverage)
-- Scripts that wrap API calls with `github-rate-limited-wrapper` or `github-api-with-retry` inherit token-aware retry when invoked (for example, [agents_orchestrator_resolve.js](_repos/Workflows/.github/scripts/agents_orchestrator_resolve.js#L298), [keepalive_gate.js](_repos/Workflows/.github/scripts/keepalive_gate.js#L56), and [keepalive_orchestrator_gate_runner.js](_repos/Workflows/.github/scripts/keepalive_orchestrator_gate_runner.js#L76)).
-- Scripts with direct `github.rest.*` calls and no local wrapper usage rely on the caller to supply a wrapped client (examples include [merge_manager.js](_repos/Workflows/.github/scripts/merge_manager.js#L9), [conflict_detector.js](_repos/Workflows/.github/scripts/conflict_detector.js#L88), and [maint-post-ci.js](_repos/Workflows/.github/scripts/maint-post-ci.js#L70)).
-- Direct `api.github.com` usage in [restore_branch_snapshots.py](_repos/Workflows/.github/scripts/restore_branch_snapshots.py#L69) now includes retry/backoff handling.
+- All audited scripts now wrap GitHub clients using `github-rate-limited-wrapper` or `github-api-with-retry` at entry points.
+- Direct `api.github.com` usage in [restore_branch_snapshots.py](_repos/Workflows/.github/scripts/restore_branch_snapshots.py#L69) includes retry/backoff handling.
 
 ## Remediation Plan (Recorded)
 

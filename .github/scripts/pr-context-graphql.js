@@ -1,5 +1,7 @@
 'use strict';
 
+const { ensureRateLimitWrapped } = require('./github-rate-limited-wrapper.js');
+
 /**
  * GraphQL-based PR Context Fetcher
  * 
@@ -132,6 +134,20 @@ query PRBasic($owner: String!, $repo: String!, $number: Int!) {
 }
 `;
 
+async function resolveGithubClient(github) {
+  if (!github) {
+    return github;
+  }
+  if (github.__rateLimitWrapped) {
+    return github;
+  }
+  try {
+    return await ensureRateLimitWrapped({ github, core: null, env: process.env });
+  } catch (error) {
+    return github;
+  }
+}
+
 /**
  * PAGINATION LIMITS:
  * The GraphQL queries above use fixed pagination limits:
@@ -156,7 +172,8 @@ query PRBasic($owner: String!, $repo: String!, $number: Int!) {
  */
 async function fetchPRContext(github, owner, repo, number) {
   try {
-    const result = await github.graphql(PR_CONTEXT_QUERY, {
+    const client = await resolveGithubClient(github);
+    const result = await client.graphql(PR_CONTEXT_QUERY, {
       owner,
       repo,
       number: parseInt(number, 10)
@@ -246,7 +263,8 @@ async function fetchPRContext(github, owner, repo, number) {
  * @returns {Object} Basic PR data
  */
 async function fetchPRBasic(github, owner, repo, number) {
-  const result = await github.graphql(PR_BASIC_QUERY, {
+  const client = await resolveGithubClient(github);
+  const result = await client.graphql(PR_BASIC_QUERY, {
     owner,
     repo,
     number: parseInt(number, 10)

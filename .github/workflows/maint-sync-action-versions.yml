@@ -31,6 +31,13 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Export load balancer tokens
+        uses: ./.github/actions/export-load-balancer-tokens
+        with:
+          github_token: ${{ github.token }}
+          token_rotation_json: ${{ secrets.TOKEN_ROTATION_JSON }}
+          token_rotation_env_keys: ${{ vars.TOKEN_ROTATION_ENV_KEYS }}
+
       - name: Extract action versions from workflows
         id: extract
         run: |
@@ -116,10 +123,9 @@ jobs:
             git diff --stat templates/
           fi
 
-      - name: Create PR if changes exist
+      - name: Create branch and push
         if: steps.check.outputs.has_changes == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        id: branch
         run: |
           set -euo pipefail
 
@@ -143,17 +149,58 @@ jobs:
 
           git push origin "$branch"
 
-          gh pr create \
-            --title "ci(deps): sync action versions to templates" \
-            --body "Automated PR to sync GitHub Action versions from \`.github/workflows/\` to \`templates/\`.
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
 
-          This ensures templates stay in sync with Dependabot updates.
+      - name: Create PR
+        if: steps.check.outputs.has_changes == 'true'
+        uses: actions/github-script@v8
+        env:
+          BRANCH: ${{ steps.branch.outputs.branch }}
+          CHECKOUT_VERSION: ${{ steps.extract.outputs.checkout }}
+          GITHUB_SCRIPT_VERSION: ${{ steps.extract.outputs.github_script }}
+          UPLOAD_ARTIFACT_VERSION: ${{ steps.extract.outputs.upload_artifact }}
+          DOWNLOAD_ARTIFACT_VERSION: ${{ steps.extract.outputs.download_artifact }}
+          CACHE_VERSION: ${{ steps.extract.outputs.cache }}
+        with:
+          script: |
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'sync-action-versions-pr',
+              capabilities: ['pull-requests:write', 'contents:read']
+            });
+            const { owner, repo } = context.repo;
+            const branch = process.env.BRANCH;
+            const title = 'ci(deps): sync action versions to templates';
+            const body = [
+              'Automated PR to sync GitHub Action versions from `.github/workflows/` to `templates/.`',
+              '',
+              'This ensures templates stay in sync with Dependabot updates.',
+              '',
+              '**Updated versions:**',
+              `- actions/checkout: \`${process.env.CHECKOUT_VERSION}\``,
+              `- actions/github-script: \`${process.env.GITHUB_SCRIPT_VERSION}\``,
+              `- actions/upload-artifact: \`${process.env.UPLOAD_ARTIFACT_VERSION}\``,
+              `- actions/download-artifact: \`${process.env.DOWNLOAD_ARTIFACT_VERSION}\``,
+              `- actions/cache: \`${process.env.CACHE_VERSION}\``
+            ].join('\n');
 
-          **Updated versions:**
-          - actions/checkout: \`${{ steps.extract.outputs.checkout }}\`
-          - actions/github-script: \`${{ steps.extract.outputs.github_script }}\`
-          - actions/upload-artifact: \`${{ steps.extract.outputs.upload_artifact }}\`
-          - actions/download-artifact: \`${{ steps.extract.outputs.download_artifact }}\`
-          - actions/cache: \`${{ steps.extract.outputs.cache }}\`" \
-            --label "dependencies" \
-            --label "github-actions"
+            const { data: pr } = await withRetry((client) => client.rest.pulls.create({
+              owner,
+              repo,
+              title,
+              head: branch,
+              base: context.ref.replace('refs/heads/', ''),
+              body
+            }));
+
+            await withRetry((client) => client.rest.issues.addLabels({
+              owner,
+              repo,
+              issue_number: pr.number,
+              labels: ['dependencies', 'github-actions']
+            }));
+
+            core.info(`Created PR #${pr.number}`);

@@ -66,6 +66,14 @@ jobs:
     outputs:
       proceed: ${{ steps.check.outputs.proceed || 'true' }}
     steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Export load balancer tokens
+        uses: ./.github/actions/export-load-balancer-tokens
+        with:
+          github_token: ${{ github.token }}
+          token_rotation_json: ${{ secrets.TOKEN_ROTATION_JSON }}
+          token_rotation_env_keys: ${{ vars.TOKEN_ROTATION_ENV_KEYS }}
       - name: Check API quota
         id: check
         uses: actions/github-script@v8
@@ -195,6 +203,14 @@ jobs:
         || 'nightly verification' }}
       TRIGGER_EVENT: ${{ github.event_name }}
     steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Export load balancer tokens
+        uses: ./.github/actions/export-load-balancer-tokens
+        with:
+          github_token: ${{ github.token }}
+          token_rotation_json: ${{ secrets.TOKEN_ROTATION_JSON }}
+          token_rotation_env_keys: ${{ vars.TOKEN_ROTATION_ENV_KEYS }}
       - name: Append run metadata to summary
         run: |
           {
@@ -222,6 +238,14 @@ jobs:
         with:
           script: |
             const fs = require('fs');
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const { paginateWithRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'selftest-verify-artifacts',
+              capabilities: ['actions:read', 'contents:read']
+            });
             const { owner, repo } = context.repo;
             const runId = context.runId;
 
@@ -278,14 +302,14 @@ jobs:
               }
             }
 
-            const artifactNames = await github.paginate(
+            const artifactNames = await paginateWithRetry(
               github.rest.actions.listWorkflowRunArtifacts,
               { owner, repo, run_id: runId, per_page: 100 },
               (response) => response.data.map((artifact) => artifact.name)
             );
             const nameSet = new Set(artifactNames);
 
-            const jobs = await github.paginate(
+            const jobs = await paginateWithRetry(
               github.rest.actions.listJobsForWorkflowRun,
               { owner, repo, run_id: runId, per_page: 100 },
               (response) => response.data

@@ -52,6 +52,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Export load balancer tokens
+        uses: ./.github/actions/export-load-balancer-tokens
+        with:
+          github_token: ${{ github.token }}
+          token_rotation_json: ${{ secrets.TOKEN_ROTATION_JSON }}
+          token_rotation_env_keys: ${{ vars.TOKEN_ROTATION_ENV_KEYS }}
+
       - name: Simulate PR context
         id: mock_pr
         run: |
@@ -219,6 +226,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+
+      - name: Export load balancer tokens
+        uses: ./.github/actions/export-load-balancer-tokens
+        with:
+          github_token: ${{ github.token }}
+          token_rotation_json: ${{ secrets.TOKEN_ROTATION_JSON }}
+          token_rotation_env_keys: ${{ vars.TOKEN_ROTATION_ENV_KEYS }}
 
       - name: Create minimal ping prompt
         id: setup

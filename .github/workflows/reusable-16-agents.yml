@@ -180,16 +180,14 @@ jobs:
         uses: actions/github-script@v8
         with:
           script: |
-            const fs = require('fs');
-            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
-            const retryHelpers = fs.existsSync(retryHelperPath)
-              ? require(retryHelperPath)
-              : {
-                  withRetry: (fn) => fn(),
-                  paginateWithRetry: (githubInstance, method, params) =>
-                    githubInstance.paginate(method, params),
-                };
-            const { withRetry } = retryHelpers;
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'bootstrap-find-issues',
+              capabilities: ['issues:read', 'contents:read']
+            });
             const { owner, repo } = context.repo;
             const { data: issue } = await withRetry(() => github.rest.issues.create({ owner, repo, title: '[readiness] probe', body: 'temp' }));
             core.setOutput('num', String(issue.number));
@@ -569,24 +567,31 @@ jobs:
             let scanned = 0;
             let truncated = false;
             const issues = [];
-            const issueIterator = github.paginate.iterator(
-              github.rest.issues.listForRepo,
-              {
+            let page = 1;
+            const perPage = 50;
+            const maxPages = Math.ceil(scanLimit / perPage) + 1;
+            while (page <= maxPages && issues.length < scanLimit) {
+              const { data } = await withRetry((client) => client.rest.issues.listForRepo({
                 owner,
                 repo,
                 state: 'open',
                 labels: label,
-                per_page: 50
-              }
-            );
-
-            for await (const response of issueIterator) {
-              issues.push(...response.data);
-              if (issues.length >= scanLimit) {
-                truncated = true;
-                core.warning(`Bootstrap issue scan truncated after ${scanLimit} records.`);
+                per_page: perPage,
+                page
+              }));
+              if (!data?.length) {
                 break;
               }
+              issues.push(...data);
+              if (data.length < perPage) {
+                break;
+              }
+              page += 1;
+            }
+
+            if (issues.length >= scanLimit) {
+              truncated = true;
+              core.warning(`Bootstrap issue scan truncated after ${scanLimit} records.`);
             }
 
             const limitedIssues = issues.slice(0, scanLimit);
