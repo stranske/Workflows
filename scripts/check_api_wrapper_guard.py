@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import os
 import re
 import subprocess
@@ -68,10 +69,8 @@ def _resolve_base_ref(base_ref: str, base_remote: str) -> str | None:
     candidate = f"{base_remote}/{base_ref}"
     if _rev_exists(candidate):
         return candidate
-    try:
+    with contextlib.suppress(RuntimeError):
         _run_git(["fetch", "--depth", "1", base_remote, base_ref])
-    except RuntimeError:
-        pass
     if _rev_exists(candidate):
         return candidate
     if _rev_exists(base_ref):
