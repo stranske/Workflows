@@ -1361,34 +1361,7 @@ jobs:
             echo "=== Formatting issue #${issue_num} ==="
 
             # Get issue body
-            if ! ISSUE_NUMBER="$issue_num" node - <<'NODE'
-            (async () => {
-              const fs = require('fs');
-              const { Octokit } = require('@octokit/rest');
-              const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
-              const core = { info: () => {}, warning: console.warn, debug: () => {} };
-              const github = new Octokit({ auth: process.env.GITHUB_TOKEN });
-              const { withRetry } = await createTokenAwareRetry({
-                github,
-                core,
-                env: process.env,
-                task: 'issue-intake-format',
-                capabilities: ['issues:read'],
-              });
-              const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
-              const issueNumber = Number(process.env.ISSUE_NUMBER);
-              const { data } = await withRetry((client) => client.rest.issues.get({
-                owner,
-                repo,
-                issue_number: issueNumber,
-              }));
-              fs.writeFileSync(`/tmp/issue_${issueNumber}.json`, JSON.stringify(data, null, 2));
-              fs.writeFileSync(`/tmp/issue_body_${issueNumber}.md`, data.body || '');
-            })().catch((error) => {
-              console.error(error);
-              process.exit(1);
-            });
-            NODE
+            if ! ISSUE_NUMBER="$issue_num" node -e "const fs=require('fs'); const { Octokit }=require('@octokit/rest'); const { createTokenAwareRetry }=require('./.github/scripts/github-api-with-retry.js'); const core={info:()=>{}, warning:console.warn, debug:()=>{}}; const github=new Octokit({auth:process.env.GITHUB_TOKEN}); (async()=>{ const { withRetry }=await createTokenAwareRetry({ github, core, env: process.env, task: 'issue-intake-format', capabilities: ['issues:read'] }); const parts=process.env.GITHUB_REPOSITORY.split('/'); const owner=parts[0]; const repo=parts[1]; const issueNumber=Number(process.env.ISSUE_NUMBER); const result=await withRetry((client)=>client.rest.issues.get({ owner, repo, issue_number: issueNumber })); const data=result.data; fs.writeFileSync('/tmp/issue_' + issueNumber + '.json', JSON.stringify(data, null, 2)); fs.writeFileSync('/tmp/issue_body_' + issueNumber + '.md', data.body || ''); })().catch((error)=>{ console.error(error); process.exit(1); });"
             then
               echo "  ❌ Failed to fetch issue #${issue_num}"
               failed=$((failed + 1))
@@ -1415,34 +1388,7 @@ jobs:
 
             # Update issue
             echo "  💾 Updating issue body..."
-            if ! ISSUE_NUMBER="$issue_num" node - <<'NODE'
-            (async () => {
-              const fs = require('fs');
-              const { Octokit } = require('@octokit/rest');
-              const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
-              const core = { info: () => {}, warning: console.warn, debug: () => {} };
-              const github = new Octokit({ auth: process.env.GITHUB_TOKEN });
-              const { withRetry } = await createTokenAwareRetry({
-                github,
-                core,
-                env: process.env,
-                task: 'issue-intake-format',
-                capabilities: ['issues:write'],
-              });
-              const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
-              const issueNumber = Number(process.env.ISSUE_NUMBER);
-              const body = fs.readFileSync(`/tmp/formatted_${issueNumber}.md`, 'utf8');
-              await withRetry((client) => client.rest.issues.update({
-                owner,
-                repo,
-                issue_number: issueNumber,
-                body,
-              }));
-            })().catch((error) => {
-              console.error(error);
-              process.exit(1);
-            });
-            NODE
+            if ! ISSUE_NUMBER="$issue_num" node -e "const fs=require('fs'); const { Octokit }=require('@octokit/rest'); const { createTokenAwareRetry }=require('./.github/scripts/github-api-with-retry.js'); const core={info:()=>{}, warning:console.warn, debug:()=>{}}; const github=new Octokit({auth:process.env.GITHUB_TOKEN}); (async()=>{ const { withRetry }=await createTokenAwareRetry({ github, core, env: process.env, task: 'issue-intake-format', capabilities: ['issues:write'] }); const parts=process.env.GITHUB_REPOSITORY.split('/'); const owner=parts[0]; const repo=parts[1]; const issueNumber=Number(process.env.ISSUE_NUMBER); const body=fs.readFileSync('/tmp/formatted_' + issueNumber + '.md', 'utf8'); await withRetry((client)=>client.rest.issues.update({ owner, repo, issue_number: issueNumber, body })); })().catch((error)=>{ console.error(error); process.exit(1); });"
             then
               echo "  ❌ Failed to update issue #${issue_num}"
               failed=$((failed + 1))
@@ -1451,32 +1397,7 @@ jobs:
 
             # Add formatted label
             echo "  🏷️  Adding 'agents:formatted' label..."
-            if ! ISSUE_NUMBER="$issue_num" node - <<'NODE'
-            (async () => {
-              const { Octokit } = require('@octokit/rest');
-              const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
-              const core = { info: () => {}, warning: console.warn, debug: () => {} };
-              const github = new Octokit({ auth: process.env.GITHUB_TOKEN });
-              const { withRetry } = await createTokenAwareRetry({
-                github,
-                core,
-                env: process.env,
-                task: 'issue-intake-format',
-                capabilities: ['issues:write'],
-              });
-              const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
-              const issueNumber = Number(process.env.ISSUE_NUMBER);
-              await withRetry((client) => client.rest.issues.addLabels({
-                owner,
-                repo,
-                issue_number: issueNumber,
-                labels: ['agents:formatted'],
-              }));
-            })().catch((error) => {
-              console.error(error);
-              process.exit(1);
-            });
-            NODE
+            if ! ISSUE_NUMBER="$issue_num" node -e "const { Octokit }=require('@octokit/rest'); const { createTokenAwareRetry }=require('./.github/scripts/github-api-with-retry.js'); const core={info:()=>{}, warning:console.warn, debug:()=>{}}; const github=new Octokit({auth:process.env.GITHUB_TOKEN}); (async()=>{ const { withRetry }=await createTokenAwareRetry({ github, core, env: process.env, task: 'issue-intake-format', capabilities: ['issues:write'] }); const parts=process.env.GITHUB_REPOSITORY.split('/'); const owner=parts[0]; const repo=parts[1]; const issueNumber=Number(process.env.ISSUE_NUMBER); await withRetry((client)=>client.rest.issues.addLabels({ owner, repo, issue_number: issueNumber, labels: ['agents:formatted'] })); })().catch((error)=>{ console.error(error); process.exit(1); });"
             then
               echo "  ⚠️  Failed to add label (non-fatal)"
             fi
