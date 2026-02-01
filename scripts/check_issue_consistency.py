@@ -80,10 +80,7 @@ def _has_autofix_label(event_path: str | None) -> bool:
     pull_request = payload.get("pull_request") or {}
     labels = pull_request.get("labels") or []
     for label in labels:
-        if isinstance(label, dict):
-            name = label.get("name", "")
-        else:
-            name = str(label)
+        name = label.get("name", "") if isinstance(label, dict) else str(label)
         if "autofix" in name.lower():
             return True
     return False
