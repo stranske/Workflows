@@ -257,6 +257,38 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+
+      - name: Install load balancer dependencies
+        run: |
+          set -euo pipefail
+          npm install --no-save --no-package-lock @octokit/rest @octokit/auth-app
+
+      - name: Export load balancer tokens
+        uses: ./.github/actions/export-load-balancer-tokens
+        with:
+          github_token: ${{ github.token }}
+          service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
+          actions_bot_pat: ${{ secrets.ACTIONS_BOT_PAT }}
+          codespaces_workflows: ${{ secrets.CODESPACES_WORKFLOWS }}
+          owner_pr_pat: ${{ secrets.OWNER_PR_PAT }}
+          agents_automation_pat: ${{ secrets.AGENTS_AUTOMATION_PAT }}
+          workflows_app_id: ${{ secrets.WORKFLOWS_APP_ID }}
+          workflows_app_private_key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+          keepalive_app_id: ${{ secrets.KEEPALIVE_APP_ID }}
+          keepalive_app_private_key: ${{ secrets.KEEPALIVE_APP_PRIVATE_KEY }}
+          gh_app_id: ${{ secrets.GH_APP_ID }}
+          gh_app_private_key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+          app_1_id: ${{ secrets.APP_1_ID }}
+          app_1_private_key: ${{ secrets.APP_1_PRIVATE_KEY }}
+          app_2_id: ${{ secrets.APP_2_ID }}
+          app_2_private_key: ${{ secrets.APP_2_PRIVATE_KEY }}
+          token_rotation_json: ${{ secrets.TOKEN_ROTATION_JSON }}
+          token_rotation_env_keys: ${{ vars.TOKEN_ROTATION_ENV_KEYS }}
+
       - name: Export load balancer tokens
         uses: ./.github/actions/export-load-balancer-tokens
         with:
@@ -1329,21 +1361,47 @@ jobs:
             echo "=== Formatting issue #${issue_num} ==="
 
             # Get issue body
-            if ! gh api "repos/${{ github.repository }}/issues/${issue_num}" > "/tmp/issue_${issue_num}.json"; then
+            if ! ISSUE_NUMBER="$issue_num" node - <<'NODE'
+            (async () => {
+              const fs = require('fs');
+              const { Octokit } = require('@octokit/rest');
+              const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+              const core = { info: () => {}, warning: console.warn, debug: () => {} };
+              const github = new Octokit({ auth: process.env.GITHUB_TOKEN });
+              const { withRetry } = await createTokenAwareRetry({
+                github,
+                core,
+                env: process.env,
+                task: 'issue-intake-format',
+                capabilities: ['issues:read'],
+              });
+              const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
+              const issueNumber = Number(process.env.ISSUE_NUMBER);
+              const { data } = await withRetry((client) => client.rest.issues.get({
+                owner,
+                repo,
+                issue_number: issueNumber,
+              }));
+              fs.writeFileSync(`/tmp/issue_${issueNumber}.json`, JSON.stringify(data, null, 2));
+              fs.writeFileSync(`/tmp/issue_body_${issueNumber}.md`, data.body || '');
+            })().catch((error) => {
+              console.error(error);
+              process.exit(1);
+            });
+NODE
+            then
               echo "  ❌ Failed to fetch issue #${issue_num}"
               failed=$((failed + 1))
               continue
             fi
 
-            body=$(jq -r '.body // ""' "/tmp/issue_${issue_num}.json")
-
-            if [ -z "$body" ] || [ "$body" = "null" ]; then
+            if [ ! -s "/tmp/issue_body_${issue_num}.md" ]; then
               echo "  ⚠️  Issue #${issue_num} has no body, skipping"
               continue
             fi
 
             # Save body to temp file
-            echo "$body" > "/tmp/issue_body_${issue_num}.md"
+            body=$(cat "/tmp/issue_body_${issue_num}.md")
 
             # Format with LangChain
             echo "  📝 Calling LangChain formatter..."
@@ -1357,8 +1415,35 @@ jobs:
 
             # Update issue
             echo "  💾 Updating issue body..."
-            if ! gh api --method PATCH "repos/${{ github.repository }}/issues/${issue_num}" \
-                -F body="@/tmp/formatted_${issue_num}.md" > /dev/null; then
+            if ! ISSUE_NUMBER="$issue_num" node - <<'NODE'
+            (async () => {
+              const fs = require('fs');
+              const { Octokit } = require('@octokit/rest');
+              const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+              const core = { info: () => {}, warning: console.warn, debug: () => {} };
+              const github = new Octokit({ auth: process.env.GITHUB_TOKEN });
+              const { withRetry } = await createTokenAwareRetry({
+                github,
+                core,
+                env: process.env,
+                task: 'issue-intake-format',
+                capabilities: ['issues:write'],
+              });
+              const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
+              const issueNumber = Number(process.env.ISSUE_NUMBER);
+              const body = fs.readFileSync(`/tmp/formatted_${issueNumber}.md`, 'utf8');
+              await withRetry((client) => client.rest.issues.update({
+                owner,
+                repo,
+                issue_number: issueNumber,
+                body,
+              }));
+            })().catch((error) => {
+              console.error(error);
+              process.exit(1);
+            });
+NODE
+            then
               echo "  ❌ Failed to update issue #${issue_num}"
               failed=$((failed + 1))
               continue
@@ -1366,7 +1451,33 @@ jobs:
 
             # Add formatted label
             echo "  🏷️  Adding 'agents:formatted' label..."
-            if ! gh issue edit "${issue_num}" --add-label "agents:formatted" --repo "${{ github.repository }}"; then
+            if ! ISSUE_NUMBER="$issue_num" node - <<'NODE'
+            (async () => {
+              const { Octokit } = require('@octokit/rest');
+              const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+              const core = { info: () => {}, warning: console.warn, debug: () => {} };
+              const github = new Octokit({ auth: process.env.GITHUB_TOKEN });
+              const { withRetry } = await createTokenAwareRetry({
+                github,
+                core,
+                env: process.env,
+                task: 'issue-intake-format',
+                capabilities: ['issues:write'],
+              });
+              const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
+              const issueNumber = Number(process.env.ISSUE_NUMBER);
+              await withRetry((client) => client.rest.issues.addLabels({
+                owner,
+                repo,
+                issue_number: issueNumber,
+                labels: ['agents:formatted'],
+              }));
+            })().catch((error) => {
+              console.error(error);
+              process.exit(1);
+            });
+NODE
+            then
               echo "  ⚠️  Failed to add label (non-fatal)"
             fi
 

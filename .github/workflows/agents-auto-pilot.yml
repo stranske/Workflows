@@ -492,8 +492,37 @@ jobs:
 
           # Has PR - check if it's complete and ready to merge
           # Get PR state to see if keepalive has finished
-          if ! PR_STATE=$(gh api "/repos/${{ github.repository }}/issues/$LINKED_PR/comments" \
-            --jq '.[] | select(.body | contains("keepalive-state:")) | .body' 2>&1 | tail -1); then
+          if ! PR_STATE=$(LINKED_PR="$LINKED_PR" node - <<'NODE'
+          (async () => {
+            const { Octokit } = require('@octokit/rest');
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const core = { info: () => {}, warning: console.warn, debug: () => {} };
+            const github = new Octokit({ auth: process.env.GITHUB_TOKEN });
+            const { paginateWithRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'auto-pilot',
+              capabilities: ['issues:read'],
+            });
+            const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
+            const issueNumber = Number(process.env.LINKED_PR);
+            const comments = await paginateWithRetry(
+              github.rest.issues.listComments,
+              { owner, repo, issue_number: issueNumber, per_page: 100 }
+            );
+            const last = [...comments].reverse().find((comment) =>
+              (comment.body || '').includes('keepalive-state:')
+            );
+            if (last?.body) {
+              process.stdout.write(last.body);
+            }
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+NODE
+          ); then
             echo "⚠️ Failed to fetch PR state, defaulting to monitor-pr"
             echo "next_step=monitor-pr" >> "$GITHUB_OUTPUT"
             exit 0
@@ -537,14 +566,69 @@ jobs:
         run: |
 
           # Post progress comment
-          gh issue comment "${ISSUE_NUMBER}" --body \
-            "🤖 **Auto-pilot step $((STEP_COUNT + 1))**: Starting issue formatting...
+          cat > /tmp/auto_pilot_format_start.md <<'EOF'
+          🤖 **Auto-pilot step $((STEP_COUNT + 1))**: Starting issue formatting...
 
-          Running formatter inline (not via label trigger)."
+          Running formatter inline (not via label trigger).
+          EOF
+          node - <<'NODE'
+          (async () => {
+            const fs = require('fs');
+            const { Octokit } = require('@octokit/rest');
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const core = { info: () => {}, warning: console.warn, debug: () => {} };
+            const github = new Octokit({ auth: process.env.GITHUB_TOKEN });
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'auto-pilot',
+              capabilities: ['issues:write'],
+            });
+            const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
+            const issueNumber = Number(process.env.ISSUE_NUMBER);
+            const body = fs.readFileSync('/tmp/auto_pilot_format_start.md', 'utf8');
+            await withRetry((client) => client.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: issueNumber,
+              body,
+            }));
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+NODE
 
           # Get issue body
-          gh api "repos/${{ github.repository }}/issues/${ISSUE_NUMBER}" > /tmp/issue.json
-          jq -r '.body' /tmp/issue.json > /tmp/issue_body.md
+          node - <<'NODE'
+          (async () => {
+            const fs = require('fs');
+            const { Octokit } = require('@octokit/rest');
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const core = { info: () => {}, warning: console.warn, debug: () => {} };
+            const github = new Octokit({ auth: process.env.GITHUB_TOKEN });
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'auto-pilot',
+              capabilities: ['issues:read'],
+            });
+            const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
+            const issueNumber = Number(process.env.ISSUE_NUMBER);
+            const { data } = await withRetry((client) => client.rest.issues.get({
+              owner,
+              repo,
+              issue_number: issueNumber,
+            }));
+            fs.writeFileSync('/tmp/issue.json', JSON.stringify(data, null, 2));
+            fs.writeFileSync('/tmp/issue_body.md', data.body || '');
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+NODE
 
           # Format the issue
           echo "Formatting issue into AGENT_ISSUE_TEMPLATE structure..."
@@ -568,11 +652,66 @@ jobs:
           " || exit 1
 
           # Update issue body
-          gh issue edit "${ISSUE_NUMBER}" --body-file /tmp/formatted_body.md
+          node - <<'NODE'
+          (async () => {
+            const fs = require('fs');
+            const { Octokit } = require('@octokit/rest');
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const core = { info: () => {}, warning: console.warn, debug: () => {} };
+            const github = new Octokit({ auth: process.env.GITHUB_TOKEN });
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'auto-pilot',
+              capabilities: ['issues:write'],
+            });
+            const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
+            const issueNumber = Number(process.env.ISSUE_NUMBER);
+            const body = fs.readFileSync('/tmp/formatted_body.md', 'utf8');
+            await withRetry((client) => client.rest.issues.update({
+              owner,
+              repo,
+              issue_number: issueNumber,
+              body,
+            }));
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+NODE
 
           # Add marker labels (but don't trigger workflow)
-          gh issue edit "${ISSUE_NUMBER}" --add-label "agents:formatted" || true
-          gh issue edit "${ISSUE_NUMBER}" --add-label "agents:apply-suggestions" || true
+          node - <<'NODE'
+          (async () => {
+            const { Octokit } = require('@octokit/rest');
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const core = { info: () => {}, warning: console.warn, debug: () => {} };
+            const github = new Octokit({ auth: process.env.GITHUB_TOKEN });
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'auto-pilot',
+              capabilities: ['issues:write'],
+            });
+            const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
+            const issueNumber = Number(process.env.ISSUE_NUMBER);
+            try {
+              await withRetry((client) => client.rest.issues.addLabels({
+                owner,
+                repo,
+                issue_number: issueNumber,
+                labels: ['agents:formatted', 'agents:apply-suggestions'],
+              }));
+            } catch (error) {
+              console.warn(`Label update failed: ${error.message}`);
+            }
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+NODE
 
           echo "✅ Formatting complete - continuing to next step"
 
@@ -625,14 +764,69 @@ jobs:
         run: |
 
           # Post progress comment
-          gh issue comment "${ISSUE_NUMBER}" --body \
-            "🤖 **Auto-pilot step $((STEP_COUNT + 1))**: Analyzing issue for improvements...
+          cat > /tmp/auto_pilot_optimize_start.md <<'EOF'
+          🤖 **Auto-pilot step $((STEP_COUNT + 1))**: Analyzing issue for improvements...
 
-          Running optimizer inline (not via label trigger)."
+          Running optimizer inline (not via label trigger).
+          EOF
+          node - <<'NODE'
+          (async () => {
+            const fs = require('fs');
+            const { Octokit } = require('@octokit/rest');
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const core = { info: () => {}, warning: console.warn, debug: () => {} };
+            const github = new Octokit({ auth: process.env.GITHUB_TOKEN });
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'auto-pilot',
+              capabilities: ['issues:write'],
+            });
+            const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
+            const issueNumber = Number(process.env.ISSUE_NUMBER);
+            const body = fs.readFileSync('/tmp/auto_pilot_optimize_start.md', 'utf8');
+            await withRetry((client) => client.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: issueNumber,
+              body,
+            }));
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+NODE
 
           # Get issue body
-          gh api "repos/${{ github.repository }}/issues/${ISSUE_NUMBER}" > /tmp/issue.json
-          jq -r '.body' /tmp/issue.json > /tmp/issue_body.md
+          node - <<'NODE'
+          (async () => {
+            const fs = require('fs');
+            const { Octokit } = require('@octokit/rest');
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const core = { info: () => {}, warning: console.warn, debug: () => {} };
+            const github = new Octokit({ auth: process.env.GITHUB_TOKEN });
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'auto-pilot',
+              capabilities: ['issues:read'],
+            });
+            const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
+            const issueNumber = Number(process.env.ISSUE_NUMBER);
+            const { data } = await withRetry((client) => client.rest.issues.get({
+              owner,
+              repo,
+              issue_number: issueNumber,
+            }));
+            fs.writeFileSync('/tmp/issue.json', JSON.stringify(data, null, 2));
+            fs.writeFileSync('/tmp/issue_body.md', data.body || '');
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+NODE
 
           # Run optimizer analysis
           echo "Running optimization analysis..."
@@ -669,11 +863,66 @@ jobs:
           }
 
           # Post suggestions comment
-          gh issue comment "${ISSUE_NUMBER}" --body-file /tmp/comment.md
+          node - <<'NODE'
+          (async () => {
+            const fs = require('fs');
+            const { Octokit } = require('@octokit/rest');
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const core = { info: () => {}, warning: console.warn, debug: () => {} };
+            const github = new Octokit({ auth: process.env.GITHUB_TOKEN });
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'auto-pilot',
+              capabilities: ['issues:write'],
+            });
+            const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
+            const issueNumber = Number(process.env.ISSUE_NUMBER);
+            const body = fs.readFileSync('/tmp/comment.md', 'utf8');
+            await withRetry((client) => client.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: issueNumber,
+              body,
+            }));
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+NODE
 
           # Add marker labels (but don't trigger workflow)
-          gh issue edit "${ISSUE_NUMBER}" --add-label "agents:formatted" || true
-          gh issue edit "${ISSUE_NUMBER}" --add-label "agents:apply-suggestions" || true
+          node - <<'NODE'
+          (async () => {
+            const { Octokit } = require('@octokit/rest');
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const core = { info: () => {}, warning: console.warn, debug: () => {} };
+            const github = new Octokit({ auth: process.env.GITHUB_TOKEN });
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'auto-pilot',
+              capabilities: ['issues:write'],
+            });
+            const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
+            const issueNumber = Number(process.env.ISSUE_NUMBER);
+            try {
+              await withRetry((client) => client.rest.issues.addLabels({
+                owner,
+                repo,
+                issue_number: issueNumber,
+                labels: ['agents:formatted', 'agents:apply-suggestions'],
+              }));
+            } catch (error) {
+              console.warn(`Label update failed: ${error.message}`);
+            }
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+NODE
 
           echo "✅ Optimization complete - continuing to next step"
 
@@ -796,16 +1045,74 @@ jobs:
         run: |
 
           # Post progress comment
-          gh issue comment "${ISSUE_NUMBER}" --body \
-            "🤖 **Auto-pilot step $((STEP_COUNT + 1))**: Applying optimization suggestions...
+          cat > /tmp/auto_pilot_apply_start.md <<'EOF'
+          🤖 **Auto-pilot step $((STEP_COUNT + 1))**: Applying optimization suggestions...
 
-          Running apply inline (not via label trigger)."
+          Running apply inline (not via label trigger).
+          EOF
+          node - <<'NODE'
+          (async () => {
+            const fs = require('fs');
+            const { Octokit } = require('@octokit/rest');
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const core = { info: () => {}, warning: console.warn, debug: () => {} };
+            const github = new Octokit({ auth: process.env.GITHUB_TOKEN });
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'auto-pilot',
+              capabilities: ['issues:write'],
+            });
+            const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
+            const issueNumber = Number(process.env.ISSUE_NUMBER);
+            const body = fs.readFileSync('/tmp/auto_pilot_apply_start.md', 'utf8');
+            await withRetry((client) => client.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: issueNumber,
+              body,
+            }));
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+NODE
 
           # Get issue body and comments
-          gh api "repos/${{ github.repository }}/issues/${ISSUE_NUMBER}" > /tmp/issue.json
-          jq -r '.body' /tmp/issue.json > /tmp/issue_body.md
-          gh api "repos/${{ github.repository }}/issues/${ISSUE_NUMBER}/comments" \
-            --paginate > /tmp/comments.json
+          node - <<'NODE'
+          (async () => {
+            const fs = require('fs');
+            const { Octokit } = require('@octokit/rest');
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const core = { info: () => {}, warning: console.warn, debug: () => {} };
+            const github = new Octokit({ auth: process.env.GITHUB_TOKEN });
+            const { withRetry, paginateWithRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'auto-pilot',
+              capabilities: ['issues:read'],
+            });
+            const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
+            const issueNumber = Number(process.env.ISSUE_NUMBER);
+            const { data } = await withRetry((client) => client.rest.issues.get({
+              owner,
+              repo,
+              issue_number: issueNumber,
+            }));
+            fs.writeFileSync('/tmp/issue.json', JSON.stringify(data, null, 2));
+            fs.writeFileSync('/tmp/issue_body.md', data.body || '');
+            const comments = await paginateWithRetry(
+              github.rest.issues.listComments,
+              { owner, repo, issue_number: issueNumber, per_page: 100 }
+            );
+            fs.writeFileSync('/tmp/comments.json', JSON.stringify(comments, null, 2));
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+NODE
 
           # Extract and apply suggestions
           python -c "
@@ -844,10 +1151,66 @@ jobs:
           " || exit 1
 
           # Update issue body
-          gh issue edit "${ISSUE_NUMBER}" --body-file /tmp/updated_body.md
+          node - <<'NODE'
+          (async () => {
+            const fs = require('fs');
+            const { Octokit } = require('@octokit/rest');
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const core = { info: () => {}, warning: console.warn, debug: () => {} };
+            const github = new Octokit({ auth: process.env.GITHUB_TOKEN });
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'auto-pilot',
+              capabilities: ['issues:write'],
+            });
+            const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
+            const issueNumber = Number(process.env.ISSUE_NUMBER);
+            const body = fs.readFileSync('/tmp/updated_body.md', 'utf8');
+            await withRetry((client) => client.rest.issues.update({
+              owner,
+              repo,
+              issue_number: issueNumber,
+              body,
+            }));
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+NODE
 
           # Add marker label (but don't trigger workflow)
-          gh issue edit "${ISSUE_NUMBER}" --add-label "agents:formatted" || true
+          node - <<'NODE'
+          (async () => {
+            const { Octokit } = require('@octokit/rest');
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const core = { info: () => {}, warning: console.warn, debug: () => {} };
+            const github = new Octokit({ auth: process.env.GITHUB_TOKEN });
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'auto-pilot',
+              capabilities: ['issues:write'],
+            });
+            const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
+            const issueNumber = Number(process.env.ISSUE_NUMBER);
+            try {
+              await withRetry((client) => client.rest.issues.addLabels({
+                owner,
+                repo,
+                issue_number: issueNumber,
+                labels: ['agents:formatted'],
+              }));
+            } catch (error) {
+              console.warn(`Label update failed: ${error.message}`);
+            }
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+NODE
 
           echo "✅ Apply complete - continuing to next step"
 

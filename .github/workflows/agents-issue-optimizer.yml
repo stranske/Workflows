@@ -70,6 +70,41 @@ jobs:
         if: steps.check.outputs.should_run == 'true'
         uses: actions/checkout@v6
 
+      - name: Set up Node.js
+        if: steps.check.outputs.should_run == 'true'
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+
+      - name: Install load balancer dependencies
+        if: steps.check.outputs.should_run == 'true'
+        run: |
+          set -euo pipefail
+          npm install --no-save --no-package-lock @octokit/rest @octokit/auth-app
+
+      - name: Export load balancer tokens
+        if: steps.check.outputs.should_run == 'true'
+        uses: ./.github/actions/export-load-balancer-tokens
+        with:
+          github_token: ${{ github.token }}
+          service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
+          actions_bot_pat: ${{ secrets.ACTIONS_BOT_PAT }}
+          codespaces_workflows: ${{ secrets.CODESPACES_WORKFLOWS }}
+          owner_pr_pat: ${{ secrets.OWNER_PR_PAT }}
+          agents_automation_pat: ${{ secrets.AGENTS_AUTOMATION_PAT }}
+          workflows_app_id: ${{ secrets.WORKFLOWS_APP_ID }}
+          workflows_app_private_key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+          keepalive_app_id: ${{ secrets.KEEPALIVE_APP_ID }}
+          keepalive_app_private_key: ${{ secrets.KEEPALIVE_APP_PRIVATE_KEY }}
+          gh_app_id: ${{ secrets.GH_APP_ID }}
+          gh_app_private_key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+          app_1_id: ${{ secrets.APP_1_ID }}
+          app_1_private_key: ${{ secrets.APP_1_PRIVATE_KEY }}
+          app_2_id: ${{ secrets.APP_2_ID }}
+          app_2_private_key: ${{ secrets.APP_2_PRIVATE_KEY }}
+          token_rotation_json: ${{ secrets.TOKEN_ROTATION_JSON }}
+          token_rotation_env_keys: ${{ vars.TOKEN_ROTATION_ENV_KEYS }}
+
       - name: Set up Python
         if: steps.check.outputs.should_run == 'true'
         uses: actions/setup-python@v6
@@ -91,9 +126,35 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           ISSUE_NUMBER: ${{ steps.check.outputs.issue_number }}
         run: |
-          gh api "repos/${{ github.repository }}/issues/${ISSUE_NUMBER}" > /tmp/issue.json
-          jq -r '.body' /tmp/issue.json > /tmp/issue_body.md
-          echo "Issue body saved to /tmp/issue_body.md"
+          node - <<'NODE'
+          (async () => {
+            const fs = require('fs');
+            const { Octokit } = require('@octokit/rest');
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const core = { info: () => {}, warning: console.warn, debug: () => {} };
+            const github = new Octokit({ auth: process.env.GITHUB_TOKEN });
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'issue-optimizer',
+              capabilities: ['issues:read'],
+            });
+            const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
+            const issueNumber = Number(process.env.ISSUE_NUMBER);
+            const { data } = await withRetry((client) => client.rest.issues.get({
+              owner,
+              repo,
+              issue_number: issueNumber,
+            }));
+            fs.writeFileSync('/tmp/issue.json', JSON.stringify(data, null, 2));
+            fs.writeFileSync('/tmp/issue_body.md', data.body || '');
+            console.log('Issue body saved to /tmp/issue_body.md');
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+NODE
 
       - name: Phase 1 - Analyze Issue
         if: steps.check.outputs.should_run == 'true' && steps.check.outputs.phase == 'analyze'
@@ -138,7 +199,34 @@ jobs:
           }
 
           # Post comment
-          gh issue comment "${ISSUE_NUMBER}" --body-file /tmp/comment.md
+          node - <<'NODE'
+          (async () => {
+            const fs = require('fs');
+            const { Octokit } = require('@octokit/rest');
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const core = { info: () => {}, warning: console.warn, debug: () => {} };
+            const github = new Octokit({ auth: process.env.GITHUB_TOKEN });
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'issue-optimizer',
+              capabilities: ['issues:write'],
+            });
+            const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
+            const issueNumber = Number(process.env.ISSUE_NUMBER);
+            const body = fs.readFileSync('/tmp/comment.md', 'utf8');
+            await withRetry((client) => client.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: issueNumber,
+              body,
+            }));
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+NODE
 
           echo "Analysis complete. Review suggestions and add 'agents:apply-suggestions' label to apply."
 
@@ -152,8 +240,37 @@ jobs:
           PYTHONPATH: ${{ github.workspace }}
         run: |
           echo "Checking for potential duplicate issues (advisory)"
-          gh api "repos/${{ github.repository }}/issues?state=open&per_page=100" --paginate > /tmp/open_issues.json
-          gh api "repos/${{ github.repository }}/issues/${ISSUE_NUMBER}/comments" --paginate > /tmp/dedup_comments.json
+          node - <<'NODE'
+          (async () => {
+            const fs = require('fs');
+            const { Octokit } = require('@octokit/rest');
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const core = { info: () => {}, warning: console.warn, debug: () => {} };
+            const github = new Octokit({ auth: process.env.GITHUB_TOKEN });
+            const { paginateWithRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'issue-optimizer',
+              capabilities: ['issues:read'],
+            });
+            const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
+            const issueNumber = Number(process.env.ISSUE_NUMBER);
+            const openIssues = await paginateWithRetry(
+              github.rest.issues.listForRepo,
+              { owner, repo, state: 'open', per_page: 100 }
+            );
+            const comments = await paginateWithRetry(
+              github.rest.issues.listComments,
+              { owner, repo, issue_number: issueNumber, per_page: 100 }
+            );
+            fs.writeFileSync('/tmp/open_issues.json', JSON.stringify(openIssues, null, 2));
+            fs.writeFileSync('/tmp/dedup_comments.json', JSON.stringify(comments, null, 2));
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+NODE
 
           python - <<'PY' || true
           import json
@@ -192,7 +309,38 @@ jobs:
           PY
 
           if [[ -f /tmp/dedup_comment.md ]]; then
-            gh issue comment "${ISSUE_NUMBER}" --body-file /tmp/dedup_comment.md || true
+            node - <<'NODE'
+            (async () => {
+              const fs = require('fs');
+              const { Octokit } = require('@octokit/rest');
+              const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+              const core = { info: () => {}, warning: console.warn, debug: () => {} };
+              const github = new Octokit({ auth: process.env.GITHUB_TOKEN });
+              const { withRetry } = await createTokenAwareRetry({
+                github,
+                core,
+                env: process.env,
+                task: 'issue-optimizer',
+                capabilities: ['issues:write'],
+              });
+              const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
+              const issueNumber = Number(process.env.ISSUE_NUMBER);
+              const body = fs.readFileSync('/tmp/dedup_comment.md', 'utf8');
+              try {
+                await withRetry((client) => client.rest.issues.createComment({
+                  owner,
+                  repo,
+                  issue_number: issueNumber,
+                  body,
+                }));
+              } catch (error) {
+                console.warn(`Dedup comment failed: ${error.message}`);
+              }
+            })().catch((error) => {
+              console.error(error);
+              process.exit(1);
+            });
+NODE
           else
             echo "No likely duplicates detected."
           fi
@@ -208,7 +356,32 @@ jobs:
           echo "Extracting suggestions from comments on issue #${ISSUE_NUMBER}"
 
           # Get all comments and find the one with suggestions JSON
-          gh api "repos/${{ github.repository }}/issues/${ISSUE_NUMBER}/comments" --paginate > /tmp/comments.json
+          node - <<'NODE'
+          (async () => {
+            const fs = require('fs');
+            const { Octokit } = require('@octokit/rest');
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const core = { info: () => {}, warning: console.warn, debug: () => {} };
+            const github = new Octokit({ auth: process.env.GITHUB_TOKEN });
+            const { paginateWithRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'issue-optimizer',
+              capabilities: ['issues:read'],
+            });
+            const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
+            const issueNumber = Number(process.env.ISSUE_NUMBER);
+            const comments = await paginateWithRetry(
+              github.rest.issues.listComments,
+              { owner, repo, issue_number: issueNumber, per_page: 100 }
+            );
+            fs.writeFileSync('/tmp/comments.json', JSON.stringify(comments, null, 2));
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+NODE
 
           # Extract suggestions JSON from comment
           python -c "
@@ -247,7 +420,34 @@ jobs:
           " || exit 1
 
           # Update issue body
-          gh issue edit "${ISSUE_NUMBER}" --body-file /tmp/updated_body.md
+          node - <<'NODE'
+          (async () => {
+            const fs = require('fs');
+            const { Octokit } = require('@octokit/rest');
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const core = { info: () => {}, warning: console.warn, debug: () => {} };
+            const github = new Octokit({ auth: process.env.GITHUB_TOKEN });
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'issue-optimizer',
+              capabilities: ['issues:write'],
+            });
+            const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
+            const issueNumber = Number(process.env.ISSUE_NUMBER);
+            const body = fs.readFileSync('/tmp/updated_body.md', 'utf8');
+            await withRetry((client) => client.rest.issues.update({
+              owner,
+              repo,
+              issue_number: issueNumber,
+              body,
+            }));
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+NODE
 
           echo "Issue body updated with applied suggestions"
 
@@ -284,7 +484,34 @@ jobs:
           " || exit 1
 
           # Update issue body with formatted version
-          gh issue edit "${ISSUE_NUMBER}" --body-file /tmp/formatted_body.md
+          node - <<'NODE'
+          (async () => {
+            const fs = require('fs');
+            const { Octokit } = require('@octokit/rest');
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const core = { info: () => {}, warning: console.warn, debug: () => {} };
+            const github = new Octokit({ auth: process.env.GITHUB_TOKEN });
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'issue-optimizer',
+              capabilities: ['issues:write'],
+            });
+            const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
+            const issueNumber = Number(process.env.ISSUE_NUMBER);
+            const body = fs.readFileSync('/tmp/formatted_body.md', 'utf8');
+            await withRetry((client) => client.rest.issues.update({
+              owner,
+              repo,
+              issue_number: issueNumber,
+              body,
+            }));
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+NODE
 
           echo "Issue body updated with formatted structure"
 
@@ -297,13 +524,95 @@ jobs:
         run: |
           if [[ "$PHASE" == "apply" ]]; then
             # Remove both optimization labels and add formatted label
-            gh issue edit "${ISSUE_NUMBER}" --remove-label "agents:optimize" || true
-            gh issue edit "${ISSUE_NUMBER}" --remove-label "agents:apply-suggestions"
-            gh issue edit "${ISSUE_NUMBER}" --add-label "agents:formatted"
+            node - <<'NODE'
+            (async () => {
+              const { Octokit } = require('@octokit/rest');
+              const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+              const core = { info: () => {}, warning: console.warn, debug: () => {} };
+              const github = new Octokit({ auth: process.env.GITHUB_TOKEN });
+              const { withRetry } = await createTokenAwareRetry({
+                github,
+                core,
+                env: process.env,
+                task: 'issue-optimizer',
+                capabilities: ['issues:write'],
+              });
+              const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
+              const issueNumber = Number(process.env.ISSUE_NUMBER);
+              const labelsToRemove = ['agents:optimize', 'agents:apply-suggestions'];
+              for (const label of labelsToRemove) {
+                try {
+                  await withRetry((client) => client.rest.issues.removeLabel({
+                    owner,
+                    repo,
+                    issue_number: issueNumber,
+                    name: label,
+                  }));
+                } catch (error) {
+                  if (!String(error.message || '').includes('Label does not exist')) {
+                    console.warn(`Failed to remove label ${label}: ${error.message}`);
+                  }
+                }
+              }
+              try {
+                await withRetry((client) => client.rest.issues.addLabels({
+                  owner,
+                  repo,
+                  issue_number: issueNumber,
+                  labels: ['agents:formatted'],
+                }));
+              } catch (error) {
+                console.warn(`Failed to add formatted label: ${error.message}`);
+              }
+            })().catch((error) => {
+              console.error(error);
+              process.exit(1);
+            });
+NODE
             echo "Labels updated: removed optimize/apply-suggestions, added formatted"
           elif [[ "$PHASE" == "format" ]]; then
             # Remove format trigger label and add formatted result label
-            gh issue edit "${ISSUE_NUMBER}" --remove-label "agents:format"
-            gh issue edit "${ISSUE_NUMBER}" --add-label "agents:formatted"
+            node - <<'NODE'
+            (async () => {
+              const { Octokit } = require('@octokit/rest');
+              const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+              const core = { info: () => {}, warning: console.warn, debug: () => {} };
+              const github = new Octokit({ auth: process.env.GITHUB_TOKEN });
+              const { withRetry } = await createTokenAwareRetry({
+                github,
+                core,
+                env: process.env,
+                task: 'issue-optimizer',
+                capabilities: ['issues:write'],
+              });
+              const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
+              const issueNumber = Number(process.env.ISSUE_NUMBER);
+              try {
+                await withRetry((client) => client.rest.issues.removeLabel({
+                  owner,
+                  repo,
+                  issue_number: issueNumber,
+                  name: 'agents:format',
+                }));
+              } catch (error) {
+                if (!String(error.message || '').includes('Label does not exist')) {
+                  console.warn(`Failed to remove format label: ${error.message}`);
+                }
+              }
+              try {
+                await withRetry((client) => client.rest.issues.addLabels({
+                  owner,
+                  repo,
+                  issue_number: issueNumber,
+                  labels: ['agents:formatted'],
+                }));
+              } catch (error) {
+                console.warn(`Failed to add formatted label: ${error.message}`);
+              }
+            })().catch((error) => {
+              console.error(error);
+              process.exit(1);
+            });
+NODE
             echo "Labels updated: removed format, added formatted"
           fi
