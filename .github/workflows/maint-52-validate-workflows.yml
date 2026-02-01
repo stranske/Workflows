@@ -88,3 +88,10 @@ jobs:
           set -euo pipefail
           mapfile -t extra_args < <(sed -e 's/[[:space:]]*$//' -e '/^$/d' actionlint-allowlist.args)
           actionlint "${extra_args[@]}" -oneline
+
+      - name: Check GitHub API wrapper usage
+        env:
+          BASE_REF: ${{ github.base_ref || 'main' }}
+        run: |
+          set -euo pipefail
+          python scripts/check_api_wrapper_guard.py --base-ref "${BASE_REF:-main}"

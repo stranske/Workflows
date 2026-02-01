@@ -4,6 +4,52 @@ Date: 2026-02-01
 
 Scope: This document lists every GitHub API call found in each high-volume workflow and companion scripts in _repos/Workflows, with line numbers.
 
+## Before/After Sequence (Short)
+
+```mermaid
+sequenceDiagram
+	autonumber
+	participant W as Workflow job
+	participant API as GitHub API
+	participant LB as Token load balancer
+	participant R as Retry wrapper
+
+	rect rgb(255, 238, 238)
+		Note over W,API: Before
+		W->>API: Direct REST/GraphQL call
+		API-->>W: 403/429 (rate limit)
+		W-->>W: Failure, job stops
+	end
+
+	rect rgb(238, 255, 238)
+		Note over W,LB: After
+		W->>LB: Export tokens
+		W->>R: createTokenAwareRetry(...)
+		R->>API: API call (token-aware)
+		API-->>R: Rate headers / response
+		R-->>R: Retry / switch token if needed
+		R-->>W: Success / handled failure
+	end
+```
+
+## Guardrails for New API Calls
+
+- **Always** wrap GitHub API calls with `createTokenAwareRetry()` and use the returned `withRetry()`/`paginateWithRetry()` helpers.
+- **Always** add the load balancer export step (`./.github/actions/export-load-balancer-tokens`) in jobs that make API calls.
+- **Never** use raw `gh api`, `curl https://api.github.com`, or unwrapped `github.rest.*` in new workflow code; route through the retry wrapper.
+- **Prefer** `github.paginate` via `paginateWithRetry()` for list endpoints.
+
+## Regression Prevention (Tests + Scheduled Checks)
+
+### CI Checks
+- **Static scan**: fail CI if new workflow/script changes contain `gh api`, `api.github.com`, or `github.rest.*` without a nearby `createTokenAwareRetry` import.
+- **Wrapper enforcement**: unit test that new helper scripts call `createTokenAwareRetry()` before any API call.
+- **Load balancer requirement**: check each workflow job that uses the API includes the export step.
+
+### Scheduled Maintenance
+- **Weekly rate-limit diagnostic**: keep `health-75-api-rate-diagnostic.yml` scheduled and alert on token failures.
+- **Monthly audit refresh**: run a scheduled scan to regenerate the audit table and diff for new unwrapped call sites.
+
 ## API Calls (with line numbers)
 
 ### Agents Keepalive Loop

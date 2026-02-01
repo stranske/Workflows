@@ -107,6 +107,17 @@ NODE
             echo "total_failure=${total_failure}"
           } >> "$GITHUB_OUTPUT"
 
+      - name: Scan API wrapper usage
+        id: api_guard
+        run: |
+          set -euo pipefail
+          python scripts/check_api_wrapper_guard.py --all --output /tmp/api_guard.md || true
+          {
+            echo "report<<EOF"
+            cat /tmp/api_guard.md
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Identify workflows needing attention
         id: attention
         run: |
@@ -172,6 +183,7 @@ NODE
           TOTAL_SUCCESS: ${{ steps.stats.outputs.total_success }}
           TOTAL_FAILURE: ${{ steps.stats.outputs.total_failure }}
           LOOKBACK: ${{ inputs.lookback_days || 30 }}
+          API_GUARD: ${{ steps.api_guard.outputs.report }}
         run: |
           cat > /tmp/audit_body.md << 'AUDIT_EOF'
           ## Monthly Workflow Audit - $(date +%B\ %Y)
@@ -199,6 +211,12 @@ NODE
           ### Workflows Not Run This Period
 
           ${NOT_RUN}
+
+          ---
+
+          ### API Wrapper Guard
+
+          ${API_GUARD}
 
           ---
 
