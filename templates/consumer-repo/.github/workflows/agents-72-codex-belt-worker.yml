@@ -1076,14 +1076,14 @@ jobs:
                 return;
               }
 
-              await github.graphql(
+              await withRetry(() => github.graphql(
                 `mutation EnableAutoMerge($pullRequestId: ID!, $method: PullRequestMergeMethod!) {
                   enablePullRequestAutoMerge(input: { pullRequestId: $pullRequestId, mergeMethod: $method }) {
                     pullRequest { number }
                   }
                 }`,
                 { pullRequestId: pr.node_id, method: 'SQUASH' }
-              );
+              ));
 
               core.summary.addHeading('Merge Strategy').addList([
                 `Enabled auto-merge (squash) for PR #${prNumber} once required checks pass.`,

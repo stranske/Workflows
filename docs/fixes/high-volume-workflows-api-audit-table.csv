@@ -1,5 +1,5 @@
 Abbr,API call,LB Export,Retry Wrapper,Rate-Limit Wrapper,Direct CLI/Curl,Verification notes
-GQL,github.graphql,Mixed,Mixed,Mixed,No,"Wrapped in reusable-16-agents.yml#L175; direct in agents-72-codex-belt-worker.yml#L1064."
+GQL,github.graphql,Mixed,Mixed,Mixed,No,"Wrapped in reusable-16-agents.yml#L175; wrapped in agents-72-codex-belt-worker.yml#L1079."
 PAG,github.paginate(...),Mixed,Mixed,Mixed,No,"Wrapped in reusable-70-orchestrator-main.yml#L414; direct in maint-post-ci.js#L98."
 PAGIT,github.paginate.iterator(...),Mixed,Mixed,Mixed,No,"Direct iterator in issue_pr_locator.js#L134."
 GHCLI,gh api,No,No,No,Yes,"Direct CLI usage in health-75-api-rate-diagnostic.yml#L97."
