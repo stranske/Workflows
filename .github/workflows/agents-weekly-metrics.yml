@@ -42,6 +42,7 @@ jobs:
           set -euo pipefail
           # shellcheck disable=SC1009,SC1073,SC1039,SC1072
           mkdir -p artifacts
+            then
 
           # Get artifact IDs and names
           # shellcheck disable=SC1009,SC1073,SC1039,SC1072
@@ -80,7 +81,7 @@ jobs:
             echo "Downloading artifact $id ($name)"
             mkdir -p "artifacts/$name"
             # shellcheck disable=SC1009,SC1073,SC1039,SC1072
-            if ! ARTIFACT_ID="$id" ARTIFACT_DIR="artifacts/$name" ARTIFACT_ZIP="artifacts/$name/$id.zip" node - <<'NODE'; then
+            if ! ARTIFACT_ID="$id" ARTIFACT_DIR="artifacts/$name" ARTIFACT_ZIP="artifacts/$name/$id.zip" node - <<'NODE'
             const fs = require('fs');
             const { Octokit } = require('@octokit/rest');
             const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');

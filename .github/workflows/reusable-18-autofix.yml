@@ -237,7 +237,14 @@ jobs:
         uses: actions/github-script@v8
         with:
           script: |
-            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  createTokenAwareRetry: async () => ({ withRetry: (fn) => fn(github) })
+                };
+            const { createTokenAwareRetry } = retryHelpers;
             const { withRetry } = await createTokenAwareRetry({
               github,
               core,
