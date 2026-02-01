@@ -101,3 +101,24 @@
 ## Evidence of remaining issue
 - Trend_Model_Project PR #4613 failing check: `pr_meta_pr / Update PR body sections`.
 - Error: API rate limit exceeded while resolving Workflows default branch via `github.rest.repos.get`.
+
+## 2026-02-01 update
+
+### Audit result
+- Verified all workflows using `createTokenAwareRetry` / `ensureRateLimitWrapped` now export load balancer tokens earlier in the same job.
+- Fixed missing export steps in these workflows:
+   - `selftest-reusable-ci.yml`
+   - `health-75-api-rate-diagnostic.yml`
+   - `reusable-18-autofix.yml`
+   - `agents-63-issue-intake.yml`
+   - `reusable-16-agents.yml`
+   - `agents-keepalive-loop.yml`
+
+### Post-merge verification plan
+1. Run **Agents 70 Keepalive Loop** once in the Workflows repo with a valid PR number and high-privilege environment.
+2. Confirm logs show `Token registry initialized with N tokens` where **N > 0** and multiple sources are listed.
+3. Confirm at least one retry log entry shows token rotation/switching for the `keepalive-loop` task.
+4. Run **Health 75 API Rate Diagnostic** and confirm the `Load-sharing switch verified` step passes.
+5. Spot-check a consumer repo keepalive job to confirm the export step precedes any token-aware retry usage.
+
+If any step fails, stop and fix before declaring success.
