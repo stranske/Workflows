@@ -89,7 +89,7 @@ def _collect_changed_files(base_ref: str, base_remote: str) -> list[Path]:
     if base:
         try:
             output = _run_git(
-                ["diff", "--name-only", f"{base}...HEAD"],
+                ["diff", "--name-only", f"{base}..HEAD"],
                 allow_exit_codes={0, 1},
             )
             return [ROOT / line.strip() for line in output.splitlines() if line.strip()]
@@ -98,7 +98,7 @@ def _collect_changed_files(base_ref: str, base_remote: str) -> list[Path]:
     if _rev_exists("HEAD~1"):
         try:
             output = _run_git(
-                ["diff", "--name-only", "HEAD~1...HEAD"],
+                ["diff", "--name-only", "HEAD~1..HEAD"],
                 allow_exit_codes={0, 1},
             )
             return [ROOT / line.strip() for line in output.splitlines() if line.strip()]
