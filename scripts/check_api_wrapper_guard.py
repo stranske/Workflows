@@ -56,19 +56,38 @@ def _run_git(args: list[str]) -> str:
     return result.stdout
 
 
-def _resolve_base_ref(base_ref: str, base_remote: str) -> str:
-    candidate = f"{base_remote}/{base_ref}"
+def _rev_exists(revision: str) -> bool:
     try:
-        _run_git(["rev-parse", "--verify", candidate])
-        return candidate
+        _run_git(["rev-parse", "--verify", revision])
     except RuntimeError:
+        return False
+    return True
+
+
+def _resolve_base_ref(base_ref: str, base_remote: str) -> str | None:
+    candidate = f"{base_remote}/{base_ref}"
+    if _rev_exists(candidate):
+        return candidate
+    if _rev_exists(base_ref):
         return base_ref
+    return None
 
 
 def _collect_changed_files(base_ref: str, base_remote: str) -> list[Path]:
     base = _resolve_base_ref(base_ref, base_remote)
-    output = _run_git(["diff", "--name-only", f"{base}...HEAD"])
-    return [ROOT / line.strip() for line in output.splitlines() if line.strip()]
+    if base:
+        try:
+            output = _run_git(["diff", "--name-only", f"{base}...HEAD"])
+            return [ROOT / line.strip() for line in output.splitlines() if line.strip()]
+        except RuntimeError:
+            pass
+    if _rev_exists("HEAD~1"):
+        try:
+            output = _run_git(["diff", "--name-only", "HEAD~1...HEAD"])
+            return [ROOT / line.strip() for line in output.splitlines() if line.strip()]
+        except RuntimeError:
+            pass
+    return _collect_all_files()
 
 
 def _collect_all_files() -> list[Path]:
