@@ -87,7 +87,7 @@ def _collect_changed_files(base_ref: str, base_remote: str) -> list[Path]:
             return [ROOT / line.strip() for line in output.splitlines() if line.strip()]
         except RuntimeError:
             pass
-    return _collect_all_files()
+    return []
 
 
 def _collect_all_files() -> list[Path]:
