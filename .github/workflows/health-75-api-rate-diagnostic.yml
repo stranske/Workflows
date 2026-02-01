@@ -741,7 +741,7 @@ NODE
         run: |
           node - <<'NODE'
           const { Octokit } = require('@octokit/rest');
-          const { withRetry } = require('./.github/scripts/github-api-with-retry.js');
+          const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
           const core = { info: console.log, warning: console.warn, debug: () => {} };
           const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
           const workflowId = 'health-75-api-rate-diagnostic.yml';
@@ -770,6 +770,14 @@ NODE
               }
               const github = new Octokit({ auth: token });
               try {
+                const { withRetry } = await createTokenAwareRetry({
+                  github,
+                  core,
+                  env: process.env,
+                  task: 'health-75-api-rate-diagnostic-access-check',
+                  capabilities: ['actions:read'],
+                  tokenRegistry: { isInitialized: () => false }
+                });
                 const response = await withRetry(
                   () => github.request('GET /repos/{owner}/{repo}/actions/workflows/{workflow_id}/runs', {
                     owner,
@@ -1777,7 +1785,7 @@ NODE
           # Get workflow ID for Health 75 (direct path lookup avoids pagination limits)
           workflow_meta=$(PRIMARY_TOKEN="$primary_token" FALLBACK_TOKEN="$FALLBACK_GH_TOKEN" node - <<'NODE'
           const { Octokit } = require('@octokit/rest');
-          const { withRetry } = require('./.github/scripts/github-api-with-retry.js');
+          const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
           const core = { info: () => {}, warning: console.warn, debug: () => {} };
           const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
           const primaryToken = process.env.PRIMARY_TOKEN;
@@ -1785,6 +1793,13 @@ NODE
 
           async function fetchWorkflowId(token) {
             const github = new Octokit({ auth: token });
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'health-75-api-rate-diagnostic-history',
+              capabilities: ['actions:read']
+            });
             const response = await withRetry(
               () => github.rest.actions.getWorkflow({
                 owner,
@@ -1835,7 +1850,7 @@ NODE
           # Note: Use query params instead of -F flags to keep this a GET request
           runs=$(TOKEN_TO_USE="$token_to_use" WORKFLOW_ID="$workflow_id" START_DATE="$START_DATE" node - <<'NODE'
           const { Octokit } = require('@octokit/rest');
-          const { withRetry } = require('./.github/scripts/github-api-with-retry.js');
+          const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
           const core = { info: () => {}, warning: console.warn, debug: () => {} };
           const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
           const token = process.env.TOKEN_TO_USE;
@@ -1844,6 +1859,13 @@ NODE
 
           (async () => {
             const github = new Octokit({ auth: token });
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'health-75-api-rate-diagnostic-history-runs',
+              capabilities: ['actions:read']
+            });
             const runs = await withRetry(
               () => github.paginate(github.rest.actions.listWorkflowRuns, {
                 owner,

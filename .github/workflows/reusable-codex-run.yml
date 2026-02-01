@@ -795,7 +795,10 @@ jobs:
                 if ! git rebase FETCH_HEAD; then
                   echo "::warning::Rebase failed; attempting merge strategy before push."
                   git rebase --abort 2>/dev/null || true
-                  git pull --no-rebase "${REMOTE_URL}" "${TARGET_BRANCH}" --allow-unrelated-histories || true
+                  if ! git pull --no-rebase "${REMOTE_URL}" "${TARGET_BRANCH}" --allow-unrelated-histories; then
+                    echo "::error::Merge fallback failed; refusing to push an inconsistent state."
+                    exit 1
+                  fi
                 fi
                 COMMIT_SHA=$(git rev-parse HEAD)
                 echo "commit-sha=${COMMIT_SHA}" >> "$GITHUB_OUTPUT"
