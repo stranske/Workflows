@@ -297,6 +297,8 @@ jobs:
           fetch-depth: 0
           token: ${{ env.AUTOFIX_TOKEN || github.token }}
           persist-credentials: ${{ env.AUTOFIX_CAN_PUSH == 'true' }}
+      - name: Install GitHub API dependencies
+        run: npm install --no-save --no-package-lock @octokit/rest @octokit/auth-app
       - name: Guard against loops (Issue #1347)
         id: guard
         shell: bash

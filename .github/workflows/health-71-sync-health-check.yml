@@ -54,6 +54,8 @@ jobs:
         uses: actions/checkout@v6
       - name: Export load-balancer tokens
         uses: ./.github/actions/export-load-balancer-tokens
+      - name: Install GitHub API dependencies
+        run: npm install --no-save --no-package-lock @octokit/rest @octokit/auth-app
       - name: Check recent sync runs
         id: check
         env:

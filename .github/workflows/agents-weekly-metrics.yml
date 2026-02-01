@@ -24,6 +24,9 @@ jobs:
             .github/scripts/github-api-with-retry.js
           sparse-checkout-cone-mode: false
 
+      - name: Install GitHub API dependencies
+        run: npm install --no-save --no-package-lock @octokit/rest @octokit/auth-app
+
       - name: Export load balancer tokens
         uses: ./.github/actions/export-load-balancer-tokens
         with:
