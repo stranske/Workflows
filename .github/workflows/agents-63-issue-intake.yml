@@ -1373,9 +1373,6 @@ jobs:
               continue
             fi
 
-            # Save body to temp file
-            body=$(cat "/tmp/issue_body_${issue_num}.md")
-
             # Format with LangChain
             echo "  📝 Calling LangChain formatter..."
             if ! python scripts/langchain/issue_formatter.py \
