@@ -68,6 +68,12 @@ def _resolve_base_ref(base_ref: str, base_remote: str) -> str | None:
     candidate = f"{base_remote}/{base_ref}"
     if _rev_exists(candidate):
         return candidate
+    try:
+        _run_git(["fetch", "--depth", "1", base_remote, base_ref])
+    except RuntimeError:
+        pass
+    if _rev_exists(candidate):
+        return candidate
     if _rev_exists(base_ref):
         return base_ref
     return None
@@ -75,6 +81,11 @@ def _resolve_base_ref(base_ref: str, base_remote: str) -> str | None:
 
 def _collect_changed_files(base_ref: str, base_remote: str) -> list[Path]:
     base = _resolve_base_ref(base_ref, base_remote)
+    if not base:
+        raise RuntimeError(
+            f"Unable to resolve base ref '{base_ref}' from '{base_remote}'. "
+            "Ensure the base ref is fetched before running the guard."
+        )
     if base:
         try:
             output = _run_git(["diff", "--name-only", f"{base}...HEAD"])
@@ -87,7 +98,7 @@ def _collect_changed_files(base_ref: str, base_remote: str) -> list[Path]:
             return [ROOT / line.strip() for line in output.splitlines() if line.strip()]
         except RuntimeError:
             pass
-    return []
+    return _collect_all_files()
 
 
 def _collect_all_files() -> list[Path]:
