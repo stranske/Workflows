@@ -277,7 +277,7 @@ def test_bootstrap_filters_by_requested_label():
 def test_bootstrap_uses_paginated_issue_scan():
     text = (WORKFLOWS_DIR / "reusable-16-agents.yml").read_text(encoding="utf-8")
     assert (
-        "github.paginate.iterator" in text
+        "paginateWithRetry" in text
     ), "Bootstrap must paginate issue scanning to avoid truncation"
     assert (
         "Evaluated issues:" in text

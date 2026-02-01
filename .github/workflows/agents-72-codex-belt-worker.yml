@@ -784,7 +784,7 @@ jobs:
               if isinstance(existing_base, str):
                   previous_base = existing_base.strip() or None
               data = loaded
-            else:
+          else:
               body = issue_body or ''
               pattern = re.compile(r'^\s*[-*]\s+\[(?: |x|X)\]\s+(.*)$', re.MULTILINE)
               tasks = []

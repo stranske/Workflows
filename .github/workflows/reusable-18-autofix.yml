@@ -1104,7 +1104,7 @@ jobs:
             console.error(error);
             process.exit(1);
           });
-NODE
+          NODE
           )
           status=$?
           set -e
@@ -1153,7 +1153,7 @@ NODE
             console.error(error);
             process.exit(1);
           });
-NODE
+          NODE
           then
             echo "[history] Failed to download artifact ${artifact_id}"
             exit 0

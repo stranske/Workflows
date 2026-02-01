@@ -69,9 +69,21 @@ def _request_with_retry(
     max_retries: int = 5,
 ) -> requests.Response:
     last_exc: Exception | None = None
+    method_upper = method.upper()
+    request_fn = getattr(session, "request", None)
+    if request_fn is None:
+        if method_upper != "GET":
+            raise RestoreError(f"Session does not support {method_upper} requests")
+        request_fn = getattr(session, "get", None)
+    if request_fn is None:
+        raise RestoreError("Session does not support HTTP requests")
+    use_get_signature = getattr(request_fn, "__name__", "") == "get"
     for attempt in range(max_retries + 1):
         try:
-            response = session.request(method, url, headers=headers, timeout=timeout, stream=stream)
+            if use_get_signature:
+                response = request_fn(url, headers=headers, timeout=timeout, stream=stream)
+            else:
+                response = request_fn(method, url, headers=headers, timeout=timeout, stream=stream)
         except requests.RequestException as exc:
             last_exc = exc
             if attempt >= max_retries:
