@@ -97,6 +97,7 @@ jobs:
           # shellcheck disable=SC1009,SC1073,SC1039,SC1072
           echo "::group::GITHUB_TOKEN Rate Limits"
 
+          # shellcheck disable=SC1009,SC1073,SC1039,SC1072
           rate_data=$(node - <<'NODE'
           const { Octokit } = require('@octokit/rest');
           const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
@@ -203,6 +204,7 @@ jobs:
           # shellcheck disable=SC1009,SC1073,SC1039,SC1072
           echo "::group::PAT Rate Limits"
 
+          # shellcheck disable=SC1009,SC1073,SC1039,SC1072
           rate_data=$(node - <<'NODE'
           const { Octokit } = require('@octokit/rest');
           const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
@@ -306,6 +308,7 @@ jobs:
           # shellcheck disable=SC1009,SC1073,SC1039,SC1072
           echo "::group::SERVICE_BOT_PAT Rate Limits"
 
+          # shellcheck disable=SC1009,SC1073,SC1039,SC1072
           rate_data=$(node - <<'NODE'
           const { Octokit } = require('@octokit/rest');
           const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
@@ -417,6 +420,7 @@ jobs:
           # shellcheck disable=SC1009,SC1073,SC1039,SC1072
           echo "::group::GitHub App Rate Limits"
 
+          # shellcheck disable=SC1009,SC1073,SC1039,SC1072
           rate_data=$(node - <<'NODE'
           const { Octokit } = require('@octokit/rest');
           const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
@@ -531,6 +535,7 @@ jobs:
           # shellcheck disable=SC1009,SC1073,SC1039,SC1072
           echo "::group::KEEPALIVE_APP Rate Limits"
 
+          # shellcheck disable=SC1009,SC1073,SC1039,SC1072
           rate_data=$(node - <<'NODE'
           const { Octokit } = require('@octokit/rest');
           const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
@@ -644,6 +649,7 @@ jobs:
           # shellcheck disable=SC1009,SC1073,SC1039,SC1072
           echo "::group::GH_APP Rate Limits"
 
+          # shellcheck disable=SC1009,SC1073,SC1039,SC1072
           rate_data=$(node - <<'NODE'
           const { Octokit } = require('@octokit/rest');
           const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
@@ -745,6 +751,7 @@ jobs:
           KEEPALIVE_APP_TOKEN: ${{ steps.keepalive_app_token.outputs.token || '' }}
           GH_APP_TOKEN: ${{ steps.gh_app_token.outputs.token || '' }}
         run: |
+          # shellcheck disable=SC1009,SC1073,SC1039,SC1072
           node - <<'NODE'
           const { Octokit } = require('@octokit/rest');
           const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
@@ -1202,6 +1209,7 @@ jobs:
             # Get recent workflow runs (last hour)
             since=$(date -u -d '1 hour ago' +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -u +"%Y-%m-%dT%H:%M:%SZ")
 
+            # shellcheck disable=SC1009,SC1073,SC1039,SC1072
             runs_data=$(REPO="$repo" SINCE="$since" node - <<'NODE' 2>/dev/null || echo '{"workflow_runs":[]}')
             const { Octokit } = require('@octokit/rest');
             const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
@@ -1510,6 +1518,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # shellcheck disable=SC1009,SC1073,SC1039,SC1072
           node - <<'NODE'
           const { Octokit } = require('@octokit/rest');
           const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
@@ -1596,6 +1605,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # shellcheck disable=SC1009,SC1073,SC1039,SC1072
           node - <<'NODE'
           const { Octokit } = require('@octokit/rest');
           const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
@@ -1821,6 +1831,7 @@ jobs:
           fi
 
           # Get workflow ID for Health 75 (direct path lookup avoids pagination limits)
+          # shellcheck disable=SC1009,SC1073,SC1039,SC1072
           workflow_meta=$(PRIMARY_TOKEN="$primary_token" FALLBACK_TOKEN="$FALLBACK_GH_TOKEN" node - <<'NODE'
           const { Octokit } = require('@octokit/rest');
           const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
@@ -1886,6 +1897,7 @@ jobs:
 
           # Fetch runs in date range (GitHub API uses created filter)
           # Note: Use query params instead of -F flags to keep this a GET request
+          # shellcheck disable=SC1009,SC1073,SC1039,SC1072
           runs=$(TOKEN_TO_USE="$token_to_use" WORKFLOW_ID="$workflow_id" START_DATE="$START_DATE" node - <<'NODE'
           const { Octokit } = require('@octokit/rest');
           const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');

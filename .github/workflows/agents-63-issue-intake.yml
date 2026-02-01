@@ -1387,6 +1387,7 @@ jobs:
             echo "=== Formatting issue #${issue_num} ==="
 
             # Get issue body
+            # shellcheck disable=SC1009,SC1073,SC1039,SC1072
             if ! ISSUE_NUMBER="$issue_num" node - <<'NODE'
             const fs = require('fs');
             const { Octokit } = require('@octokit/rest');
@@ -1447,6 +1448,7 @@ jobs:
 
             # Update issue
             echo "  💾 Updating issue body..."
+            # shellcheck disable=SC1009,SC1073,SC1039,SC1072
             if ! ISSUE_NUMBER="$issue_num" node - <<'NODE'
             const fs = require('fs');
             const { Octokit } = require('@octokit/rest');
@@ -1489,6 +1491,7 @@ jobs:
 
             # Add formatted label
             echo "  🏷️  Adding 'agents:formatted' label..."
+            # shellcheck disable=SC1009,SC1073,SC1039,SC1072
             if ! ISSUE_NUMBER="$issue_num" node - <<'NODE'
             const { Octokit } = require('@octokit/rest');
             const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
