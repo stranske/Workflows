@@ -10,8 +10,8 @@ description: |
   USAGE: Include this action in EVERY job that makes GitHub API calls:
     - uses: ./.github/actions/setup-api-client
       with:
-        secrets: ${{ toJSON(secrets) }}
-        github_token: ${{ secrets.GITHUB_TOKEN }}
+        secrets: '{{ toJSON(secrets) }}'
+        github_token: '{{ secrets.GITHUB_TOKEN }}'
 
 inputs:
   secrets:
