@@ -157,7 +157,9 @@ def _scan_file(path: Path) -> list[str]:
         and has_api_calls
         and not any(hint in content for hint in LOAD_BALANCER_HINTS)
     ):
-        violations.append(f"{path.relative_to(ROOT)}: missing export-load-balancer-tokens or setup-api-client step")
+        violations.append(
+            f"{path.relative_to(ROOT)}: missing export-load-balancer-tokens or setup-api-client step"
+        )
 
     return violations
 
