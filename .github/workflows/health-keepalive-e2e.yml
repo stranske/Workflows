@@ -59,6 +59,15 @@ jobs:
     if: needs.detect-mode.outputs.mode == 'orchestration'
     runs-on: ubuntu-latest
     steps:
+      - name: Mint GitHub App Token
+        id: app_token
+        uses: actions/create-github-app-token@v2
+        continue-on-error: true
+        with:
+          app-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
+          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || 'dummy' }}
+          owner: ${{ github.repository_owner }}
+
       - name: Checkout
         uses: actions/checkout@v6
         with:
@@ -93,8 +102,6 @@ jobs:
       - name: Test evaluateKeepaliveLoop
         uses: actions/github-script@v8
         with:
-
-          github-token: ${{ steps.app_token.outputs.token || github.token }}
           script: |
             const { evaluateKeepaliveLoop, countCheckboxes, parseConfig } = require('./.github/scripts/keepalive_loop.js');
             const fs = require('fs');
@@ -243,6 +250,15 @@ jobs:
     outputs:
       prompt_ready: ${{ steps.setup.outputs.ready }}
     steps:
+      - name: Mint GitHub App Token
+        id: app_token
+        uses: actions/create-github-app-token@v2
+        continue-on-error: true
+        with:
+          app-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
+          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || 'dummy' }}
+          owner: ${{ github.repository_owner }}
+
       - name: Checkout
         uses: actions/checkout@v6
         with:

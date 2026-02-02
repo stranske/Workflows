@@ -137,6 +137,10 @@ on:
       pypi-token:
         description: Optional token for private dependencies.
         required: false
+      workflows_app_id:
+        required: false
+      workflows_app_private_key:
+        required: false
   workflow_dispatch:
     inputs:
       working-directory:

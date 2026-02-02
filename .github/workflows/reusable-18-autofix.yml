@@ -112,7 +112,6 @@ jobs:
       contents: write
       pull-requests: write
     runs-on: ubuntu-latest
-    if: ${{ true }}
     outputs:
       ran: ${{ steps.finalize.outputs.ran }}
       changed: ${{ steps.finalize.outputs.changed }}

@@ -67,6 +67,10 @@ on:
       npm-token:
         description: Optional token for private npm registries.
         required: false
+      workflows_app_id:
+        required: false
+      workflows_app_private_key:
+        required: false
   workflow_dispatch:
     inputs:
       working-directory:
