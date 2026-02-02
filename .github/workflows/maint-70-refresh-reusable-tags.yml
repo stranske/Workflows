@@ -90,5 +90,7 @@ jobs:
             echo ""
             echo "Updated tags to ${{ github.sha }}:"
             echo ""
-            echo "$TAGS" | sed 's/^/- /'
+            while IFS= read -r tag; do
+              [ -n "$tag" ] && echo "- $tag"
+            done <<< "$TAGS"
           } >> "$GITHUB_STEP_SUMMARY"
