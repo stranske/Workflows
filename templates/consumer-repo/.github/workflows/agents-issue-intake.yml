@@ -193,8 +193,8 @@ jobs:
     secrets:
       service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
       owner_pr_pat: ${{ secrets.OWNER_PR_PAT }}
-      WORKFLOWS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID }}
-      WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+      workflows_app_id: ${{ secrets.WORKFLOWS_APP_ID }}
+      workflows_app_private_key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
 
   # ChatGPT sync mode: Call the Workflows repo reusable workflow with sync capability
   sync:
