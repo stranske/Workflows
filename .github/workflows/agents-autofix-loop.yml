@@ -53,7 +53,6 @@ jobs:
             .github/scripts/github-rate-limited-wrapper.js
             .github/scripts/token_load_balancer.js
           sparse-checkout-cone-mode: false
-
       - name: Setup API client
         uses: ./.github/actions/setup-api-client
         with:
@@ -408,7 +407,6 @@ jobs:
           sparse-checkout: |
             .github/scripts/github-api-with-retry.js
           sparse-checkout-cone-mode: false
-
       - name: Add needs-human label and comment
         uses: actions/github-script@v8
         with:
@@ -478,7 +476,16 @@ jobs:
         with:
           sparse-checkout: |
             .github/scripts/github-api-with-retry.js
+            .github/actions/setup-api-client
+            .github/scripts/github-rate-limited-wrapper.js
+            .github/scripts/token_load_balancer.js
           sparse-checkout-cone-mode: false
+
+      - name: Setup API client
+        uses: ./.github/actions/setup-api-client
+        with:
+          secrets: ${{ toJSON(secrets) }}
+          github_token: ${{ github.token }}
 
       - name: Collect metrics
         id: collect

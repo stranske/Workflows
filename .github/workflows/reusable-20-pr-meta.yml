@@ -276,6 +276,18 @@ jobs:
         run: |
           echo "WORKFLOWS_SCRIPTS_PATH=${GITHUB_WORKSPACE}/workflows-lib" >> "$GITHUB_ENV"
 
+      - name: Checkout consumer repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          path: consumer
+
+      - name: Setup API client
+        uses: ./consumer/.github/actions/setup-api-client
+        with:
+          secrets: ${{ toJSON(secrets) }}
+          github_token: ${{ github.token }}
+
       - name: Mint GitHub App token (preferred)
         id: app_token
         continue-on-error: true
@@ -338,6 +350,18 @@ jobs:
       - name: Set scripts path
         run: |
           echo "WORKFLOWS_SCRIPTS_PATH=${GITHUB_WORKSPACE}/workflows-lib" >> "$GITHUB_ENV"
+
+      - name: Checkout consumer repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          path: consumer
+
+      - name: Setup API client
+        uses: ./consumer/.github/actions/setup-api-client
+        with:
+          secrets: ${{ toJSON(secrets) }}
+          github_token: ${{ github.token }}
 
       - name: Evaluate keepalive gate
         id: gate
@@ -471,6 +495,18 @@ jobs:
       - name: Set scripts path
         run: |
           echo "WORKFLOWS_SCRIPTS_PATH=${GITHUB_WORKSPACE}/workflows-lib" >> "$GITHUB_ENV"
+
+      - name: Checkout consumer repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          path: consumer
+
+      - name: Setup API client
+        uses: ./consumer/.github/actions/setup-api-client
+        with:
+          secrets: ${{ toJSON(secrets) }}
+          github_token: ${{ github.token }}
 
       - name: Upsert PR body sections
         uses: actions/github-script@v8
