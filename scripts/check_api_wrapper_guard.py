@@ -115,6 +115,9 @@ def _collect_all_files() -> list[Path]:
         if not directory.exists():
             continue
         for path in directory.rglob("*"):
+            # Skip node_modules directories (dependencies, not project code)
+            if "node_modules" in path.parts:
+                continue
             if path.is_file():
                 files.append(path)
     return files
