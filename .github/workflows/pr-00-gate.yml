@@ -29,9 +29,21 @@ jobs:
       pytest_markers: ${{ steps.python_ci_toggles.outputs.pytest_markers || 'not quarantine and not slow' }}
       workflow_changed: ${{ steps.diff.outputs.workflow_changed || 'false' }}
     steps:
+      # Mint GitHub App token early to use for API calls (avoids rate limits)
+      - name: Mint GitHub App Token
+        id: app_token
+        uses: actions/create-github-app-token@v2
+        continue-on-error: true
+        with:
+          app-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
+          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || 'dummy' }}
+          owner: ${{ github.repository_owner }}
+
       - name: Checkout workflow helpers
         uses: actions/checkout@v6
         with:
+
+          token: ${{ steps.app_token.outputs.token || github.token }}
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           sparse-checkout: |
@@ -194,6 +206,8 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
+
+          token: ${{ steps.app_token.outputs.token || github.token }}
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
@@ -240,9 +254,21 @@ jobs:
       autofix_label_applied: ${{ steps.autofix_label.outputs.applied || 'false' }}
       autofix_label_skipped: ${{ steps.autofix_label.outputs.skipped_reason || '' }}
     steps:
+      # Mint GitHub App token early to use for API calls (avoids rate limits)
+      - name: Mint GitHub App Token
+        id: app_token
+        uses: actions/create-github-app-token@v2
+        continue-on-error: true
+        with:
+          app-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
+          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || 'dummy' }}
+          owner: ${{ github.repository_owner }}
+
       - name: Checkout workflow helpers
         uses: actions/checkout@v6
         with:
+
+          token: ${{ steps.app_token.outputs.token || github.token }}
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           sparse-checkout: |
@@ -570,7 +596,7 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           LABEL_APPLIED: ${{ steps.autofix_label.outputs.applied || 'false' }}
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ steps.app_token.outputs.token || github.token }}
           script: |
             const fs = require('fs');
             const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');

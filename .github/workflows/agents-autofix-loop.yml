@@ -43,9 +43,21 @@ jobs:
       security_blocked: ${{ steps.security_gate.outputs.blocked }}
       security_reason: ${{ steps.security_gate.outputs.reason }}
     steps:
+      # Mint GitHub App token early to use for API calls (avoids rate limits)
+      - name: Mint GitHub App Token
+        id: app_token
+        uses: actions/create-github-app-token@v2
+        continue-on-error: true
+        with:
+          app-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
+          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || 'dummy' }}
+          owner: ${{ github.repository_owner }}
+
       - name: Checkout (for security gate)
         uses: actions/checkout@v6
         with:
+
+          token: ${{ steps.app_token.outputs.token || github.token }}
           sparse-checkout: |
             .github/scripts/prompt_injection_guard.js
             .github/actions/setup-api-client
@@ -401,16 +413,28 @@ jobs:
     runs-on: ubuntu-latest
     environment: ${{ needs.prepare.outputs.has_high_privilege == 'true' && 'agent-high-privilege' || 'agent-standard' }}
     steps:
+      # Mint GitHub App token early to use for API calls (avoids rate limits)
+      - name: Mint GitHub App Token
+        id: app_token
+        uses: actions/create-github-app-token@v2
+        continue-on-error: true
+        with:
+          app-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
+          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || 'dummy' }}
+          owner: ${{ github.repository_owner }}
+
       - name: Checkout (for retry helpers)
         uses: actions/checkout@v6
         with:
+
+          token: ${{ steps.app_token.outputs.token || github.token }}
           sparse-checkout: |
             .github/scripts/github-api-with-retry.js
           sparse-checkout-cone-mode: false
       - name: Add needs-human label and comment
         uses: actions/github-script@v8
         with:
-          github-token: ${{ env.WRITE_TOKEN }}
+          github-token: ${{ steps.app_token.outputs.token || github.token }}
           script: |
             const fs = require('fs');
             const retryHelperPath = './.github/scripts/github-api-with-retry.js';
@@ -471,9 +495,21 @@ jobs:
     runs-on: ubuntu-latest
     environment: ${{ needs.prepare.outputs.has_high_privilege == 'true' && 'agent-high-privilege' || 'agent-standard' }}
     steps:
+      # Mint GitHub App token early to use for API calls (avoids rate limits)
+      - name: Mint GitHub App Token
+        id: app_token
+        uses: actions/create-github-app-token@v2
+        continue-on-error: true
+        with:
+          app-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
+          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || 'dummy' }}
+          owner: ${{ github.repository_owner }}
+
       - name: Checkout (for retry helpers)
         uses: actions/checkout@v6
         with:
+
+          token: ${{ steps.app_token.outputs.token || github.token }}
           sparse-checkout: |
             .github/scripts/github-api-with-retry.js
             .github/actions/setup-api-client

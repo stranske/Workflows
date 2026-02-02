@@ -28,6 +28,8 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
+
+          token: ${{ steps.app_token.outputs.token || github.token }}
           fetch-depth: 0
 
       - name: Set up Docker Buildx

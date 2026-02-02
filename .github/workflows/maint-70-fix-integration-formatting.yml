@@ -54,7 +54,7 @@ jobs:
         with:
           repository: stranske/Workflows-Integration-Tests
           ref: ${{ steps.integration_ref.outputs.ref }}
-          token: ${{ secrets.SERVICE_BOT_PAT || secrets.CODESPACES_WORKFLOWS }}
+          token: ${{ steps.app_token.outputs.token || github.token }}
           path: integration-tests
 
       - name: Set up Python

@@ -324,6 +324,8 @@ jobs:
         env:
           DEFAULT_BRANCH: ${{ steps.summarise.outputs.default-branch }}
         with:
+
+          github-token: ${{ steps.app_token.outputs.token || github.token }}
           script: |
             // Note: 'core' is already provided by github-script, no require needed
             const fs = require('fs');

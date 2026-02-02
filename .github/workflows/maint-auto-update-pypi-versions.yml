@@ -35,6 +35,8 @@ jobs:
       - name: Checkout Workflows
         uses: actions/checkout@v6
         with:
+
+          token: ${{ steps.app_token.outputs.token || github.token }}
           fetch-depth: 1
 
       - name: Setup Python

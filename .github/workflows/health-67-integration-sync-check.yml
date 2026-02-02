@@ -39,6 +39,8 @@ jobs:
       - name: Checkout Workflows repo
         uses: actions/checkout@v6
         with:
+
+          token: ${{ steps.app_token.outputs.token || github.token }}
           path: workflows
 
       - name: Setup API client

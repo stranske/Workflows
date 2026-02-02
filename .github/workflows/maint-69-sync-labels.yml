@@ -46,6 +46,8 @@ jobs:
       - name: Checkout retry helpers
         uses: actions/checkout@v6
         with:
+
+          token: ${{ steps.app_token.outputs.token || github.token }}
           sparse-checkout: |
             .github/actions/setup-api-client
             .github/scripts/github-api-with-retry.js
@@ -120,7 +122,7 @@ jobs:
           REPOS_JSON: ${{ steps.repos.outputs.repos }}
           DRY_RUN: ${{ inputs.dry_run || 'false' }}
         with:
-          github-token: ${{ secrets.WORKFLOW_SYNC_TOKEN }}
+          github-token: ${{ steps.app_token.outputs.token || github.token }}
           script: |
             const labels = JSON.parse(process.env.LABELS_JSON);
             const repos = JSON.parse(process.env.REPOS_JSON);

@@ -82,6 +82,8 @@ jobs:
       - name: Test evaluateKeepaliveLoop
         uses: actions/github-script@v8
         with:
+
+          github-token: ${{ steps.app_token.outputs.token || github.token }}
           script: |
             const { evaluateKeepaliveLoop, countCheckboxes, parseConfig } = require('./.github/scripts/keepalive_loop.js');
             const fs = require('fs');
@@ -117,6 +119,8 @@ jobs:
       - name: Test state management
         uses: actions/github-script@v8
         with:
+
+          github-token: ${{ steps.app_token.outputs.token || github.token }}
           script: |
             const { loadKeepaliveState, formatStateComment, parseStateFromComment } = require('./.github/scripts/keepalive_state.js');
 
@@ -151,6 +155,8 @@ jobs:
       - name: Test error classification
         uses: actions/github-script@v8
         with:
+
+          github-token: ${{ steps.app_token.outputs.token || github.token }}
           script: |
             const { classifyError, ERROR_CATEGORIES } = require('./.github/scripts/error_classifier.js');
 
