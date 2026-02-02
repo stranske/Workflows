@@ -126,6 +126,9 @@ def _collect_all_files() -> list[Path]:
 
 
 def _is_target_file(path: Path) -> bool:
+    # Skip node_modules directories (dependencies, not project code)
+    if "node_modules" in path.parts:
+        return False
     return path not in SKIP_FILES and path.suffix.lower() in {
         ".yml",
         ".yaml",
