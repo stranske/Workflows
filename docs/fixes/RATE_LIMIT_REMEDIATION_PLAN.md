@@ -598,3 +598,71 @@ Apply setup action to less frequent workflows:
 | Date | Change | Author |
 |------|--------|--------|
 | 2026-02-02 | Initial plan created | Claude |
+
+---
+
+## Remaining Work After PR #1183
+
+### What PR #1183 Accomplishes ✅
+
+1. **Creates `setup-api-client` action** - Unified npm install + token export
+2. **Updates `agents-keepalive-loop.yml`** - 4 jobs now use the new action
+3. **Syncs to consumer repos** - Both action and workflow are in templates/consumer-repo/
+
+### What Still Needs Fixing ⚠️
+
+The following workflows still use the old `export-load-balancer-tokens` pattern and should be updated:
+
+| Workflow | Priority | Notes |
+|----------|----------|-------|
+| `agents-autofix-loop.yml` | HIGH | High-frequency, deprecated but still active |
+| `agents-auto-pilot.yml` | HIGH | End-to-end orchestrator |
+| `agents-71-codex-belt-dispatcher.yml` | MEDIUM | Belt system |
+| `agents-72-codex-belt-worker.yml` | MEDIUM | Belt system |
+| `agents-73-codex-belt-conveyor.yml` | MEDIUM | Belt system |
+| `agents-verifier.yml` | MEDIUM | Verification workflow |
+| `agents-verify-to-issue-v2.yml` | LOW | Deprecated |
+| `agents-verify-to-new-pr.yml` | LOW | Follow-up creation |
+| `maint-coverage-guard.yml` | LOW | Daily monitoring |
+
+### Update Pattern
+
+For each workflow, replace this pattern:
+```yaml
+- name: Install load balancer dependencies
+  run: npm install --no-save --no-package-lock @octokit/rest @octokit/auth-app
+
+- name: Export load balancer tokens
+  uses: ./.github/actions/export-load-balancer-tokens
+  with:
+    github_token: ${{ github.token }}
+    service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
+    # ... many more individual secrets ...
+```
+
+With this:
+```yaml
+- name: Setup API client
+  uses: ./.github/actions/setup-api-client
+  with:
+    secrets: ${{ toJSON(secrets) }}
+    github_token: ${{ github.token }}
+```
+
+### Template Sync Architecture
+
+**Important**: The sync system copies from `templates/consumer-repo/`, NOT from `.github/workflows/`. 
+
+When updating workflows:
+1. Update `.github/workflows/<name>.yml` (for Workflows repo)
+2. Copy to `templates/consumer-repo/.github/workflows/<name>.yml` (for sync to consumer repos)
+3. Or ensure they match
+
+### Verification After Merge
+
+1. Wait for sync workflow to run (triggered by merge to main)
+2. Check TMP has updated files:
+   - `.github/actions/setup-api-client/action.yml`
+   - `.github/workflows/agents-keepalive-loop.yml`
+3. Create a test PR with `agent:codex` label
+4. Verify logs show: "Token registry initialized with X tokens" (X >= 5)
