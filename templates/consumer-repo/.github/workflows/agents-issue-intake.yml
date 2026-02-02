@@ -64,11 +64,10 @@ on:
         type: boolean
         default: false
 
-permissions:
-  contents: write
-  issues: write
-  pull-requests: write
-  models: read
+# NOTE: Top-level permissions block removed intentionally.
+# When caller workflows have top-level permissions AND call reusable workflows,
+# it can cause "startup_failure" with no jobs started.
+# Jobs that need specific permissions declare them at job level.
 
 jobs:
   # Determine which mode to run

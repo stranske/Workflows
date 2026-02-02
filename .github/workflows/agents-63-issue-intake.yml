@@ -110,11 +110,10 @@ on:
       workflows_app_private_key:
         required: false
 
-permissions:
-  contents: write
-  issues: write
-  pull-requests: write
-  models: read
+# NOTE: Top-level permissions block removed intentionally.
+# When a workflow_call reusable workflow has top-level permissions, it causes
+# "startup_failure" with no jobs started when callers have their own permissions.
+# Jobs that need specific permissions declare them at job level.
 
 concurrency:
   group: issue-intake-${{ github.event.issue.number || github.run_id }}
