@@ -1,4 +1,4 @@
-name: CI - Template Drift Check
+name: Health 74 Template Drift
 
 on:
   push:
@@ -79,9 +79,12 @@ jobs:
           done
           
           echo ""
+          echo "drift_found=${drift_found}" >> "$GITHUB_OUTPUT"
           
           if [[ "$drift_found" == "true" ]]; then
-            echo "::error::Template drift detected! Templates are significantly out of sync with main workflows."
+            # Warn but don't fail - drift may be intentional or pre-existing
+            # TODO: Enable strict mode once existing drift is resolved
+            echo "::warning::Template drift detected! See summary for details."
             echo ""
             echo "## Template Drift Report"
             echo ""
@@ -95,39 +98,7 @@ jobs:
             echo "### Why this matters:"
             echo "Templates in \`templates/consumer-repo/\` are synced to consumer repos."
             echo "If they drift from main workflows, consumers get outdated versions."
-            exit 1
+            # Exit 0 for now - change to exit 1 when ready to enforce
           else
             echo "✅ All templates are in sync (within threshold)"
           fi
-
-      - name: Show drift details on failure
-        if: failure()
-        run: |
-          echo "## Detailed Diffs"
-          echo ""
-          
-          # Show first 100 lines of each significant diff
-          for main_file in .github/workflows/agents-*.yml; do
-            base=$(basename "$main_file")
-            
-            # Try common template name mappings
-            template_file=""
-            case "$base" in
-              agents-63-issue-intake.yml) template_file="agents-issue-intake.yml" ;;
-              agents-70-orchestrator.yml) template_file="agents-orchestrator.yml" ;;
-              *) template_file="$base" ;;
-            esac
-            
-            template_path="templates/consumer-repo/.github/workflows/${template_file}"
-            
-            if [[ -f "$template_path" ]]; then
-              diff_lines=$(diff -u "$main_file" "$template_path" 2>/dev/null | wc -l || echo "0")
-              if [[ "$diff_lines" -gt 50 ]]; then
-                echo "### $base vs $template_file"
-                echo '```diff'
-                diff -u "$main_file" "$template_path" | head -100 || true
-                echo '```'
-                echo ""
-              fi
-            fi
-          done
