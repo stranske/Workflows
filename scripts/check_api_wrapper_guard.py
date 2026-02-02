@@ -37,6 +37,8 @@ API_CALL_PATTERNS = [
 ]
 
 WRAPPER_HINTS = (
+    "ensureRateLimitWrapped",
+    "github-rate-limited-wrapper.js",
     "createTokenAwareRetry",
     "paginateWithRetry",
     "github-api-with-retry.js",
