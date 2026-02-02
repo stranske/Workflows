@@ -1,0 +1,133 @@
+name: CI - Template Drift Check
+
+on:
+  push:
+    paths:
+      - '.github/workflows/agents-*.yml'
+      - 'templates/consumer-repo/.github/workflows/*.yml'
+  pull_request:
+    paths:
+      - '.github/workflows/agents-*.yml'
+      - 'templates/consumer-repo/.github/workflows/*.yml'
+
+jobs:
+  check-drift:
+    name: Check Template Drift
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for template drift
+        id: drift
+        run: |
+          set -euo pipefail
+          
+          echo "🔍 Checking for drift between main workflows and templates..."
+          echo ""
+          
+          drift_found=false
+          drift_report=""
+          
+          # Map of main workflows to their template counterparts
+          # Format: "main_workflow:template_name"
+          declare -a mappings=(
+            "agents-63-issue-intake.yml:agents-issue-intake.yml"
+            "agents-70-orchestrator.yml:agents-orchestrator.yml"
+            "agents-auto-pilot.yml:agents-auto-pilot.yml"
+            "agents-bot-comment-handler.yml:agents-bot-comment-handler.yml"
+            "agents-keepalive-loop.yml:agents-keepalive-loop.yml"
+            "agents-pr-meta.yml:agents-pr-meta.yml"
+            "agents-verifier.yml:agents-verifier.yml"
+          )
+          
+          for mapping in "${mappings[@]}"; do
+            main_file="${mapping%%:*}"
+            template_file="${mapping##*:}"
+            
+            main_path=".github/workflows/${main_file}"
+            template_path="templates/consumer-repo/.github/workflows/${template_file}"
+            
+            # Skip if either file doesn't exist
+            if [[ ! -f "$main_path" ]]; then
+              echo "⏭️  Skipping $main_file (main workflow doesn't exist)"
+              continue
+            fi
+            
+            if [[ ! -f "$template_path" ]]; then
+              echo "⚠️  WARNING: $template_file template missing but main workflow exists"
+              drift_found=true
+              drift_report+="- **$main_file**: Template missing entirely\n"
+              continue
+            fi
+            
+            # Compare files (ignoring whitespace-only differences)
+            # Count differing lines
+            diff_lines=$(diff -u "$main_path" "$template_path" 2>/dev/null | grep -c '^[-+]' || true)
+            
+            # Threshold: warn if more than 50 lines differ (configurable)
+            threshold=50
+            
+            if [[ "$diff_lines" -gt "$threshold" ]]; then
+              echo "❌ DRIFT: $main_file vs $template_file ($diff_lines lines differ)"
+              drift_found=true
+              drift_report+="- **$main_file** ↔ **$template_file**: $diff_lines lines differ\n"
+            elif [[ "$diff_lines" -gt 0 ]]; then
+              echo "⚠️  Minor drift: $main_file vs $template_file ($diff_lines lines)"
+            else
+              echo "✅ In sync: $main_file ↔ $template_file"
+            fi
+          done
+          
+          echo ""
+          
+          if [[ "$drift_found" == "true" ]]; then
+            echo "::error::Template drift detected! Templates are significantly out of sync with main workflows."
+            echo ""
+            echo "## Template Drift Report"
+            echo ""
+            echo -e "$drift_report"
+            echo ""
+            echo "### How to fix:"
+            echo "1. Compare the main workflow with its template"
+            echo "2. Update the template to match the main workflow"
+            echo "3. Run maint-68-sync-consumer-repos.yml to propagate to consumers"
+            echo ""
+            echo "### Why this matters:"
+            echo "Templates in \`templates/consumer-repo/\` are synced to consumer repos."
+            echo "If they drift from main workflows, consumers get outdated versions."
+            exit 1
+          else
+            echo "✅ All templates are in sync (within threshold)"
+          fi
+
+      - name: Show drift details on failure
+        if: failure()
+        run: |
+          echo "## Detailed Diffs"
+          echo ""
+          
+          # Show first 100 lines of each significant diff
+          for main_file in .github/workflows/agents-*.yml; do
+            base=$(basename "$main_file")
+            
+            # Try common template name mappings
+            template_file=""
+            case "$base" in
+              agents-63-issue-intake.yml) template_file="agents-issue-intake.yml" ;;
+              agents-70-orchestrator.yml) template_file="agents-orchestrator.yml" ;;
+              *) template_file="$base" ;;
+            esac
+            
+            template_path="templates/consumer-repo/.github/workflows/${template_file}"
+            
+            if [[ -f "$template_path" ]]; then
+              diff_lines=$(diff -u "$main_file" "$template_path" 2>/dev/null | wc -l || echo "0")
+              if [[ "$diff_lines" -gt 50 ]]; then
+                echo "### $base vs $template_file"
+                echo '```diff'
+                diff -u "$main_file" "$template_path" | head -100 || true
+                echo '```'
+                echo ""
+              fi
+            fi
+          done
