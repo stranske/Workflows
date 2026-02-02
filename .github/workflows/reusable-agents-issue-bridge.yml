@@ -80,7 +80,7 @@ jobs:
       contents: write
       pull-requests: write
       issues: write
-      models: read
+      # models: read - removed to test if this causes startup_failure
     outputs:
       issue: ${{ steps.ctx.outputs.issue }}
       has_issue: ${{ steps.ctx.outputs.has_issue }}
