@@ -21,7 +21,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
       - name: Export load-balancer tokens
-        uses: ./.github/actions/export-load-balancer-tokens
+        uses: ./.github/actions/setup-api-client
 
       - name: Set up Python
         uses: actions/setup-python@v6

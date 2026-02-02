@@ -121,17 +121,13 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install GitHub API dependencies
+      - name: Setup API client
         if: steps.check_enabled.outputs.enabled == 'true'
-        run: npm install --no-save --no-package-lock @octokit/rest @octokit/auth-app
-
-      - name: Export load balancer tokens
-        if: steps.check_enabled.outputs.enabled == 'true'
-        uses: ./.github/actions/export-load-balancer-tokens
+        uses: ./.github/actions/setup-api-client
         with:
+          secrets: ${{ toJSON(secrets) }}
           github_token: ${{ github.token }}
-          token_rotation_json: ${{ secrets.TOKEN_ROTATION_JSON }}
-          token_rotation_env_keys: ${{ vars.TOKEN_ROTATION_ENV_KEYS }}
+
       - name: Resolve Workflows default branch
         if: steps.check_enabled.outputs.enabled == 'true'
         id: workflows_ref
@@ -162,7 +158,7 @@ jobs:
           repository: stranske/Workflows
           ref: ${{ steps.workflows_ref.outputs.ref }}
           sparse-checkout: |
-            .github/actions/export-load-balancer-tokens
+            .github/actions/setup-api-client
             .github/scripts
           sparse-checkout-cone-mode: false
           path: workflows-lib

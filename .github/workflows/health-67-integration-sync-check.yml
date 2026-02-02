@@ -41,12 +41,14 @@ jobs:
         with:
           path: workflows
 
-      - name: Export load balancer tokens
-        uses: ./.github/actions/export-load-balancer-tokens
+      - name: Setup API client
+        uses: ./.github/actions/setup-api-client
         with:
+          secrets: ${{ toJSON(secrets) }}
           github_token: ${{ github.token }}
-          token_rotation_json: ${{ secrets.TOKEN_ROTATION_JSON }}
-          token_rotation_env_keys: ${{ vars.TOKEN_ROTATION_ENV_KEYS }}
+
+
+
       - name: Clone Integration-Tests repo
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

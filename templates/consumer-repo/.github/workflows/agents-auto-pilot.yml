@@ -118,12 +118,13 @@ jobs:
         if: steps.check_enabled.outputs.enabled == 'true'
         uses: actions/checkout@v6
 
-      - name: Export load balancer tokens
-        uses: ./.github/actions/export-load-balancer-tokens
+      - name: Setup API client
+        uses: ./.github/actions/setup-api-client
         with:
+          secrets: ${{ toJSON(secrets) }}
           github_token: ${{ github.token }}
-          token_rotation_json: ${{ secrets.TOKEN_ROTATION_JSON }}
-          token_rotation_env_keys: ${{ vars.TOKEN_ROTATION_ENV_KEYS }}
+
+
       - name: Resolve Workflows default branch
         if: steps.check_enabled.outputs.enabled == 'true'
         id: workflows_ref
@@ -147,7 +148,7 @@ jobs:
           repository: stranske/Workflows
           ref: ${{ steps.workflows_ref.outputs.ref }}
           sparse-checkout: |
-            .github/actions/export-load-balancer-tokens
+            .github/actions/setup-api-client
             .github/scripts
             scripts
           sparse-checkout-cone-mode: false

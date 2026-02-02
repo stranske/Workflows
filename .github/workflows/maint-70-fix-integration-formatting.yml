@@ -26,7 +26,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
       - name: Export load-balancer tokens
-        uses: ./.github/actions/export-load-balancer-tokens
+        uses: ./.github/actions/setup-api-client
       - name: Resolve integration repo default branch
         id: integration_ref
         uses: actions/github-script@v8
