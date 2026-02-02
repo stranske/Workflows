@@ -679,3 +679,108 @@ With this policy:
 - CI fails if you forget to declare sync-able files
 - Single source of truth (manifest) prevents drift
 - Clear enforcement at PR time, not after deployment
+
+## Rate Limiting Architecture
+
+### Overview
+
+Multiple concurrent workflows hitting the GitHub API can exhaust rate limits. This system distributes API calls across multiple tokens (PATs and GitHub Apps) to avoid exhaustion.
+
+### Components
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    Rate Limiting System                          │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  .github/actions/setup-api-client/action.yml                    │
+│    │  • Installs @octokit/* dependencies                        │
+│    │  • Exports all tokens to GITHUB_ENV                        │
+│    │  • Called at start of every job making API calls           │
+│    │                                                             │
+│    ├─────────────────────────────────────────────────────────────│
+│    ▼                                                             │
+│  process.env (environment variables)                            │
+│    │  SERVICE_BOT_PAT, ACTIONS_BOT_PAT, WORKFLOWS_APP_ID, ...   │
+│    │                                                             │
+│    ├─────────────────────────────────────────────────────────────│
+│    ▼                                                             │
+│  .github/scripts/github-api-with-retry.js                       │
+│    │  • collectTokenSecrets(process.env) → secrets object       │
+│    │  • createTokenAwareRetry() → initialized wrapper           │
+│    │  • withRetry() → exponential backoff on rate limits        │
+│    │                                                             │
+│    ├─────────────────────────────────────────────────────────────│
+│    ▼                                                             │
+│  .github/scripts/token_load_balancer.js                         │
+│       • initializeTokenRegistry({secrets}) → register tokens    │
+│       • getOptimalToken() → select best available token         │
+│       • updateFromHeaders() → track usage from responses        │
+│       • Token specializations (exclusive tasks)                 │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Key Scripts
+
+| Script | Purpose |
+|--------|---------|
+| `setup-api-client` | Composite action - installs deps + exports tokens |
+| `token_load_balancer.js` | Token registry, selection, and tracking |
+| `github-api-with-retry.js` | Retry wrapper with token rotation |
+| `rate-limit-aware-client.js` | Alternative client implementation |
+
+### Usage Pattern
+
+Every workflow job that makes API calls should:
+
+```yaml
+jobs:
+  my-job:
+    steps:
+      - uses: actions/checkout@v4
+      
+      # REQUIRED: Set up API client and export tokens
+      - uses: ./.github/actions/setup-api-client
+        with:
+          secrets: ${{ toJSON(secrets) }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+      
+      # API calls now have token rotation available
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const { withRetry } = await createTokenAwareRetry({ github, core });
+            
+            await withRetry(() => github.rest.issues.createComment({...}));
+```
+
+### Token Types
+
+| Token | Pool | Limit | Use Cases |
+|-------|------|-------|-----------|
+| `GITHUB_TOKEN` | Per-repo | 1000/hr | Basic repo ops |
+| `SERVICE_BOT_PAT` | Bot account | 5000/hr | Comments, labels |
+| `ACTIONS_BOT_PAT` | Bot account | 5000/hr | Workflow dispatch |
+| `WORKFLOWS_APP` | App install | 5000/hr | General workflow ops |
+| `KEEPALIVE_APP` | App install | 5000/hr | Keepalive (isolated) |
+
+### Modifying Rate Limiting
+
+When changing rate limiting behavior:
+
+1. **Read this section first** - understand the component relationships
+2. **Check setup-api-client** - token exports must match what scripts expect
+3. **Check token_load_balancer.js** - registry expects specific secret names
+4. **Check github-api-with-retry.js** - collectTokenSecrets() must include all tokens
+5. **Test token availability** - use `health-75-api-rate-diagnostic.yml`
+
+### Common Issues
+
+| Issue | Cause | Fix |
+|-------|-------|-----|
+| Token not available | Not exported by setup-api-client | Add to action inputs |
+| Registry empty | Secrets not passed to action | Use `secrets: ${{ toJSON(secrets) }}` |
+| Rate limit despite tokens | Wrong token for exclusive task | Check TOKEN_SPECIALIZATIONS |
+
