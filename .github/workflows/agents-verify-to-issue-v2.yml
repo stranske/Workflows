@@ -31,21 +31,10 @@ jobs:
     if: github.event.label.name == 'verify:create-issue'
     runs-on: ubuntu-latest
     steps:
-      # Mint GitHub App token early to use for API calls (avoids rate limits)
-      - name: Mint GitHub App Token
-        id: app_token
-        uses: actions/create-github-app-token@v2
-        continue-on-error: true
-        with:
-          app-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
-          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || 'dummy' }}
-          owner: ${{ github.repository_owner }}
-
       - name: Check PR is merged
         id: check-merged
         uses: actions/github-script@v8
         with:
-          github-token: ${{ steps.app_token.outputs.token || github.token }}
           github-token: ${{ github.token }}
           script: |
             const pr = context.payload.pull_request;
@@ -85,7 +74,6 @@ jobs:
         uses: actions/checkout@v6
         with:
           repository: stranske/Workflows
-          token: ${{ steps.app_token.outputs.token || github.token }}
           token: ${{ steps.select-token.outputs.token }}
           sparse-checkout: |
             .github/actions/setup-api-client
@@ -117,7 +105,6 @@ jobs:
         if: steps.check-merged.outputs.merged == 'true'
         uses: actions/github-script@v8
         with:
-          github-token: ${{ steps.app_token.outputs.token || github.token }}
           github-token: ${{ steps.select-token.outputs.token }}
           script: |
             const fs = require('fs');
@@ -244,7 +231,6 @@ jobs:
         if: steps.generate.outcome == 'failure' && steps.check-merged.outputs.merged == 'true'
         uses: actions/github-script@v8
         with:
-          github-token: ${{ steps.app_token.outputs.token || github.token }}
           github-token: ${{ steps.select-token.outputs.token }}
           script: |
             // Fallback to original simple extraction if Python script fails
@@ -327,9 +313,6 @@ jobs:
         id: create-issue
         if: steps.check-merged.outputs.merged == 'true'
         uses: actions/github-script@v8
-        with:
-          github-token: ${{ steps.app_token.outputs.token || github.token }}
-          github-token: ${{ steps.app_token.outputs.token || github.token }}
         env:
           ISSUE_TITLE: >-
             ${{ steps.generate.outputs.issue_title ||
@@ -374,9 +357,6 @@ jobs:
       - name: Comment on original PR
         if: steps.check-merged.outputs.merged == 'true'
         uses: actions/github-script@v8
-        with:
-          github-token: ${{ steps.app_token.outputs.token || github.token }}
-          github-token: ${{ steps.app_token.outputs.token || github.token }}
         env:
           ISSUE_NUMBER: ${{ steps.create-issue.outputs.issue_number }}
           ISSUE_URL: ${{ steps.create-issue.outputs.issue_url }}
@@ -420,9 +400,6 @@ jobs:
       - name: Remove trigger label
         if: steps.check-merged.outputs.merged == 'true'
         uses: actions/github-script@v8
-        with:
-          github-token: ${{ steps.app_token.outputs.token || github.token }}
-          github-token: ${{ steps.app_token.outputs.token || github.token }}
         continue-on-error: true
         with:
           github-token: ${{ steps.select-token.outputs.token }}

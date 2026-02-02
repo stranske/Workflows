@@ -130,9 +130,6 @@ jobs:
 
       - name: Sync labels to repos
         uses: actions/github-script@v8
-        with:
-          github-token: ${{ steps.app_token.outputs.token || github.token }}
-          github-token: ${{ steps.app_token.outputs.token || github.token }}
         env:
           LABELS_JSON: ${{ steps.parse.outputs.labels }}
           REPOS_JSON: ${{ steps.repos.outputs.repos }}

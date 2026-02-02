@@ -23,21 +23,9 @@ jobs:
     if: github.event.label.name == 'agent:codex'
 
     steps:
-      # Mint GitHub App token early to use for API calls (avoids rate limits)
-      - name: Mint GitHub App Token
-        id: app_token
-        uses: actions/create-github-app-token@v2
-        continue-on-error: true
-        with:
-          app-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
-          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || 'dummy' }}
-          owner: ${{ github.repository_owner }}
-
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
-
-          token: ${{ steps.app_token.outputs.token || github.token }}
           sparse-checkout: |
             .github/actions/setup-api-client
             .github/scripts/github-api-with-retry.js
@@ -64,7 +52,6 @@ jobs:
         id: extract
         uses: actions/github-script@v8
         with:
-          github-token: ${{ steps.app_token.outputs.token || github.token }}
           script: |
             const issue = context.payload.issue;
             const body = issue.body || '';
@@ -132,7 +119,6 @@ jobs:
         if: steps.check.outputs.recommendation == 'BLOCKED'
         uses: actions/github-script@v8
         with:
-          github-token: ${{ steps.app_token.outputs.token || github.token }}
           script: |
             const fs = require('fs');
             const retryHelperPath = './.github/scripts/github-api-with-retry.js';
@@ -167,9 +153,6 @@ jobs:
       - name: Post capability report
         if: steps.check.outputs.check_failed != 'true'
         uses: actions/github-script@v8
-        with:
-          github-token: ${{ steps.app_token.outputs.token || github.token }}
-          github-token: ${{ steps.app_token.outputs.token || github.token }}
         env:
           RESULT_JSON: ${{ steps.check.outputs.result_json }}
           RECOMMENDATION: ${{ steps.check.outputs.recommendation }}
