@@ -69,7 +69,7 @@ permissions:
   contents: write
   pull-requests: write
   issues: write
-  # models: read - commented out to test if this causes startup_failure
+  models: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

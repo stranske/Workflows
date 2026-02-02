@@ -8,6 +8,7 @@
 |-----------|---------------|
 | CI failing with mypy errors | [CI Debugging - Mypy](#mypy-type-errors) |
 | CI failing with coverage errors | [CI Debugging - Coverage](#coverage-threshold-failures) |
+| Workflow failing / startup_failure | [Debugging Workflow Failures](#skill-debugging-workflow-failures) |
 | Need to push changes | [GitHub Operations](#standard-pr-workflow) |
 | Authentication errors with `gh` | [GitHub Operations - PAT](#authentication--pat-usage) |
 | Making same mistake 3+ times | [Meta - Create a Skill](#recognize-when-to-create-a-new-skill) |
@@ -93,6 +94,51 @@
 2. Document the correct steps
 3. Add common failure patterns
 4. Add to the relevant section of this file
+
+---
+
+## Skill: Debugging Workflow Failures
+
+**Trigger**: A GitHub Actions workflow is failing, especially with `startup_failure` or mysterious errors.
+
+### MANDATORY: Historical Analysis First
+
+**BEFORE theorizing about causes or making fixes:**
+
+1. **Find the boundary between success and failure**:
+   ```bash
+   gh run list --repo owner/repo --workflow="workflow.yml" --limit 100 --json databaseId,conclusion,createdAt \
+     --jq '[.[] | select(.conclusion == "success" or .conclusion == "startup_failure")] | group_by(.conclusion) | .[] | {conclusion: .[0].conclusion, first: .[-1].createdAt, last: .[0].createdAt}'
+   ```
+
+2. **Find commits between last success and first failure**:
+   ```bash
+   git log --oneline --since="LAST_SUCCESS_DATE" --until="FIRST_FAILURE_DATE" -- path/to/workflow.yml
+   ```
+
+3. **Examine the exact diff that broke it**:
+   ```bash
+   git show COMMIT_SHA -- path/to/workflow.yml
+   ```
+
+4. **Fix ONLY what the diff changed** - don't "improve" unrelated things
+
+### Anti-Patterns (DO NOT DO)
+
+- ❌ **Theorizing without data**: "Maybe X is causing Y" without checking history
+- ❌ **Removing features to fix symptoms**: If removing `models: read` makes the workflow run, but LLM calls then fail silently, you haven't fixed anything
+- ❌ **Broad changes**: If one workflow broke, don't change 31 files
+- ❌ **Fixing what worked**: If something worked before a specific commit, the fix is reverting/correcting that commit's change
+
+### startup_failure Specific
+
+`startup_failure` with zero jobs means GitHub couldn't even parse/validate the workflow. Common causes:
+- Invalid YAML syntax
+- **Top-level `permissions:` block on `workflow_call` reusable workflows** (this conflicts with caller permissions)
+- Invalid permission scopes
+- Circular workflow references
+
+**Documented in**: `docs/INTEGRATION_GUIDE.md` in Workflows repo
 
 ---
 
