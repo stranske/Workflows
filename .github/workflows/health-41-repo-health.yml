@@ -119,6 +119,7 @@ jobs:
         id: summarise
         uses: actions/github-script@v8
         with:
+          github-token: ${{ steps.app_token.outputs.token || github.token }}
           script: |
             // Note: 'core' is already provided by github-script, no require needed
             const fs = require('fs');
@@ -131,7 +132,6 @@ jobs:
                     githubInstance.paginate(method, params),
                 };
             const { withRetry, paginateWithRetry } = retryHelpers;
-          github-token: ${{ steps.app_token.outputs.token || github.token }}
 
             const staleBranchDays = parseInt(process.env.STALE_BRANCH_DAYS || '30', 10);
             const stalePrDays = parseInt(process.env.STALE_PR_DAYS || '30', 10);

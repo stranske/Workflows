@@ -58,6 +58,7 @@ jobs:
         id: existing
         uses: actions/github-script@v8
         with:
+          github-token: ${{ steps.app_token.outputs.token || github.token }}
           script: |
             const fs = require('fs');
             const retryHelperPath = './.github/scripts/github-api-with-retry.js';
@@ -69,7 +70,6 @@ jobs:
                     githubInstance.paginate(method, params),
                 };
             const { withRetry } = retryHelpers;
-          github-token: ${{ steps.app_token.outputs.token || github.token }}
 
             const issues = await withRetry(() => github.rest.issues.listForRepo({
               owner: context.repo.owner,
@@ -167,6 +167,7 @@ jobs:
         if: steps.check.outputs.status == 'expiring-soon' || steps.check.outputs.status == 'expired'
         uses: actions/github-script@v8
         with:
+          github-token: ${{ steps.app_token.outputs.token || github.token }}
           script: |
             const fs = require('fs');
             const retryHelperPath = './.github/scripts/github-api-with-retry.js';
@@ -182,7 +183,6 @@ jobs:
             const expiresAt = '${{ steps.check.outputs.expires_at }}';
             const hoursLeft = '${{ steps.check.outputs.hours_left }}';
             const daysLeft = '${{ steps.check.outputs.days_left }}';
-          github-token: ${{ steps.app_token.outputs.token || github.token }}
 
             const isExpired = status === 'expired';
             const title = isExpired

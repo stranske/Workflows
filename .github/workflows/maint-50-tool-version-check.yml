@@ -193,6 +193,7 @@ jobs:
         if: steps.compare.outputs.has_updates == 'true' || github.event.inputs.force_issue == 'true'
         uses: actions/github-script@v8
         with:
+          github-token: ${{ steps.app_token.outputs.token || github.token }}
           script: |
             const fs = require('fs');
             const retryHelperPath = './.github/scripts/github-api-with-retry.js';
@@ -208,7 +209,6 @@ jobs:
               .match(/report<<REPORT_EOF\n([\s\S]*?)\nREPORT_EOF/)?.[1] || '';
             const updates = fs.readFileSync(process.env.GITHUB_OUTPUT, 'utf8')
               .match(/updates<<UPDATES_EOF\n([\s\S]*?)\nUPDATES_EOF/)?.[1] || '';
-          github-token: ${{ steps.app_token.outputs.token || github.token }}
 
             const repoUrl = context.payload.repository.html_url;
             const workflowUrl = repoUrl + '/actions/workflows/maint-50-tool-version-check.yml';

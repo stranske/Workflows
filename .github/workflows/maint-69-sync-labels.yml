@@ -73,6 +73,7 @@ jobs:
         id: parse
         uses: actions/github-script@v8
         with:
+          github-token: ${{ steps.app_token.outputs.token || github.token }}
           script: |
             const fs = require('fs');
             const retryHelperPath = './.github/scripts/github-api-with-retry.js';
@@ -84,7 +85,6 @@ jobs:
                     githubInstance.paginate(method, params),
                 };
             const yaml = require('js-yaml');
-          github-token: ${{ steps.app_token.outputs.token || github.token }}
 
             const labelsFile = fs.readFileSync('.github/labels-core.yml', 'utf8');
             const labels = yaml.load(labelsFile);
@@ -96,6 +96,7 @@ jobs:
         id: repos
         uses: actions/github-script@v8
         with:
+          github-token: ${{ steps.app_token.outputs.token || github.token }}
           script: |
             const fs = require('fs');
             const retryHelperPath = './.github/scripts/github-api-with-retry.js';
@@ -107,7 +108,6 @@ jobs:
                     githubInstance.paginate(method, params),
                 };
             const input = '${{ inputs.repos }}' || 'all';
-          github-token: ${{ steps.app_token.outputs.token || github.token }}
 
             // List of consumer repos that use the Workflows system
             const allConsumerRepos = [

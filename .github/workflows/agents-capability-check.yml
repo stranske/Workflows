@@ -65,10 +65,10 @@ jobs:
         id: extract
         uses: actions/github-script@v8
         with:
+          github-token: ${{ steps.app_token.outputs.token || github.token }}
           script: |
             const issue = context.payload.issue;
             const body = issue.body || '';
-          github-token: ${{ steps.app_token.outputs.token || github.token }}
 
             // Extract Tasks section
             const tasksMatch = body.match(/## Tasks\s*\n([\s\S]*?)(?=##|$)/i);
@@ -133,6 +133,7 @@ jobs:
         if: steps.check.outputs.recommendation == 'BLOCKED'
         uses: actions/github-script@v8
         with:
+          github-token: ${{ steps.app_token.outputs.token || github.token }}
           script: |
             const fs = require('fs');
             const retryHelperPath = './.github/scripts/github-api-with-retry.js';
@@ -144,7 +145,6 @@ jobs:
                     githubInstance.paginate(method, params),
                 };
             const { withRetry } = retryHelpers;
-          github-token: ${{ steps.app_token.outputs.token || github.token }}
 
             await withRetry(() => github.rest.issues.addLabels({
               owner: context.repo.owner,
