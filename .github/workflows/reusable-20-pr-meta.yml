@@ -113,7 +113,7 @@ jobs:
       - name: Mint GitHub App Token
         id: app_token
         uses: actions/create-github-app-token@v2
-        if: inputs.event_name == 'pull_request' && secrets.WORKFLOWS_APP_ID != ''
+        if: secrets.WORKFLOWS_APP_ID != ''
         with:
           app-id: ${{ secrets.WORKFLOWS_APP_ID }}
           private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
