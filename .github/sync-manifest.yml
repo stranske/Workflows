@@ -437,9 +437,13 @@ templates:
 
 # Actions required by reusable workflows
 actions:
+  - source: .github/actions/setup-api-client/
+    is_directory: true
+    description: "Unified API client setup - installs @octokit deps and exports all load balancer tokens"
+
   - source: .github/actions/export-load-balancer-tokens/
     is_directory: true
-    description: "Export load balancer tokens action - required by reusable-10-ci-python.yml"
+    description: "Export load balancer tokens action - required by reusable-10-ci-python.yml (deprecated, use setup-api-client)"
 
 # Documentation synced to consumer repos
 docs:
