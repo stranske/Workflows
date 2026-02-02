@@ -1,7 +1,9 @@
-name: Maint 70 Refresh Reusable Tags
+name: Maint 73 Refresh Reusable Tags
 
 # Keep floating tags aligned with main so consumer repos always run the latest
 # reusable workflows without editing every repo.
+# NOTE: This replaces the release-tracking strategy from maint-61. The v1 tag
+# now tracks main HEAD for immediate fix propagation, not latest v1.x release.
 
 on:
   push:
@@ -50,6 +52,7 @@ jobs:
           echo "EOF" >> "$GITHUB_OUTPUT"
 
       - name: Refresh tags
+        id: refresh
         env:
           TAGS: ${{ steps.tags.outputs.tags }}
           TARGET_SHA: ${{ github.sha }}
@@ -74,6 +77,8 @@ jobs:
             exit 0
           fi
 
+          echo "updated=$updated" >> "$GITHUB_OUTPUT"
+
           while read -r tag; do
             if [ -n "$tag" ]; then
               git push origin "refs/tags/$tag" --force
@@ -84,13 +89,18 @@ jobs:
         if: always()
         env:
           TAGS: ${{ steps.tags.outputs.tags }}
+          UPDATED: ${{ steps.refresh.outputs.updated || '0' }}
         run: |
           {
             echo "## Reusable Tag Refresh"
             echo ""
-            echo "Updated tags to ${{ github.sha }}:"
-            echo ""
-            while IFS= read -r tag; do
-              [ -n "$tag" ] && echo "- $tag"
-            done <<< "$TAGS"
+            if [ "$UPDATED" -eq 0 ]; then
+              echo "No updates needed - tags already at ${{ github.sha }}"
+            else
+              echo "Updated $UPDATED tag(s) to ${{ github.sha }}:"
+              echo ""
+              while IFS= read -r tag; do
+                [ -n "$tag" ] && echo "- $tag"
+              done <<< "$TAGS"
+            fi
           } >> "$GITHUB_STEP_SUMMARY"

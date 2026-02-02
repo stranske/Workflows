@@ -1,12 +1,22 @@
 name: Maint 61 Create Floating v1 Tag
 
+# DEPRECATED: This workflow is disabled in favor of maint-73-refresh-reusable-tags.yml
+# which tracks main HEAD instead of releases for immediate fix propagation.
+# The v1 tag now follows a main-tracking strategy, not a release-tracking strategy.
+
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "30 3 * * *"
-  release:
-    types:
-      - published
+    inputs:
+      deprecated_notice:
+        description: 'DEPRECATED - Use maint-73-refresh-reusable-tags.yml instead'
+        required: false
+        type: string
+  # Disabled triggers - use maint-73 for tag updates
+  # schedule:
+  #   - cron: "30 3 * * *"
+  # release:
+  #   types:
+  #     - published
 
 permissions:
   contents: write
