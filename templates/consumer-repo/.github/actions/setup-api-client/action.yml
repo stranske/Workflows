@@ -1,0 +1,280 @@
+name: Setup API Client
+description: |
+  Unified setup action for API client dependencies and token load balancer.
+  
+  This action:
+  1. Installs @octokit/* dependencies at pinned versions
+  2. Exports all available tokens to environment variables
+  3. Ensures consistent API client setup across ALL workflow jobs
+  
+  USAGE: Include this action in EVERY job that makes GitHub API calls:
+    - uses: ./.github/actions/setup-api-client
+      with:
+        secrets: ${{ toJSON(secrets) }}
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+
+inputs:
+  secrets:
+    description: 'JSON-encoded secrets object - use toJSON(secrets)'
+    required: false
+  github_token:
+    description: 'Primary GitHub token (from github.token or GITHUB_TOKEN)'
+    required: false
+  # Individual secrets as fallback for workflows that can't use toJSON(secrets)
+  service_bot_pat:
+    required: false
+  actions_bot_pat:
+    required: false
+  codespaces_workflows:
+    required: false
+  owner_pr_pat:
+    required: false
+  agents_automation_pat:
+    required: false
+  workflows_app_id:
+    required: false
+  workflows_app_private_key:
+    required: false
+  keepalive_app_id:
+    required: false
+  keepalive_app_private_key:
+    required: false
+  gh_app_id:
+    required: false
+  gh_app_private_key:
+    required: false
+  app_1_id:
+    required: false
+  app_1_private_key:
+    required: false
+  app_2_id:
+    required: false
+  app_2_private_key:
+    required: false
+  # Configuration options
+  skip_deps:
+    description: 'Skip npm install (if deps already installed in a prior step)'
+    required: false
+    default: 'false'
+  verbose:
+    description: 'Enable verbose logging of token setup'
+    required: false
+    default: 'false'
+
+outputs:
+  token_count:
+    description: 'Number of tokens exported to environment'
+    value: ${{ steps.export-tokens.outputs.token_count }}
+  available_tokens:
+    description: 'Comma-separated list of available token names'
+    value: ${{ steps.export-tokens.outputs.available_tokens }}
+
+runs:
+  using: composite
+  steps:
+    - name: Install API client dependencies
+      if: inputs.skip_deps != 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        
+        # Use dedicated scripts dir, create if needed
+        INSTALL_DIR="${GITHUB_WORKSPACE}/.github/scripts"
+        mkdir -p "$INSTALL_DIR"
+        
+        echo "📦 Installing @octokit dependencies in $INSTALL_DIR..."
+        cd "$INSTALL_DIR"
+        
+        # Check if already installed
+        if [ -d "node_modules/@octokit/rest" ]; then
+          echo "✅ @octokit/rest already installed"
+        else
+          # Install with pinned versions for consistency
+          # Capture stderr for debugging if the command fails
+          npm_output=$(mktemp)
+          if npm install --no-save \
+            @octokit/rest@20.0.2 \
+            @octokit/plugin-retry@6.0.1 \
+            @octokit/plugin-paginate-rest@9.1.5 \
+            @octokit/auth-app@6.0.3 \
+            2>"$npm_output"; then
+            rm -f "$npm_output"
+          else
+            echo "::warning::npm install failed with: $(cat "$npm_output")"
+            echo "::warning::Retrying with --legacy-peer-deps"
+            rm -f "$npm_output"
+            npm install --no-save --legacy-peer-deps \
+              @octokit/rest@20.0.2 \
+              @octokit/plugin-retry@6.0.1 \
+              @octokit/plugin-paginate-rest@9.1.5 \
+              @octokit/auth-app@6.0.3
+          fi
+          echo "✅ @octokit dependencies installed"
+        fi
+
+    - name: Export load balancer tokens
+      id: export-tokens
+      shell: bash
+      env:
+        INPUT_SECRETS: ${{ inputs.secrets }}
+        INPUT_GITHUB_TOKEN: ${{ inputs.github_token }}
+        INPUT_SERVICE_BOT_PAT: ${{ inputs.service_bot_pat }}
+        INPUT_ACTIONS_BOT_PAT: ${{ inputs.actions_bot_pat }}
+        INPUT_CODESPACES_WORKFLOWS: ${{ inputs.codespaces_workflows }}
+        INPUT_OWNER_PR_PAT: ${{ inputs.owner_pr_pat }}
+        INPUT_AGENTS_AUTOMATION_PAT: ${{ inputs.agents_automation_pat }}
+        INPUT_WORKFLOWS_APP_ID: ${{ inputs.workflows_app_id }}
+        INPUT_WORKFLOWS_APP_PRIVATE_KEY: ${{ inputs.workflows_app_private_key }}
+        INPUT_KEEPALIVE_APP_ID: ${{ inputs.keepalive_app_id }}
+        INPUT_KEEPALIVE_APP_PRIVATE_KEY: ${{ inputs.keepalive_app_private_key }}
+        INPUT_GH_APP_ID: ${{ inputs.gh_app_id }}
+        INPUT_GH_APP_PRIVATE_KEY: ${{ inputs.gh_app_private_key }}
+        INPUT_APP_1_ID: ${{ inputs.app_1_id }}
+        INPUT_APP_1_PRIVATE_KEY: ${{ inputs.app_1_private_key }}
+        INPUT_APP_2_ID: ${{ inputs.app_2_id }}
+        INPUT_APP_2_PRIVATE_KEY: ${{ inputs.app_2_private_key }}
+        INPUT_VERBOSE: ${{ inputs.verbose }}
+      run: |
+        set -euo pipefail
+        
+        token_count=0
+        available_tokens=""
+        
+        # Export a variable to GITHUB_ENV
+        # Note: Empty values are intentionally not counted as available tokens
+        export_var() {
+          local name="$1"
+          local value="${2-}"
+          if [ -z "${value}" ]; then
+            return 0
+          fi
+          
+          # Handle multiline values (like private keys)
+          if [[ "${value}" == *$'\n'* ]]; then
+            {
+              echo "${name}<<EOF"
+              printf '%s\n' "${value}"
+              echo "EOF"
+            } >>"${GITHUB_ENV}"
+          else
+            printf '%s=%s\n' "${name}" "${value}" >>"${GITHUB_ENV}"
+          fi
+          
+          token_count=$((token_count + 1))
+          if [ -n "$available_tokens" ]; then
+            available_tokens="${available_tokens},${name}"
+          else
+            available_tokens="${name}"
+          fi
+          
+          if [ "${INPUT_VERBOSE}" = "true" ]; then
+            echo "  ✅ ${name} exported"
+          fi
+        }
+        
+        echo "🔐 Exporting tokens to environment..."
+        
+        # Try to extract from JSON secrets first (requires jq)
+        if [ -n "${INPUT_SECRETS:-}" ] && [ "${INPUT_SECRETS}" != "null" ]; then
+          if ! command -v jq >/dev/null 2>&1; then
+            echo "::warning::'jq' is not installed; falling back to individual token inputs instead of parsing JSON secrets."
+            # Fall back to individual inputs when jq is unavailable
+            SERVICE_BOT_PAT="${INPUT_SERVICE_BOT_PAT:-}"
+            ACTIONS_BOT_PAT="${INPUT_ACTIONS_BOT_PAT:-}"
+            CODESPACES_WORKFLOWS="${INPUT_CODESPACES_WORKFLOWS:-}"
+            OWNER_PR_PAT="${INPUT_OWNER_PR_PAT:-}"
+            AGENTS_AUTOMATION_PAT="${INPUT_AGENTS_AUTOMATION_PAT:-}"
+            WORKFLOWS_APP_ID="${INPUT_WORKFLOWS_APP_ID:-}"
+            WORKFLOWS_APP_PRIVATE_KEY="${INPUT_WORKFLOWS_APP_PRIVATE_KEY:-}"
+            KEEPALIVE_APP_ID="${INPUT_KEEPALIVE_APP_ID:-}"
+            KEEPALIVE_APP_PRIVATE_KEY="${INPUT_KEEPALIVE_APP_PRIVATE_KEY:-}"
+            GH_APP_ID="${INPUT_GH_APP_ID:-}"
+            GH_APP_PRIVATE_KEY="${INPUT_GH_APP_PRIVATE_KEY:-}"
+            APP_1_ID="${INPUT_APP_1_ID:-}"
+            APP_1_PRIVATE_KEY="${INPUT_APP_1_PRIVATE_KEY:-}"
+            APP_2_ID="${INPUT_APP_2_ID:-}"
+            APP_2_PRIVATE_KEY="${INPUT_APP_2_PRIVATE_KEY:-}"
+          else
+            # Parse JSON secrets using jq
+            extract_secret() {
+              local key="$1"
+              echo "${INPUT_SECRETS}" | jq -r ".${key} // empty" 2>/dev/null || echo ""
+            }
+            
+            SERVICE_BOT_PAT=$(extract_secret "SERVICE_BOT_PAT")
+            ACTIONS_BOT_PAT=$(extract_secret "ACTIONS_BOT_PAT")
+            CODESPACES_WORKFLOWS=$(extract_secret "CODESPACES_WORKFLOWS")
+            OWNER_PR_PAT=$(extract_secret "OWNER_PR_PAT")
+            AGENTS_AUTOMATION_PAT=$(extract_secret "AGENTS_AUTOMATION_PAT")
+            WORKFLOWS_APP_ID=$(extract_secret "WORKFLOWS_APP_ID")
+            WORKFLOWS_APP_PRIVATE_KEY=$(extract_secret "WORKFLOWS_APP_PRIVATE_KEY")
+            KEEPALIVE_APP_ID=$(extract_secret "KEEPALIVE_APP_ID")
+            KEEPALIVE_APP_PRIVATE_KEY=$(extract_secret "KEEPALIVE_APP_PRIVATE_KEY")
+            GH_APP_ID=$(extract_secret "GH_APP_ID")
+            GH_APP_PRIVATE_KEY=$(extract_secret "GH_APP_PRIVATE_KEY")
+            APP_1_ID=$(extract_secret "APP_1_ID")
+            APP_1_PRIVATE_KEY=$(extract_secret "APP_1_PRIVATE_KEY")
+            APP_2_ID=$(extract_secret "APP_2_ID")
+            APP_2_PRIVATE_KEY=$(extract_secret "APP_2_PRIVATE_KEY")
+          fi
+        else
+          # Fall back to individual inputs
+          SERVICE_BOT_PAT="${INPUT_SERVICE_BOT_PAT:-}"
+          ACTIONS_BOT_PAT="${INPUT_ACTIONS_BOT_PAT:-}"
+          CODESPACES_WORKFLOWS="${INPUT_CODESPACES_WORKFLOWS:-}"
+          OWNER_PR_PAT="${INPUT_OWNER_PR_PAT:-}"
+          AGENTS_AUTOMATION_PAT="${INPUT_AGENTS_AUTOMATION_PAT:-}"
+          WORKFLOWS_APP_ID="${INPUT_WORKFLOWS_APP_ID:-}"
+          WORKFLOWS_APP_PRIVATE_KEY="${INPUT_WORKFLOWS_APP_PRIVATE_KEY:-}"
+          KEEPALIVE_APP_ID="${INPUT_KEEPALIVE_APP_ID:-}"
+          KEEPALIVE_APP_PRIVATE_KEY="${INPUT_KEEPALIVE_APP_PRIVATE_KEY:-}"
+          GH_APP_ID="${INPUT_GH_APP_ID:-}"
+          GH_APP_PRIVATE_KEY="${INPUT_GH_APP_PRIVATE_KEY:-}"
+          APP_1_ID="${INPUT_APP_1_ID:-}"
+          APP_1_PRIVATE_KEY="${INPUT_APP_1_PRIVATE_KEY:-}"
+          APP_2_ID="${INPUT_APP_2_ID:-}"
+          APP_2_PRIVATE_KEY="${INPUT_APP_2_PRIVATE_KEY:-}"
+        fi
+        
+        # Export GITHUB_TOKEN (GH_TOKEN is the same value, only count once)
+        if [ -n "${INPUT_GITHUB_TOKEN:-}" ]; then
+          export_var "GITHUB_TOKEN" "${INPUT_GITHUB_TOKEN}"
+          # GH_TOKEN is exported but not double-counted
+          printf '%s=%s\n' "GH_TOKEN" "${INPUT_GITHUB_TOKEN}" >>"${GITHUB_ENV}"
+        fi
+        
+        # Export PATs
+        export_var "SERVICE_BOT_PAT" "${SERVICE_BOT_PAT:-}"
+        export_var "ACTIONS_BOT_PAT" "${ACTIONS_BOT_PAT:-}"
+        export_var "CODESPACES_WORKFLOWS" "${CODESPACES_WORKFLOWS:-}"
+        export_var "OWNER_PR_PAT" "${OWNER_PR_PAT:-}"
+        export_var "AGENTS_AUTOMATION_PAT" "${AGENTS_AUTOMATION_PAT:-}"
+        
+        # Export App credentials
+        export_var "WORKFLOWS_APP_ID" "${WORKFLOWS_APP_ID:-}"
+        export_var "WORKFLOWS_APP_PRIVATE_KEY" "${WORKFLOWS_APP_PRIVATE_KEY:-}"
+        export_var "KEEPALIVE_APP_ID" "${KEEPALIVE_APP_ID:-}"
+        export_var "KEEPALIVE_APP_PRIVATE_KEY" "${KEEPALIVE_APP_PRIVATE_KEY:-}"
+        export_var "GH_APP_ID" "${GH_APP_ID:-}"
+        export_var "GH_APP_PRIVATE_KEY" "${GH_APP_PRIVATE_KEY:-}"
+        export_var "APP_1_ID" "${APP_1_ID:-}"
+        export_var "APP_1_PRIVATE_KEY" "${APP_1_PRIVATE_KEY:-}"
+        export_var "APP_2_ID" "${APP_2_ID:-}"
+        export_var "APP_2_PRIVATE_KEY" "${APP_2_PRIVATE_KEY:-}"
+        
+        # Output summary
+        echo "token_count=${token_count}" >> "$GITHUB_OUTPUT"
+        echo "available_tokens=${available_tokens}" >> "$GITHUB_OUTPUT"
+        
+        echo ""
+        echo "📊 Token Setup Summary:"
+        echo "  Total tokens exported: ${token_count}"
+        if [ "${INPUT_VERBOSE}" = "true" ]; then
+          echo "  Available: ${available_tokens}"
+        fi
+        
+        # Warn if no tokens were exported
+        if [ "${token_count}" -eq 0 ]; then
+          echo "::warning::No tokens were exported! API calls may fail."
+          echo "::warning::Ensure secrets are passed to this action."
+        fi
