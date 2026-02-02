@@ -177,7 +177,7 @@ jobs:
     if: |
       needs.route.outputs.should_run_bridge == 'true' &&
       needs.check_labels.outputs.should_run == 'true'
-    uses: stranske/Workflows/.github/workflows/reusable-agents-issue-bridge.yml@v1
+    uses: stranske/Workflows/.github/workflows/reusable-agents-issue-bridge.yml@main
     with:
       agent: ${{ needs.check_labels.outputs.agent }}
       issue_number: ${{ needs.check_labels.outputs.issue_number }}
@@ -206,7 +206,7 @@ jobs:
       id-token: write
       models: read
       pull-requests: write
-    uses: stranske/Workflows/.github/workflows/agents-63-issue-intake.yml@v1
+    uses: stranske/Workflows/.github/workflows/agents-63-issue-intake.yml@main
     with:
       intake_mode: "chatgpt_sync"
       source: ${{ inputs.topic_files }}

@@ -162,7 +162,7 @@ jobs:
       needs.resolve.outputs.pr_number != '' &&
       (needs.resolve.outputs.run_pr_meta == 'true' ||
        needs.resolve.outputs.run_bot_comments == 'true')
-    uses: stranske/Workflows/.github/workflows/reusable-pr-context.yml@v1
+    uses: stranske/Workflows/.github/workflows/reusable-pr-context.yml@main
     with:
       pr_number: ${{ fromJSON(needs.resolve.outputs.pr_number) }}
     secrets: inherit
@@ -181,7 +181,7 @@ jobs:
     steps:
       - name: PR meta handler
         if: matrix.handler == 'pr-meta' && needs.resolve.outputs.run_pr_meta == 'true'
-        uses: stranske/Workflows/.github/workflows/reusable-20-pr-meta.yml@v1
+        uses: stranske/Workflows/.github/workflows/reusable-20-pr-meta.yml@main
         with:
           pr_number: ${{ fromJSON(needs.resolve.outputs.pr_number) }}
           comment_id: ${{ needs.resolve.outputs.comment_id }}
@@ -202,7 +202,7 @@ jobs:
             (needs.resolve.outputs.gate_conclusion == 'success' &&
              needs.pr_context.outputs.has_agent_label == 'true')
           )
-        uses: stranske/Workflows/.github/workflows/reusable-bot-comment-handler.yml@v1
+        uses: stranske/Workflows/.github/workflows/reusable-bot-comment-handler.yml@main
         with:
           pr_number: ${{ fromJSON(needs.resolve.outputs.pr_number) }}
           dry_run: ${{ needs.resolve.outputs.dry_run == 'true' }}

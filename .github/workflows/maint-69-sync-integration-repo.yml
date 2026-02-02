@@ -21,7 +21,7 @@ permissions:
 
 env:
   INTEGRATION_REPO: stranske/Workflows-Integration-Tests
-  WORKFLOW_REF: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@v1
+  WORKFLOW_REF: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

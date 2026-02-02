@@ -84,7 +84,7 @@ jobs:
       vars.USE_CONSOLIDATED_WORKFLOWS != 'true' &&
       github.event_name == 'issue_comment' &&
       github.event.issue.pull_request
-    uses: stranske/Workflows/.github/workflows/reusable-20-pr-meta.yml@v1
+    uses: stranske/Workflows/.github/workflows/reusable-20-pr-meta.yml@main
     with:
       pr_number: ${{ needs.resolve_pr.outputs.pr_number }}
       comment_id: ${{ needs.resolve_pr.outputs.comment_id }}
@@ -98,7 +98,7 @@ jobs:
   # Call reusable PR meta workflow for PR events
   pr_meta_pr:
     if: vars.USE_CONSOLIDATED_WORKFLOWS != 'true' && github.event_name == 'pull_request'
-    uses: stranske/Workflows/.github/workflows/reusable-20-pr-meta.yml@v1
+    uses: stranske/Workflows/.github/workflows/reusable-20-pr-meta.yml@main
     with:
       pr_number: ${{ github.event.pull_request.number }}
       event_name: 'pull_request'
@@ -135,7 +135,7 @@ jobs:
       vars.USE_CONSOLIDATED_WORKFLOWS != 'true' &&
       github.event_name == 'workflow_run' &&
       needs.resolve_pr_from_workflow_run.outputs.should_run == 'true'
-    uses: stranske/Workflows/.github/workflows/reusable-20-pr-meta.yml@v1
+    uses: stranske/Workflows/.github/workflows/reusable-20-pr-meta.yml@main
     with:
       pr_number: ${{ fromJSON(needs.resolve_pr_from_workflow_run.outputs.pr_number) }}
       event_name: 'workflow_run'

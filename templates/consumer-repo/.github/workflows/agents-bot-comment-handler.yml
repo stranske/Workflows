@@ -167,7 +167,7 @@ jobs:
     name: Handle bot comments
     needs: resolve
     if: vars.USE_CONSOLIDATED_WORKFLOWS != 'true' && needs.resolve.outputs.should_run == 'true'
-    uses: stranske/Workflows/.github/workflows/reusable-bot-comment-handler.yml@v1
+    uses: stranske/Workflows/.github/workflows/reusable-bot-comment-handler.yml@main
     with:
       pr_number: ${{ needs.resolve.outputs.pr_number }}
       dry_run: ${{ inputs.dry_run == true }}

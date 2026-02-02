@@ -1,19 +1,23 @@
 name: Maint 73 Refresh Reusable Tags
 
-# Keep floating tags aligned with main so consumer repos always run the latest
-# reusable workflows without editing every repo.
-# NOTE: This replaces the release-tracking strategy from maint-61. The v1 tag
-# now tracks main HEAD for immediate fix propagation, not latest v1.x release.
+# DEPRECATED: This workflow is disabled.
+# Consumer repos now use @main directly instead of floating version tags.
+# The v1 tag approach added complexity without providing stability benefits
+# since v1 was auto-refreshed to track main HEAD anyway.
+#
+# Previous purpose: Keep floating tags aligned with main so consumer repos
+# always run the latest reusable workflows without editing every repo.
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
     inputs:
       tags:
-        description: 'Comma-separated tag names to refresh (default: v1)'
+        description: 'DEPRECATED - Consumer repos now use @main directly'
         required: false
         type: string
+  # Disabled automatic triggers
+  # push:
+  #   branches: [main]
 
 permissions:
   contents: write

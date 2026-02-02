@@ -272,7 +272,7 @@ jobs:
       - mark-running
     # Only run for agent:codex label
     if: needs.evaluate.outputs.agent_type == 'codex'
-    uses: stranske/Workflows/.github/workflows/reusable-codex-run.yml@v1
+    uses: stranske/Workflows/.github/workflows/reusable-codex-run.yml@main
     secrets:
       CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
       # Use dedicated KEEPALIVE_APP for isolated rate limit pool (5000/hr)
@@ -301,7 +301,7 @@ jobs:
   #     - evaluate
   #     - preflight
   #   if: needs.evaluate.outputs.agent_type == 'claude'
-  #   uses: stranske/Workflows/.github/workflows/reusable-claude-run.yml@v1
+  #   uses: stranske/Workflows/.github/workflows/reusable-claude-run.yml@main
   #   ...
 
   summary:
@@ -827,7 +827,7 @@ jobs:
     needs: prepare
     if: needs.prepare.outputs.should_run == 'true'
     name: Run Codex autofix
-    uses: stranske/Workflows/.github/workflows/reusable-codex-run.yml@v1
+    uses: stranske/Workflows/.github/workflows/reusable-codex-run.yml@main
     with:
       prompt_file: .github/codex/prompts/autofix_from_ci_failure.md
       mode: autofix
