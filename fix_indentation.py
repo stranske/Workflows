@@ -40,9 +40,11 @@ for filepath in files:
         # Fix properties under steps that should be indented more
         if in_steps and i > 0:
             prev = fixed_lines[-1] if fixed_lines else ""
-            if re.match(r"^(\s+)- name:", prev) and re.match(
-                r"^(\s+)(\w+):", line
-            ) and not line.strip().startswith("- "):
+            if (
+                re.match(r"^(\s+)- name:", prev)
+                and re.match(r"^(\s+)(\w+):", line)
+                and not line.strip().startswith("- ")
+            ):
                 # This should be a property of the step
                 prev_indent = len(re.match(r"^(\s+)", prev).group(1))
                 expected_indent = prev_indent + 2
