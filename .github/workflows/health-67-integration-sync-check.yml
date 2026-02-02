@@ -36,22 +36,9 @@ jobs:
     name: Validate Integration-Tests sync
     runs-on: ubuntu-latest
     steps:
-      # Mint GitHub App token early to use for API calls (avoids rate limits)
-      - name: Mint GitHub App Token
-        id: app_token
-        uses: actions/create-github-app-token@v2
-        continue-on-error: true
-        with:
-          app-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
-          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || 'dummy' }}
-          owner: ${{ github.repository_owner }}
-
       - name: Checkout Workflows repo
         uses: actions/checkout@v6
         with:
-
-          token: ${{ steps.app_token.outputs.token || github.token }}
-          token: ${{ steps.app_token.outputs.token || github.token }}
           path: workflows
 
       - name: Setup API client
@@ -190,7 +177,6 @@ jobs:
             const title = '🔄 Integration-Tests sync drift detected';
             const label = 'integration-sync';
             const runUrl = `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`;
-          github-token: ${{ steps.app_token.outputs.token || github.token }}
 
             const body = `## Integration Sync Drift Detected
 
