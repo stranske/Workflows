@@ -26,6 +26,16 @@ jobs:
     outputs:
       mode: ${{ steps.check.outputs.mode }}
     steps:
+      # Mint GitHub App token early to use for API calls (avoids rate limits)
+      - name: Mint GitHub App Token
+        id: app_token
+        uses: actions/create-github-app-token@v2
+        continue-on-error: true
+        with:
+          app-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
+          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || 'dummy' }}
+          owner: ${{ github.repository_owner }}
+
       - name: Check for codex-ping label
         id: check
         env:
@@ -51,7 +61,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-
+        with:
+          token: ${{ steps.app_token.outputs.token || github.token }}
+          token: ${{ steps.app_token.outputs.token || github.token }}
       - name: Setup API client
         uses: ./.github/actions/setup-api-client
         with:
@@ -83,6 +95,7 @@ jobs:
         uses: actions/github-script@v8
         with:
 
+          github-token: ${{ steps.app_token.outputs.token || github.token }}
           github-token: ${{ steps.app_token.outputs.token || github.token }}
           script: |
             const { evaluateKeepaliveLoop, countCheckboxes, parseConfig } = require('./.github/scripts/keepalive_loop.js');
@@ -121,6 +134,7 @@ jobs:
         with:
 
           github-token: ${{ steps.app_token.outputs.token || github.token }}
+          github-token: ${{ steps.app_token.outputs.token || github.token }}
           script: |
             const { loadKeepaliveState, formatStateComment, parseStateFromComment } = require('./.github/scripts/keepalive_state.js');
 
@@ -156,6 +170,7 @@ jobs:
         uses: actions/github-script@v8
         with:
 
+          github-token: ${{ steps.app_token.outputs.token || github.token }}
           github-token: ${{ steps.app_token.outputs.token || github.token }}
           script: |
             const { classifyError, ERROR_CATEGORIES } = require('./.github/scripts/error_classifier.js');
@@ -234,7 +249,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-
+        with:
+          token: ${{ steps.app_token.outputs.token || github.token }}
+          token: ${{ steps.app_token.outputs.token || github.token }}
       - name: Setup API client
         uses: ./.github/actions/setup-api-client
         with:

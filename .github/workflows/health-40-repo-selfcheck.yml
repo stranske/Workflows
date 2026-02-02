@@ -25,8 +25,20 @@ jobs:
     name: Repository health summary
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      # Mint GitHub App token early to use for API calls (avoids rate limits)
+      - name: Mint GitHub App Token
+        id: app_token
+        uses: actions/create-github-app-token@v2
+        continue-on-error: true
+        with:
+          app-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
+          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || 'dummy' }}
+          owner: ${{ github.repository_owner }}
 
+      - uses: actions/checkout@v6
+        with:
+          token: ${{ steps.app_token.outputs.token || github.token }}
+          token: ${{ steps.app_token.outputs.token || github.token }}
       - name: Setup API client
         uses: ./.github/actions/setup-api-client
         with:
@@ -64,6 +76,7 @@ jobs:
         id: default-branch
         uses: actions/github-script@v8
         with:
+          github-token: ${{ steps.app_token.outputs.token || github.token }}
           github-token: ${{ github.token }}
           script: |
             const fs = require('fs');
@@ -137,6 +150,9 @@ jobs:
       - name: Collect repository signals
         id: collect
         uses: actions/github-script@v8
+        with:
+          github-token: ${{ steps.app_token.outputs.token || github.token }}
+          github-token: ${{ steps.app_token.outputs.token || github.token }}
         env:
           REQUIRED_LABELS: agent:codex,agent:copilot,automerge,risk:low,codex-ready
           BRANCH_PROTECTION_TOKEN: ${{ steps.branch-token.outputs.token }}
@@ -766,6 +782,9 @@ jobs:
       - name: Update failure tracker issue
         if: ${{ steps.aggregate.outputs.has_errors == 'true' || steps.aggregate.outputs.has_warnings == 'true' }}
         uses: actions/github-script@v8
+        with:
+          github-token: ${{ steps.app_token.outputs.token || github.token }}
+          github-token: ${{ steps.app_token.outputs.token || github.token }}
         env:
           ISSUE_BODY: ${{ steps.aggregate.outputs.issue_body }}
         with:
@@ -860,6 +879,7 @@ jobs:
         if: ${{ steps.aggregate.outputs.has_errors != 'true' && steps.aggregate.outputs.has_warnings != 'true' }}
         uses: actions/github-script@v8
         with:
+          github-token: ${{ steps.app_token.outputs.token || github.token }}
           github-token: ${{ github.token }}
           script: |
             const issueTitle = '[health] repository self-check failed';
@@ -902,6 +922,9 @@ jobs:
       - name: Update repo health snapshot issue
         if: ${{ env.HAS_ADMIN_TOKEN == 'true' }}
         uses: actions/github-script@v8
+        with:
+          github-token: ${{ steps.app_token.outputs.token || github.token }}
+          github-token: ${{ steps.app_token.outputs.token || github.token }}
         env:
           ISSUE_BODY_PATH: repo-health-issue.md
         with:
@@ -1037,6 +1060,9 @@ jobs:
       - name: Publish PR checklist comment
         if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pull_request_number != '' && steps.aggregate.outputs.comment_body != '' }}
         uses: actions/github-script@v8
+        with:
+          github-token: ${{ steps.app_token.outputs.token || github.token }}
+          github-token: ${{ steps.app_token.outputs.token || github.token }}
         env:
           PR_NUMBER: ${{ github.event.inputs.pull_request_number }}
           COMMENT_BODY: ${{ steps.aggregate.outputs.comment_body }}

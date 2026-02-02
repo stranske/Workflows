@@ -34,9 +34,21 @@ jobs:
       !contains(github.event.issue.labels.*.name, 'automated')
 
     steps:
+      # Mint GitHub App token early to use for API calls (avoids rate limits)
+      - name: Mint GitHub App Token
+        id: app_token
+        uses: actions/create-github-app-token@v2
+        continue-on-error: true
+        with:
+          app-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
+          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || 'dummy' }}
+          owner: ${{ github.repository_owner }}
+
       - name: Checkout repository
         uses: actions/checkout@v6
-
+        with:
+          token: ${{ steps.app_token.outputs.token || github.token }}
+          token: ${{ steps.app_token.outputs.token || github.token }}
       - name: Setup API client
         uses: ./.github/actions/setup-api-client
         with:
@@ -72,6 +84,7 @@ jobs:
               retryHelpers.paginateWithRetry.length >= 3
                 ? retryHelpers.paginateWithRetry(github, method, params, options)
                 : retryHelpers.paginateWithRetry(method, params, options);
+          github-token: ${{ steps.app_token.outputs.token || github.token }}
 
             // Paginate to get all labels (handles repos with >100 labels)
             const labels = await paginateWithRetry(
@@ -208,6 +221,7 @@ jobs:
                     githubInstance.paginate(method, params),
                 };
             const { withRetry } = retryHelpers;
+          github-token: ${{ steps.app_token.outputs.token || github.token }}
 
             const autoApplyLabels = JSON.parse('${{ steps.match.outputs.auto_apply_labels }}');
 
@@ -258,6 +272,7 @@ jobs:
                     githubInstance.paginate(method, params),
                 };
             const { withRetry } = retryHelpers;
+          github-token: ${{ steps.app_token.outputs.token || github.token }}
 
             const suggestedLabels = JSON.parse('${{ steps.match.outputs.suggested_labels }}');
             const autoApplied = JSON.parse('${{ steps.match.outputs.auto_apply_labels }}');

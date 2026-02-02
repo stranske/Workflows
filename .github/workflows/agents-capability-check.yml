@@ -23,10 +23,21 @@ jobs:
     if: github.event.label.name == 'agent:codex'
 
     steps:
+      # Mint GitHub App token early to use for API calls (avoids rate limits)
+      - name: Mint GitHub App Token
+        id: app_token
+        uses: actions/create-github-app-token@v2
+        continue-on-error: true
+        with:
+          app-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
+          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || 'dummy' }}
+          owner: ${{ github.repository_owner }}
+
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
 
+          token: ${{ steps.app_token.outputs.token || github.token }}
           token: ${{ steps.app_token.outputs.token || github.token }}
           sparse-checkout: |
             .github/actions/setup-api-client
@@ -57,6 +68,7 @@ jobs:
           script: |
             const issue = context.payload.issue;
             const body = issue.body || '';
+          github-token: ${{ steps.app_token.outputs.token || github.token }}
 
             // Extract Tasks section
             const tasksMatch = body.match(/## Tasks\s*\n([\s\S]*?)(?=##|$)/i);
@@ -132,6 +144,7 @@ jobs:
                     githubInstance.paginate(method, params),
                 };
             const { withRetry } = retryHelpers;
+          github-token: ${{ steps.app_token.outputs.token || github.token }}
 
             await withRetry(() => github.rest.issues.addLabels({
               owner: context.repo.owner,
@@ -155,6 +168,9 @@ jobs:
       - name: Post capability report
         if: steps.check.outputs.check_failed != 'true'
         uses: actions/github-script@v8
+        with:
+          github-token: ${{ steps.app_token.outputs.token || github.token }}
+          github-token: ${{ steps.app_token.outputs.token || github.token }}
         env:
           RESULT_JSON: ${{ steps.check.outputs.result_json }}
           RECOMMENDATION: ${{ steps.check.outputs.recommendation }}

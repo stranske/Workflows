@@ -23,9 +23,21 @@ jobs:
     outputs:
       proceed: ${{ steps.check.outputs.proceed || 'true' }}
     steps:
+      # Mint GitHub App token early to use for API calls (avoids rate limits)
+      - name: Mint GitHub App Token
+        id: app_token
+        uses: actions/create-github-app-token@v2
+        continue-on-error: true
+        with:
+          app-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
+          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || 'dummy' }}
+          owner: ${{ github.repository_owner }}
+
       - name: Checkout repository
         uses: actions/checkout@v6
-
+        with:
+          token: ${{ steps.app_token.outputs.token || github.token }}
+          token: ${{ steps.app_token.outputs.token || github.token }}
       - name: Setup API client
         uses: ./.github/actions/setup-api-client
         with:
@@ -37,6 +49,9 @@ jobs:
       - name: Check API quota
         id: check
         uses: actions/github-script@v8
+        with:
+          github-token: ${{ steps.app_token.outputs.token || github.token }}
+          github-token: ${{ steps.app_token.outputs.token || github.token }}
         env:
           # Higher threshold than orchestrator (1000) so keepalive runs first
           RATE_LIMIT_THRESHOLD: '2000'
@@ -89,7 +104,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
-
+        with:
+          token: ${{ steps.app_token.outputs.token || github.token }}
+          token: ${{ steps.app_token.outputs.token || github.token }}
       - name: Setup API client
         uses: ./.github/actions/setup-api-client
         with:
@@ -114,6 +131,7 @@ jobs:
                     githubInstance.paginate(method, params),
                 };
             const { withRetry, paginateWithRetry } = retryHelpers;
+          github-token: ${{ steps.app_token.outputs.token || github.token }}
 
             const staleBranchDays = parseInt(process.env.STALE_BRANCH_DAYS || '30', 10);
             const stalePrDays = parseInt(process.env.STALE_PR_DAYS || '30', 10);
@@ -321,6 +339,9 @@ jobs:
 
       - name: Verify default branch protection
         uses: actions/github-script@v8
+        with:
+          github-token: ${{ steps.app_token.outputs.token || github.token }}
+          github-token: ${{ steps.app_token.outputs.token || github.token }}
         env:
           DEFAULT_BRANCH: ${{ steps.summarise.outputs.default-branch }}
         with:

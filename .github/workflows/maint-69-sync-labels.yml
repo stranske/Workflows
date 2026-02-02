@@ -32,8 +32,20 @@ jobs:
   sync-labels:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      # Mint GitHub App token early to use for API calls (avoids rate limits)
+      - name: Mint GitHub App Token
+        id: app_token
+        uses: actions/create-github-app-token@v2
+        continue-on-error: true
+        with:
+          app-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
+          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || 'dummy' }}
+          owner: ${{ github.repository_owner }}
 
+      - uses: actions/checkout@v6
+        with:
+          token: ${{ steps.app_token.outputs.token || github.token }}
+          token: ${{ steps.app_token.outputs.token || github.token }}
       - name: Setup API client
         uses: ./.github/actions/setup-api-client
         with:
@@ -47,6 +59,7 @@ jobs:
         uses: actions/checkout@v6
         with:
 
+          token: ${{ steps.app_token.outputs.token || github.token }}
           token: ${{ steps.app_token.outputs.token || github.token }}
           sparse-checkout: |
             .github/actions/setup-api-client
@@ -71,6 +84,7 @@ jobs:
                     githubInstance.paginate(method, params),
                 };
             const yaml = require('js-yaml');
+          github-token: ${{ steps.app_token.outputs.token || github.token }}
 
             const labelsFile = fs.readFileSync('.github/labels-core.yml', 'utf8');
             const labels = yaml.load(labelsFile);
@@ -93,6 +107,7 @@ jobs:
                     githubInstance.paginate(method, params),
                 };
             const input = '${{ inputs.repos }}' || 'all';
+          github-token: ${{ steps.app_token.outputs.token || github.token }}
 
             // List of consumer repos that use the Workflows system
             const allConsumerRepos = [
@@ -117,6 +132,9 @@ jobs:
 
       - name: Sync labels to repos
         uses: actions/github-script@v8
+        with:
+          github-token: ${{ steps.app_token.outputs.token || github.token }}
+          github-token: ${{ steps.app_token.outputs.token || github.token }}
         env:
           LABELS_JSON: ${{ steps.parse.outputs.labels }}
           REPOS_JSON: ${{ steps.repos.outputs.repos }}
