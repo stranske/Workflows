@@ -7,7 +7,7 @@
 # POLICY: Any file intended for consumer repos MUST be listed here.
 # Files not listed will NOT be synced, even if they exist in templates/consumer-repo/.
 #
-# Last sync trigger: 2026-01-27T06:05:00Z - fix removals manifest entry (issue-1123)
+# Last sync trigger: 2026-01-27T06:05:00Z - fix removals manifest entry
 #
 # Categories:
 #   workflows: Thin caller workflows that consumers run directly
