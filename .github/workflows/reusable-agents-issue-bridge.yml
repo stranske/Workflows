@@ -65,11 +65,9 @@ on:
         description: "GitHub App private key for minting installation tokens"
         required: false
 
-permissions:
-  contents: write
-  pull-requests: write
-  issues: write
-  models: read
+# NOTE: Top-level permissions removed - moved to job level.
+# When this reusable is called by another workflow_call workflow (like agents-63-issue-intake),
+# having top-level permissions with models:read causes startup_failure.
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -78,6 +76,11 @@ concurrency:
 jobs:
   bridge:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      models: read
     outputs:
       issue: ${{ steps.ctx.outputs.issue }}
       has_issue: ${{ steps.ctx.outputs.has_issue }}
