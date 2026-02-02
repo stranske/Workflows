@@ -48,7 +48,6 @@ jobs:
         uses: actions/checkout@v6
         with:
           token: ${{ steps.app_token.outputs.token || github.token }}
-          token: ${{ steps.app_token.outputs.token || github.token }}
       - name: Setup API client
         uses: ./.github/actions/setup-api-client
         with:
@@ -70,6 +69,7 @@ jobs:
         id: get-labels
         uses: actions/github-script@v8
         with:
+          github-token: ${{ steps.app_token.outputs.token || github.token }}
           script: |
             const fs = require('fs');
             const retryHelperPath = './.github/scripts/github-api-with-retry.js';
@@ -84,7 +84,6 @@ jobs:
               retryHelpers.paginateWithRetry.length >= 3
                 ? retryHelpers.paginateWithRetry(github, method, params, options)
                 : retryHelpers.paginateWithRetry(method, params, options);
-          github-token: ${{ steps.app_token.outputs.token || github.token }}
 
             // Paginate to get all labels (handles repos with >100 labels)
             const labels = await paginateWithRetry(
@@ -210,6 +209,7 @@ jobs:
           steps.match.outputs.auto_apply_labels != '[]'
         uses: actions/github-script@v8
         with:
+          github-token: ${{ steps.app_token.outputs.token || github.token }}
           script: |
             const fs = require('fs');
             const retryHelperPath = './.github/scripts/github-api-with-retry.js';
@@ -221,7 +221,6 @@ jobs:
                     githubInstance.paginate(method, params),
                 };
             const { withRetry } = retryHelpers;
-          github-token: ${{ steps.app_token.outputs.token || github.token }}
 
             const autoApplyLabels = JSON.parse('${{ steps.match.outputs.auto_apply_labels }}');
 
@@ -261,6 +260,7 @@ jobs:
           steps.match.outputs.suggested_labels != '[]'
         uses: actions/github-script@v8
         with:
+          github-token: ${{ steps.app_token.outputs.token || github.token }}
           script: |
             const fs = require('fs');
             const retryHelperPath = './.github/scripts/github-api-with-retry.js';
@@ -272,7 +272,6 @@ jobs:
                     githubInstance.paginate(method, params),
                 };
             const { withRetry } = retryHelpers;
-          github-token: ${{ steps.app_token.outputs.token || github.token }}
 
             const suggestedLabels = JSON.parse('${{ steps.match.outputs.suggested_labels }}');
             const autoApplied = JSON.parse('${{ steps.match.outputs.auto_apply_labels }}');
