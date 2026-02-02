@@ -161,6 +161,17 @@ Maint 68 is manifest-driven:
 
 Custom Gate repos are a special-case skip: their `pr-00-gate.yml` stays local.
 
+### Reusable Workflow Versioning
+
+Consumer repos call reusable workflows via a floating tag (currently `v1`).
+`Maint 70 Refresh Reusable Tags` automatically advances those tags to the
+current `main` SHA after every merge, so consumers always execute the latest
+reusable workflow logic without manual version bumps.
+
+If a reusable workflow fix must ship immediately, trigger:
+- `Maint 70 Refresh Reusable Tags` (updates `v1`)
+- `Maint 68 Sync Consumer Repos` only if template files changed
+
 ### Manual Sync Trigger
 
 ```bash
