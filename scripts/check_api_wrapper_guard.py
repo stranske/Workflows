@@ -42,7 +42,8 @@ WRAPPER_HINTS = (
     "github-api-with-retry.js",
 )
 
-LOAD_BALANCER_HINT = "export-load-balancer-tokens"
+# Accept either the old or new action name
+LOAD_BALANCER_HINTS = {"export-load-balancer-tokens", "setup-api-client"}
 
 
 def _run_git(args: list[str], allow_exit_codes: set[int] | None = None) -> str:
@@ -154,9 +155,9 @@ def _scan_file(path: Path) -> list[str]:
     if (
         path.suffix.lower() in {".yml", ".yaml"}
         and has_api_calls
-        and LOAD_BALANCER_HINT not in content
+        and not any(hint in content for hint in LOAD_BALANCER_HINTS)
     ):
-        violations.append(f"{path.relative_to(ROOT)}: missing export-load-balancer-tokens step")
+        violations.append(f"{path.relative_to(ROOT)}: missing export-load-balancer-tokens or setup-api-client step")
 
     return violations
 
