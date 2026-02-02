@@ -47,9 +47,6 @@ env:
   MAX_WALL_TIME_HOURS: 4
   AUTOPILOT_METRICS_LOG_PATH: .agents/autopilot-metrics.ndjson
   AUTOPILOT_METRICS_SUMMARY_PATH: .agents/autopilot-metrics-summary.ndjson
-  LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
-  LANGCHAIN_TRACING_V2: "true"
-  LANGCHAIN_PROJECT: workflows-agents
 
 concurrency:
   group: >-
@@ -118,12 +115,18 @@ jobs:
         if: steps.check_enabled.outputs.enabled == 'true'
         uses: actions/checkout@v6
 
+      - name: Set up Node
+        if: steps.check_enabled.outputs.enabled == 'true'
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+
       - name: Setup API client
+        if: steps.check_enabled.outputs.enabled == 'true'
         uses: ./.github/actions/setup-api-client
         with:
           secrets: ${{ toJSON(secrets) }}
           github_token: ${{ github.token }}
-
 
       - name: Resolve Workflows default branch
         if: steps.check_enabled.outputs.enabled == 'true'
@@ -131,10 +134,17 @@ jobs:
         uses: actions/github-script@v8
         with:
           script: |
-            const { data } = await github.rest.repos.get({
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              task: 'auto-pilot-resolve-workflows-ref',
+            });
+
+            const { data } = await withRetry((client) => client.rest.repos.get({
               owner: 'stranske',
               repo: 'Workflows'
-            });
+            }));
             if (!data?.default_branch) {
               core.setFailed('Could not determine Workflows default branch');
               return;
@@ -150,7 +160,6 @@ jobs:
           sparse-checkout: |
             .github/actions/setup-api-client
             .github/scripts
-            scripts
           sparse-checkout-cone-mode: false
           path: workflows-lib
           fetch-depth: 1
@@ -381,17 +390,25 @@ jobs:
           ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
         with:
           script: |
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'auto-pilot-stop',
+              capabilities: ['issues:write']
+            });
             const issueNumber = parseInt(process.env.ISSUE_NUMBER);
 
             // Add failure label and comment
-            await github.rest.issues.addLabels({
+            await withRetry((client) => client.rest.issues.addLabels({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: issueNumber,
               labels: ['needs-human', 'agents:auto-pilot-failed']
-            });
+            }));
 
-            await github.rest.issues.createComment({
+            await withRetry((client) => client.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: issueNumber,
@@ -406,7 +423,7 @@ jobs:
 
             **To resume:** Remove \`agents:auto-pilot-failed\` and
             \`needs-human\` labels, then re-add \`agents:auto-pilot\`.`
-            });
+            }));
 
             core.setFailed('Auto-pilot exceeded max cycles');
 
@@ -430,7 +447,6 @@ jobs:
 
           ISSUE_STATE="${{ steps.context.outputs.issue_state }}"
           HAS_FORMAT="${{ steps.context.outputs.has_format }}"
-          HAS_OPTIMIZE="${{ steps.context.outputs.has_optimize }}"
           HAS_OPTIMIZER_OUTPUT="${{ steps.context.outputs.has_optimizer_output }}"
           HAS_APPLY="${{ steps.context.outputs.has_apply }}"
           HAS_AGENT="${{ steps.context.outputs.has_agent }}"
@@ -480,8 +496,37 @@ jobs:
 
           # Has PR - check if it's complete and ready to merge
           # Get PR state to see if keepalive has finished
-          if ! PR_STATE=$(gh api "/repos/${{ github.repository }}/issues/$LINKED_PR/comments" \
-            --jq '.[] | select(.body | contains("keepalive-state:")) | .body' 2>&1 | tail -1); then
+          if ! PR_STATE=$(LINKED_PR="$LINKED_PR" node - <<'NODE'
+          (async () => {
+            const { Octokit } = require('@octokit/rest');
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const core = { info: () => {}, warning: console.warn, debug: () => {} };
+            const github = new Octokit({ auth: process.env.GITHUB_TOKEN });
+            const { paginateWithRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'auto-pilot',
+              capabilities: ['issues:read'],
+            });
+            const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
+            const issueNumber = Number(process.env.LINKED_PR);
+            const comments = await paginateWithRetry(
+              github.rest.issues.listComments,
+              { owner, repo, issue_number: issueNumber, per_page: 100 }
+            );
+            const last = [...comments].reverse().find((comment) =>
+              (comment.body || '').includes('keepalive-state:')
+            );
+            if (last?.body) {
+              process.stdout.write(last.body);
+            }
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+          NODE
+          ); then
             echo "⚠️ Failed to fetch PR state, defaulting to monitor-pr"
             echo "next_step=monitor-pr" >> "$GITHUB_OUTPUT"
             exit 0
@@ -511,8 +556,7 @@ jobs:
           AUTOPILOT_STEP_NAME: format
           AUTOPILOT_ERROR_CATEGORY: timer-start
         run: |
-          python "$WORKFLOWS_SCRIPTS_PATH/scripts/autopilot_step_timer.py" \
-           --event start --format epoch-ms --github-env
+          python scripts/autopilot_step_timer.py --event start --format epoch-ms --github-env
 
       - name: Execute step - Format (inline)
         if: steps.next.outputs.next_step == 'format'
@@ -524,22 +568,75 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           PYTHONPATH: ${{ github.workspace }}
         run: |
-          ISSUE_NUMBER="$ISSUE_NUMBER"
-          STEP_COUNT="$STEP_COUNT"
 
           # Post progress comment
-          gh issue comment "${ISSUE_NUMBER}" --body \
-            "🤖 **Auto-pilot step $((STEP_COUNT + 1))**: Starting issue formatting...
+          cat > /tmp/auto_pilot_format_start.md <<'EOF'
+          🤖 **Auto-pilot step $((STEP_COUNT + 1))**: Starting issue formatting...
 
-          Running formatter inline (not via label trigger)."
+          Running formatter inline (not via label trigger).
+          EOF
+          node - <<'NODE'
+          (async () => {
+            const fs = require('fs');
+            const { Octokit } = require('@octokit/rest');
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const core = { info: () => {}, warning: console.warn, debug: () => {} };
+            const github = new Octokit({ auth: process.env.GITHUB_TOKEN });
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'auto-pilot',
+              capabilities: ['issues:write'],
+            });
+            const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
+            const issueNumber = Number(process.env.ISSUE_NUMBER);
+            const body = fs.readFileSync('/tmp/auto_pilot_format_start.md', 'utf8');
+            await withRetry((client) => client.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: issueNumber,
+              body,
+            }));
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+          NODE
 
           # Get issue body
-          gh api "repos/${{ github.repository }}/issues/${ISSUE_NUMBER}" > /tmp/issue.json
-          jq -r '.body' /tmp/issue.json > /tmp/issue_body.md
+          node - <<'NODE'
+          (async () => {
+            const fs = require('fs');
+            const { Octokit } = require('@octokit/rest');
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const core = { info: () => {}, warning: console.warn, debug: () => {} };
+            const github = new Octokit({ auth: process.env.GITHUB_TOKEN });
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'auto-pilot',
+              capabilities: ['issues:read'],
+            });
+            const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
+            const issueNumber = Number(process.env.ISSUE_NUMBER);
+            const { data } = await withRetry((client) => client.rest.issues.get({
+              owner,
+              repo,
+              issue_number: issueNumber,
+            }));
+            fs.writeFileSync('/tmp/issue.json', JSON.stringify(data, null, 2));
+            fs.writeFileSync('/tmp/issue_body.md', data.body || '');
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+          NODE
 
           # Format the issue
           echo "Formatting issue into AGENT_ISSUE_TEMPLATE structure..."
-          python "$WORKFLOWS_SCRIPTS_PATH/scripts/langchain/issue_formatter.py" \
+          python scripts/langchain/issue_formatter.py \
             --input-file /tmp/issue_body.md \
             --json > /tmp/format_result.json
 
@@ -559,11 +656,66 @@ jobs:
           " || exit 1
 
           # Update issue body
-          gh issue edit "${ISSUE_NUMBER}" --body-file /tmp/formatted_body.md
+          node - <<'NODE'
+          (async () => {
+            const fs = require('fs');
+            const { Octokit } = require('@octokit/rest');
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const core = { info: () => {}, warning: console.warn, debug: () => {} };
+            const github = new Octokit({ auth: process.env.GITHUB_TOKEN });
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'auto-pilot',
+              capabilities: ['issues:write'],
+            });
+            const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
+            const issueNumber = Number(process.env.ISSUE_NUMBER);
+            const body = fs.readFileSync('/tmp/formatted_body.md', 'utf8');
+            await withRetry((client) => client.rest.issues.update({
+              owner,
+              repo,
+              issue_number: issueNumber,
+              body,
+            }));
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+          NODE
 
           # Add marker labels (but don't trigger workflow)
-          gh issue edit "${ISSUE_NUMBER}" --add-label "agents:formatted" || true
-          gh issue edit "${ISSUE_NUMBER}" --add-label "agents:apply-suggestions" || true
+          node - <<'NODE'
+          (async () => {
+            const { Octokit } = require('@octokit/rest');
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const core = { info: () => {}, warning: console.warn, debug: () => {} };
+            const github = new Octokit({ auth: process.env.GITHUB_TOKEN });
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'auto-pilot',
+              capabilities: ['issues:write'],
+            });
+            const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
+            const issueNumber = Number(process.env.ISSUE_NUMBER);
+            try {
+              await withRetry((client) => client.rest.issues.addLabels({
+                owner,
+                repo,
+                issue_number: issueNumber,
+                labels: ['agents:formatted', 'agents:apply-suggestions'],
+              }));
+            } catch (error) {
+              console.warn(`Label update failed: ${error.message}`);
+            }
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+          NODE
 
           echo "✅ Formatting complete - continuing to next step"
 
@@ -573,8 +725,7 @@ jobs:
           AUTOPILOT_STEP_NAME: format
           AUTOPILOT_ERROR_CATEGORY: timer-end
         run: |
-          python "$WORKFLOWS_SCRIPTS_PATH/scripts/autopilot_step_timer.py" \
-           --event end --format epoch-ms --github-env
+          python scripts/autopilot_step_timer.py --event end --format epoch-ms --github-env
 
       - name: Metrics - Record format step
         if: always() && steps.next.outputs.next_step == 'format'
@@ -588,7 +739,7 @@ jobs:
           if [ "$success" != "true" ]; then
             failure_reason="step-failed"
           fi
-          python "$WORKFLOWS_SCRIPTS_PATH/scripts/autopilot_metrics_collector.py" \
+          python scripts/autopilot_metrics_collector.py \
             --path "$AUTOPILOT_METRICS_LOG_PATH" \
             --metric-type step \
             --issue-number "${{ steps.context.outputs.issue_number }}" \
@@ -603,8 +754,7 @@ jobs:
           AUTOPILOT_STEP_NAME: optimize
           AUTOPILOT_ERROR_CATEGORY: timer-start
         run: |
-          python "$WORKFLOWS_SCRIPTS_PATH/scripts/autopilot_step_timer.py" \
-           --event start --format epoch-ms --github-env
+          python scripts/autopilot_step_timer.py --event start --format epoch-ms --github-env
 
       - name: Execute step - Optimize (inline)
         if: steps.next.outputs.next_step == 'optimize'
@@ -616,22 +766,75 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           PYTHONPATH: ${{ github.workspace }}
         run: |
-          ISSUE_NUMBER="$ISSUE_NUMBER"
-          STEP_COUNT="$STEP_COUNT"
 
           # Post progress comment
-          gh issue comment "${ISSUE_NUMBER}" --body \
-            "🤖 **Auto-pilot step $((STEP_COUNT + 1))**: Analyzing issue for improvements...
+          cat > /tmp/auto_pilot_optimize_start.md <<'EOF'
+          🤖 **Auto-pilot step $((STEP_COUNT + 1))**: Analyzing issue for improvements...
 
-          Running optimizer inline (not via label trigger)."
+          Running optimizer inline (not via label trigger).
+          EOF
+          node - <<'NODE'
+          (async () => {
+            const fs = require('fs');
+            const { Octokit } = require('@octokit/rest');
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const core = { info: () => {}, warning: console.warn, debug: () => {} };
+            const github = new Octokit({ auth: process.env.GITHUB_TOKEN });
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'auto-pilot',
+              capabilities: ['issues:write'],
+            });
+            const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
+            const issueNumber = Number(process.env.ISSUE_NUMBER);
+            const body = fs.readFileSync('/tmp/auto_pilot_optimize_start.md', 'utf8');
+            await withRetry((client) => client.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: issueNumber,
+              body,
+            }));
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+          NODE
 
           # Get issue body
-          gh api "repos/${{ github.repository }}/issues/${ISSUE_NUMBER}" > /tmp/issue.json
-          jq -r '.body' /tmp/issue.json > /tmp/issue_body.md
+          node - <<'NODE'
+          (async () => {
+            const fs = require('fs');
+            const { Octokit } = require('@octokit/rest');
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const core = { info: () => {}, warning: console.warn, debug: () => {} };
+            const github = new Octokit({ auth: process.env.GITHUB_TOKEN });
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'auto-pilot',
+              capabilities: ['issues:read'],
+            });
+            const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
+            const issueNumber = Number(process.env.ISSUE_NUMBER);
+            const { data } = await withRetry((client) => client.rest.issues.get({
+              owner,
+              repo,
+              issue_number: issueNumber,
+            }));
+            fs.writeFileSync('/tmp/issue.json', JSON.stringify(data, null, 2));
+            fs.writeFileSync('/tmp/issue_body.md', data.body || '');
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+          NODE
 
           # Run optimizer analysis
           echo "Running optimization analysis..."
-          python "$WORKFLOWS_SCRIPTS_PATH/scripts/langchain/issue_optimizer.py" \
+          python scripts/langchain/issue_optimizer.py \
             --input-file /tmp/issue_body.md \
             --json > /tmp/suggestions.json
 
@@ -664,11 +867,66 @@ jobs:
           }
 
           # Post suggestions comment
-          gh issue comment "${ISSUE_NUMBER}" --body-file /tmp/comment.md
+          node - <<'NODE'
+          (async () => {
+            const fs = require('fs');
+            const { Octokit } = require('@octokit/rest');
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const core = { info: () => {}, warning: console.warn, debug: () => {} };
+            const github = new Octokit({ auth: process.env.GITHUB_TOKEN });
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'auto-pilot',
+              capabilities: ['issues:write'],
+            });
+            const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
+            const issueNumber = Number(process.env.ISSUE_NUMBER);
+            const body = fs.readFileSync('/tmp/comment.md', 'utf8');
+            await withRetry((client) => client.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: issueNumber,
+              body,
+            }));
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+          NODE
 
           # Add marker labels (but don't trigger workflow)
-          gh issue edit "${ISSUE_NUMBER}" --add-label "agents:formatted" || true
-          gh issue edit "${ISSUE_NUMBER}" --add-label "agents:apply-suggestions" || true
+          node - <<'NODE'
+          (async () => {
+            const { Octokit } = require('@octokit/rest');
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const core = { info: () => {}, warning: console.warn, debug: () => {} };
+            const github = new Octokit({ auth: process.env.GITHUB_TOKEN });
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'auto-pilot',
+              capabilities: ['issues:write'],
+            });
+            const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
+            const issueNumber = Number(process.env.ISSUE_NUMBER);
+            try {
+              await withRetry((client) => client.rest.issues.addLabels({
+                owner,
+                repo,
+                issue_number: issueNumber,
+                labels: ['agents:formatted', 'agents:apply-suggestions'],
+              }));
+            } catch (error) {
+              console.warn(`Label update failed: ${error.message}`);
+            }
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+          NODE
 
           echo "✅ Optimization complete - continuing to next step"
 
@@ -678,8 +936,7 @@ jobs:
           AUTOPILOT_STEP_NAME: optimize
           AUTOPILOT_ERROR_CATEGORY: timer-end
         run: |
-          python "$WORKFLOWS_SCRIPTS_PATH/scripts/autopilot_step_timer.py" \
-           --event end --format epoch-ms --github-env
+          python scripts/autopilot_step_timer.py --event end --format epoch-ms --github-env
 
       - name: Metrics - Record optimize step
         if: always() && steps.next.outputs.next_step == 'optimize'
@@ -693,7 +950,7 @@ jobs:
           if [ "$success" != "true" ]; then
             failure_reason="step-failed"
           fi
-          python "$WORKFLOWS_SCRIPTS_PATH/scripts/autopilot_metrics_collector.py" \
+          python scripts/autopilot_metrics_collector.py \
             --path "$AUTOPILOT_METRICS_LOG_PATH" \
             --metric-type step \
             --issue-number "${{ steps.context.outputs.issue_number }}" \
@@ -711,6 +968,14 @@ jobs:
           script: |
             // Guard: Verify optimizer produced suggestions before applying
             // This prevents silent failures when optimizer runs but produces no output
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'auto-pilot-guard-optimizer',
+              capabilities: ['issues:write']
+            });
             const issueNumber = parseInt(process.env.ISSUE_NUMBER);
 
             // Fetch all comments on the issue (with pagination and retry)
@@ -744,7 +1009,7 @@ jobs:
               core.warning('⚠️ Optimizer was supposed to run but produced no suggestions comment');
 
               // Post warning comment
-              await github.rest.issues.createComment({
+              await withRetry((client) => client.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issueNumber,
@@ -758,15 +1023,15 @@ jobs:
             3. Remove \`agents:auto-pilot-pause\` and \`needs-human\` labels to retry
 
             **For maintainers:** Issue paused pending investigation of optimizer failure.`
-              });
+              }));
 
               // Add pause and needs-human labels
-              await github.rest.issues.addLabels({
+              await withRetry((client) => client.rest.issues.addLabels({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issueNumber,
                 labels: ['agents:auto-pilot-pause', 'needs-human']
-              });
+              }));
 
               core.setFailed('Optimizer produced no output - pausing for investigation');
             } else {
@@ -779,8 +1044,7 @@ jobs:
           AUTOPILOT_STEP_NAME: apply
           AUTOPILOT_ERROR_CATEGORY: timer-start
         run: |
-          python "$WORKFLOWS_SCRIPTS_PATH/scripts/autopilot_step_timer.py" \
-           --event start --format epoch-ms --github-env
+          python scripts/autopilot_step_timer.py --event start --format epoch-ms --github-env
 
       - name: Execute step - Apply suggestions (inline)
         if: steps.next.outputs.next_step == 'apply'
@@ -791,20 +1055,76 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PYTHONPATH: ${{ github.workspace }}
         run: |
-          ISSUE_NUMBER="$ISSUE_NUMBER"
-          STEP_COUNT="$STEP_COUNT"
 
           # Post progress comment
-          gh issue comment "${ISSUE_NUMBER}" --body \
-            "🤖 **Auto-pilot step $((STEP_COUNT + 1))**: Applying optimization suggestions...
+          cat > /tmp/auto_pilot_apply_start.md <<'EOF'
+          🤖 **Auto-pilot step $((STEP_COUNT + 1))**: Applying optimization suggestions...
 
-          Running apply inline (not via label trigger)."
+          Running apply inline (not via label trigger).
+          EOF
+          node - <<'NODE'
+          (async () => {
+            const fs = require('fs');
+            const { Octokit } = require('@octokit/rest');
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const core = { info: () => {}, warning: console.warn, debug: () => {} };
+            const github = new Octokit({ auth: process.env.GITHUB_TOKEN });
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'auto-pilot',
+              capabilities: ['issues:write'],
+            });
+            const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
+            const issueNumber = Number(process.env.ISSUE_NUMBER);
+            const body = fs.readFileSync('/tmp/auto_pilot_apply_start.md', 'utf8');
+            await withRetry((client) => client.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: issueNumber,
+              body,
+            }));
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+          NODE
 
           # Get issue body and comments
-          gh api "repos/${{ github.repository }}/issues/${ISSUE_NUMBER}" > /tmp/issue.json
-          jq -r '.body' /tmp/issue.json > /tmp/issue_body.md
-          gh api "repos/${{ github.repository }}/issues/${ISSUE_NUMBER}/comments" \
-            --paginate > /tmp/comments.json
+          node - <<'NODE'
+          (async () => {
+            const fs = require('fs');
+            const { Octokit } = require('@octokit/rest');
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const core = { info: () => {}, warning: console.warn, debug: () => {} };
+            const github = new Octokit({ auth: process.env.GITHUB_TOKEN });
+            const { withRetry, paginateWithRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'auto-pilot',
+              capabilities: ['issues:read'],
+            });
+            const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
+            const issueNumber = Number(process.env.ISSUE_NUMBER);
+            const { data } = await withRetry((client) => client.rest.issues.get({
+              owner,
+              repo,
+              issue_number: issueNumber,
+            }));
+            fs.writeFileSync('/tmp/issue.json', JSON.stringify(data, null, 2));
+            fs.writeFileSync('/tmp/issue_body.md', data.body || '');
+            const comments = await paginateWithRetry(
+              github.rest.issues.listComments,
+              { owner, repo, issue_number: issueNumber, per_page: 100 }
+            );
+            fs.writeFileSync('/tmp/comments.json', JSON.stringify(comments, null, 2));
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+          NODE
 
           # Extract and apply suggestions
           python -c "
@@ -843,10 +1163,66 @@ jobs:
           " || exit 1
 
           # Update issue body
-          gh issue edit "${ISSUE_NUMBER}" --body-file /tmp/updated_body.md
+          node - <<'NODE'
+          (async () => {
+            const fs = require('fs');
+            const { Octokit } = require('@octokit/rest');
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const core = { info: () => {}, warning: console.warn, debug: () => {} };
+            const github = new Octokit({ auth: process.env.GITHUB_TOKEN });
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'auto-pilot',
+              capabilities: ['issues:write'],
+            });
+            const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
+            const issueNumber = Number(process.env.ISSUE_NUMBER);
+            const body = fs.readFileSync('/tmp/updated_body.md', 'utf8');
+            await withRetry((client) => client.rest.issues.update({
+              owner,
+              repo,
+              issue_number: issueNumber,
+              body,
+            }));
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+          NODE
 
           # Add marker label (but don't trigger workflow)
-          gh issue edit "${ISSUE_NUMBER}" --add-label "agents:formatted" || true
+          node - <<'NODE'
+          (async () => {
+            const { Octokit } = require('@octokit/rest');
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const core = { info: () => {}, warning: console.warn, debug: () => {} };
+            const github = new Octokit({ auth: process.env.GITHUB_TOKEN });
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'auto-pilot',
+              capabilities: ['issues:write'],
+            });
+            const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
+            const issueNumber = Number(process.env.ISSUE_NUMBER);
+            try {
+              await withRetry((client) => client.rest.issues.addLabels({
+                owner,
+                repo,
+                issue_number: issueNumber,
+                labels: ['agents:formatted'],
+              }));
+            } catch (error) {
+              console.warn(`Label update failed: ${error.message}`);
+            }
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+          NODE
 
           echo "✅ Apply complete - continuing to next step"
 
@@ -856,8 +1232,7 @@ jobs:
           AUTOPILOT_STEP_NAME: apply
           AUTOPILOT_ERROR_CATEGORY: timer-end
         run: |
-          python "$WORKFLOWS_SCRIPTS_PATH/scripts/autopilot_step_timer.py" \
-           --event end --format epoch-ms --github-env
+          python scripts/autopilot_step_timer.py --event end --format epoch-ms --github-env
 
       - name: Metrics - Record apply step
         if: always() && steps.next.outputs.next_step == 'apply'
@@ -871,7 +1246,7 @@ jobs:
           if [ "$success" != "true" ]; then
             failure_reason="step-failed"
           fi
-          python "$WORKFLOWS_SCRIPTS_PATH/scripts/autopilot_metrics_collector.py" \
+          python scripts/autopilot_metrics_collector.py \
             --path "$AUTOPILOT_METRICS_LOG_PATH" \
             --metric-type step \
             --issue-number "${{ steps.context.outputs.issue_number }}" \
@@ -886,8 +1261,7 @@ jobs:
           AUTOPILOT_STEP_NAME: capability-check
           AUTOPILOT_ERROR_CATEGORY: timer-start
         run: |
-          python "$WORKFLOWS_SCRIPTS_PATH/scripts/autopilot_step_timer.py" \
-           --event start --format epoch-ms --github-env
+          python scripts/autopilot_step_timer.py --event start --format epoch-ms --github-env
 
       - name: Execute step - Capability check & Agent
         if: steps.next.outputs.next_step == 'capability-check'
@@ -898,10 +1272,18 @@ jobs:
           STEP_COUNT: ${{ steps.cycles.outputs.count }}
         with:
           script: |
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'auto-pilot-capability-check',
+              capabilities: ['issues:write', 'actions:write', 'contents:read']
+            });
             const issueNumber = parseInt(process.env.ISSUE_NUMBER);
             const stepCount = parseInt(process.env.STEP_COUNT || '0') + 1;
 
-            await github.rest.issues.createComment({
+            await withRetry((client) => client.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: issueNumber,
@@ -910,23 +1292,23 @@ jobs:
             Adding \`agent:codex\` label. The capability check will run automatically.
 
             ⏳ Agent will create a PR shortly.`
-            });
+            }));
 
             // Add agent label - capability check triggers on this
-            await github.rest.issues.addLabels({
+            await withRetry((client) => client.rest.issues.addLabels({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: issueNumber,
               labels: ['agent:codex']
-            });
+            }));
 
             let baseBranch = context.payload?.repository?.default_branch || '';
             if (!baseBranch) {
               try {
-                const { data: repoInfo } = await github.rest.repos.get({
+                const { data: repoInfo } = await withRetry((client) => client.rest.repos.get({
                   owner: context.repo.owner,
                   repo: context.repo.repo
-                });
+                }));
                 baseBranch = repoInfo?.default_branch || '';
               } catch (error) {
                 core.warning(`Failed to resolve default branch: ${error?.message || error}`);
@@ -939,7 +1321,7 @@ jobs:
 
             // Force-dispatch Codex belt dispatcher to create the branch
             try {
-              await github.rest.actions.createWorkflowDispatch({
+              await withRetry((client) => client.rest.actions.createWorkflowDispatch({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 workflow_id: 'agents-71-codex-belt-dispatcher.yml',
@@ -948,7 +1330,7 @@ jobs:
                   force_issue: issueNumber.toString(),
                   dry_run: 'false'
                 }
-              });
+              }));
               core.info(`Dispatched codex belt dispatcher for issue #${issueNumber}`);
             } catch (dispatchError) {
               core.warning(`Could not dispatch codex belt dispatcher: ${dispatchError?.message}`);
@@ -960,8 +1342,7 @@ jobs:
           AUTOPILOT_STEP_NAME: capability-check
           AUTOPILOT_ERROR_CATEGORY: timer-end
         run: |
-          python "$WORKFLOWS_SCRIPTS_PATH/scripts/autopilot_step_timer.py" \
-           --event end --format epoch-ms --github-env
+          python scripts/autopilot_step_timer.py --event end --format epoch-ms --github-env
 
       - name: Metrics - Record capability check step
         if: always() && steps.next.outputs.next_step == 'capability-check'
@@ -975,7 +1356,7 @@ jobs:
           if [ "$success" != "true" ]; then
             failure_reason="step-failed"
           fi
-          python "$WORKFLOWS_SCRIPTS_PATH/scripts/autopilot_metrics_collector.py" \
+          python scripts/autopilot_metrics_collector.py \
             --path "$AUTOPILOT_METRICS_LOG_PATH" \
             --metric-type step \
             --issue-number "${{ steps.context.outputs.issue_number }}" \
@@ -989,8 +1370,7 @@ jobs:
           AUTOPILOT_STEP_NAME: verify
           AUTOPILOT_ERROR_CATEGORY: timer-start
         run: |
-          python "$WORKFLOWS_SCRIPTS_PATH/scripts/autopilot_step_timer.py" \
-           --event start --format epoch-ms --github-env
+          python scripts/autopilot_step_timer.py --event start --format epoch-ms --github-env
 
       - name: Execute step - Verify
         if: steps.next.outputs.next_step == 'verify'
@@ -1000,18 +1380,26 @@ jobs:
           ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
         with:
           script: |
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'auto-pilot-verify',
+              capabilities: ['issues:write', 'pulls:read']
+            });
             const issueNumber = parseInt(process.env.ISSUE_NUMBER);
 
             // Find the merged PR for this issue
             // Look for PRs with the meta marker or explicit closing reference
-            const { data: prs } = await github.rest.pulls.list({
+            const { data: prs } = await withRetry((client) => client.rest.pulls.list({
               owner: context.repo.owner,
               repo: context.repo.repo,
               state: 'closed',
               sort: 'updated',
               direction: 'desc',
               per_page: 100
-            });
+            }));
 
             // Helper to detect explicit closing/fixing references to this issue
             function matchesIssueReference(text, num) {
@@ -1033,21 +1421,21 @@ jobs:
             );
 
             if (!linkedPr) {
-              await github.rest.issues.createComment({
+              await withRetry((client) => client.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issueNumber,
                 body: `🤖 **Auto-pilot**: Issue closed but couldn't find linked merged PR.
 
             Adding \`verify:evaluate\` label to issue for tracking.`
-              });
+              }));
 
-              await github.rest.issues.addLabels({
+              await withRetry((client) => client.rest.issues.addLabels({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issueNumber,
                 labels: ['verify:evaluate']
-              });
+              }));
               return;
             }
 
@@ -1060,28 +1448,28 @@ jobs:
               'Adding `verify:evaluate` label to PR.'
             ].join('\n');
 
-            await github.rest.issues.createComment({
+            await withRetry((client) => client.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: issueNumber,
               body: verifyMsg
-            });
+            }));
 
             // Add verify label to the merged PR (this triggers agents-verifier.yml)
-            await github.rest.issues.addLabels({
+            await withRetry((client) => client.rest.issues.addLabels({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: linkedPr.number,
               labels: ['verify:evaluate']
-            });
+            }));
 
             // Also add to issue for tracking
-            await github.rest.issues.addLabels({
+            await withRetry((client) => client.rest.issues.addLabels({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: issueNumber,
               labels: ['verify:evaluate']
-            });
+            }));
 
       - name: Metrics - End verify timer
         if: always() && steps.next.outputs.next_step == 'verify'
@@ -1089,8 +1477,7 @@ jobs:
           AUTOPILOT_STEP_NAME: verify
           AUTOPILOT_ERROR_CATEGORY: timer-end
         run: |
-          python "$WORKFLOWS_SCRIPTS_PATH/scripts/autopilot_step_timer.py" \
-           --event end --format epoch-ms --github-env
+          python scripts/autopilot_step_timer.py --event end --format epoch-ms --github-env
 
       - name: Metrics - Record verify step
         if: always() && steps.next.outputs.next_step == 'verify'
@@ -1104,7 +1491,7 @@ jobs:
           if [ "$success" != "true" ]; then
             failure_reason="step-failed"
           fi
-          python "$WORKFLOWS_SCRIPTS_PATH/scripts/autopilot_metrics_collector.py" \
+          python scripts/autopilot_metrics_collector.py \
             --path "$AUTOPILOT_METRICS_LOG_PATH" \
             --metric-type step \
             --issue-number "${{ steps.context.outputs.issue_number }}" \
@@ -1119,8 +1506,7 @@ jobs:
           AUTOPILOT_STEP_NAME: create-pr
           AUTOPILOT_ERROR_CATEGORY: timer-start
         run: |
-          python "$WORKFLOWS_SCRIPTS_PATH/scripts/autopilot_step_timer.py" \
-           --event start --format epoch-ms --github-env
+          python scripts/autopilot_step_timer.py --event start --format epoch-ms --github-env
 
       - name: Execute step - Create PR
         if: steps.next.outputs.next_step == 'create-pr'
@@ -1133,6 +1519,14 @@ jobs:
           MAX_STALL_RETRIES: '5'
         with:
           script: |
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'auto-pilot-create-pr',
+              capabilities: ['issues:write', 'contents:read']
+            });
             const issueNumber = parseInt(process.env.ISSUE_NUMBER);
             const issueTitle = process.env.ISSUE_TITLE || `Issue #${issueNumber}`;
             const stepCount = parseInt(process.env.STEP_COUNT || '0') + 1;
@@ -1141,12 +1535,12 @@ jobs:
 
             // Helper: count consecutive "waiting" comments (stall detection)
             async function countConsecutiveWaits(waitText) {
-              const { data: comments } = await github.rest.issues.listComments({
+              const { data: comments } = await withRetry((client) => client.rest.issues.listComments({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issueNumber,
                 per_page: 100
-              });
+              }));
 
               // Look at comments in reverse order (newest first)
               const reversed = [...comments].reverse();
@@ -1169,11 +1563,11 @@ jobs:
             // Check if branch exists
             let branchExists = false;
             try {
-              await github.rest.repos.getBranch({
+              await withRetry((client) => client.rest.repos.getBranch({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 branch: branchName
-              });
+              }));
               branchExists = true;
               core.info(`Branch ${branchName} exists`);
             } catch (e) {
@@ -1193,18 +1587,18 @@ jobs:
                 const warnMsg = `Stall: ${stallCount} attempts without branch creation`;
                 core.warning(warnMsg);
 
-                await github.rest.issues.addLabels({
+                await withRetry((client) => client.rest.issues.addLabels({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   issue_number: issueNumber,
                   labels: ['agents:auto-pilot-pause', 'needs-human']
-                });
+                }));
 
-                await github.rest.issues.createComment({
+                await withRetry((client) => client.rest.issues.createComment({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   issue_number: issueNumber,
-                    body: `## ⚠️ Auto-Pilot Stalled
+                  body: `## ⚠️ Auto-Pilot Stalled
 
                     **Reason:** Branch was not created after ${stallCount} attempts.
 
@@ -1217,7 +1611,7 @@ jobs:
 
                     **To resume:** Remove \`agents:auto-pilot-pause\` and
                     \`needs-human\` labels, then re-add \`agents:auto-pilot\`.`
-                });
+                }));
 
                 const failMsg = `Auto-pilot stalled: ${stallCount} branch creation attempts`;
                 core.setFailed(failMsg);
@@ -1234,7 +1628,7 @@ jobs:
                 const actualMinutes = Math.round(actualBackoffMs / 60000);
 
                 core.info(`Applying branch-creation backoff: waiting ${actualMinutes} minutes`);
-                await github.rest.issues.createComment({
+                await withRetry((client) => client.rest.issues.createComment({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   issue_number: issueNumber,
@@ -1242,7 +1636,7 @@ jobs:
 
                     Branch not created yet. Attempt ${stallCount + 1}/${maxStallRetries}.
                     Waiting before retry...`
-                });
+                }));
 
                 // Sleep with exponential backoff
                 await new Promise(resolve => setTimeout(resolve, actualBackoffMs));
@@ -1252,7 +1646,7 @@ jobs:
                 ? ' (no backoff on the first check).'
                 : '.';
 
-              await github.rest.issues.createComment({
+              await withRetry((client) => client.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issueNumber,
@@ -1264,14 +1658,14 @@ jobs:
             📊 Branch check attempt: ${stallCount + 1}/${maxStallRetries}
 
             ⏳ Auto-pilot will check again on next trigger${backoffNote}`
-              });
+              }));
               return;
             }
 
-            const { data: repoInfo } = await github.rest.repos.get({
+            const { data: repoInfo } = await withRetry((client) => client.rest.repos.get({
               owner: context.repo.owner,
               repo: context.repo.repo
-            });
+            }));
             const baseBranch = repoInfo.default_branch;
             if (!baseBranch) {
               core.setFailed('Repository default branch not available');
@@ -1281,13 +1675,13 @@ jobs:
             // If a PR already exists for this branch, stop create-pr loop
             try {
               const headRef = `${context.repo.owner}:${branchName}`;
-              const { data: existingPrs } = await github.rest.pulls.list({
+              const { data: existingPrs } = await withRetry((client) => client.rest.pulls.list({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 state: 'open',
                 head: headRef,
                 per_page: 1
-              });
+              }));
 
               if (existingPrs.length > 0) {
                 const pr = existingPrs[0];
@@ -1296,7 +1690,7 @@ jobs:
                 const { owner, repo } = context.repo;
                 const prUrl = `${serverUrl}/${owner}/${repo}/pull/${pr.number}`;
 
-                await github.rest.issues.createComment({
+                await withRetry((client) => client.rest.issues.createComment({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   issue_number: issueNumber,
@@ -1306,15 +1700,15 @@ jobs:
 
             Auto-pilot will stop creating/dispatching work for this issue. If you want to restart,
             remove and re-add the \`agents:auto-pilot\` label.`
-                });
+                }));
 
                 try {
-                  await github.rest.issues.removeLabel({
+                  await withRetry((client) => client.rest.issues.removeLabel({
                     owner: context.repo.owner,
                     repo: context.repo.repo,
                     issue_number: issueNumber,
                     name: 'agents:auto-pilot'
-                  });
+                  }));
                 } catch (labelError) {
                   core.warning(`Could not remove agents:auto-pilot label: ${labelError?.message}`);
                 }
@@ -1328,12 +1722,12 @@ jobs:
 
             // If branch has no commits ahead of base, dispatch the belt worker
             try {
-              const { data: comparison } = await github.rest.repos.compareCommits({
+              const { data: comparison } = await withRetry((client) => client.rest.repos.compareCommits({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 base: baseBranch,
                 head: branchName
-              });
+              }));
 
               if ((comparison.ahead_by || 0) === 0) {
                 core.info(`Branch ${branchName} has no commits ahead of ${baseBranch}`);
@@ -1347,14 +1741,14 @@ jobs:
                   const warnMsg = `Stall: ${stallCount} attempts without commits`;
                   core.warning(warnMsg);
 
-                  await github.rest.issues.addLabels({
+                  await withRetry((client) => client.rest.issues.addLabels({
                     owner: context.repo.owner,
                     repo: context.repo.repo,
                     issue_number: issueNumber,
                     labels: ['agents:auto-pilot-pause', 'needs-human']
-                  });
+                  }));
 
-                  await github.rest.issues.createComment({
+                  await withRetry((client) => client.rest.issues.createComment({
                     owner: context.repo.owner,
                     repo: context.repo.repo,
                     issue_number: issueNumber,
@@ -1376,7 +1770,7 @@ jobs:
 
             **To resume:** Remove \`agents:auto-pilot-pause\` and \`needs-human\` labels,
             then re-add \`agents:auto-pilot\`.`
-                  });
+              }));
 
                   const failMsg = `Auto-pilot stalled: ${stallCount} failed dispatches`;
                   core.setFailed(failMsg);
@@ -1393,14 +1787,14 @@ jobs:
                   const actualMinutes = Math.round(actualBackoffMs / 60000);
 
                   core.info(`Applying backoff: waiting ${actualMinutes} minutes`);
-                  await github.rest.issues.createComment({
+                  await withRetry((client) => client.rest.issues.createComment({
                     owner: context.repo.owner,
                     repo: context.repo.repo,
                     issue_number: issueNumber,
                     body: `🤖 **Auto-pilot**: Backoff delay (${actualMinutes}m)
 
             Attempt ${stallCount + 1}/${maxStallRetries}. Waiting before retry...`
-                  });
+              }));
 
                   // Sleep with exponential backoff
                   await new Promise(resolve => setTimeout(resolve, actualBackoffMs));
@@ -1409,7 +1803,7 @@ jobs:
                 let workerDispatched = false;
                 let dispatchError = null;
                 try {
-                  await github.rest.actions.createWorkflowDispatch({
+                  await withRetry((client) => client.rest.actions.createWorkflowDispatch({
                     owner: context.repo.owner,
                     repo: context.repo.repo,
                     workflow_id: 'agents-72-codex-belt-worker-dispatch.yml',
@@ -1420,7 +1814,7 @@ jobs:
                       base: baseBranch,
                       source: 'auto-pilot'
                     }
-                  });
+                  }));
                   workerDispatched = true;
                   core.info(`Dispatched codex belt worker for issue #${issueNumber}`);
                 } catch (err) {
@@ -1453,7 +1847,7 @@ jobs:
                   ].join('\n');
                 }
 
-                await github.rest.issues.createComment({
+                await withRetry((client) => client.rest.issues.createComment({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   issue_number: issueNumber,
@@ -1463,13 +1857,13 @@ jobs:
             ${dispatchLine}
 
             ⏳ Auto-pilot will check again on next trigger.`
-                });
+                }));
                 return;
               }
             } catch (compareError) {
               const message = compareError?.message || String(compareError);
               core.warning(`Could not compare ${branchName} to ${baseBranch}: ${message}`);
-              await github.rest.issues.createComment({
+              await withRetry((client) => client.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issueNumber,
@@ -1477,7 +1871,7 @@ jobs:
 
             Could not compare \`${branchName}\` to \`${baseBranch}\`.
             Skipping PR creation for now. Auto-pilot will retry on the next trigger.`
-              });
+              }));
               return;
             }
 
@@ -1485,11 +1879,11 @@ jobs:
             core.info(`Creating PR from ${branchName}`);
 
             // Fetch issue body to include in PR
-            const { data: issue } = await github.rest.issues.get({
+            const { data: issue } = await withRetry((client) => client.rest.issues.get({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: issueNumber
-            });
+            }));
 
             const prTitle = `[Auto-pilot] ${issueTitle}`;
             const prBody = [
@@ -1501,26 +1895,26 @@ jobs:
             ].join('\n');
 
             try {
-              const { data: pr } = await github.rest.pulls.create({
+              const { data: pr } = await withRetry((client) => client.rest.pulls.create({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 title: prTitle,
                 head: branchName,
                 base: baseBranch,
                 body: prBody
-              });
+              }));
 
               core.info(`Created PR #${pr.number}`);
 
               // Add standard agent labels to the PR (separate try-catch to not fail PR creation)
               let labelsAdded = false;
               try {
-                await github.rest.issues.addLabels({
+                await withRetry((client) => client.rest.issues.addLabels({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   issue_number: pr.number,
                   labels: ['agent:codex', 'agents:keepalive', 'autofix']
-                });
+                }));
                 labelsAdded = true;
                 core.info(`Added agent labels to PR #${pr.number}`);
               } catch (labelError) {
@@ -1535,7 +1929,7 @@ jobs:
               // Dispatch PR meta workflow to build Automated Status Summary
               // (GITHUB_TOKEN actions do not trigger workflow runs automatically)
               try {
-                await github.rest.actions.createWorkflowDispatch({
+                await withRetry((client) => client.rest.actions.createWorkflowDispatch({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   workflow_id: 'agents-pr-meta-v4.yml',
@@ -1544,7 +1938,7 @@ jobs:
                     pr_number: pr.number.toString(),
                     debug: 'false'
                   }
-                });
+                }));
                 core.info(`Dispatched PR meta update for PR #${pr.number}`);
               } catch (dispatchError) {
                 core.warning(`Could not dispatch PR meta update: ${dispatchError?.message}`);
@@ -1552,7 +1946,7 @@ jobs:
 
               // Dispatch keepalive workflow since GITHUB_TOKEN labels don't trigger it
               try {
-                await github.rest.actions.createWorkflowDispatch({
+                await withRetry((client) => client.rest.actions.createWorkflowDispatch({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   workflow_id: 'agents-keepalive-loop.yml',
@@ -1561,7 +1955,7 @@ jobs:
                     pr_number: pr.number.toString(),
                     force_retry: 'true'
                   }
-                });
+                }));
                 core.info(`Dispatched keepalive for PR #${pr.number}`);
               } catch (dispatchError) {
                 core.warning(`Could not dispatch keepalive: ${dispatchError?.message}`);
@@ -1574,7 +1968,7 @@ jobs:
               const prUrl = `${serverUrl}/${owner}/${repo}/pull/${pr.number}`;
               const branchUrl = `${serverUrl}/${owner}/${repo}/tree/${branchName}`;
 
-              await github.rest.issues.createComment({
+              await withRetry((client) => client.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issueNumber,
@@ -1588,7 +1982,7 @@ jobs:
             - Branch: ${branchUrl}
 
             The PR will now go through CI checks. Auto-pilot will continue monitoring.`
-              });
+              }));
 
             } catch (e) {
               if (e.status === 422 && e.message?.includes('already exists')) {
@@ -1596,7 +1990,7 @@ jobs:
               } else {
                 // PR creation failed - report but don't fail workflow
                 core.warning(`Failed to create PR: ${e.message}`);
-                await github.rest.issues.createComment({
+                await withRetry((client) => client.rest.issues.createComment({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   issue_number: issueNumber,
@@ -1607,7 +2001,7 @@ jobs:
             Error: ${e.message}
 
             Please create the PR manually or check permissions.`
-                });
+                }));
               }
             }
 
@@ -1617,8 +2011,7 @@ jobs:
           AUTOPILOT_STEP_NAME: create-pr
           AUTOPILOT_ERROR_CATEGORY: timer-end
         run: |
-          python "$WORKFLOWS_SCRIPTS_PATH/scripts/autopilot_step_timer.py" \
-           --event end --format epoch-ms --github-env
+          python scripts/autopilot_step_timer.py --event end --format epoch-ms --github-env
 
       - name: Metrics - Record create-pr step
         if: always() && steps.next.outputs.next_step == 'create-pr'
@@ -1632,7 +2025,7 @@ jobs:
           if [ "$success" != "true" ]; then
             failure_reason="step-failed"
           fi
-          python "$WORKFLOWS_SCRIPTS_PATH/scripts/autopilot_metrics_collector.py" \
+          python scripts/autopilot_metrics_collector.py \
             --path "$AUTOPILOT_METRICS_LOG_PATH" \
             --metric-type step \
             --issue-number "${{ steps.context.outputs.issue_number }}" \
@@ -1647,8 +2040,7 @@ jobs:
           AUTOPILOT_STEP_NAME: monitor-pr
           AUTOPILOT_ERROR_CATEGORY: timer-start
         run: |
-          python "$WORKFLOWS_SCRIPTS_PATH/scripts/autopilot_step_timer.py" \
-           --event start --format epoch-ms --github-env
+          python scripts/autopilot_step_timer.py --event start --format epoch-ms --github-env
 
       - name: Report - Monitoring PR
         if: steps.next.outputs.next_step == 'monitor-pr'
@@ -1660,6 +2052,14 @@ jobs:
           MAX_STALL_RETRIES: '5'
         with:
           script: |
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'auto-pilot-monitor-pr',
+              capabilities: ['issues:write', 'contents:read']
+            });
             const prNumber = '${{ steps.context.outputs.linked_pr }}';
             const issueNumber = parseInt(process.env.ISSUE_NUMBER);
             const stepCount = parseInt(process.env.STEP_COUNT || '0') + 1;
@@ -1667,12 +2067,12 @@ jobs:
 
             // Helper: count consecutive "monitor-pr" comments (stall detection)
             async function countConsecutiveWaits(waitText) {
-              const { data: comments } = await github.rest.issues.listComments({
+              const { data: comments } = await withRetry((client) => client.rest.issues.listComments({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issueNumber,
                 per_page: 100
-              });
+              }));
 
               // Look at comments in reverse order (newest first)
               const reversed = [...comments].reverse();
@@ -1699,14 +2099,14 @@ jobs:
               const warnMsg = `Stall: ${stallCount} monitor-pr attempts without completion`;
               core.warning(warnMsg);
 
-              await github.rest.issues.addLabels({
+              await withRetry((client) => client.rest.issues.addLabels({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issueNumber,
                 labels: ['agents:auto-pilot-pause', 'needs-human']
-              });
+              }));
 
-              await github.rest.issues.createComment({
+              await withRetry((client) => client.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issueNumber,
@@ -1718,7 +2118,7 @@ jobs:
 
             **To resume:** Remove \`agents:auto-pilot-pause\` and
             \`needs-human\` labels, then re-add \`agents:auto-pilot\`.`
-              });
+              }));
 
               core.setOutput('stop_autopilot', 'true');
               core.setFailed(warnMsg);
@@ -1735,7 +2135,7 @@ jobs:
               const actualMinutes = Math.round(actualBackoffMs / 60000);
 
               core.info(`Applying monitor-pr backoff: waiting ${actualMinutes} minutes`);
-              await github.rest.issues.createComment({
+              await withRetry((client) => client.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issueNumber,
@@ -1743,13 +2143,13 @@ jobs:
 
             Monitoring PR status. Attempt ${stallCount + 1}/${maxStallRetries}.
             Waiting before retry...`
-              });
+              }));
 
               // Sleep with exponential backoff
               await new Promise(resolve => setTimeout(resolve, actualBackoffMs));
             }
 
-            await github.rest.issues.createComment({
+            await withRetry((client) => client.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: issueNumber,
@@ -1760,7 +2160,7 @@ jobs:
             📊 Stall count: ${stallCount + 1}/${maxStallRetries}
 
             ⏳ Auto-pilot will check again on next trigger.`
-            });
+            }));
 
       - name: Metrics - End monitor-pr timer
         if: always() && steps.next.outputs.next_step == 'monitor-pr'
@@ -1768,8 +2168,7 @@ jobs:
           AUTOPILOT_STEP_NAME: monitor-pr
           AUTOPILOT_ERROR_CATEGORY: timer-end
         run: |
-          python "$WORKFLOWS_SCRIPTS_PATH/scripts/autopilot_step_timer.py" \
-           --event end --format epoch-ms --github-env
+          python scripts/autopilot_step_timer.py --event end --format epoch-ms --github-env
 
       - name: Metrics - Record monitor-pr step
         if: always() && steps.next.outputs.next_step == 'monitor-pr'
@@ -1783,7 +2182,7 @@ jobs:
           if [ "$success" != "true" ]; then
             failure_reason="step-failed"
           fi
-          python "$WORKFLOWS_SCRIPTS_PATH/scripts/autopilot_metrics_collector.py" \
+          python scripts/autopilot_metrics_collector.py \
             --path "$AUTOPILOT_METRICS_LOG_PATH" \
             --metric-type step \
             --issue-number "${{ steps.context.outputs.issue_number }}" \
@@ -1798,8 +2197,7 @@ jobs:
           AUTOPILOT_STEP_NAME: check-completion
           AUTOPILOT_ERROR_CATEGORY: timer-start
         run: |
-          python "$WORKFLOWS_SCRIPTS_PATH/scripts/autopilot_step_timer.py" \
-           --event start --format epoch-ms --github-env
+          python scripts/autopilot_step_timer.py --event start --format epoch-ms --github-env
 
       - name: Execute step - Check Completion & Trigger Merge
         if: steps.next.outputs.next_step == 'check-completion'
@@ -1811,20 +2209,28 @@ jobs:
           STEP_COUNT: ${{ steps.cycles.outputs.count }}
         with:
           script: |
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'auto-pilot-check-completion',
+              capabilities: ['issues:write', 'contents:read']
+            });
             const issueNumber = parseInt(process.env.ISSUE_NUMBER);
             const prNumber = parseInt(process.env.PR_NUMBER);
             const stepCount = parseInt(process.env.STEP_COUNT || '0') + 1;
 
             // Get PR details to check CI status
-            const { data: pr } = await github.rest.pulls.get({
+            const { data: pr } = await withRetry((client) => client.rest.pulls.get({
               owner: context.repo.owner,
               repo: context.repo.repo,
               pull_number: prNumber
-            });
+            }));
 
             // Check if PR is mergeable
             if (pr.mergeable !== true) {
-              await github.rest.issues.createComment({
+              await withRetry((client) => client.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issueNumber,
@@ -1833,18 +2239,18 @@ jobs:
             ⚠️ PR #${prNumber} is not mergeable or its mergeability is still being computed.
 
             Auto-pilot cannot proceed with merge. Manual intervention may be required.`
-              });
+              }));
               return;
             }
 
             // Check CI status
             let checksPass = true;
             try {
-              const { data: checks } = await github.rest.checks.listForRef({
+              const { data: checks } = await withRetry((client) => client.rest.checks.listForRef({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 ref: pr.head.sha
-              });
+              }));
 
               const pendingChecks = checks.check_runs.filter(check =>
                 check.status !== 'completed'
@@ -1862,7 +2268,7 @@ jobs:
             }
 
             if (!checksPass) {
-              await github.rest.issues.createComment({
+              await withRetry((client) => client.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issueNumber,
@@ -1871,19 +2277,19 @@ jobs:
             ⚠️ PR #${prNumber} has failing CI checks.
 
             Auto-pilot will wait for checks to pass before merging.`
-              });
+              }));
               return;
             }
 
             // All checks pass - add automerge label
-            await github.rest.issues.addLabels({
+            await withRetry((client) => client.rest.issues.addLabels({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: prNumber,
               labels: ['automerge']
-            });
+            }));
 
-            await github.rest.issues.createComment({
+            await withRetry((client) => client.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: issueNumber,
@@ -1894,7 +2300,7 @@ jobs:
             ✅ No merge conflicts
 
             Added \`automerge\` label to PR #${prNumber}. The orchestrator will merge it shortly.`
-            });
+            }));
 
             core.info(`PR #${prNumber} ready for automerge - added label`);
 
@@ -1904,8 +2310,7 @@ jobs:
           AUTOPILOT_STEP_NAME: check-completion
           AUTOPILOT_ERROR_CATEGORY: timer-end
         run: |
-          python "$WORKFLOWS_SCRIPTS_PATH/scripts/autopilot_step_timer.py" \
-           --event end --format epoch-ms --github-env
+          python scripts/autopilot_step_timer.py --event end --format epoch-ms --github-env
 
       - name: Metrics - Record check-completion step
         if: always() && steps.next.outputs.next_step == 'check-completion'
@@ -1919,7 +2324,7 @@ jobs:
           if [ "$success" != "true" ]; then
             failure_reason="step-failed"
           fi
-          python "$WORKFLOWS_SCRIPTS_PATH/scripts/autopilot_metrics_collector.py" \
+          python scripts/autopilot_metrics_collector.py \
             --path "$AUTOPILOT_METRICS_LOG_PATH" \
             --metric-type step \
             --issue-number "${{ steps.context.outputs.issue_number }}" \
@@ -1946,12 +2351,20 @@ jobs:
           CURRENT_STEP: ${{ steps.next.outputs.next_step }}
         with:
           script: |
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'auto-pilot-redispatch',
+              capabilities: ['contents:read', 'actions:write']
+            });
             const issueNumber = parseInt(process.env.ISSUE_NUMBER);
             const currentStep = process.env.CURRENT_STEP;
-            const { data: repoInfo } = await github.rest.repos.get({
+            const { data: repoInfo } = await withRetry((client) => client.rest.repos.get({
               owner: context.repo.owner,
               repo: context.repo.repo
-            });
+            }));
             const baseBranch = repoInfo.default_branch;
             if (!baseBranch) {
               core.setFailed('Repository default branch not available');
@@ -1985,7 +2398,7 @@ jobs:
               `Re-dispatching auto-pilot: issue #${issueNumber}, ` +
               `next_step=${nextStep}`
             );
-            await github.rest.actions.createWorkflowDispatch({
+            await withRetry((client) => client.rest.actions.createWorkflowDispatch({
               owner: context.repo.owner,
               repo: context.repo.repo,
               workflow_id: 'agents-auto-pilot.yml',
@@ -1994,7 +2407,7 @@ jobs:
                 issue_number: issueNumber.toString(),
                 force_step: nextStep
               }
-            });
+            }));
 
             core.info(
               `Re-dispatched for issue #${issueNumber} after ` +
@@ -2008,16 +2421,24 @@ jobs:
           ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
         with:
           script: |
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'auto-pilot-report-done',
+              capabilities: ['issues:write', 'contents:read']
+            });
             const issueNumber = parseInt(process.env.ISSUE_NUMBER);
 
             // Remove auto-pilot label since we're done
             try {
-              await github.rest.issues.removeLabel({
+              await withRetry((client) => client.rest.issues.removeLabel({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issueNumber,
                 name: 'agents:auto-pilot'
-              });
+              }));
             } catch (e) {
               // Label might already be removed (404) - that's OK
               if (e && e.status === 404) {
@@ -2027,7 +2448,7 @@ jobs:
               }
             }
 
-            await github.rest.issues.createComment({
+            await withRetry((client) => client.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: issueNumber,
@@ -2040,6 +2461,6 @@ jobs:
             - ✅ Verification triggered
 
             Thank you for using auto-pilot! 🚀`
-            });
+            }));
 
             core.info('Auto-pilot complete!');
