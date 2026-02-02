@@ -63,6 +63,16 @@ jobs:
   merge_sync_prs:
     runs-on: ubuntu-latest
     steps:
+      # Mint GitHub App token early to use for API calls (avoids rate limits)
+      - name: Mint GitHub App Token
+        id: app_token
+        uses: actions/create-github-app-token@v2
+        continue-on-error: true
+        with:
+          app-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
+          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || 'dummy' }}
+          owner: ${{ github.repository_owner }}
+
       - name: Checkout
         uses: actions/checkout@v6
 
@@ -87,7 +97,7 @@ jobs:
       - name: Check and merge sync PRs
         uses: actions/github-script@v8
         with:
-          github-token: ${{ secrets.CODESPACES_WORKFLOWS }}
+          github-token: ${{ steps.app_token.outputs.token || github.token }}
           script: |
             const owner = context.repo.owner;
             const inputRepos = '${{ inputs.repos }}' || 'all';

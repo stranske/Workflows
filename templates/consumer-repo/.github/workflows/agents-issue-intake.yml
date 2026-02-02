@@ -64,11 +64,10 @@ on:
         type: boolean
         default: false
 
-permissions:
-  contents: write
-  issues: write
-  pull-requests: write
-  models: read
+# NOTE: Top-level permissions block removed intentionally.
+# When caller workflows have top-level permissions AND call reusable workflows,
+# it can cause "startup_failure" with no jobs started.
+# Jobs that need specific permissions declare them at job level.
 
 jobs:
   # Determine which mode to run
@@ -177,7 +176,7 @@ jobs:
     if: |
       needs.route.outputs.should_run_bridge == 'true' &&
       needs.check_labels.outputs.should_run == 'true'
-    uses: stranske/Workflows/.github/workflows/reusable-agents-issue-bridge.yml@v1
+    uses: stranske/Workflows/.github/workflows/reusable-agents-issue-bridge.yml@main
     with:
       agent: ${{ needs.check_labels.outputs.agent }}
       issue_number: ${{ needs.check_labels.outputs.issue_number }}
@@ -193,8 +192,8 @@ jobs:
     secrets:
       service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
       owner_pr_pat: ${{ secrets.OWNER_PR_PAT }}
-      WORKFLOWS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID }}
-      WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+      workflows_app_id: ${{ secrets.WORKFLOWS_APP_ID }}
+      workflows_app_private_key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
 
   # ChatGPT sync mode: Call the Workflows repo reusable workflow with sync capability
   sync:
@@ -206,7 +205,7 @@ jobs:
       id-token: write
       models: read
       pull-requests: write
-    uses: stranske/Workflows/.github/workflows/agents-63-issue-intake.yml@v1
+    uses: stranske/Workflows/.github/workflows/agents-63-issue-intake.yml@main
     with:
       intake_mode: "chatgpt_sync"
       source: ${{ inputs.topic_files }}

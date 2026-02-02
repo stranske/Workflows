@@ -203,6 +203,13 @@ scripts:
   - source: scripts/check_test_dependencies.sh
     description: "Checks test dependencies match - required by reusable CI workflow"
 
+  # Python scripts for auto-pilot metrics
+  - source: scripts/autopilot_step_timer.py
+    description: "Emits step timing timestamps for auto-pilot workflows - required by agents-auto-pilot.yml"
+
+  - source: scripts/autopilot_metrics_collector.py
+    description: "Collects and appends structured auto-pilot metrics to NDJSON log - required by agents-auto-pilot.yml"
+
   # Python scripts for ChatGPT topic sync
   - source: .github/scripts/decode_raw_input.py
     description: "Decodes raw input from ChatGPT connector"

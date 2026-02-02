@@ -101,7 +101,7 @@ jobs:
   autofix:
     needs: resolve
     if: needs.resolve.outputs.should_run == 'true'
-    uses: stranske/Workflows/.github/workflows/reusable-18-autofix.yml@v1
+    uses: stranske/Workflows/.github/workflows/reusable-18-autofix.yml@main
     with:
       pr_number: ${{ fromJson(needs.resolve.outputs.pr_number) }}
       pr_head_ref: ${{ needs.resolve.outputs.pr_head_ref }}

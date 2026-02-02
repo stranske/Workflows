@@ -79,10 +79,21 @@ jobs:
        contains(github.event.issue.labels.*.name, 'agents:auto-pilot'))
 
     steps:
+      # Mint GitHub App token early to use for API calls (avoids rate limits)
+      - name: Mint GitHub App Token
+        id: app_token
+        uses: actions/create-github-app-token@v2
+        continue-on-error: true
+        with:
+          app-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
+          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || 'dummy' }}
+          owner: ${{ github.repository_owner }}
+
       - name: Check if auto-pilot is enabled
         id: check_enabled
         uses: actions/github-script@v8
         with:
+          github-token: ${{ steps.app_token.outputs.token || github.token }}
           script: |
             // Handle different event types
             if (context.eventName === 'workflow_dispatch') {
@@ -114,6 +125,8 @@ jobs:
       - name: Checkout repository
         if: steps.check_enabled.outputs.enabled == 'true'
         uses: actions/checkout@v6
+        with:
+          token: ${{ steps.app_token.outputs.token || github.token }}
 
       - name: Set up Node
         if: steps.check_enabled.outputs.enabled == 'true'
@@ -155,6 +168,7 @@ jobs:
         if: steps.check_enabled.outputs.enabled == 'true'
         uses: actions/checkout@v6
         with:
+          token: ${{ steps.app_token.outputs.token || github.token }}
           repository: stranske/Workflows
           ref: ${{ steps.workflows_ref.outputs.ref }}
           sparse-checkout: |

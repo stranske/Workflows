@@ -43,36 +43,46 @@ jobs:
       security-events: write
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v6
+      # Mint GitHub App token early to use for API calls (avoids rate limits)
+      - name: Mint GitHub App Token
+        id: app_token
+        uses: actions/create-github-app-token@v2
+        continue-on-error: true
+        with:
+          app-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
+          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || 'dummy' }}
+          owner: ${{ github.repository_owner }}
 
-    - name: Initialize CodeQL
-      uses: github/codeql-action/init@v4
-      with:
-        languages: python
-        token: ${{ env.CODEQL_TOKEN }}
+      - name: Checkout repository
+        uses: actions/checkout@v6
 
-    - name: Autobuild
-      uses: github/codeql-action/autobuild@v4
-      with:
-        token: ${{ env.CODEQL_TOKEN }}
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: python
+          token: ${{ env.CODEQL_TOKEN }}
 
-    - name: Perform CodeQL Analysis
-      id: codeql_analyze
-      uses: github/codeql-action/analyze@v4
-      # Always continue on error - rate limit failures during SARIF upload shouldn't block PRs.
-      # The analysis itself completes successfully; only telemetry/upload may fail.
-      continue-on-error: true
-      with:
-        category: "/language:python"
-        token: ${{ env.CODEQL_TOKEN }}
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v4
+        with:
+          token: ${{ env.CODEQL_TOKEN }}
 
-    - name: Report CodeQL status
-      if: always()
-      run: |
-        if [ "${{ steps.codeql_analyze.outcome }}" = "failure" ]; then
-          echo "::warning::CodeQL analysis step failed (likely rate limit)."
-          echo "::warning::Results may not be uploaded."
-        else
-          echo "CodeQL analysis completed successfully."
-        fi
+      - name: Perform CodeQL Analysis
+        id: codeql_analyze
+        uses: github/codeql-action/analyze@v4
+        # Always continue on error - rate limit failures during SARIF upload shouldn't block PRs.
+        # The analysis itself completes successfully; only telemetry/upload may fail.
+        continue-on-error: true
+        with:
+          category: "/language:python"
+          token: ${{ env.CODEQL_TOKEN }}
+
+      - name: Report CodeQL status
+        if: always()
+        run: |
+          if [ "${{ steps.codeql_analyze.outcome }}" = "failure" ]; then
+            echo "::warning::CodeQL analysis step failed (likely rate limit)."
+            echo "::warning::Results may not be uploaded."
+          else
+            echo "CodeQL analysis completed successfully."
+          fi

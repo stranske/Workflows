@@ -40,7 +40,7 @@ concurrency:
 jobs:
   python-ci:
     name: Python CI
-    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@v1
+    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
     with:
       python-versions: '["3.11", "3.12"]'
       coverage-min: "80"

@@ -397,7 +397,7 @@ jobs:
     needs: prepare
     if: needs.prepare.outputs.should_run == 'true'
     name: Run Codex autofix
-    uses: stranske/Workflows/.github/workflows/reusable-codex-run.yml@v1
+    uses: stranske/Workflows/.github/workflows/reusable-codex-run.yml@main
     with:
       prompt_file: .github/codex/prompts/autofix_from_ci_failure.md
       mode: autofix

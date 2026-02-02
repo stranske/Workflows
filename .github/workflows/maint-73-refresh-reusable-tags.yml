@@ -1,0 +1,122 @@
+name: Maint 73 Refresh Reusable Tags
+
+# DEPRECATED: This workflow is disabled.
+# Consumer repos now use @main directly instead of floating version tags.
+# The v1 tag approach added complexity without providing stability benefits
+# since v1 was auto-refreshed to track main HEAD anyway.
+#
+# Previous purpose: Keep floating tags aligned with main so consumer repos
+# always run the latest reusable workflows without editing every repo.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tags:
+        description: 'DEPRECATED - Consumer repos now use @main directly'
+        required: false
+        type: string
+  # Disabled automatic triggers
+  # push:
+  #   branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: refresh-reusable-tags-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  refresh:
+    name: Refresh floating tags
+    runs-on: ubuntu-latest
+    steps:
+      # Mint GitHub App token early to use for API calls (avoids rate limits)
+      - name: Mint GitHub App Token
+        id: app_token
+        uses: actions/create-github-app-token@v2
+        continue-on-error: true
+        with:
+          app-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
+          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || 'dummy' }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+
+          token: ${{ steps.app_token.outputs.token || github.token }}
+          fetch-depth: 0
+
+      - name: Configure git
+        run: |
+          set -euo pipefail
+          git config user.name "stranske-automation-bot"
+          git config user.email "stranske-automation-bot@users.noreply.github.com"
+
+      - name: Determine tags
+        id: tags
+        run: |
+          set -euo pipefail
+          input_tags="${{ inputs.tags }}"
+          if [ -z "$input_tags" ]; then
+            input_tags="v1"
+          fi
+          tags=$(echo "$input_tags" | tr ',' '\n' | sed 's/^ *//;s/ *$//' | grep -v '^$' | sort -u)
+          echo "tags<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$tags" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Refresh tags
+        id: refresh
+        env:
+          TAGS: ${{ steps.tags.outputs.tags }}
+          TARGET_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          updated=0
+          while read -r tag; do
+            if [ -z "$tag" ]; then
+              continue
+            fi
+            current=$(git rev-parse -q --verify "refs/tags/$tag" || echo "")
+            if [ "$current" = "$TARGET_SHA" ]; then
+              echo "Tag $tag already at $TARGET_SHA"
+              continue
+            fi
+            git tag -f "$tag" "$TARGET_SHA"
+            updated=$((updated + 1))
+          done <<< "$TAGS"
+
+          if [ "$updated" -eq 0 ]; then
+            echo "No tag updates needed."
+            exit 0
+          fi
+
+          echo "updated=$updated" >> "$GITHUB_OUTPUT"
+
+          while read -r tag; do
+            if [ -n "$tag" ]; then
+              git push origin "refs/tags/$tag" --force
+            fi
+          done <<< "$TAGS"
+
+      - name: Summary
+        if: always()
+        env:
+          TAGS: ${{ steps.tags.outputs.tags }}
+          UPDATED: ${{ steps.refresh.outputs.updated || '0' }}
+        run: |
+          {
+            echo "## Reusable Tag Refresh"
+            echo ""
+            if [ "$UPDATED" -eq 0 ]; then
+              echo "No updates needed - tags already at ${{ github.sha }}"
+            else
+              echo "Updated $UPDATED tag(s) to ${{ github.sha }}:"
+              echo ""
+              while IFS= read -r tag; do
+                [ -n "$tag" ] && echo "- $tag"
+              done <<< "$TAGS"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

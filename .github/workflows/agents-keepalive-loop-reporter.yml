@@ -23,9 +23,21 @@ jobs:
     if: vars.USE_CONSOLIDATED_WORKFLOWS != 'true'
     runs-on: ubuntu-latest
     steps:
+      # Mint GitHub App token early to use for API calls (avoids rate limits)
+      - name: Mint GitHub App Token
+        id: app_token
+        uses: actions/create-github-app-token@v2
+        continue-on-error: true
+        with:
+          app-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
+          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || 'dummy' }}
+          owner: ${{ github.repository_owner }}
+
       - name: Checkout keepalive scripts
         uses: actions/checkout@v6
         with:
+
+          token: ${{ steps.app_token.outputs.token || github.token }}
           sparse-checkout: |
             .github/scripts
           sparse-checkout-cone-mode: false
@@ -45,7 +57,7 @@ jobs:
       - name: Update summary for cancelled/failed runs
         uses: actions/github-script@v8
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ steps.app_token.outputs.token || github.token }}
           script: |
             const run = context.payload?.workflow_run || {};
             const prNumber = Number(run.pull_requests?.[0]?.number || 0);

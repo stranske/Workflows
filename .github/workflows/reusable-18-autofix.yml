@@ -112,7 +112,6 @@ jobs:
       contents: write
       pull-requests: write
     runs-on: ubuntu-latest
-    if: ${{ true }}
     outputs:
       ran: ${{ steps.finalize.outputs.ran }}
       changed: ${{ steps.finalize.outputs.changed }}
@@ -1092,11 +1091,13 @@ jobs:
           echo "[history] Attempting to restore ${artifact_name} from previous runs"
           set +e
           # shellcheck disable=SC1009,SC1073,SC1039,SC1072
+          # Use name filter to avoid paginating through all 50k+ repo artifacts
           response=$(node - <<'NODE'
           const { Octokit } = require('@octokit/rest');
           const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
           const core = { info: () => {}, warning: console.warn, debug: () => {} };
           const [owner, repo] = process.env.TARGET_REPO.split('/');
+          const artifactName = process.env.artifact_name;
           (async () => {
             const github = new Octokit({ auth: process.env.GH_TOKEN || process.env.GITHUB_TOKEN });
             const { paginateWithRetry } = await createTokenAwareRetry({
@@ -1109,6 +1110,7 @@ jobs:
             const artifacts = await paginateWithRetry(github.rest.actions.listArtifactsForRepo, {
               owner,
               repo,
+              name: artifactName,
               per_page: 100
             });
             process.stdout.write(JSON.stringify({ artifacts }));
@@ -1167,7 +1169,6 @@ jobs:
             process.exit(1);
           });
           NODE
-          then
             echo "[history] Failed to download artifact ${artifact_id}"
             exit 0
           fi

@@ -16,7 +16,7 @@ Breaking changes are any change that can alter a consumer’s behavior without t
 
 We support at least two major versions at any given time:
 
-- **Current major (v1.x)** – Actively maintained with fixes and backward-compatible enhancements. Floating tag `@v1` points to the latest v1.x release.
+- **Current major (v1.x)** – Actively maintained with fixes and backward-compatible enhancements. Floating tag `@v1` tracks the latest commit on `main` (updated automatically by `Maint 73 Refresh Reusable Tags` after every merge) for immediate fix propagation to consumer repos.
 - **Previous major** – Remains supported for a minimum of 12 months after a new major is released. Only critical fixes and security updates are provided.
 - **Older majors** – Enter end-of-life (EOL) after the 12-month overlap window.
 

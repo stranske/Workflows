@@ -1,6 +1,7 @@
 {
   "repo": {"owner": "stranske", "repo": "Workflows"},
   "now": "2024-05-18T12:00:00Z",
+  "clear_token_defaults": true,
   "env": {
     "OPTIONS_JSON": "{}",
     "DRY_RUN": "false",

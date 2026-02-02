@@ -46,9 +46,9 @@ Choose the reference that matches your stability needs:
 
 | Reference | When to use it | Behavior |
 |-----------|----------------|----------|
-| **Floating major tag (`@v1`)** | Default for most teams that want security/bug fixes without breaking changes. | Automatically moves forward to the latest `v1.x` release; maintained by the release workflow and the floating-tag maintenance job. |
-| **Pinned release (`@v1.0.0`)** | When you need fully reproducible builds or plan to upgrade on your own schedule. | Locked to a specific release until you update the tag. |
-| **Branch reference (`@main`)** | Only when testing unreleased changes. | Can include breaking changes; not guaranteed stable. |
+| **Floating major tag (`@v1`)** | Default for most teams that want immediate security/bug fixes. | Automatically tracks the latest commit on `main` (not a release); maintained by `Maint 73 Refresh Reusable Tags` after every merge. Provides immediate fix propagation but may include unreleased changes. |
+| **Pinned release (`@v1.0.0`)** | When you need fully reproducible builds or prefer to upgrade on your own schedule. | Locked to a specific release until you update the tag. Recommended for production stability. |
+| **Branch reference (`@main`)** | Only when testing unreleased changes or developing new features. | Can include breaking changes; not guaranteed stable. |
 
 Example with both floating and pinned tags:
 

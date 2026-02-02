@@ -353,9 +353,15 @@ async function runScenario(scenario) {
     },
   };
 
+  const clearTokenDefaults =
+    Boolean(scenario.clear_token_defaults) ||
+    Boolean(scenario.clearTokenDefaults) ||
+    Boolean(scenario.env?.CLEAR_TOKEN_DEFAULTS) ||
+    Boolean(scenario.env?.clear_token_defaults);
+
   const envOverrides = {
-    ACTIONS_BOT_PAT: 'dummy-token',
-    SERVICE_BOT_PAT: 'service-token',
+    ACTIONS_BOT_PAT: clearTokenDefaults ? '' : 'dummy-token',
+    SERVICE_BOT_PAT: clearTokenDefaults ? '' : 'service-token',
     GH_TOKEN: '',
     gh_token: '',
     actions_bot_pat: '',

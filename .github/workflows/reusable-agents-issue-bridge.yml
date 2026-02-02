@@ -58,18 +58,16 @@ on:
       owner_pr_pat:
         description: "PAT for PR creation operations"
         required: false
-      WORKFLOWS_APP_ID:
+      workflows_app_id:
         description: "GitHub App ID for minting installation tokens"
         required: false
-      WORKFLOWS_APP_PRIVATE_KEY:
+      workflows_app_private_key:
         description: "GitHub App private key for minting installation tokens"
         required: false
 
-permissions:
-  contents: write
-  pull-requests: write
-  issues: write
-  models: read
+# NOTE: Top-level permissions removed - moved to job level.
+# When this reusable is called by another workflow_call workflow (like agents-63-issue-intake),
+# having top-level permissions with models:read causes startup_failure.
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -78,6 +76,11 @@ concurrency:
 jobs:
   bridge:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      # models: read - removed to test if this causes startup_failure
     outputs:
       issue: ${{ steps.ctx.outputs.issue }}
       has_issue: ${{ steps.ctx.outputs.has_issue }}
@@ -95,16 +98,16 @@ jobs:
         continue-on-error: true
         uses: actions/create-github-app-token@v2
         with:
-          app-id: ${{ secrets.WORKFLOWS_APP_ID }}
-          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+          app-id: ${{ secrets.workflows_app_id }}
+          private-key: ${{ secrets.workflows_app_private_key }}
 
-      - name: Checkout retry helpers
+      # Full checkout from the start - sparse checkout causes issues with file visibility
+      # in subsequent steps even after disabling it
+      - name: Checkout repository
         uses: actions/checkout@v6
         with:
-          sparse-checkout: |
-            .github/actions/setup-api-client
-            .github/scripts/github-api-with-retry.js
-          sparse-checkout-cone-mode: false
+          fetch-depth: 0
+          persist-credentials: true
 
       - name: Setup API client
         uses: ./.github/actions/setup-api-client
@@ -295,12 +298,17 @@ jobs:
         run: |
           echo "::error::Missing issue number for workflow_dispatch. Provide an issue number when manually running this workflow." && exit 1
 
-      - name: Checkout default
-        uses: actions/checkout@v6
-        with:
-          ref: ${{ steps.refs.outputs.base }}
-          fetch-depth: 0
-          persist-credentials: true
+      # Switch to the target base branch if different from current checkout
+      - name: Checkout target base
+        run: |
+          TARGET_BASE="${{ steps.refs.outputs.base }}"
+          CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+          if [ "$TARGET_BASE" != "$CURRENT_BRANCH" ]; then
+            git fetch origin "$TARGET_BASE" --depth=0 || true
+            git checkout "$TARGET_BASE" || git checkout -b "$TARGET_BASE" "origin/$TARGET_BASE"
+          fi
+          echo "Scripts available:"
+          ls .github/scripts/ | head -10
 
       - name: Select PR mode
         id: mode

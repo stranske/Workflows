@@ -105,12 +105,15 @@ on:
         required: false
       owner_pr_pat:
         required: false
+      workflows_app_id:
+        required: false
+      workflows_app_private_key:
+        required: false
 
-permissions:
-  contents: write
-  issues: write
-  pull-requests: write
-  models: read
+# NOTE: Top-level permissions block removed intentionally.
+# When a workflow_call reusable workflow has top-level permissions, it causes
+# "startup_failure" with no jobs started when callers have their own permissions.
+# Jobs that need specific permissions declare them at job level.
 
 concurrency:
   group: issue-intake-${{ github.event.issue.number || github.run_id }}
@@ -144,6 +147,16 @@ jobs:
       bridge_draft_pr: ${{ steps.normalize.outputs.bridge_draft_pr }}
       apply_langchain_formatting: ${{ steps.normalize.outputs.apply_langchain_formatting }}
     steps:
+      # Mint GitHub App token early to use for API calls (avoids rate limits)
+      - name: Mint GitHub App Token
+        id: app_token
+        uses: actions/create-github-app-token@v2
+        continue-on-error: true
+        with:
+          app-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
+          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || 'dummy' }}
+          owner: ${{ github.repository_owner }}
+
       - name: Normalize inputs
         id: normalize
         env:
@@ -254,6 +267,16 @@ jobs:
       issues: write # Only elevated when a sync actually mutates issues; early exits remain read-only.
       models: read # Required for LLM-based topic splitting
     steps:
+      # Mint GitHub App token early to use for API calls (avoids rate limits)
+      - name: Mint GitHub App Token
+        id: app_token
+        uses: actions/create-github-app-token@v2
+        continue-on-error: true
+        with:
+          app-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
+          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || 'dummy' }}
+          owner: ${{ github.repository_owner }}
+
       - name: Checkout repository
         uses: actions/checkout@v6
 
@@ -1198,9 +1221,21 @@ jobs:
       issue_number: ${{ steps.inspect.outputs.issue_number }}
       agent_key: ${{ steps.inspect.outputs.agent_key }}
     steps:
+      # Mint GitHub App token early to use for API calls (avoids rate limits)
+      - name: Mint GitHub App Token
+        id: app_token
+        uses: actions/create-github-app-token@v2
+        continue-on-error: true
+        with:
+          app-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
+          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || 'dummy' }}
+          owner: ${{ github.repository_owner }}
+
       - name: Checkout retry helpers
         uses: actions/checkout@v6
         with:
+
+          token: ${{ steps.app_token.outputs.token || github.token }}
           sparse-checkout: |
             .github/actions/setup-api-client
             .github/scripts/github-api-with-retry.js
@@ -1297,6 +1332,16 @@ jobs:
       id-token: write
       models: read
     steps:
+      # Mint GitHub App token early to use for API calls (avoids rate limits)
+      - name: Mint GitHub App Token
+        id: app_token
+        uses: actions/create-github-app-token@v2
+        continue-on-error: true
+        with:
+          app-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
+          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || 'dummy' }}
+          owner: ${{ github.repository_owner }}
+
       - name: Checkout repository
         uses: actions/checkout@v6
 
@@ -1526,3 +1571,5 @@ jobs:
     secrets:
       service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
       owner_pr_pat: ${{ secrets.OWNER_PR_PAT }}
+      workflows_app_id: ${{ secrets.WORKFLOWS_APP_ID }}
+      workflows_app_private_key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}

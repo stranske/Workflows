@@ -109,12 +109,23 @@ jobs:
       agent_alias: ${{ steps.pre_gate.outputs.agent_alias }}
       head_sha: ${{ steps.pre_gate.outputs.head_sha }}
     steps:
+      # Mint GitHub App token early to use for checkouts (avoids rate limits)
+      - name: Mint GitHub App Token
+        id: app_token_dispatch
+        uses: actions/create-github-app-token@v2
+        continue-on-error: true
+        with:
+          app-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
+          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || 'dummy' }}
+          owner: ${{ github.repository_owner }}
+
       # Dual checkout pattern: consumer repo for context, Workflows repo for scripts
       - name: Checkout consumer repository
         uses: actions/checkout@v6
         with:
           fetch-depth: 1
           path: consumer
+          token: ${{ steps.app_token_dispatch.outputs.token || secrets.ACTIONS_BOT_PAT || secrets.service_bot_pat || github.token }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v6
@@ -172,13 +183,14 @@ jobs:
         uses: actions/checkout@v6
         with:
           repository: stranske/Workflows
-          ref: ${{ steps.workflows_ref.outputs.ref }}
+          ref: main
           sparse-checkout: |
             scripts
             .github/scripts
           sparse-checkout-cone-mode: false
           path: workflows-lib
           fetch-depth: 1
+          token: ${{ steps.app_token_dispatch.outputs.token || secrets.ACTIONS_BOT_PAT || secrets.service_bot_pat || github.token }}
 
       - name: Set scripts path
         run: |
@@ -261,16 +273,26 @@ jobs:
       ACTIONS_BOT_PAT: ${{ secrets.ACTIONS_BOT_PAT || '' }}
       AGENTS_AUTOMATION_PAT: ${{ secrets.AGENTS_AUTOMATION_PAT || '' }}
     steps:
+      - name: Mint GitHub App Token
+        id: app_token_orchestrator
+        uses: actions/create-github-app-token@v2
+        continue-on-error: true
+        with:
+          app-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
+          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || 'dummy' }}
+          owner: ${{ github.repository_owner }}
+
       - name: Checkout Workflows scripts
         uses: actions/checkout@v6
         with:
           repository: stranske/Workflows
-          ref: ${{ steps.workflows_ref.outputs.ref }}
+          ref: main
           sparse-checkout: |
             .github/scripts
             .github/actions/setup-api-client
           sparse-checkout-cone-mode: false
           path: workflows-lib
+          token: ${{ steps.app_token_orchestrator.outputs.token || secrets.ACTIONS_BOT_PAT || secrets.service_bot_pat || github.token }}
           fetch-depth: 1
 
       - name: Set scripts path
@@ -284,7 +306,7 @@ jobs:
           github_token: ${{ github.token }}
 
       - name: Mint GitHub App token (preferred)
-        id: app_token
+        id: app_token_orchestrator_preferred
         continue-on-error: true
         uses: actions/create-github-app-token@v2
         with:
@@ -296,7 +318,7 @@ jobs:
         env:
           INSTRUCTION_BODY: ${{ needs.keepalive_dispatch.outputs.instruction_body }}
         with:
-          github-token: ${{ steps.app_token.outputs.token || secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT || secrets.AGENTS_AUTOMATION_PAT || github.token }}
+          github-token: ${{ steps.app_token_orchestrator_preferred.outputs.token || secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT || secrets.AGENTS_AUTOMATION_PAT || github.token }}
           script: |
             const scriptsPath = process.env.WORKFLOWS_SCRIPTS_PATH;
             const { runKeepaliveOrchestrator } = require(`${scriptsPath}/.github/scripts/agents_pr_meta_orchestrator.js`);
@@ -331,16 +353,26 @@ jobs:
       dispatch: ${{ steps.detect.outputs.dispatch }}
       reason: ${{ steps.gate.outputs.reason }}
     steps:
+      - name: Mint GitHub App Token
+        id: app_token_from_gate
+        uses: actions/create-github-app-token@v2
+        continue-on-error: true
+        with:
+          app-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
+          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || 'dummy' }}
+          owner: ${{ github.repository_owner }}
+
       - name: Checkout Workflows scripts
         uses: actions/checkout@v6
         with:
           repository: stranske/Workflows
-          ref: ${{ steps.workflows_ref.outputs.ref }}
+          ref: main
           sparse-checkout: |
             .github/scripts
             .github/actions/setup-api-client
           sparse-checkout-cone-mode: false
           path: workflows-lib
+          token: ${{ steps.app_token_from_gate.outputs.token || secrets.ACTIONS_BOT_PAT || secrets.service_bot_pat || github.token }}
           fetch-depth: 1
 
       - name: Set scripts path
@@ -471,16 +503,26 @@ jobs:
     runs-on: ubuntu-latest
     if: inputs.event_name == 'pull_request'
     steps:
+      - name: Mint GitHub App Token
+        id: app_token_body_update
+        uses: actions/create-github-app-token@v2
+        continue-on-error: true
+        with:
+          app-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
+          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || 'dummy' }}
+          owner: ${{ github.repository_owner }}
+
       - name: Checkout Workflows scripts
         uses: actions/checkout@v6
         with:
           repository: stranske/Workflows
-          ref: ${{ steps.workflows_ref.outputs.ref }}
+          ref: main
           sparse-checkout: |
             .github/scripts
             .github/actions/setup-api-client
           sparse-checkout-cone-mode: false
           path: workflows-lib
+          token: ${{ steps.app_token_body_update.outputs.token || secrets.ACTIONS_BOT_PAT || secrets.service_bot_pat || github.token }}
           fetch-depth: 1
 
       - name: Set scripts path

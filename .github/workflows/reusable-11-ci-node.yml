@@ -67,6 +67,10 @@ on:
       npm-token:
         description: Optional token for private npm registries.
         required: false
+      workflows_app_id:
+        required: false
+      workflows_app_private_key:
+        required: false
   workflow_dispatch:
     inputs:
       working-directory:
@@ -203,9 +207,21 @@ jobs:
       WORKSPACE_ROOT: ${{ github.workspace }}
       PROJECT_ROOT: ${{ inputs['working-directory'] != '' && inputs['working-directory'] != '.' && format('{0}/{1}', github.workspace, inputs['working-directory']) || github.workspace }}
     steps:
+      # Mint GitHub App token early to use for API calls (avoids rate limits)
+      - name: Mint GitHub App Token
+        id: app_token
+        uses: actions/create-github-app-token@v2
+        continue-on-error: true
+        with:
+          app-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
+          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || 'dummy' }}
+          owner: ${{ github.repository_owner }}
+
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
+
+          token: ${{ steps.app_token.outputs.token || github.token }}
           fetch-depth: 1
 
       - name: Setup Node

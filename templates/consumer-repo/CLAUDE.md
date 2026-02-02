@@ -54,6 +54,29 @@ When an issue is labeled `agent:codex`:
 - Check Workflows repo has the required `reusable-*.yml` file
 - Consumer workflows call INTO Workflows repo, not local files
 
+### Workflow startup_failure (zero jobs)
+
+**MANDATORY**: Before theorizing, find what changed:
+
+```bash
+# 1. Find boundary between success and failure
+gh run list --repo owner/repo --workflow="workflow.yml" --limit 100 --json databaseId,conclusion,createdAt \
+  --jq '[.[] | select(.conclusion == "success" or .conclusion == "startup_failure")] | group_by(.conclusion) | .[] | {conclusion: .[0].conclusion, first: .[-1].createdAt, last: .[0].createdAt}'
+
+# 2. Find commits between last success and first failure
+git log --oneline --since="LAST_SUCCESS_DATE" --until="FIRST_FAILURE_DATE" -- path/to/workflow.yml
+
+# 3. Fix ONLY what that diff changed
+git show COMMIT_SHA -- path/to/workflow.yml
+```
+
+Common causes:
+- **Top-level `permissions:` on hybrid workflows** (workflow_call + workflow_dispatch)
+- Invalid YAML syntax
+- Invalid permission scopes
+
+See `docs/INTEGRATION_GUIDE.md` in Workflows repo.
+
 ### Agent not picking up changes
 - Check PR has `agent:codex` label
 - Check Gate workflow passed (green checkmark)

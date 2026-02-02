@@ -1,12 +1,22 @@
 name: Maint 61 Create Floating v1 Tag
 
+# DEPRECATED: This workflow is disabled in favor of maint-73-refresh-reusable-tags.yml
+# which tracks main HEAD instead of releases for immediate fix propagation.
+# The v1 tag now follows a main-tracking strategy, not a release-tracking strategy.
+
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "30 3 * * *"
-  release:
-    types:
-      - published
+    inputs:
+      deprecated_notice:
+        description: 'DEPRECATED - Use maint-73-refresh-reusable-tags.yml instead'
+        required: false
+        type: string
+  # Disabled triggers - use maint-73 for tag updates
+  # schedule:
+  #   - cron: "30 3 * * *"
+  # release:
+  #   types:
+  #     - published
 
 permissions:
   contents: write
@@ -21,9 +31,21 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || startsWith(github.event.release.tag_name, 'v1.')
     steps:
+      # Mint GitHub App token early to use for API calls (avoids rate limits)
+      - name: Mint GitHub App Token
+        id: app_token
+        uses: actions/create-github-app-token@v2
+        continue-on-error: true
+        with:
+          app-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
+          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || 'dummy' }}
+          owner: ${{ github.repository_owner }}
+
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
+
+          token: ${{ steps.app_token.outputs.token || github.token }}
           fetch-depth: 0
 
       - name: Ensure floating v1 tag points to latest v1.x

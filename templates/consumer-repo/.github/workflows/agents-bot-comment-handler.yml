@@ -64,11 +64,28 @@ jobs:
       pr_number: ${{ steps.resolve.outputs.pr_number }}
       should_run: ${{ steps.resolve.outputs.should_run }}
     steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          sparse-checkout: |
+            .github/actions/setup-api-client
+            .github/scripts/github-api-with-retry.js
+          sparse-checkout-cone-mode: false
+
+      - name: Setup API client
+        uses: ./.github/actions/setup-api-client
+        with:
+          secrets: ${{ toJSON(secrets) }}
+          github_token: ${{ github.token }}
+
       - name: Resolve PR number and check conditions
         id: resolve
         uses: actions/github-script@v8
         with:
           script: |
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const { withRetry } = await createTokenAwareRetry({ github, core });
+
             const eventName = context.eventName;
             let prNumber = null;
             let shouldRun = false;
@@ -95,10 +112,10 @@ jobs:
 
               let defaultBranch = context.payload.repository?.default_branch;
               if (!defaultBranch) {
-                const repoResponse = await github.rest.repos.get({
+                const repoResponse = await withRetry((client) => client.rest.repos.get({
                   owner: context.repo.owner,
                   repo: context.repo.repo
-                });
+                }));
                 defaultBranch = repoResponse.data?.default_branch;
               }
               if (!defaultBranch) {
@@ -133,11 +150,11 @@ jobs:
               // Check if PR has agent label
               let pr;
               try {
-                const response = await github.rest.pulls.get({
+                const response = await withRetry((client) => client.rest.pulls.get({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   pull_number: prNumber
-                });
+                }));
                 pr = response.data;
               } catch (error) {
                 console.log(
@@ -167,7 +184,7 @@ jobs:
     name: Handle bot comments
     needs: resolve
     if: vars.USE_CONSOLIDATED_WORKFLOWS != 'true' && needs.resolve.outputs.should_run == 'true'
-    uses: stranske/Workflows/.github/workflows/reusable-bot-comment-handler.yml@v1
+    uses: stranske/Workflows/.github/workflows/reusable-bot-comment-handler.yml@main
     with:
       pr_number: ${{ needs.resolve.outputs.pr_number }}
       dry_run: ${{ inputs.dry_run == true }}
@@ -187,17 +204,34 @@ jobs:
       github.event.label.name == 'autofix:bot-comments'
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          sparse-checkout: |
+            .github/actions/setup-api-client
+            .github/scripts/github-api-with-retry.js
+          sparse-checkout-cone-mode: false
+
+      - name: Setup API client
+        uses: ./.github/actions/setup-api-client
+        with:
+          secrets: ${{ toJSON(secrets) }}
+          github_token: ${{ github.token }}
+
       - name: Remove trigger label
         uses: actions/github-script@v8
         with:
           script: |
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const { withRetry } = await createTokenAwareRetry({ github, core });
+
             try {
-              await github.rest.issues.removeLabel({
+              await withRetry((client) => client.rest.issues.removeLabel({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: context.payload.pull_request.number,
                 name: 'autofix:bot-comments'
-              });
+              }));
               console.log('Removed autofix:bot-comments label');
             } catch (error) {
               console.log(`Could not remove label: ${error.message}`);
