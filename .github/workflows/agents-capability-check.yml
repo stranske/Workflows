@@ -38,7 +38,6 @@ jobs:
         with:
 
           token: ${{ steps.app_token.outputs.token || github.token }}
-          token: ${{ steps.app_token.outputs.token || github.token }}
           sparse-checkout: |
             .github/actions/setup-api-client
             .github/scripts/github-api-with-retry.js

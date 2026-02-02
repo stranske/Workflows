@@ -169,7 +169,6 @@ jobs:
         uses: actions/checkout@v6
         with:
           token: ${{ steps.app_token.outputs.token || github.token }}
-        with:
           repository: stranske/Workflows
           ref: ${{ steps.workflows_ref.outputs.ref }}
           sparse-checkout: |

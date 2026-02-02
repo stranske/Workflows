@@ -48,7 +48,6 @@ jobs:
         uses: actions/checkout@v6
         with:
           token: ${{ steps.app_token.outputs.token || github.token }}
-          token: ${{ steps.app_token.outputs.token || github.token }}
       - name: Export load-balancer tokens
         uses: ./.github/actions/setup-api-client
       - name: Install GitHub API dependencies

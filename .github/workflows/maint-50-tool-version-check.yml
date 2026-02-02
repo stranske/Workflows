@@ -40,7 +40,6 @@ jobs:
         uses: actions/checkout@v6
         with:
           token: ${{ steps.app_token.outputs.token || github.token }}
-          token: ${{ steps.app_token.outputs.token || github.token }}
       - name: Setup API client
         uses: ./.github/actions/setup-api-client
         with:
@@ -53,7 +52,6 @@ jobs:
         uses: actions/checkout@v6
         with:
 
-          token: ${{ steps.app_token.outputs.token || github.token }}
           token: ${{ steps.app_token.outputs.token || github.token }}
           sparse-checkout: |
             .github/actions/setup-api-client

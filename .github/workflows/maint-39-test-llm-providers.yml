@@ -40,7 +40,6 @@ jobs:
         uses: actions/checkout@v6
         with:
           token: ${{ steps.app_token.outputs.token || github.token }}
-          token: ${{ steps.app_token.outputs.token || github.token }}
       - name: Setup Python
         uses: actions/setup-python@v6
         with:

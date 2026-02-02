@@ -37,7 +37,6 @@ jobs:
         uses: actions/checkout@v6
         with:
           token: ${{ steps.app_token.outputs.token || github.token }}
-          token: ${{ steps.app_token.outputs.token || github.token }}
       - name: Export load-balancer tokens
         uses: ./.github/actions/setup-api-client
       - name: Resolve integration repo default branch
@@ -68,7 +67,6 @@ jobs:
         with:
           repository: stranske/Workflows-Integration-Tests
           ref: ${{ steps.integration_ref.outputs.ref }}
-          token: ${{ steps.app_token.outputs.token || github.token }}
           token: ${{ steps.app_token.outputs.token || github.token }}
           path: integration-tests
 

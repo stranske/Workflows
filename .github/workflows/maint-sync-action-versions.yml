@@ -41,7 +41,6 @@ jobs:
         with:
 
           token: ${{ steps.app_token.outputs.token || github.token }}
-          token: ${{ steps.app_token.outputs.token || github.token }}
           fetch-depth: 0
 
       - name: Setup API client
