@@ -76,6 +76,22 @@ function isSecondaryRateLimitError(error) {
   return message.includes('secondary rate limit') || message.includes('abuse');
 }
 
+function isIntegrationPermissionError(error) {
+  if (!error) {
+    return false;
+  }
+  const status = error.status || error?.response?.status;
+  if (status !== 403 && status !== 404) {
+    return false;
+  }
+  const message = String(error.message || error?.response?.data?.message || '').toLowerCase();
+  return (
+    message.includes('resource not accessible by integration') ||
+    message.includes('insufficient permission') ||
+    message.includes('requires higher permissions')
+  );
+}
+
 function logWithCore(core, level, message) {
   if (core && typeof core[level] === 'function') {
     core[level](message);
@@ -239,6 +255,7 @@ async function withRetry(fn, options = {}) {
 
       const rateLimitError = isRateLimitError(error);
       const secondaryRateLimit = isSecondaryRateLimitError(error);
+      const integrationPermissionError = isIntegrationPermissionError(error);
       const headers = normaliseHeaders(error?.response?.headers || error?.headers);
 
       if (tokenRegistry && currentTokenSource) {
@@ -250,6 +267,15 @@ async function withRetry(fn, options = {}) {
           tokenRegistry.updateTokenUsage(currentTokenSource, 1);
           logTokenUsage(core, currentTokenSource, null, 'error');
         }
+      }
+
+      if (integrationPermissionError && task === 'gate-commit-status') {
+        logWithCore(
+          core,
+          'warning',
+          'Gate commit status update blocked by permissions; leaving existing status untouched.'
+        );
+        return null;
       }
 
       // Don't retry on non-rate-limit errors
