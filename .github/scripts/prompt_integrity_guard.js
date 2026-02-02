@@ -64,6 +64,21 @@ const STRICT_PATTERNS = [
   }
 ];
 
+
+/**
+ * Strip fenced code blocks from content to avoid false positives
+ * on example/documentation content within code fences.
+ * Handles both ``` and ~~~ style fences.
+ * @param {string} content - The content to process
+ * @returns {string} Content with fenced code blocks removed
+ */
+function stripCodeFences(content) {
+  // Match fenced code blocks (``` or ~~~) and replace with placeholder
+  // This handles both opening/closing with same fence type
+  const fencePattern = /^[ \t]*(`{3,}|~{3,})[^\n]*\n[\s\S]*?^[ \t]*\1[ \t]*$/gm;
+  return content.replace(fencePattern, '[CODE_BLOCK_STRIPPED]');
+}
+
 /**
  * Check a prompt file for embedded task content
  * @param {string} filePath - Path to the prompt file
@@ -106,13 +121,14 @@ function checkPromptIntegrity(filePath, strict = false) {
   const contentToCheck = guardMarkerIndex >= 0 
     ? content.substring(0, guardMarkerIndex)
     : content;
-  // Check the relevant content section for task patterns
+  // Strip code fences before checking for task patterns (avoid false positives on examples)
+  const contentWithoutFences = stripCodeFences(contentToCheck);
   const patternsToCheck = strict 
     ? [...TASK_CONTENT_PATTERNS, ...STRICT_PATTERNS] 
     : TASK_CONTENT_PATTERNS;
 
   for (const { pattern, description } of patternsToCheck) {
-    const match = contentToCheck.match(pattern);
+    const match = contentWithoutFences.match(pattern);
     if (match) {
       const lineNum = findLineNumber(lines, match[0]);
       violations.push({
