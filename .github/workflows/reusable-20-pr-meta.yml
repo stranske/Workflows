@@ -268,6 +268,7 @@ jobs:
           ref: ${{ steps.workflows_ref.outputs.ref }}
           sparse-checkout: |
             .github/scripts
+            .github/actions/setup-api-client
           sparse-checkout-cone-mode: false
           path: workflows-lib
           fetch-depth: 1
@@ -276,14 +277,8 @@ jobs:
         run: |
           echo "WORKFLOWS_SCRIPTS_PATH=${GITHUB_WORKSPACE}/workflows-lib" >> "$GITHUB_ENV"
 
-      - name: Checkout consumer repository
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 1
-          path: consumer
-
       - name: Setup API client
-        uses: ./consumer/.github/actions/setup-api-client
+        uses: ./workflows-lib/.github/actions/setup-api-client
         with:
           secrets: ${{ toJSON(secrets) }}
           github_token: ${{ github.token }}
@@ -343,6 +338,7 @@ jobs:
           ref: ${{ steps.workflows_ref.outputs.ref }}
           sparse-checkout: |
             .github/scripts
+            .github/actions/setup-api-client
           sparse-checkout-cone-mode: false
           path: workflows-lib
           fetch-depth: 1
@@ -351,14 +347,8 @@ jobs:
         run: |
           echo "WORKFLOWS_SCRIPTS_PATH=${GITHUB_WORKSPACE}/workflows-lib" >> "$GITHUB_ENV"
 
-      - name: Checkout consumer repository
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 1
-          path: consumer
-
       - name: Setup API client
-        uses: ./consumer/.github/actions/setup-api-client
+        uses: ./workflows-lib/.github/actions/setup-api-client
         with:
           secrets: ${{ toJSON(secrets) }}
           github_token: ${{ github.token }}
@@ -488,6 +478,7 @@ jobs:
           ref: ${{ steps.workflows_ref.outputs.ref }}
           sparse-checkout: |
             .github/scripts
+            .github/actions/setup-api-client
           sparse-checkout-cone-mode: false
           path: workflows-lib
           fetch-depth: 1
@@ -496,14 +487,8 @@ jobs:
         run: |
           echo "WORKFLOWS_SCRIPTS_PATH=${GITHUB_WORKSPACE}/workflows-lib" >> "$GITHUB_ENV"
 
-      - name: Checkout consumer repository
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 1
-          path: consumer
-
       - name: Setup API client
-        uses: ./consumer/.github/actions/setup-api-client
+        uses: ./workflows-lib/.github/actions/setup-api-client
         with:
           secrets: ${{ toJSON(secrets) }}
           github_token: ${{ github.token }}
