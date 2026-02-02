@@ -423,50 +423,27 @@ AFTER (Proposed - Fixed):
 
 **Goal:** Single reusable action that handles all API client setup
 
-#### Task A.1: Create `.github/actions/setup-api-client/action.yml`
+#### Task A.1: Create `.github/actions/setup-api-client/action.yml` ✅ DONE
 
+**Note:** The actual implementation installs 4 packages and handles jq availability. See the full action at `.github/actions/setup-api-client/action.yml`.
+
+Usage example:
 ```yaml
-name: 'Setup API Client'
-description: 'Install dependencies and configure token load balancer'
-inputs:
-  secrets:
-    description: 'JSON-encoded secrets object'
-    required: true
-  scope:
-    description: 'Scope level: full (all deps), minimal (just octokit)'
-    required: false
-    default: 'full'
-  
-runs:
-  using: 'composite'
-  steps:
-    - name: Install API client dependencies
-      shell: bash
-      run: |
-        cd ${{ github.workspace }}
-        npm install --no-save @octokit/rest@20.0.2 @octokit/plugin-retry@6.0.1
-    
-    - name: Export load balancer tokens
-      shell: bash
-      env:
-        SECRETS_JSON: ${{ inputs.secrets }}
-      run: |
-        # Parse secrets and export to environment
-        # ... (token export logic)
+- uses: ./.github/actions/setup-api-client
+  with:
+    secrets: ${{ toJSON(secrets) }}
+    github_token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
-#### Task A.2: Create package.json with version pins
+#### Task A.2: Version pinning ✅ DONE
 
-```json
-{
-  "name": "workflows-api-deps",
-  "private": true,
-  "dependencies": {
-    "@octokit/rest": "20.0.2",
-    "@octokit/plugin-retry": "6.0.1",
-    "@octokit/plugin-paginate-rest": "9.1.5"
-  }
-}
+Version pinning is done inline in the npm install command (no separate package.json needed):
+```bash
+npm install --no-save \
+  @octokit/rest@20.0.2 \
+  @octokit/plugin-retry@6.0.1 \
+  @octokit/plugin-paginate-rest@9.1.5 \
+  @octokit/auth-app@6.0.3
 ```
 
 #### Task A.3: Update sync manifest to include the action
@@ -603,7 +580,7 @@ Apply setup action to less frequent workflows:
 
 | File | Purpose |
 |------|---------|
-| `.github/actions/setup-api-client/action.yml` | Unified setup action (to be created) |
+| `.github/actions/setup-api-client/action.yml` | Unified setup action (created in this PR) |
 | `.github/scripts/token_load_balancer.js` | Core load balancer logic |
 | `.github/scripts/github-api-with-retry.js` | Retry wrapper |
 | `.github/workflows/agents-keepalive-loop.yml` | Main keepalive workflow |

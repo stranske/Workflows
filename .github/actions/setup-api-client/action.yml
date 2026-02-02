@@ -63,7 +63,7 @@ inputs:
 
 outputs:
   token_count:
-    description: 'Number of tokens registered in the load balancer'
+    description: 'Number of tokens exported to environment'
     value: ${{ steps.export-tokens.outputs.token_count }}
   available_tokens:
     description: 'Comma-separated list of available token names'
@@ -78,11 +78,9 @@ runs:
       run: |
         set -euo pipefail
         
-        # Find where to install - prefer scripts dir, fall back to workspace root
+        # Use dedicated scripts dir, create if needed
         INSTALL_DIR="${GITHUB_WORKSPACE}/.github/scripts"
-        if [ ! -d "$INSTALL_DIR" ]; then
-          INSTALL_DIR="${GITHUB_WORKSPACE}"
-        fi
+        mkdir -p "$INSTALL_DIR"
         
         echo "📦 Installing @octokit dependencies in $INSTALL_DIR..."
         cd "$INSTALL_DIR"
@@ -92,19 +90,25 @@ runs:
           echo "✅ @octokit/rest already installed"
         else
           # Install with pinned versions for consistency
-          npm install --no-save \
+          # Capture stderr for debugging if the command fails
+          npm_output=$(mktemp)
+          if npm install --no-save \
             @octokit/rest@20.0.2 \
             @octokit/plugin-retry@6.0.1 \
             @octokit/plugin-paginate-rest@9.1.5 \
             @octokit/auth-app@6.0.3 \
-            2>/dev/null || {
-              echo "::warning::npm install failed, trying with --legacy-peer-deps"
-              npm install --no-save --legacy-peer-deps \
-                @octokit/rest@20.0.2 \
-                @octokit/plugin-retry@6.0.1 \
-                @octokit/plugin-paginate-rest@9.1.5 \
-                @octokit/auth-app@6.0.3
-            }
+            2>"$npm_output"; then
+            rm -f "$npm_output"
+          else
+            echo "::warning::npm install failed with: $(cat "$npm_output")"
+            echo "::warning::Retrying with --legacy-peer-deps"
+            rm -f "$npm_output"
+            npm install --no-save --legacy-peer-deps \
+              @octokit/rest@20.0.2 \
+              @octokit/plugin-retry@6.0.1 \
+              @octokit/plugin-paginate-rest@9.1.5 \
+              @octokit/auth-app@6.0.3
+          fi
           echo "✅ @octokit dependencies installed"
         fi
 
@@ -136,6 +140,8 @@ runs:
         token_count=0
         available_tokens=""
         
+        # Export a variable to GITHUB_ENV
+        # Note: Empty values are intentionally not counted as available tokens
         export_var() {
           local name="$1"
           local value="${2-}"
@@ -168,29 +174,49 @@ runs:
         
         echo "🔐 Exporting tokens to environment..."
         
-        # Try to extract from JSON secrets first
+        # Try to extract from JSON secrets first (requires jq)
         if [ -n "${INPUT_SECRETS:-}" ] && [ "${INPUT_SECRETS}" != "null" ]; then
-          # Parse JSON secrets
-          extract_secret() {
-            local key="$1"
-            echo "${INPUT_SECRETS}" | jq -r ".${key} // empty" 2>/dev/null || echo ""
-          }
-          
-          SERVICE_BOT_PAT=$(extract_secret "SERVICE_BOT_PAT")
-          ACTIONS_BOT_PAT=$(extract_secret "ACTIONS_BOT_PAT")
-          CODESPACES_WORKFLOWS=$(extract_secret "CODESPACES_WORKFLOWS")
-          OWNER_PR_PAT=$(extract_secret "OWNER_PR_PAT")
-          AGENTS_AUTOMATION_PAT=$(extract_secret "AGENTS_AUTOMATION_PAT")
-          WORKFLOWS_APP_ID=$(extract_secret "WORKFLOWS_APP_ID")
-          WORKFLOWS_APP_PRIVATE_KEY=$(extract_secret "WORKFLOWS_APP_PRIVATE_KEY")
-          KEEPALIVE_APP_ID=$(extract_secret "KEEPALIVE_APP_ID")
-          KEEPALIVE_APP_PRIVATE_KEY=$(extract_secret "KEEPALIVE_APP_PRIVATE_KEY")
-          GH_APP_ID=$(extract_secret "GH_APP_ID")
-          GH_APP_PRIVATE_KEY=$(extract_secret "GH_APP_PRIVATE_KEY")
-          APP_1_ID=$(extract_secret "APP_1_ID")
-          APP_1_PRIVATE_KEY=$(extract_secret "APP_1_PRIVATE_KEY")
-          APP_2_ID=$(extract_secret "APP_2_ID")
-          APP_2_PRIVATE_KEY=$(extract_secret "APP_2_PRIVATE_KEY")
+          if ! command -v jq >/dev/null 2>&1; then
+            echo "::warning::'jq' is not installed; falling back to individual token inputs instead of parsing JSON secrets."
+            # Fall back to individual inputs when jq is unavailable
+            SERVICE_BOT_PAT="${INPUT_SERVICE_BOT_PAT:-}"
+            ACTIONS_BOT_PAT="${INPUT_ACTIONS_BOT_PAT:-}"
+            CODESPACES_WORKFLOWS="${INPUT_CODESPACES_WORKFLOWS:-}"
+            OWNER_PR_PAT="${INPUT_OWNER_PR_PAT:-}"
+            AGENTS_AUTOMATION_PAT="${INPUT_AGENTS_AUTOMATION_PAT:-}"
+            WORKFLOWS_APP_ID="${INPUT_WORKFLOWS_APP_ID:-}"
+            WORKFLOWS_APP_PRIVATE_KEY="${INPUT_WORKFLOWS_APP_PRIVATE_KEY:-}"
+            KEEPALIVE_APP_ID="${INPUT_KEEPALIVE_APP_ID:-}"
+            KEEPALIVE_APP_PRIVATE_KEY="${INPUT_KEEPALIVE_APP_PRIVATE_KEY:-}"
+            GH_APP_ID="${INPUT_GH_APP_ID:-}"
+            GH_APP_PRIVATE_KEY="${INPUT_GH_APP_PRIVATE_KEY:-}"
+            APP_1_ID="${INPUT_APP_1_ID:-}"
+            APP_1_PRIVATE_KEY="${INPUT_APP_1_PRIVATE_KEY:-}"
+            APP_2_ID="${INPUT_APP_2_ID:-}"
+            APP_2_PRIVATE_KEY="${INPUT_APP_2_PRIVATE_KEY:-}"
+          else
+            # Parse JSON secrets using jq
+            extract_secret() {
+              local key="$1"
+              echo "${INPUT_SECRETS}" | jq -r ".${key} // empty" 2>/dev/null || echo ""
+            }
+            
+            SERVICE_BOT_PAT=$(extract_secret "SERVICE_BOT_PAT")
+            ACTIONS_BOT_PAT=$(extract_secret "ACTIONS_BOT_PAT")
+            CODESPACES_WORKFLOWS=$(extract_secret "CODESPACES_WORKFLOWS")
+            OWNER_PR_PAT=$(extract_secret "OWNER_PR_PAT")
+            AGENTS_AUTOMATION_PAT=$(extract_secret "AGENTS_AUTOMATION_PAT")
+            WORKFLOWS_APP_ID=$(extract_secret "WORKFLOWS_APP_ID")
+            WORKFLOWS_APP_PRIVATE_KEY=$(extract_secret "WORKFLOWS_APP_PRIVATE_KEY")
+            KEEPALIVE_APP_ID=$(extract_secret "KEEPALIVE_APP_ID")
+            KEEPALIVE_APP_PRIVATE_KEY=$(extract_secret "KEEPALIVE_APP_PRIVATE_KEY")
+            GH_APP_ID=$(extract_secret "GH_APP_ID")
+            GH_APP_PRIVATE_KEY=$(extract_secret "GH_APP_PRIVATE_KEY")
+            APP_1_ID=$(extract_secret "APP_1_ID")
+            APP_1_PRIVATE_KEY=$(extract_secret "APP_1_PRIVATE_KEY")
+            APP_2_ID=$(extract_secret "APP_2_ID")
+            APP_2_PRIVATE_KEY=$(extract_secret "APP_2_PRIVATE_KEY")
+          fi
         else
           # Fall back to individual inputs
           SERVICE_BOT_PAT="${INPUT_SERVICE_BOT_PAT:-}"
@@ -210,10 +236,11 @@ runs:
           APP_2_PRIVATE_KEY="${INPUT_APP_2_PRIVATE_KEY:-}"
         fi
         
-        # Export GITHUB_TOKEN and GH_TOKEN
+        # Export GITHUB_TOKEN (GH_TOKEN is the same value, only count once)
         if [ -n "${INPUT_GITHUB_TOKEN:-}" ]; then
           export_var "GITHUB_TOKEN" "${INPUT_GITHUB_TOKEN}"
-          export_var "GH_TOKEN" "${INPUT_GITHUB_TOKEN}"
+          # GH_TOKEN is exported but not double-counted
+          printf '%s=%s\n' "GH_TOKEN" "${INPUT_GITHUB_TOKEN}" >>"${GITHUB_ENV}"
         fi
         
         # Export PATs
