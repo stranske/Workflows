@@ -1,10 +1,10 @@
 workflow,job,github_script_count,has_setup_api_client,coverage_status,fix_status,fix_pr,fix_date,notes
-agents-autofix-loop.yml,metrics,1,Yes,Covered,Fixed,PR#TBD,2026-02-02,Added sparse-checkout deps + setup-api-client step
-agents-bot-comment-handler.yml,cleanup,1,Yes,Covered,Fixed,PR#TBD,2026-02-02,Added sparse-checkout deps + setup-api-client step
-reusable-10-ci-python.yml,logs_summary,1,Yes,Covered,Fixed,PR#TBD,2026-02-02,Added checkout + setup-api-client (was missing checkout)
-reusable-16-agents.yml,preflight,3,Yes,Covered,Fixed,PR#TBD,2026-02-02,Added sparse-checkout deps + setup-api-client step
+agents-autofix-loop.yml,metrics,1,Yes,Covered,Fixed,PR#1189,2026-02-02,Added sparse-checkout deps + setup-api-client step
+agents-bot-comment-handler.yml,cleanup,1,Yes,Covered,Fixed,PR#1189,2026-02-02,Added sparse-checkout deps + setup-api-client step
+reusable-10-ci-python.yml,logs_summary,1,Yes,Covered,Fixed,PR#1189,2026-02-02,Added checkout + setup-api-client (was missing checkout)
+reusable-16-agents.yml,preflight,3,Yes,Covered,Fixed,PR#1189,2026-02-02,Added sparse-checkout deps + setup-api-client step
 reusable-16-agents.yml,verify_issue_summary,2,No,FALSE_POSITIVE,N/A,,,Uses github-script but only writes to core.summary - no API calls
-reusable-20-pr-meta.yml,keepalive_orchestrator,1,Yes,Covered,Fixed,PR#TBD,2026-02-02,Added consumer checkout + setup-api-client step
-reusable-20-pr-meta.yml,keepalive_from_gate,1,Yes,Covered,Fixed,PR#TBD,2026-02-02,Added consumer checkout + setup-api-client step
-reusable-20-pr-meta.yml,pr_body_update,2,Yes,Covered,Fixed,PR#TBD,2026-02-02,Added consumer checkout + setup-api-client step
-reusable-bot-comment-handler.yml,dispatch,1,Yes,Covered,Fixed,PR#TBD,2026-02-02,Added sparse-checkout deps + setup-api-client step
+reusable-20-pr-meta.yml,keepalive_orchestrator,1,Yes,Covered,Fixed,PR#1189,2026-02-02,Added consumer checkout + setup-api-client step
+reusable-20-pr-meta.yml,keepalive_from_gate,1,Yes,Covered,Fixed,PR#1189,2026-02-02,Added consumer checkout + setup-api-client step
+reusable-20-pr-meta.yml,pr_body_update,2,Yes,Covered,Fixed,PR#1189,2026-02-02,Added consumer checkout + setup-api-client step
+reusable-bot-comment-handler.yml,dispatch,1,Yes,Covered,Fixed,PR#1189,2026-02-02,Added sparse-checkout deps + setup-api-client step
