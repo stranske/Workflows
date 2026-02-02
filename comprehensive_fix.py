@@ -29,7 +29,7 @@ for fname in files:
     try:
         with open(fpath) as f:
             content = f.read()
-    except:
+    except Exception:
         continue
 
     # Pattern 1: Duplicate github-token or token in same with block
@@ -40,12 +40,16 @@ for fname in files:
     while i < len(lines):
         line = lines[i]
         # Check if next line is identical (duplicate param)
-        if i < len(lines) - 1 and line.strip() and lines[i + 1].strip() == line.strip():
-            if re.match(r"\s+(github-token|token):", line):
-                fixed_lines.append(line)  # Keep first
-                i += 2  # Skip duplicate
-                print(f"  {fname}: Removed duplicate param at line {i}")
-                continue
+        if (
+            i < len(lines) - 1
+            and line.strip()
+            and lines[i + 1].strip() == line.strip()
+            and re.match(r"\s+(github-token|token):", line)
+        ):
+            fixed_lines.append(line)  # Keep first
+            i += 2  # Skip duplicate
+            print(f"  {fname}: Removed duplicate param at line {i}")
+            continue
 
         # Pattern 2: with: followed by single param, then another with:
         # Merge them
