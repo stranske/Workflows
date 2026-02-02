@@ -2681,7 +2681,29 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
       );
     }
 
-    if (stop) {
+    // Rate limit exhaustion - special case with detailed token status
+    const isRateLimitExhausted = summaryReason === 'rate-limit-exhausted' || 
+      baseReason === 'rate-limit-exhausted' ||
+      action === 'defer' && (summaryReason?.includes('rate') || baseReason?.includes('rate'));
+    
+    if (isRateLimitExhausted) {
+      summaryLines.push(
+        '',
+        '### 🛑 Agent Stopped: API capacity depleted',
+        '',
+        '**All available API token pools have been exhausted.** The agent cannot make progress until rate limits reset.',
+        '',
+        '| Status | Details |',
+        '|--------|---------|',
+        `| Reason | ${summaryReason || baseReason || 'API rate limits exhausted'} |`,
+        '| Capacity | All token pools at/near limit |',
+        '| Recovery | Automatic when limits reset (usually ~1 hour) |',
+        '',
+        '**This is NOT a code or prompt problem** - it is a resource limit that will automatically resolve.',
+        '',
+        '_To resume immediately: Wait for rate limit reset, or add additional API tokens._',
+      );
+    } else if (stop) {
       summaryLines.push(
         '',
         '### 🛑 Paused – Human Attention Required',
