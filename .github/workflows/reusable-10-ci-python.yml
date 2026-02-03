@@ -563,7 +563,7 @@ jobs:
         run: |
           set -euo pipefail
           # Exclude .workflows-lib since it's synced from source repo with different config
-          black --check --line-length 100 --exclude '\.workflows-lib' .
+          black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .
 
       - name: Finalize format check
         id: finalize
