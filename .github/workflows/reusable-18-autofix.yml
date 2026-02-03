@@ -570,6 +570,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          if [ -f node_modules/.package-lock.json ]; then
+            rm -f node_modules/.package-lock.json
+          fi
           : "${ALLOWED_FILE_GLOBS:=}"
           mapfile -t changed_paths < <(git diff --name-only --diff-filter=ACMRTUXB || true)
           changed_flag=false
