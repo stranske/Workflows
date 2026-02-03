@@ -70,6 +70,7 @@ jobs:
           sparse-checkout: |
             .github/actions/setup-api-client
             .github/scripts/github-api-with-retry.js
+            .github/scripts/token_load_balancer.js
           sparse-checkout-cone-mode: false
 
       - name: Setup API client
@@ -210,6 +211,7 @@ jobs:
           sparse-checkout: |
             .github/actions/setup-api-client
             .github/scripts/github-api-with-retry.js
+            .github/scripts/token_load_balancer.js
           sparse-checkout-cone-mode: false
 
       - name: Setup API client
