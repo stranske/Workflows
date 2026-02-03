@@ -483,6 +483,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          if [ -f node_modules/.package-lock.json ]; then
+            rm -f node_modules/.package-lock.json
+          fi
           echo "[autofix-clean] Running clean cosmetic sweep"
           # === Dynamic Python Target Detection ===
           # shellcheck disable=SC2016 # Single quotes intentional - literal regex pattern
