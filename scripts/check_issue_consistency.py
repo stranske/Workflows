@@ -469,8 +469,12 @@ def main() -> int:
         print("Skipping issue consistency check: base SHA is not an ancestor of HEAD.")
         return 0
     title_issue = extract_title_issue_number(pr_title)
-    if is_autofix_context(pr_title, head_ref) and not title_issue:
-        print("Skipping issue consistency check: autofix context with no issue number.")
+    autofix_context = is_autofix_context(pr_title, head_ref)
+    if autofix_context:
+        if not title_issue:
+            print("Skipping issue consistency check: autofix context with no issue number.")
+        else:
+            print("Skipping issue consistency check: autofix context.")
         return 0
     pr_issue = title_issue
     if not pr_issue:
