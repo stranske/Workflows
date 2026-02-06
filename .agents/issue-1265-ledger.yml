@@ -7,10 +7,10 @@ tasks:
     title: Modify `tools.langchain_client.build_chat_client()` to handle the case
       where `force_openai=True` and `OPENAI_API_KEY` is missing by either falling
       back to GitHub Models or raising a controlled exception.
-    status: doing
+    status: done
     started_at: '2026-02-06T04:52:18Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-02-06T04:52:27Z'
+    commit: bc6e67814526a81f65249459ed86b96fc01c48c8
     notes: []
   - id: task-02
     title: 'Define scope for: Implement fallback to GitHub Models when `force_openai=True`
