@@ -180,6 +180,26 @@ def test_build_chat_client_force_openai_falls_back_to_github(
     assert "falling back to GitHub Models" in caplog.text
 
 
+def test_build_chat_client_force_openai_blank_key_falls_back(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Blank OPENAI_API_KEY should be treated as missing for fallback logic."""
+    FakeChatOpenAI = _install_fake_langchain_openai(monkeypatch)
+    monkeypatch.setenv("GITHUB_TOKEN", "gh-token")
+    monkeypatch.setenv("OPENAI_API_KEY", "   ")
+
+    with caplog.at_level("WARNING"):
+        resolved = langchain_client.build_chat_client(force_openai=True)
+
+    assert resolved is not None
+    assert resolved.provider == langchain_client.PROVIDER_GITHUB
+    assert isinstance(resolved.client, FakeChatOpenAI)
+    assert resolved.client.kwargs["api_key"] == "gh-token"
+    assert resolved.client.kwargs["base_url"] == langchain_client.GITHUB_MODELS_BASE_URL
+    assert "falling back to GitHub Models" in caplog.text
+
+
 def test_build_chat_client_force_openai_missing_key_raises(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -97,6 +97,14 @@ def _resolve_model(model: str | None) -> str:
     return model or env_model or DEFAULT_MODEL
 
 
+def _get_env_token(name: str) -> str | None:
+    value = os.environ.get(name)
+    if not value:
+        return None
+    stripped = value.strip()
+    return stripped or None
+
+
 def _build_openai_client(
     chat_openai: type, *, model: str, token: str, timeout: int, max_retries: int
 ) -> object:
@@ -135,8 +143,8 @@ def build_chat_client(
     except ImportError:
         return None
 
-    github_token = os.environ.get("GITHUB_TOKEN")
-    openai_token = os.environ.get("OPENAI_API_KEY")
+    github_token = _get_env_token("GITHUB_TOKEN")
+    openai_token = _get_env_token("OPENAI_API_KEY")
 
     selected_model = _resolve_model(model)
     selected_timeout = _resolve_timeout(timeout)
@@ -240,8 +248,8 @@ def build_chat_clients(
     except ImportError:
         return []
 
-    github_token = os.environ.get("GITHUB_TOKEN")
-    openai_token = os.environ.get("OPENAI_API_KEY")
+    github_token = _get_env_token("GITHUB_TOKEN")
+    openai_token = _get_env_token("OPENAI_API_KEY")
     if not github_token and not openai_token:
         return []
 
