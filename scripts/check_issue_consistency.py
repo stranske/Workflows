@@ -19,7 +19,7 @@ MERGE_COMMIT_PATTERN = re.compile(
     re.IGNORECASE,
 )
 IGNORE_COMMIT_PATTERNS = (re.compile(r"^chore\(ledger\)", re.IGNORECASE),)
-HEADER_SCAN_EXCLUDE_DIRS = {".github", "tests", "templates"}
+HEADER_SCAN_EXCLUDE_DIRS = {".github", ".agents", "agents", "tests", "templates"}
 
 
 def _is_pr_marker_before_hash(prefix: str) -> bool:

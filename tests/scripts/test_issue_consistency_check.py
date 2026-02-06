@@ -146,6 +146,13 @@ def test_run_git_with_fallback_handles_ambiguous_argument(monkeypatch) -> None:
 def test_should_scan_header_file_excludes_known_dirs() -> None:
     assert check_issue_consistency.should_scan_header_file(Path("src/app.py")) is True
     assert (
+        check_issue_consistency.should_scan_header_file(Path("agents/codex-101.md")) is False
+    )
+    assert (
+        check_issue_consistency.should_scan_header_file(Path(".agents/issue-101-ledger.yml"))
+        is False
+    )
+    assert (
         check_issue_consistency.should_scan_header_file(
             Path(".github/workflows/agents-auto-pilot.yml")
         )
