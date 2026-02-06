@@ -247,6 +247,13 @@ test('ensureChecklist preserves section headers without adding checkboxes', () =
   assert.strictEqual(result, '## Tasks\n- [ ] Task one');
 });
 
+test('ensureChecklist preserves wrapped list item lines', () => {
+  const text = '- Task one with a long description\n  that continues here\n- [ ] Task two';
+  const result = ensureChecklist(text);
+
+  assert.strictEqual(result, '- [ ] Task one with a long description\n  that continues here\n- [ ] Task two');
+});
+
 test('ensureChecklist returns placeholder for empty input', () => {
   assert.strictEqual(ensureChecklist(''), '- [ ] —');
   assert.strictEqual(ensureChecklist('   '), '- [ ] —');

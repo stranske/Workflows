@@ -1740,19 +1740,12 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
 
   // Check rate limit status early
   let rateLimitStatus = null;
+  let rateLimitDefer = false;
   try {
     rateLimitStatus = await checkRateLimitStatus({ github, core, minRequired: 50 });
-
-    // If all tokens are exhausted and we're not forcing retry, defer immediately
-    if (rateLimitStatus.shouldDefer && !forceRetry) {
+    rateLimitDefer = Boolean(rateLimitStatus?.shouldDefer) && !forceRetry;
+    if (rateLimitDefer) {
       core?.info?.(`Rate limits exhausted - deferring. Recommendation: ${rateLimitStatus.recommendation}`);
-      return {
-        prNumber: overridePrNumber || 0,
-        baseRef: '',
-        action: 'defer',
-        reason: 'rate-limit-exhausted',
-        rateLimitStatus,
-      };
     }
   } catch (error) {
     core?.warning?.(`Rate limit check failed: ${error.message} - continuing anyway`);
@@ -1981,6 +1974,15 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
     } else if (tasksRemaining) {
       action = 'run';
       reason = iteration >= maxIterations ? 'ready-extended' : 'ready';
+    }
+
+    if (
+      rateLimitDefer &&
+      ['run', 'fix', 'review', 'conflict'].includes(action) &&
+      reason !== 'bypass-rate-limit-gate'
+    ) {
+      action = 'defer';
+      reason = 'rate-limit-exhausted';
     }
 
     const promptScenario = normalise(config.prompt_scenario);

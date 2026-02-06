@@ -55,31 +55,73 @@ function extractSection(body, heading) {
 }
 
 function ensureChecklist(text) {
-  const lines = String(text || '')
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
-  if (!lines.length) {
+  const raw = String(text || '');
+  const lines = raw.split(/\r?\n/);
+  if (!lines.some((line) => line.trim())) {
     return '- [ ] —';
   }
-  return lines
-    .map((line) => {
-      // Skip lines that are already checkboxes
-      if (line.startsWith('- [')) {
-        return line;
+
+  const updated = [];
+  let inCodeBlock = false;
+  let lastWasList = false;
+
+  for (const rawLine of lines) {
+    if (isCodeFenceLine(rawLine)) {
+      inCodeBlock = !inCodeBlock;
+      updated.push(rawLine.trimEnd());
+      lastWasList = false;
+      continue;
+    }
+    if (inCodeBlock) {
+      updated.push(rawLine);
+      lastWasList = false;
+      continue;
+    }
+
+    if (!rawLine.trim()) {
+      updated.push('');
+      lastWasList = false;
+      continue;
+    }
+
+    const trimmed = rawLine.trim();
+    if (trimmed.startsWith('<!--') && trimmed.endsWith('-->')) {
+      updated.push(trimmed);
+      lastWasList = false;
+      continue;
+    }
+    if (trimmed.startsWith('#')) {
+      updated.push(trimmed);
+      lastWasList = false;
+      continue;
+    }
+
+    const listMatch = rawLine.match(/^(\s*)([-*+]|\d+[.)])\s+(.*)$/);
+    if (listMatch) {
+      const indent = listMatch[1];
+      const bullet = listMatch[2];
+      const remainder = listMatch[3].trim();
+      if (!remainder) {
+        updated.push(trimmed);
+      } else if (/^\[[ xX]\]/.test(remainder)) {
+        updated.push(`${indent}${bullet} ${remainder}`);
+      } else {
+        updated.push(`${indent}${bullet} [ ] ${remainder}`);
       }
-      // Skip HTML comments - they are informational, not actionable
-      if (line.startsWith('<!--') && line.endsWith('-->')) {
-        return line;
-      }
-      // Skip section headers
-      if (line.startsWith('#')) {
-        return line;
-      }
-      // Convert other lines to checkboxes
-      return `- [ ] ${line}`;
-    })
-    .join('\n');
+      lastWasList = true;
+      continue;
+    }
+
+    if (lastWasList && /^\s+\S/.test(rawLine)) {
+      updated.push(rawLine.trimEnd());
+      continue;
+    }
+
+    updated.push(`- [ ] ${trimmed}`);
+    lastWasList = true;
+  }
+
+  return updated.join('\n');
 }
 
 function extractBlock(body, marker) {
