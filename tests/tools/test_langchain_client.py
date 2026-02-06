@@ -125,6 +125,7 @@ def test_build_chat_client_env_overrides_provider_and_model(
 
 def test_build_chat_client_invalid_env_provider_falls_back(
     monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Invalid provider overrides should fall back to auto-selection."""
     FakeChatOpenAI = _install_fake_langchain_openai(monkeypatch)
@@ -132,26 +133,31 @@ def test_build_chat_client_invalid_env_provider_falls_back(
     monkeypatch.setenv("OPENAI_API_KEY", "oa-token")
     monkeypatch.setenv(langchain_client.ENV_PROVIDER, "not-a-provider")
 
-    resolved = langchain_client.build_chat_client()
+    with caplog.at_level("WARNING"):
+        resolved = langchain_client.build_chat_client()
 
     assert resolved is not None
     assert resolved.provider == langchain_client.PROVIDER_GITHUB
     assert isinstance(resolved.client, FakeChatOpenAI)
+    assert "Invalid provider" in caplog.text
 
 
 def test_build_chat_client_invalid_provider_argument_falls_back(
     monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Invalid provider argument should fall back to auto-selection."""
     FakeChatOpenAI = _install_fake_langchain_openai(monkeypatch)
     monkeypatch.setenv("GITHUB_TOKEN", "gh-token")
     monkeypatch.setenv("OPENAI_API_KEY", "oa-token")
 
-    resolved = langchain_client.build_chat_client(provider="not-a-provider")
+    with caplog.at_level("WARNING"):
+        resolved = langchain_client.build_chat_client(provider="not-a-provider")
 
     assert resolved is not None
     assert resolved.provider == langchain_client.PROVIDER_GITHUB
     assert isinstance(resolved.client, FakeChatOpenAI)
+    assert "Invalid provider" in caplog.text
 
 
 def test_build_chat_client_force_openai_falls_back_to_github(

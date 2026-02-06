@@ -70,6 +70,10 @@ def _normalize_provider(value: str | None) -> str | None:
     return None
 
 
+def _warn_invalid_provider(value: str) -> None:
+    logger.warning("Invalid provider %r; falling back to auto-selection.", value)
+
+
 def _resolve_provider(provider: str | None, *, force_openai: bool) -> str | None:
     if force_openai:
         return PROVIDER_OPENAI
@@ -77,16 +81,14 @@ def _resolve_provider(provider: str | None, *, force_openai: bool) -> str | None
         normalized = _normalize_provider(provider)
         if normalized:
             return normalized
-        logger.warning("Invalid provider %r; falling back to auto-selection.", provider)
+        _warn_invalid_provider(provider)
         return None
     env_provider = os.environ.get(ENV_PROVIDER)
     if env_provider:
         normalized = _normalize_provider(env_provider)
         if normalized:
             return normalized
-        logger.warning(
-            "Invalid %s value %r; falling back to auto-selection.", ENV_PROVIDER, env_provider
-        )
+        _warn_invalid_provider(env_provider)
     return None
 
 
