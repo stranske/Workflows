@@ -153,6 +153,9 @@ def build_chat_client(
     if force_openai and not openai_token:
         if github_token:
             try:
+                logger.warning(
+                    "force_openai requested but OPENAI_API_KEY is missing; falling back to GitHub Models."
+                )
                 client = _build_github_client(
                     ChatOpenAI,
                     model=selected_model,
