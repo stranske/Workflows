@@ -65,6 +65,8 @@ def test_is_ledger_file_detects_agents_ledgers() -> None:
     assert check_issue_consistency._is_ledger_file(Path(".agents/issue-123-ledger.yml")) is True
     assert check_issue_consistency._is_ledger_file(Path(".agents/.ledger-summary.md")) is True
     assert check_issue_consistency._is_ledger_file(Path("docs/issue-123-ledger.yml")) is False
+
+
 def test_extract_commit_issue_numbers_keeps_merge_prefix_non_merge() -> None:
     messages = [
         "merge: resolve issue #1211",

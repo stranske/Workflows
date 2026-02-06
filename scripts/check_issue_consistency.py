@@ -387,6 +387,8 @@ def should_scan_header_file(file_path: Path) -> bool:
     if not file_path:
         return False
     return not any(part in HEADER_SCAN_EXCLUDE_DIRS for part in file_path.parts)
+
+
 def _is_ledger_file(path: Path) -> bool:
     if not path:
         return False
