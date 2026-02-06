@@ -106,6 +106,22 @@ permissions:
 | `GITHUB_TOKEN` | GitHub Models | Auto-provided by Actions |
 | `OPENAI_API_KEY` | OpenAI | Optional (fallback) |
 
+### LangChain Client Overrides
+
+The shared LangChain client helpers accept provider and model overrides via
+environment variables:
+
+| Variable | Purpose | Default |
+|----------|---------|---------|
+| `LANGCHAIN_PROVIDER` | Force provider selection (`github-models` or `openai`) | Auto-select |
+| `LANGCHAIN_MODEL` | Override the default model name | `DEFAULT_MODEL` |
+| `LANGCHAIN_TIMEOUT` | Override request timeout in seconds | 60 |
+| `LANGCHAIN_MAX_RETRIES` | Override retry count | 2 |
+
+Invalid provider values supplied via `LANGCHAIN_PROVIDER` or the explicit
+`provider` argument are treated the same: they trigger auto-selection with a
+warning rather than hard failure.
+
 ### Workflow Input
 
 Consumer workflows can specify which Workflows branch to use:
