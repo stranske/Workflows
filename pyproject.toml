@@ -140,8 +140,10 @@ disallow_untyped_defs = true
 files = ["src"]
 disable_error_code = "import-untyped"
 exclude = [
+    "^(?!src/)",
     "^archive/",
     "^\\.extraction/",
+    "^templates/",
 ]
 
 [tool.pytest.ini_options]
