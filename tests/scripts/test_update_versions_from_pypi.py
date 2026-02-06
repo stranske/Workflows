@@ -392,9 +392,9 @@ class TestConsumerRepoSampling:
 
         # Check that all our package mappings exist in the template
         for env_key in PACKAGE_MAPPING:
-            assert (
-                env_key in content
-            ), f"Template sync script missing {env_key}. Consumer repos won't sync this package!"
+            assert env_key in content, (
+                f"Template sync script missing {env_key}. Consumer repos won't sync this package!"
+            )
 
     def test_simulated_consumer_repo_sync(self, tmp_path: Path) -> None:
         """Simulate what a consumer repo would receive.

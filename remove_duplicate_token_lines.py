@@ -47,7 +47,7 @@ for fname in files:
             # Keep first one, skip second
             fixed_lines.append(line)
             skip_next = True
-            print(f"Removed duplicate from {fname} line {i+2}")
+            print(f"Removed duplicate from {fname} line {i + 2}")
         else:
             fixed_lines.append(line)
 
