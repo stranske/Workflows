@@ -1871,22 +1871,9 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
     // An iteration is productive if it has a reasonable productivity score
     const isProductive = productivityScore >= 20 && !hasRecentFailures;
 
-    // Early detection: Check for diminishing returns pattern
-    // Only evaluate after a real agent run to avoid false stops on review/wait cycles.
-    const lastAction = normalise(state.last_action).toLowerCase();
-    const lastActionWasRun = lastAction === 'run' || lastAction === 'fix';
-    const diminishingReturns =
-      lastActionWasRun &&
-      iteration >= 2 &&
-      prevFilesChanged > 0 &&
-      lastFilesChanged === 0 &&
-      tasksCompletedSinceLastRound === 0;
-
     // max_iterations is a "stuck detection" threshold, not a hard cap
     // Continue past max if productive work is happening
-    // But stop earlier if we detect diminishing returns pattern
     const shouldStopForMaxIterations = iteration >= maxIterations && !isProductive;
-    const shouldStopEarly = diminishingReturns && iteration >= Math.ceil(maxIterations * 0.6);
 
     // Build task appendix for the agent prompt (after state load for reconciliation info)
     const taskAppendix = buildTaskAppendix(normalisedSections, checkboxCounts, state, { prBody: pr.body });
@@ -1978,17 +1965,6 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
         action = 'stop';
         reason = 'tasks-complete';
       }
-    } else if (needsProgressReview) {
-      // Trigger LLM-based progress review when agent is active but not completing tasks
-      // This allows legitimate prep work while catching scope drift early
-      // Progress review is checked BEFORE hard stops to allow course correction
-      action = 'review';
-      reason = `progress-review-${roundsWithoutTaskCompletion}`;
-    } else if (shouldStopEarly) {
-      // Evidence-based early stopping: diminishing returns detected
-      // This is checked AFTER progress review to give LLM a chance to intervene
-      action = 'stop';
-      reason = 'diminishing-returns';
     } else if (shouldStopForMaxIterations && forceRetry && tasksRemaining) {
       action = 'run';
       reason = 'force-retry-max-iterations';
@@ -1996,6 +1972,12 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
     } else if (shouldStopForMaxIterations) {
       action = 'stop';
       reason = isProductive ? 'max-iterations' : 'max-iterations-unproductive';
+    } else if (needsProgressReview) {
+      // Trigger LLM-based progress review when agent is active but not completing tasks
+      // This allows legitimate prep work while catching scope drift early
+      // Checked after max-iteration handling to avoid trapping the loop in review-only mode
+      action = 'review';
+      reason = `progress-review-${roundsWithoutTaskCompletion}`;
     } else if (tasksRemaining) {
       action = 'run';
       reason = iteration >= maxIterations ? 'ready-extended' : 'ready';

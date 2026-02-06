@@ -1,5 +1,6 @@
 """Tests for tools/llm_provider.py"""
 
+import inspect
 import os
 from unittest.mock import MagicMock, patch
 
@@ -16,6 +17,8 @@ from tools.llm_provider import (
     check_providers,
     get_llm_provider,
     get_quality_context_capable_providers,
+    get_quality_context_support_table,
+    supports_quality_context,
 )
 
 
@@ -68,6 +71,93 @@ class TestProviderAvailability:
         assert "github-models" in result
         assert "openai" in result
         assert "regex-fallback" not in result
+
+    def test_quality_context_support_table(self):
+        """Support table documents which built-ins accept quality_context."""
+        result = get_quality_context_support_table()
+        assert result["github-models"] is True
+        assert result["openai"] is True
+        assert result["regex-fallback"] is False
+
+
+class TestLLMProviderInterface:
+    """Test LLMProvider interface expectations."""
+
+    def test_analyze_completion_signature_includes_quality_context_default_none(self):
+        """Interface defines optional quality_context with default None."""
+        signature = inspect.signature(LLMProvider.analyze_completion)
+        assert "quality_context" in signature.parameters
+        assert signature.parameters["quality_context"].default is None
+
+    def test_supports_quality_context_with_kwargs(self):
+        """supports_quality_context returns True for providers accepting **kwargs."""
+
+        class KwargsProvider(LLMProvider):
+            @property
+            def name(self) -> str:
+                return "kwargs-provider"
+
+            def is_available(self) -> bool:
+                return True
+
+            def analyze_completion(
+                self,
+                session_output: str,
+                tasks: list[str],
+                context: str | None = None,
+                **_kwargs: object,
+            ) -> CompletionAnalysis:
+                _ = session_output
+                _ = tasks
+                _ = context
+                return CompletionAnalysis(
+                    completed_tasks=[],
+                    in_progress_tasks=[],
+                    blocked_tasks=[],
+                    confidence=0.5,
+                    reasoning="kwargs",
+                    provider_used=self.name,
+                )
+
+        provider = KwargsProvider()
+        assert supports_quality_context(provider) is True
+
+    def test_supports_quality_context_falls_back_on_supports_error(self):
+        """supports_quality_context falls back to signature when helper errors."""
+
+        class ErroringSupportProvider(LLMProvider):
+            @property
+            def name(self) -> str:
+                return "erroring-support"
+
+            def is_available(self) -> bool:
+                return True
+
+            def supports_quality_context(self) -> bool:
+                raise RuntimeError("boom")
+
+            def analyze_completion(
+                self,
+                session_output: str,
+                tasks: list[str],
+                context: str | None = None,
+                quality_context: SessionQualityContext | None = None,
+            ) -> CompletionAnalysis:
+                _ = session_output
+                _ = tasks
+                _ = context
+                _ = quality_context
+                return CompletionAnalysis(
+                    completed_tasks=[],
+                    in_progress_tasks=[],
+                    blocked_tasks=[],
+                    confidence=0.5,
+                    reasoning="erroring support",
+                    provider_used=self.name,
+                )
+
+        provider = ErroringSupportProvider()
+        assert supports_quality_context(provider) is True
 
 
 class TestRegexFallbackProvider:
@@ -180,6 +270,61 @@ class TestFallbackChainProvider:
             context="ctx",
             quality_context=quality_context,
         )
+
+    def test_passes_quality_context_to_kwargs_provider(self):
+        """Chain forwards quality context to providers accepting **kwargs."""
+
+        class KwargsProvider(LLMProvider):
+            def __init__(self) -> None:
+                self.received_quality_context: SessionQualityContext | None = None
+
+            @property
+            def name(self) -> str:
+                return "kwargs-provider"
+
+            def is_available(self) -> bool:
+                return True
+
+            def analyze_completion(
+                self,
+                session_output: str,
+                tasks: list[str],
+                context: str | None = None,
+                **kwargs: object,
+            ) -> CompletionAnalysis:
+                _ = session_output
+                _ = tasks
+                _ = context
+                self.received_quality_context = kwargs.get("quality_context")
+                return CompletionAnalysis(
+                    completed_tasks=[],
+                    in_progress_tasks=[],
+                    blocked_tasks=[],
+                    confidence=0.5,
+                    reasoning="kwargs",
+                    provider_used=self.name,
+                )
+
+        quality_context = SessionQualityContext(
+            has_agent_messages=True,
+            has_work_evidence=True,
+            file_change_count=2,
+            successful_command_count=1,
+            estimated_effort_score=7,
+            data_quality="low",
+            analysis_text_length=120,
+        )
+
+        provider = KwargsProvider()
+        chain = FallbackChainProvider([provider])
+        chain.analyze_completion(
+            "output",
+            ["task1"],
+            context="ctx",
+            quality_context=quality_context,
+        )
+
+        assert provider.received_quality_context is quality_context
 
     def test_quality_context_capable_providers_list(self):
         """Chain reports providers that support quality_context."""
@@ -493,6 +638,82 @@ class TestFallbackChainProvider:
         )
 
         assert result.provider_used == "quality-aware"
+
+    def test_quality_context_reaches_selected_provider(self):
+        """Chain forwards quality_context to the active quality-aware provider."""
+
+        class LegacyProvider(LLMProvider):
+            @property
+            def name(self) -> str:
+                return "legacy"
+
+            def is_available(self) -> bool:
+                return True
+
+            def analyze_completion(
+                self,
+                session_output: str,
+                tasks: list[str],
+                context: str | None = None,
+            ) -> CompletionAnalysis:
+                return CompletionAnalysis(
+                    completed_tasks=["legacy"],
+                    in_progress_tasks=[],
+                    blocked_tasks=[],
+                    confidence=0.6,
+                    reasoning="legacy",
+                    provider_used=self.name,
+                )
+
+        class QualityAwareProvider(LLMProvider):
+            def __init__(self) -> None:
+                self.received_quality_context: SessionQualityContext | None = None
+
+            @property
+            def name(self) -> str:
+                return "quality-aware"
+
+            def is_available(self) -> bool:
+                return True
+
+            def analyze_completion(
+                self,
+                session_output: str,
+                tasks: list[str],
+                context: str | None = None,
+                quality_context: SessionQualityContext | None = None,
+            ) -> CompletionAnalysis:
+                self.received_quality_context = quality_context
+                return CompletionAnalysis(
+                    completed_tasks=["quality-aware"],
+                    in_progress_tasks=[],
+                    blocked_tasks=[],
+                    confidence=0.7,
+                    reasoning="quality-aware",
+                    provider_used=self.name,
+                )
+
+        quality_context = SessionQualityContext(
+            has_agent_messages=True,
+            has_work_evidence=True,
+            file_change_count=2,
+            successful_command_count=1,
+            estimated_effort_score=12,
+            data_quality="high",
+            analysis_text_length=300,
+        )
+
+        quality_provider = QualityAwareProvider()
+        chain = FallbackChainProvider([LegacyProvider(), quality_provider])
+
+        result = chain.analyze_completion(
+            "output",
+            ["task1"],
+            quality_context=quality_context,
+        )
+
+        assert result.provider_used == "quality-aware"
+        assert quality_provider.received_quality_context is quality_context
 
     def test_supports_quality_context_reflects_children(self):
         """Chain reports quality context support only when a child supports it."""

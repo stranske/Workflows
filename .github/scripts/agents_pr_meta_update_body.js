@@ -1008,25 +1008,6 @@ async function run({github: rawGithub, context, core, inputs}) {
   let contextSection = extractSection(issueBody, 'Context for Agent')
     || extractBlock(pr.body || '', 'context')
     || '';
-  if (!String(contextSection || '').trim()) {
-    let issueComments = [];
-    try {
-      issueComments = await github.paginate(github.rest.issues.listComments, {
-        owner,
-        repo,
-        issue_number: issueNumber,
-        per_page: 100,
-      });
-    } catch (error) {
-      core.warning(`Failed to fetch issue comments for context extraction: ${error.message}`);
-    }
-    const commentBodies = Array.isArray(issueComments)
-      ? issueComments
-        .map((comment) => String(comment?.body || '').trim())
-        .filter(Boolean)
-      : [];
-    contextSection = extractContextSectionWithPython(issueBody, commentBodies, core);
-  }
   contextSection = augmentContextWithRelatedIssues(contextSection, issueBody);
 
   const preamble = buildPreamble({summary, testing, ci, issueNumber});
