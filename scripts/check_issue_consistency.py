@@ -454,9 +454,7 @@ def main() -> int:
     base_remote = _resolve_base_remote(args.base_remote)
     pr_title, head_ref = resolve_pr_context(args.pr_title, args.head_ref)
     if base_sha and not _is_ancestor(base_sha, "HEAD"):
-        print(
-            "Skipping issue consistency check: base SHA is not an ancestor of HEAD."
-        )
+        print("Skipping issue consistency check: base SHA is not an ancestor of HEAD.")
         return 0
     pr_issue = extract_title_issue_number(pr_title)
     if not pr_issue:
