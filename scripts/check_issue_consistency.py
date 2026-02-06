@@ -382,6 +382,20 @@ def collect_header_issue_numbers(file_path: Path, max_lines: int) -> set[int]:
     return numbers
 
 
+def _is_ledger_file(path: Path) -> bool:
+    if not path:
+        return False
+    parts = path.parts
+    if ".agents" not in parts:
+        return False
+    name = path.name
+    if name.startswith("issue-") and name.endswith("-ledger.yml"):
+        return True
+    if name.startswith(".ledger-"):
+        return True
+    return False
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Verify issue number consistency between PR title, commits, and file headers."
@@ -445,6 +459,8 @@ def main() -> int:
             )
             header_issue_numbers: set[int] = set()
             for file_path in changed_files:
+                if _is_ledger_file(file_path):
+                    continue
                 if not file_path.exists() or not file_path.is_file():
                     continue
                 header_issue_numbers.update(
@@ -491,6 +507,8 @@ def main() -> int:
     header_issue_numbers: set[int] = set()
     mismatched_files: list[str] = []
     for file_path in changed_files:
+        if _is_ledger_file(file_path):
+            continue
         if not file_path.exists() or not file_path.is_file():
             continue
         numbers = collect_header_issue_numbers(file_path, args.header_lines)

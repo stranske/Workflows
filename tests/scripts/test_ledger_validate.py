@@ -119,6 +119,40 @@ def test_commit_validation_for_done_task(tmp_path: Path, monkeypatch) -> None:
     assert f"{ledger_path}: tasks[0].commit abcdef1 must include non-ledger changes" in errors
 
 
+def test_commit_validation_allows_codex_belt_subject(tmp_path: Path, monkeypatch) -> None:
+    ledger_validate = _load_module(monkeypatch, tmp_path)
+    ledger_validate.REPO_ROOT = tmp_path
+    ledger_dir = tmp_path / ".agents"
+    ledger_dir.mkdir()
+    ledger_path = ledger_dir / "issue-1-ledger.yml"
+    payload = {
+        "version": 1,
+        "issue": 1,
+        "base": "main",
+        "branch": "feature/ledger",
+        "tasks": [
+            {
+                "id": "task-1",
+                "title": "Ship it",
+                "status": "done",
+                "commit": "abcdef1",
+            }
+        ],
+    }
+    ledger_path.write_text(yaml.safe_dump(payload), encoding="utf-8")
+
+    monkeypatch.setattr(
+        ledger_validate, "_commit_files", lambda commit: [".agents/issue-1-ledger.yml"]
+    )
+    monkeypatch.setattr(
+        ledger_validate, "_commit_subject", lambda commit: "Codex belt for #1 (#2)"
+    )
+
+    errors = ledger_validate.validate_ledger(ledger_path)
+
+    assert errors == []
+
+
 def test_find_ledgers_returns_expected_paths(tmp_path: Path, monkeypatch) -> None:
     ledger_validate = _load_module(monkeypatch, tmp_path)
     ledger_dir = tmp_path / ".agents"

@@ -36,6 +36,7 @@ except ModuleNotFoundError:  # pragma: no cover - fallback for repo scripts
 VALID_STATUSES = {"todo", "doing", "done"}
 HEX_RE = re.compile(r"^[0-9a-f]{7,40}$")
 ISO8601_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
+CODEX_BELT_RE = re.compile(r"^codex belt for #\d+", re.IGNORECASE)
 
 
 class LedgerError(Exception):
@@ -262,7 +263,10 @@ def _validate_task(
                             if (
                                 extra_files
                                 or ledger_relative not in files
-                                or not subject.lower().startswith("chore(ledger):")
+                                or not (
+                                    subject.lower().startswith("chore(ledger):")
+                                    or CODEX_BELT_RE.match(subject or "")
+                                )
                             ):
                                 errors.append(
                                     f"{ledger_path}: {context}.commit {commit} must include non-ledger changes"

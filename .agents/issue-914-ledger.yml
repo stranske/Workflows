@@ -9,7 +9,7 @@ tasks:
     status: done
     started_at: '2026-01-17T09:22:54Z'
     finished_at: '2026-01-17T09:23:01Z'
-    commit: a95450163c9975274b33c2f4d9333c2989fa2596
+    commit: 2910a0bc95889ffd1d2e1c379e86eaac2a4e3021
     notes: []
   - id: task-02
     title: 'Define approach for: Update `docs/ci/WORKFLOW_SYSTEM.md` with a short

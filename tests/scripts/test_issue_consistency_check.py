@@ -60,6 +60,12 @@ def test_extract_commit_issue_numbers_ignores_merge_commits() -> None:
     assert numbers == {1211}
 
 
+def test_is_ledger_file_detects_agents_ledgers() -> None:
+    assert check_issue_consistency._is_ledger_file(Path(".agents/issue-123-ledger.yml")) is True
+    assert check_issue_consistency._is_ledger_file(Path(".agents/.ledger-summary.md")) is True
+    assert check_issue_consistency._is_ledger_file(Path("docs/issue-123-ledger.yml")) is False
+
+
 def test_is_autofix_context_reads_event_labels(tmp_path: Path, monkeypatch) -> None:
     payload = {
         "pull_request": {

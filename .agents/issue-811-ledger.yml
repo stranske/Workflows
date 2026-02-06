@@ -8,7 +8,7 @@ tasks:
     status: done
     started_at: '2026-01-21T03:48:57Z'
     finished_at: '2026-01-21T03:49:05Z'
-    commit: 783f95f862af626138088e71bdd2b2afd0e7a526
+    commit: a90e50139eb171cb962a8ede933b1525d44e005d
     notes: []
   - id: task-02
     title: Add CI workflow step for dashboard E2E tests in `.github/workflows/ci.yml`
