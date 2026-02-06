@@ -139,6 +139,74 @@ def test_build_chat_client_invalid_env_provider_falls_back(
     assert isinstance(resolved.client, FakeChatOpenAI)
 
 
+def test_build_chat_client_invalid_provider_argument_falls_back(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Invalid provider argument should fall back to auto-selection."""
+    FakeChatOpenAI = _install_fake_langchain_openai(monkeypatch)
+    monkeypatch.setenv("GITHUB_TOKEN", "gh-token")
+    monkeypatch.setenv("OPENAI_API_KEY", "oa-token")
+
+    resolved = langchain_client.build_chat_client(provider="not-a-provider")
+
+    assert resolved is not None
+    assert resolved.provider == langchain_client.PROVIDER_GITHUB
+    assert isinstance(resolved.client, FakeChatOpenAI)
+
+
+def test_build_chat_client_force_openai_falls_back_to_github(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """force_openai should fall back to GitHub Models when OpenAI key is missing."""
+    FakeChatOpenAI = _install_fake_langchain_openai(monkeypatch)
+    monkeypatch.setenv("GITHUB_TOKEN", "gh-token")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+    resolved = langchain_client.build_chat_client(force_openai=True)
+
+    assert resolved is not None
+    assert resolved.provider == langchain_client.PROVIDER_GITHUB
+    assert isinstance(resolved.client, FakeChatOpenAI)
+    assert resolved.client.kwargs["api_key"] == "gh-token"
+    assert resolved.client.kwargs["base_url"] == langchain_client.GITHUB_MODELS_BASE_URL
+
+
+def test_build_chat_client_force_openai_missing_key_raises(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """force_openai should raise a controlled exception when no fallback exists."""
+    _install_fake_langchain_openai(monkeypatch)
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+    with pytest.raises(langchain_client.MissingOpenAIAPIKeyError):
+        langchain_client.build_chat_client(force_openai=True)
+
+
+def test_build_chat_client_env_timeout_and_retries_are_call_time(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Timeout and retry defaults should be read from env at call time."""
+    FakeChatOpenAI = _install_fake_langchain_openai(monkeypatch)
+    monkeypatch.setenv("GITHUB_TOKEN", "gh-token")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+    monkeypatch.setenv(langchain_client.ENV_TIMEOUT, "25")
+    monkeypatch.setenv(langchain_client.ENV_MAX_RETRIES, "7")
+    resolved = langchain_client.build_chat_client()
+    assert resolved is not None
+    assert isinstance(resolved.client, FakeChatOpenAI)
+    assert resolved.client.kwargs["timeout"] == 25
+    assert resolved.client.kwargs["max_retries"] == 7
+
+    monkeypatch.setenv(langchain_client.ENV_TIMEOUT, "42")
+    monkeypatch.setenv(langchain_client.ENV_MAX_RETRIES, "3")
+    resolved = langchain_client.build_chat_client()
+    assert resolved is not None
+    assert resolved.client.kwargs["timeout"] == 42
+    assert resolved.client.kwargs["max_retries"] == 3
+
+
 def test_build_chat_clients_auto_selects_github_then_openai(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

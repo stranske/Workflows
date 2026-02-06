@@ -36,8 +36,16 @@ def _env_int(name: str, default: int) -> int:
         return default
 
 
-DEFAULT_TIMEOUT = _env_int(ENV_TIMEOUT, 60)
-DEFAULT_MAX_RETRIES = _env_int(ENV_MAX_RETRIES, 2)
+def _resolve_timeout(timeout: int | None) -> int:
+    return _env_int(ENV_TIMEOUT, 60) if timeout is None else timeout
+
+
+def _resolve_max_retries(max_retries: int | None) -> int:
+    return _env_int(ENV_MAX_RETRIES, 2) if max_retries is None else max_retries
+
+
+class MissingOpenAIAPIKeyError(RuntimeError):
+    """Raised when OPENAI_API_KEY is required but missing."""
 
 
 @dataclass(frozen=True)
@@ -62,13 +70,24 @@ def _normalize_provider(value: str | None) -> str | None:
     return None
 
 
-def _resolve_provider(provider: str | None, *, force_openai: bool) -> tuple[str | None, bool]:
+def _resolve_provider(provider: str | None, *, force_openai: bool) -> str | None:
     if force_openai:
-        return PROVIDER_OPENAI, True
+        return PROVIDER_OPENAI
     if provider:
-        return _normalize_provider(provider), True
+        normalized = _normalize_provider(provider)
+        if normalized:
+            return normalized
+        logger.warning("Invalid provider %r; falling back to auto-selection.", provider)
+        return None
     env_provider = os.environ.get(ENV_PROVIDER)
-    return _normalize_provider(env_provider), False
+    if env_provider:
+        normalized = _normalize_provider(env_provider)
+        if normalized:
+            return normalized
+        logger.warning(
+            "Invalid %s value %r; falling back to auto-selection.", ENV_PROVIDER, env_provider
+        )
+    return None
 
 
 def _resolve_model(model: str | None) -> str:
@@ -117,15 +136,35 @@ def build_chat_client(
     github_token = os.environ.get("GITHUB_TOKEN")
     openai_token = os.environ.get("OPENAI_API_KEY")
     if not github_token and not openai_token:
+        if force_openai:
+            raise MissingOpenAIAPIKeyError(
+                "OPENAI_API_KEY is required when force_openai=True and no fallback is available."
+            )
         return None
 
     selected_model = _resolve_model(model)
-    selected_timeout = DEFAULT_TIMEOUT if timeout is None else timeout
-    selected_retries = DEFAULT_MAX_RETRIES if max_retries is None else max_retries
+    selected_timeout = _resolve_timeout(timeout)
+    selected_retries = _resolve_max_retries(max_retries)
 
-    selected_provider, provider_explicit = _resolve_provider(provider, force_openai=force_openai)
-    if provider_explicit and selected_provider is None:
-        return None
+    selected_provider = _resolve_provider(provider, force_openai=force_openai)
+
+    if force_openai and not openai_token:
+        if github_token:
+            try:
+                client = _build_github_client(
+                    ChatOpenAI,
+                    model=selected_model,
+                    token=github_token,
+                    timeout=selected_timeout,
+                    max_retries=selected_retries,
+                )
+                return ClientInfo(client=client, provider=PROVIDER_GITHUB, model=selected_model)
+            except Exception as exc:
+                raise MissingOpenAIAPIKeyError(
+                    "OPENAI_API_KEY is required when force_openai=True and GitHub Models fallback "
+                    "failed to initialize."
+                ) from exc
+        raise MissingOpenAIAPIKeyError("OPENAI_API_KEY is required when force_openai=True.")
 
     if selected_provider == PROVIDER_GITHUB:
         if not github_token:
@@ -204,15 +243,13 @@ def build_chat_clients(
     if not github_token and not openai_token:
         return []
 
-    selected_timeout = DEFAULT_TIMEOUT if timeout is None else timeout
-    selected_retries = DEFAULT_MAX_RETRIES if max_retries is None else max_retries
+    selected_timeout = _resolve_timeout(timeout)
+    selected_retries = _resolve_max_retries(max_retries)
 
     first_model = _resolve_model(model1)
     second_model = model2 or model1 or os.environ.get(ENV_MODEL) or DEFAULT_MODEL
 
-    selected_provider, provider_explicit = _resolve_provider(provider, force_openai=False)
-    if provider_explicit and selected_provider is None:
-        return []
+    selected_provider = _resolve_provider(provider, force_openai=False)
 
     clients: list[ClientInfo] = []
 
