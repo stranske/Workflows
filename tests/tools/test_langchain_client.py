@@ -192,6 +192,27 @@ def test_build_chat_client_force_openai_missing_key_raises(
         langchain_client.build_chat_client(force_openai=True)
 
 
+def test_build_chat_client_force_openai_fallback_failure_raises(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """force_openai should raise a controlled exception if fallback init fails."""
+    fake_module = types.ModuleType("langchain_openai")
+
+    class FakeChatOpenAI:
+        def __init__(self, **kwargs):
+            if "base_url" in kwargs:
+                raise RuntimeError("GitHub Models API error")
+            self.kwargs = kwargs
+
+    fake_module.ChatOpenAI = FakeChatOpenAI
+    monkeypatch.setitem(sys.modules, "langchain_openai", fake_module)
+    monkeypatch.setenv("GITHUB_TOKEN", "gh-token")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+    with pytest.raises(langchain_client.MissingOpenAIAPIKeyError):
+        langchain_client.build_chat_client(force_openai=True)
+
+
 def test_build_chat_client_env_timeout_and_retries_are_call_time(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
