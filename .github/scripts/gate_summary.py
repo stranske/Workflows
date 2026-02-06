@@ -142,7 +142,9 @@ def _detect_cosmetic_failure(
     return True, tuple(sorted(cosmetic_hits))
 
 
-def _collect_table(records: Iterable[Mapping[str, object]]) -> tuple[
+def _collect_table(
+    records: Iterable[Mapping[str, object]],
+) -> tuple[
     list[str],
     list[tuple[str, str]],
     list[tuple[str, str]],
