@@ -391,9 +391,7 @@ def _is_ledger_file(path: Path) -> bool:
     name = path.name
     if name.startswith("issue-") and name.endswith("-ledger.yml"):
         return True
-    if name.startswith(".ledger-"):
-        return True
-    return False
+    return bool(name.startswith(".ledger-"))
 
 
 def main() -> int:
