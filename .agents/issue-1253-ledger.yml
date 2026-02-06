@@ -1,0 +1,445 @@
+version: 1
+issue: 1253
+base: main
+branch: codex/issue-1253
+tasks:
+  - id: task-01
+    title: Update `FallbackChainProvider` to pass `quality_context` through to underlying
+      providers that support it.
+    status: done
+    started_at: '2026-02-05T19:34:37Z'
+    finished_at: '2026-02-05T19:34:48Z'
+    commit: 346c61368f169ac3f3e985d31d940f06f2f13320
+    notes: []
+  - id: task-02
+    title: 'Identify underlying providers that support `quality_context`. (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: 'Define scope for: Modify `FallbackChainProvider` to pass `quality_context`
+      to these providers. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: 'Implement focused slice for: Modify `FallbackChainProvider` to pass `quality_context`
+      to these providers. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: 'Validate focused slice for: Modify `FallbackChainProvider` to pass `quality_context`
+      to these providers. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: 'Write (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: 'execute tests to validate the changes. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: Update the `LLMProvider` interface to include an optional `quality_context`
+      parameter (default `None`), modify relevant methods to accept it, and verify
+      backwards compatibility through unit tests and CI validation.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: 'Define scope for: Update the `LLMProvider` interface to include an optional
+      `quality_context` parameter (default `None`). (verify: confirm completion in
+      repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: 'Implement focused slice for: Update the `LLMProvider` interface to include
+      an optional `quality_context` parameter (default `None`). (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: 'Validate focused slice for: Update the `LLMProvider` interface to include
+      an optional `quality_context` parameter (default `None`). (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: 'Define scope for: Modify relevant methods in `LLMProvider` to accept the
+      `quality_context` parameter. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: 'Implement focused slice for: Modify relevant methods in `LLMProvider`
+      to accept the `quality_context` parameter. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: 'Validate focused slice for: Modify relevant methods in `LLMProvider` to
+      accept the `quality_context` parameter. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: 'Write (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: execute unit tests to verify backwards compatibility.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: 'Validate changes through CI pipelines. (verify: confirm completion in
+      repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: Identify and document specific providers in the codebase that support `quality_context`
+      by analyzing their implementation and usage.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: Update the `codex_session_analyzer.analyze_session` function to explicitly
+      pass the `quality_context` parameter to downstream components that require it.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: Write and execute tests to validate that the updated `codex_session_analyzer.analyze_session`
+      function correctly passes the `quality_context` parameter to downstream components.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: 'Define scope for: Write tests to validate that the updated `codex_session_analyzer.analyze_session`
+      function correctly passes the `quality_context` parameter. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: 'Implement focused slice for: Write tests to validate that the updated
+      `codex_session_analyzer.analyze_session` function correctly passes the `quality_context`
+      parameter. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-23
+    title: 'Validate focused slice for: Write tests to validate that the updated `codex_session_analyzer.analyze_session`
+      function correctly passes the `quality_context` parameter. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-24
+    title: 'Execute the tests (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-25
+    title: 'validate the results. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-26
+    title: <!-- Incomplete tasks from original issue -->
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-27
+    title: Update `FallbackChainProvider` to pass `quality_context` through to underlying
+      providers that support it.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-28
+    title: 'Identify underlying providers that support `quality_context`. (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-29
+    title: 'Define scope for: Modify `FallbackChainProvider` to pass `quality_context`
+      to these providers. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-30
+    title: 'Implement focused slice for: Modify `FallbackChainProvider` to pass `quality_context`
+      to these providers. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-31
+    title: 'Validate focused slice for: Modify `FallbackChainProvider` to pass `quality_context`
+      to these providers. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-32
+    title: 'Write (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-33
+    title: 'execute tests to validate the changes. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-34
+    title: 'Identify providers that support `quality_context`. (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-35
+    title: 'Implement focused slice for: Update `codex_session_analyzer.analyze_session`
+      to pass `quality_context`. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-36
+    title: 'Validate focused slice for: Update `codex_session_analyzer.analyze_session`
+      to pass `quality_context`. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-37
+    title: Update the `LLMProvider` interface to include an optional `quality_context`
+      parameter (default `None`), modify relevant methods to accept it, and verify
+      backwards compatibility through unit tests and CI validation.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-38
+    title: 'Define scope for: Update the `LLMProvider` interface to include an optional
+      `quality_context` parameter (default `None`). (verify: confirm completion in
+      repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-39
+    title: 'Implement focused slice for: Update the `LLMProvider` interface to include
+      an optional `quality_context` parameter (default `None`). (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-40
+    title: 'Validate focused slice for: Update the `LLMProvider` interface to include
+      an optional `quality_context` parameter (default `None`). (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-41
+    title: 'Define scope for: Modify relevant methods in `LLMProvider` to accept the
+      `quality_context` parameter. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-42
+    title: 'Implement focused slice for: Modify relevant methods in `LLMProvider`
+      to accept the `quality_context` parameter. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-43
+    title: 'Validate focused slice for: Modify relevant methods in `LLMProvider` to
+      accept the `quality_context` parameter. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-44
+    title: 'Write (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-45
+    title: execute unit tests to verify backwards compatibility.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-46
+    title: 'Validate changes through CI pipelines. (verify: confirm completion in
+      repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-47
+    title: Unit tests demonstrate that `quality_context` reaches the active provider
+      even when wrapped by `FallbackChainProvider`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-48
+    title: Regression tests demonstrate confidence is capped when `analysis_text_length`
+      is very short and `has_work_evidence` is true.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-49
+    title: No existing callers break due to signature changes (CI passes).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-50
+    title: <!-- Criteria verified as unmet by verifier -->
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-51
+    title: Unit tests demonstrate that `quality_context` reaches the active provider
+      even when wrapped by `FallbackChainProvider`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-52
+    title: Regression tests demonstrate confidence is capped when `analysis_text_length`
+      is very short and `has_work_evidence` is true.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-53
+    title: No existing callers break due to signature changes (CI passes).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-54
+    title: Verify backwards compatibility through unit tests and CI validation. (The
+      agent cannot retry CI pipelines or guarantee specific coverage percentages.
+      | Ensure CI pipelines are configured to run automatically and include comprehensive
+      test coverage.)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-55
+    title: Regression tests demonstrate confidence is capped when `analysis_text_length`
+      is very short and `has_work_evidence` is true. (The agent cannot guarantee specific
+      coverage percentages or make subjective design decisions about what constitutes
+      'confidence capping.' | Provide clear, objective criteria for 'confidence capping'
+      and ensure tests are designed to meet these criteria.)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []

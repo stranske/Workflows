@@ -16,15 +16,15 @@ This does not add a new provider.
 
 ## Tasks
 
-- [ ] Extend the LLMProvider interface to accept an optional quality_context parameter (default None) while maintaining backwards compatibility.
-- [ ] Update FallbackChainProvider to pass quality_context through to underlying providers that support it.
-- [ ] Update codex_session_analyzer.analyze_session to always pass quality_context when available, including when using the fallback chain.
-- [ ] Add regression tests proving confidence capping is applied in the fallback-chain path.
+- [x] Extend the LLMProvider interface to accept an optional quality_context parameter (default None) while maintaining backwards compatibility.
+- [x] Update FallbackChainProvider to pass quality_context through to underlying providers that support it.
+- [x] Update codex_session_analyzer.analyze_session to always pass quality_context when available, including when using the fallback chain.
+- [x] Add regression tests proving confidence capping is applied in the fallback-chain path.
 
 ## Acceptance Criteria
 
-- [ ] Unit tests demonstrate that quality_context reaches the active provider even when wrapped by FallbackChainProvider.
-- [ ] Regression tests demonstrate confidence is capped when analysis_text_length is very short and has_work_evidence is true.
+- [x] Unit tests demonstrate that quality_context reaches the active provider even when wrapped by FallbackChainProvider.
+- [x] Regression tests demonstrate confidence is capped when analysis_text_length is very short and has_work_evidence is true.
 - [ ] No existing callers break due to signature changes (CI passes).
 
 ## Implementation Notes

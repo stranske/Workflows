@@ -153,7 +153,13 @@ class LLMProvider(ABC):
 def _supports_quality_context(provider: LLMProvider) -> bool:
     supports = getattr(provider, "supports_quality_context", None)
     if callable(supports):
-        return bool(supports())
+        try:
+            return bool(supports())
+        except Exception:
+            logger.debug(
+                "supports_quality_context raised for %s, falling back to signature",
+                getattr(provider, "name", provider.__class__.__name__),
+            )
     if supports is not None:
         return bool(supports)
     try:
@@ -764,14 +770,20 @@ def check_providers() -> dict[str, bool]:
     }
 
 
-def get_quality_context_capable_providers() -> list[str]:
-    """List providers that support quality_context."""
+def get_quality_context_support_table() -> dict[str, bool]:
+    """Return provider -> quality_context support map for built-in providers."""
     providers = [
         GitHubModelsProvider(),
         OpenAIProvider(),
         RegexFallbackProvider(),
     ]
-    return [provider.name for provider in providers if _supports_quality_context(provider)]
+    return {provider.name: _supports_quality_context(provider) for provider in providers}
+
+
+def get_quality_context_capable_providers() -> list[str]:
+    """List providers that support quality_context."""
+    support_table = get_quality_context_support_table()
+    return [name for name, supported in support_table.items() if supported]
 
 
 if __name__ == "__main__":

@@ -15,8 +15,11 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from scripts.analyze_codex_session import (
     extract_all_tasks_from_pr_body,
     extract_tasks_from_pr_body,
+    output_github_actions,
     update_pr_body_checkboxes,
 )
+from tools.codex_session_analyzer import AnalysisResult
+from tools.llm_provider import CompletionAnalysis
 
 
 class TestExtractTasksFromPRBody:
@@ -181,6 +184,33 @@ class TestUpdatePRBodyCheckboxes:
         pr_body = "- [ ] Real task\n```md\n- [ ] Not real\n```\n- [ ] Another task"
         updated = update_pr_body_checkboxes(pr_body, ["Not real", "Another task"])
         assert updated == "- [ ] Real task\n```md\n- [ ] Not real\n```\n- [x] Another task"
+
+
+class TestOutputGithubActions:
+    """Tests for GitHub Actions output formatting."""
+
+    def test_writes_quality_context_capable_providers(self, tmp_path: Path, monkeypatch) -> None:
+        output_path = tmp_path / "github_output.txt"
+        monkeypatch.setenv("GITHUB_OUTPUT", str(output_path))
+
+        result = AnalysisResult(
+            completion=CompletionAnalysis(
+                completed_tasks=["task1"],
+                in_progress_tasks=[],
+                blocked_tasks=[],
+                confidence=0.8,
+                reasoning="ok",
+                provider_used="mock",
+            ),
+            quality_context_capable_providers=["github-models", "openai"],
+        )
+
+        output_github_actions(result)
+
+        output_text = output_path.read_text()
+        assert "quality-context-capable-providers" in output_text
+        assert "github-models" in output_text
+        assert "openai" in output_text
 
 
 class TestCLIScript:

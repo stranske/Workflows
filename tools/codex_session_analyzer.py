@@ -20,7 +20,7 @@ Usage:
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Literal
 
 from tools.codex_jsonl_parser import CodexSession, parse_codex_jsonl
@@ -56,6 +56,7 @@ class AnalysisResult:
     # Quality metrics for keepalive integration
     effort_score: int = 0
     data_quality: str = "unknown"  # high, medium, low, minimal
+    quality_context_capable_providers: list[str] = field(default_factory=list)
 
     @property
     def has_completions(self) -> bool:
@@ -205,6 +206,18 @@ def analyze_session(
 
     # Get LLM provider and analyze
     provider = get_llm_provider(force_provider=force_provider)
+    quality_context_capable_providers: list[str] = []
+    capability_fn = getattr(provider, "quality_context_capable_providers", None)
+    if callable(capability_fn):
+        try:
+            quality_context_capable_providers = list(capability_fn())
+        except Exception as exc:
+            logger.debug(
+                "Failed to list quality_context capable providers: %s",
+                exc,
+            )
+    elif supports_quality_context(provider):
+        quality_context_capable_providers = [provider.name]
 
     try:
         if quality_context is not None and supports_quality_context(provider):
@@ -248,6 +261,7 @@ def analyze_session(
         analysis_text_length=len(analysis_text),
         effort_score=effort_score,
         data_quality=data_quality,
+        quality_context_capable_providers=quality_context_capable_providers,
     )
 
 
