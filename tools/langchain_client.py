@@ -137,18 +137,10 @@ def build_chat_client(
 
     github_token = os.environ.get("GITHUB_TOKEN")
     openai_token = os.environ.get("OPENAI_API_KEY")
-    if not github_token and not openai_token:
-        if force_openai:
-            raise MissingOpenAIAPIKeyError(
-                "OPENAI_API_KEY is required when force_openai=True and no fallback is available."
-            )
-        return None
 
     selected_model = _resolve_model(model)
     selected_timeout = _resolve_timeout(timeout)
     selected_retries = _resolve_max_retries(max_retries)
-
-    selected_provider = _resolve_provider(provider, force_openai=force_openai)
 
     if force_openai and not openai_token:
         if github_token:
@@ -170,6 +162,11 @@ def build_chat_client(
                     "failed to initialize."
                 ) from exc
         raise MissingOpenAIAPIKeyError("OPENAI_API_KEY is required when force_openai=True.")
+
+    if not github_token and not openai_token:
+        return None
+
+    selected_provider = _resolve_provider(provider, force_openai=force_openai)
 
     if selected_provider == PROVIDER_GITHUB:
         if not github_token:
