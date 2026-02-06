@@ -144,9 +144,7 @@ def test_commit_validation_allows_codex_belt_subject(tmp_path: Path, monkeypatch
     monkeypatch.setattr(
         ledger_validate, "_commit_files", lambda commit: [".agents/issue-1-ledger.yml"]
     )
-    monkeypatch.setattr(
-        ledger_validate, "_commit_subject", lambda commit: "Codex belt for #1 (#2)"
-    )
+    monkeypatch.setattr(ledger_validate, "_commit_subject", lambda commit: "Codex belt for #1 (#2)")
 
     errors = ledger_validate.validate_ledger(ledger_path)
 
