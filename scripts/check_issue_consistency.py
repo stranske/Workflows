@@ -456,7 +456,11 @@ def main() -> int:
     if base_sha and not _is_ancestor(base_sha, "HEAD"):
         print("Skipping issue consistency check: base SHA is not an ancestor of HEAD.")
         return 0
-    pr_issue = extract_title_issue_number(pr_title)
+    title_issue = extract_title_issue_number(pr_title)
+    if is_autofix_context(pr_title, head_ref) and not title_issue:
+        print("Skipping issue consistency check: autofix context with no issue number.")
+        return 0
+    pr_issue = title_issue
     if not pr_issue:
         pr_issue, head_ambiguous = resolve_head_ref_issue_number(head_ref)
         if head_ambiguous:
@@ -466,9 +470,6 @@ def main() -> int:
                 file=sys.stderr,
             )
         if not pr_issue:
-            if is_autofix_context(pr_title, head_ref):
-                print("Skipping issue consistency check: autofix context with no issue number.")
-                return 0
             commit_messages, commit_fallback = collect_commit_messages(
                 args.base_ref, base_sha, base_remote
             )

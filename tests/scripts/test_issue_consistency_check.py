@@ -206,3 +206,17 @@ def test_main_skips_ambiguous_head_ref(monkeypatch, capsys) -> None:
     assert check_issue_consistency.main() == 0
     captured = capsys.readouterr()
     assert "Skipping issue consistency check: no issue references found." in captured.out
+
+
+def test_main_skips_autofix_title_without_issue(monkeypatch, capsys) -> None:
+    monkeypatch.delenv("GITHUB_EVENT_PATH", raising=False)
+    monkeypatch.setenv("PR_TITLE", "Autofix from CI failure")
+    monkeypatch.setenv("HEAD_REF", "codex/issue-101")
+    monkeypatch.setenv("BASE_REF", "")
+    monkeypatch.setenv("BASE_SHA", "")
+    monkeypatch.setenv("BASE_REMOTE", "origin")
+    monkeypatch.setattr(sys, "argv", ["check_issue_consistency.py"])
+
+    assert check_issue_consistency.main() == 0
+    captured = capsys.readouterr()
+    assert "Skipping issue consistency check: autofix context with no issue number." in captured.out
