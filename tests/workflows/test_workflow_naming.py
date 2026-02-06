@@ -35,24 +35,24 @@ def test_workflow_slugs_follow_wfv1_prefixes():
     non_compliant = [
         path.name for path in _workflow_paths() if not path.name.startswith(ALLOWED_PREFIXES)
     ]
-    assert not non_compliant, (
-        f"Non-compliant workflow slug(s) detected outside {ALLOWED_PREFIXES}: {non_compliant}"
-    )
+    assert (
+        not non_compliant
+    ), f"Non-compliant workflow slug(s) detected outside {ALLOWED_PREFIXES}: {non_compliant}"
 
 
 def test_archive_directories_removed():
-    assert not (WORKFLOW_DIR / "archive").exists(), (
-        ".github/workflows/archive/ should be removed (tracked in docs/archive/ARCHIVE_WORKFLOWS.md)"
-    )
+    assert not (
+        WORKFLOW_DIR / "archive"
+    ).exists(), ".github/workflows/archive/ should be removed (tracked in docs/archive/ARCHIVE_WORKFLOWS.md)"
     legacy_dir = pathlib.Path("Old/.github/workflows")
     assert not legacy_dir.exists(), "Old/.github/workflows/ should remain deleted"
 
 
 def test_docs_only_fast_path_workflow_removed():
     legacy_fast_path = WORKFLOW_DIR / "pr-14-docs-only.yml"
-    assert not legacy_fast_path.exists(), (
-        "Legacy docs-only fast path must remain removed; Gate owns the behavior"
-    )
+    assert (
+        not legacy_fast_path.exists()
+    ), "Legacy docs-only fast path must remain removed; Gate owns the behavior"
 
 
 def test_gate_docs_only_branching_logic():
@@ -79,12 +79,12 @@ def test_gate_docs_only_branching_logic():
         assert job_config, f"{job_name} job missing from Gate workflow"
         condition = job_config.get("if")
         assert condition, f"{job_name} job missing docs-only guard condition"
-        assert "needs.detect.outputs.doc_only != 'true'" in condition, (
-            f"{job_name} must skip when docs-only"
-        )
-        assert "needs.detect.outputs.run_core == 'true'" in condition, (
-            f"{job_name} must honor run_core toggle"
-        )
+        assert (
+            "needs.detect.outputs.doc_only != 'true'" in condition
+        ), f"{job_name} must skip when docs-only"
+        assert (
+            "needs.detect.outputs.run_core == 'true'" in condition
+        ), f"{job_name} must honor run_core toggle"
 
     gate_job = jobs.get("summary") or {}
     gate_steps = gate_job.get("steps") or []
@@ -93,9 +93,9 @@ def test_gate_docs_only_branching_logic():
     ]
     assert docs_only_steps, "Summary job must include docs-only handling step"
     docs_only_step = docs_only_steps[0]
-    assert docs_only_step.get("if") == "needs.detect.outputs.doc_only == 'true'", (
-        "Docs-only step must run only for doc-only changes"
-    )
+    assert (
+        docs_only_step.get("if") == "needs.detect.outputs.doc_only == 'true'"
+    ), "Docs-only step must run only for doc-only changes"
 
     script_block = ((docs_only_step.get("with") or {}).get("script")) or ""
     assert "require('./.github/scripts/gate-docs-only.js')" in script_block
