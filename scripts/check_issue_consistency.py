@@ -195,6 +195,18 @@ def _run_git(args: list[str]) -> str:
     return result.stdout
 
 
+def _is_ancestor(ancestor: str, descendant: str) -> bool:
+    if not ancestor or not descendant:
+        return False
+    result = subprocess.run(
+        ["git", "merge-base", "--is-ancestor", ancestor, descendant],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    return result.returncode == 0
+
+
 def _remote_exists(name: str) -> bool:
     if not name:
         return False
@@ -434,6 +446,11 @@ def main() -> int:
     base_sha = (args.base_sha or "").strip() or None
     base_remote = _resolve_base_remote(args.base_remote)
     pr_title, head_ref = resolve_pr_context(args.pr_title, args.head_ref)
+    if base_sha and not _is_ancestor(base_sha, "HEAD"):
+        print(
+            "Skipping issue consistency check: base SHA is not an ancestor of HEAD."
+        )
+        return 0
     pr_issue = extract_title_issue_number(pr_title)
     if not pr_issue:
         pr_issue, head_ambiguous = resolve_head_ref_issue_number(head_ref)
