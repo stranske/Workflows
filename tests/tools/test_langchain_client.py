@@ -213,6 +213,29 @@ def test_build_chat_client_env_timeout_and_retries_are_call_time(
     assert resolved.client.kwargs["max_retries"] == 3
 
 
+def test_build_chat_clients_env_timeout_and_retries_are_call_time(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Timeout and retry env overrides should be honored per call for client lists."""
+    FakeChatOpenAI = _install_fake_langchain_openai(monkeypatch)
+    monkeypatch.setenv("GITHUB_TOKEN", "gh-token")
+    monkeypatch.setenv("OPENAI_API_KEY", "oa-token")
+    monkeypatch.delenv(langchain_client.ENV_PROVIDER, raising=False)
+
+    monkeypatch.setenv(langchain_client.ENV_TIMEOUT, "15")
+    monkeypatch.setenv(langchain_client.ENV_MAX_RETRIES, "5")
+    clients = langchain_client.build_chat_clients()
+    assert all(isinstance(client.client, FakeChatOpenAI) for client in clients)
+    assert [client.client.kwargs["timeout"] for client in clients] == [15, 15]
+    assert [client.client.kwargs["max_retries"] for client in clients] == [5, 5]
+
+    monkeypatch.setenv(langchain_client.ENV_TIMEOUT, "33")
+    monkeypatch.setenv(langchain_client.ENV_MAX_RETRIES, "2")
+    clients = langchain_client.build_chat_clients()
+    assert [client.client.kwargs["timeout"] for client in clients] == [33, 33]
+    assert [client.client.kwargs["max_retries"] for client in clients] == [2, 2]
+
+
 def test_build_chat_clients_auto_selects_github_then_openai(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
