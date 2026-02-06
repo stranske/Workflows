@@ -125,9 +125,15 @@ def _collect_all_files() -> list[Path]:
     return files
 
 
+def _is_under_target_dir(path: Path) -> bool:
+    return any(path == directory or directory in path.parents for directory in TARGET_DIRS)
+
+
 def _is_target_file(path: Path) -> bool:
     # Skip node_modules directories (dependencies, not project code)
     if "node_modules" in path.parts:
+        return False
+    if not _is_under_target_dir(path):
         return False
     return path not in SKIP_FILES and path.suffix.lower() in {
         ".yml",
