@@ -8,7 +8,7 @@ tasks:
     status: done
     started_at: null
     finished_at: null
-    commit: 45efcde
+    commit: 45efcde8a2c385d7cd51e42713af59fb81111793
     notes:
       - Implemented in existing branch changes before manual cleanup.
   - id: task-02
@@ -16,7 +16,7 @@ tasks:
     status: done
     started_at: null
     finished_at: null
-    commit: 45efcde
+    commit: 45efcde8a2c385d7cd51e42713af59fb81111793
     notes:
       - Implemented in existing branch changes before manual cleanup.
   - id: task-03
@@ -24,7 +24,7 @@ tasks:
     status: done
     started_at: null
     finished_at: null
-    commit: 45efcde
+    commit: 45efcde8a2c385d7cd51e42713af59fb81111793
     notes:
       - Implemented in existing branch changes before manual cleanup.
   - id: task-04
@@ -32,7 +32,7 @@ tasks:
     status: done
     started_at: null
     finished_at: null
-    commit: 45efcde
+    commit: 45efcde8a2c385d7cd51e42713af59fb81111793
     notes:
       - Implemented in existing branch changes before manual cleanup.
   - id: task-05
@@ -40,7 +40,7 @@ tasks:
     status: done
     started_at: null
     finished_at: null
-    commit: 08b2238
+    commit: 08b22388b7400868a2511033b9c55005943ac9cf
     notes:
       - Added docs/provider_selection.md.
   - id: task-06
@@ -48,6 +48,6 @@ tasks:
     status: done
     started_at: null
     finished_at: null
-    commit: 45efcde
+    commit: 45efcde8a2c385d7cd51e42713af59fb81111793
     notes:
       - Duplicated tasks removed in current branch.
