@@ -138,6 +138,15 @@ def _extract_pull_request(payload: dict) -> dict:
     return {}
 
 
+def _is_workflow_run_without_pr(event_path: str | None) -> bool:
+    payload = _load_event_payload(event_path)
+    if not payload:
+        return False
+    if "workflow_run" not in payload:
+        return False
+    return not bool(_extract_pull_request(payload))
+
+
 def _has_autofix_label(event_path: str | None) -> bool:
     payload = _load_event_payload(event_path)
     if not payload:
@@ -453,6 +462,9 @@ def main() -> int:
     base_sha = (args.base_sha or "").strip() or None
     base_remote = _resolve_base_remote(args.base_remote)
     pr_title, head_ref = resolve_pr_context(args.pr_title, args.head_ref)
+    if _is_workflow_run_without_pr(os.environ.get("GITHUB_EVENT_PATH")):
+        print("Skipping issue consistency check: workflow run without PR context.")
+        return 0
     if base_sha and not _is_ancestor(base_sha, "HEAD"):
         print("Skipping issue consistency check: base SHA is not an ancestor of HEAD.")
         return 0

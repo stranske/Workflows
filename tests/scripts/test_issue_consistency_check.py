@@ -120,6 +120,24 @@ def test_resolve_pr_context_falls_back_to_workflow_run(tmp_path: Path) -> None:
     assert head_ref == "autofix/ci-branch"
 
 
+def test_main_skips_workflow_run_without_pr_context(monkeypatch, capsys, tmp_path: Path) -> None:
+    payload = {"workflow_run": {"head_branch": "main"}}
+    event_path = tmp_path / "event.json"
+    event_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    monkeypatch.setenv("GITHUB_EVENT_PATH", str(event_path))
+    monkeypatch.setenv("PR_TITLE", "")
+    monkeypatch.setenv("HEAD_REF", "")
+    monkeypatch.setenv("BASE_REF", "")
+    monkeypatch.setenv("BASE_SHA", "")
+    monkeypatch.setenv("BASE_REMOTE", "origin")
+    monkeypatch.setattr(sys, "argv", ["check_issue_consistency.py"])
+
+    assert check_issue_consistency.main() == 0
+    captured = capsys.readouterr()
+    assert "Skipping issue consistency check: workflow run without PR context." in captured.out
+
+
 def test_run_git_with_fallback_handles_ambiguous_argument(monkeypatch) -> None:
     calls = []
 
