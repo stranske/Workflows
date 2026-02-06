@@ -28,6 +28,13 @@ def _is_pr_marker_before_hash(prefix: str) -> bool:
     return re.search(r"(?:^|\W)pr[\W\s]*$", tail, re.IGNORECASE) is not None
 
 
+def _is_issue_marker_before_hash(prefix: str) -> bool:
+    if not prefix:
+        return False
+    tail = prefix[-20:]
+    return re.search(r"(?:^|\W)issue[\W\s]*$", tail, re.IGNORECASE) is not None
+
+
 def _hash_mentions(text: str) -> set[int]:
     matches = set()
     for match in HASH_PATTERN.finditer(text or ""):
@@ -73,6 +80,8 @@ def extract_title_issue_number(title: str) -> int | None:
         start = match.start()
         prefix = title[:start]
         if _is_pr_marker_before_hash(prefix):
+            continue
+        if AUTO_FIX_PATTERN.search(title) and not _is_issue_marker_before_hash(prefix):
             continue
         return int(match.group(1))
     word_match = ISSUE_WORD_PATTERN.search(title)

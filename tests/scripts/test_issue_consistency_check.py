@@ -18,6 +18,11 @@ def test_extract_title_issue_number_prefers_hash() -> None:
     assert check_issue_consistency.extract_title_issue_number(title) == 1075
 
 
+def test_extract_title_issue_number_skips_autofix_pr_hash() -> None:
+    title = "Auto-fix from CI failure (#1268)"
+    assert check_issue_consistency.extract_title_issue_number(title) is None
+
+
 def test_collect_header_issue_numbers_reads_issue_lines(tmp_path: Path) -> None:
     path = tmp_path / "sample.txt"
     path.write_text("# Issue: 1075\n# not an issue reference\n", encoding="utf-8")
