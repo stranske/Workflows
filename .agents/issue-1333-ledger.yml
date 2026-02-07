@@ -1,0 +1,695 @@
+version: 1
+issue: 1333
+base: main
+branch: codex/issue-1333
+tasks:
+  - id: task-01
+    title: 'Create/refactor a dedicated auth validator module that performs explicit
+      None/missing-field guards (no AttributeError/TypeError) and update existing
+      callers to use it instead of `scripts/api_client.fetch_oauth_scopes()`. (Files:
+      `scripts/api_client.py`, `scripts/auth_validator.py`)'
+    status: doing
+    started_at: '2026-02-07T17:53:49Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: "Add a pytest unit test that calls the auth validator entrypoint with `None`\
+      \ (and/or a minimal empty payload) and asserts a deterministic expected return/result\
+      \ (not just \u201Cno exception\u201D). (Files: `tests/test_auth_validator.py`,\
+      \ `scripts/auth_validator.py`)"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: "Add/extend a pytest test that simulates the user authentication scenario\
+      \ and asserts the specific expected outcome (e.g., exact exit code and error\
+      \ message) rather than only validating \u201Cno exception\u201D or generic CLI\
+      \ parsing. (Files: `tests/test_authentication.py`)"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: 'Replace placeholder/incomplete ledger entries by consolidating and rewriting
+      `.agents/issue-1313-ledger.yml` and `.agents/issue-1324-ledger.yml` so every
+      item is a concrete task mapped to a PR #1304 verification concern, and each
+      item includes either a `code_change` field (paths + symbol/area) or a `decision`
+      field pointing to a specific `DECISIONS.md` section. (Files: `.agents/issue-1313-ledger.yml`,
+      `.agents/issue-1324-ledger.yml`, `DECISIONS.md`)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: 'Add unit tests for `scripts/ledger_validate.py` covering multi-remote
+      fetch behavior and retry strategy (success/failure paths) using mocks to avoid
+      network access. (Files: `scripts/ledger_validate.py`, `tests/test_ledger_validate.py`)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: 'Commit a reproducible coverage artifact for auth-related modules (e.g.,
+      a checked-in text report or script output) and add a `DECISIONS.md` entry referencing
+      the artifact and the exact command used to generate it. (Files: `artifacts/coverage-auth.txt`,
+      `DECISIONS.md`)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: 'Update `tools/requirements-llm.txt` to pin `langchain-community` using
+      a full semantic version (X.Y.Z). (Files: `tools/requirements-llm.txt`)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: 'Add a CI step (or repo-local scripted step) that runs `ruff check .` and
+      fails the build on violations. (Files: `.github/workflows/ci.yml`)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: 'Add a CI step that runs the full pytest suite and fails the build on test
+      failures. (Files: `.github/workflows/ci.yml`)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: A dedicated module `scripts/auth_validator.py` exists and exports a single
+      public entrypoint (e.g., `validate_auth_payload(...)`) that performs explicit
+      None/missing-field guards such that calling it with `None` does not raise `AttributeError`
+      or `TypeError`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: 'Verification: code review + `python -c "from scripts.auth_validator import
+      validate_auth_payload; validate_auth_payload(None)"` exits 0 without stack trace.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: All internal callers that previously invoked `scripts/api_client.fetch_oauth_scopes()`
+      for validation now call the dedicated validator entrypoint, and `fetch_oauth_scopes()`
+      no longer performs validation/guard logic beyond its API-client responsibilities.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: 'Verification: `rg -n "fetch_oauth_scopes\(" scripts/` shows no validation
+      call sites; `rg -n "auth_validator" scripts/` shows updated usage; code review
+      confirms validator logic is not embedded in `fetch_oauth_scopes()`.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: "A unit test file `tests/test_auth_validator.py` exists with at least one\
+      \ test that passes `None` into the validator entrypoint and asserts a deterministic\
+      \ result (e.g., `valid is False` plus a specific error code/message), not merely\
+      \ \u201Cdoes not raise\u201D."
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: 'Verification: `pytest -q tests/test_auth_validator.py` passes; review
+      confirms explicit assertions on the returned value/fields for `None`.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: '`tests/test_auth_validator.py` includes a second test that passes an empty/minimal
+      payload (e.g., `{}`) into the validator entrypoint and asserts the exact deterministic
+      error semantics defined for missing required fields (e.g., same error code or
+      specific `missing_fields` list).'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: 'Verification: `pytest -q tests/test_auth_validator.py -k "empty|minimal|missing"`
+      passes; review confirms exact-output assertions.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: '`tests/test_authentication.py` contains a test that simulates the user
+      authentication scenario and asserts (1) an exact process exit code and (2) an
+      exact error message substring (or full message) corresponding to the authentication
+      path, rather than only CLI parsing errors.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: 'Verification: `pytest -q tests/test_authentication.py` passes; review
+      confirms both exit code + message content assertions.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: The authentication scenario test uses controlled inputs (fixtures/mocks)
+      and performs no real network access.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: 'Verification: code review confirms mocking of any HTTP/token retrieval
+      (e.g., `monkeypatch`/mocked client).'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: The ledger files `.agents/issue-1313-ledger.yml` and `.agents/issue-1324-ledger.yml`
+      contain zero placeholder/example entries (no values like `TBD`, `placeholder`,
+      `example`, `lorem`, or empty stub items), and each list item is a concrete task
+      statement.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-23
+    title: 'Verification: `rg -n "TBD|placeholder|example|lorem" .agents/issue-1313-ledger.yml
+      .agents/issue-1324-ledger.yml` returns no matches; review confirms no empty/incomplete
+      items.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-24
+    title: 'Every ledger item in both ledgers includes exactly one of: (a) `code_change`
+      with explicit file path(s) plus symbol/area, OR (b) `decision` referencing a
+      specific section anchor/title in `DECISIONS.md` (e.g., `DECISIONS.md#<section>`).'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-25
+    title: 'Verification: code review verifies XOR structure; run the repo ledger
+      validator (e.g., `python scripts/ledger_validate.py`) and confirm exit code
+      0.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-26
+    title: "For any ledger item marked done/complete, there exists either (a) a corresponding\
+      \ unit test addition/modification in the same PR (changed files under `tests/`),\
+      \ or (b) a dated entry in `DECISIONS.md` (YYYY-MM-DD) referenced by that item\u2019\
+      s `decision` field."
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-27
+    title: 'Verification: review each done item vs. changed `tests/` files or referenced
+      dated decision entry.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-28
+    title: '`tests/test_ledger_validate.py` includes mocked tests covering multi-remote
+      fetch behavior with (1) first remote fails then second succeeds and validator
+      returns success, and (2) all remotes fail and validator returns a non-zero exit
+      or explicit failure result.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-29
+    title: 'Verification: `pytest -q tests/test_ledger_validate.py` passes; review
+      confirms mocks simulate outcomes and tests assert explicit results.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-30
+    title: '`tests/test_ledger_validate.py` includes a test for retry strategy where
+      a fetch fails N-1 times then succeeds on attempt N, asserting the exact number
+      of attempts made (call count) and the final success result.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-31
+    title: 'Verification: `pytest -q tests/test_ledger_validate.py -k retry` passes;
+      review confirms call count + outcome assertions.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-32
+    title: Ledger validation tests do not perform any real network access (all network-facing
+      functions are mocked/stubbed).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-33
+    title: 'Verification: code review confirms mocking; `pytest -q tests/test_ledger_validate.py`
+      passes in network-restricted environments.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-34
+    title: 'A reproducible coverage artifact exists at `artifacts/coverage-auth.txt`
+      and includes: (1) the exact command used to generate it, and (2) per-file coverage
+      lines including all auth-related modules (at minimum `scripts/auth_validator.py`
+      and any auth-related code path in `scripts/api_client.py` if still relevant).'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-35
+    title: 'Verification: inspect `artifacts/coverage-auth.txt` for command + per-file
+      coverage lines naming required files.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-36
+    title: '`DECISIONS.md` contains a new section referencing `artifacts/coverage-auth.txt`
+      and repeating the exact command used to generate the artifact (matching the
+      artifact text).'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-37
+    title: 'Verification: inspect `DECISIONS.md` section; compare command text to
+      artifact for exact match.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-38
+    title: '`tools/requirements-llm.txt` pins `langchain-community` to a full semantic
+      version of the form `langchain-community==X.Y.Z` (no partial versions like `0.4`
+      and no ranges).'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-39
+    title: 'Verification: `python -c "import re, pathlib; t=pathlib.Path(''tools/requirements-llm.txt'').read_text();
+      assert re.search(r''^langchain-community==\\d+\\.\\d+\\.\\d+\\s*$'', t, re.M)"`
+      exits 0; review confirms a single pin.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-40
+    title: CI workflow `.github/workflows/ci.yml` contains a step that runs `ruff
+      check .` and fails when `ruff` returns non-zero.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-41
+    title: 'Verification: review CI YAML for `ruff check .`; optionally validate by
+      introducing then reverting a known ruff violation to observe failure.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-42
+    title: CI workflow `.github/workflows/ci.yml` contains a step that runs the full
+      test suite via `pytest` (not path-limited) and fails on non-zero exit.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-43
+    title: 'Verification: review CI YAML for `pytest` full-suite invocation; optionally
+      validate by breaking then reverting a test to observe failure.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-44
+    title: Running `ruff check .` at the PR head returns exit code 0.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-45
+    title: 'Verification: run locally or in CI logs.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-46
+    title: Running `pytest` (full suite) at the PR head returns exit code 0.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-47
+    title: 'Verification: run locally or in CI logs.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-48
+    title: 'Create/refactor a dedicated auth validator module that performs explicit
+      None/missing-field guards (no AttributeError/TypeError) and update existing
+      callers to use it instead of `scripts/api_client.fetch_oauth_scopes()`. (Files:
+      `scripts/api_client.py`, `scripts/auth_validator.py`)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-49
+    title: "Add a pytest unit test that calls the auth validator entrypoint with `None`\
+      \ (and/or a minimal empty payload) and asserts a deterministic expected return/result\
+      \ (not just \u201Cno exception\u201D). (Files: `tests/test_auth_validator.py`,\
+      \ `scripts/auth_validator.py`)"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-50
+    title: "Add/extend a pytest test that simulates the user authentication scenario\
+      \ and asserts the specific expected outcome (e.g., exact exit code and error\
+      \ message) rather than only validating \u201Cno exception\u201D or generic CLI\
+      \ parsing. (Files: `tests/test_authentication.py`)"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-51
+    title: 'Replace placeholder/incomplete ledger entries by consolidating and rewriting
+      `.agents/issue-1313-ledger.yml` and `.agents/issue-1324-ledger.yml` so every
+      item is a concrete task mapped to a PR #1304 verification concern, and each
+      item includes either a `code_change` field (paths + symbol/area) or a `decision`
+      field pointing to a specific `DECISIONS.md` section. (Files: `.agents/issue-1313-ledger.yml`,
+      `.agents/issue-1324-ledger.yml`, `DECISIONS.md`)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-52
+    title: 'Add unit tests for `scripts/ledger_validate.py` covering multi-remote
+      fetch behavior and retry strategy (success/failure paths) using mocks to avoid
+      network access. (Files: `scripts/ledger_validate.py`, `tests/test_ledger_validate.py`)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-53
+    title: 'Commit a reproducible coverage artifact for auth-related modules (e.g.,
+      a checked-in text report or script output) and add a `DECISIONS.md` entry referencing
+      the artifact and the exact command used to generate it. (Files: `artifacts/coverage-auth.txt`,
+      `DECISIONS.md`)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-54
+    title: 'Update `tools/requirements-llm.txt` to pin `langchain-community` using
+      a full semantic version (X.Y.Z). (Files: `tools/requirements-llm.txt`)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-55
+    title: 'Add a CI step (or repo-local scripted step) that runs `ruff check .` and
+      fails the build on violations. (Files: `.github/workflows/ci.yml`)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-56
+    title: 'Add a CI step that runs the full pytest suite and fails the build on test
+      failures. (Files: `.github/workflows/ci.yml`)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-57
+    title: A dedicated module `scripts/auth_validator.py` exists and exports a single
+      public entrypoint (e.g., `validate_auth_payload(...)`) that performs explicit
+      None/missing-field guards such that calling it with `None` does not raise `AttributeError`
+      or `TypeError`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-58
+    title: All internal callers that previously invoked `scripts/api_client.fetch_oauth_scopes()`
+      for validation now call the dedicated validator entrypoint, and `fetch_oauth_scopes()`
+      no longer performs validation/guard logic beyond its API-client responsibilities.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-59
+    title: "A unit test file `tests/test_auth_validator.py` exists with at least one\
+      \ test that passes `None` into the validator entrypoint and asserts a deterministic\
+      \ result (e.g., `valid is False` plus a specific error code/message), not merely\
+      \ \u201Cdoes not raise\u201D."
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-60
+    title: '`tests/test_auth_validator.py` includes a second test that passes an empty/minimal
+      payload (e.g., `{}`) into the validator entrypoint and asserts the exact deterministic
+      error semantics defined for missing required fields (e.g., same error code or
+      specific `missing_fields` list).'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-61
+    title: '`tests/test_authentication.py` contains a test that simulates the user
+      authentication scenario and asserts (1) an exact process exit code and (2) an
+      exact error message substring (or full message) corresponding to the authentication
+      path, rather than only CLI parsing errors.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-62
+    title: The authentication scenario test uses controlled inputs (fixtures/mocks)
+      and performs no real network access.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-63
+    title: The ledger files `.agents/issue-1313-ledger.yml` and `.agents/issue-1324-ledger.yml`
+      contain zero placeholder/example entries (no values like `TBD`, `placeholder`,
+      `example`, `lorem`, or empty stub items), and each list item is a concrete task
+      statement.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-64
+    title: 'Every ledger item in both ledgers includes exactly one of: (a) `code_change`
+      with explicit file path(s) plus symbol/area, OR (b) `decision` referencing a
+      specific section anchor/title in `DECISIONS.md` (e.g., `DECISIONS.md#<section>`).'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-65
+    title: "For any ledger item marked done/complete, there exists either (a) a corresponding\
+      \ unit test addition/modification in the same PR (changed files under `tests/`),\
+      \ or (b) a dated entry in `DECISIONS.md` (YYYY-MM-DD) referenced by that item\u2019\
+      s `decision` field."
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-66
+    title: '`tests/test_ledger_validate.py` includes mocked tests covering multi-remote
+      fetch behavior with (1) first remote fails then second succeeds and validator
+      returns success, and (2) all remotes fail and validator returns a non-zero exit
+      or explicit failure result.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-67
+    title: '`tests/test_ledger_validate.py` includes a test for retry strategy where
+      a fetch fails N-1 times then succeeds on attempt N, asserting the exact number
+      of attempts made (call count) and the final success result.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-68
+    title: Ledger validation tests do not perform any real network access (all network-facing
+      functions are mocked/stubbed).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-69
+    title: 'A reproducible coverage artifact exists at `artifacts/coverage-auth.txt`
+      and includes: (1) the exact command used to generate it, and (2) per-file coverage
+      lines including all auth-related modules (at minimum `scripts/auth_validator.py`
+      and any auth-related code path in `scripts/api_client.py` if still relevant).'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-70
+    title: '`DECISIONS.md` contains a new section referencing `artifacts/coverage-auth.txt`
+      and repeating the exact command used to generate the artifact (matching the
+      artifact text).'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-71
+    title: '`tools/requirements-llm.txt` pins `langchain-community` to a full semantic
+      version of the form `langchain-community==X.Y.Z` (no partial versions like `0.4`
+      and no ranges).'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-72
+    title: CI workflow `.github/workflows/ci.yml` contains a step that runs `ruff
+      check .` and fails when `ruff` returns non-zero.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-73
+    title: CI workflow `.github/workflows/ci.yml` contains a step that runs the full
+      test suite via `pytest` (not path-limited) and fails on non-zero exit.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-74
+    title: Running `ruff check .` at the PR head returns exit code 0.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-75
+    title: Running `pytest` (full suite) at the PR head returns exit code 0.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-76
+    title: 'Add a CI step (or repo-local scripted step) that runs `ruff check .` and
+      fails the build on violations. (Agent cannot modify .github/workflows/*.yml
+      files (protected). The task explicitly mentions CI workflow modification. |
+      Split into two tasks: (1) Create a local script `scripts/check_ruff.sh` that
+      runs `ruff check .` and exits with the ruff exit code, and (2) Document in DECISIONS.md
+      or a separate issue that CI workflow modification is needed (for human to complete).)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-77
+    title: 'Add a CI step that runs the full pytest suite and fails the build on test
+      failures. (Agent cannot modify .github/workflows/*.yml files (protected). The
+      task explicitly mentions CI workflow modification. | Split into two tasks: (1)
+      Create a local script `scripts/run_tests.sh` that runs the full pytest suite,
+      and (2) Document in DECISIONS.md or a separate issue that CI workflow modification
+      is needed (for human to complete).)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
