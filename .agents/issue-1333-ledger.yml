@@ -8,10 +8,10 @@ tasks:
       None/missing-field guards (no AttributeError/TypeError) and update existing
       callers to use it instead of `scripts/api_client.fetch_oauth_scopes()`. (Files:
       `scripts/api_client.py`, `scripts/auth_validator.py`)'
-    status: doing
+    status: done
     started_at: '2026-02-07T17:53:49Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-02-07T17:53:56Z'
+    commit: fd3f181dc3699e118ffa6ed47aa76a3946cc2362
     notes: []
   - id: task-02
     title: "Add a pytest unit test that calls the auth validator entrypoint with `None`\
