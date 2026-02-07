@@ -206,6 +206,7 @@ jobs:
         if: steps.check-merged.outputs.merged == 'true'
         continue-on-error: true
         env:
+          PYTHONPATH: ${{ github.workspace }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           CLAUDE_API_STRANSKE: ${{ secrets.CLAUDE_API_STRANSKE }}
           GITHUB_TOKEN: ${{ steps.select-token.outputs.token }}
