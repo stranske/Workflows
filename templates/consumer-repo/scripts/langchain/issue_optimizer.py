@@ -553,7 +553,7 @@ def analyze_issue(issue_body: str, *, use_llm: bool = True) -> IssueOptimization
             else:
                 prompt = _load_prompt()
                 template = ChatPromptTemplate.from_template(prompt)
-                chain = template | client
+                chain = template | client  # type: ignore[operator]
                 try:
                     response = chain.invoke(
                         {
@@ -576,7 +576,7 @@ def analyze_issue(issue_body: str, *, use_llm: bool = True) -> IssueOptimization
                         openai_client_info = _get_llm_client(force_openai=True)
                         if openai_client_info:
                             openai_client, openai_provider = openai_client_info
-                            openai_chain = template | openai_client
+                            openai_chain = template | openai_client  # type: ignore[operator]
                             try:
                                 response = openai_chain.invoke(
                                     {
@@ -705,7 +705,10 @@ def _apply_task_decomposition(formatted_body: str, suggestions: dict[str, Any]) 
         sub_tasks = decomposition_map.get(_normalize_task_text(task_text))
         if not sub_tasks:
             continue
-        indent = re.match(r"^\s*", line).group(0)
+        # ^\s* always matches (zero or more whitespace)
+        indent_match = re.match(r"^\s*", line)
+        assert indent_match is not None
+        indent = indent_match.group(0)
         sub_indent = f"{indent}  "
         for sub_task in sub_tasks:
             cleaned = _strip_task_marker(sub_task)
@@ -735,7 +738,7 @@ def apply_suggestions(
             else:
                 prompt = _load_apply_prompt()
                 template = ChatPromptTemplate.from_template(prompt)
-                chain = template | client
+                chain = template | client  # type: ignore[operator]
                 try:
                     response = chain.invoke(
                         {
@@ -763,7 +766,7 @@ def apply_suggestions(
                         openai_client_info = _get_llm_client(force_openai=True)
                         if openai_client_info:
                             openai_client, openai_provider = openai_client_info
-                            openai_chain = template | openai_client
+                            openai_chain = template | openai_client  # type: ignore[operator]
                             try:
                                 response = openai_chain.invoke(
                                     {
