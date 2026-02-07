@@ -1,0 +1,99 @@
+version: 1
+issue: 1313
+base: main
+branch: codex/issue-1313
+tasks:
+  - id: task-01
+    title: 'Review verification logs from PR #1304 to identify specific failure points'
+    status: doing
+    started_at: '2026-02-07T11:04:04Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: 'Document each verification concern in this issue with:'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: Update the Tasks section below with concrete, actionable items
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: Fix failing test `test_user_authentication` in `tests/test_auth.py` (line
+      45)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: Update `src/auth/validator.py` to handle null email addresses (line 23)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: Add test case for empty string input in `tests/test_validator.py`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: Determine if verification failures require architectural discussion
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: Decide whether to document concerns as "won't fix" in DECISIONS.md
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: Approve any breaking changes identified during investigation
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: 'Each concern from PR #1304 verification has either:'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: All code changes include corresponding unit tests with >80% coverage (or
+      PR description documents why no test changes are required)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: Code changes implement fixes for identified concerns and pass local test
+      suite (`pytest` exits with code 0)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: All modified files pass linting (`ruff check` reports 0 errors)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
