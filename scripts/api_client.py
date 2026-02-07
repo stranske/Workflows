@@ -226,7 +226,10 @@ def fetch_oauth_scopes(
         payload=None,
         **_retry_kwargs(retry_attempts, retry_backoff),
     )
-    scopes_header = response.headers.get("X-OAuth-Scopes")
+    headers = getattr(response, "headers", None)
+    if not headers:
+        return None
+    scopes_header = headers.get("X-OAuth-Scopes")
     if scopes_header is None:
         return None
     scopes = {scope.strip() for scope in scopes_header.split(",") if scope.strip()}
