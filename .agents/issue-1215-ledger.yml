@@ -1,0 +1,62 @@
+version: 1
+issue: 1215
+base: main
+branch: codex/issue-1215
+tasks:
+  - id: task-01
+    title: Update `tools/llm_provider.py` to set `LANGCHAIN_API_KEY` when `LANGSMITH_API_KEY`
+      is present and ensure `LANGCHAIN_TRACING_V2` is enabled.
+    status: done
+    started_at: '2026-02-07T11:31:52Z'
+    finished_at: '2026-02-07T11:32:02Z'
+    commit: c5865aee8654ab1669521eba707a477829dfd771
+    notes: []
+  - id: task-02
+    title: Update `scripts/langchain/pr_verifier.py` to standardize metadata tagging
+      for LLM calls (include `repo`, `run id`, `issue/pr number`, `operation` at minimum).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: Update `scripts/langchain/followup_issue_generator.py` to standardize metadata
+      tagging for LLM calls (include `repo`, `run id`, `issue/pr number`, `operation`
+      at minimum).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: Add a unit test to verify env wiring behavior when `LANGSMITH_API_KEY`
+      is set/unset.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: With `LANGSMITH_API_KEY` set, `LANGCHAIN_TRACING_V2` and `LANGCHAIN_API_KEY`
+      are configured (covered by a unit test).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: At least two key operations emit traces with standardized metadata fields
+      (inspectable in code, e.g., explicit metadata/tags include `repo`, `run id`,
+      `issue/pr number`, `operation`).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: With no `LANGSMITH_API_KEY`, tracing remains off and code paths still run.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []

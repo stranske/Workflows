@@ -3,6 +3,7 @@
 
 import pytest
 
+from scripts.langchain import followup_issue_generator
 from scripts.langchain.followup_issue_generator import (
     OriginalIssueData,
     VerificationData,
@@ -123,6 +124,21 @@ Concerns:
         assert len(data.concerns) == 2
         assert "Coverage gap in workflow_health_check.py" in data.concerns
         assert "Missing tests for error classification" in data.concerns
+
+    def test_extract_missing_concerns_for_unknown_verdict(self):
+        """Add a default concern when verdict is unknown and concerns are missing."""
+        comment = """
+## PR Verification Report
+
+Verdict: **Unknown** @0%
+"""
+        data = extract_verification_data(comment)
+
+        assert data.concerns == [
+            "Verification output did not include extractable concerns; "
+            "re-run verification to capture verifier-context.md and verifier-diff-summary.md."
+        ]
+        assert data.missing_concerns is True
 
     def test_extract_low_scores(self):
         """Extract scores below 7/10."""
@@ -350,6 +366,31 @@ class TestGenerateFollowupIssue:
         assert "Not Ready" in followup.body
         assert "follow-up" in followup.labels
 
+    def test_generate_without_llm_missing_concerns_adds_rerun_task(self):
+        """Missing concerns should yield a concrete re-verification task."""
+        verification_data = VerificationData(
+            provider_verdicts={"openai": {"verdict": "Unknown", "confidence": 0}},
+            concerns=[
+                "Verification output did not include extractable concerns; "
+                "re-run verification to capture verifier-context.md and verifier-diff-summary.md."
+            ],
+            missing_concerns=True,
+        )
+
+        original_issue = OriginalIssueData(number=100, title="Add caching feature")
+
+        followup = generate_followup_issue(
+            verification_data=verification_data,
+            original_issue=original_issue,
+            pr_number=200,
+            use_llm=False,
+        )
+
+        assert (
+            "Re-run verification to capture verifier-context.md and verifier-diff-summary.md."
+            in (followup.body)
+        )
+
     def test_includes_background_context(self):
         """Follow-up should include collapsible background section."""
         verification_data = VerificationData(
@@ -474,6 +515,33 @@ Create parsers and validators for JSON and CSV formats.
         assert "<details>" in followup.body
         # Verify structural issues are captured in background
         assert "52" in followup.body or "structural" in followup.body.lower()
+
+
+def test_build_llm_config_includes_standard_metadata(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("GITHUB_REPOSITORY", "octo/repo")
+    monkeypatch.setenv("GITHUB_RUN_ID", "999")
+    monkeypatch.setenv("RUN_ID", "999")
+
+    config = followup_issue_generator._build_llm_config(
+        operation="generate_tasks",
+        pr_number=42,
+        issue_number=7,
+    )
+
+    metadata = config["metadata"]
+    assert metadata["repo"] == "octo/repo"
+    assert metadata["run_id"] == "999"
+    assert metadata["issue_or_pr_number"] == "42"
+    assert metadata["operation"] == "generate_tasks"
+    assert metadata["pr_number"] == "42"
+    assert metadata["issue_number"] == "7"
+
+    tags = config["tags"]
+    assert "workflows-agents" in tags
+    assert "operation:generate_tasks" in tags
+    assert "repo:octo/repo" in tags
+    assert "issue_or_pr:42" in tags
+    assert "run_id:999" in tags
 
 
 if __name__ == "__main__":

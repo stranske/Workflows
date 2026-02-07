@@ -148,16 +148,25 @@ def _resolve_slots() -> list[SlotDefinition]:
     return _apply_slot_env_overrides(_load_slot_config())
 
 
+def _is_reasoning_model(model: str) -> bool:
+    """Return True if the model is an OpenAI reasoning model that rejects temperature."""
+    name = model.lower().strip()
+    # o-series reasoning models: o1, o1-mini, o1-preview, o3, o3-mini, o4-mini, etc.
+    return bool(__import__("re").match(r"^o[0-9]", name))
+
+
 def _build_openai_client(
     chat_openai: type, *, model: str, token: str, timeout: int, max_retries: int
 ) -> object:
-    return chat_openai(
-        model=model,
-        api_key=token,
-        temperature=0.1,
-        timeout=timeout,
-        max_retries=max_retries,
-    )
+    kwargs: dict = {
+        "model": model,
+        "api_key": token,
+        "timeout": timeout,
+        "max_retries": max_retries,
+    }
+    if not _is_reasoning_model(model):
+        kwargs["temperature"] = 0.1
+    return chat_openai(**kwargs)
 
 
 def _build_anthropic_client(
@@ -175,14 +184,16 @@ def _build_anthropic_client(
 def _build_github_client(
     chat_openai: type, *, model: str, token: str, timeout: int, max_retries: int
 ) -> object:
-    return chat_openai(
-        model=model,
-        base_url=GITHUB_MODELS_BASE_URL,
-        api_key=token,
-        temperature=0.1,
-        timeout=timeout,
-        max_retries=max_retries,
-    )
+    kwargs: dict = {
+        "model": model,
+        "base_url": GITHUB_MODELS_BASE_URL,
+        "api_key": token,
+        "timeout": timeout,
+        "max_retries": max_retries,
+    }
+    if not _is_reasoning_model(model):
+        kwargs["temperature"] = 0.1
+    return chat_openai(**kwargs)
 
 
 def build_chat_client(

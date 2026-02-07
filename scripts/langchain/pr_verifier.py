@@ -184,7 +184,12 @@ class ComparisonRunner:
 
     def run_single(self, client: object, provider: str, model: str) -> EvaluationResult:
         try:
-            response = client.invoke(self.prompt)
+            response = _invoke_llm(
+                client,
+                self.prompt,
+                operation="evaluate_pr_compare",
+                context=self.context,
+            )
         except Exception as exc:  # pragma: no cover - exercised in integration
             return _fallback_evaluation(
                 f"LLM invocation failed: {exc}", provider=provider, model=model
@@ -216,6 +221,81 @@ def _extract_pr_metadata(context: str) -> tuple[int | None, str | None]:
         if match:
             return int(match.group("number")), None
     return None, None
+
+
+def _resolve_run_id() -> str:
+    return os.environ.get("GITHUB_RUN_ID") or os.environ.get("RUN_ID") or "unknown"
+
+
+def _resolve_repo() -> str:
+    return os.environ.get("GITHUB_REPOSITORY") or "unknown"
+
+
+def _resolve_issue_or_pr_number(
+    *, pr_number: int | None = None, issue_number: int | None = None
+) -> str:
+    if pr_number is not None:
+        return str(pr_number)
+    env_pr = os.environ.get("PR_NUMBER")
+    if env_pr and env_pr.isdigit():
+        return env_pr
+    if issue_number is not None:
+        return str(issue_number)
+    env_issue = os.environ.get("ISSUE_NUMBER")
+    if env_issue and env_issue.isdigit():
+        return env_issue
+    return "unknown"
+
+
+def _build_llm_config(
+    *,
+    operation: str,
+    context: str | None = None,
+    pr_number: int | None = None,
+    issue_number: int | None = None,
+) -> dict[str, object]:
+    if pr_number is None and context:
+        pr_number, _ = _extract_pr_metadata(context)
+    repo = _resolve_repo()
+    run_id = _resolve_run_id()
+    issue_or_pr = _resolve_issue_or_pr_number(pr_number=pr_number, issue_number=issue_number)
+    metadata = {
+        "repo": repo,
+        "run_id": run_id,
+        "issue_or_pr_number": issue_or_pr,
+        "operation": operation,
+        "pr_number": str(pr_number) if pr_number is not None else None,
+        "issue_number": str(issue_number) if issue_number is not None else None,
+    }
+    tags = [
+        "workflows-agents",
+        f"operation:{operation}",
+        f"repo:{repo}",
+        f"issue_or_pr:{issue_or_pr}",
+        f"run_id:{run_id}",
+    ]
+    return {"metadata": metadata, "tags": tags}
+
+
+def _invoke_llm(
+    client: object,
+    prompt: str,
+    *,
+    operation: str,
+    context: str | None = None,
+    pr_number: int | None = None,
+    issue_number: int | None = None,
+) -> object:
+    config = _build_llm_config(
+        operation=operation,
+        context=context,
+        pr_number=pr_number,
+        issue_number=issue_number,
+    )
+    try:
+        return client.invoke(prompt, config=config)
+    except TypeError:
+        return client.invoke(prompt)
 
 
 def _format_scores(scores: EvaluationScores | None) -> list[str]:
@@ -398,8 +478,15 @@ def evaluate_pr(
 
     client, provider_name = resolved
     prompt = _prepare_prompt(context, diff)
+    pr_number, _ = _extract_pr_metadata(context)
     try:
-        response = client.invoke(prompt)
+        response = _invoke_llm(
+            client,
+            prompt,
+            operation="evaluate_pr",
+            context=context,
+            pr_number=pr_number,
+        )
     except Exception as exc:  # pragma: no cover - exercised in integration
         # If auth error and not explicitly requesting a provider, try fallback
         if _is_auth_error(exc) and provider is None:
@@ -408,7 +495,13 @@ def evaluate_pr(
             if fallback_resolved is not None:
                 fallback_client, fallback_provider_name = fallback_resolved
                 try:
-                    response = fallback_client.invoke(prompt)
+                    response = _invoke_llm(
+                        fallback_client,
+                        prompt,
+                        operation="evaluate_pr_fallback",
+                        context=context,
+                        pr_number=pr_number,
+                    )
                     content = getattr(response, "content", None) or str(response)
                     result = _parse_llm_response(
                         content, fallback_provider_name, client=fallback_client

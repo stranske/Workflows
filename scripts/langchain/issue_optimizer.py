@@ -54,11 +54,19 @@ CRITICAL rules for split_suggestions:
 - Do NOT split a sentence at commas into fragments
 - Do NOT return single words or noun phrases as sub-tasks
 - BAD: ["methods", "input/output types", "metadata contract"]
-- GOOD: ["Define the EmbeddingProvider interface methods", "Define input/output types", "Define metadata contract"]
+- GOOD: [
+    "Define the EmbeddingProvider interface methods",
+    "Define input/output types",
+    "Define metadata contract"
+  ]
 
 Output JSON with this shape:
 {{
-  "task_splitting": [{{"task": "...", "reason": "...", "split_suggestions": ["Complete actionable sub-task description"]}}],
+  "task_splitting": [{{
+    "task": "...",
+    "reason": "...",
+    "split_suggestions": ["Complete actionable sub-task description"]
+  }}],
   "blocked_tasks": [{{"task": "...", "reason": "...", "suggested_action": "..."}}],
   "objective_criteria": [{{"criterion": "...", "issue": "...", "suggestion": "..."}}],
   "missing_sections": ["Scope", "Implementation Notes"],

@@ -1,0 +1,89 @@
+version: 1
+issue: 1315
+base: main
+branch: codex/issue-1315
+tasks:
+  - id: task-01
+    title: 'Review the verification output logs from PR #1307 to extract specific
+      error messages, warnings, or edge cases'
+    status: done
+    started_at: '2026-02-07T11:11:04Z'
+    finished_at: '2026-02-07T11:11:11Z'
+    commit: 9356298e4d8b2be96169b8502635178c60e172d5
+    notes: []
+  - id: task-02
+    title: Document each identified concern in this issue as a separate sub-task with
+      context
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: Create `docs/verification-concerns-1307.md` listing all concerns with severity
+      levels
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: Fix [specific issue from verification output]
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: Add test case for [specific edge case identified]
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: Update [specific file/function] to handle [specific scenario]
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: 'File `docs/verification-concerns-1307.md` exists and lists all concerns
+      from PR #1307 verification with severity assessment'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: 'Each concern from PR #1307 verification has either:'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: All code changes have corresponding test files with passing tests (run
+      `npm test` or equivalent shows 0 failures)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: Re-verification completes with verdict "Verified" OR verdict "Unknown"
+      with documented justification in `docs/verification-concerns-1307.md` for each
+      remaining unknown
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: CI pipeline passes (all checks green on re-verification PR)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []

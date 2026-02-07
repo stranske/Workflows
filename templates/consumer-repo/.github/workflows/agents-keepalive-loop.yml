@@ -311,7 +311,7 @@ jobs:
             for (const [key, value] of Object.entries(output)) {
               core.setOutput(key, value);
             }
-            
+
             // Task appendix: Write directly to file to avoid GitHub's secret scanner
             // blocking job outputs (which happens with long/repetitive content).
             // Writing here (before setting the task_appendix output) ensures the content
@@ -324,10 +324,12 @@ jobs:
             // Ensure artifacts directory exists
             fs.mkdirSync(artifactsDir, { recursive: true });
 
-            // Write the full task appendix directly to the artifact file
+            // Write the task appendix directly to the artifact file
             if (result.taskAppendix && result.taskAppendix.length > 0) {
-              fs.writeFileSync(appendixPath, result.taskAppendix + '\n', { encoding: 'utf8' });
-              core.info(`Task appendix written directly to file (${result.taskAppendix.length} chars)`);
+              const opts = { encoding: 'utf8' };
+              fs.writeFileSync(appendixPath, result.taskAppendix + '\n', opts);
+              const len = result.taskAppendix.length;
+              core.info(`Task appendix written to file (${len} chars)`);
             } else {
               // Create an empty file if there is no appendix content
               fs.closeSync(fs.openSync(appendixPath, 'w'));
@@ -338,7 +340,10 @@ jobs:
             core.setOutput('task_appendix', result.taskAppendix || '');
 
       - name: Verify task appendix artifact
-        if: steps.evaluate.outputs.action == 'run' || steps.evaluate.outputs.action == 'fix' || steps.evaluate.outputs.action == 'conflict'
+        if: >
+          steps.evaluate.outputs.action == 'run' ||
+          steps.evaluate.outputs.action == 'fix' ||
+          steps.evaluate.outputs.action == 'conflict'
         run: |
           if [ ! -f /tmp/keepalive-artifacts/task-appendix.txt ]; then
             echo "ERROR: Task appendix file not created by evaluate step"
@@ -347,8 +352,11 @@ jobs:
           echo "Task appendix ready ($(wc -c < /tmp/keepalive-artifacts/task-appendix.txt) bytes)"
 
       - name: Upload task appendix artifact
-        if: steps.evaluate.outputs.action == 'run' || steps.evaluate.outputs.action == 'fix' || steps.evaluate.outputs.action == 'conflict'
-        uses: actions/upload-artifact@v7
+        if: >
+          steps.evaluate.outputs.action == 'run' ||
+          steps.evaluate.outputs.action == 'fix' ||
+          steps.evaluate.outputs.action == 'conflict'
+        uses: actions/upload-artifact@v6
         with:
           name: keepalive-task-appendix-${{ steps.evaluate.outputs.pr_number }}
           path: /tmp/keepalive-artifacts/task-appendix.txt
@@ -832,7 +840,7 @@ jobs:
           echo "$metrics_json" >> keepalive-metrics.ndjson
 
       - name: Upload keepalive metrics artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v6
         with:
           name: keepalive-metrics
           path: keepalive-metrics.ndjson
