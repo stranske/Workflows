@@ -105,8 +105,7 @@ def test_retry_wrappers_cover_pagination() -> None:
         workflow = _load_workflow(workflow_path)
         for step_name, script in _iter_job_scripts(workflow):
             failures.extend(_paginate_calls(script, step_name, relative_path))
-    assert (
-        not failures
-    ), "Use paginateWithRetry/paginateWithBackoff instead of github.paginate: " + ", ".join(
-        sorted(failures)
+    assert not failures, (
+        "Use paginateWithRetry/paginateWithBackoff instead of github.paginate: "
+        + ", ".join(sorted(failures))
     )
