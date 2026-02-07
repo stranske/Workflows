@@ -311,26 +311,44 @@ jobs:
             for (const [key, value] of Object.entries(output)) {
               core.setOutput(key, value);
             }
-            // Task appendix needs special handling due to multiline content
-            // Write to file to avoid GitHub's secret scanner blocking job outputs
+            
+            // Task appendix: Write directly to file to avoid GitHub's secret scanner
+            // blocking job outputs (which happens with long/repetitive content).
+            // Writing here (before setOutput) ensures the content reaches the artifact
+            // even if the output gets censored.
+            const fs = require('fs');
+            const path = require('path');
+            const artifactsDir = '/tmp/keepalive-artifacts';
+            const appendixPath = path.join(artifactsDir, 'task-appendix.txt');
+
+            // Ensure artifacts directory exists
+            fs.mkdirSync(artifactsDir, { recursive: true });
+
+            // Write the full task appendix directly to the artifact file
+            if (result.taskAppendix && result.taskAppendix.length > 0) {
+              fs.writeFileSync(appendixPath, result.taskAppendix + '\n', { encoding: 'utf8' });
+              core.info(`Task appendix written directly to file (${result.taskAppendix.length} chars)`);
+            } else {
+              // Create an empty file if there is no appendix content
+              fs.closeSync(fs.openSync(appendixPath, 'w'));
+              core.info('Empty task appendix file created');
+            }
+
+            // Keep output for backward compatibility (may be censored, but that's OK now)
             core.setOutput('task_appendix', result.taskAppendix || '');
 
-      - name: Write task appendix to file
+      - name: Verify task appendix artifact
         if: steps.evaluate.outputs.action == 'run' || steps.evaluate.outputs.action == 'fix' || steps.evaluate.outputs.action == 'conflict'
         run: |
-          mkdir -p /tmp/keepalive-artifacts
-          if [ -n "$TASK_APPENDIX" ]; then
-            printf '%s\n' "$TASK_APPENDIX" > /tmp/keepalive-artifacts/task-appendix.txt
-          else
-            touch /tmp/keepalive-artifacts/task-appendix.txt
+          if [ ! -f /tmp/keepalive-artifacts/task-appendix.txt ]; then
+            echo "ERROR: Task appendix file not created by evaluate step"
+            exit 1
           fi
-          echo "Task appendix written ($(wc -c < /tmp/keepalive-artifacts/task-appendix.txt) bytes)"
-        env:
-          TASK_APPENDIX: ${{ steps.evaluate.outputs.task_appendix }}
+          echo "Task appendix ready ($(wc -c < /tmp/keepalive-artifacts/task-appendix.txt) bytes)"
 
       - name: Upload task appendix artifact
         if: steps.evaluate.outputs.action == 'run' || steps.evaluate.outputs.action == 'fix' || steps.evaluate.outputs.action == 'conflict'
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: keepalive-task-appendix-${{ steps.evaluate.outputs.pr_number }}
           path: /tmp/keepalive-artifacts/task-appendix.txt

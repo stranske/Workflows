@@ -443,7 +443,7 @@ jobs:
         id: download_appendix
         if: inputs.mode == 'keepalive' && inputs.pr_number != ''
         continue-on-error: true
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: keepalive-task-appendix-${{ inputs.pr_number }}
           path: /tmp/keepalive-artifacts
@@ -486,20 +486,20 @@ jobs:
           fi
 
           # For keepalive mode, prefer artifact file to avoid secret scanner blocking
-          appendix_content=""
+          # Stream file contents directly to avoid loading large content into memory
           if [ "$MODE" = "keepalive" ] && [ -f "/tmp/keepalive-artifacts/task-appendix.txt" ]; then
-            echo "Reading task appendix from artifact file"
-            appendix_content=$(cat /tmp/keepalive-artifacts/task-appendix.txt)
-          elif [ -n "$APPENDIX" ]; then
-            echo "Using task appendix from input parameter"
-            appendix_content="$APPENDIX"
-          fi
-
-          if [ -n "$appendix_content" ]; then
+            echo "Streaming task appendix from artifact file"
             {
               echo
               echo "## Run context"
-              printf '%s\n' "$appendix_content"
+              cat /tmp/keepalive-artifacts/task-appendix.txt
+            } >> "$output"
+          elif [ -n "$APPENDIX" ]; then
+            echo "Using task appendix from input parameter"
+            {
+              echo
+              echo "## Run context"
+              printf '%s\n' "$APPENDIX"
             } >> "$output"
           fi
 
