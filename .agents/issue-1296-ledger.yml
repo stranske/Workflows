@@ -9,7 +9,7 @@ tasks:
     status: done
     started_at: '2026-02-07T16:26:12Z'
     finished_at: '2026-02-07T16:26:21Z'
-    commit: c79791ca597db7b62762b4dd5d0db1325c3e97c0
+    commit: a6c1811e9b5ab6983ac9c7e3d5a65f0cead52fa5
     notes: []
   - id: task-02
     title: Write a unit test that instantiates `FallbackChainProvider` with the stub
