@@ -1077,7 +1077,7 @@ jobs:
               return;
             }
 
-            core.info(`Using token from ${tokenInfo.source} with ${tokenInfo.remaining || 'unknown'} requests remaining`);
+            core.info(`Using token from ${tokenInfo.source} with ${tokenInfo.remaining ?? 'unknown'} requests remaining`);
 
             // Create authenticated Octokit instance with optimal token
             const { Octokit } = require('@octokit/rest');
