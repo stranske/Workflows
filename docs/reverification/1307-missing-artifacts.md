@@ -1,7 +1,11 @@
 # Evidence: PR #1307 Missing Verification Artifacts
 
-This placeholder records that PR #1307 verification artifacts were missing at the time of review.
-It exists so documentation can link to a stable repo-local evidence file for re-verification work.
+## Summary
+Repository verification artifacts for PR #1307 were incomplete at the time of review: the
+`verifier-diff-summary.md` file contained no content and no `verifier-context.md` artifact was
+present. This placeholder captures the evidence reference used in
+`docs/verification-concerns-1307.md`.
 
-- Source artifact: `verifier-diff-summary.md` (empty)
-- Missing artifact: `verifier-context.md`
+## Evidence
+- `verifier-diff-summary.md` (empty)
+- Missing `verifier-context.md` artifact
