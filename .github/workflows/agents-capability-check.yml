@@ -133,6 +133,27 @@ jobs:
                 };
             const { withRetry } = retryHelpers;
 
+            // Use load balancer to get optimal token
+            const { getOptimalToken } = require('./.github/scripts/token_load_balancer.js');
+            const tokenInfo = await getOptimalToken({
+              github: null,
+              core,
+              task: 'add-label',
+              capabilities: ['write-repo'],
+              minRemaining: 50,
+            });
+
+            if (!tokenInfo) {
+              core.setFailed('All API tokens exhausted. Rate limits exceeded across all available authentication methods.');
+              return;
+            }
+
+            core.info(`Using token from ${tokenInfo.source} with ${tokenInfo.remaining || 'unknown'} requests remaining`);
+
+            const { Octokit } = require('@octokit/rest');
+            const loadBalancedClient = new Octokit({ auth: tokenInfo.token });
+            const github = loadBalancedClient;
+
             await withRetry(() => github.rest.issues.addLabels({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -170,6 +191,27 @@ jobs:
                     githubInstance.paginate(method, params),
                 };
             const { withRetry } = retryHelpers;
+
+            // Use load balancer to get optimal token
+            const { getOptimalToken } = require('./.github/scripts/token_load_balancer.js');
+            const tokenInfo = await getOptimalToken({
+              github: null,
+              core,
+              task: 'post-report',
+              capabilities: ['write-repo'],
+              minRemaining: 50,
+            });
+
+            if (!tokenInfo) {
+              core.setFailed('All API tokens exhausted. Rate limits exceeded across all available authentication methods.');
+              return;
+            }
+
+            core.info(`Using token from ${tokenInfo.source} with ${tokenInfo.remaining || 'unknown'} requests remaining`);
+
+            const { Octokit } = require('@octokit/rest');
+            const loadBalancedClient = new Octokit({ auth: tokenInfo.token });
+            const github = loadBalancedClient;
 
             const result = JSON.parse(process.env.RESULT_JSON || '{}');
             const recommendation = process.env.RECOMMENDATION || 'UNKNOWN';
