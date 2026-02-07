@@ -195,6 +195,52 @@ def test_commit_files_raises_for_unknown_commit(tmp_path: Path, monkeypatch) -> 
         ledger_validate._commit_files("deadbeef")
 
 
+def test_pull_request_head_repo_url_reads_event(tmp_path: Path, monkeypatch) -> None:
+    ledger_validate = _load_module(monkeypatch, tmp_path)
+    event_path = tmp_path / "event.json"
+    event_path.write_text(
+        json.dumps({"pull_request": {"head": {"repo": {"clone_url": "https://example.com/repo.git"}}}}),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setenv("GITHUB_EVENT_PATH", str(event_path))
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+
+    assert ledger_validate._pull_request_head_repo_url() == "https://example.com/repo.git"
+
+
+def test_pull_request_head_repo_url_uses_full_name(tmp_path: Path, monkeypatch) -> None:
+    ledger_validate = _load_module(monkeypatch, tmp_path)
+    event_path = tmp_path / "event.json"
+    event_path.write_text(
+        json.dumps({"pull_request": {"head": {"repo": {"full_name": "octo/repo"}}}}),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setenv("GITHUB_EVENT_PATH", str(event_path))
+    monkeypatch.setenv("GITHUB_SERVER_URL", "https://github.com")
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+
+    assert ledger_validate._pull_request_head_repo_url() == "https://github.com/octo/repo.git"
+
+
+def test_pull_request_head_repo_url_includes_token(tmp_path: Path, monkeypatch) -> None:
+    ledger_validate = _load_module(monkeypatch, tmp_path)
+    event_path = tmp_path / "event.json"
+    event_path.write_text(
+        json.dumps({"pull_request": {"head": {"repo": {"clone_url": "https://github.com/octo/repo.git"}}}}),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setenv("GITHUB_EVENT_PATH", str(event_path))
+    monkeypatch.setenv("GITHUB_TOKEN", "token123")
+
+    assert (
+        ledger_validate._pull_request_head_repo_url()
+        == "https://x-access-token:token123@github.com/octo/repo.git"
+    )
+
+
 def test_fetch_commit_succeeds_without_retry(tmp_path: Path, monkeypatch) -> None:
     ledger_validate = _load_module(monkeypatch, tmp_path)
     calls: list[list[str]] = []
@@ -204,6 +250,7 @@ def test_fetch_commit_succeeds_without_retry(tmp_path: Path, monkeypatch) -> Non
         return 0
 
     monkeypatch.setattr(ledger_validate.subprocess, "check_call", fake_check_call)
+    monkeypatch.setattr(ledger_validate, "_pull_request_head_repo_url", lambda: None)
 
     assert ledger_validate._fetch_commit("abc1234") is True
     assert calls == [
@@ -229,6 +276,7 @@ def test_fetch_commit_retries_after_deepen(tmp_path: Path, monkeypatch) -> None:
         return 0
 
     monkeypatch.setattr(ledger_validate.subprocess, "check_call", fake_check_call)
+    monkeypatch.setattr(ledger_validate, "_pull_request_head_repo_url", lambda: None)
 
     assert ledger_validate._fetch_commit("abc1234") is True
     assert calls[0][-1] == "abc1234"
@@ -248,6 +296,7 @@ def test_fetch_commit_continues_after_failed_retry(tmp_path: Path, monkeypatch) 
         return 0
 
     monkeypatch.setattr(ledger_validate.subprocess, "check_call", fake_check_call)
+    monkeypatch.setattr(ledger_validate, "_pull_request_head_repo_url", lambda: None)
 
     assert ledger_validate._fetch_commit("abc1234") is True
     assert calls[-1][-1] == "abc1234"
