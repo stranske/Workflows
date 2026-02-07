@@ -323,6 +323,7 @@ def test_pr_verifier_call_site_metadata_propagation(
     expected_metadata = llm_metadata_sentinel(operation=operation, pr_number=456)
     assert client.calls[0]["config"]["metadata"] == expected_metadata
 
+
 def test_evaluate_pr_passes_config_metadata(
     llm_config_sentinel, monkeypatch: pytest.MonkeyPatch
 ) -> None:

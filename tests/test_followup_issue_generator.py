@@ -780,6 +780,7 @@ def test_generate_with_llm_metadata_propagation(
     calls = reasoning_client.calls if client_kind == "reasoning" else standard_client.calls
     assert calls[call_index]["config"]["metadata"] == expected_metadata
 
+
 def test_invoke_llm_typeerror_fallback_logs_and_retries(caplog: pytest.LogCaptureFixture) -> None:
     class DummyResponse:
         def __init__(self, content: str) -> None:
