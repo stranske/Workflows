@@ -18,8 +18,8 @@ Selection semantics:
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Iterable
 from dataclasses import dataclass, field
-from typing import Iterable
 
 
 @dataclass(frozen=True)
@@ -65,7 +65,7 @@ class EmbeddingSelectionCriteria:
 class EmbeddingProviderSelection:
     """Resolved provider and model selection."""
 
-    provider: "EmbeddingProvider"
+    provider: EmbeddingProvider
     model: str
 
 
