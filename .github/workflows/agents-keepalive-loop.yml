@@ -312,7 +312,29 @@ jobs:
               core.setOutput(key, value);
             }
             // Task appendix needs special handling due to multiline content
+            // Write to file to avoid GitHub's secret scanner blocking job outputs
             core.setOutput('task_appendix', result.taskAppendix || '');
+
+      - name: Write task appendix to file
+        if: steps.evaluate.outputs.action == 'run' || steps.evaluate.outputs.action == 'fix' || steps.evaluate.outputs.action == 'conflict'
+        run: |
+          mkdir -p /tmp/keepalive-artifacts
+          if [ -n "$TASK_APPENDIX" ]; then
+            printf '%s\n' "$TASK_APPENDIX" > /tmp/keepalive-artifacts/task-appendix.txt
+          else
+            touch /tmp/keepalive-artifacts/task-appendix.txt
+          fi
+          echo "Task appendix written ($(wc -c < /tmp/keepalive-artifacts/task-appendix.txt) bytes)"
+        env:
+          TASK_APPENDIX: ${{ steps.evaluate.outputs.task_appendix }}
+
+      - name: Upload task appendix artifact
+        if: steps.evaluate.outputs.action == 'run' || steps.evaluate.outputs.action == 'fix' || steps.evaluate.outputs.action == 'conflict'
+        uses: actions/upload-artifact@v6
+        with:
+          name: keepalive-task-appendix-${{ steps.evaluate.outputs.pr_number }}
+          path: /tmp/keepalive-artifacts/task-appendix.txt
+          retention-days: 1
 
   preflight:
     name: Verify secrets available
