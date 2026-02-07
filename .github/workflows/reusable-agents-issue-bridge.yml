@@ -282,22 +282,44 @@ jobs:
       - name: Resolve base and head refs
         id: refs
         uses: actions/github-script@v8
+        env:
+          ALL_SECRETS: ${{ toJSON(secrets) }}
         with:
           script: |
             const { owner, repo } = context.repo;
             const fs = require('fs');
 
-            // Use load balancer to get optimal token with capacity
-            const { getOptimalToken } = require('./.github/scripts/token_load_balancer.js');
+            // Initialize token registry with all available secrets
+            const { initializeTokenRegistry, getOptimalToken } = require('./.github/scripts/token_load_balancer.js');
+
+            // Parse secrets from environment
+            const secrets = JSON.parse(process.env.ALL_SECRETS || '{}');
+
+            // Initialize registry to discover all available tokens
+            await initializeTokenRegistry({
+              secrets,
+              github: null,
+              core,
+              githubToken: secrets.GITHUB_TOKEN || context.payload.installation?.token || '',
+            });
+
+            // Get the LEAST used token (highest remaining capacity)
             const tokenInfo = await getOptimalToken({
               github: null,
               core,
               task: 'read-repo',
               capabilities: ['read-repo'],
-              minRemaining: 100,
+              minRemaining: 50,  // Lower threshold to avoid unnecessary failures
             });
 
-            // Create authenticated Octokit instance with optimal token
+            if (!tokenInfo) {
+              core.setFailed('All API tokens exhausted. Rate limits exceeded across all available authentication methods.');
+              return;
+            }
+
+            core.info(`Using token from ${tokenInfo.source} with ${tokenInfo.remaining || 'unknown'} requests remaining`);
+
+            // Create authenticated Octokit instance with optimal (least-used) token
             const { Octokit } = require('@octokit/rest');
             const loadBalancedClient = new Octokit({ auth: tokenInfo.token });
 
@@ -1039,6 +1061,28 @@ jobs:
             const prNumber = Number(process.env.PR);
             const agent = (process.env.AGENT || '').trim();
             const fs = require('fs');
+
+            // Use load balancer to get optimal token with capacity
+            const { getOptimalToken } = require('./.github/scripts/token_load_balancer.js');
+            const tokenInfo = await getOptimalToken({
+              github: null,
+              core,
+              task: 'write-label',
+              capabilities: ['write-repo'],
+              minRemaining: 50,
+            });
+
+            if (!tokenInfo) {
+              core.setFailed('All API tokens exhausted. Rate limits exceeded across all available authentication methods.');
+              return;
+            }
+
+            core.info(`Using token from ${tokenInfo.source} with ${tokenInfo.remaining || 'unknown'} requests remaining`);
+
+            // Create authenticated Octokit instance with optimal token
+            const { Octokit } = require('@octokit/rest');
+            const loadBalancedClient = new Octokit({ auth: tokenInfo.token });
+
             const retryHelperPath = './.github/scripts/github-api-with-retry.js';
             const retryHelpers = fs.existsSync(retryHelperPath)
               ? require(retryHelperPath)
@@ -1052,7 +1096,7 @@ jobs:
               core.setFailed('Agent resolution failed; ensure exactly one agent:* label is present or provide the agent input.');
               return;
             }
-            await withRetry(() => github.rest.issues.addLabels({ owner, repo, issue_number: prNumber, labels: [`agent:${agent}`] }));
+            await withRetry(() => loadBalancedClient.rest.issues.addLabels({ owner, repo, issue_number: prNumber, labels: [`agent:${agent}`] }));
 
       - name: Populate PR body context section
         if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.mode.outputs.mode != 'invite' }}
@@ -1107,6 +1151,28 @@ jobs:
             const providedSummaryBlock = (process.env.STATUS_SUMMARY_BLOCK || '').trim();
             let prNumber = Number('${{ steps.pr.outputs.number }}');
             const fs = require('fs');
+
+            // Use load balancer to get optimal token with capacity
+            const { getOptimalToken } = require('./.github/scripts/token_load_balancer.js');
+            const tokenInfo = await getOptimalToken({
+              github: null,
+              core,
+              task: 'write-comment',
+              capabilities: ['write-repo'],
+              minRemaining: 100,
+            });
+
+            if (!tokenInfo) {
+              core.setFailed('All API tokens exhausted. Rate limits exceeded across all available authentication methods.');
+              return;
+            }
+
+            core.info(`Using token from ${tokenInfo.source} with ${tokenInfo.remaining || 'unknown'} requests remaining`);
+
+            // Create authenticated Octokit instance with optimal token
+            const { Octokit } = require('@octokit/rest');
+            const loadBalancedClient = new Octokit({ auth: tokenInfo.token });
+
             const retryHelperPath = './.github/scripts/github-api-with-retry.js';
             const retryHelpers = fs.existsSync(retryHelperPath)
               ? require(retryHelperPath)
@@ -1119,7 +1185,7 @@ jobs:
 
             if ((!issueTitle || !issueBody) && issueNumber) {
               try {
-                const { data: issue } = await withRetry(() => github.rest.issues.get({ owner, repo, issue_number: issueNumber }));
+                const { data: issue } = await withRetry(() => loadBalancedClient.rest.issues.get({ owner, repo, issue_number: issueNumber }));
                 issueTitle = issueTitle || issue.title || '';
                 issueBody = issueBody || issue.body || '';
               } catch (error) {
@@ -1137,7 +1203,7 @@ jobs:
 
             if (!prNumber && branch) {
               try {
-                const { data: pulls } = await withRetry(() => github.rest.pulls.list({ owner, repo, state: 'open', head: `${owner}:${branch}` }));
+                const { data: pulls } = await withRetry(() => loadBalancedClient.rest.pulls.list({ owner, repo, state: 'open', head: `${owner}:${branch}` }));
                 if (pulls.length > 0) {
                   prNumber = pulls[0].number;
                 }
@@ -1150,7 +1216,7 @@ jobs:
             let prData = null;
             if (prNumber) {
               try {
-                const { data } = await withRetry(() => github.rest.pulls.get({ owner, repo, pull_number: prNumber }));
+                const { data } = await withRetry(() => loadBalancedClient.rest.pulls.get({ owner, repo, pull_number: prNumber }));
                 prData = data;
               } catch (error) {
                 core.warning(`Failed to fetch PR #${prNumber}: ${error.message}`);
@@ -1167,7 +1233,7 @@ jobs:
               if (summaryNeedsWarning && issueNumber) {
                 const warningHeader = `### Template Warning for Issue #${issueNumber}`;
                 const warningBody = [warningHeader, '', ...warningDetails].join('\n').trim();
-                const comments = await paginateWithRetry(github, github.rest.issues.listComments, {
+                const comments = await paginateWithRetry(loadBalancedClient, loadBalancedClient.rest.issues.listComments, {
                   owner,
                   repo,
                   issue_number: issueNumber,
@@ -1175,7 +1241,7 @@ jobs:
                 });
                 const alreadyWarned = comments.some((comment) => comment.body?.startsWith(warningHeader));
                 if (!alreadyWarned) {
-                  await withRetry(() => github.rest.issues.createComment({ owner, repo, issue_number: issueNumber, body: warningBody }));
+                  await withRetry(() => loadBalancedClient.rest.issues.createComment({ owner, repo, issue_number: issueNumber, body: warningBody }));
                 }
               }
               core.warning('PR number is unavailable; skipping issue context comment until a PR is opened.');
@@ -1188,7 +1254,7 @@ jobs:
                 const existingBody = (prData.body || '').trim();
                 const mergedBody = [statusSummaryBlock, existingBody].filter(Boolean).join('\n\n').trim();
                 try {
-                  await withRetry(() => github.rest.pulls.update({ owner, repo, pull_number: prNumber, body: mergedBody }));
+                  await withRetry(() => loadBalancedClient.rest.pulls.update({ owner, repo, pull_number: prNumber, body: mergedBody }));
                   prData.body = mergedBody;
                   core.info(`Inserted auto-status summary into PR #${prNumber} body.`);
                 } catch (error) {
@@ -1224,7 +1290,7 @@ jobs:
               return;
             }
 
-            const existing = await paginateWithRetry(github, github.rest.issues.listComments, {
+            const existing = await paginateWithRetry(loadBalancedClient, loadBalancedClient.rest.issues.listComments, {
               owner,
               repo,
               issue_number: prNumber,
@@ -1237,7 +1303,7 @@ jobs:
               return;
             }
 
-            await withRetry(() => github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body }));
+            await withRetry(() => loadBalancedClient.rest.issues.createComment({ owner, repo, issue_number: prNumber, body }));
 
       - name: Post agent command as service user
         if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.mode.outputs.mode != 'invite' && env.SERVICE_BOT_PAT != '' && steps.agent_comment.outputs.post == 'true' }}
@@ -1278,6 +1344,28 @@ jobs:
             const prNumber = Number("${{ steps.pr.outputs.number }}");
             const agent = (process.env.AGENT || '').trim();
             const fs = require('fs');
+
+            // Use load balancer to get optimal token with capacity
+            const { getOptimalToken } = require('./.github/scripts/token_load_balancer.js');
+            const tokenInfo = await getOptimalToken({
+              github: null,
+              core,
+              task: 'write-comment',
+              capabilities: ['write-repo'],
+              minRemaining: 50,
+            });
+
+            if (!tokenInfo) {
+              core.setFailed('All API tokens exhausted. Rate limits exceeded across all available authentication methods.');
+              return;
+            }
+
+            core.info(`Using token from ${tokenInfo.source} with ${tokenInfo.remaining || 'unknown'} requests remaining`);
+
+            // Create authenticated Octokit instance with optimal token
+            const { Octokit } = require('@octokit/rest');
+            const loadBalancedClient = new Octokit({ auth: tokenInfo.token });
+
             const retryHelperPath = './.github/scripts/github-api-with-retry.js';
             const retryHelpers = fs.existsSync(retryHelperPath)
               ? require(retryHelperPath)
@@ -1292,7 +1380,7 @@ jobs:
               return;
             }
             const cmd = `@${agent} start`;
-            await withRetry(() => github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body: `${cmd}\n\nPlease create commits on this branch, run tests, and keep the PR updated.` }));
+            await withRetry(() => loadBalancedClient.rest.issues.createComment({ owner, repo, issue_number: prNumber, body: `${cmd}\n\nPlease create commits on this branch, run tests, and keep the PR updated.` }));
 
       - name: Prompt human to post agent command
         if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.mode.outputs.mode != 'invite' && steps.agent_comment.outputs.post != 'true' }}
@@ -1305,6 +1393,28 @@ jobs:
             const prNumber = Number("${{ steps.pr.outputs.number }}");
             const agent = (process.env.AGENT || '').trim();
             const fs = require('fs');
+
+            // Use load balancer to get optimal token with capacity
+            const { getOptimalToken } = require('./.github/scripts/token_load_balancer.js');
+            const tokenInfo = await getOptimalToken({
+              github: null,
+              core,
+              task: 'write-comment',
+              capabilities: ['write-repo'],
+              minRemaining: 50,
+            });
+
+            if (!tokenInfo) {
+              core.setFailed('All API tokens exhausted. Rate limits exceeded across all available authentication methods.');
+              return;
+            }
+
+            core.info(`Using token from ${tokenInfo.source} with ${tokenInfo.remaining || 'unknown'} requests remaining`);
+
+            // Create authenticated Octokit instance with optimal token
+            const { Octokit } = require('@octokit/rest');
+            const loadBalancedClient = new Octokit({ auth: tokenInfo.token });
+
             const retryHelperPath = './.github/scripts/github-api-with-retry.js';
             const retryHelpers = fs.existsSync(retryHelperPath)
               ? require(retryHelperPath)
@@ -1329,7 +1439,7 @@ jobs:
               `Tell ${agentTitle} to reuse the scope, acceptance criteria, and task list from the source issue and publish them here with \`- [ ]\` checklists so keepalive keeps watching.`,
               `After ${agentTitle} replies, follow the instructions posted on the source issue to begin execution.`
             ].join(' ');
-            await withRetry(() => github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body: codexPromptMsg }));
+            await withRetry(() => loadBalancedClient.rest.issues.createComment({ owner, repo, issue_number: prNumber, body: codexPromptMsg }));
 
       - name: Link PR on original issue (fallback)
         if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.mode.outputs.mode != 'invite' }}
@@ -1344,6 +1454,28 @@ jobs:
             const {owner, repo} = context.repo;
             const issue_number = Number('${{ steps.ctx.outputs.issue }}');
             const fs = require('fs');
+
+            // Use load balancer to get optimal token with capacity
+            const { getOptimalToken } = require('./.github/scripts/token_load_balancer.js');
+            const tokenInfo = await getOptimalToken({
+              github: null,
+              core,
+              task: 'write-comment',
+              capabilities: ['write-repo'],
+              minRemaining: 100,
+            });
+
+            if (!tokenInfo) {
+              core.setFailed('All API tokens exhausted. Rate limits exceeded across all available authentication methods.');
+              return;
+            }
+
+            core.info(`Using token from ${tokenInfo.source} with ${tokenInfo.remaining || 'unknown'} requests remaining`);
+
+            // Create authenticated Octokit instance with optimal token
+            const { Octokit } = require('@octokit/rest');
+            const loadBalancedClient = new Octokit({ auth: tokenInfo.token });
+
             const retryHelperPath = './.github/scripts/github-api-with-retry.js';
             const retryHelpers = fs.existsSync(retryHelperPath)
               ? require(retryHelperPath)
@@ -1361,7 +1493,7 @@ jobs:
             let issueTitle = '';
             let issueBody = '';
             try {
-              const { data: is } = await withRetry(() => github.rest.issues.get({ owner, repo, issue_number }));
+              const { data: is } = await withRetry(() => loadBalancedClient.rest.issues.get({ owner, repo, issue_number }));
               issueTitle = is.title || '';
               issueBody = is.body || '';
             } catch (e) {
@@ -1420,7 +1552,7 @@ jobs:
               '```'
             ].join('\n');
 
-            await withRetry(() => github.rest.issues.createComment({ owner, repo, issue_number, body: message }));
+            await withRetry(() => loadBalancedClient.rest.issues.createComment({ owner, repo, issue_number, body: message }));
 
       # Disabled: keepalive now runs exclusively via the orchestrator sweep to avoid
       # duplicate nudges from workflow dispatches.
