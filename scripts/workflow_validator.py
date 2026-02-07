@@ -82,7 +82,9 @@ def check_missing_timeout(workflow: dict) -> list[str]:
     return missing
 
 
-def check_upload_artifact_major(workflow: dict, expected_major: int = 4) -> list[tuple[str, str, str]]:
+def check_upload_artifact_major(
+    workflow: dict, expected_major: int = 4
+) -> list[tuple[str, str, str]]:
     """Check that actions/upload-artifact uses the expected major version.
 
     Args:

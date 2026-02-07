@@ -7,8 +7,8 @@ from scripts.workflow_validator import (
     check_hardcoded_secrets,
     check_missing_timeout,
     check_permissions,
-    check_upload_artifact_major,
     check_unsafe_string_interpolation,
+    check_upload_artifact_major,
     load_workflow,
     validate_all_workflows,
     validate_workflow,
@@ -123,9 +123,7 @@ class TestCheckUploadArtifactMajor:
     def test_accepts_expected_major(self) -> None:
         """Test that v4 is accepted."""
         workflow = {
-            "jobs": {
-                "build": {"steps": [{"name": "Upload", "uses": "actions/upload-artifact@v4"}]}
-            }
+            "jobs": {"build": {"steps": [{"name": "Upload", "uses": "actions/upload-artifact@v4"}]}}
         }
 
         issues = check_upload_artifact_major(workflow)
@@ -135,9 +133,7 @@ class TestCheckUploadArtifactMajor:
         """Test that v4.x.y is accepted."""
         workflow = {
             "jobs": {
-                "build": {
-                    "steps": [{"name": "Upload", "uses": "actions/upload-artifact@v4.1.2"}]
-                }
+                "build": {"steps": [{"name": "Upload", "uses": "actions/upload-artifact@v4.1.2"}]}
             }
         }
 
@@ -147,9 +143,7 @@ class TestCheckUploadArtifactMajor:
     def test_flags_other_major(self) -> None:
         """Test that non-v4 major versions are flagged."""
         workflow = {
-            "jobs": {
-                "build": {"steps": [{"name": "Upload", "uses": "actions/upload-artifact@v6"}]}
-            }
+            "jobs": {"build": {"steps": [{"name": "Upload", "uses": "actions/upload-artifact@v6"}]}}
         }
 
         issues = check_upload_artifact_major(workflow)
