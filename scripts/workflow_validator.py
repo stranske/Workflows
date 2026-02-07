@@ -5,6 +5,7 @@ This module checks workflow files for common issues and anti-patterns.
 
 import re
 from pathlib import Path
+from typing import Any
 
 import yaml
 
@@ -20,7 +21,7 @@ DEPRECATED_ACTIONS = {
 UPLOAD_ARTIFACT_PATTERN = re.compile(r"^actions/upload-artifact@v(?P<major>\d+)(?:[.\w-]+)?$")
 
 
-def load_workflow(path: str) -> dict | None:
+def load_workflow(path: str) -> dict[Any, Any] | None:
     """Load and parse a workflow YAML file.
 
     Args:
@@ -31,7 +32,10 @@ def load_workflow(path: str) -> dict | None:
     """
     try:
         with open(path) as f:
-            return yaml.safe_load(f)
+            data = yaml.safe_load(f)
+            if isinstance(data, dict):
+                return data
+            return None
     except (OSError, yaml.YAMLError, FileNotFoundError):
         return None
 
@@ -320,7 +324,7 @@ def validate_all_workflows(directory: str) -> dict[str, dict[str, list]]:
     Returns:
         Dictionary mapping workflow filename to validation results
     """
-    results = {}
+    results: dict[str, dict[str, list]] = {}
     workflows_dir = Path(directory)
 
     if not workflows_dir.exists():

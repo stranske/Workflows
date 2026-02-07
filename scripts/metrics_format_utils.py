@@ -10,7 +10,7 @@ def format_percentage(value: float, decimals: int = 1) -> str:
     return f"{value:.{decimals}f}%"
 
 
-def format_count(count: int, singular: str, plural: str = None) -> str:
+def format_count(count: int, singular: str, plural: str | None = None) -> str:
     """Format a count with appropriate singular/plural label."""
     if plural is None:
         plural = singular + "s"
