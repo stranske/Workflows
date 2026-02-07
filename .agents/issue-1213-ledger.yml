@@ -1,0 +1,653 @@
+version: 1
+issue: 1213
+base: main
+branch: codex/issue-1213
+tasks:
+  - id: task-01
+    title: Create `tools/embedding_provider.py` defining an embedding provider interface
+      and a registry that performs deterministic provider selection based on criteria
+      (availability, cost/latency preference, configured credentials, capability).
+    status: doing
+    started_at: '2026-02-07T09:29:58Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: 'Define `EmbeddingProvider` interface (methods (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: 'input/output types (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: 'metadata contract). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: 'Define `EmbeddingProviderRegistry` API (register (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: 'list (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: 'select (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: 'availability checks). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: 'Implement selection policy with explicit precedence (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: 'Implement selection policy with deterministic tie-breakers. (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: 'Add docstrings specifying expected configuration sources (env/config)
+      (verify: docs updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: 'selection semantics. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: Implement OpenAI embeddings provider in `tools/embedding_provider.py` matching
+      existing behavior and wiring it into the registry.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: Implement Anthropic embeddings provider in `tools/embedding_provider.py`,
+      gated by an environment variable, and document the required env var(s) in code/docstring.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: Update `scripts/langchain/semantic_matcher.py` to request embeddings via
+      the provider registry and return provider/model metadata in its outputs.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: 'Define scope for: Refactor semantic_matcher to obtain embeddings through
+      the registry (no output changes yet). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: 'Implement focused slice for: Refactor semantic_matcher to obtain embeddings
+      through the registry (no output changes yet). (verify: confirm completion in
+      repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: 'Validate focused slice for: Refactor semantic_matcher to obtain embeddings
+      through the registry (no output changes yet). (verify: confirm completion in
+      repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: 'Define scope for: Define output schema changes (where metadata is surfaced
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: 'Implement focused slice for: Define output schema changes (where metadata
+      is surfaced (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: 'Validate focused slice for: Define output schema changes (where metadata
+      is surfaced (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: 'keys/names/types). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-23
+    title: 'Add/adjust tests validating metadata fields (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-24
+    title: 'Define scope for: stable behavior across providers. (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-25
+    title: 'Implement focused slice for: stable behavior across providers. (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-26
+    title: 'Validate focused slice for: stable behavior across providers. (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-27
+    title: Update `scripts/langchain/label_matcher.py` to use the updated `semantic_matcher.py`
+      behavior and handle the no-embeddings/fallback path without crashing.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-28
+    title: 'Define scope for: Update label_matcher to consume the new semantic_matcher
+      output schema (metadata-aware). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-29
+    title: 'Implement focused slice for: Update label_matcher to consume the new semantic_matcher
+      output schema (metadata-aware). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-30
+    title: 'Validate focused slice for: Update label_matcher to consume the new semantic_matcher
+      output schema (metadata-aware). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-31
+    title: 'Implement (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-32
+    title: 'document explicit behavior for embeddings-unavailable cases. (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-33
+    title: 'Add tests for both embeddings-enabled (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-34
+    title: 'fallback/no-embeddings paths. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-35
+    title: Update `scripts/langchain/issue_dedup.py` to use the updated `semantic_matcher.py`
+      behavior and handle the no-embeddings/fallback path without crashing.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-36
+    title: 'Define scope for: Update issue_dedup to consume the new semantic_matcher
+      output schema (metadata-aware). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-37
+    title: 'Implement focused slice for: Update issue_dedup to consume the new semantic_matcher
+      output schema (metadata-aware). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-38
+    title: 'Validate focused slice for: Update issue_dedup to consume the new semantic_matcher
+      output schema (metadata-aware). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-39
+    title: 'Define (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-40
+    title: 'implement embeddings-unavailable behavior (what dedup returns (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-41
+    title: 'how it signals fallback). (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-42
+    title: 'Add tests covering normal embeddings (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-43
+    title: 'fallback/no-embeddings operation. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-44
+    title: Add tests with mock providers to validate deterministic selection and fallback
+      ordering (e.g., a new test module covering `tools/embedding_provider.py` selection
+      logic and `semantic_matcher.py` integration).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-45
+    title: 'Unit tests for registry selection determinism (precedence + tie-breakers).
+      (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-46
+    title: 'Unit tests for provider availability/credential gating (verify: tests
+      pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-47
+    title: 'error handling. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-48
+    title: 'Integration tests for semantic_matcher using registry (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-49
+    title: 'surfacing metadata. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-50
+    title: 'Define scope for: Integration tests for downstream scripts operating correctly
+      in fallback mode. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-51
+    title: 'Implement focused slice for: Integration tests for downstream scripts
+      operating correctly in fallback mode. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-52
+    title: 'Validate focused slice for: Integration tests for downstream scripts operating
+      correctly in fallback mode. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-53
+    title: Implement a deterministic non-LLM fallback embedding provider (e.g., TF-IDF
+      over input texts) in `tools/embedding_provider.py` and add registry logic so
+      that when no LLM embedding provider credentials are configured, `scripts/langchain/semantic_matcher.py`
+      uses this fallback without raising exceptions; add/extend automated tests to
+      verify the fallback is selected and semantic workflows complete successfully.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-54
+    title: 'Define scope for: Implement fallback provider with a stable deterministic
+      contract (vector size (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-55
+    title: 'Implement focused slice for: Implement fallback provider with a stable
+      deterministic contract (vector size (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-56
+    title: 'Validate focused slice for: Implement fallback provider with a stable
+      deterministic contract (vector size (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-57
+    title: 'Implement fallback provider with ordering (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-58
+    title: 'Implement fallback provider with tokenization rules). (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-59
+    title: 'Define scope for: Add explicit registry rule for when fallback is selected
+      vs when the system should report ''unavailable''. (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-60
+    title: 'Implement focused slice for: Add explicit registry rule for when fallback
+      is selected vs when the system should report ''unavailable''. (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-61
+    title: 'Validate focused slice for: Add explicit registry rule for when fallback
+      is selected vs when the system should report ''unavailable''. (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-62
+    title: 'Define scope for: Update semantic_matcher to treat fallback as a first-class
+      provider (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-63
+    title: 'Implement focused slice for: Update semantic_matcher to treat fallback
+      as a first-class provider (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-64
+    title: 'Validate focused slice for: Update semantic_matcher to treat fallback
+      as a first-class provider (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-65
+    title: 'surface metadata consistently. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-66
+    title: 'Add tests verifying fallback selection (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-67
+    title: 'Define scope for: end-to-end workflow completion without exceptions. (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-68
+    title: 'Implement focused slice for: end-to-end workflow completion without exceptions.
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-69
+    title: 'Validate focused slice for: end-to-end workflow completion without exceptions.
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-70
+    title: Add an embedding provider abstraction + registry (e.g., `tools/embedding_provider.py`)
+      with deterministic selection based on criteria.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-71
+    title: 'Implement providers: OpenAI embeddings (existing behavior), Anthropic
+      embeddings (gated by env var; documented), and at least one non-LLM fallback
+      (keyword/TF-IDF) to keep workflows functional when no embedding credentials
+      exist.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-72
+    title: Refactor `scripts/langchain/semantic_matcher.py` to request embeddings
+      via the provider pool and return provider/model metadata.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-73
+    title: Update `scripts/langchain/label_matcher.py` and `scripts/langchain/issue_dedup.py`
+      to use updated semantic_matcher behavior and degrade gracefully when embeddings
+      are unavailable.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-74
+    title: Add tests using mock providers to validate deterministic selection and
+      fallback ordering.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-75
+    title: Tests verify that when multiple embedding providers are configured, provider
+      selection is deterministic and respects the specified criteria.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-76
+    title: When no embedding providers are configured, running semantic workflows
+      (via `scripts/langchain/semantic_matcher.py` and downstream callers) completes
+      without crashing and uses the fallback path.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-77
+    title: Outputs from `scripts/langchain/semantic_matcher.py` surface the selected
+      provider and model metadata, and this is covered by automated tests.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-78
+    title: When multiple embedding providers are configured, selection is deterministic
+      and respects criteria (test-covered).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-79
+    title: When no embedding providers are configured, semantic workflows still run
+      using a fallback path (no crashes; behavior documented).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-80
+    title: Provider/model used is surfaced in outputs for observability (test-covered).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-81
+    title: Implement Anthropic embeddings provider in `tools/embedding_provider.py`,
+      gated by an environment variable, and document the required env var(s) in code/docstring.
+      (Implementation depends on external API/library details and exact request/response
+      contracts; without a specified SDK/package, endpoint, and model IDs, choices
+      become subjective and may be incorrect. | Provide the exact Anthropic embeddings
+      integration details (SDK/package name + version, endpoint, request/response
+      schema, model identifiers), and specify gating env vars and credential requirements.
+      If not available, implement a stub provider that cleanly reports 'unavailable'
+      behind the env flag with tests asserting it is skipped.)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
