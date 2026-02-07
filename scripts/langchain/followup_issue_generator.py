@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import os
 import re
 import sys
@@ -68,6 +69,8 @@ MISSING_CONCERNS_MESSAGE = (
     "Verification output did not include extractable concerns; "
     "re-run verification to capture verifier-context.md and verifier-diff-summary.md."
 )
+
+LOGGER = logging.getLogger(__name__)
 
 
 def _normalize_heading(text: str) -> str:
@@ -784,7 +787,11 @@ def _invoke_llm(
     )
     try:
         response = client.invoke([HumanMessage(content=prompt)], config=config)
-    except TypeError:
+    except TypeError as exc:
+        LOGGER.warning(
+            "LLM invoke failed with config/metadata; using config/metadata fallback. Error: %s",
+            exc,
+        )
         response = client.invoke([HumanMessage(content=prompt)])
     return response.content
 
