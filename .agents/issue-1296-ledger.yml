@@ -6,10 +6,10 @@ tasks:
   - id: task-01
     title: Create a stub provider class in `test_llm_provider.py` that records all
       kwargs received during invocation
-    status: doing
+    status: done
     started_at: '2026-02-07T16:26:12Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-02-07T16:26:21Z'
+    commit: c79791ca597db7b62762b4dd5d0db1325c3e97c0
     notes: []
   - id: task-02
     title: Write a unit test that instantiates `FallbackChainProvider` with the stub
