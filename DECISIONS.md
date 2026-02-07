@@ -6,3 +6,5 @@ re-verification run before any additional code-level actions are taken.
 
 Rationale: The repository does not contain the verifier context or extracted concerns needed to
 review acceptance criteria. Without those artifacts, any remediation would be speculative.
+
+Evidence: [Evidence: PR #1307 missing artifacts](docs/reverification/1307-missing-artifacts.md)

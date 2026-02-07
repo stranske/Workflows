@@ -214,3 +214,84 @@ def test_invoke_llm_passes_config_metadata(llm_env_sentinel: dict[str, str]) -> 
     assert response is not None
     assert client.calls
     assert client.calls[0]["config"] == {"metadata": expected_metadata, "tags": expected_tags}
+
+
+def test_evaluate_pr_passes_config_metadata(
+    llm_env_sentinel: dict[str, str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class DummyClient:
+        def __init__(self) -> None:
+            self.calls: list[dict[str, object]] = []
+            self.response = _response_with(json.dumps(_valid_payload()))
+
+        def invoke(self, *args: object, **kwargs: object) -> object:
+            self.calls.append(dict(kwargs))
+            return self.response
+
+    client = DummyClient()
+    context = "Pull request: [#456](https://github.com/sentinel/repo/pull/456)"
+
+    monkeypatch.setattr(pr_verifier, "_prepare_prompt", lambda ctx, diff: "prompt")
+    monkeypatch.setattr(pr_verifier, "_get_llm_client", lambda model=None, provider=None: (client, "openai"))
+
+    result = pr_verifier.evaluate_pr(context)
+
+    expected_metadata = {
+        "repo": llm_env_sentinel["GITHUB_REPOSITORY"],
+        "run_id": llm_env_sentinel["GITHUB_RUN_ID"],
+        "issue_or_pr_number": "456",
+        "operation": "evaluate_pr",
+        "pr_number": "456",
+        "issue_number": None,
+    }
+    expected_tags = [
+        "workflows-agents",
+        "operation:evaluate_pr",
+        "repo:sentinel/repo",
+        "issue_or_pr:456",
+        "run_id:run-777",
+    ]
+
+    assert result.verdict == "PASS"
+    assert client.calls[0]["config"] == {"metadata": expected_metadata, "tags": expected_tags}
+
+
+def test_comparison_runner_passes_config_metadata(llm_env_sentinel: dict[str, str]) -> None:
+    class DummyClient:
+        def __init__(self) -> None:
+            self.calls: list[dict[str, object]] = []
+            self.response = _response_with(json.dumps(_valid_payload()))
+
+        def invoke(self, *args: object, **kwargs: object) -> object:
+            self.calls.append(dict(kwargs))
+            return self.response
+
+    client = DummyClient()
+    context = "Pull request: [#456](https://github.com/sentinel/repo/pull/456)"
+    runner = pr_verifier.ComparisonRunner(
+        context=context,
+        diff=None,
+        prompt="prompt",
+        clients=[(client, "openai", "o3-mini")],
+    )
+
+    result = runner.run_single(client, "openai", "o3-mini")
+
+    expected_metadata = {
+        "repo": llm_env_sentinel["GITHUB_REPOSITORY"],
+        "run_id": llm_env_sentinel["GITHUB_RUN_ID"],
+        "issue_or_pr_number": "456",
+        "operation": "evaluate_pr_compare",
+        "pr_number": "456",
+        "issue_number": None,
+    }
+    expected_tags = [
+        "workflows-agents",
+        "operation:evaluate_pr_compare",
+        "repo:sentinel/repo",
+        "issue_or_pr:456",
+        "run_id:run-777",
+    ]
+
+    assert result.verdict == "PASS"
+    assert client.calls[0]["config"] == {"metadata": expected_metadata, "tags": expected_tags}

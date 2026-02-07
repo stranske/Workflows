@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Tests for followup_issue_generator.py"""
 
+import json
 import logging
 
 import pytest
@@ -587,6 +588,78 @@ def test_invoke_llm_passes_config_metadata(llm_env_sentinel: dict[str, str]) -> 
     assert result == "ok"
     assert client.calls
     assert client.calls[0]["config"] == {"metadata": expected_metadata, "tags": expected_tags}
+
+
+def test_generate_with_llm_passes_config_metadata(llm_env_sentinel: dict[str, str]) -> None:
+    class DummyResponse:
+        def __init__(self, content: str) -> None:
+            self.content = content
+
+    class DummyClient:
+        def __init__(self, responses: list[str]) -> None:
+            self.responses = list(responses)
+            self.calls: list[dict[str, object]] = []
+
+        def invoke(self, *args: object, **kwargs: object) -> DummyResponse:
+            self.calls.append(dict(kwargs))
+            return DummyResponse(self.responses.pop(0))
+
+    analysis_payload = {
+        "rewritten_acceptance_criteria": [],
+        "blockers_to_avoid": [],
+        "concrete_tasks": [{"task": "Fix issue"}],
+    }
+    tasks_payload = {"tasks": ["Task 1"], "deferred": []}
+    ac_payload = {"acceptance_criteria": ["AC 1"]}
+
+    reasoning_client = DummyClient([json.dumps(analysis_payload)])
+    standard_client = DummyClient([json.dumps(tasks_payload), json.dumps(ac_payload), "Issue body"])
+
+    verification_data = VerificationData(
+        provider_verdicts={"default": {"verdict": "FAIL", "confidence": 50}},
+        concerns=["Missing tests"],
+    )
+    original_issue = OriginalIssueData(
+        title="Original issue",
+        number=99,
+        tasks=["Do the thing"],
+        acceptance_criteria=["AC 1"],
+    )
+
+    issue = followup_issue_generator._generate_with_llm(
+        verification_data,
+        original_issue,
+        pr_number=123,
+        codex_log=None,
+        reasoning_client=reasoning_client,
+        reasoning_model="o3-mini",
+        standard_client=standard_client,
+        standard_model="gpt-4o",
+    )
+
+    def expected_config(operation: str) -> dict[str, object]:
+        metadata = {
+            "repo": llm_env_sentinel["GITHUB_REPOSITORY"],
+            "run_id": llm_env_sentinel["GITHUB_RUN_ID"],
+            "issue_or_pr_number": "123",
+            "operation": operation,
+            "pr_number": "123",
+            "issue_number": "99",
+        }
+        tags = [
+            "workflows-agents",
+            f"operation:{operation}",
+            "repo:sentinel/repo",
+            "issue_or_pr:123",
+            "run_id:run-777",
+        ]
+        return {"metadata": metadata, "tags": tags}
+
+    assert issue.body == "Issue body"
+    assert reasoning_client.calls[0]["config"] == expected_config("analyze_verification")
+    assert standard_client.calls[0]["config"] == expected_config("generate_tasks")
+    assert standard_client.calls[1]["config"] == expected_config("generate_acceptance_criteria")
+    assert standard_client.calls[2]["config"] == expected_config("format_followup_issue")
 
 
 def test_invoke_llm_typeerror_fallback_logs_and_retries(caplog: pytest.LogCaptureFixture) -> None:
