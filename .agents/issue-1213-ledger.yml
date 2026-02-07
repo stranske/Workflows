@@ -7,10 +7,10 @@ tasks:
     title: Create `tools/embedding_provider.py` defining an embedding provider interface
       and a registry that performs deterministic provider selection based on criteria
       (availability, cost/latency preference, configured credentials, capability).
-    status: doing
+    status: done
     started_at: '2026-02-07T09:29:58Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-02-07T09:30:06Z'
+    commit: b30a5eae404329c9c04ad86a07c34e52ca8c0691
     notes: []
   - id: task-02
     title: 'Define `EmbeddingProvider` interface (methods (verify: confirm completion
