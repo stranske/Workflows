@@ -199,7 +199,9 @@ def test_pull_request_head_repo_url_reads_event(tmp_path: Path, monkeypatch) -> 
     ledger_validate = _load_module(monkeypatch, tmp_path)
     event_path = tmp_path / "event.json"
     event_path.write_text(
-        json.dumps({"pull_request": {"head": {"repo": {"clone_url": "https://example.com/repo.git"}}}}),
+        json.dumps(
+            {"pull_request": {"head": {"repo": {"clone_url": "https://example.com/repo.git"}}}}
+        ),
         encoding="utf-8",
     )
 
@@ -228,7 +230,9 @@ def test_pull_request_head_repo_url_includes_token(tmp_path: Path, monkeypatch) 
     ledger_validate = _load_module(monkeypatch, tmp_path)
     event_path = tmp_path / "event.json"
     event_path.write_text(
-        json.dumps({"pull_request": {"head": {"repo": {"clone_url": "https://github.com/octo/repo.git"}}}}),
+        json.dumps(
+            {"pull_request": {"head": {"repo": {"clone_url": "https://github.com/octo/repo.git"}}}}
+        ),
         encoding="utf-8",
     )
 
