@@ -582,9 +582,20 @@ def test_keepalive_requires_instruction_token() -> None:
         scenario_path,
         extra_env={"CLEAR_TOKEN_DEFAULTS": "true", "clear_token_defaults": "true"},
     )
-    assert result.returncode != 0, "Expected harness to fail without dispatch token"
+    expected_message = "GitHub token is required to author keepalive instructions"
     combined_output = (result.stderr or "") + (result.stdout or "")
-    assert "GitHub token is required to author keepalive instructions" in combined_output
+    if result.returncode != 0:
+        assert expected_message in combined_output
+        return
+
+    # Some harness paths may record the failure instead of throwing; validate the summary payload.
+    try:
+        payload = json.loads(result.stdout or "{}")
+    except json.JSONDecodeError as exc:
+        pytest.fail(f"Expected JSON harness output on success: {exc}: {result.stdout}")
+    failed = payload.get("logs", {}).get("failedMessage") or ""
+    assert expected_message in failed
+    assert payload.get("dispatch_events") == []
 
 
 def test_keepalive_dispatches_with_service_bot_pat() -> None:

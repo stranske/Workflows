@@ -61,7 +61,14 @@ def _allow_missing_commit() -> bool:
         return False
     if os.environ.get("LEDGER_VALIDATE_ALLOW_SHALLOW") == "1":
         return True
-    return bool(os.environ.get("GITHUB_ACTIONS")) and _is_shallow_repo()
+    if not os.environ.get("GITHUB_ACTIONS"):
+        return False
+    if _is_shallow_repo():
+        return True
+    # Allow missing commits on pull_request workflows where the fork/head history
+    # may be incomplete or inaccessible to the runner token.
+    event_name = os.environ.get("GITHUB_EVENT_NAME", "")
+    return event_name in {"pull_request", "pull_request_target"}
 
 
 def _warn_skip_commit(commit: str, reason: str) -> None:
