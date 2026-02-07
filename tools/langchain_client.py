@@ -156,9 +156,9 @@ def _is_reasoning_model(model: str) -> bool:
     `o4-mini-deep-research`. Non-matching examples: `o`, `o-1`, `openai-o1`, `oasis-1`.
     """
     name = model.lower().strip()
-    # o-series reasoning models use an `o` prefix followed by digits with optional hyphenated suffixes:
+    # o-series reasoning models use an `o` prefix followed by digits with optional hyphen-separated suffixes:
     # o1, o1-preview, o1-preview-2024-09-12, o3, o3-mini, o3-pro, o4-mini, o4-mini-deep-research.
-    return bool(__import__("re").fullmatch(r"o[0-9]+(?:-[a-z0-9][a-z0-9-]*)?", name))
+    return bool(__import__("re").fullmatch(r"o[0-9]+(?:-[a-z0-9]+)*", name))
 
 
 def _build_openai_client(
