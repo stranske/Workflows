@@ -101,9 +101,9 @@ runs:
         # Check if already installed
         if [ -d "node_modules/@octokit/rest" ]; then
           echo "✅ @octokit/rest already installed"
-          # Clean up if we created package.json (already installed case)
+          # Clean up package.json only if we created it (keep package-lock.json for module resolution)
           if [ "$CREATED_PACKAGE_JSON" = "true" ]; then
-            rm -f package.json package-lock.json
+            rm -f package.json
           fi
         else
           # Install with pinned versions for consistency
@@ -128,10 +128,11 @@ runs:
           fi
           echo "✅ @octokit dependencies installed"
 
-          # Clean up package*.json if we created them to avoid polluting working tree
+          # Clean up package.json only if we created it
+          # Keep package-lock.json as it's needed for proper module resolution
           if [ "$CREATED_PACKAGE_JSON" = "true" ]; then
-            rm -f package.json package-lock.json
-            echo "🧹 Cleaned up temporary package*.json files"
+            rm -f package.json
+            echo "🧹 Cleaned up temporary package.json file"
           fi
         fi
 
