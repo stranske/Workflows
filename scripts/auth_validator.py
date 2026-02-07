@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Any, Iterable
+from typing import Any
 
 from scripts import api_client
 
@@ -120,8 +121,7 @@ def validate_auth_payload(payload: dict[str, Any] | None) -> AuthValidationResul
             skipped=False,
             error="extra_scopes",
             message=(
-                "Token scopes exceed allowed scopes. "
-                f"Extras: {extras}. Allowed: {allowed}."
+                "Token scopes exceed allowed scopes. " f"Extras: {extras}. Allowed: {allowed}."
             ),
             scopes=scopes,
             allowed_scopes=allowed_scopes,

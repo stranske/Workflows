@@ -6,8 +6,7 @@ import os
 import sys
 from pathlib import Path
 
-from scripts import api_client
-from scripts import auth_validator
+from scripts import api_client, auth_validator
 from scripts.duplicate_detection import (
     build_duplicate_payload,
     build_issue_payload,
