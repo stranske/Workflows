@@ -11,6 +11,11 @@ Evidence: `verifier-diff-summary.md` is empty and no `verifier-context.md` artif
 Cannot evaluate whether acceptance criteria were met or identify required fixes. Required follow-up:
 Re-run verification to capture concerns and context for review.
 
+#### Resolution summary scope
+This resolution summary covers the missing verification artifacts for PR #1307 and the
+documentation/evidence updates introduced in PR #1323. It does not address unrelated verification
+concerns.
+
 #### Resolution summary
 PR #1323 added documentation traceability so missing verification artifacts are captured with
 explicit evidence links and decision tracking to unblock re-verification. The follow-up records

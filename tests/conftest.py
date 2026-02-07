@@ -70,3 +70,22 @@ def llm_config_sentinel(
         return {"metadata": metadata, "tags": tags}
 
     return _build
+
+
+@pytest.fixture
+def llm_typeerror_client_factory():
+    class TypeErrorClient:
+        def __init__(self, response: object, message: str = "bad config") -> None:
+            self.response = response
+            self.message = message
+            self.calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
+            self.fail_first = True
+
+        def invoke(self, *args: object, **kwargs: object) -> object:
+            self.calls.append((args, dict(kwargs)))
+            if self.fail_first:
+                self.fail_first = False
+                raise TypeError(self.message)
+            return self.response
+
+    return TypeErrorClient

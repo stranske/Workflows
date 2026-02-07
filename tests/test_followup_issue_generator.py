@@ -781,24 +781,15 @@ def test_generate_with_llm_metadata_propagation(
     assert calls[call_index]["config"]["metadata"] == expected_metadata
 
 
-def test_invoke_llm_typeerror_fallback_logs_and_retries(caplog: pytest.LogCaptureFixture) -> None:
+def test_invoke_llm_typeerror_fallback_logs_and_retries(
+    caplog: pytest.LogCaptureFixture,
+    llm_typeerror_client_factory,
+) -> None:
     class DummyResponse:
         def __init__(self, content: str) -> None:
             self.content = content
 
-    class DummyClient:
-        def __init__(self) -> None:
-            self.calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
-            self.fail_first = True
-
-        def invoke(self, *args: object, **kwargs: object) -> DummyResponse:
-            self.calls.append((args, dict(kwargs)))
-            if self.fail_first:
-                self.fail_first = False
-                raise TypeError("bad config")
-            return DummyResponse("ok")
-
-    client = DummyClient()
+    client = llm_typeerror_client_factory(DummyResponse("ok"), message="bad config")
     caplog.set_level(logging.WARNING, logger=followup_issue_generator.__name__)
 
     result = followup_issue_generator._invoke_llm(
