@@ -4,259 +4,86 @@ base: main
 branch: codex/issue-1324
 tasks:
   - id: task-01
-    title: Audit the current `.agents/issue-1313-ledger.yml` file and identify all
-      placeholder or example entries that reference non-existent paths
-    status: done
-    started_at: '2026-02-07T16:05:19Z'
-    finished_at: '2026-02-07T16:05:27Z'
-    commit: 3c396714641615780e2d2f174f7c857a97e594ac
-    notes: []
-  - id: task-02
-    title: 'Review PR #1304 verification concerns and create a mapping of each concern
-      to specific repository files and modules'
+    title: Implement a dedicated auth validator entrypoint with explicit None/missing-field guards and wire CLI scope validation to it.
+    pr_1304_concern: auth-validator-module
     status: todo
     started_at: null
     finished_at: null
     commit: ''
+    code_change:
+      - path: scripts/auth_validator.py
+        area: validate_auth_payload
+      - path: scripts/cli_handler.py
+        area: validate_token_scopes call site
+    notes:
+      - Pending deterministic unit tests for validator outcomes.
+  - id: task-02
+    title: Add a unit test that passes `None` into the auth validator and asserts the exact error result.
+    pr_1304_concern: auth-validator-none-test
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    code_change:
+      - path: tests/test_auth_validator.py
+        area: test_validate_auth_payload_none
     notes: []
   - id: task-03
-    title: Update each ledger entry to reference only existing repository paths verified
-      with the actual file system
+    title: Add a unit test that passes an empty payload into the auth validator and asserts the missing field list.
+    pr_1304_concern: auth-validator-empty-payload-test
     status: todo
     started_at: null
     finished_at: null
     commit: ''
+    code_change:
+      - path: tests/test_auth_validator.py
+        area: test_validate_auth_payload_missing_fields
     notes: []
   - id: task-04
-    title: Set the status field for each ledger task based on whether it has supporting
-      tests or decision documentation
+    title: Generate and commit an auth coverage artifact and document the exact command in DECISIONS.
+    pr_1304_concern: auth-coverage-artifact
     status: todo
     started_at: null
     finished_at: null
     commit: ''
+    code_change:
+      - path: artifacts/coverage-auth.txt
+        area: coverage report output
+      - path: DECISIONS.md
+        area: auth coverage artifact entry
     notes: []
   - id: task-05
-    title: Locate the actual validator implementation used for auth validation in
-      the repo
+    title: Pin `langchain-community` to a full semantic version in `tools/requirements-llm.txt`.
+    pr_1304_concern: langchain-semver-pin
     status: todo
     started_at: null
     finished_at: null
     commit: ''
+    code_change:
+      - path: tools/requirements-llm.txt
+        area: dependency pin
     notes: []
   - id: task-06
-    title: Implement explicit guards in the auth validator to prevent attribute access
-      on None (e.g., early return with validation error or explicit `if value is None:`
-      branches)
+    title: Add a CI step that runs `ruff check .` and fails on lint violations.
+    pr_1304_concern: ci-ruff-check
     status: todo
     started_at: null
     finished_at: null
     commit: ''
-    notes: []
+    code_change:
+      - path: .github/workflows/ci.yml
+        area: ruff check step
+    notes:
+      - Requires agent-high-privilege to modify workflow files.
   - id: task-07
-    title: Write a pytest unit test that passes None to the auth validator and reproduces
-      the AttributeError or TypeError
+    title: Add a CI step that runs the full pytest suite and fails on test failures.
+    pr_1304_concern: ci-pytest-full
     status: todo
     started_at: null
     finished_at: null
     commit: ''
-    notes: []
-  - id: task-08
-    title: Write a pytest unit test that verifies the corrected behavior returns a
-      proper validation error instead of raising exceptions
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-09
-    title: 'Identify the specific user authentication scenario referenced in PR #1304
-      verification concerns'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-10
-    title: Write or update a pytest test that covers the identified user authentication
-      scenario with explicit assertions
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-11
-    title: Run pytest with coverage to measure coverage for the authentication modules
-      after adding the new tests
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-12
-    title: Run ruff check on all modified files and fix any linting violations that
-      are reported
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-13
-    title: Run the full pytest suite and fix any test failures in the newly added
-      or modified tests
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-14
-    title: Verify that all code changes follow the project's existing code style and
-      formatting conventions
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-15
-    title: '`.agents/issue-1313-ledger.yml` contains no placeholder or example entries'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-16
-    title: '`.agents/issue-1313-ledger.yml` contains no references to non-existent
-      repository paths (every referenced path resolves to an existing file or directory
-      in the repo)'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-17
-    title: Every ledger item uses exactly the field name `pr_1304_concern` to identify
-      the concern
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-18
-    title: Every ledger item includes either a `code_change` field (with file path(s)
-      + symbol/area) OR a `decision` field that points to a specific section in `DECISIONS.md`
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-19
-    title: 'Any ledger task marked as `done` is backed by at least one of: (1) a unit
-      test file path + test name added/updated in the same change set, or (2) a dated
-      decision entry in `DECISIONS.md`'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-20
-    title: Ledger tasks without test or decision evidence are not marked `done`
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-21
-    title: The auth validator module contains explicit null/None guards that prevent
-      `AttributeError`/`TypeError` when validated input or required subfield is `None`/missing
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-22
-    title: A pytest unit test exists that passes `None` (or minimal null/empty payload)
-      into the validator/auth validation entrypoint
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-23
-    title: The null-handling test asserts the corrected behavior without raising `AttributeError`/`TypeError`
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-24
-    title: 'A test covering the user authentication scenario referenced in PR #1304
-      verification exists under `tests/**`'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-25
-    title: The user authentication test asserts the specific expected outcome relevant
-      to the concern (not only "no exception")
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-26
-    title: Coverage for the affected validator/auth module(s) is measured and documented
-      after adding the null-handling tests
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-27
-    title: Coverage for auth-related modules is measured after test additions and
-      the percentage is documented
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-28
-    title: If coverage is below 80% for any affected module, a plan to improve coverage
-      is added to `DECISIONS.md`
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-29
-    title: '`ruff check .` completes with exit code 0 (no lint violations) after all
-      code/test changes'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-30
-    title: '`pytest` completes with exit code 0 for the full test suite after all
-      code/test changes'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-31
-    title: 'If any PR #1304 verification concern is not addressed in code, `DECISIONS.md`
-      contains a dedicated entry with: current date (YYYY-MM-DD), concern identifier/summary,
-      and rationale paragraph'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-32
-    title: The ledger entry for any deferred concern links to the exact decision section
-      in `DECISIONS.md`
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
+    code_change:
+      - path: .github/workflows/ci.yml
+        area: pytest full-suite step
+    notes:
+      - Requires agent-high-privilege to modify workflow files.
