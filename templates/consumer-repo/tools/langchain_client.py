@@ -201,7 +201,7 @@ def build_chat_client(
     try:
         from langchain_anthropic import ChatAnthropic
     except ImportError:
-        ChatAnthropic = None
+        ChatAnthropic = None  # noqa: N806
 
     github_token = os.environ.get("GITHUB_TOKEN")
     openai_token = os.environ.get("OPENAI_API_KEY")
@@ -321,7 +321,7 @@ def build_chat_clients(
     try:
         from langchain_anthropic import ChatAnthropic
     except ImportError:
-        ChatAnthropic = None
+        ChatAnthropic = None  # noqa: N806
 
     github_token = os.environ.get("GITHUB_TOKEN")
     openai_token = os.environ.get("OPENAI_API_KEY")

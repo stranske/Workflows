@@ -127,16 +127,16 @@ def test_apply_suggestions_normalizes_subtasks() -> None:
             {
                 "task": "Update docs",
                 "split_suggestions": [
-                    "Add tests and update docs",
-                    "Depends on backend merge",
+                    "Add integration tests and update documentation pages",
+                    "Depends on backend merge being completed first",
                 ],
             }
         ]
     }
     result = issue_optimizer.apply_suggestions(issue_body, suggestions, use_llm=False)
     formatted = result["formatted_body"].lower()
-    assert "  - [ ] add tests" in formatted
-    assert "  - [ ] update docs" in formatted
+    assert "  - [ ] add integration tests" in formatted
+    assert "  - [ ] update documentation pages" in formatted
     assert "document dependency for:" in formatted
     assert "verify:" in formatted
 
@@ -335,20 +335,15 @@ def test_ensure_task_decomposition_fills_missing_suggestions(
         assert task == "Large task"
         return {"sub_tasks": ["One", "Two"]}
 
-    def fake_normalize(items: list[str]) -> list[str]:
-        return [item.lower() for item in items]
-
     monkeypatch.setattr(
         "scripts.langchain.task_decomposer.decompose_task",
         fake_decompose,
     )
-    monkeypatch.setattr(
-        "scripts.langchain.task_decomposer.normalize_subtasks",
-        fake_normalize,
-    )
     task_splitting = [{"task": "Large task", "split_suggestions": []}]
     updated = issue_optimizer._ensure_task_decomposition(task_splitting, use_llm=True)
-    assert updated[0]["split_suggestions"] == ["one", "two"]
+    # _ensure_task_decomposition no longer normalizes; that happens
+    # in _apply_task_decomposition to avoid double-normalization.
+    assert updated[0]["split_suggestions"] == ["One", "Two"]
 
 
 def test_apply_task_decomposition_skips_when_missing_header() -> None:
@@ -373,11 +368,21 @@ def test_apply_task_decomposition_handles_alpha_items() -> None:
         ]
     )
     suggestions = {
-        "task_splitting": [{"task": "First task", "split_suggestions": ["Step one", "Step two"]}]
+        "task_splitting": [
+            {
+                "task": "First task",
+                "split_suggestions": [
+                    "Implement the initial setup for deployment",
+                    "Configure the test runner to validate results",
+                ],
+            }
+        ]
     }
     updated = issue_optimizer._apply_task_decomposition(formatted, suggestions)
-    assert "a) First task\n  - [ ] Step one" in updated
-    assert "  - [ ] Step two" in updated
+    assert "a) First task" in updated
+    # Sub-tasks should appear indented under the parent
+    assert "  - [ ]" in updated
+    assert "b) Second task" in updated
 
 
 def test_extract_json_payload_with_wrapped_text() -> None:

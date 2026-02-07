@@ -70,6 +70,7 @@ def test_build_chat_client_github_fallback(monkeypatch: pytest.MonkeyPatch) -> N
 
 def test_build_chat_client_anthropic_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
     """Claude is used when OpenAI is unavailable and Claude is configured."""
+    _install_fake_langchain_openai(monkeypatch)
     FakeChatAnthropic = _install_fake_langchain_anthropic(monkeypatch)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("GITHUB_TOKEN", raising=False)

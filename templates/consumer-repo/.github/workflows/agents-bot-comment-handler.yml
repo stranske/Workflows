@@ -173,6 +173,14 @@ jobs:
                 return;
               }
 
+              // Skip auto-pilot PRs — auto-pilot manages its own quality flow
+              const hasAutoPilot = pr.labels.some(l => l.name === 'agents:auto-pilot');
+              if (hasAutoPilot) {
+                console.log(`PR #${prNumber} is auto-pilot managed, skipping bot-comment handler`);
+                core.setOutput('should_run', 'false');
+                return;
+              }
+
               shouldRun = true;
               console.log(`Gate completion trigger for agent PR #${prNumber}`);
             }
@@ -189,6 +197,7 @@ jobs:
     with:
       pr_number: ${{ needs.resolve.outputs.pr_number }}
       dry_run: ${{ inputs.dry_run == true }}
+      ignored_paths: '.agents/,scripts/langchain/prompts/,docs/'
     secrets:
       service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
       gh_app_id: ${{ secrets.GH_APP_ID }}

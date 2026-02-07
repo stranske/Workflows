@@ -786,6 +786,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           CLAUDE_API_STRANSKE: ${{ secrets.CLAUDE_API_STRANSKE }}
+          LANGCHAIN_PROVIDER: anthropic
+          LANGCHAIN_MODEL: claude-sonnet-4-5-20250929
           PYTHONPATH: ${{ github.workspace }}
         run: |
 
@@ -1075,6 +1077,10 @@ jobs:
           ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
           STEP_COUNT: ${{ steps.cycles.outputs.count }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          CLAUDE_API_STRANSKE: ${{ secrets.CLAUDE_API_STRANSKE }}
+          LANGCHAIN_PROVIDER: anthropic
+          LANGCHAIN_MODEL: claude-sonnet-4-5-20250929
           PYTHONPATH: ${{ github.workspace }}
         run: |
 
@@ -1176,7 +1182,7 @@ jobs:
               issue_body = f.read()
 
           # Apply suggestions
-          result = apply_suggestions(issue_body, suggestions, use_llm=False)
+          result = apply_suggestions(issue_body, suggestions, use_llm=True)
 
           with open('/tmp/updated_body.md', 'w') as f:
               f.write(result['formatted_body'])
