@@ -37,6 +37,38 @@ except ModuleNotFoundError:  # pragma: no cover - fallback for repo scripts
 VALID_STATUSES = {"todo", "doing", "done"}
 HEX_RE = re.compile(r"^[0-9a-f]{7,40}$")
 ISO8601_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
+_SHALLOW_CACHE: bool | None = None
+
+
+def _is_shallow_repo() -> bool:
+    global _SHALLOW_CACHE
+    if _SHALLOW_CACHE is not None:
+        return _SHALLOW_CACHE
+    try:
+        output = subprocess.check_output(
+            ["git", "rev-parse", "--is-shallow-repository"],
+            text=True,
+        ).strip()
+    except subprocess.CalledProcessError:
+        _SHALLOW_CACHE = False
+        return _SHALLOW_CACHE
+    _SHALLOW_CACHE = output.lower() == "true"
+    return _SHALLOW_CACHE
+
+
+def _allow_missing_commit() -> bool:
+    if os.environ.get("LEDGER_VALIDATE_STRICT") == "1":
+        return False
+    if os.environ.get("LEDGER_VALIDATE_ALLOW_SHALLOW") == "1":
+        return True
+    return bool(os.environ.get("GITHUB_ACTIONS")) and _is_shallow_repo()
+
+
+def _warn_skip_commit(commit: str, reason: str) -> None:
+    print(
+        f"Skipping commit validation for {commit}: {reason}",
+        file=sys.stderr,
+    )
 
 
 class LedgerError(Exception):
@@ -239,6 +271,9 @@ def _validate_task(
                 try:
                     files = _commit_files(commit)
                 except LedgerError as exc:
+                    if _allow_missing_commit():
+                        _warn_skip_commit(commit, str(exc))
+                        return errors
                     errors.append(
                         f"{ledger_path}: {context}.commit {commit} not found in repository: {exc}"
                     )
@@ -264,6 +299,9 @@ def _validate_task(
                             try:
                                 subject = _commit_subject(commit)
                             except LedgerError as exc:
+                                if _allow_missing_commit():
+                                    _warn_skip_commit(commit, str(exc))
+                                    return errors
                                 errors.append(
                                     f"{ledger_path}: {context}.commit {commit} not found in repository: {exc}"
                                 )
