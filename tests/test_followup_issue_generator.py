@@ -97,6 +97,19 @@ Verdict: **Not Ready** @75%
         assert "Missing test coverage for edge cases" in data.concerns
         assert "Error handling not comprehensive" in data.concerns
 
+    def test_extract_missing_concerns_for_unknown_verdict(self):
+        """Add a default concern when verdict is unknown and concerns are missing."""
+        comment = """
+## PR Verification Report
+
+Verdict: **Unknown** @0%
+"""
+        data = extract_verification_data(comment)
+
+        assert data.concerns == [
+            "Verification output did not include extractable concerns; manual review required."
+        ]
+
     def test_extract_low_scores(self):
         """Extract scores below 7/10."""
         comment = """

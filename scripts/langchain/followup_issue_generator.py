@@ -64,6 +64,9 @@ SECTION_TITLES = {
 
 LIST_ITEM_REGEX = re.compile(r"^\s*([-*+]|\d+[.)]|[A-Za-z][.)])\s+(.*)$")
 CHECKBOX_REGEX = re.compile(r"^\[([ xX])\]\s*(.*)$")
+MISSING_CONCERNS_MESSAGE = (
+    "Verification output did not include extractable concerns; manual review required."
+)
 
 
 def _normalize_heading(text: str) -> str:
@@ -465,6 +468,9 @@ def extract_verification_data(comment_body: str) -> VerificationData:
             seen.add(c_lower)
             data.concerns.append(c)
 
+    if not data.concerns and _should_add_missing_concerns_note(comment_body, data.provider_verdicts):
+        data.concerns.append(MISSING_CONCERNS_MESSAGE)
+
     # Extract low scores (handle decimal scores like 6.0/10)
     score_pattern = re.compile(r"(\w+):\s*(\d+(?:\.\d+)?)/10", re.IGNORECASE)
     for match in score_pattern.finditer(comment_body):
@@ -507,6 +513,23 @@ def extract_verification_data(comment_body: str) -> VerificationData:
             data.structural_issues.append(match.group(1).strip())
 
     return data
+
+
+def _should_add_missing_concerns_note(
+    comment_body: str, provider_verdicts: dict[str, dict[str, Any]]
+) -> bool:
+    if not comment_body:
+        return True
+    if not provider_verdicts:
+        return True
+    verdicts = []
+    for payload in provider_verdicts.values():
+        verdict = (payload.get("verdict") or "").strip().lower()
+        if verdict:
+            verdicts.append(verdict)
+    if not verdicts:
+        return True
+    return any(verdict == "unknown" for verdict in verdicts)
 
 
 def extract_original_issue_data(
