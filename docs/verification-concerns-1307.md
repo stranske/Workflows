@@ -13,7 +13,8 @@ Re-run verification to capture concerns and context for review.
 
 #### Resolution summary
 PR #1323 added documentation traceability so missing verification artifacts are captured with
-explicit evidence links and decision tracking to unblock re-verification.
+explicit evidence links and decision tracking to unblock re-verification. The follow-up records
+what was missing, where the evidence lives, and how to validate the remediation.
 
 #### Resolution link
 - https://github.com/stranske/Workflows/pull/1323
