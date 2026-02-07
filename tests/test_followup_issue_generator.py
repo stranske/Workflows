@@ -358,8 +358,9 @@ class TestGenerateFollowupIssue:
             use_llm=False,
         )
 
-        assert "Re-run verification to capture verifier-context.md and verifier-diff-summary.md." in (
-            followup.body
+        assert (
+            "Re-run verification to capture verifier-context.md and verifier-diff-summary.md."
+            in (followup.body)
         )
 
     def test_includes_background_context(self):
