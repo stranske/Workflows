@@ -22,6 +22,9 @@ on:
   pull_request_target:
     types:
       - labeled
+  issues:
+    types:
+      - labeled
   workflow_dispatch:
     inputs:
       pr_number:
@@ -70,7 +73,7 @@ permissions:
   models: read  # Required for GitHub Models API access
 
 concurrency:
-  group: agents-verifier-${{ github.repository }}-${{ github.event.pull_request.number || inputs.pr_number || github.run_id }}
+  group: agents-verifier-${{ github.repository }}-${{ github.event.pull_request.number || github.event.issue.number || inputs.pr_number || github.run_id }}
   cancel-in-progress: false
 
 jobs:
@@ -175,25 +178,23 @@ jobs:
               }
             }
 
-            // Handle pull_request_target trigger (label added)
-            const pr = context.payload.pull_request;
-            const label = context.payload.label;
-
-            // Must be a merged PR
-            if (!pr || !pr.merged) {
-              core.info('PR not merged; skipping verifier.');
-              core.setOutput('should_run', 'false');
-              return;
-            }
-
-            // Must be a verify:* label
-            const labelName = label?.name || '';
             const verifyModes = {
               'verify:checkbox': 'checkbox',
               'verify:evaluate': 'evaluate',
               'verify:compare': 'compare',
             };
 
+            const setVerifierOutputs = (mode, prNumber) => {
+              core.info(`Verifier triggered with mode: ${mode}`);
+              core.setOutput('should_run', 'true');
+              core.setOutput('mode', mode);
+              core.setOutput('model', '');
+              core.setOutput('model2', '');
+              core.setOutput('provider', '');
+              core.setOutput('pr_number', prNumber.toString());
+            };
+
+            const labelName = context.payload.label?.name || '';
             const mode = verifyModes[labelName];
             if (!mode) {
               core.info(`Label '${labelName}' is not a verify trigger; skipping.`);
@@ -201,19 +202,39 @@ jobs:
               return;
             }
 
-            core.info(`Verifier triggered with mode: ${mode}`);
-            core.setOutput('should_run', 'true');
-            core.setOutput('mode', mode);
-            // For compare mode, use slot defaults (OpenAI + Claude)
-            if (mode === 'compare') {
-              core.setOutput('model', '');
-              core.setOutput('model2', '');
-            } else {
-              core.setOutput('model', '');
-              core.setOutput('model2', '');
+            if (context.eventName === 'issues') {
+              const issue = context.payload.issue;
+              if (!issue?.pull_request) {
+                core.info('Issue is not a PR; skipping verifier.');
+                core.setOutput('should_run', 'false');
+                return;
+              }
+
+              const prNumber = issue.number;
+              const { data: pr } = await withRetry(() => gh.rest.pulls.get({
+                ...context.repo,
+                pull_number: prNumber,
+              }));
+
+              if (!pr.merged) {
+                core.info('PR not merged; skipping verifier.');
+                core.setOutput('should_run', 'false');
+                return;
+              }
+
+              setVerifierOutputs(mode, pr.number);
+              return;
             }
-            core.setOutput('provider', '');
-            core.setOutput('pr_number', pr.number.toString());
+
+            // Handle pull_request_target trigger (label added)
+            const pr = context.payload.pull_request;
+            if (!pr || !pr.merged) {
+              core.info('PR not merged; skipping verifier.');
+              core.setOutput('should_run', 'false');
+              return;
+            }
+
+            setVerifierOutputs(mode, pr.number);
 
   verifier:
     needs: check
