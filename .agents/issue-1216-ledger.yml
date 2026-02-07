@@ -6,10 +6,10 @@ tasks:
   - id: task-01
     title: Audit `.github/workflows/agents-auto-pilot.yml` to identify all langchain-related
       packages currently being installed and document findings in `docs/llm-dependencies-audit.md`
-    status: doing
+    status: done
     started_at: '2026-02-07T16:11:20Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-02-07T16:11:27Z'
+    commit: fda03897c4e2be415e1680f75c7e8c29fcceb14b
     notes: []
   - id: task-02
     title: Audit `.github/workflows/reusable-agents-verifier.yml` to identify all
