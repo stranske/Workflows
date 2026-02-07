@@ -1,6 +1,6 @@
 version: 1
 issue: 1322
-base: main
+base: codex/issue-1327
 branch: codex/issue-1322
 tasks:
   - id: task-01
@@ -57,7 +57,8 @@ tasks:
     finished_at: null
     commit: ''
     notes:
-      - Evidence captured in docs/reverification/1307-missing-artifacts.md without date prefix
+      - Evidence captured in docs/reverification/1307-missing-artifacts.md without
+        date prefix
   - id: task-07
     title: Update `docs/verification-concerns-1307.md` to link to the dated re-verification
       evidence file for each high-severity concern
@@ -136,7 +137,8 @@ tasks:
     finished_at: null
     commit: 1ab9a5c
     notes:
-      - Requirement updated to upload-artifact v4; enforcement in scripts/workflow_validator.py + tests/test_workflow_validator.py
+      - Requirement updated to upload-artifact v4; enforcement in scripts/workflow_validator.py
+        + tests/test_workflow_validator.py
   - id: task-15
     title: In `docs/verification-concerns-1307.md`, every high-severity concern entry
       includes a `Resolution:` field with at least one GitHub PR URL (containing `/pull/`)
@@ -276,7 +278,8 @@ tasks:
     finished_at: null
     commit: 034fcf1
     notes:
-      - tests/test_followup_issue_generator.py::test_invoke_llm_typeerror_fallback_logs_and_retries (caplog warning)
+      - tests/test_followup_issue_generator.py::test_invoke_llm_typeerror_fallback_logs_and_retries
+        (caplog warning)
   - id: task-30
     title: The `TypeError` test verifies that a second invocation without config/metadata
       occurs (fallback behavior preserved)
@@ -285,7 +288,8 @@ tasks:
     finished_at: null
     commit: 034fcf1
     notes:
-      - tests/test_followup_issue_generator.py::test_invoke_llm_typeerror_fallback_logs_and_retries (fallback call)
+      - tests/test_followup_issue_generator.py::test_invoke_llm_typeerror_fallback_logs_and_retries
+        (fallback call)
   - id: task-31
     title: '`tools/langchain_client._is_reasoning_model` uses a regex anchored at
       the start that matches only model names beginning with `o` followed immediately
@@ -340,7 +344,8 @@ tasks:
     finished_at: null
     commit: 034fcf1
     notes:
-      - tests/test_followup_issue_generator.py::test_invoke_llm_typeerror_fallback_logs_and_retries (fallback + exception text)
+      - tests/test_followup_issue_generator.py::test_invoke_llm_typeerror_fallback_logs_and_retries
+        (fallback + exception text)
   - id: task-37
     title: All newly added tests in `tests/test_pr_verifier.py`, `tests/test_followup_issue_generator.py`,
       and `tests/test_langchain_client.py` pass individually when run with pytest
@@ -349,7 +354,8 @@ tasks:
     finished_at: null
     commit: 1a42db1
     notes:
-      - pytest tests/test_followup_issue_generator.py tests/scripts/test_pr_verifier_structured_output.py -m "not slow"
+      - pytest tests/test_followup_issue_generator.py tests/scripts/test_pr_verifier_structured_output.py
+        -m "not slow"
   - id: task-38
     title: No new test failures are introduced in existing test files when running
       the full test suite

@@ -1,10 +1,10 @@
 version: 1
 issue: 1313
-base: main
+base: codex/issue-1327
 branch: codex/issue-1313
 tasks:
   - id: task-01
-    title: Replace placeholder ledger entries with concrete PR #1304 concerns and valid repo paths
+    title: Replace placeholder ledger entries with concrete PR
     pr_1304_concern: ledger-placeholders
     status: done
     started_at: '2026-02-07T19:05:00Z'
@@ -43,7 +43,8 @@ tasks:
       - test: tests/scripts/test_issue_dedup_smoke.py::test_main_requires_token
     notes: []
   - id: task-04
-    title: Measure and document auth coverage results with follow-up plan when below target
+    title: Measure and document auth coverage results with follow-up plan when below
+      target
     pr_1304_concern: auth-coverage-reporting
     status: done
     started_at: '2026-02-07T18:50:00Z'
