@@ -41,6 +41,6 @@ def test_archive_ledger_lists_superseded_workflows() -> None:
     for slug, replacements in SUPERSEDED_WORKFLOWS.items():
         assert slug in ledger_text, f"Archive ledger missing entry for {slug}"
         for replacement in replacements:
-            assert replacement in ledger_text, (
-                f"Archive ledger missing replacement {replacement} for {slug}"
-            )
+            assert (
+                replacement in ledger_text
+            ), f"Archive ledger missing replacement {replacement} for {slug}"
