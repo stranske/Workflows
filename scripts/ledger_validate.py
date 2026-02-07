@@ -18,6 +18,7 @@ import sys
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 
 import yaml
 
@@ -86,6 +87,9 @@ def _fetch_commit(commit: str) -> bool:
     if repo:
         server = os.environ.get("GITHUB_SERVER_URL", "https://github.com").rstrip("/")
         base_url = f"{server}/{repo}.git"
+        token = os.environ.get("GITHUB_TOKEN")
+        if token:
+            base_url = _with_auth_token(base_url, token)
         if base_url not in fetch_targets:
             fetch_targets.append(base_url)
 
@@ -152,6 +156,17 @@ def _fetch_commit(commit: str) -> bool:
             return True
 
     return False
+
+
+def _with_auth_token(base_url: str, token: str) -> str:
+    """Embed a GitHub token into https URLs without logging it."""
+    split = urlsplit(base_url)
+    if split.scheme not in {"http", "https"} or not split.netloc:
+        return base_url
+    if "@" in split.netloc:
+        return base_url
+    authed_netloc = f"x-access-token:{token}@{split.netloc}"
+    return urlunsplit((split.scheme, authed_netloc, split.path, split.query, split.fragment))
 
 
 def _commit_files(commit: str) -> list[str]:

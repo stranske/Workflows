@@ -9,6 +9,7 @@ def test_fetch_commit_uses_second_remote_after_origin_failure(monkeypatch) -> No
 
     monkeypatch.setenv("GITHUB_REPOSITORY", "owner/repo")
     monkeypatch.setenv("GITHUB_SERVER_URL", "https://github.example.com")
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
 
     calls: list[list[str]] = []
 
@@ -33,6 +34,7 @@ def test_fetch_commit_all_remotes_fail(monkeypatch) -> None:
     commit = "abc1234"
     monkeypatch.setenv("GITHUB_REPOSITORY", "owner/repo")
     monkeypatch.setenv("GITHUB_SERVER_URL", "https://github.example.com")
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
 
     calls: list[list[str]] = []
 
@@ -63,3 +65,30 @@ def test_fetch_commit_retry_then_succeeds(monkeypatch) -> None:
     assert ledger_validate._fetch_commit(commit) is True
     assert len(calls) == 4
     assert commit in calls[-1]
+
+
+def test_fetch_commit_uses_tokenized_base_url(monkeypatch) -> None:
+    commit = "abc1234"
+    token = "ghs_dummy"
+    base_url = "https://github.example.com/owner/repo.git"
+    authed_url = "https://x-access-token:ghs_dummy@github.example.com/owner/repo.git"
+
+    monkeypatch.setenv("GITHUB_REPOSITORY", "owner/repo")
+    monkeypatch.setenv("GITHUB_SERVER_URL", "https://github.example.com")
+    monkeypatch.setenv("GITHUB_TOKEN", token)
+
+    calls: list[list[str]] = []
+
+    def fake_check_call(command: list[str], stdout=None, stderr=None) -> None:
+        calls.append(command)
+        if "origin" in command:
+            raise subprocess.CalledProcessError(1, command)
+        if authed_url in command:
+            return None
+        if base_url in command:
+            raise AssertionError("unauthenticated base URL should not be used when token is set")
+        raise AssertionError(f"Unexpected fetch target in {command}")
+
+    monkeypatch.setattr(ledger_validate.subprocess, "check_call", fake_check_call)
+
+    assert ledger_validate._fetch_commit(commit) is True
