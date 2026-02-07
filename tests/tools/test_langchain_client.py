@@ -363,6 +363,7 @@ def test_build_chat_clients_handles_partial_failures(
     "model,expected",
     [
         ("o1", True),
+        ("o10", True),
         ("o1-mini", True),
         ("o1-preview", True),
         ("o1-preview-2024-09-12", True),
@@ -377,6 +378,8 @@ def test_build_chat_clients_handles_partial_failures(
         ("gpt-4.1", False),
         ("claude-sonnet-4-5-20250929", False),
         ("mixtral-8x7b", False),
+        ("o1x", False),
+        ("o1_preview", False),
         ("o", False),
         ("o-1", False),
         ("openai-o1", False),
