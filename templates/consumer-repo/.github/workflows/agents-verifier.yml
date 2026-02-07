@@ -107,11 +107,20 @@ jobs:
             const retryHelpers = fs.existsSync(retryHelperPath)
               ? require(retryHelperPath)
               : {
-                  withRetry: (fn) => fn(),
-                  paginateWithRetry: (githubInstance, method, params) =>
-                    githubInstance.paginate(method, params),
+                  createTokenAwareRetry: async ({ github }) => ({
+                    github,
+                    withRetry: (fn) => fn(),
+                  }),
                 };
-            const { withRetry } = retryHelpers;
+            const { github: balancedGithub, withRetry } = await retryHelpers.createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'verifier',
+              capabilities: ['read-repo'],
+              minRemaining: 50,
+            });
+            const github = balancedGithub;
 
             // Handle workflow_dispatch trigger
             if (context.eventName === 'workflow_dispatch') {
