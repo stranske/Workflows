@@ -101,10 +101,6 @@ runs:
         # Check if already installed
         if [ -d "node_modules/@octokit/rest" ]; then
           echo "✅ @octokit/rest already installed"
-          # Clean up package.json only if we created it (keep package-lock.json for module resolution)
-          if [ "$CREATED_PACKAGE_JSON" = "true" ]; then
-            rm -f package.json
-          fi
         else
           # Install with pinned versions for consistency
           # Capture stderr for debugging if the command fails
@@ -127,13 +123,6 @@ runs:
               @octokit/auth-app@6.0.3
           fi
           echo "✅ @octokit dependencies installed"
-
-          # Clean up package.json only if we created it
-          # Keep package-lock.json as it's needed for proper module resolution
-          if [ "$CREATED_PACKAGE_JSON" = "true" ]; then
-            rm -f package.json
-            echo "🧹 Cleaned up temporary package.json file"
-          fi
         fi
 
     - name: Export NODE_PATH for shared deps
