@@ -43,7 +43,7 @@ tasks:
   - id: task-05
     title: Create `docs/reverification/README.md` explaining how evidence files are
       produced and what they contain
-    status: not_applicable
+    status: todo
     started_at: null
     finished_at: null
     commit: ''
@@ -52,7 +52,7 @@ tasks:
   - id: task-06
     title: Create a dated re-verification evidence markdown file under `docs/reverification/`
       with clearly labeled sections for each high-severity concern
-    status: not_applicable
+    status: todo
     started_at: null
     finished_at: null
     commit: ''
@@ -61,7 +61,7 @@ tasks:
   - id: task-07
     title: Update `docs/verification-concerns-1307.md` to link to the dated re-verification
       evidence file for each high-severity concern
-    status: not_applicable
+    status: todo
     started_at: null
     finished_at: null
     commit: ''
@@ -131,7 +131,7 @@ tasks:
     title: '**Manual:** Update all `.github/workflows/*.yml` files to use `actions/upload-artifact@v7`
       instead of older versions (v3/v4/v5/v6) and adjust any related inputs for v7
       compatibility'
-    status: not_applicable
+    status: done
     started_at: null
     finished_at: null
     commit: 1ab9a5c
@@ -179,7 +179,7 @@ tasks:
   - id: task-19
     title: A repo-local re-verification evidence file exists at `docs/reverification/<YYYY-MM-DD>-*.md`
       where the filename contains a date prefix in `YYYY-MM-DD` format
-    status: not_applicable
+    status: todo
     started_at: null
     finished_at: null
     commit: ''
@@ -188,7 +188,7 @@ tasks:
   - id: task-20
     title: '`docs/reverification/README.md` exists and describes how the evidence
       file is produced or what it contains'
-    status: not_applicable
+    status: todo
     started_at: null
     finished_at: null
     commit: ''
@@ -199,7 +199,7 @@ tasks:
       evidence file and each high-severity concern''s `Evidence:` link points to a
       specific section within that file (markdown anchor) or to a per-concern evidence
       file under `docs/reverification/`'
-    status: not_applicable
+    status: todo
     started_at: null
     finished_at: null
     commit: ''
@@ -353,7 +353,7 @@ tasks:
   - id: task-38
     title: No new test failures are introduced in existing test files when running
       the full test suite
-    status: blocked
+    status: todo
     started_at: null
     finished_at: null
     commit: ''
