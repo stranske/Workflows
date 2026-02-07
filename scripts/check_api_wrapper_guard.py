@@ -22,6 +22,7 @@ SKIP_FILES = {
     ROOT / ".github" / "scripts" / "github-api-with-retry.js",
     ROOT / ".github" / "scripts" / "token_load_balancer.js",
     ROOT / "scripts" / "check_api_wrapper_guard.py",
+    ROOT / "scripts" / "api_client.py",
 }
 
 DIRECT_PATTERNS = [
@@ -93,7 +94,7 @@ def _collect_changed_files(base_ref: str, base_remote: str) -> list[Path]:
     if base:
         try:
             output = _run_git(
-                ["diff", "--name-only", f"{base}..HEAD"],
+                ["diff", "--name-only", "--diff-filter=d", f"{base}..HEAD"],
                 allow_exit_codes={0, 1},
             )
             return [ROOT / line.strip() for line in output.splitlines() if line.strip()]
@@ -102,7 +103,7 @@ def _collect_changed_files(base_ref: str, base_remote: str) -> list[Path]:
     if _rev_exists("HEAD~1"):
         try:
             output = _run_git(
-                ["diff", "--name-only", "HEAD~1..HEAD"],
+                ["diff", "--name-only", "--diff-filter=d", "HEAD~1..HEAD"],
                 allow_exit_codes={0, 1},
             )
             return [ROOT / line.strip() for line in output.splitlines() if line.strip()]
@@ -128,6 +129,9 @@ def _collect_all_files() -> list[Path]:
 def _is_target_file(path: Path) -> bool:
     # Skip node_modules directories (dependencies, not project code)
     if "node_modules" in path.parts:
+        return False
+    # Skip agent ledger files (task tracking, not API usage)
+    if path.parent.name == ".agents" and path.stem.endswith("-ledger"):
         return False
     return path not in SKIP_FILES and path.suffix.lower() in {
         ".yml",

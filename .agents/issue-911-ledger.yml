@@ -9,7 +9,7 @@ tasks:
     status: done
     started_at: '2026-01-17T08:58:20Z'
     finished_at: '2026-01-17T08:58:26Z'
-    commit: 21540c5b38604678ce1d01a003447a24f6d7759c
+    commit: 875ecd97d8befb07de518d292b254168a82e7963
     notes:
       - '2026-01-17T08:35:49Z failure (run 21091510424): status=failure'
       - '2026-01-17T08:38:38Z failure (run 21091541386): status=failure'

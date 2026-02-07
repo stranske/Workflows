@@ -1,0 +1,169 @@
+version: 1
+issue: 1296
+base: main
+branch: codex/issue-1296
+tasks:
+  - id: task-01
+    title: Create a stub provider class in `test_llm_provider.py` that records all
+      kwargs received during invocation
+    status: done
+    started_at: '2026-02-07T16:26:12Z'
+    finished_at: '2026-02-07T16:26:21Z'
+    commit: c79791ca597db7b62762b4dd5d0db1325c3e97c0
+    notes: []
+  - id: task-02
+    title: Write a unit test that instantiates `FallbackChainProvider` with the stub
+      provider and passes `quality_context`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: Add assertions to verify the stub provider received `quality_context` with
+      the expected values
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: Add regression test in `test_llm_provider.py` that verifies confidence
+      is capped when `analysis_text_length < 50` and `has_work_evidence` is `True`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: Add integration test for `GitHubModelsProvider` that calls the provider
+      without `quality_context` and verifies no exception is raised
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: Add integration test for `OpenAIProvider` that calls the provider without
+      `quality_context` and verifies no exception is raised
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: Add integration test for `AnthropicProvider` that calls the provider without
+      `quality_context` and verifies no exception is raised
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: Create `test_structured_output.py` file with basic test structure and imports
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: Identify and document all public functions and classes in `structured_output.py`
+      that require test coverage
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: Write unit tests for each public function in `structured_output.py` with
+      normal input cases
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: Write unit tests for each public class in `structured_output.py` covering
+      initialization and key methods
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: Add edge case and error handling tests for `structured_output.py` public
+      API
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: Write unit tests for `AnthropicProvider` that verify `quality_context`
+      parameter is accepted and passed to the underlying API call without raising
+      an exception
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: Write unit tests for `AnthropicProvider` that verify at least one error
+      case (e.g., API timeout or invalid credentials) raises the expected exception
+      type
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: Tests include an assertion that `FallbackChainProvider` passes `quality_context`
+      through to the active provider (test fails if `quality_context` is dropped)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: Tests include an assertion that confidence is capped when `analysis_text_length
+      < 50` and `has_work_evidence == True` (test fails if cap is not applied)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: Tests directly invoke `GitHubModelsProvider`, `OpenAIProvider`, and `AnthropicProvider`
+      without `quality_context` and pass without raising (verifies legacy signature
+      compatibility)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: A standalone test file `test_structured_output.py` exists with tests covering
+      all public functions and classes in `structured_output.py`, and all tests pass
+      in CI
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: '`AnthropicProvider` has dedicated tests that pass, including one that
+      verifies `quality_context` is passed to the underlying API call without raising
+      an exception, and one that verifies a specific error (e.g., API timeout or invalid
+      credentials) raises the expected exception type'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: CI test suite passes
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []

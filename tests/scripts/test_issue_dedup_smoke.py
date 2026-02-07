@@ -310,6 +310,19 @@ def test_fetch_oauth_scopes_returns_none_without_header(monkeypatch) -> None:
     assert api_client.fetch_oauth_scopes("token") is None
 
 
+def test_fetch_oauth_scopes_handles_missing_headers(monkeypatch) -> None:
+    class HeaderlessResponse:
+        headers = None
+
+    monkeypatch.setattr(
+        api_client,
+        "_request_response",
+        lambda *args, **kwargs: HeaderlessResponse(),
+    )
+
+    assert api_client.fetch_oauth_scopes("token") is None
+
+
 def test_fetch_oauth_scopes_retries_on_server_error(monkeypatch) -> None:
     responses = [
         DummyResponse(503, text="oops"),
@@ -474,6 +487,26 @@ def test_main_requires_allowlist(monkeypatch, capsys) -> None:
     captured = capsys.readouterr()
     assert result == 1
     assert "Repository allowlist is empty" in captured.err
+
+
+def test_main_requires_token(monkeypatch, capsys) -> None:
+    monkeypatch.setenv("ISSUE_DEDUP_SMOKE_ALLOWLIST", "owner/repo")
+    monkeypatch.delenv("TEST_TOKEN", raising=False)
+
+    result = cli_handler.main(
+        [
+            "--repo",
+            "owner/repo",
+            "--title",
+            "Test",
+            "--token-env",
+            "TEST_TOKEN",
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert result == 1
+    assert "Missing GitHub token" in captured.err
 
 
 def test_main_rejects_repo_not_in_allowlist(monkeypatch, capsys) -> None:

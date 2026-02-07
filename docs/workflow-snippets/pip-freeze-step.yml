@@ -1,0 +1,3 @@
+- name: Capture pip freeze
+  run: |
+    python -m pip freeze

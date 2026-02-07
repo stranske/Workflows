@@ -8,3 +8,19 @@ Rationale: The repository does not contain the verifier context or extracted con
 review acceptance criteria. Without those artifacts, any remediation would be speculative.
 
 Evidence: [Evidence: PR #1307 missing artifacts](docs/reverification/1307-missing-artifacts.md)
+
+## 2026-02-07 - PR #1304 Ledger Hygiene
+Decision: Treat the ledger clean-up as documentation-only work; no new runtime tests are required
+to verify the removal of placeholder entries.
+
+Rationale: The change updates `.agents/issue-1313-ledger.yml` to reference real repository paths and
+concerns, which is a metadata correction rather than executable behavior.
+
+## 2026-02-07 - PR #1304 Auth Coverage Baseline
+Decision: Record the post-test coverage for auth-related modules after adding null-handling and
+authentication scenario tests: `scripts/api_client.py` at 56.64% and `scripts/cli_handler.py` at
+73.04%.
+
+Rationale: Both modules are below the 80% target. Follow-up coverage improvements should add
+targeted unit tests for API retry/error branches in `scripts/api_client.py` and for CLI issue
+selection and scope-check branches in `scripts/cli_handler.py`.

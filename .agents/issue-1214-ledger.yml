@@ -10,7 +10,7 @@ tasks:
     status: done
     started_at: '2026-02-07T09:49:24Z'
     finished_at: '2026-02-07T09:49:31Z'
-    commit: 8004c2f93a2872469a99ed9a057a68993623860e
+    commit: c5f081959302ea9f4162c5f897d84aa82548cdc5
     notes: []
   - id: task-02
     title: 'Define the public API (verify: confirm completion in repo)'

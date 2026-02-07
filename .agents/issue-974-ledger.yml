@@ -8,7 +8,7 @@ tasks:
     status: done
     started_at: '2026-01-20T01:49:04Z'
     finished_at: '2026-01-20T01:49:11Z'
-    commit: de0b9b9019f801e71c72ceadc134460a903bbaee
+    commit: 0a83fdb6327e93ef34f91712731829be22db067d
     notes: []
   - id: task-02
     title: Extend `scripts/aggregate_metrics.py` to include `langsmith_trace_id` field

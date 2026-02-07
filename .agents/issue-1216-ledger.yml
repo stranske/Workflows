@@ -1,0 +1,218 @@
+version: 1
+issue: 1216
+base: main
+branch: codex/issue-1216
+tasks:
+  - id: task-01
+    title: Audit `.github/workflows/agents-auto-pilot.yml` to identify all langchain-related
+      packages currently being installed and document findings in `docs/llm-dependencies-audit.md`
+    status: done
+    started_at: '2026-02-07T16:11:20Z'
+    finished_at: '2026-02-07T16:11:27Z'
+    commit: fda03897c4e2be415e1680f75c7e8c29fcceb14b
+    notes: []
+  - id: task-02
+    title: Audit `.github/workflows/reusable-agents-verifier.yml` to identify all
+      langchain-related packages currently being installed and append findings to
+      `docs/llm-dependencies-audit.md`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: Audit `.github/workflows/agents-verify-to-new-pr.yml` to identify all langchain-related
+      packages currently being installed and append findings to `docs/llm-dependencies-audit.md`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: 'Create a pinned requirements file at `tools/requirements-llm.txt` with
+      explicit version pins (format: `package==X.Y.Z`) for all identified langchain-related
+      packages'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: Add a comment block at the top of `tools/requirements-llm.txt` documenting
+      the rationale for the chosen version pins and the date of last update
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: Generate the complete `actions/cache` step YAML configuration for pip caching
+      in `docs/workflow-snippets/pip-cache-step.yml`, including cache key formula
+      using Python version and `tools/requirements-llm.txt` hash
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: Generate the exact pip install command block for `agents-auto-pilot.yml`
+      in `docs/workflow-snippets/agents-auto-pilot-install.yml` that replaces floating
+      installs with `pip install -r tools/requirements-llm.txt`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: Generate the exact pip install command block for `reusable-agents-verifier.yml`
+      in `docs/workflow-snippets/reusable-agents-verifier-install.yml` that replaces
+      floating installs with `pip install -r tools/requirements-llm.txt`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: Generate the exact pip install command block for `agents-verify-to-new-pr.yml`
+      in `docs/workflow-snippets/agents-verify-to-new-pr-install.yml` that replaces
+      floating installs with `pip install -r tools/requirements-llm.txt`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: Generate the workflow step YAML in `docs/workflow-snippets/pip-freeze-step.yml`
+      that runs `python -m pip freeze` after pip install to log installed package
+      versions
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: Create `docs/workflow-integration-guide.md` with step-by-step instructions
+      for manually applying each generated snippet to the three target workflow files,
+      including line numbers where possible
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: '**HUMAN ACTION REQUIRED:** Apply the pip install command block from `docs/workflow-snippets/agents-auto-pilot-install.yml`
+      to `.github/workflows/agents-auto-pilot.yml`, replacing existing floating langchain
+      install lines'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: '**HUMAN ACTION REQUIRED:** Apply the pip install command block from `docs/workflow-snippets/reusable-agents-verifier-install.yml`
+      to `.github/workflows/reusable-agents-verifier.yml`, replacing existing floating
+      langchain install lines'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: '**HUMAN ACTION REQUIRED:** Apply the pip install command block from `docs/workflow-snippets/agents-verify-to-new-pr-install.yml`
+      to `.github/workflows/agents-verify-to-new-pr.yml`, replacing existing floating
+      langchain install lines'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: '**HUMAN ACTION REQUIRED:** Add the `actions/cache` step from `docs/workflow-snippets/pip-cache-step.yml`
+      to all three target workflow files before the pip install step'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: '**HUMAN ACTION REQUIRED:** Add the pip freeze logging step from `docs/workflow-snippets/pip-freeze-step.yml`
+      to all three target workflow files after the pip install step'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: '**HUMAN ACTION REQUIRED:** Trigger CI runs to verify that workflows pass
+      with pinned versions and observe cache restore/save activity in logs'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: 'File `tools/requirements-llm.txt` exists and all langchain-related entries
+      use explicit version pins (format: `package==X.Y.Z`)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: File `tools/requirements-llm.txt` contains a comment block documenting
+      version pin rationale
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: File `docs/llm-dependencies-audit.md` exists and lists all langchain-related
+      packages found in the three target workflows
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: 'File `docs/workflow-snippets/pip-cache-step.yml` exists and contains syntactically
+      valid YAML with cache key format: `pip-${{ runner.os }}-${{ matrix.python-version
+      }}-${{ hashFiles(''tools/requirements-llm.txt'') }}`'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: Files `docs/workflow-snippets/agents-auto-pilot-install.yml`, `docs/workflow-snippets/reusable-agents-verifier-install.yml`,
+      and `docs/workflow-snippets/agents-verify-to-new-pr-install.yml` exist and contain
+      syntactically valid YAML referencing `tools/requirements-llm.txt`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-23
+    title: File `docs/workflow-snippets/pip-freeze-step.yml` exists and contains a
+      step that runs `python -m pip freeze`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-24
+    title: File `docs/workflow-integration-guide.md` exists and provides line-number-specific
+      instructions for applying each snippet to the three target workflow files
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-25
+    title: All generated YAML files pass YAML syntax validation (e.g., `yamllint`
+      or equivalent)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []

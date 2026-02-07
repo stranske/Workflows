@@ -4,96 +4,52 @@ base: main
 branch: codex/issue-1313
 tasks:
   - id: task-01
-    title: 'Review verification logs from PR #1304 to identify specific failure points'
+    title: Replace placeholder ledger entries with concrete PR #1304 concerns and valid repo paths
+    pr_1304_concern: ledger-placeholders
     status: done
-    started_at: '2026-02-07T11:04:04Z'
-    finished_at: '2026-02-07T11:04:12Z'
-    commit: c3eb2ae2adac17877af165ac1f03cd0a38ec54b2
+    started_at: '2026-02-07T19:05:00Z'
+    finished_at: '2026-02-07T19:08:00Z'
+    commit: 5ba155c1917dfde2146eab0d6890c4ce4c7a689c
+    code_change:
+      - path: .agents/issue-1313-ledger.yml
+        area: tasks
+    evidence:
+      - decision: DECISIONS.md#2026-02-07---pr-1304-ledger-hygiene
     notes: []
   - id: task-02
-    title: 'Document each verification concern in this issue with:'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    title: Guard OAuth scope validation against missing headers to avoid AttributeError
+    pr_1304_concern: auth-validation-null-guards
+    status: done
+    started_at: '2026-02-07T18:40:00Z'
+    finished_at: '2026-02-07T18:47:00Z'
+    commit: c07edc74a900876f0561e27901fb14180de5c0a2
+    code_change:
+      - path: scripts/api_client.py
+        area: fetch_oauth_scopes
+    evidence:
+      - test: tests/scripts/test_issue_dedup_smoke.py::test_fetch_oauth_scopes_handles_missing_headers
     notes: []
   - id: task-03
-    title: Update the Tasks section below with concrete, actionable items
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    title: Add user authentication scenario test for missing GitHub token in CLI flow
+    pr_1304_concern: user-authentication-scenario
+    status: done
+    started_at: '2026-02-07T18:47:00Z'
+    finished_at: '2026-02-07T18:50:00Z'
+    commit: c07edc74a900876f0561e27901fb14180de5c0a2
+    code_change:
+      - path: tests/scripts/test_issue_dedup_smoke.py
+        area: test_main_requires_token
+    evidence:
+      - test: tests/scripts/test_issue_dedup_smoke.py::test_main_requires_token
     notes: []
   - id: task-04
-    title: Fix failing test `test_user_authentication` in `tests/test_auth.py` (line
-      45)
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-05
-    title: Update `src/auth/validator.py` to handle null email addresses (line 23)
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-06
-    title: Add test case for empty string input in `tests/test_validator.py`
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-07
-    title: Determine if verification failures require architectural discussion
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-08
-    title: Decide whether to document concerns as "won't fix" in DECISIONS.md
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-09
-    title: Approve any breaking changes identified during investigation
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-10
-    title: 'Each concern from PR #1304 verification has either:'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-11
-    title: All code changes include corresponding unit tests with >80% coverage (or
-      PR description documents why no test changes are required)
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-12
-    title: Code changes implement fixes for identified concerns and pass local test
-      suite (`pytest` exits with code 0)
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-13
-    title: All modified files pass linting (`ruff check` reports 0 errors)
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
+    title: Measure and document auth coverage results with follow-up plan when below target
+    pr_1304_concern: auth-coverage-reporting
+    status: done
+    started_at: '2026-02-07T18:50:00Z'
+    finished_at: '2026-02-07T18:55:00Z'
+    commit: c07edc74a900876f0561e27901fb14180de5c0a2
+    decision: DECISIONS.md#2026-02-07---pr-1304-auth-coverage-baseline
+    evidence:
+      - decision: DECISIONS.md#2026-02-07---pr-1304-auth-coverage-baseline
     notes: []

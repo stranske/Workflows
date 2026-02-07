@@ -365,6 +365,9 @@ scripts:
   - source: scripts/langchain/issue_optimizer.py
     description: "Issue optimizer - analyzes issues and suggests improvements"
 
+  - source: scripts/langchain/structured_output.py
+    description: "Shared structured output helpers for LangChain workflows"
+
   - source: scripts/langchain/issue_formatter.py
     description: "Issue formatter - converts raw text to AGENT_ISSUE_TEMPLATE format"
 
