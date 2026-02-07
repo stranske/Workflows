@@ -120,9 +120,7 @@ def validate_auth_payload(payload: dict[str, Any] | None) -> AuthValidationResul
             valid=False,
             skipped=False,
             error="extra_scopes",
-            message=(
-                "Token scopes exceed allowed scopes. " f"Extras: {extras}. Allowed: {allowed}."
-            ),
+            message=(f"Token scopes exceed allowed scopes. Extras: {extras}. Allowed: {allowed}."),
             scopes=scopes,
             allowed_scopes=allowed_scopes,
             extra_scopes=extra_scopes,
