@@ -187,24 +187,39 @@ def _parse_sections(body: str) -> tuple[dict[str, list[str]], list[str]]:
     sections: dict[str, list[str]] = {key: [] for key in SECTION_TITLES}
     preamble: list[str] = []
     current: str | None = None
-    in_code_block = False
+    code_fence_marker: str | None = None  # exact opening fence (e.g. ```, ````)
     in_details_block = False
     for line in body.splitlines():
         stripped = line.strip()
-        # Track code fences so we don't parse headings inside ```...```
-        if stripped.startswith("```"):
-            in_code_block = not in_code_block
-        if in_code_block:
+        # Track code fences — match the exact opening fence length to avoid
+        # being fooled by nested fences of different lengths (e.g. ``` inside ````)
+        fence_match = re.match(r"^(`{3,})", stripped)
+        if fence_match:
+            if code_fence_marker is None:
+                code_fence_marker = fence_match.group(1)
+            elif len(fence_match.group(1)) >= len(code_fence_marker):
+                code_fence_marker = None
+        if code_fence_marker is not None:
             if current:
                 sections[current].append(line)
             else:
                 preamble.append(line)
             continue
-        # Stop parsing at <details> blocks (Original Issue metadata)
-        if stripped.lower().startswith("<details"):
+        # Stop parsing at <details> blocks (Original Issue metadata).
+        # Handle both multi-line and inline <details>...</details> on one line.
+        lower_stripped = stripped.lower()
+        if lower_stripped.startswith("<details") and not in_details_block:
+            # Check if </details> also appears on the same line (inline block)
+            if "</details" in lower_stripped:
+                # Entire block on one line — preserve it but don't enter state
+                if current:
+                    sections[current].append(line)
+                else:
+                    preamble.append(line)
+                continue
             in_details_block = True
         if in_details_block:
-            if stripped.lower().startswith("</details"):
+            if "</details" in lower_stripped:
                 in_details_block = False
             # Preserve <details> content under the current section so it
             # survives the round-trip, but don't parse headings from it.

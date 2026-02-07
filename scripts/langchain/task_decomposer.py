@@ -281,7 +281,17 @@ def _normalize_subtasks(sub_tasks: list[str]) -> list[str]:
                     normalized.append(_ensure_verification(scoped_task))
                 continue
             normalized.append(_ensure_verification(cleaned))
-    return normalized
+    # Second dedupe pass on final output — catches duplicates introduced by
+    # _rewrite_dependency_task / _ensure_verification rewriting different
+    # inputs to the same canonical form.
+    final: list[str] = []
+    seen_final: set[str] = set()
+    for entry in normalized:
+        key = re.sub(r"\s+", " ", entry.lower().strip())
+        if key not in seen_final:
+            seen_final.add(key)
+            final.append(entry)
+    return final
 
 
 def normalize_subtasks(sub_tasks: list[str]) -> list[str]:
