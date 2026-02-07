@@ -120,6 +120,19 @@ def _fetch_commit(commit: str) -> bool:
                 "--unshallow",
                 target,
             ],
+            [
+                "git",
+                "fetch",
+                "--no-tags",
+                target,
+                commit,
+            ],
+            [
+                "git",
+                "fetch",
+                "--no-tags",
+                target,
+            ],
         ]
 
         for command in fetch_attempts:
