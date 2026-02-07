@@ -1504,3 +1504,61 @@ Here's my analysis:
         assert result.completed_tasks == []
         assert result.confidence == 0.0
         assert "parse" in result.reasoning.lower()
+
+
+class TestAnthropicProvider:
+    """Test Anthropic provider (mocked)."""
+
+    def test_analyze_completion_passes_quality_context_to_parse(self):
+        """Quality context is forwarded to the parse step."""
+        provider = AnthropicProvider()
+        mock_client = MagicMock()
+        mock_client.invoke.return_value = MagicMock(content="""
+{
+    "completed": ["task1"],
+    "in_progress": [],
+    "blocked": [],
+    "confidence": 0.7,
+    "reasoning": "Test response."
+}
+""")
+        quality_context = SessionQualityContext(
+            has_work_evidence=True,
+            analysis_text_length=80,
+        )
+        parsed = CompletionAnalysis(
+            completed_tasks=["task1"],
+            in_progress_tasks=[],
+            blocked_tasks=[],
+            confidence=0.7,
+            reasoning="Test response.",
+            provider_used="github-models",
+        )
+
+        with patch.object(provider, "_get_client", return_value=mock_client):
+            with patch.object(
+                GitHubModelsProvider,
+                "_parse_response",
+                return_value=parsed,
+            ) as mock_parse:
+                result = provider.analyze_completion(
+                    "output",
+                    ["task1"],
+                    quality_context=quality_context,
+                )
+
+        mock_client.invoke.assert_called_once()
+        mock_parse.assert_called_once()
+        assert mock_parse.call_args.kwargs["quality_context"] is quality_context
+        assert result.provider_used == "anthropic"
+        assert result.completed_tasks == ["task1"]
+
+    def test_analyze_completion_raises_timeout_error(self):
+        """API errors are raised for callers to handle."""
+        provider = AnthropicProvider()
+        mock_client = MagicMock()
+        mock_client.invoke.side_effect = TimeoutError("timeout")
+
+        with patch.object(provider, "_get_client", return_value=mock_client):
+            with pytest.raises(TimeoutError):
+                provider.analyze_completion("output", ["task1"])
