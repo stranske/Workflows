@@ -80,8 +80,16 @@ jobs:
                   withRetry: (fn) => fn(),
                   paginateWithRetry: (githubInstance, method, params) =>
                     githubInstance.paginate(method, params),
+                  createTokenAwareRetry: async ({ github }) => ({ github, withRetry: (fn) => fn() }),
                 };
-            const { withRetry } = retryHelpers;
+            const { github: api, withRetry } = await retryHelpers.createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'agents-dedup',
+              capabilities: ['issues:read'],
+            });
+            const github = api;
 
             // Get all open issues (excluding this one)
             const { data: issues } = await withRetry(() => github.rest.issues.listForRepo({
@@ -230,8 +238,17 @@ jobs:
                   withRetry: (fn) => fn(),
                   paginateWithRetry: (githubInstance, method, params) =>
                     githubInstance.paginate(method, params),
+                  createTokenAwareRetry: async ({ github }) => ({ github, withRetry: (fn) => fn() }),
                 };
-            const { withRetry } = retryHelpers;
+            const { github: api, withRetry } = await retryHelpers.createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'agents-dedup',
+              capabilities: ['issues:write'],
+            });
+            const github = api;
+
             const duplicates = JSON.parse(fs.readFileSync('duplicates.json', 'utf8'));
 
             if (duplicates.length === 0) {

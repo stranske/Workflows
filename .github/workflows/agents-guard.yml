@@ -404,6 +404,16 @@ jobs:
           COMMENT_MARKER: ${{ steps.evaluate.outputs.marker }}
         with:
           script: |
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const { github: api, withRetry, paginateWithRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'agents-guard',
+              capabilities: ['issues:read', 'issues:write'],
+            });
+            const github = api;
+
             const path = require('path');
             const workspace = process.env.GITHUB_WORKSPACE || process.cwd();
             const guardPath = path.resolve(workspace, '.github/scripts/agents-guard.js');
@@ -545,6 +555,14 @@ jobs:
         with:
           script: |
             const gh = github;
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const { withRetry } = await createTokenAwareRetry({
+              github: gh,
+              core,
+              env: process.env,
+              task: 'agents-guard',
+              capabilities: ['statuses:write'],
+            });
             const owner = context.repo.owner;
             const repo = context.repo.repo;
             const pullRequest = context.payload.pull_request;
@@ -625,7 +643,7 @@ jobs:
 
             try {
               await withApiRetry(
-                () => gh.rest.repos.createCommitStatus({
+                (client) => client.rest.repos.createCommitStatus({
                   owner,
                   repo,
                   sha,

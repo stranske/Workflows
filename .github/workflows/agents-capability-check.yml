@@ -127,13 +127,17 @@ jobs:
             const retryHelpers = fs.existsSync(retryHelperPath)
               ? require(retryHelperPath)
               : {
-                  withRetry: (fn) => fn(),
-                  paginateWithRetry: (githubInstance, method, params) =>
-                    githubInstance.paginate(method, params),
+                  createTokenAwareRetry: async ({ github }) => ({ github, withRetry: (fn) => fn() }),
                 };
-            const { withRetry } = retryHelpers;
+            const { withRetry } = await retryHelpers.createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'agents-capability-check',
+              capabilities: ['issues:write'],
+            });
 
-            await withRetry(() => github.rest.issues.addLabels({
+            await withRetry((client) => client.rest.issues.addLabels({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
@@ -142,7 +146,7 @@ jobs:
 
             // Remove agent:codex since agent can't complete this
             try {
-              await withRetry(() => github.rest.issues.removeLabel({
+              await withRetry((client) => client.rest.issues.removeLabel({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: context.issue.number,
@@ -165,11 +169,15 @@ jobs:
             const retryHelpers = fs.existsSync(retryHelperPath)
               ? require(retryHelperPath)
               : {
-                  withRetry: (fn) => fn(),
-                  paginateWithRetry: (githubInstance, method, params) =>
-                    githubInstance.paginate(method, params),
+                  createTokenAwareRetry: async ({ github }) => ({ github, withRetry: (fn) => fn(), paginateWithRetry: (method, params) => github.paginate(method, params) }),
                 };
-            const { withRetry } = retryHelpers;
+            const { withRetry, paginateWithRetry } = await retryHelpers.createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'agents-capability-check',
+              capabilities: ['issues:read', 'issues:write'],
+            });
 
             const result = JSON.parse(process.env.RESULT_JSON || '{}');
             const recommendation = process.env.RECOMMENDATION || 'UNKNOWN';
