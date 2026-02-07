@@ -662,9 +662,7 @@ def _build_llm_config(
 ) -> dict[str, object]:
     repo = _resolve_repo()
     run_id = _resolve_run_id()
-    issue_or_pr = _resolve_issue_or_pr_number(
-        pr_number=pr_number, issue_number=issue_number
-    )
+    issue_or_pr = _resolve_issue_or_pr_number(pr_number=pr_number, issue_number=issue_number)
     metadata = {
         "repo": repo,
         "run_id": run_id,
