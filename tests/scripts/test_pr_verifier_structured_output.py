@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from unittest import mock
 
 import pytest
@@ -214,6 +215,39 @@ def test_invoke_llm_passes_config_metadata(llm_env_sentinel: dict[str, str]) -> 
     assert response is not None
     assert client.calls
     assert client.calls[0]["config"] == {"metadata": expected_metadata, "tags": expected_tags}
+
+
+def test_invoke_llm_typeerror_fallback_logs_and_retries(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    class DummyClient:
+        def __init__(self) -> None:
+            self.calls: list[dict[str, object]] = []
+            self.fail_first = True
+
+        def invoke(self, *args: object, **kwargs: object) -> object:
+            self.calls.append(dict(kwargs))
+            if self.fail_first:
+                self.fail_first = False
+                raise TypeError("config mismatch")
+            return object()
+
+    client = DummyClient()
+    caplog.set_level(logging.WARNING, logger=pr_verifier.__name__)
+
+    response = pr_verifier._invoke_llm(
+        client,
+        "prompt",
+        operation="evaluate_pr",
+        context="Pull request: [#789](https://github.com/sentinel/repo/pull/789)",
+    )
+
+    assert response is not None
+    assert len(client.calls) == 2
+    assert "config" in client.calls[0]
+    assert "config" not in client.calls[1]
+    assert "config/metadata fallback" in caplog.text
+    assert "config mismatch" in caplog.text
 
 
 def test_evaluate_pr_passes_config_metadata(
