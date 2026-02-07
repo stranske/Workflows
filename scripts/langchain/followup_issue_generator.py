@@ -468,7 +468,9 @@ def extract_verification_data(comment_body: str) -> VerificationData:
             seen.add(c_lower)
             data.concerns.append(c)
 
-    if not data.concerns and _should_add_missing_concerns_note(comment_body, data.provider_verdicts):
+    if not data.concerns and _should_add_missing_concerns_note(
+        comment_body, data.provider_verdicts
+    ):
         data.concerns.append(MISSING_CONCERNS_MESSAGE)
 
     # Extract low scores (handle decimal scores like 6.0/10)
