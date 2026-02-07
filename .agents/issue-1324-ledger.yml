@@ -6,10 +6,10 @@ tasks:
   - id: task-01
     title: Audit the current `.agents/issue-1313-ledger.yml` file and identify all
       placeholder or example entries that reference non-existent paths
-    status: doing
+    status: done
     started_at: '2026-02-07T16:05:19Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-02-07T16:05:27Z'
+    commit: 3c396714641615780e2d2f174f7c857a97e594ac
     notes: []
   - id: task-02
     title: 'Review PR #1304 verification concerns and create a mapping of each concern
