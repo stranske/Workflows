@@ -65,7 +65,8 @@ SECTION_TITLES = {
 LIST_ITEM_REGEX = re.compile(r"^\s*([-*+]|\d+[.)]|[A-Za-z][.)])\s+(.*)$")
 CHECKBOX_REGEX = re.compile(r"^\[([ xX])\]\s*(.*)$")
 MISSING_CONCERNS_MESSAGE = (
-    "Verification output did not include extractable concerns; manual review required."
+    "Verification output did not include extractable concerns; "
+    "re-run verification to capture verifier-context.md and verifier-diff-summary.md."
 )
 
 
@@ -299,6 +300,7 @@ class VerificationData:
     tasks_completed: int = 0
     non_actionable_items: list[str] = field(default_factory=list)
     structural_issues: list[str] = field(default_factory=list)
+    missing_concerns: bool = False
 
 
 @dataclass
@@ -471,6 +473,7 @@ def extract_verification_data(comment_body: str) -> VerificationData:
     if not data.concerns and _should_add_missing_concerns_note(
         comment_body, data.provider_verdicts
     ):
+        data.missing_concerns = True
         data.concerns.append(MISSING_CONCERNS_MESSAGE)
 
     # Extract low scores (handle decimal scores like 6.0/10)
@@ -928,7 +931,13 @@ def _generate_without_llm(
 
     # Convert concerns to tasks
     tasks = []
+    if verification_data.missing_concerns:
+        tasks.append(
+            "Re-run verification to capture verifier-context.md and verifier-diff-summary.md."
+        )
     for concern in verification_data.concerns[:10]:  # Limit
+        if verification_data.missing_concerns and concern == MISSING_CONCERNS_MESSAGE:
+            continue
         # Clean up concern to be task-like
         task = concern
         if not task.lower().startswith(("add", "fix", "implement", "update", "ensure")):

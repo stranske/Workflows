@@ -107,8 +107,10 @@ Verdict: **Unknown** @0%
         data = extract_verification_data(comment)
 
         assert data.concerns == [
-            "Verification output did not include extractable concerns; manual review required."
+            "Verification output did not include extractable concerns; "
+            "re-run verification to capture verifier-context.md and verifier-diff-summary.md."
         ]
+        assert data.missing_concerns is True
 
     def test_extract_low_scores(self):
         """Extract scores below 7/10."""
@@ -335,6 +337,30 @@ class TestGenerateFollowupIssue:
         assert "Response time < 100ms" in followup.body
         assert "Not Ready" in followup.body
         assert "follow-up" in followup.labels
+
+    def test_generate_without_llm_missing_concerns_adds_rerun_task(self):
+        """Missing concerns should yield a concrete re-verification task."""
+        verification_data = VerificationData(
+            provider_verdicts={"openai": {"verdict": "Unknown", "confidence": 0}},
+            concerns=[
+                "Verification output did not include extractable concerns; "
+                "re-run verification to capture verifier-context.md and verifier-diff-summary.md."
+            ],
+            missing_concerns=True,
+        )
+
+        original_issue = OriginalIssueData(number=100, title="Add caching feature")
+
+        followup = generate_followup_issue(
+            verification_data=verification_data,
+            original_issue=original_issue,
+            pr_number=200,
+            use_llm=False,
+        )
+
+        assert "Re-run verification to capture verifier-context.md and verifier-diff-summary.md." in (
+            followup.body
+        )
 
     def test_includes_background_context(self):
         """Follow-up should include collapsible background section."""
