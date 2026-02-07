@@ -28,7 +28,7 @@ def _concern_sections(text: str) -> list[str]:
 
 
 def _resolve_evidence_path(link: str) -> Path | None:
-    if not ("reverification/" in link):
+    if "reverification/" not in link:
         return None
 
     if link.startswith("docs/reverification/"):
