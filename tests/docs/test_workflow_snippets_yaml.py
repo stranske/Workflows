@@ -17,6 +17,6 @@ def test_workflow_snippets_are_valid_yaml() -> None:
 
         assert parsed is not None, f"{snippet_file} parsed to None"
         assert isinstance(parsed, list), f"{snippet_file} should contain a YAML list"
-        assert all(
-            isinstance(item, dict) for item in parsed
-        ), f"{snippet_file} should contain a list of step maps"
+        assert all(isinstance(item, dict) for item in parsed), (
+            f"{snippet_file} should contain a list of step maps"
+        )
