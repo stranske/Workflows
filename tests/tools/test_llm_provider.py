@@ -1535,17 +1535,19 @@ class TestAnthropicProvider:
             provider_used="github-models",
         )
 
-        with patch.object(provider, "_get_client", return_value=mock_client):
-            with patch.object(
+        with (
+            patch.object(provider, "_get_client", return_value=mock_client),
+            patch.object(
                 GitHubModelsProvider,
                 "_parse_response",
                 return_value=parsed,
-            ) as mock_parse:
-                result = provider.analyze_completion(
-                    "output",
-                    ["task1"],
-                    quality_context=quality_context,
-                )
+            ) as mock_parse,
+        ):
+            result = provider.analyze_completion(
+                "output",
+                ["task1"],
+                quality_context=quality_context,
+            )
 
         mock_client.invoke.assert_called_once()
         mock_parse.assert_called_once()
