@@ -177,7 +177,7 @@ def test_build_llm_config_includes_standard_metadata(monkeypatch: pytest.MonkeyP
     assert "run_id:555" in tags
 
 
-def test_invoke_llm_passes_config_metadata(llm_env_sentinel: dict[str, str]) -> None:
+def test_invoke_llm_passes_config_metadata(llm_config_sentinel) -> None:
     class DummyClient:
         def __init__(self) -> None:
             self.calls: list[dict[str, object]] = []
@@ -196,25 +196,11 @@ def test_invoke_llm_passes_config_metadata(llm_env_sentinel: dict[str, str]) -> 
         context=context,
     )
 
-    expected_metadata = {
-        "repo": llm_env_sentinel["GITHUB_REPOSITORY"],
-        "run_id": llm_env_sentinel["GITHUB_RUN_ID"],
-        "issue_or_pr_number": "321",
-        "operation": "evaluate_pr",
-        "pr_number": "321",
-        "issue_number": None,
-    }
-    expected_tags = [
-        "workflows-agents",
-        "operation:evaluate_pr",
-        "repo:sentinel/repo",
-        "issue_or_pr:321",
-        "run_id:run-777",
-    ]
+    expected_config = llm_config_sentinel(operation="evaluate_pr", pr_number=321)
 
     assert response is not None
     assert client.calls
-    assert client.calls[0]["config"] == {"metadata": expected_metadata, "tags": expected_tags}
+    assert client.calls[0]["config"] == expected_config
 
 
 def test_invoke_llm_typeerror_fallback_logs_and_retries(
@@ -250,8 +236,95 @@ def test_invoke_llm_typeerror_fallback_logs_and_retries(
     assert "config mismatch" in caplog.text
 
 
+@pytest.mark.parametrize(
+    ("call_site", "operation"),
+    [
+        ("evaluate_pr", "evaluate_pr"),
+        ("comparison_runner", "evaluate_pr_compare"),
+    ],
+)
+def test_pr_verifier_call_site_config_propagation(
+    call_site: str,
+    operation: str,
+    llm_config_sentinel,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class DummyClient:
+        def __init__(self) -> None:
+            self.calls: list[dict[str, object]] = []
+            self.response = _response_with(json.dumps(_valid_payload()))
+
+        def invoke(self, *args: object, **kwargs: object) -> object:
+            self.calls.append(dict(kwargs))
+            return self.response
+
+    client = DummyClient()
+    context = "Pull request: [#456](https://github.com/sentinel/repo/pull/456)"
+
+    if call_site == "evaluate_pr":
+        monkeypatch.setattr(pr_verifier, "_prepare_prompt", lambda ctx, diff: "prompt")
+        monkeypatch.setattr(
+            pr_verifier, "_get_llm_client", lambda model=None, provider=None: (client, "openai")
+        )
+        pr_verifier.evaluate_pr(context)
+    else:
+        runner = pr_verifier.ComparisonRunner(
+            context=context,
+            diff=None,
+            prompt="prompt",
+            clients=[(client, "openai", "o3-mini")],
+        )
+        runner.run_single(client, "openai", "o3-mini")
+
+    expected_config = llm_config_sentinel(operation=operation, pr_number=456)
+    assert client.calls[0]["config"] == expected_config
+
+
+@pytest.mark.parametrize(
+    ("call_site", "operation"),
+    [
+        ("evaluate_pr", "evaluate_pr"),
+        ("comparison_runner", "evaluate_pr_compare"),
+    ],
+)
+def test_pr_verifier_call_site_metadata_propagation(
+    call_site: str,
+    operation: str,
+    llm_metadata_sentinel,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class DummyClient:
+        def __init__(self) -> None:
+            self.calls: list[dict[str, object]] = []
+            self.response = _response_with(json.dumps(_valid_payload()))
+
+        def invoke(self, *args: object, **kwargs: object) -> object:
+            self.calls.append(dict(kwargs))
+            return self.response
+
+    client = DummyClient()
+    context = "Pull request: [#456](https://github.com/sentinel/repo/pull/456)"
+
+    if call_site == "evaluate_pr":
+        monkeypatch.setattr(pr_verifier, "_prepare_prompt", lambda ctx, diff: "prompt")
+        monkeypatch.setattr(
+            pr_verifier, "_get_llm_client", lambda model=None, provider=None: (client, "openai")
+        )
+        pr_verifier.evaluate_pr(context)
+    else:
+        runner = pr_verifier.ComparisonRunner(
+            context=context,
+            diff=None,
+            prompt="prompt",
+            clients=[(client, "openai", "o3-mini")],
+        )
+        runner.run_single(client, "openai", "o3-mini")
+
+    expected_metadata = llm_metadata_sentinel(operation=operation, pr_number=456)
+    assert client.calls[0]["config"]["metadata"] == expected_metadata
+
 def test_evaluate_pr_passes_config_metadata(
-    llm_env_sentinel: dict[str, str], monkeypatch: pytest.MonkeyPatch
+    llm_config_sentinel, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     class DummyClient:
         def __init__(self) -> None:
@@ -272,27 +345,13 @@ def test_evaluate_pr_passes_config_metadata(
 
     result = pr_verifier.evaluate_pr(context)
 
-    expected_metadata = {
-        "repo": llm_env_sentinel["GITHUB_REPOSITORY"],
-        "run_id": llm_env_sentinel["GITHUB_RUN_ID"],
-        "issue_or_pr_number": "456",
-        "operation": "evaluate_pr",
-        "pr_number": "456",
-        "issue_number": None,
-    }
-    expected_tags = [
-        "workflows-agents",
-        "operation:evaluate_pr",
-        "repo:sentinel/repo",
-        "issue_or_pr:456",
-        "run_id:run-777",
-    ]
+    expected_config = llm_config_sentinel(operation="evaluate_pr", pr_number=456)
 
     assert result.verdict == "PASS"
-    assert client.calls[0]["config"] == {"metadata": expected_metadata, "tags": expected_tags}
+    assert client.calls[0]["config"] == expected_config
 
 
-def test_comparison_runner_passes_config_metadata(llm_env_sentinel: dict[str, str]) -> None:
+def test_comparison_runner_passes_config_metadata(llm_config_sentinel) -> None:
     class DummyClient:
         def __init__(self) -> None:
             self.calls: list[dict[str, object]] = []
@@ -313,21 +372,7 @@ def test_comparison_runner_passes_config_metadata(llm_env_sentinel: dict[str, st
 
     result = runner.run_single(client, "openai", "o3-mini")
 
-    expected_metadata = {
-        "repo": llm_env_sentinel["GITHUB_REPOSITORY"],
-        "run_id": llm_env_sentinel["GITHUB_RUN_ID"],
-        "issue_or_pr_number": "456",
-        "operation": "evaluate_pr_compare",
-        "pr_number": "456",
-        "issue_number": None,
-    }
-    expected_tags = [
-        "workflows-agents",
-        "operation:evaluate_pr_compare",
-        "repo:sentinel/repo",
-        "issue_or_pr:456",
-        "run_id:run-777",
-    ]
+    expected_config = llm_config_sentinel(operation="evaluate_pr_compare", pr_number=456)
 
     assert result.verdict == "PASS"
-    assert client.calls[0]["config"] == {"metadata": expected_metadata, "tags": expected_tags}
+    assert client.calls[0]["config"] == expected_config
