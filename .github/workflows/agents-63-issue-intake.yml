@@ -480,6 +480,30 @@ jobs:
                     githubInstance.paginate(method, params),
                 };
             const { withRetry, paginateWithRetry } = retryHelpers;
+
+            // Use load balancer to get optimal token with capacity
+            const { getOptimalToken } = require('./.github/scripts/token_load_balancer.js');
+            const tokenInfo = await getOptimalToken({
+              github: null,
+              core,
+              task: 'sync-issues',
+              capabilities: ['write-repo'],
+              minRemaining: 100,
+            });
+
+            if (!tokenInfo) {
+              core.setFailed('All API tokens exhausted. Rate limits exceeded across all available authentication methods.');
+              return;
+            }
+
+            core.info(`Using token from ${tokenInfo.source} with ${tokenInfo.remaining || 'unknown'} requests remaining`);
+
+            // Create authenticated Octokit instance with optimal token
+            const { Octokit } = require('@octokit/rest');
+            const loadBalancedClient = new Octokit({ auth: tokenInfo.token });
+
+            // Override github client to use load-balanced token for all API calls
+            const github = loadBalancedClient;
             const defaultOutputs = {
               created_issues: 0,
               updated_issues: 0,
@@ -1277,6 +1301,30 @@ jobs:
                     githubInstance.paginate(method, params),
                 };
             const { withRetry } = retryHelpers;
+
+            // Use load balancer to get optimal token with capacity
+            const { getOptimalToken } = require('./.github/scripts/token_load_balancer.js');
+            const tokenInfo = await getOptimalToken({
+              github: null,
+              core,
+              task: 'inspect-labels',
+              capabilities: ['read-repo'],
+              minRemaining: 50,
+            });
+
+            if (!tokenInfo) {
+              core.setFailed('All API tokens exhausted. Rate limits exceeded across all available authentication methods.');
+              return;
+            }
+
+            core.info(`Using token from ${tokenInfo.source} with ${tokenInfo.remaining || 'unknown'} requests remaining`);
+
+            // Create authenticated Octokit instance with optimal token
+            const { Octokit } = require('@octokit/rest');
+            const loadBalancedClient = new Octokit({ auth: tokenInfo.token });
+
+            // Override github client to use load-balanced token for all API calls
+            const github = loadBalancedClient;
 
             // Use event payload labels if available (avoids API call, prevents rate limiting)
             let labels;
