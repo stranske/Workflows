@@ -420,6 +420,8 @@ def test_validate_task_handles_commit_errors(tmp_path: Path, monkeypatch) -> Non
     ledger_validate.REPO_ROOT = tmp_path
     ledger_path = tmp_path / "ledger.yml"
 
+    monkeypatch.setenv("LEDGER_VALIDATE_STRICT", "1")
+
     def raise_commit_files(_commit):
         raise ledger_validate.LedgerError("missing")
 
@@ -467,6 +469,8 @@ def test_validate_task_commit_subject_failure(tmp_path: Path, monkeypatch) -> No
     ledger_dir = tmp_path / ".agents"
     ledger_dir.mkdir()
     ledger_path = ledger_dir / "issue-1-ledger.yml"
+
+    monkeypatch.setenv("LEDGER_VALIDATE_STRICT", "1")
 
     monkeypatch.setattr(
         ledger_validate, "_commit_files", lambda commit: [".agents/issue-1-ledger.yml"]
