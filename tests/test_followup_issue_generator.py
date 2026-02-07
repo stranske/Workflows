@@ -3,6 +3,7 @@
 
 import pytest
 
+from scripts.langchain import followup_issue_generator
 from scripts.langchain.followup_issue_generator import (
     OriginalIssueData,
     VerificationData,
@@ -447,6 +448,33 @@ Create parsers and validators for JSON and CSV formats.
         assert "<details>" in followup.body
         # Verify structural issues are captured in background
         assert "52" in followup.body or "structural" in followup.body.lower()
+
+
+def test_build_llm_config_includes_standard_metadata(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("GITHUB_REPOSITORY", "octo/repo")
+    monkeypatch.setenv("GITHUB_RUN_ID", "999")
+    monkeypatch.setenv("RUN_ID", "999")
+
+    config = followup_issue_generator._build_llm_config(
+        operation="generate_tasks",
+        pr_number=42,
+        issue_number=7,
+    )
+
+    metadata = config["metadata"]
+    assert metadata["repo"] == "octo/repo"
+    assert metadata["run_id"] == "999"
+    assert metadata["issue_or_pr_number"] == "42"
+    assert metadata["operation"] == "generate_tasks"
+    assert metadata["pr_number"] == "42"
+    assert metadata["issue_number"] == "7"
+
+    tags = config["tags"]
+    assert "workflows-agents" in tags
+    assert "operation:generate_tasks" in tags
+    assert "repo:octo/repo" in tags
+    assert "issue_or_pr:42" in tags
+    assert "run_id:999" in tags
 
 
 if __name__ == "__main__":

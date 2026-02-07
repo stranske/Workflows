@@ -151,3 +151,26 @@ def test_evaluate_pr_repairs_once_then_returns_error(monkeypatch: pytest.MonkeyP
     assert result.error
     assert "Failed to parse JSON response after repair" in result.error
     assert mock_client.invoke.call_count == 2
+
+
+def test_build_llm_config_includes_standard_metadata(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("GITHUB_REPOSITORY", "octo/repo")
+    monkeypatch.setenv("GITHUB_RUN_ID", "555")
+    context = "Pull request: [#123](https://github.com/octo/repo/pull/123)"
+
+    config = pr_verifier._build_llm_config(operation="evaluate_pr", context=context)
+
+    metadata = config["metadata"]
+    assert metadata["repo"] == "octo/repo"
+    assert metadata["run_id"] == "555"
+    assert metadata["issue_or_pr_number"] == "123"
+    assert metadata["operation"] == "evaluate_pr"
+    assert metadata["pr_number"] == "123"
+    assert metadata["issue_number"] is None
+
+    tags = config["tags"]
+    assert "workflows-agents" in tags
+    assert "operation:evaluate_pr" in tags
+    assert "repo:octo/repo" in tags
+    assert "issue_or_pr:123" in tags
+    assert "run_id:555" in tags
