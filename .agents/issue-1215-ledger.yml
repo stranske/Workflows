@@ -6,10 +6,10 @@ tasks:
   - id: task-01
     title: Update `tools/llm_provider.py` to set `LANGCHAIN_API_KEY` when `LANGSMITH_API_KEY`
       is present and ensure `LANGCHAIN_TRACING_V2` is enabled.
-    status: doing
+    status: done
     started_at: '2026-02-07T11:31:52Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-02-07T11:32:02Z'
+    commit: c5865aee8654ab1669521eba707a477829dfd771
     notes: []
   - id: task-02
     title: Update `scripts/langchain/pr_verifier.py` to standardize metadata tagging
