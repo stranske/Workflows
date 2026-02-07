@@ -1561,6 +1561,8 @@ class TestAnthropicProvider:
         mock_client = MagicMock()
         mock_client.invoke.side_effect = TimeoutError("timeout")
 
-        with patch.object(provider, "_get_client", return_value=mock_client):
-            with pytest.raises(TimeoutError):
-                provider.analyze_completion("output", ["task1"])
+        with (
+            patch.object(provider, "_get_client", return_value=mock_client),
+            pytest.raises(TimeoutError),
+        ):
+            provider.analyze_completion("output", ["task1"])
