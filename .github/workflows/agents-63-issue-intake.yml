@@ -1321,8 +1321,8 @@ jobs:
             const { Octokit } = require('@octokit/rest');
             const loadBalancedClient = new Octokit({ auth: tokenInfo.token });
 
-            // Override github client to use load-balanced token for all API calls
-            const github = loadBalancedClient;
+            // Use load-balanced client for API calls without shadowing github-script's client
+            const gh = loadBalancedClient;
 
             // Use event payload labels if available (avoids API call, prevents rate limiting)
             let labels;
@@ -1340,7 +1340,9 @@ jobs:
             } else {
               // Fallback to API call for manual dispatch or mismatched issue numbers
               core.info('Fetching labels via API (event payload not available or issue mismatch).');
-              const { data: issue } = await withRetry(() => gh.rest.issues.get({ owner, repo, issue_number: num }));
+              const { data: issue } = await withRetry(() =>
+                gh.rest.issues.get({ owner, repo, issue_number: num })
+              );
               labels = (issue.labels || [])
                 .map(label => typeof label === 'string' ? label : (label.name || ''))
                 .filter(Boolean)
