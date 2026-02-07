@@ -8,7 +8,7 @@ tasks:
     status: done
     started_at: '2026-01-17T09:28:02Z'
     finished_at: '2026-01-17T09:28:10Z'
-    commit: ca232a4adb7d7c95b288b7b83ce88f9ef2d2ecc4
+    commit: 8dffa29aa0f3c3bf0ddf4c92d983502cebb63003
     notes: []
   - id: task-02
     title: Add statistical aggregation (mean, p50, p90, p99)

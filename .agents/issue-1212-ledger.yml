@@ -9,7 +9,7 @@ tasks:
     status: done
     started_at: '2026-02-06T15:07:51Z'
     finished_at: '2026-02-06T15:08:02Z'
-    commit: 7cf6f5504aa483274cdf65c77c4d56f6484ec3a6
+    commit: 083b54f7bae4854a311bfa05ee3f3387c9b92812
     notes: []
   - id: task-02
     title: Replace regex-first parsing with Pydantic validation as the primary path

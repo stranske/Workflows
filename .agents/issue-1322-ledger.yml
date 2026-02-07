@@ -9,7 +9,7 @@ tasks:
     status: done
     started_at: '2026-02-07T15:36:31Z'
     finished_at: '2026-02-07T15:36:39Z'
-    commit: ab450374ec4c78784d2dfecadd1b4c2db7f0e351
+    commit: d68bf3bcb711a12badea237f2dd97898199f312b
     notes: []
   - id: task-02
     title: Add explicit `DECISIONS.md` references to each high-severity concern in
