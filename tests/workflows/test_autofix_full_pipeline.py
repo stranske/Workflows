@@ -59,8 +59,7 @@ def test_autofix_pipeline_resolves_lint_and_typing(
                 if value is None:
                     return 0
                 return value
-            ''').lstrip()
-        + "\n",
+            ''').lstrip() + "\n",
         encoding="utf-8",
     )
 
