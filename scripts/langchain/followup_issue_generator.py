@@ -632,6 +632,57 @@ def _get_llm_client(reasoning: bool = False) -> tuple[Any, str] | None:
     return resolved.client, resolved.model
 
 
+def _resolve_run_id() -> str:
+    return os.environ.get("GITHUB_RUN_ID") or os.environ.get("RUN_ID") or "unknown"
+
+
+def _resolve_repo() -> str:
+    return os.environ.get("GITHUB_REPOSITORY") or "unknown"
+
+
+def _resolve_issue_or_pr_number(*, pr_number: int | None, issue_number: int | None) -> str:
+    if pr_number is not None:
+        return str(pr_number)
+    env_pr = os.environ.get("PR_NUMBER")
+    if env_pr and env_pr.isdigit():
+        return env_pr
+    if issue_number is not None:
+        return str(issue_number)
+    env_issue = os.environ.get("ISSUE_NUMBER")
+    if env_issue and env_issue.isdigit():
+        return env_issue
+    return "unknown"
+
+
+def _build_llm_config(
+    *,
+    operation: str,
+    pr_number: int | None,
+    issue_number: int | None,
+) -> dict[str, object]:
+    repo = _resolve_repo()
+    run_id = _resolve_run_id()
+    issue_or_pr = _resolve_issue_or_pr_number(
+        pr_number=pr_number, issue_number=issue_number
+    )
+    metadata = {
+        "repo": repo,
+        "run_id": run_id,
+        "issue_or_pr_number": issue_or_pr,
+        "operation": operation,
+        "pr_number": str(pr_number) if pr_number is not None else None,
+        "issue_number": str(issue_number) if issue_number is not None else None,
+    }
+    tags = [
+        "workflows-agents",
+        f"operation:{operation}",
+        f"repo:{repo}",
+        f"issue_or_pr:{issue_or_pr}",
+        f"run_id:{run_id}",
+    ]
+    return {"metadata": metadata, "tags": tags}
+
+
 def _prepare_iteration_details(codex_log: str) -> str:
     """Filter iteration details to only include useful failure information.
 
@@ -689,11 +740,26 @@ def _prepare_iteration_details(codex_log: str) -> str:
     return result.strip()
 
 
-def _invoke_llm(prompt: str, client: Any) -> str:
+def _invoke_llm(
+    prompt: str,
+    client: Any,
+    *,
+    operation: str,
+    pr_number: int | None,
+    issue_number: int | None,
+) -> str:
     """Invoke LLM and return response text."""
     from langchain_core.messages import HumanMessage
 
-    response = client.invoke([HumanMessage(content=prompt)])
+    config = _build_llm_config(
+        operation=operation,
+        pr_number=pr_number,
+        issue_number=issue_number,
+    )
+    try:
+        response = client.invoke([HumanMessage(content=prompt)], config=config)
+    except TypeError:
+        response = client.invoke([HumanMessage(content=prompt)])
     return response.content
 
 
@@ -831,7 +897,13 @@ def _generate_with_llm(
         iteration_details=iteration_details,
     )
 
-    analysis_response = _invoke_llm(analyze_prompt, reasoning_client)
+    analysis_response = _invoke_llm(
+        analyze_prompt,
+        reasoning_client,
+        operation="analyze_verification",
+        pr_number=pr_number,
+        issue_number=original_issue.number,
+    )
     analysis = _extract_json(analysis_response)
 
     # Round 2: Generate tasks (use standard model - straightforward task)
@@ -842,7 +914,13 @@ def _generate_with_llm(
         ),  # Limit for token budget
     )
 
-    tasks_response = _invoke_llm(tasks_prompt, standard_client)
+    tasks_response = _invoke_llm(
+        tasks_prompt,
+        standard_client,
+        operation="generate_tasks",
+        pr_number=pr_number,
+        issue_number=original_issue.number,
+    )
     tasks_data = _extract_json(tasks_response)
 
     # Round 3: Generate acceptance criteria (use standard model)
@@ -851,7 +929,13 @@ def _generate_with_llm(
         unmet_criteria=json.dumps(analysis.get("rewritten_acceptance_criteria", []), indent=2),
     )
 
-    ac_response = _invoke_llm(ac_prompt, standard_client)
+    ac_response = _invoke_llm(
+        ac_prompt,
+        standard_client,
+        operation="generate_acceptance_criteria",
+        pr_number=pr_number,
+        issue_number=original_issue.number,
+    )
     ac_data = _extract_json(ac_response)
 
     # Round 4: Format final issue (use standard model)
@@ -874,7 +958,13 @@ def _generate_with_llm(
         ),
     )
 
-    issue_body = _invoke_llm(format_prompt, standard_client)
+    issue_body = _invoke_llm(
+        format_prompt,
+        standard_client,
+        operation="format_followup_issue",
+        pr_number=pr_number,
+        issue_number=original_issue.number,
+    )
     issue_body = _strip_markdown_fence(issue_body)
 
     # Generate title from concrete tasks

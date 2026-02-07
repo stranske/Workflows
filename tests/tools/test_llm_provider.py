@@ -15,6 +15,7 @@ from tools.llm_provider import (
     OpenAIProvider,
     RegexFallbackProvider,
     SessionQualityContext,
+    _setup_langsmith_tracing,
     check_providers,
     get_llm_provider,
     get_quality_context_capable_providers,
@@ -79,6 +80,28 @@ class TestProviderAvailability:
         assert result["github-models"] is True
         assert result["openai"] is True
         assert result["regex-fallback"] is False
+
+
+class TestLangsmithTracing:
+    """Tests for LangSmith tracing environment wiring."""
+
+    def test_langsmith_env_wires_langchain_tracing_and_key(self):
+        with patch.dict(
+            os.environ,
+            {"LANGSMITH_API_KEY": "ls-key", "LANGCHAIN_TRACING_V2": "false"},
+            clear=True,
+        ):
+            enabled = _setup_langsmith_tracing()
+            assert enabled is True
+            assert os.environ["LANGCHAIN_TRACING_V2"] == "true"
+            assert os.environ["LANGCHAIN_API_KEY"] == "ls-key"
+
+    def test_langsmith_env_absent_disables_tracing(self):
+        with patch.dict(os.environ, {}, clear=True):
+            enabled = _setup_langsmith_tracing()
+            assert enabled is False
+            assert "LANGCHAIN_TRACING_V2" not in os.environ
+            assert "LANGCHAIN_API_KEY" not in os.environ
 
 
 class TestLLMProviderInterface:
