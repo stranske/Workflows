@@ -408,7 +408,10 @@ def extract_verification_data(comment_body: str) -> VerificationData:
 
     # Try heading format first
     concerns_heading_match = re.search(
-        r"### Concerns\s*\n([\s\S]*?)(?=###|##|$)", comment_body, re.IGNORECASE
+        r"^#{2,6}\s+(?:Specific\s+)?Concerns(?:\s+from\s+Verification)?\s*\n"
+        r"([\s\S]*?)(?=^#{2,6}\s+|\Z)",
+        comment_body,
+        re.IGNORECASE | re.MULTILINE,
     )
     if concerns_heading_match:
         concerns_text = concerns_heading_match.group(1).strip()
@@ -429,6 +432,18 @@ def extract_verification_data(comment_body: str) -> VerificationData:
             if line.startswith("-"):
                 concern = line.lstrip("- ").strip()
                 if concern and len(concern) > 10:  # Skip tiny fragments
+                    all_concerns.append(concern)
+
+    # Try plain label format: "Concerns:" followed by bullets
+    concerns_label_matches = re.findall(
+        r"^Concerns:\s*\n((?:\s*-\s+[^\n]+\n?)+)", comment_body, re.IGNORECASE | re.MULTILINE
+    )
+    for match in concerns_label_matches:
+        for line in match.split("\n"):
+            line = line.strip()
+            if line.startswith("-"):
+                concern = line.lstrip("- ").strip()
+                if concern and len(concern) > 10:
                     all_concerns.append(concern)
 
     # Also extract from "Unique Insights" section which often has good concerns

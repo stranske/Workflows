@@ -97,6 +97,33 @@ Verdict: **Not Ready** @75%
         assert "Missing test coverage for edge cases" in data.concerns
         assert "Error handling not comprehensive" in data.concerns
 
+    def test_extract_concerns_heading_variants(self):
+        """Extract concerns from alternate heading levels."""
+        comment = """
+## Concerns from Verification
+
+- Missing unit tests for edge cases
+- Error handling needs improvement
+"""
+        data = extract_verification_data(comment)
+
+        assert len(data.concerns) == 2
+        assert "Missing unit tests for edge cases" in data.concerns
+        assert "Error handling needs improvement" in data.concerns
+
+    def test_extract_concerns_label_format(self):
+        """Extract concerns from plain label + bullets."""
+        comment = """
+Concerns:
+- Coverage gap in workflow_health_check.py
+- Missing tests for error classification
+"""
+        data = extract_verification_data(comment)
+
+        assert len(data.concerns) == 2
+        assert "Coverage gap in workflow_health_check.py" in data.concerns
+        assert "Missing tests for error classification" in data.concerns
+
     def test_extract_low_scores(self):
         """Extract scores below 7/10."""
         comment = """

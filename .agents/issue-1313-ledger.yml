@@ -48,23 +48,23 @@ tasks:
     notes: []
   - id: task-07
     title: Determine if verification failures require architectural discussion
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-07T11:51:33Z'
+    finished_at: '2026-02-07T11:51:33Z'
     commit: ''
     notes: []
   - id: task-08
     title: Decide whether to document concerns as "won't fix" in DECISIONS.md
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-07T11:51:33Z'
+    finished_at: '2026-02-07T11:51:33Z'
     commit: ''
     notes: []
   - id: task-09
     title: Approve any breaking changes identified during investigation
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-02-07T11:51:33Z'
+    finished_at: '2026-02-07T11:51:33Z'
     commit: ''
     notes: []
   - id: task-10
