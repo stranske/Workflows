@@ -39,6 +39,7 @@ class TriageFinding:
 class TriageReport:
     findings: list[TriageFinding]
     summary: str
+    failed_tests: list[str] = field(default_factory=list)
 
 
 _DEFAULT_FILE_REGEX = re.compile(r"(?P<path>[A-Za-z0-9_./-]+\.(?:py|js|ts|tsx|json|ya?ml))")
@@ -137,6 +138,7 @@ def triage_ci_failure(
 ) -> TriageReport:
     lines = [line.rstrip() for line in log_text.splitlines() if line.strip()]
     findings: list[TriageFinding] = []
+    failed_tests = extract_pytest_failures(log_text)
 
     for pattern in patterns:
         evidence = _collect_evidence(lines, pattern.regexes)
@@ -155,8 +157,8 @@ def triage_ci_failure(
             )
         )
 
-    summary = _build_summary(findings)
-    report = TriageReport(findings=findings, summary=summary)
+    summary = _build_summary(findings, failed_tests)
+    report = TriageReport(findings=findings, summary=summary, failed_tests=failed_tests)
     return _maybe_enhance_with_llm(report, log_text, use_llm)
 
 
@@ -203,11 +205,30 @@ def _format_suggested_fix(template: str, relevant_files: list[str]) -> str:
     return template.format(files=files)
 
 
-def _build_summary(findings: list[TriageFinding]) -> str:
+def _build_summary(findings: list[TriageFinding], failed_tests: list[str] | None = None) -> str:
     if not findings:
+        if failed_tests:
+            return "Detected failing tests without a known failure pattern."
         return "No known failure patterns detected."
     types = ", ".join(finding.error_type for finding in findings)
+    if failed_tests:
+        return f"Detected failure types: {types}. Pytest failures: {len(failed_tests)}."
     return f"Detected failure types: {types}."
+
+
+def extract_pytest_failures(log_text: str) -> list[str]:
+    failures: list[str] = []
+    for line in log_text.splitlines():
+        line = line.strip()
+        if not line.startswith("FAILED "):
+            continue
+        payload = line[len("FAILED ") :].strip()
+        if not payload:
+            continue
+        test_id = payload.split(" - ", 1)[0].strip()
+        if test_id and test_id not in failures:
+            failures.append(test_id)
+    return failures
 
 
 def _maybe_enhance_with_llm(
@@ -230,8 +251,8 @@ def _maybe_enhance_with_llm(
         merged.append(finding)
         existing_types.add(finding.error_type)
 
-    summary = _build_summary(merged)
-    return TriageReport(findings=merged, summary=summary)
+    summary = _build_summary(merged, report.failed_tests)
+    return TriageReport(findings=merged, summary=summary, failed_tests=report.failed_tests)
 
 
 def _bool_env(value: str | None) -> bool:
@@ -367,6 +388,7 @@ def _extract_json_payload(text: str) -> str | None:
 def _report_to_dict(report: TriageReport) -> dict[str, object]:
     return {
         "summary": report.summary,
+        "failed_tests": report.failed_tests,
         "findings": [
             {
                 "error_type": finding.error_type,
@@ -383,9 +405,15 @@ def _report_to_dict(report: TriageReport) -> dict[str, object]:
 
 def _format_text_report(report: TriageReport) -> str:
     if not report.findings:
+        if report.failed_tests:
+            failures = "\n".join(f"- {test_id}" for test_id in report.failed_tests)
+            return f"{report.summary}\nFailing tests:\n{failures}"
         return report.summary
 
     lines = [report.summary]
+    if report.failed_tests:
+        lines.append("Failing tests:")
+        lines.extend(f"- {test_id}" for test_id in report.failed_tests)
     for finding in report.findings:
         lines.append(f"- error_type: {finding.error_type}")
         lines.append(f"  root_cause: {finding.root_cause}")
