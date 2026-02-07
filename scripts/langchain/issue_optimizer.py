@@ -48,9 +48,17 @@ Identify:
 AGENT_LIMITATIONS:
 {agent_limitations}
 
+CRITICAL rules for split_suggestions:
+- Each item MUST be a complete, independently understandable sentence
+- Each item MUST start with an action verb (Create, Add, Update, Fix, Implement, Define, Test)
+- Do NOT split a sentence at commas into fragments
+- Do NOT return single words or noun phrases as sub-tasks
+- BAD: ["methods", "input/output types", "metadata contract"]
+- GOOD: ["Define the EmbeddingProvider interface methods", "Define input/output types", "Define metadata contract"]
+
 Output JSON with this shape:
 {{
-  "task_splitting": [{{"task": "...", "reason": "...", "split_suggestions": ["..."]}}],
+  "task_splitting": [{{"task": "...", "reason": "...", "split_suggestions": ["Complete actionable sub-task description"]}}],
   "blocked_tasks": [{{"task": "...", "reason": "...", "suggested_action": "..."}}],
   "objective_criteria": [{{"criterion": "...", "issue": "...", "suggestion": "..."}}],
   "missing_sections": ["Scope", "Implementation Notes"],
@@ -465,8 +473,13 @@ def _coerce_split_suggestions(entry: dict[str, Any]) -> list[str]:
     items: list[str] = []
     for suggestion in suggestions:
         value = str(suggestion).strip()
-        if value:
-            items.append(value)
+        if not value:
+            continue
+        # Reject single-word fragments that aren't actionable tasks
+        word_count = len(re.findall(r"[A-Za-z0-9']+", value))
+        if word_count < 2:
+            continue
+        items.append(value)
     return items
 
 

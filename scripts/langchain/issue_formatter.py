@@ -187,7 +187,32 @@ def _parse_sections(body: str) -> tuple[dict[str, list[str]], list[str]]:
     sections: dict[str, list[str]] = {key: [] for key in SECTION_TITLES}
     preamble: list[str] = []
     current: str | None = None
+    in_code_block = False
+    in_details_block = False
     for line in body.splitlines():
+        stripped = line.strip()
+        # Track code fences so we don't parse headings inside ```...```
+        if stripped.startswith("```"):
+            in_code_block = not in_code_block
+        if in_code_block:
+            if current:
+                sections[current].append(line)
+            else:
+                preamble.append(line)
+            continue
+        # Stop parsing at <details> blocks (Original Issue metadata)
+        if stripped.lower().startswith("<details"):
+            in_details_block = True
+        if in_details_block:
+            if stripped.lower().startswith("</details"):
+                in_details_block = False
+            # Preserve <details> content under the current section so it
+            # survives the round-trip, but don't parse headings from it.
+            if current:
+                sections[current].append(line)
+            else:
+                preamble.append(line)
+            continue
         heading_match = re.match(r"^\s*#{1,6}\s+(.*)$", line)
         if heading_match:
             section_key = _resolve_section(heading_match.group(1))

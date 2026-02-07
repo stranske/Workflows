@@ -262,12 +262,18 @@ def _rewrite_dependency_task(task: str) -> str:
 
 def _normalize_subtasks(sub_tasks: list[str]) -> list[str]:
     normalized: list[str] = []
+    seen: set[str] = set()
     for task in sub_tasks:
         cleaned_task = _strip_dependency_clause(task.strip())
         for part in _split_task_parts(cleaned_task):
             cleaned = _strip_dependency_clause(part.strip())
             if not cleaned:
                 continue
+            # Deduplicate by normalized text
+            norm_key = re.sub(r"\s+", " ", cleaned.lower().strip())
+            if norm_key in seen:
+                continue
+            seen.add(norm_key)
             if _contains_dependency_phrase(cleaned):
                 cleaned = _rewrite_dependency_task(cleaned)
             if _is_large_task(cleaned) and not cleaned.lower().startswith("document dependency"):
