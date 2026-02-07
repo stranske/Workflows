@@ -487,7 +487,8 @@ jobs:
 
           # For keepalive mode, prefer artifact file to avoid secret scanner blocking
           # Stream file contents directly to avoid loading large content into memory
-          if [ "$MODE" = "keepalive" ] && [ -f "/tmp/keepalive-artifacts/task-appendix.txt" ]; then
+          # Use -s test to skip empty files (preserves previous behavior of no empty section)
+          if [ "$MODE" = "keepalive" ] && [ -s "/tmp/keepalive-artifacts/task-appendix.txt" ]; then
             echo "Streaming task appendix from artifact file"
             {
               echo

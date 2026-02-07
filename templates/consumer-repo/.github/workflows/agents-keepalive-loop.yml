@@ -314,8 +314,8 @@ jobs:
             
             // Task appendix: Write directly to file to avoid GitHub's secret scanner
             // blocking job outputs (which happens with long/repetitive content).
-            // Writing here (before setOutput) ensures the content reaches the artifact
-            // even if the output gets censored.
+            // Writing here (before setting the task_appendix output) ensures the content
+            // reaches the artifact even if that output gets censored.
             const fs = require('fs');
             const path = require('path');
             const artifactsDir = '/tmp/keepalive-artifacts';
