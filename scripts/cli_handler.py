@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 from scripts import api_client
+from scripts import auth_validator
 from scripts.duplicate_detection import (
     build_duplicate_payload,
     build_issue_payload,
@@ -272,23 +273,19 @@ def main(argv: list[str]) -> int:
 
     allowed_scopes = _load_allowed_scopes(args.allowed_scopes, args.allowed_scopes_env, config)
     if allowed_scopes:
-        scopes = api_client.fetch_oauth_scopes(
+        validation = auth_validator.validate_token_scopes(
             token,
+            allowed_scopes,
             retry_attempts=args.retry_attempts,
             retry_backoff=args.retry_backoff,
         )
-        if scopes is None:
-            print("Unable to determine token scopes; skipping scope check.", file=sys.stderr)
-        else:
-            extra_scopes = scopes - allowed_scopes
-            if extra_scopes:
-                extras = ", ".join(sorted(extra_scopes))
-                allowed = ", ".join(sorted(allowed_scopes))
-                print(
-                    f"Token scopes exceed allowed scopes. Extras: {extras}. Allowed: {allowed}.",
-                    file=sys.stderr,
-                )
-                return 1
+        if validation.skipped:
+            if validation.message:
+                print(validation.message, file=sys.stderr)
+        elif not validation.valid:
+            if validation.message:
+                print(validation.message, file=sys.stderr)
+            return 1
 
     labels = _parse_labels(args.labels)
     find_labels = _parse_labels(args.find_labels)
