@@ -32,6 +32,7 @@ def test_fetch_commit_uses_second_remote_after_origin_failure(monkeypatch) -> No
 
 def test_fetch_commit_all_remotes_fail(monkeypatch) -> None:
     commit = "abc1234"
+    base_url = "https://github.example.com/owner/repo.git"
     monkeypatch.setenv("GITHUB_REPOSITORY", "owner/repo")
     monkeypatch.setenv("GITHUB_SERVER_URL", "https://github.example.com")
     monkeypatch.delenv("GITHUB_TOKEN", raising=False)
@@ -45,7 +46,8 @@ def test_fetch_commit_all_remotes_fail(monkeypatch) -> None:
     monkeypatch.setattr(ledger_validate.subprocess, "check_call", fake_check_call)
 
     assert ledger_validate._fetch_commit(commit) is False
-    assert len(calls) == 6
+    assert len(calls) == 10
+    assert any(base_url in cmd for cmd in calls)
 
 
 def test_fetch_commit_retry_then_succeeds(monkeypatch) -> None:
