@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Tests for followup_issue_generator.py"""
 
+import logging
 import pytest
 
 from scripts.langchain import followup_issue_generator
@@ -542,6 +543,42 @@ def test_build_llm_config_includes_standard_metadata(monkeypatch: pytest.MonkeyP
     assert "repo:octo/repo" in tags
     assert "issue_or_pr:42" in tags
     assert "run_id:999" in tags
+
+
+def test_invoke_llm_typeerror_fallback_logs_and_retries(caplog: pytest.LogCaptureFixture) -> None:
+    class DummyResponse:
+        def __init__(self, content: str) -> None:
+            self.content = content
+
+    class DummyClient:
+        def __init__(self) -> None:
+            self.calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
+            self.fail_first = True
+
+        def invoke(self, *args: object, **kwargs: object) -> DummyResponse:
+            self.calls.append((args, dict(kwargs)))
+            if self.fail_first:
+                self.fail_first = False
+                raise TypeError("bad config")
+            return DummyResponse("ok")
+
+    client = DummyClient()
+    caplog.set_level(logging.WARNING, logger=followup_issue_generator.__name__)
+
+    result = followup_issue_generator._invoke_llm(
+        "prompt",
+        client,
+        operation="generate_tasks",
+        pr_number=101,
+        issue_number=202,
+    )
+
+    assert result == "ok"
+    assert len(client.calls) == 2
+    assert "config" in client.calls[0][1]
+    assert "config" not in client.calls[1][1]
+    assert "config/metadata fallback" in caplog.text
+    assert "bad config" in caplog.text
 
 
 if __name__ == "__main__":
