@@ -234,6 +234,11 @@ def test_invoke_llm_typeerror_fallback_logs_and_retries(
     assert "config" not in client.calls[1]
     assert "config/metadata fallback" in caplog.text
     assert "config mismatch" in caplog.text
+    assert any(record.levelno == logging.WARNING for record in caplog.records)
+    assert any(
+        "LLM invoke failed with config/metadata; using config/metadata fallback." in record.message
+        for record in caplog.records
+    )
 
 
 @pytest.mark.parametrize(
