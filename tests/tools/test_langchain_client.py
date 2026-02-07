@@ -368,6 +368,7 @@ def test_build_chat_clients_handles_partial_failures(
         ("o1-preview", True),
         ("o1-preview-2024-09-12", True),
         ("o3", True),
+        ("o4", True),
         ("o3-2025-04-16", True),
         ("o3-mini", True),
         ("o3-pro", True),
