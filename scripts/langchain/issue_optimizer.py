@@ -900,7 +900,7 @@ def apply_suggestions(
                         formatted = _deduplicate_task_lines(formatted)
                         if _section_duplication_ratio(formatted) > 0:
                             print(
-                                "LLM output has duplicated sections, " "falling back",
+                                "LLM output has duplicated sections, falling back",
                                 file=sys.stderr,
                             )
                         else:
@@ -936,13 +936,12 @@ def apply_suggestions(
                                     formatted = _deduplicate_task_lines(formatted)
                                     if _section_duplication_ratio(formatted) > 0:
                                         print(
-                                            "OpenAI output has duplicated "
-                                            "sections, falling back",
+                                            "OpenAI output has duplicated sections, falling back",
                                             file=sys.stderr,
                                         )
                                     else:
                                         print(
-                                            "Successfully applied suggestions " "with OpenAI API",
+                                            "Successfully applied suggestions with OpenAI API",
                                             file=sys.stderr,
                                         )
                                         return {

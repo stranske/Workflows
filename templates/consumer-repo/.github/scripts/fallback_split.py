@@ -34,7 +34,7 @@ def main() -> int:
         block_start = m.end(0)
         block_end = matches[idx + 1].start(2) if idx + 1 < len(matches) else len(text)
         segment = text[block_start:block_end].strip()
-        title_line = (segment.splitlines() or [f"Topic {idx+1}"])[0][:120]
+        title_line = (segment.splitlines() or [f"Topic {idx + 1}"])[0][:120]
         norm = re.sub(r"\s+", " ", title_line.lower())
         topics.append(
             {
