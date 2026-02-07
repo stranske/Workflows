@@ -17,6 +17,7 @@ DEPRECATED_ACTIONS = {
     "actions/download-artifact@v2": "actions/download-artifact@v4",
     "actions/download-artifact@v3": "actions/download-artifact@v4",
 }
+UPLOAD_ARTIFACT_PATTERN = re.compile(r"^actions/upload-artifact@v(?P<major>\d+)(?:[.\w-]+)?$")
 
 
 def load_workflow(path: str) -> dict | None:
@@ -79,6 +80,41 @@ def check_missing_timeout(workflow: dict) -> list[str]:
             missing.append(job_name)
 
     return missing
+
+
+def check_upload_artifact_major(workflow: dict, expected_major: int = 4) -> list[tuple[str, str, str]]:
+    """Check that actions/upload-artifact uses the expected major version.
+
+    Args:
+        workflow: Parsed workflow YAML
+        expected_major: Required major version number
+
+    Returns:
+        List of (job_name, step_name, issue) tuples
+    """
+    issues: list[tuple[str, str, str]] = []
+    jobs = workflow.get("jobs", {})
+
+    for job_name, job in jobs.items():
+        steps = job.get("steps", [])
+        for i, step in enumerate(steps):
+            uses = step.get("uses", "")
+            match = UPLOAD_ARTIFACT_PATTERN.match(uses)
+            if not match:
+                continue
+
+            step_name = step.get("name", f"step-{i}")
+            major = int(match.group("major"))
+            if major != expected_major:
+                issues.append(
+                    (
+                        job_name,
+                        step_name,
+                        f"actions/upload-artifact@v{major} should use v{expected_major}",
+                    )
+                )
+
+    return issues
 
 
 def check_hardcoded_secrets(workflow: dict) -> list[tuple[str, str]]:
@@ -250,6 +286,7 @@ def validate_workflow(path: str) -> dict[str, list]:
     """
     results: dict[str, list] = {
         "deprecated_actions": [],
+        "upload_artifact_version": [],
         "missing_timeout": [],
         "hardcoded_secrets": [],
         "permission_issues": [],
@@ -263,6 +300,7 @@ def validate_workflow(path: str) -> dict[str, list]:
         return results
 
     results["deprecated_actions"] = check_deprecated_actions(workflow)
+    results["upload_artifact_version"] = check_upload_artifact_major(workflow)
     results["missing_timeout"] = check_missing_timeout(workflow)
     results["hardcoded_secrets"] = check_hardcoded_secrets(workflow)
     results["permission_issues"] = check_permissions(workflow)
