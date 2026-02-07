@@ -546,6 +546,49 @@ def test_build_llm_config_includes_standard_metadata(monkeypatch: pytest.MonkeyP
     assert "run_id:999" in tags
 
 
+def test_invoke_llm_passes_config_metadata(llm_env_sentinel: dict[str, str]) -> None:
+    class DummyResponse:
+        def __init__(self, content: str) -> None:
+            self.content = content
+
+    class DummyClient:
+        def __init__(self) -> None:
+            self.calls: list[dict[str, object]] = []
+
+        def invoke(self, *args: object, **kwargs: object) -> DummyResponse:
+            self.calls.append(dict(kwargs))
+            return DummyResponse("ok")
+
+    client = DummyClient()
+    result = followup_issue_generator._invoke_llm(
+        "prompt",
+        client,
+        operation="generate_tasks",
+        pr_number=111,
+        issue_number=222,
+    )
+
+    expected_metadata = {
+        "repo": llm_env_sentinel["GITHUB_REPOSITORY"],
+        "run_id": llm_env_sentinel["GITHUB_RUN_ID"],
+        "issue_or_pr_number": "111",
+        "operation": "generate_tasks",
+        "pr_number": "111",
+        "issue_number": "222",
+    }
+    expected_tags = [
+        "workflows-agents",
+        "operation:generate_tasks",
+        "repo:sentinel/repo",
+        "issue_or_pr:111",
+        "run_id:run-777",
+    ]
+
+    assert result == "ok"
+    assert client.calls
+    assert client.calls[0]["config"] == {"metadata": expected_metadata, "tags": expected_tags}
+
+
 def test_invoke_llm_typeerror_fallback_logs_and_retries(caplog: pytest.LogCaptureFixture) -> None:
     class DummyResponse:
         def __init__(self, content: str) -> None:

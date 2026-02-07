@@ -174,3 +174,43 @@ def test_build_llm_config_includes_standard_metadata(monkeypatch: pytest.MonkeyP
     assert "repo:octo/repo" in tags
     assert "issue_or_pr:123" in tags
     assert "run_id:555" in tags
+
+
+def test_invoke_llm_passes_config_metadata(llm_env_sentinel: dict[str, str]) -> None:
+    class DummyClient:
+        def __init__(self) -> None:
+            self.calls: list[dict[str, object]] = []
+
+        def invoke(self, *args: object, **kwargs: object) -> object:
+            self.calls.append(dict(kwargs))
+            return object()
+
+    client = DummyClient()
+    context = "Pull request: [#321](https://github.com/sentinel/repo/pull/321)"
+
+    response = pr_verifier._invoke_llm(
+        client,
+        "prompt",
+        operation="evaluate_pr",
+        context=context,
+    )
+
+    expected_metadata = {
+        "repo": llm_env_sentinel["GITHUB_REPOSITORY"],
+        "run_id": llm_env_sentinel["GITHUB_RUN_ID"],
+        "issue_or_pr_number": "321",
+        "operation": "evaluate_pr",
+        "pr_number": "321",
+        "issue_number": None,
+    }
+    expected_tags = [
+        "workflows-agents",
+        "operation:evaluate_pr",
+        "repo:sentinel/repo",
+        "issue_or_pr:321",
+        "run_id:run-777",
+    ]
+
+    assert response is not None
+    assert client.calls
+    assert client.calls[0]["config"] == {"metadata": expected_metadata, "tags": expected_tags}
