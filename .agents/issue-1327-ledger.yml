@@ -1,0 +1,794 @@
+version: 1
+issue: 1327
+base: codex/issue-1327
+branch: codex/issue-1327
+tasks:
+  - id: task-01
+    title: 'Edit `docs/verification-concerns-1307.md` to add, for **each** verification
+      concern section: a short resolution summary plus (1) a link to the resolving
+      PR/commit, (2) an explicit reference to the relevant `DECISIONS.md` entry (anchor
+      or section), and (3) repo-local evidence links under `docs/reverification/`.'
+    status: done
+    started_at: '2026-02-07T16:26:10Z'
+    finished_at: '2026-02-07T16:26:18Z'
+    commit: 6e53bf7f44d952f2c3058dd9bcda7f4a84a4434c
+    notes: []
+  - id: task-02
+    title: 'Create the `docs/reverification/` directory structure (verify: docs updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: 'placeholder evidence files for each verification concern (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: 'Define scope for: Add a resolution summary subsection to each top-level
+      concern section in `docs/verification-concerns-1307.md` (verify: docs updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: 'Implement focused slice for: Add a resolution summary subsection to each
+      top-level concern section in `docs/verification-concerns-1307.md` (verify: docs
+      updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: 'Validate focused slice for: Add a resolution summary subsection to each
+      top-level concern section in `docs/verification-concerns-1307.md` (verify: docs
+      updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: 'Define scope for: Add resolution link subsections pointing to PR #1323
+      or relevant commits for each concern in `docs/verification-concerns-1307.md`
+      (verify: docs updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: 'Implement focused slice for: Add resolution link subsections pointing
+      to PR #1323 or relevant commits for each concern in `docs/verification-concerns-1307.md`
+      (verify: docs updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: 'Validate focused slice for: Add resolution link subsections pointing to
+      PR #1323 or relevant commits for each concern in `docs/verification-concerns-1307.md`
+      (verify: docs updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: 'Define scope for: Add DECISIONS.md reference subsections with anchor links
+      for each concern section in `docs/verification-concerns-1307.md` (verify: docs
+      updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: 'Implement focused slice for: Add DECISIONS.md reference subsections with
+      anchor links for each concern section in `docs/verification-concerns-1307.md`
+      (verify: docs updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: 'Validate focused slice for: Add DECISIONS.md reference subsections with
+      anchor links for each concern section in `docs/verification-concerns-1307.md`
+      (verify: docs updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: 'Define scope for: Add evidence subsections with repo-local links to `docs/reverification/`
+      files for each concern in `docs/verification-concerns-1307.md` (verify: docs
+      updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: 'Implement focused slice for: Add evidence subsections with repo-local
+      links to `docs/reverification/` files for each concern in `docs/verification-concerns-1307.md`
+      (verify: docs updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: 'Validate focused slice for: Add evidence subsections with repo-local links
+      to `docs/reverification/` files for each concern in `docs/verification-concerns-1307.md`
+      (verify: docs updated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: "Add a new ISO-date-stamped entry to `DECISIONS.md` for the **\u201Cmissing\
+      \ artifacts\u201D** concern including: a decision statement, rationale, and\
+      \ a repo-local evidence link (preferably under `docs/reverification/`)."
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: 'Add unit tests for the **TypeError fallback path** in `_invoke_llm`: simulate
+      a `TypeError` on the first invocation, assert a warning log includes the exception
+      text and the fallback message, and assert a second invocation is attempted **without
+      configuration**.'
+    status: done
+    started_at: '2026-02-07T21:02:20Z'
+    finished_at: '2026-02-07T21:03:03Z'
+    commit: ea360bf2ad65916a89d6a1b744b65ed0d738e671
+    notes: []
+  - id: task-18
+    title: 'Define scope for: Create a test fixture that mocks the LLM client to raise
+      TypeError on first call (verify: confirm completion in repo)'
+    status: done
+    started_at: '2026-02-07T21:02:20Z'
+    finished_at: '2026-02-07T21:03:03Z'
+    commit: ea360bf2ad65916a89d6a1b744b65ed0d738e671
+    notes: []
+  - id: task-19
+    title: 'Implement focused slice for: Create a test fixture that mocks the LLM
+      client to raise TypeError on first call (verify: confirm completion in repo)'
+    status: done
+    started_at: '2026-02-07T21:02:20Z'
+    finished_at: '2026-02-07T21:03:03Z'
+    commit: ea360bf2ad65916a89d6a1b744b65ed0d738e671
+    notes: []
+  - id: task-20
+    title: 'Validate focused slice for: Create a test fixture that mocks the LLM client
+      to raise TypeError on first call (verify: confirm completion in repo)'
+    status: done
+    started_at: '2026-02-07T21:02:20Z'
+    finished_at: '2026-02-07T21:03:03Z'
+    commit: ea360bf2ad65916a89d6a1b744b65ed0d738e671
+    notes: []
+  - id: task-21
+    title: 'succeed on second call (verify: confirm completion in repo)'
+    status: done
+    started_at: '2026-02-07T21:02:20Z'
+    finished_at: '2026-02-07T21:03:03Z'
+    commit: ea360bf2ad65916a89d6a1b744b65ed0d738e671
+    notes: []
+  - id: task-22
+    title: 'Define scope for: Write a test that verifies a warning log is emitted
+      when TypeError occurs in `_invoke_llm` (verify: confirm completion in repo)'
+    status: done
+    started_at: '2026-02-07T21:02:20Z'
+    finished_at: '2026-02-07T21:03:03Z'
+    commit: ea360bf2ad65916a89d6a1b744b65ed0d738e671
+    notes: []
+  - id: task-23
+    title: 'Implement focused slice for: Write a test that verifies a warning log
+      is emitted when TypeError occurs in `_invoke_llm` (verify: confirm completion
+      in repo)'
+    status: done
+    started_at: '2026-02-07T21:02:20Z'
+    finished_at: '2026-02-07T21:03:03Z'
+    commit: ea360bf2ad65916a89d6a1b744b65ed0d738e671
+    notes: []
+  - id: task-24
+    title: 'Validate focused slice for: Write a test that verifies a warning log is
+      emitted when TypeError occurs in `_invoke_llm` (verify: confirm completion in
+      repo)'
+    status: done
+    started_at: '2026-02-07T21:02:20Z'
+    finished_at: '2026-02-07T21:03:03Z'
+    commit: ea360bf2ad65916a89d6a1b744b65ed0d738e671
+    notes: []
+  - id: task-25
+    title: 'Define scope for: Write a test that asserts the warning message contains
+      both the original exception text (verify: confirm completion in repo)'
+    status: done
+    started_at: '2026-02-07T21:02:20Z'
+    finished_at: '2026-02-07T21:03:03Z'
+    commit: ea360bf2ad65916a89d6a1b744b65ed0d738e671
+    notes: []
+  - id: task-26
+    title: 'Implement focused slice for: Write a test that asserts the warning message
+      contains both the original exception text (verify: confirm completion in repo)'
+    status: done
+    started_at: '2026-02-07T21:02:20Z'
+    finished_at: '2026-02-07T21:03:03Z'
+    commit: ea360bf2ad65916a89d6a1b744b65ed0d738e671
+    notes: []
+  - id: task-27
+    title: 'Validate focused slice for: Write a test that asserts the warning message
+      contains both the original exception text (verify: confirm completion in repo)'
+    status: done
+    started_at: '2026-02-07T21:02:20Z'
+    finished_at: '2026-02-07T21:03:03Z'
+    commit: ea360bf2ad65916a89d6a1b744b65ed0d738e671
+    notes: []
+  - id: task-28
+    title: 'fallback indicator (verify: confirm completion in repo)'
+    status: done
+    started_at: '2026-02-07T21:02:20Z'
+    finished_at: '2026-02-07T21:03:03Z'
+    commit: ea360bf2ad65916a89d6a1b744b65ed0d738e671
+    notes: []
+  - id: task-29
+    title: 'Define scope for: Write a test that verifies the second invocation attempt
+      is made without configuration or metadata parameters (verify: config validated)'
+    status: done
+    started_at: '2026-02-07T21:02:20Z'
+    finished_at: '2026-02-07T21:03:03Z'
+    commit: ea360bf2ad65916a89d6a1b744b65ed0d738e671
+    notes: []
+  - id: task-30
+    title: 'Implement focused slice for: Write a test that verifies the second invocation
+      attempt is made without configuration or metadata parameters (verify: config
+      validated)'
+    status: done
+    started_at: '2026-02-07T21:02:20Z'
+    finished_at: '2026-02-07T21:03:03Z'
+    commit: ea360bf2ad65916a89d6a1b744b65ed0d738e671
+    notes: []
+  - id: task-31
+    title: 'Validate focused slice for: Write a test that verifies the second invocation
+      attempt is made without configuration or metadata parameters (verify: config
+      validated)'
+    status: done
+    started_at: '2026-02-07T21:02:20Z'
+    finished_at: '2026-02-07T21:03:03Z'
+    commit: ea360bf2ad65916a89d6a1b744b65ed0d738e671
+    notes: []
+  - id: task-32
+    title: 'Add tests covering **config/metadata propagation** across all LLM invocation
+      call sites: construct a config/metadata object, invoke each call site, and assert
+      the downstream client receives the expected config/metadata values.'
+    status: done
+    started_at: '2026-02-07T21:10:00Z'
+    finished_at: '2026-02-07T21:12:00Z'
+    commit: 3bcfe499e60a12fdff92d9fb5ef335954d7c463f
+    notes: []
+  - id: task-33
+    title: 'Enumerate (verify: confirm completion in repo)'
+    status: done
+    started_at: '2026-02-07T21:10:00Z'
+    finished_at: '2026-02-07T21:12:00Z'
+    commit: 3bcfe499e60a12fdff92d9fb5ef335954d7c463f
+    notes: []
+  - id: task-34
+    title: 'Define scope for: document all LLM invocation call sites in the codebase
+      that accept config or metadata parameters (verify: config validated)'
+    status: done
+    started_at: '2026-02-07T21:10:00Z'
+    finished_at: '2026-02-07T21:12:00Z'
+    commit: 3bcfe499e60a12fdff92d9fb5ef335954d7c463f
+    notes: []
+  - id: task-35
+    title: 'Implement focused slice for: document all LLM invocation call sites in
+      the codebase that accept config or metadata parameters (verify: config validated)'
+    status: done
+    started_at: '2026-02-07T21:10:00Z'
+    finished_at: '2026-02-07T21:12:00Z'
+    commit: 3bcfe499e60a12fdff92d9fb5ef335954d7c463f
+    notes: []
+  - id: task-36
+    title: 'Validate focused slice for: document all LLM invocation call sites in
+      the codebase that accept config or metadata parameters (verify: config validated)'
+    status: done
+    started_at: '2026-02-07T21:10:00Z'
+    finished_at: '2026-02-07T21:12:00Z'
+    commit: 3bcfe499e60a12fdff92d9fb5ef335954d7c463f
+    notes: []
+  - id: task-37
+    title: 'Create a reusable test fixture with sentinel config (verify: config validated)'
+    status: done
+    started_at: '2026-02-07T21:10:00Z'
+    finished_at: '2026-02-07T21:12:00Z'
+    commit: 3bcfe499e60a12fdff92d9fb5ef335954d7c463f
+    notes: []
+  - id: task-38
+    title: 'Create a reusable test fixture with metadata objects for propagation testing
+      (verify: confirm completion in repo)'
+    status: done
+    started_at: '2026-02-07T21:10:00Z'
+    finished_at: '2026-02-07T21:12:00Z'
+    commit: 3bcfe499e60a12fdff92d9fb5ef335954d7c463f
+    notes: []
+  - id: task-39
+    title: 'Define scope for: Write parameterized tests that verify config propagation
+      for each identified LLM invocation call site'
+    status: done
+    started_at: '2026-02-07T21:10:00Z'
+    finished_at: '2026-02-07T21:12:00Z'
+    commit: 3bcfe499e60a12fdff92d9fb5ef335954d7c463f
+    notes: []
+  - id: task-40
+    title: 'Implement focused slice for: Write parameterized tests that verify config
+      propagation for each identified LLM invocation call site'
+    status: done
+    started_at: '2026-02-07T21:10:00Z'
+    finished_at: '2026-02-07T21:12:00Z'
+    commit: 3bcfe499e60a12fdff92d9fb5ef335954d7c463f
+    notes: []
+  - id: task-41
+    title: 'Validate focused slice for: Write parameterized tests that verify config
+      propagation for each identified LLM invocation call site'
+    status: done
+    started_at: '2026-02-07T21:10:00Z'
+    finished_at: '2026-02-07T21:12:00Z'
+    commit: 3bcfe499e60a12fdff92d9fb5ef335954d7c463f
+    notes: []
+  - id: task-42
+    title: 'Define scope for: Write parameterized tests that verify metadata propagation
+      for each identified LLM invocation call site'
+    status: done
+    started_at: '2026-02-07T21:10:00Z'
+    finished_at: '2026-02-07T21:12:00Z'
+    commit: 3bcfe499e60a12fdff92d9fb5ef335954d7c463f
+    notes: []
+  - id: task-43
+    title: 'Implement focused slice for: Write parameterized tests that verify metadata
+      propagation for each identified LLM invocation call site'
+    status: done
+    started_at: '2026-02-07T21:10:00Z'
+    finished_at: '2026-02-07T21:12:00Z'
+    commit: 3bcfe499e60a12fdff92d9fb5ef335954d7c463f
+    notes: []
+  - id: task-44
+    title: 'Validate focused slice for: Write parameterized tests that verify metadata
+      propagation for each identified LLM invocation call site'
+    status: done
+    started_at: '2026-02-07T21:10:00Z'
+    finished_at: '2026-02-07T21:12:00Z'
+    commit: 3bcfe499e60a12fdff92d9fb5ef335954d7c463f
+    notes: []
+  - id: task-45
+    title: "Add/adjust tests for `langchain_client` model classification: create a\
+      \ table-driven test suite of model names \u2192 expected classification, update\
+      \ the regex/classification logic as needed to make the tests pass, and keep\
+      \ the test cases aligned with the intended supported model naming patterns."
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-46
+    title: 'Define scope for: Create a table-driven test suite with at least 10 model
+      name cases (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-47
+    title: 'Implement focused slice for: Create a table-driven test suite with at
+      least 10 model name cases (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-48
+    title: 'Validate focused slice for: Create a table-driven test suite with at least
+      10 model name cases (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-49
+    title: 'Define scope for: Create a table-driven test suite with their expected
+      classifications for `langchain_client` (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-50
+    title: 'Implement focused slice for: Create a table-driven test suite with their
+      expected classifications for `langchain_client` (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-51
+    title: 'Validate focused slice for: Create a table-driven test suite with their
+      expected classifications for `langchain_client` (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-52
+    title: 'Document the intended supported model naming patterns for langchain_client
+      classification (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-53
+    title: 'Define scope for: Update the regex or classification logic in langchain_client
+      to make all table-driven test cases pass (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-54
+    title: 'Implement focused slice for: Update the regex or classification logic
+      in langchain_client to make all table-driven test cases pass (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-55
+    title: 'Validate focused slice for: Update the regex or classification logic in
+      langchain_client to make all table-driven test cases pass (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-56
+    title: 'Add test cases for edge cases (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-57
+    title: 'boundary conditions in model name classification (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-58
+    title: Update CI workflows to use `actions/upload-artifact` major version **v4**,
+      and add a lightweight workflow-level check that fails if `actions/upload-artifact`
+      is not on the expected major version.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-59
+    title: Update `.agents` ledger file(s) (e.g., `.agents/issue-1322-ledger.yml`)
+      to replace any remaining `todo` markers with concrete references to the implemented
+      docs/DECISIONS/test changes (file paths, test names) or remove entries that
+      are no longer applicable.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-60
+    title: "For every top-level verification concern section in `docs/verification-concerns-1307.md`,\
+      \ the section contains: (1) a **\u201CResolution summary\u201D** subsection\
+      \ with at least 1 non-empty sentence; (2) a **\u201CResolution link\u201D**\
+      \ that points to a GitHub PR URL or commit URL; (3) a **`DECISIONS.md` reference**\
+      \ that includes an in-page anchor link (contains `#`) or a section name that\
+      \ matches a heading in `DECISIONS.md`; and (4) at least one repo-local evidence\
+      \ link whose path begins with `docs/reverification/`."
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-61
+    title: All evidence links referenced from `docs/verification-concerns-1307.md`
+      that start with `docs/reverification/` resolve to existing files in the repository
+      (no broken repo-local links).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-62
+    title: "`DECISIONS.md` contains a new entry for the **\u201Cmissing artifacts\u201D\
+      ** concern with: (a) a heading that begins with an ISO date in the form `YYYY-MM-DD`;\
+      \ (b) the literal phrase **\u201Cmissing artifacts\u201D** in the entry; (c)\
+      \ a **Decision** field/paragraph; (d) a **Rationale** field/paragraph; and (e)\
+      \ at least one markdown link to a repo-local file under `docs/reverification/`."
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-63
+    title: "The repo-local evidence link(s) added to the new \u201Cmissing artifacts\u201D\
+      \ `DECISIONS.md` entry point to existing file(s) under `docs/reverification/`."
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-64
+    title: 'A unit test exists that simulates a `TypeError` on the first call inside
+      `_invoke_llm`, then asserts: (1) a warning log record is emitted; (2) the warning
+      message contains the original exception text (e.g., `TypeError` or the thrown
+      message string); (3) the warning message contains the fallback indicator text
+      (e.g., contains `fallback` or the exact fallback message used by the implementation);
+      and (4) the downstream invoke method is called exactly twice, where the second
+      call is made with configuration omitted/None (i.e., without the config/metadata
+      passed on the first attempt).'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-65
+    title: 'There is test coverage for config/metadata propagation for **each** LLM
+      invocation call site in the codebase: each call site has a corresponding test
+      that passes a sentinel config/metadata object (unique values) and asserts the
+      downstream client receives those exact values (identity or deep-equality, depending
+      on type) without mutation.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-66
+    title: A table-driven test suite exists for `langchain_client` model classification
+      that includes **at least 10** model-name cases and asserts a deterministic expected
+      classification for each case; all cases pass using the current classification
+      implementation (regex/logic).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-67
+    title: All GitHub workflow files under `.github/workflows/` that reference `actions/upload-artifact`
+      use only the **v4** major (i.e., `actions/upload-artifact@v4` or `actions/upload-artifact@v4.x.y`);
+      no workflow references v1/v2/v3.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-68
+    title: CI contains an explicit workflow step that fails the job if any `.github/workflows/*.yml`
+      file references `actions/upload-artifact` with a major other than v4.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-69
+    title: All `.agents/*.yml` ledger entries for this issue contain no remaining
+      `todo` markers (case-insensitive) and instead reference concrete implemented
+      artifacts (file paths, PR/commit links, and/or test names).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-70
+    title: 'Edit `docs/verification-concerns-1307.md` to add, for **each** verification
+      concern section: a short resolution summary plus (1) a link to the resolving
+      PR/commit, (2) an explicit reference to the relevant `DECISIONS.md` entry (anchor
+      or section), and (3) repo-local evidence links under `docs/reverification/`.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-71
+    title: "Add a new ISO-date-stamped entry to `DECISIONS.md` for the **\u201Cmissing\
+      \ artifacts\u201D** concern including: a decision statement, rationale, and\
+      \ a repo-local evidence link (preferably under `docs/reverification/`)."
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-72
+    title: 'Add unit tests for the **TypeError fallback path** in `_invoke_llm`: simulate
+      a `TypeError` on the first invocation, assert a warning log includes the exception
+      text and the fallback message, and assert a second invocation is attempted **without
+      configuration**.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-73
+    title: 'Add tests covering **config/metadata propagation** across all LLM invocation
+      call sites: construct a config/metadata object, invoke each call site, and assert
+      the downstream client receives the expected config/metadata values.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-74
+    title: "Add/adjust tests for `langchain_client` model classification: create a\
+      \ table-driven test suite of model names \u2192 expected classification, update\
+      \ the regex/classification logic as needed to make the tests pass, and keep\
+      \ the test cases aligned with the intended supported model naming patterns."
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-75
+    title: Update CI workflows to use `actions/upload-artifact` major version **v4**,
+      and add a lightweight workflow-level check that fails if `actions/upload-artifact`
+      is not on the expected major version.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-76
+    title: Update `.agents` ledger file(s) (e.g., `.agents/issue-1322-ledger.yml`)
+      to replace any remaining `todo` markers with concrete references to the implemented
+      docs/DECISIONS/test changes (file paths, test names) or remove entries that
+      are no longer applicable.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-77
+    title: "For every top-level verification concern section in `docs/verification-concerns-1307.md`,\
+      \ the section contains: (1) a **\u201CResolution summary\u201D** subsection\
+      \ with at least 1 non-empty sentence; (2) a **\u201CResolution link\u201D**\
+      \ that points to a GitHub PR URL or commit URL; (3) a **`DECISIONS.md` reference**\
+      \ that includes an in-page anchor link (contains `#`) or a section name that\
+      \ matches a heading in `DECISIONS.md`; and (4) at least one repo-local evidence\
+      \ link whose path begins with `docs/reverification/`."
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-78
+    title: All evidence links referenced from `docs/verification-concerns-1307.md`
+      that start with `docs/reverification/` resolve to existing files in the repository
+      (no broken repo-local links).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-79
+    title: "`DECISIONS.md` contains a new entry for the **\u201Cmissing artifacts\u201D\
+      ** concern with: (a) a heading that begins with an ISO date in the form `YYYY-MM-DD`;\
+      \ (b) the literal phrase **\u201Cmissing artifacts\u201D** in the entry; (c)\
+      \ a **Decision** field/paragraph; (d) a **Rationale** field/paragraph; and (e)\
+      \ at least one markdown link to a repo-local file under `docs/reverification/`."
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-80
+    title: "The repo-local evidence link(s) added to the new \u201Cmissing artifacts\u201D\
+      \ `DECISIONS.md` entry point to existing file(s) under `docs/reverification/`."
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-81
+    title: 'A unit test exists that simulates a `TypeError` on the first call inside
+      `_invoke_llm`, then asserts: (1) a warning log record is emitted; (2) the warning
+      message contains the original exception text (e.g., `TypeError` or the thrown
+      message string); (3) the warning message contains the fallback indicator text
+      (e.g., contains `fallback` or the exact fallback message used by the implementation);
+      and (4) the downstream invoke method is called exactly twice, where the second
+      call is made with configuration omitted/None (i.e., without the config/metadata
+      passed on the first attempt).'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-82
+    title: 'There is test coverage for config/metadata propagation for **each** LLM
+      invocation call site in the codebase: each call site has a corresponding test
+      that passes a sentinel config/metadata object (unique values) and asserts the
+      downstream client receives those exact values (identity or deep-equality, depending
+      on type) without mutation.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-83
+    title: A table-driven test suite exists for `langchain_client` model classification
+      that includes **at least 10** model-name cases and asserts a deterministic expected
+      classification for each case; all cases pass using the current classification
+      implementation (regex/logic).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-84
+    title: All GitHub workflow files under `.github/workflows/` that reference `actions/upload-artifact`
+      use only the **v4** major (i.e., `actions/upload-artifact@v4` or `actions/upload-artifact@v4.x.y`);
+      no workflow references v1/v2/v3.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-85
+    title: CI contains an explicit workflow step that fails the job if any `.github/workflows/*.yml`
+      file references `actions/upload-artifact` with a major other than v4.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-86
+    title: All `.agents/*.yml` ledger entries for this issue contain no remaining
+      `todo` markers (case-insensitive) and instead reference concrete implemented
+      artifacts (file paths, PR/commit links, and/or test names).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-87
+    title: Update CI workflows to use `actions/upload-artifact` major version **v4**,
+      and add a lightweight workflow-level check that fails if `actions/upload-artifact`
+      is not on the expected major version. (Agent cannot modify .github/workflows/*.yml
+      files (protected per AGENT_LIMITATIONS) | Convert to manual task or create a
+      separate issue for repository maintainers with write access to workflow files)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-88
+    title: CI contains an explicit workflow step that fails the job if any `.github/workflows/*.yml`
+      file references `actions/upload-artifact` with a major other than v4. (Agent
+      cannot modify .github/workflows/*.yml files (protected per AGENT_LIMITATIONS)
+      | Convert to manual task or create a separate issue for repository maintainers
+      with write access to workflow files)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []

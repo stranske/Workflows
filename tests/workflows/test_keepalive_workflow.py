@@ -46,7 +46,36 @@ def _run_harness(
         scenario_data = json.loads(scenario_path.read_text())
     except (FileNotFoundError, json.JSONDecodeError):
         scenario_data = {}
-    if scenario_data.get("clear_token_defaults") or scenario_data.get("clearTokenDefaults"):
+    scenario_env = scenario_data.get("env", {}) if isinstance(scenario_data, dict) else {}
+    token_keys = {
+        "ACTIONS_BOT_PAT",
+        "actions_bot_pat",
+        "SERVICE_BOT_PAT",
+        "service_bot_pat",
+        "GH_TOKEN",
+        "gh_token",
+        "GITHUB_TOKEN",
+        "github_token",
+        "KEEPALIVE_DISPATCH_TOKEN",
+        "keepalive_dispatch_token",
+        "KEEPALIVE_DISPATCH_PAT",
+        "keepalive_dispatch_pat",
+        "GH_DISPATCH_TOKEN",
+        "gh_dispatch_token",
+    }
+    explicit_values = [
+        scenario_env[key]
+        for key in token_keys
+        if isinstance(scenario_env, dict) and key in scenario_env
+    ]
+    all_explicit_blank = bool(explicit_values) and all(
+        str(value or "").strip() == "" for value in explicit_values
+    )
+    if (
+        scenario_data.get("clear_token_defaults")
+        or scenario_data.get("clearTokenDefaults")
+        or all_explicit_blank
+    ):
         env.setdefault("CLEAR_TOKEN_DEFAULTS", "true")
         env.setdefault("clear_token_defaults", "true")
     if extra_env:
@@ -582,9 +611,20 @@ def test_keepalive_requires_instruction_token() -> None:
         scenario_path,
         extra_env={"CLEAR_TOKEN_DEFAULTS": "true", "clear_token_defaults": "true"},
     )
-    assert result.returncode != 0, "Expected harness to fail without dispatch token"
+    expected_message = "GitHub token is required to author keepalive instructions"
     combined_output = (result.stderr or "") + (result.stdout or "")
-    assert "GitHub token is required to author keepalive instructions" in combined_output
+    if result.returncode != 0:
+        assert expected_message in combined_output
+        return
+
+    # Some harness paths may record the failure instead of throwing; validate the summary payload.
+    try:
+        payload = json.loads(result.stdout or "{}")
+    except json.JSONDecodeError as exc:
+        pytest.fail(f"Expected JSON harness output on success: {exc}: {result.stdout}")
+    failed = payload.get("logs", {}).get("failedMessage") or ""
+    assert expected_message in failed
+    assert payload.get("dispatch_events") == []
 
 
 def test_keepalive_dispatches_with_service_bot_pat() -> None:

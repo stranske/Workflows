@@ -1,6 +1,6 @@
 version: 1
 issue: 977
-base: main
+base: codex/issue-1327
 branch: codex/issue-977
 tasks:
   - id: task-01

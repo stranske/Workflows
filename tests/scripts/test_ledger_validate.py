@@ -473,6 +473,8 @@ def test_validate_task_handles_commit_errors(tmp_path: Path, monkeypatch) -> Non
     ledger_validate.REPO_ROOT = tmp_path
     ledger_path = tmp_path / "ledger.yml"
 
+    monkeypatch.setenv("LEDGER_VALIDATE_STRICT", "1")
+
     def raise_commit_files(_commit):
         raise ledger_validate.LedgerError("missing")
 
@@ -490,12 +492,38 @@ def test_validate_task_handles_commit_errors(tmp_path: Path, monkeypatch) -> Non
     assert f"{ledger_path}: tasks[0].commit abcdef1 not found in repository" in errors[0]
 
 
+def test_validate_task_skips_missing_commit_when_allowed(tmp_path: Path, monkeypatch) -> None:
+    ledger_validate = _load_module(monkeypatch, tmp_path)
+    ledger_validate.REPO_ROOT = tmp_path
+    ledger_path = tmp_path / "ledger.yml"
+
+    monkeypatch.setenv("LEDGER_VALIDATE_ALLOW_SHALLOW", "1")
+
+    def raise_commit_files(_commit):
+        raise ledger_validate.LedgerError("missing")
+
+    monkeypatch.setattr(ledger_validate, "_commit_files", raise_commit_files)
+
+    task = {
+        "id": "task-1",
+        "title": "Title",
+        "status": "done",
+        "commit": "abcdef1",
+    }
+
+    errors = ledger_validate._validate_task(task, index=0, seen_ids=set(), ledger_path=ledger_path)
+
+    assert errors == []
+
+
 def test_validate_task_commit_subject_failure(tmp_path: Path, monkeypatch) -> None:
     ledger_validate = _load_module(monkeypatch, tmp_path)
     ledger_validate.REPO_ROOT = tmp_path
     ledger_dir = tmp_path / ".agents"
     ledger_dir.mkdir()
     ledger_path = ledger_dir / "issue-1-ledger.yml"
+
+    monkeypatch.setenv("LEDGER_VALIDATE_STRICT", "1")
 
     monkeypatch.setattr(
         ledger_validate, "_commit_files", lambda commit: [".agents/issue-1-ledger.yml"]

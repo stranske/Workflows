@@ -235,3 +235,5 @@ jobs:
                 --title "[coverage] baseline breach" \
                 --body-file /tmp/coverage_issue.md \
                 --label "coverage"
+            fi
+          fi

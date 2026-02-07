@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Tests for followup_issue_generator.py"""
 
+import json
+import logging
+
 import pytest
 
 from scripts.langchain import followup_issue_generator
@@ -542,6 +545,267 @@ def test_build_llm_config_includes_standard_metadata(monkeypatch: pytest.MonkeyP
     assert "repo:octo/repo" in tags
     assert "issue_or_pr:42" in tags
     assert "run_id:999" in tags
+
+
+def test_invoke_llm_passes_config_metadata(llm_config_sentinel) -> None:
+    class DummyResponse:
+        def __init__(self, content: str) -> None:
+            self.content = content
+
+    class DummyClient:
+        def __init__(self) -> None:
+            self.calls: list[dict[str, object]] = []
+
+        def invoke(self, *args: object, **kwargs: object) -> DummyResponse:
+            self.calls.append(dict(kwargs))
+            return DummyResponse("ok")
+
+    client = DummyClient()
+    result = followup_issue_generator._invoke_llm(
+        "prompt",
+        client,
+        operation="generate_tasks",
+        pr_number=111,
+        issue_number=222,
+    )
+
+    expected_config = llm_config_sentinel(
+        operation="generate_tasks",
+        pr_number=111,
+        issue_number=222,
+    )
+
+    assert result == "ok"
+    assert client.calls
+    assert client.calls[0]["config"] == expected_config
+
+
+def test_generate_with_llm_passes_config_metadata(llm_config_sentinel) -> None:
+    class DummyResponse:
+        def __init__(self, content: str) -> None:
+            self.content = content
+
+    class DummyClient:
+        def __init__(self, responses: list[str]) -> None:
+            self.responses = list(responses)
+            self.calls: list[dict[str, object]] = []
+
+        def invoke(self, *args: object, **kwargs: object) -> DummyResponse:
+            self.calls.append(dict(kwargs))
+            return DummyResponse(self.responses.pop(0))
+
+    analysis_payload = {
+        "rewritten_acceptance_criteria": [],
+        "blockers_to_avoid": [],
+        "concrete_tasks": [{"task": "Fix issue"}],
+    }
+    tasks_payload = {"tasks": ["Task 1"], "deferred": []}
+    ac_payload = {"acceptance_criteria": ["AC 1"]}
+
+    reasoning_client = DummyClient([json.dumps(analysis_payload)])
+    standard_client = DummyClient([json.dumps(tasks_payload), json.dumps(ac_payload), "Issue body"])
+
+    verification_data = VerificationData(
+        provider_verdicts={"default": {"verdict": "FAIL", "confidence": 50}},
+        concerns=["Missing tests"],
+    )
+    original_issue = OriginalIssueData(
+        title="Original issue",
+        number=99,
+        tasks=["Do the thing"],
+        acceptance_criteria=["AC 1"],
+    )
+
+    issue = followup_issue_generator._generate_with_llm(
+        verification_data,
+        original_issue,
+        pr_number=123,
+        codex_log=None,
+        reasoning_client=reasoning_client,
+        reasoning_model="o3-mini",
+        standard_client=standard_client,
+        standard_model="gpt-4o",
+    )
+
+    def expected_config(operation: str) -> dict[str, object]:
+        return llm_config_sentinel(
+            operation=operation,
+            pr_number=123,
+            issue_number=99,
+        )
+
+    assert issue.body == "Issue body"
+    assert reasoning_client.calls[0]["config"] == expected_config("analyze_verification")
+    assert standard_client.calls[0]["config"] == expected_config("generate_tasks")
+    assert standard_client.calls[1]["config"] == expected_config("generate_acceptance_criteria")
+    assert standard_client.calls[2]["config"] == expected_config("format_followup_issue")
+
+
+@pytest.mark.parametrize(
+    ("client_kind", "call_index", "operation"),
+    [
+        ("reasoning", 0, "analyze_verification"),
+        ("standard", 0, "generate_tasks"),
+        ("standard", 1, "generate_acceptance_criteria"),
+        ("standard", 2, "format_followup_issue"),
+    ],
+)
+def test_generate_with_llm_config_propagation(
+    client_kind: str,
+    call_index: int,
+    operation: str,
+    llm_config_sentinel,
+) -> None:
+    class DummyResponse:
+        def __init__(self, content: str) -> None:
+            self.content = content
+
+    class DummyClient:
+        def __init__(self, responses: list[str]) -> None:
+            self.responses = list(responses)
+            self.calls: list[dict[str, object]] = []
+
+        def invoke(self, *args: object, **kwargs: object) -> DummyResponse:
+            self.calls.append(dict(kwargs))
+            return DummyResponse(self.responses.pop(0))
+
+    analysis_payload = {
+        "rewritten_acceptance_criteria": [],
+        "blockers_to_avoid": [],
+        "concrete_tasks": [{"task": "Fix issue"}],
+    }
+    tasks_payload = {"tasks": ["Task 1"], "deferred": []}
+    ac_payload = {"acceptance_criteria": ["AC 1"]}
+
+    reasoning_client = DummyClient([json.dumps(analysis_payload)])
+    standard_client = DummyClient([json.dumps(tasks_payload), json.dumps(ac_payload), "Issue body"])
+
+    verification_data = VerificationData(
+        provider_verdicts={"default": {"verdict": "FAIL", "confidence": 50}},
+        concerns=["Missing tests"],
+    )
+    original_issue = OriginalIssueData(
+        title="Original issue",
+        number=99,
+        tasks=["Do the thing"],
+        acceptance_criteria=["AC 1"],
+    )
+
+    followup_issue_generator._generate_with_llm(
+        verification_data,
+        original_issue,
+        pr_number=123,
+        codex_log=None,
+        reasoning_client=reasoning_client,
+        reasoning_model="o3-mini",
+        standard_client=standard_client,
+        standard_model="gpt-4o",
+    )
+
+    expected_config = llm_config_sentinel(
+        operation=operation,
+        pr_number=123,
+        issue_number=99,
+    )
+    calls = reasoning_client.calls if client_kind == "reasoning" else standard_client.calls
+    assert calls[call_index]["config"] == expected_config
+
+
+@pytest.mark.parametrize(
+    ("client_kind", "call_index", "operation"),
+    [
+        ("reasoning", 0, "analyze_verification"),
+        ("standard", 0, "generate_tasks"),
+        ("standard", 1, "generate_acceptance_criteria"),
+        ("standard", 2, "format_followup_issue"),
+    ],
+)
+def test_generate_with_llm_metadata_propagation(
+    client_kind: str,
+    call_index: int,
+    operation: str,
+    llm_metadata_sentinel,
+) -> None:
+    class DummyResponse:
+        def __init__(self, content: str) -> None:
+            self.content = content
+
+    class DummyClient:
+        def __init__(self, responses: list[str]) -> None:
+            self.responses = list(responses)
+            self.calls: list[dict[str, object]] = []
+
+        def invoke(self, *args: object, **kwargs: object) -> DummyResponse:
+            self.calls.append(dict(kwargs))
+            return DummyResponse(self.responses.pop(0))
+
+    analysis_payload = {
+        "rewritten_acceptance_criteria": [],
+        "blockers_to_avoid": [],
+        "concrete_tasks": [{"task": "Fix issue"}],
+    }
+    tasks_payload = {"tasks": ["Task 1"], "deferred": []}
+    ac_payload = {"acceptance_criteria": ["AC 1"]}
+
+    reasoning_client = DummyClient([json.dumps(analysis_payload)])
+    standard_client = DummyClient([json.dumps(tasks_payload), json.dumps(ac_payload), "Issue body"])
+
+    verification_data = VerificationData(
+        provider_verdicts={"default": {"verdict": "FAIL", "confidence": 50}},
+        concerns=["Missing tests"],
+    )
+    original_issue = OriginalIssueData(
+        title="Original issue",
+        number=99,
+        tasks=["Do the thing"],
+        acceptance_criteria=["AC 1"],
+    )
+
+    followup_issue_generator._generate_with_llm(
+        verification_data,
+        original_issue,
+        pr_number=123,
+        codex_log=None,
+        reasoning_client=reasoning_client,
+        reasoning_model="o3-mini",
+        standard_client=standard_client,
+        standard_model="gpt-4o",
+    )
+
+    expected_metadata = llm_metadata_sentinel(
+        operation=operation,
+        pr_number=123,
+        issue_number=99,
+    )
+    calls = reasoning_client.calls if client_kind == "reasoning" else standard_client.calls
+    assert calls[call_index]["config"]["metadata"] == expected_metadata
+
+
+def test_invoke_llm_typeerror_fallback_logs_and_retries(
+    caplog: pytest.LogCaptureFixture,
+    llm_typeerror_client_factory,
+) -> None:
+    class DummyResponse:
+        def __init__(self, content: str) -> None:
+            self.content = content
+
+    client = llm_typeerror_client_factory(DummyResponse("ok"), message="bad config")
+    caplog.set_level(logging.WARNING, logger=followup_issue_generator.__name__)
+
+    result = followup_issue_generator._invoke_llm(
+        "prompt",
+        client,
+        operation="generate_tasks",
+        pr_number=101,
+        issue_number=202,
+    )
+
+    assert result == "ok"
+    assert len(client.calls) == 2
+    assert "config" in client.calls[0][1]
+    assert "config" not in client.calls[1][1]
+    assert "config/metadata fallback" in caplog.text
+    assert "bad config" in caplog.text
 
 
 if __name__ == "__main__":

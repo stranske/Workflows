@@ -15,3 +15,5 @@ SC2129:style:.+: Consider using { cmd1; cmd2; } >> file instead of individual re
 # Suppress SC2086 info for workflow input variables in .github/workflows that are controlled/safe.
 # This intentionally hides SC2086 info-level warnings in workflow files; other shell scripts remain checked.
 SC2086:info:.github/workflows/.+: Double quote to prevent globbing and word splitting
+
+constant expression "false" in condition

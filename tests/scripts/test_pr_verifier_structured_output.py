@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from unittest import mock
 
 import pytest
@@ -174,3 +175,199 @@ def test_build_llm_config_includes_standard_metadata(monkeypatch: pytest.MonkeyP
     assert "repo:octo/repo" in tags
     assert "issue_or_pr:123" in tags
     assert "run_id:555" in tags
+
+
+def test_invoke_llm_passes_config_metadata(llm_config_sentinel) -> None:
+    class DummyClient:
+        def __init__(self) -> None:
+            self.calls: list[dict[str, object]] = []
+
+        def invoke(self, *args: object, **kwargs: object) -> object:
+            self.calls.append(dict(kwargs))
+            return object()
+
+    client = DummyClient()
+    context = "Pull request: [#321](https://github.com/sentinel/repo/pull/321)"
+
+    response = pr_verifier._invoke_llm(
+        client,
+        "prompt",
+        operation="evaluate_pr",
+        context=context,
+    )
+
+    expected_config = llm_config_sentinel(operation="evaluate_pr", pr_number=321)
+
+    assert response is not None
+    assert client.calls
+    assert client.calls[0]["config"] == expected_config
+
+
+def test_invoke_llm_typeerror_fallback_logs_and_retries(
+    caplog: pytest.LogCaptureFixture,
+    llm_typeerror_client_factory,
+) -> None:
+    client = llm_typeerror_client_factory(object(), message="config mismatch")
+    caplog.set_level(logging.WARNING, logger=pr_verifier.__name__)
+
+    response = pr_verifier._invoke_llm(
+        client,
+        "prompt",
+        operation="evaluate_pr",
+        context="Pull request: [#789](https://github.com/sentinel/repo/pull/789)",
+    )
+
+    assert response is not None
+    assert len(client.calls) == 2
+    assert "config" in client.calls[0][1]
+    assert "config" not in client.calls[1][1]
+    assert "config/metadata fallback" in caplog.text
+    assert "config mismatch" in caplog.text
+    assert any(record.levelno == logging.WARNING for record in caplog.records)
+    assert any(
+        "LLM invoke failed with config/metadata; using config/metadata fallback." in record.message
+        for record in caplog.records
+    )
+
+
+@pytest.mark.parametrize(
+    ("call_site", "operation"),
+    [
+        ("evaluate_pr", "evaluate_pr"),
+        ("comparison_runner", "evaluate_pr_compare"),
+    ],
+)
+def test_pr_verifier_call_site_config_propagation(
+    call_site: str,
+    operation: str,
+    llm_config_sentinel,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class DummyClient:
+        def __init__(self) -> None:
+            self.calls: list[dict[str, object]] = []
+            self.response = _response_with(json.dumps(_valid_payload()))
+
+        def invoke(self, *args: object, **kwargs: object) -> object:
+            self.calls.append(dict(kwargs))
+            return self.response
+
+    client = DummyClient()
+    context = "Pull request: [#456](https://github.com/sentinel/repo/pull/456)"
+
+    if call_site == "evaluate_pr":
+        monkeypatch.setattr(pr_verifier, "_prepare_prompt", lambda ctx, diff: "prompt")
+        monkeypatch.setattr(
+            pr_verifier, "_get_llm_client", lambda model=None, provider=None: (client, "openai")
+        )
+        pr_verifier.evaluate_pr(context)
+    else:
+        runner = pr_verifier.ComparisonRunner(
+            context=context,
+            diff=None,
+            prompt="prompt",
+            clients=[(client, "openai", "o3-mini")],
+        )
+        runner.run_single(client, "openai", "o3-mini")
+
+    expected_config = llm_config_sentinel(operation=operation, pr_number=456)
+    assert client.calls[0]["config"] == expected_config
+
+
+@pytest.mark.parametrize(
+    ("call_site", "operation"),
+    [
+        ("evaluate_pr", "evaluate_pr"),
+        ("comparison_runner", "evaluate_pr_compare"),
+    ],
+)
+def test_pr_verifier_call_site_metadata_propagation(
+    call_site: str,
+    operation: str,
+    llm_metadata_sentinel,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class DummyClient:
+        def __init__(self) -> None:
+            self.calls: list[dict[str, object]] = []
+            self.response = _response_with(json.dumps(_valid_payload()))
+
+        def invoke(self, *args: object, **kwargs: object) -> object:
+            self.calls.append(dict(kwargs))
+            return self.response
+
+    client = DummyClient()
+    context = "Pull request: [#456](https://github.com/sentinel/repo/pull/456)"
+
+    if call_site == "evaluate_pr":
+        monkeypatch.setattr(pr_verifier, "_prepare_prompt", lambda ctx, diff: "prompt")
+        monkeypatch.setattr(
+            pr_verifier, "_get_llm_client", lambda model=None, provider=None: (client, "openai")
+        )
+        pr_verifier.evaluate_pr(context)
+    else:
+        runner = pr_verifier.ComparisonRunner(
+            context=context,
+            diff=None,
+            prompt="prompt",
+            clients=[(client, "openai", "o3-mini")],
+        )
+        runner.run_single(client, "openai", "o3-mini")
+
+    expected_metadata = llm_metadata_sentinel(operation=operation, pr_number=456)
+    assert client.calls[0]["config"]["metadata"] == expected_metadata
+
+
+def test_evaluate_pr_passes_config_metadata(
+    llm_config_sentinel, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class DummyClient:
+        def __init__(self) -> None:
+            self.calls: list[dict[str, object]] = []
+            self.response = _response_with(json.dumps(_valid_payload()))
+
+        def invoke(self, *args: object, **kwargs: object) -> object:
+            self.calls.append(dict(kwargs))
+            return self.response
+
+    client = DummyClient()
+    context = "Pull request: [#456](https://github.com/sentinel/repo/pull/456)"
+
+    monkeypatch.setattr(pr_verifier, "_prepare_prompt", lambda ctx, diff: "prompt")
+    monkeypatch.setattr(
+        pr_verifier, "_get_llm_client", lambda model=None, provider=None: (client, "openai")
+    )
+
+    result = pr_verifier.evaluate_pr(context)
+
+    expected_config = llm_config_sentinel(operation="evaluate_pr", pr_number=456)
+
+    assert result.verdict == "PASS"
+    assert client.calls[0]["config"] == expected_config
+
+
+def test_comparison_runner_passes_config_metadata(llm_config_sentinel) -> None:
+    class DummyClient:
+        def __init__(self) -> None:
+            self.calls: list[dict[str, object]] = []
+            self.response = _response_with(json.dumps(_valid_payload()))
+
+        def invoke(self, *args: object, **kwargs: object) -> object:
+            self.calls.append(dict(kwargs))
+            return self.response
+
+    client = DummyClient()
+    context = "Pull request: [#456](https://github.com/sentinel/repo/pull/456)"
+    runner = pr_verifier.ComparisonRunner(
+        context=context,
+        diff=None,
+        prompt="prompt",
+        clients=[(client, "openai", "o3-mini")],
+    )
+
+    result = runner.run_single(client, "openai", "o3-mini")
+
+    expected_config = llm_config_sentinel(operation="evaluate_pr_compare", pr_number=456)
+
+    assert result.verdict == "PASS"
+    assert client.calls[0]["config"] == expected_config

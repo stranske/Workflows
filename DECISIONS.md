@@ -7,6 +7,8 @@ re-verification run before any additional code-level actions are taken.
 Rationale: The repository does not contain the verifier context or extracted concerns needed to
 review acceptance criteria. Without those artifacts, any remediation would be speculative.
 
+Evidence: [Evidence: PR #1307 missing artifacts](docs/reverification/1307-missing-artifacts.md)
+
 ## 2026-02-07 - PR #1304 Ledger Hygiene
 Decision: Treat the ledger clean-up as documentation-only work; no new runtime tests are required
 to verify the removal of placeholder entries.

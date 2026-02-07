@@ -1,31 +1,35 @@
 version: 1
 issue: 1267
-base: main
+base: codex/issue-1327
 branch: codex/issue-1267
 tasks:
   - id: task-01
-    title: Add unit tests for FallbackChainProvider to verify quality_context is passed through.
+    title: Add unit tests for FallbackChainProvider to verify quality_context is passed
+      through.
     status: todo
     started_at: null
     finished_at: null
     commit: ''
     notes: []
   - id: task-02
-    title: Add regression tests ensuring confidence caps when analysis_text_length is short.
+    title: Add regression tests ensuring confidence caps when analysis_text_length
+      is short.
     status: todo
     started_at: null
     finished_at: null
     commit: ''
     notes: []
   - id: task-03
-    title: Audit provider implementations for optional quality_context handling and add legacy-compat integration tests.
+    title: Audit provider implementations for optional quality_context handling and
+      add legacy-compat integration tests.
     status: todo
     started_at: null
     finished_at: null
     commit: ''
     notes: []
   - id: task-04
-    title: Isolate keepalive_loop.js behavior changes into a separate commit with dedicated tests.
+    title: Isolate keepalive_loop.js behavior changes into a separate commit with
+      dedicated tests.
     status: todo
     started_at: null
     finished_at: null

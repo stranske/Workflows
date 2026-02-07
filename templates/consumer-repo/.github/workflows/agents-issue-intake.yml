@@ -90,17 +90,17 @@ jobs:
             mode="agent_bridge"
           fi
           echo "DEBUG: final mode=${mode}"
-          echo "mode=${mode}" >> $GITHUB_OUTPUT
+          echo "mode=${mode}" >> "$GITHUB_OUTPUT"
 
           if [[ "${mode}" == "agent_bridge" ]]; then
-            echo "should_run_bridge=true" >> $GITHUB_OUTPUT
-            echo "should_run_sync=false" >> $GITHUB_OUTPUT
+            echo "should_run_bridge=true" >> "$GITHUB_OUTPUT"
+            echo "should_run_sync=false" >> "$GITHUB_OUTPUT"
           elif [[ "${mode}" == "chatgpt_sync" ]]; then
-            echo "should_run_bridge=false" >> $GITHUB_OUTPUT
-            echo "should_run_sync=true" >> $GITHUB_OUTPUT
+            echo "should_run_bridge=false" >> "$GITHUB_OUTPUT"
+            echo "should_run_sync=true" >> "$GITHUB_OUTPUT"
           else
-            echo "should_run_bridge=false" >> $GITHUB_OUTPUT
-            echo "should_run_sync=false" >> $GITHUB_OUTPUT
+            echo "should_run_bridge=false" >> "$GITHUB_OUTPUT"
+            echo "should_run_sync=false" >> "$GITHUB_OUTPUT"
           fi
 
   # Gate for agent_bridge mode: only proceed if issue has agent:* or agents:* label

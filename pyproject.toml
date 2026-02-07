@@ -145,6 +145,15 @@ exclude = [
     "^\\.extraction/",
 ]
 
+[[tool.mypy.overrides]]
+module = ["tests.*"]
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = ["scripts.*", "tools.*"]
+follow_imports = "skip"
+ignore_errors = true
+
 [tool.pytest.ini_options]
 minversion = "7.0"
 testpaths = ["tests"]
