@@ -2,6 +2,7 @@
 """Tests for followup_issue_generator.py"""
 
 import logging
+
 import pytest
 
 from scripts.langchain import followup_issue_generator
