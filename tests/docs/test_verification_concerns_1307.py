@@ -36,7 +36,7 @@ def _resolve_evidence_path(link: str) -> Path | None:
     if link.startswith("reverification/"):
         return Path("docs") / link
     if link.startswith("../docs/reverification/"):
-        return Path(link.lstrip("../"))
+        return Path(link.removeprefix("../"))
     if link.startswith("./reverification/"):
         return Path("docs") / link.removeprefix("./")
     return Path(link)
