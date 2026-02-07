@@ -8,10 +8,10 @@ tasks:
       concern section: a short resolution summary plus (1) a link to the resolving
       PR/commit, (2) an explicit reference to the relevant `DECISIONS.md` entry (anchor
       or section), and (3) repo-local evidence links under `docs/reverification/`.'
-    status: doing
+    status: done
     started_at: '2026-02-07T16:26:10Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-02-07T16:26:18Z'
+    commit: 6e53bf7f44d952f2c3058dd9bcda7f4a84a4434c
     notes: []
   - id: task-02
     title: 'Create the `docs/reverification/` directory structure (verify: docs updated)'
