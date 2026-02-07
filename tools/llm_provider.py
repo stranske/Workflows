@@ -33,10 +33,10 @@ logger = logging.getLogger(__name__)
 
 # GitHub Models API endpoint (OpenAI-compatible)
 GITHUB_MODELS_BASE_URL = "https://models.inference.ai.azure.com"
-# codex-mini-latest: code-optimized rolling model, Chat Completions compatible.
-# Trialing for keepalive task-completion analysis (T3 tier).
-# Previous: gpt-4o (functional but legacy).
-# Rejected: gpt-4o-mini (too lenient, passed obvious deficiencies).
+# Legacy/default model identifier:
+# - Not used for issuing requests to primary providers (OpenAI/Anthropic/GitHub Models)
+# - Still used internally (e.g., default slot model in langchain_client.py)
+# - Kept for backward compatibility with external code that references it
 DEFAULT_MODEL = "codex-mini-latest"
 ANTHROPIC_API_KEY_ENV = "CLAUDE_API_STRANSKE"
 
@@ -203,7 +203,7 @@ class GitHubModelsProvider(LLMProvider):
             return None
 
         return ChatOpenAI(
-            model=DEFAULT_MODEL,
+            model="gpt-4.1",  # Battle-tested, reliable, available on GitHub Models
             base_url=GITHUB_MODELS_BASE_URL,
             api_key=os.environ.get("GITHUB_TOKEN"),
             temperature=0.1,  # Low temperature for consistent analysis
@@ -409,7 +409,7 @@ Be conservative - if unsure, don't mark as completed."""
                 confidence=adjusted_confidence,
                 reasoning=reasoning,
                 provider_used=self.name,
-                model_name=DEFAULT_MODEL,
+                model_name="gpt-4.1",  # Actual model used by GitHubModelsProvider
                 raw_confidence=raw_confidence if adjusted_confidence != raw_confidence else None,
                 confidence_adjusted=adjusted_confidence != raw_confidence,
                 quality_warnings=warnings if warnings else None,
@@ -424,7 +424,7 @@ Be conservative - if unsure, don't mark as completed."""
                 confidence=0.0,
                 reasoning=f"Failed to parse response: {e}",
                 provider_used=self.name,
-                model_name=DEFAULT_MODEL,
+                model_name="gpt-4.1",  # Actual model used by GitHubModelsProvider
             )
 
 
@@ -450,7 +450,7 @@ class OpenAIProvider(LLMProvider):
             return None
 
         return ChatOpenAI(
-            model=DEFAULT_MODEL,
+            model="gpt-5.1-codex",  # Purpose-built for analyzing Codex coding sessions
             api_key=os.environ.get("OPENAI_API_KEY"),
             temperature=0.1,
         )
@@ -485,7 +485,7 @@ class OpenAIProvider(LLMProvider):
                 confidence=result.confidence,
                 reasoning=result.reasoning,
                 provider_used=self.name,
-                model_name=DEFAULT_MODEL,
+                model_name="gpt-5.1-codex",  # Actual model used by OpenAIProvider
                 raw_confidence=result.raw_confidence,
                 confidence_adjusted=result.confidence_adjusted,
                 quality_warnings=result.quality_warnings,
@@ -800,10 +800,10 @@ def get_llm_provider(force_provider: str | None = None) -> LLMProvider:
             Options: "github-models", "openai", "anthropic", "regex-fallback"
 
     Returns a FallbackChainProvider that tries:
-    1. OpenAI API (if OPENAI_API_KEY set)
-    2. Anthropic API (if CLAUDE_API_STRANSKE set)
-    3. GitHub Models API (if GITHUB_TOKEN set)
-    4. Regex fallback (always available)
+    1. Anthropic claude-sonnet-4-5 (if CLAUDE_API_STRANSKE set) - Best reasoning
+    2. OpenAI gpt-5.1-codex (if OPENAI_API_KEY set) - Purpose-built for code analysis
+    3. GitHub Models gpt-4.1 (if GITHUB_TOKEN set) - Always available, reliable
+    4. Regex fallback (always available) - 30% confidence baseline
     """
     # Force a specific provider for testing
     if force_provider:
@@ -828,10 +828,10 @@ def get_llm_provider(force_provider: str | None = None) -> LLMProvider:
         return provider
 
     providers = [
-        OpenAIProvider(),
-        AnthropicProvider(),
-        GitHubModelsProvider(),
-        RegexFallbackProvider(),
+        AnthropicProvider(),  # Primary: claude-sonnet-4-5 for best reasoning
+        OpenAIProvider(),  # Secondary: gpt-5.1-codex for code-optimized analysis
+        GitHubModelsProvider(),  # Tertiary: gpt-4.1 via GITHUB_TOKEN (always available)
+        RegexFallbackProvider(),  # Last resort: 30% confidence pattern matching
     ]
 
     return FallbackChainProvider(providers)
