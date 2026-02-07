@@ -51,6 +51,11 @@ ENV/
 
 # Node.js
 node_modules/
+# Keep package-lock.json in .github/scripts for proper module resolution
+# but ignore it elsewhere to avoid accidental commits
+package-lock.json
+!.github/scripts/package-lock.json
+!.github/actions/*/package-lock.json
 
 # Logs
 *.log
