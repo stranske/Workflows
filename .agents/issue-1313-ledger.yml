@@ -9,7 +9,7 @@ tasks:
     status: done
     started_at: '2026-02-07T19:05:00Z'
     finished_at: '2026-02-07T19:08:00Z'
-    commit: ''
+    commit: 5ba155c
     code_change:
       - path: .agents/issue-1313-ledger.yml
         area: tasks
