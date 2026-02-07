@@ -232,7 +232,9 @@ def test_evaluate_pr_passes_config_metadata(
     context = "Pull request: [#456](https://github.com/sentinel/repo/pull/456)"
 
     monkeypatch.setattr(pr_verifier, "_prepare_prompt", lambda ctx, diff: "prompt")
-    monkeypatch.setattr(pr_verifier, "_get_llm_client", lambda model=None, provider=None: (client, "openai"))
+    monkeypatch.setattr(
+        pr_verifier, "_get_llm_client", lambda model=None, provider=None: (client, "openai")
+    )
 
     result = pr_verifier.evaluate_pr(context)
 
