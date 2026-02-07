@@ -9,7 +9,7 @@ tasks:
     status: done
     started_at: '2026-02-07T19:05:00Z'
     finished_at: '2026-02-07T19:08:00Z'
-    commit: 5ba155c
+    commit: 5ba155c1917dfde2146eab0d6890c4ce4c7a689c
     code_change:
       - path: .agents/issue-1313-ledger.yml
         area: tasks
@@ -22,7 +22,7 @@ tasks:
     status: done
     started_at: '2026-02-07T18:40:00Z'
     finished_at: '2026-02-07T18:47:00Z'
-    commit: c07edc7
+    commit: c07edc74a900876f0561e27901fb14180de5c0a2
     code_change:
       - path: scripts/api_client.py
         area: fetch_oauth_scopes
@@ -35,7 +35,7 @@ tasks:
     status: done
     started_at: '2026-02-07T18:47:00Z'
     finished_at: '2026-02-07T18:50:00Z'
-    commit: c07edc7
+    commit: c07edc74a900876f0561e27901fb14180de5c0a2
     code_change:
       - path: tests/scripts/test_issue_dedup_smoke.py
         area: test_main_requires_token
@@ -48,7 +48,7 @@ tasks:
     status: done
     started_at: '2026-02-07T18:50:00Z'
     finished_at: '2026-02-07T18:55:00Z'
-    commit: c07edc7
+    commit: c07edc74a900876f0561e27901fb14180de5c0a2
     decision: DECISIONS.md#2026-02-07---pr-1304-auth-coverage-baseline
     evidence:
       - decision: DECISIONS.md#2026-02-07---pr-1304-auth-coverage-baseline
