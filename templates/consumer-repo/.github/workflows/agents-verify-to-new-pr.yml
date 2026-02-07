@@ -166,6 +166,16 @@ jobs:
               }
             }
 
+            // Also check PR preamble for "Source: Issue #NNN" pattern
+            if (!linkedIssueNumber) {
+              const sourceMatch = prBody.match(
+                /\*\*Source:\*\*\s*Issue\s*#(\d+)/i
+              );
+              if (sourceMatch) {
+                linkedIssueNumber = parseInt(sourceMatch[1]);
+              }
+            }
+
             // Also check PR title for issue reference
             if (!linkedIssueNumber) {
               const titleMatch = context.payload.pull_request.title.match(/#(\d+)/);
@@ -241,7 +251,7 @@ jobs:
         with:
           github-token: ${{ steps.select-token.outputs.token }}
           script: |
-            // Fallback to original simple extraction if Python script fails
+            // Fallback to structured extraction if Python script fails
             const fs = require('fs');
             const prNumber = context.payload.pull_request.number;
             const prUrl = context.payload.pull_request.html_url;
@@ -253,32 +263,108 @@ jobs:
               core.warning('Could not read verification data');
             }
 
-            // Extract concerns using regex
-            const concernsRegex = /### Concerns\s*\n([\s\S]*?)(?=###|##|$)/i;
-            const concernsMatch = verificationText.match(concernsRegex);
-            let concerns = concernsMatch
-              ? concernsMatch[1].trim()
-              : 'No specific concerns extracted.';
+            // --- Extract concerns from multiple formats ---
+            const allConcerns = [];
 
-            // Extract low scores
-            const scoreMatches = [...verificationText.matchAll(/(\w+):\s*(\d+)\/10/gi)];
+            // Format 1: ### Concerns heading (verify:evaluate)
+            const headingMatch = verificationText.match(
+              /### Concerns\s*\n([\s\S]*?)(?=###|##|$)/i
+            );
+            if (headingMatch) {
+              for (const line of headingMatch[1].split('\n')) {
+                const t = line.trim().replace(/^[-*]\s*/, '');
+                if (t && t.length > 15) allConcerns.push(t);
+              }
+            }
+
+            // Format 2: - **Concerns:** bullet list (Provider Comparison Report)
+            const bulletMatches = verificationText.matchAll(
+              /- \*\*Concerns:\*\*\s*\n((?:\s+-\s+[^\n]+\n?)+)/g
+            );
+            for (const m of bulletMatches) {
+              for (const line of m[1].split('\n')) {
+                const t = line.trim().replace(/^-\s*/, '');
+                if (t && t.length > 15) allConcerns.push(t);
+              }
+            }
+
+            // Format 3: Unique Insights section
+            const insightsMatch = verificationText.match(
+              /### Unique Insights\s*\n([\s\S]*?)(?=\n##|\n---|\Z)/
+            );
+            if (insightsMatch) {
+              for (const line of insightsMatch[1].split('\n')) {
+                if (!line.trim().startsWith('-')) continue;
+                // Remove "- provider: " prefix
+                const content = line.trim().replace(
+                  /^-\s*\w+(?:-\w+)?:\s*/, ''
+                );
+                for (const c of content.split(';')) {
+                  const t = c.trim();
+                  if (t && t.length > 15) allConcerns.push(t);
+                }
+              }
+            }
+
+            // Deduplicate concerns
+            const seen = new Set();
+            const concerns = [];
+            for (const c of allConcerns) {
+              const key = c.toLowerCase();
+              if (!seen.has(key)) {
+                seen.add(key);
+                concerns.push(c);
+              }
+            }
+
+            // --- Extract verdict from multiple formats ---
+            let verdict = 'Unknown';
+
+            // Format 1: Provider Summary table row with FAIL/CONCERNS/PASS
+            const tableMatch = verificationText.match(
+              /\|\s*\w+\s*\|[^|]+\|\s*(FAIL|CONCERNS|PASS)\s*\|/i
+            );
+            if (tableMatch) {
+              verdict = tableMatch[1].toUpperCase();
+            }
+
+            // Format 2: - **Verdict:** WORD (inside <details> sections)
+            if (verdict === 'Unknown') {
+              const boldMatch = verificationText.match(
+                /\*\*Verdict:\*\*\s*(\w+)/i
+              );
+              if (boldMatch) verdict = boldMatch[1];
+            }
+
+            // Format 3: Plain Verdict: WORD
+            if (verdict === 'Unknown') {
+              const plainMatch = verificationText.match(
+                /Verdict:\s*(\w+)/i
+              );
+              if (plainMatch) verdict = plainMatch[1];
+            }
+
+            // --- Extract low scores ---
+            const scoreMatches = [
+              ...verificationText.matchAll(/(\w+):\s*(\d+(?:\.\d+)?)\/10/gi)
+            ];
             const lowScores = scoreMatches
-              .filter(m => parseInt(m[2]) < 7)
+              .filter(m => parseFloat(m[2]) < 7)
               .map(m => `- ${m[1]}: ${m[2]}/10`);
 
-            // Extract verdict
-            const verdictMatch = verificationText.match(/Verdict:\s*\*?\*?(\w+)\*?\*?/i);
-            const verdict = verdictMatch ? verdictMatch[1] : 'Unknown';
-
-            // Build issue body with proper indentation for YAML compatibility
-            const taskItems = concerns.split('\n')
-              .filter(l => l.trim())
-              .map(c => `- [ ] ${c.replace(/^[-*]\s*/, '')}`)
-              .join('\n');
+            // --- Build issue body ---
+            const hasConcerns = concerns.length > 0;
+            const taskItems = hasConcerns
+              ? concerns.slice(0, 12).map(c => {
+                  const prefix = /^(add|fix|implement|update|ensure|create|write)/i
+                    .test(c) ? '' : 'Address: ';
+                  return `- [ ] ${prefix}${c}`;
+                }).join('\n')
+              : '- [ ] No specific concerns extracted.';
 
             const lowScoreSection = lowScores.length > 0
               ? '\n## Implementation Notes\n\nLow scores to address:\n' +
-                lowScores.join('\n')
+                [...new Set(lowScores)].join('\n')
               : '';
 
             const issueBody = [
@@ -314,7 +400,10 @@ jobs:
             // Use environment file for multi-line output
             const envFile = process.env.GITHUB_OUTPUT;
             const delimiter = 'EOF_BODY';
-            fs.appendFileSync(envFile, `issue_body<<${delimiter}\n${issueBody}\n${delimiter}\n`);
+            fs.appendFileSync(
+              envFile,
+              `issue_body<<${delimiter}\n${issueBody}\n${delimiter}\n`
+            );
 
       - name: Create follow-up issue
         id: create-issue
@@ -339,12 +428,42 @@ jobs:
                   paginateWithRetry: (githubInstance, method, params) =>
                     githubInstance.paginate(method, params),
                 };
-            const { withRetry } = retryHelpers;
+            const { withRetry, paginateWithRetry } = retryHelpers;
+
             const title = process.env.ISSUE_TITLE;
             const body = process.env.ISSUE_BODY;
+            const prNumber = context.payload.pull_request.number;
 
             if (!title || !body) {
               core.setFailed('Failed to generate issue title or body');
+              return;
+            }
+
+            // Deduplication: check if a follow-up issue already exists
+            const existing = await paginateWithRetry(
+              github, github.rest.issues.listForRepo,
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                state: 'open',
+                labels: 'follow-up',
+                per_page: 100
+              }
+            );
+            const hasDuplicate = existing.some(issue =>
+              issue.title.includes(`PR #${prNumber}`) &&
+              issue.body && issue.body.includes(`PR #${prNumber}`)
+            );
+            if (hasDuplicate) {
+              core.info(
+                `Follow-up issue for PR #${prNumber} already exists, skipping`
+              );
+              // Set outputs so downstream steps don't fail
+              const dup = existing.find(i =>
+                i.title.includes(`PR #${prNumber}`)
+              );
+              core.setOutput('issue_number', dup.number);
+              core.setOutput('issue_url', dup.html_url);
               return;
             }
 

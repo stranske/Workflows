@@ -354,3 +354,56 @@ def test_build_chat_clients_handles_partial_failures(
     assert len(clients) == 1
     assert clients[0].provider == langchain_client.PROVIDER_OPENAI
     assert isinstance(clients[0].client, FakeChatOpenAI)
+
+
+# --- Reasoning model temperature handling ---
+
+
+@pytest.mark.parametrize(
+    "model,expected",
+    [
+        ("o3-mini", True),
+        ("o1", True),
+        ("o1-preview", True),
+        ("o4-mini", True),
+        ("gpt-5.2", False),
+        ("gpt-4o", False),
+        ("claude-sonnet-4-5-20250929", False),
+    ],
+)
+def test_is_reasoning_model(model: str, expected: bool) -> None:
+    assert langchain_client._is_reasoning_model(model) is expected
+
+
+def test_build_openai_client_reasoning_model_no_temperature(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Reasoning models (o3-mini, etc.) must NOT receive temperature."""
+    FakeChatOpenAI = _install_fake_langchain_openai(monkeypatch)
+    monkeypatch.setenv("OPENAI_API_KEY", "oa-token")
+    monkeypatch.delenv(langchain_client.ENV_ANTHROPIC_KEY, raising=False)
+    monkeypatch.setenv(langchain_client.ENV_PROVIDER, "openai")
+    monkeypatch.setenv(langchain_client.ENV_MODEL, "o3-mini")
+
+    resolved = langchain_client.build_chat_client(model="o3-mini")
+
+    assert resolved is not None
+    assert isinstance(resolved.client, FakeChatOpenAI)
+    assert "temperature" not in resolved.client.kwargs
+
+
+def test_build_openai_client_normal_model_has_temperature(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Normal models must receive temperature=0.1."""
+    FakeChatOpenAI = _install_fake_langchain_openai(monkeypatch)
+    monkeypatch.setenv("OPENAI_API_KEY", "oa-token")
+    monkeypatch.delenv(langchain_client.ENV_ANTHROPIC_KEY, raising=False)
+    monkeypatch.setenv(langchain_client.ENV_PROVIDER, "openai")
+    monkeypatch.setenv(langchain_client.ENV_MODEL, "gpt-5.2")
+
+    resolved = langchain_client.build_chat_client(model="gpt-5.2")
+
+    assert resolved is not None
+    assert isinstance(resolved.client, FakeChatOpenAI)
+    assert resolved.client.kwargs["temperature"] == 0.1
