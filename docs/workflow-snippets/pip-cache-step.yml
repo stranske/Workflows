@@ -1,0 +1,9 @@
+- name: Cache pip
+  uses: actions/cache@v4
+  with:
+    path: |
+      ~/.cache/pip
+    key: pip-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('tools/requirements-llm.txt') }}
+    restore-keys: |
+      pip-${{ runner.os }}-${{ matrix.python-version }}-
+      pip-${{ runner.os }}-

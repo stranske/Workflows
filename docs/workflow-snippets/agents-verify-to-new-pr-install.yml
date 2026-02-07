@@ -1,0 +1,5 @@
+- name: Install dependencies
+  if: steps.check-merged.outputs.merged == 'true'
+  run: |
+    python -m pip install --upgrade pip
+    pip install -r tools/requirements-llm.txt
