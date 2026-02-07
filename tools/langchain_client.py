@@ -151,7 +151,8 @@ def _resolve_slots() -> list[SlotDefinition]:
 def _is_reasoning_model(model: str) -> bool:
     """Return True if the model is an OpenAI reasoning model that rejects temperature."""
     name = model.lower().strip()
-    # o-series reasoning models: o1, o1-mini, o1-preview, o3, o3-mini, o4-mini, etc.
+    # o-series reasoning models use an `o` prefix followed by a digit, with optional suffixes:
+    # o1, o1-preview, o1-preview-2024-09-12, o3, o3-mini, o3-pro, o4-mini, o4-mini-deep-research.
     return bool(__import__("re").match(r"^o[0-9]", name))
 
 

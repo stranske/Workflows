@@ -362,13 +362,25 @@ def test_build_chat_clients_handles_partial_failures(
 @pytest.mark.parametrize(
     "model,expected",
     [
-        ("o3-mini", True),
         ("o1", True),
+        ("o1-mini", True),
         ("o1-preview", True),
+        ("o1-preview-2024-09-12", True),
+        ("o3", True),
+        ("o3-2025-04-16", True),
+        ("o3-mini", True),
+        ("o3-pro", True),
         ("o4-mini", True),
+        ("o4-mini-deep-research", True),
         ("gpt-5.2", False),
         ("gpt-4o", False),
+        ("gpt-4.1", False),
         ("claude-sonnet-4-5-20250929", False),
+        ("mixtral-8x7b", False),
+        ("o", False),
+        ("o-1", False),
+        ("openai-o1", False),
+        ("oasis-1", False),
     ],
 )
 def test_is_reasoning_model(model: str, expected: bool) -> None:
