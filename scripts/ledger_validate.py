@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import datetime as _dt
 import json
+import os
 import re
 import subprocess
 import sys
@@ -80,66 +81,75 @@ def _validate_timestamp(value: Any, *, field: str, path: str) -> list[str]:
 def _fetch_commit(commit: str) -> bool:
     """Ensure *commit* exists locally, fetching extra history if needed."""
 
-    fetch_attempts = [
-        [
-            "git",
-            "fetch",
-            "--no-tags",
-            "--filter=blob:none",
-            "origin",
-            commit,
-        ],
-        [
-            "git",
-            "fetch",
-            "--no-tags",
-            "--filter=blob:none",
-            "--deepen",
-            "256",
-            "origin",
-        ],
-        [
-            "git",
-            "fetch",
-            "--no-tags",
-            "--filter=blob:none",
-            "--unshallow",
-            "origin",
-        ],
-    ]
+    fetch_targets = ["origin"]
+    repo = os.environ.get("GITHUB_REPOSITORY")
+    if repo:
+        server = os.environ.get("GITHUB_SERVER_URL", "https://github.com").rstrip("/")
+        base_url = f"{server}/{repo}.git"
+        if base_url not in fetch_targets:
+            fetch_targets.append(base_url)
 
-    for command in fetch_attempts:
-        try:
-            subprocess.check_call(
-                command,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
-        except subprocess.CalledProcessError:
-            continue
+    for target in fetch_targets:
+        fetch_attempts = [
+            [
+                "git",
+                "fetch",
+                "--no-tags",
+                "--filter=blob:none",
+                target,
+                commit,
+            ],
+            [
+                "git",
+                "fetch",
+                "--no-tags",
+                "--filter=blob:none",
+                "--deepen",
+                "256",
+                target,
+            ],
+            [
+                "git",
+                "fetch",
+                "--no-tags",
+                "--filter=blob:none",
+                "--unshallow",
+                target,
+            ],
+        ]
 
-        if command[-1] == commit:
+        for command in fetch_attempts:
+            try:
+                subprocess.check_call(
+                    command,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+            except subprocess.CalledProcessError:
+                continue
+
+            if command[-1] == commit:
+                return True
+
+            # Success without specifying the SHA just deepened the local clone;
+            # try once more to pull the exact commit while the additional history
+            # is available.
+            try:
+                subprocess.check_call(
+                    [
+                        "git",
+                        "fetch",
+                        "--no-tags",
+                        "--filter=blob:none",
+                        target,
+                        commit,
+                    ],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+            except subprocess.CalledProcessError:
+                continue
             return True
-
-        # Success without specifying the SHA just deepened the local clone;
-        # try once more to pull the exact commit while the additional history
-        # is available.
-        try:
-            subprocess.check_call(
-                [
-                    "git",
-                    "fetch",
-                    "--no-tags",
-                    "--filter=blob:none",
-                    "origin",
-                    commit,
-                ],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
-        except subprocess.CalledProcessError:
-            continue
-        return True
 
     return False
 
