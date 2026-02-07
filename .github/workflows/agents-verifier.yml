@@ -121,6 +121,7 @@ jobs:
           script: |
             const fs = require('fs');
             const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const gh = github;
             const retryHelpers = fs.existsSync(retryHelperPath)
               ? require(retryHelperPath)
               : {
@@ -140,7 +141,7 @@ jobs:
 
               // Verify PR exists and is merged
               try {
-                const { data: pr } = await withRetry(() => github.rest.pulls.get({
+                const { data: pr } = await withRetry(() => gh.rest.pulls.get({
                   ...context.repo,
                   pull_number: parseInt(prNumber),
                 }));

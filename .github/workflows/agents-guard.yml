@@ -145,9 +145,10 @@ jobs:
             const workspace = process.env.GITHUB_WORKSPACE || process.cwd();
             const guardRelativePath = '.github/scripts/agents-guard.js';
             const guardPath = path.resolve(workspace, guardRelativePath);
+            const gh = github;
             const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
             const { github: api, withRetry, paginateWithRetry } = await createTokenAwareRetry({
-              github,
+              github: gh,
               core,
               env: process.env,
               task: 'agents-guard',
@@ -406,6 +407,7 @@ jobs:
             const path = require('path');
             const workspace = process.env.GITHUB_WORKSPACE || process.cwd();
             const guardPath = path.resolve(workspace, '.github/scripts/agents-guard.js');
+            const gh = github;
 
             let defaultMarker = '<!-- agents-guard-marker -->';
             try {
@@ -495,7 +497,7 @@ jobs:
             const { owner, repo } = context.repo;
 
             const existingComments = await withApiRetry(
-              () => github.paginate(github.rest.issues.listComments, {
+              () => gh.paginate(gh.rest.issues.listComments, {
                 owner,
                 repo,
                 issue_number: prNumber,
@@ -510,7 +512,7 @@ jobs:
             if (alreadyPosted) {
               if (alreadyPosted.body !== markedBody) {
                 await withApiRetry(
-                  () => github.rest.issues.updateComment({
+                  () => gh.rest.issues.updateComment({
                     owner,
                     repo,
                     comment_id: alreadyPosted.id,
@@ -523,7 +525,7 @@ jobs:
             }
 
             await withApiRetry(
-              () => github.rest.issues.createComment({
+              () => gh.rest.issues.createComment({
                 owner,
                 repo,
                 issue_number: prNumber,
@@ -542,6 +544,7 @@ jobs:
             ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         with:
           script: |
+            const gh = github;
             const owner = context.repo.owner;
             const repo = context.repo.repo;
             const pullRequest = context.payload.pull_request;
@@ -622,7 +625,7 @@ jobs:
 
             try {
               await withApiRetry(
-                () => github.rest.repos.createCommitStatus({
+                () => gh.rest.repos.createCommitStatus({
                   owner,
                   repo,
                   sha,

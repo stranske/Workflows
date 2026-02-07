@@ -142,9 +142,10 @@ jobs:
             const workspace = process.env.GITHUB_WORKSPACE || process.cwd();
             const guardRelativePath = '.github/scripts/agents-guard.js';
             const guardPath = path.resolve(workspace, guardRelativePath);
+            const gh = github;
             const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
             const { github: api, withRetry, paginateWithRetry } = await createTokenAwareRetry({
-              github,
+              github: gh,
               core,
               env: process.env,
               task: 'agents-guard',
@@ -403,9 +404,10 @@ jobs:
             const path = require('path');
             const workspace = process.env.GITHUB_WORKSPACE || process.cwd();
             const guardPath = path.resolve(workspace, '.github/scripts/agents-guard.js');
+            const gh = github;
             const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
             const { withRetry, paginateWithRetry } = await createTokenAwareRetry({
-              github,
+              github: gh,
               core,
               env: process.env,
               task: 'agents-guard',
@@ -501,7 +503,7 @@ jobs:
 
             const existingComments = await withApiRetry(
               () => paginateWithRetry(
-                github.rest.issues.listComments,
+                gh.rest.issues.listComments,
                 {
                   owner,
                   repo,
@@ -550,9 +552,10 @@ jobs:
             ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         with:
           script: |
+            const gh = github;
             const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
             const { withRetry } = await createTokenAwareRetry({
-              github,
+              github: gh,
               core,
               env: process.env,
               task: 'agents-guard',
