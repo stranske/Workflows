@@ -22,6 +22,7 @@ def test_fetch_commit_uses_second_remote_after_origin_failure(monkeypatch) -> No
         raise AssertionError(f"Unexpected fetch target in {command}")
 
     monkeypatch.setattr(ledger_validate.subprocess, "check_call", fake_check_call)
+    monkeypatch.setattr(ledger_validate, "_pull_request_head_repo_url", lambda: None)
 
     assert ledger_validate._fetch_commit(commit) is True
 
@@ -44,6 +45,7 @@ def test_fetch_commit_all_remotes_fail(monkeypatch) -> None:
         raise subprocess.CalledProcessError(1, command)
 
     monkeypatch.setattr(ledger_validate.subprocess, "check_call", fake_check_call)
+    monkeypatch.setattr(ledger_validate, "_pull_request_head_repo_url", lambda: None)
 
     assert ledger_validate._fetch_commit(commit) is False
     assert len(calls) == 10
@@ -63,6 +65,7 @@ def test_fetch_commit_retry_then_succeeds(monkeypatch) -> None:
         return None
 
     monkeypatch.setattr(ledger_validate.subprocess, "check_call", fake_check_call)
+    monkeypatch.setattr(ledger_validate, "_pull_request_head_repo_url", lambda: None)
 
     assert ledger_validate._fetch_commit(commit) is True
     assert len(calls) == 4
@@ -92,5 +95,6 @@ def test_fetch_commit_uses_tokenized_base_url(monkeypatch) -> None:
         raise AssertionError(f"Unexpected fetch target in {command}")
 
     monkeypatch.setattr(ledger_validate.subprocess, "check_call", fake_check_call)
+    monkeypatch.setattr(ledger_validate, "_pull_request_head_repo_url", lambda: None)
 
     assert ledger_validate._fetch_commit(commit) is True

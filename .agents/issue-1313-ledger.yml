@@ -9,7 +9,7 @@ tasks:
     status: done
     started_at: '2026-02-07T19:05:00Z'
     finished_at: '2026-02-07T19:08:00Z'
-    commit: f7446f2
+    commit: f7446f2041e7ae30a6e188945b4bc893e7c5dcf2
     code_change:
       - path: scripts/api_client.py
         area: fetch_oauth_scopes
@@ -22,7 +22,7 @@ tasks:
     status: done
     started_at: '2026-02-07T20:10:00Z'
     finished_at: '2026-02-07T20:12:00Z'
-    commit: b4fb397
+    commit: b4fb397923778003bc49d715b196edba3e653bd9
     code_change:
       - path: tests/test_authentication.py
         area: test_main_missing_token_exits_with_message
@@ -35,7 +35,7 @@ tasks:
     status: done
     started_at: '2026-02-07T20:20:00Z'
     finished_at: '2026-02-07T20:25:00Z'
-    commit: a0f2f6d
+    commit: a0f2f6d338277619bac4dedd7fa6dc788713bba3
     code_change:
       - path: tests/test_ledger_validate.py
         area: _fetch_commit retry and multi-remote tests
@@ -50,7 +50,7 @@ tasks:
     status: done
     started_at: '2026-02-07T20:30:00Z'
     finished_at: '2026-02-07T20:32:00Z'
-    commit: f7446f2
+    commit: f7446f2041e7ae30a6e188945b4bc893e7c5dcf2
     decision: DECISIONS.md#2026-02-07---pr-1304-ledger-hygiene
     evidence:
       - decision: DECISIONS.md#2026-02-07---pr-1304-ledger-hygiene
@@ -61,7 +61,7 @@ tasks:
     status: done
     started_at: '2026-02-07T20:35:00Z'
     finished_at: '2026-02-07T20:38:00Z'
-    commit: f7446f2
+    commit: f7446f2041e7ae30a6e188945b4bc893e7c5dcf2
     decision: DECISIONS.md#2026-02-07---pr-1304-auth-coverage-baseline
     evidence:
       - decision: DECISIONS.md#2026-02-07---pr-1304-auth-coverage-baseline
