@@ -27,7 +27,6 @@ concurrency:
 
 jobs:
   guard:
-    name: Enforce agents workflow protections
     runs-on: ubuntu-latest
 
     steps:
@@ -646,7 +645,7 @@ jobs:
                   repo,
                   sha,
                   state,
-                  context: 'Health 45 Agents Guard / Enforce agents workflow protections',
+                  context: 'Health 45 Agents Guard / guard',
                   description,
                   target_url: targetUrl,
                 }),

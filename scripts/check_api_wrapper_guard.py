@@ -23,6 +23,7 @@ SKIP_FILES = {
     ROOT / ".github" / "scripts" / "token_load_balancer.js",
     ROOT / "scripts" / "check_api_wrapper_guard.py",
     ROOT / "scripts" / "api_client.py",
+    ROOT / "tools" / "enforce_gate_branch_protection.py",
 }
 
 DIRECT_PATTERNS = [

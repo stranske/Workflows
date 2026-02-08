@@ -115,7 +115,7 @@ jobs:
             --apply \
             --branch "${DEFAULT_BRANCH}" \
             --context "Gate / gate" \
-            --context "Health 45 Agents Guard / Enforce agents workflow protections" \
+            --context "Health 45 Agents Guard / guard" \
             --no-clean
 
       - name: Snapshot branch protection state
@@ -130,7 +130,7 @@ jobs:
             --require-strict \
             --branch "${DEFAULT_BRANCH}" \
             --context "Gate / gate" \
-            --context "Health 45 Agents Guard / Enforce agents workflow protections" \
+            --context "Health 45 Agents Guard / guard" \
             --no-clean \
             --snapshot repo-health-branch-protection.json
 

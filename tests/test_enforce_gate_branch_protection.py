@@ -169,7 +169,7 @@ def test_main_check_returns_nonzero_on_drift(
             "--context",
             "Gate / gate",
             "--context",
-            "Health 45 Agents Guard / Enforce agents workflow protections",
+            "Health 45 Agents Guard / guard",
         ]
     )
 
@@ -193,7 +193,7 @@ def test_main_apply_updates_and_writes_snapshot(
             strict=True,
             contexts=[
                 "Gate / gate",
-                "Health 45 Agents Guard / Enforce agents workflow protections",
+                "Health 45 Agents Guard / guard",
             ],
         )
 
@@ -213,7 +213,7 @@ def test_main_apply_updates_and_writes_snapshot(
             "--context",
             "Gate / gate",
             "--context",
-            "Health 45 Agents Guard / Enforce agents workflow protections",
+            "Health 45 Agents Guard / guard",
         ]
     )
 
