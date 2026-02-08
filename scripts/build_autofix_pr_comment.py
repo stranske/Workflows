@@ -100,7 +100,7 @@ def extract_diagnostics_counts(report: dict | None) -> tuple[int | None, int | N
 def should_emit_comment(report: dict | None) -> bool:
     diagnostics_count, diagnostics_fixed = extract_diagnostics_counts(report)
     if diagnostics_count is None and diagnostics_fixed is None:
-        return True
+        return False
     return (diagnostics_count or 0) > 0 or (diagnostics_fixed or 0) > 0
 
 

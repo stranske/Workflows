@@ -162,11 +162,15 @@ def test_build_comment_defaults_and_autofix_suffix(tmp_path: Path) -> None:
         ({"diagnostics_fixed": 0}, False),
         ({"classification": {"total": 2}}, True),
         ({"classification": {"total": 0}}, False),
-        ({}, True),
+        ({}, False),
     ],
 )
 def test_should_emit_comment(report: dict, expected: bool) -> None:
     assert should_emit_comment(report) is expected
+
+
+def test_should_emit_comment_none() -> None:
+    assert should_emit_comment(None) is False
 
 
 def test_extract_diagnostics_counts_defaults() -> None:
