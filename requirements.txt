@@ -1,3 +1,5 @@
 # Core runtime dependencies
 langchain-community==0.4.0
+pydantic==2.12.5
+pyyaml==6.0.3
 requests==2.32.5
