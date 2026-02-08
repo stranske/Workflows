@@ -132,7 +132,10 @@ jobs:
             // Metadata labels that aren't actual agent assignments
             const metadataLabels = new Set([
               'keepalive', 'formatted', 'optimize', 'allow-change',
-              'apply-suggestions', 'debug', 'format', 'sync-failed', 'sync-required'
+              'apply-suggestions', 'debug', 'format', 'sync-failed', 'sync-required',
+              'auto-pilot', 'auto-pilot-pause', 'auto-pilot-failed',
+              'activated', 'decompose', 'paused',
+              'needs-attention', 'rate-limited', 'retry',
             ]);
 
             if (eventName === 'issues') {

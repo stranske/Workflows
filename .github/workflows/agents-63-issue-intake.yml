@@ -580,7 +580,10 @@ jobs:
             // Metadata labels that aren't actual agent assignments
             const metadataLabels = new Set([
               'keepalive', 'formatted', 'optimize', 'allow-change',
-              'apply-suggestions', 'debug', 'format', 'sync-failed', 'sync-required'
+              'apply-suggestions', 'debug', 'format', 'sync-failed', 'sync-required',
+              'auto-pilot', 'auto-pilot-pause', 'auto-pilot-failed',
+              'activated', 'decompose', 'paused',
+              'needs-attention', 'rate-limited', 'retry',
             ]);
             const analyzeAgentLabels = (rawLabels) => {
               const entries = new Map();
@@ -1306,7 +1309,10 @@ jobs:
             // Control labels that should not be counted as agent assignments
             const controlLabelSuffixes = [
               'keepalive', 'formatted', 'optimize', 'allow-change',
-              'apply-suggestions', 'debug', 'format', 'sync-failed', 'sync-required'
+              'apply-suggestions', 'debug', 'format', 'sync-failed', 'sync-required',
+              'auto-pilot', 'auto-pilot-pause', 'auto-pilot-failed',
+              'activated', 'decompose', 'paused',
+              'needs-attention', 'rate-limited', 'retry',
             ];
             const codexGuardLabels = ['agent:codex', 'agents:codex'];
             const agentLabels = labels
