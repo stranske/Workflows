@@ -225,7 +225,39 @@ describe('fetchPRContext', () => {
       }
     }
   });
-  
+
+  it('supports glob entries in PR_CONTEXT_IGNORED_PATHS', async () => {
+    const mockGithub = {
+      graphql: mock.fn(async () => mockPRContextResponseWithAgents)
+    };
+    const originalPaths = process.env.PR_CONTEXT_IGNORED_PATHS;
+    const originalPatterns = process.env.PR_CONTEXT_IGNORED_PATTERNS;
+
+    process.env.PR_CONTEXT_IGNORED_PATHS = '.agents/**';
+    delete process.env.PR_CONTEXT_IGNORED_PATTERNS;
+
+    try {
+      const context = await fetchPRContext(mockGithub, 'owner', 'repo', 42);
+
+      assert.strictEqual(context.files.total, 3);
+      assert.strictEqual(context.files.ignored, 1);
+      assert.strictEqual(context.files.unfilteredTotal, 4);
+      assert.deepStrictEqual(context.files.ignoredPaths, ['.agents/issue-1234-ledger.yml']);
+      assert.deepStrictEqual(context.files.paths, ['src/index.js', 'tests/test.js', 'README.md']);
+    } finally {
+      if (originalPaths === undefined) {
+        delete process.env.PR_CONTEXT_IGNORED_PATHS;
+      } else {
+        process.env.PR_CONTEXT_IGNORED_PATHS = originalPaths;
+      }
+      if (originalPatterns === undefined) {
+        delete process.env.PR_CONTEXT_IGNORED_PATTERNS;
+      } else {
+        process.env.PR_CONTEXT_IGNORED_PATTERNS = originalPatterns;
+      }
+    }
+  });
+
   it('extracts reviews correctly', async () => {
     const mockGithub = {
       graphql: mock.fn(async () => mockPRContextResponse)
