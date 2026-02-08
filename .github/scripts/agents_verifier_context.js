@@ -324,7 +324,7 @@ async function fetchClosingIssues({ github, core, owner, repo, prNumber }) {
               body
               state
               url
-              labels(first: 20) {
+              labels(first: 100) {
                 nodes {
                   name
                 }
