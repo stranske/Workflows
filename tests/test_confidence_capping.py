@@ -1,9 +1,9 @@
 from tools.llm_provider import (
+    SHORT_ANALYSIS_CONFIDENCE_CAP,
     CompletionAnalysis,
     FallbackChainProvider,
     GitHubModelsProvider,
     SessionQualityContext,
-    SHORT_ANALYSIS_CONFIDENCE_CAP,
 )
 
 
