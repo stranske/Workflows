@@ -70,7 +70,7 @@ Auto-pilot pipeline:
 
 4. **Verify Before Marking Complete**: Only mark task checkboxes complete after verifying the implementation works.
 
-5. **Follow-up Chain Depth**: Follow-up chains **must not** exceed depth 2 (original + 2 follow-ups). Automated enforcement is pending; until it lands, agents and workflows should apply `needs-human` instead of creating additional follow-up issues beyond this depth.
+5. **Follow-up Chain Depth**: Follow-up chains **must not** exceed depth 2 (original + 2 follow-ups). Automated enforcement is pending; until it lands, agents and workflows should apply `needs-human` instead of creating additional follow-up issues beyond this depth. See [`verify-compare-40pr-evaluation-feb-2026.md`](../analysis/verify-compare-40pr-evaluation-feb-2026.md) for current metrics (35% first-fix rate, 2.7 avg chain depth across 40 PRs).
 
 ## Keepalive Implementations
 
