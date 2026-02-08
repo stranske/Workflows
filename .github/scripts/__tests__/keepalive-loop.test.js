@@ -334,7 +334,7 @@ test('evaluateKeepaliveLoop triggers fix mode when gate fails with test failures
   });
   // Override listJobsForWorkflowRun to return test failures
   github.rest.actions.listJobsForWorkflowRun = async () => ({
-    data: { jobs: [{ name: 'test (3.11)', conclusion: 'failure' }] },
+    data: { jobs: [{ name: 'test (3.11)', status: 'completed', conclusion: 'failure' }] },
   });
   const result = await evaluateKeepaliveLoop({
     github,
@@ -408,7 +408,7 @@ test('evaluateKeepaliveLoop waits when gate fails with lint failures', async () 
   });
   // Override listJobsForWorkflowRun to return lint failures
   github.rest.actions.listJobsForWorkflowRun = async () => ({
-    data: { jobs: [{ name: 'lint (ruff)', conclusion: 'failure' }] },
+    data: { jobs: [{ name: 'lint (ruff)', status: 'completed', conclusion: 'failure' }] },
   });
   const result = await evaluateKeepaliveLoop({
     github,
@@ -469,7 +469,7 @@ test('evaluateKeepaliveLoop bypasses rate limit cancelled gate', async () => {
   const github = buildGithubStub({
     pr,
     workflowRuns: [{ id: 2001, head_sha: 'sha-cancelled-rate', conclusion: 'cancelled' }],
-    workflowJobs: [{ id: 3001, check_run_id: 9001, name: 'gate' }],
+    workflowJobs: [{ id: 3001, check_run_id: 9001, name: 'gate', status: 'completed', conclusion: 'cancelled' }],
     annotationsByCheckRunId: {
       9001: [{ message: 'Secondary rate limit exceeded for GitHub API.' }],
     },
@@ -494,7 +494,7 @@ test('evaluateKeepaliveLoop bypasses rate limit cancelled gate from logs', async
   const github = buildGithubStub({
     pr,
     workflowRuns: [{ id: 2002, head_sha: 'sha-cancelled-rate-logs', conclusion: 'cancelled' }],
-    workflowJobs: [{ id: 3002, name: 'gate' }],
+    workflowJobs: [{ id: 3002, name: 'gate', status: 'completed', conclusion: 'cancelled' }],
     jobLogsByJobId: {
       3002: 'Error: API rate limit exceeded, please retry later.',
     },
@@ -541,7 +541,7 @@ test('evaluateKeepaliveLoop rate limit bypass takes precedence over force_retry'
   const github = buildGithubStub({
     pr,
     workflowRuns: [{ id: 2004, head_sha: 'sha-force-retry-rate', conclusion: 'cancelled' }],
-    workflowJobs: [{ id: 3004, check_run_id: 9004, name: 'gate' }],
+    workflowJobs: [{ id: 3004, check_run_id: 9004, name: 'gate', status: 'completed', conclusion: 'cancelled' }],
     annotationsByCheckRunId: {
       9004: [{ message: 'Secondary rate limit exceeded for GitHub API.' }],
     },
