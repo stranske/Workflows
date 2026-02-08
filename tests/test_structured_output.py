@@ -183,11 +183,12 @@ def test_parse_structured_output_repair_validation_error():
 def test_parse_structured_output_uses_effective_repair_attempts(
     input_attempts: int, expected_effective: int, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    observed = {"effective": None}
+    observed = {"effective": None, "calls": 0}
     original_loop = structured_output._invoke_repair_loop
 
     def loop_spy(**kwargs: Any) -> StructuredOutputResult:
         observed["effective"] = kwargs["attempts"]
+        observed["calls"] += 1
         return original_loop(**kwargs)
 
     monkeypatch.setattr(structured_output, "_invoke_repair_loop", loop_spy)
@@ -202,6 +203,7 @@ def test_parse_structured_output_uses_effective_repair_attempts(
 
     # Production rule: max_repair_attempts is clamped to [MIN_REPAIR_ATTEMPTS, MAX_REPAIR_ATTEMPTS].
     assert observed["effective"] == expected_effective
+    assert observed["calls"] == 1
     assert repair_spy.call_count == expected_effective
     assert result.repair_attempts_used == expected_effective
     if expected_effective == 0:
