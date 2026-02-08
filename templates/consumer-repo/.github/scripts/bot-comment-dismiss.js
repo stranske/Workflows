@@ -145,6 +145,57 @@ async function dismissReviewComments(options = {}) {
   return { dismissed, failed, logs };
 }
 
+async function autoDismissReviewComments(options = {}) {
+  const github = options.github;
+  const owner = options.owner;
+  const repo = options.repo;
+  const pullNumber = options.pullNumber;
+  const withRetry = options.withRetry || ((fn) => fn());
+  const logger = options.logger || console;
+
+  if (!github || !github.rest || !github.rest.pulls) {
+    throw new Error('github client missing rest.pulls');
+  }
+  if (!owner || !repo) {
+    throw new Error('owner and repo are required');
+  }
+  if (!pullNumber) {
+    throw new Error('pullNumber is required');
+  }
+
+  const response = await withRetry(() =>
+    github.rest.pulls.listReviewComments({
+      owner,
+      repo,
+      pull_number: pullNumber,
+      per_page: 100,
+    })
+  );
+  const comments = Array.isArray(response?.data) ? response.data : response || [];
+
+  const dismissable = collectDismissable(comments, {
+    ignoredPaths: options.ignoredPaths,
+    ignoredPatterns: options.ignoredPatterns,
+    botAuthors: options.botAuthors,
+    maxAgeSeconds:
+      typeof options.maxAgeSeconds === 'number' && Number.isFinite(options.maxAgeSeconds)
+        ? options.maxAgeSeconds
+        : null,
+    now: options.now,
+  });
+
+  const result = await dismissReviewComments({
+    github,
+    owner,
+    repo,
+    dismissable,
+    withRetry,
+    logger,
+  });
+
+  return { dismissable, ...result };
+}
+
 function runCli(env = process.env) {
   const comments = env.COMMENTS_JSON ? JSON.parse(env.COMMENTS_JSON) : [];
   const ignoredPaths = parseCsv(env.IGNORED_PATHS);
@@ -172,6 +223,7 @@ if (require.main === module) {
 
 module.exports = {
   collectDismissable,
+  autoDismissReviewComments,
   dismissReviewComments,
   formatDismissLog,
   runCli,

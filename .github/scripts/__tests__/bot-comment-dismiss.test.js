@@ -4,6 +4,7 @@ const { describe, it } = require('node:test');
 const assert = require('node:assert');
 
 const {
+  autoDismissReviewComments,
   collectDismissable,
   dismissReviewComments,
   formatDismissLog,
@@ -184,6 +185,51 @@ describe('bot-comment-dismiss', () => {
       'Auto-dismissed review comment 2 by coderabbitai[bot] in .agents/issue-2-ledger.yml',
     ]);
     assert.deepStrictEqual(logs, result.logs);
+  });
+
+  it('lists review comments and auto-dismisses ignored-path bot comments', async () => {
+    const deleted = [];
+    const github = {
+      rest: {
+        pulls: {
+          listReviewComments: async () => ({
+            data: [
+              {
+                id: 7,
+                path: '.agents/issue-7-ledger.yml',
+                user: { login: 'copilot[bot]' },
+                created_at: '2026-02-08T12:00:10.000Z',
+              },
+              {
+                id: 8,
+                path: 'src/app.js',
+                user: { login: 'copilot[bot]' },
+                created_at: '2026-02-08T12:00:10.000Z',
+              },
+            ],
+          }),
+          deleteReviewComment: async ({ comment_id }) => {
+            deleted.push(comment_id);
+          },
+        },
+      },
+    };
+
+    const result = await autoDismissReviewComments({
+      github,
+      owner: 'octo',
+      repo: 'repo',
+      pullNumber: 123,
+      ignoredPaths: ['.agents/'],
+      botAuthors: ['copilot[bot]'],
+      maxAgeSeconds: 30,
+      now: Date.parse('2026-02-08T12:00:20.000Z'),
+    });
+
+    assert.deepStrictEqual(result.dismissable, [
+      { id: 7, path: '.agents/issue-7-ledger.yml', author: 'copilot[bot]' },
+    ]);
+    assert.deepStrictEqual(deleted, [7]);
   });
 
   it('tracks failures when dismissal fails', async () => {
