@@ -6,7 +6,6 @@ import json
 import subprocess
 import sys
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
@@ -258,6 +257,7 @@ class TestCLIScript:
             capture_output=True,
             text=True,
             cwd=Path(__file__).parent.parent.parent,
+            timeout=30,
         )
 
         # Should succeed (exit 0)
@@ -286,6 +286,7 @@ class TestCLIScript:
             capture_output=True,
             text=True,
             cwd=Path(__file__).parent.parent.parent,
+            timeout=30,
         )
 
         assert result.returncode == 0, f"stderr: {result.stderr}"
@@ -304,6 +305,7 @@ class TestCLIScript:
             capture_output=True,
             text=True,
             cwd=Path(__file__).parent.parent.parent,
+            timeout=30,
         )
 
         assert result.returncode == 2
@@ -324,6 +326,7 @@ class TestCLIScript:
             capture_output=True,
             text=True,
             cwd=Path(__file__).parent.parent.parent,
+            timeout=30,
         )
 
         assert result.returncode == 0
@@ -335,29 +338,29 @@ class TestCLIScript:
         """Test CLI with --update-pr-body option."""
         updated_file = tmp_path / "updated_body.md"
 
-        # Mock the LLM to return a known completion
-        with patch("tools.llm_provider.get_llm_provider") as mock_provider:
-            from tools.llm_provider import RegexFallbackProvider
+        # Use --provider regex-fallback to avoid hitting real LLM APIs.
+        # NOTE: patch() does NOT work here because subprocess.run() spawns
+        # a new process where the mock is not applied.
+        result = subprocess.run(
+            [
+                sys.executable,
+                "scripts/analyze_codex_session.py",
+                "--session-file",
+                str(sample_session_file),
+                "--pr-body-file",
+                str(sample_pr_body_file),
+                "--output",
+                "json",
+                "--update-pr-body",
+                "--updated-body-file",
+                str(updated_file),
+                "--provider",
+                "regex-fallback",
+            ],
+            capture_output=True,
+            text=True,
+            cwd=Path(__file__).parent.parent.parent,
+            timeout=30,
+        )
 
-            mock_provider.return_value = RegexFallbackProvider()
-
-            result = subprocess.run(
-                [
-                    sys.executable,
-                    "scripts/analyze_codex_session.py",
-                    "--session-file",
-                    str(sample_session_file),
-                    "--pr-body-file",
-                    str(sample_pr_body_file),
-                    "--output",
-                    "json",
-                    "--update-pr-body",
-                    "--updated-body-file",
-                    str(updated_file),
-                ],
-                capture_output=True,
-                text=True,
-                cwd=Path(__file__).parent.parent.parent,
-            )
-
-            assert result.returncode == 0
+        assert result.returncode == 0
