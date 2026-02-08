@@ -467,7 +467,7 @@ jobs:
               try {
                 // Use load-balanced token for API call
                 const comments = await paginateWithRetry(
-                  loadBalancedClient, loadBalancedClient.rest.issues.listComments,
+                  loadBalancedClient.rest.issues.listComments,
                   { owner, repo, issue_number: issueNumber, per_page: 100 }
                 );
                 for (const comment of comments) {
@@ -742,7 +742,7 @@ jobs:
               try {
                 // Fetch all comments using pagination to avoid missing any
                 const comments = await paginateWithRetry(
-                  loadBalancedClient, loadBalancedClient.rest.issues.listComments,
+                  loadBalancedClient.rest.issues.listComments,
                   {
                     owner,
                     repo,
@@ -1114,7 +1114,7 @@ jobs:
               if (summaryNeedsWarning && issueNumber) {
                 const warningHeader = `### Template Warning for Issue #${issueNumber}`;
                 const warningBody = [warningHeader, '', ...warningDetails].join('\n').trim();
-                const comments = await paginateWithRetry(loadBalancedClient, loadBalancedClient.rest.issues.listComments, {
+                const comments = await paginateWithRetry(loadBalancedClient.rest.issues.listComments, {
                   owner,
                   repo,
                   issue_number: issueNumber,
@@ -1171,7 +1171,7 @@ jobs:
               return;
             }
 
-            const existing = await paginateWithRetry(loadBalancedClient, loadBalancedClient.rest.issues.listComments, {
+            const existing = await paginateWithRetry(loadBalancedClient.rest.issues.listComments, {
               owner,
               repo,
               issue_number: prNumber,
