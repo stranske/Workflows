@@ -1,5 +1,20 @@
 'use strict';
 
+/**
+ * Bot Comment Dismiss - Auto-dismiss ignored bot review comments
+ *
+ * Dismisses review comments from bots (Copilot, CodeRabbit, etc.) on files
+ * that should be ignored (e.g., .agents/ ledgers).
+ *
+ * API Wrapper: Use createTokenAwareRetry from github-api-with-retry.js
+ * to create the withRetry function passed to these functions.
+ * 
+ * Example:
+ *   const { createTokenAwareRetry } = require('./github-api-with-retry.js');
+ *   const { withRetry } = await createTokenAwareRetry({ github, core });
+ *   await autoDismissReviewComments({ github, withRetry, ... });
+ */
+
 const { buildIgnoredPathMatchers, shouldIgnorePath } = require('./pr-context-graphql');
 
 function parseCsv(value) {
