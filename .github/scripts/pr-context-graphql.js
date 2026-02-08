@@ -482,6 +482,8 @@ module.exports = {
   PR_BASIC_QUERY,
   fetchPRContext,
   fetchPRBasic,
+  buildIgnoredPathMatchers,
+  shouldIgnorePath,
   serializeForOutput,
   deserializeFromOutput,
   createPRContextCache
