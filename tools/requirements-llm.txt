@@ -4,7 +4,7 @@
 # - Keep aligned with pyproject.toml [langchain] extras to reduce surprises.
 # - Update in lockstep when scripts/update_langchain_versions.py bumps versions.
 # - Use strict X.Y.Z pins to keep installs reproducible and lock aligned.
-langchain==1.2.0
+langchain==1.2.9
 langchain-core==1.2.8
 langchain-community==0.4.0
 langchain-openai==1.1.0
