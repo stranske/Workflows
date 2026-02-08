@@ -15,6 +15,16 @@
 
 ---
 
+## Ignore Ledger Tracking Files
+
+Do not review or comment on ledger tracking files used for agent automation:
+- `.agents/issue-*-ledger.yml`
+- Any file under `.agents/` that is not application code
+
+These files are internal task trackers and should never receive Copilot review comments or suggestions.
+
+---
+
 ## Skill: GitHub Operations
 
 ### Authentication & PAT Usage

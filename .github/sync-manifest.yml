@@ -333,6 +333,9 @@ scripts:
   - source: .github/scripts/comment-dedupe.js
     description: "Deduplicates bot comments on issues/PRs"
 
+  - source: .github/scripts/bot-comment-dismiss.js
+    description: "Collects ignored bot review comments for auto-dismiss handling"
+
   - source: .github/scripts/post_completion_comment.js
     description: "Posts completion comments on PRs"
 

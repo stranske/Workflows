@@ -31,6 +31,14 @@ After reading CLAUDE.md, these are the key architectural points:
 
 If a user says "read X" or "check Y", do it **immediately** as your next action. Not later. Not after you've started something else. Immediately.
 
+## Ignore Ledger Tracking Files
+
+Do not review or comment on ledger tracking files used for agent automation:
+- `.agents/issue-*-ledger.yml`
+- Any file under `.agents/` that is not application code
+
+These files are internal task trackers and should never receive Copilot review comments or suggestions.
+
 ## Template Changes
 
 Any change to workflows that consumers use must be reflected in BOTH:

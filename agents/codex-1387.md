@@ -1,0 +1,2 @@
+<!-- bootstrap for codex on issue #1387 -->
+<!-- needs-human: update .github/workflows/reusable-bot-comment-handler.yml and templates/consumer-repo/.github/workflows/agents-bot-comment-handler.yml to call .github/scripts/bot-comment-dismiss.js, dismiss ignored-path review comments (e.g. .agents/issue-*-ledger.yml) within 30s, and emit log lines with bot name + file path for each dismissal. Workflow edits require agent-high-privilege. -->
