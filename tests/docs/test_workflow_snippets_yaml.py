@@ -55,3 +55,10 @@ def test_pip_freeze_step_runs_python_module() -> None:
         == ["python -m pip freeze"]
         for step in parsed
     ), "Expected a step with run command 'python -m pip freeze'"
+
+
+def test_pip_freeze_step_contains_python_module_command() -> None:
+    snippet_path = Path("docs/workflow-snippets/pip-freeze-step.yml")
+    contents = snippet_path.read_text(encoding="utf-8")
+
+    assert "python -m pip freeze" in contents
