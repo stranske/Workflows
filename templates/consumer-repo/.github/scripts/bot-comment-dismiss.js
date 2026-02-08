@@ -15,7 +15,7 @@
  *   await autoDismissReviewComments({ github, withRetry, ... });
  */
 
-const DEFAULT_IGNORED_PATTERNS = ['.agents/**'];
+const { buildIgnoredPathMatchers, shouldIgnorePath } = require('./pr-context-graphql');
 
 function parseCsv(value) {
   if (!value) {
@@ -31,78 +31,12 @@ function normalizeAuthors(authors) {
   return new Set((authors || []).map((author) => String(author || '').toLowerCase()).filter(Boolean));
 }
 
-function normalizeSlashes(value) {
-  return String(value || '').replace(/\\/g, '/').toLowerCase();
-}
-
-function hasGlobPattern(value) {
-  return /[*?]/.test(value);
-}
-
-function normalizePattern(value) {
-  const normalized = normalizeSlashes(value);
-  if (!normalized) {
-    return null;
-  }
-  if (normalized.endsWith('/')) {
-    return `${normalized}**`;
-  }
-  if (!hasGlobPattern(normalized)) {
-    return normalized;
-  }
-  return normalized;
-}
-
-function patternToRegex(pattern) {
-  const normalized = normalizeSlashes(pattern);
-  let regex = '';
-  for (let i = 0; i < normalized.length; i += 1) {
-    const char = normalized[i];
-    if (char === '*') {
-      const next = normalized[i + 1];
-      if (next === '*') {
-        regex += '.*';
-        i += 1;
-      } else {
-        regex += '[^/]*';
-      }
-      continue;
-    }
-    if (char === '?') {
-      regex += '[^/]';
-      continue;
-    }
-    regex += char.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  }
-  return new RegExp(`^${regex}$`);
-}
-
 function buildMatchers({ ignoredPaths, ignoredPatterns } = {}) {
-  const patterns = [];
-  for (const entry of ignoredPaths || []) {
-    const normalized = normalizePattern(entry);
-    if (normalized) {
-      patterns.push(normalized);
-    }
-  }
-  for (const entry of ignoredPatterns || []) {
-    const normalized = normalizePattern(entry);
-    if (normalized) {
-      patterns.push(normalized);
-    }
-  }
-  if (!patterns.length) {
-    patterns.push(...DEFAULT_IGNORED_PATTERNS);
-  }
-  return patterns.map(patternToRegex);
-}
-
-function shouldIgnorePath(filename, matchers) {
-  const normalized = normalizeSlashes(filename);
-  if (!normalized) {
-    return false;
-  }
-  return matchers.some((pattern) => pattern.test(normalized));
+  const env = {
+    PR_CONTEXT_IGNORED_PATHS: ignoredPaths && ignoredPaths.length ? ignoredPaths.join(',') : undefined,
+    PR_CONTEXT_IGNORED_PATTERNS: ignoredPatterns && ignoredPatterns.length ? ignoredPatterns.join(',') : undefined,
+  };
+  return buildIgnoredPathMatchers(env);
 }
 
 function isBotAuthor(comment, botAuthors) {
@@ -116,7 +50,13 @@ function resolveCommentTimestamp(comment) {
   if (!comment) {
     return null;
   }
-  return comment.created_at || comment.createdAt || null;
+  return (
+    comment.created_at ||
+    comment.createdAt ||
+    comment.updated_at ||
+    comment.updatedAt ||
+    null
+  );
 }
 
 function collectDismissable(comments, options = {}) {
