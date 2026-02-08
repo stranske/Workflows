@@ -109,7 +109,7 @@ jobs:
               : {
                   createTokenAwareRetry: async ({ github }) => ({
                     github,
-                    withRetry: (fn) => fn(),
+                    withRetry: (fn) => fn(github),
                   }),
                 };
             const { github: balancedGithub, withRetry } = await retryHelpers.createTokenAwareRetry({
@@ -132,7 +132,7 @@ jobs:
 
               // Verify PR exists and is merged
               try {
-                const { data: pr } = await withRetry(() => github.rest.pulls.get({
+                const { data: pr } = await withRetry((client) => client.rest.pulls.get({
                   ...context.repo,
                   pull_number: parseInt(prNumber),
                 }));

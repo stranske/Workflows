@@ -104,7 +104,7 @@ jobs:
             const retryHelpers = fs.existsSync(retryHelperPath)
               ? require(retryHelperPath)
               : {
-                  createTokenAwareRetry: async ({ github }) => ({ github, withRetry: (fn) => fn() }),
+                  createTokenAwareRetry: async ({ github }) => ({ github, withRetry: (fn) => fn(github) }),
                 };
             const { github: balancedGithub, withRetry } = await retryHelpers.createTokenAwareRetry({
               github,
@@ -183,7 +183,7 @@ jobs:
             let fetched = false;
 
             try {
-              const { data: issue } = await withRetry(() => github.rest.issues.get({
+              const { data: issue } = await withRetry((client) => client.rest.issues.get({
                 owner,
                 repo,
                 issue_number: issueNumber

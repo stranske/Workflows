@@ -124,7 +124,7 @@ jobs:
             const retryHelpers = fs.existsSync(retryHelperPath)
               ? require(retryHelperPath)
               : {
-                  createTokenAwareRetry: async ({ github }) => ({ github, withRetry: (fn) => fn() }),
+                  createTokenAwareRetry: async ({ github }) => ({ github, withRetry: (fn) => fn(github) }),
                 };
             const { github: balancedGithub, withRetry } = await retryHelpers.createTokenAwareRetry({
               github,
@@ -146,7 +146,7 @@ jobs:
 
               // Verify PR exists and is merged
               try {
-                const { data: pr } = await withRetry(() => github.rest.pulls.get({
+                const { data: pr } = await withRetry((client) => client.rest.pulls.get({
                   ...context.repo,
                   pull_number: parseInt(prNumber),
                 }));
