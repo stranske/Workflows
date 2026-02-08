@@ -52,11 +52,16 @@ def test_anthropic_provider_forwards_quality_context_to_client_invoke(
 
 def test_anthropic_provider_propagates_invoke_errors():
     class DummyClient:
-        def invoke(self, _prompt: str, **_kwargs):
+        def __init__(self) -> None:
+            self.invoke = MagicMock(side_effect=self._invoke)
+
+        def _invoke(self, *_args, **_kwargs):
             raise TimeoutError("boom")
 
     provider = AnthropicProvider()
-    provider._get_client = MagicMock(return_value=DummyClient())
+    client = DummyClient()
+    provider._get_client = MagicMock(return_value=client)
 
     with pytest.raises(TimeoutError):
         provider.analyze_completion("output", ["task1"])
+    client.invoke.assert_called_once()
