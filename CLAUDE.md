@@ -213,6 +213,97 @@ This is **working as designed**. If a PR with `agent:codex` isn't progressing, t
 - `docs/keepalive/MULTI_AGENT_ROUTING.md` - Agent routing architecture
 - `docs/keepalive/Agents.md` - Required reading before keepalive changes
 
+## Auto-Pilot Pipeline (`agents-auto-pilot.yml`)
+
+⚠️ **CRITICAL**: Auto-pilot is the primary end-to-end automation system. Before modifying it, read [`docs/analysis/autopilot-40pr-evaluation-feb-2026.md`](docs/analysis/autopilot-40pr-evaluation-feb-2026.md) for the latest evaluation.
+
+### Pipeline Architecture
+
+Auto-pilot is a **self-dispatching** pipeline — a single workflow (~2500 lines) that chains its own stages via `workflow_dispatch` with a `force_step` input. This eliminates label-trigger race conditions.
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  agents-auto-pilot.yml — Self-Dispatching Pipeline              │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  Step Sequence (each dispatches the next):                       │
+│                                                                  │
+│  1. format         → issue_formatter.py + task_decomposer.py    │
+│  2. optimize       → issue_optimizer.py (repo-aware analysis)   │
+│  3. apply          → Enriches issue with optimizer suggestions   │
+│  4. capability-check → Validates issue suitability               │
+│  5. create-pr      → Creates codex/issue-* branch + PR          │
+│  6. monitor-pr     → Watches for agent progress (120s delay)    │
+│  7. check-completion → Adds automerge when CI passes            │
+│  8. verify         → Triggers agents-verifier.yml                │
+│  9. done           → Pipeline complete                           │
+│                                                                  │
+│  Re-dispatch: explicit nextStepMap + force_step input            │
+│  Safety: MAX_CYCLES: 10 prevents runaway loops                   │
+│  Delays: monitor-pr=120s, create-pr=60s                          │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Step Determination Logic
+
+The workflow determines which step to run using this priority order:
+
+1. If `force_step` input is set → run that step directly
+2. If issue lacks `agents:formatted` label → run `format`
+3. If issue lacks `agents:optimized` label → run `optimize`
+4. If issue lacks `agents:applied` label → run `apply`
+5. If issue lacks `agent:codex` label → run `capability-check`
+6. If no PR exists → run `create-pr`
+7. If PR exists but not merged → run `monitor-pr`
+8. If PR merged but not verified → run `check-completion`
+9. Default → `done`
+
+### Self-Dispatch Mechanism
+
+After each step, auto-pilot dispatches itself with the next step:
+
+```yaml
+# nextStepMap (hardcoded in workflow):
+# format → optimize
+# optimize → apply
+# apply → capability-check
+# capability-check → auto (re-evaluates from step 1)
+# create-pr → auto (with 60s delay)
+# monitor-pr → auto (with 120s delay)
+```
+
+**Why self-dispatch?** Workflows triggered by `GITHUB_TOKEN` cannot trigger other workflows via label events. Self-dispatch via `workflow_dispatch` sidesteps this limitation entirely.
+
+### Verification Pipeline
+
+After PR merge:
+
+1. `agents-verifier.yml` evaluates PR against acceptance criteria
+2. Modes: `checkbox` (task completeness), `evaluate` (single LLM), `compare` (dual-LLM cross-verification)
+3. Verdict: PASS → done | CONCERNS/FAIL → `agents-verify-to-new-pr.yml`
+4. Follow-up: creates new issue with verification gaps as tasks
+5. **Chain depth is capped at 2** (original + 2 follow-ups max)
+
+### Key Metrics (Feb 2026 Evaluation, 40-PR sample)
+
+| Metric | Workflows | TMP | Combined |
+|--------|-----------|-----|----------|
+| Merge rate | 100% | 95% | 97.5% |
+| Follow-up chain PRs | 70% | 15% | 42.5% |
+| Needed `needs-human` | 35% | 25% | 30% |
+
+**The quality of the input issue is the strongest predictor of success.** Well-scoped issues with concrete acceptance criteria produce fewer follow-ups.
+
+### Modifying Auto-Pilot
+
+1. **Read the evaluation doc** first — understand what works and what doesn't
+2. **Do NOT revert to label-triggered steps** — self-dispatch is correct
+3. **Do NOT remove verification** — tune it, don't delete it
+4. **Preserve task appendix injection** — explicit task context is the single most important quality factor
+5. **Test in Workflows repo first** — consumer repos receive via sync
+6. **Check the nextStepMap** if adding new steps
+
 ## Secrets
 
 | Secret | Purpose | Used By |
@@ -283,6 +374,9 @@ The nested job 'job_name' is requesting 'contents: write', but is only allowed '
 | `docs/keepalive/GoalsAndPlumbing.md` | Keepalive system design |
 | `docs/keepalive/SETUP_CHECKLIST.md` | Consumer repo setup steps |
 | `docs/keepalive/KEEPALIVE_TROUBLESHOOTING.md` | Debugging keepalive |
+| `docs/analysis/autopilot-40pr-evaluation-feb-2026.md` | Auto-pilot pipeline evaluation (Feb 2026) |
+| `docs/keepalive/MULTI_AGENT_ROUTING.md` | Agent routing architecture |
+| `docs/keepalive/Agents.md` | Required reading before agent changes |
 
 ## Before Making Changes
 

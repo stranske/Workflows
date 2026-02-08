@@ -17,6 +17,53 @@ A reusable GitHub Actions workflow system for Python projects with integrated ag
 - Manager-Database
 - Portable-Alpha-Extension-Model
 
+## Auto-Pilot Pipeline
+
+The `agents:auto-pilot` label triggers a fully automated issue-to-merge pipeline.
+This is the primary automation system for both the Workflows repo and all consumer repos.
+
+```
+Issue created ──▶ Format ──▶ Optimize ──▶ Apply ──▶ Capability Check
+                                                         │
+                                                         ▼
+                          ◀── Verify ◀── Merge ◀── Keepalive ◀── Create PR
+                          │
+                    ┌─────┴──────┐
+                    │ PASS       │ CONCERNS/FAIL
+                    ▼            ▼
+                  Done     Follow-up Issue (capped at depth 2)
+```
+
+### Pipeline Stages
+
+| Stage | What Happens |
+|-------|-------------|
+| **Format** | `issue_formatter.py` + `task_decomposer.py` restructure the issue into Why / Scope / Tasks / Acceptance Criteria |
+| **Optimize** | `issue_optimizer.py` analyzes the repo codebase and adds file paths, patterns, and conflict warnings |
+| **Apply** | Enriches issue tasks with optimizer suggestions |
+| **Capability Check** | Validates issue suitability for automation; assigns `agent:codex` label |
+| **Create PR** | Creates `codex/issue-*` branch with issue context in PR body |
+| **Keepalive** | Event-driven loop (Gate completion → task appendix → Codex CLI dispatch → push → repeat) |
+| **Verify** | LLM-based evaluation of PR against acceptance criteria (PASS / CONCERNS / FAIL) |
+| **Follow-up** | On CONCERNS/FAIL, creates a follow-up issue with verification gaps as tasks (max depth 2) |
+
+### Self-Dispatch Mechanism
+
+Auto-pilot uses `workflow_dispatch` with a `force_step` input to chain stages sequentially.
+This eliminates label-trigger race conditions that plagued earlier designs.
+Each stage completes, then dispatches auto-pilot again with the next step name.
+
+### Key Design Decisions
+
+- **Event-driven keepalive** — Gate `workflow_run` completion triggers iteration, not polling
+- **Task appendix injection** — Agent prompts include explicit, structured task context from the issue
+- **Token-aware retry** — `withRetry` + `token_load_balancer.js` distributes API calls across PATs and GitHub App tokens
+- **Verification pipeline** — Catches quality gaps post-merge with follow-up chain depth capped at 2
+
+For detailed evaluation and metrics, see `docs/analysis/autopilot-40pr-evaluation-feb-2026.md`.
+
+---
+
 ## What's Included
 
 ### Reusable Workflows (.github/workflows)
@@ -29,7 +76,7 @@ A reusable GitHub Actions workflow system for Python projects with integrated ag
 
 - Gate: `pr-00-gate.yml` (single PR-required check)
 - Maintenance & health: `maint-*`, `health-*`
-- Agents: `agents-*`
+- Agents: `agents-*` (auto-pilot, verifier, keepalive, issue-intake, pr-meta)
 
 ### Composite Actions (.github/actions)
 
@@ -37,6 +84,7 @@ A reusable GitHub Actions workflow system for Python projects with integrated ag
 - `python-ci-setup/` - Python environment setup for CI
 - `signature-verify/` - Signature/manifest verification helpers
 - `codex-bootstrap-lite/` - Lightweight bootstrap utilities for agent runs
+- `setup-api-client/` - Token export and API client initialization
 
 ### Scripts
 
@@ -50,13 +98,14 @@ A reusable GitHub Actions workflow system for Python projects with integrated ag
 - `ci_coverage_delta.py` - Coverage delta calculation
 - `ledger_validate.py` - Ledger validation
 
-### Issue Intake Task Decomposition
+**Agent Pipeline (`scripts/langchain/`):**
+- `issue_formatter.py` - Issue restructuring for agent consumption
+- `task_decomposer.py` - Multi-action task splitting
+- `issue_optimizer.py` - Repo-aware issue enrichment
 
-The GitHub issue creation workflow (`agents-63-issue-intake.yml`) formats newly
-created issues by running `scripts/langchain/issue_formatter.py`. The formatter
-now integrates `scripts/langchain/task_decomposer.py` to split multi-action
-Tasks into smaller, verifiable sub-tasks and inserts them under each original
-task in the formatted issue body.
+**Rate Limiting (`.github/scripts/`):**
+- `github-api-with-retry.js` - Exponential backoff + token rotation
+- `token_load_balancer.js` - Multi-token registry and optimal selection
 
 ### Documentation (docs)
 
@@ -65,6 +114,7 @@ Start with:
 - `docs/INTEGRATION_GUIDE.md`
 - `docs/ci-workflow.md`
 - `docs/keepalive/SETUP_CHECKLIST.md`
+- `docs/analysis/autopilot-40pr-evaluation-feb-2026.md` - Pipeline evaluation and recommendations
 
 ## Getting Started
 

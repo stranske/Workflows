@@ -1,5 +1,10 @@
 # Agents Auto-Pilot Design Compliance Evaluation
 
+> **⚠️ SUPERSEDED (Feb 2026):** This document is outdated. Many gaps identified here
+> (branch creation, optimizer race conditions, keepalive path divergence) have been
+> fixed. See [`autopilot-40pr-evaluation-feb-2026.md`](./autopilot-40pr-evaluation-feb-2026.md)
+> for the current evaluation.
+
 **Created:** 2026-01-15  
 **Purpose:** Evaluate whether `agents:auto-pilot` workflow operates according to its design specifications  
 **Related Issue:** #880 (Metrics Collection)  

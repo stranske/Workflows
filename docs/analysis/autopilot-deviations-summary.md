@@ -1,8 +1,12 @@
 # Auto-Pilot Design Deviations - Summary Report
 
+> **⚠️ SUPERSEDED (Feb 2026):** Most deviations listed here have been addressed.
+> See [`autopilot-40pr-evaluation-feb-2026.md`](./autopilot-40pr-evaluation-feb-2026.md)
+> for the current state.
+
 **Created:** 2026-01-15  
 **Related:** [Full Evaluation](./autopilot-design-compliance-evaluation.md), [Issue #880 Revision](./issue-880-revised-scope.md)  
-**Status:** COMPLETE
+**Status:** SUPERSEDED
 
 ---
 

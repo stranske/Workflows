@@ -1,5 +1,9 @@
 # Auto-Pilot Remediation Plan
 
+> **⚠️ SUPERSEDED (Feb 2026):** Most remediations here have been implemented.
+> See [`autopilot-40pr-evaluation-feb-2026.md`](./autopilot-40pr-evaluation-feb-2026.md)
+> for the current evaluation and remaining recommendations (P0-P3).
+
 **Created:** 2026-01-15  
 **Purpose:** Action plan to address design deviations in agents:auto-pilot workflow  
 **Related:** [Deviations Summary](./autopilot-deviations-summary.md), [Full Evaluation](./autopilot-design-compliance-evaluation.md)  
