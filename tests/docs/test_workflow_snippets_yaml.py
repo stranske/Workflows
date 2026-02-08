@@ -23,9 +23,7 @@ def test_workflow_snippets_are_valid_yaml() -> None:
 
 
 def test_pip_cache_step_uses_requirements_llm_hash() -> None:
-    contents = Path("docs/workflow-snippets/pip-cache-step.yml").read_text(
-        encoding="utf-8"
-    )
+    contents = Path("docs/workflow-snippets/pip-cache-step.yml").read_text(encoding="utf-8")
     expected = (
         "pip-${{ runner.os }}-${{ matrix.python-version }}-"
         "${{ hashFiles('tools/requirements-llm.txt') }}"
