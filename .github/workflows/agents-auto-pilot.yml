@@ -1305,8 +1305,168 @@ jobs:
         run: |
           python scripts/autopilot_step_timer.py --event start --format epoch-ms --github-env
 
-      - name: Execute step - Capability check & Agent
+      # ── P2: Complexity pre-check ───────────────────────────────────
+      # Analyse issue body for complexity signals before assigning to
+      # the coding agent.  Issues flagged as high-complexity get
+      # `needs-human` instead of `agent:codex`.
+      - name: Complexity pre-check
         if: steps.next.outputs.next_step == 'capability-check'
+        id: complexity_check
+        uses: actions/github-script@v8
+        env:
+          ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
+        with:
+          script: |
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const { withRetry } = await createTokenAwareRetry({
+              github, core, env: process.env,
+              task: 'auto-pilot-complexity-check',
+              capabilities: ['issues:read']
+            });
+            const issueNumber = parseInt(process.env.ISSUE_NUMBER);
+
+            const { data: issue } = await withRetry((client) =>
+              client.rest.issues.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber
+              })
+            );
+
+            const body = (issue.body || '').toLowerCase();
+            const title = (issue.title || '').toLowerCase();
+
+            // ── Heuristic signals ─────────────────────────────────
+            let score = 0;
+            const flags = [];
+
+            // 1. Acceptance-criteria quality: vague or missing AC
+            const acSection = body.match(
+              /## acceptance criteria([\s\S]*?)(?=\n##|$)/i
+            );
+            if (!acSection) {
+              score += 3;
+              flags.push('missing-acceptance-criteria');
+            } else {
+              const acText = acSection[1];
+              const checkboxes = (acText.match(/- \[[ x]\]/g) || []).length;
+              if (checkboxes === 0) {
+                score += 2;
+                flags.push('no-checkboxes-in-AC');
+              }
+              // Vague AC: very short or contains weasel words
+              const weaselWords = [
+                'should work', 'as needed', 'if possible',
+                'various', 'etc', 'and more', 'miscellaneous'
+              ];
+              for (const w of weaselWords) {
+                if (acText.includes(w)) {
+                  score += 1;
+                  flags.push(`vague-AC:${w}`);
+                  break;  // only count once
+                }
+              }
+            }
+
+            // 2. Scope breadth: mentions many files or directories
+            const fileRefs = body.match(
+              /[a-z0-9_\-]+\.(py|js|ts|yml|yaml|json|md|sh|toml)/g
+            ) || [];
+            const uniqueFiles = new Set(fileRefs);
+            if (uniqueFiles.size > 8) {
+              score += 2;
+              flags.push(`wide-scope:${uniqueFiles.size}-files-referenced`);
+            }
+
+            // 3. Cross-concern indicators
+            const crossConcerns = [
+              'database', 'migration', 'security', 'auth',
+              'breaking change', 'backwards compatible', 'API change',
+              'multiple repos', 'cross-repo', 'consumer repo'
+            ];
+            for (const c of crossConcerns) {
+              if (body.includes(c) || title.includes(c)) {
+                score += 1;
+                flags.push(`cross-concern:${c}`);
+              }
+            }
+
+            // 4. Human-only markers
+            const humanOnly = [
+              'manual testing required', 'needs discussion',
+              'design review', 'architecture decision',
+              'RFC', 'ADR'
+            ];
+            for (const h of humanOnly) {
+              if (body.includes(h.toLowerCase())) {
+                score += 3;
+                flags.push(`human-marker:${h}`);
+              }
+            }
+
+            const THRESHOLD = 5;
+            const tooComplex = score >= THRESHOLD;
+
+            core.info(`Complexity score: ${score} (threshold: ${THRESHOLD})`);
+            core.info(`Flags: ${flags.join(', ') || 'none'}`);
+            core.setOutput('score', score.toString());
+            core.setOutput('too_complex', tooComplex.toString());
+            core.setOutput('flags', flags.join(', '));
+
+      - name: Route complex issue to human
+        if: |
+          steps.next.outputs.next_step == 'capability-check' &&
+          steps.complexity_check.outputs.too_complex == 'true'
+        uses: actions/github-script@v8
+        env:
+          ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
+          COMPLEXITY_SCORE: ${{ steps.complexity_check.outputs.score }}
+          COMPLEXITY_FLAGS: ${{ steps.complexity_check.outputs.flags }}
+        with:
+          script: |
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const { withRetry } = await createTokenAwareRetry({
+              github, core, env: process.env,
+              task: 'auto-pilot-complexity-route',
+              capabilities: ['issues:write']
+            });
+            const issueNumber = parseInt(process.env.ISSUE_NUMBER);
+            const score = process.env.COMPLEXITY_SCORE;
+            const flags = process.env.COMPLEXITY_FLAGS;
+
+            await withRetry((client) => client.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              labels: ['needs-human']
+            }));
+
+            await withRetry((client) => client.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: `## 🧠 Complexity Pre-Check: Needs Human Review
+
+            This issue scored **${score}/10+** on the complexity heuristic (threshold: 5).
+
+            **Signals detected:**
+            ${flags.split(', ').map(f => '- ' + f).join('\n')}
+
+            The auto-pilot has paused before assigning to the coding agent.
+            A human should review and either:
+            1. Simplify the issue and remove \`needs-human\` to resume
+            2. Split into smaller issues
+            3. Assign manually
+
+            _To override: remove \`needs-human\` label and re-add \`agents:auto-pilot\`._`
+            }));
+
+            core.info(`Issue #${issueNumber} routed to human (complexity: ${score})`);
+
+      - name: Execute step - Capability check & Agent
+        if: |
+          steps.next.outputs.next_step == 'capability-check' &&
+          steps.complexity_check.outputs.too_complex != 'true'
         id: capability_step
         uses: actions/github-script@v8
         env:
@@ -2380,6 +2540,17 @@ jobs:
             --step-name "check-completion" \
             --success "$success" \
             --failure-reason "$failure_reason"
+
+      # ── Upload auto-pilot metrics for weekly aggregation ───────────
+      - name: Upload auto-pilot metrics
+        if: always()
+        uses: actions/upload-artifact@v4
+        continue-on-error: true
+        with:
+          name: autopilot-metrics-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.AUTOPILOT_METRICS_LOG_PATH }}
+          retention-days: 14
+          if-no-files-found: ignore
 
       # Re-dispatch workflow to continue pipeline after prep steps
       # GitHub prevents recursive triggers on labels added by GITHUB_TOKEN

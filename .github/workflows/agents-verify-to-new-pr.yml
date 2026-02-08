@@ -209,12 +209,172 @@ jobs:
 
             fs.writeFileSync('original_issue.txt', originalIssueBody);
 
+            // --- Chain depth tracking (P0) ---
+            // Extract follow-up-depth from original issue body or PR body
+            // Format: <!-- follow-up-depth: N -->
+            let chainDepth = 0;
+            const prBody = context.payload.pull_request.body || '';
+            const depthSources = [originalIssueBody, prBody];
+            for (const source of depthSources) {
+              const depthMatch = source.match(
+                /<!--\s*follow-up-depth:\s*(\d+)\s*-->/
+              );
+              if (depthMatch) {
+                const parsed = parseInt(depthMatch[1], 10);
+                if (parsed > chainDepth) chainDepth = parsed;
+              }
+            }
+            // Also check if issue has 'follow-up' label (depth at least 1)
+            if (chainDepth === 0 && linkedIssueNumber) {
+              try {
+                const { data: issueData } = await withRetry(
+                  (client) => (client || github).rest.issues.get({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: linkedIssueNumber
+                  })
+                );
+                const hasFollowUpLabel = (issueData.labels || []).some(
+                  l => (typeof l === 'string' ? l : l.name) === 'follow-up'
+                );
+                if (hasFollowUpLabel) chainDepth = Math.max(chainDepth, 1);
+              } catch (_) { /* best effort */ }
+            }
+            core.info(`Follow-up chain depth: ${chainDepth}`);
+            core.setOutput('chain_depth', String(chainDepth));
+
             // Set outputs
             core.setOutput('has_original_issue', linkedIssueNumber ? 'true' : 'false');
 
+      - name: Check chain depth limit
+        id: chain-check
+        if: steps.check-merged.outputs.merged == 'true'
+        uses: actions/github-script@v8
+        env:
+          CHAIN_DEPTH: ${{ steps.collect.outputs.chain_depth }}
+          MAX_CHAIN_DEPTH: '2'
+          LINKED_ISSUE: ${{ steps.collect.outputs.original_issue_number }}
+        with:
+          github-token: ${{ steps.select-token.outputs.token }}
+          script: |
+            const fs = require('fs');
+            const retryHelperPath =
+              './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : { withRetry: (fn) => fn() };
+            const { withRetry } = retryHelpers;
+
+            const depth = parseInt(process.env.CHAIN_DEPTH || '0', 10);
+            const maxDepth = parseInt(process.env.MAX_CHAIN_DEPTH || '2', 10);
+            const prNumber = context.payload.pull_request.number;
+            const linkedIssue = process.env.LINKED_ISSUE;
+
+            if (depth >= maxDepth) {
+              core.info(
+                `Chain depth ${depth} >= max ${maxDepth}. ` +
+                'Applying needs-human instead of creating follow-up.'
+              );
+
+              // Read verification data for the comment
+              let verificationSummary = '';
+              try {
+                const raw = fs.readFileSync(
+                  'verification_data.txt', 'utf8'
+                );
+                // Extract first 500 chars of concerns
+                const concernsMatch = raw.match(
+                  /### Concerns\s*\n([\s\S]*?)(?=###|##|$)/i
+                );
+                if (concernsMatch) {
+                  verificationSummary = concernsMatch[1]
+                    .trim().substring(0, 500);
+                }
+              } catch (_) { /* best effort */ }
+
+              const comment = [
+                '🛑 **Follow-up chain depth limit reached** ' +
+                  `(depth ${depth}/${maxDepth})`,
+                '',
+                'This PR has been through multiple verification → ' +
+                  'follow-up cycles. To prevent diminishing-returns ' +
+                  'automation, `needs-human` has been applied instead ' +
+                  'of creating another follow-up issue.',
+                '',
+                verificationSummary
+                  ? '**Remaining verification concerns:**\n' +
+                    verificationSummary
+                  : '',
+                '',
+                '> A human should review whether the remaining ' +
+                  'concerns warrant manual action or can be accepted.'
+              ].filter(Boolean).join('\n');
+
+              await withRetry(
+                (client) => (client || github).rest.issues.createComment(
+                  {
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: prNumber,
+                    body: comment
+                  }
+                )
+              );
+
+              // Apply needs-human to the PR
+              await withRetry(
+                (client) => (client || github).rest.issues.addLabels({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: prNumber,
+                  labels: ['needs-human']
+                })
+              );
+
+              // Also apply to linked issue if available
+              if (linkedIssue) {
+                try {
+                  await withRetry(
+                    (client) =>
+                      (client || github).rest.issues.addLabels({
+                        owner: context.repo.owner,
+                        repo: context.repo.repo,
+                        issue_number: parseInt(linkedIssue),
+                        labels: ['needs-human']
+                      })
+                  );
+                } catch (_) { /* best effort */ }
+              }
+
+              // Remove trigger label
+              try {
+                await withRetry(
+                  (client) =>
+                    (client || github).rest.issues.removeLabel({
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      issue_number: prNumber,
+                      name: 'verify:create-new-pr'
+                    })
+                );
+              } catch (_) { /* best effort */ }
+
+              core.setOutput('exceeded', 'true');
+              return;
+            }
+
+            core.info(
+              `Chain depth ${depth} < max ${maxDepth}. ` +
+              'Proceeding with follow-up creation.'
+            );
+            core.setOutput('exceeded', 'false');
+            core.setOutput('next_depth', String(depth + 1));
+
       - name: Generate follow-up issue
         id: generate
-        if: steps.check-merged.outputs.merged == 'true'
+        if: >-
+          steps.check-merged.outputs.merged == 'true' &&
+          steps.chain-check.outputs.exceeded != 'true'
         continue-on-error: true
         env:
           PYTHONPATH: ${{ github.workspace }}
@@ -224,6 +384,7 @@ jobs:
           ORIGINAL_ISSUE_NUMBER: ${{ steps.collect.outputs.original_issue_number }}
           ORIGINAL_ISSUE_TITLE: ${{ steps.collect.outputs.original_issue_title }}
           PR_NUMBER: ${{ steps.check-merged.outputs.pr_number }}
+          FOLLOW_UP_DEPTH: ${{ steps.chain-check.outputs.next_depth }}
         run: |
           # Generate using Python script
           python scripts/langchain/followup_issue_generator.py \
@@ -234,6 +395,14 @@ jobs:
             --pr-number "${PR_NUMBER}" \
             --json \
             --output followup_issue.json
+
+          # Inject chain depth marker into generated body
+          depth="${FOLLOW_UP_DEPTH:-1}"
+          marker="<!-- follow-up-depth: ${depth} -->"
+          jq --arg marker "$marker" \
+            '.body = $marker + "\n" + .body' \
+            followup_issue.json > followup_issue_tmp.json
+          mv followup_issue_tmp.json followup_issue.json
 
           # Extract title and body for GitHub Actions
           echo "issue_title=$(jq -r '.title' followup_issue.json)" >> "$GITHUB_OUTPUT"
@@ -247,8 +416,13 @@ jobs:
 
       - name: Fallback to simple extraction
         id: fallback
-        if: steps.generate.outcome == 'failure' && steps.check-merged.outputs.merged == 'true'
+        if: >-
+          steps.generate.outcome == 'failure' &&
+          steps.check-merged.outputs.merged == 'true' &&
+          steps.chain-check.outputs.exceeded != 'true'
         uses: actions/github-script@v8
+        env:
+          FOLLOW_UP_DEPTH: ${{ steps.chain-check.outputs.next_depth }}
         with:
           github-token: ${{ steps.select-token.outputs.token }}
           script: |
@@ -256,6 +430,7 @@ jobs:
             const fs = require('fs');
             const prNumber = context.payload.pull_request.number;
             const prUrl = context.payload.pull_request.html_url;
+            const depth = process.env.FOLLOW_UP_DEPTH || '1';
 
             let verificationText = '';
             try {
@@ -369,6 +544,7 @@ jobs:
               : '';
 
             const issueBody = [
+              `<!-- follow-up-depth: ${depth} -->`,
               '## Why',
               '',
               `PR #${prNumber} was verified with verdict **${verdict}**. ` +
@@ -408,7 +584,9 @@ jobs:
 
       - name: Create follow-up issue
         id: create-issue
-        if: steps.check-merged.outputs.merged == 'true'
+        if: >-
+          steps.check-merged.outputs.merged == 'true' &&
+          steps.chain-check.outputs.exceeded != 'true'
         uses: actions/github-script@v8
         env:
           ISSUE_TITLE: >-
@@ -481,7 +659,9 @@ jobs:
             core.setOutput('issue_url', issue.data.html_url);
 
       - name: Persist follow-up issue metadata
-        if: steps.check-merged.outputs.merged == 'true'
+        if: >-
+          steps.check-merged.outputs.merged == 'true' &&
+          steps.chain-check.outputs.exceeded != 'true'
         run: |
           cat <<'EOF' > followup_issue_output.json
           {
@@ -493,7 +673,9 @@ jobs:
           EOF
 
       - name: Upload follow-up issue metadata
-        if: steps.check-merged.outputs.merged == 'true'
+        if: >-
+          steps.check-merged.outputs.merged == 'true' &&
+          steps.chain-check.outputs.exceeded != 'true'
         uses: actions/upload-artifact@v6
         with:
           name: verify-create-new-pr-output
@@ -502,7 +684,10 @@ jobs:
           retention-days: 7
 
       - name: Dispatch auto-pilot directly
-        if: steps.check-merged.outputs.merged == 'true' && steps.create-issue.outputs.issue_number
+        if: >-
+          steps.check-merged.outputs.merged == 'true' &&
+          steps.chain-check.outputs.exceeded != 'true' &&
+          steps.create-issue.outputs.issue_number
         continue-on-error: true
         uses: actions/github-script@v8
         env:
@@ -546,7 +731,9 @@ jobs:
             }
 
       - name: Comment on original PR
-        if: steps.check-merged.outputs.merged == 'true'
+        if: >-
+          steps.check-merged.outputs.merged == 'true' &&
+          steps.chain-check.outputs.exceeded != 'true'
         uses: actions/github-script@v8
         env:
           ISSUE_NUMBER: ${{ steps.create-issue.outputs.issue_number }}

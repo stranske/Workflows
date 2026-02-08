@@ -85,12 +85,19 @@ def _classify_entry(entry: dict[str, Any]) -> str:
             return "autofix"
         if "verifier" in lowered or "verify" in lowered:
             return "verifier"
+        if lowered in ("step", "cycle", "escalation"):
+            return "autopilot"
     if any(key in entry for key in ("iteration_count", "stop_reason", "tasks_total")):
         return "keepalive"
     if any(key in entry for key in ("attempt_number", "trigger_reason", "fix_applied")):
         return "autofix"
     if any(key in entry for key in ("verdict", "issues_created", "acceptance_criteria_count")):
         return "verifier"
+    # Auto-pilot step/cycle records have step_name + duration_ms
+    if "step_name" in entry and "duration_ms" in entry:
+        return "autopilot"
+    if "escalation_reason" in entry:
+        return "autopilot"
     return "unknown"
 
 
@@ -198,6 +205,70 @@ def _summarise_verifier(entries: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def _summarise_autopilot(entries: list[dict[str, Any]]) -> dict[str, Any]:
+    """Summarise auto-pilot step/cycle/escalation records."""
+    issues: set[int] = set()
+    step_durations: dict[str, list[float]] = {}
+    step_successes: dict[str, int] = {}
+    step_failures: dict[str, int] = {}
+    failure_reasons = Counter()
+    escalation_reasons = Counter()
+    escalation_count = 0
+    needs_human_count = 0
+
+    for entry in entries:
+        issue_num = _safe_int(entry.get("issue_number") or entry.get("issue"))
+        if issue_num is not None:
+            issues.add(issue_num)
+
+        metric_type = entry.get("metric_type", "")
+
+        if metric_type == "escalation":
+            escalation_count += 1
+            reason = entry.get("escalation_reason", "unknown")
+            escalation_reasons[str(reason)] += 1
+            if "needs-human" in str(reason).lower() or "needs_human" in str(reason).lower():
+                needs_human_count += 1
+            continue
+
+        step_name = entry.get("step_name")
+        if not step_name:
+            continue
+
+        duration = _safe_float(entry.get("duration_ms"))
+        if duration is not None:
+            step_durations.setdefault(step_name, []).append(duration)
+
+        success = entry.get("success")
+        if success in (True, "true", "True", "1", 1):
+            step_successes[step_name] = step_successes.get(step_name, 0) + 1
+        elif success in (False, "false", "False", "0", 0):
+            step_failures[step_name] = step_failures.get(step_name, 0) + 1
+            reason = entry.get("failure_reason", "unknown")
+            if reason and reason != "none":
+                failure_reasons[str(reason)] += 1
+
+    # Compute per-step averages
+    step_avg_duration: dict[str, float] = {}
+    for step, durations in step_durations.items():
+        step_avg_duration[step] = sum(durations) / len(durations) if durations else 0.0
+
+    total_steps = sum(step_successes.values()) + sum(step_failures.values())
+
+    return {
+        "records": len(entries),
+        "issues": len(issues),
+        "total_steps": total_steps,
+        "step_avg_duration_ms": step_avg_duration,
+        "step_successes": step_successes,
+        "step_failures": step_failures,
+        "failure_reasons": failure_reasons,
+        "escalation_count": escalation_count,
+        "escalation_reasons": escalation_reasons,
+        "needs_human_count": needs_human_count,
+    }
+
+
 def _format_counter(counter: Counter[str]) -> str:
     if not counter:
         return "n/a"
@@ -217,6 +288,7 @@ def build_summary(entries: list[dict[str, Any]], errors: int) -> str:
         "keepalive": [],
         "autofix": [],
         "verifier": [],
+        "autopilot": [],
         "unknown": [],
     }
     timestamps: list[_dt.datetime] = []
@@ -233,13 +305,19 @@ def build_summary(entries: list[dict[str, Any]], errors: int) -> str:
     keepalive = _summarise_keepalive(buckets["keepalive"])
     autofix = _summarise_autofix(buckets["autofix"])
     verifier = _summarise_verifier(buckets["verifier"])
+    autopilot = _summarise_autopilot(buckets["autopilot"])
 
     now = _dt.datetime.now(_dt.UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
     lines = [
         "# Agent Metrics Summary",
         "",
         f"Generated: {now}",
-        f"Records: {len(entries)} (keepalive {keepalive['runs']}, autofix {autofix['attempts']}, verifier {verifier['runs']}, unknown {len(buckets['unknown'])})",
+        (
+            f"Records: {len(entries)} "
+            f"(keepalive {keepalive['runs']}, autofix {autofix['attempts']}, "
+            f"verifier {verifier['runs']}, autopilot {autopilot['records']}, "
+            f"unknown {len(buckets['unknown'])})"
+        ),
         f"Parse errors: {errors}",
     ]
 
@@ -274,6 +352,34 @@ def build_summary(entries: list[dict[str, Any]], errors: int) -> str:
             f"- Avg acceptance criteria: {verifier['avg_acceptance']:.1f}",
         ]
     )
+
+    # ── Auto-pilot pipeline section ──────────────────────────────────
+    if autopilot["records"] > 0:
+        lines.extend(
+            [
+                "",
+                "## Auto-Pilot Pipeline",
+                f"- Records: {autopilot['records']}",
+                f"- Issues: {autopilot['issues']}",
+                f"- Total step executions: {autopilot['total_steps']}",
+                f"- Escalations: {autopilot['escalation_count']}",
+                f"- Needs-human rate: {_format_rate(autopilot['needs_human_count'], autopilot['issues'] or 1)}",
+                f"- Escalation reasons: {_format_counter(autopilot['escalation_reasons'])}",
+                f"- Failure reasons: {_format_counter(autopilot['failure_reasons'])}",
+            ]
+        )
+
+        if autopilot["step_avg_duration_ms"]:
+            lines.append("")
+            lines.append("### Step Average Durations")
+            for step, avg_ms in sorted(autopilot["step_avg_duration_ms"].items()):
+                avg_s = avg_ms / 1000.0
+                successes = autopilot["step_successes"].get(step, 0)
+                failures = autopilot["step_failures"].get(step, 0)
+                total = successes + failures
+                lines.append(
+                    f"- {step}: {avg_s:.1f}s avg " f"({_format_rate(successes, total)} success)"
+                )
 
     return "\n".join(lines) + "\n"
 

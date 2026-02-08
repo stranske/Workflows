@@ -68,6 +68,96 @@ Respond in JSON with:
 }}
 """.strip()
 
+# Relaxed prompt for infrastructure/platform changes (.github/, scripts/,
+# docs/, templates/, config files).  Focuses on functional correctness and
+# de-emphasizes comprehensive test coverage which is often impractical for
+# workflow YAML, shell scripts, and documentation.
+PR_EVALUATION_PROMPT_INFRA = """
+You are reviewing a **merged** pull request that primarily modifies
+**infrastructure and platform files** (GitHub Actions workflows, CI scripts,
+documentation, configuration, or templates).
+
+**IMPORTANT: This verification runs AFTER the PR has been merged.** Therefore:
+- Do NOT evaluate CI status, workflow runs, or pending checks
+- Focus on the actual changes and whether they fulfill the requirements
+
+PR Context:
+{context}
+
+PR Diff (summary or full):
+{diff}
+
+Evaluate the **infrastructure changes** against the acceptance criteria.
+Because these are infrastructure/platform changes rather than application code:
+- **testing**: Only flag missing tests if the change breaks existing test suites
+  or introduces testable logic (e.g., a new Python utility). Do NOT flag missing
+  tests for workflow YAML, documentation, shell scripts, or config file changes.
+- **correctness**: Does the implementation do what the issue asked for?
+- **completeness**: Are all acceptance criteria addressed?
+- **quality**: Is the code/config readable and maintainable?
+- **risks**: Could this break CI, consumer repos, or existing automation?
+
+Be LENIENT on test coverage for infrastructure work. Be STRICT on correctness
+and risks (broken CI or consumer repos is a critical failure).
+
+Respond in JSON with:
+{{
+  "verdict": "PASS | CONCERNS | FAIL",
+  "confidence": 0.0-1.0,
+  "scores": {{
+    "correctness": 0-10,
+    "completeness": 0-10,
+    "quality": 0-10,
+    "testing": 0-10,
+    "risks": 0-10
+  }},
+  "concerns": ["..."],
+  "summary": "concise report"
+}}
+""".strip()
+
+# Addendum appended to any prompt (including custom) when infrastructure-
+# dominant changes are detected.  This is lighter than the full INFRA prompt
+# and avoids overriding a custom prompt file.
+INFRA_PROMPT_ADDENDUM = """
+
+## Infrastructure Change Guidance
+
+This PR primarily modifies infrastructure/platform files (workflows, scripts,
+docs, templates, or config).  Apply the following adjustments:
+- **testing**: Do NOT penalise missing tests for workflow YAML, documentation,
+  shell scripts, or config file changes.  Only flag missing tests when the PR
+  introduces testable application logic (e.g. a new Python module).
+- **risks**: Pay extra attention to CI breakage and consumer-repo impact.
+- Be LENIENT on test coverage for infrastructure work.
+""".strip()
+
+# File path patterns considered infrastructure/platform rather than application
+INFRA_PATH_PATTERNS: tuple[str, ...] = (
+    ".github/",
+    "scripts/",
+    "docs/",
+    "templates/",
+    ".eslintrc",
+    ".prettierrc",
+    "pyproject.toml",
+    "setup.cfg",
+    "setup.py",
+    "Makefile",
+    "Dockerfile",
+    "docker-compose",
+    ".gitignore",
+    ".pre-commit-config",
+    "requirements",
+    "CLAUDE.md",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE",
+)
+
+# Fraction of changed files that must be infrastructure to trigger relaxed mode
+INFRA_THRESHOLD = 0.6
+
 PROMPT_PATH = Path(__file__).resolve().parent / "prompts" / "pr_evaluation.md"
 REQUIRED_EVALUATION_AREAS = (
     "correctness",
@@ -98,6 +188,7 @@ class EvaluationResult(BaseModel):
     used_llm: bool = False
     raw_content: str | None = None
     error: str | None = None
+    change_type: Literal["infrastructure", "application", "mixed"] | None = None
 
 
 class EvaluationPayload(BaseModel):
@@ -207,10 +298,75 @@ class ComparisonRunner:
         return result
 
 
+def _classify_change_type(
+    diff: str | None,
+) -> Literal["infrastructure", "application", "mixed"]:
+    """Classify a PR's change type by scanning diff file paths.
+
+    Returns ``"infrastructure"`` when ≥ *INFRA_THRESHOLD* of changed files
+    match infrastructure path patterns, ``"application"`` when fewer than
+    (1 − INFRA_THRESHOLD) match, and ``"mixed"`` otherwise.
+    """
+    if not diff or not diff.strip():
+        return "application"  # default when no diff available
+
+    # Extract file paths from unified diff headers: "diff --git a/path b/path"
+    # and "--- a/path" / "+++ b/path" lines
+    file_paths: set[str] = set()
+    for line in diff.splitlines():
+        if line.startswith("diff --git"):
+            parts = line.split()
+            if len(parts) >= 4:
+                # "diff --git a/foo b/foo" → "foo"
+                path = parts[2].removeprefix("a/")
+                file_paths.add(path)
+        elif line.startswith("+++ b/") or line.startswith("--- a/"):
+            path = line[6:]  # strip "+++ b/" or "--- a/"
+            if path and path != "/dev/null":
+                file_paths.add(path)
+
+    if not file_paths:
+        return "application"
+
+    infra_count = sum(
+        1
+        for fp in file_paths
+        if any(fp.startswith(pat) or fp.endswith(pat) for pat in INFRA_PATH_PATTERNS)
+    )
+    ratio = infra_count / len(file_paths)
+    LOGGER.debug(
+        "Change-type classification: %d/%d files are infrastructure (%.0f%%)",
+        infra_count,
+        len(file_paths),
+        ratio * 100,
+    )
+
+    if ratio >= INFRA_THRESHOLD:
+        return "infrastructure"
+    if ratio <= (1 - INFRA_THRESHOLD):
+        return "application"
+    return "mixed"
+
+
 def _prepare_prompt(context: str, diff: str | None) -> str:
-    prompt = _load_prompt()
     diff_block = diff.strip() if diff and diff.strip() else "(diff unavailable)"
     context_block = context.strip() if context and context.strip() else "(context unavailable)"
+
+    change_type = _classify_change_type(diff)
+
+    if change_type == "infrastructure":
+        if PROMPT_PATH.is_file():
+            # Custom prompt file exists — append the lightweight addendum
+            LOGGER.info("Infrastructure PR detected; appending infra guidance to custom prompt")
+            prompt = _load_prompt()
+            prompt = prompt.rstrip() + "\n\n" + INFRA_PROMPT_ADDENDUM + "\n"
+        else:
+            # No custom prompt — use the full infrastructure-specific prompt
+            LOGGER.info("Using infrastructure-relaxed evaluation prompt")
+            prompt = _ensure_prompt_rubric(PR_EVALUATION_PROMPT_INFRA)
+    else:
+        prompt = _load_prompt()
+
     return prompt.format(context=context_block, diff=diff_block)
 
 
@@ -488,6 +644,7 @@ def evaluate_pr(
 
     client, provider_name = resolved
     prompt = _prepare_prompt(context, diff)
+    change_type = _classify_change_type(diff)
     pr_number, _ = _extract_pr_metadata(context)
     try:
         response = _invoke_llm(
@@ -528,28 +685,42 @@ def evaluate_pr(
                             used_llm=result.used_llm,
                             error=f"Primary provider ({provider_name}) failed, used fallback",
                             raw_content=result.raw_content,
+                            change_type=change_type,
                         )
+                    else:
+                        result.change_type = change_type
                     return result
                 except Exception as fallback_exc:
-                    return _fallback_evaluation(
+                    result = _fallback_evaluation(
                         f"Primary ({provider_name}): {exc}; "
                         f"Fallback ({fallback_provider_name}): {fallback_exc}"
                     )
-        return _fallback_evaluation(f"LLM invocation failed: {exc}")
+                    result.change_type = change_type
+                    return result
+        result = _fallback_evaluation(f"LLM invocation failed: {exc}")
+        result.change_type = change_type
+        return result
 
     content = getattr(response, "content", None) or str(response)
-    return _parse_llm_response(content, provider_name, client=client)
+    result = _parse_llm_response(content, provider_name, client=client)
+    result.change_type = change_type
+    return result
 
 
 def evaluate_pr_multiple(
     context: str, diff: str | None = None, model1: str | None = None, model2: str | None = None
 ) -> list[EvaluationResult]:
+    change_type = _classify_change_type(diff)
     runner = ComparisonRunner.from_environment(context, diff, model1, model2)
     if not runner.clients:
-        return [_fallback_evaluation("LLM client unavailable (missing credentials or dependency).")]
+        result = _fallback_evaluation("LLM client unavailable (missing credentials or dependency).")
+        result.change_type = change_type
+        return [result]
     results: list[EvaluationResult] = []
     for client, provider, model in runner.clients:
-        results.append(runner.run_single(client, provider, model))
+        result = runner.run_single(client, provider, model)
+        result.change_type = change_type
+        results.append(result)
     return results
 
 

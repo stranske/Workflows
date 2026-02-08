@@ -44,7 +44,7 @@ def test_build_summary_formats_sections() -> None:
 
     summary = aggregate_agent_metrics.build_summary(entries, errors=1)
 
-    assert "Records: 4 (keepalive 2, autofix 1, verifier 1, unknown 0)" in summary
+    assert "Records: 4 (keepalive 2, autofix 1, verifier 1, autopilot 0, unknown 0)" in summary
     assert "Parse errors: 1" in summary
     assert "Avg iterations: 3.5" in summary
     assert "tasks-complete (1)" in summary
@@ -269,3 +269,68 @@ def test_main_returns_error_when_no_files(monkeypatch: pytest.MonkeyPatch, tmp_p
     exit_code = aggregate_agent_metrics.main()
 
     assert exit_code == 1
+
+
+def test_autopilot_metrics_summarised() -> None:
+    """Auto-pilot step/cycle/escalation records appear in the summary."""
+    entries = [
+        {
+            "metric_type": "step",
+            "issue_number": 42,
+            "step_name": "format",
+            "duration_ms": 5000,
+            "success": True,
+            "failure_reason": "none",
+        },
+        {
+            "metric_type": "step",
+            "issue_number": 42,
+            "step_name": "capability-check",
+            "duration_ms": 3000,
+            "success": True,
+            "failure_reason": "none",
+        },
+        {
+            "metric_type": "step",
+            "issue_number": 42,
+            "step_name": "verify",
+            "duration_ms": 12000,
+            "success": False,
+            "failure_reason": "step-failed",
+        },
+        {
+            "metric_type": "escalation",
+            "issue_number": 99,
+            "escalation_reason": "needs-human-complexity",
+        },
+    ]
+
+    summary = aggregate_agent_metrics.build_summary(entries, errors=0)
+
+    assert "Auto-Pilot Pipeline" in summary
+    assert "Records: 4" in summary
+    assert "autopilot 4" in summary
+    assert "Issues: 2" in summary
+    assert "Total step executions: 3" in summary
+    assert "Escalations: 1" in summary
+    assert "Step Average Durations" in summary
+    assert "format:" in summary
+    assert "capability-check:" in summary
+    assert "step-failed (1)" in summary
+
+
+def test_classify_autopilot_step_entry() -> None:
+    entry = {
+        "metric_type": "step",
+        "step_name": "optimize",
+        "duration_ms": 7000,
+        "success": True,
+    }
+    assert aggregate_agent_metrics._classify_entry(entry) == "autopilot"
+
+
+def test_classify_autopilot_escalation_entry() -> None:
+    entry = {
+        "escalation_reason": "needs-human",
+    }
+    assert aggregate_agent_metrics._classify_entry(entry) == "autopilot"
