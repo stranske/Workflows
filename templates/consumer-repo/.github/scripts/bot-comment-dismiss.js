@@ -64,6 +64,58 @@ function formatDismissLog(entry) {
   return `Auto-dismissed review comment ${entry.id} by ${author} in ${path}`;
 }
 
+async function dismissReviewComments(options = {}) {
+  const github = options.github;
+  const dismissable = options.dismissable || [];
+  const owner = options.owner;
+  const repo = options.repo;
+  const withRetry = options.withRetry || ((fn) => fn());
+  const logger = options.logger || console;
+
+  if (!github || !github.rest || !github.rest.pulls) {
+    throw new Error('github client missing rest.pulls');
+  }
+  if (!owner || !repo) {
+    throw new Error('owner and repo are required');
+  }
+
+  const dismissed = [];
+  const failed = [];
+  const logs = [];
+
+  for (const entry of dismissable) {
+    try {
+      await withRetry(() =>
+        github.rest.pulls.deleteReviewComment({
+          owner,
+          repo,
+          comment_id: entry.id,
+        })
+      );
+      dismissed.push(entry);
+      const logLine = formatDismissLog(entry);
+      logs.push(logLine);
+      if (logger && typeof logger.info === 'function') {
+        logger.info(logLine);
+      } else if (logger && typeof logger.log === 'function') {
+        logger.log(logLine);
+      }
+    } catch (error) {
+      failed.push({
+        ...entry,
+        error: error ? String(error.message || error) : 'unknown error',
+      });
+      if (logger && typeof logger.warning === 'function') {
+        logger.warning(`Failed to dismiss review comment ${entry.id}: ${error?.message || error}`);
+      } else if (logger && typeof logger.warn === 'function') {
+        logger.warn(`Failed to dismiss review comment ${entry.id}: ${error?.message || error}`);
+      }
+    }
+  }
+
+  return { dismissed, failed, logs };
+}
+
 function runCli(env = process.env) {
   const comments = env.COMMENTS_JSON ? JSON.parse(env.COMMENTS_JSON) : [];
   const ignoredPaths = parseCsv(env.IGNORED_PATHS);
@@ -87,6 +139,7 @@ if (require.main === module) {
 
 module.exports = {
   collectDismissable,
+  dismissReviewComments,
   formatDismissLog,
   runCli,
 };
