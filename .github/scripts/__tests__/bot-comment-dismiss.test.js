@@ -124,6 +124,29 @@ describe('bot-comment-dismiss', () => {
     ]);
   });
 
+  it('accepts GraphQL-style createdAt timestamps', () => {
+    const dismissable = collectDismissable(
+      [
+        {
+          id: 31,
+          path: '.agents/issue-31-ledger.yml',
+          user: { login: 'copilot[bot]' },
+          createdAt: '2026-02-08T12:00:50.000Z',
+        },
+      ],
+      {
+        ignoredPaths: ['.agents/'],
+        botAuthors: ['copilot[bot]'],
+        maxAgeSeconds: 30,
+        now: Date.parse('2026-02-08T12:01:10.000Z'),
+      }
+    );
+
+    assert.deepStrictEqual(dismissable, [
+      { id: 31, path: '.agents/issue-31-ledger.yml', author: 'copilot[bot]' },
+    ]);
+  });
+
   it('dismisses comments and logs each dismissal', async () => {
     const deleted = [];
     const github = {

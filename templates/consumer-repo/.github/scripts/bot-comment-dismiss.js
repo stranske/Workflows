@@ -31,6 +31,19 @@ function isBotAuthor(comment, botAuthors) {
   return botAuthors.has(String(comment.user.login).toLowerCase());
 }
 
+function resolveCommentTimestamp(comment) {
+  if (!comment) {
+    return null;
+  }
+  return (
+    comment.created_at ||
+    comment.createdAt ||
+    comment.updated_at ||
+    comment.updatedAt ||
+    null
+  );
+}
+
 function collectDismissable(comments, options = {}) {
   const botAuthors = normalizeAuthors(options.botAuthors);
   const matchers = buildMatchers({
@@ -54,7 +67,8 @@ function collectDismissable(comments, options = {}) {
       continue;
     }
     if (maxAgeSeconds !== null) {
-      const createdAt = comment.created_at ? Date.parse(comment.created_at) : NaN;
+      const timestamp = resolveCommentTimestamp(comment);
+      const createdAt = timestamp ? Date.parse(timestamp) : NaN;
       if (!Number.isFinite(createdAt)) {
         continue;
       }
