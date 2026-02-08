@@ -61,6 +61,49 @@ def format_spark(value: Any) -> str:
     return str(value)
 
 
+def _maybe_int(value: Any) -> int | None:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def extract_diagnostics_counts(report: dict | None) -> tuple[int | None, int | None]:
+    if not isinstance(report, dict):
+        return None, None
+
+    diagnostics_count = None
+    diagnostics = report.get("diagnostics")
+    if isinstance(diagnostics, list):
+        diagnostics_count = len(diagnostics)
+    elif isinstance(diagnostics, dict):
+        items = diagnostics.get("items")
+        if isinstance(items, list):
+            diagnostics_count = len(items)
+        else:
+            diagnostics_count = _maybe_int(diagnostics.get("count"))
+
+    diagnostics_fixed = _maybe_int(
+        report.get("diagnostics_fixed", report.get("diagnostics_fixed_count"))
+    )
+
+    classification = report.get("classification")
+    if isinstance(classification, dict):
+        if diagnostics_count is None:
+            diagnostics_count = _maybe_int(classification.get("total"))
+        if diagnostics_fixed is None:
+            diagnostics_fixed = _maybe_int(classification.get("fixed"))
+
+    return diagnostics_count, diagnostics_fixed
+
+
+def should_emit_comment(report: dict | None) -> bool:
+    diagnostics_count, diagnostics_fixed = extract_diagnostics_counts(report)
+    if diagnostics_count is None and diagnostics_fixed is None:
+        return True
+    return (diagnostics_count or 0) > 0 or (diagnostics_fixed or 0) > 0
+
+
 def _top_code_lines(codes: dict | None) -> tuple[str, ...]:
     if not codes:
         return ()
@@ -133,14 +176,26 @@ def build_comment(
     return "\n".join(lines)
 
 
+def build_metadata(report: dict | None) -> dict:
+    diagnostics_count, diagnostics_fixed = extract_diagnostics_counts(report)
+    return {
+        "diagnostics_count": diagnostics_count,
+        "diagnostics_fixed": diagnostics_fixed,
+        "should_post": should_emit_comment(report),
+    }
+
+
 def main(args: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--report", type=Path, required=True)
     parser.add_argument("--trend", type=Path, required=True)
     parser.add_argument("--history", type=Path)
     parser.add_argument("--out", type=Path, required=True)
+    parser.add_argument("--metadata-out", type=Path)
     parser.add_argument("--pr-number")
     parsed = parser.parse_args(args)
+
+    report = load_json(parsed.report) or {}
 
     comment = build_comment(
         report_path=parsed.report,
@@ -150,6 +205,14 @@ def main(args: list[str] | None = None) -> int:
     )
     parsed.out.parent.mkdir(parents=True, exist_ok=True)
     parsed.out.write_text(comment, encoding="utf-8")
+
+    if parsed.metadata_out:
+        metadata = build_metadata(report)
+        parsed.metadata_out.parent.mkdir(parents=True, exist_ok=True)
+        parsed.metadata_out.write_text(
+            json.dumps(metadata, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
     return 0
 
 

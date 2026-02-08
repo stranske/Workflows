@@ -4,6 +4,10 @@ inputs:
   output:
     description: "Path to write the markdown comment"
     required: true
+  metadata:
+    description: "Path to write metadata JSON (diagnostics counts, should_post)"
+    required: false
+    default: autofix_pr_comment.meta.json
   report:
     description: "Path to the enriched autofix report JSON"
     required: false
@@ -23,10 +27,15 @@ inputs:
     description: "Path to the scripts directory (defaults to scripts/)"
     required: false
     default: scripts
+outputs:
+  should-post:
+    description: "Whether the autofix comment should be posted"
+    value: ${{ steps.metadata.outputs.should-post }}
 runs:
   using: "composite"
   steps:
     - name: Build comment body
+      id: build
       shell: bash
       run: |
         python "${{ inputs.scripts-path }}/build_autofix_pr_comment.py" \
@@ -34,4 +43,27 @@ runs:
           --report "${{ inputs.report }}" \
           --history "${{ inputs.history }}" \
           --trend "${{ inputs.trend }}" \
+          --metadata-out "${{ inputs.metadata }}" \
           --pr-number "${{ inputs['pr-number'] }}"
+    - name: Capture comment metadata
+      id: metadata
+      shell: bash
+      run: |
+        python - <<'PY'
+        import json
+        import os
+        import pathlib
+        path = os.environ.get("AUTOFIX_COMMENT_METADATA", "autofix_pr_comment.meta.json")
+        try:
+          with open(path, "r", encoding="utf-8") as handle:
+            data = json.load(handle)
+        except Exception:
+          data = {}
+        should_post = data.get("should_post", True)
+        output_path = pathlib.Path(os.environ.get("GITHUB_OUTPUT", ""))
+        if output_path:
+          with output_path.open("a", encoding="utf-8") as handle:
+            handle.write(f"should-post={str(should_post).lower()}\n")
+        PY
+      env:
+        AUTOFIX_COMMENT_METADATA: ${{ inputs.metadata }}

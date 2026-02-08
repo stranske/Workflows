@@ -13,12 +13,15 @@ from scripts.build_autofix_pr_comment import (
     _snapshot_code_lines,
     _top_code_lines,
     build_comment,
+    build_metadata,
     coerce_bool,
     coerce_int,
+    extract_diagnostics_counts,
     format_spark,
     format_timestamp,
     load_json,
     main,
+    should_emit_comment,
 )
 
 pytestmark = pytest.mark.cosmetic
@@ -150,6 +153,36 @@ def test_build_comment_defaults_and_autofix_suffix(tmp_path: Path) -> None:
     assert "No additional artifacts" in comment
 
 
+@pytest.mark.parametrize(
+    ("report", "expected"),
+    [
+        ({"diagnostics": [{"code": "E001"}]}, True),
+        ({"diagnostics": []}, False),
+        ({"diagnostics_fixed": 3}, True),
+        ({"diagnostics_fixed": 0}, False),
+        ({"classification": {"total": 2}}, True),
+        ({"classification": {"total": 0}}, False),
+        ({}, True),
+    ],
+)
+def test_should_emit_comment(report: dict, expected: bool) -> None:
+    assert should_emit_comment(report) is expected
+
+
+def test_extract_diagnostics_counts_defaults() -> None:
+    assert extract_diagnostics_counts(None) == (None, None)
+    assert extract_diagnostics_counts({}) == (None, None)
+    assert extract_diagnostics_counts({"diagnostics": {"items": [{"code": "E001"}]}}) == (1, None)
+    assert extract_diagnostics_counts({"diagnostics": {"count": "4"}}) == (4, None)
+
+
+def test_build_metadata_writes_counts() -> None:
+    metadata = build_metadata({"diagnostics": [], "diagnostics_fixed": 0})
+    assert metadata["diagnostics_count"] == 0
+    assert metadata["diagnostics_fixed"] == 0
+    assert metadata["should_post"] is False
+
+
 def test_cli_entrypoint_writes_output(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     report = tmp_path / "report.json"
     trend = tmp_path / "trend.json"
@@ -170,6 +203,8 @@ def test_cli_entrypoint_writes_output(tmp_path: Path, monkeypatch: pytest.Monkey
             str(history),
             "--out",
             str(out_path),
+            "--metadata-out",
+            str(tmp_path / "meta.json"),
             "--pr-number",
             "7",
         ]
