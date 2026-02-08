@@ -1542,6 +1542,14 @@ async function detectRateLimitCancellation({ github, context, runId, core }) {
     });
     const jobs = Array.isArray(data?.jobs) ? data.jobs : [];
     for (const job of jobs) {
+      // Skip jobs that never ran — they have no logs to download and
+      // querying them returns 404 ("Not Found"), producing noisy warnings.
+      const jobStatus = String(job?.status || '').toLowerCase();
+      const jobConclusion = String(job?.conclusion || '').toLowerCase();
+      const jobRan = jobStatus === 'completed' &&
+        jobConclusion !== 'skipped' &&
+        jobConclusion !== '';
+
       if (canCheckAnnotations) {
         const checkRunId = extractCheckRunId(job);
         if (checkRunId) {
@@ -1562,7 +1570,7 @@ async function detectRateLimitCancellation({ github, context, runId, core }) {
 
       if (canCheckLogs) {
         const jobId = Number(job?.id) || 0;
-        if (jobId) {
+        if (jobId && jobRan) {
           try {
             const logs = await github.rest.actions.downloadJobLogsForWorkflowRun({
               owner: context.repo.owner,

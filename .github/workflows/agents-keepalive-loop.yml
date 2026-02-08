@@ -57,7 +57,8 @@ jobs:
       has_agent_label: ${{ steps.evaluate.outputs.has_agent_label }}
       has_high_privilege: ${{ steps.evaluate.outputs.has_high_privilege }}
       agent_type: ${{ steps.evaluate.outputs.agent_type }}
-      task_appendix: ${{ steps.evaluate.outputs.task_appendix }}
+      # task_appendix is delivered via artifact upload (keepalive-task-appendix-<pr>)
+      # to avoid GitHub's secret scanner censoring the job output.
       trace: ${{ steps.evaluate.outputs.trace }}
       prompt_mode: ${{ steps.evaluate.outputs.prompt_mode }}
       prompt_file: ${{ steps.evaluate.outputs.prompt_file }}
@@ -244,6 +245,7 @@ jobs:
               options.overridePrNumber = parseInt(inputPrNumber, 10);
             }
             // Check if agent:retry label exists on PR (works for all event types)
+            // Use token-aware retry to avoid rate limit failures on GITHUB_TOKEN
             if (!forceRetry) {
               const { owner, repo } = context.repo;
               // Resolve PR number from override, workflow_run, or pull_request event
@@ -253,11 +255,23 @@ jobs:
                 (context.payload?.pull_request?.number);
               if (prNumberForLabelCheck) {
                 try {
-                  const labelsResponse = await github.rest.issues.listLabelsOnIssue({
-                    owner,
-                    repo,
-                    issue_number: prNumberForLabelCheck,
+                  const retryMod = require(
+                    './.github/scripts/github-api-with-retry.js'
+                  );
+                  const { withRetry } = await retryMod.createTokenAwareRetry({
+                    github,
+                    core,
+                    env: process.env,
+                    task: 'keepalive-label-check',
+                    capabilities: ['issues:read'],
                   });
+                  const labelsResponse = await withRetry((client) =>
+                    client.rest.issues.listLabelsOnIssue({
+                      owner,
+                      repo,
+                      issue_number: prNumberForLabelCheck,
+                    })
+                  );
                   const hasRetryLabel = Array.isArray(labelsResponse.data) &&
                     labelsResponse.data.some(label => label.name === 'agent:retry');
                   if (hasRetryLabel) {
@@ -338,6 +352,10 @@ jobs:
             }
 
             // Keep output for backward compatibility (may be censored, but that's OK now)
+            // NOTE: task_appendix is no longer exposed as a job output to avoid
+            // "Skip output since it may contain secret" warnings from GitHub's
+            // secret scanner. The artifact upload is the primary delivery
+            // mechanism; downstream jobs (reusable-codex-run) download it.
             core.setOutput('task_appendix', result.taskAppendix || '');
 
       - name: Verify task appendix artifact
@@ -488,7 +506,8 @@ jobs:
       pr_number: ${{ needs.evaluate.outputs.pr_number }}
       pr_ref: ${{ needs.evaluate.outputs.pr_ref }}
       base_ref: ${{ needs.evaluate.outputs.base_ref }}
-      appendix: ${{ needs.evaluate.outputs.task_appendix }}
+      # task_appendix delivered via artifact; input left empty to avoid secret scanner
+      appendix: ''
       iteration: ${{ needs.evaluate.outputs.iteration }}
       environment: >-
         ${{

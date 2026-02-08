@@ -97,7 +97,7 @@ async function main() {
   const gateConclusion = scenario.gate_conclusion || 'cancelled';
   const jobs = Array.isArray(scenario.jobs)
     ? scenario.jobs
-    : [{ id: 9001 }];
+    : [{ id: 9001, status: 'completed', conclusion: 'cancelled' }];
   const logs = scenario.logs || 'Rate limit exceeded while fetching workflow logs.';
   const rateLimit = scenario.rateLimit || null;
 
