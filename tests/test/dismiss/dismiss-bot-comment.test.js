@@ -84,4 +84,49 @@ describe('bot-comment-dismiss glob matching', () => {
     ]);
     assert.deepStrictEqual(deleted, [11]);
   });
+
+  it('skips old ignored-path comments when maxAgeSeconds is set', async () => {
+    const deleted = [];
+    const github = {
+      rest: {
+        pulls: {
+          listReviewComments: async () => ({
+            data: [
+              {
+                id: 21,
+                path: '.agents/old-ledger.yml',
+                user: { login: 'copilot[bot]' },
+                created_at: '2026-02-08T12:00:00.000Z',
+              },
+              {
+                id: 22,
+                path: '.agents/new-ledger.yml',
+                user: { login: 'copilot[bot]' },
+                created_at: '2026-02-08T12:00:50.000Z',
+              },
+            ],
+          }),
+          deleteReviewComment: async ({ comment_id }) => {
+            deleted.push(comment_id);
+          },
+        },
+      },
+    };
+
+    const result = await autoDismissReviewComments({
+      github,
+      owner: 'octo',
+      repo: 'repo',
+      pullNumber: 123,
+      ignoredPaths: ['.agents/**'],
+      botAuthors: ['copilot[bot]'],
+      maxAgeSeconds: 30,
+      now: Date.parse('2026-02-08T12:01:00.000Z'),
+    });
+
+    assert.deepStrictEqual(result.dismissable, [
+      { id: 22, path: '.agents/new-ledger.yml', author: 'copilot[bot]' },
+    ]);
+    assert.deepStrictEqual(deleted, [22]);
+  });
 });
