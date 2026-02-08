@@ -188,6 +188,148 @@ jobs:
             core.setOutput('pr_number', prNumber || '');
             core.setOutput('should_run', shouldRun ? 'true' : 'false');
 
+  # Dismiss ignored-path bot reviews to prevent noisy inline comments
+  dismiss_ignored:
+    name: Dismiss ignored bot reviews
+    needs: resolve
+    if: vars.USE_CONSOLIDATED_WORKFLOWS != 'true' && needs.resolve.outputs.should_run == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          sparse-checkout: |
+            .github/actions/setup-api-client
+            .github/scripts/github-api-with-retry.js
+            .github/scripts/token_load_balancer.js
+          sparse-checkout-cone-mode: false
+
+      - name: Setup API client
+        uses: ./.github/actions/setup-api-client
+        with:
+          secrets: ${{ toJSON(secrets) }}
+          github_token: ${{ github.token }}
+
+      - name: Dismiss ignored-path bot reviews
+        uses: actions/github-script@v8
+        env:
+          BOT_AUTHORS: 'Copilot,copilot[bot],github-actions[bot],coderabbitai[bot],chatgpt-codex-connector[bot]'
+          IGNORED_PATHS: '.agents/,scripts/langchain/prompts/,docs/'
+        with:
+          script: |
+            const prNumber = parseInt('${{ needs.resolve.outputs.pr_number }}', 10);
+            if (!prNumber) {
+              console.log('No PR number resolved; skipping dismiss step.');
+              return;
+            }
+
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const { withRetry } = await createTokenAwareRetry({ github, core });
+
+            const botAuthors = (process.env.BOT_AUTHORS || '')
+              .split(',')
+              .map((value) => value.trim().toLowerCase())
+              .filter(Boolean);
+            const ignoredPaths = (process.env.IGNORED_PATHS || '')
+              .split(',')
+              .map((value) => value.trim())
+              .filter(Boolean);
+
+            if (botAuthors.length === 0 || ignoredPaths.length === 0) {
+              console.log('Missing bot authors or ignored paths; skipping dismiss step.');
+              return;
+            }
+
+            const [commentsResponse, reviewsResponse] = await Promise.all([
+              withRetry((client) => client.rest.pulls.listReviewComments({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: prNumber,
+                per_page: 100,
+              })),
+              withRetry((client) => client.rest.pulls.listReviews({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: prNumber,
+                per_page: 100,
+              })),
+            ]);
+
+            const comments = commentsResponse.data || [];
+            const reviews = reviewsResponse.data || [];
+            const reviewsById = new Map(reviews.map((review) => [review.id, review]));
+            const commentsByReview = new Map();
+
+            for (const comment of comments) {
+              const reviewId = comment.pull_request_review_id;
+              if (!reviewId) {
+                continue;
+              }
+
+              const entry = commentsByReview.get(reviewId) || {
+                total: 0,
+                ignored: 0,
+                paths: [],
+                botLogins: new Set(),
+              };
+
+              entry.total += 1;
+              const commentPath = comment.path || '';
+              entry.paths.push(commentPath);
+
+              if (ignoredPaths.some((prefix) => commentPath.startsWith(prefix))) {
+                entry.ignored += 1;
+                const login = (comment.user?.login || '').toLowerCase();
+                if (login) {
+                  entry.botLogins.add(login);
+                }
+                console.log(
+                  `Auto-dismiss candidate: comment=${comment.id} bot=${comment.user?.login} path=${commentPath}`
+                );
+              }
+
+              commentsByReview.set(reviewId, entry);
+            }
+
+            let dismissed = 0;
+            for (const [reviewId, review] of reviewsById) {
+              const login = (review.user?.login || '').toLowerCase();
+              if (!botAuthors.includes(login)) {
+                continue;
+              }
+
+              const entry = commentsByReview.get(reviewId);
+              if (!entry || entry.total === 0) {
+                continue;
+              }
+
+              if (entry.ignored !== entry.total) {
+                continue;
+              }
+
+              const uniquePaths = Array.from(new Set(entry.paths)).filter(Boolean);
+              const message = [
+                'Auto-dismissed bot review: all comments target ignored paths.',
+                `Ignored paths: ${ignoredPaths.join(', ')}`,
+                `Review paths: ${uniquePaths.join(', ') || '(none)'}`,
+              ].join('\n');
+
+              await withRetry((client) => client.rest.pulls.dismissReview({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: prNumber,
+                review_id: reviewId,
+                message,
+              }));
+
+              dismissed += 1;
+              console.log(
+                `Dismissed review ${reviewId} from ${review.user?.login} for paths: ${uniquePaths.join(', ')}`
+              );
+            }
+
+            console.log(`Dismissed ${dismissed} bot review(s) targeting ignored paths.`);
+
   # Call the reusable workflow
   handle:
     name: Handle bot comments

@@ -31,3 +31,20 @@ def test_template_bot_comment_handler_passes_agents_ignore() -> None:
     ignored_paths = inputs.get("ignored_paths", "")
 
     assert ".agents/" in ignored_paths.split(",")
+
+
+def test_template_bot_comment_handler_dismisses_ignored_reviews() -> None:
+    workflow = _load_yaml(
+        ROOT / "templates/consumer-repo/.github/workflows/agents-bot-comment-handler.yml"
+    )
+    dismiss_job = workflow.get("jobs", {}).get("dismiss_ignored", {})
+    assert dismiss_job, "dismiss_ignored job is missing"
+
+    steps = dismiss_job.get("steps", [])
+    github_script_steps = [
+        step for step in steps if step.get("uses", "").startswith("actions/github-script")
+    ]
+    assert github_script_steps, "dismiss_ignored job should run actions/github-script"
+
+    script = github_script_steps[-1].get("with", {}).get("script", "")
+    assert "dismissReview" in script
