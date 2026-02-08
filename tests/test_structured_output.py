@@ -203,8 +203,9 @@ def test_parse_structured_output_uses_effective_repair_attempts(
         max_repair_attempts=input_attempts,
     )
 
-    # Production rule: max_repair_attempts is clamped to [MIN_REPAIR_ATTEMPTS, MAX_REPAIR_ATTEMPTS].
+    # Production rule: max_repair_attempts is clamped to [0, 1] before invoking the repair loop.
     assert observed["effective"] == expected_effective
+    assert isinstance(observed["kwargs"]["attempts"], int)
     assert observed["calls"] == 1
     assert observed["kwargs"]["repair"] is repair_spy
     assert observed["kwargs"]["model"] is ExampleModel
