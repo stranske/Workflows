@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+import pytest
 import yaml
 
 
@@ -31,17 +32,18 @@ def test_pip_cache_step_uses_requirements_llm_hash() -> None:
     assert expected in contents
 
 
-def test_install_snippets_reference_requirements_llm() -> None:
-    install_snippets = [
+@pytest.mark.parametrize(
+    "snippet_path",
+    [
         Path("docs/workflow-snippets/agents-auto-pilot-install.yml"),
         Path("docs/workflow-snippets/reusable-agents-verifier-install.yml"),
         Path("docs/workflow-snippets/agents-verify-to-new-pr-install.yml"),
-    ]
-
-    for snippet_path in install_snippets:
-        contents = snippet_path.read_text(encoding="utf-8")
-        assert "tools/requirements-llm.txt" in contents
-        assert ".workflows-lib/tools/requirements-llm.txt" not in contents
+    ],
+)
+def test_install_snippets_reference_requirements_llm(snippet_path: Path) -> None:
+    contents = snippet_path.read_text(encoding="utf-8")
+    assert "tools/requirements-llm.txt" in contents
+    assert ".workflows-lib/tools/requirements-llm.txt" not in contents
 
 
 def test_pip_freeze_step_runs_python_module() -> None:
