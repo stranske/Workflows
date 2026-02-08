@@ -16,82 +16,34 @@ jobs:
     if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
-      # Mint GitHub App token early to use for API calls (avoids rate limits)
-      - name: Mint GitHub App Token
-        id: app_token
-        uses: actions/create-github-app-token@v2
-        continue-on-error: true
-        with:
-          app-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
-          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || 'dummy' }}
-          owner: ${{ github.repository_owner }}
-
-      - name: Checkout repository
-        uses: actions/checkout@v6
-        with:
-          token: ${{ steps.app_token.outputs.token || github.token }}
-      - name: Export load-balancer tokens
-        uses: ./.github/actions/setup-api-client
-      - name: Install GitHub API dependencies
-        run: npm install --no-save --no-package-lock @octokit/rest @octokit/auth-app
-      - name: Download follow-up issue metadata
+      - name: Select GitHub token
+        id: select-token
         env:
-          GH_TOKEN: ${{ github.token }}
-          RUN_ID: ${{ github.event.workflow_run.id }}
+          CODESPACES_WORKFLOWS: ${{ secrets.CODESPACES_WORKFLOWS }}
+          OWNER_PR_PAT: ${{ secrets.OWNER_PR_PAT }}
+          SERVICE_BOT_PAT: ${{ secrets.SERVICE_BOT_PAT }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
-          set -euo pipefail
-          # shellcheck disable=SC1009,SC1073,SC1039,SC1072
-          node - <<'NODE'
-          const fs = require('fs');
-          const { Octokit } = require('@octokit/rest');
-          const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
-          const core = { info: () => {}, warning: console.warn, debug: () => {} };
-          const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
-          const runId = Number(process.env.RUN_ID);
-          const artifactName = 'verify-create-new-pr-output';
-          (async () => {
-            const github = new Octokit({ auth: process.env.GH_TOKEN || process.env.GITHUB_TOKEN });
-            const { paginateWithRetry, withRetry } = await createTokenAwareRetry({
-              github,
-              core,
-              env: process.env,
-              task: 'agents-verify-to-new-pr-autopilot',
-              capabilities: ['actions:read']
-            });
-            const artifacts = await paginateWithRetry(github.rest.actions.listWorkflowRunArtifacts, {
-              owner,
-              repo,
-              run_id: runId,
-              per_page: 100
-            });
-            const artifact = artifacts.find((item) => item.name === artifactName);
-            if (!artifact) {
-              console.error(`Missing ${artifactName} artifact for run ${runId}`);
-              process.exit(1);
-            }
-            const response = await withRetry((client) => client.rest.actions.downloadArtifact({
-              owner,
-              repo,
-              artifact_id: artifact.id,
-              archive_format: 'zip'
-            }));
-            const data = response.data;
-            const buffer = Buffer.isBuffer(data)
-              ? data
-              : Buffer.from(data instanceof ArrayBuffer ? new Uint8Array(data) : data);
-            fs.writeFileSync('artifact.zip', buffer);
-          })().catch((error) => {
-            console.error(error);
-            process.exit(1);
-          });
-          NODE
-          tmp_output="${RUNNER_TEMP:-/tmp}/followup_issue_output.json"
-          unzip -p artifact.zip followup_issue_output.json > "${tmp_output}"
-          mv "${tmp_output}" followup_issue_output.json
+          if [ -n "$CODESPACES_WORKFLOWS" ]; then
+            echo "token=$CODESPACES_WORKFLOWS" >> "$GITHUB_OUTPUT"
+          elif [ -n "$OWNER_PR_PAT" ]; then
+            echo "token=$OWNER_PR_PAT" >> "$GITHUB_OUTPUT"
+          elif [ -n "$SERVICE_BOT_PAT" ]; then
+            echo "token=$SERVICE_BOT_PAT" >> "$GITHUB_OUTPUT"
+          else
+            echo "token=$GITHUB_TOKEN" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Download follow-up issue metadata
+        uses: actions/download-artifact@v4
+        with:
+          name: verify-create-new-pr-output
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ steps.select-token.outputs.token }}
 
       - name: Dispatch auto-pilot from optimize step
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.select-token.outputs.token }}
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
           set -euo pipefail
@@ -100,35 +52,9 @@ jobs:
             echo "Missing issue_number in followup_issue_output.json" >&2
             exit 1
           fi
-            # shellcheck disable=SC1009,SC1073,SC1039,SC1072
-            ISSUE_NUMBER="${issue_number}" node - <<'NODE'
-          const { Octokit } = require('@octokit/rest');
-          const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
-          const core = { info: () => {}, warning: console.warn, debug: () => {} };
-          const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
-          const issueNumber = process.env.ISSUE_NUMBER;
-          const defaultBranch = process.env.DEFAULT_BRANCH;
-          (async () => {
-            const github = new Octokit({ auth: process.env.GH_TOKEN || process.env.GITHUB_TOKEN });
-            const { withRetry } = await createTokenAwareRetry({
-              github,
-              core,
-              env: process.env,
-              task: 'agents-verify-to-new-pr-autopilot-dispatch',
-              capabilities: ['actions:write']
-            });
-            await withRetry((client) => client.rest.actions.createWorkflowDispatch({
-              owner,
-              repo,
-              workflow_id: 'agents-auto-pilot.yml',
-              ref: defaultBranch,
-              inputs: {
-                issue_number: String(issueNumber),
-                force_step: 'optimize'
-              }
-            }));
-          })().catch((error) => {
-            console.error(error);
-            process.exit(1);
-          });
-          NODE
+          workflow="agents-auto-pilot.yml"
+          api_path="repos/${GITHUB_REPOSITORY}/actions/workflows/${workflow}/dispatches"
+          gh api -X POST "${api_path}" \
+            -f "ref=${DEFAULT_BRANCH}" \
+            -f "inputs[issue_number]=${issue_number}" \
+            -f "inputs[force_step]=optimize"

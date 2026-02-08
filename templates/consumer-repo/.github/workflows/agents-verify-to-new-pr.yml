@@ -472,7 +472,7 @@ jobs:
               repo: context.repo.repo,
               title: title,
               body: body,
-              labels: ['follow-up']
+              labels: ['follow-up', 'agent:codex']
             }));
 
             core.info(`Created issue #${issue.data.number}`);
@@ -499,6 +499,50 @@ jobs:
           path: followup_issue_output.json
           if-no-files-found: error
           retention-days: 7
+
+      - name: Dispatch auto-pilot directly
+        if: steps.check-merged.outputs.merged == 'true' && steps.create-issue.outputs.issue_number
+        continue-on-error: true
+        uses: actions/github-script@v8
+        env:
+          ISSUE_NUMBER: ${{ steps.create-issue.outputs.issue_number }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        with:
+          github-token: ${{ steps.select-token.outputs.token }}
+          script: |
+            const fs = require('fs');
+            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : {
+                  withRetry: (fn) => fn(),
+                  paginateWithRetry: (githubInstance, method, params) =>
+                    githubInstance.paginate(method, params),
+                };
+            const { withRetry } = retryHelpers;
+
+            const issueNumber = process.env.ISSUE_NUMBER;
+            const defaultBranch = process.env.DEFAULT_BRANCH;
+
+            try {
+              await withRetry(() => github.rest.actions.createWorkflowDispatch({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                workflow_id: 'agents-auto-pilot.yml',
+                ref: defaultBranch,
+                inputs: {
+                  issue_number: String(issueNumber),
+                  force_step: 'optimize'
+                }
+              }));
+              core.info(`Dispatched auto-pilot for issue #${issueNumber}`);
+            } catch (error) {
+              core.warning(
+                'Direct dispatch failed: ' +
+                error.message +
+                '. Issue intake will handle via agent:codex.'
+              );
+            }
 
       - name: Comment on original PR
         if: steps.check-merged.outputs.merged == 'true'

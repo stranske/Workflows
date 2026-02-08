@@ -16,27 +16,34 @@ jobs:
     if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
-      - name: Download follow-up issue metadata
+      - name: Select GitHub token
+        id: select-token
         env:
-          GH_TOKEN: ${{ github.token }}
-          RUN_ID: ${{ github.event.workflow_run.id }}
+          CODESPACES_WORKFLOWS: ${{ secrets.CODESPACES_WORKFLOWS }}
+          OWNER_PR_PAT: ${{ secrets.OWNER_PR_PAT }}
+          SERVICE_BOT_PAT: ${{ secrets.SERVICE_BOT_PAT }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
-          set -euo pipefail
-          repo="${GITHUB_REPOSITORY}"
-          artifact_id=$(gh api "repos/${repo}/actions/runs/${RUN_ID}/artifacts" \
-            --jq '[.artifacts[] | select(.name=="verify-create-new-pr-output") | .id][0]')
-          if [ -z "${artifact_id}" ]; then
-            echo "Missing verify-create-new-pr-output artifact for run ${RUN_ID}" >&2
-            exit 1
+          if [ -n "$CODESPACES_WORKFLOWS" ]; then
+            echo "token=$CODESPACES_WORKFLOWS" >> "$GITHUB_OUTPUT"
+          elif [ -n "$OWNER_PR_PAT" ]; then
+            echo "token=$OWNER_PR_PAT" >> "$GITHUB_OUTPUT"
+          elif [ -n "$SERVICE_BOT_PAT" ]; then
+            echo "token=$SERVICE_BOT_PAT" >> "$GITHUB_OUTPUT"
+          else
+            echo "token=$GITHUB_TOKEN" >> "$GITHUB_OUTPUT"
           fi
-          gh api "repos/${repo}/actions/artifacts/${artifact_id}/zip" > artifact.zip
-          tmp_output="${RUNNER_TEMP:-/tmp}/followup_issue_output.json"
-          unzip -p artifact.zip followup_issue_output.json > "${tmp_output}"
-          mv "${tmp_output}" followup_issue_output.json
+
+      - name: Download follow-up issue metadata
+        uses: actions/download-artifact@v4
+        with:
+          name: verify-create-new-pr-output
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ steps.select-token.outputs.token }}
 
       - name: Dispatch auto-pilot from optimize step
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.select-token.outputs.token }}
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
           set -euo pipefail
