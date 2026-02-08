@@ -45,7 +45,7 @@ Issue created ──▶ Format ──▶ Optimize ──▶ Apply ──▶ Capa
 | **Create PR** | Creates `codex/issue-*` branch with issue context in PR body |
 | **Keepalive** | Event-driven loop (Gate completion → task appendix → Codex CLI dispatch → push → repeat) |
 | **Verify** | LLM-based evaluation of PR against acceptance criteria (PASS / CONCERNS / FAIL) |
-| **Follow-up** | On CONCERNS/FAIL, creates a follow-up issue with verification gaps as tasks (max depth 2) |
+| **Follow-up** | On CONCERNS/FAIL, creates a follow-up issue with verification gaps as tasks (target max depth 2; automated enforcement pending) |
 
 ### Self-Dispatch Mechanism
 

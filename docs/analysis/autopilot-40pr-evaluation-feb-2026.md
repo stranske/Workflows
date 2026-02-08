@@ -52,7 +52,7 @@ and one chain ran 5 PRs deep before the original issue was resolved.
 | PR | Source Issue | State | Labels of Note | Files | +/- |
 |----|------------|-------|----------------|-------|-----|
 | #424 | #423 (follow-up) | MERGED | agents:keepalive | 4 | +140/-2 |
-| #420 | #412 (original) | MERGED | needs-human, agent:high-privelege | 14 | +565/-112 |
+| #420 | #412 (original) | MERGED | needs-human, agent-high-privilege | 14 | +565/-112 |
 | #352 | #351 (follow-up) | MERGED | agents:keepalive | 5 | +225/-9 |
 | #318 | #298 (original) | MERGED | needs-human, verify:compare | 9 | +238/-117 |
 | #317 | #299 (original) | MERGED | needs-human, verify:compare | 7 | +346/-23 |

@@ -70,7 +70,7 @@ Auto-pilot pipeline:
 
 4. **Verify Before Marking Complete**: Only mark task checkboxes complete after verifying the implementation works.
 
-5. **Follow-up Chain Depth**: The verification pipeline caps follow-up chains at depth 2 (original + 2 follow-ups). After that, `needs-human` is applied instead of creating more follow-up issues.
+5. **Follow-up Chain Depth**: Follow-up chains **must not** exceed depth 2 (original + 2 follow-ups). Automated enforcement is pending; until it lands, agents and workflows should apply `needs-human` instead of creating additional follow-up issues beyond this depth.
 
 ## Keepalive Implementations
 

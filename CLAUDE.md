@@ -283,7 +283,7 @@ After PR merge:
 2. Modes: `checkbox` (task completeness), `evaluate` (single LLM), `compare` (dual-LLM cross-verification)
 3. Verdict: PASS → done | CONCERNS/FAIL → `agents-verify-to-new-pr.yml`
 4. Follow-up: creates new issue with verification gaps as tasks
-5. **Chain depth is capped at 2** (original + 2 follow-ups max)
+5. **Chain depth should be capped at 2** (original + 2 follow-ups max). Automated enforcement is pending; manually apply `needs-human` beyond this depth.
 
 ### Key Metrics (Feb 2026 Evaluation, 40-PR sample)
 
