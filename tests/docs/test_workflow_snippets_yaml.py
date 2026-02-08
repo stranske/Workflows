@@ -41,6 +41,7 @@ def test_install_snippets_reference_requirements_llm() -> None:
     for snippet_path in install_snippets:
         contents = snippet_path.read_text(encoding="utf-8")
         assert "tools/requirements-llm.txt" in contents
+        assert ".workflows-lib/tools/requirements-llm.txt" not in contents
 
 
 def test_pip_freeze_step_runs_python_module() -> None:
