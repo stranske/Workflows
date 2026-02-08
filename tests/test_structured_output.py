@@ -186,3 +186,31 @@ def test_parse_structured_output_repair_validation_error():
 )
 def test_clamp_repair_attempts_clamps_bounds(input_attempts: int, expected: int):
     assert clamp_repair_attempts(input_attempts) == expected
+
+
+@pytest.mark.parametrize(
+    ("input_attempts", "expected_effective"),
+    [(0, 0), (1, 1), (2, 1), (10, 1)],
+)
+def test_parse_structured_output_clamps_repair_attempts(
+    input_attempts: int, expected_effective: int
+) -> None:
+    repair_calls = {"count": 0}
+
+    def _repair(_schema: str, _errors: str, _raw: str) -> str | None:
+        repair_calls["count"] += 1
+        return None
+
+    result = parse_structured_output(
+        _invalid_payload(),
+        ExampleModel,
+        repair=_repair,
+        max_repair_attempts=input_attempts,
+    )
+
+    assert repair_calls["count"] == expected_effective
+    assert result.repair_attempts_used == expected_effective
+    if expected_effective == 0:
+        assert result.error_stage == "validation"
+    else:
+        assert result.error_stage == "repair_unavailable"

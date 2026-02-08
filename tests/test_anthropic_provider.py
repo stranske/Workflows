@@ -19,10 +19,9 @@ def test_anthropic_provider_forwards_quality_context_to_client_invoke():
 
     class DummyClient:
         def __init__(self) -> None:
-            self.kwargs = None
+            self.invoke = MagicMock(side_effect=self._invoke)
 
-        def invoke(self, _prompt: str, **kwargs):
-            self.kwargs = kwargs
+        def _invoke(self, _prompt: str, **kwargs):
             return SimpleNamespace(content="""
 {
     "completed": ["task1"],
@@ -39,8 +38,8 @@ def test_anthropic_provider_forwards_quality_context_to_client_invoke():
 
     provider.analyze_completion("output", ["task1"], quality_context=sentinel)
 
-    assert client.kwargs is not None
-    assert client.kwargs["quality_context"] is sentinel
+    assert client.invoke.call_args is not None
+    assert client.invoke.call_args.kwargs["quality_context"] is sentinel
 
 
 def test_anthropic_provider_propagates_invoke_errors():

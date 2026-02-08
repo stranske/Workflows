@@ -112,14 +112,18 @@ def test_fallback_chain_selects_expected_active_provider_and_forwards_args():
     sentinel = object()
     legacy_provider = LegacyProvider()
     quality_provider = QualityProvider()
+    legacy_provider.analyze_completion = MagicMock(wraps=legacy_provider.analyze_completion)
     quality_provider.analyze_completion = MagicMock(wraps=quality_provider.analyze_completion)
 
     chain = FallbackChainProvider([legacy_provider, quality_provider])
     chain.analyze_completion("session", ["task"], "ctx", quality_context=sentinel)
 
     assert chain._active_provider is quality_provider
+    assert legacy_provider.analyze_completion.call_count == 0
     quality_provider.analyze_completion.assert_called_once()
-    call_kwargs = quality_provider.analyze_completion.call_args.kwargs
+    call_args = quality_provider.analyze_completion.call_args
+    assert call_args.args == ()
+    call_kwargs = call_args.kwargs
     assert call_kwargs["session_output"] == "session"
     assert call_kwargs["tasks"] == ["task"]
     assert call_kwargs["context"] == "ctx"
