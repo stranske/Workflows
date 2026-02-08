@@ -271,6 +271,7 @@ jobs:
                 ignored: 0,
                 paths: [],
                 botLogins: new Set(),
+                ignoredComments: [],
               };
 
               entry.total += 1;
@@ -283,6 +284,11 @@ jobs:
                 if (login) {
                   entry.botLogins.add(login);
                 }
+                entry.ignoredComments.push({
+                  id: comment.id,
+                  path: commentPath,
+                  login: comment.user?.login || 'unknown',
+                });
                 console.log(
                   `Auto-dismiss candidate: comment=${comment.id} bot=${comment.user?.login} path=${commentPath}`
                 );
@@ -308,6 +314,11 @@ jobs:
               }
 
               const uniquePaths = Array.from(new Set(entry.paths)).filter(Boolean);
+              for (const ignored of entry.ignoredComments) {
+                console.log(
+                  `Auto-dismissed review comment: comment=${ignored.id} bot=${ignored.login} path=${ignored.path}`
+                );
+              }
               const message = [
                 'Auto-dismissed bot review: all comments target ignored paths.',
                 `Ignored paths: ${ignoredPaths.join(', ')}`,
