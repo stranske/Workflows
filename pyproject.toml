@@ -44,7 +44,7 @@ dev = [
     # Required by repo dependency checks / CI fallback checks
     "hypothesis>=6.0.0",
     "pandas",
-    "numpy<2.0",
+    "numpy<3.0",
     "pydantic>=2.0.0",
     "requests>=2.31.0",
     "jsonschema>=4.0.0",
