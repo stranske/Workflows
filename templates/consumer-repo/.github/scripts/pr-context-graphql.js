@@ -134,6 +134,9 @@ query PRBasic($owner: String!, $repo: String!, $number: Int!) {
 }
 `;
 
+const DEFAULT_IGNORED_PATH_PREFIXES = ['.agents/'];
+const DEFAULT_IGNORED_PATH_PATTERNS = ['.agents/issue-*-ledger.yml'];
+
 async function resolveGithubClient(github) {
   if (!github) {
     return github;
@@ -146,6 +149,70 @@ async function resolveGithubClient(github) {
   } catch (error) {
     return github;
   }
+}
+
+function parseCsv(value) {
+  if (!value) {
+    return [];
+  }
+  return String(value)
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
+function normalizeSlashes(value) {
+  return String(value || '').replace(/\\/g, '/').toLowerCase();
+}
+
+function patternToRegex(pattern) {
+  const normalized = normalizeSlashes(pattern);
+  let regex = '';
+  for (let i = 0; i < normalized.length; i += 1) {
+    const char = normalized[i];
+    if (char === '*') {
+      const next = normalized[i + 1];
+      if (next === '*') {
+        regex += '.*';
+        i += 1;
+      } else {
+        regex += '[^/]*';
+      }
+      continue;
+    }
+    if (char === '?') {
+      regex += '[^/]';
+      continue;
+    }
+    regex += char.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+  return new RegExp(`^${regex}$`);
+}
+
+function buildIgnoredPathMatchers(env = process.env) {
+  const prefixes = parseCsv(env.PR_CONTEXT_IGNORED_PATHS);
+  const patterns = parseCsv(env.PR_CONTEXT_IGNORED_PATTERNS);
+  const normalizedPrefixes = (prefixes.length ? prefixes : DEFAULT_IGNORED_PATH_PREFIXES)
+    .map((entry) => normalizeSlashes(entry))
+    .filter(Boolean);
+  const normalizedPatterns = (patterns.length ? patterns : DEFAULT_IGNORED_PATH_PATTERNS)
+    .map((entry) => normalizeSlashes(entry))
+    .filter(Boolean);
+  return {
+    prefixes: normalizedPrefixes,
+    patterns: normalizedPatterns.map(patternToRegex),
+  };
+}
+
+function shouldIgnorePath(filename, matchers) {
+  const normalized = normalizeSlashes(filename);
+  if (!normalized) {
+    return false;
+  }
+  if (matchers.prefixes.some((prefix) => normalized.startsWith(prefix))) {
+    return true;
+  }
+  return matchers.patterns.some((pattern) => pattern.test(normalized));
 }
 
 /**
@@ -185,6 +252,11 @@ async function fetchPRContext(github, owner, repo, number) {
     }
     
     // Transform to a more usable format
+    const ignoredMatchers = buildIgnoredPathMatchers(process.env);
+    const rawFiles = pr.files?.nodes || [];
+    const filteredFiles = rawFiles.filter((file) => !shouldIgnorePath(file?.path, ignoredMatchers));
+    const ignoredCount = rawFiles.length - filteredFiles.length;
+
     return {
       id: pr.id,
       number: pr.number,
@@ -204,9 +276,11 @@ async function fetchPRContext(github, owner, repo, number) {
       labelsDetailed: pr.labels?.nodes || [],
       
       files: {
-        total: pr.files?.totalCount || 0,
-        paths: (pr.files?.nodes || []).map(f => f.path),
-        detailed: pr.files?.nodes || []
+        total: filteredFiles.length,
+        unfilteredTotal: pr.files?.totalCount || rawFiles.length,
+        ignored: ignoredCount,
+        paths: filteredFiles.map(f => f.path),
+        detailed: filteredFiles
       },
       
       reviews: (pr.reviews?.nodes || []).map(r => ({
