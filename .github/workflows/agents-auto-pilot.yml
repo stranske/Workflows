@@ -2628,6 +2628,42 @@ jobs:
               }
             }));
 
+            // Verify the dispatch was accepted by checking for a new run
+            // createWorkflowDispatch returns 204 (no content) so we poll briefly
+            let dispatchVerified = false;
+            const runIdBefore = context.runId;
+            for (let attempt = 0; attempt < 3; attempt++) {
+              await new Promise(resolve => setTimeout(resolve, 5000));
+              try {
+                const { data: runs } = await withRetry(
+                  (client) => client.rest.actions.listWorkflowRuns({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    workflow_id: 'agents-auto-pilot.yml',
+                    per_page: 5,
+                    status: 'queued'
+                  })
+                );
+                const newRun = (runs.workflow_runs || []).find(
+                  r => r.id !== runIdBefore
+                );
+                if (newRun) {
+                  dispatchVerified = true;
+                  core.info(`Dispatch verified: new run #${newRun.id} (${newRun.status})`);
+                  break;
+                }
+              } catch (e) {
+                core.warning(`Dispatch verification check failed: ${e.message}`);
+              }
+            }
+            if (!dispatchVerified) {
+              core.warning(
+                `Could not verify dispatch for issue #${issueNumber} ` +
+                `(step: ${nextStep}). The run may still start — ` +
+                `check Actions tab manually if pipeline stalls.`
+              );
+            }
+
             core.info(
               `Re-dispatched for issue #${issueNumber} after ` +
               `${currentStep} step (next: ${nextStep})`
