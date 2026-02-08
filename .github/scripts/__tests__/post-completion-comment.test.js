@@ -9,6 +9,7 @@ const {
   extractSection,
   buildCompletionComment,
   findExistingComment,
+  postCompletionComment,
 } = require('../post_completion_comment.js');
 
 describe('extractCheckedItems', () => {
@@ -130,7 +131,6 @@ describe('buildCompletionComment', () => {
     const comment = buildCompletionComment([], [], {});
     
     assert.ok(comment.includes(COMPLETION_COMMENT_MARKER));
-    assert.ok(comment.includes('_No new completions recorded this round._'));
     assert.ok(!comment.includes('### Tasks Completed'));
     assert.ok(!comment.includes('### Acceptance Criteria Met'));
   });
@@ -174,5 +174,70 @@ describe('findExistingComment', () => {
   test('handles null/undefined', () => {
     assert.strictEqual(findExistingComment(null), null);
     assert.strictEqual(findExistingComment(undefined), null);
+  });
+});
+
+describe('postCompletionComment', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const os = require('node:os');
+
+  function createCore() {
+    return {
+      info: () => {},
+      warning: () => {},
+      debug: () => {},
+    };
+  }
+
+  function createGithub() {
+    return {
+      __testMock: true,
+      rest: {
+        issues: {
+          listComments: async () => ({ data: [] }),
+          updateComment: async () => ({ data: { id: 123 } }),
+          createComment: async () => ({ data: { id: 456 } }),
+        },
+      },
+    };
+  }
+
+  test('returns early without API calls when no completions', async () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'completion-comment-'));
+    const promptPath = path.join(tempDir, 'codex-prompt.md');
+    fs.writeFileSync(promptPath, '## Tasks\n- [ ] Not done\n\n## Acceptance Criteria\n- [ ] Not done\n', 'utf8');
+
+    const github = createGithub();
+    let listCalls = 0;
+    let updateCalls = 0;
+    let createCalls = 0;
+    github.rest.issues.listComments = async () => {
+      listCalls += 1;
+      return { data: [] };
+    };
+    github.rest.issues.updateComment = async () => {
+      updateCalls += 1;
+      return { data: { id: 123 } };
+    };
+    github.rest.issues.createComment = async () => {
+      createCalls += 1;
+      return { data: { id: 456 } };
+    };
+
+    const result = await postCompletionComment({
+      github,
+      context: { repo: { owner: 'owner', repo: 'repo' } },
+      core: createCore(),
+      inputs: {
+        pr_number: 123,
+        prompt_file: promptPath,
+      },
+    });
+
+    assert.deepStrictEqual(result, { posted: false, reason: 'no-completions' });
+    assert.strictEqual(listCalls, 0);
+    assert.strictEqual(updateCalls, 0);
+    assert.strictEqual(createCalls, 0);
   });
 });
