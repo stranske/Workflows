@@ -51,7 +51,10 @@ def test_fallback_chain_forwards_quality_context_to_active_provider():
     provider.analyze_completion.assert_called_once()
     call_args = provider.analyze_completion.call_args
     assert call_args.args == ()
-    assert call_args.kwargs["quality_context"] is sentinel
+    call_kwargs = call_args.kwargs
+    assert call_kwargs["session_output"] == "session"
+    assert call_kwargs["tasks"] == ["task"]
+    assert call_kwargs["quality_context"] is sentinel
     assert sentinel not in call_args.args
 
 
