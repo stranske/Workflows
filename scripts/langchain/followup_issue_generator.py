@@ -424,9 +424,7 @@ def extract_verification_data(comment_body: str) -> VerificationData:
     )
     if single_verdict and not data.provider_verdicts:
         verdict = (single_verdict.group(1) or single_verdict.group(2) or "").strip()
-        confidence_match = re.search(
-            r"Verdict:.*?@?\s*([0-9.]+%?)", comment_body, re.IGNORECASE
-        )
+        confidence_match = re.search(r"Verdict:.*?@?\s*([0-9.]+%?)", comment_body, re.IGNORECASE)
         confidence = _parse_confidence_value(confidence_match.group(1)) if confidence_match else 0
         data.provider_verdicts["default"] = {
             "verdict": verdict,
