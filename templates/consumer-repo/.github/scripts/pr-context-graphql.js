@@ -165,6 +165,10 @@ function normalizeSlashes(value) {
   return String(value || '').replace(/\\/g, '/').toLowerCase();
 }
 
+function hasGlobPattern(value) {
+  return /[*?]/.test(value);
+}
+
 function patternToRegex(pattern) {
   const normalized = normalizeSlashes(pattern);
   let regex = '';
@@ -192,15 +196,33 @@ function patternToRegex(pattern) {
 function buildIgnoredPathMatchers(env = process.env) {
   const prefixes = parseCsv(env.PR_CONTEXT_IGNORED_PATHS);
   const patterns = parseCsv(env.PR_CONTEXT_IGNORED_PATTERNS);
-  const normalizedPrefixes = (prefixes.length ? prefixes : DEFAULT_IGNORED_PATH_PREFIXES)
-    .map((entry) => normalizeSlashes(entry))
-    .filter(Boolean);
-  const normalizedPatterns = (patterns.length ? patterns : DEFAULT_IGNORED_PATH_PATTERNS)
-    .map((entry) => normalizeSlashes(entry))
-    .filter(Boolean);
+  const normalizedPrefixes = [];
+  const normalizedPatterns = [];
+  const rawPrefixes = prefixes.length ? prefixes : DEFAULT_IGNORED_PATH_PREFIXES;
+  const rawPatterns = patterns.length ? patterns : DEFAULT_IGNORED_PATH_PATTERNS;
+
+  for (const entry of rawPrefixes) {
+    const normalized = normalizeSlashes(entry);
+    if (!normalized) {
+      continue;
+    }
+    if (hasGlobPattern(normalized)) {
+      normalizedPatterns.push(patternToRegex(normalized));
+    } else {
+      normalizedPrefixes.push(normalized);
+    }
+  }
+
+  for (const entry of rawPatterns) {
+    const normalized = normalizeSlashes(entry);
+    if (!normalized) {
+      continue;
+    }
+    normalizedPatterns.push(patternToRegex(normalized));
+  }
   return {
     prefixes: normalizedPrefixes,
-    patterns: normalizedPatterns.map(patternToRegex),
+    patterns: normalizedPatterns,
   };
 }
 
