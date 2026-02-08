@@ -279,12 +279,14 @@ After each step, auto-pilot dispatches itself with the next step:
 
 After PR merge:
 
-1. `agents-verifier.yml` evaluates PR against acceptance criteria
-2. Modes: `checkbox` (task completeness), `evaluate` (single LLM), `compare` (dual-LLM cross-verification)
+1. `agents-verifier.yml` triggers when a `verify:*` label is applied to a merged PR (or via manual `workflow_dispatch`)
+2. Modes: `checkbox` (task completeness via Codex CLI), `evaluate` (single LLM), `compare` (dual-LLM cross-verification)
 3. In `compare` mode, two providers (gpt-5.2 + claude-sonnet-4-5) evaluate independently; unanimous PASS required
-4. Verdict: PASS → done | CONCERNS/FAIL → `agents-verify-to-new-pr.yml`
-5. Follow-up generation: 4-round LLM pipeline (analyze with reasoning model → tasks → acceptance criteria → format)
+4. Verdict: PASS → done | CONCERNS/FAIL → maintainer (or automation) applies `verify:create-new-pr` label
+5. `agents-verify-to-new-pr.yml` runs on `verify:create-new-pr` label → 4-round LLM pipeline (analyze with reasoning model → tasks → acceptance criteria → format)
 6. **Chain depth should be capped at 2** (original + 2 follow-ups max). Automated enforcement is pending; manually apply `needs-human` beyond this depth.
+
+> **Note:** The verifier does NOT auto-apply `verify:create-new-pr`. Follow-up PR creation requires an explicit label application.
 
 ### Key Metrics (Feb 2026 Evaluation, 40-PR sample)
 

@@ -60,9 +60,9 @@ Each stage completes, then dispatches auto-pilot again with the next step name.
 - **Token-aware retry** — `withRetry` + `token_load_balancer.js` distributes API calls across PATs and GitHub App tokens
 - **Verification pipeline** — Dual-model `verify:compare` catches quality gaps post-merge; see metrics below
 
-### Verification Pipeline (verify:compare)
+### Verification Pipeline
 
-After PR merge, two LLM providers (gpt-5.2 + claude-sonnet-4-5) independently evaluate the diff against acceptance criteria. Unanimous PASS required; any non-PASS triggers a follow-up issue via a 4-round LLM pipeline (analyze → tasks → acceptance criteria → format).
+After PR merge, applying a `verify:*` label (typically `verify:evaluate` via auto-pilot, or `verify:compare` for dual-model mode) triggers the verifier. In `compare` mode, two LLM providers (gpt-5.2 + claude-sonnet-4-5) independently evaluate the diff against acceptance criteria with unanimous PASS required. On CONCERNS or FAIL, maintainers or automation can apply the `verify:create-new-pr` label to trigger a 4-round LLM pipeline that generates a follow-up issue (analyze → tasks → acceptance criteria → format).
 
 **Current Metrics (Feb 2026, 40-PR sample across Workflows + Trend_Model_Project):**
 

@@ -38,7 +38,7 @@ For each PR, we traced:
 ## Pipeline Architecture
 
 ```
-Merged PR
+Merged PR + verify:* label applied (by auto-pilot or maintainer)
     │
     ▼
 agents-verifier.yml ──► reusable-agents-verifier.yml
@@ -49,8 +49,8 @@ agents-verifier.yml ──► reusable-agents-verifier.yml
     │                         │
     │                    Posts verdict comment
     │
-    ▼ (on CONCERNS or FAIL)
-verify:create-new-pr label applied
+    ▼ (verdict: CONCERNS or FAIL)
+Maintainer or automation applies `verify:create-new-pr` label
     │
     ▼
 agents-verify-to-new-pr.yml ──► followup_issue_generator.py
