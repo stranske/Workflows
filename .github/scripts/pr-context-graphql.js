@@ -254,8 +254,18 @@ async function fetchPRContext(github, owner, repo, number) {
     // Transform to a more usable format
     const ignoredMatchers = buildIgnoredPathMatchers(process.env);
     const rawFiles = pr.files?.nodes || [];
-    const filteredFiles = rawFiles.filter((file) => !shouldIgnorePath(file?.path, ignoredMatchers));
-    const ignoredCount = rawFiles.length - filteredFiles.length;
+    const filteredFiles = [];
+    const ignoredFiles = [];
+
+    for (const file of rawFiles) {
+      if (shouldIgnorePath(file?.path, ignoredMatchers)) {
+        ignoredFiles.push(file);
+      } else {
+        filteredFiles.push(file);
+      }
+    }
+
+    const ignoredCount = ignoredFiles.length;
 
     return {
       id: pr.id,
@@ -279,6 +289,7 @@ async function fetchPRContext(github, owner, repo, number) {
         total: filteredFiles.length,
         unfilteredTotal: pr.files?.totalCount || rawFiles.length,
         ignored: ignoredCount,
+        ignoredPaths: ignoredFiles.map(f => f.path),
         paths: filteredFiles.map(f => f.path),
         detailed: filteredFiles
       },

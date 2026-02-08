@@ -170,6 +170,7 @@ describe('fetchPRContext', () => {
     assert.strictEqual(context.files.total, 3);
     assert.strictEqual(context.files.ignored, 1);
     assert.strictEqual(context.files.unfilteredTotal, 4);
+    assert.deepStrictEqual(context.files.ignoredPaths, ['.agents/issue-1234-ledger.yml']);
     assert.deepStrictEqual(context.files.paths, ['src/index.js', 'tests/test.js', 'README.md']);
   });
   
@@ -256,6 +257,7 @@ describe('fetchPRContext', () => {
     assert.strictEqual(context.author, 'unknown');
     assert.deepStrictEqual(context.labels, []);
     assert.strictEqual(context.files.total, 0);
+    assert.deepStrictEqual(context.files.ignoredPaths, []);
     assert.strictEqual(context.lastCommit, null);
   });
 });
