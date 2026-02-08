@@ -67,6 +67,34 @@ describe('bot-comment-dismiss', () => {
     ]);
   });
 
+  it('uses default max age of 30 seconds when not provided', () => {
+    const env = {
+      COMMENTS_JSON: JSON.stringify([
+        {
+          id: 21,
+          path: '.agents/issue-21-ledger.yml',
+          user: { login: 'copilot[bot]' },
+          created_at: '2026-02-08T12:00:00.000Z',
+        },
+        {
+          id: 22,
+          path: '.agents/issue-22-ledger.yml',
+          user: { login: 'copilot[bot]' },
+          created_at: '2026-02-08T12:00:40.000Z',
+        },
+      ]),
+      IGNORED_PATHS: '.agents/',
+      BOT_AUTHORS: 'copilot[bot]',
+      NOW_EPOCH_MS: String(Date.parse('2026-02-08T12:01:00.000Z')),
+    };
+
+    const result = runCli(env);
+
+    assert.deepStrictEqual(result.dismissable, [
+      { id: 22, path: '.agents/issue-22-ledger.yml', author: 'copilot[bot]' },
+    ]);
+  });
+
   it('filters out ignored-path comments older than max age', () => {
     const dismissable = collectDismissable(
       [

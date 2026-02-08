@@ -136,7 +136,7 @@ function runCli(env = process.env) {
   const ignoredPaths = parseCsv(env.IGNORED_PATHS);
   const ignoredPatterns = parseCsv(env.IGNORED_PATTERNS);
   const botAuthors = parseCsv(env.BOT_AUTHORS);
-  const maxAgeSeconds = env.MAX_AGE_SECONDS ? Number(env.MAX_AGE_SECONDS) : null;
+  const maxAgeSeconds = env.MAX_AGE_SECONDS ? Number(env.MAX_AGE_SECONDS) : 30;
   const now = env.NOW_EPOCH_MS ? Number(env.NOW_EPOCH_MS) : undefined;
 
   const dismissable = collectDismissable(comments, {
