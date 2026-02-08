@@ -39,6 +39,7 @@ GITHUB_MODELS_BASE_URL = "https://models.inference.ai.azure.com"
 # - Kept for backward compatibility with external code that references it
 DEFAULT_MODEL = "codex-mini-latest"
 ANTHROPIC_API_KEY_ENV = "CLAUDE_API_STRANSKE"
+SHORT_ANALYSIS_CONFIDENCE_CAP = 0.4
 
 
 def _setup_langsmith_tracing() -> bool:
@@ -287,7 +288,7 @@ class GitHubModelsProvider(LLMProvider):
                 "possible data loss in pipeline"
             )
             # Short text means limited evidence - cap confidence
-            confidence = min(confidence, 0.4)
+            confidence = min(confidence, SHORT_ANALYSIS_CONFIDENCE_CAP)
             logger.warning(f"Short analysis text: {quality_context.analysis_text_length} chars")
 
         # BS Detection Rule 3: Zero tasks + high effort score = something's wrong
