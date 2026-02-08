@@ -55,6 +55,18 @@ def test_install_snippets_reference_requirements_llm(snippet_path: Path) -> None
     assert "tools/requirements-llm.txt" in contents
     assert ".workflows-lib/tools/requirements-llm.txt" not in contents
 
+    parsed = yaml.safe_load(contents)
+    assert isinstance(parsed, list), f"{snippet_path} should contain a YAML list"
+    assert any(
+        isinstance(step, dict)
+        and isinstance(step.get("run"), str)
+        and any(
+            line.strip() == "pip install -r tools/requirements-llm.txt"
+            for line in step["run"].splitlines()
+        )
+        for step in parsed
+    ), "Expected install snippet to include pip install for tools/requirements-llm.txt"
+
 
 def test_pip_freeze_step_runs_python_module() -> None:
     snippet_path = Path("docs/workflow-snippets/pip-freeze-step.yml")
