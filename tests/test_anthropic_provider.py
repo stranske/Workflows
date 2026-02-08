@@ -13,7 +13,10 @@ def test_anthropic_provider_forwards_quality_context_to_client_invoke(
 
     class DummyClient:
         def __init__(self) -> None:
-            self.invoke = MagicMock(side_effect=self._invoke)
+            self.invoke = MagicMock(wraps=self.invoke)
+
+        def invoke(self, *args, **kwargs):
+            return self._invoke(*args, **kwargs)
 
         def _invoke(self, *_args, **_kwargs):
             return SimpleNamespace(content="""
@@ -53,7 +56,10 @@ def test_anthropic_provider_forwards_quality_context_to_client_invoke(
 def test_anthropic_provider_propagates_invoke_errors():
     class DummyClient:
         def __init__(self) -> None:
-            self.invoke = MagicMock(side_effect=self._invoke)
+            self.invoke = MagicMock(wraps=self.invoke)
+
+        def invoke(self, *args, **kwargs):
+            return self._invoke(*args, **kwargs)
 
         def _invoke(self, *_args, **_kwargs):
             raise TimeoutError("boom")
