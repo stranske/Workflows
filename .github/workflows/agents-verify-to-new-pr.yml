@@ -190,7 +190,8 @@ jobs:
             if (linkedIssueNumber) {
               core.info(`Found linked issue #${linkedIssueNumber}`);
               try {
-                const { data: issue } = await withRetry(() => github.rest.issues.get({
+                const { data: issue } = await withRetry(
+                  (client) => (client || github).rest.issues.get({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   issue_number: linkedIssueNumber
@@ -467,7 +468,7 @@ jobs:
               return;
             }
 
-            const issue = await withRetry(() => github.rest.issues.create({
+            const issue = await withRetry((client) => (client || github).rest.issues.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
               title: title,
@@ -525,7 +526,7 @@ jobs:
             const defaultBranch = process.env.DEFAULT_BRANCH;
 
             try {
-              await withRetry(() => github.rest.actions.createWorkflowDispatch({
+              await withRetry((client) => (client || github).rest.actions.createWorkflowDispatch({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 workflow_id: 'agents-auto-pilot.yml',
@@ -579,7 +580,7 @@ jobs:
               '> Or work on it manually - the choice is yours!'
             ].join('\n');
 
-            await withRetry(() => github.rest.issues.createComment({
+            await withRetry((client) => (client || github).rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.payload.pull_request.number,
@@ -605,7 +606,7 @@ jobs:
             const { withRetry } = retryHelpers;
 
             try {
-              await withRetry(() => github.rest.issues.removeLabel({
+              await withRetry((client) => (client || github).rest.issues.removeLabel({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: context.payload.pull_request.number,
