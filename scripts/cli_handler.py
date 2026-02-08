@@ -278,7 +278,11 @@ def main(argv: list[str]) -> int:
             retry_backoff=args.retry_backoff,
         )
         payload = {"scopes": scopes, "allowed_scopes": allowed_scopes}
-        validation = auth_validator.validate_auth_payload(payload)
+        validation = auth_validator.validate_auth_payload(
+            payload,
+            require_allowed_scopes=True,
+            require_all_scopes=True,
+        )
         if validation.skipped:
             if validation.message:
                 print(validation.message, file=sys.stderr)

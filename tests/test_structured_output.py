@@ -180,9 +180,9 @@ def test_parse_structured_output_repair_validation_error():
     [
         (0, 0),
         (1, 1),
-        (2, 2),
-        (10, 10),
+        (2, 1),
+        (10, 1),
     ],
 )
-def test_clamp_repair_attempts_uses_lower_bound_only(input_attempts: int, expected: int):
+def test_clamp_repair_attempts_clamps_bounds(input_attempts: int, expected: int):
     assert clamp_repair_attempts(input_attempts) == expected

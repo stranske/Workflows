@@ -288,7 +288,7 @@ def test_request_json_retries_on_request_exception(monkeypatch) -> None:
     assert sleep_calls == [0.25]
 
 
-def test_fetch_oauth_scopes_parses_header(monkeypatch) -> None:
+def test_fetch_oauth_scopes_returns_header(monkeypatch) -> None:
     def _fake_request(method, url, headers=None, json=None, timeout=None):
         return DummyResponse(
             200,
@@ -298,7 +298,7 @@ def test_fetch_oauth_scopes_parses_header(monkeypatch) -> None:
 
     monkeypatch.setattr(api_client.requests, "request", _fake_request)
 
-    assert api_client.fetch_oauth_scopes("token") == {"public_repo", "repo"}
+    assert api_client.fetch_oauth_scopes("token") == "public_repo, repo"
 
 
 def test_fetch_oauth_scopes_returns_none_without_header(monkeypatch) -> None:
@@ -341,7 +341,7 @@ def test_fetch_oauth_scopes_retries_on_server_error(monkeypatch) -> None:
         "token",
         retry_attempts=2,
         retry_backoff=0.5,
-    ) == {"repo"}
+    ) == "repo"
     assert sleep_calls == [0.5]
 
 

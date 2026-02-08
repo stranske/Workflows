@@ -50,7 +50,17 @@ def _build_result(
     )
 
 
-def validate_auth_payload(payload: dict[str, Any] | None) -> AuthValidationResult:
+def validate_auth_payload(
+    payload: dict[str, Any] | None,
+    *,
+    require_allowed_scopes: bool = True,
+    require_all_scopes: bool = True,
+) -> AuthValidationResult:
+    """Validate token scopes against allowed scopes.
+
+    Set require_allowed_scopes=False to preserve legacy skip-on-missing behavior.
+    Set require_all_scopes=False to treat allowed_scopes as a maximum rather than required set.
+    """
     if payload is None:
         return _build_result(
             valid=False,
@@ -101,6 +111,15 @@ def validate_auth_payload(payload: dict[str, Any] | None) -> AuthValidationResul
             allowed_scopes=allowed_scopes,
         )
     if not allowed_scopes:
+        if not require_allowed_scopes:
+            return _build_result(
+                valid=True,
+                skipped=True,
+                error="missing_allowed_scopes",
+                message="Allowed scopes missing; skipping scope validation.",
+                scopes=scopes,
+                allowed_scopes=allowed_scopes,
+            )
         return _build_result(
             valid=False,
             skipped=False,
@@ -124,20 +143,22 @@ def validate_auth_payload(payload: dict[str, Any] | None) -> AuthValidationResul
             extra_scopes=extra_scopes,
         )
 
-    missing_scopes = sorted(allowed_scopes - scopes)
-    if missing_scopes:
-        missing = ", ".join(missing_scopes)
-        required = ", ".join(sorted(allowed_scopes))
-        return _build_result(
-            valid=False,
-            skipped=False,
-            error="missing_scopes",
-            message=(
-                f"Token scopes missing required scopes. Missing: {missing}. Required: {required}."
-            ),
-            scopes=scopes,
-            allowed_scopes=allowed_scopes,
-        )
+    if require_all_scopes:
+        missing_scopes = sorted(allowed_scopes - scopes)
+        if missing_scopes:
+            missing = ", ".join(missing_scopes)
+            required = ", ".join(sorted(allowed_scopes))
+            return _build_result(
+                valid=False,
+                skipped=False,
+                error="missing_scopes",
+                message=(
+                    "Token scopes missing required scopes. "
+                    f"Missing: {missing}. Required: {required}."
+                ),
+                scopes=scopes,
+                allowed_scopes=allowed_scopes,
+            )
 
     return _build_result(
         valid=True,

@@ -27,6 +27,7 @@ Do not wrap the JSON in markdown fences.
 """.strip()
 
 MIN_REPAIR_ATTEMPTS = 0
+MAX_REPAIR_ATTEMPTS = 1
 
 
 @dataclass(frozen=True)
@@ -88,7 +89,10 @@ def build_repair_callback(
 
 
 def clamp_repair_attempts(max_repair_attempts: int) -> int:
-    return max(MIN_REPAIR_ATTEMPTS, int(max_repair_attempts))
+    return min(
+        MAX_REPAIR_ATTEMPTS,
+        max(MIN_REPAIR_ATTEMPTS, int(max_repair_attempts)),
+    )
 
 
 def parse_structured_output(
