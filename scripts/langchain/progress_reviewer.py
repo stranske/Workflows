@@ -122,6 +122,23 @@ class ProgressReviewResult(BaseModel):
 # ---------------------------------------------------------------------------
 
 
+def build_review_payload(result: ProgressReviewResult) -> dict:
+    payload = result.model_dump()
+    if payload.get("review") is None:
+        suggestions = []
+        analysis = result.analysis
+        if analysis and analysis.blocking_issues:
+            suggestions.extend([item for item in analysis.blocking_issues if item])
+        if analysis and analysis.scope_drift_identified:
+            suggestions.extend([item for item in analysis.scope_drift_identified if item])
+        payload["review"] = {
+            "score": result.alignment_score,
+            "feedback": result.feedback_for_agent,
+            "suggestions": "; ".join(suggestions),
+        }
+    return payload
+
+
 def heuristic_alignment_check(
     acceptance_criteria: list[str],
     recent_commits: list[str],
@@ -513,7 +530,8 @@ def main() -> int:
     )
 
     if args.json:
-        print(json.dumps(result.model_dump(), indent=2))
+        payload = build_review_payload(result)
+        print(json.dumps(payload, indent=2))
     else:
         print(f"Recommendation: {result.recommendation}")
         print(f"Confidence: {result.confidence:.1%}")
