@@ -21,13 +21,13 @@ jobs:
         id: drift
         run: |
           set -euo pipefail
-          
+
           echo "🔍 Checking for drift between main workflows and templates..."
           echo ""
-          
+
           drift_found=false
           drift_report=""
-          
+
           # Map of main workflows to their template counterparts
           # Format: "main_workflow:template_name"
           declare -a mappings=(
@@ -39,34 +39,34 @@ jobs:
             "agents-pr-meta.yml:agents-pr-meta.yml"
             "agents-verifier.yml:agents-verifier.yml"
           )
-          
+
           for mapping in "${mappings[@]}"; do
             main_file="${mapping%%:*}"
             template_file="${mapping##*:}"
-            
+
             main_path=".github/workflows/${main_file}"
             template_path="templates/consumer-repo/.github/workflows/${template_file}"
-            
+
             # Skip if either file doesn't exist
             if [[ ! -f "$main_path" ]]; then
               echo "⏭️  Skipping $main_file (main workflow doesn't exist)"
               continue
             fi
-            
+
             if [[ ! -f "$template_path" ]]; then
               echo "⚠️  WARNING: $template_file template missing but main workflow exists"
               drift_found=true
               drift_report+="- **$main_file**: Template missing entirely\n"
               continue
             fi
-            
+
             # Compare files (ignoring whitespace-only differences)
             # Count differing lines
             diff_lines=$(diff -u "$main_path" "$template_path" 2>/dev/null | grep -c '^[-+]' || true)
-            
+
             # Threshold: warn if more than 50 lines differ (configurable)
             threshold=50
-            
+
             if [[ "$diff_lines" -gt "$threshold" ]]; then
               echo "❌ DRIFT: $main_file vs $template_file ($diff_lines lines differ)"
               drift_found=true
@@ -77,10 +77,10 @@ jobs:
               echo "✅ In sync: $main_file ↔ $template_file"
             fi
           done
-          
+
           echo ""
           echo "drift_found=${drift_found}" >> "$GITHUB_OUTPUT"
-          
+
           if [[ "$drift_found" == "true" ]]; then
             # Warn but don't fail - drift may be intentional or pre-existing
             # TODO: Enable strict mode once existing drift is resolved

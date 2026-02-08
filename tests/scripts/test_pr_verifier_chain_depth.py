@@ -73,7 +73,8 @@ class TestChainDepthAddendum:
     def test_addendum_combined_with_infra(self, monkeypatch):
         """Chain depth addendum should stack with infra addendum."""
         monkeypatch.setenv("CHAIN_DEPTH", "2")
-        infra_diff = textwrap.dedent("""\
+        infra_diff = textwrap.dedent(
+            """\
             diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
             --- a/.github/workflows/ci.yml
             +++ b/.github/workflows/ci.yml
@@ -86,7 +87,8 @@ class TestChainDepthAddendum:
             @@ -1,3 +1,3 @@
             -old
             +new
-        """)
+        """
+        )
         prompt = _prepare_prompt("test context", infra_diff)
         # Both addenda should be present
         assert "Infrastructure Change Guidance" in prompt or "infrastructure" in prompt.lower()
