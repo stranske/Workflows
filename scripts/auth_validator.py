@@ -5,7 +5,6 @@ from dataclasses import dataclass
 from typing import Any
 
 
-
 @dataclass(frozen=True)
 class AuthValidationResult:
     valid: bool
@@ -133,7 +132,9 @@ def validate_auth_payload(payload: dict[str, Any] | None) -> AuthValidationResul
             valid=False,
             skipped=False,
             error="missing_scopes",
-            message=(f"Token scopes missing required scopes. Missing: {missing}. Required: {required}."),
+            message=(
+                f"Token scopes missing required scopes. Missing: {missing}. Required: {required}."
+            ),
             scopes=scopes,
             allowed_scopes=allowed_scopes,
         )

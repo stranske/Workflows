@@ -55,9 +55,7 @@ def test_validate_auth_payload_extra_scopes() -> None:
 
 
 def test_validate_auth_payload_missing_scopes() -> None:
-    result = validate_auth_payload(
-        {"scopes": {"repo"}, "allowed_scopes": {"repo", "public_repo"}}
-    )
+    result = validate_auth_payload({"scopes": {"repo"}, "allowed_scopes": {"repo", "public_repo"}})
 
     assert result.valid is False
     assert result.skipped is False
