@@ -337,11 +337,14 @@ def test_fetch_oauth_scopes_retries_on_server_error(monkeypatch) -> None:
     monkeypatch.setattr(api_client.requests, "request", _fake_request)
     monkeypatch.setattr(api_client.time, "sleep", lambda seconds: sleep_calls.append(seconds))
 
-    assert api_client.fetch_oauth_scopes(
-        "token",
-        retry_attempts=2,
-        retry_backoff=0.5,
-    ) == "repo"
+    assert (
+        api_client.fetch_oauth_scopes(
+            "token",
+            retry_attempts=2,
+            retry_backoff=0.5,
+        )
+        == "repo"
+    )
     assert sleep_calls == [0.5]
 
 
