@@ -135,7 +135,7 @@ query PRBasic($owner: String!, $repo: String!, $number: Int!) {
 `;
 
 const DEFAULT_IGNORED_PATH_PREFIXES = ['.agents/'];
-const DEFAULT_IGNORED_PATH_PATTERNS = ['.agents/issue-*-ledger.yml'];
+const DEFAULT_IGNORED_PATH_PATTERNS = ['.agents/**', '.agents/issue-*-ledger.yml'];
 
 async function resolveGithubClient(github) {
   if (!github) {

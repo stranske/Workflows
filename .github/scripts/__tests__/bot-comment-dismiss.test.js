@@ -232,6 +232,63 @@ describe('bot-comment-dismiss', () => {
     assert.deepStrictEqual(deleted, [7]);
   });
 
+  it('does not dismiss non-ignored comments in mixed reviews', async () => {
+    const deleted = [];
+    const github = {
+      rest: {
+        pulls: {
+          listReviewComments: async () => ({
+            data: [
+              {
+                id: 41,
+                path: '.agents/issue-41-ledger.yml',
+                user: { login: 'copilot[bot]' },
+                created_at: '2026-02-08T12:00:10.000Z',
+              },
+              {
+                id: 42,
+                path: 'src/app.js',
+                user: { login: 'copilot[bot]' },
+                created_at: '2026-02-08T12:00:10.000Z',
+              },
+              {
+                id: 43,
+                path: '.agents/notes.txt',
+                user: { login: 'octocat' },
+                created_at: '2026-02-08T12:00:10.000Z',
+              },
+            ],
+          }),
+          deleteReviewComment: async ({ comment_id }) => {
+            deleted.push(comment_id);
+          },
+        },
+      },
+    };
+    const logs = [];
+    const logger = { info: (line) => logs.push(line) };
+
+    const result = await autoDismissReviewComments({
+      github,
+      owner: 'octo',
+      repo: 'repo',
+      pullNumber: 321,
+      ignoredPaths: ['.agents/'],
+      botAuthors: ['copilot[bot]'],
+      maxAgeSeconds: 30,
+      now: Date.parse('2026-02-08T12:00:20.000Z'),
+      logger,
+    });
+
+    assert.deepStrictEqual(result.dismissable, [
+      { id: 41, path: '.agents/issue-41-ledger.yml', author: 'copilot[bot]' },
+    ]);
+    assert.deepStrictEqual(deleted, [41]);
+    assert.deepStrictEqual(logs, [
+      'Auto-dismissed review comment 41 by copilot[bot] in .agents/issue-41-ledger.yml',
+    ]);
+  });
+
   it('tracks failures when dismissal fails', async () => {
     const github = {
       rest: {
