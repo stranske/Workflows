@@ -681,7 +681,7 @@ def test_main_json_output_includes_errors(tmp_path: Path, monkeypatch, capsys) -
 def test_bulk_check_commits_identifies_known(tmp_path: Path, monkeypatch) -> None:
     ledger_validate = _load_module(monkeypatch, tmp_path)
 
-    def fake_run(args, input=None, capture_output=False, text=False, timeout=None):
+    def fake_run(args, input=None, capture_output=False, text=False, timeout=None, check=False):
         result = subprocess.CompletedProcess(args, 0)
         result.stdout = "abc1234 commit 100\ndeadbeef missing\n"
         result.stderr = ""
@@ -692,6 +692,28 @@ def test_bulk_check_commits_identifies_known(tmp_path: Path, monkeypatch) -> Non
     results = ledger_validate._bulk_check_commits(["abc1234", "deadbeef"])
     assert results["abc1234"] is True
     assert results["deadbeef"] is False
+
+
+def test_bulk_check_commits_handles_abbreviated_shas(tmp_path: Path, monkeypatch) -> None:
+    """Verify bulk check uses original SHA as key when git expands abbreviations."""
+    ledger_validate = _load_module(monkeypatch, tmp_path)
+
+    def fake_run(args, input=None, capture_output=False, text=False, timeout=None, check=False):
+        # Simulate git cat-file expanding short SHA to full SHA in output
+        result = subprocess.CompletedProcess(args, 0)
+        result.stdout = "abc1234567890abcdef1234567890abcdef1234 commit 100\ndeadbeef1234567890abcdef1234567890abcdef missing\n"
+        result.stderr = ""
+        return result
+
+    monkeypatch.setattr(ledger_validate.subprocess, "run", fake_run)
+
+    # Input has short SHAs
+    results = ledger_validate._bulk_check_commits(["abc1234", "deadbeef"])
+    # Keys should be the original short SHAs, not expanded ones
+    assert results["abc1234"] is True
+    assert results["deadbeef"] is False
+    # Expanded SHAs should NOT be in the dict
+    assert "abc1234567890abcdef1234567890abcdef1234" not in results
 
 
 def test_prefetch_commits_deduplicates(tmp_path: Path, monkeypatch) -> None:

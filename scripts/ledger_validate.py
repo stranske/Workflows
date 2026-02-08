@@ -180,15 +180,22 @@ def _bulk_check_commits(shas: Iterable[str]) -> dict[str, bool]:
             capture_output=True,
             text=True,
             timeout=30,
+            check=True,
         )
     except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
         return dict.fromkeys(unique, False)
+    # Map original input SHAs to results (handle abbreviated SHA -> full SHA expansion)
+    # git cat-file --batch-check outputs lines in the same order as input
     results: dict[str, bool] = {}
-    for line in proc.stdout.splitlines():
+    output_lines = proc.stdout.splitlines()
+    for original_sha, line in zip(unique, output_lines, strict=False):
         parts = line.split()
         if len(parts) >= 2:
-            sha = parts[0]
-            results[sha] = parts[1] == "commit"
+            # Use original_sha as key (not parts[0] which may be expanded)
+            results[original_sha] = parts[1] == "commit"
+        else:
+            results[original_sha] = False
+    # Handle any SHAs that didn't get a response line
     for sha in unique:
         results.setdefault(sha, False)
     return results
