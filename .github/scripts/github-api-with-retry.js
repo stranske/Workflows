@@ -128,7 +128,11 @@ function isTransientError(error) {
   if (TRANSIENT_ERROR_CODES.has(causeCode)) {
     return true;
   }
-  if (!status && error.code) {
+  // Only check error.code via hasOwnProperty to avoid triggering
+  // Octokit RequestError's deprecated getter (which defines .code on the
+  // prototype, not as an own property).  Node.js network errors set .code
+  // as an own property (e.g. ECONNRESET).
+  if (!status && Object.prototype.hasOwnProperty.call(error, 'code')) {
     const code = String(error.code).toUpperCase();
     return TRANSIENT_ERROR_CODES.has(code);
   }

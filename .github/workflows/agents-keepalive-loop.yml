@@ -351,12 +351,11 @@ jobs:
               core.info('Empty task appendix file created');
             }
 
-            // Keep output for backward compatibility (may be censored, but that's OK now)
-            // NOTE: task_appendix is no longer exposed as a job output to avoid
-            // "Skip output since it may contain secret" warnings from GitHub's
-            // secret scanner. The artifact upload is the primary delivery
-            // mechanism; downstream jobs (reusable-codex-run) download it.
-            core.setOutput('task_appendix', result.taskAppendix || '');
+            // task_appendix is delivered exclusively via the artifact upload.
+            // Do NOT call core.setOutput('task_appendix', ...) here — the
+            // secret scanner warning fires at the step-output level, not just
+            // the job-output level, so even a step output would re-introduce
+            // the "Skip output since it may contain secret" noise.
 
       - name: Verify task appendix artifact
         if: >
