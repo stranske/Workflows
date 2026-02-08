@@ -121,11 +121,6 @@ function buildCompletionComment(tasks, acceptance, metadata = {}) {
     lines.push('');
   }
   
-  if (tasks.length === 0 && acceptance.length === 0) {
-    lines.push('_No new completions recorded this round._');
-    lines.push('');
-  }
-  
   lines.push('<details>');
   lines.push('<summary>About this comment</summary>');
   lines.push('');
@@ -200,6 +195,11 @@ async function postCompletionComment({ github, context, core, inputs }) {
   const completedAcceptance = extractCheckedItems(acceptanceSection);
   
   core.info(`Found ${completedTasks.length} completed task(s) and ${completedAcceptance.length} acceptance criteria`);
+
+  if (completedTasks.length === 0 && completedAcceptance.length === 0) {
+    core.info('No new completions detected, skipping completion comment.');
+    return { posted: false, reason: 'no-completions' };
+  }
   
   // Build the comment
   const commentBody = buildCompletionComment(completedTasks, completedAcceptance, {
