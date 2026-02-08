@@ -26,8 +26,7 @@ class TestClassifyChangeType:
         assert _classify_change_type("   ") == "application"
 
     def test_pure_infrastructure_diff(self):
-        diff = textwrap.dedent(
-            """\
+        diff = textwrap.dedent("""\
             diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
             --- a/.github/workflows/ci.yml
             +++ b/.github/workflows/ci.yml
@@ -41,13 +40,11 @@ class TestClassifyChangeType:
             @@ -1 +1 @@
             -echo "old"
             +echo "new"
-        """
-        )
+        """)
         assert _classify_change_type(diff) == "infrastructure"
 
     def test_pure_application_diff(self):
-        diff = textwrap.dedent(
-            """\
+        diff = textwrap.dedent("""\
             diff --git a/src/main.py b/src/main.py
             --- a/src/main.py
             +++ b/src/main.py
@@ -60,14 +57,12 @@ class TestClassifyChangeType:
             @@ -1 +1 @@
             -assert True
             +assert 1 == 1
-        """
-        )
+        """)
         assert _classify_change_type(diff) == "application"
 
     def test_mixed_diff(self):
         # 2 infra + 2 app files → 50% → below threshold → mixed or application
-        diff = textwrap.dedent(
-            """\
+        diff = textwrap.dedent("""\
             diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
             --- a/.github/workflows/ci.yml
             +++ b/.github/workflows/ci.yml
@@ -92,14 +87,12 @@ class TestClassifyChangeType:
             @@ -1 +1 @@
             -old
             +new
-        """
-        )
+        """)
         result = _classify_change_type(diff)
         assert result in ("mixed", "application")
 
     def test_docs_only_is_infrastructure(self):
-        diff = textwrap.dedent(
-            """\
+        diff = textwrap.dedent("""\
             diff --git a/docs/guide.md b/docs/guide.md
             --- a/docs/guide.md
             +++ b/docs/guide.md
@@ -112,26 +105,22 @@ class TestClassifyChangeType:
             @@ -1 +1 @@
             -old
             +new
-        """
-        )
+        """)
         assert _classify_change_type(diff) == "infrastructure"
 
     def test_templates_are_infrastructure(self):
-        diff = textwrap.dedent(
-            """\
+        diff = textwrap.dedent("""\
             diff --git a/templates/consumer-repo/.github/workflows/ci.yml b/templates/consumer-repo/.github/workflows/ci.yml
             --- a/templates/consumer-repo/.github/workflows/ci.yml
             +++ b/templates/consumer-repo/.github/workflows/ci.yml
             @@ -1 +1 @@
             -old
             +new
-        """
-        )
+        """)
         assert _classify_change_type(diff) == "infrastructure"
 
     def test_config_files_are_infrastructure(self):
-        diff = textwrap.dedent(
-            """\
+        diff = textwrap.dedent("""\
             diff --git a/pyproject.toml b/pyproject.toml
             --- a/pyproject.toml
             +++ b/pyproject.toml
@@ -144,8 +133,7 @@ class TestClassifyChangeType:
             @@ -1 +1 @@
             -old
             +new
-        """
-        )
+        """)
         assert _classify_change_type(diff) == "infrastructure"
 
     def test_no_diff_headers_returns_application(self):
@@ -176,28 +164,24 @@ class TestPreparePromptInfraSelection:
     """Verify _prepare_prompt selects the correct prompt variant."""
 
     def _infra_diff(self) -> str:
-        return textwrap.dedent(
-            """\
+        return textwrap.dedent("""\
             diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
             --- a/.github/workflows/ci.yml
             +++ b/.github/workflows/ci.yml
             @@ -1 +1 @@
             -old
             +new
-        """
-        )
+        """)
 
     def _app_diff(self) -> str:
-        return textwrap.dedent(
-            """\
+        return textwrap.dedent("""\
             diff --git a/src/main.py b/src/main.py
             --- a/src/main.py
             +++ b/src/main.py
             @@ -1 +1 @@
             -old
             +new
-        """
-        )
+        """)
 
     def test_app_diff_uses_standard_prompt(self):
         result = _prepare_prompt("context", self._app_diff())
