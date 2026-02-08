@@ -38,11 +38,23 @@ describe('bot-comment-dismiss', () => {
   it('runs cli with env overrides', () => {
     const env = {
       COMMENTS_JSON: JSON.stringify([
-        { id: 9, path: '.agents/issue-9-ledger.yml', user: { login: 'copilot[bot]' } },
-        { id: 10, path: 'src/app.js', user: { login: 'copilot[bot]' } },
+        {
+          id: 9,
+          path: '.agents/issue-9-ledger.yml',
+          user: { login: 'copilot[bot]' },
+          created_at: '2026-02-08T12:00:00.000Z',
+        },
+        {
+          id: 10,
+          path: 'src/app.js',
+          user: { login: 'copilot[bot]' },
+          created_at: '2026-02-08T12:00:00.000Z',
+        },
       ]),
       IGNORED_PATHS: '.agents/',
-      BOT_AUTHORS: 'copilot[bot]'
+      BOT_AUTHORS: 'copilot[bot]',
+      MAX_AGE_SECONDS: '30',
+      NOW_EPOCH_MS: String(Date.parse('2026-02-08T12:00:20.000Z')),
     };
 
     const result = runCli(env);
@@ -52,6 +64,35 @@ describe('bot-comment-dismiss', () => {
     ]);
     assert.deepStrictEqual(result.logs, [
       'Auto-dismissed review comment 9 by copilot[bot] in .agents/issue-9-ledger.yml',
+    ]);
+  });
+
+  it('filters out ignored-path comments older than max age', () => {
+    const dismissable = collectDismissable(
+      [
+        {
+          id: 11,
+          path: '.agents/issue-11-ledger.yml',
+          user: { login: 'copilot[bot]' },
+          created_at: '2026-02-08T12:00:00.000Z',
+        },
+        {
+          id: 12,
+          path: '.agents/issue-12-ledger.yml',
+          user: { login: 'copilot[bot]' },
+          created_at: '2026-02-08T12:00:40.000Z',
+        },
+      ],
+      {
+        ignoredPaths: ['.agents/'],
+        botAuthors: ['copilot[bot]'],
+        maxAgeSeconds: 30,
+        now: Date.parse('2026-02-08T12:01:00.000Z'),
+      }
+    );
+
+    assert.deepStrictEqual(dismissable, [
+      { id: 12, path: '.agents/issue-12-ledger.yml', author: 'copilot[bot]' },
     ]);
   });
 
