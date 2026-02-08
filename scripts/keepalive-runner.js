@@ -85,18 +85,51 @@ function normalizeScopeBlock(value) {
     .trim();
 }
 
+function normalizeScopeBlockForComparison(value) {
+  const cleaned = normalizeScopeBlock(value);
+  if (!cleaned) {
+    return '';
+  }
+
+  const normalizedLines = cleaned.split('\n').map((line) => {
+    let text = String(line || '').trim();
+    if (!text) {
+      return '';
+    }
+    text = text.replace(/^#{1,6}\s+/, '');
+    text = text.replace(/\s*:\s*$/, '');
+    text = text.replace(/^(?:\*\*|__)(.+)(?:\*\*|__)$/, '$1');
+    return text.trim().toLowerCase();
+  });
+
+  const compacted = [];
+  for (const line of normalizedLines) {
+    if (!line) {
+      if (compacted.length && compacted[compacted.length - 1] === '') {
+        continue;
+      }
+    }
+    compacted.push(line);
+  }
+
+  return compacted.join('\n').trim();
+}
+
 function shouldIncludeScopeBlock({ scopeBlock, prBody }) {
-  const cleanedScope = normalizeScopeBlock(scopeBlock);
+  const cleanedScope = normalizeScopeBlockForComparison(scopeBlock);
   if (!cleanedScope) {
     return false;
   }
-  const prScopeBlock = normalizeScopeBlock(
+  const prScopeBlock = normalizeScopeBlockForComparison(
     prBody ? extractScopeTasksAcceptanceSections(prBody) : ''
   );
   if (!prScopeBlock) {
     return true;
   }
-  return cleanedScope !== prScopeBlock;
+  if (prScopeBlock.includes(cleanedScope) || cleanedScope.includes(prScopeBlock)) {
+    return false;
+  }
+  return true;
 }
 
 function hasCliAgentLabel(labels) {

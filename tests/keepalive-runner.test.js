@@ -11,6 +11,7 @@ const {
   resolveDispatchToken,
   coerceNumber,
   resolvePromptCheckboxCounts,
+  shouldIncludeScopeBlock,
 } = require('../scripts/keepalive-runner.js');
 
 test('resolveInstructionToken prefers service bot PAT over actions bot PAT', () => {
@@ -194,6 +195,56 @@ test('resolvePromptCheckboxCounts uses latest checklist when scope has no tasks'
     total: 2,
     unchecked: 0,
   });
+});
+
+test('shouldIncludeScopeBlock skips echo when PR body already contains scope content', () => {
+  const scopeBlock = [
+    '### Scope',
+    'Keep this in scope.',
+    '',
+    '### Tasks',
+    '- [ ] Task one',
+    '',
+    '### Acceptance Criteria',
+    '- [ ] It works',
+  ].join('\n');
+  const prBody = [
+    '## Scope',
+    'Keep this in scope.',
+    '',
+    '**Tasks**',
+    '- [ ] Task one',
+    '',
+    '**Acceptance Criteria**',
+    '- [ ] It works',
+  ].join('\n');
+
+  assert.equal(shouldIncludeScopeBlock({ scopeBlock, prBody }), false);
+});
+
+test('shouldIncludeScopeBlock includes scope when PR body differs', () => {
+  const scopeBlock = [
+    '## Scope',
+    'Keep this in scope.',
+    '',
+    '## Tasks',
+    '- [ ] Task one',
+    '',
+    '## Acceptance Criteria',
+    '- [ ] It works',
+  ].join('\n');
+  const prBody = [
+    '## Scope',
+    'Keep this in scope.',
+    '',
+    '## Tasks',
+    '- [ ] Task two',
+    '',
+    '## Acceptance Criteria',
+    '- [ ] It works',
+  ].join('\n');
+
+  assert.equal(shouldIncludeScopeBlock({ scopeBlock, prBody }), true);
 });
 
 test('extractLatestChecklist handles mixed newline sequences', () => {
