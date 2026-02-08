@@ -37,6 +37,11 @@ function collectDismissable(comments, options = {}) {
     ignoredPaths: options.ignoredPaths,
     ignoredPatterns: options.ignoredPatterns,
   });
+  const maxAgeSeconds =
+    typeof options.maxAgeSeconds === 'number' && Number.isFinite(options.maxAgeSeconds)
+      ? options.maxAgeSeconds
+      : null;
+  const now = typeof options.now === 'number' && Number.isFinite(options.now) ? options.now : Date.now();
 
   const dismissable = [];
 
@@ -47,6 +52,16 @@ function collectDismissable(comments, options = {}) {
     const commentPath = comment.path || '';
     if (!shouldIgnorePath(commentPath, matchers)) {
       continue;
+    }
+    if (maxAgeSeconds !== null) {
+      const createdAt = comment.created_at ? Date.parse(comment.created_at) : NaN;
+      if (!Number.isFinite(createdAt)) {
+        continue;
+      }
+      const ageSeconds = (now - createdAt) / 1000;
+      if (ageSeconds > maxAgeSeconds) {
+        continue;
+      }
     }
     dismissable.push({
       id: comment.id,
@@ -121,11 +136,15 @@ function runCli(env = process.env) {
   const ignoredPaths = parseCsv(env.IGNORED_PATHS);
   const ignoredPatterns = parseCsv(env.IGNORED_PATTERNS);
   const botAuthors = parseCsv(env.BOT_AUTHORS);
+  const maxAgeSeconds = env.MAX_AGE_SECONDS ? Number(env.MAX_AGE_SECONDS) : null;
+  const now = env.NOW_EPOCH_MS ? Number(env.NOW_EPOCH_MS) : undefined;
 
   const dismissable = collectDismissable(comments, {
     ignoredPaths,
     ignoredPatterns,
     botAuthors,
+    maxAgeSeconds: Number.isFinite(maxAgeSeconds) ? maxAgeSeconds : null,
+    now: Number.isFinite(now) ? now : undefined,
   });
   const logs = dismissable.map((entry) => formatDismissLog(entry));
 
