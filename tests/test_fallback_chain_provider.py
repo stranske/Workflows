@@ -154,9 +154,7 @@ def test_fallback_chain_selects_expected_active_provider_and_forwards_args():
         wraps=backup_quality_provider.analyze_completion
     )
 
-    chain = FallbackChainProvider(
-        [legacy_provider, quality_provider, backup_quality_provider]
-    )
+    chain = FallbackChainProvider([legacy_provider, quality_provider, backup_quality_provider])
     chain.analyze_completion("session", ["task"], "ctx", quality_context=sentinel)
 
     assert chain._active_provider is quality_provider
