@@ -2,10 +2,10 @@
   if: steps.context.outputs.should_run == 'true' && inputs.mode == 'evaluate'
   run: |
     python -m pip install --upgrade pip
-    pip install -r .workflows-lib/tools/requirements-llm.txt
+    pip install -r tools/requirements-llm.txt
 
 - name: Install comparison dependencies
   if: steps.context.outputs.should_run == 'true' && inputs.mode == 'compare'
   run: |
     python -m pip install --upgrade pip
-    pip install -r .workflows-lib/tools/requirements-llm.txt
+    pip install -r tools/requirements-llm.txt
