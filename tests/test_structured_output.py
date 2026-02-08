@@ -4,7 +4,6 @@ from typing import Any
 import pytest
 from pydantic import BaseModel, Field, ValidationError
 
-from scripts.langchain import structured_output as structured_output_module
 from scripts.langchain.structured_output import (
     DEFAULT_REPAIR_PROMPT,
     StructuredOutputResult,
@@ -175,22 +174,17 @@ def test_parse_structured_output_repair_validation_error():
     assert result.repair_attempts_used == 1
 
 
-@pytest.mark.parametrize(("input_attempts", "expected"), [(0, 0), (1, 1), (2, 2), (10, 10)])
+@pytest.mark.parametrize(
+    ("input_attempts", "expected_effective"),
+    [(0, 0), (1, 1), (2, 1), (10, 1)],
+)
 def test_parse_structured_output_clamps_repair_attempts(
-    monkeypatch: pytest.MonkeyPatch, input_attempts: int, expected: int
+    input_attempts: int, expected_effective: int
 ) -> None:
-    recorded: dict[str, int] = {}
-    original = structured_output_module.clamp_repair_attempts
-
-    def _spy(attempts: int) -> int:
-        result = original(attempts)
-        recorded["input"] = attempts
-        recorded["clamped"] = result
-        return result
-
-    monkeypatch.setattr(structured_output_module, "clamp_repair_attempts", _spy)
+    repair_calls = {"count": 0}
 
     def _repair(_schema: str, _errors: str, _raw: str) -> str | None:
+        repair_calls["count"] += 1
         return None
 
     result = parse_structured_output(
@@ -200,11 +194,9 @@ def test_parse_structured_output_clamps_repair_attempts(
         max_repair_attempts=input_attempts,
     )
 
-    assert recorded["input"] == input_attempts
-    assert recorded["clamped"] == expected
-    if expected == 0:
+    assert repair_calls["count"] == expected_effective
+    assert result.repair_attempts_used == expected_effective
+    if expected_effective == 0:
         assert result.error_stage == "validation"
-        assert result.repair_attempts_used == 0
     else:
         assert result.error_stage == "repair_unavailable"
-        assert result.repair_attempts_used == 1
