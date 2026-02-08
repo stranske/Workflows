@@ -197,6 +197,20 @@ jobs:
           echo "WORKFLOWS_SCRIPTS_PATH=${GITHUB_WORKSPACE}/workflows-lib" >> "$GITHUB_ENV"
           echo "CONSUMER_PATH=${GITHUB_WORKSPACE}/consumer" >> "$GITHUB_ENV"
 
+      - name: Link node_modules for Workflows scripts
+        run: |
+          # ESM import() resolves relative to file location, not NODE_PATH.
+          # Symlink node_modules so token_load_balancer.js can find @octokit/rest.
+          SRC="${GITHUB_WORKSPACE}/consumer/.github/scripts/node_modules"
+          DST="${GITHUB_WORKSPACE}/workflows-lib/.github/scripts/node_modules"
+          if [ -d "$SRC" ] && [ ! -d "$DST" ]; then
+            mkdir -p "$(dirname "$DST")"
+            ln -sfn "$SRC" "$DST"
+            echo "✅ Linked node_modules → workflows-lib scripts path"
+          elif [ ! -d "$SRC" ]; then
+            echo "::warning::node_modules not found at $SRC — token rotation may fail"
+          fi
+
       - name: Evaluate keepalive pre-gate
         id: pre_gate
         uses: actions/github-script@v8
@@ -304,6 +318,7 @@ jobs:
         with:
           secrets: ${{ toJSON(secrets) }}
           github_token: ${{ github.token }}
+          install_dir: ${{ github.workspace }}/workflows-lib/.github/scripts
 
       - name: Mint GitHub App token (preferred)
         id: app_token_orchestrator_preferred
@@ -384,6 +399,7 @@ jobs:
         with:
           secrets: ${{ toJSON(secrets) }}
           github_token: ${{ github.token }}
+          install_dir: ${{ github.workspace }}/workflows-lib/.github/scripts
 
       - name: Evaluate keepalive gate
         id: gate
@@ -534,6 +550,7 @@ jobs:
         with:
           secrets: ${{ toJSON(secrets) }}
           github_token: ${{ github.token }}
+          install_dir: ${{ github.workspace }}/workflows-lib/.github/scripts
 
       - name: Upsert PR body sections
         uses: actions/github-script@v8

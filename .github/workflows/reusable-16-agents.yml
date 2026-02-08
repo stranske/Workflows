@@ -761,6 +761,7 @@ jobs:
         with:
           secrets: ${{ toJSON(secrets) }}
           github_token: ${{ github.token }}
+          install_dir: ${{ github.workspace }}/workflows-lib/.github/scripts
       - name: Set scripts path
         run: |
           echo "WORKFLOWS_SCRIPTS_PATH=${GITHUB_WORKSPACE}/workflows-lib" >> "$GITHUB_ENV"

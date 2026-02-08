@@ -181,6 +181,22 @@ jobs:
         run: |
           echo "WORKFLOWS_SCRIPTS_PATH=${GITHUB_WORKSPACE}/workflows-lib" >> "$GITHUB_ENV"
 
+      - name: Link node_modules for Workflows scripts
+        if: steps.check_enabled.outputs.enabled == 'true'
+        run: |
+          # ESM import() resolves relative to file location, not NODE_PATH.
+          # token_load_balancer.js uses 'await import("@octokit/rest")' which
+          # fails when scripts run from workflows-lib/ because node_modules
+          # was installed at $GITHUB_WORKSPACE/.github/scripts/ by setup-api-client.
+          SRC="${GITHUB_WORKSPACE}/.github/scripts/node_modules"
+          DST="${GITHUB_WORKSPACE}/workflows-lib/.github/scripts/node_modules"
+          if [ -d "$SRC" ] && [ ! -d "$DST" ]; then
+            ln -sfn "$SRC" "$DST"
+            echo "✅ Linked node_modules → workflows-lib scripts path"
+          elif [ ! -d "$SRC" ]; then
+            echo "::warning::node_modules not found at $SRC — token rotation may fail"
+          fi
+
       - name: Set up Python
         if: steps.check_enabled.outputs.enabled == 'true'
         uses: actions/setup-python@v6

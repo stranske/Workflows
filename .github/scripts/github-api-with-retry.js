@@ -354,7 +354,17 @@ async function withRetry(fn, options = {}) {
           : rateLimitError
             ? 'rate limit'
             : 'transient error';
-        console.error(`Max retries (${maxRetries}) reached for ${retryReason}`);
+        const errorMsg = `Max retries (${maxRetries}) reached for ${retryReason}`;
+        console.error(errorMsg);
+        // Surface as a GitHub Actions error annotation so rate limit
+        // exhaustion is visible in run summaries, not buried in logs.
+        logWithCore(
+          core,
+          'error',
+          `${errorMsg}. Token: ${currentTokenSource || 'unknown'}. ` +
+          `This indicates all available tokens are exhausted. ` +
+          `Check token rotation and rate limit budgets.`
+        );
         throw error;
       }
 
