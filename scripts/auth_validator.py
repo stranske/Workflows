@@ -4,7 +4,6 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any
 
-from scripts import api_client
 
 
 @dataclass(frozen=True)
@@ -102,14 +101,14 @@ def validate_auth_payload(payload: dict[str, Any] | None) -> AuthValidationResul
             scopes=None,
             allowed_scopes=allowed_scopes,
         )
-    if allowed_scopes is None:
+    if not allowed_scopes:
         return _build_result(
-            valid=True,
-            skipped=True,
+            valid=False,
+            skipped=False,
             error="missing_allowed_scopes",
-            message="No allowed scopes configured; skipping scope check.",
+            message="Allowed scopes are required for validation.",
             scopes=scopes,
-            allowed_scopes=None,
+            allowed_scopes=allowed_scopes,
         )
 
     extra_scopes = sorted(scopes - allowed_scopes)
@@ -126,6 +125,19 @@ def validate_auth_payload(payload: dict[str, Any] | None) -> AuthValidationResul
             extra_scopes=extra_scopes,
         )
 
+    missing_scopes = sorted(allowed_scopes - scopes)
+    if missing_scopes:
+        missing = ", ".join(missing_scopes)
+        required = ", ".join(sorted(allowed_scopes))
+        return _build_result(
+            valid=False,
+            skipped=False,
+            error="missing_scopes",
+            message=(f"Token scopes missing required scopes. Missing: {missing}. Required: {required}."),
+            scopes=scopes,
+            allowed_scopes=allowed_scopes,
+        )
+
     return _build_result(
         valid=True,
         skipped=False,
@@ -134,19 +146,3 @@ def validate_auth_payload(payload: dict[str, Any] | None) -> AuthValidationResul
         scopes=scopes,
         allowed_scopes=allowed_scopes,
     )
-
-
-def validate_token_scopes(
-    token: str,
-    allowed_scopes: set[str],
-    *,
-    retry_attempts: int | None = None,
-    retry_backoff: float | None = None,
-) -> AuthValidationResult:
-    scopes = api_client.fetch_oauth_scopes(
-        token,
-        retry_attempts=retry_attempts,
-        retry_backoff=retry_backoff,
-    )
-    payload = {"scopes": scopes, "allowed_scopes": allowed_scopes}
-    return validate_auth_payload(payload)

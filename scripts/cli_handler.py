@@ -272,12 +272,13 @@ def main(argv: list[str]) -> int:
 
     allowed_scopes = _load_allowed_scopes(args.allowed_scopes, args.allowed_scopes_env, config)
     if allowed_scopes:
-        validation = auth_validator.validate_token_scopes(
+        scopes = api_client.fetch_oauth_scopes(
             token,
-            allowed_scopes,
             retry_attempts=args.retry_attempts,
             retry_backoff=args.retry_backoff,
         )
+        payload = {"scopes": scopes, "allowed_scopes": allowed_scopes}
+        validation = auth_validator.validate_auth_payload(payload)
         if validation.skipped:
             if validation.message:
                 print(validation.message, file=sys.stderr)
