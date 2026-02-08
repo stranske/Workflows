@@ -219,13 +219,16 @@ def fetch_oauth_scopes(
     retry_attempts: int | None = None,
     retry_backoff: float | None = None,
 ) -> str | None:
-    response = _request_response(
-        "GET",
-        GITHUB_API,
-        token,
-        payload=None,
-        **_retry_kwargs(retry_attempts, retry_backoff),
-    )
+    try:
+        response = _request_response(
+            "GET",
+            GITHUB_API,
+            token,
+            payload=None,
+            **_retry_kwargs(retry_attempts, retry_backoff),
+        )
+    except RuntimeError:
+        return None
     headers = getattr(response, "headers", None)
     if not headers:
         return None

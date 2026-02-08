@@ -348,6 +348,15 @@ def test_fetch_oauth_scopes_retries_on_server_error(monkeypatch) -> None:
     assert sleep_calls == [0.5]
 
 
+def test_fetch_oauth_scopes_returns_none_on_request_error(monkeypatch) -> None:
+    def _raise_error(*_args, **_kwargs):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(api_client, "_request_response", _raise_error)
+
+    assert api_client.fetch_oauth_scopes("token") is None
+
+
 def test_find_dedup_comment_returns_match() -> None:
     comments = [
         {"body": "Nothing here"},
