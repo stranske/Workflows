@@ -24,12 +24,22 @@ def test_workflow_snippets_are_valid_yaml() -> None:
 
 
 def test_pip_cache_step_uses_requirements_llm_hash() -> None:
-    contents = Path("docs/workflow-snippets/pip-cache-step.yml").read_text(encoding="utf-8")
+    snippet_path = Path("docs/workflow-snippets/pip-cache-step.yml")
+    contents = snippet_path.read_text(encoding="utf-8")
     expected = (
         "pip-${{ runner.os }}-${{ matrix.python-version }}-"
         "${{ hashFiles('tools/requirements-llm.txt') }}"
     )
     assert expected in contents
+    parsed = yaml.safe_load(contents)
+
+    assert isinstance(parsed, list), "Expected pip-cache snippet to be a list"
+    assert any(
+        isinstance(step, dict)
+        and isinstance(step.get("with"), dict)
+        and step["with"].get("key") == expected
+        for step in parsed
+    ), "Expected a cache step key matching the requirements hash"
 
 
 @pytest.mark.parametrize(
