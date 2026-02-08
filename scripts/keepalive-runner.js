@@ -120,8 +120,9 @@ function shouldIncludeScopeBlock({ scopeBlock, prBody }) {
   if (!cleanedScope) {
     return false;
   }
+  const prSource = prBody ? String(prBody) : '';
   const prScopeBlock = normalizeScopeBlockForComparison(
-    prBody ? extractScopeTasksAcceptanceSections(prBody) : ''
+    prSource ? extractScopeTasksAcceptanceSections(prSource, { includePlaceholders: false }) : ''
   );
   if (!prScopeBlock) {
     return true;
