@@ -95,6 +95,65 @@ def clamp_repair_attempts(max_repair_attempts: int) -> int:
     )
 
 
+def _invoke_repair_loop(
+    *,
+    repair: Callable[[str, str, str], str | None] | None,
+    attempts: int,
+    model: type[T],
+    error_detail: str,
+    content: str,
+) -> StructuredOutputResult[T]:
+    if repair is None or attempts == 0:
+        return StructuredOutputResult(
+            payload=None,
+            raw_content=None,
+            error_stage="validation",
+            error_detail=error_detail,
+            repair_attempts_used=0,
+        )
+    repaired = repair(schema_json(model), error_detail, content)
+    if not repaired:
+        return StructuredOutputResult(
+            payload=None,
+            raw_content=None,
+            error_stage="repair_unavailable",
+            error_detail=error_detail,
+            repair_attempts_used=1,
+        )
+    try:
+        payload = model.model_validate_json(repaired)
+        return StructuredOutputResult(
+            payload=payload,
+            raw_content=repaired,
+            error_stage=None,
+            error_detail=None,
+            repair_attempts_used=1,
+        )
+    except ValidationError as repair_exc:
+        repair_detail = format_validation_errors(repair_exc)
+    except Exception as repair_exc:
+        repair_detail = format_non_validation_error(repair_exc)
+    else:
+        repair_detail = None
+
+    if repair_detail is not None:
+        return StructuredOutputResult(
+            payload=None,
+            raw_content=None,
+            error_stage="repair_validation",
+            error_detail=repair_detail,
+            repair_attempts_used=1,
+        )
+
+    return StructuredOutputResult(
+        payload=None,
+        raw_content=None,
+        error_stage="validation",
+        error_detail="Unknown validation error.",
+        repair_attempts_used=0,
+    )
+
+
 def parse_structured_output(
     content: str,
     model: type[T],
@@ -120,47 +179,13 @@ def parse_structured_output(
 
     if error_detail is not None:
         attempts = clamp_repair_attempts(max_repair_attempts)
-        if repair is None or attempts == 0:
-            return StructuredOutputResult(
-                payload=None,
-                raw_content=None,
-                error_stage="validation",
-                error_detail=error_detail,
-                repair_attempts_used=0,
-            )
-        repaired = repair(schema_json(model), error_detail, content)
-        if not repaired:
-            return StructuredOutputResult(
-                payload=None,
-                raw_content=None,
-                error_stage="repair_unavailable",
-                error_detail=error_detail,
-                repair_attempts_used=1,
-            )
-        try:
-            payload = model.model_validate_json(repaired)
-            return StructuredOutputResult(
-                payload=payload,
-                raw_content=repaired,
-                error_stage=None,
-                error_detail=None,
-                repair_attempts_used=1,
-            )
-        except ValidationError as repair_exc:
-            repair_detail = format_validation_errors(repair_exc)
-        except Exception as repair_exc:
-            repair_detail = format_non_validation_error(repair_exc)
-        else:
-            repair_detail = None
-
-        if repair_detail is not None:
-            return StructuredOutputResult(
-                payload=None,
-                raw_content=None,
-                error_stage="repair_validation",
-                error_detail=repair_detail,
-                repair_attempts_used=1,
-            )
+        return _invoke_repair_loop(
+            repair=repair,
+            attempts=attempts,
+            model=model,
+            error_detail=error_detail,
+            content=content,
+        )
 
     return StructuredOutputResult(
         payload=None,

@@ -184,14 +184,13 @@ def test_parse_structured_output_uses_effective_repair_attempts(
     input_attempts: int, expected_effective: int, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     observed = {"effective": None}
-    original_clamp = structured_output.clamp_repair_attempts
+    original_loop = structured_output._invoke_repair_loop
 
-    def clamp_spy(value: int) -> int:
-        effective = original_clamp(value)
-        observed["effective"] = effective
-        return effective
+    def loop_spy(**kwargs: Any) -> StructuredOutputResult:
+        observed["effective"] = kwargs["attempts"]
+        return original_loop(**kwargs)
 
-    monkeypatch.setattr(structured_output, "clamp_repair_attempts", clamp_spy)
+    monkeypatch.setattr(structured_output, "_invoke_repair_loop", loop_spy)
     repair_spy = MagicMock(return_value=None)
 
     result = parse_structured_output(
