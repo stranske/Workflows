@@ -38,6 +38,25 @@ class TestExtractVerificationData:
         assert "anthropic" in data.provider_verdicts
         assert data.provider_verdicts["anthropic"]["verdict"] == "Needs Work"
 
+    def test_extract_provider_verdicts_normalizes_provider_and_confidence(self):
+        """Normalize provider labels and parse fractional confidence values."""
+        comment = """
+## Provider Comparison Report
+
+### Provider Summary
+| Provider | Model | Verdict | Confidence | Summary |
+| --- | --- | --- | --- | --- |
+| openai/gpt-5.2 | gpt-5.2 | CONCERNS | 0.72 | Needs follow-up. |
+| anthropic/claude-sonnet-4-5 | claude-sonnet-4-5 | PASS | 92% | Looks good. |
+"""
+        data = extract_verification_data(comment)
+
+        assert "openai" in data.provider_verdicts
+        assert data.provider_verdicts["openai"]["verdict"] == "CONCERNS"
+        assert data.provider_verdicts["openai"]["confidence"] == 72
+        assert "anthropic" in data.provider_verdicts
+        assert data.provider_verdicts["anthropic"]["confidence"] == 92
+
     def test_extract_provider_verdicts_comparison_report_summary(self):
         """Extract verdicts from Provider Comparison Report format."""
         comment = """
@@ -85,6 +104,18 @@ Verdict: **Not Ready** @75%
 
         assert "default" in data.provider_verdicts
         assert data.provider_verdicts["default"]["verdict"] == "Not Ready"
+
+    def test_extract_single_verdict_fractional_confidence(self):
+        """Extract fractional confidence from single provider format."""
+        comment = """
+## PR Verification Report
+
+Verdict: **CONCERNS** @0.72
+"""
+        data = extract_verification_data(comment)
+
+        assert "default" in data.provider_verdicts
+        assert data.provider_verdicts["default"]["confidence"] == 72
 
     def test_extract_concerns(self):
         """Extract concerns list."""

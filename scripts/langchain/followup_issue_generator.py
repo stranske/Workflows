@@ -80,6 +80,30 @@ def _normalize_heading(text: str) -> str:
     return cleaned
 
 
+def _normalize_provider_key(provider: str) -> str:
+    """Normalize provider labels to stable keys (e.g., openai/gpt-5.2 -> openai)."""
+    cleaned = provider.strip()
+    if "/" in cleaned:
+        cleaned = cleaned.split("/", 1)[0]
+    cleaned = re.sub(r"\s*\(.*\)$", "", cleaned).strip().lower()
+    return cleaned or provider.strip().lower()
+
+
+def _parse_confidence_value(text: str) -> int:
+    """Parse confidence text into an integer percent."""
+    if not text:
+        return 0
+    match = re.search(r"\d+(?:\.\d+)?", text)
+    if not match:
+        return 0
+    value = float(match.group(0))
+    if "%" in text:
+        return int(round(value))
+    if value <= 1:
+        return int(round(value * 100))
+    return int(round(value))
+
+
 # Pre-computed normalized aliases for efficient section resolution.
 # Maps normalized alias string -> section key
 _NORMALIZED_ALIAS_MAP: dict[str, str] = {
@@ -353,14 +377,13 @@ def extract_verification_data(comment_body: str) -> VerificationData:
         cols = [col.strip() for col in line.strip().strip("|").split("|")]
         if len(cols) < 4:
             continue
-        provider = cols[0]
+        provider = _normalize_provider_key(cols[0])
         if provider.lower() == "provider":
             continue
         model = cols[1]
         verdict = cols[2]
         confidence_text = cols[3]
-        confidence_match = re.search(r"\d+", confidence_text)
-        confidence = int(confidence_match.group(0)) if confidence_match else 0
+        confidence = _parse_confidence_value(confidence_text)
         data.provider_verdicts[provider] = {
             "model": model,
             "verdict": verdict.strip(),
@@ -372,7 +395,7 @@ def extract_verification_data(comment_body: str) -> VerificationData:
     for line in lines:
         header_match = re.match(r"^####\s+(.+)$", line.strip())
         if header_match:
-            current_provider = header_match.group(1).strip()
+            current_provider = _normalize_provider_key(header_match.group(1))
             continue
         if not current_provider:
             continue
@@ -387,8 +410,7 @@ def extract_verification_data(comment_body: str) -> VerificationData:
         confidence_match = re.search(r"-\s*\*\*Confidence:\*\*\s*([^\n]+)", line)
         if confidence_match:
             confidence_text = confidence_match.group(1)
-            conf_digits = re.search(r"\d+", confidence_text)
-            confidence = int(conf_digits.group(0)) if conf_digits else 0
+            confidence = _parse_confidence_value(confidence_text)
             entry = data.provider_verdicts.setdefault(
                 current_provider, {"model": "", "verdict": "", "confidence": 0}
             )
@@ -402,8 +424,10 @@ def extract_verification_data(comment_body: str) -> VerificationData:
     )
     if single_verdict and not data.provider_verdicts:
         verdict = (single_verdict.group(1) or single_verdict.group(2) or "").strip()
-        confidence_match = re.search(r"Verdict:.*?@?\s*(\d+)%", comment_body, re.IGNORECASE)
-        confidence = int(confidence_match.group(1)) if confidence_match else 0
+        confidence_match = re.search(
+            r"Verdict:.*?@?\s*([0-9.]+%?)", comment_body, re.IGNORECASE
+        )
+        confidence = _parse_confidence_value(confidence_match.group(1)) if confidence_match else 0
         data.provider_verdicts["default"] = {
             "verdict": verdict,
             "confidence": confidence,
