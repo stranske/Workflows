@@ -114,7 +114,7 @@ jobs:
               capabilities: ['read-repo'],
               minRemaining: 50,
             });
-            const github = balancedGithub;
+            github = balancedGithub;
 
             const rawInput = (process.env.ISSUE_NUMBER || '').trim();
             const issueNumber = Number(rawInput);

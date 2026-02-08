@@ -89,7 +89,7 @@ jobs:
               task: 'agents-dedup',
               capabilities: ['issues:read'],
             });
-            const github = api;
+            github = api;
 
             // Get all open issues (excluding this one)
             const { data: issues } = await withRetry(() => github.rest.issues.listForRepo({
@@ -247,7 +247,7 @@ jobs:
               task: 'agents-dedup',
               capabilities: ['issues:write'],
             });
-            const github = api;
+            github = api;
 
             const duplicates = JSON.parse(fs.readFileSync('duplicates.json', 'utf8'));
 
