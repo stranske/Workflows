@@ -128,3 +128,4 @@ def test_fallback_chain_selects_expected_active_provider_and_forwards_args():
     assert call_kwargs["tasks"] == ["task"]
     assert call_kwargs["context"] == "ctx"
     assert call_kwargs["quality_context"] is sentinel
+    assert sentinel not in call_args.args

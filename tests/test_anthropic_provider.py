@@ -3,25 +3,19 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from tools.llm_provider import AnthropicProvider, SessionQualityContext
+from tools.llm_provider import AnthropicProvider, CompletionAnalysis, GitHubModelsProvider
 
 
-def test_anthropic_provider_forwards_quality_context_to_client_invoke():
-    sentinel = SessionQualityContext(
-        has_agent_messages=False,
-        has_work_evidence=False,
-        file_change_count=0,
-        successful_command_count=0,
-        estimated_effort_score=0,
-        data_quality="high",
-        analysis_text_length=250,
-    )
+def test_anthropic_provider_forwards_quality_context_to_client_invoke(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    sentinel = object()
 
     class DummyClient:
         def __init__(self) -> None:
             self.invoke = MagicMock(side_effect=self._invoke)
 
-        def _invoke(self, _prompt: str, **kwargs):
+        def _invoke(self, *_args, **_kwargs):
             return SimpleNamespace(content="""
 {
     "completed": ["task1"],
@@ -35,10 +29,24 @@ def test_anthropic_provider_forwards_quality_context_to_client_invoke():
     client = DummyClient()
     provider = AnthropicProvider()
     provider._get_client = MagicMock(return_value=client)
+    monkeypatch.setattr(
+        GitHubModelsProvider,
+        "_parse_response",
+        MagicMock(
+            return_value=CompletionAnalysis(
+                completed_tasks=["task1"],
+                in_progress_tasks=[],
+                blocked_tasks=[],
+                confidence=0.8,
+                reasoning="Task 1 done.",
+                provider_used="anthropic",
+            )
+        ),
+    )
 
     provider.analyze_completion("output", ["task1"], quality_context=sentinel)
 
-    assert client.invoke.call_args is not None
+    client.invoke.assert_called_once()
     assert client.invoke.call_args.kwargs["quality_context"] is sentinel
 
 

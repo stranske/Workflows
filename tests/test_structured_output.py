@@ -1,15 +1,16 @@
 import json
 from typing import Any
+from unittest.mock import MagicMock
 
 import pytest
 from pydantic import BaseModel, Field, ValidationError
 
+from scripts.langchain import structured_output
 from scripts.langchain.structured_output import (
     DEFAULT_REPAIR_PROMPT,
     StructuredOutputResult,
     build_repair_callback,
     build_repair_prompt,
-    clamp_repair_attempts,
     format_non_validation_error,
     format_validation_errors,
     parse_structured_output,
@@ -176,39 +177,33 @@ def test_parse_structured_output_repair_validation_error():
 
 
 @pytest.mark.parametrize(
-    ("input_attempts", "expected"),
-    [
-        (0, 0),
-        (1, 1),
-        (2, 1),
-        (10, 1),
-    ],
-)
-def test_clamp_repair_attempts_clamps_bounds(input_attempts: int, expected: int):
-    assert clamp_repair_attempts(input_attempts) == expected
-
-
-@pytest.mark.parametrize(
     ("input_attempts", "expected_effective"),
     [(0, 0), (1, 1), (2, 1), (10, 1)],
 )
-def test_parse_structured_output_clamps_repair_attempts(
-    input_attempts: int, expected_effective: int
+def test_parse_structured_output_uses_effective_repair_attempts(
+    input_attempts: int, expected_effective: int, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    repair_calls = {"count": 0}
+    observed = {"effective": None}
+    original_clamp = structured_output.clamp_repair_attempts
 
-    def _repair(_schema: str, _errors: str, _raw: str) -> str | None:
-        repair_calls["count"] += 1
-        return None
+    def clamp_spy(value: int) -> int:
+        effective = original_clamp(value)
+        observed["effective"] = effective
+        return effective
+
+    monkeypatch.setattr(structured_output, "clamp_repair_attempts", clamp_spy)
+    repair_spy = MagicMock(return_value=None)
 
     result = parse_structured_output(
         _invalid_payload(),
         ExampleModel,
-        repair=_repair,
+        repair=repair_spy,
         max_repair_attempts=input_attempts,
     )
 
-    assert repair_calls["count"] == expected_effective
+    # Production rule: max_repair_attempts is clamped to [MIN_REPAIR_ATTEMPTS, MAX_REPAIR_ATTEMPTS].
+    assert observed["effective"] == expected_effective
+    assert repair_spy.call_count == expected_effective
     assert result.repair_attempts_used == expected_effective
     if expected_effective == 0:
         assert result.error_stage == "validation"
