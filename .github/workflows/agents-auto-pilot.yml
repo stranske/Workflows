@@ -1381,7 +1381,7 @@ jobs:
             // 3. Cross-concern indicators
             const crossConcerns = [
               'database', 'migration', 'security', 'auth',
-              'breaking change', 'backwards compatible', 'API change',
+              'breaking change', 'backwards compatible', 'api change',
               'multiple repos', 'cross-repo', 'consumer repo'
             ];
             for (const c of crossConcerns) {
@@ -2544,7 +2544,7 @@ jobs:
       # ── Upload auto-pilot metrics for weekly aggregation ───────────
       - name: Upload auto-pilot metrics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         continue-on-error: true
         with:
           name: autopilot-metrics-${{ github.run_id }}-${{ github.run_attempt }}

@@ -55,7 +55,7 @@ jobs:
 
       - name: Download metrics artifacts
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.app_token.outputs.token || github.token }}
         run: |
           set -euo pipefail
           # shellcheck disable=SC1009,SC1073,SC1039,SC1072
