@@ -12,8 +12,7 @@ def test_github_models_provider_analyze_completion_without_quality_context(monke
 
         def invoke(self, prompt: str):
             self.calls.append(prompt)
-            return SimpleNamespace(
-                content='''
+            return SimpleNamespace(content="""
 {
     "completed": ["task1"],
     "in_progress": [],
@@ -21,8 +20,7 @@ def test_github_models_provider_analyze_completion_without_quality_context(monke
     "confidence": 0.8,
     "reasoning": "Task 1 done."
 }
-'''
-            )
+""")
 
     client = DummyClient()
     monkeypatch.setattr(provider, "_get_client", lambda: client)
