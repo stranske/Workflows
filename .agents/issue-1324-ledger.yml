@@ -1,10 +1,11 @@
 version: 1
 issue: 1324
-base: codex/issue-1327
+base: main
 branch: codex/issue-1324
 tasks:
   - id: task-01
-    title: Implement a dedicated auth validator entrypoint with explicit None/missing-field guards and wire CLI scope validation to it.
+    title: Implement a dedicated auth validator entrypoint with explicit None/missing-field
+      guards and wire CLI scope validation to it.
     pr_1304_concern: auth-validator-module
     status: todo
     started_at: null
@@ -18,7 +19,8 @@ tasks:
     notes:
       - Pending deterministic unit tests for validator outcomes.
   - id: task-02
-    title: Add a unit test that passes `None` into the auth validator and asserts the exact error result.
+    title: Add a unit test that passes `None` into the auth validator and asserts
+      the exact error result.
     pr_1304_concern: auth-validator-none-test
     status: todo
     started_at: null
@@ -29,7 +31,8 @@ tasks:
         area: test_validate_auth_payload_none
     notes: []
   - id: task-03
-    title: Add a unit test that passes an empty payload into the auth validator and asserts the missing field list.
+    title: Add a unit test that passes an empty payload into the auth validator and
+      asserts the missing field list.
     pr_1304_concern: auth-validator-empty-payload-test
     status: todo
     started_at: null
@@ -40,7 +43,8 @@ tasks:
         area: test_validate_auth_payload_missing_fields
     notes: []
   - id: task-04
-    title: Generate and commit an auth coverage artifact and document the exact command in DECISIONS.
+    title: Generate and commit an auth coverage artifact and document the exact command
+      in DECISIONS.
     pr_1304_concern: auth-coverage-artifact
     status: todo
     started_at: null

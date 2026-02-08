@@ -1,10 +1,11 @@
 version: 1
 issue: 1313
-base: codex/issue-1327
+base: main
 branch: codex/issue-1313
 tasks:
   - id: task-01
-    title: Guard OAuth scope header handling in `fetch_oauth_scopes` to avoid crashes when headers are missing.
+    title: Guard OAuth scope header handling in `fetch_oauth_scopes` to avoid crashes
+      when headers are missing.
     pr_1304_concern: auth-validation-null-guards
     status: done
     started_at: '2026-02-07T19:05:00Z'
@@ -17,7 +18,8 @@ tasks:
       - test: tests/scripts/test_issue_dedup_smoke.py::test_fetch_oauth_scopes_handles_missing_headers
     notes: []
   - id: task-02
-    title: Add an authentication CLI test that asserts the missing token exit code and error message.
+    title: Add an authentication CLI test that asserts the missing token exit code
+      and error message.
     pr_1304_concern: user-authentication-scenario
     status: done
     started_at: '2026-02-07T20:10:00Z'
@@ -45,7 +47,7 @@ tasks:
       - test: tests/test_ledger_validate.py::test_fetch_commit_retry_then_succeeds
     notes: []
   - id: task-04
-    title: Document the ledger hygiene decision for PR #1304 verification concerns.
+    title: Document the ledger hygiene decision for PR
     pr_1304_concern: ledger-hygiene-decision
     status: done
     started_at: '2026-02-07T20:30:00Z'
@@ -56,7 +58,7 @@ tasks:
       - decision: DECISIONS.md#2026-02-07---pr-1304-ledger-hygiene
     notes: []
   - id: task-05
-    title: Record the PR #1304 auth coverage baseline decision after the initial auth tests.
+    title: Record the PR
     pr_1304_concern: auth-coverage-reporting
     status: done
     started_at: '2026-02-07T20:35:00Z'
