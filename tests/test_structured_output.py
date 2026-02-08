@@ -210,9 +210,10 @@ def test_parse_structured_output_uses_effective_repair_attempts(
     assert observed["kwargs"]["repair"] is repair_spy
     assert observed["kwargs"]["model"] is ExampleModel
     assert observed["kwargs"]["content"] == content
-    assert repair_spy.call_count == expected_effective
     assert result.repair_attempts_used == expected_effective
     if expected_effective == 0:
+        repair_spy.assert_not_called()
         assert result.error_stage == "validation"
     else:
+        assert repair_spy.call_count == expected_effective
         assert result.error_stage == "repair_unavailable"
