@@ -131,6 +131,9 @@ def _is_target_file(path: Path) -> bool:
     # Skip node_modules directories (dependencies, not project code)
     if "node_modules" in path.parts:
         return False
+    # Skip test directories — tests use mock github objects, not real API clients
+    if "__tests__" in path.parts:
+        return False
     # Skip agent ledger files (task tracking, not API usage)
     if path.parent.name == ".agents" and path.stem.endswith("-ledger"):
         return False
