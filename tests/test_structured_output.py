@@ -6,10 +6,10 @@ from pydantic import BaseModel, Field, ValidationError
 
 from scripts.langchain.structured_output import (
     DEFAULT_REPAIR_PROMPT,
-    clamp_repair_attempts,
     StructuredOutputResult,
     build_repair_callback,
     build_repair_prompt,
+    clamp_repair_attempts,
     format_non_validation_error,
     format_validation_errors,
     parse_structured_output,
