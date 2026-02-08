@@ -356,14 +356,28 @@ async function withRetry(fn, options = {}) {
             : 'transient error';
         const errorMsg = `Max retries (${maxRetries}) reached for ${retryReason}`;
         console.error(errorMsg);
-        // Surface as a GitHub Actions error annotation so rate limit
-        // exhaustion is visible in run summaries, not buried in logs.
+        // Surface as a GitHub Actions error annotation so the failure
+        // mode is visible in run summaries, not buried in logs.
+        let annotationDetails;
+        if (retryReason === 'rate limit') {
+          annotationDetails =
+            'This indicates all available tokens are exhausted. ' +
+            'Check token rotation and rate limit budgets.';
+        } else if (retryReason === 'secondary rate limit') {
+          annotationDetails =
+            'A secondary rate limit (abuse detection) was ' +
+            'repeatedly hit. Reduce concurrency or spread ' +
+            'requests over a longer period.';
+        } else {
+          annotationDetails =
+            'Repeated transient failures despite retries. ' +
+            'Check network conditions and GitHub status.';
+        }
         logWithCore(
           core,
           'error',
           `${errorMsg}. Token: ${currentTokenSource || 'unknown'}. ` +
-          `This indicates all available tokens are exhausted. ` +
-          `Check token rotation and rate limit budgets.`
+          annotationDetails
         );
         throw error;
       }

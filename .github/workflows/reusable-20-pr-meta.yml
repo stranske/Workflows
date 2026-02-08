@@ -200,8 +200,9 @@ jobs:
       - name: Link node_modules for Workflows scripts
         run: |
           # ESM import() resolves relative to file location, not NODE_PATH.
-          # Symlink node_modules so token_load_balancer.js can find @octokit/rest.
-          SRC="${GITHUB_WORKSPACE}/consumer/.github/scripts/node_modules"
+          # setup-api-client installs to $GITHUB_WORKSPACE/.github/scripts
+          # by default — symlink so workflows-lib scripts can find @octokit/rest.
+          SRC="${GITHUB_WORKSPACE}/.github/scripts/node_modules"
           DST="${GITHUB_WORKSPACE}/workflows-lib/.github/scripts/node_modules"
           if [ -d "$SRC" ] && [ ! -d "$DST" ]; then
             mkdir -p "$(dirname "$DST")"
