@@ -183,16 +183,15 @@ def test_parse_structured_output_repair_validation_error():
 def test_parse_structured_output_uses_effective_repair_attempts(
     input_attempts: int, expected_effective: int, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    observed = {"effective": None, "clamp_calls": 0}
-    original_clamp = structured_output.clamp_repair_attempts
+    observed = {"attempts": None, "invoke_calls": 0}
+    original_invoke = structured_output.invoke_repair_loop
 
-    def clamp_spy(value: int) -> int:
-        effective = original_clamp(value)
-        observed["effective"] = effective
-        observed["clamp_calls"] += 1
-        return effective
+    def invoke_spy(*, attempts: int, **kwargs: object) -> StructuredOutputResult:
+        observed["attempts"] = attempts
+        observed["invoke_calls"] += 1
+        return original_invoke(attempts=attempts, **kwargs)
 
-    monkeypatch.setattr(structured_output, "clamp_repair_attempts", clamp_spy)
+    monkeypatch.setattr(structured_output, "invoke_repair_loop", invoke_spy)
     repair_spy = MagicMock(return_value=None)
     content = _invalid_payload()
 
@@ -203,8 +202,8 @@ def test_parse_structured_output_uses_effective_repair_attempts(
         max_repair_attempts=input_attempts,
     )
 
-    assert observed["effective"] == expected_effective  # Production rule: clamp to [0, 1].
-    assert observed["clamp_calls"] == 1
+    assert observed["attempts"] == expected_effective  # Production rule: clamp to [0, 1].
+    assert observed["invoke_calls"] == 1
     assert result.repair_attempts_used == expected_effective
     if expected_effective == 0:
         repair_spy.assert_not_called()
