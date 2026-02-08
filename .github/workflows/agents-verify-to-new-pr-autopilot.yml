@@ -41,20 +41,58 @@ jobs:
           run-id: ${{ github.event.workflow_run.id }}
           github-token: ${{ steps.select-token.outputs.token }}
 
-      - name: Dispatch auto-pilot from optimize step
-        env:
-          GH_TOKEN: ${{ steps.select-token.outputs.token }}
-          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+      - name: Read issue number from artifact
+        id: read-meta
         run: |
           set -euo pipefail
-          issue_number=$(jq -r '.issue_number' followup_issue_output.json)
-          if [ -z "${issue_number}" ] || [ "${issue_number}" = "null" ]; then
-            echo "Missing issue_number in followup_issue_output.json" >&2
+          num=$(jq -r '.issue_number' followup_issue_output.json)
+          if [ -z "${num}" ] || [ "${num}" = "null" ]; then
+            echo "Missing issue_number" >&2
             exit 1
           fi
-          workflow="agents-auto-pilot.yml"
-          api_path="repos/${GITHUB_REPOSITORY}/actions/workflows/${workflow}/dispatches"
-          gh api -X POST "${api_path}" \
-            -f "ref=${DEFAULT_BRANCH}" \
-            -f "inputs[issue_number]=${issue_number}" \
-            -f "inputs[force_step]=optimize"
+          echo "issue_number=${num}" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout Workflows repo
+        uses: actions/checkout@v6
+        with:
+          repository: stranske/Workflows
+          token: ${{ steps.select-token.outputs.token }}
+          sparse-checkout: |
+            .github/actions/setup-api-client
+            .github/scripts/github-api-with-retry.js
+            .github/scripts/token_load_balancer.js
+
+      - name: Setup API client
+        uses: ./.github/actions/setup-api-client
+        with:
+          secrets: ${{ toJSON(secrets) }}
+          github_token: ${{ github.token }}
+
+      - name: Dispatch auto-pilot from optimize step
+        uses: actions/github-script@v8
+        env:
+          ISSUE_NUMBER: ${{ steps.read-meta.outputs.issue_number }}
+          DEFAULT_BRANCH: >-
+            ${{ github.event.repository.default_branch }}
+        with:
+          github-token: ${{ steps.select-token.outputs.token }}
+          script: |
+            const fs = require('fs');
+            const retryPath =
+              './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryPath)
+              ? require(retryPath)
+              : { withRetry: (fn) => fn() };
+            const { withRetry } = retryHelpers;
+            await withRetry(() =>
+              github.rest.actions.createWorkflowDispatch({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                workflow_id: 'agents-auto-pilot.yml',
+                ref: process.env.DEFAULT_BRANCH,
+                inputs: {
+                  issue_number: process.env.ISSUE_NUMBER,
+                  force_step: 'optimize'
+                }
+              })
+            );
