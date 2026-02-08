@@ -6,6 +6,7 @@ const assert = require('node:assert/strict');
 const {
   extractScopeTasksAcceptanceSections,
   findScopeTasksAcceptanceBlock,
+  shouldIncludeScopeBlock,
 } = require('../../../scripts/keepalive-runner.js');
 
 test('extractScopeTasksAcceptanceSections accepts varied heading styles', () => {
@@ -188,4 +189,61 @@ test('findScopeTasksAcceptanceBlock recognises Task List blocks without Scope', 
   ].join('\n');
 
   assert.equal(extracted, expected);
+});
+
+test('shouldIncludeScopeBlock skips echo when scope already lives in PR body', () => {
+  const prBody = [
+    '## Scope',
+    '- [ ] stay focused',
+    '',
+    '## Tasks',
+    '- [ ] implement the change',
+    '',
+    '## Acceptance Criteria',
+    '- [ ] tests pass',
+  ].join('\n');
+
+  const scopeBlock = extractScopeTasksAcceptanceSections(prBody);
+  assert.equal(shouldIncludeScopeBlock({ scopeBlock, prBody }), false);
+});
+
+test('shouldIncludeScopeBlock includes scope when PR body has no scope block', () => {
+  const prBody = '';
+  const scopeBlock = [
+    '#### Scope',
+    '- [ ] summarize context',
+    '',
+    '#### Tasks',
+    '- [ ] do the work',
+    '',
+    '#### Acceptance Criteria',
+    '- [ ] confirm outcome',
+  ].join('\n');
+
+  assert.equal(shouldIncludeScopeBlock({ scopeBlock, prBody }), true);
+});
+
+test('shouldIncludeScopeBlock includes scope when PR body scope differs', () => {
+  const prBody = [
+    '## Scope',
+    '- [ ] original scope',
+    '',
+    '## Tasks',
+    '- [ ] original task',
+    '',
+    '## Acceptance Criteria',
+    '- [ ] original acceptance',
+  ].join('\n');
+  const scopeBlock = [
+    '#### Scope',
+    '- [ ] updated scope',
+    '',
+    '#### Tasks',
+    '- [ ] updated task',
+    '',
+    '#### Acceptance Criteria',
+    '- [ ] updated acceptance',
+  ].join('\n');
+
+  assert.equal(shouldIncludeScopeBlock({ scopeBlock, prBody }), true);
 });

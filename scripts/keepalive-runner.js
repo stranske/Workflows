@@ -76,6 +76,29 @@ function normaliseLogin(login) {
   return base.replace(/\[bot\]$/i, '');
 }
 
+function normalizeScopeBlock(value) {
+  return String(value || '')
+    .replace(/\r\n/g, '\n')
+    .split('\n')
+    .map((line) => line.replace(/\s+$/g, ''))
+    .join('\n')
+    .trim();
+}
+
+function shouldIncludeScopeBlock({ scopeBlock, prBody }) {
+  const cleanedScope = normalizeScopeBlock(scopeBlock);
+  if (!cleanedScope) {
+    return false;
+  }
+  const prScopeBlock = normalizeScopeBlock(
+    prBody ? extractScopeTasksAcceptanceSections(prBody) : ''
+  );
+  if (!prScopeBlock) {
+    return true;
+  }
+  return cleanedScope !== prScopeBlock;
+}
+
 function hasCliAgentLabel(labels) {
   if (!Array.isArray(labels)) {
     return false;
@@ -1111,8 +1134,13 @@ async function runKeepalive({ core, github, context, env = process.env }) {
       const command =
         commandOverride || getKeepaliveInstructionWithMention('codex', promptContext);
 
+      const includeScopeBlock = shouldIncludeScopeBlock({ scopeBlock, prBody: pr.body || '' });
       const bodyParts = [roundMarker, attemptMarker, canonicalMarker, traceMarker, command];
-      bodyParts.push('', scopeBlock);
+      if (includeScopeBlock) {
+        bodyParts.push('', scopeBlock);
+      } else if (scopeBlock) {
+        core.info(`#${prNumber}: scope/tasks/acceptance already in PR body; skipping scope echo in keepalive comment.`);
+      }
       if (marker && marker !== canonicalMarker) {
         bodyParts.push('', marker);
       }
@@ -1341,6 +1369,8 @@ module.exports = {
   resolveDispatchToken,
   extractScopeTasksAcceptanceSections,
   findScopeTasksAcceptanceBlock,
+  normalizeScopeBlock,
+  shouldIncludeScopeBlock,
   countCheckboxes,
   extractLatestChecklist,
   resolvePromptCheckboxCounts,
