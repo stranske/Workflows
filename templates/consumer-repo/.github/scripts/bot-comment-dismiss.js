@@ -116,13 +116,7 @@ function resolveCommentTimestamp(comment) {
   if (!comment) {
     return null;
   }
-  return (
-    comment.created_at ||
-    comment.createdAt ||
-    comment.updated_at ||
-    comment.updatedAt ||
-    null
-  );
+  return comment.created_at || comment.createdAt || null;
 }
 
 function collectDismissable(comments, options = {}) {
