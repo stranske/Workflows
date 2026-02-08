@@ -648,7 +648,7 @@ jobs:
 
       - name: Upload comparison artifacts
         if: always() && steps.context.outputs.should_run == 'true' && inputs.mode == 'compare'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: comparison-results-${{ github.run_id }}
           path: |
