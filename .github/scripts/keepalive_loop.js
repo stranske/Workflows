@@ -1544,11 +1544,14 @@ async function detectRateLimitCancellation({ github, context, runId, core }) {
     for (const job of jobs) {
       // Skip jobs that never ran — they have no logs to download and
       // querying them returns 404 ("Not Found"), producing noisy warnings.
-      const jobStatus = String(job?.status || '').toLowerCase();
-      const jobConclusion = String(job?.conclusion || '').toLowerCase();
-      const jobRan = jobStatus === 'completed' &&
-        jobConclusion !== 'skipped' &&
-        jobConclusion !== '';
+      const jobStatusRaw = job?.status;
+      const jobConclusionRaw = job?.conclusion;
+      const jobStatus = String(jobStatusRaw || '').toLowerCase();
+      const jobConclusion = String(jobConclusionRaw || '').toLowerCase();
+      const hasStatus = typeof jobStatusRaw === 'string' && jobStatusRaw.trim() !== '';
+      const hasConclusion = typeof jobConclusionRaw === 'string' && jobConclusionRaw.trim() !== '';
+      const jobRan = (!hasStatus && !hasConclusion) ||
+        (jobStatus === 'completed' && jobConclusion !== 'skipped');
 
       if (canCheckAnnotations) {
         const checkRunId = extractCheckRunId(job);
