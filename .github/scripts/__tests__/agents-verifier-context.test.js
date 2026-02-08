@@ -1114,3 +1114,153 @@ test('fetchLocalGitDiff returns diff output when exec succeeds', () => {
   assert.ok(result.includes('diff --git'));
   assert.ok(result.includes('+hello'));
 });
+
+// === Chain depth extraction tests ===
+
+test('buildVerifierContext extracts chain_depth from issue body marker', async () => {
+  const issueBody = '<!-- follow-up-depth: 2 -->\n## Scope\nFix bugs\n## Tasks\n- [ ] Fix it\n## Acceptance Criteria\n- [ ] It works';
+  const prBody = prBodyFixture;
+  const github = buildGithubStub({
+    prDetails: {
+      number: 100,
+      html_url: 'https://github.com/example/test/pull/100',
+      title: 'follow-up fix',
+      body: prBody,
+      base: { ref: 'main', sha: 'base123' },
+      head: { sha: 'head456' },
+      merge_commit_sha: 'merge789',
+    },
+    closingIssues: [
+      {
+        number: 50,
+        title: 'follow-up issue',
+        body: issueBody,
+        state: 'OPEN',
+        url: 'https://github.com/example/test/issues/50',
+        labels: { nodes: [] },
+      },
+    ],
+  });
+  const core = buildCore();
+  const ctx = {
+    eventName: 'pull_request',
+    repo: { owner: 'example', repo: 'test' },
+    payload: {
+      repository: { default_branch: 'main' },
+      pull_request: { merged: true, number: 100, base: { ref: 'main' }, html_url: 'https://github.com/example/test/pull/100' },
+    },
+    sha: 'merge789',
+  };
+  await buildVerifierContext({ github, context: ctx, core });
+  assert.equal(core.outputs.chain_depth, '2');
+});
+
+test('buildVerifierContext outputs chain_depth 0 when no marker present', async () => {
+  const github = buildGithubStub({
+    prDetails: {
+      number: 101,
+      html_url: 'https://github.com/example/test/pull/101',
+      title: 'regular PR',
+      body: prBodyFixture,
+      base: { ref: 'main', sha: 'base123' },
+      head: { sha: 'head456' },
+      merge_commit_sha: 'merge789',
+    },
+    closingIssues: [
+      {
+        number: 51,
+        title: 'feature request',
+        body: issueBodyOpen,
+        state: 'OPEN',
+        url: 'https://github.com/example/test/issues/51',
+        labels: { nodes: [] },
+      },
+    ],
+  });
+  const core = buildCore();
+  const ctx = {
+    eventName: 'pull_request',
+    repo: { owner: 'example', repo: 'test' },
+    payload: {
+      repository: { default_branch: 'main' },
+      pull_request: { merged: true, number: 101, base: { ref: 'main' }, html_url: 'https://github.com/example/test/pull/101' },
+    },
+    sha: 'merge789',
+  };
+  await buildVerifierContext({ github, context: ctx, core });
+  assert.equal(core.outputs.chain_depth, '0');
+});
+
+test('buildVerifierContext detects follow-up label as depth 1', async () => {
+  const github = buildGithubStub({
+    prDetails: {
+      number: 102,
+      html_url: 'https://github.com/example/test/pull/102',
+      title: 'follow-up fix',
+      body: prBodyFixture,
+      base: { ref: 'main', sha: 'base123' },
+      head: { sha: 'head456' },
+      merge_commit_sha: 'merge789',
+    },
+    closingIssues: [
+      {
+        number: 52,
+        title: 'follow-up from verifier',
+        body: issueBodyOpen,
+        state: 'OPEN',
+        url: 'https://github.com/example/test/issues/52',
+        labels: { nodes: [{ name: 'follow-up' }] },
+      },
+    ],
+  });
+  const core = buildCore();
+  const ctx = {
+    eventName: 'pull_request',
+    repo: { owner: 'example', repo: 'test' },
+    payload: {
+      repository: { default_branch: 'main' },
+      pull_request: { merged: true, number: 102, base: { ref: 'main' }, html_url: 'https://github.com/example/test/pull/102' },
+    },
+    sha: 'merge789',
+  };
+  await buildVerifierContext({ github, context: ctx, core });
+  assert.equal(core.outputs.chain_depth, '1');
+});
+
+test('buildVerifierContext includes chain depth in context markdown', async () => {
+  const issueBody = '<!-- follow-up-depth: 3 -->\n' + issueBodyOpen;
+  const github = buildGithubStub({
+    prDetails: {
+      number: 103,
+      html_url: 'https://github.com/example/test/pull/103',
+      title: 'iteration 3',
+      body: prBodyFixture,
+      base: { ref: 'main', sha: 'base123' },
+      head: { sha: 'head456' },
+      merge_commit_sha: 'merge789',
+    },
+    closingIssues: [
+      {
+        number: 53,
+        title: 'iteration issue',
+        body: issueBody,
+        state: 'OPEN',
+        url: 'https://github.com/example/test/issues/53',
+        labels: { nodes: [] },
+      },
+    ],
+  });
+  const core = buildCore();
+  const ctx = {
+    eventName: 'pull_request',
+    repo: { owner: 'example', repo: 'test' },
+    payload: {
+      repository: { default_branch: 'main' },
+      pull_request: { merged: true, number: 103, base: { ref: 'main' }, html_url: 'https://github.com/example/test/pull/103' },
+    },
+    sha: 'merge789',
+  };
+  const result = await buildVerifierContext({ github, context: ctx, core });
+  assert.ok(result.markdown.includes('Chain depth: 3'));
+  assert.equal(core.outputs.chain_depth, '3');
+});

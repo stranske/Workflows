@@ -418,6 +418,7 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           CLAUDE_API_STRANSKE: ${{ secrets.CLAUDE_API_STRANSKE }}
           PYTHONPATH: .workflows-lib
+          CHAIN_DEPTH: ${{ steps.context.outputs.chain_depth }}
         run: |
           set -euo pipefail
           context_file="${{ steps.context.outputs.context_path }}"
@@ -536,6 +537,7 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           CLAUDE_API_STRANSKE: ${{ secrets.CLAUDE_API_STRANSKE }}
           PYTHONPATH: .workflows-lib
+          CHAIN_DEPTH: ${{ steps.context.outputs.chain_depth }}
         run: |
           set -euo pipefail
           context_file="${{ steps.context.outputs.context_path }}"

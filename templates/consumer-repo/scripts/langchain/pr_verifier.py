@@ -52,6 +52,14 @@ Evaluate the **code changes** against the acceptance criteria:
 
 Ignore CI workflow status - focus on code quality and acceptance criteria fulfillment.
 
+**Verdict guidelines:**
+- **PASS**: correctness and completeness are satisfied.  Testing gaps alone
+  should NOT prevent a PASS if the implementation is functionally correct.
+- **CONCERNS**: significant correctness or completeness issues exist, OR the
+  implementation introduces meaningful risks.
+- **FAIL**: the changes do not address the acceptance criteria or introduce
+  breaking problems.
+
 Respond in JSON with:
 {{
   "verdict": "PASS | CONCERNS | FAIL",
@@ -130,6 +138,29 @@ docs, templates, or config).  Apply the following adjustments:
   introduces testable application logic (e.g. a new Python module).
 - **risks**: Pay extra attention to CI breakage and consumer-repo impact.
 - Be LENIENT on test coverage for infrastructure work.
+""".strip()
+
+# Addendum for follow-up PRs (chain depth > 0).  These are fix iterations
+# addressing prior verifier feedback — testing gaps should NOT perpetuate
+# the chain when the functional fix is correct.
+CHAIN_DEPTH_ADDENDUM = """
+
+## Follow-up Iteration Context
+
+This PR is **follow-up iteration {depth}** in a verification chain.  It was
+created specifically to address concerns raised by a previous verification.
+Apply the following adjustments:
+- **testing**: Do NOT raise CONCERNS solely for missing or incomplete tests
+  unless the PR introduces new testable logic that is completely untested.
+  Test coverage gaps alone should NOT prevent a PASS verdict when the
+  functional implementation is correct.
+- **correctness**: This is the primary criterion — does the fix address the
+  original concerns?  Weight correctness heavily.
+- **completeness**: Evaluate whether the specific concerns from the prior
+  verification have been addressed.  Do not expand scope beyond what was asked.
+- At chain depth {depth}, focus strictly on whether THIS iteration resolves
+  its targeted concerns.  Avoid raising new concerns that were not part of
+  the original feedback.
 """.strip()
 
 # File path patterns considered infrastructure/platform rather than application
@@ -348,6 +379,19 @@ def _classify_change_type(
     return "mixed"
 
 
+def _get_chain_depth() -> int:
+    """Read follow-up chain depth from environment.
+
+    Set by the verifier context builder when the linked issue contains a
+    ``<!-- follow-up-depth: N -->`` marker injected by agents-verify-to-new-pr.
+    """
+    raw = os.environ.get("CHAIN_DEPTH", "0")
+    try:
+        return max(0, int(raw))
+    except (ValueError, TypeError):
+        return 0
+
+
 def _prepare_prompt(context: str, diff: str | None) -> str:
     diff_block = diff.strip() if diff and diff.strip() else "(diff unavailable)"
     context_block = context.strip() if context and context.strip() else "(context unavailable)"
@@ -366,6 +410,15 @@ def _prepare_prompt(context: str, diff: str | None) -> str:
             prompt = _ensure_prompt_rubric(PR_EVALUATION_PROMPT_INFRA)
     else:
         prompt = _load_prompt()
+
+    # Append chain-depth guidance for follow-up iterations
+    chain_depth = _get_chain_depth()
+    if chain_depth > 0:
+        LOGGER.info(
+            "Follow-up chain depth %d detected; appending depth-aware guidance",
+            chain_depth,
+        )
+        prompt = prompt.rstrip() + "\n\n" + CHAIN_DEPTH_ADDENDUM.format(depth=chain_depth) + "\n"
 
     return prompt.format(context=context_block, diff=diff_block)
 

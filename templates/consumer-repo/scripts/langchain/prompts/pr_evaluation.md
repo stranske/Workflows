@@ -34,6 +34,15 @@ Evaluate the **code changes** against the acceptance criteria. Explicitly assess
 - Whether the implementation logic matches the stated requirements
 - Code patterns, error handling, and edge cases
 
+## Verdict Guidelines
+
+- **PASS**: correctness and completeness are satisfied.  Testing gaps alone
+  should NOT prevent a PASS if the implementation is functionally correct.
+- **CONCERNS**: significant correctness or completeness issues exist, OR the
+  implementation introduces meaningful risks.
+- **FAIL**: the changes do not address the acceptance criteria or introduce
+  breaking problems.
+
 Respond in JSON with:
 {{
   "verdict": "PASS | CONCERNS | FAIL",
