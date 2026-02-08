@@ -472,7 +472,10 @@ class OpenAIProvider(LLMProvider):
         prompt = github_provider._build_analysis_prompt(session_output, tasks, context)
 
         try:
-            response = client.invoke(prompt)
+            if quality_context is not None:
+                response = client.invoke(prompt, quality_context=quality_context)
+            else:
+                response = client.invoke(prompt)
             result = github_provider._parse_response(
                 response.content,
                 tasks,
@@ -537,7 +540,10 @@ class AnthropicProvider(LLMProvider):
         prompt = github_provider._build_analysis_prompt(session_output, tasks, context)
 
         try:
-            response = client.invoke(prompt)
+            if quality_context is not None:
+                response = client.invoke(prompt, quality_context=quality_context)
+            else:
+                response = client.invoke(prompt)
             result = github_provider._parse_response(
                 response.content,
                 tasks,

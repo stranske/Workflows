@@ -29,3 +29,5 @@ def test_github_models_provider_analyze_completion_without_quality_context(monke
 
     assert result.completed_tasks == ["task1"]
     assert client.calls
+    assert len(client.calls) == 1
+    assert "quality_context" not in client.calls[0]

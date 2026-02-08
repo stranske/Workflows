@@ -1,28 +1,11 @@
-from tools.llm_provider import (
-    SHORT_ANALYSIS_CONFIDENCE_CAP,
-    CompletionAnalysis,
-    FallbackChainProvider,
-    GitHubModelsProvider,
-    SessionQualityContext,
-)
+from unittest.mock import MagicMock
+
+import tools.llm_provider as llm_provider
+from tools.llm_provider import GitHubModelsProvider, SessionQualityContext
 
 
-class QualityAwareProvider(GitHubModelsProvider):
-    @property
-    def name(self) -> str:
-        return "quality-aware"
-
-    def is_available(self) -> bool:
-        return True
-
-    def analyze_completion(
-        self,
-        session_output: str,
-        tasks: list[str],
-        context: str | None = None,
-        quality_context: SessionQualityContext | None = None,
-    ) -> CompletionAnalysis:
-        response = """
+def test_confidence_capped_for_sub_50_analysis_text_with_work_evidence():
+    response = """
 {
     "completed": ["task1"],
     "in_progress": [],
@@ -31,25 +14,9 @@ class QualityAwareProvider(GitHubModelsProvider):
     "reasoning": "Short analysis."
 }
 """
-        parsed = self._parse_response(
-            response,
-            tasks,
-            quality_context=quality_context,
-        )
-        return CompletionAnalysis(
-            completed_tasks=parsed.completed_tasks,
-            in_progress_tasks=parsed.in_progress_tasks,
-            blocked_tasks=parsed.blocked_tasks,
-            confidence=parsed.confidence,
-            reasoning=parsed.reasoning,
-            provider_used=self.name,
-            raw_confidence=parsed.raw_confidence,
-            confidence_adjusted=parsed.confidence_adjusted,
-            quality_warnings=parsed.quality_warnings,
-        )
+    mock_client = MagicMock()
+    mock_client.invoke.return_value = MagicMock(content=response)
 
-
-def test_confidence_capped_for_sub_50_analysis_text_with_work_evidence():
     quality_context = SessionQualityContext(
         has_agent_messages=False,
         has_work_evidence=True,
@@ -60,11 +27,12 @@ def test_confidence_capped_for_sub_50_analysis_text_with_work_evidence():
         analysis_text_length=40,
     )
 
-    chain = FallbackChainProvider([QualityAwareProvider()])
-    result = chain.analyze_completion(
+    provider = GitHubModelsProvider()
+    provider._get_client = MagicMock(return_value=mock_client)
+    result = provider.analyze_completion(
         "output",
         ["task1"],
         quality_context=quality_context,
     )
 
-    assert result.confidence <= SHORT_ANALYSIS_CONFIDENCE_CAP
+    assert result.confidence <= llm_provider.SHORT_ANALYSIS_CONFIDENCE_CAP
