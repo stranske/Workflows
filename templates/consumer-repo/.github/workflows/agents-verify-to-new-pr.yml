@@ -213,7 +213,6 @@ jobs:
             // Extract follow-up-depth from original issue body or PR body
             // Format: <!-- follow-up-depth: N -->
             let chainDepth = 0;
-            const prBody = context.payload.pull_request.body || '';
             const depthSources = [originalIssueBody, prBody];
             for (const source of depthSources) {
               const depthMatch = source.match(

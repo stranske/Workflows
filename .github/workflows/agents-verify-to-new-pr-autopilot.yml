@@ -35,12 +35,11 @@ jobs:
           fi
 
       - name: Download follow-up issue metadata
-        uses: dawidd6/action-download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: verify-create-new-pr-output
-          github_token: ${{ steps.select-token.outputs.token }}
-          run_id: ${{ github.event.workflow_run.id }}
-          workflow: agents-verify-to-new-pr.yml
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ steps.select-token.outputs.token }}
 
       - name: Read issue number from artifact
         id: read-meta
