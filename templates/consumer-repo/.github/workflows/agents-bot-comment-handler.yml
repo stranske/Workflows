@@ -191,6 +191,8 @@ jobs:
   # Dismiss ignored-path bot reviews to prevent noisy inline comments
   dismiss_ignored:
     name: Dismiss ignored bot reviews
+    # Dismisses the review state (not individual comments) so bot reviews
+    # on ignored paths don't block merge or clutter the PR timeline.
     needs: resolve
     if: vars.USE_CONSOLIDATED_WORKFLOWS != 'true' && needs.resolve.outputs.should_run == 'true'
     runs-on: ubuntu-latest
@@ -213,7 +215,9 @@ jobs:
       - name: Dismiss ignored-path bot reviews
         uses: actions/github-script@v8
         env:
-          BOT_AUTHORS: 'Copilot,copilot[bot],github-actions[bot],coderabbitai[bot],chatgpt-codex-connector[bot]'
+          BOT_AUTHORS: >-
+            Copilot,copilot[bot],github-actions[bot],
+            coderabbitai[bot],chatgpt-codex-connector[bot]
           IGNORED_PATHS: '.agents/,scripts/langchain/prompts/,docs/'
         with:
           script: |
@@ -240,14 +244,14 @@ jobs:
               return;
             }
 
-            const [commentsResponse, reviewsResponse] = await Promise.all([
-              withRetry((client) => client.rest.pulls.listReviewComments({
+            const [comments, reviews] = await Promise.all([
+              withRetry((client) => client.paginate(client.rest.pulls.listReviewComments, {
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 pull_number: prNumber,
                 per_page: 100,
               })),
-              withRetry((client) => client.rest.pulls.listReviews({
+              withRetry((client) => client.paginate(client.rest.pulls.listReviews, {
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 pull_number: prNumber,
@@ -255,8 +259,6 @@ jobs:
               })),
             ]);
 
-            const comments = commentsResponse.data || [];
-            const reviews = reviewsResponse.data || [];
             const reviewsById = new Map(reviews.map((review) => [review.id, review]));
             const commentsByReview = new Map();
 
@@ -270,7 +272,6 @@ jobs:
                 total: 0,
                 ignored: 0,
                 paths: [],
-                botLogins: new Set(),
                 ignoredComments: [],
               };
 
@@ -280,17 +281,16 @@ jobs:
 
               if (ignoredPaths.some((prefix) => commentPath.startsWith(prefix))) {
                 entry.ignored += 1;
-                const login = (comment.user?.login || '').toLowerCase();
-                if (login) {
-                  entry.botLogins.add(login);
-                }
                 entry.ignoredComments.push({
                   id: comment.id,
                   path: commentPath,
                   login: comment.user?.login || 'unknown',
                 });
+                const botName = comment.user?.login;
                 console.log(
-                  `Auto-dismiss candidate: comment=${comment.id} bot=${comment.user?.login} path=${commentPath}`
+                  'Auto-dismiss candidate: ' +
+                  `comment=${comment.id} ` +
+                  `bot=${botName} path=${commentPath}`
                 );
               }
 
@@ -316,7 +316,10 @@ jobs:
               const uniquePaths = Array.from(new Set(entry.paths)).filter(Boolean);
               for (const ignored of entry.ignoredComments) {
                 console.log(
-                  `Auto-dismissed review comment: comment=${ignored.id} bot=${ignored.login} path=${ignored.path}`
+                  'Auto-dismissed review comment: ' +
+                  `comment=${ignored.id} ` +
+                  `bot=${ignored.login} ` +
+                  `path=${ignored.path}`
                 );
               }
               const message = [
@@ -334,8 +337,11 @@ jobs:
               }));
 
               dismissed += 1;
+              const paths = uniquePaths.join(', ');
               console.log(
-                `Dismissed review ${reviewId} from ${review.user?.login} for paths: ${uniquePaths.join(', ')}`
+                `Dismissed review ${reviewId} ` +
+                `from ${review.user?.login} ` +
+                `for paths: ${paths}`
               );
             }
 
