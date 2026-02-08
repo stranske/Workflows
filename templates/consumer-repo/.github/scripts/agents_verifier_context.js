@@ -24,6 +24,9 @@ const DIFF_SUMMARY_LIMITS = {
   maxLines: 20000,
 };
 
+// Regex to extract follow-up chain depth from issue/PR body HTML comments
+const FOLLOW_UP_DEPTH_RE = /<!--\s*follow-up-depth:\s*(\d+)\s*-->/;
+
 function uniqueNumbers(values) {
   return Array.from(
     new Set(
@@ -321,6 +324,11 @@ async function fetchClosingIssues({ github, core, owner, repo, prNumber }) {
               body
               state
               url
+              labels(first: 100) {
+                nodes {
+                  name
+                }
+              }
             }
           }
         }
@@ -338,6 +346,7 @@ async function fetchClosingIssues({ github, core, owner, repo, prNumber }) {
       body: issue.body || '',
       state: issue.state || 'UNKNOWN',
       url: issue.url || '',
+      labels: issue.labels?.nodes || [],
     }));
   } catch (error) {
     core?.warning?.(`Failed to fetch closing issues: ${error.message}`);
@@ -361,6 +370,7 @@ async function buildVerifierContext({ github, context, core, ciWorkflows }) {
     core?.setOutput?.('ci_results', '[]');
     core?.setOutput?.('diff_summary_path', '');
     core?.setOutput?.('diff_path', '');
+    core?.setOutput?.('chain_depth', '0');
     return {
       shouldRun: false,
       reason: resolveReason || 'No pull request detected.',
@@ -384,6 +394,7 @@ async function buildVerifierContext({ github, context, core, ciWorkflows }) {
     core?.setOutput?.('ci_results', '[]');
     core?.setOutput?.('diff_summary_path', '');
     core?.setOutput?.('diff_path', '');
+    core?.setOutput?.('chain_depth', '0');
     return { shouldRun: false, reason: skipReason, ciResults: [] };
   }
 
@@ -404,6 +415,7 @@ async function buildVerifierContext({ github, context, core, ciWorkflows }) {
     core?.setOutput?.('ci_results', '[]');
     core?.setOutput?.('diff_summary_path', '');
     core?.setOutput?.('diff_path', '');
+    core?.setOutput?.('chain_depth', '0');
     return { shouldRun: false, reason: skipReason, ciResults: [] };
   }
 
@@ -474,12 +486,34 @@ async function buildVerifierContext({ github, context, core, ciWorkflows }) {
   content.push('');
   content.push(`- Repository: ${owner}/${repo}`);
   content.push(`- Base branch: ${baseRef || defaultBranch}`);
+
+  // Extract chain depth from issue/PR bodies (set by agents-verify-to-new-pr.yml)
+  let chainDepth = 0;
+  const allBodies = [pull.body || '', ...closingIssues.map((i) => i.body || '')];
+  for (const body of allBodies) {
+    const match = body.match(FOLLOW_UP_DEPTH_RE);
+    if (match) {
+      const depth = parseInt(match[1], 10);
+      if (depth > chainDepth) chainDepth = depth;
+    }
+  }
+  // Also check for follow-up label on linked issues as a depth-1 indicator
+  if (chainDepth === 0) {
+    for (const issue of closingIssues) {
+      if (issue.labels && issue.labels.some((l) => l.name === 'follow-up')) {
+        chainDepth = Math.max(chainDepth, 1);
+      }
+    }
+  }
   const ciTargetShas = [pull.merge_commit_sha, pull.head?.sha, context.sha].filter(Boolean);
   const targetSha = ciTargetShas[0] || '';
   if (targetSha) {
     content.push(`- Target commit: \`${targetSha}\``);
   }
   content.push(`- Pull request: [#${pull.number}](${pull.html_url || ''})`);
+  if (chainDepth > 0) {
+    content.push(`- Chain depth: ${chainDepth} (follow-up iteration)`);
+  }
   content.push('');
 
   // Parse ciWorkflows if provided (can be array or JSON string)
@@ -572,6 +606,7 @@ async function buildVerifierContext({ github, context, core, ciWorkflows }) {
     core?.setOutput?.('ci_results', JSON.stringify(ciResults));
     core?.setOutput?.('diff_summary_path', '');
     core?.setOutput?.('diff_path', '');
+    core?.setOutput?.('chain_depth', String(chainDepth));
     return { shouldRun: false, reason: skipReason, ciResults };
   }
 
@@ -627,6 +662,7 @@ async function buildVerifierContext({ github, context, core, ciWorkflows }) {
   core?.setOutput?.('ci_results', JSON.stringify(ciResults));
   core?.setOutput?.('diff_summary_path', diffSummaryPath);
   core?.setOutput?.('diff_path', diffText ? diffPath : '');
+  core?.setOutput?.('chain_depth', String(chainDepth));
 
   return {
     shouldRun: true,
@@ -639,6 +675,7 @@ async function buildVerifierContext({ github, context, core, ciWorkflows }) {
     targetSha,
     acceptanceCount,
     ciResults,
+    chainDepth,
   };
 }
 

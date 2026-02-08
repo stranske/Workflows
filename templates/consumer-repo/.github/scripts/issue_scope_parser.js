@@ -585,19 +585,21 @@ function collectSections(source) {
       continue; // Skip missing sections instead of failing
     }
     // Find the boundary for this section's content:
-    // 1. Next heading at SAME LEVEL or HIGHER (allows subsections to be included)
+    // 1. Next heading at the SAME level (e.g., another ## for a ## section)
+    //    This catches structural headings that divide the document at the
+    //    same depth, while allowing subsection headers at different levels
+    //    (e.g., ### Phase 1 inside #### Tasks) to remain as content.
     // 2. OR next recognized section heading (even if it's a subsection level)
     //    Example: ## Scope followed by ### Tasks should stop at ### Tasks
-    const headingIndexSet = new Set(headings.map(h => h.index));
-    const nextSameLevelOrHigher = allHeadings
-      .filter((entry) => entry.index > header.index && entry.level <= header.level)
+    const nextSameLevel = allHeadings
+      .filter((entry) => entry.index > header.index && entry.level === header.level)
       .sort((a, b) => a.index - b.index)[0];
     const nextRecognizedSection = headings
       .filter((entry) => entry.index > header.index && entry.title !== header.title)
       .sort((a, b) => a.index - b.index)[0];
     
     // Use whichever boundary comes first
-    const boundaries = [nextSameLevelOrHigher, nextRecognizedSection].filter(Boolean);
+    const boundaries = [nextSameLevel, nextRecognizedSection].filter(Boolean);
     const nextHeader = boundaries.length > 0 
       ? boundaries.sort((a, b) => a.index - b.index)[0]
       : null;

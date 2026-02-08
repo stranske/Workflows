@@ -279,21 +279,29 @@ After each step, auto-pilot dispatches itself with the next step:
 
 After PR merge:
 
-1. `agents-verifier.yml` evaluates PR against acceptance criteria
-2. Modes: `checkbox` (task completeness), `evaluate` (single LLM), `compare` (dual-LLM cross-verification)
-3. Verdict: PASS → done | CONCERNS/FAIL → `agents-verify-to-new-pr.yml`
-4. Follow-up: creates new issue with verification gaps as tasks
-5. **Chain depth should be capped at 2** (original + 2 follow-ups max). Automated enforcement is pending; manually apply `needs-human` beyond this depth.
+1. `agents-verifier.yml` triggers when a `verify:*` label is applied to a merged PR (or via manual `workflow_dispatch`)
+2. Modes: `checkbox` (task completeness via Codex CLI), `evaluate` (single LLM), `compare` (dual-LLM cross-verification)
+3. In `compare` mode, two providers (gpt-5.2 + claude-sonnet-4-5) evaluate independently; unanimous PASS required
+4. Verdict: PASS → done | CONCERNS/FAIL → maintainer (or automation) applies `verify:create-new-pr` label
+5. `agents-verify-to-new-pr.yml` runs on `verify:create-new-pr` label → 4-round LLM pipeline (analyze with reasoning model → tasks → acceptance criteria → format)
+6. **Chain depth should be capped at 2** (original + 2 follow-ups max). Automated enforcement is pending; manually apply `needs-human` beyond this depth.
+
+> **Note:** The verifier does NOT auto-apply `verify:create-new-pr`. Follow-up PR creation requires an explicit label application.
 
 ### Key Metrics (Feb 2026 Evaluation, 40-PR sample)
 
-| Metric | Workflows | TMP | Combined |
-|--------|-----------|-----|----------|
-| Merge rate | 100% | 95% | 97.5% |
-| Follow-up chain PRs | 70% | 15% | 42.5% |
-| Needed `needs-human` | 35% | 25% | 30% |
+| Metric | Workflows (20) | TMP (20) | Combined |
+|--------|---------------:|----------:|---------:|
+| Merge rate | 100% | 100% | 100% |
+| First-fix rate (chain ends) | 20% | 50% | 35% |
+| Avg chain depth | 3.2 | 2.2 | 2.7 |
+| Max chain depth | 6 | 5 | 6 |
+| needs-human rate | 25% | 55% | 40% |
+| Verifier signal quality | ~75% high-signal | ~75% | ~75% |
 
-**The quality of the input issue is the strongest predictor of success.** Well-scoped issues with concrete acceptance criteria produce fewer follow-ups.
+**Primary chain-depth driver:** Test coverage over-indexing — the verifier's testing score triggers CONCERNS even when functional implementation is correct.
+
+See [`docs/analysis/verify-compare-40pr-evaluation-feb-2026.md`](docs/analysis/verify-compare-40pr-evaluation-feb-2026.md) for the full evaluation, prompt analysis, and P0-P3 improvement recommendations.
 
 ### Modifying Auto-Pilot
 

@@ -58,9 +58,23 @@ Each stage completes, then dispatches auto-pilot again with the next step name.
 - **Event-driven keepalive** — Gate `workflow_run` completion triggers iteration, not polling
 - **Task appendix injection** — Agent prompts include explicit, structured task context from the issue
 - **Token-aware retry** — `withRetry` + `token_load_balancer.js` distributes API calls across PATs and GitHub App tokens
-- **Verification pipeline** — Catches quality gaps post-merge with follow-up chain depth capped at 2
+- **Verification pipeline** — Dual-model `verify:compare` catches quality gaps post-merge; see metrics below
 
-For detailed evaluation and metrics, see `docs/analysis/autopilot-40pr-evaluation-feb-2026.md`.
+### Verification Pipeline
+
+After PR merge, applying a `verify:*` label (typically `verify:evaluate` via auto-pilot, or `verify:compare` for dual-model mode) triggers the verifier. In `compare` mode, two LLM providers (gpt-5.2 + claude-sonnet-4-5) independently evaluate the diff against acceptance criteria with unanimous PASS required. On CONCERNS or FAIL, maintainers or automation can apply the `verify:create-new-pr` label to trigger a 4-round LLM pipeline that generates a follow-up issue (analyze → tasks → acceptance criteria → format).
+
+**Current Metrics (Feb 2026, 40-PR sample across Workflows + Trend_Model_Project):**
+
+| Metric | Value | Target |
+|--------|------:|-------:|
+| First-fix rate | 35% | 60% |
+| Average chain depth | 2.7 | 1.5 |
+| Max chain depth | 6 | 3 |
+| Verifier signal quality | 75% | 85% |
+| needs-human rate | 40% | 30% |
+
+For the full evaluation and recommendations, see [`docs/analysis/verify-compare-40pr-evaluation-feb-2026.md`](docs/analysis/verify-compare-40pr-evaluation-feb-2026.md).
 
 ---
 
@@ -114,7 +128,7 @@ Start with:
 - `docs/INTEGRATION_GUIDE.md`
 - `docs/ci-workflow.md`
 - `docs/keepalive/SETUP_CHECKLIST.md`
-- `docs/analysis/autopilot-40pr-evaluation-feb-2026.md` - Pipeline evaluation and recommendations
+- `docs/analysis/verify-compare-40pr-evaluation-feb-2026.md` - Verify:compare pipeline evaluation (Feb 2026)
 
 ## Getting Started
 

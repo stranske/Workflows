@@ -247,6 +247,7 @@ def test_pull_request_head_repo_url_includes_token(tmp_path: Path, monkeypatch) 
 
 def test_fetch_commit_succeeds_without_retry(tmp_path: Path, monkeypatch) -> None:
     ledger_validate = _load_module(monkeypatch, tmp_path)
+    monkeypatch.setattr(ledger_validate, "_commit_exists_locally", lambda _: False)
     calls: list[list[str]] = []
 
     def fake_check_call(args, stdout=None, stderr=None):
@@ -271,6 +272,7 @@ def test_fetch_commit_succeeds_without_retry(tmp_path: Path, monkeypatch) -> Non
 
 def test_fetch_commit_retries_after_deepen(tmp_path: Path, monkeypatch) -> None:
     ledger_validate = _load_module(monkeypatch, tmp_path)
+    monkeypatch.setattr(ledger_validate, "_commit_exists_locally", lambda _: False)
     calls: list[list[str]] = []
 
     def fake_check_call(args, stdout=None, stderr=None):
@@ -289,6 +291,7 @@ def test_fetch_commit_retries_after_deepen(tmp_path: Path, monkeypatch) -> None:
 
 def test_fetch_commit_continues_after_failed_retry(tmp_path: Path, monkeypatch) -> None:
     ledger_validate = _load_module(monkeypatch, tmp_path)
+    monkeypatch.setattr(ledger_validate, "_commit_exists_locally", lambda _: False)
     calls: list[list[str]] = []
 
     def fake_check_call(args, stdout=None, stderr=None):
@@ -673,3 +676,112 @@ def test_main_json_output_includes_errors(tmp_path: Path, monkeypatch, capsys) -
     assert exit_code == 1
     assert str(ledger_path) in payload
     assert any("version must be 1" in msg for msg in payload[str(ledger_path)])
+
+
+def test_bulk_check_commits_identifies_known(tmp_path: Path, monkeypatch) -> None:
+    ledger_validate = _load_module(monkeypatch, tmp_path)
+
+    def fake_run(args, input=None, capture_output=False, text=False, timeout=None, check=False):
+        result = subprocess.CompletedProcess(args, 0)
+        result.stdout = "abc1234 commit 100\ndeadbeef missing\n"
+        result.stderr = ""
+        return result
+
+    monkeypatch.setattr(ledger_validate.subprocess, "run", fake_run)
+
+    results = ledger_validate._bulk_check_commits(["abc1234", "deadbeef"])
+    assert results["abc1234"] is True
+    assert results["deadbeef"] is False
+
+
+def test_bulk_check_commits_handles_abbreviated_shas(tmp_path: Path, monkeypatch) -> None:
+    """Verify bulk check uses original SHA as key when git expands abbreviations."""
+    ledger_validate = _load_module(monkeypatch, tmp_path)
+
+    def fake_run(args, input=None, capture_output=False, text=False, timeout=None, check=False):
+        # Simulate git cat-file expanding short SHA to full SHA in output
+        result = subprocess.CompletedProcess(args, 0)
+        result.stdout = "abc1234567890abcdef1234567890abcdef1234 commit 100\ndeadbeef1234567890abcdef1234567890abcdef missing\n"
+        result.stderr = ""
+        return result
+
+    monkeypatch.setattr(ledger_validate.subprocess, "run", fake_run)
+
+    # Input has short SHAs
+    results = ledger_validate._bulk_check_commits(["abc1234", "deadbeef"])
+    # Keys should be the original short SHAs, not expanded ones
+    assert results["abc1234"] is True
+    assert results["deadbeef"] is False
+    # Expanded SHAs should NOT be in the dict
+    assert "abc1234567890abcdef1234567890abcdef1234" not in results
+
+
+def test_prefetch_commits_deduplicates(tmp_path: Path, monkeypatch) -> None:
+    ledger_validate = _load_module(monkeypatch, tmp_path)
+
+    # Create two ledger files sharing the same commit SHA.
+    agents_dir = tmp_path / ".agents"
+    agents_dir.mkdir()
+    for i in (1, 2):
+        (agents_dir / f"issue-{i}-ledger.yml").write_text(
+            yaml.safe_dump(
+                {
+                    "version": 1,
+                    "issue": i,
+                    "base": "main",
+                    "branch": f"b{i}",
+                    "tasks": [{"id": "t1", "title": "T", "status": "done", "commit": "abc1234"}],
+                }
+            ),
+            encoding="utf-8",
+        )
+
+    fetch_calls: list[str] = []
+
+    def fake_bulk_check(shas):
+        return dict.fromkeys(shas, False)
+
+    def fake_fetch(sha):
+        fetch_calls.append(sha)
+        return False
+
+    monkeypatch.setattr(ledger_validate, "_bulk_check_commits", fake_bulk_check)
+    monkeypatch.setattr(ledger_validate, "_fetch_commit", fake_fetch)
+
+    ledgers = sorted(agents_dir.glob("issue-*-ledger.yml"))
+    ledger_validate._prefetch_commits(ledgers)
+
+    # Even though two ledger files reference the same commit, it should only
+    # be fetched once.
+    assert fetch_calls == ["abc1234"]
+
+
+def test_commit_files_cache_avoids_repeat_calls(tmp_path: Path, monkeypatch) -> None:
+    ledger_validate = _load_module(monkeypatch, tmp_path)
+    call_count = {"n": 0}
+
+    def fake_check_output(args, text=True):
+        call_count["n"] += 1
+        return "file.txt\n"
+
+    monkeypatch.setattr(ledger_validate.subprocess, "check_output", fake_check_output)
+
+    assert ledger_validate._commit_files("abc1234") == ["file.txt"]
+    assert ledger_validate._commit_files("abc1234") == ["file.txt"]
+    assert call_count["n"] == 1  # second call served from cache
+
+
+def test_commit_exists_locally(tmp_path: Path, monkeypatch) -> None:
+    ledger_validate = _load_module(monkeypatch, tmp_path)
+
+    def fake_check_output(args, text=True, stderr=None):
+        return "commit\n"
+
+    monkeypatch.setattr(ledger_validate.subprocess, "check_output", fake_check_output)
+    assert ledger_validate._commit_exists_locally("abc1234") is True
+
+    def fake_fail(args, text=True, stderr=None):
+        raise subprocess.CalledProcessError(1, args)
+
+    monkeypatch.setattr(ledger_validate.subprocess, "check_output", fake_fail)
+    assert ledger_validate._commit_exists_locally("deadbeef") is False

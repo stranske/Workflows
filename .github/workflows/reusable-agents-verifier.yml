@@ -137,6 +137,19 @@ jobs:
           path: .workflows-lib
           fetch-depth: 1
 
+      - name: Link node_modules for Workflows scripts
+        run: |
+          # ESM import() resolves relative to file location, not NODE_PATH.
+          # Symlink node_modules so token_load_balancer.js can find @octokit/rest.
+          SRC="${GITHUB_WORKSPACE}/.github/scripts/node_modules"
+          DST="${GITHUB_WORKSPACE}/.workflows-lib/.github/scripts/node_modules"
+          if [ -d "$SRC" ] && [ ! -d "$DST" ]; then
+            ln -sfn "$SRC" "$DST"
+            echo "✅ Linked node_modules → .workflows-lib scripts path"
+          elif [ ! -d "$SRC" ]; then
+            echo "::warning::node_modules not found at $SRC — token rotation may fail"
+          fi
+
       - name: Wait for CI workflows to complete
         id: wait_ci
         uses: actions/github-script@v8
@@ -418,6 +431,7 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           CLAUDE_API_STRANSKE: ${{ secrets.CLAUDE_API_STRANSKE }}
           PYTHONPATH: .workflows-lib
+          CHAIN_DEPTH: ${{ steps.context.outputs.chain_depth || '0' }}
         run: |
           set -euo pipefail
           context_file="${{ steps.context.outputs.context_path }}"
@@ -536,6 +550,7 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           CLAUDE_API_STRANSKE: ${{ secrets.CLAUDE_API_STRANSKE }}
           PYTHONPATH: .workflows-lib
+          CHAIN_DEPTH: ${{ steps.context.outputs.chain_depth || '0' }}
         run: |
           set -euo pipefail
           context_file="${{ steps.context.outputs.context_path }}"
@@ -633,7 +648,7 @@ jobs:
 
       - name: Upload comparison artifacts
         if: always() && steps.context.outputs.should_run == 'true' && inputs.mode == 'compare'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: comparison-results-${{ github.run_id }}
           path: |

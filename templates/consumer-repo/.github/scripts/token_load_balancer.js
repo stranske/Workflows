@@ -405,11 +405,31 @@ async function refreshAllRateLimits({ github, core }) {
     return;
   }
   
+  // Attempt the @octokit/rest import once for the whole refresh cycle
+  // rather than per-token — import success/failure is environment-level,
+  // not token-specific.
+  let Octokit = null;
+  try {
+    ({ Octokit } = await import('@octokit/rest'));
+  } catch (importErr) {
+    // ESM import() resolves relative to file location — if node_modules
+    // is not co-located (e.g., workflows-lib checkout without symlink),
+    // the import fails.  All tokens get a conservative synthetic budget.
+    core?.error?.(
+      `@octokit/rest import failed: ${importErr.message}. ` +
+      `Token rotation is degraded — rate limit checks are skipped. ` +
+      `Ensure node_modules is symlinked to the scripts directory ` +
+      `(see setup-api-client install_dir or link step).`
+    );
+  }
+  
   const results = [];
   
   for (const [id, tokenInfo] of tokenRegistry.tokens) {
     try {
-      const rateLimit = await checkTokenRateLimit({ tokenInfo, github, core });
+      const rateLimit = await checkTokenRateLimit({
+        tokenInfo, github, core, Octokit,
+      });
       tokenInfo.rateLimit = rateLimit;
       results.push({ id, ...rateLimit });
     } catch (error) {
@@ -425,10 +445,26 @@ async function refreshAllRateLimits({ github, core }) {
 }
 
 /**
- * Check rate limit for a specific token
+ * Check rate limit for a specific token.
+ * @param {object} params
+ * @param {object} params.Octokit - Octokit constructor (null when import failed)
  */
-async function checkTokenRateLimit({ tokenInfo, github, core }) {
-  const { Octokit } = await import('@octokit/rest');
+async function checkTokenRateLimit({ tokenInfo, github, core, Octokit }) {
+  if (!Octokit) {
+    // Import failed at the refresh-cycle level — return a conservative
+    // synthetic budget so this token is deprioritised but still usable
+    // as a last resort.
+    return {
+      limit: 5000,
+      remaining: 250,
+      used: 4750,
+      reset: Date.now() + 3600000,
+      checked: Date.now(),
+      percentUsed: 95,
+      percentRemaining: 5,
+      importFailed: true,
+    };
+  }
   
   let token = tokenInfo.token;
   
