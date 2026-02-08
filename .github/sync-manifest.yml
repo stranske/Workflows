@@ -117,6 +117,9 @@ workflows:
   - source: .github/workflows/agents-auto-pilot.yml
     description: "Auto-pilot - end-to-end automation orchestrator (format → optimize → agent → verify)"
 
+  - source: .github/workflows/agents-weekly-metrics.yml
+    description: "Weekly metrics - aggregates auto-pilot, keepalive, autofix and verifier metrics into summary reports"
+
   # Maintenance workflows
   - source: .github/workflows/maint-coverage-guard.yml
     description: "Coverage guard - daily baseline monitoring with automatic issue creation"
