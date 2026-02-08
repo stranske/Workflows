@@ -113,7 +113,7 @@ async function dismissReviewComments(options = {}) {
   const dismissable = options.dismissable || [];
   const owner = options.owner;
   const repo = options.repo;
-  const withRetry = options.withRetry || ((fn) => fn());
+  const withRetry = options.withRetry || ((fn) => fn(github));
   const logger = options.logger || console;
 
   if (!github || !github.rest || !github.rest.pulls) {
@@ -129,8 +129,8 @@ async function dismissReviewComments(options = {}) {
 
   for (const entry of dismissable) {
     try {
-      await withRetry(() =>
-        github.rest.pulls.deleteReviewComment({
+      await withRetry((client) =>
+        client.rest.pulls.deleteReviewComment({
           owner,
           repo,
           comment_id: entry.id,
@@ -165,7 +165,7 @@ async function autoDismissReviewComments(options = {}) {
   const owner = options.owner;
   const repo = options.repo;
   const pullNumber = options.pullNumber;
-  const withRetry = options.withRetry || ((fn) => fn());
+  const withRetry = options.withRetry || ((fn) => fn(github));
   const logger = options.logger || console;
 
   if (!github || !github.rest || !github.rest.pulls) {
@@ -178,8 +178,8 @@ async function autoDismissReviewComments(options = {}) {
     throw new Error('pullNumber is required');
   }
 
-  const response = await withRetry(() =>
-    github.rest.pulls.listReviewComments({
+  const response = await withRetry((client) =>
+    client.rest.pulls.listReviewComments({
       owner,
       repo,
       pull_number: pullNumber,

@@ -796,3 +796,72 @@ test('handles multiple code blocks - preserves content without adding checkboxes
   assert.ok(result.includes('  - YAML example task'));  // preserved as-is
   assert.ok(!result.includes('- [ ] YAML example task'));  // no checkbox added
 });
+
+// --- Issue #1361: ### subsection headers inside #### sections ---
+
+test('parseScopeTasksAcceptanceSections includes items under ### subsections in #### Tasks', () => {
+  const body = [
+    '#### Tasks',
+    '### Phase 1',
+    '- [x] Task A',
+    '### Phase 2',
+    '- [ ] Task B',
+    '- [ ] Task C',
+    '#### Acceptance criteria',
+    '### AC Group 1',
+    '- [ ] AC 1',
+    '- [ ] AC 2',
+  ].join('\n');
+
+  const result = parseScopeTasksAcceptanceSections(body);
+  // All tasks appear in the tasks section
+  assert.ok(result.tasks.includes('Task A'));
+  assert.ok(result.tasks.includes('Task B'));
+  assert.ok(result.tasks.includes('Task C'));
+  // All acceptance criteria in the acceptance section
+  assert.ok(result.acceptance.includes('AC 1'));
+  assert.ok(result.acceptance.includes('AC 2'));
+  // No cross-contamination
+  assert.ok(!result.tasks.includes('AC 1'));
+  assert.ok(!result.acceptance.includes('Task A'));
+  assert.ok(!result.acceptance.includes('Task B'));
+});
+
+test('### subsection headers are preserved as content', () => {
+  const body = [
+    '#### Tasks',
+    '### Phase 1: Setup',
+    '- [ ] Install deps',
+    '### Phase 2: Build',
+    '- [ ] Compile',
+    '#### Acceptance criteria',
+    '- [ ] All phases pass',
+  ].join('\n');
+
+  const result = parseScopeTasksAcceptanceSections(body);
+  assert.ok(result.tasks.includes('### Phase 1: Setup'));
+  assert.ok(result.tasks.includes('### Phase 2: Build'));
+  assert.ok(result.tasks.includes('Install deps'));
+  assert.ok(result.tasks.includes('Compile'));
+});
+
+test('countCheckboxes counts all checkboxes from #### sections with ### subsections', () => {
+  const body = [
+    '#### Tasks',
+    '### Phase 1',
+    '- [x] Task A',
+    '- [ ] Task B',
+    '### Phase 2',
+    '- [ ] Task C',
+    '#### Acceptance criteria',
+    '### Group 1',
+    '- [ ] AC 1',
+    '- [x] AC 2',
+  ].join('\n');
+
+  const result = parseScopeTasksAcceptanceSections(body);
+  // Count checkboxes manually
+  const allContent = result.tasks + '\n' + result.acceptance;
+  const checkboxes = allContent.match(/- \[[ x]\]/g) || [];
+  assert.equal(checkboxes.length, 5);
+});
