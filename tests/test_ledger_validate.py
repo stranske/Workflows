@@ -10,6 +10,8 @@ def test_fetch_commit_uses_second_remote_after_origin_failure(monkeypatch) -> No
     monkeypatch.setenv("GITHUB_REPOSITORY", "owner/repo")
     monkeypatch.setenv("GITHUB_SERVER_URL", "https://github.example.com")
     monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+    ledger_validate._COMMIT_FETCH_CACHE.clear()
+    monkeypatch.setattr(ledger_validate, "_commit_exists_locally", lambda _: False)
 
     calls: list[list[str]] = []
 
@@ -37,6 +39,8 @@ def test_fetch_commit_all_remotes_fail(monkeypatch) -> None:
     monkeypatch.setenv("GITHUB_REPOSITORY", "owner/repo")
     monkeypatch.setenv("GITHUB_SERVER_URL", "https://github.example.com")
     monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+    ledger_validate._COMMIT_FETCH_CACHE.clear()
+    monkeypatch.setattr(ledger_validate, "_commit_exists_locally", lambda _: False)
 
     calls: list[list[str]] = []
 
@@ -55,6 +59,8 @@ def test_fetch_commit_all_remotes_fail(monkeypatch) -> None:
 def test_fetch_commit_retry_then_succeeds(monkeypatch) -> None:
     commit = "abc1234"
     monkeypatch.delenv("GITHUB_REPOSITORY", raising=False)
+    ledger_validate._COMMIT_FETCH_CACHE.clear()
+    monkeypatch.setattr(ledger_validate, "_commit_exists_locally", lambda _: False)
 
     calls: list[list[str]] = []
 
@@ -81,6 +87,8 @@ def test_fetch_commit_uses_tokenized_base_url(monkeypatch) -> None:
     monkeypatch.setenv("GITHUB_REPOSITORY", "owner/repo")
     monkeypatch.setenv("GITHUB_SERVER_URL", "https://github.example.com")
     monkeypatch.setenv("GITHUB_TOKEN", token)
+    ledger_validate._COMMIT_FETCH_CACHE.clear()
+    monkeypatch.setattr(ledger_validate, "_commit_exists_locally", lambda _: False)
 
     calls: list[list[str]] = []
 

@@ -40,6 +40,11 @@ HEX_RE = re.compile(r"^[0-9a-f]{7,40}$")
 ISO8601_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 _SHALLOW_CACHE: bool | None = None
 
+# Caches to avoid redundant git subprocess calls for the same commit.
+_COMMIT_FILES_CACHE: dict[str, list[str]] = {}
+_COMMIT_SUBJECT_CACHE: dict[str, str] = {}
+_COMMIT_FETCH_CACHE: dict[str, bool] = {}  # SHA -> fetch succeeded
+
 
 def _is_shallow_repo() -> bool:
     global _SHALLOW_CACHE
@@ -150,8 +155,93 @@ def _pull_request_head_repo_url() -> str | None:
     return clone_url
 
 
+def _commit_exists_locally(commit: str) -> bool:
+    """Fast check whether *commit* is known to the local object store."""
+    try:
+        kind = subprocess.check_output(
+            ["git", "cat-file", "-t", commit],
+            text=True,
+            stderr=subprocess.DEVNULL,
+        ).strip()
+        return kind == "commit"
+    except subprocess.CalledProcessError:
+        return False
+
+
+def _bulk_check_commits(shas: Iterable[str]) -> dict[str, bool]:
+    """Batch-check which SHAs exist locally using `git cat-file --batch-check`."""
+    unique = sorted(set(shas))
+    if not unique:
+        return {}
+    try:
+        proc = subprocess.run(
+            ["git", "cat-file", "--batch-check"],
+            input="\n".join(unique) + "\n",
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+        return dict.fromkeys(unique, False)
+    results: dict[str, bool] = {}
+    for line in proc.stdout.splitlines():
+        parts = line.split()
+        if len(parts) >= 2:
+            sha = parts[0]
+            results[sha] = parts[1] == "commit"
+    for sha in unique:
+        results.setdefault(sha, False)
+    return results
+
+
+def _prefetch_commits(ledgers: list[Path]) -> None:
+    """Collect all unique commit SHAs from ledgers and pre-fetch missing ones.
+
+    This avoids O(tasks) individual `git show` + `_fetch_commit` invocations
+    by doing a single bulk existence check followed by one fetch per unique
+    missing commit.
+    """
+    all_shas: set[str] = set()
+    for path in ledgers:
+        try:
+            data = _load_yaml(path)
+        except LedgerError:
+            continue
+        if not isinstance(data, dict):
+            continue
+        tasks = data.get("tasks")
+        if not isinstance(tasks, list):
+            continue
+        for task in tasks:
+            if not isinstance(task, dict):
+                continue
+            commit = task.get("commit", "")
+            if isinstance(commit, str) and HEX_RE.match(commit.lower()):
+                all_shas.add(commit)
+
+    if not all_shas:
+        return
+
+    # Bulk-check which commits are already available locally.
+    presence = _bulk_check_commits(all_shas)
+    missing = [sha for sha, exists in presence.items() if not exists]
+    if not missing:
+        return
+
+    # Fetch all missing commits in as few operations as possible.
+    for sha in missing:
+        _fetch_commit(sha)
+
+
 def _fetch_commit(commit: str) -> bool:
     """Ensure *commit* exists locally, fetching extra history if needed."""
+    if commit in _COMMIT_FETCH_CACHE:
+        return _COMMIT_FETCH_CACHE[commit]
+
+    # Quick local check first — avoid network calls entirely.
+    if _commit_exists_locally(commit):
+        _COMMIT_FETCH_CACHE[commit] = True
+        return True
 
     fetch_targets = ["origin"]
     repo = os.environ.get("GITHUB_REPOSITORY")
@@ -220,6 +310,7 @@ def _fetch_commit(commit: str) -> bool:
                 continue
 
             if command[-1] == commit:
+                _COMMIT_FETCH_CACHE[commit] = True
                 return True
 
             # Success without specifying the SHA just deepened the local clone;
@@ -240,8 +331,10 @@ def _fetch_commit(commit: str) -> bool:
                 )
             except subprocess.CalledProcessError:
                 continue
+            _COMMIT_FETCH_CACHE[commit] = True
             return True
 
+    _COMMIT_FETCH_CACHE[commit] = False
     return False
 
 
@@ -257,6 +350,8 @@ def _with_auth_token(base_url: str, token: str) -> str:
 
 
 def _commit_files(commit: str) -> list[str]:
+    if commit in _COMMIT_FILES_CACHE:
+        return _COMMIT_FILES_CACHE[commit]
     try:
         output = subprocess.check_output(
             ["git", "show", "--pretty=format:", "--name-only", commit],
@@ -273,10 +368,13 @@ def _commit_files(commit: str) -> list[str]:
 
     stripped_lines = (line.strip() for line in output.splitlines())
     files = [line for line in stripped_lines if line]
+    _COMMIT_FILES_CACHE[commit] = files
     return files
 
 
 def _commit_subject(commit: str) -> str:
+    if commit in _COMMIT_SUBJECT_CACHE:
+        return _COMMIT_SUBJECT_CACHE[commit]
     try:
         output = subprocess.check_output(
             ["git", "show", "--no-patch", "--pretty=format:%s", commit],
@@ -290,7 +388,9 @@ def _commit_subject(commit: str) -> str:
             )
         else:
             raise LedgerError(f"unknown commit {commit}") from exc
-    return output.strip()
+    result = output.strip()
+    _COMMIT_SUBJECT_CACHE[commit] = result
+    return result
 
 
 def _validate_task(
@@ -466,6 +566,10 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     ledgers = find_ledgers(args.paths)
+
+    # Pre-fetch all unique commits in bulk to avoid O(tasks) individual fetches.
+    _prefetch_commits(ledgers)
+
     results: dict[str, list[str]] = {}
     for path in ledgers:
         problems = validate_ledger(path)
