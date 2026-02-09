@@ -232,6 +232,76 @@ describe('bot-comment-dismiss', () => {
     assert.deepStrictEqual(deleted, [7]);
   });
 
+  it('runs end-to-end dismissal flow and leaves no remaining .agents comments', async () => {
+    const comments = [
+      {
+        id: 71,
+        path: '.agents/issue-71-ledger.yml',
+        user: { login: 'copilot[bot]' },
+        created_at: '2026-02-08T12:00:10.000Z',
+        dismissed: false,
+      },
+      {
+        id: 72,
+        path: '.agents/notes.md',
+        user: { login: 'copilot[bot]' },
+        created_at: '2026-02-08T12:00:10.000Z',
+        dismissed: false,
+      },
+      {
+        id: 73,
+        path: 'src/app.js',
+        user: { login: 'copilot[bot]' },
+        created_at: '2026-02-08T12:00:10.000Z',
+        dismissed: false,
+      },
+    ];
+
+    const github = {
+      rest: {
+        pulls: {
+          listReviewComments: async () => ({
+            data: comments.filter((comment) => !comment.dismissed),
+          }),
+          deleteReviewComment: async ({ comment_id }) => {
+            const match = comments.find((comment) => comment.id === comment_id);
+            if (match) {
+              match.dismissed = true;
+            }
+          },
+        },
+      },
+    };
+
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () => {
+      throw new Error('Network access disabled during test');
+    };
+
+    try {
+      const result = await autoDismissReviewComments({
+        github,
+        owner: 'octo',
+        repo: 'repo',
+        pullNumber: 123,
+        ignoredPaths: ['.agents/**'],
+        botAuthors: ['copilot[bot]'],
+        maxAgeSeconds: 60,
+        now: Date.parse('2026-02-08T12:00:20.000Z'),
+      });
+
+      const remainingAgents = comments.filter(
+        (comment) => comment.path.startsWith('.agents/') && !comment.dismissed
+      );
+
+      assert.deepStrictEqual(result.dismissable.map((item) => item.id), [71, 72]);
+      assert.deepStrictEqual(remainingAgents, []);
+      assert.strictEqual(comments.find((comment) => comment.id === 73).dismissed, false);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   it('tracks failures when dismissal fails', async () => {
     const github = {
       rest: {
