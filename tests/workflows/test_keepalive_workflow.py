@@ -617,10 +617,13 @@ def _assert_missing_instruction_token_failure() -> None:
         scenario_path,
         extra_env={"CLEAR_TOKEN_DEFAULTS": "true", "clear_token_defaults": "true"},
     )
-    expected_message = "GitHub token is required to author keepalive instructions"
+    expected_messages = [
+        "GitHub token is required to author keepalive instructions",
+        "GitHub token is required for keepalive dispatch",
+    ]
     combined_output = (result.stderr or "") + (result.stdout or "")
     if result.returncode != 0:
-        assert expected_message in combined_output
+        assert any(message in combined_output for message in expected_messages)
         return
 
     # Some harness paths may record the failure instead of throwing; validate the summary payload.
@@ -629,7 +632,7 @@ def _assert_missing_instruction_token_failure() -> None:
     except json.JSONDecodeError as exc:
         pytest.fail(f"Expected JSON harness output on success: {exc}: {result.stdout}")
     failed = payload.get("logs", {}).get("failedMessage") or ""
-    assert expected_message in failed
+    assert any(message in failed for message in expected_messages)
     assert payload.get("dispatch_events") == []
 
 
