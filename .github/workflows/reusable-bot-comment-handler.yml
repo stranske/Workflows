@@ -281,7 +281,7 @@ jobs:
             }
 
       - name: Auto-dismiss review comments on ignored paths
-        if: steps.collect.outputs.found == 'true' || true
+        if: steps.collect.outputs.found == 'true'
         uses: actions/github-script@v8
         with:
           github-token: ${{ steps.auth.outputs.token }}
@@ -292,13 +292,18 @@ jobs:
               github, core,
               env: process.env,
               task: 'bot-comment-dismiss',
-              capabilities: ['pull_requests:write'],
+              capabilities: ['pull-requests:write'],
             });
             const prNumber = parseInt('${{ inputs.pr_number }}');
             const ignoredPaths = '${{ inputs.ignored_paths }}'
               .split(',')
               .map(s => s.trim())
               .filter(Boolean);
+            const botAuthors = [
+              'copilot-pull-request-reviewer',
+              'chatgpt-codex-connector',
+              'github-actions[bot]',
+            ];
 
             const result = await autoDismissReviewComments({
               github, withRetry, core,
@@ -306,9 +311,12 @@ jobs:
               repo: context.repo.repo,
               pullNumber: prNumber,
               ignoredPaths,
+              botAuthors,
             });
 
-            core.info(`Auto-dismissed ${result.dismissed || 0} review comment(s) on ignored paths`);
+            const dismissedCount = Array.isArray(result.dismissed) ? result.dismissed.length : 0;
+            const failedCount = Array.isArray(result.failed) ? result.failed.length : 0;
+            core.info(`Auto-dismissed ${dismissedCount} review comment(s) on ignored paths (failed: ${failedCount})`);
 
       - name: Post summary
         if: steps.collect.outputs.found == 'true'
