@@ -18,6 +18,7 @@ import argparse
 import json
 import re
 import sys
+import time
 import urllib.request
 from pathlib import Path
 from typing import NamedTuple
@@ -55,37 +56,46 @@ def get_latest_pypi_version(package_name: str) -> str | None:
     Falls back to the latest release if all releases are prereleases.
     """
     url = f"https://pypi.org/pypi/{package_name}/json"
-    try:
-        with urllib.request.urlopen(url, timeout=15) as resp:
-            data = json.loads(resp.read().decode())
-            # Get the latest version (this is the current stable release)
-            latest: str | None = data.get("info", {}).get("version")
-            if latest:
-                return latest
+    last_error: Exception | None = None
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(url, timeout=15) as resp:
+                data = json.loads(resp.read().decode())
+                # Get the latest version (this is the current stable release)
+                latest: str | None = data.get("info", {}).get("version")
+                if latest:
+                    return latest
 
-            # Fallback: find the latest from releases
-            releases: dict[str, list[dict[str, object]]] = data.get("releases", {})
-            if releases:
-                # Filter out prereleases and yanked versions
-                stable_versions: list[str] = []
-                for ver, files in releases.items():
-                    # Skip if all files are yanked
-                    if files and all(f.get("yanked", False) for f in files):
-                        continue
-                    # Skip prereleases (contains a, b, rc, dev, etc.)
-                    if re.search(r"(a|b|rc|dev|alpha|beta)\d*$", ver, re.IGNORECASE):
-                        continue
-                    stable_versions.append(ver)
+                # Fallback: find the latest from releases
+                releases: dict[str, list[dict[str, object]]] = data.get("releases", {})
+                if releases:
+                    # Filter out prereleases and yanked versions
+                    stable_versions: list[str] = []
+                    for ver, files in releases.items():
+                        # Skip if all files are yanked
+                        if files and all(f.get("yanked", False) for f in files):
+                            continue
+                        # Skip prereleases (contains a, b, rc, dev, etc.)
+                        if re.search(r"(a|b|rc|dev|alpha|beta)\d*$", ver, re.IGNORECASE):
+                            continue
+                        stable_versions.append(ver)
 
-                if stable_versions:
-                    # Sort by version tuple
-                    stable_versions.sort(key=_version_tuple, reverse=True)
-                    return stable_versions[0]
+                    if stable_versions:
+                        # Sort by version tuple
+                        stable_versions.sort(key=_version_tuple, reverse=True)
+                        return stable_versions[0]
 
-            return None
-    except Exception as e:
-        print(f"  ⚠️  Could not fetch {package_name} from PyPI: {e}", file=sys.stderr)
-        return None
+                return None
+        except Exception as e:
+            last_error = e
+            if attempt < 2:
+                # Brief backoff to tolerate transient network issues.
+                time.sleep(0.5 * (attempt + 1))
+                continue
+            break
+
+    print(f"  ⚠️  Could not fetch {package_name} from PyPI: {last_error}", file=sys.stderr)
+    return None
 
 
 def _version_tuple(version: str) -> tuple[int, ...]:
