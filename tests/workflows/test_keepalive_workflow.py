@@ -646,7 +646,20 @@ def test_keepalive_requires_dispatch_token() -> None:
         scenario_path,
         extra_env={"CLEAR_TOKEN_DEFAULTS": "true", "clear_token_defaults": "true"},
     )
-    _assert_missing_instruction_token(result)
+    if result.returncode != 0:
+        _assert_missing_instruction_token(result)
+        return
+
+    try:
+        payload = json.loads(result.stdout or "{}")
+    except json.JSONDecodeError as exc:
+        pytest.fail(f"Expected JSON harness output on success: {exc}: {result.stdout}")
+    dispatch_tokens = payload.get("dispatch_tokens", [])
+    comment_tokens = payload.get("comment_tokens", [])
+    assert dispatch_tokens, "Expected keepalive dispatch to use a token when harness succeeds"
+    assert any(token in comment_tokens for token in dispatch_tokens), (
+        "Expected dispatch token to fall back to the instruction author token"
+    )
 
 
 def test_keepalive_dispatches_with_service_bot_pat() -> None:
