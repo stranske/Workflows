@@ -257,4 +257,70 @@ describe('bot-comment-dismiss', () => {
     assert.equal(result.failed.length, 1);
     assert.equal(result.failed[0].id, 99);
   });
+
+  it('dismisses all ignored-path comments without network access', async () => {
+    const https = require('node:https');
+    const originalRequest = https.request;
+    https.request = () => {
+      throw new Error('Network disabled in test');
+    };
+
+    const deleted = [];
+    const comments = [
+      {
+        id: 201,
+        path: '.agents/issue-201-ledger.yml',
+        user: { login: 'copilot[bot]' },
+        created_at: '2026-02-08T12:00:05.000Z',
+      },
+      {
+        id: 202,
+        path: 'src/app.ts',
+        user: { login: 'copilot[bot]' },
+        created_at: '2026-02-08T12:00:05.000Z',
+      },
+      {
+        id: 203,
+        path: '.agents/issue-203-ledger.yml',
+        user: { login: 'coderabbitai[bot]' },
+        created_at: '2026-02-08T12:00:05.000Z',
+      },
+    ];
+    const github = {
+      rest: {
+        pulls: {
+          listReviewComments: async () => ({ data: comments }),
+          deleteReviewComment: async ({ comment_id }) => {
+            deleted.push(comment_id);
+          },
+        },
+      },
+    };
+
+    try {
+      const result = await autoDismissReviewComments({
+        github,
+        owner: 'octo',
+        repo: 'repo',
+        pullNumber: 123,
+        ignoredPaths: ['.agents/**'],
+        botAuthors: ['copilot[bot]', 'coderabbitai[bot]'],
+        maxAgeSeconds: 60,
+        now: Date.parse('2026-02-08T12:00:30.000Z'),
+      });
+
+      assert.deepStrictEqual(result.dismissable, [
+        { id: 201, path: '.agents/issue-201-ledger.yml', author: 'copilot[bot]' },
+        { id: 203, path: '.agents/issue-203-ledger.yml', author: 'coderabbitai[bot]' },
+      ]);
+      assert.deepStrictEqual(deleted, [201, 203]);
+
+      const remainingIgnored = comments.filter(
+        (comment) => comment.path.startsWith('.agents/') && !deleted.includes(comment.id)
+      );
+      assert.deepStrictEqual(remainingIgnored, []);
+    } finally {
+      https.request = originalRequest;
+    }
+  });
 });
