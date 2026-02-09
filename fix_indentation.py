@@ -17,22 +17,25 @@ for filepath in files:
 
     for i, line in enumerate(lines):
         # Track when we're in a steps section
-        if re.match(r"^(\s*)steps:\s*$", line):
+        steps_match = re.match(r"^(\s*)steps:\s*$", line)
+        if steps_match:
             in_steps = True
-            steps_indent = len(re.match(r"^(\s*)", line).group(1))
+            steps_indent = len(steps_match.group(1))
             fixed_lines.append(line)
             continue
 
         # Check if we exit steps (new job or end of file)
         if in_steps and re.match(r"^(\s*)\S", line):
-            indent = len(re.match(r"^(\s*)", line).group(1))
+            indent_match = re.match(r"^(\s*)", line)
+            indent = len(indent_match.group(1)) if indent_match else 0
             if indent <= steps_indent:
                 in_steps = False
 
         # Fix step items that are at wrong indentation
         if in_steps and re.match(r"^(\s+)- name:", line):
             expected_indent = steps_indent + 2
-            actual_indent = len(re.match(r"^(\s+)", line).group(1))
+            indent_match = re.match(r"^(\s+)", line)
+            actual_indent = len(indent_match.group(1)) if indent_match else 0
             if actual_indent != expected_indent:
                 # Re-indent this step
                 line = " " * expected_indent + line.lstrip()
@@ -46,9 +49,11 @@ for filepath in files:
                 and not line.strip().startswith("- ")
             ):
                 # This should be a property of the step
-                prev_indent = len(re.match(r"^(\s+)", prev).group(1))
+                prev_match = re.match(r"^(\s+)", prev)
+                prev_indent = len(prev_match.group(1)) if prev_match else 0
                 expected_indent = prev_indent + 2
-                actual_indent = len(re.match(r"^(\s+)", line).group(1))
+                indent_match = re.match(r"^(\s+)", line)
+                actual_indent = len(indent_match.group(1)) if indent_match else 0
                 if actual_indent != expected_indent:
                     line = " " * expected_indent + line.lstrip()
 
