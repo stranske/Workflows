@@ -2,18 +2,18 @@
   "slots": [
     {
       "name": "slot1",
+      "provider": "github-models",
+      "model": "codex-mini-latest"
+    },
+    {
+      "name": "slot2",
       "provider": "openai",
       "model": "gpt-5.2"
     },
     {
-      "name": "slot2",
+      "name": "slot3",
       "provider": "anthropic",
       "model": "claude-sonnet-4-5-20250929"
-    },
-    {
-      "name": "slot3",
-      "provider": "github-models",
-      "model": "codex-mini-latest"
     }
   ]
 }

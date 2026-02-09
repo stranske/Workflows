@@ -34,8 +34,8 @@ def _install_fake_langchain_anthropic(monkeypatch: pytest.MonkeyPatch):
     return FakeChatAnthropic
 
 
-def test_build_chat_client_prefers_openai_slot(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Slot 1 (OpenAI) should be preferred when both tokens are set."""
+def test_build_chat_client_prefers_github_slot(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Slot 1 (GitHub Models) should be preferred when both tokens are set."""
     FakeChatOpenAI = _install_fake_langchain_openai(monkeypatch)
     monkeypatch.setenv("GITHUB_TOKEN", "gh-token")
     monkeypatch.setenv("OPENAI_API_KEY", "oa-token")
@@ -45,10 +45,10 @@ def test_build_chat_client_prefers_openai_slot(monkeypatch: pytest.MonkeyPatch) 
     resolved = langchain_client.build_chat_client()
 
     assert resolved is not None
-    assert resolved.provider == langchain_client.PROVIDER_OPENAI
+    assert resolved.provider == langchain_client.PROVIDER_GITHUB
     assert isinstance(resolved.client, FakeChatOpenAI)
-    assert resolved.client.kwargs["api_key"] == "oa-token"
-    assert "base_url" not in resolved.client.kwargs
+    assert resolved.client.kwargs["api_key"] == "gh-token"
+    assert resolved.client.kwargs["base_url"] == langchain_client.GITHUB_MODELS_BASE_URL
 
 
 def test_build_chat_client_github_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -165,16 +165,16 @@ def test_build_chat_client_invalid_env_provider_falls_back(
     resolved = langchain_client.build_chat_client()
 
     assert resolved is not None
-    assert resolved.provider == langchain_client.PROVIDER_OPENAI
+    assert resolved.provider == langchain_client.PROVIDER_GITHUB
     assert isinstance(resolved.client, FakeChatOpenAI)
 
 
-def test_build_chat_clients_auto_selects_openai_then_claude(
+def test_build_chat_clients_auto_selects_github_then_openai(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Auto selection returns OpenAI then Claude when configured."""
+    """Auto selection returns GitHub Models then OpenAI when configured."""
     FakeChatOpenAI = _install_fake_langchain_openai(monkeypatch)
-    FakeChatAnthropic = _install_fake_langchain_anthropic(monkeypatch)
+    _install_fake_langchain_anthropic(monkeypatch)
     monkeypatch.setenv("GITHUB_TOKEN", "gh-token")
     monkeypatch.setenv("OPENAI_API_KEY", "oa-token")
     monkeypatch.setenv(langchain_client.ENV_ANTHROPIC_KEY, "claude-token")
@@ -184,11 +184,11 @@ def test_build_chat_clients_auto_selects_openai_then_claude(
     clients = langchain_client.build_chat_clients()
 
     assert [client.provider for client in clients] == [
+        langchain_client.PROVIDER_GITHUB,
         langchain_client.PROVIDER_OPENAI,
-        langchain_client.PROVIDER_ANTHROPIC,
     ]
     assert isinstance(clients[0].client, FakeChatOpenAI)
-    assert isinstance(clients[1].client, FakeChatAnthropic)
+    assert isinstance(clients[1].client, FakeChatOpenAI)
 
 
 def test_build_chat_clients_env_provider_override(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -239,7 +239,7 @@ def test_build_chat_clients_env_model_override(monkeypatch: pytest.MonkeyPatch) 
 
     assert [client.model for client in clients] == [
         "gpt-4o-mini",
-        langchain_client.DEFAULT_MODEL,
+        "gpt-5.2",
     ]
     assert isinstance(clients[0].client, FakeChatOpenAI)
 
@@ -312,6 +312,7 @@ def test_build_chat_client_handles_initialization_errors(
     fake_anthropic.ChatAnthropic = FakeChatAnthropic
     monkeypatch.setitem(sys.modules, "langchain_openai", fake_openai)
     monkeypatch.setitem(sys.modules, "langchain_anthropic", fake_anthropic)
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
     monkeypatch.setenv("OPENAI_API_KEY", "oa-token")
     monkeypatch.setenv(langchain_client.ENV_ANTHROPIC_KEY, "claude-token")
     monkeypatch.delenv(langchain_client.ENV_PROVIDER, raising=False)
@@ -345,6 +346,7 @@ def test_build_chat_clients_handles_partial_failures(
     fake_anthropic.ChatAnthropic = FakeChatAnthropic
     monkeypatch.setitem(sys.modules, "langchain_openai", fake_openai)
     monkeypatch.setitem(sys.modules, "langchain_anthropic", fake_anthropic)
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
     monkeypatch.setenv("OPENAI_API_KEY", "oa-token")
     monkeypatch.setenv(langchain_client.ENV_ANTHROPIC_KEY, "claude-token")
     monkeypatch.delenv(langchain_client.ENV_PROVIDER, raising=False)

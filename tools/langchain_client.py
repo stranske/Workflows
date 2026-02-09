@@ -1,7 +1,7 @@
 """
 Shared LangChain client construction helpers.
 
-Standardizes provider selection (slot order with OpenAI, Claude, then GitHub Models),
+Standardizes provider selection (slot order with GitHub Models, OpenAI, then Claude),
 timeouts, retries, and environment overrides.
 """
 
@@ -95,11 +95,11 @@ def _resolve_model(model: str | None) -> str:
 
 def _default_slots() -> list[SlotDefinition]:
     return [
-        SlotDefinition(name="slot1", provider=PROVIDER_OPENAI, model="gpt-5.2"),
+        SlotDefinition(name="slot1", provider=PROVIDER_GITHUB, model=DEFAULT_MODEL),
+        SlotDefinition(name="slot2", provider=PROVIDER_OPENAI, model="gpt-5.2"),
         SlotDefinition(
-            name="slot2", provider=PROVIDER_ANTHROPIC, model="claude-sonnet-4-5-20250929"
+            name="slot3", provider=PROVIDER_ANTHROPIC, model="claude-sonnet-4-5-20250929"
         ),
-        SlotDefinition(name="slot3", provider=PROVIDER_GITHUB, model=DEFAULT_MODEL),
     ]
 
 
@@ -280,7 +280,7 @@ def build_chat_client(
         except Exception:
             return None
 
-    # Auto-select: slot order (OpenAI -> Claude -> GitHub Models by default).
+    # Auto-select: slot order (GitHub Models -> OpenAI -> Claude by default).
     slots = _resolve_slots()
     model_override = model or os.environ.get(ENV_MODEL)
     used_override = False
