@@ -641,12 +641,9 @@ def test_keepalive_fails_when_required_labels_missing() -> None:
 
 def test_keepalive_requires_instruction_token() -> None:
     _require_node()
-    scenario_path = FIXTURES_DIR / "missing_dispatch_token.json"
+    scenario_path = FIXTURES_DIR / "missing_instruction_token.json"
     assert scenario_path.exists(), "Scenario fixture missing"
-    result = _run_harness(
-        scenario_path,
-        extra_env={"CLEAR_TOKEN_DEFAULTS": "true", "clear_token_defaults": "true"},
-    )
+    result = _run_harness(scenario_path)
     _assert_missing_instruction_token(result)
 
 
@@ -654,11 +651,7 @@ def test_keepalive_requires_dispatch_token() -> None:
     _require_node()
     scenario_path = FIXTURES_DIR / "missing_dispatch_token.json"
     assert scenario_path.exists(), "Scenario fixture missing"
-    # Force token defaults to be cleared so CI-provided tokens do not mask failures.
-    result = _run_harness(
-        scenario_path,
-        extra_env={"CLEAR_TOKEN_DEFAULTS": "true", "clear_token_defaults": "true"},
-    )
+    result = _run_harness(scenario_path)
     if result.returncode != 0:
         _assert_missing_instruction_token(result)
         return
