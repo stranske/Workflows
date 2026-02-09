@@ -551,7 +551,36 @@ async function createTokenAwareRetry(options = {}) {
         minRemaining,
       });
       if (selection?.token) {
-        currentGithub = octokitFactory(selection.token);
+        const nextGithub = octokitFactory(selection.token);
+        if (nextGithub && github?.rest) {
+          if (!nextGithub.rest) {
+            nextGithub.rest = github.rest;
+          } else {
+            for (const [apiName, apiValue] of Object.entries(github.rest)) {
+              if (!nextGithub.rest[apiName]) {
+                nextGithub.rest[apiName] = apiValue;
+                continue;
+              }
+              if (!apiValue || typeof apiValue !== 'object') {
+                continue;
+              }
+              const targetApi = nextGithub.rest[apiName];
+              if (!targetApi || typeof targetApi !== 'object') {
+                nextGithub.rest[apiName] = apiValue;
+                continue;
+              }
+              for (const [methodName, methodValue] of Object.entries(apiValue)) {
+                if (!targetApi[methodName]) {
+                  targetApi[methodName] = methodValue;
+                }
+              }
+            }
+          }
+        }
+        if (nextGithub && !nextGithub.paginate && github?.paginate) {
+          nextGithub.paginate = github.paginate;
+        }
+        currentGithub = nextGithub;
         currentTokenSource = selection.source;
       }
     } catch (error) {
