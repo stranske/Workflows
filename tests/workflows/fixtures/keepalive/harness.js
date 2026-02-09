@@ -322,6 +322,10 @@ async function runScenario(scenario) {
       const tokenValue = String(token);
       return {
         rest: {
+          pulls: {
+            list: listPulls,
+            listCommits,
+          },
           repos: {
             createDispatchEvent: async (payload) => {
               dispatchTokens.push(tokenValue);
@@ -329,10 +333,14 @@ async function runScenario(scenario) {
             },
           },
           issues: {
+            listComments,
             createComment: async (payload) => {
               commentTokens.push(tokenValue);
               return createComment(payload);
             },
+            updateComment,
+            listAssignees,
+            addAssignees,
           },
           reactions: {
             createForIssueComment: async ({ comment_id, content }) => {
@@ -340,6 +348,32 @@ async function runScenario(scenario) {
               instructionReactions.push({ comment_id, content });
               return { data: { content } };
             },
+          },
+        },
+        paginate: {
+          iterator: (method, params) => {
+            if (method !== listPulls && method !== listComments) {
+              throw new Error('Unsupported paginate target');
+            }
+            const defaultPerPage = method === listPulls ? 50 : 30;
+            const perPage = params.per_page || defaultPerPage;
+            return {
+              async *[Symbol.asyncIterator]() {
+                let page = 1;
+                while (true) {
+                  const response = await method({ ...params, page, per_page: perPage });
+                  const data = Array.isArray(response.data) ? response.data : [];
+                  if (!data.length) {
+                    break;
+                  }
+                  yield response;
+                  if (data.length < perPage) {
+                    break;
+                  }
+                  page += 1;
+                }
+              },
+            };
           },
         },
       };
