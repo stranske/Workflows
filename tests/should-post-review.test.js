@@ -42,6 +42,12 @@ test('should-post-review returns false when review is null', () => {
   assert.equal(line, 'should_post_review=false');
 });
 
+test('should-post-review returns false when review JSON is invalid', () => {
+  const filePath = path.join(fixturesDir, 'review-invalid.json');
+  const line = runScript(filePath);
+  assert.equal(line, 'should_post_review=false');
+});
+
 test('should-post-review returns false when review is empty string', () => {
   const filePath = path.join(fixturesDir, 'review-empty-string.json');
   const line = runScript(filePath);
