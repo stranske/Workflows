@@ -80,6 +80,14 @@ def _run_harness(
         env.setdefault("clear_token_defaults", "true")
     if extra_env:
         env.update(extra_env)
+    clear_tokens_flag = (
+        env.get("CLEAR_TOKEN_DEFAULTS")
+        or env.get("clear_token_defaults")
+        or scenario_data.get("clear_token_defaults")
+        or scenario_data.get("clearTokenDefaults")
+    )
+    if clear_tokens_flag:
+        _clean_token_env(env)
     command = ["node", str(HARNESS), str(scenario_path)]
     return subprocess.run(command, capture_output=True, text=True, env=env)
 
