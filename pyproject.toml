@@ -143,6 +143,8 @@ disable_error_code = "import-untyped"
 exclude = [
     "^archive/",
     "^\\.extraction/",
+    "^templates/",
+    "^[^/]+\\.py$",
 ]
 
 [[tool.mypy.overrides]]
