@@ -435,7 +435,7 @@ jobs:
                   paginateWithRetry: (githubInstance, method, params) =>
                     githubInstance.paginate(method, params),
                 };
-            const { withRetry } = retryHelpers;
+            const { withRetry, paginateWithRetry } = retryHelpers;
             const prNumber = parseInt('${{ inputs.pr_number }}');
             const agent = '${{ needs.collect.outputs.agent }}';
             const count = '${{ needs.collect.outputs.comments_count }}';
@@ -465,7 +465,10 @@ jobs:
             }
 
             // Post informational comment (without @mention to avoid triggering connector twice)
+            // Use HTML marker for deduplication — update existing comment instead of creating duplicates
+            const marker = '<!-- bot-comment-handler -->';
             const comment = [
+              marker,
               '## 🤖 Bot Comment Handler',
               '',
               `- Agent: ${agent}`,
@@ -480,12 +483,31 @@ jobs:
               'The bot comment handler workflow has prepared context in the artifacts.'
             ].join('\n');
 
-            await withRetry(() => github.rest.issues.createComment({
-              owner,
-              repo,
-              issue_number: prNumber,
-              body: comment
-            }));
+            // Find existing bot-comment-handler comment to avoid duplicates
+            const existingComments = await paginateWithRetry(
+              github,
+              github.rest.issues.listComments,
+              { owner, repo, issue_number: prNumber, per_page: 100 }
+            );
+            const existing = existingComments.find(c => c.body && c.body.includes(marker));
+
+            if (existing) {
+              await withRetry(() => github.rest.issues.updateComment({
+                owner,
+                repo,
+                comment_id: existing.id,
+                body: comment
+              }));
+              core.info(`Updated existing bot-comment-handler comment #${existing.id} on PR #${prNumber}`);
+            } else {
+              await withRetry(() => github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: prNumber,
+                body: comment
+              }));
+              core.info(`Created new bot-comment-handler comment on PR #${prNumber}`);
+            }
 
             core.setOutput('triggered', 'true');
             console.log(`Assigned ${assignees.join(', ')} and posted context on PR #${prNumber}`);
