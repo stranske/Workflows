@@ -60,4 +60,31 @@ describe('connector-exclusion-smoke', () => {
     assert.deepStrictEqual(result.kept, ['src/a.ts', 'src/b.ts']);
     assert.deepStrictEqual(result.ignored, ['src/c.ts', '.agents/issue-1234-ledger.yml']);
   });
+
+  it('supports brace expansion include patterns', () => {
+    const input = [
+      'src/app.ts',
+      'src/view.tsx',
+      'src/app.js',
+      '.agents/issue-1234-ledger.yml'
+    ];
+
+    const result = filterPaths(input, { PR_CONTEXT_INCLUDE_PATTERNS: 'src/*.{ts,tsx}' });
+
+    assert.deepStrictEqual(result.kept, ['src/app.ts', 'src/view.tsx']);
+    assert.deepStrictEqual(result.ignored, ['src/app.js', '.agents/issue-1234-ledger.yml']);
+  });
+
+  it('supports escaped metacharacters in include patterns', () => {
+    const input = [
+      'docs/[draft].md',
+      'docs/draft.md',
+      '.agents/issue-1234-ledger.yml'
+    ];
+
+    const result = filterPaths(input, { PR_CONTEXT_INCLUDE_PATTERNS: 'docs/\\[draft\\].md' });
+
+    assert.deepStrictEqual(result.kept, ['docs/[draft].md']);
+    assert.deepStrictEqual(result.ignored, ['docs/draft.md', '.agents/issue-1234-ledger.yml']);
+  });
 });
