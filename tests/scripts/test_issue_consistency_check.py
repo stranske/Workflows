@@ -25,6 +25,13 @@ def test_collect_header_issue_numbers_reads_issue_lines(tmp_path: Path) -> None:
     assert numbers == {1075}
 
 
+def test_collect_header_issue_numbers_ignores_markdown_headings(tmp_path: Path) -> None:
+    path = tmp_path / "sample.md"
+    path.write_text("# Issue #1407\n\n<!-- Issue: 9999 -->\n", encoding="utf-8")
+    numbers = check_issue_consistency.collect_header_issue_numbers(path, max_lines=5)
+    assert numbers == {9999}
+
+
 def test_extract_issue_numbers_ignores_pr_hashes() -> None:
     text = "PR #1076 relates to Issue #1075"
     numbers = check_issue_consistency.extract_issue_numbers(text)

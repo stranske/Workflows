@@ -361,9 +361,13 @@ def collect_header_issue_numbers(file_path: Path, max_lines: int) -> set[int]:
     numbers: set[int] = set()
     in_docstring = False
     docstring_delim = ""
+    markdown_suffixes = {".md", ".markdown"}
+    is_markdown = file_path.suffix.lower() in markdown_suffixes
 
     def is_comment_line(line: str) -> bool:
         stripped = line.lstrip()
+        if is_markdown and stripped.startswith("#"):
+            return False
         return stripped.startswith(("#", "//", "/*", "*", "--", ";", "<!--"))
 
     try:
