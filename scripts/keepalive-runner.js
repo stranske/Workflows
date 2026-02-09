@@ -802,6 +802,10 @@ async function runKeepalive({ core, github, context, env = process.env }) {
   const options = parseJson(rawOptions, {});
   const summary = core.summary;
   const traceSeed = generateTraceSeed(env.KEEPALIVE_TRACE || env.keepalive_trace || '');
+  const clearTokenDefaults = coerceBool(
+    env.CLEAR_TOKEN_DEFAULTS ?? env.clear_token_defaults,
+    false
+  );
   const pausedLabel = 'agents:paused';
 
   const addHeading = () => {
@@ -827,13 +831,17 @@ async function runKeepalive({ core, github, context, env = process.env }) {
   let dispatchToken = '';
   let instructionAuthorOctokit = null;
   if (!dryRun) {
-    instructionAuthorToken = resolveInstructionToken(env);
+    const tokenEnv = clearTokenDefaults ? {} : env;
+    instructionAuthorToken = resolveInstructionToken(tokenEnv);
     if (!instructionAuthorToken) {
-      throw new Error(
-        'GitHub token is required to author keepalive instructions (app token, PAT, or GITHUB_TOKEN).'
-      );
+      const message =
+        'GitHub token is required to author keepalive instructions (app token, PAT, or GITHUB_TOKEN).';
+      if (core && typeof core.setFailed === 'function') {
+        core.setFailed(message);
+      }
+      throw new Error(message);
     }
-    dispatchToken = resolveDispatchToken(env, instructionAuthorToken);
+    dispatchToken = resolveDispatchToken(tokenEnv, instructionAuthorToken);
 
     instructionAuthorOctokit = buildOctokitInstance({
       core,
