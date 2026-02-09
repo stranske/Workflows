@@ -783,6 +783,11 @@ const FALLBACK_DISPATCH_TOKEN_KEYS = [
   'github_token',
 ];
 
+const DISPATCH_TOKEN_KEYS = [
+  ...DEDICATED_DISPATCH_TOKEN_KEYS,
+  ...FALLBACK_DISPATCH_TOKEN_KEYS,
+];
+
 function resolveInstructionToken(env = {}) {
   return resolveTokenFromKeys(env, INSTRUCTION_TOKEN_KEYS);
 }
