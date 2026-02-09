@@ -152,7 +152,7 @@ tasks:
     status: done
     started_at: '2026-02-07T21:02:20Z'
     finished_at: '2026-02-07T21:03:03Z'
-    commit: ea360bf2ad65916a89d6a1b744b65ed0d738e671
+    commit: a0ab419
     notes: []
   - id: task-18
     title: 'Define scope for: Create a test fixture that mocks the LLM client to raise
@@ -160,7 +160,7 @@ tasks:
     status: done
     started_at: '2026-02-07T21:02:20Z'
     finished_at: '2026-02-07T21:03:03Z'
-    commit: ea360bf2ad65916a89d6a1b744b65ed0d738e671
+    commit: a0ab419
     notes: []
   - id: task-19
     title: 'Implement focused slice for: Create a test fixture that mocks the LLM
@@ -168,7 +168,7 @@ tasks:
     status: done
     started_at: '2026-02-07T21:02:20Z'
     finished_at: '2026-02-07T21:03:03Z'
-    commit: ea360bf2ad65916a89d6a1b744b65ed0d738e671
+    commit: a0ab419
     notes: []
   - id: task-20
     title: 'Validate focused slice for: Create a test fixture that mocks the LLM client
@@ -176,14 +176,14 @@ tasks:
     status: done
     started_at: '2026-02-07T21:02:20Z'
     finished_at: '2026-02-07T21:03:03Z'
-    commit: ea360bf2ad65916a89d6a1b744b65ed0d738e671
+    commit: a0ab419
     notes: []
   - id: task-21
     title: 'succeed on second call (verify: confirm completion in repo)'
     status: done
     started_at: '2026-02-07T21:02:20Z'
     finished_at: '2026-02-07T21:03:03Z'
-    commit: ea360bf2ad65916a89d6a1b744b65ed0d738e671
+    commit: a0ab419
     notes: []
   - id: task-22
     title: 'Define scope for: Write a test that verifies a warning log is emitted
@@ -191,7 +191,7 @@ tasks:
     status: done
     started_at: '2026-02-07T21:02:20Z'
     finished_at: '2026-02-07T21:03:03Z'
-    commit: ea360bf2ad65916a89d6a1b744b65ed0d738e671
+    commit: a0ab419
     notes: []
   - id: task-23
     title: 'Implement focused slice for: Write a test that verifies a warning log
@@ -200,7 +200,7 @@ tasks:
     status: done
     started_at: '2026-02-07T21:02:20Z'
     finished_at: '2026-02-07T21:03:03Z'
-    commit: ea360bf2ad65916a89d6a1b744b65ed0d738e671
+    commit: a0ab419
     notes: []
   - id: task-24
     title: 'Validate focused slice for: Write a test that verifies a warning log is
@@ -209,7 +209,7 @@ tasks:
     status: done
     started_at: '2026-02-07T21:02:20Z'
     finished_at: '2026-02-07T21:03:03Z'
-    commit: ea360bf2ad65916a89d6a1b744b65ed0d738e671
+    commit: a0ab419
     notes: []
   - id: task-25
     title: 'Define scope for: Write a test that asserts the warning message contains
@@ -217,7 +217,7 @@ tasks:
     status: done
     started_at: '2026-02-07T21:02:20Z'
     finished_at: '2026-02-07T21:03:03Z'
-    commit: ea360bf2ad65916a89d6a1b744b65ed0d738e671
+    commit: a0ab419
     notes: []
   - id: task-26
     title: 'Implement focused slice for: Write a test that asserts the warning message
@@ -225,7 +225,7 @@ tasks:
     status: done
     started_at: '2026-02-07T21:02:20Z'
     finished_at: '2026-02-07T21:03:03Z'
-    commit: ea360bf2ad65916a89d6a1b744b65ed0d738e671
+    commit: a0ab419
     notes: []
   - id: task-27
     title: 'Validate focused slice for: Write a test that asserts the warning message
@@ -233,14 +233,14 @@ tasks:
     status: done
     started_at: '2026-02-07T21:02:20Z'
     finished_at: '2026-02-07T21:03:03Z'
-    commit: ea360bf2ad65916a89d6a1b744b65ed0d738e671
+    commit: a0ab419
     notes: []
   - id: task-28
     title: 'fallback indicator (verify: confirm completion in repo)'
     status: done
     started_at: '2026-02-07T21:02:20Z'
     finished_at: '2026-02-07T21:03:03Z'
-    commit: ea360bf2ad65916a89d6a1b744b65ed0d738e671
+    commit: a0ab419
     notes: []
   - id: task-29
     title: 'Define scope for: Write a test that verifies the second invocation attempt
@@ -248,7 +248,7 @@ tasks:
     status: done
     started_at: '2026-02-07T21:02:20Z'
     finished_at: '2026-02-07T21:03:03Z'
-    commit: ea360bf2ad65916a89d6a1b744b65ed0d738e671
+    commit: a0ab419
     notes: []
   - id: task-30
     title: 'Implement focused slice for: Write a test that verifies the second invocation
@@ -257,7 +257,7 @@ tasks:
     status: done
     started_at: '2026-02-07T21:02:20Z'
     finished_at: '2026-02-07T21:03:03Z'
-    commit: ea360bf2ad65916a89d6a1b744b65ed0d738e671
+    commit: a0ab419
     notes: []
   - id: task-31
     title: 'Validate focused slice for: Write a test that verifies the second invocation
@@ -266,7 +266,7 @@ tasks:
     status: done
     started_at: '2026-02-07T21:02:20Z'
     finished_at: '2026-02-07T21:03:03Z'
-    commit: ea360bf2ad65916a89d6a1b744b65ed0d738e671
+    commit: a0ab419
     notes: []
   - id: task-32
     title: 'Add tests covering **config/metadata propagation** across all LLM invocation
@@ -275,14 +275,14 @@ tasks:
     status: done
     started_at: '2026-02-07T21:10:00Z'
     finished_at: '2026-02-07T21:12:00Z'
-    commit: 3bcfe499e60a12fdff92d9fb5ef335954d7c463f
+    commit: a0ab419
     notes: []
   - id: task-33
     title: 'Enumerate (verify: confirm completion in repo)'
     status: done
     started_at: '2026-02-07T21:10:00Z'
     finished_at: '2026-02-07T21:12:00Z'
-    commit: 3bcfe499e60a12fdff92d9fb5ef335954d7c463f
+    commit: a0ab419
     notes: []
   - id: task-34
     title: 'Define scope for: document all LLM invocation call sites in the codebase
@@ -290,7 +290,7 @@ tasks:
     status: done
     started_at: '2026-02-07T21:10:00Z'
     finished_at: '2026-02-07T21:12:00Z'
-    commit: 3bcfe499e60a12fdff92d9fb5ef335954d7c463f
+    commit: a0ab419
     notes: []
   - id: task-35
     title: 'Implement focused slice for: document all LLM invocation call sites in
@@ -298,7 +298,7 @@ tasks:
     status: done
     started_at: '2026-02-07T21:10:00Z'
     finished_at: '2026-02-07T21:12:00Z'
-    commit: 3bcfe499e60a12fdff92d9fb5ef335954d7c463f
+    commit: a0ab419
     notes: []
   - id: task-36
     title: 'Validate focused slice for: document all LLM invocation call sites in
@@ -306,14 +306,14 @@ tasks:
     status: done
     started_at: '2026-02-07T21:10:00Z'
     finished_at: '2026-02-07T21:12:00Z'
-    commit: 3bcfe499e60a12fdff92d9fb5ef335954d7c463f
+    commit: a0ab419
     notes: []
   - id: task-37
     title: 'Create a reusable test fixture with sentinel config (verify: config validated)'
     status: done
     started_at: '2026-02-07T21:10:00Z'
     finished_at: '2026-02-07T21:12:00Z'
-    commit: 3bcfe499e60a12fdff92d9fb5ef335954d7c463f
+    commit: a0ab419
     notes: []
   - id: task-38
     title: 'Create a reusable test fixture with metadata objects for propagation testing
@@ -321,7 +321,7 @@ tasks:
     status: done
     started_at: '2026-02-07T21:10:00Z'
     finished_at: '2026-02-07T21:12:00Z'
-    commit: 3bcfe499e60a12fdff92d9fb5ef335954d7c463f
+    commit: a0ab419
     notes: []
   - id: task-39
     title: 'Define scope for: Write parameterized tests that verify config propagation
@@ -329,7 +329,7 @@ tasks:
     status: done
     started_at: '2026-02-07T21:10:00Z'
     finished_at: '2026-02-07T21:12:00Z'
-    commit: 3bcfe499e60a12fdff92d9fb5ef335954d7c463f
+    commit: a0ab419
     notes: []
   - id: task-40
     title: 'Implement focused slice for: Write parameterized tests that verify config
@@ -337,7 +337,7 @@ tasks:
     status: done
     started_at: '2026-02-07T21:10:00Z'
     finished_at: '2026-02-07T21:12:00Z'
-    commit: 3bcfe499e60a12fdff92d9fb5ef335954d7c463f
+    commit: a0ab419
     notes: []
   - id: task-41
     title: 'Validate focused slice for: Write parameterized tests that verify config
@@ -345,7 +345,7 @@ tasks:
     status: done
     started_at: '2026-02-07T21:10:00Z'
     finished_at: '2026-02-07T21:12:00Z'
-    commit: 3bcfe499e60a12fdff92d9fb5ef335954d7c463f
+    commit: a0ab419
     notes: []
   - id: task-42
     title: 'Define scope for: Write parameterized tests that verify metadata propagation
@@ -353,7 +353,7 @@ tasks:
     status: done
     started_at: '2026-02-07T21:10:00Z'
     finished_at: '2026-02-07T21:12:00Z'
-    commit: 3bcfe499e60a12fdff92d9fb5ef335954d7c463f
+    commit: a0ab419
     notes: []
   - id: task-43
     title: 'Implement focused slice for: Write parameterized tests that verify metadata
@@ -361,7 +361,7 @@ tasks:
     status: done
     started_at: '2026-02-07T21:10:00Z'
     finished_at: '2026-02-07T21:12:00Z'
-    commit: 3bcfe499e60a12fdff92d9fb5ef335954d7c463f
+    commit: a0ab419
     notes: []
   - id: task-44
     title: 'Validate focused slice for: Write parameterized tests that verify metadata
@@ -369,7 +369,7 @@ tasks:
     status: done
     started_at: '2026-02-07T21:10:00Z'
     finished_at: '2026-02-07T21:12:00Z'
-    commit: 3bcfe499e60a12fdff92d9fb5ef335954d7c463f
+    commit: a0ab419
     notes: []
   - id: task-45
     title: "Add/adjust tests for `langchain_client` model classification: create a\
