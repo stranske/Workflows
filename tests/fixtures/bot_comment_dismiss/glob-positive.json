@@ -1,0 +1,17 @@
+[
+  {
+    "id": 101,
+    "path": ".agents/issue-101-ledger.yml",
+    "user": { "login": "copilot[bot]" }
+  },
+  {
+    "id": 102,
+    "path": ".agents/nested/notes.md",
+    "user": { "login": "copilot[bot]" }
+  },
+  {
+    "id": 103,
+    "path": "reports/2026/issue-103-ledger.yml",
+    "user": { "login": "copilot[bot]" }
+  }
+]

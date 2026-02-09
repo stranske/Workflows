@@ -1,0 +1,17 @@
+[
+  {
+    "id": 201,
+    "path": "src/agents/file.ts",
+    "user": { "login": "copilot[bot]" }
+  },
+  {
+    "id": 202,
+    "path": ".agent/issue-202-ledger.yml",
+    "user": { "login": "copilot[bot]" }
+  },
+  {
+    "id": 203,
+    "path": "reports/2026/issue-203.txt",
+    "user": { "login": "copilot[bot]" }
+  }
+]
