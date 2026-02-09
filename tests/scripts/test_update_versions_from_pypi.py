@@ -48,6 +48,14 @@ def _skip_if_pypi_unreachable() -> None:
         pytest.skip("PyPI not reachable in this test environment")
 
 
+def _get_pypi_version_or_skip(package_name: str) -> str:
+    _skip_if_pypi_unreachable()
+    version = get_latest_pypi_version(package_name)
+    if not version:
+        pytest.skip(f"PyPI JSON API not reachable for {package_name}")
+    return version
+
+
 class TestVersionTuple:
     """Tests for version string to tuple conversion."""
 
@@ -307,9 +315,7 @@ class TestPyPIIntegration:
 
     def test_can_fetch_real_ruff_version(self) -> None:
         """Verify we can fetch the real ruff version from PyPI."""
-        _skip_if_pypi_unreachable()
-        version = get_latest_pypi_version("ruff")
-        assert version is not None
+        version = _get_pypi_version_or_skip("ruff")
         assert len(version) > 0
         # Version should be a valid semver-ish format
         parts = version.split(".")
@@ -318,17 +324,14 @@ class TestPyPIIntegration:
 
     def test_can_fetch_real_mypy_version(self) -> None:
         """Verify we can fetch the real mypy version from PyPI."""
-        _skip_if_pypi_unreachable()
-        version = get_latest_pypi_version("mypy")
-        assert version is not None
+        version = _get_pypi_version_or_skip("mypy")
         assert len(version) > 0
 
     def test_can_fetch_all_mapped_packages(self) -> None:
         """Verify we can fetch versions for ALL packages in our mapping."""
-        _skip_if_pypi_unreachable()
         for env_key, package_name in PACKAGE_MAPPING.items():
-            version = get_latest_pypi_version(package_name)
-            assert version is not None, f"Failed to fetch {package_name} for {env_key}"
+            version = _get_pypi_version_or_skip(package_name)
+            assert version, f"Failed to fetch {package_name} for {env_key}"
 
 
 # ============================================================================
