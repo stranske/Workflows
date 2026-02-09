@@ -8,10 +8,10 @@ tasks:
       so content under `#### Tasks` is not terminated by inner `###` subsection headers
       and is captured until the next `####` section header (e.g., `#### Acceptance
       criteria`).
-    status: doing
+    status: done
     started_at: '2026-02-09T13:56:19Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-02-09T13:56:30Z'
+    commit: 8cc1db06cbaad5ff866dfcc053555c1b80868192
     notes: []
   - id: task-02
     title: 'Define scope for: Analyze the current boundary logic in `collectSections()`
