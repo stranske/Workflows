@@ -937,15 +937,45 @@ async function runKeepalive({ core, github, context, env = process.env }) {
     )
     .addEOL();
 
-  const paginatePulls = tokenAwareGithub.paginate.iterator(
-    tokenAwareGithub.rest.pulls.list,
-    { owner, repo, state: 'open', per_page: 50 }
+  const hasPullIterator = Boolean(
+    tokenAwareGithub.paginate?.iterator && tokenAwareGithub.rest?.pulls?.list
   );
+  const paginatePulls = hasPullIterator
+    ? tokenAwareGithub.paginate.iterator(tokenAwareGithub.rest.pulls.list, {
+        owner,
+        repo,
+        state: 'open',
+        per_page: 50,
+      })
+    : (async function* paginatePullsFallback() {
+        const perPage = 50;
+        let page = 1;
+        while (true) {
+          const response = await withRetry((client) => {
+            const apiClient = client?.rest?.pulls?.list ? client : github;
+            return apiClient.rest.pulls.list({
+              owner,
+              repo,
+              state: 'open',
+              per_page: perPage,
+              page,
+            });
+          });
+          const data = Array.isArray(response.data) ? response.data : [];
+          yield { data };
+          if (!data.length || data.length < perPage) {
+            break;
+          }
+          page += 1;
+        }
+      })();
 
   const fetchIssueComments = async (issueNumber) => {
     const comments = [];
     const perPage = 100;
-    const hasIterator = Boolean(tokenAwareGithub.paginate?.iterator);
+    const hasIterator = Boolean(
+      tokenAwareGithub.paginate?.iterator && tokenAwareGithub.rest?.issues?.listComments
+    );
 
     if (hasIterator) {
       const iterator = tokenAwareGithub.paginate.iterator(tokenAwareGithub.rest.issues.listComments, {
@@ -964,13 +994,16 @@ async function runKeepalive({ core, github, context, env = process.env }) {
     } else {
       let page = 1;
       while (true) {
-        const { data } = await withRetry((client) => client.rest.issues.listComments({
-          owner,
-          repo,
-          issue_number: issueNumber,
-          per_page: perPage,
-          page,
-        }));
+        const { data } = await withRetry((client) => {
+          const apiClient = client?.rest?.issues?.listComments ? client : github;
+          return apiClient.rest.issues.listComments({
+            owner,
+            repo,
+            issue_number: issueNumber,
+            per_page: perPage,
+            page,
+          });
+        });
         if (!Array.isArray(data) || !data.length) {
           break;
         }
@@ -1206,12 +1239,15 @@ async function runKeepalive({ core, github, context, env = process.env }) {
 
           if (assignableAssignees.length > 0) {
             core.info(`#${prNumber}: adding human assignees: ${assignableAssignees.join(', ')}`);
-            await withRetry((client) => client.rest.issues.addAssignees({
-              owner,
-              repo,
-              issue_number: prNumber,
-              assignees: assignableAssignees,
-            }));
+            await withRetry((client) => {
+              const apiClient = client?.rest?.issues?.addAssignees ? client : github;
+              return apiClient.rest.issues.addAssignees({
+                owner,
+                repo,
+                issue_number: prNumber,
+                assignees: assignableAssignees,
+              });
+            });
             assignmentSummaries.push(`#${prNumber} – ensured assignees: ${assignableAssignees.join(', ')}`);
           } else {
             core.info(`#${prNumber}: no assignable human assignees available; skipping assignment.`);
