@@ -395,6 +395,10 @@ async function runScenario(scenario) {
     actions_bot_pat: '',
     ...scenarioEnv,
   };
+  if (clearTokenDefaults) {
+    envOverrides.CLEAR_TOKEN_DEFAULTS = 'true';
+    envOverrides.clear_token_defaults = 'true';
+  }
   const tokenEnvKeys = [
     'ACTIONS_BOT_PAT',
     'actions_bot_pat',
