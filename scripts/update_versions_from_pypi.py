@@ -49,6 +49,17 @@ class VersionInfo(NamedTuple):
     is_outdated: bool
 
 
+def _is_prerelease(version: str) -> bool:
+    return (
+        re.search(r"(a|b|rc|dev|alpha|beta)\d*$", version, re.IGNORECASE) is not None
+    )
+
+
+def _is_yanked(version: str, releases: dict[str, list[dict[str, object]]]) -> bool:
+    files = releases.get(version, [])
+    return bool(files) and all(f.get("yanked", False) for f in files)
+
+
 def get_latest_pypi_version(package_name: str) -> str | None:
     """Fetch the latest stable version from PyPI.
 
@@ -64,17 +75,9 @@ def get_latest_pypi_version(package_name: str) -> str | None:
                 latest: str | None = data.get("info", {}).get("version")
                 releases: dict[str, list[dict[str, object]]] = data.get("releases", {})
 
-                def is_prerelease(version: str) -> bool:
-                    return (
-                        re.search(r"(a|b|rc|dev|alpha|beta)\d*$", version, re.IGNORECASE)
-                        is not None
-                    )
-
-                def is_yanked(version: str) -> bool:
-                    files = releases.get(version, [])
-                    return bool(files) and all(f.get("yanked", False) for f in files)
-
-                if latest and not is_prerelease(latest) and not is_yanked(latest):
+                if latest and not _is_prerelease(latest) and not _is_yanked(
+                    latest, releases
+                ):
                     return latest
 
                 # Fallback: find the latest from releases
@@ -86,7 +89,7 @@ def get_latest_pypi_version(package_name: str) -> str | None:
                         if files and all(f.get("yanked", False) for f in files):
                             continue
                         # Skip prereleases (contains a, b, rc, dev, etc.)
-                        if is_prerelease(ver):
+                        if _is_prerelease(ver):
                             continue
                         stable_versions.append(ver)
 
