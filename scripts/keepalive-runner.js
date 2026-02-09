@@ -1242,13 +1242,15 @@ async function runKeepalive({ core, github, context, env = process.env }) {
           }
 
           if (assignableAssignees.length > 0) {
+            const assigneeClient =
+              tokenAwareGithub?.rest?.issues?.addAssignees ? tokenAwareGithub : github;
             core.info(`#${prNumber}: adding human assignees: ${assignableAssignees.join(', ')}`);
             await withRetry((client) => client.rest.issues.addAssignees({
               owner,
               repo,
               issue_number: prNumber,
               assignees: assignableAssignees,
-            }));
+            }), { github: assigneeClient });
             assignmentSummaries.push(`#${prNumber} – ensured assignees: ${assignableAssignees.join(', ')}`);
           } else {
             core.info(`#${prNumber}: no assignable human assignees available; skipping assignment.`);
