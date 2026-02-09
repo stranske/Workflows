@@ -159,6 +159,21 @@ def _assert_missing_instruction_token(
     assert payload.get("dispatch_events") == []
 
 
+def _assert_missing_dispatch_token(
+    result: subprocess.CompletedProcess[str],
+) -> None:
+    expected_message = "GitHub token is required for keepalive dispatch"
+    combined_output = (result.stderr or "") + (result.stdout or "")
+    if result.returncode != 0:
+        assert expected_message in combined_output
+        return
+
+    payload = _parse_harness_payload(result)
+    failed = payload.get("logs", {}).get("failedMessage") or ""
+    assert expected_message in failed
+    assert payload.get("dispatch_events") == []
+
+
 def _parse_harness_payload(result: subprocess.CompletedProcess[str]) -> dict:
     try:
         return json.loads(result.stdout or "{}")
@@ -653,10 +668,21 @@ def test_keepalive_requires_dispatch_token() -> None:
     assert scenario_path.exists(), "Scenario fixture missing"
     result = _run_harness(scenario_path)
     if result.returncode != 0:
-        _assert_missing_instruction_token(result)
+        combined_output = (result.stderr or "") + (result.stdout or "")
+        if "GitHub token is required to author keepalive instructions" in combined_output:
+            _assert_missing_instruction_token(result)
+        else:
+            _assert_missing_dispatch_token(result)
         return
 
     payload = _parse_harness_payload(result)
+    failed_message = payload.get("logs", {}).get("failedMessage") or ""
+    if failed_message:
+        if "GitHub token is required to author keepalive instructions" in failed_message:
+            _assert_missing_instruction_token(result)
+        else:
+            _assert_missing_dispatch_token(result)
+        return
     dispatch_tokens = payload.get("dispatch_tokens")
     comment_tokens = payload.get("comment_tokens")
     if dispatch_tokens is None or comment_tokens is None:
