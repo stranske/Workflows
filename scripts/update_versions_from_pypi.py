@@ -61,13 +61,23 @@ def get_latest_pypi_version(package_name: str) -> str | None:
         try:
             with urllib.request.urlopen(url, timeout=15) as resp:
                 data = json.loads(resp.read().decode())
-                # Get the latest version (this is the current stable release)
                 latest: str | None = data.get("info", {}).get("version")
-                if latest:
+                releases: dict[str, list[dict[str, object]]] = data.get("releases", {})
+
+                def is_prerelease(version: str) -> bool:
+                    return (
+                        re.search(r"(a|b|rc|dev|alpha|beta)\d*$", version, re.IGNORECASE)
+                        is not None
+                    )
+
+                def is_yanked(version: str) -> bool:
+                    files = releases.get(version, [])
+                    return bool(files) and all(f.get("yanked", False) for f in files)
+
+                if latest and not is_prerelease(latest) and not is_yanked(latest):
                     return latest
 
                 # Fallback: find the latest from releases
-                releases: dict[str, list[dict[str, object]]] = data.get("releases", {})
                 if releases:
                     # Filter out prereleases and yanked versions
                     stable_versions: list[str] = []
@@ -76,7 +86,7 @@ def get_latest_pypi_version(package_name: str) -> str | None:
                         if files and all(f.get("yanked", False) for f in files):
                             continue
                         # Skip prereleases (contains a, b, rc, dev, etc.)
-                        if re.search(r"(a|b|rc|dev|alpha|beta)\d*$", ver, re.IGNORECASE):
+                        if is_prerelease(ver):
                             continue
                         stable_versions.append(ver)
 
