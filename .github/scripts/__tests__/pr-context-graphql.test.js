@@ -11,7 +11,9 @@ const {
   createPRContextCache,
   buildIgnoredPathMatchers,
   shouldIgnorePath,
-  shouldIncludePath
+  shouldIncludePath,
+  filterPaths,
+  filterFileNodes
 } = require('../pr-context-graphql');
 
 // Mock GraphQL response for full PR context
@@ -428,6 +430,29 @@ describe('glob matching semantics', () => {
         process.env.PR_CONTEXT_INCLUDE_PATTERNS = originalIncludes;
       }
     }
+  });
+});
+
+describe('connector-side filtering helpers', () => {
+  it('filters .agents paths before downstream processing', () => {
+    const matchers = buildIgnoredPathMatchers({ PR_CONTEXT_INCLUDE_PATTERNS: '**/*' });
+    const result = filterPaths(['.agents/issue-test-ledger.yml', 'src/app.ts'], matchers);
+
+    assert.deepStrictEqual(result.kept, ['src/app.ts']);
+    assert.deepStrictEqual(result.ignored, ['.agents/issue-test-ledger.yml']);
+  });
+
+  it('filters file nodes and preserves kept metadata', () => {
+    const matchers = buildIgnoredPathMatchers({});
+    const nodes = [
+      { path: '.agents/issue-test-ledger.yml', additions: 1 },
+      { path: 'src/app.ts', additions: 2 }
+    ];
+
+    const result = filterFileNodes(nodes, matchers);
+
+    assert.deepStrictEqual(result.kept, [{ path: 'src/app.ts', additions: 2 }]);
+    assert.deepStrictEqual(result.ignored, [{ path: '.agents/issue-test-ledger.yml', additions: 1 }]);
   });
 });
 
