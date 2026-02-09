@@ -1057,9 +1057,7 @@ def generate_followup_issue(
     4. Format the final issue
     """
     blocking_concerns, advisory_concerns = _split_concerns(verification_data.concerns)
-    needs_human, needs_human_reason = _needs_human_due_to_split(
-        verification_data.provider_verdicts
-    )
+    needs_human, needs_human_reason = _needs_human_due_to_split(verification_data.provider_verdicts)
     verdict = _get_primary_verdict(verification_data)
 
     if needs_human:
