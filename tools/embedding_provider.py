@@ -13,6 +13,9 @@ Selection semantics:
 - Only providers that report configured credentials and required capabilities are eligible.
 - If a preferred provider name is supplied, it is selected when eligible.
 - Otherwise, selection is deterministic and respects cost/latency preferences.
+
+Anthropic embeddings are gated by `ANTHROPIC_EMBEDDINGS_ENABLED` (true/1/on/yes)
+plus `CLAUDE_API_STRANSKE`.
 """
 
 from __future__ import annotations
@@ -20,6 +23,21 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from dataclasses import dataclass, field
+import hashlib
+import importlib.util
+import sys
+import math
+import os
+import re
+
+from tools.llm_provider import GITHUB_MODELS_BASE_URL
+
+
+def _module_available(name: str) -> bool:
+    try:
+        return importlib.util.find_spec(name) is not None
+    except ValueError:
+        return name in sys.modules and sys.modules[name] is not None
 
 
 @dataclass(frozen=True)
@@ -86,6 +104,10 @@ class EmbeddingProvider(ABC):
     def supports_model(self, model: str | None) -> bool:
         """Return True if the provider can serve the requested model."""
         return True
+
+    def resolve_model(self, model: str | None) -> str:
+        """Resolve the model name for this provider."""
+        return model or self.default_model
 
     def supports_capabilities(self, required: set[str]) -> bool:
         """Return True if the provider supports all required capabilities."""
@@ -167,5 +189,264 @@ class EmbeddingProviderRegistry:
             return None
         candidates.sort(key=lambda provider: self._sort_key(provider, criteria))
         selected = candidates[0]
-        model = criteria.model or selected.default_model
+        model = selected.resolve_model(criteria.model)
         return EmbeddingProviderSelection(provider=selected, model=model)
+
+    def ranked_candidates(self, criteria: EmbeddingSelectionCriteria) -> list[EmbeddingProvider]:
+        """Return eligible providers sorted by deterministic ranking rules."""
+        candidates = self._eligible_providers(criteria)
+        candidates.sort(key=lambda provider: self._sort_key(provider, criteria))
+        return candidates
+
+
+ENV_OPENAI_API_KEY = "OPENAI_API_KEY"
+ENV_GITHUB_TOKEN = "GITHUB_TOKEN"
+ENV_ANTHROPIC_API_KEY = "CLAUDE_API_STRANSKE"
+ENV_ANTHROPIC_EMBEDDINGS_ENABLED = "ANTHROPIC_EMBEDDINGS_ENABLED"
+
+DEFAULT_EMBEDDING_MODEL = "text-embedding-3-small"
+DEFAULT_GITHUB_EMBEDDING_MODEL = DEFAULT_EMBEDDING_MODEL
+DEFAULT_ANTHROPIC_EMBEDDING_MODEL = "claude-embedding-1"
+FALLBACK_DIMENSIONS = 256
+
+TOKEN_RE = re.compile(r"[a-z0-9]+", re.IGNORECASE)
+
+
+class HashedEmbeddingClient:
+    """Simple hashing-based embedding client for offline fallback."""
+
+    def __init__(self, *, dimensions: int = FALLBACK_DIMENSIONS) -> None:
+        self.dimensions = dimensions
+
+    def embed_documents(self, texts: Iterable[str]) -> list[list[float]]:
+        return [self._embed(text) for text in texts]
+
+    def embed_query(self, text: str) -> list[float]:
+        return self._embed(text)
+
+    def _embed(self, text: str) -> list[float]:
+        vector = [0.0] * self.dimensions
+        tokens = TOKEN_RE.findall(text.lower()) if text else []
+        if not tokens:
+            return vector
+        for token in tokens:
+            idx = int(hashlib.sha256(token.encode("utf-8")).hexdigest(), 16) % self.dimensions
+            vector[idx] += 1.0
+        norm = math.sqrt(sum(value * value for value in vector))
+        if norm > 0.0:
+            vector = [value / norm for value in vector]
+        return vector
+
+
+class OpenAIEmbeddingProvider(EmbeddingProvider):
+    name = "openai"
+    cost_tier = 2
+    latency_tier = 2
+    priority = 30
+    capabilities = {"embeddings"}
+
+    @property
+    def default_model(self) -> str:
+        return DEFAULT_EMBEDDING_MODEL
+
+    def credentials_configured(self) -> bool:
+        return bool(os.environ.get(ENV_OPENAI_API_KEY))
+
+    def is_available(self) -> bool:
+        if not self.credentials_configured():
+            return False
+        return _module_available("langchain_openai")
+
+    def supports_model(self, model: str | None) -> bool:
+        return bool(model)
+
+    def build_client(self, *, model: str | None = None) -> object | None:
+        try:
+            from langchain_openai import OpenAIEmbeddings
+        except ImportError:
+            return None
+        return OpenAIEmbeddings(
+            model=model or self.default_model,
+            api_key=os.environ.get(ENV_OPENAI_API_KEY),
+        )
+
+    def embed(self, texts: Iterable[str], *, model: str | None = None) -> EmbeddingResponse:
+        client = self.build_client(model=model)
+        if client is None:
+            raise RuntimeError("OpenAI embeddings client unavailable")
+        vectors = client.embed_documents(list(texts))
+        return EmbeddingResponse(
+            vectors=vectors,
+            metadata=EmbeddingMetadata(
+                provider=self.name,
+                model=model or self.default_model,
+                dimensions=len(vectors[0]) if vectors else None,
+                is_fallback=False,
+            ),
+        )
+
+
+class GitHubEmbeddingProvider(EmbeddingProvider):
+    name = "github-models"
+    cost_tier = 1
+    latency_tier = 2
+    priority = 20
+    capabilities = {"embeddings"}
+
+    @property
+    def default_model(self) -> str:
+        return DEFAULT_GITHUB_EMBEDDING_MODEL
+
+    def credentials_configured(self) -> bool:
+        return bool(os.environ.get(ENV_GITHUB_TOKEN))
+
+    def is_available(self) -> bool:
+        if not self.credentials_configured():
+            return False
+        return _module_available("langchain_openai")
+
+    def supports_model(self, model: str | None) -> bool:
+        return bool(model)
+
+    def build_client(self, *, model: str | None = None) -> object | None:
+        try:
+            from langchain_openai import OpenAIEmbeddings
+        except ImportError:
+            return None
+        return OpenAIEmbeddings(
+            model=model or self.default_model,
+            base_url=GITHUB_MODELS_BASE_URL,
+            api_key=os.environ.get(ENV_GITHUB_TOKEN),
+        )
+
+    def embed(self, texts: Iterable[str], *, model: str | None = None) -> EmbeddingResponse:
+        client = self.build_client(model=model)
+        if client is None:
+            raise RuntimeError("GitHub Models embeddings client unavailable")
+        vectors = client.embed_documents(list(texts))
+        return EmbeddingResponse(
+            vectors=vectors,
+            metadata=EmbeddingMetadata(
+                provider=self.name,
+                model=model or self.default_model,
+                dimensions=len(vectors[0]) if vectors else None,
+                is_fallback=False,
+            ),
+        )
+
+
+class AnthropicEmbeddingProvider(EmbeddingProvider):
+    name = "anthropic"
+    cost_tier = 3
+    latency_tier = 3
+    priority = 10
+    capabilities = {"embeddings"}
+
+    @property
+    def default_model(self) -> str:
+        return DEFAULT_ANTHROPIC_EMBEDDING_MODEL
+
+    def credentials_configured(self) -> bool:
+        enabled = os.environ.get(ENV_ANTHROPIC_EMBEDDINGS_ENABLED)
+        return bool(enabled and enabled.lower() in {"1", "true", "yes", "on"}) and bool(
+            os.environ.get(ENV_ANTHROPIC_API_KEY)
+        )
+
+    def is_available(self) -> bool:
+        if not self.credentials_configured():
+            return False
+        if _module_available("langchain_anthropic"):
+            return True
+        return _module_available("langchain_community")
+
+    def supports_model(self, model: str | None) -> bool:
+        return bool(model)
+
+    def _resolve_embeddings_class(self):
+        try:
+            from langchain_anthropic import AnthropicEmbeddings
+        except ImportError:
+            try:
+                from langchain_community.embeddings import AnthropicEmbeddings
+            except ImportError:
+                return None
+        return AnthropicEmbeddings
+
+    def build_client(self, *, model: str | None = None) -> object | None:
+        embeddings_class = self._resolve_embeddings_class()
+        if embeddings_class is None:
+            return None
+        return embeddings_class(
+            model=model or self.default_model,
+            anthropic_api_key=os.environ.get(ENV_ANTHROPIC_API_KEY),
+        )
+
+    def embed(self, texts: Iterable[str], *, model: str | None = None) -> EmbeddingResponse:
+        client = self.build_client(model=model)
+        if client is None:
+            raise RuntimeError("Anthropic embeddings client unavailable")
+        vectors = client.embed_documents(list(texts))
+        return EmbeddingResponse(
+            vectors=vectors,
+            metadata=EmbeddingMetadata(
+                provider=self.name,
+                model=model or self.default_model,
+                dimensions=len(vectors[0]) if vectors else None,
+                is_fallback=False,
+            ),
+        )
+
+
+class FallbackEmbeddingProvider(EmbeddingProvider):
+    name = "fallback"
+    cost_tier = 0
+    latency_tier = 0
+    priority = 1
+    capabilities = {"embeddings", "fallback"}
+
+    @property
+    def default_model(self) -> str:
+        return "hashing"
+
+    def credentials_configured(self) -> bool:
+        return True
+
+    def is_available(self) -> bool:
+        return True
+
+    def build_client(self, *, model: str | None = None) -> object | None:
+        return HashedEmbeddingClient()
+
+    def resolve_model(self, model: str | None) -> str:
+        return self.default_model
+
+    def embed(self, texts: Iterable[str], *, model: str | None = None) -> EmbeddingResponse:
+        client = self.build_client(model=model)
+        if client is None:
+            raise RuntimeError("Fallback embeddings client unavailable")
+        vectors = client.embed_documents(list(texts))
+        return EmbeddingResponse(
+            vectors=vectors,
+            metadata=EmbeddingMetadata(
+                provider=self.name,
+                model=self.default_model,
+                dimensions=FALLBACK_DIMENSIONS,
+                is_fallback=True,
+            ),
+        )
+
+
+_DEFAULT_REGISTRY: EmbeddingProviderRegistry | None = None
+
+
+def default_embedding_registry() -> EmbeddingProviderRegistry:
+    """Return a registry with the standard embedding providers registered."""
+    global _DEFAULT_REGISTRY
+    if _DEFAULT_REGISTRY is None:
+        registry = EmbeddingProviderRegistry()
+        registry.register(OpenAIEmbeddingProvider())
+        registry.register(GitHubEmbeddingProvider())
+        registry.register(AnthropicEmbeddingProvider())
+        registry.register(FallbackEmbeddingProvider())
+        _DEFAULT_REGISTRY = registry
+    return _DEFAULT_REGISTRY

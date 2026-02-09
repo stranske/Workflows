@@ -2,7 +2,7 @@
 """
 Shared embedding utilities for semantic matching.
 
-Use GitHub Models (preferred) or OpenAI embeddings when credentials are available.
+Uses the embedding provider registry for deterministic selection with safe fallbacks.
 """
 
 from __future__ import annotations
@@ -12,9 +12,11 @@ import os
 from collections.abc import Iterable
 from dataclasses import dataclass
 
-from tools.llm_provider import GITHUB_MODELS_BASE_URL
+from tools import embedding_provider
 
-DEFAULT_EMBEDDING_MODEL = "text-embedding-3-small"
+DEFAULT_EMBEDDING_MODEL = embedding_provider.DEFAULT_EMBEDDING_MODEL
+EMBEDDING_PROVIDER_ENV = "EMBEDDING_PROVIDER"
+EMBEDDING_MODEL_ENV = "EMBEDDING_MODEL"
 
 
 @dataclass
@@ -31,39 +33,32 @@ class EmbeddingResult:
     model: str
 
 
-def get_embedding_client(model: str | None = None) -> EmbeddingClientInfo | None:
-    try:
-        from langchain_openai import OpenAIEmbeddings
-    except ImportError:
-        return None
+def get_embedding_client(
+    model: str | None = None,
+    *,
+    provider: str | None = None,
+) -> EmbeddingClientInfo | None:
+    requested_model = model or os.environ.get(EMBEDDING_MODEL_ENV) or DEFAULT_EMBEDDING_MODEL
+    preferred_provider = provider or os.environ.get(EMBEDDING_PROVIDER_ENV)
 
-    github_token = os.environ.get("GITHUB_TOKEN")
-    openai_token = os.environ.get("OPENAI_API_KEY")
-    embedding_model = model or os.environ.get("EMBEDDING_MODEL") or DEFAULT_EMBEDDING_MODEL
-
-    # Prefer OpenAI for embeddings - GitHub Models doesn't support the embeddings endpoint
-    if openai_token:
+    criteria = embedding_provider.EmbeddingSelectionCriteria(
+        model=requested_model,
+        preferred_provider=preferred_provider,
+        required_capabilities={"embeddings"},
+    )
+    registry = embedding_provider.default_embedding_registry()
+    for candidate in registry.ranked_candidates(criteria):
+        client = None
+        if hasattr(candidate, "build_client"):
+            resolved_model = candidate.resolve_model(requested_model)
+            client = candidate.build_client(model=resolved_model)
+        if client is None:
+            continue
         return EmbeddingClientInfo(
-            client=OpenAIEmbeddings(
-                model=embedding_model,
-                api_key=openai_token,
-            ),
-            provider="openai",
-            model=embedding_model,
+            client=client,
+            provider=candidate.name,
+            model=resolved_model,
         )
-
-    # Fall back to GitHub Models (may not work for embeddings)
-    if github_token:
-        return EmbeddingClientInfo(
-            client=OpenAIEmbeddings(
-                model=embedding_model,
-                base_url=GITHUB_MODELS_BASE_URL,
-                api_key=github_token,
-            ),
-            provider="github-models",
-            model=embedding_model,
-        )
-
     return None
 
 

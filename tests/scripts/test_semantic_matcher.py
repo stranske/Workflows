@@ -2,6 +2,8 @@ import sys
 import types
 
 from scripts.langchain import semantic_matcher
+from tools import embedding_provider
+from tools.llm_provider import GITHUB_MODELS_BASE_URL
 
 
 class StubEmbeddings:
@@ -42,7 +44,7 @@ def test_get_embedding_client_prefers_github_models(monkeypatch):
     assert info is not None
     assert info.provider == "github-models"
     assert info.model == "unit-test-model"
-    assert info.client.base_url == semantic_matcher.GITHUB_MODELS_BASE_URL
+    assert info.client.base_url == GITHUB_MODELS_BASE_URL
 
 
 def test_get_embedding_client_falls_back_to_openai(monkeypatch):
@@ -58,20 +60,21 @@ def test_get_embedding_client_falls_back_to_openai(monkeypatch):
     assert info.client.base_url is None
 
 
-def test_get_embedding_client_returns_none_without_token(monkeypatch):
-    """get_embedding_client returns None when no tokens are available."""
+def test_get_embedding_client_returns_fallback_without_token(monkeypatch):
+    """get_embedding_client returns fallback embeddings when no tokens are available."""
     _install_stub_langchain(monkeypatch)
     monkeypatch.delenv("GITHUB_TOKEN", raising=False)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
 
     info = semantic_matcher.get_embedding_client()
 
-    assert info is None
+    assert info is not None
+    assert info.provider == "fallback"
 
 
-def test_get_embedding_client_returns_none_without_langchain(monkeypatch):
-    """get_embedding_client returns None when langchain_openai cannot be imported."""
-    monkeypatch.setitem(sys.modules, "langchain_openai", None)
+def test_get_embedding_client_returns_fallback_without_langchain(monkeypatch):
+    """get_embedding_client returns fallback when langchain_openai cannot be imported."""
+    monkeypatch.setattr(embedding_provider, "_module_available", lambda name: False)
     monkeypatch.setenv("GITHUB_TOKEN", "token")
 
     # Force re-import by clearing cached module
@@ -79,8 +82,9 @@ def test_get_embedding_client_returns_none_without_langchain(monkeypatch):
 
     importlib.reload(semantic_matcher)
 
-    # Call the function (we're just verifying it doesn't crash)
-    _ = semantic_matcher.get_embedding_client()
+    info = semantic_matcher.get_embedding_client()
+    assert info is not None
+    assert info.provider == "fallback"
     # Restore module for other tests
     _install_stub_langchain(monkeypatch)
     importlib.reload(semantic_matcher)
@@ -125,14 +129,15 @@ def test_generate_embeddings_strips_whitespace_only_texts():
     assert result.vectors == []
 
 
-def test_generate_embeddings_returns_none_without_client(monkeypatch):
-    """generate_embeddings returns None when no client is available."""
+def test_generate_embeddings_uses_fallback_without_credentials(monkeypatch):
+    """generate_embeddings uses fallback embeddings when no credentials are available."""
     monkeypatch.delenv("GITHUB_TOKEN", raising=False)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
 
     result = semantic_matcher.generate_embeddings(["some text"])
 
-    assert result is None
+    assert result is not None
+    assert result.provider == "fallback"
 
 
 def test_generate_embeddings_with_model_override():
