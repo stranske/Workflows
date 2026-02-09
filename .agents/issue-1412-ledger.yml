@@ -6,10 +6,10 @@ tasks:
   - id: task-01
     title: Create `.github/scripts/should-post-review.js` file with basic structure
       and GITHUB_OUTPUT setup
-    status: doing
+    status: done
     started_at: '2026-02-09T12:22:35Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-02-09T12:22:46Z'
+    commit: ac955319c34e2fb9bbf9ba1ce83fe73a91561a71
     notes: []
   - id: task-02
     title: Implement file reading logic in should-post-review.js that handles missing
