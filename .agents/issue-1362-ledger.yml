@@ -1,0 +1,142 @@
+version: 1
+issue: 1362
+base: main
+branch: codex/issue-1362
+tasks:
+  - id: task-01
+    title: "**REQUIRES_HUMAN**: Add HTML comment marker `<!-- bot-comment-handler\
+      \ -->` to the \"\U0001F916 Bot Comment Handler\" comment body in `.github/workflows/reusable-bot-comment-handler.yml`"
+    status: doing
+    started_at: '2026-02-09T09:53:25Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: "**REQUIRES_HUMAN**: Implement logic in `.github/workflows/reusable-bot-comment-handler.yml`\
+      \ to list recent PR comments and find an existing \"\U0001F916 Bot Comment Handler\"\
+      \ comment by searching for the HTML marker"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: '**REQUIRES_HUMAN**: Update the `dispatch` step (~L469-L490) in `.github/workflows/reusable-bot-comment-handler.yml`
+      to use an update-or-create pattern: update the found comment ID if present;
+      otherwise create a new comment'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: '**REQUIRES_HUMAN**: Update the caller workflow concurrency configuration
+      to set `cancel-in-progress: true` for the relevant concurrency group that triggers
+      the bot comment handler'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: '**REQUIRES_HUMAN**: Apply the same HTML marker + find/update-or-create
+      changes to `templates/consumer-repo/.github/workflows/reusable-bot-comment-handler.yml`'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: "After multiple Gate completions for the same PR, exactly one \"\U0001F916\
+      \ Bot Comment Handler\" PR comment exists containing `<!-- bot-comment-handler\
+      \ -->`"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: On subsequent runs, the workflow updates the existing PR comment (same
+      comment ID) instead of creating a new one
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: Both `.github/workflows/reusable-bot-comment-handler.yml` and `templates/consumer-repo/.github/workflows/reusable-bot-comment-handler.yml`
+      contain identical deduplication logic and HTML marker
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: Test PR with multiple Gate completions shows only 1 bot comment (not 3-5
+      duplicates)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: Add an HTML comment marker (e.g. `<!-- bot-comment-handler -->`) to the
+      bot comment handler's comment template
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: Implement find-existing-comment logic before posting (search for the marker
+      in recent PR comments)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: 'Use update-or-create pattern: if existing comment found, update it; otherwise
+      create new'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: 'Consider setting `cancel-in-progress: true` on the caller concurrency
+      group so stale runs are canceled'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: Apply the same fix in both `.github/workflows/` and `templates/consumer-repo/.github/workflows/`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: "Only ONE \"\U0001F916 Bot Comment Handler\" comment exists per PR regardless\
+      \ of how many Gate completions trigger"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: Subsequent runs update the existing comment rather than creating duplicates
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: Template mirror matches main workflow
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
