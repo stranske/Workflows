@@ -171,6 +171,26 @@ class TestGetLatestPyPIVersion:
 
         assert result == "1.2.3"
 
+    def test_prerelease_info_uses_latest_stable(self) -> None:
+        """Prefer a stable release when info.version is prerelease."""
+        mock_response = MagicMock()
+        mock_response.read.return_value = json.dumps(
+            {
+                "info": {"version": "1.3.0rc1"},
+                "releases": {
+                    "1.3.0rc1": [{"yanked": False}],
+                    "1.2.0": [{"yanked": False}],
+                },
+            }
+        ).encode()
+        mock_response.__enter__ = MagicMock(return_value=mock_response)
+        mock_response.__exit__ = MagicMock(return_value=False)
+
+        with patch("urllib.request.urlopen", return_value=mock_response):
+            result = get_latest_pypi_version("some-package")
+
+        assert result == "1.2.0"
+
     def test_network_error_returns_none(self) -> None:
         """Network errors should return None, not crash."""
         with patch("urllib.request.urlopen", side_effect=TimeoutError("timeout")):

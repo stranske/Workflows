@@ -60,7 +60,7 @@ def get_latest_pypi_version(package_name: str) -> str | None:
             data = json.loads(resp.read().decode())
             # Get the latest version (this is the current stable release)
             latest: str | None = data.get("info", {}).get("version")
-            if latest:
+            if latest and not _is_prerelease(latest):
                 return latest
 
             # Fallback: find the latest from releases
@@ -82,10 +82,17 @@ def get_latest_pypi_version(package_name: str) -> str | None:
                     stable_versions.sort(key=_version_tuple, reverse=True)
                     return stable_versions[0]
 
+            if latest:
+                return latest
             return None
     except Exception as e:
         print(f"  ⚠️  Could not fetch {package_name} from PyPI: {e}", file=sys.stderr)
         return None
+
+
+def _is_prerelease(version: str) -> bool:
+    """Return True for prerelease-style version strings."""
+    return bool(re.search(r"(a|b|rc|dev|alpha|beta)\d*$", version, re.IGNORECASE))
 
 
 def _version_tuple(version: str) -> tuple[int, ...]:
