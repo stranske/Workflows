@@ -5,9 +5,8 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Iterable
-
 
 VERDICT_SEVERITY = {
     "unknown": 0,
@@ -84,9 +83,7 @@ def extract_provider_verdicts(summary: str) -> list[ProviderVerdict]:
     return verdicts
 
 
-def select_verdict(
-    verdicts: Iterable[ProviderVerdict], policy: str = "worst"
-) -> str:
+def select_verdict(verdicts: Iterable[ProviderVerdict], policy: str = "worst") -> str:
     """Resolve a verdict using either worst-case or majority policy."""
     verdict_list = list(verdicts)
     if not verdict_list:
@@ -118,7 +115,7 @@ def select_verdict(
 def _read_summary(path: str) -> str:
     if path == "-":
         return sys.stdin.read()
-    with open(path, "r", encoding="utf-8") as handle:
+    with open(path, encoding="utf-8") as handle:
         return handle.read()
 
 
