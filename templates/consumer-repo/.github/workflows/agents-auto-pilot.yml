@@ -48,32 +48,52 @@ env:
   AUTOPILOT_METRICS_LOG_PATH: .agents/autopilot-metrics.ndjson
   AUTOPILOT_METRICS_SUMMARY_PATH: .agents/autopilot-metrics-summary.ndjson
 
-concurrency:
-  group: >-
-    agents-auto-pilot-${{ github.repository }}-${{
-      github.event.issue.number || github.event.inputs.issue_number || github.run_id
-    }}
-  cancel-in-progress: false
+# NOTE: Workflow-level concurrency is intentionally ABSENT.
+# Concurrency lives on the auto-pilot job (behind the gate job) so that
+# spurious label-event runs are filtered BEFORE entering the concurrency
+# group. This prevents them from cancelling legitimate re-dispatched runs.
+# See docs/analysis/verify-create-new-pr-failure-analysis.md
 
 jobs:
-  auto-pilot:
+  # ── Gate job ──────────────────────────────────────────────────────────
+  # Lightweight filter that runs BEFORE concurrency group entry.
+  # Only passes for:
+  #   1. workflow_dispatch (self-dispatched pipeline steps)
+  #   2. agents:auto-pilot label specifically added (initial trigger)
+  #   3. Issue/PR closed with agents:auto-pilot label (verification)
+  # All other label events (status:in-progress, agents:formatted, etc.)
+  # are rejected HERE, so they never enter the concurrency group and
+  # cannot displace pending re-dispatched runs.
+  gate:
     runs-on: ubuntu-latest
-    timeout-minutes: 240  # 4 hours = MAX_WALL_TIME_HOURS
-    # Trigger on:
-    # 1. agents:auto-pilot label added (starts the automation)
-    # 2. Issue/PR closed (verification trigger)
-    # 3. workflow_dispatch (manual trigger)
-    # NOTE: Optimizer and formatter now run INLINE, not as separate workflows
-    # This eliminates race conditions and workflow_run complexity
+    timeout-minutes: 2
+    outputs:
+      proceed: ${{ steps.check.outputs.proceed }}
     if: |
       github.event_name == 'workflow_dispatch' ||
-      (github.event.action == 'labeled' && (
-        github.event.label.name == 'agents:auto-pilot' ||
+      (github.event.action == 'labeled' &&
+       github.event.label.name == 'agents:auto-pilot') ||
+      (github.event.action == 'closed' && (
         contains(github.event.issue.labels.*.name, 'agents:auto-pilot') ||
         contains(github.event.pull_request.labels.*.name, 'agents:auto-pilot')
-      )) ||
-      (github.event.action == 'closed' &&
-       contains(github.event.issue.labels.*.name, 'agents:auto-pilot'))
+      ))
+    steps:
+      - name: Approve pipeline entry
+        id: check
+        run: echo "proceed=true" >> "$GITHUB_OUTPUT"
+
+  # ── Main auto-pilot job ──────────────────────────────────────────────
+  auto-pilot:
+    needs: [gate]
+    if: needs.gate.outputs.proceed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 240  # 4 hours = MAX_WALL_TIME_HOURS
+    concurrency:
+      group: >-
+        agents-auto-pilot-${{ github.repository }}-${{
+          github.event.issue.number || github.event.inputs.issue_number || github.run_id
+        }}
+      cancel-in-progress: false
 
     steps:
       # Mint GitHub App token early to use for API calls (avoids rate limits)

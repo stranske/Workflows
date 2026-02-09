@@ -650,7 +650,7 @@ jobs:
               repo: context.repo.repo,
               title: title,
               body: body,
-              labels: ['follow-up', 'agent:codex']
+              labels: ['follow-up', 'agent:codex', 'agents:auto-pilot']
             }));
 
             core.info(`Created issue #${issue.data.number}`);
