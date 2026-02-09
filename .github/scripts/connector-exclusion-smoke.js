@@ -1,6 +1,6 @@
 'use strict';
 
-const { buildIgnoredPathMatchers, shouldIgnorePath } = require('./pr-context-graphql');
+const { buildIgnoredPathMatchers, shouldIgnorePath, shouldIncludePath } = require('./pr-context-graphql');
 
 function filterPaths(paths, env = process.env) {
   const matchers = buildIgnoredPathMatchers(env);
@@ -8,7 +8,7 @@ function filterPaths(paths, env = process.env) {
   const kept = [];
 
   for (const path of paths || []) {
-    if (shouldIgnorePath(path, matchers)) {
+    if (shouldIgnorePath(path, matchers) || !shouldIncludePath(path, matchers)) {
       ignored.push(path);
     } else {
       kept.push(path);

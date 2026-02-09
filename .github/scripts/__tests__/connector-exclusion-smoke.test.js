@@ -21,4 +21,16 @@ describe('connector-exclusion-smoke', () => {
     ]);
     assert.deepStrictEqual(result.kept, ['src/index.js']);
   });
+
+  it('excludes .agents paths even when include patterns are broad', () => {
+    const input = [
+      '.agents/issue-test-ledger.yml',
+      'src/app.ts'
+    ];
+
+    const result = filterPaths(input, { PR_CONTEXT_INCLUDE_PATTERNS: '**/*' });
+
+    assert.deepStrictEqual(result.ignored, ['.agents/issue-test-ledger.yml']);
+    assert.deepStrictEqual(result.kept, ['src/app.ts']);
+  });
 });

@@ -180,6 +180,61 @@ describe('bot-comment-dismiss glob matching', () => {
       }),
     ]);
   });
+
+  it('supports character class glob patterns', () => {
+    const dismissable = collectDismissable(
+      [
+        { id: 41, path: 'src/a.ts', user: { login: 'copilot[bot]' } },
+        { id: 42, path: 'src/b.ts', user: { login: 'copilot[bot]' } },
+        { id: 43, path: 'src/c.ts', user: { login: 'copilot[bot]' } },
+      ],
+      {
+        ignoredPaths: ['src/[ab].ts'],
+        botAuthors: ['copilot[bot]'],
+      }
+    );
+
+    assert.deepStrictEqual(dismissable, [
+      { id: 41, path: 'src/a.ts', author: 'copilot[bot]' },
+      { id: 42, path: 'src/b.ts', author: 'copilot[bot]' },
+    ]);
+  });
+
+  it('supports brace expansion glob patterns', () => {
+    const dismissable = collectDismissable(
+      [
+        { id: 51, path: 'src/app.ts', user: { login: 'copilot[bot]' } },
+        { id: 52, path: 'src/view.tsx', user: { login: 'copilot[bot]' } },
+        { id: 53, path: 'src/app.js', user: { login: 'copilot[bot]' } },
+      ],
+      {
+        ignoredPaths: ['src/*.{ts,tsx}'],
+        botAuthors: ['copilot[bot]'],
+      }
+    );
+
+    assert.deepStrictEqual(dismissable, [
+      { id: 51, path: 'src/app.ts', author: 'copilot[bot]' },
+      { id: 52, path: 'src/view.tsx', author: 'copilot[bot]' },
+    ]);
+  });
+
+  it('supports escaped metacharacters in glob patterns', () => {
+    const dismissable = collectDismissable(
+      [
+        { id: 61, path: 'docs/[draft].md', user: { login: 'copilot[bot]' } },
+        { id: 62, path: 'docs/draft.md', user: { login: 'copilot[bot]' } },
+      ],
+      {
+        ignoredPaths: ['docs/\\[draft\\].md'],
+        botAuthors: ['copilot[bot]'],
+      }
+    );
+
+    assert.deepStrictEqual(dismissable, [
+      { id: 61, path: 'docs/[draft].md', author: 'copilot[bot]' },
+    ]);
+  });
 });
 
 describe('bot-comment-dismiss maxAgeSeconds parsing', () => {

@@ -191,6 +191,30 @@ describe('fetchPRContext', () => {
     assert.deepStrictEqual(context.files.paths, ['src/index.js', 'tests/test.js', 'README.md']);
   });
 
+  it('keeps ignored paths excluded even when include patterns match everything', async () => {
+    const mockGithub = {
+      graphql: mock.fn(async () => mockPRContextResponseWithAgents)
+    };
+    const originalIncludes = process.env.PR_CONTEXT_INCLUDE_PATTERNS;
+
+    process.env.PR_CONTEXT_INCLUDE_PATTERNS = '**/*';
+
+    try {
+      const context = await fetchPRContext(mockGithub, 'owner', 'repo', 42);
+
+      assert.strictEqual(context.files.total, 3);
+      assert.strictEqual(context.files.ignored, 1);
+      assert.deepStrictEqual(context.files.ignoredPaths, ['.agents/issue-1234-ledger.yml']);
+      assert.deepStrictEqual(context.files.paths, ['src/index.js', 'tests/test.js', 'README.md']);
+    } finally {
+      if (originalIncludes === undefined) {
+        delete process.env.PR_CONTEXT_INCLUDE_PATTERNS;
+      } else {
+        process.env.PR_CONTEXT_INCLUDE_PATTERNS = originalIncludes;
+      }
+    }
+  });
+
   it('respects custom ignored path patterns from env', async () => {
     const mockGithub = {
       graphql: mock.fn(async () => mockPRContextResponseWithDocs)

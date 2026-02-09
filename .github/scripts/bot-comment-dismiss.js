@@ -1,5 +1,7 @@
 'use strict';
 
+const { minimatch } = require('minimatch');
+
 /**
  * Bot Comment Dismiss - Auto-dismiss ignored bot review comments
  *
@@ -17,6 +19,7 @@
 
 const DEFAULT_IGNORED_PATTERNS = ['.agents/**'];
 const DEFAULT_MAX_AGE_SECONDS = 30;
+const MINIMATCH_OPTIONS = { dot: true, nocase: true, nocomment: true, nonegate: true };
 
 function parseCsv(value) {
   if (!value) {
@@ -32,50 +35,35 @@ function normalizeAuthors(authors) {
   return new Set((authors || []).map((author) => String(author || '').toLowerCase()).filter(Boolean));
 }
 
-function normalizeSlashes(value) {
+function normalizePath(value) {
   return String(value || '').replace(/\\/g, '/').toLowerCase();
 }
 
-function hasGlobPattern(value) {
-  return /[*?]/.test(value);
-}
-
 function normalizePattern(value) {
-  const normalized = normalizeSlashes(value);
-  if (!normalized) {
+  const raw = String(value || '');
+  if (!raw) {
     return null;
   }
+  let normalized = '';
+  for (let i = 0; i < raw.length; i += 1) {
+    const char = raw[i];
+    if (char === '\\') {
+      const next = raw[i + 1];
+      if (next && /[\\*?[\]{}()]/.test(next)) {
+        normalized += `\\${next}`;
+        i += 1;
+        continue;
+      }
+      normalized += '/';
+      continue;
+    }
+    normalized += char;
+  }
+  normalized = normalized.toLowerCase();
   if (normalized.endsWith('/')) {
     return `${normalized}**`;
   }
-  if (!hasGlobPattern(normalized)) {
-    return normalized;
-  }
   return normalized;
-}
-
-function patternToRegex(pattern) {
-  const normalized = normalizeSlashes(pattern);
-  let regex = '';
-  for (let i = 0; i < normalized.length; i += 1) {
-    const char = normalized[i];
-    if (char === '*') {
-      const next = normalized[i + 1];
-      if (next === '*') {
-        regex += '.*';
-        i += 1;
-      } else {
-        regex += '[^/]*';
-      }
-      continue;
-    }
-    if (char === '?') {
-      regex += '[^/]';
-      continue;
-    }
-    regex += char.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  }
-  return new RegExp(`^${regex}$`);
 }
 
 function buildMatchers({ ignoredPaths, ignoredPatterns } = {}) {
@@ -95,15 +83,15 @@ function buildMatchers({ ignoredPaths, ignoredPatterns } = {}) {
   if (!patterns.length) {
     patterns.push(...DEFAULT_IGNORED_PATTERNS);
   }
-  return patterns.map(patternToRegex);
+  return patterns;
 }
 
 function shouldIgnorePath(filename, matchers) {
-  const normalized = normalizeSlashes(filename);
+  const normalized = normalizePath(filename);
   if (!normalized) {
     return false;
   }
-  return matchers.some((pattern) => pattern.test(normalized));
+  return matchers.some((pattern) => minimatch(normalized, pattern, MINIMATCH_OPTIONS));
 }
 
 function isBotAuthor(comment, botAuthors) {
