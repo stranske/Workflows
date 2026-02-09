@@ -1,0 +1,329 @@
+version: 1
+issue: 1412
+base: main
+branch: codex/issue-1412
+tasks:
+  - id: task-01
+    title: Create `.github/scripts/should-post-review.js` file with basic structure
+      and GITHUB_OUTPUT setup
+    status: doing
+    started_at: '2026-02-09T12:22:35Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: Implement file reading logic in should-post-review.js that handles missing
+      files by returning false
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: Add JSON parsing with error handling that treats parse errors as should_post_review
+      equals false
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: Implement validation logic to check if review field is null or empty string
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: Add validation to ensure at least one of score feedback or suggestions
+      contains a non-empty value
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: Configure the script to write exactly one boolean output line to GITHUB_OUTPUT
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: Create `tests/fixtures/review_result/` directory structure
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: Add fixture file `tests/fixtures/review_result/review-null.json` with review
+      field set to null
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: Add fixture file `tests/fixtures/review_result/review-empty-string.json`
+      with review field set to empty string
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: Add fixture file `tests/fixtures/review_result/review-all-empty.json` with
+      review object containing empty score feedback and suggestions
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: Add fixture file `tests/fixtures/review_result/review-populated.json` with
+      at least one non-empty field in review object
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: Create `tests/should-post-review.test.js` file with test framework setup
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: Add test case for should-post-review.js that verifies missing file returns
+      should_post_review equals false
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: Add test case that verifies review field with null value returns should_post_review
+      equals false
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: Add test case that verifies review field with empty string returns should_post_review
+      equals false
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: Add test case that verifies review object with all empty fields returns
+      should_post_review equals false
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: Add test case that verifies review object with at least one populated field
+      returns should_post_review equals true
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: Create test fixtures for bot-comment-dismiss.js glob matching with positive
+      match cases
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: Create test fixtures for bot-comment-dismiss.js glob matching with negative
+      control cases that should not match
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: Add test assertions in `tests/bot-comment-dismiss.test.js` that verify
+      glob matching selects only intended comment bodies and titles
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: Create timestamp test fixtures with comments having created_at before threshold
+      and updated_at after threshold
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: Create timestamp test fixtures with comments having both timestamps after
+      the threshold
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-23
+    title: Add test assertions in `tests/bot-comment-dismiss.test.js` that verify
+      dismissal uses created_at field and does not dismiss incorrectly due to edits
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-24
+    title: '**Document workflow changes for agents-keepalive-loop.yml**: Create `docs/workflow-changes-keepalive.md`
+      specifying: (1) Add new step with id before Post review feedback to PR step
+      that runs should-post-review.js script, (2) Configure the guard step to expose
+      should_post_review output using GITHUB_OUTPUT, (3) Add if condition to Post
+      review feedback to PR step checking `steps.<guard_step_id>.outputs.should_post_review
+      == ''true''`'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-25
+    title: '**Document workflow changes for autofix workflows**: Create `docs/workflow-changes-autofix.md`
+      specifying the required if conditions for each `*autofix*.yml` file with exact
+      step IDs and output references using `if: steps.build_autofix.outputs.should-post
+      == ''true''`'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-26
+    title: '`.github/scripts/should-post-review.js` exists and is executable'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-27
+    title: The helper script writes exactly one output key `should_post_review` to
+      `$GITHUB_OUTPUT` with value `true` or `false` (lowercase)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-28
+    title: When `review_result.json` does not exist at the expected path, the script
+      sets `should_post_review=false`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-29
+    title: When `review_result.json` exists and `review` is `null`, the script sets
+      `should_post_review=false`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-30
+    title: When `review_result.json` exists and `review` is an empty string (`""`),
+      the script sets `should_post_review=false`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-31
+    title: When `review_result.json` exists and `review` is an object where `score`,
+      `feedback`, and `suggestions` are each either missing, `null`, or empty string,
+      the script sets `should_post_review=false`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-32
+    title: When `review_result.json` exists and `review` is an object where at least
+      one of `score`, `feedback`, or `suggestions` is a non-empty value, the script
+      sets `should_post_review=true`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-33
+    title: '`tests/should-post-review.test.js` exists and all tests pass'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-34
+    title: Test fixtures exist under `tests/fixtures/review_result/` for all edge
+      cases (null, empty string, all-empty object, populated object)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-35
+    title: '`tests/bot-comment-dismiss.test.js` includes tests that assert glob matching
+      selects only intended comment bodies/titles with at least one positive match
+      and one negative control case'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-36
+    title: '`tests/bot-comment-dismiss.test.js` includes tests that verify dismissal
+      uses `created_at` field (not `updated_at`) for filtering'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-37
+    title: 'Test fixtures for dismissal timestamp cases include at least two comments
+      with same body/title pattern: one with `created_at` before threshold and `updated_at`
+      after threshold, and one with both timestamps after threshold'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-38
+    title: The timestamp test assertions verify expected dismissal results differ
+      between the two fixture cases according to created_at logic
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-39
+    title: '`docs/workflow-changes-keepalive.md` exists with complete YAML syntax
+      for guard step and if condition'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-40
+    title: '`docs/workflow-changes-autofix.md` exists with complete YAML syntax for
+      all autofix workflow modifications'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
