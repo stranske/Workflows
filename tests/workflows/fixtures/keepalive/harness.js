@@ -404,6 +404,9 @@ async function runScenario(scenario) {
     'GH_DISPATCH_TOKEN',
     'gh_dispatch_token',
   ];
+  const explicitTokenKeySet = new Set(
+    explicitTokenKeys.filter((key) => Object.prototype.hasOwnProperty.call(scenarioEnv, key))
+  );
   const explicitTokenValues = explicitTokenKeys
     .filter((key) => Object.prototype.hasOwnProperty.call(scenarioEnv, key))
     .map((key) => scenarioEnv[key]);
@@ -470,7 +473,9 @@ async function runScenario(scenario) {
   }
   if (clearTokenDefaults) {
     for (const key of tokenEnvKeys) {
-      delete env[key];
+      if (!explicitTokenKeySet.has(key)) {
+        delete env[key];
+      }
     }
   }
 
