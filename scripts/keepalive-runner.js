@@ -821,6 +821,16 @@ function stripTokenKeys(env = {}, keys = []) {
   return cleaned;
 }
 
+function stripTokenKeys(env = {}, keys = []) {
+  const cleaned = { ...env };
+  for (const key of keys) {
+    if (Object.prototype.hasOwnProperty.call(cleaned, key)) {
+      delete cleaned[key];
+    }
+  }
+  return cleaned;
+}
+
 async function runKeepalive({ core, github, context, env = process.env }) {
   const rawOptions = env.OPTIONS_JSON || '{}';
   const dryRun = (env.DRY_RUN || '').trim().toLowerCase() === 'true';
