@@ -763,13 +763,16 @@ const INSTRUCTION_TOKEN_KEYS = [
   'github_token',
 ];
 
-const DISPATCH_TOKEN_KEYS = [
+const DEDICATED_DISPATCH_TOKEN_KEYS = [
   'KEEPALIVE_DISPATCH_TOKEN',
   'keepalive_dispatch_token',
   'KEEPALIVE_DISPATCH_PAT',
   'keepalive_dispatch_pat',
   'GH_DISPATCH_TOKEN',
   'gh_dispatch_token',
+];
+
+const FALLBACK_DISPATCH_TOKEN_KEYS = [
   'ACTIONS_BOT_PAT',
   'actions_bot_pat',
   'SERVICE_BOT_PAT',
@@ -785,15 +788,22 @@ function resolveInstructionToken(env = {}) {
 }
 
 function resolveDispatchToken(env = {}, instructionToken = '') {
-  const dedicated = resolveTokenFromKeys(env, DISPATCH_TOKEN_KEYS);
+  const dedicated = resolveTokenFromKeys(env, DEDICATED_DISPATCH_TOKEN_KEYS);
   if (dedicated) {
     return dedicated;
   }
-  const fallback = String(instructionToken || '').trim();
-  if (fallback) {
-    return fallback;
+  const hasDedicatedKey = DEDICATED_DISPATCH_TOKEN_KEYS.some((key) =>
+    Object.prototype.hasOwnProperty.call(env, key)
+  );
+  if (hasDedicatedKey) {
+    return '';
   }
-  return '';
+  const fromEnv = resolveTokenFromKeys(env, FALLBACK_DISPATCH_TOKEN_KEYS);
+  if (fromEnv) {
+    return fromEnv;
+  }
+  const fallback = String(instructionToken || '').trim();
+  return fallback ? fallback : '';
 }
 
 async function runKeepalive({ core, github, context, env = process.env }) {

@@ -7,6 +7,7 @@
     "DRY_RUN": "false",
     "CLEAR_TOKEN_DEFAULTS": "true",
     "clear_token_defaults": "true",
+    "KEEPALIVE_DISPATCH_TOKEN": "",
     "ACTIONS_BOT_PAT": "",
     "SERVICE_BOT_PAT": ""
   },
