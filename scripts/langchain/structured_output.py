@@ -154,6 +154,23 @@ def _invoke_repair_loop(
     )
 
 
+def invoke_repair_loop(
+    *,
+    repair: Callable[[str, str, str], str | None] | None,
+    attempts: int,
+    model: type[T],
+    error_detail: str,
+    content: str,
+) -> StructuredOutputResult[T]:
+    return _invoke_repair_loop(
+        repair=repair,
+        attempts=attempts,
+        model=model,
+        error_detail=error_detail,
+        content=content,
+    )
+
+
 def parse_structured_output(
     content: str,
     model: type[T],
@@ -179,7 +196,7 @@ def parse_structured_output(
 
     if error_detail is not None:
         attempts = clamp_repair_attempts(max_repair_attempts)
-        return _invoke_repair_loop(
+        return invoke_repair_loop(
             repair=repair,
             attempts=attempts,
             model=model,
