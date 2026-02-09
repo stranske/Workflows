@@ -1,6 +1,6 @@
 'use strict';
 
-const { minimatch } = require('./minimatch');
+const { minimatch } = require('minimatch');
 
 /**
  * Bot Comment Dismiss - Auto-dismiss ignored bot review comments

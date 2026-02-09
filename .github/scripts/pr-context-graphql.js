@@ -157,10 +157,44 @@ function parseCsv(value) {
   if (!value) {
     return [];
   }
-  return String(value)
-    .split(',')
-    .map((entry) => entry.trim())
-    .filter(Boolean);
+  const raw = String(value);
+  const entries = [];
+  let current = '';
+  let depth = 0;
+  let escaped = false;
+
+  for (let i = 0; i < raw.length; i += 1) {
+    const char = raw[i];
+    if (escaped) {
+      current += char;
+      escaped = false;
+      continue;
+    }
+    if (char === '\\') {
+      current += char;
+      escaped = true;
+      continue;
+    }
+    if (char === '{') {
+      depth += 1;
+      current += char;
+      continue;
+    }
+    if (char === '}') {
+      depth = Math.max(0, depth - 1);
+      current += char;
+      continue;
+    }
+    if (char === ',' && depth === 0) {
+      entries.push(current.trim());
+      current = '';
+      continue;
+    }
+    current += char;
+  }
+
+  entries.push(current.trim());
+  return entries.filter(Boolean);
 }
 
 function normalizePath(value) {

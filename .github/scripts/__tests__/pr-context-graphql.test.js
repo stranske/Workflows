@@ -8,7 +8,9 @@ const {
   fetchPRBasic,
   serializeForOutput,
   deserializeFromOutput,
-  createPRContextCache
+  createPRContextCache,
+  buildIgnoredPathMatchers,
+  shouldIncludePath
 } = require('../pr-context-graphql');
 
 // Mock GraphQL response for full PR context
@@ -335,6 +337,64 @@ describe('fetchPRContext', () => {
     assert.strictEqual(context.files.total, 0);
     assert.deepStrictEqual(context.files.ignoredPaths, []);
     assert.strictEqual(context.lastCommit, null);
+  });
+});
+
+describe('glob matching semantics', () => {
+  it('supports character class patterns', () => {
+    const originalIncludes = process.env.PR_CONTEXT_INCLUDE_PATTERNS;
+    process.env.PR_CONTEXT_INCLUDE_PATTERNS = 'src/[ab].ts';
+
+    try {
+      const matchers = buildIgnoredPathMatchers(process.env);
+
+      assert.strictEqual(shouldIncludePath('src/a.ts', matchers), true);
+      assert.strictEqual(shouldIncludePath('src/b.ts', matchers), true);
+      assert.strictEqual(shouldIncludePath('src/c.ts', matchers), false);
+    } finally {
+      if (originalIncludes === undefined) {
+        delete process.env.PR_CONTEXT_INCLUDE_PATTERNS;
+      } else {
+        process.env.PR_CONTEXT_INCLUDE_PATTERNS = originalIncludes;
+      }
+    }
+  });
+
+  it('supports brace expansion patterns', () => {
+    const originalIncludes = process.env.PR_CONTEXT_INCLUDE_PATTERNS;
+    process.env.PR_CONTEXT_INCLUDE_PATTERNS = 'src/*.{ts,tsx}';
+
+    try {
+      const matchers = buildIgnoredPathMatchers(process.env);
+
+      assert.strictEqual(shouldIncludePath('src/app.ts', matchers), true);
+      assert.strictEqual(shouldIncludePath('src/view.tsx', matchers), true);
+      assert.strictEqual(shouldIncludePath('src/app.js', matchers), false);
+    } finally {
+      if (originalIncludes === undefined) {
+        delete process.env.PR_CONTEXT_INCLUDE_PATTERNS;
+      } else {
+        process.env.PR_CONTEXT_INCLUDE_PATTERNS = originalIncludes;
+      }
+    }
+  });
+
+  it('supports escaped metacharacters', () => {
+    const originalIncludes = process.env.PR_CONTEXT_INCLUDE_PATTERNS;
+    process.env.PR_CONTEXT_INCLUDE_PATTERNS = 'docs/\\[draft\\].md';
+
+    try {
+      const matchers = buildIgnoredPathMatchers(process.env);
+
+      assert.strictEqual(shouldIncludePath('docs/[draft].md', matchers), true);
+      assert.strictEqual(shouldIncludePath('docs/draft.md', matchers), false);
+    } finally {
+      if (originalIncludes === undefined) {
+        delete process.env.PR_CONTEXT_INCLUDE_PATTERNS;
+      } else {
+        process.env.PR_CONTEXT_INCLUDE_PATTERNS = originalIncludes;
+      }
+    }
   });
 });
 
