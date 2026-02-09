@@ -609,7 +609,7 @@ def test_keepalive_fails_when_required_labels_missing() -> None:
     assert any("#612" in item and "agents:keepalive" in item for item in items)
 
 
-def test_keepalive_requires_instruction_token() -> None:
+def _assert_missing_instruction_token_failure() -> None:
     _require_node()
     scenario_path = FIXTURES_DIR / "missing_dispatch_token.json"
     assert scenario_path.exists(), "Scenario fixture missing"
@@ -631,6 +631,14 @@ def test_keepalive_requires_instruction_token() -> None:
     failed = payload.get("logs", {}).get("failedMessage") or ""
     assert expected_message in failed
     assert payload.get("dispatch_events") == []
+
+
+def test_keepalive_requires_dispatch_token() -> None:
+    _assert_missing_instruction_token_failure()
+
+
+def test_keepalive_requires_instruction_token() -> None:
+    _assert_missing_instruction_token_failure()
 
 
 def test_keepalive_dispatches_with_service_bot_pat() -> None:
