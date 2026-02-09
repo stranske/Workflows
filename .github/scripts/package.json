@@ -1,6 +1,3 @@
 {
-  "private": true,
-  "dependencies": {
-    "minimatch": "file:node_modules/minimatch"
-  }
+  "private": true
 }
