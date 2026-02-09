@@ -2,7 +2,7 @@
 """Fix github-token in wrong location (after script: | instead of before)."""
 
 import re
-from typing import Match
+from re import Match
 
 files = [
     "agents-capability-check.yml",
