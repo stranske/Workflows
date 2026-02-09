@@ -52,7 +52,9 @@ def test_registry_selects_preferred_provider() -> None:
     registry.register(StubProvider(name="beta", priority=2))
 
     selection = registry.select(
-        ep.EmbeddingSelectionCriteria(preferred_provider="beta", required_capabilities={"embeddings"})
+        ep.EmbeddingSelectionCriteria(
+            preferred_provider="beta", required_capabilities={"embeddings"}
+        )
     )
 
     assert selection is not None

@@ -20,15 +20,15 @@ plus `CLAUDE_API_STRANSKE`.
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
-from collections.abc import Iterable
-from dataclasses import dataclass, field
 import hashlib
 import importlib.util
-import sys
 import math
 import os
 import re
+import sys
+from abc import ABC, abstractmethod
+from collections.abc import Iterable
+from dataclasses import dataclass, field
 
 from tools.llm_provider import GITHUB_MODELS_BASE_URL
 
