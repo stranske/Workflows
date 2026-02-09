@@ -74,8 +74,10 @@ jobs:
       (github.event.action == 'labeled' &&
        github.event.label.name == 'agents:auto-pilot') ||
       (github.event.action == 'closed' && (
-        contains(github.event.issue.labels.*.name, 'agents:auto-pilot') ||
-        contains(github.event.pull_request.labels.*.name, 'agents:auto-pilot')
+        (github.event_name == 'issues' &&
+         contains(github.event.issue.labels.*.name, 'agents:auto-pilot')) ||
+        (github.event_name == 'pull_request' &&
+         contains(github.event.pull_request.labels.*.name, 'agents:auto-pilot'))
       ))
     steps:
       - name: Approve pipeline entry
@@ -91,7 +93,8 @@ jobs:
     concurrency:
       group: >-
         agents-auto-pilot-${{ github.repository }}-${{
-          github.event.issue.number || github.event.inputs.issue_number || github.run_id
+          github.event.issue.number || github.event.pull_request.number ||
+          github.event.inputs.issue_number || github.run_id
         }}
       cancel-in-progress: false
 
