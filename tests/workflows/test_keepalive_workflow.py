@@ -639,6 +639,27 @@ def test_keepalive_fails_when_required_labels_missing() -> None:
     assert any("#612" in item and "agents:keepalive" in item for item in items)
 
 
+def test_keepalive_requires_dispatch_token() -> None:
+    _require_node()
+    scenario_path = FIXTURES_DIR / "missing_dispatch_token.json"
+    assert scenario_path.exists(), "Scenario fixture missing"
+    result = _run_harness(scenario_path)
+    expected_message = "GitHub token is required"
+    combined_output = (result.stderr or "") + (result.stdout or "")
+    if result.returncode != 0:
+        assert expected_message in combined_output
+        return
+
+    # Some harness paths may record the failure instead of throwing; validate the summary payload.
+    try:
+        payload = json.loads(result.stdout or "{}")
+    except json.JSONDecodeError as exc:
+        pytest.fail(f"Expected JSON harness output on success: {exc}: {result.stdout}")
+    failed = payload.get("logs", {}).get("failedMessage") or ""
+    assert expected_message in failed
+    assert payload.get("dispatch_events") == []
+
+
 def test_keepalive_requires_instruction_token() -> None:
     _require_node()
     scenario_path = FIXTURES_DIR / "missing_dispatch_token.json"
