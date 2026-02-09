@@ -10,6 +10,7 @@ const {
   deserializeFromOutput,
   createPRContextCache,
   buildIgnoredPathMatchers,
+  shouldIgnorePath,
   shouldIncludePath
 } = require('../pr-context-graphql');
 
@@ -250,6 +251,38 @@ describe('fetchPRContext', () => {
         process.env.PR_CONTEXT_IGNORED_PATTERNS = originalPatterns;
       }
     }
+  });
+
+  it('matches character class glob patterns with minimatch semantics', () => {
+    const matchers = buildIgnoredPathMatchers({
+      PR_CONTEXT_IGNORED_PATHS: 'docs/',
+      PR_CONTEXT_IGNORED_PATTERNS: 'src/[ab].ts',
+    });
+
+    assert.strictEqual(shouldIgnorePath('src/a.ts', matchers), true);
+    assert.strictEqual(shouldIgnorePath('src/b.ts', matchers), true);
+    assert.strictEqual(shouldIgnorePath('src/c.ts', matchers), false);
+  });
+
+  it('matches brace expansion glob patterns with minimatch semantics', () => {
+    const matchers = buildIgnoredPathMatchers({
+      PR_CONTEXT_IGNORED_PATHS: 'docs/',
+      PR_CONTEXT_IGNORED_PATTERNS: 'src/*.{ts,tsx}',
+    });
+
+    assert.strictEqual(shouldIgnorePath('src/app.ts', matchers), true);
+    assert.strictEqual(shouldIgnorePath('src/view.tsx', matchers), true);
+    assert.strictEqual(shouldIgnorePath('src/app.js', matchers), false);
+  });
+
+  it('matches escaped metacharacters in glob patterns', () => {
+    const matchers = buildIgnoredPathMatchers({
+      PR_CONTEXT_IGNORED_PATHS: 'src/',
+      PR_CONTEXT_IGNORED_PATTERNS: 'docs/\\[draft\\].md',
+    });
+
+    assert.strictEqual(shouldIgnorePath('docs/[draft].md', matchers), true);
+    assert.strictEqual(shouldIgnorePath('docs/draft.md', matchers), false);
   });
   
   it('extracts reviews correctly', async () => {

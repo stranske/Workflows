@@ -258,6 +258,76 @@ describe('bot-comment-dismiss', () => {
     assert.equal(result.failed[0].id, 99);
   });
 
+  it('dismisses all ignored-path comments and leaves no .agents comments behind', async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = () => {
+      throw new Error('Network disabled in test');
+    };
+
+    const comments = [
+      {
+        id: 70,
+        path: '.agents/issue-70-ledger.yml',
+        user: { login: 'copilot[bot]' },
+        created_at: '2026-02-08T12:00:10.000Z',
+      },
+      {
+        id: 71,
+        path: '.agents/issue-71-ledger.yml',
+        user: { login: 'copilot[bot]' },
+        created_at: '2026-02-08T12:00:12.000Z',
+      },
+      {
+        id: 72,
+        path: 'src/app.js',
+        user: { login: 'copilot[bot]' },
+        created_at: '2026-02-08T12:00:10.000Z',
+      },
+    ];
+
+    const github = {
+      rest: {
+        pulls: {
+          listReviewComments: async () => ({ data: comments.slice() }),
+          deleteReviewComment: async ({ comment_id }) => {
+            const index = comments.findIndex((comment) => comment.id === comment_id);
+            if (index !== -1) {
+              comments.splice(index, 1);
+            }
+          },
+        },
+      },
+    };
+
+    try {
+      await autoDismissReviewComments({
+        github,
+        owner: 'octo',
+        repo: 'repo',
+        pullNumber: 123,
+        ignoredPaths: ['.agents/**'],
+        botAuthors: ['copilot[bot]'],
+        maxAgeSeconds: 60,
+        now: Date.parse('2026-02-08T12:00:30.000Z'),
+      });
+
+      const remaining = await github.rest.pulls.listReviewComments();
+      const remainingAgents = remaining.data.filter((comment) => comment.path.startsWith('.agents/'));
+
+      assert.strictEqual(remainingAgents.length, 0);
+      assert.deepStrictEqual(
+        remaining.data.map((comment) => comment.id).sort((a, b) => a - b),
+        [72]
+      );
+    } finally {
+      if (originalFetch === undefined) {
+        delete globalThis.fetch;
+      } else {
+        globalThis.fetch = originalFetch;
+      }
+    }
+  });
+
   it('dismisses all ignored-path comments without network access', async () => {
     const https = require('node:https');
     const originalRequest = https.request;
