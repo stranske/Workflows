@@ -1,0 +1,503 @@
+version: 1
+issue: 1360
+base: main
+branch: codex/issue-1360
+tasks:
+  - id: task-01
+    title: Fix `collectSections()` boundary logic in `.github/scripts/issue_scope_parser.js`
+      so content under `#### Tasks` is not terminated by inner `###` subsection headers
+      and is captured until the next `####` section header (e.g., `#### Acceptance
+      criteria`).
+    status: doing
+    started_at: '2026-02-09T13:56:19Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: 'Define scope for: Analyze the current boundary logic in `collectSections()`
+      to identify why `###` headers terminate `####` sections (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: 'Implement focused slice for: Analyze the current boundary logic in `collectSections()`
+      to identify why `###` headers terminate `####` sections (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: 'Validate focused slice for: Analyze the current boundary logic in `collectSections()`
+      to identify why `###` headers terminate `####` sections (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: 'Define scope for: Implement a fix to the boundary condition that allows
+      subsection headers within parent sections (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: 'Implement focused slice for: Implement a fix to the boundary condition
+      that allows subsection headers within parent sections (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: 'Validate focused slice for: Implement a fix to the boundary condition
+      that allows subsection headers within parent sections (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: Verify the fix correctly captures all content between `#### Tasks`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: '`#### Acceptance criteria` including subsections (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: Add a regression test for `parseScopeTasksAcceptanceSections()` that uses
+      a body containing `#### Tasks` with multiple `###` subsections and verifies
+      tasks/acceptance items are not truncated or misattributed.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: Update `.github/workflows/reusable-bot-comment-handler.yml` to add an HTML
+      deduplication marker `<!-- bot-comment-handler -->` in the posted comment body.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: Implement update-or-create logic in `.github/workflows/reusable-bot-comment-handler.yml`
+      to find an existing comment containing `<!-- bot-comment-handler -->` and update
+      it instead of always calling `createComment`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: 'Define scope for: Add logic to search for existing comments containing
+      the bot-comment-handler marker (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: 'Implement focused slice for: Add logic to search for existing comments
+      containing the bot-comment-handler marker (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: 'Validate focused slice for: Add logic to search for existing comments
+      containing the bot-comment-handler marker (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: 'Implement the update path to modify existing comments when found (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: 'Define scope for: Implement the create path to post new comments when
+      no existing comment is found (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: 'Implement focused slice for: Implement the create path to post new comments
+      when no existing comment is found (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: 'Validate focused slice for: Implement the create path to post new comments
+      when no existing comment is found (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: 'Update the bot-comment-handler caller concurrency configuration to use
+      `cancel-in-progress: true` (where applicable) to reduce queued duplicate postings.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: Update the completion checkpoint workflow logic to suppress posting when
+      both parsed `tasks` and `acceptance` arrays are empty (require `tasks.length
+      > 0 || acceptance.length > 0` in addition to `changes-made`).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: Fix progress review posting to suppress the comment when the LLM result
+      is empty/null (do not post a blank template).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-23
+    title: Update the automation-bot behavior to stop mirroring/echoing the PR body
+      scope as a separate comment.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-24
+    title: "Update the autofix report posting logic to suppress \u201Cno new diagnostics\u201D\
+      \ comments and only post when diagnostics exist."
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-25
+    title: Add `.github/copilot-review-config.yml` (or equivalent supported configuration)
+      to exclude `.agents/**` from Copilot code review.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-26
+    title: If Copilot exclusion is not supported, implement logic in the bot-comment-handler
+      to auto-resolve/dismiss review comments that only touch ignored paths (e.g.,
+      `.agents/**`) rather than only skipping agent dispatch.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-27
+    title: 'Test whether Copilot review exclusion configuration is supported (verify:
+      config validated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-28
+    title: 'effective (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-29
+    title: 'If exclusion is not supported (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-30
+    title: 'implement logic to identify review comments on ignored paths (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-31
+    title: 'implement auto-dismiss functionality for comments on ignored paths (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-32
+    title: A PR body containing `#### Tasks` with internal `###` subsection headers
+      is parsed such that all checkboxes between `#### Tasks` and `#### Acceptance
+      criteria` are included as tasks (none are truncated at the first `###`).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-33
+    title: A PR body containing both `#### Tasks` and `#### Acceptance criteria` with
+      internal `###` subsection headers is parsed such that task items are not counted
+      as acceptance criteria and acceptance items are not lost/misattributed.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-34
+    title: A regression test exists and passes, demonstrating the reproduction case
+      where `###` headers appear inside `####` sections and confirming correct task/acceptance
+      extraction.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-35
+    title: Running the bot comment handler multiple times for the same PR results
+      in at most one comment containing `<!-- bot-comment-handler -->` (subsequent
+      runs update the existing comment rather than creating new ones).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-36
+    title: The completion checkpoint job does not post a comment when `tasks.length
+      === 0` and `acceptance.length === 0`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-37
+    title: The progress review job does not post a comment when the LLM review output
+      is empty/null.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-38
+    title: "The autofix workflow does not post a \u201Cno new diagnostics\u201D comment;\
+      \ it posts only when diagnostics are present."
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-39
+    title: Copilot code review no longer produces review feedback on `.agents/**`
+      files (e.g., `.agents/issue-*-ledger.yml`), or (if exclusion is not possible)
+      such comments are automatically dismissed/resolved by automation.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-40
+    title: Task 1
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-41
+    title: Task 2
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-42
+    title: Task 3
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-43
+    title: Task 4
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-44
+    title: AC 1
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-45
+    title: AC 2\\\`;
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-46
+    title: Task description (specific, verifiable, single-action)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-47
+    title: Task description
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-48
+    title: Task description
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-49
+    title: Criterion (testable condition, not process description)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-50
+    title: Criterion
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-51
+    title: Update `.github/workflows/reusable-bot-comment-handler.yml` to add an HTML
+      deduplication marker `<!-- bot-comment-handler -->` in the posted comment body.
+      (Agent cannot modify .github/workflows/*.yml files (protected) | Human must
+      manually add the HTML marker to the comment template in the workflow file, or
+      grant agent write access to workflow files)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-52
+    title: Implement update-or-create logic in `.github/workflows/reusable-bot-comment-handler.yml`
+      to find an existing comment containing `<!-- bot-comment-handler -->` and update
+      it instead of always calling `createComment`. (Agent cannot modify .github/workflows/*.yml
+      files (protected) | Human must implement the update-or-create logic in the workflow
+      file, or grant agent write access to workflow files)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-53
+    title: 'Update the bot-comment-handler caller concurrency configuration to use
+      `cancel-in-progress: true` (where applicable) to reduce queued duplicate postings.
+      (Agent cannot modify .github/workflows/*.yml files (protected) | Human must
+      update the concurrency configuration in the workflow caller files)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-54
+    title: Update the completion checkpoint workflow logic to suppress posting when
+      both parsed `tasks` and `acceptance` arrays are empty (require `tasks.length
+      > 0 || acceptance.length > 0` in addition to `changes-made`). (Agent cannot
+      modify .github/workflows/*.yml files (protected) | Human must add the suppression
+      guard to the completion checkpoint workflow file)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-55
+    title: Fix progress review posting to suppress the comment when the LLM result
+      is empty/null (do not post a blank template). (Agent cannot modify .github/workflows/*.yml
+      files (protected) | Human must add the empty-check guard to the progress review
+      workflow file)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-56
+    title: Update the automation-bot behavior to stop mirroring/echoing the PR body
+      scope as a separate comment. (Agent cannot modify .github/workflows/*.yml files
+      (protected) | Human must remove or disable the scope echo logic in the automation-bot
+      workflow)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-57
+    title: Update the autofix report posting logic to suppress "no new diagnostics"
+      comments and only post when diagnostics exist. (Agent cannot modify .github/workflows/*.yml
+      files (protected) | Human must add the diagnostics-exist guard to the autofix
+      workflow file)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-58
+    title: Add `.github/copilot-review-config.yml` (or equivalent supported configuration)
+      to exclude `.agents/**` from Copilot code review. (Agent cannot change repository
+      settings; Copilot review configuration may require repository-level settings
+      changes beyond file creation | Human must create the Copilot review configuration
+      file and verify it is recognized by GitHub's Copilot review system)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-59
+    title: If Copilot exclusion is not supported, implement logic in the bot-comment-handler
+      to auto-resolve/dismiss review comments that only touch ignored paths (e.g.,
+      `.agents/**`) rather than only skipping agent dispatch. (Agent cannot modify
+      .github/workflows/*.yml files (protected); this task requires workflow changes
+      | Human must implement the auto-dismiss logic in the bot-comment-handler workflow
+      file)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
