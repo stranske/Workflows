@@ -50,9 +50,7 @@ class VersionInfo(NamedTuple):
 
 
 def _is_prerelease(version: str) -> bool:
-    return (
-        re.search(r"(a|b|rc|dev|alpha|beta)\d*$", version, re.IGNORECASE) is not None
-    )
+    return re.search(r"(a|b|rc|dev|alpha|beta)\d*$", version, re.IGNORECASE) is not None
 
 
 def _is_yanked(version: str, releases: dict[str, list[dict[str, object]]]) -> bool:
@@ -75,9 +73,7 @@ def get_latest_pypi_version(package_name: str) -> str | None:
                 latest: str | None = data.get("info", {}).get("version")
                 releases: dict[str, list[dict[str, object]]] = data.get("releases", {})
 
-                if latest and not _is_prerelease(latest) and not _is_yanked(
-                    latest, releases
-                ):
+                if latest and not _is_prerelease(latest) and not _is_yanked(latest, releases):
                     return latest
 
                 # Fallback: find the latest from releases
