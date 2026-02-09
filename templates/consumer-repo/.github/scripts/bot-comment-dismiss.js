@@ -16,6 +16,7 @@
  */
 
 const DEFAULT_IGNORED_PATTERNS = ['.agents/**'];
+const DEFAULT_MAX_AGE_SECONDS = 30;
 
 function parseCsv(value) {
   if (!value) {
@@ -116,7 +117,51 @@ function resolveCommentTimestamp(comment) {
   if (!comment) {
     return null;
   }
-  return comment.created_at || comment.createdAt || null;
+  return comment.updated_at || comment.updatedAt || comment.created_at || comment.createdAt || null;
+}
+
+function getArgValue(argv, name) {
+  if (!Array.isArray(argv)) {
+    return undefined;
+  }
+  for (let i = 0; i < argv.length; i += 1) {
+    const entry = argv[i];
+    if (entry === name) {
+      if (i + 1 >= argv.length) {
+        return null;
+      }
+      return argv[i + 1];
+    }
+    if (typeof entry === 'string' && entry.startsWith(`${name}=`)) {
+      return entry.slice(name.length + 1);
+    }
+  }
+  return undefined;
+}
+
+function parsePositiveInt(value, label) {
+  const numberValue = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(numberValue) || !Number.isInteger(numberValue) || numberValue <= 0) {
+    throw new Error(`${label} must be a positive integer`);
+  }
+  return numberValue;
+}
+
+function parseMaxAgeSeconds({ argv, env, defaultValue = DEFAULT_MAX_AGE_SECONDS } = {}) {
+  const cliValue = getArgValue(argv, '--maxAgeSeconds');
+  const envValue = env ? env.MAX_AGE_SECONDS : undefined;
+  let rawValue = defaultValue;
+
+  if (cliValue !== undefined) {
+    if (cliValue === null) {
+      throw new Error('maxAgeSeconds must be a positive integer');
+    }
+    rawValue = cliValue;
+  } else if (envValue !== undefined) {
+    rawValue = envValue;
+  }
+
+  return parsePositiveInt(rawValue, 'maxAgeSeconds');
 }
 
 function collectDismissable(comments, options = {}) {
@@ -271,24 +316,24 @@ async function autoDismissReviewComments(options = {}) {
   return { dismissable, ...result };
 }
 
-function runCli(env = process.env) {
+function runCli(env = process.env, argv = process.argv.slice(2)) {
   const comments = env.COMMENTS_JSON ? JSON.parse(env.COMMENTS_JSON) : [];
   const ignoredPaths = parseCsv(env.IGNORED_PATHS);
   const ignoredPatterns = parseCsv(env.IGNORED_PATTERNS);
   const botAuthors = parseCsv(env.BOT_AUTHORS);
-  const maxAgeSeconds = env.MAX_AGE_SECONDS ? Number(env.MAX_AGE_SECONDS) : 30;
+  const maxAgeSeconds = parseMaxAgeSeconds({ argv, env });
   const now = env.NOW_EPOCH_MS ? Number(env.NOW_EPOCH_MS) : undefined;
 
   const dismissable = collectDismissable(comments, {
     ignoredPaths,
     ignoredPatterns,
     botAuthors,
-    maxAgeSeconds: Number.isFinite(maxAgeSeconds) ? maxAgeSeconds : null,
+    maxAgeSeconds,
     now: Number.isFinite(now) ? now : undefined,
   });
   const logs = dismissable.map((entry) => formatDismissLog(entry));
 
-  return { dismissable, logs };
+  return { dismissable, logs, maxAgeSeconds };
 }
 
 if (require.main === module) {
@@ -301,5 +346,6 @@ module.exports = {
   autoDismissReviewComments,
   dismissReviewComments,
   formatDismissLog,
+  parseMaxAgeSeconds,
   runCli,
 };
