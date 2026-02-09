@@ -153,13 +153,17 @@ def _assert_missing_instruction_token(
         assert expected_message in combined_output
         return
 
-    try:
-        payload = json.loads(result.stdout or "{}")
-    except json.JSONDecodeError as exc:
-        pytest.fail(f"Expected JSON harness output on success: {exc}: {result.stdout}")
+    payload = _parse_harness_payload(result)
     failed = payload.get("logs", {}).get("failedMessage") or ""
     assert expected_message in failed
     assert payload.get("dispatch_events") == []
+
+
+def _parse_harness_payload(result: subprocess.CompletedProcess[str]) -> dict:
+    try:
+        return json.loads(result.stdout or "{}")
+    except json.JSONDecodeError as exc:
+        pytest.fail(f"Expected JSON harness output on success: {exc}: {result.stdout}")
 
 
 # First line of the keepalive instruction from .github/codex/prompts/keepalive_next_task.md
@@ -650,6 +654,7 @@ def test_keepalive_requires_dispatch_token() -> None:
     _require_node()
     scenario_path = FIXTURES_DIR / "missing_dispatch_token.json"
     assert scenario_path.exists(), "Scenario fixture missing"
+    # Force token defaults to be cleared so CI-provided tokens do not mask failures.
     result = _run_harness(
         scenario_path,
         extra_env={"CLEAR_TOKEN_DEFAULTS": "true", "clear_token_defaults": "true"},
@@ -658,10 +663,7 @@ def test_keepalive_requires_dispatch_token() -> None:
         _assert_missing_instruction_token(result)
         return
 
-    try:
-        payload = json.loads(result.stdout or "{}")
-    except json.JSONDecodeError as exc:
-        pytest.fail(f"Expected JSON harness output on success: {exc}: {result.stdout}")
+    payload = _parse_harness_payload(result)
     dispatch_tokens = payload.get("dispatch_tokens")
     comment_tokens = payload.get("comment_tokens")
     if dispatch_tokens is None or comment_tokens is None:
