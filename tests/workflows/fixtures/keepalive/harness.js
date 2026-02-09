@@ -383,8 +383,6 @@ async function runScenario(scenario) {
     Boolean(scenario.clearTokenDefaults) ||
     Boolean(scenarioEnv.CLEAR_TOKEN_DEFAULTS) ||
     Boolean(scenarioEnv.clear_token_defaults) ||
-    Boolean(process.env.CLEAR_TOKEN_DEFAULTS) ||
-    Boolean(process.env.clear_token_defaults) ||
     allExplicitTokensBlank;
 
   const envOverrides = {
