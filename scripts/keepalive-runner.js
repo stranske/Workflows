@@ -796,6 +796,16 @@ function resolveDispatchToken(env = {}, instructionToken = '') {
   return '';
 }
 
+function stripTokenKeys(env = {}, keys = []) {
+  const cleaned = { ...env };
+  for (const key of keys) {
+    if (Object.prototype.hasOwnProperty.call(cleaned, key)) {
+      delete cleaned[key];
+    }
+  }
+  return cleaned;
+}
+
 async function runKeepalive({ core, github, context, env = process.env }) {
   const rawOptions = env.OPTIONS_JSON || '{}';
   const dryRun = (env.DRY_RUN || '').trim().toLowerCase() === 'true';
@@ -803,6 +813,11 @@ async function runKeepalive({ core, github, context, env = process.env }) {
   const summary = core.summary;
   const traceSeed = generateTraceSeed(env.KEEPALIVE_TRACE || env.keepalive_trace || '');
   const pausedLabel = 'agents:paused';
+  const clearTokenDefaults = coerceBool(
+    env.CLEAR_TOKEN_DEFAULTS ?? env.clear_token_defaults,
+    false
+  );
+  const tokenEnv = clearTokenDefaults ? stripTokenKeys(env, DISPATCH_TOKEN_KEYS) : env;
 
   const addHeading = () => {
     summary.addHeading('Codex Keepalive');
@@ -827,13 +842,13 @@ async function runKeepalive({ core, github, context, env = process.env }) {
   let dispatchToken = '';
   let instructionAuthorOctokit = null;
   if (!dryRun) {
-    instructionAuthorToken = resolveInstructionToken(env);
+    instructionAuthorToken = resolveInstructionToken(tokenEnv);
     if (!instructionAuthorToken) {
       throw new Error(
         'GitHub token is required to author keepalive instructions (app token, PAT, or GITHUB_TOKEN).'
       );
     }
-    dispatchToken = resolveDispatchToken(env, instructionAuthorToken);
+    dispatchToken = resolveDispatchToken(tokenEnv, instructionAuthorToken);
 
     instructionAuthorOctokit = buildOctokitInstance({
       core,
