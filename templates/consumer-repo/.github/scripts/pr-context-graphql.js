@@ -264,6 +264,37 @@ function shouldIncludePath(filename, matchers) {
   return matchers.includes.some((pattern) => minimatch(normalized, pattern, MINIMATCH_OPTIONS));
 }
 
+function filterPaths(paths, matchers) {
+  const kept = [];
+  const ignored = [];
+
+  for (const path of paths || []) {
+    if (shouldIgnorePath(path, matchers) || !shouldIncludePath(path, matchers)) {
+      ignored.push(path);
+    } else {
+      kept.push(path);
+    }
+  }
+
+  return { kept, ignored };
+}
+
+function filterFileNodes(fileNodes, matchers) {
+  const kept = [];
+  const ignored = [];
+
+  for (const file of fileNodes || []) {
+    const path = file?.path;
+    if (shouldIgnorePath(path, matchers) || !shouldIncludePath(path, matchers)) {
+      ignored.push(file);
+    } else {
+      kept.push(file);
+    }
+  }
+
+  return { kept, ignored };
+}
+
 /**
  * PAGINATION LIMITS:
  * The GraphQL queries above use fixed pagination limits:
@@ -303,21 +334,7 @@ async function fetchPRContext(github, owner, repo, number) {
     // Transform to a more usable format
     const ignoredMatchers = buildIgnoredPathMatchers(process.env);
     const rawFiles = pr.files?.nodes || [];
-    const filteredFiles = [];
-    const ignoredFiles = [];
-
-    for (const file of rawFiles) {
-      const filePath = file?.path;
-      if (shouldIgnorePath(filePath, ignoredMatchers)) {
-        ignoredFiles.push(file);
-        continue;
-      }
-      if (!shouldIncludePath(filePath, ignoredMatchers)) {
-        ignoredFiles.push(file);
-        continue;
-      }
-      filteredFiles.push(file);
-    }
+    const { kept: filteredFiles, ignored: ignoredFiles } = filterFileNodes(rawFiles, ignoredMatchers);
 
     const ignoredCount = ignoredFiles.length;
 
@@ -539,6 +556,8 @@ module.exports = {
   buildIgnoredPathMatchers,
   shouldIgnorePath,
   shouldIncludePath,
+  filterPaths,
+  filterFileNodes,
   serializeForOutput,
   deserializeFromOutput,
   createPRContextCache
