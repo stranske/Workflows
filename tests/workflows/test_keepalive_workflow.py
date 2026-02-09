@@ -657,9 +657,9 @@ def test_keepalive_requires_dispatch_token() -> None:
     dispatch_tokens = payload.get("dispatch_tokens", [])
     comment_tokens = payload.get("comment_tokens", [])
     assert dispatch_tokens, "Expected keepalive dispatch to use a token when harness succeeds"
-    assert any(token in comment_tokens for token in dispatch_tokens), (
-        "Expected dispatch token to fall back to the instruction author token"
-    )
+    assert any(
+        token in comment_tokens for token in dispatch_tokens
+    ), "Expected dispatch token to fall back to the instruction author token"
 
 
 def test_keepalive_dispatches_with_service_bot_pat() -> None:
