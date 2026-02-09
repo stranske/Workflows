@@ -6,10 +6,10 @@ tasks:
   - id: task-01
     title: "**REQUIRES_HUMAN**: Add HTML comment marker `<!-- bot-comment-handler\
       \ -->` to the \"\U0001F916 Bot Comment Handler\" comment body in `.github/workflows/reusable-bot-comment-handler.yml`"
-    status: doing
+    status: done
     started_at: '2026-02-09T09:53:25Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-02-09T09:53:37Z'
+    commit: fa755fc2da56328a711dd46dc95df651bdada155
     notes: []
   - id: task-02
     title: "**REQUIRES_HUMAN**: Implement logic in `.github/workflows/reusable-bot-comment-handler.yml`\
