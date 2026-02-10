@@ -8,7 +8,12 @@ const {
   fetchPRBasic,
   serializeForOutput,
   deserializeFromOutput,
-  createPRContextCache
+  createPRContextCache,
+  buildIgnoredPathMatchers,
+  shouldIgnorePath,
+  shouldIncludePath,
+  filterPaths,
+  filterFileNodes
 } = require('../pr-context-graphql');
 
 // Mock GraphQL response for full PR context
@@ -191,6 +196,30 @@ describe('fetchPRContext', () => {
     assert.deepStrictEqual(context.files.paths, ['src/index.js', 'tests/test.js', 'README.md']);
   });
 
+  it('keeps ignored paths excluded even when include patterns match everything', async () => {
+    const mockGithub = {
+      graphql: mock.fn(async () => mockPRContextResponseWithAgents)
+    };
+    const originalIncludes = process.env.PR_CONTEXT_INCLUDE_PATTERNS;
+
+    process.env.PR_CONTEXT_INCLUDE_PATTERNS = '**/*';
+
+    try {
+      const context = await fetchPRContext(mockGithub, 'owner', 'repo', 42);
+
+      assert.strictEqual(context.files.total, 3);
+      assert.strictEqual(context.files.ignored, 1);
+      assert.deepStrictEqual(context.files.ignoredPaths, ['.agents/issue-1234-ledger.yml']);
+      assert.deepStrictEqual(context.files.paths, ['src/index.js', 'tests/test.js', 'README.md']);
+    } finally {
+      if (originalIncludes === undefined) {
+        delete process.env.PR_CONTEXT_INCLUDE_PATTERNS;
+      } else {
+        process.env.PR_CONTEXT_INCLUDE_PATTERNS = originalIncludes;
+      }
+    }
+  });
+
   it('respects custom ignored path patterns from env', async () => {
     const mockGithub = {
       graphql: mock.fn(async () => mockPRContextResponseWithDocs)
@@ -224,6 +253,38 @@ describe('fetchPRContext', () => {
         process.env.PR_CONTEXT_IGNORED_PATTERNS = originalPatterns;
       }
     }
+  });
+
+  it('matches character class glob patterns with minimatch semantics', () => {
+    const matchers = buildIgnoredPathMatchers({
+      PR_CONTEXT_IGNORED_PATHS: 'docs/',
+      PR_CONTEXT_IGNORED_PATTERNS: 'src/[ab].ts',
+    });
+
+    assert.strictEqual(shouldIgnorePath('src/a.ts', matchers), true);
+    assert.strictEqual(shouldIgnorePath('src/b.ts', matchers), true);
+    assert.strictEqual(shouldIgnorePath('src/c.ts', matchers), false);
+  });
+
+  it('matches brace expansion glob patterns with minimatch semantics', () => {
+    const matchers = buildIgnoredPathMatchers({
+      PR_CONTEXT_IGNORED_PATHS: 'docs/',
+      PR_CONTEXT_IGNORED_PATTERNS: 'src/*.{ts,tsx}',
+    });
+
+    assert.strictEqual(shouldIgnorePath('src/app.ts', matchers), true);
+    assert.strictEqual(shouldIgnorePath('src/view.tsx', matchers), true);
+    assert.strictEqual(shouldIgnorePath('src/app.js', matchers), false);
+  });
+
+  it('matches escaped metacharacters in glob patterns', () => {
+    const matchers = buildIgnoredPathMatchers({
+      PR_CONTEXT_IGNORED_PATHS: 'src/',
+      PR_CONTEXT_IGNORED_PATTERNS: 'docs/\\[draft\\].md',
+    });
+
+    assert.strictEqual(shouldIgnorePath('docs/[draft].md', matchers), true);
+    assert.strictEqual(shouldIgnorePath('docs/draft.md', matchers), false);
   });
   
   it('extracts reviews correctly', async () => {
@@ -311,6 +372,87 @@ describe('fetchPRContext', () => {
     assert.strictEqual(context.files.total, 0);
     assert.deepStrictEqual(context.files.ignoredPaths, []);
     assert.strictEqual(context.lastCommit, null);
+  });
+});
+
+describe('glob matching semantics', () => {
+  it('supports character class patterns', () => {
+    const originalIncludes = process.env.PR_CONTEXT_INCLUDE_PATTERNS;
+    process.env.PR_CONTEXT_INCLUDE_PATTERNS = 'src/[ab].ts';
+
+    try {
+      const matchers = buildIgnoredPathMatchers(process.env);
+
+      assert.strictEqual(shouldIncludePath('src/a.ts', matchers), true);
+      assert.strictEqual(shouldIncludePath('src/b.ts', matchers), true);
+      assert.strictEqual(shouldIncludePath('src/c.ts', matchers), false);
+    } finally {
+      if (originalIncludes === undefined) {
+        delete process.env.PR_CONTEXT_INCLUDE_PATTERNS;
+      } else {
+        process.env.PR_CONTEXT_INCLUDE_PATTERNS = originalIncludes;
+      }
+    }
+  });
+
+  it('supports brace expansion patterns', () => {
+    const originalIncludes = process.env.PR_CONTEXT_INCLUDE_PATTERNS;
+    process.env.PR_CONTEXT_INCLUDE_PATTERNS = 'src/*.{ts,tsx}';
+
+    try {
+      const matchers = buildIgnoredPathMatchers(process.env);
+
+      assert.strictEqual(shouldIncludePath('src/app.ts', matchers), true);
+      assert.strictEqual(shouldIncludePath('src/view.tsx', matchers), true);
+      assert.strictEqual(shouldIncludePath('src/app.js', matchers), false);
+    } finally {
+      if (originalIncludes === undefined) {
+        delete process.env.PR_CONTEXT_INCLUDE_PATTERNS;
+      } else {
+        process.env.PR_CONTEXT_INCLUDE_PATTERNS = originalIncludes;
+      }
+    }
+  });
+
+  it('supports escaped metacharacters', () => {
+    const originalIncludes = process.env.PR_CONTEXT_INCLUDE_PATTERNS;
+    process.env.PR_CONTEXT_INCLUDE_PATTERNS = 'docs/\\[draft\\].md';
+
+    try {
+      const matchers = buildIgnoredPathMatchers(process.env);
+
+      assert.strictEqual(shouldIncludePath('docs/[draft].md', matchers), true);
+      assert.strictEqual(shouldIncludePath('docs/draft.md', matchers), false);
+    } finally {
+      if (originalIncludes === undefined) {
+        delete process.env.PR_CONTEXT_INCLUDE_PATTERNS;
+      } else {
+        process.env.PR_CONTEXT_INCLUDE_PATTERNS = originalIncludes;
+      }
+    }
+  });
+});
+
+describe('connector-side filtering helpers', () => {
+  it('filters .agents paths before downstream processing', () => {
+    const matchers = buildIgnoredPathMatchers({ PR_CONTEXT_INCLUDE_PATTERNS: '**/*' });
+    const result = filterPaths(['.agents/issue-test-ledger.yml', 'src/app.ts'], matchers);
+
+    assert.deepStrictEqual(result.kept, ['src/app.ts']);
+    assert.deepStrictEqual(result.ignored, ['.agents/issue-test-ledger.yml']);
+  });
+
+  it('filters file nodes and preserves kept metadata', () => {
+    const matchers = buildIgnoredPathMatchers({});
+    const nodes = [
+      { path: '.agents/issue-test-ledger.yml', additions: 1 },
+      { path: 'src/app.ts', additions: 2 }
+    ];
+
+    const result = filterFileNodes(nodes, matchers);
+
+    assert.deepStrictEqual(result.kept, [{ path: 'src/app.ts', additions: 2 }]);
+    assert.deepStrictEqual(result.ignored, [{ path: '.agents/issue-test-ledger.yml', additions: 1 }]);
   });
 });
 

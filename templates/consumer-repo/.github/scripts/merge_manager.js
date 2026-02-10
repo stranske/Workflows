@@ -1,4 +1,5 @@
 const { Buffer } = require('node:buffer');
+const { minimatch } = require('minimatch');
 const { ensureRateLimitWrapped } = require('./github-rate-limited-wrapper.js');
 
 async function fetchAllowlist(github, owner, repo, path, ref) {
@@ -28,49 +29,15 @@ async function fetchAllowlist(github, owner, repo, path, ref) {
   return { found, patterns, maxLines };
 }
 
-const patternCache = new Map();
-
-function escapeRegexSegment(segment) {
-  return segment.replace(/([\\^$*+?.()|{}\[\]])/g, '\\$1');
-}
-
-function compileGlob(pattern) {
-  if (patternCache.has(pattern)) {
-    return patternCache.get(pattern);
-  }
-  let regex = '';
-  for (let i = 0; i < pattern.length; i += 1) {
-    const char = pattern[i];
-    if (char === '*') {
-      if (pattern[i + 1] === '*') {
-        if (pattern[i + 2] === '/') {
-          regex += '(?:.*/)?';
-          i += 2;
-        } else {
-          regex += '.*';
-          i += 1;
-        }
-      } else {
-        regex += '[^/]*';
-      }
-      continue;
-    }
-    if (char === '?') {
-      regex += '[^/]';
-      continue;
-    }
-    regex += escapeRegexSegment(char);
-  }
-  const compiled = new RegExp(`^${regex}$`);
-  patternCache.set(pattern, compiled);
-  return compiled;
-}
-
 function matchPattern(filename, pattern) {
   if (!pattern || !filename) {
     return false;
   }
-  return compileGlob(pattern).test(filename);
+  return minimatch(filename, pattern, {
+    dot: true,
+    nocomment: true,
+    nonegate: true,
+  });
 }
 
 async function computeCiStatus({ github, core, owner, repo, sha }) {

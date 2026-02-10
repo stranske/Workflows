@@ -211,7 +211,7 @@ function resolvePromptCheckboxCounts(scopeCounts, latestChecklist) {
   if (!scopeHasTasks) {
     return { total, unchecked };
   }
-  if (scopeComplete) {
+  if (scopeComplete && (safeScope.total !== total || !latestIncomplete)) {
     return safeScope;
   }
   return { total, unchecked };
@@ -763,13 +763,16 @@ const INSTRUCTION_TOKEN_KEYS = [
   'github_token',
 ];
 
-const DISPATCH_TOKEN_KEYS = [
+const DEDICATED_DISPATCH_TOKEN_KEYS = [
   'KEEPALIVE_DISPATCH_TOKEN',
   'keepalive_dispatch_token',
   'KEEPALIVE_DISPATCH_PAT',
   'keepalive_dispatch_pat',
   'GH_DISPATCH_TOKEN',
   'gh_dispatch_token',
+];
+
+const FALLBACK_DISPATCH_TOKEN_KEYS = [
   'ACTIONS_BOT_PAT',
   'actions_bot_pat',
   'SERVICE_BOT_PAT',
@@ -780,20 +783,42 @@ const DISPATCH_TOKEN_KEYS = [
   'github_token',
 ];
 
+const DISPATCH_TOKEN_KEYS = [
+  ...DEDICATED_DISPATCH_TOKEN_KEYS,
+  ...FALLBACK_DISPATCH_TOKEN_KEYS,
+];
+
 function resolveInstructionToken(env = {}) {
   return resolveTokenFromKeys(env, INSTRUCTION_TOKEN_KEYS);
 }
 
 function resolveDispatchToken(env = {}, instructionToken = '') {
-  const dedicated = resolveTokenFromKeys(env, DISPATCH_TOKEN_KEYS);
+  const dedicated = resolveTokenFromKeys(env, DEDICATED_DISPATCH_TOKEN_KEYS);
   if (dedicated) {
     return dedicated;
   }
-  const fallback = String(instructionToken || '').trim();
-  if (fallback) {
-    return fallback;
+  const hasDedicatedKey = DEDICATED_DISPATCH_TOKEN_KEYS.some((key) =>
+    Object.prototype.hasOwnProperty.call(env, key)
+  );
+  if (hasDedicatedKey) {
+    return '';
   }
-  return '';
+  const fromEnv = resolveTokenFromKeys(env, FALLBACK_DISPATCH_TOKEN_KEYS);
+  if (fromEnv) {
+    return fromEnv;
+  }
+  const fallback = String(instructionToken || '').trim();
+  return fallback ? fallback : '';
+}
+
+function stripTokenKeys(env = {}, keys = []) {
+  const cleaned = { ...env };
+  for (const key of keys) {
+    if (Object.prototype.hasOwnProperty.call(cleaned, key)) {
+      delete cleaned[key];
+    }
+  }
+  return cleaned;
 }
 
 async function runKeepalive({ core, github, context, env = process.env }) {
@@ -803,6 +828,11 @@ async function runKeepalive({ core, github, context, env = process.env }) {
   const summary = core.summary;
   const traceSeed = generateTraceSeed(env.KEEPALIVE_TRACE || env.keepalive_trace || '');
   const pausedLabel = 'agents:paused';
+  const clearTokenDefaults = coerceBool(
+    env.CLEAR_TOKEN_DEFAULTS ?? env.clear_token_defaults,
+    false
+  );
+  const tokenEnv = clearTokenDefaults ? stripTokenKeys(env, DISPATCH_TOKEN_KEYS) : env;
 
   const addHeading = () => {
     summary.addHeading('Codex Keepalive');
@@ -827,13 +857,13 @@ async function runKeepalive({ core, github, context, env = process.env }) {
   let dispatchToken = '';
   let instructionAuthorOctokit = null;
   if (!dryRun) {
-    instructionAuthorToken = resolveInstructionToken(env);
+    instructionAuthorToken = resolveInstructionToken(tokenEnv);
     if (!instructionAuthorToken) {
       throw new Error(
         'GitHub token is required to author keepalive instructions (app token, PAT, or GITHUB_TOKEN).'
       );
     }
-    dispatchToken = resolveDispatchToken(env, instructionAuthorToken);
+    dispatchToken = resolveDispatchToken(tokenEnv, instructionAuthorToken);
 
     instructionAuthorOctokit = buildOctokitInstance({
       core,
@@ -937,55 +967,49 @@ async function runKeepalive({ core, github, context, env = process.env }) {
     )
     .addEOL();
 
-  const pullsClient = github?.rest?.pulls?.list ? github : tokenAwareGithub;
-  const pullsPaginatorClient =
-    tokenAwareGithub?.paginate?.iterator && tokenAwareGithub?.rest?.pulls?.list
-      ? tokenAwareGithub
-      : github;
-  const hasPullsIterator = Boolean(pullsPaginatorClient?.paginate?.iterator);
-  const paginatePulls = hasPullsIterator
-    ? pullsPaginatorClient.paginate.iterator(
-        pullsPaginatorClient.rest.pulls.list,
-        { owner, repo, state: 'open', per_page: 50 }
-      )
-    : (async function* () {
-        const perPage = 50;
-        let page = 1;
-        while (true) {
-          const { data } = await withRetry(
-            (client) => client.rest.pulls.list({
-              owner,
-              repo,
-              state: 'open',
-              per_page: perPage,
-              page,
-            }),
-            { github: pullsClient }
-          );
-          if (!Array.isArray(data) || !data.length) {
-            break;
-          }
-          yield { data };
-          if (data.length < perPage) {
-            break;
-          }
-          page += 1;
-        }
-      })();
+  const pullsPerPage = 50;
+  const pullsClient = tokenAwareGithub?.rest?.pulls?.list ? tokenAwareGithub : github;
+  const hasPaginationIterator = Boolean(pullsClient?.paginate?.iterator);
+  const iteratePulls = async function* () {
+    if (hasPaginationIterator) {
+      const iterator = pullsClient.paginate.iterator(
+        pullsClient.rest.pulls.list,
+        { owner, repo, state: 'open', per_page: pullsPerPage }
+      );
+      for await (const page of iterator) {
+        yield page;
+      }
+      return;
+    }
+
+    let page = 1;
+    while (true) {
+      const { data } = await withRetry(
+        (client) =>
+          client.rest.pulls.list({ owner, repo, state: 'open', per_page: pullsPerPage, page }),
+        { github: pullsClient }
+      );
+      const entries = Array.isArray(data) ? data : [];
+      if (!entries.length) {
+        break;
+      }
+      yield { data: entries };
+      if (entries.length < pullsPerPage) {
+        break;
+      }
+      page += 1;
+    }
+  };
 
   const fetchIssueComments = async (issueNumber) => {
     const comments = [];
     const perPage = 100;
-    const commentsClient = github?.rest?.issues?.listComments ? github : tokenAwareGithub;
-    const commentsPaginatorClient =
-      tokenAwareGithub?.paginate?.iterator && tokenAwareGithub?.rest?.issues?.listComments
-        ? tokenAwareGithub
-        : github;
-    const hasIterator = Boolean(commentsPaginatorClient?.paginate?.iterator);
+    const commentsClient = tokenAwareGithub?.rest?.issues?.listComments ? tokenAwareGithub : github;
+    const hasIterator = Boolean(commentsClient?.paginate?.iterator);
 
     if (hasIterator) {
-      const iterator = commentsPaginatorClient.paginate.iterator(
-        commentsPaginatorClient.rest.issues.listComments,
+      const iterator = commentsClient.paginate.iterator(
+        commentsClient.rest.issues.listComments,
         {
           owner,
           repo,
@@ -1004,13 +1028,14 @@ async function runKeepalive({ core, github, context, env = process.env }) {
       let page = 1;
       while (true) {
         const { data } = await withRetry(
-          (client) => client.rest.issues.listComments({
-            owner,
-            repo,
-            issue_number: issueNumber,
-            per_page: perPage,
-            page,
-          }),
+          (client) =>
+            client.rest.issues.listComments({
+              owner,
+              repo,
+              issue_number: issueNumber,
+              per_page: perPage,
+              page,
+            }),
           { github: commentsClient }
         );
         if (!Array.isArray(data) || !data.length) {
@@ -1027,7 +1052,7 @@ async function runKeepalive({ core, github, context, env = process.env }) {
     return comments;
   };
 
-  for await (const page of paginatePulls) {
+  for await (const page of iteratePulls()) {
     for (const pr of page.data) {
       if (scanned >= maxPrs) {
         limitReached = true;
@@ -1247,20 +1272,16 @@ async function runKeepalive({ core, github, context, env = process.env }) {
           }
 
           if (assignableAssignees.length > 0) {
+            const assigneeClient =
+              tokenAwareGithub?.rest?.issues?.addAssignees ? tokenAwareGithub : github;
             core.info(`#${prNumber}: adding human assignees: ${assignableAssignees.join(', ')}`);
-            const assignmentClient = github?.rest?.issues?.addAssignees ? github : tokenAwareGithub;
-            await withRetry(
-              (client) => client.rest.issues.addAssignees({
-                owner,
-                repo,
-                issue_number: prNumber,
-                assignees: assignableAssignees,
-              }),
-              { github: assignmentClient }
-            );
-            assignmentSummaries.push(
-              `#${prNumber} – ensured assignees: ${assignableAssignees.join(', ')}`
-            );
+            await withRetry((client) => client.rest.issues.addAssignees({
+              owner,
+              repo,
+              issue_number: prNumber,
+              assignees: assignableAssignees,
+            }), { github: assigneeClient });
+            assignmentSummaries.push(`#${prNumber} – ensured assignees: ${assignableAssignees.join(', ')}`);
           } else {
             core.info(`#${prNumber}: no assignable human assignees available; skipping assignment.`);
             assignmentSummaries.push(`#${prNumber} – assignment skipped (no human assignees)`);

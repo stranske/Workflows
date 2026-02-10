@@ -1,0 +1,8 @@
+# Copilot Code Review Configuration
+# Excludes non-substantive paths from automated code review
+# Reference: https://docs.github.com/en/copilot/using-github-copilot/code-review/configuring-coding-guidelines
+
+review:
+  excluded_paths:
+    # Agent ledger/tracking files — internal automation state, not substantive code
+    - ".agents/**"

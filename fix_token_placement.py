@@ -2,6 +2,7 @@
 """Fix github-token in wrong location (after script: | instead of before)."""
 
 import re
+from re import Match
 
 files = [
     "agents-capability-check.yml",
@@ -22,7 +23,7 @@ for filename in files:
     # Find all instances where github-token comes after script content
     pattern = r"(        uses: actions/github-script@v8\s*\n        with:\s*\n          script: \|[^\n]*\n(?:            [^\n]*\n)*?)          github-token: (\$\{\{ [^}]+ \}\})\n\n(            )"
 
-    def fix_token_placement(match):
+    def fix_token_placement(match: Match[str]) -> str:
         script_part = match.group(1)
         token = match.group(2)
         code_start = match.group(3)

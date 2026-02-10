@@ -7,7 +7,7 @@ from pathlib import Path
 base = Path(".github/workflows")
 
 
-def remove_duplicate_app_tokens(filepath):
+def remove_duplicate_app_tokens(filepath: Path) -> bool:
     """Remove consecutive duplicate Mint GitHub App Token steps."""
     with open(filepath) as f:
         lines = f.readlines()

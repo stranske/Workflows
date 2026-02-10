@@ -336,6 +336,12 @@ scripts:
   - source: .github/scripts/bot-comment-dismiss.js
     description: "Collects ignored bot review comments for auto-dismiss handling"
 
+  - source: .github/scripts/should-post-review.js
+    description: "Evaluates whether a progress review comment should be posted"
+
+  - source: .github/scripts/keepalive_review_guard.js
+    description: "Guards against posting empty/null progress review comments"
+
   - source: .github/scripts/post_completion_comment.js
     description: "Posts completion comments on PRs"
 

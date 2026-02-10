@@ -1,6 +1,7 @@
 'use strict';
 
 const { ensureRateLimitWrapped } = require('./github-rate-limited-wrapper.js');
+const { minimatch } = require('minimatch');
 
 /**
  * GraphQL-based PR Context Fetcher
@@ -136,6 +137,7 @@ query PRBasic($owner: String!, $repo: String!, $number: Int!) {
 
 const DEFAULT_IGNORED_PATH_PREFIXES = ['.agents/'];
 const DEFAULT_IGNORED_PATH_PATTERNS = ['.agents/issue-*-ledger.yml'];
+const MINIMATCH_OPTIONS = { dot: true, nocase: true, nocomment: true, nonegate: true };
 
 async function resolveGithubClient(github) {
   if (!github) {
@@ -155,64 +157,142 @@ function parseCsv(value) {
   if (!value) {
     return [];
   }
-  return String(value)
-    .split(',')
-    .map((entry) => entry.trim())
-    .filter(Boolean);
+  const raw = String(value);
+  const entries = [];
+  let current = '';
+  let depth = 0;
+  let escaped = false;
+
+  for (let i = 0; i < raw.length; i += 1) {
+    const char = raw[i];
+    if (escaped) {
+      current += char;
+      escaped = false;
+      continue;
+    }
+    if (char === '\\') {
+      current += char;
+      escaped = true;
+      continue;
+    }
+    if (char === '{') {
+      depth += 1;
+      current += char;
+      continue;
+    }
+    if (char === '}') {
+      depth = Math.max(0, depth - 1);
+      current += char;
+      continue;
+    }
+    if (char === ',' && depth === 0) {
+      entries.push(current.trim());
+      current = '';
+      continue;
+    }
+    current += char;
+  }
+
+  entries.push(current.trim());
+  return entries.filter(Boolean);
 }
 
-function normalizeSlashes(value) {
+function normalizePath(value) {
   return String(value || '').replace(/\\/g, '/').toLowerCase();
 }
 
-function patternToRegex(pattern) {
-  const normalized = normalizeSlashes(pattern);
-  let regex = '';
-  for (let i = 0; i < normalized.length; i += 1) {
-    const char = normalized[i];
-    if (char === '*') {
-      const next = normalized[i + 1];
-      if (next === '*') {
-        regex += '.*';
-        i += 1;
-      } else {
-        regex += '[^/]*';
-      }
-      continue;
-    }
-    if (char === '?') {
-      regex += '[^/]';
-      continue;
-    }
-    regex += char.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+function normalizePattern(value) {
+  const raw = String(value || '');
+  if (!raw) {
+    return '';
   }
-  return new RegExp(`^${regex}$`);
+  let normalized = '';
+  for (let i = 0; i < raw.length; i += 1) {
+    const char = raw[i];
+    if (char === '\\') {
+      const next = raw[i + 1];
+      if (next && /[\\*?[\]{}()]/.test(next)) {
+        normalized += `\\${next}`;
+        i += 1;
+        continue;
+      }
+      normalized += '/';
+      continue;
+    }
+    normalized += char;
+  }
+  return normalized.toLowerCase();
 }
 
 function buildIgnoredPathMatchers(env = process.env) {
   const prefixes = parseCsv(env.PR_CONTEXT_IGNORED_PATHS);
   const patterns = parseCsv(env.PR_CONTEXT_IGNORED_PATTERNS);
+  const includes = parseCsv(env.PR_CONTEXT_INCLUDE_PATTERNS);
   const normalizedPrefixes = (prefixes.length ? prefixes : DEFAULT_IGNORED_PATH_PREFIXES)
-    .map((entry) => normalizeSlashes(entry))
+    .map((entry) => normalizePath(entry))
     .filter(Boolean);
   const normalizedPatterns = (patterns.length ? patterns : DEFAULT_IGNORED_PATH_PATTERNS)
-    .map((entry) => normalizeSlashes(entry))
+    .map((entry) => normalizePattern(entry))
     .filter(Boolean);
+  const normalizedIncludes = includes.map((entry) => normalizePattern(entry)).filter(Boolean);
   return {
     prefixes: normalizedPrefixes,
-    patterns: normalizedPatterns.map(patternToRegex),
+    patterns: normalizedPatterns,
+    includes: normalizedIncludes,
   };
 }
 
 function shouldIgnorePath(filename, matchers) {
-  const normalized = normalizeSlashes(filename);
+  const normalized = normalizePath(filename);
   if (!normalized) {
     return false;
   }
   if (matchers.prefixes.some((prefix) => normalized.startsWith(prefix))) {
     return true;
   }
-  return matchers.patterns.some((pattern) => pattern.test(normalized));
+  return matchers.patterns.some((pattern) => minimatch(normalized, pattern, MINIMATCH_OPTIONS));
+}
+
+function shouldIncludePath(filename, matchers) {
+  if (!matchers || !matchers.includes || matchers.includes.length === 0) {
+    return true;
+  }
+  const normalized = normalizePath(filename);
+  if (!normalized) {
+    return false;
+  }
+  return matchers.includes.some((pattern) => minimatch(normalized, pattern, MINIMATCH_OPTIONS));
+}
+
+function filterPaths(paths, matchers) {
+  const kept = [];
+  const ignored = [];
+
+  for (const path of paths || []) {
+    if (shouldIgnorePath(path, matchers) || !shouldIncludePath(path, matchers)) {
+      ignored.push(path);
+    } else {
+      kept.push(path);
+    }
+  }
+
+  return { kept, ignored };
+}
+
+function filterFileNodes(fileNodes, matchers) {
+  const kept = [];
+  const ignored = [];
+
+  for (const file of fileNodes || []) {
+    const path = file?.path;
+    if (shouldIgnorePath(path, matchers) || !shouldIncludePath(path, matchers)) {
+      ignored.push(file);
+    } else {
+      kept.push(file);
+    }
+  }
+
+  return { kept, ignored };
 }
 
 /**
@@ -254,16 +334,7 @@ async function fetchPRContext(github, owner, repo, number) {
     // Transform to a more usable format
     const ignoredMatchers = buildIgnoredPathMatchers(process.env);
     const rawFiles = pr.files?.nodes || [];
-    const filteredFiles = [];
-    const ignoredFiles = [];
-
-    for (const file of rawFiles) {
-      if (shouldIgnorePath(file?.path, ignoredMatchers)) {
-        ignoredFiles.push(file);
-      } else {
-        filteredFiles.push(file);
-      }
-    }
+    const { kept: filteredFiles, ignored: ignoredFiles } = filterFileNodes(rawFiles, ignoredMatchers);
 
     const ignoredCount = ignoredFiles.length;
 
@@ -484,6 +555,9 @@ module.exports = {
   fetchPRBasic,
   buildIgnoredPathMatchers,
   shouldIgnorePath,
+  shouldIncludePath,
+  filterPaths,
+  filterFileNodes,
   serializeForOutput,
   deserializeFromOutput,
   createPRContextCache

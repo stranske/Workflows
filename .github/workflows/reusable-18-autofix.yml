@@ -1280,6 +1280,7 @@ jobs:
           fetch-depth: 1
 
       - name: Build consolidated PR comment
+        id: build_comment
         if: steps.guard.outputs.skip != 'true'
         env:
           AUTOFIX_MODE: ${{ steps.fix_results.outputs.mode }}
@@ -1291,7 +1292,7 @@ jobs:
           scripts-path: workflows-lib/scripts
 
       - name: Upsert consolidated PR comment
-        if: steps.guard.outputs.skip != 'true'
+        if: steps.guard.outputs.skip != 'true' && steps.build_comment.outputs.should-post == 'true'
         uses: actions/github-script@v8
         env:
           PR_NUMBER: ${{ inputs.pr_number }}
