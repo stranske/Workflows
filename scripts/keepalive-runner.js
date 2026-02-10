@@ -211,7 +211,7 @@ function resolvePromptCheckboxCounts(scopeCounts, latestChecklist) {
   if (!scopeHasTasks) {
     return { total, unchecked };
   }
-  if (scopeComplete) {
+  if (scopeComplete && (safeScope.total !== total || !latestIncomplete)) {
     return safeScope;
   }
   return { total, unchecked };
@@ -809,16 +809,6 @@ function resolveDispatchToken(env = {}, instructionToken = '') {
   }
   const fallback = String(instructionToken || '').trim();
   return fallback ? fallback : '';
-}
-
-function stripTokenKeys(env = {}, keys = []) {
-  const cleaned = { ...env };
-  for (const key of keys) {
-    if (Object.prototype.hasOwnProperty.call(cleaned, key)) {
-      delete cleaned[key];
-    }
-  }
-  return cleaned;
 }
 
 function stripTokenKeys(env = {}, keys = []) {

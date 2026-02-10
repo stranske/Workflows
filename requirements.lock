@@ -35,7 +35,7 @@ charset-normalizer==3.4.4
     #   requests
 click==8.3.1
     # via black
-coverage==7.13.3
+coverage==7.13.4
     # via
     #   workflows (pyproject.toml)
     #   pytest-cov
