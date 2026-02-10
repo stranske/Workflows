@@ -249,6 +249,31 @@ def test_main_title_hash_prefers_head_ref(monkeypatch, capsys) -> None:
     assert "Issue consistency check passed for #5678." in captured.out
 
 
+def test_main_title_hash_without_head_ref_issue_falls_back(monkeypatch, capsys) -> None:
+    monkeypatch.delenv("GITHUB_EVENT_PATH", raising=False)
+    monkeypatch.setenv("PR_TITLE", "Update docs (#1234)")
+    monkeypatch.setenv("HEAD_REF", "feature/no-issue")
+    monkeypatch.setenv("BASE_REF", "")
+    monkeypatch.setenv("BASE_SHA", "")
+    monkeypatch.setenv("BASE_REMOTE", "origin")
+    monkeypatch.setattr(sys, "argv", ["check_issue_consistency.py"])
+
+    monkeypatch.setattr(
+        check_issue_consistency,
+        "collect_commit_messages",
+        lambda *args, **kwargs: (["fix: resolve issue #5678"], False),
+    )
+    monkeypatch.setattr(
+        check_issue_consistency,
+        "collect_changed_files",
+        lambda *args, **kwargs: ([], False),
+    )
+
+    assert check_issue_consistency.main() == 0
+    captured = capsys.readouterr()
+    assert "Issue consistency check passed for #5678." in captured.out
+
+
 def test_main_autofix_skips_mismatched_commits(monkeypatch, capsys) -> None:
     monkeypatch.delenv("GITHUB_EVENT_PATH", raising=False)
     monkeypatch.setenv("PR_TITLE", "Autofix #1234")

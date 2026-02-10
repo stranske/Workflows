@@ -478,6 +478,13 @@ def main() -> int:
                 "retaining PR title issue reference.",
                 file=sys.stderr,
             )
+        else:
+            print(
+                "Warning: PR title uses a bare # reference with no issue context; "
+                "falling back to commits/headers.",
+                file=sys.stderr,
+            )
+            pr_issue = None
     if not pr_issue:
         pr_issue, head_ambiguous = resolve_head_ref_issue_number(head_ref)
         if head_ambiguous:
