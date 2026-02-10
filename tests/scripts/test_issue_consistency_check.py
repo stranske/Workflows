@@ -174,6 +174,47 @@ def test_run_git_with_fallback_handles_invalid_object(monkeypatch) -> None:
     assert calls == [["log"], ["log", "-n", "1"]]
 
 
+def test_resolve_base_sha_prefers_merge_base(monkeypatch) -> None:
+    calls = []
+
+    def fake_is_ancestor(candidate: str, ref: str = "HEAD") -> bool:
+        calls.append(("is_ancestor", candidate, ref))
+        return False
+
+    def fake_run_git(args: list[str]) -> str:
+        calls.append(("run_git", args))
+        assert args == ["merge-base", "deadbeef", "HEAD"]
+        return "cafebabe\n"
+
+    monkeypatch.setattr(check_issue_consistency, "_is_ancestor", fake_is_ancestor)
+    monkeypatch.setattr(check_issue_consistency, "_run_git", fake_run_git)
+
+    resolved = check_issue_consistency._resolve_base_sha_for_head("deadbeef")
+
+    assert resolved == "cafebabe"
+    assert calls[0] == ("is_ancestor", "deadbeef", "HEAD")
+
+
+def test_resolve_base_sha_keeps_ancestor(monkeypatch) -> None:
+    calls = []
+
+    def fake_is_ancestor(candidate: str, ref: str = "HEAD") -> bool:
+        calls.append(("is_ancestor", candidate, ref))
+        return True
+
+    def fake_run_git(args: list[str]) -> str:
+        calls.append(("run_git", args))
+        return "should-not-run"
+
+    monkeypatch.setattr(check_issue_consistency, "_is_ancestor", fake_is_ancestor)
+    monkeypatch.setattr(check_issue_consistency, "_run_git", fake_run_git)
+
+    resolved = check_issue_consistency._resolve_base_sha_for_head("deadbeef")
+
+    assert resolved == "deadbeef"
+    assert calls == [("is_ancestor", "deadbeef", "HEAD")]
+
+
 def test_main_skips_ambiguous_head_ref(monkeypatch, capsys) -> None:
     monkeypatch.delenv("GITHUB_EVENT_PATH", raising=False)
     monkeypatch.setenv("PR_TITLE", "")

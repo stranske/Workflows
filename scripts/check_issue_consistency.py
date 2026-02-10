@@ -190,6 +190,30 @@ def _run_git(args: list[str]) -> str:
     return result.stdout
 
 
+def _is_ancestor(candidate: str, ref: str = "HEAD") -> bool:
+    if not candidate or not ref:
+        return False
+    result = subprocess.run(
+        ["git", "merge-base", "--is-ancestor", candidate, ref],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    return result.returncode == 0
+
+
+def _resolve_base_sha_for_head(base_sha: str | None) -> str | None:
+    if not base_sha:
+        return None
+    if _is_ancestor(base_sha, "HEAD"):
+        return base_sha
+    try:
+        merge_base = _run_git(["merge-base", base_sha, "HEAD"]).strip()
+    except RuntimeError:
+        return base_sha
+    return merge_base or base_sha
+
+
 def _remote_exists(name: str) -> bool:
     if not name:
         return False
@@ -300,6 +324,7 @@ def collect_commit_messages(
 ) -> tuple[list[str], bool]:
     resolved_remote = None
     used_fallback = False
+    base_sha = _resolve_base_sha_for_head(base_sha)
     log_prefix = ["log", "--format=%s", "--first-parent"]
     if base_ref:
         resolved_remote = _find_remote_with_ref(base_remote, base_ref)
@@ -334,6 +359,7 @@ def collect_changed_files(
 ) -> tuple[list[Path], bool]:
     resolved_remote = None
     used_fallback = False
+    base_sha = _resolve_base_sha_for_head(base_sha)
     if base_ref:
         resolved_remote = _find_remote_with_ref(base_remote, base_ref)
     if base_sha:
