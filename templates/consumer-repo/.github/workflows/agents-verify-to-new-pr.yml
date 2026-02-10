@@ -751,7 +751,8 @@ jobs:
       - name: Persist follow-up issue metadata
         if: >-
           steps.check-merged.outputs.merged == 'true' &&
-          steps.chain-check.outputs.exceeded != 'true'
+          steps.chain-check.outputs.exceeded != 'true' &&
+          steps.verdict-needs-human.outcome != 'success'
         run: |
           cat <<'EOF' > followup_issue_output.json
           {
@@ -765,7 +766,8 @@ jobs:
       - name: Upload follow-up issue metadata
         if: >-
           steps.check-merged.outputs.merged == 'true' &&
-          steps.chain-check.outputs.exceeded != 'true'
+          steps.chain-check.outputs.exceeded != 'true' &&
+          steps.verdict-needs-human.outcome != 'success'
         uses: actions/upload-artifact@v6
         with:
           name: verify-create-new-pr-output
@@ -780,7 +782,8 @@ jobs:
       - name: Comment on original PR
         if: >-
           steps.check-merged.outputs.merged == 'true' &&
-          steps.chain-check.outputs.exceeded != 'true'
+          steps.chain-check.outputs.exceeded != 'true' &&
+          steps.verdict-needs-human.outcome != 'success'
         uses: actions/github-script@v8
         env:
           ISSUE_NUMBER: ${{ steps.create-issue.outputs.issue_number }}
