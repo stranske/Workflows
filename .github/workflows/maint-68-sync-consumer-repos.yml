@@ -456,10 +456,14 @@ jobs:
           for item in manifest.get('scripts', []):
               source = item.get('source', '')
               description = item.get('description', 'No description')
+              is_directory = item.get('is_directory', False)
               # Scripts come from .github/scripts/, not templates
               template_src = Path('workflows') / source
               consumer_dst = Path('consumer') / source
-              sync_file(template_src, consumer_dst, description)
+              if is_directory:
+                  sync_directory(template_src, consumer_dst, description)
+              else:
+                  sync_file(template_src, consumer_dst, description)
 
           # Process codex_config
           print("Processing codex config...")

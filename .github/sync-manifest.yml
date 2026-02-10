@@ -246,12 +246,15 @@ scripts:
     description: "Node package manifest for .github scripts (vendored minimatch)"
 
   - source: .github/scripts/node_modules/minimatch/
+    is_directory: true
     description: "Vendored minimatch dependency for .github scripts"
 
   - source: .github/scripts/node_modules/brace-expansion/
+    is_directory: true
     description: "Vendored brace-expansion dependency (transitive dep of minimatch)"
 
   - source: .github/scripts/node_modules/balanced-match/
+    is_directory: true
     description: "Vendored balanced-match dependency (transitive dep of brace-expansion)"
 
   # JavaScript scripts for issue/PR handling
