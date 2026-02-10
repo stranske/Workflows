@@ -137,7 +137,7 @@ query PRBasic($owner: String!, $repo: String!, $number: Int!) {
 
 const DEFAULT_IGNORED_PATH_PREFIXES = ['.agents/'];
 const DEFAULT_IGNORED_PATH_PATTERNS = ['.agents/issue-*-ledger.yml'];
-const MINIMATCH_OPTIONS = { dot: true, nocase: true, nocomment: true, nonegate: true };
+const MINIMATCH_OPTIONS = { dot: true, nocomment: true, nonegate: true };
 
 async function resolveGithubClient(github) {
   if (!github) {

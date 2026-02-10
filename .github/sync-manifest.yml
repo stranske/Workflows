@@ -242,6 +242,12 @@ scripts:
   - source: .github/scripts/checkout_source.js
     description: "Source checkout utilities for CI workflows"
 
+  - source: .github/scripts/package.json
+    description: "Node package manifest for .github scripts (vendored minimatch)"
+
+  - source: .github/scripts/node_modules/minimatch/
+    description: "Vendored minimatch dependency for .github scripts"
+
   # JavaScript scripts for issue/PR handling
   - source: .github/scripts/issue_pr_locator.js
     description: "Locates PRs associated with issues"
