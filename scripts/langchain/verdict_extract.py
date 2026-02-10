@@ -6,7 +6,7 @@ import argparse
 import json
 import os
 import sys
-from typing import Any
+from typing import TypedDict
 
 from scripts.langchain import verdict_policy
 
@@ -19,8 +19,22 @@ def build_verdict_result(
     return verdict_policy.evaluate_summary(summary, policy=policy)
 
 
-def _write_github_outputs(result: verdict_policy.VerdictPolicyResult, output_path: str) -> None:
-    outputs: dict[str, Any] = {
+class VerdictGithubOutputs(TypedDict):
+    verdict: str
+    needs_human: str
+    needs_human_reason: str
+    policy: str
+    verdict_kind: str
+    selected_provider: str
+    selected_model: str
+    selected_confidence: str
+    split_verdict: str
+    concerns_confidence: str
+    verdict_metadata: str
+
+
+def _build_github_outputs(result: verdict_policy.VerdictPolicyResult) -> VerdictGithubOutputs:
+    return {
         "verdict": result.verdict,
         "needs_human": str(result.needs_human).lower(),
         "needs_human_reason": result.needs_human_reason,
@@ -37,6 +51,10 @@ def _write_github_outputs(result: verdict_policy.VerdictPolicyResult, output_pat
         ),
         "verdict_metadata": json.dumps(result.as_dict()),
     }
+
+
+def _write_github_outputs(result: verdict_policy.VerdictPolicyResult, output_path: str) -> None:
+    outputs = _build_github_outputs(result)
 
     with open(output_path, "a", encoding="utf-8") as handle:
         for key, value in outputs.items():
