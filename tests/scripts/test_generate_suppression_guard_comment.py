@@ -6,8 +6,6 @@ import sys
 import textwrap
 from pathlib import Path
 
-import pytest
-
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from scripts.generate_suppression_guard_comment import build_comment
 
