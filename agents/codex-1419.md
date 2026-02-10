@@ -1,0 +1,1 @@
+<!-- needs-human: workflow updates required in .github/workflows/agents-verify-to-new-pr.yml to fix verdict extraction (use all provider verdicts with worst-case or majority policy) and to provide full file contents for verify:compare on small files (<500 lines). Workflow edits require agent-high-privilege. -->

@@ -463,4 +463,59 @@ describe('bot-comment-dismiss', () => {
       https.request = originalRequest;
     }
   });
+
+  it('supports character class glob patterns', () => {
+    const dismissable = collectDismissable(
+      [
+        { id: 301, path: 'src/a.ts', user: { login: 'copilot[bot]' } },
+        { id: 302, path: 'src/b.ts', user: { login: 'copilot[bot]' } },
+        { id: 303, path: 'src/c.ts', user: { login: 'copilot[bot]' } },
+      ],
+      {
+        ignoredPaths: ['src/[ab].ts'],
+        botAuthors: ['copilot[bot]'],
+      }
+    );
+
+    assert.deepStrictEqual(dismissable, [
+      { id: 301, path: 'src/a.ts', author: 'copilot[bot]' },
+      { id: 302, path: 'src/b.ts', author: 'copilot[bot]' },
+    ]);
+  });
+
+  it('supports brace expansion glob patterns', () => {
+    const dismissable = collectDismissable(
+      [
+        { id: 311, path: 'src/app.ts', user: { login: 'copilot[bot]' } },
+        { id: 312, path: 'src/view.tsx', user: { login: 'copilot[bot]' } },
+        { id: 313, path: 'src/app.js', user: { login: 'copilot[bot]' } },
+      ],
+      {
+        ignoredPaths: ['src/*.{ts,tsx}'],
+        botAuthors: ['copilot[bot]'],
+      }
+    );
+
+    assert.deepStrictEqual(dismissable, [
+      { id: 311, path: 'src/app.ts', author: 'copilot[bot]' },
+      { id: 312, path: 'src/view.tsx', author: 'copilot[bot]' },
+    ]);
+  });
+
+  it('supports escaped metacharacters in glob patterns', () => {
+    const dismissable = collectDismissable(
+      [
+        { id: 321, path: 'docs/[draft].md', user: { login: 'copilot[bot]' } },
+        { id: 322, path: 'docs/draft.md', user: { login: 'copilot[bot]' } },
+      ],
+      {
+        ignoredPaths: ['docs/\\[draft\\].md'],
+        botAuthors: ['copilot[bot]'],
+      }
+    );
+
+    assert.deepStrictEqual(dismissable, [
+      { id: 321, path: 'docs/[draft].md', author: 'copilot[bot]' },
+    ]);
+  });
 });

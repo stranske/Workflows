@@ -400,6 +400,63 @@ class TestGenerateFollowupIssue:
         assert "Not Ready" in followup.body
         assert "follow-up" in followup.labels
 
+    def test_split_verdicts_use_worst_case(self):
+        """Split verdicts should resolve to the worst-case provider verdict."""
+        verification_data = VerificationData(
+            provider_verdicts={
+                "openai": {"verdict": "PASS", "confidence": 90},
+                "anthropic": {"verdict": "CONCERNS", "confidence": 80},
+            },
+            concerns=["Missing test coverage"],
+        )
+
+        verdict = followup_issue_generator._resolve_verdict_policy(verification_data).verdict
+
+        assert verdict == "CONCERNS"
+
+    def test_advisory_concerns_are_notes(self):
+        """Advisory concerns should be placed in Notes instead of tasks."""
+        verification_data = VerificationData(
+            provider_verdicts={"openai": {"verdict": "CONCERNS", "confidence": 70}},
+            concerns=["Missing tests for edge cases", "Could add a clarifying comment"],
+        )
+
+        original_issue = OriginalIssueData(number=100, title="Add caching feature")
+
+        followup = generate_followup_issue(
+            verification_data=verification_data,
+            original_issue=original_issue,
+            pr_number=200,
+            use_llm=False,
+        )
+
+        assert "Missing tests for edge cases" in followup.body
+        assert "Could add a clarifying comment" in followup.body
+        assert "- [ ] Address: Missing tests for edge cases" in followup.body
+        assert "- [ ] Address: Could add a clarifying comment" not in followup.body
+        assert "## Notes" in followup.body
+
+    def test_split_low_confidence_requires_needs_human(self):
+        """Low-confidence split verdicts should trigger needs-human labeling."""
+        verification_data = VerificationData(
+            provider_verdicts={
+                "openai": {"verdict": "PASS", "confidence": 90},
+                "anthropic": {"verdict": "CONCERNS", "confidence": 70},
+            },
+            concerns=["Missing test coverage"],
+        )
+
+        original_issue = OriginalIssueData(number=100, title="Add caching feature")
+
+        followup = generate_followup_issue(
+            verification_data=verification_data,
+            original_issue=original_issue,
+            pr_number=200,
+            use_llm=False,
+        )
+
+        assert "needs-human" in followup.labels
+
     def test_generate_without_llm_missing_concerns_adds_rerun_task(self):
         """Missing concerns should yield a concrete re-verification task."""
         verification_data = VerificationData(
@@ -652,6 +709,10 @@ def test_generate_with_llm_passes_config_metadata(llm_config_sentinel) -> None:
         original_issue,
         pr_number=123,
         codex_log=None,
+        blocking_concerns=["Missing tests"],
+        advisory_concerns=[],
+        verdict="FAIL",
+        needs_human_reason="",
         reasoning_client=reasoning_client,
         reasoning_model="o3-mini",
         standard_client=standard_client,
@@ -727,6 +788,10 @@ def test_generate_with_llm_config_propagation(
         original_issue,
         pr_number=123,
         codex_log=None,
+        blocking_concerns=["Missing tests"],
+        advisory_concerns=[],
+        verdict="FAIL",
+        needs_human_reason="",
         reasoning_client=reasoning_client,
         reasoning_model="o3-mini",
         standard_client=standard_client,
@@ -797,6 +862,10 @@ def test_generate_with_llm_metadata_propagation(
         original_issue,
         pr_number=123,
         codex_log=None,
+        blocking_concerns=["Missing tests"],
+        advisory_concerns=[],
+        verdict="FAIL",
+        needs_human_reason="",
         reasoning_client=reasoning_client,
         reasoning_model="o3-mini",
         standard_client=standard_client,

@@ -1,0 +1,671 @@
+version: 1
+issue: 1427
+base: main
+branch: codex/issue-1427
+tasks:
+  - id: task-01
+    title: 'Update `.github/workflows/agents-verify-to-new-pr.yml` to run a Python
+      entrypoint/module that imports `verdict_policy.py` and emits structured step
+      outputs (at minimum: `verdict`, `needs_human`, and any required metadata) instead
+      of using first-table-row regex `match()` parsing.'
+    status: done
+    started_at: '2026-02-10T05:59:58Z'
+    finished_at: '2026-02-10T06:00:06Z'
+    commit: b02c2a9cdb1a661428d9ca2473c09930c232f6b3
+    notes: []
+  - id: task-02
+    title: 'Create a Python entrypoint module that imports verdict_policy (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: 'parses provider markdown input (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: 'Define the structured output format including verdict (verify: formatter
+      passes)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: 'Define the structured output format including needs_human (verify: formatter
+      passes)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: 'Define the structured output format including and metadata fields (verify:
+      formatter passes)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: 'Define scope for: Emit the structured outputs in a format consumable by
+      GitHub Actions step outputs (verify: formatter passes)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: 'Implement focused slice for: Emit the structured outputs in a format consumable
+      by GitHub Actions step outputs (verify: formatter passes)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: 'Validate focused slice for: Emit the structured outputs in a format consumable
+      by GitHub Actions step outputs (verify: formatter passes)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: 'Document the workflow integration requirements for manual implementation
+      by a maintainer (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: 'Implement or update a single importable API in `verdict_policy.py` that
+      deterministically selects the verdict and returns machine-readable metadata
+      including `needs_human`, enforcing: for split verdicts (PASS+CONCERNS), set
+      `needs_human = True` only when CONCERNS confidence is strictly `< 0.85` and
+      `False` otherwise.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: 'Define the return type structure for the verdict policy API including
+      verdict (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: 'Define scope for: Define the return type structure for the verdict policy
+      API including metadata fields (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: 'Implement focused slice for: Define the return type structure for the
+      verdict policy API including metadata fields (verify: confirm completion in
+      repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: 'Validate focused slice for: Define the return type structure for the verdict
+      policy API including metadata fields (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: 'Implement the deterministic verdict selection logic that handles split
+      verdicts consistently (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: 'Define scope for: Add the needs_human calculation logic based on CONCERNS
+      confidence threshold of 0.85 (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: 'Implement focused slice for: Add the needs_human calculation logic based
+      on CONCERNS confidence threshold of 0.85 (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: 'Validate focused slice for: Add the needs_human calculation logic based
+      on CONCERNS confidence threshold of 0.85 (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: 'Define scope for: Define the confidence threshold constant in verdict_policy.py
+      as the single source of truth (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: 'Implement focused slice for: Define the confidence threshold constant
+      in verdict_policy.py as the single source of truth (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: 'Validate focused slice for: Define the confidence threshold constant in
+      verdict_policy.py as the single source of truth (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-23
+    title: Update the verification-to-PR pipeline code path to consume the `verdict_policy.py`
+      API output (verdict + metadata) for both (a) verdict extraction in the workflow
+      step and (b) follow-up classification, removing any secondary parsing/decision
+      logic after policy evaluation.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-24
+    title: 'Define scope for: Identify all locations in the codebase that perform
+      verdict extraction or classification logic (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-25
+    title: 'Implement focused slice for: Identify all locations in the codebase that
+      perform verdict extraction or classification logic (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-26
+    title: 'Validate focused slice for: Identify all locations in the codebase that
+      perform verdict extraction or classification logic (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-27
+    title: 'Define scope for: Update follow-up classification code to consume verdict_policy.py
+      API instead of local logic (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-28
+    title: 'Implement focused slice for: Update follow-up classification code to consume
+      verdict_policy.py API instead of local logic (verify: confirm completion in
+      repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-29
+    title: 'Validate focused slice for: Update follow-up classification code to consume
+      verdict_policy.py API instead of local logic (verify: confirm completion in
+      repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-30
+    title: 'Remove secondary parsing (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-31
+    title: 'decision logic from all non-policy files (verify: confirm completion in
+      repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-32
+    title: 'Document the workflow step integration requirements for manual implementation
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-33
+    title: Refactor `followup_issue_generator.py` to remove duplicated/parallel verdict
+      policy logic (including split-verdict resolution and confidence gating) and
+      instead import and use the shared `verdict_policy.py` API, propagating `needs_human`
+      unchanged into follow-up output.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-34
+    title: 'Add integration tests that feed provider markdown/table inputs yielding
+      split verdicts (PASS+CONCERNS) and assert both the workflow-level extraction
+      path and follow-up generation path return identical deterministic `verdict`
+      and `needs_human` for: (1) CONCERNS confidence `>= 0.85`, (2) CONCERNS confidence
+      `< 0.85`, and (3) swapped provider table row order.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-35
+    title: 'Define scope for: Create test fixtures with provider markdown tables containing
+      split verdicts at various confidence levels (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-36
+    title: 'Implement focused slice for: Create test fixtures with provider markdown
+      tables containing split verdicts at various confidence levels (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-37
+    title: 'Validate focused slice for: Create test fixtures with provider markdown
+      tables containing split verdicts at various confidence levels (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-38
+    title: 'Define scope for: Write integration test for split verdict with CONCERNS
+      confidence greater than or equal to 0.85 (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-39
+    title: 'Implement focused slice for: Write integration test for split verdict
+      with CONCERNS confidence greater than or equal to 0.85 (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-40
+    title: 'Validate focused slice for: Write integration test for split verdict with
+      CONCERNS confidence greater than or equal to 0.85 (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-41
+    title: 'Define scope for: Write integration test for split verdict with CONCERNS
+      confidence strictly less than 0.85 (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-42
+    title: 'Implement focused slice for: Write integration test for split verdict
+      with CONCERNS confidence strictly less than 0.85 (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-43
+    title: 'Validate focused slice for: Write integration test for split verdict with
+      CONCERNS confidence strictly less than 0.85 (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-44
+    title: 'Write integration test verifying row-order invariance by swapping provider
+      table rows (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-45
+    title: 'Define scope for: Write integration test for the workflow-level extraction
+      path using the verdict policy API (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-46
+    title: 'Implement focused slice for: Write integration test for the workflow-level
+      extraction path using the verdict policy API (verify: confirm completion in
+      repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-47
+    title: 'Validate focused slice for: Write integration test for the workflow-level
+      extraction path using the verdict policy API (verify: confirm completion in
+      repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-48
+    title: 'Define scope for: Write integration test for the follow-up generation
+      path using the verdict policy API (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-49
+    title: 'Implement focused slice for: Write integration test for the follow-up
+      generation path using the verdict policy API (verify: confirm completion in
+      repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-50
+    title: 'Validate focused slice for: Write integration test for the follow-up generation
+      path using the verdict policy API (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-51
+    title: '`.github/workflows/agents-verify-to-new-pr.yml` invokes the deterministic
+      verdict extraction API from `verdict_policy.py` (not a regex `match()`/first-row
+      selection) and passes `verdict` and metadata (including `needs_human`) to downstream
+      steps via step outputs or environment variables.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-52
+    title: '`verdict_policy.py` exposes a single importable function (or small API
+      surface) that returns a deterministic verdict and metadata including boolean
+      `needs_human`, where `needs_human == true` only for split verdicts (PASS+CONCERNS)
+      with CONCERNS confidence strictly `< 0.85`, and `false` otherwise.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-53
+    title: The verification-to-PR pipeline uses the exact same `verdict_policy.py`
+      API for both (a) extracting verdict/metadata from provider output and (b) driving
+      follow-up classification logic, with no secondary parsing/decision logic applied
+      after policy evaluation.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-54
+    title: '`followup_issue_generator.py` imports and uses the shared verdict policy
+      from `verdict_policy.py` and contains no duplicated/parallel logic for split-verdict
+      resolution or the 0.85 CONCERNS confidence gating; follow-up output includes
+      the policy-provided `needs_human` flag (or equivalent field) unchanged.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-55
+    title: Integration tests simulate provider markdown/table inputs that yield split
+      verdicts (PASS + CONCERNS) and verify deterministic verdict extraction is invariant
+      to provider table row order (swapping row order produces identical `verdict`
+      and `needs_human`).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-56
+    title: Integration test case A (PASS+CONCERNS with CONCERNS confidence `>= 0.85`)
+      asserts `needs_human == false` and asserts workflow-level extraction and follow-up
+      generation produce identical deterministic `verdict` and metadata (including
+      identical `needs_human`).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-57
+    title: Integration test case B (PASS+CONCERNS with CONCERNS confidence `< 0.85`)
+      asserts `needs_human == true` and asserts workflow-level extraction and follow-up
+      generation produce identical deterministic `verdict` and metadata (including
+      identical `needs_human`).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-58
+    title: 'Integration tests enforce the strict boundary: exactly `0.85` CONCERNS
+      confidence in a split verdict yields `needs_human == false`, and any value strictly
+      below `0.85` yields `needs_human == true`.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-59
+    title: No file outside `verdict_policy.py` contains hard-coded references to the
+      split-verdict confidence threshold (`0.85`) for gating decisions (excluding
+      tests/fixtures); the threshold is defined/owned by `verdict_policy.py` and consumed
+      via its API.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-60
+    title: Modify `.github/workflows/agents-verify-to-new-pr.yml` to call the deterministic
+      verdict extraction implemented in `verdict_policy.py` (instead of selecting
+      the first table-row `match()`), and use the returned verdict/metadata for downstream
+      steps.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-61
+    title: Wire `verdict_policy.py` into the verification-to-PR pipeline so the same
+      shared function is used for (a) verdict extraction in the workflow step and
+      (b) follow-up classification; ensure the policy output includes a machine-readable
+      flag like `needs_human` when split verdicts have CONCERNS confidence < 0.85.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-62
+    title: Refactor `followup_issue_generator.py` to remove any duplicated/parallel
+      verdict policy logic and instead import and use the shared APIs from `verdict_policy.py`
+      (including the <85% CONCERNS confidence split-verdict gating that marks the
+      follow-up as `needs-human`).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-63
+    title: Add integration tests that simulate provider markdown/table inputs producing
+      split verdicts (PASS+CONCERNS) with (1) CONCERNS confidence >= 0.85 and (2)
+      CONCERNS confidence < 0.85, and assert that both the workflow-level extraction
+      path and the follow-up generation path agree on the deterministic outcome and
+      the `needs-human` gating.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-64
+    title: '`.github/workflows/agents-verify-to-new-pr.yml` invokes the deterministic
+      verdict extraction API from `verdict_policy.py` (not a regex `match()`/first-row
+      selection) and the workflow passes the extracted `verdict` and `metadata` to
+      downstream steps via step outputs or environment variables.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-65
+    title: '`verdict_policy.py` exposes a single, importable function (or small API
+      surface) that returns a deterministic verdict decision and machine-readable
+      metadata including a boolean `needs_human` flag that is `true` for split verdicts
+      (PASS+CONCERNS) when CONCERNS confidence is < 0.85, and `false` otherwise.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-66
+    title: The verification-to-PR pipeline uses the exact same `verdict_policy.py`
+      API for both (a) extracting verdict/metadata from provider output and (b) driving
+      follow-up classification logic, with no secondary parsing/decision logic applied
+      after policy evaluation.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-67
+    title: '`followup_issue_generator.py` imports and uses the shared verdict policy
+      from `verdict_policy.py` and contains no duplicated/parallel logic for (1) split
+      verdict resolution or (2) the 0.85 CONCERNS confidence gating; follow-up output
+      includes the policy-provided `needs_human` flag (or equivalent field) unchanged.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-68
+    title: New/updated integration tests simulate provider markdown/table inputs that
+      yield split verdicts (PASS + CONCERNS) and verify deterministic verdict extraction
+      is invariant to provider table row order (i.e., swapping row order produces
+      identical `verdict` and `needs_human`).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-69
+    title: Integration test case A (split verdict PASS+CONCERNS with CONCERNS confidence
+      >= 0.85) asserts `needs_human == false` and asserts that workflow-level extraction
+      and follow-up generation produce the same deterministic verdict and metadata
+      (including identical `needs_human`).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-70
+    title: Integration test case B (split verdict PASS+CONCERNS with CONCERNS confidence
+      < 0.85) asserts `needs_human == true` and asserts that workflow-level extraction
+      and follow-up generation produce the same deterministic verdict and metadata
+      (including identical `needs_human`).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-71
+    title: 'The confidence threshold is enforced as a strict boundary: exactly 0.85
+      CONCERNS confidence in a split verdict results in `needs_human == false`, and
+      any value strictly below 0.85 results in `needs_human == true`.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-72
+    title: No file outside `verdict_policy.py` contains hard-coded references to the
+      split-verdict confidence threshold (0.85) for gating decisions; the threshold
+      is defined/owned by `verdict_policy.py` and consumed via its API.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-73
+    title: Update `.github/workflows/agents-verify-to-new-pr.yml` to run a Python
+      entrypoint/module... (Agent cannot modify files in .github/workflows/ directory
+      (protected) | Create the Python entrypoint module and document the required
+      workflow changes in a separate file (e.g., WORKFLOW_INTEGRATION.md) for manual
+      implementation by a maintainer with write access)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-74
+    title: Update the verification-to-PR pipeline code path to consume the `verdict_policy.py`
+      API output (verdict + metadata) for both (a) verdict extraction in the workflow
+      step... (The workflow step portion requires modifying .github/workflows/*.yml
+      which is protected | Focus on updating the Python code paths (follow-up generator,
+      policy API) and document the workflow integration contract separately for manual
+      implementation)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []

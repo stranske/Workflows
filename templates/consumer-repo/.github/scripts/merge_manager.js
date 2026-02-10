@@ -1,5 +1,5 @@
 const { Buffer } = require('node:buffer');
-const { minimatch } = require('minimatch');
+const { minimatch } = require('./minimatch-lite.js');
 const { ensureRateLimitWrapped } = require('./github-rate-limited-wrapper.js');
 
 async function fetchAllowlist(github, owner, repo, path, ref) {

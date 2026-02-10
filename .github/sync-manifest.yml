@@ -242,6 +242,12 @@ scripts:
   - source: .github/scripts/checkout_source.js
     description: "Source checkout utilities for CI workflows"
 
+  - source: .github/scripts/package.json
+    description: "Node package manifest for .github scripts (vendored minimatch)"
+
+  - source: .github/scripts/node_modules/minimatch/
+    description: "Vendored minimatch dependency for .github scripts"
+
   # JavaScript scripts for issue/PR handling
   - source: .github/scripts/issue_pr_locator.js
     description: "Locates PRs associated with issues"
@@ -335,6 +341,12 @@ scripts:
 
   - source: .github/scripts/bot-comment-dismiss.js
     description: "Collects ignored bot review comments for auto-dismiss handling"
+
+  - source: .github/scripts/should-post-review.js
+    description: "Evaluates whether a progress review comment should be posted"
+
+  - source: .github/scripts/keepalive_review_guard.js
+    description: "Guards against posting empty/null progress review comments"
 
   - source: .github/scripts/post_completion_comment.js
     description: "Posts completion comments on PRs"

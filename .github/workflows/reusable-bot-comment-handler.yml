@@ -118,6 +118,7 @@ jobs:
             .github/actions/setup-api-client
             .github/scripts/github-api-with-retry.js
             .github/scripts/token_load_balancer.js
+            .github/scripts/bot-comment-dismiss.js
           sparse-checkout-cone-mode: false
 
       - name: Setup API client
@@ -278,6 +279,44 @@ jobs:
                 console.log(`- ${c.path}:${c.line} (${c.author}): ${c.body.substring(0, 100)}...`);
               }
             }
+
+      - name: Auto-dismiss review comments on ignored paths
+        if: steps.collect.outputs.found == 'true'
+        uses: actions/github-script@v8
+        with:
+          github-token: ${{ steps.auth.outputs.token }}
+          script: |
+            const { autoDismissReviewComments } = require('./.github/scripts/bot-comment-dismiss.js');
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const { withRetry } = await createTokenAwareRetry({
+              github, core,
+              env: process.env,
+              task: 'bot-comment-dismiss',
+              capabilities: ['pull-requests:write'],
+            });
+            const prNumber = parseInt('${{ inputs.pr_number }}');
+            const ignoredPaths = '${{ inputs.ignored_paths }}'
+              .split(',')
+              .map(s => s.trim())
+              .filter(Boolean);
+            const botAuthors = [
+              'copilot-pull-request-reviewer',
+              'chatgpt-codex-connector',
+              'github-actions[bot]',
+            ];
+
+            const result = await autoDismissReviewComments({
+              github, withRetry, core,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pullNumber: prNumber,
+              ignoredPaths,
+              botAuthors,
+            });
+
+            const dismissedCount = Array.isArray(result.dismissed) ? result.dismissed.length : 0;
+            const failedCount = Array.isArray(result.failed) ? result.failed.length : 0;
+            core.info(`Auto-dismissed ${dismissedCount} review comment(s) on ignored paths (failed: ${failedCount})`);
 
       - name: Post summary
         if: steps.collect.outputs.found == 'true'
