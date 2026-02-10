@@ -1,7 +1,7 @@
 'use strict';
 
 const { ensureRateLimitWrapped } = require('./github-rate-limited-wrapper.js');
-const { minimatch } = require('minimatch');
+const { minimatch } = require('./minimatch-lite.js');
 
 /**
  * GraphQL-based PR Context Fetcher
