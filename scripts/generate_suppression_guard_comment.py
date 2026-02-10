@@ -6,7 +6,8 @@ from __future__ import annotations
 import argparse
 import pathlib
 import re
-from typing import Any, Iterable, Sequence
+from collections.abc import Iterable, Sequence
+from typing import Any
 
 import yaml
 
@@ -102,7 +103,9 @@ def _iter_posting_steps(workflow: dict[str, Any]) -> list[tuple[str, str, list[s
     return findings
 
 
-def _format_findings(workflow_path: pathlib.Path, findings: Sequence[tuple[str, str, list[str]]]) -> list[str]:
+def _format_findings(
+    workflow_path: pathlib.Path, findings: Sequence[tuple[str, str, list[str]]]
+) -> list[str]:
     lines: list[str] = []
     lines.append(f"Workflow: {workflow_path}")
     if not findings:
