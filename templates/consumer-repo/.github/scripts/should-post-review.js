@@ -19,10 +19,10 @@ function writeOutput(shouldPost) {
   const line = `should_post_review=${shouldPost ? 'true' : 'false'}`;
 
   if (outputPath) {
-    fs.appendFileSync(outputPath, `${line}\n`, 'utf8');
-  } else {
-    process.stdout.write(`${line}\n`);
+    fs.writeFileSync(outputPath, `${line}\n`, 'utf8');
+    return;
   }
+  process.stdout.write(`${line}\n`);
 }
 
 function main() {
