@@ -248,6 +248,12 @@ scripts:
   - source: .github/scripts/node_modules/minimatch/
     description: "Vendored minimatch dependency for .github scripts"
 
+  - source: .github/scripts/node_modules/brace-expansion/
+    description: "Vendored brace-expansion dependency (transitive dep of minimatch)"
+
+  - source: .github/scripts/node_modules/balanced-match/
+    description: "Vendored balanced-match dependency (transitive dep of brace-expansion)"
+
   # JavaScript scripts for issue/PR handling
   - source: .github/scripts/issue_pr_locator.js
     description: "Locates PRs associated with issues"
