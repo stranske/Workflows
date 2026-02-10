@@ -369,11 +369,96 @@ jobs:
             core.setOutput('exceeded', 'false');
             core.setOutput('next_depth', String(depth + 1));
 
+      - name: Extract verdict via verdict_policy
+        id: extract-verdict
+        if: >-
+          steps.check-merged.outputs.merged == 'true' &&
+          steps.chain-check.outputs.exceeded != 'true'
+        continue-on-error: true
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          python -m scripts.langchain.verdict_extract \
+            --summary-path verification_data.txt \
+            --policy worst \
+            --emit github
+
+      - name: Apply needs-human from verdict policy
+        id: verdict-needs-human
+        if: >-
+          steps.check-merged.outputs.merged == 'true' &&
+          steps.chain-check.outputs.exceeded != 'true' &&
+          steps.extract-verdict.outputs.needs_human == 'true'
+        uses: actions/github-script@v8
+        env:
+          LINKED_ISSUE: ${{ steps.collect.outputs.original_issue_number }}
+          NEEDS_HUMAN_REASON: ${{ steps.extract-verdict.outputs.needs_human_reason }}
+        with:
+          github-token: ${{ steps.select-token.outputs.token }}
+          script: |
+            const fs = require('fs');
+            const retryHelperPath =
+              './.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : { withRetry: (fn) => fn() };
+            const { withRetry } = retryHelpers;
+
+            const prNumber = context.payload.pull_request.number;
+            const linkedIssue = process.env.LINKED_ISSUE;
+            const reason = process.env.NEEDS_HUMAN_REASON || '';
+
+            const comment = [
+              '🛑 **Verdict policy: needs-human**',
+              '',
+              'The deterministic verdict policy flagged this PR for ' +
+                'human review due to a split verdict with low-confidence ' +
+                'concerns.',
+              '',
+              reason ? `**Reason:** ${reason}` : '',
+              '',
+              '> A human should review whether the remaining ' +
+                'concerns warrant manual action or can be accepted.'
+            ].filter(Boolean).join('\n');
+
+            await withRetry(
+              (client) => (client || github).rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body: comment
+              })
+            );
+
+            await withRetry(
+              (client) => (client || github).rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                labels: ['needs-human']
+              })
+            );
+
+            if (linkedIssue) {
+              try {
+                await withRetry(
+                  (client) =>
+                    (client || github).rest.issues.addLabels({
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      issue_number: parseInt(linkedIssue),
+                      labels: ['needs-human']
+                    })
+                );
+              } catch (_) { /* best effort */ }
+            }
+
       - name: Generate follow-up issue
         id: generate
         if: >-
           steps.check-merged.outputs.merged == 'true' &&
-          steps.chain-check.outputs.exceeded != 'true'
+          steps.chain-check.outputs.exceeded != 'true' &&
+          steps.verdict-needs-human.outcome != 'success'
         continue-on-error: true
         env:
           PYTHONPATH: ${{ github.workspace }}
@@ -418,10 +503,12 @@ jobs:
         if: >-
           steps.generate.outcome == 'failure' &&
           steps.check-merged.outputs.merged == 'true' &&
-          steps.chain-check.outputs.exceeded != 'true'
+          steps.chain-check.outputs.exceeded != 'true' &&
+          steps.verdict-needs-human.outcome != 'success'
         uses: actions/github-script@v8
         env:
           FOLLOW_UP_DEPTH: ${{ steps.chain-check.outputs.next_depth }}
+          EXTRACTED_VERDICT: ${{ steps.extract-verdict.outputs.verdict }}
         with:
           github-token: ${{ steps.select-token.outputs.token }}
           script: |
@@ -492,19 +579,22 @@ jobs:
               }
             }
 
-            // --- Extract verdict from multiple formats ---
-            let verdict = 'Unknown';
+            // --- Extract verdict ---
+            // Prefer the deterministic extraction from verdict_policy.py
+            let verdict = process.env.EXTRACTED_VERDICT || '';
 
-            // Format 1: Provider Summary table row with FAIL/CONCERNS/PASS
-            const tableMatch = verificationText.match(
-              /\|\s*\w+\s*\|[^|]+\|\s*(FAIL|CONCERNS|PASS)\s*\|/i
-            );
-            if (tableMatch) {
-              verdict = tableMatch[1].toUpperCase();
+            // Fall back to regex extraction only when the Python
+            // entrypoint did not produce a result.
+            if (!verdict || verdict === 'Unknown') {
+              const tableMatch = verificationText.match(
+                /\|\s*\w+\s*\|[^|]+\|\s*(FAIL|CONCERNS|PASS)\s*\|/i
+              );
+              if (tableMatch) {
+                verdict = tableMatch[1].toUpperCase();
+              }
             }
 
-            // Format 2: - **Verdict:** WORD (inside <details> sections)
-            if (verdict === 'Unknown') {
+            if (!verdict || verdict === 'Unknown') {
               const boldMatch = verificationText.match(
                 /\*\*Verdict:\*\*\s*(\w+)/i
               );
@@ -585,7 +675,8 @@ jobs:
         id: create-issue
         if: >-
           steps.check-merged.outputs.merged == 'true' &&
-          steps.chain-check.outputs.exceeded != 'true'
+          steps.chain-check.outputs.exceeded != 'true' &&
+          steps.verdict-needs-human.outcome != 'success'
         uses: actions/github-script@v8
         env:
           ISSUE_TITLE: >-
