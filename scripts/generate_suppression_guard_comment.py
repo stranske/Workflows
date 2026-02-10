@@ -88,6 +88,8 @@ def _iter_posting_steps(workflow: dict[str, Any]) -> list[tuple[str, str, list[s
     findings: list[tuple[str, str, list[str]]] = []
     jobs = workflow.get("jobs") or {}
     for job_id, job in jobs.items():
+        job_if = job.get("if")
+        job_if_str = job_if if isinstance(job_if, str) else ""
         steps = job.get("steps") or []
         for index, step in enumerate(steps, start=1):
             if not isinstance(step, dict):
@@ -98,7 +100,10 @@ def _iter_posting_steps(workflow: dict[str, Any]) -> list[tuple[str, str, list[s
             action_hint = _step_action_hint(step)
             if action_hint:
                 hints.append(action_hint)
-            if hints:
+            step_if = step.get("if")
+            step_if_str = step_if if isinstance(step_if, str) else ""
+            guarded = "should_post_review" in job_if_str or "should_post_review" in step_if_str
+            if hints and not guarded:
                 findings.append((str(job_id), str(name), hints))
     return findings
 
@@ -109,7 +114,10 @@ def _format_findings(
     lines: list[str] = []
     lines.append(f"Workflow: {workflow_path}")
     if not findings:
-        lines.append("- No obvious PR comment/review posting steps detected.")
+        lines.append(
+            "- No unguarded PR comment/review posting steps detected "
+            "(or posting steps are already guarded)."
+        )
         return lines
     for job_id, step_name, hints in findings:
         hint_str = ", ".join(sorted(set(hints)))
@@ -131,6 +139,11 @@ def build_comment(workflows: Iterable[pathlib.Path], include_label: bool = False
     lines.append("")
 
     for workflow_path in workflows:
+        if not workflow_path.exists():
+            lines.append(f"Workflow: {workflow_path}")
+            lines.append("- Workflow file not found in repository.")
+            lines.append("")
+            continue
         workflow = _load_workflow(workflow_path)
         findings = _iter_posting_steps(workflow)
         lines.extend(_format_findings(workflow_path, findings))
