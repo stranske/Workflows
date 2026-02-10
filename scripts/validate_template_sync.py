@@ -19,6 +19,17 @@ def hash_file(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def hash_directory(path: Path) -> str:
+    """Compute a combined SHA256 hash of all files in a directory."""
+    h = hashlib.sha256()
+    for child in sorted(path.rglob("*")):
+        if child.is_file():
+            rel = child.relative_to(path)
+            h.update(str(rel).encode())
+            h.update(child.read_bytes())
+    return h.hexdigest()
+
+
 def main() -> int:
     repo_root = Path(__file__).parent.parent
     source_dir = repo_root / ".github" / "scripts"
@@ -59,8 +70,12 @@ def main() -> int:
             mismatches.append(relative_path)
             continue
 
-        source_hash = hash_file(source_file)
-        template_hash = hash_file(template_file)
+        if source_file.is_dir():
+            source_hash = hash_directory(source_file)
+            template_hash = hash_directory(template_file)
+        else:
+            source_hash = hash_file(source_file)
+            template_hash = hash_file(template_file)
 
         if source_hash != template_hash:
             mismatches.append(relative_path)

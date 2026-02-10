@@ -38,11 +38,23 @@ synced=0
 for file in $FILES; do
     source_file="$SOURCE_DIR/$file"
     template_file="$TEMPLATE_DIR/$file"
-    
+
     # Create parent directory if it doesn't exist
     mkdir -p "$(dirname "$template_file")"
-    
-    if [ ! -f "$template_file" ]; then
+
+    if [ -d "$source_file" ]; then
+        # Handle directory entries (e.g. vendored node_modules)
+        if [ ! -d "$template_file" ] || ! diff -qr "$source_file" "$template_file" > /dev/null 2>&1; then
+            if [ -d "$template_file" ]; then
+                echo "  ✓ Syncing $file (directory)"
+            else
+                echo "  ✓ Creating $file (new directory)"
+            fi
+            rm -rf "$template_file"
+            cp -r "$source_file" "$template_file"
+            synced=$((synced + 1)) || true
+        fi
+    elif [ ! -f "$template_file" ]; then
         echo "  ✓ Creating $file (new file)"
         cp "$source_file" "$template_file"
         synced=$((synced + 1)) || true
