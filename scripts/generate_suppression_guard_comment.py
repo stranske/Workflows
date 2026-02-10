@@ -42,10 +42,11 @@ ACTION_HINTS: tuple[tuple[str, str], ...] = (
 
 # Matches suppress_comments in a negation context so that an inverted guard
 # like ``inputs.suppress_comments == true`` is NOT treated as a valid guard.
+# Covers: != true, == false, !inputs.suppress_comments, !(inputs.suppress_comments)
 _SUPPRESS_NEGATION_RE = re.compile(
     r"suppress_comments\s*!=\s*true"
     r"|suppress_comments\s*==\s*false"
-    r"|!\s*inputs\.suppress_comments"
+    r"|!\s*\(?\s*inputs\.suppress_comments"
 )
 
 
