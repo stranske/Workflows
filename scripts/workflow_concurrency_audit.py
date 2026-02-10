@@ -10,7 +10,6 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import yaml
-
 from scripts import workflow_run_counts
 
 DEFAULT_HIGH_FREQUENCY_TRIGGERS = (

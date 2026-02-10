@@ -3,7 +3,6 @@ from pathlib import Path
 from xml.etree import ElementTree as ET
 
 import pytest
-
 from scripts import ci_metrics
 
 

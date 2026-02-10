@@ -2,7 +2,6 @@ import json
 from pathlib import Path
 
 import pytest
-
 from scripts import aggregate_repo_metrics as aggregator
 
 

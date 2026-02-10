@@ -5,7 +5,6 @@ import sys
 from pathlib import Path
 
 import pytest
-
 from scripts import (
     auto_type_hygiene,
     fix_cosmetic_aggregate,
@@ -13,6 +12,7 @@ from scripts import (
     mypy_return_autofix,
     update_autofix_expectations,
 )
+
 from tests._autofix_diag import DiagnosticsRecorder
 
 

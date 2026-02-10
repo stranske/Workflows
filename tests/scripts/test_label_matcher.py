@@ -3,7 +3,6 @@ import types
 from dataclasses import dataclass
 
 import pytest
-
 from scripts.langchain import label_matcher, semantic_matcher
 
 

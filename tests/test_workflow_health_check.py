@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-
 from scripts.workflow_health_check import (
     analyze_failure_patterns,
     calculate_success_rate,

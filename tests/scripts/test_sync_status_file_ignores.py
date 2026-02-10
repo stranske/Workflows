@@ -7,7 +7,6 @@ import sys
 from pathlib import Path
 
 import pytest
-
 from scripts import sync_status_file_ignores
 
 

@@ -7,7 +7,6 @@ from datetime import datetime
 from pathlib import Path
 
 import pytest
-
 from scripts.build_autofix_pr_comment import (
     MARKER,
     _snapshot_code_lines,

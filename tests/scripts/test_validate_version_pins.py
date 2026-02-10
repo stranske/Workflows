@@ -5,7 +5,6 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import pytest
-
 from scripts import validate_version_pins
 
 

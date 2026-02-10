@@ -2,7 +2,6 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
-
 from scripts import keepalive_metrics_collector as collector
 
 

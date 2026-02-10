@@ -5,7 +5,6 @@ import logging
 from unittest import mock
 
 import pytest
-
 from scripts.langchain import pr_verifier
 
 

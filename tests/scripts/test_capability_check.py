@@ -10,7 +10,6 @@ from typing import Any
 from unittest import mock
 
 import pytest
-
 from scripts.langchain.capability_check import (
     AGENT_CAPABILITY_CHECK_PROMPT,
     CapabilityCheckResult,

@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-
 from scripts.ci_failure_analyzer import (
     aggregate_failures,
     classify_failure,

@@ -13,8 +13,8 @@ from pathlib import Path
 from typing import Any
 
 import requests
-
 from scripts import api_client, duplicate_detection
+
 from src import percentile_calculator
 
 DEFAULT_METRICS_PATH = "metrics-history.ndjson"

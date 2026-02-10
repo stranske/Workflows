@@ -3,7 +3,6 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
-
 from scripts import autopilot_metrics_collector as collector
 
 

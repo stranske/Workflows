@@ -6,7 +6,6 @@ import logging
 import sys
 
 import pytest
-
 from scripts.langchain import followup_issue_generator
 from scripts.langchain.followup_issue_generator import (
     OriginalIssueData,

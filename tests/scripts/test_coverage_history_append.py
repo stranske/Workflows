@@ -4,7 +4,6 @@ import json
 from pathlib import Path
 
 import pytest
-
 from scripts import coverage_history_append
 
 

@@ -7,7 +7,6 @@ import types
 from unittest import mock
 
 import pytest
-
 from scripts.langchain import issue_formatter
 
 

@@ -7,7 +7,6 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
-
 from scripts import workflow_health_check
 
 

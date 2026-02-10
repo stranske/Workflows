@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import pytest
-
 from scripts import create_verifier_labels as cvl
 
 

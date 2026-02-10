@@ -20,7 +20,6 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from scripts import update_versions_from_pypi
 from scripts.update_versions_from_pypi import (
     PACKAGE_MAPPING,

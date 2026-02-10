@@ -4,7 +4,6 @@ import sys
 from pathlib import Path
 
 import pytest
-
 from scripts import run_consumer_repo_tests
 
 

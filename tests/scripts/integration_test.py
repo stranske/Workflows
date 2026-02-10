@@ -1,5 +1,4 @@
 import pytest
-
 from scripts.langchain import integration_layer, semantic_matcher
 
 

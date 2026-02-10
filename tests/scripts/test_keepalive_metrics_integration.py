@@ -4,7 +4,6 @@ import subprocess
 from pathlib import Path
 
 import pytest
-
 from scripts import keepalive_metrics_collector as collector
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures" / "keepalive_metrics"

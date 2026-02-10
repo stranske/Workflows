@@ -1,7 +1,6 @@
 from pathlib import Path
 
 import pytest
-
 from scripts import metrics_dashboard_generator as generator
 
 

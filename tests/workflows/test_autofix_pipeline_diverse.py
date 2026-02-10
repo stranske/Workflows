@@ -7,7 +7,6 @@ from pathlib import Path
 from textwrap import dedent
 
 import pytest
-
 import scripts.auto_type_hygiene as auto_type_hygiene
 import scripts.fix_cosmetic_aggregate as fix_cosmetic_aggregate
 import scripts.fix_numpy_asserts as fix_numpy_asserts
@@ -56,7 +55,8 @@ def test_autofix_pipeline_handles_diverse_errors(
 
     sample_module = sample_pkg / "diagnostic_module.py"
     sample_module.write_text(
-        dedent('''
+        dedent(
+            '''
             import os
             import yaml  # type: ignore[arg-type]
             from collections import defaultdict
@@ -76,44 +76,51 @@ def test_autofix_pipeline_handles_diverse_errors(
                 if tag is None:
                     return ["fallback"]
                 return data_map["numbers"]
-            ''').lstrip(),
+            '''
+        ).lstrip(),
         encoding="utf-8",
     )
 
     automation_module = trend_pkg / "automation_multifailure.py"
     automation_module.write_text(
-        dedent("""
+        dedent(
+            """
             from typing import Iterable
 
 
             def aggregate_numbers(values: Iterable[int]) -> str:
                 return ",".join(str(v) for v in values)
-            """).lstrip(),
+            """
+        ).lstrip(),
         encoding="utf-8",
     )
 
     numpy_test = tests_dir / "test_pipeline_warmup_autofix.py"
     numpy_test.write_text(
-        dedent("""
+        dedent(
+            """
             import numpy as np
 
 
             def test_numpy_array_equality():
                 array_payload = np.array([1, 2, 3])
                 assert array_payload == [1, 2, 3]
-            """).lstrip(),
+            """
+        ).lstrip(),
         encoding="utf-8",
     )
 
     expectations_module = tests_dir / "test_expectations_mod.py"
     expectations_module.write_text(
-        dedent("""
+        dedent(
+            """
             EXPECTED_REPORT_COUNT = 0
 
 
             def compute_expected_report_count() -> int:
                 return 7
-            """).lstrip(),
+            """
+        ).lstrip(),
         encoding="utf-8",
     )
 

@@ -4,7 +4,6 @@ import subprocess
 from pathlib import Path
 
 import pytest
-
 from scripts import keepalive_metrics_collector as collector
 from scripts import keepalive_metrics_dashboard as dashboard
 from scripts import keepalive_post_merge_metrics as post_merge

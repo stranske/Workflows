@@ -4,7 +4,6 @@ from unittest.mock import MagicMock
 
 import pytest
 from pydantic import BaseModel, Field, ValidationError
-
 from scripts.langchain import structured_output
 from scripts.langchain.structured_output import (
     DEFAULT_REPAIR_PROMPT,

@@ -119,6 +119,15 @@ ignore = [
     "E501",  # Line too long (handled by black)
 ]
 
+[tool.ruff.lint.isort]
+# Treat scripts.* as third-party so import ordering matches consumer repos.
+# Consumer repos have src = ["src", "tests"] which excludes scripts/ from
+# first-party detection. Without this, our repo treats scripts.* as
+# first-party (blank line between pydantic and scripts imports) while
+# consumers treat it as third-party (no blank line), causing I001 failures
+# in synced files.
+known-third-party = ["scripts"]
+
 [tool.flake8]
 max-line-length = 100
 extend-ignore = ["E501", "W503"]
