@@ -32,6 +32,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from scripts.langchain import verdict_policy
+
 # Section alias handling aligned with issue_formatter/issue_optimizer.
 SECTION_ALIASES = {
     "why": ["why", "motivation", "summary", "goals"],
@@ -104,13 +106,6 @@ def _parse_confidence_value(text: str) -> int:
     return int(round(value))
 
 
-VERDICT_SEVERITY = {
-    "pass": 0,
-    "unknown": 1,
-    "concerns": 2,
-    "fail": 3,
-}
-
 ADVISORY_PATTERNS = [
     r"\bnit\b",
     r"\bnitpick\b",
@@ -153,48 +148,6 @@ BLOCKING_HINTS = [
 ]
 
 
-def _classify_verdict(text: str) -> str:
-    """Normalize verdict text into pass/concerns/fail/unknown."""
-    normalized = (text or "").strip().lower()
-    if not normalized:
-        return "unknown"
-    if "pass" in normalized:
-        return "pass"
-    if "fail" in normalized:
-        return "fail"
-    if "concern" in normalized or "needs work" in normalized or "not ready" in normalized:
-        return "concerns"
-    if "unknown" in normalized:
-        return "unknown"
-    return "concerns"
-
-
-def _select_primary_verdict(provider_verdicts: dict[str, dict[str, Any]]) -> str:
-    """Select the worst-case verdict with deterministic tie-breaking."""
-    if not provider_verdicts:
-        return "Unknown"
-
-    best_provider = None
-    best_severity = -1
-    best_confidence = -1
-    for provider, payload in provider_verdicts.items():
-        verdict_text = payload.get("verdict", "") or ""
-        verdict_kind = _classify_verdict(verdict_text)
-        severity = VERDICT_SEVERITY.get(verdict_kind, 1)
-        confidence = payload.get("confidence", 0) or 0
-        if severity > best_severity:
-            best_provider = provider
-            best_severity = severity
-            best_confidence = confidence
-            continue
-        if severity == best_severity and confidence > best_confidence:
-            best_provider = provider
-            best_confidence = confidence
-
-    if best_provider is None:
-        return "Unknown"
-    return provider_verdicts[best_provider].get("verdict", "Unknown") or "Unknown"
-
 
 def _is_advisory_concern(concern: str) -> bool:
     text = (concern or "").strip().lower()
@@ -218,40 +171,20 @@ def _split_concerns(concerns: list[str]) -> tuple[list[str], list[str]]:
     return blocking, advisory
 
 
-def _split_verdicts(provider_verdicts: dict[str, dict[str, Any]]) -> tuple[bool, int]:
-    """Return (is_split, max_non_pass_confidence)."""
-    if not provider_verdicts:
-        return False, 0
-    verdict_kinds = [
-        _classify_verdict(payload.get("verdict", "")) for payload in provider_verdicts.values()
-    ]
-    has_pass = any(kind == "pass" for kind in verdict_kinds)
-    has_non_pass = any(kind in {"concerns", "fail"} for kind in verdict_kinds)
-    if not (has_pass and has_non_pass):
-        return False, 0
-    max_confidence = 0
-    for payload in provider_verdicts.values():
-        if _classify_verdict(payload.get("verdict", "")) in {"concerns", "fail"}:
-            max_confidence = max(max_confidence, payload.get("confidence", 0) or 0)
-    return True, max_confidence
-
-
-def _needs_human_due_to_split(
-    provider_verdicts: dict[str, dict[str, Any]],
-    *,
-    confidence_threshold: int = 85,
-) -> tuple[bool, str]:
-    is_split, max_confidence = _split_verdicts(provider_verdicts)
-    if not is_split:
-        return False, ""
-    if max_confidence >= confidence_threshold:
-        return False, ""
-    return (
-        True,
-        "Provider verdicts split with low-confidence concerns; "
-        f"dissenting confidence {max_confidence}% < {confidence_threshold}%. "
-        "Requires human review before starting another automated follow-up.",
-    )
+def _resolve_verdict_policy(
+    verification_data: "VerificationData",
+) -> verdict_policy.VerdictPolicyResult:
+    verdicts: list[verdict_policy.ProviderVerdict] = []
+    for provider, payload in verification_data.provider_verdicts.items():
+        verdicts.append(
+            verdict_policy.ProviderVerdict(
+                provider=provider,
+                model=payload.get("model", "") or "",
+                verdict=payload.get("verdict", "") or "",
+                confidence=float(payload.get("confidence", 0) or 0),
+            )
+        )
+    return verdict_policy.evaluate_verdict_policy(verdicts, policy="worst")
 
 
 # Pre-computed normalized aliases for efficient section resolution.
@@ -1057,8 +990,10 @@ def generate_followup_issue(
     4. Format the final issue
     """
     blocking_concerns, advisory_concerns = _split_concerns(verification_data.concerns)
-    needs_human, needs_human_reason = _needs_human_due_to_split(verification_data.provider_verdicts)
-    verdict = _get_primary_verdict(verification_data)
+    policy_result = _resolve_verdict_policy(verification_data)
+    needs_human = policy_result.needs_human
+    needs_human_reason = policy_result.needs_human_reason
+    verdict = policy_result.verdict
 
     if needs_human:
         return _generate_without_llm(
@@ -1097,13 +1032,13 @@ def generate_followup_issue(
             codex_log,
             blocking_concerns=blocking_concerns,
             advisory_concerns=advisory_concerns,
-            verdict=verdict,
-            needs_human_reason=needs_human_reason,
-            reasoning_client=reasoning_client_info[0],
-            reasoning_model=reasoning_client_info[1],
-            standard_client=standard_client_info[0],
-            standard_model=standard_client_info[1],
-        )
+        verdict=verdict,
+        needs_human_reason=needs_human_reason,
+        reasoning_client=reasoning_client_info[0],
+        reasoning_model=reasoning_client_info[1],
+        standard_client=standard_client_info[0],
+        standard_model=standard_client_info[1],
+    )
     elif reasoning_client_info:
         # Only reasoning client available - use it for all steps
         return _generate_with_llm(
@@ -1113,13 +1048,13 @@ def generate_followup_issue(
             codex_log,
             blocking_concerns=blocking_concerns,
             advisory_concerns=advisory_concerns,
-            verdict=verdict,
-            needs_human_reason=needs_human_reason,
-            reasoning_client=reasoning_client_info[0],
-            reasoning_model=reasoning_client_info[1],
-            standard_client=reasoning_client_info[0],
-            standard_model=reasoning_client_info[1],
-        )
+        verdict=verdict,
+        needs_human_reason=needs_human_reason,
+        reasoning_client=reasoning_client_info[0],
+        reasoning_model=reasoning_client_info[1],
+        standard_client=reasoning_client_info[0],
+        standard_model=reasoning_client_info[1],
+    )
     elif standard_client_info:
         # Only standard client available - use it for all steps
         return _generate_with_llm(
@@ -1129,13 +1064,13 @@ def generate_followup_issue(
             codex_log,
             blocking_concerns=blocking_concerns,
             advisory_concerns=advisory_concerns,
-            verdict=verdict,
-            needs_human_reason=needs_human_reason,
-            reasoning_client=standard_client_info[0],
-            reasoning_model=standard_client_info[1],
-            standard_client=standard_client_info[0],
-            standard_model=standard_client_info[1],
-        )
+        verdict=verdict,
+        needs_human_reason=needs_human_reason,
+        reasoning_client=standard_client_info[0],
+        reasoning_model=standard_client_info[1],
+        standard_client=standard_client_info[0],
+        standard_model=standard_client_info[1],
+    )
     else:
         # No LLM clients available
         return _generate_without_llm(
@@ -1450,7 +1385,8 @@ def _build_why_section(
     needs_human_reason: str | None = None,
 ) -> str:
     """Build the Why section explaining the follow-up context."""
-    verdict = verdict or _get_primary_verdict(verification_data)
+    if verdict is None:
+        verdict = _resolve_verdict_policy(verification_data).verdict
 
     parts = [
         f"PR #{pr_number} addressed issue #{original_issue.number} but verification "
@@ -1479,10 +1415,6 @@ def _build_why_section(
 
     return " ".join(parts)
 
-
-def _get_primary_verdict(verification_data: VerificationData) -> str:
-    """Get the primary verdict from verification data."""
-    return _select_primary_verdict(verification_data.provider_verdicts)
 
 
 def main() -> int:

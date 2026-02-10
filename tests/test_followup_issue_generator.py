@@ -410,7 +410,7 @@ class TestGenerateFollowupIssue:
             concerns=["Missing test coverage"],
         )
 
-        verdict = followup_issue_generator._get_primary_verdict(verification_data)
+        verdict = followup_issue_generator._resolve_verdict_policy(verification_data).verdict
 
         assert verdict == "CONCERNS"
 

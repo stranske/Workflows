@@ -7,6 +7,7 @@ import json
 import sys
 from collections.abc import Iterable
 from dataclasses import dataclass
+from typing import Any
 
 VERDICT_SEVERITY = {
     "unknown": 0,
@@ -15,6 +16,8 @@ VERDICT_SEVERITY = {
     "fail": 3,
 }
 
+CONCERNS_NEEDS_HUMAN_THRESHOLD = 0.85
+
 
 @dataclass(frozen=True)
 class ProviderVerdict:
@@ -22,6 +25,36 @@ class ProviderVerdict:
     model: str
     verdict: str
     confidence: float
+
+
+@dataclass(frozen=True)
+class VerdictPolicyResult:
+    verdict: str
+    verdict_kind: str
+    policy: str
+    needs_human: bool
+    needs_human_reason: str
+    selected_provider: str | None
+    selected_model: str | None
+    selected_confidence: float | None
+    split_verdict: bool
+    concerns_confidence: float | None
+    providers: list[ProviderVerdict]
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "verdict": self.verdict,
+            "verdict_kind": self.verdict_kind,
+            "policy": self.policy,
+            "needs_human": self.needs_human,
+            "needs_human_reason": self.needs_human_reason,
+            "selected_provider": self.selected_provider,
+            "selected_model": self.selected_model,
+            "selected_confidence": self.selected_confidence,
+            "split_verdict": self.split_verdict,
+            "concerns_confidence": self.concerns_confidence,
+            "providers": [item.__dict__ for item in self.providers],
+        }
 
 
 def _classify_verdict(verdict: str) -> str:
@@ -45,6 +78,14 @@ def _coerce_confidence(value: str) -> float:
         return float(cleaned)
     except ValueError:
         return 0.0
+
+
+def _normalize_confidence(value: float) -> float:
+    if value <= 0:
+        return 0.0
+    if value <= 1:
+        return value
+    return value / 100.0
 
 
 def _iter_markdown_rows(lines: Iterable[str]) -> Iterable[list[str]]:
@@ -83,33 +124,129 @@ def extract_provider_verdicts(summary: str) -> list[ProviderVerdict]:
     return verdicts
 
 
-def select_verdict(verdicts: Iterable[ProviderVerdict], policy: str = "worst") -> str:
-    """Resolve a verdict using either worst-case or majority policy."""
-    verdict_list = list(verdicts)
-    if not verdict_list:
-        return "Unknown"
+def _select_deterministic(
+    verdicts: list[ProviderVerdict], *, policy: str
+) -> ProviderVerdict | None:
+    if not verdicts:
+        return None
 
     if policy == "worst":
-        worst = max(
-            verdict_list,
-            key=lambda item: VERDICT_SEVERITY.get(_classify_verdict(item.verdict), 0),
+        return max(
+            verdicts,
+            key=lambda item: (
+                VERDICT_SEVERITY.get(_classify_verdict(item.verdict), 0),
+                _normalize_confidence(item.confidence),
+                (item.provider or "").lower(),
+                (item.model or "").lower(),
+                (item.verdict or "").lower(),
+            ),
         )
-        return worst.verdict.strip() or "Unknown"
 
     if policy == "majority":
         buckets: dict[str, list[ProviderVerdict]] = {}
-        for item in verdict_list:
+        for item in verdicts:
             buckets.setdefault(_classify_verdict(item.verdict), []).append(item)
         majority_kind = max(
             buckets.items(),
             key=lambda pair: (len(pair[1]), VERDICT_SEVERITY.get(pair[0], 0)),
         )[0]
-        for item in verdict_list:
-            if _classify_verdict(item.verdict) == majority_kind:
-                return item.verdict.strip() or "Unknown"
-        return "Unknown"
+        majority_bucket = buckets.get(majority_kind, [])
+        if not majority_bucket:
+            return None
+        return max(
+            majority_bucket,
+            key=lambda item: (
+                _normalize_confidence(item.confidence),
+                (item.provider or "").lower(),
+                (item.model or "").lower(),
+                (item.verdict or "").lower(),
+            ),
+        )
 
     raise ValueError(f"Unknown policy: {policy}")
+
+
+def _split_pass_concerns(verdicts: list[ProviderVerdict]) -> tuple[bool, float | None]:
+    if not verdicts:
+        return False, None
+    kinds = [_classify_verdict(item.verdict) for item in verdicts]
+    has_pass = any(kind == "pass" for kind in kinds)
+    has_concerns = any(kind == "concerns" for kind in kinds)
+    if not (has_pass and has_concerns):
+        return False, None
+    max_confidence = 0.0
+    for item in verdicts:
+        if _classify_verdict(item.verdict) == "concerns":
+            max_confidence = max(max_confidence, _normalize_confidence(item.confidence))
+    return True, max_confidence
+
+
+def evaluate_verdict_policy(
+    verdicts: Iterable[ProviderVerdict],
+    *,
+    policy: str = "worst",
+) -> VerdictPolicyResult:
+    verdict_list = list(verdicts)
+    selected = _select_deterministic(verdict_list, policy=policy)
+    split_verdict, concerns_confidence = _split_pass_concerns(verdict_list)
+    needs_human = False
+    needs_human_reason = ""
+    if split_verdict:
+        confidence_value = concerns_confidence or 0.0
+        if confidence_value < CONCERNS_NEEDS_HUMAN_THRESHOLD:
+            needs_human = True
+            needs_human_reason = (
+                "Provider verdicts split with low-confidence concerns; "
+                f"dissenting confidence {confidence_value:.2f} < "
+                f"{CONCERNS_NEEDS_HUMAN_THRESHOLD:.2f}. "
+                "Requires human review before starting another automated follow-up."
+            )
+
+    if not selected:
+        return VerdictPolicyResult(
+            verdict="Unknown",
+            verdict_kind="unknown",
+            policy=policy,
+            needs_human=needs_human,
+            needs_human_reason=needs_human_reason,
+            selected_provider=None,
+            selected_model=None,
+            selected_confidence=None,
+            split_verdict=split_verdict,
+            concerns_confidence=concerns_confidence,
+            providers=verdict_list,
+        )
+
+    verdict_text = selected.verdict.strip() or "Unknown"
+    verdict_kind = _classify_verdict(verdict_text)
+
+    return VerdictPolicyResult(
+        verdict=verdict_text,
+        verdict_kind=verdict_kind,
+        policy=policy,
+        needs_human=needs_human,
+        needs_human_reason=needs_human_reason,
+        selected_provider=selected.provider,
+        selected_model=selected.model,
+        selected_confidence=_normalize_confidence(selected.confidence),
+        split_verdict=split_verdict,
+        concerns_confidence=concerns_confidence,
+        providers=verdict_list,
+    )
+
+
+def evaluate_summary(
+    summary: str,
+    *,
+    policy: str = "worst",
+) -> VerdictPolicyResult:
+    verdicts = extract_provider_verdicts(summary)
+    return evaluate_verdict_policy(verdicts, policy=policy)
+
+
+def select_verdict(verdicts: Iterable[ProviderVerdict], policy: str = "worst") -> str:
+    """Resolve a verdict using either worst-case or majority policy."""
+    return evaluate_verdict_policy(verdicts, policy=policy).verdict
 
 
 def _read_summary(path: str) -> str:
@@ -143,18 +280,12 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     summary = _read_summary(args.summary_path)
-    provider_verdicts = extract_provider_verdicts(summary)
-    verdict = select_verdict(provider_verdicts, policy=args.policy)
+    result = evaluate_summary(summary, policy=args.policy)
 
     if args.format == "json":
-        payload = {
-            "verdict": verdict,
-            "policy": args.policy,
-            "providers": [item.__dict__ for item in provider_verdicts],
-        }
-        print(json.dumps(payload, indent=2))
+        print(json.dumps(result.as_dict(), indent=2))
     else:
-        print(verdict)
+        print(result.verdict)
 
     return 0
 
