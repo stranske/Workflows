@@ -235,6 +235,23 @@ describe('bot-comment-dismiss glob matching', () => {
       { id: 61, path: 'docs/[draft].md', author: 'copilot[bot]' },
     ]);
   });
+
+  it('treats # as a literal character in glob patterns', () => {
+    const dismissable = collectDismissable(
+      [
+        { id: 71, path: 'docs/#draft.md', user: { login: 'copilot[bot]' } },
+        { id: 72, path: 'docs/draft.md', user: { login: 'copilot[bot]' } },
+      ],
+      {
+        ignoredPaths: ['docs/#draft.md'],
+        botAuthors: ['copilot[bot]'],
+      }
+    );
+
+    assert.deepStrictEqual(dismissable, [
+      { id: 71, path: 'docs/#draft.md', author: 'copilot[bot]' },
+    ]);
+  });
 });
 
 describe('bot-comment-dismiss maxAgeSeconds parsing', () => {
