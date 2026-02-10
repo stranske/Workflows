@@ -17,11 +17,17 @@ DEFAULT_WORKFLOWS = (
 )
 
 SCRIPT_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
-    (re.compile(r"github\.rest\.issues\.createComment"), "github.rest.issues.createComment"),
-    (re.compile(r"github\.rest\.pulls\.createReview\\b"), "github.rest.pulls.createReview"),
     (
-        re.compile(r"github\.rest\.pulls\.createReviewComment\\b"),
-        "github.rest.pulls.createReviewComment",
+        re.compile(r"(?:github|octokit)(?:\.rest)?\.issues\.createComment\b"),
+        "issues.createComment",
+    ),
+    (
+        re.compile(r"(?:github|octokit)(?:\.rest)?\.pulls\.createReview\b"),
+        "pulls.createReview",
+    ),
+    (
+        re.compile(r"(?:github|octokit)(?:\.rest)?\.pulls\.createReviewComment\b"),
+        "pulls.createReviewComment",
     ),
     (re.compile(r"\\bgh\\s+pr\\s+comment\\b"), "gh pr comment"),
     (re.compile(r"\\bgh\\s+pr\\s+review\\b"), "gh pr review"),

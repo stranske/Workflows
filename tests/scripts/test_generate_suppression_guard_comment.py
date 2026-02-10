@@ -66,3 +66,23 @@ def test_build_comment_reports_unguarded_steps(tmp_path: Path) -> None:
     comment = build_comment([workflow_path])
 
     assert "post / Post comment" in comment
+
+
+def test_build_comment_detects_octokit_aliases(tmp_path: Path) -> None:
+    workflow_path = tmp_path / "octokit.yml"
+    _write_yaml(
+        workflow_path,
+        """
+        name: Octokit Workflow
+        jobs:
+          post:
+            runs-on: ubuntu-latest
+            steps:
+              - name: Post comment
+                run: octokit.issues.createComment
+        """,
+    )
+
+    comment = build_comment([workflow_path])
+
+    assert "post / Post comment" in comment
