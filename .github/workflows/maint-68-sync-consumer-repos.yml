@@ -259,7 +259,9 @@ jobs:
           for script in $scripts; do
             if [ -f "$script" ]; then
               echo "Checking $script..."
-              if ! ruff check --select="E,W,F,I,B" "$script"; then
+              # Use ruff without --select override so
+              # pyproject.toml rules apply (matches CI).
+              if ! ruff check "$script"; then
                 echo "::error::$script fails lint"
                 failed=1
               fi
@@ -934,7 +936,7 @@ jobs:
           4. Or manually trigger: \`gh workflow run 'Maint 68 Sync Consumer Repos'\`
 
           ### Prevention
-          Run \`ruff check --select='E,W,F,I,B' scripts/\` locally before pushing changes to synced scripts.
+          Run \`ruff check scripts/\` locally before pushing changes to synced scripts.
 
           ---
           *This issue was automatically created by the sync workflow failure handler.*"
