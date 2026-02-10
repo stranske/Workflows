@@ -104,6 +104,156 @@ def _parse_confidence_value(text: str) -> int:
     return int(round(value))
 
 
+VERDICT_SEVERITY = {
+    "pass": 0,
+    "unknown": 1,
+    "concerns": 2,
+    "fail": 3,
+}
+
+ADVISORY_PATTERNS = [
+    r"\bnit\b",
+    r"\bnitpick\b",
+    r"\bstyle\b",
+    r"\boptional\b",
+    r"\bconsider\b",
+    r"\bcould\b",
+    r"\bwould be nice\b",
+    r"\bminor\b",
+    r"\bprefer\b",
+    r"\bsuggestion\b",
+    r"\bclarify\b",
+    r"\bcomment\b",
+]
+
+UNFALSIFIABLE_PATTERNS = [
+    r"not shown in diff",
+    r"diff context",
+    r"cannot confirm",
+    r"can't confirm",
+    r"from code review alone",
+    r"cannot verify",
+    r"can't verify",
+]
+
+BLOCKING_HINTS = [
+    r"\bmissing\b",
+    r"\bfail\b",
+    r"\berror\b",
+    r"\bincorrect\b",
+    r"\bbug\b",
+    r"\bcrash\b",
+    r"\bregression\b",
+    r"\bsecurity\b",
+    r"\bvulnerab",
+    r"\btest\b",
+    r"\bcoverage\b",
+    r"\bmodule not found\b",
+    r"\bimport\b",
+]
+
+
+def _classify_verdict(text: str) -> str:
+    """Normalize verdict text into pass/concerns/fail/unknown."""
+    normalized = (text or "").strip().lower()
+    if not normalized:
+        return "unknown"
+    if "pass" in normalized:
+        return "pass"
+    if "fail" in normalized:
+        return "fail"
+    if "concern" in normalized or "needs work" in normalized or "not ready" in normalized:
+        return "concerns"
+    if "unknown" in normalized:
+        return "unknown"
+    return "concerns"
+
+
+def _select_primary_verdict(provider_verdicts: dict[str, dict[str, Any]]) -> str:
+    """Select the worst-case verdict with deterministic tie-breaking."""
+    if not provider_verdicts:
+        return "Unknown"
+
+    best_provider = None
+    best_severity = -1
+    best_confidence = -1
+    for provider, payload in provider_verdicts.items():
+        verdict_text = payload.get("verdict", "") or ""
+        verdict_kind = _classify_verdict(verdict_text)
+        severity = VERDICT_SEVERITY.get(verdict_kind, 1)
+        confidence = payload.get("confidence", 0) or 0
+        if severity > best_severity:
+            best_provider = provider
+            best_severity = severity
+            best_confidence = confidence
+            continue
+        if severity == best_severity and confidence > best_confidence:
+            best_provider = provider
+            best_confidence = confidence
+
+    if best_provider is None:
+        return "Unknown"
+    return provider_verdicts[best_provider].get("verdict", "Unknown") or "Unknown"
+
+
+def _is_advisory_concern(concern: str) -> bool:
+    text = (concern or "").strip().lower()
+    if not text or concern == MISSING_CONCERNS_MESSAGE:
+        return False
+    if any(re.search(pattern, text) for pattern in UNFALSIFIABLE_PATTERNS):
+        return True
+    if any(re.search(pattern, text) for pattern in BLOCKING_HINTS):
+        return False
+    return any(re.search(pattern, text) for pattern in ADVISORY_PATTERNS)
+
+
+def _split_concerns(concerns: list[str]) -> tuple[list[str], list[str]]:
+    blocking: list[str] = []
+    advisory: list[str] = []
+    for concern in concerns:
+        if _is_advisory_concern(concern):
+            advisory.append(concern)
+        else:
+            blocking.append(concern)
+    return blocking, advisory
+
+
+def _split_verdicts(provider_verdicts: dict[str, dict[str, Any]]) -> tuple[bool, int]:
+    """Return (is_split, max_non_pass_confidence)."""
+    if not provider_verdicts:
+        return False, 0
+    verdict_kinds = [
+        _classify_verdict(payload.get("verdict", "")) for payload in provider_verdicts.values()
+    ]
+    has_pass = any(kind == "pass" for kind in verdict_kinds)
+    has_non_pass = any(kind in {"concerns", "fail"} for kind in verdict_kinds)
+    if not (has_pass and has_non_pass):
+        return False, 0
+    max_confidence = 0
+    for payload in provider_verdicts.values():
+        if _classify_verdict(payload.get("verdict", "")) in {"concerns", "fail"}:
+            max_confidence = max(max_confidence, payload.get("confidence", 0) or 0)
+    return True, max_confidence
+
+
+def _needs_human_due_to_split(
+    provider_verdicts: dict[str, dict[str, Any]],
+    *,
+    confidence_threshold: int = 85,
+) -> tuple[bool, str]:
+    is_split, max_confidence = _split_verdicts(provider_verdicts)
+    if not is_split:
+        return False, ""
+    if max_confidence >= confidence_threshold:
+        return False, ""
+    return (
+        True,
+        "Provider verdicts split with low-confidence concerns; "
+        f"dissenting confidence {max_confidence}% < {confidence_threshold}%. "
+        "Requires human review before starting another automated follow-up.",
+    )
+
+
 # Pre-computed normalized aliases for efficient section resolution.
 # Maps normalized alias string -> section key
 _NORMALIZED_ALIAS_MAP: dict[str, str] = {
@@ -269,6 +419,7 @@ Tasks: {tasks_json}
 Acceptance Criteria: {acceptance_criteria_json}
 Deferred Items: {deferred_tasks_json}
 Background (failures to avoid): {background_analysis}
+Advisory Notes (non-blocking concerns): {advisory_notes}
 
 ## Issue Structure
 
@@ -294,6 +445,15 @@ Use this exact structure (do NOT wrap in code fences):
 ## Implementation Notes
 [Specific guidance about files, approaches, or patterns to use]
 
+## Notes
+<details>
+<summary>Advisory items (non-blocking)</summary>
+
+- Advisory item 1
+- Advisory item 2
+
+</details>
+
 <details>
 <summary>Background (previous attempt context)</summary>
 
@@ -309,6 +469,7 @@ Use this exact structure (do NOT wrap in code fences):
 4. Keep the main body focused - hide background/history in the collapsible section
 5. Do NOT include the entire analysis object - only include specific failure
    contexts from `blockers_to_avoid`
+6. Omit the Notes section entirely if no advisory notes are provided
 
 Output the complete markdown issue body.
 Never wrap the body in code fences.
@@ -862,6 +1023,23 @@ def _strip_markdown_fence(text: str) -> str:
     return text.strip()
 
 
+def _append_advisory_notes(body: str, advisory_concerns: list[str]) -> str:
+    if not advisory_concerns:
+        return body
+    if "## Notes" in body:
+        return body
+    notes_lines = [
+        "",
+        "## Notes",
+        "<details>",
+        "<summary>Advisory items (non-blocking)</summary>",
+        "",
+    ]
+    notes_lines.extend(f"- {concern}" for concern in advisory_concerns)
+    notes_lines.extend(["", "</details>"])
+    return body.rstrip() + "\n" + "\n".join(notes_lines) + "\n"
+
+
 def generate_followup_issue(
     verification_data: VerificationData,
     original_issue: OriginalIssueData,
@@ -878,8 +1056,31 @@ def generate_followup_issue(
     3. Generate testable acceptance criteria
     4. Format the final issue
     """
+    blocking_concerns, advisory_concerns = _split_concerns(verification_data.concerns)
+    needs_human, needs_human_reason = _needs_human_due_to_split(verification_data.provider_verdicts)
+    verdict = _get_primary_verdict(verification_data)
+
+    if needs_human:
+        return _generate_without_llm(
+            verification_data,
+            original_issue,
+            pr_number,
+            blocking_concerns=blocking_concerns,
+            advisory_concerns=advisory_concerns,
+            verdict=verdict,
+            needs_human_reason=needs_human_reason,
+            needs_human=True,
+        )
+
     if not use_llm:
-        return _generate_without_llm(verification_data, original_issue, pr_number)
+        return _generate_without_llm(
+            verification_data,
+            original_issue,
+            pr_number,
+            blocking_concerns=blocking_concerns,
+            advisory_concerns=advisory_concerns,
+            verdict=verdict,
+        )
 
     # Get reasoning model for analysis (o3-mini)
     reasoning_client_info = _get_llm_client(reasoning=True)
@@ -894,6 +1095,10 @@ def generate_followup_issue(
             original_issue,
             pr_number,
             codex_log,
+            blocking_concerns=blocking_concerns,
+            advisory_concerns=advisory_concerns,
+            verdict=verdict,
+            needs_human_reason=needs_human_reason,
             reasoning_client=reasoning_client_info[0],
             reasoning_model=reasoning_client_info[1],
             standard_client=standard_client_info[0],
@@ -906,6 +1111,10 @@ def generate_followup_issue(
             original_issue,
             pr_number,
             codex_log,
+            blocking_concerns=blocking_concerns,
+            advisory_concerns=advisory_concerns,
+            verdict=verdict,
+            needs_human_reason=needs_human_reason,
             reasoning_client=reasoning_client_info[0],
             reasoning_model=reasoning_client_info[1],
             standard_client=reasoning_client_info[0],
@@ -918,6 +1127,10 @@ def generate_followup_issue(
             original_issue,
             pr_number,
             codex_log,
+            blocking_concerns=blocking_concerns,
+            advisory_concerns=advisory_concerns,
+            verdict=verdict,
+            needs_human_reason=needs_human_reason,
             reasoning_client=standard_client_info[0],
             reasoning_model=standard_client_info[1],
             standard_client=standard_client_info[0],
@@ -925,7 +1138,14 @@ def generate_followup_issue(
         )
     else:
         # No LLM clients available
-        return _generate_without_llm(verification_data, original_issue, pr_number)
+        return _generate_without_llm(
+            verification_data,
+            original_issue,
+            pr_number,
+            blocking_concerns=blocking_concerns,
+            advisory_concerns=advisory_concerns,
+            verdict=verdict,
+        )
 
 
 def _generate_with_llm(
@@ -933,6 +1153,11 @@ def _generate_with_llm(
     original_issue: OriginalIssueData,
     pr_number: int,
     codex_log: str | None,
+    *,
+    blocking_concerns: list[str],
+    advisory_concerns: list[str],
+    verdict: str,
+    needs_human_reason: str,
     reasoning_client: Any,
     reasoning_model: str,  # noqa: ARG001 - kept for API compatibility
     standard_client: Any,
@@ -953,7 +1178,7 @@ def _generate_with_llm(
     # Round 1: Analyze verification feedback (use REASONING model for deep analysis)
     analyze_prompt = ANALYZE_VERIFICATION_PROMPT.format(
         provider_verdicts=json.dumps(verification_data.provider_verdicts, indent=2),
-        concerns="\n".join(f"- {c}" for c in verification_data.concerns),
+        concerns="\n".join(f"- {c}" for c in blocking_concerns),
         low_scores=json.dumps(verification_data.low_scores),
         original_acceptance_criteria="\n".join(
             f"- [ ] {ac}" for ac in original_issue.acceptance_criteria
@@ -1009,12 +1234,18 @@ def _generate_with_llm(
     ac_data = _extract_json(ac_response)
 
     # Round 4: Format final issue (use standard model)
-    why_section = _build_why_section(verification_data, original_issue, pr_number)
+    why_section = _build_why_section(
+        verification_data,
+        original_issue,
+        pr_number,
+        verdict=verdict,
+        needs_human_reason=needs_human_reason or None,
+    )
 
     format_prompt = FORMAT_FOLLOWUP_ISSUE_PROMPT.format(
         pr_number=pr_number,
         original_issue_number=original_issue.number,
-        verdict=_get_primary_verdict(verification_data),
+        verdict=verdict,
         why_section=why_section,
         tasks_json=json.dumps(tasks_data.get("tasks", []), indent=2),
         acceptance_criteria_json=json.dumps(ac_data.get("acceptance_criteria", []), indent=2),
@@ -1026,6 +1257,7 @@ def _generate_with_llm(
             },
             indent=2,
         ),
+        advisory_notes=json.dumps(advisory_concerns, indent=2),
     )
 
     issue_body = _invoke_llm(
@@ -1036,6 +1268,7 @@ def _generate_with_llm(
         issue_number=original_issue.number,
     )
     issue_body = _strip_markdown_fence(issue_body)
+    issue_body = _append_advisory_notes(issue_body, advisory_concerns)
 
     # Generate title from concrete tasks
     concrete_tasks = analysis.get("concrete_tasks", [])
@@ -1056,10 +1289,22 @@ def _generate_without_llm(
     verification_data: VerificationData,
     original_issue: OriginalIssueData,
     pr_number: int,
+    *,
+    blocking_concerns: list[str],
+    advisory_concerns: list[str],
+    verdict: str,
+    needs_human_reason: str | None = None,
+    needs_human: bool = False,
 ) -> FollowupIssue:
     """Generate follow-up issue without LLM (structured extraction only)."""
 
-    why_section = _build_why_section(verification_data, original_issue, pr_number)
+    why_section = _build_why_section(
+        verification_data,
+        original_issue,
+        pr_number,
+        verdict=verdict,
+        needs_human_reason=needs_human_reason,
+    )
 
     # Convert concerns to tasks
     tasks = []
@@ -1067,7 +1312,7 @@ def _generate_without_llm(
         tasks.append(
             "Re-run verification to capture verifier-context.md and verifier-diff-summary.md."
         )
-    for concern in verification_data.concerns[:10]:  # Limit
+    for concern in blocking_concerns[:10]:  # Limit
         if verification_data.missing_concerns and concern == MISSING_CONCERNS_MESSAGE:
             continue
         # Clean up concern to be task-like
@@ -1098,8 +1343,14 @@ def _generate_without_llm(
         "",
     ]
 
-    for task in tasks:
-        body_parts.append(f"- [ ] {task}")
+    if needs_human:
+        body_parts.append(
+            "- [ ] Human review required to reconcile split verdicts before automating another "
+            "follow-up."
+        )
+    else:
+        for task in tasks:
+            body_parts.append(f"- [ ] {task}")
 
     body_parts.extend(
         [
@@ -1111,6 +1362,20 @@ def _generate_without_llm(
 
     for ac in acceptance_criteria:
         body_parts.append(f"- [ ] {ac}")
+
+    if advisory_concerns:
+        body_parts.extend(
+            [
+                "",
+                "## Notes",
+                "<details>",
+                "<summary>Advisory items (non-blocking)</summary>",
+                "",
+            ]
+        )
+        for concern in advisory_concerns:
+            body_parts.append(f"- {concern}")
+        body_parts.extend(["", "</details>"])
 
     # Add background context in collapsible section
     body_parts.extend(
@@ -1165,10 +1430,14 @@ def _generate_without_llm(
 
     title = f"[Follow-up] Address verification concerns from PR #{pr_number}"
 
+    labels = ["follow-up", "agents:optimize"]
+    if needs_human:
+        labels = ["needs-human"]
+
     return FollowupIssue(
         title=title,
         body="\n".join(body_parts),
-        labels=["follow-up", "agents:optimize"],
+        labels=labels,
     )
 
 
@@ -1176,9 +1445,12 @@ def _build_why_section(
     verification_data: VerificationData,
     original_issue: OriginalIssueData,
     pr_number: int,
+    *,
+    verdict: str | None = None,
+    needs_human_reason: str | None = None,
 ) -> str:
     """Build the Why section explaining the follow-up context."""
-    verdict = _get_primary_verdict(verification_data)
+    verdict = verdict or _get_primary_verdict(verification_data)
 
     parts = [
         f"PR #{pr_number} addressed issue #{original_issue.number} but verification "
@@ -1200,6 +1472,9 @@ def _build_why_section(
     if verification_data.structural_issues:
         parts.append("The original issue had structural problems that may have hindered progress.")
 
+    if needs_human_reason:
+        parts.append(needs_human_reason)
+
     parts.append("This follow-up addresses the remaining gaps with improved task structure.")
 
     return " ".join(parts)
@@ -1207,15 +1482,7 @@ def _build_why_section(
 
 def _get_primary_verdict(verification_data: VerificationData) -> str:
     """Get the primary verdict from verification data."""
-    if not verification_data.provider_verdicts:
-        return "Unknown"
-
-    # Prefer openai verdict, then any other
-    if "openai" in verification_data.provider_verdicts:
-        return verification_data.provider_verdicts["openai"].get("verdict", "Unknown")
-
-    first_provider = next(iter(verification_data.provider_verdicts.values()))
-    return first_provider.get("verdict", "Unknown")
+    return _select_primary_verdict(verification_data.provider_verdicts)
 
 
 def main() -> int:
