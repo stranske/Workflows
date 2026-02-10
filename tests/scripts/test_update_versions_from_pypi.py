@@ -38,6 +38,9 @@ from scripts.update_versions_from_pypi import (
 def _pypi_reachable() -> bool:
     try:
         with urllib.request.urlopen("https://pypi.org/simple/", timeout=5) as resp:
+            if resp.status != 200:
+                return False
+        with urllib.request.urlopen("https://pypi.org/pypi/pytest/json", timeout=5) as resp:
             return resp.status == 200
     except Exception:
         return False

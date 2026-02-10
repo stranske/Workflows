@@ -25,17 +25,18 @@ for filepath in files:
             continue
 
         # Check if we exit steps (new job or end of file)
-        if in_steps and re.match(r"^(\s*)\S", line):
-            indent_match = re.match(r"^(\s*)", line)
-            indent = len(indent_match.group(1)) if indent_match else 0
-            if indent <= steps_indent:
-                in_steps = False
+        if in_steps:
+            indent_match = re.match(r"^(\s*)\S", line)
+            if indent_match:
+                indent = len(indent_match.group(1))
+                if indent <= steps_indent:
+                    in_steps = False
 
         # Fix step items that are at wrong indentation
-        if in_steps and re.match(r"^(\s+)- name:", line):
+        step_match = re.match(r"^(\s+)- name:", line)
+        if in_steps and step_match:
             expected_indent = steps_indent + 2
-            indent_match = re.match(r"^(\s+)", line)
-            actual_indent = len(indent_match.group(1)) if indent_match else 0
+            actual_indent = len(step_match.group(1))
             if actual_indent != expected_indent:
                 # Re-indent this step
                 line = " " * expected_indent + line.lstrip()
@@ -43,17 +44,13 @@ for filepath in files:
         # Fix properties under steps that should be indented more
         if in_steps and i > 0:
             prev = fixed_lines[-1] if fixed_lines else ""
-            if (
-                re.match(r"^(\s+)- name:", prev)
-                and re.match(r"^(\s+)(\w+):", line)
-                and not line.strip().startswith("- ")
-            ):
+            prev_match = re.match(r"^(\s+)- name:", prev)
+            line_match = re.match(r"^(\s+)(\w+):", line)
+            if prev_match and line_match and not line.strip().startswith("- "):
                 # This should be a property of the step
-                prev_match = re.match(r"^(\s+)", prev)
-                prev_indent = len(prev_match.group(1)) if prev_match else 0
+                prev_indent = len(prev_match.group(1))
                 expected_indent = prev_indent + 2
-                indent_match = re.match(r"^(\s+)", line)
-                actual_indent = len(indent_match.group(1)) if indent_match else 0
+                actual_indent = len(line_match.group(1))
                 if actual_indent != expected_indent:
                     line = " " * expected_indent + line.lstrip()
 

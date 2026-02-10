@@ -685,7 +685,13 @@ jobs:
               >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Evaluate whether to post review
+        id: review_guard
+        run: |
+          node .github/scripts/should-post-review.js review_result.json
+
       - name: Post review feedback to PR
+        if: steps.review_guard.outputs.should_post_review == 'true'
         uses: actions/github-script@v8
         env:
           REVIEW_FEEDBACK: ${{ steps.review.outputs.feedback }}

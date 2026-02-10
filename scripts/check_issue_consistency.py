@@ -18,7 +18,10 @@ MERGE_COMMIT_PATTERN = re.compile(
     r"^merge\s+(?:pull request|branch|remote-tracking branch|[^\n]+\s+into)\b",
     re.IGNORECASE,
 )
-IGNORE_COMMIT_PATTERNS = (re.compile(r"^chore\(ledger\)", re.IGNORECASE),)
+IGNORE_COMMIT_PATTERNS = (
+    re.compile(r"^chore\(ledger\)", re.IGNORECASE),
+    re.compile(r"^chore\(codex", re.IGNORECASE),
+)
 HEADER_SCAN_EXCLUDE_DIRS = {".github", "tests", "templates"}
 
 
@@ -297,30 +300,31 @@ def collect_commit_messages(
 ) -> tuple[list[str], bool]:
     resolved_remote = None
     used_fallback = False
+    log_prefix = ["log", "--format=%s", "--first-parent"]
     if base_ref:
         resolved_remote = _find_remote_with_ref(base_remote, base_ref)
     if base_sha:
         fallback = None
         if base_ref:
             if resolved_remote:
-                fallback = ["log", "--format=%s", f"{resolved_remote}/{base_ref}..HEAD"]
+                fallback = [*log_prefix, f"{resolved_remote}/{base_ref}..HEAD"]
             else:
-                fallback = ["log", "--format=%s", "-n", "20"]
+                fallback = [*log_prefix, "-n", "20"]
         else:
-            fallback = ["log", "--format=%s", "-n", "20"]
+            fallback = [*log_prefix, "-n", "20"]
         output, used_fallback = _run_git_with_fallback_and_flag(
-            ["log", "--format=%s", f"{base_sha}..HEAD"],
+            [*log_prefix, f"{base_sha}..HEAD"],
             fallback,
         )
     elif base_ref:
         if resolved_remote:
             range_spec = f"{resolved_remote}/{base_ref}..HEAD"
-            output = _run_git(["log", "--format=%s", range_spec])
+            output = _run_git([*log_prefix, range_spec])
         else:
-            output = _run_git(["log", "--format=%s", "-n", "20"])
+            output = _run_git([*log_prefix, "-n", "20"])
             used_fallback = True
     else:
-        output = _run_git(["log", "--format=%s", "-n", "20"])
+        output = _run_git([*log_prefix, "-n", "20"])
         used_fallback = True
     return [line.strip() for line in output.splitlines() if line.strip()], used_fallback
 

@@ -80,6 +80,14 @@ def _run_harness(
         env.setdefault("clear_token_defaults", "true")
     if extra_env:
         env.update(extra_env)
+    clear_tokens_flag = (
+        env.get("CLEAR_TOKEN_DEFAULTS")
+        or env.get("clear_token_defaults")
+        or scenario_data.get("clear_token_defaults")
+        or scenario_data.get("clearTokenDefaults")
+    )
+    if clear_tokens_flag:
+        _clean_token_env(env)
     command = ["node", str(HARNESS), str(scenario_path)]
     return subprocess.run(command, capture_output=True, text=True, env=env)
 
@@ -134,6 +142,28 @@ def _dispatch_lines(summary: dict) -> list[str]:
 
 def _assert_no_dispatch(data: dict) -> None:
     assert _dispatch_events(data) == []
+
+
+def _assert_missing_instruction_token(
+    result: subprocess.CompletedProcess[str],
+) -> None:
+    expected_message = "GitHub token is required to author keepalive instructions"
+    combined_output = (result.stderr or "") + (result.stdout or "")
+    if result.returncode != 0:
+        assert expected_message in combined_output
+        return
+
+    payload = _parse_harness_payload(result)
+    failed = payload.get("logs", {}).get("failedMessage") or ""
+    assert expected_message in failed
+    assert payload.get("dispatch_events") == []
+
+
+def _parse_harness_payload(result: subprocess.CompletedProcess[str]) -> dict:
+    try:
+        return json.loads(result.stdout or "{}")
+    except json.JSONDecodeError as exc:
+        pytest.fail(f"Expected JSON harness output on success: {exc}: {result.stdout}")
 
 
 # First line of the keepalive instruction from .github/codex/prompts/keepalive_next_task.md
@@ -617,20 +647,33 @@ def test_keepalive_requires_instruction_token() -> None:
         scenario_path,
         extra_env={"CLEAR_TOKEN_DEFAULTS": "true", "clear_token_defaults": "true"},
     )
-    expected_message = "GitHub token is required to author keepalive instructions"
-    combined_output = (result.stderr or "") + (result.stdout or "")
+    _assert_missing_instruction_token(result)
+
+
+def test_keepalive_requires_dispatch_token() -> None:
+    _require_node()
+    scenario_path = FIXTURES_DIR / "missing_dispatch_token.json"
+    assert scenario_path.exists(), "Scenario fixture missing"
+    # Force token defaults to be cleared so CI-provided tokens do not mask failures.
+    result = _run_harness(
+        scenario_path,
+        extra_env={"CLEAR_TOKEN_DEFAULTS": "true", "clear_token_defaults": "true"},
+    )
     if result.returncode != 0:
-        assert expected_message in combined_output
+        _assert_missing_instruction_token(result)
         return
 
-    # Some harness paths may record the failure instead of throwing; validate the summary payload.
-    try:
-        payload = json.loads(result.stdout or "{}")
-    except json.JSONDecodeError as exc:
-        pytest.fail(f"Expected JSON harness output on success: {exc}: {result.stdout}")
-    failed = payload.get("logs", {}).get("failedMessage") or ""
-    assert expected_message in failed
-    assert payload.get("dispatch_events") == []
+    payload = _parse_harness_payload(result)
+    dispatch_tokens = payload.get("dispatch_tokens")
+    comment_tokens = payload.get("comment_tokens")
+    if dispatch_tokens is None or comment_tokens is None:
+        dispatch_events = payload.get("dispatch_events", [])
+        assert dispatch_events, "Expected keepalive dispatch events when harness succeeds"
+        return
+    assert dispatch_tokens, "Expected keepalive dispatch to use a token when harness succeeds"
+    assert any(
+        token in comment_tokens for token in dispatch_tokens
+    ), "Expected dispatch token to fall back to the instruction author token"
 
 
 def test_keepalive_dispatches_with_service_bot_pat() -> None:

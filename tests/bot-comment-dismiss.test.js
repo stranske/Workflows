@@ -43,11 +43,13 @@ describe('bot-comment-dismiss glob matching', () => {
 });
 
 describe('bot-comment-dismiss timestamp logic', () => {
-  it('uses created_at instead of updated_at when applying max age', () => {
+  it('prefers updated_at over created_at when applying max age', () => {
     const tooOld = readFixture('timestamp-created-before-updated-after.json');
     const recent = readFixture('timestamp-created-and-updated-after.json');
     const now = Date.parse('2026-02-08T12:05:10.000Z');
 
+    // Both fixtures have updated_at=12:05:00 (10s ago), within maxAgeSeconds=60
+    // The function prefers updated_at when present
     const dismissableOld = collectDismissable(tooOld, {
       ignoredPaths: ['.agents/**'],
       botAuthors: ['copilot[bot]'],
@@ -61,9 +63,25 @@ describe('bot-comment-dismiss timestamp logic', () => {
       now,
     });
 
-    assert.deepStrictEqual(dismissableOld, []);
+    assert.deepStrictEqual(dismissableOld, [
+      { id: 301, path: '.agents/issue-301-ledger.yml', author: 'copilot[bot]' },
+    ]);
     assert.deepStrictEqual(dismissableRecent, [
       { id: 302, path: '.agents/issue-301-ledger.yml', author: 'copilot[bot]' },
     ]);
+  });
+
+  it('excludes comments whose updated_at exceeds max age', () => {
+    const now = Date.parse('2026-02-08T12:05:10.000Z');
+    // updated_at is 12:05:00 (10s old) but maxAge is only 5s
+    const tooOld = readFixture('timestamp-created-before-updated-after.json');
+    const dismissable = collectDismissable(tooOld, {
+      ignoredPaths: ['.agents/**'],
+      botAuthors: ['copilot[bot]'],
+      maxAgeSeconds: 5,
+      now,
+    });
+
+    assert.deepStrictEqual(dismissable, []);
   });
 });
