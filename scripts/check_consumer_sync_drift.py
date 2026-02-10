@@ -74,7 +74,20 @@ def main() -> int:
         return 1
 
     manifest = yaml.safe_load(manifest_path.read_text(encoding="utf-8")) or {}
-    sections = ["workflows", "prompts", "scripts", "codex_config", "docs"]
+    sections = [
+        "workflows",
+        "prompts",
+        "scripts",
+        "codex_config",
+        "docs",
+        "copilot_config",
+        "templates",
+        "actions",
+        "llm_config",
+        "git_config",
+        "issue_templates",
+        "user_docs",
+    ]
 
     session = requests.Session()
     session.headers.update(

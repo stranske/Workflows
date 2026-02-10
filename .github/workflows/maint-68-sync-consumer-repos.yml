@@ -16,6 +16,38 @@ on:
     paths:
       - 'templates/consumer-repo/**'
       - '.github/sync-manifest.yml'
+      # All directories referenced by sync-manifest.yml as source paths.
+      # The sync is idempotent (hash-compares before creating PRs), so extra
+      # triggers only cost a ~30s no-op run when nothing actually changed.
+      - '.github/scripts/**'
+      - '.github/codex/**'
+      - '.github/actions/setup-api-client/**'
+      - '.github/actions/export-load-balancer-tokens/**'
+      - '.github/copilot-instructions.md'
+      - '.github/copilot-skills/**'
+      - '.github/dependabot.yml'
+      - '.github/templates/**'
+      - '.github/ISSUE_TEMPLATE/**'
+      - 'scripts/langchain/**'
+      - 'scripts/sync_dev_dependencies.py'
+      - 'scripts/sync_test_dependencies.py'
+      - 'scripts/check_test_dependencies.sh'
+      - 'scripts/autopilot_step_timer.py'
+      - 'scripts/autopilot_metrics_collector.py'
+      - 'scripts/ci_*.py'
+      - 'scripts/coverage_history_append.py'
+      - 'tools/resolve_mypy_pin.py'
+      - 'tools/coverage_trend.py'
+      - 'tools/llm_provider.py'
+      - 'tools/langchain_client.py'
+      - 'config/llm_slots.json'
+      - 'config/model_registry.json'
+      - 'docs/AGENT_ISSUE_FORMAT.md'
+      - 'docs/CI_SYSTEM_GUIDE.md'
+      - 'docs/LABELS.md'
+      - 'docs/CODEX_TOKEN_REFRESH.md'
+      - 'CLAUDE.md'
+      - '.gitattributes'
   workflow_dispatch:
     inputs:
       repos:
@@ -134,6 +166,10 @@ jobs:
           print(f"  - {len(manifest.get('codex_config', []))} codex configs")
           print(f"  - {len(manifest.get('actions', []))} actions")
           print(f"  - {len(manifest.get('docs', []))} docs")
+          print(f"  - {len(manifest.get('llm_config', []))} llm configs")
+          print(f"  - {len(manifest.get('git_config', []))} git configs")
+          print(f"  - {len(manifest.get('issue_templates', []))} issue templates")
+          print(f"  - {len(manifest.get('user_docs', []))} user docs")
           MANIFEST_SCRIPT
 
       - name: Compute template hash
@@ -515,6 +551,47 @@ jobs:
           # Process docs
           print("Processing docs...")
           for item in manifest.get('docs', []):
+              source = item.get('source', '')
+              target = item.get('target', source)
+              description = item.get('description', 'No description')
+              template_src = Path('workflows/templates/consumer-repo') / source
+              consumer_dst = Path('consumer') / target
+              sync_file(template_src, consumer_dst, description)
+
+          # Process llm_config
+          print("Processing llm config...")
+          for item in manifest.get('llm_config', []):
+              source = item.get('source', '')
+              description = item.get('description', 'No description')
+              sync_mode = item.get('sync_mode', 'sync')
+              template_src = Path('workflows/templates/consumer-repo') / source
+              consumer_dst = Path('consumer') / source
+              skip_fn = None
+              if sync_mode == 'create_only':
+                  skip_fn = lambda: consumer_dst.exists()
+              sync_file(template_src, consumer_dst, description, skip_fn)
+
+          # Process git_config
+          print("Processing git config...")
+          for item in manifest.get('git_config', []):
+              source = item.get('source', '')
+              description = item.get('description', 'No description')
+              template_src = Path('workflows/templates/consumer-repo') / source
+              consumer_dst = Path('consumer') / source
+              sync_file(template_src, consumer_dst, description)
+
+          # Process issue_templates
+          print("Processing issue templates...")
+          for item in manifest.get('issue_templates', []):
+              source = item.get('source', '')
+              description = item.get('description', 'No description')
+              template_src = Path('workflows/templates/consumer-repo') / source
+              consumer_dst = Path('consumer') / source
+              sync_file(template_src, consumer_dst, description)
+
+          # Process user_docs
+          print("Processing user docs...")
+          for item in manifest.get('user_docs', []):
               source = item.get('source', '')
               target = item.get('target', source)
               description = item.get('description', 'No description')
