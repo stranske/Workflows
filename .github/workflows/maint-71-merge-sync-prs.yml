@@ -8,6 +8,7 @@
 # Triggers:
 # - Manual dispatch (default)
 # - Can be called from sync workflow
+# - Repository dispatch (event_type: merge-sync-prs) for Codespace triggers
 #
 # Safety:
 # - Only merges PRs with sync/workflows-* branch names
@@ -17,6 +18,8 @@
 name: Merge Sync PRs
 
 on:
+  repository_dispatch:
+    types: [merge-sync-prs]
   workflow_dispatch:
     inputs:
       repos:
@@ -100,9 +103,10 @@ jobs:
           github-token: ${{ steps.app_token.outputs.token || github.token }}
           script: |
             const owner = context.repo.owner;
+            // Support repository_dispatch (no inputs) with sensible defaults
             const inputRepos = '${{ inputs.repos }}' || 'all';
-            const autoMerge = ${{ inputs.auto_merge }};
-            const dryRun = ${{ inputs.dry_run }};
+            const autoMerge = '${{ inputs.auto_merge }}' === '' ? true : ${{ inputs.auto_merge || true }};
+            const dryRun = '${{ inputs.dry_run }}' === '' ? false : ${{ inputs.dry_run || false }};
             const fs = require('fs');
             const retryHelperPath = './.github/scripts/github-api-with-retry.js';
             const retryHelpers = fs.existsSync(retryHelperPath)

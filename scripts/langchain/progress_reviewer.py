@@ -142,7 +142,7 @@ def build_review_payload(result: ProgressReviewResult) -> dict:
 def heuristic_alignment_check(
     acceptance_criteria: list[str],
     recent_commits: list[str],
-    files_changed: list[str],
+    _files_changed: list[str],
 ) -> tuple[float, list[str], list[str]]:
     """
     Quick heuristic check for alignment before invoking LLM.
