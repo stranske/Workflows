@@ -8,10 +8,10 @@ tasks:
       entrypoint/module that imports `verdict_policy.py` and emits structured step
       outputs (at minimum: `verdict`, `needs_human`, and any required metadata) instead
       of using first-table-row regex `match()` parsing.'
-    status: doing
+    status: done
     started_at: '2026-02-10T05:59:58Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-02-10T06:00:06Z'
+    commit: b02c2a9cdb1a661428d9ca2473c09930c232f6b3
     notes: []
   - id: task-02
     title: 'Create a Python entrypoint module that imports verdict_policy (verify:
