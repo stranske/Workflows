@@ -40,6 +40,14 @@ ACTION_HINTS: tuple[tuple[str, str], ...] = (
     ("marocchino/sticky-pull-request-comment", "sticky-pull-request-comment action"),
 )
 
+# Matches suppress_comments in a negation context so that an inverted guard
+# like ``inputs.suppress_comments == true`` is NOT treated as a valid guard.
+_SUPPRESS_NEGATION_RE = re.compile(
+    r"suppress_comments\s*!=\s*true"
+    r"|suppress_comments\s*==\s*false"
+    r"|!\s*inputs\.suppress_comments"
+)
+
 
 def _normalise_keys(node: Any) -> Any:
     if isinstance(node, dict):
@@ -112,8 +120,8 @@ def _iter_posting_steps(workflow: dict[str, Any]) -> list[tuple[str, str, list[s
             guarded = (
                 "should_post_review" in job_if_str
                 or "should_post_review" in step_if_str
-                or "suppress_comments" in job_if_str
-                or "suppress_comments" in step_if_str
+                or bool(_SUPPRESS_NEGATION_RE.search(job_if_str))
+                or bool(_SUPPRESS_NEGATION_RE.search(step_if_str))
             )
             if hints and not guarded:
                 findings.append((str(job_id), str(name), hints))
@@ -142,11 +150,15 @@ def build_comment(workflows: Iterable[pathlib.Path], include_label: bool = False
     if include_label:
         lines.append("Label: needs-human")
     lines.append(
-        "Blocked by workflow protection: update .github/workflows/keepalive.yml and "
-        ".github/workflows/autofix.yml to add explicit `if:` guards on every step/job "
-        "that posts a PR comment or PR review so they cannot run when suppression is active. "
+        "Blocked by workflow protection: update "
+        ".github/workflows/agents-keepalive-loop.yml, "
+        ".github/workflows/autofix.yml, and "
+        ".github/workflows/reusable-18-autofix.yml to add explicit `if:` guards "
+        "on every step/job that posts a PR comment or PR review so they cannot "
+        "run when suppression is active. "
         "Use the suppression output key `should_post_review` (from "
-        ".github/scripts/should-post-review.js) to gate the posting steps."
+        ".github/scripts/should-post-review.js) or the `suppress_comments` "
+        "input to gate the posting steps."
     )
     lines.append("")
 

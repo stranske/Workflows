@@ -90,6 +90,31 @@ def test_build_comment_ignores_suppress_comments_guarded_steps(
     assert "post / Post comment" not in comment
 
 
+def test_build_comment_flags_inverted_suppress_comments_guard(
+    tmp_path: Path,
+) -> None:
+    """``suppress_comments == true`` allows posting during suppression."""
+    workflow_path = tmp_path / "inverted.yml"
+    _write_yaml(
+        workflow_path,
+        """
+        name: Inverted Guard Workflow
+        jobs:
+          post:
+            runs-on: ubuntu-latest
+            steps:
+              - name: Post comment
+                if: inputs.suppress_comments == true
+                run: github.rest.issues.createComment
+        """,
+    )
+
+    comment = build_comment([workflow_path])
+
+    # Inverted guard should NOT be treated as properly guarded
+    assert "post / Post comment" in comment
+
+
 def test_build_comment_detects_octokit_aliases(tmp_path: Path) -> None:
     workflow_path = tmp_path / "octokit.yml"
     _write_yaml(
