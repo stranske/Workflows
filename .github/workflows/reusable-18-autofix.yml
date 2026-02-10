@@ -87,6 +87,11 @@ on:
         required: false
         default: ''
         type: string
+      suppress_comments:
+        description: 'Suppress PR comment posting (suppression guard)'
+        required: false
+        default: false
+        type: boolean
     secrets:
       service_bot_pat:
         description: 'PAT for SERVICE_BOT to trigger workflows on autofix commits'
@@ -1292,7 +1297,7 @@ jobs:
           scripts-path: workflows-lib/scripts
 
       - name: Upsert consolidated PR comment
-        if: steps.guard.outputs.skip != 'true' && steps.build_comment.outputs.should-post == 'true'
+        if: steps.guard.outputs.skip != 'true' && steps.build_comment.outputs.should-post == 'true' && inputs.suppress_comments != true
         uses: actions/github-script@v8
         env:
           PR_NUMBER: ${{ inputs.pr_number }}
@@ -1336,7 +1341,7 @@ jobs:
             }
 
       - name: Upsert clean-mode file summary comment
-        if: steps.guard.outputs.skip != 'true' && steps.clean_mode.outputs.enabled == 'true' && steps.fix_results.outputs.changed == 'true'
+        if: steps.guard.outputs.skip != 'true' && steps.clean_mode.outputs.enabled == 'true' && steps.fix_results.outputs.changed == 'true' && inputs.suppress_comments != true
         uses: actions/github-script@v8
         env:
           PR_NUMBER: ${{ inputs.pr_number }}
@@ -1381,7 +1386,7 @@ jobs:
             }
 
       - name: Upsert safe sweep file summary comment
-        if: steps.guard.outputs.skip != 'true' && steps.clean_mode.outputs.enabled != 'true' && steps.fix_results.outputs.changed == 'true'
+        if: steps.guard.outputs.skip != 'true' && steps.clean_mode.outputs.enabled != 'true' && steps.fix_results.outputs.changed == 'true' && inputs.suppress_comments != true
         uses: actions/github-script@v8
         env:
           PR_NUMBER: ${{ inputs.pr_number }}

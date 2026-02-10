@@ -12,8 +12,9 @@ from typing import Any
 import yaml
 
 DEFAULT_WORKFLOWS = (
-    pathlib.Path(".github/workflows/keepalive.yml"),
+    pathlib.Path(".github/workflows/agents-keepalive-loop.yml"),
     pathlib.Path(".github/workflows/autofix.yml"),
+    pathlib.Path(".github/workflows/reusable-18-autofix.yml"),
 )
 
 SCRIPT_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
@@ -108,7 +109,12 @@ def _iter_posting_steps(workflow: dict[str, Any]) -> list[tuple[str, str, list[s
                 hints.append(action_hint)
             step_if = step.get("if")
             step_if_str = step_if if isinstance(step_if, str) else ""
-            guarded = "should_post_review" in job_if_str or "should_post_review" in step_if_str
+            guarded = (
+                "should_post_review" in job_if_str
+                or "should_post_review" in step_if_str
+                or "suppress_comments" in job_if_str
+                or "suppress_comments" in step_if_str
+            )
             if hints and not guarded:
                 findings.append((str(job_id), str(name), hints))
     return findings
