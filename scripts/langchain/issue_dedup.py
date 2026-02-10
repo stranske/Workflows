@@ -30,8 +30,8 @@ class IssueVectorStore:
     store: object
     provider: str
     model: str
-    is_fallback: bool
     issues: list[IssueRecord]
+    is_fallback: bool = False
 
 
 @dataclass(frozen=True)

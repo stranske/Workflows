@@ -29,8 +29,8 @@ class LabelVectorStore:
     store: object
     provider: str
     model: str
-    is_fallback: bool
     labels: list[LabelRecord]
+    is_fallback: bool = False
 
 
 @dataclass(frozen=True)
