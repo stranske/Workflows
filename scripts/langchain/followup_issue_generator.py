@@ -148,7 +148,6 @@ BLOCKING_HINTS = [
 ]
 
 
-
 def _is_advisory_concern(concern: str) -> bool:
     text = (concern or "").strip().lower()
     if not text or concern == MISSING_CONCERNS_MESSAGE:
@@ -172,7 +171,7 @@ def _split_concerns(concerns: list[str]) -> tuple[list[str], list[str]]:
 
 
 def _resolve_verdict_policy(
-    verification_data: "VerificationData",
+    verification_data: VerificationData,
 ) -> verdict_policy.VerdictPolicyResult:
     verdicts: list[verdict_policy.ProviderVerdict] = []
     for provider, payload in verification_data.provider_verdicts.items():
@@ -1032,13 +1031,13 @@ def generate_followup_issue(
             codex_log,
             blocking_concerns=blocking_concerns,
             advisory_concerns=advisory_concerns,
-        verdict=verdict,
-        needs_human_reason=needs_human_reason,
-        reasoning_client=reasoning_client_info[0],
-        reasoning_model=reasoning_client_info[1],
-        standard_client=standard_client_info[0],
-        standard_model=standard_client_info[1],
-    )
+            verdict=verdict,
+            needs_human_reason=needs_human_reason,
+            reasoning_client=reasoning_client_info[0],
+            reasoning_model=reasoning_client_info[1],
+            standard_client=standard_client_info[0],
+            standard_model=standard_client_info[1],
+        )
     elif reasoning_client_info:
         # Only reasoning client available - use it for all steps
         return _generate_with_llm(
@@ -1048,13 +1047,13 @@ def generate_followup_issue(
             codex_log,
             blocking_concerns=blocking_concerns,
             advisory_concerns=advisory_concerns,
-        verdict=verdict,
-        needs_human_reason=needs_human_reason,
-        reasoning_client=reasoning_client_info[0],
-        reasoning_model=reasoning_client_info[1],
-        standard_client=reasoning_client_info[0],
-        standard_model=reasoning_client_info[1],
-    )
+            verdict=verdict,
+            needs_human_reason=needs_human_reason,
+            reasoning_client=reasoning_client_info[0],
+            reasoning_model=reasoning_client_info[1],
+            standard_client=reasoning_client_info[0],
+            standard_model=reasoning_client_info[1],
+        )
     elif standard_client_info:
         # Only standard client available - use it for all steps
         return _generate_with_llm(
@@ -1064,13 +1063,13 @@ def generate_followup_issue(
             codex_log,
             blocking_concerns=blocking_concerns,
             advisory_concerns=advisory_concerns,
-        verdict=verdict,
-        needs_human_reason=needs_human_reason,
-        reasoning_client=standard_client_info[0],
-        reasoning_model=standard_client_info[1],
-        standard_client=standard_client_info[0],
-        standard_model=standard_client_info[1],
-    )
+            verdict=verdict,
+            needs_human_reason=needs_human_reason,
+            reasoning_client=standard_client_info[0],
+            reasoning_model=standard_client_info[1],
+            standard_client=standard_client_info[0],
+            standard_model=standard_client_info[1],
+        )
     else:
         # No LLM clients available
         return _generate_without_llm(
@@ -1414,7 +1413,6 @@ def _build_why_section(
     parts.append("This follow-up addresses the remaining gaps with improved task structure.")
 
     return " ".join(parts)
-
 
 
 def main() -> int:

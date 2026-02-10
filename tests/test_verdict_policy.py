@@ -53,7 +53,9 @@ def test_select_verdict_majority_policy():
 def test_needs_human_threshold_boundary():
     verdicts = [
         ProviderVerdict("openai", "gpt-5.2", "PASS", 0.92),
-        ProviderVerdict("anthropic", "claude-sonnet-4-5", "CONCERNS", CONCERNS_NEEDS_HUMAN_THRESHOLD),
+        ProviderVerdict(
+            "anthropic", "claude-sonnet-4-5", "CONCERNS", CONCERNS_NEEDS_HUMAN_THRESHOLD
+        ),
     ]
 
     result = evaluate_verdict_policy(verdicts, policy="worst")
