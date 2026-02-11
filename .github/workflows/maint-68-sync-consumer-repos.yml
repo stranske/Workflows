@@ -736,7 +736,9 @@ jobs:
 
           # Create branch and commit
           git checkout -b "$branch_name"
-          git add -A
+          # Use --force so consumer .gitignore rules (e.g. *.txt) cannot
+          # silently exclude files that the sync manifest declares.
+          git add --force -A
 
           if git diff --cached --quiet; then
             echo "No changes to commit after sync; skipping PR creation."
