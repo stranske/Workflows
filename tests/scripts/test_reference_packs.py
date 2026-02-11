@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+from base64 import b64decode
 from pathlib import Path
 
 import pytest
@@ -77,6 +78,26 @@ def test_parse_reference_packs_list_format() -> None:
 
     assert len(packs) == 1
     assert packs[0].name == "trend-streamlit"
+
+
+def test_parse_reference_packs_rejects_extra_top_level_keys_in_list_format() -> None:
+    with pytest.raises(
+        ReferencePackConfigError,
+        match=r"when using 'packs' format, no additional top-level keys are allowed",
+    ):
+        parse_reference_packs(
+            {
+                "packs": [
+                    {
+                        "name": "trend-streamlit",
+                        "repo": "trend/research",
+                        "ref": "main",
+                        "paths": ["apps/streamlit"],
+                    }
+                ],
+                "metadata": {"owner": "trend"},
+            }
+        )
 
 
 def test_load_reference_packs_rejects_malformed_json(tmp_path: Path) -> None:
@@ -213,3 +234,44 @@ def test_cli_github_output_includes_presence_and_path(tmp_path: Path) -> None:
     assert "reference_packs_exists=true" in output_lines
     assert f"reference_packs_path={config_file}" in output_lines
     assert "reference_packs_count=1" in output_lines
+    assert "reference_packs_payload_json=" in output_lines
+    assert "reference_packs_config_text_b64=" in output_lines
+
+    line_map = dict(
+        line.split("=", 1)
+        for line in output_lines.splitlines()
+        if "=" in line and line.startswith("reference_packs_")
+    )
+    payload_json = line_map["reference_packs_payload_json"]
+    parsed_payload = json.loads(payload_json)
+    assert parsed_payload["exists"] is True
+    assert parsed_payload["packs"][0]["name"] == "trend-streamlit"
+
+    config_b64 = line_map["reference_packs_config_text_b64"]
+    config_text = b64decode(config_b64.encode("ascii")).decode("utf-8")
+    assert json.loads(config_text)["trend-streamlit"]["repo"] == "trend/research"
+
+
+def test_cli_github_output_absent_config_reports_false(tmp_path: Path) -> None:
+    github_output = tmp_path / "github_output.txt"
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "scripts/reference_packs.py",
+            "--workspace",
+            str(tmp_path),
+            "--format",
+            "github-output",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+        env={"GITHUB_OUTPUT": str(github_output)},
+    )
+
+    assert result.returncode == 0
+    output_lines = github_output.read_text(encoding="utf-8")
+    assert "reference_packs_exists=false" in output_lines
+    assert "reference_packs_count=0" in output_lines
+    assert "reference_packs_config_text_b64=" in output_lines
