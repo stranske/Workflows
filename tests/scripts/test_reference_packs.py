@@ -194,7 +194,14 @@ def test_cli_github_output_includes_presence_and_path(tmp_path: Path) -> None:
     github_output = tmp_path / "github_output.txt"
 
     result = subprocess.run(
-        [sys.executable, "scripts/reference_packs.py", "--workspace", str(tmp_path), "--format", "github-output"],
+        [
+            sys.executable,
+            "scripts/reference_packs.py",
+            "--workspace",
+            str(tmp_path),
+            "--format",
+            "github-output",
+        ],
         capture_output=True,
         text=True,
         check=False,
