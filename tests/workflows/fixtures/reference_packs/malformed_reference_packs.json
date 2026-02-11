@@ -1,0 +1,9 @@
+{
+  "trend-streamlit": {
+    "repo": "trend/research",
+    "ref": "main"
+    "paths": [
+      "apps/streamlit"
+    ]
+  }
+}

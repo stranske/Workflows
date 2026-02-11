@@ -175,4 +175,30 @@ def test_valid_reference_pack_config_materializes_populated_directories(tmp_path
     expected_doc = tmp_path / ".reference" / "trend-streamlit" / "langchain" / "README.md"
     assert expected_file.exists()
     assert expected_doc.exists()
-    assert expected_file.read_text(encoding="utf-8").strip() == "print('reference pack app')"
+    assert expected_file.read_text(encoding="utf-8").strip() == 'print("reference pack app")'
+
+
+def test_malformed_reference_pack_config_fails_with_parse_error_before_execution(
+    tmp_path: Path,
+) -> None:
+    fixture_config = REFERENCE_PACK_FIXTURES / "malformed_reference_packs.json"
+    assert fixture_config.exists(), "Malformed reference pack fixture config must exist"
+
+    config_dir = tmp_path / ".github"
+    config_dir.mkdir(parents=True)
+    config_path = config_dir / "reference_packs.json"
+    config_path.write_text(fixture_config.read_text(encoding="utf-8"), encoding="utf-8")
+
+    result = subprocess.run(
+        [sys.executable, "scripts/reference_packs.py", "--workspace", str(tmp_path)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert "Reference packs config error:" in result.stderr
+    assert "Malformed JSON" in result.stderr
+    assert "line " in result.stderr and " column " in result.stderr
+    assert result.stdout.strip() == ""
+    assert not (tmp_path / ".reference").exists()
