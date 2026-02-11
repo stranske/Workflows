@@ -398,15 +398,29 @@ jobs:
         if: steps.guard.outputs.skip != 'true'
         id: clean_mode
         uses: actions/github-script@v8
+        env:
+          PR_LABELS_JSON: ${{ inputs.pr_labels_json }}
         with:
           script: |
-            const pr = context.payload.pull_request;
-            if (!pr) {
-              core.setOutput('enabled', 'false');
-              return;
-            }
             const label = "${{ inputs.clean_label }}";
-            const hasLabel = Array.isArray(pr.labels) && pr.labels.some((labelInfo) => labelInfo.name === label);
+            // Use pr_labels_json input (works for both workflow_run and
+            // pull_request_target triggers) with event payload fallback.
+            let labels = [];
+            const labelsJson = process.env.PR_LABELS_JSON || '';
+            if (labelsJson) {
+              try {
+                labels = JSON.parse(labelsJson);
+              } catch (e) {
+                core.warning(`Failed to parse PR_LABELS_JSON: ${e.message}`);
+              }
+            }
+            if (labels.length === 0) {
+              const pr = context.payload.pull_request;
+              if (pr && Array.isArray(pr.labels)) {
+                labels = pr.labels.map(l => l.name);
+              }
+            }
+            const hasLabel = labels.includes(label);
             core.info(`Clean mode enabled: ${hasLabel}`);
             core.setOutput('enabled', hasLabel ? 'true' : 'false');
 
@@ -1126,7 +1140,7 @@ jobs:
           const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
           const core = { info: () => {}, warning: console.warn, debug: () => {} };
           const [owner, repo] = process.env.TARGET_REPO.split('/');
-          const artifactName = process.env.artifact_name;
+          const artifactName = process.env.artifact_name || `autofix-history-pr-${process.env.TARGET_PR}`;
           (async () => {
             const github = new Octokit({ auth: process.env.GH_TOKEN || process.env.GITHUB_TOKEN });
             const { withRetry } = await createTokenAwareRetry({

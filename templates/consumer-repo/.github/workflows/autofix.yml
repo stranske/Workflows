@@ -50,11 +50,36 @@ jobs:
       same_repo: ${{ steps.context.outputs.same_repo }}
       caller_actor: ${{ steps.context.outputs.caller_actor }}
     steps:
+      - name: Checkout for API helpers
+        uses: actions/checkout@v6
+        with:
+          sparse-checkout: |
+            .github/actions/setup-api-client
+            .github/scripts/github-api-with-retry.js
+            .github/scripts/token_load_balancer.js
+          sparse-checkout-cone-mode: false
+
+      - name: Setup API client
+        uses: ./.github/actions/setup-api-client
+        with:
+          secrets: ${{ toJSON(secrets) }}
+          github_token: ${{ github.token }}
+
       - name: Resolve PR context
         id: context
         uses: actions/github-script@v8
         with:
           script: |
+            const { createTokenAwareRetry } = require(
+              './.github/scripts/github-api-with-retry.js'
+            );
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'autofix-resolve-context',
+            });
+
             // --- workflow_run trigger (after Gate completes) ---
             if (context.eventName === 'workflow_run') {
               const run = context.payload.workflow_run;
@@ -77,11 +102,13 @@ jobs:
               }
 
               const prNumber = prs[0].number;
-              const { data: pr } = await github.rest.pulls.get({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                pull_number: prNumber,
-              });
+              const { data: pr } = await withRetry(
+                (client) => client.rest.pulls.get({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  pull_number: prNumber,
+                })
+              );
 
               if (pr.state !== 'open') {
                 core.info(`PR #${prNumber} is ${pr.state}`);
@@ -93,6 +120,12 @@ jobs:
                 pr.head.repo !== null &&
                 pr.head.repo.full_name ===
                   pr.base.repo?.full_name;
+              if (!sameRepo) {
+                core.info('Fork PR — not supported.');
+                core.setOutput('should_run', 'false');
+                return;
+              }
+
               const labels =
                 (pr.labels || []).map(l => l.name);
 
