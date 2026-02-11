@@ -229,7 +229,7 @@ jobs:
 
       - name: Cache pip (LLM requirements)
         if: steps.check_enabled.outputs.enabled == 'true'
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cache/pip
