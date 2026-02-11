@@ -488,15 +488,15 @@ jobs:
               subprocess.check_call(
                   ["git", "clone", "--depth=1", "--branch", ref,
                    "--filter=blob:none", "--sparse", clone_url, clone_dir],
-                  stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
+                  stdout=subprocess.DEVNULL,
               )
               subprocess.check_call(
-                  ["git", "-C", clone_dir, "sparse-checkout", "set"] + paths,
-                  stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
+                  ["git", "-C", clone_dir, "sparse-checkout", "set", "--no-cone"] + paths,
+                  stdout=subprocess.DEVNULL,
               )
               subprocess.check_call(
                   ["git", "-C", clone_dir, "checkout"],
-                  stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
+                  stdout=subprocess.DEVNULL,
               )
 
               os.makedirs(checkout_path, exist_ok=True)
