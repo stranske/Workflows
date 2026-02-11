@@ -148,7 +148,11 @@ def load_reference_packs(workspace: Path | str = ".") -> ReferencePackSnapshot:
             f"Malformed JSON in {config_path}: line {exc.lineno} column {exc.colno}: {exc.msg}"
         ) from exc
 
-    packs = parse_reference_packs(payload)
+    try:
+        packs = parse_reference_packs(payload)
+    except ReferencePackConfigError as exc:
+        raise ReferencePackConfigError(f"Invalid config in {config_path}: {exc}") from exc
+
     return ReferencePackSnapshot(
         exists=True, config_path=config_path, config_text=config_text, packs=packs
     )

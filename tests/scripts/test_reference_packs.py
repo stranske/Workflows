@@ -124,7 +124,10 @@ def test_load_reference_packs_rejects_missing_required_fields(tmp_path: Path) ->
         encoding="utf-8",
     )
 
-    with pytest.raises(ReferencePackConfigError, match="ref must be a non-empty string"):
+    with pytest.raises(
+        ReferencePackConfigError,
+        match=r"Invalid config in .*reference_packs\.json: ref must be a non-empty string",
+    ):
         load_reference_packs(tmp_path)
 
 
@@ -146,7 +149,7 @@ def test_load_reference_packs_rejects_parent_directory_paths(tmp_path: Path) -> 
 
     with pytest.raises(
         ReferencePackConfigError,
-        match=r"paths\[\] must not traverse parent directories",
+        match=r"Invalid config in .*reference_packs\.json: paths\[\] must not traverse parent directories",
     ):
         load_reference_packs(tmp_path)
 
@@ -194,7 +197,27 @@ def test_cli_returns_error_for_invalid_config(tmp_path: Path) -> None:
 
     assert result.returncode == 2
     assert "Reference packs config error" in result.stderr
+    assert f"Invalid config in {config_file}" in result.stderr
     assert "must contain a JSON object" in result.stderr
+
+
+def test_cli_returns_malformed_json_location_details(tmp_path: Path) -> None:
+    config_file = tmp_path / ".github" / "reference_packs.json"
+    config_file.parent.mkdir(parents=True)
+    config_file.write_text('{"packs": [', encoding="utf-8")
+
+    result = subprocess.run(
+        [sys.executable, "scripts/reference_packs.py", "--workspace", str(tmp_path)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 2
+    assert "Reference packs config error: Malformed JSON in" in result.stderr
+    assert str(config_file) in result.stderr
+    assert "line " in result.stderr
+    assert "column " in result.stderr
 
 
 def test_cli_github_output_includes_presence_and_path(tmp_path: Path) -> None:
