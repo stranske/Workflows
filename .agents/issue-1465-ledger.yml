@@ -1,0 +1,551 @@
+version: 1
+issue: 1465
+base: main
+branch: codex/issue-1465
+tasks:
+  - id: task-01
+    title: Update `stranske/Workflows/.github/workflows/reusable-codex-run.yml` to
+      detect and read a consumer config file at `.github/reference_packs.json`
+    status: doing
+    started_at: '2026-02-11T02:26:59Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: 'Define scope for: Add a step to check if the file `.github/reference_packs.json`
+      exists in the consumer repository workspace (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: 'Implement focused slice for: Add a step to check if the file `.github/reference_packs.json`
+      exists in the consumer repository workspace (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: 'Validate focused slice for: Add a step to check if the file `.github/reference_packs.json`
+      exists in the consumer repository workspace (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: 'Define scope for: Implement logic to read the contents of `.github/reference_packs.json`
+      when the file is present (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: 'Implement focused slice for: Implement logic to read the contents of `.github/reference_packs.json`
+      when the file is present (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: 'Validate focused slice for: Implement logic to read the contents of `.github/reference_packs.json`
+      when the file is present (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: 'Define scope for: Parse the JSON content from `.github/reference_packs.json`
+      into a usable data structure for subsequent steps (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: 'Implement focused slice for: Parse the JSON content from `.github/reference_packs.json`
+      into a usable data structure for subsequent steps (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: 'Validate focused slice for: Parse the JSON content from `.github/reference_packs.json`
+      into a usable data structure for subsequent steps (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: Add a self-check step in `.github/workflows/reusable-codex-run.yml` that
+      validates `.github/reference_packs.json` JSON structure when present and fails
+      early with a clear error message if malformed (but does not fail when the file
+      is absent)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: 'Implement per-pack checkout steps in `.github/workflows/reusable-codex-run.yml`
+      using `actions/checkout` with `sparse-checkout` and `path: .reference/<pack_name>`
+      based on the config values (`repo`, `ref`, `paths`)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: 'Define scope for: Create a workflow step that iterates over each pack
+      defined in the parsed configuration file (verify: config validated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: 'Implement focused slice for: Create a workflow step that iterates over
+      each pack defined in the parsed configuration file (verify: config validated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: 'Validate focused slice for: Create a workflow step that iterates over
+      each pack defined in the parsed configuration file (verify: config validated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: 'Define scope for: Configure the sparse-checkout settings for each pack
+      using the paths specified in the configuration (verify: config validated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: 'Implement focused slice for: Configure the sparse-checkout settings for
+      each pack using the paths specified in the configuration (verify: config validated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: 'Validate focused slice for: Configure the sparse-checkout settings for
+      each pack using the paths specified in the configuration (verify: config validated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: 'Execute the actions/checkout action for each pack with the appropriate
+      repository (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: 'Execute the actions/checkout action for each pack with ref (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-21
+    title: 'Execute the actions/checkout action for each pack with and path parameters
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-22
+    title: Update `.github/workflows/reusable-codex-run.yml` to exclude `.reference/**`
+      from `git status` by adding it to `.git/info/exclude` (similar to `.workflows-lib`)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-23
+    title: Create a step in `.github/workflows/reusable-codex-run.yml` that generates
+      `.reference/REFERENCE_PACKS.md` listing pack names, `repo`/`ref`, local path,
+      and key files included
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-24
+    title: 'Define scope for: Implement logic to collect metadata for each checked-out
+      reference pack including name (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-25
+    title: 'Implement focused slice for: Implement logic to collect metadata for each
+      checked-out reference pack including name (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-26
+    title: 'Validate focused slice for: Implement logic to collect metadata for each
+      checked-out reference pack including name (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-27
+    title: 'Define scope for: Implement logic to collect metadata for each checked-out
+      reference pack including repository (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-28
+    title: 'Implement focused slice for: Implement logic to collect metadata for each
+      checked-out reference pack including repository (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-29
+    title: 'Validate focused slice for: Implement logic to collect metadata for each
+      checked-out reference pack including repository (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-30
+    title: 'Define scope for: Implement logic to collect metadata for each checked-out
+      reference pack including and ref (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-31
+    title: 'Implement focused slice for: Implement logic to collect metadata for each
+      checked-out reference pack including and ref (verify: confirm completion in
+      repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-32
+    title: 'Validate focused slice for: Implement logic to collect metadata for each
+      checked-out reference pack including and ref (verify: confirm completion in
+      repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-33
+    title: 'Traverse each pack directory to identify (verify: confirm completion in
+      repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-34
+    title: 'list the key files that were checked out (verify: confirm completion in
+      repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-35
+    title: 'Define scope for: Generate the `.reference/REFERENCE_PACKS.md` file with
+      formatted markdown containing all collected pack information (verify: formatter
+      passes)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-36
+    title: 'Implement focused slice for: Generate the `.reference/REFERENCE_PACKS.md`
+      file with formatted markdown containing all collected pack information (verify:
+      formatter passes)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-37
+    title: 'Validate focused slice for: Generate the `.reference/REFERENCE_PACKS.md`
+      file with formatted markdown containing all collected pack information (verify:
+      formatter passes)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-38
+    title: "Update the \u201CAssemble prompt\u201D step in `.github/workflows/reusable-codex-run.yml`\
+      \ to append `.reference/REFERENCE_PACKS.md` when present, including a \u201C\
+      Reference Pack\u201D section pointing to the local `.reference/<pack>/...` paths"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-39
+    title: "Fix `.github/workflows/reusable-codex-run.yml` step ordering so reference\
+      \ pack checkout and `.reference/REFERENCE_PACKS.md` generation occur before\
+      \ the \u201CClean workspace for Codex\u201D step, or update the clean step to\
+      \ explicitly preserve `.reference/**` (e.g., exclude from deletion); verify\
+      \ by ensuring `.reference/<pack>/...` still exists immediately after the clean\
+      \ step when `.github/reference_packs.json` is present."
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-40
+    title: When `.github/reference_packs.json` exists in a consumer repo, the Codex
+      run workspace contains `.reference/<pack>/...` populated before Codex executes
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-41
+    title: "When `.reference/REFERENCE_PACKS.md` exists, the assembled Codex prompt\
+      \ includes a \u201CReference Pack\u201D section that points to the local `.reference/...`\
+      \ files"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-42
+    title: When `.github/reference_packs.json` is absent, the workflow completes and
+      behaves unchanged (no failure and no requirement for `.reference/**`)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-43
+    title: If `.github/reference_packs.json` is present but malformed, the run fails
+      before Codex executes and prints a clear validation error message
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-44
+    title: 'In `stranske/Workflows` update `.github/workflows/reusable-codex-run.yml`
+      to detect a consumer config file (recommend: `.github/reference_packs.json`
+      to avoid YAML parsing dependency)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-45
+    title: 'Implement a checkout step per pack using `actions/checkout` with `sparse-checkout`
+      and `path: .reference/<pack_name>`'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-46
+    title: Ensure `.reference/**` is excluded from git status (add to `.git/info/exclude`
+      similarly to `.workflows-lib`)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-47
+    title: 'Create a small generated summary file (ex: `.reference/REFERENCE_PACKS.md`)
+      listing:'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-48
+    title: pack names
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-49
+    title: repo/ref
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-50
+    title: local path
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-51
+    title: key files included
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-52
+    title: "Modify the \u201CAssemble prompt\u201D step to append `.reference/REFERENCE_PACKS.md`\
+      \ when present"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-53
+    title: Add a minimal self-check step that fails early if config is malformed (clear
+      message), but does not fail runs when the config file is absent
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-54
+    title: When a consumer repo includes `.github/reference_packs.json`, Codex runs
+      have `.reference/<pack>/...` populated before Codex executes
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-55
+    title: "The Codex prompt includes a \u201CReference Pack\u201D section pointing\
+      \ to those local files"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-56
+    title: When the config file is absent, behavior is unchanged
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-57
+    title: Update `stranske/Workflows/.github/workflows/reusable-codex-run.yml` to
+      detect and read a consumer config file at `.github/reference_packs.json` (Agent
+      cannot modify .github/workflows/*.yml files (protected per AGENT_LIMITATIONS)
+      | Mark this task with AGENT_LIMITATION tag and note that manual implementation
+      or elevated permissions are required)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-58
+    title: Add a self-check step in `.github/workflows/reusable-codex-run.yml` that
+      validates `.github/reference_packs.json` JSON structure when present and fails
+      early with a clear error message if malformed (but does not fail when the file
+      is absent) (Agent cannot modify .github/workflows/*.yml files (protected per
+      AGENT_LIMITATIONS) | Mark this task with AGENT_LIMITATION tag and note that
+      manual implementation or elevated permissions are required)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-59
+    title: 'Implement per-pack checkout steps in `.github/workflows/reusable-codex-run.yml`
+      using `actions/checkout` with `sparse-checkout` and `path: .reference/<pack_name>`
+      based on the config values (`repo`, `ref`, `paths`) (Agent cannot modify .github/workflows/*.yml
+      files (protected per AGENT_LIMITATIONS) | Mark this task with AGENT_LIMITATION
+      tag and note that manual implementation or elevated permissions are required)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-60
+    title: Update `.github/workflows/reusable-codex-run.yml` to exclude `.reference/**`
+      from `git status` by adding it to `.git/info/exclude` (similar to `.workflows-lib`)
+      (Agent cannot modify .github/workflows/*.yml files (protected per AGENT_LIMITATIONS)
+      | Mark this task with AGENT_LIMITATION tag and note that manual implementation
+      or elevated permissions are required)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-61
+    title: Create a step in `.github/workflows/reusable-codex-run.yml` that generates
+      `.reference/REFERENCE_PACKS.md` listing pack names, `repo`/`ref`, local path,
+      and key files included (Agent cannot modify .github/workflows/*.yml files (protected
+      per AGENT_LIMITATIONS) | Mark this task with AGENT_LIMITATION tag and note that
+      manual implementation or elevated permissions are required)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-62
+    title: Update the "Assemble prompt" step in `.github/workflows/reusable-codex-run.yml`
+      to append `.reference/REFERENCE_PACKS.md` when present, including a "Reference
+      Pack" section pointing to the local `.reference/<pack>/...` paths (Agent cannot
+      modify .github/workflows/*.yml files (protected per AGENT_LIMITATIONS) | Mark
+      this task with AGENT_LIMITATION tag and note that manual implementation or elevated
+      permissions are required)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-63
+    title: Fix `.github/workflows/reusable-codex-run.yml` step ordering so reference
+      pack checkout and `.reference/REFERENCE_PACKS.md` generation occur before the
+      "Clean workspace for Codex" step, or update the clean step to explicitly preserve
+      `.reference/**` (e.g., exclude from deletion); verify by ensuring `.reference/<pack>/...`
+      still exists immediately after the clean step when `.github/reference_packs.json`
+      is present. (Agent cannot modify .github/workflows/*.yml files (protected per
+      AGENT_LIMITATIONS) | Mark this task with AGENT_LIMITATION tag and note that
+      manual implementation or elevated permissions are required)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
