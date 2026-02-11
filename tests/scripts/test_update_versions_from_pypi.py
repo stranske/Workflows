@@ -329,6 +329,7 @@ class TestMain:
 
 
 @pytest.mark.integration
+@pytest.mark.slow
 class TestPyPIIntegration:
     """Integration tests that actually query PyPI.
 
@@ -363,6 +364,7 @@ class TestPyPIIntegration:
 
 
 @pytest.mark.integration
+@pytest.mark.slow
 class TestConsumerRepoSampling:
     """Tests that sample consumer repo dependencies to ensure we're shipping current versions.
 
