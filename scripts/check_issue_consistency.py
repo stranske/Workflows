@@ -360,31 +360,40 @@ def collect_changed_files(
     resolved_remote = None
     used_fallback = False
     base_sha = _resolve_base_sha_for_head(base_sha)
+    log_prefix = ["log", "--format=", "--name-only", "--first-parent"]
     if base_ref:
         resolved_remote = _find_remote_with_ref(base_remote, base_ref)
     if base_sha:
         fallbacks: list[list[str]] = []
         if base_ref and resolved_remote:
-            fallbacks.append(["diff", "--name-only", f"{resolved_remote}/{base_ref}...HEAD"])
-        fallbacks.append(["diff", "--name-only", "HEAD~20..HEAD"])
+            fallbacks.append([*log_prefix, f"{resolved_remote}/{base_ref}..HEAD"])
+        fallbacks.append([*log_prefix, "-n", "20"])
         output, used_fallback = _run_git_with_fallbacks_and_flag(
-            ["diff", "--name-only", f"{base_sha}...HEAD"],
+            [*log_prefix, f"{base_sha}..HEAD"],
             fallbacks,
         )
     elif base_ref:
         if resolved_remote:
-            range_spec = f"{resolved_remote}/{base_ref}...HEAD"
+            range_spec = f"{resolved_remote}/{base_ref}..HEAD"
             output, used_fallback = _run_git_with_fallbacks_and_flag(
-                ["diff", "--name-only", range_spec],
-                [["diff", "--name-only", "HEAD~20..HEAD"]],
+                [*log_prefix, range_spec],
+                [[*log_prefix, "-n", "20"]],
             )
         else:
-            output = _run_git(["diff", "--name-only", "HEAD~20..HEAD"])
+            output = _run_git([*log_prefix, "-n", "20"])
             used_fallback = True
     else:
-        output = _run_git(["diff", "--name-only", "HEAD~20..HEAD"])
+        output = _run_git([*log_prefix, "-n", "20"])
         used_fallback = True
-    return [Path(line.strip()) for line in output.splitlines() if line.strip()], used_fallback
+    files: list[Path] = []
+    seen: set[str] = set()
+    for line in output.splitlines():
+        candidate = line.strip()
+        if not candidate or candidate in seen:
+            continue
+        files.append(Path(candidate))
+        seen.add(candidate)
+    return files, used_fallback
 
 
 def collect_header_issue_numbers(file_path: Path, max_lines: int) -> set[int]:

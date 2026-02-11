@@ -215,6 +215,52 @@ def test_resolve_base_sha_keeps_ancestor(monkeypatch) -> None:
     assert calls == [("is_ancestor", "deadbeef", "HEAD")]
 
 
+def test_collect_changed_files_uses_first_parent_log(monkeypatch) -> None:
+    recorded = {}
+
+    monkeypatch.setattr(
+        check_issue_consistency,
+        "_resolve_base_sha_for_head",
+        lambda value: "deadbeef",
+    )
+    monkeypatch.setattr(
+        check_issue_consistency,
+        "_find_remote_with_ref",
+        lambda *_args, **_kwargs: "upstream",
+    )
+
+    def fake_run_git_with_fallbacks_and_flag(primary: list[str], fallbacks: list[list[str]]):
+        recorded["primary"] = primary
+        recorded["fallbacks"] = fallbacks
+        return ("src/a.py\nsrc/a.py\nsrc/b.py\n", False)
+
+    monkeypatch.setattr(
+        check_issue_consistency,
+        "_run_git_with_fallbacks_and_flag",
+        fake_run_git_with_fallbacks_and_flag,
+    )
+
+    files, used_fallback = check_issue_consistency.collect_changed_files(
+        "main",
+        "deadbeef",
+        "upstream",
+    )
+
+    assert recorded["primary"] == [
+        "log",
+        "--format=",
+        "--name-only",
+        "--first-parent",
+        "deadbeef..HEAD",
+    ]
+    assert recorded["fallbacks"] == [
+        ["log", "--format=", "--name-only", "--first-parent", "upstream/main..HEAD"],
+        ["log", "--format=", "--name-only", "--first-parent", "-n", "20"],
+    ]
+    assert files == [Path("src/a.py"), Path("src/b.py")]
+    assert used_fallback is False
+
+
 def test_main_skips_ambiguous_head_ref(monkeypatch, capsys) -> None:
     monkeypatch.delenv("GITHUB_EVENT_PATH", raising=False)
     monkeypatch.setenv("PR_TITLE", "")
