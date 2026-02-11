@@ -18,8 +18,7 @@ def test_anthropic_provider_forwards_quality_context_to_client_invoke(
             return self._invoke(*args, **kwargs)
 
         def _invoke(self, *_args, **_kwargs):
-            return SimpleNamespace(
-                content="""
+            return SimpleNamespace(content="""
 {
     "completed": ["task1"],
     "in_progress": [],
@@ -27,8 +26,7 @@ def test_anthropic_provider_forwards_quality_context_to_client_invoke(
     "confidence": 0.8,
     "reasoning": "Task 1 done."
 }
-"""
-            )
+""")
 
     client = DummyClient()
     provider = AnthropicProvider()
