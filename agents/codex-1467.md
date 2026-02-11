@@ -52,3 +52,23 @@ Recent completed validation work to reconcile:
 Suggested checkbox update:
 - Mark "Validate focused slice for: Add a step to check if the file `.github/reference_packs.json` exists..." as complete if PR owners accept script-level validation as the verification evidence.
 -->
+
+<!--
+needs-human:
+Label: needs-human
+Task reconciliation update required in PR body (cannot be edited from this local workspace run).
+
+Newly verified this round:
+- Implemented script-level config content export for present `.github/reference_packs.json` in `github-output` mode:
+  - `scripts/reference_packs.py` now emits `reference_packs_config_text` (escaped for GitHub output).
+- Added/updated verification tests in `tests/scripts/test_reference_packs.py`:
+  - `test_cli_github_output_includes_presence_and_path`
+  - `test_cli_github_output_absent_config_reports_false`
+  - `test_cli_github_output_config_text_preserves_percent_and_newline`
+- Validation command passed:
+  - `pytest -q tests/scripts/test_reference_packs.py -m "not slow"`
+
+Suggested checkbox updates:
+- Mark "Implement focused slice for: Implement logic to read the contents of `.github/reference_packs.json` when the file is present" as complete.
+- Mark "Validate focused slice for: Implement logic to read the contents of `.github/reference_packs.json` when the file is present" as complete.
+-->

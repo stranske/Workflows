@@ -19,6 +19,10 @@ from scripts.reference_packs import (
 )
 
 
+def _decode_github_output_value(value: str) -> str:
+    return value.replace("%0D", "\r").replace("%0A", "\n").replace("%25", "%")
+
+
 def test_reference_pack_config_exists_when_missing(tmp_path: Path) -> None:
     assert reference_pack_config_exists(tmp_path) is False
 
@@ -335,6 +339,7 @@ def test_cli_github_output_includes_presence_and_path(tmp_path: Path) -> None:
     assert f"reference_packs_path={config_file}" in output_lines
     assert "reference_packs_count=1" in output_lines
     assert "reference_packs_payload_json=" in output_lines
+    assert "reference_packs_config_text=" in output_lines
     assert "reference_packs_config_text_b64=" in output_lines
 
     line_map = dict(
@@ -342,10 +347,13 @@ def test_cli_github_output_includes_presence_and_path(tmp_path: Path) -> None:
         for line in output_lines.splitlines()
         if "=" in line and line.startswith("reference_packs_")
     )
-    payload_json = line_map["reference_packs_payload_json"]
+    payload_json = _decode_github_output_value(line_map["reference_packs_payload_json"])
     parsed_payload = json.loads(payload_json)
     assert parsed_payload["exists"] is True
     assert parsed_payload["packs"][0]["name"] == "trend-streamlit"
+
+    config_text_direct = _decode_github_output_value(line_map["reference_packs_config_text"])
+    assert json.loads(config_text_direct)["trend-streamlit"]["repo"] == "trend/research"
 
     config_b64 = line_map["reference_packs_config_text_b64"]
     config_text = b64decode(config_b64.encode("ascii")).decode("utf-8")
@@ -374,4 +382,45 @@ def test_cli_github_output_absent_config_reports_false(tmp_path: Path) -> None:
     output_lines = github_output.read_text(encoding="utf-8")
     assert "reference_packs_exists=false" in output_lines
     assert "reference_packs_count=0" in output_lines
+    assert "reference_packs_config_text=" in output_lines
     assert "reference_packs_config_text_b64=" in output_lines
+
+
+def test_cli_github_output_config_text_preserves_percent_and_newline(tmp_path: Path) -> None:
+    config_file = tmp_path / ".github" / "reference_packs.json"
+    config_file.parent.mkdir(parents=True)
+    config_text = (
+        "{\n"
+        '  "trend-streamlit": {\n'
+        '    "repo": "trend/research",\n'
+        '    "ref": "release%2Fmain",\n'
+        '    "paths": ["apps/streamlit"]\n'
+        "  }\n"
+        "}"
+    )
+    config_file.write_text(config_text, encoding="utf-8")
+    github_output = tmp_path / "github_output.txt"
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "scripts/reference_packs.py",
+            "--workspace",
+            str(tmp_path),
+            "--format",
+            "github-output",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+        env={"GITHUB_OUTPUT": str(github_output)},
+    )
+
+    assert result.returncode == 0
+    line_map = dict(
+        line.split("=", 1)
+        for line in github_output.read_text(encoding="utf-8").splitlines()
+        if "=" in line and line.startswith("reference_packs_")
+    )
+    decoded = _decode_github_output_value(line_map["reference_packs_config_text"])
+    assert decoded == config_text
