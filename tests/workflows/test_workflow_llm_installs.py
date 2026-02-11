@@ -285,7 +285,7 @@ def test_reference_pack_config_missing_required_key_fails_before_execution(
     assert not (tmp_path / ".reference").exists()
 
 
-def test_reusable_codex_prompt_step_ignores_reference_pack_file_when_present(
+def test_reusable_codex_prompt_step_includes_reference_pack_section_when_file_exists(
     tmp_path: Path,
 ) -> None:
     workflow = _load_workflow(REUSABLE_CODEX_RUN)
@@ -300,8 +300,10 @@ def test_reusable_codex_prompt_step_ignores_reference_pack_file_when_present(
         base_prompt_text="Base prompt content\n",
     )
 
-    # The reusable workflow currently does not ingest REFERENCE_PACKS.md.
-    assert rendered == "Base prompt content\n"
+    assert "## Reference Pack\n" in rendered
+    assert "# Pack Title" in rendered
+    assert "- item one" in rendered
+    assert "- item two" in rendered
 
 
 def test_reusable_codex_prompt_step_skips_reference_pack_section_when_file_missing(
@@ -316,3 +318,22 @@ def test_reusable_codex_prompt_step_skips_reference_pack_section_when_file_missi
 
     # Missing file should not error and should not add a reference section.
     assert "## Reference Pack\n" not in rendered
+
+
+def test_reusable_codex_workflow_has_reference_pack_validation_step() -> None:
+    workflow = _load_workflow(REUSABLE_CODEX_RUN)
+    step = _find_step_by_name(workflow, "Validate and materialize reference packs")
+    run_script = str(step.get("run", ""))
+    # Step must validate config with reference_packs.py
+    assert "reference_packs.py" in run_script
+    # Step must no-op when config file is absent
+    assert "reference_packs.json" in run_script
+    # Step must be positioned before Assemble prompt
+    steps = _iter_steps(workflow)
+    step_names = [s.get("name", "") for s in steps]
+    ref_idx = step_names.index("Validate and materialize reference packs")
+    prompt_idx = step_names.index("Assemble prompt")
+    codex_idx = step_names.index("Run Codex")
+    assert (
+        ref_idx < prompt_idx < codex_idx
+    ), "Reference pack validation must come before Assemble prompt and Run Codex"
