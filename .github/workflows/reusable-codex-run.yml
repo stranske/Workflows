@@ -485,11 +485,32 @@ jobs:
               if os.path.exists(clone_dir):
                   shutil.rmtree(clone_dir)
               clone_url = f"https://x-access-token:{token}@github.com/{repo}.git" if token else f"https://github.com/{repo}.git"
-              subprocess.check_call(
-                  ["git", "clone", "--depth=1", "--branch", ref,
-                   "--filter=blob:none", "--sparse", clone_url, clone_dir],
-                  stdout=subprocess.DEVNULL,
-              )
+
+              # Detect whether ref looks like a commit SHA (hex, 7-40 chars)
+              import re as _re
+              is_sha = bool(_re.fullmatch(r'[0-9a-f]{7,40}', ref))
+              if is_sha:
+                  # git clone --branch doesn't accept commit SHAs;
+                  # clone then fetch the specific commit instead.
+                  subprocess.check_call(
+                      ["git", "clone", "--depth=1", "--filter=blob:none",
+                       "--sparse", "--no-checkout", clone_url, clone_dir],
+                      stdout=subprocess.DEVNULL,
+                  )
+                  subprocess.check_call(
+                      ["git", "-C", clone_dir, "fetch", "origin", ref, "--depth=1"],
+                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                  )
+                  subprocess.check_call(
+                      ["git", "-C", clone_dir, "checkout", ref],
+                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                  )
+              else:
+                  subprocess.check_call(
+                      ["git", "clone", "--depth=1", "--branch", ref,
+                       "--filter=blob:none", "--sparse", clone_url, clone_dir],
+                      stdout=subprocess.DEVNULL,
+                  )
               subprocess.check_call(
                   ["git", "-C", clone_dir, "sparse-checkout", "set", "--no-cone"] + paths,
                   stdout=subprocess.DEVNULL,
