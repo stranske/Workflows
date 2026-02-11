@@ -243,9 +243,24 @@ def test_reusable_codex_prompt_step_includes_reference_pack_section_when_file_ex
     assemble_step = _find_step_by_name(workflow, "Assemble prompt")
     run_script = str(assemble_step.get("run", ""))
 
-    assert '[ -f ".reference/REFERENCE_PACKS.md" ]' in run_script
+    expected_block = """
+if [ -f ".reference/REFERENCE_PACKS.md" ]; then
+  {
+    echo
+    echo "## Reference Pack"
+    cat ".reference/REFERENCE_PACKS.md"
+  } >> "$output"
+fi
+""".strip()
+
+    assert expected_block in run_script
     assert 'echo "## Reference Pack"' in run_script
-    assert 'cat ".reference/REFERENCE_PACKS.md"' in run_script
+    # The reference-pack file must be appended verbatim. `cat` should not be piped
+    # through transforms that mutate content.
+    assert 'cat ".reference/REFERENCE_PACKS.md" |' not in run_script
+    assert 'sed ".reference/REFERENCE_PACKS.md"' not in run_script
+    assert 'awk ".reference/REFERENCE_PACKS.md"' not in run_script
+    assert 'tr ".reference/REFERENCE_PACKS.md"' not in run_script
 
 
 def test_reusable_codex_prompt_step_skips_reference_pack_section_when_file_missing() -> None:
