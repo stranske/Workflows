@@ -300,7 +300,7 @@ def test_reusable_codex_prompt_step_includes_reference_pack_section_when_file_ex
         base_prompt_text="Base prompt content\n",
     )
 
-    assert "## Reference Pack\n" in rendered
+    assert "## Reference Packs\n" in rendered
     assert "# Pack Title" in rendered
     assert "- item one" in rendered
     assert "- item two" in rendered
@@ -337,3 +337,27 @@ def test_reusable_codex_workflow_has_reference_pack_validation_step() -> None:
     assert (
         ref_idx < prompt_idx < codex_idx
     ), "Reference pack validation must come before Assemble prompt and Run Codex"
+
+
+def test_reusable_codex_reference_pack_step_handles_sha_refs() -> None:
+    """The materialization script must detect full 40-char hex SHAs and use
+    clone+fetch+checkout instead of --branch, and suppress stderr on clone
+    commands to avoid leaking tokens."""
+    workflow = _load_workflow(REUSABLE_CODEX_RUN)
+    step = _find_step_by_name(workflow, "Validate and materialize reference packs")
+    run_script = str(step.get("run", ""))
+    # Must detect full 40-char hex SHAs (case-insensitive)
+    assert (
+        "[0-9a-fA-F]{40}" in run_script
+    ), "SHA regex must match full 40-char hex (case-insensitive)"
+    # Must use fetch+checkout path for SHAs
+    assert (
+        "fetch" in run_script and "origin" in run_script
+    ), "SHA path must use git fetch origin <sha>"
+    assert "--no-checkout" in run_script, "SHA path must clone with --no-checkout"
+    # Must suppress stderr on clone to avoid leaking tokens
+    assert "stderr=subprocess.DEVNULL" in run_script, "Clone stderr must be suppressed"
+    # Must use sparse-checkout reapply (not bare git checkout)
+    assert (
+        "sparse-checkout" in run_script and "reapply" in run_script
+    ), "Must use sparse-checkout reapply instead of bare git checkout"
