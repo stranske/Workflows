@@ -226,7 +226,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--format",
-        choices=["json", "github-output"],
+        choices=["json", "github-output", "self-check"],
         default="json",
         help="Output format",
     )
@@ -245,6 +245,19 @@ def main(argv: list[str] | None = None) -> int:
     payload = _snapshot_to_dict(snapshot)
     if args.format == "json":
         print(json.dumps(payload, separators=(",", ":")))
+        return 0
+    if args.format == "self-check":
+        if not snapshot.exists:
+            print(
+                f"Reference packs self-check: skipped ({snapshot.config_path} not found).",
+                file=sys.stderr,
+            )
+            return 0
+        print(
+            "Reference packs self-check: OK "
+            f"({len(snapshot.packs)} pack(s) validated from {snapshot.config_path}).",
+            file=sys.stderr,
+        )
         return 0
 
     github_output_raw = os.environ.get("GITHUB_OUTPUT")

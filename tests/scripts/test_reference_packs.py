@@ -459,3 +459,88 @@ def test_cli_github_output_config_text_preserves_percent_and_newline(tmp_path: P
     )
     decoded = _decode_github_output_value(line_map["reference_packs_config_text"])
     assert decoded == config_text
+
+
+def test_cli_self_check_skips_when_config_absent(tmp_path: Path) -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "scripts/reference_packs.py",
+            "--workspace",
+            str(tmp_path),
+            "--format",
+            "self-check",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0
+    assert "Reference packs self-check: skipped" in result.stderr
+    assert "reference_packs.json not found" in result.stderr
+
+
+def test_cli_self_check_reports_ok_when_config_valid(tmp_path: Path) -> None:
+    config_file = tmp_path / ".github" / "reference_packs.json"
+    config_file.parent.mkdir(parents=True)
+    config_file.write_text(
+        json.dumps(
+            {
+                "trend-streamlit": {
+                    "repo": "trend/research",
+                    "ref": "main",
+                    "paths": ["apps/streamlit"],
+                },
+                "baseline": {
+                    "repo": "trend/baseline",
+                    "ref": "v1.0.0",
+                    "paths": ["README.md"],
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "scripts/reference_packs.py",
+            "--workspace",
+            str(tmp_path),
+            "--format",
+            "self-check",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0
+    assert "Reference packs self-check: OK" in result.stderr
+    assert "2 pack(s) validated" in result.stderr
+    assert str(config_file) in result.stderr
+
+
+def test_cli_self_check_fails_when_config_malformed(tmp_path: Path) -> None:
+    config_file = tmp_path / ".github" / "reference_packs.json"
+    config_file.parent.mkdir(parents=True)
+    config_file.write_text('{"packs": [', encoding="utf-8")
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "scripts/reference_packs.py",
+            "--workspace",
+            str(tmp_path),
+            "--format",
+            "self-check",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 2
+    assert "Reference packs config error: Malformed JSON in" in result.stderr
+    assert str(config_file) in result.stderr
