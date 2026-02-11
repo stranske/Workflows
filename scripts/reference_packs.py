@@ -51,6 +51,20 @@ def reference_pack_config_exists(workspace: Path | str = ".") -> bool:
     return reference_pack_config_path(workspace).is_file()
 
 
+def read_reference_pack_config_text(workspace: Path | str = ".") -> tuple[Path, str | None]:
+    """Read `.github/reference_packs.json` from a workspace when it exists."""
+    config_path = reference_pack_config_path(workspace)
+    if not config_path.is_file():
+        return config_path, None
+
+    try:
+        return config_path, config_path.read_text(encoding="utf-8")
+    except UnicodeDecodeError as exc:
+        raise ReferencePackConfigError(
+            f"Malformed text in {config_path}: file must be valid UTF-8"
+        ) from exc
+
+
 def _require_nonempty_string(value: Any, field_name: str) -> str:
     if not isinstance(value, str) or not value.strip():
         raise ReferencePackConfigError(f"{field_name} must be a non-empty string")
@@ -132,16 +146,9 @@ def parse_reference_packs(payload: Any) -> list[ReferencePack]:
     return packs
 
 
-def load_reference_packs(workspace: Path | str = ".") -> ReferencePackSnapshot:
-    """Load and validate reference pack configuration from a workspace."""
-    config_path = reference_pack_config_path(workspace)
-    if not config_path.is_file():
-        return ReferencePackSnapshot(
-            exists=False, config_path=config_path, config_text=None, packs=[]
-        )
-
+def parse_reference_pack_config_text(config_text: str, config_path: Path) -> list[ReferencePack]:
+    """Parse and validate reference packs from raw JSON text."""
     try:
-        config_text = config_path.read_text(encoding="utf-8")
         payload = json.loads(config_text)
     except json.JSONDecodeError as exc:
         raise ReferencePackConfigError(
@@ -149,9 +156,20 @@ def load_reference_packs(workspace: Path | str = ".") -> ReferencePackSnapshot:
         ) from exc
 
     try:
-        packs = parse_reference_packs(payload)
+        return parse_reference_packs(payload)
     except ReferencePackConfigError as exc:
         raise ReferencePackConfigError(f"Invalid config in {config_path}: {exc}") from exc
+
+
+def load_reference_packs(workspace: Path | str = ".") -> ReferencePackSnapshot:
+    """Load and validate reference pack configuration from a workspace."""
+    config_path, config_text = read_reference_pack_config_text(workspace)
+    if config_text is None:
+        return ReferencePackSnapshot(
+            exists=False, config_path=config_path, config_text=None, packs=[]
+        )
+
+    packs = parse_reference_pack_config_text(config_text, config_path)
 
     return ReferencePackSnapshot(
         exists=True, config_path=config_path, config_text=config_text, packs=packs

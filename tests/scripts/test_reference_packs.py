@@ -12,7 +12,9 @@ import pytest
 from scripts.reference_packs import (
     ReferencePackConfigError,
     load_reference_packs,
+    parse_reference_pack_config_text,
     parse_reference_packs,
+    read_reference_pack_config_text,
     reference_pack_config_exists,
 )
 
@@ -35,6 +37,13 @@ def test_load_reference_packs_returns_empty_when_file_absent(tmp_path: Path) -> 
     assert snapshot.exists is False
     assert snapshot.config_text is None
     assert snapshot.packs == []
+
+
+def test_read_reference_pack_config_text_returns_none_when_missing(tmp_path: Path) -> None:
+    config_path, config_text = read_reference_pack_config_text(tmp_path)
+
+    assert config_path == tmp_path / ".github" / "reference_packs.json"
+    assert config_text is None
 
 
 def test_load_reference_packs_mapping_format(tmp_path: Path) -> None:
@@ -60,6 +69,35 @@ def test_load_reference_packs_mapping_format(tmp_path: Path) -> None:
     assert pack.repo == "trend/research"
     assert pack.ref == "main"
     assert pack.paths == ["apps/streamlit", "langchain"]
+
+
+def test_read_reference_pack_config_text_reads_present_file(tmp_path: Path) -> None:
+    config_file = tmp_path / ".github" / "reference_packs.json"
+    config_file.parent.mkdir(parents=True)
+    config_file.write_text('{"packs":[]}', encoding="utf-8")
+
+    config_path, config_text = read_reference_pack_config_text(tmp_path)
+
+    assert config_path == config_file
+    assert config_text == '{"packs":[]}'
+
+
+def test_parse_reference_pack_config_text_valid() -> None:
+    packs = parse_reference_pack_config_text(
+        json.dumps(
+            {
+                "trend-streamlit": {
+                    "repo": "trend/research",
+                    "ref": "main",
+                    "paths": ["apps/streamlit"],
+                }
+            }
+        ),
+        Path("/tmp/workspace/.github/reference_packs.json"),
+    )
+
+    assert len(packs) == 1
+    assert packs[0].name == "trend-streamlit"
 
 
 def test_parse_reference_packs_list_format() -> None:
@@ -109,6 +147,14 @@ def test_load_reference_packs_rejects_malformed_json(tmp_path: Path) -> None:
         load_reference_packs(tmp_path)
 
 
+def test_parse_reference_pack_config_text_rejects_malformed_json() -> None:
+    with pytest.raises(ReferencePackConfigError, match="Malformed JSON in"):
+        parse_reference_pack_config_text(
+            '{"packs": [',
+            Path("/tmp/workspace/.github/reference_packs.json"),
+        )
+
+
 def test_load_reference_packs_rejects_missing_required_fields(tmp_path: Path) -> None:
     config_file = tmp_path / ".github" / "reference_packs.json"
     config_file.parent.mkdir(parents=True)
@@ -131,6 +177,25 @@ def test_load_reference_packs_rejects_missing_required_fields(tmp_path: Path) ->
         load_reference_packs(tmp_path)
 
 
+def test_parse_reference_pack_config_text_rejects_invalid_structure() -> None:
+    with pytest.raises(
+        ReferencePackConfigError,
+        match=r"Invalid config in .*reference_packs\.json: paths must be a non-empty array of strings",
+    ):
+        parse_reference_pack_config_text(
+            json.dumps(
+                {
+                    "trend-streamlit": {
+                        "repo": "trend/research",
+                        "ref": "main",
+                        "paths": [],
+                    }
+                }
+            ),
+            Path("/tmp/workspace/.github/reference_packs.json"),
+        )
+
+
 def test_load_reference_packs_rejects_parent_directory_paths(tmp_path: Path) -> None:
     config_file = tmp_path / ".github" / "reference_packs.json"
     config_file.parent.mkdir(parents=True)
@@ -150,6 +215,18 @@ def test_load_reference_packs_rejects_parent_directory_paths(tmp_path: Path) -> 
     with pytest.raises(
         ReferencePackConfigError,
         match=r"Invalid config in .*reference_packs\.json: paths\[\] must not traverse parent directories",
+    ):
+        load_reference_packs(tmp_path)
+
+
+def test_load_reference_packs_rejects_non_utf8_config(tmp_path: Path) -> None:
+    config_file = tmp_path / ".github" / "reference_packs.json"
+    config_file.parent.mkdir(parents=True)
+    config_file.write_bytes(b"\x80\x81")
+
+    with pytest.raises(
+        ReferencePackConfigError,
+        match=r"Malformed text in .*reference_packs\.json: file must be valid UTF-8",
     ):
         load_reference_packs(tmp_path)
 
