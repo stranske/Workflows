@@ -36,3 +36,19 @@ What was implemented in code this round:
   - payload/config outputs
   - extra-key validation failure in list format.
 -->
+
+<!--
+needs-human:
+Label: needs-human
+Task reconciliation update required in PR body (cannot be edited from this local workspace run).
+
+Recent completed validation work to reconcile:
+- `scripts/reference_packs.py` now reports config-shape errors with the full `.github/reference_packs.json` path.
+- `tests/scripts/test_reference_packs.py` validates:
+  - absent config reports `reference_packs_exists=false`
+  - malformed JSON failures include line/column details and file path
+  - invalid config shape failures include file path and specific reason
+
+Suggested checkbox update:
+- Mark "Validate focused slice for: Add a step to check if the file `.github/reference_packs.json` exists..." as complete if PR owners accept script-level validation as the verification evidence.
+-->
