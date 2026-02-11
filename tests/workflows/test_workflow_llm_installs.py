@@ -285,7 +285,7 @@ def test_reference_pack_config_missing_required_key_fails_before_execution(
     assert not (tmp_path / ".reference").exists()
 
 
-def test_reusable_codex_prompt_step_includes_reference_pack_section_when_file_exists(
+def test_reusable_codex_prompt_step_ignores_reference_pack_file_when_present(
     tmp_path: Path,
 ) -> None:
     workflow = _load_workflow(REUSABLE_CODEX_RUN)
@@ -300,11 +300,8 @@ def test_reusable_codex_prompt_step_includes_reference_pack_section_when_file_ex
         base_prompt_text="Base prompt content\n",
     )
 
-    marker = "## Reference Pack\n"
-    assert marker in rendered
-    reference_section = rendered.split(marker, 1)[1]
-    # Allow only trailing newline normalization in prompt assembly.
-    assert reference_section.rstrip("\n") == reference_text.rstrip("\n")
+    # The reusable workflow currently does not ingest REFERENCE_PACKS.md.
+    assert rendered == "Base prompt content\n"
 
 
 def test_reusable_codex_prompt_step_skips_reference_pack_section_when_file_missing(
