@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+import json
 import os
 import re
+import shutil
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -11,6 +15,7 @@ WORKFLOWS_DIR = Path(".github/workflows")
 AUTO_PILOT = WORKFLOWS_DIR / "agents-auto-pilot.yml"
 VERIFIER = WORKFLOWS_DIR / "reusable-agents-verifier.yml"
 NEEDS_HUMAN_COMMENT = Path("agents/codex-1447.md")
+REFERENCE_PACK_FIXTURES = Path("tests/workflows/fixtures/reference_packs")
 
 
 def _load_text(path: Path) -> str:
@@ -67,6 +72,28 @@ def _assert_pip_cache(workflow: dict, hash_path: str, name: str) -> None:
     )
 
 
+def _materialize_reference_pack_directories(
+    workspace: Path,
+    checkout_plan: list[dict],
+    fixture_repo_root: Path,
+) -> None:
+    for entry in checkout_plan:
+        pack_name = entry["name"]
+        checkout_path = workspace / entry["checkout_path"]
+        source_root = fixture_repo_root / pack_name
+        assert source_root.exists(), f"Fixture source missing for pack: {pack_name}"
+        checkout_path.mkdir(parents=True, exist_ok=True)
+
+        for rel_path in entry["paths"]:
+            source = source_root / rel_path
+            destination = checkout_path / rel_path
+            if source.is_dir():
+                shutil.copytree(source, destination, dirs_exist_ok=True)
+            else:
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(source, destination)
+
+
 def test_agents_auto_pilot_llm_install_is_pinned() -> None:
     text = _load_text(AUTO_PILOT)
     _assert_pinned_install(
@@ -116,3 +143,36 @@ def test_workflow_llm_needs_human_comment_documents_blocker() -> None:
     ]
     missing = [phrase for phrase in required_phrases if phrase not in text]
     assert not missing, f"needs-human comment missing: {', '.join(missing)}"
+
+
+def test_valid_reference_pack_config_materializes_populated_directories(tmp_path: Path) -> None:
+    fixture_config = REFERENCE_PACK_FIXTURES / "valid_reference_packs.json"
+    fixture_repo_root = REFERENCE_PACK_FIXTURES / "repo_contents"
+    assert fixture_config.exists(), "Reference pack fixture config must exist"
+    assert fixture_repo_root.exists(), "Reference pack fixture repository data must exist"
+
+    config_dir = tmp_path / ".github"
+    config_dir.mkdir(parents=True)
+    config_path = config_dir / "reference_packs.json"
+    config_path.write_text(fixture_config.read_text(encoding="utf-8"), encoding="utf-8")
+
+    result = subprocess.run(
+        [sys.executable, "scripts/reference_packs.py", "--workspace", str(tmp_path)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
+
+    payload = json.loads(result.stdout)
+    assert payload["exists"] is True
+    checkout_plan = payload["checkout_plan"]
+    assert checkout_plan, "Checkout plan should contain at least one pack for valid config"
+
+    _materialize_reference_pack_directories(tmp_path, checkout_plan, fixture_repo_root)
+
+    expected_file = tmp_path / ".reference" / "trend-streamlit" / "apps" / "streamlit" / "app.py"
+    expected_doc = tmp_path / ".reference" / "trend-streamlit" / "langchain" / "README.md"
+    assert expected_file.exists()
+    assert expected_doc.exists()
+    assert expected_file.read_text(encoding="utf-8").strip() == "print('reference pack app')"
