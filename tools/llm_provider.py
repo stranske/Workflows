@@ -543,7 +543,19 @@ class AnthropicProvider(LLMProvider):
         prompt = github_provider._build_analysis_prompt(session_output, tasks, context)
 
         try:
-            response = client.invoke(prompt)
+            if quality_context is None:
+                response = client.invoke(prompt)
+            else:
+                try:
+                    response = client.invoke(prompt, quality_context=quality_context)
+                except TypeError as exc:
+                    message = str(exc)
+                    if "quality_context" not in message:
+                        raise
+                    logger.debug(
+                        "Anthropic client invoke rejected quality_context, retrying without it"
+                    )
+                    response = client.invoke(prompt)
             result = github_provider._parse_response(
                 response.content,
                 tasks,
