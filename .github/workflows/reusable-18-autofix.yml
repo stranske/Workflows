@@ -1100,7 +1100,7 @@ jobs:
             }
 
       - name: Restore prior autofix history artifact (same-repo)
-        if: steps.guard.outputs.skip != 'true' && steps.same_repo.outputs.same == 'true'
+        if: steps.guard.outputs.skip != 'true' && steps.same_repo.outputs.same == 'true' && steps.fix_results.outputs.changed == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           GITHUB_TOKEN: ${{ github.token }}
@@ -1117,7 +1117,10 @@ jobs:
           echo "[history] Attempting to restore ${artifact_name} from previous runs"
           set +e
           # shellcheck disable=SC1009,SC1073,SC1039,SC1072
-          # Use name filter to avoid paginating through all 50k+ repo artifacts
+          # Single-page fetch with name filter and retry/token-rotation.
+          # Uses withRetry (not paginateWithRetry) to avoid iterating
+          # through 60k+ repo artifacts — the name filter returns only
+          # matching artifacts so one page is sufficient.
           response=$(node - <<'NODE'
           const { Octokit } = require('@octokit/rest');
           const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
@@ -1126,20 +1129,20 @@ jobs:
           const artifactName = process.env.artifact_name;
           (async () => {
             const github = new Octokit({ auth: process.env.GH_TOKEN || process.env.GITHUB_TOKEN });
-            const { paginateWithRetry } = await createTokenAwareRetry({
+            const { withRetry } = await createTokenAwareRetry({
               github,
               core,
               env: process.env,
               task: 'reusable-18-autofix-history',
               capabilities: ['actions:read']
             });
-            const artifacts = await paginateWithRetry(github.rest.actions.listArtifactsForRepo, {
+            const { data } = await withRetry((client) => client.rest.actions.listArtifactsForRepo({
               owner,
               repo,
               name: artifactName,
               per_page: 100
-            });
-            process.stdout.write(JSON.stringify({ artifacts }));
+            }));
+            process.stdout.write(JSON.stringify({ artifacts: data.artifacts || [] }));
           })().catch((error) => {
             console.error(error);
             process.exit(1);
@@ -1209,7 +1212,7 @@ jobs:
           rm -rf "$tmpdir"
 
       - name: Update residual history (same-repo)
-        if: steps.guard.outputs.skip != 'true' && steps.same_repo.outputs.same == 'true'
+        if: steps.guard.outputs.skip != 'true' && steps.same_repo.outputs.same == 'true' && steps.fix_results.outputs.changed == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -1223,7 +1226,7 @@ jobs:
           fi
 
       - name: Upload autofix history artifact (same-repo)
-        if: steps.guard.outputs.skip != 'true' && steps.same_repo.outputs.same == 'true'
+        if: steps.guard.outputs.skip != 'true' && steps.same_repo.outputs.same == 'true' && steps.fix_results.outputs.changed == 'true'
         uses: actions/upload-artifact@v6
         with:
           name: autofix-history-pr-${{ inputs.pr_number }}
@@ -1231,7 +1234,7 @@ jobs:
           if-no-files-found: ignore
 
       - name: Generate trend sparkline (same-repo)
-        if: steps.guard.outputs.skip != 'true' && steps.same_repo.outputs.same == 'true'
+        if: steps.guard.outputs.skip != 'true' && steps.same_repo.outputs.same == 'true' && steps.fix_results.outputs.changed == 'true'
         shell: bash
         run: |
           if [ -f scripts/generate_residual_trend.py ]; then python scripts/generate_residual_trend.py || true; fi
