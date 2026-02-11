@@ -102,6 +102,53 @@ def _materialize_reference_pack_directories(
                 shutil.copy2(source, destination)
 
 
+def _render_prompt_with_assemble_step(
+    tmp_path: Path,
+    workflow: dict,
+    *,
+    base_prompt_text: str,
+    appendix: str = "",
+    mode: str = "autofix",
+    pr_number: str = "",
+) -> str:
+    assemble_step = _find_step_by_name(workflow, "Assemble prompt")
+    run_script = str(assemble_step.get("run", ""))
+    base_prompt = tmp_path / "base_prompt.md"
+    base_prompt.write_text(base_prompt_text, encoding="utf-8")
+    github_output = tmp_path / "github_output.txt"
+    github_output.write_text("", encoding="utf-8")
+
+    env = os.environ.copy()
+    env.update(
+        {
+            "BASE_PROMPT": str(base_prompt),
+            "APPENDIX": appendix,
+            "PR_NUMBER": pr_number,
+            "MODE": mode,
+            "GITHUB_OUTPUT": str(github_output),
+        }
+    )
+
+    result = subprocess.run(
+        ["bash", "-c", run_script],
+        cwd=tmp_path,
+        check=False,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    assert result.returncode == 0, result.stderr
+
+    output_file = None
+    for line in github_output.read_text(encoding="utf-8").splitlines():
+        if line.startswith("file="):
+            output_file = line.split("=", 1)[1].strip()
+            break
+    assert output_file, "Assemble prompt step must write file=<path> to GITHUB_OUTPUT"
+
+    return (tmp_path / output_file).read_text(encoding="utf-8")
+
+
 def test_agents_auto_pilot_llm_install_is_pinned() -> None:
     text = _load_text(AUTO_PILOT)
     _assert_pinned_install(
@@ -238,37 +285,37 @@ def test_reference_pack_config_missing_required_key_fails_before_execution(
     assert not (tmp_path / ".reference").exists()
 
 
-def test_reusable_codex_prompt_step_includes_reference_pack_section_when_file_exists() -> None:
+def test_reusable_codex_prompt_step_includes_reference_pack_section_when_file_exists(
+    tmp_path: Path,
+) -> None:
     workflow = _load_workflow(REUSABLE_CODEX_RUN)
-    assemble_step = _find_step_by_name(workflow, "Assemble prompt")
-    run_script = str(assemble_step.get("run", ""))
+    reference_text = "# Pack Title\n- item one\n- item two\n"
+    reference_path = tmp_path / ".reference" / "REFERENCE_PACKS.md"
+    reference_path.parent.mkdir(parents=True, exist_ok=True)
+    reference_path.write_text(reference_text, encoding="utf-8")
 
-    expected_block = """
-if [ -f ".reference/REFERENCE_PACKS.md" ]; then
-  {
-    echo
-    echo "## Reference Pack"
-    cat ".reference/REFERENCE_PACKS.md"
-  } >> "$output"
-fi
-""".strip()
+    rendered = _render_prompt_with_assemble_step(
+        tmp_path,
+        workflow,
+        base_prompt_text="Base prompt content\n",
+    )
 
-    assert expected_block in run_script
-    assert 'echo "## Reference Pack"' in run_script
-    # The reference-pack file must be appended verbatim. `cat` should not be piped
-    # through transforms that mutate content.
-    assert 'cat ".reference/REFERENCE_PACKS.md" |' not in run_script
-    assert 'sed ".reference/REFERENCE_PACKS.md"' not in run_script
-    assert 'awk ".reference/REFERENCE_PACKS.md"' not in run_script
-    assert 'tr ".reference/REFERENCE_PACKS.md"' not in run_script
+    marker = "## Reference Pack\n"
+    assert marker in rendered
+    reference_section = rendered.split(marker, 1)[1]
+    # Allow only trailing newline normalization in prompt assembly.
+    assert reference_section.rstrip("\n") == reference_text.rstrip("\n")
 
 
-def test_reusable_codex_prompt_step_skips_reference_pack_section_when_file_missing() -> None:
+def test_reusable_codex_prompt_step_skips_reference_pack_section_when_file_missing(
+    tmp_path: Path,
+) -> None:
     workflow = _load_workflow(REUSABLE_CODEX_RUN)
-    assemble_step = _find_step_by_name(workflow, "Assemble prompt")
-    run_script = str(assemble_step.get("run", ""))
+    rendered = _render_prompt_with_assemble_step(
+        tmp_path,
+        workflow,
+        base_prompt_text="Base prompt content\n",
+    )
 
-    # Guarded append means missing file does not error and no section is added.
-    assert 'if [ -f ".reference/REFERENCE_PACKS.md" ]; then' in run_script
-    assert 'cat ".reference/REFERENCE_PACKS.md"' in run_script
-    assert "exit 1" not in run_script.split('if [ -f ".reference/REFERENCE_PACKS.md" ]; then', 1)[1]
+    # Missing file should not error and should not add a reference section.
+    assert "## Reference Pack\n" not in rendered
