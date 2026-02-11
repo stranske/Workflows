@@ -1,5 +1,4 @@
 import pytest
-
 from tools.ensure_workflow_timeout_variables import (
     RepoVariableError,
     VariableSpec,

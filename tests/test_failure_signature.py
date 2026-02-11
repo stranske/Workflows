@@ -1,7 +1,6 @@
 import json
 
 import pytest
-
 from tools import test_failure_signature
 
 

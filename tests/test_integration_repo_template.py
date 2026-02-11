@@ -8,7 +8,6 @@ import sys
 from pathlib import Path
 
 import pytest
-
 from tools.integration_repo import WORKFLOW_PLACEHOLDER, render_integration_repo
 
 

@@ -6,7 +6,6 @@ import sys
 import types
 
 import pytest
-
 from tools import langchain_client
 
 

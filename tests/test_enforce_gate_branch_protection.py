@@ -6,7 +6,6 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
-
 from tools import enforce_gate_branch_protection as gate
 
 

@@ -2,7 +2,6 @@ import sys
 import types
 
 from scripts.langchain import semantic_matcher
-
 from tools.embedding_provider import FALLBACK_DIMENSIONS
 
 
