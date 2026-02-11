@@ -21,6 +21,29 @@ Reproduction:
 <!--
 needs-human:
 Label: needs-human
+Blocked by workflow protection: Reference Pack prompt inclusion/exclusion behavior requires edits to protected workflow files in agent-standard.
+
+Workflow: .github/workflows/reusable-codex-run.yml
+- In step `Assemble prompt`, append a conditional block after existing appendix handling:
+  - If `.reference/REFERENCE_PACKS.md` exists, append:
+    - literal heading `## Reference Pack`
+    - full contents of `.reference/REFERENCE_PACKS.md` (unmodified except trailing newline normalization)
+  - If file does not exist, continue without error and without adding any Reference Pack section.
+
+Added verification tests:
+- `tests/workflows/test_workflow_llm_installs.py::test_reusable_codex_prompt_step_includes_reference_pack_section_when_file_exists`
+- `tests/workflows/test_workflow_llm_installs.py::test_reusable_codex_prompt_step_skips_reference_pack_section_when_file_missing`
+
+Reproduction:
+- `pytest tests/workflows/test_workflow_llm_installs.py -m "not slow"`
+- Current failures confirm missing prompt assembly wiring in protected workflow:
+  - include-section assertion
+  - missing-file guard assertion
+-->
+
+<!--
+needs-human:
+Label: needs-human
 Blocked by workflow protection: reference pack wiring requires edits to protected workflow files in agent-standard.
 
 Workflow: .github/workflows/reusable-codex-run.yml

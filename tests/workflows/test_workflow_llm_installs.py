@@ -14,6 +14,7 @@ import yaml
 WORKFLOWS_DIR = Path(".github/workflows")
 AUTO_PILOT = WORKFLOWS_DIR / "agents-auto-pilot.yml"
 VERIFIER = WORKFLOWS_DIR / "reusable-agents-verifier.yml"
+REUSABLE_CODEX_RUN = WORKFLOWS_DIR / "reusable-codex-run.yml"
 NEEDS_HUMAN_COMMENT = Path("agents/codex-1447.md")
 REFERENCE_PACK_FIXTURES = Path("tests/workflows/fixtures/reference_packs")
 
@@ -55,6 +56,13 @@ def _iter_steps(workflow: dict) -> list[dict]:
         if isinstance(job_steps, list):
             steps.extend(step for step in job_steps if isinstance(step, dict))
     return steps
+
+
+def _find_step_by_name(workflow: dict, step_name: str) -> dict:
+    for step in _iter_steps(workflow):
+        if step.get("name") == step_name:
+            return step
+    raise AssertionError(f"Missing workflow step: {step_name}")
 
 
 def _assert_pip_cache(workflow: dict, hash_path: str, name: str) -> None:
@@ -228,3 +236,24 @@ def test_reference_pack_config_missing_required_key_fails_before_execution(
     assert "repo must be a non-empty string" in result.stderr
     assert result.stdout.strip() == ""
     assert not (tmp_path / ".reference").exists()
+
+
+def test_reusable_codex_prompt_step_includes_reference_pack_section_when_file_exists() -> None:
+    workflow = _load_workflow(REUSABLE_CODEX_RUN)
+    assemble_step = _find_step_by_name(workflow, "Assemble prompt")
+    run_script = str(assemble_step.get("run", ""))
+
+    assert '[ -f ".reference/REFERENCE_PACKS.md" ]' in run_script
+    assert 'echo "## Reference Pack"' in run_script
+    assert 'cat ".reference/REFERENCE_PACKS.md"' in run_script
+
+
+def test_reusable_codex_prompt_step_skips_reference_pack_section_when_file_missing() -> None:
+    workflow = _load_workflow(REUSABLE_CODEX_RUN)
+    assemble_step = _find_step_by_name(workflow, "Assemble prompt")
+    run_script = str(assemble_step.get("run", ""))
+
+    # Guarded append means missing file does not error and no section is added.
+    assert 'if [ -f ".reference/REFERENCE_PACKS.md" ]; then' in run_script
+    assert 'cat ".reference/REFERENCE_PACKS.md"' in run_script
+    assert 'exit 1' not in run_script.split('if [ -f ".reference/REFERENCE_PACKS.md" ]; then', 1)[1]
