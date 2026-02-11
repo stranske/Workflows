@@ -202,3 +202,29 @@ def test_malformed_reference_pack_config_fails_with_parse_error_before_execution
     assert "line " in result.stderr and " column " in result.stderr
     assert result.stdout.strip() == ""
     assert not (tmp_path / ".reference").exists()
+
+
+def test_reference_pack_config_missing_required_key_fails_before_execution(
+    tmp_path: Path,
+) -> None:
+    fixture_config = REFERENCE_PACK_FIXTURES / "missing_required_key_reference_packs.json"
+    assert fixture_config.exists(), "Missing-key reference pack fixture config must exist"
+
+    config_dir = tmp_path / ".github"
+    config_dir.mkdir(parents=True)
+    config_path = config_dir / "reference_packs.json"
+    config_path.write_text(fixture_config.read_text(encoding="utf-8"), encoding="utf-8")
+
+    result = subprocess.run(
+        [sys.executable, "scripts/reference_packs.py", "--workspace", str(tmp_path)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert "Reference packs config error:" in result.stderr
+    assert "Invalid config in" in result.stderr
+    assert "repo must be a non-empty string" in result.stderr
+    assert result.stdout.strip() == ""
+    assert not (tmp_path / ".reference").exists()

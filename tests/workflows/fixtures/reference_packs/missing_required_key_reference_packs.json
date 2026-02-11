@@ -1,0 +1,8 @@
+{
+  "trend-streamlit": {
+    "ref": "main",
+    "paths": [
+      "apps/streamlit"
+    ]
+  }
+}
