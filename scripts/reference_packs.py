@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import os
 import re
@@ -36,6 +37,7 @@ class ReferencePackSnapshot:
 
     exists: bool
     config_path: Path
+    config_text: str | None
     packs: list[ReferencePack]
 
 
@@ -103,6 +105,12 @@ def parse_reference_packs(payload: Any) -> list[ReferencePack]:
         raise ReferencePackConfigError("reference_packs.json must contain a JSON object")
 
     if "packs" in payload:
+        extra_keys = sorted(str(key) for key in payload.keys() if key != "packs")
+        if extra_keys:
+            extras = ", ".join(extra_keys)
+            raise ReferencePackConfigError(
+                f"when using 'packs' format, no additional top-level keys are allowed: {extras}"
+            )
         packs_node = payload["packs"]
         if not isinstance(packs_node, list):
             raise ReferencePackConfigError("packs must be an array")
@@ -128,25 +136,36 @@ def load_reference_packs(workspace: Path | str = ".") -> ReferencePackSnapshot:
     """Load and validate reference pack configuration from a workspace."""
     config_path = reference_pack_config_path(workspace)
     if not config_path.is_file():
-        return ReferencePackSnapshot(exists=False, config_path=config_path, packs=[])
+        return ReferencePackSnapshot(
+            exists=False, config_path=config_path, config_text=None, packs=[]
+        )
 
     try:
-        payload = json.loads(config_path.read_text(encoding="utf-8"))
+        config_text = config_path.read_text(encoding="utf-8")
+        payload = json.loads(config_text)
     except json.JSONDecodeError as exc:
         raise ReferencePackConfigError(
             f"Malformed JSON in {config_path}: line {exc.lineno} column {exc.colno}: {exc.msg}"
         ) from exc
 
     packs = parse_reference_packs(payload)
-    return ReferencePackSnapshot(exists=True, config_path=config_path, packs=packs)
+    return ReferencePackSnapshot(
+        exists=True, config_path=config_path, config_text=config_text, packs=packs
+    )
 
 
 def _snapshot_to_dict(snapshot: ReferencePackSnapshot) -> dict[str, Any]:
     return {
         "exists": snapshot.exists,
         "config_path": str(snapshot.config_path),
+        "config_text": snapshot.config_text,
         "packs": [asdict(pack) for pack in snapshot.packs],
     }
+
+
+def _github_output_value(value: str) -> str:
+    """Escape output values to avoid multi-line output parsing issues."""
+    return value.replace("%", "%25").replace("\n", "%0A").replace("\r", "%0D")
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -185,10 +204,19 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     github_output = Path(github_output_raw)
 
+    canonical_payload_json = json.dumps(payload, separators=(",", ":"))
+    config_text_b64 = (
+        base64.b64encode((snapshot.config_text or "").encode("utf-8")).decode("ascii")
+        if snapshot.exists
+        else ""
+    )
     lines = [
         f"reference_packs_exists={'true' if snapshot.exists else 'false'}",
+        f"reference_packs_path={snapshot.config_path}",
         f"reference_packs_count={len(snapshot.packs)}",
         f"reference_packs_json={json.dumps([asdict(pack) for pack in snapshot.packs], separators=(',', ':'))}",
+        f"reference_packs_payload_json={_github_output_value(canonical_payload_json)}",
+        f"reference_packs_config_text_b64={config_text_b64}",
     ]
     github_output.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return 0
