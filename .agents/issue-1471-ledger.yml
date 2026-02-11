@@ -6,10 +6,10 @@ tasks:
   - id: task-01
     title: Create test fixtures and assertions for valid reference pack configuration
       that creates populated directories
-    status: doing
+    status: done
     started_at: '2026-02-11T05:00:25Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-02-11T05:00:32Z'
+    commit: 74ccd14dcb37e3f62d28bcfc94b190df30ba16b1
     notes: []
   - id: task-02
     title: Add test case verifying malformed JSON config fails before Codex execution
