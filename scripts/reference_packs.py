@@ -36,6 +36,7 @@ class ReferencePackSnapshot:
 
     exists: bool
     config_path: Path
+    config_text: str | None
     packs: list[ReferencePack]
 
 
@@ -128,23 +129,29 @@ def load_reference_packs(workspace: Path | str = ".") -> ReferencePackSnapshot:
     """Load and validate reference pack configuration from a workspace."""
     config_path = reference_pack_config_path(workspace)
     if not config_path.is_file():
-        return ReferencePackSnapshot(exists=False, config_path=config_path, packs=[])
+        return ReferencePackSnapshot(
+            exists=False, config_path=config_path, config_text=None, packs=[]
+        )
 
     try:
-        payload = json.loads(config_path.read_text(encoding="utf-8"))
+        config_text = config_path.read_text(encoding="utf-8")
+        payload = json.loads(config_text)
     except json.JSONDecodeError as exc:
         raise ReferencePackConfigError(
             f"Malformed JSON in {config_path}: line {exc.lineno} column {exc.colno}: {exc.msg}"
         ) from exc
 
     packs = parse_reference_packs(payload)
-    return ReferencePackSnapshot(exists=True, config_path=config_path, packs=packs)
+    return ReferencePackSnapshot(
+        exists=True, config_path=config_path, config_text=config_text, packs=packs
+    )
 
 
 def _snapshot_to_dict(snapshot: ReferencePackSnapshot) -> dict[str, Any]:
     return {
         "exists": snapshot.exists,
         "config_path": str(snapshot.config_path),
+        "config_text": snapshot.config_text,
         "packs": [asdict(pack) for pack in snapshot.packs],
     }
 
@@ -187,6 +194,7 @@ def main(argv: list[str] | None = None) -> int:
 
     lines = [
         f"reference_packs_exists={'true' if snapshot.exists else 'false'}",
+        f"reference_packs_path={snapshot.config_path}",
         f"reference_packs_count={len(snapshot.packs)}",
         f"reference_packs_json={json.dumps([asdict(pack) for pack in snapshot.packs], separators=(',', ':'))}",
     ]

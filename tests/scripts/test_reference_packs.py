@@ -32,28 +32,27 @@ def test_load_reference_packs_returns_empty_when_file_absent(tmp_path: Path) -> 
     snapshot = load_reference_packs(tmp_path)
 
     assert snapshot.exists is False
+    assert snapshot.config_text is None
     assert snapshot.packs == []
 
 
 def test_load_reference_packs_mapping_format(tmp_path: Path) -> None:
     config_file = tmp_path / ".github" / "reference_packs.json"
     config_file.parent.mkdir(parents=True)
-    config_file.write_text(
-        json.dumps(
-            {
-                "trend-streamlit": {
-                    "repo": "trend/research",
-                    "ref": "main",
-                    "paths": ["apps/streamlit", "langchain"],
-                }
-            }
-        ),
-        encoding="utf-8",
-    )
+    config_payload = {
+        "trend-streamlit": {
+            "repo": "trend/research",
+            "ref": "main",
+            "paths": ["apps/streamlit", "langchain"],
+        }
+    }
+    config_text = json.dumps(config_payload)
+    config_file.write_text(config_text, encoding="utf-8")
 
     snapshot = load_reference_packs(tmp_path)
 
     assert snapshot.exists is True
+    assert snapshot.config_text == config_text
     assert len(snapshot.packs) == 1
     pack = snapshot.packs[0]
     assert pack.name == "trend-streamlit"
@@ -175,3 +174,35 @@ def test_cli_returns_error_for_invalid_config(tmp_path: Path) -> None:
     assert result.returncode == 2
     assert "Reference packs config error" in result.stderr
     assert "must contain a JSON object" in result.stderr
+
+
+def test_cli_github_output_includes_presence_and_path(tmp_path: Path) -> None:
+    config_file = tmp_path / ".github" / "reference_packs.json"
+    config_file.parent.mkdir(parents=True)
+    config_file.write_text(
+        json.dumps(
+            {
+                "trend-streamlit": {
+                    "repo": "trend/research",
+                    "ref": "main",
+                    "paths": ["apps/streamlit"],
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    github_output = tmp_path / "github_output.txt"
+
+    result = subprocess.run(
+        [sys.executable, "scripts/reference_packs.py", "--workspace", str(tmp_path), "--format", "github-output"],
+        capture_output=True,
+        text=True,
+        check=False,
+        env={"GITHUB_OUTPUT": str(github_output)},
+    )
+
+    assert result.returncode == 0
+    output_lines = github_output.read_text(encoding="utf-8")
+    assert "reference_packs_exists=true" in output_lines
+    assert f"reference_packs_path={config_file}" in output_lines
+    assert "reference_packs_count=1" in output_lines
