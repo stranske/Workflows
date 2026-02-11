@@ -373,7 +373,7 @@ Be conservative - if unsure, don't mark as completed."""
 
     def _parse_response(
         self,
-        content: str,
+        content: str | list,
         _tasks: list[str],
         quality_context: SessionQualityContext | None = None,
     ) -> CompletionAnalysis:

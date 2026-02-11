@@ -317,7 +317,7 @@ def test_reusable_codex_prompt_step_skips_reference_pack_section_when_file_missi
     )
 
     # Missing file should not error and should not add a reference section.
-    assert "## Reference Pack\n" not in rendered
+    assert "## Reference Packs\n" not in rendered
 
 
 def test_reusable_codex_workflow_has_reference_pack_validation_step() -> None:
