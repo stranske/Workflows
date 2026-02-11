@@ -1,0 +1,132 @@
+version: 1
+issue: 1471
+base: main
+branch: codex/issue-1471
+tasks:
+  - id: task-01
+    title: Create test fixtures and assertions for valid reference pack configuration
+      that creates populated directories
+    status: doing
+    started_at: '2026-02-11T05:00:25Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: Add test case verifying malformed JSON config fails before Codex execution
+      with parse errors in logs
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: Implement test case confirming missing required keys cause pre-Codex failure
+      with specific error messages
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: Write test case asserting missing config file does not invoke the reference
+      packs script
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: Add test assertions verifying prompt includes or excludes Reference Pack
+      section based on file existence
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: Fix `tests/workflows/test_workflow_llm_installs.py` to remove any `AGENT_ENV=agent-high-privilege`
+      gating for reference pack assertions so these tests run under default CI conditions
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: With a valid `.github/reference_packs.json`, the workflow creates and populates
+      `.reference/<pack>/...` in the workspace before the Codex step runs
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: With invalid JSON in `.github/reference_packs.json`, the workflow fails
+      before any Codex step is executed
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: With valid JSON missing at least one required key (as defined by `scripts/reference_packs.py`),
+      the workflow fails before any Codex step is executed
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: 'On validation failure, the failing step logs contain at least one of the
+      following substrings: `JSONDecodeError`, `missing required key`, or the exact
+      key name that failed validation'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: When `.github/reference_packs.json` is absent, the workflow does not run
+      `scripts/reference_packs.py` and does not require `.reference/**` to exist
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: If `.reference/REFERENCE_PACKS.md` exists at prompt-assembly time, the
+      final prompt must contain the literal string `## Reference Pack` followed by
+      the complete text content of `.reference/REFERENCE_PACKS.md` with no modifications
+      except trailing newline normalization
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: If `.reference/REFERENCE_PACKS.md` does not exist, the assembled prompt
+      does not include a Reference Pack section and prompt assembly completes without
+      error
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: All workflow tests covering reference packs run under normal CI conditions
+      without requiring `AGENT_ENV=agent-high-privilege`
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: 'Test suite in `tests/workflows/test_workflow_llm_installs.py` includes
+      passing test cases for: valid config creates directories, malformed JSON fails
+      with parse error in logs, missing required keys fails with key name in logs,
+      missing config does not invoke script, and prompt inclusion/exclusion based
+      on file existence'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
