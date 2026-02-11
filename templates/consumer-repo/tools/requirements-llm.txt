@@ -1,9 +1,8 @@
-# LLM workflow dependency pins
+# LLM workflow dependency pins (used by agents-auto-pilot.yml)
 # Rationale:
-# - Pin runtime installs to the same versions in requirements.lock to avoid drift.
-# - Keep aligned with pyproject.toml [langchain] extras to reduce surprises.
-# - Update these pins in lockstep with requirements.lock and pyproject.toml.
-# - Use strict X.Y.Z pins to keep installs reproducible and lock aligned.
+# - These are standalone runtime pins for workflow LLM steps, not app deps.
+# - When updating, coordinate with requirements.lock and pyproject.toml.
+# - Use strict X.Y.Z pins to keep workflow installs reproducible.
 langchain==1.2.9
 langchain-core==1.2.9
 langchain-community==0.4.1
