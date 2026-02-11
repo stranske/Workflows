@@ -271,4 +271,4 @@ def test_reusable_codex_prompt_step_skips_reference_pack_section_when_file_missi
     # Guarded append means missing file does not error and no section is added.
     assert 'if [ -f ".reference/REFERENCE_PACKS.md" ]; then' in run_script
     assert 'cat ".reference/REFERENCE_PACKS.md"' in run_script
-    assert 'exit 1' not in run_script.split('if [ -f ".reference/REFERENCE_PACKS.md" ]; then', 1)[1]
+    assert "exit 1" not in run_script.split('if [ -f ".reference/REFERENCE_PACKS.md" ]; then', 1)[1]
