@@ -4,7 +4,7 @@
 # - When updating, coordinate with requirements.lock and pyproject.toml.
 # - Use strict X.Y.Z pins to keep workflow installs reproducible.
 langchain==1.2.9
-langchain-core==1.2.9
+langchain-core==1.2.11
 langchain-community==0.4.1
 langchain-openai==1.1.7
 langchain-anthropic==1.3.2
