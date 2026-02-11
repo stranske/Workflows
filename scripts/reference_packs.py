@@ -41,6 +41,17 @@ class ReferencePackSnapshot:
     packs: list[ReferencePack]
 
 
+@dataclass(frozen=True)
+class ReferencePackCheckoutPlan:
+    """Workflow-ready checkout plan derived from validated pack config."""
+
+    name: str
+    repo: str
+    ref: str
+    paths: list[str]
+    checkout_path: str
+
+
 def reference_pack_config_path(workspace: Path | str = ".") -> Path:
     """Return the absolute path to the reference pack config file."""
     return Path(workspace).resolve() / DEFAULT_CONFIG_RELPATH
@@ -176,12 +187,28 @@ def load_reference_packs(workspace: Path | str = ".") -> ReferencePackSnapshot:
     )
 
 
+def build_checkout_plan(packs: list[ReferencePack]) -> list[ReferencePackCheckoutPlan]:
+    """Build a stable, workflow-ready checkout plan for reference packs."""
+    return [
+        ReferencePackCheckoutPlan(
+            name=pack.name,
+            repo=pack.repo,
+            ref=pack.ref,
+            paths=pack.paths,
+            checkout_path=f".reference/{pack.name}",
+        )
+        for pack in packs
+    ]
+
+
 def _snapshot_to_dict(snapshot: ReferencePackSnapshot) -> dict[str, Any]:
+    checkout_plan = build_checkout_plan(snapshot.packs)
     return {
         "exists": snapshot.exists,
         "config_path": str(snapshot.config_path),
         "config_text": snapshot.config_text,
         "packs": [asdict(pack) for pack in snapshot.packs],
+        "checkout_plan": [asdict(plan_entry) for plan_entry in checkout_plan],
     }
 
 
@@ -227,6 +254,10 @@ def main(argv: list[str] | None = None) -> int:
     github_output = Path(github_output_raw)
 
     canonical_payload_json = json.dumps(payload, separators=(",", ":"))
+    checkout_plan_json = json.dumps(
+        [asdict(plan_entry) for plan_entry in build_checkout_plan(snapshot.packs)],
+        separators=(",", ":"),
+    )
     config_text_b64 = (
         base64.b64encode((snapshot.config_text or "").encode("utf-8")).decode("ascii")
         if snapshot.exists
@@ -238,6 +269,7 @@ def main(argv: list[str] | None = None) -> int:
         f"reference_packs_count={len(snapshot.packs)}",
         f"reference_packs_json={json.dumps([asdict(pack) for pack in snapshot.packs], separators=(',', ':'))}",
         f"reference_packs_payload_json={_github_output_value(canonical_payload_json)}",
+        f"reference_packs_checkout_plan_json={_github_output_value(checkout_plan_json)}",
         f"reference_packs_config_text={_github_output_value(snapshot.config_text or '')}",
         f"reference_packs_config_text_b64={config_text_b64}",
     ]

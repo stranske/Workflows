@@ -11,6 +11,7 @@ from pathlib import Path
 import pytest
 from scripts.reference_packs import (
     ReferencePackConfigError,
+    build_checkout_plan,
     load_reference_packs,
     parse_reference_pack_config_text,
     parse_reference_packs,
@@ -120,6 +121,31 @@ def test_parse_reference_packs_list_format() -> None:
 
     assert len(packs) == 1
     assert packs[0].name == "trend-streamlit"
+
+
+def test_build_checkout_plan_sets_reference_paths() -> None:
+    packs = parse_reference_packs(
+        {
+            "packs": [
+                {
+                    "name": "trend-streamlit",
+                    "repo": "trend/research",
+                    "ref": "main",
+                    "paths": ["apps/streamlit"],
+                },
+                {
+                    "name": "baseline",
+                    "repo": "trend/baseline",
+                    "ref": "v1.2.3",
+                    "paths": ["src", "README.md"],
+                },
+            ]
+        }
+    )
+
+    plan = build_checkout_plan(packs)
+    assert plan[0].checkout_path == ".reference/trend-streamlit"
+    assert plan[1].checkout_path == ".reference/baseline"
 
 
 def test_parse_reference_packs_rejects_extra_top_level_keys_in_list_format() -> None:
@@ -262,6 +288,8 @@ def test_cli_json_output_valid_config(tmp_path: Path) -> None:
     payload = json.loads(result.stdout)
     assert payload["exists"] is True
     assert payload["packs"][0]["name"] == "trend-streamlit"
+    assert payload["checkout_plan"][0]["name"] == "trend-streamlit"
+    assert payload["checkout_plan"][0]["checkout_path"] == ".reference/trend-streamlit"
 
 
 def test_cli_returns_error_for_invalid_config(tmp_path: Path) -> None:
@@ -339,6 +367,7 @@ def test_cli_github_output_includes_presence_and_path(tmp_path: Path) -> None:
     assert f"reference_packs_path={config_file}" in output_lines
     assert "reference_packs_count=1" in output_lines
     assert "reference_packs_payload_json=" in output_lines
+    assert "reference_packs_checkout_plan_json=" in output_lines
     assert "reference_packs_config_text=" in output_lines
     assert "reference_packs_config_text_b64=" in output_lines
 
@@ -351,6 +380,12 @@ def test_cli_github_output_includes_presence_and_path(tmp_path: Path) -> None:
     parsed_payload = json.loads(payload_json)
     assert parsed_payload["exists"] is True
     assert parsed_payload["packs"][0]["name"] == "trend-streamlit"
+    assert parsed_payload["checkout_plan"][0]["checkout_path"] == ".reference/trend-streamlit"
+
+    checkout_plan_json = _decode_github_output_value(line_map["reference_packs_checkout_plan_json"])
+    checkout_plan = json.loads(checkout_plan_json)
+    assert checkout_plan[0]["name"] == "trend-streamlit"
+    assert checkout_plan[0]["checkout_path"] == ".reference/trend-streamlit"
 
     config_text_direct = _decode_github_output_value(line_map["reference_packs_config_text"])
     assert json.loads(config_text_direct)["trend-streamlit"]["repo"] == "trend/research"

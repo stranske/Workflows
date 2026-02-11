@@ -72,3 +72,29 @@ Suggested checkbox updates:
 - Mark "Implement focused slice for: Implement logic to read the contents of `.github/reference_packs.json` when the file is present" as complete.
 - Mark "Validate focused slice for: Implement logic to read the contents of `.github/reference_packs.json` when the file is present" as complete.
 -->
+
+<!--
+needs-human:
+Label: needs-human
+Blocked by workflow protection: wiring parsed checkout-plan outputs into protected workflow file requires agent-high-privilege.
+
+Workflow: .github/workflows/reusable-codex-run.yml
+- Consume new `reference_packs_checkout_plan_json` output from `scripts/reference_packs.py`.
+- Use this parsed structure for per-pack checkout iteration (`repo`, `ref`, `paths`, `checkout_path`) before Codex execution.
+
+What was implemented in code this round:
+- Added `ReferencePackCheckoutPlan` and `build_checkout_plan()` in `scripts/reference_packs.py` to convert validated config into a workflow-ready data structure.
+- JSON mode payload now includes `checkout_plan`.
+- `github-output` mode now emits `reference_packs_checkout_plan_json`.
+- Added tests in `tests/scripts/test_reference_packs.py` covering:
+  - checkout path synthesis (`.reference/<pack>`)
+  - JSON payload checkout-plan presence
+  - github-output checkout-plan emission and decoding
+- Validation command passed:
+  - `pytest -q tests/scripts/test_reference_packs.py -m "not slow"`
+
+Suggested checkbox updates:
+- Mark "Define scope for: Parse the JSON content from `.github/reference_packs.json` into a usable data structure for subsequent steps" as complete.
+- Mark "Implement focused slice for: Parse the JSON content from `.github/reference_packs.json` into a usable data structure for subsequent steps" as complete.
+- Mark "Validate focused slice for: Parse the JSON content from `.github/reference_packs.json` into a usable data structure for subsequent steps" as complete.
+-->
