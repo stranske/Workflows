@@ -105,7 +105,7 @@ def parse_reference_packs(payload: Any) -> list[ReferencePack]:
         raise ReferencePackConfigError("reference_packs.json must contain a JSON object")
 
     if "packs" in payload:
-        extra_keys = sorted(str(key) for key in payload.keys() if key != "packs")
+        extra_keys = sorted(str(key) for key in payload if key != "packs")
         if extra_keys:
             extras = ", ".join(extra_keys)
             raise ReferencePackConfigError(
