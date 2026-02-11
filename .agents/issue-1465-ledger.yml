@@ -6,10 +6,10 @@ tasks:
   - id: task-01
     title: Update `stranske/Workflows/.github/workflows/reusable-codex-run.yml` to
       detect and read a consumer config file at `.github/reference_packs.json`
-    status: doing
+    status: done
     started_at: '2026-02-11T02:26:59Z'
-    finished_at: null
-    commit: ''
+    finished_at: '2026-02-11T02:27:07Z'
+    commit: 3c6c4ced2075ab9f82792be6cb114525dabbf0c4
     notes: []
   - id: task-02
     title: 'Define scope for: Add a step to check if the file `.github/reference_packs.json`
