@@ -233,7 +233,8 @@ jobs:
                   !c.name.includes(matrixPlaceholder) &&
                   !c.name.includes(matrixPlaceholderPython) &&
                   c.conclusion !== 'skipped' &&
-                  c.conclusion !== 'neutral'
+                  c.conclusion !== 'neutral' &&
+                  c.conclusion !== 'cancelled'
                 );
 
                 const failedChecks = requiredChecks.filter(c =>
