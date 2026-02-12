@@ -180,8 +180,9 @@ def main(argv: Iterable[str] | None = None) -> int:
             result = migrate_ledger(ledger_path, default_branch, check=args.check)
         except (MigrationError, yaml.YAMLError) as exc:
             # One corrupt ledger must not block processing of the remaining files.
-            print(f"::warning::Skipping {ledger_path.name}: {exc}")
-            skipped.append((ledger_path, str(exc)))
+            reason = str(exc).replace("\n", " ").replace("\r", " ")
+            print(f"::warning::Skipping {ledger_path.name}: {reason}")
+            skipped.append((ledger_path, reason))
             continue
         if args.check:
             if result.previous != default_branch:

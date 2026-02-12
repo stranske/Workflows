@@ -903,10 +903,12 @@ jobs:
 
           gh_output = os.environ.get('GITHUB_OUTPUT')
           if gh_output:
+              task = start_info['task'] or {}
+              task_title = (task.get('title') or '').replace('\r', ' ').replace('\n', ' ')
               with open(gh_output, 'a', encoding='utf-8') as handle:
-                  handle.write(f"task_id={start_info['task']['id'] if start_info['task'] else ''}\n")
-                  handle.write(f"task_title={start_info['task']['title'] if start_info['task'] else ''}\n")
-                  handle.write(f"task_status={start_info['task']['current_status'] if start_info['task'] else ''}\n")
+                  handle.write(f"task_id={task.get('id', '')}\n")
+                  handle.write(f"task_title={task_title}\n")
+                  handle.write(f"task_status={task.get('current_status', '')}\n")
                   handle.write(f"ledger_changed={'true' if changed else 'false'}\n")
                   handle.write(f"ledger_created={'true' if start_info['created'] else 'false'}\n")
                   handle.write(f"ledger_base_aligned={'true' if base_aligned else 'false'}\n")
