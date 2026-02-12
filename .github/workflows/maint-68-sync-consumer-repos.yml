@@ -72,6 +72,7 @@ env:
   REGISTERED_CONSUMER_REPOS: |
     stranske/Travel-Plan-Permission
     stranske/Template
+    stranske/Counter_Risk
     stranske/trip-planner
     stranske/Manager-Database
     stranske/Portable-Alpha-Extension-Model

@@ -147,21 +147,39 @@ Create these labels in **Settings** → **Labels** (exact names required):
 | Label | Color | Description | Required For |
 |-------|-------|-------------|--------------|
 | `agent:codex` | `#0052CC` | Assigns Codex agent to issue | Issue intake, keepalive |
+| `agent:retry` | `#D93F0B` | Retries keepalive loop for agent PRs | Keepalive recovery |
 | `agent:needs-attention` | `#D93F0B` | Agent needs human help | Error recovery |
 | `agents:keepalive` | `#0E8A16` | Enables keepalive automation | PR keepalive loops |
+| `agents:auto-pilot` | `#0052CC` | Triggers end-to-end auto-pilot pipeline | Issue automation |
+| `agents:decompose` | `#5319E7` | Triggers issue decomposition workflow | Issue planning |
+| `agents:format` | `#5319E7` | Triggers direct issue formatting | Issue formatting |
+| `agents:optimize` | `#5319E7` | Triggers issue analysis/suggestions | Issue optimization |
+| `agents:apply-suggestions` | `#5319E7` | Applies optimizer suggestions | Issue optimization |
 | `autofix` | `#1D76DB` | Triggers autofix on PR | Autofix workflow |
 | `autofix:clean` | `#5319E7` | Aggressive autofix mode | Autofix workflow |
+| `autofix:bot-comments` | `#1D76DB` | Triggers bot comment autofix sweep | PR bot-comment cleanup |
 | `autofix:applied` | `#0E8A16` | Autofix was applied | Auto-created by workflow |
 | `autofix:clean-only` | `#FBCA04` | Clean-only autofix | Autofix workflow |
+| `verify:create-issue` | `#5319E7` | Creates follow-up issue from verifier output | Verify follow-up |
+| `verify:create-new-pr` | `#5319E7` | Creates follow-up PR from verifier output | Verify follow-up |
 
 Create each label:
 - [ ] `agent:codex`
+- [ ] `agent:retry`
 - [ ] `agent:needs-attention`
 - [ ] `agents:keepalive`
+- [ ] `agents:auto-pilot`
+- [ ] `agents:decompose`
+- [ ] `agents:format`
+- [ ] `agents:optimize`
+- [ ] `agents:apply-suggestions`
 - [ ] `autofix`
 - [ ] `autofix:clean`
+- [ ] `autofix:bot-comments`
 - [ ] `autofix:applied`
 - [ ] `autofix:clean-only`
+- [ ] `verify:create-issue`
+- [ ] `verify:create-new-pr`
 
 **Quick creation script:**
 ```bash
@@ -169,12 +187,21 @@ REPO="stranske/<your-repo>"
 
 # Create required labels
 gh label create "agent:codex" --color "0052CC" --description "Assigns Codex agent" --repo "$REPO" 2>/dev/null || echo "agent:codex exists"
+gh label create "agent:retry" --color "D93F0B" --description "Retries keepalive loop" --repo "$REPO" 2>/dev/null || echo "agent:retry exists"
 gh label create "agent:needs-attention" --color "D93F0B" --description "Agent needs human help" --repo "$REPO" 2>/dev/null || echo "agent:needs-attention exists"
 gh label create "agents:keepalive" --color "0E8A16" --description "Enables keepalive automation" --repo "$REPO" 2>/dev/null || echo "agents:keepalive exists"
+gh label create "agents:auto-pilot" --color "0052CC" --description "Runs full auto-pilot issue pipeline" --repo "$REPO" 2>/dev/null || echo "agents:auto-pilot exists"
+gh label create "agents:decompose" --color "5319E7" --description "Triggers issue decomposition workflow" --repo "$REPO" 2>/dev/null || echo "agents:decompose exists"
+gh label create "agents:format" --color "5319E7" --description "Formats issue into template" --repo "$REPO" 2>/dev/null || echo "agents:format exists"
+gh label create "agents:optimize" --color "5319E7" --description "Analyzes issue and posts suggestions" --repo "$REPO" 2>/dev/null || echo "agents:optimize exists"
+gh label create "agents:apply-suggestions" --color "5319E7" --description "Applies optimizer suggestions" --repo "$REPO" 2>/dev/null || echo "agents:apply-suggestions exists"
 gh label create "autofix" --color "1D76DB" --description "Triggers autofix on PR" --repo "$REPO" 2>/dev/null || echo "autofix exists"
 gh label create "autofix:clean" --color "5319E7" --description "Aggressive autofix mode" --repo "$REPO" 2>/dev/null || echo "autofix:clean exists"
+gh label create "autofix:bot-comments" --color "1D76DB" --description "Triggers bot comment autofix sweep" --repo "$REPO" 2>/dev/null || echo "autofix:bot-comments exists"
 gh label create "autofix:applied" --color "0E8A16" --description "Autofix was applied" --repo "$REPO" 2>/dev/null || echo "autofix:applied exists"
 gh label create "autofix:clean-only" --color "FBCA04" --description "Clean-only autofix" --repo "$REPO" 2>/dev/null || echo "autofix:clean-only exists"
+gh label create "verify:create-issue" --color "5319E7" --description "Creates follow-up issue from verifier output" --repo "$REPO" 2>/dev/null || echo "verify:create-issue exists"
+gh label create "verify:create-new-pr" --color "5319E7" --description "Creates follow-up PR from verifier output" --repo "$REPO" 2>/dev/null || echo "verify:create-new-pr exists"
 ```
 
 ### 2.2 Optional Labels
@@ -228,6 +255,25 @@ Add each secret:
 - [ ] `CODEX_AUTH_JSON` — Required for Codex CLI to authenticate with ChatGPT
 - [ ] `WORKFLOWS_APP_ID` — **Required for keepalive** - Used for GitHub App token minting
 - [ ] `WORKFLOWS_APP_PRIVATE_KEY` — **Required for keepalive** - GitHub App authentication
+
+### 3.2.1 Codex CLI Secret (`CODEX_AUTH_JSON`) — Explicit Setup
+
+`CODEX_AUTH_JSON` must contain the full JSON payload from your Codex CLI auth file.
+Keepalive Codex runs fail without it.
+
+```bash
+# Validate local auth file and set secret in one step
+test -f ~/.codex/auth.json
+gh secret set CODEX_AUTH_JSON \
+  --repo stranske/<your-repo> \
+  --body "$(cat ~/.codex/auth.json)"
+```
+
+Verify secret exists:
+
+```bash
+gh secret list --repo stranske/<your-repo> | grep CODEX_AUTH_JSON
+```
 
 > **Important**: `WORKFLOWS_APP_ID` and `WORKFLOWS_APP_PRIVATE_KEY` are essential for
 > keepalive automation. While workflows have PAT fallback logic, the keepalive system

@@ -56,6 +56,27 @@ Before saying "done", "complete", "finished", or summarizing results:
 3. **Are all CI checks passing?** If not, why am I stopping?
 4. **Would I be proud to show this work?** If there are known issues I'm ignoring, the answer is no.
 
+### 🧭 CLI Auth Troubleshooting (GitHub Logs/Checks)
+
+When debugging GitHub Actions via `gh` CLI, remember token precedence:
+
+1. If `GH_TOKEN`/`GITHUB_TOKEN` env vars are set, `gh` uses them first.
+2. Env-token auth can have narrower scopes than an interactive `gh auth login` session.
+3. If logs/checks access unexpectedly fails, try unsetting env tokens before diagnosing:
+
+```bash
+unset GH_TOKEN GITHUB_TOKEN
+gh auth status
+```
+
+If unsetting removes all access, restore the intended token explicitly for commands:
+
+```bash
+GH_TOKEN="$CODESPACES" gh run list --repo <owner>/<repo>
+```
+
+Do this before concluding a run is unreadable due to repository permissions.
+
 ## Repository Purpose
 
 This is the **central workflow library** for the stranske organization. It provides:

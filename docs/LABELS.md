@@ -22,6 +22,7 @@ This document describes all labels that trigger automated workflows or affect CI
 | `verify:evaluate` | PR labeled | Runs verifier evaluation mode after merge |
 | `verify:compare` | PR labeled | Runs verifier comparison mode after merge |
 | `verify:create-issue` | PR labeled | Creates follow-up issue from verification |
+| `verify:create-new-pr` | PR labeled | Creates follow-up issue and PR from verification |
 
 ---
 
@@ -294,6 +295,25 @@ These labels trigger the post-merge verifier workflow on a merged PR.
 **Use Case:** User-triggered creation of follow-up work from verification feedback. Replaces automatic issue creation which was too aggressive.
 
 **Workflow:** `agents-verify-to-issue.yml`
+
+---
+
+### `verify:create-new-pr`
+
+**Applies to:** Pull Requests
+
+**Trigger:** When applied to a merged PR that has verification feedback
+
+**Prerequisites:**
+- PR must be merged
+- PR must already have verification context (for example from `verify:evaluate` or `verify:compare`)
+
+**Effect:**
+1. Creates a follow-up issue from verification concerns
+2. Creates and bootstraps a follow-up PR for that issue
+3. Removes `verify:create-new-pr` label after processing
+
+**Workflow:** `agents-verify-to-new-pr.yml`
 
 ---
 

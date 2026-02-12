@@ -72,6 +72,15 @@ Auto-pilot pipeline:
 
 5. **Follow-up Chain Depth**: Follow-up chains **must not** exceed depth 2 (original + 2 follow-ups). Automated enforcement is pending; until it lands, agents and workflows should apply `needs-human` instead of creating additional follow-up issues beyond this depth. See [`verify-compare-40pr-evaluation-feb-2026.md`](../analysis/verify-compare-40pr-evaluation-feb-2026.md) for current metrics (35% first-fix rate, 2.7 avg chain depth across 40 PRs).
 
+6. **`gh` token precedence during debugging**: When investigating workflow failures, `gh` will prefer `GH_TOKEN`/`GITHUB_TOKEN` env vars over stored auth. If checks/log visibility looks inconsistent, temporarily unset env tokens and retry diagnostics:
+
+```bash
+unset GH_TOKEN GITHUB_TOKEN
+gh auth status
+```
+
+If there is no stored auth session, run commands with an explicit token (for example `GH_TOKEN="$CODESPACES" ...`) and document scope limitations instead of assuming repository misconfiguration.
+
 ## Keepalive Implementations
 
 The repository supports two keepalive implementations. The **Codex CLI keepalive** is the current, canonical flow. The **legacy UI connector-bot** flow is retained for historical context and compatibility.
