@@ -215,9 +215,14 @@ function extractIssueNumberFromPull(pull) {
     if (!match[1]) {
       continue;
     }
+    // Skip cross-repo refs like owner/repo#123
     const before = bodyText.slice(Math.max(0, match.index - 200), match.index);
     const token = before.split(/\s/).pop() || '';
     if (token.includes('/')) {
+      continue;
+    }
+    // Skip cross-repo shorthand like RepoName#123 or PR#123
+    if (match.index > 0 && /\w/.test(bodyText[match.index - 1])) {
       continue;
     }
     candidates.push(match[1]);
