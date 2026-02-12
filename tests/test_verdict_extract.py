@@ -25,7 +25,7 @@ def _parse_github_output(raw: str) -> dict[str, str]:
 def test_verdict_extract_emits_structured_github_outputs(tmp_path):
     summary = _build_summary(
         "| openai | gpt-5.2 | PASS | 0.92 | Looks good. |",
-        "| anthropic | claude-sonnet-4-5 | CONCERNS | 0.84 | Missing edge case. |",
+        "| anthropic | claude-sonnet-4-5 | CONCERNS | 0.49 | Missing edge case. |",
     )
     result = verdict_extract.build_verdict_result(summary, policy="worst")
     output_path = tmp_path / "github_output.txt"

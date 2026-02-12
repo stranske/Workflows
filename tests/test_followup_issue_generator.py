@@ -533,7 +533,7 @@ class TestGenerateFollowupIssue:
         verification_data = VerificationData(
             provider_verdicts={
                 "openai": {"verdict": "PASS", "confidence": 90},
-                "anthropic": {"verdict": "CONCERNS", "confidence": 70},
+                "anthropic": {"verdict": "CONCERNS", "confidence": 49},
             },
             concerns=["Missing test coverage"],
         )

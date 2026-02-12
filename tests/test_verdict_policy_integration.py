@@ -40,7 +40,7 @@ def test_split_verdict_confidence_boundary_needs_human_false():
 def test_split_verdict_low_confidence_needs_human_true():
     summary = _build_summary(
         "| openai | gpt-5.2 | PASS | 0.92 | Looks good. |",
-        "| anthropic | claude-sonnet-4-5 | CONCERNS | 0.84 | Missing edge case. |",
+        "| anthropic | claude-sonnet-4-5 | CONCERNS | 0.49 | Missing edge case. |",
     )
 
     workflow_result = _workflow_result(summary)
