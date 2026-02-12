@@ -528,12 +528,12 @@ class TestGenerateFollowupIssue:
         assert "- [ ] Address: Could add a clarifying comment" not in followup.body
         assert "## Notes" in followup.body
 
-    def test_split_low_confidence_requires_needs_human(self):
-        """Low-confidence split verdicts should trigger needs-human labeling."""
+    def test_split_high_confidence_requires_needs_human(self):
+        """High-confidence CONCERNS in a split verdict should trigger needs-human labeling."""
         verification_data = VerificationData(
             provider_verdicts={
                 "openai": {"verdict": "PASS", "confidence": 90},
-                "anthropic": {"verdict": "CONCERNS", "confidence": 40},
+                "anthropic": {"verdict": "CONCERNS", "confidence": 92},
             },
             concerns=["Missing test coverage"],
         )

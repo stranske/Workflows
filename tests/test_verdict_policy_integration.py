@@ -23,7 +23,8 @@ def _build_summary(*rows: str) -> str:
     return f"## Provider Summary\n\n{header}{body}\n"
 
 
-def test_split_verdict_confidence_boundary_needs_human_false():
+def test_split_verdict_confidence_boundary_needs_human_true():
+    """At exactly the threshold (0.85), needs_human should be True."""
     summary = _build_summary(
         "| openai | gpt-5.2 | PASS | 0.92 | Looks good. |",
         "| anthropic | claude-sonnet-4-5 | CONCERNS | 0.85 | Missing edge case. |",
@@ -33,11 +34,12 @@ def test_split_verdict_confidence_boundary_needs_human_false():
     followup_result = _followup_result(summary)
 
     assert workflow_result.verdict == followup_result.verdict == "CONCERNS"
-    assert workflow_result.needs_human is False
-    assert followup_result.needs_human is False
+    assert workflow_result.needs_human is True
+    assert followup_result.needs_human is True
 
 
-def test_split_verdict_low_confidence_needs_human_true():
+def test_split_verdict_low_confidence_needs_human_false():
+    """Below threshold, low-confidence concerns should NOT trigger needs_human."""
     summary = _build_summary(
         "| openai | gpt-5.2 | PASS | 0.92 | Looks good. |",
         "| anthropic | claude-sonnet-4-5 | CONCERNS | 0.40 | Missing edge case. |",
@@ -47,8 +49,8 @@ def test_split_verdict_low_confidence_needs_human_true():
     followup_result = _followup_result(summary)
 
     assert workflow_result.verdict == followup_result.verdict == "CONCERNS"
-    assert workflow_result.needs_human is True
-    assert followup_result.needs_human is True
+    assert workflow_result.needs_human is False
+    assert followup_result.needs_human is False
 
 
 def test_split_verdict_row_order_invariance():

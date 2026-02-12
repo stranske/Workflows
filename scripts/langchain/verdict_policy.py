@@ -16,7 +16,7 @@ VERDICT_SEVERITY = {
     "fail": 3,
 }
 
-CONCERNS_NEEDS_HUMAN_THRESHOLD = 0.50
+CONCERNS_NEEDS_HUMAN_THRESHOLD = 0.85
 
 
 @dataclass(frozen=True)
@@ -193,11 +193,11 @@ def evaluate_verdict_policy(
     needs_human_reason = ""
     if split_verdict:
         confidence_value = concerns_confidence or 0.0
-        if confidence_value < CONCERNS_NEEDS_HUMAN_THRESHOLD:
+        if confidence_value >= CONCERNS_NEEDS_HUMAN_THRESHOLD:
             needs_human = True
             needs_human_reason = (
-                "Provider verdicts split with low-confidence concerns; "
-                f"dissenting confidence {confidence_value:.2f} < "
+                "Provider verdicts split with high-confidence concerns; "
+                f"dissenting confidence {confidence_value:.2f} >= "
                 f"{CONCERNS_NEEDS_HUMAN_THRESHOLD:.2f}. "
                 "Requires human review before starting another automated follow-up."
             )

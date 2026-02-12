@@ -51,6 +51,7 @@ def test_select_verdict_majority_policy():
 
 
 def test_needs_human_threshold_boundary():
+    """At exactly the threshold, needs_human should fire (>= comparison)."""
     verdicts = [
         ProviderVerdict("openai", "gpt-5.2", "PASS", 0.92),
         ProviderVerdict(
@@ -60,30 +61,30 @@ def test_needs_human_threshold_boundary():
 
     result = evaluate_verdict_policy(verdicts, policy="worst")
 
-    assert result.needs_human is False
+    assert result.needs_human is True
 
 
-def test_needs_human_true_below_threshold():
-    """Concerns below the threshold should trigger needs_human."""
+def test_needs_human_true_above_threshold():
+    """Concerns above the threshold should trigger needs_human."""
     verdicts = [
         ProviderVerdict("openai", "gpt-5.2", "PASS", 0.92),
-        ProviderVerdict("anthropic", "claude-sonnet-4-5", "CONCERNS", 0.40),
+        ProviderVerdict("anthropic", "claude-sonnet-4-5", "CONCERNS", 0.90),
     ]
 
     result = evaluate_verdict_policy(verdicts, policy="worst")
 
     assert result.needs_human is True
     assert result.split_verdict is True
-    assert "low-confidence" in result.needs_human_reason
+    assert "high-confidence" in result.needs_human_reason
 
 
 def test_moderate_confidence_concerns_do_not_block():
-    """Regression: 72% concerns in a split verdict should not trigger needs_human.
+    """Moderate-confidence concerns in a split verdict should not trigger needs_human.
 
-    Previously CONCERNS_NEEDS_HUMAN_THRESHOLD was 0.85, which caused any
-    split verdict with <85% concerns to be flagged.  The lowered threshold
-    (0.50) allows moderate-confidence concerns to proceed with automatic
-    follow-up creation.
+    needs_human only fires when the CONCERNS provider is highly confident
+    (>= 0.85), indicating the LLM is quite sure there are real problems.
+    Moderate confidence means the LLM is uncertain — that's a weaker signal
+    and shouldn't block follow-up automation.
     """
     verdicts = [
         ProviderVerdict("openai", "gpt-5.2", "CONCERNS", 72),
