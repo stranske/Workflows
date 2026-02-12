@@ -580,7 +580,9 @@ jobs:
           git checkout -B "$HEAD_BRANCH" "origin/${BASE_BRANCH}"
           mkdir -p agents
           printf "<!-- bootstrap for %s on issue #%s -->\n" "$AGENT" "$ISSUE_NUM" > "agents/${AGENT}-${ISSUE_NUM}.md"
-          git add -A || true
+          # Stage only the intended bootstrap file — 'git add -A' would capture
+          # vendored node_modules changes made by setup-api-client npm install.
+          git add "agents/${AGENT}-${ISSUE_NUM}.md" || true
           if ! git diff --cached --quiet; then
             git commit -m "chore(${AGENT}): bootstrap PR for issue #${ISSUE_NUM}"
           else

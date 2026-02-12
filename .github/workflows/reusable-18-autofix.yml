@@ -780,6 +780,8 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -A
+          # Unstage vendored node_modules that may have been modified by npm install
+          git reset HEAD -- .github/scripts/node_modules node_modules .workflows-lib/.github/scripts/node_modules 2>/dev/null || true
           git commit -m "${AUTOFIX_COMMIT_PREFIX} formatting/lint"
           echo "AUTOFIX_COMMIT_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
 
@@ -851,6 +853,8 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -A
+          # Unstage vendored node_modules that may have been modified by npm install
+          git reset HEAD -- .github/scripts/node_modules node_modules .workflows-lib/.github/scripts/node_modules 2>/dev/null || true
           git commit -m "${AUTOFIX_COMMIT_PREFIX} formatting/lint (patch)" || true
           git format-patch -1 --stdout > autofix.patch
 

@@ -102,6 +102,22 @@ runs:
         if [ -d "node_modules/@octokit/rest" ]; then
           echo "✅ @octokit/rest already installed"
         else
+          # Snapshot vendored package metadata before npm install.
+          # npm may overwrite transitive deps (e.g. minimatch) that are
+          # committed as vendored packages with intentional version pins.
+          VENDORED_SNAPSHOT=""
+          if [ -f "node_modules/minimatch/package.json" ]; then
+            VENDORED_SNAPSHOT=$(mktemp -d)
+            for pkg_dir in node_modules/*/; do
+              if [ -f "${pkg_dir}package.json" ]; then
+                pkg_name=$(basename "$pkg_dir")
+                mkdir -p "${VENDORED_SNAPSHOT}/${pkg_name}"
+                cp "${pkg_dir}package.json" "${VENDORED_SNAPSHOT}/${pkg_name}/package.json"
+              fi
+            done
+            echo "📸 Snapshotted vendored package metadata"
+          fi
+
           # Install with pinned versions for consistency
           # Capture stderr for debugging if the command fails
           npm_output=$(mktemp)
@@ -122,6 +138,20 @@ runs:
               @octokit/plugin-paginate-rest@9.1.5 \
               @octokit/auth-app@6.0.3
           fi
+
+          # Restore vendored package metadata that npm may have overwritten
+          if [ -n "${VENDORED_SNAPSHOT:-}" ] && [ -d "${VENDORED_SNAPSHOT}" ]; then
+            for pkg_backup in "${VENDORED_SNAPSHOT}"/*/; do
+              pkg_name=$(basename "$pkg_backup")
+              if [ -f "node_modules/${pkg_name}/package.json" ] && \
+                 [ -f "${pkg_backup}package.json" ]; then
+                cp "${pkg_backup}package.json" "node_modules/${pkg_name}/package.json"
+              fi
+            done
+            rm -rf "${VENDORED_SNAPSHOT}"
+            echo "📸 Restored vendored package metadata"
+          fi
+
           echo "✅ @octokit dependencies installed"
         fi
 
