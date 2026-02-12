@@ -82,3 +82,65 @@ test('detectChanges fetches files via callback', async () => {
   assert.equal(result.outputs.run_core, 'true');
   assert.equal(result.outputs.workflow_changed, 'false');
 });
+
+test('detectChanges falls back to conservative defaults when listFiles is inaccessible', async () => {
+  const warnings = [];
+  const result = await detectChanges({
+    core: {
+      warning(message) {
+        warnings.push(String(message));
+      },
+      setOutput() {},
+    },
+    context: {
+      eventName: 'pull_request',
+      repo: { owner: 'octo', repo: 'demo' },
+      payload: { pull_request: { number: 42 } },
+    },
+    github: {
+      rest: {
+        pulls: {
+          listFiles: async () => ({ data: [] }),
+        },
+      },
+      paginate: {
+        iterator: () => {
+          const error = new Error('Resource not accessible by integration');
+          error.status = 403;
+          throw error;
+        },
+      },
+    },
+  });
+
+  assert.equal(result.outputs.doc_only, 'false');
+  assert.equal(result.outputs.run_core, 'true');
+  assert.equal(result.outputs.reason, 'rate_limited');
+  assert.equal(result.outputs.docker_changed, 'false');
+  assert.equal(result.outputs.workflow_changed, 'true');
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0], /Unable to determine changed files via API/);
+});
+
+test('detectChanges supports clients without paginate.iterator', async () => {
+  const result = await detectChanges({
+    context: {
+      eventName: 'pull_request',
+      repo: { owner: 'octo', repo: 'demo' },
+      payload: { pull_request: { number: 1 } },
+    },
+    github: {
+      rest: {
+        pulls: {
+          listFiles: async () => ({ data: [] }),
+        },
+      },
+      paginate: async () => [{ filename: 'docs/README.md' }],
+    },
+  });
+
+  assert.equal(result.outputs.doc_only, 'true');
+  assert.equal(result.outputs.run_core, 'false');
+  assert.equal(result.outputs.reason, 'docs_only');
+  assert.equal(result.outputs.workflow_changed, 'false');
+});
