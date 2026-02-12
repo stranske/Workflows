@@ -419,6 +419,21 @@ class TestClassifyCapabilities:
             assert result.blocked_tasks[0]["task"] == "Update GitHub secrets"
             assert "admin" in result.blocked_tasks[0]["reason"].lower()
 
+    def test_fallback_does_not_flag_negated_secrets_mention(self) -> None:
+        """Regression: 'no secrets' in constraint text must not trigger admin block."""
+        task = "safety rules (no secrets, no workflow edits, no file writes)"
+        with mock.patch("scripts.langchain.capability_check._get_llm_client", return_value=None):
+            result = classify_capabilities([task], "")
+            assert result.recommendation != "BLOCKED"
+            assert all(item["task"] != task for item in result.blocked_tasks)
+
+    def test_fallback_flags_manage_secrets(self) -> None:
+        """Specific secrets-management verbs should still be blocked."""
+        with mock.patch("scripts.langchain.capability_check._get_llm_client", return_value=None):
+            result = classify_capabilities(["manage secrets for deployment"], "")
+            assert result.recommendation == "BLOCKED"
+            assert "admin" in result.blocked_tasks[0]["reason"].lower()
+
     def test_fallback_suggests_decomposition(self) -> None:
         with mock.patch("scripts.langchain.capability_check._get_llm_client", return_value=None):
             result = classify_capabilities(["Refactor auth + add tests + update docs"], "")

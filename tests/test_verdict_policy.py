@@ -61,3 +61,37 @@ def test_needs_human_threshold_boundary():
     result = evaluate_verdict_policy(verdicts, policy="worst")
 
     assert result.needs_human is False
+
+
+def test_needs_human_true_below_threshold():
+    """Concerns below the threshold should trigger needs_human."""
+    verdicts = [
+        ProviderVerdict("openai", "gpt-5.2", "PASS", 0.92),
+        ProviderVerdict("anthropic", "claude-sonnet-4-5", "CONCERNS", 0.40),
+    ]
+
+    result = evaluate_verdict_policy(verdicts, policy="worst")
+
+    assert result.needs_human is True
+    assert result.split_verdict is True
+    assert "low-confidence" in result.needs_human_reason
+
+
+def test_moderate_confidence_concerns_do_not_block():
+    """Regression: 72% concerns in a split verdict should not trigger needs_human.
+
+    Previously CONCERNS_NEEDS_HUMAN_THRESHOLD was 0.85, which caused any
+    split verdict with <85% concerns to be flagged.  The lowered threshold
+    (0.50) allows moderate-confidence concerns to proceed with automatic
+    follow-up creation.
+    """
+    verdicts = [
+        ProviderVerdict("openai", "gpt-5.2", "CONCERNS", 72),
+        ProviderVerdict("anthropic", "claude-sonnet-4-5", "PASS", 85),
+    ]
+
+    result = evaluate_verdict_policy(verdicts, policy="worst")
+
+    assert result.split_verdict is True
+    assert result.needs_human is False
+    assert result.verdict == "CONCERNS"

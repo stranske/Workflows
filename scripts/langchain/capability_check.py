@@ -161,7 +161,8 @@ def _is_multi_action_task(task: str) -> bool:
 def _requires_admin_access(task: str) -> bool:
     patterns = [
         r"\bgithub\s+secrets?\b",
-        r"\bsecrets?\b",
+        r"\b(?:manage|configure|set|create|update|delete|add|modify|rotate)\s+secrets?\b",
+        r"\bsecrets?\s+(?:management|configuration|rotation)\b",
         r"\brepository\s+settings\b",
         r"\brepo\s+settings\b",
         r"\bbranch\s+protection\b",

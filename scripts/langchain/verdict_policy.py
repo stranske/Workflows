@@ -16,7 +16,7 @@ VERDICT_SEVERITY = {
     "fail": 3,
 }
 
-CONCERNS_NEEDS_HUMAN_THRESHOLD = 0.85
+CONCERNS_NEEDS_HUMAN_THRESHOLD = 0.50
 
 
 @dataclass(frozen=True)
