@@ -374,7 +374,7 @@ async function fetchRepoVariables({ github, context, core, names = [] }) {
     }
   } catch (error) {
     if (core) {
-      core.info(`Failed to fetch repository variables for timeout config: ${error.message}`);
+      core.debug(`Repository variables not accessible for timeout config (using defaults): ${error.message}`);
     }
   }
 

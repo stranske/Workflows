@@ -1018,16 +1018,16 @@ jobs:
 
           # Extract key fields for downstream use
           if [ -f "$ANALYSIS_FILE" ]; then
-            COMPLETED=$(python3 -c "import json; d=json.load(open('$ANALYSIS_FILE')); print(json.dumps(d.get('completed_tasks', [])))")
-            PROVIDER=$(python3 -c "import json; d=json.load(open('$ANALYSIS_FILE')); print(d.get('provider', 'unknown'))")
-            MODEL=$(python3 -c "import json; d=json.load(open('$ANALYSIS_FILE')); print(d.get('model', 'unknown'))")
-            CONFIDENCE=$(python3 -c "import json; d=json.load(open('$ANALYSIS_FILE')); print(d.get('confidence', 0))")
+            COMPLETED=$(python3 -c "import json; d=json.load(open('$ANALYSIS_FILE')); print(json.dumps(d.get('completed_tasks', [])), end='')")
+            PROVIDER=$(python3 -c "import json; d=json.load(open('$ANALYSIS_FILE')); print(d.get('provider', 'unknown'), end='')")
+            MODEL=$(python3 -c "import json; d=json.load(open('$ANALYSIS_FILE')); print(d.get('model', 'unknown'), end='')")
+            CONFIDENCE=$(python3 -c "import json; d=json.load(open('$ANALYSIS_FILE')); print(d.get('confidence', 0), end='')")
             # Quality metrics for keepalive integration
-            RAW_CONFIDENCE=$(python3 -c "import json; d=json.load(open('$ANALYSIS_FILE')); print(d.get('raw_confidence', d.get('confidence', 0)))")
-            EFFORT_SCORE=$(python3 -c "import json; d=json.load(open('$ANALYSIS_FILE')); print(d.get('effort_score', 0))")
-            DATA_QUALITY=$(python3 -c "import json; d=json.load(open('$ANALYSIS_FILE')); print(d.get('data_quality', 'unknown'))")
-            ANALYSIS_LENGTH=$(python3 -c "import json; d=json.load(open('$ANALYSIS_FILE')); print(d.get('analysis_text_length', 0))")
-            QUALITY_WARNINGS=$(python3 -c "import json; d=json.load(open('$ANALYSIS_FILE')); print(json.dumps(d.get('quality_warnings', [])))")
+            RAW_CONFIDENCE=$(python3 -c "import json; d=json.load(open('$ANALYSIS_FILE')); print(d.get('raw_confidence', d.get('confidence', 0)), end='')")
+            EFFORT_SCORE=$(python3 -c "import json; d=json.load(open('$ANALYSIS_FILE')); print(d.get('effort_score', 0), end='')")
+            DATA_QUALITY=$(python3 -c "import json; d=json.load(open('$ANALYSIS_FILE')); print(d.get('data_quality', 'unknown'), end='')")
+            ANALYSIS_LENGTH=$(python3 -c "import json; d=json.load(open('$ANALYSIS_FILE')); print(d.get('analysis_text_length', 0), end='')")
+            QUALITY_WARNINGS=$(python3 -c "import json; d=json.load(open('$ANALYSIS_FILE')); print(json.dumps(d.get('quality_warnings', [])), end='')")
             {
               echo "completed-tasks=$COMPLETED"
               echo "provider=$PROVIDER"
@@ -1185,7 +1185,7 @@ jobs:
 
           # Check if there are any staged changes remaining after reset
           if git diff --cached --quiet; then
-            echo "::warning::No non-artifact changes to commit after filtering. All changes were workflow artifacts."
+            echo "::notice::No non-artifact changes to commit after filtering. All changes were workflow artifacts."
             # Even if nothing to commit, check for unpushed commits that need pushing
             git fetch "${REMOTE_URL}" "${TARGET_BRANCH}" 2>/dev/null || true
             UNPUSHED=$(git rev-list FETCH_HEAD..HEAD --count 2>/dev/null || echo "0")

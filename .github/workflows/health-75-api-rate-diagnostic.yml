@@ -87,6 +87,9 @@ jobs:
         uses: actions/checkout@v6
       - name: Export load-balancer tokens
         uses: ./.github/actions/setup-api-client
+        with:
+          secrets: ${{ toJSON(secrets) }}
+          github_token: ${{ github.token }}
 
       - name: Check GITHUB_TOKEN rate limits
         id: github_token
@@ -1457,6 +1460,9 @@ jobs:
         uses: actions/checkout@v6
       - name: Export load-balancer tokens
         uses: ./.github/actions/setup-api-client
+        with:
+          secrets: ${{ toJSON(secrets) }}
+          github_token: ${{ github.token }}
       - name: Check for critical utilization
         id: check
         run: |
@@ -1570,6 +1576,9 @@ jobs:
         uses: actions/checkout@v6
       - name: Export load-balancer tokens
         uses: ./.github/actions/setup-api-client
+        with:
+          secrets: ${{ toJSON(secrets) }}
+          github_token: ${{ github.token }}
       - name: Create issue on repeated failures
         env:
           GH_TOKEN: ${{ github.token }}
@@ -1692,6 +1701,9 @@ jobs:
         uses: actions/checkout@v6
       - name: Export load-balancer tokens
         uses: ./.github/actions/setup-api-client
+        with:
+          secrets: ${{ toJSON(secrets) }}
+          github_token: ${{ github.token }}
       - name: Parse date range
         id: dates
         run: |
