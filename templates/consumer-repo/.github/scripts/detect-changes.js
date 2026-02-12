@@ -168,6 +168,28 @@ function isRateLimitError(error) {
   return message.includes('rate limit') || message.includes('ratelimit');
 }
 
+function isNonFatalListFilesError(error) {
+  if (!error) {
+    return false;
+  }
+  if (isRateLimitError(error)) {
+    return true;
+  }
+  const status = error.status || error?.response?.status;
+  if ([401, 403, 404, 422].includes(status)) {
+    return true;
+  }
+  const message = String(error.message || error?.response?.data?.message || '').toLowerCase();
+  return (
+    message.includes('resource not accessible by integration') ||
+    message.includes('insufficient permission') ||
+    message.includes('requires higher permissions') ||
+    message.includes('not found') ||
+    message.includes('unprocessable') ||
+    message.includes('validation failed')
+  );
+}
+
 async function listChangedFiles({ github, context }) {
   const pull = context?.payload?.pull_request;
   const number = pull?.number;
@@ -175,25 +197,42 @@ async function listChangedFiles({ github, context }) {
     return [];
   }
   try {
-    const iterator = github.paginate.iterator(github.rest.pulls.listFiles, {
+    const files = [];
+    const params = {
       owner: context.repo.owner,
       repo: context.repo.repo,
       pull_number: number,
       per_page: 100,
-    });
-    const files = [];
-    for await (const page of iterator) {
-      if (Array.isArray(page.data)) {
-        for (const item of page.data) {
+    };
+    if (typeof github?.paginate?.iterator === 'function') {
+      const iterator = github.paginate.iterator(github.rest.pulls.listFiles, params);
+      for await (const page of iterator) {
+        if (Array.isArray(page.data)) {
+          for (const item of page.data) {
+            if (item && typeof item.filename === 'string') {
+              files.push(item.filename);
+            }
+          }
+        }
+      }
+      return files;
+    }
+
+    if (typeof github?.paginate === 'function') {
+      const items = await github.paginate(github.rest.pulls.listFiles, params);
+      if (Array.isArray(items)) {
+        for (const item of items) {
           if (item && typeof item.filename === 'string') {
             files.push(item.filename);
           }
         }
       }
+      return files;
     }
-    return files;
+
+    throw new Error('GitHub paginate API is unavailable');
   } catch (error) {
-    if (isRateLimitError(error)) {
+    if (isNonFatalListFilesError(error)) {
       return null;
     }
     throw error;
@@ -261,7 +300,7 @@ async function detectChanges({ github, context, core, files, fetchFiles } = {}) 
       workflow_changed: 'true',
     };
     const warn = core?.warning ? core.warning.bind(core) : console.warn.bind(console);
-    warn('Rate limit reached while determining changed files; assuming code changes (but not docker).');
+    warn('Unable to determine changed files via API; assuming code changes (but not docker).');
     if (core) {
       for (const [key, value] of Object.entries(outputs)) {
         core.setOutput(key, value);
