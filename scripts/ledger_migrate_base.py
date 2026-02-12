@@ -174,13 +174,25 @@ def main(argv: Iterable[str] | None = None) -> int:
 
     mismatches: list[LedgerResult] = []
     updated: list[LedgerResult] = []
+    skipped: list[tuple[Path, str]] = []
     for ledger_path in ledgers:
-        result = migrate_ledger(ledger_path, default_branch, check=args.check)
+        try:
+            result = migrate_ledger(ledger_path, default_branch, check=args.check)
+        except (MigrationError, yaml.YAMLError) as exc:
+            # One corrupt ledger must not block processing of the remaining files.
+            print(f"::warning::Skipping {ledger_path.name}: {exc}")
+            skipped.append((ledger_path, str(exc)))
+            continue
         if args.check:
             if result.previous != default_branch:
                 mismatches.append(result)
         elif result.changed:
             updated.append(result)
+
+    if skipped:
+        print(f"Skipped {len(skipped)} corrupt ledger(s):")
+        for path, reason in skipped:
+            print(f"  - {path.name}: {reason}")
 
     if args.check:
         if mismatches:

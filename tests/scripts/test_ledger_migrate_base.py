@@ -248,10 +248,12 @@ def test_main_check_reports_mismatches(monkeypatch, capsys, tmp_path) -> None:
     agents_dir.mkdir()
     ledger_path = agents_dir / "issue-9-ledger.yml"
     ledger_path.write_text(
-        textwrap.dedent("""\
+        textwrap.dedent(
+            """\
         base: develop
         items: []
-        """),
+        """
+        ),
         encoding="utf-8",
     )
 
@@ -318,3 +320,48 @@ def test_main_reports_no_updates(monkeypatch, capsys, tmp_path) -> None:
     assert exit_code == 0
     out = capsys.readouterr().out
     assert "Ledgers already matched the default branch; no updates written." in out
+
+
+def test_main_skips_corrupt_ledger_and_continues(monkeypatch, capsys, tmp_path) -> None:
+    """A corrupt YAML ledger must not block processing of other ledgers."""
+    agents_dir = tmp_path / ".agents"
+    agents_dir.mkdir()
+    # Write a corrupt ledger with invalid YAML
+    corrupt = agents_dir / "issue-10-ledger.yml"
+    corrupt.write_text("base: main\ntasks:\n  - title: `backtick breaks yaml`\n", encoding="utf-8")
+    # Write a valid ledger that should still be processed
+    valid = agents_dir / "issue-20-ledger.yml"
+    _write_ledger(valid, {"base": "develop", "items": []})
+
+    monkeypatch.setattr(ledger_migrate_base, "find_repo_root", lambda: tmp_path)
+    monkeypatch.setattr(ledger_migrate_base, "detect_default_branch", lambda _=None: "main")
+
+    exit_code = ledger_migrate_base.main([])
+
+    assert exit_code == 0
+    out = capsys.readouterr().out
+    # The corrupt ledger was skipped with a warning
+    assert "Skipping issue-10-ledger.yml" in out
+    assert "Skipped 1 corrupt ledger(s):" in out
+    # The valid ledger was still updated
+    assert yaml.safe_load(valid.read_text(encoding="utf-8"))["base"] == "main"
+
+
+def test_main_check_skips_corrupt_ledger(monkeypatch, capsys, tmp_path) -> None:
+    """--check mode also skips corrupt ledgers without failing."""
+    agents_dir = tmp_path / ".agents"
+    agents_dir.mkdir()
+    corrupt = agents_dir / "issue-5-ledger.yml"
+    corrupt.write_text("not: valid: yaml: `oops`\n", encoding="utf-8")
+    valid = agents_dir / "issue-6-ledger.yml"
+    valid.write_text("base: main\n", encoding="utf-8")
+
+    monkeypatch.setattr(ledger_migrate_base, "find_repo_root", lambda: tmp_path)
+    monkeypatch.setattr(ledger_migrate_base, "detect_default_branch", lambda _=None: "main")
+
+    exit_code = ledger_migrate_base.main(["--check"])
+
+    assert exit_code == 0
+    out = capsys.readouterr().out
+    assert "Skipping issue-5-ledger.yml" in out
+    assert "All ledgers already track the default branch." in out

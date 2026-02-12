@@ -155,7 +155,7 @@ jobs:
               appendix: '',
               stop_reason: '',
               attempts: '0',
-              max_attempts: '3',
+              max_attempts: '2',
               trigger_reason: 'unknown',
               trigger_job: '',
               trigger_step: '',
@@ -280,7 +280,7 @@ jobs:
             // Reduce attempts for auto-escalated PRs (they weren't agent-initiated)
             const isEscalated = labels.includes('autofix:escalated');
               const maxAttempts = isEscalated
-                ? Math.min(2, Number(outputs.max_attempts))
+                ? 1
                 : Number(outputs.max_attempts);
             const previousRuns = await paginateWithRetry(
               github,

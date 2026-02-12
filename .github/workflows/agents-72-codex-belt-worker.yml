@@ -905,6 +905,7 @@ jobs:
           if gh_output:
               with open(gh_output, 'a', encoding='utf-8') as handle:
                   handle.write(f"task_id={start_info['task']['id'] if start_info['task'] else ''}\n")
+                  handle.write(f"task_title={start_info['task']['title'] if start_info['task'] else ''}\n")
                   handle.write(f"task_status={start_info['task']['current_status'] if start_info['task'] else ''}\n")
                   handle.write(f"ledger_changed={'true' if changed else 'false'}\n")
                   handle.write(f"ledger_created={'true' if start_info['created'] else 'false'}\n")
@@ -1187,12 +1188,28 @@ jobs:
             const prNumber = Number('${{ steps.pr.outputs.number }}');
             const branch = ('${{ steps.ctx.outputs.branch }}' || '').trim() || '(unknown branch)';
             const dryRun = '${{ steps.mode.outputs.dry_run }}' === 'true';
+            const taskId = ('${{ steps.ledger_start.outputs.task_id }}' || '').trim();
+            const taskTitle = ('${{ steps.ledger_start.outputs.task_title }}' || '').trim();
             const { owner, repo } = context.repo;
             const marker = '<!-- codex-activation-marker -->';
             const summary = dryRun
               ? `Codex Worker activated for branch \`${branch}\` (dry run preview).`
               : `Codex Worker activated for branch \`${branch}\`.`;
-            const body = `${marker}\n${summary}\n\n@codex start\n\nAutomated belt worker prepared this PR. Please continue implementing the requested changes.`;
+            // Direct Codex to focus on the single next ledger task for higher
+            // first-commit success probability.  Full issue context is in the
+            // PR body; this comment narrows the immediate scope.
+            let taskDirective = '';
+            if (taskId && taskTitle) {
+              taskDirective = [
+                '',
+                `**Focus on this task first:** \`${taskId}\` — ${taskTitle}`,
+                '',
+                'Implement **only** this task in your first commit.',
+                'Ensure the code compiles and existing tests pass before moving on.',
+                'The keepalive loop will assign subsequent tasks after this one is complete.',
+              ].join('\n');
+            }
+            const body = `${marker}\n${summary}\n\n@codex start${taskDirective}`;
 
             try {
               const comments = await paginateWithRetry(
