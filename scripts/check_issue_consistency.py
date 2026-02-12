@@ -260,6 +260,8 @@ def _is_fallback_error(message: str) -> bool:
         for snippet in (
             "no merge base",
             "bad object",
+            "bad revision",
+            "invalid revision range",
             "invalid object name",
             "not a valid object name",
             "ambiguous argument",

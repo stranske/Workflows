@@ -174,6 +174,27 @@ def test_run_git_with_fallback_handles_invalid_object(monkeypatch) -> None:
     assert calls == [["log"], ["log", "-n", "1"]]
 
 
+def test_run_git_with_fallback_handles_bad_revision(monkeypatch) -> None:
+    calls = []
+
+    def fake_run_git(args: list[str]) -> str:
+        calls.append(args)
+        if args == ["log"]:
+            raise RuntimeError("fatal: bad revision 'deadbeef..HEAD'")
+        return "ok"
+
+    monkeypatch.setattr(check_issue_consistency, "_run_git", fake_run_git)
+
+    output, used_fallback = check_issue_consistency._run_git_with_fallback_and_flag(
+        ["log"],
+        ["log", "-n", "1"],
+    )
+
+    assert output == "ok"
+    assert used_fallback is True
+    assert calls == [["log"], ["log", "-n", "1"]]
+
+
 def test_resolve_base_sha_prefers_merge_base(monkeypatch) -> None:
     calls = []
 
