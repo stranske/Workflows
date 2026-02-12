@@ -434,6 +434,21 @@ class TestClassifyCapabilities:
             assert result.recommendation == "BLOCKED"
             assert "admin" in result.blocked_tasks[0]["reason"].lower()
 
+    def test_fallback_flags_set_repository_secret(self) -> None:
+        """Regression: 'Set repository secret TOKEN' must be blocked even with
+        intervening words between the verb and 'secret'."""
+        with mock.patch("scripts.langchain.capability_check._get_llm_client", return_value=None):
+            result = classify_capabilities(["Set repository secret TOKEN"], "")
+            assert result.recommendation == "BLOCKED"
+            assert "admin" in result.blocked_tasks[0]["reason"].lower()
+
+    def test_fallback_flags_update_actions_secret(self) -> None:
+        """Regression: 'Update GitHub Actions secret FOO' must be blocked."""
+        with mock.patch("scripts.langchain.capability_check._get_llm_client", return_value=None):
+            result = classify_capabilities(["Update GitHub Actions secret FOO"], "")
+            assert result.recommendation == "BLOCKED"
+            assert "admin" in result.blocked_tasks[0]["reason"].lower()
+
     def test_fallback_suggests_decomposition(self) -> None:
         with mock.patch("scripts.langchain.capability_check._get_llm_client", return_value=None):
             result = classify_capabilities(["Refactor auth + add tests + update docs"], "")

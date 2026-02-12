@@ -2,8 +2,8 @@
 # Auto-fixes lint and format issues on PRs
 #
 # Triggers:
-# - PR opened/synchronized/reopened
-# - PR labeled with 'autofix' or 'autofix:clean'
+# - Gate workflow completes with failure (lint/format issues detected)
+# - PR labeled with 'autofix' or 'autofix:clean' (manual trigger)
 #
 # Copy this file to: .github/workflows/autofix.yml
 #
@@ -12,11 +12,9 @@
 name: Autofix
 
 on:
-  pull_request:
-    types:
-      - synchronize
-      - opened
-      - reopened
+  workflow_run:
+    workflows: ["Gate"]
+    types: [completed]
   pull_request_target:
     types:
       - labeled
@@ -29,8 +27,13 @@ permissions:
   pull-requests: write
 
 concurrency:
-  group: autofix-${{ github.event.pull_request.number || github.run_id }}
-  cancel-in-progress: false
+  group: >-
+    autofix-${{
+      github.event.pull_request.number
+      || github.event.workflow_run.pull_requests[0].number
+      || github.run_id
+    }}
+  cancel-in-progress: true
 
 jobs:
   # Resolve PR context
@@ -47,54 +50,164 @@ jobs:
       same_repo: ${{ steps.context.outputs.same_repo }}
       caller_actor: ${{ steps.context.outputs.caller_actor }}
     steps:
+      - name: Checkout for API helpers
+        uses: actions/checkout@v6
+        with:
+          sparse-checkout: |
+            .github/actions/setup-api-client
+            .github/scripts/github-api-with-retry.js
+            .github/scripts/token_load_balancer.js
+          sparse-checkout-cone-mode: false
+
+      - name: Setup API client
+        uses: ./.github/actions/setup-api-client
+        with:
+          secrets: ${{ toJSON(secrets) }}
+          github_token: ${{ github.token }}
+
       - name: Resolve PR context
         id: context
         uses: actions/github-script@v8
         with:
           script: |
+            const { createTokenAwareRetry } = require(
+              './.github/scripts/github-api-with-retry.js'
+            );
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'autofix-resolve-context',
+            });
+
+            // --- workflow_run trigger (after Gate completes) ---
+            if (context.eventName === 'workflow_run') {
+              const run = context.payload.workflow_run;
+
+              // Only proceed when Gate failed
+              if (run.conclusion !== 'failure') {
+                core.info(
+                  `Gate concluded '${run.conclusion}' — ` +
+                  'no autofix needed'
+                );
+                core.setOutput('should_run', 'false');
+                return;
+              }
+
+              const prs = run.pull_requests || [];
+              if (prs.length === 0) {
+                core.info('No associated PR found');
+                core.setOutput('should_run', 'false');
+                return;
+              }
+
+              const prNumber = prs[0].number;
+              const { data: pr } = await withRetry(
+                (client) => client.rest.pulls.get({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  pull_number: prNumber,
+                })
+              );
+
+              if (pr.state !== 'open') {
+                core.info(`PR #${prNumber} is ${pr.state}`);
+                core.setOutput('should_run', 'false');
+                return;
+              }
+
+              const sameRepo =
+                pr.head.repo !== null &&
+                pr.head.repo.full_name ===
+                  pr.base.repo?.full_name;
+              if (!sameRepo) {
+                core.info('Fork PR — not supported.');
+                core.setOutput('should_run', 'false');
+                return;
+              }
+
+              const labels =
+                (pr.labels || []).map(l => l.name);
+
+              core.setOutput('should_run', 'true');
+              core.setOutput('pr_number', pr.number);
+              core.setOutput('head_ref', pr.head.ref);
+              core.setOutput('pr_title', pr.title);
+              core.setOutput(
+                'pr_is_draft',
+                pr.draft ? 'true' : 'false',
+              );
+              core.setOutput(
+                'pr_labels_json',
+                JSON.stringify(labels),
+              );
+              core.setOutput(
+                'same_repo',
+                sameRepo ? 'true' : 'false',
+              );
+              core.setOutput(
+                'caller_actor',
+                run.actor?.login || context.actor,
+              );
+              return;
+            }
+
+            // --- pull_request_target trigger (manual label) ---
             const pr = context.payload.pull_request;
             if (!pr) {
               core.setOutput('should_run', 'false');
               return;
             }
 
-            // Event validation
-              const isLabeled =
-                context.eventName === 'pull_request_target' &&
-                context.payload.action === 'labeled';
-              const isPush =
-                context.eventName === 'pull_request' &&
-                ['synchronize', 'opened', 'reopened'].includes(context.payload.action);
+            const isLabeled =
+              context.eventName === 'pull_request_target' &&
+              context.payload.action === 'labeled';
 
-            if (!isLabeled && !isPush) {
-              core.info(`Unsupported event: ${context.eventName}/${context.payload.action}`);
+            if (!isLabeled) {
+              core.info(
+                'Unsupported event: ' +
+                `${context.eventName}/${context.payload.action}`,
+              );
               core.setOutput('should_run', 'false');
               return;
             }
 
-            // Label validation for labeled events
-            if (isLabeled) {
-              const label = context.payload.label?.name?.toLowerCase();
-              if (label !== 'autofix' && label !== 'autofix:clean') {
-                core.info(`Label '${label}' is not an autofix trigger.`);
-                core.setOutput('should_run', 'false');
-                return;
-              }
+            const label =
+              context.payload.label?.name?.toLowerCase();
+            if (
+              label !== 'autofix' &&
+              label !== 'autofix:clean'
+            ) {
+              core.info(
+                `Label '${label}' is not an autofix trigger.`,
+              );
+              core.setOutput('should_run', 'false');
+              return;
             }
 
-            // Explicitly check for null repo (deleted fork case)
-              const sameRepo =
-                pr.head.repo !== null &&
-                pr.head.repo.full_name === pr.base.repo?.full_name;
-            const labels = (pr.labels || []).map(l => l.name);
+            const sameRepo =
+              pr.head.repo !== null &&
+              pr.head.repo.full_name ===
+                pr.base.repo?.full_name;
+            const labels =
+              (pr.labels || []).map(l => l.name);
 
             core.setOutput('should_run', 'true');
             core.setOutput('pr_number', pr.number);
             core.setOutput('head_ref', pr.head.ref);
             core.setOutput('pr_title', pr.title);
-            core.setOutput('pr_is_draft', pr.draft ? 'true' : 'false');
-            core.setOutput('pr_labels_json', JSON.stringify(labels));
-            core.setOutput('same_repo', sameRepo ? 'true' : 'false');
+            core.setOutput(
+              'pr_is_draft',
+              pr.draft ? 'true' : 'false',
+            );
+            core.setOutput(
+              'pr_labels_json',
+              JSON.stringify(labels),
+            );
+            core.setOutput(
+              'same_repo',
+              sameRepo ? 'true' : 'false',
+            );
             core.setOutput('caller_actor', context.actor);
 
   # Call reusable autofix workflow
