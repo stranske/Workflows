@@ -116,7 +116,8 @@ jobs:
               'stranske/Travel-Plan-Permission',
               'stranske/Template',
               'stranske/trip-planner',
-              'stranske/Collab-Admin'
+              'stranske/Collab-Admin',
+              'stranske/Counter_Risk'
             ];
 
             let repos;

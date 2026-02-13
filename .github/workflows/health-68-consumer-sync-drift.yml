@@ -34,6 +34,7 @@ env:
     stranske/Portable-Alpha-Extension-Model
     stranske/Trend_Model_Project
     stranske/Collab-Admin
+    stranske/Counter_Risk
 
 concurrency:
   group: consumer-sync-drift-${{ github.repository }}-${{ github.ref }}

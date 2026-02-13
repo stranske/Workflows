@@ -51,6 +51,7 @@ jobs:
           - stranske/Trend_Model_Project
           - stranske/Portable-Alpha-Extension-Model
           - stranske/Collab-Admin
+          - stranske/Counter_Risk
           - stranske/trip-planner
           - stranske/Manager-Database
           - stranske/Travel-Plan-Permission
