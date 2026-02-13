@@ -480,23 +480,50 @@ async function checkTokenRateLimit({ tokenInfo, github, core, Octokit }) {
   }
   
   const octokit = new Octokit({ auth: token });
-  
-  const { data } = await octokit.rateLimit.get();
-  const core_limit = data.resources.core;
-  
-  const percentUsed = core_limit.limit > 0 
-    ? (core_limit.used / core_limit.limit) * 100
-    : 0;
-  
-  return {
-    limit: core_limit.limit,
-    remaining: core_limit.remaining,
-    used: core_limit.used,
-    reset: core_limit.reset * 1000,
-    checked: Date.now(),
-    percentUsed,
-    percentRemaining: 100 - percentUsed,
-  };
+  try {
+    const { data } = await octokit.rateLimit.get();
+    const core_limit = data.resources.core;
+
+    const percentUsed = core_limit.limit > 0 
+      ? (core_limit.used / core_limit.limit) * 100
+      : 0;
+
+    return {
+      limit: core_limit.limit,
+      remaining: core_limit.remaining,
+      used: core_limit.used,
+      reset: core_limit.reset * 1000,
+      checked: Date.now(),
+      percentUsed,
+      percentRemaining: 100 - percentUsed,
+      invalidAuth: false,
+    };
+  } catch (error) {
+    const isInvalidAuth =
+      error?.status === 401 ||
+      /bad credentials|requires authentication/i.test(String(error?.message || ''));
+
+    if (!isInvalidAuth) {
+      throw error;
+    }
+
+    core?.warning?.(
+      `Token ${tokenInfo.id} has invalid credentials (HTTP 401). ` +
+      `It will be skipped until the backing secret is corrected.`
+    );
+
+    return {
+      limit: 5000,
+      remaining: 0,
+      used: 5000,
+      reset: Date.now() + 3600000,
+      checked: Date.now(),
+      percentUsed: 100,
+      percentRemaining: 0,
+      invalidAuth: true,
+      error: error?.message || 'Bad credentials',
+    };
+  }
 }
 
 /**
@@ -604,6 +631,11 @@ async function getOptimalToken({ github, core, capabilities = [], preferredType 
   const candidates = [];
   
   for (const [id, tokenInfo] of tokenRegistry.tokens) {
+    if (tokenInfo.rateLimit?.invalidAuth) {
+      core?.debug?.(`Skipping ${id}: credentials marked invalid`);
+      continue;
+    }
+
     // Check capabilities
     const hasCapabilities = normalizedCapabilities.every(cap => 
       tokenInfo.capabilities.includes(cap)
