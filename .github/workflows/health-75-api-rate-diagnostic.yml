@@ -1166,6 +1166,7 @@ jobs:
             stranske/Portable-Alpha-Extension-Model
             stranske/Trend_Model_Project
             stranske/Collab-Admin
+            stranske/Counter_Risk
         run: |
           set -euo pipefail
           # shellcheck disable=SC1009,SC1073,SC1039,SC1072
