@@ -19,7 +19,7 @@ Your objective is to satisfy the **Acceptance Criteria** by completing each **Ta
 Before you commit or push any Python (`.py`) changes, you MUST:
 1. Run Black to format the relevant files (line length 100).
 2. Verify formatting passes CI by running:
-   `black --check --line-length 100 --exclude '(\\.workflows-lib|node_modules)' .`
+  `black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .`
 3. If the check fails, do NOT commit/push; format again until it passes.
 
 **COVERAGE TASKS - SPECIAL RULES:**

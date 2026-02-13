@@ -31,7 +31,7 @@ const BLACK_PREFLIGHT_BLOCK = [
   '',
   '**Before you commit or push any Python (`.py`) changes, you MUST:**',
   '1. Run Black to format the relevant files (line length 100).',
-  '2. Verify formatting with: `black --check --line-length 100 --exclude \'(\\\\.workflows-lib|node_modules)\' .`',
+  '2. Verify formatting with: `black --check --line-length 100 --exclude \'(\\.workflows-lib|node_modules)\' .`',
   '3. If the check fails, do NOT commit/push; format again until it passes.',
 ].join('\n');
 
