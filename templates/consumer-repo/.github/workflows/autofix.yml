@@ -13,7 +13,7 @@ name: Autofix
 
 on:
   workflow_run:
-    workflows: ["Gate"]
+    workflows: ["Gate", "CI"]
     types: [completed]
   pull_request_target:
     types:
@@ -80,14 +80,50 @@ jobs:
               task: 'autofix-resolve-context',
             });
 
-            // --- workflow_run trigger (after Gate completes) ---
+            const hasRelevantFailureCheck = async ({ owner, repo, ref }) => {
+              const { data } = await withRetry((client) =>
+                client.rest.checks.listForRef({
+                  owner,
+                  repo,
+                  ref,
+                  filter: 'latest',
+                  per_page: 100,
+                })
+              );
+
+              const failedChecks = (data.check_runs || []).filter(
+                (cr) => (cr.conclusion || '').toLowerCase() === 'failure'
+              );
+
+              const relevantFailures = failedChecks.filter((cr) => {
+                const name = String(cr.name || '').toLowerCase();
+                return name.includes('lint-format') || name.includes('lint-ruff');
+              });
+
+              if (relevantFailures.length === 0) {
+                core.info(
+                  'No lint-format/lint-ruff check failures found; skipping autofix.'
+                );
+                return false;
+              }
+
+              core.info(
+                `Relevant failures: ${relevantFailures
+                  .map((cr) => cr.name)
+                  .join(', ')}`
+              );
+              return true;
+            };
+
+            // --- workflow_run trigger (after Gate/CI completes) ---
             if (context.eventName === 'workflow_run') {
               const run = context.payload.workflow_run;
+              const workflowName = run?.name || 'workflow';
 
-              // Only proceed when Gate failed
+              // Only proceed when the upstream workflow failed
               if (run.conclusion !== 'failure') {
                 core.info(
-                  `Gate concluded '${run.conclusion}' — ` +
+                  `${workflowName} concluded '${run.conclusion}' — ` +
                   'no autofix needed'
                 );
                 core.setOutput('should_run', 'false');
@@ -122,6 +158,24 @@ jobs:
                   pr.base.repo?.full_name;
               if (!sameRepo) {
                 core.info('Fork PR — not supported.');
+                core.setOutput('should_run', 'false');
+                return;
+              }
+
+              const headSha = pr.head?.sha;
+              if (!headSha) {
+                core.info('PR head SHA missing; skipping autofix.');
+                core.setOutput('should_run', 'false');
+                return;
+              }
+
+              const shouldAutofix = await hasRelevantFailureCheck({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: headSha,
+              });
+
+              if (!shouldAutofix) {
                 core.setOutput('should_run', 'false');
                 return;
               }
