@@ -14,6 +14,14 @@ Your objective is to satisfy the **Acceptance Criteria** by completing each **Ta
 - Prefer small, reviewable commits; leave clear notes when follow-up is required.
 - Do NOT work on unrelated improvements until all PR tasks are complete.
 
+## Pre-Commit Formatting Gate (Black)
+
+Before you commit or push any Python (`.py`) changes, you MUST:
+1. Run Black to format the relevant files (line length 100).
+2. Verify formatting passes CI by running:
+   `black --check --line-length 100 --exclude '(\\.workflows-lib|node_modules)' .`
+3. If the check fails, do NOT commit/push; format again until it passes.
+
 **COVERAGE TASKS - SPECIAL RULES:**
 If a task mentions "coverage" or a percentage target (e.g., "≥95%", "to 95%"), you MUST:
 1. After adding tests, run TARGETED coverage verification to avoid timeouts:

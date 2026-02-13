@@ -17,6 +17,14 @@ The CI pipeline is failing. Your **only objective** is to fix the failing checks
 4. Verify your changes don't break other tests
 5. Commit with message: `fix: resolve CI failures`
 
+## Pre-Commit Formatting Gate (Black)
+
+If CI is failing due to Black formatting (e.g., "would reformat"), you MUST:
+1. Run Black to format the relevant files (line length 100).
+2. Verify formatting passes by running:
+   `black --check --line-length 100 --exclude '(\\.workflows-lib|node_modules)' .`
+3. Do NOT commit/push until the check passes.
+
 ## Failure Types
 
 ### Test Failures

@@ -25,6 +25,16 @@ const TEMPLATE_PATHS = {
  */
 const instructionCache = new Map();
 
+const BLACK_PREFLIGHT_HEADER = '## Pre-Commit Formatting Gate (Black)';
+const BLACK_PREFLIGHT_BLOCK = [
+  BLACK_PREFLIGHT_HEADER,
+  '',
+  '**Before you commit or push any Python (`.py`) changes, you MUST:**',
+  '1. Run Black to format the relevant files (line length 100).',
+  '2. Verify formatting with: `black --check --line-length 100 --exclude \'(\\\\.workflows-lib|node_modules)\' .`',
+  '3. If the check fails, do NOT commit/push; format again until it passes.',
+].join('\n');
+
 function normalise(value) {
   return String(value ?? '').trim();
 }
@@ -104,7 +114,17 @@ function loadInstruction(templatePath, { allowDefaultFallback = true } = {}) {
 function getKeepaliveInstruction(options = {}) {
   const params = options && typeof options === 'object' ? options : {};
   const resolved = resolveTemplatePath(params);
-  return loadInstruction(resolved.path, { allowDefaultFallback: true });
+  const content = loadInstruction(resolved.path, { allowDefaultFallback: true });
+
+  if (resolved.mode !== 'normal' && resolved.mode !== 'fix_ci') {
+    return content;
+  }
+
+  if (content.includes(BLACK_PREFLIGHT_HEADER)) {
+    return content;
+  }
+
+  return [BLACK_PREFLIGHT_BLOCK, '', content].join('\n');
 }
 
 /**
