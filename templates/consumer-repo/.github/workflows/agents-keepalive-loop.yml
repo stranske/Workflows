@@ -573,8 +573,13 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const prNumber = Number('${{ needs.evaluate.outputs.pr_number }}');
-            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
-            const { github: retryGithub, withRetry } = await createTokenAwareRetry({
+            const { createTokenAwareRetry } =
+              require('./.github/scripts/github-api-with-retry.js');
+            const {
+              github: retryGithub,
+              withRetry,
+              paginateWithRetry,
+            } = await createTokenAwareRetry({
               github,
               core,
               env: process.env,
@@ -590,9 +595,16 @@ jobs:
               })
             );
             const messages = commits.map(c => c.commit.message.split('\n')[0]);
-            const files = [...new Set(commits.flatMap(c =>
-              (c.files || []).map(f => f.filename)
-            ))];
+            const prFiles = await paginateWithRetry(
+              retryGithub.rest.pulls.listFiles,
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: prNumber,
+                per_page: 100,
+              }
+            );
+            const files = [...new Set(prFiles.map(file => file.filename))];
             core.setOutput('messages', JSON.stringify(messages));
             core.setOutput('files', JSON.stringify(files.slice(0, 50)));
 
