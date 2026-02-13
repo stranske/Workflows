@@ -256,6 +256,29 @@ Add each secret:
 - [ ] `WORKFLOWS_APP_ID` — **Required for keepalive** - Used for GitHub App token minting
 - [ ] `WORKFLOWS_APP_PRIVATE_KEY` — **Required for keepalive** - GitHub App authentication
 
+### 3.2.2 Bulk PAT Sync (No Organization Required)
+
+If you manage multiple repositories without GitHub organization secrets, use the
+shared script to fan out PATs from one local source of truth:
+
+```bash
+# 1) Export PAT values once in your local shell
+export SERVICE_BOT_PAT='...'
+export ACTIONS_BOT_PAT='...'
+export OWNER_PR_PAT='...'
+export AGENTS_AUTOMATION_PAT='...'
+
+# 2) Sync to all repos in one command
+scripts/sync_pat_secrets.sh \
+  --repos stranske/Counter_Risk,stranske/Template,stranske/Manager-Database \
+  --verify
+```
+
+Notes:
+- `--verify` validates each token against GitHub API before writing secrets.
+- This avoids per-repo copy/paste while keeping repository-level secrets.
+- Script path: `scripts/sync_pat_secrets.sh`.
+
 ### 3.2.1 Codex CLI Secret (`CODEX_AUTH_JSON`) — Explicit Setup
 
 `CODEX_AUTH_JSON` must contain the full JSON payload from your Codex CLI auth file.
