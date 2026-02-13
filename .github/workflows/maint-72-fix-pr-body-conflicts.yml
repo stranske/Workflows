@@ -42,20 +42,27 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      repo_matrix: ${{ steps.repos.outputs.matrix }}
+    steps:
+      - name: Checkout Workflows repo
+        uses: actions/checkout@v6
+
+      - name: Build repo matrix from canonical list
+        id: repos
+        run: |
+          repos_json=$(awk '/REGISTERED_CONSUMER_REPOS: \|/{flag=1;next} flag && /^[^[:space:]]/{flag=0} flag{line=$0; sub(/^[[:space:]]+/,"",line); if(length(line)>0) print line}' .github/workflows/maint-68-sync-consumer-repos.yml | jq -R -s -c 'split("\n") | map(select(. != ""))')
+          echo "matrix=$repos_json" >> "$GITHUB_OUTPUT"
+
   fix-repos:
+    needs: prepare
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        repo:
-          - stranske/Trend_Model_Project
-          - stranske/Portable-Alpha-Extension-Model
-          - stranske/Collab-Admin
-          - stranske/Counter_Risk
-          - stranske/trip-planner
-          - stranske/Manager-Database
-          - stranske/Travel-Plan-Permission
-          - stranske/Template
+        repo: ${{ fromJSON(needs.prepare.outputs.repo_matrix) }}
     steps:
       - name: Check if should process this repo
         id: check

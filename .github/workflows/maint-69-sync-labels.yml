@@ -108,17 +108,31 @@ jobs:
                 };
             const input = '${{ inputs.repos }}' || 'all';
 
-            // List of consumer repos that use the Workflows system
-            const allConsumerRepos = [
-              'stranske/Portable-Alpha-Extension-Model',
-              'stranske/Manager-Database',
-              'stranske/Trend_Model_Project',
-              'stranske/Travel-Plan-Permission',
-              'stranske/Template',
-              'stranske/trip-planner',
-              'stranske/Collab-Admin',
-              'stranske/Counter_Risk'
-            ];
+            // Canonical list comes from maint-68-sync-consumer-repos.yml
+            const workflowContent = fs.readFileSync('.github/workflows/maint-68-sync-consumer-repos.yml', 'utf8');
+            const lines = workflowContent.split('\n');
+            const allConsumerRepos = [];
+            let collecting = false;
+
+            for (const line of lines) {
+              if (!collecting && line.includes('REGISTERED_CONSUMER_REPOS: |')) {
+                collecting = true;
+                continue;
+              }
+              if (collecting) {
+                if (/^[^\s]/.test(line)) {
+                  break;
+                }
+                const repo = line.trim();
+                if (repo) {
+                  allConsumerRepos.push(repo);
+                }
+              }
+            }
+
+            if (allConsumerRepos.length === 0) {
+              throw new Error('Failed to load consumer repos from maint-68-sync-consumer-repos.yml');
+            }
 
             let repos;
             if (input === 'all') {

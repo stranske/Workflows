@@ -29,19 +29,6 @@ permissions:
   issues: write
   actions: read
 
-# Consumer repos registered for automatic sync (single source of truth)
-# Keep in sync with maint-68-sync-consumer-repos.yml
-env:
-  CONSUMER_REPOS: |
-    stranske/Template
-    stranske/trip-planner
-    stranske/Manager-Database
-    stranske/Travel-Plan-Permission
-    stranske/Portable-Alpha-Extension-Model
-    stranske/Trend_Model_Project
-    stranske/Collab-Admin
-    stranske/Counter_Risk
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -69,6 +56,17 @@ jobs:
         uses: ./.github/actions/setup-api-client
       - name: Install GitHub API dependencies
         run: npm install --no-save --no-package-lock @octokit/rest @octokit/auth-app
+
+      - name: Load registered consumer repos
+        id: consumer-repos
+        run: |
+          repos_markdown=$(awk '/REGISTERED_CONSUMER_REPOS: \|/{flag=1;next} flag && /^[^[:space:]]/{flag=0} flag{line=$0; sub(/^[[:space:]]+/,"",line); if(length(line)>0) print "          - " line}' .github/workflows/maint-68-sync-consumer-repos.yml)
+          {
+            echo "repos_markdown<<EOF"
+            echo "$repos_markdown"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Check recent sync runs
         id: check
         env:
@@ -222,8 +220,7 @@ jobs:
               ;;
           esac
 
-          # Format consumer repos as markdown list
-          affected_repos=$(echo "$CONSUMER_REPOS" | sed '/^$/d' | sed 's/^/          - /')
+          affected_repos='${{ steps.consumer-repos.outputs.repos_markdown }}'
 
           body="## Consumer Repo Sync Health Alert
 

@@ -10,18 +10,6 @@ permissions:
   contents: write
   pull-requests: write
 
-env:
-  # Consumer repos registered for automatic sync
-  REGISTERED_CONSUMER_REPOS: |
-    stranske/Travel-Plan-Permission
-    stranske/Template
-    stranske/trip-planner
-    stranske/Manager-Database
-    stranske/Portable-Alpha-Extension-Model
-    stranske/Trend_Model_Project
-    stranske/Collab-Admin
-    stranske/Counter_Risk
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -33,6 +21,18 @@ jobs:
     env:
       REPO_TOKEN: ${{ secrets.OWNER_PR_PAT || secrets.SERVICE_BOT_PAT }}
     steps:
+      - name: Checkout Workflows repo
+        uses: actions/checkout@v6
+
+      - name: Load registered consumer repos
+        run: |
+          repos=$(awk '/REGISTERED_CONSUMER_REPOS: \|/{flag=1;next} flag && /^[^[:space:]]/{flag=0} flag{line=$0; sub(/^[[:space:]]+/,"",line); if(length(line)>0) print line}' .github/workflows/maint-68-sync-consumer-repos.yml)
+          {
+            echo "REGISTERED_CONSUMER_REPOS<<EOF"
+            echo "$repos"
+            echo "EOF"
+          } >> "$GITHUB_ENV"
+
       - name: Validate token
         run: |
           if [ -z "${REPO_TOKEN:-}" ]; then

@@ -25,17 +25,6 @@ permissions:
   contents: read
   issues: write
 
-env:
-  REGISTERED_CONSUMER_REPOS: |
-    stranske/Travel-Plan-Permission
-    stranske/Template
-    stranske/trip-planner
-    stranske/Manager-Database
-    stranske/Portable-Alpha-Extension-Model
-    stranske/Trend_Model_Project
-    stranske/Collab-Admin
-    stranske/Counter_Risk
-
 concurrency:
   group: consumer-sync-drift-${{ github.repository }}-${{ github.ref }}
   cancel-in-progress: true
@@ -70,7 +59,11 @@ jobs:
           DRIFT_TOKEN: ${{ secrets.OWNER_PR_PAT || secrets.SERVICE_BOT_PAT || secrets.GITHUB_TOKEN }}
           INPUT_REPOS: ${{ inputs.repos }}
         run: |
-          python3 scripts/check_consumer_sync_drift.py --repos "${{ inputs.repos }}"
+          repos_input="${INPUT_REPOS:-}"
+          if [ -z "$repos_input" ]; then
+            repos_input=$(awk '/REGISTERED_CONSUMER_REPOS: \|/{flag=1;next} flag && /^[^[:space:]]/{flag=0} flag{line=$0; sub(/^[[:space:]]+/,"",line); if(length(line)>0) print line}' .github/workflows/maint-68-sync-consumer-repos.yml | paste -sd, -)
+          fi
+          python3 scripts/check_consumer_sync_drift.py --repos "$repos_input"
 
       - name: Create drift issue
         if: ${{ failure() }}

@@ -34,18 +34,6 @@ on:
 permissions:
   contents: read
 
-env:
-  # Consumer repos registered for version sync
-  REGISTERED_CONSUMER_REPOS: |
-    stranske/Travel-Plan-Permission
-    stranske/Template
-    stranske/Counter_Risk
-    stranske/trip-planner
-    stranske/Manager-Database
-    stranske/Portable-Alpha-Extension-Model
-    stranske/Trend_Model_Project
-    stranske/Collab-Admin
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -130,7 +118,7 @@ jobs:
           if [ -n "${{ inputs.repos }}" ]; then
             repos='${{ inputs.repos }}'
           else
-            repos=$(echo "$REGISTERED_CONSUMER_REPOS" | tr '\n' ',' | sed 's/,$//')
+            repos=$(awk '/REGISTERED_CONSUMER_REPOS: \|/{flag=1;next} flag && /^[^[:space:]]/{flag=0} flag{line=$0; sub(/^[[:space:]]+/,"",line); if(length(line)>0) print line}' .github/workflows/maint-68-sync-consumer-repos.yml | paste -sd, -)
           fi
           json_array=$(echo "$repos" | tr ',' '\n' | grep -v '^$' | jq -R -s -c 'split("\n") | map(select(. != "")) | map(gsub("^\\s+|\\s+$"; ""))')
           echo "matrix={\"repo\":$json_array}" >> "$GITHUB_OUTPUT"

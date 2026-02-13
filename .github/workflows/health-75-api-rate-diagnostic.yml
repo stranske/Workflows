@@ -43,18 +43,6 @@ permissions:
   issues: write
   actions: read  # Required for querying historical workflow runs
 
-env:
-  # Consumer repos to check - these use CODESPACES_WORKFLOWS PAT
-  REGISTERED_CONSUMER_REPOS: |
-    stranske/Travel-Plan-Permission
-    stranske/Template
-    stranske/trip-planner
-    stranske/Manager-Database
-    stranske/Portable-Alpha-Extension-Model
-    stranske/Trend_Model_Project
-    stranske/Collab-Admin
-    stranske/Counter_Risk
-
 concurrency:
   group: api-rate-diagnostic-${{ github.repository }}
   cancel-in-progress: true
@@ -1152,21 +1140,24 @@ jobs:
           secrets: ${{ toJSON(secrets) }}
           github_token: ${{ github.token }}
 
+      - name: Load registered consumer repos
+        id: consumer-repos
+        if: ${{ env.CODESPACES_WORKFLOWS != '' }}
+        run: |
+          repos=$(awk '/REGISTERED_CONSUMER_REPOS: \|/{flag=1;next} flag && /^[^[:space:]]/{flag=0} flag{line=$0; sub(/^[[:space:]]+/,"",line); if(length(line)>0) print line}' .github/workflows/maint-68-sync-consumer-repos.yml)
+          {
+            echo "list<<EOF"
+            echo "$repos"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
 
       - name: Check recent workflow runs across consumer repos
         id: activity
         if: ${{ env.CODESPACES_WORKFLOWS != '' }}
         env:
           GH_TOKEN: ${{ env.CODESPACES_WORKFLOWS }}
-          REGISTERED_CONSUMER_REPOS: |
-            stranske/Travel-Plan-Permission
-            stranske/Template
-            stranske/trip-planner
-            stranske/Manager-Database
-            stranske/Portable-Alpha-Extension-Model
-            stranske/Trend_Model_Project
-            stranske/Collab-Admin
-            stranske/Counter_Risk
+          REGISTERED_CONSUMER_REPOS: ${{ steps.consumer-repos.outputs.list }}
         run: |
           set -euo pipefail
           # shellcheck disable=SC1009,SC1073,SC1039,SC1072

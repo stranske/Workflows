@@ -27,14 +27,6 @@ jobs:
   sync:
     name: Sync labels documentation
     runs-on: ubuntu-latest
-    env:
-      # Consumer repos to sync - add new repos here
-      DEFAULT_CONSUMER_REPOS: |
-        stranske/Workflows-Integration-Tests
-        stranske/Travel-Plan-Permission
-        stranske/Template
-        stranske/Counter_Risk
-        stranske/Collab-Admin
     steps:
       # Mint GitHub App token early to use for API calls (avoids rate limits)
       - name: Mint GitHub App Token
@@ -80,12 +72,20 @@ jobs:
             echo "WARNING: No sync token available - sync will be skipped"
           fi
 
+      - name: Load default consumer repos
+        id: repos
+        run: |
+          canonical_repos=$(awk '/REGISTERED_CONSUMER_REPOS: \|/{flag=1;next} flag && /^[^[:space:]]/{flag=0} flag{line=$0; sub(/^[[:space:]]+/,"",line); if(length(line)>0) print line}' .github/workflows/maint-68-sync-consumer-repos.yml | tr '\n' ',' | sed 's/,$//')
+          combined_repos="stranske/Workflows-Integration-Tests,${canonical_repos}"
+          echo "default_repos=${combined_repos}" >> "$GITHUB_OUTPUT"
+
       - name: Sync to consumer repos
         if: steps.token.outputs.token_available == 'true'
         env:
           SYNC_TOKEN: ${{ secrets.CODESPACES_WORKFLOWS || secrets.SERVICE_BOT_PAT }}
           DRY_RUN: ${{ inputs.dry_run || 'false' }}
           CUSTOM_REPOS: ${{ inputs.repos }}
+          DEFAULT_REPOS: ${{ steps.repos.outputs.default_repos }}
         run: |
           set -euo pipefail
 
@@ -93,7 +93,7 @@ jobs:
           if [ -n "${CUSTOM_REPOS:-}" ]; then
             repos="${CUSTOM_REPOS}"
           else
-            repos=$(echo "${DEFAULT_CONSUMER_REPOS}" | tr '\n' ',' | sed 's/,$//')
+            repos="${DEFAULT_REPOS}"
           fi
 
           echo "Syncing to repos: ${repos}"
