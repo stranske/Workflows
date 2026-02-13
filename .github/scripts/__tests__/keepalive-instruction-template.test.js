@@ -52,10 +52,10 @@ test('clearCache forces template reload on next call', () => {
   };
 
   try {
-    const first = getKeepaliveInstruction();
+    const first = getKeepaliveInstruction({ mode: 'verify' });
     assert.equal(first, 'payload-1');
     clearCache();
-    const second = getKeepaliveInstruction();
+    const second = getKeepaliveInstruction({ mode: 'verify' });
     assert.equal(second, 'payload-2');
   } finally {
     fs.readFileSync = originalRead;
