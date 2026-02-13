@@ -116,9 +116,8 @@ jobs:
                   paginateWithRetry: (githubInstance, method, params) =>
                     githubInstance.paginate(method, params),
                 };
-            const core = require('@actions/core');
             const { createTokenAwareRetry } = retryHelpers;
-            const { github: api, withRetry } = createTokenAwareRetry
+            const { withRetry } = createTokenAwareRetry
               ? await createTokenAwareRetry({
                   github,
                   core,
