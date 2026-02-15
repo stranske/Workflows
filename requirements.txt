@@ -11,6 +11,6 @@ tomlkit==0.14.0
 langchain==1.2.9
 langchain-core==1.2.11
 langchain-community==0.4.1
-langchain-openai==1.1.7
+langchain-openai==1.1.9
 langchain-anthropic==1.3.2
 faiss-cpu==1.13.2; python_version < "3.12"
