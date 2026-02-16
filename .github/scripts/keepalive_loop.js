@@ -1877,6 +1877,9 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
     // Phase 2: Resolve agent via registry helper when an explicit agent:* label is present.
     // Keepalive stays opt-in: no agent label => keepalive disabled.
     const explicitAgentLabel = labels.find((label) => label.startsWith('agent:'));
+    const requestedAgentKeys = Array.from(
+      new Set(labels.filter((label) => label.startsWith('agent:')).map((label) => label.slice('agent:'.length))),
+    );
     let agentType = '';
     let hasAgentLabel = false;
     if (explicitAgentLabel) {
@@ -1886,15 +1889,14 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
         const routing = resolveAgentRoutingFromLabels(pr.labels);
         agentType = routing.agentKey;
       } catch (error) {
-        if (explicitAgentLabel === 'agent:auto') {
-          try {
-            const { resolveAgentFromLabels } = require('./agent_registry.js');
-            agentType = resolveAgentFromLabels([]);
-          } catch (_) {
-            agentType = explicitAgentLabel.replace('agent:', '');
-          }
+        // Keep conflict states safe: do not silently route to default agent.
+        // If multiple agent:* labels are present, treat as invalid and disable keepalive.
+        if (requestedAgentKeys.length > 1) {
+          hasAgentLabel = false;
+          agentType = '';
         } else {
-          agentType = explicitAgentLabel.replace('agent:', '');
+          // Preserve the explicit requested label key (including unknown agents like "claude").
+          agentType = requestedAgentKeys[0] || explicitAgentLabel.replace('agent:', '');
         }
       }
     }
