@@ -1537,13 +1537,26 @@ jobs:
             const issueNumber = parseInt(process.env.ISSUE_NUMBER);
             const stepCount = parseInt(process.env.STEP_COUNT || '0') + 1;
 
+            let agentKey = 'codex';
+            try {
+              const { loadAgentRegistry } = require('./.github/scripts/agent_registry.js');
+              const registry = loadAgentRegistry();
+              agentKey = String(registry.default_agent || agentKey)
+                .trim()
+                .toLowerCase() || agentKey;
+            } catch (error) {
+              core.warning(
+                `Failed to load agent registry; defaulting to ${agentKey}: ${error.message}`
+              );
+            }
+
             await withRetry((client) => client.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: issueNumber,
               body: `🤖 **Auto-pilot step ${stepCount}**: Issue prepared! Assigning to agent...
 
-            Adding \`agent:codex\` label. The capability check will run automatically.
+            Adding \`agent:${agentKey}\` label. The capability check will run automatically.
 
             ⏳ Agent will create a PR shortly.`
             }));
@@ -1553,7 +1566,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: issueNumber,
-              labels: ['agent:codex']
+              labels: [`agent:${agentKey}`]
             }));
 
             let baseBranch = context.payload?.repository?.default_branch || '';
@@ -1581,13 +1594,18 @@ jobs:
                 workflow_id: 'agents-71-codex-belt-dispatcher.yml',
                 ref: baseBranch,
                 inputs: {
+                  agent_key: agentKey,
                   force_issue: issueNumber.toString(),
                   dry_run: 'false'
                 }
               }));
-              core.info(`Dispatched codex belt dispatcher for issue #${issueNumber}`);
+              core.info(
+                `Dispatched belt dispatcher (agent: ${agentKey}) for issue #${issueNumber}`
+              );
             } catch (dispatchError) {
-              core.warning(`Could not dispatch codex belt dispatcher: ${dispatchError?.message}`);
+              core.warning(
+                `Could not dispatch belt dispatcher: ${dispatchError?.message}`
+              );
             }
 
       - name: Metrics - End capability check timer
@@ -1784,7 +1802,26 @@ jobs:
             const issueNumber = parseInt(process.env.ISSUE_NUMBER);
             const issueTitle = process.env.ISSUE_TITLE || `Issue #${issueNumber}`;
             const stepCount = parseInt(process.env.STEP_COUNT || '0') + 1;
-            const branchName = `codex/issue-${issueNumber}`;
+            let agentKey = 'codex';
+            let branchPrefix = 'codex/issue-';
+            try {
+              const {
+                loadAgentRegistry,
+                getAgentConfig,
+              } = require('./.github/scripts/agent_registry.js');
+              const registry = loadAgentRegistry();
+              agentKey = String(registry.default_agent || agentKey)
+                .trim()
+                .toLowerCase() || agentKey;
+              const cfg = getAgentConfig(agentKey);
+              branchPrefix = String(cfg.branch_prefix || branchPrefix);
+            } catch (error) {
+              core.warning(
+                `Failed to load agent registry; defaulting branch prefix: ${error.message}`
+              );
+            }
+
+            const branchName = `${branchPrefix}${issueNumber}`;
             const maxStallRetries = parseInt(process.env.MAX_STALL_RETRIES || '5');
 
             // Helper: count consecutive "waiting" comments (stall detection)

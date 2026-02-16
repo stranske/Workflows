@@ -279,6 +279,7 @@ jobs:
           script: |
             const { owner, repo } = context.repo;
             const fs = require('fs');
+            const agentKey = String(process.env.AGENT || '').trim().toLowerCase();
             const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
             const { github: api, withRetry } = await createTokenAwareRetry({
               github,
@@ -296,7 +297,19 @@ jobs:
               return;
             }
             const issue = Number('${{ steps.ctx.outputs.issue }}');
-            const head = issue ? `codex/issue-${issue}` : '';
+
+            let branchPrefix = 'codex/issue-';
+            if (agentKey) {
+              try {
+                const { getAgentConfig } = require('./.github/scripts/agent_registry.js');
+                const cfg = getAgentConfig(agentKey);
+                branchPrefix = String(cfg.branch_prefix || branchPrefix);
+              } catch (error) {
+                core.warning(`Could not load agent registry; defaulting branch prefix: ${error.message}`);
+              }
+            }
+
+            const head = issue ? `${branchPrefix}${issue}` : '';
             core.setOutput('base', base);
             if (head) {
               core.setOutput('head', head);

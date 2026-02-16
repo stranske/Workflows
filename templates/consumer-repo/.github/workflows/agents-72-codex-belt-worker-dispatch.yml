@@ -4,6 +4,11 @@ name: Agents 72 Codex Belt Worker Dispatch
 on:
   workflow_dispatch:
     inputs:
+      agent_key:
+        description: 'Agent key for this belt run (default: codex)'
+        required: false
+        default: 'codex'
+        type: string
       issue:
         description: 'Issue number'
         required: true
@@ -54,6 +59,7 @@ jobs:
     name: Run Codex belt worker
     uses: ./.github/workflows/agents-72-codex-belt-worker.yml
     with:
+      agent_key: ${{ inputs.agent_key }}
       issue: ${{ inputs.issue }}
       branch: ${{ inputs.branch }}
       base: ${{ inputs.base }}

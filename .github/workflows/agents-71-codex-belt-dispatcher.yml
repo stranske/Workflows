@@ -5,6 +5,11 @@ name: Agents 71 Codex Belt Dispatcher
 on:
   workflow_call:
     inputs:
+      agent_key:
+        description: 'Agent key to dispatch (default: codex)'
+        required: false
+        default: 'codex'
+        type: string
       force_issue:
         description: 'Optional issue number to dispatch immediately'
         required: false
@@ -23,6 +28,9 @@ on:
       WORKFLOWS_APP_PRIVATE_KEY:
         required: false
     outputs:
+      agent_key:
+        description: 'Agent key used for dispatch'
+        value: ${{ jobs.dispatch.outputs.agent_key }}
       issue:
         description: 'Issue selected for dispatch'
         value: ${{ jobs.dispatch.outputs.issue }}
@@ -40,6 +48,11 @@ on:
         value: ${{ jobs.dispatch.outputs.dry_run }}
   workflow_dispatch:
     inputs:
+      agent_key:
+        description: 'Agent key to dispatch (default: codex)'
+        required: false
+        default: 'codex'
+        type: string
       force_issue:
         description: 'Optional issue number to dispatch immediately'
         required: false
@@ -65,6 +78,7 @@ jobs:
     name: Select next Codex issue
     runs-on: ubuntu-latest
     outputs:
+      agent_key: ${{ steps.pick.outputs.agent_key || '' }}
       issue: ${{ steps.pick.outputs.issue || '' }}
       branch: ${{ steps.pick.outputs.branch || '' }}
       base: ${{ steps.pick.outputs.base || '' }}
@@ -190,6 +204,8 @@ jobs:
           ref: ${{ steps.workflows_ref.outputs.ref }}
           sparse-checkout: |
             .github/actions/setup-api-client
+            .github/agents/registry.yml
+            .github/scripts/agent_registry.js
             .github/scripts/github-api-with-retry.js
             .github/scripts/token_load_balancer.js
           sparse-checkout-cone-mode: false
@@ -207,10 +223,11 @@ jobs:
               task: 'codex-belt-dispatcher-pick',
             });
             const forced = '${{ inputs.force_issue }}';
+            const agentKey = String('${{ inputs.agent_key }}' || 'codex').trim().toLowerCase() || 'codex';
             const { owner, repo } = context.repo;
 
             const summary = core.summary;
-            summary.addHeading('Codex Belt Dispatcher');
+            summary.addHeading(`Belt Dispatcher (agent: ${agentKey})`);
 
             let issueNumber = null;
             let reason = '';
@@ -225,7 +242,7 @@ jobs:
                 owner,
                 repo,
                 state: 'open',
-                labels: 'agent:codex,status:ready',
+                labels: `agent:${agentKey},status:ready`,
                 sort: 'created',
                 direction: 'asc',
                 per_page: 30,
@@ -238,7 +255,11 @@ jobs:
             }
 
             if (!issueNumber) {
-              summary.addRaw('No open issues with labels `agent:codex` and `status:ready` were found.').write();
+              summary
+                .addRaw(
+                  `No open issues with labels \`agent:${agentKey}\` and \`status:ready\` were found.`
+                )
+                .write();
               core.setOutput('issue', '');
               core.setOutput('reason', 'empty');
               return;
@@ -261,8 +282,19 @@ jobs:
               core.setFailed('Repository default branch not available');
               return;
             }
-            const branch = `codex/issue-${issueNumber}`;
 
+            let branchPrefix = 'codex/issue-';
+            try {
+              const { getAgentConfig } = require('./.github/scripts/agent_registry.js');
+              const cfg = getAgentConfig(agentKey);
+              branchPrefix = String(cfg.branch_prefix || branchPrefix);
+            } catch (error) {
+              core.warning(`Could not load agent registry; defaulting branch prefix: ${error.message}`);
+            }
+
+            const branch = `${branchPrefix}${issueNumber}`;
+
+            core.setOutput('agent_key', agentKey);
             core.setOutput('issue', String(issueNumber));
             core.setOutput('branch', branch);
             core.setOutput('base', base);

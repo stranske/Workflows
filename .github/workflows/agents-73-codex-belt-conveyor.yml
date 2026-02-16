@@ -5,6 +5,11 @@ name: Agents 73 Codex Belt Conveyor
 on:
   workflow_call:
     inputs:
+      agent_key:
+        description: 'Agent key for this belt run (default: codex)'
+        required: false
+        default: 'codex'
+        type: string
       issue:
         description: 'Source issue number for the Codex belt PR'
         required: true
@@ -42,7 +47,15 @@ permissions:
   actions: write
 
 concurrency:
-  group: codex-belt-conveyor-${{ inputs.branch || format('issue-{0}', inputs.issue) || github.run_id }}
+  group: >-
+    ${{
+      (inputs.agent_key || 'codex') == 'codex'
+        && format('codex-belt-conveyor-{0}', inputs.branch || format('issue-{0}', inputs.issue) || github.run_id)
+        || format('belt-{0}-conveyor-{1}',
+          inputs.agent_key || 'codex',
+          inputs.branch || format('issue-{0}', inputs.issue) || github.run_id
+        )
+    }}
   cancel-in-progress: true
 
 jobs:
@@ -156,6 +169,8 @@ jobs:
         with:
           sparse-checkout: |
             .github/actions/setup-api-client
+            .github/agents/registry.yml
+            .github/scripts/agent_registry.js
             .github/scripts/github-api-with-retry.js
             .github/scripts/token_load_balancer.js
           sparse-checkout-cone-mode: false
@@ -180,12 +195,17 @@ jobs:
             const issueValue = Number(issueRaw);
             const issueNumber = Number.isFinite(issueValue) && issueValue > 0 ? issueValue : null;
             const branch = '${{ inputs.branch }}'.trim();
+            const agentKey = String('${{ inputs.agent_key }}' || 'codex').trim().toLowerCase() || 'codex';
             const prNumber = Number('${{ inputs.pr_number }}');
             const targetPr = Number.isFinite(prNumber) ? `#${prNumber}` : 'Unknown';
             const modeDisplay = dryRun ? 'Preview (dry run)' : 'Live (merge ready)';
             const runId = context.runId;
             const concurrencyKey = branch || issueNumber || runId;
-            const concurrencyGroup = concurrencyKey ? `codex-belt-conveyor-${concurrencyKey}` : '';
+            const concurrencyGroup = concurrencyKey
+              ? (agentKey === 'codex'
+                ? `codex-belt-conveyor-${concurrencyKey}`
+                : `belt-${agentKey}-conveyor-${concurrencyKey}`)
+              : '';
             if (!concurrencyGroup) {
               core.setFailed('Unable to determine conveyor concurrency group.');
               return;
@@ -193,7 +213,7 @@ jobs:
             const issueDisplay = issueNumber ? `#${issueNumber}` : 'Unknown';
             const branchDisplay = branch || '(unspecified)';
             summary
-              .addHeading('Codex Belt Conveyor')
+              .addHeading(`Belt Conveyor (agent: ${agentKey})`)
               .addTable([
                 [
                   { data: 'Issue', header: true },
@@ -262,9 +282,21 @@ jobs:
               core.setFailed(`PR #${prNumber} is running on ${headBranch} instead of ${branch}.`);
               return;
             }
-            const match = headBranch.match(/^codex\/issue-(\d+)$/);
+            const agentKey = String('${{ inputs.agent_key }}' || 'codex').trim().toLowerCase() || 'codex';
+            let branchPrefix = 'codex/issue-';
+            try {
+              const { getAgentConfig } = require('./.github/scripts/agent_registry.js');
+              const cfg = getAgentConfig(agentKey);
+              branchPrefix = String(cfg.branch_prefix || branchPrefix);
+            } catch (error) {
+              core.warning(`Could not load agent registry; defaulting branch prefix: ${error.message}`);
+            }
+
+            const escapeRegex = (value) => String(value).replace(/[.*+?^${}()|[\[\]\\]/g, '\\$&');
+            const pattern = `^${escapeRegex(branchPrefix)}(\\d+)$`;
+            const match = headBranch.match(new RegExp(pattern));
             if (!match) {
-              core.setFailed(`Branch ${headBranch} is not a codex belt branch.`);
+              core.setFailed(`Branch ${headBranch} is not a belt branch for agent ${agentKey}.`);
               return;
             }
             const inferredIssue = Number(match[1]);
@@ -464,7 +496,13 @@ jobs:
               }
             }
             try {
-              await withRetry(() => github.rest.issues.createComment({ owner, repo, issue_number: issue, body: 'Merged via Codex Belt Conveyor after Gate success.' }));
+              const agentKey = String('${{ inputs.agent_key }}' || 'codex').trim().toLowerCase() || 'codex';
+              await withRetry(() => github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: issue,
+                body: `Merged via belt conveyor (agent: ${agentKey}) after Gate success.`,
+              }));
             } catch (error) {
               core.warning(`Failed to comment on issue #${issue}: ${error.message}`);
             }
@@ -518,12 +556,16 @@ jobs:
                 };
             const { withRetry } = retryHelpers;
             const { owner, repo } = context.repo;
+            const agentKey = String('${{ inputs.agent_key }}' || 'codex').trim().toLowerCase() || 'codex';
             try {
               await withRetry(() => github.rest.actions.createWorkflowDispatch({
                 owner,
                 repo,
                 workflow_id: 'agents-71-codex-belt-dispatcher.yml',
-                ref: 'refs/heads/' + (process.env.GITHUB_REF_NAME || context.ref.replace('refs/heads/', ''))
+                ref: 'refs/heads/' + (process.env.GITHUB_REF_NAME || context.ref.replace('refs/heads/', '')),
+                inputs: {
+                  agent_key: agentKey,
+                },
               }));
             } catch (error) {
               core.warning(`Failed to re-dispatch dispatcher: ${error.message}`);

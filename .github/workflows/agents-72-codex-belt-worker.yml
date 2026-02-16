@@ -5,6 +5,11 @@ name: Agents 72 Codex Belt Worker
 on:
   workflow_call:
     inputs:
+      agent_key:
+        description: 'Agent key for this belt run (default: codex)'
+        required: false
+        default: 'codex'
+        type: string
       issue:
         description: 'Issue number'
         required: true
@@ -86,7 +91,15 @@ permissions:
   actions: write
 
 concurrency:
-  group: codex-belt-${{ inputs.branch || format('issue-{0}', inputs.issue) || github.run_id }}
+  group: >-
+    ${{
+      (inputs.agent_key || 'codex') == 'codex'
+        && format('codex-belt-{0}', inputs.branch || format('issue-{0}', inputs.issue) || github.run_id)
+        || format('belt-{0}-{1}',
+          inputs.agent_key || 'codex',
+          inputs.branch || format('issue-{0}', inputs.issue) || github.run_id
+        )
+    }}
   cancel-in-progress: true
 
 jobs:
@@ -224,6 +237,7 @@ jobs:
         with:
           github-token: ${{ env.GH_BELT_TOKEN }}
           script: |
+            const agentKey = String('${{ inputs.agent_key }}' || 'codex').trim().toLowerCase() || 'codex';
             const issueInput = '${{ inputs.issue }}'.trim();
             const branchInput = '${{ inputs.branch }}'.trim();
             const baseInput = '${{ inputs.base }}'.trim();
@@ -241,10 +255,6 @@ jobs:
             }
 
             let branch = branchInput;
-            if (!branch && issue) {
-              branch = `codex/issue-${issue}`;
-            }
-
             let base = baseInput;
 
             let source = sourceInput;
@@ -256,25 +266,29 @@ jobs:
               core.setFailed('Worker missing branch name.');
               return;
             }
-            if (!branch.startsWith('codex/issue-')) {
-              core.warning(`Unexpected branch naming: ${branch}`);
-            }
+
+            // Branch prefix validation is performed later after checkout (needs registry).
 
             const runId = context.runId;
             const concurrencyKey = branch || issue || runId;
-            const concurrencyGroup = concurrencyKey ? `codex-belt-${concurrencyKey}` : '';
+            const concurrencyGroup = concurrencyKey
+              ? (agentKey === 'codex'
+                ? `codex-belt-${concurrencyKey}`
+                : `belt-${agentKey}-${concurrencyKey}`)
+              : '';
             if (!concurrencyGroup) {
               core.setFailed('Unable to determine concurrency group.');
               return;
             }
 
+            core.setOutput('agent_key', agentKey);
             core.setOutput('issue', String(issue));
             core.setOutput('branch', branch);
             core.setOutput('base', base);
             core.setOutput('source', source);
             core.setOutput('concurrency_group', concurrencyGroup);
             core.summary
-              .addHeading('Codex Belt Worker')
+              .addHeading(`Belt Worker (agent: ${agentKey})`)
               .addTable([[{ data: 'Issue', header: true }, { data: 'Branch', header: true }, { data: 'Source', header: true }], [`#${issue}`, branch, source]])
               .addTable([[{ data: 'Concurrency Group', header: true }, { data: 'Issue', header: true }, { data: 'Branch', header: true }], [concurrencyGroup, `#${issue}`, branch]])
               .addHeading('Branch Freshness Safeguards')
@@ -479,7 +493,7 @@ jobs:
 
             const { owner, repo } = context.repo;
             const issueBranch = '${{ steps.ctx.outputs.branch }}';
-            const prefix = `codex/issue-${issue}/step/`;
+            const prefix = `${issueBranch}/step/`;
             const deleted = [];
 
             try {
@@ -562,10 +576,14 @@ jobs:
               client.rest.issues.get({ owner, repo, issue_number: issue })
             );
 
-            const labelNames = Array.isArray(data.labels) ? data.labels.map((l) => String(l.name || '')) : [];
-            const hasCodex = labelNames.some((name) => name === 'agent:codex');
-            if (!hasCodex) {
-              core.setFailed(`Issue #${issue} no longer carries the agent:codex label.`);
+            const agentKey = String('${{ steps.ctx.outputs.agent_key }}' || 'codex').trim().toLowerCase() || 'codex';
+            const labelNames = Array.isArray(data.labels)
+              ? data.labels.map((l) => String(l.name || '').trim().toLowerCase())
+              : [];
+            const requiredAgentLabel = `agent:${agentKey}`;
+            const hasAgent = labelNames.includes(requiredAgentLabel);
+            if (!hasAgent) {
+              core.setFailed(`Issue #${issue} no longer carries the ${requiredAgentLabel} label.`);
               return;
             }
             const hasReady = labelNames.some((name) => name === 'status:ready');
@@ -699,7 +717,7 @@ jobs:
 
           short=$(git rev-parse --short "origin/$branch")
           timestamp=$(date -u +%Y%m%d%H%M%S)
-          step_branch="codex/issue-${issue}/step/${timestamp}-${short}"
+          step_branch="${branch}/step/${timestamp}-${short}"
 
           git checkout --detach "origin/$branch"
           git checkout -b "$step_branch"
@@ -1140,7 +1158,8 @@ jobs:
             });
             const prNumber = Number('${{ steps.pr.outputs.number }}');
             const { owner, repo } = context.repo;
-            const labels = ['agent:codex', 'autofix', 'from:codex'];
+            const agentKey = String('${{ steps.ctx.outputs.agent_key }}' || 'codex').trim().toLowerCase() || 'codex';
+            const labels = [`agent:${agentKey}`, 'autofix', `from:${agentKey}`];
             try {
               await withRetry((client) =>
                 client.rest.issues.addLabels({ owner, repo, issue_number: prNumber, labels })
@@ -1164,7 +1183,10 @@ jobs:
             const prNumber = Number('${{ steps.pr.outputs.number }}');
             const issue = Number('${{ steps.ctx.outputs.issue }}');
             const { owner, repo } = context.repo;
-            const assignees = ['chatgpt-codex-connector', 'stranske-automation-bot'];
+            const agentKey = String('${{ steps.ctx.outputs.agent_key }}' || 'codex').trim().toLowerCase() || 'codex';
+            const assignees = agentKey === 'codex'
+              ? ['chatgpt-codex-connector', 'stranske-automation-bot']
+              : ['stranske-automation-bot'];
             for (const target of [prNumber, issue]) {
               try {
                 await withRetry((client) =>
