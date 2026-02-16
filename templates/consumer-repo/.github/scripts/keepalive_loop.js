@@ -1943,6 +1943,13 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
         if (requestedAgentKeys.length > 1) {
           hasAgentLabel = false;
           agentType = '';
+        } else if (explicitAgentLabel === 'agent:auto') {
+          try {
+            const { resolveAgentFromLabels } = require('./agent_registry.js');
+            agentType = resolveAgentFromLabels([]);
+          } catch (_) {
+            agentType = 'codex';
+          }
         } else {
           agentType = requestedAgentKeys[0] || '';
         }
