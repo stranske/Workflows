@@ -880,6 +880,7 @@ def _build_llm_config(
 ) -> dict[str, object]:
     try:
         from tools.llm_provider import build_langsmith_metadata
+
         return build_langsmith_metadata(
             operation=operation,
             pr_number=pr_number,
@@ -890,11 +891,7 @@ def _build_llm_config(
 
     # Inline fallback when tools.llm_provider is unavailable
     repo = os.environ.get("GITHUB_REPOSITORY", "unknown")
-    run_id = (
-        os.environ.get("GITHUB_RUN_ID")
-        or os.environ.get("RUN_ID")
-        or "unknown"
-    )
+    run_id = os.environ.get("GITHUB_RUN_ID") or os.environ.get("RUN_ID") or "unknown"
     if pr_number is not None:
         issue_or_pr = str(pr_number)
     elif issue_number is not None:
@@ -903,9 +900,7 @@ def _build_llm_config(
         env_pr = os.environ.get("PR_NUMBER", "")
         env_issue = os.environ.get("ISSUE_NUMBER", "")
         issue_or_pr = (
-            env_pr if env_pr.isdigit()
-            else env_issue if env_issue.isdigit()
-            else "unknown"
+            env_pr if env_pr.isdigit() else env_issue if env_issue.isdigit() else "unknown"
         )
     metadata = {
         "repo": repo,
@@ -913,9 +908,7 @@ def _build_llm_config(
         "issue_or_pr_number": issue_or_pr,
         "operation": operation,
         "pr_number": str(pr_number) if pr_number is not None else None,
-        "issue_number": (
-            str(issue_number) if issue_number is not None else None
-        ),
+        "issue_number": (str(issue_number) if issue_number is not None else None),
     }
     tags = [
         "workflows-agents",

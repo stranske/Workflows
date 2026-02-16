@@ -101,9 +101,7 @@ def build_langsmith_metadata(
             env_pr = os.environ.get("PR_NUMBER", "")
             env_issue = os.environ.get("ISSUE_NUMBER", "")
             issue_or_pr_number = (
-                env_pr if env_pr.isdigit()
-                else env_issue if env_issue.isdigit()
-                else "unknown"
+                env_pr if env_pr.isdigit() else env_issue if env_issue.isdigit() else "unknown"
             )
 
     metadata: dict[str, object] = {
@@ -116,9 +114,7 @@ def build_langsmith_metadata(
     }
 
     if LANGSMITH_ENABLED:
-        metadata["langsmith_project"] = os.environ.get(
-            "LANGCHAIN_PROJECT", "workflows-agents"
-        )
+        metadata["langsmith_project"] = os.environ.get("LANGCHAIN_PROJECT", "workflows-agents")
 
     tags = [
         "workflows-agents",

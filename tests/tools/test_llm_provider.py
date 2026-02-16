@@ -159,9 +159,7 @@ class TestBuildLangsmithMetadata:
         assert config["metadata"]["repo"] == "stranske/Workflows"
 
     def test_resolves_run_id_from_env(self):
-        with patch.dict(
-            os.environ, {"GITHUB_RUN_ID": "12345"}, clear=True
-        ):
+        with patch.dict(os.environ, {"GITHUB_RUN_ID": "12345"}, clear=True):
             config = build_langsmith_metadata(operation="verify")
         assert config["metadata"]["run_id"] == "12345"
 
@@ -181,17 +179,13 @@ class TestBuildLangsmithMetadata:
 
     def test_pr_number_sets_issue_or_pr(self):
         with patch.dict(os.environ, {}, clear=True):
-            config = build_langsmith_metadata(
-                operation="verify", pr_number=42
-            )
+            config = build_langsmith_metadata(operation="verify", pr_number=42)
         assert config["metadata"]["issue_or_pr_number"] == "42"
         assert config["metadata"]["pr_number"] == "42"
 
     def test_issue_number_sets_issue_or_pr(self):
         with patch.dict(os.environ, {}, clear=True):
-            config = build_langsmith_metadata(
-                operation="verify", issue_number=99
-            )
+            config = build_langsmith_metadata(operation="verify", issue_number=99)
         assert config["metadata"]["issue_or_pr_number"] == "99"
         assert config["metadata"]["issue_number"] == "99"
 
@@ -213,9 +207,7 @@ class TestBuildLangsmithMetadata:
         assert "workflows-agents" in tags
 
     def test_langsmith_project_included_when_enabled(self):
-        with patch.dict(
-            os.environ, {"LANGSMITH_API_KEY": "ls-key"}, clear=True
-        ):
+        with patch.dict(os.environ, {"LANGSMITH_API_KEY": "ls-key"}, clear=True):
             _setup_langsmith_tracing()
             import tools.llm_provider as mod
 
