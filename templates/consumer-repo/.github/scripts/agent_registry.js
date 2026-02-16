@@ -156,10 +156,10 @@ function normalizeLabel(label) {
     return '';
   }
   if (typeof label === 'string') {
-    return label.trim();
+    return label.trim().toLowerCase();
   }
   if (typeof label === 'object' && typeof label.name === 'string') {
-    return label.name.trim();
+    return label.name.trim().toLowerCase();
   }
   return '';
 }

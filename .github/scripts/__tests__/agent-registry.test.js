@@ -56,6 +56,16 @@ test('resolveAgentFromLabels resolves agent label (object labels)', () => {
   assert.equal(agentKey, 'codex');
 });
 
+test('resolveAgentFromLabels is case-insensitive (string labels)', () => {
+  const agentKey = resolveAgentFromLabels(['bug', 'Agent:Codex'], { registryPath: REGISTRY_PATH });
+  assert.equal(agentKey, 'codex');
+});
+
+test('resolveAgentFromLabels is case-insensitive (object labels)', () => {
+  const agentKey = resolveAgentFromLabels([{ name: 'AGENT:CODEX' }], { registryPath: REGISTRY_PATH });
+  assert.equal(agentKey, 'codex');
+});
+
 test('getAgentConfig returns config for codex', () => {
   const config = getAgentConfig('codex', { registryPath: REGISTRY_PATH });
   assert.equal(config.branch_prefix, 'codex/issue-');
