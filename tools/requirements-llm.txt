@@ -3,7 +3,7 @@
 # - These are standalone runtime pins for workflow LLM steps, not app deps.
 # - When updating, coordinate with requirements.lock and pyproject.toml.
 # - Use strict X.Y.Z pins to keep workflow installs reproducible.
-langchain==1.2.9
+langchain==1.2.10
 langchain-core==1.2.13
 langchain-community==0.4.1
 langchain-openai==1.1.9
