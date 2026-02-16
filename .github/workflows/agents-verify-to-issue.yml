@@ -183,7 +183,7 @@ jobs:
               '',
               '1. Add `agents:optimize` label to get AI-suggested improvements',
               '2. Add `agents:apply-suggestions` to format for agent work',
-              '3. Add `agent:codex` to assign to an agent',
+              '3. Add an `agent:*` label (e.g., `agent:codex`) to assign to an agent',
               '',
               'Or work on it manually - the choice is yours!',
               '',

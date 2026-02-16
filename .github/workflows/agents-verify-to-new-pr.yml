@@ -76,6 +76,8 @@ jobs:
           token: ${{ steps.select-token.outputs.token }}
           sparse-checkout: |
             .github/actions/setup-api-client
+            .github/agents/registry.yml
+            .github/scripts/agent_registry.js
             .github/scripts/github-api-with-retry.js
             .github/scripts/token_load_balancer.js
             scripts/langchain
@@ -736,12 +738,26 @@ jobs:
               return;
             }
 
+            let agentKey = 'codex';
+            try {
+              const { resolveAgentFromLabels } = require('./.github/scripts/agent_registry.js');
+              agentKey = resolveAgentFromLabels(prData.labels || []);
+            } catch (err) {
+              core.warning(
+                `Failed to resolve agent from PR labels; defaulting to codex: ${err.message}`
+              );
+              agentKey = 'codex';
+            }
+            const normalized = String(agentKey || 'codex').trim().toLowerCase() || 'codex';
+            const agentLabel = `agent:${normalized}`;
+            const fromLabel = `from:${normalized}`;
+
             const issue = await withRetry((client) => (client || github).rest.issues.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
               title: title,
               body: body,
-              labels: ['follow-up', 'agent:codex', 'agents:auto-pilot']
+              labels: ['follow-up', agentLabel, fromLabel, 'agents:auto-pilot']
             }));
 
             core.info(`Created issue #${issue.data.number}`);

@@ -129,6 +129,7 @@ jobs:
           ref: ${{ steps.workflows_ref.outputs.ref }}
           sparse-checkout: |
             .github/actions/setup-api-client
+            .github/agents/registry.yml
             .github/scripts
             .github/codex/prompts
             scripts
@@ -267,6 +268,49 @@ jobs:
                 throw err;
               }
             }
+
+      - name: Resolve agent key from PR labels
+        id: agent
+        if: steps.context.outputs.should_run == 'true'
+        uses: actions/github-script@v8
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const retryHelperPath = './.workflows-lib/.github/scripts/github-api-with-retry.js';
+            const retryHelpers = fs.existsSync(retryHelperPath)
+              ? require(retryHelperPath)
+              : { withRetry: (fn) => fn() };
+            const { withRetry } = retryHelpers;
+
+            const registryPath = './.workflows-lib/.github/agents/registry.yml';
+            const resolverPath = './.workflows-lib/.github/scripts/agent_registry.js';
+
+            let agentKey = 'codex';
+            try {
+              const { resolveAgentFromLabels } = require(resolverPath);
+              const rawPrNumber = Number('${{ steps.context.outputs.pr_number }}');
+              const prNumber = !Number.isNaN(rawPrNumber) && rawPrNumber > 0 ? rawPrNumber : null;
+
+              let labels = [];
+              if (prNumber) {
+                const { data: pr } = await withRetry(() => github.rest.pulls.get({
+                  ...context.repo,
+                  pull_number: prNumber,
+                }));
+                labels = Array.isArray(pr.labels) ? pr.labels : [];
+              }
+
+              agentKey = resolveAgentFromLabels(labels, { registryPath });
+            } catch (err) {
+              core.warning(`Failed to resolve agent from PR labels; defaulting to codex: ${err.message}`);
+              agentKey = 'codex';
+            }
+
+            const normalized = String(agentKey || 'codex').trim().toLowerCase() || 'codex';
+            core.setOutput('agent_key', normalized);
+            core.setOutput('agent_label', `agent:${normalized}`);
+            core.setOutput('from_label', `from:${normalized}`);
 
       - name: Stop when verifier is skipped
         if: steps.context.outputs.should_run != 'true'
@@ -473,7 +517,16 @@ jobs:
           if [ -n "$provider" ] && [ "$provider" != "github-models" ]; then
             args+=(--provider "$provider")
           fi
-          args+=(--create-issue --issue-label agent:codex --issue-label verify:evaluate)
+          agent_label='${{ steps.agent.outputs.agent_label || '' }}'
+          from_label='${{ steps.agent.outputs.from_label || '' }}'
+          args+=(--create-issue)
+          if [ -n "$agent_label" ]; then
+            args+=(--issue-label "$agent_label")
+          fi
+          if [ -n "$from_label" ]; then
+            args+=(--issue-label "$from_label")
+          fi
+          args+=(--issue-label verify:evaluate)
 
           # Run evaluator (stderr to separate file to avoid corrupting JSON)
           python .workflows-lib/scripts/langchain/pr_verifier.py "${args[@]}" > evaluation.json 2> evaluation-stderr.log || true
@@ -740,6 +793,9 @@ jobs:
             const prUrl = process.env.PR_URL || '';
             const runUrl = process.env.RUN_URL || '';
 
+            const agentLabel = '${{ steps.agent.outputs.agent_label }}' || 'agent:codex';
+            const fromLabel = '${{ steps.agent.outputs.from_label }}' || 'from:codex';
+
             // Handle Codex crash/error case
             if (verdict === 'error') {
               const title = prNumber ? `[Verifier Error] PR #${prNumber} verification failed` : '[Verifier Error] Verification failed';
@@ -748,7 +804,7 @@ jobs:
                 ...context.repo,
                 title,
                 body,
-                labels: ['agent:codex', 'bug'],
+                labels: [agentLabel, fromLabel, 'bug'],
               }));
               core.setOutput('issue_number', issue?.number ? String(issue.number) : '');
               core.info(`Created error follow-up issue #${issue.number}: ${title}`);
@@ -827,7 +883,7 @@ jobs:
               ...context.repo,
               title: result.title,
               body: result.body,
-              labels: ['agent:codex'],
+              labels: [agentLabel, fromLabel],
             }));
             core.setOutput('issue_number', issue?.number ? String(issue.number) : '');
             core.setOutput('skipped', 'false');

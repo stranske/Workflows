@@ -74,6 +74,8 @@ jobs:
           token: ${{ steps.select-token.outputs.token }}
           sparse-checkout: |
             .github/actions/setup-api-client
+            .github/agents/registry.yml
+            .github/scripts/agent_registry.js
             .github/scripts/github-api-with-retry.js
             .github/scripts/token_load_balancer.js
             scripts/langchain
@@ -332,6 +334,23 @@ jobs:
                 };
             const { withRetry } = retryHelpers;
 
+            let agentKey = 'codex';
+            try {
+              const { resolveAgentFromLabels } = require('./.github/scripts/agent_registry.js');
+              const prLabels = context.payload.pull_request?.labels || [];
+              agentKey = resolveAgentFromLabels(prLabels, {
+                registryPath: './.github/agents/registry.yml',
+              });
+            } catch (err) {
+              core.warning(
+                `Failed to resolve agent from PR labels; defaulting to codex: ${err.message}`
+              );
+              agentKey = 'codex';
+            }
+            const normalized = String(agentKey || 'codex').trim().toLowerCase() || 'codex';
+            const agentLabel = `agent:${normalized}`;
+            const fromLabel = `from:${normalized}`;
+
             const title = process.env.ISSUE_TITLE;
             const body = process.env.ISSUE_BODY;
 
@@ -345,7 +364,7 @@ jobs:
               repo: context.repo.repo,
               title: title,
               body: body,
-              labels: ['follow-up', 'agents:optimize']
+              labels: ['follow-up', agentLabel, fromLabel, 'agents:optimize']
             }));
 
             core.info(`Created issue #${issue.data.number}`);
@@ -383,7 +402,7 @@ jobs:
               '**Next steps:**',
               '1. Review the generated issue',
               '2. Add `agents:apply-suggestions` label to format for agent work',
-              '3. Add `agent:codex` label to assign to an agent',
+              '3. Add an `agent:*` label (e.g., `agent:codex`) to assign to an agent',
               '',
               '> Or work on it manually - the choice is yours!'
             ].join('\n');
