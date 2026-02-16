@@ -164,7 +164,7 @@ function normalizeLabel(label) {
   return '';
 }
 
-function resolveAgentFromLabels(labels, { registryPath } = {}) {
+function resolveAgentRoutingFromLabels(labels, { registryPath } = {}) {
   const registry = loadAgentRegistry({ registryPath });
   const labelList = Array.isArray(labels) ? labels : [];
   const agentLabels = labelList
@@ -172,19 +172,47 @@ function resolveAgentFromLabels(labels, { registryPath } = {}) {
     .filter(Boolean)
     .filter((value) => value.startsWith('agent:'));
 
-  const uniqueAgents = new Set(agentLabels.map((value) => value.slice('agent:'.length)));
+  const requestedAgents = agentLabels.map((value) => value.slice('agent:'.length));
+  const uniqueRequested = new Set(requestedAgents);
+  const hasAuto = uniqueRequested.has('auto');
+  const explicitRequested = Array.from(uniqueRequested).filter((value) => value !== 'auto');
 
-  if (uniqueAgents.size > 1) {
-    throw new Error(`Multiple agent labels present: ${Array.from(uniqueAgents).join(', ')}`);
+  if (explicitRequested.length > 1) {
+    throw new Error(`Multiple agent labels present: ${explicitRequested.join(', ')}`);
+  }
+  if (hasAuto && explicitRequested.length > 0) {
+    throw new Error(`Multiple agent labels present: auto, ${explicitRequested[0]}`);
   }
 
-  const explicit = Array.from(uniqueAgents)[0];
-  const agentKey = explicit || registry.default_agent;
+  let mode = 'default';
+  let agentKey = registry.default_agent;
+  let requested = null;
+
+  if (explicitRequested.length === 1) {
+    mode = 'explicit';
+    agentKey = explicitRequested[0];
+    requested = agentKey;
+  } else if (hasAuto) {
+    mode = 'auto';
+    agentKey = registry.default_agent;
+    requested = 'auto';
+  }
+
   if (!registry.agents[agentKey]) {
     const known = Object.keys(registry.agents).sort();
     throw new Error(`Unknown agent key: ${agentKey}. Known agents: ${known.join(', ') || '(none)'}`);
   }
-  return agentKey;
+
+  return {
+    mode,
+    agentKey,
+    requested,
+  };
+}
+
+function resolveAgentFromLabels(labels, { registryPath } = {}) {
+  const routing = resolveAgentRoutingFromLabels(labels, { registryPath });
+  return routing.agentKey;
 }
 
 function getAgentConfig(agentKey, { registryPath } = {}) {
@@ -213,4 +241,5 @@ module.exports = {
   loadAgentRegistry,
   parseRegistryYaml,
   resolveAgentFromLabels,
+  resolveAgentRoutingFromLabels,
 };

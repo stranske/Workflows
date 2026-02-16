@@ -1882,10 +1882,16 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
     if (explicitAgentLabel) {
       hasAgentLabel = true;
       try {
-        const { resolveAgentFromLabels } = require('./agent_registry.js');
-        agentType = resolveAgentFromLabels(pr.labels);
+        const { resolveAgentRoutingFromLabels } = require('./agent_registry.js');
+        const routing = resolveAgentRoutingFromLabels(pr.labels);
+        agentType = routing.agentKey;
       } catch (error) {
-        agentType = explicitAgentLabel.replace('agent:', '');
+        try {
+          const { resolveAgentFromLabels } = require('./agent_registry.js');
+          agentType = resolveAgentFromLabels([]);
+        } catch (_) {
+          agentType = explicitAgentLabel.replace('agent:', '');
+        }
       }
     }
     const hasHighPrivilege = labels.includes('agent-high-privilege');

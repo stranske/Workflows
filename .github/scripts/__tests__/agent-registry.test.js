@@ -10,6 +10,7 @@ const {
   loadAgentRegistry,
   parseRegistryYaml,
   resolveAgentFromLabels,
+  resolveAgentRoutingFromLabels,
 } = require('../agent_registry');
 
 const REGISTRY_PATH = path.resolve(__dirname, '..', '..', 'agents', 'registry.yml');
@@ -64,6 +65,31 @@ test('resolveAgentFromLabels is case-insensitive (string labels)', () => {
 test('resolveAgentFromLabels is case-insensitive (object labels)', () => {
   const agentKey = resolveAgentFromLabels([{ name: 'AGENT:CODEX' }], { registryPath: REGISTRY_PATH });
   assert.equal(agentKey, 'codex');
+});
+
+test('resolveAgentFromLabels treats agent:auto as default agent', () => {
+  const agentKey = resolveAgentFromLabels(['agent:auto'], { registryPath: REGISTRY_PATH });
+  assert.equal(agentKey, 'codex');
+});
+
+test('resolveAgentRoutingFromLabels returns mode=auto for agent:auto', () => {
+  const routing = resolveAgentRoutingFromLabels(['agent:auto'], { registryPath: REGISTRY_PATH });
+  assert.equal(routing.mode, 'auto');
+  assert.equal(routing.agentKey, 'codex');
+  assert.equal(routing.requested, 'auto');
+});
+
+test('resolveAgentRoutingFromLabels rejects mixing agent:auto with explicit agent', () => {
+  assert.throws(
+    () => {
+      resolveAgentRoutingFromLabels(['agent:auto', 'agent:codex'], { registryPath: REGISTRY_PATH });
+    },
+    (error) => {
+      assert.ok(error instanceof Error);
+      assert.match(String(error.message), /Multiple agent labels present/);
+      return true;
+    },
+  );
 });
 
 test('getAgentConfig returns config for codex', () => {
