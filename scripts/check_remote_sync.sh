@@ -1,6 +1,9 @@
 #!/bin/bash
-# Pre-push hook: Ensure local branch is not behind remote
-# Prevents the frustrating "push rejected, please pull" cycle
+# Pre-push hook: Ensure local branch is not behind its remote AND includes the latest main.
+#
+# Why both checks?
+# - Staying synced with remote/$branch prevents push rejections.
+# - Including remote/main prevents pushing commits that will immediately conflict in the PR.
 
 set -euo pipefail
 
@@ -37,4 +40,29 @@ if [ "$behind" -gt 0 ]; then
 fi
 
 echo "✓ Branch is in sync with remote"
+
+# Also require that this branch includes the latest remote main.
+# This prevents pushing commits that will create merge conflicts against main.
+echo "Checking if branch includes latest $remote/main..."
+if git fetch "$remote" main --quiet 2>/dev/null; then
+    if ! git merge-base --is-ancestor "$remote/main" HEAD; then
+        echo ""
+        echo "❌ ERROR: Your branch does not include the latest $remote/main"
+        echo ""
+        echo "   Before pushing, run ONE of:"
+        echo "     git fetch $remote main"
+        echo "     git rebase $remote/main   # preferred"
+        echo "     # or"
+        echo "     git merge $remote/main"
+        echo ""
+        echo "   To see what's different:"
+        echo "     git log $remote/main..HEAD --oneline"
+        echo ""
+        exit 1
+    fi
+else
+    echo "⚠️  Warning: could not fetch $remote/main; skipping main-sync check"
+fi
+
+echo "✓ Branch includes latest $remote/main"
 exit 0
