@@ -686,7 +686,6 @@ jobs:
 
           status="${{ steps.freshness.outputs.status }}"
           branch="${BRANCH}"
-          issue="${ISSUE}"
 
           if [ -z "$status" ]; then
             echo '::error::Freshness check did not report a status.'
