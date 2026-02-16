@@ -3,6 +3,7 @@
 #
 # Triggers:
 # - Gate workflow completes with failure (lint/format issues detected)
+# - Lint job fails early (workflow_job completed)
 # - PR labeled with 'autofix' or 'autofix:clean' (manual trigger)
 #
 # Copy this file to: .github/workflows/autofix.yml
@@ -15,7 +16,7 @@ on:
   workflow_run:
     workflows: ["Gate", "CI", "Python CI"]
     types: [completed]
-  check_run:
+  workflow_job:
     types: [completed]
   pull_request_target:
     types:
@@ -32,8 +33,8 @@ concurrency:
   group: >-
     autofix-${{
       github.event.pull_request.number
-      || github.event.workflow_run.pull_requests[0].number
-      || github.event.check_run.check_suite.pull_requests[0].number
+      || (github.event.workflow_run.pull_requests && github.event.workflow_run.pull_requests[0] && github.event.workflow_run.pull_requests[0].number)
+      || (github.event.workflow_job.pull_requests && github.event.workflow_job.pull_requests[0] && github.event.workflow_job.pull_requests[0].number)
       || github.run_id
     }}
   cancel-in-progress: true
@@ -152,6 +153,43 @@ jobs:
               return true;
             };
 
+            const listFilesOrNullOnRateLimit = async ({ owner, repo, prNumber }) => {
+              try {
+                return await paginateWithRetry(
+                  github.rest.pulls.listFiles,
+                  {
+                    owner,
+                    repo,
+                    pull_number: prNumber,
+                    per_page: 100,
+                  },
+                  { maxRetries: 3 }
+                );
+              } catch (error) {
+                const message = String(error?.message || error || '');
+                const status = Number(error?.status || error?.response?.status || 0);
+                if (status === 403 && message.toLowerCase().includes('rate limit')) {
+                  core.warning(
+                    'Rate limited listing PR files; proceeding without file filter.'
+                  );
+                  return null;
+                }
+                throw error;
+              }
+            };
+
+            const setOutputs = ({ pr, sameRepo, callerActor }) => {
+              const labels = (pr.labels || []).map((l) => l.name);
+              core.setOutput('should_run', 'true');
+              core.setOutput('pr_number', pr.number);
+              core.setOutput('head_ref', pr.head.ref);
+              core.setOutput('pr_title', pr.title);
+              core.setOutput('pr_is_draft', pr.draft ? 'true' : 'false');
+              core.setOutput('pr_labels_json', JSON.stringify(labels));
+              core.setOutput('same_repo', sameRepo ? 'true' : 'false');
+              core.setOutput('caller_actor', callerActor);
+            };
+
             // --- workflow_run trigger (after Gate/CI completes) ---
             if (context.eventName === 'workflow_run') {
               const run = context.payload.workflow_run;
@@ -264,28 +302,11 @@ jobs:
               }
 
               // Only run autofix when Python files are present.
-              let files = [];
-              try {
-                files = await paginateWithRetry(
-                  github.rest.pulls.listFiles,
-                  {
-                    owner: context.repo.owner,
-                    repo: context.repo.repo,
-                    pull_number: prNumber,
-                    per_page: 100,
-                  },
-                  { maxRetries: 3 }
-                );
-              } catch (error) {
-                const message = String(error?.message || error || '');
-                const status = Number(error?.status || error?.response?.status || 0);
-                if (status === 403 && message.toLowerCase().includes('rate limit')) {
-                  core.warning('Rate limited listing PR files; proceeding without file filter.');
-                  files = null;
-                } else {
-                  throw error;
-                }
-              }
+              const files = await listFilesOrNullOnRateLimit({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                prNumber,
+              });
 
               const hasPython =
                 files === null
@@ -301,72 +322,63 @@ jobs:
                 return;
               }
 
-              const labels =
-                (pr.labels || []).map(l => l.name);
-
-              core.setOutput('should_run', 'true');
-              core.setOutput('pr_number', pr.number);
-              core.setOutput('head_ref', pr.head.ref);
-              core.setOutput('pr_title', pr.title);
-              core.setOutput(
-                'pr_is_draft',
-                pr.draft ? 'true' : 'false',
-              );
-              core.setOutput(
-                'pr_labels_json',
-                JSON.stringify(labels),
-              );
-              core.setOutput(
-                'same_repo',
-                sameRepo ? 'true' : 'false',
-              );
-              core.setOutput(
-                'caller_actor',
-                run.actor?.login || context.actor,
-              );
+              setOutputs({
+                pr,
+                sameRepo,
+                callerActor: run.actor?.login || context.actor,
+              });
               return;
             }
 
-            // --- check_run trigger (early lint failure) ---
-            if (context.eventName === 'check_run') {
-              const checkRun = context.payload.check_run;
-              if (!checkRun) {
+            // --- workflow_job trigger (early lint failure) ---
+            if (context.eventName === 'workflow_job') {
+              const workflowJob = context.payload.workflow_job;
+              if (!workflowJob) {
                 core.setOutput('should_run', 'false');
                 return;
               }
 
-              const checkName = String(checkRun.name || '').toLowerCase();
-              const conclusion = String(checkRun.conclusion || '').toLowerCase();
+              const workflowName = String(workflowJob.workflow_name || '').trim();
+              const jobName = String(workflowJob.name || '').toLowerCase();
+              const conclusion = String(workflowJob.conclusion || '').toLowerCase();
 
-              // Only respond to lint failures.
-              const relevant =
-                checkName.includes('lint-format') || checkName.includes('lint-ruff');
-              if (!relevant) {
-                core.info(`check_run '${checkRun.name}' is not a lint-format/lint-ruff check.`);
+              // Only respond to failing lint jobs in the workflows we care about.
+              const relevantJob =
+                jobName.includes('lint-format') || jobName.includes('lint-ruff');
+              if (!relevantJob) {
+                core.info(
+                  `workflow_job '${workflowJob.name}' is not a lint-format/lint-ruff job.`
+                );
+                core.setOutput('should_run', 'false');
+                return;
+              }
+
+              const allowedWorkflows = new Set(['Gate', 'CI', 'Python CI']);
+              if (workflowName && !allowedWorkflows.has(workflowName)) {
+                core.info(
+                  `workflow_job is from workflow '${workflowName}', not Gate/CI/Python CI; skipping.`
+                );
                 core.setOutput('should_run', 'false');
                 return;
               }
 
               if (conclusion !== 'failure') {
                 core.info(
-                  `check_run '${checkRun.name}' concluded '${checkRun.conclusion}' — no autofix needed`
+                  `workflow_job '${workflowJob.name}' concluded '${workflowJob.conclusion}' — no autofix needed`
                 );
                 core.setOutput('should_run', 'false');
                 return;
               }
 
-              const prs =
-                checkRun.pull_requests ||
-                checkRun.check_suite?.pull_requests ||
-                context.payload.check_suite?.pull_requests ||
-                [];
+              const prs = workflowJob.pull_requests || [];
               if (!prs.length) {
-                core.info('check_run event has no associated PR found; skipping autofix.');
+                core.info('workflow_job event has no associated PR; skipping.');
                 core.setOutput('should_run', 'false');
                 return;
               }
 
               const prNumber = prs[0].number;
+              const triggerHeadSha = String(workflowJob.head_sha || '');
               const { owner, repo } = context.repo;
               const { data: pr } = await withRetry((client) =>
                 client.rest.pulls.get({ owner, repo, pull_number: prNumber })
@@ -393,12 +405,28 @@ jobs:
                 return;
               }
 
+              const headSha = pr.head?.sha;
+              if (!headSha) {
+                core.info('PR head SHA missing; skipping autofix.');
+                core.setOutput('should_run', 'false');
+                return;
+              }
+
+              if (triggerHeadSha && triggerHeadSha !== headSha) {
+                core.info(
+                  `workflow_job head_sha ${triggerHeadSha} does not match PR head ${headSha}; skipping stale event.`
+                );
+                core.setOutput('should_run', 'false');
+                return;
+              }
+
               const files = await listFilesOrNullOnRateLimit({ owner, repo, prNumber });
               const hasPython =
                 files === null
                   ? true
                   : files.some(
-                      (file) => file.filename.endsWith('.py') || file.filename.endsWith('.pyi')
+                      (file) =>
+                        file.filename.endsWith('.py') || file.filename.endsWith('.pyi')
                     );
               if (!hasPython) {
                 core.info('No Python files changed.');
@@ -409,7 +437,7 @@ jobs:
               setOutputs({
                 pr,
                 sameRepo,
-                callerActor: checkRun.app?.name || context.actor,
+                callerActor: context.payload.sender?.login || context.actor,
               });
               return;
             }
@@ -474,27 +502,11 @@ jobs:
               (pr.labels || []).map(l => l.name);
 
             let files = [];
-            try {
-              files = await paginateWithRetry(
-                github.rest.pulls.listFiles,
-                {
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  pull_number: pr.number,
-                  per_page: 100,
-                },
-                { maxRetries: 3 }
-              );
-            } catch (error) {
-              const message = String(error?.message || error || '');
-              const status = Number(error?.status || error?.response?.status || 0);
-              if (status === 403 && message.toLowerCase().includes('rate limit')) {
-                core.warning('Rate limited listing PR files; proceeding without file filter.');
-                files = null;
-              } else {
-                throw error;
-              }
-            }
+            files = await listFilesOrNullOnRateLimit({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              prNumber: pr.number,
+            });
 
             const hasPython =
               files === null
@@ -510,23 +522,11 @@ jobs:
               return;
             }
 
-            core.setOutput('should_run', 'true');
-            core.setOutput('pr_number', pr.number);
-            core.setOutput('head_ref', pr.head.ref);
-            core.setOutput('pr_title', pr.title);
-            core.setOutput(
-              'pr_is_draft',
-              pr.draft ? 'true' : 'false',
-            );
-            core.setOutput(
-              'pr_labels_json',
-              JSON.stringify(labels),
-            );
-            core.setOutput(
-              'same_repo',
-              sameRepo ? 'true' : 'false',
-            );
-            core.setOutput('caller_actor', context.actor);
+            setOutputs({
+              pr,
+              sameRepo,
+              callerActor: context.actor,
+            });
 
   # Call reusable autofix workflow
   autofix:

@@ -4,7 +4,7 @@ on:
   workflow_run:
     workflows: ["Gate", "CI", "Python CI"]
     types: [completed]
-  check_run:
+  workflow_job:
     types: [completed]
   pull_request_target:
     types:
@@ -21,8 +21,8 @@ concurrency:
   group: >-
     ci-autofix-loop-${{
       github.event.pull_request.number
-      || github.event.workflow_run.pull_requests[0].number
-      || github.event.check_run.check_suite.pull_requests[0].number
+      || (github.event.workflow_run.pull_requests && github.event.workflow_run.pull_requests[0] && github.event.workflow_run.pull_requests[0].number)
+      || (github.event.workflow_job.pull_requests && github.event.workflow_job.pull_requests[0] && github.event.workflow_job.pull_requests[0].number)
       || github.run_id
     }}
   cancel-in-progress: true
@@ -297,46 +297,55 @@ jobs:
               return;
             }
 
-            // --- check_run trigger (early lint failure) ---
-            if (context.eventName === 'check_run') {
-              const checkRun = context.payload.check_run;
-              if (!checkRun) {
+            // --- workflow_job trigger (early lint failure) ---
+            if (context.eventName === 'workflow_job') {
+              const workflowJob = context.payload.workflow_job;
+              if (!workflowJob) {
                 core.setOutput('should_run', 'false');
                 return;
               }
 
-              const checkName = String(checkRun.name || '').toLowerCase();
-              const conclusion = String(checkRun.conclusion || '').toLowerCase();
+              const workflowName = String(workflowJob.workflow_name || '').trim();
+              const jobName = String(workflowJob.name || '').toLowerCase();
+              const conclusion = String(workflowJob.conclusion || '').toLowerCase();
 
-              // Only respond to lint failures.
-              const relevant =
-                checkName.includes('lint-format') || checkName.includes('lint-ruff');
-              if (!relevant) {
-                core.info(`check_run '${checkRun.name}' is not a lint-format/lint-ruff check.`);
+              // Only respond to failing lint jobs in the workflows we care about.
+              const relevantJob =
+                jobName.includes('lint-format') || jobName.includes('lint-ruff');
+              if (!relevantJob) {
+                core.info(
+                  `workflow_job '${workflowJob.name}' is not a lint-format/lint-ruff job.`
+                );
+                core.setOutput('should_run', 'false');
+                return;
+              }
+
+              const allowedWorkflows = new Set(['Gate', 'CI', 'Python CI']);
+              if (workflowName && !allowedWorkflows.has(workflowName)) {
+                core.info(
+                  `workflow_job is from workflow '${workflowName}', not Gate/CI/Python CI; skipping.`
+                );
                 core.setOutput('should_run', 'false');
                 return;
               }
 
               if (conclusion !== 'failure') {
                 core.info(
-                  `check_run '${checkRun.name}' concluded '${checkRun.conclusion}' — no autofix needed`
+                  `workflow_job '${workflowJob.name}' concluded '${workflowJob.conclusion}' — no autofix needed`
                 );
                 core.setOutput('should_run', 'false');
                 return;
               }
 
-              const prs =
-                checkRun.pull_requests ||
-                checkRun.check_suite?.pull_requests ||
-                context.payload.check_suite?.pull_requests ||
-                [];
+              const prs = workflowJob.pull_requests || [];
               if (!prs.length) {
-                core.info('check_run event has no associated PR; skipping.');
+                core.info('workflow_job event has no associated PR; skipping.');
                 core.setOutput('should_run', 'false');
                 return;
               }
 
               const prNumber = prs[0].number;
+              const triggerHeadSha = String(workflowJob.head_sha || '');
               const { owner, repo } = context.repo;
               const { data: pr } = await withRetry((client) =>
                 client.rest.pulls.get({ owner, repo, pull_number: prNumber })
@@ -363,6 +372,21 @@ jobs:
                 return;
               }
 
+              const headSha = pr.head?.sha;
+              if (!headSha) {
+                core.info('PR head SHA missing; skipping autofix.');
+                core.setOutput('should_run', 'false');
+                return;
+              }
+
+              if (triggerHeadSha && triggerHeadSha !== headSha) {
+                core.info(
+                  `workflow_job head_sha ${triggerHeadSha} does not match PR head ${headSha}; skipping stale event.`
+                );
+                core.setOutput('should_run', 'false');
+                return;
+              }
+
               const files = await listFilesOrNullOnRateLimit({ owner, repo, prNumber });
               const hasPython =
                 files === null
@@ -379,7 +403,7 @@ jobs:
               setOutputs({
                 pr,
                 sameRepo,
-                callerActor: checkRun.app?.name || context.actor,
+                callerActor: context.payload.sender?.login || context.actor,
               });
               return;
             }
