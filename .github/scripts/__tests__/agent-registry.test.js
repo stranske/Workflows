@@ -21,6 +21,19 @@ test('parseRegistryYaml parses a basic mapping', () => {
   assert.deepEqual(value.agents, {});
 });
 
+test('parseRegistryYaml rejects tab-indented lines', () => {
+  assert.throws(
+    () => {
+      parseRegistryYaml('agents:\n\tcodex:\n  runner_workflow: x\n');
+    },
+    (error) => {
+      assert.ok(error instanceof Error);
+      assert.match(String(error.message), /tabs are not allowed/);
+      return true;
+    },
+  );
+});
+
 test('loadAgentRegistry loads the repo registry file', () => {
   const registry = loadAgentRegistry({ registryPath: REGISTRY_PATH });
   assert.equal(registry.default_agent, 'codex');

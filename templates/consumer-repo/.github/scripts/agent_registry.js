@@ -40,15 +40,18 @@ function parseScalar(value) {
 }
 
 function countIndent(line) {
-  const match = String(line).match(/^( *)/);
-  const spaces = match?.[1] ?? '';
-  if (spaces.includes('\t')) {
+  // Match all leading horizontal whitespace (spaces and tabs).
+  const match = String(line).match(/^([ \t]*)/);
+  const indentPrefix = match?.[1] ?? '';
+  if (indentPrefix.includes('\t')) {
     throw new Error('Registry YAML must use spaces only (tabs are not allowed)');
   }
-  if (spaces.length % 2 !== 0) {
-    throw new Error(`Registry YAML indentation must be multiples of 2 spaces (got ${spaces.length})`);
+  if (indentPrefix.length % 2 !== 0) {
+    throw new Error(
+      `Registry YAML indentation must be multiples of 2 spaces (got ${indentPrefix.length})`,
+    );
   }
-  return spaces.length;
+  return indentPrefix.length;
 }
 
 function findNextMeaningfulLine(lines, startIndex) {

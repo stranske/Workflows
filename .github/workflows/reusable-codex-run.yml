@@ -87,7 +87,8 @@ on:
         required: false
       OPENAI_API_KEY:
         required: false
-        description: 'OpenAI API key for LLM analysis (enables model selection beyond GitHub Models)'
+        description: >-
+          OpenAI API key for LLM analysis (enables model selection beyond GitHub Models)
       CLAUDE_API_STRANSKE:
         required: false
         description: 'Anthropic API key for LLM analysis (enables Claude slot)'
@@ -99,7 +100,8 @@ on:
         description: 'First 500 chars of Codex output (safe for PR comments)'
         value: ${{ jobs.codex.outputs.final-message-summary }}
       error-summary:
-        description: 'Failure summary message (prefers Codex output, falls back to preflight errors)'
+        description: >-
+          Failure summary message (prefers Codex output, falls back to preflight errors)
         value: ${{ jobs.codex.outputs.error-summary }}
       exit-code:
         description: 'Codex CLI exit code (0=success)'
@@ -192,7 +194,9 @@ jobs:
       llm-has-completions: ${{ steps.llm_analysis.outputs.has-completions }}
       llm-provider: ${{ steps.llm_analysis.outputs.provider }}
       llm-model: ${{ steps.llm_analysis.outputs.model }}
-      llm-confidence: ${{ steps.llm_analysis.outputs.confidence }}\n      # Quality metrics for keepalive integration
+      llm-confidence: ${{ steps.llm_analysis.outputs.confidence }}
+
+      # Quality metrics for keepalive integration
       llm-raw-confidence: ${{ steps.llm_analysis.outputs.raw-confidence }}
       llm-effort-score: ${{ steps.llm_analysis.outputs.effort-score }}
       llm-data-quality: ${{ steps.llm_analysis.outputs.data-quality }}
@@ -318,7 +322,8 @@ jobs:
                 @octokit/auth-app@6.0.3
               popd >/dev/null
             fi
-            if [ ! -d ".workflows-lib/.github/scripts/node_modules" ] && command -v npm >/dev/null 2>&1; then
+            if [ ! -d ".workflows-lib/.github/scripts/node_modules" ] && \
+              command -v npm >/dev/null 2>&1; then
               global_root=$(npm root -g || true)
               if [ -n "$global_root" ] && [ -d "$global_root/@octokit" ]; then
                 ln -s "$global_root" ".workflows-lib/.github/scripts/node_modules"
@@ -326,7 +331,8 @@ jobs:
             fi
           fi
 
-          if [ ! -d ".workflows-lib/.github/scripts/node_modules" ] && command -v npm >/dev/null 2>&1; then
+          if [ ! -d ".workflows-lib/.github/scripts/node_modules" ] && \
+            command -v npm >/dev/null 2>&1; then
             echo "Retrying @octokit install with npm init in .workflows-lib/.github/scripts..."
             mkdir -p ".workflows-lib/.github/scripts"
             pushd ".workflows-lib/.github/scripts" >/dev/null
@@ -360,13 +366,15 @@ jobs:
             fi
           fi
           if [ ! -f ".workflows-lib/tools/codex_jsonl_parser.py" ]; then
-            echo "::error::Missing .workflows-lib/tools/codex_jsonl_parser.py; session parser unavailable."
+            echo "::error::Missing .workflows-lib/tools/codex_jsonl_parser.py"
+            echo "::error::Session parser unavailable."
             if [ "$fail_on_missing" = "true" ]; then
               exit 1
             fi
           fi
           if [ ! -d ".workflows-lib/.github/scripts/node_modules" ]; then
-            echo "::error::Missing .workflows-lib/.github/scripts/node_modules; API client deps not installed."
+            echo "::error::Missing .workflows-lib/.github/scripts/node_modules"
+            echo "::error::API client deps not installed."
             if [ "$fail_on_missing" = "true" ]; then
               exit 1
             fi
@@ -434,7 +442,10 @@ jobs:
           if [ -f ".github/scripts/prompt_integrity_guard.js" ]; then
             echo "Checking prompt template for embedded task content..."
             node .github/scripts/prompt_integrity_guard.js "${BASE_PROMPT}" || {
-              echo "CODEX_PREFLIGHT_ERROR=Prompt template integrity check failed. The base prompt contains embedded task content that should be removed." >> "$GITHUB_ENV"
+              error_msg="Prompt template integrity check failed. "
+              error_msg+="The base prompt contains embedded task content "
+              error_msg+="that should be removed."
+              echo "CODEX_PREFLIGHT_ERROR=${error_msg}" >> "$GITHUB_ENV"
               echo "CODEX_PREFLIGHT_STAGE=prompt-integrity" >> "$GITHUB_ENV"
               echo "::error::Prompt template integrity check failed. See output above."
               echo "::error::The base prompt contains embedded task content that should be removed."
@@ -489,7 +500,10 @@ jobs:
               print(f"Cloning {repo}@{ref} for pack '{name}'...")
               if os.path.exists(clone_dir):
                   shutil.rmtree(clone_dir)
-              clone_url = f"https://x-access-token:{token}@github.com/{repo}.git" if token else f"https://github.com/{repo}.git"
+                if token:
+                  clone_url = f"https://x-access-token:{token}@github.com/{repo}.git"
+                else:
+                  clone_url = f"https://github.com/{repo}.git"
 
               # Detect whether ref is a full 40-char commit SHA.
               # Only full SHAs are accepted because git-fetch doesn't reliably
@@ -642,7 +656,8 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "$CODEX_AUTH_JSON" ]; then
-            echo "::error::CODEX_AUTH_JSON secret is not set or empty. Please add it to repository secrets."
+            echo "::error::CODEX_AUTH_JSON secret is not set or empty."
+            echo "::error::Please add it to repository secrets."
             echo "Go to: https://github.com/${{ github.repository }}/settings/secrets/actions"
             exit 1
           fi
@@ -689,14 +704,19 @@ jobs:
                   gh.write(f"days_until_expiry={days_left}\n")
 
               if days_left < 0:
-                  print("::error::CODEX_AUTH_JSON has expired! Run 'codex login --device-auth' and update the secret.")
+                  print("::error::CODEX_AUTH_JSON has expired!")
+                  print("::error::Run 'codex login --device-auth' and update the secret.")
                   print("::error::See docs/ci/CHATGPT_SUBSCRIPTION_CI.md for instructions.")
                   sys.exit(1)
               elif days_left < 2:
-                  print(f"::warning::CODEX_AUTH_JSON expires in {hours_left:.0f} hours! Consider refreshing soon.")
-                  print("::warning::Run 'codex login --device-auth' and update the CODEX_AUTH_JSON secret.")
+                  print(
+                    f"::warning::CODEX_AUTH_JSON expires in {hours_left:.0f} hours!"
+                  )
+                  print("::warning::Consider refreshing soon.")
+                  print("::warning::Run 'codex login --device-auth' and update the secret.")
               elif days_left < 5:
-                  print(f"::notice::CODEX_AUTH_JSON expires in {days_left} days. Plan to refresh before expiration.")
+                  print(f"::notice::CODEX_AUTH_JSON expires in {days_left} days.")
+                  print("::notice::Plan to refresh before expiration.")
           except Exception as e:
               print(f"::warning::Could not check token expiration: {e}")
           PYEOF
@@ -734,8 +754,10 @@ jobs:
           if ! grep -q "^\.github/scripts/node_modules" .git/info/exclude 2>/dev/null; then
             echo ".github/scripts/node_modules" >> .git/info/exclude 2>/dev/null || true
           fi
-          if ! grep -q "^\.workflows-lib/\.github/scripts/node_modules" .git/info/exclude 2>/dev/null; then
-            echo ".workflows-lib/.github/scripts/node_modules" >> .git/info/exclude 2>/dev/null || true
+          if ! grep -q "^\.workflows-lib/\.github/scripts/node_modules" \
+            .git/info/exclude 2>/dev/null; then
+            echo ".workflows-lib/.github/scripts/node_modules" >> \
+              .git/info/exclude 2>/dev/null || true
           fi
           if ! grep -q "^node_modules" .git/info/exclude 2>/dev/null; then
             echo "node_modules" >> .git/info/exclude 2>/dev/null || true
@@ -755,13 +777,24 @@ jobs:
           # Exclude: untracked .workflows-lib, .gitignore, node_modules, codex-*, autofix* artifacts
           # Use grep -c for count; if grep finds nothing it returns 1
           # Strip whitespace to ensure clean integer (avoids "integer expression expected" errors)
-          REMAINING=$(git status --porcelain | cut -c4- | grep -cvE '^(\.(workflows-lib|gitignore)|\.github/scripts/node_modules|\.workflows-lib/\.github/scripts/node_modules|node_modules|codex-.*|autofix.*)$|^(\.(workflows-lib|gitignore)|\.github/scripts/node_modules|\.workflows-lib/\.github/scripts/node_modules|node_modules|codex-.*|autofix.*)/' 2>/dev/null || echo "0")
+          ignore_re='^(\.(workflows-lib|gitignore)|\.github/scripts/node_modules|'
+          ignore_re+='\.workflows-lib/\.github/scripts/node_modules|node_modules|'
+          ignore_re+='codex-.*|autofix.*)$'
+          ignore_re+='|^(\.(workflows-lib|gitignore)|\.github/scripts/node_modules|'
+          ignore_re+='\.workflows-lib/\.github/scripts/node_modules|node_modules|'
+          ignore_re+='codex-.*|autofix.*)/'
+          REMAINING=$(
+            git status --porcelain |
+              cut -c4- |
+              grep -cvE "$ignore_re" 2>/dev/null || echo "0"
+          )
           REMAINING=$(printf '%s' "$REMAINING" | tr -d '[:space:]')
           REMAINING=${REMAINING:-0}
           echo "remaining-changes=${REMAINING}" >> "$GITHUB_OUTPUT"
 
           if [ "$REMAINING" -gt 0 ]; then
-            echo "::notice::Found ${REMAINING} pre-existing change(s) in workspace. Codex will see these."
+            echo "::notice::Found ${REMAINING} pre-existing change(s) in workspace."
+            echo "::notice::Codex will see these changes when assessing git status."
             git status --short
           else
             echo "Workspace is clean for Codex."
@@ -795,7 +828,10 @@ jobs:
             base_branch="$WORKFLOW_BASE_REF"
           fi
           if [ -z "$base_branch" ]; then
-            base_branch="$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@' || true)"
+            base_branch="$({
+              git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null |
+                sed 's@^refs/remotes/origin/@@'
+            } || true)"
           fi
           if [ -z "$base_branch" ]; then
             echo "Error: could not determine base branch automatically." >&2
@@ -877,7 +913,10 @@ jobs:
               args = value
           else:
               # Treat as a conventional CLI arg string (quotes respected).
-              args = shlex.split(raw)
+              try:
+                args = shlex.split(raw)
+              except ValueError as exc:
+                raise SystemExit(f"codex_args split failed: {exc}")
               for idx, item in enumerate(args):
                   if '\x00' in item:
                       raise SystemExit(f"codex_args arg {idx} contains NUL")
@@ -902,7 +941,13 @@ jobs:
           # Run codex exec with --json to capture rich session data
           # JSONL events stream to stdout, final message still goes to OUTPUT_FILE
           CODEX_EXIT=0
-          cmd=(codex exec --json --skip-git-repo-check --sandbox "$SANDBOX" --output-last-message "$OUTPUT_FILE")
+          cmd=(
+            codex exec
+            --json
+            --skip-git-repo-check
+            --sandbox "$SANDBOX"
+            --output-last-message "$OUTPUT_FILE"
+          )
           if [ "${#EXTRA_ARGS[@]}" -gt 0 ]; then
             cmd+=("${EXTRA_ARGS[@]}")
           fi
@@ -979,7 +1024,11 @@ jobs:
 
               print(f"::notice::Session parsed: {session.raw_event_count} events")
               print(f"::notice::Agent messages: {len(session.agent_messages)}")
-              print(f"::notice::Commands: {len(session.commands)} ({len(session.successful_commands)} ok, {len(session.failed_commands)} failed)")
+                print(f"::notice::Commands: {len(session.commands)}")
+                print(
+                  f"::notice::Command results: {len(session.successful_commands)} ok, "
+                  f"{len(session.failed_commands)} failed"
+                )
               print(f"::notice::File changes: {len(session.file_changes)}")
               print(f"::notice::Todo items: {len(session.todo_items)}")
 
@@ -1003,7 +1052,10 @@ jobs:
 
       - name: Analyze task completion with LLM
         id: llm_analysis
-        if: always() && steps.analyze_session.outputs.session-available == 'true' && inputs.pr_number != ''
+        if: >-
+          always() &&
+          steps.analyze_session.outputs.session-available == 'true' &&
+          inputs.pr_number != ''
         env:
           PYTHONPATH: ${{ github.workspace }}/.workflows-lib:${{ github.workspace }}
           PR_NUM: ${{ inputs.pr_number }}
@@ -1043,7 +1095,8 @@ jobs:
           # Note: logging goes to stderr, JSON output goes to stdout -> file
           echo "Running LLM-powered task completion analysis..."
           if [ ! -f .workflows-lib/scripts/analyze_codex_session.py ]; then
-            echo "::error::Analysis script not found at .workflows-lib/scripts/analyze_codex_session.py"
+            echo "::error::Analysis script not found."
+            echo "::error::Missing: .workflows-lib/scripts/analyze_codex_session.py"
             echo "::error::This indicates a workflow configuration issue with sparse checkout"
             echo "llm-analysis-run=false" >> "$GITHUB_OUTPUT"
             exit 0
@@ -1071,27 +1124,27 @@ jobs:
 
           # Extract key fields for downstream use
           if [ -f "$ANALYSIS_FILE" ]; then
-            COMPLETED=$(python3 -c "import json; d=json.load(open('$ANALYSIS_FILE')); print(json.dumps(d.get('completed_tasks', [])), end='')")
-            PROVIDER=$(python3 -c "import json; d=json.load(open('$ANALYSIS_FILE')); print(d.get('provider', 'unknown'), end='')")
-            MODEL=$(python3 -c "import json; d=json.load(open('$ANALYSIS_FILE')); print(d.get('model', 'unknown'), end='')")
-            CONFIDENCE=$(python3 -c "import json; d=json.load(open('$ANALYSIS_FILE')); print(d.get('confidence', 0), end='')")
-            # Quality metrics for keepalive integration
-            RAW_CONFIDENCE=$(python3 -c "import json; d=json.load(open('$ANALYSIS_FILE')); print(d.get('raw_confidence', d.get('confidence', 0)), end='')")
-            EFFORT_SCORE=$(python3 -c "import json; d=json.load(open('$ANALYSIS_FILE')); print(d.get('effort_score', 0), end='')")
-            DATA_QUALITY=$(python3 -c "import json; d=json.load(open('$ANALYSIS_FILE')); print(d.get('data_quality', 'unknown'), end='')")
-            ANALYSIS_LENGTH=$(python3 -c "import json; d=json.load(open('$ANALYSIS_FILE')); print(d.get('analysis_text_length', 0), end='')")
-            QUALITY_WARNINGS=$(python3 -c "import json; d=json.load(open('$ANALYSIS_FILE')); print(json.dumps(d.get('quality_warnings', [])), end='')")
-            {
-              echo "completed-tasks=$COMPLETED"
-              echo "provider=$PROVIDER"
-              echo "model=$MODEL"
-              echo "confidence=$CONFIDENCE"
-              echo "raw-confidence=$RAW_CONFIDENCE"
-              echo "effort-score=$EFFORT_SCORE"
-              echo "data-quality=$DATA_QUALITY"
-              echo "analysis-text-length=$ANALYSIS_LENGTH"
-              echo "quality-warnings=$QUALITY_WARNINGS"
-            } >> "$GITHUB_OUTPUT"
+            python3 - "$ANALYSIS_FILE" >> "$GITHUB_OUTPUT" <<'PY'
+          import json
+          import sys
+
+          analysis_path = sys.argv[1]
+          with open(analysis_path, encoding='utf-8') as handle:
+              data = json.load(handle)
+
+          completed_tasks = json.dumps(data.get('completed_tasks', []))
+          quality_warnings = json.dumps(data.get('quality_warnings', []))
+
+          print(f"completed-tasks={completed_tasks}")
+          print(f"provider={data.get('provider', 'unknown')}")
+          print(f"model={data.get('model', 'unknown')}")
+          print(f"confidence={data.get('confidence', 0)}")
+          print(f"raw-confidence={data.get('raw_confidence', data.get('confidence', 0))}")
+          print(f"effort-score={data.get('effort_score', 0)}")
+          print(f"data-quality={data.get('data_quality', 'unknown')}")
+          print(f"analysis-text-length={data.get('analysis_text_length', 0)}")
+          print(f"quality-warnings={quality_warnings}")
+          PY
           fi
 
       - name: Commit and push changes
@@ -1109,7 +1162,19 @@ jobs:
 
           if [ "${MODE}" = "e2e-test" ]; then
             git checkout -- codex-output*.md codex-prompt*.md 2>/dev/null || true
-            REMAINING=$(git status --porcelain | cut -c4- | grep -cvE '^(\.(workflows-lib|gitignore)|\.github/scripts/node_modules|\.workflows-lib/\.github/scripts/node_modules|node_modules|codex-.*|autofix.*|coverage\.xml|\.coverage|pr_body\.md|autofix_report_enriched\.json|poetry\.lock)$|^(\.(workflows-lib|gitignore)|\.github/scripts/node_modules|\.workflows-lib/\.github/scripts/node_modules|node_modules|codex-.*|autofix.*|coverage\.xml|\.coverage|pr_body\.md|autofix_report_enriched\.json|poetry\.lock)/' 2>/dev/null || echo "0")
+            ignore_re='^(\.(workflows-lib|gitignore)|\.github/scripts/node_modules|'
+            ignore_re+='\.workflows-lib/\.github/scripts/node_modules|node_modules|'
+            ignore_re+='codex-.*|autofix.*|coverage\.xml|\.coverage|pr_body\.md|'
+            ignore_re+='autofix_report_enriched\.json|poetry\.lock)$'
+            ignore_re+='|^(\.(workflows-lib|gitignore)|\.github/scripts/node_modules|'
+            ignore_re+='\.workflows-lib/\.github/scripts/node_modules|node_modules|'
+            ignore_re+='codex-.*|autofix.*|coverage\.xml|\.coverage|pr_body\.md|'
+            ignore_re+='autofix_report_enriched\.json|poetry\.lock)/'
+            REMAINING=$(
+              git status --porcelain |
+                cut -c4- |
+                grep -cvE "$ignore_re" 2>/dev/null || echo "0"
+            )
             REMAINING=$(printf '%s' "$REMAINING" | tr -d '[:space:]')
             REMAINING=${REMAINING:-0}
             echo "files-changed=${REMAINING}" >> "$GITHUB_OUTPUT"
@@ -1162,7 +1227,8 @@ jobs:
                 if ! git rebase FETCH_HEAD; then
                   echo "::warning::Rebase failed; attempting merge strategy before push."
                   git rebase --abort 2>/dev/null || true
-                  if ! git pull --no-rebase "${REMOTE_URL}" "${TARGET_BRANCH}" --allow-unrelated-histories; then
+                  if ! git pull --no-rebase "${REMOTE_URL}" "${TARGET_BRANCH}" \
+                    --allow-unrelated-histories; then
                     echo "::error::Merge fallback failed; refusing to push an inconsistent state."
                     exit 1
                   fi
@@ -1191,7 +1257,10 @@ jobs:
           echo "files-changed=${CHANGED_FILES}" >> "$GITHUB_OUTPUT"
 
           # Check if only agents/*.md bootstrap files changed
-          STATUS_ONLY_CHANGES=$(git status --porcelain | grep -cvE '^\S+\s+agents/.*\.md$' || echo "0")
+          STATUS_ONLY_CHANGES=$(
+            git status --porcelain |
+              grep -cvE '^\S+\s+agents/.*\.md$' || echo "0"
+          )
           if [ "$STATUS_ONLY_CHANGES" -eq 0 ] && [ "$CHANGED_FILES" -gt 0 ]; then
             echo "Only agent bootstrap files changed - skipping commit to reduce noise."
             echo "changes-made=false" >> "$GITHUB_OUTPUT"
@@ -1216,7 +1285,8 @@ jobs:
           fi
 
           if [ "$PUSH_ALLOWED" != "true" ]; then
-            echo "::error::GitHub App token missing; refusing to push without app identity to preserve workflow triggers."
+            echo "::error::GitHub App token missing; refusing to push without app identity."
+            echo "::error::This preserves workflow triggers that require app identity."
             echo "commit-sha=" >> "$GITHUB_OUTPUT"
             exit 1
           fi
@@ -1234,11 +1304,26 @@ jobs:
           # - poetry.lock: Defense against wrong package manager
           # - .workflows-lib: Separate checkout (git treats as submodule)
           # This may unstage all changes if only artifacts were modified.
-          git reset HEAD -- codex-output*.md codex-prompt*.md codex-session-*.jsonl codex-analysis-*.json .coverage .workflows-lib .github/scripts/node_modules .workflows-lib/.github/scripts/node_modules node_modules coverage.xml pr_body.md autofix_report_enriched.json poetry.lock 2>/dev/null || true
+          git reset HEAD -- \
+            codex-output*.md \
+            codex-prompt*.md \
+            codex-session-*.jsonl \
+            codex-analysis-*.json \
+            .coverage \
+            .workflows-lib \
+            .github/scripts/node_modules \
+            .workflows-lib/.github/scripts/node_modules \
+            node_modules \
+            coverage.xml \
+            pr_body.md \
+            autofix_report_enriched.json \
+            poetry.lock \
+            2>/dev/null || true
 
           # Check if there are any staged changes remaining after reset
           if git diff --cached --quiet; then
-            echo "::notice::No non-artifact changes to commit after filtering. All changes were workflow artifacts."
+            echo "::notice::No non-artifact changes to commit after filtering."
+            echo "::notice::All changes were workflow artifacts."
             # Even if nothing to commit, check for unpushed commits that need pushing
             git fetch "${REMOTE_URL}" "${TARGET_BRANCH}" 2>/dev/null || true
             UNPUSHED=$(git rev-list FETCH_HEAD..HEAD --count 2>/dev/null || echo "0")
@@ -1273,7 +1358,8 @@ jobs:
             if ! git rebase FETCH_HEAD; then
               echo "::warning::Rebase failed, attempting merge strategy"
               git rebase --abort 2>/dev/null || true
-              git pull --no-rebase "${REMOTE_URL}" "${TARGET_BRANCH}" --allow-unrelated-histories || true
+              git pull --no-rebase "${REMOTE_URL}" "${TARGET_BRANCH}" \
+                --allow-unrelated-histories || true
             fi
             # Update commit SHA after rebase/merge
             COMMIT_SHA=$(git rev-parse HEAD)
@@ -1306,7 +1392,9 @@ jobs:
           ITERATION: ${{ inputs.iteration || '' }}
         with:
           script: |
-            const { postCompletionComment } = require('./.workflows-lib/.github/scripts/post_completion_comment.js');
+            const { postCompletionComment } = require(
+              './.workflows-lib/.github/scripts/post_completion_comment.js',
+            );
             const result = await postCompletionComment({
               github, context, core,
               inputs: {
@@ -1320,7 +1408,10 @@ jobs:
             core.setOutput('tasks', String(result.tasks || 0));
             core.setOutput('acceptance', String(result.acceptance || 0));
             if (result.posted) {
-              core.info(`Posted completion checkpoint: ${result.tasks} tasks, ${result.acceptance} acceptance criteria`);
+              core.info(
+                `Posted completion checkpoint: ${result.tasks} tasks, ` +
+                  `${result.acceptance} acceptance criteria`,
+              );
             }
 
       - name: Classify failure type
@@ -1335,7 +1426,9 @@ jobs:
           PR_NUMBER: ${{ inputs.pr_number }}
         with:
           script: |
-            const { classifyError, ERROR_CATEGORIES, suggestRecoveryAction } = require('./.workflows-lib/.github/scripts/error_classifier.js');
+            const { classifyError, ERROR_CATEGORIES, suggestRecoveryAction } = require(
+              './.workflows-lib/.github/scripts/error_classifier.js',
+            );
 
             const exitCode = process.env.EXIT_CODE || '';
             const summary = [process.env.OUTPUT_SUMMARY, process.env.PREFLIGHT_ERROR]
@@ -1365,7 +1458,9 @@ jobs:
             core.setOutput('error_category', errorInfo.category);
             core.setOutput('error_type', errorType);
             core.setOutput('error_recovery', errorInfo.recovery);
-            core.setOutput('is_transient', errorInfo.category === ERROR_CATEGORIES.transient ? 'true' : 'false');
+            const isTransient =
+              errorInfo.category === ERROR_CATEGORIES.transient ? 'true' : 'false';
+            core.setOutput('is_transient', isTransient);
             core.setOutput('error_summary', summary || '');
 
             console.log(`Error Classification:`);
@@ -1422,7 +1517,8 @@ jobs:
           IS_TRANSIENT: ${{ steps.classify_failure.outputs.is_transient }}
           MODE: ${{ inputs.mode }}
           PR_NUMBER: ${{ inputs.pr_number }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          RUN_URL: >-
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -euo pipefail
           mkdir -p error-diagnostics
@@ -1487,7 +1583,9 @@ jobs:
           retention-days: 30
 
       - name: Post PR comment on non-transient failure
-        if: always() && steps.run_codex.outputs.exit-code != '0' && steps.classify_failure.outputs.is_transient != 'true' && inputs.pr_number != ''
+        if: >-
+          always() && steps.run_codex.outputs.exit-code != '0' &&
+          steps.classify_failure.outputs.is_transient != 'true' && inputs.pr_number != ''
         uses: actions/github-script@v8
         env:
           PR_NUMBER: ${{ inputs.pr_number }}
@@ -1497,10 +1595,13 @@ jobs:
           ERROR_RECOVERY: ${{ steps.classify_failure.outputs.error_recovery }}
           OUTPUT_SUMMARY: ${{ steps.run_codex.outputs.final-message-summary }}
           MODE: ${{ inputs.mode }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          RUN_URL: >-
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         with:
           script: |
-            const { withRetry } = require('./.workflows-lib/.github/scripts/github-api-with-retry.js');
+            const { withRetry } = require(
+              './.workflows-lib/.github/scripts/github-api-with-retry.js',
+            );
             const prNumber = parseInt(process.env.PR_NUMBER, 10);
             if (!prNumber || prNumber <= 0) {
               console.log('No valid PR number, skipping comment');
@@ -1583,14 +1684,18 @@ jobs:
             }
 
       - name: Add needs-attention label on non-transient failure
-        if: always() && steps.run_codex.outputs.exit-code != '0' && steps.classify_failure.outputs.is_transient != 'true' && inputs.pr_number != ''
+        if: >-
+          always() && steps.run_codex.outputs.exit-code != '0' &&
+          steps.classify_failure.outputs.is_transient != 'true' && inputs.pr_number != ''
         continue-on-error: true
         uses: actions/github-script@v8
         env:
           PR_NUMBER: ${{ inputs.pr_number }}
         with:
           script: |
-            const { withRetry } = require('./.workflows-lib/.github/scripts/github-api-with-retry.js');
+            const { withRetry } = require(
+              './.workflows-lib/.github/scripts/github-api-with-retry.js',
+            );
             const prNumber = parseInt(process.env.PR_NUMBER, 10);
             if (!prNumber || prNumber <= 0) return;
 
