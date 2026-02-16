@@ -4,6 +4,8 @@ on:
   workflow_run:
     workflows: ["Gate", "CI", "Python CI"]
     types: [completed]
+  check_run:
+    types: [completed]
   pull_request_target:
     types:
       - labeled
@@ -20,6 +22,7 @@ concurrency:
     ci-autofix-loop-${{
       github.event.pull_request.number
       || github.event.workflow_run.pull_requests[0].number
+      || github.event.check_run.check_suite.pull_requests[0].number
       || github.run_id
     }}
   cancel-in-progress: true
@@ -290,6 +293,93 @@ jobs:
                 pr,
                 sameRepo,
                 callerActor: run.actor?.login || context.actor,
+              });
+              return;
+            }
+
+            // --- check_run trigger (early lint failure) ---
+            if (context.eventName === 'check_run') {
+              const checkRun = context.payload.check_run;
+              if (!checkRun) {
+                core.setOutput('should_run', 'false');
+                return;
+              }
+
+              const checkName = String(checkRun.name || '').toLowerCase();
+              const conclusion = String(checkRun.conclusion || '').toLowerCase();
+
+              // Only respond to lint failures.
+              const relevant =
+                checkName.includes('lint-format') || checkName.includes('lint-ruff');
+              if (!relevant) {
+                core.info(`check_run '${checkRun.name}' is not a lint-format/lint-ruff check.`);
+                core.setOutput('should_run', 'false');
+                return;
+              }
+
+              if (conclusion !== 'failure') {
+                core.info(
+                  `check_run '${checkRun.name}' concluded '${checkRun.conclusion}' — no autofix needed`
+                );
+                core.setOutput('should_run', 'false');
+                return;
+              }
+
+              const prs =
+                checkRun.pull_requests ||
+                checkRun.check_suite?.pull_requests ||
+                context.payload.check_suite?.pull_requests ||
+                [];
+              if (!prs.length) {
+                core.info('check_run event has no associated PR; skipping.');
+                core.setOutput('should_run', 'false');
+                return;
+              }
+
+              const prNumber = prs[0].number;
+              const { owner, repo } = context.repo;
+              const { data: pr } = await withRetry((client) =>
+                client.rest.pulls.get({ owner, repo, pull_number: prNumber })
+              );
+
+              if (pr.state !== 'open') {
+                core.info(`PR #${prNumber} is ${pr.state}`);
+                core.setOutput('should_run', 'false');
+                return;
+              }
+
+              if (pr.draft) {
+                core.info('PR is draft.');
+                core.setOutput('should_run', 'false');
+                return;
+              }
+
+              const sameRepo =
+                pr.head.repo !== null &&
+                pr.head.repo.full_name === pr.base.repo?.full_name;
+              if (!sameRepo) {
+                core.info('Fork PR — not supported.');
+                core.setOutput('should_run', 'false');
+                return;
+              }
+
+              const files = await listFilesOrNullOnRateLimit({ owner, repo, prNumber });
+              const hasPython =
+                files === null
+                  ? true
+                  : files.some(
+                      (file) => file.filename.endsWith('.py') || file.filename.endsWith('.pyi')
+                    );
+              if (!hasPython) {
+                core.info('No Python files changed.');
+                core.setOutput('should_run', 'false');
+                return;
+              }
+
+              setOutputs({
+                pr,
+                sameRepo,
+                callerActor: checkRun.app?.name || context.actor,
               });
               return;
             }
