@@ -71,16 +71,29 @@ if [ "$behind" -gt 0 ]; then
     remote_unique_not_in_default=$(git rev-list --count HEAD.."$remote_branch_ref" --not "$default_remote_branch" 2>/dev/null || echo "0")
 
     if [ "$remote_unique_not_in_default" -gt 0 ]; then
-        echo ""
-        echo "❌ ERROR: Your branch is missing $remote_unique_not_in_default commit(s) from $remote_branch_ref"
-        echo ""
-        echo "   Before pushing, run:"
-        echo "     git pull --rebase"
-        echo ""
-        echo "   Or to see what's different:"
-        echo "     git log HEAD..$remote_branch_ref --oneline"
-        echo ""
-        exit 1
+        # This usually means one of:
+        # - You are genuinely behind and need to pull/rebase.
+        # - You rebased locally (rewrote history) and intend to force-push.
+        #
+        # We can't reliably detect `git push --force-with-lease` from here, so require an explicit
+        # opt-in env var for the rebase/force-push workflow.
+        if [[ "${ALLOW_NON_FAST_FORWARD_PUSH:-}" == "1" ]]; then
+            echo "⚠️  Override enabled (ALLOW_NON_FAST_FORWARD_PUSH=1): allowing non-fast-forward update of $remote_branch_ref"
+        else
+            echo ""
+            echo "❌ ERROR: Your branch is missing $remote_unique_not_in_default commit(s) from $remote_branch_ref"
+            echo ""
+            echo "   If you are behind, run:"
+            echo "     git pull --rebase"
+            echo ""
+            echo "   If you rebased and intend to force-push safely, run:"
+            echo "     ALLOW_NON_FAST_FORWARD_PUSH=1 git push --force-with-lease"
+            echo ""
+            echo "   Or to see what's different:"
+            echo "     git log HEAD..$remote_branch_ref --oneline"
+            echo ""
+            exit 1
+        fi
     fi
 
     echo "⚠️  Note: $remote_branch_ref has commits not in HEAD, but they are already in $default_remote_branch."
