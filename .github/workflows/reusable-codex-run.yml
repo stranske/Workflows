@@ -52,6 +52,11 @@ on:
         required: false
         default: drop-sudo
         type: string
+      codex_cli_version:
+        description: 'Pinned @openai/codex CLI version to install.'
+        required: false
+        default: '0.101.0'
+        type: string
       codex_args:
         description: 'Optional Codex CLI arguments (string or JSON array).'
         required: false
@@ -627,8 +632,8 @@ jobs:
         run: |
           set -euo pipefail
           echo "Installing Codex CLI..."
-          npm install -g @openai/codex
-          codex --version
+          npm install -g "@openai/codex@${{ inputs.codex_cli_version }}"
+          echo "Installed Codex CLI version: $(codex --version)"
 
       - name: Setup Codex auth
         id: codex_auth
@@ -834,27 +839,75 @@ jobs:
             SESSION_JSONL="codex-session.jsonl"
           fi
           SANDBOX="${{ inputs.sandbox }}"
-          EXTRA_ARGS="${{ inputs.codex_args }}"
+          EXTRA_ARGS_RAW="${{ inputs.codex_args }}"
 
           # Default sandbox if not specified
           if [ -z "$SANDBOX" ]; then
             SANDBOX="workspace-write"
           fi
 
+          # Parse EXTRA_ARGS_RAW safely (no eval). Supports:
+          #  - JSON array: ["--flag", "value"]
+          #  - string: "--flag value --other=123" (shell-like splitting)
+          EXTRA_ARGS_FILE="${RUNNER_TEMP:-/tmp}/codex-extra-args.txt"
+          : > "$EXTRA_ARGS_FILE"
+          if [ -n "${EXTRA_ARGS_RAW:-}" ]; then
+            python3 - "$EXTRA_ARGS_RAW" "$EXTRA_ARGS_FILE" <<'PY'
+          import json
+          import shlex
+          import sys
+
+          raw = (sys.argv[1] or '').strip()
+          out_path = sys.argv[2]
+
+          if not raw:
+              args = []
+          elif raw.startswith('['):
+              try:
+                  value = json.loads(raw)
+              except json.JSONDecodeError as exc:
+                  raise SystemExit(f"codex_args JSON parse failed: {exc}")
+              if not isinstance(value, list):
+                  raise SystemExit("codex_args JSON must be an array")
+              for idx, item in enumerate(value):
+                  if not isinstance(item, str):
+                      raise SystemExit(f"codex_args JSON array item {idx} must be a string")
+                  if '\x00' in item:
+                      raise SystemExit(f"codex_args JSON array item {idx} contains NUL")
+              args = value
+          else:
+              # Treat as a conventional CLI arg string (quotes respected).
+              args = shlex.split(raw)
+              for idx, item in enumerate(args):
+                  if '\x00' in item:
+                      raise SystemExit(f"codex_args arg {idx} contains NUL")
+
+          with open(out_path, 'w', encoding='utf-8') as handle:
+              for arg in args:
+                  handle.write(arg)
+                  handle.write('\n')
+
+          print(f"Parsed {len(args)} codex extra arg(s).")
+          PY
+          fi
+          mapfile -t EXTRA_ARGS < "$EXTRA_ARGS_FILE" || true
+
           echo "Running Codex CLI directly with ChatGPT auth..."
           echo "Prompt file: $PROMPT_FILE"
           echo "Sandbox: $SANDBOX"
+          if [ "${#EXTRA_ARGS[@]}" -gt 0 ]; then
+            echo "Extra args: provided (${#EXTRA_ARGS[@]} arg(s))"
+          fi
 
           # Run codex exec with --json to capture rich session data
           # JSONL events stream to stdout, final message still goes to OUTPUT_FILE
-          # Build command array to handle EXTRA_ARGS properly
-          # NOTE: --mode flag not yet supported by Codex CLI, removed for now
           CODEX_EXIT=0
-          if [ -n "${EXTRA_ARGS:-}" ]; then
-            eval "codex exec --json --skip-git-repo-check --sandbox \"$SANDBOX\" --output-last-message \"$OUTPUT_FILE\" $EXTRA_ARGS \"\$(cat \"\$PROMPT_FILE\")\"" > "$SESSION_JSONL" 2>&1 || CODEX_EXIT=$?
-          else
-            codex exec --json --skip-git-repo-check --sandbox "$SANDBOX" --output-last-message "$OUTPUT_FILE" "$(cat "$PROMPT_FILE")" > "$SESSION_JSONL" 2>&1 || CODEX_EXIT=$?
+          cmd=(codex exec --json --skip-git-repo-check --sandbox "$SANDBOX" --output-last-message "$OUTPUT_FILE")
+          if [ "${#EXTRA_ARGS[@]}" -gt 0 ]; then
+            cmd+=("${EXTRA_ARGS[@]}")
           fi
+          prompt_content="$(cat "$PROMPT_FILE")"
+          "${cmd[@]}" "$prompt_content" > "$SESSION_JSONL" 2>&1 || CODEX_EXIT=$?
 
           echo "exit-code=${CODEX_EXIT}" >> "$GITHUB_OUTPUT"
 

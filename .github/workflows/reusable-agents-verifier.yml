@@ -325,7 +325,10 @@ jobs:
 
       - name: Install Codex CLI
         if: steps.context.outputs.should_run == 'true' && inputs.mode != 'evaluate'
-        run: npm install -g @openai/codex
+        run: |
+          set -euo pipefail
+          npm install -g "@openai/codex@0.101.0"
+          echo "Installed Codex CLI version: $(codex --version)" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Run verifier (checkbox mode)
         id: codex
