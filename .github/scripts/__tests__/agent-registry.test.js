@@ -84,7 +84,6 @@ test('resolveAgentRoutingFromLabels returns mode=default when no agent labels pr
   assert.equal(routing.agentKey, 'codex');
   assert.equal(routing.requested, null);
 });
-
 test('resolveAgentRoutingFromLabels returns mode=explicit for agent:codex', () => {
   const routing = resolveAgentRoutingFromLabels(['agent:codex'], { registryPath: REGISTRY_PATH });
   assert.equal(routing.mode, 'explicit');
