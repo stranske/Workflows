@@ -1886,10 +1886,14 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
         const routing = resolveAgentRoutingFromLabels(pr.labels);
         agentType = routing.agentKey;
       } catch (error) {
-        try {
-          const { resolveAgentFromLabels } = require('./agent_registry.js');
-          agentType = resolveAgentFromLabels([]);
-        } catch (_) {
+        if (explicitAgentLabel === 'agent:auto') {
+          try {
+            const { resolveAgentFromLabels } = require('./agent_registry.js');
+            agentType = resolveAgentFromLabels([]);
+          } catch (_) {
+            agentType = explicitAgentLabel.replace('agent:', '');
+          }
+        } else {
           agentType = explicitAgentLabel.replace('agent:', '');
         }
       }
