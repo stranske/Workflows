@@ -1870,12 +1870,24 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
     let gateRateLimit = false;
 
     const config = parseConfig(pr.body || '');
-    const labels = Array.isArray(pr.labels) ? pr.labels.map((label) => normalise(label.name).toLowerCase()) : [];
+    const labels = Array.isArray(pr.labels)
+      ? pr.labels.map((label) => normalise(label.name).toLowerCase())
+      : [];
 
-    // Extract agent type from agent:* labels (supports agent:codex, agent:claude, etc.)
-    const agentLabel = labels.find((label) => label.startsWith('agent:'));
-    const agentType = agentLabel ? agentLabel.replace('agent:', '') : '';
-    const hasAgentLabel = Boolean(agentType);
+    // Phase 2: Resolve agent via registry helper when an explicit agent:* label is present.
+    // Keepalive stays opt-in: no agent label => keepalive disabled.
+    const explicitAgentLabel = labels.find((label) => label.startsWith('agent:'));
+    let agentType = '';
+    let hasAgentLabel = false;
+    if (explicitAgentLabel) {
+      hasAgentLabel = true;
+      try {
+        const { resolveAgentFromLabels } = require('./agent_registry.js');
+        agentType = resolveAgentFromLabels(pr.labels);
+      } catch (error) {
+        agentType = explicitAgentLabel.replace('agent:', '');
+      }
+    }
     const hasHighPrivilege = labels.includes('agent-high-privilege');
     const keepaliveEnabled = config.keepalive_enabled && hasAgentLabel;
 

@@ -31,10 +31,14 @@ on:
         type: boolean
         default: false
       bot_authors:
-        description: 'Comma-separated list of bot login names (default includes Copilot, github-actions, coderabbitai, chatgpt-codex-connector)'
+        description: >-
+          Comma-separated list of bot login names (default includes Copilot,
+          github-actions, coderabbitai, chatgpt-codex-connector)
         required: false
         type: string
-        default: 'Copilot,copilot[bot],github-actions[bot],coderabbitai[bot],chatgpt-codex-connector[bot]'
+        default: >-
+          Copilot,copilot[bot],github-actions[bot],coderabbitai[bot],
+          chatgpt-codex-connector[bot]
       skip_if_human_replied:
         description: 'Skip comments where a human has already replied'
         required: false
@@ -115,7 +119,9 @@ jobs:
         uses: actions/checkout@v6
         with:
           sparse-checkout: |
+            .github/agents/registry.yml
             .github/actions/setup-api-client
+            .github/scripts/agent_registry.js
             .github/scripts/github-api-with-retry.js
             .github/scripts/token_load_balancer.js
             .github/scripts/bot-comment-dismiss.js
@@ -165,15 +171,27 @@ jobs:
             let agent = 'codex';  // default
             let workflow = 'reusable-codex-run.yml';
 
-            if (labels.includes('agent:claude')) {
-              agent = 'claude';
-              workflow = 'reusable-claude-run.yml';
-            } else if (labels.includes('agent:gemini')) {
-              agent = 'gemini';
-              workflow = 'reusable-gemini-run.yml';
-            } else if (labels.includes('agent:codex')) {
-              agent = 'codex';
-              workflow = 'reusable-codex-run.yml';
+            try {
+              const {
+                resolveAgentFromLabels,
+                getRunnerWorkflow,
+              } = require('./.github/scripts/agent_registry.js');
+              agent = resolveAgentFromLabels(pr.labels);
+              const runnerWorkflow = getRunnerWorkflow(agent);
+              workflow = String(runnerWorkflow || '').split('/').pop() || workflow;
+            } catch (error) {
+              // Fallback to legacy behavior if the helper isn't available.
+              const labelSet = new Set(labels.map((value) => String(value || '').toLowerCase()));
+              if (labelSet.has('agent:claude')) {
+                agent = 'claude';
+                workflow = 'reusable-claude-run.yml';
+              } else if (labelSet.has('agent:gemini')) {
+                agent = 'gemini';
+                workflow = 'reusable-gemini-run.yml';
+              } else if (labelSet.has('agent:codex')) {
+                agent = 'codex';
+                workflow = 'reusable-codex-run.yml';
+              }
             }
 
             core.setOutput('agent', agent);
@@ -276,7 +294,8 @@ jobs:
             if (botComments.length > 0) {
               console.log('Comments to address:');
               for (const c of botComments) {
-                console.log(`- ${c.path}:${c.line} (${c.author}): ${c.body.substring(0, 100)}...`);
+                const preview = c.body.substring(0, 100).replace(/\n/g, ' ');
+                console.log(`- ${c.path}:${c.line} (${c.author}): ${preview}...`);
               }
             }
 
@@ -286,8 +305,12 @@ jobs:
         with:
           github-token: ${{ steps.auth.outputs.token }}
           script: |
-            const { autoDismissReviewComments } = require('./.github/scripts/bot-comment-dismiss.js');
-            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const { autoDismissReviewComments } = require(
+              './.github/scripts/bot-comment-dismiss.js'
+            );
+            const { createTokenAwareRetry } = require(
+              './.github/scripts/github-api-with-retry.js'
+            );
             const { withRetry } = await createTokenAwareRetry({
               github, core,
               env: process.env,
@@ -314,9 +337,14 @@ jobs:
               botAuthors,
             });
 
-            const dismissedCount = Array.isArray(result.dismissed) ? result.dismissed.length : 0;
+            const dismissedCount = Array.isArray(result.dismissed)
+              ? result.dismissed.length
+              : 0;
             const failedCount = Array.isArray(result.failed) ? result.failed.length : 0;
-            core.info(`Auto-dismissed ${dismissedCount} review comment(s) on ignored paths (failed: ${failedCount})`);
+            core.info(
+              `Auto-dismissed ${dismissedCount} review comment(s) on ignored paths ` +
+              `(failed: ${failedCount})`
+            );
 
       - name: Post summary
         if: steps.collect.outputs.found == 'true'
@@ -391,7 +419,18 @@ jobs:
           PROMPT_HEADER
 
           # Append each comment using jq with proper escaping
-          echo "${COMMENTS_JSON}" | jq -r '.[] | "### \(.path):\(.line // "N/A")\n\n**From:** \(.author)\n\n```\n\(.body)\n```\n\n**Context (diff hunk):**\n```diff\n\(.diff_hunk)\n```\n\n---\n"' >> .github/codex/prompts/fix_bot_comments_dynamic.md
+          cat > /tmp/bot_comments_filter.jq << 'JQ'
+          .[] |
+            "### \(.path):\(.line // \"N/A\")\n\n" +
+            "**From:** \(.author)\n\n" +
+            "```\n\(.body)\n```\n\n" +
+            "**Context (diff hunk):**\n" +
+            "```diff\n\(.diff_hunk)\n```\n\n" +
+            "---\n"
+          JQ
+
+          echo "${COMMENTS_JSON}" | jq -r -f /tmp/bot_comments_filter.jq \
+            >> .github/codex/prompts/fix_bot_comments_dynamic.md
 
           cat >> .github/codex/prompts/fix_bot_comments_dynamic.md << 'PROMPT_FOOTER'
 
@@ -504,7 +543,8 @@ jobs:
             }
 
             // Post informational comment (without @mention to avoid triggering connector twice)
-            // Use HTML marker for deduplication — update existing comment instead of creating duplicates
+            // Use HTML marker for deduplication.
+            // Update existing comment instead of creating duplicates.
             const marker = '<!-- bot-comment-handler -->';
             const comment = [
               marker,
@@ -513,7 +553,8 @@ jobs:
               `- Agent: ${agent}`,
               `- Bot comments to address: ${count}`,
               '',
-              'The agent has been assigned to this PR to address the bot review comments.',
+              'The agent has been assigned to this PR to address the bot review ' +
+              'comments.',
               '',
               '### Instructions for agent',
               '1. Implement suggested fixes that improve the code',
@@ -537,7 +578,9 @@ jobs:
                 comment_id: existing.id,
                 body: comment
               }));
-              core.info(`Updated existing bot-comment-handler comment #${existing.id} on PR #${prNumber}`);
+              core.info(
+                `Updated existing bot-comment-handler comment #${existing.id} on PR #${prNumber}`
+              );
             } else {
               await withRetry(() => github.rest.issues.createComment({
                 owner,

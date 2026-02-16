@@ -38,6 +38,7 @@ jobs:
       head_sha: ${{ steps.evaluate.outputs.head_sha }}
       appendix: ${{ steps.evaluate.outputs.appendix }}
       stop_reason: ${{ steps.evaluate.outputs.stop_reason }}
+      agent_type: ${{ steps.evaluate.outputs.agent_type }}
       attempts: ${{ steps.evaluate.outputs.attempts }}
       max_attempts: ${{ steps.evaluate.outputs.max_attempts }}
       trigger_reason: ${{ steps.evaluate.outputs.trigger_reason }}
@@ -52,6 +53,8 @@ jobs:
         uses: actions/checkout@v6
         with:
           sparse-checkout: |
+            .github/agents/registry.yml
+            .github/scripts/agent_registry.js
             .github/scripts/prompt_injection_guard.js
             .github/actions/setup-api-client
             .github/scripts/github-api-with-retry.js
@@ -154,6 +157,7 @@ jobs:
               head_sha: '',
               appendix: '',
               stop_reason: '',
+              agent_type: '',
               attempts: '0',
               max_attempts: '2',
               trigger_reason: 'unknown',
@@ -220,13 +224,24 @@ jobs:
                   .map((label) => (label?.name || '').toLowerCase())
                   .filter(Boolean)
               : [];
-            const hasAgentLabel = labels.includes('agent:codex');
+
+            const hasExplicitAgentLabel = labels.some((label) => label.startsWith('agent:'));
+            let agentType = '';
+            try {
+              const { resolveAgentFromLabels } = require('./.github/scripts/agent_registry.js');
+              agentType = resolveAgentFromLabels(prData.labels);
+            } catch (error) {
+              const agentLabel = labels.find((label) => label.startsWith('agent:'));
+              agentType = agentLabel ? agentLabel.slice('agent:'.length) : 'codex';
+            }
+
+            outputs.agent_type = String(agentType || '');
 
             const body = prData.body || '';
             const configMatch = body.match(/autofix\s*:\s*(true|false)/i);
             let autofixEnabled = configMatch
               ? configMatch[1].toLowerCase() === 'true'
-              : hasAgentLabel;
+              : hasExplicitAgentLabel;
 
             // Auto-escalation: Escalate to Codex CLI when Gate fails
             // Triggers if: (1) basic autofix ran but insufficient, OR (2) no basic autofix applied
@@ -263,6 +278,14 @@ jobs:
             }
             if (!autofixEnabled) {
               return stop('autofix disabled for this pull request');
+            }
+
+            // Phase 2: We only support Codex CLI autofix for now.
+            if ((outputs.agent_type || '') && outputs.agent_type !== 'codex') {
+              return stop(
+                `unsupported agent type for autofix loop: ${outputs.agent_type}`,
+                'unsupported_agent'
+              );
             }
 
             const jobs = await paginateWithRetry(
@@ -395,7 +418,7 @@ jobs:
 
   autofix:
     needs: prepare
-    if: needs.prepare.outputs.should_run == 'true'
+    if: needs.prepare.outputs.should_run == 'true' && needs.prepare.outputs.agent_type == 'codex'
     name: Run Codex autofix
     uses: stranske/Workflows/.github/workflows/reusable-codex-run.yml@main
     with:
