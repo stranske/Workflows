@@ -78,7 +78,6 @@ test('resolveAgentRoutingFromLabels returns mode=auto for agent:auto', () => {
   assert.equal(routing.agentKey, 'codex');
   assert.equal(routing.requested, 'auto');
 });
-
 test('resolveAgentRoutingFromLabels returns mode=default when no agent labels present', () => {
   const routing = resolveAgentRoutingFromLabels(['bug'], { registryPath: REGISTRY_PATH });
   assert.equal(routing.mode, 'default');
@@ -92,7 +91,6 @@ test('resolveAgentRoutingFromLabels returns mode=explicit for agent:codex', () =
   assert.equal(routing.agentKey, 'codex');
   assert.equal(routing.requested, 'codex');
 });
-
 test('resolveAgentRoutingFromLabels rejects mixing agent:auto with explicit agent', () => {
   assert.throws(
     () => {
