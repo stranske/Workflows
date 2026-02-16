@@ -3,9 +3,15 @@
 - name: agent:codex
   color: 0e8a16
   description: Assign to Codex agent
+- name: agent:claude
+  color: 5319e7
+  description: Assign to Claude agent
 - name: agent:copilot
   color: 1d76db
   description: Assign to Copilot
+- name: agent:auto
+  color: ededed
+  description: Let the system choose an agent (policy-driven)
 
 # Agent workflow labels
 - name: agents
@@ -45,6 +51,9 @@
 - name: from:codex
   color: 0e8a16
   description: PR was created by or for Codex
+- name: from:claude
+  color: 5319e7
+  description: PR was created by or for Claude
 - name: from:copilot
   color: 0366d6
   description: PR was created by or for Copilot
