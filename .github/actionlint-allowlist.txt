@@ -8,6 +8,9 @@ property "(token_rotation_json|service_bot_pat|actions_bot_pat|codespaces_workfl
 # actionlint 1.7.3 doesn't recognize this newer permission scope
 unknown permission scope "models"
 
+# actionlint 1.7.3 doesn't recognize the workflow_job trigger yet.
+unknown Webhook event "workflow_job"
+
 # These are style warnings for consecutive echo redirects. Grouping them would
 # reduce readability in our workflow context.
 SC2129:style:.+: Consider using { cmd1; cmd2; } >> file instead of individual redirects
