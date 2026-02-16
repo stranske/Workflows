@@ -1,0 +1,16 @@
+version: 1
+
+default_agent: codex
+
+agents:
+  codex:
+    runner_workflow: .github/workflows/reusable-codex-run.yml
+    required_secrets:
+      - CODEX_AUTH_JSON
+    branch_prefix: codex/issue-
+    ui_mentions_allowed: false
+    capabilities:
+      pr_keepalive: true
+      pr_autofix: true
+      belt: true
+      verifier_checkbox: true

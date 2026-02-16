@@ -248,6 +248,12 @@ scripts:
   - source: .github/scripts/package.json
     description: "Node package manifest for .github scripts (vendored minimatch)"
 
+  - source: .github/agents/registry.yml
+    description: "Agent registry - source of truth for agent keys and runner workflow mapping"
+
+  - source: .github/scripts/agent_registry.js
+    description: "Agent registry helper - loads registry and resolves agent key from labels"
+
   - source: .github/scripts/node_modules/minimatch/
     is_directory: true
     description: "Vendored minimatch dependency for .github scripts"
