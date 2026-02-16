@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from tools.llm_provider import (
+    LANGSMITH_TRACE_URL_BASE,
     AnthropicProvider,
     CompletionAnalysis,
     FallbackChainProvider,
@@ -15,7 +16,9 @@ from tools.llm_provider import (
     RegexFallbackProvider,
     SessionQualityContext,
     _setup_langsmith_tracing,
+    build_langsmith_metadata,
     check_providers,
+    derive_langsmith_trace_url,
     get_llm_provider,
     get_quality_context_capable_providers,
     get_quality_context_support_table,
@@ -101,6 +104,154 @@ class TestLangsmithTracing:
             assert enabled is False
             assert "LANGCHAIN_TRACING_V2" not in os.environ
             assert "LANGCHAIN_API_KEY" not in os.environ
+
+    def test_langsmith_sets_default_project(self):
+        with patch.dict(os.environ, {"LANGSMITH_API_KEY": "ls-key"}, clear=True):
+            _setup_langsmith_tracing()
+            assert os.environ["LANGCHAIN_PROJECT"] == "workflows-agents"
+
+    def test_langsmith_preserves_custom_project(self):
+        with patch.dict(
+            os.environ,
+            {"LANGSMITH_API_KEY": "ls-key", "LANGCHAIN_PROJECT": "my-project"},
+            clear=True,
+        ):
+            _setup_langsmith_tracing()
+            assert os.environ["LANGCHAIN_PROJECT"] == "my-project"
+
+    def test_langsmith_preserves_existing_langchain_api_key(self):
+        with patch.dict(
+            os.environ,
+            {"LANGSMITH_API_KEY": "ls-key", "LANGCHAIN_API_KEY": "existing"},
+            clear=True,
+        ):
+            _setup_langsmith_tracing()
+            assert os.environ["LANGCHAIN_API_KEY"] == "existing"
+
+    def test_langsmith_tracing_v2_forced_true(self):
+        """LANGCHAIN_TRACING_V2 is always set to true even if previously false."""
+        with patch.dict(
+            os.environ,
+            {"LANGSMITH_API_KEY": "ls-key", "LANGCHAIN_TRACING_V2": "false"},
+            clear=True,
+        ):
+            _setup_langsmith_tracing()
+            assert os.environ["LANGCHAIN_TRACING_V2"] == "true"
+
+
+class TestBuildLangsmithMetadata:
+    """Tests for the centralized build_langsmith_metadata helper."""
+
+    def test_basic_metadata_shape(self):
+        with patch.dict(os.environ, {}, clear=True):
+            config = build_langsmith_metadata(operation="test_op")
+        assert "metadata" in config
+        assert "tags" in config
+        assert config["metadata"]["operation"] == "test_op"
+
+    def test_resolves_repo_from_env(self):
+        with patch.dict(
+            os.environ,
+            {"GITHUB_REPOSITORY": "stranske/Workflows"},
+            clear=True,
+        ):
+            config = build_langsmith_metadata(operation="verify")
+        assert config["metadata"]["repo"] == "stranske/Workflows"
+
+    def test_resolves_run_id_from_env(self):
+        with patch.dict(
+            os.environ, {"GITHUB_RUN_ID": "12345"}, clear=True
+        ):
+            config = build_langsmith_metadata(operation="verify")
+        assert config["metadata"]["run_id"] == "12345"
+
+    def test_explicit_params_override_env(self):
+        with patch.dict(
+            os.environ,
+            {"GITHUB_REPOSITORY": "env-repo", "GITHUB_RUN_ID": "env-run"},
+            clear=True,
+        ):
+            config = build_langsmith_metadata(
+                operation="verify",
+                repo="explicit-repo",
+                run_id="explicit-run",
+            )
+        assert config["metadata"]["repo"] == "explicit-repo"
+        assert config["metadata"]["run_id"] == "explicit-run"
+
+    def test_pr_number_sets_issue_or_pr(self):
+        with patch.dict(os.environ, {}, clear=True):
+            config = build_langsmith_metadata(
+                operation="verify", pr_number=42
+            )
+        assert config["metadata"]["issue_or_pr_number"] == "42"
+        assert config["metadata"]["pr_number"] == "42"
+
+    def test_issue_number_sets_issue_or_pr(self):
+        with patch.dict(os.environ, {}, clear=True):
+            config = build_langsmith_metadata(
+                operation="verify", issue_number=99
+            )
+        assert config["metadata"]["issue_or_pr_number"] == "99"
+        assert config["metadata"]["issue_number"] == "99"
+
+    def test_env_pr_number_fallback(self):
+        with patch.dict(os.environ, {"PR_NUMBER": "77"}, clear=True):
+            config = build_langsmith_metadata(operation="verify")
+        assert config["metadata"]["issue_or_pr_number"] == "77"
+
+    def test_unknown_fallback(self):
+        with patch.dict(os.environ, {}, clear=True):
+            config = build_langsmith_metadata(operation="verify")
+        assert config["metadata"]["issue_or_pr_number"] == "unknown"
+
+    def test_tags_contain_operation(self):
+        with patch.dict(os.environ, {}, clear=True):
+            config = build_langsmith_metadata(operation="analyze")
+        tags = config["tags"]
+        assert "operation:analyze" in tags
+        assert "workflows-agents" in tags
+
+    def test_langsmith_project_included_when_enabled(self):
+        with patch.dict(
+            os.environ, {"LANGSMITH_API_KEY": "ls-key"}, clear=True
+        ):
+            _setup_langsmith_tracing()
+            import tools.llm_provider as mod
+
+            original = mod.LANGSMITH_ENABLED
+            mod.LANGSMITH_ENABLED = True
+            try:
+                config = build_langsmith_metadata(operation="verify")
+                assert "langsmith_project" in config["metadata"]
+            finally:
+                mod.LANGSMITH_ENABLED = original
+
+    def test_langsmith_project_absent_when_disabled(self):
+        import tools.llm_provider as mod
+
+        original = mod.LANGSMITH_ENABLED
+        mod.LANGSMITH_ENABLED = False
+        try:
+            with patch.dict(os.environ, {}, clear=True):
+                config = build_langsmith_metadata(operation="verify")
+            assert "langsmith_project" not in config["metadata"]
+        finally:
+            mod.LANGSMITH_ENABLED = original
+
+
+class TestDeriveLangsmithTraceUrl:
+    """Tests for derive_langsmith_trace_url."""
+
+    def test_derives_url_from_trace_id(self):
+        url = derive_langsmith_trace_url("abc123")
+        assert url == f"{LANGSMITH_TRACE_URL_BASE}abc123"
+
+    def test_returns_none_for_empty_trace_id(self):
+        assert derive_langsmith_trace_url("") is None
+
+    def test_returns_none_for_none_trace_id(self):
+        assert derive_langsmith_trace_url(None) is None
 
 
 class TestLLMProviderInterface:

@@ -68,6 +68,79 @@ def _setup_langsmith_tracing() -> bool:
 # This flag can be used to conditionally enable LangSmith-specific features.
 LANGSMITH_ENABLED = _setup_langsmith_tracing()
 
+LANGSMITH_TRACE_URL_BASE = "https://smith.langchain.com/r/"
+
+
+def build_langsmith_metadata(
+    *,
+    operation: str,
+    repo: str | None = None,
+    run_id: str | None = None,
+    issue_or_pr_number: str | None = None,
+    pr_number: int | None = None,
+    issue_number: int | None = None,
+) -> dict[str, object]:
+    """Build a standardized LangSmith metadata and tags config dict.
+
+    Returns a dict with ``metadata`` and ``tags`` keys suitable for passing
+    as ``config=`` to a LangChain ``client.invoke()`` call.  When
+    ``LANGSMITH_API_KEY`` is set the metadata also includes a
+    ``langsmith_project`` field so traces are grouped correctly.
+
+    The returned dict always has the same shape regardless of whether
+    LangSmith is enabled.
+    """
+    repo = repo or os.environ.get("GITHUB_REPOSITORY", "unknown")
+    run_id = run_id or os.environ.get("GITHUB_RUN_ID", "unknown")
+
+    if issue_or_pr_number is None:
+        if pr_number is not None:
+            issue_or_pr_number = str(pr_number)
+        elif issue_number is not None:
+            issue_or_pr_number = str(issue_number)
+        else:
+            env_pr = os.environ.get("PR_NUMBER", "")
+            env_issue = os.environ.get("ISSUE_NUMBER", "")
+            issue_or_pr_number = (
+                env_pr if env_pr.isdigit()
+                else env_issue if env_issue.isdigit()
+                else "unknown"
+            )
+
+    metadata: dict[str, object] = {
+        "repo": repo,
+        "run_id": run_id,
+        "issue_or_pr_number": issue_or_pr_number,
+        "operation": operation,
+        "pr_number": str(pr_number) if pr_number is not None else None,
+        "issue_number": str(issue_number) if issue_number is not None else None,
+    }
+
+    if LANGSMITH_ENABLED:
+        metadata["langsmith_project"] = os.environ.get(
+            "LANGCHAIN_PROJECT", "workflows-agents"
+        )
+
+    tags = [
+        "workflows-agents",
+        f"operation:{operation}",
+        f"repo:{repo}",
+        f"issue_or_pr:{issue_or_pr_number}",
+        f"run_id:{run_id}",
+    ]
+
+    return {"metadata": metadata, "tags": tags}
+
+
+def derive_langsmith_trace_url(trace_id: str | None) -> str | None:
+    """Derive a clickable LangSmith trace URL from a trace ID.
+
+    Returns ``None`` when *trace_id* is falsy.
+    """
+    if not trace_id:
+        return None
+    return f"{LANGSMITH_TRACE_URL_BASE}{trace_id}"
+
 
 def _is_token_limit_error(error: Exception) -> bool:
     """Check if error is a token limit (413) error from GitHub Models."""

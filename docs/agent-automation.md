@@ -151,12 +151,95 @@ The workflow tracks state by:
 
 ### LangSmith Tracing
 
-When LangSmith tracing is enabled for auto-pilot runs, the metrics records may include:
+LangSmith provides observability for all LangChain-based LLM calls in the
+workflow system. When enabled, every `client.invoke()` call automatically
+generates a trace that records prompt, response, latency, and token usage.
 
-- `langsmith_trace_id` for the LangSmith trace identifier.
-- `langsmith_trace_url` with a direct, clickable link to the trace in the LangSmith UI.
+#### Enabling LangSmith
 
-These fields are optional and should be omitted when LangSmith is unavailable.
+Set the `LANGSMITH_API_KEY` repository secret. On module load
+`tools/llm_provider.py` detects the key and configures the environment:
+
+| Variable | Set automatically | Purpose |
+|----------|-------------------|---------|
+| `LANGCHAIN_TRACING_V2` | `true` | Enables LangChain v2 tracing |
+| `LANGCHAIN_PROJECT` | `workflows-agents` (default) | Groups traces by project |
+| `LANGCHAIN_API_KEY` | Copied from `LANGSMITH_API_KEY` | LangChain SDK auth |
+
+Override the project by setting `LANGCHAIN_PROJECT` before import.
+
+#### Standardized Metadata
+
+All LLM-calling scripts use `build_langsmith_metadata()` (from
+`tools/llm_provider`) to attach consistent metadata to every invocation:
+
+```python
+from tools.llm_provider import build_langsmith_metadata
+
+config = build_langsmith_metadata(
+    operation="verify_pr",
+    pr_number=42,
+)
+response = client.invoke(prompt, config=config)
+```
+
+**Metadata fields** attached to every trace:
+
+| Field | Source | Example |
+|-------|--------|---------|
+| `repo` | `GITHUB_REPOSITORY` | `stranske/Workflows` |
+| `run_id` | `GITHUB_RUN_ID` | `12345678` |
+| `issue_or_pr_number` | Arg or `PR_NUMBER`/`ISSUE_NUMBER` env | `42` |
+| `operation` | Caller-supplied | `verify_pr` |
+| `langsmith_project` | `LANGCHAIN_PROJECT` (when enabled) | `workflows-agents` |
+
+**Tags** for filtering in the LangSmith UI:
+
+- `workflows-agents`
+- `operation:<name>`
+- `repo:<owner/repo>`
+- `issue_or_pr:<number>`
+- `run_id:<id>`
+
+#### Trace IDs in Metrics
+
+The autopilot metrics collector accepts trace IDs via CLI or environment:
+
+```bash
+python scripts/autopilot_metrics_collector.py \
+  --metric-type step \
+  --langsmith-trace-id "$TRACE_ID" \
+  ...
+```
+
+Or set `LANGSMITH_TRACE_ID` / `LANGSMITH_TRACE_URL` in the environment.
+When only a trace ID is provided, the URL is auto-derived as
+`https://smith.langchain.com/r/<trace_id>`.
+
+Metrics records may include:
+
+- `langsmith_trace_id` — the LangSmith trace identifier.
+- `langsmith_trace_url` — a direct, clickable link to the trace in the
+  LangSmith UI.
+
+These fields are optional and are omitted when LangSmith is unavailable.
+
+#### Graceful Degradation
+
+When `LANGSMITH_API_KEY` is **not** set:
+
+- `LANGSMITH_ENABLED` is `False`
+- No tracing environment variables are modified
+- `build_langsmith_metadata()` still returns a valid config dict (without
+  the `langsmith_project` field)
+- All LLM calls proceed normally — tracing is purely additive
+
+#### Scripts Using Standardized Metadata
+
+| Script | Operations |
+|--------|------------|
+| `scripts/langchain/pr_verifier.py` | `evaluate`, `compare` |
+| `scripts/langchain/followup_issue_generator.py` | `analyze_verification`, `generate_tasks`, `generate_acceptance_criteria`, `format_followup_issue` |
 
 ### Re-dispatch Pattern
 

@@ -872,44 +872,50 @@ def _get_llm_client(reasoning: bool = False) -> tuple[Any, str] | None:
     return resolved.client, resolved.model
 
 
-def _resolve_run_id() -> str:
-    return os.environ.get("GITHUB_RUN_ID") or os.environ.get("RUN_ID") or "unknown"
-
-
-def _resolve_repo() -> str:
-    return os.environ.get("GITHUB_REPOSITORY") or "unknown"
-
-
-def _resolve_issue_or_pr_number(*, pr_number: int | None, issue_number: int | None) -> str:
-    if pr_number is not None:
-        return str(pr_number)
-    env_pr = os.environ.get("PR_NUMBER")
-    if env_pr and env_pr.isdigit():
-        return env_pr
-    if issue_number is not None:
-        return str(issue_number)
-    env_issue = os.environ.get("ISSUE_NUMBER")
-    if env_issue and env_issue.isdigit():
-        return env_issue
-    return "unknown"
-
-
 def _build_llm_config(
     *,
     operation: str,
     pr_number: int | None,
     issue_number: int | None,
 ) -> dict[str, object]:
-    repo = _resolve_repo()
-    run_id = _resolve_run_id()
-    issue_or_pr = _resolve_issue_or_pr_number(pr_number=pr_number, issue_number=issue_number)
+    try:
+        from tools.llm_provider import build_langsmith_metadata
+        return build_langsmith_metadata(
+            operation=operation,
+            pr_number=pr_number,
+            issue_number=issue_number,
+        )
+    except ImportError:
+        pass
+
+    # Inline fallback when tools.llm_provider is unavailable
+    repo = os.environ.get("GITHUB_REPOSITORY", "unknown")
+    run_id = (
+        os.environ.get("GITHUB_RUN_ID")
+        or os.environ.get("RUN_ID")
+        or "unknown"
+    )
+    if pr_number is not None:
+        issue_or_pr = str(pr_number)
+    elif issue_number is not None:
+        issue_or_pr = str(issue_number)
+    else:
+        env_pr = os.environ.get("PR_NUMBER", "")
+        env_issue = os.environ.get("ISSUE_NUMBER", "")
+        issue_or_pr = (
+            env_pr if env_pr.isdigit()
+            else env_issue if env_issue.isdigit()
+            else "unknown"
+        )
     metadata = {
         "repo": repo,
         "run_id": run_id,
         "issue_or_pr_number": issue_or_pr,
         "operation": operation,
         "pr_number": str(pr_number) if pr_number is not None else None,
-        "issue_number": str(issue_number) if issue_number is not None else None,
+        "issue_number": (
+            str(issue_number) if issue_number is not None else None
+        ),
     }
     tags = [
         "workflows-agents",
