@@ -2228,6 +2228,7 @@ jobs:
                     workflow_id: 'agents-72-codex-belt-worker-dispatch.yml',
                     ref: baseBranch,
                     inputs: {
+                      agent_key: agentKey,
                       issue: issueNumber.toString(),
                       branch: branchName,
                       base: baseBranch,
