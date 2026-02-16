@@ -741,7 +741,11 @@ jobs:
             let agentKey = 'codex';
             try {
               const { resolveAgentFromLabels } = require('./.github/scripts/agent_registry.js');
-              agentKey = resolveAgentFromLabels(prData.labels || []);
+              const labels =
+                (context.payload.pull_request && context.payload.pull_request.labels) || [];
+              agentKey = resolveAgentFromLabels(labels, {
+                registryPath: './.github/agents/registry.yml',
+              });
             } catch (err) {
               core.warning(
                 `Failed to resolve agent from PR labels; defaulting to codex: ${err.message}`
