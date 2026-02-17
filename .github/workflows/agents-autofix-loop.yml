@@ -239,14 +239,54 @@ jobs:
                   .filter(Boolean)
               : [];
 
-            const hasExplicitAgentLabel = labels.some((label) => label.startsWith('agent:'));
+            const labelObjects = Array.isArray(prData.labels) ? prData.labels : [];
+            const agentPrefix = 'agent:';
+            let routingLabelCandidates = labelObjects;
+            let routingAgentKeys = [];
+            try {
+              const { loadAgentRegistry } = require('./.github/scripts/agent_registry.js');
+              const registry = loadAgentRegistry();
+              const validAgentKeys = new Set(
+                Object.keys(registry.agents || {}).map((key) => String(key || '').trim().toLowerCase()),
+              );
+              validAgentKeys.add('auto');
+
+              routingLabelCandidates = labelObjects.filter((label) => {
+                const normalized = (label?.name || '').trim().toLowerCase();
+                if (!normalized.startsWith(agentPrefix)) {
+                  return false;
+                }
+                const key = normalized.slice(agentPrefix.length);
+                return validAgentKeys.has(key);
+              });
+
+              routingAgentKeys = Array.from(
+                new Set(
+                  routingLabelCandidates
+                    .map((label) => (label?.name || '').trim().toLowerCase())
+                    .map((value) => value.slice(agentPrefix.length))
+                    .filter(Boolean),
+                ),
+              );
+            } catch (error) {
+              routingLabelCandidates = labelObjects;
+              routingAgentKeys = Array.from(
+                new Set(
+                  labels
+                    .filter((label) => label.startsWith(agentPrefix))
+                    .map((label) => label.slice(agentPrefix.length)),
+                ),
+              );
+            }
+
+            const hasExplicitAgentLabel = routingAgentKeys.length > 0;
             let agentType = '';
             try {
               const { resolveAgentFromLabels } = require('./.github/scripts/agent_registry.js');
-              agentType = resolveAgentFromLabels(prData.labels);
+              agentType = resolveAgentFromLabels(routingLabelCandidates.length ? routingLabelCandidates : prData.labels);
             } catch (error) {
-              const agentLabel = labels.find((label) => label.startsWith('agent:'));
-              agentType = agentLabel ? agentLabel.slice('agent:'.length) : 'codex';
+              const fallbackAgent = routingAgentKeys[0];
+              agentType = fallbackAgent || 'codex';
             }
 
             outputs.agent_type = String(agentType || '');
