@@ -12,6 +12,7 @@
 # - CODEX_AUTH_JSON: Authentication for Codex API
 # - OPENAI_API_KEY: For OpenAI provider (optional, falls back to Claude/GitHub Models)
 # - CLAUDE_API_STRANSKE: For Claude provider (optional, falls back to GitHub Models)
+# - LANGSMITH_API_KEY: For LangSmith tracing (optional, enables trace URL generation)
 # - Ensure repository/org secrets are configured for verification to work
 #
 # Note: Uses pull_request_target instead of pull_request to ensure secrets

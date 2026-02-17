@@ -54,6 +54,9 @@ on:
       CLAUDE_API_STRANSKE:
         required: false
         description: 'Anthropic API key for evaluate/compare modes (enables Claude slot)'
+      LANGSMITH_API_KEY:
+        required: false
+        description: 'LangSmith API key for tracing LLM calls (optional, enables trace URL generation)'
       workflows_app_id:
         required: false
       workflows_app_private_key:
@@ -491,6 +494,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           CLAUDE_API_STRANSKE: ${{ secrets.CLAUDE_API_STRANSKE }}
+          LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
           PYTHONPATH: .workflows-lib
           CHAIN_DEPTH: ${{ steps.context.outputs.chain_depth || '0' }}
         run: |
@@ -651,6 +655,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           CLAUDE_API_STRANSKE: ${{ secrets.CLAUDE_API_STRANSKE }}
+          LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
           PYTHONPATH: .workflows-lib
           CHAIN_DEPTH: ${{ steps.context.outputs.chain_depth || '0' }}
         run: |
