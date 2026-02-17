@@ -57,7 +57,7 @@ def aggregate_traces(metrics: list[dict[str, Any]]) -> dict[str, Any]:
         lambda: {"total": 0, "with_trace": 0}
     )
     for metric in metrics:
-        operation = metric.get("operation", "unknown")
+        operation = metric.get("metric_type", "unknown")
         by_operation[operation]["total"] += 1
         if metric.get("langsmith_trace_id"):
             by_operation[operation]["with_trace"] += 1
@@ -79,7 +79,7 @@ def aggregate_traces(metrics: list[dict[str, Any]]) -> dict[str, Any]:
         lambda: {"total": 0, "with_trace": 0}
     )
     for metric in metrics:
-        step = metric.get("step", "unknown")
+        step = metric.get("step_name", "unknown")
         by_step[step]["total"] += 1
         if metric.get("langsmith_trace_id"):
             by_step[step]["with_trace"] += 1
