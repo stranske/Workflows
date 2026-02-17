@@ -141,6 +141,9 @@ workflows:
   - source: .github/workflows/reusable-pr-context.yml
     description: "Reusable PR context workflow - centralized PR data fetching via GraphQL"
 
+  - source: .github/workflows/claude-code-review.yml
+    description: "Claude Code review workflow - automated code review via Claude AI"
+
 # Files to remove from consumer repos (obsolete / harmful when present)
 removals:
   - target: .github/workflows/agents-63-issue-intake.yml

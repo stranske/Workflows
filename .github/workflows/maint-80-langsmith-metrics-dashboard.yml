@@ -75,7 +75,7 @@ jobs:
               --jq '.artifacts[] |
                 select(.name | startswith("autopilot-metrics-")) |
                 {name: .name, id: .id}' \
-              > .metrics-tmp/artifacts_$run_id.json || continue
+              > ".metrics-tmp/artifacts_${run_id}.json" || continue
 
             # Download each artifact
             while IFS= read -r artifact; do
@@ -95,7 +95,7 @@ jobs:
               rm ".metrics-tmp/${artifact_name}.zip"
 
               COUNT=$((COUNT + 1))
-            done < .metrics-tmp/artifacts_$run_id.json
+            done < ".metrics-tmp/artifacts_${run_id}.json"
           done < .metrics-tmp/run_ids.txt
 
           echo "✅ Downloaded $COUNT metrics artifacts"
@@ -113,11 +113,11 @@ jobs:
           if [ ! -f .metrics-tmp/combined-metrics.ndjson ] || \
              [ ! -s .metrics-tmp/combined-metrics.ndjson ]; then
             echo "⚠️ No metrics data found"
-            echo "REPORT_AVAILABLE=false" >> $GITHUB_ENV
+            echo "REPORT_AVAILABLE=false" >> "$GITHUB_ENV"
             exit 0
           fi
 
-          echo "REPORT_AVAILABLE=true" >> $GITHUB_ENV
+          echo "REPORT_AVAILABLE=true" >> "$GITHUB_ENV"
 
           # Generate markdown report
           python scripts/aggregate_metrics.py \

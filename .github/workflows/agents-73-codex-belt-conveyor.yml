@@ -49,10 +49,10 @@ permissions:
 concurrency:
   group: >-
     ${{
-      toLower(inputs.agent_key || 'codex') == 'codex'
+      (inputs.agent_key || 'codex') == 'codex'
         && format('codex-belt-conveyor-{0}', inputs.branch || format('issue-{0}', inputs.issue) || github.run_id)
         || format('belt-{0}-conveyor-{1}',
-          toLower(inputs.agent_key || 'codex'),
+          inputs.agent_key || 'codex',
           inputs.branch || format('issue-{0}', inputs.issue) || github.run_id
         )
     }}
