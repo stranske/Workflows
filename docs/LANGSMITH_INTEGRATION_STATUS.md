@@ -13,10 +13,12 @@ LangSmith tracing infrastructure is now **✅ 100% COMPLETE (8 of 8 tasks)**. Th
 - ✅ Workflow extraction and logging via GitHub notices
 - ✅ PR comments with clickable trace URLs
 - ✅ Metrics aggregation script for trace coverage analysis
-- ✅ Comprehensive unit tests (20/20 passing)
+- ✅ Comprehensive unit tests passing (as of 2026-02-17)
 - ✅ End-to-end validation via code inspection and test execution
 
-**Status:** Production-ready. See [E2E Validation Report](./LANGSMITH_E2E_VALIDATION.md) for detailed validation results.
+**Status:** Implementation complete. Live smoke test recommended.
+See [E2E Validation Report](./LANGSMITH_E2E_VALIDATION.md) for detailed
+validation results.
 
 ---
 
@@ -232,15 +234,16 @@ python scripts/aggregate_metrics.py metrics.ndjson --format markdown
 
 ---
 
-## 🚀 Integration Complete - Optional Follow-Ups
+## 🚀 Integration Complete - Recommended Follow-Ups
 
-**Status:** ✅ All tasks complete. Integration is production-ready.
+**Status:** ✅ All tasks complete. Live smoke test recommended.
 
-**Optional post-deployment activities:**
+**Recommended next steps:**
 
-1. **Live smoke test (optional):**
+1. **Live smoke test (recommended):**
    - Manually trigger verifier on a merged PR to observe traces in production
    - Verify traces appear in LangSmith dashboard
+   - Confirm runtime wiring (secrets, dispatch inputs, comment emission)
 
 2. **Metrics dashboard (future enhancement):**
    - Create weekly workflow using `scripts/aggregate_metrics.py`
@@ -303,6 +306,7 @@ Issue #974 is complete when:
 - [x] PR comments show clickable trace URLs (via GitHub notices + comment formatting)
 - [x] `scripts/aggregate_metrics.py` computes trace coverage
 - [x] Unit tests validate extraction logic
-- [x] End-to-end validation confirms full pipeline (completed via code inspection + tests)
+- [x] Static validation confirms implementation (code inspection + unit tests)
+- [ ] Live smoke test confirms runtime wiring (recommended before production use)
 
-**✅ ALL CRITERIA MET - Issue #974 is COMPLETE**
+**✅ IMPLEMENTATION COMPLETE - Live smoke test recommended**

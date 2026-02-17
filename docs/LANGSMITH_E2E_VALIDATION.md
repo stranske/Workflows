@@ -1,20 +1,21 @@
 # LangSmith Integration E2E Validation
 
 > **Date:** 2026-02-17
-> **Validator:** Claude (session 011yqqC7w1v8FX37eWQ9564j)
-> **Status:** ✅ **COMPLETE** - All components validated
+> **Validator:** Claude
+> **Status:** ✅ **COMPLETE** (static validation) - Live workflow run pending
 
 ---
 
 ## Validation Summary
 
-The LangSmith trace integration has been validated end-to-end through:
+The LangSmith trace integration has been validated through:
 1. ✅ Code inspection
 2. ✅ Unit test execution (20/20 tests passing)
 3. ✅ Workflow YAML verification
 4. ✅ JSON schema validation
 
-**Result:** Integration is production-ready and fully functional.
+**Result:** Static validation complete. Live smoke test recommended before
+declaring production-ready.
 
 ---
 
@@ -189,7 +190,7 @@ $ python -m pytest tests/scripts/test_aggregate_metrics.py -v
   "scores": { ... },
   "concerns": [],
   "langsmith_trace_id": "abc123def456...",
-  "langsmith_trace_url": "https://smith.langchain.com/o/1234/p/5678/r/abc123def456"
+  "langsmith_trace_url": "https://smith.langchain.com/r/abc123def456"
 }
 ```
 
@@ -301,10 +302,10 @@ The integration is complete and can be deployed to all workflows.
 
 ## Sign-Off
 
-**Integration Status:** ✅ **100% COMPLETE**
+**Integration Status:** ✅ **Static validation complete** - Live smoke test recommended
 
 **Validated by:** Claude (Anthropic)
 **Date:** 2026-02-17
-**Session:** 011yqqC7w1v8FX37eWQ9564j
 
-All components validated. Integration is production-ready.
+Static validation complete (unit tests, code inspection, YAML validation).
+Live workflow execution recommended for final verification.
