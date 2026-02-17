@@ -32,7 +32,8 @@ def _resolve_chat_prompt_template() -> Any | None:
     except ImportError:  # pragma: no cover - handled by caller
         return None
 
-    return imported
+    ChatPromptTemplate = imported
+    return ChatPromptTemplate
 
 
 AGENT_CAPABILITY_CHECK_PROMPT = """

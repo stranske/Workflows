@@ -11,40 +11,22 @@ jobs:
     outputs:
       has_token: ${{ steps.check.outputs.has_token }}
       token_reason: ${{ steps.check.outputs.token_reason }}
-      token_status: ${{ steps.check.outputs.token_status }}
     steps:
       - id: check
-        uses: actions/github-script@v7
         env:
           CLAUDE_CODE_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-        with:
-          github-token: ${{ github.token }}
-          script: |
-            const token = process.env.CLAUDE_CODE_TOKEN || '';
-            if (!token) {
-              core.setOutput('has_token', 'false');
-              core.setOutput('token_reason', 'missing');
-              core.setOutput('token_status', 'missing');
-              return;
-            }
-
-            const { Octokit } = await import('@octokit/rest');
-            const client = new Octokit({
-              auth: token,
-              baseUrl: process.env.GITHUB_API_URL || undefined,
-            });
-
-            try {
-              await client.rest.rateLimit.get();
-              core.setOutput('has_token', 'true');
-              core.setOutput('token_reason', 'valid');
-              core.setOutput('token_status', '200');
-            } catch (error) {
-              core.warning(`Claude token validation failed: ${error.status || error.message}`);
-              core.setOutput('has_token', 'false');
-              core.setOutput('token_reason', 'invalid');
-              core.setOutput('token_status', String(error.status || 'unknown'));
-            }
+        run: |
+          if [ -n "${CLAUDE_CODE_TOKEN}" ]; then
+            {
+              echo "has_token=true"
+              echo "token_reason=configured"
+            } >>"$GITHUB_OUTPUT"
+          else
+            {
+              echo "has_token=false"
+              echo "token_reason=missing"
+            } >>"$GITHUB_OUTPUT"
+          fi
 
   claude-review:
     needs: detect-secret
@@ -84,21 +66,4 @@ jobs:
           ### Claude Code Review skipped
           The `CLAUDE_CODE_OAUTH_TOKEN` secret is not configured.
           Add it to enable automated reviews.
-          EOF
-
-  claude-review-invalid-secret:
-    needs: detect-secret
-    if: ${{ needs.detect-secret.outputs.token_reason == 'invalid' }}
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - name: Skip review (token invalid)
-        env:
-          STATUS: ${{ needs.detect-secret.outputs.token_status }}
-        run: |
-          cat <<'EOF' >>"$GITHUB_STEP_SUMMARY"
-          ### Claude Code Review skipped
-          The `CLAUDE_CODE_OAUTH_TOKEN` secret is configured but appears to be invalid (GitHub API returned status ${STATUS:-unknown}).
-          Update the token to allow automated reviews.
           EOF
