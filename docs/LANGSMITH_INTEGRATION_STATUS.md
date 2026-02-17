@@ -1,24 +1,21 @@
 # LangSmith Integration Status
 
 > **Last Updated:** 2026-02-17
-> **Branch:** MERGED to `main`
+> **Branch:** `claude/langsmith-workflow-integration-pKJUA`
 > **Related Issue:** #974
 
 ## Summary
 
-LangSmith tracing infrastructure is now **✅ 100% COMPLETE (8 of 8 tasks)**. The trace ID extraction pipeline is fully implemented and validated:
+LangSmith tracing infrastructure is now **88% complete (7 of 8 tasks)**. The trace ID extraction pipeline is fully implemented end-to-end:
 
 - ✅ Core trace extraction from LangChain responses
 - ✅ Integration in pr_verifier.py and followup_issue_generator.py
 - ✅ Workflow extraction and logging via GitHub notices
 - ✅ PR comments with clickable trace URLs
 - ✅ Metrics aggregation script for trace coverage analysis
-- ✅ Comprehensive unit tests passing (as of 2026-02-17)
-- ✅ End-to-end validation via code inspection and test execution
+- ✅ Comprehensive unit tests
 
-**Status:** Implementation complete. Live smoke test recommended.
-See [E2E Validation Report](./LANGSMITH_E2E_VALIDATION.md) for detailed
-validation results.
+**Remaining work:** End-to-end testing to verify the full pipeline in a live PR.
 
 ---
 
@@ -186,41 +183,29 @@ python scripts/aggregate_metrics.py metrics.ndjson --format markdown
 **Test coverage:** ~100% of new trace extraction code paths
 
 **Commit:** `e79572c`, aggregate_metrics tests in current PR
-<<<<<<< HEAD
-=======
 
 ---
 
 ## ⏳ Pending Work
->>>>>>> 8672004b (Claude/langsmith workflow integration p kjua (#1537))
 
 ---
 
-## ✅ Completed Components (Continued)
-
----
-
-### 8. End-to-End Validation
+### 8. End-to-End Testing
 
 **Goal:** Verify full pipeline: LLM call → trace extraction → metrics → PR comment
 
-**Validation approach:**
-1. ✅ Unit test execution (20/20 tests passing)
-2. ✅ Code inspection of all integration points
-3. ✅ YAML workflow syntax validation
-4. ✅ JSON schema verification
+**Test plan:**
+1. Trigger `reusable-agents-verifier.yml` on a test PR
+2. Verify JSON output includes `langsmith_trace_id` and `langsmith_trace_url`
+3. Verify metrics JSON includes trace fields (once workflows updated)
+4. Verify PR comment includes trace link (once comments updated)
 
-**Validation results:**
-- ✅ Trace extraction functions validated (9 unit tests)
-- ✅ PR verifier integration validated (code inspection)
-- ✅ Workflow extraction code validated (YAML inspection)
-- ✅ PR comment integration validated (YAML inspection)
-- ✅ Metrics aggregation validated (11 unit tests)
-- ✅ JSON output schema validated (code inspection)
-
-**See:** [E2E Validation Report](./LANGSMITH_E2E_VALIDATION.md) for detailed validation results.
-
-**Commit:** Validation completed 2026-02-17
+**Acceptance criteria:**
+- [ ] Trace ID appears in `evaluation.json` from pr_verifier.py
+- [ ] Trace URL is clickable and opens LangSmith dashboard
+- [ ] Metrics NDJSON includes `langsmith_trace_id` field
+- [ ] PR comment has "View evaluation trace" link
+- [ ] Weekly metrics summary shows trace coverage %
 
 ---
 
@@ -235,38 +220,14 @@ python scripts/aggregate_metrics.py metrics.ndjson --format markdown
 | PR comment trace links | ✅ Complete | e79572c |
 | Metrics aggregation script | ✅ Complete | e79572c |
 | Unit tests | ✅ Complete | e79572c |
-<<<<<<< HEAD
-| End-to-end validation | ✅ Complete | 2026-02-17 |
-
-**Overall completion:** ✅ **100% (8 of 8 tasks complete)**
-=======
 | End-to-end testing | ⏳ Pending | - |
 
 **Overall completion:** ~88% (7 of 8 tasks complete, 0 in progress, 1 pending)
->>>>>>> 8672004b (Claude/langsmith workflow integration p kjua (#1537))
 
 ---
 
-## 🚀 Integration Complete - Recommended Follow-Ups
+## 🚀 Next Steps (Priority Order)
 
-<<<<<<< HEAD
-**Status:** ✅ All tasks complete. Live smoke test recommended.
-
-**Recommended next steps:**
-
-1. **Live smoke test (recommended):**
-   - Manually trigger verifier on a merged PR to observe traces in production
-   - Verify traces appear in LangSmith dashboard
-   - Confirm runtime wiring (secrets, dispatch inputs, comment emission)
-
-2. **Metrics dashboard (future enhancement):**
-   - Create weekly workflow using `scripts/aggregate_metrics.py`
-   - Report trace coverage % to team
-
-3. **Cost monitoring:**
-   - Track LangSmith API usage via their dashboard
-   - Set up alerts for usage thresholds
-=======
 1. **End-to-end test (FINAL TASK):**
    - Trigger verifier workflow on a test PR
    - Verify trace URLs appear in GitHub notices
@@ -275,7 +236,6 @@ python scripts/aggregate_metrics.py metrics.ndjson --format markdown
    - Validate metrics aggregation on real data
 
 **Note:** All implementation work is complete. Only end-to-end validation remains.
->>>>>>> 8672004b (Claude/langsmith workflow integration p kjua (#1537))
 
 ---
 
@@ -330,11 +290,4 @@ Issue #974 is complete when:
 - [x] PR comments show clickable trace URLs (via GitHub notices + comment formatting)
 - [x] `scripts/aggregate_metrics.py` computes trace coverage
 - [x] Unit tests validate extraction logic
-<<<<<<< HEAD
-- [x] Static validation confirms implementation (code inspection + unit tests)
-- [ ] Live smoke test confirms runtime wiring (recommended before production use)
-
-**✅ IMPLEMENTATION COMPLETE - Live smoke test recommended**
-=======
 - [ ] End-to-end test confirms full pipeline (pending live PR test)
->>>>>>> 8672004b (Claude/langsmith workflow integration p kjua (#1537))
