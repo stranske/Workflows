@@ -219,6 +219,8 @@ class EvaluationResult(BaseModel):
     raw_content: str | None = None
     error: str | None = None
     change_type: Literal["infrastructure", "application", "mixed"] | None = None
+    langsmith_trace_id: str | None = None
+    langsmith_trace_url: str | None = None
 
 
 class EvaluationPayload(BaseModel):
@@ -311,7 +313,7 @@ class ComparisonRunner:
 
     def run_single(self, client: object, provider: str, model: str) -> EvaluationResult:
         try:
-            response = _invoke_llm(
+            response, trace_id, trace_url = _invoke_llm(
                 client,
                 self.prompt,
                 operation="evaluate_pr_compare",
@@ -325,6 +327,8 @@ class ComparisonRunner:
         content = getattr(response, "content", None) or str(response)
         result = _parse_llm_response(content, provider, client=client)
         result.model = model
+        result.langsmith_trace_id = trace_id
+        result.langsmith_trace_url = trace_url
         return result
 
 
@@ -497,7 +501,12 @@ def _invoke_llm(
     context: str | None = None,
     pr_number: int | None = None,
     issue_number: int | None = None,
-) -> object:
+) -> tuple[object, str | None, str | None]:
+    """Invoke LLM and extract trace information.
+
+    Returns:
+        Tuple of (response, trace_id, trace_url)
+    """
     config = _build_llm_config(
         operation=operation,
         context=context,
@@ -505,13 +514,30 @@ def _invoke_llm(
         issue_number=issue_number,
     )
     try:
-        return client.invoke(prompt, config=config)
+        response = client.invoke(prompt, config=config)
     except TypeError as exc:
         LOGGER.warning(
             "LLM invoke failed with config/metadata; using config/metadata fallback. Error: %s",
             exc,
         )
-        return client.invoke(prompt)
+        response = client.invoke(prompt)
+
+    # Extract trace ID from response if available
+    trace_id = None
+    trace_url = None
+    try:
+        from tools.llm_provider import derive_langsmith_trace_url, extract_trace_id
+
+        trace_id = extract_trace_id(response)
+        if trace_id:
+            trace_url = derive_langsmith_trace_url(trace_id)
+            LOGGER.info(f"LangSmith trace: {trace_url}")
+    except ImportError:
+        LOGGER.debug("tools.llm_provider not available for trace extraction")
+    except Exception as exc:
+        LOGGER.debug(f"Failed to extract trace ID: {exc}")
+
+    return response, trace_id, trace_url
 
 
 def _format_scores(scores: EvaluationScores | None) -> list[str]:
@@ -696,8 +722,9 @@ def evaluate_pr(
     prompt = _prepare_prompt(context, diff)
     change_type = _classify_change_type(diff)
     pr_number, _ = _extract_pr_metadata(context)
+    trace_id, trace_url = None, None
     try:
-        response = _invoke_llm(
+        response, trace_id, trace_url = _invoke_llm(
             client,
             prompt,
             operation="evaluate_pr",
@@ -712,7 +739,7 @@ def evaluate_pr(
             if fallback_resolved is not None:
                 fallback_client, fallback_provider_name = fallback_resolved
                 try:
-                    response = _invoke_llm(
+                    response, trace_id, trace_url = _invoke_llm(
                         fallback_client,
                         prompt,
                         operation="evaluate_pr_fallback",
@@ -736,9 +763,13 @@ def evaluate_pr(
                             error=f"Primary provider ({provider_name}) failed, used fallback",
                             raw_content=result.raw_content,
                             change_type=change_type,
+                            langsmith_trace_id=trace_id,
+                            langsmith_trace_url=trace_url,
                         )
                     else:
                         result.change_type = change_type
+                        result.langsmith_trace_id = trace_id
+                        result.langsmith_trace_url = trace_url
                     return result
                 except Exception as fallback_exc:
                     result = _fallback_evaluation(
@@ -754,6 +785,8 @@ def evaluate_pr(
     content = getattr(response, "content", None) or str(response)
     result = _parse_llm_response(content, provider_name, client=client)
     result.change_type = change_type
+    result.langsmith_trace_id = trace_id
+    result.langsmith_trace_url = trace_url
     return result
 
 
