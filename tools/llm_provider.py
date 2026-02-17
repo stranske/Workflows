@@ -92,7 +92,12 @@ def build_langsmith_metadata(
     ``langsmith_project`` entry so traces group correctly.
     """
     repo = repo or os.environ.get("GITHUB_REPOSITORY", "unknown")
-    run_id = run_id or os.environ.get("GITHUB_RUN_ID") or os.environ.get("RUN_ID") or "unknown"
+    run_id = (
+        run_id
+        or os.environ.get("GITHUB_RUN_ID")
+        or os.environ.get("RUN_ID")
+        or "unknown"
+    )
 
     if issue_or_pr_number is None:
         if pr_number is not None:
