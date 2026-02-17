@@ -49,10 +49,10 @@ permissions:
 concurrency:
   group: >-
     ${{
-      (inputs.agent_key || 'codex') == 'codex'
+      toLower(inputs.agent_key || 'codex') == 'codex'
         && format('codex-belt-conveyor-{0}', inputs.branch || format('issue-{0}', inputs.issue) || github.run_id)
         || format('belt-{0}-conveyor-{1}',
-          inputs.agent_key || 'codex',
+          toLower(inputs.agent_key || 'codex'),
           inputs.branch || format('issue-{0}', inputs.issue) || github.run_id
         )
     }}
@@ -168,10 +168,11 @@ jobs:
         uses: actions/checkout@v6
         with:
           sparse-checkout: |
-            .github/agents/registry.yml
             .github/actions/setup-api-client
+            .github/agents/registry.yml
             .github/scripts/agent_registry.js
             .github/scripts/github-api-with-retry.js
+            .github/scripts/token_load_balancer.js
           sparse-checkout-cone-mode: false
 
       - name: Setup API client

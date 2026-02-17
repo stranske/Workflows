@@ -91,7 +91,7 @@ permissions:
   actions: write
 
 concurrency:
-  group: codex-belt-${{ inputs.branch || format('issue-{0}', inputs.issue) || github.run_id }}
+  group: belt-${{ inputs.agent_key || 'codex' }}-${{ inputs.branch || format('issue-{0}', inputs.issue) || github.run_id }}
   cancel-in-progress: true
 
 jobs:
@@ -300,7 +300,7 @@ jobs:
         uses: ./.github/actions/setup-api-client
         with:
           secrets: ${{ toJSON(secrets) }}
-          github_token: ${{ env.GH_BELT_TOKEN || github.token }}
+          github_token: ${{ github.token }}
 
       - name: Resolve Workflows default branch
         id: workflows_ref
@@ -600,6 +600,33 @@ jobs:
           token: ${{ env.GH_BELT_TOKEN }}
           fetch-depth: 1
           path: .belt-tools
+
+      - name: Validate branch prefix
+        if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.keepalive_gate.outputs.action != 'skip') }}
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const { getAgentConfig } = require('./.belt-tools/.github/scripts/agent_registry.js');
+            const agentKey = String('${{ steps.ctx.outputs.agent_key }}' || 'codex').trim().toLowerCase() || 'codex';
+            const branch = String('${{ steps.ctx.outputs.branch }}' || '').trim();
+            if (!branch) {
+              core.setFailed('Missing branch context for prefix validation.');
+              return;
+            }
+            let branchPrefix = '';
+            try {
+              const config = getAgentConfig(agentKey, { registryPath: '.belt-tools/.github/agents/registry.yml' });
+              branchPrefix = String(config.branch_prefix || '').trim();
+            } catch (error) {
+              core.warning(`Failed to load agent registry for branch validation: ${error.message}`);
+            }
+            if (!branchPrefix) {
+              core.warning(`Agent ${agentKey} does not define branch_prefix; skipping branch validation.`);
+              return;
+            }
+            if (!branch.startsWith(branchPrefix)) {
+              core.setFailed(`Branch "${branch}" does not match expected prefix "${branchPrefix}" for agent ${agentKey}.`);
+            }
 
       - name: Re-install API client after branch checkout
         if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.keepalive_gate.outputs.action != 'skip') }}
