@@ -38,17 +38,26 @@ agents:
       pr_autofix: true
       verifier_checkbox: true
 
+  claude:
+    runner_workflow: .github/workflows/reusable-claude-run.yml
+    capabilities:
+      pr_keepalive: true
+      verifier_checkbox: true
+
   custom-agent:
     runner_workflow: .github/workflows/reusable-custom-run.yml
     capabilities:
       pr_keepalive: true
 ```
 
-**Label Routing**:
+**Label Routing** (works with ANY registered agent):
 - `agent:auto` → routes to `default_agent` (codex)
 - `agent:codex` → explicit routing to codex
+- `agent:claude` → explicit routing to claude
 - `agent:custom-agent` → explicit routing to custom-agent
 - Multiple agent labels → error (conflict)
+
+**Extended auto-pilot works with ALL agent labels** - it dynamically resolves the agent from labels and checks that agent's capabilities.
 
 **Capability Checks**:
 ```javascript
@@ -65,9 +74,18 @@ if (agentConfig.capabilities?.verifier_checkbox) {
 ✅ **After** (registry-based): Workflow works with any registered agent
 
 The extended auto-pilot will:
-1. Read issue labels to determine agent via `resolveAgentFromLabels()`
-2. Check agent capabilities before applying verification
-3. Use agent-specific runner workflow for follow-up work
+1. **Read issue labels** to determine agent via `resolveAgentFromLabels()`
+   - Works with `agent:auto`, `agent:codex`, `agent:claude`, `agent:custom`, etc.
+   - User can apply ANY agent label - workflow adapts dynamically
+2. **Check agent capabilities** before applying verification
+   - Not all agents may support verification (`verifier_checkbox: true` required)
+3. **Use agent-specific runner workflow** for follow-up work
+   - Each agent has its own runner workflow path in the registry
+
+**Example**: If user applies `agent:claude`, extended auto-pilot will:
+- Resolve agent → `claude`
+- Check `claude.capabilities.verifier_checkbox` → if true, apply verification
+- Use `claude.runner_workflow` for inline follow-up completions
 
 ---
 
@@ -508,11 +526,11 @@ jobs:
 
 ---
 
-## Open Questions for Review
+## Design Decisions (Finalized)
 
-### Q1: Verify Mode Selection
-**Current**: Default to `verify:compare` (thorough)
-**Alternative**: Auto-detect based on PR size/complexity
+### Q1: Verify Mode Selection ✅ AUTO-DETECT
+
+**Decision**: Auto-detect based on PR size/complexity
 
 ```yaml
 - name: Choose verify mode
@@ -522,35 +540,91 @@ jobs:
     ADDITIONS=$(gh pr view $PR --json additions --jq '.additions')
     FILES_CHANGED=$(gh pr view $PR --json changedFiles --jq '.changedFiles')
 
-    # Simple heuristic
+    # Heuristic:
+    # - Small PRs (<50 lines, <3 files) → evaluate (single LLM, 2-3 min)
+    # - Large PRs (≥50 lines or ≥3 files) → compare (dual LLM, 5-7 min)
     if [ "$ADDITIONS" -lt 50 ] && [ "$FILES_CHANGED" -lt 3 ]; then
-      MODE="evaluate"  # Quick verification
+      MODE="evaluate"
     else
-      MODE="compare"   # Thorough verification
+      MODE="compare"
     fi
 
     echo "mode=$MODE" >> $GITHUB_OUTPUT
 ```
 
-**Your preference?**
+**Rationale**: Optimize for speed when appropriate, thoroughness when needed.
 
-### Q2: Inline Completion Timeout
-**Current**: 15 minutes for inline task completion
-**Alternative**: Scale based on task count (5 min per task)
+### Q2: Inline Completion Timeout ✅ SCALE BY TASK COUNT
 
-**Your preference?**
+**Decision**: Scale based on task count (5 minutes per task)
 
-### Q3: Bot Review Timeout
-**Current**: 10 minutes, then proceed to merge
-**Alternative**: 10 minutes, then apply `needs-human` (don't merge with unresolved reviews)
+```yaml
+- name: Set inline timeout
+  run: |
+    TASK_COUNT=$(gh pr view $PR --json comments --jq '
+      .comments[] |
+      select(.body | contains("Verification")) |
+      .body | scan("- \\[ \\]") | length
+    ')
 
-**Your preference?**
+    TIMEOUT=$((TASK_COUNT * 5))  # 5 min per task
+    TIMEOUT=$((TIMEOUT < 10 ? 10 : TIMEOUT))  # Min 10 min
+    TIMEOUT=$((TIMEOUT > 30 ? 30 : TIMEOUT))  # Max 30 min
 
-### Q4: Chain Depth Inheritance
-**Current**: Parse issue body for "Part of #XXX"
-**Alternative**: Use issue metadata/labels (requires state tracking)
+    echo "timeout=$TIMEOUT" >> $GITHUB_OUTPUT
+```
 
-**Your preference?**
+**Rationale**: Scales with complexity, prevents premature timeout on multi-task fixes.
+
+### Q3: Bot Review Timeout ✅ APPLY NEEDS-HUMAN
+
+**Decision**: 10 minutes, then apply `needs-human` (don't merge with unresolved reviews)
+
+```yaml
+- name: Wait for bot reviews
+  timeout-minutes: 10
+  continue-on-error: true
+  id: bot_wait
+  run: |
+    # ... polling logic ...
+
+- name: Handle timeout
+  if: steps.bot_wait.outcome == 'failure'
+  run: |
+    gh pr edit $PR --add-label "needs-human"
+    gh pr comment $PR --body "⚠️ Bot review threads remain unresolved after 10 minutes.
+
+    Please manually resolve before merging."
+    exit 1  # Don't proceed to merge
+```
+
+**Rationale**: Safety over speed. Unresolved bot comments may indicate real issues.
+
+### Q4: Chain Depth Tracking ✅ PARSE ISSUE BODY
+
+**Decision**: Parse issue body for "Part of #XXX"
+
+```yaml
+- name: Calculate chain depth
+  id: depth
+  run: |
+    BODY=$(gh issue view $ISSUE --json body --jq '.body')
+
+    # Count "Part of #XXX" occurrences
+    DEPTH=$(echo "$BODY" | grep -o "Part of #[0-9]\+" | wc -l)
+
+    echo "depth=$DEPTH" >> $GITHUB_OUTPUT
+
+    # Enforce limit
+    if [ "$DEPTH" -ge 2 ]; then
+      echo "Chain depth limit reached (depth=$DEPTH, max=2)"
+      echo "exceeds_limit=true" >> $GITHUB_OUTPUT
+    else
+      echo "exceeds_limit=false" >> $GITHUB_OUTPUT
+    fi
+```
+
+**Rationale**: Simple, stateless, works with existing issue format. No new infrastructure needed.
 
 ---
 
