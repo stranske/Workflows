@@ -40,7 +40,7 @@ jobs:
     steps:
       - name: Skip review (secret missing)
         run: |
-          cat <<'EOF' >>"$GITHUB_STEP_SUMMARY"
+          cat <<'MSG' >>"$GITHUB_STEP_SUMMARY"
           ### Claude Code Review skipped
           The `CLAUDE_CODE_OAUTH_TOKEN` secret is not configured. Add it to enable automated reviews.
-          EOF
+          MSG
