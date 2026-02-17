@@ -21,7 +21,11 @@ jobs:
       contents: read
     env:
       REGISTRY: ${{ vars.REGISTRY || 'ghcr.io' }}
-      IMAGE_NAME: ${{ vars.IMAGE_NAME || format('{0}/{1}', github.repository_owner, 'trend-model') }}
+      IMAGE_NAME: >-
+        ${{
+          vars.IMAGE_NAME ||
+          format('{0}/{1}', github.repository_owner, 'trend-model')
+        }}
       HEALTH_PORT: ${{ vars.HEALTH_PORT || '8501' }}
       HEALTH_PATH: ${{ vars.HEALTH_PATH || '/_stcore/health' }}
     steps:
@@ -55,11 +59,16 @@ jobs:
         run: |
           set -euo pipefail
           container_name="trend-model-smoke"
+          image_ref="${REGISTRY}/${IMAGE_NAME}:pr"
+          health_url="http://127.0.0.1:${HEALTH_PORT}${HEALTH_PATH}"
           docker rm -f "$container_name" >/dev/null 2>&1 || true
-          docker run -d --rm --name "$container_name" -p "${HEALTH_PORT}:${HEALTH_PORT}" "${REGISTRY}/${IMAGE_NAME}:pr" >/dev/null
+            docker run -d --rm \
+              --name "$container_name" \
+              -p "${HEALTH_PORT}:${HEALTH_PORT}" \
+              "$image_ref" >/dev/null
           trap 'docker rm -f "$container_name" >/dev/null 2>&1 || true' EXIT
           for attempt in $(seq 1 10); do
-            if curl --fail --silent --max-time 2 "http://127.0.0.1:${HEALTH_PORT}${HEALTH_PATH}" >/dev/null; then
+            if curl --fail --silent --max-time 2 "$health_url" >/dev/null; then
               echo "Health check passed"
               exit 0
             fi

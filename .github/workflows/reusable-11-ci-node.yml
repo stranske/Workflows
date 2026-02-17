@@ -205,7 +205,13 @@ jobs:
     env:
       WORKDIR: ${{ inputs['working-directory'] || '.' }}
       WORKSPACE_ROOT: ${{ github.workspace }}
-      PROJECT_ROOT: ${{ inputs['working-directory'] != '' && inputs['working-directory'] != '.' && format('{0}/{1}', github.workspace, inputs['working-directory']) || github.workspace }}
+      PROJECT_ROOT: >-
+        ${{
+          inputs['working-directory'] != ''
+          && inputs['working-directory'] != '.'
+          && format('{0}/{1}', github.workspace, inputs['working-directory'])
+          || github.workspace
+        }}
     steps:
       # Mint GitHub App token early to use for API calls (avoids rate limits)
       - name: Mint GitHub App Token
@@ -228,7 +234,18 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node-version }}
-          cache: ${{ inputs.cache && (inputs['package-manager'] == 'pnpm' && 'pnpm' || inputs['package-manager'] == 'yarn' && 'yarn' || 'npm') || '' }}
+          cache: >-
+            ${{
+              inputs.cache
+              && (
+                inputs['package-manager'] == 'pnpm'
+                && 'pnpm'
+                || inputs['package-manager'] == 'yarn'
+                && 'yarn'
+                || 'npm'
+              )
+              || ''
+            }}
           cache-dependency-path: |
             ${{ inputs['working-directory'] || '.' }}/package-lock.json
             ${{ inputs['working-directory'] || '.' }}/pnpm-lock.yaml
@@ -306,9 +323,15 @@ jobs:
               else
                 coverage_flags=()
                 if [ "${COVERAGE_ENABLED}" = "true" ]; then
-                  coverage_flags+=(--coverage --coverageReporters=text --coverageReporters=json-summary --coverageReporters=cobertura --coverageReporters=lcov)
+                  coverage_flags+=(--coverage)
+                  coverage_flags+=(--coverageReporters=text)
+                  coverage_flags+=(--coverageReporters=json-summary)
+                  coverage_flags+=(--coverageReporters=cobertura)
+                  coverage_flags+=(--coverageReporters=lcov)
                 fi
-                npm run test --if-present -- --runInBand "${coverage_flags[@]}" || npx jest --runInBand "${coverage_flags[@]}"
+                if ! npm run test --if-present -- --runInBand "${coverage_flags[@]}"; then
+                  npx jest --runInBand "${coverage_flags[@]}"
+                fi
               fi
               ;;
             pnpm)
@@ -317,9 +340,15 @@ jobs:
               else
                 coverage_flags=()
                 if [ "${COVERAGE_ENABLED}" = "true" ]; then
-                  coverage_flags+=(--coverage --coverageReporters=text --coverageReporters=json-summary --coverageReporters=cobertura --coverageReporters=lcov)
+                  coverage_flags+=(--coverage)
+                  coverage_flags+=(--coverageReporters=text)
+                  coverage_flags+=(--coverageReporters=json-summary)
+                  coverage_flags+=(--coverageReporters=cobertura)
+                  coverage_flags+=(--coverageReporters=lcov)
                 fi
-                pnpm run test --if-present -- --runInBand "${coverage_flags[@]}" || pnpm exec jest --runInBand "${coverage_flags[@]}"
+                if ! pnpm run test --if-present -- --runInBand "${coverage_flags[@]}"; then
+                  pnpm exec jest --runInBand "${coverage_flags[@]}"
+                fi
               fi
               ;;
             yarn)
@@ -328,9 +357,15 @@ jobs:
               else
                 coverage_flags=()
                 if [ "${COVERAGE_ENABLED}" = "true" ]; then
-                  coverage_flags+=(--coverage --coverageReporters=text --coverageReporters=json-summary --coverageReporters=cobertura --coverageReporters=lcov)
+                  coverage_flags+=(--coverage)
+                  coverage_flags+=(--coverageReporters=text)
+                  coverage_flags+=(--coverageReporters=json-summary)
+                  coverage_flags+=(--coverageReporters=cobertura)
+                  coverage_flags+=(--coverageReporters=lcov)
                 fi
-                yarn run test --if-present --runInBand "${coverage_flags[@]}" || yarn exec jest --runInBand "${coverage_flags[@]}"
+                if ! yarn run test --if-present --runInBand "${coverage_flags[@]}"; then
+                  yarn exec jest --runInBand "${coverage_flags[@]}"
+                fi
               fi
               ;;
           esac

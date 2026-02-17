@@ -727,20 +727,72 @@ jobs:
             --input-file /tmp/issue_body.md \
             --json > /tmp/format_result.json
 
-          # Extract and apply formatted body
+          # Check for guard_blocked before proceeding
           python -c "
-          import json
+          import json, sys
           with open('/tmp/format_result.json') as f:
               result = json.load(f)
+          if result.get('guard_blocked'):
+              reason = result.get('guard_reason', 'unknown')
+              print(f'GUARD_BLOCKED: {reason}')
+              with open('/tmp/guard_blocked', 'w') as f:
+                  f.write(reason)
+              sys.exit(0)
           formatted = result.get('formatted_body', '')
           if not formatted:
               print('ERROR: No formatted body returned')
-              import sys
               sys.exit(1)
           with open('/tmp/formatted_body.md', 'w') as f:
               f.write(formatted)
           print('Issue formatted successfully')
           " || exit 1
+
+          # If guard blocked, apply needs-human + pause labels and stop
+          if [ -f /tmp/guard_blocked ]; then
+            echo "⚠️ Prompt injection guard blocked this issue. Applying needs-human labels."
+            node - <<'GUARD_NODE'
+            (async () => {
+              const fs = require('fs');
+              const { Octokit } = require('@octokit/rest');
+              const retryLib = require('./.github/scripts/github-api-with-retry.js');
+              const { createTokenAwareRetry } = retryLib;
+              const core = { info: () => {}, warning: console.warn, debug: () => {} };
+              const github = new Octokit({ auth: process.env.GITHUB_TOKEN });
+              const { withRetry } = await createTokenAwareRetry({
+                github,
+                core,
+                env: process.env,
+                task: 'auto-pilot',
+                capabilities: ['issues:write'],
+              });
+              const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
+              const issueNumber = Number(process.env.ISSUE_NUMBER);
+              const reason = fs.readFileSync('/tmp/guard_blocked', 'utf8').trim();
+              await withRetry((client) => client.rest.issues.addLabels({
+                owner, repo, issue_number: issueNumber,
+                labels: ['needs-human', 'agents:auto-pilot-pause'],
+              }));
+              await withRetry((client) => client.rest.issues.createComment({
+                owner, repo, issue_number: issueNumber,
+                body: [
+                  '⚠️ **Prompt injection guard triggered** during formatting.',
+                  '',
+                  `Reason: ${reason}`,
+                  '',
+                  (
+                    'Automation has been paused. ' +
+                    'A human must review this issue before automation can continue.'
+                  ),
+                ].join('\n'),
+              }));
+            })().catch((error) => {
+              console.error(error);
+              process.exit(1);
+            });
+          GUARD_NODE
+            echo "🛑 Automation stopped due to prompt injection guard."
+            exit 0
+          fi
 
           # Update issue body
           node - <<'NODE'
@@ -927,6 +979,67 @@ jobs:
           python scripts/langchain/issue_optimizer.py \
             --input-file /tmp/issue_body.md \
             --json > /tmp/suggestions.json
+
+          # Check for guard_blocked before proceeding with optimizer results
+          python -c "
+          import json, sys
+          with open('/tmp/suggestions.json') as f:
+              data = json.load(f)
+          if data.get('guard_blocked'):
+              reason = data.get('guard_reason', 'unknown')
+              print(f'GUARD_BLOCKED: {reason}')
+              with open('/tmp/guard_blocked', 'w') as f:
+                  f.write(reason)
+              sys.exit(0)
+          "
+
+          # If guard blocked, apply needs-human + pause labels and stop
+          if [ -f /tmp/guard_blocked ]; then
+            echo "⚠️ Prompt injection guard blocked this issue. Applying needs-human labels."
+            node - <<'GUARD_NODE'
+            (async () => {
+              const fs = require('fs');
+              const { Octokit } = require('@octokit/rest');
+              const retryLib = require('./.github/scripts/github-api-with-retry.js');
+              const { createTokenAwareRetry } = retryLib;
+              const core = { info: () => {}, warning: console.warn, debug: () => {} };
+              const github = new Octokit({ auth: process.env.GITHUB_TOKEN });
+              const { withRetry } = await createTokenAwareRetry({
+                github,
+                core,
+                env: process.env,
+                task: 'auto-pilot',
+                capabilities: ['issues:write'],
+              });
+              const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
+              const issueNumber = Number(process.env.ISSUE_NUMBER);
+              const reason = fs.readFileSync('/tmp/guard_blocked', 'utf8').trim();
+              await withRetry((client) => client.rest.issues.addLabels({
+                owner, repo, issue_number: issueNumber,
+                labels: ['needs-human', 'agents:auto-pilot-pause'],
+              }));
+              await withRetry((client) => client.rest.issues.createComment({
+                owner, repo, issue_number: issueNumber,
+                body: [
+                  '⚠️ **Prompt injection guard triggered** during optimization.',
+                  '',
+                  `Reason: ${reason}`,
+                  '',
+                  (
+                    'Automation has been paused. ' +
+                    'A human must review this issue before automation can continue.'
+                  ),
+                ].join('\n'),
+              }));
+            })().catch((error) => {
+              console.error(error);
+              process.exit(1);
+            });
+          GUARD_NODE
+            echo "🛑 Automation stopped due to prompt injection guard."
+            echo "stop_autopilot=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
 
           # Format and post comment
           python -c "
@@ -1250,11 +1363,67 @@ jobs:
           # Apply suggestions
           result = apply_suggestions(issue_body, suggestions, use_llm=True)
 
+          # Check for guard_blocked
+          if result.get('guard_blocked'):
+              reason = result.get('guard_reason', 'unknown')
+              print(f'GUARD_BLOCKED: {reason}')
+              with open('/tmp/guard_blocked', 'w') as f:
+                  f.write(reason)
+              sys.exit(0)
+
           with open('/tmp/updated_body.md', 'w') as f:
               f.write(result['formatted_body'])
 
           print('Suggestions applied successfully')
           " || exit 1
+
+          # If guard blocked during apply, apply needs-human + pause labels and stop
+          if [ -f /tmp/guard_blocked ]; then
+            echo "⚠️ Prompt injection guard blocked during apply step."
+            node - <<'GUARD_NODE'
+            (async () => {
+              const fs = require('fs');
+              const { Octokit } = require('@octokit/rest');
+              const retryLib = require('./.github/scripts/github-api-with-retry.js');
+              const { createTokenAwareRetry } = retryLib;
+              const core = { info: () => {}, warning: console.warn, debug: () => {} };
+              const github = new Octokit({ auth: process.env.GITHUB_TOKEN });
+              const { withRetry } = await createTokenAwareRetry({
+                github,
+                core,
+                env: process.env,
+                task: 'auto-pilot',
+                capabilities: ['issues:write'],
+              });
+              const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
+              const issueNumber = Number(process.env.ISSUE_NUMBER);
+              const reason = fs.readFileSync('/tmp/guard_blocked', 'utf8').trim();
+              await withRetry((client) => client.rest.issues.addLabels({
+                owner, repo, issue_number: issueNumber,
+                labels: ['needs-human', 'agents:auto-pilot-pause'],
+              }));
+              await withRetry((client) => client.rest.issues.createComment({
+                owner, repo, issue_number: issueNumber,
+                body: [
+                  '⚠️ **Prompt injection guard triggered** during apply step.',
+                  '',
+                  `Reason: ${reason}`,
+                  '',
+                  (
+                    'Automation has been paused. ' +
+                    'A human must review this issue before automation can continue.'
+                  ),
+                ].join('\n'),
+              }));
+            })().catch((error) => {
+              console.error(error);
+              process.exit(1);
+            });
+          GUARD_NODE
+            echo "🛑 Automation stopped due to prompt injection guard."
+            echo "stop_autopilot=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
 
           # Update issue body
           node - <<'NODE'
@@ -1541,14 +1710,12 @@ jobs:
             try {
               const { loadAgentRegistry } = require('./.github/scripts/agent_registry.js');
               const registry = loadAgentRegistry();
-              agentKey = String(registry.default_agent || agentKey)
-                .trim()
-                .toLowerCase() || agentKey;
-            } catch (error) {
-              core.warning(
-                `Failed to load agent registry; defaulting to ${agentKey}: ${error.message}`
-              );
-            }
+              const defaultAgent = registry.default_agent || agentKey;
+              agentKey = String(defaultAgent).trim().toLowerCase() || agentKey;
+              } catch (error) {
+                const prefix = `Failed to load agent registry; defaulting to ${agentKey}:`;
+                core.warning(`${prefix} ${error.message}`);
+              }
 
             await withRetry((client) => client.rest.issues.createComment({
               owner: context.repo.owner,
@@ -1599,13 +1766,10 @@ jobs:
                   dry_run: 'false'
                 }
               }));
-              core.info(
-                `Dispatched belt dispatcher (agent: ${agentKey}) for issue #${issueNumber}`
-              );
+              const prefix = `Dispatched belt dispatcher (agent: ${agentKey}) for issue`;
+              core.info(`${prefix} #${issueNumber}`);
             } catch (dispatchError) {
-              core.warning(
-                `Could not dispatch belt dispatcher: ${dispatchError?.message}`
-              );
+              core.warning(`Could not dispatch belt dispatcher: ${dispatchError?.message}`);
             }
 
       - name: Metrics - End capability check timer
@@ -1659,8 +1823,9 @@ jobs:
               env: process.env,
               task: 'auto-pilot-verify',
               capabilities: ['issues:write', 'pulls:read']
-            });
-            const issueNumber = parseInt(process.env.ISSUE_NUMBER);
+              }));
+              const prefix = `Dispatched belt dispatcher (agent: ${agentKey}) for issue`;
+              core.info(`${prefix} #${issueNumber}`);
 
             // Find the merged PR for this issue
             // Look for PRs with the meta marker or explicit closing reference
@@ -1805,20 +1970,16 @@ jobs:
             let agentKey = 'codex';
             let branchPrefix = 'codex/issue-';
             try {
-              const {
-                loadAgentRegistry,
-                getAgentConfig,
-              } = require('./.github/scripts/agent_registry.js');
+              const registryLib = require('./.github/scripts/agent_registry.js');
+              const { loadAgentRegistry, getAgentConfig } = registryLib;
               const registry = loadAgentRegistry();
-              agentKey = String(registry.default_agent || agentKey)
-                .trim()
-                .toLowerCase() || agentKey;
+              const defaultAgent = registry.default_agent || agentKey;
+              agentKey = String(defaultAgent).trim().toLowerCase() || agentKey;
               const cfg = getAgentConfig(agentKey);
               branchPrefix = String(cfg.branch_prefix || branchPrefix);
             } catch (error) {
-              core.warning(
-                `Failed to load agent registry; defaulting branch prefix: ${error.message}`
-              );
+              const prefix = 'Failed to load agent registry; defaulting branch prefix:';
+              core.warning(`${prefix} ${error.message}`);
             }
 
             const branchName = `${branchPrefix}${issueNumber}`;
@@ -2648,6 +2809,9 @@ jobs:
         if: |
           steps.context.outputs.should_continue == 'true' &&
           steps.cycles.outputs.exceeded != 'true' &&
+          steps.format_step.outputs.stop_autopilot != 'true' &&
+          steps.optimize_step.outputs.stop_autopilot != 'true' &&
+          steps.apply_step.outputs.stop_autopilot != 'true' &&
           steps.create_pr_step.outputs.stop_autopilot != 'true' &&
           steps.monitor_pr_step.outputs.stop_autopilot != 'true' &&
           contains(

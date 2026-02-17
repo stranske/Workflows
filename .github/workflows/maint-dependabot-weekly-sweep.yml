@@ -26,7 +26,44 @@ jobs:
 
       - name: Load registered consumer repos
         run: |
-          repos=$(awk '/REGISTERED_CONSUMER_REPOS: \|/{flag=1;next} flag && /^[^[:space:]]/{flag=0} flag{line=$0; sub(/^[[:space:]]+/,"",line); if(length(line)>0) print line}' .github/workflows/maint-68-sync-consumer-repos.yml)
+          repos=$(python - <<'PY'
+          from __future__ import annotations
+
+          import re
+          from pathlib import Path
+
+          path = Path('.github/workflows/maint-68-sync-consumer-repos.yml')
+          lines = path.read_text(encoding='utf-8').splitlines()
+
+          start_index = None
+          for index, line in enumerate(lines):
+            if re.search(r'\bREGISTERED_CONSUMER_REPOS\s*:\s*\|\s*$', line):
+              start_index = index + 1
+              break
+
+          if start_index is None:
+            raise SystemExit('Could not find REGISTERED_CONSUMER_REPOS: | block')
+
+          block_indent = None
+          repos: list[str] = []
+          for raw_line in lines[start_index:]:
+            if raw_line.strip() == '':
+              continue
+
+            indent = len(raw_line) - len(raw_line.lstrip(' '))
+            if block_indent is None:
+              block_indent = indent
+
+            if indent < (block_indent or 0):
+              break
+
+            value = raw_line.strip()
+            if value:
+              repos.append(value)
+
+          print('\n'.join(repos))
+          PY
+          )
           {
             echo "REGISTERED_CONSUMER_REPOS<<EOF"
             echo "$repos"
@@ -50,7 +87,13 @@ jobs:
 
           while read -r repo; do
             echo "=== ${repo} ==="
-            prs=$(gh pr list --repo "$repo" --author app/dependabot --state open --json number --jq '.[].number' || true)
+              prs=$(gh pr list \
+                --repo "$repo" \
+                --author app/dependabot \
+                --state open \
+                --json number \
+                --jq '.[].number' \
+                || true)
 
             if [ -z "$prs" ]; then
               echo "No Dependabot PRs."
@@ -64,7 +107,9 @@ jobs:
               echo "$auto_out"
 
               if echo "$auto_out" | grep -qi "Protected branch rules not configured"; then
-                checks_json=$(gh pr view "$pr" --repo "$repo" --json statusCheckRollup,mergeable,mergeStateStatus)
+                checks_json=$(gh pr view "$pr" \
+                  --repo "$repo" \
+                  --json statusCheckRollup,mergeable,mergeStateStatus)
                 mergeable=$(echo "$checks_json" | jq -r '.mergeable')
                 merge_state=$(echo "$checks_json" | jq -r '.mergeStateStatus')
 
@@ -77,8 +122,21 @@ jobs:
                   continue
                 fi
 
-                failed=$(echo "$checks_json" | jq -r '[.statusCheckRollup[] | select(.status=="COMPLETED" and (.conclusion != "SUCCESS" and .conclusion != "SKIPPED" and .conclusion != "NEUTRAL"))] | length')
-                pending=$(echo "$checks_json" | jq -r '[.statusCheckRollup[] | select(.status != "COMPLETED")] | length')
+                failed=$(echo "$checks_json" | jq -r '
+                  [.statusCheckRollup[]
+                   | select(
+                      .status=="COMPLETED" and
+                        (
+                          .conclusion != "SUCCESS" and
+                          .conclusion != "SKIPPED" and
+                          .conclusion != "NEUTRAL"
+                        )
+                    )
+                  ] | length
+                ')
+                pending=$(echo "$checks_json" | jq -r '
+                  [.statusCheckRollup[] | select(.status != "COMPLETED")] | length
+                ')
 
                 if [ "$failed" -eq 0 ] && [ "$pending" -eq 0 ]; then
                   if ! gh pr merge "$pr" --repo "$repo" --merge; then

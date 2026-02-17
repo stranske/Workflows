@@ -65,10 +65,15 @@ jobs:
               if (!proceed) {
                 const reset = data?.resources?.core?.reset || 0;
                 const resetTime = new Date(reset * 1000).toISOString();
-                core.notice(`Deferring repo health: API quota low (${remaining}/${limit}). Resets at ${resetTime}`);
-                await core.summary
+                const notice = `Deferring repo health: API quota low (${remaining}/${limit}).`;
+                core.notice(`${notice} Resets at ${resetTime}`);
+                  const quotaMessage = [
+                    'API quota too low for non-critical health checks',
+                    `(${remaining}/${limit} remaining).`,
+                  ].join(' ');
+                  await core.summary
                   .addHeading('Repo Health Deferred', 3)
-                  .addRaw(`API quota too low for non-critical health checks (${remaining}/${limit} remaining).`)
+                    .addRaw(quotaMessage)
                   .addEOL()
                   .addRaw(`Threshold: ${threshold}. Resets at: ${resetTime}`)
                   .write();
@@ -150,7 +155,9 @@ jobs:
                   ref: commitSha,
                 }));
 
-                const commitDateRaw = commit.data.commit?.committer?.date || commit.data.commit?.author?.date;
+                const commitDateRaw =
+                  commit.data.commit?.committer?.date ||
+                  commit.data.commit?.author?.date;
                 if (!commitDateRaw) {
                   continue;
                 }
@@ -161,7 +168,9 @@ jobs:
                 }
 
                 if (commitDate <= staleCutoff) {
-                  const ageDays = Math.floor((now.getTime() - commitDate.getTime()) / (24 * 60 * 60 * 1000));
+                  const ageDays = Math.floor(
+                    (now.getTime() - commitDate.getTime()) / (24 * 60 * 60 * 1000),
+                  );
                   staleBranches.push({
                     name: branch.name,
                     lastCommit: commitDate.toISOString().slice(0, 10),
@@ -184,18 +193,20 @@ jobs:
 
             const stalePrs = [];
             for (const pr of openPrs) {
-                const updatedDate = new Date(pr.updated_at);
-                if (updatedDate <= stalePrCutoff) {
-                    const ageDays = Math.floor((now.getTime() - updatedDate.getTime()) / (24 * 60 * 60 * 1000));
-                    stalePrs.push({
-                        number: pr.number,
-                        title: pr.title,
-                        url: pr.html_url,
-                        updatedAt: updatedDate.toISOString().slice(0, 10),
-                        ageDays,
-                        user: pr.user.login
-                    });
-                }
+              const updatedDate = new Date(pr.updated_at);
+              if (updatedDate <= stalePrCutoff) {
+                const ageDays = Math.floor(
+                  (now.getTime() - updatedDate.getTime()) / (24 * 60 * 60 * 1000),
+                );
+                stalePrs.push({
+                  number: pr.number,
+                  title: pr.title,
+                  url: pr.html_url,
+                  updatedAt: updatedDate.toISOString().slice(0, 10),
+                  ageDays,
+                  user: pr.user.login,
+                });
+              }
             }
             stalePrs.sort((a, b) => b.ageDays - a.ageDays);
 
@@ -339,7 +350,12 @@ jobs:
 
             const defaultBranch = process.env.DEFAULT_BRANCH || null;
             if (!defaultBranch) {
-              core.setFailed('Default branch name was not provided by the summary step. Ensure the summarise step completed successfully and outputs.default-branch is set.');
+              const failure = [
+                'Default branch name was not provided by the summary step.',
+                'Ensure the summarise step completed successfully and',
+                'outputs.default-branch is set.',
+              ].join(' ');
+              core.setFailed(failure);
               return;
             }
 
@@ -365,7 +381,8 @@ jobs:
               }
               branchProtectionResult.source = 'branchProtection';
             } catch (error) {
-              core.warning(`Falling back to branch metadata for protection details: ${error.message}`);
+                const warningPrefix = 'Falling back to branch metadata for protection details:';
+                core.warning(`${warningPrefix} ${error.message}`);
               const branch = await withRetry(() => github.rest.repos.getBranch({
                 ...context.repo,
                 branch: defaultBranch,
@@ -376,18 +393,34 @@ jobs:
               }
             }
 
-            const uniqueContexts = Array.from(new Set(branchProtectionResult.contexts.filter(Boolean))).sort((a, b) => a.localeCompare(b));
+            const uniqueContexts = Array.from(
+              new Set(branchProtectionResult.contexts.filter(Boolean)),
+            ).sort((a, b) => a.localeCompare(b));
             const expectedSorted = [...expectedContexts].sort((a, b) => a.localeCompare(b));
-            const missing = expectedSorted.filter(contextName => !uniqueContexts.includes(contextName));
-            const unexpected = uniqueContexts.filter(contextName => !expectedSorted.includes(contextName));
+            const missing = expectedSorted.filter(
+              (contextName) => !uniqueContexts.includes(contextName),
+            );
+            const unexpected = uniqueContexts.filter(
+              (contextName) => !expectedSorted.includes(contextName),
+            );
 
             const summary = core.summary;
-            const expectedListForPointer = expectedSorted.length > 0 ? expectedSorted.join(', ') : 'no required checks';
-            const actualListForPointer = uniqueContexts.length > 0 ? uniqueContexts.join(', ') : 'no required checks';
+            const expectedListForPointer =
+              expectedSorted.length > 0 ? expectedSorted.join(', ') : 'no required checks';
+            const actualListForPointer =
+              uniqueContexts.length > 0 ? uniqueContexts.join(', ') : 'no required checks';
 
             core.info(`Expected required contexts: ${expectedListForPointer}`);
             core.info(`Observed required contexts: ${actualListForPointer}`);
             summary.addHeading('Default branch protection', 2);
+            const expectedContextsText =
+              expectedContexts.length > 0 ? expectedContexts.join(', ') : '–';
+            const requiredContextsText =
+              uniqueContexts.length > 0 ? uniqueContexts.join(', ') : '–';
+            const upToDateText =
+              branchProtectionResult.strict === null
+                ? 'unknown'
+                : String(branchProtectionResult.strict);
             summary.addTable([
               [
                 { data: 'Property', header: true },
@@ -395,9 +428,9 @@ jobs:
               ],
               ['Branch', defaultBranch],
               ['Source', branchProtectionResult.source],
-              ['Expected contexts', expectedContexts.length > 0 ? expectedContexts.join(', ') : '–'],
-              ['Required contexts', uniqueContexts.length > 0 ? uniqueContexts.join(', ') : '–'],
-              ['Required “up to date”', branchProtectionResult.strict === null ? 'unknown' : String(branchProtectionResult.strict)],
+              ['Expected contexts', expectedContextsText],
+              ['Required contexts', requiredContextsText],
+              ['Required “up to date”', upToDateText],
             ]);
 
             if (missing.length > 0 || unexpected.length > 0) {
@@ -410,17 +443,42 @@ jobs:
               }
               const failurePrefix = `Branch protection drift detected for ${defaultBranch}`;
               summary.addRaw(`❌ ${failurePrefix} — ${problems.join('; ')}`, true);
-              summary.addRaw(
-                `➡️ Update branch protection (Settings → Branches → ${defaultBranch}) so required status checks are exactly: ${expectedListForPointer}.`,
-                true,
-              );
+              const pointer = [
+                '➡️ Update branch protection (Settings → Branches →',
+                `${defaultBranch}) so required status checks are exactly:`,
+                `${expectedListForPointer}.`,
+              ].join(' ');
+              summary.addRaw(pointer, true);
 
               await summary.write();
 
+              const protectionUrl = [
+                'https://github.com',
+                context.repo.owner,
+                context.repo.repo,
+                'settings/branch_protection_rules',
+              ].join('/');
               if (missing.includes('Gate / gate')) {
-                core.setFailed(`Default branch ("${defaultBranch}") no longer requires the "Gate / gate" status check. Expected: ${expectedListForPointer}. Actual: ${actualListForPointer}. Update branch protection to restore Gate. You can update branch protection here: https://github.com/${context.repo.owner}/${context.repo.repo}/settings/branch_protection_rules`);
+                const gateFailure = [
+                    `Default branch ("${defaultBranch}") no longer requires`,
+                    'the "Gate / gate" status check.',
+                  `Expected: ${expectedListForPointer}.`,
+                  `Actual: ${actualListForPointer}.`,
+                  'Update branch protection to restore Gate.',
+                  `Update URL: ${protectionUrl}`,
+                ].join(' ');
+                core.setFailed(gateFailure);
               } else {
-                core.setFailed(`${failurePrefix}. Expected: ${expectedListForPointer}. Actual: ${actualListForPointer}. (${problems.join('; ')}). Update branch protection (Settings → Branches → ${defaultBranch}) so required status checks are exactly: ${expectedListForPointer}.`);
+                const driftFailure = [
+                  `${failurePrefix}.`,
+                  `Expected: ${expectedListForPointer}.`,
+                  `Actual: ${actualListForPointer}.`,
+                  `(${problems.join('; ')}).`,
+                  'Update branch protection (Settings → Branches →',
+                  `${defaultBranch}) so required status checks are exactly:`,
+                  `${expectedListForPointer}.`,
+                ].join(' ');
+                core.setFailed(driftFailure);
               }
               return;
             }

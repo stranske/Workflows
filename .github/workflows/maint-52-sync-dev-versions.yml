@@ -118,9 +118,53 @@ jobs:
           if [ -n "${{ inputs.repos }}" ]; then
             repos='${{ inputs.repos }}'
           else
-            repos=$(awk '/REGISTERED_CONSUMER_REPOS: \|/{flag=1;next} flag && /^[^[:space:]]/{flag=0} flag{line=$0; sub(/^[[:space:]]+/,"",line); if(length(line)>0) print line}' .github/workflows/maint-68-sync-consumer-repos.yml | paste -sd, -)
+            repos=$(python - <<'PY'
+            from __future__ import annotations
+
+            import re
+            from pathlib import Path
+
+            path = Path('.github/workflows/maint-68-sync-consumer-repos.yml')
+            lines = path.read_text(encoding='utf-8').splitlines()
+
+            start_index = None
+            for index, line in enumerate(lines):
+              if re.search(r'\bREGISTERED_CONSUMER_REPOS\s*:\s*\|\s*$', line):
+                start_index = index + 1
+                break
+
+            if start_index is None:
+              raise SystemExit('Could not find REGISTERED_CONSUMER_REPOS: | block')
+
+            block_indent = None
+            repos: list[str] = []
+            for raw_line in lines[start_index:]:
+              if raw_line.strip() == '':
+                continue
+
+              indent = len(raw_line) - len(raw_line.lstrip(' '))
+              if block_indent is None:
+                block_indent = indent
+
+              if indent < (block_indent or 0):
+                break
+
+              value = raw_line.strip()
+              if value:
+                repos.append(value)
+
+            print(','.join(repos))
+            PY
+            )
           fi
-          json_array=$(echo "$repos" | tr ',' '\n' | grep -v '^$' | jq -R -s -c 'split("\n") | map(select(. != "")) | map(gsub("^\\s+|\\s+$"; ""))')
+          json_array=$(echo "$repos" \
+            | tr ',' '\n' \
+            | grep -v '^$' \
+            | jq -R -s -c '
+              split("\n")
+              | map(select(. != ""))
+              | map(gsub("^\\s+|\\s+$"; ""))
+            ')
           echo "matrix={\"repo\":$json_array}" >> "$GITHUB_OUTPUT"
           echo "Repos to sync: $json_array"
 
@@ -202,7 +246,10 @@ jobs:
           cd consumer
 
           # Run sync check first
-          if python ../scripts/sync_dev_dependencies.py --check --use-minimum-pins 2>&1 | tee /tmp/sync_output.txt; then
+          if python ../scripts/sync_dev_dependencies.py \
+            --check \
+            --use-minimum-pins 2>&1 \
+            | tee /tmp/sync_output.txt; then
             echo "has_changes=false" >> "$GITHUB_OUTPUT"
           else
             echo "has_changes=true" >> "$GITHUB_OUTPUT"
@@ -218,7 +265,9 @@ jobs:
 
       - name: Add dev dependencies (missing dev deps)
         id: add_deps
-        if: steps.check.outputs.has_pyproject == 'true' && steps.check.outputs.has_dev_deps != 'true'
+        if: >-
+          steps.check.outputs.has_pyproject == 'true'
+          && steps.check.outputs.has_dev_deps != 'true'
         run: |
           set -o pipefail
           # Copy pin file to expected location
@@ -230,7 +279,11 @@ jobs:
           echo "Adding dev dependencies section to pyproject.toml..."
 
           # Use --create-if-missing to add dev deps
-          if python ../scripts/sync_dev_dependencies.py --apply --use-minimum-pins --create-if-missing 2>&1 | tee /tmp/sync_output.txt; then
+          if python ../scripts/sync_dev_dependencies.py \
+            --apply \
+            --use-minimum-pins \
+            --create-if-missing 2>&1 \
+            | tee /tmp/sync_output.txt; then
             if grep -q "version updates" /tmp/sync_output.txt; then
               echo "has_changes=true" >> "$GITHUB_OUTPUT"
             else
@@ -249,7 +302,9 @@ jobs:
           echo "Skipping ${{ matrix.repo }}: no pyproject.toml found"
 
       - name: Create sync PR
-        if: (steps.sync.outputs.has_changes == 'true' || steps.add_deps.outputs.has_changes == 'true') && inputs.dry_run != true
+        if: >-
+          (steps.sync.outputs.has_changes == 'true' || steps.add_deps.outputs.has_changes == 'true')
+          && inputs.dry_run != true
         env:
           GH_TOKEN: ${{ env.REPO_TOKEN }}
         run: |
@@ -267,8 +322,11 @@ jobs:
           # Configure git
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          # shellcheck disable=SC2016 # Single quotes intentional - GH_TOKEN expands at runtime in credential helper
-          git config credential.helper '!f() { echo "username=x-access-token"; echo "password=${GH_TOKEN}"; }; f'
+          # shellcheck disable=SC2016 # GH_TOKEN expands at runtime
+          credential_helper='!f() { echo "username=x-access-token";'
+          credential_helper+=" echo \"password=${GH_TOKEN}\";"
+          credential_helper+=' }; f'
+          git config credential.helper "$credential_helper"
 
           # Create branch and commit
           git checkout -b "$branch_name"
@@ -305,7 +363,7 @@ jobs:
           - Easier debugging when tools behave the same everywhere
 
           ---
-          **Source:** [\`.github/workflows/autofix-versions.env\`](https://github.com/stranske/Workflows/blob/main/.github/workflows/autofix-versions.env)"
+          **Source:** `.github/workflows/autofix-versions.env`"
 
           gh pr create \
             --head "$branch_name" \
@@ -313,7 +371,12 @@ jobs:
             --body "$pr_body"
 
       - name: Dry run summary
-        if: inputs.dry_run == true && (steps.sync.outputs.has_changes == 'true' || steps.add_deps.outputs.has_changes == 'true')
+        if: >-
+          inputs.dry_run == true
+          && (
+            steps.sync.outputs.has_changes == 'true'
+            || steps.add_deps.outputs.has_changes == 'true'
+          )
         run: |
           {
             echo "## Dry Run - ${{ matrix.repo }}"

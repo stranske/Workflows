@@ -28,10 +28,16 @@ jobs:
     name: Detect and fix integration test failures
     runs-on: ubuntu-latest
     # Only run on issues with specific titles
-    if: |
-      (github.event_name == 'issues' && contains(github.event.issue.title, 'Integration CI failed')) ||
-      (github.event_name == 'issue_comment' && contains(github.event.issue.title, 'Integration CI failed')) ||
-      github.event_name == 'workflow_dispatch'
+    if: >-
+      (
+        github.event_name == 'issues'
+        && contains(github.event.issue.title, 'Integration CI failed')
+      )
+      || (
+        github.event_name == 'issue_comment'
+        && contains(github.event.issue.title, 'Integration CI failed')
+      )
+      || github.event_name == 'workflow_dispatch'
 
     steps:
       - name: Checkout repository
@@ -182,7 +188,9 @@ jobs:
           fi
 
       - name: Commit and push changes
-        if: steps.check_status.outputs.should_fix == 'true' && steps.format.outputs.has_changes == 'true'
+        if: >-
+          steps.check_status.outputs.should_fix == 'true'
+          && steps.format.outputs.has_changes == 'true'
         run: |
           cd integration-tests
 
@@ -192,14 +200,18 @@ jobs:
           git add -A
           git commit -m "fix: Auto-format files to meet lint standards" \
             -m "" \
-            -m "Auto-fixed by: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            -m "Auto-fixed by: https://github.com/${{ github.repository }}/actions/runs/" \
+            -m "${{ github.run_id }}" \
             -m "Triggered by: ${{ github.event_name }}" \
             -m "Issue: #${{ github.event.issue.number || 'N/A' }}"
 
           git push
 
       - name: Comment on issue
-        if: steps.check_status.outputs.should_fix == 'true' && steps.format.outputs.has_changes == 'true' && github.event.issue.number
+        if: >-
+          steps.check_status.outputs.should_fix == 'true'
+          && steps.format.outputs.has_changes == 'true'
+          && github.event.issue.number
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           COMMENT_BODY: |
@@ -231,7 +243,8 @@ jobs:
               echo ""
               echo "### Next Steps"
               echo "- Integration tests will re-run automatically"
-              echo "- Verify tests pass: https://github.com/stranske/Workflows-Integration-Tests/actions"
+              echo "- Verify tests pass:"
+              echo "  https://github.com/stranske/Workflows-Integration-Tests/actions"
               echo "- Close issue #${{ github.event.issue.number || 'N/A' }} once verified"
             else
               echo "ℹ️ No formatting changes were needed"

@@ -45,7 +45,7 @@ on:
         type: boolean
         default: false
       allow_replay:
-        description: 'Enable replay mode for workflow_run triggers (re-evaluates keepalive after Gate completes)'
+        description: 'Replay mode for workflow_run triggers (re-evaluate after Gate completes)'
         required: false
         type: boolean
         default: false
@@ -125,7 +125,13 @@ jobs:
         with:
           fetch-depth: 1
           path: consumer
-          token: ${{ steps.app_token_dispatch.outputs.token || secrets.ACTIONS_BOT_PAT || secrets.service_bot_pat || github.token }}
+          token: >-
+            ${{
+              steps.app_token_dispatch.outputs.token ||
+              secrets.ACTIONS_BOT_PAT ||
+              secrets.service_bot_pat ||
+              github.token
+            }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v6
@@ -190,7 +196,13 @@ jobs:
           sparse-checkout-cone-mode: false
           path: workflows-lib
           fetch-depth: 1
-          token: ${{ steps.app_token_dispatch.outputs.token || secrets.ACTIONS_BOT_PAT || secrets.service_bot_pat || github.token }}
+          token: >-
+            ${{
+              steps.app_token_dispatch.outputs.token ||
+              secrets.ACTIONS_BOT_PAT ||
+              secrets.service_bot_pat ||
+              github.token
+            }}
 
       - name: Set scripts path
         run: |
@@ -222,7 +234,8 @@ jobs:
         with:
           script: |
             const scriptsPath = process.env.WORKFLOWS_SCRIPTS_PATH;
-            const { evaluateKeepaliveGate } = require(`${scriptsPath}/.github/scripts/keepalive_gate.js`);
+            const gateScript = `${scriptsPath}/.github/scripts/keepalive_gate.js`;
+            const { evaluateKeepaliveGate } = require(gateScript);
             const result = await evaluateKeepaliveGate({
               core, github, context,
               options: {
@@ -258,7 +271,8 @@ jobs:
         with:
           script: |
             const scriptsPath = process.env.WORKFLOWS_SCRIPTS_PATH;
-            const { detectKeepalive } = require(`${scriptsPath}/.github/scripts/agents_pr_meta_keepalive.js`);
+            const keepaliveScript = `${scriptsPath}/.github/scripts/agents_pr_meta_keepalive.js`;
+            const { detectKeepalive } = require(keepaliveScript);
             await detectKeepalive({ core, github, context, env: process.env });
 
       - name: Write keepalive dispatch summary (comment lane)
@@ -307,7 +321,13 @@ jobs:
             .github/actions/setup-api-client
           sparse-checkout-cone-mode: false
           path: workflows-lib
-          token: ${{ steps.app_token_orchestrator.outputs.token || secrets.ACTIONS_BOT_PAT || secrets.service_bot_pat || github.token }}
+          token: >-
+            ${{
+              steps.app_token_orchestrator.outputs.token ||
+              secrets.ACTIONS_BOT_PAT ||
+              secrets.service_bot_pat ||
+              github.token
+            }}
           fetch-depth: 1
 
       - name: Set scripts path
@@ -334,10 +354,19 @@ jobs:
         env:
           INSTRUCTION_BODY: ${{ needs.keepalive_dispatch.outputs.instruction_body }}
         with:
-          github-token: ${{ steps.app_token_orchestrator_preferred.outputs.token || secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT || secrets.AGENTS_AUTOMATION_PAT || github.token }}
+          github-token: >-
+            ${{
+              steps.app_token_orchestrator_preferred.outputs.token ||
+              secrets.ACTIONS_BOT_PAT ||
+              secrets.SERVICE_BOT_PAT ||
+              secrets.AGENTS_AUTOMATION_PAT ||
+              github.token
+            }}
           script: |
             const scriptsPath = process.env.WORKFLOWS_SCRIPTS_PATH;
-            const { runKeepaliveOrchestrator } = require(`${scriptsPath}/.github/scripts/agents_pr_meta_orchestrator.js`);
+            const orchestratorScript =
+              `${scriptsPath}/.github/scripts/agents_pr_meta_orchestrator.js`;
+            const { runKeepaliveOrchestrator } = require(orchestratorScript);
             const result = await runKeepaliveOrchestrator({
               github, context, core,
               inputs: {
@@ -388,7 +417,13 @@ jobs:
             .github/actions/setup-api-client
           sparse-checkout-cone-mode: false
           path: workflows-lib
-          token: ${{ steps.app_token_from_gate.outputs.token || secrets.ACTIONS_BOT_PAT || secrets.service_bot_pat || github.token }}
+          token: >-
+            ${{
+              steps.app_token_from_gate.outputs.token ||
+              secrets.ACTIONS_BOT_PAT ||
+              secrets.service_bot_pat ||
+              github.token
+            }}
           fetch-depth: 1
 
       - name: Set scripts path
@@ -410,7 +445,8 @@ jobs:
         with:
           script: |
             const scriptsPath = process.env.WORKFLOWS_SCRIPTS_PATH;
-            const { evaluateKeepaliveGate } = require(`${scriptsPath}/.github/scripts/keepalive_gate.js`);
+            const gateScript = `${scriptsPath}/.github/scripts/keepalive_gate.js`;
+            const { evaluateKeepaliveGate } = require(gateScript);
             const result = await evaluateKeepaliveGate({
               core, github, context,
               options: {
@@ -427,8 +463,14 @@ jobs:
             core.setOutput('run_cap', String(result.runCap ?? ''));
             core.setOutput('active_runs', String(result.activeRuns ?? ''));
             core.setOutput('pr_number', result.prNumber || process.env.PR_NUMBER);
-            core.setOutput('activation_comment', result.activationComment ? JSON.stringify(result.activationComment) : '');
-            core.setOutput('activation_comment_id', result.activationComment?.id ? String(result.activationComment.id) : '');
+            const activationCommentJson = result.activationComment
+              ? JSON.stringify(result.activationComment)
+              : '';
+            const activationCommentId = result.activationComment?.id
+              ? String(result.activationComment.id)
+              : '';
+            core.setOutput('activation_comment', activationCommentJson);
+            core.setOutput('activation_comment_id', activationCommentId);
 
       - name: Detect keepalive from activation
         id: detect
@@ -444,7 +486,8 @@ jobs:
         with:
           script: |
             const scriptsPath = process.env.WORKFLOWS_SCRIPTS_PATH;
-            const { detectKeepalive } = require(`${scriptsPath}/.github/scripts/agents_pr_meta_keepalive.js`);
+            const keepaliveScript = `${scriptsPath}/.github/scripts/agents_pr_meta_keepalive.js`;
+            const { detectKeepalive } = require(keepaliveScript);
             const comment = JSON.parse(process.env.ACTIVATION_COMMENT || '{}');
             // Synthesize context payload to match issue_comment structure
             const detectionContext = {
@@ -471,15 +514,27 @@ jobs:
           AGENTS_AUTOMATION_PAT: ${{ secrets.AGENTS_AUTOMATION_PAT || '' }}
           INSTRUCTION_BODY: ${{ steps.detect.outputs.instruction_body }}
         with:
-          github-token: ${{ steps.app_token_gate.outputs.token || secrets.ACTIONS_BOT_PAT || secrets.service_bot_pat || secrets.AGENTS_AUTOMATION_PAT || github.token }}
+          github-token: >-
+            ${{
+              steps.app_token_gate.outputs.token ||
+              secrets.ACTIONS_BOT_PAT ||
+              secrets.service_bot_pat ||
+              secrets.AGENTS_AUTOMATION_PAT ||
+              github.token
+            }}
           script: |
             const scriptsPath = process.env.WORKFLOWS_SCRIPTS_PATH;
-            const { runKeepaliveOrchestrator } = require(`${scriptsPath}/.github/scripts/agents_pr_meta_orchestrator.js`);
+            const orchestratorScript =
+              `${scriptsPath}/.github/scripts/agents_pr_meta_orchestrator.js`;
+            const { runKeepaliveOrchestrator } = require(orchestratorScript);
+
+            const prNumber =
+              '${{ steps.detect.outputs.pr }}' || '${{ steps.gate.outputs.pr_number }}';
             const result = await runKeepaliveOrchestrator({
               github, context, core,
               inputs: {
                 commentId: '${{ steps.detect.outputs.comment_id }}',
-                prNumber: '${{ steps.detect.outputs.pr || steps.gate.outputs.pr_number }}',
+                prNumber,
                 issue: '${{ steps.detect.outputs.issue }}',
                 branch: '${{ steps.detect.outputs.branch }}',
                 base: '${{ steps.detect.outputs.base }}',
@@ -539,7 +594,13 @@ jobs:
             .github/actions/setup-api-client
           sparse-checkout-cone-mode: false
           path: workflows-lib
-          token: ${{ steps.app_token_body_update.outputs.token || secrets.ACTIONS_BOT_PAT || secrets.service_bot_pat || github.token }}
+          token: >-
+            ${{
+              steps.app_token_body_update.outputs.token ||
+              secrets.ACTIONS_BOT_PAT ||
+              secrets.service_bot_pat ||
+              github.token
+            }}
           fetch-depth: 1
 
       - name: Set scripts path

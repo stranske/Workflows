@@ -20,13 +20,15 @@ jobs:
       doc_only: ${{ steps.diff.outputs.doc_only || 'false' }}
       run_core: ${{ steps.diff.outputs.run_core || 'true' }}
       reason: ${{ steps.diff.outputs.reason || 'code_changes' }}
-      docker_changed: ${{ steps.diff.outputs.docker_changed || 'false' }}
+      docker_changed: >-
+        ${{ steps.diff.outputs.docker_changed || 'false' }}
       lint: ${{ steps.python_ci_toggles.outputs.lint || 'true' }}
       format_check: ${{ steps.python_ci_toggles.outputs.format_check || 'true' }}
       typecheck: ${{ steps.python_ci_toggles.outputs.typecheck || 'true' }}
       coverage: ${{ steps.python_ci_toggles.outputs.coverage || 'true' }}
       cache: ${{ steps.python_ci_toggles.outputs.cache || 'true' }}
-      pytest_markers: ${{ steps.python_ci_toggles.outputs.pytest_markers || 'not quarantine and not slow' }}
+      pytest_markers: >-
+        ${{ steps.python_ci_toggles.outputs.pytest_markers || 'not quarantine and not slow' }}
       workflow_changed: ${{ steps.diff.outputs.workflow_changed || 'false' }}
     steps:
       # Mint GitHub App token early to use for API calls (avoids rate limits)
@@ -98,10 +100,20 @@ jobs:
     needs: detect
     runs-on: ubuntu-latest
     environment:
-      name: ${{ needs.detect.outputs.workflow_changed == 'true' && 'agent-high-privilege' || 'agent-standard' }}
+      name: >-
+        ${{
+          needs.detect.outputs.workflow_changed == 'true' &&
+          'agent-high-privilege' ||
+          'agent-standard'
+        }}
     env:
       WORKFLOW_CHANGED: ${{ needs.detect.outputs.workflow_changed }}
-      ENVIRONMENT_NAME: ${{ needs.detect.outputs.workflow_changed == 'true' && 'agent-high-privilege' || 'agent-standard' }}
+      ENVIRONMENT_NAME: >-
+        ${{
+          needs.detect.outputs.workflow_changed == 'true' &&
+          'agent-high-privilege' ||
+          'agent-standard'
+        }}
     steps:
       - name: Log environment selection
         run: |
@@ -193,7 +205,13 @@ jobs:
     needs:
       - detect
       - environment-gate
-    if: ${{ needs.detect.outputs.doc_only != 'true' && needs.detect.outputs.run_core == 'true' && fromJSON(needs.detect.outputs.run_core || 'true') && fromJSON(needs.detect.outputs.docker_changed || 'false') }}
+    if: >-
+      ${{
+        needs.detect.outputs.doc_only != 'true' &&
+        needs.detect.outputs.run_core == 'true' &&
+        fromJSON(needs.detect.outputs.run_core || 'true') &&
+        fromJSON(needs.detect.outputs.docker_changed || 'false')
+      }}
     uses: ./.github/workflows/reusable-12-ci-docker.yml
 
   ledger-validation:
@@ -230,7 +248,8 @@ jobs:
 
       - name: Validate ledger files
         run: |
-          if [ -d .agents ] && find .agents -name 'issue-*-ledger.yml' -print -quit | grep -q .; then
+          if [ -d .agents ] && \
+            find .agents -name 'issue-*-ledger.yml' -print -quit | grep -q .; then
             python scripts/ledger_validate.py
           else
             echo "No ledger files found; validation skipped."
@@ -256,7 +275,8 @@ jobs:
       REQUIRED_JOB_GROUPS_JSON: ${{ vars.REQUIRED_JOB_GROUPS_JSON || '' }}
     outputs:
       state: ${{ steps.summarize.outputs.state || steps.docs_only.outputs.state || 'success' }}
-      description: ${{ steps.summarize.outputs.description || steps.docs_only.outputs.description || '' }}
+      description: >-
+        ${{ steps.summarize.outputs.description || steps.docs_only.outputs.description || '' }}
       cosmetic_failure: ${{ steps.summarize.outputs.cosmetic_failure || 'false' }}
       failure_checks: ${{ steps.summarize.outputs.failure_checks || '' }}
       format_failure: ${{ steps.summarize.outputs.format_failure || 'false' }}
@@ -480,7 +500,10 @@ jobs:
             const formatFailure = (process.env.FORMAT_FAILURE || '').toLowerCase() === 'true';
             if (!formatFailure) {
               const checks = process.env.FAILURE_CHECKS || '';
-              core.info(`Skipping auto-label; format failure not detected (checks: ${checks || 'none'}).`);
+              core.info(
+                `Skipping auto-label; format failure not detected ` +
+                  `(checks: ${checks || 'none'}).`,
+              );
               core.setOutput('skipped_reason', 'missing-format-failure');
               return;
             }
@@ -536,7 +559,9 @@ jobs:
             }
 
             if (disallowed.length > 0) {
-              core.info(`Skipping auto-label; non-Python changes detected: ${disallowed.join(', ')}`);
+              core.info(
+                `Skipping auto-label; non-Python changes detected: ${disallowed.join(', ')}`,
+              );
               core.setOutput('skipped_reason', 'non-python');
               return;
             }
@@ -557,7 +582,8 @@ jobs:
         env:
           PYTHONPATH: ${{ github.workspace }}
           RUNS_JSON: ${{ steps.gather.outputs.runs || '[]' }}
-          HEAD_SHA: ${{ steps.gather.outputs.head_sha || github.event.pull_request.head.sha || github.sha }}
+          HEAD_SHA: >-
+            ${{ steps.gather.outputs.head_sha || github.event.pull_request.head.sha || github.sha }}
           COVERAGE_SECTION: ${{ steps.coverage_summary.outputs.body || '' }}
           COVERAGE_STATS: ${{ steps.coverage_stats.outputs.stats_json || '' }}
           COVERAGE_DELTA: ${{ steps.coverage_stats.outputs.delta_json || '' }}
@@ -597,7 +623,8 @@ jobs:
         env:
           SUMMARY_BODY: ${{ steps.summary_body.outputs.body }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
-          HEAD_SHA: ${{ steps.gather.outputs.head_sha || github.event.pull_request.head.sha || github.sha }}
+          HEAD_SHA: >-
+            ${{ steps.gather.outputs.head_sha || github.event.pull_request.head.sha || github.sha }}
 
       - name: Append keepalive checklists
         uses: actions/github-script@v8
@@ -605,10 +632,12 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           LABEL_APPLIED: ${{ steps.autofix_label.outputs.applied || 'false' }}
         with:
-          github-token: ${{ steps.app_token.outputs.token || github.token }}
+          github-token: >-
+            ${{ steps.app_token.outputs.token || github.token }}
           script: |
             const fs = require('fs');
-            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const retryScript = './.github/scripts/github-api-with-retry.js';
+            const { createTokenAwareRetry } = require(retryScript);
             const { withRetry } = await createTokenAwareRetry({
               github,
               core,
@@ -618,7 +647,9 @@ jobs:
             const payloadBody = context.payload.pull_request?.body || '';
 
             if (!prNumber && !payloadBody) {
-              console.log('No PR number or body available, skipping keepalive checklist');
+              console.log(
+                'No PR number or body available; skipping keepalive checklist',
+              );
               return;
             }
 
@@ -633,17 +664,24 @@ jobs:
                 }));
                 prBody = pr.data.body || '';
               } catch (error) {
-                const hitRateLimit = error?.status === 403 && /rate limit/i.test(error?.message || '');
+                const hitRateLimit =
+                  error?.status === 403 &&
+                  /rate limit/i.test(error?.message || '');
                 if (hitRateLimit) {
-                  core.warning(`Rate limit while fetching PR #${prNumber}; appending fallback keepalive checklist.`);
+                  core.warning(
+                    `Rate limit while fetching PR #${prNumber}; ` +
+                      'appending fallback keepalive checklist.',
+                  );
                 } else {
                   throw error;
                 }
               }
             }
 
-            // Extract content from <!-- auto-status-summary:start --> to <!-- auto-status-summary:end -->
-            const summaryMatch = (prBody || '').match(/<!-- auto-status-summary:start -->([\s\S]*?)<!-- auto-status-summary:end -->/);
+            // Extract content from auto-status-summary markers.
+            const summaryPattern =
+              /<!-- auto-status-summary:start -->([\s\S]*?)<!-- auto-status-summary:end -->/;
+            const summaryMatch = (prBody || '').match(summaryPattern);
 
             let keepaliveContent = '\n\n---\n### Keepalive checklist\n\n';
 
@@ -660,29 +698,37 @@ jobs:
               // Extract Tasks section
               const tasksMatch = summarySection.match(/#### Tasks\s+([\s\S]*?)(?=####|$)/);
               if (tasksMatch) {
-                keepaliveContent += '#### Tasks\n' + tasksMatch[1].trim() + '\n\n';
+                keepaliveContent += `#### Tasks\n${tasksMatch[1].trim()}\n\n`;
               }
 
               // Extract Acceptance criteria section
-              const acceptanceMatch = summarySection.match(/#### Acceptance criteria\s+([\s\S]*?)(?=####|\*\*Head SHA|$)/);
+              const acceptancePattern =
+                /#### Acceptance criteria\s+([\s\S]*?)(?=####|\*\*Head SHA|$)/;
+              const acceptanceMatch = summarySection.match(acceptancePattern);
               if (acceptanceMatch) {
                 keepaliveContent += '#### Acceptance criteria\n' + acceptanceMatch[1].trim() + '\n';
               }
             } else {
               // Fallback if auto-status-summary not found
-              console.log('Warning: Could not extract auto-status-summary from PR body, using fallback');
+              console.log(
+                'Warning: Could not extract auto-status-summary from PR body; using fallback',
+              );
               keepaliveContent += '#### Scope\n_No scope information available_\n\n';
               keepaliveContent += '#### Tasks\n- [ ] _No tasks defined_\n\n';
-              keepaliveContent += '#### Acceptance criteria\n- [ ] _No acceptance criteria defined_\n';
+              keepaliveContent +=
+                '#### Acceptance criteria\n- [ ] _No acceptance criteria defined_\n';
             }
 
             // Append to gate-summary.md
             fs.appendFileSync('gate-summary.md', keepaliveContent);
 
       - name: Add autofix label status notes
-        if: steps.autofix_label.outputs.applied != 'true' && steps.autofix_label.outputs.skipped_reason != ''
+        if: >-
+          steps.autofix_label.outputs.applied != 'true' &&
+          steps.autofix_label.outputs.skipped_reason != ''
         env:
-          SKIPPED_REASON: ${{ steps.autofix_label.outputs.skipped_reason || '' }}
+          SKIPPED_REASON: >-
+            ${{ steps.autofix_label.outputs.skipped_reason || '' }}
         run: |
           friendly_reason="${SKIPPED_REASON}"
           case "${SKIPPED_REASON}" in
@@ -775,12 +821,20 @@ jobs:
         if: ${{ always() }}
         uses: actions/github-script@v8
         env:
-          STATE: ${{ steps.summarize.outputs.state || steps.docs_only.outputs.state || 'pending' }}
-          DESCRIPTION: ${{ steps.summarize.outputs.description || steps.docs_only.outputs.description || 'Gate status pending' }}
-          TARGET_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          STATE: >-
+            ${{ steps.summarize.outputs.state || steps.docs_only.outputs.state || 'pending' }}
+          DESCRIPTION: >-
+            ${{
+              steps.summarize.outputs.description ||
+              steps.docs_only.outputs.description ||
+              'Gate status pending'
+            }}
+          TARGET_URL: >-
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         with:
           script: |
-            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const retryScript = './.github/scripts/github-api-with-retry.js';
+            const { createTokenAwareRetry } = require(retryScript);
             const { withRetry } = await createTokenAwareRetry({
               github,
               core,
@@ -793,7 +847,9 @@ jobs:
             const allowed = new Set(['error', 'failure', 'pending', 'success']);
             const state = allowed.has(rawState) ? rawState : 'pending';
             const rawDescription = process.env.DESCRIPTION || 'Gate status update';
-            const description = rawDescription.length > 140 ? `${rawDescription.slice(0, 137)}...` : rawDescription;
+            const description = rawDescription.length > 140
+              ? `${rawDescription.slice(0, 137)}...`
+              : rawDescription;
             const targetUrl = process.env.TARGET_URL;
 
             try {
@@ -807,9 +863,14 @@ jobs:
                 target_url: targetUrl,
               }));
             } catch (error) {
-              const hitRateLimit = error?.status === 403 && /rate limit/i.test(error?.message || '');
+              const hitRateLimit =
+                error?.status === 403 &&
+                /rate limit/i.test(error?.message || '');
               if (hitRateLimit) {
-                core.warning('Rate limit prevented Gate from updating the commit status; leaving existing status untouched.');
+                core.warning(
+                  'Rate limit prevented Gate from updating the commit status; ' +
+                    'leaving existing status untouched.',
+                );
               } else {
                 throw error;
               }
@@ -818,5 +879,6 @@ jobs:
       - name: Enforce Gate success
         if: ${{ (steps.summarize.outputs.state || steps.docs_only.outputs.state) == 'failure' }}
         run: |
-          echo "Gate reported failure: ${{ steps.summarize.outputs.description || steps.docs_only.outputs.description }}" >&2
+          echo "Gate reported failure: " \
+            "${{ steps.summarize.outputs.description || steps.docs_only.outputs.description }}" >&2
           exit 1

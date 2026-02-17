@@ -98,13 +98,17 @@ jobs:
             for file do
               orig_hash=$(md5sum "$file" | cut -d" " -f1)
 
-              sed -i \
-                -e "s|actions/checkout@v[0-9]\+|actions/checkout@'"${checkout}"'|g" \
-                -e "s|actions/github-script@v[0-9]\+|actions/github-script@'"${github_script}"'|g" \
-                -e "s|actions/upload-artifact@v[0-9]\+|actions/upload-artifact@'"${upload_artifact}"'|g" \
-                -e "s|actions/download-artifact@v[0-9]\+|actions/download-artifact@'"${download_artifact}"'|g" \
-                -e "s|actions/cache@v[0-9]\+|actions/cache@'"${cache}"'|g" \
-                "$file"
+              update_action() {
+                local name="$1"
+                local version="$2"
+                sed -i -e "s|${name}@v[0-9]\\+|${name}@${version}|g" "$file"
+              }
+
+              update_action actions/checkout "$checkout"
+              update_action actions/github-script "$github_script"
+              update_action actions/upload-artifact "$upload_artifact"
+              update_action actions/download-artifact "$download_artifact"
+              update_action actions/cache "$cache"
 
               new_hash=$(md5sum "$file" | cut -d" " -f1)
               if [ "$orig_hash" != "$new_hash" ]; then
@@ -177,7 +181,10 @@ jobs:
             const branch = process.env.BRANCH;
             const title = 'ci(deps): sync action versions to templates';
             const body = [
-              'Automated PR to sync GitHub Action versions from `.github/workflows/` to `templates/.`',
+              (
+                'Automated PR to sync GitHub Action versions from `.github/workflows/` to ' +
+                '`templates/.`'
+              ),
               '',
               'This ensures templates stay in sync with Dependabot updates.',
               '',
