@@ -186,6 +186,13 @@ python scripts/aggregate_metrics.py metrics.ndjson --format markdown
 **Test coverage:** ~100% of new trace extraction code paths
 
 **Commit:** `e79572c`, aggregate_metrics tests in current PR
+<<<<<<< HEAD
+=======
+
+---
+
+## ⏳ Pending Work
+>>>>>>> 8672004b (Claude/langsmith workflow integration p kjua (#1537))
 
 ---
 
@@ -228,14 +235,21 @@ python scripts/aggregate_metrics.py metrics.ndjson --format markdown
 | PR comment trace links | ✅ Complete | e79572c |
 | Metrics aggregation script | ✅ Complete | e79572c |
 | Unit tests | ✅ Complete | e79572c |
+<<<<<<< HEAD
 | End-to-end validation | ✅ Complete | 2026-02-17 |
 
 **Overall completion:** ✅ **100% (8 of 8 tasks complete)**
+=======
+| End-to-end testing | ⏳ Pending | - |
+
+**Overall completion:** ~88% (7 of 8 tasks complete, 0 in progress, 1 pending)
+>>>>>>> 8672004b (Claude/langsmith workflow integration p kjua (#1537))
 
 ---
 
 ## 🚀 Integration Complete - Recommended Follow-Ups
 
+<<<<<<< HEAD
 **Status:** ✅ All tasks complete. Live smoke test recommended.
 
 **Recommended next steps:**
@@ -252,6 +266,16 @@ python scripts/aggregate_metrics.py metrics.ndjson --format markdown
 3. **Cost monitoring:**
    - Track LangSmith API usage via their dashboard
    - Set up alerts for usage thresholds
+=======
+1. **End-to-end test (FINAL TASK):**
+   - Trigger verifier workflow on a test PR
+   - Verify trace URLs appear in GitHub notices
+   - Verify trace URLs are clickable and open LangSmith dashboard
+   - Confirm trace URLs appear in PR comments (if applicable)
+   - Validate metrics aggregation on real data
+
+**Note:** All implementation work is complete. Only end-to-end validation remains.
+>>>>>>> 8672004b (Claude/langsmith workflow integration p kjua (#1537))
 
 ---
 
@@ -306,7 +330,11 @@ Issue #974 is complete when:
 - [x] PR comments show clickable trace URLs (via GitHub notices + comment formatting)
 - [x] `scripts/aggregate_metrics.py` computes trace coverage
 - [x] Unit tests validate extraction logic
+<<<<<<< HEAD
 - [x] Static validation confirms implementation (code inspection + unit tests)
 - [ ] Live smoke test confirms runtime wiring (recommended before production use)
 
 **✅ IMPLEMENTATION COMPLETE - Live smoke test recommended**
+=======
+- [ ] End-to-end test confirms full pipeline (pending live PR test)
+>>>>>>> 8672004b (Claude/langsmith workflow integration p kjua (#1537))
