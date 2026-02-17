@@ -14,10 +14,19 @@ You are helping finalize a PR through merge, verification, and follow-ups.
 
 1. **Poll for bot comments every 30 seconds** until 2 minutes of silence or max time
    ```bash
-   gh pr view $PR_NUMBER --json comments --jq '.comments[] |
-     select(.author.login | test("bot|reviewer")) |
-     select(.createdAt > $LAST_CHECK) |
-     {id, body, path, line, createdAt}'
+   # Poll issue-level comments
+   gh pr view $PR_NUMBER --json comments | \
+     jq --arg last_check "$LAST_CHECK" '.comments[] |
+       select(.author.login | test("bot|reviewer")) |
+       select(.createdAt > $last_check) |
+       {id, body, createdAt}'
+
+   # Poll inline review comments (PR review threads)
+   gh api repos/{owner}/{repo}/pulls/$PR_NUMBER/comments | \
+     jq --arg last_check "$LAST_CHECK" '.[] |
+       select(.user.login | test("bot|copilot|reviewer")) |
+       select(.created_at > $last_check) |
+       {id, body, path, line, created_at}'
    ```
 
 2. **For each new bot comment**:
@@ -31,14 +40,30 @@ You are helping finalize a PR through merge, verification, and follow-ups.
    - Read the file context (±20 lines from comment location)
    - Make the fix
    - Push update with commit message: `fix: address bot review - <brief summary>`
-   - Mark comment as resolved (if possible):
+   - Get review thread node IDs (not comment IDs):
      ```bash
+     # List unresolved review threads
      gh api graphql -f query='
+       query($pr: Int!, $owner: String!, $repo: String!) {
+         repository(owner: $owner, name: $repo) {
+           pullRequest(number: $pr) {
+             reviewThreads(first: 50) {
+               nodes { id isResolved comments(first: 1) {
+                 nodes { body path line }
+               }}
+             }
+           }
+         }
+       }' -F owner="{owner}" -F repo="{repo}" -F pr="$PR_NUMBER"
+     ```
+   - Resolve the matching thread:
+     ```bash
+     gh api graphql -f query="
        mutation {
-         resolveReviewThread(input: {threadId: "$THREAD_ID"}) {
+         resolveReviewThread(input: {threadId: \"$THREAD_ID\"}) {
            thread { isResolved }
          }
-       }'
+       }"
      ```
    - Add reply: "Fixed in <commit_sha>. <explanation of what changed>"
    - **Reset iteration timer** - start Phase 1 again
@@ -98,15 +123,15 @@ You are helping finalize a PR through merge, verification, and follow-ups.
 
 2. **Generate merge commit message**:
    ```bash
-   # Get PR title and body
-   gh pr view $PR_NUMBER --json title,body
+   # Get PR title, body, and linked issues
+   gh pr view $PR_NUMBER --json title,body,closingIssuesReferences
 
    # Format:
    # <pr_title>
    #
    # <pr_body>
    #
-   # Closes #<pr_number>
+   # Closes #<issue_number> (for each linked issue, if any)
    ```
 
 3. **Squash merge**:
@@ -153,13 +178,20 @@ You are helping finalize a PR through merge, verification, and follow-ups.
    gh pr edit $PR_NUMBER --add-label "$LABEL"
    ```
 
-3. **Wait for verification workflow** (max 10 minutes):
+4. **Wait for verification workflow** (max 10 minutes):
    ```bash
-   # Poll for workflow run triggered by label
+   # Record timestamp before applying label to filter runs
+   LABEL_APPLIED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+   HEAD_BRANCH=$(gh pr view $PR_NUMBER --json headRefName --jq '.headRefName')
+
+   # Poll for workflow run triggered by label, scoped to this PR's branch
    while true; do
      STATUS=$(gh run list --workflow=agents-verifier.yml \
+       --branch "$HEAD_BRANCH" \
        --json conclusion,status,createdAt | \
-       jq -r 'first | .conclusion // .status')
+       jq -r --arg since "$LABEL_APPLIED_AT" \
+         '[.[] | select(.createdAt >= $since)] | .[0] |
+          (.conclusion // .status)')
 
      if [[ "$STATUS" == "success" ]]; then
        break
@@ -172,7 +204,7 @@ You are helping finalize a PR through merge, verification, and follow-ups.
    done
    ```
 
-4. **Read verification results**:
+5. **Read verification results**:
    ```bash
    # Get verification comment on PR
    gh pr view $PR_NUMBER --json comments --jq \
