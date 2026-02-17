@@ -17,14 +17,17 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-_AUTO_PROMPT_TEMPLATE = object()
-ChatPromptTemplate: Any = _AUTO_PROMPT_TEMPLATE
+ChatPromptTemplate: Any | None = None
 
 
 def _resolve_chat_prompt_template() -> Any | None:
-    """Resolve ChatPromptTemplate with optional auto-import."""
-    global ChatPromptTemplate
-    if ChatPromptTemplate is not _AUTO_PROMPT_TEMPLATE:
+    """Resolve ChatPromptTemplate without caching across calls.
+
+    Tests patch the module-level ``ChatPromptTemplate`` symbol; prefer that when
+    set. Otherwise import from ``langchain_core.prompts``.
+    """
+
+    if ChatPromptTemplate is not None:
         return ChatPromptTemplate
 
     try:  # pragma: no cover - exercised indirectly
@@ -32,8 +35,7 @@ def _resolve_chat_prompt_template() -> Any | None:
     except ImportError:  # pragma: no cover - handled by caller
         return None
 
-    ChatPromptTemplate = imported
-    return ChatPromptTemplate
+    return imported
 
 
 AGENT_CAPABILITY_CHECK_PROMPT = """
