@@ -358,7 +358,11 @@ class TestClassifyCapabilities:
         ):
             result = classify_capabilities(["task1"], "criteria")
 
-        mock_chain.invoke.assert_called_once_with(_prepare_prompt_values(["task1"], "criteria"))
+        # Verify invoke was called with prompt values and config
+        assert mock_chain.invoke.call_count == 1
+        call_args = mock_chain.invoke.call_args
+        assert call_args[0][0] == _prepare_prompt_values(["task1"], "criteria")
+        assert "config" in call_args[1]  # LangSmith config passed as kwarg
         assert result.recommendation == "PROCEED"
         assert result.human_actions_needed == ["review"]
         assert result.provider_used == "github-models"
