@@ -1889,6 +1889,7 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
         Object.keys(registry.agents || {}).map((key) => normalise(String(key || '')).toLowerCase()),
       );
       validAgentKeys.add('auto');
+      const nonRoutingAgentKeys = new Set(['needs-attention', 'rate-limited', 'retry']);
 
       routingLabelCandidates = labelObjects.filter((label) => {
         const normalized = normalise(label.name).toLowerCase();
@@ -1896,7 +1897,10 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
           return false;
         }
         const key = normalized.slice(agentPrefix.length);
-        return validAgentKeys.has(key);
+        if (!key || nonRoutingAgentKeys.has(key)) {
+          return false;
+        }
+        return true;
       });
 
       requestedAgentKeys = Array.from(
