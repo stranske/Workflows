@@ -4,8 +4,6 @@ import json
 from pathlib import Path
 from typing import Any
 
-import pytest
-
 from scripts.aggregate_metrics import aggregate_traces, format_report, load_metrics
 
 
@@ -171,9 +169,7 @@ def test_format_report() -> None:
         "total_metrics": 10,
         "total_with_traces": 8,
         "trace_coverage_pct": 80.0,
-        "by_operation": {
-            "api_call": {"total": 5, "with_trace": 4, "coverage_pct": 80.0}
-        },
+        "by_operation": {"api_call": {"total": 5, "with_trace": 4, "coverage_pct": 80.0}},
         "by_step": {"format": {"total": 3, "with_trace": 3, "coverage_pct": 100.0}},
     }
 

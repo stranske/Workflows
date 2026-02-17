@@ -378,7 +378,7 @@ def build_summary(entries: list[dict[str, Any]], errors: int) -> str:
                 failures = autopilot["step_failures"].get(step, 0)
                 total = successes + failures
                 lines.append(
-                    f"- {step}: {avg_s:.1f}s avg " f"({_format_rate(successes, total)} success)"
+                    f"- {step}: {avg_s:.1f}s avg ({_format_rate(successes, total)} success)"
                 )
 
     return "\n".join(lines) + "\n"

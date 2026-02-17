@@ -253,9 +253,11 @@ class TestExtractTraceId:
     def test_extracts_from_response_metadata_run_id(self):
         """Extract trace ID from response.response_metadata['run_id']."""
         import tools.llm_provider as mod
+
         original = mod.LANGSMITH_ENABLED
         mod.LANGSMITH_ENABLED = True
         try:
+
             class MockResponse:
                 response_metadata = {"run_id": "trace-abc-123"}
 
@@ -268,9 +270,11 @@ class TestExtractTraceId:
     def test_extracts_from_response_id_fallback(self):
         """Extract trace ID from response.id when response_metadata unavailable."""
         import tools.llm_provider as mod
+
         original = mod.LANGSMITH_ENABLED
         mod.LANGSMITH_ENABLED = True
         try:
+
             class MockResponse:
                 id = "trace-def-456"
 
@@ -283,9 +287,11 @@ class TestExtractTraceId:
     def test_extracts_from_dict_id_fallback(self):
         """Extract trace ID from response.__dict__['id'] as final fallback."""
         import tools.llm_provider as mod
+
         original = mod.LANGSMITH_ENABLED
         mod.LANGSMITH_ENABLED = True
         try:
+
             class MockResponse:
                 def __init__(self):
                     self.__dict__["id"] = "trace-ghi-789"
@@ -299,9 +305,11 @@ class TestExtractTraceId:
     def test_returns_none_when_no_trace_available(self):
         """Return None when response has no trace ID."""
         import tools.llm_provider as mod
+
         original = mod.LANGSMITH_ENABLED
         mod.LANGSMITH_ENABLED = True
         try:
+
             class MockResponse:
                 pass
 
@@ -314,6 +322,7 @@ class TestExtractTraceId:
     def test_returns_none_for_none_response(self):
         """Handle None response gracefully."""
         import tools.llm_provider as mod
+
         original = mod.LANGSMITH_ENABLED
         mod.LANGSMITH_ENABLED = True
         try:
@@ -325,9 +334,11 @@ class TestExtractTraceId:
     def test_returns_none_when_langsmith_disabled(self):
         """Return None when LANGSMITH_ENABLED is False."""
         import tools.llm_provider as mod
+
         original = mod.LANGSMITH_ENABLED
         mod.LANGSMITH_ENABLED = False
         try:
+
             class MockResponse:
                 response_metadata = {"run_id": "trace-abc-123"}
 
@@ -340,9 +351,11 @@ class TestExtractTraceId:
     def test_prefers_response_metadata_over_id(self):
         """Prefer response_metadata.run_id over response.id."""
         import tools.llm_provider as mod
+
         original = mod.LANGSMITH_ENABLED
         mod.LANGSMITH_ENABLED = True
         try:
+
             class MockResponse:
                 response_metadata = {"run_id": "trace-metadata"}
                 id = "trace-id-attr"
@@ -356,9 +369,11 @@ class TestExtractTraceId:
     def test_handles_empty_response_metadata(self):
         """Handle empty response_metadata dict."""
         import tools.llm_provider as mod
+
         original = mod.LANGSMITH_ENABLED
         mod.LANGSMITH_ENABLED = True
         try:
+
             class MockResponse:
                 response_metadata = {}
                 id = "trace-fallback"
@@ -372,9 +387,11 @@ class TestExtractTraceId:
     def test_converts_non_string_id_to_string(self):
         """Convert non-string trace IDs to strings."""
         import tools.llm_provider as mod
+
         original = mod.LANGSMITH_ENABLED
         mod.LANGSMITH_ENABLED = True
         try:
+
             class MockResponse:
                 id = 12345
 
@@ -473,7 +490,8 @@ class TestProviderLegacyBehavior:
         """GitHub Models provider works with default quality_context=None."""
         provider = GitHubModelsProvider()
         mock_client = MagicMock()
-        mock_client.invoke.return_value = MagicMock(content="""
+        mock_client.invoke.return_value = MagicMock(
+            content="""
 {
     "completed": ["task1"],
     "in_progress": [],
@@ -481,7 +499,8 @@ class TestProviderLegacyBehavior:
     "confidence": 0.9,
     "reasoning": "Legacy call."
 }
-""")
+"""
+        )
 
         with patch.object(provider, "_get_client", return_value=mock_client):
             result = provider.analyze_completion("output", ["task1"])
@@ -493,7 +512,8 @@ class TestProviderLegacyBehavior:
         """OpenAI provider works with default quality_context=None."""
         provider = OpenAIProvider()
         mock_client = MagicMock()
-        mock_client.invoke.return_value = MagicMock(content="""
+        mock_client.invoke.return_value = MagicMock(
+            content="""
 {
     "completed": ["task1"],
     "in_progress": [],
@@ -501,7 +521,8 @@ class TestProviderLegacyBehavior:
     "confidence": 0.85,
     "reasoning": "Legacy call."
 }
-""")
+"""
+        )
 
         with patch.object(provider, "_get_client", return_value=mock_client):
             result = provider.analyze_completion("output", ["task1"])
@@ -513,7 +534,8 @@ class TestProviderLegacyBehavior:
         """Anthropic provider works with default quality_context=None."""
         provider = AnthropicProvider()
         mock_client = MagicMock()
-        mock_client.invoke.return_value = MagicMock(content="""
+        mock_client.invoke.return_value = MagicMock(
+            content="""
 {
     "completed": ["task1"],
     "in_progress": [],
@@ -521,7 +543,8 @@ class TestProviderLegacyBehavior:
     "confidence": 0.88,
     "reasoning": "Legacy call."
 }
-""")
+"""
+        )
 
         with patch.object(provider, "_get_client", return_value=mock_client):
             result = provider.analyze_completion("output", ["task1"])
@@ -1807,7 +1830,8 @@ class TestAnthropicProvider:
         """Quality context is forwarded to the parse step."""
         provider = AnthropicProvider()
         mock_client = MagicMock()
-        mock_client.invoke.return_value = MagicMock(content="""
+        mock_client.invoke.return_value = MagicMock(
+            content="""
 {
     "completed": ["task1"],
     "in_progress": [],
@@ -1815,7 +1839,8 @@ class TestAnthropicProvider:
     "confidence": 0.7,
     "reasoning": "Test response."
 }
-""")
+"""
+        )
         quality_context = SessionQualityContext(
             has_work_evidence=True,
             analysis_text_length=80,

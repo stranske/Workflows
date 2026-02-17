@@ -49,12 +49,12 @@ def _parse_reference_table(text: str) -> dict[str, dict[str, str]]:
         assert example, f"Example missing for {workflow}.{output}"
         example_value = example.strip("`")
         output_name = output.strip("`")
-        assert (
-            "needs." in example_value and ".outputs." in example_value
-        ), f"Example should use needs.<job>.outputs.<name> for {workflow}.{output}"
-        assert (
-            f"outputs.{output_name}" in example_value
-        ), f"Example should reference outputs.{output_name} for {workflow}"
+        assert "needs." in example_value and ".outputs." in example_value, (
+            f"Example should use needs.<job>.outputs.<name> for {workflow}.{output}"
+        )
+        assert f"outputs.{output_name}" in example_value, (
+            f"Example should reference outputs.{output_name} for {workflow}"
+        )
         outputs.setdefault(workflow.strip("`"), {})[output_name] = description
     return outputs
 
@@ -97,14 +97,14 @@ def test_reusable_workflow_outputs_documented() -> None:
                 if not workflow_description:
                     continue
                 documented_description = documented_outputs[path.name][output_name]
-                assert (
-                    documented_description == workflow_description
-                ), f"{path.name}.{output_name} description mismatch"
+                assert documented_description == workflow_description, (
+                    f"{path.name}.{output_name} description mismatch"
+                )
         else:
-            assert (
-                path.name in no_output_workflows
-            ), f"{path.name} should be listed as having no outputs"
+            assert path.name in no_output_workflows, (
+                f"{path.name} should be listed as having no outputs"
+            )
 
-    assert documented_outputs.keys().isdisjoint(
-        no_output_workflows
-    ), "Workflows should not appear in both output lists"
+    assert documented_outputs.keys().isdisjoint(no_output_workflows), (
+        "Workflows should not appear in both output lists"
+    )

@@ -53,9 +53,7 @@ def aggregate_traces(metrics: list[dict[str, Any]]) -> dict[str, Any]:
     trace_coverage_pct = (total_with_traces / total_metrics) * 100
 
     # Group by operation
-    by_operation: dict[str, dict[str, int]] = defaultdict(
-        lambda: {"total": 0, "with_trace": 0}
-    )
+    by_operation: dict[str, dict[str, int]] = defaultdict(lambda: {"total": 0, "with_trace": 0})
     for metric in metrics:
         operation = metric.get("metric_type", "unknown")
         by_operation[operation]["total"] += 1
@@ -65,9 +63,7 @@ def aggregate_traces(metrics: list[dict[str, Any]]) -> dict[str, Any]:
     # Calculate coverage per operation
     operation_summary = {}
     for op, counts in by_operation.items():
-        coverage = (
-            (counts["with_trace"] / counts["total"]) * 100 if counts["total"] > 0 else 0.0
-        )
+        coverage = (counts["with_trace"] / counts["total"]) * 100 if counts["total"] > 0 else 0.0
         operation_summary[op] = {
             "total": counts["total"],
             "with_trace": counts["with_trace"],
@@ -75,9 +71,7 @@ def aggregate_traces(metrics: list[dict[str, Any]]) -> dict[str, Any]:
         }
 
     # Group by autopilot step (if present)
-    by_step: dict[str, dict[str, int]] = defaultdict(
-        lambda: {"total": 0, "with_trace": 0}
-    )
+    by_step: dict[str, dict[str, int]] = defaultdict(lambda: {"total": 0, "with_trace": 0})
     for metric in metrics:
         step = metric.get("step_name", "unknown")
         by_step[step]["total"] += 1
@@ -86,9 +80,7 @@ def aggregate_traces(metrics: list[dict[str, Any]]) -> dict[str, Any]:
 
     step_summary = {}
     for step, counts in by_step.items():
-        coverage = (
-            (counts["with_trace"] / counts["total"]) * 100 if counts["total"] > 0 else 0.0
-        )
+        coverage = (counts["with_trace"] / counts["total"]) * 100 if counts["total"] > 0 else 0.0
         step_summary[step] = {
             "total": counts["total"],
             "with_trace": counts["with_trace"],
@@ -109,15 +101,9 @@ def format_report(summary: dict[str, Any]) -> str:
     lines = ["# LangSmith Trace Coverage Report", ""]
 
     lines.append("## Overall Coverage")
-    lines.append(
-        f"- Total metrics: {summary['total_metrics']}"
-    )
-    lines.append(
-        f"- Metrics with traces: {summary['total_with_traces']}"
-    )
-    lines.append(
-        f"- Coverage: {summary['trace_coverage_pct']}%"
-    )
+    lines.append(f"- Total metrics: {summary['total_metrics']}")
+    lines.append(f"- Metrics with traces: {summary['total_with_traces']}")
+    lines.append(f"- Coverage: {summary['trace_coverage_pct']}%")
     lines.append("")
 
     if summary["by_operation"]:
@@ -126,8 +112,7 @@ def format_report(summary: dict[str, Any]) -> str:
         lines.append("|-----------|-------|------------|----------|")
         for op, stats in sorted(summary["by_operation"].items()):
             lines.append(
-                f"| {op} | {stats['total']} | {stats['with_trace']} | "
-                f"{stats['coverage_pct']}% |"
+                f"| {op} | {stats['total']} | {stats['with_trace']} | {stats['coverage_pct']}% |"
             )
         lines.append("")
 
@@ -137,8 +122,7 @@ def format_report(summary: dict[str, Any]) -> str:
         lines.append("|------|-------|------------|----------|")
         for step, stats in sorted(summary["by_step"].items()):
             lines.append(
-                f"| {step} | {stats['total']} | {stats['with_trace']} | "
-                f"{stats['coverage_pct']}% |"
+                f"| {step} | {stats['total']} | {stats['with_trace']} | {stats['coverage_pct']}% |"
             )
         lines.append("")
 
