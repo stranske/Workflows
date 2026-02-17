@@ -87,11 +87,17 @@ def build_langsmith_metadata(
     ``LANGSMITH_API_KEY`` is set the metadata also includes a
     ``langsmith_project`` field so traces are grouped correctly.
 
-    The returned dict always has the same shape regardless of whether
-    LangSmith is enabled.
+    The returned dict always includes ``metadata`` and ``tags`` keys. When
+    LangSmith tracing is enabled, ``metadata`` gains an additional
+    ``langsmith_project`` entry so traces group correctly.
     """
     repo = repo or os.environ.get("GITHUB_REPOSITORY", "unknown")
-    run_id = run_id or os.environ.get("GITHUB_RUN_ID", "unknown")
+    run_id = (
+        run_id
+        or os.environ.get("GITHUB_RUN_ID")
+        or os.environ.get("RUN_ID")
+        or "unknown"
+    )
 
     if issue_or_pr_number is None:
         if pr_number is not None:

@@ -531,11 +531,11 @@ def _invoke_llm(
         trace_id = extract_trace_id(response)
         if trace_id:
             trace_url = derive_langsmith_trace_url(trace_id)
-            LOGGER.info(f"LangSmith trace: {trace_url}")
+            LOGGER.info("LangSmith trace: %s", trace_url)
     except ImportError:
         LOGGER.debug("tools.llm_provider not available for trace extraction")
     except Exception as exc:
-        LOGGER.debug(f"Failed to extract trace ID: {exc}")
+        LOGGER.debug("Failed to extract trace ID: %s", exc)
 
     return response, trace_id, trace_url
 
