@@ -95,12 +95,14 @@ To customize for your repository:
    ```
 
 2. **Edit `skills/pr-finalize/skill.json`** to change defaults:
+
+   For example, to use faster single-LLM verification by default:
    ```json
    {
      "arguments": [
        {
          "name": "verify_mode",
-         "default": "evaluate"  // Change to "evaluate" for faster verification
+         "default": "evaluate"
        }
      ]
    }
