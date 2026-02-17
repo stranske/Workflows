@@ -249,7 +249,9 @@ jobs:
               const { loadAgentRegistry } = require('./.github/scripts/agent_registry.js');
               const registry = loadAgentRegistry();
               const validAgentKeys = new Set(
-                Object.keys(registry.agents || {}).map((key) => String(key || '').trim().toLowerCase()),
+                Object.keys(registry.agents || {}).map((key) =>
+                  String(key || '').trim().toLowerCase(),
+                ),
               );
               validAgentKeys.add('auto');
 
@@ -267,8 +269,11 @@ jobs:
                 }))
                 .filter(({ key }) => key && !nonRoutingAgentKeys.has(key));
 
-              const registryEntries = routingEntries.filter(({ key }) => validAgentKeys.has(key));
-              const entriesForRouting = registryEntries.length > 0 ? registryEntries : routingEntries;
+              const registryEntries = routingEntries.filter(({ key }) =>
+                validAgentKeys.has(key),
+              );
+              const entriesForRouting =
+                registryEntries.length > 0 ? registryEntries : routingEntries;
 
               routingLabelCandidates = entriesForRouting.map(({ label }) => label);
               routingAgentKeys = Array.from(
@@ -297,7 +302,10 @@ jobs:
             let agentType = '';
             try {
               const { resolveAgentFromLabels } = require('./.github/scripts/agent_registry.js');
-              agentType = resolveAgentFromLabels(routingLabelCandidates.length ? routingLabelCandidates : prData.labels);
+              const labelsForAgent = routingLabelCandidates.length
+                ? routingLabelCandidates
+                : prData.labels;
+              agentType = resolveAgentFromLabels(labelsForAgent);
             } catch (error) {
               const fallbackAgent = routingAgentKeys[0];
               agentType = fallbackAgent || 'codex';
