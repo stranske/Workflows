@@ -34,11 +34,8 @@ jobs:
           plugins: code-review@claude-code-plugins
           prompt: /code-review:code-review ${{ github.repository }}/pull/${{ github.event.pull_request.number }}
 
-  claude-review-missing-secret:
-    if: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN == '' }}
-    runs-on: ubuntu-latest
-    steps:
       - name: Skip review (secret missing)
+        if: env.CLAUDE_CODE_OAUTH_TOKEN == ''
         run: |
           cat <<'MSG' >>"$GITHUB_STEP_SUMMARY"
           ### Claude Code Review skipped
