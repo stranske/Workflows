@@ -1,0 +1,7 @@
+# LangSmith Integration Smoke Test
+
+This is a test file created to validate LangSmith tracing in the verifier workflow.
+
+Test Date: 2026-02-17
+Purpose: Verify that LangSmith trace URLs are properly generated and logged
+Session: pKJUA
