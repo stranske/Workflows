@@ -1900,6 +1900,9 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
         if (!key || nonRoutingAgentKeys.has(key)) {
           return false;
         }
+        if (!validAgentKeys.has(key)) {
+          return false;
+        }
         return true;
       });
 
