@@ -190,6 +190,7 @@ Scheduled health jobs keep the automation ecosystem aligned:
 * [`maint-71-merge-sync-prs.yml`](../../.github/workflows/maint-71-merge-sync-prs.yml) automates merging sync PRs in consumer repos - checks status, merges passing PRs, cleans up stale PRs (manual dispatch).
 * [`maint-72-fix-pr-body-conflicts.yml`](../../.github/workflows/maint-72-fix-pr-body-conflicts.yml) removes pr_body.md from main branch and adds to .gitignore across consumer repos - prevents merge conflicts from PR description files (manual dispatch, weekly schedule).
 * [`maint-74-ledger-base-sync.yml`](../../.github/workflows/maint-74-ledger-base-sync.yml) aligns `.agents` ledger base entries to the repository default branch on a weekly schedule or manual dispatch.
+* [`maint-76-claude-code-review.yml`](../../.github/workflows/maint-76-claude-code-review.yml) runs Claude Code Review on pull requests when the `CLAUDE_CODE_OAUTH_TOKEN` secret is configured, posting automated review summaries and gracefully skipping with a read-only job when the secret is absent.
 * [`maint-80-langsmith-metrics-dashboard.yml`](../../.github/workflows/maint-80-langsmith-metrics-dashboard.yml) generates weekly LangSmith trace coverage dashboard - downloads metrics from autopilot artifacts, computes coverage, creates issue report (scheduled Monday 9AM UTC, manual dispatch).
 
 Together these workflows define the CI surface area referenced by Gate and the Gate summary job, keeping the automation stack observable, testable, and easier to evolve.

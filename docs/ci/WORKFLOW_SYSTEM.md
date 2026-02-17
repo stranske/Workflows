@@ -537,6 +537,11 @@ Keep this table handy when you are triaging automation: it confirms which workfl
   checks PyPI daily (03:00 UTC) for latest dev tool versions and creates a PR
   to update `autofix-versions.env` when versions are outdated, ensuring the
   sync workflow never ships stale versions to consumer repos.
+- **Maint 76 Claude Code Review** – `.github/workflows/maint-76-claude-code-review.yml`
+  runs Anthropic’s Claude Code Review action on pull requests when the
+  `CLAUDE_CODE_OAUTH_TOKEN` secret is configured, posting inline feedback with
+  write-permissions only when needed and falling back to a read-only summary job
+  when the secret is absent.
 - **Maint 62 Integration Consumer** – `.github/workflows/maint-62-integration-consumer.yml`
   exercises the reusable Python CI template against the `templates/integration-repo`
   scenarios on a daily schedule (05:05 UTC), on release publication, or via
