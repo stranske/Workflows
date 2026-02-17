@@ -91,7 +91,7 @@ permissions:
   actions: write
 
 concurrency:
-  group: codex-belt-${{ inputs.branch || format('issue-{0}', inputs.issue) || github.run_id }}
+  group: belt-${{ inputs.agent_key || 'codex' }}-${{ inputs.branch || format('issue-{0}', inputs.issue) || github.run_id }}
   cancel-in-progress: true
 
 jobs:
