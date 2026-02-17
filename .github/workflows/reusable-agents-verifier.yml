@@ -536,6 +536,17 @@ jobs:
             verdict=$(python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('verdict','CONCERNS'))" < evaluation.json 2>/dev/null || echo "CONCERNS")
             echo "verdict=$verdict" >> "$GITHUB_OUTPUT"
 
+            # Extract trace ID and URL for output
+            trace_id=$(python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('langsmith_trace_id', ''))" < evaluation.json 2>/dev/null || echo "")
+            trace_url=$(python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('langsmith_trace_url', ''))" < evaluation.json 2>/dev/null || echo "")
+            echo "trace_id=$trace_id" >> "$GITHUB_OUTPUT"
+            echo "trace_url=$trace_url" >> "$GITHUB_OUTPUT"
+
+            # Log trace URL for easy access from workflow logs
+            if [ -n "$trace_url" ]; then
+              echo "::notice title=LangSmith Trace::View evaluation trace: $trace_url"
+            fi
+
             # Format output for comment
             python3 - <<'PYFORMAT'
           import json
@@ -569,6 +580,13 @@ jobs:
                   for c in concerns:
                       if c:
                           lines.append(f"- {c}")
+                  lines.append("")
+
+              # Add LangSmith trace link if available
+              trace_url = data.get('langsmith_trace_url')
+              if trace_url:
+                  lines.append("### 🔍 LangSmith Trace")
+                  lines.append(f"[View detailed evaluation trace]({trace_url})")
                   lines.append("")
 
               if data.get('error'):
@@ -686,6 +704,22 @@ jobs:
           PY
             )
             echo "verdict=$verdict" >> "$GITHUB_OUTPUT"
+
+            # Extract trace IDs from all comparison results for logging
+            python3 - <<'PY'
+          import json
+
+          try:
+              data = json.load(open('comparison.json'))
+              results = data.get('results', [])
+              for idx, result in enumerate(results):
+                  trace_url = result.get('langsmith_trace_url')
+                  provider = result.get('provider', f'provider-{idx}')
+                  if trace_url:
+                      print(f"::notice title=LangSmith Trace ({provider})::View trace: {trace_url}")
+          except Exception as e:
+              print(f"::debug::Could not extract trace URLs: {e}")
+          PY
 
             has_results=$(python3 - <<'PY'
           import json
