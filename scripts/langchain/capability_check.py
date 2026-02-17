@@ -135,40 +135,6 @@ def _build_llm_config(
     return {"metadata": metadata, "tags": tags}
 
 
-def _invoke_llm_with_trace(
-    llm: object,
-    prompt: str,
-    *,
-    operation: str,
-    issue_number: int | None = None,
-) -> tuple[object, str | None, str | None]:
-    """Invoke LLM and extract trace information.
-
-    Returns:
-        Tuple of (response, trace_id, trace_url)
-    """
-    config = _build_llm_config(operation=operation, issue_number=issue_number)
-
-    try:
-        response = llm.invoke(prompt, config=config)
-    except TypeError:
-        # Fallback if config not supported
-        response = llm.invoke(prompt)
-
-    # Extract trace ID from response if available
-    trace_id = None
-    trace_url = None
-    try:
-        from tools.llm_provider import derive_langsmith_trace_url, extract_trace_id
-
-        trace_id = extract_trace_id(response)
-        if trace_id:
-            trace_url = derive_langsmith_trace_url(trace_id)
-    except ImportError:
-        pass
-
-    return response, trace_id, trace_url
-
 
 def _prepare_prompt_values(tasks: list[str], acceptance: str) -> dict[str, str]:
     task_lines = "\n".join(f"- {task}" for task in tasks) if tasks else "- (none)"

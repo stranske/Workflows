@@ -583,3 +583,71 @@ def test_analyze_issue_repairs_once_then_falls_back(monkeypatch: pytest.MonkeyPa
     assert "LLM structured output failed" in (result.overall_notes or "")
     assert mock_chain.invoke.call_count == 1
     assert mock_client.invoke.call_count == 1
+
+
+def test_analyze_issue_langsmith_trace_propagation(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that LangSmith trace ID and URL are propagated to result."""
+    mock_client = mock.MagicMock()
+    mock_chain = mock.MagicMock()
+    
+    # Mock response with trace metadata
+    mock_response = mock.MagicMock()
+    mock_response.content = json.dumps({
+        "blocked_tasks": [{"task": "Update workflow", "reason": "Protected file", "suggested_action": "Manual update"}],
+        "suggested_rewrites": [],
+        "missing_sections": [],
+        "task_splitting_suggestions": []
+    })
+    mock_response.response_metadata = {'run_id': 'test-run-id-abc123'}
+    mock_chain.invoke.return_value = mock_response
+    
+    _install_fake_langchain(monkeypatch, mock_chain)
+    
+    with (
+        mock.patch("scripts.langchain.issue_optimizer._get_llm_client", return_value=(mock_client, "test-provider")),
+        mock.patch.dict("os.environ", {"LANGSMITH_API_KEY": "test-key"}),
+    ):
+        result = issue_optimizer.analyze_issue("Issue body", use_llm=True)
+    
+    # Assert trace fields are populated
+    assert hasattr(result, 'langsmith_trace_id')
+    assert hasattr(result, 'langsmith_trace_url')
+    assert result.langsmith_trace_id == 'test-run-id-abc123'
+    assert 'test-run-id-abc123' in (result.langsmith_trace_url or '')
+    assert result.provider_used == "test-provider"
+
+
+def test_apply_suggestions_langsmith_trace_fields(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that apply_suggestions includes LangSmith trace fields when available."""
+    mock_client = mock.MagicMock()
+    mock_chain = mock.MagicMock()
+    
+    # Mock response with trace metadata
+    mock_response = mock.MagicMock()
+    mock_response.content = "## Tasks\n- [ ] Do it\n\n## Acceptance Criteria\n- [ ] Done"
+    mock_response.response_metadata = {'run_id': 'apply-trace-xyz789'}
+    mock_chain.invoke.return_value = mock_response
+    
+    _install_fake_langchain(monkeypatch, mock_chain)
+
+    # Minimal suggestions dict
+    suggestions = {
+        "task_splitting": [],
+        "blocked_tasks": [],
+        "objective_criteria": [],
+        "overall_notes": "",
+    }
+
+    with (
+        mock.patch("scripts.langchain.issue_optimizer._get_llm_client", return_value=(mock_client, "test-provider")),
+        mock.patch.dict("os.environ", {"LANGSMITH_API_KEY": "test-key"}),
+    ):
+        result = issue_optimizer.apply_suggestions("Issue body", suggestions, use_llm=True)
+    
+    # Assert trace fields are included in returned dict
+    assert isinstance(result, dict)
+    assert 'langsmith_trace_id' in result
+    assert 'langsmith_trace_url' in result
+    assert result['langsmith_trace_id'] == 'apply-trace-xyz789'
+    assert 'apply-trace-xyz789' in result['langsmith_trace_url']
+    assert result['provider_used'] == 'test-provider'
