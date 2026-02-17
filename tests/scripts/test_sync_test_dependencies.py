@@ -255,11 +255,12 @@ def test_add_dependencies_to_pyproject_requires_tomlkit(
 def test_add_dependencies_to_pyproject_creates_dev_group(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    pytest.importorskip("tomlkit")  # Skip if tomlkit not installed
+
     pyproject = tmp_path / "pyproject.toml"
     pyproject.write_text("[project]\n", encoding="utf-8")
 
     monkeypatch.setattr(std, "PYPROJECT_FILE", pyproject)
-    monkeypatch.setattr(std, "TOMLKIT_ERROR", None)
 
     assert std.add_dependencies_to_pyproject({"pandas"}, fix=True) is True
 
@@ -271,6 +272,8 @@ def test_add_dependencies_to_pyproject_creates_dev_group(
 def test_add_dependencies_to_pyproject_no_new_entries(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    pytest.importorskip("tomlkit")  # Skip if tomlkit not installed
+
     pyproject = tmp_path / "pyproject.toml"
     pyproject.write_text(
         "\n".join(
@@ -286,7 +289,6 @@ def test_add_dependencies_to_pyproject_no_new_entries(
     )
 
     monkeypatch.setattr(std, "PYPROJECT_FILE", pyproject)
-    monkeypatch.setattr(std, "TOMLKIT_ERROR", None)
 
     assert std.add_dependencies_to_pyproject({"requests"}, fix=True) is False
 
@@ -294,6 +296,8 @@ def test_add_dependencies_to_pyproject_no_new_entries(
 def test_add_dependencies_to_pyproject_appends_entries(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    pytest.importorskip("tomlkit")  # Skip if tomlkit not installed
+
     pyproject = tmp_path / "pyproject.toml"
     pyproject.write_text(
         "\n".join(
@@ -309,7 +313,6 @@ def test_add_dependencies_to_pyproject_appends_entries(
     )
 
     monkeypatch.setattr(std, "PYPROJECT_FILE", pyproject)
-    monkeypatch.setattr(std, "TOMLKIT_ERROR", None)
 
     assert std.add_dependencies_to_pyproject({"requests", "pandas"}, fix=True) is True
 

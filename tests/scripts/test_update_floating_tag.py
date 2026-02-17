@@ -15,6 +15,7 @@ def _init_repo(path: pathlib.Path):
     _run(["git", "init"], cwd=path)
     _run(["git", "config", "user.name", "Test User"], cwd=path)
     _run(["git", "config", "user.email", "test@example.com"], cwd=path)
+    _run(["git", "config", "commit.gpgsign", "false"], cwd=path)
 
 
 def _commit_file(path: pathlib.Path, filename: str, content: str, message: str) -> str:

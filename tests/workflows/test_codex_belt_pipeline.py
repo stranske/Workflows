@@ -123,8 +123,9 @@ def test_worker_keeps_concurrency_and_pat_guard():
     concurrency = workflow.get("concurrency") or {}
     group = concurrency.get("group", "")
     assert group.startswith(
-        "codex-belt"
-    ), f"Concurrency group should start with 'codex-belt', got: {group}"
+        "belt-${{ inputs.agent_key"
+    ), f"Concurrency group should start with 'belt-${{ inputs.agent_key', got: {group}"
+    assert "inputs.branch" in group, "Concurrency group must include branch to scope run"
     assert concurrency.get("cancel-in-progress") is True
 
     events = workflow.get("on") or {}

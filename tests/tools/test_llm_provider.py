@@ -19,6 +19,7 @@ from tools.llm_provider import (
     build_langsmith_metadata,
     check_providers,
     derive_langsmith_trace_url,
+    extract_trace_id,
     get_llm_provider,
     get_quality_context_capable_providers,
     get_quality_context_support_table,
@@ -244,6 +245,162 @@ class TestDeriveLangsmithTraceUrl:
 
     def test_returns_none_for_none_trace_id(self):
         assert derive_langsmith_trace_url(None) is None
+
+
+class TestExtractTraceId:
+    """Tests for extract_trace_id function."""
+
+    def test_extracts_from_response_metadata_run_id(self):
+        """Extract trace ID from response.response_metadata['run_id']."""
+        import tools.llm_provider as mod
+
+        original = mod.LANGSMITH_ENABLED
+        mod.LANGSMITH_ENABLED = True
+        try:
+
+            class MockResponse:
+                response_metadata = {"run_id": "trace-abc-123"}
+
+            response = MockResponse()
+            trace_id = extract_trace_id(response)
+            assert trace_id == "trace-abc-123"
+        finally:
+            mod.LANGSMITH_ENABLED = original
+
+    def test_extracts_from_response_id_fallback(self):
+        """Extract trace ID from response.id when response_metadata unavailable."""
+        import tools.llm_provider as mod
+
+        original = mod.LANGSMITH_ENABLED
+        mod.LANGSMITH_ENABLED = True
+        try:
+
+            class MockResponse:
+                id = "trace-def-456"
+
+            response = MockResponse()
+            trace_id = extract_trace_id(response)
+            assert trace_id == "trace-def-456"
+        finally:
+            mod.LANGSMITH_ENABLED = original
+
+    def test_extracts_from_dict_id_fallback(self):
+        """Extract trace ID from response.__dict__['id'] as final fallback."""
+        import tools.llm_provider as mod
+
+        original = mod.LANGSMITH_ENABLED
+        mod.LANGSMITH_ENABLED = True
+        try:
+
+            class MockResponse:
+                def __init__(self):
+                    self.__dict__["id"] = "trace-ghi-789"
+
+            response = MockResponse()
+            trace_id = extract_trace_id(response)
+            assert trace_id == "trace-ghi-789"
+        finally:
+            mod.LANGSMITH_ENABLED = original
+
+    def test_returns_none_when_no_trace_available(self):
+        """Return None when response has no trace ID."""
+        import tools.llm_provider as mod
+
+        original = mod.LANGSMITH_ENABLED
+        mod.LANGSMITH_ENABLED = True
+        try:
+
+            class MockResponse:
+                pass
+
+            response = MockResponse()
+            trace_id = extract_trace_id(response)
+            assert trace_id is None
+        finally:
+            mod.LANGSMITH_ENABLED = original
+
+    def test_returns_none_for_none_response(self):
+        """Handle None response gracefully."""
+        import tools.llm_provider as mod
+
+        original = mod.LANGSMITH_ENABLED
+        mod.LANGSMITH_ENABLED = True
+        try:
+            trace_id = extract_trace_id(None)
+            assert trace_id is None
+        finally:
+            mod.LANGSMITH_ENABLED = original
+
+    def test_returns_none_when_langsmith_disabled(self):
+        """Return None when LANGSMITH_ENABLED is False."""
+        import tools.llm_provider as mod
+
+        original = mod.LANGSMITH_ENABLED
+        mod.LANGSMITH_ENABLED = False
+        try:
+
+            class MockResponse:
+                response_metadata = {"run_id": "trace-abc-123"}
+
+            response = MockResponse()
+            trace_id = extract_trace_id(response)
+            assert trace_id is None
+        finally:
+            mod.LANGSMITH_ENABLED = original
+
+    def test_prefers_response_metadata_over_id(self):
+        """Prefer response_metadata.run_id over response.id."""
+        import tools.llm_provider as mod
+
+        original = mod.LANGSMITH_ENABLED
+        mod.LANGSMITH_ENABLED = True
+        try:
+
+            class MockResponse:
+                response_metadata = {"run_id": "trace-metadata"}
+                id = "trace-id-attr"
+
+            response = MockResponse()
+            trace_id = extract_trace_id(response)
+            assert trace_id == "trace-metadata"
+        finally:
+            mod.LANGSMITH_ENABLED = original
+
+    def test_handles_empty_response_metadata(self):
+        """Handle empty response_metadata dict."""
+        import tools.llm_provider as mod
+
+        original = mod.LANGSMITH_ENABLED
+        mod.LANGSMITH_ENABLED = True
+        try:
+
+            class MockResponse:
+                response_metadata = {}
+                id = "trace-fallback"
+
+            response = MockResponse()
+            trace_id = extract_trace_id(response)
+            assert trace_id == "trace-fallback"
+        finally:
+            mod.LANGSMITH_ENABLED = original
+
+    def test_converts_non_string_id_to_string(self):
+        """Convert non-string trace IDs to strings."""
+        import tools.llm_provider as mod
+
+        original = mod.LANGSMITH_ENABLED
+        mod.LANGSMITH_ENABLED = True
+        try:
+
+            class MockResponse:
+                id = 12345
+
+            response = MockResponse()
+            trace_id = extract_trace_id(response)
+            assert trace_id == "12345"
+            assert isinstance(trace_id, str)
+        finally:
+            mod.LANGSMITH_ENABLED = original
 
 
 class TestLLMProviderInterface:

@@ -531,11 +531,11 @@ def _invoke_llm(
         trace_id = extract_trace_id(response)
         if trace_id:
             trace_url = derive_langsmith_trace_url(trace_id)
-            LOGGER.info(f"LangSmith trace: {trace_url}")
+            LOGGER.info("LangSmith trace: %s", trace_url)
     except ImportError:
         LOGGER.debug("tools.llm_provider not available for trace extraction")
     except Exception as exc:
-        LOGGER.debug(f"Failed to extract trace ID: {exc}")
+        LOGGER.debug("Failed to extract trace ID: %s", exc)
 
     return response, trace_id, trace_url
 
@@ -987,6 +987,18 @@ def format_comparison_report(results: list[EvaluationResult]) -> str:
             insights = ["No unique insights reported."]
         lines.append(f"- {labels[index]}: {'; '.join(insights)}")
     lines.append("")
+
+    # Add LangSmith trace links if available
+    trace_urls = [
+        (labels[i], result.langsmith_trace_url)
+        for i, result in enumerate(results)
+        if result.langsmith_trace_url
+    ]
+    if trace_urls:
+        lines.append("### 🔍 LangSmith Traces")
+        for label, url in trace_urls:
+            lines.append(f"- [{label}]({url})")
+        lines.append("")
 
     return "\n".join(lines).strip() + "\n"
 

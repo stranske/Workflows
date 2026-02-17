@@ -46,22 +46,40 @@ permissions:
   issues: write
   actions: write
 
-concurrency:
-  group: >-
-    ${{
-      (inputs.agent_key || 'codex') == 'codex'
-        && format('codex-belt-conveyor-{0}', inputs.branch || format('issue-{0}', inputs.issue) || github.run_id)
-        || format('belt-{0}-conveyor-{1}',
-          inputs.agent_key || 'codex',
-          inputs.branch || format('issue-{0}', inputs.issue) || github.run_id
-        )
-    }}
-  cancel-in-progress: true
-
 jobs:
+  normalize:
+    name: Normalize agent inputs
+    runs-on: ubuntu-latest
+    outputs:
+      agent_key: ${{ steps.normalize.outputs.agent_key || 'codex' }}
+    steps:
+      - name: Derive normalized agent key
+        id: normalize
+        run: |
+          set -euo pipefail
+          raw="${{ inputs.agent_key }}"
+          trimmed="$(printf '%s' "${raw:-codex}" | tr '[:upper:]' '[:lower:]')"
+          normalized="$(printf '%s' "${trimmed}" | xargs)"
+          if [ -z "${normalized}" ]; then
+            normalized='codex'
+          fi
+          echo "agent_key=${normalized}" >>"$GITHUB_OUTPUT"
+
   promote:
+    needs: normalize
     name: Promote merged Codex belt PR
     runs-on: ubuntu-latest
+    concurrency:
+      group: >-
+        ${{
+          (needs.normalize.outputs.agent_key || 'codex') == 'codex'
+            && format('codex-belt-conveyor-{0}', inputs.branch || format('issue-{0}', inputs.issue) || github.run_id)
+            || format('belt-{0}-conveyor-{1}',
+              needs.normalize.outputs.agent_key || 'codex',
+              inputs.branch || format('issue-{0}', inputs.issue) || github.run_id
+            )
+        }}
+      cancel-in-progress: true
     outputs:
       merged: ${{ steps.merge.outputs.merged || 'false' }}
       dry_run: ${{ steps.mode.outputs.dry_run || 'false' }}
@@ -71,6 +89,7 @@ jobs:
       ACTIONS_BOT_PAT: ${{ secrets.ACTIONS_BOT_PAT || '' }}
       WORKFLOWS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID || '' }}
       WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || '' }}
+      AGENT_KEY_NORMALIZED: ${{ needs.normalize.outputs.agent_key || 'codex' }}
 
     steps:
       - name: Mint GitHub App token (preferred)
@@ -168,10 +187,11 @@ jobs:
         uses: actions/checkout@v6
         with:
           sparse-checkout: |
-            .github/agents/registry.yml
             .github/actions/setup-api-client
+            .github/agents/registry.yml
             .github/scripts/agent_registry.js
             .github/scripts/github-api-with-retry.js
+            .github/scripts/token_load_balancer.js
           sparse-checkout-cone-mode: false
 
       - name: Setup API client
@@ -194,7 +214,7 @@ jobs:
             const issueValue = Number(issueRaw);
             const issueNumber = Number.isFinite(issueValue) && issueValue > 0 ? issueValue : null;
             const branch = '${{ inputs.branch }}'.trim();
-            const agentKey = String('${{ inputs.agent_key }}' || 'codex').trim().toLowerCase() || 'codex';
+            const agentKey = String('${{ env.AGENT_KEY_NORMALIZED }}' || 'codex').trim().toLowerCase() || 'codex';
             const prNumber = Number('${{ inputs.pr_number }}');
             const targetPr = Number.isFinite(prNumber) ? `#${prNumber}` : 'Unknown';
             const modeDisplay = dryRun ? 'Preview (dry run)' : 'Live (merge ready)';
@@ -281,7 +301,7 @@ jobs:
               core.setFailed(`PR #${prNumber} is running on ${headBranch} instead of ${branch}.`);
               return;
             }
-            const agentKey = String('${{ inputs.agent_key }}' || 'codex').trim().toLowerCase() || 'codex';
+            const agentKey = String('${{ env.AGENT_KEY_NORMALIZED }}' || 'codex').trim().toLowerCase() || 'codex';
             let branchPrefix = 'codex/issue-';
             try {
               const { getAgentConfig } = require('./.github/scripts/agent_registry.js');
@@ -495,7 +515,7 @@ jobs:
               }
             }
             try {
-              const agentKey = String('${{ inputs.agent_key }}' || 'codex').trim().toLowerCase() || 'codex';
+              const agentKey = String('${{ env.AGENT_KEY_NORMALIZED }}' || 'codex').trim().toLowerCase() || 'codex';
               await withRetry(() => github.rest.issues.createComment({
                 owner,
                 repo,
@@ -555,7 +575,7 @@ jobs:
                 };
             const { withRetry } = retryHelpers;
             const { owner, repo } = context.repo;
-            const agentKey = String('${{ inputs.agent_key }}' || 'codex').trim().toLowerCase() || 'codex';
+            const agentKey = String('${{ env.AGENT_KEY_NORMALIZED }}' || 'codex').trim().toLowerCase() || 'codex';
             try {
               await withRetry(() => github.rest.actions.createWorkflowDispatch({
                 owner,

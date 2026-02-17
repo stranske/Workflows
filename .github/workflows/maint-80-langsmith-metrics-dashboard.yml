@@ -1,0 +1,303 @@
+name: LangSmith Metrics Dashboard
+
+on:
+  schedule:
+    # Run every Monday at 9:00 AM UTC
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+    inputs:
+      days_back:
+        description: 'Number of days to look back for metrics'
+        required: false
+        default: '7'
+        type: string
+      create_issue:
+        description: 'Create issue with report (vs just artifact)'
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  actions: read
+  contents: write
+  issues: write
+
+jobs:
+  generate-dashboard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests
+
+      - name: Download recent metrics artifacts
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Create output directory
+          mkdir -p .metrics-tmp
+
+          # Calculate date cutoff (default 7 days back)
+          DAYS_BACK="${{ inputs.days_back || '7' }}"
+          CUTOFF_DATE=$(date -u -d "$DAYS_BACK days ago" +%Y-%m-%dT%H:%M:%SZ)
+
+          echo "📊 Downloading metrics artifacts from last $DAYS_BACK days..."
+          echo "Cutoff date: $CUTOFF_DATE"
+
+          # Get workflow runs from autopilot workflow
+          WORKFLOW_PATH="agents-auto-pilot.yml"
+          gh api \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "/repos/${{ github.repository }}/actions/workflows/$WORKFLOW_PATH/runs" \
+            -f per_page=100 -f status=completed \
+            --jq ".workflow_runs[] | select(.created_at >= \"$CUTOFF_DATE\") | .id" \
+            > .metrics-tmp/run_ids.txt || echo "No runs found"
+
+          # Download artifacts from each run
+          COUNT=0
+          while IFS= read -r run_id; do
+            echo "Checking run $run_id for metrics artifacts..."
+
+            # List artifacts for this run
+            gh api \
+              -H "Accept: application/vnd.github+json" \
+              "/repos/${{ github.repository }}/actions/runs/$run_id/artifacts" \
+              --jq '.artifacts[] |
+                select(.name | startswith("autopilot-metrics-")) |
+                {name: .name, id: .id}' \
+              > ".metrics-tmp/artifacts_${run_id}.json" || continue
+
+            # Download each artifact
+            while IFS= read -r artifact; do
+              artifact_name=$(echo "$artifact" | jq -r '.name')
+              artifact_id=$(echo "$artifact" | jq -r '.id')
+
+              echo "  Downloading artifact: $artifact_name (ID: $artifact_id)"
+
+              # Download artifact zip
+              gh api \
+                -H "Accept: application/vnd.github+json" \
+                "/repos/${{ github.repository }}/actions/artifacts/$artifact_id/zip" \
+                > ".metrics-tmp/${artifact_name}.zip" || continue
+
+              # Extract NDJSON from zip
+              unzip -q -o ".metrics-tmp/${artifact_name}.zip" -d ".metrics-tmp/" || continue
+              rm ".metrics-tmp/${artifact_name}.zip"
+
+              COUNT=$((COUNT + 1))
+            done < ".metrics-tmp/artifacts_${run_id}.json"
+          done < .metrics-tmp/run_ids.txt
+
+          echo "✅ Downloaded $COUNT metrics artifacts"
+
+          # Combine all NDJSON files into one
+          find .metrics-tmp -name "*.ndjson" -exec cat {} \; \
+            > .metrics-tmp/combined-metrics.ndjson || \
+            touch .metrics-tmp/combined-metrics.ndjson
+
+          LINES=$(wc -l < .metrics-tmp/combined-metrics.ndjson)
+          echo "📈 Combined metrics: $LINES total operations"
+
+      - name: Generate metrics report
+        run: |
+          if [ ! -f .metrics-tmp/combined-metrics.ndjson ] || \
+             [ ! -s .metrics-tmp/combined-metrics.ndjson ]; then
+            echo "⚠️ No metrics data found"
+            echo "REPORT_AVAILABLE=false" >> "$GITHUB_ENV"
+            exit 0
+          fi
+
+          echo "REPORT_AVAILABLE=true" >> "$GITHUB_ENV"
+
+          # Generate markdown report
+          python scripts/aggregate_metrics.py \
+            .metrics-tmp/combined-metrics.ndjson \
+            --format markdown \
+            > .metrics-tmp/report.md
+
+          # Generate JSON summary
+          python scripts/aggregate_metrics.py \
+            .metrics-tmp/combined-metrics.ndjson \
+            --format json \
+            > .metrics-tmp/summary.json
+
+          echo "✅ Generated metrics report"
+
+      - name: Upload report artifact
+        if: env.REPORT_AVAILABLE == 'true'
+        uses: actions/upload-artifact@v6
+        with:
+          name: langsmith-metrics-report-${{ github.run_id }}
+          path: |
+            .metrics-tmp/report.md
+            .metrics-tmp/summary.json
+            .metrics-tmp/combined-metrics.ndjson
+          retention-days: 90
+
+      - name: Create dashboard issue
+        if: >
+          env.REPORT_AVAILABLE == 'true' &&
+          (github.event_name == 'schedule' || inputs.create_issue == true)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Read report
+          REPORT=$(cat .metrics-tmp/report.md)
+
+          # Get date range
+          DAYS_BACK="${{ inputs.days_back || '7' }}"
+          START_DATE=$(date -u -d "$DAYS_BACK days ago" +%Y-%m-%d)
+          END_DATE=$(date -u +%Y-%m-%d)
+
+          # Create issue body
+          cat > .metrics-tmp/issue-body.md <<EOF
+          # LangSmith Trace Coverage Report
+
+          **Period:** $START_DATE to $END_DATE
+          **Generated:** $(date -u +"%Y-%m-%d %H:%M UTC")
+          **Workflow Run:** [#${{ github.run_id }}](
+          ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+
+          ---
+
+          $REPORT
+
+          ---
+
+          ## About This Report
+
+          This automated report tracks LangSmith trace coverage across all LLM
+          operations in the repository. Trace IDs allow us to:
+          - Debug LLM calls via the LangSmith dashboard
+          - Analyze model performance and costs
+          - Correlate issues with specific inference runs
+
+          **Target Coverage:** 90%+
+
+          **Related Documentation:**
+          - [LangSmith Integration Status](../blob/main/docs/LANGSMITH_INTEGRATION_STATUS.md)
+          - [E2E Validation Report](../blob/main/docs/LANGSMITH_E2E_VALIDATION.md)
+          - [Integration Skill](../blob/main/.claude/skills/langsmith-integration/skill.md)
+
+          ---
+
+          <sub>This report is generated automatically every Monday. To regenerate
+          manually, trigger the [LangSmith Metrics Dashboard workflow](
+          ../actions/workflows/maint-80-langsmith-metrics-dashboard.yml).</sub>
+          EOF
+
+          # Create issue
+          gh issue create \
+            --title "📊 LangSmith Trace Coverage Report - Week of $START_DATE" \
+            --body-file .metrics-tmp/issue-body.md \
+            --label "metrics,langsmith,automated"
+
+      - name: Update dashboard file
+        if: env.REPORT_AVAILABLE == 'true'
+        run: |
+          # Create/update dashboard markdown file
+          mkdir -p docs/dashboards
+
+          cat > docs/dashboards/langsmith-metrics.md <<EOF
+          # LangSmith Metrics Dashboard
+
+          > **Last Updated:** $(date -u +"%Y-%m-%d %H:%M UTC")
+          > **Period:** Last ${{ inputs.days_back || '7' }} days
+
+          ---
+
+          $(cat .metrics-tmp/report.md)
+
+          ---
+
+          ## How to Read This Dashboard
+
+          ### Overall Trace Coverage
+
+          The **trace coverage percentage** indicates what portion of LLM
+          operations successfully captured a LangSmith trace ID.
+
+          - ✅ **90%+** - Excellent coverage
+          - ⚠️ **70-89%** - Good, but investigate gaps
+          - ❌ **<70%** - Action required
+
+          ### Coverage by Operation Type
+
+          Different operation types (from \`metric_type\` field):
+          - **step** - Autopilot pipeline steps (format, optimize, etc.)
+          - **evaluation** - PR verification evaluations
+          - **generation** - Issue/followup generation
+
+          ### Coverage by Autopilot Step
+
+          Traces grouped by \`step_name\` for autopilot operations.
+
+          ---
+
+          ## Accessing Traces
+
+          1. **In PR comments:** Look for "🔍 LangSmith Trace" section in verifier reports
+          2. **In workflow logs:** Check for GitHub notices titled "LangSmith Trace"
+          3. **In LangSmith UI:** Visit [https://smith.langchain.com](https://smith.langchain.com)
+
+          ---
+
+          ## Related Links
+
+          - [Integration Status](../LANGSMITH_INTEGRATION_STATUS.md)
+          - [E2E Validation](../LANGSMITH_E2E_VALIDATION.md)
+          - [Integration Skill](../../.claude/skills/langsmith-integration/skill.md)
+          - [Weekly Reports (Issues)](../../issues?q=is%3Aissue+label%3Alangsmith+label%3Ametrics)
+
+          EOF
+
+          # Commit and push
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add docs/dashboards/langsmith-metrics.md
+
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "chore: Update LangSmith metrics dashboard
+
+          Automated update from workflow run ${{ github.run_id }}
+          Period: Last ${{ inputs.days_back || '7' }} days
+
+          https://claude.ai/code/session_011yqqC7w1v8FX37eWQ9564j"
+
+            git push origin main
+            echo "✅ Updated docs/dashboards/langsmith-metrics.md"
+          fi
+
+      - name: Summary
+        if: always()
+        run: |
+          if [ "$REPORT_AVAILABLE" == "true" ]; then
+            echo "✅ LangSmith metrics dashboard generated successfully"
+            echo ""
+            echo "📊 Report locations:"
+            echo "  - Artifact: langsmith-metrics-report-${{ github.run_id }}"
+            echo "  - Dashboard file: docs/dashboards/langsmith-metrics.md"
+            if [ "${{ github.event_name }}" == "schedule" ] || \
+               [ "${{ inputs.create_issue }}" == "true" ]; then
+              echo "  - Issue: Created with label 'langsmith,metrics'"
+            fi
+          else
+            echo "⚠️ No metrics data available for the specified period"
+            echo "This is normal if:"
+            echo "  - No autopilot runs completed recently"
+            echo "  - Artifacts have expired (14 day retention)"
+            echo "  - This is the first run"
+          fi

@@ -28,6 +28,7 @@ concurrency:
 
 jobs:
   prepare:
+    if: ${{ vars.USE_CONSOLIDATED_WORKFLOWS != 'true' }}
     name: Prepare autofix context
     runs-on: ubuntu-latest
     environment: agent-standard
@@ -239,14 +240,60 @@ jobs:
                   .filter(Boolean)
               : [];
 
-            const hasExplicitAgentLabel = labels.some((label) => label.startsWith('agent:'));
+            const labelObjects = Array.isArray(prData.labels) ? prData.labels : [];
+            const agentPrefix = 'agent:';
+            let routingLabelCandidates = labelObjects;
+            let routingAgentKeys = [];
+            const nonRoutingAgentKeys = new Set(['needs-attention', 'rate-limited', 'retry']);
+            try {
+              const { loadAgentRegistry } = require('./.github/scripts/agent_registry.js');
+              const registry = loadAgentRegistry();
+              const validAgentKeys = new Set(
+                Object.keys(registry.agents || {}).map((key) => String(key || '').trim().toLowerCase()),
+              );
+              validAgentKeys.add('auto');
+
+              const normalizedAgentLabels = labelObjects
+                .map((label) => {
+                  const normalized = (label?.name || '').trim().toLowerCase();
+                  return { label, normalized };
+                })
+                .filter(({ normalized }) => normalized.startsWith(agentPrefix));
+
+              const routingEntries = normalizedAgentLabels
+                .map(({ label, normalized }) => ({
+                  label,
+                  key: normalized.slice(agentPrefix.length),
+                }))
+                .filter(({ key }) => key && !nonRoutingAgentKeys.has(key));
+
+              const registryEntries = routingEntries.filter(({ key }) => validAgentKeys.has(key));
+              const entriesForRouting = registryEntries.length > 0 ? registryEntries : routingEntries;
+
+              routingLabelCandidates = entriesForRouting.map(({ label }) => label);
+              routingAgentKeys = Array.from(
+                new Set(routingEntries.map(({ key }) => key).filter(Boolean)),
+              );
+            } catch (error) {
+              routingLabelCandidates = labelObjects;
+              routingAgentKeys = Array.from(
+                new Set(
+                  labels
+                    .filter((label) => label.startsWith(agentPrefix))
+                    .map((label) => label.slice(agentPrefix.length))
+                    .filter((key) => key && !nonRoutingAgentKeys.has(key)),
+                ),
+              );
+            }
+
+            const hasExplicitAgentLabel = routingAgentKeys.length > 0;
             let agentType = '';
             try {
               const { resolveAgentFromLabels } = require('./.github/scripts/agent_registry.js');
-              agentType = resolveAgentFromLabels(prData.labels);
+              agentType = resolveAgentFromLabels(routingLabelCandidates.length ? routingLabelCandidates : prData.labels);
             } catch (error) {
-              const agentLabel = labels.find((label) => label.startsWith('agent:'));
-              agentType = agentLabel ? agentLabel.slice('agent:'.length) : 'codex';
+              const fallbackAgent = routingAgentKeys[0];
+              agentType = fallbackAgent || 'codex';
             }
 
             outputs.agent_type = String(agentType || '');

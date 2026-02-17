@@ -16,8 +16,7 @@ def _followup_result(summary: str):
 
 def _build_summary(*rows: str) -> str:
     header = (
-        "| Provider | Model | Verdict | Confidence | Summary |\n"
-        "| --- | --- | --- | --- | --- |\n"
+        "| Provider | Model | Verdict | Confidence | Summary |\n| --- | --- | --- | --- | --- |\n"
     )
     body = "\n".join(rows)
     return f"## Provider Summary\n\n{header}{body}\n"

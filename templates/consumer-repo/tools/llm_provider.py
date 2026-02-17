@@ -39,6 +39,7 @@ GITHUB_MODELS_BASE_URL = "https://models.inference.ai.azure.com"
 # - Kept for backward compatibility with external code that references it
 DEFAULT_MODEL = "codex-mini-latest"
 ANTHROPIC_API_KEY_ENV = "CLAUDE_API_STRANSKE"
+SHORT_ANALYSIS_CONFIDENCE_CAP = 0.4
 
 
 def _setup_langsmith_tracing() -> bool:
@@ -86,11 +87,12 @@ def build_langsmith_metadata(
     ``LANGSMITH_API_KEY`` is set the metadata also includes a
     ``langsmith_project`` field so traces are grouped correctly.
 
-    The returned dict always has the same shape regardless of whether
-    LangSmith is enabled.
+    The returned dict always includes ``metadata`` and ``tags`` keys. When
+    LangSmith tracing is enabled, ``metadata`` gains an additional
+    ``langsmith_project`` entry so traces group correctly.
     """
     repo = repo or os.environ.get("GITHUB_REPOSITORY", "unknown")
-    run_id = run_id or os.environ.get("GITHUB_RUN_ID", "unknown")
+    run_id = run_id or os.environ.get("GITHUB_RUN_ID") or os.environ.get("RUN_ID") or "unknown"
 
     if issue_or_pr_number is None:
         if pr_number is not None:
@@ -135,6 +137,58 @@ def derive_langsmith_trace_url(trace_id: str | None) -> str | None:
     if not trace_id:
         return None
     return f"{LANGSMITH_TRACE_URL_BASE}{trace_id}"
+
+
+def extract_trace_id(response) -> str | None:
+    """Extract LangSmith trace ID from a LangChain response object.
+
+    Works with responses from ChatOpenAI, ChatAnthropic, and other LangChain clients.
+    Returns None if no trace ID is available or LangSmith tracing is disabled.
+
+    Args:
+        response: LangChain response object (e.g., AIMessage from client.invoke())
+
+    Returns:
+        Trace ID string or None
+    """
+    if not LANGSMITH_ENABLED:
+        return None
+
+    # LangChain response objects have a response_metadata dict with run_id
+    # The run_id is the trace ID in LangSmith
+    try:
+        # Try to get run_id from response metadata (primary method)
+        if hasattr(response, "response_metadata"):
+            metadata = response.response_metadata
+            if isinstance(metadata, dict) and "run_id" in metadata:
+                return str(metadata["run_id"])
+
+        # Fallback: Some LangChain providers may use id attribute directly
+        # WARNING: This may not always correspond to the LangSmith trace ID
+        if hasattr(response, "id"):
+            trace_id = str(response.id)
+            logger.debug(
+                "Using response.id as trace ID (fallback). "
+                "Verify this corresponds to LangSmith trace for your provider."
+            )
+            return trace_id
+
+        # Additional fallback for compatibility
+        if hasattr(response, "__dict__"):
+            response_dict = response.__dict__
+            if "id" in response_dict:
+                trace_id = str(response_dict["id"])
+                logger.debug(
+                    "Using response.__dict__['id'] as trace ID (fallback). "
+                    "Verify this corresponds to LangSmith trace for your provider."
+                )
+                return trace_id
+
+    except Exception as e:
+        logger.debug(f"Failed to extract trace ID from response: {e}")
+        return None
+
+    return None
 
 
 def _is_token_limit_error(error: Exception) -> bool:
@@ -356,7 +410,7 @@ class GitHubModelsProvider(LLMProvider):
                 "possible data loss in pipeline"
             )
             # Short text means limited evidence - cap confidence
-            confidence = min(confidence, 0.4)
+            confidence = min(confidence, SHORT_ANALYSIS_CONFIDENCE_CAP)
             logger.warning(f"Short analysis text: {quality_context.analysis_text_length} chars")
 
         # BS Detection Rule 3: Zero tasks + high effort score = something's wrong
@@ -611,7 +665,19 @@ class AnthropicProvider(LLMProvider):
         prompt = github_provider._build_analysis_prompt(session_output, tasks, context)
 
         try:
-            response = client.invoke(prompt)
+            if quality_context is None:
+                response = client.invoke(prompt)
+            else:
+                try:
+                    response = client.invoke(prompt, quality_context=quality_context)
+                except TypeError as exc:
+                    message = str(exc)
+                    if "quality_context" not in message:
+                        raise
+                    logger.debug(
+                        "Anthropic client invoke rejected quality_context, retrying without it"
+                    )
+                    response = client.invoke(prompt)
             result = github_provider._parse_response(
                 response.content,
                 tasks,
@@ -624,7 +690,7 @@ class AnthropicProvider(LLMProvider):
                 confidence=result.confidence,
                 reasoning=result.reasoning,
                 provider_used=self.name,
-                model_name="claude-sonnet-4-5",  # Actual model used by AnthropicProvider
+                model_name="claude-sonnet-4-5-20250929",
                 raw_confidence=result.raw_confidence,
                 confidence_adjusted=result.confidence_adjusted,
                 quality_warnings=result.quality_warnings,
@@ -730,9 +796,9 @@ class RegexFallbackProvider(LLMProvider):
             in_progress_tasks=in_progress,
             blocked_tasks=blocked,
             confidence=0.3,  # Low confidence for regex
+            model_name="regex-patterns",
             reasoning="Pattern-based analysis (no LLM available)",
             provider_used=self.name,
-            model_name="regex",  # Regex pattern matching (no model)
         )
 
 
