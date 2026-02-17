@@ -167,8 +167,8 @@ def extract_trace_id(response) -> str | None:
         if hasattr(response, "id"):
             trace_id = str(response.id)
             logger.debug(
-                f"Using response.id as trace ID (fallback). "
-                f"Verify this corresponds to LangSmith trace for your provider."
+                "Using response.id as trace ID (fallback). "
+                "Verify this corresponds to LangSmith trace for your provider."
             )
             return trace_id
 
@@ -178,8 +178,8 @@ def extract_trace_id(response) -> str | None:
             if "id" in response_dict:
                 trace_id = str(response_dict["id"])
                 logger.debug(
-                    f"Using response.__dict__['id'] as trace ID (fallback). "
-                    f"Verify this corresponds to LangSmith trace for your provider."
+                    "Using response.__dict__['id'] as trace ID (fallback). "
+                    "Verify this corresponds to LangSmith trace for your provider."
                 )
                 return trace_id
 
