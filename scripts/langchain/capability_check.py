@@ -17,6 +17,23 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+_AUTO_PROMPT_TEMPLATE = object()
+ChatPromptTemplate: Any = _AUTO_PROMPT_TEMPLATE
+
+
+def _resolve_chat_prompt_template() -> Any | None:
+    """Resolve ChatPromptTemplate with optional auto-import."""
+    global ChatPromptTemplate
+    if ChatPromptTemplate is not _AUTO_PROMPT_TEMPLATE:
+        return ChatPromptTemplate
+
+    try:  # pragma: no cover - exercised indirectly
+        from langchain_core.prompts import ChatPromptTemplate as imported
+    except ImportError:  # pragma: no cover - handled by caller
+        return None
+
+    return imported
+
 AGENT_CAPABILITY_CHECK_PROMPT = """
 Analyze these tasks and acceptance criteria for agent compatibility.
 
@@ -336,9 +353,8 @@ def classify_capabilities(tasks: list[str] | str, acceptance: str) -> Capability
         return _fallback_classify(normalized_tasks, acceptance, "LLM provider unavailable")
 
     client, provider_name = client_info
-    try:
-        from langchain_core.prompts import ChatPromptTemplate
-    except ImportError:
+    template_cls = _resolve_chat_prompt_template()
+    if template_cls is None:
         result = _fallback_classify(normalized_tasks, acceptance, "langchain-core not installed")
         result.provider_used = provider_name
         return result
@@ -350,7 +366,7 @@ def classify_capabilities(tasks: list[str] | str, acceptance: str) -> Capability
     if env_issue.isdigit():
         issue_num = int(env_issue)
 
-    template = ChatPromptTemplate.from_template(AGENT_CAPABILITY_CHECK_PROMPT)
+    template = template_cls.from_template(AGENT_CAPABILITY_CHECK_PROMPT)
     chain = template | client
 
     # Invoke with trace capture
