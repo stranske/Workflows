@@ -115,6 +115,8 @@ class ProgressReviewResult(BaseModel):
     model: str | None = None
     used_llm: bool = False
     error: str | None = None
+    langsmith_trace_id: str | None = None
+    langsmith_trace_url: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -306,6 +308,92 @@ def parse_llm_response(content: str) -> ProgressReviewResult | None:
         return None
 
 
+# ---------------------------------------------------------------------------
+# LangSmith tracing helpers
+# ---------------------------------------------------------------------------
+
+
+def _build_llm_config(
+    *,
+    operation: str,
+    pr_number: int | None = None,
+) -> dict[str, object]:
+    """Build LangSmith metadata/tags for LLM call."""
+    import os
+
+    try:
+        from tools.llm_provider import build_langsmith_metadata
+
+        return build_langsmith_metadata(
+            operation=operation,
+            pr_number=pr_number,
+        )
+    except ImportError:
+        pass
+
+    # Inline fallback when tools.llm_provider is unavailable
+    repo = os.environ.get("GITHUB_REPOSITORY", "unknown")
+    run_id = os.environ.get("GITHUB_RUN_ID") or os.environ.get("RUN_ID") or "unknown"
+    env_pr = os.environ.get("PR_NUMBER", "")
+    issue_or_pr = env_pr if env_pr.isdigit() else str(pr_number) if pr_number else "unknown"
+
+    metadata = {
+        "repo": repo,
+        "run_id": run_id,
+        "issue_or_pr_number": issue_or_pr,
+        "operation": operation,
+        "pr_number": str(pr_number) if pr_number is not None else None,
+    }
+    tags = [
+        "workflows-agents",
+        f"operation:{operation}",
+        f"repo:{repo}",
+        f"issue_or_pr:{issue_or_pr}",
+        f"run_id:{run_id}",
+    ]
+    return {"metadata": metadata, "tags": tags}
+
+
+def _invoke_llm_with_trace(
+    llm: object,
+    prompt: str,
+    *,
+    operation: str,
+    pr_number: int | None = None,
+) -> tuple[object, str | None, str | None]:
+    """Invoke LLM and extract trace information.
+
+    Returns:
+        Tuple of (response, trace_id, trace_url)
+    """
+    config = _build_llm_config(operation=operation, pr_number=pr_number)
+
+    try:
+        response = llm.invoke(prompt, config=config)
+    except TypeError:
+        # Fallback if config not supported
+        response = llm.invoke(prompt)
+
+    # Extract trace ID from response if available
+    trace_id = None
+    trace_url = None
+    try:
+        from tools.llm_provider import derive_langsmith_trace_url, extract_trace_id
+
+        trace_id = extract_trace_id(response)
+        if trace_id:
+            trace_url = derive_langsmith_trace_url(trace_id)
+    except ImportError:
+        pass
+
+    return response, trace_id, trace_url
+
+
+# ---------------------------------------------------------------------------
+# Progress review with LLM
+# ---------------------------------------------------------------------------
+
+
 def review_progress_with_llm(
     acceptance_criteria: list[str],
     recent_commits: list[str],
@@ -361,8 +449,17 @@ def review_progress_with_llm(
         )
 
     try:
+        import os
+
+        pr_num = None
+        env_pr = os.environ.get("PR_NUMBER", "")
+        if env_pr.isdigit():
+            pr_num = int(env_pr)
+
         llm = resolved.client
-        response = llm.invoke(prompt)
+        response, trace_id, trace_url = _invoke_llm_with_trace(
+            llm, prompt, operation="review_progress", pr_number=pr_num
+        )
         content = response.content if hasattr(response, "content") else str(response)
 
         result = parse_llm_response(content)
@@ -370,6 +467,8 @@ def review_progress_with_llm(
             result.used_llm = True
             result.provider_used = resolved.provider
             result.model = resolved.model
+            result.langsmith_trace_id = trace_id
+            result.langsmith_trace_url = trace_url
             return result
 
         # Failed to parse, return error result
@@ -384,6 +483,8 @@ def review_progress_with_llm(
             used_llm=True,
             provider_used=resolved.provider,
             model=resolved.model,
+            langsmith_trace_id=trace_id,
+            langsmith_trace_url=trace_url,
             error="Failed to parse LLM response",
         )
 
@@ -575,6 +676,8 @@ def main() -> int:
         print(f"Summary: {result.summary}")
         if result.feedback_for_agent:
             print(f"\nFeedback for Agent:\n{result.feedback_for_agent}")
+        if result.langsmith_trace_url:
+            print(f"\n🔍 LangSmith Trace: {result.langsmith_trace_url}")
 
     # Exit code based on recommendation
     if result.recommendation == "STOP":
