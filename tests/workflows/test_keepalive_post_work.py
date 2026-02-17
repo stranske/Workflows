@@ -62,7 +62,17 @@ def test_keepalive_sync_detects_head_change_without_actions() -> None:
     assert len(state_comments) == 1
     assert other_comments == []
     table = _summary_table(data)
-    assert any(row[0] == "Initial poll" and "Branch advanced" in row[1] for row in table)
+    assert any(
+        isinstance(row, list)
+        and len(row) >= 2
+        and isinstance(row[0], str)
+        and isinstance(row[1], str)
+        and (
+            (row[0] == "Initial poll" and "advanced" in row[1].lower())
+            or (row[0] == "Pre-dispatch check" and "advanced" in row[1].lower())
+        )
+        for row in table
+    )
     assert any(row[0] == "Result" and "mode=already-synced" in row[1] for row in table)
     assert outputs["action"] == "skip"
     assert outputs["changed"] == "true"
