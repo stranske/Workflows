@@ -3,10 +3,6 @@ name: Claude Code Review
 on:
   pull_request:
     types: [opened, synchronize, ready_for_review, reopened]
-    # Optional path filters:
-    # paths:
-    #   - "src/**/*.py"
-    #   - "src/**/*.ts"
 
 jobs:
   detect-secret:
@@ -14,20 +10,58 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       has_token: ${{ steps.check.outputs.has_token }}
+      token_reason: ${{ steps.check.outputs.token_reason }}
+      workflow_unchanged: ${{ steps.workflow-integrity.outputs.workflow_unchanged }}
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - id: workflow-integrity
+        name: Check workflow matches base
+        run: |
+          set -euo pipefail
+
+          base_ref="${{ github.base_ref }}"
+          if [ -z "$base_ref" ]; then
+            echo "workflow_unchanged=true" >>"$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          git fetch --no-tags origin "$base_ref" --depth=1
+
+          if git diff --name-only "origin/$base_ref"...HEAD -- \
+            .github/workflows/maint-76-claude-code-review.yml \
+            | grep -q .; then
+            echo "workflow_unchanged=false" >>"$GITHUB_OUTPUT"
+          else
+            echo "workflow_unchanged=true" >>"$GITHUB_OUTPUT"
+          fi
+
       - id: check
         env:
           CLAUDE_CODE_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
         run: |
           if [ -n "${CLAUDE_CODE_TOKEN}" ]; then
-            echo "has_token=true" >>"$GITHUB_OUTPUT"
+            {
+              echo "has_token=true"
+              echo "token_reason=configured"
+            } >>"$GITHUB_OUTPUT"
           else
-            echo "has_token=false" >>"$GITHUB_OUTPUT"
+            {
+              echo "has_token=false"
+              echo "token_reason=missing"
+            } >>"$GITHUB_OUTPUT"
           fi
 
   claude-review:
     needs: detect-secret
-    if: ${{ needs.detect-secret.outputs.has_token == 'true' }}
+    if: >-
+      ${{
+        needs.detect-secret.outputs.has_token == 'true' &&
+        needs.detect-secret.outputs.workflow_unchanged == 'true'
+      }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -41,26 +75,54 @@ jobs:
           fetch-depth: 1
 
       - name: Run Claude Code Review
+        id: claude
+        continue-on-error: true
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          allowed_bots: '*'
           plugin_marketplaces: https://github.com/anthropics/claude-code.git
           plugins: code-review@claude-code-plugins
           prompt: >-
             /code-review:code-review
             ${{ github.repository }}/pull/${{ github.event.pull_request.number }}
 
+      - name: Record review failure (non-blocking)
+        if: steps.claude.outcome == 'failure'
+        run: |
+          cat <<'EOF' >>"$GITHUB_STEP_SUMMARY"
+          ### Claude Code Review failed (non-blocking)
+          The Claude review action failed to run for this PR.
+          Fix the token/config if automated reviews are required.
+          EOF
+
   claude-review-missing-secret:
     needs: detect-secret
-    if: ${{ needs.detect-secret.outputs.has_token != 'true' }}
+    if: ${{ needs.detect-secret.outputs.token_reason == 'missing' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
       - name: Skip review (secret missing)
         run: |
-          cat <<'MSG' >>"$GITHUB_STEP_SUMMARY"
+          cat <<'EOF' >>"$GITHUB_STEP_SUMMARY"
           ### Claude Code Review skipped
           The `CLAUDE_CODE_OAUTH_TOKEN` secret is not configured.
           Add it to enable automated reviews.
-          MSG
+          EOF
+
+  claude-review-workflow-changed:
+    needs: detect-secret
+    if: ${{ needs.detect-secret.outputs.workflow_unchanged != 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Skip review (workflow modified)
+        run: |
+          cat <<'EOF' >>"$GITHUB_STEP_SUMMARY"
+          ### Claude Code Review skipped
+          This workflow was modified in the PR.
+          The Claude review action requires the workflow to match the default
+          branch to safely access secrets.
+          EOF
