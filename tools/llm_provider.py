@@ -71,6 +71,16 @@ LANGSMITH_ENABLED = _setup_langsmith_tracing()
 LANGSMITH_TRACE_URL_BASE = "https://smith.langchain.com/r/"
 
 
+def _ensure_langsmith_enabled() -> bool:
+    """Ensure LangSmith tracing is enabled when env vars are injected at runtime."""
+    global LANGSMITH_ENABLED
+    if LANGSMITH_ENABLED:
+        return True
+    if os.environ.get("LANGSMITH_API_KEY"):
+        LANGSMITH_ENABLED = _setup_langsmith_tracing()
+    return LANGSMITH_ENABLED
+
+
 def build_langsmith_metadata(
     *,
     operation: str,
@@ -106,6 +116,8 @@ def build_langsmith_metadata(
                 env_pr if env_pr.isdigit() else env_issue if env_issue.isdigit() else "unknown"
             )
 
+    _ensure_langsmith_enabled()
+
     metadata: dict[str, object] = {
         "repo": repo,
         "run_id": run_id,
@@ -115,7 +127,7 @@ def build_langsmith_metadata(
         "issue_number": str(issue_number) if issue_number is not None else None,
     }
 
-    if LANGSMITH_ENABLED:
+    if _ensure_langsmith_enabled():
         metadata["langsmith_project"] = os.environ.get("LANGCHAIN_PROJECT", "workflows-agents")
 
     tags = [
@@ -151,7 +163,7 @@ def extract_trace_id(response) -> str | None:
     Returns:
         Trace ID string or None
     """
-    if not LANGSMITH_ENABLED:
+    if not _ensure_langsmith_enabled():
         return None
 
     # LangChain response objects have a response_metadata dict with run_id
