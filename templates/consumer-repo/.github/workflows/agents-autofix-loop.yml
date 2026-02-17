@@ -243,6 +243,7 @@ jobs:
             const agentPrefix = 'agent:';
             let routingLabelCandidates = labelObjects;
             let routingAgentKeys = [];
+            const nonRoutingAgentKeys = new Set(['needs-attention', 'rate-limited', 'retry']);
             try {
               const { loadAgentRegistry } = require('./.github/scripts/agent_registry.js');
               const registry = loadAgentRegistry();
@@ -251,22 +252,26 @@ jobs:
               );
               validAgentKeys.add('auto');
 
-              routingLabelCandidates = labelObjects.filter((label) => {
-                const normalized = (label?.name || '').trim().toLowerCase();
-                if (!normalized.startsWith(agentPrefix)) {
-                  return false;
-                }
-                const key = normalized.slice(agentPrefix.length);
-                return validAgentKeys.has(key);
-              });
+              const normalizedAgentLabels = labelObjects
+                .map((label) => {
+                  const normalized = (label?.name || '').trim().toLowerCase();
+                  return { label, normalized };
+                })
+                .filter(({ normalized }) => normalized.startsWith(agentPrefix));
 
+              const routingEntries = normalizedAgentLabels
+                .map(({ label, normalized }) => ({
+                  label,
+                  key: normalized.slice(agentPrefix.length),
+                }))
+                .filter(({ key }) => key && !nonRoutingAgentKeys.has(key));
+
+              const registryEntries = routingEntries.filter(({ key }) => validAgentKeys.has(key));
+              const entriesForRouting = registryEntries.length > 0 ? registryEntries : routingEntries;
+
+              routingLabelCandidates = entriesForRouting.map(({ label }) => label);
               routingAgentKeys = Array.from(
-                new Set(
-                  routingLabelCandidates
-                    .map((label) => (label?.name || '').trim().toLowerCase())
-                    .map((value) => value.slice(agentPrefix.length))
-                    .filter(Boolean),
-                ),
+                new Set(routingEntries.map(({ key }) => key).filter(Boolean)),
               );
             } catch (error) {
               routingLabelCandidates = labelObjects;
@@ -274,7 +279,8 @@ jobs:
                 new Set(
                   labels
                     .filter((label) => label.startsWith(agentPrefix))
-                    .map((label) => label.slice(agentPrefix.length)),
+                    .map((label) => label.slice(agentPrefix.length))
+                    .filter((key) => key && !nonRoutingAgentKeys.has(key)),
                 ),
               );
             }

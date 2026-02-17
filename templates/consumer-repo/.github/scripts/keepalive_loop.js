@@ -1891,28 +1891,25 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
       validAgentKeys.add('auto');
       const nonRoutingAgentKeys = new Set(['needs-attention', 'rate-limited', 'retry']);
 
-      routingLabelCandidates = labelObjects.filter((label) => {
-        const normalized = normalise(label.name).toLowerCase();
-        if (!normalized.startsWith(agentPrefix)) {
-          return false;
-        }
-        const key = normalized.slice(agentPrefix.length);
-        if (!key || nonRoutingAgentKeys.has(key)) {
-          return false;
-        }
-        if (!validAgentKeys.has(key)) {
-          return false;
-        }
-        return true;
-      });
+      const normalizedAgentLabels = labelObjects
+        .map((label) => ({
+          label,
+          normalized: normalise(label.name).toLowerCase(),
+        }))
+        .filter(({ normalized }) => normalized.startsWith(agentPrefix));
 
-      requestedAgentKeys = Array.from(
-        new Set(
-          routingLabelCandidates
-            .map((label) => normalise(label.name).toLowerCase().slice(agentPrefix.length))
-            .filter(Boolean),
-        ),
-      );
+      const routingEntries = normalizedAgentLabels
+        .map(({ label, normalized }) => ({
+          label,
+          key: normalized.slice(agentPrefix.length),
+        }))
+        .filter(({ key }) => key && !nonRoutingAgentKeys.has(key));
+
+      const registryEntries = routingEntries.filter(({ key }) => validAgentKeys.has(key));
+      const entriesForRouting = registryEntries.length > 0 ? registryEntries : routingEntries;
+
+      routingLabelCandidates = entriesForRouting.map(({ label }) => label);
+      requestedAgentKeys = Array.from(new Set(routingEntries.map(({ key }) => key).filter(Boolean)));
     } catch (error) {
       routingLabelCandidates = labelObjects;
       requestedAgentKeys = Array.from(
