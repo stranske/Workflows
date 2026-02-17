@@ -28,6 +28,7 @@ concurrency:
 
 jobs:
   prepare:
+    if: ${{ vars.USE_CONSOLIDATED_WORKFLOWS != 'true' }}
     name: Prepare autofix context
     runs-on: ubuntu-latest
     environment: agent-standard
