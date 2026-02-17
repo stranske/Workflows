@@ -984,8 +984,12 @@ def _invoke_llm(
     operation: str,
     pr_number: int | None,
     issue_number: int | None,
-) -> str:
-    """Invoke LLM and return response text."""
+) -> tuple[str, str | None, str | None]:
+    """Invoke LLM and return response text with trace information.
+
+    Returns:
+        Tuple of (response_text, trace_id, trace_url)
+    """
     try:
         import langchain_core.messages as lc_messages
     except ModuleNotFoundError:
@@ -1038,24 +1042,38 @@ def _invoke_llm(
                 exc,
             )
             response = client.invoke(messages)
-        return normalize_response_content(response)
-
-    # langchain_core isn't available. Prefer non-message invoke signatures first.
-    try:
-        response = client.invoke(prompt, config=config)
-    except TypeError as exc:
-        LOGGER.warning(
-            "LLM invoke failed with config/metadata; using config/metadata fallback. Error: %s",
-            exc,
-        )
+    else:
+        # langchain_core isn't available. Prefer non-message invoke signatures first.
         try:
-            response = client.invoke(prompt)
-        except Exception as inner_exc:
-            raise RuntimeError(
-                "Unable to invoke client without langchain_core installed. "
-                "Install langchain-core or provide a client that accepts plain string prompts."
-            ) from inner_exc
-    return normalize_response_content(response)
+            response = client.invoke(prompt, config=config)
+        except TypeError as exc:
+            LOGGER.warning(
+                "LLM invoke failed with config/metadata; using config/metadata fallback. Error: %s",
+                exc,
+            )
+            try:
+                response = client.invoke(prompt)
+            except Exception as inner_exc:
+                raise RuntimeError(
+                    "Unable to invoke client without langchain_core installed. "
+                    "Install langchain-core or provide a client that accepts plain string prompts."
+                ) from inner_exc
+
+    # Extract trace ID from response
+    trace_id, trace_url = None, None
+    try:
+        from tools.llm_provider import derive_langsmith_trace_url, extract_trace_id
+
+        trace_id = extract_trace_id(response)
+        if trace_id:
+            trace_url = derive_langsmith_trace_url(trace_id)
+            LOGGER.info(f"LangSmith trace: {trace_url}")
+    except ImportError:
+        LOGGER.debug("tools.llm_provider not available for trace extraction")
+    except Exception as exc:
+        LOGGER.debug(f"Failed to extract trace ID: {exc}")
+
+    return normalize_response_content(response), trace_id, trace_url
 
 
 def _extract_json(text: str) -> dict[str, Any]:
@@ -1258,7 +1276,7 @@ def _generate_with_llm(
         iteration_details=iteration_details,
     )
 
-    analysis_response = _invoke_llm(
+    analysis_response, trace_id_1, trace_url_1 = _invoke_llm(
         analyze_prompt,
         reasoning_client,
         operation="analyze_verification",
@@ -1275,7 +1293,7 @@ def _generate_with_llm(
         ),  # Limit for token budget
     )
 
-    tasks_response = _invoke_llm(
+    tasks_response, trace_id_2, trace_url_2 = _invoke_llm(
         tasks_prompt,
         standard_client,
         operation="generate_tasks",
@@ -1290,7 +1308,7 @@ def _generate_with_llm(
         unmet_criteria=json.dumps(analysis.get("rewritten_acceptance_criteria", []), indent=2),
     )
 
-    ac_response = _invoke_llm(
+    ac_response, trace_id_3, trace_url_3 = _invoke_llm(
         ac_prompt,
         standard_client,
         operation="generate_acceptance_criteria",
@@ -1326,7 +1344,7 @@ def _generate_with_llm(
         advisory_notes=json.dumps(advisory_concerns, indent=2),
     )
 
-    issue_body = _invoke_llm(
+    issue_body, trace_id_4, trace_url_4 = _invoke_llm(
         format_prompt,
         standard_client,
         operation="format_followup_issue",
@@ -1335,6 +1353,20 @@ def _generate_with_llm(
     )
     issue_body = _strip_markdown_fence(issue_body)
     issue_body = _append_advisory_notes(issue_body, advisory_concerns)
+
+    # Append LangSmith trace URLs for observability (as HTML comments)
+    trace_ids = [
+        ("analyze_verification", trace_url_1),
+        ("generate_tasks", trace_url_2),
+        ("generate_acceptance_criteria", trace_url_3),
+        ("format_followup_issue", trace_url_4),
+    ]
+    trace_comments = []
+    for operation, trace_url in trace_ids:
+        if trace_url:
+            trace_comments.append(f"<!-- LangSmith {operation}: {trace_url} -->")
+    if trace_comments:
+        issue_body = issue_body + "\n\n" + "\n".join(trace_comments)
 
     # Generate title from concrete tasks
     concrete_tasks = analysis.get("concrete_tasks", [])
