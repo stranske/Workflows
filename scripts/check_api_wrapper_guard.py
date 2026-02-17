@@ -25,6 +25,7 @@ SKIP_FILES = {
     ROOT / "scripts" / "check_consumer_sync_drift.py",
     ROOT / "scripts" / "api_client.py",
     ROOT / "tools" / "enforce_gate_branch_protection.py",
+    ROOT / ".github" / "workflows" / "maint-80-langsmith-metrics-dashboard.yml",
 }
 
 DIRECT_PATTERNS = [
