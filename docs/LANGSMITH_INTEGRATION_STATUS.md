@@ -1,14 +1,21 @@
 # LangSmith Integration Status
 
 > **Last Updated:** 2026-02-17
-> **Branch:** `claude/langsmith-integration-summary-pKJUA`
+> **Branch:** `claude/langsmith-workflow-integration-pKJUA`
 > **Related Issue:** #974
 
 ## Summary
 
-LangSmith tracing infrastructure is now **60% complete (3 of 8 tasks)**. The trace ID extraction pipeline has been implemented end-to-end in both `pr_verifier.py` and `followup_issue_generator.py`. Trace IDs are extracted from LangChain responses and included in JSON outputs.
+LangSmith tracing infrastructure is now **88% complete (7 of 8 tasks)**. The trace ID extraction pipeline is fully implemented end-to-end:
 
-**Remaining work:** Connect trace IDs to workflow → metrics collector pipeline and surface in PR comments.
+- ✅ Core trace extraction from LangChain responses
+- ✅ Integration in pr_verifier.py and followup_issue_generator.py
+- ✅ Workflow extraction and logging via GitHub notices
+- ✅ PR comments with clickable trace URLs
+- ✅ Metrics aggregation script for trace coverage analysis
+- ✅ Comprehensive unit tests
+
+**Remaining work:** End-to-end testing to verify the full pipeline in a live PR.
 
 ---
 
@@ -261,13 +268,13 @@ def test_extract_trace_id_returns_none_when_unavailable():
 | Core infrastructure (extract_trace_id) | ✅ Complete | 95c4c96 |
 | pr_verifier integration | ✅ Complete | 95c4c96 |
 | followup_issue_generator integration | ✅ Complete | e011876 |
-| Workflow→metrics pass-through | ⏳ In progress | - |
-| PR comment trace links | ⏳ Pending | - |
-| Metrics aggregation script | ⏳ Pending | - |
-| Unit tests | ⏳ Pending | - |
+| Workflow trace extraction | ✅ Complete | e79572c |
+| PR comment trace links | ✅ Complete | e79572c |
+| Metrics aggregation script | ✅ Complete | e79572c |
+| Unit tests | ✅ Complete | e79572c |
 | End-to-end testing | ⏳ Pending | - |
 
-**Overall completion:** ~60% (3 of 8 tasks complete, 1 in progress, 4 pending)
+**Overall completion:** ~88% (7 of 8 tasks complete, 0 in progress, 1 pending)
 
 ---
 
