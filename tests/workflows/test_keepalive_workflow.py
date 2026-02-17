@@ -181,9 +181,9 @@ def _assert_scope_block(body: str) -> None:
         in body
     )
     assert "Always include hidden markers at the top of the comment body:" in body
-    assert any(heading in body for heading in ("#### Tasks", "#### Task List")), (
-        "Missing Tasks heading"
-    )
+    assert any(
+        heading in body for heading in ("#### Tasks", "#### Task List")
+    ), "Missing Tasks heading"
     assert "- [ ] Generate a unique KEEPALIVE_TRACE" in body
     assert (
         "- [ ] Use peter-evans/create-issue-comment@v3 (or Octokit issues.createComment) to create a new comment with body:"
@@ -671,9 +671,9 @@ def test_keepalive_requires_dispatch_token() -> None:
         assert dispatch_events, "Expected keepalive dispatch events when harness succeeds"
         return
     assert dispatch_tokens, "Expected keepalive dispatch to use a token when harness succeeds"
-    assert any(token in comment_tokens for token in dispatch_tokens), (
-        "Expected dispatch token to fall back to the instruction author token"
-    )
+    assert any(
+        token in comment_tokens for token in dispatch_tokens
+    ), "Expected dispatch token to fall back to the instruction author token"
 
 
 def test_keepalive_dispatches_with_service_bot_pat() -> None:

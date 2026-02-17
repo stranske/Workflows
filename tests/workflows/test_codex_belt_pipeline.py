@@ -93,24 +93,24 @@ def test_dispatcher_is_reusable_and_exposes_worker_context():
 
     # Check for multi-tier authentication flow (App token > PAT > GITHUB_TOKEN)
     step_names = [s.get("name", "") for s in steps]
-    assert "Mint GitHub App token (preferred)" in step_names, (
-        "Dispatcher must attempt to mint GitHub App token first"
-    )
-    assert "Select authentication token (app > PAT > GITHUB_TOKEN)" in step_names, (
-        "Dispatcher must have token selection step"
-    )
+    assert (
+        "Mint GitHub App token (preferred)" in step_names
+    ), "Dispatcher must attempt to mint GitHub App token first"
+    assert (
+        "Select authentication token (app > PAT > GITHUB_TOKEN)" in step_names
+    ), "Dispatcher must have token selection step"
     select_step = next(
         s
         for s in steps
         if s.get("name") == "Select authentication token (app > PAT > GITHUB_TOKEN)"
     )
-    assert _step_runs_command(select_step, "No authentication token available"), (
-        "Dispatcher must fail when no token is available"
-    )
+    assert _step_runs_command(
+        select_step, "No authentication token available"
+    ), "Dispatcher must fail when no token is available"
 
-    assert not any(_step_runs_command(step, "createDispatchEvent") for step in steps), (
-        "Dispatcher should no longer emit repository dispatch events"
-    )
+    assert not any(
+        _step_runs_command(step, "createDispatchEvent") for step in steps
+    ), "Dispatcher should no longer emit repository dispatch events"
 
     outputs = dispatch_job.get("outputs") or {}
     for key in {"issue", "branch", "base", "reason", "dry_run"}:
@@ -122,9 +122,9 @@ def test_worker_keeps_concurrency_and_pat_guard():
 
     concurrency = workflow.get("concurrency") or {}
     group = concurrency.get("group", "")
-    assert group.startswith("codex-belt"), (
-        f"Concurrency group should start with 'codex-belt', got: {group}"
-    )
+    assert group.startswith(
+        "codex-belt"
+    ), f"Concurrency group should start with 'codex-belt', got: {group}"
     assert concurrency.get("cancel-in-progress") is True
 
     events = workflow.get("on") or {}
@@ -137,20 +137,20 @@ def test_worker_keeps_concurrency_and_pat_guard():
 
     # Check for multi-tier authentication flow (App token > PAT > GITHUB_TOKEN)
     step_names = [s.get("name", "") for s in steps]
-    assert "Mint GitHub App token (preferred)" in step_names, (
-        "Worker must attempt to mint GitHub App token first"
-    )
-    assert "Select authentication token (app > PAT > GITHUB_TOKEN)" in step_names, (
-        "Worker must have token selection step"
-    )
+    assert (
+        "Mint GitHub App token (preferred)" in step_names
+    ), "Worker must attempt to mint GitHub App token first"
+    assert (
+        "Select authentication token (app > PAT > GITHUB_TOKEN)" in step_names
+    ), "Worker must have token selection step"
     select_step = next(
         s
         for s in steps
         if s.get("name") == "Select authentication token (app > PAT > GITHUB_TOKEN)"
     )
-    assert _step_runs_command(select_step, "No authentication token available"), (
-        "Worker must fail when no token is available"
-    )
+    assert _step_runs_command(
+        select_step, "No authentication token available"
+    ), "Worker must fail when no token is available"
 
 
 def test_conveyor_requires_gate_success_and_retriggers_dispatcher():
@@ -158,9 +158,9 @@ def test_conveyor_requires_gate_success_and_retriggers_dispatcher():
     triggers = workflow.get("on") or {}
     workflow_call = triggers.get("workflow_call") or {}
     inputs = workflow_call.get("inputs") or {}
-    assert {"issue", "branch", "pr_number"}.issubset(inputs), (
-        "Conveyor callable contract must expose issue, branch, and pr_number inputs"
-    )
+    assert {"issue", "branch", "pr_number"}.issubset(
+        inputs
+    ), "Conveyor callable contract must expose issue, branch, and pr_number inputs"
 
     jobs = workflow.get("jobs") or {}
     promote = jobs.get("promote") or {}
@@ -169,20 +169,20 @@ def test_conveyor_requires_gate_success_and_retriggers_dispatcher():
 
     # Check for multi-tier authentication flow (App token > PAT > GITHUB_TOKEN)
     step_names = [s.get("name", "") for s in steps]
-    assert "Mint GitHub App token (preferred)" in step_names, (
-        "Conveyor must attempt to mint GitHub App token first"
-    )
-    assert "Select authentication token (app > PAT > GITHUB_TOKEN)" in step_names, (
-        "Conveyor must have token selection step"
-    )
+    assert (
+        "Mint GitHub App token (preferred)" in step_names
+    ), "Conveyor must attempt to mint GitHub App token first"
+    assert (
+        "Select authentication token (app > PAT > GITHUB_TOKEN)" in step_names
+    ), "Conveyor must have token selection step"
     select_step = next(
         s
         for s in steps
         if s.get("name") == "Select authentication token (app > PAT > GITHUB_TOKEN)"
     )
-    assert _step_runs_command(select_step, "No authentication token available"), (
-        "Conveyor must fail when no token is available"
-    )
+    assert _step_runs_command(
+        select_step, "No authentication token available"
+    ), "Conveyor must fail when no token is available"
 
     gate_steps = [step for step in steps if step.get("name") == "Ensure Gate succeeded"]
     assert gate_steps, "Conveyor must verify Gate success before merging"
@@ -206,10 +206,9 @@ def test_worker_github_rest_calls_use_with_retry():
     failures: list[str] = []
     for step_name, script in _iter_job_scripts(workflow):
         failures.extend(_rest_calls_missing_retry(script, step_name))
-    assert not failures, (
-        "Worker workflow has github.rest.* calls without withRetry(): "
-        + ", ".join(sorted(failures))
-    )
+    assert (
+        not failures
+    ), "Worker workflow has github.rest.* calls without withRetry(): " + ", ".join(sorted(failures))
 
 
 def test_worker_pagination_uses_paginate_with_retry():
@@ -224,7 +223,8 @@ def test_worker_pagination_uses_paginate_with_retry():
             line = script[: match.start()].count("\n") + 1
             failures.append(f"{step_name} line {line}")
     assert paginate_usage > 0, "Worker workflow should use paginateWithRetry() for pagination"
-    assert not failures, (
-        "Worker workflow has github.paginate usage; replace with paginateWithRetry(): "
-        + ", ".join(sorted(failures))
+    assert (
+        not failures
+    ), "Worker workflow has github.paginate usage; replace with paginateWithRetry(): " + ", ".join(
+        sorted(failures)
     )
