@@ -741,7 +741,7 @@ def test_invoke_llm_passes_config_metadata(llm_config_sentinel) -> None:
             return DummyResponse("ok")
 
     client = DummyClient()
-    result = followup_issue_generator._invoke_llm(
+    result, trace_id, trace_url = followup_issue_generator._invoke_llm(
         "prompt",
         client,
         operation="generate_tasks",
@@ -756,6 +756,8 @@ def test_invoke_llm_passes_config_metadata(llm_config_sentinel) -> None:
     )
 
     assert result == "ok"
+    assert trace_id is None  # No trace ID from DummyClient
+    assert trace_url is None
     assert client.calls
     assert client.calls[0]["config"] == expected_config
 
@@ -984,7 +986,7 @@ def test_invoke_llm_typeerror_fallback_logs_and_retries(
     client = llm_typeerror_client_factory(DummyResponse("ok"), message="bad config")
     caplog.set_level(logging.WARNING, logger=followup_issue_generator.__name__)
 
-    result = followup_issue_generator._invoke_llm(
+    result, trace_id, trace_url = followup_issue_generator._invoke_llm(
         "prompt",
         client,
         operation="generate_tasks",
@@ -993,6 +995,8 @@ def test_invoke_llm_typeerror_fallback_logs_and_retries(
     )
 
     assert result == "ok"
+    assert trace_id is None  # No trace ID from DummyClient
+    assert trace_url is None
     assert len(client.calls) == 2
     assert "config" in client.calls[0][1]
     assert "config" not in client.calls[1][1]

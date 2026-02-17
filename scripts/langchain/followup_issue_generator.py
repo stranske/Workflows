@@ -1355,14 +1355,14 @@ def _generate_with_llm(
     issue_body = _append_advisory_notes(issue_body, advisory_concerns)
 
     # Append LangSmith trace URLs for observability (as HTML comments)
-    trace_ids = [
+    trace_info = [
         ("analyze_verification", trace_url_1),
         ("generate_tasks", trace_url_2),
         ("generate_acceptance_criteria", trace_url_3),
         ("format_followup_issue", trace_url_4),
     ]
     trace_comments = []
-    for operation, trace_url in trace_ids:
+    for operation, trace_url in trace_info:
         if trace_url:
             trace_comments.append(f"<!-- LangSmith {operation}: {trace_url} -->")
     if trace_comments:

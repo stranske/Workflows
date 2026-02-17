@@ -156,21 +156,32 @@ def extract_trace_id(response) -> str | None:
     # LangChain response objects have a response_metadata dict with run_id
     # The run_id is the trace ID in LangSmith
     try:
-        # Try to get run_id from response metadata
+        # Try to get run_id from response metadata (primary method)
         if hasattr(response, "response_metadata"):
             metadata = response.response_metadata
             if isinstance(metadata, dict) and "run_id" in metadata:
                 return str(metadata["run_id"])
 
-        # Alternative: Some responses have id attribute directly
+        # Fallback: Some LangChain providers may use id attribute directly
+        # WARNING: This may not always correspond to the LangSmith trace ID
         if hasattr(response, "id"):
-            return str(response.id)
+            trace_id = str(response.id)
+            logger.debug(
+                f"Using response.id as trace ID (fallback). "
+                f"Verify this corresponds to LangSmith trace for your provider."
+            )
+            return trace_id
 
-        # Alternative: Try to get from __dict__ for compatibility
+        # Additional fallback for compatibility
         if hasattr(response, "__dict__"):
             response_dict = response.__dict__
             if "id" in response_dict:
-                return str(response_dict["id"])
+                trace_id = str(response_dict["id"])
+                logger.debug(
+                    f"Using response.__dict__['id'] as trace ID (fallback). "
+                    f"Verify this corresponds to LangSmith trace for your provider."
+                )
+                return trace_id
 
     except Exception as e:
         logger.debug(f"Failed to extract trace ID from response: {e}")

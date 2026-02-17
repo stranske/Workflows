@@ -6,7 +6,7 @@
 
 ## Summary
 
-LangSmith tracing infrastructure is now **95% complete**. The trace ID extraction pipeline has been implemented end-to-end in both `pr_verifier.py` and `followup_issue_generator.py`. Trace IDs are extracted from LangChain responses and included in JSON outputs.
+LangSmith tracing infrastructure is now **60% complete (3 of 8 tasks)**. The trace ID extraction pipeline has been implemented end-to-end in both `pr_verifier.py` and `followup_issue_generator.py`. Trace IDs are extracted from LangChain responses and included in JSON outputs.
 
 **Remaining work:** Connect trace IDs to workflow → metrics collector pipeline and surface in PR comments.
 
