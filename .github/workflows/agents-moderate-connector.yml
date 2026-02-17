@@ -10,12 +10,12 @@ permissions:
   contents: read
 
 env:
-  MODERATION_DENY_LIST: ${{ vars.AGENTS_CONNECTOR_DENY_LIST || 'chatgpt-codex-connector[bot]' }}
-  MODERATION_ALLOW_LIST: ${{ vars.AGENTS_CONNECTOR_ALLOW_LIST || 'stranske,stranske-automation-bot,maintainers' }}
+  MODERATION_DENY_LIST: ${{ vars.AGENTS_CONNECTOR_DENY_LIST || '' }}
+  MODERATION_ALLOW_LIST: ${{ vars.AGENTS_CONNECTOR_ALLOW_LIST || '' }}
   MODERATION_DEBUG_LABEL: agents:debug
 
 concurrency:
-  group: agents-moderate-connector-${{ github.repository }}-${{ github.event.issue.number || github.run_id }}
+  group: agents-moderate-connector-${{ github.event.issue.number || github.run_id }}
   cancel-in-progress: false
 
 jobs:
@@ -65,8 +65,15 @@ jobs:
                 .map((entry) => entry.trim().toLowerCase())
                 .filter(Boolean);
 
-            const deny = new Set(normaliseList(process.env.MODERATION_DENY_LIST));
-            const allow = new Set(normaliseList(process.env.MODERATION_ALLOW_LIST));
+            const denyListRaw =
+              (process.env.MODERATION_DENY_LIST || '').trim() ||
+              'chatgpt-codex-connector[bot]';
+            const allowListRaw =
+              (process.env.MODERATION_ALLOW_LIST || '').trim() ||
+              'stranske,stranske-automation-bot,maintainers';
+
+            const deny = new Set(normaliseList(denyListRaw));
+            const allow = new Set(normaliseList(allowListRaw));
 
             const comment = context.payload?.comment;
             const issue = context.payload?.issue;
@@ -99,7 +106,13 @@ jobs:
 
             let hasDebugLabel = false;
             try {
-              const response = await withRetry(() => github.rest.issues.get({ owner, repo, issue_number: issue.number }));
+              const response = await withRetry(() =>
+                github.rest.issues.get({
+                  owner,
+                  repo,
+                  issue_number: issue.number,
+                })
+              );
               const labels = Array.isArray(response?.data?.labels) ? response.data.labels : [];
               hasDebugLabel = labels.some((label) => {
                 if (!label) {
@@ -108,7 +121,8 @@ jobs:
                 if (typeof label === 'string') {
                   return label.trim().toLowerCase() === process.env.MODERATION_DEBUG_LABEL;
                 }
-                return String(label?.name || '').trim().toLowerCase() === process.env.MODERATION_DEBUG_LABEL;
+                const labelName = String(label?.name || '');
+                return labelName.trim().toLowerCase() === process.env.MODERATION_DEBUG_LABEL;
               });
             } catch (error) {
               const message = error instanceof Error ? error.message : String(error);
@@ -140,7 +154,10 @@ jobs:
 
             const hasWorkContent = preservePatterns.some((pattern) => pattern.test(body));
             if (hasWorkContent) {
-              core.info(`Moderation skipped: comment ${comment.id} contains work content (checklist/commits/code).`);
+              core.info(
+                `Moderation skipped: comment ${comment.id} contains work content ` +
+                  '(checklist/commits/code).'
+              );
               core.setOutput('delete', 'false');
               return;
             }
@@ -148,7 +165,10 @@ jobs:
             // Also preserve comments that are substantively long (likely status updates, not noise)
             const wordCount = body.split(/\s+/).filter(Boolean).length;
             if (wordCount > 100) {
-              core.info(`Moderation skipped: comment ${comment.id} has ${wordCount} words (likely substantive).`);
+              core.info(
+                `Moderation skipped: comment ${comment.id} has ${wordCount} words ` +
+                  '(likely substantive).'
+              );
               core.setOutput('delete', 'false');
               return;
             }
@@ -166,12 +186,17 @@ jobs:
 
             const isNoise = noisePatterns.some((pattern) => pattern.test(body));
             if (!isNoise) {
-              core.info(`Moderation skipped: comment ${comment.id} does not match known noise patterns.`);
+              core.info(
+                `Moderation skipped: comment ${comment.id} does not match known noise patterns.`
+              );
               core.setOutput('delete', 'false');
               return;
             }
 
-            core.info(`Connector moderation triggered for comment ${comment.id} by @${login} (matched noise pattern).`);
+            core.info(
+              `Connector moderation triggered for comment ${comment.id} by @${login} ` +
+                '(matched noise pattern).'
+            );
             core.setOutput('delete', 'true');
             core.setOutput('comment_id', String(comment.id || ''));
             core.setOutput('author', login);
@@ -204,7 +229,8 @@ jobs:
             echo "token=${SERVICE_TOKEN}" >> "$GITHUB_OUTPUT"
             echo "source=SERVICE_BOT_PAT" >> "$GITHUB_OUTPUT"
           else
-            echo "::error::Moderation requires WORKFLOWS_APP or ACTIONS_BOT_PAT (or SERVICE_BOT_PAT as fallback)." >&2
+            echo "::error::Moderation requires WORKFLOWS_APP or ACTIONS_BOT_PAT" >&2
+            echo "::error::(or SERVICE_BOT_PAT as fallback)." >&2
             exit 1
           fi
 
@@ -234,11 +260,13 @@ jobs:
 
             const { owner, repo } = context.repo;
 
-            await withRetry(() => github.rest.issues.deleteComment({
-              owner,
-              repo,
-              comment_id: commentId,
-            }));
+            await withRetry(() =>
+              github.rest.issues.deleteComment({
+                owner,
+                repo,
+                comment_id: commentId,
+              })
+            );
             core.info(`Deleted connector comment ${commentId}.`);
 
       - name: Summarise moderation
@@ -246,4 +274,5 @@ jobs:
         run: |
           comment_id="${{ steps.evaluate.outputs.comment_id }}"
           author="${{ steps.evaluate.outputs.author }}"
-          printf 'Deleted connector comment %s authored by @%s.\n' "${comment_id}" "${author}" >>"$GITHUB_STEP_SUMMARY"
+          printf 'Deleted connector comment %s authored by @%s.\n' \
+            "${comment_id}" "${author}" >>"$GITHUB_STEP_SUMMARY"

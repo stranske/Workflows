@@ -1882,6 +1882,8 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
     let requestedAgentKeys = [];
     let hasAgentLabel = false;
 
+    const nonRoutingAgentKeys = new Set(['needs-attention', 'rate-limited', 'retry']);
+
     try {
       const { loadAgentRegistry } = require('./agent_registry.js');
       const registry = loadAgentRegistry();
@@ -1889,7 +1891,6 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
         Object.keys(registry.agents || {}).map((key) => normalise(String(key || '')).toLowerCase()),
       );
       validAgentKeys.add('auto');
-      const nonRoutingAgentKeys = new Set(['needs-attention', 'rate-limited', 'retry']);
 
       const normalizedAgentLabels = labelObjects
         .map((label) => ({
@@ -1909,14 +1910,24 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
       const entriesForRouting = registryEntries.length > 0 ? registryEntries : routingEntries;
 
       routingLabelCandidates = entriesForRouting.map(({ label }) => label);
-      requestedAgentKeys = Array.from(new Set(routingEntries.map(({ key }) => key).filter(Boolean)));
+      requestedAgentKeys = Array.from(
+        new Set(entriesForRouting.map(({ key }) => key).filter(Boolean)),
+      );
     } catch (error) {
-      routingLabelCandidates = labelObjects;
+      routingLabelCandidates = labelObjects.filter((label) => {
+        const normalized = normalise(label.name).toLowerCase();
+        if (!normalized.startsWith(agentPrefix)) {
+          return false;
+        }
+        const key = normalized.slice(agentPrefix.length);
+        return key && !nonRoutingAgentKeys.has(key);
+      });
       requestedAgentKeys = Array.from(
         new Set(
           labels
             .filter((label) => label.startsWith(agentPrefix))
-            .map((label) => label.slice(agentPrefix.length)),
+            .map((label) => label.slice(agentPrefix.length))
+            .filter((key) => key && !nonRoutingAgentKeys.has(key)),
         ),
       );
     }
@@ -1929,12 +1940,10 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
         const routing = resolveAgentRoutingFromLabels(routingLabelCandidates.length ? routingLabelCandidates : pr.labels);
         agentType = routing.agentKey;
       } catch (error) {
-        if (requestedAgentKeys.length > 1) {
-          hasAgentLabel = false;
-          agentType = '';
-        } else {
-          agentType = requestedAgentKeys[0] || '';
-        }
+        // Treat any routing failure (unknown agent, conflicting labels, missing helper)
+        // as invalid to avoid enabling keepalive when no downstream runner is eligible.
+        hasAgentLabel = false;
+        agentType = '';
       }
     }
     const hasHighPrivilege = labels.includes('agent-high-privilege');

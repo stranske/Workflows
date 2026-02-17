@@ -75,7 +75,44 @@ jobs:
       - name: Load default consumer repos
         id: repos
         run: |
-          canonical_repos=$(awk '/REGISTERED_CONSUMER_REPOS: \|/{flag=1;next} flag && /^[^[:space:]]/{flag=0} flag{line=$0; sub(/^[[:space:]]+/,"",line); if(length(line)>0) print line}' .github/workflows/maint-68-sync-consumer-repos.yml | tr '\n' ',' | sed 's/,$//')
+          canonical_repos=$(python - <<'PY'
+          from __future__ import annotations
+
+          import re
+          from pathlib import Path
+
+          path = Path('.github/workflows/maint-68-sync-consumer-repos.yml')
+          lines = path.read_text(encoding='utf-8').splitlines()
+
+          start_index = None
+          for index, line in enumerate(lines):
+            if re.search(r'\bREGISTERED_CONSUMER_REPOS\s*:\s*\|\s*$', line):
+              start_index = index + 1
+              break
+
+          if start_index is None:
+            raise SystemExit('Could not find REGISTERED_CONSUMER_REPOS: | block')
+
+          block_indent = None
+          repos: list[str] = []
+          for raw_line in lines[start_index:]:
+            if raw_line.strip() == '':
+              continue
+
+            indent = len(raw_line) - len(raw_line.lstrip(' '))
+            if block_indent is None:
+              block_indent = indent
+
+            if indent < (block_indent or 0):
+              break
+
+            value = raw_line.strip()
+            if value:
+              repos.append(value)
+
+          print(','.join(repos))
+          PY
+          )
           combined_repos="stranske/Workflows-Integration-Tests,${canonical_repos}"
           echo "default_repos=${combined_repos}" >> "$GITHUB_OUTPUT"
 
@@ -111,7 +148,8 @@ jobs:
             trap 'rm -rf "$tmpdir"' EXIT
 
             # Clone the target repo
-            if ! git clone --depth 1 "https://x-access-token:${SYNC_TOKEN}@github.com/${repo}.git" "$tmpdir" 2>/dev/null; then
+            clone_url="https://x-access-token:${SYNC_TOKEN}@github.com/${repo}.git"
+            if ! git clone --depth 1 "$clone_url" "$tmpdir" 2>/dev/null; then
               echo "WARNING: Failed to clone ${repo} - skipping"
               continue
             fi

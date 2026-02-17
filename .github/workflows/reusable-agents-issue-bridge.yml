@@ -154,7 +154,13 @@ jobs:
               if (issueFromEvent && Number(issueFromEvent.number) === issueNumber) {
                 return issueFromEvent.labels || [];
               }
-              const { data } = await withRetry(() => loadBalancedClient.rest.issues.get({ owner, repo, issue_number: issueNumber }));
+              const { data } = await withRetry(() =>
+                loadBalancedClient.rest.issues.get({
+                  owner,
+                  repo,
+                  issue_number: issueNumber,
+                }),
+              );
               return data.labels || [];
             };
 
@@ -219,15 +225,20 @@ jobs:
               }
             }
 
-            const withBase = Array.from(candidates.values()).filter((entry) => entry.labels.size > 0);
+            const withBase = Array.from(candidates.values()).filter(
+              (entry) => entry.labels.size > 0,
+            );
             if (withBase.length === 0) {
               const inviteOnly = Array.from(candidates.values())
                 .flatMap((entry) => Array.from(entry.inviteLabels))
                 .join(', ');
               if (inviteOnly) {
-                core.setFailed(
-                  `agent:* invite labels (${inviteOnly}) require the matching base agent:* label. Add agent:<name> before running the bridge.`,
-                );
+                  core.setFailed(
+                    [
+                      `Invite labels (${inviteOnly}) require a matching base agent:<name>.`,
+                      'Add agent:<name>.',
+                    ].join(' '),
+                  );
               } else {
                 core.setFailed('Exactly one agent:* label is required to run the bridge.');
               }
@@ -237,7 +248,9 @@ jobs:
               const names = withBase
                 .map((entry) => Array.from(entry.labels)[0] || `agent:${entry.base}`)
                 .join(', ');
-              core.setFailed(`Expected exactly one agent:* label but found multiple: ${names}`);
+              core.setFailed(
+                `Expected exactly one agent:* label but found multiple: ${names}`,
+              );
               return;
             }
 
@@ -290,7 +303,12 @@ jobs:
               minRemaining: 50,
             });
 
-            const { data } = await withRetry(() => api.rest.repos.get({ owner, repo }));
+            const { data } = await withRetry(() =>
+              api.rest.repos.get({
+                owner,
+                repo,
+              }),
+            );
             const base = data.default_branch;
             if (!base) {
               core.setFailed('Repository default branch not available');
@@ -305,7 +323,9 @@ jobs:
                 const cfg = getAgentConfig(agentKey);
                 branchPrefix = String(cfg.branch_prefix || branchPrefix);
               } catch (error) {
-                core.warning(`Could not load agent registry; defaulting branch prefix: ${error.message}`);
+                core.warning(
+                  `Could not load agent registry; defaulting branch prefix: ${error.message}`,
+                );
               }
             }
 
@@ -316,9 +336,15 @@ jobs:
             }
 
       - name: Fail fast on missing issue (manual run)
-        if: ${{ github.event_name == 'workflow_dispatch' && steps.ctx.outputs.has_issue != 'true' }}
+        if: >-
+          ${{
+            github.event_name == 'workflow_dispatch' &&
+            steps.ctx.outputs.has_issue != 'true'
+          }}
         run: |
-          echo "::error::Missing issue number for workflow_dispatch. Provide an issue number when manually running this workflow." && exit 1
+          echo "::error::Missing issue number for workflow_dispatch."
+          echo "::error::Provide an issue number when manually running this workflow."
+          exit 1
 
       # Switch to the target base branch if different from current checkout
       - name: Checkout target base
@@ -327,7 +353,9 @@ jobs:
           CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
           if [ "$TARGET_BASE" != "$CURRENT_BRANCH" ]; then
             git fetch origin "$TARGET_BASE" --depth=0 || true
-            git checkout "$TARGET_BASE" || git checkout -b "$TARGET_BASE" "origin/$TARGET_BASE"
+            if ! git checkout "$TARGET_BASE"; then
+              git checkout -b "$TARGET_BASE" "origin/$TARGET_BASE"
+            fi
           fi
           echo "Scripts available:"
           find .github/scripts -maxdepth 1 -type f -print | head -10
@@ -341,7 +369,12 @@ jobs:
           script: |
             const agent = (process.env.AGENT || '').trim();
             if (!agent || agent === 'unknown') {
-              core.setFailed('Agent resolution failed; ensure exactly one agent:* label is present or provide the agent input.');
+              core.setFailed(
+                [
+                  'Agent resolution failed.',
+                  'Ensure exactly one agent:* label is present or provide the agent input.',
+                ].join(' '),
+              );
               return;
             }
             const ev = context.eventName;
@@ -353,15 +386,23 @@ jobs:
             if (forceMode) {
               reason = 'force-mode-override';
             } else if (ev === 'issues') {
-              const labels = (context.payload.issue && Array.isArray(context.payload.issue.labels)) ? context.payload.issue.labels : [];
-              const hasInvite = labels.some((lbl) => String(lbl.name || '').toLowerCase() === `agent:${agent}-invite`);
-              const hasBase = labels.some((lbl) => String(lbl.name || '').toLowerCase() === `agent:${agent}`);
+              const issue = context.payload.issue;
+              const labels = issue && Array.isArray(issue.labels) ? issue.labels : [];
+              const hasInvite = labels.some((lbl) => {
+                const name = String(lbl.name || '').toLowerCase();
+                return name === `agent:${agent}-invite`;
+              });
+              const hasBase = labels.some((lbl) => {
+                const name = String(lbl.name || '').toLowerCase();
+                return name === `agent:${agent}`;
+              });
 
               if (hasInvite) {
                 mode = 'invite';
                 reason = 'issue-label-override';
-              } else if (hasBase) {
-                // Issue-triggered runs should stay in invite mode so the human post lands on the issue
+                } else if (hasBase) {
+                  // Issue-triggered runs should stay in invite mode
+                  // so the human post lands on the issue
                 mode = 'invite';
                 reason = 'issue-default-invite';
               }
@@ -421,14 +462,23 @@ jobs:
               core.setOutput('enabled', 'false');
               core.setOutput('mode', 'OFF');
               core.setOutput('source', 'missing');
-              core.setOutput('options_json', JSON.stringify({ keepalive: { enabled: false } }));
+              core.setOutput(
+                'options_json',
+                JSON.stringify({ keepalive: { enabled: false } }),
+              );
               return;
             }
 
             let issue = context.payload.issue;
             if (!issue || Number(issue.number) !== issueNumber) {
               try {
-                const { data } = await withRetry(() => loadBalancedClient.rest.issues.get({ owner, repo, issue_number: issueNumber }));
+                  const { data } = await withRetry(() =>
+                    loadBalancedClient.rest.issues.get({
+                      owner,
+                      repo,
+                      issue_number: issueNumber,
+                    }),
+                  );
                 issue = data;
               } catch (error) {
                 core.warning(`Failed to fetch issue #${issueNumber}: ${error.message}`);
@@ -469,7 +519,13 @@ jobs:
             if (prNumber && !prData) {
               try {
                 // Use load-balanced token for API call
-                const { data } = await withRetry(() => loadBalancedClient.rest.pulls.get({ owner, repo, pull_number: prNumber }));
+                  const { data } = await withRetry(() =>
+                    loadBalancedClient.rest.pulls.get({
+                      owner,
+                      repo,
+                      pull_number: prNumber,
+                    }),
+                  );
                 prData = data;
               } catch (error) {
                 core.warning(`Unable to fetch PR #${prNumber}: ${error.message}`);
@@ -481,7 +537,12 @@ jobs:
                 // Use load-balanced token for API call
                 const comments = await paginateWithRetry(
                   loadBalancedClient.rest.issues.listComments,
-                  { owner, repo, issue_number: issueNumber, per_page: 100 }
+                  {
+                    owner,
+                    repo,
+                    issue_number: issueNumber,
+                    per_page: 100,
+                  },
                 );
                 for (const comment of comments) {
                   if (sentinel.test(comment.body || '')) {
@@ -492,7 +553,9 @@ jobs:
                   }
                 }
               } catch (error) {
-                core.warning(`Failed to scan comments for keepalive sentinel: ${error.message}`);
+                core.warning(
+                  `Failed to scan comments for keepalive sentinel: ${error.message}`,
+                );
               }
             }
 
@@ -510,8 +573,13 @@ jobs:
             summary
               .addHeading('Keepalive opt-in resolution')
               .addTable([
-                [{ data: 'Issue', header: true }, { data: 'Mode', header: true }, { data: 'Source', header: true }, { data: 'Evidence', header: true }],
-                [`#${issueNumber}`, mode, source, evidence || '(none)']
+                [
+                  { data: 'Issue', header: true },
+                  { data: 'Mode', header: true },
+                  { data: 'Source', header: true },
+                  { data: 'Evidence', header: true },
+                ],
+                [`#${issueNumber}`, mode, source, evidence || '(none)'],
               ]);
             await summary.write();
 
@@ -520,12 +588,16 @@ jobs:
           AGENT: ${{ steps.agent_label.outputs.agent || inputs.agent }}
         run: |
           echo "Agent: $AGENT"
-          echo "Chosen PR mode: ${{ steps.mode.outputs.mode }} (reason: ${{ steps.mode.outputs.reason }})"
+          MODE="${{ steps.mode.outputs.mode }}"
+          REASON="${{ steps.mode.outputs.reason }}"
+          echo "Chosen PR mode: $MODE (reason: $REASON)"
           echo "Base branch: ${{ steps.refs.outputs.base }}"
           echo "Head branch: ${{ steps.refs.outputs.head || 'unresolved' }}"
           echo "Resolved draft flag: ${{ steps.draft.outputs.draft }}"
           echo "Post agent comment: ${{ steps.agent_comment.outputs.post }}"
-          echo "Keepalive mode: ${{ steps.keepalive.outputs.mode || 'OFF' }} (source: ${{ steps.keepalive.outputs.source || 'default' }})"
+          KEEP_MODE="${{ steps.keepalive.outputs.mode || 'OFF' }}"
+          KEEP_SOURCE="${{ steps.keepalive.outputs.source || 'default' }}"
+          echo "Keepalive mode: $KEEP_MODE (source: $KEEP_SOURCE)"
 
       - name: Publish bridge summary
         uses: actions/github-script@v8
@@ -533,7 +605,12 @@ jobs:
           script: |
             const agent = (process.env.AGENT || '').trim();
             if (!agent || agent === 'unknown') {
-              core.setFailed('Agent resolution failed; ensure exactly one agent:* label is present or provide the agent input.');
+              core.setFailed(
+                [
+                  'Agent resolution failed.',
+                  'Ensure exactly one agent:* label is present or provide the agent input.',
+                ].join(' '),
+              );
               return;
             }
             const issueNo = context.payload.issue && context.payload.issue.number;
@@ -542,7 +619,9 @@ jobs:
             const head = '${{ steps.refs.outputs.head || '' }}';
             const mode = '${{ steps.mode.outputs.mode }}';
             await core.summary
-              .addHeading(`${agent.charAt(0).toUpperCase() + agent.slice(1)} Bridge Event Summary`)
+              .addHeading(
+                `${agent.charAt(0).toUpperCase() + agent.slice(1)} Bridge Event Summary`,
+              )
               .addTable([
                 [
                   { data: 'Agent', header: true },
@@ -552,7 +631,14 @@ jobs:
                   { data: 'Base', header: true },
                   { data: 'Head', header: true }
                 ],
-                [agent, String(issueNo || ''), String(manualIssue || ''), mode, base, head || '(pending)']
+                [
+                  agent,
+                  String(issueNo || ''),
+                  String(manualIssue || ''),
+                  mode,
+                  base,
+                  head || '(pending)',
+                ],
               ])
               .write();
 
@@ -592,12 +678,15 @@ jobs:
 
           git checkout -B "$HEAD_BRANCH" "origin/${BASE_BRANCH}"
           mkdir -p agents
-          printf "<!-- bootstrap for %s on issue #%s -->\n" "$AGENT" "$ISSUE_NUM" > "agents/${AGENT}-${ISSUE_NUM}.md"
+          printf "<!-- bootstrap for %s on issue #%s -->\n" \
+            "$AGENT" \
+            "$ISSUE_NUM" \
+            > "agents/${AGENT}-${ISSUE_NUM}.md"
           # Stage only the intended bootstrap file — 'git add -A' would capture
           # vendored node_modules changes made by setup-api-client npm install.
           git add "agents/${AGENT}-${ISSUE_NUM}.md" || true
           if ! git diff --cached --quiet; then
-            git commit -m "chore(${AGENT}): bootstrap PR for issue #${ISSUE_NUM}"
+            git commit -m "chore(${AGENT}): bootstrap issue #${ISSUE_NUM}"
           else
             echo "No changes to commit; proceeding to push branch with existing tree."
           fi
@@ -605,7 +694,11 @@ jobs:
           echo "branch=${HEAD_BRANCH}" >> "$GITHUB_OUTPUT"
 
       - name: Invite human to open PR (invite mode)
-        if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.mode.outputs.mode == 'invite' }}
+        if: >-
+          ${{
+            steps.ctx.outputs.has_issue == 'true' &&
+            steps.mode.outputs.mode == 'invite'
+          }}
         id: invite
         uses: actions/github-script@v8
         env:
@@ -622,7 +715,11 @@ jobs:
             const agent = (process.env.AGENT || '').trim();
             const fs = require('fs');
             const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
-            const { github: api, withRetry, paginateWithRetry } = await createTokenAwareRetry({
+            const {
+              github: api,
+              withRetry,
+              paginateWithRetry,
+            } = await createTokenAwareRetry({
               github,
               core,
               env: process.env,
@@ -632,15 +729,28 @@ jobs:
             });
             const loadBalancedClient = api;
             if (!agent || agent === 'unknown') {
-              core.setFailed('Agent resolution failed; ensure exactly one agent:* label is present or provide the agent input.');
+              core.setFailed(
+                [
+                  'Agent resolution failed.',
+                  'Ensure exactly one agent:* label is present or provide the agent input.',
+                ].join(' '),
+              );
               return;
             }
-            const agentTitle = process.env.BRIDGE_AGENT_TITLE || agent.charAt(0).toUpperCase() + agent.slice(1);
+            const agentTitle =
+              process.env.BRIDGE_AGENT_TITLE ||
+              agent.charAt(0).toUpperCase() + agent.slice(1);
             const mention = process.env.BRIDGE_AGENT_MENTION || `@${agent}`;
             // Load instruction from template file
-            const { getKeepaliveInstructionWithMention } = require('.github/scripts/keepalive_instruction_template.js');
+            const keepaliveTemplatePath =
+              '.github/scripts/keepalive_instruction_template.js';
+            const { getKeepaliveInstructionWithMention } = require(
+              keepaliveTemplatePath,
+            );
             const instruction = getKeepaliveInstructionWithMention(agent);
-            const rawMode = (process.env.KEEPALIVE_MODE || 'OFF').trim().toUpperCase();
+            const rawMode = (process.env.KEEPALIVE_MODE || 'OFF')
+              .trim()
+              .toUpperCase();
             const keepaliveMode = rawMode === 'ON' ? 'ON' : 'OFF';
 
             if (!branch) {
@@ -650,7 +760,13 @@ jobs:
             let issueTitle = '';
             let issueBody = '';
             try {
-              const { data: is } = await withRetry(() => loadBalancedClient.rest.issues.get({ owner, repo, issue_number }));
+              const { data: is } = await withRetry(() =>
+                loadBalancedClient.rest.issues.get({
+                  owner,
+                  repo,
+                  issue_number,
+                }),
+              );
               issueTitle = is.title || '';
               issueBody = is.body || '';
             } catch (err) {
@@ -660,12 +776,14 @@ jobs:
             // Check if a PR already exists for this branch
             let existingPr = null;
             try {
-              const { data: pulls } = await withRetry(() => loadBalancedClient.rest.pulls.list({
-                owner,
-                repo,
-                state: 'open',
-                head: `${owner}:${branch}`,
-              }));
+              const { data: pulls } = await withRetry(() =>
+                loadBalancedClient.rest.pulls.list({
+                  owner,
+                  repo,
+                  state: 'open',
+                  head: `${owner}:${branch}`,
+                }),
+              );
               if (pulls.length > 0) {
                 existingPr = pulls[0];
               }
@@ -673,25 +791,25 @@ jobs:
               core.warning(`Failed to check for existing PR: ${err.message}`);
             }
 
-            const issueUrl = `https://github.com/${owner}/${repo}/issues/${issue_number}`;
+            const repoUrl = `https://github.com/${owner}/${repo}`;
+            const issueUrl = `${repoUrl}/issues/${issue_number}`;
             const keepaliveHeader = `### Keepalive: ${keepaliveMode}`;
             const metaMarker = `<!-- meta:issue:${issue_number} -->`;
             const header = `### Source Issue #${issue_number}: ${issueTitle}`;
-            const quoted = (issueBody || '').split('\n').map(l => `> ${l}`).join('\n');
+            const quoted = (issueBody || '')
+              .split('\n')
+              .map((line) => `> ${line}`)
+              .join('\n');
 
             // Build issue context for status summary
             const contextData = buildIssueContext(issueBody || '');
             const statusSummaryBlock = contextData.statusSummaryBlock || '';
 
             // Simplified PR body suggestion - agents-pr-meta will populate issue content
-            const bodySections = [
-              metaMarker,
-              '',
-              instruction
-            ];
+            const bodySections = [metaMarker, '', instruction];
 
             const suggestion = bodySections.join('\n');
-            const compareUrl = `https://github.com/${owner}/${repo}/compare/${base}...${branch}?expand=1`;
+            const compareUrl = `${repoUrl}/compare/${base}...${branch}?expand=1`;
 
             if (!issue_number) {
               core.setFailed('Resolved issue number missing; cannot post invite.');
@@ -701,7 +819,7 @@ jobs:
             // If PR already exists with empty body, update it with issue content
             if (existingPr) {
               const prBody = (existingPr.body || '').trim();
-              const hasMetaMarker = prBody.includes(`<!-- meta:issue:${issue_number} -->`);
+              const hasMetaMarker = prBody.includes(metaMarker);
               const hasStatusSummary = /<!--\s*auto-status-summary:start\s*-->/.test(prBody);
               const bodyIsEmpty = !prBody || prBody.length < 50;
 
@@ -737,13 +855,15 @@ jobs:
 
                 const newPrBody = prBodySections.join('\n').trim();
                 try {
-                  await withRetry(() => loadBalancedClient.rest.pulls.update({
-                    owner,
-                    repo,
-                    pull_number: existingPr.number,
-                    body: newPrBody,
-                  }));
-                  core.info(`Updated PR #${existingPr.number} body with issue content and status summary.`);
+                  await withRetry(() =>
+                    loadBalancedClient.rest.pulls.update({
+                      owner,
+                      repo,
+                      pull_number: existingPr.number,
+                      body: newPrBody,
+                    }),
+                  );
+                  core.info(`Updated PR #${existingPr.number} body.`);
                   core.setOutput('pr_updated', 'true');
                   core.setOutput('pr_number', String(existingPr.number));
                 } catch (err) {
@@ -765,7 +885,8 @@ jobs:
                     per_page: 100,
                   }
                 );
-                const headerRegex = new RegExp(`^###\\s*Issue\\s*#${issue_number}\\b`, 'i');
+                const headerRegexSource = `^###\\s*Issue\\s*#${issue_number}\\b`;
+                const headerRegex = new RegExp(headerRegexSource, 'i');
                 const alreadyPosted = comments.some((c) => headerRegex.test(c.body || ''));
 
                 if (!alreadyPosted && issueBody) {
@@ -779,12 +900,14 @@ jobs:
                     issueBody.trim(),
                   ].join('\n');
 
-                  await withRetry(() => loadBalancedClient.rest.issues.createComment({
-                    owner,
-                    repo,
-                    issue_number: existingPr.number,
-                    body: contextComment,
-                  }));
+                  await withRetry(() =>
+                    loadBalancedClient.rest.issues.createComment({
+                      owner,
+                      repo,
+                      issue_number: existingPr.number,
+                      body: contextComment,
+                    }),
+                  );
                   core.info(`Posted issue context comment on PR #${existingPr.number}.`);
                 }
               } catch (err) {
@@ -792,28 +915,54 @@ jobs:
               }
 
               // Still post on the issue for visibility
-              await withRetry(() => loadBalancedClient.rest.issues.createComment({
-                owner,
-                repo,
-                issue_number,
-                body: `PR #${existingPr.number} already exists for branch \`${branch}\`. Updated PR body with issue content.\n\nPR link: ${existingPr.html_url}`
-              }));
+              const existingPrNote = [
+                `PR #${existingPr.number} already exists for branch \`${branch}\`.`,
+                'Updated PR body with issue content.',
+                '',
+                `PR link: ${existingPr.html_url}`,
+              ].join('\n');
+              await withRetry(() =>
+                loadBalancedClient.rest.issues.createComment({
+                  owner,
+                  repo,
+                  issue_number,
+                  body: existingPrNote,
+                }),
+              );
               return;
             }
 
-            await withRetry(() => loadBalancedClient.rest.issues.createComment({
-              owner,
-              repo,
-              issue_number,
-              body: `Branch \`${branch}\` created from \`${base}\`.\n\nOption 1 (Invite) is enforced on issue events. PR creation is disabled by design so you are the PR author. ${agentTitle} only engages on human-authored PRs.\n\nPlease open the PR as the author so ${agentTitle} can work on it:\n\n- Compare link: ${compareUrl}\n- Suggested title: \`${agentTitle} bootstrap for #${issue_number}\`\n- Suggested body (copy/paste):\n\n\n${'```markdown'}\n${suggestion}\n${'```'}`
-            }));
+            const fencedSuggestion = ['```markdown', suggestion, '```'].join('\n');
+            const inviteBody = [
+              `Branch \`${branch}\` created from \`${base}\`.`,
+              '',
+              'Option 1 (Invite) is enforced on issue events.',
+              'PR creation is disabled by design so you are the PR author.',
+              `${agentTitle} only engages on human-authored PRs.`,
+              '',
+              `Please open the PR as the author so ${agentTitle} can work on it:`,
+              '',
+              `- Compare link: ${compareUrl}`,
+              `- Suggested title: \`${agentTitle} bootstrap for #${issue_number}\``,
+              '- Suggested body (copy/paste):',
+              '',
+              fencedSuggestion,
+            ].join('\n');
+            await withRetry(() =>
+              loadBalancedClient.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number,
+                body: inviteBody,
+              }),
+            );
 
       - name: Skip PR creation when inviting
         if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.mode.outputs.mode == 'invite' }}
         env:
           AGENT: ${{ steps.agent_label.outputs.agent || inputs.agent }}
         run: |
-          echo "Invite mode: skipping PR creation; waiting for human author to create PR for $AGENT."
+          echo "Invite mode: skipping PR creation for $AGENT."
 
       - name: Open or reuse PR (create mode)
         if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.mode.outputs.mode != 'invite' }}
@@ -845,13 +994,24 @@ jobs:
                 };
             const { withRetry } = retryHelpers;
             if (!agent || agent === 'unknown') {
-              core.setFailed('Agent resolution failed; ensure exactly one agent:* label is present or provide the agent input.');
+              core.setFailed(
+                [
+                  'Agent resolution failed.',
+                  'Ensure exactly one agent:* label is present or provide the agent input.',
+                ].join(' '),
+              );
               return;
             }
-            const agentTitle = process.env.BRIDGE_AGENT_TITLE || agent.charAt(0).toUpperCase() + agent.slice(1);
+            const agentTitle =
+              process.env.BRIDGE_AGENT_TITLE ||
+              agent.charAt(0).toUpperCase() + agent.slice(1);
             const mention = process.env.BRIDGE_AGENT_MENTION || `@${agent}`;
             // Load instruction from template file
-            const { getKeepaliveInstructionWithMention } = require('.github/scripts/keepalive_instruction_template.js');
+            const keepaliveTemplatePath =
+              '.github/scripts/keepalive_instruction_template.js';
+            const { getKeepaliveInstructionWithMention } = require(
+              keepaliveTemplatePath,
+            );
             const instruction = getKeepaliveInstructionWithMention(agent);
 
             if (!issue_number) {
@@ -863,13 +1023,26 @@ jobs:
               return;
             }
 
-            const existing = await withRetry(() => github.rest.pulls.list({ owner, repo, state: 'open', head: `${owner}:${head}` }));
+            const existing = await withRetry(() =>
+              github.rest.pulls.list({
+                owner,
+                repo,
+                state: 'open',
+                head: `${owner}:${head}`,
+              }),
+            );
             let pr = existing.data[0];
 
             let issueTitle = '';
             let issueBody = '';
             try {
-              const { data: is } = await withRetry(() => github.rest.issues.get({ owner, repo, issue_number }));
+              const { data: is } = await withRetry(() =>
+                github.rest.issues.get({
+                  owner,
+                  repo,
+                  issue_number,
+                }),
+              );
               issueTitle = is.title || '';
               issueBody = is.body || '';
             } catch (e) {
@@ -884,12 +1057,19 @@ jobs:
 
             if (!pr) {
 
-              const issueUrl = `https://github.com/${owner}/${repo}/issues/${issue_number}`;
-              const keepaliveStatus = (process.env.KEEPALIVE_MODE || 'OFF').trim().toUpperCase() === 'ON' ? 'ON' : 'OFF';
+              const repoUrl = `https://github.com/${owner}/${repo}`;
+              const issueUrl = `${repoUrl}/issues/${issue_number}`;
+              const rawKeepaliveMode = (process.env.KEEPALIVE_MODE || 'OFF')
+                .trim()
+                .toUpperCase();
+              const keepaliveStatus = rawKeepaliveMode === 'ON' ? 'ON' : 'OFF';
               const keepaliveHeader = `### Keepalive: ${keepaliveStatus}`;
               const metaMarker = `<!-- meta:issue:${issue_number} -->`;
               const header = `### Source Issue #${issue_number}: ${issueTitle}`;
-              const quoted = (issueBody || '').split('\n').map(l => `> ${l}`).join('\n');
+              const quoted = (issueBody || '')
+                .split('\n')
+                .map((line) => `> ${line}`)
+                .join('\n');
               const baseLine = base ? `Base: ${base}` : '';
               const headLine = head ? `Head: ${head}` : '';
               const issueDetailsBlock = (() => {
@@ -929,18 +1109,20 @@ jobs:
                 issueDetailsBlock || quoted,
                 '',
                 '—',
-                `PR created automatically to engage ${agentTitle}.`
+                `PR created automatically to engage ${agentTitle}.`,
               ].join('\n');
 
-              ({ data: pr } = await withRetry(() => github.rest.pulls.create({
-                owner,
-                repo,
-                head,
-                base,
-                draft: draftFlag,
-                title: `${agentTitle} bootstrap for #${issue_number}`,
-                body: prBody
-              })));
+              ({ data: pr } = await withRetry(() =>
+                github.rest.pulls.create({
+                  owner,
+                  repo,
+                  head,
+                  base,
+                  draft: draftFlag,
+                  title: `${agentTitle} bootstrap for #${issue_number}`,
+                  body: prBody,
+                }),
+              ));
 
               core.setOutput('created', 'true');
             } else {
@@ -958,11 +1140,18 @@ jobs:
                 }
                 const mergedBody = segments.join('\n').trim();
                 try {
-                  await withRetry(() => github.rest.pulls.update({ owner, repo, pull_number: pr.number, body: mergedBody }));
+                  await withRetry(() =>
+                    github.rest.pulls.update({
+                      owner,
+                      repo,
+                      pull_number: pr.number,
+                      body: mergedBody,
+                    }),
+                  );
                   pr.body = mergedBody;
                   core.info(`Inserted auto-status summary into PR #${pr.number} body.`);
                 } catch (error) {
-                  core.warning(`Failed to insert auto-status summary into PR #${pr.number}: ${error.message}`);
+                  core.warning(`Failed to update PR #${pr.number} body: ${error.message}`);
                 }
               }
             }
@@ -977,12 +1166,26 @@ jobs:
 
             const assignees = ['chatgpt-codex-connector', 'stranske-automation-bot'];
             try {
-              await withRetry(() => github.rest.issues.addAssignees({ owner, repo, issue_number: pr.number, assignees }));
+              await withRetry(() =>
+                github.rest.issues.addAssignees({
+                  owner,
+                  repo,
+                  issue_number: pr.number,
+                  assignees,
+                }),
+              );
             } catch (e) {
               core.warning(`PR assign failed: ${e.message}`);
             }
             try {
-              await withRetry(() => github.rest.issues.addAssignees({ owner, repo, issue_number, assignees }));
+              await withRetry(() =>
+                github.rest.issues.addAssignees({
+                  owner,
+                  repo,
+                  issue_number,
+                  assignees,
+                }),
+              );
             } catch (e) {
               core.warning(`Issue assign failed: ${e.message}`);
             }
@@ -1010,10 +1213,22 @@ jobs:
             });
             const loadBalancedClient = api;
             if (!agent || agent === 'unknown') {
-              core.setFailed('Agent resolution failed; ensure exactly one agent:* label is present or provide the agent input.');
+              core.setFailed(
+                [
+                  'Agent resolution failed.',
+                  'Ensure exactly one agent:* label is present or provide the agent input.',
+                ].join(' '),
+              );
               return;
             }
-            await withRetry(() => loadBalancedClient.rest.issues.addLabels({ owner, repo, issue_number: prNumber, labels: [`agent:${agent}`] }));
+            await withRetry(() =>
+              loadBalancedClient.rest.issues.addLabels({
+                owner,
+                repo,
+                issue_number: prNumber,
+                labels: [`agent:${agent}`],
+              }),
+            );
 
       - name: Populate PR body context section
         if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.mode.outputs.mode != 'invite' }}
@@ -1026,15 +1241,15 @@ jobs:
             const fs = require('fs');
             const prNumber = Number(process.env.PR_NUMBER || 0);
             if (!prNumber) {
-              core.info('No PR number available; skipping PR body context population.');
+              core.info('No PR number available; skipping context population.');
               return;
             }
             if (!fs.existsSync('./.github/scripts/agents_pr_meta_update_body.js')) {
-              core.info('PR meta updater script not present in this repo; skipping context population.');
+              core.info('PR meta updater script missing; skipping context population.');
               return;
             }
             if (!fs.existsSync('./scripts/langchain/context_extractor.py')) {
-              core.info('Context extractor script not present in this repo; skipping context population.');
+              core.info('Context extractor missing; skipping context population.');
               return;
             }
             const { run } = require('./.github/scripts/agents_pr_meta_update_body.js');
@@ -1081,7 +1296,13 @@ jobs:
 
             if ((!issueTitle || !issueBody) && issueNumber) {
               try {
-                const { data: issue } = await withRetry(() => loadBalancedClient.rest.issues.get({ owner, repo, issue_number: issueNumber }));
+                const { data: issue } = await withRetry(() =>
+                  loadBalancedClient.rest.issues.get({
+                    owner,
+                    repo,
+                    issue_number: issueNumber,
+                  }),
+                );
                 issueTitle = issueTitle || issue.title || '';
                 issueBody = issueBody || issue.body || '';
               } catch (error) {
@@ -1095,11 +1316,20 @@ jobs:
             const summaryNeedsWarning = contextData.summaryNeedsWarning;
             const warningLines = contextData.warningLines;
             const warningDetails = contextData.warningDetails;
-            const missingSections = Array.isArray(contextData.missingSections) ? contextData.missingSections : [];
+            const missingSections = Array.isArray(contextData.missingSections)
+              ? contextData.missingSections
+              : [];
 
             if (!prNumber && branch) {
               try {
-                const { data: pulls } = await withRetry(() => loadBalancedClient.rest.pulls.list({ owner, repo, state: 'open', head: `${owner}:${branch}` }));
+                const { data: pulls } = await withRetry(() =>
+                  loadBalancedClient.rest.pulls.list({
+                    owner,
+                    repo,
+                    state: 'open',
+                    head: `${owner}:${branch}`,
+                  }),
+                );
                 if (pulls.length > 0) {
                   prNumber = pulls[0].number;
                 }
@@ -1112,7 +1342,13 @@ jobs:
             let prData = null;
             if (prNumber) {
               try {
-                const { data } = await withRetry(() => loadBalancedClient.rest.pulls.get({ owner, repo, pull_number: prNumber }));
+                const { data } = await withRetry(() =>
+                  loadBalancedClient.rest.pulls.get({
+                    owner,
+                    repo,
+                    pull_number: prNumber,
+                  }),
+                );
                 prData = data;
               } catch (error) {
                 core.warning(`Failed to fetch PR #${prNumber}: ${error.message}`);
@@ -1120,41 +1356,69 @@ jobs:
             }
 
             if (summaryNeedsWarning && missingSections.length) {
-              core.warning(`Issue template missing sections: ${missingSections.join(', ')}`);
+              core.warning(
+                `Issue template missing sections: ${missingSections.join(', ')}`,
+              );
             } else if (summaryNeedsWarning && warningDetails.length) {
-              core.warning('Issue template is missing required sections for the automated summary.');
+              core.warning('Issue template missing required sections for automated summary.');
             }
 
             if (!prNumber) {
               if (summaryNeedsWarning && issueNumber) {
                 const warningHeader = `### Template Warning for Issue #${issueNumber}`;
-                const warningBody = [warningHeader, '', ...warningDetails].join('\n').trim();
-                const comments = await paginateWithRetry(loadBalancedClient.rest.issues.listComments, {
-                  owner,
-                  repo,
-                  issue_number: issueNumber,
-                  per_page: 100,
-                });
-                const alreadyWarned = comments.some((comment) => comment.body?.startsWith(warningHeader));
+                const warningBody = [warningHeader, '', ...warningDetails]
+                  .join('\n')
+                  .trim();
+                const comments = await paginateWithRetry(
+                  loadBalancedClient.rest.issues.listComments,
+                  {
+                    owner,
+                    repo,
+                    issue_number: issueNumber,
+                    per_page: 100,
+                  },
+                );
+                const alreadyWarned = comments.some((comment) =>
+                  comment.body?.startsWith(warningHeader),
+                );
                 if (!alreadyWarned) {
-                  await withRetry(() => loadBalancedClient.rest.issues.createComment({ owner, repo, issue_number: issueNumber, body: warningBody }));
+                  await withRetry(() =>
+                    loadBalancedClient.rest.issues.createComment({
+                      owner,
+                      repo,
+                      issue_number: issueNumber,
+                      body: warningBody,
+                    }),
+                  );
                 }
               }
-              core.warning('PR number is unavailable; skipping issue context comment until a PR is opened.');
+              core.warning('PR number unavailable; skipping issue context comment.');
               return;
             }
 
             if (prData && statusSummaryBlock) {
-              const bodyHasSummary = /<!--\s*auto-status-summary:start\s*-->/.test(prData.body || '');
+              const bodyHasSummary = /<!--\s*auto-status-summary:start\s*-->/.test(
+                prData.body || '',
+              );
               if (!bodyHasSummary) {
                 const existingBody = (prData.body || '').trim();
-                const mergedBody = [statusSummaryBlock, existingBody].filter(Boolean).join('\n\n').trim();
+                const mergedBody = [statusSummaryBlock, existingBody]
+                  .filter(Boolean)
+                  .join('\n\n')
+                  .trim();
                 try {
-                  await withRetry(() => loadBalancedClient.rest.pulls.update({ owner, repo, pull_number: prNumber, body: mergedBody }));
+                  await withRetry(() =>
+                    loadBalancedClient.rest.pulls.update({
+                      owner,
+                      repo,
+                      pull_number: prNumber,
+                      body: mergedBody,
+                    }),
+                  );
                   prData.body = mergedBody;
                   core.info(`Inserted auto-status summary into PR #${prNumber} body.`);
                 } catch (error) {
-                  core.warning(`Failed to insert auto-status summary into PR #${prNumber}: ${error.message}`);
+                  core.warning(`Failed to update PR #${prNumber} body: ${error.message}`);
                 }
               }
             }
@@ -1174,7 +1438,13 @@ jobs:
             // to avoid duplicate content (summary already extracts Tasks/Acceptance Criteria)
             if (issueBody) {
               if (statusSummaryBlock) {
-                parts.push('', '<details>', '<summary>Full Issue Text</summary>', '', issueBody.trim(), '', '</details>');
+                parts.push('');
+                parts.push('<details>');
+                parts.push('<summary>Full Issue Text</summary>');
+                parts.push('');
+                parts.push(issueBody.trim());
+                parts.push('');
+                parts.push('</details>');
               } else {
                 parts.push('', '#### Full Issue Text', '', issueBody.trim());
               }
@@ -1186,23 +1456,40 @@ jobs:
               return;
             }
 
-            const existing = await paginateWithRetry(loadBalancedClient.rest.issues.listComments, {
-              owner,
-              repo,
-              issue_number: prNumber,
-              per_page: 100,
-            });
-            const headerRegex = new RegExp(`^###\\s*Issue\\s*#${issueNumber}\\b`, 'i');
+            const existing = await paginateWithRetry(
+              loadBalancedClient.rest.issues.listComments,
+              {
+                owner,
+                repo,
+                issue_number: prNumber,
+                per_page: 100,
+              },
+            );
+            const headerRegexSource = `^###\\s*Issue\\s*#${issueNumber}\\b`;
+            const headerRegex = new RegExp(headerRegexSource, 'i');
             const alreadyPosted = existing.some((comment) => headerRegex.test(comment?.body || ''));
             if (alreadyPosted) {
               core.info('Issue context comment already present; skipping.');
               return;
             }
 
-            await withRetry(() => loadBalancedClient.rest.issues.createComment({ owner, repo, issue_number: prNumber, body }));
+            await withRetry(() =>
+              loadBalancedClient.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: prNumber,
+                body,
+              }),
+            );
 
       - name: Post agent command as service user
-        if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.mode.outputs.mode != 'invite' && env.SERVICE_BOT_PAT != '' && steps.agent_comment.outputs.post == 'true' }}
+        if: >-
+          ${{
+            steps.ctx.outputs.has_issue == 'true' &&
+            steps.mode.outputs.mode != 'invite' &&
+            env.SERVICE_BOT_PAT != '' &&
+            steps.agent_comment.outputs.post == 'true'
+          }}
         uses: actions/github-script@v8
         env:
           AGENT: ${{ steps.agent_label.outputs.agent || inputs.agent }}
@@ -1223,14 +1510,37 @@ jobs:
                 };
             const { withRetry } = retryHelpers;
             if (!agent || agent === 'unknown') {
-              core.setFailed('Agent resolution failed; ensure exactly one agent:* label is present or provide the agent input.');
+                core.setFailed(
+                  [
+                    'Agent resolution failed.',
+                    'Ensure exactly one agent:* label is present or provide the agent input.',
+                  ].join(' '),
+                );
               return;
             }
             const cmd = `@${agent} start`;
-            await withRetry(() => github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body: `${cmd}\n\nPlease create commits on this branch, run tests, and keep the PR updated.` }));
+              const body = [
+                cmd,
+                '',
+                'Please create commits on this branch, run tests, and keep the PR updated.',
+              ].join('\n');
+              await withRetry(() =>
+                github.rest.issues.createComment({
+                  owner,
+                  repo,
+                  issue_number: prNumber,
+                  body,
+                }),
+              );
 
       - name: Post agent command (fallback as github-actions)
-        if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.mode.outputs.mode != 'invite' && env.SERVICE_BOT_PAT == '' && steps.agent_comment.outputs.post == 'true' }}
+        if: >-
+          ${{
+            steps.ctx.outputs.has_issue == 'true' &&
+            steps.mode.outputs.mode != 'invite' &&
+            env.SERVICE_BOT_PAT == '' &&
+            steps.agent_comment.outputs.post == 'true'
+          }}
         uses: actions/github-script@v8
         env:
           AGENT: ${{ steps.agent_label.outputs.agent || inputs.agent }}
@@ -1251,14 +1561,36 @@ jobs:
             });
             const loadBalancedClient = api;
             if (!agent || agent === 'unknown') {
-              core.setFailed('Agent resolution failed; ensure exactly one agent:* label is present or provide the agent input.');
+                core.setFailed(
+                  [
+                    'Agent resolution failed.',
+                    'Ensure exactly one agent:* label is present or provide the agent input.',
+                  ].join(' '),
+                );
               return;
             }
             const cmd = `@${agent} start`;
-            await withRetry(() => loadBalancedClient.rest.issues.createComment({ owner, repo, issue_number: prNumber, body: `${cmd}\n\nPlease create commits on this branch, run tests, and keep the PR updated.` }));
+              const body = [
+                cmd,
+                '',
+                'Please create commits on this branch, run tests, and keep the PR updated.',
+              ].join('\n');
+              await withRetry(() =>
+                loadBalancedClient.rest.issues.createComment({
+                  owner,
+                  repo,
+                  issue_number: prNumber,
+                  body,
+                }),
+              );
 
       - name: Prompt human to post agent command
-        if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.mode.outputs.mode != 'invite' && steps.agent_comment.outputs.post != 'true' }}
+        if: >-
+          ${{
+            steps.ctx.outputs.has_issue == 'true' &&
+            steps.mode.outputs.mode != 'invite' &&
+            steps.agent_comment.outputs.post != 'true'
+          }}
         uses: actions/github-script@v8
         env:
           AGENT: ${{ steps.agent_label.outputs.agent || inputs.agent }}
@@ -1279,21 +1611,42 @@ jobs:
             });
             const loadBalancedClient = api;
             if (!agent || agent === 'unknown') {
-              core.setFailed('Agent resolution failed; ensure exactly one agent:* label is present or provide the agent input.');
+              core.setFailed(
+                [
+                  'Agent resolution failed.',
+                  'Ensure exactly one agent:* label is present or provide the agent input.',
+                ].join(' '),
+              );
               return;
             }
-            const agentTitle = process.env.BRIDGE_AGENT_TITLE || agent.charAt(0).toUpperCase() + agent.slice(1);
+            const agentTitle =
+              process.env.BRIDGE_AGENT_TITLE ||
+              agent.charAt(0).toUpperCase() + agent.slice(1);
             const mention = process.env.BRIDGE_AGENT_MENTION || `@${agent}`;
             // Load instruction from template file
-            const { getKeepaliveInstructionWithMention } = require('.github/scripts/keepalive_instruction_template.js');
+            const keepaliveTemplatePath =
+              '.github/scripts/keepalive_instruction_template.js';
+            const { getKeepaliveInstructionWithMention } = require(
+              keepaliveTemplatePath,
+            );
             const instruction = getKeepaliveInstructionWithMention(agent);
             const codexPromptMsg = [
-              "PR created.",
+              'PR created.',
               `Comment \`@${agent} start\` to request the plan.`,
-              `Tell ${agentTitle} to reuse the scope, acceptance criteria, and task list from the source issue and publish them here with \`- [ ]\` checklists so keepalive keeps watching.`,
-              `After ${agentTitle} replies, follow the instructions posted on the source issue to begin execution.`
-            ].join(' ');
-            await withRetry(() => loadBalancedClient.rest.issues.createComment({ owner, repo, issue_number: prNumber, body: codexPromptMsg }));
+              `Tell ${agentTitle} to reuse scope and acceptance criteria from the source issue.`,
+              'Also reuse the task list from the source issue.',
+              'Publish them here with `- [ ]` checklists so keepalive keeps watching.',
+              `After ${agentTitle} replies, follow the instructions posted on the source issue.`,
+              'Then begin execution.',
+            ].join('\n');
+            await withRetry(() =>
+              loadBalancedClient.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: prNumber,
+                body: codexPromptMsg,
+              }),
+            );
 
       - name: Link PR on original issue (fallback)
         if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.mode.outputs.mode != 'invite' }}
@@ -1326,7 +1679,13 @@ jobs:
             let issueTitle = '';
             let issueBody = '';
             try {
-              const { data: is } = await withRetry(() => loadBalancedClient.rest.issues.get({ owner, repo, issue_number }));
+              const { data: is } = await withRetry(() =>
+                loadBalancedClient.rest.issues.get({
+                  owner,
+                  repo,
+                  issue_number,
+                }),
+              );
               issueTitle = is.title || '';
               issueBody = is.body || '';
             } catch (e) {
@@ -1335,16 +1694,28 @@ jobs:
 
             const agent = (process.env.AGENT || '').trim();
             if (!agent || agent === 'unknown') {
-              core.setFailed('Agent resolution failed; ensure exactly one agent:* label is present or provide the agent input.');
+              core.setFailed(
+                [
+                  'Agent resolution failed.',
+                  'Ensure exactly one agent:* label is present or provide the agent input.',
+                ].join(' '),
+              );
               return;
             }
-            const agentTitle = process.env.BRIDGE_AGENT_TITLE || agent.charAt(0).toUpperCase() + agent.slice(1);
+            const agentTitle =
+              process.env.BRIDGE_AGENT_TITLE ||
+              agent.charAt(0).toUpperCase() + agent.slice(1);
             const mention = process.env.BRIDGE_AGENT_MENTION || `@${agent}`;
             // Load instruction from template file
-            const { getKeepaliveInstructionWithMention } = require('.github/scripts/keepalive_instruction_template.js');
+            const keepaliveTemplatePath =
+              '.github/scripts/keepalive_instruction_template.js';
+            const { getKeepaliveInstructionWithMention } = require(
+              keepaliveTemplatePath,
+            );
             const instruction = getKeepaliveInstructionWithMention(agent);
             const prNumber = Number('${{ steps.pr.outputs.number }}');
-            const issueUrl = `https://github.com/${owner}/${repo}/issues/${issue_number}`;
+            const repoUrl = `https://github.com/${owner}/${repo}`;
+            const issueUrl = `${repoUrl}/issues/${issue_number}`;
             const header = `### Source Issue #${issue_number}: ${issueTitle}`.trim();
             const keepaliveMode = process.env.KEEPALIVE_MODE || 'OFF';
             const keepaliveLine = `Keepalive: ${keepaliveMode}`;
@@ -1370,8 +1741,10 @@ jobs:
               `Keepalive mode: **${keepaliveMode}**`,
               '',
               'Next steps for the PR author:',
-              `- Comment \`${mention} start\` (auto-posted when possible) so ${agentTitle} drafts the plan.`,
-              `- After ${agentTitle} replies with the checklist, post the execution command below to begin delivery and enable keepalive.`,
+              `- Comment \`${mention} start\` (auto-posted when possible).`,
+              `  Ask ${agentTitle} to draft the plan.`,
+              `- After ${agentTitle} replies with the checklist, post the execution command below.`,
+              '  This begins delivery and enables keepalive.',
               '',
               'Execution command (copy into a standalone PR comment):',
               '```markdown',
@@ -1385,7 +1758,14 @@ jobs:
               '```'
             ].join('\n');
 
-            await withRetry(() => loadBalancedClient.rest.issues.createComment({ owner, repo, issue_number, body: message }));
+            await withRetry(() =>
+              loadBalancedClient.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number,
+                body: message,
+              }),
+            );
 
       # Disabled: keepalive now runs exclusively via the orchestrator sweep to avoid
       # duplicate nudges from workflow dispatches.

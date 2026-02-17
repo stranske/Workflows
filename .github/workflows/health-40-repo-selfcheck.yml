@@ -90,7 +90,11 @@ jobs:
       - name: Export default branch
         run: echo "DEFAULT_BRANCH=${DEFAULT_BRANCH}" >> "$GITHUB_ENV"
         env:
-          DEFAULT_BRANCH: ${{ steps.default-branch.outputs.name || github.event.repository.default_branch }}
+          DEFAULT_BRANCH: >-
+            ${{
+              steps.default-branch.outputs.name ||
+              github.event.repository.default_branch
+            }}
 
       - uses: actions/setup-python@v6
         if: ${{ env.HAS_ADMIN_TOKEN == 'true' }}
@@ -168,7 +172,9 @@ jobs:
               const repoInfo = await withRetry(() => github.rest.repos.get({ owner, repo }));
               defaultBranch = repoInfo.data.default_branch || defaultBranch;
             } catch (error) {
-              const message = `Failed to resolve default branch via GitHub API: ${error?.message || error}`;
+              const message =
+                'Failed to resolve default branch via GitHub API: ' +
+                `${error?.message || error}`;
               core.warning(message);
               if (!defaultBranch) {
                 defaultBranch = 'main';
@@ -234,19 +240,25 @@ jobs:
 
               if (status === 401 || (status === 403 && !isRateLimited)) {
                 branchStatus = 'forbidden';
-                branchNote = `Branch protection probe was not authorized using the ${tokenDescriptor}.`;
+                branchNote =
+                  'Branch protection probe was not authorized using the ' +
+                  `${tokenDescriptor}.`;
                 core.warning(`${branchNote} (${detail})`);
               } else if (isRateLimited) {
                 branchStatus = 'rate_limited';
-                branchNote = `Branch protection probe hit a rate limit while using the ${tokenDescriptor}.`;
+                branchNote =
+                  'Branch protection probe hit a rate limit while using the ' +
+                  `${tokenDescriptor}.`;
                 core.warning(`${branchNote} (${detail})`);
               } else if (status === 404) {
                 branchStatus = 'error';
-                branchNote = `Branch protection probe could not find the ${defaultBranch} branch.`;
+                branchNote =
+                  `Branch protection probe could not find the ${defaultBranch} branch.`;
                 core.warning(`${branchNote} (${detail})`);
               } else {
                 branchStatus = 'error';
-                branchNote = `Branch protection probe failed${status ? ` (status ${status})` : ''}: ${detail}`;
+                const statusSuffix = status ? ` (status ${status})` : '';
+                branchNote = `Branch protection probe failed${statusSuffix}: ${detail}`;
                 core.warning(branchNote);
               }
 
@@ -274,8 +286,11 @@ jobs:
             const privilegedDetail = privilegedChecksUsed
               ? 'Admin token configured; enforcement and verification both executed.'
               : privilegedChecksSkipped
-              ? 'Admin token not configured; running in verify-only mode with the default GITHUB_TOKEN.'
+              ? 'Admin token not configured; running in verify-only mode with the default ' +
+                'GITHUB_TOKEN.'
               : 'Admin token availability could not be determined; review workflow logs.';
+
+            const labelWarningLabels = labelErrors.map((entry) => entry.label).join(', ');
 
             const checks = [
               {
@@ -288,7 +303,7 @@ jobs:
                     : [
                         missingLabels.length ? `Missing labels: ${missingLabels.join(', ')}` : null,
                         labelErrors.length
-                          ? `Additional lookup warnings: ${labelErrors.map((entry) => `${entry.label}`).join(', ')}`
+                          ? `Additional lookup warnings: ${labelWarningLabels}`
                           : null,
                       ]
                         .filter(Boolean)
@@ -464,13 +479,19 @@ jobs:
               lines.append('| --- | --- | --- |')
               for check in checks:
                   title = check.get('title', 'Unknown')
-                  status = status_labels.get(check.get('status', 'info'), check.get('status', 'info'))
-                  detail = (check.get('detail') or '').replace('\n', '<br>').replace('|', '\\|')
+                status_key = check.get('status', 'info')
+                status = status_labels.get(status_key, status_key)
+                detail_raw = check.get('detail') or ''
+                detail = str(detail_raw).replace('\n', '<br>').replace('|', '\\|')
                   lines.append(f'| {title} | {status} | {detail} |')
 
           if privileged_skipped:
               lines.append('')
-              lines.append('> ⚠️ Running in verify-only mode because `BRANCH_PROTECTION_TOKEN` is not configured. Branch protection probe used the default `GITHUB_TOKEN`.')
+              lines.append(
+                '> ⚠️ Running in verify-only mode because `BRANCH_PROTECTION_TOKEN` '
+                'is not configured. Branch protection probe used the default '
+                '`GITHUB_TOKEN`.'
+              )
           elif privileged_used and branch_status in {'enabled', 'missing'}:
               lines.append('')
               lines.append('> ✅ Privileged checks executed with the configured credentials.')
@@ -480,7 +501,10 @@ jobs:
               if detail:
                   lines.append('> ⚠️ Privileged checks ran but reported access issues: ' + detail)
               else:
-                  lines.append('> ⚠️ Privileged checks ran but reported access issues. Review the branch protection result above for details.')
+                  lines.append(
+                    '> ⚠️ Privileged checks ran but reported access issues. '
+                    'Review the branch protection result above for details.'
+                  )
           else:
               lines.append('')
               lines.append('> ℹ️ Branch protection probe ran with the default `GITHUB_TOKEN`.')
@@ -513,18 +537,27 @@ jobs:
 
           warning_statuses = {'warn'}
           error_statuses = {'error'}
-          findings = [check for check in checks if check.get('status') in warning_statuses | error_statuses]
+          interesting_statuses = warning_statuses | error_statuses
+          findings = [check for check in checks if check.get('status') in interesting_statuses]
           error_findings = [check for check in checks if check.get('status') in error_statuses]
 
           fix_items = []
           if any(check.get('key') == 'labels' for check in findings):
               if missing_labels:
-                  fix_items.append(f"- [ ] Create the missing labels: {', '.join(sorted(missing_labels))}.")
+                missing_list = ', '.join(sorted(missing_labels))
+                fix_items.append(f"- [ ] Create the missing labels: {missing_list}.")
               if label_errors:
-                  fix_items.append('- [ ] Re-run after resolving label API warnings (check token permissions).')
+                fix_items.append(
+                  '- [ ] Re-run after resolving label API warnings '
+                  '(check token permissions).'
+                )
           if any(check.get('key') == 'branch' for check in findings):
               target_branch = default_branch or 'default branch'
-              response_detail = format_response_detail(branch_note, branch_http_status, branch_fetch_error)
+              response_detail = format_response_detail(
+                branch_note,
+                branch_http_status,
+                branch_fetch_error,
+              )
 
               if branch_status == 'missing':
                   message = f"- [ ] Enable branch protection on `{target_branch}`."
@@ -536,9 +569,11 @@ jobs:
 
                   if token_hint == 'default GITHUB_TOKEN':
                       message = (
-                          f"- [ ] Restore branch protection visibility for `{target_branch}` by provisioning "
-                          "`secrets.BRANCH_PROTECTION_TOKEN` with admin:read access or adjusting repository permissions "
-                          "so the workflow token can inspect protection settings."
+                        f"- [ ] Restore branch protection visibility for `{target_branch}` "
+                        "by provisioning "
+                        "`secrets.BRANCH_PROTECTION_TOKEN` with admin:read access "
+                        "or adjusting repository permissions so the workflow token "
+                        "can inspect protection settings."
                       )
                   else:
                       message = (
@@ -551,18 +586,30 @@ jobs:
 
                   fix_items.append(message)
               elif branch_status == 'rate_limited':
-                  message = '- [ ] Retry the branch protection probe after GitHub rate limits reset.'
+                  message = (
+                    '- [ ] Retry the branch protection probe after GitHub '
+                    'rate limits reset.'
+                  )
                   if response_detail:
                       message = f"{message} Latest response: {response_detail}"
                   fix_items.append(message)
               elif branch_status in {'error', 'skipped'}:
-                  message = '- [ ] Restore branch protection visibility (ensure required permissions or retry later).'
+                  message = (
+                    '- [ ] Restore branch protection visibility '
+                    '(ensure required permissions or retry later).'
+                  )
                   if response_detail:
                       message = f"{message} Latest response: {response_detail}"
                   fix_items.append(message)
 
-          if any(check.get('key') == 'privileged' and check.get('status') == 'warn' for check in findings):
-              fix_items.append('- [ ] Investigate privileged enforcement token availability; mode reported as unknown.')
+          if any(
+              check.get('key') == 'privileged' and check.get('status') == 'warn'
+              for check in findings
+          ):
+              fix_items.append(
+                  '- [ ] Investigate privileged enforcement token availability; '
+                  'mode reported as unknown.'
+              )
 
           if not fix_items:
               fix_items.append('- [x] No action required — repo health checks are green.')
@@ -573,7 +620,11 @@ jobs:
               f'*Default branch:* `{default_branch}`' if default_branch else None,
               f'*Branch protection probe token:* `{branch_token}`' if branch_token else None,
               f'*Privileged enforcement mode:* `{privileged_mode}`' if privileged_mode else None,
-              f'*Branch protection probe HTTP status:* `{branch_http_status}`' if branch_http_status else None,
+              (
+                f'*Branch protection probe HTTP status:* `{branch_http_status}`'
+                if branch_http_status
+                else None
+              ),
               '',
               '### Checks',
               '| Check | Status | Details |',
@@ -596,7 +647,7 @@ jobs:
               *fix_items,
           ])
 
-          comment_body = '\n'.join(filter(lambda block: block is not None, comment_sections))
+            comment_body = '\n'.join(block for block in comment_sections if block is not None)
 
           issue_sections = [
               '# Repository self-check findings',
@@ -605,7 +656,11 @@ jobs:
               f'*Default branch:* `{default_branch}`' if default_branch else None,
               f'*Branch protection probe token:* `{branch_token}`' if branch_token else None,
               f'*Privileged enforcement mode:* `{privileged_mode}`' if privileged_mode else None,
-              f'*Branch protection probe HTTP status:* `{branch_http_status}`' if branch_http_status else None,
+              (
+                f'*Branch protection probe HTTP status:* `{branch_http_status}`'
+                if branch_http_status
+                else None
+              ),
               '',
               '## Checks',
               '| Check | Status | Details |',
@@ -628,15 +683,17 @@ jobs:
               *fix_items,
           ])
 
-          issue_body = '\n'.join(filter(lambda block: block is not None, issue_sections))
+          issue_body = '\n'.join(block for block in issue_sections if block is not None)
 
           output_path = os.environ['GITHUB_OUTPUT']
           with open(output_path, 'a', encoding='utf-8') as handle:
               handle.write('comment_body<<COMMENT\n')
               handle.write(comment_body)
               handle.write('\nCOMMENT\n')
-              handle.write(f"has_errors={'true' if error_findings else 'false'}\n")
-              handle.write(f"has_warnings={'true' if findings and not error_findings else 'false'}\n")
+              has_errors = 'true' if error_findings else 'false'
+              has_warnings = 'true' if findings and not error_findings else 'false'
+              handle.write(f"has_errors={has_errors}\n")
+              handle.write(f"has_warnings={has_warnings}\n")
               handle.write(f"privileged_mode={privileged_mode}\n")
               handle.write('issue_body<<ISSUE\n')
               handle.write(issue_body)
@@ -721,7 +778,8 @@ jobs:
                       title = str(check.get('title', 'Unknown'))
                       status = str(check.get('status', 'info'))
                       status_text = status_labels.get(status, status)
-                      detail = str(check.get('detail') or '').replace('|', '\\|').replace('\n', '<br>')
+                      detail = str(check.get('detail') or '')
+                      detail = detail.replace('|', '\\|').replace('\n', '<br>')
                       lines.append(f'| {title} | {status_text} | {detail} |')
 
           if snapshot:
@@ -764,7 +822,11 @@ jobs:
           PY
 
       - name: Update failure tracker issue
-        if: ${{ steps.aggregate.outputs.has_errors == 'true' || steps.aggregate.outputs.has_warnings == 'true' }}
+        if: >-
+          ${{
+            steps.aggregate.outputs.has_errors == 'true' ||
+            steps.aggregate.outputs.has_warnings == 'true'
+          }}
         uses: actions/github-script@v8
         env:
           ISSUE_BODY: ${{ steps.aggregate.outputs.issue_body }}
@@ -795,7 +857,13 @@ jobs:
 
             async function ensureLabel() {
               try {
-                await withRetry(() => github.rest.issues.getLabel({ owner, repo, name: labelName }));
+                await withRetry(() =>
+                  github.rest.issues.getLabel({
+                    owner,
+                    repo,
+                    name: labelName,
+                  }),
+                );
               } catch (error) {
                 if (error.status !== 404) {
                   core.warning(`Label lookup failed for ${labelName}: ${error.message || error}`);
@@ -811,19 +879,25 @@ jobs:
                   }));
                   core.info(`Created label ${labelName}.`);
                 } catch (createError) {
-                  core.warning(`Failed to create label ${labelName}: ${createError.message || createError}`);
+                  core.warning(
+                    `Failed to create label ${labelName}: ${createError.message || createError}`,
+                  );
                 }
               }
             }
 
             await ensureLabel();
 
-            const issues = await paginateWithRetry(github, github.rest.issues.listForRepo, {
-              owner,
-              repo,
-              state: 'all',
-              per_page: 100,
-            });
+            const issues = await paginateWithRetry(
+              github,
+              github.rest.issues.listForRepo,
+              {
+                owner,
+                repo,
+                state: 'all',
+                per_page: 100,
+              },
+            );
 
             const matches = issues.filter((issue) => issue.title === issueTitle);
             const openMatch = matches.find((issue) => issue.state === 'open');
@@ -857,7 +931,11 @@ jobs:
             core.info(`Updated tracker issue #${target.number}.`);
 
       - name: Close failure tracker issue
-        if: ${{ steps.aggregate.outputs.has_errors != 'true' && steps.aggregate.outputs.has_warnings != 'true' }}
+        if: >-
+          ${{
+            steps.aggregate.outputs.has_errors != 'true' &&
+            steps.aggregate.outputs.has_warnings != 'true'
+          }}
         uses: actions/github-script@v8
         with:
           github-token: ${{ github.token }}
@@ -876,12 +954,14 @@ jobs:
                 };
             const { withRetry } = retryHelpers;
 
-            const { data: openIssues } = await withRetry(() => github.rest.issues.listForRepo({
-              owner,
-              repo,
-              state: 'open',
-              per_page: 100,
-            }));
+            const { data: openIssues } = await withRetry(() =>
+              github.rest.issues.listForRepo({
+                owner,
+                repo,
+                state: 'open',
+                per_page: 100,
+              }),
+            );
 
             const existing = openIssues.find((issue) => issue.title === issueTitle);
 
@@ -937,7 +1017,13 @@ jobs:
 
             async function ensureLabel() {
               try {
-                await withRetry(() => github.rest.issues.getLabel({ owner, repo, name: labelName }));
+                  await withRetry(() =>
+                    github.rest.issues.getLabel({
+                      owner,
+                      repo,
+                      name: labelName,
+                    }),
+                  );
               } catch (error) {
                 if (error.status !== 404) {
                   core.warning(`Label lookup failed for ${labelName}: ${error.message || error}`);
@@ -953,7 +1039,9 @@ jobs:
                   }));
                   core.info(`Created label ${labelName}.`);
                 } catch (createError) {
-                  core.warning(`Failed to create label ${labelName}: ${createError.message || createError}`);
+                    core.warning(
+                      `Failed to create label ${labelName}: ${createError.message || createError}`,
+                    );
                 }
               }
             }
@@ -985,7 +1073,9 @@ jobs:
               core.info(`Opened snapshot issue #${target.number}.`);
             } else {
               const existingLabels = new Set(
-                (target.labels || []).map((label) => (typeof label === 'string' ? label : label.name))
+                  (target.labels || []).map((label) =>
+                    (typeof label === 'string' ? label : label.name),
+                  )
               );
               existingLabels.add(labelName);
 
@@ -1035,7 +1125,12 @@ jobs:
           if-no-files-found: warn
 
       - name: Publish PR checklist comment
-        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pull_request_number != '' && steps.aggregate.outputs.comment_body != '' }}
+        if: >-
+          ${{
+            github.event_name == 'workflow_dispatch' &&
+            github.event.inputs.pull_request_number != '' &&
+            steps.aggregate.outputs.comment_body != ''
+          }}
         uses: actions/github-script@v8
         env:
           PR_NUMBER: ${{ github.event.inputs.pull_request_number }}
@@ -1061,14 +1156,18 @@ jobs:
                 };
             const { withRetry } = retryHelpers;
 
-            const { data: existingComments } = await withRetry(() => github.rest.issues.listComments({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: prNumber,
-              per_page: 100,
-            }));
+            const { data: existingComments } = await withRetry(() =>
+              github.rest.issues.listComments({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                per_page: 100,
+              }),
+            );
 
-            const match = existingComments.find((comment) => comment.body && comment.body.includes(marker));
+            const match = existingComments.find(
+              (comment) => comment.body && comment.body.includes(marker),
+            );
 
             if (match) {
               await withRetry(() => github.rest.issues.updateComment({

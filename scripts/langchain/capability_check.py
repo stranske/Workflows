@@ -135,7 +135,6 @@ def _build_llm_config(
     return {"metadata": metadata, "tags": tags}
 
 
-
 def _prepare_prompt_values(tasks: list[str], acceptance: str) -> dict[str, str]:
     task_lines = "\n".join(f"- {task}" for task in tasks) if tasks else "- (none)"
     acceptance_block = acceptance.strip() or "(none)"

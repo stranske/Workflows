@@ -29,7 +29,12 @@ jobs:
   create-floating-v1-tag:
     name: Create or refresh floating v1 tag
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || startsWith(github.event.release.tag_name, 'v1.')
+    if: >-
+      ${{
+        github.event_name == 'workflow_dispatch' ||
+        github.event_name == 'schedule' ||
+        startsWith(github.event.release.tag_name, 'v1.')
+      }}
     steps:
       # Mint GitHub App token early to use for API calls (avoids rate limits)
       - name: Mint GitHub App Token
@@ -44,7 +49,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
-
           token: ${{ steps.app_token.outputs.token || github.token }}
           fetch-depth: 0
 

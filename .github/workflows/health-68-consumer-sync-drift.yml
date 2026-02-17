@@ -56,12 +56,40 @@ jobs:
       - name: Compare consumer repos to templates
         id: compare
         env:
-          DRIFT_TOKEN: ${{ secrets.OWNER_PR_PAT || secrets.SERVICE_BOT_PAT || secrets.GITHUB_TOKEN }}
+          DRIFT_TOKEN: >-
+            ${{ secrets.OWNER_PR_PAT || secrets.SERVICE_BOT_PAT || secrets.GITHUB_TOKEN }}
           INPUT_REPOS: ${{ inputs.repos }}
         run: |
           repos_input="${INPUT_REPOS:-}"
           if [ -z "$repos_input" ]; then
-            repos_input=$(awk '/REGISTERED_CONSUMER_REPOS: \|/{flag=1;next} flag && /^[^[:space:]]/{flag=0} flag{line=$0; sub(/^[[:space:]]+/,"",line); if(length(line)>0) print line}' .github/workflows/maint-68-sync-consumer-repos.yml | paste -sd, -)
+          repos_input=$(python3 - <<'PY'
+          from __future__ import annotations
+
+          path = '.github/workflows/maint-68-sync-consumer-repos.yml'
+          with open(path, encoding='utf-8') as handle:
+            lines = handle.read().splitlines()
+
+          repos: list[str] = []
+          in_block = False
+
+          for line in lines:
+            if not in_block:
+              starts_marker = line.strip().startswith('REGISTERED_CONSUMER_REPOS:')
+              ends_block = line.rstrip().endswith('|')
+              if starts_marker and ends_block:
+                in_block = True
+              continue
+
+            if line and not line.startswith(' '):
+              break
+
+            value = line.strip()
+            if value:
+              repos.append(value)
+
+          print(','.join(repos))
+          PY
+          )
           fi
           python3 scripts/check_consumer_sync_drift.py --repos "$repos_input"
 
@@ -82,12 +110,14 @@ jobs:
             const { withRetry } = retryHelpers;
             const title = '🔄 Consumer repo drift detected';
             const label = 'consumer-sync';
-            const runUrl = `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`;
+            const runUrl = `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}` +
+              `/actions/runs/${process.env.GITHUB_RUN_ID}`;
 
             const body = [
               '## Consumer Repo Drift Detected',
               '',
-              'One or more consumer repos have drifted from the Workflows templates or manifest entries.',
+              'One or more consumer repos have drifted from the Workflows templates',
+              'or manifest entries.',
               '',
               `**Check Details:** [Run #${process.env.GITHUB_RUN_NUMBER}](${runUrl})`,
               '',

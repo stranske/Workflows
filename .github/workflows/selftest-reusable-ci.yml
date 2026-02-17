@@ -86,7 +86,8 @@ jobs:
           script: |
             const threshold = parseInt(process.env.RATE_LIMIT_THRESHOLD || '2000', 10);
             try {
-              const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+              const retryScript = './.github/scripts/github-api-with-retry.js';
+              const { createTokenAwareRetry } = require(retryScript);
               const { withRetry } = await createTokenAwareRetry({
                 github,
                 core,
@@ -105,16 +106,26 @@ jobs:
               if (!proceed) {
                 const reset = data?.resources?.core?.reset || 0;
                 const resetTime = new Date(reset * 1000).toISOString();
-                core.notice(`Deferring selftest: API quota low (${remaining}/${limit}). Resets at ${resetTime}`);
-                await core.summary
-                  .addHeading('Selftest Deferred', 3)
-                  .addRaw(`API quota too low for non-critical self-tests (${remaining}/${limit} remaining).`)
-                  .addEOL()
-                  .addRaw(`Threshold: ${threshold}. Resets at: ${resetTime}`)
-                  .write();
+                const notice =
+                  `Deferring selftest: API quota low (${remaining}/${limit}). ` +
+                  `Resets at ${resetTime}`;
+                core.notice(notice);
+
+                const summary = core.summary;
+                summary.addHeading('Selftest Deferred', 3);
+                summary.addRaw(
+                  `API quota too low for non-critical self-tests ` +
+                    `(${remaining}/${limit} remaining).`,
+                );
+                summary.addEOL();
+                summary.addRaw(`Threshold: ${threshold}. Resets at: ${resetTime}`);
+                await summary.write();
               }
             } catch (error) {
-              core.warning(`Rate limit check failed: ${error.message}. Proceeding anyway.`);
+              const warning =
+                `Rate limit check failed: ${error.message}. ` +
+                'Proceeding anyway.';
+              core.warning(warning);
               core.setOutput('proceed', 'true');
             }
   scenarios:
@@ -126,9 +137,16 @@ jobs:
       contents: read
       actions: read
     with:
-      python-versions: ${{ (github.event_name == 'workflow_dispatch' && inputs.python_versions != '' && inputs.python_versions)
-        || (github.event_name == 'workflow_dispatch' && inputs.mode == 'dual-runtime' && '["3.11","3.12"]')
-        || '["3.11"]' }}
+      python-versions: >-
+        ${{
+          (github.event_name == 'workflow_dispatch' &&
+            inputs.python_versions != '' &&
+            inputs.python_versions) ||
+          (github.event_name == 'workflow_dispatch' &&
+            inputs.mode == 'dual-runtime' &&
+            '["3.11","3.12"]') ||
+          '["3.11"]'
+        }}
       artifact-prefix: 'sf-${{ matrix.name }}-'
       enable-metrics: ${{ matrix.enable-metrics }}
       enable-history: ${{ matrix.enable-history }}
@@ -196,13 +214,29 @@ jobs:
       failure_count: ${{ steps.verify.outputs.failures }}
       run_id: ${{ steps.metadata.outputs.run_id }}
     env:
-      SCENARIO_LIST: minimal,metrics_only,metrics_history,classification_only,coverage_delta,full_soft_gate
-      REQUESTED_PYTHONS: ${{ (github.event_name == 'workflow_dispatch' && inputs.python_versions != '' && inputs.python_versions)
-        || (github.event_name == 'workflow_dispatch' && inputs.mode == 'dual-runtime' && '["3.11","3.12"]')
-        || '["3.11"]' }}
-      RUN_REASON: ${{ (github.event_name == 'workflow_dispatch' && inputs.reason != '' && inputs.reason)
-        || (github.event_name == 'workflow_dispatch' && inputs.reason == '' && 'manual test')
-        || 'nightly verification' }}
+      SCENARIO_LIST: "minimal,metrics_only,metrics_history,\
+classification_only,coverage_delta,\
+full_soft_gate"
+      REQUESTED_PYTHONS: >-
+        ${{
+          (github.event_name == 'workflow_dispatch' &&
+            inputs.python_versions != '' &&
+            inputs.python_versions) ||
+          (github.event_name == 'workflow_dispatch' &&
+            inputs.mode == 'dual-runtime' &&
+            '["3.11","3.12"]') ||
+          '["3.11"]'
+        }}
+      RUN_REASON: >-
+        ${{
+          (github.event_name == 'workflow_dispatch' &&
+            inputs.reason != '' &&
+            inputs.reason) ||
+          (github.event_name == 'workflow_dispatch' &&
+            inputs.reason == '' &&
+            'manual test') ||
+          'nightly verification'
+        }}
       TRIGGER_EVENT: ${{ github.event_name }}
     steps:
       # Mint GitHub App token early to use for API calls (avoids rate limits)
@@ -253,7 +287,8 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const retryScript = './.github/scripts/github-api-with-retry.js';
+            const { createTokenAwareRetry } = require(retryScript);
             const { paginateWithRetry } = await createTokenAwareRetry({
               github,
               core,
@@ -275,7 +310,10 @@ jobs:
                   return parsed.map(String);
                 }
               } catch (error) {
-                core.warning(`Unable to parse python_versions input (${raw}); falling back to ${fallback.join(', ')}`);
+                core.warning(
+                  `Unable to parse python_versions input (${raw}); ` +
+                    `falling back to ${fallback.join(', ')}`,
+                );
               }
               return fallback;
             }
@@ -343,7 +381,10 @@ jobs:
               })
             );
 
-            const rows = ['| Scenario | Status | Missing | Unexpected |', '|---|---|---|---|'];
+            const rows = [
+              '| Scenario | Status | Missing | Unexpected |',
+              '|---|---|---|---|',
+            ];
             const summary = [];
             let failures = 0;
 
@@ -358,20 +399,38 @@ jobs:
               const prefix = `sf-${scenario}-`;
               const actual = artifactNames.filter((name) => name.startsWith(prefix));
               const unexpected = actual.filter((name) => !expected.includes(name));
-              const ok = missing.length === 0 && unexpected.length === 0 && jobStatusByScenario[scenario] === '✅';
+              const ok =
+                missing.length === 0 &&
+                unexpected.length === 0 &&
+                jobStatusByScenario[scenario] === '✅';
               if (!ok) {
                 failures += 1;
               }
-              rows.push(
-                `| ${scenario} | ${jobStatusByScenario[scenario] || 'ℹ️'} | ${missing.join('<br>') || '—'} | ${unexpected.join('<br>') || '—'} |`
-              );
-              summary.push({ scenario, status: jobStatusByScenario[scenario] || 'unknown', missing, unexpected, ok });
+              const scenarioRow =
+                `| ${scenario} | ${jobStatusByScenario[scenario] || 'ℹ️'} | ` +
+                `${missing.join('<br>') || '—'} | ${unexpected.join('<br>') || '—'} |`;
+              rows.push(scenarioRow);
+              summary.push({
+                scenario,
+                status: jobStatusByScenario[scenario] || 'unknown',
+                missing,
+                unexpected,
+                ok,
+              });
             }
 
-            const stray = artifactNames.filter((name) => name.startsWith('sf-') && !expectedUniverse.has(name));
+            const stray = artifactNames.filter(
+              (name) => name.startsWith('sf-') && !expectedUniverse.has(name),
+            );
             if (stray.length) {
               rows.push(`| (stray) | ❌ | (n/a) | ${stray.join('<br>')} |`);
-              summary.push({ scenario: '_stray_', status: 'unexpected', missing: [], unexpected: stray, ok: false });
+              summary.push({
+                scenario: '_stray_',
+                status: 'unexpected',
+                missing: [],
+                unexpected: stray,
+                ok: false,
+              });
               failures += 1;
             }
 
@@ -421,20 +480,44 @@ jobs:
     env:
       MODE: ${{ (github.event_name == 'workflow_dispatch' && inputs.mode) || 'summary' }}
       POST_TO: ${{ (github.event_name == 'workflow_dispatch' && inputs.post_to) || 'none' }}
-      ENABLE_HISTORY: ${{ (github.event_name == 'workflow_dispatch' && inputs.enable_history) || 'false' }}
-      PR_NUMBER: ${{ (github.event_name == 'workflow_dispatch' && inputs.pull_request_number) || '' }}
-      SUMMARY_TITLE: "${{ github.event_name == 'workflow_dispatch' && github.event.inputs && github.event.inputs.summary_title != '' && github.event.inputs.summary_title || 'Selftest: Reusables Summary' }}"
-      COMMENT_TITLE: "${{ github.event_name == 'workflow_dispatch' && github.event.inputs && github.event.inputs.comment_title != '' && github.event.inputs.comment_title || 'Selftest: Reusables Comment' }}"
-      REASON: ${{ (github.event_name == 'workflow_dispatch' && inputs.reason != '' && inputs.reason)
-        || (github.event_name == 'workflow_dispatch' && inputs.reason == '' && 'manual test')
-        || 'nightly verification' }}
+      ENABLE_HISTORY: >-
+        ${{ (github.event_name == 'workflow_dispatch' && inputs.enable_history) || 'false' }}
+      PR_NUMBER: >-
+        ${{ (github.event_name == 'workflow_dispatch' && inputs.pull_request_number) || '' }}
+      SUMMARY_TITLE: >-
+        ${{
+          (github.event_name == 'workflow_dispatch' &&
+            inputs.summary_title != '' &&
+            inputs.summary_title) ||
+          'Selftest: Reusables Summary'
+        }}
+      COMMENT_TITLE: >-
+        ${{
+          (github.event_name == 'workflow_dispatch' &&
+            inputs.comment_title != '' &&
+            inputs.comment_title) ||
+          'Selftest: Reusables Comment'
+        }}
+      REASON: >-
+        ${{
+          (github.event_name == 'workflow_dispatch' && inputs.reason != '' && inputs.reason) ||
+          (github.event_name == 'workflow_dispatch' && inputs.reason == '' && 'manual test') ||
+          'nightly verification'
+        }}
       WORKFLOW_RESULT: ${{ needs.scenarios.result }}
       SUMMARY_TABLE: ${{ needs.summarize.outputs.summary_table }}
       FAILURE_COUNT: ${{ needs.summarize.outputs.failure_count }}
       RUN_ID: ${{ needs.summarize.outputs.run_id }}
-      REQUESTED_VERSIONS: ${{ (github.event_name == 'workflow_dispatch' && inputs.python_versions != '' && inputs.python_versions)
-        || (github.event_name == 'workflow_dispatch' && inputs.mode == 'dual-runtime' && '["3.11","3.12"]')
-        || '["3.11"]' }}
+      REQUESTED_VERSIONS: >-
+        ${{
+          (github.event_name == 'workflow_dispatch' &&
+            inputs.python_versions != '' &&
+            inputs.python_versions) ||
+          (github.event_name == 'workflow_dispatch' &&
+            inputs.mode == 'dual-runtime' &&
+            '["3.11","3.12"]') ||
+          '["3.11"]'
+        }}
     steps:
       # Mint GitHub App token early to use for API calls (avoids rate limits)
       - name: Mint GitHub App Token
@@ -544,7 +627,8 @@ jobs:
           PR_NUMBER: ${{ env.PR_NUMBER }}
         with:
           script: |
-            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const retryScript = './.github/scripts/github-api-with-retry.js';
+            const { createTokenAwareRetry } = require(retryScript);
             const { withRetry } = await createTokenAwareRetry({
               github,
               core,
@@ -561,9 +645,13 @@ jobs:
             }
 
             const mode = (process.env.MODE || 'comment').trim();
-            const title = (process.env.COMMENT_TITLE || 'Selftest: Reusables Comment').trim() || 'Selftest: Reusables Comment';
+            const defaultTitle = 'Selftest: Reusables Comment';
+            const title = (process.env.COMMENT_TITLE || defaultTitle).trim() || defaultTitle;
             const reason = (process.env.REASON || '').trim();
-            const table = process.env.TABLE && process.env.TABLE.trim() ? process.env.TABLE : '*No verification table available.*';
+            const table =
+              process.env.TABLE && process.env.TABLE.trim()
+                ? process.env.TABLE
+                : '*No verification table available.*';
             const failureRaw = process.env.FAILURES;
             const failures = typeof failureRaw === 'string' && failureRaw.trim().length > 0
               ? failureRaw.trim()
@@ -600,29 +688,37 @@ jobs:
             const body = lines.join('\n');
 
             const { owner, repo } = context.repo;
-            const { data: comments } = await withRetry((client) => client.rest.issues.listComments({
-              owner,
-              repo,
-              issue_number: prNumber,
-              per_page: 100
-            }));
-            const existing = comments.find((comment) => comment.body && comment.body.includes(marker));
-
-            if (existing) {
-              await withRetry((client) => client.rest.issues.updateComment({
-                owner,
-                repo,
-                comment_id: existing.id,
-                body
-              }));
-              core.info(`Updated existing self-test comment (${existing.id}).`);
-            } else {
-              const { data: created } = await withRetry((client) => client.rest.issues.createComment({
+            const { data: comments } = await withRetry((client) =>
+              client.rest.issues.listComments({
                 owner,
                 repo,
                 issue_number: prNumber,
-                body
-              }));
+                per_page: 100,
+              }),
+            );
+            const existing = comments.find(
+              (comment) => comment.body && comment.body.includes(marker),
+            );
+
+            if (existing) {
+              await withRetry((client) =>
+                client.rest.issues.updateComment({
+                  owner,
+                  repo,
+                  comment_id: existing.id,
+                  body,
+                }),
+              );
+              core.info(`Updated existing self-test comment (${existing.id}).`);
+            } else {
+              const { data: created } = await withRetry((client) =>
+                client.rest.issues.createComment({
+                  owner,
+                  repo,
+                  issue_number: prNumber,
+                  body,
+                }),
+              );
               core.info(`Created new self-test comment (${created.id}).`);
             }
 

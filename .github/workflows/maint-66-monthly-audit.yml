@@ -105,15 +105,21 @@ jobs:
               success: map(select(.conclusion == "success")) | length,
               failure: map(select(.conclusion == "failure")) | length,
               cancelled: map(select(.conclusion == "cancelled")) | length,
-              other: map(select(.conclusion != "success" and .conclusion != "failure" and .conclusion != "cancelled")) | length
+              other: map(select(
+                .conclusion != "success"
+                and .conclusion != "failure"
+                and .conclusion != "cancelled"
+              )) | length
             }) |
             sort_by(-.total)
           ' > /tmp/workflow_stats.json
 
           # Calculate summary
           total_runs=$(echo "${runs}" | jq -s 'length')
-          total_success=$(echo "${runs}" | jq -s '[.[] | select(.conclusion == "success")] | length')
-          total_failure=$(echo "${runs}" | jq -s '[.[] | select(.conclusion == "failure")] | length')
+          total_success=$(echo "${runs}" | jq -s \
+            '[.[] | select(.conclusion == "success")] | length')
+          total_failure=$(echo "${runs}" | jq -s \
+            '[.[] | select(.conclusion == "failure")] | length')
 
           {
             echo "total_runs=${total_runs}"
@@ -156,19 +162,27 @@ jobs:
           ' /tmp/workflow_stats.json)
 
           # Check for workflows that haven't run
-          workflow_files=$(find .github/workflows -maxdepth 1 -name '*.yml' -exec basename {} .yml \;)
+          workflow_files=$(find .github/workflows \
+            -maxdepth 1 \
+            -name '*.yml' \
+            -exec basename {} .yml \;)
           ran_workflows=$(jq -r '.[].name' /tmp/workflow_stats.json)
 
           not_run=""
           for wf in ${workflow_files}; do
             # Skip reusable workflows
             if grep -q "workflow_call:" ".github/workflows/${wf}.yml" 2>/dev/null; then
-              if ! grep -q "workflow_dispatch:\|schedule:\|push:\|pull_request" ".github/workflows/${wf}.yml" 2>/dev/null; then
+                trigger_regex='workflow_dispatch:|schedule:|push:|pull_request'
+                if ! grep -q "$trigger_regex" ".github/workflows/${wf}.yml" 2>/dev/null; then
                 continue
               fi
             fi
             # Check if workflow ran
-            wf_name=$(grep -m1 "^name:" ".github/workflows/${wf}.yml" 2>/dev/null | sed 's/name: *//' || echo "$wf")
+              wf_name=$(
+                grep -m1 "^name:" ".github/workflows/${wf}.yml" 2>/dev/null \
+                  | sed 's/name: *//' \
+                  || echo "$wf"
+              )
             if ! echo "$ran_workflows" | grep -qF "$wf_name"; then
               not_run="${not_run}\n- ${wf}.yml (${wf_name})"
             fi
@@ -259,7 +273,8 @@ jobs:
           ---
 
           **Previous audit:** Check for issues with label `workflow-audit`
-          **Documentation:** See [WORKFLOW_AUDIT_2025-12-25.md](https://github.com/${{ github.repository }}/blob/main/docs/WORKFLOW_AUDIT_2025-12-25.md)
+          **Documentation:** See
+          [WORKFLOW_AUDIT_2025-12-25.md](docs/WORKFLOW_AUDIT_2025-12-25.md)
           AUDIT_EOF
 
           # Substitute environment variables

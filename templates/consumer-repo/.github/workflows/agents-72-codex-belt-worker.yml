@@ -300,7 +300,7 @@ jobs:
         uses: ./.github/actions/setup-api-client
         with:
           secrets: ${{ toJSON(secrets) }}
-          github_token: ${{ github.token }}
+          github_token: ${{ env.GH_BELT_TOKEN }}
 
       - name: Resolve Workflows default branch
         id: workflows_ref
@@ -606,7 +606,8 @@ jobs:
         uses: actions/github-script@v8
         with:
           script: |
-            const { getAgentConfig } = require('./.belt-tools/.github/scripts/agent_registry.js');
+            const fs = require('node:fs');
+            const { getAgentConfig } = require('./.github/scripts/agent_registry.js');
             const agentKey = String('${{ steps.ctx.outputs.agent_key }}' || 'codex').trim().toLowerCase() || 'codex';
             const branch = String('${{ steps.ctx.outputs.branch }}' || '').trim();
             if (!branch) {
@@ -614,11 +615,24 @@ jobs:
               return;
             }
             let branchPrefix = '';
-            try {
-              const config = getAgentConfig(agentKey, { registryPath: '.belt-tools/.github/agents/registry.yml' });
-              branchPrefix = String(config.branch_prefix || '').trim();
-            } catch (error) {
-              core.warning(`Failed to load agent registry for branch validation: ${error.message}`);
+            const registryCandidates = [
+              '.github/agents/registry.yml',
+              '.belt-tools/.github/agents/registry.yml',
+            ];
+            for (const registryPath of registryCandidates) {
+              if (!fs.existsSync(registryPath)) {
+                continue;
+              }
+              try {
+                const config = getAgentConfig(agentKey, { registryPath });
+                branchPrefix = String(config.branch_prefix || '').trim();
+                if (branchPrefix) {
+                  core.info(`Loaded branch prefix for ${agentKey} from ${registryPath}.`);
+                  break;
+                }
+              } catch (error) {
+                core.warning(`Failed to load ${registryPath} for branch validation: ${error.message}`);
+              }
             }
             if (!branchPrefix) {
               core.warning(`Agent ${agentKey} does not define branch_prefix; skipping branch validation.`);
@@ -633,7 +647,7 @@ jobs:
         uses: ./.belt-tools/.github/actions/setup-api-client
         with:
           secrets: ${{ toJSON(secrets) }}
-          github_token: ${{ env.GH_BELT_TOKEN || github.token }}
+          github_token: ${{ env.GH_BELT_TOKEN }}
 
       - name: Validate ledger base branch
         if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.keepalive_gate.outputs.action != 'skip') }}

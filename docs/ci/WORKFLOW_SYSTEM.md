@@ -382,7 +382,7 @@ fires where” without diving into the full tables:
   - **Health 45 Agents Guard.** [workflow history](https://github.com/stranske/Workflows/actions/workflows/agents-guard.yml).
 - **Error checking, linting, and testing topology**
   - **Primary workflows.** `reusable-10-ci-python.yml`, `reusable-12-ci-docker.yml`,
-    `reusable-16-agents.yml`, `reusable-18-autofix.yml`, `reusable-20-pr-meta.yml`, `reusable-agents-issue-bridge.yml`, `reusable-agents-verifier.yml`, `reusable-bot-comment-handler.yml`, `reusable-codex-run.yml`, `reusable-pr-context.yml`, and `selftest-reusable-ci.yml`.
+    `reusable-16-agents.yml`, `reusable-18-autofix.yml`, `reusable-20-pr-meta.yml`, `reusable-agents-issue-bridge.yml`, `reusable-agents-verifier.yml`, `reusable-bot-comment-handler.yml`, `reusable-claude-run.yml`, `reusable-codex-run.yml`, `reusable-pr-context.yml`, and `selftest-reusable-ci.yml`.
   - **Triggers.** Invoked via `workflow_call` by Gate, Gate summary job, and manual
     reruns. `selftest-reusable-ci.yml` handles the nightly rehearsal (cron at 06:30 UTC)
     and manual publication modes via `workflow_dispatch`.
@@ -391,6 +391,7 @@ fires where” without diving into the full tables:
   - **Codex entry point.** `reusable-codex-run.yml` centralizes prompt-file execution,
     default sandbox settings, and post-run commit/push handling so keepalive, autofix,
     and verifier callers share the same behavior.
+  - **Claude entry point.** `reusable-claude-run.yml` provides the same prompt-file entry surface for Claude CLI runs so callers can reuse consistent preflight, output capture, and artifact handling.
   - **Where to inspect logs.** Reusable Python CI:
     [workflow history](https://github.com/stranske/Workflows/actions/workflows/reusable-10-ci-python.yml).
     Docker CI:
@@ -537,6 +538,11 @@ Keep this table handy when you are triaging automation: it confirms which workfl
   checks PyPI daily (03:00 UTC) for latest dev tool versions and creates a PR
   to update `autofix-versions.env` when versions are outdated, ensuring the
   sync workflow never ships stale versions to consumer repos.
+- **Maint 76 Claude Code Review** – `.github/workflows/maint-76-claude-code-review.yml`
+  runs Anthropic’s Claude Code Review action on pull requests when the
+  `CLAUDE_CODE_OAUTH_TOKEN` secret is configured, posting inline feedback with
+  write-permissions only when needed and falling back to a read-only summary job
+  when the secret is absent.
 - **Maint 62 Integration Consumer** – `.github/workflows/maint-62-integration-consumer.yml`
   exercises the reusable Python CI template against the `templates/integration-repo`
   scenarios on a daily schedule (05:05 UTC), on release publication, or via

@@ -754,7 +754,8 @@ jobs:
             (async () => {
               const fs = require('fs');
               const { Octokit } = require('@octokit/rest');
-              const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+              const retryLib = require('./.github/scripts/github-api-with-retry.js');
+              const { createTokenAwareRetry } = retryLib;
               const core = { info: () => {}, warning: console.warn, debug: () => {} };
               const github = new Octokit({ auth: process.env.GITHUB_TOKEN });
               const { withRetry } = await createTokenAwareRetry({
@@ -773,7 +774,16 @@ jobs:
               }));
               await withRetry((client) => client.rest.issues.createComment({
                 owner, repo, issue_number: issueNumber,
-                body: `⚠️ **Prompt injection guard triggered** during formatting.\n\nReason: ${reason}\n\nAutomation has been paused. A human must review this issue before automation can continue.`,
+                body: [
+                  '⚠️ **Prompt injection guard triggered** during formatting.',
+                  '',
+                  `Reason: ${reason}`,
+                  '',
+                  (
+                    'Automation has been paused. ' +
+                    'A human must review this issue before automation can continue.'
+                  ),
+                ].join('\n'),
               }));
             })().catch((error) => {
               console.error(error);
@@ -990,7 +1000,8 @@ jobs:
             (async () => {
               const fs = require('fs');
               const { Octokit } = require('@octokit/rest');
-              const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+              const retryLib = require('./.github/scripts/github-api-with-retry.js');
+              const { createTokenAwareRetry } = retryLib;
               const core = { info: () => {}, warning: console.warn, debug: () => {} };
               const github = new Octokit({ auth: process.env.GITHUB_TOKEN });
               const { withRetry } = await createTokenAwareRetry({
@@ -1009,7 +1020,16 @@ jobs:
               }));
               await withRetry((client) => client.rest.issues.createComment({
                 owner, repo, issue_number: issueNumber,
-                body: `⚠️ **Prompt injection guard triggered** during optimization.\n\nReason: ${reason}\n\nAutomation has been paused. A human must review this issue before automation can continue.`,
+                body: [
+                  '⚠️ **Prompt injection guard triggered** during optimization.',
+                  '',
+                  `Reason: ${reason}`,
+                  '',
+                  (
+                    'Automation has been paused. ' +
+                    'A human must review this issue before automation can continue.'
+                  ),
+                ].join('\n'),
               }));
             })().catch((error) => {
               console.error(error);
@@ -1364,7 +1384,8 @@ jobs:
             (async () => {
               const fs = require('fs');
               const { Octokit } = require('@octokit/rest');
-              const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+              const retryLib = require('./.github/scripts/github-api-with-retry.js');
+              const { createTokenAwareRetry } = retryLib;
               const core = { info: () => {}, warning: console.warn, debug: () => {} };
               const github = new Octokit({ auth: process.env.GITHUB_TOKEN });
               const { withRetry } = await createTokenAwareRetry({
@@ -1383,7 +1404,16 @@ jobs:
               }));
               await withRetry((client) => client.rest.issues.createComment({
                 owner, repo, issue_number: issueNumber,
-                body: `⚠️ **Prompt injection guard triggered** during apply step.\n\nReason: ${reason}\n\nAutomation has been paused. A human must review this issue before automation can continue.`,
+                body: [
+                  '⚠️ **Prompt injection guard triggered** during apply step.',
+                  '',
+                  `Reason: ${reason}`,
+                  '',
+                  (
+                    'Automation has been paused. ' +
+                    'A human must review this issue before automation can continue.'
+                  ),
+                ].join('\n'),
               }));
             })().catch((error) => {
               console.error(error);
@@ -1680,10 +1710,12 @@ jobs:
             try {
               const { loadAgentRegistry } = require('./.github/scripts/agent_registry.js');
               const registry = loadAgentRegistry();
-              agentKey = String(registry.default_agent || agentKey).trim().toLowerCase() || agentKey;
-            } catch (error) {
-              core.warning(`Failed to load agent registry; defaulting to ${agentKey}: ${error.message}`);
-            }
+              const defaultAgent = registry.default_agent || agentKey;
+              agentKey = String(defaultAgent).trim().toLowerCase() || agentKey;
+              } catch (error) {
+                const prefix = `Failed to load agent registry; defaulting to ${agentKey}:`;
+                core.warning(`${prefix} ${error.message}`);
+              }
 
             await withRetry((client) => client.rest.issues.createComment({
               owner: context.repo.owner,
@@ -1734,7 +1766,8 @@ jobs:
                   dry_run: 'false'
                 }
               }));
-              core.info(`Dispatched belt dispatcher (agent: ${agentKey}) for issue #${issueNumber}`);
+              const prefix = `Dispatched belt dispatcher (agent: ${agentKey}) for issue`;
+              core.info(`${prefix} #${issueNumber}`);
             } catch (dispatchError) {
               core.warning(`Could not dispatch belt dispatcher: ${dispatchError?.message}`);
             }
@@ -1790,8 +1823,9 @@ jobs:
               env: process.env,
               task: 'auto-pilot-verify',
               capabilities: ['issues:write', 'pulls:read']
-            });
-            const issueNumber = parseInt(process.env.ISSUE_NUMBER);
+              }));
+              const prefix = `Dispatched belt dispatcher (agent: ${agentKey}) for issue`;
+              core.info(`${prefix} #${issueNumber}`);
 
             // Find the merged PR for this issue
             // Look for PRs with the meta marker or explicit closing reference
@@ -1936,13 +1970,16 @@ jobs:
             let agentKey = 'codex';
             let branchPrefix = 'codex/issue-';
             try {
-              const { loadAgentRegistry, getAgentConfig } = require('./.github/scripts/agent_registry.js');
+              const registryLib = require('./.github/scripts/agent_registry.js');
+              const { loadAgentRegistry, getAgentConfig } = registryLib;
               const registry = loadAgentRegistry();
-              agentKey = String(registry.default_agent || agentKey).trim().toLowerCase() || agentKey;
+              const defaultAgent = registry.default_agent || agentKey;
+              agentKey = String(defaultAgent).trim().toLowerCase() || agentKey;
               const cfg = getAgentConfig(agentKey);
               branchPrefix = String(cfg.branch_prefix || branchPrefix);
             } catch (error) {
-              core.warning(`Failed to load agent registry; defaulting branch prefix: ${error.message}`);
+              const prefix = 'Failed to load agent registry; defaulting branch prefix:';
+              core.warning(`${prefix} ${error.message}`);
             }
 
             const branchName = `${branchPrefix}${issueNumber}`;

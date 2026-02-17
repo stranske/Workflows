@@ -249,7 +249,9 @@ jobs:
               const { loadAgentRegistry } = require('./.github/scripts/agent_registry.js');
               const registry = loadAgentRegistry();
               const validAgentKeys = new Set(
-                Object.keys(registry.agents || {}).map((key) => String(key || '').trim().toLowerCase()),
+                Object.keys(registry.agents || {}).map((key) =>
+                  String(key || '').trim().toLowerCase(),
+                ),
               );
               validAgentKeys.add('auto');
 
@@ -267,15 +269,25 @@ jobs:
                 }))
                 .filter(({ key }) => key && !nonRoutingAgentKeys.has(key));
 
-              const registryEntries = routingEntries.filter(({ key }) => validAgentKeys.has(key));
-              const entriesForRouting = registryEntries.length > 0 ? registryEntries : routingEntries;
+              const registryEntries = routingEntries.filter(({ key }) =>
+                validAgentKeys.has(key),
+              );
+              const entriesForRouting =
+                registryEntries.length > 0 ? registryEntries : routingEntries;
 
               routingLabelCandidates = entriesForRouting.map(({ label }) => label);
               routingAgentKeys = Array.from(
-                new Set(routingEntries.map(({ key }) => key).filter(Boolean)),
+                new Set(entriesForRouting.map(({ key }) => key).filter(Boolean)),
               );
             } catch (error) {
-              routingLabelCandidates = labelObjects;
+              routingLabelCandidates = labelObjects.filter((label) => {
+                const normalized = (label?.name || '').trim().toLowerCase();
+                if (!normalized.startsWith(agentPrefix)) {
+                  return false;
+                }
+                const key = normalized.slice(agentPrefix.length);
+                return key && !nonRoutingAgentKeys.has(key);
+              });
               routingAgentKeys = Array.from(
                 new Set(
                   labels
@@ -290,7 +302,10 @@ jobs:
             let agentType = '';
             try {
               const { resolveAgentFromLabels } = require('./.github/scripts/agent_registry.js');
-              agentType = resolveAgentFromLabels(routingLabelCandidates.length ? routingLabelCandidates : prData.labels);
+              const labelsForAgent = routingLabelCandidates.length
+                ? routingLabelCandidates
+                : prData.labels;
+              agentType = resolveAgentFromLabels(labelsForAgent);
             } catch (error) {
               const fallbackAgent = routingAgentKeys[0];
               agentType = fallbackAgent || 'codex';
@@ -505,6 +520,22 @@ jobs:
       WORKFLOWS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID }}
       WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
 
+  autofix-claude:
+    needs: prepare
+    if: needs.prepare.outputs.should_run == 'true' && needs.prepare.outputs.agent_type == 'claude'
+    name: Run Claude autofix
+    uses: stranske/Workflows/.github/workflows/reusable-claude-run.yml@main
+    with:
+      prompt_file: .github/codex/prompts/autofix_from_ci_failure.md
+      mode: autofix
+      pr_number: ${{ needs.prepare.outputs.pr_number }}
+      pr_ref: ${{ needs.prepare.outputs.head_ref }}
+      appendix: ${{ needs.prepare.outputs.appendix }}
+    secrets:
+      CLAUDE_AUTH_JSON: ${{ secrets.CLAUDE_AUTH_JSON }}
+      WORKFLOWS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID }}
+      WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+
   needs-human:
     needs: prepare
     if: needs.prepare.outputs.stop_reason == 'max_attempts'
@@ -596,6 +627,7 @@ jobs:
     needs:
       - prepare
       - autofix
+      - autofix-claude
     if: always()
     runs-on: ubuntu-latest
     environment: >-
@@ -663,7 +695,12 @@ jobs:
             const triggerJob = '${{ needs.prepare.outputs.trigger_job }}';
             const triggerStep = '${{ needs.prepare.outputs.trigger_step }}';
             const stopReason = '${{ needs.prepare.outputs.stop_reason }}';
-            const autofixResult = '${{ needs.autofix.result }}';
+            const codexAutofixResult = '${{ needs.autofix.result }}';
+            const claudeAutofixResult = '${{ needs.autofix-claude.result }}';
+            const autofixResult =
+              codexAutofixResult && codexAutofixResult !== 'skipped'
+                ? codexAutofixResult
+                : claudeAutofixResult;
 
             const { owner, repo } = context.repo;
             let fixApplied = false;

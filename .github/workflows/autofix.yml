@@ -18,13 +18,7 @@ permissions:
   pull-requests: write
 
 concurrency:
-  group: >-
-    ci-autofix-loop-${{
-      github.event.pull_request.number
-      || (github.event.workflow_run.pull_requests && github.event.workflow_run.pull_requests[0] && github.event.workflow_run.pull_requests[0].number)
-      || (github.event.workflow_job.pull_requests && github.event.workflow_job.pull_requests[0] && github.event.workflow_job.pull_requests[0].number)
-      || github.run_id
-    }}
+  group: ci-autofix-loop-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: true
 
 jobs:
@@ -323,7 +317,8 @@ jobs:
               const allowedWorkflows = new Set(['Gate', 'CI', 'Python CI']);
               if (workflowName && !allowedWorkflows.has(workflowName)) {
                 core.info(
-                  `workflow_job is from workflow '${workflowName}', not Gate/CI/Python CI; skipping.`
+                  `workflow_job is from workflow '${workflowName}', not Gate/CI/Python CI; ` +
+                    'skipping.'
                 );
                 core.setOutput('should_run', 'false');
                 return;
@@ -331,7 +326,8 @@ jobs:
 
               if (conclusion !== 'failure') {
                 core.info(
-                  `workflow_job '${workflowJob.name}' concluded '${workflowJob.conclusion}' — no autofix needed`
+                  `workflow_job '${workflowJob.name}' concluded '${workflowJob.conclusion}' — ` +
+                    'no autofix needed'
                 );
                 core.setOutput('should_run', 'false');
                 return;
@@ -381,7 +377,8 @@ jobs:
 
               if (triggerHeadSha && triggerHeadSha !== headSha) {
                 core.info(
-                  `workflow_job head_sha ${triggerHeadSha} does not match PR head ${headSha}; skipping stale event.`
+                  `workflow_job head_sha ${triggerHeadSha} does not match PR head ${headSha}; ` +
+                    'skipping stale event.'
                 );
                 core.setOutput('should_run', 'false');
                 return;

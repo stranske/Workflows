@@ -311,7 +311,7 @@ jobs:
               core.warning(`Could not load agent registry; defaulting branch prefix: ${error.message}`);
             }
 
-            const escapeRegex = (value) => String(value).replace(/[.*+?^${}()|[\[\]\\]/g, '\\$&');
+            const escapeRegex = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             const pattern = `^${escapeRegex(branchPrefix)}(\\d+)$`;
             const match = headBranch.match(new RegExp(pattern));
             if (!match) {

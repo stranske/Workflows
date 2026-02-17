@@ -1,6 +1,21 @@
 # Provider-Agnostic Coding Agents Plan (Phased, Codex-Safe)
 
-**Status:** Draft plan for phased implementation
+**Status:** In progress (Phases 0–4 complete; Phase 5 kickoff complete)
+
+## Progress (as implemented)
+
+- ✅ Phase 0 — Runner hardening
+- ✅ Phase 1 — Agent registry + resolver helper
+- ✅ Phase 2 — Registry-driven PR automation routing (keepalive/autofix/bot-comment)
+- ✅ Phase 3 — Registry-driven issue→PR path (belt + issue bridge + auto-pilot)
+- ✅ Phase 4 — Verifier + follow-up chain is agent-aware
+- 🟡 Phase 5 — Delegation / re-routing between agents (kickoff done: `agent:auto` label semantics)
+
+## Claude availability (current reality)
+
+- ✅ Claude *API* integration is already present (workflows pass `CLAUDE_API_STRANSKE` and install `langchain-anthropic`).
+- ❌ There is currently no Claude runner workflow (e.g. `reusable-claude-run.yml`) in this repo, so `agent:claude` cannot yet run keepalive/autofix/bot-comment end-to-end.
+- ✅ Plan below assumes we will wire `agent:claude` using API-based execution first (Codex-safe), then optionally introduce a dedicated Claude CLI later if desired.
 
 ## Why
 
@@ -183,6 +198,7 @@ This plan defines an incremental refactor that keeps **Codex as the default** un
 **Design**
 - Introduce a routing mode (label or config), e.g. `agent:auto`:
   - keepalive evaluate step chooses the agent per round.
+- Treat `agent:claude` as a first-class peer label alongside `agent:codex`.
 - Define measurable signals for switching:
   - capacity (in-progress runs per agent)
   - effectiveness (recent rounds produce commits / checked tasks / Gate pass)
@@ -193,6 +209,75 @@ This plan defines an incremental refactor that keeps **Codex as the default** un
 **Acceptance criteria**
 - With `agent:auto`, default remains Codex unless a switch is justified by policy.
 - Switching agents is idempotent and doesn’t break keepalive run-cap rules.
+
+---
+
+### Phase 5A — Label + registry plumbing for `agent:auto` and `agent:claude`
+
+**Objective:** Make the label surface area real and consistent across Workflows + consumer repos.
+
+**Work items**
+- Add labels (and sync them): `agent:auto`, `agent:claude`, `from:claude`.
+- Update label-triggered workflows (notably capability check) to trigger on `agent:auto` and `agent:claude`, not just `agent:codex`.
+
+**Acceptance criteria**
+- `agent:auto` and `agent:claude` exist in Workflows, and `agent:auto`/`agent:claude` exist in consumer repos after label sync.
+
+---
+
+### Phase 5B — Implement a Claude runner (`reusable-claude-run.yml`)
+
+**Objective:** Provide a runner workflow for `agent:claude` that is safe by default and matches the core “agent runner” contract.
+
+**Constraints**
+- Must not introduce UI-triggering `@codex`/`@claude` mentions.
+- Must be gated by explicit labels (`agent:claude` or `agent:auto` policy selection).
+
+**Acceptance criteria**
+- `agent:claude` can run at least one PR automation mode (start with keepalive) end-to-end in the Workflows repo when `CLAUDE_API_STRANSKE` is available.
+
+---
+
+### Phase 5C — Enable registry-driven routing to Claude in PR automation
+
+**Objective:** Actually run Claude when `agent:claude` is present.
+
+**Work items**
+- Keepalive: add a `run-claude` job alongside `run-codex`, using `getRunnerWorkflow()`.
+- Autofix + bot-comment: route to Claude runner when labeled.
+
+**Acceptance criteria**
+- With `agent:claude`, the matching runner job runs.
+- With `agent:auto`, the policy can select Claude only when safe.
+
+---
+
+### Phase 5D — Delegation policy (capacity + effectiveness)
+
+**Objective:** Make `agent:auto` meaningful with a transparent, system-driven decision.
+
+**Work items**
+- Define a small policy function (first-pass heuristic) using only:
+  - label intent (`agent:auto`)
+  - available secrets
+  - recent progress signals already captured by keepalive state
+- Persist the chosen agent and reason in keepalive state.
+
+**Acceptance criteria**
+- `agent:auto` runs deterministically and records why it chose Codex vs Claude.
+
+---
+
+### Phase 6 — Remove or quarantine UI-trigger mentions (`@codex`)
+
+**Objective:** Reduce risk of CLI/UI agent overlap and make provider-neutral routing easier.
+
+**Work items**
+- Eliminate `@codex start` posting from belt/bootstraps where CLI automation already exists.
+- Keep compatibility via config flags where needed.
+
+**Acceptance criteria**
+- No automation path posts `@codex start` by default.
 
 ---
 

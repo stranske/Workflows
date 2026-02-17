@@ -196,7 +196,14 @@ jobs:
           else
             repos=$(echo "$REGISTERED_CONSUMER_REPOS" | tr '\n' ',' | sed 's/,$//')
           fi
-          json_array=$(echo "$repos" | tr ',' '\n' | grep -v '^$' | jq -R -s -c 'split("\n") | map(select(. != "")) | map(gsub("^\\s+|\\s+$"; ""))')
+          json_array=$(echo "$repos" \
+            | tr ',' '\n' \
+            | grep -v '^$' \
+            | jq -R -s -c '
+              split("\n")
+              | map(select(. != ""))
+              | map(gsub("^\\s+|\\s+$"; ""))
+            ')
           echo "matrix={\"repo\":$json_array}" >> "$GITHUB_OUTPUT"
           echo "Repos to sync: $json_array"
 
@@ -672,7 +679,9 @@ jobs:
           for label in "${required_labels[@]}"; do
             if ! gh label list --json name -q ".[].name" | grep -q "^${label}$"; then
               echo "Creating label: $label"
-              gh label create "$label" --description "Automated sync from Workflows" --color "0e8a16" || true
+                gh label create "$label" \
+                  --description "Automated sync from Workflows" \
+                  --color "0e8a16" || true
             fi
           done
 
@@ -718,15 +727,23 @@ jobs:
           # Must be configured before any git operations that need auth
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          # shellcheck disable=SC2016 # Single quotes intentional - ${GH_TOKEN} expands at runtime in credential helper
-          git config credential.helper '!f() { echo "username=x-access-token"; echo "password=${GH_TOKEN}"; }; f'
+            # shellcheck disable=SC2016 # GH_TOKEN expands at runtime
+            credential_helper='!f() { echo "username=x-access-token";'
+            credential_helper+=" echo \"password=${GH_TOKEN}\";"
+            credential_helper+=' }; f'
+            git config credential.helper "$credential_helper"
 
-          # Remote branch exists but no PR was found (from a failed previous run) - deleting and recreating
+          # Remote branch exists but no PR was found
+          # (likely from a failed previous run) - deleting and recreating
           if git ls-remote --exit-code origin "refs/heads/$branch_name" >/dev/null 2>&1; then
-            echo "Remote branch $branch_name exists but no PR was found (from a failed previous run) - deleting and recreating"
+              echo "Remote branch $branch_name exists but no PR was found."
+              echo "Deleting and recreating branch from previous failed run."
             # Delete the remote branch so we can push fresh
             delete_output=$(git push origin --delete "$branch_name" 2>&1) || {
-              if printf '%s\n' "$delete_output" | grep -qiE 'remote ref .* not found|remote ref does not exist|could not find remote ref'; then
+                not_found_re='remote ref .* not found'
+                not_found_re+='|remote ref does not exist'
+                not_found_re+='|could not find remote ref'
+                if printf '%s\n' "$delete_output" | grep -qiE "$not_found_re"; then
                 echo "Remote branch $branch_name no longer exists; continuing"
               else
                 printf '%s\n' "$delete_output" >&2
@@ -765,8 +782,8 @@ jobs:
           - [ ] CI passes with updated workflows
           - [ ] No repo-specific customizations were overwritten
 
-          **Source:** [stranske/Workflows](https://github.com/stranske/Workflows)
-          **Manifest:** [\`.github/sync-manifest.yml\`](https://github.com/stranske/Workflows/blob/main/.github/sync-manifest.yml)"
+          **Source:** stranske/Workflows
+          **Manifest:** \`.github/sync-manifest.yml\`"
 
           gh pr create \
             --head "$branch_name" \
@@ -814,12 +831,14 @@ jobs:
             echo "**Dry Run:** ${{ inputs.dry_run || 'false' }}"
             echo ""
             echo "### Repos Processed"
-            echo '${{ needs.prepare.outputs.repos }}' | jq -r '.repo[]' | while read -r repo; do
+            echo '${{ needs.prepare.outputs.repos }}' \
+              | jq -r '.repo[]' \
+              | while read -r repo; do
               echo "- $repo"
             done
             echo ""
             echo "---"
-            echo "*Sync driven by [sync-manifest.yml](https://github.com/stranske/Workflows/blob/main/.github/sync-manifest.yml)*"
+            echo "*Sync driven by .github/sync-manifest.yml*"
           } >> "$GITHUB_STEP_SUMMARY"
 
   # ============================================================================
@@ -904,12 +923,15 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           EXISTING_ISSUE: ${{ steps.check.outputs.existing_issue }}
           FAILED_JOBS: ${{ steps.failure.outputs.failed_jobs }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          RUN_URL: >-
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           TRIGGER_SHA: ${{ github.sha }}
           TRIGGER_REF: ${{ github.ref_name }}
         run: |
           # Format consumer repos as markdown list
-          affected_repos=$(echo "$REGISTERED_CONSUMER_REPOS" | sed '/^$/d' | sed 's/^/          - /')
+          affected_repos=$(echo "$REGISTERED_CONSUMER_REPOS" \
+            | sed '/^$/d' \
+            | sed 's/^/          - /')
 
           issue_body="## 🚨 Consumer Repo Sync Failed
 
@@ -935,7 +957,8 @@ jobs:
           ### Resolution Steps
           1. Check the [failed workflow run](${RUN_URL}) for specific error messages
           2. Fix the underlying issue (lint errors, syntax errors, etc.)
-          3. The sync will automatically retry on next push to \`templates/consumer-repo/\` or \`sync-manifest.yml\`
+           3. The sync will automatically retry on next push to \`templates/consumer-repo/\`
+             or \`sync-manifest.yml\`
           4. Or manually trigger: \`gh workflow run 'Maint 68 Sync Consumer Repos'\`
 
           ### Prevention

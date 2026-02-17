@@ -107,7 +107,11 @@ jobs:
         uses: actions/github-script@v8
         with:
           script: |
-            const { evaluateKeepaliveLoop, countCheckboxes, parseConfig } = require('./.github/scripts/keepalive_loop.js');
+            const {
+              evaluateKeepaliveLoop,
+              countCheckboxes,
+              parseConfig,
+            } = require('./.github/scripts/keepalive_loop.js');
             const fs = require('fs');
 
             // Test 1: countCheckboxes
@@ -144,7 +148,11 @@ jobs:
 
           github-token: ${{ steps.app_token.outputs.token || github.token }}
           script: |
-            const { loadKeepaliveState, formatStateComment, parseStateComment } = require('./.github/scripts/keepalive_state.js');
+            const {
+              loadKeepaliveState,
+              formatStateComment,
+              parseStateComment,
+            } = require('./.github/scripts/keepalive_state.js');
 
             // Test state serialization round-trip
             const testState = {
@@ -183,7 +191,7 @@ jobs:
 
           github-token: ${{ steps.app_token.outputs.token || github.token }}
           script: |
-            const { classifyError, ERROR_CATEGORIES } = require('./.github/scripts/error_classifier.js');
+            const { classifyError } = require('./.github/scripts/error_classifier.js');
 
             // Test various error types
             const testCases = [
@@ -198,7 +206,11 @@ jobs:
             for (const tc of testCases) {
               const result = classifyError(tc.input);
               if (result.category !== tc.expected) {
-                throw new Error(`Classification failed: ${JSON.stringify(tc.input)} -> ${result.category}, expected ${tc.expected}`);
+                const inputJson = JSON.stringify(tc.input);
+                const details = `${inputJson} -> ${result.category}`;
+                throw new Error(
+                  `Classification failed: ${details}, expected ${tc.expected}`
+                );
               }
             }
 
@@ -213,7 +225,8 @@ jobs:
 
           # Required inputs
           for input in prompt_file skip mode pr_number pr_ref; do
-            if ! grep -q "^      $input:" "$WORKFLOW" && ! grep -q "^        $input:" "$WORKFLOW"; then
+            if ! grep -q "^      $input:" "$WORKFLOW" && \
+              ! grep -q "^        $input:" "$WORKFLOW"; then
               echo "::error::Missing expected input: $input"
               exit 1
             fi

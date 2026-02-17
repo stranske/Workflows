@@ -110,12 +110,14 @@ jobs:
             actual_val=$(grep "^${key}=" "$ACTUAL" | cut -d= -f2 || echo "MISSING")
 
             if [ "$template_val" != "$canonical_val" ]; then
-              echo "::warning::Template $key ($template_val) differs from canonical ($canonical_val)"
+              echo "::warning::Template $key ($template_val) differs from canonical"
+              echo "::warning::Canonical value: ($canonical_val)"
               drift_found=true
             fi
 
             if [ "$actual_val" != "$canonical_val" ]; then
-              echo "::warning::Integration-Tests $key ($actual_val) differs from canonical ($canonical_val)"
+              echo "::warning::Integration-Tests $key ($actual_val) differs from canonical"
+              echo "::warning::Canonical value: ($canonical_val)"
               drift_found=true
             fi
           done
@@ -160,7 +162,13 @@ jobs:
           fi
 
       - name: Create drift issue
-        if: ${{ failure() || steps.compare-ci.outputs.drift == 'true' || steps.compare-versions.outputs.drift == 'true' || steps.compare-inputs.outputs.drift == 'true' }}
+        if: >-
+          ${{
+            failure() ||
+            steps.compare-ci.outputs.drift == 'true' ||
+            steps.compare-versions.outputs.drift == 'true' ||
+            steps.compare-inputs.outputs.drift == 'true'
+          }}
         uses: actions/github-script@v8
         with:
           script: |
@@ -176,17 +184,21 @@ jobs:
             const { withRetry } = retryHelpers;
             const title = '🔄 Integration-Tests sync drift detected';
             const label = 'integration-sync';
-            const runUrl = `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`;
+            const runUrl = `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}` +
+              `/actions/runs/${process.env.GITHUB_RUN_ID}`;
 
             const body = `## Integration Sync Drift Detected
 
-            The [Workflows-Integration-Tests](https://github.com/${{ env.INTEGRATION_REPO }}) repo has drifted from the templates in this repo.
+            The Workflows-Integration-Tests repo has drifted from the templates in this repo.
+
+            https://github.com/${{ env.INTEGRATION_REPO }}
 
             **Check Details:** [Run #${process.env.GITHUB_RUN_NUMBER}](${runUrl})
 
             ### Required Actions
             1. Review the drift in the workflow run summary
-            2. Update templates in \`templates/integration-repo/\` to match Integration-Tests changes
+            2. Update templates in \`templates/integration-repo/\`
+              to match Integration-Tests changes
             3. OR update Integration-Tests to match templates (if templates are correct)
             4. Close this issue when resolved
 
@@ -197,13 +209,15 @@ jobs:
             `;
 
             // Check for existing open issue
-            const { data: issues } = await withRetry(() => github.rest.issues.listForRepo({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              state: 'open',
-              labels: label,
-              per_page: 5
-            }));
+            const { data: issues } = await withRetry(() =>
+              github.rest.issues.listForRepo({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                state: 'open',
+                labels: label,
+                per_page: 5,
+              })
+            );
 
             if (issues.length > 0) {
               await withRetry(() => github.rest.issues.createComment({

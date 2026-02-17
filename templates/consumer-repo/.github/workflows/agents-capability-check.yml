@@ -20,8 +20,8 @@ env:
 jobs:
   capability-check:
     runs-on: ubuntu-latest
-    # Trigger when agent:codex is added (pre-agent gate)
-    if: github.event.label.name == 'agent:codex'
+    # Trigger when an agent assignment label is added (pre-agent gate)
+    if: contains(fromJSON('["agent:codex","agent:claude","agent:auto"]'), github.event.label.name)
 
     steps:
       - name: Checkout repository
@@ -131,16 +131,25 @@ jobs:
               labels: ['needs-human']
             }));
 
-            // Remove agent:codex since agent can't complete this
-            try {
-              await withRetry((client) => client.rest.issues.removeLabel({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
-                name: 'agent:codex'
-              }));
-            } catch (e) {
-              core.warning('Could not remove agent:codex label');
+            // Remove all agent:* labels since an agent can't complete this.
+            const issueLabels = Array.isArray(context.payload.issue?.labels)
+              ? context.payload.issue.labels
+              : [];
+            const agentLabels = issueLabels
+              .map((label) => (label?.name ? String(label.name) : ''))
+              .filter((name) => /^agent:/i.test(name));
+            const uniqueAgentLabels = Array.from(new Set(agentLabels));
+            for (const agentLabel of uniqueAgentLabels) {
+              try {
+                await withRetry((client) => client.rest.issues.removeLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                  name: agentLabel,
+                }));
+              } catch (e) {
+                core.warning(`Could not remove ${agentLabel} label`);
+              }
             }
 
       - name: Post capability report

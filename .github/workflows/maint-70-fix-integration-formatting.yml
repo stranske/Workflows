@@ -109,10 +109,12 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
+          run_url="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
           git add -A
           git commit -m "${{ inputs.commit_message }}" \
             -m "" \
-            -m "Applied by: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            -m "Applied by: ${run_url}"
 
           git push
 

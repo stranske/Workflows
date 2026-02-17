@@ -14,3 +14,15 @@ agents:
       pr_autofix: true
       belt: true
       verifier_checkbox: true
+
+  claude:
+    runner_workflow: .github/workflows/reusable-claude-run.yml
+    required_secrets:
+      - CLAUDE_AUTH_JSON
+    branch_prefix: claude/issue-
+    ui_mentions_allowed: false
+    capabilities:
+      pr_keepalive: true
+      pr_autofix: true
+      belt: false
+      verifier_checkbox: true

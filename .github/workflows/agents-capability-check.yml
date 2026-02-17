@@ -13,14 +13,16 @@ permissions:
   models: read
 
 concurrency:
-  group: agents-capability-check-${{ github.repository }}-${{ github.event.issue.number || github.run_id }}
+  group: >-
+    agents-capability-check-${{ github.repository }}-
+    ${{ github.event.issue.number || github.run_id }}
   cancel-in-progress: false
 
 jobs:
   capability-check:
     runs-on: ubuntu-latest
-    # Trigger when agent:codex is added (pre-agent gate)
-    if: github.event.label.name == 'agent:codex'
+    # Trigger when an agent assignment label is added (pre-agent gate)
+    if: contains(fromJSON('["agent:codex","agent:claude","agent:auto"]'), github.event.label.name)
 
     steps:
       - name: Checkout repository
@@ -127,7 +129,10 @@ jobs:
             const retryHelpers = fs.existsSync(retryHelperPath)
               ? require(retryHelperPath)
               : {
-                  createTokenAwareRetry: async ({ github }) => ({ github, withRetry: (fn) => fn() }),
+                  createTokenAwareRetry: async ({ github }) => ({
+                    github,
+                    withRetry: (fn) => fn(),
+                  }),
                 };
             const { withRetry } = await retryHelpers.createTokenAwareRetry({
               github,
@@ -144,16 +149,25 @@ jobs:
               labels: ['needs-human']
             }));
 
-            // Remove agent:codex since agent can't complete this
-            try {
-              await withRetry((client) => client.rest.issues.removeLabel({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
-                name: 'agent:codex'
-              }));
-            } catch (e) {
-              core.warning('Could not remove agent:codex label');
+            // Remove all agent:* labels since an agent can't complete this.
+            const issueLabels = Array.isArray(context.payload.issue?.labels)
+              ? context.payload.issue.labels
+              : [];
+            const agentLabels = issueLabels
+              .map((label) => (label?.name ? String(label.name) : ''))
+              .filter((name) => /^agent:/i.test(name));
+            const uniqueAgentLabels = Array.from(new Set(agentLabels));
+            for (const agentLabel of uniqueAgentLabels) {
+              try {
+                await withRetry((client) => client.rest.issues.removeLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                  name: agentLabel,
+                }));
+              } catch (e) {
+                core.warning(`Could not remove ${agentLabel} label`);
+              }
             }
 
       - name: Post capability report
@@ -169,7 +183,11 @@ jobs:
             const retryHelpers = fs.existsSync(retryHelperPath)
               ? require(retryHelperPath)
               : {
-                  createTokenAwareRetry: async ({ github }) => ({ github, withRetry: (fn) => fn(), paginateWithRetry: (method, params) => github.paginate(method, params) }),
+                  createTokenAwareRetry: async ({ github }) => ({
+                    github,
+                    withRetry: (fn) => fn(),
+                    paginateWithRetry: (method, params) => github.paginate(method, params),
+                  }),
                 };
             const { withRetry, paginateWithRetry } = await retryHelpers.createTokenAwareRetry({
               github,

@@ -19,7 +19,9 @@ on:
         default: ''
         type: string
       require_all:
-        description: 'Fail readiness job if any requested agent/custom login not assignable (true/false)'
+        description: >-
+          Fail readiness job if any requested agent/custom login is not assignable
+          (true/false)
         required: false
         default: 'false'
         type: string
@@ -173,17 +175,29 @@ jobs:
                   paginateWithRetry: (githubInstance, method, params) =>
                     githubInstance.paginate(method, params),
                 };
+            const { withRetry } = retryHelpers;
             const { owner, repo } = context.repo;
-            const q = `query($owner:String!, $repo:String!) { repository(owner:$owner, name:$repo) { suggestedActors(capabilities:[CAN_BE_ASSIGNED], first:100) { nodes { login } } } }`;
+            const q = [
+              'query($owner:String!, $repo:String!) {',
+              '  repository(owner:$owner, name:$repo) {',
+              '    suggestedActors(capabilities:[CAN_BE_ASSIGNED], first:100) {',
+              '      nodes { login }',
+              '    }',
+              '  }',
+              '}',
+            ].join('\n');
             const res = await withRetry(() => github.graphql(q, { owner, repo }));
-            const actors = (res.repository?.suggestedActors?.nodes || []).map(n => (n.login || '').toLowerCase());
+            const actors = (res.repository?.suggestedActors?.nodes || []).map((node) =>
+              String(node?.login || '').toLowerCase(),
+            );
             core.setOutput('actors', JSON.stringify(actors));
       - name: Create temp issue
         id: tmp
         uses: actions/github-script@v8
         with:
           script: |
-            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const retryScript = './.github/scripts/github-api-with-retry.js';
+            const { createTokenAwareRetry } = require(retryScript);
             const { withRetry } = await createTokenAwareRetry({
               github,
               core,
@@ -192,7 +206,14 @@ jobs:
               capabilities: ['issues:read', 'contents:read']
             });
             const { owner, repo } = context.repo;
-            const { data: issue } = await withRetry(() => github.rest.issues.create({ owner, repo, title: '[readiness] probe', body: 'temp' }));
+            const { data: issue } = await withRetry(() =>
+              github.rest.issues.create({
+                owner,
+                repo,
+                title: '[readiness] probe',
+                body: 'temp',
+              }),
+            );
             core.setOutput('num', String(issue.number));
       - name: Try agent assignment
         id: try
@@ -204,10 +225,20 @@ jobs:
         uses: actions/github-script@v8
         with:
           script: |
-            const num = Number(core.getInput('issue_number') || process.env.ISSUE_NUM || '${{ steps.tmp.outputs.num }}');
+            const issueNumberRaw =
+              core.getInput('issue_number') ||
+              process.env.ISSUE_NUM ||
+              '${{ steps.tmp.outputs.num }}';
+            const num = Number(issueNumberRaw);
             const actors = JSON.parse(process.env.ACTORS_JSON || '[]');
-            const requested = (process.env.AGENTS_REQ || 'copilot,codex').split(',').map(s=>s.trim()).filter(Boolean);
-            const custom = (process.env.CUSTOM_LOGINS || '').split(',').map(s=>s.trim()).filter(Boolean);
+            const requested = (process.env.AGENTS_REQ || 'copilot,codex')
+              .split(',')
+              .map((value) => value.trim())
+              .filter(Boolean);
+            const custom = (process.env.CUSTOM_LOGINS || '')
+              .split(',')
+              .map((value) => value.trim())
+              .filter(Boolean);
             const CANDIDATES = {
               copilot: ['copilot','copilot-swe-agent'],
               codex: ['chatgpt-codex-connector']
@@ -218,20 +249,41 @@ jobs:
             for (const key of requested) {
               const cands = CANDIDATES[key]||[];
               let ok=false, used='';
-              for (const c of cands) { if (actors.includes(c)) { ok=true; used=c; break; } }
+              for (const candidate of cands) {
+                if (actors.includes(candidate)) {
+                  ok = true;
+                  used = candidate;
+                  break;
+                }
+              }
               report[key]={ok, used};
-              rows.push({ label:key, type:'builtin', requested:true, ok, used });
+              rows.push({
+                label: key,
+                type: 'builtin',
+                requested: true,
+                ok,
+                used,
+              });
             }
             // Handle custom explicit logins (exact matches)
             for (const login of custom) {
               const ok = actors.includes(login.toLowerCase());
-              report[`custom:${login}`] = { ok, used: ok ? login.toLowerCase(): '' };
-              rows.push({ label:login.toLowerCase(), type:'custom', requested:true, ok, used: ok? login.toLowerCase(): '' });
+              const resolved = ok ? login.toLowerCase() : '';
+              report[`custom:${login}`] = { ok, used: resolved };
+              rows.push({
+                label: login.toLowerCase(),
+                type: 'custom',
+                requested: true,
+                ok,
+                used: resolved,
+              });
             }
             // Build markdown table
             const header = '| Agent | Kind | Requested | Assignable | Resolved Login |';
             const sep = '|-------|------|-----------|-----------|---------------|';
-            const mdRows = rows.map(r => `| ${r.label} | ${r.type} | yes | ${r.ok? '':''} | ${r.used} |`);
+            const mdRows = rows.map(
+              (row) => `| ${row.label} | ${row.type} | yes | ${row.ok ? '✅' : ''} | ${row.used} |`,
+            );
             const table = [header, sep, ...mdRows].join('\n');
             core.setOutput('report', JSON.stringify(report));
             core.setOutput('table', table);
@@ -258,19 +310,32 @@ jobs:
                 };
             const { withRetry } = retryHelpers;
             const { owner, repo } = context.repo;
-            await withRetry(() => github.rest.issues.update({ owner, repo, issue_number: Number('${{ steps.tmp.outputs.num }}'), state: 'closed' }));
+            await withRetry(() =>
+              github.rest.issues.update({
+                owner,
+                repo,
+                issue_number: Number('${{ steps.tmp.outputs.num }}'),
+                state: 'closed',
+              }),
+            );
       - name: Summary
         if: always()
         run: |
           {
-            printf '### Agent Readiness Report %s\n' "${{ steps.try.outcome == 'failure' && '' || '' }}"
+            printf '### Agent Readiness Report\n'
             printf '\n```json\n'
             printf '%s\n' "${{ steps.try.outputs.report }}"
             printf '```\n\n'
             printf '%s\n\n' "${{ steps.try.outputs.table }}"
             printf 'Require all: %s\n' "${{ inputs.require_all }}"
-            printf 'Custom logins: %s\n' "${{ inputs.readiness_custom_logins }}"
-            printf 'Overall: %s\n' "${{ steps.try.outcome == 'failure' && 'failure (missing required agents)' || 'success' }}"
+            printf 'Custom logins: %s\n' \
+              "${{ inputs.readiness_custom_logins }}"
+            if [ "${{ steps.try.outcome }}" = "failure" ]; then
+              overall="failure (missing agents)"
+            else
+              overall="success"
+            fi
+            printf 'Overall: %s\n' "$overall"
           } >>"$GITHUB_STEP_SUMMARY"
 
   preflight:
@@ -313,13 +378,55 @@ jobs:
                     githubInstance.paginate(method, params),
                 };
             const { withRetry } = retryHelpers;
-            const user = process.env.CODEX_USER;
-            if (!user) { core.warning('No CODEX_USER provided'); return; }
-            const { data: issue } = await withRetry(() => github.rest.issues.create({ owner, repo, title: '[probe] codex-assignability', body: 'temp' }));
-            try { await withRetry(() => github.rest.issues.addAssignees({ owner, repo, issue_number: issue.number, assignees: [user] })); core.info('Assignable'); }
-            catch (e) { core.warning('Not assignable: '+e.message); }
-            if (process.env.CODEX_COMMAND) { await withRetry(() => github.rest.issues.createComment({ owner, repo, issue_number: issue.number, body: process.env.CODEX_COMMAND })); }
-            await withRetry(() => github.rest.issues.update({ owner, repo, issue_number: issue.number, state: 'closed' }));
+              const user = (process.env.CODEX_USER || '').trim();
+              const command = (process.env.CODEX_COMMAND || '').trim();
+              if (!user) {
+                core.warning('No CODEX_USER provided');
+                return;
+              }
+
+              const { data: issue } = await withRetry(() =>
+                github.rest.issues.create({
+                  owner,
+                  repo,
+                  title: '[probe] codex-assignability',
+                  body: 'temp',
+                }),
+              );
+
+              try {
+                await withRetry(() =>
+                  github.rest.issues.addAssignees({
+                    owner,
+                    repo,
+                    issue_number: issue.number,
+                    assignees: [user],
+                  }),
+                );
+                core.info('Assignable');
+              } catch (error) {
+                core.warning(`Not assignable: ${error?.message || error}`);
+              }
+
+              if (command) {
+                await withRetry(() =>
+                  github.rest.issues.createComment({
+                    owner,
+                    repo,
+                    issue_number: issue.number,
+                    body: command,
+                  }),
+                );
+              }
+
+              await withRetry(() =>
+                github.rest.issues.update({
+                  owner,
+                  repo,
+                  issue_number: issue.number,
+                  state: 'closed',
+                }),
+              );
 
   diagnostic:
     if: inputs.enable_diagnostic == 'true'
@@ -342,7 +449,8 @@ jobs:
         run: |
           set -euo pipefail
           echo "Diagnostic dry_run=$DRY_RUN attempt_branch=$ATTEMPT"
-          echo "Tokens present: GITHUB_TOKEN=${GITHUB_TOKEN:+yes} SERVICE_BOT_PAT=${SERVICE_BOT_PAT:+yes}"
+            echo "Tokens present: GITHUB_TOKEN=${GITHUB_TOKEN:+yes}"
+            echo "Tokens present: SERVICE_BOT_PAT=${SERVICE_BOT_PAT:+yes}"
       - name: Attempt branch create
         if: inputs.diagnostic_attempt_branch == 'true'
         uses: actions/github-script@v8
@@ -427,11 +535,19 @@ jobs:
             if (table.trim()) {
               summary.addRaw(table, true).addEOL();
             } else {
-              const linkCell = issueUrl ? `[${issueNumber}](${issueUrl})` : '—';
-              summary.addTable([
-                [{ data: 'Issue', header: true }, { data: 'Has agent:codex', header: true }, { data: 'Matched assignee', header: true }, { data: 'Status', header: true }],
-                [linkCell, hasLabel, matchedCell, rawStatus || 'unknown']
-              ]);
+                const linkCell = issueUrl
+                  ? `[${issueNumber}](${issueUrl})`
+                  : '—';
+                const tableHeader = [
+                  { data: 'Issue', header: true },
+                  { data: 'Has agent:codex', header: true },
+                  { data: 'Matched assignee', header: true },
+                  { data: 'Status', header: true },
+                ];
+                summary.addTable([
+                  tableHeader,
+                  [linkCell, hasLabel, matchedCell, rawStatus || 'unknown'],
+                ]);
             }
 
             if (issueUrl) {
@@ -457,7 +573,9 @@ jobs:
             } else if (status === 'fail') {
               core.warning(message || 'Agent assignment verification reported a failure.');
             } else {
-              core.info(message || 'Agent assignment verification completed with status unavailable.');
+                const fallback =
+                  'Agent assignment verification completed (status unavailable).';
+                core.info(message || fallback);
             }
 
   bootstrap-codex:
@@ -501,7 +619,8 @@ jobs:
             const { withRetry } = retryHelpers;
 
             const fallbackLabel = 'agent:codex';
-            const fallbackMessage = 'bootstrap_issues_label not provided; defaulting to agent:codex.';
+              const fallbackMessage =
+                'bootstrap_issues_label not provided; defaulting to agent:codex.';
             const raw = process.env.LABEL || '';
             const trimmed = raw
               .split(/[,\n]/)
@@ -526,9 +645,12 @@ jobs:
             const dedupeReduced = unique.length === 1 && trimmed.length > 1;
 
             if (unique.length > 1) {
-              const provided = unique.map((entry) => `\`${entry.raw}\``).join(', ');
+                const provided = unique
+                  .map((entry) => `\`${entry.raw}\``)
+                  .join(', ');
               const message =
-                `bootstrap_issues_label must define exactly one label. Received multiple entries: ${provided}`;
+                  'bootstrap_issues_label must define exactly one label. ' +
+                  `Received multiple entries: ${provided}`;
               core.setFailed(message);
               summary.addRaw(message).addEOL();
               clearOutputs();
@@ -621,9 +743,10 @@ jobs:
                 continue;
               }
 
-              const labelNames = (issue.labels || [])
-                .map((entry) => (typeof entry === 'string' ? entry : entry?.name || '').toLowerCase())
-                .filter(Boolean);
+                const labelNames = (issue.labels || [])
+                  .map((entry) => (typeof entry === 'string' ? entry : entry?.name || ''))
+                  .map((value) => value.toLowerCase())
+                  .filter(Boolean);
               if (!labelNames.includes(labelLower)) {
                 logSkip(issue, `missing required label ${label}`);
                 continue;
@@ -776,9 +899,14 @@ jobs:
           private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
 
       - name: Ensure keepalive token present
-        if: ${{ env.SERVICE_BOT_PAT == '' && steps.app_token.outputs.token == '' }}
+        if: >-
+          ${{
+            env.SERVICE_BOT_PAT == '' &&
+            steps.app_token.outputs.token == ''
+          }}
         run: |
-          echo "::error::SERVICE_BOT_PAT or WORKFLOWS_APP token is required for keepalive comments." >&2
+          echo "::error::SERVICE_BOT_PAT or WORKFLOWS_APP token is required" \
+            "for keepalive comments." >&2
           exit 1
       - name: Verify keepalive identity
         if: ${{ env.SERVICE_BOT_PAT != '' }}
@@ -796,21 +924,38 @@ jobs:
                     githubInstance.paginate(method, params),
                 };
             const { withRetry } = retryHelpers;
-            const { data: me } = await withRetry(() => github.rest.users.getAuthenticated());
+              const { data: me } = await withRetry(() =>
+                github.rest.users.getAuthenticated(),
+              );
             const login = (me.login || '').toLowerCase();
             if (login !== 'stranske-automation-bot') {
-              core.setFailed(`SERVICE_BOT_PAT must belong to stranske-automation-bot; received ${login || 'unknown'}.`);
+              core.setFailed(
+                'SERVICE_BOT_PAT must belong to stranske-automation-bot; ' +
+                  `received ${login || 'unknown'}.`,
+              );
               return;
             }
             core.info('Verified keepalive identity: stranske-automation-bot.');
       - name: Ensure dispatch token present
-        if: ${{ env.ACTIONS_BOT_PAT == '' && steps.app_token.outputs.token == '' }}
+        if: >-
+          ${{
+            env.ACTIONS_BOT_PAT == '' &&
+            steps.app_token.outputs.token == ''
+          }}
         run: |
-          echo "::error::ACTIONS_BOT_PAT or WORKFLOWS_APP token is required so keepalive dispatches can trigger the connector." >&2
+          echo "::error::ACTIONS_BOT_PAT or WORKFLOWS_APP token is required" \
+            "so keepalive dispatches can trigger the connector." >&2
           exit 1
       - name: Generate keepalive trace token
         run: |
-          trace="$(python -c 'import secrets, time; print(f"{int(time.time())}-{secrets.token_hex(4)}")')"
+          trace="$(
+          python - <<'PY'
+          import secrets
+          import time
+
+          print(f"{int(time.time())}-{secrets.token_hex(4)}")
+          PY
+          )"
           printf 'KEEPALIVE_TRACE=%s\n' "$trace" >> "$GITHUB_ENV"
       - name: Resume Codex on unattended checklists
         uses: actions/github-script@v8
@@ -947,7 +1092,9 @@ jobs:
                 label: 'Keepalive',
                 enabled: enabled.keepalive,
                 result: process.env.KEEPALIVE_RESULT,
-                extras: [dryRun && enabled.keepalive ? 'Dry run: preview only' : null].filter(Boolean)
+                  extras: [
+                    dryRun && enabled.keepalive ? 'Dry run: preview only' : null,
+                  ].filter(Boolean)
               },
               {
                 key: 'verify',

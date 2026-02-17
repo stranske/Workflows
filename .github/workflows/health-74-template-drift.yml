@@ -54,7 +54,8 @@ jobs:
             fi
 
             if [[ ! -f "$template_path" ]]; then
-              echo "⚠️  WARNING: $template_file template missing but main workflow exists"
+              echo "⚠️  WARNING: $template_file template missing"
+              echo "⚠️  WARNING: main workflow exists"
               drift_found=true
               drift_report+="- **$main_file**: Template missing entirely\n"
               continue
@@ -62,7 +63,8 @@ jobs:
 
             # Compare files (ignoring whitespace-only differences)
             # Count differing lines
-            diff_lines=$(diff -u "$main_path" "$template_path" 2>/dev/null | grep -c '^[-+]' || true)
+            diff_lines=$(diff -u "$main_path" "$template_path" 2>/dev/null | \
+              grep -c '^[-+]' || true)
 
             # Threshold: warn if more than 50 lines differ (configurable)
             threshold=50
@@ -70,7 +72,8 @@ jobs:
             if [[ "$diff_lines" -gt "$threshold" ]]; then
               echo "❌ DRIFT: $main_file vs $template_file ($diff_lines lines differ)"
               drift_found=true
-              drift_report+="- **$main_file** ↔ **$template_file**: $diff_lines lines differ\n"
+              drift_report+="- **$main_file** ↔ **$template_file**: "
+              drift_report+="$diff_lines lines differ\n"
             elif [[ "$diff_lines" -gt 0 ]]; then
               echo "⚠️  Minor drift: $main_file vs $template_file ($diff_lines lines)"
             else

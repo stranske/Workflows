@@ -45,7 +45,10 @@ concurrency:
 
 jobs:
   comment_event_context:
-    if: github.event_name == 'issue_comment' && github.event.action == 'created' && github.event.issue.pull_request
+    if: >-
+      github.event_name == 'issue_comment'
+      && github.event.action == 'created'
+      && github.event.issue.pull_request
     runs-on: ubuntu-latest
     outputs:
       pr: ${{ steps.resolve.outputs.pr }}
@@ -60,7 +63,10 @@ jobs:
 
   keepalive_dispatch:
     needs: comment_event_context
-    if: github.event_name == 'issue_comment' && github.event.action == 'created' && github.event.issue.pull_request
+    if: >-
+      github.event_name == 'issue_comment'
+      && github.event.action == 'created'
+      && github.event.issue.pull_request
     name: Detect keepalive round comments
     runs-on: ubuntu-latest
     outputs:
@@ -169,9 +175,17 @@ jobs:
       - name: Run orchestrator
         uses: actions/github-script@v8
         with:
-          github-token: ${{ steps.app_token.outputs.token || secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT || secrets.AGENTS_AUTOMATION_PAT || github.token }}
+          github-token: >-
+            ${{
+              steps.app_token.outputs.token ||
+              secrets.ACTIONS_BOT_PAT ||
+              secrets.SERVICE_BOT_PAT ||
+              secrets.AGENTS_AUTOMATION_PAT ||
+              github.token
+            }}
           script: |
-            const { runKeepaliveOrchestrator } = require('./.github/scripts/agents_pr_meta_orchestrator.js');
+            const orchestrator = require('./.github/scripts/agents_pr_meta_orchestrator.js');
+            const { runKeepaliveOrchestrator } = orchestrator;
             const result = await runKeepaliveOrchestrator({
               github, context, core,
               inputs: {
@@ -197,7 +211,10 @@ jobs:
           INSTRUCTION_BODY: ${{ needs.keepalive_dispatch.outputs.instruction_body }}
 
   gate_event_context:
-    if: github.event_name == 'workflow_run' && github.event.workflow_run.name == 'Gate' && github.event.workflow_run.conclusion == 'success'
+    if: >-
+      github.event_name == 'workflow_run'
+      && github.event.workflow_run.name == 'Gate'
+      && github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     outputs:
       pr: ${{ steps.resolve.outputs.pr }}
@@ -226,7 +243,10 @@ jobs:
 
   keepalive_from_gate:
     needs: gate_event_context
-    if: github.event_name == 'workflow_run' && github.event.workflow_run.name == 'Gate' && github.event.workflow_run.conclusion == 'success'
+    if: >-
+      github.event_name == 'workflow_run'
+      && github.event.workflow_run.name == 'Gate'
+      && github.event.workflow_run.conclusion == 'success'
     name: Resume keepalive after Gate
     runs-on: ubuntu-latest
     steps:
@@ -272,8 +292,14 @@ jobs:
               if (match) prNum = match[1];
             }
             core.setOutput('pr_number', prNum);
-            core.setOutput('activation_comment', result.activationComment ? JSON.stringify(result.activationComment) : '');
-            core.setOutput('activation_comment_id', result.activationComment?.id ? String(result.activationComment.id) : '');
+            const activationCommentJson = result.activationComment
+              ? JSON.stringify(result.activationComment)
+              : '';
+            const activationCommentId = result.activationComment?.id
+              ? String(result.activationComment.id)
+              : '';
+            core.setOutput('activation_comment', activationCommentJson);
+            core.setOutput('activation_comment_id', activationCommentId);
 
       - name: Detect keepalive from activation
         id: detect
@@ -308,9 +334,17 @@ jobs:
         if: steps.gate.outputs.ok == 'true' && steps.detect.outputs.dispatch == 'true'
         uses: actions/github-script@v8
         with:
-          github-token: ${{ steps.app_token_gate.outputs.token || secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT || secrets.AGENTS_AUTOMATION_PAT || github.token }}
+          github-token: >-
+            ${{
+              steps.app_token_gate.outputs.token ||
+              secrets.ACTIONS_BOT_PAT ||
+              secrets.SERVICE_BOT_PAT ||
+              secrets.AGENTS_AUTOMATION_PAT ||
+              github.token
+            }}
           script: |
-            const { runKeepaliveOrchestrator } = require('./.github/scripts/agents_pr_meta_orchestrator.js');
+            const orchestrator = require('./.github/scripts/agents_pr_meta_orchestrator.js');
+            const { runKeepaliveOrchestrator } = orchestrator;
             const result = await runKeepaliveOrchestrator({
               github, context, core,
               inputs: {
@@ -355,7 +389,11 @@ jobs:
 
   gate_no_pr_summary:
     needs: gate_event_context
-    if: github.event_name == 'workflow_run' && github.event.workflow_run.name == 'Gate' && github.event.workflow_run.conclusion == 'success' && needs.gate_event_context.outputs.has_pr != 'true'
+    if: >-
+      github.event_name == 'workflow_run'
+      && github.event.workflow_run.name == 'Gate'
+      && github.event.workflow_run.conclusion == 'success'
+      && needs.gate_event_context.outputs.has_pr != 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Write dispatch summary
@@ -368,7 +406,13 @@ jobs:
           PR_NUMBER: ${{ needs.gate_event_context.outputs.pr }}
 
   update_body:
-    if: github.event_name == 'pull_request' || (github.event_name == 'workflow_run' && github.event.workflow_run.name == 'Gate') || github.event_name == 'workflow_dispatch'
+    if: >-
+      github.event_name == 'pull_request'
+      || (
+        github.event_name == 'workflow_run'
+        && github.event.workflow_run.name == 'Gate'
+      )
+      || github.event_name == 'workflow_dispatch'
     name: Upsert PR body sections
     runs-on: ubuntu-latest
     steps:
@@ -393,7 +437,14 @@ jobs:
       - name: Update PR body
         uses: actions/github-script@v8
         with:
-          github-token: ${{ steps.app_token.outputs.token || secrets.AGENTS_AUTOMATION_PAT || secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT || github.token }}
+          github-token: >-
+            ${{
+              steps.app_token.outputs.token ||
+              secrets.AGENTS_AUTOMATION_PAT ||
+              secrets.ACTIONS_BOT_PAT ||
+              secrets.SERVICE_BOT_PAT ||
+              github.token
+            }}
           script: |
             const { run } = require('./.github/scripts/agents_pr_meta_update_body.js');
             await run({

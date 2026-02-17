@@ -78,25 +78,51 @@ test('resolveAgentRoutingFromLabels returns mode=auto for agent:auto', () => {
   assert.equal(routing.agentKey, 'codex');
   assert.equal(routing.requested, 'auto');
 });
-
 test('resolveAgentRoutingFromLabels returns mode=default when no agent labels present', () => {
   const routing = resolveAgentRoutingFromLabels(['bug'], { registryPath: REGISTRY_PATH });
   assert.equal(routing.mode, 'default');
   assert.equal(routing.agentKey, 'codex');
   assert.equal(routing.requested, null);
 });
-
 test('resolveAgentRoutingFromLabels returns mode=explicit for agent:codex', () => {
   const routing = resolveAgentRoutingFromLabels(['agent:codex'], { registryPath: REGISTRY_PATH });
   assert.equal(routing.mode, 'explicit');
   assert.equal(routing.agentKey, 'codex');
   assert.equal(routing.requested, 'codex');
 });
-
 test('resolveAgentRoutingFromLabels rejects mixing agent:auto with explicit agent', () => {
   assert.throws(
     () => {
       resolveAgentRoutingFromLabels(['agent:auto', 'agent:codex'], { registryPath: REGISTRY_PATH });
+    },
+    (error) => {
+      assert.ok(error instanceof Error);
+      assert.match(String(error.message), /Multiple agent labels present/);
+      return true;
+    },
+  );
+});
+
+test('resolveAgentRoutingFromLabels rejects multiple explicit agent labels (string labels)', () => {
+  assert.throws(
+    () => {
+      resolveAgentRoutingFromLabels(['agent:codex', 'agent:claude'], { registryPath: REGISTRY_PATH });
+    },
+    (error) => {
+      assert.ok(error instanceof Error);
+      assert.match(String(error.message), /Multiple agent labels present/);
+      return true;
+    },
+  );
+});
+
+test('resolveAgentRoutingFromLabels rejects multiple explicit agent labels (object labels, case-insensitive)', () => {
+  assert.throws(
+    () => {
+      resolveAgentRoutingFromLabels(
+        [{ name: 'Agent:Codex' }, { name: 'AGENT:CLAUDE' }],
+        { registryPath: REGISTRY_PATH },
+      );
     },
     (error) => {
       assert.ok(error instanceof Error);

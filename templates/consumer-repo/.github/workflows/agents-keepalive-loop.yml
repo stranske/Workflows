@@ -514,15 +514,36 @@ jobs:
           'agent-standard'
         }}
 
-  # Placeholder for future Claude agent support
-  # run-claude:
-  #   name: Keepalive next task (Claude)
-  #   needs:
-  #     - evaluate
-  #     - preflight
-  #   if: needs.evaluate.outputs.agent_type == 'claude'
-  #   uses: stranske/Workflows/.github/workflows/reusable-claude-run.yml@main
-  #   ...
+  run-claude:
+    name: Keepalive next task (Claude)
+    needs:
+      - evaluate
+      - mark-running
+    if: |
+      needs.evaluate.outputs.agent_type == 'claude' &&
+      (needs.evaluate.outputs.action == 'run' ||
+       needs.evaluate.outputs.action == 'fix' ||
+       needs.evaluate.outputs.action == 'conflict')
+    uses: stranske/Workflows/.github/workflows/reusable-claude-run.yml@main
+    secrets: inherit
+    with:
+      skip: >-
+        ${{ needs.evaluate.outputs.action != 'run' &&
+            needs.evaluate.outputs.action != 'fix' &&
+            needs.evaluate.outputs.action != 'conflict' }}
+      prompt_file: ${{ needs.evaluate.outputs.prompt_file }}
+      mode: keepalive
+      pr_number: ${{ needs.evaluate.outputs.pr_number }}
+      pr_ref: ${{ needs.evaluate.outputs.pr_ref }}
+      base_ref: ${{ needs.evaluate.outputs.base_ref }}
+      appendix: ''
+      iteration: ${{ needs.evaluate.outputs.iteration }}
+      environment: >-
+        ${{
+          needs.evaluate.outputs.has_high_privilege == 'true' &&
+          'agent-high-privilege' ||
+          'agent-standard'
+        }}
 
   # Progress review: LLM-based check when agent is active but not completing tasks
   # This catches "productive but unfocused" patterns where agent works on tangential items
@@ -788,6 +809,7 @@ jobs:
     needs:
       - evaluate
       - run-codex
+      - run-claude
     # Run if PR exists, handle skipped/failed agent jobs gracefully
     # run-codex will be skipped when action != run/fix/conflict, which is expected
     if: |
@@ -889,10 +911,17 @@ jobs:
           if-no-files-found: error
 
       - name: Auto-reconcile task checkboxes
-        if: needs.run-codex.outputs.changes-made == 'true'
+        if: |
+          needs.run-codex.outputs.changes-made == 'true' ||
+          needs.run-claude.outputs.changes-made == 'true'
         uses: actions/github-script@v8
         env:
-          LLM_COMPLETED_TASKS: ${{ needs.run-codex.outputs.llm-completed-tasks || '[]' }}
+          LLM_COMPLETED_TASKS: >-
+            ${{
+              needs.run-codex.outputs.llm-completed-tasks ||
+              needs.run-claude.outputs.llm-completed-tasks ||
+              '[]'
+            }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -900,12 +929,22 @@ jobs:
 
             const prNumber = Number('${{ needs.evaluate.outputs.pr_number }}') || 0;
             const beforeSha = '${{ needs.evaluate.outputs.head_sha }}';  // SHA before agent ran
-            const headSha = '${{ needs.run-codex.outputs.commit-sha }}';  // SHA after agent ran
+            const headSha =
+              '${{ needs.run-codex.outputs.commit-sha }}' ||
+              '${{ needs.run-claude.outputs.commit-sha }}';
 
             // LLM analysis metadata
-            const llmProvider = '${{ needs.run-codex.outputs.llm-provider || '' }}';
-            const llmConfidence = '${{ needs.run-codex.outputs.llm-confidence || '' }}';
-            const llmAnalysisRun = '${{ needs.run-codex.outputs.llm-analysis-run }}' === 'true';
+            const llmProvider =
+              '${{ needs.run-codex.outputs.llm-provider }}' ||
+              '${{ needs.run-claude.outputs.llm-provider }}' ||
+              '';
+            const llmConfidence =
+              '${{ needs.run-codex.outputs.llm-confidence }}' ||
+              '${{ needs.run-claude.outputs.llm-confidence }}' ||
+              '';
+            const llmAnalysisRun =
+              '${{ needs.run-codex.outputs.llm-analysis-run }}' === 'true' ||
+              '${{ needs.run-claude.outputs.llm-analysis-run }}' === 'true';
 
               // Parse LLM completed tasks if available
               // Use env var to avoid JS string escaping issues
@@ -955,10 +994,12 @@ jobs:
         id: update-summary
         uses: actions/github-script@v8
         env:
-          CODEX_SUMMARY: >-
+          AGENT_SUMMARY: >-
             ${{
               needs.run-codex.outputs.final-message-summary ||
+              needs.run-claude.outputs.final-message-summary ||
               needs.run-codex.outputs.error-summary ||
+              needs.run-claude.outputs.error-summary ||
               ''
             }}
         with:
@@ -966,6 +1007,40 @@ jobs:
           script: |
             const { updateKeepaliveLoopSummary } =
               require('./.github/scripts/keepalive_loop.js');
+
+            const claudeResult = '${{ needs.run-claude.result }}';
+            const codexResult = '${{ needs.run-codex.result }}';
+            const runResult =
+              claudeResult && claudeResult !== 'skipped' ? claudeResult : codexResult;
+
+            const agentExitCode =
+              '${{ needs.run-codex.outputs.exit-code }}' ||
+              '${{ needs.run-claude.outputs.exit-code }}';
+            const agentChangesMade =
+              '${{ needs.run-codex.outputs.changes-made }}' ||
+              '${{ needs.run-claude.outputs.changes-made }}';
+            const agentCommitSha =
+              '${{ needs.run-codex.outputs.commit-sha }}' ||
+              '${{ needs.run-claude.outputs.commit-sha }}';
+            const agentFilesChanged =
+              '${{ needs.run-codex.outputs.files-changed }}' ||
+              '${{ needs.run-claude.outputs.files-changed }}';
+
+            const llmProvider =
+              '${{ needs.run-codex.outputs.llm-provider }}' ||
+              '${{ needs.run-claude.outputs.llm-provider }}' ||
+              '';
+            const llmModel =
+              '${{ needs.run-codex.outputs.llm-model }}' ||
+              '${{ needs.run-claude.outputs.llm-model }}' ||
+              '';
+            const llmConfidence =
+              '${{ needs.run-codex.outputs.llm-confidence }}' ||
+              '${{ needs.run-claude.outputs.llm-confidence }}' ||
+              '';
+            const llmAnalysisRun =
+              '${{ needs.run-codex.outputs.llm-analysis-run }}' === 'true' ||
+              '${{ needs.run-claude.outputs.llm-analysis-run }}' === 'true';
             const inputs = {
               pr_number: Number('${{ needs.evaluate.outputs.pr_number }}') || 0,
               action: '${{ needs.evaluate.outputs.action }}',
@@ -983,21 +1058,18 @@ jobs:
               agent_type: '${{ needs.evaluate.outputs.agent_type }}',
               trace: '${{ needs.evaluate.outputs.trace }}',
               // Agent run result - check which agent ran
-              run_result: '${{ needs.run-codex.result }}',
-              // Agent output details for visibility (Codex for now)
-              agent_exit_code: '${{ needs.run-codex.outputs.exit-code }}',
-              agent_changes_made: '${{ needs.run-codex.outputs.changes-made }}',
-              agent_commit_sha: '${{ needs.run-codex.outputs.commit-sha }}',
-              agent_files_changed: '${{ needs.run-codex.outputs.files-changed }}',
-              agent_summary: process.env.CODEX_SUMMARY || '',
+              run_result: runResult,
+              // Agent output details for visibility
+              agent_exit_code: agentExitCode,
+              agent_changes_made: agentChangesMade,
+              agent_commit_sha: agentCommitSha,
+              agent_files_changed: agentFilesChanged,
+              agent_summary: process.env.AGENT_SUMMARY || '',
               // LLM analysis details for task completion reporting
-              llm_provider:
-                '${{ needs.run-codex.outputs.llm-provider || '' }}',
-              llm_model:
-                '${{ needs.run-codex.outputs.llm-model || '' }}',
-              llm_confidence:
-                '${{ needs.run-codex.outputs.llm-confidence || ''}}',
-              llm_analysis_run: '${{ needs.run-codex.outputs.llm-analysis-run }}' === 'true',
+              llm_provider: llmProvider,
+              llm_model: llmModel,
+              llm_confidence: llmConfidence,
+              llm_analysis_run: llmAnalysisRun,
             };
             await updateKeepaliveLoopSummary({ github, context, core, inputs });
 

@@ -120,7 +120,10 @@ jobs:
                       if f not in declared_workflows:
                           full_path = f'.github/workflows/{f}'
                           if full_path not in excluded_paths:
-                              errors.append(f"Template workflow '{f}' not in manifest (add to workflows: or excluded:)")
+                              errors.append(
+                                  f"Template workflow '{f}' not in manifest "
+                                  "(add to workflows: or excluded:)"
+                              )
 
           # Check templates/consumer-repo/.github/codex/prompts/
           template_prompts_dir = 'templates/consumer-repo/.github/codex/prompts'
@@ -142,11 +145,19 @@ jobs:
                   if f.startswith(known_prefixes):
                       # These are categorized by prefix
                       continue
-                  if f.startswith('agents-') or f == 'autofix.yml' or f.startswith('pr-') or f == 'ci.yml':
+                  if (
+                      f.startswith('agents-')
+                      or f == 'autofix.yml'
+                      or f.startswith('pr-')
+                      or f == 'ci.yml'
+                  ):
                       # These should be in template OR manifest
                       template_path = f'templates/consumer-repo/.github/workflows/{f}'
                       if not os.path.exists(template_path) and f not in declared_workflows:
-                          warnings.append(f"Workflow '{f}' is not in template and not categorized - should it be synced?")
+                          warnings.append(
+                              f"Workflow '{f}' is not in template and not categorized "
+                              "- should it be synced?"
+                          )
 
           # Check .github/codex/prompts/ against manifest
           prompts_dir = '.github/codex/prompts'
@@ -155,7 +166,10 @@ jobs:
                   if f.endswith('.md'):
                       template_path = f'templates/consumer-repo/.github/codex/prompts/{f}'
                       if not os.path.exists(template_path) and f not in declared_prompts:
-                          warnings.append(f"Prompt '{f}' exists in .github/codex/prompts/ but not in template - should it be synced?")
+                          warnings.append(
+                              f"Prompt '{f}' exists in .github/codex/prompts/ but not in template "
+                              "- should it be synced?"
+                          )
 
           # Check templates/consumer-repo/.github/scripts/ against manifest
           # If a script is in templates, it MUST be in the manifest (otherwise sync will miss it)
@@ -164,7 +178,10 @@ jobs:
               for f in os.listdir(template_scripts_dir):
                   if f.endswith('.js') or f.endswith('.py') or f.endswith('.sh'):
                       if f not in declared_scripts:
-                          errors.append(f"Template script '{f}' not in manifest - sync will miss this file!")
+                          errors.append(
+                              f"Template script '{f}' not in manifest "
+                              "- sync will miss this file!"
+                          )
 
           # Check scripts/langchain/ against manifest (required for agent workflows)
           langchain_dir = 'scripts/langchain'
@@ -174,13 +191,19 @@ jobs:
                       # These scripts must be in templates/consumer-repo/scripts/langchain/
                       template_path = f'templates/consumer-repo/scripts/langchain/{f}'
                       if not os.path.exists(template_path):
-                          warnings.append(f"Langchain script '{f}' not in template - verify consumer repos have it")
+                          warnings.append(
+                              f"Langchain script '{f}' not in template "
+                              "- verify consumer repos have it"
+                          )
 
           # Validate manifest entries have descriptions
           for category in ['workflows', 'prompts', 'scripts', 'codex_config', 'docs']:
               for item in manifest.get(category, []):
                   if not item.get('description'):
-                      errors.append(f"Missing description for {item.get('source', 'unknown')} in {category}")
+                      errors.append(
+                          f"Missing description for {item.get('source', 'unknown')} "
+                          f"in {category}"
+                      )
 
           # Output results
           print("=" * 60)
@@ -203,7 +226,11 @@ jobs:
               print("\n✅ Manifest is complete and valid!")
 
           print("\n" + "=" * 60)
-          print(f"Declared: {len(declared_workflows)} workflows, {len(declared_prompts)} prompts, {len(declared_scripts)} scripts")
+          print(
+              f"Declared: {len(declared_workflows)} workflows, "
+              f"{len(declared_prompts)} prompts, "
+              f"{len(declared_scripts)} scripts"
+          )
           print("=" * 60)
 
           # Set outputs
@@ -221,22 +248,28 @@ jobs:
           script: |
             const fs = require('fs');
             const retryHelperPath = './.github/scripts/github-api-with-retry.js';
-            const retryHelpers = fs.existsSync(retryHelperPath)
-                ? require(retryHelperPath)
-                : {
-                        withRetry: (fn) => fn(),
-                        paginateWithRetry: (githubInstance, method, params) =>
-                    githubInstance.paginate(method, params),
-                    };
+                        const defaultHelpers = {
+                            withRetry: (fn) => fn(),
+                            paginateWithRetry: (githubInstance, method, params) => {
+                                return githubInstance.paginate(method, params);
+                            },
+                        };
+                        const retryHelpers = fs.existsSync(retryHelperPath)
+                            ? require(retryHelperPath)
+                            : defaultHelpers;
             const { withRetry } = retryHelpers;
             const body = `## ❌ Sync Manifest Validation Failed
 
-            This PR modifies files that should be synced to consumer repos, but the sync manifest is incomplete.
+            This PR modifies files that should be synced to consumer repos,
+            but the sync manifest is incomplete.
 
-            **Required action:** Update \`.github/sync-manifest.yml\` to include the new/modified files.
+              **Required action:** Update \`.github/sync-manifest.yml\` to include the
+              new/modified files.
 
             ### Why this matters
-            Files not declared in the manifest won't be synced to consumer repos (Template, Manager-Database, trip-planner, Travel-Plan-Permission), causing features to silently not work in those repos.
+            Files not declared in the manifest won't be synced to consumer repos
+            (Template, Manager-Database, trip-planner, Travel-Plan-Permission),
+            causing features to silently not work in those repos.
 
             ### How to fix
             1. Open \`.github/sync-manifest.yml\`
@@ -246,9 +279,12 @@ jobs:
 
             See the workflow logs for specific files that need to be added.`;
 
-            await withRetry(() => github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              body: body
-            }));
+                        const createComment = () => {
+                            return github.rest.issues.createComment({
+                                owner: context.repo.owner,
+                                repo: context.repo.repo,
+                                issue_number: context.issue.number,
+                                body,
+                            });
+                        };
+                        await withRetry(createComment);

@@ -81,10 +81,15 @@ jobs:
               if (!proceed) {
                 const reset = data?.resources?.core?.reset || 0;
                 const resetTime = new Date(reset * 1000).toISOString();
-                core.notice(`Deferring coverage guard: API quota low (${remaining}/${limit}). Resets at ${resetTime}`);
+                const notice = `Deferring coverage guard: API quota low (${remaining}/${limit}).`;
+                core.notice(`${notice} Resets at ${resetTime}`);
+                const quotaMessage = [
+                  'API quota too low for non-critical health checks',
+                  `(${remaining}/${limit} remaining).`,
+                ].join(' ');
                 await core.summary
                   .addHeading('Coverage Guard Deferred', 3)
-                  .addRaw(`API quota too low for non-critical health checks (${remaining}/${limit} remaining).`)
+                  .addRaw(quotaMessage)
                   .addEOL()
                   .addRaw(`Threshold: ${threshold}. Resets at: ${resetTime}`)
                   .write();
@@ -159,8 +164,13 @@ jobs:
               return;
             }
 
-            runs.sort((a, b) => new Date(b.run_started_at || b.created_at || 0) - new Date(a.run_started_at || a.created_at || 0));
-            const candidate = runs.find(run => ['success', 'neutral'].includes(run.conclusion || '')) || runs[0];
+            runs.sort(
+              (a, b) =>
+                new Date(b.run_started_at || b.created_at || 0) -
+                new Date(a.run_started_at || a.created_at || 0),
+            );
+            const candidate =
+              runs.find((run) => ['success', 'neutral'].includes(run.conclusion || '')) || runs[0];
 
             if (!candidate) {
               core.warning('Unable to locate a completed Gate workflow run.');
@@ -171,7 +181,8 @@ jobs:
             core.setOutput('run_id', String(candidate.id || ''));
             core.setOutput('run_number', String(candidate.run_number || ''));
             core.setOutput('run_url', candidate.html_url || '');
-            core.notice(`Using Gate workflow run ${candidate.id} (${candidate.html_url || 'no url'})`);
+            const url = candidate.html_url || 'no url';
+            core.notice(`Using Gate workflow run ${candidate.id} (${url})`);
 
       - name: Download coverage trend artifact
         if: ${{ steps.discover.outputs.run_id }}
