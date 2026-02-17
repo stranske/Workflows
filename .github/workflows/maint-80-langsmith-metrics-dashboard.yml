@@ -54,10 +54,12 @@ jobs:
           echo "Cutoff date: $CUTOFF_DATE"
 
           # Get workflow runs from autopilot workflow
+          WORKFLOW_PATH="agents-auto-pilot.yml"
           gh api \
             -H "Accept: application/vnd.github+json" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
-            "/repos/${{ github.repository }}/actions/workflows/agents-auto-pilot.yml/runs?per_page=100&status=completed" \
+            "/repos/${{ github.repository }}/actions/workflows/$WORKFLOW_PATH/runs" \
+            -f per_page=100 -f status=completed \
             --jq ".workflow_runs[] | select(.created_at >= \"$CUTOFF_DATE\") | .id" \
             > .metrics-tmp/run_ids.txt || echo "No runs found"
 
@@ -70,7 +72,9 @@ jobs:
             gh api \
               -H "Accept: application/vnd.github+json" \
               "/repos/${{ github.repository }}/actions/runs/$run_id/artifacts" \
-              --jq '.artifacts[] | select(.name | startswith("autopilot-metrics-")) | {name: .name, id: .id}' \
+              --jq '.artifacts[] |
+                select(.name | startswith("autopilot-metrics-")) |
+                {name: .name, id: .id}' \
               > .metrics-tmp/artifacts_$run_id.json || continue
 
             # Download each artifact
@@ -97,14 +101,17 @@ jobs:
           echo "✅ Downloaded $COUNT metrics artifacts"
 
           # Combine all NDJSON files into one
-          find .metrics-tmp -name "*.ndjson" -exec cat {} \; > .metrics-tmp/combined-metrics.ndjson || touch .metrics-tmp/combined-metrics.ndjson
+          find .metrics-tmp -name "*.ndjson" -exec cat {} \; \
+            > .metrics-tmp/combined-metrics.ndjson || \
+            touch .metrics-tmp/combined-metrics.ndjson
 
           LINES=$(wc -l < .metrics-tmp/combined-metrics.ndjson)
           echo "📈 Combined metrics: $LINES total operations"
 
       - name: Generate metrics report
         run: |
-          if [ ! -f .metrics-tmp/combined-metrics.ndjson ] || [ ! -s .metrics-tmp/combined-metrics.ndjson ]; then
+          if [ ! -f .metrics-tmp/combined-metrics.ndjson ] || \
+             [ ! -s .metrics-tmp/combined-metrics.ndjson ]; then
             echo "⚠️ No metrics data found"
             echo "REPORT_AVAILABLE=false" >> $GITHUB_ENV
             exit 0
@@ -138,7 +145,9 @@ jobs:
           retention-days: 90
 
       - name: Create dashboard issue
-        if: env.REPORT_AVAILABLE == 'true' && (github.event_name == 'schedule' || inputs.create_issue == true)
+        if: >
+          env.REPORT_AVAILABLE == 'true' &&
+          (github.event_name == 'schedule' || inputs.create_issue == true)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -156,7 +165,8 @@ jobs:
 
           **Period:** $START_DATE to $END_DATE
           **Generated:** $(date -u +"%Y-%m-%d %H:%M UTC")
-          **Workflow Run:** [#${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+          **Workflow Run:** [#${{ github.run_id }}](
+          ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
 
           ---
 
@@ -166,7 +176,8 @@ jobs:
 
           ## About This Report
 
-          This automated report tracks LangSmith trace coverage across all LLM operations in the repository. Trace IDs allow us to:
+          This automated report tracks LangSmith trace coverage across all LLM
+          operations in the repository. Trace IDs allow us to:
           - Debug LLM calls via the LangSmith dashboard
           - Analyze model performance and costs
           - Correlate issues with specific inference runs
@@ -180,7 +191,9 @@ jobs:
 
           ---
 
-          <sub>This report is generated automatically every Monday. To regenerate manually, trigger the [LangSmith Metrics Dashboard workflow](../actions/workflows/maint-80-langsmith-metrics-dashboard.yml).</sub>
+          <sub>This report is generated automatically every Monday. To regenerate
+          manually, trigger the [LangSmith Metrics Dashboard workflow](
+          ../actions/workflows/maint-80-langsmith-metrics-dashboard.yml).</sub>
           EOF
 
           # Create issue
@@ -211,7 +224,8 @@ jobs:
 
           ### Overall Trace Coverage
 
-          The **trace coverage percentage** indicates what portion of LLM operations successfully captured a LangSmith trace ID.
+          The **trace coverage percentage** indicates what portion of LLM
+          operations successfully captured a LangSmith trace ID.
 
           - ✅ **90%+** - Excellent coverage
           - ⚠️ **70-89%** - Good, but investigate gaps
@@ -276,7 +290,8 @@ jobs:
             echo "📊 Report locations:"
             echo "  - Artifact: langsmith-metrics-report-${{ github.run_id }}"
             echo "  - Dashboard file: docs/dashboards/langsmith-metrics.md"
-            if [ "${{ github.event_name }}" == "schedule" ] || [ "${{ inputs.create_issue }}" == "true" ]; then
+            if [ "${{ github.event_name }}" == "schedule" ] || \
+               [ "${{ inputs.create_issue }}" == "true" ]; then
               echo "  - Issue: Created with label 'langsmith,metrics'"
             fi
           else
