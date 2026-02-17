@@ -272,10 +272,17 @@ jobs:
 
               routingLabelCandidates = entriesForRouting.map(({ label }) => label);
               routingAgentKeys = Array.from(
-                new Set(routingEntries.map(({ key }) => key).filter(Boolean)),
+                new Set(entriesForRouting.map(({ key }) => key).filter(Boolean)),
               );
             } catch (error) {
-              routingLabelCandidates = labelObjects;
+              routingLabelCandidates = labelObjects.filter((label) => {
+                const normalized = (label?.name || '').trim().toLowerCase();
+                if (!normalized.startsWith(agentPrefix)) {
+                  return false;
+                }
+                const key = normalized.slice(agentPrefix.length);
+                return key && !nonRoutingAgentKeys.has(key);
+              });
               routingAgentKeys = Array.from(
                 new Set(
                   labels
