@@ -127,6 +127,7 @@ You are helping finalize a PR through merge, verification, and follow-ups.
 - `skip_verification` is true
 - PR was not created from an issue
 - PR is doc-only or trivial
+- Repository doesn't have agents-verifier.yml workflow
 
 1. **Check if PR came from an issue**:
    ```bash
@@ -134,7 +135,17 @@ You are helping finalize a PR through merge, verification, and follow-ups.
    gh pr view $PR_NUMBER --json body,closingIssuesReferences
    ```
 
-2. **Apply verification label**:
+2. **Check if repository has verification workflow**:
+   ```bash
+   # Check if agents-verifier.yml exists
+   if ! gh api repos/{owner}/{repo}/contents/.github/workflows/agents-verifier.yml \
+        --jq '.name' 2>/dev/null; then
+     echo "Repository doesn't have verification workflow, skipping"
+     exit 0
+   fi
+   ```
+
+3. **Apply verification label**:
    ```bash
    # Use verify_mode to determine label
    LABEL="verify:$verify_mode"  # verify:compare or verify:evaluate
@@ -197,11 +208,19 @@ You are helping finalize a PR through merge, verification, and follow-ups.
 
 3. **If creating follow-up PR**:
    ```bash
-   gh pr edit $PR_NUMBER --add-label "verify:create-new-pr"
+   # Check if repository has follow-up workflow
+   if gh api repos/{owner}/{repo}/contents/.github/workflows/agents-verify-to-new-pr.yml \
+        --jq '.name' 2>/dev/null; then
+     gh pr edit $PR_NUMBER --add-label "verify:create-new-pr"
+     # Wait for workflow to run (max 5 minutes)
+     # Get new issue number from PR comments
+     echo "🔄 Follow-up work tracked in #<issue_number>"
+   else
+     # Manual follow-up needed
+     echo "⚠️ Verification CONCERNS - repository doesn't have automated follow-up."
+     echo "Please create follow-up issue manually with remaining tasks."
+   fi
    ```
-   - Wait for `agents-verify-to-new-pr.yml` to run (max 5 minutes)
-   - Get new issue number from PR comments
-   - Comment: "🔄 Follow-up work tracked in #<issue_number>"
    - Exit successfully
 
 ## Timeouts and Limits

@@ -8,6 +8,8 @@
 
 Create `agents-auto-pilot-extended.yml` - a second version of auto-pilot that extends through verification and handles follow-up PRs (steps 1-5 of the original design).
 
+**Agent-Agnostic Design**: This workflow uses the agent registry system (`.github/agents/registry.yml`). It works with any agent that has the required capabilities, not just Codex. The workflow routes via `agent:auto` labels and uses `resolveAgentFromLabels()` to determine which agent to invoke.
+
 ## Key Requirements
 
 ### 1. Resolve Inline Coding Agent Comments Before Merge
@@ -74,6 +76,14 @@ handle-verification:
     - name: Wait for verify-to-new-pr workflow
       # Poll for workflow completion (max 5 min)
       # Get new issue number from PR comments
+
+    - name: Ensure agent label on new issue
+      # The verify-to-new-pr workflow should add agent:auto label
+      # If missing, add it to ensure issue gets picked up by auto-pilot
+      run: |
+        if ! gh issue view $NEW_ISSUE --json labels | grep -q "agent:auto"; then
+          gh issue edit $NEW_ISSUE --add-label "agent:auto"
+        fi
 
     - name: Link follow-up
       # Comment: "Follow-up work: #<issue>"
@@ -189,11 +199,40 @@ jobs:
 - [ ] How to handle chain depth for manually-created follow-ups?
   - **Recommendation**: Parse issue body for "Part of #<parent>" and count depth
 
+## Agent Registry Integration
+
+The extended auto-pilot uses the agent registry system for routing:
+
+```javascript
+const { resolveAgentFromLabels } = require('./.github/scripts/agent_registry.js');
+
+// Resolve which agent to use based on labels
+const labels = await getIssueLabels(issueNumber);
+const agentKey = resolveAgentFromLabels(labels);
+// agentKey could be 'codex', 'custom-agent', etc.
+
+// Get agent capabilities
+const { getAgentConfig } = require('./.github/scripts/agent_registry.js');
+const agentConfig = getAgentConfig(agentKey);
+
+// Check if agent supports verification
+if (agentConfig.capabilities?.verifier_checkbox) {
+  // Apply verification label
+}
+```
+
+**Key agent registry files**:
+- `.github/agents/registry.yml` - agent definitions and capabilities
+- `.github/scripts/agent_registry.js` - routing and capability resolution
+- `.github/scripts/keepalive_loop.js` - agent-aware keepalive routing
+
 ## Related Files
 
 - `.github/workflows/agents-auto-pilot.yml` - standard version (reuse this)
 - `.github/workflows/agents-verifier.yml` - verification workflow
 - `.github/workflows/agents-verify-to-new-pr.yml` - follow-up PR creation
+- `.github/agents/registry.yml` - agent definitions and capabilities
+- `.github/scripts/agent_registry.js` - agent routing logic
 - `docs/analysis/autopilot-40pr-evaluation-feb-2026.md` - evaluation report
 - `docs/analysis/verify-compare-40pr-evaluation-feb-2026.md` - verifier evaluation
 - `skills/pr-finalize/` - similar logic for manual PR workflows
