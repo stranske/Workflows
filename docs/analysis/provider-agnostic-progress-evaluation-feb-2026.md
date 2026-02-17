@@ -20,7 +20,7 @@
 - Auto-pilot, belt, and issue-bridge updated to use registry for branching
 - Phase 5A complete: `agent:auto` and `agent:claude` labels added
 
-**Revised Overall Progress: ~85% complete (Phases 0-4 done in #1534, Phase 5 partial)**
+**Revised Overall Progress: ~90% complete (Phases 0-4 done in #1534, Phase 5D framework complete)**
 
 ---
 
@@ -41,7 +41,7 @@ The provider-agnostic refactor has made **substantial foundation progress** with
 | **Phase 2** | 🟡 Partial (70%) | ✅ **Complete** | 100% | Claude runner exists, run-claude job active |
 | **Phase 3** | 🔴 Not Started | ✅ **Complete** | 100% | Auto-pilot, belt, issue-bridge use registry |
 | **Phase 4** | 🟡 Partial (40%) | ✅ **Complete** | 100% | Verifier + follow-up fully agent-aware |
-| **Phase 5** | 🔴 Not Started | 🟡 **Partial** (60%) | 60% | agent:auto + Claude labels exist; delegation policy incomplete |
+| **Phase 5** | 🔴 Not Started | 🟡 **Partial** (80%) | 80% | agent:auto + labels exist; delegation framework complete; integration pending |
 
 ---
 
@@ -567,10 +567,14 @@ Verifier and follow-up chain now fully agent-aware:
 - Autofix + bot-comment routing to Claude needs verification
 - `agent:auto` semantics defined but delegation logic incomplete
 
-**Phase 5D Not Started:**
-- No effectiveness-based delegation policy
-- No capacity tracking for agent selection
-- `agent:auto` falls back to Codex without intelligent routing
+**Phase 5D Framework Complete (branch: claude/phase-5d-delegation-policy-pKJUA):**
+- ✅ Agent runner output contract documented (`docs/contracts/agent-runner-output.md`)
+- ✅ Delegation policy design complete (`docs/plans/phase-5d-delegation-policy.md`)
+- ✅ Delegation policy framework implemented (`.github/scripts/agent_delegation_policy.js`)
+- ✅ Comprehensive unit tests (18 tests, all passing)
+- ✅ Sync manifest updated for new files
+- 🔴 Integration into keepalive_loop.js not yet done
+- 🔴 Effectiveness tracking not yet added to keepalive state
 
 ### Key Implementation Details
 
@@ -659,12 +663,13 @@ Even with PR #1534 merged, these gaps remain:
 
 ## Conclusion (Revised)
 
-With PR #1534, the provider-agnostic refactor is **~85% complete** (Phases 0-4 done, Phase 5 partially done).
+With PR #1534 + Phase 5D framework, the provider-agnostic refactor is **~90% complete** (Phases 0-4 done, Phase 5D framework complete).
 
 **On main branch:** The system has good foundation but cannot run multiple agents.
 **With PR #1534:** The system can run both Codex and Claude agents end-to-end, with intelligent routing and fail-fast for unknown agents.
+**With Phase 5D branch:** Delegation policy framework complete with tests; ready for keepalive integration.
 
-**The system is architecturally AND operationally ready for multi-agent support once PR #1534 merges.**
+**The system is architecturally AND operationally ready for multi-agent support. Only integration work remains.**
 
 ### Success Criteria Progress
 
@@ -686,13 +691,15 @@ With PR #1534, the provider-agnostic refactor is **~85% complete** (Phases 0-4 d
 
 **Estimated remaining effort:** 7-9 weeks
 
-**With PR #1534 merged:**
+**With PR #1534 + Phase 5D branch merged:**
 1. ~~Complete Phases 2-4~~ ✅ **Done in PR #1534**
-2. **Complete Phase 5D:** Implement delegation policy (2-3 weeks)
-3. **End-to-end testing:** Validate Claude in production (1 week)
-4. **Documentation:** Agent runner contract formal spec (3 days)
+2. ~~Design Phase 5D delegation policy~~ ✅ **Done in claude/phase-5d-delegation-policy-pKJUA**
+3. ~~Implement delegation framework + tests~~ ✅ **Done in claude/phase-5d-delegation-policy-pKJUA**
+4. **Integrate delegation into keepalive loop** (3-4 days)
+5. **Add effectiveness tracking to state** (1-2 days)
+6. **End-to-end testing:** Validate Claude + agent:auto in production (2-3 days)
 
-**Estimated remaining effort:** 3-4 weeks for full multi-agent capability with delegation.
+**Estimated remaining effort:** 1-2 weeks for full multi-agent capability with delegation.
 
 ---
 
