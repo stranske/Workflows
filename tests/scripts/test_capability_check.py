@@ -8,8 +8,10 @@ import types
 from io import StringIO
 from typing import Any
 from unittest import mock
+from unittest.mock import MagicMock, patch
 
 import pytest
+import scripts.langchain.capability_check as capability_check
 from scripts.langchain.capability_check import (
     AGENT_CAPABILITY_CHECK_PROMPT,
     CapabilityCheckResult,
@@ -560,55 +562,59 @@ class TestClassifyCapabilitiesWithLangchain:
             assert result.recommendation == "PROCEED"
             assert result.provider_used == "github-models"
 
-
     @pytest.mark.skipif(not _HAS_LANGCHAIN, reason="langchain_core not installed")
     def test_langsmith_trace_capture(self) -> None:
         """Test that LangSmith trace ID and URL are captured when available."""
         import json
-        
+
         mock_client = MagicMock()
         mock_chain = MagicMock()
-        
+
         # Mock response with trace metadata
         mock_response = MagicMock()
-        mock_response.content = json.dumps({
-            "actionable_tasks": ["Task 1"],
-            "partial_tasks": [],
-            "blocked_tasks": [],
-            "recommendation": "PROCEED",
-            "human_actions_needed": []
-        })
-        mock_response.response_metadata = {'run_id': 'test-trace-id-12345'}
+        mock_response.content = json.dumps(
+            {
+                "actionable_tasks": ["Task 1"],
+                "partial_tasks": [],
+                "blocked_tasks": [],
+                "recommendation": "PROCEED",
+                "human_actions_needed": [],
+            }
+        )
+        mock_response.response_metadata = {"run_id": "test-trace-id-12345"}
         mock_chain.invoke.return_value = mock_response
-        
+
         mock_template = MagicMock()
         mock_template.__or__ = MagicMock(return_value=mock_chain)
-        
+
         with (
-            mock.patch('scripts.langchain.capability_check._get_llm_client', return_value=(mock_client, 'test-provider')),
-            mock.patch('langchain_core.prompts.ChatPromptTemplate') as mock_cpt,
-            mock.patch.dict('os.environ', {'LANGSMITH_API_KEY': 'test-key'}),
+            mock.patch(
+                "scripts.langchain.capability_check._get_llm_client",
+                return_value=(mock_client, "test-provider"),
+            ),
+            mock.patch("langchain_core.prompts.ChatPromptTemplate") as mock_cpt,
+            mock.patch.dict("os.environ", {"LANGSMITH_API_KEY": "test-key"}),
         ):
             mock_cpt.from_template.return_value = mock_template
-            
+
             result = capability_check.classify_capabilities(["Task 1"], "Must work")
-        
+
         # Assert trace fields are populated
-        assert hasattr(result, 'langsmith_trace_id')
-        assert hasattr(result, 'langsmith_trace_url')
-        assert result.langsmith_trace_id == 'test-trace-id-12345'
-        assert 'test-trace-id-12345' in (result.langsmith_trace_url or '')
-        
+        assert hasattr(result, "langsmith_trace_id")
+        assert hasattr(result, "langsmith_trace_url")
+        assert result.langsmith_trace_id == "test-trace-id-12345"
+        assert "test-trace-id-12345" in (result.langsmith_trace_url or "")
+
         # Assert trace fields are included in to_dict()
         result_dict = result.to_dict()
-        assert 'langsmith_trace_id' in result_dict
-        assert 'langsmith_trace_url' in result_dict
-        assert result_dict['langsmith_trace_id'] == 'test-trace-id-12345'
-        
+        assert "langsmith_trace_id" in result_dict
+        assert "langsmith_trace_url" in result_dict
+        assert result_dict["langsmith_trace_id"] == "test-trace-id-12345"
+
         # Verify config was passed to invoke
         assert mock_chain.invoke.call_count == 1
         call_args = mock_chain.invoke.call_args
-        assert 'config' in call_args[1]
+        assert "config" in call_args[1]
 
 
 class TestMain:
@@ -779,47 +785,51 @@ class TestIsMultiActionTask:
         """Test that LangSmith trace ID and URL are captured when available."""
         mock_client = MagicMock()
         mock_chain = MagicMock()
-        
+
         # Mock response with trace metadata
         mock_response = MagicMock()
-        mock_response.content = json.dumps({
-            "actionable_tasks": ["Task 1"],
-            "partial_tasks": [],
-            "blocked_tasks": [],
-            "recommendation": "PROCEED",
-            "human_actions_needed": []
-        })
-        mock_response.response_metadata = {
-            'run_id': 'test-trace-id-12345'
-        }
-        
+        mock_response.content = json.dumps(
+            {
+                "actionable_tasks": ["Task 1"],
+                "partial_tasks": [],
+                "blocked_tasks": [],
+                "recommendation": "PROCEED",
+                "human_actions_needed": [],
+            }
+        )
+        mock_response.response_metadata = {"run_id": "test-trace-id-12345"}
+
         mock_chain.invoke.return_value = mock_response
-        
+
         with (
-            patch('scripts.langchain.capability_check.ChatPromptTemplate') as mock_template,
-            patch('scripts.langchain.capability_check._get_llm_client', return_value=(mock_client, 'test-provider')),
-            patch.dict('os.environ', {'LANGSMITH_API_KEY': 'test-key'}),
+            patch("scripts.langchain.capability_check.ChatPromptTemplate") as mock_template,
+            patch(
+                "scripts.langchain.capability_check._get_llm_client",
+                return_value=(mock_client, "test-provider"),
+            ),
+            patch.dict("os.environ", {"LANGSMITH_API_KEY": "test-key"}),
         ):
-            mock_template.from_template.return_value = MagicMock(__or__=lambda self, other: mock_chain)
-            
-            result = capability_check.classify_capabilities(
-                tasks=["Task 1"],
-                acceptance="Must work"
+            mock_template.from_template.return_value = MagicMock(
+                __or__=lambda self, other: mock_chain
             )
-        
+
+            result = capability_check.classify_capabilities(
+                tasks=["Task 1"], acceptance="Must work"
+            )
+
         # Assert trace fields are populated
-        assert hasattr(result, 'langsmith_trace_id')
-        assert hasattr(result, 'langsmith_trace_url')
-        assert result.langsmith_trace_id == 'test-trace-id-12345'
-        assert 'test-trace-id-12345' in (result.langsmith_trace_url or '')
-        
+        assert hasattr(result, "langsmith_trace_id")
+        assert hasattr(result, "langsmith_trace_url")
+        assert result.langsmith_trace_id == "test-trace-id-12345"
+        assert "test-trace-id-12345" in (result.langsmith_trace_url or "")
+
         # Assert trace fields are included in to_dict()
         result_dict = result.to_dict()
-        assert 'langsmith_trace_id' in result_dict
-        assert 'langsmith_trace_url' in result_dict
-        assert result_dict['langsmith_trace_id'] == 'test-trace-id-12345'
-        
+        assert "langsmith_trace_id" in result_dict
+        assert "langsmith_trace_url" in result_dict
+        assert result_dict["langsmith_trace_id"] == "test-trace-id-12345"
+
         # Verify config was passed to invoke
         assert mock_chain.invoke.call_count == 1
         call_args = mock_chain.invoke.call_args
-        assert 'config' in call_args[1]
+        assert "config" in call_args[1]
