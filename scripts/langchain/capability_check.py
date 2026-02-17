@@ -34,6 +34,7 @@ def _resolve_chat_prompt_template() -> Any | None:
 
     return imported
 
+
 AGENT_CAPABILITY_CHECK_PROMPT = """
 Analyze these tasks and acceptance criteria for agent compatibility.
 
