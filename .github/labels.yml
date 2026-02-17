@@ -37,6 +37,9 @@
 - name: agent:needs-attention
   color: fbca04
   description: Agent needs human review or intervention
+- name: agent-high-privilege
+  color: d93f0b
+  description: Marks PRs that require high-privilege agent environments
 
 # PR origin labels
 - name: from:codex

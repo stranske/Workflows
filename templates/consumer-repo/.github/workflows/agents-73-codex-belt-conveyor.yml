@@ -72,10 +72,10 @@ jobs:
     concurrency:
       group: >-
         ${{
-          (needs.normalize.outputs.agent_key || 'codex') == 'codex'
+          toLower(needs.normalize.outputs.agent_key || 'codex') == 'codex'
             && format('codex-belt-conveyor-{0}', inputs.branch || format('issue-{0}', inputs.issue) || github.run_id)
             || format('belt-{0}-conveyor-{1}',
-              needs.normalize.outputs.agent_key || 'codex',
+              toLower(needs.normalize.outputs.agent_key || 'codex'),
               inputs.branch || format('issue-{0}', inputs.issue) || github.run_id
             )
         }}
@@ -311,7 +311,7 @@ jobs:
               core.warning(`Could not load agent registry; defaulting branch prefix: ${error.message}`);
             }
 
-            const escapeRegex = (value) => String(value).replace(/[.*+?^${}()|[\[\]\\]/g, '\\$&');
+            const escapeRegex = (value) => String(value).replace(/[][.*+?^${}()|[\]\\]/g, '\\$&');
             const pattern = `^${escapeRegex(branchPrefix)}(\\d+)$`;
             const match = headBranch.match(new RegExp(pattern));
             if (!match) {
