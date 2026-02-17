@@ -1876,27 +1876,60 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
 
     // Phase 2: Resolve agent via registry helper when an explicit agent:* label is present.
     // Keepalive stays opt-in: no agent label => keepalive disabled.
-    const explicitAgentLabel = labels.find((label) => label.startsWith('agent:'));
-    const requestedAgentKeys = Array.from(
-      new Set(labels.filter((label) => label.startsWith('agent:')).map((label) => label.slice('agent:'.length))),
-    );
-    let agentType = '';
+    const labelObjects = Array.isArray(pr.labels) ? pr.labels : [];
+    const agentPrefix = 'agent:';
+    let routingLabelCandidates = labelObjects;
+    let requestedAgentKeys = [];
     let hasAgentLabel = false;
-    if (explicitAgentLabel) {
-      hasAgentLabel = true;
+
+    try {
+      const { loadAgentRegistry } = require('./agent_registry.js');
+      const registry = loadAgentRegistry();
+      const validAgentKeys = new Set(
+        Object.keys(registry.agents || {}).map((key) => normalise(String(key || '')).toLowerCase()),
+      );
+      validAgentKeys.add('auto');
+
+      routingLabelCandidates = labelObjects.filter((label) => {
+        const normalized = normalise(label.name).toLowerCase();
+        if (!normalized.startsWith(agentPrefix)) {
+          return false;
+        }
+        const key = normalized.slice(agentPrefix.length);
+        return validAgentKeys.has(key);
+      });
+
+      requestedAgentKeys = Array.from(
+        new Set(
+          routingLabelCandidates
+            .map((label) => normalise(label.name).toLowerCase().slice(agentPrefix.length))
+            .filter(Boolean),
+        ),
+      );
+    } catch (error) {
+      routingLabelCandidates = labelObjects;
+      requestedAgentKeys = Array.from(
+        new Set(
+          labels
+            .filter((label) => label.startsWith(agentPrefix))
+            .map((label) => label.slice(agentPrefix.length)),
+        ),
+      );
+    }
+
+    hasAgentLabel = requestedAgentKeys.length > 0;
+    let agentType = '';
+    if (hasAgentLabel) {
       try {
         const { resolveAgentRoutingFromLabels } = require('./agent_registry.js');
-        const routing = resolveAgentRoutingFromLabels(pr.labels);
+        const routing = resolveAgentRoutingFromLabels(routingLabelCandidates.length ? routingLabelCandidates : pr.labels);
         agentType = routing.agentKey;
       } catch (error) {
-        // Keep conflict states safe: do not silently route to default agent.
-        // If multiple agent:* labels are present, treat as invalid and disable keepalive.
         if (requestedAgentKeys.length > 1) {
           hasAgentLabel = false;
           agentType = '';
         } else {
-          // Preserve the explicit requested label key (including unknown agents like "claude").
-          agentType = requestedAgentKeys[0] || explicitAgentLabel.replace('agent:', '');
+          agentType = requestedAgentKeys[0] || '';
         }
       }
     }

@@ -70,7 +70,7 @@ permissions:
   actions: write
 
 concurrency:
-  group: codex-belt-dispatcher
+  group: belt-dispatcher-${{ inputs.agent_key || 'codex' }}
   cancel-in-progress: false
 
 jobs:
