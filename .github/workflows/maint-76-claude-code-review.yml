@@ -42,7 +42,9 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           plugin_marketplaces: https://github.com/anthropics/claude-code.git
           plugins: code-review@claude-code-plugins
-          prompt: /code-review:code-review ${{ github.repository }}/pull/${{ github.event.pull_request.number }}
+          prompt: >-
+            /code-review:code-review
+            ${{ github.repository }}/pull/${{ github.event.pull_request.number }}
 
   claude-review-missing-secret:
     needs: detect-secret
@@ -55,5 +57,6 @@ jobs:
         run: |
           cat <<'EOF' >>"$GITHUB_STEP_SUMMARY"
           ### Claude Code Review skipped
-          The `CLAUDE_CODE_OAUTH_TOKEN` secret is not configured. Add it to enable automated reviews.
+          The `CLAUDE_CODE_OAUTH_TOKEN` secret is not configured.
+          Add it to enable automated reviews.
           EOF
