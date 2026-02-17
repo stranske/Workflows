@@ -585,8 +585,8 @@ jobs:
           if [ -n "$provider" ] && [ "$provider" != "github-models" ]; then
             args+=(--provider "$provider")
           fi
-          agent_label='${{ steps.agent.outputs.agent_label || '' }}'
-          from_label='${{ steps.agent.outputs.from_label || '' }}'
+          agent_label="${{ steps.agent.outputs.agent_label || '' }}"
+          from_label="${{ steps.agent.outputs.from_label || '' }}"
           args+=(--create-issue)
           if [ -n "$agent_label" ]; then
             args+=(--issue-label "$agent_label")
@@ -602,15 +602,19 @@ jobs:
 
           # Parse result
           if [ -f evaluation.json ]; then
-            python3 - <<'PY' < evaluation.json > evaluation-outputs.env 2>/dev/null || true
-            import json
-            import sys
+          python3 - <<'PY' > evaluation-outputs.env 2>/dev/null || true
+          import json
 
-            data = json.load(sys.stdin)
-            print(f"verdict={data.get('verdict', 'CONCERNS')}")
-            print(f"trace_id={data.get('langsmith_trace_id', '')}")
-            print(f"trace_url={data.get('langsmith_trace_url', '')}")
-            PY
+          try:
+            with open('evaluation.json', encoding='utf-8') as handle:
+              data = json.load(handle)
+          except Exception:
+            data = {}
+
+          print(f"verdict={data.get('verdict', 'CONCERNS')}")
+          print(f"trace_id={data.get('langsmith_trace_id', '')}")
+          print(f"trace_url={data.get('langsmith_trace_url', '')}")
+          PY
 
             if [ -s evaluation-outputs.env ]; then
               cat evaluation-outputs.env >> "$GITHUB_OUTPUT"
@@ -621,6 +625,11 @@ jobs:
               verdict="CONCERNS"
               trace_id=""
               trace_url=""
+            fi
+
+            echo "::debug::Evaluation verdict: $verdict"
+            if [ -n "$trace_id" ]; then
+              echo "::debug::LangSmith trace id: $trace_id"
             fi
 
             # Log trace URL for easy access from workflow logs
@@ -800,73 +809,76 @@ jobs:
 
           # Parse result
           if [ -f comparison.json ] && [ -s comparison.json ]; then
-            # Extract consensus verdict from available (used_llm) results
-            verdict=$(python3 - <<'PY'
+          python3 - <<'PY' > verdict.txt 2>/dev/null || printf '%s' "CONCERNS" > verdict.txt
           import json
 
           try:
-              data = json.load(open('comparison.json'))
+            with open('comparison.json', encoding='utf-8') as handle:
+              data = json.load(handle)
           except Exception:
-              print('CONCERNS')
-              raise SystemExit
+            data = {}
 
           results = data.get('results', [])
           usable = [r for r in results if r.get('used_llm') and r.get('verdict')]
-          if usable:
-              verdicts = [r.get('verdict') for r in usable]
-          else:
-              verdicts = [r.get('verdict') for r in results if r.get('verdict')]
+          verdicts = [r.get('verdict') for r in (usable if usable else results) if r.get('verdict')]
           if verdicts and all(v == 'PASS' for v in verdicts):
-              print('PASS')
+            print('PASS')
           else:
-              print('CONCERNS')
+            print('CONCERNS')
           PY
-            )
+
+            verdict="$(cat verdict.txt 2>/dev/null || echo CONCERNS)"
             echo "verdict=$verdict" >> "$GITHUB_OUTPUT"
 
-            # Extract trace IDs from all comparison results for logging
-            python3 - <<'PY'
+          python3 - <<'PY' 2>/dev/null || true
           import json
 
           try:
-              data = json.load(open('comparison.json'))
-              results = data.get('results', [])
-              for idx, result in enumerate(results):
-                  trace_url = result.get('langsmith_trace_url')
-                  provider = result.get('provider', f'provider-{idx}')
-                  if trace_url:
-                      print(f"::notice title=LangSmith Trace ({provider})::View trace: {trace_url}")
-          except Exception as e:
-              print(f"::debug::Could not extract trace URLs: {e}")
+            with open('comparison.json', encoding='utf-8') as handle:
+              data = json.load(handle)
+          except Exception:
+            data = {}
+
+          results = data.get('results', [])
+          for idx, result in enumerate(results):
+            trace_url = result.get('langsmith_trace_url')
+            provider = result.get('provider', f'provider-{idx}')
+            if trace_url:
+              print(f"::notice title=LangSmith Trace ({provider})::View trace: {trace_url}")
           PY
 
-            has_results=$(python3 - <<'PY'
+          python3 - <<'PY' > has_results.txt 2>/dev/null || printf '%s' "false" > has_results.txt
           import json
 
           try:
-              data = json.load(open('comparison.json'))
+            with open('comparison.json', encoding='utf-8') as handle:
+              data = json.load(handle)
           except Exception:
-              print('false')
-              raise SystemExit
+            data = {}
 
           results = data.get('results', [])
           usable = any(r.get('used_llm') for r in results)
           print('true' if usable else 'false')
           PY
-            )
+
+            has_results="$(cat has_results.txt 2>/dev/null || echo false)"
             echo "has_results=$has_results" >> "$GITHUB_OUTPUT"
 
-            # Extract the formatted report if needed
             if [ ! -f comparison-comment.md ]; then
-              python3 - <<'PY' > comparison-comment.md
+              python3 - <<'PY' > comparison-comment.md 2>/dev/null || \
+              printf '%s\n' \
+                "## Comparison Report" \
+                "" \
+                "No report generated." \
+                > comparison-comment.md
           import json
 
           try:
-              with open('comparison.json') as f:
-                  data = json.load(f)
-              report = data.get('report')
+            with open('comparison.json', encoding='utf-8') as handle:
+              data = json.load(handle)
+            report = data.get('report')
           except Exception:
-              report = None
+            report = None
 
           print(report or '## Comparison Report\n\nNo report generated.')
           PY
@@ -1166,16 +1178,16 @@ jobs:
           import json, os
           metrics = json.loads(os.environ["METRICS_JSON"])
           lines = ["## Verifier metrics", "", "| Field | Value |", "| --- | --- |"]
-            keys = [
-              "pr_number",
-              "verdict",
-              "issues_created",
-              "acceptance_criteria_count",
-              "checks_run",
-              "skip_reason",
-            ]
-            for key in keys:
-              lines.append(f"| {key} | `{metrics.get(key, '')}` |")
+          keys = [
+            "pr_number",
+            "verdict",
+            "issues_created",
+            "acceptance_criteria_count",
+            "checks_run",
+            "skip_reason",
+          ]
+          for key in keys:
+            lines.append(f"| {key} | `{metrics.get(key, '')}` |")
 
           summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
           if summary_path:

@@ -95,6 +95,13 @@ jobs:
 
           # Update all YAML files in templates/ (using find -exec for SC2044)
           find templates/ -name "*.yml" -type f -exec sh -c '
+            checkout="$1"
+            github_script="$2"
+            upload_artifact="$3"
+            download_artifact="$4"
+            cache="$5"
+            shift 5
+
             for file do
               orig_hash=$(md5sum "$file" | cut -d" " -f1)
 
@@ -115,7 +122,7 @@ jobs:
                 echo "Updated: $file"
               fi
             done
-          ' sh {} +
+          ' sh "$checkout" "$github_script" "$upload_artifact" "$download_artifact" "$cache" {} +
 
       - name: Check for changes
         id: check

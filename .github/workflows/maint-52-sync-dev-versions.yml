@@ -116,45 +116,45 @@ jobs:
         id: repos
         run: |
           if [ -n "${{ inputs.repos }}" ]; then
-            repos='${{ inputs.repos }}'
+            repos="${{ inputs.repos }}"
           else
             repos=$(python - <<'PY'
-            from __future__ import annotations
+          from __future__ import annotations
 
-            import re
-            from pathlib import Path
+          import re
+          from pathlib import Path
 
-            path = Path('.github/workflows/maint-68-sync-consumer-repos.yml')
-            lines = path.read_text(encoding='utf-8').splitlines()
+          path = Path('.github/workflows/maint-68-sync-consumer-repos.yml')
+          lines = path.read_text(encoding='utf-8').splitlines()
 
-            start_index = None
-            for index, line in enumerate(lines):
-              if re.search(r'\bREGISTERED_CONSUMER_REPOS\s*:\s*\|\s*$', line):
-                start_index = index + 1
-                break
+          start_index = None
+          for index, line in enumerate(lines):
+            if re.search(r'\bREGISTERED_CONSUMER_REPOS\s*:\s*\|\s*$', line):
+              start_index = index + 1
+              break
 
-            if start_index is None:
-              raise SystemExit('Could not find REGISTERED_CONSUMER_REPOS: | block')
+          if start_index is None:
+            raise SystemExit('Could not find REGISTERED_CONSUMER_REPOS: | block')
 
-            block_indent = None
-            repos: list[str] = []
-            for raw_line in lines[start_index:]:
-              if raw_line.strip() == '':
-                continue
+          block_indent = None
+          repos: list[str] = []
+          for raw_line in lines[start_index:]:
+            if raw_line.strip() == '':
+              continue
 
-              indent = len(raw_line) - len(raw_line.lstrip(' '))
-              if block_indent is None:
-                block_indent = indent
+            indent = len(raw_line) - len(raw_line.lstrip(' '))
+            if block_indent is None:
+              block_indent = indent
 
-              if indent < (block_indent or 0):
-                break
+            if indent < (block_indent or 0):
+              break
 
-              value = raw_line.strip()
-              if value:
-                repos.append(value)
+            value = raw_line.strip()
+            if value:
+              repos.append(value)
 
-            print(','.join(repos))
-            PY
+          print(','.join(repos))
+          PY
             )
           fi
           json_array=$(echo "$repos" \
@@ -363,7 +363,7 @@ jobs:
           - Easier debugging when tools behave the same everywhere
 
           ---
-          **Source:** `.github/workflows/autofix-versions.env`"
+          **Source:** \`.github/workflows/autofix-versions.env\`"
 
           gh pr create \
             --head "$branch_name" \

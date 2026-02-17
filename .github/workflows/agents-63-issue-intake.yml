@@ -304,7 +304,8 @@ jobs:
           github_token: ${{ github.token }}
       - name: Echo received inputs
         run: |
-          echo "Inputs JSON:" '${{ toJson(needs.normalize_inputs.outputs) }}'
+          echo "Inputs JSON:"
+          printf '%s\n' "${{ toJson(needs.normalize_inputs.outputs) }}"
           echo "Selected ref: ${GITHUB_REF}"
 
       - name: Prepare topic source
@@ -493,6 +494,7 @@ jobs:
             topics_count=$(jq 'length' topics.json 2>/dev/null || echo 0)
             first_title=$(jq -r '.[0].title // ""' topics.json 2>/dev/null || echo "")
             tmp=$(mktemp)
+            # shellcheck disable=SC2016 # jq variables ($tc, $ft) are literal in the filter
             debug_filter='. + {parsed_topics: ($tc|tonumber), first_title: $ft}'
             if jq --arg tc "$topics_count" --arg ft "$first_title" \
               "$debug_filter" decode_debug.json > "$tmp"

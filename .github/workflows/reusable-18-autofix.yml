@@ -1287,6 +1287,7 @@ jobs:
             echo "[history] No prior artifact found"
             exit 0
           fi
+          # shellcheck disable=SC2016 # jq variables ($name, $run) are literal in the filter
           jq_filter=$(
             printf '%s\n' \
               '.artifacts[]?' \

@@ -214,10 +214,9 @@ jobs:
       failure_count: ${{ steps.verify.outputs.failures }}
       run_id: ${{ steps.metadata.outputs.run_id }}
     env:
-      SCENARIO_LIST: >-
-        minimal,metrics_only,metrics_history,
-        classification_only,coverage_delta,
-        full_soft_gate
+      SCENARIO_LIST: "minimal,metrics_only,metrics_history,\
+classification_only,coverage_delta,\
+full_soft_gate"
       REQUESTED_PYTHONS: >-
         ${{
           (github.event_name == 'workflow_dispatch' &&

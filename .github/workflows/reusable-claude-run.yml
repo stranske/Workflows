@@ -299,6 +299,11 @@ jobs:
         run: |
           set -euo pipefail
 
+          extra_args=()
+          if [ -n "${EXTRA_ARGS:-}" ]; then
+            read -r -a extra_args <<<"$EXTRA_ARGS"
+          fi
+
           if [ "$PREFLIGHT_MISSING" = "true" ]; then
             summary="$PREFLIGHT_ERROR"
             echo "exit-code=1" >> "$GITHUB_OUTPUT"
@@ -321,14 +326,14 @@ jobs:
           output_file="claude-output.txt"
 
           set +e
-          claude -p "$prompt_content" ${EXTRA_ARGS} >"$output_file" 2>&1
+          claude -p "$prompt_content" "${extra_args[@]}" >"$output_file" 2>&1
           status=$?
           if [ $status -ne 0 ]; then
-            claude --prompt "$prompt_content" ${EXTRA_ARGS} >"$output_file" 2>&1
+            claude --prompt "$prompt_content" "${extra_args[@]}" >"$output_file" 2>&1
             status=$?
           fi
           if [ $status -ne 0 ]; then
-            printf '%s' "$prompt_content" | claude ${EXTRA_ARGS} >"$output_file" 2>&1
+            printf '%s' "$prompt_content" | claude "${extra_args[@]}" >"$output_file" 2>&1
             status=$?
           fi
           set -e

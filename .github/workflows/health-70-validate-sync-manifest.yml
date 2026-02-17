@@ -263,7 +263,8 @@ jobs:
             This PR modifies files that should be synced to consumer repos,
             but the sync manifest is incomplete.
 
-            **Required action:** Update \`.github/sync-manifest.yml\` to include the new/modified files.
+              **Required action:** Update \`.github/sync-manifest.yml\` to include the
+              new/modified files.
 
             ### Why this matters
             Files not declared in the manifest won't be synced to consumer repos

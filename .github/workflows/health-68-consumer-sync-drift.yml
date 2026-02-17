@@ -62,34 +62,34 @@ jobs:
         run: |
           repos_input="${INPUT_REPOS:-}"
           if [ -z "$repos_input" ]; then
-            repos_input=$(python3 - <<'PY'
-            from __future__ import annotations
+          repos_input=$(python3 - <<'PY'
+          from __future__ import annotations
 
-            path = '.github/workflows/maint-68-sync-consumer-repos.yml'
-            with open(path, encoding='utf-8') as handle:
-              lines = handle.read().splitlines()
+          path = '.github/workflows/maint-68-sync-consumer-repos.yml'
+          with open(path, encoding='utf-8') as handle:
+            lines = handle.read().splitlines()
 
-            repos: list[str] = []
-            in_block = False
+          repos: list[str] = []
+          in_block = False
 
-            for line in lines:
-              if not in_block:
-                starts_marker = line.strip().startswith('REGISTERED_CONSUMER_REPOS:')
-                ends_block = line.rstrip().endswith('|')
-                if starts_marker and ends_block:
-                  in_block = True
-                continue
+          for line in lines:
+            if not in_block:
+              starts_marker = line.strip().startswith('REGISTERED_CONSUMER_REPOS:')
+              ends_block = line.rstrip().endswith('|')
+              if starts_marker and ends_block:
+                in_block = True
+              continue
 
-              if line and not line.startswith(' '):
-                break
+            if line and not line.startswith(' '):
+              break
 
-              value = line.strip()
-              if value:
-                repos.append(value)
+            value = line.strip()
+            if value:
+              repos.append(value)
 
-            print(','.join(repos))
-            PY
-            )
+          print(','.join(repos))
+          PY
+          )
           fi
           python3 scripts/check_consumer_sync_drift.py --repos "$repos_input"
 

@@ -818,8 +818,8 @@ jobs:
                   if removals:
                       lines.append(f"- Remove: {', '.join(f'`{entry}`' for entry in removals)}")
 
-            issue_path.write_text('\n'.join(lines).strip() + '\n', encoding='utf-8')
-            PY
+          issue_path.write_text('\n'.join(lines).strip() + '\n', encoding='utf-8')
+          PY
 
       - name: Update failure tracker issue
         if: >-

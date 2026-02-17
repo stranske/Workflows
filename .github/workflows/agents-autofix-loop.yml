@@ -270,7 +270,8 @@ jobs:
                 .filter(({ key }) => key && !nonRoutingAgentKeys.has(key));
 
               const registryEntries = routingEntries.filter(({ key }) => validAgentKeys.has(key));
-              const entriesForRouting = registryEntries.length > 0 ? registryEntries : routingEntries;
+                const entriesForRouting =
+                  registryEntries.length > 0 ? registryEntries : routingEntries;
 
               routingLabelCandidates = entriesForRouting.map(({ label }) => label);
               routingAgentKeys = Array.from(
