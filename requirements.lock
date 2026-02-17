@@ -20,7 +20,7 @@ attrs==25.4.0
     #   aiohttp
     #   jsonschema
     #   referencing
-black==26.1.0
+black==25.1.0
     # via workflows (pyproject.toml)
 certifi==2026.1.4
     # via
