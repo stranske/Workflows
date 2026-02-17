@@ -1883,7 +1883,6 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
     let hasAgentLabel = false;
 
     const nonRoutingAgentKeys = new Set(['needs-attention', 'rate-limited', 'retry']);
-
     try {
       const { loadAgentRegistry } = require('./agent_registry.js');
       const registry = loadAgentRegistry();
