@@ -8,9 +8,12 @@ on:
     #   - "src/**/*.py"
     #   - "src/**/*.ts"
 
+env:
+  CLAUDE_CODE_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+
 jobs:
   claude-review:
-    if: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}
+    if: ${{ env.CLAUDE_CODE_TOKEN != '' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -26,13 +29,13 @@ jobs:
       - name: Run Claude Code Review
         uses: anthropics/claude-code-action@v1
         with:
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          claude_code_oauth_token: ${{ env.CLAUDE_CODE_TOKEN }}
           plugin_marketplaces: https://github.com/anthropics/claude-code.git
           plugins: code-review@claude-code-plugins
           prompt: /code-review:code-review ${{ github.repository }}/pull/${{ github.event.pull_request.number }}
 
   claude-review-missing-secret:
-    if: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN == '' }}
+    if: ${{ env.CLAUDE_CODE_TOKEN == '' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
