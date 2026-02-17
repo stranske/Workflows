@@ -44,9 +44,7 @@ def _assert_no_floating_langchain(text: str, name: str) -> None:
         re.IGNORECASE | re.MULTILINE,
     )
     match = pattern.search(text)
-    assert match is None, (
-        f"{name} contains floating langchain install: " f"`{match.group(0).strip()}`"
-    )
+    assert match is None, f"{name} contains floating langchain install: `{match.group(0).strip()}`"
 
 
 def _iter_steps(workflow: dict) -> list[dict]:

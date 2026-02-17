@@ -988,6 +988,18 @@ def format_comparison_report(results: list[EvaluationResult]) -> str:
         lines.append(f"- {labels[index]}: {'; '.join(insights)}")
     lines.append("")
 
+    # Add LangSmith trace links if available
+    trace_urls = [
+        (labels[i], result.langsmith_trace_url)
+        for i, result in enumerate(results)
+        if result.langsmith_trace_url
+    ]
+    if trace_urls:
+        lines.append("### 🔍 LangSmith Traces")
+        for label, url in trace_urls:
+            lines.append(f"- [{label}]({url})")
+        lines.append("")
+
     return "\n".join(lines).strip() + "\n"
 
 

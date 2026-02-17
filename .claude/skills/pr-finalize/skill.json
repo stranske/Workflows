@@ -1,0 +1,37 @@
+{
+  "name": "pr-finalize",
+  "version": "1.0.0",
+  "description": "Finalize a PR: address bot reviews, fix CI, merge, verify, and handle follow-ups",
+  "author": "Workflows Team",
+  "arguments": [
+    {
+      "name": "pr_number",
+      "description": "PR number (optional - uses current branch if omitted)",
+      "required": false
+    },
+    {
+      "name": "verify_mode",
+      "description": "Verification mode: 'compare' (thorough) or 'evaluate' (quick). Default: compare",
+      "required": false,
+      "default": "compare"
+    },
+    {
+      "name": "max_iterations",
+      "description": "Max bot review + CI fix iterations. Default: 3",
+      "required": false,
+      "default": "3"
+    },
+    {
+      "name": "skip_verification",
+      "description": "Skip verification step. Default: false",
+      "required": false,
+      "default": "false"
+    }
+  ],
+  "examples": [
+    "/pr-finalize",
+    "/pr-finalize --pr_number 123",
+    "/pr-finalize --verify_mode evaluate",
+    "/pr-finalize --pr_number 123 --skip_verification true"
+  ]
+}
