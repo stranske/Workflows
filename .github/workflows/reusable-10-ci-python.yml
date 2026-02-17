@@ -2223,6 +2223,7 @@ jobs:
           && inputs['enable-soft-gate']
           && matrix.python-version == env.PRIMARY_PYTHON_VERSION
           }}
+        continue-on-error: true
         uses: actions/upload-artifact@v6
         with:
           name: ${{ inputs['artifact-prefix'] }}coverage-summary
@@ -2238,6 +2239,7 @@ jobs:
           && inputs['enable-soft-gate']
           && matrix.python-version == env.PRIMARY_PYTHON_VERSION
           }}
+        continue-on-error: true
         uses: actions/upload-artifact@v6
         with:
           name: ${{ inputs['artifact-prefix'] }}coverage-trend
@@ -2253,6 +2255,7 @@ jobs:
           && inputs['enable-soft-gate']
           && matrix.python-version == env.PRIMARY_PYTHON_VERSION
           }}
+        continue-on-error: true
         uses: actions/upload-artifact@v6
         with:
           name: ${{ inputs['artifact-prefix'] }}coverage-trend-history
