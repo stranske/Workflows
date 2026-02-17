@@ -189,7 +189,7 @@ jobs:
           upstream="https://github.com/${{ github.event.pull_request.base.repo.full_name }}.git"
           base_ref="${{ github.event.pull_request.base.ref }}"
           git remote add upstream "$upstream"
-          git fetch --no-tags --depth=1 upstream \
+          git fetch --no-tags upstream \
             "refs/heads/${base_ref}:refs/remotes/upstream/${base_ref}"
       - uses: actions/setup-python@v6
         with:
