@@ -105,7 +105,8 @@ jobs:
             const owner = context.repo.owner;
             // Support repository_dispatch (no inputs) with sensible defaults
             const inputRepos = '${{ inputs.repos }}' || 'all';
-            const autoMerge = '${{ inputs.auto_merge }}' === '' ? true : ${{ inputs.auto_merge || true }};
+            const autoMerge =
+              '${{ inputs.auto_merge }}' === '' ? true : ${{ inputs.auto_merge || true }};
             const dryRun = '${{ inputs.dry_run }}' === '' ? false : ${{ inputs.dry_run || false }};
             const fs = require('fs');
             const retryHelperPath = './.github/scripts/github-api-with-retry.js';
@@ -171,7 +172,9 @@ jobs:
 
                 // If multiple sync PRs exist, close older ones as stale
                 if (syncPRs.length > 1) {
-                  console.log(`Found ${syncPRs.length} sync PRs - closing ${syncPRs.length - 1} stale PRs`);
+                  console.log(
+                    `Found ${syncPRs.length} sync PRs - closing ${syncPRs.length - 1} stale PRs`,
+                  );
 
                   for (let i = 0; i < syncPRs.length - 1; i++) {
                     const stalePR = syncPRs[i];
@@ -219,11 +222,13 @@ jobs:
                 }));
 
                 // Check check runs
-                const { data: checkRuns } = await withRetry((client) => client.rest.checks.listForRef({
+                const { data: checkRuns } = await withRetry((client) =>
+                  client.rest.checks.listForRef({
                   owner,
                   repo,
                   ref: pr.head.sha
-                }));
+                }),
+                );
 
                 const allChecks = checkRuns.check_runs || [];
                 const orderedChecks = [...allChecks].sort((a, b) => {
@@ -259,7 +264,10 @@ jobs:
                   c.status !== 'completed'
                 );
 
-                console.log(`Checks: ${requiredChecks.length} total, ${failedChecks.length} failed, ${pendingChecks.length} pending`);
+                console.log(
+                  `Checks: ${requiredChecks.length} total, ${failedChecks.length} failed, ` +
+                    `${pendingChecks.length} pending`,
+                );
 
                 if (failedChecks.length > 0) {
                   console.log('Failed checks:');
@@ -301,7 +309,9 @@ jobs:
                         pull_number: pr.number,
                         merge_method,
                         commit_title: pr.title,
-                        commit_message: `Automated merge of sync PR\n\nSync hash: ${pr.head.ref.split('-').pop()}`
+                        commit_message:
+                          `Automated merge of sync PR\n\n` +
+                          `Sync hash: ${pr.head.ref.split('-').pop()}`
                       }));
                       console.log(`✓ Merged successfully (method=${merge_method})`);
                       merged = true;
@@ -349,7 +359,9 @@ jobs:
 
             const merged = results.filter(r => r.status === 'merged').length;
             const stale = results.filter(r => r.status === 'stale_closed').length;
-            const failed = results.filter(r => r.status === 'checks_failed' || r.status === 'merge_failed').length;
+            const failed = results.filter(
+              (r) => r.status === 'checks_failed' || r.status === 'merge_failed',
+            ).length;
             const pending = results.filter(r => r.status === 'checks_pending').length;
             const ready = results.filter(r => r.status === 'ready').length;
 

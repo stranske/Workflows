@@ -71,7 +71,7 @@ permissions:
   models: read  # Required for GitHub Models API access
 
 concurrency:
-  group: agents-verifier-${{ github.repository }}-${{ github.event.pull_request.number || inputs.pr_number || github.run_id }}
+  group: agents-verifier-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: false
 
 jobs:
@@ -125,7 +125,10 @@ jobs:
             const retryHelpers = fs.existsSync(retryHelperPath)
               ? require(retryHelperPath)
               : {
-                  createTokenAwareRetry: async ({ github }) => ({ github, withRetry: (fn) => fn(github) }),
+                  createTokenAwareRetry: async ({ github }) => ({
+                    github,
+                    withRetry: (fn) => fn(github),
+                  }),
                 };
             const { github: balancedGithub, withRetry } = await retryHelpers.createTokenAwareRetry({
               github,

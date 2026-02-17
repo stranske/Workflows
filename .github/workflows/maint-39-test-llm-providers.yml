@@ -55,7 +55,8 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
           if [ -z "${OPENAI_API_KEY:-}" ]; then
-            echo "OPENAI_API_KEY is not set; skipping OpenAI provider test." >> "$GITHUB_STEP_SUMMARY"
+            echo "OPENAI_API_KEY is not set;" >> "$GITHUB_STEP_SUMMARY"
+            echo "skipping OpenAI provider test." >> "$GITHUB_STEP_SUMMARY"
             echo "available=false" >> "$GITHUB_OUTPUT"
           else
             echo "available=true" >> "$GITHUB_OUTPUT"
@@ -92,7 +93,9 @@ jobs:
           "
 
       - name: Test OpenAI
-        if: (inputs.provider == 'all' || inputs.provider == 'openai') && steps.openai_key.outputs.available == 'true'
+        if: >-
+          (inputs.provider == 'all' || inputs.provider == 'openai') &&
+          steps.openai_key.outputs.available == 'true'
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |

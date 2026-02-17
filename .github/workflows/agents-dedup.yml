@@ -80,7 +80,10 @@ jobs:
                   withRetry: (fn) => fn(github),
                   paginateWithRetry: (githubInstance, method, params) =>
                     githubInstance.paginate(method, params),
-                  createTokenAwareRetry: async ({ github }) => ({ github, withRetry: (fn) => fn(github) }),
+                  createTokenAwareRetry: async ({ github }) => ({
+                    github,
+                    withRetry: (fn) => fn(github),
+                  }),
                 };
             const { github: api, withRetry } = await retryHelpers.createTokenAwareRetry({
               github,
@@ -237,7 +240,10 @@ jobs:
                   withRetry: (fn) => fn(github),
                   paginateWithRetry: (githubInstance, method, params) =>
                     githubInstance.paginate(method, params),
-                  createTokenAwareRetry: async ({ github }) => ({ github, withRetry: (fn) => fn(github) }),
+                  createTokenAwareRetry: async ({ github }) => ({
+                    github,
+                    withRetry: (fn) => fn(github),
+                  }),
                 };
             const { github: api, withRetry } = await retryHelpers.createTokenAwareRetry({
               github,

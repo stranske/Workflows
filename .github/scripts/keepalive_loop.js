@@ -1940,19 +1940,10 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
         const routing = resolveAgentRoutingFromLabels(routingLabelCandidates.length ? routingLabelCandidates : pr.labels);
         agentType = routing.agentKey;
       } catch (error) {
-        if (requestedAgentKeys.length > 1) {
-          hasAgentLabel = false;
-          agentType = '';
-        } else if (explicitAgentLabel === 'agent:auto') {
-          try {
-            const { resolveAgentFromLabels } = require('./agent_registry.js');
-            agentType = resolveAgentFromLabels([]);
-          } catch (_) {
-            agentType = 'codex';
-          }
-        } else {
-          agentType = requestedAgentKeys[0] || '';
-        }
+        // Treat any routing failure (unknown agent, conflicting labels, missing helper)
+        // as invalid to avoid enabling keepalive when no downstream runner is eligible.
+        hasAgentLabel = false;
+        agentType = '';
       }
     }
     const hasHighPrivilege = labels.includes('agent-high-privilege');

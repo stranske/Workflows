@@ -103,6 +103,35 @@ test('resolveAgentRoutingFromLabels rejects mixing agent:auto with explicit agen
   );
 });
 
+test('resolveAgentRoutingFromLabels rejects multiple explicit agent labels (string labels)', () => {
+  assert.throws(
+    () => {
+      resolveAgentRoutingFromLabels(['agent:codex', 'agent:claude'], { registryPath: REGISTRY_PATH });
+    },
+    (error) => {
+      assert.ok(error instanceof Error);
+      assert.match(String(error.message), /Multiple agent labels present/);
+      return true;
+    },
+  );
+});
+
+test('resolveAgentRoutingFromLabels rejects multiple explicit agent labels (object labels, case-insensitive)', () => {
+  assert.throws(
+    () => {
+      resolveAgentRoutingFromLabels(
+        [{ name: 'Agent:Codex' }, { name: 'AGENT:CLAUDE' }],
+        { registryPath: REGISTRY_PATH },
+      );
+    },
+    (error) => {
+      assert.ok(error instanceof Error);
+      assert.match(String(error.message), /Multiple agent labels present/);
+      return true;
+    },
+  );
+});
+
 test('getAgentConfig returns config for codex', () => {
   const config = getAgentConfig('codex', { registryPath: REGISTRY_PATH });
   assert.equal(config.branch_prefix, 'codex/issue-');

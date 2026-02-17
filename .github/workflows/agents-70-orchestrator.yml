@@ -56,7 +56,9 @@ jobs:
         ${{
           github.event_name == 'workflow_dispatch' && github.event.inputs.params_json ||
           github.event_name == 'repository_dispatch' && (
-            github.event.client_payload && github.event.client_payload.params && toJson(github.event.client_payload.params) ||
+            github.event.client_payload &&
+            github.event.client_payload.params &&
+            toJson(github.event.client_payload.params) ||
             github.event.client_payload && github.event.client_payload.params_json ||
             ''
           ) ||
@@ -66,7 +68,9 @@ jobs:
         ${{
           github.event_name == 'workflow_dispatch' && github.event.inputs.options_json ||
           github.event_name == 'repository_dispatch' && (
-            github.event.client_payload && github.event.client_payload.options && toJson(github.event.client_payload.options) ||
+            github.event.client_payload &&
+            github.event.client_payload.options &&
+            toJson(github.event.client_payload.options) ||
             github.event.client_payload && github.event.client_payload.options_json ||
             ''
           ) ||

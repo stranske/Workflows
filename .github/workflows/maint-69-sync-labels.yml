@@ -109,7 +109,8 @@ jobs:
             const input = '${{ inputs.repos }}' || 'all';
 
             // Canonical list comes from maint-68-sync-consumer-repos.yml
-            const workflowContent = fs.readFileSync('.github/workflows/maint-68-sync-consumer-repos.yml', 'utf8');
+            const workflowPath = '.github/workflows/maint-68-sync-consumer-repos.yml';
+            const workflowContent = fs.readFileSync(workflowPath, 'utf8');
             const lines = workflowContent.split('\n');
             const allConsumerRepos = [];
             let collecting = false;
@@ -131,7 +132,7 @@ jobs:
             }
 
             if (allConsumerRepos.length === 0) {
-              throw new Error('Failed to load consumer repos from maint-68-sync-consumer-repos.yml');
+              throw new Error(`Failed to load consumer repos from ${workflowPath}`);
             }
 
             let repos;
@@ -248,7 +249,10 @@ jobs:
                 }
               }
 
-              summary.push(`\n📊 Summary: ${created} created, ${updated} updated, ${unchanged} unchanged, ${errors} errors\n\n`);
+              summary.push(
+                `\n📊 Summary: ${created} created, ${updated} updated, ` +
+                  `${unchanged} unchanged, ${errors} errors\n\n`,
+              );
             }
 
             // Write summary

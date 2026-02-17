@@ -23,7 +23,8 @@ jobs:
     steps:
       - name: Mint GitHub App token (preferred)
         id: app-token
-        if: ${{ env.WORKFLOWS_APP_ID != '' && env.WORKFLOWS_APP_PRIVATE_KEY != '' }}
+        if: >-
+          ${{ env.WORKFLOWS_APP_ID != '' && env.WORKFLOWS_APP_PRIVATE_KEY != '' }}
         uses: actions/create-github-app-token@v2
         with:
           app-id: ${{ env.WORKFLOWS_APP_ID }}
@@ -45,7 +46,10 @@ jobs:
 
           compat_mode="$(printf '%s' "${COMPAT_MODE:-}" | tr '[:upper:]' '[:lower:]')"
           prefer_pat="false"
-          if [ "${compat_mode}" = "pat" ] || [ "${compat_mode}" = "pat-first" ] || [ "${compat_mode}" = "pat_only" ] || [ "${compat_mode}" = "pat-only" ]; then
+          if [ "${compat_mode}" = "pat" ] || \
+            [ "${compat_mode}" = "pat-first" ] || \
+            [ "${compat_mode}" = "pat_only" ] || \
+            [ "${compat_mode}" = "pat-only" ]; then
             prefer_pat="true"
           fi
 
@@ -77,13 +81,18 @@ jobs:
 
           case "${token_source}" in
             WORKFLOWS_APP)
-              echo 'Using GitHub App token (WORKFLOWS_APP); write operations will use the installation token.'
+              echo 'Using GitHub App token (WORKFLOWS_APP).'
+              echo 'Write operations will use the installation token.'
               ;;
             ACTIONS_BOT_PAT)
-              echo 'Using ACTIONS_BOT_PAT fallback. Configure WORKFLOWS_APP_ID and WORKFLOWS_APP_PRIVATE_KEY to enable the GitHub App path.'
+              echo 'Using ACTIONS_BOT_PAT fallback.'
+              echo 'Configure WORKFLOWS_APP_ID and WORKFLOWS_APP_PRIVATE_KEY'
+              echo 'to enable the GitHub App path.'
               ;;
             SERVICE_BOT_PAT)
-              echo 'Using SERVICE_BOT_PAT fallback. Configure WORKFLOWS_APP_ID and WORKFLOWS_APP_PRIVATE_KEY to enable the GitHub App path.'
+              echo 'Using SERVICE_BOT_PAT fallback.'
+              echo 'Configure WORKFLOWS_APP_ID and WORKFLOWS_APP_PRIVATE_KEY'
+              echo 'to enable the GitHub App path.'
               ;;
             *)
               echo 'Using default GITHUB_TOKEN fallback.'

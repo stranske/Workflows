@@ -140,7 +140,11 @@ jobs:
             await discoverWorkflowRuns({ github, context, core });
 
       - name: Download Gate artifacts
-        if: ${{ steps.gate_guard.outputs.recover == 'true' && steps.discover.outputs.gate_run_id != '' }}
+        if: >-
+          ${{
+            steps.gate_guard.outputs.recover == 'true' &&
+            steps.discover.outputs.gate_run_id != ''
+          }}
         uses: actions/download-artifact@v7
         with:
           pattern: gate-*
@@ -150,7 +154,11 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Collect coverage payloads
-        if: ${{ steps.gate_guard.outputs.recover == 'true' && steps.discover.outputs.gate_run_id != '' }}
+        if: >-
+          ${{
+            steps.gate_guard.outputs.recover == 'true' &&
+            steps.discover.outputs.gate_run_id != ''
+          }}
         id: coverage_payloads
         run: |
           python - <<'PY'
@@ -239,7 +247,11 @@ jobs:
           SUMMARY_BODY: ${{ steps.render.outputs.body }}
 
       - name: Persist summary preview
-        if: ${{ steps.gate_guard.outputs.recover == 'true' && steps.render.outputs.body != '' }}
+        if: >-
+          ${{
+            steps.gate_guard.outputs.recover == 'true' &&
+            steps.render.outputs.body != ''
+          }}
         run: |
           python - <<'PY'
           import os
@@ -249,7 +261,8 @@ jobs:
           if not body:
               raise SystemExit(0)
 
-          preview_path = Path(os.environ.get('PREVIEW_PATH', 'summary_artifacts/post-ci-summary.md'))
+          default_preview = 'summary_artifacts/post-ci-summary.md'
+          preview_path = Path(os.environ.get('PREVIEW_PATH', default_preview))
           preview_path.parent.mkdir(parents=True, exist_ok=True)
           preview_path.write_text(body, encoding='utf-8')
           PY
@@ -268,7 +281,11 @@ jobs:
           overwrite: true
 
       - name: Propagate Gate commit status
-        if: ${{ steps.gate_guard.outputs.recover == 'true' && steps.discover.outputs.head_sha != '' }}
+        if: >-
+          ${{
+            steps.gate_guard.outputs.recover == 'true' &&
+            steps.discover.outputs.head_sha != ''
+          }}
         uses: actions/github-script@v8
         env:
           HEAD_SHA: ${{ steps.discover.outputs.head_sha }}

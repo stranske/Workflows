@@ -1,0 +1,427 @@
+name: Reusable Claude Run
+
+on:
+  workflow_call:
+    inputs:
+      skip:
+        description: 'If true, skip execution entirely. Used for conditional calls.'
+        required: false
+        default: false
+        type: boolean
+      prompt_file:
+        description: 'Path to the prompt file that Claude should read.'
+        required: true
+        type: string
+      mode:
+        description: 'Claude mode for logging purposes (keepalive | autofix | verifier).'
+        required: false
+        default: keepalive
+        type: string
+      pr_number:
+        description: 'Optional pull request number (used for logging or comments by callers).'
+        required: false
+        default: ''
+        type: string
+      pr_ref:
+        description: 'The branch/ref to checkout and push to (e.g., refs/heads/feature-branch).'
+        required: false
+        default: ''
+        type: string
+      base_ref:
+        description: 'Optional base branch/ref for conflict surfacing (e.g., phase-3).'
+        required: false
+        default: ''
+        type: string
+      workflows_ref:
+        description: 'The ref of the Workflows repo to checkout for scripts. Defaults to main.'
+        required: false
+        default: 'main'
+        type: string
+      max_runtime_minutes:
+        description: 'Upper bound for the job runtime in minutes.'
+        required: false
+        default: 45
+        type: number
+      sandbox:
+        description: >-
+          Sandbox mode placeholder (kept for compatibility with Codex runner callers).
+        required: false
+        default: workspace-write
+        type: string
+      safety_strategy:
+        description: >-
+          Safety strategy placeholder (kept for compatibility with Codex runner callers).
+        required: false
+        default: drop-sudo
+        type: string
+      claude_cli_package:
+        description: 'Optional npm package to install if claude CLI is not already present.'
+        required: false
+        default: '@anthropic-ai/claude-code'
+        type: string
+      claude_cli_version:
+        description: 'Optional npm version to install for claude_cli_package (empty = latest).'
+        required: false
+        default: ''
+        type: string
+      claude_args:
+        description: 'Optional additional Claude CLI arguments (string).'
+        required: false
+        default: ''
+        type: string
+      appendix:
+        description: 'Optional context appended to the prompt passed to Claude.'
+        required: false
+        default: ''
+        type: string
+      iteration:
+        description: 'Current iteration number (for tracking in completion comments).'
+        required: false
+        default: ''
+        type: string
+      environment:
+        description: 'GitHub environment to run in (agent-standard or agent-high-privilege).'
+        required: false
+        default: 'agent-standard'
+        type: string
+    secrets:
+      CLAUDE_AUTH_JSON:
+        description: 'JSON contents for Claude CLI auth (written to ~/.config/claude/auth.json)'
+        required: false
+      WORKFLOWS_APP_ID:
+        required: false
+      WORKFLOWS_APP_PRIVATE_KEY:
+        required: false
+    outputs:
+      final-message:
+        description: 'Full Claude output message (base64 encoded)'
+        value: ${{ jobs.claude.outputs.final-message }}
+      final-message-summary:
+        description: 'First 500 chars of Claude output (safe for PR comments)'
+        value: ${{ jobs.claude.outputs.final-message-summary }}
+      error-summary:
+        description: >-
+          Failure summary message (prefers Claude output, falls back to preflight errors)
+        value: ${{ jobs.claude.outputs.error-summary }}
+      exit-code:
+        description: 'Claude CLI exit code (0=success)'
+        value: ${{ jobs.claude.outputs.exit-code }}
+      changes-made:
+        description: 'Whether Claude made file changes (true/false)'
+        value: ${{ jobs.claude.outputs.changes-made }}
+      commit-sha:
+        description: 'SHA of the commit if changes were pushed'
+        value: ${{ jobs.claude.outputs.commit-sha }}
+      files-changed:
+        description: 'Number of files changed by Claude'
+        value: ${{ jobs.claude.outputs.files-changed }}
+      llm-analysis-run:
+        description: 'Whether LLM analysis was performed'
+        value: ${{ jobs.claude.outputs.llm-analysis-run }}
+      llm-provider:
+        description: 'LLM provider used for analysis (placeholder for compatibility)'
+        value: ${{ jobs.claude.outputs.llm-provider }}
+      llm-model:
+        description: 'Specific model used for analysis (placeholder for compatibility)'
+        value: ${{ jobs.claude.outputs.llm-model }}
+      llm-confidence:
+        description: 'Confidence level of LLM analysis (placeholder for compatibility)'
+        value: ${{ jobs.claude.outputs.llm-confidence }}
+      llm-completed-tasks:
+        description: 'JSON array of completed task descriptions (placeholder for compatibility)'
+        value: ${{ jobs.claude.outputs.llm-completed-tasks }}
+      llm-has-completions:
+        description: 'Whether any task completions were detected (placeholder for compatibility)'
+        value: ${{ jobs.claude.outputs.llm-has-completions }}
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+  models: read
+
+concurrency:
+  group: claude-${{ inputs.mode }}-${{ inputs.pr_number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  claude:
+    name: Claude (${{ inputs.mode }})
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    timeout-minutes: ${{ inputs.max_runtime_minutes }}
+    if: ${{ !inputs.skip }}
+    outputs:
+      final-message: ${{ steps.run_claude.outputs.final-message }}
+      final-message-summary: ${{ steps.run_claude.outputs.final-message-summary }}
+      exit-code: ${{ steps.run_claude.outputs.exit-code }}
+      changes-made: ${{ steps.commit.outputs.changes-made }}
+      commit-sha: ${{ steps.commit.outputs.commit-sha }}
+      files-changed: ${{ steps.commit.outputs.files-changed }}
+      error-summary: ${{ steps.run_claude.outputs.error-summary }}
+      llm-analysis-run: ${{ steps.compat.outputs.llm-analysis-run }}
+      llm-provider: ${{ steps.compat.outputs.llm-provider }}
+      llm-model: ${{ steps.compat.outputs.llm-model }}
+      llm-confidence: ${{ steps.compat.outputs.llm-confidence }}
+      llm-completed-tasks: ${{ steps.compat.outputs.llm-completed-tasks }}
+      llm-has-completions: ${{ steps.compat.outputs.llm-has-completions }}
+    steps:
+      - name: Mint GitHub App token (preferred)
+        id: app_token
+        continue-on-error: true
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
+          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || 'dummy' }}
+
+      - name: Select auth token
+        id: auth_token
+        env:
+          APP_TOKEN: ${{ steps.app_token.outputs.token || '' }}
+        run: |
+          set -euo pipefail
+          checkout_token="${APP_TOKEN:-${GITHUB_TOKEN}}"
+          push_token="${APP_TOKEN:-}"
+          source="app-token"
+          push_allowed="true"
+
+          if [ -z "$push_token" ]; then
+            source="github-token"
+            push_allowed="false"
+          fi
+
+          {
+            echo "checkout_token=${checkout_token}"
+            echo "push_token=${push_token}"
+            echo "source=${source}"
+            echo "push_allowed=${push_allowed}"
+          } >> "$GITHUB_OUTPUT"
+
+          {
+            echo "WORKFLOWS_TOKEN=${checkout_token}"
+            echo "CLAUDE_MODE=${{ inputs.mode }}"
+            echo "CLAUDE_PR_NUMBER=${{ inputs.pr_number }}"
+          } >> "$GITHUB_ENV"
+
+          printf 'Checkout auth: %s; push permitted with app token: %s.\n' "$source" "$push_allowed"
+
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.pr_ref || github.ref }}
+          token: ${{ steps.auth_token.outputs.checkout_token }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+
+      - name: Preflight auth
+        id: preflight
+        env:
+          AUTH_JSON: ${{ secrets.CLAUDE_AUTH_JSON || '' }}
+        run: |
+          set -euo pipefail
+          if [ -z "$AUTH_JSON" ]; then
+            echo "missing=true" >> "$GITHUB_OUTPUT"
+            echo "error=Missing required secret CLAUDE_AUTH_JSON" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "missing=false" >> "$GITHUB_OUTPUT"
+
+          mkdir -p "$HOME/.config/claude"
+          printf '%s' "$AUTH_JSON" > "$HOME/.config/claude/auth.json"
+          chmod 0600 "$HOME/.config/claude/auth.json"
+
+      - name: Ensure Claude CLI
+        if: steps.preflight.outputs.missing != 'true'
+        env:
+          PACKAGE: ${{ inputs.claude_cli_package }}
+          VERSION: ${{ inputs.claude_cli_version }}
+        run: |
+          set -euo pipefail
+          if command -v claude >/dev/null 2>&1; then
+            echo "Claude CLI already present: $(command -v claude)"
+            exit 0
+          fi
+
+          if [ -z "$PACKAGE" ]; then
+            echo "::error::Claude CLI not found on PATH, and claude_cli_package is empty."
+            exit 1
+          fi
+
+          echo "Claude CLI not found; attempting npm install: ${PACKAGE}${VERSION:+@${VERSION}}"
+          if [ -n "$VERSION" ]; then
+            npm install -g "${PACKAGE}@${VERSION}"
+          else
+            npm install -g "${PACKAGE}"
+          fi
+
+          if ! command -v claude >/dev/null 2>&1; then
+            echo "::error::Claude CLI still not found after install."
+            echo "::error::If your CLI binary is not named 'claude', adjust claude_cli_package"
+            echo "::error::and/or pass the right claude_args for your environment."
+            exit 1
+          fi
+
+          echo "Installed Claude CLI: $(command -v claude)"
+          claude --version || true
+
+      - name: Prepare prompt
+        id: prompt
+        if: steps.preflight.outputs.missing != 'true'
+        env:
+          BASE_PROMPT: ${{ inputs.prompt_file }}
+          APPENDIX: ${{ inputs.appendix }}
+        run: |
+          set -euo pipefail
+          if [ ! -f "$BASE_PROMPT" ]; then
+            echo "::error::Prompt file not found: $BASE_PROMPT"
+            exit 1
+          fi
+
+          out="claude-prompt.md"
+          cat "$BASE_PROMPT" > "$out"
+          if [ -n "${APPENDIX:-}" ]; then
+            printf '\n\n---\n\n%s\n' "$APPENDIX" >> "$out"
+          fi
+          echo "file=$out" >> "$GITHUB_OUTPUT"
+
+      - name: Run Claude
+        id: run_claude
+        if: always()
+        env:
+          PREFLIGHT_MISSING: ${{ steps.preflight.outputs.missing || 'false' }}
+          PREFLIGHT_ERROR: ${{ steps.preflight.outputs.error || '' }}
+          PROMPT_FILE: ${{ steps.prompt.outputs.file || '' }}
+          EXTRA_ARGS: ${{ inputs.claude_args }}
+        run: |
+          set -euo pipefail
+
+          if [ "$PREFLIGHT_MISSING" = "true" ]; then
+            summary="$PREFLIGHT_ERROR"
+            echo "exit-code=1" >> "$GITHUB_OUTPUT"
+            echo "error-summary=$summary" >> "$GITHUB_OUTPUT"
+            echo "final-message=" >> "$GITHUB_OUTPUT"
+            echo "final-message-summary=$summary" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+
+          if [ -z "$PROMPT_FILE" ] || [ ! -f "$PROMPT_FILE" ]; then
+            summary="Prompt preparation failed (missing prompt file)."
+            echo "exit-code=1" >> "$GITHUB_OUTPUT"
+            echo "error-summary=$summary" >> "$GITHUB_OUTPUT"
+            echo "final-message=" >> "$GITHUB_OUTPUT"
+            echo "final-message-summary=$summary" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+
+          prompt_content="$(cat "$PROMPT_FILE")"
+          output_file="claude-output.txt"
+
+          set +e
+          claude -p "$prompt_content" ${EXTRA_ARGS} >"$output_file" 2>&1
+          status=$?
+          if [ $status -ne 0 ]; then
+            claude --prompt "$prompt_content" ${EXTRA_ARGS} >"$output_file" 2>&1
+            status=$?
+          fi
+          if [ $status -ne 0 ]; then
+            printf '%s' "$prompt_content" | claude ${EXTRA_ARGS} >"$output_file" 2>&1
+            status=$?
+          fi
+          set -e
+
+          output=""
+          if [ -f "$output_file" ]; then
+            output="$(cat "$output_file")"
+          fi
+
+          encoded="$(
+            printf '%s' "$output" | base64 -w 0 2>/dev/null || \
+            printf '%s' "$output" | base64 | tr -d '\n'
+          )"
+          summary="$(
+            printf '%s' "$output" | head -c 500 | tr '\n' ' ' | sed 's/  */ /g' || true
+          )"
+          if [ -z "$summary" ]; then
+            summary="No output captured"
+          fi
+
+          echo "exit-code=$status" >> "$GITHUB_OUTPUT"
+          echo "error-summary=$summary" >> "$GITHUB_OUTPUT"
+          echo "final-message=${encoded}" >> "$GITHUB_OUTPUT"
+          echo "final-message-summary=${summary}" >> "$GITHUB_OUTPUT"
+
+          if [ $status -ne 0 ]; then
+            exit $status
+          fi
+
+      - name: Commit and push changes
+        id: commit
+        if: always()
+        env:
+          PUSH_TOKEN: ${{ steps.auth_token.outputs.push_token || '' }}
+          PUSH_ALLOWED: ${{ steps.auth_token.outputs.push_allowed }}
+          PR_REF: ${{ inputs.pr_ref }}
+          MODE: ${{ inputs.mode }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "changes-made=false" >> "$GITHUB_OUTPUT"
+            echo "commit-sha=" >> "$GITHUB_OUTPUT"
+            echo "files-changed=0" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          files_changed=$(git status --porcelain | wc -l | tr -d ' ')
+          echo "files-changed=$files_changed" >> "$GITHUB_OUTPUT"
+
+          if [ "$PUSH_ALLOWED" != "true" ] || [ -z "$PUSH_TOKEN" ]; then
+            echo "changes-made=true" >> "$GITHUB_OUTPUT"
+            echo "commit-sha=" >> "$GITHUB_OUTPUT"
+            echo "::error::Claude made changes but no GitHub App push token is available."
+            echo "::error::Configure WORKFLOWS_APP_ID/WORKFLOWS_APP_PRIVATE_KEY."
+            exit 1
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add -A
+          commit_message="Claude (${MODE}) automated update"
+          if [ -n "${PR_NUMBER:-}" ]; then
+            commit_message+=" for PR #${PR_NUMBER}"
+          fi
+          git commit -m "$commit_message" || true
+          sha="$(git rev-parse HEAD)"
+          echo "commit-sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "changes-made=true" >> "$GITHUB_OUTPUT"
+
+          target_branch=""
+          if [ -n "${PR_REF:-}" ]; then
+            target_branch="$PR_REF"
+          else
+            target_branch="$(git rev-parse --abbrev-ref HEAD)"
+          fi
+          target_branch="${target_branch#refs/heads/}"
+
+          git remote set-url origin \
+            "https://x-access-token:${PUSH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git push origin "HEAD:${target_branch}"
+
+      - name: Compatibility outputs (LLM analysis placeholders)
+        id: compat
+        if: always()
+        run: |
+          {
+            echo "llm-analysis-run=false"
+            echo "llm-provider="
+            echo "llm-model="
+            echo "llm-confidence="
+            echo "llm-completed-tasks=[]"
+            echo "llm-has-completions=false"
+          } >> "$GITHUB_OUTPUT"

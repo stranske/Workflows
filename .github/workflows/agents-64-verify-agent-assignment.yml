@@ -45,7 +45,7 @@ permissions:
   issues: read
 
 concurrency:
-  group: agents-verify-assignment-${{ github.repository }}-${{ inputs.issue_number || github.run_id }}
+  group: agents-verify-assignment-${{ inputs.issue_number || github.run_id }}
   cancel-in-progress: false
 
 jobs:
@@ -96,7 +96,7 @@ jobs:
         env:
           ISSUE_NUMBER: ${{ inputs.issue_number }}
           VALID_ASSIGNEES: ${{ inputs.valid_assignees }}
-          DEFAULT_VALID_ASSIGNEES: ${{ vars.AGENT_VERIFY_DEFAULT_ASSIGNEES || 'copilot,chatgpt-codex-connector,stranske-automation-bot' }}
+          DEFAULT_VALID_ASSIGNEES: ${{ vars.AGENT_VERIFY_DEFAULT_ASSIGNEES || '' }}
         with:
           script: |
             const fs = require('fs');
@@ -104,7 +104,10 @@ jobs:
             const retryHelpers = fs.existsSync(retryHelperPath)
               ? require(retryHelperPath)
               : {
-                  createTokenAwareRetry: async ({ github }) => ({ github, withRetry: (fn) => fn(github) }),
+                  createTokenAwareRetry: async ({ github }) => ({
+                    github,
+                    withRetry: (fn) => fn(github),
+                  }),
                 };
             const { github: balancedGithub, withRetry } = await retryHelpers.createTokenAwareRetry({
               github,
@@ -135,7 +138,8 @@ jobs:
             };
 
             if (!Number.isInteger(issueNumber) || issueNumber <= 0) {
-              const message = `Input issue_number must be a positive integer. Received: ${rawInput}`;
+              const message =
+                `Input issue_number must be a positive integer. Received: ${rawInput}`;
               const table = [
                 '| Issue | Title | Has agent:codex? | Valid Agent Assignee | Status |',
                 '|-------|-------|-----------------|----------------------|--------|',
@@ -172,7 +176,10 @@ jobs:
                 .filter(Boolean);
 
             const providedLogins = parseAssignees(process.env.VALID_ASSIGNEES);
-            const fallbackLogins = parseAssignees(process.env.DEFAULT_VALID_ASSIGNEES);
+            const defaultAssignees =
+              (process.env.DEFAULT_VALID_ASSIGNEES || '').trim() ||
+              'copilot,chatgpt-codex-connector,stranske-automation-bot';
+            const fallbackLogins = parseAssignees(defaultAssignees);
             const REQUIRED_LOGINS = (providedLogins.length ? providedLogins : fallbackLogins)
               .map((login) => login.toLowerCase());
             let issueTitle = '—';
@@ -199,21 +206,26 @@ jobs:
               });
               hasLabel = labels.includes('agent:codex');
 
-              const assignees = (issue.assignees ?? []).map((assignee) => (assignee.login ?? '').toLowerCase());
+              const assignees = (issue.assignees ?? [])
+                .map((assignee) => (assignee.login ?? '').toLowerCase());
               matched = REQUIRED_LOGINS.find((login) => assignees.includes(login)) ?? '';
 
               if (!hasLabel) {
                 status = 'skipped';
-                message = `Issue #${issueNumber} does not carry the agent:codex label. Verification skipped.`;
+                message = `Issue #${issueNumber} does not carry the agent:codex label. ` +
+                  'Verification skipped.';
                 core.notice(message);
               } else if (!matched) {
                 status = 'fail';
                 const expectedList = REQUIRED_LOGINS.join(', ');
-                message = `Issue #${issueNumber} is labelled agent:codex but missing a valid agent assignee (expected one of: ${expectedList}).`;
+                message = `Issue #${issueNumber} is labelled agent:codex but missing ` +
+                  'a valid agent assignee.';
+                message += ` Expected one of: ${expectedList}.`;
                 core.error(message);
               } else {
                 status = 'pass';
-                message = `Issue #${issueNumber} has a valid agent assignee (${matched}).`;
+                message = `Issue #${issueNumber} has a valid agent assignee ` +
+                  `(${matched}).`;
                 core.info(message);
               }
             } catch (error) {
@@ -227,11 +239,19 @@ jobs:
               status === 'fail' ? 'fail' :
               status === 'skipped' ? 'skipped' : 'error';
 
-            const labelText = status === 'error' && !fetched ? 'unknown' : (hasLabel ? 'yes' : 'no');
+            const labelText =
+              status === 'error' && !fetched
+                ? 'unknown'
+                : (hasLabel ? 'yes' : 'no');
+            const assigneeCell = matched ? `\`${matched}\`` : '_none_';
+            const issueCell = `[#${issueNumber}](${issueUrl})`;
+            const row =
+              `| ${issueCell} | ${escapeCell(issueTitle)} | ${labelText} | ` +
+              `${assigneeCell} | ${statusLabel} |`;
             const table = [
               '| Issue | Title | Has agent:codex? | Valid Agent Assignee | Status |',
               '|-------|-------|-----------------|----------------------|--------|',
-              `| [#${issueNumber}](${issueUrl}) | ${escapeCell(issueTitle)} | ${labelText} | ${matched ? `\`${matched}\`` : '_none_'} | ${statusLabel} |`
+              row
             ].join('\n');
 
             await core.summary
@@ -244,7 +264,10 @@ jobs:
               .addEOL()
               .write();
 
-            const hasLabelOutput = status === 'error' && !fetched ? 'unknown' : (hasLabel ? 'true' : 'false');
+            const hasLabelOutput =
+              status === 'error' && !fetched
+                ? 'unknown'
+                : (hasLabel ? 'true' : 'false');
 
             setOutputs({
               status: statusLabel,

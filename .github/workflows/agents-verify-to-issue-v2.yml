@@ -23,7 +23,7 @@ env:
   PYTHON_VERSION: "3.12"
 
 concurrency:
-  group: agents-verify-to-issue-${{ github.repository }}-${{ github.event.pull_request.number || github.run_id }}
+  group: agents-verify-to-issue-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: false
 
 jobs:

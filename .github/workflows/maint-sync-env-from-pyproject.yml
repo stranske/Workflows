@@ -48,7 +48,12 @@ jobs:
               content = f.read()
 
           # Find the dev dependencies section
-          dev_match = re.search(r'\[project\.optional-dependencies\]\s*\ndev\s*=\s*\[(.*?)\]', content, re.DOTALL)
+            dev_pattern = (
+              r'\[project\.optional-dependencies\]'
+              r'\s*\n'
+              r'dev\s*=\s*\[(.*?)\]'
+            )
+            dev_match = re.search(dev_pattern, content, re.DOTALL)
           if not dev_match:
               print("ERROR: Could not find dev dependencies in pyproject.toml", file=sys.stderr)
               sys.exit(1)
@@ -100,7 +105,12 @@ jobs:
           with open('pyproject.toml', 'r') as f:
               content = f.read()
 
-          dev_match = re.search(r'\[project\.optional-dependencies\]\s*\ndev\s*=\s*\[(.*?)\]', content, re.DOTALL)
+            dev_pattern = (
+              r'\[project\.optional-dependencies\]'
+              r'\s*\n'
+              r'dev\s*=\s*\[(.*?)\]'
+            )
+            dev_match = re.search(dev_pattern, content, re.DOTALL)
           dev_section = dev_match.group(1) if dev_match else ""
 
           package_to_env = {

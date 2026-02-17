@@ -512,6 +512,22 @@ jobs:
       WORKFLOWS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID }}
       WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
 
+  autofix-claude:
+    needs: prepare
+    if: needs.prepare.outputs.should_run == 'true' && needs.prepare.outputs.agent_type == 'claude'
+    name: Run Claude autofix
+    uses: stranske/Workflows/.github/workflows/reusable-claude-run.yml@main
+    with:
+      prompt_file: .github/codex/prompts/autofix_from_ci_failure.md
+      mode: autofix
+      pr_number: ${{ needs.prepare.outputs.pr_number }}
+      pr_ref: ${{ needs.prepare.outputs.head_ref }}
+      appendix: ${{ needs.prepare.outputs.appendix }}
+    secrets:
+      CLAUDE_AUTH_JSON: ${{ secrets.CLAUDE_AUTH_JSON }}
+      WORKFLOWS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID }}
+      WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+
   needs-human:
     needs: prepare
     if: needs.prepare.outputs.stop_reason == 'max_attempts'
@@ -603,6 +619,7 @@ jobs:
     needs:
       - prepare
       - autofix
+      - autofix-claude
     if: always()
     runs-on: ubuntu-latest
     environment: >-
@@ -670,7 +687,12 @@ jobs:
             const triggerJob = '${{ needs.prepare.outputs.trigger_job }}';
             const triggerStep = '${{ needs.prepare.outputs.trigger_step }}';
             const stopReason = '${{ needs.prepare.outputs.stop_reason }}';
-            const autofixResult = '${{ needs.autofix.result }}';
+            const codexAutofixResult = '${{ needs.autofix.result }}';
+            const claudeAutofixResult = '${{ needs.autofix-claude.result }}';
+            const autofixResult =
+              codexAutofixResult && codexAutofixResult !== 'skipped'
+                ? codexAutofixResult
+                : claudeAutofixResult;
 
             const { owner, repo } = context.repo;
             let fixApplied = false;

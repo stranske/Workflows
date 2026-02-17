@@ -215,7 +215,9 @@ jobs:
 
             ### Update GitHub Secret
 
-            1. Go to [Repository Secrets](https://github.com/${context.repo.owner}/${context.repo.repo}/settings/secrets/actions)
+            1. Go to Repository Secrets:
+
+              https://github.com/${context.repo.owner}/${context.repo.repo}/settings/secrets/actions
             2. Click on \`CODEX_AUTH_JSON\` → **Update**
             3. Paste the JSON content from step 3 above
             4. Click **Update secret**
@@ -229,19 +231,25 @@ jobs:
 
             ### Documentation
 
-            See [docs/ci/CHATGPT_SUBSCRIPTION_CI.md](https://github.com/${context.repo.owner}/${context.repo.repo}/blob/main/docs/ci/CHATGPT_SUBSCRIPTION_CI.md) for full details on ChatGPT subscription authentication in CI.
+            Documentation link:
+
+            /${context.repo.owner}/${context.repo.repo}/blob/main/docs/ci/CHATGPT_SUBSCRIPTION_CI.md
+
+            See the linked doc for full details on ChatGPT subscription authentication in CI.
 
             ---
             *This issue was automatically created by the \`health-codex-auth-check\` workflow.*
             `;
 
-            await withRetry(() => github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: title,
-              body: body,
-              labels: ['auth-expiring', 'ci', 'priority:high']
-            }));
+            await withRetry(() =>
+              github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: title,
+                body: body,
+                labels: ['auth-expiring', 'ci', 'priority:high'],
+              })
+            );
 
             console.log(`Created issue: ${title}`);
 

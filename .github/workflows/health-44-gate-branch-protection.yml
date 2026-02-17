@@ -91,13 +91,16 @@ jobs:
             } catch (error) {
               const detail = error?.message || '';
               const status = error?.status || error?.response?.status;
-              const rateLimited = status === 429 || (status === 403 && /rate limit/i.test(detail));
+              const rateLimited =
+                status === 429 ||
+                (status === 403 && /rate limit/i.test(detail));
               if (rateLimited) {
                 if (!resolvedFallback) {
                   core.setFailed('Repository default branch not available');
                   return;
                 }
-                core.warning(`Rate limit while resolving default branch; using fallback "${resolvedFallback}".`);
+                core.warning('Rate limit while resolving default branch.');
+                core.warning(`Using fallback "${resolvedFallback}".`);
                 core.setOutput('name', resolvedFallback);
               } else {
                 throw error;
@@ -108,7 +111,8 @@ jobs:
         run: |
           echo "DEFAULT_BRANCH_NAME=${DEFAULT_BRANCH}" >> "$GITHUB_ENV"
         env:
-          DEFAULT_BRANCH: ${{ steps.default-branch.outputs.name || github.event.repository.default_branch }}
+          DEFAULT_BRANCH: >-
+            ${{ steps.default-branch.outputs.name || github.event.repository.default_branch }}
 
       - uses: actions/setup-python@v6
         with:
@@ -123,7 +127,8 @@ jobs:
         run: |
           if [ -z "${ENFORCE_TOKEN}" ]; then
             echo "BRANCH_PROTECTION_TOKEN is not configured; enforcement step will be skipped."
-            echo "The verification step will still fail if Gate or Health 45 Agents Guard is not required on the default branch."
+            echo "The verification step will still fail if Gate or Health 45 Agents Guard is"
+            echo "not required on the default branch."
           elif [ "${GITHUB_EVENT_NAME}" = "pull_request" ]; then
             echo "BRANCH_PROTECTION_TOKEN detected but pull_request events run in dry-run mode."
             echo "Schedule and workflow_dispatch events will apply the desired configuration."
@@ -162,7 +167,9 @@ jobs:
 
       - name: Verify gate branch protection is required (read-only)
         continue-on-error: ${{ github.event_name == 'pull_request' }}
-        if: env.ENFORCE_TOKEN == '' || (github.event_name == 'pull_request' && steps.verify-admin.outcome != 'success')
+        if: >-
+          env.ENFORCE_TOKEN == '' ||
+          (github.event_name == 'pull_request' && steps.verify-admin.outcome != 'success')
         env:
           GITHUB_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}

@@ -49,11 +49,13 @@ jobs:
       - name: Validate fork inputs
         id: validate
         run: |
-          if [ "${{ inputs.head_is_fork || 'false' }}" = "true" ] && [ -z "${{ inputs.head_repository }}" ]; then
+          if [ "${{ inputs.head_is_fork || 'false' }}" = "true" ] && \
+            [ -z "${{ inputs.head_repository }}" ]; then
             {
               echo "## Keepalive branch sync";
               echo "";
-              echo "Forked PR detected but head repository missing; skipping checkout to avoid fetching the base repo.";
+              echo "Forked PR detected but head repository missing;";
+              echo "Skipping checkout to avoid fetching the base repo.";
             } >> "$GITHUB_STEP_SUMMARY"
             echo "::error::Forked PR requires head_repository input; aborting sync."
             exit 1
@@ -62,7 +64,8 @@ jobs:
       - name: Warn when head repository is missing
         run: |
           if [ -z "${{ inputs.head_repository }}" ]; then
-            echo "::warning::Head repository missing; defaulting to base repository for checkout."
+            echo "::warning::Head repository missing;"
+            echo "::warning::Defaulting to base repository for checkout."
           fi
 
       - name: Mint GitHub App token (preferred)
@@ -200,7 +203,9 @@ jobs:
               echo "$conflict_files"
 
               # Check if conflicts are only in auto-resolvable files (lock files)
-              non_lock_conflicts=$(echo "$conflict_files" | grep -vE '(\.lock$|lock\.json$|package-lock\.json$|yarn\.lock$|poetry\.lock$|Gemfile\.lock$|requirements.*\.lock$)' || true)
+              lockfile_pattern='(\.lock$|lock\.json$|package-lock\.json$|yarn\.lock$|poetry\.lock$|'
+              lockfile_pattern+='Gemfile\.lock$|requirements.*\.lock$)'
+              non_lock_conflicts=$(echo "$conflict_files" | grep -vE "$lockfile_pattern" || true)
               if [ -z "$non_lock_conflicts" ]; then
                 echo "All conflicts are in lock files. Attempting auto-resolution..."
                 for file in $conflict_files; do

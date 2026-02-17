@@ -60,7 +60,35 @@ jobs:
       - name: Load registered consumer repos
         id: consumer-repos
         run: |
-          repos_markdown=$(awk '/REGISTERED_CONSUMER_REPOS: \|/{flag=1;next} flag && /^[^[:space:]]/{flag=0} flag{line=$0; sub(/^[[:space:]]+/,"",line); if(length(line)>0) print "          - " line}' .github/workflows/maint-68-sync-consumer-repos.yml)
+          repos_markdown=$(python3 - <<'PY'
+          from __future__ import annotations
+
+          path = '.github/workflows/maint-68-sync-consumer-repos.yml'
+          with open(path, encoding='utf-8') as handle:
+            lines = handle.read().splitlines()
+
+          repos: list[str] = []
+          in_block = False
+
+          for line in lines:
+            if not in_block:
+              starts_marker = line.strip().startswith('REGISTERED_CONSUMER_REPOS:')
+              ends_block = line.rstrip().endswith('|')
+              if starts_marker and ends_block:
+                in_block = True
+              continue
+
+            if line and not line.startswith(' '):
+              break
+
+            value = line.strip()
+            if value:
+              repos.append(value)
+
+          for repo in repos:
+            print(f'          - {repo}')
+          PY
+          )
           {
             echo "repos_markdown<<EOF"
             echo "$repos_markdown"
@@ -123,7 +151,8 @@ jobs:
           success_count=$(echo "$success_runs" | jq 'length')
           other_count=$((total_runs - failed_count - success_count))
 
-          echo "Results: $success_count success, $failed_count failure, $other_count other out of $total_runs runs"
+          echo "Results: $success_count success, $failed_count failure, $other_count other"
+          echo "out of $total_runs runs"
 
           # Check if ALL recent runs failed
           if [ "$failed_count" -eq "$total_runs" ]; then
@@ -136,7 +165,9 @@ jobs:
           # Check if there are NO successful runs (could be cancelled, skipped, in-progress)
           if [ "$success_count" -eq 0 ]; then
             echo "status=no_success" >> "$GITHUB_OUTPUT"
-            echo "message=No successful sync runs in the last $total_runs runs ($failed_count failed, $other_count other states)" >> "$GITHUB_OUTPUT"
+            message="No successful sync runs in the last $total_runs runs "
+            message+="($failed_count failed, $other_count other states)"
+            echo "message=$message" >> "$GITHUB_OUTPUT"
             echo "::warning::No successful sync runs found!"
             exit 0
           fi
@@ -152,13 +183,16 @@ jobs:
 
           if [ "$hours_since" -gt "$MAX_AGE_HOURS" ]; then
             echo "status=stale" >> "$GITHUB_OUTPUT"
-            echo "message=Last successful sync was $hours_since hours ago (threshold: $MAX_AGE_HOURS hours)" >> "$GITHUB_OUTPUT"
+            message="Last successful sync was $hours_since hours ago "
+            message+="(threshold: $MAX_AGE_HOURS hours)"
+            echo "message=$message" >> "$GITHUB_OUTPUT"
             echo "::warning::Sync is stale - last success was $hours_since hours ago"
             exit 0
           fi
 
           echo "status=healthy" >> "$GITHUB_OUTPUT"
-          echo "message=Sync is healthy - last success $hours_since hours ago" >> "$GITHUB_OUTPUT"
+          message="Sync is healthy - last success $hours_since hours ago"
+          echo "message=$message" >> "$GITHUB_OUTPUT"
           echo "✓ Sync workflow is healthy"
 
       - name: Check for existing issue
@@ -195,7 +229,8 @@ jobs:
           EXISTING_ISSUE: ${{ steps.existing.outputs.existing_issue }}
           HOURS_SINCE: ${{ steps.check.outputs.hours_since_success }}
         run: |
-          sync_url="${{ github.server_url }}/${{ github.repository }}/actions/workflows/maint-68-sync-consumer-repos.yml"
+          repo_url="${{ github.server_url }}/${{ github.repository }}"
+          sync_url="${repo_url}/actions/workflows/maint-68-sync-consumer-repos.yml"
 
           case "$STATUS" in
             all_failed)

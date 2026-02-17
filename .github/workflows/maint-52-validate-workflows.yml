@@ -45,11 +45,16 @@ jobs:
           set -euo pipefail
           mkdir -p "$HOME/.local/bin"
 
-          curl -sSL "https://github.com/rhysd/actionlint/releases/download/v1.7.3/actionlint_1.7.3_linux_amd64.tar.gz" \
+          actionlint_base="https://github.com/rhysd/actionlint/releases/download/v1.7.3"
+          actionlint_url="${actionlint_base}/actionlint_1.7.3_linux_amd64.tar.gz"
+          yq_base="https://github.com/mikefarah/yq/releases/download/v4.44.3"
+          yq_url="${yq_base}/yq_linux_amd64.tar.gz"
+
+          curl -sSL "$actionlint_url" \
             | tar -xz -C "$HOME/.local/bin" actionlint
           chmod +x "$HOME/.local/bin/actionlint"
 
-          curl -sSL "https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_amd64.tar.gz" \
+          curl -sSL "$yq_url" \
             | tar -xz -C "$HOME/.local/bin"
           mv "$HOME/.local/bin/yq_linux_amd64" "$HOME/.local/bin/yq"
           chmod +x "$HOME/.local/bin/yq"
@@ -61,7 +66,9 @@ jobs:
         run: |
           set -euo pipefail
 
-          mapfile -t workflow_files < <(find .github/workflows -type f \( -name '*.yml' -o -name '*.yaml' \) | sort)
+          mapfile -t workflow_files < <(
+            find .github/workflows -type f \( -name '*.yml' -o -name '*.yaml' \) | sort
+          )
           if [ "${#workflow_files[@]}" -eq 0 ]; then
             echo "No workflow files found." >&2
             exit 1
