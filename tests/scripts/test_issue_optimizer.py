@@ -170,7 +170,11 @@ def test_analyze_issue_invokes_llm_chain(monkeypatch: pytest.MonkeyPatch) -> Non
         "issue_body": "Issue body",
         "agent_limitations": "\n".join(f"- {item}" for item in issue_optimizer.AGENT_LIMITATIONS),
     }
-    mock_chain.invoke.assert_called_once_with(expected_prompt)
+    # Verify invoke was called with prompt and config
+    assert mock_chain.invoke.call_count == 1
+    call_args = mock_chain.invoke.call_args
+    assert call_args[0][0] == expected_prompt
+    assert "config" in call_args[1]  # LangSmith config passed as kwarg
     assert result.provider_used == "github-models"
     assert result.blocked_tasks[0]["task"] == "Update workflow"
 

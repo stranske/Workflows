@@ -134,6 +134,8 @@ class IssueOptimizationResult:
     provider_used: str | None = None
     guard_blocked: bool = False
     guard_reason: str = ""
+    langsmith_trace_id: str | None = None
+    langsmith_trace_url: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         payload: dict[str, Any] = {
@@ -148,6 +150,10 @@ class IssueOptimizationResult:
         if self.guard_blocked:
             payload["guard_blocked"] = True
             payload["guard_reason"] = self.guard_reason
+        if self.langsmith_trace_id:
+            payload["langsmith_trace_id"] = self.langsmith_trace_id
+        if self.langsmith_trace_url:
+            payload["langsmith_trace_url"] = self.langsmith_trace_url
         return payload
 
 
@@ -284,6 +290,85 @@ def _get_llm_client(force_openai: bool = False) -> tuple[object, str] | None:
     if not resolved:
         return None
     return resolved.client, resolved.provider
+
+
+def _build_llm_config(
+    *,
+    operation: str,
+    issue_number: int | None = None,
+) -> dict[str, object]:
+    """Build LangSmith metadata/tags for LLM call."""
+    import os
+
+    try:
+        from tools.llm_provider import build_langsmith_metadata
+
+        return build_langsmith_metadata(
+            operation=operation,
+            issue_number=issue_number,
+        )
+    except ImportError:
+        pass
+
+    # Inline fallback when tools.llm_provider is unavailable
+    repo = os.environ.get("GITHUB_REPOSITORY", "unknown")
+    run_id = os.environ.get("GITHUB_RUN_ID") or os.environ.get("RUN_ID") or "unknown"
+    env_issue = os.environ.get("ISSUE_NUMBER", "")
+    issue_or_pr = (
+        str(issue_number)
+        if issue_number is not None
+        else env_issue if env_issue.isdigit() else "unknown"
+    )
+    metadata = {
+        "repo": repo,
+        "run_id": run_id,
+        "issue_or_pr_number": issue_or_pr,
+        "operation": operation,
+        "issue_number": str(issue_number) if issue_number is not None else None,
+    }
+    tags = [
+        "workflows-agents",
+        f"operation:{operation}",
+        f"repo:{repo}",
+        f"issue_or_pr:{issue_or_pr}",
+        f"run_id:{run_id}",
+    ]
+    return {"metadata": metadata, "tags": tags}
+
+
+def _invoke_llm_with_trace(
+    chain: object,
+    inputs: dict[str, Any],
+    *,
+    operation: str,
+    issue_number: int | None = None,
+) -> tuple[object, str | None, str | None]:
+    """Invoke LLM chain and extract trace information.
+
+    Returns:
+        Tuple of (response, trace_id, trace_url)
+    """
+    config = _build_llm_config(operation=operation, issue_number=issue_number)
+
+    try:
+        response = chain.invoke(inputs, config=config)
+    except TypeError:
+        # Fallback if config not supported
+        response = chain.invoke(inputs)
+
+    # Extract trace ID from response if available
+    trace_id = None
+    trace_url = None
+    try:
+        from tools.llm_provider import derive_langsmith_trace_url, extract_trace_id
+
+        trace_id = extract_trace_id(response)
+        if trace_id:
+            trace_url = derive_langsmith_trace_url(trace_id)
+    except ImportError:
+        pass
+
+    return response, trace_id, trace_url
 
 
 def _normalize_heading(text: str) -> str:
@@ -649,7 +734,13 @@ def _normalize_result(
 
 
 def _process_llm_response(
-    response: Any, provider: str, use_llm: bool, *, client: object | None = None
+    response: Any,
+    provider: str,
+    use_llm: bool,
+    *,
+    client: object | None = None,
+    trace_id: str | None = None,
+    trace_url: str | None = None,
 ) -> tuple[IssueOptimizationResult | None, str | None]:
     """Process LLM response and return (result, error)."""
     content = getattr(response, "content", None) or str(response)
@@ -672,6 +763,8 @@ def _process_llm_response(
 
     result = _normalize_result(parsed.payload.model_dump(), provider)
     result.task_splitting = _ensure_task_decomposition(result.task_splitting, use_llm=use_llm)
+    result.langsmith_trace_id = trace_id
+    result.langsmith_trace_url = trace_url
     return result, None
 
 
@@ -709,16 +802,31 @@ def analyze_issue(issue_body: str, *, use_llm: bool = True) -> IssueOptimization
                 template = ChatPromptTemplate.from_template(prompt)
                 chain = template | client  # type: ignore[operator]
                 try:
-                    response = chain.invoke(
+                    import os
+
+                    issue_num = None
+                    env_issue = os.environ.get("ISSUE_NUMBER", "")
+                    if env_issue.isdigit():
+                        issue_num = int(env_issue)
+
+                    response, trace_id, trace_url = _invoke_llm_with_trace(
+                        chain,
                         {
                             "issue_body": issue_body,
                             "agent_limitations": "\n".join(
                                 f"- {item}" for item in AGENT_LIMITATIONS
                             ),
-                        }
+                        },
+                        operation="analyze_issue",
+                        issue_number=issue_num,
                     )
                     result, error = _process_llm_response(
-                        response, provider, use_llm, client=client
+                        response,
+                        provider,
+                        use_llm,
+                        client=client,
+                        trace_id=trace_id,
+                        trace_url=trace_url,
                     )
                     if result:
                         return result
@@ -737,19 +845,24 @@ def analyze_issue(issue_body: str, *, use_llm: bool = True) -> IssueOptimization
                             openai_client, openai_provider = openai_client_info
                             openai_chain = template | openai_client  # type: ignore[operator]
                             try:
-                                response = openai_chain.invoke(
+                                response, trace_id, trace_url = _invoke_llm_with_trace(
+                                    openai_chain,
                                     {
                                         "issue_body": issue_body,
                                         "agent_limitations": "\n".join(
                                             f"- {item}" for item in AGENT_LIMITATIONS
                                         ),
-                                    }
+                                    },
+                                    operation="analyze_issue",
+                                    issue_number=issue_num,
                                 )
                                 result, error = _process_llm_response(
                                     response,
                                     openai_provider,
                                     use_llm=use_llm,
                                     client=openai_client,
+                                    trace_id=trace_id,
+                                    trace_url=trace_url,
                                 )
                                 if result is not None:
                                     print(
@@ -928,13 +1041,23 @@ def apply_suggestions(
                 template = ChatPromptTemplate.from_template(prompt)
                 chain = template | client  # type: ignore[operator]
                 try:
-                    response = chain.invoke(
+                    import os
+
+                    issue_num = None
+                    env_issue = os.environ.get("ISSUE_NUMBER", "")
+                    if env_issue.isdigit():
+                        issue_num = int(env_issue)
+
+                    response, trace_id, trace_url = _invoke_llm_with_trace(
+                        chain,
                         {
                             "original_body": issue_body,
                             "suggestions_json": json.dumps(
                                 suggestions, ensure_ascii=True, indent=2
                             ),
-                        }
+                        },
+                        operation="apply_suggestions",
+                        issue_number=issue_num,
                     )
                     content = getattr(response, "content", None) or str(response)
                     formatted = content.strip()
@@ -946,11 +1069,16 @@ def apply_suggestions(
                                 file=sys.stderr,
                             )
                         else:
-                            return {
+                            result = {
                                 "formatted_body": formatted,
                                 "provider_used": provider,
                                 "used_llm": True,
                             }
+                            if trace_id:
+                                result["langsmith_trace_id"] = trace_id
+                            if trace_url:
+                                result["langsmith_trace_url"] = trace_url
+                            return result
                 except Exception as e:
                     # If GitHub Models hit token limit, retry with OpenAI API
                     if _is_token_limit_error(e) and provider == "github-models":
@@ -964,13 +1092,16 @@ def apply_suggestions(
                             openai_client, openai_provider = openai_client_info
                             openai_chain = template | openai_client  # type: ignore[operator]
                             try:
-                                response = openai_chain.invoke(
+                                response, trace_id, trace_url = _invoke_llm_with_trace(
+                                    openai_chain,
                                     {
                                         "original_body": issue_body,
                                         "suggestions_json": json.dumps(
                                             suggestions, ensure_ascii=True, indent=2
                                         ),
-                                    }
+                                    },
+                                    operation="apply_suggestions",
+                                    issue_number=issue_num,
                                 )
                                 content = getattr(response, "content", None) or str(response)
                                 formatted = content.strip()
@@ -986,11 +1117,16 @@ def apply_suggestions(
                                             "Successfully applied suggestions with OpenAI API",
                                             file=sys.stderr,
                                         )
-                                        return {
+                                        result = {
                                             "formatted_body": formatted,
                                             "provider_used": openai_provider,
                                             "used_llm": True,
                                         }
+                                        if trace_id:
+                                            result["langsmith_trace_id"] = trace_id
+                                        if trace_url:
+                                            result["langsmith_trace_url"] = trace_url
+                                        return result
                             except Exception as openai_error:
                                 err_type = type(openai_error).__name__
                                 print(
