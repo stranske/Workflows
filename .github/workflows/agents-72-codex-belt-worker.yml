@@ -263,10 +263,9 @@ jobs:
 
             const runId = context.runId;
             const concurrencyKey = branch || issue || runId;
+            const normalizedAgentKey = agentKey || 'codex';
             const concurrencyGroup = concurrencyKey
-              ? (agentKey === 'codex'
-                ? `codex-belt-${concurrencyKey}`
-                : `belt-${agentKey}-${concurrencyKey}`)
+              ? `belt-${normalizedAgentKey}-${concurrencyKey}`
               : '';
             if (!concurrencyGroup) {
               core.setFailed('Unable to determine concurrency group.');
