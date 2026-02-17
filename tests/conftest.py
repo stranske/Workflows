@@ -1,3 +1,5 @@
+import os
+
 import pytest
 
 from tests._autofix_diag import DiagnosticsRecorder, autofix_recorder  # noqa: F401
@@ -39,7 +41,7 @@ def llm_metadata_sentinel(llm_env_sentinel: dict[str, str]):
                 issue_or_pr_number = issue_number
             else:
                 issue_or_pr_number = "unknown"
-        return {
+        metadata = {
             "repo": llm_env_sentinel["GITHUB_REPOSITORY"],
             "run_id": llm_env_sentinel["GITHUB_RUN_ID"],
             "issue_or_pr_number": str(issue_or_pr_number),
@@ -47,6 +49,15 @@ def llm_metadata_sentinel(llm_env_sentinel: dict[str, str]):
             "pr_number": str(pr_number) if pr_number is not None else None,
             "issue_number": str(issue_number) if issue_number is not None else None,
         }
+        try:
+            from tools import llm_provider
+
+            langsmith_enabled = llm_provider._ensure_langsmith_enabled()
+        except ImportError:
+            langsmith_enabled = bool(os.environ.get("LANGSMITH_API_KEY"))
+        if langsmith_enabled:
+            metadata["langsmith_project"] = os.environ.get("LANGCHAIN_PROJECT", "workflows-agents")
+        return metadata
 
     return _build
 

@@ -192,7 +192,7 @@ quick_check() {
         echo -e "${BLUE}Running: $command${NC}"
     fi
 
-    if timeout "$CHECK_TIMEOUT" bash -c "$command" > "$output_file" 2>&1; then
+    if run_with_timeout "$CHECK_TIMEOUT" bash -c "$command" > "$output_file" 2>&1; then
         echo -e "${GREEN}✓ $name${NC}"
         rm -f "$output_file" "$fix_file" "$recheck_file"
         return 0
@@ -211,9 +211,9 @@ quick_check() {
 
         if [[ "$FIX_MODE" == true && -n "$fix_command" && $timed_out == false ]]; then
             echo -e "${YELLOW}  Fixing...${NC}"
-            if timeout "$CHECK_TIMEOUT" bash -c "$fix_command" > "$fix_file" 2>&1; then
+            if run_with_timeout "$CHECK_TIMEOUT" bash -c "$fix_command" > "$fix_file" 2>&1; then
                 # Re-check
-                if timeout "$CHECK_TIMEOUT" bash -c "$command" > "$recheck_file" 2>&1; then
+                if run_with_timeout "$CHECK_TIMEOUT" bash -c "$command" > "$recheck_file" 2>&1; then
                     echo -e "${GREEN}✓ $name (fixed)${NC}"
                     rm -f "$output_file" "$fix_file" "$recheck_file"
                     return 0
@@ -244,6 +244,20 @@ ACTIONLINT_BIN=""
 ACTIONLINT_IGNORE_ARGS=()
 ACTIONLINT_SECRETS_ALLOWLIST=()
 ACTIONLINT_SECRETS_MESSAGE='unexpected key "secrets"'
+HAS_TIMEOUT=false
+if command -v timeout >/dev/null 2>&1; then
+    HAS_TIMEOUT=true
+fi
+
+run_with_timeout() {
+    local duration="$1"
+    shift
+    if [[ "$HAS_TIMEOUT" == true ]]; then
+        command timeout "$duration" "$@"
+    else
+        "$@"
+    fi
+}
 ensure_actionlint() {
     if command -v actionlint >/dev/null 2>&1; then
         ACTIONLINT_BIN=$(command -v actionlint)
@@ -278,7 +292,11 @@ build_actionlint_ignore_args() {
     ACTIONLINT_IGNORE_ARGS=()
 
     if [[ -f "$allowlist_file" ]]; then
-        mapfile -t allowlist_lines < <(sed -e 's/[[:space:]]*$//' -e '/^[[:space:]]*#/d' -e '/^[[:space:]]*$/d' "$allowlist_file")
+        local -a allowlist_lines=()
+        while IFS= read -r entry; do
+            allowlist_lines+=("$entry")
+        done < <(sed -e 's/[[:space:]]*$//' -e '/^[[:space:]]*#/d' -e '/^[[:space:]]*$/d' "$allowlist_file")
+
         for entry in "${allowlist_lines[@]}"; do
             ACTIONLINT_IGNORE_ARGS+=("-ignore" "$entry")
         done
@@ -286,22 +304,24 @@ build_actionlint_ignore_args() {
 }
 
 build_actionlint_command() {
-    local -n cmd_ref="$1"
-    local -n files_ref="$2"
-
-    cmd_ref=("$ACTIONLINT_BIN")
+    local cmd_name="$1"
+    local files_name="$2"
+    local -a cmd_ref=("$ACTIONLINT_BIN")
     if [[ ${#ACTIONLINT_IGNORE_ARGS[@]} -gt 0 ]]; then
         cmd_ref+=("${ACTIONLINT_IGNORE_ARGS[@]}")
     fi
+    local -a files_ref=()
+    eval "files_ref=(\"\${${files_name}[@]}\")"
     cmd_ref+=("${files_ref[@]}")
+    eval "$cmd_name=(\"\${cmd_ref[@]}\")"
 }
 load_actionlint_secrets_allowlist() {
     local allowlist_file="${DEV_CHECK_SECRETS_ALLOWLIST:-.github/actionlint-secrets-allowlist.txt}"
     ACTIONLINT_SECRETS_ALLOWLIST=()
     if [[ -f "$allowlist_file" ]]; then
-        mapfile -t ACTIONLINT_SECRETS_ALLOWLIST < <(
-            sed -e 's/[[:space:]]*$//' -e '/^[[:space:]]*#/d' -e '/^[[:space:]]*$/d' "$allowlist_file"
-        )
+        while IFS= read -r entry; do
+            ACTIONLINT_SECRETS_ALLOWLIST+=("$entry")
+        done < <(sed -e 's/[[:space:]]*$//' -e '/^[[:space:]]*#/d' -e '/^[[:space:]]*$/d' "$allowlist_file")
     fi
 }
 
@@ -361,7 +381,9 @@ filter_actionlint_output() {
 
 run_actionlint_for_files() {
     local name="$1"
-    local -n files_ref="$2"
+    local files_name="$2"
+    local -a files_ref=()
+    eval "files_ref=(\"\${${files_name}[@]}\")"
     if [[ ${#files_ref[@]} -eq 0 ]]; then
         return 0
     fi
@@ -379,7 +401,7 @@ run_actionlint_for_files() {
     build_actionlint_command actionlint_cmd "$2"
 
     local exit_code=0
-    if ! timeout "$CHECK_TIMEOUT" "${actionlint_cmd[@]}" > "$output_file" 2>&1; then
+    if ! run_with_timeout "$CHECK_TIMEOUT" "${actionlint_cmd[@]}" > "$output_file" 2>&1; then
         exit_code=$?
     fi
 
@@ -432,18 +454,21 @@ run_actionlint_for_files() {
 }
 
 collect_actionlint_targets() {
-    local -n targets_ref="$1"
+    local target_var="$1"
     local override_list="${DEV_CHECK_ACTIONLINT_FILE_LIST:-}"
-    targets_ref=()
+    local -a targets_ref=()
 
     if [[ -n "$override_list" && -f "$override_list" ]]; then
-        mapfile -t targets_ref < "$override_list"
-        return 0
+        while IFS= read -r entry; do
+            targets_ref+=("$entry")
+        done < "$override_list"
+    else
+        while IFS= read -r entry; do
+            targets_ref+=("$entry")
+        done < <(find .github/workflows -maxdepth 1 -type f \( -name '*.yml' -o -name '*.yaml' \) -print)
     fi
 
-    mapfile -t targets_ref < <(
-        find .github/workflows -maxdepth 1 -type f \( -name '*.yml' -o -name '*.yaml' \) -print
-    )
+    eval "$target_var=(\"\${targets_ref[@]}\")"
 }
 
 run_actionlint_checks() {
