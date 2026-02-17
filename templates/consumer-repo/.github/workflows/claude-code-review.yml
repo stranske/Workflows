@@ -10,20 +10,23 @@ on:
 
 jobs:
   claude-review:
-    if: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
       pull-requests: read
       issues: read
       id-token: write
+    env:
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
     steps:
       - name: Checkout repository
+        if: env.CLAUDE_CODE_OAUTH_TOKEN != ''
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
 
       - name: Run Claude Code Review
+        if: env.CLAUDE_CODE_OAUTH_TOKEN != ''
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -31,11 +34,8 @@ jobs:
           plugins: code-review@claude-code-plugins
           prompt: /code-review:code-review ${{ github.repository }}/pull/${{ github.event.pull_request.number }}
 
-  claude-review-missing-secret:
-    if: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN == '' }}
-    runs-on: ubuntu-latest
-    steps:
       - name: Skip review (secret missing)
+        if: env.CLAUDE_CODE_OAUTH_TOKEN == ''
         run: |
           cat <<'EOF' >>"$GITHUB_STEP_SUMMARY"
           ### Claude Code Review skipped
