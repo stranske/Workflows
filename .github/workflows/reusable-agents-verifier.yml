@@ -25,7 +25,7 @@ on:
         type: number
         default: 300000
       mode:
-        description: 'Verification mode: checkbox (default), evaluate (LLM-based), or compare (multi-provider)'
+        description: 'Verification mode: checkbox (default), evaluate, or compare'
         required: false
         type: string
         default: 'checkbox'
@@ -47,16 +47,16 @@ on:
     secrets:
       CODEX_AUTH_JSON:
         required: false
-        description: 'Codex authentication JSON from codex login (required for checkbox/compare modes)'
+        description: 'Codex auth JSON (required for checkbox/compare modes)'
       OPENAI_API_KEY:
         required: false
-        description: 'OpenAI API key for evaluate/compare modes (enables model selection beyond GitHub Models)'
+        description: 'OpenAI API key for evaluate/compare modes'
       CLAUDE_API_STRANSKE:
         required: false
         description: 'Anthropic API key for evaluate/compare modes (enables Claude slot)'
       LANGSMITH_API_KEY:
         required: false
-        description: 'LangSmith API key for tracing LLM calls (optional, enables trace URL generation)'
+        description: 'LangSmith API key for tracing LLM calls (optional)'
       workflows_app_id:
         required: false
       workflows_app_private_key:
@@ -73,7 +73,14 @@ permissions:
 # pull_request_target uses base branch for github.ref, so without PR number
 # all verifier runs targeting the same branch would share a concurrency group.
 concurrency:
-  group: ${{ github.workflow }}-pr-${{ inputs.pr_number || github.event.pull_request.number || github.ref }}
+  group: >-
+    ${{
+      format(
+        '{0}-pr-{1}',
+        github.workflow,
+        inputs.pr_number || github.event.pull_request.number || github.ref
+      )
+    }}
   cancel-in-progress: true
 
 jobs:
@@ -202,17 +209,22 @@ jobs:
 
               for (const workflowFile of ciWorkflows) {
                 try {
-                  const { data: runs } = await withRetry(() => github.rest.actions.listWorkflowRuns({
-                    ...context.repo,
-                    workflow_id: workflowFile,
-                    head_sha: targetSha,
-                    per_page: 1,
-                  }));
+                  const { data: runs } = await withRetry(() =>
+                    github.rest.actions.listWorkflowRuns({
+                      ...context.repo,
+                      workflow_id: workflowFile,
+                      head_sha: targetSha,
+                      per_page: 1,
+                    }),
+                  );
 
                   if (runs.workflow_runs.length > 0) {
                     anyFound = true;
                     const run = runs.workflow_runs[0];
-                    core.info(`${workflowFile}: status=${run.status}, conclusion=${run.conclusion || 'pending'}`);
+                    const conclusion = run.conclusion || 'pending';
+                    core.info(
+                      `${workflowFile}: status=${run.status}, conclusion=${conclusion}`,
+                    );
                     if (run.status !== 'completed') {
                       allComplete = false;
                     }
@@ -222,7 +234,9 @@ jobs:
                   // Check for rate limit error
                   if (err.message && err.message.includes('rate limit')) {
                     hitRateLimit = true;
-                    core.warning(`Rate limited checking ${workflowFile}, will skip CI wait`);
+                    core.warning(
+                      `Rate limited checking ${workflowFile}; skipping CI wait.`,
+                    );
                   } else {
                     core.warning(`Failed to check ${workflowFile}: ${err.message}`);
                   }
@@ -233,7 +247,7 @@ jobs:
               if (hitRateLimit) {
                 rateLimitHits++;
                 if (rateLimitHits >= maxRateLimitHits) {
-                  core.info(`Rate limited ${rateLimitHits} times, skipping CI wait (PR is already merged, CI is done)`);
+                  core.info(`Rate limited ${rateLimitHits} times; skipping CI wait.`);
                   return;
                 }
               }
@@ -244,7 +258,9 @@ jobs:
               }
 
               core.info(`Waiting ${pollIntervalMs / 1000}s for CI to complete...`);
-              await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
+              await new Promise((resolve) =>
+                setTimeout(resolve, pollIntervalMs),
+              );
             }
 
             core.warning(`CI wait timed out after ${maxWaitMs / 1000}s.`);
@@ -258,7 +274,9 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const { buildVerifierContext } = require('./.workflows-lib/.github/scripts/agents_verifier_context.js');
+            const verifierContextPath =
+              './.workflows-lib/.github/scripts/agents_verifier_context.js';
+            const { buildVerifierContext } = require(verifierContextPath);
             const ciWorkflows = process.env.CI_WORKFLOWS || '[]';
             try {
               await buildVerifierContext({ github, context, core, ciWorkflows });
@@ -266,7 +284,7 @@ jobs:
               if (err.message && err.message.includes('rate limit')) {
                 core.warning(`Rate limited while building context: ${err.message}`);
                 core.setOutput('should_run', 'false');
-                core.setOutput('skip_reason', 'Rate limited - please retry later');
+                core.setOutput('skip_reason', 'Rate limited - retry later');
               } else {
                 throw err;
               }
@@ -306,7 +324,12 @@ jobs:
 
               agentKey = resolveAgentFromLabels(labels, { registryPath });
             } catch (err) {
-              core.warning(`Failed to resolve agent from PR labels; defaulting to codex: ${err.message}`);
+                core.warning(
+                  [
+                    'Failed to resolve agent from PR labels; defaulting to codex:',
+                    err.message,
+                  ].join(' '),
+                );
               agentKey = 'codex';
             }
 
@@ -351,8 +374,9 @@ jobs:
         env:
           CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
         run: |
+          mode="${{ inputs.mode }}"
           if [ -z "$CODEX_AUTH_JSON" ]; then
-            echo "::error::CODEX_AUTH_JSON secret is required for ${{ inputs.mode }} mode but not provided"
+            echo "::error::CODEX_AUTH_JSON secret is required for mode '${mode}' but not provided"
             exit 1
           fi
 
@@ -427,32 +451,55 @@ jobs:
       # === LLM Evaluation Mode (when mode=evaluate) ===
       - name: Setup Python for LLM evaluation
         id: setup-python-evaluate
-        if: steps.context.outputs.should_run == 'true' && inputs.mode == 'evaluate'
+        if: >-
+          ${{
+            steps.context.outputs.should_run == 'true' &&
+            inputs.mode == 'evaluate'
+          }}
         uses: actions/setup-python@v6
         with:
           python-version: '3.12'
 
       - name: Cache pip (LLM evaluation requirements)
-        if: steps.context.outputs.should_run == 'true' && inputs.mode == 'evaluate'
+        if: >-
+          ${{
+            steps.context.outputs.should_run == 'true' &&
+            inputs.mode == 'evaluate'
+          }}
         uses: actions/cache@v5
         with:
           path: |
             ~/.cache/pip
           key: >-
-            pip-${{ runner.os }}-${{ steps.setup-python-evaluate.outputs.python-version }}-${{ hashFiles('.workflows-lib/tools/requirements-llm.txt') }}
+            ${{
+              format(
+                'pip-{0}-{1}-{2}',
+                runner.os,
+                steps.setup-python-evaluate.outputs.python-version,
+                hashFiles('.workflows-lib/tools/requirements-llm.txt')
+              )
+            }}
           restore-keys: |
             pip-${{ runner.os }}-${{ steps.setup-python-evaluate.outputs.python-version }}-
             pip-${{ runner.os }}-
 
       - name: Install LLM evaluation dependencies
-        if: steps.context.outputs.should_run == 'true' && inputs.mode == 'evaluate'
+        if: >-
+          ${{
+            steps.context.outputs.should_run == 'true' &&
+            inputs.mode == 'evaluate'
+          }}
         run: |
           python -m pip install --upgrade pip
           pip install -r .workflows-lib/tools/requirements-llm.txt
 
       - name: Check provider secrets
         id: openai_key
-        if: steps.context.outputs.should_run == 'true' && (inputs.mode == 'evaluate' || inputs.mode == 'compare')
+        if: >-
+          ${{
+            steps.context.outputs.should_run == 'true' &&
+            (inputs.mode == 'evaluate' || inputs.mode == 'compare')
+          }}
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           CLAUDE_API_STRANSKE: ${{ secrets.CLAUDE_API_STRANSKE }}
@@ -470,25 +517,42 @@ jobs:
           fi
 
           if [ "${requires_openai}" = "true" ] && [ -z "${OPENAI_API_KEY:-}" ]; then
-            echo "OPENAI_API_KEY is not set; skipping verifier LLM step that requires OpenAI." >> "$GITHUB_STEP_SUMMARY"
+            {
+              echo "OPENAI_API_KEY is not set."
+              echo "Skipping verifier LLM step that requires OpenAI."
+            } >> "$GITHUB_STEP_SUMMARY"
             echo "available=false" >> "$GITHUB_OUTPUT"
           elif [ "${requires_claude}" = "true" ] && [ -z "${CLAUDE_API_STRANSKE:-}" ]; then
-            echo "CLAUDE_API_STRANSKE is not set; skipping verifier LLM step that requires Claude." >> "$GITHUB_STEP_SUMMARY"
+            {
+              echo "CLAUDE_API_STRANSKE is not set."
+              echo "Skipping verifier LLM step that requires Claude."
+            } >> "$GITHUB_STEP_SUMMARY"
             echo "available=false" >> "$GITHUB_OUTPUT"
           else
             echo "available=true" >> "$GITHUB_OUTPUT"
           fi
 
           if [ "${MODE}" = "compare" ] && [ -z "${OPENAI_API_KEY:-}" ]; then
-            echo "OPENAI_API_KEY is not set; compare will fall back to Claude/GitHub Models." >> "$GITHUB_STEP_SUMMARY"
+            {
+              echo "OPENAI_API_KEY is not set."
+              echo "Compare will fall back to Claude/GitHub Models."
+            } >> "$GITHUB_STEP_SUMMARY"
           fi
           if [ "${MODE}" = "compare" ] && [ -z "${CLAUDE_API_STRANSKE:-}" ]; then
-            echo "CLAUDE_API_STRANSKE is not set; compare will fall back to OpenAI/GitHub Models." >> "$GITHUB_STEP_SUMMARY"
+            {
+              echo "CLAUDE_API_STRANSKE is not set."
+              echo "Compare will fall back to OpenAI/GitHub Models."
+            } >> "$GITHUB_STEP_SUMMARY"
           fi
 
       - name: Run LLM evaluation
         id: llm_evaluate
-        if: steps.context.outputs.should_run == 'true' && inputs.mode == 'evaluate' && steps.openai_key.outputs.available == 'true'
+        if: >-
+          ${{
+            steps.context.outputs.should_run == 'true' &&
+            inputs.mode == 'evaluate' &&
+            steps.openai_key.outputs.available == 'true'
+          }}
         continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -533,22 +597,35 @@ jobs:
           args+=(--issue-label verify:evaluate)
 
           # Run evaluator (stderr to separate file to avoid corrupting JSON)
-          python .workflows-lib/scripts/langchain/pr_verifier.py "${args[@]}" > evaluation.json 2> evaluation-stderr.log || true
+          python .workflows-lib/scripts/langchain/pr_verifier.py "${args[@]}" \
+            > evaluation.json 2> evaluation-stderr.log || true
 
           # Parse result
           if [ -f evaluation.json ]; then
-            verdict=$(python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('verdict','CONCERNS'))" < evaluation.json 2>/dev/null || echo "CONCERNS")
-            echo "verdict=$verdict" >> "$GITHUB_OUTPUT"
+            python3 - <<'PY' < evaluation.json > evaluation-outputs.env 2>/dev/null || true
+            import json
+            import sys
 
-            # Extract trace ID and URL for output
-            trace_id=$(python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('langsmith_trace_id', ''))" < evaluation.json 2>/dev/null || echo "")
-            trace_url=$(python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('langsmith_trace_url', ''))" < evaluation.json 2>/dev/null || echo "")
-            echo "trace_id=$trace_id" >> "$GITHUB_OUTPUT"
-            echo "trace_url=$trace_url" >> "$GITHUB_OUTPUT"
+            data = json.load(sys.stdin)
+            print(f"verdict={data.get('verdict', 'CONCERNS')}")
+            print(f"trace_id={data.get('langsmith_trace_id', '')}")
+            print(f"trace_url={data.get('langsmith_trace_url', '')}")
+            PY
+
+            if [ -s evaluation-outputs.env ]; then
+              cat evaluation-outputs.env >> "$GITHUB_OUTPUT"
+              verdict="$(grep '^verdict=' evaluation-outputs.env | cut -d= -f2- || true)"
+              trace_id="$(grep '^trace_id=' evaluation-outputs.env | cut -d= -f2- || true)"
+              trace_url="$(grep '^trace_url=' evaluation-outputs.env | cut -d= -f2- || true)"
+            else
+              verdict="CONCERNS"
+              trace_id=""
+              trace_url=""
+            fi
 
             # Log trace URL for easy access from workflow logs
             if [ -n "$trace_url" ]; then
-              echo "::notice title=LangSmith Trace::View evaluation trace: $trace_url"
+              echo "::notice title=LangSmith Trace::View trace: $trace_url"
             fi
 
             # Format output for comment
@@ -606,50 +683,83 @@ jobs:
             cat evaluation-comment.md
           else
             echo "verdict=CONCERNS" >> "$GITHUB_OUTPUT"
-            printf "%s\n" "## LLM Evaluation" "" "Evaluation could not run (missing output)." > evaluation-comment.md
+            printf "%s\n" \
+              "## LLM Evaluation" \
+              "" \
+              "Evaluation could not run (missing output)." \
+              > evaluation-comment.md
           fi
 
       - name: Post LLM evaluation comment
-        if: steps.context.outputs.should_run == 'true' && inputs.mode == 'evaluate' && steps.llm_evaluate.outcome == 'success'
+        if: >-
+          ${{
+            steps.context.outputs.should_run == 'true' &&
+            inputs.mode == 'evaluate' &&
+            steps.llm_evaluate.outcome == 'success'
+          }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           pr_number="${{ steps.context.outputs.pr_number }}"
           if [ -n "$pr_number" ] && [ -f "evaluation-comment.md" ]; then
-            gh pr comment "$pr_number" --body-file evaluation-comment.md || echo "Warning: Could not post comment"
+            gh pr comment "$pr_number" --body-file evaluation-comment.md || \
+              echo "Warning: Could not post comment"
           fi
 
 
       # === Multi-Provider Comparison Mode (when mode=compare) ===
       - name: Setup Python for comparison
         id: setup-python-compare
-        if: steps.context.outputs.should_run == 'true' && inputs.mode == 'compare'
+        if: >-
+          ${{
+            steps.context.outputs.should_run == 'true' &&
+            inputs.mode == 'compare'
+          }}
         uses: actions/setup-python@v6
         with:
           python-version: '3.12'
 
       - name: Cache pip (LLM comparison requirements)
-        if: steps.context.outputs.should_run == 'true' && inputs.mode == 'compare'
+        if: >-
+          ${{
+            steps.context.outputs.should_run == 'true' &&
+            inputs.mode == 'compare'
+          }}
         uses: actions/cache@v5
         with:
           path: |
             ~/.cache/pip
           key: >-
-            pip-${{ runner.os }}-${{ steps.setup-python-compare.outputs.python-version }}-${{ hashFiles('.workflows-lib/tools/requirements-llm.txt') }}
+            ${{
+              format(
+                'pip-{0}-{1}-{2}',
+                runner.os,
+                steps.setup-python-compare.outputs.python-version,
+                hashFiles('.workflows-lib/tools/requirements-llm.txt')
+              )
+            }}
           restore-keys: |
             pip-${{ runner.os }}-${{ steps.setup-python-compare.outputs.python-version }}-
             pip-${{ runner.os }}-
 
       - name: Install comparison dependencies
-        if: steps.context.outputs.should_run == 'true' && inputs.mode == 'compare'
+        if: >-
+          ${{
+            steps.context.outputs.should_run == 'true' &&
+            inputs.mode == 'compare'
+          }}
         run: |
           python -m pip install --upgrade pip
           pip install -r .workflows-lib/tools/requirements-llm.txt
 
       - name: Run multi-provider comparison
         id: llm_compare
-        if: steps.context.outputs.should_run == 'true' && inputs.mode == 'compare'
+        if: >-
+          ${{
+            steps.context.outputs.should_run == 'true' &&
+            inputs.mode == 'compare'
+          }}
         continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -678,7 +788,8 @@ jobs:
           fi
 
           # Run comparison (stderr to separate file to avoid corrupting JSON)
-          python .workflows-lib/scripts/langchain/pr_verifier.py "${args[@]}" > comparison.json 2> comparison-stderr.log || true
+          python .workflows-lib/scripts/langchain/pr_verifier.py "${args[@]}" \
+            > comparison.json 2> comparison-stderr.log || true
 
           # Display stderr if present (for debugging)
           if [ -f comparison-stderr.log ] && [ -s comparison-stderr.log ]; then
@@ -701,7 +812,10 @@ jobs:
 
           results = data.get('results', [])
           usable = [r for r in results if r.get('used_llm') and r.get('verdict')]
-          verdicts = [r.get('verdict') for r in usable] if usable else [r.get('verdict') for r in results if r.get('verdict')]
+          if usable:
+              verdicts = [r.get('verdict') for r in usable]
+          else:
+              verdicts = [r.get('verdict') for r in results if r.get('verdict')]
           if verdicts and all(v == 'PASS' for v in verdicts):
               print('PASS')
           else:
@@ -744,7 +858,18 @@ jobs:
 
             # Extract the formatted report if needed
             if [ ! -f comparison-comment.md ]; then
-              python3 -c "import json; d=json.load(open('comparison.json')); print(d.get('report', '## Comparison Report\n\nNo report generated.'))" > comparison-comment.md
+              python3 - <<'PY' > comparison-comment.md
+          import json
+
+          try:
+              with open('comparison.json') as f:
+                  data = json.load(f)
+              report = data.get('report')
+          except Exception:
+              report = None
+
+          print(report or '## Comparison Report\n\nNo report generated.')
+          PY
             fi
 
             cat comparison-comment.md
@@ -755,22 +880,37 @@ jobs:
             fi
             echo "verdict=CONCERNS" >> "$GITHUB_OUTPUT"
             echo "has_results=false" >> "$GITHUB_OUTPUT"
-            printf "%s\n" "## Multi-Provider Comparison" "" "Comparison could not run (missing output)." > comparison-comment.md
+            printf "%s\n" \
+              "## Multi-Provider Comparison" \
+              "" \
+              "Comparison could not run (missing output)." \
+              > comparison-comment.md
           fi
 
       - name: Post comparison report comment
-        if: steps.context.outputs.should_run == 'true' && inputs.mode == 'compare' && steps.llm_compare.outputs.has_results == 'true'
+        if: >-
+          ${{
+            steps.context.outputs.should_run == 'true' &&
+            inputs.mode == 'compare' &&
+            steps.llm_compare.outputs.has_results == 'true'
+          }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           pr_number="${{ steps.context.outputs.pr_number }}"
           if [ -n "$pr_number" ] && [ -f "comparison-comment.md" ]; then
-            gh pr comment "$pr_number" --body-file comparison-comment.md || echo "Warning: Could not post comment"
+            gh pr comment "$pr_number" --body-file comparison-comment.md || \
+              echo "Warning: Could not post comment"
           fi
 
       - name: Upload comparison artifacts
-        if: always() && steps.context.outputs.should_run == 'true' && inputs.mode == 'compare'
+        if: >-
+          ${{
+            always() &&
+            steps.context.outputs.should_run == 'true' &&
+            inputs.mode == 'compare'
+          }}
         uses: actions/upload-artifact@v6
         with:
           name: comparison-results-${{ github.run_id }}
@@ -805,11 +945,14 @@ jobs:
       # Use verify:create-issue label on PRs with CONCERNS to manually create follow-up issues
       - name: Open follow-up issue on verifier failure
         id: failure_issue
-        if: ${{ github.run_id == 0 }} # Disabled - use agents-verify-to-issue-v2.yml with verify:create-issue label instead
+        # Disabled: use agents-verify-to-issue-v2.yml with verify:create-issue label instead
+        if: ${{ github.run_id == 0 }}
         uses: actions/github-script@v8
         env:
           PR_URL: ${{ steps.context.outputs.pr_html_url }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          RUN_URL: >-
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          ISSUE_NUMBERS_JSON: ${{ steps.context.outputs.issue_numbers || '[]' }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -823,11 +966,14 @@ jobs:
                     githubInstance.paginate(method, params),
                 };
             const { withRetry } = retryHelpers;
-            const { formatFollowUpIssue, formatSimpleFollowUpIssue } = require('./.workflows-lib/.github/scripts/verifier_issue_formatter.js');
+            const {
+              formatFollowUpIssue,
+              formatSimpleFollowUpIssue,
+            } = require('./.workflows-lib/.github/scripts/verifier_issue_formatter.js');
 
             const rawPrNumber = Number('${{ steps.context.outputs.pr_number }}');
             const prNumber = !Number.isNaN(rawPrNumber) && rawPrNumber > 0 ? rawPrNumber : null;
-            const issueNumbers = JSON.parse('${{ steps.context.outputs.issue_numbers || '[]' }}');
+            const issueNumbers = JSON.parse(process.env.ISSUE_NUMBERS_JSON || '[]');
             const verdict = '${{ steps.verdict.outputs.verdict }}';
             const prUrl = process.env.PR_URL || '';
             const runUrl = process.env.RUN_URL || '';
@@ -837,8 +983,19 @@ jobs:
 
             // Handle Codex crash/error case
             if (verdict === 'error') {
-              const title = prNumber ? `[Verifier Error] PR #${prNumber} verification failed` : '[Verifier Error] Verification failed';
-              const body = `## Verifier Error\n\nThe verifier encountered an error while checking acceptance criteria.\n\n**PR:** ${prUrl || `#${prNumber}` || 'unknown'}\n**Run:** ${runUrl}\n\nPlease review the workflow run logs for details.`;
+              const title = prNumber
+                ? `[Verifier Error] PR #${prNumber} verification failed`
+                : '[Verifier Error] Verification failed';
+              const body = [
+                '## Verifier Error',
+                '',
+                'The verifier encountered an error while checking acceptance criteria.',
+                '',
+                `**PR:** ${prUrl || `#${prNumber}` || 'unknown'}`,
+                `**Run:** ${runUrl}`,
+                '',
+                'Please review the workflow run logs for details.',
+              ].join('\n');
               const { data: issue } = await withRetry(() => github.rest.issues.create({
                 ...context.repo,
                 title,
@@ -912,7 +1069,12 @@ jobs:
             // Skip issue creation if there's no substantive content
             // (e.g., all sections are placeholder text or empty)
             if (!result.hasSubstantiveContent) {
-              core.info('Skipping issue creation: no substantive content to act on (all placeholder sections)');
+              core.info(
+                [
+                  "Skipping issue creation: no substantive content to act on",
+                  "(all placeholder sections).",
+                ].join(' '),
+              );
               core.setOutput('issue_number', '');
               core.setOutput('skipped', 'true');
               return;
@@ -1004,7 +1166,15 @@ jobs:
           import json, os
           metrics = json.loads(os.environ["METRICS_JSON"])
           lines = ["## Verifier metrics", "", "| Field | Value |", "| --- | --- |"]
-          for key in ["pr_number", "verdict", "issues_created", "acceptance_criteria_count", "checks_run", "skip_reason"]:
+            keys = [
+              "pr_number",
+              "verdict",
+              "issues_created",
+              "acceptance_criteria_count",
+              "checks_run",
+              "skip_reason",
+            ]
+            for key in keys:
               lines.append(f"| {key} | `{metrics.get(key, '')}` |")
 
           summary_path = os.environ.get("GITHUB_STEP_SUMMARY")

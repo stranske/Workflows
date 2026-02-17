@@ -246,7 +246,9 @@ jobs:
             const retryHelpers = fs.existsSync(retryHelperPath)
               ? require(retryHelperPath)
               : {
-                  createTokenAwareRetry: async () => ({ withRetry: (fn) => fn(github) })
+                  createTokenAwareRetry: async () => ({
+                    withRetry: (fn) => fn(github),
+                  }),
                 };
             const { createTokenAwareRetry } = retryHelpers;
             const { withRetry } = await createTokenAwareRetry({
@@ -254,22 +256,28 @@ jobs:
               core,
               env: process.env,
               task: 'autofix-resolve-workflows-ref',
-              capabilities: ['contents:read']
+              capabilities: ['contents:read'],
             });
             const fallback = 'main';
             try {
-              const { data } = await withRetry((client) => client.rest.repos.get({
-                owner: 'stranske',
-                repo: 'Workflows'
-              }));
+              const { data } = await withRetry((client) =>
+                client.rest.repos.get({
+                  owner: 'stranske',
+                  repo: 'Workflows',
+                }),
+              );
               const ref = data?.default_branch || fallback;
               if (!data?.default_branch) {
-                core.warning(`Workflows default branch missing; falling back to ${fallback}`);
+                core.warning(
+                  `Workflows default branch missing; falling back to ${fallback}`,
+                );
               }
               core.setOutput('ref', ref);
             } catch (error) {
               const message = error?.message || String(error);
-              core.warning(`Failed to resolve Workflows default branch; using ${fallback}. ${message}`);
+              core.warning(
+                `Failed to resolve Workflows default branch; using ${fallback}. ${message}`,
+              );
               core.setOutput('ref', fallback);
             }
       - name: Checkout Workflows scripts (for autofix utilities)
@@ -380,16 +388,20 @@ jobs:
             // the gate workflow when it detects a cosmetic-only failure. Adding it
             // unconditionally causes all autofix runs to be in clean mode.
             if (label === cleanLabel) {
-              core.info(`Skipping label application: opt_in_label '${label}' equals clean_label, which should only be added by gate workflow.`);
+              core.info(
+                "Skipping label application: opt_in_label matches clean_label (gate-only).",
+              );
               return;
             }
             try {
-              await withRetry(() => github.rest.issues.addLabels({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: prNumber,
-                labels: [label],
-              }));
+              await withRetry(() =>
+                github.rest.issues.addLabels({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: prNumber,
+                  labels: [label],
+                }),
+              );
             } catch (error) {
               core.warning(`Failed to ensure autofix label: ${error.message}`);
             }
@@ -460,7 +472,12 @@ jobs:
           set -euo pipefail
           # === Dynamic Python Target Detection ===
           # shellcheck disable=SC2016 # Single quotes intentional - literal regex pattern
-          STANDARD_EXCLUSIONS='(^|/)\.git($|/)|\.venv|venv|\.env|env|__pycache__|node_modules|build|dist|\.tox|\.pytest_cache|\.mypy_cache|\.ruff_cache|htmlcov|\.coverage|\.eggs|\.egg-info'
+          STANDARD_EXCLUSIONS=$(
+            printf '%s' \
+              '(^|/)\.git($|/)|\.venv|venv|\.env|env|__pycache__|node_modules|' \
+              'build|dist|\.tox|\.pytest_cache|\.mypy_cache|\.ruff_cache|htmlcov|' \
+              '\.coverage|\.eggs|\.egg-info'
+          )
           exclusion_pattern="$STANDARD_EXCLUSIONS"
           if [[ -f ".autofix-exclude" ]]; then
             echo "[autofix] Found .autofix-exclude, applying repo-specific exclusions"
@@ -473,7 +490,11 @@ jobs:
               echo "[autofix] Excluding: $line"
             done < ".autofix-exclude"
           fi
-          mapfile -t all_dirs < <(find . -name "*.py" -type f -printf '%h\n' 2>/dev/null | sort -u | grep -vE "$exclusion_pattern" || true)
+          mapfile -t all_dirs < <(
+            find . -name "*.py" -type f -printf '%h\n' 2>/dev/null |
+              sort -u |
+              grep -vE "$exclusion_pattern" || true
+          )
           if [ ${#all_dirs[@]} -eq 0 ]; then
             echo "[autofix] No Python directories detected; skipping safe sweep."
             exit 0
@@ -508,7 +529,12 @@ jobs:
           echo "[autofix-clean] Running clean cosmetic sweep"
           # === Dynamic Python Target Detection ===
           # shellcheck disable=SC2016 # Single quotes intentional - literal regex pattern
-          STANDARD_EXCLUSIONS='(^|/)\.git($|/)|\.venv|venv|\.env|env|__pycache__|node_modules|build|dist|\.tox|\.pytest_cache|\.mypy_cache|\.ruff_cache|htmlcov|\.coverage|\.eggs|\.egg-info'
+          STANDARD_EXCLUSIONS=$(
+            printf '%s' \
+              '(^|/)\.git($|/)|\.venv|venv|\.env|env|__pycache__|node_modules|' \
+              'build|dist|\.tox|\.pytest_cache|\.mypy_cache|\.ruff_cache|htmlcov|' \
+              '\.coverage|\.eggs|\.egg-info'
+          )
           exclusion_pattern="$STANDARD_EXCLUSIONS"
           if [[ -f ".autofix-exclude" ]]; then
             echo "[autofix-clean] Found .autofix-exclude, applying repo-specific exclusions"
@@ -521,7 +547,11 @@ jobs:
               echo "[autofix-clean] Excluding: $line"
             done < ".autofix-exclude"
           fi
-          mapfile -t all_dirs < <(find . -name "*.py" -type f -printf '%h\n' 2>/dev/null | sort -u | grep -vE "$exclusion_pattern" || true)
+          mapfile -t all_dirs < <(
+            find . -name "*.py" -type f -printf '%h\n' 2>/dev/null |
+              sort -u |
+              grep -vE "$exclusion_pattern" || true
+          )
           if [ ${#all_dirs[@]} -eq 0 ]; then
             echo "[autofix-clean] No Python directories detected; skipping"
             {
@@ -568,11 +598,15 @@ jobs:
                 is_allowed=true; break
               fi
             done
-            if [[ "$is_allowed" == "true" ]]; then allowed_changes+=("$path"); else other_changes+=("$path"); fi
+            if [[ "$is_allowed" == "true" ]]; then
+              allowed_changes+=("$path")
+            else
+              other_changes+=("$path")
+            fi
           done
           if [ ${#other_changes[@]} -gt 0 ]; then
             {
-              echo "[autofix-clean] ERROR: clean mode produced changes outside detected Python targets:" >&2
+              echo "[autofix-clean] ERROR: clean mode produced changes outside Python targets:" >&2
               printf '  - %s\n' "${other_changes[@]}" >&2
             }
             exit 1
@@ -587,7 +621,11 @@ jobs:
           fi
 
       - name: Summarise safe sweep results
-        if: steps.guard.outputs.skip != 'true' && steps.clean_mode.outputs.enabled != 'true'
+        if: >-
+          ${{
+            steps.guard.outputs.skip != 'true' &&
+            steps.clean_mode.outputs.enabled != 'true'
+          }}
         id: autofix
         shell: bash
         run: |
@@ -611,7 +649,12 @@ jobs:
             if [ ${#allowed_patterns[@]} -eq 0 ]; then
               # Dynamic: Build allowed patterns from detected Python directories
               # shellcheck disable=SC2016 # Single quotes intentional - literal regex pattern
-              STANDARD_EXCLUSIONS='(^|/)\.git($|/)|\.venv|venv|\.env|env|__pycache__|node_modules|build|dist|\.tox|\.pytest_cache|\.mypy_cache|\.ruff_cache|htmlcov|\.coverage|\.eggs|\.egg-info'
+              STANDARD_EXCLUSIONS=$(
+                printf '%s' \
+                  '(^|/)\.git($|/)|\.venv|venv|\.env|env|__pycache__|node_modules|' \
+                  'build|dist|\.tox|\.pytest_cache|\.mypy_cache|\.ruff_cache|htmlcov|' \
+                  '\.coverage|\.eggs|\.egg-info'
+              )
               exclusion_pattern="$STANDARD_EXCLUSIONS"
               if [[ -f ".autofix-exclude" ]]; then
                 while IFS= read -r line || [[ -n "$line" ]]; do
@@ -622,7 +665,11 @@ jobs:
                   exclusion_pattern="${exclusion_pattern}|${escaped}"
                 done < ".autofix-exclude"
               fi
-              mapfile -t py_dirs < <(find . -name "*.py" -type f -printf '%h\n' 2>/dev/null | sort -u | grep -vE "$exclusion_pattern" || true)
+              mapfile -t py_dirs < <(
+                find . -name "*.py" -type f -printf '%h\n' 2>/dev/null |
+                  sort -u |
+                  grep -vE "$exclusion_pattern" || true
+              )
               # Filter out subdirectories when a parent directory is already present
               filtered_py_dirs=()
               for dir in "${py_dirs[@]}"; do
@@ -788,19 +835,35 @@ jobs:
           fi
 
       - name: Commit changes (push path)
-        if: steps.guard.outputs.skip != 'true' && steps.fix_results.outputs.changed == 'true' && env.AUTOFIX_CAN_PUSH == 'true' && inputs.dry_run != true
+        if: >-
+          ${{
+            steps.guard.outputs.skip != 'true' &&
+            steps.fix_results.outputs.changed == 'true' &&
+            env.AUTOFIX_CAN_PUSH == 'true' &&
+            inputs.dry_run != true
+          }}
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -A
           # Unstage vendored node_modules that may have been modified by npm install
-          git reset HEAD -- .github/scripts/node_modules node_modules .workflows-lib/.github/scripts/node_modules 2>/dev/null || true
+          git reset HEAD -- \
+            .github/scripts/node_modules \
+            node_modules \
+            .workflows-lib/.github/scripts/node_modules \
+            2>/dev/null || true
           git commit -m "${AUTOFIX_COMMIT_PREFIX} formatting/lint"
           echo "AUTOFIX_COMMIT_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
 
       - name: Push changes (same-repo with rebase+retry)
-        if: steps.guard.outputs.skip != 'true' && steps.fix_results.outputs.changed == 'true' && env.AUTOFIX_CAN_PUSH == 'true' && inputs.dry_run != true
+        if: >-
+          ${{
+            steps.guard.outputs.skip != 'true' &&
+            steps.fix_results.outputs.changed == 'true' &&
+            env.AUTOFIX_CAN_PUSH == 'true' &&
+            inputs.dry_run != true
+          }}
         shell: bash
         run: |
           set -euo pipefail
@@ -823,7 +886,13 @@ jobs:
           exit 1
 
       - name: Prepare commit summary (same-repo)
-        if: steps.guard.outputs.skip != 'true' && steps.fix_results.outputs.changed == 'true' && steps.same_repo.outputs.same == 'true' && inputs.dry_run != true
+        if: >-
+          ${{
+            steps.guard.outputs.skip != 'true' &&
+            steps.fix_results.outputs.changed == 'true' &&
+            steps.same_repo.outputs.same == 'true' &&
+            inputs.dry_run != true
+          }}
         env:
           SERVER_URL: ${{ github.server_url }}
           REPOSITORY: ${{ github.repository }}
@@ -861,26 +930,45 @@ jobs:
           fi
 
       - name: Create patch artifact (fallback)
-        if: steps.guard.outputs.skip != 'true' && steps.fix_results.outputs.changed == 'true' && env.AUTOFIX_CAN_PUSH != 'true'
+        if: >-
+          ${{
+            steps.guard.outputs.skip != 'true' &&
+            steps.fix_results.outputs.changed == 'true' &&
+            env.AUTOFIX_CAN_PUSH != 'true'
+          }}
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -A
           # Unstage vendored node_modules that may have been modified by npm install
-          git reset HEAD -- .github/scripts/node_modules node_modules .workflows-lib/.github/scripts/node_modules 2>/dev/null || true
+          git reset HEAD -- \
+            .github/scripts/node_modules \
+            node_modules \
+            .workflows-lib/.github/scripts/node_modules \
+            2>/dev/null || true
           git commit -m "${AUTOFIX_COMMIT_PREFIX} formatting/lint (patch)" || true
           git format-patch -1 --stdout > autofix.patch
 
       - name: Upload patch artifact
-        if: steps.guard.outputs.skip != 'true' && steps.fix_results.outputs.changed == 'true' && env.AUTOFIX_CAN_PUSH != 'true'
+        if: >-
+          ${{
+            steps.guard.outputs.skip != 'true' &&
+            steps.fix_results.outputs.changed == 'true' &&
+            env.AUTOFIX_CAN_PUSH != 'true'
+          }}
         uses: actions/upload-artifact@v6
         with:
           name: autofix-patch-pr-${{ inputs.pr_number }}
           path: autofix.patch
 
       - name: Label PR (autofix patch available)
-        if: steps.guard.outputs.skip != 'true' && steps.fix_results.outputs.changed == 'true' && env.AUTOFIX_CAN_PUSH != 'true'
+        if: >-
+          ${{
+            steps.guard.outputs.skip != 'true' &&
+            steps.fix_results.outputs.changed == 'true' &&
+            env.AUTOFIX_CAN_PUSH != 'true'
+          }}
         uses: actions/github-script@v8
         env:
           PR_NUMBER: ${{ inputs.pr_number }}
@@ -907,19 +995,26 @@ jobs:
             const patchLabel = process.env.PATCH_LABEL || 'autofix:patch';
             const labels = [baseLabel, patchLabel];
             try {
-              await withRetry(() => github.rest.issues.addLabels({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: prNumber,
-                labels,
-              }));
+              await withRetry(() =>
+                github.rest.issues.addLabels({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: prNumber,
+                  labels,
+                }),
+              );
             } catch (error) {
               core.warning(`Failed to add autofix patch label: ${error.message}`);
             }
 
 
       - name: Prepare patch summary (fallback)
-        if: steps.guard.outputs.skip != 'true' && steps.fix_results.outputs.changed == 'true' && env.AUTOFIX_CAN_PUSH != 'true'
+        if: >-
+          ${{
+            steps.guard.outputs.skip != 'true' &&
+            steps.fix_results.outputs.changed == 'true' &&
+            env.AUTOFIX_CAN_PUSH != 'true'
+          }}
         env:
           SERVER_URL: ${{ github.server_url }}
           REPOSITORY: ${{ github.repository }}
@@ -1026,9 +1121,13 @@ jobs:
             const sameRepo = (process.env.SAME_REPO || '').toLowerCase() === 'true';
             const authMode = (process.env.AUTH_MODE || '').toLowerCase();
             const remaining = Number.parseInt(process.env.REMAINING_ISSUES || '0', 10) || 0;
-            const appliedLabel = (process.env.APPLIED_LABEL || 'autofix:applied').trim() || 'autofix:applied';
+            const appliedLabel = (process.env.APPLIED_LABEL || 'autofix:applied')
+              .trim() ||
+              'autofix:applied';
             const debtLabel = 'autofix:debt';
-            const patchLabel = (process.env.PATCH_LABEL || 'autofix:patch').trim() || 'autofix:patch';
+            const patchLabel = (process.env.PATCH_LABEL || 'autofix:patch')
+              .trim() ||
+              'autofix:patch';
             const cleanOnlyLabel = 'autofix:clean-only';
             const cleanLabel = 'autofix:clean';
             const cleanInputLabel = (process.env.CLEAN_INPUT_LABEL || '').trim();
@@ -1106,7 +1205,13 @@ jobs:
               await addLabel(label);
             }
 
-            const managed = [appliedLabel, debtLabel, patchLabel, cleanOnlyLabel, cleanLabel];
+            const managed = [
+              appliedLabel,
+              debtLabel,
+              patchLabel,
+              cleanOnlyLabel,
+              cleanLabel,
+            ];
             for (const label of managed) {
               if (!desired.has(label)) {
                 await removeLabel(label);
@@ -1118,7 +1223,12 @@ jobs:
             }
 
       - name: Restore prior autofix history artifact (same-repo)
-        if: steps.guard.outputs.skip != 'true' && steps.same_repo.outputs.same == 'true' && steps.fix_results.outputs.changed == 'true'
+        if: >-
+          ${{
+            steps.guard.outputs.skip != 'true' &&
+            steps.same_repo.outputs.same == 'true' &&
+            steps.fix_results.outputs.changed == 'true'
+          }}
         env:
           GH_TOKEN: ${{ github.token }}
           GITHUB_TOKEN: ${{ github.token }}
@@ -1144,7 +1254,9 @@ jobs:
           const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
           const core = { info: () => {}, warning: console.warn, debug: () => {} };
           const [owner, repo] = process.env.TARGET_REPO.split('/');
-          const artifactName = process.env.artifact_name || `autofix-history-pr-${process.env.TARGET_PR}`;
+          const artifactName =
+            process.env.artifact_name ||
+            `autofix-history-pr-${process.env.TARGET_PR}`;
           (async () => {
             const github = new Octokit({ auth: process.env.GH_TOKEN || process.env.GITHUB_TOKEN });
             const { withRetry } = await createTokenAwareRetry({
@@ -1152,14 +1264,16 @@ jobs:
               core,
               env: process.env,
               task: 'reusable-18-autofix-history',
-              capabilities: ['actions:read']
+              capabilities: ['actions:read'],
             });
-            const { data } = await withRetry((client) => client.rest.actions.listArtifactsForRepo({
-              owner,
-              repo,
-              name: artifactName,
-              per_page: 100
-            }));
+            const { data } = await withRetry((client) =>
+              client.rest.actions.listArtifactsForRepo({
+                owner,
+                repo,
+                name: artifactName,
+                per_page: 100,
+              }),
+            );
             process.stdout.write(JSON.stringify({ artifacts: data.artifacts || [] }));
           })().catch((error) => {
             console.error(error);
@@ -1173,7 +1287,15 @@ jobs:
             echo "[history] No prior artifact found"
             exit 0
           fi
-          artifact_lines=$(printf '%s' "$response" | jq -r --arg name "$artifact_name" --arg run "${TARGET_RUN_ID}" '.artifacts[]? | select(.name==$name and .expired==false and (.workflow_run.id|tostring)!=$run) | [.id, .created_at] | @tsv')
+          jq_filter=$(
+            printf '%s\n' \
+              '.artifacts[]?' \
+              '| select(.name==$name and .expired==false and (.workflow_run.id|tostring)!=$run)' \
+              '| [.id, .created_at]' \
+              '| @tsv'
+          )
+          artifact_lines=$(printf '%s' "$response" |
+            jq -r --arg name "$artifact_name" --arg run "${TARGET_RUN_ID}" "$jq_filter")
           if [ -z "$artifact_lines" ]; then
             echo "[history] No prior artifact found"
             exit 0
@@ -1183,7 +1305,10 @@ jobs:
           tmpdir=$(mktemp -d)
           echo "[history] Downloading artifact id ${artifact_id}"
           # shellcheck disable=SC1009,SC1073,SC1039,SC1072
-          if ! TARGET_REPO="${TARGET_REPO}" ARTIFACT_ID="${artifact_id}" TARGET_ZIP="$tmpdir/artifact.zip" node - <<'NODE'; then
+          TARGET_REPO="${TARGET_REPO}" \
+          ARTIFACT_ID="${artifact_id}" \
+          TARGET_ZIP="$tmpdir/artifact.zip" \
+          node - <<'NODE'
           const fs = require('fs');
           const { Octokit } = require('@octokit/rest');
           const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
@@ -1198,14 +1323,16 @@ jobs:
               core,
               env: process.env,
               task: 'reusable-18-autofix-history-download',
-              capabilities: ['actions:read']
+              capabilities: ['actions:read'],
             });
-            const response = await withRetry((client) => client.rest.actions.downloadArtifact({
-              owner,
-              repo,
-              artifact_id: artifactId,
-              archive_format: 'zip'
-            }));
+            const response = await withRetry((client) =>
+              client.rest.actions.downloadArtifact({
+                owner,
+                repo,
+                artifact_id: artifactId,
+                archive_format: 'zip',
+              }),
+            );
             const data = response.data;
             const buffer = Buffer.isBuffer(data)
               ? data
@@ -1216,35 +1343,58 @@ jobs:
             process.exit(1);
           });
           NODE
+          download_status=$?
+          if [ $download_status -ne 0 ]; then
             echo "[history] Failed to download artifact ${artifact_id}"
             exit 0
           fi
           target_tmp="$tmpdir/history.json"
-          if unzip -p "$tmpdir/artifact.zip" ci/autofix/history.json > "$target_tmp" 2>/dev/null; then
+          if unzip -p "$tmpdir/artifact.zip" \
+            ci/autofix/history.json > "$target_tmp" 2>/dev/null
+          then
             mv "$target_tmp" ci/autofix/history.json
             echo "[history] Restored previous history.json"
           else
-            echo "[history] Artifact ${artifact_id} did not contain ci/autofix/history.json"
+            echo "[history] Artifact ${artifact_id} missing ci/autofix/history.json"
             rm -f ci/autofix/history.json
           fi
           rm -rf "$tmpdir"
 
       - name: Update residual history (same-repo)
-        if: steps.guard.outputs.skip != 'true' && steps.same_repo.outputs.same == 'true' && steps.fix_results.outputs.changed == 'true'
+        if: >-
+          ${{
+            steps.guard.outputs.skip != 'true' &&
+            steps.same_repo.outputs.same == 'true' &&
+            steps.fix_results.outputs.changed == 'true'
+          }}
         shell: bash
         run: |
           set -euo pipefail
-          if [ ! -f autofix_report_enriched.json ]; then echo "[history] missing enriched report"; exit 0; fi
-          python scripts/update_residual_history.py || echo "[history] update failed"
-          # No longer committing history.json (noise in PRs). It will be uploaded as an artifact instead.
-          if [ -f ci/autofix/history.json ] && [ -s ci/autofix/history.json ] && jq empty ci/autofix/history.json >/dev/null 2>&1; then
+          if [ ! -f autofix_report_enriched.json ]; then
+            echo "[history] missing enriched report"
+            exit 0
+          fi
+          if ! python scripts/update_residual_history.py; then
+            echo "[history] update failed"
+          fi
+          # No longer committing history.json (noise in PRs).
+          # It will be uploaded as an artifact instead.
+          if [ -f ci/autofix/history.json ] &&
+            [ -s ci/autofix/history.json ] &&
+            jq empty ci/autofix/history.json >/dev/null 2>&1;
+          then
             echo "[history] Prepared updated history.json (artifact-only mode)"
           else
             echo "[history] history.json not produced or invalid"
           fi
 
       - name: Upload autofix history artifact (same-repo)
-        if: steps.guard.outputs.skip != 'true' && steps.same_repo.outputs.same == 'true' && steps.fix_results.outputs.changed == 'true'
+        if: >-
+          ${{
+            steps.guard.outputs.skip != 'true' &&
+            steps.same_repo.outputs.same == 'true' &&
+            steps.fix_results.outputs.changed == 'true'
+          }}
         uses: actions/upload-artifact@v6
         with:
           name: autofix-history-pr-${{ inputs.pr_number }}
@@ -1252,11 +1402,21 @@ jobs:
           if-no-files-found: ignore
 
       - name: Generate trend sparkline (same-repo)
-        if: steps.guard.outputs.skip != 'true' && steps.same_repo.outputs.same == 'true' && steps.fix_results.outputs.changed == 'true'
+        if: >-
+          ${{
+            steps.guard.outputs.skip != 'true' &&
+            steps.same_repo.outputs.same == 'true' &&
+            steps.fix_results.outputs.changed == 'true'
+          }}
         shell: bash
         run: |
-          if [ -f scripts/generate_residual_trend.py ]; then python scripts/generate_residual_trend.py || true; fi
-          if [ -f ci/autofix/trend.json ]; then echo "Trend:"; cat ci/autofix/trend.json; fi
+          if [ -f scripts/generate_residual_trend.py ]; then
+            python scripts/generate_residual_trend.py || true
+          fi
+          if [ -f ci/autofix/trend.json ]; then
+            echo "Trend:"
+            cat ci/autofix/trend.json
+          fi
 
       - name: Record delivery metadata
         if: steps.guard.outputs.skip != 'true'
@@ -1318,7 +1478,12 @@ jobs:
           scripts-path: workflows-lib/scripts
 
       - name: Upsert consolidated PR comment
-        if: steps.guard.outputs.skip != 'true' && steps.build_comment.outputs.should-post == 'true' && inputs.suppress_comments != true
+        if: >-
+          ${{
+            steps.guard.outputs.skip != 'true' &&
+            steps.build_comment.outputs.should-post == 'true' &&
+            inputs.suppress_comments != true
+          }}
         uses: actions/github-script@v8
         env:
           PR_NUMBER: ${{ inputs.pr_number }}
@@ -1343,13 +1508,38 @@ jobs:
             const { withRetry, paginateWithRetry } = retryHelpers;
             try {
               // Fetch existing comments once (first 100 is ample for typical PRs)
-              const comments = await paginateWithRetry(github, github.rest.issues.listComments, { owner: context.repo.owner, repo: context.repo.repo, issue_number: prNumber, per_page: 100 });
-              const existing = comments.find(c => c.body && c.body.includes(marker));
+              const comments = await paginateWithRetry(
+                github,
+                github.rest.issues.listComments,
+                {
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: prNumber,
+                  per_page: 100,
+                },
+              );
+              const existing = comments.find(
+                (comment) => comment.body && comment.body.includes(marker),
+              );
               if (existing) {
-                await withRetry(() => github.rest.issues.updateComment({ owner: context.repo.owner, repo: context.repo.repo, comment_id: existing.id, body }));
+                await withRetry(() =>
+                  github.rest.issues.updateComment({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    comment_id: existing.id,
+                    body,
+                  }),
+                );
                 console.log('Updated existing autofix status comment.');
               } else {
-                await withRetry(() => github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: prNumber, body }));
+                await withRetry(() =>
+                  github.rest.issues.createComment({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: prNumber,
+                    body,
+                  }),
+                );
                 console.log('Created new autofix status comment.');
               }
             } catch (error) {
@@ -1362,7 +1552,13 @@ jobs:
             }
 
       - name: Upsert clean-mode file summary comment
-        if: steps.guard.outputs.skip != 'true' && steps.clean_mode.outputs.enabled == 'true' && steps.fix_results.outputs.changed == 'true' && inputs.suppress_comments != true
+        if: >-
+          ${{
+            steps.guard.outputs.skip != 'true' &&
+            steps.clean_mode.outputs.enabled == 'true' &&
+            steps.fix_results.outputs.changed == 'true' &&
+            inputs.suppress_comments != true
+          }}
         uses: actions/github-script@v8
         env:
           PR_NUMBER: ${{ inputs.pr_number }}
@@ -1370,7 +1566,9 @@ jobs:
           CLEAN_LABEL: ${{ inputs.clean_label }}
         with:
           script: |
-            const prNumber = Number(process.env.PR_NUMBER || context.payload.pull_request?.number || 0);
+            const prNumber = Number(
+              process.env.PR_NUMBER || context.payload.pull_request?.number || 0,
+            );
             if (!prNumber) {
               core.info('No pull request number available; skipping clean-mode summary comment.');
               return;
@@ -1386,7 +1584,10 @@ jobs:
                 };
             const { withRetry, paginateWithRetry } = retryHelpers;
             const marker = '<!-- autofix-clean-summary -->';
-            const filesRaw = (process.env.FILE_LIST || '').split('\n').map((line) => line.trim()).filter(Boolean);
+            const filesRaw = (process.env.FILE_LIST || '')
+              .split('\n')
+              .map((line) => line.trim())
+              .filter(Boolean);
             if (!filesRaw.length) {
               core.info('No files recorded for clean summary; skipping comment.');
               return;
@@ -1394,27 +1595,65 @@ jobs:
             const cleanLabel = (process.env.CLEAN_LABEL || '').trim();
             const labelSuffix = cleanLabel ? ` (\`${cleanLabel}\`)` : '';
             const header = `Clean-mode cosmetic autofix${labelSuffix} updated these files:`;
-            const bodyLines = [marker, header, '', ...filesRaw.map((file) => `- \`${file}\``)];
+            const bodyLines = [
+              marker,
+              header,
+              '',
+              ...filesRaw.map((file) => `- \`${file}\``),
+            ];
             const body = bodyLines.join('\n');
-            const comments = await paginateWithRetry(github, github.rest.issues.listComments, { owner: context.repo.owner, repo: context.repo.repo, issue_number: prNumber, per_page: 100 });
-            const existing = comments.find((comment) => comment.body && comment.body.includes(marker));
+            const comments = await paginateWithRetry(
+              github,
+              github.rest.issues.listComments,
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                per_page: 100,
+              },
+            );
+            const existing = comments.find(
+              (comment) => comment.body && comment.body.includes(marker),
+            );
             if (existing) {
-              await withRetry(() => github.rest.issues.updateComment({ owner: context.repo.owner, repo: context.repo.repo, comment_id: existing.id, body }));
+              await withRetry(() =>
+                github.rest.issues.updateComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: existing.id,
+                  body,
+                }),
+              );
               core.info('Updated existing clean-mode summary comment.');
             } else {
-              await withRetry(() => github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: prNumber, body }));
+              await withRetry(() =>
+                github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: prNumber,
+                  body,
+                }),
+              );
               core.info('Created new clean-mode summary comment.');
             }
 
       - name: Upsert safe sweep file summary comment
-        if: steps.guard.outputs.skip != 'true' && steps.clean_mode.outputs.enabled != 'true' && steps.fix_results.outputs.changed == 'true' && inputs.suppress_comments != true
+        if: >-
+          ${{
+            steps.guard.outputs.skip != 'true' &&
+            steps.clean_mode.outputs.enabled != 'true' &&
+            steps.fix_results.outputs.changed == 'true' &&
+            inputs.suppress_comments != true
+          }}
         uses: actions/github-script@v8
         env:
           PR_NUMBER: ${{ inputs.pr_number }}
           FILE_LIST: ${{ steps.fix_results.outputs.file_list }}
         with:
           script: |
-            const prNumber = Number(process.env.PR_NUMBER || context.payload.pull_request?.number || 0);
+            const prNumber = Number(
+              process.env.PR_NUMBER || context.payload.pull_request?.number || 0,
+            );
             if (!prNumber) {
               core.info('No pull request number available; skipping safe sweep summary comment.');
               return;
@@ -1430,26 +1669,63 @@ jobs:
                 };
             const { withRetry, paginateWithRetry } = retryHelpers;
             const marker = '<!-- autofix-file-summary -->';
-            const filesRaw = (process.env.FILE_LIST || '').split('\n').map((line) => line.trim()).filter(Boolean);
+            const filesRaw = (process.env.FILE_LIST || '')
+              .split('\n')
+              .map((line) => line.trim())
+              .filter(Boolean);
             if (!filesRaw.length) {
               core.info('No files recorded for safe sweep summary; skipping comment.');
               return;
             }
             const header = 'Autofix updated these files:';
-            const bodyLines = [marker, header, '', ...filesRaw.map((file) => `- \`${file}\``)];
+            const bodyLines = [
+              marker,
+              header,
+              '',
+              ...filesRaw.map((file) => `- \`${file}\``),
+            ];
             const body = bodyLines.join('\n');
-            const comments = await paginateWithRetry(github, github.rest.issues.listComments, { owner: context.repo.owner, repo: context.repo.repo, issue_number: prNumber, per_page: 100 });
-            const existing = comments.find((comment) => comment.body && comment.body.includes(marker));
+            const comments = await paginateWithRetry(
+              github,
+              github.rest.issues.listComments,
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                per_page: 100,
+              },
+            );
+            const existing = comments.find(
+              (comment) => comment.body && comment.body.includes(marker),
+            );
             if (existing) {
-              await withRetry(() => github.rest.issues.updateComment({ owner: context.repo.owner, repo: context.repo.repo, comment_id: existing.id, body }));
+              await withRetry(() =>
+                github.rest.issues.updateComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: existing.id,
+                  body,
+                }),
+              );
               core.info('Updated existing safe sweep summary comment.');
             } else {
-              await withRetry(() => github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: prNumber, body }));
+              await withRetry(() =>
+                github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: prNumber,
+                  body,
+                }),
+              );
               core.info('Created new safe sweep summary comment.');
             }
 
       - name: Regression detector (same-repo)
-        if: steps.guard.outputs.skip != 'true' && steps.same_repo.outputs.same == 'true'
+        if: >-
+          ${{
+            steps.guard.outputs.skip != 'true' &&
+            steps.same_repo.outputs.same == 'true'
+          }}
         uses: actions/github-script@v8
         with:
           script: |
@@ -1463,18 +1739,37 @@ jobs:
                     githubInstance.paginate(method, params),
                 };
             const { withRetry } = retryHelpers;
-            let hist=[]; try { hist = JSON.parse(fs.readFileSync('ci/autofix/history.json','utf8')); } catch(e) {}
-            if (!Array.isArray(hist) || hist.length < 5) { return; }
+            let hist = [];
+            try {
+              hist = JSON.parse(fs.readFileSync('ci/autofix/history.json', 'utf8'));
+            } catch (error) {
+              return;
+            }
+            if (!Array.isArray(hist) || hist.length < 5) {
+              return;
+            }
             const last = hist.slice(-1)[0];
-            const prev = hist.slice(-6,-1); // previous 5 points
-            const avgPrev = prev.reduce((a,b)=>a+(b.remaining||0),0)/prev.length;
-            const spike = avgPrev > 0 ? (last.remaining - avgPrev)/avgPrev : 0;
+            const prev = hist.slice(-6, -1); // previous 5 points
+            const avgPrev = prev.reduce((acc, item) => acc + (item.remaining || 0), 0) /
+              prev.length;
+            const spike = avgPrev > 0 ? (last.remaining - avgPrev) / avgPrev : 0;
             const THRESH = 0.35; // 35% jump threshold
-            if (spike <= THRESH) return;
+            if (spike <= THRESH) {
+              return;
+            }
             const issueTitle = 'lint regression: residual spike';
             // Check for existing open issue
-            const issues = await withRetry(() => github.rest.issues.listForRepo({ owner: context.repo.owner, repo: context.repo.repo, state:'open', labels:'autofix:regression' }));
-            if (issues.data.some(i => i.title === issueTitle)) return;
+            const issues = await withRetry(() =>
+              github.rest.issues.listForRepo({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                state: 'open',
+                labels: 'autofix:regression',
+              }),
+            );
+            if (issues.data.some((issue) => issue.title === issueTitle)) {
+              return;
+            }
             const body = [
               'Detected residual lint spike exceeding threshold.',
               `Latest remaining: ${last.remaining}`,
@@ -1487,18 +1782,34 @@ jobs:
               '',
               'This issue was auto-generated.'
             ].join('\n');
-            await withRetry(() => github.rest.issues.create({ owner: context.repo.owner, repo: context.repo.repo, title: issueTitle, body, labels:['autofix:regression'] }));
+            await withRetry(() =>
+              github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: issueTitle,
+                body,
+                labels: ['autofix:regression'],
+              }),
+            );
 
       - name: Emit JSON report (same-repo)
-        if: steps.guard.outputs.skip != 'true' && steps.same_repo.outputs.same == 'true'
+        if: >-
+          ${{
+            steps.guard.outputs.skip != 'true' &&
+            steps.same_repo.outputs.same == 'true'
+          }}
         shell: bash
         run: |
           set -euo pipefail
           # Use local script if available, otherwise fall back to Workflows scripts
           if [ -f .github/scripts/autofix_emit_report.py ]; then
-            python .github/scripts/autofix_emit_report.py || { echo '{"error":"merge_failed"}' > autofix_report.json; }
+            if ! python .github/scripts/autofix_emit_report.py; then
+              echo '{"error":"merge_failed"}' > autofix_report.json
+            fi
           elif [ -f "${WORKFLOWS_SCRIPTS_PATH}/.github/scripts/autofix_emit_report.py" ]; then
-            python "${WORKFLOWS_SCRIPTS_PATH}/.github/scripts/autofix_emit_report.py" || { echo '{"error":"merge_failed"}' > autofix_report.json; }
+            if ! python "${WORKFLOWS_SCRIPTS_PATH}/.github/scripts/autofix_emit_report.py"; then
+              echo '{"error":"merge_failed"}' > autofix_report.json
+            fi
           else
             echo '{"error":"script_not_found"}' > autofix_report.json
           fi
@@ -1512,7 +1823,11 @@ jobs:
           REPORT_FILE_LIST: ${{ steps.fix_results.outputs.file_list }}
 
       - name: Upload JSON report
-        if: steps.guard.outputs.skip != 'true' && steps.same_repo.outputs.same == 'true'
+        if: >-
+          ${{
+            steps.guard.outputs.skip != 'true' &&
+            steps.same_repo.outputs.same == 'true'
+          }}
         uses: actions/upload-artifact@v6
         with:
           name: autofix-report-pr-${{ inputs.pr_number }}
@@ -1604,7 +1919,10 @@ jobs:
           delivery_mode="${AUTOFIX_DELIVERY_MODE:-fallback}"
           delivery_reason="${AUTOFIX_DELIVERY_REASON:-}"
           patch="${AUTOFIX_PATCH_AVAILABLE:-false}"
-          if [ "$patch" != "true" ] && [ "$changed" = "true" ] && [ "$delivery_mode" != "pat" ]; then
+          if [ "$patch" != "true" ] && \
+            [ "$changed" = "true" ] && \
+            [ "$delivery_mode" != "pat" ]
+          then
             patch="true"
           fi
           skip_reason=""
