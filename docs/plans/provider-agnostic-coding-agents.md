@@ -44,6 +44,7 @@ Tests updated:
 - ✅ Claude *API* integration is already present (workflows pass `CLAUDE_API_STRANSKE` and install `langchain-anthropic`).
 - ✅ `reusable-claude-run.yml` now exists and is called from keepalive-loop and autofix-loop.
 - ✅ Phase 5A added `run-claude` jobs to keepalive-loop and autofix-loop templates.
+- ⚠️ `run-claude` jobs require a configured `CLAUDE_AUTH_JSON` runner secret; this is **distinct** from `CLAUDE_API_STRANSKE` (used for LLM analysis in other workflows) and is required for end-to-end `agent:claude` runs.
 
 ## Why
 
@@ -346,13 +347,15 @@ these test files must also be updated:
 | `agents-80-pr-event-hub.yml` | Missing | Present | Present | ? |
 | `agent_registry.js` | Present | Present | Present | Present |
 | `agent_delegation_policy.js` | Present | Present | Present | Present |
-| `.github/agent-config.yml` | **Missing** | **Missing** | **Missing** | **Missing** |
+| `.github/agents/registry.yml` | **Missing** | **Missing** | **Missing** | **Missing** |
 | `USE_CONSOLIDATED_WORKFLOWS` var | **Not set** | Not set | Not set | Not set |
 
-> No consumer repo has `.github/agent-config.yml`, so `agent_registry.js`
-> always falls back to `default_agent: 'codex'`. This is acceptable for now
-> but means registry-driven routing has no effect until the config file is
-> created or the registry default is changed.
+> No consumer repo has `.github/agents/registry.yml`, so `loadAgentRegistry()`
+> always falls back to `default_agent: 'codex'`. However, label-based routing
+> still works: PRs with `agent:claude` labels will resolve to Claude via
+> `resolveAgentFromLabels()` regardless of whether a registry file exists.
+> The registry file is only needed to change the *default* agent (when no
+> explicit `agent:*` label is present).
 
 ---
 
@@ -362,7 +365,7 @@ these test files must also be updated:
 
 - Keepalive prompt + task appendix is agent-agnostic.
 - Keepalive evaluate step extracts `agent_type` from `agent:*` labels.
-- `reusable-codex-run.yml` and `reusable-claude-run.yml` both exist and conform to the runner output contract.
+- `reusable-codex-run.yml` conforms to the runner output contract; `reusable-claude-run.yml` exists and is wired in but is only partially compliant (missing `error-category`, `error-type`, `error-recovery` outputs).
 - Keepalive-loop has both `run-codex` and `run-claude` jobs with merged outputs.
 - Autofix-loop has both `autofix-codex` and `autofix-claude` jobs.
 - Capability check triggers on `agent:codex`, `agent:claude`, and `agent:auto`.
