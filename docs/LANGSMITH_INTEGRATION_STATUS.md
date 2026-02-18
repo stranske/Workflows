@@ -254,7 +254,7 @@ python scripts/aggregate_metrics.py metrics.ndjson --format markdown
 This run satisfies the “live workflow” acceptance criterion from Issue #974 and confirms that LangSmith observability is available in production automation.
 
 ---
-### 10. End-to-End Validation
+### 11. End-to-End Validation
 
 **Goal:** Verify full pipeline: LLM call → trace extraction → metrics → PR comment
 
