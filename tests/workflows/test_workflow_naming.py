@@ -207,7 +207,6 @@ EXPECTED_NAMES = {
     # Note: agents-pr-meta.yml, v2, v3 archived to archives/github-actions/2025-12-02-pr-meta-legacy/
     "agents-pr-meta-v4.yml": "Agents PR meta manager",
     "autofix.yml": "CI Autofix Loop",
-    "debug-claude-cli-auth.yml": "Debug: Claude Code CLI Auth",
     "health-40-repo-selfcheck.yml": "Health 40 Repo Selfcheck",
     "health-40-sweep.yml": "Health 40 Sweep",
     "health-41-repo-health.yml": "Health 41 Repo Health",
@@ -271,7 +270,6 @@ EXPECTED_NAMES = {
     "selftest-reusable-ci.yml": "Selftest: Reusables",
     "selftest-ci.yml": "Selftest CI",
     "health-keepalive-e2e.yml": "Keepalive E2E",
-    "health-keepalive-auth-diagnostic.yml": "Health Keepalive Auth Diagnostic",
     "health-claude-cli-auth-debug.yml": "Health Claude CLI Auth Debug",
     "maint-39-test-llm-providers.yml": "Maint 39 Test LLM Providers",
 }
