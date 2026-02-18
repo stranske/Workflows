@@ -21,6 +21,7 @@ TARGET_DIRS = (
 SKIP_FILES = {
     ROOT / ".github" / "scripts" / "github-api-with-retry.js",
     ROOT / ".github" / "scripts" / "token_load_balancer.js",
+    ROOT / ".github" / "actions" / "codex-bootstrap-lite" / "action.yml",
     ROOT / "scripts" / "check_api_wrapper_guard.py",
     ROOT / "scripts" / "check_consumer_sync_drift.py",
     ROOT / "scripts" / "api_client.py",
