@@ -479,8 +479,7 @@ jobs:
             await markAgentRunning({ github, context, core, inputs });
 
   # Route to appropriate agent based on agent:* label
-  # Currently supports: agent:codex -> CLI Codex
-  # Future: agent:claude, agent:gemini, etc. will have their own jobs
+  # Supports: agent:codex -> CLI Codex, agent:claude -> Claude API
   run-codex:
     name: Keepalive next task (Codex)
     needs:

@@ -2,7 +2,7 @@
 # Runs scheduled keepalive sweeps to resume stalled agent PRs
 #
 # This orchestrator provides:
-# - Keepalive sweeps for stalled PRs (Codex continues work)
+# - Keepalive sweeps for stalled PRs (agent continues work)
 # - Watchdog monitoring
 # - Bootstrap checks for new agent issues
 #
@@ -30,7 +30,7 @@ on:
         type: boolean
         default: true
       enable_bootstrap:
-        description: "Run Codex bootstrap for ready issues"
+        description: "Run agent bootstrap for ready issues"
         required: false
         type: boolean
         default: false

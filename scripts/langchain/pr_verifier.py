@@ -1069,7 +1069,7 @@ def main() -> None:
         return
 
     result = evaluate_pr(context, diff=diff, model=args.model, provider=args.provider)
-    issue_labels = args.issue_label or ["agent:codex"]
+    issue_labels = args.issue_label or ["agent:codex"]  # callers should pass --issue-label to match PR agent
     run_url = None
     if (
         os.environ.get("GITHUB_RUN_ID")

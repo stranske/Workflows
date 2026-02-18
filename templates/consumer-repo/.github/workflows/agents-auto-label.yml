@@ -27,6 +27,8 @@ jobs:
       !contains(github.event.issue.labels.*.name, 'agents:formatted') &&
       !contains(github.event.issue.labels.*.name, 'agents:autofix') &&
       !contains(github.event.issue.labels.*.name, 'agent:codex') &&
+      !contains(github.event.issue.labels.*.name, 'agent:claude') &&
+      !contains(github.event.issue.labels.*.name, 'agent:auto') &&
       !contains(github.event.issue.labels.*.name, 'automated')
 
     steps:

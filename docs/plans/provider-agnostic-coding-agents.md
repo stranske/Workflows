@@ -1,15 +1,15 @@
 # Provider-Agnostic Coding Agents Plan (Phased, Codex-Safe)
 
-**Status:** In progress — Phases 0–4 marked complete but **significant gaps remain** (see audit below); Phase 5 partially started
+**Status:** In progress — P0/P1 remediation complete (Feb 18); Phase 5 partially started; deeper coupling in orchestrators and belt workflows remains
 
 ## Progress (as implemented)
 
 - ✅ Phase 0 — Runner hardening
 - ✅ Phase 1 — Agent registry + resolver helper
-- ⚠️ Phase 2 — Registry-driven PR automation routing (keepalive/autofix done; **bot-comment partially hardcoded**)
-- ⚠️ Phase 3 — Registry-driven issue→PR path (**auto-pilot partially done; orchestrators/auto-label/gate-followups still hardcoded**)
-- ⚠️ Phase 4 — Verifier + follow-up chain (**reusable verifier done; verify-to-issue/verify-to-new-pr partially done**)
-- 🟡 Phase 5 — Delegation / re-routing between agents (kickoff done: `agent:auto` label semantics)
+- ⚠️ Phase 2 — Registry-driven PR automation routing (keepalive/autofix done; bot-comment mostly done; `reusable-16-agents` fallback uses registry; `reusable-pr-context` widened)
+- ⚠️ Phase 3 — Registry-driven issue→PR path (auto-pilot labels/dispatch fixed; auto-label widened; orchestrator resolve uses registry; **deeper belt/orchestrator coupling remains**)
+- ⚠️ Phase 4 — Verifier + follow-up chain (reusable verifier done; verify-assignment generalized; **verify-to-issue text cosmetic only**)
+- 🟡 Phase 5 — Delegation / re-routing between agents (5A mostly complete: keepalive-loop + gate-followups both have run-claude; `agent:auto` label semantics established)
 
 > **Feb 18 2026 audit note:** An independent audit of every workflow in both
 > `.github/workflows/` and `templates/consumer-repo/` found that Phases 2–4
@@ -653,46 +653,49 @@ correctness-when-not-codex).
 
 ### P0: Actively broken
 
-| # | File | Fix |
-|---|------|-----|
-| 1 | `agents-auto-pilot.yml` (template + Workflows) L2392 | Change `agents-pr-meta-v4.yml` → `agents-pr-meta.yml` |
+| # | File | Fix | Status |
+|---|------|-----|--------|
+| 1 | `agents-auto-pilot.yml` (template + Workflows) L2392 | Change `agents-pr-meta-v4.yml` → `agents-pr-meta.yml` | ✅ Done |
 
 ### P1: Blocks `agent:claude` / `agent:auto` from working end-to-end
 
-| # | File | Fix |
-|---|------|-----|
-| 2 | `agents-auto-pilot.yml` L2373 | Replace `['agent:codex', ...]` with `[\`agent:${agentKey}\`, ...]` (use existing `agentKey` from registry) |
-| 3 | `agents-auto-pilot.yml` L2383 | Update status message to use `agentKey` |
-| 4 | `agents-81-gate-followups.yml` (template) | Add `run-claude` job (mirror keepalive-loop Phase 5A pattern); merge outputs in post-work and summary |
-| 5 | `agents-auto-label.yml` L34 (template L29) | Widen guard: `!contains(... 'agent:codex') && !contains(... 'agent:claude') && !contains(... 'agent:auto')` |
-| 6 | `agents-70-orchestrator.yml` L74 | Parameterize `bootstrap_issues_label` or read from registry |
-| 7 | `agents-orchestrator.yml` (template) L78 | Same as above |
-| 8 | `reusable-16-agents.yml` L91/527/621 | Use registry resolver instead of hardcoded `agent:codex` default |
-| 9 | `reusable-pr-context.yml` L221 | Add `agent:claude`, `agent:auto` to label check array |
-| 10 | `agents-64-verify-agent-assignment.yml` | Generalize to check for any `agent:*` label, not just `agent:codex` |
+| # | File | Fix | Status |
+|---|------|-----|--------|
+| 2 | `agents-auto-pilot.yml` L2373 | Replace `['agent:codex', ...]` with `` [`agent:${agentKey}`, ...] `` | ✅ Done |
+| 3 | `agents-auto-pilot.yml` L2383 | Update status message to use `agentKey` | ✅ Done |
+| 4 | `agents-81-gate-followups.yml` (template) | Add `run-claude` job; merge outputs in reconcile + summary | ✅ Done |
+| 5 | `agents-auto-label.yml` L34 (template L29) | Widen guard to include `agent:claude`, `agent:auto` | ✅ Done |
+| 6 | `agents-70-orchestrator.yml` / `agents_orchestrator_resolve.js` | Read `bootstrap_issues_label` default from registry | ✅ Done |
+| 7 | `agents-orchestrator.yml` (template) L78 | Updated description text | ✅ Done |
+| 8 | `reusable-16-agents.yml` L621 | Bootstrap fallback reads from registry | ✅ Done |
+| 9 | `reusable-pr-context.yml` L221 | Add `agent:claude`, `agent:auto` to label check | ✅ Done |
+| 10 | `agents-64-verify-agent-assignment.yml` | Generalize to check any `agent:*` label | ✅ Done |
 
 ### P2: Cosmetic / correctness in non-default agent scenarios
 
-| # | File | Fix |
-|---|------|-----|
-| 11 | `agents-auto-pilot.yml` L345 | Rename `hasAgentCodex` → `hasAgentLabel` and check for any `agent:*` |
-| 12 | `agents-auto-pilot.yml` L1532 | Update comment text |
-| 13 | `agents-keepalive-loop.yml` L483-484, 490 | Update outdated comments ("Future: agent:claude" → already implemented) |
-| 14 | `agents-81-gate-followups.yml` L280-281 | Same outdated comment |
-| 15 | `agents-verify-to-issue.yml` L186 | Update user-facing text from `agent:codex` to `agent:*` |
-| 16 | `agents-verify-to-issue-v2.yml` L409 | Same |
-| 17 | `scripts/cleanup_labels.py` | Update `agent:codex` references |
-| 18 | `scripts/keepalive-runner.js` | Update `agent:codex` references |
-| 19 | `scripts/langchain/pr_verifier.py` | Update `agent:codex` references |
+| # | File | Fix | Status |
+|---|------|-----|--------|
+| 11 | `agents-auto-pilot.yml` L345 | `hasAgentCodex` → `hasAgentLabel` with `agent:*` check | ✅ Done |
+| 12 | `agents-auto-pilot.yml` L1532 | Comment text updated | ✅ Done |
+| 13 | `agents-keepalive-loop.yml` comment | Updated "Future: agent:claude" → "Supports" | ✅ Done |
+| 14 | `agents-81-gate-followups.yml` comment | Same | ✅ Done |
+| 15 | `agents-verify-to-issue.yml` L186 | Already says `agent:*` (no change needed) | ✅ N/A |
+| 16 | `agents-verify-to-issue-v2.yml` L409 | Already says `agent:*` (no change needed) | ✅ N/A |
+| 17 | `scripts/cleanup_labels.py` | Added `agent:auto`, `from:claude` to FUNCTIONAL_LABELS | ✅ Done |
+| 18 | `scripts/keepalive-runner.js` | Deferred — large script, needs dedicated pass | ⏳ Deferred |
+| 19 | `scripts/langchain/pr_verifier.py` | Added comment about `--issue-label` override | ✅ Done |
+| — | `agents-auto-pilot.yml` L2213-2296 | User-facing text: "Codex belt worker" → "belt worker" | ✅ Done |
+| — | `agents-81-gate-followups.yml` L776 | `labels.includes('agent:codex')` → `.some(l => l.startsWith('agent:'))` | ✅ Done |
+| — | `agents-81-gate-followups.yml` L784-809 | "Escalate to Codex CLI" → "agent CLI" | ✅ Done |
 
 ### Sync policy items
 
-| # | Item | Action |
-|---|------|--------|
-| 20 | All template changes must be mirrored in `templates/consumer-repo/` | Verify after each fix |
-| 21 | `.github/sync-manifest.yml` | Verify all modified files are in manifest |
-| 22 | Trigger sync to consumer repos | `gh workflow run maint-68-sync-consumer-repos.yml` |
-| 23 | Validate in reference consumer (Travel-Plan-Permission) | Smoke test after sync |
+| # | Item | Action | Status |
+|---|------|--------|--------|
+| 20 | Template changes mirrored in `templates/consumer-repo/` | All edits applied to both | ✅ Done |
+| 21 | `.github/sync-manifest.yml` | Verify modified files are in manifest | ⏳ Pending |
+| 22 | Trigger sync to consumer repos | `gh workflow run maint-68-sync-consumer-repos.yml` | ⏳ Pending |
+| 23 | Validate in reference consumer (Travel-Plan-Permission) | Smoke test after sync | ⏳ Pending |
 
 ---
 

@@ -342,7 +342,7 @@ jobs:
             const hasFormat = labels.includes('agents:formatted');
             const hasOptimize = labels.includes('agents:optimize');
             const hasApplySuggestions = labels.includes('agents:apply-suggestions');
-            const hasAgentCodex = labels.includes('agent:codex');
+            const hasAgentLabel = labels.some(l => l.startsWith('agent:'));
             const hasAutofix = labels.includes('autofix');
             const hasAutomerge = labels.includes('automerge');
             const hasVerify = labels.includes('verify:evaluate');
@@ -415,7 +415,7 @@ jobs:
             core.setOutput('has_optimize', hasOptimize.toString());
             core.setOutput('has_optimizer_output', hasOptimizerOutput.toString());
             core.setOutput('has_apply', hasApplySuggestions.toString());
-            core.setOutput('has_agent', hasAgentCodex.toString());
+            core.setOutput('has_agent', hasAgentLabel.toString());
             core.setOutput('has_autofix', hasAutofix.toString());
             core.setOutput('has_automerge', hasAutomerge.toString());
             core.setOutput('has_verify', hasVerify.toString());
@@ -1529,7 +1529,7 @@ jobs:
       # ── P2: Complexity pre-check ───────────────────────────────────
       # Analyse issue body for complexity signals before assigning to
       # the coding agent.  Issues flagged as high-complexity get
-      # `needs-human` instead of `agent:codex`.
+      # `needs-human` instead of an `agent:*` label.
       - name: Complexity pre-check
         if: steps.next.outputs.next_step == 'capability-check'
         id: complexity_check
@@ -2210,7 +2210,7 @@ jobs:
                     issue_number: issueNumber,
                     body: `## ⚠️ Auto-Pilot Stalled
 
-            **Reason:** Codex belt worker failed to generate commits after ${stallCount} attempts.
+            **Reason:** Belt worker failed to generate commits after ${stallCount} attempts.
 
             Branch \`${branchName}\` exists but the agent has not produced any changes.
 
@@ -2220,9 +2220,9 @@ jobs:
             - Belt worker workflow failed silently
 
             **To investigate:**
-            1. Check recent workflow runs for \`agents-72-codex-belt-worker\` failures
+            1. Check recent workflow runs for belt worker failures
             2. Review the issue requirements for clarity
-            3. Check the Codex session logs if available
+            3. Check the agent session logs if available
 
             **To resume:** Remove \`agents:auto-pilot-pause\` and \`needs-human\` labels,
             then re-add \`agents:auto-pilot\`.`
@@ -2273,10 +2273,10 @@ jobs:
                     }
                   }));
                   workerDispatched = true;
-                  core.info(`Dispatched codex belt worker for issue #${issueNumber}`);
+                  core.info(`Dispatched belt worker for issue #${issueNumber}`);
                 } catch (err) {
                   dispatchError = err;
-                  core.warning(`Could not dispatch codex belt worker: ${err?.message}`);
+                  core.warning(`Could not dispatch belt worker: ${err?.message}`);
                 }
 
                 // Build detailed status message
@@ -2284,7 +2284,7 @@ jobs:
                 if (workerDispatched) {
                   const stallMsg = `${stallCount + 1}/${maxStallRetries}`;
                   dispatchLine = [
-                    '✅ Dispatched the Codex belt worker to generate changes.',
+                    '✅ Dispatched the belt worker to generate changes.',
                     '',
                     `📊 Stall count: ${stallMsg} (pauses after ${maxStallRetries})`
                   ].join('\n');
@@ -2293,7 +2293,7 @@ jobs:
                   const errorStatus = dispatchError?.status
                     ? ` (HTTP ${dispatchError.status})` : '';
                   dispatchLine = [
-                    `❌ **Failed to dispatch Codex belt worker**${errorStatus}`,
+                    `❌ **Failed to dispatch belt worker**${errorStatus}`,
                     '',
                     `Error: \`${errorDetail}\``,
                     '',
@@ -2370,7 +2370,7 @@ jobs:
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   issue_number: pr.number,
-                  labels: ['agent:codex', 'agents:keepalive', 'autofix']
+                  labels: [`agent:${agentKey}`, 'agents:keepalive', 'autofix']
                 }));
                 labelsAdded = true;
                 core.info(`Added agent labels to PR #${pr.number}`);
@@ -2380,7 +2380,7 @@ jobs:
               }
 
               const labelStatus = labelsAdded
-                ? '✅ Added labels: `agent:codex`, `agents:keepalive`, `autofix`'
+                ? `✅ Added labels: \`agent:${agentKey}\`, \`agents:keepalive\`, \`autofix\``
                 : '⚠️ Could not add labels (add manually)';
 
               // Dispatch PR meta workflow to build Automated Status Summary
@@ -2389,7 +2389,7 @@ jobs:
                 await withRetry((client) => client.rest.actions.createWorkflowDispatch({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
-                  workflow_id: 'agents-pr-meta-v4.yml',
+                  workflow_id: 'agents-pr-meta.yml',
                   ref: baseBranch,
                   inputs: {
                     pr_number: pr.number.toString(),

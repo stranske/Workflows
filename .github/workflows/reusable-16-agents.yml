@@ -86,7 +86,7 @@ on:
         default: 'false'
         type: string
       bootstrap_issues_label:
-        description: 'Label to trigger Codex bootstrap'
+        description: 'Label to trigger agent bootstrap (e.g. agent:codex, agent:claude)'
         required: false
         default: 'agent:codex'
         type: string
@@ -618,9 +618,14 @@ jobs:
                 };
             const { withRetry } = retryHelpers;
 
-            const fallbackLabel = 'agent:codex';
+            let fallbackLabel = 'agent:codex';
+            try {
+              const { loadAgentRegistry } = require('./.github/scripts/agent_registry.js');
+              const registry = loadAgentRegistry();
+              fallbackLabel = `agent:${registry.default_agent || 'codex'}`;
+            } catch (_) { /* registry not available */ }
               const fallbackMessage =
-                'bootstrap_issues_label not provided; defaulting to agent:codex.';
+                `bootstrap_issues_label not provided; defaulting to ${fallbackLabel}.`;
             const raw = process.env.LABEL || '';
             const trimmed = raw
               .split(/[,\n]/)

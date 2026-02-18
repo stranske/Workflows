@@ -218,7 +218,7 @@ jobs:
               core.setOutput('labels_json', JSON.stringify(pr.labels));
               core.setOutput(
                 'has_agent_label',
-                pr.hasAnyLabel(['agent:codex', 'agent:copilot', 'agents:keepalive'])
+                pr.hasAnyLabel(['agent:codex', 'agent:claude', 'agent:auto', 'agent:copilot', 'agents:keepalive'])
               );
               core.setOutput('has_keepalive_label', pr.hasLabel('agents:keepalive'));
 

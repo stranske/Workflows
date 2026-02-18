@@ -42,6 +42,7 @@ FUNCTIONAL_LABELS = {
     # Agent assignment
     "agent:codex",
     "agent:claude",
+    "agent:auto",
     "agent:copilot",
     "agent:needs-attention",
     "agent:decompose",
@@ -75,6 +76,7 @@ FUNCTIONAL_LABELS = {
     # Merge control
     "automerge",
     "from:codex",
+    "from:claude",
     "from:copilot",
     "risk:low",
     "ci:green",

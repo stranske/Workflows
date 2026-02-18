@@ -25,7 +25,7 @@ on:
         description: 'Resolved agent login when validation passed'
         value: ${{ jobs.verify.outputs.matched_assignee }}
       has_label:
-        description: 'Whether the issue currently has the agent:codex label'
+        description: 'Whether the issue currently has an agent:* label'
         value: ${{ jobs.verify.outputs.has_label }}
       issue_url:
         description: 'Direct link to the inspected issue'
@@ -141,7 +141,7 @@ jobs:
               const message =
                 `Input issue_number must be a positive integer. Received: ${rawInput}`;
               const table = [
-                '| Issue | Title | Has agent:codex? | Valid Agent Assignee | Status |',
+                '| Issue | Title | Has agent label? | Valid Agent Assignee | Status |',
                 '|-------|-------|-----------------|----------------------|--------|',
                 `| #${escapeCell(rawInput)} | — | unknown | — | error |`
               ].join('\n');
@@ -204,7 +204,7 @@ jobs:
                 }
                 return (label.name ?? '').toLowerCase();
               });
-              hasLabel = labels.includes('agent:codex');
+              hasLabel = labels.some(l => l.startsWith('agent:'));
 
               const assignees = (issue.assignees ?? [])
                 .map((assignee) => (assignee.login ?? '').toLowerCase());
@@ -212,13 +212,13 @@ jobs:
 
               if (!hasLabel) {
                 status = 'skipped';
-                message = `Issue #${issueNumber} does not carry the agent:codex label. ` +
+                message = `Issue #${issueNumber} does not carry an agent:* label. ` +
                   'Verification skipped.';
                 core.notice(message);
               } else if (!matched) {
                 status = 'fail';
                 const expectedList = REQUIRED_LOGINS.join(', ');
-                message = `Issue #${issueNumber} is labelled agent:codex but missing ` +
+                message = `Issue #${issueNumber} has an agent label but is missing ` +
                   'a valid agent assignee.';
                 message += ` Expected one of: ${expectedList}.`;
                 core.error(message);
@@ -249,7 +249,7 @@ jobs:
               `| ${issueCell} | ${escapeCell(issueTitle)} | ${labelText} | ` +
               `${assigneeCell} | ${statusLabel} |`;
             const table = [
-              '| Issue | Title | Has agent:codex? | Valid Agent Assignee | Status |',
+              '| Issue | Title | Has agent label? | Valid Agent Assignee | Status |',
               '|-------|-------|-----------------|----------------------|--------|',
               row
             ].join('\n');
