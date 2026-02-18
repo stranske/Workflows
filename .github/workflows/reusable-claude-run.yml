@@ -680,9 +680,10 @@ jobs:
           fi
           echo "missing=false" >> "$GITHUB_OUTPUT"
 
-          mkdir -p "$HOME/.config/claude"
-          printf '%s' "$AUTH_JSON" > "$HOME/.config/claude/auth.json"
-          chmod 0600 "$HOME/.config/claude/auth.json"
+          # Claude Code CLI reads auth from ~/.config/claude-code/auth.json
+          mkdir -p "$HOME/.config/claude-code"
+          printf '%s' "$AUTH_JSON" > "$HOME/.config/claude-code/auth.json"
+          chmod 0600 "$HOME/.config/claude-code/auth.json"
 
       - name: Ensure Claude CLI
         if: steps.preflight.outputs.missing != 'true'

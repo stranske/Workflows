@@ -64,7 +64,7 @@ jobs:
             exit 1
           fi
 
-          config_dir="$HOME/.config/claude"
+          config_dir="$HOME/.config/claude-code"
           mkdir -p "$config_dir"
           printf '%s' "$AUTH_JSON" > "$config_dir/auth.json"
           chmod 0600 "$config_dir/auth.json"
@@ -105,7 +105,7 @@ jobs:
           AUTH_JSON: ${{ secrets.CLAUDE_AUTH_JSON }}
         run: |
           set -euo pipefail
-          # Some CLI versions may look in ~/.claude/ instead of ~/.config/claude/
+          # Some CLI versions may look in ~/.claude/ instead of ~/.config/claude-code/
           for dir in "$HOME/.claude" "$HOME/.config/claude-code"; do
             mkdir -p "$dir"
             printf '%s' "$AUTH_JSON" > "$dir/auth.json"
@@ -153,7 +153,7 @@ jobs:
       - name: "8. Check if CLI modified auth.json (token refresh)"
         run: |
           echo "=== Checking for CLI-side token refresh ==="
-          for f in "$HOME/.config/claude/auth.json" "$HOME/.claude/auth.json"; do
+          for f in "$HOME/.config/claude-code/auth.json" "$HOME/.config/claude/auth.json" "$HOME/.claude/auth.json"; do
             if [ -f "$f" ]; then
               echo "$f:"
               echo "  Size: $(wc -c < "$f") bytes"
