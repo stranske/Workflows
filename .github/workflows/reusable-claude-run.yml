@@ -217,6 +217,444 @@ jobs:
         with:
           node-version: 20
 
+      # Align infrastructure prep with Codex runner so both agents share
+      # the same token load balancer, scripts checkout, and tooling deps.
+      - name: Setup API client
+        uses: ./.github/actions/setup-api-client
+        with:
+          secrets: ${{ toJSON(secrets) }}
+          github_token: ${{ github.token }}
+
+      - name: Checkout Workflows scripts
+        uses: actions/checkout@v6
+        with:
+          repository: stranske/Workflows
+          ref: ${{ inputs.workflows_ref }}
+          path: .workflows-lib
+          sparse-checkout: |
+            .github
+            tools
+            scripts
+          token: ${{ steps.auth_token.outputs.checkout_token }}
+
+      - name: Setup Workflows API client
+        uses: ./.github/actions/setup-api-client
+        with:
+          secrets: ${{ toJSON(secrets) }}
+          github_token: ${{ github.token }}
+          install_dir: ${{ github.workspace }}/.workflows-lib/.github/scripts
+
+      - name: Ensure Workflows script deps
+        run: |
+          set -euo pipefail
+          if [ ! -d ".workflows-lib/.github/scripts/node_modules" ]; then
+            if [ ! -d ".github/scripts/node_modules" ]; then
+              mkdir -p ".github/scripts"
+              echo "Installing fallback @octokit deps for workspace scripts..."
+              pushd ".github/scripts" >/dev/null
+              npm install --no-save --location=project \
+                @octokit/rest@20.0.2 \
+                @octokit/plugin-retry@6.0.1 \
+                @octokit/plugin-paginate-rest@9.1.5 \
+                @octokit/auth-app@6.0.3
+              popd >/dev/null
+            fi
+            if [ -d ".github/scripts/node_modules" ]; then
+              mkdir -p ".workflows-lib/.github/scripts"
+              ln -s "${GITHUB_WORKSPACE}/.github/scripts/node_modules" \
+                ".workflows-lib/.github/scripts/node_modules"
+            else
+              mkdir -p ".workflows-lib/.github/scripts"
+              echo "Installing fallback @octokit deps for .workflows-lib..."
+              pushd ".workflows-lib/.github/scripts" >/dev/null
+              npm install --no-save --location=project \
+                @octokit/rest@20.0.2 \
+                @octokit/plugin-retry@6.0.1 \
+                @octokit/plugin-paginate-rest@9.1.5 \
+                @octokit/auth-app@6.0.3
+              popd >/dev/null
+            fi
+            if [ ! -d ".workflows-lib/.github/scripts/node_modules" ] && \
+              command -v npm >/dev/null 2>&1; then
+              global_root=$(npm root -g || true)
+              if [ -n "$global_root" ] && [ -d "$global_root/@octokit" ]; then
+                ln -s "$global_root" ".workflows-lib/.github/scripts/node_modules"
+              fi
+            fi
+          fi
+
+          if [ ! -d ".workflows-lib/.github/scripts/node_modules" ] && \
+            command -v npm >/dev/null 2>&1; then
+            echo "Retrying @octokit install with npm init in .workflows-lib/.github/scripts..."
+            mkdir -p ".workflows-lib/.github/scripts"
+            pushd ".workflows-lib/.github/scripts" >/dev/null
+            if [ ! -f package.json ]; then
+              npm init -y >/dev/null
+            fi
+            npm install --no-save --location=project \
+              @octokit/rest@20.0.2 \
+              @octokit/plugin-retry@6.0.1 \
+              @octokit/plugin-paginate-rest@9.1.5 \
+              @octokit/auth-app@6.0.3 || \
+            npm install --no-save --legacy-peer-deps --location=project \
+              @octokit/rest@20.0.2 \
+              @octokit/plugin-retry@6.0.1 \
+              @octokit/plugin-paginate-rest@9.1.5 \
+              @octokit/auth-app@6.0.3
+            popd >/dev/null
+          fi
+
+      - name: Validate workflows tooling
+        run: |
+          set -euo pipefail
+          fail_on_missing=true
+          if [ "${CLAUDE_MODE:-}" = "e2e-test" ]; then
+            fail_on_missing=false
+          fi
+          if [ ! -d ".workflows-lib" ]; then
+            echo "::error::.workflows-lib checkout missing; Workflows scripts unavailable."
+            if [ "$fail_on_missing" = "true" ]; then
+              exit 1
+            fi
+          fi
+          if [ ! -d ".workflows-lib/.github/scripts/node_modules" ]; then
+            echo "::error::Missing .workflows-lib/.github/scripts/node_modules"
+            echo "::error::API client deps not installed."
+            if [ "$fail_on_missing" = "true" ]; then
+              exit 1
+            fi
+          fi
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: |
+            pyproject.toml
+            requirements*.txt
+
+      - name: Install Python dependencies
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then
+            python -m pip install -r requirements.txt
+          else
+            echo "requirements.txt not found; skipping base requirements install."
+          fi
+
+          if [ -f requirements-dev.txt ]; then
+            python -m pip install -r requirements-dev.txt
+          else
+            echo "requirements-dev.txt not found; skipping dev requirements file."
+          fi
+
+          if [ -f tools/requirements.txt ]; then
+            python -m pip install -r tools/requirements.txt
+          else
+            echo "tools/requirements.txt not found; skipping tools requirements."
+          fi
+
+          if [ -f scripts/requirements.txt ]; then
+            python -m pip install -r scripts/requirements.txt
+          else
+            echo "scripts/requirements.txt not found; skipping scripts requirements."
+          fi
+
+          if [ -f pyproject.toml ]; then
+            python -m pip install -e ".[dev]" || python -m pip install -e .
+          fi
+
+      - name: Install Workflows repo LLM dependencies
+        run: |
+          if [ -f .workflows-lib/tools/requirements.txt ]; then
+            echo "Installing LLM analysis dependencies..."
+            python -m pip install -r .workflows-lib/tools/requirements.txt || {
+              echo "::notice::LLM dependencies not installed, will fall back to regex analysis"
+            }
+          fi
+
+      - name: Validate prompt template integrity
+        id: guard
+        if: ${{ inputs.mode != 'e2e-test' }}
+        env:
+          BASE_PROMPT: ${{ inputs.prompt_file }}
+        run: |
+          set -euo pipefail
+          if [ -f ".github/scripts/prompt_integrity_guard.js" ]; then
+            echo "Checking prompt template for embedded task content..."
+            node .github/scripts/prompt_integrity_guard.js "${BASE_PROMPT}" || {
+              error_msg="Prompt template integrity check failed. "
+              error_msg+="The base prompt contains embedded task content "
+              error_msg+="that should be removed."
+              echo "CLAUDE_PREFLIGHT_ERROR=${error_msg}" >> "$GITHUB_ENV"
+              echo "CLAUDE_PREFLIGHT_STAGE=prompt-integrity" >> "$GITHUB_ENV"
+              echo "::error::Prompt template integrity check failed. See output above."
+              echo "::error::The base prompt contains embedded task content that should be removed."
+              exit 1
+            }
+          else
+            echo "Guard script not found, skipping integrity check"
+          fi
+
+      - name: Download task appendix artifact
+        id: download_appendix
+        if: inputs.mode == 'keepalive' && inputs.pr_number != ''
+        continue-on-error: true
+        uses: actions/download-artifact@v7
+        with:
+          name: keepalive-task-appendix-${{ inputs.pr_number }}
+          path: /tmp/keepalive-artifacts
+
+      - name: Validate and materialize reference packs
+        id: reference_packs
+        env:
+          GH_TOKEN: ${{ steps.auth_token.outputs.checkout_token }}
+        run: |
+          set -euo pipefail
+          if [ ! -f ".github/reference_packs.json" ]; then
+            echo "No .github/reference_packs.json found; skipping reference packs."
+            echo "reference_packs_exists=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "Validating reference pack configuration..."
+          python .workflows-lib/scripts/reference_packs.py --workspace . --format json \
+            > /tmp/reference_packs_output.json
+          echo "reference_packs_exists=true" >> "$GITHUB_OUTPUT"
+
+          python3 <<'REFPACK_EOF'
+          import json, subprocess, os, shutil, sys, re
+
+          with open("/tmp/reference_packs_output.json") as f:
+              data = json.load(f)
+
+          token = os.environ.get("GH_TOKEN", "")
+          for plan in data.get("checkout_plan", []):
+              name = plan["name"]
+              repo = plan["repo"]
+              ref = plan["ref"]
+              checkout_path = plan["checkout_path"]
+              paths = plan["paths"]
+              clone_dir = f"/tmp/ref-pack-{name}"
+
+              print(f"Cloning {repo}@{ref} for pack '{name}'...")
+              if os.path.exists(clone_dir):
+                  shutil.rmtree(clone_dir)
+              if token:
+                  clone_url = f"https://x-access-token:{token}@github.com/{repo}.git"
+              else:
+                  clone_url = f"https://github.com/{repo}.git"
+
+              is_sha = bool(re.fullmatch(r'[0-9a-fA-F]{40}', ref))
+              if is_sha:
+                  subprocess.check_call([
+                      "git", "clone", "--depth=1", "--filter=blob:none",
+                      "--sparse", "--no-checkout", clone_url, clone_dir
+                  ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                  subprocess.check_call([
+                      "git", "-C", clone_dir, "fetch", "origin", ref, "--depth=1"
+                  ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                  subprocess.check_call([
+                      "git", "-C", clone_dir, "checkout", ref
+                  ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+              else:
+                  subprocess.check_call([
+                      "git", "clone", "--depth=1", "--branch", ref,
+                      "--filter=blob:none", "--sparse", clone_url, clone_dir
+                  ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+              subprocess.check_call([
+                  "git", "-C", clone_dir, "sparse-checkout", "set", "--no-cone"
+              ] + paths, stdout=subprocess.DEVNULL)
+              subprocess.check_call([
+                  "git", "-C", clone_dir, "sparse-checkout", "reapply"
+              ], stdout=subprocess.DEVNULL)
+
+              os.makedirs(checkout_path, exist_ok=True)
+              for p in paths:
+                  src = os.path.join(clone_dir, p)
+                  dst = os.path.join(checkout_path, p)
+                  if os.path.isdir(src):
+                      shutil.copytree(src, dst, dirs_exist_ok=True)
+                  elif os.path.isfile(src):
+                      os.makedirs(os.path.dirname(dst), exist_ok=True)
+                      shutil.copy2(src, dst)
+                  else:
+                      print(f"::warning::Path '{p}' not found in {repo}@{ref}", file=sys.stderr)
+              shutil.rmtree(clone_dir, ignore_errors=True)
+              print(f"Pack '{name}' materialized at {checkout_path}")
+
+          md_path = os.path.join(".reference", "REFERENCE_PACKS.md")
+          os.makedirs(os.path.dirname(md_path), exist_ok=True)
+          with open(md_path, "w") as md:
+              for plan in data.get("checkout_plan", []):
+                  md.write(f"## {plan['name']}\n")
+                  md.write(f"- **Repo:** `{plan['repo']}`\n")
+                  md.write(f"- **Ref:** `{plan['ref']}`\n")
+                  md.write(f"- **Paths:** {', '.join(f'`{p}`' for p in plan['paths'])}\n")
+                  checkout = plan["checkout_path"]
+                  md.write(f"- **Location:** `{checkout}/`\n\n")
+                  md.write("### Contents\n")
+                  for root, dirs, files in os.walk(checkout):
+                      for fname in sorted(files):
+                          rel = os.path.relpath(os.path.join(root, fname), checkout)
+                          md.write(f"- `{rel}`\n")
+                  md.write("\n")
+          print(f"Generated {md_path}")
+          REFPACK_EOF
+
+      - name: Assemble prompt
+        id: prompt
+        env:
+          BASE_PROMPT: ${{ inputs.prompt_file }}
+          APPENDIX: ${{ inputs.appendix }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+          MODE: ${{ inputs.mode }}
+        run: |
+          set -euo pipefail
+          base="${BASE_PROMPT}"
+          if [ -n "${PR_NUMBER}" ]; then
+            output="claude-prompt-${PR_NUMBER}.md"
+          else
+            output="claude-prompt.md"
+          fi
+
+          if [ -z "$base" ] || [ ! -f "$base" ]; then
+            echo "Base prompt file not found: ${base}" >&2
+            exit 1
+          fi
+
+          if [ -f ".github/claude/AGENT_INSTRUCTIONS.md" ]; then
+            {
+              cat ".github/claude/AGENT_INSTRUCTIONS.md"
+              echo
+              echo "---"
+              echo
+              echo "## Task Prompt"
+              echo
+            } > "$output"
+            cat "$base" >> "$output"
+          else
+            cat "$base" > "$output"
+          fi
+
+          if [ "$MODE" = "keepalive" ] && [ -s "/tmp/keepalive-artifacts/task-appendix.txt" ]; then
+            echo "Streaming task appendix from artifact file"
+            {
+              echo
+              echo "## Run context"
+              cat /tmp/keepalive-artifacts/task-appendix.txt
+            } >> "$output"
+          elif [ -n "$APPENDIX" ]; then
+            echo "Using task appendix from input parameter"
+            {
+              echo
+              echo "## Run context"
+              printf '%s\n' "$APPENDIX"
+            } >> "$output"
+          fi
+
+          if [ -f ".reference/REFERENCE_PACKS.md" ]; then
+            echo "Including reference pack content in prompt"
+            {
+              echo
+              echo "## Reference Packs"
+              cat .reference/REFERENCE_PACKS.md
+            } >> "$output"
+          fi
+
+          echo "file=${output}" >> "$GITHUB_OUTPUT"
+
+      # Keep workspace shape identical to Codex runner so git status noise doesn't
+      # confuse the agent or produce merge conflicts when multiple PRs run.
+      - name: Clean workspace for Claude
+        id: clean_workspace
+        env:
+          PR_NUM: ${{ inputs.pr_number }}
+        run: |
+          set -euo pipefail
+          echo "Cleaning workspace to ensure clean git state for Claude..."
+
+          if [ -d ".workflows-lib" ]; then
+            if ! grep -q "^\.workflows-lib" .git/info/exclude 2>/dev/null; then
+              echo ".workflows-lib" >> .git/info/exclude 2>/dev/null || true
+            fi
+          fi
+
+          if [ -d ".reference" ]; then
+            if ! grep -q "^\.reference" .git/info/exclude 2>/dev/null; then
+              echo ".reference" >> .git/info/exclude 2>/dev/null || true
+            fi
+          fi
+
+          if ! grep -q "^\.github/scripts/node_modules" .git/info/exclude 2>/dev/null; then
+            echo ".github/scripts/node_modules" >> .git/info/exclude 2>/dev/null || true
+          fi
+          if ! grep -q "^\.workflows-lib/\.github/scripts/node_modules" .git/info/exclude 2>/dev/null; then
+            echo ".workflows-lib/.github/scripts/node_modules" >> .git/info/exclude 2>/dev/null || true
+          fi
+          if ! grep -q "^node_modules" .git/info/exclude 2>/dev/null; then
+            echo "node_modules" >> .git/info/exclude 2>/dev/null || true
+          fi
+
+          echo "Removing stale workflow artifact files..."
+          rm -f claude-output*.md claude-session*.jsonl claude-analysis*.json 2>/dev/null || true
+
+          echo "Git status after cleanup:"
+          git status --short || true
+
+          ignore_re='^(\.(workflows-lib|gitignore)|\.github/scripts/node_modules|'
+          ignore_re+='\.workflows-lib/\.github/scripts/node_modules|node_modules|'
+          ignore_re+='claude-.*|autofix.*)$'
+          ignore_re+='|^(\.(workflows-lib|gitignore)|\.github/scripts/node_modules|'
+          ignore_re+='\.workflows-lib/\.github/scripts/node_modules|node_modules|'
+          ignore_re+='claude-.*|autofix.*)/'
+          REMAINING=$(git status --porcelain | cut -c4- | grep -cvE "$ignore_re" 2>/dev/null || echo "0")
+          REMAINING=$(printf '%s' "$REMAINING" | tr -d '[:space:]')
+          REMAINING=${REMAINING:-0}
+          echo "remaining-changes=${REMAINING}" >> "$GITHUB_OUTPUT"
+          if [ "$REMAINING" -gt 0 ]; then
+            echo "::notice::Found ${REMAINING} pre-existing change(s) in workspace."
+            git status --short
+          else
+            echo "Workspace is clean for Claude."
+          fi
+
+      - name: Surface merge conflicts
+        if: inputs.prompt_file == '.github/claude/prompts/fix_merge_conflicts.md' || inputs.prompt_file == '.github/codex/prompts/fix_merge_conflicts.md'
+        env:
+          WORKFLOW_BASE_REF: ${{ inputs.base_ref || github.event.pull_request.base.ref || '' }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          base_branch="${GITHUB_BASE_REF:-}"
+          if [ -z "$base_branch" ] && [ -n "${WORKFLOW_BASE_REF:-}" ]; then
+            base_branch="$WORKFLOW_BASE_REF"
+          fi
+          if [ -z "$base_branch" ]; then
+            base_branch="$({
+              git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null |
+                sed 's@^refs/remotes/origin/@@'
+            } || true)"
+          fi
+          if [ -z "$base_branch" ]; then
+            echo "Error: could not determine base branch automatically." >&2
+            exit 1
+          fi
+
+          echo "Using base branch '$base_branch' to surface merge conflicts."
+          git fetch origin "$base_branch"
+          merge_exit=0
+          git merge --no-commit --no-ff "origin/$base_branch" || merge_exit=$?
+          if [ $merge_exit -ne 0 ]; then
+            echo "Merge conflicts detected (expected for conflict resolution)"
+            git status
+          else
+            echo "No merge conflicts - merge succeeded automatically"
+          fi
+
       - name: Preflight auth
         id: preflight
         env:
@@ -295,14 +733,53 @@ jobs:
           PREFLIGHT_MISSING: ${{ steps.preflight.outputs.missing || 'false' }}
           PREFLIGHT_ERROR: ${{ steps.preflight.outputs.error || '' }}
           PROMPT_FILE: ${{ steps.prompt.outputs.file || '' }}
-          EXTRA_ARGS: ${{ inputs.claude_args }}
+          EXTRA_ARGS_RAW: ${{ inputs.claude_args }}
+          PR_NUMBER: ${{ inputs.pr_number }}
         run: |
           set -euo pipefail
 
-          extra_args=()
-          if [ -n "${EXTRA_ARGS:-}" ]; then
-            read -r -a extra_args <<<"$EXTRA_ARGS"
+          extra_args_file="${RUNNER_TEMP:-/tmp}/claude-extra-args.txt"
+          : > "$extra_args_file"
+          if [ -n "${EXTRA_ARGS_RAW:-}" ]; then
+            python3 - "$EXTRA_ARGS_RAW" "$extra_args_file" <<'PY'
+          import json, shlex, sys
+
+          raw = (sys.argv[1] or '').strip()
+          out_path = sys.argv[2]
+
+          if not raw:
+              args = []
+          elif raw.startswith('['):
+              try:
+                  value = json.loads(raw)
+              except json.JSONDecodeError as exc:
+                  raise SystemExit(f"claude_args JSON parse failed: {exc}")
+              if not isinstance(value, list):
+                  raise SystemExit("claude_args JSON must be an array")
+              for idx, item in enumerate(value):
+                  if not isinstance(item, str):
+                      raise SystemExit(f"claude_args JSON array item {idx} must be a string")
+                  if '\x00' in item:
+                      raise SystemExit(f"claude_args JSON array item {idx} contains NUL")
+              args = value
+          else:
+              try:
+                  args = shlex.split(raw)
+              except ValueError as exc:
+                  raise SystemExit(f"claude_args split failed: {exc}")
+              for idx, item in enumerate(args):
+                  if '\x00' in item:
+                      raise SystemExit(f"claude_args arg {idx} contains NUL")
+
+          with open(out_path, 'w', encoding='utf-8') as handle:
+              for arg in args:
+                  handle.write(arg)
+                  handle.write('\n')
+
+          print(f"Parsed {len(args)} claude extra arg(s).")
+          PY
           fi
+          mapfile -t extra_args < "$extra_args_file" || true
 
           if [ "$PREFLIGHT_MISSING" = "true" ]; then
             summary="$PREFLIGHT_ERROR"
@@ -323,7 +800,11 @@ jobs:
           fi
 
           prompt_content="$(cat "$PROMPT_FILE")"
-          output_file="claude-output.txt"
+          if [ -n "${PR_NUMBER:-}" ]; then
+            output_file="claude-output-${PR_NUMBER}.md"
+          else
+            output_file="claude-output.md"
+          fi
 
           set +e
           claude -p "$prompt_content" "${extra_args[@]}" >"$output_file" 2>&1
