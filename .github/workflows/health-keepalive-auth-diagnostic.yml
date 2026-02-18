@@ -1,0 +1,462 @@
+name: Health Keepalive Auth Diagnostic
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_repo:
+        description: 'Consumer repo to test (owner/repo). Defaults to this repo.'
+        type: string
+        default: ''
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+
+jobs:
+  test-app-token:
+    name: "Test 1: GitHub App Token Minting"
+    runs-on: ubuntu-latest
+    environment: agent-standard
+    steps:
+      - name: Mint WORKFLOWS_APP token
+        id: workflows_app
+        continue-on-error: true
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
+          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || 'dummy' }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Mint KEEPALIVE_APP token
+        id: keepalive_app
+        continue-on-error: true
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.KEEPALIVE_APP_ID || '0' }}
+          private-key: ${{ secrets.KEEPALIVE_APP_PRIVATE_KEY || 'dummy' }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Report App token results
+        env:
+          WORKFLOWS_TOKEN: ${{ steps.workflows_app.outputs.token || '' }}
+          WORKFLOWS_OUTCOME: ${{ steps.workflows_app.outcome }}
+          KEEPALIVE_TOKEN: ${{ steps.keepalive_app.outputs.token || '' }}
+          KEEPALIVE_OUTCOME: ${{ steps.keepalive_app.outcome }}
+          HAS_WORKFLOWS_ID: ${{ secrets.WORKFLOWS_APP_ID != '' }}
+          HAS_WORKFLOWS_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY != '' }}
+          HAS_KEEPALIVE_ID: ${{ secrets.KEEPALIVE_APP_ID != '' }}
+          HAS_KEEPALIVE_KEY: ${{ secrets.KEEPALIVE_APP_PRIVATE_KEY != '' }}
+        run: |
+          set -euo pipefail
+          echo "=== GitHub App Token Diagnostic ==="
+          echo ""
+          echo "--- Secret Presence ---"
+          echo "WORKFLOWS_APP_ID present:          $HAS_WORKFLOWS_ID"
+          echo "WORKFLOWS_APP_PRIVATE_KEY present: $HAS_WORKFLOWS_KEY"
+          echo "KEEPALIVE_APP_ID present:          $HAS_KEEPALIVE_ID"
+          echo "KEEPALIVE_APP_PRIVATE_KEY present:  $HAS_KEEPALIVE_KEY"
+          echo ""
+          echo "--- Token Mint Results ---"
+          echo "WORKFLOWS_APP mint outcome: $WORKFLOWS_OUTCOME"
+          if [ -n "$WORKFLOWS_TOKEN" ]; then
+            echo "WORKFLOWS_APP token: OBTAINED (length=${#WORKFLOWS_TOKEN})"
+          else
+            echo "WORKFLOWS_APP token: FAILED TO OBTAIN"
+          fi
+          echo "KEEPALIVE_APP mint outcome: $KEEPALIVE_OUTCOME"
+          if [ -n "$KEEPALIVE_TOKEN" ]; then
+            echo "KEEPALIVE_APP token: OBTAINED (length=${#KEEPALIVE_TOKEN})"
+          else
+            echo "KEEPALIVE_APP token: FAILED TO OBTAIN"
+          fi
+
+      - name: Test WORKFLOWS_APP token permissions
+        if: steps.workflows_app.outputs.token != ''
+        env:
+          GH_TOKEN: ${{ steps.workflows_app.outputs.token }}
+          TARGET_REPO: ${{ inputs.target_repo || github.repository }}
+        run: |
+          set -euo pipefail
+          echo "--- Testing WORKFLOWS_APP token ---"
+
+          echo "1. Accessible repos:"
+          curl -sf -H "Authorization: token $GH_TOKEN" \
+            "https://api.github.com/installation/repositories?per_page=5" | \
+            python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)
+          print(f'  Total repos: {data.get(\"total_count\", \"unknown\")}')
+          for r in data.get('repositories', []):
+              print(f'  - {r[\"full_name\"]}')
+          " || echo "  API call failed!"
+
+          echo ""
+          echo "2. Installation permissions (from token metadata):"
+          # The /installation endpoint returns the installation's granted permissions
+          curl -sf -H "Authorization: token $GH_TOKEN" \
+            "https://api.github.com/installation/token" 2>/dev/null | \
+            python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)
+          perms = data.get('permissions', {})
+          for k, v in sorted(perms.items()):
+              flag = 'OK' if v == 'write' else 'READ-ONLY' if v == 'read' else v
+              print(f'  {k}: {v} [{flag}]')
+          " 2>/dev/null || echo "  (token metadata endpoint not available)"
+
+          echo ""
+          echo "3. Test git push capability (create+delete scratch ref):"
+          # Actually try creating a lightweight ref to test push access
+          LATEST_SHA=$(curl -sf -H "Authorization: token $GH_TOKEN" \
+            "https://api.github.com/repos/$TARGET_REPO/git/ref/heads/main" | \
+            python3 -c "import json,sys; print(json.load(sys.stdin)['object']['sha'])")
+
+          # Try to create a scratch ref
+          CREATE_RESULT=$(curl -s -o /dev/null -w "%{http_code}" \
+            -X POST \
+            -H "Authorization: token $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/$TARGET_REPO/git/refs" \
+            -d "{\"ref\":\"refs/tags/_diag-push-test\",\"sha\":\"$LATEST_SHA\"}")
+          if [ "$CREATE_RESULT" = "201" ]; then
+            echo "  Create ref: SUCCESS (HTTP 201) - push WORKS"
+            # Clean up
+            curl -s -o /dev/null -X DELETE \
+              -H "Authorization: token $GH_TOKEN" \
+              "https://api.github.com/repos/$TARGET_REPO/git/refs/tags/_diag-push-test" || true
+            echo "  Cleanup: deleted scratch ref"
+          elif [ "$CREATE_RESULT" = "422" ]; then
+            # 422 can mean ref already exists - try delete then create
+            curl -s -o /dev/null -X DELETE \
+              -H "Authorization: token $GH_TOKEN" \
+              "https://api.github.com/repos/$TARGET_REPO/git/refs/tags/_diag-push-test" 2>/dev/null || true
+            echo "  Create ref: HTTP 422 (ref may already exist, cleaned up)"
+          else
+            echo "  Create ref: FAILED (HTTP $CREATE_RESULT) - push NOT WORKING"
+            echo "  ::error::App token cannot push to $TARGET_REPO (HTTP $CREATE_RESULT)"
+          fi
+
+      - name: Test KEEPALIVE_APP token permissions
+        if: steps.keepalive_app.outputs.token != ''
+        env:
+          GH_TOKEN: ${{ steps.keepalive_app.outputs.token }}
+          TARGET_REPO: ${{ inputs.target_repo || github.repository }}
+        run: |
+          set -euo pipefail
+          echo "--- Testing KEEPALIVE_APP token ---"
+
+          echo "1. Accessible repos:"
+          curl -sf -H "Authorization: token $GH_TOKEN" \
+            "https://api.github.com/installation/repositories?per_page=5" | \
+            python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)
+          print(f'  Total repos: {data.get(\"total_count\", \"unknown\")}')
+          for r in data.get('repositories', []):
+              print(f'  - {r[\"full_name\"]}')
+          " || echo "  API call failed!"
+
+          echo ""
+          echo "2. Test git push capability (create+delete scratch ref):"
+          LATEST_SHA=$(curl -sf -H "Authorization: token $GH_TOKEN" \
+            "https://api.github.com/repos/$TARGET_REPO/git/ref/heads/main" | \
+            python3 -c "import json,sys; print(json.load(sys.stdin)['object']['sha'])")
+
+          CREATE_RESULT=$(curl -s -o /dev/null -w "%{http_code}" \
+            -X POST \
+            -H "Authorization: token $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/$TARGET_REPO/git/refs" \
+            -d "{\"ref\":\"refs/tags/_diag-push-test-ka\",\"sha\":\"$LATEST_SHA\"}")
+          if [ "$CREATE_RESULT" = "201" ]; then
+            echo "  Create ref: SUCCESS (HTTP 201) - push WORKS"
+            curl -s -o /dev/null -X DELETE \
+              -H "Authorization: token $GH_TOKEN" \
+              "https://api.github.com/repos/$TARGET_REPO/git/refs/tags/_diag-push-test-ka" || true
+            echo "  Cleanup: deleted scratch ref"
+          else
+            echo "  Create ref: FAILED (HTTP $CREATE_RESULT) - push NOT WORKING"
+            echo "  ::error::Keepalive App token cannot push to $TARGET_REPO (HTTP $CREATE_RESULT)"
+          fi
+
+  test-claude-auth:
+    name: "Test 2: Claude Auth JSON Validation"
+    runs-on: ubuntu-latest
+    environment: agent-standard
+    steps:
+      - name: Check CLAUDE_AUTH_JSON secret structure
+        env:
+          AUTH_JSON: ${{ secrets.CLAUDE_AUTH_JSON || '' }}
+        run: |
+          set -euo pipefail
+          echo "=== Claude Auth JSON Diagnostic ==="
+          echo ""
+
+          if [ -z "$AUTH_JSON" ]; then
+            echo "RESULT: CLAUDE_AUTH_JSON is EMPTY or not set"
+            echo "::error::CLAUDE_AUTH_JSON secret is missing"
+            exit 1
+          fi
+
+          echo "CLAUDE_AUTH_JSON is present (length=${#AUTH_JSON})"
+          echo ""
+
+          echo "--- JSON Validity ---"
+          if echo "$AUTH_JSON" | python3 -m json.tool > /dev/null 2>&1; then
+            echo "Valid JSON: YES"
+          else
+            echo "Valid JSON: NO"
+            echo "::error::CLAUDE_AUTH_JSON is not valid JSON!"
+            echo "First 5 chars: $(echo "$AUTH_JSON" | head -c 5)"
+            echo "Last 5 chars: $(echo "$AUTH_JSON" | tail -c 5)"
+            exit 1
+          fi
+
+          echo ""
+          echo "--- JSON Structure ---"
+          echo "$AUTH_JSON" | python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)
+          if isinstance(data, dict):
+              print(f'Type: object with {len(data)} key(s)')
+              for key in sorted(data.keys()):
+                  val = data[key]
+                  if isinstance(val, dict):
+                      inner = ', '.join(sorted(val.keys()))
+                      print(f'  {key}: object with keys [{inner}]')
+                  elif isinstance(val, str):
+                      print(f'  {key}: string (length={len(val)})')
+                  elif isinstance(val, (int, float)):
+                      print(f'  {key}: number')
+                  elif isinstance(val, bool):
+                      print(f'  {key}: bool = {val}')
+                  elif isinstance(val, list):
+                      print(f'  {key}: array (length={len(val)})')
+                  elif val is None:
+                      print(f'  {key}: null')
+          "
+
+          echo ""
+          echo "--- Auth Pattern Detection ---"
+          echo "$AUTH_JSON" | python3 -c "
+          import json, sys
+          from datetime import datetime, timezone
+          data = json.load(sys.stdin)
+          if not isinstance(data, dict):
+              print('WARNING: Expected a JSON object at top level')
+              sys.exit(0)
+
+          issues = []
+          patterns = []
+
+          if 'claudeAiOauth' in data:
+              patterns.append('claudeAiOauth (Claude.ai OAuth)')
+              oauth = data['claudeAiOauth']
+              if isinstance(oauth, dict):
+                  # Claude CLI expects 'token' key, but Claude OAuth flow
+                  # sometimes produces 'accessToken'. Check both.
+                  token_val = oauth.get('token') or oauth.get('accessToken')
+                  token_key = 'token' if 'token' in oauth else ('accessToken' if 'accessToken' in oauth else None)
+
+                  if token_val:
+                      print(f'  OAuth token key: \"{token_key}\" (length={len(token_val)})')
+                      if token_key == 'accessToken':
+                          print('  WARNING: Key is \"accessToken\" but Claude CLI expects \"token\"')
+                          print('  FIX: Rename \"accessToken\" to \"token\" in the secret')
+                          issues.append('accessToken should be renamed to token')
+                  else:
+                      print('  WARNING: No token found (checked \"token\" and \"accessToken\")')
+                      issues.append('no token key found in claudeAiOauth')
+
+                  if 'expiresAt' in oauth:
+                      exp = oauth['expiresAt']
+                      try:
+                          # Handle epoch milliseconds (e.g. 1771452832459)
+                          if isinstance(exp, (int, float)) and exp > 1e12:
+                              exp_dt = datetime.fromtimestamp(exp / 1000, tz=timezone.utc)
+                          elif isinstance(exp, (int, float)):
+                              exp_dt = datetime.fromtimestamp(exp, tz=timezone.utc)
+                          elif isinstance(exp, str):
+                              exp_dt = datetime.fromisoformat(exp.replace('Z', '+00:00'))
+                          else:
+                              raise ValueError(f'Unexpected type: {type(exp)}')
+
+                          now = datetime.now(tz=timezone.utc)
+                          if exp_dt < now:
+                              delta = now - exp_dt
+                              print(f'  EXPIRED {delta.days}d {delta.seconds//3600}h ago ({exp_dt.isoformat()})')
+                              issues.append('token is expired')
+                          else:
+                              delta = exp_dt - now
+                              print(f'  Expires in {delta.days}d {delta.seconds//3600}h ({exp_dt.isoformat()})')
+                      except Exception as e:
+                          print(f'  Could not parse expiresAt ({exp}): {e}')
+
+                  if 'refreshToken' in oauth:
+                      print(f'  refreshToken: present (length={len(oauth[\"refreshToken\"])})')
+                  else:
+                      print('  refreshToken: MISSING')
+                      issues.append('no refreshToken')
+
+          if 'apiKey' in data or 'api_key' in data:
+              patterns.append('API key')
+              key = data.get('apiKey') or data.get('api_key')
+              if isinstance(key, str):
+                  print(f'  API key present (length={len(key)})')
+
+          if 'sessionKey' in data:
+              patterns.append('sessionKey')
+
+          if patterns:
+              print(f'Auth patterns: {', '.join(patterns)}')
+          else:
+              print(f'WARNING: No recognized auth patterns in keys: {list(data.keys())}')
+
+          if issues:
+              print('')
+              print('ISSUES FOUND:')
+              for i, issue in enumerate(issues, 1):
+                  print(f'  {i}. {issue}')
+          "
+
+      - name: Test Claude CLI auth (install + dry run)
+        env:
+          AUTH_JSON: ${{ secrets.CLAUDE_AUTH_JSON || '' }}
+        run: |
+          set -euo pipefail
+          if [ -z "$AUTH_JSON" ]; then
+            echo "Skipping CLI test - no auth JSON"
+            exit 0
+          fi
+
+          echo "--- Installing Claude CLI ---"
+          npm install -g @anthropic-ai/claude-code 2>&1 | tail -3
+          echo ""
+
+          if ! command -v claude >/dev/null 2>&1; then
+            echo "::error::Claude CLI failed to install"
+            exit 1
+          fi
+          echo "Claude CLI installed: $(claude --version 2>&1 || echo 'version unknown')"
+
+          echo ""
+          echo "--- Writing auth.json ---"
+          mkdir -p "$HOME/.config/claude"
+          printf '%s' "$AUTH_JSON" > "$HOME/.config/claude/auth.json"
+          chmod 0600 "$HOME/.config/claude/auth.json"
+          echo "Written to ~/.config/claude/auth.json"
+
+          echo ""
+          echo "--- Testing Claude CLI with minimal prompt ---"
+          set +e
+          timeout 60 claude -p "Respond with exactly: AUTH_OK" --max-turns 1 2>&1
+          status=$?
+          set -e
+          echo ""
+          echo "Claude CLI exit code: $status"
+          if [ $status -eq 0 ]; then
+            echo "RESULT: Claude CLI auth is WORKING"
+          else
+            echo "RESULT: Claude CLI auth FAILED (exit code $status)"
+            echo "::error::Claude CLI returned exit code $status"
+          fi
+
+  test-codex-auth:
+    name: "Test 3: Codex Auth JSON Validation"
+    runs-on: ubuntu-latest
+    environment: agent-standard
+    steps:
+      - name: Check CODEX_AUTH_JSON
+        env:
+          CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON || '' }}
+        run: |
+          set -euo pipefail
+          echo "=== Codex Auth JSON Diagnostic ==="
+          echo ""
+
+          if [ -z "$CODEX_AUTH_JSON" ]; then
+            echo "CODEX_AUTH_JSON: NOT SET"
+            exit 0
+          fi
+
+          echo "CODEX_AUTH_JSON is present (length=${#CODEX_AUTH_JSON})"
+          if echo "$CODEX_AUTH_JSON" | python3 -m json.tool > /dev/null 2>&1; then
+            echo "Valid JSON: YES"
+            echo "$CODEX_AUTH_JSON" | python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)
+          print(f'Top-level keys: {sorted(data.keys())}')
+          tokens = data.get('tokens', {})
+          if tokens:
+              print(f'tokens keys: {sorted(tokens.keys())}')
+              if 'access_token' in tokens:
+                  tok = tokens['access_token']
+                  parts = tok.split('.')
+                  print(f'access_token: present (length={len(tok)}, JWT parts={len(parts)})')
+          "
+          else
+            echo "Valid JSON: NO"
+          fi
+
+  test-pat-tokens:
+    name: "Test 4: PAT Token Availability"
+    runs-on: ubuntu-latest
+    environment: agent-standard
+    steps:
+      - name: Check all PAT secrets
+        env:
+          HAS_SERVICE_BOT: ${{ secrets.SERVICE_BOT_PAT != '' }}
+          HAS_ACTIONS_BOT: ${{ secrets.ACTIONS_BOT_PAT != '' }}
+          HAS_CODESPACES: ${{ secrets.CODESPACES_WORKFLOWS != '' }}
+          HAS_OWNER_PR: ${{ secrets.OWNER_PR_PAT != '' }}
+          HAS_AGENTS_AUTO: ${{ secrets.AGENTS_AUTOMATION_PAT != '' }}
+          HAS_CODEX_AUTH: ${{ secrets.CODEX_AUTH_JSON != '' }}
+          HAS_CLAUDE_AUTH: ${{ secrets.CLAUDE_AUTH_JSON != '' }}
+          HAS_OPENAI_KEY: ${{ secrets.OPENAI_API_KEY != '' }}
+        run: |
+          set -euo pipefail
+          echo "=== PAT / Secret Availability ==="
+          echo ""
+          echo "SERVICE_BOT_PAT:       $HAS_SERVICE_BOT"
+          echo "ACTIONS_BOT_PAT:       $HAS_ACTIONS_BOT"
+          echo "CODESPACES_WORKFLOWS:  $HAS_CODESPACES"
+          echo "OWNER_PR_PAT:          $HAS_OWNER_PR"
+          echo "AGENTS_AUTOMATION_PAT: $HAS_AGENTS_AUTO"
+          echo "CODEX_AUTH_JSON:       $HAS_CODEX_AUTH"
+          echo "CLAUDE_AUTH_JSON:      $HAS_CLAUDE_AUTH"
+          echo "OPENAI_API_KEY:        $HAS_OPENAI_KEY"
+
+  summary:
+    name: "Diagnostic Summary"
+    needs: [test-app-token, test-claude-auth, test-codex-auth, test-pat-tokens]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Print summary
+        env:
+          APP_RESULT: ${{ needs.test-app-token.result }}
+          CLAUDE_RESULT: ${{ needs.test-claude-auth.result }}
+          CODEX_RESULT: ${{ needs.test-codex-auth.result }}
+          PAT_RESULT: ${{ needs.test-pat-tokens.result }}
+        run: |
+          echo "=== DIAGNOSTIC SUMMARY ==="
+          echo ""
+          echo "App Token Minting:    $APP_RESULT"
+          echo "Claude Auth JSON:     $CLAUDE_RESULT"
+          echo "Codex Auth JSON:      $CODEX_RESULT"
+          echo "PAT Availability:     $PAT_RESULT"
+          echo ""
+
+          failed=""
+          [ "$APP_RESULT" != "success" ] && failed="${failed}app-tokens "
+          [ "$CLAUDE_RESULT" != "success" ] && failed="${failed}claude-auth "
+          [ "$CODEX_RESULT" != "success" ] && failed="${failed}codex-auth "
+          [ "$PAT_RESULT" != "success" ] && failed="${failed}pat-tokens "
+
+          if [ -z "$failed" ]; then
+            echo "ALL CHECKS PASSED"
+          else
+            echo "FAILURES: $failed"
+            echo "Review individual job logs above for details."
+          fi
