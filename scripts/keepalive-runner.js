@@ -322,6 +322,7 @@ function resolveKeepalivePromptContext({ labels, checkboxCounts, options }) {
   };
 }
 
+// Bot/service logins that cannot be assigned to issues — real GitHub accounts
 const NON_ASSIGNABLE_LOGINS = new Set([
   'copilot',
   'chatgpt-codex-connector',
@@ -338,7 +339,7 @@ function recordDispatchSummary({ summary, ok, reason, prNumber, commentId, agent
   }
   const prValue = Number.isFinite(prNumber) && prNumber > 0 ? `#${prNumber}` : '#?';
   const commentValue = commentId ? String(commentId) : '<none>';
-  const agentValue = (agentAlias || 'codex').trim() || 'codex';
+  const agentValue = (agentAlias || 'codex').trim() || 'codex'; // fallback for display
   const byteValue = Number.isFinite(bytes) && bytes >= 0 ? String(bytes) : '0';
   const line = `DISPATCH: ok=${ok ? 'true' : 'false'} reason=${reason || 'unspecified'} pr=${prValue} comment=${commentValue} agent=${agentValue} bytes=${byteValue}`;
   summary.addRaw(line).addEOL();
@@ -594,9 +595,10 @@ function detectKeepaliveSentinel(comments, { sentinelPattern, headerPattern, age
     return null;
   }
 
-  const codexLogins = new Set(agentLogins.map(normaliseLogin));
-  codexLogins.add('stranske-automation-bot');
-  const codexMentionPattern = /@codex\b/i;
+  const knownAgentLogins = new Set(agentLogins.map(normaliseLogin));
+  knownAgentLogins.add('stranske-automation-bot');
+  // Match @codex or @claude activation triggers in comment bodies
+  const agentTriggerPattern = /@(codex|claude)\b/i;
 
   const sorted = [...comments].sort(
     (a, b) => new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at)
@@ -613,7 +615,7 @@ function detectKeepaliveSentinel(comments, { sentinelPattern, headerPattern, age
     }
 
     const login = normaliseLogin(comment?.user?.login);
-    if (codexLogins.has(login) || codexMentionPattern.test(body)) {
+    if (knownAgentLogins.has(login) || agentTriggerPattern.test(body)) {
       return { comment, login };
     }
   }
@@ -647,7 +649,8 @@ function detectExistingKeepalive(comments, { marker, agentLogins, headerPattern 
     const lower = body.toLowerCase();
     return (
       lower.includes('keepalive mode:') ||
-      (lower.includes('@codex plan-and-execute') && lower.includes('checklist'))
+      (lower.includes('@codex plan-and-execute') && lower.includes('checklist')) ||
+      (lower.includes('@claude') && lower.includes('checklist'))
     );
   };
 
@@ -703,7 +706,7 @@ async function dispatchKeepaliveCommand({
     issue: payload.issue,
     base: payload.base || '',
     head: payload.head || '',
-    agent: payload.agent || 'codex',
+    agent: payload.agent || 'codex', // backwards-compat default
     instruction_body: payload.instruction_body || '',
     meta: {
       comment_id: payload.comment_id,
@@ -718,12 +721,13 @@ async function dispatchKeepaliveCommand({
   await octokit.rest.repos.createDispatchEvent({
     owner,
     repo,
+    // API contract: event type matched by dispatch handlers in consumers
     event_type: 'codex-pr-comment-command',
     client_payload: clientPayload,
   });
 
   core.info(
-    `Emitted repository_dispatch codex-pr-comment-command for PR #${clientPayload.issue} (comment ${clientPayload.meta.comment_id}).`
+    `Emitted repository_dispatch for PR #${clientPayload.issue} (comment ${clientPayload.meta.comment_id}).`
   );
 }
 
@@ -897,7 +901,7 @@ async function runKeepalive({ core, github, context, env = process.env }) {
   const tokenEnv = clearTokenDefaults ? stripTokenKeys(env, DISPATCH_TOKEN_KEYS) : env;
 
   const addHeading = () => {
-    summary.addHeading('Codex Keepalive');
+    summary.addHeading('Agent Keepalive');
     summary.addRaw(`Dry run: **${dryRun ? 'enabled' : 'disabled'}**`).addEOL();
   };
 
@@ -906,7 +910,7 @@ async function runKeepalive({ core, github, context, env = process.env }) {
     true
   );
   if (!keepaliveEnabled) {
-    core.info('Codex keepalive disabled via options_json.');
+    core.info('Agent keepalive disabled via options_json.');
     addHeading();
     summary.addRaw('Skip requested via options_json.').addEOL();
     summary.addRaw('Skipped 0 paused PRs.').addEOL();
@@ -959,13 +963,14 @@ async function runKeepalive({ core, github, context, env = process.env }) {
     .map((value) => value.trim().toLowerCase())
     .filter(Boolean);
   if (!targetLabels.length) {
-    targetLabels = ['agents:keepalive', 'agent:codex'];
+    targetLabels = ['agents:keepalive'];
   }
   targetLabels = dedupe(targetLabels);
 
   // Instruction loaded from .github/templates/keepalive-instruction.md
   const commandOverride = normaliseValue(options.keepalive_command);
 
+  // API contract: marker string is embedded in existing PR comments
   const canonicalMarker = '<!-- codex-keepalive-marker -->';
   const markerRaw = options.keepalive_marker ?? canonicalMarker;
   const marker = String(markerRaw || '').trim() || canonicalMarker;
@@ -977,6 +982,7 @@ async function runKeepalive({ core, github, context, env = process.env }) {
   const scopeOverrideRaw = options.keepalive_scope_block ?? '';
   const scopeOverride = String(scopeOverrideRaw).trim();
 
+  // Default agent logins — these are real GitHub bot accounts
   const agentSource = options.keepalive_agent_logins ?? 'chatgpt-codex-connector[bot],stranske-automation-bot';
   const agentEntries = parseAgentLoginEntries(agentSource, [
     'chatgpt-codex-connector[bot]',
@@ -1180,20 +1186,20 @@ async function runKeepalive({ core, github, context, env = process.env }) {
         .filter((comment) => agentLogins.includes(normaliseLogin(comment.user?.login)))
         .sort((a, b) => new Date(a.updated_at || a.created_at) - new Date(b.updated_at || b.created_at));
       if (!botComments.length) {
-        recordSkip('Codex has not commented yet');
+        recordSkip('agent has not commented yet');
         continue;
       }
 
       const lastAgentComment = botComments[botComments.length - 1];
       const lastAgentTs = new Date(lastAgentComment.updated_at || lastAgentComment.created_at).getTime();
       if (!Number.isFinite(lastAgentTs)) {
-        recordSkip('unable to parse Codex timestamp');
+        recordSkip('unable to parse agent timestamp');
         continue;
       }
 
       const minutesSinceAgent = (now - lastAgentTs) / 60000;
       if (minutesSinceAgent < effectiveIdleMinutes) {
-        recordSkip(`last Codex activity ${minutesSinceAgent.toFixed(1)} minutes ago (< ${effectiveIdleMinutes})`);
+        recordSkip(`last agent activity ${minutesSinceAgent.toFixed(1)} minutes ago (< ${effectiveIdleMinutes})`);
         continue;
       }
 
@@ -1273,7 +1279,7 @@ async function runKeepalive({ core, github, context, env = process.env }) {
       });
 
       if (!latestChecklist && !(checkboxCounts.total > 0 && checkboxCounts.unchecked === 0)) {
-        recordSkip('no Codex checklist with outstanding tasks');
+        recordSkip('no agent checklist with outstanding tasks');
         continue;
       }
 
@@ -1299,7 +1305,7 @@ async function runKeepalive({ core, github, context, env = process.env }) {
       const traceToken = buildTraceToken({ seed: traceSeed, prNumber, round: nextRound });
       const traceMarker = `<!-- keepalive-trace: ${traceToken} -->`;
       const command =
-        commandOverride || getKeepaliveInstructionWithMention('codex', promptContext);
+        commandOverride || getKeepaliveInstructionWithMention(undefined, promptContext);
 
       const includeScopeBlock = shouldIncludeScopeBlock({ scopeBlock, prBody: pr.body || '' });
       const bodyParts = [roundMarker, attemptMarker, canonicalMarker, traceMarker, command];
@@ -1424,7 +1430,12 @@ async function runKeepalive({ core, github, context, env = process.env }) {
             }
           }
 
-          const agentAlias = 'codex';
+          // Resolve agent from PR labels or fall back to registry default
+          let agentAlias = 'codex';
+          try {
+            const { loadAgentRegistry } = require('../.github/scripts/agent_registry.js');
+            agentAlias = loadAgentRegistry().default_agent || 'codex';
+          } catch (_) {}
           if (!instructionSegment) {
             core.warning(`#${prNumber}: unable to extract instruction segment; connector dispatch skipped.`);
             recordDispatchSummary({
@@ -1492,14 +1503,14 @@ async function runKeepalive({ core, github, context, env = process.env }) {
     if (previews.length) {
       summary.addDetails('Previewed keepalive comments', summariseList(previews));
     } else {
-      summary.addRaw('No unattended Codex tasks detected (dry run).');
+      summary.addRaw('No unattended agent tasks detected (dry run).');
     }
     summary.addRaw(`Previewed keepalive count: ${previews.length}`).addEOL();
   } else {
     if (triggered.length) {
       summary.addDetails('Triggered keepalive comments', summariseList(triggered));
     } else {
-      summary.addRaw('No unattended Codex tasks detected.');
+      summary.addRaw('No unattended agent tasks detected.');
     }
     summary.addRaw(`Triggered keepalive count: ${triggered.length}`).addEOL();
     if (roundTraces.length) {

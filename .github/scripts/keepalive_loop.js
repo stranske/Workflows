@@ -31,6 +31,8 @@ const TIMEOUT_VARIABLE_NAMES = [
   'WORKFLOW_TIMEOUT_WARNING_MINUTES',
 ];
 
+// NOTE: Prompt files live under .github/codex/prompts/ — this directory name is
+// an API contract (baked into consumer repos). The prompts are agent-agnostic.
 const PROMPT_ROUTES = {
   fix_ci: {
     mode: 'fix_ci',
@@ -49,6 +51,13 @@ const PROMPT_ROUTES = {
     file: '.github/codex/prompts/keepalive_next_task.md',
   },
 };
+
+// Resolve default agent from registry
+let _defaultAgent = 'codex';
+try {
+  const { loadAgentRegistry } = require('./agent_registry.js');
+  _defaultAgent = loadAgentRegistry().default_agent || 'codex';
+} catch (_) { /* registry not available */ }
 
 function normalise(value) {
   return String(value ?? '').trim();
@@ -820,12 +829,13 @@ function classifyFailureDetails({ action, runResult, summaryReason, agentExitCod
   }
 
   // Detect dirty git state issues - agent saw unexpected changes before starting.
-  // These are typically workflow artifacts (.workflows-lib, codex-session-*.jsonl)
+  // These are typically workflow artifacts (.workflows-lib, agent session *.jsonl)
   // that should have been cleaned up but weren't. Classify as transient.
   const dirtyGitPatterns = [
     /unexpected\s*changes/i,
     /\.workflows-lib.*modified/i,
-    /codex-session.*untracked/i,
+    /codex-session.*untracked/i, // Codex-specific session artifact pattern
+    /agent-session.*untracked/i,
     /existing\s*changes/i,
     /how\s*would\s*you\s*like\s*me\s*to\s*proceed/i,
     /before\s*making\s*edits/i,
@@ -846,7 +856,7 @@ function classifyFailureDetails({ action, runResult, summaryReason, agentExitCod
     if (category === ERROR_CATEGORIES.transient) {
       type = 'infrastructure';
     } else if (agentExitCode && agentExitCode !== '0') {
-      type = 'codex';
+      type = 'agent';
     } else {
       type = 'infrastructure';
     }
@@ -1085,6 +1095,7 @@ function extractConfigSnippet(body) {
     return '';
   }
 
+  // API contract: both naming variants exist in production PR bodies
   const commentBlockPatterns = [
     /<!--\s*keepalive-config:start\s*-->([\s\S]*?)<!--\s*keepalive-config:end\s*-->/i,
     /<!--\s*codex-config:start\s*-->([\s\S]*?)<!--\s*codex-config:end\s*-->/i,
@@ -2214,7 +2225,7 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
         action: 'defer',
         reason: 'api-rate-limit',
         promptMode: 'normal',
-        promptFile: '.github/codex/prompts/keepalive_next_task.md',
+        promptFile: PROMPT_ROUTES.normal.file,
         gateConclusion: '',
         config: {},
         iteration: 0,
@@ -2280,7 +2291,7 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
     const failureThresholdInput = inputs.failureThreshold ?? inputs.failure_threshold;
     const roundsWithoutTaskCompletionInput =
       inputs.roundsWithoutTaskCompletion ?? inputs.rounds_without_task_completion;
-    const agentType = normalise(inputs.agent_type ?? inputs.agentType) || 'codex';
+    const agentType = normalise(inputs.agent_type ?? inputs.agentType) || _defaultAgent;
     const runResult = normalise(inputs.runResult || inputs.run_result);
     const stateTrace = normalise(inputs.trace || inputs.keepalive_trace || '');
 
@@ -2339,7 +2350,7 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
       ? toNumber(roundsWithoutTaskCompletionInput, 0)
       : toNumber(previousState?.rounds_without_task_completion, 0);
 
-    // Agent output details (agent-agnostic, with fallback to old codex_ names)
+    // Agent output details (agent-agnostic, with backwards-compat fallback to codex_ names)
     const agentExitCode = normalise(inputs.agent_exit_code ?? inputs.agentExitCode ?? inputs.codex_exit_code ?? inputs.codexExitCode);
     const agentChangesMade = normalise(inputs.agent_changes_made ?? inputs.agentChangesMade ?? inputs.codex_changes_made ?? inputs.codexChangesMade);
     const agentCommitSha = normalise(inputs.agent_commit_sha ?? inputs.agentCommitSha ?? inputs.codex_commit_sha ?? inputs.codexCommitSha);
@@ -3034,7 +3045,7 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
     const attentionKey = [summaryReason, runResult, errorCategory, errorType, agentExitCode].filter(Boolean).join('|');
     const priorAttentionKey = normalise(previousAttention.key);
 
-    // NOTE: Failure comment posting removed - handled by reusable-codex-run.yml with proper deduplication
+    // NOTE: Failure comment posting removed - handled by reusable-*-run.yml with proper deduplication
     // This prevents duplicate failure notifications on PRs
 
     summaryLines.push('', formatStateComment(newState));
@@ -3166,7 +3177,7 @@ async function markAgentRunning({ github: rawGithub, context, core, inputs }) {
     return;
   }
 
-  const agentType = normalise(inputs.agent_type ?? inputs.agentType) || 'codex';
+  const agentType = normalise(inputs.agent_type ?? inputs.agentType) || _defaultAgent;
   const iteration = toNumber(inputs.iteration, 0);
   const maxIterations = toNumber(inputs.maxIterations ?? inputs.max_iterations, 0);
   const tasksTotal = toNumber(inputs.tasksTotal ?? inputs.tasks_total, 0);

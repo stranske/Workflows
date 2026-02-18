@@ -1,15 +1,38 @@
 # Provider-Agnostic Coding Agents Plan (Phased, Codex-Safe)
 
-**Status:** In progress — P0/P1/P2 + Phase 3 belt/orchestrator refactoring complete (Feb 18); remaining: API contracts (`codex-pr-comment-command`, `codex-keepalive-marker`), `keepalive-runner.js`, prompt paths
+**Status:** In progress — P0/P1/P2 + Phase 3 + backing scripts refactoring complete (Feb 18); remaining: API contracts are documented and preserved, prompt directory path `.github/codex/prompts/` intentionally unchanged
 
 ## Progress (as implemented)
 
 - ✅ Phase 0 — Runner hardening
 - ✅ Phase 1 — Agent registry + resolver helper
 - ✅ Phase 2 — Registry-driven PR automation routing (keepalive/autofix done; bot-comment uses registry; `reusable-16-agents`/`reusable-pr-context` widened)
-- ⚠️ Phase 3 — Registry-driven issue→PR path (belt 71/72/73 refactored; auto-pilot/auto-label/orchestrators fixed; issue bridge assignees use registry; `agents_belt_scan.js` generalized; **API contracts `codex-pr-comment-command`/`codex_user`/`codex_command_phrase` preserved for backwards compat**)
+- ✅ Phase 3 — Registry-driven issue→PR path (belt 71/72/73 refactored; auto-pilot/auto-label/orchestrators fixed; issue bridge assignees use registry; `agents_belt_scan.js` generalized; all backing scripts use registry-driven defaults; **API contracts preserved**)
 - ⚠️ Phase 4 — Verifier + follow-up chain (reusable verifier done; verify-assignment generalized; **verify-to-issue text cosmetic only**)
 - 🟡 Phase 5 — Delegation / re-routing between agents (5A mostly complete: keepalive-loop + gate-followups both have run-claude; `agent:auto` label semantics established)
+
+### Scripts refactored (Feb 18, session 2)
+All `.github/scripts/` and `scripts/` modules now use registry-driven agent defaults
+instead of hardcoded `'codex'` fallbacks. API contracts (HTML markers, dispatch event
+types, prompt file paths, bot logins) are preserved with explanatory comments.
+
+Scripts updated:
+- `agents_pr_meta_keepalive.js` — registry default, `agent-activation-marker` detection
+- `keepalive_contract.js` — registry default for `ensureAgentPreface()`
+- `keepalive_instruction_template.js` — registry default for mention
+- `keepalive_loop.js` — registry default, error type `'agent'` (was `'codex'`), generic display text
+- `keepalive_post_work.js` — registry default for alias + dispatch
+- `keepalive_worker_gate.js` — API contract comment on marker
+- `keepalive_orchestrator_gate_runner.js` — registry default
+- `agents_pr_meta_orchestrator.js` — registry default, JSDoc update
+- `agents_pr_meta_update_body.js` — API contract comments on bot logins + marker
+- `merge_manager.js` — `from:claude`, `from:auto` recognition
+- `post_completion_comment.js` — JSDoc update, API contract comments
+- `scripts/keepalive-runner.js` — registry defaults, agent-agnostic display text, widened agent triggers
+
+Tests updated:
+- `agents-belt-scan.test.js` — added `isAgentBeltBranch` + `identifyReadyBeltPRs` tests
+- `keepalive-loop.test.js` — updated error type assertion `'codex'` → `'agent'`
 
 > **Feb 18 2026 audit note:** An independent audit of every workflow in both
 > `.github/workflows/` and `templates/consumer-repo/` found that Phases 2–4

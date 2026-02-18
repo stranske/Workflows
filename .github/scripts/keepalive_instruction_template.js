@@ -9,6 +9,9 @@ const { resolvePromptMode } = require('./keepalive_prompt_routing');
  * Edit .github/templates/keepalive-instruction.md to change the fallback text.
  */
 const TEMPLATE_PATH = path.resolve(__dirname, '../templates/keepalive-instruction.md');
+// NOTE: Prompt files live under .github/codex/prompts/ — this directory name is
+// an API contract (baked into consumer repos and existing workflows). The prompts
+// themselves are agent-agnostic and used by all agent runners.
 const NEXT_TASK_TEMPLATE_PATH = path.resolve(__dirname, '../codex/prompts/keepalive_next_task.md');
 const FIX_TEMPLATE_PATH = path.resolve(__dirname, '../codex/prompts/fix_ci_failures.md');
 const VERIFY_TEMPLATE_PATH = path.resolve(__dirname, '../codex/prompts/verifier_acceptance_check.md');
@@ -130,10 +133,10 @@ function getKeepaliveInstruction(options = {}) {
 /**
  * Returns the full keepalive instruction with @agent prefix.
  * 
- * @param {string} [agent='codex'] - The agent alias to mention
+ * @param {string} [agent] - The agent alias to mention (defaults to registry default)
  * @returns {string} The full instruction with @agent prefix
  */
-function getKeepaliveInstructionWithMention(agent = 'codex', options = {}) {
+function getKeepaliveInstructionWithMention(agent, options = {}) {
   let resolvedAgent = agent;
   let params = options;
 
@@ -142,7 +145,13 @@ function getKeepaliveInstructionWithMention(agent = 'codex', options = {}) {
     resolvedAgent = params.agent;
   }
 
-  const alias = String(resolvedAgent || '').trim() || 'codex';
+  let _defaultAgent = 'codex';
+  try {
+    const { loadAgentRegistry } = require('./agent_registry.js');
+    const reg = loadAgentRegistry();
+    _defaultAgent = reg.default_agent || 'codex';
+  } catch (_) { /* registry not available */ }
+  const alias = String(resolvedAgent || '').trim() || _defaultAgent;
   return `@${alias} ${getKeepaliveInstruction(params)}`;
 }
 

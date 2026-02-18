@@ -3,7 +3,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { identifyReadyCodexPRs, isCodexBranch } = require('../agents_belt_scan');
+const { identifyReadyCodexPRs, identifyReadyBeltPRs, isCodexBranch, isAgentBeltBranch } = require('../agents_belt_scan');
 
 function createSummary() {
   return {
@@ -30,9 +30,23 @@ function createSummary() {
   };
 }
 
-test('isCodexBranch recognises codex issues', () => {
+test('isCodexBranch recognises codex issues (backwards compat)', () => {
   assert.equal(isCodexBranch('codex/issue-123'), true);
   assert.equal(isCodexBranch('feature-branch'), false);
+});
+
+test('isAgentBeltBranch recognises any agent belt branch', () => {
+  assert.equal(isAgentBeltBranch('codex/issue-123'), true);
+  assert.equal(isAgentBeltBranch('claude/issue-456'), true);
+  assert.equal(isAgentBeltBranch('auto/issue-789'), true);
+  assert.equal(isAgentBeltBranch('feature-branch'), false);
+  assert.equal(isAgentBeltBranch(null), false);
+  assert.equal(isAgentBeltBranch(''), false);
+});
+
+test('identifyReadyBeltPRs is the same function as identifyReadyCodexPRs', () => {
+  assert.equal(typeof identifyReadyBeltPRs, 'function');
+  assert.equal(typeof identifyReadyCodexPRs, 'function');
 });
 
 test('identifyReadyCodexPRs filters and summarises ready PRs', async () => {

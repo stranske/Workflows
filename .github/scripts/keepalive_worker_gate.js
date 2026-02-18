@@ -108,6 +108,7 @@ async function detectInstructionComment({ github, context, comment, prNumber, en
 
   const detectionEnv = {
     ALLOWED_LOGINS: normalise(env.ALLOWED_LOGINS) || 'stranske',
+    // API contract: marker string must match what keepalive_contract.js emits
     KEEPALIVE_MARKER: normalise(env.KEEPALIVE_MARKER) || '<!-- codex-keepalive-marker -->',
     GATE_OK: 'true',
     GATE_REASON: '',

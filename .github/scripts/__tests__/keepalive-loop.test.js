@@ -1995,7 +1995,7 @@ test('updateKeepaliveLoopSummary formats codex failure details in summary', asyn
   const updateAction = github.actions.find((action) => action.type === 'update');
   assert.ok(updateAction);
   assert.match(updateAction.body, /Error category \| logic/);
-  assert.match(updateAction.body, /Error type \| codex/);
+  assert.match(updateAction.body, /Error type \| agent/);
   assert.match(updateAction.body, /https:\/\/example.com\/run\/657/);
   assert.match(updateAction.body, /Codex output/);
 });
