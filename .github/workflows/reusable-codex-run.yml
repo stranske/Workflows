@@ -1024,11 +1024,12 @@ jobs:
 
               print(f"::notice::Session parsed: {session.raw_event_count} events")
               print(f"::notice::Agent messages: {len(session.agent_messages)}")
-                print(f"::notice::Commands: {len(session.commands)}")
-                print(
-                  f"::notice::Command results: {len(session.successful_commands)} ok, "
-                  f"{len(session.failed_commands)} failed"
-                )
+              if session.commands:
+                  print(f"::notice::Commands: {len(session.commands)}")
+                  print(
+                      f"::notice::Command results: {len(session.successful_commands)} ok, "
+                      f"{len(session.failed_commands)} failed"
+                  )
               print(f"::notice::File changes: {len(session.file_changes)}")
               print(f"::notice::Todo items: {len(session.todo_items)}")
 
