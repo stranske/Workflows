@@ -1219,14 +1219,13 @@ jobs:
             try {
               const { getAgentConfig } = require('./.github/scripts/agent_registry.js');
               const cfg = getAgentConfig(agentKey);
-              if (cfg.assignees && cfg.assignees.length) {
-                assignees = cfg.assignees;
-              } else if (agentKey === 'codex') {
-                assignees = ['chatgpt-codex-connector', 'stranske-automation-bot'];
+              const logins = Array.isArray(cfg.automation_logins) ? cfg.automation_logins : [];
+              if (logins.length) {
+                assignees = [...logins, 'stranske-automation-bot'];
               }
             } catch (_) {
               if (agentKey === 'codex') {
-                assignees = ['chatgpt-codex-connector', 'stranske-automation-bot'];
+                assignees.unshift('chatgpt-codex-connector');
               }
             }
             for (const target of [prNumber, issue]) {
@@ -1276,8 +1275,8 @@ jobs:
                 'The keepalive loop will assign subsequent tasks after this one is complete.',
               ].join('\n');
             }
-            // Only post @codex start for codex agent — other agents use different activation
-            const activationTrigger = agentKey === 'codex' ? '@codex start' : '';
+            // Agent-agnostic activation trigger
+            const activationTrigger = `@${agentKey} start`;
             const body = `${marker}\n${summary}\n\n${activationTrigger}${taskDirective}`;
 
             try {

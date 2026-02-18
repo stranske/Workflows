@@ -837,7 +837,7 @@ jobs:
             core.setOutput('scope_block', scopeBlock);
 
             let highestRound = 0;
-            const markerRegex = /<!--\s*codex-keepalive-marker\s*-->/;
+            const markerRegex = /<!--\s*(agent|codex)-keepalive-marker\s*-->/;
             const roundRegex = new RegExp(
               '<!--\\s*keepalive-round\\s*:?#?\\s*(\\d+)\\s*-->',
             );
@@ -1206,7 +1206,7 @@ jobs:
             if (!body) {
               body = [
                 `<!-- keepalive-round: ${round} -->`,
-                '<!-- codex-keepalive-marker -->',
+                '<!-- agent-keepalive-marker -->',
                 `<!-- keepalive-trace: ${trace} -->`,
                 instructionDirective,
                 '',

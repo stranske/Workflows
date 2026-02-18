@@ -17,7 +17,7 @@ const fs = require('fs');
 const path = require('path');
 
 // API contract: marker string embedded in existing PR comments
-const COMPLETION_COMMENT_MARKER = '<!-- codex-completion-checkpoint -->';
+const COMPLETION_COMMENT_MARKER = '<!-- agent-completion-checkpoint -->';
 
 function isCodeFenceLine(line) {
   return /^\s*(```|~~~)/.test(String(line || ''));

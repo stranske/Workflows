@@ -151,6 +151,8 @@ jobs:
             .github/actions/setup-api-client
             .github/scripts/github-api-with-retry.js
             .github/scripts/token_load_balancer.js
+            .github/scripts/agent_registry.js
+            .github/agents/registry.yml
           sparse-checkout-cone-mode: false
 
       - name: Setup API client
@@ -239,10 +241,24 @@ jobs:
               .split(',')
               .map((value) => value.trim())
               .filter(Boolean);
-            const CANDIDATES = {
-              copilot: ['copilot','copilot-swe-agent'],
-              codex: ['chatgpt-codex-connector']
+            // Load candidates from registry; keep
+            // copilot hardcoded (not in agent registry)
+            let CANDIDATES = {
+              copilot: ['copilot', 'copilot-swe-agent'],
             };
+            try {
+              const { getReadinessCandidates } =
+                require('./.github/scripts/agent_registry.js');
+              const rc = getReadinessCandidates();
+              CANDIDATES = { ...CANDIDATES, ...rc };
+            } catch (err) {
+              core.warning(
+                `Registry load failed: ${err.message}`
+              );
+              // Fallback for backwards compat
+              CANDIDATES.codex =
+                ['chatgpt-codex-connector'];
+            }
             const rows = [];
             const report = {};
             // Handle keyed agents
@@ -524,7 +540,7 @@ jobs:
 
             core.info(`Verify issue status: ${status || 'unknown'}`);
             core.info(`Issue reference: ${issueNumber}`);
-            core.info(`Has agent:codex label: ${hasLabel}`);
+            core.info(`Has agent label: ${hasLabel}`);
             if (matched) {
               core.info(`Matched assignee: ${matched}`);
             }
@@ -540,7 +556,7 @@ jobs:
                   : '—';
                 const tableHeader = [
                   { data: 'Issue', header: true },
-                  { data: 'Has agent:codex', header: true },
+                  { data: 'Has agent label', header: true },
                   { data: 'Matched assignee', header: true },
                   { data: 'Status', header: true },
                 ];
@@ -560,7 +576,7 @@ jobs:
 
             summary.addList([
               `Status: **${rawStatus || 'unknown'}**`,
-              `Has agent:codex label: ${hasLabel}`,
+              `Has agent label: ${hasLabel}`,
               `Matched assignee: ${matchedCell}`
             ]);
 

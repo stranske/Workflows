@@ -1095,8 +1095,9 @@ function extractConfigSnippet(body) {
     return '';
   }
 
-  // API contract: both naming variants exist in production PR bodies
+  // API contract: all naming variants exist in production PR bodies
   const commentBlockPatterns = [
+    /<!--\s*agent-config:start\s*-->([\s\S]*?)<!--\s*agent-config:end\s*-->/i,
     /<!--\s*keepalive-config:start\s*-->([\s\S]*?)<!--\s*keepalive-config:end\s*-->/i,
     /<!--\s*codex-config:start\s*-->([\s\S]*?)<!--\s*codex-config:end\s*-->/i,
     /<!--\s*keepalive-config:\s*({[\s\S]*?})\s*-->/i,

@@ -2,6 +2,9 @@ version: 1
 
 default_agent: codex
 
+# Shared keepalive marker prefix (agent-agnostic)
+keepalive_marker_prefix: agent-keepalive
+
 agents:
   codex:
     runner_workflow: .github/workflows/reusable-codex-run.yml
@@ -9,6 +12,10 @@ agents:
       - CODEX_AUTH_JSON
     branch_prefix: codex/issue-
     ui_mentions_allowed: false
+    automation_logins:
+      - chatgpt-codex-connector
+    readiness_candidates:
+      - chatgpt-codex-connector
     capabilities:
       pr_keepalive: true
       pr_autofix: true
@@ -21,8 +28,12 @@ agents:
       - CLAUDE_AUTH_JSON
     branch_prefix: claude/issue-
     ui_mentions_allowed: false
+    automation_logins:
+      - stranske-automation-bot
+    readiness_candidates:
+      - stranske-automation-bot
     capabilities:
       pr_keepalive: true
       pr_autofix: true
-      belt: false
+      belt: true
       verifier_checkbox: true

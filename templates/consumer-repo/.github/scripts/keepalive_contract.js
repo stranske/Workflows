@@ -57,13 +57,13 @@ function renderInstruction({ round, trace, body, agent }) {
     throw new Error('Keepalive trace token is required.');
   }
   const instructionBody = ensureAgentPreface(String(body ?? ''), agent);
-  // NOTE: These HTML comment markers are API contracts embedded in existing PR
-  // bodies. Do NOT rename them — keepalive_gate.js, pr_meta_keepalive, and
-  // consumers all match on the exact `codex-keepalive-*` prefix.
+  // NOTE: These HTML comment markers are API contracts. Detectors
+  // in keepalive_gate.js and pr_meta_keepalive accept both the
+  // new `agent-keepalive-*` and legacy `codex-keepalive-*` prefix.
   const lines = [
-    '<!-- codex-keepalive-marker -->',
-    `<!-- codex-keepalive-round: ${parsedRound} -->`,
-    `<!-- codex-keepalive-trace: ${normalisedTrace} -->`,
+    '<!-- agent-keepalive-marker -->',
+    `<!-- agent-keepalive-round: ${parsedRound} -->`,
+    `<!-- agent-keepalive-trace: ${normalisedTrace} -->`,
     instructionBody,
   ];
   return `${lines.join('\n')}\n`;

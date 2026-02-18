@@ -235,8 +235,56 @@ function getRunnerWorkflow(agentKey, { registryPath } = {}) {
   return workflow;
 }
 
+/**
+ * Return all automation logins across all agents in the registry.
+ * Useful for detecting bot-authored comments/commits.
+ */
+function getAllAutomationLogins({ registryPath } = {}) {
+  const registry = loadAgentRegistry({ registryPath });
+  const logins = new Set();
+  for (const config of Object.values(registry.agents)) {
+    const list = Array.isArray(config.automation_logins)
+      ? config.automation_logins
+      : [];
+    for (const login of list) {
+      logins.add(String(login));
+    }
+  }
+  return Array.from(logins);
+}
+
+/**
+ * Build a CANDIDATES map keyed by agent name, each value being
+ * an array of readiness_candidates from the registry.
+ * Drop-in replacement for the hardcoded CANDIDATES object.
+ */
+function getReadinessCandidates({ registryPath } = {}) {
+  const registry = loadAgentRegistry({ registryPath });
+  const result = {};
+  for (const [key, config] of Object.entries(registry.agents)) {
+    result[key] = Array.isArray(config.readiness_candidates)
+      ? config.readiness_candidates.map(String)
+      : [];
+  }
+  return result;
+}
+
+/**
+ * Return the keepalive marker prefix from registry,
+ * falling back to 'agent-keepalive' if not set.
+ */
+function getKeepaliveMarkerPrefix({ registryPath } = {}) {
+  const registry = loadAgentRegistry({ registryPath });
+  return String(
+    registry.keepalive_marker_prefix || 'agent-keepalive'
+  );
+}
+
 module.exports = {
+  getAllAutomationLogins,
   getAgentConfig,
+  getKeepaliveMarkerPrefix,
+  getReadinessCandidates,
   getRunnerWorkflow,
   loadAgentRegistry,
   parseRegistryYaml,

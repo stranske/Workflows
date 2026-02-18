@@ -30,9 +30,13 @@ inputs:
     required: false
     default: "false"
   post_codex_comment:
-    description: "Whether to auto-post '@codex start' as the actor (true|false)"
+    description: "Whether to auto-post '@agent start' as the actor (true|false)"
     required: false
     default: "false"
+  agent_key:
+    description: "Agent key from registry (codex, claude)"
+    required: false
+    default: ""
   pr_mode:
     description: "create | invite (invite = prepare branch and ask human to open PR)"
     required: false
@@ -79,6 +83,7 @@ runs:
         DRAFT_FLAG: ${{ inputs.draft }}
         AUTO_READY: ${{ inputs.auto_ready }}
         POST_CODEX: ${{ inputs.post_codex_comment }}
+        AGENT_KEY: ${{ inputs.agent_key }}
         PR_MODE: ${{ inputs.pr_mode }}
         KEEPALIVE_MODE: ${{ inputs.keepalive_mode }}
       with:
@@ -196,14 +201,30 @@ runs:
             return;
           }
 
-          // Assign PR and source issue to connector + human bot if available
-          const assignees = ['chatgpt-codex-connector', 'stranske-automation-bot'];
+          // Resolve agent key from input or default
+          let agentKey = (process.env.AGENT_KEY || '').trim() || 'codex';
+          let assignees = ['stranske-automation-bot'];
+          try {
+            const { getAgentConfig, loadAgentRegistry } = require('./.github/scripts/agent_registry.js');
+            if (!process.env.AGENT_KEY) {
+              const reg = loadAgentRegistry();
+              agentKey = reg.default_agent || 'codex';
+            }
+            const cfg = getAgentConfig(agentKey);
+            const logins = Array.isArray(cfg.automation_logins) ? cfg.automation_logins : [];
+            assignees = [...logins, 'stranske-automation-bot'];
+          } catch (e) {
+            core.warning(`Registry unavailable: ${e.message}`);
+            if (agentKey === 'codex') assignees.unshift('chatgpt-codex-connector');
+          }
           try { await github.rest.issues.addAssignees({ owner, repo, issue_number: prNum, assignees }); } catch (e) { core.warning(`PR assign failed: ${e.message}`); }
           try { await github.rest.issues.addAssignees({ owner, repo, issue_number, assignees }); } catch (e) { core.warning(`Issue assign failed: ${e.message}`); }
 
-          // Label and optionally post command (PAT preferred)
-          try { await github.rest.issues.addLabels({ owner, repo, issue_number: prNum, labels: ['agent:codex'] }); } catch (e) { core.warning(`Label failed: ${e.message}`); }
-          const cmd = (process.env.CODEX_CMD || '@codex start').replace(/[\r\n`]/g,'').trim() || '@codex start';
+          // Label with resolved agent and optionally post command
+          const agentLabel = `agent:${agentKey}`;
+          try { await github.rest.issues.addLabels({ owner, repo, issue_number: prNum, labels: [agentLabel] }); } catch (e) { core.warning(`Label failed: ${e.message}`); }
+          const defaultCmd = `@${agentKey} start`;
+          const cmd = (process.env.CODEX_CMD || defaultCmd).replace(/[\r\n`]/g,'').trim() || defaultCmd;
           const postCodex = /^true$/i.test(process.env.POST_CODEX || 'true');
           if (postCodex) {
             try {
@@ -217,9 +238,9 @@ runs:
           } else {
             try {
               const manualPrompt = [
-                'PR created. Comment `@codex start` to request the plan.',
-                'Tell Codex to reuse the scope, acceptance criteria, and task list from the source issue and publish them here with `- [ ]` checklists so keepalive keeps watching.',
-                'After Codex replies, follow the instructions on the linked issue comment to begin execution.'
+                `PR created. Comment \`@${agentKey} start\` to request the plan.`,
+                'Reuse the scope, acceptance criteria, and task list from the source issue.',
+                'Publish them here with `- [ ]` checklists so keepalive keeps watching.'
               ].join(' ');
               await github.rest.issues.createComment({ owner, repo, issue_number: prNum, body: manualPrompt });
             } catch (e) { core.warning(`Instruction comment failed: ${e.message}`); }

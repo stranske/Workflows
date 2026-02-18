@@ -13,7 +13,20 @@ const PAUSE_LABEL = 'agents:paused';
 const DEFAULT_RUN_CAP = 1;
 const MIN_RUN_CAP = 1;
 const MAX_RUN_CAP = 5;
-const AUTOMATION_LOGINS = new Set(['chatgpt-codex-connector', 'stranske-automation-bot']);
+// Load automation logins from registry when available;
+// keep hardcoded fallback for environments without checkout.
+let AUTOMATION_LOGINS;
+try {
+  const { getAllAutomationLogins } =
+    require('./agent_registry.js');
+  AUTOMATION_LOGINS =
+    new Set(getAllAutomationLogins());
+} catch {
+  AUTOMATION_LOGINS = new Set([
+    'chatgpt-codex-connector',
+    'stranske-automation-bot',
+  ]);
+}
 const ORCHESTRATOR_WORKFLOW_FILE = 'agents-70-orchestrator.yml';
 const WORKER_WORKFLOW_FILE = 'agents-72-codex-belt-worker.yml';
 const RECENT_COMPLETED_LOOKBACK_SECONDS = 300; // 5 minutes
@@ -227,7 +240,11 @@ function isAutomationStatusComment(comment) {
     return true;
   }
   if (AUTOMATION_LOGINS.has(login)) {
-    const looksLikeInstruction = lower.startsWith('@codex') || lower.includes('<!-- codex-keepalive-marker') || lower.includes('<!-- agent-activation-marker');
+    const looksLikeInstruction =
+      /^@(codex|claude)\b/.test(lower) ||
+      lower.includes('<!-- agent-keepalive-marker') ||
+      lower.includes('<!-- codex-keepalive-marker') ||
+      lower.includes('<!-- agent-activation-marker');
     if (!looksLikeInstruction) {
       return true;
     }
