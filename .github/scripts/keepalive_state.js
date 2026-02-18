@@ -175,6 +175,16 @@ function isLoopState(data) {
   if (data.last_instruction && typeof data.last_instruction === 'object') {
     return true;
   }
+  // Delegation state fields (agent:auto mode)
+  if (data.current_agent && typeof data.current_agent === 'string') {
+    return true;
+  }
+  if (Array.isArray(data.delegation_log) && data.delegation_log.length > 0) {
+    return true;
+  }
+  if (Array.isArray(data.effectiveness_history) && data.effectiveness_history.length > 0) {
+    return true;
+  }
   return false;
 }
 

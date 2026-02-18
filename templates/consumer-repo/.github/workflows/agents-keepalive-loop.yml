@@ -226,6 +226,8 @@ jobs:
         uses: actions/github-script@v8
         env:
           INPUT_PR_NUMBER: ${{ github.event.inputs.pr_number || '' }}
+          HAS_CODEX_AUTH: ${{ secrets.CODEX_AUTH_JSON != '' }}
+          HAS_CLAUDE_AUTH: ${{ secrets.CLAUDE_AUTH_JSON != '' }}
           INPUT_FORCE_RETRY: >-
             ${{ steps.retry_label.outputs.force_retry ||
                 (github.event_name == 'pull_request' &&
@@ -311,6 +313,7 @@ jobs:
               has_agent_label: String(result.hasAgentLabel ?? ''),
               has_high_privilege: String(result.hasHighPrivilege ?? 'false'),
               agent_type: String(result.agentType || ''),
+              delegation_reason: String(result.delegationReason || ''),
               trace: String(result.config?.trace || result.state?.trace || ''),
               prompt_mode: String(result.promptMode || 'normal'),
                 prompt_file: String(
@@ -401,6 +404,7 @@ jobs:
         env:
           HAS_CODEX_AUTH: ${{ secrets.CODEX_AUTH_JSON != '' }}
           HAS_CLAUDE_AUTH: ${{ secrets.CLAUDE_AUTH_JSON != '' }}
+          AGENT_TYPE: ${{ needs.evaluate.outputs.agent_type || 'codex' }}
           HAS_APP_ID: >-
             ${{ secrets.KEEPALIVE_APP_ID != '' ||
                 secrets.WORKFLOWS_APP_ID != '' }}
@@ -408,17 +412,35 @@ jobs:
             ${{ secrets.KEEPALIVE_APP_PRIVATE_KEY != '' ||
                 secrets.WORKFLOWS_APP_PRIVATE_KEY != '' }}
         run: |
+          echo "Requested agent: $AGENT_TYPE"
           echo "CODEX_AUTH_JSON present: $HAS_CODEX_AUTH"
           echo "CLAUDE_AUTH_JSON present: $HAS_CLAUDE_AUTH"
           echo "KEEPALIVE_APP or WORKFLOWS_APP present: $HAS_APP_ID"
           echo "WORKFLOWS_APP_PRIVATE_KEY present: $HAS_APP_KEY"
-          if [ "$HAS_CODEX_AUTH" = "true" ] || [ "$HAS_CLAUDE_AUTH" = "true" ] || [ "$HAS_APP_ID" = "true" ]; then
-            echo "secrets_ok=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "::error::No agent auth found. Set CODEX_AUTH_JSON, CLAUDE_AUTH_JSON, or KEEPALIVE/WORKFLOWS_APP."
+          agent_auth_ok=false
+          case "$AGENT_TYPE" in
+            claude)
+              if [ "$HAS_CLAUDE_AUTH" = "true" ]; then
+                agent_auth_ok=true
+              fi
+              ;;
+            codex|*)
+              if [ "$HAS_CODEX_AUTH" = "true" ]; then
+                agent_auth_ok=true
+              fi
+              ;;
+          esac
+          if [ "$agent_auth_ok" != "true" ]; then
+            [ "$HAS_APP_ID" = "true" ] && agent_auth_ok=true
+          fi
+          if [ "$agent_auth_ok" != "true" ]; then
+            msg="Missing credentials for '$AGENT_TYPE'."
+            msg="$msg Set *_AUTH_JSON or App."
+            echo "::error::$msg"
             echo "secrets_ok=false" >> "$GITHUB_OUTPUT"
             exit 1
           fi
+          echo "secrets_ok=true" >> "$GITHUB_OUTPUT"
 
   test-job:
     name: Test job creation
