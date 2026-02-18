@@ -341,41 +341,52 @@ jobs:
           echo "Claude CLI installed: $(claude --version 2>&1 || echo 'version unknown')"
 
           echo ""
-          echo "--- Writing auth.json ---"
-          # Claude Code CLI reads auth from ~/.config/claude-code/auth.json
-          mkdir -p "$HOME/.config/claude-code"
-          printf '%s' "$AUTH_JSON" > "$HOME/.config/claude-code/auth.json"
-          chmod 0600 "$HOME/.config/claude-code/auth.json"
-          echo "Written to ~/.config/claude-code/auth.json"
+          echo "--- Normalizing and writing credentials ---"
+          # Claude Code CLI reads from ~/.claude/.credentials.json (primary, Linux)
+          # and ~/.config/claude-code/auth.json (legacy). Normalize "token" → "accessToken".
+          NORMALIZED=$(python3 -c "
+          import json, sys
+          data = json.loads(sys.stdin.read())
+          oauth = data.get('claudeAiOauth', {})
+          if 'token' in oauth and 'accessToken' not in oauth:
+              oauth['accessToken'] = oauth.pop('token')
+              data['claudeAiOauth'] = oauth
+              print('NORMALIZED: renamed token → accessToken', file=sys.stderr)
+          print(json.dumps(data))
+          " <<< "$AUTH_JSON" 2>&1 | tee /dev/stderr | tail -1)
+
+          for dir in "$HOME/.claude" "$HOME/.config/claude-code"; do
+            mkdir -p "$dir"
+            target="$dir/.credentials.json"
+            [ "$dir" = "$HOME/.config/claude-code" ] && target="$dir/auth.json"
+            printf '%s' "$NORMALIZED" > "$target"
+            chmod 0600 "$target"
+            echo "Written to: $target ($(wc -c < "$target") bytes)"
+          done
 
           echo ""
-          echo "--- Verifying auth.json on disk ---"
-          echo "File size: $(wc -c < "$HOME/.config/claude-code/auth.json") bytes"
-          echo "File permissions: $(ls -la "$HOME/.config/claude-code/auth.json" | awk '{print $1}')"
-          # Verify JSON structure on disk (redacted)
+          echo "--- Verifying credentials on disk ---"
+          CRED_FILE="$HOME/.claude/.credentials.json"
+          echo "File permissions: $(ls -la "$CRED_FILE" | awk '{print $1}')"
           python3 -c "
           import json
-          with open('$HOME/.config/claude-code/auth.json') as f:
+          with open('$HOME/.claude/.credentials.json') as f:
               data = json.load(f)
           print(f'Top-level keys on disk: {sorted(data.keys())}')
           if 'claudeAiOauth' in data:
               oauth = data['claudeAiOauth']
               print(f'OAuth keys on disk: {sorted(oauth.keys())}')
-              tok = oauth.get('token', '')
-              print(f'token length: {len(tok)}')
-              print(f'token first 10 chars: {tok[:10]}...')
-              print(f'token last 5 chars: ...{tok[-5:]}')
-              # Check if it looks like a JWT
-              parts = tok.split('.')
-              print(f'token JWT parts: {len(parts)}')
+              tok = oauth.get('accessToken', oauth.get('token', ''))
+              print(f'accessToken length: {len(tok)}')
+              print(f'accessToken first 10 chars: {tok[:10]}...')
+              print(f'accessToken last 5 chars: ...{tok[-5:]}')
               rt = oauth.get('refreshToken', '')
               print(f'refreshToken length: {len(rt)}')
               print(f'refreshToken first 10 chars: {rt[:10]}...')
-              # Check if token == refreshToken (common mistake)
               if tok == rt:
-                  print('WARNING: token and refreshToken are IDENTICAL!')
+                  print('WARNING: accessToken and refreshToken are IDENTICAL!')
               else:
-                  print('token != refreshToken (good)')
+                  print('accessToken != refreshToken (good)')
           "
 
           echo ""

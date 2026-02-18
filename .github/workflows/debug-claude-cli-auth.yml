@@ -53,8 +53,8 @@ jobs:
             echo ""
           done
 
-      # ── 4. Write auth.json to the standard location ─────────────
-      - name: "4. Write auth.json"
+      # ── 4. Normalize and write credentials ──────────────────────
+      - name: "4. Normalize and write credentials"
         env:
           AUTH_JSON: ${{ secrets.CLAUDE_AUTH_JSON }}
         run: |
@@ -64,19 +64,33 @@ jobs:
             exit 1
           fi
 
-          config_dir="$HOME/.config/claude-code"
-          mkdir -p "$config_dir"
-          printf '%s' "$AUTH_JSON" > "$config_dir/auth.json"
-          chmod 0600 "$config_dir/auth.json"
+          # Normalize: CLI expects "accessToken", some auth flows produce "token"
+          NORMALIZED=$(python3 -c "
+          import json, sys
+          data = json.loads(sys.stdin.read())
+          oauth = data.get('claudeAiOauth', {})
+          if 'token' in oauth and 'accessToken' not in oauth:
+              oauth['accessToken'] = oauth.pop('token')
+              data['claudeAiOauth'] = oauth
+              print('NORMALIZED: renamed token -> accessToken', file=sys.stderr)
+          print(json.dumps(data))
+          " <<< "$AUTH_JSON" 2>&1 | tee /dev/stderr | tail -1)
 
-          echo "Written to: $config_dir/auth.json"
-          echo "Size: $(wc -c < "$config_dir/auth.json") bytes"
+          # Write to primary location (~/.claude/.credentials.json)
+          # and legacy location (~/.config/claude-code/auth.json)
+          for dir in "$HOME/.claude" "$HOME/.config/claude-code"; do
+            mkdir -p "$dir"
+            target="$dir/.credentials.json"
+            [ "$dir" = "$HOME/.config/claude-code" ] && target="$dir/auth.json"
+            printf '%s' "$NORMALIZED" > "$target"
+            chmod 0600 "$target"
+            echo "Written to: $target ($(wc -c < "$target") bytes)"
+          done
+
           echo ""
-
-          # Show structure without secrets
           python3 << 'PYEOF'
-          import json, os, pathlib
-          p = pathlib.Path.home() / ".config" / "claude" / "auth.json"
+          import json, pathlib
+          p = pathlib.Path.home() / ".claude" / ".credentials.json"
           data = json.loads(p.read_text())
           def describe(obj, indent=0):
               pfx = "  " * indent
@@ -99,27 +113,13 @@ jobs:
           describe(data)
           PYEOF
 
-      # ── 5. Also write to alternate locations the CLI might check ─
-      - name: "5. Write auth.json to alternate config paths"
-        env:
-          AUTH_JSON: ${{ secrets.CLAUDE_AUTH_JSON }}
-        run: |
-          set -euo pipefail
-          # Some CLI versions may look in ~/.claude/ instead of ~/.config/claude-code/
-          for dir in "$HOME/.claude" "$HOME/.config/claude-code"; do
-            mkdir -p "$dir"
-            printf '%s' "$AUTH_JSON" > "$dir/auth.json"
-            chmod 0600 "$dir/auth.json"
-            echo "Also written to: $dir/auth.json"
-          done
           echo ""
           echo "=== All config directories ==="
-          ls -la "$HOME/.config/claude/" 2>&1 || true
           ls -la "$HOME/.claude/" 2>&1 || true
           ls -la "$HOME/.config/claude-code/" 2>&1 || true
 
-      # ── 6. Check auth status after writing ───────────────────────
-      - name: "6. Check auth status after writing config"
+      # ── 5. Check auth status after writing ───────────────────────
+      - name: "5. Check auth status after writing config"
         run: |
           set +e
           echo "=== claude auth status ==="
@@ -131,8 +131,8 @@ jobs:
           echo "=== claude config list ==="
           claude config list 2>&1 || true
 
-      # ── 7. Attempt minimal prompt ────────────────────────────────
-      - name: "7. Run claude -p (minimal prompt)"
+      # ── 6. Attempt minimal prompt ────────────────────────────────
+      - name: "6. Run claude -p (minimal prompt)"
         run: |
           set +e
           echo "=== Attempt 1: claude -p ==="
@@ -143,29 +143,24 @@ jobs:
           echo "=== Attempt 2: claude -p --max-turns 1 ==="
           timeout 90 claude -p "Respond with exactly the word: AUTH_OK" --max-turns 1 2>&1
           echo "Exit code: $?"
-          echo ""
 
-          echo "=== Attempt 3: piped stdin ==="
-          echo "Respond with exactly the word: AUTH_OK" | timeout 90 claude 2>&1
-          echo "Exit code: $?"
-
-      # ── 8. Check if auth.json was modified by the CLI ────────────
-      - name: "8. Check if CLI modified auth.json (token refresh)"
+      # ── 7. Check if credentials were modified by the CLI ─────────
+      - name: "7. Check if CLI modified credentials (token refresh)"
         run: |
           echo "=== Checking for CLI-side token refresh ==="
-          for f in "$HOME/.config/claude-code/auth.json" "$HOME/.config/claude/auth.json" "$HOME/.claude/auth.json"; do
+          for f in "$HOME/.claude/.credentials.json" "$HOME/.config/claude-code/auth.json"; do
             if [ -f "$f" ]; then
               echo "$f:"
               echo "  Size: $(wc -c < "$f") bytes"
-              echo "  Modified: $(stat -c %y "$f" 2>/dev/null || stat -f %Sm "$f" 2>/dev/null || echo unknown)"
+              echo "  Modified: $(stat -c %y "$f" 2>/dev/null || echo unknown)"
               python3 -c "
           import json
           with open('$f') as fh:
               data = json.load(fh)
           oauth = data.get('claudeAiOauth', {})
-          tok = oauth.get('token', '')
-          print(f'  token first 10: {tok[:10]}...')
-          print(f'  token length: {len(tok)}')
+          tok = oauth.get('accessToken', oauth.get('token', ''))
+          print(f'  accessToken first 10: {tok[:10]}...')
+          print(f'  accessToken length: {len(tok)}')
           exp = oauth.get('expiresAt', 'missing')
           print(f'  expiresAt: {exp}')
           " 2>/dev/null || echo "  (could not parse)"
@@ -173,8 +168,8 @@ jobs:
             fi
           done
 
-      # ── 9. Verbose/debug attempt ─────────────────────────────────
-      - name: "9. Verbose run for debug output"
+      # ── 8. Verbose/debug attempt ─────────────────────────────────
+      - name: "8. Verbose run for debug output"
         run: |
           set +e
           echo "=== Running with --verbose flag ==="
@@ -182,13 +177,7 @@ jobs:
           echo ""
           echo "Exit code: $?"
           echo ""
-          echo "=== Check for debug env vars ==="
-          echo "Trying CLAUDE_CODE_DEBUG=1..."
+          echo "=== Trying CLAUDE_CODE_DEBUG=1 ==="
           CLAUDE_CODE_DEBUG=1 timeout 90 claude -p "Say OK" 2>&1 | head -80
-          echo ""
-          echo "Exit code: $?"
-          echo ""
-          echo "Trying DEBUG=claude:*..."
-          DEBUG="claude:*" timeout 90 claude -p "Say OK" 2>&1 | head -80
           echo ""
           echo "Exit code: $?"
