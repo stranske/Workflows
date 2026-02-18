@@ -1,8 +1,8 @@
 # LangSmith Integration E2E Validation
 
-> **Date:** 2026-02-17
+> **Date:** 2026-02-18
 > **Validator:** Claude
-> **Status:** ✅ **COMPLETE** (static validation) - Live workflow run pending
+> **Status:** ✅ **COMPLETE** (live validation)
 
 ---
 
@@ -13,12 +13,11 @@ The LangSmith trace integration has been validated through:
 2. ✅ Unit test execution (20/20 tests passing)
 3. ✅ Workflow YAML verification
 4. ✅ JSON schema validation
+5. ✅ Live workflow execution (`agents-verifier` [run #1324](https://github.com/stranske/Workflows/actions/runs/22127289609))
 
-**Result:** Static validation complete. Live smoke test recommended before
-declaring production-ready.
+**Result:** Full validation complete. Production workflows emit LangSmith trace notices, PR comments, and metrics artifacts.
 
 ---
-
 ## Component Validation
 
 ### 1. ✅ Core Infrastructure (`tools/llm_provider.py`)
