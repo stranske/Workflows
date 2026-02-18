@@ -348,9 +348,45 @@ jobs:
           echo "Written to ~/.config/claude/auth.json"
 
           echo ""
+          echo "--- Verifying auth.json on disk ---"
+          echo "File size: $(wc -c < "$HOME/.config/claude/auth.json") bytes"
+          echo "File permissions: $(ls -la "$HOME/.config/claude/auth.json" | awk '{print $1}')"
+          # Verify JSON structure on disk (redacted)
+          python3 -c "
+          import json
+          with open('$HOME/.config/claude/auth.json') as f:
+              data = json.load(f)
+          print(f'Top-level keys on disk: {sorted(data.keys())}')
+          if 'claudeAiOauth' in data:
+              oauth = data['claudeAiOauth']
+              print(f'OAuth keys on disk: {sorted(oauth.keys())}')
+              tok = oauth.get('token', '')
+              print(f'token length: {len(tok)}')
+              print(f'token first 10 chars: {tok[:10]}...')
+              print(f'token last 5 chars: ...{tok[-5:]}')
+              # Check if it looks like a JWT
+              parts = tok.split('.')
+              print(f'token JWT parts: {len(parts)}')
+              rt = oauth.get('refreshToken', '')
+              print(f'refreshToken length: {len(rt)}')
+              print(f'refreshToken first 10 chars: {rt[:10]}...')
+              # Check if token == refreshToken (common mistake)
+              if tok == rt:
+                  print('WARNING: token and refreshToken are IDENTICAL!')
+              else:
+                  print('token != refreshToken (good)')
+          "
+
+          echo ""
+          echo "--- Testing Claude CLI auth status ---"
+          set +e
+          claude auth status 2>&1 || true
+          set -e
+
+          echo ""
           echo "--- Testing Claude CLI with minimal prompt ---"
           set +e
-          timeout 60 claude -p "Respond with exactly: AUTH_OK" --max-turns 1 2>&1
+          timeout 60 claude -p "Respond with exactly: AUTH_OK" --max-turns 1 --verbose 2>&1 | head -50
           status=$?
           set -e
           echo ""
