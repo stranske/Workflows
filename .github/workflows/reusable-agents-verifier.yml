@@ -3,7 +3,7 @@
 #
 # This workflow:
 # 1. Builds context from merged PR and linked issues
-# 2. Runs Codex in verifier mode to check acceptance criteria
+# 2. Runs the agent verifier to check acceptance criteria
 # 3. Opens a follow-up issue if criteria weren't met
 name: Reusable Agents Verifier
 
@@ -307,7 +307,13 @@ jobs:
             const registryPath = './.workflows-lib/.github/agents/registry.yml';
             const resolverPath = './.workflows-lib/.github/scripts/agent_registry.js';
 
-            let agentKey = 'codex';
+            // Resolve agent from PR labels; fall back to registry default
+            let _defaultAgent = 'codex';
+            try {
+              const { loadAgentRegistry } = require(resolverPath);
+              _defaultAgent = loadAgentRegistry({ registryPath }).default_agent || 'codex';
+            } catch (_) {}
+            let agentKey = _defaultAgent;
             try {
               const { resolveAgentFromLabels } = require(resolverPath);
               const rawPrNumber = Number('${{ steps.context.outputs.pr_number }}');
@@ -326,14 +332,14 @@ jobs:
             } catch (err) {
                 core.warning(
                   [
-                    'Failed to resolve agent from PR labels; defaulting to codex:',
+                    `Failed to resolve agent from PR labels; defaulting to ${_defaultAgent}:`,
                     err.message,
                   ].join(' '),
                 );
-              agentKey = 'codex';
+              agentKey = _defaultAgent;
             }
 
-            const normalized = String(agentKey || 'codex').trim().toLowerCase() || 'codex';
+            const normalized = String(agentKey || _defaultAgent).trim().toLowerCase() || _defaultAgent;
             core.setOutput('agent_key', normalized);
             core.setOutput('agent_label', `agent:${normalized}`);
             core.setOutput('from_label', `from:${normalized}`);
@@ -990,10 +996,12 @@ jobs:
             const prUrl = process.env.PR_URL || '';
             const runUrl = process.env.RUN_URL || '';
 
-            const agentLabel = '${{ steps.agent.outputs.agent_label }}' || 'agent:codex';
-            const fromLabel = '${{ steps.agent.outputs.from_label }}' || 'from:codex';
+            // Agent labels resolved in the 'agent' step; derive from agent_key if label output missing
+            const agentKey = '${{ steps.agent.outputs.agent_key }}' || 'codex';
+            const agentLabel = '${{ steps.agent.outputs.agent_label }}' || `agent:${agentKey}`;
+            const fromLabel = '${{ steps.agent.outputs.from_label }}' || `from:${agentKey}`;
 
-            // Handle Codex crash/error case
+            // Handle agent crash/error case
             if (verdict === 'error') {
               const title = prNumber
                 ? `[Verifier Error] PR #${prNumber} verification failed`

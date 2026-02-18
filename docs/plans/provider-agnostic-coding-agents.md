@@ -8,7 +8,7 @@
 - ✅ Phase 1 — Agent registry + resolver helper
 - ✅ Phase 2 — Registry-driven PR automation routing (keepalive/autofix done; bot-comment uses registry; `reusable-16-agents`/`reusable-pr-context` widened)
 - ✅ Phase 3 — Registry-driven issue→PR path (belt 71/72/73 refactored; auto-pilot/auto-label/orchestrators fixed; issue bridge assignees use registry; `agents_belt_scan.js` generalized; all backing scripts use registry-driven defaults; **API contracts preserved**)
-- ⚠️ Phase 4 — Verifier + follow-up chain (reusable verifier done; verify-assignment generalized; **verify-to-issue text cosmetic only**)
+- ✅ Phase 4 — Verifier + follow-up chain (verifier/verify-to-issue/verify-to-new-pr all use registry-driven defaults; verify-assignment generalized; **Codex CLI runner section intentionally unchanged**)
 - 🟡 Phase 5 — Delegation / re-routing between agents (5A mostly complete: keepalive-loop + gate-followups both have run-claude; `agent:auto` label semantics established)
 
 ### Scripts refactored (Feb 18, session 2)

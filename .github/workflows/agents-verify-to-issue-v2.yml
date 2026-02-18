@@ -338,7 +338,13 @@ jobs:
                 };
             const { withRetry } = retryHelpers;
 
-            let agentKey = 'codex';
+            // Resolve agent from PR labels; fall back to registry default
+            let _defaultAgent = 'codex';
+            try {
+              const { loadAgentRegistry } = require('./.github/scripts/agent_registry.js');
+              _defaultAgent = loadAgentRegistry('./.github/agents/registry.yml').default_agent || 'codex';
+            } catch (_) {}
+            let agentKey = _defaultAgent;
             try {
               const { resolveAgentFromLabels } = require('./.github/scripts/agent_registry.js');
               const prLabels = context.payload.pull_request?.labels || [];
@@ -347,11 +353,11 @@ jobs:
               });
             } catch (err) {
               core.warning(
-                `Failed to resolve agent from PR labels; defaulting to codex: ${err.message}`
+                `Failed to resolve agent from PR labels; defaulting to ${_defaultAgent}: ${err.message}`
               );
-              agentKey = 'codex';
+              agentKey = _defaultAgent;
             }
-            const normalized = String(agentKey || 'codex').trim().toLowerCase() || 'codex';
+            const normalized = String(agentKey || _defaultAgent).trim().toLowerCase() || _defaultAgent;
             const agentLabel = `agent:${normalized}`;
             const fromLabel = `from:${normalized}`;
 
