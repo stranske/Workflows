@@ -28,7 +28,11 @@ try {
   ]);
 }
 const ORCHESTRATOR_WORKFLOW_FILE = 'agents-70-orchestrator.yml';
-const WORKER_WORKFLOW_FILE = 'agents-72-codex-belt-worker.yml';
+// Accept both new alias and legacy filename
+const WORKER_WORKFLOW_FILES = [
+  'agents-belt-worker.yml',
+  'agents-72-codex-belt-worker.yml',
+];
 const RECENT_COMPLETED_LOOKBACK_SECONDS = 300; // 5 minutes
 
 // Rate limit retry configuration - now handled by api-helpers
@@ -622,7 +626,7 @@ async function countActive({
   if (workflowFiles.length === 0) {
     workflowFiles = [ORCHESTRATOR_WORKFLOW_FILE];
     if (includeWorker) {
-      workflowFiles.push(WORKER_WORKFLOW_FILE);
+      workflowFiles.push(...WORKER_WORKFLOW_FILES);
     }
   }
 
@@ -768,7 +772,7 @@ async function countActive({
   };
 
   for (const workflowFile of workflowFiles) {
-    const label = workflowFile === WORKER_WORKFLOW_FILE ? 'worker' : 'orchestrator';
+    const label = WORKER_WORKFLOW_FILES.includes(workflowFile) ? 'worker' : 'orchestrator';
     for (const status of statuses) {
       try {
         const runs = await paginateWithBackoff(github, github.rest.actions.listWorkflowRuns, {
