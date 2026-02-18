@@ -271,5 +271,7 @@ EXPECTED_NAMES = {
     "selftest-reusable-ci.yml": "Selftest: Reusables",
     "selftest-ci.yml": "Selftest CI",
     "health-keepalive-e2e.yml": "Keepalive E2E",
+    "health-keepalive-auth-diagnostic.yml": "Health Keepalive Auth Diagnostic",
+    "health-claude-cli-auth-debug.yml": "Health Claude CLI Auth Debug",
     "maint-39-test-llm-providers.yml": "Maint 39 Test LLM Providers",
 }
