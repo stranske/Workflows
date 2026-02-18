@@ -365,7 +365,7 @@ jobs:
           echo ""
           echo "--- Verifying credentials on disk ---"
           CRED_FILE="$HOME/.claude/.credentials.json"
-          echo "File permissions: $(ls -la "$CRED_FILE" | awk '{print $1}')"
+          echo "File permissions: $(stat -c '%A' "$CRED_FILE")"
           python3 -c "
           import json
           with open('$HOME/.claude/.credentials.json') as f:

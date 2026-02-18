@@ -49,6 +49,7 @@ jobs:
           echo "=== Checking for auth/login/config subcommands ==="
           for cmd in "auth status" "auth whoami" "config list" "whoami"; do
             echo "--- claude $cmd ---"
+            # shellcheck disable=SC2086  # intentional word-splitting of subcommand
             claude $cmd 2>&1 || true
             echo ""
           done
@@ -178,10 +179,12 @@ jobs:
           set +e
           echo "=== Running with --verbose flag ==="
           timeout 90 claude -p "Say OK" --verbose 2>&1 | head -80
+          rc1=$?
           echo ""
-          echo "Exit code: $?"
+          echo "Exit code: $rc1"
           echo ""
           echo "=== Trying CLAUDE_CODE_DEBUG=1 ==="
           CLAUDE_CODE_DEBUG=1 timeout 90 claude -p "Say OK" 2>&1 | head -80
+          rc2=$?
           echo ""
-          echo "Exit code: $?"
+          echo "Exit code: $rc2"
