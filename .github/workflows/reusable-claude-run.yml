@@ -718,26 +718,6 @@ jobs:
           echo "Installed Claude CLI: $(command -v claude)"
           claude --version || true
 
-      - name: Prepare prompt
-        id: prompt
-        if: steps.preflight.outputs.missing != 'true'
-        env:
-          BASE_PROMPT: ${{ inputs.prompt_file }}
-          APPENDIX: ${{ inputs.appendix }}
-        run: |
-          set -euo pipefail
-          if [ ! -f "$BASE_PROMPT" ]; then
-            echo "::error::Prompt file not found: $BASE_PROMPT"
-            exit 1
-          fi
-
-          out="claude-prompt.md"
-          cat "$BASE_PROMPT" > "$out"
-          if [ -n "${APPENDIX:-}" ]; then
-            printf '\n\n---\n\n%s\n' "$APPENDIX" >> "$out"
-          fi
-          echo "file=$out" >> "$GITHUB_OUTPUT"
-
       - name: Run Claude
         id: run_claude
         if: always()
