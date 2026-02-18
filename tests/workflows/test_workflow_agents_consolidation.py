@@ -247,7 +247,7 @@ def test_keepalive_job_defined_once():
 def test_bootstrap_requires_single_label():
     text = (WORKFLOWS_DIR / "reusable-16-agents.yml").read_text(encoding="utf-8")
     assert (
-        "bootstrap_issues_label not provided; defaulting to agent:codex." in text
+        "bootstrap_issues_label not provided; defaulting to" in text
     ), "Bootstrap step must record when it falls back to the default label"
     assert (
         "bootstrap_issues_label must define exactly one label" in text
@@ -503,8 +503,8 @@ def test_gate_workflow_uses_fork_head_for_script_tests_and_ledger():
 def test_bootstrap_step_defaults_label_when_missing():
     text = (WORKFLOWS_DIR / "reusable-16-agents.yml").read_text(encoding="utf-8")
     assert (
-        "const fallbackLabel = 'agent:codex'" in text
-    ), "Bootstrap logic must define agent:codex as the fallback label"
+        "let fallbackLabel = 'agent:codex'" in text
+    ), "Bootstrap logic must define agent:codex as the initial fallback label"
     assert (
         "bootstrap_issues_label not provided; defaulting to" in text
     ), "Bootstrap step must record when it falls back to the default label"

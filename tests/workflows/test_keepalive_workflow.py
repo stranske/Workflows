@@ -394,7 +394,7 @@ def test_keepalive_ignores_codeblock_checklists() -> None:
     skipped = _details(summary, "Skipped pull requests")
     assert skipped is not None
     assert any(
-        "no Codex checklist with outstanding tasks" in item for item in skipped.get("items", [])
+        "no agent checklist with outstanding tasks" in item for item in skipped.get("items", [])
     )
 
 
