@@ -102,6 +102,9 @@ that only emit artifacts, see the "Workflows without workflow_call outputs" sect
 | `reusable-claude-run.yml` | `llm-confidence` | string (number-like) | Confidence level of LLM analysis (placeholder for compatibility) | `needs.claude.outputs.llm-confidence` |
 | `reusable-claude-run.yml` | `llm-completed-tasks` | string (JSON) | JSON array of completed task descriptions (placeholder for compatibility) | `needs.claude.outputs.llm-completed-tasks` |
 | `reusable-claude-run.yml` | `llm-has-completions` | string (boolean-like) | Whether any task completions were detected (placeholder for compatibility) | `needs.claude.outputs.llm-has-completions` |
+| `reusable-claude-run.yml` | `error-category` | string | Error category (transient/auth/resource/logic/unknown) | `needs.claude.outputs.error-category` |
+| `reusable-claude-run.yml` | `error-type` | string | Error type (claude/infrastructure/auth/unknown) | `needs.claude.outputs.error-type` |
+| `reusable-claude-run.yml` | `error-recovery` | string | Suggested recovery action | `needs.claude.outputs.error-recovery` |
 <!-- OUTPUT-REFERENCE-END -->
 
 ## Workflows without workflow_call outputs

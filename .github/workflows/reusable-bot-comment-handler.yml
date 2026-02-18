@@ -168,8 +168,18 @@ jobs:
             }
 
             const labels = pr.labels.map(l => l.name);
-            let agent = 'codex';  // default
-            let workflow = 'reusable-codex-run.yml';
+            // Resolve default agent from registry; fall back to 'codex'
+            let _defaultAgent = 'codex';
+            let _defaultWorkflow = 'reusable-codex-run.yml';
+            try {
+              const { loadAgentRegistry, getRunnerWorkflow: getDefault } =
+                require('./.github/scripts/agent_registry.js');
+              _defaultAgent = loadAgentRegistry().default_agent || 'codex';
+              const dw = getDefault(_defaultAgent);
+              _defaultWorkflow = String(dw || '').split('/').pop() || _defaultWorkflow;
+            } catch (_) {}
+            let agent = _defaultAgent;
+            let workflow = _defaultWorkflow;
 
             try {
               const {
@@ -527,7 +537,8 @@ jobs:
               'gemini': ['copilot']   // Gemini uses Copilot workspace
             };
 
-            const assignees = agentAssignees[agent] || ['chatgpt-codex-connector'];
+            const defaultAssignees = agentAssignees['codex'] || ['chatgpt-codex-connector'];
+            const assignees = agentAssignees[agent] || defaultAssignees;
 
             // Assign the agent to the PR (this is what triggers Codex CLI properly)
             try {

@@ -9,7 +9,7 @@
 - ✅ Phase 2 — Registry-driven PR automation routing (keepalive/autofix done; bot-comment uses registry; `reusable-16-agents`/`reusable-pr-context` widened)
 - ✅ Phase 3 — Registry-driven issue→PR path (belt 71/72/73 refactored; auto-pilot/auto-label/orchestrators fixed; issue bridge assignees use registry; `agents_belt_scan.js` generalized; all backing scripts use registry-driven defaults; **API contracts preserved**)
 - ✅ Phase 4 — Verifier + follow-up chain (verifier/verify-to-issue/verify-to-new-pr all use registry-driven defaults; verify-assignment generalized; **Codex CLI runner section intentionally unchanged**)
-- ✅ Phase 5A/5C — Dual-runner routing complete (keepalive-loop + gate-followups both have `run-codex`/`run-claude`; gate-followups autofix now has `autofix-claude`; preflight auth checks widened for Claude; `agent:auto` label semantics established)
+- ✅ Phase 5A/5B/5C — Dual-runner routing complete; `reusable-claude-run.yml` now fully compliant with runner output contract; bot-comment-handler default registry-driven; all consumer workflows have `run-claude`/`autofix-claude`
 - 🟡 Phase 5D — Delegation policy (`agent:auto` heuristic not yet implemented)
 
 ### Scripts refactored (Feb 18, session 2)
@@ -361,7 +361,7 @@ these test files must also be updated:
 
 - Keepalive prompt + task appendix is agent-agnostic.
 - Keepalive evaluate step extracts `agent_type` from `agent:*` labels.
-- `reusable-codex-run.yml` conforms to the runner output contract; `reusable-claude-run.yml` exists and is wired in but is only partially compliant (missing `error-category`, `error-type`, `error-recovery` outputs).
+- Both `reusable-codex-run.yml` and `reusable-claude-run.yml` conform to the runner output contract (including `error-category`, `error-type`, `error-recovery`).
 - Keepalive-loop has both `run-codex` and `run-claude` jobs with merged outputs.
 - Autofix-loop has both `autofix-codex` and `autofix-claude` jobs.
 - Capability check triggers on `agent:codex`, `agent:claude`, and `agent:auto`.
@@ -594,7 +594,8 @@ these test files must also be updated:
 - `agent:claude` can run at least one PR automation mode (start with keepalive) end-to-end in the Workflows repo when `CLAUDE_API_STRANSKE` is available.
 
 > **Audit status (Feb 18):**
-> - ✅ `reusable-claude-run.yml` exists and is referenced from keepalive-loop and autofix-loop
+> - ✅ `reusable-claude-run.yml` exists and is referenced from keepalive-loop, autofix-loop, and gate-followups
+> - ✅ Now fully compliant with runner output contract: `error-category`, `error-type`, `error-recovery` added via `error_classifier.js`
 
 ---
 
@@ -614,7 +615,7 @@ these test files must also be updated:
 > - ✅ Keepalive-loop: `run-claude` job added, routes to `reusable-claude-run.yml`; preflight auth check widened
 > - ✅ Autofix-loop: `autofix-claude` job added, routes to `reusable-claude-run.yml`
 > - ✅ Gate-followups: `run-claude` + `autofix-claude` jobs added; prepare step resolves `agent_type` via registry; metrics merges both autofix results
-> - ⚠️ Bot-comment-handler: checks labels by string but does route to Claude
+> - ✅ Bot-comment-handler: uses `resolveAgentFromLabels()` primary with string-comparison fallback; default agent now registry-driven via `loadAgentRegistry()`
 
 ---
 

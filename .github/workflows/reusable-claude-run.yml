@@ -133,6 +133,15 @@ on:
       llm-has-completions:
         description: 'Whether any task completions were detected (placeholder for compatibility)'
         value: ${{ jobs.claude.outputs.llm-has-completions }}
+      error-category:
+        description: 'Error category (transient/auth/resource/logic/unknown)'
+        value: ${{ jobs.claude.outputs.error-category }}
+      error-type:
+        description: 'Error type (claude/infrastructure/auth/unknown)'
+        value: ${{ jobs.claude.outputs.error-type }}
+      error-recovery:
+        description: 'Suggested recovery action'
+        value: ${{ jobs.claude.outputs.error-recovery }}
 
 permissions:
   contents: write
@@ -165,6 +174,9 @@ jobs:
       llm-confidence: ${{ steps.compat.outputs.llm-confidence }}
       llm-completed-tasks: ${{ steps.compat.outputs.llm-completed-tasks }}
       llm-has-completions: ${{ steps.compat.outputs.llm-has-completions }}
+      error-category: ${{ steps.classify_failure.outputs.error_category }}
+      error-type: ${{ steps.classify_failure.outputs.error_type }}
+      error-recovery: ${{ steps.classify_failure.outputs.error_recovery }}
     steps:
       - name: Mint GitHub App token (preferred)
         id: app_token
@@ -430,3 +442,63 @@ jobs:
             echo "llm-completed-tasks=[]"
             echo "llm-has-completions=false"
           } >> "$GITHUB_OUTPUT"
+
+      - name: Classify failure
+        id: classify_failure
+        if: always() && steps.run_claude.outputs.exit-code != '0'
+        uses: actions/github-script@v8
+        env:
+          EXIT_CODE: ${{ steps.run_claude.outputs.exit-code }}
+          OUTPUT_SUMMARY: ${{ steps.run_claude.outputs.final-message-summary }}
+          PREFLIGHT_ERROR: ${{ steps.preflight.outputs.error || '' }}
+          MODE: ${{ inputs.mode }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+        with:
+          script: |
+            const fs = require('fs');
+            // error_classifier.js is synced to consumer repos and also present in Workflows repo
+            const classifierPath = './.github/scripts/error_classifier.js';
+            if (!fs.existsSync(classifierPath)) {
+              core.warning('error_classifier.js not found; skipping error classification');
+              core.setOutput('error_category', 'unknown');
+              core.setOutput('error_type', 'unknown');
+              core.setOutput('error_recovery', 'retry');
+              core.setOutput('is_transient', 'false');
+              return;
+            }
+
+            const { classifyError, ERROR_CATEGORIES, suggestRecoveryAction } =
+              require(classifierPath);
+
+            const exitCode = process.env.EXIT_CODE || '';
+            const summary = [process.env.OUTPUT_SUMMARY, process.env.PREFLIGHT_ERROR]
+              .filter(Boolean)
+              .join(' ');
+
+            const errorInfo = classifyError({
+              code: exitCode,
+              message: summary,
+            });
+
+            let errorType = 'unknown';
+            if (exitCode && exitCode !== '0') {
+              if (errorInfo.category === ERROR_CATEGORIES.transient) {
+                errorType = 'infrastructure';
+              } else if (errorInfo.category === ERROR_CATEGORIES.auth) {
+                errorType = 'auth';
+              } else {
+                errorType = 'claude';
+              }
+            }
+
+            core.setOutput('error_category', errorInfo.category);
+            core.setOutput('error_type', errorType);
+            core.setOutput('error_recovery', errorInfo.recovery);
+            const isTransient =
+              errorInfo.category === ERROR_CATEGORIES.transient ? 'true' : 'false';
+            core.setOutput('is_transient', isTransient);
+
+            console.log(`Error Classification:`);
+            console.log(`  Category: ${errorInfo.category}`);
+            console.log(`  Type: ${errorType}`);
+            console.log(`  Recovery: ${errorInfo.recovery}`);
