@@ -86,7 +86,7 @@ on:
         type: string
     secrets:
       CLAUDE_AUTH_JSON:
-        description: 'JSON contents for Claude CLI auth (written to ~/.config/claude/auth.json)'
+        description: 'JSON contents for Claude CLI auth (written to ~/.claude/.credentials.json and ~/.config/claude-code/auth.json)'
         required: false
       WORKFLOWS_APP_ID:
         required: false

@@ -74,7 +74,7 @@ jobs:
               data['claudeAiOauth'] = oauth
               print('NORMALIZED: renamed token -> accessToken', file=sys.stderr)
           print(json.dumps(data))
-          " <<< "$AUTH_JSON" 2>&1 | tee /dev/stderr | tail -1)
+          " <<< "$AUTH_JSON" 2> >(tee /dev/stderr))
 
           # Write to primary location (~/.claude/.credentials.json)
           # and legacy location (~/.config/claude-code/auth.json)
@@ -92,6 +92,7 @@ jobs:
           import json, pathlib
           p = pathlib.Path.home() / ".claude" / ".credentials.json"
           data = json.loads(p.read_text())
+          SENSITIVE = {'accessToken', 'refreshToken', 'token', 'apiKey', 'api_key', 'sessionKey', 'access_token'}
           def describe(obj, indent=0):
               pfx = "  " * indent
               if isinstance(obj, dict):
@@ -100,8 +101,11 @@ jobs:
                           print(f"{pfx}{k}: (object, {len(v)} keys)")
                           describe(v, indent + 1)
                       elif isinstance(v, str):
-                          safe = v[:10] + "..." if len(v) > 12 else v
-                          print(f"{pfx}{k}: str len={len(v)} [{safe}]")
+                          if k in SENSITIVE:
+                              print(f"{pfx}{k}: str len={len(v)} [REDACTED]")
+                          else:
+                              safe = v[:10] + "..." if len(v) > 12 else v
+                              print(f"{pfx}{k}: str len={len(v)} [{safe}]")
                       elif isinstance(v, (int, float)):
                           print(f"{pfx}{k}: {type(v).__name__}={v}")
                       elif isinstance(v, bool):
@@ -159,8 +163,8 @@ jobs:
               data = json.load(fh)
           oauth = data.get('claudeAiOauth', {})
           tok = oauth.get('accessToken', oauth.get('token', ''))
-          print(f'  accessToken first 10: {tok[:10]}...')
           print(f'  accessToken length: {len(tok)}')
+          print(f'  accessToken present: {bool(tok)}')
           exp = oauth.get('expiresAt', 'missing')
           print(f'  expiresAt: {exp}')
           " 2>/dev/null || echo "  (could not parse)"

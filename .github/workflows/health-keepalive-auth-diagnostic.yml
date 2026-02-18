@@ -254,19 +254,17 @@ jobs:
               patterns.append('claudeAiOauth (Claude.ai OAuth)')
               oauth = data['claudeAiOauth']
               if isinstance(oauth, dict):
-                  # Claude CLI expects 'token' key, but Claude OAuth flow
-                  # sometimes produces 'accessToken'. Check both.
-                  token_val = oauth.get('token') or oauth.get('accessToken')
-                  token_key = 'token' if 'token' in oauth else ('accessToken' if 'accessToken' in oauth else None)
+                  # Claude CLI expects 'accessToken' key. Some older auth flows
+                  # produce 'token' instead — the normalization step below renames it.
+                  token_val = oauth.get('accessToken') or oauth.get('token')
+                  token_key = 'accessToken' if 'accessToken' in oauth else ('token' if 'token' in oauth else None)
 
                   if token_val:
                       print(f'  OAuth token key: \"{token_key}\" (length={len(token_val)})')
-                      if token_key == 'accessToken':
-                          print('  WARNING: Key is \"accessToken\" but Claude CLI expects \"token\"')
-                          print('  FIX: Rename \"accessToken\" to \"token\" in the secret')
-                          issues.append('accessToken should be renamed to token')
+                      if token_key == 'token':
+                          print('  NOTE: Key is \"token\" — will be normalized to \"accessToken\" before writing')
                   else:
-                      print('  WARNING: No token found (checked \"token\" and \"accessToken\")')
+                      print('  WARNING: No token found (checked \"accessToken\" and \"token\")')
                       issues.append('no token key found in claudeAiOauth')
 
                   if 'expiresAt' in oauth:
@@ -353,7 +351,7 @@ jobs:
               data['claudeAiOauth'] = oauth
               print('NORMALIZED: renamed token → accessToken', file=sys.stderr)
           print(json.dumps(data))
-          " <<< "$AUTH_JSON" 2>&1 | tee /dev/stderr | tail -1)
+          " <<< "$AUTH_JSON" 2> >(tee /dev/stderr))
 
           for dir in "$HOME/.claude" "$HOME/.config/claude-code"; do
             mkdir -p "$dir"
@@ -378,15 +376,10 @@ jobs:
               print(f'OAuth keys on disk: {sorted(oauth.keys())}')
               tok = oauth.get('accessToken', oauth.get('token', ''))
               print(f'accessToken length: {len(tok)}')
-              print(f'accessToken first 10 chars: {tok[:10]}...')
-              print(f'accessToken last 5 chars: ...{tok[-5:]}')
               rt = oauth.get('refreshToken', '')
               print(f'refreshToken length: {len(rt)}')
-              print(f'refreshToken first 10 chars: {rt[:10]}...')
-              if tok == rt:
-                  print('WARNING: accessToken and refreshToken are IDENTICAL!')
-              else:
-                  print('accessToken != refreshToken (good)')
+              if tok and rt:
+                  print(f'accessToken == refreshToken: {tok == rt}')
           "
 
           echo ""
