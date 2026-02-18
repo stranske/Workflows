@@ -1,5 +1,5 @@
-# Automates selection of ready Codex issues and primes a codex/issue-<n> branch
-# before handing control to the Codex belt worker.
+# Automates selection of ready agent issues and primes a branch
+# before handing control to the belt worker.
 name: Agents 71 Codex Belt Dispatcher
 
 on:
@@ -75,7 +75,7 @@ concurrency:
 
 jobs:
   dispatch:
-    name: Select next Codex issue
+    name: Select next agent issue
     runs-on: ubuntu-latest
     outputs:
       agent_key: ${{ steps.pick.outputs.agent_key || '' }}
@@ -220,7 +220,7 @@ jobs:
             const { withRetry } = await createTokenAwareRetry({
               github,
               core,
-              task: 'codex-belt-dispatcher-pick',
+              task: 'belt-dispatcher-pick',
             });
             const forced = '${{ inputs.force_issue }}';
             const agentKey = String('${{ inputs.agent_key }}' || 'codex').trim().toLowerCase() || 'codex';
@@ -313,7 +313,7 @@ jobs:
           token: ${{ env.GH_DISPATCH_TOKEN }}
           fetch-depth: 0
 
-      - name: Create codex branch if missing
+      - name: Create agent branch if missing
         if: ${{ steps.pick.outputs.issue != '' && steps.mode.outputs.dry_run != 'true' }}
         run: |
           set -euo pipefail
@@ -342,7 +342,7 @@ jobs:
             const { withRetry } = await createTokenAwareRetry({
               github,
               core,
-              task: 'codex-belt-dispatcher-transition',
+              task: 'belt-dispatcher-transition',
             });
             const issue = Number('${{ steps.pick.outputs.issue }}');
             if (!issue) { return; }
@@ -365,7 +365,7 @@ jobs:
                 owner,
                 repo,
                 issue_number: issue,
-                body: `Codex belt dispatcher queued this issue and created branch \`${branch}\`.`
+                body: `Belt dispatcher queued this issue and created branch \`${branch}\`.`
               }));
             } catch (error) {
               core.warning(`Failed to comment on issue #${issue}: ${error.message}`);

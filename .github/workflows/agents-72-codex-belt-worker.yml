@@ -1,5 +1,5 @@
-# Executes the Codex belt worker: validates the queued issue, ensures the
-# codex/issue-<n> branch exists, and opens or refreshes the automation PR.
+# Executes the belt worker: validates the queued issue, ensures the
+# agent branch exists, and opens or refreshes the automation PR.
 name: Agents 72 Codex Belt Worker
 
 on:
@@ -96,7 +96,7 @@ concurrency:
 
 jobs:
   bootstrap:
-    name: Prepare Codex automation PR
+    name: Prepare agent automation PR
     runs-on: ubuntu-latest
     outputs:
       issue: ${{ steps.ctx.outputs.issue || '' }}
@@ -1015,7 +1015,7 @@ jobs:
           if [ "$upstream_sha" = "$head_sha" ]; then
             git config user.name "stranske-automation-bot"
             git config user.email "stranske-automation-bot@users.noreply.github.com"
-            git commit --allow-empty -m "chore(codex): initialize belt run for issue #${{ steps.ctx.outputs.issue }}"
+            git commit --allow-empty -m "chore(agents): initialize belt run for issue #${{ steps.ctx.outputs.issue }}"
             git push origin "$branch"
           else
             echo "Branch already diverged from $base; skipping placeholder commit."
@@ -1067,7 +1067,7 @@ jobs:
               }
             }
 
-      - name: Open or refresh Codex PR
+      - name: Open or refresh agent PR
         if: ${{ steps.parallel.outputs.allowed == 'true' && (inputs.keepalive != true || steps.keepalive_gate.outputs.action != 'skip') && steps.mode.outputs.dry_run != 'true' }}
         id: pr
         uses: actions/github-script@v8
@@ -1101,7 +1101,7 @@ jobs:
 
             const header = `### Source Issue #${issue}: ${issueTitle}`;
             const quoted = (issueBody || '').split('\n').map((line) => `> ${line}`).join('\n');
-            const body = `${header}\n\nSource: ${issueUrl}\n\n${quoted}\n\n—\nPR created automatically to engage Codex.`;
+            const body = `${header}\n\nSource: ${issueUrl}\n\n${quoted}\n\n—\nPR created automatically by the belt worker.`;
 
             // Attempt to reuse an existing PR first
             let prNumber = null;
@@ -1123,7 +1123,7 @@ jobs:
             if (!prNumber) {
               try {
                 const { data: pr } = await withRetry((client) =>
-                  client.rest.pulls.create({ owner, repo, head: branch, base, title: `Codex belt for #${issue}`, body })
+                  client.rest.pulls.create({ owner, repo, head: branch, base, title: `Agent belt for #${issue}`, body })
                 );
                 prNumber = pr.number;
               } catch (error) {
@@ -1215,9 +1215,20 @@ jobs:
             const issue = Number('${{ steps.ctx.outputs.issue }}');
             const { owner, repo } = context.repo;
             const agentKey = String('${{ steps.ctx.outputs.agent_key }}' || 'codex').trim().toLowerCase() || 'codex';
-            const assignees = agentKey === 'codex'
-              ? ['chatgpt-codex-connector', 'stranske-automation-bot']
-              : ['stranske-automation-bot'];
+            let assignees = ['stranske-automation-bot'];
+            try {
+              const { getAgentConfig } = require('./.github/scripts/agent_registry.js');
+              const cfg = getAgentConfig(agentKey);
+              if (cfg.assignees && cfg.assignees.length) {
+                assignees = cfg.assignees;
+              } else if (agentKey === 'codex') {
+                assignees = ['chatgpt-codex-connector', 'stranske-automation-bot'];
+              }
+            } catch (_) {
+              if (agentKey === 'codex') {
+                assignees = ['chatgpt-codex-connector', 'stranske-automation-bot'];
+              }
+            }
             for (const target of [prNumber, issue]) {
               try {
                 await withRetry((client) =>
@@ -1246,11 +1257,12 @@ jobs:
             const taskId = ('${{ steps.ledger_start.outputs.task_id }}' || '').trim();
             const taskTitle = ('${{ steps.ledger_start.outputs.task_title }}' || '').trim();
             const { owner, repo } = context.repo;
-            const marker = '<!-- codex-activation-marker -->';
+            const agentKey = String('${{ steps.ctx.outputs.agent_key }}' || 'codex').trim().toLowerCase() || 'codex';
+            const marker = '<!-- agent-activation-marker -->';
             const summary = dryRun
-              ? `Codex Worker activated for branch \`${branch}\` (dry run preview).`
-              : `Codex Worker activated for branch \`${branch}\`.`;
-            // Direct Codex to focus on the single next ledger task for higher
+              ? `Agent worker (${agentKey}) activated for branch \`${branch}\` (dry run preview).`
+              : `Agent worker (${agentKey}) activated for branch \`${branch}\`.`;
+            // Direct the agent to focus on the single next ledger task for higher
             // first-commit success probability.  Full issue context is in the
             // PR body; this comment narrows the immediate scope.
             let taskDirective = '';
@@ -1264,7 +1276,9 @@ jobs:
                 'The keepalive loop will assign subsequent tasks after this one is complete.',
               ].join('\n');
             }
-            const body = `${marker}\n${summary}\n\n@codex start${taskDirective}`;
+            // Only post @codex start for codex agent — other agents use different activation
+            const activationTrigger = agentKey === 'codex' ? '@codex start' : '';
+            const body = `${marker}\n${summary}\n\n${activationTrigger}${taskDirective}`;
 
             try {
               const comments = await paginateWithRetry(
@@ -1289,7 +1303,7 @@ jobs:
                       client.rest.issues.deleteComment({ owner, repo, comment_id: duplicate.id })
                     );
                   } catch (deletionError) {
-                    core.warning(`Failed to remove duplicate Codex activation comment ${duplicate.id} on PR #${prNumber}: ${deletionError.message}`);
+                    core.warning(`Failed to remove duplicate activation comment ${duplicate.id} on PR #${prNumber}: ${deletionError.message}`);
                   }
                 }
               } else {
@@ -1298,7 +1312,7 @@ jobs:
                 );
               }
             } catch (error) {
-              core.warning(`Failed to upsert Codex activation comment on PR #${prNumber}: ${error.message}`);
+              core.warning(`Failed to upsert activation comment on PR #${prNumber}: ${error.message}`);
             }
 
       - name: Sync issue comment with PR link
@@ -1318,7 +1332,7 @@ jobs:
             const { owner, repo } = context.repo;
             try {
               await withRetry((client) =>
-                client.rest.issues.createComment({ owner, repo, issue_number: issue, body: `Opened PR #${prNumber} via Codex belt worker.` })
+                client.rest.issues.createComment({ owner, repo, issue_number: issue, body: `Opened PR #${prNumber} via belt worker.` })
               );
             } catch (error) {
               core.warning(`Failed to comment on issue #${issue}: ${error.message}`);

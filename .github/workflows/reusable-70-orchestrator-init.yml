@@ -19,7 +19,7 @@ on:
         type: string
         default: 'false'
       keepalive_enabled:
-        description: 'Enable Codex keepalive sweep for this run (set false to pause).'
+        description: 'Enable agent keepalive sweep for this run (set false to pause).'
         required: false
         type: string
         default: 'true'

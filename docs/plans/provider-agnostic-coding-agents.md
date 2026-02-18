@@ -1,13 +1,13 @@
 # Provider-Agnostic Coding Agents Plan (Phased, Codex-Safe)
 
-**Status:** In progress — P0/P1 remediation complete (Feb 18); Phase 5 partially started; deeper coupling in orchestrators and belt workflows remains
+**Status:** In progress — P0/P1/P2 + Phase 3 belt/orchestrator refactoring complete (Feb 18); remaining: API contracts (`codex-pr-comment-command`, `codex-keepalive-marker`), `keepalive-runner.js`, prompt paths
 
 ## Progress (as implemented)
 
 - ✅ Phase 0 — Runner hardening
 - ✅ Phase 1 — Agent registry + resolver helper
-- ⚠️ Phase 2 — Registry-driven PR automation routing (keepalive/autofix done; bot-comment mostly done; `reusable-16-agents` fallback uses registry; `reusable-pr-context` widened)
-- ⚠️ Phase 3 — Registry-driven issue→PR path (auto-pilot labels/dispatch fixed; auto-label widened; orchestrator resolve uses registry; **deeper belt/orchestrator coupling remains**)
+- ✅ Phase 2 — Registry-driven PR automation routing (keepalive/autofix done; bot-comment uses registry; `reusable-16-agents`/`reusable-pr-context` widened)
+- ⚠️ Phase 3 — Registry-driven issue→PR path (belt 71/72/73 refactored; auto-pilot/auto-label/orchestrators fixed; issue bridge assignees use registry; `agents_belt_scan.js` generalized; **API contracts `codex-pr-comment-command`/`codex_user`/`codex_command_phrase` preserved for backwards compat**)
 - ⚠️ Phase 4 — Verifier + follow-up chain (reusable verifier done; verify-assignment generalized; **verify-to-issue text cosmetic only**)
 - 🟡 Phase 5 — Delegation / re-routing between agents (5A mostly complete: keepalive-loop + gate-followups both have run-claude; `agent:auto` label semantics established)
 

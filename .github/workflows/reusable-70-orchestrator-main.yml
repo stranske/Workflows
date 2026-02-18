@@ -1352,7 +1352,7 @@ jobs:
           fi
 
   belt-dispatch:
-    name: Codex Belt Dispatcher
+    name: Belt Dispatcher
     needs:
       - keepalive-guard
     uses: ./.github/workflows/agents-71-codex-belt-dispatcher.yml
@@ -1363,7 +1363,7 @@ jobs:
       ACTIONS_BOT_PAT: ${{ secrets.ACTIONS_BOT_PAT }}
 
   belt-check-existing-pr:
-    name: Guard existing Codex PRs
+    name: Guard existing belt PRs
     needs:
       - belt-dispatch
       - keepalive-guard
@@ -1400,7 +1400,7 @@ jobs:
                 };
             const { withRetry } = retryHelpers;
 
-            summary.addHeading('Codex belt PR guard');
+            summary.addHeading('Belt PR guard');
 
               const { data: pulls } = await withRetry(() => {
                 return github.rest.pulls.list({
@@ -1439,7 +1439,7 @@ jobs:
             core.setOutput('pr_url', prUrl);
 
   belt-worker:
-    name: Codex Belt Worker
+    name: Belt Worker
     needs:
       - belt-dispatch
       - keepalive-guard
@@ -2768,7 +2768,7 @@ jobs:
               "${head}" "${trace}" "${reason}" >>"$GITHUB_STEP_SUMMARY"
 
   belt-dispatch-summary:
-    name: Summarise Codex dispatch outcomes
+    name: Summarise belt dispatch outcomes
     needs:
       - belt-dispatch
       - belt-worker
@@ -2913,7 +2913,7 @@ jobs:
           pr_num="${EXISTING_PR_NUMBER:-?}"
           pr_url="${EXISTING_PR_URL:-}"
           cat <<EOF >>"$GITHUB_STEP_SUMMARY"
-          ## Codex belt worker guard
+          ## Belt worker guard
           * Status: skipped: PR exists.
           * Existing PR: [#${pr_num}](${pr_url})
           EOF
@@ -2922,7 +2922,7 @@ jobs:
         if: needs.belt-worker.result == 'failure'
         run: |
           cat <<'EOF' >>"$GITHUB_STEP_SUMMARY"
-          ## Codex belt worker
+          ## Belt worker
           * Result: failure – see Agents 72 logs for details.
           EOF
 
@@ -3167,7 +3167,7 @@ jobs:
           * Head change: ${head_change}
           EOF
   belt-scan-ready-prs:
-    name: Scan Codex promotion queue
+    name: Scan belt promotion queue
     needs:
       - keepalive-guard
     runs-on: ubuntu-latest
@@ -3184,7 +3184,7 @@ jobs:
             .github/scripts
           sparse-checkout-cone-mode: false
           fetch-depth: 1
-      - name: Identify ready Codex PRs
+      - name: Identify ready belt PRs
         id: scan
         uses: actions/github-script@v8
         with:
@@ -3194,7 +3194,7 @@ jobs:
             await identifyReadyCodexPRs({ github, context, core, env: process.env });
 
   belt-conveyor:
-    name: Promote Codex PRs
+    name: Promote belt PRs
     needs:
       - belt-scan-ready-prs
       - keepalive-guard
@@ -3232,7 +3232,7 @@ jobs:
             .github/scripts
           sparse-checkout-cone-mode: false
           fetch-depth: 1
-      - name: Merge Codex PRs tagged for automerge
+      - name: Merge belt PRs tagged for automerge
         id: automerge
         uses: actions/github-script@v8
         env:

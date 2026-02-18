@@ -1164,7 +1164,20 @@ jobs:
 
             core.setOutput('number', String(pr.number));
 
-            const assignees = ['chatgpt-codex-connector', 'stranske-automation-bot'];
+            let assignees = ['stranske-automation-bot'];
+            try {
+              const { getAgentConfig } = require('./.github/scripts/agent_registry.js');
+              const cfg = getAgentConfig(agentKey || 'codex');
+              if (cfg.assignees && cfg.assignees.length) {
+                assignees = cfg.assignees;
+              } else if ((agentKey || 'codex') === 'codex') {
+                assignees = ['chatgpt-codex-connector', 'stranske-automation-bot'];
+              }
+            } catch (_) {
+              if ((agentKey || 'codex') === 'codex') {
+                assignees = ['chatgpt-codex-connector', 'stranske-automation-bot'];
+              }
+            }
             try {
               await withRetry(() =>
                 github.rest.issues.addAssignees({
@@ -1630,7 +1643,7 @@ jobs:
               keepaliveTemplatePath,
             );
             const instruction = getKeepaliveInstructionWithMention(agent);
-            const codexPromptMsg = [
+            const agentPromptMsg = [
               'PR created.',
               `Comment \`@${agent} start\` to request the plan.`,
               `Tell ${agentTitle} to reuse scope and acceptance criteria from the source issue.`,
@@ -1644,7 +1657,7 @@ jobs:
                 owner,
                 repo,
                 issue_number: prNumber,
-                body: codexPromptMsg,
+                body: agentPromptMsg,
               }),
             );
 

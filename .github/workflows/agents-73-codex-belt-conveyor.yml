@@ -1,4 +1,4 @@
-# Closes the loop: merge successful Codex belt PRs, tidy branches and issues,
+# Closes the loop: merge successful belt PRs, tidy branches and issues,
 # and immediately nudge the dispatcher for the next item in the queue.
 name: Agents 73 Codex Belt Conveyor
 
@@ -66,7 +66,7 @@ jobs:
 
   promote:
     needs: normalize
-    name: Promote merged Codex belt PR
+    name: Promote merged belt PR
     runs-on: ubuntu-latest
     concurrency:
       group: >-
@@ -383,8 +383,8 @@ jobs:
             });
 
             const placeholderPattern = inferredIssue
-              ? new RegExp(`^agents/codex-${inferredIssue}\\.md$`)
-              : /^agents\/codex-\d+\.md$/;
+              ? new RegExp(`^agents/[a-z]+-${inferredIssue}\\.md$`)
+              : /^agents\/[a-z]+-\d+\.md$/;
 
             let bootstrapOnly = files.length > 0;
             for (const file of files) {
@@ -413,7 +413,7 @@ jobs:
                 break;
               }
               const expectedLine = inferredIssue
-                ? `<!-- bootstrap for codex on issue #${inferredIssue} -->`
+                ? `<!-- bootstrap for ${agentKey} on issue #${inferredIssue} -->`
                 : null;
               if (expectedLine && addedLines[0] !== expectedLine) {
                 bootstrapOnly = false;
@@ -423,7 +423,7 @@ jobs:
 
             const summary = core.summary;
             if (bootstrapOnly) {
-              summary.addRaw('Detected bootstrap-only Codex PR; merge deferred until real changes are present.').addEOL();
+              summary.addRaw('Detected bootstrap-only agent PR; merge deferred until real changes are present.').addEOL();
             }
             await summary.write();
 
