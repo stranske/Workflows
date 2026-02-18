@@ -204,6 +204,7 @@ jobs:
         id: check
         env:
           HAS_CODEX_AUTH: ${{ secrets.CODEX_AUTH_JSON != '' }}
+          HAS_CLAUDE_AUTH: ${{ secrets.CLAUDE_AUTH_JSON != '' }}
           HAS_APP_ID: >-
             ${{ secrets.KEEPALIVE_APP_ID != '' ||
                 secrets.WORKFLOWS_APP_ID != '' }}
@@ -212,13 +213,13 @@ jobs:
                 secrets.WORKFLOWS_APP_PRIVATE_KEY != '' }}
         run: |
           echo "CODEX_AUTH_JSON present: $HAS_CODEX_AUTH"
+          echo "CLAUDE_AUTH_JSON present: $HAS_CLAUDE_AUTH"
           echo "KEEPALIVE_APP or WORKFLOWS_APP present: $HAS_APP_ID"
           echo "WORKFLOWS_APP_PRIVATE_KEY present: $HAS_APP_KEY"
-          if [ "$HAS_CODEX_AUTH" = "true" ] || [ "$HAS_APP_ID" = "true" ]; then
+          if [ "$HAS_CODEX_AUTH" = "true" ] || [ "$HAS_CLAUDE_AUTH" = "true" ] || [ "$HAS_APP_ID" = "true" ]; then
             echo "secrets_ok=true" >> "$GITHUB_OUTPUT"
           else
-            echo "::error::Neither CODEX_AUTH_JSON nor KEEPALIVE_APP_ID/" \
-              "WORKFLOWS_APP_ID is set. Cannot run Codex."
+            echo "::error::No agent auth found. Set CODEX_AUTH_JSON, CLAUDE_AUTH_JSON, or KEEPALIVE/WORKFLOWS_APP."
             echo "secrets_ok=false" >> "$GITHUB_OUTPUT"
             exit 1
           fi
@@ -605,18 +606,21 @@ jobs:
       trigger_reason: ${{ steps.evaluate.outputs.trigger_reason }}
       trigger_job: ${{ steps.evaluate.outputs.trigger_job }}
       trigger_step: ${{ steps.evaluate.outputs.trigger_step }}
+      agent_type: ${{ steps.evaluate.outputs.agent_type }}
       gate_conclusion: ${{ steps.evaluate.outputs.gate_conclusion }}
       gate_run_id: ${{ steps.evaluate.outputs.gate_run_id }}
       security_blocked: ${{ steps.security_gate.outputs.blocked }}
       security_reason: ${{ steps.security_gate.outputs.reason }}
     steps:
-      - name: Checkout (for security gate)
+      - name: Checkout (for security gate + agent registry)
         uses: actions/checkout@v6
         with:
           sparse-checkout: |
             .github/scripts/prompt_injection_guard.js
             .github/scripts/github-api-with-retry.js
             .github/scripts/token_load_balancer.js
+            .github/scripts/agent_registry.js
+            .github/agents/registry.yml
           sparse-checkout-cone-mode: false
 
       - name: Setup API client
@@ -706,6 +710,7 @@ jobs:
               head_ref: '',
               head_sha: '',
               appendix: '',
+              agent_type: '',
               stop_reason: '',
               attempts: '0',
               max_attempts: '3',
@@ -774,6 +779,17 @@ jobs:
                   .filter(Boolean)
               : [];
             const hasAgentLabel = labels.some(l => l.startsWith('agent:'));
+
+            // Resolve agent type from PR labels (for routing autofix to correct runner)
+            try {
+              const { resolveAgentFromLabels } = require('./.github/scripts/agent_registry.js');
+              outputs.agent_type = resolveAgentFromLabels(prData.labels || [], {
+                registryPath: './.github/agents/registry.yml',
+              });
+            } catch (err) {
+              core.warning(`Failed to resolve agent type: ${err.message}; defaulting to codex`);
+              outputs.agent_type = 'codex';
+            }
 
             const body = prData.body || '';
             const configMatch = body.match(/autofix\s*:\s*(true|false)/i);
@@ -940,7 +956,9 @@ jobs:
 
   autofix:
     needs: prepare
-    if: needs.prepare.outputs.should_run == 'true'
+    if: >-
+      needs.prepare.outputs.should_run == 'true' &&
+      needs.prepare.outputs.agent_type == 'codex'
     name: Run Codex autofix
     uses: stranske/Workflows/.github/workflows/reusable-codex-run.yml@main
     with:
@@ -951,6 +969,22 @@ jobs:
       appendix: ${{ needs.prepare.outputs.appendix }}
     secrets:
       CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
+      WORKFLOWS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID }}
+      WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+
+  autofix-claude:
+    needs: prepare
+    if: needs.prepare.outputs.should_run == 'true' && needs.prepare.outputs.agent_type == 'claude'
+    name: Run Claude autofix
+    uses: stranske/Workflows/.github/workflows/reusable-claude-run.yml@main
+    with:
+      prompt_file: .github/codex/prompts/autofix_from_ci_failure.md
+      mode: autofix
+      pr_number: ${{ needs.prepare.outputs.pr_number }}
+      pr_ref: ${{ needs.prepare.outputs.head_ref }}
+      appendix: ${{ needs.prepare.outputs.appendix }}
+    secrets:
+      CLAUDE_AUTH_JSON: ${{ secrets.CLAUDE_AUTH_JSON }}
       WORKFLOWS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID }}
       WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
 
@@ -1026,6 +1060,7 @@ jobs:
     needs:
       - prepare
       - autofix
+      - autofix-claude
     if: always()
     runs-on: ubuntu-latest
     environment: agent-standard
@@ -1068,7 +1103,12 @@ jobs:
             const triggerJob = '${{ needs.prepare.outputs.trigger_job }}';
             const triggerStep = '${{ needs.prepare.outputs.trigger_step }}';
             const stopReason = '${{ needs.prepare.outputs.stop_reason }}';
-            const autofixResult = '${{ needs.autofix.result }}';
+            const codexAutofixResult = '${{ needs.autofix.result }}';
+            const claudeAutofixResult = '${{ needs.autofix-claude.result }}';
+            const autofixResult =
+              claudeAutofixResult && claudeAutofixResult !== 'skipped'
+                ? claudeAutofixResult
+                : codexAutofixResult;
 
             const { owner, repo } = context.repo;
             let fixApplied = false;
@@ -1088,7 +1128,7 @@ jobs:
                   );
 
                 // Remove autofix:escalated label when fixes are applied
-                // This allows re-escalation to Codex if Gate fails again
+                // This allows re-escalation to the agent if Gate fails again
                 if (fixApplied) {
                   const prLabels = pr.labels?.map(l => l.name) || [];
                   if (prLabels.includes('autofix:escalated')) {

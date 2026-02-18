@@ -400,6 +400,7 @@ jobs:
         id: check
         env:
           HAS_CODEX_AUTH: ${{ secrets.CODEX_AUTH_JSON != '' }}
+          HAS_CLAUDE_AUTH: ${{ secrets.CLAUDE_AUTH_JSON != '' }}
           HAS_APP_ID: >-
             ${{ secrets.KEEPALIVE_APP_ID != '' ||
                 secrets.WORKFLOWS_APP_ID != '' }}
@@ -408,12 +409,13 @@ jobs:
                 secrets.WORKFLOWS_APP_PRIVATE_KEY != '' }}
         run: |
           echo "CODEX_AUTH_JSON present: $HAS_CODEX_AUTH"
+          echo "CLAUDE_AUTH_JSON present: $HAS_CLAUDE_AUTH"
           echo "KEEPALIVE_APP or WORKFLOWS_APP present: $HAS_APP_ID"
           echo "WORKFLOWS_APP_PRIVATE_KEY present: $HAS_APP_KEY"
-          if [ "$HAS_CODEX_AUTH" = "true" ] || [ "$HAS_APP_ID" = "true" ]; then
+          if [ "$HAS_CODEX_AUTH" = "true" ] || [ "$HAS_CLAUDE_AUTH" = "true" ] || [ "$HAS_APP_ID" = "true" ]; then
             echo "secrets_ok=true" >> "$GITHUB_OUTPUT"
           else
-            echo "::error::CODEX_AUTH_JSON or KEEPALIVE/WORKFLOWS_APP required."
+            echo "::error::No agent auth found. Set CODEX_AUTH_JSON, CLAUDE_AUTH_JSON, or KEEPALIVE/WORKFLOWS_APP."
             echo "secrets_ok=false" >> "$GITHUB_OUTPUT"
             exit 1
           fi
