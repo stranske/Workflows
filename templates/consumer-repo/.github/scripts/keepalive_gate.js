@@ -227,7 +227,7 @@ function isAutomationStatusComment(comment) {
     return true;
   }
   if (AUTOMATION_LOGINS.has(login)) {
-    const looksLikeInstruction = lower.startsWith('@codex') || lower.includes('<!-- codex-keepalive-marker');
+    const looksLikeInstruction = lower.startsWith('@codex') || lower.includes('<!-- codex-keepalive-marker') || lower.includes('<!-- agent-activation-marker');
     if (!looksLikeInstruction) {
       return true;
     }

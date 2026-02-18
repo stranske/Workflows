@@ -2,11 +2,42 @@
 
 const { ensureRateLimitWrapped } = require('./github-rate-limited-wrapper.js');
 
-function isCodexBranch(branch) {
-  return /^codex\/issue-\d+$/.test(branch || '');
+/**
+ * Check if a branch matches any known agent belt branch pattern.
+ * Tries the registry first, falls back to the default codex/issue-<n> pattern.
+ */
+function isAgentBeltBranch(branch) {
+  if (!branch) return false;
+  try {
+    const { loadAgentRegistry } = require('./agent_registry.js');
+    const registry = loadAgentRegistry();
+    const agents = registry.agents || {};
+    for (const key of Object.keys(agents)) {
+      const prefix = agents[key].branch_prefix;
+      if (prefix && branch.startsWith(prefix)) {
+        const suffix = branch.slice(prefix.length);
+        if (/^\d+$/.test(suffix)) return true;
+      }
+    }
+  } catch (_) { /* registry not available */ }
+  // Fallback: match any pattern like <agent>/issue-<n>
+  return /^[a-z]+\/issue-\d+$/.test(branch);
 }
 
-async function identifyReadyCodexPRs({ github, context, core, env = process.env }) {
+// Backwards-compat alias
+const isCodexBranch = isAgentBeltBranch;
+
+/**
+ * Extract issue number from a belt branch name.
+ * Supports any prefix pattern (codex/issue-<n>, claude/issue-<n>, etc.)
+ */
+function extractIssueFromBranch(branch) {
+  if (!branch) return null;
+  const match = branch.match(/\/issue-(\d+)$/);
+  return match ? Number(match[1]) : null;
+}
+
+async function identifyReadyBeltPRs({ github, context, core, env = process.env }) {
   const maxPromotionsRaw = env.MAX_PROMOTIONS || '0';
   const maxPromotions = Math.max(0, Math.floor(Number(maxPromotionsRaw || '0')));
   const automergeLabel = (env.AUTOMERGE_LABEL || 'automerge').trim().toLowerCase();
@@ -21,14 +52,14 @@ async function identifyReadyCodexPRs({ github, context, core, env = process.env 
       continue;
     }
     const branch = pr.head && pr.head.ref ? pr.head.ref : '';
-    if (!isCodexBranch(branch)) {
+    if (!isAgentBeltBranch(branch)) {
       continue;
     }
     if (pr.draft) {
       skipped.push({ pr: pr.number, reason: 'draft' });
       continue;
     }
-    
+
     // Check for automerge label
     const labels = (pr.labels || [])
       .map((label) => {
@@ -38,12 +69,12 @@ async function identifyReadyCodexPRs({ github, context, core, env = process.env 
         return '';
       })
       .filter(Boolean);
-    
+
     if (!labels.includes(automergeLabel)) {
       skipped.push({ pr: pr.number, reason: `missing '${automergeLabel}' label` });
       continue;
     }
-    
+
     const headSha = pr.head && pr.head.sha ? pr.head.sha : '';
     if (!headSha) {
       skipped.push({ pr: pr.number, reason: 'no head SHA' });
@@ -54,8 +85,7 @@ async function identifyReadyCodexPRs({ github, context, core, env = process.env 
       skipped.push({ pr: pr.number, reason: `status: ${status?.state || 'unknown'}` });
       continue;
     }
-    const issueMatch = branch.match(/^codex\/issue-(\d+)$/);
-    const issue = issueMatch ? Number(issueMatch[1]) : null;
+    const issue = extractIssueFromBranch(branch);
     candidates.push({
       pr: pr.number,
       issue,
@@ -69,7 +99,7 @@ async function identifyReadyCodexPRs({ github, context, core, env = process.env 
 
   const summary = core.summary;
   summary
-    .addHeading('Codex belt conveyor scan')
+    .addHeading('Belt conveyor scan')
     .addRaw(`Automerge label: \`${automergeLabel}\``)
     .addEOL()
     .addRaw(`Ready pull requests: ${candidates.length}`)
@@ -99,9 +129,17 @@ async function identifyReadyCodexPRs({ github, context, core, env = process.env 
 }
 
 module.exports = {
+  // New names
+  identifyReadyBeltPRs: async function ({ github: rawGithub, context, core, env = process.env }) {
+    const github = await ensureRateLimitWrapped({ github: rawGithub, core, env });
+    return identifyReadyBeltPRs({ github, context, core, env });
+  },
+  isAgentBeltBranch,
+  extractIssueFromBranch,
+  // Backwards-compat aliases (used by orchestrator-main and tests)
   identifyReadyCodexPRs: async function ({ github: rawGithub, context, core, env = process.env }) {
     const github = await ensureRateLimitWrapped({ github: rawGithub, core, env });
-    return identifyReadyCodexPRs({ github, context, core, env });
+    return identifyReadyBeltPRs({ github, context, core, env });
   },
   isCodexBranch,
 };
