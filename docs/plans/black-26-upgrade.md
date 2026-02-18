@@ -10,12 +10,12 @@ Bring every registered consumer repository up to the same formatter pin that the
 | Repo | Local path | Current pin | Evidence | Notes |
 | --- | --- | --- | --- | --- |
 | Travel-Plan-Permission | `../Travel-Plan-Permission` | ✅ `black>=26.1.0` (`pyproject.toml` line 32) & lockfile pin | `rg "black" pyproject.toml requirements.lock` | Already aligned; use as verification baseline after automation runs. |
-| Template | `../Template` | 🚫 no formatter dependency declared | `rg "black" -n` finds only scripts/docs | Needs explicit `black==26.1.0` dev extra so new repos inherit the correct pin. |
+| Template | `../Template` | ✅ `black==26.1.0` in dev extras + `[tool.black]` (pyproject lines 26/92) | `rg "black" pyproject.toml requirements-dev.lock` | Added pin + config via Template commit (local changes ready to push). |
 | Counter_Risk | `../Counter_Risk` | ⚠️ `black==24.10.0` across `pyproject.toml`, `requirements.lock`, `requirements-dev.lock` | `rg "black"` | Upgrade blocker; recent rollbacks (see `agents/autofix_pr104_*` notes) need a follow-up fix after verifying Python 3.11 compatibility. |
 | trip-planner | `../trip-planner` | 🚫 no formatter dependency or config | `pyproject.toml` only lists ruff/mypy/pytest | Need to add `black==26.1.0` dev extra and wire into CI scripts; also ensure `scripts/check_test_dependencies.sh` installs it. |
 | Manager-Database | `../Manager-Database` | ✅ `black==26.1.0` (`pyproject.toml` line 33, `requirements.lock`) | `rg "black" pyproject.toml requirements.lock` | No change required besides verifying once automation lands. |
-| Portable-Alpha-Extension-Model | `../Portable Alpha-Extension Model` | ⚠️ Mixed: `requirements.lock` pin 26.1.0 but `requirements-dev.txt` still 24.4.2 | `rg "black" requirements-dev.txt requirements.lock` | Need to update dev requirements + Makefile bootstrap to 26.1.0 so local workflows stop flipping the version. |
-| Trend_Model_Project | `../Trend Modeling Project` | ✅ `black==26.1.0` everywhere | `pyproject.toml` line 104, `requirements.lock` line 31 | Already aligned. |
+| Portable-Alpha-Extension-Model | `../Portable-Alpha-Extension-Model` | ⚠️ Mixed: `requirements.lock` pin 26.1.0 but `requirements-dev.txt` still 24.4.2 | `rg "black" requirements-dev.txt requirements.lock` | Need to update dev requirements + Makefile bootstrap to 26.1.0 so local workflows stop flipping the version. |
+| Trend_Model_Project | `../Trend_Model_Project` | ✅ `black==26.1.0` everywhere | `pyproject.toml` line 104, `requirements.lock` line 31 | Already aligned. |
 | Collab-Admin | `../Collab-Admin` | 🚫 no formatter dependency | `pyproject.toml` lacks any black entry | Add dev extra + CI wiring so maintainers have a consistent formatter. |
 | Template consumer list extras (REGISTERED_CONSUMER_REPOS) | `.github/workflows/maint-68-sync-consumer-repos.yml` | includes `stranske/Collab-Admin`, `Counter_Risk`, `Manager-Database`, `Portable-Alpha-Extension-Model`, `Travel-Plan-Permission`, `Trend_Model_Project`, `trip-planner`, `Template` | lines 72-79 | Use this authoritative list when scheduling upgrades / automation runs. |
 
@@ -42,7 +42,7 @@ Bring every registered consumer repository up to the same formatter pin that the
 ## Next steps (actionable checklist)
 
 1. [ ] Create stats script to emit current formatter pins per repo (source: this doc).
-2. [ ] Update `Template` repo dev dependencies + add `[tool.black]` block.
+2. [x] Update `Template` repo dev dependencies + add `[tool.black]` block.
 3. [ ] Prep Counter_Risk regression repro instructions (document in the issue) before attempting the bump.
 4. [ ] Add `black==26.1.0` to `trip-planner` and `Collab-Admin` dev extras + CI workflows.
 5. [ ] Align Portable-Alpha-Extension-Model’s `requirements-dev.txt` and Makefile.
