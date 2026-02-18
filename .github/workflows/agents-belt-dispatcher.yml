@@ -48,9 +48,9 @@ on:
         value: ${{ jobs.delegate.outputs.dry_run }}
 
 permissions:
-  contents: read
-  issues: read
-  pull-requests: read
+  contents: write
+  issues: write
+  actions: write
 
 jobs:
   delegate:

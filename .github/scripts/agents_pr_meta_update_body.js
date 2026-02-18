@@ -490,8 +490,7 @@ let CONNECTOR_BOT_LOGINS = [
 try {
   const { getAllAutomationLogins } =
     require('./agent_registry.js');
-  const logins = getAllAutomationLogins()
-    .map((l) => `${l}[bot]`);
+  const logins = getAllAutomationLogins();
   CONNECTOR_BOT_LOGINS = [
     ...logins, ...CONNECTOR_BOT_LOGINS,
   ];
@@ -506,7 +505,7 @@ const COMPLETION_COMMENT_MARKER = '<!-- codex-completion-checkpoint -->';
 const COMPLETION_WARNING_MARKER = '<!-- completion-author-warning -->';
 
 function normaliseLogin(value) {
-  return String(value || '').trim().toLowerCase();
+  return String(value || '').trim().toLowerCase().replace(/\[bot]$/, '');
 }
 
 async function fetchIssueComments(github, owner, repo, prNumber, core) {

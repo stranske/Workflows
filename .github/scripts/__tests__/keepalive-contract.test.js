@@ -18,9 +18,9 @@ test('makeTrace generates unique lowercase trace tokens', () => {
 test('renderInstruction emits required markers and mention', () => {
   const output = renderInstruction({ round: 3, trace: 'abc123', body: '@codex please sync' });
   const lines = output.trim().split(/\n/);
-  assert.equal(lines[0], '<!-- codex-keepalive-marker -->');
-  assert.equal(lines[1], '<!-- codex-keepalive-round: 3 -->');
-  assert.equal(lines[2], '<!-- codex-keepalive-trace: abc123 -->');
+  assert.equal(lines[0], '<!-- agent-keepalive-marker -->');
+  assert.equal(lines[1], '<!-- agent-keepalive-round: 3 -->');
+  assert.equal(lines[2], '<!-- agent-keepalive-trace: abc123 -->');
   assert.equal(lines[3], '@codex please sync');
 });
 

@@ -1221,7 +1221,7 @@ jobs:
               const cfg = getAgentConfig(agentKey);
               const logins = Array.isArray(cfg.automation_logins) ? cfg.automation_logins : [];
               if (logins.length) {
-                assignees = [...logins, 'stranske-automation-bot'];
+                assignees = [...new Set([...logins, 'stranske-automation-bot'])];
               }
             } catch (_) {
               if (agentKey === 'codex') {

@@ -212,7 +212,7 @@ runs:
             }
             const cfg = getAgentConfig(agentKey);
             const logins = Array.isArray(cfg.automation_logins) ? cfg.automation_logins : [];
-            assignees = [...logins, 'stranske-automation-bot'];
+            assignees = [...new Set([...logins, 'stranske-automation-bot'])];
           } catch (e) {
             core.warning(`Registry unavailable: ${e.message}`);
             if (agentKey === 'codex') assignees.unshift('chatgpt-codex-connector');

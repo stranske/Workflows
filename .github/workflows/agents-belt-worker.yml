@@ -70,20 +70,39 @@ on:
       KEEPALIVE_APP_PRIVATE_KEY:
         required: false
     outputs:
+      allowed:
+        description: 'Whether the worker was allowed to proceed'
+        value: ${{ jobs.delegate.outputs.allowed }}
       pr_number:
-        description: 'PR number'
+        description: 'PR number created or updated'
         value: ${{ jobs.delegate.outputs.pr_number }}
-      pr_url:
-        description: 'PR URL'
-        value: ${{ jobs.delegate.outputs.pr_url }}
-      head_sha:
-        description: 'Head SHA'
-        value: ${{ jobs.delegate.outputs.head_sha }}
+      branch:
+        description: 'Branch name used'
+        value: ${{ jobs.delegate.outputs.branch }}
+      dry_run:
+        description: 'Whether this was a dry run'
+        value: ${{ jobs.delegate.outputs.dry_run }}
+      keepalive_action:
+        description: 'Keepalive action taken'
+        value: ${{ jobs.delegate.outputs.keepalive_action }}
+      keepalive_reason:
+        description: 'Keepalive reason'
+        value: ${{ jobs.delegate.outputs.keepalive_reason }}
+      keepalive_head_sha:
+        description: 'Keepalive head SHA'
+        value: ${{ jobs.delegate.outputs.keepalive_head_sha }}
+      keepalive_last_instruction_id:
+        description: 'Last processed keepalive instruction ID'
+        value: ${{ jobs.delegate.outputs.keepalive_last_instruction_id }}
+      keepalive_last_instruction_head_sha:
+        description: 'Last processed keepalive instruction head SHA'
+        value: ${{ jobs.delegate.outputs.keepalive_last_instruction_head_sha }}
 
 permissions:
   contents: write
   pull-requests: write
   issues: write
+  actions: write
 
 jobs:
   delegate:
