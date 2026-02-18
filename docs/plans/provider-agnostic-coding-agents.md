@@ -60,10 +60,22 @@ This plan defines an incremental refactor that keeps **Codex as the default** un
 
 ## Audit: Remaining Hardcoded References (Feb 18, 2026)
 
-A full audit of every `agents-*.yml`, `reusable-*.yml`, and consumer template
-was conducted on Feb 18, 2026. Below is the complete inventory of remaining
-hardcoded `agent:codex` references and other agent-specific coupling, organized
-by which phase should have addressed them.
+**Methodology:** Every `agents-*.yml`, `reusable-*.yml`, and consumer template
+was searched for all Codex coupling patterns: `agent:codex`, `from:codex`,
+`codex/issue-`, `@codex`, `CODEX_AUTH_JSON`, `CODEX_SUMMARY`, `CODEX_HOME`,
+`codex_`, `post_codex_comment`, `chatgpt-codex-connector`, `codex-keepalive-marker`,
+and the literal word `codex` in descriptive text, variable names, job names,
+and comments. Every match was reviewed in context.
+
+The coupling falls into several categories:
+
+1. **Label references** (`agent:codex`, `from:codex`) — blocking agent-agnostic routing
+2. **Branch prefix assumptions** (`codex/issue-`) — blocking non-codex belt runs
+3. **UI trigger mentions** (`@codex start`) — risk of CLI/UI overlap (Phase 6 scope)
+4. **Auth/secret assumptions** (`CODEX_AUTH_JSON`) — Codex-specific but intentional per-agent
+5. **Assignee assumptions** (`chatgpt-codex-connector`) — Codex-specific bot users
+6. **Prompt path assumptions** (`.github/codex/prompts/`) — directory name is codex-specific
+7. **Cosmetic/comment text** — misleading but not functionally blocking
 
 ### Pre-existing bug: `agents-pr-meta-v4.yml` dispatch
 
@@ -80,85 +92,227 @@ Status Summary" PR body build is never triggered by auto-pilot on PR creation.
 
 ### Phase 2 gaps (PR automation routing)
 
-| File | Line(s) | Issue |
-|------|---------|-------|
-| `reusable-bot-comment-handler.yml` | 185, 191 | Hardcoded `labelSet.has('agent:claude')` / `labelSet.has('agent:codex')` instead of using registry resolver |
+| File | Line(s) | Category | Issue |
+|------|---------|----------|-------|
+| `reusable-bot-comment-handler.yml` | 171 | label | `let agent = 'codex'; // default` — hardcoded fallback |
+| `reusable-bot-comment-handler.yml` | 185, 191 | label | `labelSet.has('agent:claude')` / `labelSet.has('agent:codex')` — should use registry resolver |
+| `reusable-bot-comment-handler.yml` | 327, 525, 530 | assignee | Hardcoded `chatgpt-codex-connector` assignee array; `agentAssignees` map only has codex/claude |
+| `reusable-bot-comment-handler.yml` | 403–435 | prompt path | Writes dynamic prompt to `.github/codex/prompts/` — codex-specific directory |
+| `reusable-16-agents.yml` | 12, 14 | input default | `'copilot,codex'` default agent list |
+| `reusable-16-agents.yml` | 29–39 | input | `codex_user`, `codex_command_phrase` inputs |
+| `reusable-16-agents.yml` | 79, 84, 89, 91 | input + label | `bootstrap_issues_label` defaults to `agent:codex` |
+| `reusable-16-agents.yml` | 234, 244 | routing | Hardcoded agent→bot-user map (`codex: ['chatgpt-codex-connector']`) |
+| `reusable-16-agents.yml` | 343–469 | entire job | "Codex Preflight" job — entirely Codex-specific |
+| `reusable-16-agents.yml` | 527, 543, 563 | label | `agent:codex` in table headers and log output |
+| `reusable-16-agents.yml` | 581–810 | entire job | "Bootstrap Codex PRs" job — hardcoded `agent:codex` fallback label |
+| `reusable-16-agents.yml` | 829–960 | entire job | "Codex Keepalive Sweep" job — codex-specific |
+| `reusable-pr-context.yml` | 221 | label | `pr.hasAnyLabel(['agent:codex', 'agent:copilot', 'agents:keepalive'])` — missing `agent:claude`, `agent:auto` |
 
-Phase 2 scope included `reusable-bot-comment-handler.yml` but the current
-implementation checks labels by string comparison rather than using
-`resolveAgentFromLabels()`.
+`reusable-16-agents.yml` is heavily Codex-specific throughout (preflight,
+bootstrap, keepalive sweep jobs). Making it fully agnostic is a larger effort
+than the original Phase 2 scope anticipated.
 
 ### Phase 3 gaps (issue→PR path)
 
-| File | Line(s) | Issue |
-|------|---------|-------|
-| **`agents-auto-pilot.yml`** | 345 | `hasAgentCodex = labels.includes('agent:codex')` — used for early-exit check |
-| **`agents-auto-pilot.yml`** | 1532 | Comment text: `needs-human instead of agent:codex` |
-| **`agents-auto-pilot.yml`** | 2373 | PR creation hardcodes `labels: ['agent:codex', 'agents:keepalive', 'autofix']` — should use `agentKey` |
-| **`agents-auto-pilot.yml`** | 2383 | Status message hardcodes `` `agent:codex` `` |
-| **`agents-auto-pilot.yml`** | 2392 | Dispatches `agents-pr-meta-v4.yml` (see bug above) |
-| **`agents-auto-label.yml`** | 34 (template 29) | Guard condition: `!contains(..., 'agent:codex')` — should check all `agent:*` labels |
-| **`agents-70-orchestrator.yml`** | 74 | `bootstrap_issues_label: "agent:codex"` — hardcoded |
-| **`agents-orchestrator.yml`** (template) | 78 | `bootstrap_issues_label: "agent:codex"` — hardcoded |
+| File | Line(s) | Category | Issue |
+|------|---------|----------|-------|
+| **`agents-auto-pilot.yml`** | 345 | label | `hasAgentCodex = labels.includes('agent:codex')` — used for early-exit check |
+| **`agents-auto-pilot.yml`** | 1532 | comment | `needs-human instead of agent:codex` |
+| **`agents-auto-pilot.yml`** | 1971 | branch | `let branchPrefix = 'codex/issue-'` — hardcoded (should read from registry) |
+| **`agents-auto-pilot.yml`** | 2213, 2225 | text | "Codex belt worker" / "Codex session logs" in user-facing messages |
+| **`agents-auto-pilot.yml`** | 2276, 2279, 2287, 2296 | text | "codex belt worker" dispatch messages |
+| **`agents-auto-pilot.yml`** | 2373 | label | PR creation hardcodes `labels: ['agent:codex', 'agents:keepalive', 'autofix']` |
+| **`agents-auto-pilot.yml`** | 2383 | text | Status message hardcodes `` `agent:codex` `` |
+| **`agents-auto-pilot.yml`** | 2392 | dispatch | `agents-pr-meta-v4.yml` (see pre-existing bug above) |
+| **`agents-auto-label.yml`** | 34 (template 29) | label | Guard: `!contains(..., 'agent:codex')` — should check all `agent:*` labels |
+| **`agents-70-orchestrator.yml`** | 21, 131–132 | input/output | `codex_user`, `codex_command_phrase` outputs |
+| **`agents-70-orchestrator.yml`** | 74 | label | `bootstrap_issues_label: "agent:codex"` |
+| **`agents-orchestrator.yml`** (template) | 5, 33 | comment | "Codex continues work", "Codex bootstrap" |
+| **`agents-orchestrator.yml`** (template) | 65 | input | `readiness_agents: "copilot,codex"` |
+| **`agents-orchestrator.yml`** (template) | 78 | label | `bootstrap_issues_label: "agent:codex"` |
+| `reusable-70-orchestrator-init.yml` | 22, 60–63, 458–459 | input/output | `codex_user`, `codex_command_phrase` throughout |
+| `reusable-70-orchestrator-main.yml` | 25, 28, 208, 499, 615 | routing | `agentAlias` defaults to `'codex'` throughout |
+| `reusable-70-orchestrator-main.yml` | 840, 1209 | marker | `codex-keepalive-marker` regex — used by pr-meta too |
+| `reusable-70-orchestrator-main.yml` | 1179–1182, 1273, 1291–1292 | routing | Agent alias fallback to `codex`, passes `codex_user` |
+| `reusable-70-orchestrator-main.yml` | 1355–1442 | jobs | "Codex Belt Dispatcher" / "Guard existing Codex PRs" / "Codex Belt Worker" — job names codex-specific |
+| `reusable-70-orchestrator-main.yml` | 1930, 1932, 2604, 2621 | dispatch | `codex-pr-comment-command` event type, `chatgpt-codex-connector` assignees |
+| `reusable-70-orchestrator-main.yml` | 2771–3241 | jobs | "Summarise Codex dispatch outcomes", "Scan Codex promotion queue", "Promote Codex PRs" — all codex-named |
+| `reusable-agents-issue-bridge.yml` | 319 | branch | `let branchPrefix = 'codex/issue-'` — should read from registry `getAgentConfig()` |
+| `reusable-agents-issue-bridge.yml` | 1167 | assignee | Hardcoded `['chatgpt-codex-connector', 'stranske-automation-bot']` |
+| `reusable-agents-issue-bridge.yml` | 1633 | variable | `codexPromptMsg` variable name |
 
-The auto-pilot's issue-labeling path (line 1709–1736) was updated to use
-`loadAgentRegistry()`, but the **PR creation path** (line 2373) was missed.
-Both orchestrator workflows and auto-label were not touched at all.
+The belt workflows (71/72/73) were updated to accept `agent_key` but the
+orchestrator infrastructure that calls them still hardcodes codex assumptions.
+The `reusable-70-orchestrator-main.yml` is the second-largest gap after
+gate-followups — it has ~100 codex references across job names, routing,
+dispatch events, and assignee lists.
+
+### Phase 3 gaps: Belt workflows (71/72/73) — deeper coupling
+
+While the belt workflows accept `agent_key`, they still have substantial
+internal codex coupling:
+
+| File | Line(s) | Category | Issue |
+|------|---------|----------|-------|
+| `agents-71-codex-belt-dispatcher.yml` | 1–3, 78 | naming | Workflow name/job name: "Codex Belt Dispatcher", "Select next Codex issue" |
+| `agents-71-codex-belt-dispatcher.yml` | 286 | branch | `let branchPrefix = 'codex/issue-'` — fallback before registry check |
+| `agents-71-codex-belt-dispatcher.yml` | 316 | step name | "Create codex branch if missing" |
+| `agents-71-codex-belt-dispatcher.yml` | 368 | text | "Codex belt dispatcher queued this issue" |
+| `agents-72-codex-belt-worker.yml` | 1–3, 99 | naming | Workflow/job names all say "Codex" |
+| `agents-72-codex-belt-worker.yml` | 1018 | commit msg | `chore(codex): initialize belt run` |
+| `agents-72-codex-belt-worker.yml` | 1070–1126 | text | "Open or refresh Codex PR", PR title `Codex belt for #N` |
+| `agents-72-codex-belt-worker.yml` | 1218–1219 | assignee | `agentKey === 'codex' ? ['chatgpt-codex-connector', ...]` |
+| `agents-72-codex-belt-worker.yml` | 1249–1267 | UI trigger | `<!-- codex-activation-marker -->` and `@codex start` posting |
+| `agents-72-codex-belt-worker.yml` | 1251–1252, 1292, 1301, 1321 | text | "Codex Worker activated", "Codex activation comment" |
+| `agents-73-codex-belt-conveyor.yml` | 1–3, 69 | naming | Workflow/job names all say "Codex" |
+| `agents-73-codex-belt-conveyor.yml` | 74 | routing | `(needs.normalize.outputs.agent_key || 'codex') == 'codex'` guard |
+| `agents-73-codex-belt-conveyor.yml` | 304 | branch | `let branchPrefix = 'codex/issue-'` — fallback before registry check |
+| `agents-73-codex-belt-conveyor.yml` | 386–387 | path | `agents/codex-<n>.md` regex for bootstrap detection |
+| `agents-73-codex-belt-conveyor.yml` | 416, 426 | text | "bootstrap for codex", "bootstrap-only Codex PR" |
 
 ### Phase 4 gaps (verifier + follow-up)
 
-| File | Line(s) | Issue |
-|------|---------|-------|
-| `reusable-agents-verifier.yml` | 310, 333, 993 | Falls back to `agentKey = 'codex'` (acceptable); line 993 hardcodes `'agent:codex'` as fallback label |
-| `agents-verify-to-issue-v2.yml` | 341, 352, 354 | Falls back to `agentKey = 'codex'` (acceptable); line 409 text: `agent:codex` |
-| `agents-verify-to-issue.yml` | 186 | Text: `agent:codex` in user-facing instruction |
-| `agents-verify-to-new-pr.yml` | 741, 753, 755 | Falls back to `agentKey = 'codex'` (acceptable) |
+| File | Line(s) | Category | Issue |
+|------|---------|----------|-------|
+| `reusable-agents-verifier.yml` | 6, 48–50 | comment/input | "Runs Codex in verifier mode", `CODEX_AUTH_JSON` input |
+| `reusable-agents-verifier.yml` | 310, 333, 336 | label | Falls back to `agentKey = 'codex'` (acceptable) |
+| `reusable-agents-verifier.yml` | 352–428 | entire section | Codex CLI install, auth setup, `codex exec` invocation — verifier is Codex-only |
+| `reusable-agents-verifier.yml` | 993–994 | label | Hardcodes `'agent:codex'` and `'from:codex'` as fallback labels |
+| `agents-verify-to-issue-v2.yml` | 341, 352, 354 | label | Falls back to `agentKey = 'codex'` (acceptable) |
+| `agents-verify-to-issue-v2.yml` | 409 | text | `agent:codex` in user-facing instruction |
+| `agents-verify-to-issue.yml` | 186 | text | `agent:codex` in user-facing instruction |
+| `agents-verify-to-new-pr.yml` | 741, 753, 755 | label | Falls back to `agentKey = 'codex'` (acceptable) |
+| `agents-64-verify-agent-assignment.yml` | 28, 144, 207, 215, 221, 252 | label | Entire workflow checks only `agent:codex` |
 
-Most of these use `resolveAgentFromLabels()` with a codex fallback, which is
-the intended behavior. The user-facing text references are cosmetic but should
-use the resolved agent name.
+The verifier itself (`reusable-agents-verifier.yml`) runs `codex exec` directly
+(lines 352–428). Making it agent-agnostic would require either calling
+`reusable-codex-run.yml`/`reusable-claude-run.yml` dynamically or adding a
+Claude verification path.
 
 ### Phase 5A gaps (labels + capability check)
 
-| File | Line(s) | Issue |
-|------|---------|-------|
-| `agents-capability-check.yml` | 25 | Done — triggers on `["agent:codex","agent:claude","agent:auto"]` |
-| `agents-keepalive-loop.yml` | 483-484 | Comment: "Currently supports: agent:codex -> CLI Codex / Future: agent:claude, etc." — **outdated**, run-claude now exists |
-| `agents-keepalive-loop.yml` | 490 | Comment: "Only run for agent:codex label" — outdated |
-
-### Workflows-internal files not synced to consumers
-
-| File | Line(s) | Issue |
-|------|---------|-------|
-| `agents-63-issue-intake.yml` | 129, 1178, 1463 | Hardcoded `agent:codex` references |
-| `agents-64-verify-agent-assignment.yml` | 28, 144, 207, 215, 221, 252 | Entire workflow is codex-specific (checks for `agent:codex` label) |
-| `reusable-16-agents.yml` | 91, 527, 543, 563, 621, 623 | Hardcoded `agent:codex` default and label checks |
-| `reusable-pr-context.yml` | 221 | `pr.hasAnyLabel(['agent:codex', 'agent:copilot', 'agents:keepalive'])` — missing `agent:claude` and `agent:auto` |
+| File | Line(s) | Category | Issue |
+|------|---------|----------|-------|
+| `agents-capability-check.yml` | 25 | — | **Done** — triggers on `["agent:codex","agent:claude","agent:auto"]` |
+| `agents-keepalive-loop.yml` | 317 | prompt path | `.github/codex/prompts/keepalive_next_task.md` fallback — directory is codex-named |
+| `agents-keepalive-loop.yml` | 403–417 | auth | `HAS_CODEX_AUTH` / `CODEX_AUTH_JSON` check — intentional per-agent but comment misleading |
+| `agents-keepalive-loop.yml` | 483–490 | comment | Outdated: "Currently supports: agent:codex" / "Future: agent:claude" — run-claude now exists |
 
 ### Consumer template: `agents-81-gate-followups.yml`
 
-| Line(s) | Issue |
-|---------|-------|
-| 280-281 | Comment: "Currently supports: agent:codex -> CLI Codex" — outdated |
-| 288-289 | `if: needs.evaluate.outputs.agent_type == 'codex'` — only runs for codex |
-| 318 | `run-claude` commented out (placeholder) |
-| 486 | `CODEX_SUMMARY` env var name — should be `AGENT_SUMMARY` (keepalive-loop already changed this) |
-| 503, 512 | Summary uses codex-only outputs |
-| 705 | `labels.includes('agent:codex')` — hardcoded |
-| 715 | Comment: "do NOT add agent:codex label" — hardcoded |
+**Largest gap.** Mirrors keepalive-loop's pre-Phase-5A structure.
 
-**`agents-81-gate-followups.yml` is the largest gap.** It mirrors keepalive-loop's
-pre-Phase-5A structure (codex-only `run-codex` job, no `run-claude`, hardcoded
-summary references). Phase 5A updated keepalive-loop but entirely missed
-gate-followups.
+| Line(s) | Category | Issue |
+|---------|----------|-------|
+| 182 | prompt path | `.github/codex/prompts/keepalive_next_task.md` fallback |
+| 206–221 | auth | `HAS_CODEX_AUTH` / `CODEX_AUTH_JSON` check, error says "Cannot run Codex" |
+| 280–289 | routing | `run-codex` only, `if: agent_type == 'codex'` — no `run-claude` |
+| 292 | auth | `CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}` |
+| 318 | routing | `run-claude` commented out (placeholder) |
+| 327 | needs | `needs: [run-codex]` only — must also need `run-claude` |
+| 421–437 | outputs | Only reads `run-codex.outputs.*` for reconciliation |
+| 486 | variable | `CODEX_SUMMARY` env var (keepalive-loop already renamed to `AGENT_SUMMARY`) |
+| 503–516 | outputs | Summary uses only `run-codex` outputs |
+| 705 | label | `labels.includes('agent:codex')` hardcoded |
+| 713–738 | comment/text | "Escalate to Codex CLI" text |
+| 873–882 | routing | Autofix section: `Run Codex autofix` / `CODEX_AUTH_JSON` |
 
-### Scripts with hardcoded references
+### Consumer template: `agents-issue-intake.yml`
 
-| File | Issue |
-|------|-------|
-| `scripts/cleanup_labels.py` | References `agent:codex` in label cleanup logic |
-| `scripts/keepalive-runner.js` | References `agent:codex` |
-| `scripts/langchain/pr_verifier.py` | References `agent:codex` |
+| Line(s) | Category | Issue |
+|---------|----------|-------|
+| 42, 45 | input default | `bridge_agent` defaults to `"codex"` |
+| 46 | input | `post_codex_comment` — codex-specific input name |
+| 130 | routing | `let agent = ... || 'codex'` fallback |
+| 145 | label | `agent:codex, agents:codex` pattern matching |
+| 188–193 | routing | Skips `post_agent_comment` specifically for codex to avoid CLI/UI conflict |
+
+### Workflows-internal files not synced to consumers
+
+| File | Line(s) | Category | Issue |
+|------|---------|----------|-------|
+| `agents-63-issue-intake.yml` | 41–52 | input | `post_codex_comment`, `open_as_draft` described as "Codex" params |
+| `agents-63-issue-intake.yml` | 129, 1178, 1463 | label | `agent:codex` in guard labels |
+| `agents-63-issue-intake.yml` | 155, 179–258 | routing | `post_codex_comment` normalization logic |
+| `agents-63-issue-intake.yml` | 1342 | job name | "Validate Codex issue labels" |
+| `agents-63-issue-intake.yml` | 1380 | routing | `defaultAgent = ... || 'codex'` |
+| `agents-63-issue-intake.yml` | 1735 | branch | `codex-issue-${{` branch name template |
+| `agents-63-issue-intake.yml` | 1755 | routing | `post_codex_comment` passed to bridge |
+| `agents-64-verify-agent-assignment.yml` | all | label | Entire workflow checks only for `agent:codex` |
+| `agents-keepalive-dispatch-handler.yml` | 6, 129, 187 | event type | `codex-pr-comment-command` dispatch event; `AGENT_ALIAS` defaults to `codex` |
+| `agents-keepalive-loop-reporter.yml` | 100 | routing | `agent_type: state.agent_type || 'codex'` |
+| `agents-moderate-connector.yml` | 70, 178–181 | assignee/text | `chatgpt-codex-connector[bot]`; regex patterns matching "use codex" / "sign up for codex" |
+
+### Auth and prompt path coupling (intentional but noted)
+
+These are legitimately Codex-specific (they configure the Codex runner) and
+are not expected to be made generic. They're listed for completeness:
+
+| File | Category | Notes |
+|------|----------|-------|
+| `reusable-codex-run.yml` | all | Entire workflow is the Codex runner — intentionally codex-specific |
+| `reusable-agents-verifier.yml` L352–428 | auth+exec | Installs Codex CLI, runs `codex exec` — would need a `reusable-claude-verifier` equivalent |
+| `health-codex-auth-check.yml` | all | Checks Codex auth token expiry — intentionally codex-specific |
+| `health-keepalive-e2e.yml` | all | E2E test including optional Codex ping — intentionally codex-specific |
+| `.github/codex/prompts/` directory | path | Directory name is codex-branded; prompts are used by both agents |
+
+### `.github/scripts/` — JS modules used by workflows
+
+| File | Codex refs | Category | Notes |
+|------|-----------|----------|-------|
+| `agent_registry.js` | 0 | — | Clean |
+| `agent_delegation_policy.js` | 3 | fallback | `'codex'` default in policy; comment text. Acceptable — policy is agent-aware by design. |
+| `agents_belt_scan.js` | ~10 | branch + naming | `isCodexBranch()`, `codex/issue-` regex, `identifyReadyCodexPRs` — should be parameterized by agent |
+| `agents_orchestrator_resolve.js` | ~15 | defaults + naming | `'copilot,codex'` defaults, `codex_user`/`codex_command_phrase`, `bootstrap_issues_label: 'agent:codex'` |
+| `agents_pr_meta_keepalive.js` | ~20 | markers + mentions | `codex-keepalive-marker/round/trace`, `@codex` activation detection, `chatgpt-codex-connector` |
+| `agents_pr_meta_orchestrator.js` | 3 | dispatch | `codex-pr-comment-command` event type, agent alias default `'codex'` |
+| `agents_pr_meta_update_body.js` | 2 | marker + assignee | `codex-completion-checkpoint`, `chatgpt-codex-connector[bot]` |
+| `keepalive_contract.js` | 4 | markers | `codex-keepalive-marker/round/trace` HTML comment markers; agent alias default `'codex'` |
+| `keepalive_gate.js` | 3 | marker + assignee | `chatgpt-codex-connector`, `agents-72-codex-belt-worker.yml`, `@codex` detection |
+| `keepalive_instruction_template.js` | 5 | prompt path | `.github/codex/prompts/` paths; `getKeepaliveInstructionWithMention('codex')` |
+| `keepalive_loop.js` | ~25 | prompt paths + fallbacks | `.github/codex/prompts/*.md`; `codex-session` artifact patterns; backwards-compat `codex_exit_code` aliases; `agent_type` default `'codex'` |
+| `keepalive_orchestrator_gate_runner.js` | 2 | fallback | `primaryAgent \|\| 'codex'`, `agents-72-codex-belt-worker.yml` |
+| `keepalive_post_work.js` | 6 | dispatch + fallback | `codex-pr-comment-command` event type, agent alias default `'codex'` |
+| `keepalive_worker_gate.js` | 1 | marker | `codex-keepalive-marker` default |
+| `merge_manager.js` | 1 | label | `fromAlt \|\| 'from:codex'` |
+| `post_completion_comment.js` | 5 | marker + naming | `codex-completion-checkpoint` marker, "Codex Completion Checkpoint" heading, `codex-prompt.md` file paths |
+
+> Scripts not listed above (`agents-guard.js`, `agents_dispatch_summary.js`,
+> `agents_verifier_context.js`, `autopilot_metrics.js`, `bot-comment-handler.js`,
+> `bot-comment-dismiss.js`, `keepalive_guard_utils.js`, `keepalive_prompt_composer.js`,
+> `keepalive_prompt_routing.js`, `keepalive_review_guard.js`, `keepalive_state.js`,
+> `conflict_detector.js`) have **zero** codex references — already clean.
+
+> The `keepalive_loop.js` backwards-compat aliases (`codex_exit_code` → `agent_exit_code` etc.)
+> at lines 2343–2347 are intentional shims for older callers and should be kept until
+> all consumers are synced.
+
+### `scripts/` — top-level scripts
+
+| File | Codex refs | Notes |
+|------|-----------|-------|
+| `cleanup_labels.py` | 4 | `agent:codex`, `from:codex`, `codex-ready`, `codex` in label lists — should add `agent:claude`, `from:claude` equivalents |
+| `keepalive-runner.js` | ~30 | Heavily coupled: `chatgpt-codex-connector`, `@codex` pattern, `codex-pr-comment-command` dispatch, `agent:codex` default, `codex-keepalive-marker`, "Codex Keepalive" heading, "Codex has not commented yet" messages |
+| `langchain/pr_verifier.py` | 1 | `issue_labels = args.issue_label or ["agent:codex"]` — should use registry or accept any `agent:*` |
+| `analyze_codex_session.py` | (name) | Codex-specific by design — acceptable |
+
+### Tests that will need updates
+
+Test files mirror the assumptions of their source. When fixing source scripts/workflows,
+these test files must also be updated:
+
+| Test file | Depends on |
+|-----------|------------|
+| `.github/scripts/__tests__/agents-belt-scan.test.js` | `isCodexBranch()` function name + `codex/issue-` pattern |
+| `.github/scripts/__tests__/keepalive-contract.test.js` | `codex-keepalive-marker/round/trace` patterns |
+| `.github/scripts/__tests__/keepalive-loop.test.js` | `.github/codex/prompts/` paths, summary output format |
+| `.github/scripts/__tests__/agent-registry.test.js` | Registry defaults (already clean) |
+| `.github/scripts/__tests__/agent-delegation-policy.test.js` | Policy defaults (already agent-aware) |
+| `tests/keepalive-runner.test.js` | `@codex` activation, `codex-pr-comment-command`, `agent:codex` label |
+| `tests/workflows/test_codex_belt_pipeline.py` | Belt workflow names, branch patterns |
+| `tests/tools/test_codex_jsonl_parser.py` | Codex-specific by design — acceptable |
+| `tests/tools/test_codex_log_analyzer.py` | Codex-specific by design — acceptable |
+| `tests/tools/test_codex_session_analyzer.py` | Codex-specific by design — acceptable |
 
 ### Consumer repo state (all four repos, Feb 18 2026)
 
@@ -312,14 +466,28 @@ gate-followups.
 - A second agent can run belt end-to-end when explicitly configured and secrets are present.
 
 > **Audit status (Feb 18):**
-> - ✅ Belt workflows (71/72/73) — accept `agent_key` input, use `getAgentConfig()`
+> - ⚠️ Belt workflows (71/72/73) — accept `agent_key` input, use `getAgentConfig()`,
+>   but still have ~30 internal codex refs: workflow/job names, branch prefix fallbacks,
+>   `@codex start` posting (72 L1267), commit msg `chore(codex):`, assignee logic,
+>   `codex-activation-marker`, bootstrap regex `agents/codex-<n>.md`
 > - ⚠️ `agents-auto-pilot.yml` — issue labeling uses `loadAgentRegistry()` (done),
->   but **PR creation path** still hardcodes `['agent:codex', ...]` at line 2373
-> - ⚠️ `agents-auto-pilot.yml` — dispatches `agents-pr-meta-v4.yml` (line 2392)
->   which doesn't exist in any consumer repo (pre-existing bug, see audit above)
+>   but **PR creation path** still hardcodes `['agent:codex', ...]` at line 2373;
+>   branch prefix hardcoded `codex/issue-` at L1971; dispatches `agents-pr-meta-v4.yml`
 > - ❌ `agents-auto-label.yml` — guard only checks `agent:codex` (line 34)
-> - ❌ `agents-70-orchestrator.yml` — hardcoded `bootstrap_issues_label: "agent:codex"` (line 74)
-> - ❌ `agents-orchestrator.yml` (template) — hardcoded `bootstrap_issues_label: "agent:codex"` (line 78)
+> - ❌ `agents-70-orchestrator.yml` — `bootstrap_issues_label: "agent:codex"` (L74),
+>   `codex_user`/`codex_command_phrase` outputs (L131–132)
+> - ❌ `agents-orchestrator.yml` (template) — `bootstrap_issues_label: "agent:codex"` (L78),
+>   `readiness_agents: "copilot,codex"` (L65)
+> - ❌ `reusable-70-orchestrator-main.yml` — ~100 codex refs: job names, `codex-pr-comment-command`
+>   dispatch event, `codex-keepalive-marker` regex, `chatgpt-codex-connector` assignees,
+>   `codex_user`/`codex_command_phrase` inputs, "Codex belt worker" naming throughout
+> - ❌ `reusable-70-orchestrator-init.yml` — `codex_user`/`codex_command_phrase` inputs/outputs
+> - ❌ `reusable-agents-issue-bridge.yml` — `codex/issue-` branch prefix (L319),
+>   `chatgpt-codex-connector` assignees (L1167), `codexPromptMsg` (L1633)
+> - ❌ Scripts backing Phase 3: `agents_belt_scan.js` (~10 refs),
+>   `agents_orchestrator_resolve.js` (~15 refs), `agents_pr_meta_keepalive.js` (~20 refs),
+>   `agents_pr_meta_orchestrator.js` (3 refs), `keepalive_gate.js` (3 refs),
+>   `keepalive_post_work.js` (6 refs), `keepalive_instruction_template.js` (5 refs)
 
 ---
 
