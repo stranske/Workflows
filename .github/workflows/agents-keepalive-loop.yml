@@ -401,6 +401,8 @@ jobs:
         id: check
         env:
           HAS_CODEX_AUTH: ${{ secrets.CODEX_AUTH_JSON != '' }}
+          HAS_CLAUDE_AUTH: ${{ secrets.CLAUDE_AUTH_JSON != '' }}
+          AGENT_TYPE: ${{ needs.evaluate.outputs.agent_type || 'codex' }}
           HAS_APP_ID: >-
             ${{ secrets.KEEPALIVE_APP_ID != '' ||
                 secrets.WORKFLOWS_APP_ID != '' }}
@@ -408,16 +410,33 @@ jobs:
             ${{ secrets.KEEPALIVE_APP_PRIVATE_KEY != '' ||
                 secrets.WORKFLOWS_APP_PRIVATE_KEY != '' }}
         run: |
+          echo "Requested agent: $AGENT_TYPE"
           echo "CODEX_AUTH_JSON present: $HAS_CODEX_AUTH"
+          echo "CLAUDE_AUTH_JSON present: $HAS_CLAUDE_AUTH"
           echo "KEEPALIVE_APP or WORKFLOWS_APP present: $HAS_APP_ID"
           echo "WORKFLOWS_APP_PRIVATE_KEY present: $HAS_APP_KEY"
-          if [ "$HAS_CODEX_AUTH" = "true" ] || [ "$HAS_APP_ID" = "true" ]; then
-            echo "secrets_ok=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "::error::CODEX_AUTH_JSON or KEEPALIVE/WORKFLOWS_APP required."
+          agent_auth_ok=false
+          case "$AGENT_TYPE" in
+            claude)
+              if [ "$HAS_CLAUDE_AUTH" = "true" ]; then
+                agent_auth_ok=true
+              fi
+              ;;
+            codex|*)
+              if [ "$HAS_CODEX_AUTH" = "true" ]; then
+                agent_auth_ok=true
+              fi
+              ;;
+          esac
+          if [ "$agent_auth_ok" != "true" ] && [ "$HAS_APP_ID" = "true" ]; then
+            agent_auth_ok=true
+          fi
+          if [ "$agent_auth_ok" != "true" ]; then
+            echo "::error::Missing credentials for agent '$AGENT_TYPE'. Set the appropriate *_AUTH_JSON or configure KEEPALIVE/WORKFLOWS_APP credentials."
             echo "secrets_ok=false" >> "$GITHUB_OUTPUT"
             exit 1
           fi
+          echo "secrets_ok=true" >> "$GITHUB_OUTPUT"
 
   test-job:
     name: Test job creation

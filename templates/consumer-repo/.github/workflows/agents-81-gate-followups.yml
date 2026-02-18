@@ -779,11 +779,21 @@ jobs:
                   .filter(Boolean)
               : [];
             const hasAgentLabel = labels.some(l => l.startsWith('agent:'));
+            const nonRoutingAgentLabels = new Set(['agent:rate-limited', 'agent:needs-attention']);
+            const routingLabelObjects = Array.isArray(prData.labels)
+              ? prData.labels.filter((label) => {
+                  const normalized = (label?.name || '').toLowerCase();
+                  if (!normalized.startsWith('agent:')) {
+                    return true;
+                  }
+                  return !nonRoutingAgentLabels.has(normalized);
+                })
+              : [];
 
             // Resolve agent type from PR labels (for routing autofix to correct runner)
             try {
               const { resolveAgentFromLabels } = require('./.github/scripts/agent_registry.js');
-              outputs.agent_type = resolveAgentFromLabels(prData.labels || [], {
+              outputs.agent_type = resolveAgentFromLabels(routingLabelObjects, {
                 registryPath: './.github/agents/registry.yml',
               });
             } catch (err) {
@@ -974,7 +984,9 @@ jobs:
 
   autofix-claude:
     needs: prepare
-    if: needs.prepare.outputs.should_run == 'true' && needs.prepare.outputs.agent_type == 'claude'
+    if: >-
+      needs.prepare.outputs.should_run == 'true' &&
+      needs.prepare.outputs.agent_type == 'claude'
     name: Run Claude autofix
     uses: stranske/Workflows/.github/workflows/reusable-claude-run.yml@main
     with:
@@ -1106,9 +1118,9 @@ jobs:
             const codexAutofixResult = '${{ needs.autofix.result }}';
             const claudeAutofixResult = '${{ needs.autofix-claude.result }}';
             const autofixResult =
-              claudeAutofixResult && claudeAutofixResult !== 'skipped'
-                ? claudeAutofixResult
-                : codexAutofixResult;
+              codexAutofixResult && codexAutofixResult !== 'skipped'
+                ? codexAutofixResult
+                : claudeAutofixResult;
 
             const { owner, repo } = context.repo;
             let fixApplied = false;
