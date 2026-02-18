@@ -206,3 +206,5 @@ Together these workflows define the CI surface area referenced by Gate and the G
 
 * [`selftest-ci.yml`](../../.github/workflows/selftest-ci.yml) runs the repository's own test suite (JS + Python tests, linting, YAML validation) on push and PR.
 * [`health-keepalive-e2e.yml`](../../.github/workflows/health-keepalive-e2e.yml) path-filtered E2E test for the keepalive system. Runs only when keepalive-related files change. Supports two modes: orchestration-only (default) and real Codex ping (via `e2e:codex-ping` label).
+* [`health-keepalive-auth-diagnostic.yml`](../../.github/workflows/health-keepalive-auth-diagnostic.yml) 4-part diagnostic suite for keepalive auth: GitHub App tokens, Claude CLI auth, Codex auth, and PAT availability. Run on `workflow_dispatch`.
+* [`health-claude-cli-auth-debug.yml`](../../.github/workflows/health-claude-cli-auth-debug.yml) isolated Claude Code CLI auth test (temporary, delete after validation).

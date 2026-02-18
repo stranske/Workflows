@@ -1,4 +1,4 @@
-name: "Debug: Claude Code CLI Auth"
+name: Health Claude CLI Auth Debug
 
 # Throwaway workflow to isolate Claude Code CLI auth from keepalive plumbing.
 # Delete after debugging is complete.

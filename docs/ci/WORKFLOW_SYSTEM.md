@@ -677,6 +677,11 @@ Keep this table handy when you are triaging automation: it confirms which workfl
     in Issue #2720 so PR annotations flow through either Gate summary job or this
     manual workflow. See [`docs/ci/SELFTESTS.md`](SELFTESTS.md) for the scenario
     matrix and artifact expectations.
+- **Health Keepalive Auth Diagnostic** – `health-keepalive-auth-diagnostic.yml`
+  4-part diagnostic: GitHub App tokens, Claude CLI auth, Codex auth, PAT
+  availability. Manual dispatch.
+- **Health Claude CLI Auth Debug** – `health-claude-cli-auth-debug.yml`
+  isolated Claude Code CLI auth test. Temporary; delete after validation.
 
 ## Workflow summary table
 
