@@ -2,9 +2,16 @@
 
 const { ensureRateLimitWrapped } = require('./github-rate-limited-wrapper.js');
 
+// Resolve default agent from registry
+let _defaultAgent = 'codex';
+try {
+  const { loadAgentRegistry } = require('./agent_registry.js');
+  _defaultAgent = loadAgentRegistry().default_agent || 'codex';
+} catch (_) { /* registry not available */ }
+
 /**
  * agents_pr_meta_orchestrator.js
- * 
+ *
  * External script for keepalive orchestrator functionality in agents-pr-meta workflow.
  * Handles token selection, activation locks, snapshot runs, dispatch, and confirmation.
  */
@@ -270,7 +277,7 @@ async function confirmDispatch({github, context, core, baselineIds, baselineTime
 }
 
 /**
- * Dispatch codex keepalive command via repository_dispatch
+ * Dispatch agent keepalive command via repository_dispatch
  */
 async function dispatchKeepaliveCommand({github, context, core, inputs}) {
   const { prNumber, base, head, round, trace, commentId, commentUrl, agentAlias, instructionBody } = inputs;
@@ -309,7 +316,7 @@ async function dispatchKeepaliveCommand({github, context, core, inputs}) {
     issue: prNumber,
     base: resolvedBase,
     head: resolvedHead,
-    agent: agentAlias || 'codex',
+    agent: agentAlias || _defaultAgent,
     instruction_body: instructionBody,
     meta: {
       comment_id: commentId,
@@ -329,6 +336,7 @@ async function dispatchKeepaliveCommand({github, context, core, inputs}) {
       await github.rest.repos.createDispatchEvent({
         owner,
         repo,
+        // API contract: event type matched by dispatch handlers in consumers
         event_type: 'codex-pr-comment-command',
         client_payload: clientPayload,
       });

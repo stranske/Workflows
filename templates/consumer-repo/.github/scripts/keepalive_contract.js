@@ -14,13 +14,21 @@ function escapeForRegex(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-function ensureAgentPreface(body, agentAlias = 'codex') {
+function _resolveDefaultAgent() {
+  try {
+    const { loadAgentRegistry } = require('./agent_registry.js');
+    const reg = loadAgentRegistry();
+    return reg.default_agent || 'codex';
+  } catch (_) { return 'codex'; }
+}
+
+function ensureAgentPreface(body, agentAlias) {
   const trimmed = body.replace(/\r\n/g, '\n').trim();
   if (!trimmed) {
     throw new Error('Keepalive instruction body is required.');
   }
 
-  const alias = String(agentAlias || '').trim() || 'codex';
+  const alias = String(agentAlias || '').trim() || _resolveDefaultAgent();
   const aliasPattern = new RegExp(`^@${escapeForRegex(alias)}\b`, 'i');
   if (aliasPattern.test(trimmed)) {
     return trimmed;
@@ -49,6 +57,9 @@ function renderInstruction({ round, trace, body, agent }) {
     throw new Error('Keepalive trace token is required.');
   }
   const instructionBody = ensureAgentPreface(String(body ?? ''), agent);
+  // NOTE: These HTML comment markers are API contracts embedded in existing PR
+  // bodies. Do NOT rename them — keepalive_gate.js, pr_meta_keepalive, and
+  // consumers all match on the exact `codex-keepalive-*` prefix.
   const lines = [
     '<!-- codex-keepalive-marker -->',
     `<!-- codex-keepalive-round: ${parsedRound} -->`,

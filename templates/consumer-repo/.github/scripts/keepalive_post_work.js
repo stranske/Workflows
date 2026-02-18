@@ -7,6 +7,14 @@ const { ensureRateLimitWrapped } = require('./github-rate-limited-wrapper.js');
 const AGENT_LABEL_PREFIX = 'agent:';
 const MERGE_METHODS = new Set(['merge', 'squash', 'rebase']);
 
+// Resolve default agent from registry (used for agent alias + dispatch defaults)
+let _defaultAgent = 'codex';
+try {
+  const { loadAgentRegistry } = require('./agent_registry.js');
+  const _reg = loadAgentRegistry();
+  _defaultAgent = _reg.default_agent || 'codex';
+} catch (_) { /* registry not available */ }
+
 
 function normalise(value) {
   return String(value ?? '').trim();
@@ -156,7 +164,7 @@ function extractAgentAliasFromLabels(labels, fallback) {
       }
     }
   }
-  return normalise(fallback) || 'codex';
+  return normalise(fallback) || _defaultAgent;
 }
 
 function parseAgentState(env = {}) {
@@ -361,7 +369,7 @@ async function dispatchCommand({
   const payload = {
     issue: Number.isFinite(prNumber) ? Number(prNumber) : parseNumber(prNumber, 0, { min: 0 }),
     action,
-    agent: agentAlias || 'codex',
+    agent: agentAlias || _defaultAgent,
     base: baseRef || '',
     head: headRef || '',
     head_sha: headSha || '',
@@ -823,9 +831,10 @@ async function runKeepalivePostWork({ core, github: rawGithub, context, env = pr
   const commentUrlEnv = normalise(env.COMMENT_URL);
   const commentTraceEnv = normalise(env.COMMENT_TRACE);
   const commentRoundEnv = normalise(env.COMMENT_ROUND);
-  const agentAliasEnv = normalise(env.AGENT_ALIAS) || 'codex';
+  const agentAliasEnv = normalise(env.AGENT_ALIAS) || _defaultAgent;
   const syncLabel = normaliseLower(env.SYNC_LABEL) || 'agents:sync-required';
   const debugLabel = normaliseLower(env.DEBUG_LABEL) || 'agents:debug';
+  // API contract: `codex-pr-comment-command` event type is matched by dispatch handlers in consumers
   const dispatchEventType = normalise(env.DISPATCH_EVENT_TYPE) || 'codex-pr-comment-command';
   const ttlShort = parseNumber(env.TTL_SHORT_MS, 90_000, { min: 0 });
   const pollShort = parseNumber(env.POLL_SHORT_MS, 5_000, { min: 0 });

@@ -480,13 +480,15 @@ function mergeCheckboxStates(newContent, existingStates) {
  * These bots post checked checkboxes that should be captured and
  * merged into the PR body's Automated Status Summary.
  */
+// Bot logins that report task completion — these are real GitHub accounts
 const CONNECTOR_BOT_LOGINS = [
   'chatgpt-codex-connector[bot]',
-  'github-actions[bot]',  // Sometimes used for automation
+  'github-actions[bot]',
   'stranske-keepalive[bot]',
   'agents-workflows-bot[bot]',
 ];
 
+// API contract: marker string embedded in existing PR comments
 const COMPLETION_COMMENT_MARKER = '<!-- codex-completion-checkpoint -->';
 const COMPLETION_WARNING_MARKER = '<!-- completion-author-warning -->';
 

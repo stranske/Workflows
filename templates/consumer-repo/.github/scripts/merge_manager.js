@@ -155,13 +155,16 @@ async function evaluatePullRequest({ github: rawGithub, core, owner, repo, prNum
 
   const labelsConfig = config.labels || {};
   const fromLabelName = labelsConfig.from || 'from:copilot';
+  // Recognise from:codex, from:claude, and from:auto as agent-origin labels
   const fromLabelAltName = labelsConfig.fromAlt || 'from:codex';
+  const fromLabelAgents = ['from:codex', 'from:claude', 'from:auto'];
   const automergeLabelName = labelsConfig.automerge || 'automerge';
   const riskLabelName = labelsConfig.risk || 'risk:low';
   const ciLabelName = labelsConfig.ci || 'ci:green';
 
   const hasAutomerge = labelSet.has(automergeLabelName);
-  const hasFrom = labelSet.has(fromLabelName) || labelSet.has(fromLabelAltName);
+  const hasFrom = labelSet.has(fromLabelName) || labelSet.has(fromLabelAltName) ||
+    fromLabelAgents.some(l => labelSet.has(l));
   const hasRisk = labelSet.has(riskLabelName);
   const hasCi = labelSet.has(ciLabelName);
 
