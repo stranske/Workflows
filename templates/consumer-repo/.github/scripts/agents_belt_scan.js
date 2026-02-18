@@ -20,8 +20,9 @@ function isAgentBeltBranch(branch) {
       }
     }
   } catch (_) { /* registry not available */ }
-  // Fallback: match any pattern like <agent>/issue-<n>
-  return /^[a-z]+\/issue-\d+$/.test(branch);
+  // Fallback: match known agent-style prefixes like codex/issue-<n>, claude/issue-<n>
+  // Intentionally narrow — registry check above covers custom prefixes.
+  return /^(?:codex|claude|agent|auto)\/issue-\d+$/.test(branch);
 }
 
 // Backwards-compat alias

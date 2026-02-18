@@ -96,7 +96,12 @@ async function runKeepaliveGate({ core, github, context, env }) {
   });
 
   let _defaultAgent = 'codex';
-  try { const { loadAgentRegistry } = require('./agent_registry.js'); _defaultAgent = loadAgentRegistry().default_agent || 'codex'; } catch (_) {}
+  try {
+    const { loadAgentRegistry } = require('./agent_registry.js');
+    _defaultAgent = loadAgentRegistry().default_agent || 'codex';
+  } catch (_) {
+    // Registry unavailable — fall back to codex
+  }
   const agentAlias = preGate.primaryAgent || _defaultAgent;
   const runCap = Number.isFinite(preGate.runCap) ? preGate.runCap : '';
   const activeRuns = Number.isFinite(preGate.activeRuns) ? preGate.activeRuns : '';

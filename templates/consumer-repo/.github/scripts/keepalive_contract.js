@@ -29,7 +29,7 @@ function ensureAgentPreface(body, agentAlias) {
   }
 
   const alias = String(agentAlias || '').trim() || _resolveDefaultAgent();
-  const aliasPattern = new RegExp(`^@${escapeForRegex(alias)}\b`, 'i');
+  const aliasPattern = new RegExp(`^@${escapeForRegex(alias)}\\b`, 'i');
   if (aliasPattern.test(trimmed)) {
     return trimmed;
   }

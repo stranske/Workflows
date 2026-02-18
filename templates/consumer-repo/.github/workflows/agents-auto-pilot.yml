@@ -342,7 +342,8 @@ jobs:
             const hasFormat = labels.includes('agents:formatted');
             const hasOptimize = labels.includes('agents:optimize');
             const hasApplySuggestions = labels.includes('agents:apply-suggestions');
-            const hasAgentLabel = labels.some(l => l.startsWith('agent:'));
+            const nonRoutingAgentLabels = new Set(['agent:rate-limited', 'agent:needs-attention', 'agent:retry']);
+            const hasAgentLabel = labels.some(l => l.startsWith('agent:') && !nonRoutingAgentLabels.has(l));
             const hasAutofix = labels.includes('autofix');
             const hasAutomerge = labels.includes('automerge');
             const hasVerify = labels.includes('verify:evaluate');

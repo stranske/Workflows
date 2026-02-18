@@ -796,8 +796,8 @@ jobs:
                   .map((label) => (label?.name || '').toLowerCase())
                   .filter(Boolean)
               : [];
-            const hasAgentLabel = labels.some(l => l.startsWith('agent:'));
-            const nonRoutingAgentLabels = new Set(['agent:rate-limited', 'agent:needs-attention']);
+            const nonRoutingAgentLabels = new Set(['agent:rate-limited', 'agent:needs-attention', 'agent:retry']);
+            const hasAgentLabel = labels.some(l => l.startsWith('agent:') && !nonRoutingAgentLabels.has(l));
             const routingLabelObjects = Array.isArray(prData.labels)
               ? prData.labels.filter((label) => {
                   const normalized = (label?.name || '').toLowerCase();
@@ -819,16 +819,6 @@ jobs:
               outputs.agent_type = 'codex';
             }
 
-            // Resolve agent type from PR labels (for routing autofix to correct runner)
-            try {
-              const { resolveAgentFromLabels } = require('./.github/scripts/agent_registry.js');
-              outputs.agent_type = resolveAgentFromLabels(prData.labels || [], {
-                registryPath: './.github/agents/registry.yml',
-              });
-            } catch (err) {
-              core.warning(`Failed to resolve agent type: ${err.message}; defaulting to codex`);
-              outputs.agent_type = 'codex';
-            }
             outputs.has_high_privilege = String(labels.includes('agent-high-privilege'));
 
             const body = prData.body || '';
