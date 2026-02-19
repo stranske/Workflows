@@ -2049,6 +2049,17 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
       ? 0
       : prevRoundsWithoutCompletion + (iteration > 0 ? 1 : 0);
 
+    // Track consecutive rounds with zero file changes AND zero task completion.
+    // This is a strong signal of infrastructure failure (auth, permissions, sandbox)
+    // distinct from "productive but unfocused" (which has file changes).
+    const prevZeroActivityRounds = toNumber(state.consecutive_zero_activity_rounds, 0);
+    const consecutiveZeroActivityRounds = (lastFilesChanged === 0 && tasksCompletedSinceLastRound === 0 && iteration > 0)
+      ? prevZeroActivityRounds + 1
+      : 0;
+    // Stop after 2 consecutive zero-activity rounds — almost certainly an infra failure
+    const zeroActivityThreshold = 2;
+    const shouldStopForZeroActivity = consecutiveZeroActivityRounds >= zeroActivityThreshold;
+
     const prevCompleteGateFailureRounds = toNumber(state.complete_gate_failure_rounds, 0);
     const completeGateFailureRounds = allComplete && gateNormalized !== 'success'
       ? prevCompleteGateFailureRounds + 1
@@ -2174,6 +2185,13 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
         action = 'stop';
         reason = 'tasks-complete';
       }
+    } else if (shouldStopForZeroActivity) {
+      // Zero files changed for multiple consecutive rounds = infrastructure failure
+      // (auth broken, sandbox permissions, CLI not installed, etc.)
+      // Stop immediately — no amount of retries will help without human intervention.
+      action = 'stop';
+      reason = 'zero-activity-infrastructure';
+      if (core) core.warning(`Agent produced 0 file changes for ${consecutiveZeroActivityRounds} consecutive rounds — likely infrastructure failure (auth, permissions, sandbox). Stopping.`);
     } else if (shouldStopForMaxIterations && forceRetry && tasksRemaining) {
       action = 'run';
       reason = 'force-retry-max-iterations';
@@ -3036,6 +3054,8 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
       prev_files_changed: toNumber(previousState?.last_files_changed, 0),
       // Track consecutive rounds without task completion for progress review
       rounds_without_task_completion: roundsWithoutTaskCompletion,
+      // Track consecutive rounds with zero file changes (infrastructure failure detection)
+      consecutive_zero_activity_rounds: consecutiveZeroActivityRounds,
       complete_gate_failure_rounds: completeGateFailureRounds,
       complete_gate_failure_rounds_max: completeGateFailureMax,
       // Quality metrics for analysis validation
