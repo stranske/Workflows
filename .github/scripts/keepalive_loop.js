@@ -2082,9 +2082,10 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
     // An iteration is productive if it has a reasonable productivity score
     const isProductive = productivityScore >= 20 && !hasRecentFailures;
 
-    // max_iterations is a "stuck detection" threshold, not a hard cap
-    // Continue past max if productive work is happening
-    const shouldStopForMaxIterations = iteration >= maxIterations && !isProductive;
+    // max_iterations is a hard cap on agent runs.
+    // Productive agents at max iterations are stopped with a clear reason;
+    // use the agent:retry label to explicitly continue past the cap.
+    const shouldStopForMaxIterations = iteration >= maxIterations;
 
     // Build task appendix for the agent prompt (after state load for reconciliation info)
     const taskAppendix = buildTaskAppendix(normalisedSections, checkboxCounts, state, { prBody: pr.body });
@@ -3056,9 +3057,11 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
       running: false,
       // Track task reconciliation for next iteration
       needs_task_reconciliation: madeChangesButNoTasksChecked,
-      // Productivity tracking for evidence-based decisions
-      last_files_changed: agentFilesChanged,
-      prev_files_changed: toNumber(previousState?.last_files_changed, 0),
+      // Productivity tracking for evidence-based decisions.
+      // Preserve file-change counts from the last actual run when no agent ran
+      // (e.g. review/wait actions) to avoid destroying productivity signals.
+      last_files_changed: action === 'run' ? agentFilesChanged : toNumber(previousState?.last_files_changed, 0),
+      prev_files_changed: action === 'run' ? toNumber(previousState?.last_files_changed, 0) : toNumber(previousState?.prev_files_changed, 0),
       // Track consecutive rounds without task completion for progress review
       rounds_without_task_completion: roundsWithoutTaskCompletion,
       // Track consecutive rounds with zero file changes (infrastructure failure detection)
