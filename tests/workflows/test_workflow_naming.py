@@ -15,10 +15,7 @@ ALLOWED_PREFIXES = (
     "debug-",
 )
 WORKFLOW_DIR = pathlib.Path(".github/workflows")
-DOC_INVENTORY_EXEMPT_WORKFLOWS = {
-    "debug-claude-cli-auth.yml",
-    "health-keepalive-auth-diagnostic.yml",
-}
+DOC_INVENTORY_EXEMPT_WORKFLOWS = set()
 
 
 def _workflow_paths():

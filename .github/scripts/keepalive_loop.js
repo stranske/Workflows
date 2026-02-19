@@ -2622,6 +2622,13 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
       allTasksComplete && gateConclusion && gateConclusion !== 'success'
         ? previousCompleteGateFailureRounds + 1
         : 0;
+    // Derive zero-activity rounds from previous state + this round's results.
+    // Mirrors the computation in evaluateKeepaliveLoop so persisted state stays correct.
+    const previousZeroActivityRounds = toNumber(previousState?.consecutive_zero_activity_rounds, 0);
+    const consecutiveZeroActivityRounds =
+      agentFilesChanged === 0 && tasksCompletedThisRound <= 0 && currentIteration > 0
+        ? previousZeroActivityRounds + 1
+        : 0;
     const metricsIteration = action === 'run' ? currentIteration + 1 : currentIteration;
     const durationMs = resolveDurationMs({
       durationMs: toOptionalNumber(inputs.duration_ms ?? inputs.durationMs),
