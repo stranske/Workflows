@@ -263,6 +263,22 @@ def heuristic_alignment_check(
 # ---------------------------------------------------------------------------
 
 
+# Patterns for orchestrator bookkeeping files that should not count as "agent work".
+# These files are written by the keepalive orchestrator, not the coding agent.
+_BOOKKEEPING_PATTERNS = re.compile(
+    r"(?:^|\/)(?:"
+    r"claude-(?:prompt|output)-\d+\.md"
+    r"|agents/claude-\d+\.md"
+    r"|\.agents/"
+    r")",
+)
+
+
+def _filter_bookkeeping_files(files: list[str]) -> list[str]:
+    """Remove orchestrator bookkeeping files that don't represent agent work."""
+    return [f for f in files if not _BOOKKEEPING_PATTERNS.search(f)]
+
+
 def build_review_prompt(
     acceptance_criteria: list[str],
     recent_commits: list[str],
@@ -537,10 +553,42 @@ def review_progress(
     Returns:
         ProgressReviewResult with recommendation and analysis
     """
+    # Filter out orchestrator bookkeeping files (claude-prompt-*.md, etc.)
+    # so they don't inflate alignment scores or file-change counts
+    files_changed = _filter_bookkeeping_files(files_changed)
+
     # Quick heuristic check first
     heuristic_score, aligned, unaligned = heuristic_alignment_check(
         acceptance_criteria, recent_commits, files_changed
     )
+
+    # Zero files changed = infrastructure failure (auth, permissions, sandbox).
+    # Commit message alignment is meaningless when the agent can't write code.
+    # Orchestrator bookkeeping files (claude-prompt-*.md, claude-output-*.md)
+    # artificially inflate alignment because they contain acceptance criteria text.
+    if not files_changed and rounds_without_completion >= 2:
+        return ProgressReviewResult(
+            recommendation="STOP",
+            confidence=0.9,
+            alignment_score=0.0,
+            trajectory="diverging",
+            analysis=ProgressAnalysis(
+                blocking_issues=[
+                    "Zero source files changed across multiple rounds",
+                    "Likely infrastructure failure: auth, permissions, or sandbox",
+                ],
+            ),
+            feedback_for_agent=(
+                "No source files have been modified. This indicates an infrastructure "
+                "problem (authentication, permissions, or sandbox configuration). "
+                "Human intervention is required."
+            ),
+            summary=(
+                f"Zero files changed for {rounds_without_completion} rounds — "
+                "infrastructure failure, not scope drift"
+            ),
+            used_llm=False,
+        )
 
     # If clearly aligned or clearly not, skip LLM
     if heuristic_score >= 8 and rounds_without_completion < 12:
