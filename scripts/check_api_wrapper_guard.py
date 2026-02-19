@@ -27,6 +27,9 @@ SKIP_FILES = {
     ROOT / "scripts" / "api_client.py",
     ROOT / "tools" / "enforce_gate_branch_protection.py",
     ROOT / ".github" / "workflows" / "maint-80-langsmith-metrics-dashboard.yml",
+    # Health/diagnostic workflows that intentionally test raw API auth
+    ROOT / ".github" / "workflows" / "health-keepalive-auth-diagnostic.yml",
+    ROOT / ".github" / "workflows" / "health-claude-cli-auth-debug.yml",
 }
 
 DIRECT_PATTERNS = [
