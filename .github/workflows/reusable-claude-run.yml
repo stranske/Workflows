@@ -54,6 +54,13 @@ on:
         required: false
         default: drop-sudo
         type: string
+      skip_permissions:
+        description: >-
+          Pass --dangerously-skip-permissions to Claude CLI so it can write files
+          without interactive approval. Set to false to run in read-only / review mode.
+        required: false
+        default: true
+        type: boolean
       claude_cli_package:
         description: 'Optional npm package to install if claude CLI is not already present.'
         required: false
@@ -744,6 +751,7 @@ jobs:
           PROMPT_FILE: ${{ steps.prompt.outputs.file || '' }}
           EXTRA_ARGS_RAW: ${{ inputs.claude_args }}
           PR_NUMBER: ${{ inputs.pr_number }}
+          SKIP_PERMISSIONS: ${{ inputs.skip_permissions }}
         run: |
           set -euo pipefail
 
@@ -815,15 +823,20 @@ jobs:
             output_file="claude-output.md"
           fi
 
+          perm_flag=()
+          if [ "${SKIP_PERMISSIONS:-true}" = "true" ]; then
+            perm_flag=("--dangerously-skip-permissions")
+          fi
+
           set +e
-          claude -p "$prompt_content" --dangerously-skip-permissions "${extra_args[@]}" >"$output_file" 2>&1
+          claude -p "$prompt_content" "${perm_flag[@]}" "${extra_args[@]}" >"$output_file" 2>&1
           status=$?
           if [ $status -ne 0 ]; then
-            claude --prompt "$prompt_content" --dangerously-skip-permissions "${extra_args[@]}" >"$output_file" 2>&1
+            claude --prompt "$prompt_content" "${perm_flag[@]}" "${extra_args[@]}" >"$output_file" 2>&1
             status=$?
           fi
           if [ $status -ne 0 ]; then
-            printf '%s' "$prompt_content" | claude --dangerously-skip-permissions "${extra_args[@]}" >"$output_file" 2>&1
+            printf '%s' "$prompt_content" | claude "${perm_flag[@]}" "${extra_args[@]}" >"$output_file" 2>&1
             status=$?
           fi
           set -e
@@ -885,6 +898,11 @@ jobs:
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # Remove orchestrator artifacts before staging — these are diagnostic
+          # files written by the runner, not agent work product.
+          rm -f claude-output*.md claude-prompt*.md claude-session*.jsonl claude-analysis*.json 2>/dev/null || true
+          rm -f codex-output*.md codex-prompt*.md 2>/dev/null || true
 
           git add -A
           commit_message="Claude (${MODE}) automated update"

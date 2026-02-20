@@ -96,6 +96,76 @@ def test_cli_accumulates_repeated_flags(tmp_path):
     assert "/2 commits" in payload["summary"]
 
 
+def test_filter_bookkeeping_files_strips_claude_artifacts():
+    """_filter_bookkeeping_files removes Claude orchestrator artifacts."""
+    files = [
+        "src/app.py",
+        "claude-output-170.md",
+        "claude-prompt-170.md",
+        "agents/claude-42.md",
+        ".agents/foo",
+        "src/utils.py",
+    ]
+    filtered = progress_reviewer._filter_bookkeeping_files(files)
+    assert filtered == ["src/app.py", "src/utils.py"]
+
+
+def test_filter_bookkeeping_files_strips_codex_artifacts():
+    """_filter_bookkeeping_files removes Codex orchestrator artifacts."""
+    files = [
+        "src/main.rs",
+        "codex-output-55.md",
+        "codex-prompt-55.md",
+        "claude-session-12.jsonl",
+        "claude-analysis-12.json",
+        "autofix-lint.patch",
+    ]
+    filtered = progress_reviewer._filter_bookkeeping_files(files)
+    assert filtered == ["src/main.rs"]
+
+
+def test_zero_source_stop_on_empty_files():
+    """review_progress returns STOP when no files changed for 2+ rounds."""
+    result = progress_reviewer.review_progress(
+        acceptance_criteria=["Implement feature X"],
+        recent_commits=["chore: setup"],
+        files_changed=[],
+        rounds_without_completion=3,
+        use_llm=False,
+    )
+    assert result.recommendation == "STOP"
+    assert result.alignment_score == 0.0
+    assert "Zero" in result.summary or "zero" in result.summary.lower()
+
+
+def test_zero_source_stop_when_only_bookkeeping_files():
+    """review_progress returns STOP when all files are bookkeeping artifacts."""
+    result = progress_reviewer.review_progress(
+        acceptance_criteria=["Build the API"],
+        recent_commits=["Update output"],
+        files_changed=[
+            "claude-output-99.md",
+            "claude-prompt-99.md",
+        ],
+        rounds_without_completion=2,
+        use_llm=False,
+    )
+    assert result.recommendation == "STOP"
+    assert result.alignment_score == 0.0
+
+
+def test_no_zero_source_stop_below_threshold():
+    """review_progress does NOT stop for zero files if rounds < 2."""
+    result = progress_reviewer.review_progress(
+        acceptance_criteria=["Implement feature X"],
+        recent_commits=["chore: setup"],
+        files_changed=[],
+        rounds_without_completion=1,
+        use_llm=False,
+    )
+    assert result.recommendation != "STOP"
+
+
 def test_review_progress_langsmith_trace_capture():
     """Test that LangSmith trace ID/URL are captured in review_progress_with_llm."""
     import json

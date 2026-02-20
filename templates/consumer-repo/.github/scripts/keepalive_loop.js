@@ -2625,11 +2625,15 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
         : 0;
     // Derive zero-activity rounds from previous state + this round's results.
     // Mirrors the computation in evaluateKeepaliveLoop so persisted state stays correct.
+    // Only update on 'run' rounds — non-run rounds (review/wait) shouldn't affect the counter
+    // because no agent actually executed, so 0 file changes is expected, not a signal.
     const previousZeroActivityRounds = toNumber(previousState?.consecutive_zero_activity_rounds, 0);
     const consecutiveZeroActivityRounds =
-      agentFilesChanged === 0 && tasksCompletedThisRound <= 0 && currentIteration > 0
-        ? previousZeroActivityRounds + 1
-        : 0;
+      action !== 'run'
+        ? previousZeroActivityRounds
+        : (agentFilesChanged === 0 && tasksCompletedThisRound <= 0 && currentIteration > 0
+            ? previousZeroActivityRounds + 1
+            : 0);
     const metricsIteration = action === 'run' ? currentIteration + 1 : currentIteration;
     const durationMs = resolveDurationMs({
       durationMs: toOptionalNumber(inputs.duration_ms ?? inputs.durationMs),
