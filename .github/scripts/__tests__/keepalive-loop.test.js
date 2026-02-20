@@ -255,7 +255,7 @@ test('evaluateKeepaliveLoop stops when max iterations reached AND unproductive',
   assert.equal(result.reason, 'max-iterations-unproductive');
 });
 
-test('evaluateKeepaliveLoop continues past max iterations when productive', async () => {
+test('evaluateKeepaliveLoop stops at max iterations even when productive', async () => {
   const pr = {
     number: 405,
     head: { ref: 'feature/extended', sha: 'sha-ext' },
@@ -283,8 +283,8 @@ test('evaluateKeepaliveLoop continues past max iterations when productive', asyn
     context: buildContext(pr.number),
     core: buildCore(),
   });
-  assert.equal(result.action, 'run', 'Should continue running when productive');
-  assert.equal(result.reason, 'ready-extended', 'Should show extended mode');
+  assert.equal(result.action, 'stop', 'Should stop at max iterations even when productive');
+  assert.equal(result.reason, 'max-iterations', 'Should report max-iterations reason');
 });
 
 test('evaluateKeepaliveLoop triggers progress review without file changes', async () => {
