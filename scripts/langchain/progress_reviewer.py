@@ -266,11 +266,7 @@ def heuristic_alignment_check(
 # Patterns for orchestrator bookkeeping files that should not count as "agent work".
 # These files are written by the keepalive orchestrator, not the coding agent.
 _BOOKKEEPING_PATTERNS = re.compile(
-    r"(?:^|\/)(?:"
-    r"claude-(?:prompt|output)-\d+\.md"
-    r"|agents/claude-\d+\.md"
-    r"|\.agents/"
-    r")",
+    r"(?:^|\/)(?:" r"claude-(?:prompt|output)-\d+\.md" r"|agents/claude-\d+\.md" r"|\.agents/" r")",
 )
 
 
