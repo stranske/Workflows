@@ -816,14 +816,14 @@ jobs:
           fi
 
           set +e
-          claude -p "$prompt_content" "${extra_args[@]}" >"$output_file" 2>&1
+          claude -p "$prompt_content" --dangerously-skip-permissions "${extra_args[@]}" >"$output_file" 2>&1
           status=$?
           if [ $status -ne 0 ]; then
-            claude --prompt "$prompt_content" "${extra_args[@]}" >"$output_file" 2>&1
+            claude --prompt "$prompt_content" --dangerously-skip-permissions "${extra_args[@]}" >"$output_file" 2>&1
             status=$?
           fi
           if [ $status -ne 0 ]; then
-            printf '%s' "$prompt_content" | claude "${extra_args[@]}" >"$output_file" 2>&1
+            printf '%s' "$prompt_content" | claude --dangerously-skip-permissions "${extra_args[@]}" >"$output_file" 2>&1
             status=$?
           fi
           set -e
