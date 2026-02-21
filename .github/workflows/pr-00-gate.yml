@@ -878,6 +878,35 @@ jobs:
               }
             }
 
+      - name: Dispatch autofix notification
+        if: ${{ (steps.summarize.outputs.state || steps.docs_only.outputs.state) == 'failure' }}
+        uses: actions/github-script@v8
+        with:
+          github-token: ${{ steps.app_token.outputs.token || github.token }}
+          script: |
+            const prNumber = context.payload.pull_request?.number;
+            if (!prNumber) {
+              core.info('No pull request context; skipping autofix dispatch.');
+              return;
+            }
+            const gateRunId = process.env.GITHUB_RUN_ID;
+            const headSha = context.payload.pull_request?.head?.sha ?? context.sha;
+            try {
+              await github.request('POST /repos/{owner}/{repo}/dispatches', {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                event_type: 'autofix_gate_failure',
+                client_payload: {
+                  gate_run_id: gateRunId,
+                  pr_number: prNumber,
+                  head_sha: headSha,
+                },
+              });
+              core.info(`Queued autofix dispatch for PR #${prNumber} (run ${gateRunId}).`);
+            } catch (error) {
+              core.warning(`Failed to dispatch autofix event: ${error.message}`);
+            }
+
       - name: Enforce Gate success
         if: ${{ (steps.summarize.outputs.state || steps.docs_only.outputs.state) == 'failure' }}
         run: |

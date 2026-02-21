@@ -6,6 +6,17 @@ on:
       - Gate
     types:
       - completed
+  workflow_dispatch:
+    inputs:
+      gate_run_id:
+        description: 'Gate workflow_run id to inspect'
+        required: true
+      pr_number:
+        description: 'Pull request number'
+        required: true
+      head_sha:
+        description: 'Head commit SHA (optional override)'
+        required: false
 
 permissions:
   contents: write
@@ -19,11 +30,18 @@ env:
         secrets.ACTIONS_BOT_PAT ||
         secrets.SERVICE_BOT_PAT ||
         github.token }}
+  MANUAL_GATE_RUN_ID: ${{ inputs.gate_run_id || '' }}
+  MANUAL_PR_NUMBER: ${{ inputs.pr_number || '' }}
+  MANUAL_HEAD_SHA: ${{ inputs.head_sha || '' }}
 
 concurrency:
   group: >-
-    agents-autofix-loop-${{ github.event.workflow_run.pull_requests[0].number ||
-      github.run_id }}
+    agents-autofix-loop-${{
+      github.event.workflow_run &&
+      github.event.workflow_run.pull_requests[0].number ||
+      inputs.pr_number ||
+      github.run_id
+    }}
   cancel-in-progress: false
 
 jobs:
@@ -163,7 +181,36 @@ jobs:
                     githubInstance.paginate(method, params),
                 };
             const { withRetry, paginateWithRetry } = retryHelpers;
-            const run = context.payload.workflow_run;
+            const { owner, repo } = context.repo;
+            const manualInputs = {
+              runId: (process.env.MANUAL_GATE_RUN_ID || '').trim(),
+              prNumber: (process.env.MANUAL_PR_NUMBER || '').trim(),
+              headSha: (process.env.MANUAL_HEAD_SHA || '').trim(),
+            };
+            const isManualDispatch = context.eventName === 'workflow_dispatch';
+            let run = context.payload.workflow_run;
+            if (isManualDispatch && manualInputs.runId) {
+              const runIdNumber = Number(manualInputs.runId);
+              if (Number.isNaN(runIdNumber)) {
+                core.setFailed(`Invalid gate_run_id input: ${manualInputs.runId}`);
+                return;
+              }
+              try {
+                const response = await withRetry(() =>
+                  github.rest.actions.getWorkflowRun({
+                    owner,
+                    repo,
+                    run_id: runIdNumber,
+                  })
+                );
+                run = response.data;
+              } catch (error) {
+                core.setFailed(
+                  `Failed to load Gate run ${manualInputs.runId}: ${error.message}`
+                );
+                return;
+              }
+            }
             const outputs = {
               should_run: 'false',
               pr_number: '',
@@ -194,6 +241,8 @@ jobs:
               return stop('missing workflow_run payload');
             }
 
+            outputs.gate_run_id = String(manualInputs.runId || run.id || '');
+
             if ((run.conclusion || '').toLowerCase() === 'success') {
               return stop('upstream Gate succeeded');
             }
@@ -202,15 +251,16 @@ jobs:
               return stop(`unsupported event type: ${run.event || 'unknown'}`);
             }
 
-            const prInfo = Array.isArray(run.pull_requests) ? run.pull_requests[0] : undefined;
+            let prInfo = Array.isArray(run.pull_requests) ? run.pull_requests[0] : undefined;
+            if (isManualDispatch && manualInputs.prNumber) {
+              prInfo = { number: Number(manualInputs.prNumber) };
+            }
             if (!prInfo?.number) {
               return stop('no pull request context on workflow_run');
             }
 
-            outputs.pr_number = String(prInfo.number);
-
-            const { owner, repo } = context.repo;
-            const prNumber = Number(prInfo.number);
+            const prNumber = Number(manualInputs.prNumber || prInfo.number);
+            outputs.pr_number = String(prNumber);
             const pr = await withRetry(() =>
               github.rest.pulls.get({ owner, repo, pull_number: prNumber })
             );
@@ -224,8 +274,9 @@ jobs:
               return stop('draft pull request');
             }
 
+            const gateHeadSha = (manualInputs.headSha || run.head_sha || '').trim();
             const headSha = prData.head?.sha;
-            if (!headSha || headSha !== run.head_sha) {
+            if (!headSha || (gateHeadSha && headSha !== gateHeadSha)) {
               return stop('head SHA drifted since Gate started');
             }
 
@@ -392,7 +443,7 @@ jobs:
                 owner,
                 repo,
                 workflow_id: workflowFile,
-                head_sha: run.head_sha,
+                head_sha: gateHeadSha || headSha,
                 per_page: 100,
                 status: 'completed',
               }
