@@ -258,11 +258,6 @@ def heuristic_alignment_check(
     return alignment_score, aligned, unaligned
 
 
-# ---------------------------------------------------------------------------
-# LLM-based review
-# ---------------------------------------------------------------------------
-
-
 # Patterns for orchestrator bookkeeping files that should not count as "agent work".
 # These files are written by the keepalive orchestrator, not the coding agent.
 _BOOKKEEPING_PATTERNS = re.compile(
@@ -557,8 +552,32 @@ def review_progress(
         ProgressReviewResult with recommendation and analysis
     """
     # Filter out orchestrator bookkeeping files (claude-prompt-*.md, etc.)
-    # so they don't inflate alignment scores or file-change counts
+    # so they don't inflate alignment scores or file-change counts.
     files_changed = _filter_bookkeeping_files(files_changed)
+
+    if not files_changed and rounds_without_completion >= 2:
+        return ProgressReviewResult(
+            recommendation="STOP",
+            confidence=0.9,
+            alignment_score=0.0,
+            trajectory="diverging",
+            analysis=ProgressAnalysis(
+                blocking_issues=[
+                    "Zero source files changed across multiple rounds",
+                    "Likely infrastructure failure: auth, permissions, or sandbox",
+                ],
+            ),
+            feedback_for_agent=(
+                "No source files have been modified. This indicates an infrastructure "
+                "issue (authentication, permissions, or sandbox configuration). "
+                "Human intervention is required."
+            ),
+            summary=(
+                f"Zero files changed for {rounds_without_completion} rounds — "
+                "infrastructure failure, not scope drift"
+            ),
+            used_llm=False,
+        )
 
     # Quick heuristic check first
     heuristic_score, aligned, unaligned = heuristic_alignment_check(

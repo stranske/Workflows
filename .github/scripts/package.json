@@ -1,6 +1,10 @@
 {
   "private": true,
   "dependencies": {
-    "minimatch": "^10.2.1"
+<<<<<<< HEAD
+    "minimatch": "10.0.1-vendored"
+=======
+    "minimatch": "10.0.1-vendored"
+>>>>>>> 478686e6 (fix: address keepalive zero-activity review feedback)
   }
 }
