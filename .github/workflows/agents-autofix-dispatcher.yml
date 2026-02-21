@@ -23,11 +23,36 @@ jobs:
           private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || 'dummy' }}
           owner: ${{ github.repository_owner }}
 
+      - name: Checkout workflow helpers
+        uses: actions/checkout@v6
+        with:
+          token: ${{ steps.app_token.outputs.token || github.token }}
+          sparse-checkout: |
+            .github/actions/setup-api-client
+            .github/scripts/github-api-with-retry.js
+            .github/scripts/github-rate-limited-wrapper.js
+            .github/scripts/token_load_balancer.js
+          sparse-checkout-cone-mode: false
+          fetch-depth: 1
+
+      - name: Setup API client
+        uses: ./.github/actions/setup-api-client
+        with:
+          secrets: ${{ toJSON(secrets) }}
+          github_token: ${{ steps.app_token.outputs.token || github.token }}
+
       - name: Dispatch autofix workflow
         uses: actions/github-script@v8
         with:
           github-token: ${{ steps.app_token.outputs.token || github.token }}
           script: |
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              retryLabel: 'dispatch-autofix-loop',
+            });
+
             const payload = context.payload.client_payload || {};
             const prNumber = Number(payload.pr_number);
             const gateRunId = String(payload.gate_run_id || '');
@@ -45,17 +70,19 @@ jobs:
             const defaultBranch = context.payload.repository?.default_branch || 'main';
             const ref = `refs/heads/${defaultBranch}`;
             try {
-              await github.request('POST /repos/{owner}/{repo}/actions/workflows/{workflow_id}/dispatches', {
-                owner,
-                repo,
-                workflow_id: 'agents-autofix-loop.yml',
-                ref,
-                inputs: {
-                  gate_run_id: gateRunId,
-                  pr_number: String(prNumber),
-                  head_sha: headSha,
-                },
-              });
+              await withRetry(() =>
+                github.request('POST /repos/{owner}/{repo}/actions/workflows/{workflow_id}/dispatches', {
+                  owner,
+                  repo,
+                  workflow_id: 'agents-autofix-loop.yml',
+                  ref,
+                  inputs: {
+                    gate_run_id: gateRunId,
+                    pr_number: String(prNumber),
+                    head_sha: headSha,
+                  },
+                })
+              );
               core.info(`Triggered agents-autofix-loop for PR #${prNumber} (Gate run ${gateRunId}).`);
             } catch (error) {
               core.setFailed(`Failed to dispatch autofix workflow: ${error.message}`);
