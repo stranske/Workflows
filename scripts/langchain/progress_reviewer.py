@@ -265,9 +265,11 @@ _BOOKKEEPING_PATTERNS = re.compile(
     r"claude-(?:prompt|output)-\d+\.md"
     r"|codex-(?:prompt|output)-\d+\.md"
     r"|claude-(?:session|analysis)-\d+\.(?:jsonl|json)"
-    r"|agents/claude-\d+\.md"
+    r"|agents/(?:claude|codex)-\d+\.md"
     r"|\.agents/"
-    r"|autofix-[^/]*$"
+    r"|autofix-[^/]+\.patch$"
+    r"|autofix-metrics\.ndjson$"
+    r"|autofix-report-pr-\d+$"
     r")",
 )
 
@@ -563,18 +565,19 @@ def review_progress(
             trajectory="diverging",
             analysis=ProgressAnalysis(
                 blocking_issues=[
-                    "Zero source files changed across multiple rounds",
+                    "Zero source files changed in the latest round despite many rounds without task completion",
                     "Likely infrastructure failure: auth, permissions, or sandbox",
                 ],
             ),
             feedback_for_agent=(
-                "No source files have been modified. This indicates an infrastructure "
+                "The latest round produced no source file changes after many rounds "
+                "without task completion. This likely indicates an infrastructure "
                 "issue (authentication, permissions, or sandbox configuration). "
                 "Human intervention is required."
             ),
             summary=(
-                f"Zero files changed for {rounds_without_completion} rounds — "
-                "infrastructure failure, not scope drift"
+                f"Zero source files changed in the latest round after {rounds_without_completion} "
+                "rounds without task completion — likely infrastructure failure, not scope drift"
             ),
             used_llm=False,
         )
