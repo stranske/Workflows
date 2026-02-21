@@ -52,8 +52,6 @@ const PROMPT_ROUTES = {
   },
 };
 
-const AGENT_EXECUTION_ACTIONS = new Set(['run', 'fix', 'conflict']);
-
 // Resolve default agent from registry
 let _defaultAgent = 'codex';
 try {
@@ -2185,6 +2183,14 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
         reason = 'tasks-complete';
       }
     } else if (shouldStopForZeroActivity) {
+<<<<<<< HEAD
+      // Zero files changed for multiple consecutive rounds = infrastructure failure
+      // (auth broken, sandbox permissions, CLI not installed, etc.)
+      // Stop immediately — no amount of retries will help without human intervention.
+      action = 'stop';
+      reason = 'zero-activity-infrastructure';
+      if (core) core.warning(`Agent produced 0 file changes for ${consecutiveZeroActivityRounds} consecutive rounds — likely infrastructure failure (auth, permissions, sandbox). Stopping.`);
+=======
       // Zero files changed for multiple consecutive rounds = infrastructure failure.
       // Stop immediately — no amount of retries will help without manual intervention.
       action = 'stop';
@@ -2194,6 +2200,7 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
           `Agent produced 0 file changes for ${consecutiveZeroActivityRounds} consecutive rounds — likely infrastructure failure (auth, permissions, sandbox). Stopping.`,
         );
       }
+>>>>>>> 478686e6 (fix: address keepalive zero-activity review feedback)
     } else if (shouldStopForMaxIterations && forceRetry && tasksRemaining) {
       action = 'run';
       reason = 'force-retry-max-iterations';
@@ -2628,9 +2635,8 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
     const previousTasksTotal = toNumber(previousTasks.total, tasksTotal);
     const totalsStable = previousTasksTotal === tasksTotal;
     const zeroActivityTaskDelta = totalsStable ? Math.max(0, tasksCompletedThisRound) : 0;
-    const actionRunsAgent = AGENT_EXECUTION_ACTIONS.has(action);
     const consecutiveZeroActivityRounds =
-      !actionRunsAgent
+      action !== 'run'
         ? previousZeroActivityRounds
         : (currentIteration > 0 && agentFilesChanged === 0 && zeroActivityTaskDelta === 0
             ? previousZeroActivityRounds + 1
@@ -3062,17 +3068,28 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
       running: false,
       // Track task reconciliation for next iteration
       needs_task_reconciliation: madeChangesButNoTasksChecked,
+      // Productivity tracking for evidence-based decisions.
+<<<<<<< HEAD
+      // Preserve file-change counts from the last actual run when no agent ran
+      // (e.g. review/wait actions) to avoid destroying productivity signals.
+      last_files_changed: action === 'run' ? agentFilesChanged : toNumber(previousState?.last_files_changed, 0),
+      prev_files_changed: action === 'run' ? toNumber(previousState?.last_files_changed, 0) : toNumber(previousState?.prev_files_changed, 0),
+      // Track consecutive rounds without task completion for progress review
+      rounds_without_task_completion: roundsWithoutTaskCompletion,
+      // Track consecutive rounds with zero file changes (infrastructure failure detection)
+=======
       // Preserve last/previous file-change counts when no agent actually ran so
       // that productivity history isn't destroyed by wait/review iterations.
-      last_files_changed: actionRunsAgent
+      last_files_changed: action === 'run'
         ? agentFilesChanged
         : toNumber(previousState?.last_files_changed, 0),
-      prev_files_changed: actionRunsAgent
+      prev_files_changed: action === 'run'
         ? toNumber(previousState?.last_files_changed, 0)
         : toNumber(previousState?.prev_files_changed, 0),
       // Track consecutive rounds without task completion for progress review
       rounds_without_task_completion: roundsWithoutTaskCompletion,
       // Infrastructure failure detection (zero files + zero tasks multiple rounds)
+>>>>>>> 478686e6 (fix: address keepalive zero-activity review feedback)
       consecutive_zero_activity_rounds: consecutiveZeroActivityRounds,
       complete_gate_failure_rounds: completeGateFailureRounds,
       complete_gate_failure_rounds_max: completeGateFailureMax,
