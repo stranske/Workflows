@@ -261,13 +261,13 @@ def heuristic_alignment_check(
 # Patterns for orchestrator bookkeeping files that should not count as "agent work".
 # These files are written by the keepalive orchestrator, not the coding agent.
 _BOOKKEEPING_PATTERNS = re.compile(
-    r"(?:^|\/)(?:"
+    r"(?:^|/)(?:"
     r"claude-(?:prompt|output)-\d+\.md"
     r"|codex-(?:prompt|output)-\d+\.md"
     r"|claude-(?:session|analysis)-\d+\.(?:jsonl|json)"
     r"|agents/claude-\d+\.md"
     r"|\.agents/"
-    r"|(?:^|/)autofix-[^/]*$"
+    r"|autofix-[^/]*$"
     r")",
 )
 
@@ -583,34 +583,6 @@ def review_progress(
     heuristic_score, aligned, unaligned = heuristic_alignment_check(
         acceptance_criteria, recent_commits, files_changed
     )
-
-    # Zero files changed = infrastructure failure (auth, permissions, sandbox).
-    # Commit message alignment is meaningless when the agent can't write code.
-    # Orchestrator bookkeeping files (claude-prompt-*.md, claude-output-*.md)
-    # artificially inflate alignment because they contain acceptance criteria text.
-    if not files_changed and rounds_without_completion >= 2:
-        return ProgressReviewResult(
-            recommendation="STOP",
-            confidence=0.9,
-            alignment_score=0.0,
-            trajectory="diverging",
-            analysis=ProgressAnalysis(
-                blocking_issues=[
-                    "Zero source files changed across multiple rounds",
-                    "Likely infrastructure failure: auth, permissions, or sandbox",
-                ],
-            ),
-            feedback_for_agent=(
-                "No source files have been modified. This indicates an infrastructure "
-                "problem (authentication, permissions, or sandbox configuration). "
-                "Human intervention is required."
-            ),
-            summary=(
-                f"Zero files changed for {rounds_without_completion} rounds — "
-                "infrastructure failure, not scope drift"
-            ),
-            used_llm=False,
-        )
 
     # If clearly aligned or clearly not, skip LLM
     if heuristic_score >= 8 and rounds_without_completion < 12:
