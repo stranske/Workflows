@@ -13,7 +13,7 @@ Breaking changes are called out with a **BREAKING** marker and scheduled accordi
 - Tests cover creating the floating `v1` tag when it does not yet exist, ensuring it points to the latest `v1.x` release.
 - Documentation now outlines the recommended versioning strategy, including when to use pinned (`@v1.0.0`) versus floating (`@v1`) tags in both the README and Integration Guide.
 - Compatibility policy captured in `COMPATIBILITY.md`, including deprecation timelines and the two-major support window.
-- Gate now emits an `autofix_gate_failure` repository dispatch when it fails, and the Agents Autofix Loop can be triggered via `workflow_dispatch` using that payload so Codex/Claude reroutes execute even for PR-only Gate runs.
+- Gate now emits an `autofix_gate_failure` repository dispatch when it fails, providing a hook that consumer workflows (or the new dispatch handler) can use to trigger the Agents Autofix Loop with the same payload so Codex/Claude reroutes execute even for PR-only Gate runs.
 
 ### Fixed
 - Auto-pilot workflow now creates PRs automatically when `agents:auto-pilot` label is added. Previously, the issue intake workflow was forcing "invite" mode for issue events, causing branch creation without PR creation. Fixed by adding `force_mode: true` to the reusable workflow call, allowing the `mode: "create"` parameter to be respected even for issue-triggered events. This resolves the issue where users had to manually create PRs despite auto-pilot being enabled.

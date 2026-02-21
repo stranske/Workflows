@@ -129,25 +129,61 @@ jobs:
 
             const { evaluatePromptInjectionGuard } = require(guardPath);
 
-            const run = context.payload.workflow_run;
-            if (!run) {
-              core.setOutput('blocked', 'false');
-              core.setOutput('reason', 'no-workflow-run');
+            const manualInputs = {
+              runId: (process.env.MANUAL_GATE_RUN_ID || '').trim(),
+              prNumber: (process.env.MANUAL_PR_NUMBER || '').trim(),
+            };
+            let run = context.payload.workflow_run;
+            if (!run && manualInputs.runId) {
+              const runIdNumber = Number(manualInputs.runId);
+              if (Number.isNaN(runIdNumber)) {
+                core.setFailed(`Invalid manual gate_run_id: ${manualInputs.runId}`);
+                return;
+              }
+              try {
+                const response = await withRetry(() =>
+                  github.rest.actions.getWorkflowRun({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    run_id: runIdNumber,
+                  })
+                );
+                run = response.data;
+              } catch (error) {
+                core.setFailed(`Failed to load workflow_run ${manualInputs.runId}: ${error.message}`);
+                return;
+              }
+            }
+
+            const manualPrNumber = manualInputs.prNumber ? Number(manualInputs.prNumber) : NaN;
+            if (
+              manualInputs.prNumber &&
+              (!Number.isFinite(manualPrNumber) || manualPrNumber <= 0)
+            ) {
+              core.setFailed(`Invalid manual pr_number: ${manualInputs.prNumber}`);
               return;
             }
 
-            const prInfo = Array.isArray(run.pull_requests) ? run.pull_requests[0] : undefined;
-            if (!prInfo?.number) {
+            let prNumber =
+              Array.isArray(run?.pull_requests) && run.pull_requests[0]?.number
+                ? Number(run.pull_requests[0].number)
+                : undefined;
+            if (!prNumber && Number.isFinite(manualPrNumber)) {
+              prNumber = manualPrNumber;
+            }
+            if (!prNumber) {
               core.setOutput('blocked', 'false');
               core.setOutput('reason', 'no-pr-context');
               return;
             }
 
-            const { data: pr } = await withRetry(() => github.rest.pulls.get({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: prInfo.number,
-            }));
+            const { data: pr } = await withRetry(() =>
+              github.rest.pulls.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: prNumber,
+              })
+            );
 
             const result = await evaluatePromptInjectionGuard({
               github,
@@ -253,7 +289,11 @@ jobs:
 
             let prInfo = Array.isArray(run.pull_requests) ? run.pull_requests[0] : undefined;
             if (isManualDispatch && manualInputs.prNumber) {
-              prInfo = { number: Number(manualInputs.prNumber) };
+              const manualPrNumber = Number(manualInputs.prNumber);
+              if (!Number.isFinite(manualPrNumber) || manualPrNumber <= 0) {
+                return stop('invalid manual pr_number input');
+              }
+              prInfo = { number: manualPrNumber };
             }
             if (!prInfo?.number) {
               return stop('no pull request context on workflow_run');
