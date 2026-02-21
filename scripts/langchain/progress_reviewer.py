@@ -267,7 +267,7 @@ _BOOKKEEPING_PATTERNS = re.compile(
     r"|claude-(?:session|analysis)-\d+\.(?:jsonl|json)"
     r"|agents/claude-\d+\.md"
     r"|\.agents/"
-    r"|autofix-.*"
+    r"|(?:^|/)autofix-[^/]*$"
     r")",
 )
 

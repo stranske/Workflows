@@ -124,6 +124,21 @@ def test_filter_bookkeeping_files_strips_codex_artifacts():
     assert filtered == ["src/main.rs"]
 
 
+def test_filter_bookkeeping_files_leaves_legit_autofix_names():
+    """_filter_bookkeeping_files keeps real source files containing 'autofix'."""
+    files = [
+        "src/my-autofix-helper.py",
+        "scripts/autofix-runner/autofix_pipeline.py",
+        "autofix-lint.patch",
+    ]
+    filtered = progress_reviewer._filter_bookkeeping_files(files)
+    # Only the orchestrator artifact (autofix-lint.patch) is removed.
+    assert filtered == [
+        "src/my-autofix-helper.py",
+        "scripts/autofix-runner/autofix_pipeline.py",
+    ]
+
+
 def test_zero_source_stop_on_empty_files():
     """review_progress returns STOP when no files changed for 2+ rounds."""
     result = progress_reviewer.review_progress(

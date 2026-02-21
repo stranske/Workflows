@@ -1,6 +1,6 @@
 {
   "private": true,
   "dependencies": {
-    "minimatch": "^10.2.1"
+    "minimatch": "10.0.1-vendored"
   }
 }
