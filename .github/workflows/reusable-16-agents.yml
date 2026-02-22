@@ -871,18 +871,14 @@ jobs:
         uses: actions/github-script@v8
         with:
           script: |
-            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
-            const { withRetry } = await createTokenAwareRetry({
-              github,
-              core,
-              env: process.env,
-              task: 'reusable-agents-resolve-workflows-ref',
-              capabilities: ['contents:read']
-            });
-            const { data } = await withRetry((client) => client.rest.repos.get({
+            // NOTE: github-api-with-retry.js is NOT available here because the
+            // Workflows repo hasn't been checked out yet (that happens in the next
+            // step). Use a plain GitHub API call — no retry wrapper needed for this
+            // single low-risk read.
+            const { data } = await github.rest.repos.get({
               owner: 'stranske',
               repo: 'Workflows'
-            }));
+            });
             if (!data?.default_branch) {
               core.setFailed('Could not determine Workflows default branch');
               return;
