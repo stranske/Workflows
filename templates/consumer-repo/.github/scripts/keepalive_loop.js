@@ -860,7 +860,7 @@ function countCheckboxes(markdown) {
 // must be independently verified, not auto-checked by parent cascade.
 const ACCEPTANCE_HEADING_PATTERNS = [
   /acceptance\s*criteria/i,
-  /acceptance/i,
+  /^acceptance$/i,
   /definition\s*of\s*done/i,
   /done\s*criteria/i,
 ];
@@ -3583,10 +3583,12 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
       : {};
     if (tasksUnchecked > 0) {
       verification = {};
-    } else if (reason === 'verify-acceptance') {
+    } else if (reason === 'verify-acceptance' || reason === 'fix-verification-gaps') {
+      const previousAttemptCount = toNumber(verification?.attempt_count, 0);
       verification = {
         status: runResult === 'success' ? 'done' : 'failed',
         iteration: nextIteration,
+        attempt_count: previousAttemptCount + 1,
         last_result: runResult || '',
         updated_at: new Date().toISOString(),
       };

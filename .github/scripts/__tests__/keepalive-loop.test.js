@@ -2831,8 +2831,8 @@ test('analyzeTaskCompletion uses lowered 35% threshold with file match', async (
   assert.equal(configMatch.confidence, 'high', 'Should be high confidence with 35%+ match and file touch');
 });
 
-test('analyzeTaskCompletion gives high confidence for 25% keyword match with file match', async () => {
-  // Lower threshold: 25% keyword match + file match = high confidence
+test('analyzeTaskCompletion gives medium confidence for 25% keyword match with file match', async () => {
+  // Stricter thresholds: 25% keyword match + file match = medium confidence (was high before tightening)
   const commits = [
     { sha: 'abc123', commit: { message: 'add wizard step' } },
   ];
@@ -2874,7 +2874,7 @@ test('analyzeTaskCompletion gives high confidence for 25% keyword match with fil
     m.task.toLowerCase().includes('wizard')
   );
   assert.ok(wizardMatch, 'Should match wizard task');
-  assert.equal(wizardMatch.confidence, 'high', 'Should be high confidence with file match even at ~25% keywords');
+  assert.equal(wizardMatch.confidence, 'medium', 'Should be medium confidence with file match at ~25% keywords (stricter thresholds)');
 });
 
 test('analyzeTaskCompletion uses synonym expansion for better matching', async () => {
@@ -2921,7 +2921,7 @@ test('analyzeTaskCompletion uses synonym expansion for better matching', async (
     m.task.toLowerCase().includes('config validation')
   );
   assert.ok(configMatch, 'Should match config validation task');
-  assert.equal(configMatch.confidence, 'high', 'Should be high confidence with synonym matching');
+  assert.equal(configMatch.confidence, 'medium', 'Should be medium confidence with synonym matching (stricter thresholds)');
 });
 
 test('analyzeTaskCompletion skips when repo context is missing', async () => {
@@ -3122,7 +3122,7 @@ test('autoReconcileTasks updates PR body for high-confidence matches', async () 
 
   assert.ok(result.updated, 'Should update PR body');
   assert.ok(result.tasksChecked > 0, 'Should check at least one task');
-  assert.equal(result.sources.commit, 2, 'Should report commit-based source count');
+  assert.equal(result.sources.commit, 1, 'Should report commit-based source count (stricter matching reduces to 1)');
   assert.equal(result.sources.llm, 0, 'Should report no LLM sources');
   
   if (updatedBody) {
