@@ -855,6 +855,21 @@ function countCheckboxes(markdown) {
   return result;
 }
 
+// Heading patterns that indicate an acceptance criteria section.
+// Cascade is disabled inside these sections — each acceptance criterion
+// must be independently verified, not auto-checked by parent cascade.
+const ACCEPTANCE_HEADING_PATTERNS = [
+  /acceptance\s*criteria/i,
+  /acceptance/i,
+  /definition\s*of\s*done/i,
+  /done\s*criteria/i,
+];
+
+function isAcceptanceHeading(line) {
+  const stripped = line.replace(/^#{1,6}\s+/, '').replace(/\*\*/g, '').replace(/:?\s*$/, '').trim();
+  return ACCEPTANCE_HEADING_PATTERNS.some(pattern => pattern.test(stripped));
+}
+
 /**
  * Cascade checked parent checkboxes to their indented children.
  *
@@ -862,6 +877,10 @@ function countCheckboxes(markdown) {
  * lines that are indented deeper and contain unchecked checkboxes (`[ ]`) are
  * also checked.  The cascade stops when a line at the same or lesser
  * indentation as the parent is encountered.
+ *
+ * IMPORTANT: Cascade is disabled inside acceptance criteria sections.
+ * Acceptance criteria must each be independently verified — auto-cascading
+ * from a checked parent would mark criteria as met without actual verification.
  *
  * This solves the bookkeeping problem where top-level tasks get checked off
  * (because Codex completes the work and the reconciler matches the parent),
@@ -881,6 +900,9 @@ function cascadeParentCheckboxes(body) {
   let parentIndent = null;
   // Track whether we are inside a fenced code block (``` or ~~~).
   let inCodeBlock = false;
+  // Track whether we are inside an acceptance criteria section.
+  // When true, cascade is suppressed — each criterion must be independently checked.
+  let inAcceptanceSection = false;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -897,13 +919,32 @@ function cascadeParentCheckboxes(body) {
       continue;
     }
 
+    // Detect section boundaries from headings
+    if (/^#{1,6}\s/.test(line)) {
+      parentIndent = null;
+      if (isAcceptanceHeading(line)) {
+        inAcceptanceSection = true;
+      } else {
+        // Any other heading exits the acceptance section
+        inAcceptanceSection = false;
+      }
+      result.push(line);
+      continue;
+    }
+
     // Match checkbox lines: optional indent, bullet, [x] or [ ]
     const cbMatch = line.match(/^(\s*)([-*+]|\d+[.)])\s*\[([ xX])\]\s*/);
     if (!cbMatch) {
-      // Non-checkbox line — reset cascade if it's a heading or blank section break
-      if (/^\s*$/.test(line) || /^#{1,6}\s/.test(line)) {
+      // Non-checkbox line — reset cascade if it's a blank section break
+      if (/^\s*$/.test(line)) {
         parentIndent = null;
       }
+      result.push(line);
+      continue;
+    }
+
+    // Inside acceptance criteria — never cascade, preserve all checkboxes as-is
+    if (inAcceptanceSection) {
       result.push(line);
       continue;
     }
@@ -1136,6 +1177,115 @@ function extractChecklistItems(markdown) {
     }
   }
   return items;
+}
+
+/**
+ * Extract file-path glob patterns from the scope section text.
+ * Looks for patterns like `runtime/**`, `src/foo.py`, or backtick-quoted paths.
+ * Returns an array of pattern strings suitable for minimatch-style matching.
+ *
+ * @param {string} scopeText - The raw scope section content.
+ * @returns {string[]} Extracted file patterns.
+ */
+function extractScopePatterns(scopeText) {
+  const text = String(scopeText || '');
+  if (!text.trim()) return [];
+
+  const patterns = new Set();
+
+  // Match backtick-quoted paths (e.g., `runtime/**`, `src/foo.py`)
+  const backtickPaths = text.match(/`([^`]+\.[a-z*]+[^`]*)`|`([^`]*\/[^`]+)`/gi) || [];
+  backtickPaths.forEach(p => {
+    const cleaned = p.replace(/`/g, '').trim();
+    if (cleaned && (cleaned.includes('/') || cleaned.includes('*') || cleaned.includes('.'))) {
+      patterns.add(cleaned);
+    }
+  });
+
+  // Match bare glob patterns (e.g., runtime/**, tests/*.py)
+  const globPatterns = text.match(/(?:^|\s)([\w./-]+\*\*?[\w./*-]*)(?:\s|$|,)/gm) || [];
+  globPatterns.forEach(p => {
+    const cleaned = p.trim().replace(/,+$/, '');
+    if (cleaned) patterns.add(cleaned);
+  });
+
+  // Match explicit file paths with extensions (e.g., src/main.py, config.yml)
+  const filePaths = text.match(/(?:^|\s)([\w][\w./-]*\.(?:py|js|ts|yml|yaml|json|md|txt|cfg|toml|ini))(?:\s|$|,|`)/gm) || [];
+  filePaths.forEach(p => {
+    const cleaned = p.trim().replace(/,+$/, '').replace(/`/g, '');
+    if (cleaned && cleaned.includes('/')) patterns.add(cleaned);
+  });
+
+  return Array.from(patterns);
+}
+
+/**
+ * Check whether a file path matches any of the scope patterns.
+ * Uses simple glob matching: `**` matches any path segment,
+ * `*` matches within a single path segment.
+ *
+ * @param {string} filePath - The file path to check.
+ * @param {string[]} patterns - Scope patterns to match against.
+ * @returns {boolean} True if the file matches at least one pattern.
+ */
+function fileMatchesScopePattern(filePath, patterns) {
+  if (!patterns || patterns.length === 0) return true; // No patterns = no restriction
+  const fp = String(filePath || '').toLowerCase();
+
+  for (const pattern of patterns) {
+    const p = String(pattern || '').toLowerCase();
+
+    // Direct prefix match (e.g., "runtime/" matches "runtime/foo.py")
+    if (p.endsWith('/') && fp.startsWith(p)) return true;
+    if (p.endsWith('/**') && fp.startsWith(p.slice(0, -3) + '/')) return true;
+    if (p.endsWith('/*') && fp.startsWith(p.slice(0, -2) + '/') && !fp.slice(p.length - 1).includes('/')) return true;
+
+    // Exact match
+    if (fp === p) return true;
+
+    // Simple glob: convert to regex
+    const escaped = p.replace(/[.+^${}()|[\]\\]/g, '\\$&')
+      .replace(/\*\*/g, '<<DOUBLESTAR>>')
+      .replace(/\*/g, '[^/]*')
+      .replace(/<<DOUBLESTAR>>/g, '.*');
+    const regex = new RegExp(`^${escaped}$`);
+    if (regex.test(fp)) return true;
+  }
+
+  return false;
+}
+
+/**
+ * Validate PR files against scope patterns.
+ * Returns an object with scope compliance details.
+ *
+ * @param {string[]} filesChanged - List of changed file paths.
+ * @param {string[]} scopePatterns - Extracted scope patterns.
+ * @returns {{ compliant: boolean, inScope: string[], outOfScope: string[], patterns: string[] }}
+ */
+function validateScopeCompliance(filesChanged, scopePatterns) {
+  if (!scopePatterns || scopePatterns.length === 0) {
+    // No scope patterns defined — everything is compliant
+    return { compliant: true, inScope: filesChanged, outOfScope: [], patterns: [] };
+  }
+
+  const inScope = [];
+  const outOfScope = [];
+
+  for (const file of filesChanged) {
+    if (fileMatchesScopePattern(file, scopePatterns)) {
+      inScope.push(file);
+    } else {
+      outOfScope.push(file);
+    }
+  }
+
+  return {
+    compliant: outOfScope.length === 0,
+    inScope,
+    outOfScope,
+    patterns: scopePatterns,
+  };
 }
 
 /**
@@ -2137,7 +2287,41 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
     const checkboxCounts = countCheckboxes(combinedChecklist);
     const tasksPresent = checkboxCounts.total > 0;
     const tasksRemaining = checkboxCounts.unchecked > 0;
-    const allComplete = tasksPresent && !tasksRemaining;
+
+    // Separate tracking: count task checkboxes and acceptance criteria independently.
+    // Tasks = what the agent works on (checkable by agent and auto-reconciliation).
+    // Acceptance criteria = what must be independently verified (only verifier or agent).
+    // The stop decision requires BOTH to be satisfied.
+    const taskCounts = countCheckboxes(normalisedSections?.tasks || '');
+    const acceptanceCounts = countCheckboxes(normalisedSections?.acceptance || '');
+    const allTasksDone = taskCounts.total === 0 || taskCounts.unchecked === 0;
+    const allCriteriaMet = acceptanceCounts.total === 0 || acceptanceCounts.unchecked === 0;
+    const allComplete = tasksPresent && !tasksRemaining && allTasksDone && allCriteriaMet;
+
+    if (core && taskCounts.total > 0) {
+      core.info(`[separate-tracking] Tasks: ${taskCounts.checked}/${taskCounts.total}, Acceptance: ${acceptanceCounts.checked}/${acceptanceCounts.total}`);
+    }
+
+    // Mechanical scope enforcement: extract file patterns from the scope
+    // section and validate the PR diff against them.  This catches scope
+    // violations that checkbox-based tracking would miss entirely.
+    const scopePatterns = extractScopePatterns(sections?.scope || '');
+    let scopeCompliance = { compliant: true, inScope: [], outOfScope: [], patterns: scopePatterns };
+    if (scopePatterns.length > 0) {
+      try {
+        const prFiles = await fetchPrFilesCached({ github, context, prNumber, core });
+        const fileNames = prFiles.map(f => f.filename);
+        scopeCompliance = validateScopeCompliance(fileNames, scopePatterns);
+        if (!scopeCompliance.compliant && core) {
+          core.warning(
+            `Scope violation: ${scopeCompliance.outOfScope.length} file(s) outside declared scope patterns. ` +
+            `Out-of-scope: ${scopeCompliance.outOfScope.slice(0, 5).join(', ')}${scopeCompliance.outOfScope.length > 5 ? '...' : ''}`
+          );
+        }
+      } catch (scopeError) {
+        if (core) core.warning(`Scope validation failed: ${scopeError.message}`);
+      }
+    }
 
     const stateResult = await loadKeepaliveState({
       github,
@@ -2184,9 +2368,12 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
     const maxIterations = toNumber(config.max_iterations ?? state.max_iterations, 5);
     const failureThreshold = toNumber(config.failure_threshold ?? state.failure_threshold, 3);
     const progressReviewThreshold = toNumber(config.progress_review_threshold ?? state.progress_review_threshold, 4);
+    // Default 3 rounds allows 2 fix attempts before stopping (round 1 = fix,
+    // round 2 = fix retry, round 3 = stop).  Previous default of 2 only
+    // allowed 1 fix attempt, which was insufficient for multi-issue lint failures.
     const completeGateFailureMax = Math.max(
       1,
-      toNumber(config.complete_gate_failure_rounds ?? state.complete_gate_failure_rounds_max, 2),
+      toNumber(config.complete_gate_failure_rounds ?? state.complete_gate_failure_rounds_max, 3),
     );
 
     // Evidence-based productivity tracking
@@ -2231,9 +2418,14 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
     const shouldStopForZeroActivity = persistedConsecutiveZeroActivityRounds >= zeroActivityThreshold;
 
     const prevCompleteGateFailureRounds = toNumber(state.complete_gate_failure_rounds, 0);
-    const completeGateFailureRounds = allComplete && gateNormalized !== 'success'
+    // Only increment the complete-gate-failure counter when gate actually failed
+    // (not when cancelled/pending, which are transient states that shouldn't
+    // consume the fix budget).
+    const completeGateFailureRounds = allComplete && gateNormalized === 'failure'
       ? prevCompleteGateFailureRounds + 1
-      : 0;
+      : allComplete && gateNormalized !== 'success'
+        ? prevCompleteGateFailureRounds // preserve count but don't increment for transient states
+        : 0;
 
     // Track consecutive fix attempts.  After fixAttemptMax rounds of trying
     // to fix the same gate failure, bypass the gate and continue with tasks.
@@ -2292,9 +2484,16 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
     let reason = 'pending';
     const verificationStatus = normalise(state?.verification?.status)?.toLowerCase();
     const verificationDone = ['done', 'verified', 'complete'].includes(verificationStatus);
+    const verificationFailed = ['fail', 'failed', 'not_met'].includes(verificationStatus);
     const verificationAttempted = Boolean(state?.verification?.iteration);
-    // Only try verification once - if it fails, that's OK, tasks are still complete
+    const verificationAttemptCount = toNumber(state?.verification?.attempt_count, 0);
+    const maxVerificationAttempts = 2;
+    // Require verification to PASS before stopping.  If verification was attempted
+    // but failed, re-run the agent to fix the gaps — up to maxVerificationAttempts.
+    // This prevents premature stop when the verifier identifies unmet criteria.
     const needsVerification = allComplete && !verificationDone && !verificationAttempted;
+    const needsVerificationRetry = allComplete && verificationFailed
+      && verificationAttemptCount < maxVerificationAttempts;
 
     // Only treat GitHub API conflicts as definitive (mergeable_state === 'dirty')
     // CI-log based conflict detection has too many false positives from commit messages
@@ -2316,10 +2515,8 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
       action = 'stop';
       reason = 'no-checklists';
     } else if (gateNormalized !== 'success') {
-      if (allComplete && completeGateFailureRounds >= completeGateFailureMax) {
-        action = 'stop';
-        reason = 'complete-gate-failure-max';
-      } else if (gateNormalized === 'cancelled') {
+      // Handle cancelled gate first (transient — should not consume fix budget)
+      if (gateNormalized === 'cancelled') {
         if (rateLimitDefer) {
           action = 'defer';
           reason = 'rate-limit-exhausted';
@@ -2346,11 +2543,30 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
             if (core) core.info(`Force retry enabled: bypassing cancelled gate (rate_limit=${gateRateLimit})`);
           } else {
             action = 'wait';
-            reason = 'gate-cancelled';
+            reason = 'gate-cancelled-transient';
           }
         }
+      } else if (allComplete) {
+        // All tasks complete but gate failing — try to fix CI before stopping.
+        // This ensures at least one fix attempt is made before giving up, and
+        // that transient cancelled rounds don't consume the fix budget.
+        const gateFailure = await classifyGateFailure({ github, context, pr, core });
+        if (gateFailure.shouldFixMode && consecutiveFixRounds < fixAttemptMax) {
+          // Fix is possible and we haven't exhausted fix attempts — try to fix
+          action = 'fix';
+          reason = `fix-${gateFailure.failureType}`;
+          if (core) core.info(`All tasks complete, gate failing (${gateFailure.failureType}) — dispatching fix attempt ${consecutiveFixRounds + 1}/${fixAttemptMax}`);
+        } else if (completeGateFailureRounds >= completeGateFailureMax) {
+          // Fix attempts exhausted or non-fixable — stop
+          action = 'stop';
+          reason = 'complete-gate-failure-max';
+        } else {
+          // Non-fixable failure, but haven't hit max rounds yet — wait
+          action = 'wait';
+          reason = 'gate-not-success';
+        }
       } else {
-        // Gate failed - check if failure is rate-limit related vs code quality
+        // Gate failed with tasks remaining
         const gateFailure = await classifyGateFailure({ github, context, pr, core });
         if (gateFailure.shouldFixMode && gateNormalized === 'failure' && consecutiveFixRounds >= fixAttemptMax && tasksRemaining) {
           // Already tried to fix this gate failure type — continue with tasks.
@@ -2376,6 +2592,19 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
       if (needsVerification) {
         action = 'run';
         reason = 'verify-acceptance';
+      } else if (needsVerificationRetry) {
+        // Verifier ran but returned FAIL — re-run agent to address the gaps
+        action = 'run';
+        reason = 'fix-verification-gaps';
+        if (core) core.info(`Verification failed (attempt ${verificationAttemptCount}/${maxVerificationAttempts}) — re-running agent to fix gaps`);
+      } else if (verificationDone) {
+        action = 'stop';
+        reason = 'tasks-complete';
+      } else if (verificationAttemptCount >= maxVerificationAttempts) {
+        // Exhausted verification retries — stop but flag as incomplete verification
+        action = 'stop';
+        reason = 'verification-exhausted';
+        if (core) core.warning(`Verification failed after ${verificationAttemptCount} attempts — stopping with unverified acceptance criteria`);
       } else {
         action = 'stop';
         reason = 'tasks-complete';
@@ -2408,6 +2637,20 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
       reason = iteration >= maxIterations ? 'ready-extended' : 'ready';
     }
 
+    // Scope enforcement: if all tasks appear complete but there are scope
+    // violations, block the tasks-complete stop.  The agent must clean up
+    // out-of-scope changes before the PR can be considered done.
+    if (action === 'stop' && reason === 'tasks-complete' && !scopeCompliance.compliant) {
+      action = 'run';
+      reason = 'scope-violation';
+      if (core) {
+        core.warning(
+          `Blocking tasks-complete stop: ${scopeCompliance.outOfScope.length} file(s) outside declared scope. ` +
+          `Agent must revert or justify out-of-scope changes.`
+        );
+      }
+    }
+
     if (
       rateLimitDefer &&
       ['run', 'fix', 'review', 'conflict'].includes(action) &&
@@ -2429,6 +2672,20 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
     const promptMode = promptModeOverride || promptRoute.mode;
     const promptFile = promptFileOverride || promptRoute.file;
 
+    // For verification steps, prefer a different agent than the one that did
+    // the implementation work.  This avoids the structural problem where the
+    // same model that produced the work also verifies it — a conflict of
+    // interest that led to false PASS verdicts in PR #228.
+    const isVerificationReason = reason === 'verify-acceptance' || reason === 'fix-verification-gaps';
+    let verifierAgentType = agentType;
+    if (isVerificationReason) {
+      const AGENT_ALTERNATES = { codex: 'claude', claude: 'codex' };
+      verifierAgentType = normalise(config.verifier_agent) || AGENT_ALTERNATES[agentType] || agentType;
+      if (verifierAgentType !== agentType && core) {
+        core.info(`Verification step: switching agent from ${agentType} to ${verifierAgentType} for independent verification`);
+      }
+    }
+
     return {
       prNumber,
       prRef: pr.head.ref || '',
@@ -2446,7 +2703,7 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
       checkboxCounts,
       hasAgentLabel,
       hasHighPrivilege,
-      agentType,
+      agentType: isVerificationReason ? verifierAgentType : agentType,
       agentRoutingMode,
       delegationReason,
       delegationShouldSwitch,
@@ -2463,6 +2720,8 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
       roundsWithoutTaskCompletion,
       // Rate limit status for monitoring
       rateLimitStatus,
+      // Scope compliance for mechanical enforcement
+      scopeCompliance,
     };
   } catch (error) {
     const rateLimitMessage = [error?.message, error?.response?.data?.message]
@@ -2872,19 +3131,31 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
         inputs.completeGateFailureRoundsMax ??
           inputs.complete_gate_failure_rounds_max ??
           previousState?.complete_gate_failure_rounds_max,
-        2,
+        3,
       ),
     );
+    // Increment the complete-gate-failure counter whenever the gate has
+    // *actually* failed (conclusion === 'failure'), regardless of the chosen
+    // action.  Transient non-failure states (cancelled, pending) preserve the
+    // counter without incrementing, so infrastructure noise doesn't reset
+    // progress toward the stop threshold but also doesn't advance it.
+    const isAgentExecution = AGENT_EXECUTION_ACTIONS.has(action);
+    const gateActuallyFailed = gateConclusion === 'failure';
     const completeGateFailureRounds =
-      allTasksComplete && gateConclusion && gateConclusion !== 'success'
+      allTasksComplete && gateActuallyFailed
         ? previousCompleteGateFailureRounds + 1
-        : 0;
-    // Track consecutive fix rounds: increment when action is 'fix', reset otherwise.
-    // evaluateKeepaliveLoop reads this to bypass gate failures after N fix attempts.
+        : allTasksComplete && gateConclusion && gateConclusion !== 'success'
+          ? previousCompleteGateFailureRounds // preserve count for non-success, don't increment
+          : 0;
+    // Track consecutive fix rounds: increment when action is 'fix', reset only
+    // on non-wait actions.  Wait/skip/defer are transient and should not reset
+    // the fix counter — the previous fix attempt is still the most recent work.
     const previousFixRounds = toNumber(previousState?.consecutive_fix_rounds, 0);
     const consecutiveFixRounds = action === 'fix'
       ? previousFixRounds + 1
-      : 0;
+      : isAgentExecution
+        ? 0  // Reset on non-fix agent execution (run/conflict)
+        : previousFixRounds;  // Preserve on wait/skip/stop/defer
 
     // When force_retry was active (user added agent:retry), reset the zero-activity
     // counter so the agent gets a clean slate — same intent as the evaluate-step reset.
@@ -3955,16 +4226,25 @@ async function analyzeTaskCompletion({ github: rawGithub, context, prNumber, bas
       }
     }
 
-    // Check for specific file mentions (partial match)
+    // Check for specific file mentions — require task-specific references, not
+    // just any shared keyword appearing somewhere in a file path.  The previous
+    // loose check (any task word in any file path) caused false positives like
+    // a task mentioning "test" matching any file under tests/.
     const fileMatch = filesChanged.some(f => {
       const fLower = f.toLowerCase();
-      return taskWords.some(w => fLower.includes(w));
+      // Require at least 2 distinct task keywords in the file path,
+      // or an explicit file reference from the task text.
+      const pathMatchCount = taskWords.filter(w => w.length > 3 && fLower.includes(w)).length;
+      const hasExplicitRef = cleanFileRefs.some(ref => fLower.includes(ref));
+      return hasExplicitRef || pathMatchCount >= 2;
     });
 
-    // Check for specific commit message matches
+    // Check for specific commit message matches — require a meaningful
+    // substring (multiple words or a long keyword), not a single short word.
     const commitMatch = commits.some(c => {
       const msg = c.commit.message.toLowerCase();
-      return taskWords.some(w => w.length > 4 && msg.includes(w));
+      const substantiveMatches = taskWords.filter(w => w.length > 4 && msg.includes(w));
+      return substantiveMatches.length >= 2;
     });
 
     let confidence = 'low';
@@ -4006,19 +4286,20 @@ async function analyzeTaskCompletion({ github: rawGithub, context, prNumber, bas
       confidence = 'high';
       reason = 'Test file created matching module reference';
       matches.push({ task, reason, confidence });
-    } else if (score >= 0.35 && (fileMatch || commitMatch)) {
-      // Lowered threshold from 0.5 to 0.35 to catch more legitimate completions
+    } else if (score >= 0.50 && matchingWords.length >= 2 && (fileMatch || commitMatch)) {
+      // Require >=50% keyword overlap AND at least 2 matching words to avoid
+      // single-word false positives.  Previous threshold of 0.35 was too loose.
       confidence = 'high';
-      reason = `${Math.round(score * 100)}% keyword match, ${fileMatch ? 'file match' : 'commit match'}`;
+      reason = `${Math.round(score * 100)}% keyword match (${matchingWords.length} words), ${fileMatch ? 'file match' : 'commit match'}`;
       matches.push({ task, reason, confidence });
-    } else if (score >= 0.25 && fileMatch) {
-      // File match with moderate keyword overlap is high confidence
+    } else if (score >= 0.40 && matchingWords.length >= 2 && fileMatch) {
+      // File match with substantial keyword overlap (raised from 0.25)
       confidence = 'high';
-      reason = `${Math.round(score * 100)}% keyword match with file match`;
+      reason = `${Math.round(score * 100)}% keyword match (${matchingWords.length} words) with file match`;
       matches.push({ task, reason, confidence });
-    } else if (score >= 0.2 || fileMatch) {
+    } else if (score >= 0.3 && matchingWords.length >= 2) {
       confidence = 'medium';
-      reason = `${Math.round(score * 100)}% keyword match${fileMatch ? ', file touched' : ''}`;
+      reason = `${Math.round(score * 100)}% keyword match (${matchingWords.length} words)${fileMatch ? ', file touched' : ''}`;
       matches.push({ task, reason, confidence });
     }
   }
@@ -4080,10 +4361,14 @@ async function autoReconcileTasks({ github: rawGithub, context, prNumber, baseSh
   }
 
   const sections = parseScopeTasksAcceptanceSections(pr.body || '');
-  const taskText = [sections.tasks, sections.acceptance].filter(Boolean).join('\n');
+  // Only auto-reconcile TASK checkboxes, never acceptance criteria.
+  // Acceptance criteria must be independently verified — auto-checking them
+  // was a key failure mode in PR #228 where criteria were marked met without
+  // actual verification.
+  const taskText = sections.tasks || '';
 
   if (!taskText) {
-    log('Skipping reconciliation: no tasks found in PR body.');
+    log('Skipping reconciliation: no tasks found in PR body (acceptance criteria excluded from auto-reconciliation).');
     return { updated: false, tasksChecked: 0, details: 'No tasks found in PR body', sources };
   }
 
@@ -4231,4 +4516,8 @@ module.exports = {
   appendWorkLogEntry,
   formatWorkLogEntry,
   WORK_LOG_MARKER,
+  // Scope enforcement exports (for testing and reuse)
+  extractScopePatterns,
+  fileMatchesScopePattern,
+  validateScopeCompliance,
 };

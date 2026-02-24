@@ -490,7 +490,7 @@ test('evaluateKeepaliveLoop treats cancelled gate as transient wait', async () =
     core: buildCore(),
   });
   assert.equal(result.action, 'wait');
-  assert.equal(result.reason, 'gate-cancelled');
+  assert.equal(result.reason, 'gate-cancelled-transient');
 });
 
 test('evaluateKeepaliveLoop bypasses rate limit cancelled gate', async () => {

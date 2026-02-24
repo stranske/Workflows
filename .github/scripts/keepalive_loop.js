@@ -2368,9 +2368,12 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
     const maxIterations = toNumber(config.max_iterations ?? state.max_iterations, 5);
     const failureThreshold = toNumber(config.failure_threshold ?? state.failure_threshold, 3);
     const progressReviewThreshold = toNumber(config.progress_review_threshold ?? state.progress_review_threshold, 4);
+    // Default 3 rounds allows 2 fix attempts before stopping (round 1 = fix,
+    // round 2 = fix retry, round 3 = stop).  Previous default of 2 only
+    // allowed 1 fix attempt, which was insufficient for multi-issue lint failures.
     const completeGateFailureMax = Math.max(
       1,
-      toNumber(config.complete_gate_failure_rounds ?? state.complete_gate_failure_rounds_max, 2),
+      toNumber(config.complete_gate_failure_rounds ?? state.complete_gate_failure_rounds_max, 3),
     );
 
     // Evidence-based productivity tracking
@@ -2415,9 +2418,14 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
     const shouldStopForZeroActivity = persistedConsecutiveZeroActivityRounds >= zeroActivityThreshold;
 
     const prevCompleteGateFailureRounds = toNumber(state.complete_gate_failure_rounds, 0);
-    const completeGateFailureRounds = allComplete && gateNormalized !== 'success'
+    // Only increment the complete-gate-failure counter when gate actually failed
+    // (not when cancelled/pending, which are transient states that shouldn't
+    // consume the fix budget).
+    const completeGateFailureRounds = allComplete && gateNormalized === 'failure'
       ? prevCompleteGateFailureRounds + 1
-      : 0;
+      : allComplete && gateNormalized !== 'success'
+        ? prevCompleteGateFailureRounds // preserve count but don't increment for transient states
+        : 0;
 
     // Track consecutive fix attempts.  After fixAttemptMax rounds of trying
     // to fix the same gate failure, bypass the gate and continue with tasks.
@@ -2507,10 +2515,8 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
       action = 'stop';
       reason = 'no-checklists';
     } else if (gateNormalized !== 'success') {
-      if (allComplete && completeGateFailureRounds >= completeGateFailureMax) {
-        action = 'stop';
-        reason = 'complete-gate-failure-max';
-      } else if (gateNormalized === 'cancelled') {
+      // Handle cancelled gate first (transient — should not consume fix budget)
+      if (gateNormalized === 'cancelled') {
         if (rateLimitDefer) {
           action = 'defer';
           reason = 'rate-limit-exhausted';
@@ -2537,11 +2543,30 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
             if (core) core.info(`Force retry enabled: bypassing cancelled gate (rate_limit=${gateRateLimit})`);
           } else {
             action = 'wait';
-            reason = 'gate-cancelled';
+            reason = 'gate-cancelled-transient';
           }
         }
+      } else if (allComplete) {
+        // All tasks complete but gate failing — try to fix CI before stopping.
+        // This ensures at least one fix attempt is made before giving up, and
+        // that transient cancelled rounds don't consume the fix budget.
+        const gateFailure = await classifyGateFailure({ github, context, pr, core });
+        if (gateFailure.shouldFixMode && consecutiveFixRounds < fixAttemptMax) {
+          // Fix is possible and we haven't exhausted fix attempts — try to fix
+          action = 'fix';
+          reason = `fix-${gateFailure.failureType}`;
+          if (core) core.info(`All tasks complete, gate failing (${gateFailure.failureType}) — dispatching fix attempt ${consecutiveFixRounds + 1}/${fixAttemptMax}`);
+        } else if (completeGateFailureRounds >= completeGateFailureMax) {
+          // Fix attempts exhausted or non-fixable — stop
+          action = 'stop';
+          reason = 'complete-gate-failure-max';
+        } else {
+          // Non-fixable failure, but haven't hit max rounds yet — wait
+          action = 'wait';
+          reason = 'gate-not-success';
+        }
       } else {
-        // Gate failed - check if failure is rate-limit related vs code quality
+        // Gate failed with tasks remaining
         const gateFailure = await classifyGateFailure({ github, context, pr, core });
         if (gateFailure.shouldFixMode && gateNormalized === 'failure' && consecutiveFixRounds >= fixAttemptMax && tasksRemaining) {
           // Already tried to fix this gate failure type — continue with tasks.
@@ -3106,19 +3131,31 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
         inputs.completeGateFailureRoundsMax ??
           inputs.complete_gate_failure_rounds_max ??
           previousState?.complete_gate_failure_rounds_max,
-        2,
+        3,
       ),
     );
+    // Increment the complete-gate-failure counter whenever the gate has
+    // *actually* failed (conclusion === 'failure'), regardless of the chosen
+    // action.  Transient non-failure states (cancelled, pending) preserve the
+    // counter without incrementing, so infrastructure noise doesn't reset
+    // progress toward the stop threshold but also doesn't advance it.
+    const isAgentExecution = AGENT_EXECUTION_ACTIONS.has(action);
+    const gateActuallyFailed = gateConclusion === 'failure';
     const completeGateFailureRounds =
-      allTasksComplete && gateConclusion && gateConclusion !== 'success'
+      allTasksComplete && gateActuallyFailed
         ? previousCompleteGateFailureRounds + 1
-        : 0;
-    // Track consecutive fix rounds: increment when action is 'fix', reset otherwise.
-    // evaluateKeepaliveLoop reads this to bypass gate failures after N fix attempts.
+        : allTasksComplete && gateConclusion && gateConclusion !== 'success'
+          ? previousCompleteGateFailureRounds // preserve count for non-success, don't increment
+          : 0;
+    // Track consecutive fix rounds: increment when action is 'fix', reset only
+    // on non-wait actions.  Wait/skip/defer are transient and should not reset
+    // the fix counter — the previous fix attempt is still the most recent work.
     const previousFixRounds = toNumber(previousState?.consecutive_fix_rounds, 0);
     const consecutiveFixRounds = action === 'fix'
       ? previousFixRounds + 1
-      : 0;
+      : isAgentExecution
+        ? 0  // Reset on non-fix agent execution (run/conflict)
+        : previousFixRounds;  // Preserve on wait/skip/stop/defer
 
     // When force_retry was active (user added agent:retry), reset the zero-activity
     // counter so the agent gets a clean slate — same intent as the evaluate-step reset.
