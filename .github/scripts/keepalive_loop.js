@@ -287,7 +287,7 @@ function formatWorkLogEntry({
   const gate = gateConclusion || '—';
   const result = runResult || '—';
   const retryFlag = forceRetry ? ' **retry**' : '';
-  return `| ${iterLabel} | ${ts} | ${agent} | ${actionLabel}${retryFlag} | ${result} | ${files} | ${tasks} | ${tasksComplete}/${tasksTotal || '?'} | ${commitLink} | ${gate} |`;
+  return `| ${iterLabel} | ${ts} | ${agent} | ${actionLabel}${retryFlag} | ${result} | ${files} | ${tasks} | ${tasksComplete}/${tasksTotal ?? '?'} | ${commitLink} | ${gate} |`;
 }
 
 // Maximum number of rows in the work-log table before the oldest entries are
@@ -2726,7 +2726,7 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
       const prevRounds = toNumber(previousState?.rounds_without_task_completion, 0);
       const recalculated = liveTasksCompletedSinceLastRound > 0
         ? 0
-        : prevRounds + (iteration > 0 ? 1 : 0);
+        : prevRounds + (toNumber(previousState?.iteration ?? iteration, 0) > 0 ? 1 : 0);
       if (recalculated !== roundsWithoutTaskCompletion) {
         core?.info?.(
           `[summary] Recalculated rounds_without_task_completion from live counts: ` +
