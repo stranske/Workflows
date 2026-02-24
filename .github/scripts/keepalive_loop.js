@@ -860,7 +860,6 @@ function countCheckboxes(markdown) {
 // must be independently verified, not auto-checked by parent cascade.
 const ACCEPTANCE_HEADING_PATTERNS = [
   /acceptance\s*criteria/i,
-  /^acceptance$/i,
   /definition\s*of\s*done/i,
   /done\s*criteria/i,
 ];
