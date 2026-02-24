@@ -2900,14 +2900,15 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
         3,
       ),
     );
-    // Only count agent-execution rounds (fix/run/conflict) toward the
-    // complete-gate-failure budget.  Transient wait/skip/stop/defer rounds
-    // should not consume the budget — they represent infrastructure noise
-    // (e.g., gate cancelled, rate limits) rather than failed fix attempts.
+    // Increment the complete-gate-failure counter whenever the gate has
+    // *actually* failed (conclusion === 'failure'), regardless of the chosen
+    // action.  Transient non-failure states (cancelled, pending) preserve the
+    // counter without incrementing, so infrastructure noise doesn't reset
+    // progress toward the stop threshold but also doesn't advance it.
     const isAgentExecution = AGENT_EXECUTION_ACTIONS.has(action);
     const gateActuallyFailed = gateConclusion === 'failure';
     const completeGateFailureRounds =
-      allTasksComplete && gateActuallyFailed && isAgentExecution
+      allTasksComplete && gateActuallyFailed
         ? previousCompleteGateFailureRounds + 1
         : allTasksComplete && gateConclusion && gateConclusion !== 'success'
           ? previousCompleteGateFailureRounds // preserve count for non-success, don't increment

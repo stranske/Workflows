@@ -122,7 +122,7 @@ test('counter: fix action DOES increment complete_gate_failure_rounds when gate 
     'fix action with gate failure should increment counter');
 });
 
-test('counter: stop action does NOT increment complete_gate_failure_rounds', async () => {
+test('counter: stop action with gate failure still increments (workflow stopping anyway)', async () => {
   const { github, getCapturedBody } = buildGithub({
     complete_gate_failure_rounds: 2,
     tasks: { total: 5, unchecked: 0 },
@@ -148,8 +148,10 @@ test('counter: stop action does NOT increment complete_gate_failure_rounds', asy
 
   const state = extractState(getCapturedBody());
   assert.ok(state, 'State should be written');
-  assert.equal(state.complete_gate_failure_rounds, 2,
-    'stop action should preserve counter without incrementing');
+  // Counter increments whenever gate actually failed, regardless of action.
+  // The stop action is the final round so the incremented value is harmless.
+  assert.equal(state.complete_gate_failure_rounds, 3,
+    'stop action with gate failure should increment counter');
 });
 
 test('counter: resets to 0 when gate succeeds', async () => {
@@ -211,6 +213,39 @@ test('counter: cancelled gate with all tasks complete preserves but does not inc
   assert.ok(state, 'State should be written');
   assert.equal(state.complete_gate_failure_rounds, 1,
     'cancelled gate should preserve counter (not increment)');
+});
+
+test('counter: wait action with gate *failure* DOES increment (non-fixable scenario)', async () => {
+  // This is the key bug-fix scenario: when shouldFixMode=false, evaluate
+  // chooses 'wait', but the counter must still advance toward the stop
+  // threshold so the PR doesn't loop forever in gate-not-success.
+  const { github, getCapturedBody } = buildGithub({
+    complete_gate_failure_rounds: 1,
+    tasks: { total: 5, unchecked: 0 },
+  });
+
+  await updateKeepaliveLoopSummary({
+    github, context, core,
+    inputs: {
+      prNumber: 100,
+      action: 'wait',
+      reason: 'gate-not-success',
+      gateConclusion: 'failure',
+      tasksTotal: 5,
+      tasksUnchecked: 0,
+      keepaliveEnabled: true,
+      autofixEnabled: false,
+      iteration: 2,
+      maxIterations: 5,
+      failureThreshold: 3,
+      trace: 'test-trace',
+    },
+  });
+
+  const state = extractState(getCapturedBody());
+  assert.ok(state, 'State should be written');
+  assert.equal(state.complete_gate_failure_rounds, 2,
+    'wait action with gate failure should increment counter to prevent infinite loop');
 });
 
 // ─── consecutive_fix_rounds: preserved across wait/stop actions ──────────────
