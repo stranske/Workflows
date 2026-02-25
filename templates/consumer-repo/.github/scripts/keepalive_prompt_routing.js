@@ -68,11 +68,11 @@ function resolvePromptMode({ scenario, mode, action, reason } = {}) {
   if (actionValue === 'conflict' || reasonValue.startsWith('conflict') || reasonValue.includes('merge-conflict')) {
     return 'conflict';
   }
+  if (actionValue === 'verify' || reasonValue === 'verify-acceptance' || reasonValue === 'fix-verification-gaps') {
+    return 'verify';
+  }
   if (actionValue === 'fix' || reasonValue.startsWith('fix-')) {
     return 'fix_ci';
-  }
-  if (actionValue === 'verify' || reasonValue === 'verify-acceptance') {
-    return 'verify';
   }
 
   const scenarioValue = normalise(scenario);
