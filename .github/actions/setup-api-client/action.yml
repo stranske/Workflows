@@ -252,7 +252,7 @@ runs:
             lru-cache@10.4.3
           )
           NPM_MAX_RETRIES=3
-          NPM_BACKOFF=5  # seconds; doubles each retry (5, 10, 20)
+          NPM_BACKOFF=5  # seconds; doubles each retry (5, 10)
           npm_installed=false
 
           for (( attempt=1; attempt<=NPM_MAX_RETRIES; attempt++ )); do
@@ -277,7 +277,9 @@ runs:
                 npm_installed=true
                 break
               fi
+              npm_err_legacy=$(cat "$npm_output")
               rm -f "$npm_output"
+              echo "::warning::npm install with --legacy-peer-deps failed: $npm_err_legacy"
             fi
 
             if [ "$attempt" -lt "$NPM_MAX_RETRIES" ]; then
