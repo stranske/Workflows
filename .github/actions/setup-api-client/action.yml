@@ -266,7 +266,10 @@ runs:
 
             npm_err=$(cat "$npm_output")
             rm -f "$npm_output"
-            echo "::warning::npm install attempt $attempt/$NPM_MAX_RETRIES failed: $npm_err"
+            echo "::warning::npm install attempt $attempt/$NPM_MAX_RETRIES failed (see logs)"
+            echo "::group::npm stderr (attempt $attempt)"
+            echo "$npm_err"
+            echo "::endgroup::"
 
             # On first failure, also try --legacy-peer-deps in case it's a peer dep conflict
             if [ "$attempt" -eq 1 ]; then
@@ -279,7 +282,10 @@ runs:
               fi
               npm_err_legacy=$(cat "$npm_output")
               rm -f "$npm_output"
-              echo "::warning::npm install with --legacy-peer-deps failed: $npm_err_legacy"
+              echo "::warning::npm install with --legacy-peer-deps failed (see logs)"
+              echo "::group::npm stderr (--legacy-peer-deps)"
+              echo "$npm_err_legacy"
+              echo "::endgroup::"
             fi
 
             if [ "$attempt" -lt "$NPM_MAX_RETRIES" ]; then
