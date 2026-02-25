@@ -153,7 +153,7 @@ async function fetchWorkflowRun({
     const category = getErrorCategory(error);
     // 404 errors are expected for workflows that don't exist in consumer repos
     // Use info level instead of warning to reduce noise
-    const isNotFound = category === ERROR_CATEGORIES.RESOURCE || error.status === 404;
+    const isNotFound = category === ERROR_CATEGORIES.resource || error.status === 404;
     const logFn = isNotFound ? core?.info?.bind(core) : core?.warning?.bind(core);
     logFn?.(
       `Failed to fetch workflow runs for ${workflowId}: ${error.message}; category=${category}`
@@ -189,7 +189,7 @@ async function fetchWorkflowJobs({
     return { jobs, error: null };
   } catch (error) {
     const category = getErrorCategory(error);
-    const isNotFound = category === ERROR_CATEGORIES.RESOURCE || error.status === 404;
+    const isNotFound = category === ERROR_CATEGORIES.resource || error.status === 404;
     const logFn = isNotFound ? core?.info?.bind(core) : core?.warning?.bind(core);
     logFn?.(`Failed to fetch workflow jobs for ${runId}: ${error.message}; category=${category}`);
     return { jobs: [], error: { category, message: error.message } };
