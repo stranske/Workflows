@@ -188,6 +188,7 @@ jobs:
       error-type: ${{ steps.classify_failure.outputs.error_type }}
       error-recovery: ${{ steps.classify_failure.outputs.error_recovery }}
       error-summary: ${{ steps.classify_failure.outputs.error_summary }}
+      watchdog-saved: ${{ steps.run_codex.outputs.watchdog-saved }}
       # LLM analysis outputs
       llm-analysis-run: ${{ steps.llm_analysis.outputs.llm-analysis-run }}
       llm-completed-tasks: ${{ steps.llm_analysis.outputs.completed-tasks }}
@@ -938,6 +939,47 @@ jobs:
             echo "Extra args: provided (${#EXTRA_ARGS[@]} arg(s))"
           fi
 
+          # --- Pre-timeout watchdog ---
+          # When the job approaches the timeout limit, this background process
+          # commits and pushes any uncommitted work so it isn't lost to the
+          # job cancellation.  It fires once, 5 minutes before max_runtime.
+          MAX_RUNTIME_MIN=${{ inputs.max_runtime_minutes }}
+          GRACE_MIN=5
+          WATCHDOG_DELAY=$(( (MAX_RUNTIME_MIN - GRACE_MIN) * 60 ))
+          if [ "$WATCHDOG_DELAY" -gt 60 ]; then
+            (
+              sleep "$WATCHDOG_DELAY"
+              echo "::warning::Pre-timeout watchdog fired (${GRACE_MIN}m before ${MAX_RUNTIME_MIN}m limit)"
+
+              CHANGED=$(git status --porcelain | wc -l)
+              UNPUSHED=0
+              if git rev-parse FETCH_HEAD >/dev/null 2>&1; then
+                UNPUSHED=$(git rev-list FETCH_HEAD..HEAD --count 2>/dev/null || echo 0)
+              fi
+
+              if [ "$CHANGED" -gt 0 ] || [ "$UNPUSHED" -gt 0 ]; then
+                echo "::notice::Watchdog saving ${CHANGED} uncommitted file(s) and ${UNPUSHED} unpushed commit(s)"
+                git config user.name  "github-actions[bot]"
+                git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+                if [ "$CHANGED" -gt 0 ]; then
+                  git add -A
+                  git commit -m "chore(codex-keepalive): pre-timeout checkpoint (PR #${PR_NUM:-})" --no-verify || true
+                fi
+                TARGET_BRANCH="${{ inputs.pr_ref }}"
+                TARGET_BRANCH="${TARGET_BRANCH#refs/heads/}"
+                PUSH_TOKEN="${{ steps.auth_token.outputs.push_token }}"
+                REMOTE_URL="https://x-access-token:${PUSH_TOKEN}@github.com/${{ github.repository }}"
+                git push "${REMOTE_URL}" "HEAD:${TARGET_BRANCH}" || \
+                  echo "::warning::Watchdog push failed"
+                echo "watchdog-saved=true" >> "$GITHUB_OUTPUT"
+              else
+                echo "::notice::Watchdog: no uncommitted or unpushed work to save"
+              fi
+            ) &
+            WATCHDOG_PID=$!
+            echo "::notice::Pre-timeout watchdog started (PID ${WATCHDOG_PID}, fires in $((WATCHDOG_DELAY/60))m)"
+          fi
+
           # Run codex exec with --json to capture rich session data
           # JSONL events stream to stdout, final message still goes to OUTPUT_FILE
           CODEX_EXIT=0
@@ -953,6 +995,12 @@ jobs:
           fi
           prompt_content="$(cat "$PROMPT_FILE")"
           "${cmd[@]}" "$prompt_content" > "$SESSION_JSONL" 2>&1 || CODEX_EXIT=$?
+
+          # Kill watchdog if Codex finished before the timer fired
+          if [ -n "${WATCHDOG_PID:-}" ]; then
+            kill "$WATCHDOG_PID" 2>/dev/null || true
+            wait "$WATCHDOG_PID" 2>/dev/null || true
+          fi
 
           echo "exit-code=${CODEX_EXIT}" >> "$GITHUB_OUTPUT"
 
@@ -1008,17 +1056,29 @@ jobs:
 
           # Basic parsing (always available)
           python3 << 'PYEOF'
+          import importlib.util
           import os
           import sys
-          # Add .workflows-lib to path for tools imports
-          sys.path.insert(0, '.workflows-lib')
-          sys.path.insert(0, '.')
 
           session_file = os.environ.get("SESSION_JSONL", "codex-session.jsonl")
           github_output = os.environ.get("GITHUB_OUTPUT", "/dev/null")
 
           try:
-              from tools.codex_jsonl_parser import parse_codex_jsonl_file
+              # Load codex_jsonl_parser from the Workflows checkout by exact path.
+              # Consumer repos (e.g. Counter_Risk) have their own tools/ package with
+              # __init__.py, which shadows the Workflows tools/ on sys.path.  Using
+              # importlib.util.spec_from_file_location bypasses sys.path entirely.
+              _parser_path = os.path.join(
+                  ".workflows-lib", "tools", "codex_jsonl_parser.py"
+              )
+              _spec = importlib.util.spec_from_file_location(
+                  "codex_jsonl_parser", _parser_path
+              )
+              if _spec is None or _spec.loader is None:
+                  raise ImportError(f"Cannot load spec from {_parser_path}")
+              _mod = importlib.util.module_from_spec(_spec)
+              _spec.loader.exec_module(_mod)
+              parse_codex_jsonl_file = _mod.parse_codex_jsonl_file
 
               session = parse_codex_jsonl_file(session_file)
 
@@ -1150,6 +1210,7 @@ jobs:
 
       - name: Commit and push changes
         id: commit
+        if: always()
         env:
           MODE: ${{ inputs.mode }}
           PR_NUMBER: ${{ inputs.pr_number }}
