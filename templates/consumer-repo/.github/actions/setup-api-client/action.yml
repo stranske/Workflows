@@ -239,29 +239,65 @@ runs:
 
           # Install with pinned versions for consistency.
           # lru-cache is an explicit transitive dep of @octokit/auth-app required for
-          # GitHub App token minting; pin it here so npm always hoists it to the top
-          # level even if a prior cached node_modules state is missing it.
-          # Capture stderr for debugging if the command fails
-          npm_output=$(mktemp)
-          npm_cmd=(npm install --no-save --location=project \
-            @octokit/rest@20.0.2 \
-            @octokit/plugin-retry@6.0.1 \
-            @octokit/plugin-paginate-rest@9.1.5 \
-            @octokit/auth-app@6.0.3 \
-            lru-cache@^10.0.0)
-          if "${npm_cmd[@]}" 2>"$npm_output"; then
+          # GitHub App token minting; pin it here so npm always hoists a specific version
+          # even if a prior cached node_modules state is missing it.
+          #
+          # Retry with exponential backoff to survive transient npm registry errors
+          # (e.g. 403 Forbidden from CDN/rate-limit on safe-buffer, undici, etc.).
+          NPM_PACKAGES=(
+            @octokit/rest@20.0.2
+            @octokit/plugin-retry@6.0.1
+            @octokit/plugin-paginate-rest@9.1.5
+            @octokit/auth-app@6.0.3
+            lru-cache@10.4.3
+          )
+          NPM_MAX_RETRIES=3
+          NPM_BACKOFF=5  # seconds; doubles each retry (5, 10)
+          npm_installed=false
+
+          for (( attempt=1; attempt<=NPM_MAX_RETRIES; attempt++ )); do
+            npm_output=$(mktemp)
+
+            if npm install --no-save --location=project "${NPM_PACKAGES[@]}" 2>"$npm_output"; then
+              rm -f "$npm_output"
+              npm_installed=true
+              break
+            fi
+
+            npm_err=$(cat "$npm_output")
             rm -f "$npm_output"
-          else
-            echo "::warning::npm install failed with: $(cat "$npm_output")"
-            echo "::warning::Retrying with --legacy-peer-deps"
-            rm -f "$npm_output"
-            npm_cmd=(npm install --no-save --legacy-peer-deps --location=project \
-              @octokit/rest@20.0.2 \
-              @octokit/plugin-retry@6.0.1 \
-              @octokit/plugin-paginate-rest@9.1.5 \
-              @octokit/auth-app@6.0.3 \
-              lru-cache@^10.0.0)
-            "${npm_cmd[@]}"
+            echo "::warning::npm install attempt $attempt/$NPM_MAX_RETRIES failed (see logs)"
+            echo "::group::npm stderr (attempt $attempt)"
+            echo "$npm_err"
+            echo "::endgroup::"
+
+            # On first failure, also try --legacy-peer-deps in case it's a peer dep conflict
+            if [ "$attempt" -eq 1 ]; then
+              echo "::warning::Retrying with --legacy-peer-deps"
+              npm_output=$(mktemp)
+              if npm install --no-save --legacy-peer-deps --location=project "${NPM_PACKAGES[@]}" 2>"$npm_output"; then
+                rm -f "$npm_output"
+                npm_installed=true
+                break
+              fi
+              npm_err_legacy=$(cat "$npm_output")
+              rm -f "$npm_output"
+              echo "::warning::npm install with --legacy-peer-deps failed (see logs)"
+              echo "::group::npm stderr (--legacy-peer-deps)"
+              echo "$npm_err_legacy"
+              echo "::endgroup::"
+            fi
+
+            if [ "$attempt" -lt "$NPM_MAX_RETRIES" ]; then
+              echo "::notice::Waiting ${NPM_BACKOFF}s before retry..."
+              sleep "$NPM_BACKOFF"
+              NPM_BACKOFF=$((NPM_BACKOFF * 2))
+            fi
+          done
+
+          if [ "$npm_installed" != "true" ]; then
+            echo "::error::npm install failed after $NPM_MAX_RETRIES attempts"
+            exit 1
           fi
 
           # Restore vendored package metadata that npm may have overwritten
