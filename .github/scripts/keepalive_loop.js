@@ -3582,7 +3582,7 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
       : {};
     if (tasksUnchecked > 0) {
       verification = {};
-    } else if (reason === 'verify-acceptance' || reason === 'fix-verification-gaps') {
+    } else if (reason === 'verify-acceptance') {
       const previousAttemptCount = toNumber(verification?.attempt_count, 0);
       verification = {
         status: runResult === 'success' ? 'done' : 'failed',
@@ -3591,6 +3591,26 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
         last_result: runResult || '',
         updated_at: new Date().toISOString(),
       };
+    } else if (reason === 'fix-verification-gaps') {
+      const previousAttemptCount = toNumber(verification?.attempt_count, 0);
+      if (runResult === 'success') {
+        // A successful fix run doesn't prove acceptance criteria are met.
+        // Clear verification state (except attempt_count) so that
+        // needsVerification triggers a fresh verifier pass next iteration.
+        verification = {
+          attempt_count: previousAttemptCount + 1,
+        };
+      } else {
+        // Fix failed — keep as failed so needsVerificationRetry can
+        // decide whether to retry or exhaust.
+        verification = {
+          status: 'failed',
+          iteration: nextIteration,
+          attempt_count: previousAttemptCount + 1,
+          last_result: runResult || '',
+          updated_at: new Date().toISOString(),
+        };
+      }
     }
 
     const newState = {
