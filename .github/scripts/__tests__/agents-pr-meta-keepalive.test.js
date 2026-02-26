@@ -3,7 +3,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { detectKeepalive } = require('../agents_pr_meta_keepalive.js');
+const { detectKeepalive, extractIssueNumberFromPull } = require('../agents_pr_meta_keepalive.js');
 
 function createCore(outputs) {
   return {
@@ -542,4 +542,65 @@ test('detectKeepalive does not cache empty pull responses', async () => {
   assert.equal(getCalls, 2);
   assert.equal(outputsFirst.reason, 'pull-fetch-failed');
   assert.equal(outputsSecond.reason, 'pull-fetch-failed');
+});
+
+// --- extractIssueNumberFromPull tests ---
+
+test('extractIssueNumberFromPull returns null for null input', () => {
+  assert.equal(extractIssueNumberFromPull(null), null);
+});
+
+test('extractIssueNumberFromPull extracts from meta comment', () => {
+  const pull = { body: 'Some text <!-- meta:issue:42 --> more text', head: { ref: 'feature' }, title: 'stuff' };
+  assert.equal(extractIssueNumberFromPull(pull), 42);
+});
+
+test('extractIssueNumberFromPull extracts from branch name', () => {
+  const pull = { body: '', head: { ref: 'codex/issue-99' }, title: 'stuff' };
+  assert.equal(extractIssueNumberFromPull(pull), 99);
+});
+
+test('extractIssueNumberFromPull extracts from title', () => {
+  const pull = { body: '', head: { ref: 'feature' }, title: 'fix: resolve #55' };
+  assert.equal(extractIssueNumberFromPull(pull), 55);
+});
+
+test('extractIssueNumberFromPull extracts from body hash ref', () => {
+  const pull = { body: 'Fixes #123', head: { ref: 'feature' }, title: 'stuff' };
+  assert.equal(extractIssueNumberFromPull(pull), 123);
+});
+
+test('extractIssueNumberFromPull skips "Run #NNN" in body', () => {
+  const pull = { body: 'Run #2615 timed out after 45 minutes', head: { ref: 'claude/fix-something' }, title: 'fix: pre-timeout watchdog' };
+  assert.equal(extractIssueNumberFromPull(pull), null);
+});
+
+test('extractIssueNumberFromPull skips "run #NNN" case-insensitive', () => {
+  const pull = { body: 'The run #500 failed', head: { ref: 'feature' }, title: 'stuff' };
+  assert.equal(extractIssueNumberFromPull(pull), null);
+});
+
+test('extractIssueNumberFromPull skips "attempt #N" in body', () => {
+  const pull = { body: 'attempt #3 was successful', head: { ref: 'feature' }, title: 'stuff' };
+  assert.equal(extractIssueNumberFromPull(pull), null);
+});
+
+test('extractIssueNumberFromPull skips "step #N" in body', () => {
+  const pull = { body: 'step #2 completed', head: { ref: 'feature' }, title: 'stuff' };
+  assert.equal(extractIssueNumberFromPull(pull), null);
+});
+
+test('extractIssueNumberFromPull skips "version #N" in body', () => {
+  const pull = { body: 'Upgraded to version #4', head: { ref: 'feature' }, title: 'stuff' };
+  assert.equal(extractIssueNumberFromPull(pull), null);
+});
+
+test('extractIssueNumberFromPull prefers meta comment over "Run #NNN"', () => {
+  const pull = { body: '<!-- meta:issue:77 --> Run #2615 timed out', head: { ref: 'feature' }, title: 'stuff' };
+  assert.equal(extractIssueNumberFromPull(pull), 77);
+});
+
+test('extractIssueNumberFromPull finds real issue after skipping Run ref', () => {
+  const pull = { body: 'Run #2615 timed out. Relates to #88', head: { ref: 'feature' }, title: 'stuff' };
+  assert.equal(extractIssueNumberFromPull(pull), 88);
 });
