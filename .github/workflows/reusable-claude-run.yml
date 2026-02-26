@@ -105,6 +105,13 @@ on:
         required: false
       WORKFLOWS_APP_PRIVATE_KEY:
         required: false
+      OPENAI_API_KEY:
+        required: false
+        description: >-
+          OpenAI API key for LLM analysis (enables model selection beyond GitHub Models)
+      CLAUDE_API_STRANSKE:
+        required: false
+        description: 'Anthropic API key for LLM analysis (enables Claude slot)'
     outputs:
       final-message:
         description: 'Full Claude output message (base64 encoded)'
@@ -1270,7 +1277,7 @@ jobs:
           fi
 
           # Save PR body to temp file
-          echo "$PR_BODY" > pr_body.md
+          printf '%s' "$PR_BODY" > pr_body.md
 
           # Run full LLM analysis and save JSON output
           # The analyze_codex_session.py script auto-detects text vs JSONL input,
@@ -1331,18 +1338,23 @@ jobs:
       - name: Compatibility outputs (LLM analysis)
         id: compat
         if: always()
+        env:
+          LLM_RAN: ${{ steps.llm_analysis.outputs.llm-analysis-run }}
+          LLM_PROVIDER: ${{ steps.llm_analysis.outputs.provider }}
+          LLM_MODEL: ${{ steps.llm_analysis.outputs.model }}
+          LLM_CONFIDENCE: ${{ steps.llm_analysis.outputs.confidence }}
+          LLM_COMPLETED_TASKS: ${{ steps.llm_analysis.outputs.completed-tasks }}
         run: |
           # If LLM analysis ran, forward its outputs; otherwise emit placeholders.
-          if [ "${{ steps.llm_analysis.outputs.llm-analysis-run }}" = "true" ]; then
+          if [ "${LLM_RAN}" = "true" ]; then
             {
               echo "llm-analysis-run=true"
-              echo "llm-provider=${{ steps.llm_analysis.outputs.provider }}"
-              echo "llm-model=${{ steps.llm_analysis.outputs.model }}"
-              echo "llm-confidence=${{ steps.llm_analysis.outputs.confidence }}"
-              echo "llm-completed-tasks=${{ steps.llm_analysis.outputs.completed-tasks }}"
+              echo "llm-provider=${LLM_PROVIDER}"
+              echo "llm-model=${LLM_MODEL}"
+              echo "llm-confidence=${LLM_CONFIDENCE}"
+              echo "llm-completed-tasks=${LLM_COMPLETED_TASKS}"
               has_completions="false"
-              tasks='${{ steps.llm_analysis.outputs.completed-tasks }}'
-              if [ -n "$tasks" ] && [ "$tasks" != "[]" ]; then
+              if [ -n "${LLM_COMPLETED_TASKS}" ] && [ "${LLM_COMPLETED_TASKS}" != "[]" ]; then
                 has_completions="true"
               fi
               echo "llm-has-completions=${has_completions}"
@@ -1375,7 +1387,9 @@ jobs:
               : './.github/scripts/post_completion_comment.js';
             const { postCompletionComment } = require(modulePath);
 
-            // Determine prompt file — Claude uses claude-prompt*.md
+            // Determine prompt file — prefer PR-specific variant, then generic.
+            // The prompt file name is passed to postCompletionComment which uses
+            // it as the base name; it also checks for PR-specific variants internally.
             const prNumber = process.env.PR_NUMBER || '';
             let promptFile = 'claude-prompt.md';
             if (prNumber) {
@@ -1384,11 +1398,13 @@ jobs:
                 promptFile = prSpecific;
               }
             }
-            // Fall back to codex-prompt*.md if claude variant not found
+            // Also check codex-prompt as shared belt PRs use that naming.
+            // Only fall back when no claude-prompt variant exists at all.
             if (!fs.existsSync(promptFile)) {
-              const codexPrompt = prNumber ? `codex-prompt-${prNumber}.md` : 'codex-prompt.md';
-              if (fs.existsSync(codexPrompt)) {
-                promptFile = codexPrompt;
+              const codexFallback = prNumber ? `codex-prompt-${prNumber}.md` : 'codex-prompt.md';
+              if (fs.existsSync(codexFallback)) {
+                core.info(`No claude-prompt file found; using ${codexFallback}`);
+                promptFile = codexFallback;
               }
             }
 

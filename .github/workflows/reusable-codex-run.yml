@@ -951,8 +951,10 @@ jobs:
           WATCHDOG_DELAY=$(( (MAX_RUNTIME_MIN - GRACE_MIN) * 60 ))
           echo "watchdog-saved=false" >> "$GITHUB_OUTPUT"
           if [ "$WATCHDOG_DELAY" -gt 60 ]; then
+            WATCHDOG_FIRED_FLAG="/tmp/.watchdog-fired-$$"
             (
               sleep "$WATCHDOG_DELAY"
+              touch "$WATCHDOG_FIRED_FLAG"
               echo "::warning::Pre-timeout watchdog fired (${GRACE_MIN}m before ${MAX_RUNTIME_MIN}m limit)"
 
               TARGET_BRANCH="${{ inputs.pr_ref }}"
@@ -987,7 +989,10 @@ jobs:
                   fi
                 fi
                 # Push with one retry
-                if ! git push "${REMOTE_URL}" "HEAD:${TARGET_BRANCH}" 2>/dev/null; then
+                watchdog_push_ok=false
+                if git push "${REMOTE_URL}" "HEAD:${TARGET_BRANCH}" 2>/dev/null; then
+                  watchdog_push_ok=true
+                else
                   echo "::warning::Watchdog push failed (attempt 1), retrying after fetch/rebase..."
                   sleep 3
                   git fetch "${REMOTE_URL}" "${TARGET_BRANCH}" 2>/dev/null || true
@@ -998,10 +1003,18 @@ jobs:
                         --allow-unrelated-histories 2>/dev/null || true
                     }
                   fi
-                  git push "${REMOTE_URL}" "HEAD:${TARGET_BRANCH}" 2>/dev/null || \
+                  if git push "${REMOTE_URL}" "HEAD:${TARGET_BRANCH}" 2>/dev/null; then
+                    watchdog_push_ok=true
+                  else
                     echo "::warning::Watchdog push failed after retry"
+                  fi
                 fi
-                echo "watchdog-saved=true" >> "$GITHUB_OUTPUT"
+                if [ "$watchdog_push_ok" = "true" ]; then
+                  echo "watchdog-saved=true" >> "$GITHUB_OUTPUT"
+                else
+                  echo "::error::Watchdog: committed locally but failed to push"
+                  echo "watchdog-saved=false" >> "$GITHUB_OUTPUT"
+                fi
               else
                 echo "::notice::Watchdog: no uncommitted or unpushed work to save"
               fi
@@ -1026,9 +1039,12 @@ jobs:
           prompt_content="$(cat "$PROMPT_FILE")"
           "${cmd[@]}" "$prompt_content" > "$SESSION_JSONL" 2>&1 || CODEX_EXIT=$?
 
-          # Kill watchdog if Codex finished before the timer fired
+          # Kill watchdog only if it hasn't fired yet. If it has already
+          # fired (flag file exists), it may be committing/pushing — let it finish.
           if [ -n "${WATCHDOG_PID:-}" ]; then
-            kill "$WATCHDOG_PID" 2>/dev/null || true
+            if [ ! -f "${WATCHDOG_FIRED_FLAG:-/tmp/.no-such-flag}" ]; then
+              kill "$WATCHDOG_PID" 2>/dev/null || true
+            fi
             wait "$WATCHDOG_PID" 2>/dev/null || true
           fi
 
