@@ -404,7 +404,7 @@ function parseCheckboxStates(block) {
     if (inCodeBlock) {
       continue;
     }
-    const match = line.match(/^- \[(x| )\]\s*(.+)$/i);
+    const match = line.match(/^\s*- \[(x| )\]\s*(.+)$/i);
     if (match) {
       const checked = match[1].toLowerCase() === 'x';
       const text = match[2].trim();
@@ -461,12 +461,13 @@ function mergeCheckboxStates(newContent, existingStates) {
       updated.push(line);
       continue;
     }
-    const match = line.match(/^- \[( )\]\s*(.+)$/);
+    const match = line.match(/^(\s*)- \[( )\]\s*(.+)$/);
     if (match) {
-      const text = match[2].trim();
+      const indent = match[1];
+      const text = match[3].trim();
       const normalized = text.replace(/^-\s*/, '').trim().toLowerCase();
       if (existingStates.has(normalized)) {
-        updated.push(`- [x] ${text}`);
+        updated.push(`${indent}- [x] ${text}`);
         continue;
       }
     }
