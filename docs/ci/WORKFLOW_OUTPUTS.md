@@ -78,6 +78,7 @@ that only emit artifacts, see the "Workflows without workflow_call outputs" sect
 | `reusable-codex-run.yml` | `error-category` | string | Error category if failure occurred (transient/auth/resource/logic/unknown) | `needs.codex.outputs.error-category` |
 | `reusable-codex-run.yml` | `error-type` | string | Error type if failure occurred (codex/infrastructure/auth/unknown) | `needs.codex.outputs.error-type` |
 | `reusable-codex-run.yml` | `error-recovery` | string | Suggested recovery action if failure occurred | `needs.codex.outputs.error-recovery` |
+| `reusable-codex-run.yml` | `watchdog-saved` | string (boolean-like) | Whether the pre-timeout watchdog saved uncommitted work (true/false) | `needs.codex.outputs.watchdog-saved` |
 | `reusable-codex-run.yml` | `llm-analysis-run` | string (boolean-like) | Whether LLM analysis was performed | `needs.codex.outputs.llm-analysis-run` |
 | `reusable-codex-run.yml` | `llm-provider` | string | LLM provider used for analysis (github-models, openai, regex-fallback) | `needs.codex.outputs.llm-provider` |
 | `reusable-codex-run.yml` | `llm-model` | string | Specific model used for analysis (e.g., gpt-4o, claude-3-5-sonnet) | `needs.codex.outputs.llm-model` |
