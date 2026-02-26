@@ -859,6 +859,7 @@ jobs:
       - evaluate
       - run-codex
       - run-claude
+      - progress-review
     # Run if PR exists, handle skipped/failed agent jobs gracefully
     # run-codex will be skipped when action != run/fix/conflict, which is expected
     if: |

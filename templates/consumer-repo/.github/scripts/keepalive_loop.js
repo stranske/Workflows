@@ -2967,6 +2967,9 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
     // tasks off.  Re-derive the counter here with the authoritative counts.
     // When force_retry is active, honour the evaluate-step's reset to 0 and
     // do not overwrite it — the human explicitly wants a fresh start.
+    // After a review action, reset to 0 so the next evaluate triggers a run
+    // instead of another review (the review already provided course-correction
+    // feedback — the agent needs a chance to act on it).
     if (isForceRetry) {
       if (roundsWithoutTaskCompletion !== 0) {
         core?.info?.(
@@ -2975,6 +2978,12 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
         );
         roundsWithoutTaskCompletion = 0;
       }
+    } else if (action === 'review') {
+      core?.info?.(
+        `[summary] review action completed — resetting rounds_without_task_completion ` +
+        `from ${roundsWithoutTaskCompletion} to 0 so next iteration runs the agent`,
+      );
+      roundsWithoutTaskCompletion = 0;
     } else {
       const prevTasks = previousState?.tasks || {};
       const prevUncheckedForCounter = toNumber(prevTasks.unchecked, tasksUnchecked);
