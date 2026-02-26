@@ -40,7 +40,7 @@ jobs:
           github_token: ${{ github.token }}
 
       - name: Install js-yaml
-        run: npm install js-yaml
+        run: npm install --no-save --no-package-lock js-yaml
 
       - name: Parse labels-core.yml
         id: parse

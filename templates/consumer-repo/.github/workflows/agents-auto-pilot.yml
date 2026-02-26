@@ -1892,6 +1892,7 @@ jobs:
             const maxDispatchAttempts = 3;
             let dispatchSucceeded = false;
             for (let attempt = 1; attempt <= maxDispatchAttempts; attempt++) {
+              const dispatchedAt = new Date();
               try {
                 await withRetry((client) => client.rest.actions.createWorkflowDispatch({
                   owner: context.repo.owner,
@@ -1919,46 +1920,49 @@ jobs:
               }
 
               // Wait briefly then verify the dispatched run is queued/in_progress
-              // (not cancelled before receiving a runner).
-              if (attempt < maxDispatchAttempts) {
-                await new Promise(r => setTimeout(r, 15000));
-                try {
-                  const { data: runs } = await withRetry((client) =>
-                    client.rest.actions.listWorkflowRuns({
-                      owner: context.repo.owner,
-                      repo: context.repo.repo,
-                      workflow_id: 'agents-71-codex-belt-dispatcher.yml',
-                      per_page: 5,
-                    })
-                  );
-                  const alive = runs.workflow_runs.find(
-                    r => r.status === 'queued' || r.status === 'in_progress'
-                  );
-                  if (alive) {
-                    core.info(`Belt dispatcher run ${alive.id} is ${alive.status}`);
-                    dispatchSucceeded = true;
-                    break;
-                  }
-                  // All recent runs completed — check if the latest one succeeded
-                  const latest = runs.workflow_runs[0];
-                  if (latest && latest.conclusion === 'success') {
-                    core.info(`Belt dispatcher run ${latest.id} already succeeded`);
-                    dispatchSucceeded = true;
-                    break;
-                  }
-                  core.warning(
-                    `Belt dispatcher run not alive after attempt ${attempt}` +
-                    ` (latest: ${latest?.id} ${latest?.conclusion}); retrying…`
-                  );
-                } catch (checkError) {
-                  core.warning(`Could not verify dispatcher run: ${checkError?.message}`);
-                  // Optimistically assume it's running
+              // (not cancelled before receiving a runner).  Only consider runs
+              // created after the dispatch timestamp to avoid matching stale runs
+              // for other issues.
+              await new Promise(r => setTimeout(r, 15000));
+              try {
+                const { data: runs } = await withRetry((client) =>
+                  client.rest.actions.listWorkflowRuns({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    workflow_id: 'agents-71-codex-belt-dispatcher.yml',
+                    per_page: 5,
+                  })
+                );
+                const recentRuns = runs.workflow_runs.filter(
+                  r => new Date(r.created_at) >= dispatchedAt
+                );
+                const alive = recentRuns.find(
+                  r => r.status === 'queued' || r.status === 'in_progress'
+                );
+                if (alive) {
+                  core.info(`Belt dispatcher run ${alive.id} is ${alive.status}`);
                   dispatchSucceeded = true;
                   break;
                 }
-              } else {
-                // Last attempt — no verification, assume success
-                dispatchSucceeded = true;
+                const succeeded = recentRuns.find(
+                  r => r.conclusion === 'success'
+                );
+                if (succeeded) {
+                  core.info(`Belt dispatcher run ${succeeded.id} already succeeded`);
+                  dispatchSucceeded = true;
+                  break;
+                }
+                const latest = recentRuns[0] || runs.workflow_runs[0];
+                core.warning(
+                  `Belt dispatcher run not alive after attempt ${attempt}` +
+                  ` (latest: ${latest?.id} ${latest?.conclusion}); ` +
+                  (attempt < maxDispatchAttempts ? 'retrying…' : 'no more attempts.')
+                );
+              } catch (checkError) {
+                core.warning(
+                  `Could not verify dispatcher run after attempt ${attempt}: ` +
+                  `${checkError?.message}; status unknown, will retry.`
+                );
               }
             }
             if (!dispatchSucceeded) {
@@ -2367,9 +2371,9 @@ jobs:
                 const actualBackoffMs = Math.min(backoffMs, maxBackoffMs);
                 const actualMinutes = Math.round(actualBackoffMs / 60000);
 
-                // Re-dispatch the belt if no dispatcher run is active.
-                // This recovers from cases where the original dispatch was
-                // silently cancelled before receiving a runner (see issue #34).
+                // Re-dispatch the belt if no recent dispatcher run is active
+                // for this issue.  Only consider runs created in the last 30
+                // minutes to avoid matching stale runs for other issues.
                 let redispatched = false;
                 try {
                   const { data: runs } = await withRetry((client) =>
@@ -2377,14 +2381,21 @@ jobs:
                       owner: context.repo.owner,
                       repo: context.repo.repo,
                       workflow_id: 'agents-71-codex-belt-dispatcher.yml',
-                      per_page: 5,
+                      per_page: 10,
                     })
                   );
-                  const alive = runs.workflow_runs.find(
+                  const cutoff = new Date(Date.now() - 30 * 60 * 1000);
+                  const recentRuns = runs.workflow_runs.filter(
+                    r => new Date(r.created_at) >= cutoff
+                  );
+                  const alive = recentRuns.find(
                     r => r.status === 'queued' || r.status === 'in_progress'
                   );
                   if (!alive) {
-                    core.info('No active belt dispatcher run found; re-dispatching');
+                    core.info(
+                      `No active belt dispatcher run in last 30m ` +
+                      `(${recentRuns.length} recent runs checked); re-dispatching`
+                    );
                     const { data: repoInfo } = await withRetry((client) =>
                       client.rest.repos.get({
                         owner: context.repo.owner,
