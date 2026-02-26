@@ -1207,18 +1207,209 @@ jobs:
             claude-session*.jsonl
           if-no-files-found: ignore
 
-      - name: Compatibility outputs (LLM analysis placeholders)
+      - name: Analyze Claude session
+        id: analyze_session
+        if: always()
+        env:
+          PYTHONPATH: ${{ github.workspace }}/.workflows-lib:${{ github.workspace }}
+          PR_NUM: ${{ inputs.pr_number }}
+        run: |
+          set -euo pipefail
+
+          if [ -n "${PR_NUM}" ]; then
+            SESSION_LOG="claude-session-${PR_NUM}.log"
+          else
+            SESSION_LOG="claude-session.log"
+          fi
+
+          # Check if session file exists and has content
+          if [ ! -f "$SESSION_LOG" ] || [ ! -s "$SESSION_LOG" ]; then
+            echo "No Claude session log found or file is empty"
+            echo "session-available=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "Session log captured: $(wc -l < "$SESSION_LOG") lines, $(wc -c < "$SESSION_LOG") bytes"
+          echo "session-available=true" >> "$GITHUB_OUTPUT"
+          echo "session-file=$SESSION_LOG" >> "$GITHUB_OUTPUT"
+
+      - name: Analyze task completion with LLM
+        id: llm_analysis
+        if: >-
+          always() &&
+          steps.analyze_session.outputs.session-available == 'true' &&
+          inputs.pr_number != ''
+        env:
+          PYTHONPATH: ${{ github.workspace }}/.workflows-lib:${{ github.workspace }}
+          PR_NUM: ${{ inputs.pr_number }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          CLAUDE_API_STRANSKE: ${{ secrets.CLAUDE_API_STRANSKE }}
+        run: |
+          set -euo pipefail
+
+          SESSION_LOG="${{ steps.analyze_session.outputs.session-file }}"
+          ANALYSIS_FILE="claude-analysis-${PR_NUM}.json"
+
+          # Fetch PR body to extract tasks
+          echo "Fetching PR #${PR_NUM} body..."
+          set +e
+          PR_BODY=$(gh pr view "${PR_NUM}" --json body --jq '.body' 2>&1)
+          fetch_exit=$?
+          set -e
+
+          if [ $fetch_exit -ne 0 ] || [ -z "$PR_BODY" ]; then
+            echo "::warning::Could not fetch PR body for #${PR_NUM} (exit code: $fetch_exit)"
+            echo "::warning::LLM task completion analysis will be skipped"
+            if [ $fetch_exit -ne 0 ]; then
+              echo "Error output: $PR_BODY"
+            fi
+            echo "llm-analysis-run=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Save PR body to temp file
+          echo "$PR_BODY" > pr_body.md
+
+          # Run full LLM analysis and save JSON output
+          # The analyze_codex_session.py script auto-detects text vs JSONL input,
+          # so it works with Claude's plain-text session logs (data_source=summary).
+          echo "Running LLM-powered task completion analysis..."
+          if [ ! -f .workflows-lib/scripts/analyze_codex_session.py ]; then
+            echo "::error::Analysis script not found."
+            echo "::error::Missing: .workflows-lib/scripts/analyze_codex_session.py"
+            echo "llm-analysis-run=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          python3 .workflows-lib/scripts/analyze_codex_session.py \
+            --session-file "$SESSION_LOG" \
+            --pr-body-file pr_body.md \
+            --output json > "$ANALYSIS_FILE" || {
+              echo "::warning::LLM analysis failed, continuing without it"
+              cat "$ANALYSIS_FILE" 2>/dev/null || true
+              echo "llm-analysis-run=false" >> "$GITHUB_OUTPUT"
+              rm -f "$ANALYSIS_FILE"
+              exit 0
+            }
+
+          # Also output to GitHub Actions for visibility
+          python3 .workflows-lib/scripts/analyze_codex_session.py \
+            --session-file "$SESSION_LOG" \
+            --pr-body-file pr_body.md \
+            --output github-actions || true
+
+          echo "llm-analysis-run=true" >> "$GITHUB_OUTPUT"
+          echo "analysis-file=$ANALYSIS_FILE" >> "$GITHUB_OUTPUT"
+
+          # Extract key fields for downstream use
+          if [ -f "$ANALYSIS_FILE" ]; then
+            python3 - "$ANALYSIS_FILE" >> "$GITHUB_OUTPUT" <<'PY'
+          import json
+          import sys
+
+          analysis_path = sys.argv[1]
+          with open(analysis_path, encoding='utf-8') as handle:
+              data = json.load(handle)
+
+          completed_tasks = json.dumps(data.get('completed_tasks', []))
+          quality_warnings = json.dumps(data.get('quality_warnings', []))
+
+          print(f"completed-tasks={completed_tasks}")
+          print(f"provider={data.get('provider', 'unknown')}")
+          print(f"model={data.get('model', 'unknown')}")
+          print(f"confidence={data.get('confidence', 0)}")
+          print(f"raw-confidence={data.get('raw_confidence', data.get('confidence', 0))}")
+          print(f"effort-score={data.get('effort_score', 0)}")
+          print(f"data-quality={data.get('data_quality', 'unknown')}")
+          print(f"analysis-text-length={data.get('analysis_text_length', 0)}")
+          print(f"quality-warnings={quality_warnings}")
+          PY
+          fi
+
+      - name: Compatibility outputs (LLM analysis)
         id: compat
         if: always()
         run: |
-          {
-            echo "llm-analysis-run=false"
-            echo "llm-provider="
-            echo "llm-model="
-            echo "llm-confidence="
-            echo "llm-completed-tasks=[]"
-            echo "llm-has-completions=false"
-          } >> "$GITHUB_OUTPUT"
+          # If LLM analysis ran, forward its outputs; otherwise emit placeholders.
+          if [ "${{ steps.llm_analysis.outputs.llm-analysis-run }}" = "true" ]; then
+            {
+              echo "llm-analysis-run=true"
+              echo "llm-provider=${{ steps.llm_analysis.outputs.provider }}"
+              echo "llm-model=${{ steps.llm_analysis.outputs.model }}"
+              echo "llm-confidence=${{ steps.llm_analysis.outputs.confidence }}"
+              echo "llm-completed-tasks=${{ steps.llm_analysis.outputs.completed-tasks }}"
+              has_completions="false"
+              tasks='${{ steps.llm_analysis.outputs.completed-tasks }}'
+              if [ -n "$tasks" ] && [ "$tasks" != "[]" ]; then
+                has_completions="true"
+              fi
+              echo "llm-has-completions=${has_completions}"
+            } >> "$GITHUB_OUTPUT"
+          else
+            {
+              echo "llm-analysis-run=false"
+              echo "llm-provider="
+              echo "llm-model="
+              echo "llm-confidence="
+              echo "llm-completed-tasks=[]"
+              echo "llm-has-completions=false"
+            } >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Post completion checkpoint comment
+        id: completion_comment
+        if: steps.commit.outputs.changes-made == 'true' && inputs.pr_number != ''
+        uses: actions/github-script@v8
+        env:
+          PR_NUMBER: ${{ inputs.pr_number }}
+          COMMIT_SHA: ${{ steps.commit.outputs.commit-sha }}
+          ITERATION: ${{ inputs.iteration || '' }}
+        with:
+          script: |
+            // Try .workflows-lib first (consumer repos), fall back to local copy
+            const fs = require('fs');
+            const modulePath = fs.existsSync('./.workflows-lib/.github/scripts/post_completion_comment.js')
+              ? './.workflows-lib/.github/scripts/post_completion_comment.js'
+              : './.github/scripts/post_completion_comment.js';
+            const { postCompletionComment } = require(modulePath);
+
+            // Determine prompt file — Claude uses claude-prompt*.md
+            const prNumber = process.env.PR_NUMBER || '';
+            let promptFile = 'claude-prompt.md';
+            if (prNumber) {
+              const prSpecific = `claude-prompt-${prNumber}.md`;
+              if (fs.existsSync(prSpecific)) {
+                promptFile = prSpecific;
+              }
+            }
+            // Fall back to codex-prompt*.md if claude variant not found
+            if (!fs.existsSync(promptFile)) {
+              const codexPrompt = prNumber ? `codex-prompt-${prNumber}.md` : 'codex-prompt.md';
+              if (fs.existsSync(codexPrompt)) {
+                promptFile = codexPrompt;
+              }
+            }
+
+            const result = await postCompletionComment({
+              github, context, core,
+              inputs: {
+                pr_number: process.env.PR_NUMBER,
+                commit_sha: process.env.COMMIT_SHA,
+                iteration: process.env.ITERATION,
+                prompt_file: promptFile,
+              },
+            });
+            core.setOutput('posted', result.posted ? 'true' : 'false');
+            core.setOutput('tasks', String(result.tasks || 0));
+            core.setOutput('acceptance', String(result.acceptance || 0));
+            if (result.posted) {
+              core.info(
+                `Posted completion checkpoint: ${result.tasks} tasks, ` +
+                  `${result.acceptance} acceptance criteria`,
+              );
+            }
 
       - name: Classify failure
         id: classify_failure
@@ -1275,7 +1466,207 @@ jobs:
               errorInfo.category === ERROR_CATEGORIES.transient ? 'true' : 'false';
             core.setOutput('is_transient', isTransient);
 
+            core.setOutput('error_summary', summary || '');
+
             console.log(`Error Classification:`);
             console.log(`  Category: ${errorInfo.category}`);
             console.log(`  Type: ${errorType}`);
             console.log(`  Recovery: ${errorInfo.recovery}`);
+
+      - name: Write error summary to GITHUB_STEP_SUMMARY
+        if: always() && steps.run_claude.outputs.exit-code != '0'
+        env:
+          EXIT_CODE: ${{ steps.run_claude.outputs.exit-code }}
+          OUTPUT_SUMMARY: ${{ steps.run_claude.outputs.final-message-summary }}
+          ERROR_CATEGORY: ${{ steps.classify_failure.outputs.error_category }}
+          ERROR_TYPE: ${{ steps.classify_failure.outputs.error_type }}
+          ERROR_RECOVERY: ${{ steps.classify_failure.outputs.error_recovery }}
+          MODE: ${{ inputs.mode }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+        run: |
+          set -euo pipefail
+          {
+            echo "## Claude Run Failed"
+            echo ""
+            echo "| Field | Value |"
+            echo "|-------|-------|"
+            echo "| Mode | ${MODE:-unknown} |"
+            echo "| Exit Code | ${EXIT_CODE:-unknown} |"
+            echo "| Error Category | ${ERROR_CATEGORY:-unknown} |"
+            echo "| Error Type | ${ERROR_TYPE:-unknown} |"
+            if [ -n "${PR_NUMBER:-}" ]; then
+              echo "| PR | #${PR_NUMBER} |"
+            fi
+            echo ""
+            echo "### Recovery Guidance"
+            echo ""
+            echo "${ERROR_RECOVERY:-Check logs for more details.}"
+            echo ""
+            if [ -n "${OUTPUT_SUMMARY:-}" ]; then
+              echo "### Output Summary"
+              echo ""
+              echo '```'
+              echo "${OUTPUT_SUMMARY}"
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Create error diagnostics artifact
+        if: always() && steps.run_claude.outputs.exit-code != '0'
+        env:
+          EXIT_CODE: ${{ steps.run_claude.outputs.exit-code }}
+          OUTPUT_SUMMARY: ${{ steps.run_claude.outputs.final-message-summary }}
+          ERROR_CATEGORY: ${{ steps.classify_failure.outputs.error_category }}
+          ERROR_TYPE: ${{ steps.classify_failure.outputs.error_type }}
+          ERROR_RECOVERY: ${{ steps.classify_failure.outputs.error_recovery }}
+          IS_TRANSIENT: ${{ steps.classify_failure.outputs.is_transient }}
+          MODE: ${{ inputs.mode }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+          RUN_URL: >-
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          mkdir -p error-diagnostics
+
+          # Create JSON diagnostics file
+          cat > error-diagnostics/diagnostics.json << JSONEOF
+          {
+            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "run_id": "${{ github.run_id }}",
+            "run_url": "${RUN_URL}",
+            "agent": "claude",
+            "mode": "${MODE:-unknown}",
+            "pr_number": "${PR_NUMBER:-}",
+            "exit_code": "${EXIT_CODE:-unknown}",
+            "error_category": "${ERROR_CATEGORY:-unknown}",
+            "error_type": "${ERROR_TYPE:-unknown}",
+            "is_transient": ${IS_TRANSIENT:-false},
+            "recovery_guidance": "${ERROR_RECOVERY:-unknown}"
+          }
+          JSONEOF
+
+          # Copy claude output if available
+          for f in claude-output*.md; do
+            [ -f "$f" ] && cp "$f" error-diagnostics/ && break
+          done 2>/dev/null || true
+
+          echo "Created error diagnostics in error-diagnostics/"
+
+      - name: Upload error diagnostics
+        if: always() && steps.run_claude.outputs.exit-code != '0'
+        uses: actions/upload-artifact@v6
+        with:
+          name: error-diagnostics-${{ inputs.mode }}-${{ github.run_id }}
+          path: error-diagnostics/
+          retention-days: 30
+
+      - name: Post PR comment on non-transient failure
+        if: >-
+          always() && steps.run_claude.outputs.exit-code != '0' &&
+          steps.classify_failure.outputs.is_transient != 'true' && inputs.pr_number != ''
+        uses: actions/github-script@v8
+        env:
+          PR_NUMBER: ${{ inputs.pr_number }}
+          EXIT_CODE: ${{ steps.run_claude.outputs.exit-code }}
+          ERROR_CATEGORY: ${{ steps.classify_failure.outputs.error_category }}
+          ERROR_TYPE: ${{ steps.classify_failure.outputs.error_type }}
+          ERROR_RECOVERY: ${{ steps.classify_failure.outputs.error_recovery }}
+          OUTPUT_SUMMARY: ${{ steps.run_claude.outputs.final-message-summary }}
+          MODE: ${{ inputs.mode }}
+          RUN_URL: >-
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        with:
+          script: |
+            const fs = require('fs');
+            let withRetry;
+            const retryPath = './.workflows-lib/.github/scripts/github-api-with-retry.js';
+            const localRetryPath = './.github/scripts/github-api-with-retry.js';
+            if (fs.existsSync(retryPath)) {
+              ({ withRetry } = require(retryPath));
+            } else if (fs.existsSync(localRetryPath)) {
+              ({ withRetry } = require(localRetryPath));
+            } else {
+              // Inline fallback: single attempt, no retry
+              withRetry = (fn) => fn();
+            }
+
+            const prNumber = parseInt(process.env.PR_NUMBER, 10);
+            if (!prNumber || prNumber <= 0) {
+              console.log('No valid PR number, skipping comment');
+              return;
+            }
+
+            const exitCode = process.env.EXIT_CODE || 'unknown';
+            const category = process.env.ERROR_CATEGORY || 'unknown';
+            const errorType = process.env.ERROR_TYPE || 'unknown';
+            const recovery = process.env.ERROR_RECOVERY || 'Check logs for details.';
+            const summary = process.env.OUTPUT_SUMMARY || 'No output captured';
+            const mode = process.env.MODE || 'unknown';
+            const runUrl = process.env.RUN_URL || '';
+
+            const marker = '<!-- claude-failure-notification -->';
+
+            const body = `${marker}
+            ## Claude ${mode} run failed
+
+            | Field | Value |
+            |-------|-------|
+            | Exit Code | \`${exitCode}\` |
+            | Error Category | \`${category}\` |
+            | Error Type | \`${errorType}\` |
+            | Run | [View logs](${runUrl}) |
+
+            ### Suggested Recovery
+
+            ${recovery}
+
+            ### What to do
+
+            1. Check the [workflow logs](${runUrl}) for detailed error output
+            2. If this is a configuration issue, update the relevant settings
+            3. If the error persists, consider adding the \`needs-human\` label for manual review
+            4. Re-run the workflow once the issue is resolved
+
+            <details>
+            <summary>Output summary</summary>
+
+            \`\`\`
+            ${summary.slice(0, 500)}
+            \`\`\`
+
+            </details>
+            `.trim().split('\n').map(l => l.trim()).join('\n');
+
+            // Check if we already have a failure comment
+            const { data: comments } = await withRetry(() =>
+              github.rest.issues.listComments({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                per_page: 100,
+              })
+            );
+
+            const existingComment = comments.find(c => c.body && c.body.includes(marker));
+
+            if (existingComment) {
+              await withRetry(() =>
+                github.rest.issues.updateComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: existingComment.id,
+                  body,
+                })
+              );
+              console.log(`Updated existing failure comment: ${existingComment.html_url}`);
+            } else {
+              const { data: newComment } = await withRetry(() =>
+                github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: prNumber,
+                  body,
+                })
+              );
+              console.log(`Created failure comment: ${newComment.html_url}`);
+            }
