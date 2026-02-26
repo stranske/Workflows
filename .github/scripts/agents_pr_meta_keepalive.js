@@ -242,7 +242,7 @@ function extractIssueNumberFromPull(pull) {
     }
     // Skip non-issue refs like "Run #123", "run #123", "attempt #2"
     const preceding = bodyText.slice(Math.max(0, match.index - 20), match.index);
-    if (/\b(?:run|attempt|step|job|check|task|version|v)\s*$/i.test(preceding)) {
+    if (/\b(?:run|attempt|step|job|check|version|v)\s*$/i.test(preceding)) {
       continue;
     }
     candidates.push(match[1]);

@@ -271,9 +271,9 @@ runs:
             echo "$npm_err"
             echo "::endgroup::"
 
-            # On first failure, also try --legacy-peer-deps in case it's a peer dep conflict
-            if [ "$attempt" -eq 1 ]; then
-              echo "::warning::Retrying with --legacy-peer-deps"
+            # On peer-dep / ERESOLVE failures, also try --legacy-peer-deps
+            if echo "$npm_err" | grep -qiE 'ERESOLVE|peer dep|Could not resolve dependency'; then
+              echo "::warning::Detected peer dependency conflict, retrying with --legacy-peer-deps"
               npm_output=$(mktemp)
               if npm install --no-save --legacy-peer-deps --location=project "${NPM_PACKAGES[@]}" 2>"$npm_output"; then
                 rm -f "$npm_output"

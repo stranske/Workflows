@@ -590,6 +590,11 @@ test('extractIssueNumberFromPull skips "step #N" in body', () => {
   assert.equal(extractIssueNumberFromPull(pull), null);
 });
 
+test('extractIssueNumberFromPull treats "Task #N" as a valid issue ref', () => {
+  const pull = { body: 'Task #42 is ready for review', head: { ref: 'feature' }, title: 'stuff' };
+  assert.equal(extractIssueNumberFromPull(pull), 42);
+});
+
 test('extractIssueNumberFromPull skips "version #N" in body', () => {
   const pull = { body: 'Upgraded to version #4', head: { ref: 'feature' }, title: 'stuff' };
   assert.equal(extractIssueNumberFromPull(pull), null);
