@@ -124,6 +124,9 @@ on:
       error-recovery:
         description: 'Suggested recovery action if failure occurred'
         value: ${{ jobs.codex.outputs.error-recovery }}
+      watchdog-saved:
+        description: 'Whether the pre-timeout watchdog saved uncommitted work (true/false)'
+        value: ${{ jobs.codex.outputs.watchdog-saved }}
       # LLM task analysis outputs
       llm-analysis-run:
         description: 'Whether LLM analysis was performed'
@@ -946,10 +949,19 @@ jobs:
           MAX_RUNTIME_MIN=${{ inputs.max_runtime_minutes }}
           GRACE_MIN=5
           WATCHDOG_DELAY=$(( (MAX_RUNTIME_MIN - GRACE_MIN) * 60 ))
+          echo "watchdog-saved=false" >> "$GITHUB_OUTPUT"
           if [ "$WATCHDOG_DELAY" -gt 60 ]; then
             (
               sleep "$WATCHDOG_DELAY"
               echo "::warning::Pre-timeout watchdog fired (${GRACE_MIN}m before ${MAX_RUNTIME_MIN}m limit)"
+
+              TARGET_BRANCH="${{ inputs.pr_ref }}"
+              TARGET_BRANCH="${TARGET_BRANCH#refs/heads/}"
+              PUSH_TOKEN="${{ steps.auth_token.outputs.push_token }}"
+              REMOTE_URL="https://x-access-token:${PUSH_TOKEN}@github.com/${{ github.repository }}"
+
+              # Fetch to get current FETCH_HEAD before checking for unpushed work
+              git fetch "${REMOTE_URL}" "${TARGET_BRANCH}" 2>/dev/null || true
 
               CHANGED=$(git status --porcelain | wc -l)
               UNPUSHED=0
@@ -965,12 +977,30 @@ jobs:
                   git add -A
                   git commit -m "chore(codex-keepalive): pre-timeout checkpoint (PR #${PR_NUM:-})" --no-verify || true
                 fi
-                TARGET_BRANCH="${{ inputs.pr_ref }}"
-                TARGET_BRANCH="${TARGET_BRANCH#refs/heads/}"
-                PUSH_TOKEN="${{ steps.auth_token.outputs.push_token }}"
-                REMOTE_URL="https://x-access-token:${PUSH_TOKEN}@github.com/${{ github.repository }}"
-                git push "${REMOTE_URL}" "HEAD:${TARGET_BRANCH}" || \
-                  echo "::warning::Watchdog push failed"
+                # Rebase onto remote before pushing to avoid non-fast-forward rejection
+                if git rev-parse FETCH_HEAD >/dev/null 2>&1; then
+                  if ! git rebase FETCH_HEAD 2>/dev/null; then
+                    echo "::warning::Watchdog rebase failed; attempting merge fallback."
+                    git rebase --abort 2>/dev/null || true
+                    git pull --no-rebase "${REMOTE_URL}" "${TARGET_BRANCH}" \
+                      --allow-unrelated-histories 2>/dev/null || true
+                  fi
+                fi
+                # Push with one retry
+                if ! git push "${REMOTE_URL}" "HEAD:${TARGET_BRANCH}" 2>/dev/null; then
+                  echo "::warning::Watchdog push failed (attempt 1), retrying after fetch/rebase..."
+                  sleep 3
+                  git fetch "${REMOTE_URL}" "${TARGET_BRANCH}" 2>/dev/null || true
+                  if git rev-parse FETCH_HEAD >/dev/null 2>&1; then
+                    git rebase FETCH_HEAD 2>/dev/null || {
+                      git rebase --abort 2>/dev/null || true
+                      git pull --no-rebase "${REMOTE_URL}" "${TARGET_BRANCH}" \
+                        --allow-unrelated-histories 2>/dev/null || true
+                    }
+                  fi
+                  git push "${REMOTE_URL}" "HEAD:${TARGET_BRANCH}" 2>/dev/null || \
+                    echo "::warning::Watchdog push failed after retry"
+                fi
                 echo "watchdog-saved=true" >> "$GITHUB_OUTPUT"
               else
                 echo "::notice::Watchdog: no uncommitted or unpushed work to save"
