@@ -1934,7 +1934,8 @@ jobs:
                   })
                 );
                 const recentRuns = runs.workflow_runs.filter(
-                  r => new Date(r.created_at) >= dispatchedAt
+                  r => new Date(r.created_at) >= dispatchedAt &&
+                    r.event === 'workflow_dispatch'
                 );
                 const alive = recentRuns.find(
                   r => r.status === 'queued' || r.status === 'in_progress'
@@ -2386,7 +2387,8 @@ jobs:
                   );
                   const cutoff = new Date(Date.now() - 30 * 60 * 1000);
                   const recentRuns = runs.workflow_runs.filter(
-                    r => new Date(r.created_at) >= cutoff
+                    r => new Date(r.created_at) >= cutoff &&
+                      r.event === 'workflow_dispatch'
                   );
                   const alive = recentRuns.find(
                     r => r.status === 'queued' || r.status === 'in_progress'
