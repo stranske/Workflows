@@ -1892,7 +1892,10 @@ jobs:
             const maxDispatchAttempts = 3;
             let dispatchSucceeded = false;
             for (let attempt = 1; attempt <= maxDispatchAttempts; attempt++) {
-              const dispatchedAt = new Date();
+              // Truncate to second precision — GitHub created_at has no
+              // milliseconds, so sub-second remainder would filter out the
+              // run we just dispatched.
+              const dispatchedAt = new Date(Math.floor(Date.now() / 1000) * 1000);
               try {
                 await withRetry((client) => client.rest.actions.createWorkflowDispatch({
                   owner: context.repo.owner,
@@ -1921,8 +1924,10 @@ jobs:
 
               // Wait briefly then verify the dispatched run is queued/in_progress
               // (not cancelled before receiving a runner).  Only consider runs
-              // created after the dispatch timestamp to avoid matching stale runs
-              // for other issues.
+              // created after the dispatch timestamp to avoid matching stale runs.
+              // Note: listWorkflowRuns doesn't expose dispatch inputs, so we
+              // can't filter by force_issue here.  The tight timestamp window
+              // makes cross-issue false matches unlikely in practice.
               await new Promise(r => setTimeout(r, 15000));
               try {
                 const { data: runs } = await withRetry((client) =>
@@ -2372,9 +2377,12 @@ jobs:
                 const actualBackoffMs = Math.min(backoffMs, maxBackoffMs);
                 const actualMinutes = Math.round(actualBackoffMs / 60000);
 
-                // Re-dispatch the belt if no recent dispatcher run is active
-                // for this issue.  Only consider runs created in the last 30
-                // minutes to avoid matching stale runs for other issues.
+                // Re-dispatch the belt if no recent dispatcher run is active.
+                // Only consider runs in the last 30 minutes.  Note: the API
+                // doesn't expose dispatch inputs, so we can't scope this to
+                // the current issue; an unrelated active run may suppress
+                // re-dispatch.  This is acceptable — a false skip only delays
+                // re-dispatch by one backoff iteration.
                 let redispatched = false;
                 try {
                   const { data: runs } = await withRetry((client) =>
