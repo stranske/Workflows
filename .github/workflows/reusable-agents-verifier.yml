@@ -185,22 +185,41 @@ jobs:
               return;
             }
 
-            const targetSha = pr.merge_commit_sha;
-            if (!targetSha) {
-              core.setFailed('Merged PR is missing merge_commit_sha.');
-              return;
-            }
-
             const ciWorkflows = JSON.parse(process.env.CI_WORKFLOWS || '[]');
             if (!Array.isArray(ciWorkflows) || ciWorkflows.length === 0) {
               core.info('No CI workflows configured; skipping wait.');
               return;
             }
+
+            // Verifier context only evaluates merged PRs that target the default branch.
+            // Skip CI polling early for stacked/feature-branch merges to avoid dead time.
+            const defaultBranch = context.payload.repository?.default_branch || 'main';
+            const baseRef = pr.base?.ref || '';
+            if (baseRef && baseRef !== defaultBranch) {
+              core.info(
+                `PR base ref ${baseRef} does not match default branch ${defaultBranch}; skipping CI wait.`,
+              );
+              return;
+            }
+
+            const targetShas = Array.from(
+              new Set(
+                [pr.merge_commit_sha, pr.head?.sha]
+                  .map((value) => String(value || '').trim())
+                  .filter(Boolean),
+              ),
+            );
+            if (targetShas.length === 0) {
+              core.setFailed('Merged PR is missing merge/head SHAs.');
+              return;
+            }
+
             const maxWaitMs = Number(process.env.CI_WAIT_TIMEOUT_MS) || 300000;
             const pollIntervalMs = 15000;
             const startTime = Date.now();
             let rateLimitHits = 0;
             const maxRateLimitHits = 3;  // Give up after 3 consecutive rate limits
+            let emptyPolls = 0;
             const workflowState = new Map(
               ciWorkflows.map((workflow) => [
                 workflow,
@@ -208,10 +227,11 @@ jobs:
               ]),
             );
 
-            core.info(`Waiting for CI workflows to complete for SHA ${targetSha}...`);
+            core.info(
+              `Waiting for CI workflows to complete for SHAs: ${targetShas.join(', ')}...`,
+            );
 
             while (Date.now() - startTime < maxWaitMs) {
-              let cycleFound = false;
               let hitRateLimit = false;
 
               for (const workflowFile of ciWorkflows) {
@@ -220,25 +240,36 @@ jobs:
                   completed: false,
                 };
                 try {
-                  const { data: runs } = await withRetry(() =>
-                    github.rest.actions.listWorkflowRuns({
-                      ...context.repo,
-                      workflow_id: workflowFile,
-                      head_sha: targetSha,
-                      per_page: 1,
-                    }),
-                  );
+                  const runCandidates = [];
+                  for (const headSha of targetShas) {
+                    const { data: runs } = await withRetry(() =>
+                      github.rest.actions.listWorkflowRuns({
+                        ...context.repo,
+                        workflow_id: workflowFile,
+                        head_sha: headSha,
+                        per_page: 1,
+                      }),
+                    );
+                    if (runs.workflow_runs.length > 0) {
+                      runCandidates.push(runs.workflow_runs[0]);
+                    }
+                  }
 
-                  if (runs.workflow_runs.length > 0) {
-                    cycleFound = true;
+                  if (runCandidates.length > 0) {
+                    runCandidates.sort((a, b) => {
+                      const aTs = Date.parse(a.updated_at || a.created_at || 0);
+                      const bTs = Date.parse(b.updated_at || b.created_at || 0);
+                      return bTs - aTs;
+                    });
+                    const run = runCandidates[0];
                     state.found = true;
-                    const run = runs.workflow_runs[0];
                     const conclusion = run.conclusion || 'pending';
                     core.info(
-                      `${workflowFile}: status=${run.status}, conclusion=${conclusion}`,
+                      `${workflowFile}: status=${run.status}, conclusion=${conclusion}, sha=${run.head_sha}`,
                     );
                     state.completed = run.status === 'completed';
                   }
+
                   workflowState.set(workflowFile, state);
                   rateLimitHits = 0;  // Reset on success
                 } catch (err) {
@@ -250,8 +281,8 @@ jobs:
                     );
                   } else {
                     core.warning(`Failed to check ${workflowFile}: ${err.message}`);
-                    workflowState.set(workflowFile, state);
                   }
+                  workflowState.set(workflowFile, state);
                 }
               }
 
@@ -264,24 +295,35 @@ jobs:
                 }
               }
 
-              const allFound = ciWorkflows.every(
+              const foundWorkflows = ciWorkflows.filter(
                 (workflow) => workflowState.get(workflow)?.found,
               );
-              const allComplete = allFound
-                ? ciWorkflows.every(
-                    (workflow) => workflowState.get(workflow)?.completed,
-                  )
-                : false;
+              const allComplete = foundWorkflows.every(
+                (workflow) => workflowState.get(workflow)?.completed,
+              );
 
-              if (allComplete) {
+              if (foundWorkflows.length > 0 && allComplete) {
                 core.info('All CI workflows have completed.');
                 return;
+              }
+
+              if (foundWorkflows.length === 0) {
+                emptyPolls += 1;
+                if (emptyPolls >= 2) {
+                  core.info(
+                    `No CI runs matched configured workflows (${ciWorkflows.join(', ')}) for SHAs ` +
+                      `${targetShas.join(', ')}; skipping CI wait.`,
+                  );
+                  return;
+                }
+              } else {
+                emptyPolls = 0;
               }
 
               const pendingWorkflows = ciWorkflows.filter(
                 (workflow) => !(workflowState.get(workflow)?.completed),
               );
-              const waitReason = allFound
+              const waitReason = foundWorkflows.length > 0
                 ? `waiting for workflows still running: ${pendingWorkflows.join(', ')}`
                 : 'waiting for workflows to start';
               core.info(
