@@ -19,6 +19,7 @@ const {
   augmentContextWithRelatedIssues,
   extractIssueRefsFromText,
   extractContextSectionWithPython,
+  upsertBlock,
 } = require('../agents_pr_meta_update_body.js');
 
 test('extractContextSectionWithPython returns trimmed stdout from python', () => {
@@ -803,4 +804,112 @@ test('augmentContextWithRelatedIssues adds missing refs to existing section', ()
   assert.ok(augmented.includes('- #124'));
   assert.ok(augmented.includes('- octo/demo#456'));
   assert.strictEqual(augmented.match(/### Related Issues\/PRs/g).length, 1);
+});
+
+// ========== upsertBlock tests ==========
+
+test('upsertBlock replaces content between existing markers', () => {
+  const body = `Preamble text
+
+<!-- my-block:start -->
+Old content here
+<!-- my-block:end -->
+
+Footer text`;
+
+  const result = upsertBlock(body, 'my-block', '<!-- my-block:start -->\nNew content\n<!-- my-block:end -->');
+
+  assert.ok(result.includes('New content'));
+  assert.ok(!result.includes('Old content'));
+  assert.ok(result.includes('Preamble text'));
+  assert.ok(result.includes('Footer text'));
+});
+
+test('upsertBlock appends when no markers exist', () => {
+  const body = 'Just a PR body with no markers';
+
+  const result = upsertBlock(body, 'my-block', '<!-- my-block:start -->\nNew block\n<!-- my-block:end -->');
+
+  assert.ok(result.startsWith('Just a PR body'));
+  assert.ok(result.includes('New block'));
+});
+
+test('upsertBlock appends to empty body', () => {
+  const result = upsertBlock('', 'my-block', '<!-- my-block:start -->\nContent\n<!-- my-block:end -->');
+
+  assert.ok(result.includes('Content'));
+  assert.ok(!result.startsWith('\n'));
+});
+
+test('upsertBlock removes duplicate marker pairs from race conditions', () => {
+  const body = `Preamble
+
+<!-- status:start -->
+First copy (stale)
+<!-- status:end -->
+
+Middle content
+
+<!-- status:start -->
+Second copy (also stale)
+<!-- status:end -->
+
+Footer`;
+
+  const replacement = '<!-- status:start -->\nFresh content\n<!-- status:end -->';
+  const result = upsertBlock(body, 'status', replacement);
+
+  // Should contain exactly one pair of markers
+  const startCount = (result.match(/<!-- status:start -->/g) || []).length;
+  const endCount = (result.match(/<!-- status:end -->/g) || []).length;
+  assert.strictEqual(startCount, 1, 'should have exactly one start marker');
+  assert.strictEqual(endCount, 1, 'should have exactly one end marker');
+
+  // Should contain the fresh content
+  assert.ok(result.includes('Fresh content'));
+  assert.ok(!result.includes('First copy'));
+  assert.ok(!result.includes('Second copy'));
+
+  // Should preserve surrounding content
+  assert.ok(result.includes('Preamble'));
+  assert.ok(result.includes('Footer'));
+});
+
+test('upsertBlock removes three duplicate marker pairs', () => {
+  const body = [
+    '<!-- b:start -->\nCopy 1\n<!-- b:end -->',
+    '<!-- b:start -->\nCopy 2\n<!-- b:end -->',
+    '<!-- b:start -->\nCopy 3\n<!-- b:end -->',
+  ].join('\n\n');
+
+  const result = upsertBlock(body, 'b', '<!-- b:start -->\nFinal\n<!-- b:end -->');
+
+  const startCount = (result.match(/<!-- b:start -->/g) || []).length;
+  assert.strictEqual(startCount, 1);
+  assert.ok(result.includes('Final'));
+  assert.ok(!result.includes('Copy 1'));
+  assert.ok(!result.includes('Copy 2'));
+  assert.ok(!result.includes('Copy 3'));
+});
+
+test('upsertBlock collapses excessive newlines after removing duplicates', () => {
+  const body = `Before
+
+<!-- s:start -->
+Old
+<!-- s:end -->
+
+
+
+<!-- s:start -->
+Dup
+<!-- s:end -->
+
+After`;
+
+  const result = upsertBlock(body, 's', '<!-- s:start -->\nNew\n<!-- s:end -->');
+
+  // No triple+ newlines should remain
+  assert.ok(!result.match(/\n{3,}/), 'should not have triple+ newlines');
+  assert.ok(result.includes('After'));
 });
