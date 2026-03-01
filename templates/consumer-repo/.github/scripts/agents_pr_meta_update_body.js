@@ -710,19 +710,21 @@ function upsertBlock(body, marker, replacement) {
     let result = `${body.slice(0, startIndex)}${replacement}${body.slice(endIndex + end.length)}`;
 
     // Remove any duplicate marker pairs left by concurrent writers
+    let hadDuplicates = false;
     let limit = 10;
     while (limit-- > 0) {
       const dupStart = result.indexOf(start, startIndex + replacement.length);
-      const dupEnd = result.indexOf(end, dupStart + 1);
+      const dupEnd = result.indexOf(end, dupStart + start.length);
       if (dupStart !== -1 && dupEnd !== -1 && dupEnd > dupStart) {
         result = `${result.slice(0, dupStart)}${result.slice(dupEnd + end.length)}`;
+        hadDuplicates = true;
       } else {
         break;
       }
     }
 
     // Collapse triple+ newlines left by removed blocks
-    return result.replace(/\n{3,}/g, '\n\n');
+    return hadDuplicates ? result.replace(/\n{3,}/g, '\n\n') : result;
   }
 
   const trimmed = body.trimEnd();

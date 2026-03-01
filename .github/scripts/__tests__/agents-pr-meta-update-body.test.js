@@ -870,8 +870,9 @@ Footer`;
   assert.ok(!result.includes('First copy'));
   assert.ok(!result.includes('Second copy'));
 
-  // Should preserve surrounding content
+  // Should preserve surrounding content including text between duplicates
   assert.ok(result.includes('Preamble'));
+  assert.ok(result.includes('Middle content'));
   assert.ok(result.includes('Footer'));
 });
 
@@ -912,4 +913,17 @@ After`;
   // No triple+ newlines should remain
   assert.ok(!result.match(/\n{3,}/), 'should not have triple+ newlines');
   assert.ok(result.includes('After'));
+});
+
+test('upsertBlock preserves triple newlines in single-pair case (no duplicates)', () => {
+  const body = `Before\n\n\n<!-- m:start -->\nOld\n<!-- m:end -->\n\n\nAfter`;
+
+  const result = upsertBlock(body, 'm', '<!-- m:start -->\nNew\n<!-- m:end -->');
+
+  // Triple newlines outside the managed block should be preserved
+  // when no duplicate removal occurred
+  assert.ok(result.includes('Before'));
+  assert.ok(result.includes('New'));
+  assert.ok(result.includes('After'));
+  assert.ok(result.includes('\n\n\n'), 'should preserve existing triple newlines when no duplicates removed');
 });
