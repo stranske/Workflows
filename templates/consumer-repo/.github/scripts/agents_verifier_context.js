@@ -378,28 +378,10 @@ async function buildVerifierContext({ github, context, core, ciWorkflows }) {
     };
   }
 
-  const baseRef = pr.base?.ref || '';
-  const defaultBranch = context.payload?.repository?.default_branch || DEFAULT_BRANCH;
-  if (baseRef && baseRef !== defaultBranch) {
-    const skipReason = `Pull request base ref ${baseRef} does not match default branch ${defaultBranch}; skipping verifier.`;
-    core?.notice?.(skipReason);
-    core?.setOutput?.('should_run', 'false');
-    core?.setOutput?.('skip_reason', skipReason);
-    core?.setOutput?.('pr_number', String(pr.number || ''));
-    core?.setOutput?.('issue_numbers', '[]');
-    core?.setOutput?.('pr_html_url', pr.html_url || '');
-    core?.setOutput?.('target_sha', pr.merge_commit_sha || pr.head?.sha || context.sha || '');
-    core?.setOutput?.('context_path', '');
-    core?.setOutput?.('acceptance_count', '0');
-    core?.setOutput?.('ci_results', '[]');
-    core?.setOutput?.('diff_summary_path', '');
-    core?.setOutput?.('diff_path', '');
-    core?.setOutput?.('chain_depth', '0');
-    return { shouldRun: false, reason: skipReason, ciResults: [] };
-  }
-
   const prDetails = await github.rest.pulls.get({ owner, repo, pull_number: pr.number });
   const pull = prDetails?.data || pr;
+  const baseRef = pull.base?.ref || pr.base?.ref || '';
+  const defaultBranch = context.payload?.repository?.default_branch || DEFAULT_BRANCH;
 
   if (isForkPullRequest(pull)) {
     const skipReason = 'Pull request is from a fork; skipping verifier.';
