@@ -455,7 +455,7 @@ full_soft_gate"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload self-test report
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: selftest-report
           path: selftest-report.json

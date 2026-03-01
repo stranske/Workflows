@@ -135,7 +135,7 @@ jobs:
 
       - name: Upload report artifact
         if: env.REPORT_AVAILABLE == 'true'
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: langsmith-metrics-report-${{ github.run_id }}
           path: |

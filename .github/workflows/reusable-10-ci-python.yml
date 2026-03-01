@@ -1961,7 +1961,7 @@ jobs:
 
       - name: Upload coverage artifact
         if: ${{ always() && steps.coverage_paths.outputs.has_payload == 'true' }}
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: >-
             ${{ inputs['artifact-prefix'] }}coverage-${{ matrix.python-version }}-${{
@@ -2085,7 +2085,7 @@ jobs:
           inputs['enable-metrics']
           && matrix.python-version == env.PRIMARY_PYTHON_VERSION
           }}
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ inputs['artifact-prefix'] }}ci-metrics
           path: ${{ env.PROJECT_ROOT }}/ci-metrics.json
@@ -2117,7 +2117,7 @@ jobs:
           inputs['enable-history']
           && matrix.python-version == env.PRIMARY_PYTHON_VERSION
           }}
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ inputs['artifact-prefix'] }}metrics-history
           path: ${{ env.PROJECT_ROOT }}/${{ inputs['history-artifact-name'] }}
@@ -2131,7 +2131,7 @@ jobs:
           inputs['enable-classification']
           && matrix.python-version == env.PRIMARY_PYTHON_VERSION
           }}
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ inputs['artifact-prefix'] }}classification
           path: ${{ env.PROJECT_ROOT }}/classification.json
@@ -2162,7 +2162,7 @@ jobs:
           && inputs['enable-coverage-delta']
           && matrix.python-version == env.PRIMARY_PYTHON_VERSION
           }}
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ inputs['artifact-prefix'] }}coverage-delta
           path: ${{ env.PROJECT_ROOT }}/coverage-delta.json
@@ -2238,7 +2238,7 @@ jobs:
           && matrix.python-version == env.PRIMARY_PYTHON_VERSION
           }}
         continue-on-error: true
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ inputs['artifact-prefix'] }}coverage-summary
           path: ${{ env.PROJECT_ROOT }}/coverage-summary.md
@@ -2254,7 +2254,7 @@ jobs:
           && matrix.python-version == env.PRIMARY_PYTHON_VERSION
           }}
         continue-on-error: true
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ inputs['artifact-prefix'] }}coverage-trend
           path: ${{ env.PROJECT_ROOT }}/coverage-trend.json
@@ -2270,7 +2270,7 @@ jobs:
           && matrix.python-version == env.PRIMARY_PYTHON_VERSION
           }}
         continue-on-error: true
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ inputs['artifact-prefix'] }}coverage-trend-history
           path: ${{ env.PROJECT_ROOT }}/coverage-trend-history.ndjson

@@ -1012,7 +1012,7 @@ jobs:
             steps.context.outputs.should_run == 'true' &&
             inputs.mode == 'compare'
           }}
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: comparison-results-${{ github.run_id }}
           path: |
@@ -1292,7 +1292,7 @@ jobs:
 
       - name: Upload verifier metrics
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: agents-verifier-metrics
           path: verifier-metrics.ndjson

@@ -111,7 +111,7 @@ jobs:
           echo "Repos to sync: $json_array"
 
       - name: Upload sync script
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: sync-script
           path: |

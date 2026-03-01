@@ -1205,7 +1205,7 @@ jobs:
 
       - name: Upload Claude output
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: claude-output-${{ inputs.pr_number || github.run_id }}
           path: |
@@ -1570,7 +1570,7 @@ jobs:
 
       - name: Upload error diagnostics
         if: always() && steps.run_claude.outputs.exit-code != '0'
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: error-diagnostics-${{ inputs.mode }}-${{ github.run_id }}
           path: error-diagnostics/

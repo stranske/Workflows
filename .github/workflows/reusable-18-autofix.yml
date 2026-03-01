@@ -957,7 +957,7 @@ jobs:
             steps.fix_results.outputs.changed == 'true' &&
             env.AUTOFIX_CAN_PUSH != 'true'
           }}
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: autofix-patch-pr-${{ inputs.pr_number }}
           path: autofix.patch
@@ -1396,7 +1396,7 @@ jobs:
             steps.same_repo.outputs.same == 'true' &&
             steps.fix_results.outputs.changed == 'true'
           }}
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: autofix-history-pr-${{ inputs.pr_number }}
           path: ci/autofix/history.json
@@ -1829,7 +1829,7 @@ jobs:
             steps.guard.outputs.skip != 'true' &&
             steps.same_repo.outputs.same == 'true'
           }}
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: autofix-report-pr-${{ inputs.pr_number }}
           path: autofix_report.json

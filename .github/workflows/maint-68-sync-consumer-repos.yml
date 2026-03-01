@@ -199,7 +199,7 @@ jobs:
           echo "Repos to sync: $json_array"
 
       - name: Upload manifest artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: sync-manifest
           path: manifest.json
