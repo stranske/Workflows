@@ -298,11 +298,17 @@ jobs:
               const foundWorkflows = ciWorkflows.filter(
                 (workflow) => workflowState.get(workflow)?.found,
               );
-              const allComplete = foundWorkflows.every(
-                (workflow) => workflowState.get(workflow)?.completed,
+              const missingWorkflows = ciWorkflows.filter(
+                (workflow) => !workflowState.get(workflow)?.found,
               );
+              const pendingFoundWorkflows = ciWorkflows.filter((workflow) => {
+                const state = workflowState.get(workflow);
+                return state?.found && !state.completed;
+              });
+              const allFoundAndComplete =
+                missingWorkflows.length === 0 && pendingFoundWorkflows.length === 0;
 
-              if (foundWorkflows.length > 0 && allComplete) {
+              if (allFoundAndComplete) {
                 core.info('All CI workflows have completed.');
                 return;
               }
@@ -320,12 +326,16 @@ jobs:
                 emptyPolls = 0;
               }
 
-              const pendingWorkflows = ciWorkflows.filter(
-                (workflow) => !(workflowState.get(workflow)?.completed),
-              );
-              const waitReason = foundWorkflows.length > 0
-                ? `waiting for workflows still running: ${pendingWorkflows.join(', ')}`
-                : 'waiting for workflows to start';
+              let waitReason = 'waiting for workflows to start';
+              if (pendingFoundWorkflows.length > 0 && missingWorkflows.length > 0) {
+                waitReason =
+                  `waiting for running workflows (${pendingFoundWorkflows.join(', ')}) ` +
+                  `and missing workflows (${missingWorkflows.join(', ')})`;
+              } else if (pendingFoundWorkflows.length > 0) {
+                waitReason = `waiting for workflows still running: ${pendingFoundWorkflows.join(', ')}`;
+              } else if (missingWorkflows.length > 0) {
+                waitReason = `waiting for workflows to start: ${missingWorkflows.join(', ')}`;
+              }
               core.info(
                 `Waiting ${pollIntervalMs / 1000}s for CI to complete (${waitReason})...`,
               );
