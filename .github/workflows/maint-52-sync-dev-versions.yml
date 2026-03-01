@@ -136,7 +136,7 @@ jobs:
           gh repo clone ${{ matrix.repo }} consumer -- --depth=1
 
       - name: Download sync script
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: sync-script
 

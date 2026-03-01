@@ -545,7 +545,7 @@ full_soft_gate"
 
       - name: Download self-test report
         if: ${{ env.ENABLE_HISTORY == 'true' && env.RUN_ID != '' }}
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           run-id: ${{ env.RUN_ID }}
           name: selftest-report
