@@ -73,6 +73,9 @@ env:
     stranske/Travel-Plan-Permission
     stranske/Template
     stranske/Counter_Risk
+    stranske/Pension-Data
+    stranske/Inv-Man-Intake
+    stranske/Ready
     stranske/trip-planner
     stranske/Manager-Database
     stranske/Portable-Alpha-Extension-Model
