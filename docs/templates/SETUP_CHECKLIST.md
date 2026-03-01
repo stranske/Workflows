@@ -325,11 +325,10 @@ Claude-run workflows (for example `reusable-claude-run.yml`) require one of:
 Set the preferred token:
 
 ```bash
-# Generates/refreshes a long-lived token
-claude setup-token
-
-# Then paste token into repo secret
-gh secret set CLAUDE_CODE_OAUTH_TOKEN --repo stranske/<your-repo>
+# Generates/refreshes a long-lived token and writes it directly to the repo secret
+gh secret set CLAUDE_CODE_OAUTH_TOKEN \
+  --repo stranske/<your-repo> \
+  --body "$(claude setup-token)"
 ```
 
 Fallback using auth JSON:
