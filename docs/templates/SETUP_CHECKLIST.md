@@ -20,6 +20,7 @@ Before starting, ensure you have:
 - [ ] Access to [stranske/Workflows](https://github.com/stranske/Workflows) repository
 - [ ] A GitHub PAT for the service bot account (for SERVICE_BOT_PAT)
 - [ ] Admin access to create repository secrets and variables
+- [ ] Claude Code login/session available if you want Claude-run workflows
 - [ ] Python 3.11+ installed locally for testing
 
 ---
@@ -246,20 +247,33 @@ Navigate to: **Settings** → **Secrets and variables** → **Actions** → **Se
 |-------------|-------------|--------|
 | `SERVICE_BOT_PAT` | PAT for service bot account | Contact admin for token |
 | `ACTIONS_BOT_PAT` | PAT for workflow dispatch | Same as SERVICE_BOT_PAT or dedicated |
+| `AGENTS_AUTOMATION_PAT` | PAT used by autofix/retry flows when available | Contact admin for token |
 | `OWNER_PR_PAT` | PAT for PR creation | Repository owner's PAT |
 | `CODEX_AUTH_JSON` | Codex CLI authentication | Export from `~/.codex/auth.json` |
 | `WORKFLOWS_APP_ID` | GitHub App ID for token minting | Contact admin for App ID |
 | `WORKFLOWS_APP_PRIVATE_KEY` | GitHub App private key | Contact admin for private key |
+| `KEEPALIVE_APP_ID` | Keepalive App ID (preferred for keepalive loop auth) | Contact admin for App ID |
+| `KEEPALIVE_APP_PRIVATE_KEY` | Keepalive App private key | Contact admin for private key |
+| `OPENAI_API_KEY` | OpenAI API key for verify/optimizer/decompose flows | Contact admin for token |
+| `CLAUDE_API_STRANSKE` | Claude API key for verify/optimizer/decompose flows | Contact admin for token |
+| `CLAUDE_CODE_OAUTH_TOKEN` | Claude Code OAuth token (preferred for Claude CLI runs) | `claude setup-token` |
+| `CLAUDE_AUTH_JSON` | Claude auth JSON fallback when OAuth token is unavailable | Export from existing Claude auth file |
 
 Add each secret:
 - [ ] `SERVICE_BOT_PAT` — Required for orchestrator and agent workflows
 - [ ] `ACTIONS_BOT_PAT` — Required for triggering workflows between repos
+- [ ] `AGENTS_AUTOMATION_PAT` — Recommended for autofix/retry dispatches
 - [ ] `OWNER_PR_PAT` — Required for creating PRs from agent bridge
 - [ ] `CODEX_AUTH_JSON` — Required for Codex CLI to authenticate with ChatGPT
 - [ ] `WORKFLOWS_APP_ID` — **Required for keepalive** - Used for GitHub App token minting
 - [ ] `WORKFLOWS_APP_PRIVATE_KEY` — **Required for keepalive** - GitHub App authentication
+- [ ] `KEEPALIVE_APP_ID` — **Required for keepalive parity** - Explicit keepalive app alias
+- [ ] `KEEPALIVE_APP_PRIVATE_KEY` — **Required for keepalive parity** - Explicit keepalive app key
+- [ ] `OPENAI_API_KEY` — Required for verify/decompose/optimizer workflows
+- [ ] `CLAUDE_API_STRANSKE` — Required for verify/decompose/optimizer workflows
+- [ ] `CLAUDE_CODE_OAUTH_TOKEN` (or `CLAUDE_AUTH_JSON`) — Required for Claude CLI workflow runs
 
-### 3.2.2 Bulk PAT Sync (No Organization Required)
+### 3.2.1 Bulk PAT Sync (No Organization Required)
 
 If you manage multiple repositories without GitHub organization secrets, use the
 shared script to fan out PATs from one local source of truth:
@@ -282,7 +296,7 @@ Notes:
 - This avoids per-repo copy/paste while keeping repository-level secrets.
 - Script path: `scripts/sync_pat_secrets.sh`.
 
-### 3.2.1 Codex CLI Secret (`CODEX_AUTH_JSON`) — Explicit Setup
+### 3.2.2 Codex CLI Secret (`CODEX_AUTH_JSON`) — Explicit Setup
 
 `CODEX_AUTH_JSON` must contain the full JSON payload from your Codex CLI auth file.
 Keepalive Codex runs fail without it.
@@ -301,6 +315,38 @@ Verify secret exists:
 gh secret list --repo stranske/<your-repo> | grep CODEX_AUTH_JSON
 ```
 
+### 3.2.3 Claude CLI Secrets (`CLAUDE_CODE_OAUTH_TOKEN` / `CLAUDE_AUTH_JSON`)
+
+Claude-run workflows (for example `reusable-claude-run.yml`) require one of:
+
+- Preferred: `CLAUDE_CODE_OAUTH_TOKEN`
+- Fallback: `CLAUDE_AUTH_JSON`
+
+Set the preferred token:
+
+```bash
+# Generates/refreshes a long-lived token
+claude setup-token
+
+# Then paste token into repo secret
+gh secret set CLAUDE_CODE_OAUTH_TOKEN --repo stranske/<your-repo>
+```
+
+Fallback using auth JSON:
+
+```bash
+# If you maintain a claude auth JSON export locally
+gh secret set CLAUDE_AUTH_JSON \
+  --repo stranske/<your-repo> \
+  --body "$(cat /path/to/claude-auth.json)"
+```
+
+Verify at least one exists:
+
+```bash
+gh secret list --repo stranske/<your-repo> | grep -E "CLAUDE_CODE_OAUTH_TOKEN|CLAUDE_AUTH_JSON"
+```
+
 > **Important**: `WORKFLOWS_APP_ID` and `WORKFLOWS_APP_PRIVATE_KEY` are essential for
 > keepalive automation. While workflows have PAT fallback logic, the keepalive system
 > requires GitHub App tokens for proper authentication and rate limits.
@@ -316,19 +362,23 @@ Navigate to: **Settings** → **Secrets and variables** → **Actions** → **Va
 Add the variable:
 - [ ] `ALLOWED_KEEPALIVE_LOGINS` — Comma-separated list of usernames
 
-### 3.4 Install GitHub App on Repository
+### 3.4 Install GitHub Apps on Repository
 
-> **Critical**: Even if you've configured `WORKFLOWS_APP_ID` and `WORKFLOWS_APP_PRIVATE_KEY` 
-> secrets, the GitHub App must be explicitly granted access to this repository.
+> **Critical**: Even if you've configured app secrets, each GitHub App must be
+> explicitly granted access to this repository.
 
 **Symptom if skipped:** Keepalive fails with `Failed to create token for "<repo-name>": Not Found`
+
+Apps to verify:
+- `WORKFLOWS_APP_ID` / `WORKFLOWS_APP_PRIVATE_KEY`
+- `KEEPALIVE_APP_ID` / `KEEPALIVE_APP_PRIVATE_KEY` (if set)
 
 **Steps to install:**
 
 1. Go to: **Settings** → **Applications** → **Installed GitHub Apps**
    - Direct link: https://github.com/settings/installations
    
-2. Find your GitHub App in the list (the one matching `WORKFLOWS_APP_ID`)
+2. Find each GitHub App in the list (matching the App IDs in your secrets)
 
 3. Click **"Configure"** button on the right side of that row
 
@@ -344,7 +394,8 @@ Add the variable:
 - Confirm your GitHub App is listed there
 
 **Checklist:**
-- [ ] GitHub App has access to this repository (verified in repo's settings/installations)
+- [ ] Workflows app has access to this repository
+- [ ] Keepalive app has access to this repository (if configured separately)
 
 > **Note**: This is separate from repository secrets. Secrets tell workflows which App 
 > credentials to use, but the App itself must be installed on the repository to grant 
