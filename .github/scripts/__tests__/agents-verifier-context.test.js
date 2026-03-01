@@ -244,8 +244,23 @@ test('buildVerifierContext warns on invalid VERIFIER_PR_NUMBER and falls back', 
   });
 });
 
-test('buildVerifierContext skips when base branch mismatches default', async () => {
+test('buildVerifierContext allows non-default base branches when acceptance criteria exist', async () => {
   const core = buildCore();
+  const prDetails = {
+    number: 99,
+    title: 'Stacked branch verifier target',
+    body: prBodyFixture,
+    html_url: 'https://example.com/pr/99',
+    merge_commit_sha: 'merge-sha-99',
+    base: {
+      ref: 'dev',
+      repo: { full_name: 'octo/workflows', owner: { login: 'octo' } },
+    },
+    head: {
+      sha: 'head-sha-99',
+      repo: { full_name: 'octo/workflows', owner: { login: 'octo' }, fork: false },
+    },
+  };
   const context = {
     eventName: 'pull_request',
     repo: { owner: 'octo', repo: 'workflows' },
@@ -261,13 +276,14 @@ test('buildVerifierContext skips when base branch mismatches default', async () 
     sha: 'sha-2',
   };
   const result = await buildVerifierContext({
-    github: buildGithubStub(),
+    github: buildGithubStub({ prDetails }),
     context,
     core,
   });
-  assert.equal(result.shouldRun, false);
+  assert.equal(result.shouldRun, true);
+  assert.equal(core.outputs.should_run, 'true');
   assert.equal(core.outputs.pr_number, '99');
-  assert.ok(core.outputs.skip_reason.includes('base ref'));
+  assert.equal(core.outputs.skip_reason, '');
 });
 
 test('buildVerifierContext skips forked pull requests', async () => {
