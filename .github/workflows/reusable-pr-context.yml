@@ -143,6 +143,7 @@ jobs:
         with:
           sparse-checkout: |
             .github/scripts
+            .github/actions/setup-api-client
           sparse-checkout-cone-mode: false
 
       - name: Setup API client
