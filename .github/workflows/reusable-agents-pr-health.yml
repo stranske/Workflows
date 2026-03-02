@@ -87,6 +87,7 @@ jobs:
       conflict_prs: ${{ steps.categorise.outputs.conflict_prs }}
       failing_prs: ${{ steps.categorise.outputs.failing_prs }}
       stalled_prs: ${{ steps.categorise.outputs.stalled_prs }}
+      stalled_scan_count: ${{ steps.categorise.outputs.stalled_scan_count }}
       healthy_count: ${{ steps.categorise.outputs.healthy_count }}
       total_open: ${{ steps.categorise.outputs.total_open }}
       has_work: ${{ steps.categorise.outputs.has_work }}
@@ -265,17 +266,77 @@ jobs:
               return body.slice(start + startMarker.length, end);
             }
 
+            // Heading patterns that indicate an acceptance criteria section.
+            // Cascade is disabled inside these sections — each criterion must
+            // be independently verified.
+            const ACCEPTANCE_HEADING_RE = [
+              /acceptance\s*criteria/i,
+              /definition\s*of\s*done/i,
+              /done\s*criteria/i,
+            ];
+
+            /**
+             * Count checkboxes with parent→child cascade, matching the
+             * semantics of keepalive_loop.js:cascadeParentCheckboxes +
+             * countCheckboxes.  When a parent checkbox is checked, all
+             * indented children are treated as effectively checked — except
+             * inside acceptance-criteria sections.
+             */
             function countCheckboxes(markdown) {
               const result = { total: 0, checked: 0, unchecked: 0 };
-              const regex = /(?:^|\n)\s*(?:[-*+]|\d+[.)])\s*\[( |x|X)\]/g;
-              let m;
-              while ((m = regex.exec(markdown)) !== null) {
-                result.total += 1;
-                if ((m[1] || '').toLowerCase() === 'x') {
-                  result.checked += 1;
-                } else {
-                  result.unchecked += 1;
+              if (!markdown) return result;
+
+              const lines = markdown.split('\n');
+              const cbLineRe = /^(\s*)([-*+]|\d+[.)])\s*\[([ xX])\]/;
+              let parentIndent = null;
+              let inCodeBlock = false;
+              let inAcceptanceSection = false;
+
+              for (const line of lines) {
+                // Toggle code fences
+                if (/^\s*(`{3,}|~{3,})/.test(line)) {
+                  inCodeBlock = !inCodeBlock;
+                  parentIndent = null;
+                  continue;
                 }
+                if (inCodeBlock) continue;
+
+                // Detect section headings
+                if (/^#{1,6}\s/.test(line)) {
+                  parentIndent = null;
+                  const stripped = line.replace(/^#{1,6}\s+/, '').replace(/\*\*/g, '').trim();
+                  inAcceptanceSection = ACCEPTANCE_HEADING_RE.some(p => p.test(stripped));
+                  continue;
+                }
+
+                const cbMatch = line.match(cbLineRe);
+                if (!cbMatch) {
+                  if (/^\s*$/.test(line)) parentIndent = null;
+                  continue;
+                }
+
+                const indent = cbMatch[1].length;
+                const directChecked = cbMatch[3].toLowerCase() === 'x';
+
+                // Inside acceptance criteria — no cascade
+                if (inAcceptanceSection) {
+                  result.total += 1;
+                  if (directChecked) { result.checked += 1; } else { result.unchecked += 1; }
+                  continue;
+                }
+
+                // Cascade: child of a checked parent → effectively checked
+                if (parentIndent !== null && indent > parentIndent) {
+                  result.total += 1;
+                  result.checked += 1; // cascaded
+                  continue;
+                }
+
+                // Same or lesser indent — may be a new parent
+                parentIndent = null;
+                if (directChecked) parentIndent = indent;
+                result.total += 1;
+                if (directChecked) { result.checked += 1; } else { result.unchecked += 1; }
               }
               return result;
             }
@@ -325,6 +386,7 @@ jobs:
             core.setOutput('conflict_prs', JSON.stringify(limitedConflicts));
             core.setOutput('failing_prs', JSON.stringify(limitedFailing));
             core.setOutput('stalled_prs', JSON.stringify(limitedStalled));
+            core.setOutput('stalled_scan_count', String(stalledPrs.length));
             core.setOutput('healthy_count', String(healthyCount));
             core.setOutput('total_open', String(prs.length));
             core.setOutput('has_work', String(hasWork));
@@ -781,6 +843,7 @@ jobs:
             const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
             const { withRetry } = await createTokenAwareRetry({
               github, core, task: 'pr-health-nudge',
+              capabilities: ['issues:write'],
             });
 
             const owner = context.repo.owner;
@@ -788,8 +851,23 @@ jobs:
             const prNumber = parseInt(process.env.PR_NUMBER, 10);
             const blockingLabels = (process.env.BLOCKING_LABELS || '').split(',').filter(Boolean);
             const dryRun = process.env.DRY_RUN === 'true';
+            const PAUSE_LABELS = ['agents:pause', 'agents:paused'];
 
             core.info(`Nudging PR #${prNumber} — blocking labels: ${blockingLabels.join(', ')}`);
+
+            // Re-fetch current labels to guard against race conditions
+            // (PR may have been paused between scan and this job).
+            const { data: currentLabels } = await withRetry((client) =>
+              client.rest.issues.listLabelsOnIssue({
+                owner, repo, issue_number: prNumber, per_page: 100,
+              })
+            );
+            const currentNames = currentLabels.map(l => l.name);
+            if (currentNames.some(l => PAUSE_LABELS.includes(l))) {
+              core.info(`PR #${prNumber} is now paused — skipping nudge`);
+              core.setOutput('result', 'skipped-paused');
+              return;
+            }
 
             if (dryRun) {
               core.info('DRY RUN: Would add agent:retry and remove blocking labels');
@@ -797,7 +875,25 @@ jobs:
               return;
             }
 
-            // Add agent:retry label to restart the keepalive loop
+            // Ensure agent:retry triggers a fresh labeled event.
+            // If the label is already present, addLabels is a no-op and
+            // no pull_request:labeled event fires.  Remove first (404-safe),
+            // then re-add so the event always fires.
+            try {
+              await withRetry((client) =>
+                client.rest.issues.removeLabel({
+                  owner, repo, issue_number: prNumber,
+                  name: 'agent:retry',
+                })
+              );
+              core.info('Removed existing agent:retry label');
+            } catch (error) {
+              if (error.status === 404) {
+                core.info('agent:retry not present — will add fresh');
+              } else {
+                throw error;
+              }
+            }
             await withRetry((client) =>
               client.rest.issues.addLabels({
                 owner, repo, issue_number: prNumber,
@@ -860,7 +956,7 @@ jobs:
           TOTAL: ${{ needs.scan.outputs.total_open }}
           CONFLICTS: ${{ needs.scan.outputs.conflict_prs }}
           FAILING: ${{ needs.scan.outputs.failing_prs }}
-          STALLED: ${{ needs.scan.outputs.stalled_prs }}
+          STALLED_COUNT: ${{ needs.scan.outputs.stalled_scan_count }}
           HEALTHY: ${{ needs.scan.outputs.healthy_count }}
           DRY_RUN: ${{ inputs.dry_run }}
           CONFLICT_RESULT: ${{ needs.resolve-conflicts.result }}
@@ -871,8 +967,6 @@ jobs:
 
           conflict_count=$(echo "$CONFLICTS" | python3 -c "import sys,json; print(len(json.load(sys.stdin)))" 2>/dev/null || echo 0)
           failing_count=$(echo "$FAILING" | python3 -c "import sys,json; print(len(json.load(sys.stdin)))" 2>/dev/null || echo 0)
-          stalled_count=$(echo "$STALLED" | python3 -c "import sys,json; print(len(json.load(sys.stdin)))" 2>/dev/null || echo 0)
-
           {
             echo "## PR Health Summary"
             echo ""
@@ -885,6 +979,6 @@ jobs:
             echo "| Total open PRs | $TOTAL | — |"
             echo "| Conflicting | $conflict_count | resolve-conflicts: **${CONFLICT_RESULT:-skipped}** |"
             echo "| Failing checks | $failing_count | fix-checks: **${CHECK_RESULT:-skipped}** |"
-            echo "| Stalled (nudged) | $stalled_count | nudge-stalled: **${NUDGE_RESULT:-skipped}** |"
+            echo "| Stalled (nudged) | ${STALLED_COUNT:-0} | nudge-stalled: **${NUDGE_RESULT:-skipped}** |"
             echo "| Healthy | $HEALTHY | — |"
           } >> "$GITHUB_STEP_SUMMARY"
