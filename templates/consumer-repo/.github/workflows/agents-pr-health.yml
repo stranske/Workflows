@@ -1,0 +1,50 @@
+# ---------------------------------------------------------------------------
+# Agents PR Health — Consumer Repo Thin Wrapper
+# ---------------------------------------------------------------------------
+# Periodically scans open PRs for merge conflicts and failing checks,
+# then routes remediation to the coding agent that most recently worked
+# on each PR.
+#
+# Copy this file to: .github/workflows/agents-pr-health.yml
+#
+# Required secrets (inherited from org / repo):
+#   - WORKFLOWS_APP_ID / WORKFLOWS_APP_PRIVATE_KEY (preferred)
+#   - ACTIONS_BOT_PAT or SERVICE_BOT_PAT (fallback)
+# ---------------------------------------------------------------------------
+
+name: Agents PR Health
+
+on:
+  schedule:
+    # Every 6 hours — frequent enough to catch drift, rare enough to
+    # stay well within rate limits and agent cost budgets.
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Preview mode — scan and report without pushing or dispatching'
+        required: false
+        default: false
+        type: boolean
+      max_prs:
+        description: 'Maximum PRs to process'
+        required: false
+        default: 10
+        type: number
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+
+concurrency:
+  group: pr-health-${{ github.repository }}
+  cancel-in-progress: true
+
+jobs:
+  health:
+    uses: stranske/Workflows/.github/workflows/reusable-agents-pr-health.yml@main
+    with:
+      dry_run: ${{ inputs.dry_run || false }}
+      max_prs: ${{ inputs.max_prs || 10 }}
+    secrets: inherit

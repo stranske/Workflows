@@ -123,6 +123,9 @@ workflows:
   - source: .github/workflows/agents-guard.yml
     description: "Agents guard - enforces agents workflow protections (Health 45)"
 
+  - source: .github/workflows/agents-pr-health.yml
+    description: "PR health scanner - periodic conflict resolution and failing check re-dispatch"
+
   - source: .github/workflows/agents-auto-pilot.yml
     description: "Auto-pilot - end-to-end automation orchestrator (format → optimize → agent → verify)"
 
