@@ -136,6 +136,9 @@ workflows:
   - source: .github/workflows/maint-coverage-guard.yml
     description: "Coverage guard - daily baseline monitoring with automatic issue creation"
 
+  - source: .github/workflows/maint-76-claude-code-review.yml
+    description: "Claude Code review (opt-in) - runs only on labeled PRs or manual dispatch"
+
   # Version pins
   - source: .github/workflows/autofix-versions.env
     description: "Autofix tool version pins - shared dev tool versions (synced)"
