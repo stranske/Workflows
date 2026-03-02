@@ -119,6 +119,7 @@ The workflows below do not expose `workflow_call` outputs. They publish artifact
 - `reusable-18-autofix.yml`
 - `reusable-70-orchestrator-main.yml`
 - `reusable-agents-issue-bridge.yml`
+- `reusable-agents-pr-health.yml`
 - `reusable-agents-verifier.yml`
 <!-- OUTPUT-NONE-END -->
 

@@ -258,6 +258,7 @@ EXPECTED_NAMES = {
     "reusable-70-orchestrator-init.yml": "Agents 70 Init (Reusable)",
     "reusable-70-orchestrator-main.yml": "Agents 70 Main (Reusable)",
     "reusable-agents-issue-bridge.yml": "Reusable Agents Issue Bridge",
+    "reusable-agents-pr-health.yml": "Reusable Agents PR Health",
     "reusable-agents-verifier.yml": "Reusable Agents Verifier",
     "reusable-bot-comment-handler.yml": "Reusable Bot Comment Handler",
     "reusable-pr-context.yml": "Reusable PR Context Fetcher",

@@ -122,17 +122,22 @@ jobs:
         uses: actions/github-script@v8
         env:
           MAX_PRS: ${{ inputs.max_prs }}
+          MAX_DISPATCHES: ${{ inputs.max_agent_dispatches }}
         with:
           github-token: ${{ steps.auth.outputs.token }}
           script: |
             const maxPrs = parseInt(process.env.MAX_PRS || '10', 10);
+            const maxDispatches = parseInt(process.env.MAX_DISPATCHES || '3', 10);
             const owner = context.repo.owner;
             const repo = context.repo.repo;
 
-            // Fetch open PRs (up to 100)
-            const { data: prs } = await github.rest.pulls.list({
-              owner, repo, state: 'open', per_page: 100,
-            });
+            // Paginate open PRs (handles repos with >100 open PRs)
+            let prs = [];
+            for await (const response of github.paginate.iterator(
+              github.rest.pulls.list, { owner, repo, state: 'open', per_page: 100 }
+            )) {
+              prs = prs.concat(response.data);
+            }
 
             core.info(`Found ${prs.length} open PRs`);
 
@@ -211,9 +216,13 @@ jobs:
               healthyCount++;
             }
 
-            // Limit output
-            const limitedConflicts = conflictPrs.slice(0, maxPrs);
-            const limitedFailing = failingPrs.slice(0, maxPrs);
+            // Limit output — respect both max_prs (scan cap) and
+            // max_agent_dispatches (cost guard for agent invocations).
+            // Conflicts that need agents count toward the dispatch cap;
+            // simple auto-merges are free so we keep all of those in the
+            // list and let the matrix step handle them.
+            const limitedConflicts = conflictPrs.slice(0, Math.min(maxPrs, maxDispatches));
+            const limitedFailing = failingPrs.slice(0, Math.min(maxPrs, maxDispatches));
             const hasWork = limitedConflicts.length > 0 || limitedFailing.length > 0;
 
             core.setOutput('conflict_prs', JSON.stringify(limitedConflicts));
@@ -421,57 +430,54 @@ jobs:
           PR_NUMBER: ${{ matrix.pr.number }}
           HEAD_REF: ${{ matrix.pr.head_ref }}
           BASE_REF: ${{ matrix.pr.base_ref }}
-          HEAD_SHA: ${{ matrix.pr.head_sha }}
           AGENT_TYPE: ${{ matrix.pr.agent_type }}
           CONFLICT_FILES: ${{ steps.merge.outputs.conflict_files }}
         run: |
           set -euo pipefail
 
-          echo "Dispatching $AGENT_TYPE agent to resolve conflicts on PR #$PR_NUMBER..."
+          echo "Dispatching agent to resolve conflicts on PR #$PR_NUMBER..."
+          echo "Agent type (from branch prefix): $AGENT_TYPE"
           echo "Conflicting files: $CONFLICT_FILES"
 
-          # Build appendix with conflict context
-          appendix="## Conflict Resolution Context
-
-          PR: #${PR_NUMBER}
-          Branch: ${HEAD_REF} -> ${BASE_REF}
-          Agent: ${AGENT_TYPE}
-          Conflicting files: ${CONFLICT_FILES}
-
-          This PR has merge conflicts with ${BASE_REF} that could not be
-          auto-resolved. Follow the instructions in the prompt to resolve them."
-
-          # Dispatch to the appropriate agent runner
-          # Use the keepalive loop which handles agent routing
+          # Dispatch via keepalive loop — it handles routing to the
+          # correct agent runner (codex vs claude) based on the PR's
+          # branch prefix and labels via agent_registry.js.
           gh workflow run agents-keepalive-loop.yml \
             --repo "$GITHUB_REPOSITORY" \
             -f pr_number="$PR_NUMBER" \
             -f force_retry=true
 
-          echo "Dispatched keepalive loop for PR #$PR_NUMBER (agent: $AGENT_TYPE)"
+          echo "Dispatched keepalive loop for PR #$PR_NUMBER"
 
-      - name: Dispatch agent for complex conflicts (fallback via repository_dispatch)
+      - name: Dispatch conflict event (fallback)
         if: >-
           steps.merge.outputs.needs_agent == 'true'
           && inputs.dry_run != true
         continue-on-error: true
         uses: actions/github-script@v8
+        env:
+          PR_NUM: ${{ matrix.pr.number }}
+          HEAD_REF_VAL: ${{ matrix.pr.head_ref }}
+          BASE_REF_VAL: ${{ matrix.pr.base_ref }}
+          HEAD_SHA_VAL: ${{ matrix.pr.head_sha }}
+          AGENT_TYPE_VAL: ${{ matrix.pr.agent_type }}
+          CONFLICT_FILES_VAL: ${{ steps.merge.outputs.conflict_files }}
         with:
           github-token: ${{ steps.auth.outputs.token }}
           script: |
-            // Also send a repository_dispatch as a backup trigger
-            // This can be picked up by other automation
+            // Backup trigger via repository_dispatch — avoids ${{ }}
+            // interpolation inside JS strings (injection risk).
             await github.rest.repos.createDispatchEvent({
               owner: context.repo.owner,
               repo: context.repo.repo,
               event_type: 'pr_health_conflict',
               client_payload: {
-                pr_number: ${{ matrix.pr.number }},
-                head_ref: '${{ matrix.pr.head_ref }}',
-                base_ref: '${{ matrix.pr.base_ref }}',
-                head_sha: '${{ matrix.pr.head_sha }}',
-                agent_type: '${{ matrix.pr.agent_type }}',
-                conflict_files: '${{ steps.merge.outputs.conflict_files }}',
+                pr_number: parseInt(process.env.PR_NUM, 10),
+                head_ref: process.env.HEAD_REF_VAL,
+                base_ref: process.env.BASE_REF_VAL,
+                head_sha: process.env.HEAD_SHA_VAL,
+                agent_type: process.env.AGENT_TYPE_VAL,
+                conflict_files: process.env.CONFLICT_FILES_VAL,
               },
             });
 
@@ -538,32 +544,26 @@ jobs:
             echo "token=$GITHUB_TOKEN_FALLBACK" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Dispatch autofix loop
+      - name: Dispatch keepalive loop for failing checks
         env:
           GH_TOKEN: ${{ steps.auth.outputs.token }}
           PR_NUMBER: ${{ matrix.pr.number }}
-          HEAD_SHA: ${{ matrix.pr.head_sha }}
           AGENT_TYPE: ${{ matrix.pr.agent_type }}
         run: |
           set -euo pipefail
 
-          echo "Dispatching autofix for PR #$PR_NUMBER (agent: $AGENT_TYPE)..."
+          echo "Dispatching keepalive for PR #$PR_NUMBER (agent: $AGENT_TYPE)..."
 
-          # Try keepalive loop first (handles agent routing)
+          # Use keepalive loop which handles agent routing and can
+          # trigger autofix internally.  We do NOT dispatch
+          # agents-autofix-loop.yml directly because it requires
+          # gate_run_id (a required input we cannot supply here).
           gh workflow run agents-keepalive-loop.yml \
             --repo "$GITHUB_REPOSITORY" \
             -f pr_number="$PR_NUMBER" \
-            -f force_retry=true \
-            2>/dev/null || echo "::warning::keepalive dispatch failed, trying autofix loop"
+            -f force_retry=true
 
-          # Also try autofix loop directly
-          gh workflow run agents-autofix-loop.yml \
-            --repo "$GITHUB_REPOSITORY" \
-            -f pr_number="$PR_NUMBER" \
-            -f head_sha="$HEAD_SHA" \
-            2>/dev/null || echo "::warning::autofix loop dispatch failed"
-
-          echo "Dispatched fix for PR #$PR_NUMBER"
+          echo "Dispatched keepalive loop for PR #$PR_NUMBER"
 
       - name: Generate step summary
         if: always()
