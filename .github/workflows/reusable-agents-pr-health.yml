@@ -117,6 +117,22 @@ jobs:
             echo "source=github-token" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Checkout Workflows helpers
+        uses: actions/checkout@v6
+        with:
+          repository: stranske/Workflows
+          sparse-checkout: |
+            .github/actions/setup-api-client
+            .github/scripts/github-api-with-retry.js
+            .github/scripts/token_load_balancer.js
+          sparse-checkout-cone-mode: false
+
+      - name: Setup API client
+        uses: ./.github/actions/setup-api-client
+        with:
+          secrets: ${{ toJSON(secrets) }}
+          github_token: ${{ github.token }}
+
       - name: Categorise PRs
         id: categorise
         uses: actions/github-script@v8
@@ -126,18 +142,21 @@ jobs:
         with:
           github-token: ${{ steps.auth.outputs.token }}
           script: |
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const { withRetry, paginateWithRetry } = await createTokenAwareRetry({
+              github, core, task: 'pr-health-scan',
+            });
+
             const maxPrs = parseInt(process.env.MAX_PRS || '10', 10);
             const maxDispatches = parseInt(process.env.MAX_DISPATCHES || '3', 10);
             const owner = context.repo.owner;
             const repo = context.repo.repo;
 
             // Paginate open PRs (handles repos with >100 open PRs)
-            let prs = [];
-            for await (const response of github.paginate.iterator(
-              github.rest.pulls.list, { owner, repo, state: 'open', per_page: 100 }
-            )) {
-              prs = prs.concat(response.data);
-            }
+            const prs = await paginateWithRetry(
+              github, github.rest.pulls.list,
+              { owner, repo, state: 'open', per_page: 100 }
+            );
 
             core.info(`Found ${prs.length} open PRs`);
 
@@ -164,9 +183,11 @@ jobs:
               // If unknown, fetch individually to trigger computation
               if (mergeable === null || mergeableState === 'unknown') {
                 await new Promise(r => setTimeout(r, 1000));
-                const { data: fresh } = await github.rest.pulls.get({
-                  owner, repo, pull_number: pr.number,
-                });
+                const { data: fresh } = await withRetry((client) =>
+                  client.rest.pulls.get({
+                    owner, repo, pull_number: pr.number,
+                  })
+                );
                 mergeableState = fresh.mergeable_state;
                 mergeable = fresh.mergeable;
               }
@@ -190,17 +211,21 @@ jobs:
               if (mergeableState === 'unstable' || mergeableState === 'blocked') {
                 // Check combined status
                 try {
-                  const { data: status } = await github.rest.repos.getCombinedStatusForRef({
-                    owner, repo, ref: pr.head.sha,
-                  });
+                  const { data: status } = await withRetry((client) =>
+                    client.rest.repos.getCombinedStatusForRef({
+                      owner, repo, ref: pr.head.sha,
+                    })
+                  );
                   if (status.state === 'failure') {
                     failingPrs.push(prInfo);
                     continue;
                   }
                   // Also check check runs
-                  const { data: checks } = await github.rest.checks.listForRef({
-                    owner, repo, ref: pr.head.sha, per_page: 100,
-                  });
+                  const { data: checks } = await withRetry((client) =>
+                    client.rest.checks.listForRef({
+                      owner, repo, ref: pr.head.sha, per_page: 100,
+                    })
+                  );
                   const hasFailure = checks.check_runs.some(
                     cr => cr.conclusion === 'failure' && cr.name !== 'automerge'
                   );
@@ -311,6 +336,23 @@ jobs:
           ref: ${{ matrix.pr.head_ref }}
           fetch-depth: 0
           token: ${{ steps.auth.outputs.token }}
+
+      - name: Checkout Workflows helpers
+        uses: actions/checkout@v6
+        with:
+          repository: stranske/Workflows
+          sparse-checkout: |
+            .github/actions/setup-api-client
+            .github/scripts/github-api-with-retry.js
+            .github/scripts/token_load_balancer.js
+          sparse-checkout-cone-mode: false
+          path: .workflows-lib
+
+      - name: Setup API client
+        uses: ./.workflows-lib/.github/actions/setup-api-client
+        with:
+          secrets: ${{ toJSON(secrets) }}
+          github_token: ${{ github.token }}
 
       - name: Configure git
         run: |
@@ -465,21 +507,31 @@ jobs:
         with:
           github-token: ${{ steps.auth.outputs.token }}
           script: |
+            const fs = require('fs');
+            const retryPath = './.workflows-lib/.github/scripts/github-api-with-retry.js';
+            const { createTokenAwareRetry } = fs.existsSync(retryPath)
+              ? require(retryPath)
+              : require('./.github/scripts/github-api-with-retry.js');
+            const { withRetry } = await createTokenAwareRetry({
+              github, core, task: 'pr-health-dispatch',
+            });
             // Backup trigger via repository_dispatch — avoids expression
             // interpolation inside JS strings (injection risk).
-            await github.rest.repos.createDispatchEvent({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              event_type: 'pr_health_conflict',
-              client_payload: {
-                pr_number: parseInt(process.env.PR_NUM, 10),
-                head_ref: process.env.HEAD_REF_VAL,
-                base_ref: process.env.BASE_REF_VAL,
-                head_sha: process.env.HEAD_SHA_VAL,
-                agent_type: process.env.AGENT_TYPE_VAL,
-                conflict_files: process.env.CONFLICT_FILES_VAL,
-              },
-            });
+            await withRetry((client) =>
+              client.rest.repos.createDispatchEvent({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                event_type: 'pr_health_conflict',
+                client_payload: {
+                  pr_number: parseInt(process.env.PR_NUM, 10),
+                  head_ref: process.env.HEAD_REF_VAL,
+                  base_ref: process.env.BASE_REF_VAL,
+                  head_sha: process.env.HEAD_SHA_VAL,
+                  agent_type: process.env.AGENT_TYPE_VAL,
+                  conflict_files: process.env.CONFLICT_FILES_VAL,
+                },
+              })
+            );
 
       - name: Generate step summary
         if: always()
