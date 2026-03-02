@@ -465,7 +465,7 @@ jobs:
         with:
           github-token: ${{ steps.auth.outputs.token }}
           script: |
-            // Backup trigger via repository_dispatch — avoids ${{ }}
+            // Backup trigger via repository_dispatch — avoids expression
             // interpolation inside JS strings (injection risk).
             await github.rest.repos.createDispatchEvent({
               owner: context.repo.owner,
