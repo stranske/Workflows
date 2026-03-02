@@ -62,6 +62,14 @@ on:
           frequency without a code change.
         type: number
         default: 1
+      is_scheduled_trigger:
+        description: >-
+          Whether this run was triggered by a cron schedule.
+          Callers should pass: github.event_name == 'schedule'.
+          Required because github.event_name inside a reusable
+          workflow is always 'workflow_call', not the caller's event.
+        type: boolean
+        default: false
     secrets:
       service_bot_pat:
         required: false
@@ -97,13 +105,22 @@ jobs:
         id: check
         env:
           INTERVAL: ${{ inputs.cron_interval_hours }}
-          EVENT_NAME: ${{ github.event_name }}
+          IS_SCHEDULED: ${{ inputs.is_scheduled_trigger }}
         run: |
           set -euo pipefail
           interval="${INTERVAL:-1}"
 
-          # Manual / non-schedule triggers always proceed
-          if [ "$EVENT_NAME" != "schedule" ]; then
+          # Validate interval — must be a non-negative integer.
+          # Repo variables are free-text; guard against '6h', '6.0', etc.
+          if ! [[ "$interval" =~ ^[0-9]+$ ]]; then
+            echo "::warning::Invalid cron_interval_hours='$interval' — defaulting to 1"
+            interval=1
+          fi
+
+          # Non-scheduled triggers (manual dispatch) always proceed.
+          # Note: github.event_name inside a reusable workflow is always
+          # 'workflow_call', so callers pass is_scheduled_trigger instead.
+          if [ "$IS_SCHEDULED" != "true" ]; then
             echo "should_run=true" >> "$GITHUB_OUTPUT"
             echo "Manual trigger — always proceeding"
             exit 0
@@ -127,9 +144,18 @@ jobs:
           current_hour=$(date -u +%-H)
           remainder=$((current_hour % interval))
           if [ "$remainder" -ne 0 ]; then
-            next_run=$(( (current_hour / interval + 1) * interval % 24 ))
+            # Find the actual next aligned hour on a 24h clock.
+            # Avoids the simple (n/i+1)*i%24 formula which is wrong
+            # for intervals that don't evenly divide 24.
+            next_hour="$current_hour"
+            while :; do
+              next_hour=$(( (next_hour + 1) % 24 ))
+              if [ $((next_hour % interval)) -eq 0 ]; then
+                break
+              fi
+            done
             echo "should_run=false" >> "$GITHUB_OUTPUT"
-            echo "Skipping — UTC hour $current_hour not aligned to ${interval}h interval (next at hour $next_run)"
+            echo "Skipping — UTC hour $current_hour not aligned to ${interval}h interval (next at hour $next_hour)"
           else
             echo "should_run=true" >> "$GITHUB_OUTPUT"
             echo "Running — UTC hour $current_hour aligned to ${interval}h interval"
