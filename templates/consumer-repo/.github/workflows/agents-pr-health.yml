@@ -16,9 +16,18 @@ name: Agents PR Health
 
 on:
   schedule:
-    # Every 6 hours — frequent enough to catch drift, rare enough to
-    # stay well within rate limits and agent cost budgets.
-    - cron: '0 */6 * * *'
+    # Runs every hour — actual frequency is controlled by the repo
+    # variable PR_HEALTH_INTERVAL_HOURS (Settings → Secrets and
+    # variables → Actions → Variables).  The reusable workflow skips
+    # runs at non-aligned hours, so most hourly triggers exit in
+    # seconds with no API calls.
+    #
+    #   1  = every hour   (active development — default)
+    #   4  = every 4 hours
+    #   6  = every 6 hours (moderate activity)
+    #   12 = twice daily
+    #   0  = disabled
+    - cron: '0 * * * *'
   workflow_dispatch:
     inputs:
       dry_run:
@@ -47,4 +56,5 @@ jobs:
     with:
       dry_run: ${{ inputs.dry_run || false }}
       max_prs: ${{ inputs.max_prs || 10 }}
+      cron_interval_hours: ${{ vars.PR_HEALTH_INTERVAL_HOURS || 1 }}
     secrets: inherit

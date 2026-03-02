@@ -55,6 +55,13 @@ on:
         description: 'Skip stalled PR nudge (label rotation)'
         type: boolean
         default: false
+      cron_interval_hours:
+        description: >-
+          Run interval in hours for scheduled triggers (0 = disabled).
+          Set via repo variable PR_HEALTH_INTERVAL_HOURS to control
+          frequency without a code change.
+        type: number
+        default: 1
     secrets:
       service_bot_pat:
         required: false
@@ -78,10 +85,63 @@ permissions:
 
 jobs:
   # -----------------------------------------------------------------------
+  # 0. Schedule gate — skip if this hour is not aligned to the interval
+  # -----------------------------------------------------------------------
+  gate:
+    name: Schedule gate
+    runs-on: ubuntu-latest
+    outputs:
+      should_run: ${{ steps.check.outputs.should_run }}
+    steps:
+      - name: Evaluate schedule interval
+        id: check
+        env:
+          INTERVAL: ${{ inputs.cron_interval_hours }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          interval="${INTERVAL:-1}"
+
+          # Manual / non-schedule triggers always proceed
+          if [ "$EVENT_NAME" != "schedule" ]; then
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+            echo "Manual trigger — always proceeding"
+            exit 0
+          fi
+
+          # Interval 0 = disabled
+          if [ "$interval" = "0" ]; then
+            echo "should_run=false" >> "$GITHUB_OUTPUT"
+            echo "PR Health disabled (cron_interval_hours=0)"
+            exit 0
+          fi
+
+          # Interval 1 = every hour (always aligned with hourly cron)
+          if [ "$interval" = "1" ]; then
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+            echo "Running every hour (interval=1)"
+            exit 0
+          fi
+
+          # Check UTC hour alignment
+          current_hour=$(date -u +%-H)
+          remainder=$((current_hour % interval))
+          if [ "$remainder" -ne 0 ]; then
+            next_run=$(( (current_hour / interval + 1) * interval % 24 ))
+            echo "should_run=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping — UTC hour $current_hour not aligned to ${interval}h interval (next at hour $next_run)"
+          else
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+            echo "Running — UTC hour $current_hour aligned to ${interval}h interval"
+          fi
+
+  # -----------------------------------------------------------------------
   # 1. Scan all open PRs and categorise
   # -----------------------------------------------------------------------
   scan:
     name: Scan open PRs
+    needs: gate
+    if: needs.gate.outputs.should_run == 'true'
     runs-on: ubuntu-latest
     outputs:
       conflict_prs: ${{ steps.categorise.outputs.conflict_prs }}
@@ -947,8 +1007,8 @@ jobs:
   # -----------------------------------------------------------------------
   summary:
     name: Health summary
-    needs: [scan, resolve-conflicts, fix-checks, nudge-stalled]
-    if: always()
+    needs: [gate, scan, resolve-conflicts, fix-checks, nudge-stalled]
+    if: always() && needs.gate.outputs.should_run == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Summarise
