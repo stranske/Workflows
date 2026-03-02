@@ -51,6 +51,10 @@ on:
         description: 'Skip failing check re-dispatch'
         type: boolean
         default: false
+      skip_stall_nudge:
+        description: 'Skip stalled PR nudging (incomplete tasks + blocking labels)'
+        type: boolean
+        default: false
     secrets:
       service_bot_pat:
         required: false
@@ -82,6 +86,7 @@ jobs:
     outputs:
       conflict_prs: ${{ steps.categorise.outputs.conflict_prs }}
       failing_prs: ${{ steps.categorise.outputs.failing_prs }}
+      stalled_prs: ${{ steps.categorise.outputs.stalled_prs }}
       healthy_count: ${{ steps.categorise.outputs.healthy_count }}
       total_open: ${{ steps.categorise.outputs.total_open }}
       has_work: ${{ steps.categorise.outputs.has_work }}
@@ -241,22 +246,90 @@ jobs:
               healthyCount++;
             }
 
+            // ----- Stalled PR assessment (second pass) -----
+            // Detect PRs with incomplete tasks/acceptance criteria AND
+            // blocking labels — these need a nudge to resume agent work.
+
+            function extractStatusSummary(body) {
+              if (!body) return '';
+              const startMarker = '<!-- auto-status-summary:start -->';
+              const endMarker = '<!-- auto-status-summary:end -->';
+              const start = body.indexOf(startMarker);
+              const end = body.indexOf(endMarker);
+              if (start === -1 || end === -1 || end <= start) return '';
+              return body.slice(start + startMarker.length, end);
+            }
+
+            function countCheckboxes(markdown) {
+              const result = { total: 0, checked: 0, unchecked: 0 };
+              const regex = /(?:^|\n)\s*(?:[-*+]|\d+[.)])\s*\[( |x|X)\]/g;
+              let match;
+              while ((match = regex.exec(markdown)) !== null) {
+                result.total += 1;
+                if ((match[1] || '').toLowerCase() === 'x') {
+                  result.checked += 1;
+                } else {
+                  result.unchecked += 1;
+                }
+              }
+              return result;
+            }
+
+            const BLOCKING_LABELS = ['agent:needs-attention', 'agent:rate-limited'];
+            const PAUSE_LABELS = ['agents:pause', 'agents:paused'];
+            const stalledPrs = [];
+
+            for (const pr of prs) {
+              if (pr.draft) continue;
+
+              const prLabels = (pr.labels || []).map(l => l.name);
+              const isPaused = prLabels.some(l => PAUSE_LABELS.includes(l));
+              if (isPaused) continue;
+
+              const blockingPresent = prLabels.filter(l => BLOCKING_LABELS.includes(l));
+              if (blockingPresent.length === 0) continue;
+
+              const summaryBlock = extractStatusSummary(pr.body);
+              const counts = countCheckboxes(summaryBlock);
+
+              // Stalled = has tasks AND not all complete AND has blocking label
+              if (counts.total > 0 && counts.unchecked > 0) {
+                const headRef = pr.head.ref;
+                let agentType = 'codex';
+                if (headRef.startsWith('claude/')) agentType = 'claude';
+                else if (headRef.startsWith('codex/')) agentType = 'codex';
+
+                stalledPrs.push({
+                  number: pr.number,
+                  head_ref: headRef,
+                  base_ref: pr.base.ref,
+                  agent_type: agentType,
+                  title: pr.title,
+                  tasks_total: counts.total,
+                  tasks_checked: counts.checked,
+                  blocking_labels: blockingPresent,
+                });
+              }
+            }
+
+            core.info(`Stalled PRs detected: ${stalledPrs.length}`);
+
+            // ----- Outputs -----
             // Limit output — respect both max_prs (scan cap) and
             // max_agent_dispatches (cost guard for agent invocations).
-            // Conflicts that need agents count toward the dispatch cap;
-            // simple auto-merges are free so we keep all of those in the
-            // list and let the matrix step handle them.
             const limitedConflicts = conflictPrs.slice(0, Math.min(maxPrs, maxDispatches));
             const limitedFailing = failingPrs.slice(0, Math.min(maxPrs, maxDispatches));
-            const hasWork = limitedConflicts.length > 0 || limitedFailing.length > 0;
+            const limitedStalled = stalledPrs.slice(0, maxPrs);
+            const hasWork = limitedConflicts.length > 0 || limitedFailing.length > 0 || limitedStalled.length > 0;
 
             core.setOutput('conflict_prs', JSON.stringify(limitedConflicts));
             core.setOutput('failing_prs', JSON.stringify(limitedFailing));
+            core.setOutput('stalled_prs', JSON.stringify(limitedStalled));
             core.setOutput('healthy_count', String(healthyCount));
             core.setOutput('total_open', String(prs.length));
             core.setOutput('has_work', String(hasWork));
 
-            core.info(`Conflicts: ${limitedConflicts.length}, Failing: ${limitedFailing.length}, Healthy: ${healthyCount}`);
+            core.info(`Conflicts: ${limitedConflicts.length}, Failing: ${limitedFailing.length}, Stalled: ${limitedStalled.length}, Healthy: ${healthyCount}`);
 
             // Step summary
             let summary = `## PR Health Scan\n\n`;
@@ -264,6 +337,7 @@ jobs:
             summary += `| Total open | ${prs.length} |\n`;
             summary += `| Conflicting | ${conflictPrs.length} |\n`;
             summary += `| Failing checks | ${failingPrs.length} |\n`;
+            summary += `| Stalled (incomplete + blocked) | ${stalledPrs.length} |\n`;
             summary += `| Healthy | ${healthyCount} |\n\n`;
 
             if (limitedConflicts.length > 0) {
@@ -277,6 +351,13 @@ jobs:
               summary += `### PRs with Failing Checks\n`;
               for (const pr of limitedFailing) {
                 summary += `- #${pr.number} (\`${pr.head_ref}\`) → agent: **${pr.agent_type}**\n`;
+              }
+              summary += '\n';
+            }
+            if (limitedStalled.length > 0) {
+              summary += `### Stalled PRs (incomplete tasks + blocking labels)\n`;
+              for (const pr of limitedStalled) {
+                summary += `- #${pr.number} (\`${pr.head_ref}\`) — ${pr.tasks_checked}/${pr.tasks_total} tasks, labels: ${pr.blocking_labels.join(', ')}\n`;
               }
             }
             core.summary.addRaw(summary);
@@ -629,11 +710,151 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   # -----------------------------------------------------------------------
-  # 4. Summary
+  # 4. Nudge stalled PRs (incomplete tasks + blocking labels)
+  # -----------------------------------------------------------------------
+  nudge-stalled:
+    name: 'Nudge #${{ matrix.pr.number }}'
+    needs: scan
+    if: >-
+      fromJSON(needs.scan.outputs.stalled_prs)[0] != null
+      && inputs.skip_stall_nudge != true
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        pr: ${{ fromJSON(needs.scan.outputs.stalled_prs) }}
+    steps:
+      - name: Mint GitHub App token (preferred)
+        id: app_token
+        continue-on-error: true
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.WORKFLOWS_APP_ID }}
+          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+
+      - name: Select authentication token
+        id: auth
+        env:
+          APP_TOKEN: ${{ steps.app_token.outputs.token }}
+          ACTIONS_BOT_PAT: ${{ secrets.ACTIONS_BOT_PAT }}
+          SERVICE_BOT_PAT: ${{ secrets.service_bot_pat }}
+          GITHUB_TOKEN_FALLBACK: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [ -n "${APP_TOKEN:-}" ]; then
+            echo "token=$APP_TOKEN" >> "$GITHUB_OUTPUT"
+          elif [ -n "${ACTIONS_BOT_PAT:-}" ]; then
+            echo "token=$ACTIONS_BOT_PAT" >> "$GITHUB_OUTPUT"
+          elif [ -n "${SERVICE_BOT_PAT:-}" ]; then
+            echo "token=$SERVICE_BOT_PAT" >> "$GITHUB_OUTPUT"
+          else
+            echo "token=$GITHUB_TOKEN_FALLBACK" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout Workflows helpers
+        uses: actions/checkout@v6
+        with:
+          repository: stranske/Workflows
+          sparse-checkout: |
+            .github/actions/setup-api-client
+            .github/scripts/github-api-with-retry.js
+            .github/scripts/token_load_balancer.js
+          sparse-checkout-cone-mode: false
+
+      - name: Setup API client
+        uses: ./.github/actions/setup-api-client
+        with:
+          secrets: ${{ toJSON(secrets) }}
+          github_token: ${{ github.token }}
+
+      - name: Nudge stalled PR
+        uses: actions/github-script@v8
+        env:
+          PR_NUMBER: ${{ matrix.pr.number }}
+          BLOCKING_LABELS: ${{ toJSON(matrix.pr.blocking_labels) }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        with:
+          github-token: ${{ steps.auth.outputs.token }}
+          script: |
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const { withRetry } = await createTokenAwareRetry({
+              github, core, task: 'pr-health-nudge',
+            });
+
+            const prNumber = parseInt(process.env.PR_NUMBER, 10);
+            const blockingLabels = JSON.parse(process.env.BLOCKING_LABELS || '[]');
+            const dryRun = process.env.DRY_RUN === 'true';
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            core.info(`Nudging stalled PR #${prNumber}`);
+            core.info(`Blocking labels to remove: ${blockingLabels.join(', ')}`);
+
+            if (dryRun) {
+              core.info('DRY RUN: Would add agent:retry and remove blocking labels');
+              return;
+            }
+
+            // 1. Add agent:retry label
+            try {
+              await withRetry((client) =>
+                client.rest.issues.addLabels({
+                  owner, repo,
+                  issue_number: prNumber,
+                  labels: ['agent:retry'],
+                })
+              );
+              core.info(`Added agent:retry to PR #${prNumber}`);
+            } catch (error) {
+              core.warning(`Failed to add agent:retry: ${error.message}`);
+            }
+
+            // 2. Remove blocking labels (404-safe)
+            for (const label of blockingLabels) {
+              try {
+                await withRetry((client) =>
+                  client.rest.issues.removeLabel({
+                    owner, repo,
+                    issue_number: prNumber,
+                    name: label,
+                  })
+                );
+                core.info(`Removed ${label} from PR #${prNumber}`);
+              } catch (error) {
+                if (error.status === 404 || (error.message && error.message.includes('Label does not exist'))) {
+                  core.info(`Label ${label} was not present on PR #${prNumber} (OK)`);
+                } else {
+                  core.warning(`Failed to remove ${label}: ${error.message}`);
+                }
+              }
+            }
+
+      - name: Generate step summary
+        if: always()
+        env:
+          PR_NUMBER: ${{ matrix.pr.number }}
+          TASKS_TOTAL: ${{ matrix.pr.tasks_total }}
+          TASKS_CHECKED: ${{ matrix.pr.tasks_checked }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          {
+            echo "### PR #$PR_NUMBER — Nudge Stalled"
+            if [ "$DRY_RUN" = "true" ]; then
+              echo "> **DRY RUN** — no labels changed"
+            fi
+            echo "| Field | Value |"
+            echo "|-------|-------|"
+            echo "| Tasks | $TASKS_CHECKED / $TASKS_TOTAL |"
+            echo "| Action | Applied \`agent:retry\`, removed blocking labels |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # -----------------------------------------------------------------------
+  # 5. Summary
   # -----------------------------------------------------------------------
   summary:
     name: Health summary
-    needs: [scan, resolve-conflicts, fix-checks]
+    needs: [scan, resolve-conflicts, nudge-stalled, fix-checks]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -642,15 +863,18 @@ jobs:
           TOTAL: ${{ needs.scan.outputs.total_open }}
           CONFLICTS: ${{ needs.scan.outputs.conflict_prs }}
           FAILING: ${{ needs.scan.outputs.failing_prs }}
+          STALLED: ${{ needs.scan.outputs.stalled_prs }}
           HEALTHY: ${{ needs.scan.outputs.healthy_count }}
           DRY_RUN: ${{ inputs.dry_run }}
           CONFLICT_RESULT: ${{ needs.resolve-conflicts.result }}
           CHECK_RESULT: ${{ needs.fix-checks.result }}
+          NUDGE_RESULT: ${{ needs.nudge-stalled.result }}
         run: |
           set -euo pipefail
 
           conflict_count=$(echo "$CONFLICTS" | python3 -c "import sys,json; print(len(json.load(sys.stdin)))" 2>/dev/null || echo 0)
           failing_count=$(echo "$FAILING" | python3 -c "import sys,json; print(len(json.load(sys.stdin)))" 2>/dev/null || echo 0)
+          stalled_count=$(echo "$STALLED" | python3 -c "import sys,json; print(len(json.load(sys.stdin)))" 2>/dev/null || echo 0)
 
           {
             echo "## PR Health Summary"
@@ -664,5 +888,6 @@ jobs:
             echo "| Total open PRs | $TOTAL | — |"
             echo "| Conflicting | $conflict_count | resolve-conflicts: **${CONFLICT_RESULT:-skipped}** |"
             echo "| Failing checks | $failing_count | fix-checks: **${CHECK_RESULT:-skipped}** |"
+            echo "| Stalled (nudged) | $stalled_count | nudge-stalled: **${NUDGE_RESULT:-skipped}** |"
             echo "| Healthy | $HEALTHY | — |"
           } >> "$GITHUB_STEP_SUMMARY"
