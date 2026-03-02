@@ -54,8 +54,8 @@ jobs:
   health:
     uses: stranske/Workflows/.github/workflows/reusable-agents-pr-health.yml@main
     with:
-      dry_run: ${{ inputs.dry_run || false }}
-      max_prs: ${{ inputs.max_prs || 10 }}
-      cron_interval_hours: ${{ vars.PR_HEALTH_INTERVAL_HOURS || 1 }}
-      is_scheduled_trigger: ${{ github.event_name == 'schedule' }}
+      dry_run: ${{ inputs.dry_run && 'true' || 'false' }}
+      max_prs: ${{ inputs.max_prs || '10' }}
+      cron_interval_hours: ${{ vars.PR_HEALTH_INTERVAL_HOURS || '1' }}
+      is_scheduled_trigger: ${{ github.event_name == 'schedule' && 'true' || 'false' }}
     secrets: inherit

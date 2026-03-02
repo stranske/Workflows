@@ -32,44 +32,44 @@ on:
   workflow_call:
     inputs:
       dry_run:
-        description: 'Preview mode — report but do not push or dispatch'
-        type: boolean
-        default: false
+        description: 'Preview mode — report but do not push or dispatch (true/false)'
+        type: string
+        default: 'false'
       max_prs:
         description: 'Maximum PRs to process per run'
-        type: number
-        default: 10
+        type: string
+        default: '10'
       max_agent_dispatches:
         description: 'Maximum agent dispatches per run (cost guard)'
-        type: number
-        default: 3
+        type: string
+        default: '3'
       skip_conflict_resolution:
-        description: 'Skip conflict resolution (scan + report only)'
-        type: boolean
-        default: false
+        description: 'Skip conflict resolution (scan + report only) (true/false)'
+        type: string
+        default: 'false'
       skip_check_fix:
-        description: 'Skip failing check re-dispatch'
-        type: boolean
-        default: false
+        description: 'Skip failing check re-dispatch (true/false)'
+        type: string
+        default: 'false'
       skip_stall_nudge:
-        description: 'Skip stalled PR nudge (label rotation)'
-        type: boolean
-        default: false
+        description: 'Skip stalled PR nudge (label rotation) (true/false)'
+        type: string
+        default: 'false'
       cron_interval_hours:
         description: >-
           Run interval in hours for scheduled triggers (0 = disabled).
           Set via repo variable PR_HEALTH_INTERVAL_HOURS to control
           frequency without a code change.
-        type: number
-        default: 1
+        type: string
+        default: '1'
       is_scheduled_trigger:
         description: >-
           Whether this run was triggered by a cron schedule.
           Callers should pass: github.event_name == 'schedule'.
           Required because github.event_name inside a reusable
           workflow is always 'workflow_call', not the caller's event.
-        type: boolean
-        default: false
+        type: string
+        default: 'false'
     secrets:
       service_bot_pat:
         required: false
@@ -245,8 +245,10 @@ jobs:
             const repo = context.repo.repo;
 
             // Paginate open PRs (handles repos with >100 open PRs)
+            // Note: bound paginateWithRetry takes (method, params) — do NOT
+            // pass github as the first arg (that's the module-level signature).
             const prs = await paginateWithRetry(
-              github, github.rest.pulls.list,
+              github.rest.pulls.list,
               { owner, repo, state: 'open', per_page: 100 }
             );
 
@@ -258,6 +260,12 @@ jobs:
 
             for (const pr of prs) {
               if (pr.draft) continue;
+
+              // Skip PRs with deleted head (e.g. deleted fork)
+              if (!pr.head || !pr.head.ref) {
+                core.warning(`PR #${pr.number} has no head ref (deleted fork?) — skipping`);
+                continue;
+              }
 
               // Determine agent from branch prefix
               const headRef = pr.head.ref;
@@ -433,6 +441,7 @@ jobs:
 
             for (const pr of prs) {
               if (pr.draft) continue;
+              if (!pr.head || !pr.head.ref) continue;  // deleted fork
 
               const labels = (pr.labels || []).map(l => l.name);
               // Skip paused PRs — user intentionally paused
@@ -520,7 +529,7 @@ jobs:
     if: >-
       needs.scan.outputs.has_work == 'true'
       && fromJSON(needs.scan.outputs.conflict_prs)[0] != null
-      && inputs.skip_conflict_resolution != true
+      && inputs.skip_conflict_resolution != 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -695,7 +704,7 @@ jobs:
       - name: Dispatch agent for complex conflicts
         if: >-
           steps.merge.outputs.needs_agent == 'true'
-          && inputs.dry_run != true
+          && inputs.dry_run != 'true'
         env:
           GH_TOKEN: ${{ steps.auth.outputs.token }}
           PR_NUMBER: ${{ matrix.pr.number }}
@@ -723,7 +732,7 @@ jobs:
       - name: Dispatch conflict event (fallback)
         if: >-
           steps.merge.outputs.needs_agent == 'true'
-          && inputs.dry_run != true
+          && inputs.dry_run != 'true'
         continue-on-error: true
         uses: actions/github-script@v8
         env:
@@ -789,8 +798,8 @@ jobs:
     if: >-
       needs.scan.outputs.has_work == 'true'
       && fromJSON(needs.scan.outputs.failing_prs)[0] != null
-      && inputs.skip_check_fix != true
-      && inputs.dry_run != true
+      && inputs.skip_check_fix != 'true'
+      && inputs.dry_run != 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -865,7 +874,7 @@ jobs:
     needs: scan
     if: >-
       fromJSON(needs.scan.outputs.stalled_prs)[0] != null
-      && inputs.skip_stall_nudge != true
+      && inputs.skip_stall_nudge != 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
