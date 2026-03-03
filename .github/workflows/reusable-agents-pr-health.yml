@@ -298,7 +298,6 @@ jobs:
                 number: pr.number,
                 head_ref: headRef,
                 base_ref: pr.base.ref,
-                head_sha: pr.head.sha,
                 agent_type: agentType,
                 title: pr.title,
               };
@@ -466,7 +465,6 @@ jobs:
                   number: pr.number,
                   head_ref: headRef,
                   base_ref: pr.base.ref,
-                  head_sha: pr.head.sha,
                   agent_type: agentType,
                   title: pr.title,
                   blocking_labels: blockingHits,
@@ -741,7 +739,6 @@ jobs:
           PR_NUM: ${{ matrix.pr.number }}
           HEAD_REF_VAL: ${{ matrix.pr.head_ref }}
           BASE_REF_VAL: ${{ matrix.pr.base_ref }}
-          HEAD_SHA_VAL: ${{ matrix.pr.head_sha }}
           AGENT_TYPE_VAL: ${{ matrix.pr.agent_type }}
           CONFLICT_FILES_VAL: ${{ steps.merge.outputs.conflict_files }}
         with:
@@ -755,6 +752,16 @@ jobs:
             const { withRetry } = await createTokenAwareRetry({
               github, core, task: 'pr-health-dispatch',
             });
+            // Fetch head SHA at runtime to avoid it appearing in job
+            // outputs, which triggers GitHub Actions secret masking.
+            const { data: prData } = await withRetry((client) =>
+              client.rest.pulls.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: parseInt(process.env.PR_NUM, 10),
+              })
+            );
+            const headSha = prData.head.sha;
             // Backup trigger via repository_dispatch — avoids expression
             // interpolation inside JS strings (injection risk).
             await withRetry((client) =>
@@ -766,7 +773,7 @@ jobs:
                   pr_number: parseInt(process.env.PR_NUM, 10),
                   head_ref: process.env.HEAD_REF_VAL,
                   base_ref: process.env.BASE_REF_VAL,
-                  head_sha: process.env.HEAD_SHA_VAL,
+                  head_sha: headSha,
                   agent_type: process.env.AGENT_TYPE_VAL,
                   conflict_files: process.env.CONFLICT_FILES_VAL,
                 },
