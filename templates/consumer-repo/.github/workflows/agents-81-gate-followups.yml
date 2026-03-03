@@ -630,6 +630,7 @@ jobs:
         with:
           sparse-checkout: |
             .github/scripts/prompt_injection_guard.js
+            .github/scripts/github-rate-limited-wrapper.js
             .github/scripts/github-api-with-retry.js
             .github/scripts/token_load_balancer.js
             .github/scripts/agent_registry.js
