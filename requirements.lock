@@ -89,7 +89,7 @@ idna==3.11
     #   yarl
 iniconfig==2.3.0
     # via pytest
-isort==8.0.0
+isort==8.0.1
     # via workflows (pyproject.toml)
 jiter==0.13.0
     # via
@@ -267,7 +267,7 @@ rpds-py==0.30.0
     # via
     #   jsonschema
     #   referencing
-ruff==0.15.2
+ruff==0.15.4
     # via workflows (pyproject.toml)
 six==1.17.0
     # via python-dateutil
